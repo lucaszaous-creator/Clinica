@@ -6,6 +6,10 @@ de pagamentos, conciliação, compras e estoque está em
 [Gestão consolidada](docs/gestao-consolidada.md), com responsabilidades e critérios
 dos indicadores.
 
+A [auditoria global dos sistemas — 01/10/2026](docs/auditoria-global-2026-10-01/README.md)
+documenta 70 achados, o catálogo de interfaces, os caminhos por perfil e propostas
+de simplificação para Clinica, site/portais e CRM, com revisão auxiliar do Jev.
+
 ## Faturamento
 
 Sistema de **faturamento** (não recebíveis) para clínica médica. Modela os fluxogramas

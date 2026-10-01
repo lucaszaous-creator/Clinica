@@ -1,0 +1,4332 @@
+[
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Clinico/App.xaml",
+    "tipo": "XAML",
+    "linhas": 12,
+    "id": "S001",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.44
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/AjudaView.xaml",
+    "tipo": "XAML",
+    "linhas": 97,
+    "id": "S002",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 20,
+    "achados_relacionados": [
+      "A69",
+      "A70"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.38
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/AssinaturaPacienteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 376,
+    "id": "S003",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 41,
+    "achados_relacionados": [
+      "A28"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.77
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/BuscaCidWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 66,
+    "id": "S004",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 11,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.46
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/BuscaDePacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 140,
+    "id": "S005",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [
+      "A40"
+    ],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.4
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/Cadastro/CadastroPacienteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 130,
+    "id": "S006",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 49,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.4
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/CatalogoEnfermagemWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 141,
+    "id": "S007",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 13,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.34
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/CatalogoPacotesWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 82,
+    "id": "S008",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/CobrancaDoPacienteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 134,
+    "id": "S009",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.71
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/ConsultaContextualWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 17,
+    "id": "S010",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 3,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.2
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/ConsultaDeEnfermagemView.xaml",
+    "tipo": "XAML",
+    "linhas": 64,
+    "id": "S011",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 6,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.58
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/ConsultaDeEnfermagemWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 80,
+    "id": "S012",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 7,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.47
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/ConsumosPacoteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 104,
+    "id": "S013",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.53
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/DadosClinicaView.xaml",
+    "tipo": "XAML",
+    "linhas": 21,
+    "id": "S014",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 27,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.31
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/DadosRecebimentoView.xaml",
+    "tipo": "XAML",
+    "linhas": 25,
+    "id": "S015",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 20,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.47
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/DetalheSessaoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 129,
+    "id": "S016",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 28,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/DocumentoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 416,
+    "id": "S017",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 63,
+    "achados_relacionados": [
+      "A04",
+      "A21"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.75
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/EnfermagemView.xaml",
+    "tipo": "XAML",
+    "linhas": 464,
+    "id": "S018",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 36,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.57
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/EscolhaDeConvenioWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 103,
+    "id": "S019",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.6
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/EscolherCertificadoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 147,
+    "id": "S020",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.63
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/EscolherPacienteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 59,
+    "id": "S021",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 8,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/EscolherSessaoDoTermoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 53,
+    "id": "S022",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 7,
+    "achados_relacionados": [
+      "A28"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.54
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/EscolherSessaoEnfermagemWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 19,
+    "id": "S023",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 5,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.48
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/EscolherTermoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 68,
+    "id": "S024",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [
+      "A28"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.4
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/EscreverSessaoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 175,
+    "id": "S025",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.45
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/EvolucaoEnfermagemWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 117,
+    "id": "S026",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.78
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/FolhaDaSessaoView.xaml",
+    "tipo": "XAML",
+    "linhas": 187,
+    "id": "S027",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 25,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.54
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/FolhaExecucaoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 355,
+    "id": "S028",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 44,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.84
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/InfusaoExternaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 57,
+    "id": "S029",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 29,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.58
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/LegendaFamiliasView.xaml",
+    "tipo": "XAML",
+    "linhas": 62,
+    "id": "S030",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 7,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.38
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/LinhaDoTempoClinicaView.xaml",
+    "tipo": "XAML",
+    "linhas": 226,
+    "id": "S031",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/MapaCorporalControl.xaml",
+    "tipo": "XAML",
+    "linhas": 164,
+    "id": "S032",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 39,
+    "achados_relacionados": [
+      "A21"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.54
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/MapaCorporalWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 42,
+    "id": "S033",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 5,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.53
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/MateriaisProcedimentoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 48,
+    "id": "S034",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 19,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.63
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/ModelosEvolucaoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 146,
+    "id": "S035",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.43
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/PacoteCatalogoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 77,
+    "id": "S036",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.46
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/PacoteVendaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 242,
+    "id": "S037",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 38,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.63
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/PacotesView.xaml",
+    "tipo": "XAML",
+    "linhas": 181,
+    "id": "S038",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/PainelDoPacienteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 110,
+    "id": "S039",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.64
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/PassagemDeEnfermagemView.xaml",
+    "tipo": "XAML",
+    "linhas": 130,
+    "id": "S040",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 22,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.38
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/PassagensDeEnfermagemView.xaml",
+    "tipo": "XAML",
+    "linhas": 180,
+    "id": "S041",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.51
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/PrecoParticularWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 83,
+    "id": "S042",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.34
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/PrecosParticularView.xaml",
+    "tipo": "XAML",
+    "linhas": 153,
+    "id": "S043",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 19,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.3
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/ProcessoDeEnfermagemView.xaml",
+    "tipo": "XAML",
+    "linhas": 294,
+    "id": "S044",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 38,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.48
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/RecebimentoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 25,
+    "id": "S045",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 5,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.47
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/RegrasFaturamentoView.xaml",
+    "tipo": "XAML",
+    "linhas": 47,
+    "id": "S046",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/SalaInfusaoView.xaml",
+    "tipo": "XAML",
+    "linhas": 264,
+    "id": "S047",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 30,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.65
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/SessaoDoProntuarioWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 160,
+    "id": "S048",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.53
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/TelaComAbas.xaml",
+    "tipo": "XAML",
+    "linhas": 44,
+    "id": "S049",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 1,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.38
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/TrocaSenhaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 37,
+    "id": "S050",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.42
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Componentes/VersoesEvolucaoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 108,
+    "id": "S051",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Controls/CapturaFotoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 62,
+    "id": "S052",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 13,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.56
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Controls/PromptWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 30,
+    "id": "S053",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 7,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.19
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Shell/LoginWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 170,
+    "id": "S054",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 22,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.65
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Shell/SetupWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 48,
+    "id": "S055",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 11,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.46
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Shell/ShellWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 345,
+    "id": "S056",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 33,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.15
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Abas.xaml",
+    "tipo": "XAML",
+    "linhas": 123,
+    "id": "S057",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.47
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/AgendaModeloA.xaml",
+    "tipo": "XAML",
+    "linhas": 85,
+    "id": "S058",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.6
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Botoes.xaml",
+    "tipo": "XAML",
+    "linhas": 254,
+    "id": "S059",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.38
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Campos.xaml",
+    "tipo": "XAML",
+    "linhas": 574,
+    "id": "S060",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 11,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.72
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Cartoes.xaml",
+    "tipo": "XAML",
+    "linhas": 448,
+    "id": "S061",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 3,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Feedback.xaml",
+    "tipo": "XAML",
+    "linhas": 375,
+    "id": "S062",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.83
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Graficos.xaml",
+    "tipo": "XAML",
+    "linhas": 54,
+    "id": "S063",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 2,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.45
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Icones.xaml",
+    "tipo": "XAML",
+    "linhas": 72,
+    "id": "S064",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.45
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Midia.xaml",
+    "tipo": "XAML",
+    "linhas": 64,
+    "id": "S065",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 1,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Navegacao.xaml",
+    "tipo": "XAML",
+    "linhas": 130,
+    "id": "S066",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 1,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.57
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Pacientes.xaml",
+    "tipo": "XAML",
+    "linhas": 190,
+    "id": "S067",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 11,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.44
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Selecao.xaml",
+    "tipo": "XAML",
+    "linhas": 223,
+    "id": "S068",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Sobreposicao.xaml",
+    "tipo": "XAML",
+    "linhas": 142,
+    "id": "S069",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.47
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Componentes/Tabelas.xaml",
+    "tipo": "XAML",
+    "linhas": 109,
+    "id": "S070",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 1,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.41
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Suite.xaml",
+    "tipo": "XAML",
+    "linhas": 28,
+    "id": "S071",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.41
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Theme.xaml",
+    "tipo": "XAML",
+    "linhas": 126,
+    "id": "S072",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Styles/Tokens.xaml",
+    "tipo": "XAML",
+    "linhas": 197,
+    "id": "S073",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.55
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop.Shell/Treinamento/TreinamentoView.xaml",
+    "tipo": "XAML",
+    "linhas": 37,
+    "id": "S074",
+    "dominio": "Componentes e shell",
+    "recurso": false,
+    "controles": 22,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.75
+    },
+    "recomendacao_de_dominio": "Confirmar quem abre o componente, a entidade em contexto, a saída/cancelamento e o resultado da ação; compartilhar sem duplicar a regra."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Desktop/App.xaml",
+    "tipo": "XAML",
+    "linhas": 9,
+    "id": "S075",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.49
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Financeiro/App.xaml",
+    "tipo": "XAML",
+    "linhas": 12,
+    "id": "S076",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.38
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Gerente/App.xaml",
+    "tipo": "XAML",
+    "linhas": 12,
+    "id": "S077",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.56
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Janelas/AnexosSessaoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 124,
+    "id": "S078",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 13,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.3
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Janelas/AplicarAvaliacaoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 89,
+    "id": "S079",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.41
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 276,
+    "id": "S080",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 49,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.67
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Janelas/ProblemaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 107,
+    "id": "S081",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 21,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Janelas/RegistrarMedidaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 85,
+    "id": "S082",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 17,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Janelas/RegistrarResultadoExameWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 136,
+    "id": "S083",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 29,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.31
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Janelas/ResultadosDoPedidoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 122,
+    "id": "S084",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Janelas/ResumoProntuarioWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 212,
+    "id": "S085",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 28,
+    "achados_relacionados": [
+      "A41"
+    ],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.52
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/AcompanhamentoView.xaml",
+    "tipo": "XAML",
+    "linhas": 32,
+    "id": "S086",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 4,
+    "achados_relacionados": [
+      "A25",
+      "A63"
+    ],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.61
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/AnamneseView.xaml",
+    "tipo": "XAML",
+    "linhas": 202,
+    "id": "S087",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 19,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.63
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/AnexosPacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 330,
+    "id": "S088",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 31,
+    "achados_relacionados": [
+      "A61"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.52
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/AtendimentoEnfermagemView.xaml",
+    "tipo": "XAML",
+    "linhas": 376,
+    "id": "S089",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 29,
+    "achados_relacionados": [
+      "A20"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.46
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/AtendimentoView.xaml",
+    "tipo": "XAML",
+    "linhas": 433,
+    "id": "S090",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 27,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/AvaliacoesView.xaml",
+    "tipo": "XAML",
+    "linhas": 197,
+    "id": "S091",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/DocumentosPacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 17,
+    "id": "S092",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 5,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.28
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/EmissoesNoAtendimentoView.xaml",
+    "tipo": "XAML",
+    "linhas": 177,
+    "id": "S093",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.6
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/EvolucaoDorView.xaml",
+    "tipo": "XAML",
+    "linhas": 192,
+    "id": "S094",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 22,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.44
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/ExamesView.xaml",
+    "tipo": "XAML",
+    "linhas": 209,
+    "id": "S095",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 24,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.3
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/MedidasView.xaml",
+    "tipo": "XAML",
+    "linhas": 286,
+    "id": "S096",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 26,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/MeuDiaView.xaml",
+    "tipo": "XAML",
+    "linhas": 350,
+    "id": "S097",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 25,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.34
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/MeusNumerosView.xaml",
+    "tipo": "XAML",
+    "linhas": 215,
+    "id": "S098",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 39,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.37
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/MinhaSemanaView.xaml",
+    "tipo": "XAML",
+    "linhas": 270,
+    "id": "S099",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.24
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/PacienteCapaView.xaml",
+    "tipo": "XAML",
+    "linhas": 131,
+    "id": "S100",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 42,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.59
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/PacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 28,
+    "id": "S101",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [
+      "A07",
+      "A16"
+    ],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.49
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml",
+    "tipo": "XAML",
+    "linhas": 545,
+    "id": "S102",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 34,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.43
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/PrescricaoInfusaoView.xaml",
+    "tipo": "XAML",
+    "linhas": 204,
+    "id": "S103",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 17,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/PrescricoesClinicasView.xaml",
+    "tipo": "XAML",
+    "linhas": 318,
+    "id": "S104",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 19,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.62
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/ProntuarioClinicoView.xaml",
+    "tipo": "XAML",
+    "linhas": 141,
+    "id": "S105",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 17,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.15
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/ProntuariosView.xaml",
+    "tipo": "XAML",
+    "linhas": 235,
+    "id": "S106",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 28,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/RegistrosPendentesView.xaml",
+    "tipo": "XAML",
+    "linhas": 142,
+    "id": "S107",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 17,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.36
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/SessoesEnfermagemView.xaml",
+    "tipo": "XAML",
+    "linhas": 58,
+    "id": "S108",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.26
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Clinico/Views/SessoesPacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 46,
+    "id": "S109",
+    "dominio": "Clínico",
+    "recurso": false,
+    "controles": 11,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.18
+    },
+    "recomendacao_de_dominio": "Separar sessão e histórico longitudinal; manter autoria, estado de salvamento e contexto do paciente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/AvisoPendenciasWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 55,
+    "id": "S110",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 8,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.79
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/BaixaGuiaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 42,
+    "id": "S111",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 13,
+    "achados_relacionados": [
+      "A15"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.52
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/BaixaLoteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 57,
+    "id": "S112",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.62
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/ConvenioWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 230,
+    "id": "S113",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 54,
+    "achados_relacionados": [
+      "A33"
+    ],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.4
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/EnvioLoteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 31,
+    "id": "S114",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.64
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/GlosaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 56,
+    "id": "S115",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.62
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/GuiaGlosasWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 108,
+    "id": "S116",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 20,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.41
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/HistoricoGuiaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 99,
+    "id": "S117",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 13,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.3
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/NaoConformidadeWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 29,
+    "id": "S118",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 8,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.67
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/ObservacaoPendenciaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 31,
+    "id": "S119",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.45
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/RegrasFamiliaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 58,
+    "id": "S120",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 8,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/RetornoLoteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 78,
+    "id": "S121",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 13,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.53
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Alertas/RodadaPendenciasWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 72,
+    "id": "S122",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 12,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.65
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Styles/Componentes/Tabelas.xaml",
+    "tipo": "XAML",
+    "linhas": 63,
+    "id": "S123",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Styles/Conversores.xaml",
+    "tipo": "XAML",
+    "linhas": 30,
+    "id": "S124",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.46
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/BaixaView.xaml",
+    "tipo": "XAML",
+    "linhas": 67,
+    "id": "S125",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/ConsultaGuiasView.xaml",
+    "tipo": "XAML",
+    "linhas": 191,
+    "id": "S126",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 36,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.25
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/DashboardView.xaml",
+    "tipo": "XAML",
+    "linhas": 572,
+    "id": "S127",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 80,
+    "achados_relacionados": [
+      "A32"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.62
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/FaturadosView.xaml",
+    "tipo": "XAML",
+    "linhas": 112,
+    "id": "S128",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 24,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.41
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/FaturamentoHostView.xaml",
+    "tipo": "XAML",
+    "linhas": 47,
+    "id": "S129",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 3,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.4
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/GlosasView.xaml",
+    "tipo": "XAML",
+    "linhas": 152,
+    "id": "S130",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 29,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.55
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/NaoConformidadesView.xaml",
+    "tipo": "XAML",
+    "linhas": 113,
+    "id": "S131",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 16,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/ParametrosView.xaml",
+    "tipo": "XAML",
+    "linhas": 269,
+    "id": "S132",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 49,
+    "achados_relacionados": [
+      "A33",
+      "A34"
+    ],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.24
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/RelatoriosView.xaml",
+    "tipo": "XAML",
+    "linhas": 297,
+    "id": "S133",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 51,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.59
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Faturamento/Views/TissView.xaml",
+    "tipo": "XAML",
+    "linhas": 92,
+    "id": "S134",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [
+      "A64",
+      "A65",
+      "A66",
+      "A68"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.55
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/CategoriaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 46,
+    "id": "S135",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.31
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/CobrancaPixWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 95,
+    "id": "S136",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 16,
+    "achados_relacionados": [
+      "A58"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/ContaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 92,
+    "id": "S137",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 27,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/ContasFixasWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 90,
+    "id": "S138",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.32
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/ExtratoEstoqueWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 110,
+    "id": "S139",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.54
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/ItemEstoqueWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 89,
+    "id": "S140",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 41,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.33
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/LancamentoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 172,
+    "id": "S141",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 39,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.31
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/MovimentoEstoqueWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 138,
+    "id": "S142",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 38,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.49
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/OrcamentoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 45,
+    "id": "S143",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 12,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.47
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/RecorrenteWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 93,
+    "id": "S144",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 22,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.29
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/RegraRepasseWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 99,
+    "id": "S145",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 21,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/RegrasRepasseWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 116,
+    "id": "S146",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 12,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.4
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/TaxaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 113,
+    "id": "S147",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 27,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.32
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/TributoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 98,
+    "id": "S148",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.29
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Janelas/ValidadesEstoqueWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 80,
+    "id": "S149",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.37
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/CaixaView.xaml",
+    "tipo": "XAML",
+    "linhas": 291,
+    "id": "S150",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 51,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.56
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/ConciliacaoView.xaml",
+    "tipo": "XAML",
+    "linhas": 476,
+    "id": "S151",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 71,
+    "achados_relacionados": [
+      "A35",
+      "A37"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.53
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/ContasView.xaml",
+    "tipo": "XAML",
+    "linhas": 260,
+    "id": "S152",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 44,
+    "achados_relacionados": [
+      "A27"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/EstoqueView.xaml",
+    "tipo": "XAML",
+    "linhas": 295,
+    "id": "S153",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 54,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.24
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/ExtratoBancoView.xaml",
+    "tipo": "XAML",
+    "linhas": 172,
+    "id": "S154",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.45
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/FechamentoCaixaView.xaml",
+    "tipo": "XAML",
+    "linhas": 289,
+    "id": "S155",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 40,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.62
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/FluxoCaixaView.xaml",
+    "tipo": "XAML",
+    "linhas": 293,
+    "id": "S156",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 50,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.4
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/InadimplenciaView.xaml",
+    "tipo": "XAML",
+    "linhas": 312,
+    "id": "S157",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 42,
+    "achados_relacionados": [
+      "A36"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.65
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/PlanoContasView.xaml",
+    "tipo": "XAML",
+    "linhas": 103,
+    "id": "S158",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/ProducaoView.xaml",
+    "tipo": "XAML",
+    "linhas": 155,
+    "id": "S159",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 28,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.62
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/RecebiveisView.xaml",
+    "tipo": "XAML",
+    "linhas": 295,
+    "id": "S160",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 45,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.58
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/RepassesView.xaml",
+    "tipo": "XAML",
+    "linhas": 125,
+    "id": "S161",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.33
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/ResultadoView.xaml",
+    "tipo": "XAML",
+    "linhas": 277,
+    "id": "S162",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 43,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.21
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Financeiro/Views/TaxasView.xaml",
+    "tipo": "XAML",
+    "linhas": 501,
+    "id": "S163",
+    "dominio": "Financeiro",
+    "recurso": false,
+    "controles": 72,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.19
+    },
+    "recomendacao_de_dominio": "Explicitar valor, data efetiva e origem do movimento; preservar vínculo, conferência e possibilidades de correção."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Janelas/MetaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 104,
+    "id": "S164",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 21,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.36
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Janelas/PrecoConvenioWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 98,
+    "id": "S165",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 20,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.3
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Janelas/UsuarioWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 204,
+    "id": "S166",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 31,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.3
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/AcessosView.xaml",
+    "tipo": "XAML",
+    "linhas": 158,
+    "id": "S167",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.43
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/AuditoriaView.xaml",
+    "tipo": "XAML",
+    "linhas": 260,
+    "id": "S168",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 39,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.33
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/CampanhasView.xaml",
+    "tipo": "XAML",
+    "linhas": 200,
+    "id": "S169",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 33,
+    "achados_relacionados": [
+      "A31",
+      "A39"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.66
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/CamposPersonalizadosWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 170,
+    "id": "S170",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 29,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.67
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/ConfiguracoesView.xaml",
+    "tipo": "XAML",
+    "linhas": 389,
+    "id": "S171",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 136,
+    "achados_relacionados": [
+      "A21",
+      "A59"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.51
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/CustoTransacaoView.xaml",
+    "tipo": "XAML",
+    "linhas": 311,
+    "id": "S172",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 51,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.47
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/DocumentosEmitidosView.xaml",
+    "tipo": "XAML",
+    "linhas": 330,
+    "id": "S173",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 41,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.29
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/FaturamentoGerencialView.xaml",
+    "tipo": "XAML",
+    "linhas": 317,
+    "id": "S174",
+    "dominio": "Faturamento",
+    "recurso": false,
+    "controles": 48,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.37
+    },
+    "recomendacao_de_dominio": "Preservar guia/lote e período entre consulta, correção, retorno e recurso; distinguir ausência de resposta de aceite."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/GuardaProntuarioView.xaml",
+    "tipo": "XAML",
+    "linhas": 222,
+    "id": "S175",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 38,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.71
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/ImportacaoPacientesView.xaml",
+    "tipo": "XAML",
+    "linhas": 323,
+    "id": "S176",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 48,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.77
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/IndicadoresView.xaml",
+    "tipo": "XAML",
+    "linhas": 331,
+    "id": "S177",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 54,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.55
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/MetasView.xaml",
+    "tipo": "XAML",
+    "linhas": 187,
+    "id": "S178",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 28,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.36
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/ModelosTermoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 241,
+    "id": "S179",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 34,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.8
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/OrigensView.xaml",
+    "tipo": "XAML",
+    "linhas": 162,
+    "id": "S180",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 22,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.51
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/PainelDirecaoView.xaml",
+    "tipo": "XAML",
+    "linhas": 378,
+    "id": "S181",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 49,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.47
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/PrecosConvenioView.xaml",
+    "tipo": "XAML",
+    "linhas": 199,
+    "id": "S182",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 22,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.33
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/RentabilidadeConvenioView.xaml",
+    "tipo": "XAML",
+    "linhas": 270,
+    "id": "S183",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 48,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.54
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Gerente/Views/RetencaoView.xaml",
+    "tipo": "XAML",
+    "linhas": 183,
+    "id": "S184",
+    "dominio": "Gestão",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [
+      "A38"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.59
+    },
+    "recomendacao_de_dominio": "Separar indicador, operação e cadastro; levar do alerta ao registro correto com filtros e permissão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/AgendamentoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 225,
+    "id": "S185",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 35,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.63
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/AutorizacaoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 116,
+    "id": "S186",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 21,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/BloqueioWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 93,
+    "id": "S187",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.68
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/ConciliacaoAgendaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 176,
+    "id": "S188",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 24,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.79
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/ConfirmacoesWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 17,
+    "id": "S189",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 2,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.56
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/DetalheHorarioWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 172,
+    "id": "S190",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 28,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.75
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/EstornoAtendimentoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 83,
+    "id": "S191",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 16,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.34
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/FechamentoSessaoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 193,
+    "id": "S192",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 39,
+    "achados_relacionados": [
+      "A24"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/HorariosProfissionalWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 64,
+    "id": "S193",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 29,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.28
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/ListaEsperaPainelWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 105,
+    "id": "S194",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 13,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/ListaEsperaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 105,
+    "id": "S195",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 21,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sobreposicao",
+      "confidence": 0.24
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/OrcamentoWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 184,
+    "id": "S196",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 33,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.59
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/ProfissionalWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 180,
+    "id": "S197",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 48,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.43
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/ProximasVagasWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 56,
+    "id": "S198",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 7,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.43
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Janelas/SalaWindow.xaml",
+    "tipo": "XAML",
+    "linhas": 61,
+    "id": "S199",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 16,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.55
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/AcompanhamentoView.xaml",
+    "tipo": "XAML",
+    "linhas": 129,
+    "id": "S200",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 92,
+    "achados_relacionados": [
+      "A25",
+      "A63"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/AgendaView.xaml",
+    "tipo": "XAML",
+    "linhas": 323,
+    "id": "S201",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 64,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/ConfirmacoesView.xaml",
+    "tipo": "XAML",
+    "linhas": 131,
+    "id": "S202",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.29
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/ConsultasView.xaml",
+    "tipo": "XAML",
+    "linhas": 194,
+    "id": "S203",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 24,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/ConvenioPacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 73,
+    "id": "S204",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.34
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/DocumentosView.xaml",
+    "tipo": "XAML",
+    "linhas": 701,
+    "id": "S205",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 65,
+    "achados_relacionados": [
+      "A01",
+      "A03",
+      "A05",
+      "A06",
+      "A29"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/EquipeView.xaml",
+    "tipo": "XAML",
+    "linhas": 288,
+    "id": "S206",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 34,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.15
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/FilaView.xaml",
+    "tipo": "XAML",
+    "linhas": 580,
+    "id": "S207",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 41,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.38
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/LancamentosView.xaml",
+    "tipo": "XAML",
+    "linhas": 209,
+    "id": "S208",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 27,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.42
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/NovoAtendimentoView.xaml",
+    "tipo": "XAML",
+    "linhas": 1271,
+    "id": "S209",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 107,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.53
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/PacientesView.xaml",
+    "tipo": "XAML",
+    "linhas": 165,
+    "id": "S210",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.2
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/PagamentosView.xaml",
+    "tipo": "XAML",
+    "linhas": 56,
+    "id": "S211",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 12,
+    "achados_relacionados": [
+      "A05",
+      "A62"
+    ],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.24
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/PainelView.xaml",
+    "tipo": "XAML",
+    "linhas": 419,
+    "id": "S212",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 59,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.23
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/PrivacidadePacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 89,
+    "id": "S213",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 17,
+    "achados_relacionados": [
+      "A57"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.45
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/ProntuarioView.xaml",
+    "tipo": "XAML",
+    "linhas": 226,
+    "id": "S214",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 31,
+    "achados_relacionados": [
+      "A15"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.38
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/RelacionamentoPacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 56,
+    "id": "S215",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 12,
+    "achados_relacionados": [
+      "A56"
+    ],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.46
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/ResumoAdministrativoPacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 97,
+    "id": "S216",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 16,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.24
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/RetornoView.xaml",
+    "tipo": "XAML",
+    "linhas": 203,
+    "id": "S217",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [
+      "A15"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.34
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/RetornosAMarcarView.xaml",
+    "tipo": "XAML",
+    "linhas": 158,
+    "id": "S218",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.28
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Modulo.Recepcao/Views/TermosPacienteView.xaml",
+    "tipo": "XAML",
+    "linhas": 60,
+    "id": "S219",
+    "dominio": "Recepção",
+    "recurso": false,
+    "controles": 10,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Manter contexto de paciente/horário e oferecer continuação nos estados vazios, com permissões do balcão."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Recepcao/App.xaml",
+    "tipo": "XAML",
+    "linhas": 12,
+    "id": "S220",
+    "dominio": "Recurso compartilhado",
+    "recurso": true,
+    "controles": 0,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.55
+    },
+    "recomendacao_de_dominio": "Verificar seus consumidores antes de consolidar; este arquivo não é uma tela independente."
+  },
+  {
+    "repo": "Clinica",
+    "arquivo": "src/Clinica.Web/Paginas.cs",
+    "tipo": "HTML/template",
+    "linhas": 370,
+    "id": "S221",
+    "dominio": "Web de leitura",
+    "recurso": false,
+    "controles": 21,
+    "achados_relacionados": [
+      "A52"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.23
+    },
+    "recomendacao_de_dominio": "Explicitar recorte e limites; permitir continuidade autorizada sem tornar leitura em alteração."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/404.html",
+    "tipo": "HTML/template",
+    "linhas": 39,
+    "id": "S222",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 10,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.59
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/a-clinica.html",
+    "tipo": "HTML/template",
+    "linhas": 15,
+    "id": "S223",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 21,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.22
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/acessibilidade.html",
+    "tipo": "HTML/template",
+    "linhas": 11,
+    "id": "S224",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 11,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.23
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/acupuntura-medica.html",
+    "tipo": "HTML/template",
+    "linhas": 70,
+    "id": "S225",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 30,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.24
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/atendimento.html",
+    "tipo": "HTML/template",
+    "linhas": 13,
+    "id": "S226",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 17,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.18
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/bloqueio-simpatico-venoso.html",
+    "tipo": "HTML/template",
+    "linhas": 59,
+    "id": "S227",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 17,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.4
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/clinica-da-dor.html",
+    "tipo": "HTML/template",
+    "linhas": 160,
+    "id": "S228",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 31,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.18
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/contato.html",
+    "tipo": "HTML/template",
+    "linhas": 90,
+    "id": "S229",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 11,
+    "achados_relacionados": [
+      "A46"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.31
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/convenios.html",
+    "tipo": "HTML/template",
+    "linhas": 116,
+    "id": "S230",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 17,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.23
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/dr-gustavo-lacerda.html",
+    "tipo": "HTML/template",
+    "linhas": 65,
+    "id": "S231",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.16
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/endocrinologia.html",
+    "tipo": "HTML/template",
+    "linhas": 42,
+    "id": "S232",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 22,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.18
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/especialidades.html",
+    "tipo": "HTML/template",
+    "linhas": 112,
+    "id": "S233",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 15,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/fibromialgia.html",
+    "tipo": "HTML/template",
+    "linhas": 50,
+    "id": "S234",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 25,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.21
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/geriatria.html",
+    "tipo": "HTML/template",
+    "linhas": 43,
+    "id": "S235",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.28
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/ginecologia.html",
+    "tipo": "HTML/template",
+    "linhas": 42,
+    "id": "S236",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 22,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/inicio.html",
+    "tipo": "HTML/template",
+    "linhas": 79,
+    "id": "S237",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 49,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.15
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/mapa-do-site.html",
+    "tipo": "HTML/template",
+    "linhas": 8,
+    "id": "S238",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 2,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.73
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/para-pacientes.html",
+    "tipo": "HTML/template",
+    "linhas": 12,
+    "id": "S239",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 26,
+    "achados_relacionados": [
+      "A44"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.18
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/politica-de-privacidade.html",
+    "tipo": "HTML/template",
+    "linhas": 43,
+    "id": "S240",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 13,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.33
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/primeira-consulta.html",
+    "tipo": "HTML/template",
+    "linhas": 94,
+    "id": "S241",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 12,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.15
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "conteudo/psiquiatria.html",
+    "tipo": "HTML/template",
+    "linhas": 43,
+    "id": "S242",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 24,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.26
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "modelos/base.html",
+    "tipo": "HTML/template",
+    "linhas": 73,
+    "id": "S243",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 3,
+    "achados_relacionados": [
+      "A46"
+    ],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "modelos/rodape.html",
+    "tipo": "HTML/template",
+    "linhas": 57,
+    "id": "S244",
+    "dominio": "Site institucional",
+    "recurso": false,
+    "controles": 18,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.25
+    },
+    "recomendacao_de_dominio": "Identificar finalidade, manter destino canônico e facilitar contato sem prometer confirmação automática de horário."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/index.html",
+    "tipo": "HTML/template",
+    "linhas": 20,
+    "id": "S245",
+    "dominio": "Coleta de termos",
+    "recurso": false,
+    "controles": 4,
+    "achados_relacionados": [
+      "A11",
+      "A20"
+    ],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.12
+    },
+    "recomendacao_de_dominio": "Distinguir equipe e paciente, identidade, assinatura recebida e arquivamento; retomar sem nova emissão."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/portal.js",
+    "tipo": "HTML/template",
+    "linhas": 219,
+    "id": "S246",
+    "dominio": "Coleta de termos",
+    "recurso": false,
+    "controles": 61,
+    "achados_relacionados": [
+      "A44",
+      "A45"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.38
+    },
+    "recomendacao_de_dominio": "Distinguir equipe e paciente, identidade, assinatura recebida e arquivamento; retomar sem nova emissão."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/clinico.js",
+    "tipo": "HTML/template",
+    "linhas": 395,
+    "id": "S247",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 92,
+    "achados_relacionados": [
+      "A13",
+      "A14"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.36
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/coleta.html",
+    "tipo": "HTML/template",
+    "linhas": 21,
+    "id": "S248",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 4,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.21
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/execucao-direta.js",
+    "tipo": "HTML/template",
+    "linhas": 41,
+    "id": "S249",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 10,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.34
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/ficha-edicao.js",
+    "tipo": "HTML/template",
+    "linhas": 71,
+    "id": "S250",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.67
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/fila-enfermagem.js",
+    "tipo": "HTML/template",
+    "linhas": 46,
+    "id": "S251",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 14,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.15
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/index.html",
+    "tipo": "HTML/template",
+    "linhas": 48,
+    "id": "S252",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 17,
+    "achados_relacionados": [
+      "A11",
+      "A20"
+    ],
+    "triagem_jev": {
+      "choice": "insuficiente",
+      "confidence": 0.15
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/materiais.js",
+    "tipo": "HTML/template",
+    "linhas": 60,
+    "id": "S253",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 7,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/modelos-documento.js",
+    "tipo": "HTML/template",
+    "linhas": 82,
+    "id": "S254",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 16,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.29
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/modelos.js",
+    "tipo": "HTML/template",
+    "linhas": 89,
+    "id": "S255",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [
+      "A21"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.29
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/observacoes-enfermagem.js",
+    "tipo": "HTML/template",
+    "linhas": 155,
+    "id": "S256",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.21
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/posto.js",
+    "tipo": "HTML/template",
+    "linhas": 247,
+    "id": "S257",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 157,
+    "achados_relacionados": [
+      "A11",
+      "A12",
+      "A14",
+      "A42",
+      "A43"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.43
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "clinica-site",
+    "arquivo": "portal/profissional/treinamento/index.html",
+    "tipo": "HTML/template",
+    "linhas": 44,
+    "id": "S258",
+    "dominio": "Portal profissional",
+    "recurso": false,
+    "controles": 9,
+    "achados_relacionados": [
+      "A11",
+      "A20"
+    ],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.37
+    },
+    "recomendacao_de_dominio": "Preservar paciente e sessão, distinguir salvar/concluir/assinar e oferecer retomada da mesma operação."
+  },
+  {
+    "repo": "semdor-crm",
+    "arquivo": "src/Clinica.Crm/wwwroot/app.js",
+    "tipo": "HTML/template",
+    "linhas": 815,
+    "id": "S259",
+    "dominio": "CRM",
+    "recurso": false,
+    "controles": 129,
+    "achados_relacionados": [
+      "A26",
+      "A47",
+      "A48",
+      "A49",
+      "A50",
+      "A51"
+    ],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.45
+    },
+    "recomendacao_de_dominio": "Conservar conversa/paciente confirmado, filtro da fila, estado do envio e próximo responsável."
+  },
+  {
+    "repo": "semdor-crm",
+    "arquivo": "src/Clinica.Crm/wwwroot/booking.js",
+    "tipo": "HTML/template",
+    "linhas": 153,
+    "id": "S260",
+    "dominio": "CRM",
+    "recurso": false,
+    "controles": 31,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.58
+    },
+    "recomendacao_de_dominio": "Conservar conversa/paciente confirmado, filtro da fila, estado do envio e próximo responsável."
+  },
+  {
+    "repo": "semdor-crm",
+    "arquivo": "src/Clinica.Crm/wwwroot/conversation-workflow.js",
+    "tipo": "HTML/template",
+    "linhas": 85,
+    "id": "S261",
+    "dominio": "CRM",
+    "recurso": false,
+    "controles": 23,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "acao",
+      "confidence": 0.27
+    },
+    "recomendacao_de_dominio": "Conservar conversa/paciente confirmado, filtro da fila, estado do envio e próximo responsável."
+  },
+  {
+    "repo": "semdor-crm",
+    "arquivo": "src/Clinica.Crm/wwwroot/flow-editor.js",
+    "tipo": "HTML/template",
+    "linhas": 55,
+    "id": "S262",
+    "dominio": "CRM",
+    "recurso": false,
+    "controles": 7,
+    "achados_relacionados": [],
+    "triagem_jev": {
+      "choice": "sem_indicio",
+      "confidence": 0.4
+    },
+    "recomendacao_de_dominio": "Conservar conversa/paciente confirmado, filtro da fila, estado do envio e próximo responsável."
+  },
+  {
+    "repo": "semdor-crm",
+    "arquivo": "src/Clinica.Crm/wwwroot/index.html",
+    "tipo": "HTML/template",
+    "linhas": 144,
+    "id": "S263",
+    "dominio": "CRM",
+    "recurso": false,
+    "controles": 487,
+    "achados_relacionados": [
+      "A23",
+      "A24"
+    ],
+    "triagem_jev": {
+      "choice": "navegacao",
+      "confidence": 0.39
+    },
+    "recomendacao_de_dominio": "Conservar conversa/paciente confirmado, filtro da fila, estado do envio e próximo responsável."
+  }
+]

@@ -1,0 +1,1642 @@
+[
+  {
+    "id": "A01",
+    "prioridade": "P1",
+    "classe": "Confirmado no código",
+    "area": "Documentos",
+    "titulo": "Mensagem manda cancelar e reemitir para assinar depois",
+    "atual": "Ao desistir do seletor de certificado após emitir, a mensagem orienta: para assinar depois, cancele e emita outro. A central já chama AcoesDoDocumento.AssinarAsync sobre o documento existente.",
+    "impacto": "Induz cancelamento e nova emissão desnecessários, aumentando documentos e trabalho.",
+    "proposta": "Mostrar o número emitido e oferecer Assinar este documento, Imprimir e Fechar. Reemissão deve ser reservada à correção de conteúdo.",
+    "aceite": "Cancelar o seletor e retomar a assinatura conserva DocumentoId e número, sem exigir cancelamento.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs",
+        "cancele e emita outro"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs",
+        "private async Task AssinarAsync"
+      ]
+    ]
+  },
+  {
+    "id": "A02",
+    "prioridade": "P1",
+    "classe": "Confirmado no código",
+    "area": "Documentos",
+    "titulo": "Repetir Emitir após falha posterior cria outra emissão",
+    "atual": "EmitirAsync persiste antes de assinar/abrir o PDF. Cancelamento de certificado ou erro de abertura retorna mantendo a janela. O finally libera Emitindo; PodeEmitir não verifica DocumentoEmitidoId. Um novo clique chama novamente DocumentoClinicoService.EmitirAsync, que numera uma nova entidade.",
+    "impacto": "Uma tentativa de terminar assinatura ou impressão pode gerar outro documento do mesmo conteúdo.",
+    "proposta": "Após persistir, mudar a janela para o estado Documento emitido e retomar impressão/assinatura pelo ID. Nova emissão deve ser uma ação explícita.",
+    "aceite": "Falhar após persistência, clicar novamente e confirmar que permanece exatamente um documento; ensaio futuro em banco fictício.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs",
+        "private bool PodeEmitir()"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs",
+        "DocumentoEmitidoId = emitido.Id"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Application/Servicos/DocumentoClinicoService.cs",
+        "Numero = await NumerarAsync"
+      ]
+    ]
+  },
+  {
+    "id": "A03",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Documentos",
+    "titulo": "Impressão perde destaque quando há assinatura pendente",
+    "atual": "Na lista O que já saiu, Assinar aparece quando PodeAssinar é verdadeiro; nesse mesmo estado, 2ª via fica Collapsed. Imprimir continua disponível em ⋯ → Imprimir a 2ª via. O texto literal Solicitar assinatura do exemplo do usuário não foi localizado nas bases principais.",
+    "impacto": "Quem quer entregar papel precisa descobrir um menu secundário mesmo quando esse é seu próximo passo.",
+    "proposta": "Oferecer Imprimir claramente na linha ou no resultado da emissão, mantendo assinatura digital como ação distinta e condicionada ao tipo de documento.",
+    "aceite": "Documento emitido sem assinatura oferece Imprimir sem passar por ⋯; assinatura e consentimento continuam separados.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/DocumentosView.xaml",
+        "Content=\"Assinar\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/DocumentosView.xaml",
+        "Binding=\"{Binding PodeAssinar}\" Value=\"True\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/MenuDoDocumento.cs",
+        "Acrescentar(\"Imprimir a 2ª via\""
+      ]
+    ]
+  },
+  {
+    "id": "A04",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Documentos",
+    "titulo": "Emitir e imprimir executa Salvar como e abrir leitor externo",
+    "atual": "O botão Emitir e imprimir termina em ImpressaoPdf.SalvarEAbrirAsync: solicita caminho, salva e abre o leitor padrão. Não envia diretamente à impressão. Cancelar Salvar como retorna null, igual ao sucesso, e a emissão pode encerrar a janela.",
+    "impacto": "A pessoa espera imprimir e recebe uma escolha de arquivo; impressão, download e cancelamento não têm resultados distintos na interface.",
+    "proposta": "Separar Imprimir de Baixar PDF; distinguir emitido, arquivo salvo, impressão solicitada e cancelamento. Reutilizar o documento já emitido.",
+    "aceite": "Cancelar download não aparece como impressão concluída; Imprimir abre a interface de impressão, sem obrigar a nomear arquivo.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/DocumentoWindow.xaml",
+        "Emitir e imprimir"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/ImpressaoPdf.cs",
+        "if (dialogo.ShowDialog() != true) return null;"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/ImpressaoPdf.cs",
+        "Process.Start"
+      ]
+    ]
+  },
+  {
+    "id": "A05",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Recepção e financeiro",
+    "titulo": "Recibo na central aponta ao Caixa ausente na Recepção",
+    "atual": "O catálogo de Documentos exige NavegacaoSuite.Existe(Caixa) para recibos. A Recepção carrega Recepção e Clínico contextual, sem Caixa. Entretanto, Recebimentos de pacientes já permite emitir recibo de um lançamento recebido.",
+    "impacto": "O mesmo aplicativo informa indisponibilidade em Documentos e oferece a função em outra área.",
+    "proposta": "Encaminhar Recibo para os recebimentos do paciente selecionado, preservando o lançamento de origem e sem liberar acesso amplo ao Caixa.",
+    "aceite": "Perfil Recepção chega ao recibo de um pagamento permitido a partir de Documentos sem trocar de aplicativo.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs",
+        "var existe = NavegacaoSuite.Existe(ChavesSuite.Caixa)"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/ViewModels/PagamentosViewModel.cs",
+        "private async Task ReciboAsync"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Recepcao/App.xaml.cs",
+        "new ModuloContextual"
+      ]
+    ]
+  },
+  {
+    "id": "A06",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Documentos",
+    "titulo": "Período de uma emissão é escolhido em outra aba",
+    "atual": "Fechamento do período usa Inicio/Fim da aba O que já saiu, embora a ação seja escolhida na aba Emitir. A própria pendência explica que se deve usar o período da outra aba.",
+    "impacto": "Dependência escondida entre emissão e consulta histórica; é preciso sair do contexto para ajustar a emissão.",
+    "proposta": "Pedir o período junto da prévia de Fechamento, sem depender do filtro da consulta de emitidos.",
+    "aceite": "É possível selecionar e conferir o período antes de emitir, na mesma sequência de trabalho.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs",
+        "Usa o período da aba"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs",
+        "private async Task GerarFechamentoAsync"
+      ]
+    ]
+  },
+  {
+    "id": "A07",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Paciente",
+    "titulo": "Sessões e guias repetido em duas camadas de abas",
+    "atual": "Ficha do paciente contém TabItem Sessões e guias com outro TabControl cujo primeiro TabItem também se chama Sessões e guias. Autorizações e validade do convênio é a segunda aba interna.",
+    "impacto": "A pessoa atravessa e interpreta dois níveis com o mesmo nome.",
+    "proposta": "Usar um único nível para Sessões e guias e Autorizações, preservando a permissão administrativa.",
+    "aceite": "A ficha tem apenas uma seleção chamada Sessões e guias e autorização fica alcançável no mesmo nível.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Clinico/Views/PacienteView.xaml",
+        "<TabItem Header=\"Sessões e guias\""
+      ]
+    ]
+  },
+  {
+    "id": "A08",
+    "prioridade": "P2",
+    "classe": "Confirmado por matriz de perfis",
+    "area": "Financeiro",
+    "titulo": "Mesmo preço particular sob dois grupos no Gerente",
+    "atual": "A chave precos-particular é reivindicada por Particular e pacotes e Tabela de preço. A matriz reproduziu ambos os pais no Gerente para os perfis Gerente e Financeiro; a navegação por chave escolhe o primeiro pai.",
+    "impacto": "Dois endereços aparentes para o mesmo cadastro; o caminho de retorno pode não ser o que a pessoa esperava.",
+    "proposta": "Definir uma página canônica Preços; manter atalho contextual explícito em Pacotes, se necessário.",
+    "aceite": "A chave tem um pai canônico e o atalho mantém contexto e identificação de retorno.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs",
+        "new AbaMenu(\"Pre\\u00E7o da sess\\u00E3o\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs",
+        "new AbaMenu(\"Particular\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs",
+        ".FirstOrDefault(i => i.Abas.Any"
+      ]
+    ]
+  },
+  {
+    "id": "A09",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Navegação",
+    "titulo": "Rótulos novos não chegam às abas compostas",
+    "atual": "OrganizacaoNavegacao renomeia acessos, extrato-banco, conciliacao e resultado. Abas dos módulos continuam com Acessos, Extrato do banco, Conciliação e Resultado do mês. AbaMenu possui rótulo independente do ItemMenuModulo.",
+    "impacto": "Busca, página e caminho exibido usam vocabulários diferentes para o mesmo destino.",
+    "proposta": "Resolver o título canônico por chave e permitir variação somente quando ela explicar um contexto real.",
+    "aceite": "Menu, abas, breadcrumb e busca concordam para cada uma das quatro chaves.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Modulos/OrganizacaoNavegacao.cs",
+        "case \"extrato-banco\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs",
+        "new AbaMenu(\"Extrato do banco\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs",
+        "new AbaMenu(\"Acessos\""
+      ]
+    ]
+  },
+  {
+    "id": "A10",
+    "prioridade": "P2",
+    "classe": "Confirmado por matriz de perfis",
+    "area": "Financeiro",
+    "titulo": "Financeiro abre em Estoque por efeito da ordenação",
+    "atual": "Estoque foi movido para Gestão e não há item financeiro marcado Inicial. O shell escolhe o primeiro item visível por grupo. Na matriz, Financeiro com perfil Financeiro ou Gerente abre em estoque.",
+    "impacto": "A abertura do aplicativo de dinheiro passa a ser um cadastro/operação de materiais, sem decisão explícita de página inicial.",
+    "proposta": "Definir uma abertura financeira explícita, com tarefas de recebimento/caixa, e manter Estoque acessível.",
+    "aceite": "A abertura é estável quando um novo item de Gestão é acrescentado; validada para os perfis financeiros.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Modulos/OrganizacaoNavegacao.cs",
+        "case \"estoque\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs",
+        "var abertura ="
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Financeiro/App.xaml.cs",
+        "new Modulo.ModuloFinanceiro()"
+      ]
+    ]
+  },
+  {
+    "id": "A11",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Portal clínico",
+    "titulo": "Documentos no menu é somente uma fila de assinatura",
+    "atual": "O menu diz Documentos; a página diz Documentos para assinar e consulta pendências próprias. Emitidos ficam na ficha do paciente. A central Windows usa Documentos para emitir e consultar.",
+    "impacto": "A mesma palavra promete abrangências diferentes entre interfaces; localizar uma via exige mudar de área e buscar paciente.",
+    "proposta": "Renomear a fila para Para assinar ou oferecer dentro de Documentos as visões Para assinar e Emitidos com filtro por paciente.",
+    "aceite": "A pessoa consegue distinguir pendência de acervo pelo menu e alcançar a via sem tentativa e erro.",
+    "fontes": [
+      [
+        "clinica-site",
+        "portal/profissional/index.html",
+        "id=\"nav-documentos\""
+      ],
+      [
+        "clinica-site",
+        "portal/profissional/posto.js",
+        "async function documentos(pagina=0)"
+      ]
+    ]
+  },
+  {
+    "id": "A12",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Portal clínico",
+    "titulo": "Pendências e Documentos repetem a fila de documentos sem assinatura",
+    "atual": "documentos() e pendencias() consultam /posto/pendencias; ambas exibem r.documentos e levam à ficha-documentos. Uma é uma fila especializada; outra é um agregador.",
+    "impacto": "O usuário pode interpretar duas filas como obrigações diferentes e procurar diferenças inexistentes.",
+    "proposta": "Preservar a visão agregada como resumo com contador e link para a fila canônica; usar os mesmos filtros e rótulos.",
+    "aceite": "A mesma pendência tem identidade, contagem e ação consistentes nas duas entradas, sem manutenção de duas listas completas.",
+    "fontes": [
+      [
+        "clinica-site",
+        "portal/profissional/posto.js",
+        "async function documentos(pagina=0)"
+      ],
+      [
+        "clinica-site",
+        "portal/profissional/posto.js",
+        "async function pendencias(pagina=0)"
+      ]
+    ]
+  },
+  {
+    "id": "A13",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Portal clínico",
+    "titulo": "Áreas internas não têm navegação persistida na URL",
+    "atual": "Agenda, ficha, documentos e infusão mudam estado.pagina e DOM. Não foi encontrado roteador pushState/popstate para essas áreas; o replaceState existente trata retorno SafeID. O CRM já possui roteador próprio com hash e histórico.",
+    "impacto": "Atualizar a página, usar Voltar do navegador ou retomar um endereço não representa o percurso interno. Isso deve ser confirmado em ensaio de navegador.",
+    "proposta": "Criar rotas por área e identificador autorizado, com guarda de rascunho e revalidação de acesso.",
+    "aceite": "Voltar/Avançar e recarga recuperam a área correta sem expor dados na URL nem descartar alterações silenciosamente.",
+    "fontes": [
+      [
+        "clinica-site",
+        "portal/profissional/clinico.js",
+        "let estado="
+      ],
+      [
+        "clinica-site",
+        "portal/profissional/clinico.js",
+        "history.replaceState"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/workspace-navigation.js",
+        "function parse"
+      ]
+    ]
+  },
+  {
+    "id": "A14",
+    "prioridade": "P2",
+    "classe": "Oportunidade com evidência estrutural",
+    "area": "Portal clínico",
+    "titulo": "Ações dos documentos mantidas em dois templates",
+    "atual": "clinico.js renderiza documentos no atendimento; posto.js renderiza na ficha. Ambos montam Abrir PDF, Corrigir rascunho, Cancelar rascunho, Copiar e Assinar com SafeID com condicionais próprios.",
+    "impacto": "A correção de próxima ação precisa acompanhar duas implementações. Não foi demonstrada perda de dados entre elas.",
+    "proposta": "Compartilhar um componente/lista de ações de documento, mantendo contexto de sessão versus paciente explícito.",
+    "aceite": "Mesma situação e permissão geram as mesmas ações nos dois locais; atalhos contextuais continuam disponíveis.",
+    "fontes": [
+      [
+        "clinica-site",
+        "portal/profissional/clinico.js",
+        "Corrigir rascunho"
+      ],
+      [
+        "clinica-site",
+        "portal/profissional/posto.js",
+        "Corrigir rascunho"
+      ]
+    ]
+  },
+  {
+    "id": "A15",
+    "prioridade": "P2",
+    "classe": "Confirmado por busca estática",
+    "area": "Manutenção",
+    "titulo": "Três interfaces sem referência de abertura encontrada",
+    "atual": "ProntuarioView.xaml da Recepção, RetornoView.xaml e BaixaGuiaWindow.xaml permanecem no código, mas não têm referência de uso fora da própria definição/code-behind na busca de fontes. A fábrica atual usa AcompanhamentoView para retorno-pacientes.",
+    "impacto": "Raspagens e manutenção podem tratar interfaces antigas como atuais; aumentam o volume de código e a ambiguidade.",
+    "proposta": "Confirmar ausência de carga por reflexão/recursos externos e então remover ou identificar explicitamente como legado.",
+    "aceite": "Cada interface possui uma entrada documentada e verificável, ou sai da compilação/catálogo ativo.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs",
+        "ChaveRetorno => new AcompanhamentoView"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/RetornoView.xaml",
+        "x:Class="
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/ProntuarioView.xaml",
+        "x:Class="
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/Alertas/BaixaGuiaWindow.xaml",
+        "x:Class="
+      ]
+    ]
+  },
+  {
+    "id": "A16",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Paciente e termos",
+    "titulo": "Instrução de erro usa nomes antigos de abas",
+    "atual": "DocumentoEdicaoViewModel orienta colher consentimento na aba LGPD e termo na aba Documentos. A ficha atual mostra Privacidade e consentimentos e Termos do paciente.",
+    "impacto": "Uma instrução aparentemente precisa manda procurar rótulos que mudaram.",
+    "proposta": "Usar o nome atual e oferecer encaminhamento com paciente preservado; não depender de texto de navegação escrito à mão.",
+    "aceite": "As mensagens de orientação apontam à aba existente no aplicativo/perfil e o link abre o paciente correto.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs",
+        "aba LGPD"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Clinico/Views/PacienteView.xaml",
+        "Privacidade e consentimentos"
+      ]
+    ]
+  },
+  {
+    "id": "A17",
+    "prioridade": "P1",
+    "classe": "Lacuna de rastreabilidade",
+    "area": "Versões",
+    "titulo": "Pastas de trabalho e main representam sistemas diferentes",
+    "atual": "A pasta Clinica original tem um commit próprio e está 77 commits atrás de origin/main, além de mudanças locais. clinica-site tem quatro commits locais adicionais com correções de execução e SafeID. A auditoria principal congela as três mains; os deltas foram inventariados separadamente.",
+    "impacto": "É possível mapear, corrigir ou publicar uma versão diferente da que a equipe acredita usar.",
+    "proposta": "Estabelecer matriz por componente: commit aprovado, pacote publicado, ambiente e mudanças pendentes. Não deduzir produção a partir do checkout.",
+    "aceite": "Cada superfície implantada pode ser ligada a um commit e a um pacote, e os quatro commits do portal têm destino explícito.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Modulos/OrganizacaoNavegacao.cs",
+        "public static class OrganizacaoNavegacao"
+      ]
+    ]
+  },
+  {
+    "id": "A18",
+    "prioridade": "P1",
+    "classe": "Lacuna de integração nas bases principais",
+    "area": "CRM e clínica",
+    "titulo": "Ponte canônica citada pelo CRM não está na main auditada de Clinica",
+    "atual": "README do CRM afirma que a ponte canônica foi preparada em Clinica e que sua implantação está pendente. O projeto histórico do CRM bloqueia Publish. A árvore main de Clinica auditada não contém src/Clinica.Crm.Bridge; o caminho local citado pelos scripts antigos também não foi encontrado.",
+    "impacto": "A partir somente dessas mains não se reproduz a entrega completa da integração de agenda, reservas e envios. Isso não prova indisponibilidade de uma implantação externa.",
+    "proposta": "Localizar e integrar o commit da ponte canônica, contratos e migrações; registrar o estado real de homologação e implantação.",
+    "aceite": "As mains oferecem um caminho único e reproduzível para a ponte requerida pelo CRM, sem publicar a cópia histórica.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "README.md",
+        "A ponte canônica agora"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm.Bridge/Clinica.Crm.Bridge.csproj",
+        "CanonicalClinicBridgeOnly"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/ClinicConnector.cs",
+        "/crm/recall"
+      ]
+    ]
+  },
+  {
+    "id": "A19",
+    "prioridade": "P3",
+    "classe": "Confirmado no código",
+    "area": "Manutenção entre repositórios",
+    "titulo": "CRM conserva 445 fontes também presentes em Clinica",
+    "atual": "A comparação encontrou 445 caminhos de código compartilhados: 442 iguais e três divergentes. O README identifica bibliotecas e ponte como históricas para regressão; o projeto principal Clinica.Crm não referencia essas bibliotecas, e a ponte histórica tem publicação bloqueada.",
+    "impacto": "Risco de corrigir a cópia histórica, confundir rotas legadas com ativas e inflar o inventário. Não foi concluído que duas versões estejam em produção.",
+    "proposta": "Isolar claramente o acervo de regressão e documentar sincronização/aposentadoria; aplicar novas alterações no componente canônico.",
+    "aceite": "Cada cópia tem finalidade e proprietário; nenhuma ferramenta de release escolhe a árvore histórica por engano.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "README.md",
+        "Dependências históricas"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/Clinica.Crm.csproj",
+        "Microsoft.Data.Sqlite"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm.Bridge/Clinica.Crm.Bridge.csproj",
+        "CanonicalClinicBridgeOnly"
+      ]
+    ]
+  },
+  {
+    "id": "A20",
+    "prioridade": "P2",
+    "classe": "Oportunidade com evidência estrutural",
+    "area": "Enfermagem",
+    "titulo": "Agenda, passagem e infusão têm entradas e vocabulário dispersos",
+    "atual": "Há Sessões de enfermagem, Enfermagem/Passagens, Atendimento de enfermagem, Sala/Fila de infusão e ficha do paciente. São tarefas relacionadas, mas não equivalentes: chegada/observações, registro longitudinal e execução de prescrição.",
+    "impacto": "A equipe precisa conhecer a diferença entre telas e termos antes de escolher o próximo passo.",
+    "proposta": "Usar uma entrada de trabalho da enfermagem com contexto de paciente/sessão e próximas ações por estado; manter histórico e fila especializada como visões identificadas.",
+    "aceite": "De chegada até registro após aplicação e assinatura, é possível continuar pelo mesmo paciente sem nova busca e sem misturar atos distintos.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs",
+        "Sessões de enfermagem"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Clinico/Views/AtendimentoEnfermagemView.xaml",
+        "Registrar infusão"
+      ],
+      [
+        "clinica-site",
+        "portal/profissional/index.html",
+        "nav-enfermagem"
+      ]
+    ]
+  },
+  {
+    "id": "A21",
+    "prioridade": "P2",
+    "classe": "Oportunidade com evidência estrutural",
+    "area": "Modelos",
+    "titulo": "Modelos distribuídos por emissão, evolução, mapa e configuração",
+    "atual": "DocumentoWindow gerencia modelos de documento; ModelosEvolucaoWindow trata evolução; MapaCorporalControl tem gerenciar modelos; Configurações abre termos. O portal tem Modelos e aplicação contextual.",
+    "impacto": "Quem procura administrar um modelo precisa primeiro adivinhar a família e o local de manutenção.",
+    "proposta": "Criar catálogo administrativo por tipo e escopo, com atalhos de aplicar/salvar no contexto clínico. Não fundir modelo de consentimento com prescrição ou mapa.",
+    "aceite": "Busca por tipo/nome encontra todos os modelos autorizados e informa onde são utilizados.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/DocumentoWindow.xaml",
+        "Salvar ou atualizar modelo"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/MapaCorporalControl.xaml",
+        "gerenciar modelos"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/Views/ConfiguracoesView.xaml",
+        "Escrever termos"
+      ],
+      [
+        "clinica-site",
+        "portal/profissional/modelos.js",
+        "Modelos"
+      ]
+    ]
+  },
+  {
+    "id": "A22",
+    "prioridade": "P2",
+    "classe": "Oportunidade apoiada pela matriz",
+    "area": "Gerente",
+    "titulo": "Gerente ainda reúne 27 entradas antes das abas internas",
+    "atual": "Com perfil Gerente, a matriz deriva 27 entradas principais e 92 destinos autorizados, além de Treinamento acrescentado pelo shell. As entradas se distribuem em cinco grupos; não são 27 botões necessariamente visíveis simultaneamente.",
+    "impacto": "Persistem muitas decisões de navegação, inclusive sobre paciente, prontuário, prescrições e documentos parcialmente relacionados.",
+    "proposta": "Definir donos de tarefas e destinos canônicos; manter indicadores como atalhos para a tarefa, reduzindo categorias que apenas reorganizam outras telas.",
+    "aceite": "Validar tarefas reais com gestão e reduzir mudanças de contexto sem retirar funções ou permissões.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Gerente/App.xaml.cs",
+        "new ModuloRecepcao()"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs",
+        "Grupos = Itens"
+      ]
+    ]
+  },
+  {
+    "id": "A23",
+    "prioridade": "P2",
+    "classe": "Oportunidade com evidência estrutural",
+    "area": "CRM",
+    "titulo": "Meu dia, Visão geral e Operação dividem acompanhamento da fila",
+    "atual": "Meu dia apresenta retornos/esperas/consultas; Visão geral mostra distribuição e equipe; Operação mostra saúde, esperas, pedidos de remarcação e consumo. Relatórios acrescenta outra leitura histórica.",
+    "impacto": "Perguntas próximas ficam em áreas distintas, com nomes amplos. Não são cópias exatas: períodos, finalidade e perfis diferem.",
+    "proposta": "Dar a cada área uma pergunta explícita: meu trabalho, supervisão ao vivo, diagnóstico técnico/consumo e histórico. Oferecer links com o filtro preservado.",
+    "aceite": "Uma atendente encontra sua próxima ação e uma supervisora encontra filas travadas sem percorrer os quatro painéis.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/index.html",
+        "id=\"page-dashboard\""
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/index.html",
+        "id=\"page-operations\""
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/index.html",
+        "id=\"page-today\""
+      ]
+    ]
+  },
+  {
+    "id": "A24",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "CRM e clínica",
+    "titulo": "Concluir atendimento nomeia dois fatos diferentes",
+    "atual": "No CRM, Concluir atendimento registra resultado de uma conversa e pode criar tarefa. No sistema clínico, Concluir atendimento/sessão se refere ao atendimento assistencial. Não é a mesma conclusão e não há autorização para fundi-las.",
+    "impacto": "A equipe que alterna produtos pode interpretar conversa concluída como consulta concluída ou vice-versa.",
+    "proposta": "Usar Concluir conversa no CRM e Concluir sessão clínica no assistencial; exibir o estado do outro sistema como contexto, quando disponível.",
+    "aceite": "Concluir conversa não aparenta marcar presença, encerrar sessão ou faturar; os rótulos explicam a diferença.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/index.html",
+        "id=\"closeDialog\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Janelas/FechamentoSessaoWindow.xaml",
+        "Concluir atendimento"
+      ]
+    ]
+  },
+  {
+    "id": "A25",
+    "prioridade": "P2",
+    "classe": "Oportunidade com evidência estrutural",
+    "area": "CRM e relacionamento",
+    "titulo": "Retorno, lembrete, tarefa e recall precisam de um mapa comum",
+    "atual": "CRM mantém FollowupState/ResumeAt, tarefas e recall; Clinica tem retornos solicitados e Acompanhamento com recall/novos BSV. Há integração de snapshots/notificações no código, portanto não é correto afirmar ausência total de integração.",
+    "impacto": "O mesmo paciente pode aparecer em filas com finalidades distintas sem que o operador reconheça quem é responsável pelo próximo contato.",
+    "proposta": "Mostrar tipo, origem, responsável, prazo e última ação num contexto único do paciente/conversa; reconciliar contatos após envio e resposta.",
+    "aceite": "Uma tarefa manual e um recall não são tratados como duplicatas automaticamente; a equipe consegue identificar quando representam o mesmo contato planejado.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/Models.cs",
+        "FollowupState"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/PatientContext.cs",
+        "ContextRecall"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/AcompanhamentoView.xaml",
+        "Recall"
+      ]
+    ]
+  },
+  {
+    "id": "A26",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "CRM",
+    "titulo": "Registrar solução de remarcação não confirma alteração na agenda",
+    "atual": "Na Operação, Registrar solução encerra um job attention após texto livre. ResolveReschedule grava done e auditoria; não chama a ponte. A remarcação real usa ClinicScheduling e confirma o resultado na clínica.",
+    "impacto": "São duas conclusões diferentes para um assunto com o mesmo nome; uma observação administrativa pode ser confundida com a remarcação realizada.",
+    "proposta": "Nomear como Registrar tratamento do pedido e mostrar resultado separado: remarcado com ID, cancelado, desistiu ou resolvido fora do sistema com justificativa.",
+    "aceite": "Encerrar o pedido manualmente nunca aparece como horário remarcado sem evidência da agenda.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/Operations.cs",
+        "public void ResolveReschedule"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/ClinicScheduling.cs",
+        "Confirme o paciente e o horário"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "Registrar solução"
+      ]
+    ]
+  },
+  {
+    "id": "A27",
+    "prioridade": "P3",
+    "classe": "Confirmado no código",
+    "area": "Financeiro",
+    "titulo": "Adiar conta oferece prazo fixo de sete dias",
+    "atual": "Contas tem ação Adiar 7d. É um atalho legítimo, mas o controle não expressa escolher o vencimento negociado na própria ação.",
+    "impacto": "A rotina favorece um prazo arbitrário quando o acordo real pode ter outra data.",
+    "proposta": "Manter +7 dias como sugestão dentro de Adiar vencimento, com data e motivo explícitos conforme as regras do domínio.",
+    "aceite": "O operador escolhe a data negociada em uma ação e vê o histórico, sem repetir adiamentos de sete dias.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Financeiro/Views/ContasView.xaml",
+        "Content=\"Adiar 7d\""
+      ]
+    ]
+  },
+  {
+    "id": "A28",
+    "prioridade": "P2",
+    "classe": "Oportunidade com evidência estrutural",
+    "area": "Termos do paciente",
+    "titulo": "Coleta pode atravessar escolhas em várias janelas",
+    "atual": "Existem EscolherTermoWindow, EscolherSessaoDoTermoWindow e AssinaturaPacienteWindow. As escolhas são necessárias quando falta contexto; quando paciente, sessão e modelo já são conhecidos, repetição deve ser evitada.",
+    "impacto": "Uma ação curta no balcão pode virar uma sequência de modais; a quantidade depende da porta de entrada e dos dados.",
+    "proposta": "Propagar paciente, sessão e modelo; mostrar uma revisão única e pedir apenas a informação ausente.",
+    "aceite": "Da sessão com um único termo aplicável, a coleta chega diretamente à revisão, preservando opção de corrigir contexto.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/EscolherTermoWindow.xaml",
+        "Qual termo"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/EscolherSessaoDoTermoWindow.xaml",
+        "A qual sessão"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/AssinaturaPacienteWindow.xaml",
+        "Confirmar assinatura"
+      ]
+    ]
+  },
+  {
+    "id": "A29",
+    "prioridade": "P2",
+    "classe": "Oportunidade com evidência estrutural",
+    "area": "Documentos",
+    "titulo": "Emissão pelo catálogo exige escolher antes de abrir o editor",
+    "atual": "A central possui escolha do paciente, escolha da folha e prévia/ação; documentos escritos abrem DocumentoWindow. O editor também permite selecionar tipo. Não foi medido tempo de uso nem cliques por perfil.",
+    "impacto": "Para um documento frequente e paciente já conhecido, há decisões intermediárias potencialmente dispensáveis.",
+    "proposta": "Usar ação contextual Emitir documento com tipo frequente e paciente herdado; deixar o catálogo para descoberta ou mudança de tipo.",
+    "aceite": "A partir da ficha, paciente não precisa ser buscado novamente; trocar tipo não apaga conteúdo sem aviso.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/DocumentosView.xaml",
+        "DataContext.EscolherFolhaCommand"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs",
+        "private async Task AbrirJanelaAsync"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs",
+        "partial void OnTipoSelecionadoChanged"
+      ]
+    ]
+  },
+  {
+    "id": "A30",
+    "prioridade": "P3",
+    "classe": "Confirmado no código",
+    "area": "Documentação e navegação",
+    "titulo": "Comentários arquiteturais descrevem módulos que hoje são carregados",
+    "atual": "App do Clínico afirma em comentário carregar um único módulo; o código carrega Clínico e Recepção contextual. Comentários do agrupamento de pacientes/prontuário ainda descrevem ausência do outro módulo nos executáveis.",
+    "impacto": "Quem mantém ou audita usando os comentários pode concluir incorretamente que uma aba não existe ou que a função exige outro aplicativo.",
+    "proposta": "Atualizar comentários e documentação arquitetural a partir da matriz executável de navegação.",
+    "aceite": "Descrições de carregamento e visibilidade concordam com os cinco App/ModuloFaturamentoAplicativo e com os perfis padrão.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Clinico/App.xaml.cs",
+        "Carrega UM módulo"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Clinico/App.xaml.cs",
+        "new ModuloContextual"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs",
+        "public const string ChaveProntuario"
+      ]
+    ]
+  },
+  {
+    "id": "A31",
+    "prioridade": "P1",
+    "classe": "Confirmado no código",
+    "area": "Campanhas",
+    "titulo": "Abrir WhatsApp é registrado como envio",
+    "atual": "EnviarAsync abre o aplicativo externo e, se a abertura não retorna erro, chama RegistrarEnvioAsync e mostra Envio registrado. Abrir a conversa não comprova que a pessoa enviou a mensagem.",
+    "impacto": "O acompanhamento pode indicar contato realizado mesmo que o operador apenas tenha aberto e fechado o WhatsApp.",
+    "proposta": "Separar Preparar mensagem, Confirmar envio manual e estados de entrega confirmados por integração. Conservar autor e horário de cada evento.",
+    "aceite": "Abrir e fechar o aplicativo externo não marca envio; confirmação manual fica distinguível de entrega pelo provedor.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/ViewModels/CampanhasViewModel.cs",
+        "private async Task EnviarAsync"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/ViewModels/CampanhasViewModel.cs",
+        "await campanhas.RegistrarEnvioAsync"
+      ]
+    ]
+  },
+  {
+    "id": "A32",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Faturamento",
+    "titulo": "Atalho de glosa descarta o contexto da linha",
+    "atual": "O botão Abrir glosas de cada linha do painel não passa CommandParameter. AbrirGlosas não recebe a guia e dispara um evento sem argumento.",
+    "impacto": "A pessoa precisa procurar outra vez a glosa cujo prazo acabou de consultar.",
+    "proposta": "Passar guia/glosa e período ao destino, selecionar o registro e oferecer Voltar ao painel preservando filtros.",
+    "aceite": "Abrir uma glosa específica no painel mostra essa mesma glosa no destino.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/Views/DashboardView.xaml",
+        "Content=\"Abrir glosas\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/DashboardViewModel.cs",
+        "private void AbrirGlosas()"
+      ]
+    ]
+  },
+  {
+    "id": "A33",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Configurações",
+    "titulo": "Convênio fecha uma janela mas só salva na tela de trás",
+    "atual": "ConvenioWindow liga os campos diretamente à edição e tem Fechar; o rodapé informa que é necessário Salvar configurações na tela de trás.",
+    "impacto": "A conclusão do diálogo não conclui a tarefa de edição. O usuário precisa lembrar de uma segunda ação em outro contexto.",
+    "proposta": "Dar ao diálogo Salvar convênio e Cancelar com estado próprio, ou expor explicitamente uma revisão única de alterações pendentes na tela principal.",
+    "aceite": "A pessoa consegue identificar sem ambiguidade se as alterações já estão persistidas e descartá-las antes de salvar.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/Alertas/ConvenioWindow.xaml",
+        "As alterações valem quando"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/ParametrosViewModel.cs",
+        "private void EditarConvenio"
+      ]
+    ]
+  },
+  {
+    "id": "A34",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Configurações",
+    "titulo": "Catálogos misturam salvar em lote e excluir imediatamente",
+    "atual": "Editar/adicionar integra o Salvar configurações; RemoverConvenio e RemoverEspecialidade chamam exclusão no serviço imediatamente, com confirmação. Não há alegação de exclusão sem confirmação.",
+    "impacto": "Uma mesma tela usa dois momentos de persistência; sair sem salvar não desfaz uma exclusão já confirmada.",
+    "proposta": "Padronizar persistência por entidade; se mantiver exclusão imediata, dizer na confirmação que ela independe do botão Salvar e mostrar resultado por item.",
+    "aceite": "Criar, editar e excluir têm estados e consequências explícitos, incluindo o que permanecerá ao abandonar a página.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/ParametrosViewModel.cs",
+        "await catalogo.ExcluirAsync"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/ParametrosViewModel.cs",
+        "await catalogo.SalvarAsync"
+      ]
+    ]
+  },
+  {
+    "id": "A35",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Financeiro",
+    "titulo": "Prévia da retenção apaga o resultado quando falha",
+    "atual": "PreverAsync captura a exceção, grava diagnóstico e atribui Retencao = null; nesse catch não explica a falha ao usuário. Valor inválido também retorna sem mensagem.",
+    "impacto": "Reter? pode parecer não ter efeito, e a ausência de prévia não esclarece se há indisponibilidade ou dado inválido.",
+    "proposta": "Exibir erro junto à linha, conservar o valor digitado e oferecer Tentar novamente. Diferenciar retenção inexistente de consulta não concluída.",
+    "aceite": "Falha simulada no serviço deixa indicação visível de cálculo indisponível, nunca de imposto zero.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Financeiro/ViewModels/ConciliacaoViewModel.cs",
+        "private async Task PreverAsync"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Financeiro/ViewModels/ConciliacaoViewModel.cs",
+        "Financeiro — prévia da retenção falhou"
+      ]
+    ]
+  },
+  {
+    "id": "A36",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Financeiro",
+    "titulo": "Recebi na inadimplência fixa a data em hoje",
+    "atual": "ReceberAsync confirma valor e descrição e passa DateOnly.FromDateTime(DateTime.Today). Esse atalho não solicita a data real do recebimento.",
+    "impacto": "Ao registrar hoje um pagamento de outro dia, este percurso não permite informar a data correta.",
+    "proposta": "Reutilizar uma confirmação de recebimento com data, forma e referência disponíveis conforme a operação; iniciar em hoje sem impedir correção autorizada.",
+    "aceite": "Recebimento de ontem pode ser registrado por esse caminho com a data escolhida e auditada.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Financeiro/ViewModels/InadimplenciaViewModel.cs",
+        "private async Task ReceberAsync"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Financeiro/ViewModels/InadimplenciaViewModel.cs",
+        "conta.LancamentoId,"
+      ]
+    ]
+  },
+  {
+    "id": "A37",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Financeiro",
+    "titulo": "Devolução de receita recebida exige reconstruir lançamento no Caixa",
+    "atual": "Conciliação bloqueia corretamente cancelar dinheiro já recebido, mas apenas instrui lançar a devolução como saída no Caixa.",
+    "impacto": "A pessoa troca de tela e recompõe paciente, guia, valor e motivo; a orientação não oferece a continuação contextual.",
+    "proposta": "Oferecer Registrar devolução, abrindo saída pré-preenchida e vinculada à receita original, mantendo a conferência do operador.",
+    "aceite": "Nenhuma entrada original é apagada; a saída preserva vínculo, data efetiva, valor e motivo.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Financeiro/ViewModels/ConciliacaoViewModel.cs",
+        "Se a operadora estornou o valor, lance a"
+      ]
+    ]
+  },
+  {
+    "id": "A38",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Relacionamento",
+    "titulo": "Chamar de volta não registra a tentativa nessa ação",
+    "atual": "RetencaoViewModel.Chamar valida permissão e consentimento, abre WhatsApp e retorna se não houver erro. Não persiste tentativa ou próximo contato nesse método.",
+    "impacto": "Quem consulta a lista depois não sabe por essa ação se outro operador já iniciou o contato.",
+    "proposta": "Usar o histórico de acompanhamento como destino canônico: preparar mensagem, registrar tentativa/resultado e combinar próximo passo, sem declarar envio automático.",
+    "aceite": "Uma tentativa registrada fica visível no acompanhamento por responsável e data; simples abertura não se torna entrega.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/ViewModels/RetencaoViewModel.cs",
+        "private void Chamar"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/ViewModels/RetencaoViewModel.cs",
+        "if (erro is null) return;"
+      ]
+    ]
+  },
+  {
+    "id": "A39",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Campanhas",
+    "titulo": "NPS de ontem deixa a recuperação de outros dias pouco acessível",
+    "atual": "O comando GerarNpsAsync usa Today.AddDays(-1), e o botão se chama NPS de ontem. Não oferece período nesse comando.",
+    "impacto": "Se a rotina não for feita em um dia, o atalho seguinte não resolve explicitamente o período perdido.",
+    "proposta": "Manter Ontem como opção rápida e permitir Selecionar período/Recuperar pendências, com prévia de elegíveis e de contatos já gerados.",
+    "aceite": "Selecionar período anterior não duplica contatos já gerados e explica quem ficou fora.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/ViewModels/CampanhasViewModel.cs",
+        "private async Task GerarNpsAsync"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/Views/CampanhasView.xaml",
+        "Content=\"NPS de ontem\""
+      ]
+    ]
+  },
+  {
+    "id": "A40",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Cadastro",
+    "titulo": "Busca vazia orienta trocar de página para cadastrar",
+    "atual": "O componente BuscaDePacienteView mostra Pacientes → Novo paciente como instrução textual no resultado vazio.",
+    "impacto": "Um fluxo iniciado com nome/CPF precisa abandonar o seletor, cadastrar e voltar a procurar.",
+    "proposta": "Quando o perfil puder cadastrar, oferecer Cadastrar esta pessoa e retornar seu ID ao fluxo de origem; checar duplicidade antes de criar.",
+    "aceite": "Ao concluir cadastro a partir da busca, o paciente fica selecionado na tarefa anterior sem nova busca.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/BuscaDePacienteView.xaml",
+        "Quem ainda não tem ficha entra em Pacientes"
+      ]
+    ]
+  },
+  {
+    "id": "A41",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Clínico",
+    "titulo": "Resumo de prontuário instrui abrir outra seção para trabalhar anexos",
+    "atual": "ResumoProntuarioWindow informa que baixar ou anexar arquivos exige abrir o prontuário completo, seção Exames e anexos.",
+    "impacto": "O resumo é útil para leitura, mas não oferece nessa instrução uma continuação direta para o arquivo.",
+    "proposta": "Converter a orientação em Abrir exames e anexos deste paciente, mantendo sessão e seleção.",
+    "aceite": "O atalho leva ao mesmo paciente e à seção correta com permissões preservadas.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Clinico/Janelas/ResumoProntuarioWindow.xaml",
+        "Para baixar ou anexar arquivos"
+      ]
+    ]
+  },
+  {
+    "id": "A42",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Portal",
+    "titulo": "Pendências usa uma página compartilhada entre filas diferentes",
+    "atual": "pendencias(pagina) envia um único número e renderiza sessões, documentos e conferência da recepção, com Anterior/Próxima comuns e até 50 registros por seção.",
+    "impacto": "Avançar para ver mais documentos também avança as outras listas. Uma seção vazia nessa página não significa que a fila esteja zerada.",
+    "proposta": "Separar paginação/filtro por fila ou usar abas de trabalho com total e posição próprios; manter um resumo geral.",
+    "aceite": "Percorrer documentos não altera a posição de sessões e recepção; os estados vazios informam o recorte.",
+    "fontes": [
+      [
+        "clinica-site",
+        "portal/profissional/posto.js",
+        "async function pendencias(pagina=0)"
+      ],
+      [
+        "clinica-site",
+        "portal/profissional/posto.js",
+        "até 50 registros por seção"
+      ]
+    ]
+  },
+  {
+    "id": "A43",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Portal",
+    "titulo": "Imprimir uma sessão de enfermagem busca todo o histórico paginado",
+    "atual": "folhaEnfermagem consulta a ficha e percorre todas as páginas de enfermagem antes de filtrar agendamentoId da sessão escolhida.",
+    "impacto": "O tempo de abrir uma única folha cresce com o histórico do paciente, mesmo que a sessão tenha poucos registros.",
+    "proposta": "Criar leitura autorizada por sessão e carregar somente seus registros e dados de cabeçalho; manter histórico completo em consulta própria.",
+    "aceite": "Abrir uma folha faz número de consultas limitado e independente da quantidade de páginas antigas.",
+    "fontes": [
+      [
+        "clinica-site",
+        "portal/profissional/posto.js",
+        "async function folhaEnfermagem(sessao)"
+      ],
+      [
+        "clinica-site",
+        "portal/profissional/posto.js",
+        "while(mais)"
+      ]
+    ]
+  },
+  {
+    "id": "A44",
+    "prioridade": "P2",
+    "classe": "Oportunidade de clareza",
+    "area": "Portal de termos",
+    "titulo": "Portal do paciente é uma entrada da equipe para coleta presencial",
+    "atual": "O site oferece Acessar o portal do paciente; a página explica que a equipe faz login e o paciente assina sem senha. O portal não é um painel de autosserviço do paciente.",
+    "impacto": "O nome amplo pode criar expectativa de consultar agenda, exames e documentos em casa, embora o texto explique a função real.",
+    "proposta": "Nomear Coleta de termos na clínica no site e Termos e assinaturas na operação. Reservar Portal do paciente para autosserviço caso venha a existir.",
+    "aceite": "Antes do clique a finalidade e quem faz login ficam explícitos; não se exige credencial da equipe do paciente.",
+    "fontes": [
+      [
+        "clinica-site",
+        "conteudo/para-pacientes.html",
+        "Acessar o portal do paciente"
+      ],
+      [
+        "clinica-site",
+        "portal/portal.js",
+        "A equipe entra com seu usuário"
+      ]
+    ]
+  },
+  {
+    "id": "A45",
+    "prioridade": "P2",
+    "classe": "Limitação funcional explícita",
+    "area": "Portal de termos",
+    "titulo": "Busca de pacientes atende somente BSV agendado hoje",
+    "atual": "dia() apresenta Buscar paciente, mas informa que lista e busca mostram somente pacientes com BSV agendado para hoje.",
+    "impacto": "Quem tenta colher termo de outro procedimento ou outra data encontra uma fronteira funcional que precisa conhecer.",
+    "proposta": "Renomear Buscar BSV de hoje e, se o escopo desejado for mais amplo, oferecer coleta por sessão autorizada com data/procedimento explícitos.",
+    "aceite": "O campo deixa claro o universo pesquisado; eventual ampliação mantém conferência de identidade e contexto da sessão.",
+    "fontes": [
+      [
+        "clinica-site",
+        "portal/portal.js",
+        "A lista e a busca mostram somente pacientes com BSV agendado para hoje."
+      ]
+    ]
+  },
+  {
+    "id": "A46",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Site",
+    "titulo": "Agendar consulta do cabeçalho abre página intermediária",
+    "atual": "O CTA global Agendar consulta aponta para /atendimento/. A página Contato já oferece Agendar pelo WhatsApp.",
+    "impacto": "Para quem já decidiu falar com a recepção, o cabeçalho acrescenta uma etapa informativa ao percurso.",
+    "proposta": "Oferecer Falar com a recepção/Agendar pelo WhatsApp como ação direta e manter Como funciona o agendamento como orientação secundária. Medir antes de remover conteúdo útil.",
+    "aceite": "O CTA informa o canal de destino e não promete reserva confirmada de horário.",
+    "fontes": [
+      [
+        "clinica-site",
+        "modelos/base.html",
+        "agendar-topo"
+      ],
+      [
+        "clinica-site",
+        "conteudo/contato.html",
+        "Agendar pelo WhatsApp"
+      ]
+    ]
+  },
+  {
+    "id": "A47",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "CRM",
+    "titulo": "Concluir conversa muda a lista para concluídos",
+    "atual": "Depois de fechar o diálogo, o handler define filter=closed e atualiza a tela.",
+    "impacto": "Quem está esvaziando uma fila precisa trocar novamente o filtro para continuar os atendimentos abertos.",
+    "proposta": "Preservar a seleção de origem e oferecer Próximo atendimento elegível; mostrar a conclusão por confirmação e link ao histórico.",
+    "aceite": "Concluir uma conversa não tira o operador da fila em que estava trabalhando.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "filter='closed';document.querySelectorAll"
+      ]
+    ]
+  },
+  {
+    "id": "A48",
+    "prioridade": "P1",
+    "classe": "Confirmado no código",
+    "area": "CRM",
+    "titulo": "Falha de atualização após concluir escreve erro em diálogo já fechado",
+    "atual": "No handler closeForm, a conclusão é gravada, closeDialog.close() é chamado e depois ocorre await refresh(). O mesmo catch escreve em closeError, que fica dentro do diálogo fechado.",
+    "impacto": "Se apenas a atualização falhar, a mensagem pode ficar fora da vista; a operação já persistida pode ser confundida com falha de conclusão.",
+    "proposta": "Separar sucesso da mutação e atualização da tela. Após concluir, mostrar aviso global e Tentar atualizar se a leitura falhar.",
+    "aceite": "Simular sucesso do POST e falha no refresh exibe Conclusão registrada, atualização pendente, sem repetir a conclusão.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "submit('closeForm',async()=>"
+      ]
+    ]
+  },
+  {
+    "id": "A49",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "CRM",
+    "titulo": "Modelos WhatsApp necessários ficam em Mais ações",
+    "atual": "mountSettings move o botão templates para um details Mais ações junto a aiOfferHuman. Não é uma cópia do botão.",
+    "impacto": "Em situações que exigem modelo aprovado, a ação necessária pode ficar em um menu pouco evidente.",
+    "proposta": "Quando a conversa exigir modelo, promover Enviar modelo aprovado junto ao compositor e explicar a condição; manter Mais ações para usos ocasionais.",
+    "aceite": "No estado em que texto livre não pode ser enviado, o caminho disponível para um modelo aparece diretamente.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "moreLabel.textContent='Mais ações ⌄'"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "on('templates','click'"
+      ]
+    ]
+  },
+  {
+    "id": "A50",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "CRM",
+    "titulo": "Alerta de espera mistura tempo corrido e expediente",
+    "atual": "serviceWaitBadge mostra as duas medidas; renderServiceQueue conta Acima de 15 min usando Date.now()-waitingSince, isto é, tempo corrido.",
+    "impacto": "O resumo não explicita no próprio título que o limite inclui período fora do expediente, embora a linha individual diferencie.",
+    "proposta": "Nomear Acima de 15 min corridos e permitir alternar para Em expediente, com mesma base no indicador e na filtragem.",
+    "aceite": "Uma conversa recebida fora do expediente tem classificação consistente com a métrica selecionada.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "function renderServiceQueue()"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "function serviceWaitBadge(c)"
+      ]
+    ]
+  },
+  {
+    "id": "A51",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "CRM",
+    "titulo": "Listas cortadas não oferecem paginação no componente",
+    "atual": "O CRM renderiza só 60 confirmações pendentes, 70 eventos da agenda, 60 eventos de recall e 100 candidatos de recall. O recall informa até 100 e tem filtros; esses renders não oferecem próxima página. Meu dia, ao contrário, tem atalhos para listas maiores e não é tratado como perda de acesso.",
+    "impacto": "O operador precisa restringir filtros ou ir a outra área para investigar o que ficou fora; o total pode ser maior que a lista disponível.",
+    "proposta": "Usar paginação/Carregar mais com total do recorte e manter falhas pendentes acessíveis independentemente da idade. Não remover limites técnicos sem paginação no servidor.",
+    "aceite": "Com mais de 100 candidatos e 60 pendências, todos os itens autorizados podem ser percorridos sem mudar artificialmente o filtro.",
+    "fontes": [
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "filtered.slice(0,100)"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "p.pending.slice(0,60)"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "jobs.slice(0,70)"
+      ],
+      [
+        "semdor-crm",
+        "src/Clinica.Crm/wwwroot/app.js",
+        "d.jobs.slice(0,60)"
+      ]
+    ]
+  },
+  {
+    "id": "A52",
+    "prioridade": "P2",
+    "classe": "Limitação funcional explícita",
+    "area": "Web de consulta",
+    "titulo": "Prontuário web termina nas 20 sessões mais recentes",
+    "atual": "Paginas.Sessoes usa Take(20) e informa o total. Nesse render não há paginação nem caminho para sessões mais antigas.",
+    "impacto": "Um usuário autorizado consulta parte do histórico e precisa mudar de aplicação para continuar.",
+    "proposta": "Oferecer Carregar anteriores ou pesquisa por período, mantendo esse produto como leitura e preservando a trilha de acesso.",
+    "aceite": "Paciente fictício com 21 sessões permite alcançar a mais antiga e continua mostrando o total correto.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Web/Paginas.cs",
+        "foreach (var e in sessoes.Take(20))"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Web/Paginas.cs",
+        "As {Math.Min(sessoes.Count, 20)} sessões"
+      ]
+    ]
+  },
+  {
+    "id": "A53",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Navegação",
+    "titulo": "Pesquisa de seções depende de acentos e dos nomes exatos",
+    "atual": "ShellViewModel.Casa usa Contains com OrdinalIgnoreCase, sem normalização de acentos nem catálogo de sinônimos. Isso ignora caixa, mas não torna relatorios equivalente a relatórios.",
+    "impacto": "A busca que deveria encurtar caminhos pode não encontrar o destino quando o operador escreve sem acento ou usa um nome anterior.",
+    "proposta": "Normalizar acentos e cadastrar aliases por chave canônica, como impressão, segunda via e documentos, respeitando as permissões do destino.",
+    "aceite": "Pesquisar com/sem acentos retorna os mesmos destinos; aliases não revelam telas proibidas.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs",
+        "bool Casa(string? t)"
+      ]
+    ]
+  },
+  {
+    "id": "A54",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Navegação",
+    "titulo": "Pesquisa sem resultados fecha o painel de resultados",
+    "atual": "Ao terminar a busca, PesquisaAberta recebe ResultadosPesquisa.Count > 0. Com texto não vazio e zero resultados, o painel é fechado.",
+    "impacto": "A pessoa não recebe nesse painel uma explicação de que não houve correspondência nem sugestão para continuar.",
+    "proposta": "Manter o painel aberto para a consulta não vazia com Nenhuma seção encontrada e exemplos de busca; distinguir ausência de destino de falta de permissão sem revelar dados restritos.",
+    "aceite": "Digitar termo inexistente exibe estado vazio acessível; apagar o termo fecha o painel.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs",
+        "PesquisaAberta = ResultadosPesquisa.Count > 0;"
+      ]
+    ]
+  },
+  {
+    "id": "A55",
+    "prioridade": "P3",
+    "classe": "Limitação funcional explícita",
+    "area": "Treinamento",
+    "titulo": "Progresso das aulas é local à máquina",
+    "atual": "AcervoTreinamento grava progresso-{usuarioId}.json em LocalApplicationData. O progresso desse componente não acompanha automaticamente o profissional entre computadores.",
+    "impacto": "Ao mudar de posto, o mesmo usuário pode ver aulas sem o progresso que marcou em outro dispositivo.",
+    "proposta": "Explicitar Progresso neste computador ou sincronizar por usuário com política de conflito e uso offline. Manter cache de vídeo local.",
+    "aceite": "A interface informa o escopo do progresso; se houver sincronização, dois dispositivos retomam a posição correta.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Treinamento/AcervoTreinamento.cs",
+        "_progresso=Path.Combine"
+      ]
+    ]
+  },
+  {
+    "id": "A56",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Relacionamento",
+    "titulo": "Seção CRM da ficha apresenta contatos de campanha",
+    "atual": "RelacionamentoPacienteView chama-se Relacionamento (CRM) e fala das últimas conversas, mas renderiza Contatos com tipo, detalhe e situação de campanha; o estado vazio é Nenhum contato de campanha registrado.",
+    "impacto": "O nome pode sugerir que o histórico completo de conversas do semdor-crm está ali. A auditoria não encontrou esse histórico nesse componente.",
+    "proposta": "Nomear Campanhas e origem do paciente e oferecer abertura contextual da central de conversas quando a integração estiver comprovada; mostrar a origem de cada registro.",
+    "aceite": "O operador consegue distinguir contato de campanha, conversa WhatsApp e acompanhamento clínico.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/RelacionamentoPacienteView.xaml",
+        "Relacionamento (CRM)"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/RelacionamentoPacienteView.xaml",
+        "Nenhum contato de campanha registrado."
+      ]
+    ]
+  },
+  {
+    "id": "A57",
+    "prioridade": "P3",
+    "classe": "Confirmado no código",
+    "area": "Privacidade",
+    "titulo": "Exportar meus dados usa a voz do paciente em tela da equipe",
+    "atual": "PrivacidadePacienteView apresenta Exportar meus dados na ficha de um paciente aberta pelo operador.",
+    "impacto": "O pronome meus pode ser interpretado como dados da conta conectada, em vez dos dados do paciente selecionado.",
+    "proposta": "Usar Exportar dados deste paciente, com nome/identificador e descrição do conteúdo na confirmação; manter autor e destinatário distintos.",
+    "aceite": "A confirmação deixa explícito de quem são os dados e qual arquivo será produzido.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/PrivacidadePacienteView.xaml",
+        "Content=\"Exportar meus dados\""
+      ]
+    ]
+  },
+  {
+    "id": "A58",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Financeiro",
+    "titulo": "Pix presencial oferece copia e cola, sem QR nessa janela",
+    "atual": "CobrancaPixWindow exibe texto Pix copia e cola e Copiar. A explicação pede colar no aplicativo do paciente ou enviar pelo WhatsApp; a janela não contém QR.",
+    "impacto": "No balcão, transferir texto entre computador e celular acrescenta uma etapa ao pagamento.",
+    "proposta": "Adicionar QR do mesmo payload e opção de impressão, com valor e recebedor visíveis. Manter o aviso de que gerar código não confirma recebimento.",
+    "aceite": "QR e texto codificam exatamente o mesmo valor/referência; mudar esses campos invalida ambos.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Financeiro/Janelas/CobrancaPixWindow.xaml",
+        "Pix copia e cola"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Financeiro/ViewModels/CobrancaPixViewModel.cs",
+        "Código copiado. Cole no aplicativo do paciente"
+      ]
+    ]
+  },
+  {
+    "id": "A59",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Integrações",
+    "titulo": "Teste de publicação deixa limpeza para o painel do provedor",
+    "atual": "EnviarExemploAsync publica um arquivo de exemplo e orienta abrir o endereço e depois apagar o objeto no painel do provedor.",
+    "impacto": "Testar a configuração exige alternar de sistema e lembrar de uma limpeza manual.",
+    "proposta": "Exibir Abrir teste e Remover arquivo de teste, com identificador do objeto criado; oferecer expiração automática apenas para objetos explicitamente de teste.",
+    "aceite": "O teste informa seu estado e permite limpar somente seu próprio objeto, sem acesso aos documentos reais.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/ViewModels/ConfiguracoesViewModel.cs",
+        "private async Task EnviarExemploAsync"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Gerente/ViewModels/ConfiguracoesViewModel.cs",
+        "abre — e apague o objeto"
+      ]
+    ]
+  },
+  {
+    "id": "A60",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Acesso",
+    "titulo": "Troca de usuário exige reiniciar a aplicação",
+    "atual": "TrocarUsuario avisa para salvar, abre um novo processo e encerra o atual. O comentário explica que permissões das ViewModels são construídas com a sessão.",
+    "impacto": "Em posto compartilhado, a troca implica reconstruir a sessão de trabalho; não basta mudar o nome conectado.",
+    "proposta": "Projetar encerramento controlado com pendências salvas/descartadas e reconstrução dos escopos de usuário. Preservar a barreira atual até comprovar isolamento entre sessões.",
+    "aceite": "A nova sessão não herda dados, botões ou permissões da anterior; alterações não salvas têm tratamento explícito.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs",
+        "private void TrocarUsuario()"
+      ]
+    ]
+  },
+  {
+    "id": "A61",
+    "prioridade": "P2",
+    "classe": "Oportunidade de clareza",
+    "area": "Exames",
+    "titulo": "Estado vazio reúne nenhum pedido e todos respondidos",
+    "atual": "AnexosPacienteView mostra Nenhum exame aguardando e explica duas possibilidades: todos com resultado ou nenhum exame pedido.",
+    "impacto": "Os dois estados pedem próximos passos diferentes, mas recebem a mesma orientação.",
+    "proposta": "Quando não houver pedidos, oferecer Solicitar exame ao perfil habilitado; quando todos estiverem respondidos, oferecer Ver resultados.",
+    "aceite": "Os dois cenários fictícios geram mensagem e ação próprias, sem sugerir um pedido clínico automaticamente.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Clinico/Views/AnexosPacienteView.xaml",
+        "Todo pedido deste paciente já tem resultado amarrado"
+      ]
+    ]
+  },
+  {
+    "id": "A62",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Recepção",
+    "titulo": "Pagamentos vazio instrui voltar ao fechamento ou à venda",
+    "atual": "O estado vazio de PagamentosView orienta registrar cobrança no fechamento da sessão ou na venda do pacote, sem ação contextual nesse bloco.",
+    "impacto": "Quem chegou para receber precisa descobrir qual tarefa anterior está faltando e procurar o paciente novamente em outro fluxo.",
+    "proposta": "Oferecer Conferir sessões deste paciente e Ver pacotes, com retorno à cobrança. Não criar dívida automaticamente só porque a lista está vazia.",
+    "aceite": "O operador pode continuar para a origem da cobrança mantendo o paciente e retornar ao recebimento.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/PagamentosView.xaml",
+        "Registre a cobrança no fechamento da sessão"
+      ]
+    ]
+  },
+  {
+    "id": "A63",
+    "prioridade": "P3",
+    "classe": "Oportunidade de clareza",
+    "area": "Nomenclatura",
+    "titulo": "Acompanhamento designa cuidado clínico e retorno comercial",
+    "atual": "AcompanhamentoView do Clínico reúne dor, medidas e avaliações. AcompanhamentoView da Recepção reúne recall e novos BSV, responsáveis e contato.",
+    "impacto": "Busca, treinamento e pedidos de suporte podem usar o mesmo nome para tarefas diferentes.",
+    "proposta": "Usar Evolução e medidas para a leitura clínica e Acompanhamento de retornos para a operação de contato; conservar vínculos entre os domínios.",
+    "aceite": "Menus, busca e ajuda distinguem os dois assuntos sem fundir seus dados.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Clinico/Views/AcompanhamentoView.xaml",
+        "Header=\"Evolução da dor\""
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Recepcao/Views/AcompanhamentoView.xaml",
+        "Recall · pacientes sem retorno"
+      ]
+    ]
+  },
+  {
+    "id": "A64",
+    "prioridade": "P1",
+    "classe": "Confirmado no código",
+    "area": "Faturamento",
+    "titulo": "Guias sem resposta no XML permanecem com decisão de aceite",
+    "atual": "O fluxo alerta que guias ausentes no XML ficam aceitas e podem ser ajustadas manualmente. RetornoLoteWindow constrói todas as linhas e AplicarImportacao altera apenas as decisões encontradas; ao confirmar, todas entram em Decisoes.",
+    "impacto": "Ausência de resposta exige correção manual para não ser tratada como decisão positiva. O aviso existe, mas o padrão favorece a conclusão indevida.",
+    "proposta": "Representar Sem retorno como estado próprio, destacar divergências e exigir decisão explícita para itens ausentes antes de encerrar o lote; validar o modelo de domínio necessário.",
+    "aceite": "XML parcial conserva itens ausentes como pendentes e nunca os converte silenciosamente em aceitos.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/TissViewModel.cs",
+        "Elas ficam como aceitas"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/Alertas/RetornoLoteWindow.xaml.cs",
+        "foreach (var decisao in resultado.Decisoes)"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/Alertas/RetornoLoteWindow.xaml.cs",
+        "Decisoes = Linhas"
+      ]
+    ]
+  },
+  {
+    "id": "A65",
+    "prioridade": "P1",
+    "classe": "Confirmado no código",
+    "area": "Faturamento",
+    "titulo": "Baixar XML como segunda via regenera com dados atuais",
+    "atual": "O botão XML é descrito como baixar novamente/2ª via. BaixarXml lê o lote e os parâmetros atuais e chama GerarLoteXml novamente, preservando o registro ANS salvo no lote. Não lê o arquivo originalmente exportado.",
+    "impacto": "Depois de alterar cadastro/parâmetros, uma suposta segunda via pode não ter os mesmos bytes do XML já entregue.",
+    "proposta": "Separar Baixar original arquivado e Gerar versão corrigida, com hash, data e situação de envio explícitos.",
+    "aceite": "Alterar parâmetros não muda o original; regeneração fica identificada e não substitui silenciosamente o artefato enviado.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/Views/TissView.xaml",
+        "Baixar novamente o XML deste lote"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/TissViewModel.cs",
+        "private async Task BaixarXml"
+      ]
+    ]
+  },
+  {
+    "id": "A66",
+    "prioridade": "P2",
+    "classe": "Confirmado no código",
+    "area": "Faturamento",
+    "titulo": "Validação TISS não expõe separadamente XSD não executado",
+    "atual": "ValidarXmlGerado faz validação estrutural e tenta XSD somente se encontrar arquivo na pasta local. Exceção nessa etapa vai para log; o retorno é apenas uma lista de problemas.",
+    "impacto": "Uma lista sem problemas não informa se o XSD rodou, faltou ou falhou; o operador não vê o nível de verificação realizado.",
+    "proposta": "Retornar estado por etapa: estrutura, schema/versão, não executado e erro de validação, com correção acessível. Não prometer aceite da operadora.",
+    "aceite": "Sem XSD ou com erro ao lê-lo, a tela informa validação incompleta mesmo que a estrutura básica passe.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/TissViewModel.cs",
+        "private static IReadOnlyList<string> ValidarXmlGerado"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/TissViewModel.cs",
+        "Validação XSD do lote TISS"
+      ]
+    ]
+  },
+  {
+    "id": "A67",
+    "prioridade": "P2",
+    "classe": "Oportunidade de redesenho de regra",
+    "area": "Faturamento",
+    "titulo": "Rodada vencida bloqueia a janela até decidir todas as guias",
+    "atual": "A inicialização do Faturamento chama a rodada com bloqueante:true. Nesse modo Cancelar some e OnClosing impede fechar sem concluir todas as decisões exigidas. A ativação efetiva depende do status da rodada.",
+    "impacto": "Quem precisa consultar outra informação para decidir pode ficar preso numa tarefa que exige resolver tudo naquele momento.",
+    "proposta": "Avaliar uma fila de pendências obrigatórias com progresso salvo e bloqueio apenas das ações dependentes; prever responsável, escalonamento e adiamento justificado conforme regra aprovada.",
+    "aceite": "O operador consegue consultar o necessário e retomar, mantendo a obrigação de resolver as guias e o histórico das decisões.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop/App.xaml.cs",
+        "bloqueante: true"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/Alertas/RodadaPendenciasWindow.xaml.cs",
+        "if (_bloqueante && !_concluido)"
+      ]
+    ]
+  },
+  {
+    "id": "A68",
+    "prioridade": "P2",
+    "classe": "Oportunidade de simplificação",
+    "area": "Faturamento",
+    "titulo": "Radar interrompe exportação com texto, sem abrir a correção",
+    "atual": "Exportar apresenta riscos em confirmação e, ao cancelar, orienta corrigir guias/configurações. Os trechos mostram listas textuais e retorno, sem destino contextual para cada pendência.",
+    "impacto": "A pessoa precisa localizar as entidades mencionadas e depois reconstruir a seleção do lote.",
+    "proposta": "Criar prévia de prontidão com linha por guia/campo e Corrigir aqui/Abrir cadastro, retomando o lote após a correção.",
+    "aceite": "Cada pendência aponta para seu registro e a prévia é recalculada antes de gerar o lote.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/TissViewModel.cs",
+        "Exportação cancelada pelo radar de glosas"
+      ],
+      [
+        "Clinica",
+        "src/Clinica.Modulo.Faturamento/ViewModels/TissViewModel.cs",
+        "Corrija na tela Configurações"
+      ]
+    ]
+  },
+  {
+    "id": "A69",
+    "prioridade": "P3",
+    "classe": "Oportunidade de simplificação",
+    "area": "Ajuda",
+    "titulo": "Ajuda exige localizar manualmente arquivos de diagnóstico",
+    "atual": "AjudaView descreve caminhos de logs e pede anotar horário e tarefa. Esse componente é texto e não oferece coletar um diagnóstico.",
+    "impacto": "O suporte depende de navegar no sistema de arquivos e correlacionar o episódio manualmente.",
+    "proposta": "Oferecer Copiar diagnóstico deste erro com referência, versão e contexto técnico revisável, e Abrir pasta de logs para quem estiver autorizado. Evitar incluir dados de pacientes por padrão.",
+    "aceite": "Um erro tem referência recuperável e o operador consegue fornecer contexto sem procurar arquivo mensal à mão.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/AjudaView.xaml",
+        "Para relatar um problema técnico"
+      ]
+    ]
+  },
+  {
+    "id": "A70",
+    "prioridade": "P3",
+    "classe": "Confirmado no código",
+    "area": "Nomenclatura",
+    "titulo": "Ajuda promete que falha nunca aparece como sucesso",
+    "atual": "AjudaView usa a afirmação absoluta Falha nunca aparece como sucesso. A35 e A48 mostram percursos cujo feedback ainda precisa de correção; a frase descreve uma intenção arquitetural como garantia universal.",
+    "impacto": "A ajuda pode levar a interpretar silêncio ou uma confirmação como prova de que todo o fluxo terminou.",
+    "proposta": "Explicar os estados esperados e a recuperação sem garantia absoluta: operação salva, atualização pendente, envio preparado, envio confirmado.",
+    "aceite": "O texto de ajuda corresponde aos estados implementados e é verificado nos casos de falha documentados.",
+    "fontes": [
+      [
+        "Clinica",
+        "src/Clinica.Desktop.Shell/Componentes/AjudaView.xaml",
+        "Falha nunca aparece como sucesso"
+      ]
+    ]
+  }
+]

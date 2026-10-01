@@ -1,0 +1,30 @@
+{
+  "modelo_solicitado": "jev-1.13.0",
+  "sha256_pedido": "ecf6d8997f4ced6806ef009e1268d2ade5866c93c6c8ed155291f81fd277635e",
+  "answers": {
+    "A66": {
+      "choice": "sustentado",
+      "confidence": 0.97
+    },
+    "A67": {
+      "choice": "sustentado",
+      "confidence": 0.95
+    },
+    "A68": {
+      "choice": "sustentado",
+      "confidence": 0.93
+    },
+    "A69": {
+      "choice": "sustentado",
+      "confidence": 0.94
+    },
+    "A70": {
+      "choice": "parcial",
+      "confidence": 0.31
+    }
+  },
+  "usage": {
+    "input_tokens": 6568,
+    "output_tokens": 246
+  }
+}
