@@ -1,5 +1,7 @@
 # Proposta de reorganização e ordem de trabalho
 
+> **Escopo vigente — portal web preservado:** por decisão do proprietário em 01/10/2026, não alterar o portal web nem reunir evolução e consentimentos nele. Recomendações sobre portal neste inventário são históricas e não autorizam implementação. Ver [regra obrigatória, imagens desktop e cobertura](ESCOPO-E-PROPOSTAS-VISUAIS.md).
+
 O objetivo é reduzir decisões repetidas e deslocamentos sem perder funções. A proposta não é uma autorização para apagar telas ou alterar regras clínicas/financeiras automaticamente. Cada mudança deve manter as permissões e o histórico das entidades afetadas.
 
 ## Estrutura de informação proposta

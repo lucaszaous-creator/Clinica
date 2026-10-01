@@ -1,5 +1,7 @@
 # Navegação por aplicativo e perfil
 
+> **Escopo vigente — portal web preservado:** por decisão do proprietário em 01/10/2026, não alterar o portal web nem reunir evolução e consentimentos nele. Recomendações sobre portal neste inventário são históricas e não autorizam implementação. Ver [regra obrigatória, imagens desktop e cobertura](ESCOPO-E-PROPOSTAS-VISUAIS.md).
+
 Matriz derivada das declarações C# e do filtro do shell. Perfis padrão; concessões/revogações individuais alteram o resultado. Treinamento é acrescentado pelo shell e não integra as contagens abaixo. Não abre janelas nem consulta banco.
 
 ## Recepção · Recepcao

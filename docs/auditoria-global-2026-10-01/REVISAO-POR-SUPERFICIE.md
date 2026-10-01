@@ -1,5 +1,7 @@
 # Revisão por superfície
 
+> **Escopo vigente — portal web preservado:** por decisão do proprietário em 01/10/2026, não alterar o portal web nem reunir evolução e consentimentos nele. Recomendações sobre portal neste inventário são históricas e não autorizam implementação. Ver [regra obrigatória, imagens desktop e cobertura](ESCOPO-E-PROPOSTAS-VISUAIS.md).
+
 Uma ficha por arquivo identificado na extração. A triagem do Jev recebeu os controles relevantes de todos os 263 arquivos. A revisão editorial aprofundou os fluxos descritos nos achados; **não houve execução de cada tela nem leitura manual integral de todos os arquivos**. As recomendações de domínio abaixo são roteiros de melhoria/verificação, não defeitos adicionais contabilizados. Estilos e App.xaml permanecem no inventário para não serem confundidos com telas perdidas.
 
 Para cada rótulo, campo e ação individual, consulte [CATALOGO.md](CATALOGO.md) e [controles.csv](controles.csv). Para implementações, consulte [funcoes.csv](funcoes.csv). Ausência de achado específico não significa aprovação da interface.

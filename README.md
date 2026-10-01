@@ -10,6 +10,12 @@ A [auditoria global dos sistemas — 01/10/2026](docs/auditoria-global-2026-10-0
 documenta 70 achados, o catálogo de interfaces, os caminhos por perfil e propostas
 de simplificação para Clinica, site/portais e CRM, com revisão auxiliar do Jev.
 
+**NÃO ALTERAR O PORTAL WEB:** a cliente está satisfeita com a experiência atual.
+O portal está fora do escopo desta rodada, inclusive mudanças indiretas por código
+compartilhado. A proposta de juntar evolução e consentimentos no portal foi retirada.
+Esta restrição prevalece sobre recomendações antigas da auditoria.
+Ver [escopo obrigatório e propostas visuais para o desktop](docs/auditoria-global-2026-10-01/ESCOPO-E-PROPOSTAS-VISUAIS.md).
+
 ## Faturamento
 
 Sistema de **faturamento** (não recebíveis) para clínica médica. Modela os fluxogramas

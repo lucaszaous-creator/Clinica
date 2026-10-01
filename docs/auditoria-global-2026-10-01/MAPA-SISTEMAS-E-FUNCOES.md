@@ -1,5 +1,7 @@
 # Mapa dos sistemas, funções e responsabilidades
 
+> **Escopo vigente — portal web preservado:** por decisão do proprietário em 01/10/2026, não alterar o portal web nem reunir evolução e consentimentos nele. Recomendações sobre portal neste inventário são históricas e não autorizam implementação. Ver [regra obrigatória, imagens desktop e cobertura](ESCOPO-E-PROPOSTAS-VISUAIS.md).
+
 Este mapa organiza o catálogo completo por finalidade. A existência de dois componentes com o mesmo assunto não demonstra, sozinha, redundância: uma fila geral, uma ficha individual e uma janela de edição podem ser três entradas legítimas para o mesmo registro. O problema aparece quando há regras distintas, perda de contexto, nomes incompatíveis ou repetição da mesma decisão.
 
 ## Sistemas e fronteiras

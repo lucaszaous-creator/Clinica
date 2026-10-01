@@ -1,5 +1,7 @@
 # Achados e propostas de simplificação
 
+> **Escopo vigente — portal web preservado:** por decisão do proprietário em 01/10/2026, não alterar o portal web nem reunir evolução e consentimentos nele. Recomendações sobre portal neste inventário são históricas e não autorizam implementação. Ver [regra obrigatória, imagens desktop e cobertura](ESCOPO-E-PROPOSTAS-VISUAIS.md).
+
 P1: tratar primeiro por induzir retrabalho/documentos duplicados ou impedir reprodução da integração. P2: corrigir percurso, ação ou organização. P3: clareza e manutenção. Prioridade é proposta desta auditoria, sem estimativa de frequência em produção.
 
 “Confirmado” significa verificado no código ou na matriz indicada. Não significa reproduzido na instalação da clínica. O voto do Jev é revisão auxiliar, não validação independente de execução.

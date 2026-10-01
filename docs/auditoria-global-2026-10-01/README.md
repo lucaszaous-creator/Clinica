@@ -1,5 +1,7 @@
 # Auditoria global dos sistemas da clínica — 01/10/2026
 
+> **Escopo vigente — portal web preservado:** por decisão do proprietário em 01/10/2026, não alterar o portal web nem reunir evolução e consentimentos nele. Recomendações sobre portal neste inventário são históricas e não autorizam implementação. Ver [regra obrigatória, imagens desktop e cobertura](ESCOPO-E-PROPOSTAS-VISUAIS.md).
+
 **70 achados documentados**, com localização no código, consequência, proposta e critério de aceite. O trabalho cobre o ecossistema **Clinica, clinica-site e semdor-crm**, incluindo as cinco aplicações desktop, a web de leitura, os portais, o site institucional e a central de atendimento. A segunda passagem aprofundou ações internas, estados de erro, paginação, nomenclatura, persistência e continuidade entre sistemas, além dos primeiros 30 achados.
 
 Esta entrega é uma auditoria e uma proposta de reorganização. **Nenhuma correção de produto, operação clínica, emissão, envio ou alteração de paciente foi executada.** Não há julgamento sobre a conduta da equipe: os problemas são tratados como decisões de produto e manutenção que precisam ser reconciliadas.

@@ -1,5 +1,7 @@
 # Jornadas atuais e caminhos propostos
 
+> **Escopo vigente — portal web preservado:** por decisão do proprietário em 01/10/2026, não alterar o portal web nem reunir evolução e consentimentos nele. Recomendações sobre portal neste inventário são históricas e não autorizam implementação. Ver [regra obrigatória, imagens desktop e cobertura](ESCOPO-E-PROPOSTAS-VISUAIS.md).
+
 Os percursos abaixo são reconstruídos do código. As setas representam mudanças de contexto/etapa, **não uma medição de cliques nem um teste de usabilidade**. Permissão, sessão existente, tipo de documento e configuração podem abreviar ou ampliar o caminho. Os achados referenciados contêm links de origem.
 
 ## Emitir um documento e entregar ao paciente
