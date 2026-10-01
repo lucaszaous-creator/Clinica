@@ -96,6 +96,8 @@ Nos arquivos enviados da PRE 2026/0017, o espelho `execucao.pdf` mostra execuç�
 Jev `jev-1.13.0`, pela API TypeSafe, recebeu apenas código e cenários fictícios. A primeira revisão indicou risco de perder a impressão de execução no regime em papel. O caso foi confirmado e corrigido com seleção única e teste de regressão. A segunda revisão recomendou prosseguir com validação; não é uma certificação ou aceite de produção.
 
 - 40 testes direcionados aprovados: PDF unificado nos três resultados, duas assinaturas íntegras, horário digitado, justificativas, arquivo principal ausente, fila sem documento secundário e regime em papel.
+- Suíte completa do sistema: 2.930 testes aprovados. Na verificação adicional HTTP, dez cenários usavam “hoje às 10:37”, o que após a meia-noite passou a ser horário futuro e foi corretamente recusado pela regra clínica. O cenário fictício foi ajustado para ontem; nenhuma validação de produção foi relaxada. As primeiras tentativas de release Windows foram canceladas antes da publicação enquanto essa causa era verificada.
+- Após corrigir a data fictícia, os 29 testes HTTP passaram, incluindo os dez cenários SafeID. O mesmo cenário explicava a falha anterior do CI Linux, que usa outro fuso horário.
 - Compilação Windows real e `tools/ValidarLayoutWindows --infusao`: impressão única, aviso histórico, ações protegidas durante processamento e fila sem falsa pendência; telas conferidas em 880, 1024 e 1366 pixels.
 - PDFs fictícios dos três resultados foram renderizados e conferidos visualmente.
 - Evidências locais privadas em `tmp/infusao-review/desktop-*.log` e `jev-desktop*-resposta.json`; amostras fictícias em `tmp/pdfs/desktop-infusao/qa`. Não versionar documentos de pacientes.

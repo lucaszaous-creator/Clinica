@@ -85,7 +85,10 @@ public sealed class SafeIdAutomaticoHttpTests
                 p=(await sp.GetRequiredService<IClinicaRepositorio>().ObterPrescricaoInternaAsync(p.Id))!;
                 var checagens=sp.GetRequiredService<ChecagemPrescricaoService>();
                 var executante=new IdentificacaoExecutante(enf.Id,enf.Nome,enf.Profissional.RegistroConselho);
-                await checagens.ChecarAsync(p.Itens.Single().Id,SituacaoChecagem.Realizado,new TimeOnly(10,37),executante);
+                // Data passada: 10:37 de hoje seria uma administração futura ao rodar
+                // de madrugada. A regra clínica permanece ativa durante o teste HTTP.
+                await checagens.ChecarAsync(p.Itens.Single().Id,SituacaoChecagem.Realizado,new TimeOnly(10,37),executante,
+                    dataRealizacao:DateOnly.FromDateTime(DateTime.Today.AddDays(-1)));
                 await checagens.EncerrarAsync(p.Id,executante);
                 if(indice==0){id=p.Id;original=(await assinatura.FolhaAsync(id,FolhaPrescricao.Prescricao)).Pdf;}
                 else idOutra=p.Id;
