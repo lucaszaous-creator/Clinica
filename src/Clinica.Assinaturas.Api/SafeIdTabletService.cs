@@ -70,6 +70,20 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
         Paciente=p is null ? null : new {p.Id,p.Nome,p.Documento,p.DataNascimento,p.Endereco,p.Telefone,p.Email,p.Carteirinha,p.ConvenioCodigo},
         Profissional=profissional is null ? null : new {profissional.Id,profissional.Nome,profissional.Cpf,profissional.RegistroConselho,profissional.EspecialidadeCodigo,profissional.Ativo}
     };
+    public async Task<object> PendenciaAsync(SessaoTablet s,int agendamento,string tipo,int id,CancellationToken ct)
+    {
+        await acesso.ExigirDocumentoAsync(s,agendamento,tipo,id,true,ct);
+        var documento=tipo is "infusao" or "execucao"
+            ? "PRE "+(await repo.ObterPrescricaoInternaAsync(id,ct))!.Numero
+            : (await repo.ObterDocumentoAsync(id,ct))!.Numero;
+        var a=autorizacoes.Ativa(s.Id,tipo,id);
+        var op=await registro.AtivaAsync(tipo,id,ct);
+        var situacao=op?.Situacao??a?.Situacao;
+        var propria=op is null || op.SessaoId==s.Id;
+        return new {documento,situacao,expiraEm=op?.ExpiraEm??a?.ExpiraEm,
+            podeRetomar=propria && situacao=="aguardando" && a?.Situacao=="aguardando",
+            operacao=propria ? op?.Id??a?.Id : null};
+    }
     public async Task<object> IniciarAsync(SessaoTablet s,int agendamento,string tipo,int id,bool confirmou,CancellationToken ct,bool concluirAutomaticamente = false)
     {
         if(concluirAutomaticamente && (!ConclusaoAutomatica || !confirmou || tipo is not ("infusao" or "execucao")))
@@ -78,6 +92,19 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
         var (opcoes,retorno)=Configuracao();
         if(string.IsNullOrWhiteSpace(u.Profissional!.Cpf)) throw ErroFormularioTablet.Criar("Cadastre o CPF do profissional no sistema antes de assinar.");
         var hash=ContratoTablet.Hash(await Conferir(tipo,id,confirmou,ct)+ContratoTablet.Serializar(Cadastro(null,u.Profissional)));
+        var ativa=autorizacoes.Ativa(s.Id,tipo,id);
+        if(ativa is not null)
+        {
+            if(ativa.Situacao!="aguardando" || ativa.ConteudoHash!=hash || ativa.ConclusaoAutomatica!=concluirAutomaticamente)
+                throw new ConflitoClinicoTablet("A tentativa deste documento não pode ser retomada. Consulte seu andamento; outras infusões continuam disponíveis.");
+            var existente=await registro.AtivaAsync(tipo,id,ct);
+            if(concluirAutomaticamente && (existente?.Id!=ativa.Id || existente.Situacao!="aguardando"))
+                throw new ConflitoClinicoTablet("Confira o resultado da tentativa deste documento antes de autorizar novamente.");
+            var escopoAtivo=EscopoSafeID.ParaAto(tipo=="execucao"?2:1);
+            using var httpAtivo=clientes.CreateClient("SafeIdTablet");
+            return new {ativa.Id,Url=new ClienteSafeID(httpAtivo,opcoes).UrlDeAutorizacao(ativa.Pkce,retorno,escopoAtivo.Escopo,
+                cpf:u.Profissional.Cpf,estado:ativa.Estado,duracaoSegundos:escopoAtivo.DuracaoSegundos).AbsoluteUri};
+        }
         using var http=clientes.CreateClient("SafeIdTablet"); http.Timeout=TimeSpan.FromSeconds(30);
         var cliente=new ClienteSafeID(http,opcoes);
         try {await cliente.TokenDaAplicacaoAsync(ct);}

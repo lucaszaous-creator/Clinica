@@ -37,14 +37,20 @@ public sealed class AutorizacoesSafeIdTablet(TimeProvider tempo)
         lock(gate)
         {
             var agora = tempo.GetUtcNow().ToUnixTimeMilliseconds();
-            foreach(var id in pendentes.Where(p => p.Value.ExpiraEm <= agora).Select(p => p.Key).ToArray()) pendentes.Remove(id);
+            foreach(var id in pendentes.Where(p => p.Value.ExpiraEm <= agora && p.Value.Situacao != "assinando").Select(p => p.Key).ToArray()) pendentes.Remove(id);
             if(pendentes.Count >= 100) throw ErroFormularioTablet.Criar("Há muitas autorizações em andamento. Aguarde um instante.");
-            if(pendentes.Values.Any(p=>p.Sessao==sessao && p.Situacao is "aguardando" or "autorizado" or "assinando"))
-                throw new ConflitoClinicoTablet("Conclua a autorização anterior ou aguarde sua expiração antes de pedir outra.");
+            if(pendentes.Values.Any(p=>p.Sessao==sessao && p.Documento==documento && p.Tipo==tipo && p.Situacao is "aguardando" or "autorizado" or "assinando"))
+                throw new ConflitoClinicoTablet("Este documento já tem uma assinatura pendente. Consulte o andamento ou retome a autorização. Outras infusões podem ser assinadas normalmente.");
             var a = new Autorizacao {Sessao = sessao, Agendamento = agendamento, Documento = documento,
                 Tipo = tipo, ConteudoHash = hash, ConfirmouAlergia = alergia, ConclusaoAutomatica = conclusaoAutomatica, ExpiraEm = agora + 300_000};
             pendentes.Add(a.Id, a); return a;
         }
+    }
+    public Autorizacao? Ativa(string sessao, string tipo, int documento)
+    {
+        lock(gate)
+            return pendentes.Values.SingleOrDefault(p=>p.Sessao==sessao && p.Tipo==tipo && p.Documento==documento
+                && (p.Situacao=="assinando" || p.ExpiraEm>tempo.GetUtcNow().ToUnixTimeMilliseconds() && p.Situacao is "aguardando" or "autorizado"));
     }
     public Guid Receber(string estado, string? codigo, string? erro) => ReceberRetorno(estado, codigo, erro).Id;
     public Autorizacao ReceberRetorno(string estado, string? codigo, string? erro)

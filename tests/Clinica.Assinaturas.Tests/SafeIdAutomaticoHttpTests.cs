@@ -66,7 +66,7 @@ public sealed class SafeIdAutomaticoHttpTests
         {
             client.DefaultRequestHeaders.Add("X-CSRF-TOKEN",(string?)(await Get("/api/sessao"))["csrf"]);
             Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync("/api/entrar",new {login="enfermagem.demo",senha="TabletDemo#2026"})).StatusCode);
-            int id;byte[] original;int arquivosAntes;
+            int id=0,idOutra=0;byte[] original=[];int arquivosAntes;
             using(var scope=factory.Services.CreateScope())
             {
                 var sp=scope.ServiceProvider;var db=sp.GetRequiredService<ClinicaDbContext>();
@@ -76,6 +76,8 @@ public sealed class SafeIdAutomaticoHttpTests
                 await db.SaveChangesAsync();
                 var paciente=await db.Pacientes.FirstAsync();
                 var prescricoes=sp.GetRequiredService<PrescricaoInternaService>();
+                for(var indice=0;indice<(caso=="sucesso"?2:1);indice++)
+                {
                 var p=await prescricoes.CriarAsync(paciente.Id,med.ProfissionalId!.Value);
                 await prescricoes.SalvarRascunhoAsync(p.Id,"Teste fictício",null,[new ItemPrescricaoInterna {Descricao="Item fictício",Dose="1 mL"}],exigeAssinaturaEletronicaDaExecucao:true);
                 var assinatura=sp.GetRequiredService<AssinaturaDePrescricaoService>();
@@ -84,8 +86,10 @@ public sealed class SafeIdAutomaticoHttpTests
                 var checagens=sp.GetRequiredService<ChecagemPrescricaoService>();
                 var executante=new IdentificacaoExecutante(enf.Id,enf.Nome,enf.Profissional.RegistroConselho);
                 await checagens.ChecarAsync(p.Itens.Single().Id,SituacaoChecagem.Realizado,new TimeOnly(10,37),executante);
-                await checagens.EncerrarAsync(p.Id,executante);id=p.Id;
-                original=(await assinatura.FolhaAsync(id,FolhaPrescricao.Prescricao)).Pdf;
+                await checagens.EncerrarAsync(p.Id,executante);
+                if(indice==0){id=p.Id;original=(await assinatura.FolhaAsync(id,FolhaPrescricao.Prescricao)).Pdf;}
+                else idOutra=p.Id;
+                }
                 arquivosAntes=await db.ArquivosAssinados.CountAsync();
             }
             // Somente a configuração do servidor isolado de teste. Todas as chamadas
@@ -102,6 +106,22 @@ public sealed class SafeIdAutomaticoHttpTests
             Assert.Equal(HttpStatusCode.OK,inicio.StatusCode);
             var pedido=JsonNode.Parse(await inicio.Content.ReadAsStringAsync())!;
             var operacao=Guid.Parse((string)pedido["id"]!);
+            var pendencia=await Get(caminho+"/pendencia");
+            Assert.Equal("aguardando",(string?)pendencia["situacao"]);Assert.True((bool)pendencia["podeRetomar"]!);
+            Assert.StartsWith("PRE ",(string?)pendencia["documento"]);
+            var retomada=await client.PostAsJsonAsync(caminho,new {confirmouAlergia=true,concluirAutomaticamente=true});
+            Assert.Equal(HttpStatusCode.OK,retomada.StatusCode);
+            Assert.Equal(pedido.ToJsonString(),JsonNode.Parse(await retomada.Content.ReadAsStringAsync())!.ToJsonString());
+            Assert.Equal(1,psc.TokensAplicacao);
+            if(caso=="sucesso")
+            {
+                var outroCaminho=$"/api/clinico/atendimentos/0/execucao/{idOutra}/safeid";
+                Assert.Null((await Get(outroCaminho+"/pendencia"))["situacao"]);
+                var outra=await client.PostAsJsonAsync(outroCaminho,new {confirmouAlergia=true,concluirAutomaticamente=true});
+                Assert.Equal(HttpStatusCode.OK,outra.StatusCode);
+                Assert.NotEqual((string?)pedido["id"],(string?)JsonNode.Parse(await outra.Content.ReadAsStringAsync())!["id"]);
+                Assert.Equal("aguardando",(string?)(await Get(caminho+"/pendencia"))["situacao"]);
+            }
             var url=new Uri((string)pedido["url"]!);var q=System.Web.HttpUtility.ParseQueryString(url.Query);
             Assert.Equal("pscsafeweb.safewebpss.com.br",url.Host);
             Assert.Equal(new[]{"client_id","code_challenge","code_challenge_method","lifetime","login_hint","redirect_uri","response_type","scope","state"},q.AllKeys.Order().ToArray());
@@ -114,13 +134,19 @@ public sealed class SafeIdAutomaticoHttpTests
             using var retorno=factory.CreateClient(new(){AllowAutoRedirect=false,HandleCookies=false});
             Assert.Equal(HttpStatusCode.NotFound,(await retorno.GetAsync("/safeid/retorno?state="+new string('F',64)+"&code=ficticio")).StatusCode);
             Assert.Equal(0,psc.Assinaturas);
-            if(caso=="expirado")relogio.Avancar(TimeSpan.FromMinutes(6));
+            if(caso=="expirado")
+            {
+                relogio.Avancar(TimeSpan.FromMinutes(6));
+                Assert.Null((await Get(caminho+"/pendencia"))["situacao"]);
+            }
             if(caso is "sessao-revogada" or "conteudo-alterado")
             {
                 using var scope=factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
                 if(caso=="sessao-revogada")foreach(var sessao in await db.SessoesTablet.ToListAsync())sessao.Modo="revogada";
                 else (await db.ChecagensPrescricao.SingleAsync(c=>c.Item!.PrescricaoInternaId==id)).HoraRealizacao=new TimeOnly(10,42);
                 await db.SaveChangesAsync();
+                if(caso=="conteudo-alterado")
+                    Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync(caminho,new {confirmouAlergia=true,concluirAutomaticamente=true})).StatusCode);
             }
             var callback="/safeid/retorno?state="+q["state"]+(caso=="recusado"?"&error=access_denied":"&code=codigo-ficticio");
             if(caso=="aba-fechada")
@@ -165,6 +191,8 @@ public sealed class SafeIdAutomaticoHttpTests
                     Assert.Equal(caso is "falha-remota" or "falha-banco"?1:0,psc.Assinaturas);
                     if(caso is "falha-remota" or "falha-banco")
                     {
+                        var bloqueada=await Get(caminho+"/pendencia");
+                        Assert.Equal("verificar",(string?)bloqueada["situacao"]);Assert.False((bool)bloqueada["podeRetomar"]!);
                         Assert.NotNull(op.ChaveAtiva);
                         // Simula perda da memória do processo: o bloqueio fica no banco.
                         var memoriaNova=new AutorizacoesSafeIdTablet(relogio);
@@ -198,13 +226,13 @@ public sealed class SafeIdAutomaticoHttpTests
     }
     private sealed class PscFicticio(X509Certificate2 cert,string caso) : HttpMessageHandler
     {
-        public string Desafio="",Retorno="";public int Assinaturas;public bool FalhaCommitInjetada;
+        public string Desafio="",Retorno="";public int Assinaturas,TokensAplicacao;public bool FalhaCommitInjetada;
         public TaskCompletionSource Chegou=new(TaskCreationOptions.RunContinuationsAsynchronously),Liberar=new(TaskCreationOptions.RunContinuationsAsynchronously);
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req,CancellationToken ct)
         {
             Assert.Equal("pscsafeweb.safewebpss.com.br",req.RequestUri!.Host);
             var path=req.RequestUri.AbsolutePath;object resposta;
-            if(path.EndsWith("client_token"))resposta=new {access_token="aplicacao-ficticia",expires_in=300};
+            if(path.EndsWith("client_token")){TokensAplicacao++;resposta=new {access_token="aplicacao-ficticia",expires_in=300};}
             else if(path.EndsWith("/token"))
             {
                 var body=System.Web.HttpUtility.ParseQueryString(await req.Content!.ReadAsStringAsync(ct));

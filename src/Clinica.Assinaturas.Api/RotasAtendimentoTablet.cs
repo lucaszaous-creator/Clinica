@@ -77,6 +77,9 @@ internal static class RotasAtendimentoTablet
         grupo.MapPost("/atendimentos/{id:int}/documento/{documento:int}/safeid/endereco",
             async(HttpContext c, PortalTabletService portal, EnderecoPrescricaoTabletService svc, int id, int documento, EnderecoPrescricaoTablet pedido) =>
             { await svc.CompletarAsync(await sessao(c,portal),id,documento,pedido.Endereco,c.RequestAborted); return Results.NoContent(); });
+        grupo.MapGet("/atendimentos/{id:int}/{tipo}/{documento:int}/safeid/pendencia", async(HttpContext c,PortalTabletService portal,
+            SafeIdTabletService svc,int id,string tipo,int documento)
+            => Results.Ok(await svc.PendenciaAsync(await sessao(c,portal),id,tipo,documento,c.RequestAborted)));
         grupo.MapPost("/atendimentos/{id:int}/{tipo}/{documento:int}/safeid", async(HttpContext c,PortalTabletService portal,
             SafeIdTabletService svc,int id,string tipo,int documento,PedidoSafeIdTablet pedido)
             => Results.Ok(await svc.IniciarAsync(await sessao(c,portal),id,tipo,documento,pedido.ConfirmouAlergia,c.RequestAborted,pedido.ConcluirAutomaticamente)));

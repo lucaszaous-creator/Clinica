@@ -10,6 +10,13 @@ namespace Clinica.Assinaturas.Api;
 public sealed class RegistroAssinaturaTablet(ClinicaDbContext db, TimeProvider tempo)
 {
     private long Agora => tempo.GetUtcNow().ToUnixTimeMilliseconds();
+    public async Task<OperacaoAssinaturaTablet?> AtivaAsync(string tipo,int documento,CancellationToken ct)
+    {
+        var op=await db.OperacoesAssinaturaTablet.AsNoTracking().SingleOrDefaultAsync(x=>x.ChaveAtiva==tipo+":"+documento,ct);
+        if(op?.Situacao=="aguardando" && op.ExpiraEm<=Agora)return null;
+        if(op?.Situacao=="assinando" && Agora-op.AtualizadaEm>180_000)op.Situacao="verificar";
+        return op;
+    }
     public async Task CriarAsync(AutorizacoesSafeIdTablet.Autorizacao a, CancellationToken ct)
     {
         // SÃ³ a autorizaÃ§Ã£o ainda nÃ£o consumida pode expirar liberando outra tentativa.

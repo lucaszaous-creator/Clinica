@@ -217,6 +217,22 @@ public sealed partial class AtendimentoTabletTests : IDisposable
         store.Concluir(a,true);Assert.Null(a.Codigo);
         tempo.Avancar(TimeSpan.FromMinutes(6));Assert.Throws<RecursoClinicoIndisponivel>(()=>store.Obter(a.Id,"sessao-A"));
     }
+    [Fact] public void Safeid_pendente_bloqueia_so_o_mesmo_documento_e_preserva_ato_em_processamento()
+    {
+        var store=new AutorizacoesSafeIdTablet(tempo);
+        var a=store.Criar("sessao-A",1,2,"infusao","hash",true,true);
+        var b=store.Criar("sessao-A",1,3,"infusao","outro",true,true);
+        Assert.NotEqual(a.Id,b.Id);
+        Assert.Same(a,store.Ativa("sessao-A","infusao",2));
+        Assert.Null(store.Ativa("sessao-B","infusao",2));
+        Assert.Throws<ConflitoClinicoTablet>(()=>store.Criar("sessao-A",1,2,"infusao","hash",true,true));
+        store.Receber(a.Estado,"codigo",null);store.Obter(a.Id,"sessao-A",true);
+        tempo.Avancar(TimeSpan.FromMinutes(6));
+        Assert.Null(store.Ativa("sessao-A","infusao",3));
+        store.Criar("sessao-A",1,3,"infusao","outro",true,true);
+        Assert.Same(a,store.Ativa("sessao-A","infusao",2));
+        Assert.Throws<ConflitoClinicoTablet>(()=>store.Criar("sessao-A",1,2,"infusao","hash",true,true));
+    }
     private sealed class Relogio : TimeProvider
     {private DateTimeOffset agora=new(2026,9,16,14,0,0,TimeSpan.Zero);public override DateTimeOffset GetUtcNow()=>agora;public void Avancar(TimeSpan t)=>agora+=t;}
 }

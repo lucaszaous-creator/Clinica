@@ -2,6 +2,8 @@
 
 A enfermeira revisa os dados e autoriza assinar e salvar no diálogo ANTES de sair para o SafeID. O retorno válido conclui o mesmo serviço de assinatura no servidor; não exige outro clique nem a aba aberta. Apenas infusão e execução aderem. Receitas e autorizações iniciadas pela interface antiga conservam o fluxo anterior.
 
+Uma autorização pendente bloqueia apenas o mesmo ato/documento, sem bloquear outras infusões da sessão. O diálogo identifica a prescrição, a etapa e o horário de expiração. Na sessão original, uma tentativa ainda aguardando autorização pode ser retomada com o mesmo state e PKCE, sem novo ato no provedor; o servidor revalida o conteúdo e as permissões. Outra sessão pode consultar o estado do documento autorizado, mas não recebe o identificador nem a URL da tentativa original. Tentativas em processamento ou com resultado incerto não podem ser reiniciadas por esse botão.
+
 `Portal:SafeId:ConclusaoAutomatica` é false por padrão. Habilitar primeiro na homologação. Produção somente após aceite de uma infusão fictícia pelo titular no SafeID, conferindo o PDF final e a fila. Não alterar ClientId, segredo, retorno HTTPS, ambiente SafeID, escopo, lifetime, PKCE, state nem certificados para habilitar esse recurso.
 
 O POST inicial mantém sessão, CSRF, revisão e vínculo do profissional. O callback usa o state de uso único e só conclui a intenção automática previamente confirmada. Revalida sessão, permissões, CPF, certificado e versão do documento. Fechar a conexão não cancela o processamento; prazo limitado no servidor. A integração envia o mesmo hash SHA-256/CMS, sem enviar o PDF ao provedor.
