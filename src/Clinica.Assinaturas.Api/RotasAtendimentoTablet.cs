@@ -28,7 +28,7 @@ internal static class RotasAtendimentoTablet
             await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario,renovarAtividade:true);
             return Results.NoContent();
         });
-        grupo.MapGet("/acesso",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService svc,ClinicaDbContext db)=>
+        grupo.MapGet("/acesso",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService svc,ClinicaDbContext db,IClinicaRepositorio repo)=>
         {var u=await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);
             var catalogo=await db.Especialidades.AsNoTracking()
                 .Select(e=>new {codigo=e.Codigo,nome=e.Nome,e.Ativo}).ToListAsync(c.RequestAborted);
@@ -38,7 +38,7 @@ internal static class RotasAtendimentoTablet
                     .Select(e=>new {codigo=e.ToString(),nome=EspecialidadeInfo.NomeExibicao(e)}))
                 .GroupBy(e=>e.codigo,StringComparer.OrdinalIgnoreCase).Select(g=>g.First())
                 .Where(e=>u.Profissional?.Atende(nameof(ModalidadeAtendimento.Consulta),e.codigo)==true).ToArray();
-            return Results.Ok(new {nome=u.Nome,sessoesEnfermagem=u.Perfil==PerfilAcesso.Enfermagem && u.Pode(Permissao.RegistrarEvolucaoEnfermagem | Permissao.VerAgenda),atender=PoliticaAtendimentoTablet.PodeAtender(u),enfermagem=u.Pode(Permissao.ChecarPrescricao),prescrever=u.Pode(Permissao.Prescrever),consultaCodigo=(int)ModalidadeAtendimento.Consulta,especialidades,modalidades=Enum.GetValues<ModalidadeAtendimento>().Where(m=>(u.Perfil!=PerfilAcesso.Psicologia||m==ModalidadeAtendimento.Consulta)&&(m==ModalidadeAtendimento.Consulta?especialidades.Length>0:u.Profissional?.Atende(m.ToString())==true)).Select(m=>new {codigo=(int)m,nome=RotulosEnum.De(m)})});});
+            return Results.Ok(new {continuidadeSemAssinatura=await ContinuidadeSemAssinatura.HabilitadaAsync(repo,c.RequestAborted),nome=u.Nome,sessoesEnfermagem=u.Perfil==PerfilAcesso.Enfermagem && u.Pode(Permissao.RegistrarEvolucaoEnfermagem | Permissao.VerAgenda),atender=PoliticaAtendimentoTablet.PodeAtender(u),enfermagem=u.Pode(Permissao.ChecarPrescricao),prescrever=u.Pode(Permissao.Prescrever),consultaCodigo=(int)ModalidadeAtendimento.Consulta,especialidades,modalidades=Enum.GetValues<ModalidadeAtendimento>().Where(m=>(u.Perfil!=PerfilAcesso.Psicologia||m==ModalidadeAtendimento.Consulta)&&(m==ModalidadeAtendimento.Consulta?especialidades.Length>0:u.Profissional?.Atende(m.ToString())==true)).Select(m=>new {codigo=(int)m,nome=RotulosEnum.De(m)})});});
         grupo.MapGet("/dia", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, DateOnly? data)
             => Results.Ok(await svc.DiaAsync(await sessao(c,portal),data,c.RequestAborted)));
         grupo.MapGet("/atendimentos/{id:int}", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id)
@@ -65,7 +65,7 @@ internal static class RotasAtendimentoTablet
             await db.SaveChangesAsync(c.RequestAborted);
             if(tipo is "infusao" or "execucao")
             {
-                var folha=await infusao.FolhaAsync(documento,tipo=="execucao"?FolhaPrescricao.RegistroExecucao:FolhaPrescricao.Prescricao,c.RequestAborted);
+                var folha=tipo=="execucao" ? await infusao.FolhaAsync(documento,FolhaPrescricao.RegistroExecucao,c.RequestAborted) : await infusao.DocumentoInfusaoAsync(documento,c.RequestAborted);
                 return Results.File(folha.Pdf,"application/pdf",$"infusao-{documento}.pdf");
             }
             return Results.File(await pdf.GerarAsync(documento,await parametros.ObterPrestadorAsync(c.RequestAborted),c.RequestAborted),"application/pdf",$"documento-{documento}.pdf");

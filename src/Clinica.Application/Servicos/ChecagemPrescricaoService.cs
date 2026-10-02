@@ -11,7 +11,7 @@ namespace Clinica.Application.Servicos;
 /// </summary>
 /// <param name="Nome">Copiado para a linha: o usuário pode ser renomeado ou desativado.</param>
 /// <param name="Conselho">COREN, quando cadastrado.</param>
-public sealed record IdentificacaoExecutante(int? UsuarioId, string Nome, string? Conselho = null)
+public sealed record IdentificacaoExecutante(int? UsuarioId, string Nome, string? Conselho = null, string? Cpf = null)
 {
     /// <summary>
     /// ⚠️ RECUSA sem o registro no conselho (parcela 72) — COFEN 429/2012.
@@ -213,6 +213,8 @@ public sealed class ChecagemPrescricaoService
 
         await ConferirAlergiaDoItem(item, situacao, confirmouAlergia, ct);
 
+        if (executante.UsuarioId is { } autorId)
+            executante = executante with { Cpf = (await _repo.ObterUsuarioAsync(autorId, ct))?.Profissional?.Cpf };
         var checagem = Montar(item, situacao, hora, executante, justificativa, dataRealizacao);
         item.Checagens.Add(checagem);
 
@@ -269,6 +271,8 @@ public sealed class ChecagemPrescricaoService
         // caminho de volta pelo qual a recusa não vale nada.
         await ConferirAlergiaDoItem(item, situacao, confirmouAlergia, ct);
 
+        if (executante.UsuarioId is { } autorId)
+            executante = executante with { Cpf = (await _repo.ObterUsuarioAsync(autorId, ct))?.Profissional?.Cpf };
         var checagem = Montar(item, situacao, hora, executante, justificativa, dataRealizacao);
         checagem.RetificaChecagemId = anterior.Id;
         checagem.MotivoRetificacao = motivoRetificacao.Trim();
@@ -330,6 +334,13 @@ public sealed class ChecagemPrescricaoService
                 + "com item em aberto não diz se a medicação entrou no paciente, que é a "
                 + "única pergunta que ela existe para responder.");
 
+        executante.Exigir("encerrar a execução");
+        if (await ContinuidadeSemAssinatura.HabilitadaAsync(_repo, ct)
+            && prescricao.AssinaturaDaExecucao is null)
+        {
+            prescricao.ModoSemAssinatura = true;
+            prescricao.ExigeAssinaturaEletronicaDaExecucao = false;
+        }
         prescricao.Situacao = SituacaoPrescricao.Encerrada;
         prescricao.EncerradaEm = DateTime.Now;
         prescricao.AtualizadoEm = DateTime.Now;
@@ -345,7 +356,7 @@ public sealed class ChecagemPrescricaoService
                     + $"{executante.Nome} "
                     + (prescricao.ExigeAssinaturaEletronicaDaExecucao
                         ? "(aguardando a assinatura eletrônica da enfermagem)"
-                        : "(assinatura da enfermagem na via impressa)")
+                        : prescricao.ModoSemAssinatura ? "(registro salvo sem assinatura digital; impressão disponível)" : "(assinatura da enfermagem na via impressa)")
         }, ct);
 
         await _repo.SalvarAsync(ct);
@@ -461,6 +472,7 @@ public sealed class ChecagemPrescricaoService
             Justificativa = limpa,
             ExecutanteUsuarioId = executante.UsuarioId,
             ExecutanteNome = executante.Nome.Trim(),
+            ExecutanteCpf = executante.Cpf,
             ExecutanteConselho = string.IsNullOrWhiteSpace(executante.Conselho)
                 ? null : executante.Conselho.Trim(),
             RegistradoEm = _agora()

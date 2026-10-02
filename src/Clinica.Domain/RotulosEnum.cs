@@ -210,6 +210,7 @@ public static class RotulosEnum
         {
             SituacaoPrescricao.Rascunho => "Rascunho",
             SituacaoPrescricao.Assinada => "Assinada",
+            SituacaoPrescricao.Liberada => "Liberada sem assinatura digital",
             SituacaoPrescricao.Encerrada => "Encerrada",
             _ => "Cancelada"
         },

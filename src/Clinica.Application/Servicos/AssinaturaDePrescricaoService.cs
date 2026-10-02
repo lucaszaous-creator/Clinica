@@ -263,7 +263,7 @@ public sealed class AssinaturaDePrescricaoService
             || await _repo.ObterArquivoAssinadoAsync(id, ct) is null))
             throw new InvalidOperationException("O documento assinado está indisponível. Contate o suporte para recuperá-lo.");
         var regimePapelComExecucao = !prescricao.ExigeAssinaturaEletronicaDaExecucao
-            && !prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao is null
+            && (!prescricao.OrigemEnfermagem || prescricao.ModoSemAssinatura) && prescricao.AssinaturaDaExecucao is null
             && prescricao.Itens.Any(i => i.ChecagemVigente is not null);
         return await FolhaAsync(prescricaoId,
             regimePapelComExecucao ? FolhaPrescricao.RegistroExecucao : FolhaPrescricao.Prescricao, ct);

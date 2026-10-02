@@ -1,3 +1,4 @@
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Desktop.Controls;
@@ -151,6 +152,10 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     }
 
     /// <summary>Sem item não se assina — e o botão diz isso antes do clique.</summary>
+    [ObservableProperty] private bool _continuidadeAtiva;
+    public string RotuloLiberacao => ContinuidadeAtiva ? "Liberar sem A1 e enviar à sala" : "Assinar e enviar à sala";
+    partial void OnContinuidadeAtivaChanged(bool value) => OnPropertyChanged(nameof(RotuloLiberacao));
+
     public bool PodeAssinar => PodePrescrever && !Ocupado && Itens.Count > 0;
 
     /// <param name="prescricaoId">
@@ -252,6 +257,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
 
+            ContinuidadeAtiva = await ContinuidadeSemAssinatura.HabilitadaAsync(scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>());
+            if (ContinuidadeAtiva) ExigirAssinaturaDaExecucao = false;
             // A prescrição NOVA não é criada aqui, e isso é decisão (parcela 45): a
             // criação assinala um NÚMERO da série anual (PRE 2026/0001) e grava a linha.
             // Fazer isso na abertura da janela significava que abrir e desistir deixava
@@ -405,6 +412,15 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
                 }
             }
 
+            if (ContinuidadeAtiva)
+            {
+                using var scope = _escopos.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>()
+                    .LiberarSemAssinaturaAsync(_prescricaoId, SessaoUsuario.Atual.UsuarioId, confirmouAlergia);
+                Assinou = false;
+                Fechar?.Invoke();
+                return;
+            }
             using var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Prescrição {Numero} — {Paciente}",
                 System.Windows.Application.Current?.MainWindow, _escopos);

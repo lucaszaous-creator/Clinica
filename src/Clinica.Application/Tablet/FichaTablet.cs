@@ -16,6 +16,7 @@ public sealed record CancelarRegistroTablet(Guid Idempotencia, string Versao, st
 public sealed record AnexoTablet(Guid Idempotencia, DateOnly Data, string Titulo, string NomeArquivo,
     string TipoConteudo, byte[] Conteudo, string? Observacoes);
 public sealed record ResultadoFichaTablet(int Id);
+public sealed record LiberarInfusaoTablet(Guid Idempotencia, string Versao, bool ConfirmouAlergia = false);
 public sealed record ResultadoExameTablet(Guid Idempotencia,DateOnly Data,string Nome,string Valor,
     string? Unidade,string? Referencia,string? Laboratorio,string? Observacoes);
 public sealed record RegistroEnfermagemTablet(Guid Idempotencia,DateOnly Data,TimeOnly Hora,string Texto,

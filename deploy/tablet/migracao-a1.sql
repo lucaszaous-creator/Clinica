@@ -33,4 +33,14 @@ BEGIN
     END IF;
 END $EF$;
 
+DO $EF$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20261002140919_ContinuidadeSemAssinatura') THEN
+        ALTER TABLE "PrescricoesInternas" ADD COLUMN "LiberadaSemAssinaturaEm" timestamp without time zone NULL;
+        ALTER TABLE "PrescricoesInternas" ADD COLUMN "ModoSemAssinatura" boolean NOT NULL DEFAULT FALSE;
+        ALTER TABLE "ChecagensPrescricao" ADD COLUMN "ExecutanteCpf" character varying(14) NULL;
+        INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+        VALUES ('20261002140919_ContinuidadeSemAssinatura', '8.0.11');
+    END IF;
+END $EF$;
 COMMIT;

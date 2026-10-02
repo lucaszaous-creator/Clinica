@@ -1186,6 +1186,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AssinadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.LiberadaSemAssinaturaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.EncerradaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.DevolvidaEm).HasColumnType("timestamp without time zone");
@@ -1256,6 +1257,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Justificativa).HasMaxLength(1000);
             e.Property(x => x.ExecutanteNome).IsRequired().HasMaxLength(120);
             e.Property(x => x.ExecutanteConselho).HasMaxLength(60);
+            e.Property(x => x.ExecutanteCpf).HasMaxLength(14);
             e.Property(x => x.MotivoRetificacao).HasMaxLength(500);
             e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
 

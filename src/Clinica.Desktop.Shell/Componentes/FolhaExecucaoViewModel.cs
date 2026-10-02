@@ -171,6 +171,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
     /// <summary>A folha nasceu pedindo a 2ª assinatura (a eletrônica da enfermagem).</summary>
     [ObservableProperty] private bool _exigeAssinaturaEletronica;
+    [ObservableProperty] private bool _continuidadeAtiva;
 
     /// <summary>Encerrada, pedindo a 2ª assinatura, e ela ainda não foi colhida.</summary>
     [ObservableProperty] private bool _aguardaAssinaturaExecucao;
@@ -323,15 +324,15 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             _dataExecucao = checagemExterna?.DataRealizacao ?? prescricao.Data;
             _horaExecucao = checagemExterna?.HoraRealizacao ?? prescricao.Hora;
             PodeCorrigirHorarios = prescricao.OrigemEnfermagem && prescricao.RegistradaPorUsuarioId == SessaoUsuario.Atual.UsuarioId
-                && prescricao.Assinaturas.Count == 0 && prescricao.AssinadaEm is null;
+                && prescricao.Assinaturas.Count == 0 && prescricao.AssinadaEm is null && prescricao.LiberadaSemAssinaturaEm is null;
             PodeCancelarInfusao = !prescricao.Cancelada
                 && ((SessaoUsuario.Atual.Pode(Permissao.Prescrever) && prescricao.ProfissionalId == SessaoUsuario.Atual.ProfissionalId)
                     || (prescricao.OrigemEnfermagem && prescricao.RegistradaPorUsuarioId == SessaoUsuario.Atual.UsuarioId
                         && SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao)))
-                && (prescricao.OrigemEnfermagem || ((prescricao.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada)
+                && (prescricao.OrigemEnfermagem || ((prescricao.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada or SituacaoPrescricao.Liberada)
                     && !prescricao.Itens.Any(i => i.ChecagemVigente is not null)));
             PodeValidarMedico = prescricao.AguardaValidacaoMedica
-                && prescricao.AssinaturaDaExecucao?.ArquivoId is not null
+                && (prescricao.ModoSemAssinatura || prescricao.AssinaturaDaExecucao?.ArquivoId is not null)
                 && prescricao.ProfissionalId == SessaoUsuario.Atual.ProfissionalId
                 && SessaoUsuario.Atual.Perfil != PerfilAcesso.Enfermagem
                 && SessaoUsuario.Atual.Pode(Permissao.Prescrever);
@@ -368,12 +369,13 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                 _arquivoConferido = arquivo is not null ? arquivoId : null;
             }
 
-            ExigeAssinaturaEletronica = prescricao.ExigeAssinaturaEletronicaDaExecucao;
-            AguardaAssinaturaExecucao = prescricao.AguardaAssinaturaDaExecucao;
+            ContinuidadeAtiva = await ContinuidadeSemAssinatura.HabilitadaAsync(scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>());
+            ExigeAssinaturaEletronica = prescricao.ExigeAssinaturaEletronicaDaExecucao && !ContinuidadeAtiva;
+            AguardaAssinaturaExecucao = prescricao.AguardaAssinaturaDaExecucao && !ContinuidadeAtiva;
             SituacaoAssinaturaExecucao = prescricao.AssinaturaDaExecucao is { } daExecucao
                 ? $"Execução assinada eletronicamente por {daExecucao.NomeAssinante} "
                   + $"em {daExecucao.AssinadoEm:dd/MM/yyyy HH\\:mm}."
-                : prescricao.AguardaAssinaturaDaExecucao
+                : prescricao.ModoSemAssinatura ? "Registro salvo sem assinatura digital. Impressão disponível." : prescricao.AguardaAssinaturaDaExecucao
                     ? "Esta folha pede a assinatura eletrônica da enfermagem — falta colhê-la."
                     : null;
 
@@ -551,7 +553,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                     "Encerrar execução",
                     $"Encerrar a execução da prescrição {Numero}? Depois disso a folha não "
                     + "pode mais ser checada.\n\n"
-                    + (ExigeAssinaturaEletronica
+                    + (ContinuidadeAtiva ? "O registro será salvo sem exigir assinatura digital ou impressão." : ExigeAssinaturaEletronica
                         ? "Após encerrar, assine eletronicamente a prescrição para arquivar a execução."
                         : "Lembre de assinar a via impressa — é ela que responde pela "
                           + "execução.")))
@@ -579,7 +581,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                 return;
             }
 
-            Mensagem = ExigeAssinaturaEletronica
+            Mensagem = ContinuidadeAtiva ? "✓ Execução salva sem assinatura digital. Impressão disponível." : ExigeAssinaturaEletronica
                 ? "✓ Execução encerrada. Falta a assinatura eletrônica da enfermagem — o "
                   + "botão \"Assinar execução\" fica nesta folha."
                 : "✓ Execução encerrada. Confira e assine a via impressa.";
@@ -669,6 +671,14 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             var conferencia = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().ConferirParaAssinaturaAsync(_prescricaoId);
             var confirmou = conferencia.ExigeConfirmacao && _dialogo.Confirmar("Revisar alergias", "Há alerta de alergia relacionado à infusão registrada. Confirma que revisou o caso antes de assinar?");
             if (conferencia.ExigeConfirmacao && !confirmou) return;
+            if (ContinuidadeAtiva)
+            {
+                await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().LiberarSemAssinaturaAsync(_prescricaoId, SessaoUsuario.Atual.UsuarioId, confirmou);
+                await CarregarAsync();
+                Mensagem = "✓ Avaliação registrada sem assinatura digital.";
+                MensagemEhErro = false;
+                return;
+            }
             using var certificado = EscolherCertificadoWindow.Perguntar($"Validar infusão {Numero} · {Paciente}", JanelaAtiva(), _escopos);
             if (certificado is null) return;
             await scope.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>().AssinarPrescricaoAsync(

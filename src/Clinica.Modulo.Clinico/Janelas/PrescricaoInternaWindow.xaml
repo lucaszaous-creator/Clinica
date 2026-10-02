@@ -91,7 +91,7 @@
                             Style="{StaticResource BotaoSecundario}"
                             IsEnabled="{Binding PodePrescrever}"
                             Command="{Binding SalvarRascunhoCommand}" />
-                    <Button Content="Assinar e enviar à sala" Margin="8,0,0,0" MinWidth="190"
+                    <Button Content="{Binding RotuloLiberacao}" Margin="8,0,0,0" MinWidth="190"
                             VerticalAlignment="Center"
                             IsEnabled="{Binding PodeAssinar}"
                             Command="{Binding AssinarCommand}" />

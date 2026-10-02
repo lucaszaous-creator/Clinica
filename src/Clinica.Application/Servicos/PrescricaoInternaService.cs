@@ -243,7 +243,7 @@ public sealed partial class PrescricaoInternaService
         if (prescricao.DevolvidaEm is not null)
             throw new InvalidOperationException("A infusão foi devolvida. Revise e assine uma nova versão.");
 
-        if (prescricao.EstaAssinada && !prescricao.AguardaValidacaoMedica)
+        if (prescricao.AssinaturaDoPrescritor is not null || prescricao.AssinadaEm is not null || prescricao.EstaAssinada && !prescricao.AguardaValidacaoMedica)
             throw new InvalidOperationException($"A prescrição {prescricao.Numero} já está assinada.");
 
         if (prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao?.ArquivoId is null)
@@ -271,7 +271,7 @@ public sealed partial class PrescricaoInternaService
         assinatura.Papel = PapelAssinatura.Prescritor;
         prescricao.Assinaturas.Add(assinatura);
 
-        prescricao.Situacao = prescricao.OrigemEnfermagem ? SituacaoPrescricao.Encerrada : SituacaoPrescricao.Assinada;
+        prescricao.Situacao = prescricao.Situacao == SituacaoPrescricao.Encerrada || prescricao.OrigemEnfermagem ? SituacaoPrescricao.Encerrada : SituacaoPrescricao.Assinada;
         prescricao.AssinadaEm = assinatura.AssinadoEm;
         prescricao.AtualizadoEm = DateTime.Now;
         prescricao.AtualizadoPor = operador;
