@@ -18,7 +18,7 @@ public sealed class MedicamentosView : UserControl
     private readonly IServiceScopeFactory escopos;
     private IReadOnlyList<MedicamentoCadastro> todos=[];
     private readonly TextBox busca=new() {MinWidth=280};
-    private readonly DataGrid tabela=new() {AutoGenerateColumns=false,IsReadOnly=true,SelectionMode=DataGridSelectionMode.Single,MinHeight=180};
+    private readonly DataGrid tabela=new() {AutoGenerateColumns=false,IsReadOnly=true,SelectionMode=DataGridSelectionMode.Single,MinHeight=180,RowHeight=double.NaN,MinRowHeight=36};
     private readonly TextBlock mensagem=new() {TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,8,0,8)};
     private readonly TextBox nome=new() {MaxLength=200}, principio=new() {MaxLength=200}, apresentacao=new() {MaxLength=200}, fabricante=new() {MaxLength=160};
     private readonly CheckBox ativo=new() {Content="Ativo nas sugestões",IsChecked=true,Margin=new Thickness(0,10,0,10)};

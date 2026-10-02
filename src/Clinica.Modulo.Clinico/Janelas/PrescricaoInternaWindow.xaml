@@ -12,6 +12,7 @@
   </Style>
  </Window.Resources>
  <Grid Margin="32,20">
+  <Grid.Style><Style TargetType="Grid"><Style.Triggers><DataTrigger Binding="{Binding Ocupado}" Value="True"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style>
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <StackPanel Margin="0,0,0,14">
    <TextBlock Text="Prescrição de infusão" FontSize="{StaticResource Fonte.H1}" FontWeight="SemiBold"/>
@@ -23,7 +24,7 @@
     <ItemsControl ItemsSource="{Binding Alertas}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
    </Border>
    <StackPanel Visibility="{Binding Ocupado,Converter={StaticResource BoolParaVisibilidade}}" Margin="0,0,0,8">
-    <TextBlock Text="{Binding TextoOperacao}" AutomationProperties.LiveSetting="Polite"/><ProgressBar IsIndeterminate="True" Height="3" Margin="0,4"/>
+    <TextBlock Text="{Binding TextoOperacao}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/><ProgressBar IsIndeterminate="True" Height="3" Margin="0,4"/>
    </StackPanel>
   </StackPanel>
   <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
