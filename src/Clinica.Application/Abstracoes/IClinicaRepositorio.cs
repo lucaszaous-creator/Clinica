@@ -1789,5 +1789,8 @@ public interface IClinicaRepositorio
     Task<int> ExecutarEtapaFechamentoAsync(int atendimentoId, string etapa, string pedido,
         Func<Task<int>> executar, CancellationToken ct = default);
 
+    Task<IReadOnlyList<MedicamentoCadastro>> MedicamentosAsync(CancellationToken ct = default);
+    Task SalvarMedicamentoAsync(MedicamentoCadastro medicamento, CancellationToken ct = default);
+
     Task<int> SalvarAsync(CancellationToken ct = default);
 }

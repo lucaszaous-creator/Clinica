@@ -16,7 +16,10 @@ public enum SituacaoPrescricao
     Encerrada,
 
     /// <summary>Desfeita antes de executar. Não some da base: pode ter sido impressa.</summary>
-    Cancelada
+    Cancelada,
+
+    /// <summary>Liberada pelo responsável sem assinatura digital, em continuidade temporária.</summary>
+    Liberada
 }
 
 /// <summary>
@@ -249,6 +252,9 @@ public class PrescricaoInterna
 
     public bool ExigeAssinaturaEletronicaDaExecucao { get; set; } = true;
 
+    public bool ModoSemAssinatura { get; set; }
+    public DateTime? LiberadaSemAssinaturaEm { get; set; }
+
     public DateTime? AssinadaEm { get; set; }
 
     public DateTime? EncerradaEm { get; set; }
@@ -283,7 +289,7 @@ public class PrescricaoInterna
     // ---- Leituras derivadas ----
 
     public bool EstaAssinada
-        => (Situacao is SituacaoPrescricao.Assinada or SituacaoPrescricao.Encerrada)
+        => (!ModoSemAssinatura || AssinadaEm is not null) && (Situacao is SituacaoPrescricao.Assinada or SituacaoPrescricao.Encerrada)
             && (!OrigemEnfermagem || AssinadaEm is not null);
 
     public bool Cancelada => Situacao == SituacaoPrescricao.Cancelada;
@@ -292,11 +298,11 @@ public class PrescricaoInterna
     /// A enfermagem pode mexer nesta folha. Encerrada sai da sala: o registro de execução
     /// já foi assinado, e checar depois disso alteraria um documento assinado.
     /// </summary>
-    public bool PodeChecar => Situacao == SituacaoPrescricao.Assinada;
+    public bool PodeChecar => Situacao is SituacaoPrescricao.Assinada or SituacaoPrescricao.Liberada;
 
     /// <summary>Só rascunho se edita. Depois de assinada, corrige-se suspendendo e prescrevendo.</summary>
     // Usa um estado já reconhecido pelas versões instaladas. A pendência médica é independente da execução encerrada.
-    public bool AguardaValidacaoMedica => OrigemEnfermagem && DevolvidaEm is null && AssinadaEm is null && Situacao == SituacaoPrescricao.Encerrada;
+    public bool AguardaValidacaoMedica => OrigemEnfermagem && DevolvidaEm is null && AssinadaEm is null && LiberadaSemAssinaturaEm is null && Situacao == SituacaoPrescricao.Encerrada;
     public string SituacaoParaExibicao => DevolvidaEm is not null ? "Devolvida" : AguardaValidacaoMedica ? "AguardaMedico" : Situacao.ToString();
 
     public bool PodeEditar => Situacao == SituacaoPrescricao.Rascunho;
@@ -370,6 +376,9 @@ public class ItemPrescricaoInterna
 
     /// <summary>Ordem de administração na folha.</summary>
     public int Ordem { get; set; }
+
+    /// <summary>Nulo preserva folhas antigas; positivo identifica a diluição compartilhada.</summary>
+    public int? GrupoInfusao { get; set; }
 
     /// <summary>O fármaco, como o prescritor escreve ("Dipirona sódica 500mg/mL").</summary>
     public string Descricao { get; set; } = string.Empty;
@@ -542,6 +551,7 @@ public class ChecagemPrescricao
 
     /// <summary>COREN/registro copiado no ato.</summary>
     public string? ExecutanteConselho { get; set; }
+    public string? ExecutanteCpf { get; set; }
 
     /// <summary>O relógio do sistema no momento do registro. Ver o comentário da classe.</summary>
     public DateTime RegistradoEm { get; set; } = DateTime.Now;

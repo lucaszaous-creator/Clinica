@@ -152,6 +152,7 @@ public static class DependencyInjection
         services.AddScoped<ConvenioCatalogoService>();
         services.AddScoped<ModalidadeCatalogoService>();
         services.AddScoped<EspecialidadeCatalogoService>();
+        services.AddScoped<MedicamentoCatalogoService>();
         // Pix: lógica pura, sem estado e sem banco — mas registrado como scoped
         // junto dos outros para as telas o pedirem do mesmo jeito que pedem o resto.
         services.AddScoped<PixService>();

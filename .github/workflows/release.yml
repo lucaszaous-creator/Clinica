@@ -136,7 +136,16 @@ jobs:
           if ($ultima) { Write-Host "Última publicada deste app: $prefixo$ultima" }
           else         { Write-Host "Este app ainda não tem release publicada." }
 
-          if ($tags -contains $tag) {
+          # No disparo por push a própria tag já existe; só uma release publicada
+          # torna a versão indisponível. Não confundir tag com instalador entregue.
+          $publicada = $false
+          try {
+            $release = Invoke-RestMethod -Headers $cabecalho "https://api.github.com/repos/lucaszaous-creator/Clinica/releases/tags/$tag"
+            $publicada = $true
+          } catch {
+            if ([int]$_.Exception.Response.StatusCode -ne 404) { throw }
+          }
+          if ($publicada) {
             throw "A versão '$tag' JÁ FOI PUBLICADA. Uma release não se sobrescreve — o " +
                   "app instalado na clínica já baixou essa versão e não voltaria a baixá-la. " +
                   "Use a próxima livre: $prefixo$proxima"

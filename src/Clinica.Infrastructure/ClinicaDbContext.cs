@@ -92,6 +92,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<PontoProtocolo> PontosProtocolo => Set<PontoProtocolo>();
     public DbSet<DocumentoClinico> DocumentosClinicos => Set<DocumentoClinico>();
     public DbSet<ItemDocumento> ItensDocumento => Set<ItemDocumento>();
+    public DbSet<MedicamentoCadastro> MedicamentosCadastro => Set<MedicamentoCadastro>();
     public DbSet<ModeloDocumento> ModelosDocumento => Set<ModeloDocumento>();
     public DbSet<ItemModelo> ItensModelo => Set<ItemModelo>();
     public DbSet<PrescricaoInterna> PrescricoesInternas => Set<PrescricaoInterna>();
@@ -1186,6 +1187,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AssinadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.LiberadaSemAssinaturaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.EncerradaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.DevolvidaEm).HasColumnType("timestamp without time zone");
@@ -1256,6 +1258,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Justificativa).HasMaxLength(1000);
             e.Property(x => x.ExecutanteNome).IsRequired().HasMaxLength(120);
             e.Property(x => x.ExecutanteConselho).HasMaxLength(60);
+            e.Property(x => x.ExecutanteCpf).HasMaxLength(14);
             e.Property(x => x.MotivoRetificacao).HasMaxLength(500);
             e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
 
@@ -1536,6 +1539,18 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => new { x.ProfissionalId, x.Nome }).IsUnique();
         });
 
+        b.Entity<MedicamentoCadastro>(e =>
+        {
+            e.HasKey(x => x.Codigo);
+            e.Property(x => x.Codigo).HasMaxLength(48);
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.PrincipioAtivo).HasMaxLength(200);
+            e.Property(x => x.Apresentacao).HasMaxLength(200);
+            e.Property(x => x.Fabricante).HasMaxLength(160);
+            e.Property(x => x.Fonte).HasMaxLength(120);
+            e.Property(x => x.AtualizadoPor).HasMaxLength(200);
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+        });
         b.Entity<ModeloDocumento>(e =>
         {
             e.HasKey(x => x.Id);

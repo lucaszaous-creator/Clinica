@@ -1,3 +1,4 @@
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Desktop.Controls;
@@ -22,6 +23,8 @@ public sealed partial class LinhaItemPrescricao : ObservableObject
 {
     [ObservableProperty] private string _descricao = string.Empty;
     [ObservableProperty] private string? _descricaoFormatada;
+    partial void OnDescricaoChanged(string value) { DescricaoFormatada = null; OnPropertyChanged(nameof(DicaDose)); }
+    public string DicaDose => System.Globalization.CultureInfo.GetCultureInfo("pt-BR").CompareInfo.IndexOf(Descricao,"lidocaina",System.Globalization.CompareOptions.IgnoreCase|System.Globalization.CompareOptions.IgnoreNonSpace)>=0 ? "Quantidade em mL" : "Quantidade e medida";
     [ObservableProperty] private string? _dose;
     [ObservableProperty] private string? _diluente = "SF 0,9%";
     [ObservableProperty] private string? _volume;
@@ -86,18 +89,18 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     private readonly int? _agendamentoId;
     private readonly int? _evolucaoId;
 
-    public ObservableCollection<LinhaItemPrescricao> Itens { get; } = [];
+    public ObservableCollection<GrupoInfusaoEdicao> Infusoes { get; } = [];
+    public IReadOnlyList<LinhaItemPrescricao> Itens => Infusoes.SelectMany(g => g.Itens).ToArray();
+    [ObservableProperty] private IReadOnlyList<MedicamentoSugerido> _catalogoMedicamentos = [];
+    public Task Inicializacao { get; }
+    private bool _carregamentoFalhou;
+
 
     /// <summary>Alergias e medicação contínua do paciente — o que se olha ANTES de escrever.</summary>
     public ObservableCollection<string> Alertas { get; } = [];
 
     public IReadOnlyList<ViaAdministracao> Vias { get; } = Enum.GetValues<ViaAdministracao>();
 
-    [ObservableProperty] private bool _diluicaoUnica = true;
-    [ObservableProperty] private string? _diluenteGlobal = "SF 0,9%";
-    [ObservableProperty] private string? _volumeTotal;
-    public bool DiluicaoPorItem => !DiluicaoUnica;
-    partial void OnDiluicaoUnicaChanged(bool value) => OnPropertyChanged(nameof(DiluicaoPorItem));
     [ObservableProperty] private string _paciente = string.Empty;
     /// <summary>
     /// Número da série anual. Fica com o aviso até a primeira gravação, porque até lá a
@@ -111,16 +114,6 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     [ObservableProperty] private DateTime? _dataPrescricao = DateTime.Today;
     [ObservableProperty] private string _horaPrescricao = DateTime.Now.ToString("HH:mm");
 
-    /// <summary>
-    /// O campo de 2ª assinatura (decisão da direção, 14/08/2026): marcado, a enfermagem
-    /// também assina eletronicamente ESTA MESMA folha, no encerramento, com o
-    /// certificado DELA. Desmarcado, vale o regime de sempre: caneta na via impressa.
-    /// </summary>
-    /// <summary>
-    /// Nasce MARCADO, como a entidade: o padrão é a folha terminar com a assinatura
-    /// eletrônica de quem executou. Desmarcar é ato consciente de quem prescreve.
-    /// </summary>
-    [ObservableProperty] private bool _exigirAssinaturaDaExecucao = true;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _ocupado;
@@ -151,6 +144,10 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     }
 
     /// <summary>Sem item não se assina — e o botão diz isso antes do clique.</summary>
+    [ObservableProperty] private bool _continuidadeAtiva;
+    public string RotuloLiberacao => ContinuidadeAtiva ? "Liberar para enfermagem" : "Assinar e enviar à sala";
+    partial void OnContinuidadeAtivaChanged(bool value) => OnPropertyChanged(nameof(RotuloLiberacao));
+
     public bool PodeAssinar => PodePrescrever && !Ocupado && Itens.Count > 0;
 
     /// <param name="prescricaoId">
@@ -176,15 +173,14 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         _prescricaoId = prescricaoId ?? 0;
         Paciente = paciente;
 
-        Itens.CollectionChanged += (_, _) => OnPropertyChanged(nameof(PodeAssinar));
+        Infusoes.CollectionChanged += (_, _) => OnPropertyChanged(nameof(PodeAssinar));
 
         // Só a prescrição NOVA nasce com uma linha em branco: reabrir um rascunho e ganhar
         // um item vazio no fim faria a folha impressa sair com uma linha fantasma se
         // ninguém reparasse.
-        if (_prescricaoId == 0) AcrescentarItem();
+        if (_prescricaoId == 0) CriarInfusao();
 
-        _ = PrepararAsync();
-        _ = CarregarModelosAsync();
+        Inicializacao = InicializarAsync();
     }
 
     public ObservableCollection<ModeloDocumento> Modelos {get;}=[];
@@ -198,43 +194,54 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             Modelos.Clear();foreach(var m in modelos.Where(m=>m.Ativo&&m.ParaInfusao))Modelos.Add(m);
         } catch(Exception ex){Mensagem="Não foi possível carregar os modelos: "+ex.Message;MensagemEhErro=true;}
     }
+    private async Task InicializarAsync()
+    {
+        await PrepararAsync();
+        await CarregarModelosAsync();
+        await RecarregarMedicamentosAsync();
+    }
     [RelayCommand]
-    private void AplicarModelo() {
-        if(Ocupado||ModeloSelecionado is not {} m||!Exigir(Permissao.Prescrever,"usar modelos"))return;
-        try {
-            var modelo=ModeloInfusao.Ler(m.ConfiguracaoInfusao);
-            if(Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao))||!string.IsNullOrWhiteSpace(Indicacao)||!string.IsNullOrWhiteSpace(Observacoes))
-                if(!_dialogo.ConfirmarPerigo("Usar modelo","Substituir a prescrição que está em edição pelo modelo escolhido?"))return;
-            Indicacao=modelo.Indicacao;IndicacaoFormatada=modelo.IndicacaoFormatada;
-            Observacoes=modelo.Observacoes;ObservacoesFormatadas=modelo.ObservacoesFormatadas;
-            DiluicaoUnica=modelo.DiluicaoUnica;DiluenteGlobal=modelo.DiluenteGlobal;VolumeTotal=modelo.VolumeTotal;
-            Itens.Clear();foreach(var item in modelo.Itens)Itens.Add(LinhaItemPrescricao.De(ModeloInfusao.Para(item)));
-            Mensagem="Modelo aplicado. Revise a prescrição antes de salvar.";MensagemEhErro=false;
+    private async Task RecarregarMedicamentosAsync()
+    {
+        try
+        {
+            using var scope=_escopos.CreateScope();
+            CatalogoMedicamentos=BuscaMedicamentos.Catalogo(await scope.ServiceProvider.GetRequiredService<MedicamentoCatalogoService>().ListarAsync());
+        }
+        catch(Exception ex) { Mensagem="A busca de medicamentos não pôde carregar. Você pode escrever livremente. "+ex.Message;MensagemEhErro=true; }
+    }
+    public void AplicarModelo(GrupoInfusaoEdicao grupo, ModeloDocumento selecionado)
+    {
+        if(Ocupado||!Infusoes.Contains(grupo)||!Exigir(Permissao.Prescrever,"usar modelos"))return;
+        try
+        {
+            var modelo=ModeloInfusao.Ler(selecionado.ConfiguracaoInfusao);
+            var novos=GrupoInfusaoEdicao.Carregar(modelo.Itens.Select(ModeloInfusao.Para),modelo.DiluicaoUnica,modelo.DiluenteGlobal,modelo.VolumeTotal);
+            if(novos.Count==0)throw new InvalidOperationException("Modelo sem medicamentos.");
+            if(grupo.Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao)) && !_dialogo.ConfirmarPerigo("Usar modelo","Substituir os medicamentos e o preparo desta infusão?"))return;
+            var indice=Infusoes.IndexOf(grupo);Infusoes.RemoveAt(indice);
+            foreach(var g in novos)Infusoes.Insert(indice++,g);
+            Renumerar();Mensagem="Modelo aplicado. Revise o preparo e as doses antes de liberar.";MensagemEhErro=false;
         }catch(Exception ex){Mensagem=ex.Message;MensagemEhErro=true;}
     }
-    [RelayCommand]
-    private Task SalvarComoModeloAsync(string? nome)=>GuardarModeloAsync(nome,0);
-    [RelayCommand]
-    private async Task AtualizarModeloAsync() {
-        if(ModeloSelecionado is not {} m||Ocupado)return;
-        if(!_dialogo.ConfirmarPerigo("Atualizar modelo",$"Substituir o conteúdo de {m.Nome} para toda a clínica?"))return;
-        await GuardarModeloAsync(m.Nome,m.Id);
-    }
-    private async Task GuardarModeloAsync(string? nome,int id) {
-        if(Ocupado||!Exigir(Permissao.Prescrever,"salvar modelos"))return;
-        try {
-            TextoOperacao = "Salvando modelo…";
-            Ocupado=true;
-            var itens=Itens.Where(i=>!string.IsNullOrWhiteSpace(i.Descricao)).Select(i=>i.Para()).ToArray();
-            var config=new ModeloInfusao(Indicacao,Observacoes,itens.Select(ModeloInfusao.De).ToArray(),IndicacaoFormatada,ObservacoesFormatadas,DiluicaoUnica,DiluenteGlobal,VolumeTotal).Guardar();
-            var texto=TextoFormatado.Juntar(itens.Select(i=>((string?)i.Descricao,i.DescricaoFormatada)));
+    public async Task<bool> SalvarModeloAsync(GrupoInfusaoEdicao grupo,string nome)
+    {
+        if(Ocupado||!Infusoes.Contains(grupo)||!Exigir(Permissao.Prescrever,"salvar modelos"))return false;
+        try
+        {
+            Ocupado=true;TextoOperacao="Salvando modelo…";
+            var itens=grupo.Preparar().ToArray();
+            foreach(var i in itens)i.GrupoInfusao=1;
+            // O modelo guarda a composição, sem indicação, paciente, horário ou observação clínica.
+            foreach(var i in itens){i.HoraPrevista=null;i.Observacoes=null;i.ObservacoesFormatadas=null;}
+            var config=new ModeloInfusao(null,null,itens.Select(ModeloInfusao.De).ToArray()).Guardar();
             using var scope=_escopos.CreateScope();
-            var salvo=await scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>().SalvarModeloAsync(new() {
-                Id=id,Nome=nome??"",Tipo=TipoDocumentoClinico.Receita,ParaInfusao=true,ConfiguracaoInfusao=config,Corpo=texto.Texto,CorpoFormatado=texto.Formato,Ativo=true
+            await scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>().SalvarModeloAsync(new() {
+                Nome=nome,Tipo=TipoDocumentoClinico.Receita,ParaInfusao=true,ConfiguracaoInfusao=config,
+                Corpo=string.Join("\n",itens.Select(i=>i.Descricao)),Ativo=true
             },SessaoUsuario.Atual.Operador,substituirPorNome:false);
-            await CarregarModelosAsync();ModeloSelecionado=Modelos.Single(m=>m.Id==salvo.Id);
-            Mensagem="Modelo salvo e disponível na busca.";MensagemEhErro=false;
-        }catch(Exception ex){Mensagem=ex.Message;MensagemEhErro=true;}finally{Ocupado=false;}
+            await CarregarModelosAsync();Mensagem="Modelo salvo para reutilizar na clínica.";MensagemEhErro=false;return true;
+        }catch(Exception ex){Mensagem=ex.Message;MensagemEhErro=true;return false;}finally{Ocupado=false;}
     }
 
     partial void OnOcupadoChanged(bool value) => OnPropertyChanged(nameof(PodeAssinar));
@@ -252,6 +259,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
 
+            ContinuidadeAtiva = await ContinuidadeSemAssinatura.HabilitadaAsync(scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>());
             // A prescrição NOVA não é criada aqui, e isso é decisão (parcela 45): a
             // criação assinala um NÚMERO da série anual (PRE 2026/0001) e grava a linha.
             // Fazer isso na abertura da janela significava que abrir e desistir deixava
@@ -279,25 +287,18 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             DataPrescricao = prescricao.Data.ToDateTime(TimeOnly.MinValue);
             HoraPrescricao = prescricao.Hora.ToString("HH:mm");
 
-            ExigirAssinaturaDaExecucao = prescricao.ExigeAssinaturaEletronicaDaExecucao;
-
-            if (prescricao.Itens.Count > 0)
-            {
-                Indicacao = prescricao.Indicacao; IndicacaoFormatada = prescricao.IndicacaoFormatada;
-                Observacoes = prescricao.Observacoes; ObservacoesFormatadas = prescricao.ObservacoesFormatadas;
-                DiluicaoUnica=prescricao.DiluicaoUnica;DiluenteGlobal=prescricao.DiluenteGlobal;VolumeTotal=prescricao.VolumeTotal;
-
-                Itens.Clear();
-                foreach (var item in prescricao.Itens.OrderBy(i => i.Ordem))
-                    Itens.Add(LinhaItemPrescricao.De(item));
-
-                AcrescentarItem();   // uma linha livre para acrescentar
-            }
+            Indicacao=prescricao.Indicacao;IndicacaoFormatada=prescricao.IndicacaoFormatada;
+            Observacoes=prescricao.Observacoes;ObservacoesFormatadas=prescricao.ObservacoesFormatadas;
+            Infusoes.Clear();
+            foreach(var g in GrupoInfusaoEdicao.Carregar(prescricao.Itens,prescricao.DiluicaoUnica,prescricao.DiluenteGlobal,prescricao.VolumeTotal))Infusoes.Add(g);
+            if(Infusoes.Count==0)CriarInfusao();
+            Renumerar();
 
             await CarregarContextoAsync(servico);
         }
         catch (Exception ex)
         {
+            _carregamentoFalhou=true;
             Application.Diagnostico.Registrar(
                 "Consultório — rascunho de prescrição não pôde ser criado", ex);
             Mensagem = ex.Message;
@@ -323,14 +324,34 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         TemAlertas = Alertas.Count > 0;
     }
 
+    private void Renumerar()
+    {
+        for(var n=0;n<Infusoes.Count;n++)Infusoes[n].Numero=n+1;
+        OnPropertyChanged(nameof(PodeAssinar));
+    }
     [RelayCommand]
-    private void AcrescentarItem() => Itens.Add(new LinhaItemPrescricao());
-
+    private void CriarInfusao()
+    {
+        if(Infusoes.Count>=50){Mensagem="Limite de 50 infusões por prescrição.";MensagemEhErro=true;return;}
+        var grupo=new GrupoInfusaoEdicao();grupo.Itens.Add(new LinhaItemPrescricao());Infusoes.Add(grupo);Renumerar();
+    }
+    [RelayCommand]
+    private void RemoverInfusao(GrupoInfusaoEdicao? grupo)
+    {
+        if(grupo is null)return;
+        if(grupo.Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao))&&!_dialogo.ConfirmarPerigo("Remover infusão","Remover esta infusão do rascunho em edição?"))return;
+        Infusoes.Remove(grupo);Renumerar();
+    }
+    [RelayCommand]
+    private void AcrescentarItem(GrupoInfusaoEdicao? grupo)
+    {
+        if(grupo is null)return;grupo.Itens.Add(new LinhaItemPrescricao());OnPropertyChanged(nameof(PodeAssinar));
+    }
     [RelayCommand]
     private void RemoverItem(LinhaItemPrescricao? linha)
     {
-        if (linha is null) return;
-        Itens.Remove(linha);
+        if(linha is null)return;
+        Infusoes.FirstOrDefault(g=>g.Itens.Contains(linha))?.Itens.Remove(linha);OnPropertyChanged(nameof(PodeAssinar));
     }
 
     [RelayCommand]
@@ -342,8 +363,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         if (!Exigir(Permissao.Prescrever, "salvar a prescrição de infusão")) return;
 
         if (await GravarAsync() is null) return;
-        Mensagem = "✓ Rascunho salvo. Ele ainda NÃO aparece na sala de infusão — só a "
-                 + "assinatura o põe lá.";
+        Mensagem = "Rascunho salvo. Use Liberar para enfermagem para enviar à sala.";
         MensagemEhErro = false;
     }
 
@@ -405,6 +425,15 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
                 }
             }
 
+            if (ContinuidadeAtiva)
+            {
+                using var scope = _escopos.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>()
+                    .LiberarSemAssinaturaAsync(_prescricaoId, SessaoUsuario.Atual.UsuarioId, confirmouAlergia);
+                Assinou = false;
+                Fechar?.Invoke();
+                return;
+            }
             using var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Prescrição {Numero} — {Paciente}",
                 System.Windows.Application.Current?.MainWindow, _escopos);
@@ -449,20 +478,11 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     /// <summary>Grava o rascunho. Devolve null quando recusou — o chamador não segue.</summary>
     private async Task<PrescricaoInterna?> GravarAsync()
     {
-        var itens = Itens
-            .Where(i => !string.IsNullOrWhiteSpace(i.Descricao))
-            .Select(i => i.Para())
-            .ToList();
-
-        if (itens.Count == 0)
-        {
-            Mensagem = "Escreva a prescrição. Use um bloco para cada item que será checado pela enfermagem.";
-            MensagemEhErro = true;
-            return null;
-        }
-
+        if (_carregamentoFalhou) { Mensagem="Reabra a prescrição: o carregamento anterior falhou.";MensagemEhErro=true;return null; }
         try
         {
+            if(Infusoes.Count==0)throw new InvalidOperationException("Crie ao menos uma infusão.");
+            var itens=Infusoes.SelectMany(g=>g.Preparar()).ToArray();
             TextoOperacao = "Salvando prescrição de infusão…";
             Ocupado = true;
             using var scope = _escopos.CreateScope();
@@ -485,8 +505,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             var salva = await servico.SalvarRascunhoAsync(
                 _prescricaoId, Indicacao, Observacoes, itens,
                 SessaoUsuario.Atual.Operador,
-                exigeAssinaturaEletronicaDaExecucao: ExigirAssinaturaDaExecucao,indicacaoFormatada:IndicacaoFormatada,observacoesFormatadas:ObservacoesFormatadas,
-                dataPrescricao:DateOnly.FromDateTime(dataPrescricao),horaPrescricao:horaPrescricao,diluicaoUnica:DiluicaoUnica,diluenteGlobal:DiluenteGlobal,volumeTotal:VolumeTotal);
+                exigeAssinaturaEletronicaDaExecucao: false,indicacaoFormatada:IndicacaoFormatada,observacoesFormatadas:ObservacoesFormatadas,
+                dataPrescricao:DateOnly.FromDateTime(dataPrescricao),horaPrescricao:horaPrescricao,diluicaoUnica:false,diluenteGlobal:null,volumeTotal:null);
 
             Mensagem = null;
             MensagemEhErro = false;

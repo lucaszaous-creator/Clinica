@@ -146,6 +146,10 @@ public sealed partial class PrescricaoInternaService
                 $"A prescrição {prescricao.Numero} já foi assinada e não se edita. Para "
                 + "corrigir, suspenda o item e prescreva outro — é o que deixa rastro dos dois.");
 
+        if (prescricao.Itens.Any(i => i.GrupoInfusao.HasValue) && itens.Any(i => !string.IsNullOrWhiteSpace(i.Descricao) && !i.GrupoInfusao.HasValue))
+            throw new InvalidOperationException("Atualize o aplicativo para editar esta prescrição com infusões separadas.");
+        GruposInfusao.Validar(itens.Where(i => !string.IsNullOrWhiteSpace(i.Descricao)).ToArray(), diluicaoUnica ?? prescricao.DiluicaoUnica);
+
         if (dataPrescricao.HasValue != horaPrescricao.HasValue)
             throw new InvalidOperationException("Informe data e hora da prescrição juntas.");
         if (dataPrescricao is { } data && horaPrescricao is { } hora)
@@ -186,6 +190,7 @@ public sealed partial class PrescricaoInternaService
             prescricao.Itens.Add(new ItemPrescricaoInterna
             {
                 Ordem = ordem++,
+                GrupoInfusao = entrada.GrupoInfusao,
                 Descricao = entrada.Descricao.Trim(),
                 DescricaoFormatada = TextoFormatado.Normalizar(entrada.Descricao.Trim(), entrada.DescricaoFormatada),
                 Dose = Limpar(entrada.Dose),
@@ -243,7 +248,7 @@ public sealed partial class PrescricaoInternaService
         if (prescricao.DevolvidaEm is not null)
             throw new InvalidOperationException("A infusão foi devolvida. Revise e assine uma nova versão.");
 
-        if (prescricao.EstaAssinada && !prescricao.AguardaValidacaoMedica)
+        if (prescricao.AssinaturaDoPrescritor is not null || prescricao.AssinadaEm is not null || prescricao.EstaAssinada && !prescricao.AguardaValidacaoMedica)
             throw new InvalidOperationException($"A prescrição {prescricao.Numero} já está assinada.");
 
         if (prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao?.ArquivoId is null)
@@ -271,7 +276,7 @@ public sealed partial class PrescricaoInternaService
         assinatura.Papel = PapelAssinatura.Prescritor;
         prescricao.Assinaturas.Add(assinatura);
 
-        prescricao.Situacao = prescricao.OrigemEnfermagem ? SituacaoPrescricao.Encerrada : SituacaoPrescricao.Assinada;
+        prescricao.Situacao = prescricao.Situacao == SituacaoPrescricao.Encerrada || prescricao.OrigemEnfermagem ? SituacaoPrescricao.Encerrada : SituacaoPrescricao.Assinada;
         prescricao.AssinadaEm = assinatura.AssinadoEm;
         prescricao.AtualizadoEm = DateTime.Now;
         prescricao.AtualizadoPor = operador;

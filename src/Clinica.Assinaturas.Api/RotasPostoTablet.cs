@@ -10,6 +10,12 @@ internal static class RotasPostoTablet
     internal static void Mapear(WebApplication app, Func<HttpContext,PortalTabletService,Task<SessaoTablet>> sessao)
     {
         var g=app.MapGroup("/api/posto");
+        g.MapGet("/infusoes/{id:int}/liberacao", async(HttpContext c, PortalTabletService portal, PostoTabletService svc, int id)
+            => Results.Ok(await svc.PrepararLiberacaoAsync(await sessao(c,portal),id,c.RequestAborted)));
+        g.MapPost("/infusoes/{id:int}/liberar", async(HttpContext c, PortalTabletService portal, PostoTabletService svc, int id, LiberarInfusaoTablet p)
+            => Results.Ok(await svc.LiberarSemAssinaturaAsync(await sessao(c,portal),id,p,c.RequestAborted)));
+        g.MapPost("/infusoes/{id:int}/concluir-sem-assinatura", async(HttpContext c, PortalTabletService portal, PostoTabletService svc, int id, EncerrarInfusaoTablet p)
+            => Results.Ok(await svc.ConcluirSemAssinaturaAsync(await sessao(c,portal),id,p,c.RequestAborted)));
         g.MapPost("/enfermagem/sessoes/buscar",async(HttpContext c,PortalTabletService portal,PostoTabletService svc, FiltroSessoesEnfermagem filtro)
             =>Results.Ok(await svc.SessoesEnfermagemAsync(await sessao(c,portal),filtro,c.RequestAborted)));
         g.MapGet("/pacientes/{id:int}/enfermagem/contexto",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,DateOnly data)

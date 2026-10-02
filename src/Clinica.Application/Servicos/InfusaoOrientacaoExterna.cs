@@ -20,7 +20,7 @@ public sealed partial class PrescricaoInternaService
         if (usuario is null || !usuario.Ativo || !usuario.Pode(Permissao.Prescrever)
             || usuario.ProfissionalId != p.ProfissionalId)
             throw new UnauthorizedAccessException("Somente o médico responsável pode devolver esta infusão.");
-        if (!p.AguardaValidacaoMedica || p.AssinaturaDaExecucao?.ArquivoId is null)
+        if (!p.AguardaValidacaoMedica || (!p.ModoSemAssinatura && p.AssinaturaDaExecucao?.ArquivoId is null))
             throw new InvalidOperationException("A devolução exige a execução assinada e uma pendência médica aberta.");
         if (motivo?.Trim().Length is not (>= 5 and <= 500))
             throw new InvalidOperationException("Descreva o motivo da devolução (5 a 500 caracteres).");
@@ -43,7 +43,7 @@ public sealed partial class PrescricaoInternaService
     {
         var p = await Exigir(prescricaoId, ct);
         if (!p.OrigemEnfermagem || p.RegistradaPorUsuarioId != usuarioId || p.Cancelada
-            || p.AssinadaEm is not null || p.Assinaturas.Count > 0)
+            || p.AssinadaEm is not null || p.LiberadaSemAssinaturaEm is not null || p.Assinaturas.Count > 0)
             throw new InvalidOperationException("Os horários só podem ser corrigidos pela enfermagem antes da primeira assinatura.");
         if (motivo?.Trim().Length is not (>= 5 and <= 500))
             throw new InvalidOperationException("Informe o motivo da correção (5 a 500 caracteres).");
@@ -120,6 +120,7 @@ public sealed partial class PrescricaoInternaService
         var conferencia = await _conferencia.ConferirAsync(dados.PacienteId, [dados.Texto], ct);
         if (conferencia.ExigeConfirmacao && !dados.ConfirmouAlergia)
             throw new InvalidOperationException("Há alerta de alergia. Confira o prontuário e registre a revisão antes de continuar.");
+        var semAssinatura = await ContinuidadeSemAssinatura.HabilitadaAsync(_repo, ct);
         var agora = DateTime.Now;
         var numero = await _repo.ProximoNumeroPrescricaoInternaAsync(agora.Year, ct);
         var p = new PrescricaoInterna {
@@ -128,19 +129,19 @@ public sealed partial class PrescricaoInternaService
             Data = dados.DataPrescricao ?? dados.Data, Hora = dados.HoraPrescricao ?? dados.Hora, OrigemEnfermagem = true,
             OrientacaoExterna = dados.Orientacao.Trim(), RegistradaPorUsuarioId = usuario.Id,
             RetificaPrescricaoId = anterior?.Id,
-            Situacao = SituacaoPrescricao.Encerrada, ExigeAssinaturaEletronicaDaExecucao = true,
+            Situacao = SituacaoPrescricao.Encerrada, ExigeAssinaturaEletronicaDaExecucao = !semAssinatura, ModoSemAssinatura = semAssinatura,
             CriadoPor = usuario.Login, CriadoEm = agora, EncerradaEm = agora,
             Itens = [new() { Ordem = 1, Descricao = dados.Texto.Trim(), Volume = Limpar(dados.Volume),
                 Diluente = Limpar(dados.Diluente), TempoInfusao = Limpar(dados.Tempo), Via = dados.Via,
                 Checagens = [new() { Situacao = SituacaoChecagem.Realizado, DataRealizacao = dados.Data, HoraRealizacao = dados.Hora,
-                    ExecutanteUsuarioId = usuario.Id, ExecutanteNome = autor.Nome, ExecutanteConselho = autor.Conselho,
+                    ExecutanteCpf = usuario.Profissional?.Cpf, ExecutanteUsuarioId = usuario.Id, ExecutanteNome = autor.Nome, ExecutanteConselho = autor.Conselho,
                     RegistradoEm = agora }] }]
         };
         await _repo.AdicionarPrescricaoInternaAsync(p, ct);
         if (anterior is not null) anterior.Retificacao = p;
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria { PacienteId = p.PacienteId,
             Operador = usuario.Login, Acao = "InfusaoExternaRegistrada",
-            Detalhe = $"{p.Numero}: execução registrada; responsável {dados.MedicoId}; aguarda assinaturas."
+            Detalhe = $"{p.Numero}: execução registrada; responsável {dados.MedicoId}; " + (semAssinatura ? "salva sem assinatura digital; aguarda avaliação médica." : "aguarda assinaturas.")
                 + (anterior is null ? "" : $" Retifica a folha devolvida {anterior.Numero}.")
                 + " A sessão e as guias não foram alteradas."
         }, ct);

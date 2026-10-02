@@ -37,7 +37,7 @@ public sealed partial class PostoTabletService
         if(tipo=="infusao") {
             var p=await RascunhoInfusao(u,paciente,id,ct);
             resultado=new {p.Id,p.Numero,p.DiluicaoUnica,p.DiluenteGlobal,p.VolumeTotal,Tipo=tipo,Versao=Versao(p),p.Data,p.Hora,p.Indicacao,p.IndicacaoFormatada,p.Observacoes,p.ObservacoesFormatadas,AssinaturaEnfermagem=p.ExigeAssinaturaEletronicaDaExecucao,
-                Itens=p.Itens.OrderBy(i=>i.Ordem).Select(i=>new ItemInfusaoTablet(i.Descricao,i.Dose,i.Diluente,i.Volume,i.Via,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes,i.DescricaoFormatada,i.ObservacoesFormatadas))};
+                Itens=p.Itens.OrderBy(i=>i.Ordem).Select(i=>new ItemInfusaoTablet(i.Descricao,i.Dose,i.Diluente,i.Volume,i.Via,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes,i.DescricaoFormatada,i.ObservacoesFormatadas,i.GrupoInfusao))};
         } else if(tipo=="documento") {
             var d=await RascunhoDocumento(u,paciente,id,ct);
             resultado=new {d.Id,d.Numero,Tipo=tipo,Versao=VersaoDocumento(d),d.Corpo,d.CorpoFormatado,d.Observacoes,d.ObservacoesFormatadas,d.DiasAfastamento,
@@ -52,13 +52,15 @@ public sealed partial class PostoTabletService
             if(tipo=="infusao") {
                 var anterior=await RascunhoInfusao(u,paciente,id,ct);ConferirVersao(p.Versao,Versao(anterior));
                 if(p.Itens is not {Length:>0 and <=50})throw ErroFormularioTablet.Criar("Informe de 1 a 50 itens.");
+                if(anterior.Itens.Any(i=>i.GrupoInfusao.HasValue)&&p.Itens.Any(i=>!i.GrupoInfusao.HasValue))
+                    throw ErroFormularioTablet.Criar("Atualize a página para preservar as infusões separadas desta prescrição.");
                 foreach(var i in p.Itens) {
                     Textos(20000,i.Descricao);Textos(1000,i.Observacoes);Textos(120,i.Diluente);Textos(60,i.Dose,i.Volume,i.TempoInfusao);
                     if(string.IsNullOrWhiteSpace(i.Descricao)||!Enum.IsDefined(i.Via))throw ErroFormularioTablet.Criar("Confira descrição e via de cada item.");
                 }
                 var nova=await Prescricoes.CriarAsync(paciente,u.ProfissionalId,anterior.AgendamentoId,anterior.EvolucaoId,u.Login,ct);
                 await Prescricoes.SalvarRascunhoAsync(nova.Id,p.Indicacao,p.Observacoes,p.Itens.Select(i=>new ItemPrescricaoInterna {
-                    Descricao=i.Descricao,DescricaoFormatada=i.DescricaoFormatada,Dose=i.Dose,Diluente=i.Diluente,Volume=i.Volume,Via=i.Via,TempoInfusao=i.TempoInfusao,
+                    GrupoInfusao=i.GrupoInfusao,Descricao=i.Descricao,DescricaoFormatada=i.DescricaoFormatada,Dose=i.Dose,Diluente=i.Diluente,Volume=i.Volume,Via=i.Via,TempoInfusao=i.TempoInfusao,
                     HoraPrevista=i.HoraPrevista,SeNecessario=i.SeNecessario,Observacoes=i.Observacoes,ObservacoesFormatadas=i.ObservacoesFormatadas}).ToArray(),u.Login,p.AssinaturaEnfermagem,ct,p.IndicacaoFormatada,p.ObservacoesFormatadas,
                     p.DataPrescricao??anterior.Data,p.HoraPrescricao??anterior.Hora,p.DiluicaoUnica??anterior.DiluicaoUnica,p.DiluenteGlobal??anterior.DiluenteGlobal,p.VolumeTotal??anterior.VolumeTotal);
                 await Prescricoes.CancelarAsync(id,$"Substituída pela prescrição {nova.Numero}: {p.Motivo}",u.Login,ct);

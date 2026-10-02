@@ -175,7 +175,7 @@ public sealed class PrescricaoInternaPdfService
                     if (prescricao.OrigemEnfermagem)
                     {
                         Campo(col, "Orientação médica informada pela enfermagem", prescricao.OrientacaoExterna ?? "—");
-                        Campo(col, "Responsabilidade", "A enfermagem assina a execução no campo à direita. O médico responsável assina a solicitação/validação no campo à esquerda, com a data real de cada assinatura.");
+                        Campo(col, "Responsabilidade", prescricao.ModoSemAssinatura ? "Registro sem assinatura digital. A orientação informada não comprova assinatura ou validação médica." : "A enfermagem assina a execução no campo à direita. O médico responsável assina a solicitação/validação no campo à esquerda, com a data real de cada assinatura.");
                         var execucao = prescricao.Itens.Select(i => i.ChecagemVigente).FirstOrDefault(c => c is not null);
                         Campo(col, "Registro", $"Prescrição/orientação informada: {prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH\\:mm}. "
                             + $"Execução: {(execucao?.DataRealizacao ?? prescricao.Data):dd/MM/yyyy} às {execucao?.HoraRealizacao:HH\\:mm}. "
@@ -472,8 +472,14 @@ public sealed class PrescricaoInternaPdfService
                 CabecalhoCelula(h, "Visto");
             });
 
+            int? grupoAnterior = null;
             foreach (var item in itens)
             {
+                if (item.GrupoInfusao is {} grupo && grupo != grupoAnterior)
+                {
+                    tabela.Cell().ColumnSpan(7).PaddingVertical(8).Text(GruposInfusao.Rotulo(item)).Bold().FontSize(9);
+                    grupoAnterior = grupo;
+                }
                 var apagado = item.Suspenso;
 
                 Celula(tabela).Text(item.Ordem.ToString()).FontSize(9)
@@ -580,8 +586,14 @@ public sealed class PrescricaoInternaPdfService
                 CabecalhoCelula(h, "Executante");
             });
 
+            int? grupoAnterior = null;
             foreach (var item in itens)
             {
+                if (item.GrupoInfusao is {} grupo && grupo != grupoAnterior)
+                {
+                    tabela.Cell().ColumnSpan(5).PaddingVertical(8).Text(GruposInfusao.Rotulo(item)).Bold().FontSize(9);
+                    grupoAnterior = grupo;
+                }
                 var checagem = item.ChecagemVigente;
 
                 Celula(tabela).Text(item.Ordem.ToString()).FontSize(9);
@@ -995,7 +1007,7 @@ public sealed class PrescricaoInternaPdfService
                 {
                     // Sem assinatura eletrônica a folha não mente: ela diz que a prescrição
                     // foi assinada na via impressa, que é o outro caminho legítimo.
-                    c.Item().Text("Prescrição assinada na via impressa (sem assinatura eletrônica no sistema).")
+                    c.Item().Text(prescricao.ModoSemAssinatura ? "Prescrição registrada sem assinatura digital. Não há confirmação de assinatura em papel." : "Prescrição assinada na via impressa (sem assinatura eletrônica no sistema).")
                         .FontSize(8.5f).FontColor(TextoSecundario);
                     return;
                 }
@@ -1039,6 +1051,40 @@ public sealed class PrescricaoInternaPdfService
         string? assinaturaNoutraFolha = null,
         bool? reservarSegundoCarimbo = null)
     {
+        if (prescricao.ModoSemAssinatura && !paraAssinaturaEletronica)
+        {
+            page.Footer().Column(col =>
+            {
+                col.Item().LineHorizontal(0.75f).LineColor(Borda);
+                col.Item().PaddingTop(6).Row(row =>
+                {
+                    row.RelativeItem().Column(c =>
+                    {
+                        c.Item().Text(prescricao.OrigemEnfermagem && prescricao.LiberadaSemAssinaturaEm is null ? "Médico informado · avaliação pendente" : "Médico responsável").Bold().FontSize(9);
+                        c.Item().Text(prescricao.Profissional?.Nome ?? "Não informado").FontSize(9);
+                        c.Item().Text(prescricao.Profissional?.RegistroConselho ?? "Conselho não informado").FontSize(8);
+                        c.Item().Text("CPF: " + (prescricao.Profissional?.Cpf ?? "Não informado")).FontSize(8);
+                    });
+                    row.ConstantItem(12);
+                    row.RelativeItem().Column(c =>
+                    {
+                        c.Item().Text("Execução · enfermagem").Bold().FontSize(9);
+                        var responsaveis = prescricao.Itens.Select(i => i.ChecagemVigente).Where(c => c is not null)
+                            .Select(c => new { c!.ExecutanteNome, c.ExecutanteConselho, c.ExecutanteCpf }).Distinct().ToArray();
+                        if (responsaveis.Length == 0) c.Item().Text("Execução ainda não registrada").FontSize(8);
+                        foreach (var autor in responsaveis)
+                        {
+                            c.Item().Text(autor.ExecutanteNome).FontSize(9);
+                            c.Item().Text(autor.ExecutanteConselho ?? "Conselho não informado").FontSize(8);
+                            c.Item().Text("CPF: " + (autor.ExecutanteCpf ?? "Não informado")).FontSize(8);
+                        }
+                    });
+                });
+                col.Item().PaddingTop(6).Text("Registro sem assinatura digital. A identificação dos responsáveis não substitui a assinatura.").FontSize(8).FontColor(TextoSecundario);
+                col.Item().Text(t => { t.Span("Conferência: " + prescricao.CodigoVerificacao + " · Página "); t.CurrentPageNumber(); t.Span(" de "); t.TotalPages(); });
+            });
+            return;
+        }
         // A folha só reserva o 2º espaço quando ELA pede a assinatura da execução: numa
         // folha do regime do papel, um retângulo vazio à direita seria espaço morto.
         var duasAssinaturas =
@@ -1222,8 +1268,8 @@ public sealed class PrescricaoInternaPdfService
     {
         var partes = new List<string>();
         if (!string.IsNullOrWhiteSpace(item.Dose)) partes.Add($"Dose: {item.Dose.Trim()}");
-        if (!string.IsNullOrWhiteSpace(item.Diluente)) partes.Add($"Diluente: {item.Diluente.Trim()}");
-        if (!string.IsNullOrWhiteSpace(item.Volume)) partes.Add($"Volume: {item.Volume.Trim()}");
+        if (item.GrupoInfusao is null && !string.IsNullOrWhiteSpace(item.Diluente)) partes.Add($"Diluente: {item.Diluente.Trim()}");
+        if (item.GrupoInfusao is null && !string.IsNullOrWhiteSpace(item.Volume)) partes.Add($"Volume: {item.Volume.Trim()}");
         return string.Join(" · ", partes);
     }
 

@@ -20,6 +20,7 @@
   <!-- Marca (logo SemDor): embarcada para desenhar no cabeçalho dos PDFs (capa, guia, fechamento). -->
   <ItemGroup>
     <EmbeddedResource Include="Recursos\Marca\*.png" />
+    <EmbeddedResource Include="Recursos\Medicamentos\*.json" />
   </ItemGroup>
 
   <PropertyGroup>
