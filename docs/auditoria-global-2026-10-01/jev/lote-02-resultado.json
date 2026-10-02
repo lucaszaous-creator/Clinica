@@ -1,0 +1,258 @@
+{
+  "modelo_solicitado": "jev-1.13.0",
+  "sha256_pedido": "a909b94a5f371825316fc2f02cb58d4254678fa9f0ff58ac138b80b363d60205",
+  "answers": {
+    "S070": {
+      "choice": "insuficiente",
+      "confidence": 0.41
+    },
+    "S071": {
+      "choice": "insuficiente",
+      "confidence": 0.41
+    },
+    "S072": {
+      "choice": "sem_indicio",
+      "confidence": 0.5
+    },
+    "S073": {
+      "choice": "sem_indicio",
+      "confidence": 0.55
+    },
+    "S074": {
+      "choice": "acao",
+      "confidence": 0.75
+    },
+    "S075": {
+      "choice": "sem_indicio",
+      "confidence": 0.49
+    },
+    "S076": {
+      "choice": "sem_indicio",
+      "confidence": 0.38
+    },
+    "S077": {
+      "choice": "sem_indicio",
+      "confidence": 0.56
+    },
+    "S078": {
+      "choice": "acao",
+      "confidence": 0.3
+    },
+    "S079": {
+      "choice": "acao",
+      "confidence": 0.41
+    },
+    "S080": {
+      "choice": "acao",
+      "confidence": 0.67
+    },
+    "S081": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "S082": {
+      "choice": "sem_indicio",
+      "confidence": 0.39
+    },
+    "S083": {
+      "choice": "acao",
+      "confidence": 0.31
+    },
+    "S084": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "S085": {
+      "choice": "navegacao",
+      "confidence": 0.52
+    },
+    "S086": {
+      "choice": "navegacao",
+      "confidence": 0.61
+    },
+    "S087": {
+      "choice": "acao",
+      "confidence": 0.63
+    },
+    "S088": {
+      "choice": "acao",
+      "confidence": 0.52
+    },
+    "S089": {
+      "choice": "acao",
+      "confidence": 0.46
+    },
+    "S090": {
+      "choice": "acao",
+      "confidence": 0.39
+    },
+    "S091": {
+      "choice": "acao",
+      "confidence": 0.35
+    },
+    "S092": {
+      "choice": "navegacao",
+      "confidence": 0.28
+    },
+    "S093": {
+      "choice": "acao",
+      "confidence": 0.6
+    },
+    "S094": {
+      "choice": "sem_indicio",
+      "confidence": 0.44
+    },
+    "S095": {
+      "choice": "acao",
+      "confidence": 0.3
+    },
+    "S096": {
+      "choice": "acao",
+      "confidence": 0.27
+    },
+    "S097": {
+      "choice": "acao",
+      "confidence": 0.34
+    },
+    "S098": {
+      "choice": "sem_indicio",
+      "confidence": 0.37
+    },
+    "S099": {
+      "choice": "navegacao",
+      "confidence": 0.24
+    },
+    "S100": {
+      "choice": "acao",
+      "confidence": 0.59
+    },
+    "S101": {
+      "choice": "navegacao",
+      "confidence": 0.49
+    },
+    "S102": {
+      "choice": "navegacao",
+      "confidence": 0.43
+    },
+    "S103": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "S104": {
+      "choice": "acao",
+      "confidence": 0.62
+    },
+    "S105": {
+      "choice": "navegacao",
+      "confidence": 0.15
+    },
+    "S106": {
+      "choice": "acao",
+      "confidence": 0.39
+    },
+    "S107": {
+      "choice": "acao",
+      "confidence": 0.36
+    },
+    "S108": {
+      "choice": "sem_indicio",
+      "confidence": 0.26
+    },
+    "S109": {
+      "choice": "sem_indicio",
+      "confidence": 0.18
+    },
+    "S110": {
+      "choice": "acao",
+      "confidence": 0.79
+    },
+    "S111": {
+      "choice": "acao",
+      "confidence": 0.52
+    },
+    "S112": {
+      "choice": "acao",
+      "confidence": 0.62
+    },
+    "S113": {
+      "choice": "sem_indicio",
+      "confidence": 0.4
+    },
+    "S114": {
+      "choice": "acao",
+      "confidence": 0.64
+    },
+    "S115": {
+      "choice": "acao",
+      "confidence": 0.62
+    },
+    "S116": {
+      "choice": "sem_indicio",
+      "confidence": 0.41
+    },
+    "S117": {
+      "choice": "acao",
+      "confidence": 0.3
+    },
+    "S118": {
+      "choice": "acao",
+      "confidence": 0.67
+    },
+    "S119": {
+      "choice": "acao",
+      "confidence": 0.45
+    },
+    "S120": {
+      "choice": "sem_indicio",
+      "confidence": 0.5
+    },
+    "S121": {
+      "choice": "acao",
+      "confidence": 0.53
+    },
+    "S122": {
+      "choice": "acao",
+      "confidence": 0.65
+    },
+    "S123": {
+      "choice": "sem_indicio",
+      "confidence": 0.35
+    },
+    "S124": {
+      "choice": "sem_indicio",
+      "confidence": 0.46
+    },
+    "S125": {
+      "choice": "sem_indicio",
+      "confidence": 0.27
+    },
+    "S126": {
+      "choice": "sem_indicio",
+      "confidence": 0.25
+    },
+    "S127": {
+      "choice": "acao",
+      "confidence": 0.62
+    },
+    "S128": {
+      "choice": "acao",
+      "confidence": 0.41
+    },
+    "S129": {
+      "choice": "sem_indicio",
+      "confidence": 0.4
+    },
+    "S130": {
+      "choice": "acao",
+      "confidence": 0.55
+    },
+    "S131": {
+      "choice": "acao",
+      "confidence": 0.35
+    }
+  },
+  "usage": {
+    "input_tokens": 30490,
+    "output_tokens": 3972
+  }
+}

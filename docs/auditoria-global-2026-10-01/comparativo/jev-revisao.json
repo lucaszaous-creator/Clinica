@@ -1,0 +1,80 @@
+{
+  "model": "jev-1.13.0",
+  "answers": {
+    "recepcao": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.93,
+      "probabilities": {
+        "insuficiente": 0.0,
+        "revisar": 0.05,
+        "coerente": 0.95
+      }
+    },
+    "clinico": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.93,
+      "probabilities": {
+        "insuficiente": 0.0,
+        "revisar": 0.04,
+        "coerente": 0.96
+      }
+    },
+    "faturamento": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.93,
+      "probabilities": {
+        "insuficiente": 0.0,
+        "revisar": 0.04,
+        "coerente": 0.96
+      }
+    },
+    "financeiro": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.93,
+      "probabilities": {
+        "insuficiente": 0.0,
+        "revisar": 0.04,
+        "coerente": 0.96
+      }
+    },
+    "gerente": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.93,
+      "probabilities": {
+        "insuficiente": 0.0,
+        "revisar": 0.04,
+        "coerente": 0.96
+      }
+    },
+    "crm": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.92,
+      "probabilities": {
+        "insuficiente": 0.0,
+        "coerente": 0.95,
+        "revisar": 0.05
+      }
+    },
+    "escopo": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.92,
+      "probabilities": {
+        "insuficiente": 0.0,
+        "revisar": 0.05,
+        "coerente": 0.95
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 5673,
+    "output_tokens": 320
+  },
+  "limite": "Revisão textual das descrições, sem inspeção visual ou validação do produto."
+}

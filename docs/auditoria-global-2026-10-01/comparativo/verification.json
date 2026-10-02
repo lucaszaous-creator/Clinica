@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-01",
+  "kind": "local_interactive_prototype",
+  "routes": 100,
+  "comparative_scenes": 97,
+  "preserved_references": 3,
+  "inventory_files": 263,
+  "checked_viewports": [{"width":1600,"height":1100},{"width":390,"height":844}],
+  "route_errors": [],
+  "interaction_checks_passed": 11,
+  "checks": ["clinical_draft_context", "clinical_draft_comparison_mode", "account_chosen_due_date", "whatsapp_open_not_sent", "manual_send_separate", "crm_completion_refresh_failure", "crm_refresh_without_recompletion", "missing_guide_no_acceptance", "issued_document_resume_without_reissue", "portal_no_redesign", "full_inventory_count"],
+  "limits": "Browser checks concern the prototype only, not the running clinical systems or production data."
+}
