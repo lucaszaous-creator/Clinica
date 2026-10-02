@@ -61,7 +61,7 @@ internal static class Program
         var lidocaina=BuscaMedicamentos.Buscar(vm.CatalogoMedicamentos,"li").First();grupo.Itens[0].Descricao=lidocaina.Texto;
         Confere(grupo.Itens[0].Dose is null,"Seleção do medicamento não define dose");
         Confere(grupo.Itens[0].DicaDose=="Quantidade em mL","Lidocaína orienta quantidade em mL");
-        var janela=new PrescricaoInternaWindow(vm);Abrir(janela,1180,790);await Render(janela,"prescricao-minimalista.png");
+        var janela=new PrescricaoInternaWindow(vm);Abrir(janela,1180,680);await Render(janela,"prescricao-minimalista.png");
         janela.Width=900;janela.Height=560;await Render(janela,"prescricao-900.png");janela.Close();
         grupo.Volume="250 mL";grupo.Itens[0].Dose="7 mL";grupo.Horario="09:00";grupo.Itens[0].Observacoes="Nota do paciente fictício";
         Confere(await vm.SalvarModeloAsync(grupo,"Composição demonstrativa"),vm.Mensagem??"Salvar modelo");
