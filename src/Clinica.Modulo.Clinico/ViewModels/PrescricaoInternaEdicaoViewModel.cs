@@ -117,11 +117,6 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     /// também assina eletronicamente ESTA MESMA folha, no encerramento, com o
     /// certificado DELA. Desmarcado, vale o regime de sempre: caneta na via impressa.
     /// </summary>
-    /// <summary>
-    /// Nasce MARCADO, como a entidade: o padrão é a folha terminar com a assinatura
-    /// eletrônica de quem executou. Desmarcar é ato consciente de quem prescreve.
-    /// </summary>
-    [ObservableProperty] private bool _exigirAssinaturaDaExecucao = true;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _ocupado;
@@ -258,7 +253,6 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
 
             ContinuidadeAtiva = await ContinuidadeSemAssinatura.HabilitadaAsync(scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>());
-            if (ContinuidadeAtiva) ExigirAssinaturaDaExecucao = false;
             // A prescrição NOVA não é criada aqui, e isso é decisão (parcela 45): a
             // criação assinala um NÚMERO da série anual (PRE 2026/0001) e grava a linha.
             // Fazer isso na abertura da janela significava que abrir e desistir deixava
@@ -285,8 +279,6 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             Numero = prescricao.Numero;
             DataPrescricao = prescricao.Data.ToDateTime(TimeOnly.MinValue);
             HoraPrescricao = prescricao.Hora.ToString("HH:mm");
-
-            ExigirAssinaturaDaExecucao = prescricao.ExigeAssinaturaEletronicaDaExecucao;
 
             if (prescricao.Itens.Count > 0)
             {
@@ -501,7 +493,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             var salva = await servico.SalvarRascunhoAsync(
                 _prescricaoId, Indicacao, Observacoes, itens,
                 SessaoUsuario.Atual.Operador,
-                exigeAssinaturaEletronicaDaExecucao: ExigirAssinaturaDaExecucao,indicacaoFormatada:IndicacaoFormatada,observacoesFormatadas:ObservacoesFormatadas,
+                exigeAssinaturaEletronicaDaExecucao: false,indicacaoFormatada:IndicacaoFormatada,observacoesFormatadas:ObservacoesFormatadas,
                 dataPrescricao:DateOnly.FromDateTime(dataPrescricao),horaPrescricao:horaPrescricao,diluicaoUnica:DiluicaoUnica,diluenteGlobal:DiluenteGlobal,volumeTotal:VolumeTotal);
 
             Mensagem = null;

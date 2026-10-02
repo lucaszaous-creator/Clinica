@@ -71,15 +71,6 @@
                             Style="{StaticResource BotaoSecundario}"
                             Command="{Binding AcrescentarItemCommand}" />
 
-                    <!-- O campo de 2ª assinatura: marcado, a enfermagem também assina
-                         ESTA MESMA folha no encerramento, sem tocar na assinatura de quem
-                         prescreveu. Fica na barra da assinatura porque a decisão é de quem
-                         prescreve, tomada no mesmo gesto de assinar. -->
-                    <CheckBox Margin="16,0,0,0" VerticalAlignment="Center"
-                              IsChecked="{Binding ExigirAssinaturaDaExecucao}"
-                              IsEnabled="{Binding PodePrescrever}"
-                              Content="Assinatura eletrônica da enfermagem ao encerrar"
-                              ToolTip="MARCADO (padrão): ao encerrar, o sistema PEDE a assinatura da enfermeira — ela assina ESTA MESMA prescrição com o certificado dela (a sua não é tocada, e a folha sai com as duas) e o registro de execução sai selado, mostrando o que foi feito, o não realizado e o suspenso.&#10;&#10;DESMARCADO: o sistema NÃO pede assinatura nenhuma no encerramento; a enfermeira assina à caneta na via impressa." />
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
