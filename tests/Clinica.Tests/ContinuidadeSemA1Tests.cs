@@ -148,4 +148,18 @@ public sealed partial class AtendimentoTabletTests
         var d = await repo.ObterDocumentoAsync(r.Id);
         Assert.NotNull(d); Assert.Null(d.AssinadoEm);
     }
+
+    [Fact] public async Task SemA1_migracao_recusa_reversao_depois_de_liberacao_registrada()
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        await HabilitarSemA1(); var p = await Folha(SituacaoPrescricao.Rascunho);
+        await Posto.LiberarSemAssinaturaAsync(sessao, p.Id, Liberacao(p), default);
+        var migrador = Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions
+            .GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>(db);
+        var erro = await Assert.ThrowsAsync<Npgsql.PostgresException>(() =>
+            migrador.MigrateAsync("20261001180000_AuditoriaPreservaDetalheCompleto"));
+        Assert.Equal("P0001", erro.SqlState);
+        Assert.Contains("20261002140919_ContinuidadeSemAssinatura", await db.Database.GetAppliedMigrationsAsync());
+        Assert.True((await db.PrescricoesInternas.AsNoTracking().SingleAsync(x => x.Id == p.Id)).ModoSemAssinatura);
+    }
 }

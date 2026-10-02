@@ -35,7 +35,18 @@ namespace Clinica.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            throw new InvalidOperationException("Esta migration preserva registros clínicos. Reverta apenas o aplicativo, mantendo as colunas e os dados.");
+            migrationBuilder.Sql("""
+                DO $protege$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM "PrescricoesInternas" WHERE "ModoSemAssinatura" OR "LiberadaSemAssinaturaEm" IS NOT NULL)
+                       OR EXISTS (SELECT 1 FROM "ChecagensPrescricao" WHERE "ExecutanteCpf" IS NOT NULL) THEN
+                        RAISE EXCEPTION 'Reversão recusada: há registros de continuidade ou identificação de executantes. Reverta apenas o aplicativo.';
+                    END IF;
+                END $protege$;
+                """);
+            migrationBuilder.DropColumn(name: "LiberadaSemAssinaturaEm", table: "PrescricoesInternas");
+            migrationBuilder.DropColumn(name: "ModoSemAssinatura", table: "PrescricoesInternas");
+            migrationBuilder.DropColumn(name: "ExecutanteCpf", table: "ChecagensPrescricao");
         }
     }
 }
