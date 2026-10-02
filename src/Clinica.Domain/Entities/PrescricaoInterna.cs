@@ -377,6 +377,9 @@ public class ItemPrescricaoInterna
     /// <summary>Ordem de administração na folha.</summary>
     public int Ordem { get; set; }
 
+    /// <summary>Nulo preserva folhas antigas; positivo identifica a diluição compartilhada.</summary>
+    public int? GrupoInfusao { get; set; }
+
     /// <summary>O fármaco, como o prescritor escreve ("Dipirona sódica 500mg/mL").</summary>
     public string Descricao { get; set; } = string.Empty;
     public string? DescricaoFormatada { get; set; }

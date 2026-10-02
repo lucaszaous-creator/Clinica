@@ -472,8 +472,14 @@ public sealed class PrescricaoInternaPdfService
                 CabecalhoCelula(h, "Visto");
             });
 
+            int? grupoAnterior = null;
             foreach (var item in itens)
             {
+                if (item.GrupoInfusao is {} grupo && grupo != grupoAnterior)
+                {
+                    tabela.Cell().ColumnSpan(7).PaddingVertical(8).Text(GruposInfusao.Rotulo(item)).Bold().FontSize(9);
+                    grupoAnterior = grupo;
+                }
                 var apagado = item.Suspenso;
 
                 Celula(tabela).Text(item.Ordem.ToString()).FontSize(9)
@@ -580,8 +586,14 @@ public sealed class PrescricaoInternaPdfService
                 CabecalhoCelula(h, "Executante");
             });
 
+            int? grupoAnterior = null;
             foreach (var item in itens)
             {
+                if (item.GrupoInfusao is {} grupo && grupo != grupoAnterior)
+                {
+                    tabela.Cell().ColumnSpan(5).PaddingVertical(8).Text(GruposInfusao.Rotulo(item)).Bold().FontSize(9);
+                    grupoAnterior = grupo;
+                }
                 var checagem = item.ChecagemVigente;
 
                 Celula(tabela).Text(item.Ordem.ToString()).FontSize(9);
@@ -1256,8 +1268,8 @@ public sealed class PrescricaoInternaPdfService
     {
         var partes = new List<string>();
         if (!string.IsNullOrWhiteSpace(item.Dose)) partes.Add($"Dose: {item.Dose.Trim()}");
-        if (!string.IsNullOrWhiteSpace(item.Diluente)) partes.Add($"Diluente: {item.Diluente.Trim()}");
-        if (!string.IsNullOrWhiteSpace(item.Volume)) partes.Add($"Volume: {item.Volume.Trim()}");
+        if (item.GrupoInfusao is null && !string.IsNullOrWhiteSpace(item.Diluente)) partes.Add($"Diluente: {item.Diluente.Trim()}");
+        if (item.GrupoInfusao is null && !string.IsNullOrWhiteSpace(item.Volume)) partes.Add($"Volume: {item.Volume.Trim()}");
         return string.Join(" · ", partes);
     }
 

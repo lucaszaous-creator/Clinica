@@ -72,6 +72,7 @@ public sealed class ModuloClinico : IModuloApp
     /// folha que a equipe EXECUTA. Juntá-las faria a decisão mais frequente do dia (dar um
     /// atestado) dividir espaço com a mais rara.
     /// </summary>
+    public const string ChaveMedicamentos = "consultorio-medicamentos";
     public const string ChavePrescricaoInfusao = ChavesSuite.ConsultorioPrescricaoInfusao;
 
     /// <summary>
@@ -320,7 +321,8 @@ public sealed class ModuloClinico : IModuloApp
             Abas =
             [
                 new AbaMenu("Receitas e documentos", ChavePrescricoes),
-                new AbaMenu("Infus\u00E3o", ChavePrescricaoInfusao)
+                new AbaMenu("Infus\u00E3o", ChavePrescricaoInfusao),
+                new AbaMenu("Medicamentos", ChaveMedicamentos)
             ]
         },
         new ItemMenuModulo
@@ -328,6 +330,7 @@ public sealed class ModuloClinico : IModuloApp
             Chave = ChavePrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5", Icone = "rx",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
         },
+        new ItemMenuModulo { Chave=ChaveMedicamentos, Rotulo="Medicamentos", Glifo="\uE8A5", Icone="rx", Grupo=GrupoSidebar.Atendimento, Requer=Permissao.Prescrever },
         new ItemMenuModulo
         {
             Chave = ChavePrescricaoInfusao, Rotulo = "Prescri\u00E7\u00E3o de infus\u00E3o",
@@ -634,6 +637,7 @@ public sealed class ModuloClinico : IModuloApp
         {
             DataContext = servicos.GetRequiredService<MinhaSemanaViewModel>()
         },
+        ChaveMedicamentos => new MedicamentosView(servicos.GetRequiredService<IServiceScopeFactory>()),
         ChavePrescricoes => new PrescricoesClinicasView
         {
             DataContext = servicos.GetRequiredService<PrescricoesClinicasViewModel>()

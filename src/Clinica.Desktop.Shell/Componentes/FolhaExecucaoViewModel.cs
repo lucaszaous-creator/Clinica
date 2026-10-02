@@ -59,6 +59,7 @@ public sealed class LinhaExecucaoItem
 
         var detalhe = string.Join("  ·  ", new[]
         {
+            item.GrupoInfusao.HasValue ? GruposInfusao.Rotulo(item) : null,
             RotulosEnum.De(item.Via),
             item.TempoInfusao,
             item.HoraPrevista is { } h ? $"previsto {h:HH\\:mm}" : null,
@@ -78,7 +79,7 @@ public sealed class LinhaExecucaoItem
         {
             ItemId = item.Id,
             Ordem = item.Ordem,
-            Descricao = item.TextoCompleto,
+            Descricao = item.GrupoInfusao.HasValue ? string.Join(" · ", new[] { item.Descricao, item.Dose }.Where(s => !string.IsNullOrWhiteSpace(s))) : item.TextoCompleto,
             Detalhe = detalhe,
             Situacao = RotulosEnum.De(situacao),
             Marca = marca,

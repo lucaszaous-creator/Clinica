@@ -92,6 +92,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<PontoProtocolo> PontosProtocolo => Set<PontoProtocolo>();
     public DbSet<DocumentoClinico> DocumentosClinicos => Set<DocumentoClinico>();
     public DbSet<ItemDocumento> ItensDocumento => Set<ItemDocumento>();
+    public DbSet<MedicamentoCadastro> MedicamentosCadastro => Set<MedicamentoCadastro>();
     public DbSet<ModeloDocumento> ModelosDocumento => Set<ModeloDocumento>();
     public DbSet<ItemModelo> ItensModelo => Set<ItemModelo>();
     public DbSet<PrescricaoInterna> PrescricoesInternas => Set<PrescricaoInterna>();
@@ -1538,6 +1539,18 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => new { x.ProfissionalId, x.Nome }).IsUnique();
         });
 
+        b.Entity<MedicamentoCadastro>(e =>
+        {
+            e.HasKey(x => x.Codigo);
+            e.Property(x => x.Codigo).HasMaxLength(48);
+            e.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            e.Property(x => x.PrincipioAtivo).HasMaxLength(200);
+            e.Property(x => x.Apresentacao).HasMaxLength(200);
+            e.Property(x => x.Fabricante).HasMaxLength(160);
+            e.Property(x => x.Fonte).HasMaxLength(120);
+            e.Property(x => x.AtualizadoPor).HasMaxLength(200);
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+        });
         b.Entity<ModeloDocumento>(e =>
         {
             e.HasKey(x => x.Id);

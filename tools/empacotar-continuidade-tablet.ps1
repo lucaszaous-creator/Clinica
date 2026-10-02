@@ -27,7 +27,7 @@ foreach ($arquivoPortal in (Get-ChildItem -LiteralPath $saidaPortal -File -Recur
     $relativoPortal = $arquivoPortal.FullName.Substring($saidaPortal.Length+1).Replace('\','/')
     $hashesPortal[$relativoPortal] = (Get-FileHash -LiteralPath $arquivoPortal.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 }
-[ordered]@{contrato=3;backend=$shaApiPortal;interface=$shaSitePortal;migracao_minima='20260928211121_ChecagemNaoExecutavel';migracao_nova='20261002140919_ContinuidadeSemAssinatura';arquivos=$hashesPortal} |
+[ordered]@{contrato=3;backend=$shaApiPortal;interface=$shaSitePortal;migracao_minima='20260928211121_ChecagemNaoExecutavel';migracao_nova='20261002162759_GruposInfusaoECatalogoMedicamentos';arquivos=$hashesPortal} |
     ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $saidaPortal 'manifesto.json') -Encoding utf8
 $pacotePortal = Join-Path (Split-Path -Parent $saidaPortal) ($nomePortal + '.tar.gz')
 & tar -czf $pacotePortal -C (Split-Path -Parent $saidaPortal) $nomePortal

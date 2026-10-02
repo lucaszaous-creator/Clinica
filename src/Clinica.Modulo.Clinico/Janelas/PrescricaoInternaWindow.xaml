@@ -1,267 +1,87 @@
 <Window x:Class="Clinica.Clinico.Janelas.PrescricaoInternaWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-        Title="Prescrição de infusão" Width="1040" Height="660"
-        MinWidth="900" MinHeight="520"
-        WindowStartupLocation="CenterOwner"
-        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
-
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto, e a
-             mensagem desta janela nunca aparecia (parcela 61). -->
-        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
-    </Window.Resources>
-
-    <Grid>
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-        <StackPanel Margin="24,16,24,0" AutomationProperties.LiveSetting="Polite">
-            <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/>
-                <Style.Triggers><DataTrigger Binding="{Binding Ocupado}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
-            </Style></StackPanel.Style>
-            <TextBlock Text="{Binding TextoOperacao}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,8"/>
-            <ProgressBar IsIndeterminate="True" Height="4" AutomationProperties.Name="Operação em andamento"/>
-        </StackPanel>
-    <DockPanel Grid.Row="1" Margin="24">
-        <DockPanel.Style><Style TargetType="DockPanel"><Style.Triggers>
-            <DataTrigger Binding="{Binding Ocupado}" Value="True"><Setter Property="IsEnabled" Value="False"/></DataTrigger>
-        </Style.Triggers></Style></DockPanel.Style>
-
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-            <TextBlock Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap">
-                <Run Text="Prescrição de infusão " />
-                <Run Text="{Binding Numero, Mode=OneWay}" />
-            </TextBlock>
-            <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap" Margin="0,2,0,0"
-                       FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold"
-                       Foreground="{StaticResource Brush.Texto.Primario}" />
-            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,0"
-                       Text="Folha de execução no próprio consultório — não é receita para farmácia. Salvar deixa em rascunho; só a assinatura a envia para a sala de infusão." />
-        </StackPanel>
-
-        <!-- Alergias e medicação contínua ANTES de escrever: é a informação que muda a
-             conduta em dez segundos, e ela não pode dividir espaço com o histórico. -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding TemAlertas, Converter={StaticResource BoolParaVisibilidade}}">
-            <ItemsControl ItemsSource="{Binding Alertas}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,1" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </Border>
-
-        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal">
-                    <Button Content="Acrescentar item" MinWidth="150"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding AcrescentarItemCommand}" />
-
-                </StackPanel>
-
-                <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                    <Button Content="Fechar" IsCancel="True" MinWidth="100"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoSecundario}" />
-                    <Button Content="Salvar rascunho" Margin="8,0,0,0" MinWidth="150"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoSecundario}"
-                            IsEnabled="{Binding PodePrescrever}"
-                            Command="{Binding SalvarRascunhoCommand}" />
-                    <Button Content="{Binding RotuloLiberacao}" Margin="8,0,0,0" MinWidth="190"
-                            VerticalAlignment="Center"
-                            IsEnabled="{Binding PodeAssinar}"
-                            Command="{Binding AssinarCommand}" />
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
-                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                             FallbackValue=Collapsed}">
-            <Border.Style>
-                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                            <Setter Property="Background"
-                                    Value="{StaticResource Brush.Erro.Suave}" />
-                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-        </Border>
-
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-
-                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Data e hora da prescrição" Style="{StaticResource H3}" />
-                        <WrapPanel Margin="0,8,0,0">
-                            <DatePicker SelectedDate="{Binding DataPrescricao}" Width="160" Margin="0,0,12,0" />
-                            <TextBox Text="{Binding HoraPrescricao, UpdateSourceTrigger=PropertyChanged}" Width="90" ToolTip="Hora da prescrição, no formato HH:mm" />
-                        </WrapPanel>
-                    </StackPanel>
-                </Border>
-
-                <StackPanel Margin="0,0,0,12">
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                        <StackPanel IsEnabled="{Binding PodePrescrever}">
-                            <TextBlock Text="Modelos de infusão" Style="{StaticResource H3}" />
-                            <ctrl:BuscaModeloClinico Modelos="{Binding Modelos}" Selecionado="{Binding ModeloSelecionado}" />
-                            <Expander Header="Prévia"><TextBlock Text="{Binding PreviaModelo}" TextWrapping="Wrap" MaxHeight="150" /></Expander>
-                            <Button Content="Usar modelo selecionado" Command="{Binding AplicarModeloCommand}" HorizontalAlignment="Left" Margin="0,8" />
-                            <Expander Header="Salvar ou atualizar modelo">
-                                <StackPanel>
-                                    <TextBlock Text="Nome do novo modelo" Style="{StaticResource Rotulo}" />
-                                    <TextBox x:Name="NomeModelo" MaxLength="100" AutomationProperties.Name="Nome do novo modelo" />
-                                    <WrapPanel Margin="0,8">
-                                        <Button Content="Salvar novo modelo" Command="{Binding SalvarComoModeloCommand}" CommandParameter="{Binding Text, ElementName=NomeModelo}" Margin="0,0,8,0" />
-                                        <Button Content="Atualizar selecionado" Command="{Binding AtualizarModeloCommand}" Style="{StaticResource BotaoSecundario}" />
-                                    </WrapPanel>
-                                </StackPanel>
-                            </Expander>
-                        </StackPanel>
-                    </Border>
-                    <TextBlock Text="Indicação" Style="{StaticResource Rotulo}" />
-                    <ctrl:EditorTextoClinico Texto="{Binding Indicacao, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding IndicacaoFormatada, UpdateSourceTrigger=PropertyChanged}"  />
-                </StackPanel>
-
-                <TextBlock Text="Prescrição" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
-                <TextBlock Text="Use um bloco por medicamento. O diluente e o volume total valem para toda a infusão."
-                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10" />
-
-                <WrapPanel Margin="0,0,0,12">
-                    <StackPanel Width="250" Margin="0,0,16,0">
-                        <TextBlock Text="Diluente da infusão" Style="{StaticResource Rotulo}" />
-                        <TextBox Text="{Binding DiluenteGlobal, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
-                    </StackPanel>
-                    <StackPanel Width="180">
-                        <TextBlock Text="Volume total (mL)" Style="{StaticResource Rotulo}" />
-                        <TextBox Text="{Binding VolumeTotal, UpdateSourceTrigger=PropertyChanged}" MaxLength="60" />
-                    </StackPanel>
-                    <CheckBox Content="Diluição única para todos os itens" Margin="16,20,0,0" IsChecked="{Binding DiluicaoUnica}" />
-                </WrapPanel>
-                <ItemsControl ItemsSource="{Binding Itens}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{StaticResource Brush.Superficie}"
-                                    BorderBrush="{StaticResource Brush.Borda}"
-                                    BorderThickness="1"
-                                    CornerRadius="{StaticResource Raio.Medio}"
-                                    Padding="12" Margin="0,0,0,8">
-                                <StackPanel>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="130" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                            <TextBlock Text="Prescrição livre" Style="{StaticResource Rotulo}" />
-                                            <ctrl:EditorTextoClinico Texto="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding DescricaoFormatada, UpdateSourceTrigger=PropertyChanged}" MinHeight="110" AutomationProperties.Name="Prescrição livre da infusão"  />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="1" Margin="0,0,10,0">
-                                            <TextBlock Text="Dose (opcional)" Style="{StaticResource Rotulo}" />
-                                            <TextBox Text="{Binding Dose, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-
-                                        <!-- Destrutivo REPETIDO usa contorno, não sólido: um
-                                             "Remover" vermelho cheio por linha faz o formulário
-                                             inteiro parecer tela de erro. E VerticalAlignment
-                                             Center porque o botão está ao lado de campos de
-                                             altura 36 — sem isso ele estica e sai do esquadro. -->
-                                        <Button Grid.Column="2" Content="Remover" MinWidth="100"
-                                                VerticalAlignment="Bottom" Margin="0,0,0,1"
-                                                Style="{StaticResource BotaoSecundarioPerigo}"
-                                                Command="{Binding DataContext.RemoverItemCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}" />
-                                    </Grid>
-
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="110" />
-                                            <ColumnDefinition Width="160" />
-                                            <ColumnDefinition Width="130" />
-                                            <ColumnDefinition Width="90" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <StackPanel Grid.Column="0" Margin="0,0,10,0" Visibility="{Binding DataContext.DiluicaoPorItem, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BoolParaVisibilidade}}">
-                                            <TextBlock Text="Diluente" Style="{StaticResource Rotulo}" />
-                                            <TextBox Text="{Binding Diluente, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="1" Margin="0,0,10,0" Visibility="{Binding DataContext.DiluicaoPorItem, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BoolParaVisibilidade}}">
-                                            <TextBlock Text="Volume" Style="{StaticResource Rotulo}" />
-                                            <TextBox Text="{Binding Volume, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="2" Margin="0,0,10,0">
-                                            <TextBlock Text="Via" Style="{StaticResource Rotulo}" />
-                                            <ComboBox ItemsSource="{Binding DataContext.Vias,
-                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                      SelectedItem="{Binding Via}"
-                                                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="3" Margin="0,0,10,0">
-                                            <TextBlock Text="Tempo" Style="{StaticResource Rotulo}" />
-                                            <TextBox Text="{Binding TempoInfusao, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="4">
-                                            <TextBlock Text="Previsto" Style="{StaticResource Rotulo}" />
-                                            <TextBox Text="{Binding HoraPrevista, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <StackPanel Grid.Column="0" Visibility="{Binding Observacoes, Converter={StaticResource TextoParaVisibilidade}}">
-                                            <TextBlock Text="Observação do item (registro anterior)" Style="{StaticResource Rotulo}" />
-                                            <ctrl:EditorTextoClinico Texto="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-
-                                        <CheckBox Grid.Column="1" Content="Se necessário (SOS)"
-                                                  VerticalAlignment="Bottom" Margin="0,0,0,8"
-                                                  IsChecked="{Binding SeNecessario}" />
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <StackPanel Margin="0,4,0,0">
-                    <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
-                    <ctrl:EditorTextoClinico Texto="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas, UpdateSourceTrigger=PropertyChanged}" MinHeight="60"  />
-                </StackPanel>
-            </StackPanel>
-        </ScrollViewer>
-    </DockPanel>
-    </Grid>
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+ Title="Prescrição de infusão" Width="1180" Height="700" MinWidth="900" MinHeight="560"
+ WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Superficie}" FontFamily="Segoe UI">
+ <Window.Resources>
+  <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+  <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade"/>
+  <Style x:Key="AcaoDiscreta" TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+   <Setter Property="BorderThickness" Value="0"/><Setter Property="Background" Value="Transparent"/>
+   <Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="Padding" Value="8,6"/>
+  </Style>
+ </Window.Resources>
+ <Grid Margin="32,20">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <StackPanel Margin="0,0,0,14">
+   <TextBlock Text="Prescrição de infusão" FontSize="{StaticResource Fonte.H1}" FontWeight="SemiBold"/>
+   <TextBlock Text="{Binding Paciente}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Paciente}" FontSize="{StaticResource Fonte.H3}" Margin="0,4,0,0"/>
+   <TextBlock Text="{Binding Numero}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}" Margin="0,4,0,0"/>
+  </StackPanel>
+  <StackPanel Grid.Row="1">
+   <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,8" Visibility="{Binding TemAlertas,Converter={StaticResource BoolParaVisibilidade}}">
+    <ItemsControl ItemsSource="{Binding Alertas}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+   </Border>
+   <StackPanel Visibility="{Binding Ocupado,Converter={StaticResource BoolParaVisibilidade}}" Margin="0,0,0,8">
+    <TextBlock Text="{Binding TextoOperacao}" AutomationProperties.LiveSetting="Polite"/><ProgressBar IsIndeterminate="True" Height="3" Margin="0,4"/>
+   </StackPanel>
+  </StackPanel>
+  <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <StackPanel>
+    <StackPanel.Style><Style TargetType="StackPanel"><Style.Triggers><DataTrigger Binding="{Binding Ocupado}" Value="True"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></StackPanel.Style>
+    <Expander Header="Indicação" Margin="0,0,0,12"><ctrl:EditorTextoClinico Texto="{Binding Indicacao,UpdateSourceTrigger=PropertyChanged}" Formato="{Binding IndicacaoFormatada,UpdateSourceTrigger=PropertyChanged}"/></Expander>
+    <ItemsControl ItemsSource="{Binding Infusoes}">
+     <ItemsControl.ItemTemplate><DataTemplate>
+      <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,1" Padding="0,16" Margin="0,0,0,12">
+       <StackPanel>
+        <DockPanel Margin="0,0,0,14">
+         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button Content="Modelos ▾" Style="{StaticResource BotaoSecundario}" Click="Modelos_Click" ToolTip="Usar modelo salvo ou salvar esta infusão como modelo"/>
+          <Button Content="⋮" Style="{StaticResource AcaoDiscreta}" Margin="8,0,0,0" Click="Mais_Click" AutomationProperties.Name="Mais opções da infusão"/>
+         </StackPanel>
+         <TextBlock Text="{Binding Titulo}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.H2}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+        </DockPanel>
+        <Grid Margin="0,0,0,18">
+         <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.8*"/><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+         <StackPanel Margin="0,0,12,0"><TextBlock Text="Diluente" Style="{StaticResource Rotulo}"/><TextBox Text="{Binding Diluente,UpdateSourceTrigger=PropertyChanged}" MaxLength="120" AutomationProperties.Name="Diluente da infusão"/></StackPanel>
+         <StackPanel Grid.Column="1" Margin="0,0,12,0"><TextBlock Text="Volume (mL)" Style="{StaticResource Rotulo}"/><TextBox Text="{Binding Volume,UpdateSourceTrigger=PropertyChanged}" MaxLength="60" AutomationProperties.Name="Volume total da infusão em mL"/></StackPanel>
+         <StackPanel Grid.Column="2" Margin="0,0,12,0"><TextBlock Text="Via" Style="{StaticResource Rotulo}"/><ComboBox ItemTemplate="{StaticResource ItemRotuloEnum}" ItemsSource="{Binding DataContext.Vias,RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Via}" AutomationProperties.Name="Via de administração"/></StackPanel>
+         <StackPanel Grid.Column="3" Margin="0,0,12,0"><TextBlock Text="Tempo" Style="{StaticResource Rotulo}"/><TextBox Text="{Binding Tempo,UpdateSourceTrigger=PropertyChanged}" MaxLength="60" AutomationProperties.Name="Tempo de infusão"/></StackPanel>
+         <StackPanel Grid.Column="4"><TextBlock Text="Horário" Style="{StaticResource Rotulo}"/><TextBox Text="{Binding Horario,UpdateSourceTrigger=PropertyChanged}" MaxLength="5" ToolTip="Opcional, no formato HH:mm" AutomationProperties.Name="Horário previsto da infusão"/></StackPanel>
+        </Grid>
+        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="210"/><ColumnDefinition Width="42"/></Grid.ColumnDefinitions><TextBlock Text="Medicamento" Style="{StaticResource Rotulo}"/><TextBlock Grid.Column="1" Text="Quantidade / dose" Style="{StaticResource Rotulo}"/></Grid>
+        <ItemsControl ItemsSource="{Binding Itens}"><ItemsControl.ItemTemplate><DataTemplate>
+         <StackPanel Margin="0,0,0,8">
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="210"/><ColumnDefinition Width="42"/></Grid.ColumnDefinitions>
+           <ctrl:BuscaMedicamento Margin="0,0,12,0" Texto="{Binding Descricao,UpdateSourceTrigger=PropertyChanged}" Catalogo="{Binding DataContext.CatalogoMedicamentos,RelativeSource={RelativeSource AncestorType=Window}}"/>
+           <TextBox Grid.Column="1" Text="{Binding Dose,UpdateSourceTrigger=PropertyChanged}" ctrl:Ajudantes.Placeholder="{Binding DicaDose}" MaxLength="60" VerticalAlignment="Top" AutomationProperties.Name="Quantidade ou dose com unidade" ToolTip="Informe a quantidade junto da medida, por exemplo: 1 ampola."/>
+           <Button Grid.Column="2" Content="×" Style="{StaticResource AcaoDiscreta}" VerticalAlignment="Top" Command="{Binding DataContext.RemoverItemCommand,RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" AutomationProperties.Name="Remover medicamento"/>
+          </Grid>
+          <Expander Header="Opções do medicamento" FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0">
+           <StackPanel><CheckBox Content="Se necessário (SOS)" IsChecked="{Binding SeNecessario}" Margin="0,6"/>
+            <TextBlock Text="Observação do medicamento" Style="{StaticResource Rotulo}"/><ctrl:EditorTextoClinico Texto="{Binding Observacoes,UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas,UpdateSourceTrigger=PropertyChanged}"/>
+           </StackPanel>
+          </Expander>
+         </StackPanel>
+        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+        <TextBlock Text="Sugestões a partir de 2 letras" Style="{StaticResource TextoSuave}" Margin="0,2,0,6"/>
+        <Button Content="+ Adicionar medicamento" Style="{StaticResource AcaoDiscreta}" HorizontalAlignment="Left" Command="{Binding DataContext.AcrescentarItemCommand,RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+       </StackPanel>
+      </Border>
+     </DataTemplate></ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Button Content="+ Criar nova infusão" Style="{StaticResource AcaoDiscreta}" HorizontalAlignment="Left" Command="{Binding CriarInfusaoCommand}" Margin="0,0,0,12"/>
+    <Expander Header="Observações" Margin="0,0,0,12"><ctrl:EditorTextoClinico Texto="{Binding Observacoes,UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas,UpdateSourceTrigger=PropertyChanged}"/></Expander>
+    <Expander Header="Data e hora da prescrição" Margin="0,0,0,8"><WrapPanel Margin="0,8"><DatePicker SelectedDate="{Binding DataPrescricao}" Width="160" Margin="0,0,12,0"/><TextBox Text="{Binding HoraPrescricao,UpdateSourceTrigger=PropertyChanged}" Width="90" MaxLength="5" AutomationProperties.Name="Hora da prescrição"/></WrapPanel></Expander>
+   </StackPanel>
+  </ScrollViewer>
+  <Border Grid.Row="3" Style="{StaticResource AlertaInfo}" Margin="0,8,0,0" Visibility="{Binding Mensagem,Converter={StaticResource TextoParaVisibilidade}}"><TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/></Border>
+  <DockPanel Grid.Row="4" Margin="0,16,0,0">
+   <Button DockPanel.Dock="Left" Content="Fechar" IsCancel="True" Style="{StaticResource AcaoDiscreta}"/>
+   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+    <Button Content="Salvar rascunho" Style="{StaticResource BotaoSecundario}" Command="{Binding SalvarRascunhoCommand}" IsEnabled="{Binding PodePrescrever}" Margin="0,0,10,0"/>
+    <Button Content="{Binding RotuloLiberacao}" Command="{Binding AssinarCommand}" IsEnabled="{Binding PodeAssinar}"/>
+   </StackPanel>
+  </DockPanel>
+ </Grid>
 </Window>

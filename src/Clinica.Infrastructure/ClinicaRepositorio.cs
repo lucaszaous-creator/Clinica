@@ -10,6 +10,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 {
     public Task<ViaAssinadaPaciente?> ObterViaAssinadaPacienteAsync(int documentoId, CancellationToken ct = default)
         => _db.ViasAssinadasPaciente.AsNoTracking().SingleOrDefaultAsync(x => x.DocumentoId == documentoId, ct);
+    public async Task<IReadOnlyList<MedicamentoCadastro>> MedicamentosAsync(CancellationToken ct = default)
+        => await _db.MedicamentosCadastro.AsNoTracking().ToListAsync(ct);
+    public async Task SalvarMedicamentoAsync(MedicamentoCadastro m, CancellationToken ct = default)
+    {
+        var atual = await _db.MedicamentosCadastro.FindAsync(new object[] {m.Codigo},ct);
+        if (atual is null) await _db.MedicamentosCadastro.AddAsync(m,ct);
+        else _db.Entry(atual).CurrentValues.SetValues(m);
+    }
     private readonly ClinicaDbContext _db;
 
     public ClinicaRepositorio(ClinicaDbContext db) => _db = db;

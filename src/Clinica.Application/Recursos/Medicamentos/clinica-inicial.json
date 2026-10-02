@@ -1,0 +1,51 @@
+[
+  {
+    "Codigo": "clinica:tramadol-50-amp",
+    "Nome": "Tramadol",
+    "PrincipioAtivo": "tramadol",
+    "Apresentacao": "50 mg · ampola",
+    "Fonte": "Lista informada pela clínica"
+  },
+  {
+    "Codigo": "clinica:cetoprofeno-100-amp",
+    "Nome": "Cetoprofeno",
+    "PrincipioAtivo": "cetoprofeno",
+    "Apresentacao": "100 mg · ampola",
+    "Fonte": "Lista informada pela clínica"
+  },
+  {
+    "Codigo": "clinica:dipirona-2ml-amp",
+    "Nome": "Dipirona",
+    "PrincipioAtivo": "dipirona",
+    "Apresentacao": "2 mL · ampola",
+    "Fonte": "Lista informada pela clínica"
+  },
+  {
+    "Codigo": "clinica:ondansetrona-8-amp",
+    "Nome": "Ondansetrona",
+    "PrincipioAtivo": "ondansetrona",
+    "Apresentacao": "8 mg · ampola",
+    "Fonte": "Lista informada pela clínica"
+  },
+  {
+    "Codigo": "clinica:lidocaina-2-20ml",
+    "Nome": "Lidocaína",
+    "PrincipioAtivo": "lidocaína",
+    "Apresentacao": "2% · 20 mL · sem vasoconstritor",
+    "Fonte": "Lista informada pela clínica"
+  },
+  {
+    "Codigo": "clinica:glicose-50-amp",
+    "Nome": "Glicose hipertônica",
+    "PrincipioAtivo": "glicose",
+    "Apresentacao": "50% · ampola",
+    "Fonte": "Lista informada pela clínica"
+  },
+  {
+    "Codigo": "clinica:hidrocortisona-500-amp",
+    "Nome": "Hidrocortisona",
+    "PrincipioAtivo": "hidrocortisona",
+    "Apresentacao": "500 mg · ampola",
+    "Fonte": "Lista informada pela clínica"
+  }
+]

@@ -146,6 +146,10 @@ public sealed partial class PrescricaoInternaService
                 $"A prescrição {prescricao.Numero} já foi assinada e não se edita. Para "
                 + "corrigir, suspenda o item e prescreva outro — é o que deixa rastro dos dois.");
 
+        if (prescricao.Itens.Any(i => i.GrupoInfusao.HasValue) && itens.Any(i => !string.IsNullOrWhiteSpace(i.Descricao) && !i.GrupoInfusao.HasValue))
+            throw new InvalidOperationException("Atualize o aplicativo para editar esta prescrição com infusões separadas.");
+        GruposInfusao.Validar(itens.Where(i => !string.IsNullOrWhiteSpace(i.Descricao)).ToArray(), diluicaoUnica ?? prescricao.DiluicaoUnica);
+
         if (dataPrescricao.HasValue != horaPrescricao.HasValue)
             throw new InvalidOperationException("Informe data e hora da prescrição juntas.");
         if (dataPrescricao is { } data && horaPrescricao is { } hora)
@@ -186,6 +190,7 @@ public sealed partial class PrescricaoInternaService
             prescricao.Itens.Add(new ItemPrescricaoInterna
             {
                 Ordem = ordem++,
+                GrupoInfusao = entrada.GrupoInfusao,
                 Descricao = entrada.Descricao.Trim(),
                 DescricaoFormatada = TextoFormatado.Normalizar(entrada.Descricao.Trim(), entrada.DescricaoFormatada),
                 Dose = Limpar(entrada.Dose),

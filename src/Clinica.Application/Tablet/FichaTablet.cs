@@ -50,4 +50,4 @@ public sealed record RascunhoTablet(Guid Idempotencia, string Versao, string Mot
     bool? DiluicaoUnica=null,string? DiluenteGlobal=null,string? VolumeTotal=null);
 public sealed record ItemInfusaoTablet(string Descricao, string? Dose, string? Diluente, string? Volume,
     ViaAdministracao Via, string? TempoInfusao, TimeOnly? HoraPrevista, bool SeNecessario, string? Observacoes,
-    string? DescricaoFormatada=null,string? ObservacoesFormatadas=null);
+    string? DescricaoFormatada=null,string? ObservacoesFormatadas=null,int? GrupoInfusao=null);

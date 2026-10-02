@@ -194,6 +194,7 @@ with tarfile.open(pacote) as tar:
     assert manifest['contrato'] in (2,3)
     migracao = manifest['migracao_nova']
     anteriores_migracao={
+        '20261002162759_GruposInfusaoECatalogoMedicamentos':'20261002140919_ContinuidadeSemAssinatura',
         '20261002140919_ContinuidadeSemAssinatura':'20261001180000_AuditoriaPreservaDetalheCompleto',
         '20261001180000_AuditoriaPreservaDetalheCompleto':'20261001140452_CertificadosA1Profissionais',
         '20261001140452_CertificadosA1Profissionais':'20260928211121_ChecagemNaoExecutavel',
@@ -204,6 +205,7 @@ with tarfile.open(pacote) as tar:
         '20260928123100_AcompanhamentoPacientesBsvRecall':'20260926120000_DevolucaoInfusaoExterna',
     }
     arquivos_migracao={
+        '20261002162759_GruposInfusaoECatalogoMedicamentos':'migracao-a1.sql',
         '20261002140919_ContinuidadeSemAssinatura':'migracao-a1.sql',
         '20261001180000_AuditoriaPreservaDetalheCompleto':'migracao-a1.sql',
         '20261001140452_CertificadosA1Profissionais':'migracao-a1.sql',
@@ -303,6 +305,16 @@ if sql('SELECT to_regclass(\'"CertificadosA1"\') IS NOT NULL')=='t':
 elif migracao in ('20261001140452_CertificadosA1Profissionais','20261001180000_AuditoriaPreservaDetalheCompleto','20261002140919_ContinuidadeSemAssinatura'):
     conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" TO {ident(role)};')
     revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" FROM {ident(role)};')
+if migracao == '20261002162759_GruposInfusaoECatalogoMedicamentos':
+    desktop=sql('SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid=\'"Configuracoes"\'::regclass')
+    assert re.fullmatch(r'[a-zA-Z0-9_-]+',desktop) and desktop != role
+    existe=sql('SELECT to_regclass(\'"MedicamentosCadastro"\') IS NOT NULL')=='t'
+    # Cadastro é administrado pelo desktop; a API usa os medicamentos já prescritos.
+    for priv in ('SELECT','INSERT','UPDATE'):
+        if existe:grant(priv,'MedicamentosCadastro',desktop)
+        else:
+            conceder.append(f'GRANT {priv} ON "MedicamentosCadastro" TO {ident(desktop)};')
+            revogar.append(f'REVOKE {priv} ON "MedicamentosCadastro" FROM {ident(desktop)};')
 if migracao in ('20260928123100_AcompanhamentoPacientesBsvRecall','20260928211121_ChecagemNaoExecutavel'):
     # A migration é aplicada como postgres. O dono das tabelas do desktop também
     # precisa gravar o recall; conceder só ao portal deixa o Windows sem INSERT.

@@ -7,7 +7,7 @@ namespace Clinica.Domain;
 public sealed record ItemModeloInfusao(string Descricao, string? DescricaoFormatada = null,
     string? Dose = null, string? Diluente = "SF 0,9%", string? Volume = null,
     ViaAdministracao Via = ViaAdministracao.Endovenosa, string? TempoInfusao = "1h",
-    bool SeNecessario = false, string? Observacoes = null, string? ObservacoesFormatadas = null);
+    bool SeNecessario = false, string? Observacoes = null, string? ObservacoesFormatadas = null, int? GrupoInfusao = null);
 
 public sealed record ModeloInfusao(string? Indicacao, string? Observacoes,
     ItemModeloInfusao[] Itens, string? IndicacaoFormatada = null, string? ObservacoesFormatadas = null, bool DiluicaoUnica = false,
@@ -21,6 +21,7 @@ public sealed record ModeloInfusao(string? Indicacao, string? Observacoes,
             throw new InvalidOperationException("Preencha ao menos um bloco de prescrição antes de salvar o modelo de infusão.");
         if (DiluenteGlobal?.Length>120 || VolumeTotal?.Length>60 || Indicacao?.Length>500 || Observacoes?.Length>2000 || Itens.Any(i => i.Descricao.Length > 20000 || i.Dose?.Length>60 || i.Observacoes?.Length>1000 || i.Diluente?.Length > 120 || i.Volume?.Length > 60 || i.TempoInfusao?.Length > 60))
             throw new InvalidOperationException("Confira o tamanho dos campos do modelo de infusão.");
+        GruposInfusao.Validar(Itens.Select(Para).ToArray(), DiluicaoUnica);
         var json = JsonSerializer.Serialize(this, Json);
         if (json.Length > 500_000) throw new InvalidOperationException("Divida o conteúdo em modelos menores.");
         return json;
@@ -41,11 +42,11 @@ public sealed record ModeloInfusao(string? Indicacao, string? Observacoes,
     }
 
     public static ItemModeloInfusao De(ItemPrescricaoInterna i) => new(i.Descricao, i.DescricaoFormatada,
-        i.Dose, i.Diluente, i.Volume, i.Via, i.TempoInfusao, i.SeNecessario, i.Observacoes, i.ObservacoesFormatadas);
+        i.Dose, i.Diluente, i.Volume, i.Via, i.TempoInfusao, i.SeNecessario, i.Observacoes, i.ObservacoesFormatadas, i.GrupoInfusao);
 
     public static ItemPrescricaoInterna Para(ItemModeloInfusao i) => new()
     {
-        Descricao = i.Descricao, DescricaoFormatada = i.DescricaoFormatada, Dose = i.Dose,
+        GrupoInfusao = i.GrupoInfusao, Descricao = i.Descricao, DescricaoFormatada = i.DescricaoFormatada, Dose = i.Dose,
         Diluente = i.Diluente, Volume = i.Volume, Via = i.Via, TempoInfusao = i.TempoInfusao,
         SeNecessario = i.SeNecessario, Observacoes = i.Observacoes, ObservacoesFormatadas = i.ObservacoesFormatadas
     };
