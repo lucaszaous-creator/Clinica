@@ -77,6 +77,9 @@ jobs:
       - name: Conferir infusões, modelos e catálogo de medicamentos
         run: dotnet run --project tools/VerificarInfusao -c Release -- artifacts/infusao-desktop
 
+      - name: Conferir atendimento, histórico e gravação no Windows
+        run: dotnet run --project tools/ValidarAtendimentoDesktop -c Release -- artifacts/atendimento-desktop
+
       - name: Publicar .exe (self-contained, arquivo único)
         run: >
           dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj
