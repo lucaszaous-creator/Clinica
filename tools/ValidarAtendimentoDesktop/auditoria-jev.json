@@ -1,0 +1,72 @@
+{
+  "data": "2026-10-03",
+  "modelo": "jev-1.13.0",
+  "escopo": "Reformulação do atendimento no desktop; portal sem alteração",
+  "resultado": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "rascunho": {
+        "type": "noul",
+        "noul": 0.08
+      },
+      "acesso": {
+        "type": "noul",
+        "noul": 0.16
+      },
+      "enfermagem": {
+        "type": "noul",
+        "noul": 0.36
+      },
+      "navegacao": {
+        "type": "noul",
+        "noul": 0.25
+      },
+      "revisao_ui": {
+        "type": "noul",
+        "noul": 0.14
+      },
+      "vinculo": {
+        "type": "noul",
+        "noul": 0.17
+      },
+      "parecer": {
+        "type": "choice",
+        "choice": "validar_e_publicar",
+        "confidence": 0.32,
+        "probabilities": {
+          "bloquear": 0.42,
+          "insuficiente": 0.03,
+          "validar_e_publicar": 0.55
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 19071,
+      "output_tokens": 163
+    }
+  },
+  "sha256_arquivos_locais": {
+    "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml": "954e08a7d67c850635ac654e3ca4d298854767b7566796e64172d1dd7ee7b677",
+    "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml.cs": "bbfb410cd4088abc0eda4fd652cb1c0ad1bc8fe112f48dc3e0e8cb25c366b0e1",
+    "src/Clinica.Modulo.Clinico/Views/AtendimentoView.xaml": "42d0c3bc9c01f2a5fecd2cc07f24f7fca296387025d79998eb0689bf07e3b7c2",
+    "src/Clinica.Modulo.Clinico/Views/AtendimentoView.xaml.cs": "c8e250ad951ec04f6720a516b4948ab5f7a0daed58ffd13da5a069e3335e03c9",
+    "src/Clinica.Modulo.Clinico/Views/HistoricoConsultaView.xaml": "c8da562efc3e07242eaea2f2fce363d64b72c250cfc841a15d599266e533d7d0",
+    "src/Clinica.Modulo.Clinico/ViewModels/HistoricoConsultaViewModel.cs": "1df0262b7736e5e7dcaf9a22464edff32c7d54c53bcf2c9c8ff0dd5e5e84bb82",
+    "src/Clinica.Desktop.Shell/Componentes/IconeClinico.cs": "7d523ff283c2774cf35ee3c91e3825be198c2d1e87e0e05d02fc9ad2553535f7"
+  },
+  "validacao": {
+    "testes": {
+      "aprovados": 2903,
+      "falhas": 0,
+      "ignorados": 0
+    },
+    "suite": {
+      "xaml": 222,
+      "projetos": 10,
+      "construtores": 136
+    },
+    "tokens_cores": 33,
+    "harness": "Quatro capturas nativas (1366x820 e 1100x760, histórico aberto/fechado); filtros, acesso negado, limpeza sem paciente, visibilidade, editor, rascunho, navegação e gravação/releitura vinculada passaram. Zero erros de binding."
+  },
+  "limite": "Parecer probabilístico com baixa confiança; não substitui testes e revisão visual."
+}

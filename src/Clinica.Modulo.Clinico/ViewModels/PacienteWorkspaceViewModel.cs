@@ -98,7 +98,12 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     /// que a checagem 38 vigia). A seção continua existindo e continua navegável por
     /// chave; só não ocupa linha.
     /// </summary>
-    public sealed record ItemDoRail(string Rotulo, string Grupo, bool Oculta);
+    public sealed record ItemDoRail(string Rotulo, string Grupo, bool Oculta)
+    {
+        public string RotuloMenu => Rotulo switch { "Atendimento" => "Evolução da sessão", "Histórico" => "Histórico clínico", _ => Rotulo };
+        public string Icone => Rotulo switch { "Atendimento" => "record", "Atendimento de enfermagem" => "patient", "Histórico" => "history", "Exames e anexos" => "folder", "Acompanhamento" => "chart", _ => "document" };
+        public bool OcultaNoMenu => Oculta || Rotulo is "Ficha do paciente" or "Prescrições e documentos";
+    }
 
     /// <summary>
     /// As mesmas seções, agrupadas para o rail desenhar os três cabeçalhos.
@@ -327,6 +332,9 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         // navegação usa (`AbaDe`), e não de um rótulo escrito à mão.
         var (medico, enfermagem) = PerfisAcesso.SecoesDeEscritaDoPosto(SessaoUsuario.Atual.Efetivas);
         if (SessaoUsuario.Atual.Perfil == PerfilAcesso.Enfermagem) medico = false;
+        // O prontuário médico consulta as passagens no histórico. A escrita da
+        // enfermagem acontece no portal, sem uma segunda seção de registro aqui.
+        if (medico) enfermagem = false;
         var secaoMedico = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento);
         var secaoEnfermagem = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimentoEnfermagem);
         Secoes = ModuloClinico.RailDoPaciente()
@@ -339,7 +347,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         SecoesAgrupadas = new ListCollectionView(Secoes.ToList());
         SecoesAgrupadas.GroupDescriptions.Add(
             new PropertyGroupDescription(nameof(ItemDoRail.Grupo)));
-        AbaAtual = aba;
+        AbaAtual = aba == secaoEnfermagem && !enfermagem ? secaoMedico : aba;
         _escopos = servicos.GetRequiredService<IServiceScopeFactory>();
         _dialogo = servicos.GetRequiredService<IDialogoService>();
 

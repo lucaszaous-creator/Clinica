@@ -1,4 +1,6 @@
 using System.Windows.Controls;
+using System.Windows;
+using Clinica.Clinico.Modulo;
 using Clinica.Clinico.ViewModels;
 
 namespace Clinica.Clinico.Views;
@@ -22,5 +24,15 @@ public partial class PacienteWorkspaceView : UserControl
 
         Loaded += (_, _) => (DataContext as PacienteWorkspaceViewModel)?.AoEntrarEmCena();
         Unloaded += (_, _) => (DataContext as PacienteWorkspaceViewModel)?.AoSairDeCena();
+    }
+    private void AbrirAcoes(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { ContextMenu: { } menu } button)
+        { menu.PlacementTarget = button; menu.IsOpen = true; }
+    }
+    private void AbrirDocumentos(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is PacienteWorkspaceViewModel vm)
+            vm.AbaAtual = ModuloClinico.AbaDe(ModuloClinico.ChavePrescricoes);
     }
 }

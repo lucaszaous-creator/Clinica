@@ -2703,6 +2703,14 @@ def _membros_do_tipo(nome, _cache={}):
 
 
 def _tem_membro(tipo, atributo, _vistos=None):
+    if tipo == "Button" and atributo in {"IsDefault", "IsCancel"}:
+        return True
+    # Button/ToggleButton herdam estes membros de ButtonBase; controles próprios
+    # derivados mantêm o contrato do WPF, inclusive o evento Click.
+    if tipo in {"Button", "ButtonBase", "ToggleButton"} and atributo in {
+        "Command", "CommandParameter", "CommandTarget", "Click", "ClickMode"
+    }:
+        return True
     _vistos = _vistos or set()
     if tipo in _vistos:
         return None
