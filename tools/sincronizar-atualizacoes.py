@@ -33,6 +33,19 @@ def principais(releases):
         resultado[canal] = max(candidatas, key=lambda par: par[0])[1]
     return resultado
 
+def escolher_ancora(atuais, primeiras):
+    """Usa uma release atual que o cliente antigo consegue descobrir."""
+    visiveis = {r['id'] for r in primeiras if not r['draft'] and not r['prerelease']}
+    faturamento = atuais['win']
+    if faturamento['id'] in visiveis:
+        return faturamento
+    ids_atuais = {r['id'] for r in atuais.values()}
+    for release in primeiras:
+        if release['id'] in visiveis and release['id'] in ids_atuais:
+            return release
+    raise RuntimeError('Nenhuma release atual dos apps está nas primeiras dez')
+
+
 def asset_atual(release_id, nome):
     atual = json.loads(gh('api', f'repos/{REPO}/releases/{release_id}'))
     assert not atual['draft'] and not atual['prerelease']
@@ -68,9 +81,8 @@ def main():
     paginas = json.loads(gh('api', '--paginate', '--slurp', f'repos/{REPO}/releases?per_page=100'))
     releases = [r for pagina in paginas for r in pagina]
     atuais = principais(releases)
-    ancora = atuais['win']
     primeiras = json.loads(gh('api', f'repos/{REPO}/releases?per_page=10&page=1'))
-    assert any(r['id'] == ancora['id'] for r in primeiras), 'Release de compatibilidade fora das primeiras dez'
+    ancora = escolher_ancora(atuais, primeiras)
     pasta = pathlib.Path('artifacts/feeds-compativeis')
     pasta.mkdir(parents=True, exist_ok=True)
     for canal, origem in atuais.items():
