@@ -5,16 +5,18 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// <summary>Emissão de receita, atestado, declaração de comparecimento e pedido de exame.</summary>
 public partial class DocumentoWindow : Window
 {
+    internal void AtualizarFolha()
+    {
+        Content = null;
+        if (RolagemFolha.Parent is System.Windows.Controls.Border superficie) superficie.Child = null;
+        Content = new DocumentoFolha((DocumentoEdicaoViewModel)DataContext, this, RolagemFolha);
+    }
+
     public DocumentoWindow(DocumentoEdicaoViewModel vm)
     {
         InitializeComponent();
         DataContext = vm;
-
-        // O seletor de certificado é uma janela, e o ViewModel não conhece WPF — ele
-        // recebe a função e chama quando precisa, como o `Fechar` do próprio seletor.
-        vm.EscolherCertificado = assunto =>
-            EscolherCertificadoWindow.Perguntar(assunto, this, vm.Escopos);
-        Closed += (_, _) => vm.EscolherCertificado = null;
+        AtualizarFolha();
 
         void AoConcluir()
         {

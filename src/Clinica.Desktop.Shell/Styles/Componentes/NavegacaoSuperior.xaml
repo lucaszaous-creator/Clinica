@@ -1,0 +1,62 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="../Tokens.xaml"/></ResourceDictionary.MergedDictionaries>
+ <Style x:Key="Navegacao.Item" TargetType="MenuItem">
+  <Setter Property="FontWeight" Value="Normal"/>
+  <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}"/>
+  <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}"/>
+  <Setter Property="Padding" Value="12"/><Setter Property="Margin" Value="0,2"/>
+  <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+  <Setter Property="AutomationProperties.Name" Value="{Binding Rotulo}"/>
+  <Setter Property="AutomationProperties.HelpText" Value="{Binding DescricaoMenu}"/>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="MenuItem">
+   <Border x:Name="Fundo" Padding="{TemplateBinding Padding}" CornerRadius="8" Background="Transparent">
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <TextBlock x:Name="Icone" Text="{Binding GlifoMenu}" FontFamily="Segoe MDL2 Assets" FontSize="{StaticResource Fonte.IconeNavegacao}" VerticalAlignment="Center" Foreground="{StaticResource Brush.Texto.Secundario}"/>
+     <StackPanel Grid.Column="1">
+      <ContentPresenter ContentSource="Header" RecognizesAccessKey="True"/>
+      <TextBlock x:Name="Descricao" Text="{Binding DescricaoMenu}" Foreground="{StaticResource Brush.Texto.Secundario}" FontSize="{StaticResource Fonte.Legenda}" FontWeight="Normal" TextWrapping="Wrap" Margin="0,4,0,0"/>
+     </StackPanel>
+    </Grid>
+   </Border>
+   <ControlTemplate.Triggers>
+    <DataTrigger Binding="{Binding DescricaoMenu}" Value=""><Setter TargetName="Descricao" Property="Visibility" Value="Collapsed"/></DataTrigger>
+    <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Fundo" Property="Background" Value="{StaticResource Brush.Acento.Suave}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter TargetName="Icone" Property="Foreground" Value="{StaticResource Brush.Acento}"/></Trigger>
+    <DataTrigger Binding="{Binding EstaAtivo}" Value="True"><Setter TargetName="Fundo" Property="Background" Value="{StaticResource Brush.Acento.Suave}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter TargetName="Icone" Property="Foreground" Value="{StaticResource Brush.Acento}"/></DataTrigger>
+    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+ <Style x:Key="Navegacao.Categoria" TargetType="MenuItem">
+  <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}"/>
+  <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}"/>
+  <Setter Property="Padding" Value="16,8"/><Setter Property="Margin" Value="0,0,6,0"/>
+  <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="MenuItem">
+   <Grid>
+    <Border x:Name="Faixa" BorderThickness="0,0,0,2" BorderBrush="Transparent" Background="Transparent">
+     <StackPanel Orientation="Horizontal" Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
+      <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
+      <TextBlock Text="⌄" Margin="8,0,0,0" VerticalAlignment="Center"/>
+     </StackPanel>
+    </Border>
+    <Popup x:Name="PART_Popup" IsOpen="{Binding IsSubmenuOpen,RelativeSource={RelativeSource TemplatedParent}}"
+           PlacementTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" Placement="Bottom" HorizontalOffset="-10" AllowsTransparency="True" Focusable="False" PopupAnimation="None">
+     <Border Padding="10" Background="Transparent">
+      <Border Width="340" Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1" CornerRadius="8" Padding="8">
+       <Border.Effect><DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.12"/></Border.Effect>
+       <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="480" CanContentScroll="True">
+        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Cycle"/>
+       </ScrollViewer>
+      </Border>
+     </Border>
+    </Popup>
+   </Grid>
+   <ControlTemplate.Triggers>
+    <Trigger Property="IsHighlighted" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/></Trigger>
+    <Trigger Property="IsSubmenuOpen" Value="True"><Setter TargetName="Faixa" Property="BorderBrush" Value="{StaticResource Brush.Acento}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
+    <DataTrigger Binding="{Binding EstaAtivo}" Value="True"><Setter TargetName="Faixa" Property="BorderBrush" Value="{StaticResource Brush.Acento}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger>
+    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger>
+   </ControlTemplate.Triggers>
+  </ControlTemplate></Setter.Value></Setter>
+ </Style>
+</ResourceDictionary>

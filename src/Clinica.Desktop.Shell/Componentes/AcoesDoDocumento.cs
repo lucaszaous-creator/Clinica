@@ -76,7 +76,12 @@ public sealed record DocumentoNaTela
     public string NomeArquivoAssinado => $"{Rotulo}-{Numero.Replace('/', '-')}-assinado.pdf";
 
     /// <summary>Assinado não se reassina (dois arquivos válidos do mesmo ato); cancelado não se assina.</summary>
-    public bool PodeAssinar => !Cancelado && !Assinado;
+    public bool PodeAssinar => !EmissaoSemCertificado && !Cancelado && !Assinado;
+
+    public bool EmissaoSemCertificado => Tipo is TipoDocumentoClinico.Receita
+        or TipoDocumentoClinico.Atestado or TipoDocumentoClinico.Comparecimento
+        or TipoDocumentoClinico.PedidoExame or TipoDocumentoClinico.RelatorioEvolucao
+        or TipoDocumentoClinico.Anamnese;
 
     /// <summary>Só o ASSINADO se entrega como arquivo — sem assinatura, o que vale é a via de caneta.</summary>
     public bool PodeEnviar => Assinado && !Cancelado;
@@ -254,6 +259,9 @@ public static class AcoesDoDocumento
     public static async Task<ResultadoAcaoDocumento> AssinarAsync(
         DocumentoNaTela doc, IServiceScopeFactory escopos, ISnackbarService snackbar)
     {
+        if (doc.EmissaoSemCertificado)
+            return ResultadoAcaoDocumento.Erro("Este tipo de documento é emitido para impressão, sem assinatura digital.");
+
         // Guarda de ESTADO: diz por que não dá, em vez de voltar calada — o botão já está
         // apagado, e quem chega aqui por atalho merece a frase.
         if (!doc.PodeAssinar)

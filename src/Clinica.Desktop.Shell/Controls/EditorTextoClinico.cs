@@ -14,6 +14,12 @@ public sealed class EditorTextoClinico : UserControl
     public static readonly DependencyProperty FormatoProperty = DependencyProperty.Register(nameof(Formato),typeof(string),typeof(EditorTextoClinico),new FrameworkPropertyMetadata(null,FrameworkPropertyMetadataOptions.BindsTwoWayByDefault,Alterado));
     public string? Texto {get=>(string?)GetValue(TextoProperty);set=>SetValue(TextoProperty,value);}
     public string? Formato {get=>(string?)GetValue(FormatoProperty);set=>SetValue(FormatoProperty,value);}
+    public static readonly DependencyProperty ModoFolhaProperty = DependencyProperty.Register(
+        nameof(ModoFolha), typeof(bool), typeof(EditorTextoClinico),
+        new PropertyMetadata(false, (d, _) => ((EditorTextoClinico)d).AplicarModoFolha()));
+    public bool ModoFolha { get => (bool)GetValue(ModoFolhaProperty); set => SetValue(ModoFolhaProperty, value); }
+    private readonly List<Button> botoes = [];
+    private Border borda = null!;
     private readonly RichTextBox campo = new() {AcceptsReturn=true,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,MinHeight=85,Padding=new Thickness(10),BorderThickness=new Thickness(0)};
     private bool escrevendo, agendado;
     public EditorTextoClinico()
@@ -22,10 +28,10 @@ public sealed class EditorTextoClinico : UserControl
         var barra=new StackPanel {Orientation=Orientation.Horizontal,Margin=new Thickness(4)};
         foreach(var (nome,comando) in new[]{("Negrito",EditingCommands.ToggleBold),("Itálico",EditingCommands.ToggleItalic)}) {
             var b=new Button {Content=nome,MinWidth=78,MinHeight=32,Margin=new Thickness(2),Focusable=false,Command=comando,CommandTarget=campo,ToolTip=nome=="Negrito"?"Negrito (Ctrl+B)":"Itálico (Ctrl+I)"};
-            AutomationProperties.SetName(b,nome);barra.Children.Add(b);
+            AutomationProperties.SetName(b,nome);barra.Children.Add(b);botoes.Add(b);
         }
         DockPanel.SetDock(barra,Dock.Top);painel.Children.Add(barra);painel.Children.Add(campo);
-        var borda=new Border {BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(8),Child=painel};
+        borda=new Border {BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(8),Child=painel};
         borda.SetResourceReference(Border.BorderBrushProperty,"Brush.Borda");
         Content=borda;
         campo.TextChanged+=(_,_)=>Guardar();
@@ -36,7 +42,34 @@ public sealed class EditorTextoClinico : UserControl
                 e.FormatToApply=DataFormats.UnicodeText;
             } else e.CancelCommand();
         });
-        Loaded+=(_,_)=> {AutomationProperties.SetName(campo,AutomationProperties.GetName(this));Renderizar();};
+        Loaded+=(_,_)=> {AutomationProperties.SetName(campo,AutomationProperties.GetName(this));AplicarModoFolha();Renderizar();};
+    }
+    private void AplicarModoFolha()
+    {
+        if (borda is null) return;
+        borda.BorderThickness = new Thickness(ModoFolha ? 0 : 1);
+        campo.Padding = new Thickness(ModoFolha ? 16 : 10);
+        for (var i = 0; i < botoes.Count; i++)
+        {
+            var b = botoes[i];
+            b.Content = ModoFolha ? (i == 0 ? "N" : "I") : (i == 0 ? "Negrito" : "Itálico");
+            b.MinWidth = ModoFolha ? 30 : 78; b.MinHeight = ModoFolha ? 28 : 32;
+            if (ModoFolha)
+            {
+                b.SetResourceReference(StyleProperty, "BotaoSecundario");
+                b.Width = 30; b.Height = 28; b.Padding = new Thickness(2);
+                b.BorderThickness = new Thickness(0); b.Background = System.Windows.Media.Brushes.Transparent;
+                b.SetResourceReference(ForegroundProperty, "Brush.Texto.Secundario");
+                b.FontWeight = i == 0 ? FontWeights.Bold : FontWeights.Normal;
+                b.FontStyle = i == 0 ? FontStyles.Normal : FontStyles.Italic;
+            }
+            else
+            {
+                foreach (var property in new[] { StyleProperty, WidthProperty, HeightProperty, PaddingProperty, BorderThicknessProperty, BackgroundProperty, ForegroundProperty, FontWeightProperty, FontStyleProperty })
+                    b.ClearValue(property);
+            }
+        }
+        campo.Document.LineHeight = ModoFolha ? 24 : double.NaN;
     }
     private static void Alterado(DependencyObject d,DependencyPropertyChangedEventArgs e)
     {
@@ -52,7 +85,7 @@ public sealed class EditorTextoClinico : UserControl
         try {
             var p=new Paragraph {Margin=new Thickness(0)};
             foreach(var t in TextoFormatado.Ler(Texto,Formato))p.Inlines.Add(new Run(t.Texto){FontWeight=t.Negrito?FontWeights.Bold:FontWeights.Normal,FontStyle=t.Italico?FontStyles.Italic:FontStyles.Normal});
-            campo.Document=new FlowDocument(p){PagePadding=new Thickness(0),FontFamily=FontFamily,FontSize=FontSize};
+            campo.Document=new FlowDocument(p){PagePadding=new Thickness(0),FontFamily=FontFamily,FontSize=FontSize,LineHeight=ModoFolha?24:double.NaN};
         } finally {escrevendo=false;}
     }
     private static IEnumerable<TrechoTexto> Trechos(InlineCollection inlines)

@@ -125,6 +125,25 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// </summary>
     public required string Glifo { get; init; }
 
+    // Glifos da proposta aprovada para a navegação superior (Segoe MDL2 Assets).
+    public string GlifoMenu => Rotulo switch
+    {
+        "Prontuário" => "\uE8A5",
+        "Prescrições" => "\uE70F",
+        "Infusões e enfermagem" => "\uE95E",
+        _ => Glifo
+    };
+    public string DescricaoMenu => Rotulo switch
+    {
+        "Prontuário" => "Histórico e evolução do paciente",
+        "Prescrições" => "Receitas, atestados e exames",
+        "Infusões e enfermagem" => "Prescrição e acompanhamento da sala",
+        "Agenda" or "Minha agenda" => "Horários e atendimentos da clínica",
+        "Pacientes" => "Cadastro e ficha do paciente",
+        "Medicamentos" => "Catálogo de medicamentos da clínica",
+        _ => string.Empty
+    };
+
     /// <summary>
     /// Nome do ícone de TRAÇO no dicionário <c>Styles/Componentes/Icones.xaml</c>
     /// ("prancheta", "ficha", "rx"…) — os desenhos do mockup que a direção aprovou
@@ -221,10 +240,19 @@ public sealed partial class GrupoMenuModulo : ObservableObject
         NomeCurto = GruposSidebar.RotuloCurto(grupo);
         Glifo = GruposSidebar.Glifo(grupo);
         Itens = itens;
+        foreach (var item in itens)
+            item.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ItemMenuModulo.EstaAtivo)) OnPropertyChanged(nameof(EstaAtivo)); };
     }
 
     public GrupoSidebar Grupo { get; }
     public string Nome { get; }
+    public string NomeNavegacao => Grupo switch
+    {
+        GrupoSidebar.Gestao => "Gestão", GrupoSidebar.Paciente => "Paciente",
+        GrupoSidebar.Atendimento => "Atendimento", GrupoSidebar.Financeiro => "Financeiro",
+        GrupoSidebar.Inteligencia => "Inteligência", _ => Nome
+    };
+    public bool EstaAtivo => Itens.Any(i => i.EstaAtivo);
     public string NomeCurto { get; }
     public string Glifo { get; }
     public IReadOnlyList<ItemMenuModulo> Itens { get; }

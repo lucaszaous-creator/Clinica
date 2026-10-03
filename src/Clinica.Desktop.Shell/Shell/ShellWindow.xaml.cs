@@ -40,8 +40,8 @@ public partial class ShellWindow : Window
     {
         // Menus and training move together to a second line on smaller windows,
         // preserving the search, notifications and session controls at 880 px.
-        var compacto=ActualWidth<1180;
-        Cabecalho.Height=compacto?100:56;
+        var compacto=ActualWidth<1300;
+        Cabecalho.Height=compacto?112:68;
         Grid.SetRow(NavegacaoSuperior,compacto?1:0);
         Grid.SetColumn(NavegacaoSuperior,compacto?0:1);
         Grid.SetColumnSpan(NavegacaoSuperior,compacto?5:1);

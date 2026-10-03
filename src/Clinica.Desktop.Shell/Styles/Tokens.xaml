@@ -155,6 +155,8 @@
     <sys:Double x:Key="Fonte.Marca">34</sys:Double>
 
     <sys:Double x:Key="Fonte.H1">24</sys:Double>
+    <sys:Double x:Key="Fonte.DocumentoTitulo">26</sys:Double>
+    <sys:Double x:Key="Fonte.IconeNavegacao">16</sys:Double>
     <sys:Double x:Key="Fonte.H2">20</sys:Double>
     <sys:Double x:Key="Fonte.H3">18</sys:Double>
     <sys:Double x:Key="Fonte.Corpo">14</sys:Double>
