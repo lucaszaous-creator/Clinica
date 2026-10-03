@@ -42,7 +42,7 @@
       <Border Padding="10,6" Margin="0,0,14,0" CornerRadius="5" Background="{StaticResource Brush.Sucesso.Tint}" ToolTip="{Binding SituacaoSessao}" Visibility="{Binding TemSessao, Converter={StaticResource BoolParaVisibilidade}}">
        <TextBlock MaxWidth="170" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding SituacaoSessao}"/><Style.Triggers><DataTrigger Binding="{Binding EmAtendimento}" Value="True"><Setter Property="Text" Value="●  Em atendimento"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
       </Border>
-      <TextBlock Text="{Binding Cronometro}" FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold" VerticalAlignment="Center" Visibility="{Binding Cronometro, Converter={StaticResource TextoParaVisibilidade}}"/>
+      <TextBlock Text="{Binding Cronometro}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold" VerticalAlignment="Center" Visibility="{Binding Cronometro, Converter={StaticResource TextoParaVisibilidade}}"/>
       <comp:BotaoClinico Texto="Ficha do paciente" Icone="patient" Command="{Binding ConsultarFichaCommand}" Style="{StaticResource BotaoFantasma}" Margin="10,0,0,0"/>
       <comp:BotaoClinico Texto="" Icone="more" Padding="4" ToolTip="Ações do atendimento" AutomationProperties.Name="Ações do atendimento" Style="{StaticResource BotaoFantasma}" Click="AbrirAcoes">
        <comp:BotaoClinico.ContextMenu><ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
@@ -129,7 +129,7 @@
      <TabControl SelectedIndex="{Binding AbaAtual}" Background="Transparent" BorderThickness="0">
       <TabControl.Template><ControlTemplate TargetType="TabControl"><ContentPresenter ContentSource="SelectedContent"/></ControlTemplate></TabControl.Template>
       <TabItem Header="Atendimento"><views:AtendimentoView DataContext="{Binding Atendimento}"/></TabItem>
-      <TabItem Header="Atendimento de enfermagem"><views:AtendimentoEnfermagemView DataContext="{Binding Enfermagem}" Margin="28,20"/></TabItem>
+      <TabItem Header="Atendimento de enfermagem"><TabItem.Style><Style TargetType="TabItem"><Style.Triggers><DataTrigger Binding="{Binding Secoes[1].Oculta}" Value="True"><Setter Property="Visibility" Value="Collapsed"/><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></TabItem.Style><views:AtendimentoEnfermagemView DataContext="{Binding Enfermagem}" Margin="28,20"/></TabItem>
       <TabItem Header="Ficha do paciente"><views:PacienteView Margin="28,20"/></TabItem>
       <TabItem Header="Histórico"><views:ProntuarioClinicoView DataContext="{Binding Prontuario}" Margin="28,20"/></TabItem>
       <TabItem Header="Exames e anexos"><views:AnexosPacienteView DataContext="{Binding Anexos}" Margin="28,20"/></TabItem>

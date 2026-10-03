@@ -33,6 +33,6 @@ public partial class PacienteWorkspaceView : UserControl
     private void AbrirDocumentos(object sender, RoutedEventArgs e)
     {
         if (DataContext is PacienteWorkspaceViewModel vm)
-            vm.AbaAtual = ModuloClinico.AbaDe(ModuloClinico.ChavePrescricoes);
+            vm.AbaAtual = ModuloClinico.SecoesDoPaciente.ToList().IndexOf("Prescrições e documentos");
     }
 }

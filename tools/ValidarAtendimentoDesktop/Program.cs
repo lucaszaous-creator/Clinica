@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using System.Windows.Threading;
 using System.Windows.Media.Imaging;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
@@ -20,7 +21,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-static class Program
+static partial class Program
 {
     static string output="";
     [STAThread] static int Main(string[] args)
@@ -40,7 +41,8 @@ static class Program
     static async Task Run()
     {
         using var conn=new SqliteConnection("Data Source=:memory:");conn.Open();
-        var options=new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conn).Options;
+        var probe=new ConsultaProbe();
+        var options=new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conn).AddInterceptors(probe).Options;
         var services=new ServiceCollection();services.AddClinica("Host=127.0.0.1;Port=1;Database=never_used");
         services.AddScoped(_=>new ClinicaDbContext(options));services.AddSingleton<SessaoUsuario>();
         services.AddSingleton<SnackbarService>();services.AddSingleton<ISnackbarService>(s=>s.GetRequiredService<SnackbarService>());
@@ -89,11 +91,21 @@ static class Program
 
 
                 window.Show();await Task.Delay(250);window.UpdateLayout();
+                var nursingTab=Visuals(view).OfType<TabControl>().Single(t=>t.Items.OfType<TabItem>().Any(i=>Equals(i.Header,"Atendimento de enfermagem"))).Items.OfType<TabItem>().Single(t=>Equals(t.Header,"Atendimento de enfermagem"));
+                if(nursingTab.Visibility!=Visibility.Collapsed || nursingTab.IsEnabled) throw new Exception("A aba de enfermagem ainda é alcançável pelo teclado do médico.");
                 var text=vm.Atendimento.TextoEvolucao;
                 vm.Atendimento.HistoricoConsulta.FecharCommand.Execute(null);
                 vm.Atendimento.HistoricoConsulta.Aberto=variant is "historico" or "compacto-historico";
                 if(vm.Atendimento.TextoEvolucao!=text) throw new Exception("Histórico alterou o rascunho.");
                 var buttons=Visuals(view).OfType<BotaoClinico>().ToList();
+                buttons.Single(b=>b.Texto=="Documentos emitidos").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ContextIdle);window.UpdateLayout();
+                var tab=Visuals(view).OfType<TabControl>().Single(t=>t.Items.OfType<TabItem>().Any(i=>Equals(i.Header,"Atendimento de enfermagem")));
+                if(!Equals(((TabItem)tab.SelectedItem).Header,"Prescrições e documentos")) throw new Exception("Documentos emitidos abriu seção incorreta.");
+                vm.AbaAtual=ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento);
+                await Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ContextIdle);window.UpdateLayout();
+                if(vm.Atendimento.TextoEvolucao!=text) throw new Exception("Troca real para documentos perdeu rascunho.");
+                buttons=Visuals(view).OfType<BotaoClinico>().ToList();
                 foreach(var label in new[]{"Receita","Pedido de exame","Prescrição de infusão","Salvar sessão","Consultar histórico"})
                     if(!buttons.Any(b=>b.Texto==label && b.Command!=null)) throw new Exception("Comando não ligado: "+label);
                 await Task.Delay(80); window.UpdateLayout();
@@ -107,7 +119,7 @@ static class Program
                 window.Close();Console.WriteLine($"Capturado {variant} {(nurse?"enfermagem":"médico")}");
             }
             var draft=vm.Atendimento.TextoEvolucao;
-            vm.AbaAtual=ModuloClinico.AbaDe(ModuloClinico.ChavePrescricoes);
+            vm.AbaAtual=ModuloClinico.SecoesDoPaciente.ToList().IndexOf("Prescrições e documentos");
             vm.AbaAtual=ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento);
             if(vm.Atendimento.TextoEvolucao!=draft) throw new Exception("Navegação perdeu o rascunho.");
             if(!await vm.Atendimento.TentarSalvarAsync()) throw new Exception("Falha na gravação: "+vm.Atendimento.Mensagem);
@@ -128,6 +140,7 @@ static class Program
             if(isolated.Itens.Count!=0 || isolated.Carregando) throw new Exception("Histórico reteve dados após retirar paciente.");
             Console.WriteLine("PASS: filtros, permissões, visibilidade, dimensões, rascunho, navegação e gravação vinculada.");
         }
+        await ValidarExtras(sp,patient,appointment,user,options,probe);
     }
     static IEnumerable<DependencyObject> Visuals(DependencyObject root)
     {

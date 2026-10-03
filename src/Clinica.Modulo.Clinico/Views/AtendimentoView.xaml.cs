@@ -10,7 +10,21 @@ public partial class AtendimentoView : UserControl
     {
         InitializeComponent();
         SizeChanged += (_, _) => AjustarHistorico();
-        HistoricoLateral.IsVisibleChanged += (_, _) => AjustarHistorico();
+        HistoricoLateral.IsVisibleChanged += (_, _) =>
+        {
+            AjustarHistorico();
+            if (!IsLoaded) return;
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, new Action(() =>
+            {
+                if (!IsLoaded) return;
+                if (HistoricoLateral.IsVisible) HistoricoLateral.FocarFechar();
+                else
+                {
+                    EditorEvolucao.Focus();
+                    System.Windows.Input.FocusManager.SetFocusedElement(System.Windows.Input.FocusManager.GetFocusScope(EditorEvolucao), EditorEvolucao);
+                }
+            }));
+        };
     }
     private void AjustarHistorico()
     {

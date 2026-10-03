@@ -50,7 +50,7 @@
      <TextBlock Text="{Binding DicaRodape}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}"/>
      <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Erro}" AutomationProperties.LiveSetting="Polite" Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}}"/>
     </StackPanel>
-   </DockPanel><ScrollViewer x:Name="ConteudoScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid Height="{Binding ViewportHeight, ElementName=ConteudoScroll}" MinHeight="520"><DockPanel>
+   </DockPanel><ScrollViewer x:Name="ConteudoScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid MinHeight="{Binding ViewportHeight, ElementName=ConteudoScroll}"><DockPanel>
    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,20">
     <comp:BotaoClinico DockPanel.Dock="Right" Texto="Consultar histórico" Icone="history" Command="{Binding HistoricoConsulta.AlternarCommand}"/>
     <StackPanel><TextBlock Text="Evolução da sessão" Style="{StaticResource H2}"/>
@@ -142,7 +142,7 @@
             </ItemsControl>
       </ScrollViewer>
      </Expander>
-     <TextBox x:Name="EditorEvolucao" Text="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Margin="24,20,24,8" BorderThickness="0" Padding="0" FontSize="{StaticResource Fonte.Corpo}" TextBlock.LineHeight="25" AutomationProperties.Name="Evolução da sessão" IsEnabled="{Binding PodeEditarProntuario}" ctrl:Ajudantes.RodaDaPagina="True"/>
+     <TextBox x:Name="EditorEvolucao" MinHeight="160" MaxHeight="480" Text="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Margin="24,20,24,8" BorderThickness="0" Padding="0" FontSize="{StaticResource Fonte.Corpo}" TextBlock.LineHeight="25" AutomationProperties.Name="Evolução da sessão" IsEnabled="{Binding PodeEditarProntuario}" ctrl:Ajudantes.RodaDaPagina="True"/>
     </DockPanel>
    </Border>
   </DockPanel></Grid></ScrollViewer></DockPanel>

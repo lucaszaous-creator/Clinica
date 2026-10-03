@@ -1,72 +1,919 @@
 {
   "data": "2026-10-03",
   "modelo": "jev-1.13.0",
-  "escopo": "Reformulação do atendimento no desktop; portal sem alteração",
-  "resultado": {
+  "etapa": "Revisão por fluxo antes do CI final; publicação ainda não iniciada.",
+  "rodada_inicial": {
+    "data": "2026-10-03",
+    "modelo": "jev-1.13.0",
+    "escopo": "Reformulação do atendimento no desktop; portal sem alteração",
+    "resultado": {
+      "model": "jev-1.13.0",
+      "answers": {
+        "rascunho": {
+          "type": "noul",
+          "noul": 0.08
+        },
+        "acesso": {
+          "type": "noul",
+          "noul": 0.16
+        },
+        "enfermagem": {
+          "type": "noul",
+          "noul": 0.36
+        },
+        "navegacao": {
+          "type": "noul",
+          "noul": 0.25
+        },
+        "revisao_ui": {
+          "type": "noul",
+          "noul": 0.14
+        },
+        "vinculo": {
+          "type": "noul",
+          "noul": 0.17
+        },
+        "parecer": {
+          "type": "choice",
+          "choice": "validar_e_publicar",
+          "confidence": 0.32,
+          "probabilities": {
+            "bloquear": 0.42,
+            "insuficiente": 0.03,
+            "validar_e_publicar": 0.55
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 19071,
+        "output_tokens": 163
+      }
+    },
+    "sha256_arquivos_locais": {
+      "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml": "954e08a7d67c850635ac654e3ca4d298854767b7566796e64172d1dd7ee7b677",
+      "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml.cs": "bbfb410cd4088abc0eda4fd652cb1c0ad1bc8fe112f48dc3e0e8cb25c366b0e1",
+      "src/Clinica.Modulo.Clinico/Views/AtendimentoView.xaml": "42d0c3bc9c01f2a5fecd2cc07f24f7fca296387025d79998eb0689bf07e3b7c2",
+      "src/Clinica.Modulo.Clinico/Views/AtendimentoView.xaml.cs": "c8e250ad951ec04f6720a516b4948ab5f7a0daed58ffd13da5a069e3335e03c9",
+      "src/Clinica.Modulo.Clinico/Views/HistoricoConsultaView.xaml": "c8da562efc3e07242eaea2f2fce363d64b72c250cfc841a15d599266e533d7d0",
+      "src/Clinica.Modulo.Clinico/ViewModels/HistoricoConsultaViewModel.cs": "1df0262b7736e5e7dcaf9a22464edff32c7d54c53bcf2c9c8ff0dd5e5e84bb82",
+      "src/Clinica.Desktop.Shell/Componentes/IconeClinico.cs": "7d523ff283c2774cf35ee3c91e3825be198c2d1e87e0e05d02fc9ad2553535f7"
+    },
+    "validacao": {
+      "testes": {
+        "aprovados": 2903,
+        "falhas": 0,
+        "ignorados": 0
+      },
+      "suite": {
+        "xaml": 222,
+        "projetos": 10,
+        "construtores": 136
+      },
+      "tokens_cores": 33,
+      "harness": "Quatro capturas nativas (1366x820 e 1100x760, histórico aberto/fechado); filtros, acesso negado, limpeza sem paciente, visibilidade, editor, rascunho, navegação e gravação/releitura vinculada passaram. Zero erros de binding."
+    },
+    "limite": "Parecer probabilístico com baixa confiança; não substitui testes e revisão visual."
+  },
+  "consulta_lacunas": {
     "model": "jev-1.13.0",
     "answers": {
-      "rascunho": {
-        "type": "noul",
-        "noul": 0.08
-      },
-      "acesso": {
-        "type": "noul",
-        "noul": 0.16
-      },
-      "enfermagem": {
-        "type": "noul",
-        "noul": 0.36
-      },
-      "navegacao": {
-        "type": "noul",
-        "noul": 0.25
-      },
-      "revisao_ui": {
-        "type": "noul",
-        "noul": 0.14
-      },
-      "vinculo": {
-        "type": "noul",
-        "noul": 0.17
-      },
-      "parecer": {
+      "diff": {
         "type": "choice",
-        "choice": "validar_e_publicar",
-        "confidence": 0.32,
+        "choice": "necessario",
+        "confidence": 0.2,
         "probabilities": {
-          "bloquear": 0.42,
-          "insuficiente": 0.03,
-          "validar_e_publicar": 0.55
+          "dispensavel": 0.16,
+          "necessario": 0.47,
+          "util": 0.37
+        }
+      },
+      "dependencias": {
+        "type": "choice",
+        "choice": "dispensavel",
+        "confidence": 0.58,
+        "probabilities": {
+          "dispensavel": 0.72,
+          "necessario": 0.11,
+          "util": 0.17
+        }
+      },
+      "testes_fluxos": {
+        "type": "choice",
+        "choice": "necessario",
+        "confidence": 0.72,
+        "probabilities": {
+          "dispensavel": 0.06,
+          "necessario": 0.81,
+          "util": 0.13
+        }
+      },
+      "layout": {
+        "type": "choice",
+        "choice": "necessario",
+        "confidence": 0.5,
+        "probabilities": {
+          "dispensavel": 0.05,
+          "necessario": 0.67,
+          "util": 0.28
+        }
+      },
+      "ci": {
+        "type": "choice",
+        "choice": "necessario",
+        "confidence": 0.85,
+        "probabilities": {
+          "dispensavel": 0.02,
+          "necessario": 0.9,
+          "util": 0.08
+        }
+      },
+      "decomposicao": {
+        "type": "choice",
+        "choice": "necessario",
+        "confidence": 0.63,
+        "probabilities": {
+          "dispensavel": 0.17,
+          "necessario": 0.75,
+          "util": 0.08
+        }
+      },
+      "repeticao": {
+        "type": "choice",
+        "choice": "dispensavel",
+        "confidence": 0.89,
+        "probabilities": {
+          "dispensavel": 0.92,
+          "necessario": 0.04,
+          "util": 0.04
+        }
+      },
+      "garantia": {
+        "type": "noul",
+        "noul": 0.05
+      },
+      "cobertura": {
+        "type": "choice",
+        "choice": "incompleto",
+        "confidence": 0.87,
+        "probabilities": {
+          "incompleto": 0.93,
+          "cobre": 0.07
         }
       }
     },
     "usage": {
-      "input_tokens": 19071,
-      "output_tokens": 163
+      "input_tokens": 21089,
+      "output_tokens": 356
     }
   },
-  "sha256_arquivos_locais": {
-    "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml": "954e08a7d67c850635ac654e3ca4d298854767b7566796e64172d1dd7ee7b677",
-    "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml.cs": "bbfb410cd4088abc0eda4fd652cb1c0ad1bc8fe112f48dc3e0e8cb25c366b0e1",
-    "src/Clinica.Modulo.Clinico/Views/AtendimentoView.xaml": "42d0c3bc9c01f2a5fecd2cc07f24f7fca296387025d79998eb0689bf07e3b7c2",
-    "src/Clinica.Modulo.Clinico/Views/AtendimentoView.xaml.cs": "c8e250ad951ec04f6720a516b4948ab5f7a0daed58ffd13da5a069e3335e03c9",
-    "src/Clinica.Modulo.Clinico/Views/HistoricoConsultaView.xaml": "c8da562efc3e07242eaea2f2fce363d64b72c250cfc841a15d599266e533d7d0",
-    "src/Clinica.Modulo.Clinico/ViewModels/HistoricoConsultaViewModel.cs": "1df0262b7736e5e7dcaf9a22464edff32c7d54c53bcf2c9c8ff0dd5e5e84bb82",
-    "src/Clinica.Desktop.Shell/Componentes/IconeClinico.cs": "7d523ff283c2774cf35ee3c91e3825be198c2d1e87e0e05d02fc9ad2553535f7"
-  },
-  "validacao": {
-    "testes": {
-      "aprovados": 2903,
-      "falhas": 0,
-      "ignorados": 0
+  "lacunas_adicionais": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "concorrencia": {
+        "type": "noul",
+        "noul": 0.62
+      },
+      "emissao": {
+        "type": "noul",
+        "noul": 0.63
+      },
+      "fidelidade": {
+        "type": "noul",
+        "noul": 0.75
+      },
+      "acessibilidade": {
+        "type": "noul",
+        "noul": 0.7
+      },
+      "rollback": {
+        "type": "noul",
+        "noul": 0.56
+      },
+      "banco": {
+        "type": "noul",
+        "noul": 0.09
+      },
+      "escopo": {
+        "type": "noul",
+        "noul": 0.4
+      },
+      "outros": {
+        "type": "noul",
+        "noul": 0.51
+      }
     },
-    "suite": {
-      "xaml": 222,
-      "projetos": 10,
-      "construtores": 136
-    },
-    "tokens_cores": 33,
-    "harness": "Quatro capturas nativas (1366x820 e 1100x760, histórico aberto/fechado); filtros, acesso negado, limpeza sem paciente, visibilidade, editor, rascunho, navegação e gravação/releitura vinculada passaram. Zero erros de binding."
+    "usage": {
+      "input_tokens": 1763,
+      "output_tokens": 144
+    }
   },
-  "limite": "Parecer probabilístico com baixa confiança; não substitui testes e revisão visual."
+  "fluxos": {
+    "historico": {
+      "perguntas": {
+        "1": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "O painel recusa leitura sem VerProntuario e usa o filtro por natureza da linha do tempo?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "2": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "Respostas antigas são descartadas quando o paciente muda ou uma carga mais nova começa?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "3": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "Falha de banco é mostrada como falha e a atualização posterior recupera a consulta?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "4": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "Abrir, fechar, filtrar e ler o histórico preservam o texto da evolução em edição?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        }
+      },
+      "resposta": {
+        "model": "jev-1.13.0",
+        "answers": {
+          "1": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.98,
+            "probabilities": {
+              "atende": 0.99,
+              "insuficiente": 0.0,
+              "defeito": 0.01
+            }
+          },
+          "2": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 1.0,
+            "probabilities": {
+              "atende": 1.0,
+              "insuficiente": 0.0,
+              "defeito": 0.0
+            }
+          },
+          "3": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 1.0,
+            "probabilities": {
+              "atende": 1.0,
+              "insuficiente": 0.0,
+              "defeito": 0.0
+            }
+          },
+          "4": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.96,
+            "probabilities": {
+              "atende": 0.97,
+              "insuficiente": 0.02,
+              "defeito": 0.01
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 13998,
+          "output_tokens": 167
+        }
+      }
+    },
+    "emissao": {
+      "perguntas": {
+        "1": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "Os quatro novos atalhos respeitam as permissões existentes por tipo de documento?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "2": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "A janela aberta pelo atalho mantém o paciente, o tipo do documento e o agendamento da consulta?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "3": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "A alteração preserva a implementação existente de salvar evolução e concluir sessão?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        }
+      },
+      "resposta": {
+        "model": "jev-1.13.0",
+        "answers": {
+          "1": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.97,
+            "probabilities": {
+              "insuficiente": 0.0,
+              "atende": 0.99,
+              "defeito": 0.01
+            }
+          },
+          "2": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 1.0,
+            "probabilities": {
+              "insuficiente": 0.0,
+              "atende": 1.0,
+              "defeito": 0.0
+            }
+          },
+          "3": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.56,
+            "probabilities": {
+              "insuficiente": 0.29,
+              "atende": 0.7,
+              "defeito": 0.01
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 7365,
+          "output_tokens": 126
+        }
+      }
+    },
+    "navegacao": {
+      "perguntas": {
+        "1": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "A aba de escrita de enfermagem está oculta e desabilitada no prontuário médico, inclusive para navegação por teclado?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "2": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "Os sete índices de conteúdo permanecem compatíveis com as chaves anteriores?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "3": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "A ação de conclusão do gerente sem vínculo médico continua acessível no menu?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        }
+      },
+      "resposta": {
+        "model": "jev-1.13.0",
+        "answers": {
+          "1": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.91,
+            "probabilities": {
+              "atende": 0.94,
+              "defeito": 0.05,
+              "insuficiente": 0.01
+            }
+          },
+          "2": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.78,
+            "probabilities": {
+              "atende": 0.85,
+              "defeito": 0.13,
+              "insuficiente": 0.02
+            }
+          },
+          "3": {
+            "type": "choice",
+            "choice": "defeito",
+            "confidence": 0.26,
+            "probabilities": {
+              "atende": 0.46,
+              "defeito": 0.51,
+              "insuficiente": 0.03
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 19023,
+          "output_tokens": 126
+        }
+      }
+    },
+    "layout": {
+      "perguntas": {
+        "1": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "O editor mantém altura útil com campos expandidos e o conteúdo fica alcançável pela rolagem nos tamanhos testados?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "2": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "O botão Salvar permanece dentro da janela nos cenários testados?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "3": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "No layout estreito o histórico cobre a edição e desabilita os controles atrás, preservando o rascunho?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "4": {
+          "type": "choice",
+          "instructions": {
+            "requisito": "Abrir o histórico define foco em Fechar, Escape fecha e o foco lógico retorna ao editor?",
+            "regra": "Julgue os arquivos e testes reais. Não dê crédito por narrativa sem suporte. Analise somente o requisito delimitado; declare insuficiente se necessário. A classificação de atende NÃO significa zero risco ou liberação geral."
+          },
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        }
+      },
+      "resposta": {
+        "model": "jev-1.13.0",
+        "answers": {
+          "1": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.97,
+            "probabilities": {
+              "insuficiente": 0.01,
+              "atende": 0.98,
+              "defeito": 0.01
+            }
+          },
+          "2": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 1.0,
+            "probabilities": {
+              "insuficiente": 0.0,
+              "atende": 1.0,
+              "defeito": 0.0
+            }
+          },
+          "3": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.99,
+            "probabilities": {
+              "insuficiente": 0.0,
+              "atende": 0.99,
+              "defeito": 0.01
+            }
+          },
+          "4": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.99,
+            "probabilities": {
+              "insuficiente": 0.0,
+              "atende": 1.0,
+              "defeito": 0.0
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 17548,
+          "output_tokens": 167
+        }
+      }
+    },
+    "complemento": {
+      "perguntas": {
+        "persistencia": {
+          "type": "choice",
+          "instructions": "A alteração preserva a implementação existente de salvar evolução e concluir sessão?",
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "indices": {
+          "type": "choice",
+          "instructions": "Os sete índices de conteúdo permanecem compatíveis com as chaves anteriores?",
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "concluir_gerente": {
+          "type": "choice",
+          "instructions": "A ação de conclusão do gerente sem vínculo médico continua acessível no menu?",
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        },
+        "documentos_emitidos": {
+          "type": "choice",
+          "instructions": "O botão Documentos emitidos seleciona a seção Prescrições e documentos, mantendo rascunho e contexto?",
+          "criteria": {
+            "atende": "Código e evidências sustentam o requisito delimitado, sem defeito concreto encontrado.",
+            "defeito": "Há violação concreta deste requisito no código ou testes.",
+            "insuficiente": "Não há evidência suficiente para decidir este requisito."
+          }
+        }
+      },
+      "resposta": {
+        "model": "jev-1.13.0",
+        "answers": {
+          "persistencia": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.96,
+            "probabilities": {
+              "atende": 0.98,
+              "insuficiente": 0.01,
+              "defeito": 0.01
+            }
+          },
+          "indices": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.93,
+            "probabilities": {
+              "atende": 0.95,
+              "insuficiente": 0.02,
+              "defeito": 0.03
+            }
+          },
+          "concluir_gerente": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 0.98,
+            "probabilities": {
+              "atende": 0.99,
+              "insuficiente": 0.0,
+              "defeito": 0.01
+            }
+          },
+          "documentos_emitidos": {
+            "type": "choice",
+            "choice": "atende",
+            "confidence": 1.0,
+            "probabilities": {
+              "atende": 1.0,
+              "insuficiente": 0.0,
+              "defeito": 0.0
+            }
+          }
+        },
+        "usage": {
+          "input_tokens": 26870,
+          "output_tokens": 180
+        }
+      }
+    }
+  },
+  "validacao_ampliada": [
+    {
+      "cenario": "falha_recuperacao_resposta_atrasada",
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Profissional",
+      "documento": "receita",
+      "permitido": true,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Profissional",
+      "documento": "atestado",
+      "permitido": true,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Profissional",
+      "documento": "comparecimento",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Profissional",
+      "documento": "pedido-exame",
+      "permitido": true,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "perfil",
+      "perfil": "Profissional",
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Gerente",
+      "documento": "receita",
+      "permitido": true,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Gerente",
+      "documento": "atestado",
+      "permitido": true,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Gerente",
+      "documento": "comparecimento",
+      "permitido": true,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Gerente",
+      "documento": "pedido-exame",
+      "permitido": true,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "perfil",
+      "perfil": "Gerente",
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Enfermagem",
+      "documento": "receita",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Enfermagem",
+      "documento": "atestado",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Enfermagem",
+      "documento": "comparecimento",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Enfermagem",
+      "documento": "pedido-exame",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "perfil",
+      "perfil": "Enfermagem",
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Psicologia",
+      "documento": "receita",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Psicologia",
+      "documento": "atestado",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Psicologia",
+      "documento": "comparecimento",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Psicologia",
+      "documento": "pedido-exame",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "perfil",
+      "perfil": "Psicologia",
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Recepcao",
+      "documento": "receita",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Recepcao",
+      "documento": "atestado",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Recepcao",
+      "documento": "comparecimento",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "emissao",
+      "perfil": "Recepcao",
+      "documento": "pedido-exame",
+      "permitido": false,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "perfil",
+      "perfil": "Recepcao",
+      "resultado": "passou"
+    },
+    {
+      "cenario": "expandido",
+      "escalaSimulada": 1,
+      "editorAltura": 480.00000000000006,
+      "viewport": 558.48,
+      "extensao": 1101.0900000000001,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "compacto-expandido",
+      "escalaSimulada": 1,
+      "editorAltura": 480.00000000000006,
+      "viewport": 498.48,
+      "extensao": 1101.0900000000001,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "escala125",
+      "escalaSimulada": 1.25,
+      "editorAltura": 480.00000000000006,
+      "viewport": 402.28000000000003,
+      "extensao": 1101.0900000000001,
+      "resultado": "passou"
+    },
+    {
+      "cenario": "escala150",
+      "escalaSimulada": 1.5,
+      "editorAltura": 480.00000000000006,
+      "viewport": 282.18666666666667,
+      "extensao": 1101.0900000000001,
+      "resultado": "passou"
+    }
+  ],
+  "icones": {
+    "resultado": "passou",
+    "icones": [
+      "record",
+      "rx",
+      "infusion",
+      "history",
+      "folder",
+      "exam",
+      "patient",
+      "chart",
+      "document",
+      "back",
+      "save",
+      "print",
+      "close",
+      "model",
+      "body",
+      "more",
+      "check"
+    ],
+    "quantidade": 17,
+    "comparacao": "Geometrias vetoriais exatas do protótipo aprovado e produção; sem inferência por aparência."
+  },
+  "contratos_preservados": {
+    "src/Clinica.Desktop.Shell/Componentes/FolhaDaSessaoViewModel.cs": {
+      "iguais": true,
+      "sha256_normalizado": "49796706a4f372aa26e0b260a7fdf1351312bc0e00799d104accc4b859f0f2e0"
+    },
+    "src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs": {
+      "iguais": true,
+      "sha256_normalizado": "63626bfde51f682b1d9e92d6615d84753f80c0f82919f8da50d1d215fdb541d5"
+    },
+    "src/Clinica.Domain/Entities/ConclusaoClinica.cs": {
+      "iguais": true,
+      "sha256_normalizado": "d7561ea27dd2d5945c456c261aa6c41ec00b183467b1c4b604a0115d88861d14"
+    },
+    "FinalizarSessaoAsync": {
+      "igual_ao_main": true,
+      "sha256_normalizado": "b0c2545f52ca3da3303df50ccd9ca6ae441c56d6c40b063881075b67c287eb08"
+    }
+  },
+  "sha256_fontes_normalizado_lf": {
+    "src/Clinica.Desktop.Shell/Componentes/IconeClinico.cs": "c6b4f178d75dde0e3cbdb3bb5498a1a9334ce25d3e64d7e821de89f1e9115be5",
+    "src/Clinica.Modulo.Clinico/ViewModels/AtendimentoViewModel.cs": "52133e5ad921c17111ff6bf1575ca316de2f4dab0d693bdb0dbbdacf166fccb3",
+    "src/Clinica.Modulo.Clinico/ViewModels/HistoricoConsultaViewModel.cs": "1164754f0818db7b18ed07a68cae2719da9517156c6ee90a34944de8f307339a",
+    "src/Clinica.Modulo.Clinico/ViewModels/PacienteWorkspaceViewModel.cs": "51869848038ea437e4fc5c8b5969cd4d3ac6e3b4df417037107761404b01fb72",
+    "src/Clinica.Modulo.Clinico/Views/AtendimentoView.xaml": "ac2907e2b60a616228107c80957fa4dde942f49288962c71d44fe57576f8a8da",
+    "src/Clinica.Modulo.Clinico/Views/AtendimentoView.xaml.cs": "c3edcb9f6840d5ce3a3106186ee58cb70bd85f907629eb371ea4de381f372d0e",
+    "src/Clinica.Modulo.Clinico/Views/HistoricoConsultaView.xaml": "8a4116a710d799d7755a735508b5214844160a880337e05cf0f890dd8d2c717d",
+    "src/Clinica.Modulo.Clinico/Views/HistoricoConsultaView.xaml.cs": "0d811d2ca759ce8da70563eefe524f5dc4ebdfb64df2a8aa6ea58f7a04ae2720",
+    "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml": "5adc7bc99de3facd130c42a053b15fc2bd17bc8391cb38a5f105a59638ff51c6",
+    "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml.cs": "d7815620a6fa62e0e60d2646cdb61807403ec01c824d0f8da06155d9317ed76c"
+  },
+  "interpretacao": "Os pareceres complementares substituem as dúvidas de persistência, índices e conclusão do gerente. Confianças dos requisitos finais: 0,91 a 1,00. São julgamentos delimitados com evidências; não uma garantia de ausência de bugs ou uma pontuação global de release."
 }
