@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using Clinica.Application.Assinatura;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
@@ -20,6 +19,8 @@ public sealed partial class LinhaItemDocumento : ObservableObject
     [ObservableProperty] private string? _quantidade;
     [ObservableProperty] private string? _detalhe;
     [ObservableProperty] private string? _detalheFormatado;
+    partial void OnDescricaoChanged(string value) => DescricaoFormatada = null;
+    partial void OnDetalheChanged(string? value) => DetalheFormatado = null;
 }
 
 /// <summary>
@@ -35,12 +36,6 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
 
-    /// <summary>
-    /// Para a janela repassar ao seletor de certificado, que precisa de DI para oferecer a
-    /// busca em nuvem. Mesma assembly, então `internal` basta — e é melhor que a janela
-    /// receber uma segunda fábrica só para isso.
-    /// </summary>
-    internal IServiceScopeFactory Escopos => _escopos;
     private readonly int _pacienteId;
 
     /// <summary>O paciente inteiro — a conferência legal lê o endereço dele.</summary>
@@ -98,59 +93,19 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
     public bool TemExigenciasLegais => ExigenciasLegais.Count > 0;
 
-    /// <summary>
-    /// Assinar com certificado ICP-Brasil em vez de imprimir para assinar à caneta.
-    ///
-    /// Nasce DESLIGADA: a clínica funciona no papel hoje, e ligar sozinho mandaria a
-    /// primeira emissão do dia procurar um token que talvez não esteja na máquina.
-    /// </summary>
-    [ObservableProperty] private bool _assinarDigitalmente;
-
-    /// <summary>
-    /// Para onde o QR do documento assinado vai apontar (parcela 63).
-    ///
-    /// São dois destinos MUITO diferentes e a tela nunca disse qual: com a publicação
-    /// configurada, o QR abre o documento — o farmacêutico escaneia e lê a receita; sem
-    /// ela, o QR leva ao validador do ITI, onde ele precisa ENVIAR o arquivo, e o arquivo
-    /// está com o paciente. É a diferença entre a receita ser dispensada no balcão e o
-    /// paciente ser mandado de volta.
-    ///
-    /// <c>PublicacaoDocumentoService.LigadaAsync</c> respondia isso desde a parcela 53 e
-    /// não tinha um único chamador: quem assinava descobria o destino depois de imprimir.
-    /// </summary>
-    [ObservableProperty] private string _destinoDoQr = string.Empty;
-
-    partial void OnDestinoDoQrChanged(string value)
-        => OnPropertyChanged(nameof(MostrarDestinoDoQr));
-
-    /// <summary>Só interessa quando vai sair assinatura — em papel não há QR.</summary>
-    public bool MostrarDestinoDoQr => AssinarDigitalmente && DestinoDoQr.Length > 0;
-
-    /// <summary>
-    /// Marcar a assinatura muda DUAS coisas na tela: a conferência legal (o atestado em
-    /// arquivo exige assinatura qualificada; em papel, não) e o destino do QR.
-    /// </summary>
-    partial void OnAssinarDigitalmenteChanged(bool value)
-    {
-        OnPropertyChanged(nameof(MostrarDestinoDoQr));
-        _ = ConferirLegalmenteAsync();
-    }
-
-    /// <summary>
-    /// A pergunta muda com a forma de entrega, e é por isso que o resultado não é fixo:
-    /// o atestado em PAPEL vale assinado à caneta, e o mesmo atestado em ARQUIVO só vale
-    /// com certificado (art. 13 da Lei 14.063/2020).
-    /// </summary>
     private Task ConferirLegalmenteAsync()
     {
         try
         {
             var faltas = ConformidadeDocumentoClinico.Conferir(
-                DocumentoParaConferencia(), AssinarDigitalmente);
+                DocumentoParaConferencia(), false);
 
             ExigenciasLegais.Clear();
             foreach (var falta in faltas)
             {
+                // Este editor emite a via para impressão, sem fluxo de certificado.
+                // O aviso específico da entrega eletrônica pertence àquele fluxo.
+                if (falta.Fundamento == ConformidadeDocumentoClinico.Art13) continue;
                 // Essas duas respostas têm lugar na própria receita: o campo de texto
                 // e a pergunta de endereço antes da emissão. Não duplicar avisos no topo.
                 if (ReceitaLivre && (falta.Frase.Contains("endereço residencial")
@@ -174,12 +129,6 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(TemExigenciasLegais));
         return Task.CompletedTask;
     }
-
-    /// <summary>
-    /// A janela liga isto ao seletor de certificado. Fica como <c>Func</c> porque o
-    /// ViewModel não conhece WPF — o mesmo arranjo do <c>Fechar</c> do seletor.
-    /// </summary>
-    public Func<string, CertificadoAssinatura?>? EscolherCertificado { get; set; }
 
     public bool TemAlertasClinicos => AlertasClinicos.Count > 0;
 
@@ -282,8 +231,34 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     [ObservableProperty] private bool _carregando = true;
 
     public bool ReceitaLivre => TipoSelecionado == TipoDocumentoClinico.Receita;
-    public string RotuloCorpo => ReceitaLivre ? "Prescrição" : "Texto do documento";
-    public bool PodeEditar => !Emitindo;
+    public string RotuloCorpo => ReceitaLivre ? "Prescrição" : "Texto complementar (opcional)";
+    public string OrientacaoCorpo => TipoSelecionado switch
+    {
+        TipoDocumentoClinico.Receita => "Escreva os medicamentos e o modo de usar ou aplique um modelo salvo.",
+        TipoDocumentoClinico.Atestado => "O afastamento é gerado com os campos acima. Acrescente aqui apenas o texto complementar.",
+        TipoDocumentoClinico.Comparecimento => "A declaração é gerada com o dia e os horários informados. Acrescente aqui apenas o texto complementar.",
+        _ => "Acrescente orientações complementares aos exames solicitados."
+    };
+    public bool PodeEditar => !Emitindo && !Carregando;
+    public string TituloDocumento => TipoSelecionado switch
+    {
+        TipoDocumentoClinico.Receita => "Receita médica",
+        TipoDocumentoClinico.Atestado => "Atestado médico",
+        TipoDocumentoClinico.Comparecimento => "Declaração de comparecimento",
+        TipoDocumentoClinico.PedidoExame => "Pedido de exames",
+        _ => TipoDocumentoInfo.Rotular(TipoSelecionado)
+    };
+    public string TituloFolha => (string.IsNullOrWhiteSpace(Titulo) ? TituloDocumento : Titulo.Trim()).ToUpperInvariant();
+    public string ContextoDocumento => string.Join("   ·   ", new[]
+    {
+        _paciente?.Nome,
+        _heranca?.Procedencia(DateOnly.FromDateTime(Data)) is { Length: > 0 } origem ? origem : $"Emissão de {Data:dd/MM/yyyy}"
+    }.Where(p => !string.IsNullOrWhiteSpace(p)));
+    public string ResponsavelDocumento => Profissional is null ? "Selecione o profissional responsável" :
+        string.Join(" · ", new[] { Profissional.Nome, Profissional.RegistroConselho }.Where(p => !string.IsNullOrWhiteSpace(p)));
+    public string RotuloTextoFolha => ReceitaLivre ? "Prescrição e modo de usar" : "Texto complementar · opcional";
+    partial void OnTituloChanged(string? value) => OnPropertyChanged(nameof(TituloFolha));
+    partial void OnDataChanged(DateTime value) => OnPropertyChanged(nameof(ContextoDocumento));
     public bool TemSugestoes => ReceitaLivre && Sugestoes.Count > 0;
     public string EnderecoDaReceita => string.IsNullOrWhiteSpace(_paciente?.Endereco)
         ? "Endereço: será solicitado ao emitir."
@@ -299,7 +274,11 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         if (!Carregando) _ = ConferirLegalmenteAsync();
     }
 
-    partial void OnCarregandoChanged(bool value) => EmitirCommand.NotifyCanExecuteChanged();
+    partial void OnCarregandoChanged(bool value)
+    {
+        EmitirCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(PodeEditar));
+    }
 
     // Sem isto o botão continuaria apagado depois da emissão: `PodeEmitir` lê `Emitindo`,
     // e o gerador só reavalia o comando quando alguém avisa.
@@ -332,7 +311,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         {
             var partes = new List<string>();
             if (_paciente is not null) partes.Add($"para {_paciente.Nome}");
-            if (Profissional is not null) partes.Add($"assina {Profissional.Rotulo}");
+            if (Profissional is not null) partes.Add($"profissional: {Profissional.Rotulo}");
 
             var procedencia = _heranca?.Procedencia(DateOnly.FromDateTime(DateTime.Today)) ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(procedencia)) partes.Add(procedencia);
@@ -402,7 +381,11 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         }
     }
 
-    partial void OnProfissionalChanged(Profissional? value) => OnPropertyChanged(nameof(Subtitulo));
+    partial void OnProfissionalChanged(Profissional? value)
+    {
+        OnPropertyChanged(nameof(Subtitulo));
+        OnPropertyChanged(nameof(ResponsavelDocumento));
+    }
 
     /// <summary>Receita e pedido de exame são listas; atestado e declaração, não.</summary>
     public bool MostraItens => TipoDocumentoInfo.ExigeItens(TipoSelecionado);
@@ -469,6 +452,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnTipoSelecionadoChanged(TipoDocumentoClinico value)
     {
         OnPropertyChanged(nameof(TituloJanela));
+        OnPropertyChanged(nameof(TituloDocumento));
+        OnPropertyChanged(nameof(TituloFolha));
+        OnPropertyChanged(nameof(RotuloTextoFolha));
         OnPropertyChanged(nameof(MostraItens));
         OnPropertyChanged(nameof(MostraAtestado));
         OnPropertyChanged(nameof(MostraComparecimento));
@@ -476,23 +462,15 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(RotuloDetalhe));
         OnPropertyChanged(nameof(ReceitaLivre));
         OnPropertyChanged(nameof(RotuloCorpo));
+        OnPropertyChanged(nameof(OrientacaoCorpo));
         OnPropertyChanged(nameof(TemSugestoes));
 
         // Trocar o tipo no combo é escolher OUTRO papel: o que a sessão tinha a dar para
         // ele é outra coisa, e as marcas do papel anterior mentiriam sobre este.
         AplicarHeranca();
         _ = CarregarModelosAsync();
-
-        // Nem todo tipo se publica: trocar de Receita para Relatório tem de apagar a
-        // frase, senão a tela promete um QR que aquele papel não vai ter.
-        _ = ReconferirPublicacaoAsync();
     }
 
-    private async Task ReconferirPublicacaoAsync()
-    {
-        using var scope = _escopos.CreateScope();
-        await ConferirPublicacaoAsync(scope);
-    }
 
     /// <summary>
     /// O que o código digitado quer dizer (parcela 63) — vazio quando ele não está no
@@ -556,6 +534,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             // Id sozinho não responde se a receita pode ser aviada.
             var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
             _paciente = await pacientes.ObterComHistoricoAsync(_pacienteId);
+            OnPropertyChanged(nameof(ContextoDocumento));
             OnPropertyChanged(nameof(Subtitulo));
             OnPropertyChanged(nameof(EnderecoDaReceita));
 
@@ -566,7 +545,6 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             // ANTES de escrever, não uma validação de saída.
             await ConferirClinicamenteAsync();
 
-            await ConferirPublicacaoAsync(scope);
         }
         catch (Exception ex)
         {
@@ -577,42 +555,6 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         finally
         {
             Carregando = false;
-        }
-    }
-
-    /// <summary>
-    /// Descobre para onde o QR vai apontar e escreve a frase.
-    ///
-    /// Falhar aqui NÃO impede emitir nada — é informação, não validação, e banco lento não
-    /// pode travar um atestado. Mas também não passa calado: sem a frase, a tela volta ao
-    /// silêncio de antes, e é o silêncio que faz alguém assinar sem saber o destino.
-    /// </summary>
-    private async Task ConferirPublicacaoAsync(IServiceScope scope)
-    {
-        if (!PublicacaoDocumento.PodePublicar(TipoSelecionado))
-        {
-            DestinoDoQr = string.Empty;
-            return;
-        }
-
-        try
-        {
-            var ligada = await scope.ServiceProvider
-                .GetRequiredService<PublicacaoDocumentoService>()
-                .LigadaAsync();
-
-            DestinoDoQr = ligada
-                ? "O QR vai ABRIR o documento: o farmacêutico escaneia e lê, sem precisar "
-                  + "do arquivo."
-                : "A publicação está desligada — o QR vai levar ao validador do ITI, onde o "
-                  + "farmacêutico precisa ENVIAR o arquivo. Para o QR abrir o documento, "
-                  + "cadastre o domínio da clínica em Configurações → Publicação.";
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Documento clínico — destino do QR não pôde ser conferido", ex);
-            DestinoDoQr = "Não foi possível conferir para onde o QR vai apontar.";
         }
     }
 
@@ -715,6 +657,16 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     /// </summary>
     [RelayCommand]
     private Task SalvarComoModeloAsync(string? nome) => GuardarModeloAsync(nome,0);
+
+    [RelayCommand]
+    private async Task PedirNomeModeloAsync()
+    {
+        if (!PodeEditar) return;
+        using var scope = _escopos.CreateScope();
+        var nome = scope.ServiceProvider.GetRequiredService<IDialogoService>()
+            .PerguntarTexto("Salvar como modelo", "Nome do modelo");
+        if (nome is not null) await GuardarModeloAsync(nome, 0);
+    }
 
     private async Task GuardarModeloAsync(string? nome,int id)
     {
@@ -869,21 +821,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                 numero = emitido.Numero;
                 nomeArquivo = $"{TipoDocumentoInfo.Rotular(TipoSelecionado)}-{numero.Replace('/', '-')}.pdf";
 
-                if (AssinarDigitalmente)
-                {
-                    // A partir daqui o documento já EXISTE. Se a assinatura não sair, ele
-                    // continua emitido e válido em papel — e a mensagem tem de dizer isso,
-                    // senão a pessoa emite de novo e ficam dois documentos do mesmo ato.
-                    var assinado = await AssinarAsync(scope, emitido.Id, numero);
-                    if (assinado is null) return;
-
-                    pdf = assinado.Pdf;
-                    nomeArquivo = assinado.NomeArquivo;
-                }
-                else
-                {
-                    pdf = await pdfs.GerarAsync(emitido.Id, await parametros.ObterPrestadorAsync());
-                }
+                pdf = await pdfs.GerarAsync(emitido.Id, await parametros.ObterPrestadorAsync());
             }
 
             // O documento JÁ está emitido: uma falha daqui para a frente é de impressão,
@@ -937,50 +875,6 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         }
         OnPropertyChanged(nameof(EnderecoDaReceita));
         return true;
-    }
-
-    /// <summary>
-    /// Pede o certificado e assina o documento recém-emitido.
-    ///
-    /// Devolve null quando não deu — e nunca em silêncio: quem desistiu do seletor lê que
-    /// o documento continua emitido e vale em papel; quem esbarrou numa recusa (certificado
-    /// de outra pessoa, exigência legal por cumprir) lê o motivo inteiro, porque é dele que
-    /// sai o próximo passo. Guarda que volta calada é botão que não faz nada.
-    /// </summary>
-    private async Task<DocumentoAssinado?> AssinarAsync(
-        IServiceScope scope, int documentoId, string numero)
-    {
-        using var certificado = EscolherCertificado?.Invoke(
-            $"Assinar {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()} {numero}");
-
-        if (certificado is null)
-        {
-            Erro($"O documento {numero} foi emitido e NÃO foi assinado digitalmente. "
-                 + "Ele continua valendo impresso e assinado à caneta; para assinar depois, "
-                 + "cancele e emita outro.");
-            return null;
-        }
-
-        try
-        {
-            var assinaturas = scope.ServiceProvider
-                .GetRequiredService<AssinaturaDeDocumentoClinicoService>();
-
-            return await assinaturas.AssinarAsync(
-                documentoId, certificado,
-                SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
-                SessaoUsuario.Atual.Operador);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Documento clínico — assinatura digital não pôde ser feita", ex);
-
-            Erro($"{ex.Message}{Environment.NewLine}{Environment.NewLine}"
-                 + $"O documento {numero} foi emitido e continua valendo impresso e "
-                 + "assinado à caneta.");
-            return null;
-        }
     }
 
     /// <summary>

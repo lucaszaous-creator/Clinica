@@ -59,26 +59,15 @@
 
 
         <!-- Menu nativo: mouse, toque, Alt/setas e leitor de tela usam a mesma navegação. -->
-        <Style x:Key="TelaSuperior" TargetType="MenuItem">
+        <Style x:Key="TelaSuperior" TargetType="MenuItem" BasedOn="{StaticResource Navegacao.Item}">
             <Setter Property="Header" Value="{Binding Rotulo}" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="MinHeight" Value="36" />
-            <Setter Property="AutomationProperties.Name" Value="{Binding Rotulo}" />
             <EventSetter Event="Click" Handler="AoEscolherTela" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding EstaAtivo}" Value="True">
-                    <Setter Property="FontWeight" Value="SemiBold" />
-                    <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
-                </DataTrigger>
-            </Style.Triggers>
         </Style>
-        <Style x:Key="CategoriaSuperior" TargetType="MenuItem">
-            <Setter Property="Header" Value="{Binding Nome}" />
+        <Style x:Key="CategoriaSuperior" TargetType="MenuItem" BasedOn="{StaticResource Navegacao.Categoria}">
+            <Setter Property="Header" Value="{Binding NomeNavegacao}" />
             <Setter Property="ItemsSource" Value="{Binding Itens}" />
             <Setter Property="ItemContainerStyle" Value="{StaticResource TelaSuperior}" />
-            <Setter Property="Padding" Value="6,10" />
-            <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
-            <Setter Property="AutomationProperties.Name" Value="{Binding Nome}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding NomeNavegacao}" />
             <EventSetter Event="MouseEnter" Handler="AoPassarPelaCategoria" />
         </Style>
     </Window.Resources>
@@ -87,12 +76,12 @@
         <!-- ==================== CONTEÚDO ==================== -->
         <DockPanel>
             <!-- Identidade da clínica, pesquisa e sessão do usuário. -->
-            <Border x:Name="Cabecalho" DockPanel.Dock="Top" Height="56"
+            <Border x:Name="Cabecalho" DockPanel.Dock="Top" Height="68"
                     Background="{StaticResource Brush.Superficie}"
                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
 
                 <Grid Margin="12,0">
-                    <Grid.RowDefinitions><RowDefinition Height="56"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="68"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -108,7 +97,8 @@
                           VerticalAlignment="Center" KeyboardNavigation.TabNavigation="Once"
                           AutomationProperties.Name="Navegação principal" />
                     <Button Content="Treinamento" Command="{Binding AbrirTreinamentoCommand}"
-                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" Padding="10,6"
+                            Style="{StaticResource BotaoSecundario}" Margin="0" Padding="16,8"
+                            BorderThickness="0" Background="Transparent" FontWeight="Normal"
                             ToolTip="Videoaulas das telas deste módulo" AutomationProperties.Name="Abrir treinamento"/>
                     </StackPanel>
                     <Grid Grid.Column="2" VerticalAlignment="Center" Margin="8,0" MinWidth="80" MaxWidth="320">
