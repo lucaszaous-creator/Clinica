@@ -1,6 +1,6 @@
 # Tokens de design
 
-Fonte da verdade: `src/Clinica.Desktop/Styles/Tokens.xaml` (espelhado em `tokens/*.css`). Use sempre os **brushes semânticos** (`Brush.*`); as cores primitivas (`Cor.*`) existem só para compor os semânticos.
+Fonte da verdade: `src/Clinica.Desktop.Shell/Styles/Tokens.xaml` (espelhado em `tokens/*.css`). Use sempre os **brushes semânticos** (`Brush.*`); as cores primitivas (`Cor.*`) existem só para compor os semânticos.
 
 ## Cores semânticas
 
@@ -34,13 +34,15 @@ Semáforo de urgência do domínio (`UrgenciaParaCorConverter`): verde `#2E7D32`
 | Chave | Tamanho | Peso | Uso |
 |---|---|---|---|
 | `Fonte.H1` / estilo `H1` | 24 | Bold | Título de página |
+| `Fonte.DocumentoTitulo` | 26 | SemiBold | Título do compositor de documentos (PR 235) |
+| `Fonte.IconeNavegacao` | 16 | Regular | Glifo do menu superior (PR 235) |
 | `Fonte.H2` / estilo `H2` | 20 | SemiBold | Título de cartão/seção |
 | `Fonte.H3` / estilo `H3` | 18 | SemiBold | Subseção, título de diálogo |
 | `Fonte.Corpo` | 14 | Regular | Texto, campos, botões |
 | `Fonte.Tabela` | 13 | Regular | Células e rótulos (`Rotulo`) |
 | `Fonte.Legenda` | 12 | Regular | Dicas (`TextoSuave`), badges |
 
-## Espaçamento (múltiplos de 8)
+## Espaçamento (escala base)
 
 `Espaco.1`=4 · `Espaco.2`=8 · `Espaco.3`=12 · `Espaco.4`=16 · `Espaco.6`=24 · `Espaco.8`=32 · `Espaco.10`=40 · `Espaco.12`=48 · `Espaco.16`=64.
 Compostos: `Margem.Pagina`=24, `Padding.Card`=16, `Padding.Campo`=12,8, `Padding.Botao`=12,8, `Padding.BotaoPequeno`=8,4.
@@ -54,6 +56,8 @@ Compostos: `Margem.Pagina`=24, `Padding.Card`=16, `Padding.Campo`=12,8, `Padding
 `Duracao.Rapida`=100ms (hover) · `Duracao.Normal`=150ms (sidebar, switch, chevrons). Nunca acima de 150ms.
 
 ## Iconografia
+
+**Atualização das PRs 235 e 237:** a barra superior usa os glifos aprovados em Segoe MDL2 Assets a 16; o atendimento usa `IconeClinico` (grade 24, tamanho 20, traço 1,8, pontas arredondadas; `more` com traço 3). Consulte o [catálogo e as regras atuais](padrao-desktop-aprovado.md#4-ícones-reutilizar-o-desenho-aprovado). A descrição histórica de “resto do sistema na fonte” abaixo não se aplica ao atendimento reformulado.
 
 `FonteIcones` = "Segoe Fluent Icons, Segoe MDL2 Assets" (nativas do Windows; nunca emoji). Estilo `Icone` para TextBlocks de glifo.
 
