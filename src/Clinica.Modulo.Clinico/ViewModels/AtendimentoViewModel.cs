@@ -431,6 +431,14 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     public bool PodePrescreverInfusao => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
 
     [RelayCommand]
+    private async Task EmitirTipoAsync(string? chave)
+    {
+        var cartao = Entregar.FirstOrDefault(f => f.Chave == chave);
+        if (cartao is not null) await EntregarFolhaAsync(cartao);
+        else { Mensagem = "Este documento não está disponível para o seu acesso ou para este paciente."; MensagemEhErro = true; }
+    }
+
+    [RelayCommand]
     private async Task PrescreverInfusaoAsync()
     {
         try
@@ -684,12 +692,14 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     /// existir.
     /// </summary>
     public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
+    public HistoricoConsultaViewModel HistoricoConsulta { get; }
 
     public AtendimentoViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, PacienteEmFoco foco)
         : base(escopos, snackbar)
     {
         _foco = foco;
+        HistoricoConsulta = new HistoricoConsultaViewModel(escopos, () => PacienteId);
 
         // A coluna ENTREGAR AGORA acompanha o que está sendo ESCRITO: o cartão do
         // atestado passa a dizer "CID M54.5 da sua hipótese" no instante em que o

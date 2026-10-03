@@ -188,14 +188,20 @@ static class Program
         foreach (var largura in new[] { 1366, 1024 })
         {
             janela.Width = largura; janela.UpdateLayout(); await Task.Delay(200); janela.UpdateLayout();
-            var botoes = Descendentes(janela).OfType<Button>().ToArray();
-            var concluir = botoes.Single(b => ReferenceEquals(b.Command, posto.FinalizarSessaoCommand));
-            var ponto = concluir.TranslatePoint(new Point(), janela);
-            if (!concluir.IsVisible || !concluir.IsEnabled || ponto.X < 0 ||
-                ponto.X + concluir.ActualWidth > janela.ActualWidth || ponto.Y + concluir.ActualHeight > janela.ActualHeight)
-                throw new Exception("Gerente sem vínculo médico perdeu a ação visível de salvar sessão.");
+            var acoes = Descendentes(janela).OfType<Button>().Single(b => System.Windows.Automation.AutomationProperties.GetName(b) == "Ações do atendimento");
+            var ponto = acoes.TranslatePoint(new Point(), janela);
+            if (!acoes.IsVisible || !acoes.IsEnabled || ponto.X < 0 ||
+                ponto.X + acoes.ActualWidth > janela.ActualWidth || ponto.Y + acoes.ActualHeight > janela.ActualHeight)
+                throw new Exception("Gerente sem vínculo médico perdeu acesso às ações da sessão.");
+            acoes.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await Task.Delay(60);
+            var menu = acoes.ContextMenu!;
+            var concluir = menu.Items.OfType<MenuItem>().Single(b => ReferenceEquals(b.Command, posto.FinalizarSessaoCommand));
+            if (!menu.IsOpen || !concluir.IsVisible || !concluir.IsEnabled)
+                throw new Exception("Gerente sem vínculo médico perdeu a ação de concluir sessão no menu.");
             Foto(janela, "gerente-finalizar-" + largura);
-            Console.WriteLine("GERENTE SEM VÍNCULO: Concluir sessão visível e habilitado em " + largura);
+            menu.IsOpen=false;
+            Console.WriteLine("GERENTE SEM VÍNCULO: Concluir sessão acessível e habilitado no menu em " + largura);
         }
         janela.Close();
         usuario.Perfil = PerfilAcesso.Enfermagem; usuario.ProfissionalId = prof.Id; usuario.Profissional = prof;

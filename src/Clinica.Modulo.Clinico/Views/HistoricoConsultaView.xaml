@@ -1,0 +1,44 @@
+<UserControl x:Class="Clinica.Clinico.Views.HistoricoConsultaView" Language="pt-BR" KeyboardNavigation.TabNavigation="Cycle"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+ xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell">
+ <UserControl.Resources><BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/><ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade"/></UserControl.Resources>
+ <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1,0,0,0" Padding="22,22,22,20">
+  <DockPanel>
+   <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+    <comp:BotaoClinico x:Name="FecharHistorico" DockPanel.Dock="Right" Texto="" Icone="close" Command="{Binding FecharCommand}" Style="{StaticResource BotaoFantasma}" Padding="0" ToolTip="Fechar histórico" AutomationProperties.Name="Fechar histórico"/>
+    <TextBlock Text="Histórico do paciente" FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+   </DockPanel>
+   <TextBlock DockPanel.Dock="Top" Text="Consulta aos registros anteriores" Style="{StaticResource TextoSuave}" Margin="0,0,0,20"/>
+   <UniformGrid DockPanel.Dock="Top" Rows="1" Margin="0,0,0,16">
+    <UniformGrid.Resources><Style TargetType="Button" BasedOn="{StaticResource BotaoFantasma}"><Setter Property="Padding" Value="8,5"/><Setter Property="MinHeight" Value="30"/></Style></UniformGrid.Resources>
+    <Button Content="Todos" Command="{Binding FiltrarCommand}" CommandParameter="Todos"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource BotaoFantasma}"><Setter Property="Padding" Value="8,5"/><Setter Property="MinHeight" Value="30"/><Style.Triggers><DataTrigger Binding="{Binding Filtro}" Value="Todos"><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="{StaticResource Brush.Fundo}"/></DataTrigger></Style.Triggers></Style></Button.Style></Button>
+    <Button Content="Sessões" Command="{Binding FiltrarCommand}" CommandParameter="Sessões"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource BotaoFantasma}"><Setter Property="Padding" Value="8,5"/><Setter Property="MinHeight" Value="30"/><Style.Triggers><DataTrigger Binding="{Binding Filtro}" Value="Sessões"><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="{StaticResource Brush.Fundo}"/></DataTrigger></Style.Triggers></Style></Button.Style></Button>
+    <Button Content="Portal" Command="{Binding FiltrarCommand}" CommandParameter="Portal" ToolTip="Registros de enfermagem e infusões, somente leitura"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource BotaoFantasma}"><Setter Property="Padding" Value="8,5"/><Setter Property="MinHeight" Value="30"/><Style.Triggers><DataTrigger Binding="{Binding Filtro}" Value="Portal"><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Background" Value="{StaticResource Brush.Fundo}"/></DataTrigger></Style.Triggers></Style></Button.Style></Button>
+   </UniformGrid>
+   <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0"><Button DockPanel.Dock="Right" Content="Atualizar" Command="{Binding AtualizarCommand}" Style="{StaticResource BotaoFantasma}"/><TextBlock Text="{Binding Filtro, StringFormat='Exibindo: {0}'}" Style="{StaticResource TextoSuave}" VerticalAlignment="Center"/></DockPanel>
+   <TextBlock DockPanel.Dock="Top" Text="{Binding Mensagem}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Erro}" Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}}"/>
+
+
+   <Grid><ctrl:EstadoDaTela Panel.ZIndex="1" Itens="{Binding Itens}" Carregando="{Binding Carregando}" NaoVerificado="{Binding NaoVerificado}" Titulo="Nenhum registro para este filtro"/>
+   <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ItemsControl ItemsSource="{Binding Itens}"><ItemsControl.ItemTemplate><DataTemplate>
+     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <DockPanel><comp:IconeClinico DockPanel.Dock="Top" Nome="record" Foreground="{StaticResource Brush.Acento}" Margin="0,0,0,10"/><Border Width="1" Background="{StaticResource Brush.Borda}" HorizontalAlignment="Left" Margin="8,0,0,0"/></DockPanel>
+      <StackPanel Grid.Column="1" Margin="5,0,0,26">
+       <TextBlock Text="{Binding Data, StringFormat='dd MMM yyyy'}" Style="{StaticResource TextoSuave}" FontSize="{StaticResource Fonte.Legenda}"/>
+       <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold" Margin="0,5,0,5" TextWrapping="Wrap"/>
+       <TextBlock Text="{Binding Autor}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"/>
+       <TextBlock Text="{Binding HoraTexto}" Style="{StaticResource TextoSuave}" Visibility="{Binding HoraTexto, Converter={StaticResource TextoParaVisibilidade}}"/>
+       <TextBlock Text="Intercorrência registrada" FontWeight="SemiBold" Foreground="{StaticResource Brush.Erro}" Visibility="{Binding EmDestaque, Converter={StaticResource BoolParaVisibilidade}}"/>
+       <TextBlock Text="{Binding Marca}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Erro}" TextWrapping="Wrap" Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}"/>
+       <TextBlock Text="{Binding Titulo}" TextWrapping="Wrap" MaxHeight="78" TextTrimming="CharacterEllipsis" Margin="0,11,0,8"/>
+       <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap" MaxHeight="54" TextTrimming="CharacterEllipsis" Style="{StaticResource TextoSuave}"/>
+       <Button Content="Ler registro →" Command="{Binding DataContext.LerCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Style="{StaticResource BotaoFantasma}" HorizontalAlignment="Left" Padding="0,8"/>
+      </StackPanel>
+     </Grid>
+    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+   </ScrollViewer></Grid>
+  </DockPanel>
+ </Border>
+</UserControl>

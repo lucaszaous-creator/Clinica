@@ -89,7 +89,7 @@ avisos: list[str] = []
 
 
 def rel(p: Path) -> str:
-    return str(p.relative_to(RAIZ))
+    return p.relative_to(RAIZ).as_posix()
 
 
 def xamls() -> list[Path]:
@@ -2703,6 +2703,14 @@ def _membros_do_tipo(nome, _cache={}):
 
 
 def _tem_membro(tipo, atributo, _vistos=None):
+    if tipo == "Button" and atributo in {"IsDefault", "IsCancel"}:
+        return True
+    # Button/ToggleButton herdam estes membros de ButtonBase; controles próprios
+    # derivados mantêm o contrato do WPF, inclusive o evento Click.
+    if tipo in {"Button", "ButtonBase", "ToggleButton"} and atributo in {
+        "Command", "CommandParameter", "CommandTarget", "Click", "ClickMode"
+    }:
+        return True
     _vistos = _vistos or set()
     if tipo in _vistos:
         return None
@@ -3259,7 +3267,7 @@ def _secoes_do_workspace(texto: str) -> tuple[int, int]:
     """Quantos rótulos escritos à mão o rail tem (deve ser ZERO) e quantas telas o
     TabControl tem."""
     return (len(re.findall(r"<ListBoxItem\b", texto)),
-            len(re.findall(r"<TabItem\b", texto)))
+            len(re.findall(r"<TabItem(?=[\s/>])", texto)))
 
 
 def _grupos_declarados(texto: str) -> list[str]:
@@ -3362,6 +3370,7 @@ for _cenario, _cs, _esperado in (
 # TabItem tem de passar; rótulo à mão de volta tem de reprovar.
 for _cenario, _xaml, _esperado in (
     ("rail montado do C#", "<TabItem/><TabItem/>", (0, 2)),
+    ("estilo não é outra aba", "<TabItem><TabItem.Style><Style/></TabItem.Style></TabItem>", (0, 1)),
     ("rótulo à mão de volta", '<ListBoxItem><TextBlock Text="Um" /></ListBoxItem><TabItem/>', (1, 1)),
 ):
     if _secoes_do_workspace(_xaml) != _esperado:
