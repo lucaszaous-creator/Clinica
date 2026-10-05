@@ -219,6 +219,9 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     private string? _textoEvolucao;
 
     [ObservableProperty]
+    private string? _textoEvolucaoFormatado;
+
+    [ObservableProperty]
     private string? _orientacoes;
 
     /// <summary>
@@ -401,7 +404,12 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
         // apagar a queixa que o profissional acabou de digitar ouvindo o paciente.
         if (!string.IsNullOrWhiteSpace(m.QueixaPrincipal)) QueixaPrincipal = m.QueixaPrincipal;
         if (!string.IsNullOrWhiteSpace(m.Conduta)) Conduta = m.Conduta;
-        if (!string.IsNullOrWhiteSpace(m.TextoEvolucao)) TextoEvolucao = m.TextoEvolucao;
+        if (!string.IsNullOrWhiteSpace(m.TextoEvolucao))
+        {
+            TextoEvolucao = m.TextoEvolucao;
+            // Modelos guardam texto simples; substituir também remove o estilo anterior.
+            TextoEvolucaoFormatado = string.Empty;
+        }
         if (!string.IsNullOrWhiteSpace(m.Orientacoes)) Orientacoes = m.Orientacoes;
 
         // Esta tela edita os NOVE campos, então ela aplica os nove — é o que faz o roteiro
@@ -506,6 +514,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
         CidSessao = e.CidSessao;
         Conduta = e.Conduta;
         TextoEvolucao = e.TextoEvolucao;
+        TextoEvolucaoFormatado = e.TextoEvolucaoFormatado;
         Orientacoes = e.Orientacoes;
         PlanoTerapeutico = e.PlanoTerapeutico;
         RetornoSugeridoEm = e.RetornoSugeridoEm?.ToDateTime(TimeOnly.MinValue);
@@ -559,6 +568,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
         CidSessao = null;
         Conduta = null;
         TextoEvolucao = null;
+        TextoEvolucaoFormatado = null;
         Orientacoes = null;
         PlanoTerapeutico = null;
         RetornoSugeridoEm = null;
@@ -625,6 +635,8 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
             && string.IsNullOrWhiteSpace(TextoEvolucao))
         {
             TextoEvolucao = folha;
+            TextoEvolucaoFormatado = ultima.Campos
+                .FirstOrDefault(c => c.Rotulo == ResumoSessaoAnterior.RotuloEvolucao)?.Formato ?? string.Empty;
             trazidos.Add("o texto da sessão");
         }
 
@@ -699,6 +711,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
                 CidSessao = CidSessao,
                 Conduta = Conduta,
                 TextoEvolucao = TextoEvolucao,
+                TextoEvolucaoFormatado = TextoEvolucaoFormatado ?? string.Empty,
                 Orientacoes = Orientacoes,
                 PlanoTerapeutico = PlanoTerapeutico,
                 RetornoSugeridoEm = RetornoSugeridoEm is { } r

@@ -301,52 +301,45 @@ public sealed class DocumentoClinicoService
         // saía com as sessões, depois os escores, depois a enfermagem. Comentário que
         // descreve um comportamento e não o realiza é o defeito da parcela 67; aqui ele
         // fazia o leitor comparar o escore de agosto com a sessão de junho.
-        var datados = evolucoes.Select(e => (e.Data, Item: new ItemDocumento
+        var datados = evolucoes.Select(e =>
         {
-            Descricao = e.TemParEva
-                ? $"{e.Data:dd/MM/yyyy} · EVA {e.EvaAntes} → {e.EvaDepois}"
-                : $"{e.Data:dd/MM/yyyy} · EVA não medida",
-            // A anamnese e o exame físico da sessão entram no relatório porque é
-            // JUSTAMENTE isso que o outro profissional lê para não recomeçar o raciocínio
-            // do zero — sem eles, o papel diz o que foi feito e não diz por quê.
-            //
-            // ⚠️ A HIPÓTESE entra pelo TEXTO; o CÓDIGO CID, não. É a economia do CID da
-            // parcela 3, e ela vale aqui com mais razão: o relatório circula fora da
-            // clínica, o código é o que se lê num campo de formulário sem ninguém ler a
-            // frase ao lado, e este documento não passa pela autorização expressa que a
-            // receita e o atestado pedem. Quem precisa do código pede o atestado.
-            Detalhe = Juntar(
-                e.QueixaPrincipal,
-                e.HistoriaDoencaAtual,
-                e.ExameFisico,
-                e.HipoteseDiagnostica is { } h ? $"hipótese: {h}" : null,
-                e.Conduta,
-                e.TextoEvolucao,
-                // ⚠️ O PLANO entra no relatório (parcela 75), e é o que o CONVÊNIO mais
-                // procura nele: "10 sessões, 2x/semana, reavaliar em 4 semanas" é a frase
-                // que sustenta a continuidade do tratamento para quem não o acompanhou.
-                // Sem isto, o campo nasceria gravado e o único papel que sai da clínica não
-                // o levaria — o defeito recorrente na variante mais cara.
-                e.PlanoTerapeutico is { } pl ? $"plano: {pl}" : null,
-                // O RETORNO e o ENCAMINHAMENTO (parcela 77) pela mesma razão do plano: o
-                // relatório é o papel que o paciente leva ao convênio e ao outro
-                // profissional, e "reavaliar em 7 dias" e "encaminhado à psiquiatria" são
-                // exatamente o que quem não acompanhou o tratamento precisa ler.
-                e.RetornoSugeridoEm is { } rs
+            var detalhe = TextoFormatado.Juntar(new (string? Texto, string? Formato)[]
+            {
+                (e.QueixaPrincipal, null),
+                (e.HistoriaDoencaAtual, null),
+                (e.ExameFisico, null),
+                (e.HipoteseDiagnostica is { } h ? $"hipótese: {h}" : null, null),
+                (e.Conduta, null),
+                (e.TextoEvolucao, e.TextoEvolucaoFormatado),
+                (e.PlanoTerapeutico is { } pl ? $"plano: {pl}" : null, null),
+                (e.RetornoSugeridoEm is { } rs
                     ? $"retorno sugerido: {rs:dd/MM/yyyy}"
                       + (string.IsNullOrWhiteSpace(e.RetornoSugeridoNota)
-                          ? string.Empty
-                          : $" ({e.RetornoSugeridoNota})")
-                    : null,
-                e.Encaminhamento is { } enc ? $"encaminhamento: {enc}" : null,
-                // O que ESTA clínica anota além dos campos do sistema (set/2026). Deixá-los
-                // de fora do único papel que sai da clínica seria o defeito recorrente: o
-                // campo gravado, e o relatório do convênio sem ele.
-                CampoPersonalizadoService.Resumir(e.CamposPersonalizados)),
-            Quantidade = e.Profissional?.Rotulo,
-            // A EVA e as marcações do mapa, na forma que o PDF desenha.
-            Desenho = DesenhoDaSessao.De(e, mapas.GetValueOrDefault(e.Id)).Serializar()
-        })).ToList();
+                          ? string.Empty : $" ({e.RetornoSugeridoNota})") : null, null),
+                (e.Encaminhamento is { } enc ? $"encaminhamento: {enc}" : null, null),
+                (CampoPersonalizadoService.Resumir(e.CamposPersonalizados), null)
+            }, " · ");
+            return (e.Data, Item: new ItemDocumento
+            {
+                Descricao = e.TemParEva
+                    ? $"{e.Data:dd/MM/yyyy} · EVA {e.EvaAntes} → {e.EvaDepois}"
+                    : $"{e.Data:dd/MM/yyyy} · EVA não medida",
+                // A anamnese e o exame físico da sessão entram no relatório porque é
+                // JUSTAMENTE isso que o outro profissional lê para não recomeçar o raciocínio
+                // do zero — sem eles, o papel diz o que foi feito e não diz por quê.
+                //
+                // ⚠️ A HIPÓTESE entra pelo TEXTO; o CÓDIGO CID, não. É a economia do CID da
+                // parcela 3, e ela vale aqui com mais razão: o relatório circula fora da
+                // clínica, o código é o que se lê num campo de formulário sem ninguém ler a
+                // frase ao lado, e este documento não passa pela autorização expressa que a
+                // receita e o atestado pedem. Quem precisa do código pede o atestado.
+                Detalhe = string.IsNullOrWhiteSpace(detalhe.Texto) ? null : detalhe.Texto,
+                DetalheFormatado = detalhe.Formato,
+                Quantidade = e.Profissional?.Rotulo,
+                // A EVA e as marcações do mapa, na forma que o PDF desenha.
+                Desenho = DesenhoDaSessao.De(e, mapas.GetValueOrDefault(e.Id)).Serializar()
+            });
+        }).ToList();
 
         // Os registros de ENFERMAGEM entram como itens datados, na MESMA linha do tempo
         // das sessões — separá-los em dois blocos faria o leitor comparar a passagem de

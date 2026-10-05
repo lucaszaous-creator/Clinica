@@ -20,8 +20,7 @@ public partial class AtendimentoView : UserControl
                 if (HistoricoLateral.IsVisible) HistoricoLateral.FocarFechar();
                 else
                 {
-                    EditorEvolucao.Focus();
-                    System.Windows.Input.FocusManager.SetFocusedElement(System.Windows.Input.FocusManager.GetFocusScope(EditorEvolucao), EditorEvolucao);
+                    EditorEvolucao.FocarTexto();
                 }
             }));
         };

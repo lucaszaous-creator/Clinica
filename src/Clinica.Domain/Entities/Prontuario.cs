@@ -188,6 +188,9 @@ public class Evolucao
     /// <summary>Evolução em texto livre — a leitura clínica da sessão.</summary>
     public string? TextoEvolucao { get; set; }
 
+    /// <summary>Negrito e itálico em JSON; o texto simples continua sendo o conteúdo oficial.</summary>
+    public string? TextoEvolucaoFormatado { get; set; }
+
     /// <summary>Orientações dadas ao paciente ao final.</summary>
     public string? Orientacoes { get; set; }
 
@@ -549,6 +552,7 @@ public class VersaoEvolucao
 
     public string? Conduta { get; set; }
     public string? TextoEvolucao { get; set; }
+    public string? TextoEvolucaoFormatado { get; set; }
     public string? Orientacoes { get; set; }
 
     /// <summary>Ver <see cref="Evolucao.PlanoTerapeutico"/>. Lugar 4 da auditoria de linha.</summary>

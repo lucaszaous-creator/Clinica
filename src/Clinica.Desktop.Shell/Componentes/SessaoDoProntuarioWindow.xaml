@@ -143,8 +143,9 @@
                         <DataTemplate>
                             <StackPanel Margin="0,0,0,14">
                                 <TextBlock Text="{Binding Rotulo}" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding Texto, Mode=OneWay}"
-                                         Style="{StaticResource TextoSelecionavel}" />
+                                <ctrl:EditorTextoClinico Texto="{Binding Texto, Mode=OneWay}"
+                                         Formato="{Binding Formato, Mode=OneWay}"
+                                         SomenteLeitura="True" />
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

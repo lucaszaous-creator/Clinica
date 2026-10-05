@@ -25,12 +25,14 @@ static partial class Program
 {
     static string output="";
     static bool somenteCopia;
+    static bool somenteFormatacao;
     [STAThread] static int Main(string[] args)
     {
         System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
         System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
         output=Path.GetFullPath(args[0]);Directory.CreateDirectory(output);
         somenteCopia=args.Contains("--copia");
+        somenteFormatacao=args.Contains("--formatacao");
         using var log=new StreamWriter(Path.Combine(output,"bindings.log"));
         log.AutoFlush=true;
         PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log));
@@ -63,6 +65,7 @@ static partial class Program
         var appointment=new Agendamento{PacienteId=patient.Id,ProfissionalId=professional.Id,DataHora=date.AddHours(14),Status=StatusAgendamento.Agendado,ModalidadePrevista=ModalidadeAtendimento.AcupunturaComEletro,InicioAtendimentoEm=DateTime.Now.AddMinutes(-18)};
         db.Add(appointment);await db.SaveChangesAsync();
         var focus=sp.GetRequiredService<PacienteEmFoco>();focus.Definir(patient.Id,patient.Nome,appointment.Id,null,DateOnly.FromDateTime(date));
+        if(somenteFormatacao){await ValidarFormatacao(sp,db,user,professional);return;}
         user.Perfil=PerfilAcesso.Profissional;sp.GetRequiredService<SessaoUsuario>().Entrar(user);
         await ValidarCopia(sp,db,patient,appointment);
         if(somenteCopia) return;
@@ -117,7 +120,7 @@ static partial class Program
                 await Task.Delay(80); window.UpdateLayout();
                 var historyView=Visuals(view).OfType<HistoricoConsultaView>().Single();
                 if(historyView.IsVisible!=vm.Atendimento.HistoricoConsulta.Aberto) throw new Exception("A visibilidade do histórico não acompanha o estado do comando.");
-                if(!historyView.IsVisible && Visuals(view).OfType<TextBox>().Single(b=>b.Name=="EditorEvolucao").ActualHeight<100) throw new Exception("Editor sem altura útil: "+Visuals(view).OfType<TextBox>().Single(b=>b.Name=="EditorEvolucao").ActualHeight);
+                if(!historyView.IsVisible && CampoDoEditor(EditorDaEvolucao(view)).ActualHeight<100) throw new Exception("Editor sem altura útil: "+CampoDoEditor(EditorDaEvolucao(view)).ActualHeight);
                 PresentationTraceSources.DataBindingSource.Flush();
                 var content=(FrameworkElement)window.Content;var bmp=new RenderTargetBitmap((int)content.ActualWidth,(int)content.ActualHeight,96,96,PixelFormats.Pbgra32);bmp.Render(window);
                 var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bmp));
@@ -147,6 +150,7 @@ static partial class Program
             Console.WriteLine("PASS: filtros, permissões, visibilidade, dimensões, rascunho, navegação e gravação vinculada.");
         }
         await ValidarExtras(sp,patient,appointment,user,options,probe);
+        await ValidarFormatacao(sp,db,user,professional);
     }
     static IEnumerable<DependencyObject> Visuals(DependencyObject root)
     {

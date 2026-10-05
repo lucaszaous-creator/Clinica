@@ -112,11 +112,11 @@ public sealed class ExportacaoProntuarioService
             // e cada clínica tem os seus, então colunas por campo dariam uma planilha cujo
             // formato muda quando alguém cadastra um campo novo.
             "CamposPersonalizados",
-            "CriadoPor", "MotivoCancelamento");
+            "CriadoPor", "MotivoCancelamento", "TextoEvolucaoFormatado");
         var versoes = Cabecalho("PacienteId", "SessaoId", "Versao", "SubstituidaEm",
             "SubstituidaPor", "Motivo", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes",
             "PlanoTerapeutico", "RetornoSugeridoEm", "RetornoSugeridoNota", "Encaminhamento",
-            "CamposPersonalizados");
+            "CamposPersonalizados", "TextoEvolucaoFormatado");
         var avaliacoes = Cabecalho("PacienteId", "Paciente", "Data", "Instrumento",
             "Pontuacao", "PontuacaoMaxima", "Unidade", "Faixa", "Situacao");
         var medidas = Cabecalho("PacienteId", "Paciente", "Data", "Tipo", "Valor",
@@ -214,7 +214,7 @@ public sealed class ExportacaoProntuarioService
                     e.RetornoSugeridoEm is { } r ? Data(r) : null,
                     e.RetornoSugeridoNota, e.Encaminhamento,
                     CampoPersonalizadoService.Resumir(e.CamposPersonalizados),
-                    e.CriadoPor, e.MotivoCancelamento);
+                    e.CriadoPor, e.MotivoCancelamento, e.TextoEvolucaoFormatado);
 
                 foreach (var v in await _repo.VersoesDaEvolucaoAsync(e.Id, ct))
                     Linha(versoes, p.Id, e.Id, v.Versao,
@@ -222,7 +222,7 @@ public sealed class ExportacaoProntuarioService
                         v.QueixaPrincipal, v.Conduta, v.TextoEvolucao, v.Orientacoes,
                         v.PlanoTerapeutico,
                         v.RetornoSugeridoEm is { } rv ? Data(rv) : null,
-                        v.RetornoSugeridoNota, v.Encaminhamento, v.CamposPersonalizados);
+                        v.RetornoSugeridoNota, v.Encaminhamento, v.CamposPersonalizados, v.TextoEvolucaoFormatado);
 
                 foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
                     Linha(anexos, p.Id, e.Id, a.NomeArquivo, RotulosEnum.De(a.Tipo), a.Tamanho,

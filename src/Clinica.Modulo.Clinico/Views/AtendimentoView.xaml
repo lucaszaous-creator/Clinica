@@ -142,7 +142,7 @@
             </ItemsControl>
       </ScrollViewer>
      </Expander>
-     <TextBox x:Name="EditorEvolucao" MinHeight="160" MaxHeight="480" Text="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Margin="24,20,24,8" BorderThickness="0" Padding="0" FontSize="{StaticResource Fonte.Corpo}" TextBlock.LineHeight="25" AutomationProperties.Name="Evolução da sessão" IsEnabled="{Binding PodeEditarProntuario}" ctrl:Ajudantes.RodaDaPagina="True"/>
+     <ctrl:EditorTextoClinico x:Name="EditorEvolucao" MinHeight="160" MaxHeight="480" Texto="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding TextoEvolucaoFormatado, UpdateSourceTrigger=PropertyChanged}" Margin="24,20,24,8" FontSize="{StaticResource Fonte.Corpo}" AutomationProperties.Name="Evolução da sessão" IsEnabled="{Binding PodeEditarProntuario}" ctrl:Ajudantes.RodaDaPagina="True"/>
     </DockPanel>
    </Border>
   </DockPanel></Grid></ScrollViewer></DockPanel>

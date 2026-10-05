@@ -110,8 +110,8 @@ static partial class Program
 
             workspace.Atendimento.HistoricoConsulta.FecharCommand.Execute(null);
             await EstabilizarCopia(janela);
-            var editor=Visuals(view).OfType<TextBox>().Single(b=>b.Name=="EditorEvolucao");
-            Check(NormalizarCopia(editor.Text)==rascunho && workspace.Atendimento.TextoEvolucao==rascunho,
+            var editor=EditorDaEvolucao(view);
+            Check(NormalizarCopia(editor.Texto??"")==rascunho && workspace.Atendimento.TextoEvolucao==rascunho,
                 "Voltar da consulta ao histórico perdeu o rascunho atual.");
             Check(workspace.Atendimento.EvolucaoId==0,"A cópia salvou uma sessão sem solicitação.");
             var depois=await db.Evolucoes.AsNoTracking().SingleAsync(e=>e.Id==registro.Id);
@@ -201,7 +201,22 @@ static partial class Program
     static void SelecionarECopiar(DependencyObject raiz,string trecho)
     {
         var texto=Visuals(raiz).OfType<TextBox>().FirstOrDefault(t=>t.Text.Contains(trecho));
-        Check(texto is not null,"O texto do registro não oferece seleção de trechos.");
+        if(texto is null)
+        {
+            var rico=Visuals(raiz).OfType<RichTextBox>().FirstOrDefault(t=>TextoDoRich(t).Contains(trecho));
+            Check(rico is not null,"O texto do registro não oferece seleção de trechos.");
+            Check(rico!.IsReadOnly && rico.IsEnabled && rico.Focusable,"Texto anterior não é legível/selecionável em modo somente leitura.");
+            var original=TextoDoRich(rico);
+            SelecionarTrechoRich(rico,trecho);
+            Check(ApplicationCommands.Copy.CanExecute(null,rico),"Ctrl+C indisponível para o trecho selecionado.");
+            ComClipboard(()=>ApplicationCommands.Copy.Execute(null,rico));
+            Check(ComClipboard(()=>Clipboard.GetText())==trecho,"A seleção não copiou somente o trecho escolhido.");
+            Check(!ApplicationCommands.Cut.CanExecute(null,rico) && !ApplicationCommands.Paste.CanExecute(null,rico),
+                "O registro anterior permite recortar ou colar e editar o conteúdo.");
+            Check(TextoDoRich(rico)==original,"A cópia de trecho alterou o registro anterior.");
+            rico.Selection.Select(rico.Document.ContentStart,rico.Document.ContentStart);
+            return;
+        }
         Check(texto!.IsReadOnly && texto.IsEnabled && texto.Focusable,"Texto anterior não é legível/selecionável em modo somente leitura.");
         var antes=texto.Text;
         texto.Select(texto.Text.IndexOf(trecho,StringComparison.Ordinal),trecho.Length);
@@ -228,7 +243,15 @@ static partial class Program
         for(int tentativa=0;;tentativa++)
         {
             try { return acao(); }
-            catch(ExternalException) when(tentativa<7) { Thread.Sleep(75); }
+            catch(ExternalException) when(tentativa<7)
+            {
+                // Cópia do RichTextBox pode publicar formatos com renderização tardia.
+                // Mantém o Dispatcher atendendo OLE enquanto outro processo lê esses dados.
+                var frame=new DispatcherFrame();
+                var timer=new DispatcherTimer(DispatcherPriority.Background){Interval=TimeSpan.FromMilliseconds(75)};
+                timer.Tick+=(_,_)=>{timer.Stop();frame.Continue=false;};
+                timer.Start();Dispatcher.PushFrame(frame);
+            }
         }
     }
 

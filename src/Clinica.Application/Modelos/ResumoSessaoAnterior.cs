@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Modelos;
@@ -15,7 +16,7 @@ namespace Clinica.Application.Modelos;
 /// Com o par, a aba desenha uma COLUNA de rótulos alinhada (um <c>SharedSizeGroup</c>) e o
 /// valor ao lado, que é como se lê um prontuário no papel.
 /// </summary>
-public sealed record CampoDaSessaoAnterior(string Rotulo, string Valor);
+public sealed record CampoDaSessaoAnterior(string Rotulo, string Valor, string? Formato = null);
 
 /// <summary>
 /// Uma sessão ANTERIOR resumida, como ela aparece para quem está escrevendo a de hoje
@@ -122,17 +123,17 @@ public sealed record ResumoSessaoAnterior(
         Acrescentar(campos, RotuloQueixa, e.QueixaPrincipal);
         if (DaHipotese(e) is { } hipotese) campos.Add(hipotese);
         Acrescentar(campos, RotuloConduta, e.Conduta);
-        Acrescentar(campos, RotuloEvolucao, e.TextoEvolucao);
+        Acrescentar(campos, RotuloEvolucao, e.TextoEvolucao, e.TextoEvolucaoFormatado);
         Acrescentar(campos, RotuloPlano, e.PlanoTerapeutico);
         Acrescentar(campos, RotuloEncaminhamento, e.Encaminhamento);
 
         return campos;
     }
 
-    private static void Acrescentar(List<CampoDaSessaoAnterior> campos, string rotulo, string? valor)
+    private static void Acrescentar(List<CampoDaSessaoAnterior> campos, string rotulo, string? valor, string? formato = null)
     {
         if (string.IsNullOrWhiteSpace(valor)) return;
-        campos.Add(new CampoDaSessaoAnterior(rotulo, valor.Trim()));
+        campos.Add(new CampoDaSessaoAnterior(rotulo, valor.Trim(), TextoFormatado.Normalizar(valor.Trim(), formato)));
     }
 
     /// <summary>A hipótese com o CID entre parênteses — e o CID sozinho quando é só ele.</summary>

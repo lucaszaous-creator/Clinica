@@ -605,6 +605,7 @@ public class ClinicaDbContext : DbContext
         b.Entity<VersaoEvolucao>(e =>
         {
             e.HasKey(x => x.Id);
+            e.Property(x => x.TextoEvolucaoFormatado).HasColumnType("text");
             e.Property(x => x.SubstituidaEm).HasColumnType("timestamp without time zone");
 
             // Os mesmos tetos da Evolucao — inclusive os textos alargados (set/2026): a
@@ -639,6 +640,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CidSessao).HasMaxLength(20);
             e.Property(x => x.Conduta);
             e.Property(x => x.TextoEvolucao);
+            e.Property(x => x.TextoEvolucaoFormatado).HasColumnType("text");
             e.Property(x => x.Orientacoes).HasMaxLength(2000);
             e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
             // A chave de importação é ÚNICA sobre coluna que nasce vazia (a razão da do
