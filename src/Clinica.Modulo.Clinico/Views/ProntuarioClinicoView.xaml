@@ -60,7 +60,7 @@
                                                 <TextBlock Text="Conduta" Style="{StaticResource Rotulo}" Margin="0,2,0,0" />
                                                 <TextBox Text="{Binding Conduta, Mode=OneWay}" Style="{StaticResource TextoSelecionavel}" FontSize="{StaticResource Fonte.Legenda}" AutomationProperties.Name="Conduta da sessão anterior" />
                                                 <TextBlock Text="Evolução" Style="{StaticResource Rotulo}" Margin="0,2,0,0" />
-                                                <TextBox Text="{Binding Evolucao, Mode=OneWay}" Style="{StaticResource TextoSelecionavel}" FontSize="{StaticResource Fonte.Legenda}" AutomationProperties.Name="Evolução da sessão anterior" />
+                                                <ctrl:EditorTextoClinico Texto="{Binding Evolucao, Mode=OneWay}" Formato="{Binding EvolucaoFormatada, Mode=OneWay}" SomenteLeitura="True" FontSize="{StaticResource Fonte.Legenda}" AutomationProperties.Name="Evolução da sessão anterior" />
                                                 <TextBlock Text="Orientações" Style="{StaticResource Rotulo}" Margin="0,2,0,0" />
                                                 <TextBox Text="{Binding Orientacoes, Mode=OneWay}" Style="{StaticResource TextoSelecionavel}" FontSize="{StaticResource Fonte.Legenda}" AutomationProperties.Name="Orientações da sessão anterior" />
                                             </StackPanel>

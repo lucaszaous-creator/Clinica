@@ -157,6 +157,15 @@ Nenhum deles quebra o build quando é esquecido:
 
 ### 2. Método de repositório novo
 
+- **Formatação da evolução acompanha o texto em todas as portas** (out/2026): o texto
+  simples continua canônico; `TextoEvolucaoFormatado` guarda apenas negrito/itálico e
+  só é aceito quando seus trechos recompõem esse mesmo texto. Cliente antigo que omite
+  a propriedade (`null`) preserva a formatação se o texto não mudou; o editor envia
+  string vazia para removê-la explicitamente. Alterar o texto sem metadados descarta
+  estilos antigos. Guardar também nas versões, reutilização da sessão, leitores,
+  relatório/PDF e exportação. O teste nativo exercita salvar, reabrir, copiar e remover
+  estilo sem mudar as palavras; somente testar texto simples não detecta essa perda.
+
 - **Nasce com um teste que o EXECUTA**, mesmo trivial. Consulta LINQ só se prova executando:
   a tradução acontece em RUNTIME, e método sem chamador em teste é **código que ninguém rodou**.
 - **Nunca use propriedade DERIVADA** (`=> X is not null`) dentro de `Where`/`OrderBy`/`Select`

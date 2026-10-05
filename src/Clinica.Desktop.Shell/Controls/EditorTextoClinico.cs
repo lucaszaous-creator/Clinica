@@ -18,14 +18,18 @@ public sealed class EditorTextoClinico : UserControl
         nameof(ModoFolha), typeof(bool), typeof(EditorTextoClinico),
         new PropertyMetadata(false, (d, _) => ((EditorTextoClinico)d).AplicarModoFolha()));
     public bool ModoFolha { get => (bool)GetValue(ModoFolhaProperty); set => SetValue(ModoFolhaProperty, value); }
+    public static readonly DependencyProperty SomenteLeituraProperty = DependencyProperty.Register(
+        nameof(SomenteLeitura), typeof(bool), typeof(EditorTextoClinico),
+        new PropertyMetadata(false, (d, _) => ((EditorTextoClinico)d).AplicarModoFolha()));
+    public bool SomenteLeitura { get => (bool)GetValue(SomenteLeituraProperty); set => SetValue(SomenteLeituraProperty, value); }
     private readonly List<Button> botoes = [];
+    private readonly StackPanel barra = new() { Orientation = Orientation.Horizontal, Margin = new Thickness(4) };
     private Border borda = null!;
     private readonly RichTextBox campo = new() {AcceptsReturn=true,VerticalScrollBarVisibility=ScrollBarVisibility.Auto,MinHeight=85,Padding=new Thickness(10),BorderThickness=new Thickness(0)};
     private bool escrevendo, agendado;
     public EditorTextoClinico()
     {
         var painel=new DockPanel();
-        var barra=new StackPanel {Orientation=Orientation.Horizontal,Margin=new Thickness(4)};
         foreach(var (nome,comando) in new[]{("Negrito",EditingCommands.ToggleBold),("Itálico",EditingCommands.ToggleItalic)}) {
             var b=new Button {Content=nome,MinWidth=78,MinHeight=32,Margin=new Thickness(2),Focusable=false,Command=comando,CommandTarget=campo,ToolTip=nome=="Negrito"?"Negrito (Ctrl+B)":"Itálico (Ctrl+I)"};
             AutomationProperties.SetName(b,nome);barra.Children.Add(b);botoes.Add(b);
@@ -35,6 +39,22 @@ public sealed class EditorTextoClinico : UserControl
         borda.SetResourceReference(Border.BorderBrushProperty,"Brush.Borda");
         Content=borda;
         campo.TextChanged+=(_,_)=>Guardar();
+        campo.InputBindings.Add(new KeyBinding(EditingCommands.ToggleBold, Key.B, ModifierKeys.Control));
+        campo.InputBindings.Add(new KeyBinding(EditingCommands.ToggleItalic, Key.I, ModifierKeys.Control));
+        // O contrato guarda texto, negrito e itálico. Listas criadas por atalhos viram
+        // blocos List no WPF e não podem escapar do serializador de parágrafos.
+        foreach (var comando in new[]
+                 {
+                     EditingCommands.ToggleBullets, EditingCommands.ToggleNumbering,
+                     EditingCommands.ToggleUnderline, EditingCommands.ToggleSubscript,
+                     EditingCommands.ToggleSuperscript, EditingCommands.IncreaseFontSize,
+                     EditingCommands.DecreaseFontSize, EditingCommands.AlignCenter,
+                     EditingCommands.AlignRight, EditingCommands.AlignJustify,
+                     EditingCommands.IncreaseIndentation, EditingCommands.DecreaseIndentation
+                 })
+            campo.CommandBindings.Add(new CommandBinding(comando,
+                (_, e) => e.Handled = true,
+                (_, e) => { e.CanExecute = false; e.Handled = true; }));
         DataObject.AddPastingHandler(campo,(_,e)=> {
             if(e.DataObject.GetDataPresent(DataFormats.UnicodeText)) {
                 var texto=e.DataObject.GetData(DataFormats.UnicodeText) as string??"";
@@ -44,11 +64,24 @@ public sealed class EditorTextoClinico : UserControl
         });
         Loaded+=(_,_)=> {AutomationProperties.SetName(campo,AutomationProperties.GetName(this));AplicarModoFolha();Renderizar();};
     }
+
+    /// <summary>Devolve o cursor ao texto, inclusive depois de fechar o histórico.</summary>
+    public void FocarTexto()
+    {
+        campo.Focus();
+        FocusManager.SetFocusedElement(FocusManager.GetFocusScope(campo), campo);
+    }
     private void AplicarModoFolha()
     {
         if (borda is null) return;
-        borda.BorderThickness = new Thickness(ModoFolha ? 0 : 1);
-        campo.Padding = new Thickness(ModoFolha ? 16 : 10);
+        borda.BorderThickness = new Thickness(SomenteLeitura || ModoFolha ? 0 : 1);
+        campo.IsReadOnly = SomenteLeitura;
+        campo.IsReadOnlyCaretVisible = false;
+        campo.Padding = new Thickness(SomenteLeitura ? 0 : ModoFolha ? 16 : 10);
+        campo.MinHeight = SomenteLeitura ? 0 : 85;
+        campo.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+        campo.Background = System.Windows.Media.Brushes.Transparent;
+        barra.Visibility = SomenteLeitura ? Visibility.Collapsed : Visibility.Visible;
         for (var i = 0; i < botoes.Count; i++)
         {
             var b = botoes[i];
@@ -98,10 +131,12 @@ public sealed class EditorTextoClinico : UserControl
     }
     private void Guardar()
     {
-        if(escrevendo)return;
+        if(escrevendo || SomenteLeitura)return;
         var trechos=new List<TrechoTexto>();
+        var primeiro = true;
         foreach(var p in campo.Document.Blocks.OfType<Paragraph>()) {
-            if(trechos.Count>0)trechos.Add(new("\n"));
+            if(!primeiro)trechos.Add(new("\n"));
+            primeiro = false;
             trechos.AddRange(Trechos(p.Inlines));
             if(p.Inlines.Count==0)trechos.Add(new(""));
         }

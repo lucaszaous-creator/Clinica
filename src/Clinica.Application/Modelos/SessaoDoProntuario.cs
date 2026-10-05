@@ -1,10 +1,14 @@
 using Clinica.Application.Servicos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Modelos;
 
 /// <summary>Um bloco da sessão aberta: rótulo + texto. Só existe se foi escrito.</summary>
-public sealed record BlocoDaSessao(string Rotulo, string Texto);
+public sealed record BlocoDaSessao(string Rotulo, string Texto, string? Formato = null)
+{
+    public IReadOnlyList<TrechoTexto> Trechos => TextoFormatado.Ler(Texto, Formato);
+}
 
 /// <summary>
 /// UMA SESSÃO DO PRONTUÁRIO, aberta por inteiro (set/2026 — o pedido do cliente:
@@ -121,7 +125,7 @@ public sealed record SessaoDoProntuario(
         Somar(blocos, "Exame físico", e.ExameFisico);
         Somar(blocos, "Hipótese diagnóstica", DaHipotese(e));
         Somar(blocos, "Conduta", e.Conduta);
-        Somar(blocos, "Evolução", e.TextoEvolucao);
+        Somar(blocos, "Evolução", e.TextoEvolucao, e.TextoEvolucaoFormatado);
         Somar(blocos, "Plano terapêutico", e.PlanoTerapeutico);
         Somar(blocos, "Orientações ao paciente", e.Orientacoes);
         Somar(blocos, "Retorno sugerido", DoRetorno(e));
@@ -147,14 +151,14 @@ public sealed record SessaoDoProntuario(
             Correcoes: correcoes);
     }
 
-    private static void Somar(List<BlocoDaSessao> blocos, string rotulo, string? texto)
+    private static void Somar(List<BlocoDaSessao> blocos, string rotulo, string? texto, string? formato = null)
     {
         // ⚠️ Bloco vazio SOME, nunca sai como "—". Numa janela de leitura, dez rótulos
         // sem conteúdo empurram para fora da vista os dois que foram escritos — e a
         // sessão de acupuntura mais comum da casa tem dois. É a regra do vão em branco
         // (parcela 47) aplicada a texto do prontuário.
         if (!string.IsNullOrWhiteSpace(texto))
-            blocos.Add(new BlocoDaSessao(rotulo, texto.Trim()));
+            blocos.Add(new BlocoDaSessao(rotulo, texto.Trim(), TextoFormatado.Normalizar(texto.Trim(), formato)));
     }
 
     /// <summary>A hipótese com o CID entre parênteses — e o CID sozinho quando é só ele.

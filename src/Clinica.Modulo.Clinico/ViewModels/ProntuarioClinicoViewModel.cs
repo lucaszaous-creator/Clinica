@@ -25,6 +25,7 @@ public sealed class LinhaSessaoProntuario
     public required string Queixa { get; init; }
     public required string Conduta { get; init; }
     public required string Evolucao { get; init; }
+    public string? EvolucaoFormatada { get; init; }
     public required string Orientacoes { get; init; }
     public string TextoParaCopia { get; init; } = string.Empty;
 
@@ -65,6 +66,7 @@ public sealed class LinhaSessaoProntuario
         Queixa = string.IsNullOrWhiteSpace(e.QueixaPrincipal) ? "—" : e.QueixaPrincipal!,
         Conduta = string.IsNullOrWhiteSpace(e.Conduta) ? "—" : e.Conduta!,
         Evolucao = string.IsNullOrWhiteSpace(e.TextoEvolucao) ? "—" : e.TextoEvolucao!,
+        EvolucaoFormatada = e.TextoEvolucaoFormatado,
         Orientacoes = string.IsNullOrWhiteSpace(e.Orientacoes) ? "—" : e.Orientacoes!,
         TextoParaCopia = SessaoDoProntuario.De(e, anexos, correcoes).TextoParaCopiar(paciente),
         Anexos = anexos,

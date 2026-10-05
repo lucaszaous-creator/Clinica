@@ -663,7 +663,7 @@ public sealed class DocumentosClinicosPdfService
                     .PaddingVertical(6).PaddingHorizontal(6);
 
                 Cell().Text(item.Descricao).FontSize(9.5f).SemiBold();
-                Cell().Text(item.Detalhe ?? "—").FontSize(9.5f);
+                Cell().Text(t => TextoFormatadoPdf.Trechos(t, item.Detalhe ?? "—", item.DetalheFormatado, 9.5f));
                 Cell().Text(item.Quantidade ?? "—").FontSize(9.5f).FontColor(TextoSecundario);
             }
         });

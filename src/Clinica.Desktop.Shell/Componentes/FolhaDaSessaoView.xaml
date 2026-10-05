@@ -176,10 +176,10 @@
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="A sessão de hoje"
                            Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}"
-                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="180"
-                         VerticalContentAlignment="Top"
-                         VerticalScrollBarVisibility="Auto"
+                <ctrl:EditorTextoClinico Texto="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}"
+                         Formato="{Binding TextoEvolucaoFormatado, UpdateSourceTrigger=PropertyChanged}"
+                         MinHeight="180" IsEnabled="{Binding PodeEditarProntuario}"
+                         AutomationProperties.Name="Evolução da sessão"
                          ToolTip="Escreva a sessão como você escreveria no papel. É esta a evolução que entra no prontuário, na ficha impressa e na busca." />
             </DockPanel>
         </DockPanel>

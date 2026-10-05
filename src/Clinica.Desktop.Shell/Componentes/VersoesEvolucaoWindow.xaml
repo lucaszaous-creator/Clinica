@@ -80,7 +80,9 @@
                                     <TextBlock Text="{Binding Conduta}" TextWrapping="Wrap" Margin="0,0,0,6" />
 
                                     <TextBlock Text="Evolução" Style="{StaticResource Rotulo}" />
-                                    <TextBlock Text="{Binding Evolucao}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                                    <ctrl:EditorTextoClinico Texto="{Binding Evolucao, Mode=OneWay}"
+                                                            Formato="{Binding EvolucaoFormatada, Mode=OneWay}"
+                                                            SomenteLeitura="True" Margin="0,0,0,6" />
 
                                     <TextBlock Text="Orientações" Style="{StaticResource Rotulo}" />
                                     <TextBlock Text="{Binding Orientacoes}" TextWrapping="Wrap"

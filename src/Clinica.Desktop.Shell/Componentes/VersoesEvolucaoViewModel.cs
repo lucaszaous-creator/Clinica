@@ -29,6 +29,7 @@ public sealed class LinhaVersaoEvolucao
 
     public required string Conduta { get; init; }
     public required string Evolucao { get; init; }
+    public string? EvolucaoFormatada { get; init; }
     public required string Orientacoes { get; init; }
 
     /// <summary>
@@ -58,6 +59,7 @@ public sealed class LinhaVersaoEvolucao
                             v.HipoteseDiagnostica, v.CidSessao),
         Conduta = Texto(v.Conduta),
         Evolucao = Texto(v.TextoEvolucao),
+        EvolucaoFormatada = v.TextoEvolucaoFormatado,
         Orientacoes = Texto(v.Orientacoes),
         Plano = Texto(v.PlanoTerapeutico),
         Eva = v.EvaAntes is null && v.EvaDepois is null
@@ -79,6 +81,7 @@ public sealed class LinhaVersaoEvolucao
                             e.HipoteseDiagnostica, e.CidSessao),
         Conduta = Texto(e.Conduta),
         Evolucao = Texto(e.TextoEvolucao),
+        EvolucaoFormatada = e.TextoEvolucaoFormatado,
         Orientacoes = Texto(e.Orientacoes),
         Plano = Texto(e.PlanoTerapeutico),
         Eva = e.TemParEva ? $"EVA {e.EvaAntes} → {e.EvaDepois}" : "EVA não medida",

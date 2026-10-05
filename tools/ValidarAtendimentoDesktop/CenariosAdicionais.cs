@@ -110,10 +110,11 @@ static partial class Program
             // A coleção muda após a carga para este teste; a visibilidade é ligada explicitamente.
             expander.Visibility=Visibility.Visible; expander.IsExpanded=true;
             await Task.Delay(60);window.UpdateLayout();
-            var editor=Visuals(view).OfType<TextBox>().Single(b=>b.Name=="EditorEvolucao");
-            Check(editor.ActualHeight>=120,"Editor colapsou com campos expandidos: "+config.Nome+" / "+editor.ActualHeight);
+            var editor=EditorDaEvolucao(view);
+            var campoEditor=CampoDoEditor(editor);
+            Check(campoEditor.ActualHeight>=120,"Editor colapsou com campos expandidos: "+config.Nome+" / "+campoEditor.ActualHeight);
             var outer=Visuals(view).OfType<ScrollViewer>().Single(b=>b.Name=="ConteudoScroll");
-            var editorRect=await AlcançarEditorAsync(window,editor,outer,config.Nome);
+            var editorRect=await AlcançarEditorAsync(window,campoEditor,outer,config.Nome);
             var save=Visuals(view).OfType<BotaoClinico>().Single(b=>b.Texto=="Salvar sessão");
             var saveRect=save.TransformToAncestor(view).TransformBounds(new Rect(save.RenderSize));
             Check(saveRect.Bottom<=view.ActualHeight+1 && saveRect.Right<=view.ActualWidth+1,"Salvar saiu da janela: "+config.Nome);
@@ -128,12 +129,12 @@ static partial class Program
             close.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice,PresentationSource.FromVisual(close)!,0,Key.Escape){RoutedEvent=Keyboard.PreviewKeyDownEvent});
             await Task.Delay(50);window.UpdateLayout();
             await Dispatcher.Yield(DispatcherPriority.ContextIdle);
-            Check(!lateral.IsVisible && FocusManager.GetFocusedElement(window)==editor,"Escape não fechou histórico e restaurou foco da edição.");
+            Check(!lateral.IsVisible && FocusManager.GetFocusedElement(window)==campoEditor,"Escape não fechou histórico e restaurou foco da edição.");
             Check(area.IsEnabled && workspace.Atendimento.TextoEvolucao==draft,"Fechar histórico perdeu texto ou manteve edição desativada.");
             var bmp=new RenderTargetBitmap((int)window.ActualWidth,(int)window.ActualHeight,96,96,PixelFormats.Pbgra32);bmp.Render(window);
             var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bmp));
             using(var stream=File.Create(Path.Combine(output,config.Nome+".png")))encoder.Save(stream);
-            evidencias.Add(new{cenario=config.Nome,escalaSimulada=config.Scale,editorAltura=editor.ActualHeight,viewport=outer.ViewportHeight,extensao=outer.ExtentHeight,editorTopoAoRolar=editorRect.Top,editorBaseAoRolar=editorRect.Bottom,resultado="passou"});
+            evidencias.Add(new{cenario=config.Nome,escalaSimulada=config.Scale,editorAltura=campoEditor.ActualHeight,viewport=outer.ViewportHeight,extensao=outer.ExtentHeight,editorTopoAoRolar=editorRect.Top,editorBaseAoRolar=editorRect.Bottom,resultado="passou"});
             window.Close();
         }
         File.WriteAllText(Path.Combine(output,"cenarios-adicionais.json"),JsonSerializer.Serialize(evidencias,new JsonSerializerOptions{WriteIndented=true}));
@@ -141,7 +142,7 @@ static partial class Program
     }
     static void Check(bool value,string message) { if(!value) throw new Exception(message); }
 
-    static async Task<Rect> AlcançarEditorAsync(Window window,TextBox editor,ScrollViewer outer,string cenario)
+    static async Task<Rect> AlcançarEditorAsync(Window window,FrameworkElement editor,ScrollViewer outer,string cenario)
     {
         // Expansão, foco inicial e mudança de escala enfileiram trabalho no Dispatcher.
         // O gesto só deve ocorrer depois desse layout, como ocorreria com a tela pronta.

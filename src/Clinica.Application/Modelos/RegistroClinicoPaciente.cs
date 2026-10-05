@@ -1,4 +1,5 @@
 using Clinica.Application.Servicos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Prontuario;
 
@@ -39,6 +40,9 @@ public sealed record RegistroClinicoPaciente(
 {
     /// <summary>Conteúdo completo preparado pelo leitor; nunca um resumo truncado.</summary>
     public string? TextoParaCopia { get; init; }
+
+    /// <summary>Apresentação do título quando ele contém a evolução médica integral.</summary>
+    public string? TituloFormatado { get; init; }
 
     /// <summary>O momento para ordenar DENTRO de uma natureza — meia-noite quando não há hora.</summary>
     public DateTime Momento => Data.ToDateTime(Hora ?? TimeOnly.MinValue);
@@ -186,7 +190,11 @@ public static class LinhaDoTempoClinica
             // baixo, para a sessão sem profissional vinculado não sair anônima.
             e.Profissional?.Rotulo ?? e.CriadoPor,
             !e.Cancelada,
-            e.Cancelada ? $"CANCELADA — {e.MotivoCancelamento}" : null);
+            e.Cancelada ? $"CANCELADA — {e.MotivoCancelamento}" : null)
+        {
+            TituloFormatado = string.IsNullOrWhiteSpace(e.TextoEvolucao) ? null
+                : TextoFormatado.Normalizar(e.TextoEvolucao, e.TextoEvolucaoFormatado)
+        };
     }
 
     private static IReadOnlyList<RegistroClinicoPaciente> MontarEnfermagem(

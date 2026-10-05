@@ -28,6 +28,7 @@ public class SessaoDoProntuarioTests
         [nameof(Evolucao.ChaveImportacao)] = "procedência da importação; não é texto clínico",
         [nameof(Evolucao.MotivoCancelamento)] = "sai no AVISO de cancelamento",
         [nameof(Evolucao.CanceladaPor)] = "sai no AVISO de cancelamento",
+        [nameof(Evolucao.TextoEvolucaoFormatado)] = "metadados de apresentação do bloco Evolução, não conteúdo adicional",
     };
 
     private static Evolucao Cheia() => new()

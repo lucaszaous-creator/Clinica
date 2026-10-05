@@ -1,5 +1,6 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -163,7 +164,15 @@ public sealed class ProntuarioService
         destino.CidSessao = Limpar(dados.CidSessao);
 
         destino.Conduta = Limpar(dados.Conduta);
-        destino.TextoEvolucao = Limpar(dados.TextoEvolucao);
+        var textoEvolucao = Limpar(dados.TextoEvolucao);
+        // Null vem de uma porta antiga que não edita estilos. Vazio é a remoção
+        // explícita feita pelo editor rico, inclusive quando as palavras não mudaram.
+        var formato = dados.TextoEvolucaoFormatado;
+        if (formato is null && TextoFormatado.Linhas(textoEvolucao)
+            == TextoFormatado.Linhas(Limpar(destino.TextoEvolucao)))
+            formato = destino.TextoEvolucaoFormatado;
+        destino.TextoEvolucaoFormatado = TextoFormatado.Normalizar(textoEvolucao, formato);
+        destino.TextoEvolucao = textoEvolucao;
         destino.Orientacoes = Limpar(dados.Orientacoes);
         destino.PlanoTerapeutico = Limpar(dados.PlanoTerapeutico);
         destino.RetornoSugeridoEm = dados.RetornoSugeridoEm;
@@ -225,6 +234,7 @@ public sealed class ProntuarioService
             CidSessao = atual.CidSessao,
             Conduta = atual.Conduta,
             TextoEvolucao = atual.TextoEvolucao,
+            TextoEvolucaoFormatado = atual.TextoEvolucaoFormatado,
             Orientacoes = atual.Orientacoes,
             PlanoTerapeutico = atual.PlanoTerapeutico,
             // Sem estas três, corrigir a sessão apagaria o retorno e o encaminhamento
