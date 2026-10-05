@@ -100,7 +100,7 @@ static partial class Program
         await workspace.Atendimento.CarregarAsync();
         workspace.Atendimento.TextoEvolucao=string.Join("\n",Enumerable.Repeat("Evolução fictícia extensa para verificar rolagem e preservação do texto.",80));
         for(int i=0;i<12;i++) workspace.Atendimento.CamposPersonalizados.Add(new CampoDaSessao{Id=9000+i,Rotulo="Campo de teste "+i,Tipo=TipoCampoPersonalizado.Texto,Opcoes=[],Resposta="Exemplo fictício"});
-        foreach(var config in new[]{(Nome:"expandido",W:1366d,H:820d,Scale:1d),(Nome:"compacto-expandido",W:1100d,H:760d,Scale:1d),(Nome:"escala125",W:1366d,H:820d,Scale:1.25d),(Nome:"escala150",W:1366d,H:820d,Scale:1.5d)})
+        foreach(var config in new[]{(Nome:"compacto-escala150",W:1044d,H:788d,Scale:1.5d),(Nome:"expandido",W:1366d,H:820d,Scale:1d),(Nome:"compacto-expandido",W:1100d,H:760d,Scale:1d),(Nome:"escala125",W:1366d,H:820d,Scale:1.25d),(Nome:"escala150",W:1366d,H:820d,Scale:1.5d)})
         {
             var view=new PacienteWorkspaceView{DataContext=workspace};
             var window=new Window{Content=view,Width=config.W,Height=config.H,ShowActivated=false,ShowInTaskbar=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000};

@@ -177,6 +177,7 @@ Nenhum deles quebra o build quando é esquecido:
 ### 4. ViewModel e tela
 
 - **Leitura e cópia de sessão:** abrir ou copiar um registro anterior usa `SessaoDoProntuario`, incluindo os campos personalizados já carregados, em vez de concatenar o resumo da linha do tempo. Texto clínico para seleção usa `TextoSelecionavel` com binding `Mode=OneWay`; botões de cópia usam `Copiavel.Texto`, que trata também teclado. Copiar não altera o rascunho do atendimento.
+- **Cabeçalho em tela estreita com zoom:** ações de largura fixa não podem comprimir nome e contexto clínico até consumir toda a altura. Em largura reduzida, as ações passam para outra linha. A verificação cobre explicitamente 1044×788 a 150%, com editor e Salvar acessíveis, independentemente do monitor da máquina de teste.
 
 - **Escopo do executável:** registrar componentes compartilhados não autoriza publicar seus menus/rotas. O Faturamento usa `ModuloFaturamentoAplicativo`, conferido pela mesma composição na verificação Windows, para abrir apenas Financeiro/Faturamento de guias mesmo com acesso de gerente. Testar abertura, busca e navegação direta; `Oculto` sozinho não bloqueia uma rota.
 

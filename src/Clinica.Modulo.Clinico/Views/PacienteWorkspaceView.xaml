@@ -32,13 +32,15 @@
   <DockPanel>
    <DockPanel.Style><Style TargetType="DockPanel"><Style.Triggers><DataTrigger Binding="{Binding SemPaciente}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></DockPanel.Style>
    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="24,19,24,19">
-    <DockPanel>
-     <comp:BotaoClinico DockPanel.Dock="Left" Icone="back" Texto="" Command="{Binding VoltarCommand}" ToolTip="{Binding RotuloVoltar}" AutomationProperties.Name="{Binding RotuloVoltar}" Margin="0,0,16,0" Style="{StaticResource BotaoFantasma}"/>
-     <Grid DockPanel.Dock="Left" Width="46" Height="46" Margin="0,0,14,0" VerticalAlignment="Center">
+    <Grid x:Name="CabecalhoConteudo">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <comp:BotaoClinico Grid.Column="0" Icone="back" Texto="" Command="{Binding VoltarCommand}" ToolTip="{Binding RotuloVoltar}" AutomationProperties.Name="{Binding RotuloVoltar}" Margin="0,0,16,0" VerticalAlignment="Center" Style="{StaticResource BotaoFantasma}"/>
+     <Grid Grid.Column="1" Width="46" Height="46" Margin="0,0,14,0" VerticalAlignment="Center">
       <ctrl:Avatar Tamanho="46" Nome="{Binding Paciente}"/>
       <Border CornerRadius="23" Visibility="{Binding Foto, Converter={StaticResource ObjetoParaVisibilidade}, FallbackValue=Collapsed}"><Border.Background><ImageBrush ImageSource="{Binding Foto}" Stretch="UniformToFill"/></Border.Background></Border>
      </Grid>
-     <Grid DockPanel.Dock="Right" Width="420" VerticalAlignment="Center" Margin="18,0,0,0"><WrapPanel>
+     <Grid x:Name="AcoesCabecalho" Grid.Column="3" Width="420" VerticalAlignment="Center" Margin="18,0,0,0"><WrapPanel>
       <Border Padding="10,6" Margin="0,0,14,0" CornerRadius="5" Background="{StaticResource Brush.Sucesso.Tint}" ToolTip="{Binding SituacaoSessao}" Visibility="{Binding TemSessao, Converter={StaticResource BoolParaVisibilidade}}">
        <TextBlock MaxWidth="170" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="{Binding SituacaoSessao}"/><Style.Triggers><DataTrigger Binding="{Binding EmAtendimento}" Value="True"><Setter Property="Text" Value="●  Em atendimento"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
       </Border>
@@ -55,7 +57,7 @@
        </ContextMenu></comp:BotaoClinico.ContextMenu>
       </comp:BotaoClinico>
      </WrapPanel></Grid>
-     <StackPanel VerticalAlignment="Center">
+     <StackPanel x:Name="IdentidadePaciente" Grid.Column="2" VerticalAlignment="Center">
       <TextBlock Text="{Binding Paciente}" Style="{StaticResource H2}" TextWrapping="Wrap"/>
       <TextBlock Text="{Binding Cabecalho.Linha}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,5,0,0"/>
       <TextBlock Text="{Binding Cabecalho.CarteirinhaTexto}" TextWrapping="Wrap" Visibility="{Binding Cabecalho.CarteirinhaTexto, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}"><TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}"><Style.Triggers><DataTrigger Binding="{Binding Cabecalho.CarteirinhaVencida}" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Erro}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
@@ -90,7 +92,7 @@
                             </TextBlock>
                         </WrapPanel>
      </StackPanel>
-    </DockPanel>
+    </Grid>
    </Border>
    <Grid>
     <Grid.ColumnDefinitions><ColumnDefinition Width="218"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
