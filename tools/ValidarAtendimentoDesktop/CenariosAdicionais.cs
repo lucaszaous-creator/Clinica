@@ -112,10 +112,8 @@ static partial class Program
             await Task.Delay(60);window.UpdateLayout();
             var editor=Visuals(view).OfType<TextBox>().Single(b=>b.Name=="EditorEvolucao");
             Check(editor.ActualHeight>=120,"Editor colapsou com campos expandidos: "+config.Nome+" / "+editor.ActualHeight);
-            editor.BringIntoView();await Task.Delay(50);window.UpdateLayout();
             var outer=Visuals(view).OfType<ScrollViewer>().Single(b=>b.Name=="ConteudoScroll");
-            var editorRect=editor.TransformToAncestor(outer).TransformBounds(new Rect(editor.RenderSize));
-            Check(editorRect.Bottom>0 && editorRect.Top<outer.ViewportHeight,"Rolagem não alcançou editor: "+config.Nome);
+            var editorRect=await AlcançarEditorAsync(window,editor,outer,config.Nome);
             var save=Visuals(view).OfType<BotaoClinico>().Single(b=>b.Texto=="Salvar sessão");
             var saveRect=save.TransformToAncestor(view).TransformBounds(new Rect(save.RenderSize));
             Check(saveRect.Bottom<=view.ActualHeight+1 && saveRect.Right<=view.ActualWidth+1,"Salvar saiu da janela: "+config.Nome);
@@ -135,13 +133,40 @@ static partial class Program
             var bmp=new RenderTargetBitmap((int)window.ActualWidth,(int)window.ActualHeight,96,96,PixelFormats.Pbgra32);bmp.Render(window);
             var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bmp));
             using(var stream=File.Create(Path.Combine(output,config.Nome+".png")))encoder.Save(stream);
-            evidencias.Add(new{cenario=config.Nome,escalaSimulada=config.Scale,editorAltura=editor.ActualHeight,viewport=outer.ViewportHeight,extensao=outer.ExtentHeight,resultado="passou"});
+            evidencias.Add(new{cenario=config.Nome,escalaSimulada=config.Scale,editorAltura=editor.ActualHeight,viewport=outer.ViewportHeight,extensao=outer.ExtentHeight,editorTopoAoRolar=editorRect.Top,editorBaseAoRolar=editorRect.Bottom,resultado="passou"});
             window.Close();
         }
         File.WriteAllText(Path.Combine(output,"cenarios-adicionais.json"),JsonSerializer.Serialize(evidencias,new JsonSerializerOptions{WriteIndented=true}));
         Console.WriteLine("PASS: concorrência, falha/recuperação, cinco perfis, vinte atalhos e layout com campos expandidos e escala simulada.");
     }
     static void Check(bool value,string message) { if(!value) throw new Exception(message); }
+
+    static async Task<Rect> AlcançarEditorAsync(Window window,TextBox editor,ScrollViewer outer,string cenario)
+    {
+        // Expansão, foco inicial e mudança de escala enfileiram trabalho no Dispatcher.
+        // O gesto só deve ocorrer depois desse layout, como ocorreria com a tela pronta.
+        await Dispatcher.Yield(DispatcherPriority.ContextIdle);
+        window.UpdateLayout();
+        editor.BringIntoView();
+        var limite=System.Diagnostics.Stopwatch.StartNew();
+        Rect retangulo=Rect.Empty;
+        while(limite.Elapsed<TimeSpan.FromSeconds(5))
+        {
+            // BringIntoView também agenda a rolagem; 50 ms não garantem seu processamento
+            // em uma máquina de CI. Observa o resultado sem repetir o gesto ou rolar manualmente.
+            await Dispatcher.Yield(DispatcherPriority.ContextIdle);
+            window.UpdateLayout();
+            retangulo=editor.TransformToAncestor(outer).TransformBounds(new Rect(editor.RenderSize));
+            if(outer.ViewportHeight>0 && retangulo.Bottom>0 && retangulo.Top<outer.ViewportHeight)
+                return retangulo;
+            await Task.Delay(20);
+        }
+        CapturarCopia(window,"falha-rolagem-"+cenario+".png");
+        Check(false,$"Rolagem não alcançou editor: {cenario}; topo={retangulo.Top:F2}; base={retangulo.Bottom:F2}; "
+            +$"viewport={outer.ViewportHeight:F2}; extensão={outer.ExtentHeight:F2}; offset={outer.VerticalOffset:F2}; "
+            +$"editor={editor.ActualHeight:F2}; janela={window.ActualWidth:F2}x{window.ActualHeight:F2}.");
+        return retangulo;
+    }
 }
 
 sealed class ConsultaProbe : DbCommandInterceptor
