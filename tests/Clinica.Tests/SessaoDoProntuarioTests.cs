@@ -68,6 +68,7 @@ public class SessaoDoProntuarioTests
 
         var sessao = SessaoDoProntuario.De(evolucao, anexos: 0, correcoes: 0);
         var tudo = string.Join("\n", sessao.Blocos.Select(b => $"{b.Rotulo}: {b.Texto}"));
+        var copia = sessao.TextoParaCopiar("Maria da Silva");
 
         foreach (var p in textuais)
         {
@@ -76,7 +77,84 @@ public class SessaoDoProntuarioTests
             tudo.Should().Contain($"VALOR-{p.Name}",
                 $"o campo {p.Name} é escrito na sessão e precisa aparecer para quem a abre — "
                 + "se ele não é conteúdo clínico, declare-o em ForaDosBlocos com a razão");
+            copia.Should().Contain($"VALOR-{p.Name}",
+                $"o campo {p.Name} também precisa acompanhar a cópia do registro");
         }
+    }
+
+    [Fact]
+    public void Copia_preserva_identidade_rotulos_e_quebras_de_linha_sem_inventar_campos()
+    {
+        var e = Cheia();
+        e.RetornoSugeridoEm = null;
+        e.Conduta = "Acupuntura em B60\r\nEletroestimulação por 20 minutos";
+        e.TextoEvolucao = "Melhora relatada\nSem intercorrências";
+
+        var texto = SessaoDoProntuario.De(e, 0, 0).TextoParaCopiar("Maria da Silva");
+
+        texto.Should().StartWith("Sessão de 20/08/2026")
+            .And.Contain("Paciente: Maria da Silva")
+            .And.Contain("Profissional: Dra. Ana")
+            .And.Contain("EVA 8 → 3")
+            .And.Contain($"Conduta:{Environment.NewLine}{e.Conduta}")
+            .And.Contain($"Evolução:{Environment.NewLine}{e.TextoEvolucao}")
+            .And.Contain("Registrado por dra.ana em 20/08/2026 às 14:30")
+            .And.NotContain("Queixa principal:")
+            .And.NotContain("CANCELADA")
+            .And.NotContain("Registro retificado");
+    }
+
+    [Fact]
+    public void Copia_mantem_cancelamento_retificacao_e_procedencia_do_texto_atual()
+    {
+        var e = Cheia();
+        e.CanceladaEm = new DateTime(2026, 8, 23, 9, 0, 0);
+        e.CanceladaPor = "dra.ana";
+        e.MotivoCancelamento = "lançada no paciente errado";
+        e.AtualizadoEm = new DateTime(2026, 8, 22, 10, 15, 0);
+        e.Conduta = "Texto atual";
+        e.Versoes.Add(new VersaoEvolucao { Conduta = "Texto anterior" });
+
+        var texto = SessaoDoProntuario.De(e, 0, 2).TextoParaCopiar("Maria da Silva");
+
+        texto.Should().Contain("Sessão CANCELADA por dra.ana em 23/08/2026")
+            .And.Contain("lançada no paciente errado")
+            .And.Contain("Registro retificado — 2 correções. Texto atual da sessão.")
+            .And.Contain("última alteração em 22/08/2026 às 10:15")
+            .And.Contain("Texto atual")
+            .And.NotContain("Texto anterior");
+    }
+
+    [Fact]
+    public void Campos_personalizados_aparecem_na_leitura_e_na_copia_com_rotulo_historico()
+    {
+        var e = Cheia();
+        e.CamposPersonalizados.AddRange([
+            new ValorCampoPersonalizado
+            {
+                Rotulo = "Observação da clínica", Tipo = TipoCampoPersonalizado.TextoLongo,
+                Valor = "Primeira linha\nSegunda linha",
+                Campo = new CampoPersonalizadoProntuario { Rotulo = "Novo rótulo" }
+            },
+            new ValorCampoPersonalizado
+            {
+                Rotulo = "Carga", Tipo = TipoCampoPersonalizado.Numero, Valor = "12.5"
+            },
+            new ValorCampoPersonalizado
+            {
+                Rotulo = "Data de avaliação", Tipo = TipoCampoPersonalizado.Data, Valor = "2026-08-20"
+            }
+        ]);
+
+        var sessao = SessaoDoProntuario.De(e, 0, 0);
+        sessao.Blocos.Should().Contain(new BlocoDaSessao("Observação da clínica", "Primeira linha\nSegunda linha"));
+        sessao.Blocos.Should().Contain(new BlocoDaSessao("Carga", "12,5"));
+        sessao.Blocos.Should().Contain(new BlocoDaSessao("Data de avaliação", "20/08/2026"));
+        sessao.TextoParaCopiar("Maria da Silva").Should()
+            .Contain($"Observação da clínica:{Environment.NewLine}Primeira linha\nSegunda linha")
+            .And.Contain($"Carga:{Environment.NewLine}12,5")
+            .And.Contain($"Data de avaliação:{Environment.NewLine}20/08/2026")
+            .And.NotContain("Novo rótulo");
     }
 
     /// <summary>

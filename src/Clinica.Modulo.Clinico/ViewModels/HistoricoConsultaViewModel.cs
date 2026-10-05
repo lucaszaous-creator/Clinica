@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Componentes;
@@ -18,6 +19,7 @@ public sealed partial class HistoricoConsultaViewModel(IServiceScopeFactory esco
 {
     private IReadOnlyList<RegistroClinicoPaciente> registros = [];
     private int geracao;
+    private string nomePaciente = string.Empty;
     [ObservableProperty] private bool _aberto;
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
@@ -38,7 +40,7 @@ public sealed partial class HistoricoConsultaViewModel(IServiceScopeFactory esco
     public async Task RecarregarAsync()
     {
         int carga = ++geracao, id = pacienteId();
-        registros = []; Itens.Clear(); Mensagem = null; NaoVerificado = false; Carregando = false;
+        registros = []; Itens.Clear(); nomePaciente = string.Empty; Mensagem = null; NaoVerificado = false; Carregando = false;
         if (id == 0 || !SessaoUsuario.Atual.Pode(Permissao.VerProntuario))
         { Mensagem = "Selecione um paciente com acesso ao prontuário."; OnPropertyChanged(nameof(Vazio)); return; }
         Carregando = true; OnPropertyChanged(nameof(Vazio));
@@ -47,13 +49,20 @@ public sealed partial class HistoricoConsultaViewModel(IServiceScopeFactory esco
             using var scope = escopos.CreateScope();
             var p = scope.ServiceProvider;
             var prontuario = p.GetRequiredService<ProntuarioService>();
+            var paciente = await p.GetRequiredService<IClinicaRepositorio>().ObterPacienteAsync(id);
             var sessoes = await prontuario.DoPacienteAsync(id);
             var anexos = await prontuario.ContagemDeAnexosAsync(sessoes.Select(e => e.Id).ToList());
+            var correcoes = await prontuario.ContagemDeVersoesAsync(sessoes.Select(e => e.Id).ToList());
             var enfermagem = await p.GetRequiredService<EvolucaoEnfermagemService>().DoPacienteAsync(id, limite: 200);
             var infusoes = await p.GetRequiredService<PrescricaoInternaService>().DoPacienteAsync(id, limite: 200);
             if (carga != geracao || id != pacienteId()) return;
+            nomePaciente = paciente?.Nome ?? string.Empty;
+            var textos = sessoes.ToDictionary(e => e.Id, e => SessaoDoProntuario.De(
+                e, anexos.GetValueOrDefault(e.Id), correcoes.GetValueOrDefault(e.Id)).TextoParaCopiar(nomePaciente));
             registros = LinhaDoTempoClinica.Montar(SessaoUsuario.Atual.Efetivas, sessoes, anexos, enfermagem, infusoes, [], [])
-                .SelectMany(par => par.Value).ToList();
+                .SelectMany(par => par.Value)
+                .Select(r => r.Natureza == NaturezaRegistroClinico.SessaoMedica
+                    ? r with { TextoParaCopia = textos.GetValueOrDefault(r.Id) } : r).ToList();
             Publicar();
         }
         catch (Exception ex)
@@ -84,6 +93,12 @@ public sealed partial class HistoricoConsultaViewModel(IServiceScopeFactory esco
     private void Ler(RegistroClinicoPaciente? registro)
     {
         if (registro is null || !registros.Contains(registro) || !SessaoUsuario.Atual.Pode(Permissao.VerProntuario)) return;
+        if (registro.Natureza == NaturezaRegistroClinico.SessaoMedica)
+        {
+            var vm = new SessaoDoProntuarioViewModel(escopos, registro.Id, nomePaciente, ofereceAnexos: false);
+            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            return;
+        }
         var texto = string.Join("\n\n", new[] { $"{registro.Data:dd/MM/yyyy} {registro.HoraTexto} · {registro.Autor}", registro.Marca, registro.Titulo, registro.Detalhe }.Where(s => !string.IsNullOrWhiteSpace(s)));
         var view = new TextBox { Text = texto, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, BorderThickness = new Thickness(0), Padding = new Thickness(20) };
         new ConsultaContextualWindow(registro.Rotulo + " — leitura", view, "Voltar ao atendimento") { Owner = JanelaDona.Atual() }.ShowDialog();

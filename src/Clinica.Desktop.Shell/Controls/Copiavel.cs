@@ -61,6 +61,14 @@ public static class Copiavel
         var ligado = GetAtivo(d) || GetTexto(d) is not null;
 
         elemento.MouseLeftButtonUp -= AoClicar;
+        if (elemento is ButtonBase botao)
+        {
+            // Click cobre mouse, Espaço e Enter. Não assinar também MouseLeftButtonUp:
+            // o mesmo gesto poderia copiar e abrir duas confirmações.
+            botao.Click -= AoAcionarBotao;
+            if (ligado) botao.Click += AoAcionarBotao;
+            return;
+        }
         if (!ligado) return;
 
         elemento.MouseLeftButtonUp += AoClicar;
@@ -74,6 +82,12 @@ public static class Copiavel
     }
 
     private static void AoClicar(object remetente, MouseButtonEventArgs e)
+        => Copiar(remetente);
+
+    private static void AoAcionarBotao(object remetente, RoutedEventArgs e)
+        => Copiar(remetente);
+
+    private static void Copiar(object remetente)
     {
         if (remetente is not FrameworkElement elemento) return;
 

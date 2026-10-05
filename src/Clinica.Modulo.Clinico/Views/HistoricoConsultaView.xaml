@@ -32,8 +32,9 @@
        <TextBlock Text="{Binding HoraTexto}" Style="{StaticResource TextoSuave}" Visibility="{Binding HoraTexto, Converter={StaticResource TextoParaVisibilidade}}"/>
        <TextBlock Text="Intercorrência registrada" FontWeight="SemiBold" Foreground="{StaticResource Brush.Erro}" Visibility="{Binding EmDestaque, Converter={StaticResource BoolParaVisibilidade}}"/>
        <TextBlock Text="{Binding Marca}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Erro}" TextWrapping="Wrap" Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}"/>
-       <TextBlock Text="{Binding Titulo}" TextWrapping="Wrap" MaxHeight="78" TextTrimming="CharacterEllipsis" Margin="0,11,0,8"/>
-       <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap" MaxHeight="54" TextTrimming="CharacterEllipsis" Style="{StaticResource TextoSuave}"/>
+       <TextBox Text="{Binding Titulo, Mode=OneWay}" Style="{StaticResource TextoSelecionavel}" MaxHeight="78" VerticalScrollBarVisibility="Auto" Margin="0,11,0,8" AutomationProperties.Name="Texto do registro anterior"/>
+       <TextBox Text="{Binding Detalhe, Mode=OneWay}" Style="{StaticResource TextoSelecionavel}" MaxHeight="54" VerticalScrollBarVisibility="Auto" Foreground="{StaticResource Brush.Texto.Secundario}" AutomationProperties.Name="Detalhes do registro anterior"/>
+       <Button Content="Copiar registro" ctrl:Copiavel.Texto="{Binding TextoParaCopia}" Style="{StaticResource BotaoFantasma}" HorizontalAlignment="Left" Padding="0,8" ToolTip="Copiar o texto completo da sessão para colar onde precisar" Visibility="{Binding TextoParaCopia, Converter={StaticResource TextoParaVisibilidade}}"/>
        <Button Content="Ler registro →" Command="{Binding DataContext.LerCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Style="{StaticResource BotaoFantasma}" HorizontalAlignment="Left" Padding="0,8"/>
       </StackPanel>
      </Grid>

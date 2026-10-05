@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Clinico.Modulo;
@@ -25,6 +26,7 @@ public sealed class LinhaSessaoProntuario
     public required string Conduta { get; init; }
     public required string Evolucao { get; init; }
     public required string Orientacoes { get; init; }
+    public string TextoParaCopia { get; init; } = string.Empty;
 
     /// <summary>Quantos arquivos a sessão tem — o clipe da linha.</summary>
     public required int Anexos { get; init; }
@@ -54,7 +56,7 @@ public sealed class LinhaSessaoProntuario
         _ => $"{Anexos} anexos"
     };
 
-    public static LinhaSessaoProntuario De(Evolucao e, int anexos, int correcoes) => new()
+    public static LinhaSessaoProntuario De(Evolucao e, int anexos, int correcoes, string paciente = "") => new()
     {
         EvolucaoId = e.Id,
         Data = e.Data.ToString("dd/MM/yyyy"),
@@ -64,6 +66,7 @@ public sealed class LinhaSessaoProntuario
         Conduta = string.IsNullOrWhiteSpace(e.Conduta) ? "—" : e.Conduta!,
         Evolucao = string.IsNullOrWhiteSpace(e.TextoEvolucao) ? "—" : e.TextoEvolucao!,
         Orientacoes = string.IsNullOrWhiteSpace(e.Orientacoes) ? "—" : e.Orientacoes!,
+        TextoParaCopia = SessaoDoProntuario.De(e, anexos, correcoes).TextoParaCopiar(paciente),
         Anexos = anexos,
         Correcoes = correcoes
     };
@@ -246,7 +249,8 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
                 Sessoes.Add(LinhaSessaoProntuario.De(
                     e,
                     contagens.TryGetValue(e.Id, out var quantos) ? quantos : 0,
-                    correcoes.TryGetValue(e.Id, out var vezes) ? vezes : 0));
+                    correcoes.TryGetValue(e.Id, out var vezes) ? vezes : 0,
+                    Paciente));
 
             ResumoSessoes = termo.Length == 0
                 ? $"{todas.Count} sessão(ões) no prontuário."

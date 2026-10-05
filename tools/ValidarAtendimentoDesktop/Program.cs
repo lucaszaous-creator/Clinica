@@ -24,11 +24,13 @@ using Microsoft.Extensions.DependencyInjection;
 static partial class Program
 {
     static string output="";
+    static bool somenteCopia;
     [STAThread] static int Main(string[] args)
     {
         System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
         System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
         output=Path.GetFullPath(args[0]);Directory.CreateDirectory(output);
+        somenteCopia=args.Contains("--copia");
         using var log=new StreamWriter(Path.Combine(output,"bindings.log"));
         log.AutoFlush=true;
         PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log));
@@ -61,6 +63,10 @@ static partial class Program
         var appointment=new Agendamento{PacienteId=patient.Id,ProfissionalId=professional.Id,DataHora=date.AddHours(14),Status=StatusAgendamento.Agendado,ModalidadePrevista=ModalidadeAtendimento.AcupunturaComEletro,InicioAtendimentoEm=DateTime.Now.AddMinutes(-18)};
         db.Add(appointment);await db.SaveChangesAsync();
         var focus=sp.GetRequiredService<PacienteEmFoco>();focus.Definir(patient.Id,patient.Nome,appointment.Id,null,DateOnly.FromDateTime(date));
+        user.Perfil=PerfilAcesso.Profissional;sp.GetRequiredService<SessaoUsuario>().Entrar(user);
+        await ValidarCopia(sp,db,patient,appointment);
+        if(somenteCopia) return;
+        user.Perfil=PerfilAcesso.Gerente;sp.GetRequiredService<SessaoUsuario>().Entrar(user);
         foreach(var nurse in new[]{false})
         {
             var vm=new PacienteWorkspaceViewModel(sp,focus,ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimentoEnfermagem));

@@ -83,6 +83,31 @@
         </Setter>
     </Style>
 
+    <!-- Leitura com seleção por mouse/teclado e Ctrl+C. O binding de Text em cada
+         uso deve ser OneWay: o texto pode vir de uma propriedade somente leitura. -->
+    <Style x:Key="TextoSelecionavel" TargetType="TextBox"
+           BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="IsReadOnlyCaretVisible" Value="False" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <ScrollViewer x:Name="PART_ContentHost"
+                                  Background="{TemplateBinding Background}"
+                                  Padding="{TemplateBinding Padding}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ===== Senha =====
          O design system nunca teve estilo de PasswordBox: TODO campo de senha da suíte
          (login, primeiro acesso, troca de senha, cadastro de usuário) saía com o visual
