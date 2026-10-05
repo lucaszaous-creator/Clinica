@@ -37,6 +37,9 @@ public sealed record RegistroClinicoPaciente(
     string? Marca,
     bool EmDestaque = false)
 {
+    /// <summary>Conteúdo completo preparado pelo leitor; nunca um resumo truncado.</summary>
+    public string? TextoParaCopia { get; init; }
+
     /// <summary>O momento para ordenar DENTRO de uma natureza — meia-noite quando não há hora.</summary>
     public DateTime Momento => Data.ToDateTime(Hora ?? TimeOnly.MinValue);
 

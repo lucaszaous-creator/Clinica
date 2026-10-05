@@ -76,6 +76,11 @@ public sealed partial class SessaoDoProntuarioViewModel : ObservableObject
     [ObservableProperty] private string? _avisoCancelamento;
     [ObservableProperty] private string? _anexosTexto;
     [ObservableProperty] private string? _correcoesTexto;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodeCopiar))]
+    private string? _textoParaCopiar;
+
+    public bool PodeCopiar => !string.IsNullOrWhiteSpace(TextoParaCopiar);
 
     [ObservableProperty] private bool _temAnexos;
     [ObservableProperty] private bool _retificada;
@@ -184,6 +189,7 @@ public sealed partial class SessaoDoProntuarioViewModel : ObservableObject
             CorrecoesTexto = sessao.CorrecoesTexto;
             TemAnexos = sessao.TemAnexos;
             Retificada = sessao.Retificada;
+            TextoParaCopiar = sessao.TextoParaCopiar(Paciente);
             OnPropertyChanged(nameof(MostraAnexos));
 
             // Entre o `Clear()` e o último `Add` não pode haver `await` (parcela 62).

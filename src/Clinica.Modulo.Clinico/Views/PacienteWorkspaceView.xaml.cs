@@ -22,8 +22,22 @@ public partial class PacienteWorkspaceView : UserControl
     {
         InitializeComponent();
 
+        SizeChanged += (_, _) => AjustarCabecalho();
+
         Loaded += (_, _) => (DataContext as PacienteWorkspaceViewModel)?.AoEntrarEmCena();
         Unloaded += (_, _) => (DataContext as PacienteWorkspaceViewModel)?.AoSairDeCena();
+    }
+    private void AjustarCabecalho()
+    {
+        // Com zoom ou em monitores menores, reservar 420 px às ações espremia a
+        // identidade em uma coluna de poucas letras, deixando o editor sem altura.
+        var compacto = ActualWidth < 1000;
+        Grid.SetRow(AcoesCabecalho, compacto ? 1 : 0);
+        Grid.SetColumn(AcoesCabecalho, compacto ? 0 : 3);
+        Grid.SetColumnSpan(AcoesCabecalho, compacto ? 4 : 1);
+        Grid.SetColumnSpan(IdentidadePaciente, compacto ? 2 : 1);
+        AcoesCabecalho.Width = compacto ? double.NaN : 420;
+        AcoesCabecalho.Margin = compacto ? new Thickness(0, 10, 0, 0) : new Thickness(18, 0, 0, 0);
     }
     private void AbrirAcoes(object sender, RoutedEventArgs e)
     {

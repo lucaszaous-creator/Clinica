@@ -1,3 +1,4 @@
+using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Modelos;
@@ -75,6 +76,28 @@ public sealed record SessaoDoProntuario(
         _ => $"{Correcoes} correções"
     };
 
+    /// <summary>Texto da sessão para reutilização, preservando a origem e os avisos.
+    /// Usa os mesmos blocos da leitura para que campos novos também entrem na cópia.</summary>
+    public string TextoParaCopiar(string paciente)
+    {
+        var partes = new List<string>
+        {
+            Titulo,
+            $"Paciente: {paciente}",
+            $"Profissional: {Profissional}",
+            Eva
+        };
+
+        if (Cancelada) partes.Add(AvisoCancelamento!);
+        if (Retificada) partes.Add($"Registro retificado — {CorrecoesTexto}. Texto atual da sessão.");
+
+        foreach (var bloco in Blocos)
+            partes.Add($"{bloco.Rotulo}:{Environment.NewLine}{bloco.Texto}");
+
+        partes.Add(Procedencia);
+        return string.Join(Environment.NewLine + Environment.NewLine, partes);
+    }
+
     /// <summary>
     /// Monta a sessão a partir da entidade.
     /// </summary>
@@ -103,6 +126,11 @@ public sealed record SessaoDoProntuario(
         Somar(blocos, "Orientações ao paciente", e.Orientacoes);
         Somar(blocos, "Retorno sugerido", DoRetorno(e));
         Somar(blocos, "Encaminhamento", e.Encaminhamento);
+
+        // O repositório já carrega as respostas. O rótulo histórico acompanha o valor,
+        // mesmo que o catálogo tenha sido renomeado ou desativado depois da sessão.
+        foreach (var campo in e.CamposPersonalizados)
+            Somar(blocos, campo.Rotulo, CampoPersonalizadoService.Exibir(campo));
 
         return new SessaoDoProntuario(
             EvolucaoId: e.Id,

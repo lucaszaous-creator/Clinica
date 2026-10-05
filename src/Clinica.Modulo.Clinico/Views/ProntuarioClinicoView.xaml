@@ -55,33 +55,22 @@
                                                     <Run Text="{Binding Profissional, Mode=OneWay}" />
                                                 </TextBlock>
 
-                                                <TextBlock TextWrapping="Wrap" Margin="0,6,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="Queixa: " FontWeight="SemiBold" />
-                                                    <Run Text="{Binding Queixa, Mode=OneWay}" />
-                                                </TextBlock>
-                                                <TextBlock TextWrapping="Wrap" Margin="0,2,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="Conduta: " FontWeight="SemiBold" />
-                                                    <Run Text="{Binding Conduta, Mode=OneWay}" />
-                                                </TextBlock>
-                                                <TextBlock TextWrapping="Wrap" Margin="0,2,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="Evolução: " FontWeight="SemiBold" />
-                                                    <Run Text="{Binding Evolucao, Mode=OneWay}" />
-                                                </TextBlock>
-                                                <TextBlock TextWrapping="Wrap" Margin="0,2,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="Orientações: " FontWeight="SemiBold" />
-                                                    <Run Text="{Binding Orientacoes, Mode=OneWay}" />
-                                                </TextBlock>
+                                                <TextBlock Text="Queixa" Style="{StaticResource Rotulo}" Margin="0,6,0,0" />
+                                                <TextBox Text="{Binding Queixa, Mode=OneWay}" Style="{StaticResource TextoSelecionavel}" FontSize="{StaticResource Fonte.Legenda}" AutomationProperties.Name="Queixa da sessão anterior" />
+                                                <TextBlock Text="Conduta" Style="{StaticResource Rotulo}" Margin="0,2,0,0" />
+                                                <TextBox Text="{Binding Conduta, Mode=OneWay}" Style="{StaticResource TextoSelecionavel}" FontSize="{StaticResource Fonte.Legenda}" AutomationProperties.Name="Conduta da sessão anterior" />
+                                                <TextBlock Text="Evolução" Style="{StaticResource Rotulo}" Margin="0,2,0,0" />
+                                                <TextBox Text="{Binding Evolucao, Mode=OneWay}" Style="{StaticResource TextoSelecionavel}" FontSize="{StaticResource Fonte.Legenda}" AutomationProperties.Name="Evolução da sessão anterior" />
+                                                <TextBlock Text="Orientações" Style="{StaticResource Rotulo}" Margin="0,2,0,0" />
+                                                <TextBox Text="{Binding Orientacoes, Mode=OneWay}" Style="{StaticResource TextoSelecionavel}" FontSize="{StaticResource Fonte.Legenda}" AutomationProperties.Name="Orientações da sessão anterior" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Top">
+
+                                                <Button Content="Copiar registro" MinWidth="110" Margin="0,0,0,6"
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        ctrl:Copiavel.Texto="{Binding TextoParaCopia}"
+                                                        ToolTip="Copiar o texto completo da sessão para colar onde precisar" />
 
                                                 <Button Content="Abrir sessão" MinWidth="110"
                                                         Margin="0,0,0,6"
