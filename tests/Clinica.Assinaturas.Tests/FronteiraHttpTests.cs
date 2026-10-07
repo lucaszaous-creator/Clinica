@@ -43,7 +43,7 @@ public sealed class FronteiraHttpTests
         Assert.Equal(contexto,(await Get("/api/sessao")).GetProperty("contexto").GetString());
         var dia=await Get("/api/dia");
         var id=dia.GetProperty("pacientes").EnumerateArray().Single(p=>p.GetProperty("nome").GetString()=="Paciente fictício 1").GetProperty("pacienteId").GetInt32();
-        var preparar=new{pacienteId=id,modelos=new[]{1,2},nascimento="1980-01-15",identidadeConferida="Documento fictício conferido"};
+        var preparar=new{pacienteId=id,modelos=new[]{1,2}};
         Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync("/api/preparar",preparar)).StatusCode);
         Assert.Equal(contexto,(await Get("/api/sessao")).GetProperty("contexto").GetString());
         Assert.Equal("paciente",(await Get("/api/sessao")).GetProperty("modo").GetString());

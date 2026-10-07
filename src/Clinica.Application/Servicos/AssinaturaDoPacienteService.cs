@@ -21,7 +21,7 @@ namespace Clinica.Application.Servicos;
 /// Exigir e-CPF do paciente seria inviável e desnecessário.
 ///
 /// <b>O que dá valor a ela não é certificado: é EVIDÊNCIA.</b> Quem assinou, quando, diante
-/// de quem, com que documento conferido, e — o que mais importa numa contestação —
+/// de quem, como o paciente foi identificado, e — o que mais importa numa contestação —
 /// exatamente que texto ele tinha na frente. É isso que <see cref="SelarConteudo"/>
 /// captura, e é só isso que o rodapé do PDF pode afirmar
 /// (<see cref="DocumentoClinico.FraseAssinaturaPaciente"/>).
@@ -66,8 +66,9 @@ public sealed class AssinaturaDoPacienteService
     /// ninguém respondeu seria fabricar consentimento.
     /// </param>
     /// <param name="documentoConferido">
-    /// O documento de identidade apresentado ("CPF 123.456.789-00"). É o que substitui o
-    /// certificado, e por isso é exigido.
+    /// Registro da identificação: documento apresentado nas coletas que o conferem,
+    /// ou <see cref="DocumentoClinico.IdentificacaoPorSelecaoDaEquipe"/> nas novas
+    /// coletas do portal. A seleção pela equipe não afirma conferência documental.
     /// </param>
     /// <param name="testemunha">
     /// Quem da clínica estava na frente do paciente. <c>SessaoUsuario.Atual.Operador</c>,

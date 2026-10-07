@@ -1,0 +1,89 @@
+{
+  "model": "jev-1.13.0",
+  "answers": {
+    "sem_redigitacao": {
+      "type": "choice",
+      "choice": "atende",
+      "confidence": 0.98,
+      "probabilities": {
+        "incerto": 0.0,
+        "atende": 0.99,
+        "falha": 0.01
+      }
+    },
+    "paciente_sessao": {
+      "type": "choice",
+      "choice": "atende",
+      "confidence": 0.92,
+      "probabilities": {
+        "incerto": 0.01,
+        "atende": 0.95,
+        "falha": 0.04
+      }
+    },
+    "acesso": {
+      "type": "choice",
+      "choice": "atende",
+      "confidence": 0.83,
+      "probabilities": {
+        "incerto": 0.03,
+        "atende": 0.89,
+        "falha": 0.08
+      }
+    },
+    "evidencia_honesta": {
+      "type": "choice",
+      "choice": "atende",
+      "confidence": 0.95,
+      "probabilities": {
+        "incerto": 0.0,
+        "atende": 0.97,
+        "falha": 0.03
+      }
+    },
+    "legado": {
+      "type": "choice",
+      "choice": "atende",
+      "confidence": 0.89,
+      "probabilities": {
+        "incerto": 0.04,
+        "atende": 0.93,
+        "falha": 0.03
+      }
+    },
+    "consentimento": {
+      "type": "choice",
+      "choice": "atende",
+      "confidence": 0.98,
+      "probabilities": {
+        "incerto": 0.0,
+        "atende": 0.99,
+        "falha": 0.01
+      }
+    },
+    "duplicidade": {
+      "type": "choice",
+      "choice": "atende",
+      "confidence": 0.98,
+      "probabilities": {
+        "incerto": 0.0,
+        "atende": 0.99,
+        "falha": 0.01
+      }
+    }
+  },
+  "source_hashes": {
+    "src/Clinica.Application/Tablet/ContratoTablet.cs": "08a624d3d3d60f2b234459ef1ef0b1cd731527f0eda4a32fffc3ccebc3cc858d",
+    "src/Clinica.Infrastructure/Tablet/PortalTabletService.cs": "775557c40d953136f340f2cca8d9b705889ed79aa9fe870fb55533a16d7fbff7",
+    "src/Clinica.Application/Servicos/AssinaturaDoPacienteService.cs": "207eb2f5af4466475fa432c8c0df75514d60c6fee36e388933c9679bbc14641a",
+    "src/Clinica.Domain/Entities/AtoClinico.cs": "46ba8a8c6cb52c107ceba073b5b3626c0aadce0925d2a131e1629b3c8f33056f",
+    "src/Clinica.Assinaturas.Api/Program.cs": "e6d570716298c4e1dc90579818eec69d4f286691648fe52f3e594f9b997f5cce",
+    "portal/portal.js": "a45fda53ccced4c262e85a8057390a39319234e0091399d5a91b9ae384f36684"
+  },
+  "request_sha256": "3584398e668ee555750f06195bf212d4c5bb1392a6ac57323ab90692084e738f",
+  "usage": {
+    "input_tokens": 19761,
+    "output_tokens": 295
+  },
+  "nota": "Auditoria auxiliar solicitada; não substitui testes executáveis."
+}
