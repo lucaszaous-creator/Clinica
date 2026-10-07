@@ -10,8 +10,10 @@ public record ItemTablet(int Ordem, string Descricao, string? Detalhe, string? C
 public record DocumentoTablet(int DocumentoId, int PacienteId, string Nome, DateOnly? Nascimento,
     string? Identificacao, string Numero, DateOnly Data, int? ModeloId, string? Titulo,
     string? Corpo, string? Observacoes, ItemTablet[] Itens);
-public record PrepararTablet(int PacienteId, int[] Modelos, DateOnly Nascimento,
-    string IdentidadeConferida);
+// Campos antigos opcionais permitem atualizar o portal e a API separadamente.
+// A coleta usa o paciente selecionado pela equipe, sem reconferência documental.
+public record PrepararTablet(int PacienteId, int[] Modelos, DateOnly? Nascimento = null,
+    string? IdentidadeConferida = null);
 public record EnviarRubrica(Guid Idempotencia, string ConteudoHash,
     Dictionary<int, string?> Respostas, string? AlergiasDetalhes, string TracoPng, bool Confirmo);
 public record RespostasTablet(SortedDictionary<int, string?> Respostas, string? AlergiasDetalhes);

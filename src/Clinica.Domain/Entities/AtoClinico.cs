@@ -306,6 +306,8 @@ public static class TipoDocumentoInfo
 /// </summary>
 public class DocumentoClinico
 {
+    // Evidência das novas coletas do portal. Registros anteriores mantêm o documento conferido.
+    public const string IdentificacaoPorSelecaoDaEquipe = "Paciente selecionado pela equipe no portal";
     public int Id { get; set; }
 
     /// <summary>Número sequencial por ano, no formato <c>2026/0001</c>.</summary>
@@ -659,7 +661,9 @@ public class DocumentoClinico
             if (!string.IsNullOrWhiteSpace(PacienteAssinaturaTestemunha))
                 frase += $", diante de {PacienteAssinaturaTestemunha}";
 
-            if (!string.IsNullOrWhiteSpace(PacienteDocumentoConferido))
+            if (PacienteDocumentoConferido == IdentificacaoPorSelecaoDaEquipe)
+                frase += ". Paciente selecionado pela equipe no portal";
+            else if (!string.IsNullOrWhiteSpace(PacienteDocumentoConferido))
                 frase += $", com {PacienteDocumentoConferido} conferido";
 
             if (!string.IsNullOrWhiteSpace(PacienteAssinaturaHash))

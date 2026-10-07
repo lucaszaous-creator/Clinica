@@ -177,10 +177,6 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
             throw ErroFormularioTablet.Criar("Selecione um ou dois termos pendentes.");
         var p=await db.Pacientes.SingleOrDefaultAsync(x=>x.Id==pedido.PacienteId,ct)
             ?? throw ErroFormularioTablet.Criar("Paciente não encontrado.");
-        if (p.DataNascimento is null || p.DataNascimento!=pedido.Nascimento)
-            throw ErroFormularioTablet.Criar("A data de nascimento não confere. Confira a identidade e o cadastro antes da coleta.");
-        if (string.IsNullOrWhiteSpace(pedido.IdentidadeConferida) || pedido.IdentidadeConferida.Length>150)
-            throw ErroFormularioTablet.Criar("Registre qual documento foi conferido presencialmente.");
         var modelos=await ModelosAsync(ct);
         if(pedido.Modelos.Any(id=>modelos.All(m=>m.Id!=id))) throw ErroFormularioTablet.Criar("Modelo indisponível para este portal.");
         await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
@@ -217,12 +213,12 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
             doc.Paciente=p;
             var conteudo=ContratoTablet.Serializar(ContratoTablet.Fotografar(doc));
             db.ColetasTablet.Add(new ColetaTablet {SessaoId=s.Id,DocumentoId=doc.Id,PacienteId=p.Id,
-                Operadora=Operador(s.Usuario!),IdentidadeConferida=pedido.IdentidadeConferida.Trim(),
+                Operadora=Operador(s.Usuario!),IdentidadeConferida=DocumentoClinico.IdentificacaoPorSelecaoDaEquipe,
                 ConteudoJson=conteudo,ConteudoHash=ContratoTablet.Hash(conteudo),ChaveAtiva=chave,
                 PreparadoEm=Agora,ExpiraEm=Agora+3_600_000 });
         }
         s.Modo="paciente"; // Preserva a validade original do acesso da equipe.
-        await Auditar("TabletEntregue",p.Id,Operador(s.Usuario!),"Acesso restrito aos documentos preparados; identidade conferida",ct);
+        await Auditar("TabletEntregue",p.Id,Operador(s.Usuario!),"Acesso restrito aos documentos preparados; paciente selecionado pela equipe no portal",ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
     }

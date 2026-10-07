@@ -34,7 +34,7 @@ public sealed class ColetaNaEvolucaoHttpTests
             var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
             var a=await db.Agendamentos.FirstAsync(a=>a.Paciente!.Nome=="Paciente fictício 1");paciente=a.PacienteId;agendamento=a.Id;
         }
-        using var resposta=await client.PostAsJsonAsync($"/api/sessoes/{agendamento}/preparar-termos",new {pacienteId=paciente,modelos=new[]{1,2},nascimento="1980-01-15",identidadeConferida="Documento fictício conferido"});
+        using var resposta=await client.PostAsJsonAsync($"/api/sessoes/{agendamento}/preparar-termos",new {pacienteId=paciente,modelos=new[]{1,2}});
         Assert.Equal(HttpStatusCode.OK,resposta.StatusCode);Assert.False(resposta.Headers.Contains("Set-Cookie"));
         var token=JsonDocument.Parse(await resposta.Content.ReadAsStringAsync()).RootElement.GetProperty("token").GetString();
         Assert.Equal(contexto,(await Get("/api/sessao")).GetProperty("contexto").GetString());

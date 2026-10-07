@@ -902,6 +902,8 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         frase.Should().Contain("presencialmente");
         frase.Should().Contain("ana.recepcao", "a testemunha é o que substitui o certificado");
         frase.Should().Contain(assinado.CodigoVerificacao);
+        frase.Should().Contain($"com {assinado.PacienteDocumentoConferido} conferido",
+            "a coleta anterior com documento mantém sua evidência no rodapé");
 
         frase.Should().NotContain("digital",
             "garantia aparente é pior que ausência de garantia — a regra do carimbo "

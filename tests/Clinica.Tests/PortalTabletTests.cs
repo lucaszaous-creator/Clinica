@@ -35,10 +35,10 @@ public sealed class PortalTabletTests : IDisposable
         svc=new(db,repo,new(repo,new(repo),new(repo)),new(repo),pdf,new(repo),new([1,2]),relogio);
     }
     public void Dispose(){db.Dispose();conn.Dispose();}
-    private async Task<(string Token,SessaoTablet Sessao)> Preparar(bool dois=false)
+    private async Task<(string Token,SessaoTablet Sessao)> Preparar(bool dois=false,bool semNascimento=false)
     {
         usuario=await new AcessoService(repo).CriarAsync("Enfermeira fictícia","tabletteste","TabletTeste#2026",PerfilAcesso.Enfermagem);
-        paciente=new(){Nome="Paciente fictício",DataNascimento=new DateOnly(1980,1,15),Convenio=Convenio.UnimedPadrao};
+        paciente=new(){Nome="Paciente fictício",DataNascimento=semNascimento?null:new DateOnly(1980,1,15),Convenio=Convenio.UnimedPadrao};
         db.Pacientes.Add(paciente);
         var tcle=ModelosTermoBsv.Consentimento();tcle.Id=1;
         var bsv=ModelosTermoBsv.TermoDaSessao();bsv.Id=2;
@@ -46,7 +46,7 @@ public sealed class PortalTabletTests : IDisposable
         db.ExigenciasTermo.Add(new(){ModeloDocumentoId=2,Ativa=true,Modalidade=ModalidadeAtendimento.BsvApenas,SoValeNoDiaDoProcedimento=true});
         await db.SaveChangesAsync();
         var s=await svc.EntrarAsync(usuario,"tablet",null,default);
-        await svc.PrepararAsync(s.Sessao,new(paciente.Id,dois?[1,2]:[1],paciente.DataNascimento.Value,"Documento com foto conferido"),default);
+        await svc.PrepararAsync(s.Sessao,new(paciente.Id,dois?[1,2]:[1]),default);
         return s;
     }
     private static EnviarRubrica Envio(ColetaTablet c,string alergia="Não")
@@ -69,6 +69,10 @@ public sealed class PortalTabletTests : IDisposable
             var doc=(await repo.ObterDocumentoAsync(c.DocumentoId))!;
             Assert.Null(doc.AgendamentoId);Assert.Null(doc.EvolucaoId);Assert.Null(doc.ArquivoAssinadoId);
             Assert.True(AssinaturaDoPacienteService.ConteudoIntacto(doc));
+            Assert.Equal(DocumentoClinico.IdentificacaoPorSelecaoDaEquipe,doc.PacienteDocumentoConferido);
+            Assert.Contains("Paciente selecionado pela equipe no portal",doc.FraseAssinaturaPaciente);
+            Assert.DoesNotContain(" conferido",doc.FraseAssinaturaPaciente);
+            Assert.Contains($"{usuario.Nome} ({usuario.Login})",doc.FraseAssinaturaPaciente);
             Assert.Equal("arquivado",c.Estado);
         }
         Assert.Equal(2,await db.ViasAssinadasPaciente.CountAsync());
@@ -267,13 +271,37 @@ public sealed class PortalTabletTests : IDisposable
         db.ChangeTracker.Clear();Assert.Equal(primeiro.Idempotencia,(await db.ColetasTablet.SingleAsync()).Idempotencia);
     }
 
-    [Fact] public async Task Identidade_errada_nao_encerra_coleta_pendente()
+    [Fact] public async Task Paciente_inexistente_nao_encerra_coleta_pendente()
     {
         var s=await Preparar();var outra=await svc.EntrarAsync(usuario,"outro",null,default);
-        var validacao=await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararAsync(outra.Sessao,new(paciente.Id,[1],new DateOnly(1981,1,15),"Documento conferido"),default));
+        var validacao=await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararAsync(outra.Sessao,new(paciente.Id+100,[1]),default));
         Assert.True(ErroFormularioTablet.EhPublico(validacao));
         Assert.Equal("preparado",(await db.ColetasTablet.SingleAsync()).Estado);
         Assert.Equal(1,await db.DocumentosClinicos.CountAsync());Assert.Equal("equipe",outra.Sessao.Modo);
+    }
+
+    [Fact] public async Task Coleta_sem_nascimento_e_documento_cadastrados_registra_selecao_e_responsavel()
+    {
+        var s=await Preparar(semNascimento:true);
+        Assert.Null(paciente.DataNascimento);Assert.Null(paciente.Documento);
+        var coleta=await db.ColetasTablet.SingleAsync();
+        Assert.Equal(DocumentoClinico.IdentificacaoPorSelecaoDaEquipe,coleta.IdentidadeConferida);
+        Assert.Equal($"{usuario.Nome} ({usuario.Login})",coleta.Operadora);
+        var auditoria=await db.Auditoria.SingleAsync(a=>a.Acao=="TabletEntregue");
+        Assert.Equal(paciente.Id,auditoria.PacienteId);Assert.Equal(coleta.Operadora,auditoria.Operador);
+        Assert.DoesNotContain("identidade conferida",auditoria.Detalhe);
+        await svc.ReceberAsync(s.Sessao,coleta.Id,Envio(coleta),default);
+        await svc.FinalizarAsync(coleta.Id,default);
+        Assert.Equal("arquivado",coleta.Estado);
+    }
+
+    [Fact] public async Task Cliente_antigo_nao_impoe_reconferencia_nem_inventa_evidencia_documental()
+    {
+        await Preparar();var equipe=await svc.EntrarAsync(usuario,"outro",null,default);
+        await svc.PrepararAsync(equipe.Sessao,new(paciente.Id,[1],new DateOnly(1981,1,15),"CPF informado pelo cliente antigo"),default);
+        var coleta=await db.ColetasTablet.SingleAsync(c=>c.SessaoId==equipe.Sessao.Id);
+        Assert.Equal(DocumentoClinico.IdentificacaoPorSelecaoDaEquipe,coleta.IdentidadeConferida);
+        Assert.Equal("paciente",equipe.Sessao.Modo);
     }
 
 
@@ -369,7 +397,7 @@ public sealed class PortalTabletTests : IDisposable
         var medico=new Profissional {Nome="Médico fictício"};db.Profissionais.Add(medico);await db.SaveChangesAsync();
         var ag=new Agendamento {PacienteId=paciente.Id,ProfissionalId=medico.Id,DataHora=svc.Hoje.ToDateTime(new TimeOnly(10,0)),ModalidadePrevista=ModalidadeAtendimento.BsvComAcupuntura};
         db.Agendamentos.Add(ag);await db.SaveChangesAsync();
-        var pedido=new PrepararTablet(paciente.Id,[1,2],paciente.DataNascimento!.Value,"Documento conferido");
+        var pedido=new PrepararTablet(paciente.Id,[1,2]);
         await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararNaEvolucaoAsync(equipe.Sessao,ag.Id,pedido with {PacienteId=paciente.Id+100},default));
         var token=await svc.PrepararNaEvolucaoAsync(equipe.Sessao,ag.Id,pedido,default);
         var coleta=await svc.AutorizarAsync(token,"tablet",false,default);

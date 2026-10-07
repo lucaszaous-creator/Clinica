@@ -45,12 +45,25 @@ por cota do GitHub. Isso não equivale a atualização dos computadores da clín
 
 ## Fluxo assistencial
 
-O paciente lê e rubrica individualmente cada documento. A enfermeira confere
-identidade e opera o tablet; não assina como profissional. A via pertence ao
+O paciente lê e rubrica individualmente cada documento. A enfermeira seleciona
+o paciente no portal e opera o tablet; não assina como profissional. A via pertence ao
 prontuário e à versão apresentada, independentemente de existir agendamento.
 Assinatura não confirma atendimento, alta, sessão, guias ou faturamento.
 Alergia exige resposta explícita. Respostas que exigem atenção ficam registradas
 para avaliação clínica. A coleta não libera procedimento.
+
+A preparação dos termos usa apenas o paciente selecionado e os modelos pendentes,
+sem pedir novamente CPF, documento ou data de nascimento. O registro da coleta e
+o rodapé da nova via indicam a seleção pela equipe e mantêm a identificação da
+profissional autenticada, sem afirmar que houve conferência documental. As vias
+anteriores preservam suas evidências e seus arquivos originais.
+
+As rotas `/api/preparar` e `/api/sessoes/{id}/preparar-termos` aceitam o corpo
+`{"pacienteId":123,"modelos":[1,2]}`. Campos legados `nascimento` e
+`identidadeConferida` são opcionais e ignorados. Publicar a API antes da interface
+permite a transição sem interromper clientes anteriores; esta alteração não exige
+migração. Permissões, vínculo com o paciente e a sessão, declarações, confirmação
+da assinatura e proteção contra duplicidade permanecem obrigatórios.
 
 TCLE contínuo segue cobertura pelo modelo; termo diário usa a exigência ativa
 `SoValeNoDiaDoProcedimento` e data de São Paulo. Configurar os dois modelos
