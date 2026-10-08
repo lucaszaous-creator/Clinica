@@ -3,7 +3,8 @@ import {MotionConfig} from 'motion/react';
 import type {ReactNode} from 'react';
 import '@mantine/core/styles.css';
 
-const marca: MantineColorsTuple=['#f4f4fc','#e9eafa','#d4d8f2','#b8c1e9','#97a5df','#7187d4','#2848ce','#1d38ac','#233b87','#26355f'];
+// Degraus existentes em Styles/Tokens.xaml, sem interpolar novos tons.
+const marca: MantineColorsTuple=['#EEF3FC','#D8E3F7','#B0D3F3','#B0D3F3','#5E87D9','#3F62C9','#123A9E','#0A2E86','#07329A','#071F5C'];
 const tema=createTheme({
  primaryColor:'marca',primaryShade:6,colors:{marca},fontFamily:'Inter, sans-serif',
  defaultRadius:'md',fontSizes:{xs:'12px',sm:'13px',md:'14px',lg:'16px',xl:'20px'},

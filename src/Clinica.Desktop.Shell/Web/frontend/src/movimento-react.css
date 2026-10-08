@@ -1,11 +1,11 @@
-/* Movimento funcional. A paleta pertence aos componentes, não às animações. */
+/* Movimento funcional. A paleta pertence aos componentes, nÃƒÆ’Ã‚Â£o ÃƒÆ’Ã‚Â s animaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes. */
 :root{--duracao-interacao:160ms;--curva-interacao:cubic-bezier(.2,.7,.2,1)}
 #app .dialogo-web:not(.dialogo-react){animation:dialogo-entrar 180ms var(--curva-interacao);transform-origin:50% 35%}
 #app .fundo-dialogo{animation:fundo-entrar 140ms ease-out}
 #app .submenu-topo:not([hidden]),#app .menu-usuario,#app .menu-expandido,#app [popover]:popover-open,#app .acoes-menu[open] .acoes-menu-painel{animation:menu-entrar 140ms var(--curva-interacao)}
 #app button,#app input,#app select,#app textarea,#app .registro-cartao,#app .agenda-sessao{transition:background-color var(--duracao-interacao),border-color var(--duracao-interacao),box-shadow var(--duracao-interacao),color var(--duracao-interacao)}
 #app .toast{animation:aviso-entrar 180ms ease-out}
-/* Quebra por conteúdo, sem cortar comandos ou depender de rolagem lateral. */
+/* Quebra por conteÃƒÆ’Ã‚Âºdo, sem cortar comandos ou depender de rolagem lateral. */
 #app :is(.pagina-web,.secao-web,.campos-web,.campo-web,.dialogo-corpo,.cabecalho-secao,.cabecalho-pagina,.acoes-web){min-width:0;max-width:100%}
 #app .botao{white-space:normal;overflow-wrap:anywhere;max-width:100%}
 #app .campo-web :is(input,select,textarea){min-width:0;max-width:100%}

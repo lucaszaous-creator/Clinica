@@ -1,0 +1,23 @@
+/* Fonte: Styles/Tokens.xaml (Cor.Azul.*, Cor.Cinza.*, estados) e logo-cor.png.
+   AtenÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ÃƒÆ’Ã‚Â¢mbar funcional jÃƒÆ’Ã‚Â¡ usado no status-celula.css. InformaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o usa azul da marca, sem ciano. */
+:root{
+ --marca:#123A9E;--marca-hover:#0A2E86;--marca-suave:#EEF3FC;--marca-borda:#D8E3F7;--foco:#3F62C9;
+ --azul-marinho:#071F5C;--texto-primario:var(--azul-marinho);--texto-secundario:#6B7280;
+ --fundo-geral:#F8FAFC;--superficie:#FFFFFF;--borda:#E5E7EB;--borda-hover:#D1D5DB;
+ --superficie-filtro:#F1F5F9;--texto:var(--texto-primario);--suave:var(--texto-secundario);--linha:var(--borda);--fundo:var(--fundo-geral);
+ --estado-sucesso:#15803D;--estado-sucesso-fundo:#F0FDF4;
+ --estado-atencao:#875B16;--estado-atencao-fundo:#FFF6DF;
+ --estado-erro:#B91C1C;--estado-erro-fundo:#FEE2E2;--estado-erro-borda:#FEE2E2;
+ --estado-info:var(--marca);--estado-info-fundo:var(--marca-suave);
+ --verde:var(--estado-sucesso);--vermelho:var(--estado-erro);
+}
+#app :is(h1,h2,h3,h4){color:var(--azul-marinho)}
+#app .nav-gatilho.ativo,#app .rota.ativo{color:var(--marca);background:var(--marca-suave)}
+#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled){background:var(--marca);border-color:var(--marca)}
+#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled):hover{background:var(--marca-hover);border-color:var(--marca-hover)}
+#app .toast:not(.toast-erro){background:var(--azul-marinho)}
+#app .indicador-web[data-tom=positivo]>strong,#app .indicador-web[data-tom=saida]>strong{color:var(--texto)}
+#app .resumo-react :is(.financeiro-serie-entrada,.financeiro-serie-saida) .numero-serie,
+#app .resumo-react .movimentos :is(.valor-entrada,.valor-saida){color:var(--texto)}
+#app .resumo-react .grafico.entrada .curva{stroke:var(--marca)}
+#app .resumo-react .grafico.saida .curva{stroke:var(--suave)}

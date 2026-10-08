@@ -25,3 +25,7 @@ A referência de implementação é `src/Clinica.Modulo.Financeiro/Web/`. Este p
 Antes de publicar uma migração, conferir a paridade com o inventário de rotas e ações existente. Exercitar navegação e operações com WebView2 real e banco sintético, incluindo criação/edição/cancelamento, validações, acesso negado, estados vazios e tamanhos de notebook. Capturas de uma única página ou testes que apenas comprovam compilação não demonstram que um módulo inteiro foi migrado.
 
 Manter as verificações determinísticas do repositório, CI e PR antes de integrar à `main`. Publicar apenas os canais autorizados e conferir o instalador e o índice de atualização. Relatar separadamente revisão de código, inspeção visual, testes executados e publicação; não atribuir aprovação a um agente ou ao Jev sem resposta efetiva e escopo documentado.
+
+## Identidade visual obrigatória — orientação do proprietário em 08/10/2026
+
+Antes de alterar CSS, inspecionar o logotipo, Tokens.xaml e componentes existentes. Preservar os azuis SemDor, branco e cinzas frios. A fonte web compartilhada é `cores-semdor.css`, carregada por último nos dois frontends. Principal #123A9E, marinho #071F5C e seleção #EEF3FC vêm dos tokens existentes. Não inventar paletas nem tons principais. Sem roxo, ciano, gradientes, sombras coloridas ou superfícies saturadas. Verde, vermelho e âmbar somente em estados funcionais; informação usa o azul da marca. Preservar a marca, a composição aprovada e os movimentos funcionais. Em caso de dúvida, manter a cor atual documentada.

@@ -13,6 +13,7 @@ import {ligarControles,emDesenho} from './controles';
 import {filtroTreinamento,prepararVideo} from './treinamento';
 import {guardarRascunho,limparRascunhos,type Contexto} from './paginas';
 import './clinica-componentes.css';
+import './cores-semdor.css';
 
 type Mensagem={acao:string;valor?:unknown;chave?:string;contexto?:string;id?:string;tabela?:string;linha?:string};
 type Estado=EstadoSuite;

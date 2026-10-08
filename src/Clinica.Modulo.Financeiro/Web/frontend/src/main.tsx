@@ -18,6 +18,7 @@ import { ProvedorClinica } from '../../../../Clinica.Desktop.Shell/Web/frontend/
 import '../../../../Clinica.Desktop.Shell/Web/frontend/src/movimento-react.css';
 import '../../../../Clinica.Desktop.Shell/Web/frontend/src/clinica-componentes.css';
 import './financeiro-react.css';
+import '../../../../Clinica.Desktop.Shell/Web/frontend/src/cores-semdor.css';
 import { House, Landmark, Wallet, ChartNoAxesCombined, ArrowDownLeft, ArrowUpRight, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, Menu, Download, RefreshCw, X, Receipt, Check, CalendarDays, ArrowLeftRight, Package, Settings2, Rows3, CircleHelp, CreditCard, Expand, ArrowUp, ArrowDown, History, QrCode, Eye, EyeOff, ListChecks, Users, ChartColumn, type IconNode } from 'lucide';
 
 type Linha = { id: string; data: string; descricao: string; categoria: string; situacao: string; valor: string; podeRealizar: boolean; podeCancelar: boolean; ehEntrada: boolean };

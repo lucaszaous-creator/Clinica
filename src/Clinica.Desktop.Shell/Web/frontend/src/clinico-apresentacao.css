@@ -1,7 +1,7 @@
 #app .clinico-cabecalho{margin:0 0 24px;min-width:0}
 #app .clinico-titulo{display:flex;align-items:baseline;gap:14px;margin:0 0 14px}
 #app .clinico-titulo h1{margin:0;color:#26384c;font-size:20px;font-weight:600;letter-spacing:-.35px;line-height:1.3}
-#app .clinico-subtitulo{margin:0;font-size:13px;color:#667085;line-height:1.45}
+#app .clinico-subtitulo{margin:0;font-size:13px;color:var(--suave);line-height:1.45}
 #app .clinico-identidade{display:flex;align-items:center;gap:20px;background:#203d60;border-radius:10px 10px 0 0;padding:20px 24px;color:#fff;min-width:0}
 #app .clinico-identidade-texto{flex:1;min-width:0;display:grid;gap:5px}
 #app .clinico-identidade .campo-web{margin:0;gap:0;background:transparent;border:0;padding:0;box-shadow:none}

@@ -1,5 +1,5 @@
-/* Identidade da suíte: contraste funcional, densidade de trabalho e hierarquia consistente. */
-:root{--marca:#315bd4;--marca-hover:#2448b2;--texto:#263750;--suave:#60718a;--linha:#d6e0ec;--fundo:#e8eef5;--verde:#28735b;--vermelho:#b54748;color:var(--texto);background:var(--fundo)}
+/* Identidade da suÃƒÆ’Ã‚Â­te: contraste funcional, densidade de trabalho e hierarquia consistente. */
+
 body,#app .conteudo{background:var(--fundo)}
 #app .conteudo{padding-top:22px}
 #app .topbar{background:#fff;border-bottom:1px solid var(--linha);box-shadow:none}
@@ -24,7 +24,7 @@ body,#app .conteudo{background:var(--fundo)}
 #app .botao.perigo{background:#fff;border-color:#ead3d3;color:#ad3c3c}
 #app .botao.perigo:hover:not(:disabled){background:#fff4f3;border-color:#dcb9b7}
 #app .botao:disabled{background:#f4f5f7;border-color:#e6e8ed;color:#9298a3;opacity:.7;box-shadow:none}
-#app .nav-gatilho.ativo,#app .rota.ativo{background:#315bd4;color:#fff;font-weight:500}
+#app .nav-gatilho.ativo,#app .rota.ativo{background:var(--marca);color:#fff;font-weight:500}
 #app .ancoras-secoes{flex-wrap:wrap;overflow:visible;gap:6px;padding:0 0 14px;border-bottom:1px solid var(--linha)}
 #app .ancoras-secoes button{background:transparent;border-color:transparent;color:#596273;padding:7px 10px;border-radius:5px;font-weight:400}
 #app .ancoras-secoes button:hover{background:#eceef3;color:var(--texto)}
@@ -44,7 +44,7 @@ body,#app .conteudo{background:var(--fundo)}
 #app .dialogo-corpo{background:#f6f8fb}
 #app .dialogo-descricao{white-space:pre-line;margin:0 0 22px;padding:0 0 16px;background:transparent;border:0;border-bottom:1px solid var(--linha);border-radius:0;color:var(--suave);line-height:1.6}
 #app .editor-web{border-color:#dfe3e9;box-shadow:none;border-radius:8px}
-#app .editor-web>label,#app .editor-ferramentas{background:#f8f9fb;border-color:var(--linha);color:#475467}
+#app .editor-web>label,#app .editor-ferramentas{background:var(--superficie-filtro);border-color:var(--linha);color:#475467}
 #app .editor-conteudo{background:#fff;min-height:160px}
 #app .editor-conteudo[contenteditable="false"]{min-height:60px}
 #app .indicadores-web{display:flex;flex-wrap:wrap;gap:0;background:#fdfefe;border:1px solid #d3deec;border-radius:10px;overflow:hidden;margin-bottom:22px}
@@ -58,7 +58,7 @@ body,#app .conteudo{background:var(--fundo)}
 @media(max-width:1100px){#app .cabecalho-pagina{flex-wrap:wrap}#app .cabecalho-pagina>.acoes-web{max-width:100%}#app .secao-web{padding:20px}#app .campos-web{grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr))}}
 @media(max-width:700px){#app .conteudo{padding-left:12px;padding-right:12px}#app .secao-web,#app .pagina-web>.campos-web{padding:16px}}
 
-/* Contexto do paciente e filtros têm superfície própria; o corpo clínico permanece legível. */
+/* Contexto do paciente e filtros tÃƒÆ’Ã‚Âªm superfÃƒÆ’Ã‚Â­cie prÃƒÆ’Ã‚Â³pria; o corpo clÃƒÆ’Ã‚Â­nico permanece legÃƒÆ’Ã‚Â­vel. */
 #app .cabecalho-secao{padding:0 0 14px;background:transparent;border-radius:0;border-bottom:1px solid #dfe7f0;margin-bottom:18px}
 #app .secao-web .titulo-tabela h3{color:#52627b}
 #app .dados-paciente-resumo{background:#eaf0fc;border-color:#cdd9ee}

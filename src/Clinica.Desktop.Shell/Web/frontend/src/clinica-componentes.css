@@ -1,18 +1,18 @@
-/* Composição recuperada do Financeiro original: superfícies neutras, ações pontuais e estados com texto. */
-:root{--marca:#2848ce;--marca-hover:#1d38ac;--texto:#202633;--suave:#667085;--linha:#e7eaf0;--fundo:#f5f6f8;--superficie-filtro:#f8f9fb;--foco:#2848ce;--verde:#267250;--vermelho:#ad493e}
+/* ComposiÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o recuperada do Financeiro original: superfÃƒÆ’Ã‚Â­cies neutras, aÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes pontuais e estados com texto. */
+
 #app .agendamento-estacao{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.34fr);gap:22px;align-items:start}
 #app .agendamento-trabalho,#app .agendamento-contexto{display:flex;flex-direction:column;gap:20px;min-width:0}
 #app .agendamento-contexto{position:sticky;top:0}
-#app .agendamento-bloco{background:#fff;border-color:#e7eaf0}
+#app .agendamento-bloco{background:#fff;border-color:var(--linha)}
 #app .agendamento-bloco .campos-web{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));margin-bottom:0}
-#app .agendamento-paciente{background:#f8f9fb;border-color:#e7eaf0}
-#app .agendamento-conferencia{background:#f8f9fb;border-color:#e7eaf0}
+#app .agendamento-paciente{background:var(--superficie-filtro);border-color:var(--linha)}
+#app .agendamento-conferencia{background:var(--superficie-filtro);border-color:var(--linha)}
 #app .agendamento-contexto .campos-web{display:flex;flex-direction:column;gap:12px;background:transparent;border:0;padding:0}
-#app .agendamento-contexto .campo-web.campo-leitura{border-color:#e7eaf0}
-#app .agendamento-conferencia .campo-web.campo-leitura{border-color:#e7eaf0}
+#app .agendamento-contexto .campo-web.campo-leitura{border-color:var(--linha)}
+#app .agendamento-conferencia .campo-web.campo-leitura{border-color:var(--linha)}
 #app .modalidades-procedimentos{display:grid;grid-template-columns:1fr;gap:9px;margin-bottom:18px}
-#app .modalidade-procedimento{background:#fff;border-color:#e7eaf0}
-#app .modalidade-procedimento:hover{background:#f5f6f8}
+#app .modalidade-procedimento{background:#fff;border-color:var(--linha)}
+#app .modalidade-procedimento:hover{background:var(--fundo)}
 #app .modalidade-descricao{min-width:0;flex:1 1 180px}
 #app .prontuario-estacao .clinico-identidade{display:flex;align-items:center;gap:20px}
 #app .prontuario-estacao .clinico-identidade-texto{flex:1;min-width:180px}
@@ -24,28 +24,28 @@
 #app .prontuario-estacao .clinico-barra{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:0 12px}
 #app .prontuario-estacao .clinico-abas{flex:1;gap:0;padding:0}
 #app .prontuario-estacao .clinico-menus{padding:10px;border:0;display:flex;gap:8px}
-#app .prontuario-sobretitulo{color:#667085;letter-spacing:1.2px;margin-bottom:5px;font-weight:600}
+#app .prontuario-sobretitulo{color:var(--suave);letter-spacing:1.2px;margin-bottom:5px;font-weight:600}
 #app .ficha-blocos{display:grid;grid-template-columns:1.1fr 1fr .9fr;gap:24px}
-#app .ficha-bloco{min-width:0;padding:16px 20px;border-radius:8px;background:#f8f9fb}
-#app .ficha-bloco:nth-child(2){background:#f8f9fb}
-#app .ficha-bloco:nth-child(3){background:#f8f9fb}
+#app .ficha-bloco{min-width:0;padding:16px 20px;border-radius:8px;background:var(--superficie-filtro)}
+#app .ficha-bloco:nth-child(2){background:var(--superficie-filtro)}
+#app .ficha-bloco:nth-child(3){background:var(--superficie-filtro)}
 #app .ficha-bloco .campos-web{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}
 #app .ficha-bloco .campo-web{border:0;padding-bottom:0}
 #app .ficha-bloco .campo-largo{grid-column:1/-1}
-#app .prontuario-contexto-sessao{background:#f8f9fb;border-color:#e7eaf0;margin-bottom:20px}
+#app .prontuario-contexto-sessao{background:var(--superficie-filtro);border-color:var(--linha);margin-bottom:20px}
 #app .prontuario-contexto-sessao .campos-web{margin-bottom:0}
-#app .historico-sessao{background:#fff;border-color:#e7eaf0}
+#app .historico-sessao{background:#fff;border-color:var(--linha)}
 #app .historico-descricao{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:14px;margin-block:18px}
-#app .historico-descricao dt{font-size:12px;color:#667085;margin-bottom:5px}
-#app .historico-descricao dd{margin:0;color:#202633;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
+#app .historico-descricao dt{font-size:12px;color:var(--suave);margin-bottom:5px}
+#app .historico-descricao dd{margin:0;color:var(--texto);white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
 #app .historico-sessao .editor-web{grid-column:1/-1}
 #app .historico-sessao .editor-conteudo[contenteditable=false]{min-height:80px}
 #app .gestao-estacao{display:flex;flex-direction:column;gap:22px}
-#app .gestao-resultados{background:#f8f9fb;border-color:#e7eaf0}
+#app .gestao-resultados{background:var(--superficie-filtro);border-color:var(--linha)}
 #app .gestao-resultados .indicadores-web{margin:0;border:0;background:transparent}
-#app .gestao-consulta{background:#f8f9fb;border-color:#e7eaf0}
+#app .gestao-consulta{background:var(--superficie-filtro);border-color:var(--linha)}
 #app .gestao-consulta .campos-web{margin-bottom:0}
-#app .configuracao-area{display:grid;grid-template-columns:minmax(180px,.25fr) minmax(0,1fr);gap:30px;align-items:start;padding-bottom:10px;border-bottom:1px solid #e7eaf0}
+#app .configuracao-area{display:grid;grid-template-columns:minmax(180px,.25fr) minmax(0,1fr);gap:30px;align-items:start;padding-bottom:10px;border-bottom:1px solid var(--linha)}
 #app .configuracao-descricao{padding-top:20px;line-height:1.6}
 #app .configuracao-area .secao-web{margin-bottom:0}
 #app .configuracao-area .cabecalho-secao h2{font-size:15px}
@@ -56,119 +56,119 @@
 body,#app .conteudo{background:var(--fundo);color:var(--texto)}
 #app .conteudo{padding:26px clamp(18px,3.2vw,60px) 0}
 #app .pagina-web{max-width:1680px;margin-inline:auto;animation:none}
-#app .topbar{border-bottom-color:#e7eaf0;background:#fff}
-#app .nav-gatilho.ativo,#app .rota.ativo{background:#f0f2f7;color:#1d38ac}
-#app .nav-gatilho:hover,#app .rota:hover{background:#f0f2f7;color:#1d38ac}
-#app .avatar{background:#f0f1f6;color:#667085}
+#app .topbar{border-bottom-color:var(--linha);background:#fff}
+#app .nav-gatilho.ativo,#app .rota.ativo{background:#f0f2f7;color:var(--marca-hover)}
+#app .nav-gatilho:hover,#app .rota:hover{background:#f0f2f7;color:var(--marca-hover)}
+#app .avatar{background:#f0f1f6;color:var(--suave)}
 #app .cabecalho-pagina{align-items:center;padding-bottom:18px;margin-bottom:20px}
-#app .cabecalho-pagina h1{font-size:26px;color:#202633;letter-spacing:-.7px}
-#app .cabecalho-pagina p{color:#667085;line-height:1.5}
-#app .secao-web{border:1px solid #e7eaf0;border-radius:12px;box-shadow:0 2px 5px #263c3005;padding:22px;margin-bottom:22px}
+#app .cabecalho-pagina h1{font-size:26px;color:var(--texto);letter-spacing:-.7px}
+#app .cabecalho-pagina p{color:var(--suave);line-height:1.5}
+#app .secao-web{border:1px solid var(--linha);border-radius:12px;box-shadow:0 2px 5px #00000005;padding:22px;margin-bottom:22px}
 #app .secao-web>.cabecalho-secao{border-color:#edf0f3;padding-bottom:15px}
-#app .secao-web>.cabecalho-secao h2{color:#202633;font-size:17px}
-#app .pagina-web>.campos-web,#app .campos-filtros{background:#f8f9fb;border:1px solid #e7eaf0;padding:18px 20px;border-radius:10px}
+#app .secao-web>.cabecalho-secao h2{color:var(--texto);font-size:17px}
+#app .pagina-web>.campos-web,#app .campos-filtros{background:var(--superficie-filtro);border:1px solid var(--linha);padding:18px 20px;border-radius:10px}
 #app .campo-web{gap:7px;min-width:0}
-#app .campo-web>label{color:#667085;font-size:12px;font-weight:600}
-#app .campo-web :is(input,select,textarea){border:1px solid #e7eaf0;background:#fff;border-radius:7px;color:#202633;font-family:inherit;font-size:14px;min-height:39px;width:100%}
+#app .campo-web>label{color:var(--suave);font-size:12px;font-weight:600}
+#app .campo-web :is(input,select,textarea){border:1px solid var(--linha);background:#fff;border-radius:7px;color:var(--texto);font-family:inherit;font-size:14px;min-height:39px;width:100%}
 #app .campo-web textarea{padding:11px 13px}
 #app .campo-web .mantine-Input-wrapper,#app .campo-web .mantine-Input-root{min-width:0;width:100%}
 #app .campo-web .mantine-NativeSelect-input{padding-right:30px}
-#app .campo-web:focus-within>label{color:#1d38ac}
-#app .campo-web :is(input,select,textarea):focus{border-color:#2848ce;box-shadow:0 0 0 3px #2848ce14}
+#app .campo-web:focus-within>label{color:var(--marca-hover)}
+#app .campo-web :is(input,select,textarea):focus{border-color:var(--marca);box-shadow:0 0 0 3px #00000014}
 #app :is(button,input,select,textarea,summary,[contenteditable]):focus-visible{outline:3px solid #2848ce55;outline-offset:3px}
-#app .campo-web output{color:#202633;line-height:1.55}
+#app .campo-web output{color:var(--texto);line-height:1.55}
 #app .campo-web.campo-leitura{padding-bottom:10px;border-bottom:1px solid #edf0f3}
-#app .botao{background:#fff;border:1px solid #e7eaf0;color:#525e77;border-radius:7px;padding:8px 12px;box-shadow:none;font-size:13px;min-height:36px}
-#app .botao:hover:not(:disabled){background:#f0f2f7;border-color:#d8deea;color:#1d38ac}
-#app .botao.primario,#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled){background:#2848ce;border-color:#2848ce;color:white}
-#app .botao.primario:hover:not(:disabled){background:#1d38ac;border-color:#1d38ac;color:white}
-#app .botao.perigo{background:#fff7f2;border-color:#e6c9be;color:#a14334}
+#app .botao{background:#fff;border:1px solid var(--linha);color:#525e77;border-radius:7px;padding:8px 12px;box-shadow:none;font-size:13px;min-height:36px}
+#app .botao:hover:not(:disabled){background:#f0f2f7;border-color:#d8deea;color:var(--marca-hover)}
+#app .botao.primario,#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled){background:var(--marca);border-color:var(--marca);color:white}
+#app .botao.primario:hover:not(:disabled){background:var(--marca-hover);border-color:var(--marca-hover);color:white}
+#app .botao.perigo{background:var(--estado-erro-fundo);border-color:var(--estado-erro-borda);color:var(--estado-erro)}
 #app .botao:disabled{background:#f1f2f5;border-color:#edf0f3;color:#9097a3;opacity:.75}
 #app .mantine-Button-label{white-space:normal;overflow:visible}
 #app .mantine-Button-inner{height:auto}
-#app .indicadores-web{background:#f8f9fb;border-color:#d8deea;border-radius:10px}
-#app .indicador-web{border-right-color:#e7eaf0;padding:16px 22px}
-#app .indicador-web strong{color:#202633;font-size:26px;font-variant-numeric:tabular-nums}
-#app .indicador-web span{color:#667085}
-#app .ancoras-secoes{gap:5px;border-color:#e7eaf0}
-#app .ancoras-secoes button{background:transparent;border-color:transparent;color:#667085;padding:8px 12px}
-#app .ancoras-secoes button:hover{background:#f0f2f7;border-color:#d8deea;color:#2848ce}
-#app .dialogo-web{border-radius:12px;border-color:#e7eaf0}
-#app .dialogo-cabecalho{background:#f0f2f7;border-color:#e7eaf0;padding:18px 24px;color:#202633}
-#app .dialogo-cabecalho h2,#app .dialogo-cabecalho .icone-botao{color:#202633}
+#app .indicadores-web{background:var(--superficie-filtro);border-color:#d8deea;border-radius:10px}
+#app .indicador-web{border-right-color:var(--linha);padding:16px 22px}
+#app .indicador-web strong{color:var(--texto);font-size:26px;font-variant-numeric:tabular-nums}
+#app .indicador-web span{color:var(--suave)}
+#app .ancoras-secoes{gap:5px;border-color:var(--linha)}
+#app .ancoras-secoes button{background:transparent;border-color:transparent;color:var(--suave);padding:8px 12px}
+#app .ancoras-secoes button:hover{background:#f0f2f7;border-color:#d8deea;color:var(--marca)}
+#app .dialogo-web{border-radius:12px;border-color:var(--linha)}
+#app .dialogo-cabecalho{background:#f0f2f7;border-color:var(--linha);padding:18px 24px;color:var(--texto)}
+#app .dialogo-cabecalho h2,#app .dialogo-cabecalho .icone-botao{color:var(--texto)}
 #app .dialogo-corpo{background:#fff}
-#app .dialogo-rodape{background:#f0f2f7;border-color:#e7eaf0}
-#app .dialogo-descricao{color:#667085;border-color:#e7eaf0}
-#app .editor-web{border-color:#e7eaf0}
-#app .editor-web>label,#app .editor-ferramentas{background:#f0f2f7;color:#202633}
-#app .editor-conteudo{background:#fff;color:#202633;line-height:1.7}
-#app .tabela-scroll{width:100%;max-width:100%;border-color:#e7eaf0}
+#app .dialogo-rodape{background:#f0f2f7;border-color:var(--linha)}
+#app .dialogo-descricao{color:var(--suave);border-color:var(--linha)}
+#app .editor-web{border-color:var(--linha)}
+#app .editor-web>label,#app .editor-ferramentas{background:#f0f2f7;color:var(--texto)}
+#app .editor-conteudo{background:#fff;color:var(--texto);line-height:1.7}
+#app .tabela-scroll{width:100%;max-width:100%;border-color:var(--linha)}
 #app table{width:100%;min-width:0;table-layout:fixed}
 #app th,#app td{min-width:0;white-space:normal;overflow-wrap:anywhere;padding:12px 14px}
-#app th{background:#f8f9fb;color:#667085;border-color:#e7eaf0}
-#app td{color:#202633;border-color:#edf0f3}
-#app tbody tr:nth-child(even){background:#f5f6f8}
-#app tbody tr:hover,#app .registro-cartao:hover{background:#f5f6f8}
+#app th{background:var(--superficie-filtro);color:var(--suave);border-color:var(--linha)}
+#app td{color:var(--texto);border-color:#edf0f3}
+#app tbody tr:nth-child(even){background:var(--fundo)}
+#app tbody tr:hover,#app .registro-cartao:hover{background:var(--fundo)}
 #app .linha-selecionada{background:#f0f2f7!important}
 #app .ordenar-coluna{border:0;background:transparent;color:inherit;font:inherit;display:flex;align-items:center;gap:6px;text-align:left;padding:0;width:100%}
-#app .ordenar-coluna span{color:#667085;font-size:13px;flex-shrink:0}
-#app .titulo-tabela,#app .secao-web .titulo-tabela h3{color:#667085}
-#app .registro-cartao{border-color:#e7eaf0;background:#fff;border-radius:8px;border-left-width:1px;box-shadow:none;gap:18px}
-#app .registro-cartao:nth-child(even){background:#f5f6f8}
-#app .registro-detalhes[open]{background:#f8f9fb;border-radius:6px}
-#app .registro-detalhes>summary,#app .registro-detalhes[open]>summary{color:#2848ce}
-#app .registro-resumo dt{color:#667085}
-#app .registro-resumo dd{color:#202633}
-#app .registro-cartao h4{color:#202633}
+#app .ordenar-coluna span{color:var(--suave);font-size:13px;flex-shrink:0}
+#app .titulo-tabela,#app .secao-web .titulo-tabela h3{color:var(--suave)}
+#app .registro-cartao{border-color:var(--linha);background:#fff;border-radius:8px;border-left-width:1px;box-shadow:none;gap:18px}
+#app .registro-cartao:nth-child(even){background:var(--fundo)}
+#app .registro-detalhes[open]{background:var(--superficie-filtro);border-radius:6px}
+#app .registro-detalhes>summary,#app .registro-detalhes[open]>summary{color:var(--marca)}
+#app .registro-resumo dt{color:var(--suave)}
+#app .registro-resumo dd{color:var(--texto)}
+#app .registro-cartao h4{color:var(--texto)}
 #app .registro-cartao .acoes-na-linha{align-self:center}
-#app .acoes-menu-painel{border-color:#e7eaf0;background:#fff}
+#app .acoes-menu-painel{border-color:var(--linha);background:#fff}
 #app .acoes-menu-painel .botao{background:transparent;border-color:transparent;justify-content:flex-start;text-align:left}
 #app .acoes-menu-painel .botao:hover{background:#f0f2f7}
 #app .profissional-ativo>.botao{background:#f0f1f6;border-color:#d8deea;color:#525e77}
 #app .profissional-ativo [data-coluna="Quantidade"]{color:#525e77}
-#app .dados-paciente-resumo{background:#f8f9fb;border-color:#e4d8c1;color:#6a5536}
-#app .passo-formulario{border-color:#e7eaf0;box-shadow:none}
-#app .passo-formulario>header{background:#f8f9fb;border-color:#e7eaf0;color:#202633}
-#app .clinico-identidade{background:#f8f9fb;color:#202633;border:1px solid #e7eaf0;border-bottom:0;padding:22px 24px}
+#app .dados-paciente-resumo{background:var(--superficie-filtro);border-color:#e4d8c1;color:#6a5536}
+#app .passo-formulario{border-color:var(--linha);box-shadow:none}
+#app .passo-formulario>header{background:var(--superficie-filtro);border-color:var(--linha);color:var(--texto)}
+#app .clinico-identidade{background:var(--superficie-filtro);color:var(--texto);border:1px solid var(--linha);border-bottom:0;padding:22px 24px}
 #app .clinico-identidade .campo-web{border:0;padding:0}
-#app .clinico-identidade .campo-web output,#app .clinico-identidade .clinico-nome output{color:#202633}
-#app .clinico-identidade .clinico-contexto output{color:#667085}
-#app .clinico-cabecalho .clinico-acoes{border-color:#e7eaf0;background:#fff}
-#app .clinico-cabecalho .botao.clinico-aba{color:#667085;background:transparent}
-#app .clinico-cabecalho .botao.clinico-aba-ativa{background:#f0f2f7;color:#202633;border-bottom-color:#d8deea}
-#app .clinico-cabecalho .botao.clinico-aba:hover{background:#f0f2f7;color:#202633}
-#app .pacientes-sugestoes{border-color:#e7eaf0;background:#fff}
-#app .pacientes-sugestoes-titulo{background:#f8f9fb;color:#202633}
-#app .pacientes-sugestoes-lista button:hover,#app .pacientes-sugestoes-lista button:focus{background:#f0f2f7;color:#202633}
+#app .clinico-identidade .campo-web output,#app .clinico-identidade .clinico-nome output{color:var(--texto)}
+#app .clinico-identidade .clinico-contexto output{color:var(--suave)}
+#app .clinico-cabecalho .clinico-acoes{border-color:var(--linha);background:#fff}
+#app .clinico-cabecalho .botao.clinico-aba{color:var(--suave);background:transparent}
+#app .clinico-cabecalho .botao.clinico-aba-ativa{background:#f0f2f7;color:var(--texto);border-bottom-color:#d8deea}
+#app .clinico-cabecalho .botao.clinico-aba:hover{background:#f0f2f7;color:var(--texto)}
+#app .pacientes-sugestoes{border-color:var(--linha);background:#fff}
+#app .pacientes-sugestoes-titulo{background:var(--superficie-filtro);color:var(--texto)}
+#app .pacientes-sugestoes-lista button:hover,#app .pacientes-sugestoes-lista button:focus{background:#f0f2f7;color:var(--texto)}
 #app .mensagem-web{background:#f2ecd9;border-color:#e4d8b9;color:#756032}
 #app .erro{background:#fff1e9;color:#a14430;border-color:#eccdbd}
-#app .agenda-lista-dia>header{background:#f8f9fb;color:#202633}
-#app .agenda-sessao>time{background:#f8f9fb;color:#202633}
+#app .agenda-lista-dia>header{background:var(--superficie-filtro);color:var(--texto)}
+#app .agenda-sessao>time{background:var(--superficie-filtro);color:var(--texto)}
 #app .agenda-sessao:hover{border-color:#d8deea}
 #app .toast:not(.toast-erro){background:#293249}
 @media(max-width:1100px){#app .conteudo{padding-inline:20px}#app th,#app td{padding:10px 9px}#app .registro-cartao{grid-template-columns:minmax(0,1fr)}#app .registro-cartao>.acoes-na-linha{justify-content:flex-start}}
-@media(max-width:700px){#app .conteudo{padding-inline:12px}#app .secao-web{padding:16px}#app .tabela-web table thead{display:none}#app .tabela-web table,#app .tabela-web tbody,#app .tabela-web tr,#app .tabela-web td{display:block;width:100%}#app .tabela-web td[data-rotulo]::before{content:attr(data-rotulo);display:block;font-size:11px;font-weight:600;color:#667085;margin-bottom:3px}#app .tabela-web tr{border-bottom:1px solid #e7eaf0;padding:10px}#app .tabela-web td{border:0}}
+@media(max-width:700px){#app .conteudo{padding-inline:12px}#app .secao-web{padding:16px}#app .tabela-web table thead{display:none}#app .tabela-web table,#app .tabela-web tbody,#app .tabela-web tr,#app .tabela-web td{display:block;width:100%}#app .tabela-web td[data-rotulo]::before{content:attr(data-rotulo);display:block;font-size:11px;font-weight:600;color:var(--suave);margin-bottom:3px}#app .tabela-web tr{border-bottom:1px solid var(--linha);padding:10px}#app .tabela-web td{border:0}}
 
-/* Densidade da referência: áreas de trabalho contínuas, sem painéis dentro de painéis. */
+/* Densidade da referÃƒÆ’Ã‚Âªncia: ÃƒÆ’Ã‚Â¡reas de trabalho contÃƒÆ’Ã‚Â­nuas, sem painÃƒÆ’Ã‚Â©is dentro de painÃƒÆ’Ã‚Â©is. */
 #app .cabecalho-pagina{background:transparent;border:0;border-radius:0;box-shadow:none;padding:0 0 18px;margin-bottom:18px}
 #app .cabecalho-pagina h1,#app .clinico-titulo h1{font-size:25px;font-weight:500;letter-spacing:-.65px;color:var(--texto)}
 #app .secao-web{border-radius:10px;box-shadow:none;padding:20px;background:#fff}
 #app .secao-web>.cabecalho-secao{background:transparent;margin:0 0 18px;padding:0 0 14px;border-bottom:1px solid var(--linha)}
 #app .secao-web>.cabecalho-secao h2{font-size:17px;font-weight:500}
-#app .campo-web>label{font-weight:500;color:#667085}
+#app .campo-web>label{font-weight:500;color:var(--suave)}
 #app .campo-web.campo-leitura{padding-bottom:0;border:0}
 #app .campo-web output{border:0;background:transparent;box-shadow:none;padding:0;border-radius:0}
 #app .botao{font-weight:500;color:#535e72;border-color:#dce1e9;background:#fff;min-height:36px;border-radius:8px}
 #app .botao.primario{color:#fff;background:var(--marca);border-color:var(--marca)}
 #app .botao.perigo{color:#a44f5b;background:#fff;border-color:#ead6db}
-#app .botao:disabled{background:#f5f6f8;border-color:#e9ecf1;color:#929aa8}
+#app .botao:disabled{background:var(--fundo);border-color:#e9ecf1;color:#929aa8}
 #app .pagina-web>.campos-web,#app .campos-filtros{background:#f0f2f6;padding:16px 18px;border-color:#e4e8ef}
 #app .indicadores-web{background:#fff;border:1px solid var(--linha);border-radius:10px}
 #app .indicador-web{border:0;border-right:1px solid var(--linha);box-shadow:none;background:transparent;border-radius:0;padding:16px 20px}
 #app .indicador-web:last-child{border-right:0}
 #app .indicador-web strong{font-weight:500;color:var(--texto)}
 #app .indicador-web span{color:var(--suave)}
-#app .dialogo-cabecalho,#app .dialogo-rodape{background:#f8f9fb;color:var(--texto)}
+#app .dialogo-cabecalho,#app .dialogo-rodape{background:var(--superficie-filtro);color:var(--texto)}
 #app .dialogo-corpo{background:#fff}
 #app .dialogo-descricao{background:transparent;border:0;border-bottom:1px solid var(--linha);border-radius:0}
 #app .clinico-cabecalho{background:transparent;border:0;box-shadow:none;padding:0}
@@ -188,20 +188,20 @@ body,#app .conteudo{background:var(--fundo);color:var(--texto)}
 #app .agendamento-bloco{border:0;border-bottom:1px solid var(--linha);border-radius:0;padding:20px 0;box-shadow:none;background:transparent}
 #app .agendamento-bloco:last-child{border-bottom:0}
 #app .agendamento-paciente{background:#fff}
-#app .agendamento-conferencia{background:#f8f9fb}
+#app .agendamento-conferencia{background:var(--superficie-filtro)}
 #app .modalidade-procedimento{border:0;border-bottom:1px solid var(--linha);border-radius:0;padding:12px 0}
 #app .modalidade-procedimento:last-child{border-bottom:0}
 #app .modalidades-procedimentos{gap:0;margin-bottom:14px}
-#app .modalidade-procedimento .botao.primario{color:var(--marca);background:#f3f4fc;border-color:#e0e4f4}
+#app .modalidade-procedimento .botao.primario{color:var(--marca);background:var(--marca-suave);border-color:var(--marca-borda)}
 #app .gestao-resultados{background:#fff}
 #app .gestao-consulta{background:#f0f2f6}
-#app .editor-web>label,#app .editor-ferramentas{background:#f8f9fb;color:#535e72}
+#app .editor-web>label,#app .editor-ferramentas{background:var(--superficie-filtro);color:#535e72}
 #app .editor-web{box-shadow:none}
 #app .historico-sessao{border-radius:8px;box-shadow:none}
 #app .historico-descricao dt{color:var(--suave)}
 #app .historico-descricao dd{color:var(--texto)}
 #app .tabela-scroll{border-radius:8px}
-#app th{background:#f8f9fb;font-weight:500}
+#app th{background:var(--superficie-filtro);font-weight:500}
 #app .registro-cartao{border-left-width:1px}
 @media(max-width:1100px){#app .ficha-blocos{grid-template-columns:1fr 1fr;gap:18px}#app .ficha-bloco{padding:0;border:0}#app .ficha-bloco:last-child{grid-column:1/-1;padding-top:16px;border-top:1px solid var(--linha)}}
 @media(max-width:700px){#app .ficha-blocos{grid-template-columns:1fr}#app .agendamento-trabalho{padding-inline:16px}}
@@ -215,39 +215,39 @@ body,#app .conteudo{background:var(--fundo);color:var(--texto)}
 #app .recepcao-operacional .recepcao-linha-detalhes{margin-top:4px}
 #app .recepcao-linha-situacao .recepcao-proximo-passo>small{display:none}
 
-/* Interações da composição aprovada: cor informa foco, seleção e conclusão. */
-#app .nav-gatilho.ativo{background:#efedfa;color:#5b5291}
-#app .nav-gatilho:hover,#app .rota:hover{background:#f5f3fc;color:#5b5291}
-#app .rota.ativo{background:#efedfa;color:#5b5291}
+/* InteraÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes da composiÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o aprovada: cor informa foco, seleÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o e conclusÃƒÆ’Ã‚Â£o. */
+#app .nav-gatilho.ativo{background:var(--marca-suave);color:var(--marca)}
+#app .nav-gatilho:hover,#app .rota:hover{background:var(--marca-suave);color:var(--marca)}
+#app .rota.ativo{background:var(--marca-suave);color:var(--marca)}
 #app .nav-gatilho svg{transition:transform 160ms ease}
 #app .nav-gatilho[aria-expanded=true] svg{transform:rotate(180deg)}
-#app .clinico-cabecalho .botao.clinico-aba-ativa{background:#f3f1fb;color:#625093;border-bottom-color:#7d6baa}
-#app .clinico-cabecalho .botao.clinico-aba:hover{background:#f7f5fc;color:#625093}
-#app .clinico-identidade .mantine-Avatar-root{--avatar-bg:#efedfa;--avatar-color:#625093}
-#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled){background:#367969;border-color:#367969;color:#fff}
-#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled):hover{background:#2d6759;border-color:#2d6759}
-#app .campo-web:focus-within>label{color:#625093}
-#app .campo-web :is(input,select,textarea):focus{border-color:#8c80b8;box-shadow:0 0 0 3px #8c80b81a}
-#app :is(button,input,select,textarea,summary,[contenteditable]):focus-visible{outline-color:#8c80b866}
-#app .campo-check input[type=checkbox]{accent-color:#625093}
-#app .pacientes-sugestoes{border-color:#ded9eb;box-shadow:0 8px 24px #2c254514}
-#app .pacientes-sugestoes-titulo{background:#f3f1f9;color:#625093}
-#app .pacientes-sugestoes-lista button:hover,#app .pacientes-sugestoes-lista button:focus{background:#f3f1f9;color:#45375f}
-#app .editor-web:focus-within{border-color:#a69bc5}
-#app .editor-ferramentas button:hover{background:#eeebf7;color:#625093}
-#app .editor-ferramentas button[aria-pressed=true]{background:#e7e1f3;color:#55447e}
+#app .clinico-cabecalho .botao.clinico-aba-ativa{background:var(--marca-suave);color:var(--marca);border-bottom-color:var(--marca-borda)}
+#app .clinico-cabecalho .botao.clinico-aba:hover{background:var(--marca-suave);color:var(--marca)}
+#app .clinico-identidade .mantine-Avatar-root{--avatar-bg:var(--marca-suave);--avatar-color:var(--marca)}
+#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled){background:var(--estado-sucesso);border-color:var(--estado-sucesso);color:#fff}
+#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled):hover{background:var(--estado-sucesso);border-color:var(--estado-sucesso)}
+#app .campo-web:focus-within>label{color:var(--marca)}
+#app .campo-web :is(input,select,textarea):focus{border-color:var(--foco);box-shadow:0 0 0 3px var(--marca-suave)}
+#app :is(button,input,select,textarea,summary,[contenteditable]):focus-visible{outline-color:var(--foco)}
+#app .campo-check input[type=checkbox]{accent-color:var(--marca)}
+#app .pacientes-sugestoes{border-color:var(--marca-borda);box-shadow:0 8px 24px #00000014}
+#app .pacientes-sugestoes-titulo{background:var(--marca-suave);color:var(--marca)}
+#app .pacientes-sugestoes-lista button:hover,#app .pacientes-sugestoes-lista button:focus{background:var(--marca-suave);color:var(--marca)}
+#app .editor-web:focus-within{border-color:var(--marca-borda)}
+#app .editor-ferramentas button:hover{background:var(--marca-suave);color:var(--marca)}
+#app .editor-ferramentas button[aria-pressed=true]{background:var(--marca-suave);color:var(--marca)}
 #app .dialogo-react{animation:none}
 #app .fundo-dialogo{backdrop-filter:none;background:#20263355}
 #app .dialogo-rodape{box-shadow:none}
-#app .carregando-web{display:inline-flex;align-items:center;gap:8px;background:#f0edf8;color:#625093;padding:7px 12px;border-radius:6px}
-#app .erro{background:#fcf0f1;color:#9d3e4a;border:1px solid #edcfd4}
-#app .toast:not(.toast-erro){background:#356b60}
-#app .toast-erro{background:#9d3e4a}
-#app .botao.perigo:hover:not(:disabled){background:#fcf0f1;color:#9d3e4a;border-color:#dfbbc3}
-#app .ancoras-secoes button:hover{background:#efedfa;color:#625093;border-color:transparent}
+#app .carregando-web{display:inline-flex;align-items:center;gap:8px;background:var(--marca-suave);color:var(--marca);padding:7px 12px;border-radius:6px}
+#app .erro{background:var(--estado-erro-fundo);color:var(--estado-erro);border:1px solid var(--estado-erro-borda)}
+#app .toast:not(.toast-erro){background:var(--estado-sucesso)}
+#app .toast-erro{background:var(--estado-erro)}
+#app .botao.perigo:hover:not(:disabled){background:var(--estado-erro-fundo);color:var(--estado-erro);border-color:var(--estado-erro-borda)}
+#app .ancoras-secoes button:hover{background:var(--marca-suave);color:var(--marca);border-color:transparent}
 #app .botao:active:not(:disabled){transform:none;filter:brightness(.97)}
 @media(prefers-reduced-motion:reduce){#app .nav-gatilho svg{transition:none}#app .botao:active:not(:disabled){filter:none}}
 
-#app .indicador-web[data-tom=positivo]>strong{color:#367969}
-#app .indicador-web[data-tom=saida]>strong{color:#a65e6b}
-#app .indicador-web[data-tom=atencao]>strong{color:#926821}
+#app .indicador-web[data-tom=positivo]>strong{color:var(--estado-sucesso)}
+#app .indicador-web[data-tom=saida]>strong{color:var(--estado-erro)}
+#app .indicador-web[data-tom=atencao]>strong{color:var(--estado-atencao)}
