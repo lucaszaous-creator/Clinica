@@ -36,3 +36,10 @@ Dois agentes participaram da implementação e da recuperação da referência. 
 ## Entrega de teste
 
 `tools/gerar-executaveis-teste.ps1` prepara a edição portátil `.4` dos cinco aplicativos, com perfil separado `ClinicaSemDor-Teste-PR245` e atualização automática desativada. A configuração habitual da instalação não é herdada. Não há release, merge ou publicação em produção. Impressoras, câmera, integrações externas e PostgreSQL não foram exercitados nesta revisão visual; precisam da homologação do ambiente de teste.
+
+
+### Agenda por situação — cenário de homologação atualizado
+
+O cenário denso mantém 34 horários na data escolhida (10 concluídos, quatro em atendimento e 20 a atender), além dos horários anteriores ainda sem conclusão. Em 08/10/2026, há 12 pendências anteriores: a fila correta contém 46 registros, com 23 por profissional. Esses pacientes não devem desaparecer para ajustar uma contagem de teste. O teste calcula essa quantidade pela semana sintética para continuar válido em outros dias.
+
+A verificação cruza situação e profissional: dez concluídos no total, cinco do segundo profissional; dez a atender desse profissional, sem misturar os dois em atendimento. Ao limpar os filtros, devem voltar todos os registros, inclusive as conclusões pendentes anteriores. A captura `fila-conclusao-pendente-<largura>.png` registra esse recorte; a execução e o resultado devem ser conferidos no log mais recente de homologação.

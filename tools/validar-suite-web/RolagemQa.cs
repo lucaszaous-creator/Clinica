@@ -61,8 +61,8 @@ internal static class RolagemQa
                 Console.WriteLine($"OK WebView2: histórico e guias em {largura}px, 14 colunas, 6 ações e texto rico íntegros, sem arrastar lateralmente.");
             }
 
-            var colunas = new[] { "InicioISO", "FimISO", "PacienteNome", "Modalidade", "Profissional", "Sala", "RegistroPendente" }.Select(chave => new { chave, rotulo = chave, tipo = "texto" }).ToArray();
-            var sessoes = Enumerable.Range(0, 197).Select(i => new { id = i.ToString(), celulas = new Dictionary<string, string> { ["InicioISO"] = $"2026-10-{5 + i % 7:00}T09:00:00", ["FimISO"] = $"2026-10-{5 + i % 7:00}T09:30:00", ["PacienteNome"] = "Paciente fictício da demonstração " + i, ["Modalidade"] = "Acupuntura", ["Profissional"] = "Profissional de demonstração", ["Sala"] = "Sala 1", ["RegistroPendente"] = "Conclusão pendente" }, campos = Array.Empty<object>(), acoes = new[] { new { chave = "Abrir", rotulo = "Abrir paciente", habilitada = true, estilo = "primario", visivel = true } }, selecionada = false }).ToArray();
+            var colunas = new[] { "InicioISO", "FimISO", "PacienteNome", "Modalidade", "Profissional", "Sala", "RegistroPendente", "GrupoSituacao" }.Select(chave => new { chave, rotulo = chave, tipo = "texto" }).ToArray();
+            var sessoes = Enumerable.Range(0, 197).Select(i => new { id = i.ToString(), celulas = new Dictionary<string, string> { ["InicioISO"] = $"2026-10-{5 + i % 7:00}T09:00:00", ["FimISO"] = $"2026-10-{5 + i % 7:00}T09:30:00", ["PacienteNome"] = "Paciente fictício da demonstração " + i, ["Modalidade"] = "Acupuntura", ["Profissional"] = "Profissional de demonstração", ["Sala"] = "Sala 1", ["GrupoSituacao"] = i < 50 ? "Concluídos" : i < 100 ? "A atender" : i < 150 ? "Em atendimento" : "Conclusão pendente", ["RegistroPendente"] = "Conclusão pendente" }, campos = Array.Empty<object>(), acoes = new[] { new { chave = "Abrir", rotulo = "Abrir paciente", habilitada = true, estilo = "primario", visivel = true } }, selecionada = false }).ToArray();
             var semana = Secao("Semana", [new { chave = "horarios", titulo = "Sessões", colunas, linhas = sessoes, vazio = "Sem sessões" }, new { chave = "faixas", titulo = "Disponibilidade", colunas = Array.Empty<object>(), linhas = Array.Empty<object>(), vazio = "Sem disponibilidade" }]);
             foreach (var largura in new[] { 900, 1366 })
             {
@@ -82,8 +82,31 @@ internal static class RolagemQa
                 await Conferir("document.querySelector('.fc-listDay-view')!==null&&document.querySelectorAll('.agenda-sessao').length>=28&&document.querySelectorAll('.agenda-sessao').length<=29&&document.documentElement.scrollWidth<=innerWidth+1", "Mais sessões não abriu o dia completo no FullCalendar.");
                 await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-modo=lista]').click()");await Task.Delay(250);
                 await Conferir("document.querySelector('.fc-listWeek-view')!==null&&document.querySelectorAll('.agenda-sessao').length===197", "Voltar à lista perdeu sessões da semana.");
+                await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=\"Concluídos\"]').click()");await Task.Delay(250);
+                await Conferir("document.querySelectorAll('.agenda-sessao').length===50&&[...document.querySelectorAll('.agenda-sessao .agenda-situacao')].every(e=>e.textContent==='Concluído')", "Filtro Concluídos misturou situações ou perdeu sessões.");
+                await Estado([semana]);
+                await Conferir("document.querySelectorAll('.agenda-sessao').length===50&&document.querySelector('[data-agenda-situacao=\"Concluídos\"]').getAttribute('aria-pressed')==='true'", "Atualização perdeu o filtro operacional.");
+                await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=\"A atender\"]').click()");await Task.Delay(250);
+                await Conferir("document.querySelectorAll('.agenda-sessao').length===50&&[...document.querySelectorAll('.agenda-sessao .agenda-situacao')].every(e=>e.textContent==='A atender')", "Filtro A atender incluiu sessão concluída ou em andamento.");
+                await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=Todos]').click()");await Task.Delay(250);
+                await Conferir("document.querySelectorAll('.agenda-sessao').length===197", "Todos não restaurou todas as situações.");
+                await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=\"Concluídos\"]').click()");await Task.Delay(100);
+                await navegador.CoreWebView2.ExecuteScriptAsync("(()=>{const campo=document.querySelector('[data-agenda-busca-paciente]');campo.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(campo,'FICTICIO DEMONSTRACAO 49');campo.dispatchEvent(new Event('input',{bubbles:true}))})()");await Task.Delay(150);
+                await Conferir("document.querySelectorAll('.agenda-sessao').length===1&&document.activeElement.hasAttribute('data-agenda-busca-paciente')", "Busca na semana não combina nome sem acentos e situação ao digitar.");
+                await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-limpar-busca]').click()");await Task.Delay(150);
+                await Conferir("document.querySelectorAll('.agenda-sessao').length===50", "Limpar busca perdeu situação da semana.");
+                await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=Todos]').click()");await Task.Delay(100);
                 Console.WriteLine($"OK FullCalendar {largura}px: lista real, resumo semanal de sete dias, mais sessões abre dia completo e retorno preserva 197 registros.");
             }
+            var colunasDia=new[]{"Hora","Paciente","Status","Prontuario","GrupoSituacao"}.Select(chave=>new{chave,rotulo=chave,tipo="texto"}).ToArray();
+            var linhasDia=new[]{new{id="clinico-1",celulas=new Dictionary<string,string>{{"Hora","09:00"},{"Paciente","Márcia Gonçalves"},{"Status","Concluído"},{"Prontuario","Registrado"},{"GrupoSituacao","Concluídos"}},campos=Array.Empty<object>(),acoes=new[]{new{chave="Atender",rotulo="Abrir atendimento",habilitada=true,visivel=true}},selecionada=false},new{id="clinico-2",celulas=new Dictionary<string,string>{{"Hora","10:00"},{"Paciente","MARCIA SILVA"},{"Status","Marcado"},{"Prontuario","Pendente"},{"GrupoSituacao","A atender"}},campos=Array.Empty<object>(),acoes=new[]{new{chave="Atender",rotulo="Abrir atendimento",habilitada=true,visivel=true}},selecionada=false}};
+            await Estado([Secao("MeuDia",[new{chave="Sessoes",titulo="Sessões do dia",colunas=colunasDia,linhas=linhasDia,vazio="Sem sessões"}])]);
+            await navegador.CoreWebView2.ExecuteScriptAsync("(()=>{const campo=document.querySelector('[data-agenda-busca-paciente]');campo.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(campo,'marcia');campo.dispatchEvent(new Event('input',{bubbles:true}))})()");await Task.Delay(150);
+            await Conferir("document.querySelectorAll('.registro-cartao').length===2", "Meu dia não normalizou acentos e caixa na busca.");
+            await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=\"Concluídos\"]').click()");await Task.Delay(150);
+            await Conferir("document.querySelectorAll('.registro-cartao').length===1&&document.querySelector('[data-linha-id=clinico-1] [data-comando=Atender]')!==null", "Meu dia perdeu interseção ou comando/identidade do atendimento.");
+            await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-limpar-busca]').click()");await Task.Delay(150);
+            await Conferir("document.querySelectorAll('.registro-cartao').length===1", "Limpar busca no Meu dia removeu o filtro de situação.");
         }
         finally { janela.Close(); }
     }

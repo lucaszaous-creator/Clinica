@@ -21,9 +21,14 @@ Orientação obrigatória do proprietário em 08/10/2026. A composição aprovad
 | Foco | #3F62C9 | Cor.Azul.500 |
 | Fundo / superfície / filtros | #F8FAFC / #FFFFFF / #F1F5F9 | Cinza.50 / Superficie / Cinza.100 |
 | Bordas / texto secundário | #E5E7EB / #6B7280 | Cinza.200 / 500 |
+| Contorno de controles | #BAC9DD | Tom já existente em identidade-visual.css |
 | Sucesso | #15803D / #F0FDF4 | Verde.700 / 50 |
 | Atenção | #875B16 / #FFF6DF | Âmbar já existente em status-celula.css |
 | Erro | #B91C1C / #FEE2E2 | Vermelho.700 / 100 |
 | Informação | Azul principal / seleção clara | Reutilização da marca, sem ciano |
 
 Verde, vermelho e âmbar identificam somente estados funcionais. Seleção, agenda marcada e andamento usam azul. Entradas e saídas financeiras são diferenciadas por rótulo, sinal e curvas azul/cinza, sem cores decorativas. Sombras são neutras. Sem lavanda, roxo, ciano ou gradientes na apresentação web.
+
+## Legibilidade de campos e ações
+
+A referência Cielo enviada pelo proprietário orienta a separação visual, sem importar sua paleta: fundo de trabalho Cinza.100 (#F1F5F9), cartões brancos e contornos de controles #BAC9DD. Placeholders mantêm o texto secundário sem redução de opacidade; rótulos editáveis usam marinho. Botões primários usam azul da marca com texto branco; ações secundárias têm texto azul, fundo de seleção suave e borda visível. Menus preservam leitura simples e realce ao passar o mouse. A cor acompanha rótulos e foco por teclado, nunca os substitui.

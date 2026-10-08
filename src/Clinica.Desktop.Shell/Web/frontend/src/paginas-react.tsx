@@ -1,4 +1,4 @@
-import {ehRecepcaoOperacional,RecepcaoOperacionalReact} from './composicao-recepcao-react';
+import {ehRecepcaoOperacional,RecepcaoOperacionalReact,ListaOperacionalReact} from './composicao-recepcao-react';
 import {ComposicaoFaturamentoReact,ehFaturamento} from './faturamento-react';
 import {GestaoOperacionalReact,ehGestaoOperacional} from './gestao-react';
 import {getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef} from '@tanstack/react-table';
@@ -68,6 +68,7 @@ export function IndicadoresReact({indicadores,contexto:c}:{indicadores:Indicador
 export function TabelaReact({tabela:t,contexto:c}:{tabela:Tabela;contexto:Contexto}){
  const colunas=useMemo<ColumnDef<LinhaPagina>[]>(()=>t.colunas.map(col=>({id:col.chave,accessorFn:l=>l.celulas[col.chave]??'',sortingFn:'alphanumeric'})),[t.colunas]);
  const modelo=useReactTable({data:t.linhas,columns:colunas,getRowId:l=>l.id,getCoreRowModel:getCoreRowModel(),getSortedRowModel:getSortedRowModel()});
+ if(t.colunas.some(col=>col.chave==='GrupoSituacao')&&t.colunas.some(col=>col.chave==='Hora')&&t.colunas.some(col=>col.chave==='Prontuario'))return <ListaOperacionalReact tabela={t} contexto={c} acompanhamento={false}/>;
  if(ehHistoricoSessoes(t))return <HistoricoSessoesReact tabela={t} contexto={c}/>;
  if(usaProfissionaisReact(t))return <ProfissionaisReact tabela={t} contexto={c}/>;
  if(usaListaReact(t))return <ListaReact tabela={t} contexto={c}/>;

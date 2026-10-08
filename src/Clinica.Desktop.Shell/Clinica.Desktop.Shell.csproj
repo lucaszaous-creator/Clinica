@@ -51,7 +51,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Web\wwwroot\**\*" Link="WebSuite\wwwroot\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- O WebView2 lê estes arquivos por caminho: não podem ficar dentro do bundle. -->
+    <Content Include="Web\wwwroot\**\*" Link="WebSuite\wwwroot\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <Content Include="Web\Entrada\entrada.html" Link="WebSuite\wwwroot\entrada.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Web\Entrada\entrada.css" Link="WebSuite\wwwroot\entrada.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Web\Entrada\entrada.js" Link="WebSuite\wwwroot\entrada.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

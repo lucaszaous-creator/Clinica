@@ -29,3 +29,5 @@ Manter as verificações determinísticas do repositório, CI e PR antes de inte
 ## Identidade visual obrigatória — orientação do proprietário em 08/10/2026
 
 Antes de alterar CSS, inspecionar o logotipo, Tokens.xaml e componentes existentes. Preservar os azuis SemDor, branco e cinzas frios. A fonte web compartilhada é `cores-semdor.css`, carregada por último nos dois frontends. Principal #123A9E, marinho #071F5C e seleção #EEF3FC vêm dos tokens existentes. Não inventar paletas nem tons principais. Sem roxo, ciano, gradientes, sombras coloridas ou superfícies saturadas. Verde, vermelho e âmbar somente em estados funcionais; informação usa o azul da marca. Preservar a marca, a composição aprovada e os movimentos funcionais. Em caso de dúvida, manter a cor atual documentada.
+
+- Referência de legibilidade aprovada pelo proprietário: captura Cielo enviada em 08/10/2026. Usar a distinção entre fundo cinza, superfícies brancas, contornos de campos, placeholders legíveis e ações reconhecíveis; não copiar a paleta ou a marca Cielo. Manter todos os tons SemDor existentes.

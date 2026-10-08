@@ -8,7 +8,7 @@ public static partial class ClinicoWebRegistro
         [new("Dia", "Dia", "data")],
         ["Profissional|Profissional", "MotivoDaLista|Motivo Da Lista", "AgendaFechada|Agenda Fechada"],
         [
-            new("Sessoes", "Sessoes", ["Sessoes"], vm => ((Clinica.Clinico.ViewModels.MeuDiaViewModel)vm).Sessoes.Cast<object>(), [new("Hora", "Hora"), new("Paciente", "Paciente"), new("Contexto", "Contexto"), new("Observacoes", "Observacoes"), new("Status", "Status"), new("StatusDetalhe", "Status Detalhe"), new("Prontuario", "Prontuario")], [], [new("Atender", "Atender", Guarda: "vm:PodeVerProntuario")]),
+            new("Sessoes", "Sessoes", ["Sessoes"], vm => ((Clinica.Clinico.ViewModels.MeuDiaViewModel)vm).Sessoes.Cast<object>(), [new("Hora", "Hora"), new("Paciente", "Paciente"), new("Contexto", "Contexto"), new("Observacoes", "Observacoes"), new("Status", "Status"), new("GrupoSituacao", "Grupo da situação"), new("StatusDetalhe", "Status Detalhe"), new("Prontuario", "Prontuario")], [], [new("Atender", "Atender", Guarda: "vm:PodeVerProntuario")]),
         ], [new("DiaAnterior", "<"), new("DiaSeguinte", ">"), new("Hoje", "Hoje"), new("Carregar", "Atualizar"), new("AbrirPendentes", "Abrir Pendentes", Guarda: "PodeVerProntuario")]);
 
     private static P.Secao RegistrosPendentes() => new("RegistrosPendentes", "Registros Pendentes", null,
@@ -117,12 +117,12 @@ public static partial class ClinicoWebRegistro
         ], [new("RegistrarResultado", "Registrar resultado…", Guarda: "PodeRegistrar"), new("AnexarArquivoDaFicha", "Anexar arquivo à ficha…", Guarda: "PodeAnexar")]);
 
     private static P.Secao Anamnese() => new("Anamnese", "Anamnese", null,
-        [new("TextoDaSecao", "Texto Da Secao", "textarea")],
+        [new("TextoDaSecao", "Texto Da Secao", "textarea", Guarda: "Editando&PodeEditar")],
         ["Procedencia|Procedencia", "RotuloDaSecao|Rotulo Da Secao", "DicaDaSecao|Dica Da Secao"],
         [
             new("Secoes", "Secoes", ["Secoes"], vm => ((Clinica.Clinico.ViewModels.AnamneseViewModel)vm).Secoes.Cast<object>(), [new("Rotulo", "Rotulo"), new("Texto", "Texto")], [], [new("AbrirSecao", "Abrir Secao")]),
             new("Versoes", "Versoes", ["Versoes"], vm => ((Clinica.Clinico.ViewModels.AnamneseViewModel)vm).Versoes.Cast<object>(), [new("Titulo", "Titulo"), new("Quando", "Quando"), new("Motivo", "Motivo"), new("Texto", "Texto")], [], []),
-        ], [new("CancelarEdicao", "Cancelar"), new("Salvar", "Gravar", Guarda: "PodeEditar"), new("Editar", "Editar", Guarda: "PodeEditar")]);
+        ], [new("CancelarEdicao", "Cancelar", Visivel: "Editando"), new("Salvar", "Gravar", Guarda: "Editando&PodeEditar", Visivel: "Editando"), new("Editar", "Editar", Guarda: "PodeEditar", Visivel: "!Editando")]);
 
     private static P.Secao Dor() => new("Dor", "Evolucao Dor", null,
         [],

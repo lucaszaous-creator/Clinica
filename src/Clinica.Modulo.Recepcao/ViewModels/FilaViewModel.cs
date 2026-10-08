@@ -56,6 +56,7 @@ public sealed partial class CartaoFila : ObservableObject
     public bool TemSala => !string.IsNullOrWhiteSpace(Sala);
 
     public required EtapaFila Etapa { get; init; }
+    public string GrupoSituacao => StatusDaFila.GrupoAgenda(Situacao, Etapa, FimAtendimentoEm is not null || (InicioEm is not null && DataHora.Date < DateTime.Today));
     public string? Observacoes { get; init; }
 
     /// <summary>O status GRAVADO do horário — é ele que separa cancelado e falta do resto.</summary>

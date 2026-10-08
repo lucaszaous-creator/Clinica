@@ -251,3 +251,23 @@ body,#app .conteudo{background:var(--fundo);color:var(--texto)}
 #app .indicador-web[data-tom=positivo]>strong{color:var(--estado-sucesso)}
 #app .indicador-web[data-tom=saida]>strong{color:var(--estado-erro)}
 #app .indicador-web[data-tom=atencao]>strong{color:var(--estado-atencao)}
+
+/* Alinhamento de leitura: rotulos e valores compartilham a mesma linha-base. */
+#app .pagina-clinica .cabecalho-secao{align-items:flex-start;gap:16px}
+#app .pagina-clinica .cabecalho-secao h2{margin:0;line-height:1.4;overflow-wrap:anywhere}
+#app .pagina-clinica .cabecalho-secao .acoes-web{justify-content:flex-end;margin-left:auto}
+#app .prontuario-estacao .clinico-identidade{align-items:flex-start}
+#app .prontuario-estacao .clinico-identidade-texto{min-width:0;overflow-wrap:anywhere}
+#app .prontuario-operacoes{padding-top:2px}
+#app .ficha-bloco .campos-web{align-items:start;row-gap:18px}
+#app .ficha-bloco .campo-web>label{min-block-size:2.8em;line-height:1.4;display:flex;align-items:flex-end;margin:0}
+#app .ficha-bloco .campo-web output{padding:0;min-height:0;line-height:1.55;text-align:left}
+#app .pagina-clinica .campo-web>label{overflow-wrap:anywhere}
+#app .pagina-clinica .historico-descricao>div{min-width:0}
+#app .pagina-clinica .historico-descricao dd{margin:0;line-height:1.55}
+#app .pagina-clinica .editor-web>label{line-height:1.4;text-align:left}
+#app .pagina-clinica .tabela-web td{vertical-align:top}
+#app .tabela-web th.valor .ordenar-coluna{justify-content:flex-end;text-align:right}
+#app .acoes-menu-painel .mantine-Button-inner{justify-content:flex-start}
+#app .acoes-menu-painel .mantine-Button-label{text-align:left}
+@media(max-width:700px){#app .pagina-clinica .cabecalho-secao .acoes-web{justify-content:flex-start;margin-left:0}#app .ficha-bloco .campo-web>label{min-block-size:0}}

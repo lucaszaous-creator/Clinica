@@ -10,6 +10,7 @@ using Clinica.Clinico.ViewModels;
 using Clinica.Clinico.Views;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
@@ -76,6 +77,8 @@ internal static class Program
         await vm.SalvarRascunhoCommand.ExecuteAsync(null);Confere(!vm.MensagemEhErro,vm.Mensagem??"Rascunho salvo");
         db.ChangeTracker.Clear();var p=await db.PrescricoesInternas.Include(p=>p.Itens).SingleAsync();
         Confere(p.Itens.OrderBy(i=>i.Ordem).Select(i=>i.GrupoInfusao).SequenceEqual(new int?[]{1,2}),"Banco conserva as duas infusões");
+        var checagens = scope.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>();
+        Confere(!(await checagens.DoDiaAsync(DateOnly.FromDateTime(DateTime.Today))).Any(x=>x.Id==p.Id),"Rascunho não aparece na fila da enfermagem");
         var reaberta=new PrescricaoInternaEdicaoViewModel(escopos,dialogo,paciente.Id,paciente.Nome,profissional.Id,prescricaoId:p.Id);await reaberta.Inicializacao;
         Confere(reaberta.Infusoes.Count==2&&reaberta.Infusoes[0].Itens[0].Dose=="7 mL"&&reaberta.Infusoes[1].Volume=="100 mL","Reabrir conserva quantidade e preparos");
         var legado=GrupoInfusaoEdicao.Carregar([new(){Descricao="A"},new(){Descricao="B"}],false,null,null);
@@ -88,14 +91,62 @@ internal static class Program
         Confere(p.Situacao==SituacaoPrescricao.Liberada&&p.AssinadaEm is null,"Liberada sem registrar assinatura inexistente");
         var pdf=await scope.ServiceProvider.GetRequiredService<PrescricaoInternaPdfService>().GerarPrescricaoAsync(p.Id);
         await File.WriteAllBytesAsync(Path.Combine(saida,"infusao-demonstracao.pdf"),pdf);
+        Confere(pdf.Length>1000,"Prescrição gera PDF não vazio");
+        Confere((await checagens.DoDiaAsync(DateOnly.FromDateTime(DateTime.Today))).Any(x=>x.Id==p.Id),"Prescrição liberada chega à fila da enfermagem");
+
+        // Exercita os mesmos comandos usados pela ponte web, com persistência real isolada.
+        var executante = new Profissional { Nome="Enfermeira fictícia",RegistroConselho="COREN-SP 999999",Ativo=true };
+        db.Profissionais.Add(executante);await db.SaveChangesAsync();
+        var enfermeira=await new AcessoService(repo).CriarAsync(executante.Nome,"demo.enfermagem","Teste#Infusao2026",PerfilAcesso.Enfermagem);
+        enfermeira.ProfissionalId=executante.Id;enfermeira.Profissional=executante;await db.SaveChangesAsync();
+        var folha=new FolhaExecucaoViewModel(escopos,dialogo,p.Id);await folha.CarregarAsync();
+        await folha.RealizadoCommand.ExecuteAsync(folha.Itens[0]);
+        Confere(folha.MensagemEhErro && !await db.ChecagensPrescricao.AnyAsync(),"Perfil prescritor sem checagem não administra por comando");
+        provider.GetRequiredService<SessaoUsuario>().Entrar(enfermeira);
+        await folha.CarregarAsync();
+        Confere(folha.PodeMexer && !folha.PodeEncerrar,"Enfermagem acessa execução e vê encerramento indisponível enquanto pendente");
+        await folha.EncerrarCommand.ExecuteAsync(null);
+        Confere(folha.MensagemEhErro,"Encerrar pelo comando também recusa itens pendentes");
+        await folha.NaoRealizadoCommand.ExecuteAsync(folha.Itens[1]);
+        Confere(!await db.ChecagensPrescricao.AnyAsync(),"Cancelar justificativa não grava não realização");
+        await folha.RealizadoCommand.ExecuteAsync(folha.Itens[0]);
+        Confere(!folha.MensagemEhErro && folha.Itens[0].Realizado,"Realização pelo comando atualiza a folha");
+        await folha.RealizadoCommand.ExecuteAsync(folha.Itens[0]);
+        Confere(folha.MensagemEhErro && await db.ChecagensPrescricao.CountAsync()==1,"Duplo comando não duplica checagem");
+        dialogo.Textos.Enqueue("Paciente recusou o segundo item");
+        await folha.NaoRealizadoCommand.ExecuteAsync(folha.Itens[1]);
+        Confere(!folha.MensagemEhErro && folha.Itens[1].NaoRealizado,"Não realização preserva justificativa e atualiza folha");
+        dialogo.Textos.Enqueue("Correção de lançamento no cenário fictício");
+        await folha.RetificarCommand.ExecuteAsync(folha.Itens[1]);
+        Confere(!folha.MensagemEhErro && folha.Itens[1].Realizado && await db.ChecagensPrescricao.CountAsync()==3,"Retificação preserva registro anterior e publica checagem vigente");
+        await folha.EncerrarCommand.ExecuteAsync(null);
+        Confere(!folha.MensagemEhErro && !folha.PodeMexer,"Enfermagem encerra após checagens completas");
+        Confere(!(await checagens.DoDiaAsync(DateOnly.FromDateTime(DateTime.Today))).Any(x=>x.Id==p.Id),"Execução encerrada sai da fila padrão");
+        var documento=await scope.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>().DocumentoInfusaoAsync(p.Id);
+        Confere(documento.Pdf.Length>1000,"Documento único da execução encerrada disponível para impressão");
+        await File.WriteAllBytesAsync(Path.Combine(saida,"infusao-executada.pdf"),documento.Pdf);
+
+        provider.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+        var cancelar=new PrescricaoInternaEdicaoViewModel(escopos,dialogo,paciente.Id,paciente.Nome,profissional.Id);await cancelar.Inicializacao;
+        cancelar.Infusoes[0].Itens[0].Descricao="Medicação fictícia para cancelamento";
+        await cancelar.SalvarRascunhoCommand.ExecuteAsync(null);
+        Confere(!cancelar.MensagemEhErro,"Segundo rascunho criado para conferir cancelamento");
+        var cancelavel=await db.PrescricoesInternas.AsNoTracking().SingleAsync(x=>x.Id!=p.Id);
+        var folhaCancelar=new FolhaExecucaoViewModel(escopos,dialogo,cancelavel.Id);await folhaCancelar.CarregarAsync();
+        await folhaCancelar.CancelarInfusaoCommand.ExecuteAsync(null);
+        Confere((await db.PrescricoesInternas.AsNoTracking().SingleAsync(x=>x.Id==cancelavel.Id)).Situacao==SituacaoPrescricao.Rascunho,"Desistir do motivo mantém o rascunho");
+        dialogo.Textos.Enqueue("Prescrição aberta por engano no teste");
+        await folhaCancelar.CancelarInfusaoCommand.ExecuteAsync(null);
+        Confere(!folhaCancelar.MensagemEhErro && (await db.PrescricoesInternas.AsNoTracking().SingleAsync(x=>x.Id==cancelavel.Id)).Situacao==SituacaoPrescricao.Cancelada,"Cancelar com motivo mantém o registro cancelado no histórico");
     }
     static void Abrir(Window w,double largura,double altura) {w.Width=largura;w.Height=altura;w.ShowActivated=false;w.ShowInTaskbar=false;w.WindowStartupLocation=WindowStartupLocation.Manual;w.Left=-30000;w.Top=-30000;w.Show();}
     static async Task Render(Window w,string nome) {await Task.Delay(100);w.UpdateLayout();var bitmap=new RenderTargetBitmap((int)w.ActualWidth,(int)w.ActualHeight,96,96,PixelFormats.Pbgra32);bitmap.Render(w);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using var stream=File.Create(Path.Combine(saida,nome));encoder.Save(stream);}
     private sealed class DialogoTeste:IDialogoService
     {
+        public Queue<string?> Textos { get; } = new();
         public bool Confirmar(string titulo,string mensagem)=>true;
         public bool ConfirmarPerigo(string titulo,string mensagem)=>true;
         public void Aviso(string titulo,string mensagem){}
-        public string? PerguntarTexto(string titulo,string pergunta,string? inicial=null,bool obrigatorio=true)=>null;
+        public string? PerguntarTexto(string titulo,string pergunta,string? inicial=null,bool obrigatorio=true)=>Textos.Count>0?Textos.Dequeue():null;
     }
 }

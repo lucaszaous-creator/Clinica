@@ -5,7 +5,7 @@ Esta edição portátil contém Recepção, Clínico, Financeiro, Faturamento e 
 No Explorer, use **Extrair tudo** antes de abrir. Executar diretamente dentro do ZIP pode
 deixar os recursos locais inacessíveis e causar o erro de caminho `0x80070003`.
 
-A revisão 1.0.245-test.20261008.4 reconstrói os principais espaços de trabalho com React, Mantine, FullCalendar, TanStack Table e Motion. Há fila compacta na Recepção, agendamento com conferência do paciente, ficha organizada em identificação/tratamento/alertas, histórico por sessão e composições próprias de Faturamento, Financeiro e Gestão. O calendário oferece Lista, Semana e Dia, com abertura dos horários que não cabem no resumo.
+A revisão 1.0.245-test.20261008.5 reconstrói os principais espaços de trabalho com React, Mantine, FullCalendar, TanStack Table e Motion. Há fila compacta na Recepção, agendamento com conferência do paciente, ficha organizada em identificação/tratamento/alertas, histórico por sessão e composições próprias de Faturamento, Financeiro e Gestão. O calendário oferece Lista, Semana e Dia, com abertura dos horários que não cabem no resumo.
 
 A composição retoma o Financeiro original, com superfícies neutras, cores pontuais e navegação no topo. As buscas e ações continuam ligadas aos serviços originais em C#. Confira nomes completos, troca de prontuário, valores decimais e os comandos de Mais ações. Evidências e escopo técnico: `docs/componentes-clinicos-pr245.md`.
 
@@ -32,3 +32,7 @@ Não configure integrações reais de envio, assinatura externa, cobrança ou pu
 Os testes automatizados usam banco sintético. Eles não substituem sua homologação dos fluxos completos com os perfis, impressoras, câmera, monitor do paciente e integrações utilizados pela clínica. As evidências e os comandos de reprodução estão no repositório, em `docs/refatoracao-web-pr245.md`.
 
 As correções desta revisão e suas evidências estão em `docs/ajustes-homologacao-pr245.md`.
+
+## Revisão de ficha e agenda
+
+A revisão .5 acrescenta Ver sessão em Sessões e guias da ficha; atualiza as listas ao entrar nas abas sem descartar rascunhos; protege a edição da anamnese e acrescenta filtros de situação combinados com profissional e data. Na Agenda e no Meu dia, digite o nome para localizar o paciente imediatamente, inclusive sem acentos. Limpar busca mantém os demais filtros. Contornos de campos, botões e itens clicáveis usam os tokens azuis SemDor. Use o roteiro em docs/validacao-fluxos-agenda-pr245.md para distinguir funções executadas, cobertura de serviços e limites de equipamentos/integrações.

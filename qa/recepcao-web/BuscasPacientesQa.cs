@@ -192,6 +192,7 @@ static class BuscasPacientesQa
     }
     static async Task ConferirDensidade(IServiceProvider sp, SuiteWebView view, WebView2 browser, Window janela, string pasta)
     {
+        var pendentesAnteriores=0;
         using(var scope=sp.CreateScope())
         {
             var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
@@ -205,19 +206,22 @@ static class BuscasPacientesQa
             // Mantém hoje com 34 itens, qualquer que seja o dia em que o cenário for executado.
             var hoje=(int)(DateTime.Today-segunda).TotalDays;
             (dias[3],dias[hoje])=(dias[hoje],dias[3]);
+            pendentesAnteriores=dias.Take(hoje).Sum(quantidade=>Math.Clamp(quantidade-10,0,4));
             for(var dia=0;dia<7;dia++) for(var n=0;n<dias[dia];n++)
-                db.Agendamentos.Add(new Agendamento {PacienteId=pacientes[n%60].Id, ProfissionalId=n%2==0?profissional.Id:segundo.Id, DataHora=segunda.AddDays(dia).AddHours(9).AddMinutes(n%20*15), DuracaoMinutos=30, ModalidadePrevista=ModalidadeAtendimento.AcupunturaSimples, Observacoes="Recado sintético para demonstrar a leitura de uma agenda densa sem ocultar as ações."});
+                db.Agendamentos.Add(new Agendamento {PacienteId=pacientes[n%60].Id, ProfissionalId=n%2==0?profissional.Id:segundo.Id, DataHora=segunda.AddDays(dia).AddHours(9).AddMinutes(n%20*15), DuracaoMinutos=30, Status=n<10?StatusAgendamento.Realizado:StatusAgendamento.Agendado, InicioAtendimentoEm=n>=10&&n<14?segunda.AddDays(dia).AddHours(9):null, ModalidadePrevista=ModalidadeAtendimento.AcupunturaSimples, Observacoes="Recado sintético para demonstrar a leitura de uma agenda densa sem ocultar as ações."});
             foreach(var p in pacientes.Skip(60).Take(170))
                 db.Acompanhamentos.Add(new AcompanhamentoPaciente {PacienteId=p.Id,Tipo=TipoAcompanhamento.Recall,Modalidade=ModalidadeAtendimento.AcupunturaSimples,ReferenciaEm=DateTime.Today.AddDays(-90),ProximoContato=DateOnly.FromDateTime(DateTime.Today.AddDays(-7)),CriadoEm=DateTime.Today.AddDays(-10),CriadoPor="QA sintética",Etapa=EtapaAcompanhamento.AContatar});
             await db.SaveChangesAsync();
         }
+        var totalFila=34+pendentesAnteriores;
+        var totalProfissional=17+pendentesAnteriores/2;
         foreach(var largura in new[]{1366,900})
         {
             janela.Width=largura;janela.Height=largura==900?660:768;await Task.Delay(200);
             foreach(var rota in new[]{"fila","retorno-pacientes",ModuloClinico.ChaveMinhaSemana})
             {
                 await view.NavegarAsync(rota);
-                var esperado=rota=="fila"?34:rota=="retorno-pacientes"?170:197;
+                var esperado=rota=="fila"?totalFila:rota=="retorno-pacientes"?170:197;
                 var seletor=rota=="fila"?".registro-cartao":rota=="retorno-pacientes"?".registro-cartao":".agenda-sessao";
                 await Esperar(browser,$"document.querySelectorAll('{seletor}').length==={esperado}","densidade "+rota+" "+esperado);
                 Exigir(await browser.CoreWebView2.ExecuteScriptAsync("document.documentElement.scrollWidth<=innerWidth+1") == "true","Página transborda horizontalmente "+rota);
@@ -234,18 +238,46 @@ static class BuscasPacientesQa
                     var dados=await browser.CoreWebView2.ExecuteScriptAsync($"[...document.querySelectorAll('{linhas}')].map(l=>['Nome','Quantidade','Ativo'].map(c=>l.querySelector('[data-coluna='+c+']').textContent.trim()))");
                     Console.WriteLine("Profissionais DOM "+dados);
                     Exigir(dados.Contains("Todos")&&dados.Contains("Profissional sintético de busca")&&dados.Contains("Profissional sintético segundo"),"Nomes de profissionais ocultos");
-                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const linhas=[...document.querySelectorAll('{linhas}')];return parseInt(linhas[0].querySelector('[data-coluna=Quantidade]').textContent)===34&&parseInt(linhas[1].querySelector('[data-coluna=Quantidade]').textContent)===17&&parseInt(linhas[2].querySelector('[data-coluna=Quantidade]').textContent)===17&&linhas[0].querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='true'&&linhas.slice(1).every(l=>l.querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='false')}})()") == "true","Contagens ou filtro ativo incorretos antes de filtrar");
+                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const linhas=[...document.querySelectorAll('{linhas}')];return parseInt(linhas[0].querySelector('[data-coluna=Quantidade]').textContent)==={totalFila}&&parseInt(linhas[1].querySelector('[data-coluna=Quantidade]').textContent)==={totalProfissional}&&parseInt(linhas[2].querySelector('[data-coluna=Quantidade]').textContent)==={totalProfissional}&&linhas[0].querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='true'&&linhas.slice(1).every(l=>l.querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='false')}})()") == "true","Contagens ou filtro ativo incorretos antes de filtrar");
                     await AcoesVisiveisQa.ClicarExpressao(browser, $"[...document.querySelectorAll('{linhas}')].find(l=>l.querySelector('[data-coluna=Nome]').textContent.includes('sintético segundo')).querySelector('[data-comando=\"Filtrar\"]')");
-                    await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===17", "filtro do segundo profissional");
+                    await Esperar(browser,$"document.querySelectorAll('.registro-cartao').length==={totalProfissional}", "filtro do segundo profissional");
                     Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const linhas=[...document.querySelectorAll('{linhas}')];return linhas.find(l=>l.querySelector('[data-coluna=Nome]').textContent.includes('sintético segundo')).querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='true'&&linhas.filter(l=>!l.querySelector('[data-coluna=Nome]').textContent.includes('sintético segundo')).every(l=>l.querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='false')}})()") == "true","Filtro ativo não acompanha profissional escolhido");
                     await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-tabela-container=\"Profissionais\"]').scrollIntoView({block:'center'})");await Task.Delay(200);
                     using(var filtrado=File.Create(Path.Combine(pasta,"fila-profissionais-filtrada-"+largura+".png")))await view.CapturarPreviewAsync(filtrado);
                     await AcoesVisiveisQa.ClicarExpressao(browser, $"[...document.querySelectorAll('{linhas}')].find(l=>l.querySelector('[data-coluna=Nome]').textContent.trim()==='Todos').querySelector('[data-comando=\"Filtrar\"]')");
-                    await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===34", "Todos restaura os 34 horários");
+                    await Esperar(browser,$"document.querySelectorAll('.registro-cartao').length==={totalFila}", "Todos restaura horários de hoje e pendências anteriores");
                     Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"[...document.querySelectorAll('{linhas}')].find(l=>l.querySelector('[data-coluna=Nome]').textContent.trim()==='Todos').querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='true'") == "true","Retorno a Todos não ativou estado");
                     await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-tabela-container=\"Profissionais\"]').scrollIntoView({block:'center'})");await Task.Delay(200);
                     using(var todos=File.Create(Path.Combine(pasta,"fila-profissionais-todos-"+largura+".png")))await view.CapturarPreviewAsync(todos);
-                    Console.WriteLine($"OK profissionais UI: Todos 34, nomes 17+17, filtro segundo 17 e Todos restaura 34; estado ativo acompanha clique, {largura}px.");
+                    if(pendentesAnteriores>0)
+                    {
+                        await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=\"Conclusão pendente\"]').click()");
+                        await Esperar(browser,$"document.querySelectorAll('.registro-cartao').length==={pendentesAnteriores}", "horários anteriores aguardando conclusão continuam acessíveis");
+                        Exigir(await browser.CoreWebView2.ExecuteScriptAsync("[...document.querySelectorAll('.registro-cartao .agenda-situacao')].every(e=>e.textContent==='Conclusão pendente')")=="true","Pendências anteriores classificadas como concluídas");
+                        using(var pendentes=File.Create(Path.Combine(pasta,"fila-conclusao-pendente-"+largura+".png")))await view.CapturarPreviewAsync(pendentes);
+                    }
+                    await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=\"Concluídos\"]').click()");
+                    await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===10", "dez concluídos no dia");
+                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync("[...document.querySelectorAll('.registro-cartao .agenda-situacao')].every(e=>e.textContent==='Concluído')")=="true","Concluídos misturados com pendentes");
+                    await AcoesVisiveisQa.ClicarExpressao(browser, $"[...document.querySelectorAll('{linhas}')].find(l=>l.querySelector('[data-coluna=Nome]').textContent.includes('sintético segundo')).querySelector('[data-comando=\"Filtrar\"]')");
+                    await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===5", "cinco concluídos do segundo profissional");
+                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"document.querySelector('[data-agenda-situacao=\"Concluídos\"] .agenda-filtro-contagem').textContent==='5'&&document.querySelector('[data-agenda-situacao=Todos] .agenda-filtro-contagem').textContent==='{totalProfissional}'")=="true","Contagens não acompanham profissional");
+                    var nomeFiltrado=await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('.registro-cartao h4').textContent.trim().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase()");
+                    await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const campo=document.querySelector('[data-agenda-busca-paciente]');campo.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(campo,{nomeFiltrado});campo.dispatchEvent(new Event('input',{{bubbles:true}}))}})()");
+                    await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===1", "busca ao digitar cruza paciente, concluídos e profissional");
+                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync("document.activeElement?.hasAttribute('data-agenda-busca-paciente')===true&&document.querySelector('.registro-cartao [data-comando=\"AbrirFicha\"]')!==null")=="true","Busca perdeu foco ou ação do paciente");
+                    await browser.CoreWebView2.ExecuteScriptAsync("(()=>{const campo=document.querySelector('[data-agenda-busca-paciente]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(campo,'paciente inexistente QA');campo.dispatchEvent(new Event('input',{bubbles:true}))})()");
+                    await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===0&&document.querySelector('.vazio').textContent.includes('Nenhum paciente encontrado')", "busca sem resultado explícita");
+                    await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-limpar-busca]').click()");
+                    await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===5&&document.querySelector('[data-agenda-situacao=\"Concluídos\"]').getAttribute('aria-pressed')==='true'", "limpar busca restaura cinco concluídos do profissional sem perder filtros");
+                    await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=\"A atender\"]').click()");
+                    await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===10", "dez a atender do segundo profissional, excluindo os dois em atendimento");
+                    await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-situacao=Todos]').click()");
+                    await Esperar(browser,$"document.querySelectorAll('.registro-cartao').length==={totalProfissional}", "Todos mantém filtro profissional");
+                    await AcoesVisiveisQa.ClicarExpressao(browser, $"[...document.querySelectorAll('{linhas}')].find(l=>l.querySelector('[data-coluna=Nome]').textContent.trim()==='Todos').querySelector('[data-comando=\"Filtrar\"]')");
+                    await Esperar(browser,$"document.querySelectorAll('.registro-cartao').length==={totalFila}", "remoção dos dois filtros restaura dia inteiro");
+                    Console.WriteLine($"OK situação + profissional: {totalFila} total (34 de hoje + {pendentesAnteriores} pendências anteriores), 10 concluídos, segundo 5 concluídos/10 a atender/2 em atendimento; {largura}px.");
+                    Console.WriteLine($"OK profissionais UI: Todos {totalFila}, nomes {totalProfissional}+{totalProfissional}, filtro segundo {totalProfissional} e Todos restaura {totalFila}; estado ativo acompanha clique, {largura}px.");
                 }
             }
         }

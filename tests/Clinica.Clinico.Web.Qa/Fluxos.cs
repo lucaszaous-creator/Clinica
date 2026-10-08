@@ -15,9 +15,10 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Wpf;
-static class Fluxos
+static partial class Fluxos
 {
  public static bool SoGestos;
+ static string? ultimoPdfEntregue;
  static UsuarioSistema gestor=null!,enfermeiro=null!;
  static void Exigir(bool valor,string mensagem){if(!valor)throw new Exception(mensagem);}
  static JsonElement J(object? valor)=>JsonSerializer.SerializeToElement(valor);
@@ -27,6 +28,10 @@ static class Fluxos
   var op=new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(con).Options;
   var sc=new ServiceCollection();sc.AddClinica("Host=127.0.0.1;Port=1;Database=NAO_USAR;Username=NAO_USAR;Timeout=1");
   sc.AddScoped(_=>new ClinicaDbContext(op));sc.AddSingleton<SessaoUsuario>();sc.AddSingleton<SnackbarService>();sc.AddSingleton<ISnackbarService>(s=>s.GetRequiredService<SnackbarService>());sc.AddSingleton<IDialogoService,DialogosNativosProibidos>();
+  sc.AddSingleton(new ImpressaoPdf.DestinoNoEscopo(async (bytes,nome,_,__) => {
+   var pasta=Path.GetFullPath("artifacts/clinico-web");Directory.CreateDirectory(pasta);
+   var caminho=Path.Combine(pasta,nome);await File.WriteAllBytesAsync(caminho,bytes);ultimoPdfEntregue=caminho;return null;
+  }));
   var modulo=new ModuloClinico();modulo.Registrar(sc);using var sp=sc.BuildServiceProvider();
   using(var scope=sp.CreateScope()) {var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();await db.Database.EnsureCreatedAsync();var profissional=new Profissional{Nome="Profissional sintético",RegistroConselho="DEMONSTRACAO"};var u=new UsuarioSistema{Nome="Clínico demonstração",Login="clinico.qa",Perfil=PerfilAcesso.Gerente,Profissional=profissional};var p=new Paciente{Nome="Paciente fictícia de demonstração",Convenio=Convenio.UnimedIntercambio,Sexo=Sexo.Feminino};gestor=u;enfermeiro=new UsuarioSistema{Nome="Enfermagem sintética",Login="enfermagem.qa",Perfil=PerfilAcesso.Enfermagem,Profissional=profissional};db.AddRange(u,p,enfermeiro);await db.SaveChangesAsync();sp.GetRequiredService<SessaoUsuario>().Entrar(u);sp.GetRequiredService<PacienteEmFoco>().Definir(p.Id,p.Nome);}
   var defs=ClinicoWebRegistro.CriarPaginas().ToArray();var registros=ClinicoWebRegistro.CriarDialogos().Concat(RegistroCompartilhadoWeb.Dialogos()).DistinctBy(d=>(d.Chave,d.Tipo)).ToArray();
@@ -43,6 +48,7 @@ static class Fluxos
   using(var scope=sp.CreateScope())Exigir(await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().ResultadosExame.AnyAsync(),"Resultado não persistiu");
   await pages.NavegarAsync(ModuloClinico.ChavePaciente);abrir=pages.ExecutarAcaoAsync("Capa.NovoProblema");dlg=await EsperarDialogo();await dialogs.AtualizarCampoAsync(dlg.Id,"Descricao",J("Alerta sintético para QA"));await dialogs.ExecutarAcaoAsync(dlg.Id,"Salvar");await abrir;
   using(var scope=sp.CreateScope())Exigir(await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().ProblemasPaciente.AnyAsync(),"Problema não persistiu");
+  await ValidarFichaAsync(sp,pages,dialogs,EsperarDialogo);
   await pages.NavegarAsync(ModuloClinico.ChaveAvaliacoes);
   await pages.AtualizarCampoAsync("Avaliacoes.TodosOsInstrumentos",J(true));
   var instrumentos=pages.ObterPagina().Secoes.SelectMany(x=>x.Tabelas).Single(t=>t.Chave=="Avaliacoes.Chips").Linhas;
@@ -83,6 +89,13 @@ static class Fluxos
   Console.WriteLine("OK leituras compartilhadas: conteúdo da sessão/versão preservado e escrita rejeitada.");
   Console.WriteLine("OK editor clínico, rascunho entre abas, mapa cancelar/confirmar e persistência de sessão.");
   Console.WriteLine("OK persistência real SQLite: medida, cancelamento, exame e alerta clínico.");
+  using (var scope=sp.CreateScope()) {
+   var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+   var evolucao=await db.Evolucoes.SingleAsync();
+   var agendado=new Agendamento { PacienteId=evolucao.PacienteId, DataHora=evolucao.Data.ToDateTime(new TimeOnly(9,0)), ProfissionalId=gestor.ProfissionalId };
+   db.Agendamentos.AddRange(agendado,new Agendamento { PacienteId=evolucao.PacienteId, DataHora=evolucao.Data.ToDateTime(new TimeOnly(10,0)), ProfissionalId=gestor.ProfissionalId });
+   await db.SaveChangesAsync(); evolucao.AgendamentoId=agendado.Id; await db.SaveChangesAsync();
+  }
   if(web)await Visual(sp,modulo,defs,registros);
  }
  static async Task Visual(IServiceProvider sp,ModuloClinico modulo,PaginasWebController.Pagina[] defs,DialogosWebController.RegistroDialogo[] registros)
@@ -103,6 +116,7 @@ static class Fluxos
    foreach(var tamanho in SoGestos?new[]{(1044,788)}:new[]{(1440,900),(1044,788),(900,600)}) {window.Width=tamanho.Item1;window.Height=tamanho.Item2;await Task.Delay(250);
     foreach(var p in defs){await view.NavegarAsync(p.Chave);await Task.Delay(400);var ok=await browser.CoreWebView2.ExecuteScriptAsync("document.documentElement.scrollWidth<=innerWidth+1 && !!document.querySelector('.navegacao-topo') && !document.querySelector('.sidebar')");Exigir(ok=="true","Layout inválido "+p.Chave);using var f=File.Create(Path.Combine(saida,p.Chave+"-"+tamanho.Item1+".png"));await view.CapturarPreviewAsync(f);Console.WriteLine("OK WebView2 "+p.Chave+" "+tamanho.Item1);}
    }
+   if (!SoGestos && defs.Any(d=>d.Chave==ModuloClinico.ChavePaciente)) await ValidarFichaVisualAsync(sp, view, browser, () => ultimoPdfEntregue);
    if(defs.Any(d=>d.Chave==ModuloClinico.ChaveAtendimento)) {
     window.Width=1044;window.Height=788;await view.NavegarAsync(ModuloClinico.ChaveAtendimento);await Task.Delay(350);
     async Task EsperarJs(string expressao){for(var i=0;i<60;i++){if(await browser.CoreWebView2.ExecuteScriptAsync(expressao)=="true")return;await Task.Delay(80);}throw new Exception("Estado web não atingido: "+expressao);}

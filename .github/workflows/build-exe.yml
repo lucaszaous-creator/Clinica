@@ -114,6 +114,12 @@ jobs:
       - name: Conferir todas as páginas e operações do Financeiro no WebView2
         run: dotnet run --project tools/validar-design-financeiro -c Release -- --web
 
+      - name: Conferir ficha, sessões, exames e impressão no WebView2
+        run: dotnet run --project tests/Clinica.Clinico.Web.Qa -c Release -- --web
+
+      - name: Conferir buscas e filtros da agenda no WebView2
+        run: dotnet run --project qa/recepcao-web -c Release -- --buscas
+
       - name: Conferir recall, filtros e configuração salva no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --acompanhamento
 
@@ -136,6 +142,9 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableWindowsTargeting=true
           -o publish
+
+      - name: Conferir recursos web do Faturamento publicado
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish
 
       - name: Enviar artefato
         uses: actions/upload-artifact@v6
@@ -160,6 +169,9 @@ jobs:
           -p:EnableWindowsTargeting=true
           -o publish-recepcao
 
+      - name: Conferir recursos web da Recepção publicada
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish-recepcao
+
       - name: Enviar artefato da Recepção
         uses: actions/upload-artifact@v6
         with:
@@ -177,6 +189,9 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableWindowsTargeting=true
           -o publish-clinico
+
+      - name: Conferir recursos web do Consultório publicado
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish-clinico
 
       - name: Enviar artefato do Consultório
         uses: actions/upload-artifact@v6
@@ -196,6 +211,9 @@ jobs:
           -p:EnableWindowsTargeting=true
           -o publish-financeiro
 
+      - name: Conferir recursos web do Financeiro publicado
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish-financeiro
+
       - name: Enviar artefato do Financeiro
         uses: actions/upload-artifact@v6
         with:
@@ -213,6 +231,9 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableWindowsTargeting=true
           -o publish-gerente
+
+      - name: Conferir recursos web do Gerente publicado
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish-gerente
 
       - name: Enviar artefato do Gerente Geral
         uses: actions/upload-artifact@v6

@@ -19,6 +19,20 @@ namespace Clinica.Application.Modelos;
 /// </summary>
 public static class StatusDaFila
 {
+    /// <summary>Recorte operacional da agenda, derivado exclusivamente do estado persistido.
+    /// Uma evolução escrita sem finalização não transforma o horário em concluído.</summary>
+    public static string GrupoAgenda(StatusAgendamento status, EtapaFila etapa, bool conclusaoPendente = false) => status switch
+    {
+        StatusAgendamento.Cancelado => "Cancelados",
+        StatusAgendamento.Faltou => "Faltas",
+        StatusAgendamento.Substituido => "Substituídos",
+        StatusAgendamento.Realizado => "Concluídos",
+        StatusAgendamento.Agendado when conclusaoPendente => "Conclusão pendente",
+        StatusAgendamento.Agendado when etapa == EtapaFila.EmAtendimento => "Em atendimento",
+        StatusAgendamento.Agendado => "A atender",
+        _ => "Outros"
+    };
+
     /// <summary>
     /// Cancelado, falta ou substituído — a linha que fica APAGADA, sem ação de fila. A lista
     /// é a NEGAÇÃO de <c>Agendamento.OcupaAgenda</c>: o que não ocupa a agenda não está na

@@ -60,14 +60,30 @@ public static partial class ClinicoWebRegistro
         {
             var pagina = Tela<PacienteWorkspaceViewModel>(chave,titulo,chave==ModuloClinico.ChavePaciente?Permissao.Nenhuma:Permissao.VerProntuario,secoes) with {
                 Fabrica=sp=>Paciente(sp,chave), Subtitulo="Paciente", Autorizado=()=>SessaoUsuario.Atual.Pode(Permissao.VerProntuario)||SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente),
-                AoAbrir=async vm=>{var paciente=(PacienteWorkspaceViewModel)vm;paciente.AoEntrarEmCena();if(chave==ModuloClinico.ChavePaciente && paciente.Administrativo is not null)await paciente.Administrativo.AtualizarAsync();},AoFechar=vm=>((PacienteWorkspaceViewModel)vm).AoSairDeCena(),
+                AoAbrir=async vm=>{
+                    var paciente=(PacienteWorkspaceViewModel)vm;
+                    paciente.AoEntrarEmCena();
+                    // O workspace preserva rascunhos entre abas; as listas de leitura precisam
+                    // refletir o registro salvo sem exigir sair e abrir o paciente novamente.
+                    switch(chave) {
+                        case ModuloClinico.ChavePaciente:
+                            await paciente.AtualizarCadastroAsync();
+                            if(paciente.Administrativo is not null)await paciente.Administrativo.AtualizarAsync();
+                            break;
+                        case ModuloClinico.ChaveProntuario: await paciente.Prontuario.CarregarAsync(); break;
+                        case ModuloClinico.ChaveExamesDoPaciente: await paciente.Anexos.CarregarAsync(); break;
+                        case ModuloClinico.ChaveEvolucaoDor: await paciente.Dor.CarregarAsync(); break;
+                        case ModuloClinico.ChaveMedidas: await paciente.Medidas.CarregarAsync(); break;
+                        case ModuloClinico.ChaveAvaliacoes: await paciente.Avaliacoes.CarregarAsync(); break;
+                    }
+                },AoFechar=vm=>((PacienteWorkspaceViewModel)vm).AoSairDeCena(),
                 Graficos=GraficosPaciente, Campos=[new("FotoWeb","Foto do paciente","imagem-leitura"),new("Paciente","Paciente","leitura"),new("Contexto","Contexto","leitura"),new("Cabecalho.Linha","Identificação","leitura"),new("Cabecalho.CarteirinhaTexto","Carteirinha","leitura"),new("Cabecalho.AlergiasTexto","Alergias","leitura"),new("Cabecalho.ProblemasTexto","Problemas ativos","leitura"),new("Cabecalho.DiagnosticosTexto","Diagnósticos","leitura"),new("SituacaoSessao","Atendimento","leitura"),new("Cronometro","Tempo de atendimento","leitura"),new("MensagemSessao","Mensagem do atendimento","leitura"),new("AvisoConclusaoAutomatica","Conclusão da sessão","leitura")],
                 Acoes=[new("Voltar","Voltar"),new("VerAtendimentoWeb","Evolução da sessão",Permissao.EditarProntuario),new("VerEnfermagemWeb","Enfermagem",Permissao.RegistrarEvolucaoEnfermagem),new("VerFichaWeb","Ficha"),new("VerHistoricoWeb","Histórico",Permissao.VerProntuario),new("VerExamesWeb","Exames",Permissao.VerProntuario),new("VerDorWeb","Dor",Permissao.VerProntuario),new("VerMedidasWeb","Medidas",Permissao.VerProntuario),new("VerAvaliacoesWeb","Avaliações",Permissao.VerProntuario),new("EmitirDocumentos","Documentos",Permissao.VerProntuario),new("Atendimento.EmitirTipo","Receita",Permissao.Prescrever,Parametro:"receita",Chave:"emitir-receita"),new("Atendimento.EmitirTipo","Atestado médico",Permissao.Prescrever,Parametro:"atestado",Chave:"emitir-atestado"),new("Atendimento.EmitirTipo","Declaração de comparecimento",Permissao.EditarPaciente,Parametro:"comparecimento",Chave:"emitir-comparecimento"),new("Atendimento.EmitirTipo","Pedido de exame",Permissao.Prescrever,Parametro:"pedido-exame",Chave:"emitir-exame"),new("Atendimento.PrescreverInfusao","Prescrição de infusão",Guarda:"Atendimento.PodePrescreverInfusao"),new("AtualizarFicha","Atualizar ficha"),new("ConsultarFicha","Consultar ficha"),new("ConsultarExames","Consultar exames"),new("DocumentosPacienteWeb","Prescrições do paciente",Permissao.VerProntuario),new("IniciarSessao","Iniciar atendimento",Guarda:"PodeIniciar"),new("ReabrirSessao","Reabrir atendimento",Guarda:"PodeReabrir"),new("RegistrarMateriais","Registrar materiais",Guarda:"MostrarMateriais"),new("Atendimento.IndicarBsv","Indicação de procedimento",Guarda:"Atendimento.PodeIndicarBsv"),new("Atendimento.ColherTermo","Colher termo",Guarda:"Atendimento.PodeColherTermo"),new("FinalizarSessao","Concluir atendimento",Guarda:"PodeFinalizarSessao")] };
             yield return pagina;
         }
     }
     private static P.Secao SessoesDoPaciente()=>new("SessoesDoPaciente","Sessões e guias",null,[],["ResumoSessoes|Resumo das sessões"],[
-        new("Sessoes","Sessões do paciente",["Sessoes"],vm=>((PacienteCapaViewModel)vm).Sessoes.Cast<object>(),[new("DataTexto","Data"),new("ModalidadeTexto","Modalidade"),new("ProfissionalTexto","Profissional"),new("Situacao","Situação"),new("EvolucaoTexto","Evolução"),new("GuiasTexto","Guias"),new("Protocolo","Protocolo")],[],[])],
+        new("Sessoes","Sessões do paciente",["Sessoes"],vm=>((PacienteCapaViewModel)vm).Sessoes.Cast<object>(),[new("DataTexto","Data"),new("ModalidadeTexto","Modalidade"),new("ProfissionalTexto","Profissional"),new("Situacao","Situação"),new("EvolucaoTexto","Evolução"),new("GuiasTexto","Guias"),new("Protocolo","Protocolo")],[],[new("AbrirSessao","Ver sessão",Permissao.VerProntuario)])],
         [new("PaginaAnterior","Página anterior",Guarda:"PodePaginaAnterior"),new("ProximaPagina","Próxima página",Guarda:"PodeProximaPagina")]);
     private static P.Pagina Tela<T>(string chave,string titulo,Permissao permissao,params P.Secao[] secoes)
         => new(chave,titulo,typeof(T),[],[],secoes.Select(Aprimorar).ToArray(),[],Subtitulo:typeof(T).GetProperty("Resumo") is null?null:"Resumo",Permissao:permissao,Fabrica:sp=>ActivatorUtilities.GetServiceOrCreateInstance<T>(sp)!);

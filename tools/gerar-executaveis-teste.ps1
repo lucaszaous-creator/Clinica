@@ -20,11 +20,12 @@ foreach ($nome in $aplicativos.Keys) {
     $projeto = $aplicativos[$nome]
     $saidaAplicativo = Join-Path $pastaSaida $nome
     $log = Join-Path $pastaSaida ("compilacao-" + $nome + '.log')
-    & $Dotnet publish (Join-Path $raizProjeto "src/$projeto/$projeto.csproj") -c Release -r win-x64 --self-contained true -m:1 -p:BuildInParallel=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -p:ClinicaTesteLocal=true -p:Version=1.0.245-test.20261008.4 -o $saidaAplicativo *> $log
+    & $Dotnet publish (Join-Path $raizProjeto "src/$projeto/$projeto.csproj") -c Release -r win-x64 --self-contained true -m:1 -p:BuildInParallel=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -p:ClinicaTesteLocal=true -p:Version=1.0.245-test.20261008.5 -o $saidaAplicativo *> $log
     if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar $nome. Consulte $log" }
     foreach ($recurso in @("$projeto.exe", 'WebSuite/wwwroot/index.html', 'WebSuite/wwwroot/entrada.html', 'WebSuite/wwwroot/entrada.js', 'WebSuite/wwwroot/assinatura-paciente.html')) {
         if (!(Test-Path -LiteralPath (Join-Path $saidaAplicativo $recurso))) { throw "$nome sem recurso obrigatório: $recurso" }
     }
+    & (Join-Path $PSScriptRoot 'verificar-recursos-web-publicados.ps1') -Pasta $saidaAplicativo
     Write-Output "${nome}: executável de teste e interface local conferidos."
 }
 Copy-Item -LiteralPath (Join-Path $raizProjeto 'docs/teste-pr245.md') -Destination (Join-Path $pastaSaida 'LEIA-PRIMEIRO.md')

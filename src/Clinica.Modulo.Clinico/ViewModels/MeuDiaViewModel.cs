@@ -123,6 +123,7 @@ public sealed class LinhaSessao
     /// (set/2026): duas telas sobre o mesmo horário, uma palavra.
     /// </summary>
     public string Status => StatusDaFila.Palavra(Estado, Etapa);
+    public string GrupoSituacao => StatusDaFila.GrupoAgenda(Estado, Etapa, FimEm is not null || (InicioEm is not null && Data < DateOnly.FromDateTime(DateTime.Today)));
 
     /// <summary>
     /// A hora do fato abaixo do status — "chegou às 14:40 · espera 12 min", "chamado há 4

@@ -11,6 +11,20 @@ namespace Clinica.Tests;
 /// </summary>
 public class StatusDaFilaTests
 {
+    [Theory]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.Aguardando, false, "A atender")]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.Chegou, false, "A atender")]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.Chamado, false, "A atender")]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.EmAtendimento, false, "Em atendimento")]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.EmAtendimento, true, "Conclusão pendente")]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.Finalizado, true, "Conclusão pendente")]
+    [InlineData(StatusAgendamento.Realizado, EtapaFila.Finalizado, true, "Concluídos")]
+    [InlineData(StatusAgendamento.Cancelado, EtapaFila.EmAtendimento, true, "Cancelados")]
+    [InlineData(StatusAgendamento.Faltou, EtapaFila.Aguardando, false, "Faltas")]
+    [InlineData(StatusAgendamento.Substituido, EtapaFila.Finalizado, true, "Substituídos")]
+    public void Grupo_da_agenda_preserva_conclusao_efetiva_e_separa_interrupcoes(StatusAgendamento status, EtapaFila etapa, bool pendente, string esperado)
+        => StatusDaFila.GrupoAgenda(status, etapa, pendente).Should().Be(esperado);
+
     private static readonly DateTime Chegada = new(2026, 9, 10, 14, 40, 0);
 
     [Theory]

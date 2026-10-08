@@ -1,5 +1,4 @@
-/* Fonte: Styles/Tokens.xaml (Cor.Azul.*, Cor.Cinza.*, estados) e logo-cor.png.
-   AtenÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o: ÃƒÆ’Ã‚Â¢mbar funcional jÃƒÆ’Ã‚Â¡ usado no status-celula.css. InformaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o usa azul da marca, sem ciano. */
+/* Identidade SemDor: tokens existentes em Styles/Tokens.xaml; ambar funcional preservado. */
 :root{
  --marca:#123A9E;--marca-hover:#0A2E86;--marca-suave:#EEF3FC;--marca-borda:#D8E3F7;--foco:#3F62C9;
  --azul-marinho:#071F5C;--texto-primario:var(--azul-marinho);--texto-secundario:#6B7280;
@@ -21,3 +20,40 @@
 #app .resumo-react .movimentos :is(.valor-entrada,.valor-saida){color:var(--texto)}
 #app .resumo-react .grafico.entrada .curva{stroke:var(--marca)}
 #app .resumo-react .grafico.saida .curva{stroke:var(--suave)}
+
+/* Contraste operacional: distinguir a area de trabalho e os controles sem nova paleta. */
+:root{--fundo:var(--superficie-filtro)}
+body,#app .conteudo{background:var(--fundo)}
+#app .botao:not(.primario):not(.perigo):not(.clinico-aba):not(:disabled){color:var(--marca);border-color:var(--marca-borda);background:var(--marca-suave)}
+#app .botao:not(.primario):not(.perigo):not(.clinico-aba):hover:not(:disabled){color:var(--marca-hover);border-color:var(--marca);background:var(--marca-suave)}
+#app .botao.primario:not(:disabled){background:var(--marca);border-color:var(--marca);color:var(--superficie)}
+#app .botao.primario:hover:not(:disabled){background:var(--marca-hover);border-color:var(--marca-hover)}
+#app .botao.perigo:not(:disabled){color:var(--estado-erro);border-color:var(--estado-erro-borda);background:var(--superficie)}
+#app .acoes-menu-painel .botao:not(.primario):not(.perigo):not(:disabled){background:transparent;border-color:transparent}
+#app .acoes-menu-painel .botao:hover:not(:disabled){background:var(--marca-suave)}
+#app .clinico-cabecalho .botao.clinico-aba{color:var(--marca)}
+#app .clinico-cabecalho .botao.clinico-aba-ativa{color:var(--marca);background:var(--marca-suave);border-bottom-color:var(--marca)}
+#app :is(.ancoras-secoes button,details>summary,.atalho-historico){color:var(--marca)}
+#app .ancoras-secoes button:hover,#app .icone-botao:hover:not(:disabled){color:var(--marca-hover);background:var(--marca-suave)}
+#app .campo-web :is(input,select,textarea):not(:disabled){border-color:var(--borda-hover);background:var(--superficie)}
+#app .campo-web :is(input,select,textarea):focus{border-color:var(--foco)}
+#app .mensagem-web{color:var(--estado-info);background:var(--estado-info-fundo);border-color:var(--marca-borda)}
+#app .dados-paciente-resumo{color:var(--texto);background:var(--superficie);border-color:var(--marca-borda)}
+#app .dados-paciente-resumo>summary{color:var(--marca)}
+#app .clinico-identidade .clinico-contexto output{color:var(--marca)}
+#app .secao-web,#app .tabela-scroll{border-color:var(--borda-hover)}
+#app .pagina-web>.campos-web,#app .campos-filtros,#app .gestao-consulta{background:var(--fundo-geral);border-color:var(--borda-hover)}
+
+/* Limites dos controles: #BAC9DD ja existia em identidade-visual.css. */
+:root{--borda-controle:#BAC9DD}
+#app .campo-web :is(input,select,textarea):not(:disabled){border-color:var(--borda-controle)}
+#app .campo-web :is(input,select,textarea):hover:not(:disabled){border-color:var(--suave)}
+#app .campo-web :is(input,select,textarea):focus{border-color:var(--foco);outline-offset:2px}
+#app .campo-web :is(input,textarea)::placeholder{color:var(--texto-secundario);opacity:1}
+#app .campo-web:not(.campo-leitura)>label{color:var(--azul-marinho)}
+#app .campo-check input[type=checkbox]{accent-color:var(--marca);flex-shrink:0}
+#app .botao:not(.primario):not(.perigo):not(.clinico-aba):not(:disabled){border-color:var(--borda-controle)}
+#app .botao.primario:not(:disabled){font-weight:600}
+#app .agenda-filtros-situacao button{border-color:var(--borda-controle)}
+#app .agenda-filtros-situacao button[aria-pressed=true]{border-color:var(--marca)}
+#app .acoes-menu-painel .botao:not(.primario):not(.perigo):not(:disabled){border-color:transparent}

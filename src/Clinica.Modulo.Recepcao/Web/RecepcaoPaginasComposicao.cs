@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Clinica.Desktop.Shell.Web;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
@@ -27,7 +27,7 @@ public static partial class RecepcaoWebRegistro
         if(p.Chave == "agenda-recepcao") p = p with { Secoes = [
             new("horarios", "Horários da agenda", null, [], [], [
                 new P.Tab("horarios", "Horários", ["ColunasPlanejamento"], vm => ((AgendaViewModel)vm).ColunasPlanejamento.SelectMany(c => c.Blocos).Where(b => b.Cartao is not null).Select(b => (object)b.Cartao!).Distinct(),
-                    [new("DataHora", "Início"), new("Fim", "Fim"), new("Paciente", "Paciente"), new("Profissional", "Profissional"), new("Sala", "Sala"), new("Modalidade", "Modalidade"), new("SituacaoDaFila", "Situação"), new("ConfirmacaoRotulo", "Confirmação"), new("Lancamento", "Lançamento"), new("Observacoes", "Observações")], [], [new("AbrirHorario", "Abrir horário")],
+                    [new("DataHora", "Início"), new("Fim", "Fim"), new("Paciente", "Paciente"), new("Profissional", "Profissional"), new("Sala", "Sala"), new("Modalidade", "Modalidade"), new("SituacaoDaFila", "Situação"), new("GrupoSituacao", "Grupo da situação"), new("ConfirmacaoRotulo", "Confirmação"), new("Lancamento", "Lançamento"), new("Observacoes", "Observações")], [], [new("AbrirHorario", "Abrir horário")],
                     Celula: (_, row, campo) => campo switch { "DataHora" => ((CartaoAgenda)row).DataHora.ToString("O"), "Fim" => ((CartaoAgenda)row).Fim.ToString("O"), _ => null }, TipoLinha: typeof(CartaoAgenda)),
                 new P.Tab("faixas", "Faixas disponíveis e encaixes", ["ColunasPlanejamento"], vm => ((AgendaViewModel)vm).ColunasPlanejamento.SelectMany(c => c.Blocos).SelectMany(b => new[]{b.Celula,b.Encaixe}).OfType<CelulaAgenda>().Cast<object>().Distinct(),
                     [new("Quando", "Horário"), new("ProfissionalId", "Profissional"), new("SalaId", "Sala"), new("Bloqueio", "Bloqueio"), new("ForaDoExpediente", "Expediente"), new("DicaDoVao", "Disponibilidade")], [], [new("AgendarNaFaixa", "Agendar neste horário",Permissao.EditarAgenda)],
@@ -48,7 +48,7 @@ public static partial class RecepcaoWebRegistro
                 Secoes=[p.Secoes[0] with { Descricao="UltimaLeitura" },planejamento,p.Secoes[1] with{Titulo="Próximas vagas",Descricao="EstadoVagas"}],
                 Indicadores=[] };
         }
-        if(p.Chave=="fila") p=p with { Secoes=p.Secoes.Select(s=>s.Chave!="Linhas"?s:s with { Tabelas=s.Tabelas.Select(t=>t with { Colunas=[..t.Colunas, new("ConfirmacaoRotulo","Confirmação"),new("ProximoPasso","Próximo passo"),new("Detalhe","Pendências")], Acoes=[..t.Acoes,
+        if(p.Chave=="fila") p=p with { Secoes=p.Secoes.Select(s=>s.Chave!="Linhas"?s:s with { Tabelas=s.Tabelas.Select(t=>t with { Colunas=[..t.Colunas, new("GrupoSituacao","Grupo da situação"), new("ConfirmacaoRotulo","Confirmação"),new("ProximoPasso","Próximo passo"),new("Detalhe","Pendências")], Acoes=[..t.Acoes,
             new("AbrirFicha","Ficha do paciente",Permissao.VerFichaPaciente),
             new("ColherTermo","Colher ou conferir termo",Permissao.ColherAssinaturaPaciente),
             new("FecharSessao","Fechar sessão (pacote, insumo, caixa)",Permissao.EditarAgenda,Visivel:"PodeFechar"),

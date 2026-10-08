@@ -71,6 +71,8 @@ public sealed class CartaoAgenda
 
     /// <summary>Ver <see cref="Situacao"/>. É ela que dá a COR da linha de contexto.</summary>
     public required EtapaFila Etapa { get; init; }
+    public string GrupoSituacao => StatusDaFila.GrupoAgenda(Situacao, Etapa, ConclusaoPendente);
+    public bool ConclusaoPendente { get; init; }
 
     /// <summary>
     /// A palavra da situação, ou vazio enquanto o horário só está marcado. O vocabulário
@@ -1026,6 +1028,7 @@ public sealed partial class AgendaViewModel : ObservableObject
                 StatusRotulo = Rotular(a.Status),
                 Situacao = a.Status,
                 Etapa = a.Etapa,
+                ConclusaoPendente = a.FimAtendimentoEm is not null || (a.InicioAtendimentoEm is not null && a.DataHora.Date < DateTime.Today),
                 EhEncaixe = a.Encaixe,
                 EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
                 VeioDaListaEspera = a.Origem == OrigemAgendamento.ListaEspera,
