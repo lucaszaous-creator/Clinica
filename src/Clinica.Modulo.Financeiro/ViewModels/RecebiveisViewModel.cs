@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
@@ -99,6 +100,10 @@ public sealed class LinhaConfirmado
 /// </summary>
 public sealed partial class RecebiveisViewModel : ObservableObject
 {
+    // Contador mantém a tela bloqueada até terminar inclusive uma consulta anterior superada.
+    private int _cargasPendentes;
+    [ObservableProperty] private bool _carregando;
+
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
@@ -153,6 +158,8 @@ public sealed partial class RecebiveisViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         var geracao = ++_geracaoCarga;
 
         try
@@ -217,6 +224,10 @@ public sealed partial class RecebiveisViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar("Financeiro — recebíveis não puderam ser lidos", ex);
             Erro($"Não foi possível ler os recebíveis: {ex.Message}");
         }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
+        }
     }
 
     /// <summary>
@@ -242,7 +253,7 @@ public sealed partial class RecebiveisViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "confirmar recebimento");
 
-            if (!_dialogo.Confirmar("Confirmar depósito",
+            if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Confirmar depósito",
                     $"Confirmar que {linha.Adquirente} depositou {linha.Liquido} "
                     + $"em {dia:dd/MM/yyyy}? ({linha.Detalhe})")) return;
 
@@ -280,7 +291,7 @@ public sealed partial class RecebiveisViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "desfazer recebimento");
 
-            if (!_dialogo.ConfirmarPerigo("Desfazer confirmação",
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Desfazer confirmação",
                     $"Devolver {linha.Liquido} de {linha.Adquirente} (creditado em {linha.Creditado}) "
                     + "para a lista do que a adquirente ainda deve depositar? "
                     + "O lançamento continua no caixa — só a data do crédito é apagada.")) return;

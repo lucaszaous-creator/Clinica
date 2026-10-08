@@ -120,12 +120,10 @@ public sealed partial class PlanoContasViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no plano de contas");
 
         var vm = new CategoriaEdicaoViewModel(_escopos, ordemSugerida: Categorias.Count);
-        var janela = new Janelas.CategoriaWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("Categoria", vm, () => new Janelas.CategoriaWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso("Categoria criada.");
         await CarregarAsync();
     }

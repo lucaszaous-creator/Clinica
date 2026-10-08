@@ -362,12 +362,9 @@ public sealed partial class CaixaViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
 
-        var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_escopos))
-        {
-            Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        var vm = new LancamentoEdicaoViewModel(_escopos);
+        if (await DialogosDaSessao.AbrirAsync("Lancamento", vm,
+            () => new Janelas.LancamentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog()) != true) return;
 
         _snackbar.Sucesso("Lançamento registrado.");
         await CarregarAsync();
@@ -387,14 +384,14 @@ public sealed partial class CaixaViewModel : ObservableObject
     /// criaria receita que talvez não tenha entrado.
     /// </remarks>
     [RelayCommand]
-    private void CobrarPix(LinhaCaixa? linha)
+    private async Task CobrarPixAsync(LinhaCaixa? linha)
     {
         var vm = new CobrancaPixViewModel(_escopos, linha?.Valor, linha?.Descricao);
 
-        new Janelas.CobrancaPixWindow(vm)
+        await DialogosDaSessao.AbrirAsync("CobrancaPix", vm, () => new Janelas.CobrancaPixWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        }.ShowDialog();
+        }.ShowDialog());
     }
 
     /// <summary>Marca um lançamento previsto como efetivamente pago/recebido.</summary>
@@ -412,7 +409,7 @@ public sealed partial class CaixaViewModel : ObservableObject
                 lancamento = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
                     .ObterLancamentoAsync(linha.Id) ?? throw new InvalidOperationException("Lançamento não encontrado.");
             var vm = new BaixarLancamentoViewModel(_escopos, lancamento);
-            if (new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
+            if (await DialogosDaSessao.AbrirAsync("Recebimento", vm, () => new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog()) != true) return;
             _snackbar.Sucesso("Lançamento realizado.");
             await CarregarAsync();
         }
@@ -442,7 +439,7 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Cancelar lançamento",
             $"Por que \"{linha.Descricao}\" está sendo cancelado? O lançamento sai dos totais mas continua no histórico. Pagamentos ligados a uma baixa parcial devolvem o valor à obrigação em aberto. O recibo vigente também será cancelado.");
         if (string.IsNullOrWhiteSpace(motivo)) return;
@@ -482,7 +479,7 @@ public sealed partial class CaixaViewModel : ObservableObject
             return;
         }
 
-        var destinatario = _dialogo.PerguntarTexto(
+        var destinatario = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Recibo",
             "Para quem é o recibo? Deixe em branco para usar o nome do paciente do lançamento.",
             obrigatorio: false);

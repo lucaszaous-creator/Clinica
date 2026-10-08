@@ -141,7 +141,7 @@ public static class ConferenciaMateriaisProcedimento
             return await gravacao.ServiceProvider.GetRequiredService<EstoqueService>()
                 .RegistrarMateriaisAsync(agendamentoId, SessaoUsuario.Atual.UsuarioId, pedido);
         }, registro) { Contexto = $"{horario.Paciente?.Nome} · {horario.DataHora:dd/MM/yyyy HH:mm}" };
-        var janela = new MateriaisProcedimentoWindow(vm) { Owner = JanelaDona.Atual() };
-        janela.ShowDialog();
+        await DialogosDaSessao.AbrirAsync("MateriaisProcedimento", vm,
+            () => new MateriaisProcedimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
     }
 }

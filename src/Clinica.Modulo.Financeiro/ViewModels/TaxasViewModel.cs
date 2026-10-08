@@ -100,6 +100,10 @@ public sealed class LinhaTaxa
 /// </summary>
 public sealed partial class TaxasViewModel : ObservableObject
 {
+    // Contador mantém a tela bloqueada até terminar inclusive uma consulta anterior superada.
+    private int _cargasPendentes;
+    [ObservableProperty] private bool _carregando;
+
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
@@ -186,6 +190,8 @@ public sealed partial class TaxasViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         try
         {
             Mensagem = null;
@@ -252,6 +258,10 @@ public sealed partial class TaxasViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar("Financeiro — taxas não puderam ser lidas", ex);
             Erro(ex.Message);
         }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
+        }
     }
 
     /// <summary>
@@ -274,12 +284,10 @@ public sealed partial class TaxasViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar taxa de cartão");
 
         var vm = new TaxaEdicaoViewModel(_escopos, taxaId);
-        var janela = new Janelas.TaxaWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("Taxa", vm, () => new Janelas.TaxaWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso(taxaId == 0 ? "Taxa cadastrada." : "Taxa atualizada.");
         await CarregarAsync();
     }
@@ -298,7 +306,7 @@ public sealed partial class TaxasViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "excluir taxa de cartão");
 
-            if (!_dialogo.ConfirmarPerigo("Excluir taxa",
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir taxa",
                     $"Apagar a taxa {linha.Descricao}? Se ela já descontou algum recebimento, "
                     + "prefira INATIVAR: os lançamentos guardam o valor descontado, mas apagar "
                     + "a regra apaga a explicação de por que o desconto foi aquele.")) return;
@@ -339,12 +347,10 @@ public sealed partial class TaxasViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar tributo");
 
         var vm = new TributoEdicaoViewModel(_escopos, tributoId);
-        var janela = new Janelas.TributoWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("Tributo", vm, () => new Janelas.TributoWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso(tributoId == 0 ? "Tributo cadastrado." : "Tributo atualizado.");
         await CarregarAsync();
     }
@@ -363,7 +369,7 @@ public sealed partial class TaxasViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "excluir tributo");
 
-            if (!_dialogo.ConfirmarPerigo("Excluir tributo",
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir tributo",
                     $"Apagar {linha.Descricao}? Se ele já reteve imposto de algum recebimento, "
                     + "prefira ENCERRAR pela vigência: os lançamentos guardam o valor retido, "
                     + "mas apagar a regra apaga a explicação de por que a retenção foi aquela.")) return;
@@ -494,6 +500,8 @@ public sealed partial class TaxasViewModel : ObservableObject
     [RelayCommand]
     public async Task ApurarAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         var geracao = ++_geracaoApuracao;
 
         try
@@ -548,6 +556,10 @@ public sealed partial class TaxasViewModel : ObservableObject
             Apuracao.Clear();
             ApuracaoNaoVerificada = true;
             ResumoApuracao = $"Não foi possível apurar o mês: {ex.Message}";
+        }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
         }
     }
 
@@ -613,6 +625,10 @@ public sealed partial class TaxasViewModel : ObservableObject
 /// </summary>
 public sealed partial class TaxaEdicaoViewModel : ObservableObject
 {
+    // Contador mantém a tela bloqueada até terminar inclusive uma consulta anterior superada.
+    private int _cargasPendentes;
+    [ObservableProperty] private bool _carregando;
+
     private readonly IServiceScopeFactory _escopos;
     private readonly int _taxaId;
 
@@ -654,6 +670,8 @@ public sealed partial class TaxaEdicaoViewModel : ObservableObject
 
     private async Task CarregarAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         try
         {
             using var scope = _escopos.CreateScope();
@@ -676,6 +694,10 @@ public sealed partial class TaxaEdicaoViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar("Financeiro — taxa não pôde ser aberta", ex);
             Erro(ex.Message);
+        }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
         }
     }
 
@@ -765,6 +787,10 @@ public sealed partial class TaxaEdicaoViewModel : ObservableObject
 /// </summary>
 public sealed partial class TributoEdicaoViewModel : ObservableObject
 {
+    // Contador mantém a tela bloqueada até terminar inclusive uma consulta anterior superada.
+    private int _cargasPendentes;
+    [ObservableProperty] private bool _carregando;
+
     private readonly IServiceScopeFactory _escopos;
     private readonly int _tributoId;
 
@@ -794,6 +820,8 @@ public sealed partial class TributoEdicaoViewModel : ObservableObject
 
     private async Task CarregarAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         try
         {
             using var scope = _escopos.CreateScope();
@@ -814,6 +842,10 @@ public sealed partial class TributoEdicaoViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar("Financeiro — tributo não pôde ser aberto", ex);
             Erro(ex.Message);
+        }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
         }
     }
 

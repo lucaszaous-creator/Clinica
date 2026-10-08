@@ -255,12 +255,10 @@ public sealed partial class ResultadoViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "definir teto de gasto");
 
         var vm = new OrcamentoEdicaoViewModel(_escopos, Mes.Year, Mes.Month);
-        var janela = new Janelas.OrcamentoWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("Orcamento", vm, () => new Janelas.OrcamentoWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
 
         _snackbar.Sucesso("Teto definido — o painel da direção já avisa quando estourar.");
         await CarregarAsync();
@@ -279,7 +277,7 @@ public sealed partial class ResultadoViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "excluir teto de gasto");
 
-            if (!_dialogo.ConfirmarPerigo(
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo,
                     "Excluir teto",
                     $"Tirar o teto de {linha.Categoria} neste mês?\n\n"
                     + "A categoria volta a não ter régua: o gasto passa a ser julgado só "
@@ -366,6 +364,18 @@ public sealed partial class ResultadoViewModel : ObservableObject
 /// </summary>
 public sealed partial class OrcamentoEdicaoViewModel : ObservableObject
 {
+    // As consultas existentes sinalizam a espera para não salvar valores dependentes
+    // antes de a mesma carga terminar (por exemplo, taxa ou categoria do lançamento).
+    [ObservableProperty] private bool _carregando;
+    private int _cargasPendentes;
+    private async Task CarregarCategoriasAsync()
+    {
+        _cargasPendentes++;
+        Carregando = true;
+        try { await CarregarCategoriasDadosAsync(); }
+        finally { Carregando = --_cargasPendentes > 0; }
+    }
+
     private readonly IServiceScopeFactory _escopos;
     private readonly int _ano;
     private readonly int _mes;
@@ -393,7 +403,7 @@ public sealed partial class OrcamentoEdicaoViewModel : ObservableObject
         _ = CarregarCategoriasAsync();
     }
 
-    private async Task CarregarCategoriasAsync()
+    private async Task CarregarCategoriasDadosAsync()
     {
         try
         {

@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
@@ -80,6 +81,10 @@ public sealed class LinhaNaoConferido
 /// </summary>
 public sealed partial class FechamentoCaixaViewModel : ObservableObject
 {
+    // Contador mantém a tela bloqueada até terminar inclusive uma consulta anterior superada.
+    private int _cargasPendentes;
+    [ObservableProperty] private bool _carregando;
+
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
@@ -170,6 +175,8 @@ public sealed partial class FechamentoCaixaViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         var geracao = ++_geracaoCarga;
 
         try
@@ -239,6 +246,10 @@ public sealed partial class FechamentoCaixaViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar("Financeiro — fechamento de caixa não pôde ser lido", ex);
             Erro($"Não foi possível montar a conferência: {ex.Message}");
         }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
+        }
     }
 
     [RelayCommand]
@@ -290,7 +301,7 @@ public sealed partial class FechamentoCaixaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "reabrir o caixa");
 
-            var motivo = _dialogo.PerguntarTexto("Reabrir o caixa",
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo, "Reabrir o caixa",
                 $"Por que o caixa de {linha.Data} precisa ser recontado? "
                 + "A conferência atual continua no histórico, marcada com este motivo.");
             if (string.IsNullOrWhiteSpace(motivo)) return;

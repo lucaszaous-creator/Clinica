@@ -309,7 +309,7 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "dar baixa em conta de paciente");
 
-            if (!_dialogo.Confirmar(
+            if (!await DialogosDaSessao.ConfirmarAsync(_dialogo,
                     "Receber conta",
                     $"Registrar o recebimento de {conta.Valor} ({conta.Descricao})?"))
                 return;

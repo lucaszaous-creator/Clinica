@@ -32,6 +32,32 @@ public sealed record OpcaoSessao(int? AtendimentoId, string Rotulo);
 /// </summary>
 public sealed partial class LancamentoEdicaoViewModel : ObservableObject
 {
+    // As consultas existentes sinalizam a espera para não salvar valores dependentes
+    // antes de a mesma carga terminar (por exemplo, taxa ou categoria do lançamento).
+    [ObservableProperty] private bool _carregando;
+    private int _cargasPendentes;
+    private async Task CarregarCategoriasAsync()
+    {
+        _cargasPendentes++;
+        Carregando = true;
+        try { await CarregarCategoriasDadosAsync(); }
+        finally { Carregando = --_cargasPendentes > 0; }
+    }
+    private async Task CarregarSessoesAsync()
+    {
+        _cargasPendentes++;
+        Carregando = true;
+        try { await CarregarSessoesDadosAsync(); }
+        finally { Carregando = --_cargasPendentes > 0; }
+    }
+    private async Task RecalcularDeducoesAsync()
+    {
+        _cargasPendentes++;
+        Carregando = true;
+        try { await RecalcularDeducoesDadosAsync(); }
+        finally { Carregando = --_cargasPendentes > 0; }
+    }
+
     private readonly IServiceScopeFactory _escopos;
 
     /// <summary>
@@ -130,7 +156,7 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     ///
     /// Só ANTES de hoje: a sessão de hoje está sendo fechada agora, pelo Finalizar.
     /// </summary>
-    private async Task CarregarSessoesAsync()
+    private async Task CarregarSessoesDadosAsync()
     {
         var geracao = ++_geracaoSessoes;
         var paciente = Seletor.Selecionado;
@@ -217,7 +243,7 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     /// Falha aqui nao trava o formulario: o lancamento continua podendo ser gravado com
     /// o bruto, que e a verdade disponivel. Mas fica registrado.
     /// </summary>
-    private async Task RecalcularDeducoesAsync()
+    private async Task RecalcularDeducoesDadosAsync()
     {
         var geracao = ++_geracaoDeducoes;
 
@@ -260,7 +286,7 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
         }
     }
 
-    private async Task CarregarCategoriasAsync()
+    private async Task CarregarCategoriasDadosAsync()
     {
         try
         {

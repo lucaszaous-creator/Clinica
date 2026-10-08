@@ -11,6 +11,19 @@
     <UserControl.Style>
         <StaticResource ResourceKey="Financeiro.Pagina"/>
     </UserControl.Style>
+    <Grid>
+        <Grid>
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Carregando}" Value="True">
+                            <Setter Property="IsEnabled" Value="False"/>
+                            <Setter Property="Visibility" Value="Hidden"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
     <DockPanel Margin="24,12">
         <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource AlturaCabecalhoFinanceiro}, ConverterParameter=0.28}" Margin="0,0,0,8">
             <StackPanel>
@@ -276,4 +289,9 @@
             </TabItem>
         </TabControl>
     </DockPanel>
+
+        </Grid>
+        <ctrl:EstadoDaTela Vazio="False" Carregando="{Binding Carregando}"
+                          TextoCarregando="Lendo os recebíveis…"/>
+    </Grid>
 </UserControl>

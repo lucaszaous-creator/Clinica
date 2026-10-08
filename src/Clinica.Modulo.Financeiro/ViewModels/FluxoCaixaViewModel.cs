@@ -73,6 +73,10 @@ public sealed class LinhaCategoriaFluxo
 /// </summary>
 public sealed partial class FluxoCaixaViewModel : ObservableObject
 {
+    // Contador mantém a tela bloqueada até terminar inclusive uma consulta anterior superada.
+    private int _cargasPendentes;
+    [ObservableProperty] private bool _carregando;
+
     private readonly IServiceScopeFactory _escopos;
 
     public ObservableCollection<LinhaMesFluxo> Meses { get; } = [];
@@ -127,6 +131,8 @@ public sealed partial class FluxoCaixaViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         var geracao = ++_geracaoCarga;
 
         try
@@ -196,6 +202,10 @@ public sealed partial class FluxoCaixaViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar("Financeiro — fluxo de caixa não pôde ser lido", ex);
             Mensagem = $"Não foi possível montar o fluxo: {ex.Message}";
             MensagemEhErro = true;
+        }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
         }
     }
 

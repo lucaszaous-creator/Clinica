@@ -19,6 +19,13 @@ Cobertura:
 
 Para uma verificação específica, usar `-- --dialogos` ou `-- --caixa`. A primeira verifica os diálogos; a segunda abre o Caixa em 900×600.
 
-Usar `-- --web` para verificar a interface HTML/CSS empacotada no WebView2, com o mesmo banco sintético. Antes, executar `npm ci` e `npm run build` em `src/Clinica.Modulo.Financeiro/Web/frontend`. Esse caminho captura o navegador embutido em três tamanhos, exercita os filtros e a troca de mês pelo bridge, e confere restrições de navegação.
+Usar `-- --web` para verificar a interface HTML/CSS/TypeScript empacotada no WebView2, com o mesmo banco sintético e o runtime WebView2 instalado. Antes, executar `npm ci` e `npm run build` em `src/Clinica.Modulo.Financeiro/Web/frontend`. Esse caminho é executado também pelo CI Windows e inclui:
+
+- As 15 páginas em três tamanhos, sem abrir outra janela WPF, com capturas reais do navegador embutido.
+- Os 25 contratos de formulários e prompts, incluindo diálogos filhos, cancelamento, permissões, IDs obsoletos e bloqueio de operações simultâneas.
+- Gravações reais no SQLite em memória de lançamento, conta, categoria, estoque, taxa e recorrência; cancelar sem gravar e recusar campos inválidos sem salvar o valor anterior.
+- Cargas iniciais e concorrentes, séries dos gráficos comparadas às tabelas, filtros, troca de mês, privacidade e restrições de navegação.
+
+Esse modo não usa o parâmetro de demonstração do frontend, não acessa o banco da clínica e não emite cobrança Pix, documento externo ou transação bancária.
 
 Os dados demonstrativos não cobrem todas as combinações de regras de negócio. Os testes de domínio e serviços permanecem na suíte `Clinica.Tests`.

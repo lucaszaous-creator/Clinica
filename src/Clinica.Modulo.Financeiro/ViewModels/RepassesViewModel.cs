@@ -274,7 +274,7 @@ public sealed partial class RepassesViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
 
-        if (!_dialogo.Confirmar("Apurar repasse",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Apurar repasse",
                 $"Fechar {linha.Valor} para {linha.Profissional} em {PeriodoRotulo}? "
                 + "Isso cria uma SAÍDA PREVISTA no caixa e impede apurar o mesmo período de novo.")) return;
 
@@ -302,7 +302,7 @@ public sealed partial class RepassesViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Cancelar apuração",
             $"Por que a apuração de {linha.Profissional} ({linha.Periodo}) está sendo cancelada? "
             + "A saída prevista no caixa é cancelada junto.");
@@ -332,12 +332,12 @@ public sealed partial class RepassesViewModel : ObservableObject
     /// pergunta.
     /// </summary>
     [RelayCommand]
-    private void AbrirRegras()
+    private async Task AbrirRegrasAsync()
     {
-        new Janelas.RegrasRepasseWindow(this)
+        await DialogosDaSessao.AbrirAsync("RegrasRepasse", this, () => new Janelas.RegrasRepasseWindow(this)
         {
             Owner = JanelaDona.Atual()
-        }.ShowDialog();
+        }.ShowDialog());
     }
 
     [RelayCommand]
@@ -346,12 +346,10 @@ public sealed partial class RepassesViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
 
         var vm = new RegraRepasseViewModel(_escopos);
-        var janela = new Janelas.RegraRepasseWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("RegraRepasse", vm, () => new Janelas.RegraRepasseWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso("Regra de repasse salva.");
         await CarregarAsync();
     }
@@ -362,7 +360,7 @@ public sealed partial class RepassesViewModel : ObservableObject
         if (linha is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
-        if (!_dialogo.ConfirmarPerigo("Excluir regra",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir regra",
                 $"Apagar a regra de {linha.Profissional} ({linha.Regra})? As apurações JÁ FEITAS "
                 + "continuam valendo — elas guardam a própria cópia do cálculo.")) return;
 
@@ -391,6 +389,18 @@ public sealed partial class RepassesViewModel : ObservableObject
 /// <summary>Cadastro de uma regra de repasse.</summary>
 public sealed partial class RegraRepasseViewModel : ObservableObject
 {
+    // As consultas existentes sinalizam a espera para não salvar valores dependentes
+    // antes de a mesma carga terminar (por exemplo, taxa ou categoria do lançamento).
+    [ObservableProperty] private bool _carregando;
+    private int _cargasPendentes;
+    private async Task CarregarAsync()
+    {
+        _cargasPendentes++;
+        Carregando = true;
+        try { await CarregarDadosAsync(); }
+        finally { Carregando = --_cargasPendentes > 0; }
+    }
+
     private readonly IServiceScopeFactory _escopos;
 
     public ObservableCollection<Profissional> Profissionais { get; } = [];
@@ -421,7 +431,7 @@ public sealed partial class RegraRepasseViewModel : ObservableObject
 
     partial void OnBaseChanged(BaseRepasse value) => OnPropertyChanged(nameof(EhPercentual));
 
-    private async Task CarregarAsync()
+    private async Task CarregarDadosAsync()
     {
         try
         {

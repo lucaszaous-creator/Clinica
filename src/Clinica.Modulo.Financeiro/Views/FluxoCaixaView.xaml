@@ -15,6 +15,19 @@
     <UserControl.Style>
         <StaticResource ResourceKey="Financeiro.Pagina" />
     </UserControl.Style>
+    <Grid>
+        <Grid>
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Carregando}" Value="True">
+                            <Setter Property="IsEnabled" Value="False"/>
+                            <Setter Property="Visibility" Value="Hidden"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="20,16">
@@ -250,4 +263,9 @@
 
     </StackPanel>
     </ScrollViewer>
+
+        </Grid>
+        <ctrl:EstadoDaTela Vazio="False" Carregando="{Binding Carregando}"
+                          TextoCarregando="Lendo o fluxo de caixa…"/>
+    </Grid>
 </UserControl>

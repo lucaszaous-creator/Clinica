@@ -1,25 +1,22 @@
-# Financeiro web
+# Frontend financeiro
 
-Frontend local em HTML, CSS e TypeScript. O host WPF/WebView2 continua responsável por sessão, permissões, persistência e diálogos de operações financeiras.
+HTML, CSS e TypeScript com Vite, Inter local e ícones SVG Lucide. A logo pertence à Clínica SemDor e é preservada. Recursos compilados em `../wwwroot`; licenças acompanham a distribuição.
 
-## Executar e compilar
+## Comandos
 
-```powershell
-npm ci
-npm run dev
-npm run build
-```
+`npm ci`, `npm run dev`, `npm run build`.
 
-O build é escrito em `../wwwroot`. A logo, as fontes Inter e os SVG Lucide são locais; não há CDN ou API externa. As licenças de terceiros acompanham o build.
+A prévia com `?demo=1` tem dados fictícios do resumo e não grava operações. Sem o host e sem demonstração explícita, a interface informa ausência de conexão. Para provar integração e paridade use `tools/validar-design-financeiro --web`, conforme README do diretório pai.
 
-Para visualizar no navegador sem o host, abrir `http://127.0.0.1:5173/?demo=1`. O modo demonstração é identificado na interface e suas operações não gravam dados. Sem WebView2 e sem esse parâmetro, a interface mostra que está desconectada. Não há fallback para dados fictícios quando o host falha.
+## Componentes e estado
 
-## Integração
+- `main.ts`: shell visual, logo, navegação única, resumo, protocolo, foco e estado de diálogos.
+- `paginas.ts`: campos tipados, ações, indicadores, tabelas, gráficos e seções de página.
+- `style.css`: identidade do resumo e shell.
+- `paginas.css`: identidade das demais páginas e formulários.
 
-Ao iniciar, o frontend envia `{ acao: 'pronto' }` por `window.chrome.webview.postMessage`. O host publica mensagens `tipo: 'estado'`; os tipos estão em `src/main.ts`. Os valores monetários são recebidos formatados em pt-BR. Os gráficos usam os caminhos SVG calculados no host, em viewBox `0 0 280 52`, exclusivamente quando `serieDisponivel` é verdadeiro.
+`estado.pagina` descreve a rota atual. `estado.dialogo` descreve o diálogo ativo. A serialização usa camelCase, conforme `ContratosFinanceiroWeb.cs`. Mensagens `pagina-campo`/`pagina-acao` incluem `contexto`, `chave`, `valor` quando aplicável, `tabela` e `linha` opcionais. Mensagens `dlg-campo`/`dlg-acao`/`dlg-fechar` incluem o ID do diálogo atual. O host resolve opções e linhas somente nas coleções autorizadas vigentes.
 
-As ações enviadas são `mes`, `filtrar`, `atualizar`, `novo`, `pix`, `exportar`, `historico`, `realizar`, `recibo`, `cancelar`, `navegar` e `sistema`. Os IDs de linha são strings e precisam ser validados pelo host contra os lançamentos da sessão. O menu contém apenas as rotas que o host publicou. As outras seções abrem as telas existentes do aplicativo; este frontend implementa o resumo financeiro e sua lista de movimentos.
+Todo texto de domínio passa por escape HTML. Gráficos numéricos usam pontos do host; a UI não calcula totais financeiros. Alterações de campos são descarregadas antes de salvar. Diálogos preservam foco, permitem teclado e mantêm ações no rodapé. Áreas excedentes oferecem controles de rolagem.
 
-O resultado principal é líquido: receita após deduções menos saídas realizadas. O projetado é bruto e soma movimentos realizados e previstos, conforme `ResumoCaixa.SaldoPrevisto`. Nenhum deles é apresentado como saldo bancário.
-
-Seletores de QA: `resumo-financeiro`, `mes`, `filtro-lancamentos`, `tabela-lancamentos`, `valor-resultado` e `alternar-privacidade` em atributos `data-testid`.
+Nunca adicionar uma rota que encaminhe ao shell financeiro antigo. Login, componentes do sistema operacional e abertura de documentos são fronteiras externas; as páginas e formulários do módulo permanecem web.

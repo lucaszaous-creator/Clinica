@@ -82,6 +82,29 @@ jobs:
       - name: Conferir Financeiro, formulários e séries com dados fictícios
         run: dotnet run --project tools/validar-design-financeiro -c Release
 
+      - name: Preparar WebView2 para a validação financeira
+        shell: pwsh
+        run: |
+          $chaves = @(
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+            'HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          )
+          $instalado = $chaves | ForEach-Object { (Get-ItemProperty -LiteralPath $_ -ErrorAction SilentlyContinue).pv } |
+            Where-Object { $_ -and $_ -ne '0.0.0.0' }
+          if (-not $instalado) {
+            $instaladorWebView = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $instaladorWebView
+            $assinatura = Get-AuthenticodeSignature -LiteralPath $instaladorWebView
+            if ($assinatura.Status -ne 'Valid' -or $assinatura.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+              throw 'Assinatura do instalador WebView2 inválida.'
+            }
+            $processoWebView = Start-Process -FilePath $instaladorWebView -ArgumentList '/silent', '/install' -WindowStyle Hidden -Wait -PassThru
+            if ($processoWebView.ExitCode -ne 0) { throw "Instalação WebView2 falhou: $($processoWebView.ExitCode)" }
+          }
+
+      - name: Conferir todas as páginas e operações do Financeiro no WebView2
+        run: dotnet run --project tools/validar-design-financeiro -c Release -- --web
+
       - name: Conferir recall, filtros e configuração salva no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --acompanhamento
 

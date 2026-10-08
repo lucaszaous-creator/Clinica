@@ -1,8 +1,11 @@
 import './style.css';
+import './paginas.css';
+import { pagina as renderPagina, acoes as renderAcoes, campos as renderCampos, guardarRascunho, limparRascunhos, type Pagina, type Contexto } from './paginas';
 import { createElement, House, Landmark, Wallet, ChartNoAxesCombined, ArrowDownLeft, ArrowUpRight, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, Menu, Download, RefreshCw, X, Receipt, Check, CalendarDays, ArrowLeftRight, Package, Settings2, Rows3, CircleHelp, CreditCard, Expand, ArrowUp, ArrowDown, History, QrCode, Eye, EyeOff, ListChecks, Users, ChartColumn, type IconNode } from 'lucide';
 
 type Linha = { id: string; data: string; descricao: string; categoria: string; situacao: string; valor: string; podeRealizar: boolean; podeCancelar: boolean; ehEntrada: boolean };
 type Estado = {
+  pagina?: Pagina & { contexto: string }; dialogo?: { id: string; pagina: Pagina; ocupado: boolean; podeFechar: boolean } | null; ocupado?: boolean;
   tipo: 'estado'; mes: string; entradas: string; saidas: string; saldo: string; previsto: string;
   liquido: string; deducoes: string; ultimoMovimento: string; detalheUltimoMovimento: string;
   graficoEntradas: string; graficoSaidas: string; serieDisponivel: boolean; situacaoSerie: string;
@@ -10,7 +13,7 @@ type Estado = {
   rotas: { chave: string; rotulo: string }[]; podeEditar?: boolean; truncado?: boolean; resumoFiltro?: string; filtroTexto?: string;
   aviso?: { texto: string; tipo: 'info' | 'sucesso' | 'erro' } | null;
 };
-type Mensagem = { acao: string; valor?: string; id?: string };
+type Mensagem = { acao: string; valor?: unknown; id?: string; chave?: string; contexto?: string; tabela?: string; linha?: string };
 type Ponte = { postMessage: (m: Mensagem) => void; addEventListener: (nome: 'message', cb: (e: MessageEvent) => void) => void };
 declare global { interface Window { chrome?: { webview?: Ponte } } }
 
@@ -37,6 +40,24 @@ let termo = '';
 let avisoDemo = '';
 let filtroTimer: ReturnType<typeof setTimeout>;
 let avisoTimer: ReturnType<typeof setTimeout>;
+const alteracoesPendentes = new Map<string, Mensagem>();
+let campoTimer: ReturnType<typeof setTimeout>;
+let seletorRetorno = '[data-local="inicio"]';
+function postar(m: Mensagem) { if (ponte) ponte.postMessage(m); else if (demo) acaoDemo(m); }
+function descarregarCampos() {
+  clearTimeout(campoTimer);
+  for (const m of alteracoesPendentes.values()) postar(m);
+  alteracoesPendentes.clear();
+}
+function alterarCampo(input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+  if (!input.dataset.campo) return;
+  const c: Contexto = { escopo: input.dataset.escopo === 'dialogo' ? 'dialogo' : 'pagina', id: input.dataset.contexto ?? '', tabela: input.dataset.tabela, linha: input.dataset.linha };
+  const valor = input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked : input.value;
+  guardarRascunho(c, input.dataset.campo, valor);
+  alteracoesPendentes.set(input.id, { acao: c.escopo === 'dialogo' ? 'dlg-campo' : 'pagina-campo', id: c.escopo === 'dialogo' ? c.id : undefined, contexto: c.escopo === 'pagina' ? c.id : undefined, chave: input.dataset.campo, valor, tabela: c.tabela, linha: c.linha });
+  clearTimeout(campoTimer);
+  campoTimer = setTimeout(descarregarCampos, 250);
+}
 
 function nomeMes(mes: string) {
   if (!/^\d{4}-\d{2}$/.test(mes)) return 'Selecionar mês';
@@ -76,42 +97,15 @@ function linhas() {
     <td><span class="situacao ${/realizado|pago|recebido/i.test(l.situacao) ? 'realizado' : /cancelado/i.test(l.situacao) ? 'cancelado' : 'previsto'}"><i></i>${h(l.situacao)}</span></td>
     <td class="valor ${l.ehEntrada ? 'valor-entrada' : ''}">${l.ehEntrada ? '+' : '−'} ${valorVisivel(l.valor.replace(/^[+−-]\s*/, ""))}</td>
     <td class="acoes-linha">
+      <button class="acao-linha" data-action="historico" data-id="${h(l.id)}" title="Histórico" aria-label="Histórico de ${h(l.descricao)}">${svg('historico')}</button>
+      ${l.ehEntrada && estado.podeEditar ? `<button class="acao-linha" data-action="pix" data-id="${h(l.id)}" title="Cobrar com Pix" aria-label="Cobrar ${h(l.descricao)} com Pix">${svg('pix')}</button>` : ''}
       ${l.podeRealizar && estado.podeEditar ? `<button class="acao-linha" data-action="realizar" data-id="${h(l.id)}" title="Realizar lançamento" aria-label="Realizar ${h(l.descricao)}">${svg('confirmar')}</button>` : ''}
       ${l.ehEntrada && /realizado|pago|recebido/i.test(l.situacao) ? `<button class="acao-linha" data-action="recibo" data-id="${h(l.id)}" title="Emitir recibo" aria-label="Emitir recibo de ${h(l.descricao)}">${svg('recibo')}</button>` : ''}
       ${l.podeCancelar && estado.podeEditar ? `<button class="acao-linha perigo" data-action="cancelar" data-id="${h(l.id)}" title="Cancelar lançamento" aria-label="Cancelar ${h(l.descricao)}">${svg('fechar')}</button>` : ''}
     </td></tr>`).join('');
 }
-function render() {
-  const foco = document.activeElement as HTMLInputElement | null;
-  const focoId = foco?.id;
-  const selecao = foco?.selectionStart;
-  const mainAnterior = document.querySelector<HTMLElement>('.conteudo');
-  const scrollAnterior = mainAnterior?.scrollTop ?? 0;
-  const iniciais = estado.usuario.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || 'CL';
-  const bloqueado = !ponte && !demo;
-  const rotasDisponiveis = estado.rotas.filter(r => r.chave !== 'caixa');
-  const rotas = rotasDisponiveis.filter(r => r.rotulo.toLocaleLowerCase('pt-BR').includes(buscaMenu.toLocaleLowerCase('pt-BR')));
-  const atalhos = ['contas', 'recebiveis', 'conciliacao', 'fluxo-caixa', 'estoque', 'repasses']
-    .flatMap(chave => rotasDisponiveis.filter(r => r.chave === chave));
-  app.innerHTML = `
-    <header class="topbar">
-      <a class="marca" href="#resumo" aria-label="Clínica SemDor — início"><img src="./logo-clinica.png" alt="Clínica SemDor" /></a>
-      <span class="contexto-app">Financeiro<span class="separador"></span>Visão geral</span>
-      <button class="busca-global" data-local="menu" aria-label="Pesquisar seção do financeiro">${svg('buscar')}<span>Pesquisar no financeiro</span><kbd>Ctrl K</kbd></button>
-      <div class="usuario-area"><button class="usuario" data-local="usuario" aria-expanded="${usuarioAberto}" aria-label="Menu do usuário"><span class="avatar">${h(iniciais)}</span><span class="nome-usuario">${h(estado.usuario || 'Clínica SemDor')}</span>${svg('baixo')}</button>
-      ${usuarioAberto ? `<div class="menu-usuario">${botao('sistema', 'Abrir sistema completo', 'expandir', '', bloqueado)}<p>Atalhos, notificações e troca de usuário.</p></div>` : ''}</div>
-    </header>
-    <aside class="trilho-financeiro" aria-label="Navegação financeira">
-      <div class="atalhos-financeiros">
-      <button class="icone-botao ativo" data-local="inicio" title="Resumo financeiro" aria-label="Resumo financeiro">${svg('carteira')}</button>
-      ${atalhos.map(r => `<button class="icone-botao" data-action="navegar" data-value="${h(r.chave)}" title="${h(r.rotulo)} — abrir tela do sistema" aria-label="${h(r.rotulo)}">${svg(r.chave === 'contas' ? 'contas' : r.chave === 'conciliacao' ? 'troca' : nomeIcone(r.rotulo))}</button>`).join('')}
-      </div>
-      <div class="trilho-rodape"><button class="icone-botao" data-local="menu" title="Expandir menu financeiro" aria-label="Expandir menu financeiro" aria-expanded="${menuAberto}">${svg('menu')}</button></div>
-    </aside>
-    <main class="conteudo" data-testid="resumo-financeiro" id="resumo" tabindex="-1" aria-busy="${estado.carregando}">
-      ${demo ? '<div class="faixa-demo">Demonstração visual · dados fictícios · nenhuma operação é gravada</div>' : ''}
-      ${bloqueado ? '<div class="aviso-conexao" role="status">Abra esta tela pelo aplicativo da clínica para carregar seus dados.</div>' : ''}
-      <section class="cabecalho-pagina"><div class="titulo-periodo"><h1>Resumo financeiro</h1><div class="periodo"><button class="seta-periodo" data-local="anterior" title="Mês anterior" aria-label="Mês anterior" ${bloqueado ? 'disabled' : ''}>${svg('anterior')}</button><label class="seletor-mes">${svg('calendario')}<span>${h(nomeMes(estado.mes))}</span>${svg('baixo')}<input id="mes" data-testid="mes" type="month" aria-label="Mês do resumo financeiro" value="${h(estado.mes)}" ${bloqueado ? 'disabled' : ''}/></label><button class="seta-periodo" data-local="proximo" title="Próximo mês" aria-label="Próximo mês" ${bloqueado ? 'disabled' : ''}>${svg('proximo')}</button></div></div><div class="acoes-cabecalho">${botao('exportar', 'Exportar', 'baixar', '', bloqueado || !estado.linhas.length)}</div></section>
+function contextoPagina(): Contexto { return { escopo: 'pagina', id: estado.pagina?.contexto ?? '', ocupado: estado.ocupado || estado.pagina?.carregando, privado: valoresOcultos }; }
+function resumoFinanceiro(bloqueado: boolean) { return `      <section class="cabecalho-pagina"><div class="titulo-periodo"><h1>Resumo financeiro</h1><div class="periodo"><button class="seta-periodo" data-local="anterior" title="Mês anterior" aria-label="Mês anterior" ${bloqueado ? 'disabled' : ''}>${svg('anterior')}</button><label class="seletor-mes">${svg('calendario')}<span>${h(nomeMes(estado.mes))}</span>${svg('baixo')}<input id="mes" data-testid="mes" type="month" aria-label="Mês do resumo financeiro" value="${h(estado.mes)}" ${bloqueado ? 'disabled' : ''}/></label><button class="seta-periodo" data-local="proximo" title="Próximo mês" aria-label="Próximo mês" ${bloqueado ? 'disabled' : ''}>${svg('proximo')}</button></div></div><div class="acoes-cabecalho">${botao('exportar', 'Exportar', 'baixar', '', bloqueado || !estado.linhas.length)}</div></section>
       ${estado.erro ? `<div class="erro" role="alert">${h(estado.erro)} ${botao('atualizar', 'Tentar novamente', 'atualizar')}</div>` : ''}
       <section class="painel-principal" aria-label="Indicadores do mês">
         <article class="cartao-resultado"><div class="rotulo-resultado"><span class="icone-circulo">${svg('carteira')}</span><span>Resultado líquido do mês</span><button class="acao-linha privacidade" data-local="privacidade" data-testid="alternar-privacidade" aria-pressed="${valoresOcultos}" aria-label="${valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'}" title="${valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'}">${svg(valoresOcultos ? 'oculto' : 'olho')}</button><button class="acao-linha" data-action="atualizar" title="Atualizar dados" aria-label="Atualizar dados" ${bloqueado || estado.carregando ? 'disabled' : ''}>${svg('atualizar', estado.carregando ? 'girando' : '')}</button></div>
@@ -129,31 +123,84 @@ function render() {
         <div><span>Resultado bruto projetado</span><strong>${valorVisivel(estado.previsto)}</strong><small>Realizados + previstos, antes das deduções</small></div>
         <div><span>Receita líquida</span><strong>${valorVisivel(estado.liquido)}</strong><small>Receita após deduções</small></div>
         <div><span>Deduções</span><strong>${valorVisivel(estado.deducoes)}</strong><small>Taxas e impostos vinculados</small></div>
-        <button class="atalho-historico" data-action="historico" ${bloqueado ? 'disabled' : ''}>${svg('historico')}<span>Conferir histórico</span>${svg('proximo')}</button>
+        <button class="atalho-historico" data-local="movimentos" ${bloqueado ? 'disabled' : ''}>${svg('historico')}<span>Conferir histórico</span>${svg('proximo')}</button>
       </section>
       <section class="movimentos"><div class="cabecalho-movimentos"><div><h2>Movimentações</h2><p>${h(estado.resumoFiltro || 'Entradas e saídas deste mês, em um só lugar.')}</p></div><div class="acoes-movimentos">${botao('exportar', 'Exportar', 'baixar', '', bloqueado || !estado.linhas.length)}${botao('novo', 'Novo lançamento', 'mais', 'primario', bloqueado || !estado.podeEditar)}</div></div>
         <div class="filtros"><label class="busca-movimento">${svg('buscar')}<input type="search" id="busca" data-testid="filtro-lancamentos" placeholder="Buscar descrição ou categoria" aria-label="Buscar movimentos" value="${h(termo)}" ${bloqueado ? 'disabled' : ''}/>${termo ? `<button data-local="limpar" aria-label="Limpar busca">${svg('fechar')}</button>` : ''}</label><span class="contagem">${estado.linhas.length} ${estado.linhas.length === 1 ? 'movimento' : 'movimentos'}</span></div>
+        ${estado.pagina ? renderCampos(estado.pagina.campos.filter(c => c.chave === 'FiltroSituacao'), contextoPagina()) : ''}
         ${estado.truncado ? '<div class="aviso-lista">Há mais movimentos no período. Refine a busca para localizar o lançamento.</div>' : ''}
         <div class="tabela-scroll" tabindex="0" aria-label="Tabela de movimentações"><table data-testid="tabela-lancamentos"><thead><tr><th>Descrição</th><th>Data</th><th>Situação</th><th class="valor">Valor</th><th class="acoes-linha">Ações</th></tr></thead><tbody>${linhas()}</tbody></table></div>
       </section>
+`; }
+function renderDialogo() {
+  const d = estado.dialogo;
+  if (!d) return '';
+  const c: Contexto = { escopo: 'dialogo', id: d.id, ocupado: d.ocupado, privado: valoresOcultos };
+  return `<div class="fundo-dialogo"><section class="dialogo-web" role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo" data-testid="dialogo-financeiro" data-dialogo="${h(d.id)}"><header class="dialogo-cabecalho"><h2 id="titulo-dialogo">${h(d.pagina.titulo)}</h2><button class="icone-botao" data-fechar-dialogo="${h(d.id)}" aria-label="Fechar formulário" ${!d.podeFechar || d.ocupado ? 'disabled' : ''}>${svg('fechar')}</button></header><div class="dialogo-corpo" tabindex="-1">${d.pagina.subtitulo ? `<p class="mensagem-web">${h(d.pagina.subtitulo)}</p>` : ''}${estado.erro ? `<div class="erro" role="alert">${h(estado.erro)}</div>` : ''}${renderPagina(d.pagina, c)}</div><footer class="dialogo-rodape"><div class="rolagem-dialogo"><button data-rolar-dialogo="subir" aria-label="Rolar formulário para cima">${svg('subir')}</button><button data-rolar-dialogo="descer" aria-label="Rolar formulário para baixo">${svg('descer')}</button></div><div class="acoes-web">${renderAcoes([...d.pagina.acoes.filter(a => a.chave === 'fechar'), ...d.pagina.acoes.filter(a => a.chave !== 'fechar')], c)}</div></footer></section></div>`;
+}
+function render() {
+  const foco = document.activeElement as HTMLInputElement | null;
+  const focoId = foco?.id;
+  const selecao = foco?.selectionStart;
+  const valorDigitado = foco && 'value' in foco ? foco.value : null;
+  const posicoes = [...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')].map(el => [el, el.scrollTop, el.scrollLeft] as const);
+  const mainAnterior = document.querySelector<HTMLElement>('.conteudo');
+  const scrollAnterior = mainAnterior?.scrollTop ?? 0;
+  const iniciais = estado.usuario.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || 'CL';
+  const bloqueado = (!ponte && !demo) || !!estado.ocupado;
+  const rotasDisponiveis = estado.rotas.filter(r => r.chave !== 'caixa');
+  const rotas = rotasDisponiveis.filter(r => r.rotulo.toLocaleLowerCase('pt-BR').includes(buscaMenu.toLocaleLowerCase('pt-BR')));
+  const atalhos = ['contas', 'recebiveis', 'conciliacao', 'fluxo-caixa', 'estoque', 'repasses']
+    .flatMap(chave => rotasDisponiveis.filter(r => r.chave === chave));
+  app.innerHTML = `
+    <header class="topbar">
+      <a class="marca" href="#resumo" data-local="inicio" aria-label="Clínica SemDor — início"><img src="./logo-clinica.png" alt="Clínica SemDor" /></a>
+      <span class="contexto-app">Financeiro<span class="separador"></span>Visão geral</span>
+      <button class="busca-global" data-local="menu" aria-label="Pesquisar seção do financeiro">${svg('buscar')}<span>Pesquisar no financeiro</span><kbd>Ctrl K</kbd></button>
+      <div class="usuario-area"><button class="usuario" data-local="usuario" aria-expanded="${usuarioAberto}" aria-label="Menu do usuário"><span class="avatar">${h(iniciais)}</span><span class="nome-usuario">${h(estado.usuario || 'Clínica SemDor')}</span>${svg('baixo')}</button>
+      ${usuarioAberto ? `<div class="menu-usuario">${botao('trocar-senha', 'Trocar minha senha', 'ajustes', '', bloqueado || !!estado.dialogo)}${botao('trocar-usuario', 'Trocar usuário', 'profissionais', '', bloqueado || !!estado.dialogo)}<p>Financeiro · Clínica SemDor</p></div>` : ''}</div>
+    </header>
+    <aside class="trilho-financeiro" aria-label="Navegação financeira">
+      <div class="atalhos-financeiros">
+      <button class="icone-botao ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'ativo' : ''}" data-local="inicio" title="Resumo financeiro" aria-label="Resumo financeiro">${svg('carteira')}</button>
+      ${atalhos.map(r => `<button class="icone-botao ${estado.pagina?.chave === r.chave ? 'ativo' : ''}" data-action="navegar" data-value="${h(r.chave)}" title="${h(r.rotulo)}" aria-label="${h(r.rotulo)}">${svg(r.chave === 'contas' ? 'contas' : r.chave === 'conciliacao' ? 'troca' : nomeIcone(r.rotulo))}</button>`).join('')}
+      </div>
+      <div class="trilho-rodape"><button class="icone-botao" data-local="menu" title="Expandir menu financeiro" aria-label="Expandir menu financeiro" aria-expanded="${menuAberto}">${svg('menu')}</button></div>
+    </aside>
+    <main class="conteudo" data-testid="resumo-financeiro" data-rota="${h(estado.pagina?.chave ?? 'caixa')}" data-contexto="${h(estado.pagina?.contexto ?? '')}" id="resumo" tabindex="-1" aria-busy="${estado.pagina?.carregando ?? estado.carregando}" ${estado.dialogo ? 'inert' : ''}>
+      ${demo ? '<div class="faixa-demo">Demonstração visual · dados fictícios · nenhuma operação é gravada</div>' : ''}
+      ${bloqueado ? '<div class="aviso-conexao" role="status">Abra esta tela pelo aplicativo da clínica para carregar seus dados.</div>' : ''}
+      ${estado.pagina?.chave !== 'caixa' && estado.erro && !estado.dialogo ? `<div class="erro" role="alert">${h(estado.erro)}</div>` : ''}
+      ${estado.pagina && estado.pagina.chave !== 'caixa' ? renderPagina(estado.pagina, contextoPagina()) : resumoFinanceiro(bloqueado)}
       <footer class="rodape-pagina"><span>Clínica SemDor</span><span>${estado.carregando ? 'Atualizando dados…' : demo ? 'Ambiente de demonstração' : ponte ? 'Dados do sistema da clínica' : 'Sem conexão com o aplicativo'}</span></footer>
     </main>
     <div class="atalhos-rolagem" aria-label="Rolagem da página"><button data-local="subir" title="Rolar para cima" aria-label="Rolar para cima">${svg('subir')}</button><button data-local="descer" title="Rolar para baixo" aria-label="Rolar para baixo">${svg('descer')}</button></div>
-    ${menuAberto ? `<div class="fundo-menu" data-local="fechar-menu"></div><nav class="menu-expandido" aria-label="Todos os recursos financeiros"><div class="menu-cabecalho"><div><small>CLÍNICA SEMDOR</small><h2>Financeiro</h2></div><button class="icone-botao" data-local="fechar-menu" aria-label="Fechar menu">${svg('fechar')}</button></div><label class="busca-menu">${svg('buscar')}<input id="busca-menu" value="${h(buscaMenu)}" placeholder="Encontrar uma seção" aria-label="Pesquisar seção" /></label><div class="rotas"><button class="rota ativo" data-local="inicio">${svg('carteira')}<span>Resumo financeiro</span></button>${rotas.map(r => `<button class="rota" data-action="navegar" data-value="${h(r.chave)}">${svg(nomeIcone(r.rotulo))}<span>${h(r.rotulo)}</span>${svg('proximo')}</button>`).join('')}${!rotas.length ? '<p class="nenhuma-rota">Nenhuma seção disponível para esta busca.</p>' : ''}</div><div class="nota-menu">As demais seções abrem nas telas do sistema da clínica.</div></nav>` : ''}
+    ${menuAberto ? `<div class="fundo-menu" data-local="fechar-menu"></div><nav class="menu-expandido" aria-label="Todos os recursos financeiros"><div class="menu-cabecalho"><div><small>CLÍNICA SEMDOR</small><h2>Financeiro</h2></div><button class="icone-botao" data-local="fechar-menu" aria-label="Fechar menu">${svg('fechar')}</button></div><label class="busca-menu">${svg('buscar')}<input id="busca-menu" value="${h(buscaMenu)}" placeholder="Encontrar uma seção" aria-label="Pesquisar seção" /></label><div class="rotas"><button class="rota ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'ativo' : ''}" data-local="inicio">${svg('carteira')}<span>Resumo financeiro</span></button>${rotas.map(r => `<button class="rota ${estado.pagina?.chave === r.chave ? 'ativo' : ''}" data-action="navegar" data-value="${h(r.chave)}">${svg(nomeIcone(r.rotulo))}<span>${h(r.rotulo)}</span>${svg('proximo')}</button>`).join('')}${!rotas.length ? '<p class="nenhuma-rota">Nenhuma seção disponível para esta busca.</p>' : ''}</div><div class="nota-menu">Todas as ferramentas financeiras, no mesmo lugar.</div></nav>` : ''}
     ${estado.aviso?.texto ? `<div class="toast ${estado.aviso.tipo === 'erro' ? 'toast-erro' : ''}" role="${estado.aviso.tipo === 'erro' ? 'alert' : 'status'}">${h(estado.aviso.texto)}</div>` : ''}
-    ${avisoDemo ? `<div class="toast" role="status">${h(avisoDemo)}</div>` : ''}`;
+    ${avisoDemo ? `<div class="toast" role="status">${h(avisoDemo)}</div>` : ''}${renderDialogo()}`;
   const conteudo = document.querySelector<HTMLElement>('.conteudo')!;
   conteudo.scrollTop = scrollAnterior;
+  [...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')].forEach((el, i) => { const anterior = posicoes[i]; if (anterior) { el.scrollTop = anterior[1]; el.scrollLeft = anterior[2]; } });
+  document.querySelectorAll<HTMLElement>('.topbar,.trilho-financeiro,.menu-expandido,.fundo-menu,.atalhos-rolagem').forEach(el => el.inert = !!estado.dialogo);
   conteudo.addEventListener('scroll', atualizarRolagem, { passive: true });
   requestAnimationFrame(atualizarRolagem);
   if (focoId) {
     const alvo = document.getElementById(focoId) as HTMLInputElement | null;
+    if (alvo && valorDigitado !== null && ['search', 'text', 'textarea'].includes(alvo.type)) alvo.value = valorDigitado;
     alvo?.focus({ preventScroll: true });
     if (alvo?.type === 'search' || alvo?.type === 'text') alvo.setSelectionRange(selecao ?? 0, selecao ?? 0);
   }
 }
 
 function atualizarRolagem() {
+  document.querySelectorAll<HTMLElement>('.tabela-web').forEach(t => {
+    const area = t.querySelector<HTMLElement>('.tabela-scroll');
+    const controle = t.querySelector<HTMLElement>('.controle-tabela');
+    if (area && controle) controle.hidden = area.scrollWidth <= area.clientWidth + 2;
+  });
+  const corpo = document.querySelector<HTMLElement>('.dialogo-corpo');
+  const controle = document.querySelector<HTMLElement>('.rolagem-dialogo');
+  if (corpo && controle) controle.hidden = corpo.scrollHeight <= corpo.clientHeight + 2;
   const conteudo = document.querySelector<HTMLElement>('.conteudo');
   const atalhos = document.querySelector<HTMLElement>('.atalhos-rolagem');
   if (!conteudo || !atalhos) return;
@@ -168,13 +215,28 @@ window.addEventListener('resize', atualizarRolagem);
 app.addEventListener('click', e => {
   const b = (e.target as Element).closest<HTMLButtonElement>('button, [data-local]');
   if (!b || b.disabled) return;
-  if (b.dataset.action) { enviar(b.dataset.action, b.dataset.value, b.dataset.id); return; }
+  if (b.dataset.rolarTabela) { const area = b.closest('.tabela-web')?.querySelector('.tabela-scroll'); area?.scrollBy({ left: b.dataset.rolarTabela === 'direita' ? 380 : -380, behavior: 'smooth' }); return; }
+  if (b.dataset.rolarDialogo) { document.querySelector('.dialogo-corpo')?.scrollBy({ top: b.dataset.rolarDialogo === 'subir' ? -320 : 320, behavior: 'smooth' }); return; }
+  if (b.dataset.irSecao) { document.getElementById('secao-' + b.dataset.irSecao)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+  if (b.dataset.fecharDialogo) { alteracoesPendentes.clear(); clearTimeout(campoTimer); postar({ acao: 'dlg-fechar', id: b.dataset.fecharDialogo }); return; }
+  descarregarCampos();
+  if (b.dataset.comando) {
+    if (b.dataset.comando === 'salvar' && document.querySelector('.dialogo-web input[type=password]')) { limparRascunhos('dialogo'); document.querySelectorAll<HTMLInputElement>('.dialogo-web input[type=password]').forEach(el => el.value = ''); }
+    seletorRetorno = `[data-comando="${CSS.escape(b.dataset.comando)}"]`;
+    postar({ acao: b.dataset.escopo === 'dialogo' ? 'dlg-acao' : 'pagina-acao', chave: b.dataset.comando, id: b.dataset.escopo === 'dialogo' ? b.dataset.contexto : undefined, contexto: b.dataset.escopo === 'pagina' ? b.dataset.contexto : undefined, tabela: b.dataset.tabela, linha: b.dataset.linha }); return;
+  }
+  if (b.dataset.action) {
+    seletorRetorno = `[data-action="${CSS.escape(b.dataset.action)}"]`;
+    if (b.dataset.action === 'navegar') { menuAberto = false; usuarioAberto = false; }
+    enviar(b.dataset.action, b.dataset.value, b.dataset.id); return;
+  }
   switch (b.dataset.local) {
     case 'menu': menuAberto = !menuAberto; render(); if (menuAberto) document.getElementById('busca-menu')?.focus(); break;
     case 'fechar-menu': menuAberto = false; render(); break;
     case 'privacidade': valoresOcultos = !valoresOcultos; render(); break;
     case 'usuario': usuarioAberto = !usuarioAberto; render(); break;
-    case 'inicio': menuAberto = false; render(); document.querySelector('.conteudo')?.scrollTo({ top: 0, behavior: 'smooth' }); break;
+    case 'inicio': e.preventDefault(); menuAberto = false; enviar('navegar', 'caixa'); break;
+    case 'movimentos': document.querySelector('.movimentos')?.scrollIntoView({block:'start',behavior:'smooth'}); break;
     case 'limpar': termo = ''; enviar('filtrar', ''); render(); document.getElementById('busca')?.focus(); break;
     case 'anterior': case 'proximo': {
       const data = new Date(`${estado.mes}-15T12:00:00`); data.setMonth(data.getMonth() + (b.dataset.local === 'anterior' ? -1 : 1));
@@ -185,11 +247,21 @@ app.addEventListener('click', e => {
 });
 app.addEventListener('input', e => {
   const input = e.target as HTMLInputElement;
+  if (input.dataset.campo) alterarCampo(input);
   if (input.id === 'busca') { termo = input.value; clearTimeout(filtroTimer); filtroTimer = setTimeout(() => enviar('filtrar', termo), 250); }
   if (input.id === 'busca-menu') { buscaMenu = input.value; render(); }
 });
-app.addEventListener('change', e => { const input = e.target as HTMLInputElement; if (input.id === 'mes' && /^\d{4}-\d{2}$/.test(input.value)) enviar('mes', input.value); });
+app.addEventListener('change', e => { const input = e.target as HTMLInputElement; if (input.dataset.campo) { alterarCampo(input); descarregarCampos(); } if (input.id === 'mes' && /^\d{4}-\d{2}$/.test(input.value)) enviar('mes', input.value); });
 document.addEventListener('keydown', e => {
+  if (estado.dialogo) {
+    if (e.key === 'Escape' && estado.dialogo.podeFechar && !estado.dialogo.ocupado) { e.preventDefault(); postar({ acao: 'dlg-fechar', id: estado.dialogo.id }); }
+    if (e.key === 'Tab') {
+      const elementos = [...document.querySelectorAll<HTMLElement>('.dialogo-web button:not(:disabled),.dialogo-web input:not(:disabled),.dialogo-web select:not(:disabled),.dialogo-web textarea:not(:disabled),.dialogo-web [tabindex="0"]')].filter(el => el.getClientRects().length > 0);
+      const indice = elementos.indexOf(document.activeElement as HTMLElement);
+      if (elementos.length && (indice < 0 || (!e.shiftKey && indice === elementos.length - 1) || (e.shiftKey && indice === 0))) { e.preventDefault(); elementos[e.shiftKey ? elementos.length - 1 : 0]?.focus(); }
+    }
+    return;
+  }
   if (e.key === 'Escape' && (menuAberto || usuarioAberto)) { menuAberto = false; usuarioAberto = false; render(); }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); menuAberto = true; render(); document.getElementById('busca-menu')?.focus(); }
 });
@@ -200,9 +272,22 @@ function receber(e: MessageEvent) {
   if (!dados || typeof dados !== 'object' || (dados as Estado).tipo !== 'estado') return;
   const recebido = dados as Estado;
   if (!Array.isArray(recebido.linhas) || !Array.isArray(recebido.rotas)) return;
+  const mudouPagina = recebido.pagina?.contexto !== estado.pagina?.contexto;
+  const mudouDialogo = recebido.dialogo?.id !== estado.dialogo?.id;
+  if (mudouPagina) limparRascunhos('pagina');
+  if (mudouDialogo) limparRascunhos('dialogo');
   estado = { ...estado, ...recebido };
   if (typeof recebido.filtroTexto === 'string' && document.activeElement?.id !== 'busca') termo = recebido.filtroTexto;
   render();
+  if (mudouPagina) document.querySelector('.conteudo')?.scrollTo(0, 0);
+  if (mudouDialogo) {
+    requestAnimationFrame(() => {
+      const alvo = estado.dialogo
+        ? document.querySelector<HTMLElement>('.dialogo-corpo input:not(:disabled),.dialogo-corpo select:not(:disabled),.dialogo-corpo textarea:not(:disabled),.dialogo-cabecalho button:not(:disabled)')
+        : document.querySelector<HTMLElement>(seletorRetorno);
+      alvo?.focus({ preventScroll: true });
+    });
+  }
 }
 ponte?.addEventListener('message', receber);
 
@@ -220,7 +305,7 @@ function carregarDemo(mes = '2026-10') {
   render();
 }
 function acaoDemo(m: Mensagem) {
-  if (m.acao === 'mes' && m.valor) { carregarDemo(m.valor); return; }
+  if (m.acao === 'mes' && typeof m.valor === 'string') { carregarDemo(m.valor); return; }
   if (m.acao === 'filtrar' || m.acao === 'atualizar') { carregarDemo(estado.mes); return; }
   if (m.acao === 'pronto') return;
   avisoDemo = 'Demonstração: esta ação abre o fluxo real dentro do aplicativo da clínica.';
