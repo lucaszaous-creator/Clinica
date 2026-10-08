@@ -370,12 +370,10 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
         if (folha.TipoClinico is not { } tipo) return;
 
         var vm = new DocumentoEdicaoViewModel(_escopos, _pacienteId, tipo);
-        var janela = new DocumentoWindow(vm)
-        {
-            Owner = JanelaDona.Atual()
-        };
+        Func<bool?> abrirNativo = () => new DocumentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("Documento", vm, abrirNativo);
 
-        var concluiu = janela.ShowDialog() == true;
+        var concluiu = respostaWeb == true;
 
         // Recarrega dos dois jeitos: fechar sem concluir não significa que nada
         // aconteceu — o documento pode ter sido emitido e só a impressão ter falhado.

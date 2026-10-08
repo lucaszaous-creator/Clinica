@@ -20,6 +20,8 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// </summary>
 public partial class EvolucaoEnfermagemWindow : Window
 {
+    public static Task<bool?> AbrirAsync(IServiceScopeFactory escopos,Clinica.Desktop.Controls.IDialogoService dialogo,int pacienteId,string paciente,int? prescricaoId=null,string? folha=null,int? agendamentoId=null)
+    { var vm=new EvolucaoEnfermagemViewModel(escopos,dialogo,pacienteId,paciente,prescricaoId,folha,agendamentoId);return DialogosDaSessao.AbrirAsync("EvolucaoEnfermagem",vm,()=>new EvolucaoEnfermagemWindow(vm){Owner=JanelaDona.Atual()}.ShowDialog()); }
     public EvolucaoEnfermagemWindow(EvolucaoEnfermagemViewModel vm)
     {
         InitializeComponent();

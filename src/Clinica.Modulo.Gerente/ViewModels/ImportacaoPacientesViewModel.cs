@@ -595,7 +595,7 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
                 ? ""
                 : $" Do prontuário antigo entram {_previaPacote.EvolucoesNovas} registro(s), e {_previaPacote.Agenda.FuturosNovos} "
                   + "horário(s) futuro(s) da agenda antiga.";
-            var confirmou = _dialogo.ConfirmarPerigo("Importar pacientes",
+            var confirmou = await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Importar pacientes",
                 $"Vão ser criadas {_previa.Criar} ficha(s) nova(s) e completadas {_previa.Completar} já "
                 + $"cadastrada(s). As {_previa.Problemas} linha(s) com problema ficam de fora.{extra}\n\n"
                 + "Não há desfazer em lote: ficha importada por engano se remove uma a uma, pela ficha; registro "
@@ -701,7 +701,7 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "importar pacientes");
 
-            var confirmou = _dialogo.ConfirmarPerigo("Importar arquivos",
+            var confirmou = await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Importar arquivos",
                 $"Vão entrar {previa.Novos} arquivo(s) em {previa.PacientesQueRecebem} ficha(s), como arquivos da ficha "
                 + $"(registro clínico). As {previa.Problemas} linha(s) com problema ficam de fora.\n\n"
                 + "Não há desfazer em lote: arquivo importado por engano se cancela um a um, com motivo, "

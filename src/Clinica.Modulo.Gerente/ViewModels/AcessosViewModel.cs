@@ -134,13 +134,10 @@ public sealed partial class AcessosViewModel : ObservableObject
     private async Task AbrirAsync(int? usuarioId)
     {
         var vm = new UsuarioEdicaoViewModel(_escopos, _sessao, usuarioId);
-        var janela = new UsuarioWindow(vm)
-        {
-            // Qualificado: dentro de Clinica.*, "Application" é o namespace Clinica.Application.
-            Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() == true)
+        await vm.Inicializacao;
+        var salvo = await DialogosDaSessao.AbrirAsync("UsuarioWindow", vm, () => throw new InvalidOperationException("Requer apresentação web."));
+        vm.Senha = string.Empty;
+        if (salvo == true)
         {
             _snackbar.Sucesso("Usuário salvo.");
             await CarregarAsync();
@@ -152,7 +149,7 @@ public sealed partial class AcessosViewModel : ObservableObject
     {
         if (linha is null) return;
         if (!PodeGerenciar("excluir usuário")) return;
-        if (!_dialogo.ConfirmarPerigo("Excluir usuário",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir usuário",
                 $"Excluir {linha.Nome}? Só é possível enquanto ele nunca entrou no sistema — "
                 + "se já entrou, desative-o em vez de excluir.")) return;
 
@@ -170,10 +167,10 @@ public sealed partial class AcessosViewModel : ObservableObject
         if (linha is null) return;
         if (!PodeGerenciar("redefinir senha")) return;
 
-        var senha = _dialogo.PerguntarTexto(
-            "Redefinir senha",
-            $"Senha provisória para {linha.Nome}. Ele será obrigado a trocá-la ao entrar.");
-        if (senha is null) return;
+        var formulario = new Clinica.Gerente.Web.SenhaProvisoriaWebViewModel(linha.Nome);
+        if (await DialogosDaSessao.AbrirAsync("SenhaProvisoria",formulario,()=>throw new InvalidOperationException("Requer apresentação web.")) != true) { formulario.Senha=""; return; }
+        var senha=formulario.Senha;
+        formulario.Senha="";
 
         await ExecutarAsync(async acesso =>
         {

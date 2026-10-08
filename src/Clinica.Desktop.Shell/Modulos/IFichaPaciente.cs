@@ -11,6 +11,8 @@ public interface IFabricaFichaPaciente
 /// <summary>Funções administrativas incorporadas à mesma ficha sem dependência entre módulos.</summary>
 public interface IFichaAdministrativaPaciente
 {
+    /// <summary>Dados para o contrato web explícito; nenhuma View atravessa esta porta.</summary>
+    object? DadosWeb => null;
     event Action? Alterou;
     bool PodeEditar { get; }
     object Resumo { get; }

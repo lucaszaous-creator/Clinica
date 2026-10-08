@@ -27,6 +27,7 @@ public sealed class ModuloFaturamento : IModuloApp
         Grupo = d.Secao == Secao.Parametros ? GrupoSidebar.Gestao : d.Secao == Secao.Relatorios ? GrupoSidebar.Inteligencia : GrupoSidebar.Financeiro })).ToArray();
     public void Registrar(IServiceCollection s)
     {
+        s.AddSingleton<Clinica.Desktop.Shell.Web.IRegistroModuloWeb, Clinica.Faturamento.Web.RegistroFaturamentoWeb>();
         s.AddTransient<MainViewModel>();
         s.AddTransient<DashboardViewModel>();
         s.AddTransient<NaoConformidadesViewModel>();

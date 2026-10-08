@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <!--
     Shell compartilhado da suíte: design system, janela genérica, contrato de módulos
@@ -15,9 +15,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <RootNamespace>Clinica.Desktop.Shell</RootNamespace>
+    <DefineConstants Condition="'$(ClinicaTesteLocal)' == 'true'">$(DefineConstants);CLINICA_TESTE_LOCAL</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
@@ -46,6 +48,16 @@
   <ItemGroup>
     <Resource Include="Assets\Marca\*.png" />
     <EmbeddedResource Include="Treinamento\catalogo.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Web\wwwroot\**\*" Link="WebSuite\wwwroot\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Web\Entrada\entrada.html" Link="WebSuite\wwwroot\entrada.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Web\Entrada\entrada.css" Link="WebSuite\wwwroot\entrada.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Web\Entrada\entrada.js" Link="WebSuite\wwwroot\entrada.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Web\AssinaturaPaciente\painel.html" Link="WebSuite\wwwroot\assinatura-paciente.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Web\AssinaturaPaciente\painel.css" Link="WebSuite\wwwroot\assinatura-paciente.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Web\AssinaturaPaciente\painel.js" Link="WebSuite\wwwroot\assinatura-paciente.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

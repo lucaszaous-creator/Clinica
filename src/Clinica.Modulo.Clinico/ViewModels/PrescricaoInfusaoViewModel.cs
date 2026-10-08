@@ -290,20 +290,17 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
                 var pacienteId = _pacienteId;
                 await vm.Inicializacao;
                 if (geracao != _geracaoCarga || pacienteId != _pacienteId) return;
-                vm.AplicarCopiaDaUltima(modelo);
+                await vm.AplicarCopiaDaUltimaAsync(modelo);
             }
 
-            var janela = new PrescricaoInternaWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
-            janela.ShowDialog();
+            Func<bool?> abrirNativo = () => new PrescricaoInternaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("PrescricaoInterna", vm, abrirNativo);
 
             // Recarrega dos dois jeitos: fechar sem assinar não significa que nada
             // aconteceu — o rascunho pode ter sido criado e salvo.
             await CarregarAsync();
 
-            if (janela.Assinou)
+            if (vm.Assinou)
                 _snackbar.Sucesso("Prescrição assinada e enviada à sala de infusão.");
         }
         catch (Exception ex)
@@ -345,15 +342,12 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
                 _escopos, _dialogo, _pacienteId, Paciente,
                 SessaoUsuario.Atual.ProfissionalId, prescricaoId: linha.PrescricaoId);
 
-            var janela = new PrescricaoInternaWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
-            janela.ShowDialog();
+            Func<bool?> abrirNativo = () => new PrescricaoInternaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("PrescricaoInterna", vm, abrirNativo);
 
             await CarregarAsync();
 
-            if (janela.Assinou)
+            if (vm.Assinou)
                 _snackbar.Sucesso("Prescrição assinada e enviada à sala de infusão.");
         }
         catch (Exception ex)
@@ -372,11 +366,8 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
         if (linha is null) return;
 
         var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, linha.PrescricaoId);
-        var janela = new FolhaExecucaoWindow(vm)
-        {
-            Owner = JanelaDona.Atual()
-        };
-        janela.ShowDialog();
+        Func<bool?> abrirNativo = () => new FolhaExecucaoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("FolhaExecucao", vm, abrirNativo);
 
         await CarregarAsync();
     }
@@ -440,7 +431,7 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "prescrever");
 
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Cancelar prescrição",
                 $"Por que a prescrição {linha.Numero} está sendo cancelada? Ela continua na "
                 + "lista, marcada — a folha impressa não desaparece por ser apagada do sistema.");

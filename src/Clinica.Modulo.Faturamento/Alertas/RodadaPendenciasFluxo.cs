@@ -6,6 +6,9 @@ using System.Windows;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Configuracao;
 using Microsoft.Extensions.DependencyInjection;
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Controls;
+using Clinica.Faturamento.Web;
 
 namespace Clinica.Desktop.Alertas;
 
@@ -31,12 +34,11 @@ public static class RodadaPendenciasFluxo
         // no próximo login de quem decide.
         if (!PodeDecidir())
         {
-            MessageBox.Show(
+            await DialogosDaSessao.AvisoAsync(new DialogoService(), "Rodar pendências",
                 "Há guias com o prazo de decisão vencido, e o seu acesso não permite dar "
                 + "baixa nem registrar não conformidade.\n\n"
                 + "Avise a direção da clínica: as guias continuam pendentes até alguém com "
-                + "essa permissão rodar as pendências.",
-                "Rodar pendências", MessageBoxButton.OK, MessageBoxImage.Warning);
+                + "essa permissão rodar as pendências.");
             return false;
         }
 
@@ -56,8 +58,8 @@ public static class RodadaPendenciasFluxo
         if (itens.Count == 0)
             return true;
 
-        var janela = new RodadaPendenciasWindow(itens, status, bloqueante) { Owner = owner };
-        if (janela.ShowDialog() != true)
+        var janela = new RodadaFaturamento(itens, status, bloqueante);
+        if (await janela.AbrirAsync() != true)
             return false;
 
         // Aplica linha a linha, mas UMA falha (nº de guia inválido, concorrência etc.) não pode abortar
@@ -88,11 +90,10 @@ public static class RodadaPendenciasFluxo
         }
 
         if (falhas.Count > 0)
-            MessageBox.Show(
+            await DialogosDaSessao.AvisoAsync(new DialogoService(), "Rodar pendências",
                 $"{falhas.Count} guia(s) não puderam ser aplicadas e continuam pendentes:\n\n" +
                 string.Join("\n", falhas) +
-                "\n\nO restante foi processado. Reveja essas guias no painel.",
-                "Rodar pendências", MessageBoxButton.OK, MessageBoxImage.Warning);
+                "\n\nO restante foi processado. Reveja essas guias no painel.");
 
         return true;
     }

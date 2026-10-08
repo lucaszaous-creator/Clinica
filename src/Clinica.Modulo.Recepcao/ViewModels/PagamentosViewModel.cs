@@ -86,7 +86,7 @@ public sealed partial class PagamentosViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.VenderPacote, "receber pagamento do paciente");
             var vm = new ReceberPagamentoViewModel(_escopos, linha.Lancamento);
-            if (new RecebimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() == true)
+            if (await DialogosDaSessao.AbrirAsync("Recebimento", vm, () => new RecebimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog()) == true)
                 await CarregarAsync();
         }
         catch (Exception ex) { Mensagem = ex.Message; }

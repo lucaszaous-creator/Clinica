@@ -21,6 +21,7 @@ namespace Clinica.Clinico.ViewModels;
 /// </summary>
 public sealed partial class MedidaEdicaoViewModel : ObservableObject
 {
+    public event Action? Confirmado;
     private readonly IServiceScopeFactory _escopos;
     private readonly int _pacienteId;
 
@@ -116,6 +117,7 @@ public sealed partial class MedidaEdicaoViewModel : ObservableObject
 
             TipoRegistrado = tipo.Codigo;
             Registrada = true;
+            Confirmado?.Invoke();
         }
         catch (Exception ex)
         {

@@ -60,6 +60,9 @@ public sealed partial class PacientesViewModel : ObservableObject
             .SessoesDosPacientesAsync(pacientes.Select(p => p.Id).ToList(), ct);
         return pacientes.Where(p => sessoes.TryGetValue(p.Id, out var resumo) && resumo.Sessoes > 0).ToList();
     }
+    public Action<Paciente, int>? AbrirPacienteWeb { get; set; }
+    public string FiltroEscolhido { get => Filtros[Math.Clamp(Filtro, 0, Filtros.Count - 1)]; set { var indice = Filtros.ToList().IndexOf(value); if (indice >= 0) Filtro = indice; } }
+    [RelayCommand] private void AbrirPaciente(Paciente? paciente) { if (paciente is not null) AoTrocarPaciente(paciente); }
     public int SecaoInicial { get; set; } = 2;
     public bool MostrarVoltar { get; init; } = true;
 
@@ -125,6 +128,7 @@ public sealed partial class PacientesViewModel : ObservableObject
     private void AoTrocarPaciente(Paciente? paciente)
     {
         if (paciente is null) return;
+        if (AbrirPacienteWeb is not null) { AbrirPacienteWeb(paciente, SecaoInicial); Seletor.Selecionado = null; return; }
 
         MostrandoFicha = true;
         var foco = new PacienteEmFoco();
@@ -173,17 +177,16 @@ public sealed partial class PacientesViewModel : ObservableObject
     public bool ListandoTudo => Seletor.ListandoTodos;
 
     [RelayCommand]
-    private void NovoPaciente()
+    private async Task NovoPacienteAsync()
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "cadastrar paciente");
 
         var vm = new CadastroPacienteViewModel(_escopos);
-        var janela = new CadastroPacienteWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new CadastroPacienteWindow(vm) {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() != true) return;
+        if (await DialogosDaSessao.AbrirAsync("CadastroPaciente", vm, janelaNativa) != true) return;
 
         _snackbar.Sucesso("Paciente cadastrado.");
 

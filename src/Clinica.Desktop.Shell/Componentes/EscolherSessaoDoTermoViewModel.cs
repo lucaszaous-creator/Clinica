@@ -64,6 +64,7 @@ public sealed partial class EscolherSessaoDoTermoViewModel : ObservableObject
 
     /// <summary>Dispara quando a pessoa confirma — a janela fecha.</summary>
     public event Action? Escolheu;
+    public event Action? Confirmado { add=>Escolheu+=value;remove=>Escolheu-=value; }
 
     public bool PodeConfirmar => Selecionada is not null;
 

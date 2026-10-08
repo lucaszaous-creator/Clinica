@@ -48,6 +48,7 @@ public static class AtualizadorSuite
     /// </summary>
     public static async Task<bool> AtualizarNaAberturaAsync(TimeSpan limite)
     {
+        if(Clinica.Desktop.Shell.Configuracao.EdicaoDeTeste.Ativa)return false;
         try
         {
             var mgr = new UpdateManager(new Clinica.Atualizacao.FonteAtualizacaoGithub());
@@ -97,7 +98,7 @@ public static class AtualizadorSuite
     }
 
     public static void IniciarVerificacaoPeriodica()
-        => _ciclo ??= VerificarPeriodicamenteAsync();
+    { if(!Clinica.Desktop.Shell.Configuracao.EdicaoDeTeste.Ativa)_ciclo ??= VerificarPeriodicamenteAsync(); }
 
     private static async Task VerificarPeriodicamenteAsync()
     {

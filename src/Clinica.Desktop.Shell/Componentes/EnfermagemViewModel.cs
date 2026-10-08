@@ -627,7 +627,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
                 Permissao.ChecarPrescricao, "abrir a folha de execução");
 
             var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, _folhaDeHojeId);
-            new FolhaExecucaoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("FolhaExecucao",vm,()=>new FolhaExecucaoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
         }
         catch (Exception ex)
         {

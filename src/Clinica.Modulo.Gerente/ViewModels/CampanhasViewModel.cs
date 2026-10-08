@@ -306,7 +306,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
     {
         if (linha is null || !linha.EhNps) return;
 
-        var texto = _dialogo.PerguntarTexto(
+        var texto = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Nota do NPS",
             $"Que nota {linha.NomeCru} deu, de 0 a 10? (pode acrescentar o comentário depois de um espaço)");
         if (texto is null) return;
@@ -332,7 +332,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
     {
         if (linha is null) return;
 
-        var comentario = _dialogo.PerguntarTexto(
+        var comentario = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Resposta do paciente", $"O que {linha.NomeCru} respondeu?");
         if (comentario is null) return;
 
@@ -349,7 +349,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
     {
         if (linha is null) return;
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Dispensar contato",
             $"Por que {linha.NomeCru} sai desta campanha? (o motivo fica registrado)");
         if (motivo is null) return;

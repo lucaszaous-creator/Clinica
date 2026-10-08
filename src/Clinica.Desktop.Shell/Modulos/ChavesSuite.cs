@@ -55,6 +55,8 @@ public static class ChavesSuite
     /// parcela 36: o alerta de prontuário em aberto precisa LEVAR à tela onde as sessões
     /// sem evolução estão listadas — e essa tela mora noutro módulo.
     /// </summary>
+    public const string ConsultorioPaciente = "consultorio-paciente";
+
     public const string ConsultorioMeuDia = "consultorio-meu-dia";
 
     // ===================================================================

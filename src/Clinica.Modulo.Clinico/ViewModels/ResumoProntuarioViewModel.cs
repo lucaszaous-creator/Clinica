@@ -200,7 +200,7 @@ public sealed partial class ResumoProntuarioViewModel : ObservableObject
     /// quiser outra sessão volta pela lista, que é de onde ele veio.
     /// </summary>
     [RelayCommand]
-    private void AbrirSessao(EvolucaoResumida? item)
+    private async Task AbrirSessaoAsync(EvolucaoResumida? item)
     {
         // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha (checagem 21).
         if (item is null) return;
@@ -215,7 +215,7 @@ public sealed partial class ResumoProntuarioViewModel : ObservableObject
             // do prontuário, onde o botão existe e age.
             var vm = new SessaoDoProntuarioViewModel(
                 _escopos, item.EvolucaoId, Paciente, ofereceAnexos: false);
-            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("SessaoDoProntuario", vm, () => new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
         }
         catch (Exception ex)
         {

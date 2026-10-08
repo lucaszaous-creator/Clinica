@@ -688,7 +688,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// portas. Uma cópia aqui divergiria na primeira correção, e a que ficasse para trás
     /// abriria dado de saúde sem registrar quem leu.
     /// </summary>
-    private Task VerSessaoAsync(int evolucaoId)
+    private async Task VerSessaoAsync(int evolucaoId)
     {
         // ⚠️ `Exigir` LANÇA, e o comando do componente não tem try: fora dele a recusa
         // sobe até a rede do Dispatcher em vez de virar a frase que explica.
@@ -700,7 +700,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             // Clínico, e este é o da Recepção — o botão fecharia a janela para nada
             // (parcela 41 construída de propósito). A contagem continua na linha.
             var vm = new SessaoDoProntuarioViewModel(_escopos, evolucaoId, Nome, ofereceAnexos: false);
-            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("SessaoDoProntuario", vm, () => new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
         }
         catch (Exception ex)
         {
@@ -710,7 +710,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             MensagemEhErro = true;
         }
 
-        return Task.CompletedTask;
+        return;
     }
 
     /// <summary>
@@ -956,7 +956,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(
             Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
 
-        Clinica.Desktop.Shell.Componentes.EvolucaoEnfermagemWindow.Abrir(
+        await Clinica.Desktop.Shell.Componentes.EvolucaoEnfermagemWindow.AbrirAsync(
             _escopos, _dialogo, PacienteId, Nome);
 
         await CarregarAsync();
@@ -1162,12 +1162,11 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         var vm = new AutorizacaoEdicaoViewModel(_escopos, PacienteId);
         await vm.CarregarAsync(autorizacaoId, _convenioCodigo);
 
-        var janela = new Janelas.AutorizacaoWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Janelas.AutorizacaoWindow(vm) {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() == true)
+        if (await DialogosDaSessao.AbrirAsync("RecepcaoAutorizacao", vm, janelaNativa) == true)
         {
             _snackbar.Sucesso("Autorização registrada.");
             await CarregarAsync();
@@ -1186,7 +1185,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
         if (linha is null) return;
 
-        if (!_dialogo.ConfirmarPerigo(
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo,
                 "Excluir autorização",
                 $"Apagar a senha {linha.Autorizacao.Numero ?? "(sem número)"}? "
                 + "Os atendimentos já lançados não mudam — o que se perde é o controle de cota."))
@@ -1510,12 +1509,11 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         if (PacienteId == 0) return;
 
         var vm = new CadastroPacienteViewModel(_escopos, PacienteId);
-        var janela = new CadastroPacienteWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new CadastroPacienteWindow(vm) {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() != true) return;
+        if (await DialogosDaSessao.AbrirAsync("CadastroPaciente", vm, janelaNativa) != true) return;
         _snackbar.Sucesso("Cadastro atualizado.");
         await CarregarAsync();
         Alterou?.Invoke();
@@ -1550,7 +1548,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Cancelar sessão do prontuário",
                 $"Por que a sessão de {item.Data:dd/MM/yyyy} está sendo cancelada? Ela NÃO é "
                 + "apagada — sai do prontuário que se lê e fica guardada, com este motivo "
@@ -1588,7 +1586,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             // <see cref="EscreverSessaoViewModel"/> para o que ela substituiu.
             var vm = new EscreverSessaoViewModel(_escopos, _dialogo, PacienteId, Nome, evolucaoId);
 
-            if (!EscreverSessaoWindow.Abrir(vm)) return;
+            if (!await EscreverSessaoWindow.AbrirAsync(vm)) return;
 
             _snackbar.Sucesso("Prontuário atualizado.");
             await CarregarAsync();
@@ -1637,7 +1635,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
         try
         {
-            var concluiu = Clinica.Desktop.Shell.Componentes.ColetaDeTermo.AbrirConsentimentoLgpd(
+            var concluiu = await Clinica.Desktop.Shell.Componentes.ColetaDeTermo.AbrirConsentimentoLgpdAsync(
                 // Reaproveita o termo já emitido e não assinado, quando existe: emitir
                 // outro deixaria dois papéis do mesmo ato com números diferentes.
                 _escopos, PacienteId, Nome, TermoLgpdPendenteId);
@@ -1663,7 +1661,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
         if (linha?.RegistroId is not { } registroId) return;
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Revogar consentimento",
             $"Por que \"{linha.Rotulo}\" está sendo revogado? O registro anterior NÃO é apagado — "
             + "ele continua provando o consentimento do período já tratado.");
@@ -1699,12 +1697,11 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         if (PacienteId == 0) return;
 
         var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
-        var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm) {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() != true)
+        if (await DialogosDaSessao.AbrirAsync("Documento", vm, janelaNativa) != true)
         {
             // Mesmo quando o usuário fecha sem concluir, um documento pode ter sido
             // emitido e só a impressão ter falhado — a lista precisa refletir isso.
@@ -2039,13 +2036,13 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
         if (PacienteId == 0) return;
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Anonimizar a pedido do titular",
             $"Registre o pedido de {Nome}: quando pediu, por qual canal e quem recebeu. "
             + "É o que prova que a clínica atendeu — e ela precisa poder provar.");
         if (string.IsNullOrWhiteSpace(motivo)) return;
 
-        if (!_dialogo.ConfirmarPerigo(
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo,
                 "Anonimizar cadastro",
                 $"Nome, documento, telefone, carteirinha, nascimento e foto de {Nome} serão "
                 + "apagados e NÃO voltam.\n\n"
@@ -2071,7 +2068,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
             // O que aconteceu vem escrito, item por item: "pronto" deixaria a clínica sem
             // saber o que continua guardado se o titular perguntar amanhã.
-            _dialogo.Aviso(
+            await DialogosDaSessao.AvisoAsync(_dialogo,
                 "Cadastro anonimizado",
                 $"O cadastro passou a se chamar \"{resultado.NomeAnonimo}\".\n"
                 + $"Consentimentos revogados: {resultado.ConsentimentosRevogados}.\n"
@@ -2105,7 +2102,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             var vm = new CobrancaDoPacienteViewModel(
                 _escopos, _dialogo, PacienteId, Nome,
                 Telefone == "—" ? null : Telefone);
-            new CobrancaDoPacienteWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("CobrancaDoPaciente", vm, () => new CobrancaDoPacienteWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
 
             if (vm.Mudou) await CarregarAsync();
         }

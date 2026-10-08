@@ -32,6 +32,7 @@ public sealed record OpcaoPedidoExame(int? DocumentoId, string Rotulo)
 /// </summary>
 public sealed partial class ResultadoExameEdicaoViewModel : ObservableObject
 {
+    public event Action? Confirmado;
     private readonly IServiceScopeFactory _escopos;
     private readonly int _pacienteId;
     private readonly int? _pedidoPreSelecionado;
@@ -200,6 +201,7 @@ public sealed partial class ResultadoExameEdicaoViewModel : ObservableObject
                laudo: _laudo, nomeDoArquivo: _laudoNome, tipoDoArquivo: _laudoTipo);
 
             Registrado = true;
+            Confirmado?.Invoke();
         }
         catch (Exception ex)
         {

@@ -869,6 +869,9 @@ public sealed partial class DocumentosViewModel : ObservableObject
     // ==================== Gerar ====================
 
     [RelayCommand]
+    private Task EmitirFolhaSelecionadaAsync() => GerarAsync(FolhaEscolhida);
+
+    [RelayCommand]
     private async Task GerarAsync(LinhaFolha? linha)
     {
         if (linha is null || !linha.PodeGerar) return;
@@ -926,14 +929,13 @@ public sealed partial class DocumentosViewModel : ObservableObject
         if (Seletor.Selecionado is not { } paciente || folha.TipoClinico is not { } tipo) return;
 
         var vm = new DocumentoEdicaoViewModel(_escopos, paciente.Id, tipo);
-        var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm) {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
         // Mesmo fechando sem concluir, um documento pode ter sido emitido e só a impressão
         // ter falhado — a lista precisa refletir isso de qualquer jeito.
-        var concluiu = janela.ShowDialog() == true;
+        var concluiu = await DialogosDaSessao.AbrirAsync("Documento", vm, janelaNativa) == true;
         await CarregarAsync();
 
         if (concluiu) _snackbar.Sucesso($"{folha.Rotulo} emitido(a).");
@@ -963,7 +965,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
         // qual é), e o LGPD é montado das quatro finalidades — não há modelo a escolher.
         // Perguntar "qual termo?" para o LGPD ofereceria uma lista onde ele não está.
         var concluiu = folha.TipoClinico == TipoDocumentoClinico.Consentimento
-            ? ColetaDeTermo.AbrirConsentimentoLgpd(_escopos, paciente.Id, paciente.Nome)
+            ? await ColetaDeTermo.AbrirConsentimentoLgpdAsync(_escopos, paciente.Id, paciente.Nome)
             : await ColetaDeTermo.AbrirAsync(_escopos, paciente.Id, paciente.Nome);
 
         // Recarrega de qualquer jeito: abrir a janela já emite o termo numerado.
@@ -986,12 +988,11 @@ public sealed partial class DocumentosViewModel : ObservableObject
         if (Seletor.Selecionado is not { } paciente) return;
 
         var vm = new OrcamentoViewModel(_escopos, paciente.Id, paciente.Nome);
-        var janela = new Janelas.OrcamentoWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Janelas.OrcamentoWindow(vm) {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
-        var concluiu = janela.ShowDialog() == true;
+        var concluiu = await DialogosDaSessao.AbrirAsync("RecepcaoOrcamento", vm, janelaNativa) == true;
         await CarregarAsync();
 
         if (concluiu) _snackbar.Sucesso($"Orçamento {vm.NumeroEmitido} emitido.");
@@ -1202,7 +1203,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(
                 linha.AcessoParaMexer, $"cancelar {linha.Folha.ToLowerInvariant()}");
 
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Cancelar documento",
                 $"Por que {linha.Numero} está sendo cancelado? O documento não é apagado — " +
                 "fica registrado como cancelado, com este motivo.");

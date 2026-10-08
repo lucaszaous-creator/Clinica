@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Windows.Data;
 using System.Windows.Threading;
 using Clinica.Application.Modelos;
@@ -169,17 +169,17 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     [ObservableProperty] private int _subAbaDocumentos;
 
     [RelayCommand]
-    private void EmitirDocumentos()
+    private async Task EmitirDocumentosAsync()
     {
         if (SemPaciente) return;
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir documentos do atendimento");
-            new ConsultaContextualWindow($"Documentos — {Paciente}",
+            await DialogosDaSessao.AbrirAsync("EmissoesAtendimento", Atendimento, () => new ConsultaContextualWindow($"Documentos — {Paciente}",
                 new Views.EmissoesNoAtendimentoView { DataContext = Atendimento }, "Voltar ao atendimento")
-                { Width = 760 }.ShowDialog();
+                { Width = 760 }.ShowDialog());
         }
-        catch (Exception ex) { _dialogo.Aviso("Documentos do atendimento", ex.Message); }
+        catch (Exception ex) { await DialogosDaSessao.AvisoAsync(_dialogo, "Documentos do atendimento", ex.Message); }
     }
 
     [RelayCommand]
@@ -190,10 +190,10 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar a ficha clínica");
             await Capa.CarregarAsync();
-            new ConsultaContextualWindow($"Ficha — {Paciente}",
-                new Views.PacienteView { DataContext = this }, "Voltar ao atendimento").ShowDialog();
+            await DialogosDaSessao.AbrirAsync("ConsultaFichaClinica", this, () => new ConsultaContextualWindow($"Ficha — {Paciente}",
+                new Views.PacienteView { DataContext = this }, "Voltar ao atendimento").ShowDialog());
         }
-        catch (Exception ex) { _dialogo.Aviso("Ficha do paciente", ex.Message); }
+        catch (Exception ex) { await DialogosDaSessao.AvisoAsync(_dialogo, "Ficha do paciente", ex.Message); }
     }
 
     [RelayCommand]
@@ -204,10 +204,10 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar exames e anexos");
             await Anexos.CarregarAsync();
-            new ConsultaContextualWindow($"Exames e anexos — {Paciente}",
-                new Views.AnexosPacienteView { DataContext = Anexos }, "Voltar ao atendimento").ShowDialog();
+            await DialogosDaSessao.AbrirAsync("ConsultaExamesPaciente", Anexos, () => new ConsultaContextualWindow($"Exames e anexos — {Paciente}",
+                new Views.AnexosPacienteView { DataContext = Anexos }, "Voltar ao atendimento").ShowDialog());
         }
-        catch (Exception ex) { _dialogo.Aviso("Exames e anexos", ex.Message); }
+        catch (Exception ex) { await DialogosDaSessao.AvisoAsync(_dialogo, "Exames e anexos", ex.Message); }
     }
 
     /// <summary>Exames e laudos do PACIENTE, não da sessão. Ver a ViewModel.</summary>
@@ -238,8 +238,25 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     /// </summary>
     [ObservableProperty] private CabecalhoClinicoPaciente? _cabecalho;
 
+    // Estado da seção visível para o host Web; não altera o estado dos compositores.
+    private (bool Carregando,bool Falhou,string? Mensagem,bool Erro) EstadoWeb => AbaAtual switch {
+        0 => (Atendimento.Carregando,Atendimento.NaoVerificado,Atendimento.Mensagem,Atendimento.MensagemEhErro),
+        1 => (Enfermagem.Passagem?.Carregando??false,Enfermagem.Passagem?.NaoVerificado??false,Enfermagem.Mensagem,Enfermagem.MensagemEhErro),
+        2 => (Capa.Carregando||Anamnese.Carregando,Capa.NaoVerificado||Anamnese.NaoVerificado,Capa.MensagemEhErro?Capa.Mensagem:Anamnese.Mensagem,Capa.MensagemEhErro||Anamnese.MensagemEhErro),
+        3 => (Prontuario.Carregando,Prontuario.NaoVerificado,Prontuario.Mensagem,Prontuario.MensagemEhErro),
+        4 => (Anexos.Carregando,Anexos.NaoVerificado,Anexos.Mensagem,Anexos.MensagemEhErro),
+        6 when SubAbaAcompanhamento==1 => (Medidas.Carregando,Medidas.NaoVerificado,Medidas.Mensagem,Medidas.MensagemEhErro),
+        6 when SubAbaAcompanhamento==2 => (Avaliacoes.Carregando,Avaliacoes.NaoVerificado,Avaliacoes.Mensagem,Avaliacoes.MensagemEhErro),
+        6 => (Dor.Carregando,Dor.NaoVerificado,Dor.Mensagem,Dor.MensagemEhErro),
+        _ => (false,false,null,false) };
+    public bool Carregando => EstadoWeb.Carregando;
+    public bool NaoVerificado => EstadoWeb.Falhou;
+    public string? Mensagem => EstadoWeb.Mensagem;
+    public bool MensagemEhErro => EstadoWeb.Erro;
+
     /// <summary>Foto do cadastro, para o crachá. Null cai no avatar de iniciais.</summary>
     [ObservableProperty] private System.Windows.Media.Imaging.BitmapImage? _foto;
+    public string? FotoWeb => Foto is not null && Cabecalho?.Foto is {Length: > 0} bytes ? "data:image/jpeg;base64,"+Convert.ToBase64String(bytes) : null;
 
     /// <summary>
     /// Ninguém em foco. Acontece quando se chega aqui por navegação direta (o painel da
@@ -410,6 +427,23 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     /// chegou aqui sempre o alcança.
     /// </summary>
     [RelayCommand]
+    private async Task DocumentosPacienteWebAsync()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar documentos do paciente");
+        await AtualizarDocumentosAsync();
+        await DialogosDaSessao.AbrirAsync("DocumentosPaciente", this, () => new ConsultaContextualWindow($"Documentos — {Paciente}", new Views.DocumentosPacienteView { DataContext = this }, "Voltar ao atendimento").ShowDialog());
+    }
+
+    [RelayCommand] private void VerAtendimentoWeb() => NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento);
+    [RelayCommand] private void VerEnfermagemWeb() => NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimentoEnfermagem);
+    [RelayCommand] private void VerFichaWeb() => NavegacaoSuite.Ir(ModuloClinico.ChavePaciente);
+    [RelayCommand] private void VerHistoricoWeb() => NavegacaoSuite.Ir(ModuloClinico.ChaveProntuario);
+    [RelayCommand] private void VerExamesWeb() => NavegacaoSuite.Ir(ModuloClinico.ChaveExamesDoPaciente);
+    [RelayCommand] private void VerDorWeb() => NavegacaoSuite.Ir(ModuloClinico.ChaveEvolucaoDor);
+    [RelayCommand] private void VerMedidasWeb() => NavegacaoSuite.Ir(ModuloClinico.ChaveMedidas);
+    [RelayCommand] private void VerAvaliacoesWeb() => NavegacaoSuite.Ir(ModuloClinico.ChaveAvaliacoes);
+
+    [RelayCommand]
     private void Voltar()
     {
         if (VoltarParaOrigem is not null) VoltarParaOrigem();
@@ -492,6 +526,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
 
             Cabecalho = cabecalho;
             Foto = Clinica.Desktop.Shell.Componentes.Retrato.Carregar(cabecalho.Foto);
+            OnPropertyChanged(nameof(FotoWeb));
         }
         catch (Exception ex)
         {
@@ -710,7 +745,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         }
 
         if (SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
-            && !_dialogo.Confirmar("Concluir a sessão registrada?",
+            && !await DialogosDaSessao.ConfirmarAsync(_dialogo, "Concluir a sessão registrada?",
                 "A conclusão usa a evolução já salva e gera as guias aplicáveis. "
                 + "Se você editou o texto, volte e use Salvar sessão antes de concluir. "
                 + "A enfermagem poderá registrar depois na mesma sessão.")) return;
@@ -726,7 +761,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         // que escreveu ao trocar de tela, e o registro refeito de memória é o que este
         // módulo existe para evitar. Então a tela PERGUNTA, com a consequência escrita.
         if (!Enfermagem.PassagemEmBranco
-            && !_dialogo.Confirmar(
+            && !await DialogosDaSessao.ConfirmarAsync(_dialogo,
                 "Há uma passagem de enfermagem não registrada",
                 "Você escreveu uma passagem de enfermagem e ainda não clicou em "
                 + "\u201CRegistrar\u201D.\n\nEncerrando agora, ela N\u00C3O \u00E9 gravada — a evolu\u00E7\u00E3o de "
@@ -735,7 +770,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
             return;
 
         if (!Atendimento.TemAlgoParaGravar && Atendimento.EvolucaoId == 0
-            && !_dialogo.Confirmar(
+            && !await DialogosDaSessao.ConfirmarAsync(_dialogo,
                 "Encerrar sem escrever a evolução?",
                 "Você não escreveu nada desta sessão.\n\n"
                 + "Encerrando assim, ela vai aparecer em \u201CSess\u00F5es sem evolu\u00E7\u00E3o\u201D at\u00E9 "

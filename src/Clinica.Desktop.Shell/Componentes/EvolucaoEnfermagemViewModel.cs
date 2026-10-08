@@ -630,10 +630,17 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     /// marcar de novo. Quem as perde é quem grava como anotação.
     /// </summary>
     partial void OnConsultaCompletaChanged(bool value)
+    { _ = ConferirTrocaConsultaAsync(value); }
+
+    private async Task ConferirTrocaConsultaAsync(bool value)
     {
+        try
+        {
         if (!value && !_ajustandoConsultaPorCodigo && ConsultaTemConteudo)
         {
-            var seguir = _dialogo.ConfirmarPerigo(
+            // Enquanto a confirmação está aberta, o conteúdo continua no modo completo.
+            DefinirConsultaCompleta(true);
+            var seguir = await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo,
                 "Voltar para anotação de passagem?",
                 "As cinco etapas que você escreveu NÃO vão para o prontuário se este "
                 + "registro for gravado como anotação.\n\nElas continuam na tela — basta "
@@ -645,9 +652,13 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
                 DefinirConsultaCompleta(true);
                 return;
             }
+            DefinirConsultaCompleta(false);
         }
 
         OnPropertyChanged(nameof(EtapasEmFalta));
+        }
+        catch(OperationCanceledException) { DefinirConsultaCompleta(true); }
+        catch(Exception ex) { DefinirConsultaCompleta(true); Mensagem=ex.Message;MensagemEhErro=true; }
     }
 
     partial void OnHistoricoChanged(string value) => OnPropertyChanged(nameof(EtapasEmFalta));
@@ -907,7 +918,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             string? motivo = null;
             if (Corrigindo)
             {
-                motivo = _dialogo.PerguntarTexto(
+                motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                     "Corrigir o registro",
                     "Por que o registro anterior estava errado? Ele não é apagado — fica na "
                     + "folha, marcado, com esta explicação ao lado.",
@@ -977,9 +988,8 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             var sessoes = await repo.AgendamentosDoPacienteNoDiaAsync(_pacienteId, registro.Data);
             if (!sessoes.Any(a => a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado))
                 throw new InvalidOperationException("Não há sessão elegível no dia deste registro. Confira a data do atendimento original.");
-            var escolha = new EscolherSessaoEnfermagemWindow(Paciente, sessoes) { Owner = JanelaDona.Atual() };
-            if (escolha.ShowDialog() != true || escolha.Escolhida is not { } id) return;
-            var motivo = _dialogo.PerguntarTexto("Vincular à sessão original", "Informe por que esta evolução foi registrada fora da sessão. O conteúdo, a autoria e as datas serão preservados.");
+            if (await EscolherSessaoEnfermagemWindow.PerguntarAsync(Paciente, sessoes) is not { } id) return;
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,"Vincular à sessão original", "Informe por que esta evolução foi registrada fora da sessão. O conteúdo, a autoria e as datas serão preservados.");
             if (string.IsNullOrWhiteSpace(motivo)) return;
             await scope.ServiceProvider.GetRequiredService<EvolucaoEnfermagemService>()
                 .VincularSessaoAsync(linha.Id, id, SessaoUsuario.Atual.UsuarioId, motivo);
@@ -1112,7 +1122,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(
                 Permissao.RegistrarEvolucaoEnfermagem, "cancelar evolução de enfermagem");
 
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Cancelar o registro",
                 "Cancelar é para o registro lançado no paciente ou na sessão ERRADA — para "
                 + "corrigir o texto, use Corrigir. Por que este registro está sendo "

@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/Clinica.Desktop.Shell/Configuracao/EdicaoDeTeste.cs" Link="Configuracao/EdicaoDeTeste.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AulaTreinamento.cs" Link="Treinamento/AulaTreinamento.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AcervoTreinamento.cs" Link="Treinamento/AcervoTreinamento.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/FonteAtualizacaoGithub.cs" Link="Atualizacao/FonteAtualizacaoGithub.cs" />

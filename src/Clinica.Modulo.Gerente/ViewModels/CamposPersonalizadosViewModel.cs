@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
@@ -228,7 +229,7 @@ public sealed partial class CamposPersonalizadosViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "cadastrar campo do prontuário");
 
-            if (linha.Ativo && !_dialogo.Confirmar(
+            if (linha.Ativo && !await DialogosDaSessao.ConfirmarAsync(_dialogo,
                     "Desativar campo",
                     $"“{linha.Rotulo}” deixa de aparecer na folha da sessão.\n\n"
                     + "O que já foi registrado nele CONTINUA no prontuário — desativar não apaga nada."))

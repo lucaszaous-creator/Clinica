@@ -165,9 +165,10 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao | Permissao.RegistrarEvolucaoEnfermagem, "registrar infusão realizada");
             if (PacienteId == 0) throw new InvalidOperationException("Escolha um paciente antes de registrar a infusão.");
             var vm = new InfusaoExternaViewModel(_escopos, PacienteId, Paciente, _foco.AgendamentoId);
-            var janela = new InfusaoExternaWindow(vm) { Owner = JanelaDona.Atual() };
-            if (janela.ShowDialog() != true || vm.PrescricaoId is not { } id) return;
-            new FolhaExecucaoWindow(new FolhaExecucaoViewModel(_escopos, _dialogo, id)) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("InfusaoExterna", vm, () => new InfusaoExternaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
+            if (respostaWeb != true || vm.PrescricaoId is not { } id) return;
+            var folha = new FolhaExecucaoViewModel(_escopos, _dialogo, id);
+            await DialogosDaSessao.AbrirAsync("FolhaExecucao", folha, () => new FolhaExecucaoWindow(folha) { Owner = JanelaDona.Atual() }.ShowDialog());
             await CarregarAsync();
         } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }
@@ -433,7 +434,7 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
                 Permissao.ChecarPrescricao, "abrir a folha de execução");
 
             var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, _folhaDeHojeId);
-            new FolhaExecucaoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("FolhaExecucao", vm, () => new FolhaExecucaoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
         }
         catch (Exception ex)
         {
@@ -479,7 +480,7 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
     /// na seção do PRONTUÁRIO — daqui o botão fecharia a janela e não faria nada, que é o
     /// defeito da parcela 41 construído de propósito.
     /// </summary>
-    private Task VerSessaoMedicaAsync(RegistroClinicoPaciente item)
+    private async Task VerSessaoMedicaAsync(RegistroClinicoPaciente item)
     {
         // ⚠️ `Exigir` LANÇA, e o comando do componente não tem try: fora dele a recusa
         // sobe até a rede do dispatcher em vez de virar a frase que explica.
@@ -488,7 +489,7 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário");
 
             var vm = new SessaoDoProntuarioViewModel(_escopos, item.Id, Paciente, ofereceAnexos: false);
-            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("SessaoDoProntuario", vm, () => new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
         }
         catch (Exception ex)
         {
@@ -498,7 +499,6 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
             MensagemEhErro = true;
         }
 
-        return Task.CompletedTask;
     }
 
     /// <summary>

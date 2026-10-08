@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Faturamento.Web;
 using System.Windows.Input;
 using System.Diagnostics;
 using System.IO;
@@ -96,6 +98,7 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
     public bool PodeConfirmar => PodeBaixar && NumeroGuiaServe;
 
     public event Action? BaixaConcluida;
+    public event Action? Concluido { add => BaixaConcluida += value; remove => BaixaConcluida -= value; }
     public event Action? Cancelado;
 
     public BaixaViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
@@ -152,7 +155,7 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
-        if (!_dialogo.Confirmar("Confirmar baixa",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Confirmar baixa",
             $"Confirmar a baixa da guia {NumeroGuia} de {PacienteNome}?")) return;
 
         var atendimentoId = Codigo?.AtendimentoId ?? 0;
@@ -200,7 +203,7 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
                 if (!resultado.Concluido || resultado.Pdf is null) return;
             }
 
-            if (!_dialogo.Confirmar("Fatura concluída",
+            if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Fatura concluída",
                 "Fatura concluída! Gerar a capa de conclusão para imprimir e arquivar na pasta do dia?")) return;
 
             var dialog = new SaveFileDialog

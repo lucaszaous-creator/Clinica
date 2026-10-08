@@ -80,6 +80,14 @@ public sealed partial class SessaoDoProntuarioViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PodeCopiar))]
     private string? _textoParaCopiar;
 
+    [RelayCommand]
+    private void CopiarWeb()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario,"copiar a sessão");
+        if(!PodeCopiar)return;
+        try { System.Windows.Clipboard.SetText(TextoParaCopiar!);Mensagem="Registro copiado.";MensagemEhErro=false; }
+        catch { Mensagem="Não foi possível copiar o registro. Tente novamente.";MensagemEhErro=true; }
+    }
     public bool PodeCopiar => !string.IsNullOrWhiteSpace(TextoParaCopiar);
 
     [ObservableProperty] private bool _temAnexos;
@@ -259,16 +267,12 @@ public sealed partial class SessaoDoProntuarioViewModel : ObservableObject
     /// mesma abertura — três cópias de uma janela que já é compartilhada.
     /// </summary>
     [RelayCommand]
-    private void VerCorrecoes()
+    private async Task VerCorrecoesAsync()
     {
         try
         {
-            new VersoesEvolucaoWindow
-            {
-                DataContext = new VersoesEvolucaoViewModel(
-                    _escopos, _evolucaoId, $"{DataTexto} — {Paciente}"),
-                Owner = JanelaDona.Atual()
-            }.ShowDialog();
+            var vm = new VersoesEvolucaoViewModel(_escopos,_evolucaoId,$"{DataTexto} — {Paciente}");
+            await DialogosDaSessao.AbrirAsync("VersoesEvolucao",vm,()=>new VersoesEvolucaoWindow{DataContext=vm,Owner=JanelaDona.Atual()}.ShowDialog());
         }
         catch (Exception ex)
         {

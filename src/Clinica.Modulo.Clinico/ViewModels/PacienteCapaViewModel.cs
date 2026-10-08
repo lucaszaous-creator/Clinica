@@ -467,12 +467,10 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
             var vm = new ProblemaEdicaoViewModel(_escopos, PacienteId, existente);
-            var janela = new ProblemaWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
+            Func<bool?> abrirNativo = () => new ProblemaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("Problema", vm, abrirNativo);
 
-            if (janela.ShowDialog() != true) return;
+            if (respostaWeb != true) return;
 
             _snackbar.Sucesso("Lista de problemas atualizada.");
             await CarregarAsync();
@@ -495,7 +493,7 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            if (!_dialogo.Confirmar("Marcar como resolvido",
+            if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Marcar como resolvido",
                     $"Encerrar “{linha.Rotulo}” com a data de hoje? A linha continua no "
                     + "prontuário — ela sai da lista de ativos, não da base."))
                 return;
@@ -530,7 +528,7 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Descartar do prontuário",
                 $"Por que “{linha.Rotulo}” está sendo descartado? A linha não é apagada — "
                 + "ela esteve no prontuário, e conduta pode ter sido tomada com base nela.");

@@ -1,0 +1,14 @@
+type EstadoPaciente={tipo:string;titulo?:string;paciente?:string;numero?:string;corpo?:string;mensagem?:string;bloqueado:boolean;declaracoes:{descricao:string;detalhe?:string;resposta?:string}[]};
+type PontePaciente={postMessage:(mensagem:string)=>void;addEventListener:(tipo:string,handler:(evento:{data:EstadoPaciente})=>void)=>void};
+const canvas=document.getElementById('assinatura') as HTMLCanvasElement,ctx=canvas.getContext('2d')!,ponte=(window as unknown as {chrome:{webview:PontePaciente}}).chrome.webview;let bloqueado=true,desenhando=false,temTraco=false;
+function tamanho(){if(canvas.width)return;const r=canvas.getBoundingClientRect();canvas.width=Math.round(r.width*2);canvas.height=460;ctx.scale(2,2);ctx.strokeStyle='#000';ctx.lineWidth=2.2;ctx.lineCap='round';ctx.lineJoin='round'}
+canvas.width=0;requestAnimationFrame(tamanho);
+function ponto(e:PointerEvent){const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*canvas.width/(r.width*2),y:(e.clientY-r.top)*canvas.height/(r.height*2)}}
+function enviar(){ponte.postMessage(temTraco?JSON.stringify({png:canvas.toDataURL('image/png'),largura:Math.round(canvas.width/2),altura:Math.round(canvas.height/2),temTraco:true}):'')}
+canvas.addEventListener('pointerdown',e=>{if(bloqueado)return;tamanho();if(e.isTrusted)canvas.setPointerCapture(e.pointerId);desenhando=true;const p=ponto(e);ctx.beginPath();ctx.moveTo(p.x,p.y)});
+canvas.addEventListener('pointermove',e=>{if(!desenhando)return;const p=ponto(e);ctx.lineTo(p.x,p.y);ctx.stroke();temTraco=true});
+function concluir(){if(!desenhando)return;desenhando=false;enviar()}
+canvas.addEventListener('pointerup',concluir);canvas.addEventListener('pointercancel',concluir);
+function limpar(){ctx.clearRect(0,0,canvas.width,canvas.height);temTraco=false}
+document.getElementById('limpar')!.onclick=()=>{if(bloqueado)return;limpar();enviar()};
+ponte.addEventListener('message',e=>{const s=e.data;if(s.tipo==='limpar'){limpar();return}if(s.tipo!=='estado')return;for(const k of ['titulo','paciente','numero','corpo','mensagem'])document.getElementById(k)!.textContent=String(s[k as keyof EstadoPaciente]??'');bloqueado=s.bloqueado;canvas.classList.toggle('bloqueado',bloqueado);(document.getElementById('limpar') as HTMLButtonElement).disabled=bloqueado;const lista=document.getElementById('declaracoes')!;lista.replaceChildren();for(const d of s.declaracoes){const linha=document.createElement('div');linha.className='declaracao';const titulo=document.createElement('div');titulo.textContent=d.descricao;const detalhe=document.createElement('div');detalhe.className='detalhe';detalhe.textContent=d.detalhe??'';const resposta=document.createElement('span');resposta.className='resposta';resposta.textContent='Sua resposta: '+(d.resposta||'Ainda não informada');linha.append(titulo,detalhe,resposta);lista.append(linha)}});ponte.postMessage('pronto');

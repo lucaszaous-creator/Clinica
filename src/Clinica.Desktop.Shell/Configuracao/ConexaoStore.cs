@@ -18,7 +18,7 @@ public static class ConexaoStore
 {
     /// <summary>Pasta comum da suíte (onde os apps novos gravam).</summary>
     private static string PastaSuite => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ClinicaSemDor");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), EdicaoDeTeste.NomePasta);
 
     /// <summary>Pasta do app de faturamento — somente leitura, nunca gravamos aqui.</summary>
     private static string PastaFaturamento => Path.Combine(
@@ -28,13 +28,13 @@ public static class ConexaoStore
 
     private static string ArquivoFaturamento => Path.Combine(PastaFaturamento, "conexao.dat");
 
-    public static bool ExisteConfiguracao() => File.Exists(Arquivo) || File.Exists(ArquivoFaturamento);
+    public static bool ExisteConfiguracao() => File.Exists(Arquivo) || !EdicaoDeTeste.Ativa && File.Exists(ArquivoFaturamento);
 
     /// <summary>
     /// Lê a connection string salva: primeiro a da suíte, depois a do faturamento.
     /// Retorna null se não houver nenhuma (ou se a descriptografia falhar nas duas).
     /// </summary>
-    public static string? Carregar() => Ler(Arquivo) ?? Ler(ArquivoFaturamento);
+    public static string? Carregar() => Ler(Arquivo) ?? (EdicaoDeTeste.Ativa ? null : Ler(ArquivoFaturamento));
 
     private static string? Ler(string caminho)
     {

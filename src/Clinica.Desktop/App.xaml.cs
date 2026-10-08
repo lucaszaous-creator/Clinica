@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Web;
 using System.Windows;
 using System.Windows.Threading;
 using Clinica.Application.Servicos;
@@ -54,14 +55,14 @@ public partial class App : System.Windows.Application
         // Atualização NA ABERTURA: havendo versão nova, baixa e reinicia já atualizado
         // (antes mesmo da conexão com o banco). Limite de 30s para nunca travar a
         // abertura com rede lenta — nesse caso o ciclo periódico assume depois.
-        if (await UpdateService.AtualizarNaAberturaAsync(TimeSpan.FromSeconds(30)))
+        if (!Clinica.Desktop.Shell.Configuracao.EdicaoDeTeste.Ativa && await UpdateService.AtualizarNaAberturaAsync(TimeSpan.FromSeconds(30)))
             return; // o Velopack encerra este processo e reabre o app atualizado
 
         // Loop: obter conexão (1º acesso ou salva) → conectar/migrar. Se falhar, oferecer reconfigurar.
         var forcarSetup = false;
         while (true)
         {
-            var connectionString = ObterConexao(forcarSetup);
+            var connectionString = await ObterConexaoAsync(forcarSetup);
             if (connectionString is null)
             {
                 Shutdown();
@@ -109,11 +110,10 @@ public partial class App : System.Windows.Application
                 _host?.Dispose();
                 _host = null;
 
-                var reconfig = MessageBox.Show(
-                    $"Não foi possível conectar ao banco de dados:\n\n{ex.Message}\n\nDeseja reconfigurar a conexão?",
-                    "Erro de conexão", MessageBoxButton.YesNo, MessageBoxImage.Error);
+                var reconfig = await EntradaWebWindow.AvisarAsync("Erro de conexão",
+                    $"Não foi possível conectar ao banco de dados:\n\n{ex.Message}\n\nDeseja reconfigurar a conexão?", perguntar: true);
 
-                if (reconfig == MessageBoxResult.Yes)
+                if (reconfig)
                 {
                     // A conexão pode vir da pasta legada ou do ambiente: apagar só
                     // a configuração da suíte não impede reler a mesma conexão ruim.
@@ -123,7 +123,7 @@ public partial class App : System.Windows.Application
 
                 // Modo contingência: sem banco (internet caiu / Neon fora do ar), mostra as
                 // últimas pendências sincronizadas — a secretária ainda sabe o que faturar hoje.
-                MostrarPendenciasOffline();
+                await MostrarPendenciasOfflineAsync();
                 Shutdown();
                 return;
             }
@@ -139,8 +139,7 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        var window = new Clinica.Desktop.Shell.ShellWindow { Title = "Faturamento — Clínica SemDor" };
-        window.DataContext = new Clinica.Desktop.Shell.ShellViewModel("Faturamento", _modulos, _host!.Services);
+        var window = Clinica.Desktop.Shell.Web.SuiteWebWindow.Criar(_host!.Services, _modulos, "Faturamento — Clínica SemDor");
         Clinica.Desktop.Controls.AjusteJanela.Instalar();
         MainWindow = window;
         ShutdownMode = ShutdownMode.OnMainWindowClose; // volta ao comportamento normal
@@ -152,15 +151,15 @@ public partial class App : System.Windows.Application
 
         // Rodada de pendências vencida (aviso bloqueante) antes do aviso comum: se a rodada zerar
         // as pendências, o aviso a seguir já não tem o que mostrar.
-        await MostrarRodadaSeVencidaAsync();
+        await window.WebView.ExecutarComDialogosAsync(MostrarRodadaSeVencidaAsync);
 
         // Aviso de baixas pendentes ao abrir + lembrete recorrente (a cada 2h).
-        await MostrarAvisoPendenciasAsync();
+        await window.WebView.ExecutarComDialogosAsync(MostrarAvisoPendenciasAsync);
         _lembreteTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(2) };
         _lembreteTimer.Tick += async (_, _) =>
         {
-            await MostrarRodadaSeVencidaAsync();
-            await MostrarAvisoPendenciasAsync();
+            await window.WebView.ExecutarComDialogosAsync(MostrarRodadaSeVencidaAsync);
+            await window.WebView.ExecutarComDialogosAsync(MostrarAvisoPendenciasAsync);
         };
         _lembreteTimer.Start();
 
@@ -199,33 +198,30 @@ public partial class App : System.Windows.Application
         catch (Exception ex)
         {
             LogErros.Registrar("Faturamento — leitura dos usuários na abertura", ex);
-            MessageBox.Show(
-                "Não foi possível ler os usuários cadastrados:\n\n" + ex.Message,
-                "Entrar", MessageBoxButton.OK, MessageBoxImage.Error);
+            await EntradaWebWindow.AvisarAsync("Entrar", "Não foi possível ler os usuários cadastrados:\n\n" + ex.Message);
             return false;
         }
 
         while (true)
         {
-            var login = new Clinica.Desktop.Shell.LoginWindow(escopos, "Faturamento", primeiroAcesso);
-            if (login.ShowDialog() != true || login.Usuario is null) return false;
+            var usuario = await EntradaWebWindow.AutenticarAsync(escopos, "Faturamento", primeiroAcesso);
+            if (usuario is null) return false;
 
             // Este é o app do FATURAMENTO: quem não tem a leitura dele não tem seção
             // nenhuma para abrir. Dizer isso na porta é melhor do que deixar entrar e
             // mostrar uma sidebar vazia — tela vazia se lê como defeito do sistema, e a
             // pessoa liga para o suporte em vez de falar com a direção.
-            if (!login.Usuario.Pode(Permissao.VerFaturamento))
+            if (!usuario.Pode(Permissao.VerFaturamento))
             {
-                MessageBox.Show(
-                    $"O acesso de {login.Usuario.Nome} não inclui o faturamento.\n\n"
+                await EntradaWebWindow.AvisarAsync("Entrar",
+                    $"O acesso de {usuario.Nome} não inclui o faturamento.\n\n"
                     + "A direção libera a permissão \"Ver faturamento\" em Acessos, "
-                    + "no Gerente Geral.",
-                    "Entrar", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    + "no Gerente Geral.");
                 primeiroAcesso = false;
                 continue; // volta para a tela de entrada, para outra pessoa entrar
             }
 
-            _host.Services.GetRequiredService<SessaoUsuario>().Entrar(login.Usuario);
+            _host.Services.GetRequiredService<SessaoUsuario>().Entrar(usuario);
             return true;
         }
     }
@@ -233,7 +229,7 @@ public partial class App : System.Windows.Application
     /// <summary>Checa/baixa atualização e, havendo versão nova pronta, mostra o botão "Atualizar" e avisa.</summary>
     private async Task VerificarAtualizacaoAsync()
     {
-        if (_host is null) return;
+        if (_host is null || Clinica.Desktop.Shell.Configuracao.EdicaoDeTeste.Ativa) return;
 
         try
         {
@@ -273,8 +269,7 @@ public partial class App : System.Windows.Application
             if (lista.Count == 0) return;
 
             _avisoAberto = true;
-            var aviso = new AvisoPendenciasWindow(lista) { Owner = MainWindow };
-            aviso.ShowDialog();
+            await new Clinica.Faturamento.Web.AvisoPendenciasFaturamento(lista).AbrirAsync();
         }
         catch (Exception ex)
         {
@@ -342,20 +337,14 @@ public partial class App : System.Windows.Application
     /// Sem conexão com o banco: mostra as últimas pendências salvas localmente (somente
     /// leitura), para o dia de trabalho não ficar às cegas. Nunca lança.
     /// </summary>
-    private void MostrarPendenciasOffline()
+    private async Task MostrarPendenciasOfflineAsync()
     {
         try
         {
             var snapshot = Configuracao.PendenciasSnapshot.Carregar();
             if (snapshot is null || snapshot.Pendencias.Count == 0) return;
 
-            MessageBox.Show(
-                $"Sem conexão com o banco. Exibindo as pendências da última sincronização " +
-                $"({snapshot.GeradoEm:dd/MM/yyyy HH:mm}), somente leitura — as baixas devem ser " +
-                "registradas quando a conexão voltar.",
-                "Modo contingência", MessageBoxButton.OK, MessageBoxImage.Information);
-
-            new AvisoPendenciasWindow(snapshot.Pendencias).ShowDialog();
+            await Clinica.Faturamento.Web.AvisoPendenciasOfflineWeb.MostrarAsync(snapshot.Pendencias, snapshot.GeradoEm);
         }
         catch (Exception ex)
         {
@@ -364,18 +353,15 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>Fonte da conexão: env var → configuração salva → tela de primeiro acesso.</summary>
-    private static string? ObterConexao(bool forcarSetup = false)
+    private static async Task<string?> ObterConexaoAsync(bool forcarSetup = false)
     {
         if (!forcarSetup)
         {
-            var env = Environment.GetEnvironmentVariable("ConnectionStrings__Clinica");
-            if (!string.IsNullOrWhiteSpace(env)) return env;
-            var salva = Clinica.Desktop.Shell.Configuracao.ConexaoStore.Carregar();
+            var salva = Clinica.Desktop.Shell.ShellBootstrap.ObterConnectionString();
             if (!string.IsNullOrWhiteSpace(salva)) return salva;
         }
 
-        var setup = new Clinica.Desktop.Shell.SetupWindow("Faturamento");
-        return setup.ShowDialog() == true ? Clinica.Desktop.Shell.Configuracao.ConexaoStore.Carregar() : null;
+        return await EntradaWebWindow.ConfigurarAsync("Faturamento") ? Clinica.Desktop.Shell.Configuracao.ConexaoStore.Carregar() : null;
     }
 
     private static readonly Clinica.Desktop.Shell.Modulos.IModuloApp[] _modulos =

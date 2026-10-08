@@ -223,7 +223,7 @@ public sealed partial class EquipeViewModel : ObservableObject
         if (linha is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe");
-        if (!_dialogo.ConfirmarPerigo("Excluir profissional",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir profissional",
                 $"Excluir {linha.Nome}? Só é possível enquanto ele não tem agenda registrada — "
                 + "se já tiver, desative-o em vez de excluir.")) return;
 
@@ -250,7 +250,7 @@ public sealed partial class EquipeViewModel : ObservableObject
         if (linha is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe");
-        if (!_dialogo.ConfirmarPerigo("Excluir sala",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir sala",
                 $"Excluir a sala {linha.Nome}? Só é possível enquanto ela não tem agenda registrada.")) return;
 
         await ExecutarAsync(async equipe =>
@@ -271,18 +271,17 @@ public sealed partial class EquipeViewModel : ObservableObject
             Permissao.EditarAgenda | Permissao.GerenciarEquipe, "fechar a agenda");
 
         var vm = new BloqueioEdicaoViewModel(_escopos);
-        var janela = new Janelas.BloqueioWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Janelas.BloqueioWindow(vm) {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() != true) return;
+        if (await DialogosDaSessao.AbrirAsync("RecepcaoBloqueio", vm, janelaNativa) != true) return;
 
         // O aviso do que já estava marcado é o motivo de a janela existir: bloquear não
         // desmarca ninguém, e sumir com essa informação faria a recepção descobrir o
         // choque quando o paciente aparecesse na porta.
         if (vm.MarcadosDentro.Count > 0)
-            _dialogo.Aviso("Agenda fechada — mas já havia sessão marcada",
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Agenda fechada — mas já havia sessão marcada",
                 $"{vm.MarcadosDentro.Count} sessão(ões) estão marcadas dentro do período fechado. "
                 + "Elas continuam na agenda: remarque com o paciente.\n\n"
                 + string.Join("\n", vm.MarcadosDentro));
@@ -308,7 +307,7 @@ public sealed partial class EquipeViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "remarcar sessões");
 
-        var resposta = _dialogo.PerguntarTexto(
+        var resposta = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Empurrar as sessões",
             $"Em quantos dias empurrar as sessões marcadas dentro de {linha.Periodo}?\n\n"
             + "O HORÁRIO é mantido — o paciente organizou a vida em torno dele, e "
@@ -320,7 +319,7 @@ public sealed partial class EquipeViewModel : ObservableObject
 
         if (!int.TryParse(resposta.Trim(), out var dias) || dias == 0)
         {
-            _dialogo.Aviso("Número inválido", "Informe em quantos dias empurrar (ex.: 7).");
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Número inválido", "Informe em quantos dias empurrar (ex.: 7).");
             return;
         }
 
@@ -344,7 +343,7 @@ public sealed partial class EquipeViewModel : ObservableObject
             {
                 // As recusadas aparecem uma a uma: "3 não deram" mandaria a recepção
                 // procurar quais são, que é o trabalho que este botão veio eliminar.
-                _dialogo.Aviso(
+                await DialogosDaSessao.AvisoAsync(_dialogo,
                     "Nem todas puderam ser empurradas",
                     $"{r.Remarcados.Count} sessão(ões) foram remarcadas.\n\n"
                     + $"{r.Recusados.Count} ficaram como estavam:\n"
@@ -373,7 +372,7 @@ public sealed partial class EquipeViewModel : ObservableObject
         if (linha is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "reabrir a agenda");
-        if (!_dialogo.Confirmar("Reabrir a agenda",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Reabrir a agenda",
                 $"Tirar o bloqueio de {linha.Alvo} ({linha.Periodo})? "
                 + "A agenda volta a aceitar marcação nesse período.")) return;
 
@@ -399,12 +398,11 @@ public sealed partial class EquipeViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe");
         var vm = new ProfissionalEdicaoViewModel(_escopos, id);
-        var janela = new Janelas.ProfissionalWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Janelas.ProfissionalWindow(vm) {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() != true) return;
+        if (await DialogosDaSessao.AbrirAsync("RecepcaoProfissional", vm, janelaNativa) != true) return;
         _snackbar.Sucesso("Profissional salvo.");
         await CarregarAsync();
     }
@@ -413,12 +411,11 @@ public sealed partial class EquipeViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe");
         var vm = new SalaEdicaoViewModel(_escopos, id);
-        var janela = new Janelas.SalaWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Janelas.SalaWindow(vm) {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() != true) return;
+        if (await DialogosDaSessao.AbrirAsync("RecepcaoSala", vm, janelaNativa) != true) return;
         _snackbar.Sucesso("Sala salva.");
         await CarregarAsync();
     }

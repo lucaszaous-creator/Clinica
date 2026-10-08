@@ -61,6 +61,15 @@ jobs:
           npm ci
           npm run build
 
+      - name: Compilar interface local da suíte e entrada
+        working-directory: src/Clinica.Desktop.Shell/Web/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Validar contratos de páginas e diálogos da suíte
+        run: dotnet run --project tools/validar-suite-web/Qa.csproj -c Release
+
       - name: Conferir espelho dos tokens (CSS x XAML)
         run: python tokens/verificar-espelho.py
 

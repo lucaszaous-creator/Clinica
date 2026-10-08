@@ -130,6 +130,7 @@ public sealed partial class ModelosEvolucaoViewModel : ObservableObject
 
     /// <summary>Dispara quando a pessoa aplica — a janela fecha.</summary>
     public event Action? Aplicou;
+    public event Action? Confirmado;
 
     /// <summary>
     /// "Repetir a última sessão deste paciente" — o roteiro que não está no catálogo e é
@@ -149,6 +150,7 @@ public sealed partial class ModelosEvolucaoViewModel : ObservableObject
         // Fecha como o Aplicar fecha — sem `Resultado`, porque o gesto já preencheu a
         // folha; a tela de trás vê `Escolhido` nulo e não aplica nada por cima.
         Aplicou?.Invoke();
+        Confirmado?.Invoke();
     }
 
     /// <summary>
@@ -296,6 +298,7 @@ public sealed partial class ModelosEvolucaoViewModel : ObservableObject
             m.CidSessao, m.PlanoTerapeutico);
 
         Aplicou?.Invoke();
+        Confirmado?.Invoke();
     }
 
     // ==================== Salvar o que está escrito ====================

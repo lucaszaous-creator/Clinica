@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Faturamento.Web;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -137,7 +139,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             .ToList();
 
         if (grupos.Count > 1 &&
-            !_dialogo.Confirmar("Um lote por operadora",
+            !await DialogosDaSessao.ConfirmarAsync(_dialogo, "Um lote por operadora",
                 "As guias do período são de " + grupos.Count + " operadoras — sai um lote (e um XML) para cada uma:\n\n• " +
                 string.Join("\n• ", grupos.Select(g =>
                     $"{Domain.Regras.CatalogoConvenios.Nome(g.Key)}: {g.Count()} guia(s)")) +
@@ -152,7 +154,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         var radar = scope.ServiceProvider.GetRequiredService<PrevencaoGlosaService>();
         var alertas = await radar.AnalisarAsync(candidatas, DateOnly.FromDateTime(DateTime.Today));
         if (alertas.Count > 0 &&
-            !_dialogo.ConfirmarPerigo("Radar de glosas",
+            !await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Radar de glosas",
                 "Risco de glosa detectado neste lote:\n\n• " +
                 string.Join("\n\n• ", alertas.Take(8)) +
                 "\n\nExportar mesmo assim?"))
@@ -165,7 +167,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         var dados = await parametros.ObterPrestadorAsync();
         var pendencias = tiss.ValidarPrestador(dados, candidatas.Select(c => c.Tipo));
         if (pendencias.Count > 0 &&
-            !_dialogo.ConfirmarPerigo("Dados incompletos para o TISS",
+            !await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Dados incompletos para o TISS",
                 "O lote será gerado com pendências que a operadora pode rejeitar:\n\n• " +
                 string.Join("\n• ", pendencias) +
                 "\n\nCorrija na tela Configurações (Clínica/prestador e Códigos TUSS) ou exporte mesmo assim.\n\nExportar mesmo assim?"))
@@ -242,7 +244,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         };
 
         if (avisos.Count > 0)
-            _dialogo.Aviso("Validação do XML TISS",
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Validação do XML TISS",
                 "Os lotes foram gerados e salvos, mas a validação encontrou problemas que a operadora pode recusar:\n\n" +
                 string.Join("\n\n", avisos) +
                 "\n\nCorrija os cadastros/Configurações e use \"Baixar XML\" para regenerar o arquivo antes de enviar.");
@@ -306,11 +308,8 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
 
         SessaoUsuario.Atual.Exigir(Permissao.GerenciarLotesTiss, "registrar o envio do lote");
 
-        var janela = new Alertas.EnvioLoteWindow(linha.Numero)
-        {
-            Owner = System.Windows.Application.Current.MainWindow
-        };
-        if (janela.ShowDialog() != true) return;
+        var janela = new EnvioFaturamento(linha.Numero);
+        if (await janela.AbrirAsync() != true) return;
 
         try
         {
@@ -338,14 +337,11 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             using (var scope = _scopeFactory.CreateScope())
                 lote = await scope.ServiceProvider.GetRequiredService<LoteTissService>().ObterAsync(linha.Id);
 
-            var janela = new Alertas.RetornoLoteWindow(lote.Numero, lote.Codigos)
-            {
-                Owner = System.Windows.Application.Current.MainWindow
-            };
+            var janela = new RetornoFaturamento(lote.Numero, lote.Codigos);
 
             // Demonstrativo em XML? Lê o arquivo da operadora e pré-preenche as decisões
             // guia a guia — digitar o retorno vira apenas conferir e confirmar.
-            if (_dialogo.Confirmar("Importar demonstrativo",
+            if (await DialogosDaSessao.ConfirmarAsync(_dialogo, "Importar demonstrativo",
                     $"A operadora enviou o demonstrativo de análise do lote nº {linha.Numero} em XML?\n\n" +
                     "Sim: escolha o arquivo e o retorno é preenchido automaticamente (você revisa antes de confirmar).\n" +
                     "Não: preencha guia a guia como sempre."))
@@ -357,7 +353,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
                     janela.AplicarImportacao(resultado);
 
                     if (resultado.GuiasForaDoLote.Count > 0 || resultado.GuiasSemRetorno.Count > 0)
-                        _dialogo.Aviso("Importação com ressalvas",
+                        await DialogosDaSessao.AvisoAsync(_dialogo, "Importação com ressalvas",
                             (resultado.GuiasForaDoLote.Count > 0
                                 ? $"Guias no XML que NÃO são deste lote: {string.Join(", ", resultado.GuiasForaDoLote.Take(10))}. Confira se o arquivo é do lote certo.\n\n"
                                 : string.Empty) +
@@ -367,7 +363,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
                 }
             }
 
-            if (janela.ShowDialog() != true) return;
+            if (await janela.AbrirAsync() != true) return;
 
             using (var scope = _scopeFactory.CreateScope())
             {
@@ -435,5 +431,8 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
 
     // Atalhos globais do shell (IAtalhosDeTela)
     public ICommand? AtalhoImprimir => ExportarCommand;
-    public ICommand? AtalhoAtualizar => new AsyncRelayCommand(CarregarAsync);
+    public ICommand? AtalhoAtualizar => AtualizarCommand;
+
+    [RelayCommand]
+    private Task Atualizar() => CarregarAsync();
 }

@@ -381,12 +381,9 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
                 _escopos, Instrumento, PacienteId,
                 SessaoUsuario.Atual.ProfissionalId, null, _especialidadeCodigo);
 
-            var janela = new Janelas.AplicarAvaliacaoWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("AplicarAvaliacao", vm, () => new Janelas.AplicarAvaliacaoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
 
-            if (janela.ShowDialog() != true) return;
+            if (respostaWeb != true) return;
 
             _snackbar.Sucesso($"{Instrumento.Nome} registrado no prontuário.");
 
@@ -424,7 +421,7 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
             // Cancelar, nunca apagar (parcela 52) — Lei 13.787/2018, guarda de 20 anos.
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Cancelar avaliação",
                 $"Por que a aplicação de {linha.Instrumento} em {linha.Data} está sendo "
                 + "cancelada? Ela sai da curva do tratamento e fica guardada, com as "

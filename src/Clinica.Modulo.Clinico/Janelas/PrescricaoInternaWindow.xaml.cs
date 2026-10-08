@@ -60,7 +60,7 @@ public partial class PrescricaoInternaWindow : Window
         {
             var busca=new BuscaModeloClinico {Modelos=_vm.Modelos};painel.Children.Add(busca);
             var botao=new Button {Content="Usar e revisar",HorizontalAlignment=HorizontalAlignment.Right,Margin=new Thickness(0,16,0,0)};
-            botao.Click+=(_,_)=>{if(busca.Selecionado is not ModeloDocumento modelo){mensagem.Text="Selecione um modelo.";return;}_vm.AplicarModelo(grupo,modelo);janela.Close();};painel.Children.Add(botao);
+            botao.Click+=async (_,_)=>{if(busca.Selecionado is not ModeloDocumento modelo){mensagem.Text="Selecione um modelo.";return;}await _vm.AplicarModeloAsync(grupo,modelo);janela.Close();};painel.Children.Add(botao);
         }
         painel.Children.Add(mensagem);janela.ShowDialog();
     }

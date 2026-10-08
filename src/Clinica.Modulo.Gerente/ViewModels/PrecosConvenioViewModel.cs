@@ -225,12 +225,8 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar preço de convênio");
 
         var vm = new PrecoEdicaoViewModel(_escopos, precoId);
-        var janela = new Janelas.PrecoConvenioWindow(vm)
-        {
-            Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        await vm.Inicializacao;
+        if (await DialogosDaSessao.AbrirAsync("PrecoConvenioWindow", vm, () => throw new InvalidOperationException("Requer apresentação web.")) != true) return;
 
         _snackbar.Sucesso(precoId == 0
             ? "Preço cadastrado — a conciliação já vai propor esse valor."
@@ -252,7 +248,7 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "excluir preço de convênio");
 
-            if (!_dialogo.ConfirmarPerigo("Excluir preço",
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir preço",
                     $"Apagar o preço de {linha.Convenio} ({linha.Descricao})? Se ele já propôs "
                     + "valor a alguma guia, prefira ENCERRAR pela vigência: os lançamentos guardam "
                     + "o valor copiado, mas apagar a linha apaga a explicação de por que aquela "
@@ -290,6 +286,7 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
 /// </summary>
 public sealed partial class PrecoEdicaoViewModel : ObservableObject
 {
+    public Task Inicializacao { get; }
     private readonly IServiceScopeFactory _escopos;
     private readonly int _precoId;
 
@@ -321,7 +318,7 @@ public sealed partial class PrecoEdicaoViewModel : ObservableObject
     {
         _escopos = escopos;
         _precoId = precoId;
-        _ = CarregarAsync();
+        Inicializacao = CarregarAsync();
     }
 
     private async Task CarregarAsync()

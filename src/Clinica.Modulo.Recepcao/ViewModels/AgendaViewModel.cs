@@ -1421,17 +1421,20 @@ public sealed partial class AgendaViewModel : ObservableObject
     {
         if (cartao is null) return;
 
-        var janela = new Janelas.DetalheHorarioWindow(cartao)
+        var detalhe = new Web.DetalheHorarioWebViewModel(cartao);
+        Janelas.AcaoHorario? acaoNativa = null;
+        await DialogosDaSessao.AbrirAsync("RecepcaoDetalheHorario", detalhe, () =>
         {
-            Owner = Dono()
-        };
-
-        janela.ShowDialog();
+            var janela = new Janelas.DetalheHorarioWindow(cartao) { Owner = Dono() };
+            var resultado = janela.ShowDialog();
+            acaoNativa = janela.Acao;
+            return resultado;
+        });
 
         // A janela não executa nada: ela devolve a INTENÇÃO, e quem age é esta tela.
         // Assim as sete ações continuam com um dono só — a regra de permissão, o
         // recarregamento e o tratamento de erro não ganham uma segunda cópia.
-        switch (janela.Acao)
+        switch (acaoNativa ?? detalhe.Acao)
         {
             case Janelas.AcaoHorario.Remarcar: await RemarcarAsync(cartao); break;
             case Janelas.AcaoHorario.Confirmar: Confirmar(cartao); break;
@@ -1521,8 +1524,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     [RelayCommand]
     private async Task AbrirEsperaAsync()
     {
-        var janela = new Janelas.ListaEsperaPainelWindow(this) { Owner = Dono() };
-        janela.ShowDialog();
+        Func<bool?> janelaNativa = () => new Janelas.ListaEsperaPainelWindow(this) { Owner = Dono() }.ShowDialog();
+        await DialogosDaSessao.AbrirAsync("RecepcaoListaEsperaPainel", this, janelaNativa);
         await CarregarAsync();
     }
 
@@ -1549,11 +1552,11 @@ public sealed partial class AgendaViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "fechar a agenda");
 
         var vm = new ViewModels.BloqueioEdicaoViewModel(_escopos);
-        var janela = new Janelas.BloqueioWindow(vm) { Owner = Dono() };
-        if (janela.ShowDialog() != true) return;
+        Func<bool?> janelaNativa = () => new Janelas.BloqueioWindow(vm) { Owner = Dono() }.ShowDialog();
+        if (await DialogosDaSessao.AbrirAsync("RecepcaoBloqueio", vm, janelaNativa) != true) return;
 
         if (vm.MarcadosDentro.Count > 0)
-            _dialogo.Aviso("Agenda fechada — mas já havia sessão marcada",
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Agenda fechada — mas já havia sessão marcada",
                 $"{vm.MarcadosDentro.Count} sessão(ões) estão marcadas dentro do período fechado. "
                 + "Elas continuam na agenda: remarque com o paciente.\n\n"
                 + string.Join("\n", vm.MarcadosDentro)
@@ -1573,7 +1576,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             var vm = new HorariosProfissionalViewModel(_escopos)
             { ProfissionalPreferidoId = ProfissionalEmFocoId, FecharAgendaCommand = FecharAgendaCommand };
             await vm.CarregarAsync();
-            new Janelas.HorariosProfissionalWindow(vm) { Owner = Dono() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("RecepcaoHorariosProfissional", vm, () => new Janelas.HorariosProfissionalWindow(vm) { Owner = Dono() }.ShowDialog());
             if (vm.Alterou) await CarregarAsync();
         }
         catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
@@ -1620,12 +1623,11 @@ public sealed partial class AgendaViewModel : ObservableObject
     private async Task ConfirmarSessoesAsync()
     {
         var vm = new ConfirmacoesViewModel(_escopos);
-        var janela = new Janelas.ConfirmacoesWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Janelas.ConfirmacoesWindow(vm) {
             Owner = Dono()
-        };
+        }.ShowDialog();
 
-        janela.ShowDialog();
+        await DialogosDaSessao.AbrirAsync("RecepcaoConfirmacoes", vm, janelaNativa);
 
         // A confirmação não muda a agenda do dia aberto, mas pode ter registrado
         // resposta de quem vem amanhã — recarregar mantém a tela honesta.
@@ -1644,12 +1646,11 @@ public sealed partial class AgendaViewModel : ObservableObject
     private async Task ConciliarAgendaAsync()
     {
         var vm = new ConciliacaoAgendaViewModel(_escopos, _dialogo);
-        var janela = new Janelas.ConciliacaoAgendaWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Janelas.ConciliacaoAgendaWindow(vm) {
             Owner = Dono()
-        };
+        }.ShowDialog();
 
-        janela.ShowDialog();
+        await DialogosDaSessao.AbrirAsync("RecepcaoConciliacaoAgenda", vm, janelaNativa);
 
         // Resolver um horário parado muda a agenda de OUTRO dia — mas pode ter lançado
         // atendimento, e o dia aberto aqui precisa refletir o que existe agora.
@@ -1699,7 +1700,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         {
             // Guarda que FALA (parcela 41): série sem sessão em aberto não tem o que
             // cancelar, e sair calado seria botão que não faz nada.
-            _dialogo.Aviso("Nada a cancelar",
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Nada a cancelar",
                 $"A série de {cartao.Paciente} não tem sessão em aberto — "
                 + "as que existiram já foram atendidas, canceladas ou viraram falta.");
             return;
@@ -1711,7 +1712,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         var lista = string.Join("\n", datas)
             + (emAberto.Count > 10 ? $"\n… e mais {emAberto.Count - 10}." : string.Empty);
 
-        if (!_dialogo.ConfirmarPerigo("Cancelar a série",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Cancelar a série",
                 $"Cancelar as {emAberto.Count} sessão(ões) ainda marcadas de {cartao.Paciente}?\n\n"
                 + lista
                 + "\n\nAs que já foram atendidas continuam no histórico.")) return;
@@ -1731,12 +1732,11 @@ public sealed partial class AgendaViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
         var vm = new ListaEsperaEdicaoViewModel(_escopos);
-        var janela = new Janelas.ListaEsperaWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Janelas.ListaEsperaWindow(vm) {
             Owner = Dono()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() != true) return;
+        if (await DialogosDaSessao.AbrirAsync("RecepcaoListaEspera", vm, janelaNativa) != true) return;
         _snackbar.Sucesso("Paciente entrou na lista de espera.");
         await CarregarAsync();
     }
@@ -1749,7 +1749,7 @@ public sealed partial class AgendaViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Sair da lista de espera",
             $"Por que {linha.Paciente} está saindo da lista? Fica registrado no pedido.");
         if (string.IsNullOrWhiteSpace(motivo)) return;
@@ -1768,7 +1768,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         if (cartao is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
-        if (!_dialogo.Confirmar("Cancelar horário",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Cancelar horário",
                 $"Cancelar o horário de {cartao.Paciente} ({cartao.Faixa})?")) return;
 
         await ExecutarAsync(async scope =>
@@ -1784,7 +1784,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             // snackbar some em 4s (a regra da Fila, parcela 62). O diálogo segura; o
             // snackbar fica só com a confirmação de rotina.
             if (avisos.Count > 0)
-                _dialogo.Aviso($"Atenção — {cartao.Paciente}", string.Join("\n\n", avisos));
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Atenção — {cartao.Paciente}", string.Join("\n\n", avisos));
             _snackbar.Info("Horário cancelado.");
         }, "cancelamento do horário");
     }
@@ -1804,7 +1804,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             ApontarEsperaPara(cartao);
             // Mesma regra do cancelamento: aviso de guia é ação, e ação não cabe em 4s.
             if (avisos.Count > 0)
-                _dialogo.Aviso($"Atenção — {cartao.Paciente}", string.Join("\n\n", avisos));
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Atenção — {cartao.Paciente}", string.Join("\n\n", avisos));
             _snackbar.Info($"{cartao.Paciente} marcado como falta.");
         }, "marcação de falta");
     }
@@ -1850,12 +1850,11 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     private async Task AbrirFormularioAsync(AgendamentoEdicaoViewModel vm)
     {
-        var janela = new Janelas.AgendamentoWindow(vm)
-        {
+        Func<bool?> janelaNativa = () => new Janelas.AgendamentoWindow(vm) {
             Owner = Dono()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() != true) return;
+        if (await DialogosDaSessao.AbrirAsync("RecepcaoAgendamento", vm, janelaNativa) != true) return;
 
         // Marcou: o horário deixou de estar vago, e a lista volta a ser a lista inteira.
         SugestaoPara = null;

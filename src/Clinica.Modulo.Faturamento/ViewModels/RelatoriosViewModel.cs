@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Faturamento.Web;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -181,9 +183,7 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
         catch (IOException)
         {
             // Arquivo aberto no Excel ou sem permissão na pasta: avisa em vez de estourar.
-            System.Windows.MessageBox.Show(
-                "Não foi possível gravar o arquivo. Feche-o no Excel ou escolha outra pasta.",
-                "Exportação", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            await DialogosDaSessao.AvisoAsync(new Clinica.Desktop.Controls.DialogoService(), "Exportação", "Não foi possível gravar o arquivo. Feche-o no Excel ou escolha outra pasta.");
         }
     }
 

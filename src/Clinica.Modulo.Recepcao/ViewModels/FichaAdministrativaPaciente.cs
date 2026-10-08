@@ -13,16 +13,24 @@ namespace Clinica.Recepcao.ViewModels;
 public sealed class FichaAdministrativaPaciente : IFichaAdministrativaPaciente
 {
     private readonly FichaPacienteViewModel _ficha;
+    public FichaPacienteViewModel DadosWeb => _ficha;
+    object? IFichaAdministrativaPaciente.DadosWeb => DadosWeb;
+    public Task CarregarWebAsync() => CarregarAsync();
     private int _pacienteId;
     private Task? _carga;
     private bool _abriu;
     public event Action? Alterou;
     public bool PodeEditar => Clinica.Domain.Entities.SessaoUsuario.Atual.Pode(Clinica.Domain.Entities.Permissao.EditarPaciente);
-    public object Resumo { get; }
-    public object Convenio { get; }
-    public object Relacionamento { get; }
-    public object Privacidade { get; }
-    public object Termos { get; }
+    private object? _resumo;
+    public object Resumo => _resumo ??= Preparar(new Views.ResumoAdministrativoPacienteView());
+    private object? _convenio;
+    public object Convenio => _convenio ??= Preparar(new Views.ConvenioPacienteView());
+    private object? _relacionamento;
+    public object Relacionamento => _relacionamento ??= Preparar(new Views.RelacionamentoPacienteView());
+    private object? _privacidade;
+    public object Privacidade => _privacidade ??= Preparar(new Views.PrivacidadePacienteView());
+    private object? _termos;
+    public object Termos => _termos ??= Preparar(new Views.TermosPacienteView());
     public ICommand EditarCommand { get; }
     public ICommand WhatsAppCommand { get; }
 
@@ -30,11 +38,6 @@ public sealed class FichaAdministrativaPaciente : IFichaAdministrativaPaciente
     {
         _ficha = new FichaPacienteViewModel(escopos, snackbar, dialogo) { SomenteAdministrativo = true };
         _ficha.Alterou += () => Alterou?.Invoke();
-        Resumo = Preparar(new Views.ResumoAdministrativoPacienteView());
-        Convenio = Preparar(new Views.ConvenioPacienteView());
-        Relacionamento = Preparar(new Views.RelacionamentoPacienteView());
-        Privacidade = Preparar(new Views.PrivacidadePacienteView());
-        Termos = Preparar(new Views.TermosPacienteView());
         EditarCommand = new AsyncRelayCommand(async () => { await CarregarAsync(); await _ficha.EditarCommand.ExecuteAsync(null); }, () => PodeEditar);
         WhatsAppCommand = new AsyncRelayCommand(async () => { await CarregarAsync(); _ficha.AbrirWhatsappCommand.Execute(null); });
     }

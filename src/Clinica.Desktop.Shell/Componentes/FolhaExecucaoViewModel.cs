@@ -442,7 +442,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(
             Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
 
-        EvolucaoEnfermagemWindow.Abrir(
+        await EvolucaoEnfermagemWindow.AbrirAsync(
             _escopos, _dialogo, _pacienteId, Paciente, _prescricaoId, Numero);
 
         await CarregarAsync();
@@ -485,7 +485,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             return;
         }
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Retificar checagem",
             $"Por que a checagem do item {linha.Ordem} estava errada? A anterior NÃO é "
             + "apagada — ela continua na folha, com este motivo ao lado.");
@@ -498,7 +498,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         string? justificativa = null;
         if (novaSituacao == SituacaoChecagem.NaoRealizado)
         {
-            justificativa = _dialogo.PerguntarTexto(
+            justificativa = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Por que não foi realizado?",
                 $"Item {linha.Ordem} — {linha.Descricao}");
             if (string.IsNullOrWhiteSpace(justificativa)) return;
@@ -509,7 +509,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         var confirmouAlergia = false;
         if (novaSituacao == SituacaoChecagem.Realizado && linha.TemAlertaAlergia)
         {
-            if (!_dialogo.Confirmar(
+            if (!await DialogosDaSessao.ConfirmarAsync(_dialogo,
                     "ALERGIA registrada — administrar mesmo assim?",
                     $"Item {linha.Ordem} — {linha.Descricao}\n\n{linha.AlertaAlergia}\n\n"
                     + "O sistema não impede — quem está com o paciente é quem decide —, "
@@ -550,7 +550,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "checar prescrição");
 
-            if (!_dialogo.Confirmar(
+            if (!await DialogosDaSessao.ConfirmarAsync(_dialogo,
                     "Encerrar execução",
                     $"Encerrar a execução da prescrição {Numero}? Depois disso a folha não "
                     + "pode mais ser checada.\n\n"
@@ -573,7 +573,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             // a pendência vira esquecimento. Recusar agora não perde nada: o botão
             // "Assinar execução" continua na folha encerrada.
             if (AguardaAssinaturaExecucao
-                && _dialogo.Confirmar(
+                && await DialogosDaSessao.ConfirmarAsync(_dialogo,
                     "Assinar a execução",
                     "Esta folha pede a assinatura eletrônica da enfermagem. Assinar agora, "
                     + "com o seu certificado?"))
@@ -614,7 +614,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                 return;
             }
 
-            using var certificado = EscolherCertificadoWindow.Perguntar(
+            using var certificado = await EscolherCertificadoWindow.PerguntarAsync(
                 $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos);
 
             if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
@@ -670,7 +670,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             if (!PodeValidarMedico) throw new InvalidOperationException("Esta validação está pendente para o médico responsável, após a assinatura da enfermagem.");
             using var scope = _escopos.CreateScope();
             var conferencia = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().ConferirParaAssinaturaAsync(_prescricaoId);
-            var confirmou = conferencia.ExigeConfirmacao && _dialogo.Confirmar("Revisar alergias", "Há alerta de alergia relacionado à infusão registrada. Confirma que revisou o caso antes de assinar?");
+            var confirmou = conferencia.ExigeConfirmacao && await DialogosDaSessao.ConfirmarAsync(_dialogo,"Revisar alergias", "Há alerta de alergia relacionado à infusão registrada. Confirma que revisou o caso antes de assinar?");
             if (conferencia.ExigeConfirmacao && !confirmou) return;
             if (ContinuidadeAtiva)
             {
@@ -680,7 +680,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                 MensagemEhErro = false;
                 return;
             }
-            using var certificado = EscolherCertificadoWindow.Perguntar($"Validar infusão {Numero} · {Paciente}", JanelaAtiva(), _escopos);
+            using var certificado = await EscolherCertificadoWindow.PerguntarAsync($"Validar infusão {Numero} · {Paciente}", JanelaAtiva(), _escopos);
             if (certificado is null) return;
             await scope.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>().AssinarPrescricaoAsync(
                 _prescricaoId, certificado, confirmou, SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador);
@@ -695,7 +695,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     {
         try {
             if (!PodeDevolverMedico) throw new InvalidOperationException("Somente o médico responsável pode devolver esta pendência.");
-            var motivo = _dialogo.PerguntarTexto("Devolver infusão à enfermagem",
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,"Devolver infusão à enfermagem",
                 "Explique o que precisa ser revisto. A execução assinada permanecerá no histórico.");
             if (motivo is null) return;
             using var scope = _escopos.CreateScope();
@@ -714,8 +714,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             if (!PodeRevisarDevolucao) throw new InvalidOperationException("Esta devolução não está pendente para este executante.");
             var vm = new InfusaoExternaViewModel(_escopos, _pacienteId, Paciente,
                 retificaPrescricaoId: _prescricaoId);
-            var janela = new InfusaoExternaWindow(vm) { Owner = JanelaAtiva() };
-            if (janela.ShowDialog() != true || vm.PrescricaoId is not { } novoId) return;
+            if (await DialogosDaSessao.AbrirAsync("InfusaoExterna",vm,()=>new InfusaoExternaWindow(vm){Owner=JanelaAtiva()}.ShowDialog()) != true || vm.PrescricaoId is not { } novoId) return;
             await CarregarAsync();
             Mensagem = $"Nova versão #{novoId} registrada. Abra-a na fila para revisar e assinar a execução.";
             MensagemEhErro = false;
@@ -728,15 +727,15 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         try {
             SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "corrigir os horários da infusão");
             if (!PodeCorrigirHorarios) throw new InvalidOperationException("Os horários ficam bloqueados após a primeira assinatura.");
-            var dataPrescricaoTexto = _dialogo.PerguntarTexto("Corrigir infusão", "Data da prescrição (dd/MM/aaaa)", _dataPrescricao.ToString("dd/MM/yyyy"));
+            var dataPrescricaoTexto = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,"Corrigir infusão", "Data da prescrição (dd/MM/aaaa)", _dataPrescricao.ToString("dd/MM/yyyy"));
             if (dataPrescricaoTexto is null) return;
-            var horaPrescricaoTexto = _dialogo.PerguntarTexto("Corrigir infusão", "Hora da prescrição (HH:mm)", _horaPrescricao.ToString("HH\\:mm"));
+            var horaPrescricaoTexto = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,"Corrigir infusão", "Hora da prescrição (HH:mm)", _horaPrescricao.ToString("HH\\:mm"));
             if (horaPrescricaoTexto is null) return;
-            var dataExecucaoTexto = _dialogo.PerguntarTexto("Corrigir infusão", "Data da execução (dd/MM/aaaa)", _dataExecucao.ToString("dd/MM/yyyy"));
+            var dataExecucaoTexto = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,"Corrigir infusão", "Data da execução (dd/MM/aaaa)", _dataExecucao.ToString("dd/MM/yyyy"));
             if (dataExecucaoTexto is null) return;
-            var horaExecucaoTexto = _dialogo.PerguntarTexto("Corrigir infusão", "Hora da execução (HH:mm)", _horaExecucao.ToString("HH\\:mm"));
+            var horaExecucaoTexto = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,"Corrigir infusão", "Hora da execução (HH:mm)", _horaExecucao.ToString("HH\\:mm"));
             if (horaExecucaoTexto is null) return;
-            var motivo = _dialogo.PerguntarTexto("Corrigir infusão", "Motivo da correção (obrigatório)");
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,"Corrigir infusão", "Motivo da correção (obrigatório)");
             if (motivo is null) return;
             var cultura = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
             if (!DateOnly.TryParseExact(dataPrescricaoTexto,"dd/MM/yyyy",cultura,System.Globalization.DateTimeStyles.None,out var dataPrescricao)
@@ -758,7 +757,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     {
         try {
             if (!PodeCancelarInfusao) throw new InvalidOperationException("Esta infusão não pode ser cancelada por este usuário.");
-            var motivo = _dialogo.PerguntarTexto("Cancelar infusão ou prescrição",
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,"Cancelar infusão ou prescrição",
                 "Informe o motivo. O registro e as assinaturas já feitas permanecerão no histórico.");
             if (motivo is null) return;
             using var scope = _escopos.CreateScope();
@@ -840,7 +839,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "suspender item de prescrição");
 
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Suspender item",
                 $"Por que o item {linha.Ordem} ({linha.Descricao}) não deve mais ser feito? "
                 + "O item continua na folha, marcado como suspenso, com este motivo ao lado.");
@@ -895,7 +894,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         // aplicadas a uma regra clínica em vez de a uma permissão.
         if (situacao == SituacaoChecagem.Realizado && linha.TemAlertaAlergia)
         {
-            if (!_dialogo.Confirmar(
+            if (!await DialogosDaSessao.ConfirmarAsync(_dialogo,
                     "ALERGIA registrada — administrar mesmo assim?",
                     $"Item {linha.Ordem} — {linha.Descricao}\n\n{linha.AlertaAlergia}\n\n"
                     + "O sistema não impede: o registro pode estar errado, pode haver "
@@ -908,7 +907,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
         if (situacao != SituacaoChecagem.Realizado)
         {
-            justificativa = _dialogo.PerguntarTexto(
+            justificativa = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Por que não foi realizado?",
                 $"Item {linha.Ordem} — {linha.Descricao}\n\n"
                 + "Ex.: paciente recusou, apresentou reação, acesso perdido, medicação em falta.");
@@ -917,7 +916,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             // Perguntar aqui é o que evita transformar a regra num erro na cara da técnica.
             if (string.IsNullOrWhiteSpace(justificativa)) return;
 
-            alergia = PerguntarAlergia(justificativa);
+            alergia = await PerguntarAlergiaAsync(justificativa);
         }
 
         await ExecutarAsync(async (servico, executante, data, hora) =>
@@ -933,7 +932,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     /// A oferta é DISPARADA pela palavra, mas quem decide é quem checou: registrar sozinho
     /// encheria a lista de problemas de alergias que a técnica não afirmou.
     /// </summary>
-    private string? PerguntarAlergia(string justificativa)
+    private async Task<string?> PerguntarAlergiaAsync(string justificativa)
     {
         var texto = justificativa.ToLowerInvariant();
         var falaEmReacao = texto.Contains("alerg") || texto.Contains("reaç")
@@ -941,14 +940,14 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
         if (!falaEmReacao) return null;
 
-        if (!_dialogo.Confirmar(
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo,
                 "Registrar alergia no prontuário?",
                 "A justificativa fala em reação. Quer registrar isso como ALERGIA na lista "
                 + "de problemas do paciente? A partir daí toda prescrição com esse termo "
                 + "passa a acender um alerta."))
             return null;
 
-        var descricao = _dialogo.PerguntarTexto(
+        var descricao = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Alergia a quê?",
             "Escreva só o agente (ex.: \"Dipirona\"). É esta palavra que a conferência "
             + "procura nas próximas prescrições — uma frase inteira casaria com quase nada.");

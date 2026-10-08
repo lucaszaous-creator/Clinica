@@ -248,8 +248,8 @@ public partial class LancamentosViewModel : ObservableObject, ICarregarAoAbrir
         SessaoUsuario.Atual.Exigir(Permissao.LancarAtendimento, "estornar o atendimento");
 
         var vm = new EstornoAtendimentoViewModel(_scopeFactory, linha.AtendimentoId);
-        var janela = new Janelas.EstornoAtendimentoWindow(vm) { Owner = JanelaDona.Atual() };
-        janela.ShowDialog();
+        Func<bool?> janelaNativa = () => new Janelas.EstornoAtendimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+        await DialogosDaSessao.AbrirAsync("RecepcaoEstornoAtendimento", vm, janelaNativa);
 
         if (!vm.Estornado) return;
 

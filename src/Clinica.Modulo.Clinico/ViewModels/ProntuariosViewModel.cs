@@ -202,7 +202,7 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
     /// folha emitida no rodapé; o prontuário completo fica a um botão de distância.
     /// </summary>
     [RelayCommand]
-    private void Abrir(LinhaProntuario? linha)
+    private async Task AbrirAsync(LinhaProntuario? linha)
     {
         if (linha is null) return;
 
@@ -213,11 +213,8 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
             var vm = new ResumoProntuarioViewModel(
                 _escopos, _foco, linha.PacienteId, linha.Paciente,
                 linha.Natureza == NaturezaLinhaProntuario.Anamnese ? linha.DocumentoId : null);
-            var janela = new Clinica.Clinico.Janelas.ResumoProntuarioWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
-            janela.ShowDialog();
+            Func<bool?> abrirNativo = () => new Clinica.Clinico.Janelas.ResumoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("ResumoProntuario", vm, abrirNativo);
         }
         catch (Exception ex)
         {
@@ -241,7 +238,7 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
                 CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.Anamnese),
                 "assinar documento clínico");
 
-            using var certificado = EscolherCertificadoWindow.Perguntar(
+            using var certificado = await EscolherCertificadoWindow.PerguntarAsync(
                 $"Assinar anamnese {linha.Numero}", JanelaDona.Atual(), _escopos);
             if (certificado is null) return;
 

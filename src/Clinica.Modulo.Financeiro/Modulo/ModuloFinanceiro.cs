@@ -208,6 +208,7 @@ public sealed class ModuloFinanceiro : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
+        servicos.AddSingleton<Clinica.Desktop.Shell.Web.IRegistroModuloWeb, Clinica.Financeiro.Web.RegistroFinanceiroSuiteWeb>();
         servicos.AddTransient<CaixaViewModel>();
         // Transient de propósito: cada janela de lançamento abre com o formulário limpo.
         servicos.AddTransient<LancamentoEdicaoViewModel>();

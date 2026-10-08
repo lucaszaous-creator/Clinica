@@ -1,12 +1,17 @@
 import './style.css';
 import './paginas.css';
 import './navegacao.css';
+import './ferramentas.css';
+import { treinamento, filtroTreinamento, prepararVideo, type Catalogo, type Aula } from '../../../../Clinica.Desktop.Shell/Web/frontend/src/treinamento';
+import { GraduationCap, Bell, ClipboardCheck } from 'lucide';
 import { agruparRotas } from './navegacao';
 import { pagina as renderPagina, acoes as renderAcoes, campos as renderCampos, guardarRascunho, limparRascunhos, type Pagina, type Contexto } from './paginas';
 import { createElement, House, Landmark, Wallet, ChartNoAxesCombined, ArrowDownLeft, ArrowUpRight, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, Menu, Download, RefreshCw, X, Receipt, Check, CalendarDays, ArrowLeftRight, Package, Settings2, Rows3, CircleHelp, CreditCard, Expand, ArrowUp, ArrowDown, History, QrCode, Eye, EyeOff, ListChecks, Users, ChartColumn, type IconNode } from 'lucide';
 
 type Linha = { id: string; data: string; descricao: string; categoria: string; situacao: string; valor: string; podeRealizar: boolean; podeCancelar: boolean; ehEntrada: boolean };
 type Estado = {
+  ferramentas?: { naoLidos: number; avisos: { mensagem: string; tipo: string; hora: string }[]; filaInfusaoDisponivel: boolean; resumoAssinaturasInfusao: string; treinamentoDisponivel: boolean };
+  treinamento?: Catalogo; aula?: Aula; videoUrl?: string;
   pagina?: Pagina & { contexto: string }; dialogo?: { id: string; pagina: Pagina; ocupado: boolean; podeFechar: boolean } | null; ocupado?: boolean;
   tipo: 'estado'; mes: string; entradas: string; saidas: string; saldo: string; previsto: string;
   liquido: string; deducoes: string; ultimoMovimento: string; detalheUltimoMovimento: string;
@@ -27,6 +32,7 @@ const svg = (nome: string, classe = '') => {
   const el = createElement(icones[nome] ?? Rows3, { width: 20, height: 20, 'stroke-width': 1.65, 'aria-hidden': 'true', focusable: 'false', class: classe });
   return el.outerHTML;
 };
+Object.assign(icones, { treinamento: GraduationCap, avisos: Bell, infusao: ClipboardCheck });
 const h = (valor: unknown) => String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const moeda = (valor: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 const hoje = new Date();
@@ -38,6 +44,9 @@ const textoPrivado = (texto: string) => h(valoresOcultos ? texto.replace(/R\$\s*
 let menuAberto = false;
 let grupoAberto: string | null = null;
 let usuarioAberto = false;
+let treinoAberto = false;
+let avisosAbertos = false;
+function sairTreinamento() { document.querySelector<HTMLVideoElement>('#video-aula')?.pause(); treinoAberto = false; }
 let buscaMenu = '';
 let termo = '';
 let avisoDemo = '';
@@ -142,6 +151,9 @@ function renderDialogo() {
   return `<div class="fundo-dialogo"><section class="dialogo-web" role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo" data-testid="dialogo-financeiro" data-dialogo="${h(d.id)}"><header class="dialogo-cabecalho"><h2 id="titulo-dialogo">${h(d.pagina.titulo)}</h2><button class="icone-botao" data-fechar-dialogo="${h(d.id)}" aria-label="Fechar formulário" ${!d.podeFechar || d.ocupado ? 'disabled' : ''}>${svg('fechar')}</button></header><div class="dialogo-corpo" tabindex="-1">${d.pagina.subtitulo ? `<p class="mensagem-web">${h(d.pagina.subtitulo)}</p>` : ''}${estado.erro ? `<div class="erro" role="alert">${h(estado.erro)}</div>` : ''}${renderPagina(d.pagina, c)}</div><footer class="dialogo-rodape"><div class="rolagem-dialogo"><button data-rolar-dialogo="subir" aria-label="Rolar formulário para cima">${svg('subir')}</button><button data-rolar-dialogo="descer" aria-label="Rolar formulário para baixo">${svg('descer')}</button></div><div class="acoes-web">${renderAcoes([...d.pagina.acoes.filter(a => a.chave === 'fechar'), ...d.pagina.acoes.filter(a => a.chave !== 'fechar')], c)}</div></footer></section></div>`;
 }
 function render() {
+  const videoAnterior = document.querySelector<HTMLVideoElement>('#video-aula');
+  const videoRodando = videoAnterior && !videoAnterior.paused;
+  if (videoAnterior) videoAnterior.dataset.movendo = 'true';
   const foco = document.activeElement as HTMLInputElement | null;
   const focoId = foco?.id;
   const selecao = foco?.selectionStart;
@@ -162,25 +174,26 @@ function render() {
         <button class="nav-inicio ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'ativo' : ''}" data-local="inicio" ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'aria-current="page"' : ''}>Resumo</button>
         ${grupos.map(g => `<div class="grupo-topo" data-grupo="${h(g.chave)}"><button id="nav-${h(g.chave)}" class="nav-gatilho ${g.rotas.some(r => r.chave === estado.pagina?.chave) ? 'ativo' : ''}" data-local="grupo" data-grupo-chave="${h(g.chave)}" aria-expanded="${grupoAberto === g.chave}" aria-controls="submenu-${h(g.chave)}">${h(g.rotulo)}${svg('baixo')}</button><div class="submenu-topo" id="submenu-${h(g.chave)}" aria-labelledby="nav-${h(g.chave)}" ${grupoAberto === g.chave ? '' : 'hidden'}>${g.rotas.map(r => `<button class="rota ${estado.pagina?.chave === r.chave ? 'ativo' : ''}" data-action="navegar" data-value="${h(r.chave)}" ${estado.pagina?.chave === r.chave ? 'aria-current="page"' : ''}>${svg(nomeIcone(r.rotulo))}<span>${h(r.rotulo)}</span></button>`).join('')}</div></div>`).join('')}
       </nav>
-      <button class="busca-global" data-local="menu" aria-label="Pesquisar seção do financeiro">${svg('buscar')}<span>Pesquisar no financeiro</span><kbd>Ctrl K</kbd></button>
+      <div class="ferramentas-topo"><button class="ferramenta-topo" data-treinamento aria-label="Treinamento" title="Treinamento">${svg('treinamento')}</button>${estado.ferramentas?.filaInfusaoDisponivel ? `<button class="ferramenta-topo" data-fila-infusao aria-label="${h(estado.ferramentas.resumoAssinaturasInfusao)}">${svg('infusao')}</button>` : ''}<button class="ferramenta-topo" data-avisos aria-label="Avisos desta sessão" aria-expanded="${avisosAbertos}" title="Avisos">${svg('avisos')}${estado.ferramentas?.naoLidos ? `<small>${estado.ferramentas.naoLidos}</small>` : ''}</button><button class="busca-global" data-local="menu" aria-label="Pesquisar seção do financeiro">${svg('buscar')}<span>Pesquisar no financeiro</span><kbd>Ctrl K</kbd></button></div>
       <div class="usuario-area"><button class="usuario" data-local="usuario" aria-expanded="${usuarioAberto}" aria-label="Menu do usuário"><span class="avatar">${h(iniciais)}</span><span class="nome-usuario">${h(estado.usuario || 'Clínica SemDor')}</span>${svg('baixo')}</button>
       ${usuarioAberto ? `<div class="menu-usuario">${botao('trocar-senha', 'Trocar minha senha', 'ajustes', '', bloqueado || !!estado.dialogo)}${botao('trocar-usuario', 'Trocar usuário', 'profissionais', '', bloqueado || !!estado.dialogo)}<p>Financeiro · Clínica SemDor</p></div>` : ''}</div>
     </header>
     <main class="conteudo" data-testid="resumo-financeiro" data-rota="${h(estado.pagina?.chave ?? 'caixa')}" data-contexto="${h(estado.pagina?.contexto ?? '')}" id="resumo" tabindex="-1" aria-busy="${estado.pagina?.carregando ?? estado.carregando}" ${estado.dialogo ? 'inert' : ''}>
       ${demo ? '<div class="faixa-demo">Demonstração visual · dados fictícios · nenhuma operação é gravada</div>' : ''}
       ${bloqueado ? '<div class="aviso-conexao" role="status">Abra esta tela pelo aplicativo da clínica para carregar seus dados.</div>' : ''}
-      ${estado.pagina?.chave !== 'caixa' && estado.erro && !estado.dialogo ? `<div class="erro" role="alert">${h(estado.erro)}</div>` : ''}
-      ${estado.pagina && estado.pagina.chave !== 'caixa' ? renderPagina(estado.pagina, contextoPagina()) : resumoFinanceiro(bloqueado)}
+      ${(treinoAberto || estado.pagina?.chave !== 'caixa') && estado.erro && !estado.dialogo ? `<div class="erro" role="alert">${h(estado.erro)}</div>` : ''}
+      ${treinoAberto ? treinamento(estado.treinamento, estado.aula, estado.videoUrl) : estado.pagina && estado.pagina.chave !== 'caixa' ? renderPagina(estado.pagina, contextoPagina()) : resumoFinanceiro(bloqueado)}
       <footer class="rodape-pagina"><span>Clínica SemDor</span><span>${estado.carregando ? 'Atualizando dados…' : demo ? 'Ambiente de demonstração' : ponte ? 'Dados do sistema da clínica' : 'Sem conexão com o aplicativo'}</span></footer>
     </main>
     <div class="atalhos-rolagem" aria-label="Rolagem da página"><button data-local="subir" title="Rolar para cima" aria-label="Rolar para cima">${svg('subir')}</button><button data-local="descer" title="Rolar para baixo" aria-label="Rolar para baixo">${svg('descer')}</button></div>
     ${menuAberto ? `<div class="fundo-menu" data-local="fechar-menu"></div><nav class="menu-expandido" aria-label="Todos os recursos financeiros"><div class="menu-cabecalho"><div><small>CLÍNICA SEMDOR</small><h2>Financeiro</h2></div><button class="icone-botao" data-local="fechar-menu" aria-label="Fechar menu">${svg('fechar')}</button></div><label class="busca-menu">${svg('buscar')}<input id="busca-menu" value="${h(buscaMenu)}" placeholder="Encontrar uma seção" aria-label="Pesquisar seção" /></label><div class="rotas"><button class="rota ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'ativo' : ''}" data-local="inicio">${svg('carteira')}<span>Resumo financeiro</span></button>${rotas.map(r => `<button class="rota ${estado.pagina?.chave === r.chave ? 'ativo' : ''}" data-action="navegar" data-value="${h(r.chave)}">${svg(nomeIcone(r.rotulo))}<span>${h(r.rotulo)}</span>${svg('proximo')}</button>`).join('')}${!rotas.length ? '<p class="nenhuma-rota">Nenhuma seção disponível para esta busca.</p>' : ''}</div><div class="nota-menu">Todas as ferramentas financeiras, no mesmo lugar.</div></nav>` : ''}
-    ${estado.aviso?.texto ? `<div class="toast ${estado.aviso.tipo === 'erro' ? 'toast-erro' : ''}" role="${estado.aviso.tipo === 'erro' ? 'alert' : 'status'}">${h(estado.aviso.texto)}</div>` : ''}
+    ${avisosAbertos ? `<aside class="painel-avisos" role="dialog" aria-label="Avisos desta sessão"><header><h2>Avisos</h2><button class="botao" data-avisos>Fechar</button></header>${estado.ferramentas?.avisos.length ? estado.ferramentas.avisos.map(a => `<article><time>${h(a.hora)}</time><p>${textoPrivado(a.mensagem)}</p></article>`).join('') : '<p>Nenhum aviso nesta sessão.</p>'}</aside>` : ''}
+    ${estado.aviso?.texto ? `<div class="toast ${estado.aviso.tipo === 'erro' ? 'toast-erro' : ''}" role="${estado.aviso.tipo === 'erro' ? 'alert' : 'status'}">${textoPrivado(estado.aviso.texto)}</div>` : ''}
     ${avisoDemo ? `<div class="toast" role="status">${h(avisoDemo)}</div>` : ''}${renderDialogo()}`;
   const conteudo = document.querySelector<HTMLElement>('.conteudo')!;
   conteudo.scrollTop = scrollAnterior;
   [...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')].forEach((el, i) => { const anterior = posicoes[i]; if (anterior) { el.scrollTop = anterior[1]; el.scrollLeft = anterior[2]; } });
-  document.querySelectorAll<HTMLElement>('.topbar,.menu-expandido,.fundo-menu,.atalhos-rolagem').forEach(el => el.inert = !!estado.dialogo);
+  document.querySelectorAll<HTMLElement>('.topbar,.menu-expandido,.fundo-menu,.atalhos-rolagem,.painel-avisos').forEach(el => el.inert = !!estado.dialogo);
   conteudo.addEventListener('scroll', atualizarRolagem, { passive: true });
   requestAnimationFrame(atualizarRolagem);
   if (focoId) {
@@ -189,6 +202,9 @@ function render() {
     alvo?.focus({ preventScroll: true });
     if (alvo?.type === 'search' || alvo?.type === 'text') alvo.setSelectionRange(selecao ?? 0, selecao ?? 0);
   }
+  const videoNovo = document.querySelector<HTMLVideoElement>('#video-aula');
+  if (videoAnterior && videoNovo && videoNovo.src === videoAnterior.src) { videoNovo.replaceWith(videoAnterior); if (videoRodando) void videoAnterior.play().catch(() => {}); queueMicrotask(() => delete videoAnterior.dataset.movendo); }
+  prepararVideo((acao, chave, valor) => postar({ acao, chave, valor, contexto: estado.pagina?.contexto }));
 }
 
 function atualizarRolagem() {
@@ -241,6 +257,14 @@ document.addEventListener('click', e => {
 app.addEventListener('click', e => {
   const b = (e.target as Element).closest<HTMLButtonElement>('button, [data-local]');
   if (!b || b.disabled) return;
+  if (b.hasAttribute('data-treinamento')) { descarregarCampos(); treinoAberto = true; avisosAbertos = false; menuAberto = false; abrirGrupo(null); postar({ acao: 'treinamento', contexto: estado.pagina?.contexto }); render(); return; }
+  if (b.hasAttribute('data-sair-treinamento')) { sairTreinamento(); render(); return; }
+  if (b.hasAttribute('data-avisos')) { avisosAbertos = !avisosAbertos; if (avisosAbertos) postar({ acao: 'avisos-lidos', contexto: estado.pagina?.contexto }); render(); return; }
+  if (b.hasAttribute('data-fila-infusao')) { sairTreinamento(); postar({ acao: 'fila-infusao', contexto: estado.pagina?.contexto }); return; }
+  if (b.dataset.aula) { document.querySelector<HTMLVideoElement>('#video-aula')?.pause(); postar({ acao: 'abrir-aula', chave: b.dataset.aula, contexto: estado.pagina?.contexto }); return; }
+  if (b.dataset.capitulo !== undefined) { const v = document.querySelector<HTMLVideoElement>('#video-aula'); if (v) v.currentTime = Number(b.dataset.capitulo); return; }
+  if (b.dataset.aulaReiniciar) { const v = document.querySelector<HTMLVideoElement>('#video-aula'); if (v) v.currentTime = 0; postar({ acao: 'reiniciar-aula', chave: b.dataset.aulaReiniciar, contexto: estado.pagina?.contexto }); return; }
+  if (b.dataset.aulaConcluir) { postar({ acao: 'progresso-aula', chave: b.dataset.aulaConcluir, valor: { posicao: document.querySelector<HTMLVideoElement>('#video-aula')?.currentTime ?? 0, concluida: true }, contexto: estado.pagina?.contexto }); return; }
   if (b.dataset.rolarTabela) { const area = b.closest('.tabela-web')?.querySelector('.tabela-scroll'); area?.scrollBy({ left: b.dataset.rolarTabela === 'direita' ? 380 : -380, behavior: 'smooth' }); return; }
   if (b.dataset.rolarDialogo) { document.querySelector('.dialogo-corpo')?.scrollBy({ top: b.dataset.rolarDialogo === 'subir' ? -320 : 320, behavior: 'smooth' }); return; }
   if (b.dataset.irSecao) { document.getElementById('secao-' + b.dataset.irSecao)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
@@ -253,7 +277,7 @@ app.addEventListener('click', e => {
   }
   if (b.dataset.action) {
     seletorRetorno = `[data-action="${CSS.escape(b.dataset.action)}"]`;
-    if (b.dataset.action === 'navegar') { menuAberto = false; usuarioAberto = false; abrirGrupo(null); }
+    if (b.dataset.action === 'navegar') { sairTreinamento(); avisosAbertos = false; menuAberto = false; usuarioAberto = false; abrirGrupo(null); }
     enviar(b.dataset.action, b.dataset.value, b.dataset.id); return;
   }
   switch (b.dataset.local) {
@@ -262,7 +286,7 @@ app.addEventListener('click', e => {
     case 'fechar-menu': menuAberto = false; render(); break;
     case 'privacidade': valoresOcultos = !valoresOcultos; render(); break;
     case 'usuario': usuarioAberto = !usuarioAberto; render(); break;
-    case 'inicio': e.preventDefault(); menuAberto = false; abrirGrupo(null); enviar('navegar', 'caixa'); break;
+    case 'inicio': e.preventDefault(); sairTreinamento(); avisosAbertos = false; menuAberto = false; abrirGrupo(null); enviar('navegar', 'caixa'); break;
     case 'movimentos': document.querySelector('.movimentos')?.scrollIntoView({block:'start',behavior:'smooth'}); break;
     case 'limpar': termo = ''; enviar('filtrar', ''); render(); document.getElementById('busca')?.focus(); break;
     case 'anterior': case 'proximo': {
@@ -274,11 +298,12 @@ app.addEventListener('click', e => {
 });
 app.addEventListener('input', e => {
   const input = e.target as HTMLInputElement;
+  if (filtroTreinamento(input)) { render(); return; }
   if (input.dataset.campo) alterarCampo(input);
   if (input.id === 'busca') { termo = input.value; clearTimeout(filtroTimer); filtroTimer = setTimeout(() => enviar('filtrar', termo), 250); }
   if (input.id === 'busca-menu') { buscaMenu = input.value; render(); }
 });
-app.addEventListener('change', e => { const input = e.target as HTMLInputElement; if (input.dataset.campo) { alterarCampo(input); descarregarCampos(); } if (input.id === 'mes' && /^\d{4}-\d{2}$/.test(input.value)) enviar('mes', input.value); });
+app.addEventListener('change', e => { const input = e.target as HTMLInputElement; if (filtroTreinamento(input)) { render(); return; } if (input.dataset.campo) { alterarCampo(input); descarregarCampos(); } if (input.id === 'mes' && /^\d{4}-\d{2}$/.test(input.value)) enviar('mes', input.value); });
 document.addEventListener('keydown', e => {
   if (estado.dialogo) {
     if (e.key === 'Escape' && estado.dialogo.podeFechar && !estado.dialogo.ocupado) { e.preventDefault(); postar({ acao: 'dlg-fechar', id: estado.dialogo.id }); }
@@ -289,7 +314,7 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if (e.key === 'Escape' && (menuAberto || usuarioAberto)) { menuAberto = false; usuarioAberto = false; render(); }
+  if (e.key === 'Escape' && (menuAberto || usuarioAberto || avisosAbertos)) { menuAberto = false; usuarioAberto = false; avisosAbertos = false; render(); }
   const grupo = (e.target as Element).closest<HTMLElement>('.grupo-topo');
   if (e.key === 'Escape' && grupoAberto) { e.preventDefault(); const chave = grupoAberto; abrirGrupo(null); document.getElementById('nav-' + chave)?.focus(); }
   if (grupo && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
@@ -299,7 +324,7 @@ document.addEventListener('keydown', e => {
     const i = e.key === 'Home' ? 0 : e.key === 'End' ? itens.length - 1 : e.key === 'ArrowUp' ? (atual <= 0 ? itens.length - 1 : atual - 1) : (atual + 1) % itens.length;
     itens[i]?.focus();
   }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); grupoAberto = null; menuAberto = true; render(); document.getElementById('busca-menu')?.focus(); }
+  if ((e.ctrlKey || e.metaKey) && ['k', 'f'].includes(e.key.toLowerCase())) { e.preventDefault(); grupoAberto = null; menuAberto = true; render(); document.getElementById('busca-menu')?.focus(); }
 });
 
 function receber(e: MessageEvent) {

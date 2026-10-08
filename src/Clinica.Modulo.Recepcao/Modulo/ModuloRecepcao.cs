@@ -427,6 +427,8 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
+        servicos.AddSingleton<Clinica.Desktop.Shell.Web.IRegistroModuloWeb, Clinica.Recepcao.Web.RegistroModuloRecepcaoWeb>();
+        servicos.AddSingleton<Clinica.Desktop.Shell.Web.IRegistroSecoesAdministrativasWeb, Clinica.Recepcao.Web.RegistroModuloRecepcaoWeb>();
         servicos.AddTransient<ConfirmacoesViewModel>();
         servicos.AddTransient<IFichaAdministrativaPaciente, FichaAdministrativaPaciente>();
         servicos.AddTransient<IFabricaListaPacientes, FabricaListaPacientes>();

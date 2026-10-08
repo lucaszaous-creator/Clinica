@@ -83,7 +83,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     public bool PodeCopiarUltimaEvolucao => PodeEditarProntuario && !Carregando && TemPaciente;
 
     [RelayCommand]
-    private void CopiarUltimaEvolucao()
+    private async Task CopiarUltimaEvolucaoAsync()
     {
         if (!PodeCopiarUltimaEvolucao) return;
         try
@@ -97,8 +97,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             }
             using var scope = _escopos.CreateScope();
             if ((TemAlgoParaGravar || CamposPersonalizados.Any(c => !string.IsNullOrWhiteSpace(c.Resposta)))
-                && !scope.ServiceProvider.GetRequiredService<IDialogoService>()
-                .ConfirmarPerigo("Copiar última evolução", "Substituir os textos clínicos e as respostas dos campos personalizados pelos da última evolução deste paciente? EVA, sinais vitais e datas da sessão atual serão preservados.")) return;
+                && !await DialogosDaSessao.ConfirmarPerigoAsync(scope.ServiceProvider.GetRequiredService<IDialogoService>(), "Copiar última evolução", "Substituir os textos clínicos e as respostas dos campos personalizados pelos da última evolução deste paciente? EVA, sinais vitais e datas da sessão atual serão preservados.")) return;
             QueixaPrincipal = m.QueixaPrincipal;
             HistoriaDoencaAtual = m.HistoriaDoencaAtual;
             ExameFisico = m.ExameFisico;
@@ -472,6 +471,10 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 
     public bool PodePrescreverInfusao => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
 
+    [RelayCommand] private Task EmitirReceitaWebAsync()=>EmitirTipoAsync("receita");
+    [RelayCommand] private Task EmitirAtestadoWebAsync()=>EmitirTipoAsync("atestado");
+    [RelayCommand] private Task EmitirComparecimentoWebAsync()=>EmitirTipoAsync("comparecimento");
+    [RelayCommand] private Task EmitirPedidoWebAsync()=>EmitirTipoAsync("pedido-exame");
     [RelayCommand]
     private async Task EmitirTipoAsync(string? chave)
     {
@@ -492,7 +495,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             var vm = new PrescricaoInternaEdicaoViewModel(
                 _escopos, dialogo, PacienteId, Paciente, SessaoUsuario.Atual.ProfissionalId,
                 _foco.AgendamentoId, evolucaoId: EvolucaoId == 0 ? null : EvolucaoId);
-            new PrescricaoInternaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("PrescricaoInterna", vm, () => new PrescricaoInternaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
             // Recarrega somente a leitura da enfermagem. O texto em edição fica intacto.
             await LinhaDoTempo.CarregarAsync(PacienteId);
         }
@@ -574,11 +577,12 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         if (folha.TipoClinico is not { } tipo) return;
 
         var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId, tipo, HerancaDeAgora());
-        var janela = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() };
+        Func<bool?> abrirNativo = () => new DocumentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("Documento", vm, abrirNativo);
 
         // Recarrega dos dois jeitos: fechar sem concluir não quer dizer que nada
         // aconteceu — o documento pode ter sido emitido e só a impressão ter falhado.
-        var concluiu = janela.ShowDialog() == true;
+        var concluiu = respostaWeb == true;
         await CarregarSaiuHojeAsync();
 
         if (concluiu) _snackbar?.Sucesso($"{folha.Rotulo} emitido(a).");

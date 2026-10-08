@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Faturamento.Web;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
 using Clinica.Application.Abstracoes;
@@ -128,16 +130,13 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
     /// direto.
     /// </summary>
     [RelayCommand]
-    private void Historico(CodigoFaturamento? codigo)
+    private async Task Historico(CodigoFaturamento? codigo)
     {
         if (codigo is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.VerAuditoria, "ver o histórico da guia");
 
-        new Alertas.HistoricoGuiaWindow(_scopeFactory, codigo)
-        {
-            Owner = System.Windows.Application.Current?.MainWindow
-        }.ShowDialog();
+        await new HistoricoFaturamento(_scopeFactory, codigo).AbrirAsync();
     }
 
     /// <summary>Reimpressão da capa de faturamento do atendimento desta guia (estado atual).</summary>

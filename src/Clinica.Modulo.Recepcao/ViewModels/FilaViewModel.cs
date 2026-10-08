@@ -1239,12 +1239,11 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "fechar a sessão");
 
             var vm = new FechamentoSessaoViewModel(_escopos, c.AgendamentoId);
-            var janela = new Janelas.FechamentoSessaoWindow(vm)
-            {
+            Func<bool?> janelaNativa = () => new Janelas.FechamentoSessaoWindow(vm) {
                 Owner = JanelaDona.Atual()
-            };
+            }.ShowDialog();
 
-            if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
+            if (await DialogosDaSessao.AbrirAsync("RecepcaoFechamentoSessao", vm, janelaNativa) != true || vm.Resultado is not { } resultado)
             {
                 // Fechar a janela não desfaz nada: a sessão continua concluída e a guia
                 // no faturamento. O que fica pendente é só o dinheiro — e ele continua
@@ -1359,7 +1358,7 @@ public sealed partial class FilaViewModel : ObservableObject
             {
                 // Diálogo, não snackbar: é erro que exige correção, e o caminho tem de
                 // continuar na tela enquanto a recepcionista resolve.
-                _dialogo.Aviso($"Sem convênio — {c.Paciente}",
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Sem convênio — {c.Paciente}",
                     $"{c.Paciente} está com o convênio \"a definir\" (a ficha veio do sistema "
                     + "anterior sem convênio), e sem convênio o atendimento não gera guia.\n\n"
                     + "A sessão NÃO foi concluída. Escolha o convênio do paciente — pelo botão "
@@ -1382,7 +1381,7 @@ public sealed partial class FilaViewModel : ObservableObject
             // Snackbar some em 4s e não sobrevive a quem virou para atender o próximo —
             // é o mesmo diálogo que o check-in usa para os alertas de elegibilidade.
             if (registro.RecadosDoLancamento.Count > 0)
-                _dialogo.Aviso($"Atenção — {c.Paciente}",
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Atenção — {c.Paciente}",
                     string.Join("\n\n", registro.RecadosDoLancamento));
 
             // Sem decisão = convênio sem pacote e sem insumo: a guia já está no faturamento
@@ -1397,14 +1396,13 @@ public sealed partial class FilaViewModel : ObservableObject
             }
 
             var vm = new FechamentoSessaoViewModel(_escopos, c.AgendamentoId);
-            var janela = new Janelas.FechamentoSessaoWindow(vm)
-            {
+            Func<bool?> janelaNativa = () => new Janelas.FechamentoSessaoWindow(vm) {
                 Owner = JanelaDona.Atual()
-            };
+            }.ShowDialog();
 
             // Modal: o await fica com a janela, e o recarregar da fila vem do
             // ExecutarAsync assim que ela fecha — inclusive quando fecha com aviso.
-            if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
+            if (await DialogosDaSessao.AbrirAsync("RecepcaoFechamentoSessao", vm, janelaNativa) != true || vm.Resultado is not { } resultado)
             {
                 // A sessão está concluída e a guia feita; o que ficou de fora foi o
                 // pacote/caixa. Dizer isso é o que impede a recepcionista de concluir de
@@ -1465,7 +1463,7 @@ public sealed partial class FilaViewModel : ObservableObject
             // porque a pessoa acreditaria ter resolvido.
             if (Dia.Date != DateTime.Today)
             {
-                _dialogo.Aviso(
+                await DialogosDaSessao.AvisoAsync(_dialogo,
                     "Termo é do dia do procedimento",
                     "O termo vale para a SESSÃO, e é colhido no dia dela. Volte para hoje "
                     + "para colher a assinatura deste paciente.");
@@ -1531,11 +1529,14 @@ public sealed partial class FilaViewModel : ObservableObject
     ///
     /// Falha NÃO passa calada nem vira "tudo certo": vira o terceiro estado escrito.
     /// </summary>
+    public Action<int, string>? AbrirFichaWeb { get; set; }
+
     [RelayCommand]
     private async Task AbrirFichaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente");
+            if (AbrirFichaWeb is not null) { AbrirFichaWeb(c.PacienteId, c.Paciente); return; }
             using var escopo = _escopos.CreateScope();
             var foco = new Clinica.Desktop.Shell.Modulos.PacienteEmFoco();
             foco.Definir(c.PacienteId, c.Paciente);
@@ -1575,7 +1576,7 @@ public sealed partial class FilaViewModel : ObservableObject
                             + "confira na ficha do paciente.");
             }
 
-            _dialogo.Aviso($"{c.Paciente} — convênio e cota",
+            await DialogosDaSessao.AvisoAsync(_dialogo, $"{c.Paciente} — convênio e cota",
                 recados.Count > 0
                     ? string.Join("\n\n", recados)
                     : "Nada a resolver: carteirinha em dia, cota disponível, sem guia "
@@ -1598,7 +1599,7 @@ public sealed partial class FilaViewModel : ObservableObject
             // caiu; confira com o convênio", que exige ação de quem está no balcão.
             // É a mesma regra do Concluir logo acima (parcela 62).
             if (avisos.Count > 0)
-                _dialogo.Aviso($"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
             _snackbar.Info($"{c.Paciente} marcado como falta.");
         }, "marcação de falta");
 
@@ -1615,7 +1616,7 @@ public sealed partial class FilaViewModel : ObservableObject
 
             // Mesma regra da falta: aviso de guia é ação, não confirmação passageira.
             if (avisos.Count > 0)
-                _dialogo.Aviso($"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
             _snackbar.Info($"Agendamento de {c.Paciente} cancelado.");
         }, "cancelamento");
 
@@ -1714,14 +1715,13 @@ public sealed partial class FilaViewModel : ObservableObject
                 TituloDaEdicao = "Editar o horário"
             };
 
-            var janela = new Janelas.AgendamentoWindow(vm)
-            {
+            Func<bool?> janelaNativa = () => new Janelas.AgendamentoWindow(vm) {
                 Owner = JanelaDona.Atual()
-            };
+            }.ShowDialog();
 
             // Fechar sem salvar não recarrega: a lista é relida a cada minuto de qualquer
             // forma, e uma consulta ao banco remoto por desistência é a que ninguém pediu.
-            if (janela.ShowDialog() != true) return;
+            if (await DialogosDaSessao.AbrirAsync("RecepcaoAgendamento", vm, janelaNativa) != true) return;
 
             // Com "guia no agendamento" ligada, trocar a modalidade REGERA as guias, e o
             // que aconteceu com elas vem escrito do serviço. Dizer é a metade que faz a

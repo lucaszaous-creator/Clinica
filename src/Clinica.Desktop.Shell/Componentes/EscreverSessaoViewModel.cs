@@ -326,7 +326,7 @@ public sealed partial class EscreverSessaoViewModel : FolhaDaSessaoViewModel
             // Retirar, nunca apagar (parcela 52): o laudo que sustentou uma conduta é parte
             // da prova de que ela era razoável, e a guarda de 20 anos não admite que um
             // clique o destrua.
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Retirar anexo",
                 $"Por que \"{anexo.NomeArquivo}\" está saindo do prontuário? O arquivo NÃO é "
                 + "apagado — sai da lista e fica guardado, com este motivo.");

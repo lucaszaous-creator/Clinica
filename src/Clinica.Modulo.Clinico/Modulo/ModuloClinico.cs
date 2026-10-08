@@ -137,7 +137,7 @@ public sealed class ModuloClinico : IModuloApp
     /// elas, e renomear contrato de navegação para arrumar leiaute quebraria o que
     /// funciona noutro módulo.
     /// </summary>
-    public const string ChavePaciente = "consultorio-paciente";
+    public const string ChavePaciente = ChavesSuite.ConsultorioPaciente;
 
     /// <summary>
     /// Ajuda e suporte — tela do SHELL; os QUATRO módulos publicam a MESMA chave
@@ -589,6 +589,8 @@ public sealed class ModuloClinico : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
+        servicos.AddSingleton<Clinica.Desktop.Shell.Web.IRegistroModuloWeb, Clinica.Clinico.Web.RegistroClinicoWeb>();
+        servicos.AddTransient<MedicamentosViewModel>();
         servicos.AddTransient<IFabricaFichaPaciente, FabricaFichaPaciente>();
         // O paciente do posto é SINGLETON: é o contexto do consultório, e as telas
         // clínicas o leem na abertura. Ver PacienteEmFoco.

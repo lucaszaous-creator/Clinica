@@ -50,6 +50,9 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
 
     /// <summary>Disparado quando o fechamento saiu inteiro — a janela fecha por ele.</summary>
     public event Action<ResultadoFechamento>? Concluido;
+    /// <summary>Resultado confirmado pelo serviço, usado também pelo apresentador web.</summary>
+    public ResultadoFechamento? Resultado { get; private set; }
+    public event Action? Confirmado;
 
     public ObservableCollection<LinhaInsumoFechamento> Insumos { get; } = [];
     public ObservableCollection<OpcaoCategoriaFechamento> Categorias { get; } = [];
@@ -366,7 +369,9 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
 
             if (resultado.TudoCerto)
             {
+                Resultado = resultado;
                 Concluido?.Invoke(resultado);
+                Confirmado?.Invoke();
                 return;
             }
 

@@ -34,4 +34,5 @@ public partial class ConsultaDeEnfermagemWindow : Window
     }
 
     private void Fechar(object sender, RoutedEventArgs e) => Close();
+    public static Task<bool?> AbrirAsync(EvolucaoEnfermagemViewModel vm)=>DialogosDaSessao.AbrirAsync("ConsultaDeEnfermagem",vm,()=>new ConsultaDeEnfermagemWindow(vm){Owner=JanelaDona.Atual()}.ShowDialog());
 }

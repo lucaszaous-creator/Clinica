@@ -1012,8 +1012,16 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                     .ProximasAsync(profissional.Id, aPartirDe, DuracaoInformada());
             }
 
-            var janela = new Janelas.ProximasVagasWindow(resultado) { Owner = JanelaDona.Atual() };
-            if (janela.ShowDialog() != true || janela.Escolhida is not { } vaga) return;
+            var escolha = new Web.ProximasVagasWebViewModel(resultado);
+            Clinica.Application.Modelos.Vaga? escolhaNativa = null;
+            var confirmou = await DialogosDaSessao.AbrirAsync("RecepcaoProximasVagas", escolha, () =>
+            {
+                var janela = new Janelas.ProximasVagasWindow(resultado) { Owner = JanelaDona.Atual() };
+                var aceitou = janela.ShowDialog();
+                escolhaNativa = janela.Escolhida;
+                return aceitou;
+            });
+            if (confirmou != true || (escolhaNativa ?? escolha.Escolhida) is not { } vaga) return;
 
             Data = vaga.Inicio.Date;
             Hora = vaga.Inicio.ToString("HH:mm");
@@ -1350,7 +1358,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             var vm = new CobrancaDoPacienteViewModel(
                 _scopeFactory, scope.ServiceProvider.GetRequiredService<IDialogoService>(),
                 paciente.Id, paciente.Nome, paciente.Telefone);
-            new CobrancaDoPacienteWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("CobrancaDoPaciente", vm, () => new CobrancaDoPacienteWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
 
             if (vm.Mudou) await VerificarElegibilidadeAsync(paciente.Id);
         }
@@ -1390,9 +1398,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 Permissao.VenderPacote | Permissao.EditarFinanceiro, "vender pacote");
 
             var vm = new PacoteVendaViewModel(_scopeFactory, paciente);
-            var janela = new PacoteVendaWindow(vm) { Owner = JanelaDona.Atual() };
+            Func<bool?> janelaNativa = () => new PacoteVendaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
 
-            if (janela.ShowDialog() != true) return;
+            if (await DialogosDaSessao.AbrirAsync("PacoteVenda", vm, janelaNativa) != true) return;
 
             Avisar($"Pacote vendido para {paciente.Nome}. Esta sessão já debita dele — "
                    + "confira a coluna da direita.");
@@ -1916,12 +1924,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// seria transformar a recusa em ritual.
     /// </summary>
     [RelayCommand]
-    private void EscolherConvenio()
+    private async Task EscolherConvenioAsync()
     {
         if (PacienteSelecionado is not { } paciente) return;
         if (!paciente.ConvenioADefinir) return;
 
-        if (VinculoDeConvenio.Garantir(_scopeFactory, paciente, SessaoUsuario.Atual.Operador))
+        if (await VinculoDeConvenio.GarantirAsync(_scopeFactory, paciente, SessaoUsuario.Atual.Operador))
             AoConvenioVinculado(paciente);
     }
 
@@ -1933,11 +1941,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// recusa a montagem venha ela de onde vier. Isto é a metade VISÍVEL: a que faz a
     /// recusa chegar como uma pergunta respondível, e não como um erro no fim.
     /// </summary>
-    private bool GarantirConvenioDoPaciente(Paciente paciente)
+    private async Task<bool> GarantirConvenioDoPacienteAsync(Paciente paciente)
     {
         if (!paciente.ConvenioADefinir) return true;
 
-        if (!VinculoDeConvenio.Garantir(_scopeFactory, paciente, SessaoUsuario.Atual.Operador))
+        if (!await VinculoDeConvenio.GarantirAsync(_scopeFactory, paciente, SessaoUsuario.Atual.Operador))
         {
             Avisar($"{paciente.Nome} está sem convênio, e sem convênio o atendimento não gera "
                    + "guia. Escolha o convênio para lançar — quem paga do bolso entra no "
@@ -2089,7 +2097,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         // continua valendo: a escolha acontece com o paciente na frente — e é no dia da
         // sessão que ela é feita, pela Fila ou por esta tela.
         var vaiNascerAtendimento = !MarcarParaDepois || GuiaNaMarcacao;
-        if (vaiNascerAtendimento && !GarantirConvenioDoPaciente(paciente)) return;
+        if (vaiNascerAtendimento && !await GarantirConvenioDoPacienteAsync(paciente)) return;
 
         // ===== O MODO MARCAR (parcela 70) =====
         //
@@ -2255,12 +2263,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         try
         {
             var vm = new FechamentoSessaoViewModel(_scopeFactory, agendamentoId);
-            var janela = new Janelas.FechamentoSessaoWindow(vm)
-            {
+            Func<bool?> janelaNativa = () => new Janelas.FechamentoSessaoWindow(vm) {
                 Owner = JanelaDona.Atual()
-            };
+            }.ShowDialog();
 
-            if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
+            if (await DialogosDaSessao.AbrirAsync("RecepcaoFechamentoSessao", vm, janelaNativa) != true || vm.Resultado is not { } resultado)
             {
                 // Fechou sem decidir. A guia está feita — o que ficou para trás é o pacote
                 // e o caixa, e a mensagem diz exatamente isso. Não é mais meio-lançamento:
@@ -2421,7 +2428,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         try
         {
             var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
-            if (!dialogo.Confirmar(
+            if (!await DialogosDaSessao.ConfirmarAsync(dialogo,
                     "Comprovante de agendamento",
                     $"Imprimir o comprovante de agendamento para {paciente} "
                     + $"({dataHora:dd/MM/yyyy 'às' HH:mm})?"))
@@ -2473,7 +2480,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
             var verbo = MarcarParaDepois ? "Marcar" : "Lançar";
             var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
-            return dialogo.ConfirmarPerigo(
+            return await DialogosDaSessao.ConfirmarPerigoAsync(dialogo,
                 "Atendimento repetido?",
                 $"{paciente.Nome} já tem atendimento em {dia:dd/MM/yyyy}:\n\n{linhas}\n\n"
                 + $"{verbo} de novo cria OUTRO atendimento — e outro jogo de guias — para o mesmo dia.\n\n"

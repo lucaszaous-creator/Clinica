@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Clinica.Infrastructure;
 using Clinica.Financeiro.Modulo;
+using Clinica.Desktop.Shell.Web;
+using Clinica.Domain.Entities;
 
 /// <summary>Teste de integração do conteúdo empacotado com WebView2 e banco sintético do harness.</summary>
 static class WebQa
@@ -16,7 +18,8 @@ static class WebQa
     {
         var falhas = FinanceiroPaginasController.ValidarRegistro();
         if (falhas.Count > 0) throw new InvalidOperationException(string.Join("\n", falhas));
-        var janela = new FinanceiroWebWindow(servicos)
+        var treinamento = Path.Combine(saida, "treinamento-" + Guid.NewGuid().ToString("N"));
+        var janela = new FinanceiroWebWindow(servicos, treinamento)
         {
             Width = 1440, Height = 900, Left = -30000, Top = -30000,
             WindowStartupLocation = WindowStartupLocation.Manual, ShowInTaskbar = false
@@ -61,7 +64,8 @@ static class WebQa
                 await Task.Delay(300);
                 await Esperar("document.documentElement.scrollWidth <= window.innerWidth + 1");
                 await Esperar("JSON.stringify([...document.querySelectorAll('.navegacao-topo [data-action=navegar]')].map(b=>b.dataset.value).sort()) === " + JsonSerializer.Serialize(JsonSerializer.Serialize(rotas.OrderBy(r => r).ToArray())));
-                await Esperar("(()=>{const itens=[...document.querySelectorAll('.navegacao-topo>*,.busca-global,.usuario-area')].map(e=>e.getBoundingClientRect());return itens.every(r=>r.left>=0 && r.right<=innerWidth+1) && !itens.some((a,i)=>itens.slice(i+1).some(b=>Math.min(a.right,b.right)>Math.max(a.left,b.left)+1 && Math.min(a.bottom,b.bottom)>Math.max(a.top,b.top)+1));})()");
+                await Esperar("(()=>{const itens=[...document.querySelectorAll('.navegacao-topo>*,.busca-global,.ferramenta-topo,.usuario-area')].map(e=>e.getBoundingClientRect());return itens.every(r=>r.left>=0 && r.right<=innerWidth+1) && !itens.some((a,i)=>itens.slice(i+1).some(b=>Math.min(a.right,b.right)>Math.max(a.left,b.left)+1 && Math.min(a.bottom,b.bottom)>Math.max(a.top,b.top)+1));})()");
+                await Esperar("[...document.querySelectorAll('.busca-global,.ferramenta-topo')].every(b=>{const r=b.getBoundingClientRect();return r.width>0&&r.height>0&&b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))})");
                 foreach (var grupo in new[] { "caixa", "contas", "recebimentos", "gestao", "analises" })
                 {
                     // Clique sem hover (toque), navegação por setas e encerramento pelo teclado.
@@ -91,6 +95,7 @@ static class WebQa
             if (apenasNavegacao) { Console.WriteLine($"OK navegação superior: {rotas.Length} rotas, 5 menus, hover, clique, teclado e capturas em três tamanhos."); return; }
             janela.Width = 1440; janela.Height = 900;
             await Task.Delay(200);
+            await FinanceiroFerramentasQa.Executar(servicos, janela, navegador, treinamento, saida);
             await Ler("document.querySelector('[data-testid=alternar-privacidade]').click()");
             await Esperar("!(/R\\$\\s*[0-9]/.test(document.querySelector('.conteudo').innerText))");
             await Ler("document.querySelector('[data-testid=alternar-privacidade]').click()");
@@ -227,6 +232,26 @@ static class WebQa
             if (!navegador.CoreWebView2.Source.StartsWith("https://financeiro.clinica.local/"))
                 throw new InvalidOperationException("A navegação saiu da origem local permitida.");
             await Esperar($"{seletorLinhas}.length >= {antes}");
+            var usuarioAnterior = await servicos.GetRequiredService<ClinicaDbContext>().Usuarios.AsNoTracking().SingleAsync(u => u.Id == SessaoUsuario.Atual.UsuarioId);
+            try
+            {
+                SessaoUsuario.Atual.Entrar(new UsuarioSistema { Id = usuarioAnterior.Id + 100000, Nome = "Outra sessão sintética", Login = "qa-troca", Perfil = PerfilAcesso.Recepcao });
+                await Ler("chrome.webview.postMessage({acao:'treinamento'})");
+                EntradaWebWindow? aviso = null;
+                for (var i = 0; i < 100; i++)
+                {
+                    aviso = System.Windows.Application.Current.Windows.OfType<EntradaWebWindow>().FirstOrDefault();
+                    if (aviso?.Content is WebView2 entrada && entrada.CoreWebView2 is not null &&
+                        await entrada.CoreWebView2.ExecuteScriptAsync("document.body.innerText.includes('Seu acesso ao Financeiro não está disponível')") == "true") break;
+                    await Task.Delay(100);
+                }
+                if (janela.IsVisible || janela.TelaWeb.Content is not null || aviso?.Content is not WebView2 paginaAviso ||
+                    await paginaAviso.CoreWebView2.ExecuteScriptAsync("document.body.innerText.includes('Seu acesso ao Financeiro não está disponível') && !document.body.innerText.includes('Consulta particular')") != "true")
+                    throw new InvalidOperationException("Perda da sessão não descartou o DOM financeiro e abriu aviso web limpo.");
+                aviso.Close();
+                Console.WriteLine("OK acesso revogado: DOM financeiro descartado e aviso local HTML sem dados anteriores.");
+            }
+            finally { SessaoUsuario.Atual.Entrar(usuarioAnterior); }
             Console.WriteLine("OK web completo: 15 páginas em três dimensões, formulários com gravação e cancelamento, validação, filtros reais e navegação restrita sem telas WPF.");
         }
         finally { janela.Close(); }
