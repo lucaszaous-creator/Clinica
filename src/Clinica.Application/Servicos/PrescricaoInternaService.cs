@@ -57,6 +57,16 @@ public sealed partial class PrescricaoInternaService
 
     // ---- Leitura ----
 
+    /// <summary>Lê a última folha emitida sem gravar outra prescrição nem copiar sua execução.</summary>
+    public async Task<ModeloInfusao?> UltimaComoModeloAsync(int pacienteId, CancellationToken ct = default)
+    {
+        var p = await _repo.UltimaPrescricaoEmitidaDoPacienteAsync(pacienteId, ct);
+        if (p is null) return null;
+        return new(p.Indicacao, p.Observacoes,
+            p.Itens.Where(i => !i.Suspenso).OrderBy(i => i.Ordem).Select(ModeloInfusao.De).ToArray(),
+            p.IndicacaoFormatada, p.ObservacoesFormatadas, p.DiluicaoUnica, p.DiluenteGlobal, p.VolumeTotal);
+    }
+
     public Task<PrescricaoInterna?> ObterAsync(int prescricaoId, CancellationToken ct = default)
         => _repo.ObterPrescricaoInternaAsync(prescricaoId, ct);
 

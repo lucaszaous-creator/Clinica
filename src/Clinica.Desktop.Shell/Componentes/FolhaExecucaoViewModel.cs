@@ -403,8 +403,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                     alertaPorItem.GetValueOrDefault(item.TextoCompleto)));
 
             Alertas.Clear();
-            foreach (var alergia in conferencia.Alergias)
-                Alertas.Add($"ALERGIA: {alergia.Rotulo}");
+            if (ProblemaPacienteService.ResumirAlergias(conferencia.Alergias) is { } alergias)
+                Alertas.Add(alergias);
             TemAlertas = Alertas.Count > 0;
 
             // A medicação de uso contínuo é CONTEXTO, não alerta: ela não casa com item

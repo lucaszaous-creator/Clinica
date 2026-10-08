@@ -76,6 +76,10 @@
                         HorizontalAlignment="Right" Margin="0,10,0,0"
                         IsEnabled="{Binding PodeCriarPrescricao}"
                         Command="{Binding NovaCommand}" />
+                <Button Content="Copiar última prescrição deste paciente" Padding="14,8"
+                        HorizontalAlignment="Right" Margin="0,8,0,0" Style="{StaticResource BotaoSecundario}"
+                        IsEnabled="{Binding PodeCriarPrescricao}" Command="{Binding CopiarUltimaPrescricaoCommand}"
+                        ToolTip="Abre uma nova folha editável com os itens ativos da última prescrição emitida. Nada é salvo ou assinado automaticamente." />
             </StackPanel>
         </Grid>
 

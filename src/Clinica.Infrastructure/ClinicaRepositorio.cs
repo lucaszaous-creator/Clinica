@@ -8,6 +8,16 @@ namespace Clinica.Infrastructure;
 
 public sealed class ClinicaRepositorio : IClinicaRepositorio
 {
+    public IQueryable<PrescricaoInterna> ConsultaUltimaPrescricaoEmitida(int pacienteId)
+        => _db.PrescricoesInternas.AsNoTracking().Include(p => p.Itens)
+            .Where(p => p.PacienteId == pacienteId && !p.OrigemEnfermagem && p.CanceladaEm == null
+                && (p.Situacao == SituacaoPrescricao.Assinada || p.Situacao == SituacaoPrescricao.Liberada
+                    || p.Situacao == SituacaoPrescricao.Encerrada))
+            .OrderByDescending(p => p.Data).ThenByDescending(p => p.Hora)
+            .ThenByDescending(p => p.Id).Take(1);
+
+    public Task<PrescricaoInterna?> UltimaPrescricaoEmitidaDoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => ConsultaUltimaPrescricaoEmitida(pacienteId).FirstOrDefaultAsync(ct);
     public Task<ViaAssinadaPaciente?> ObterViaAssinadaPacienteAsync(int documentoId, CancellationToken ct = default)
         => _db.ViasAssinadasPaciente.AsNoTracking().SingleOrDefaultAsync(x => x.DocumentoId == documentoId, ct);
     public async Task<IReadOnlyList<MedicamentoCadastro>> MedicamentosAsync(CancellationToken ct = default)
@@ -1655,6 +1665,31 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task AdicionarProblemaAsync(ProblemaPaciente problema, CancellationToken ct = default)
         => await _db.ProblemasPaciente.AddAsync(problema, ct);
+
+    public async Task<T> ExecutarRegistroAlergiaAtomicoAsync<T>(
+        int pacienteId, Func<Task<T>> executar, CancellationToken ct = default)
+    {
+        var propria = _db.Database.CurrentTransaction is null;
+        await using var transacao = propria ? await _db.Database.BeginTransactionAsync(ct) : null;
+        try
+        {
+            if (_db.Database.IsNpgsql())
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT pg_advisory_xact_lock(1129072965, {pacienteId})", ct);
+            var resultado = await executar();
+            if (transacao is not null) await transacao.CommitAsync(ct);
+            return resultado;
+        }
+        catch
+        {
+            if (transacao is not null)
+            {
+                await transacao.RollbackAsync(CancellationToken.None);
+                _db.ChangeTracker.Clear();
+            }
+            throw;
+        }
+    }
 
     public Task<ProblemaPaciente?> ObterProblemaAsync(int problemaId, CancellationToken ct = default)
         => _db.ProblemasPaciente.FirstOrDefaultAsync(p => p.Id == problemaId, ct);

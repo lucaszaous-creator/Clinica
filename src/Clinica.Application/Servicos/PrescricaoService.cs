@@ -123,6 +123,7 @@ public sealed class PrescricaoService
         var alergias = problemas
             .Where(p => p.Natureza == NaturezaProblema.Alergia
                         && p.Situacao != SituacaoProblema.Descartado)
+            .DistinctBy(p => (ProblemaPacienteService.NormalizarAlergia(p.Descricao), p.Situacao))
             .ToList();
 
         var medicacoes = problemas

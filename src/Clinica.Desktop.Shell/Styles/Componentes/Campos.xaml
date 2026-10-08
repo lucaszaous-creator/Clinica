@@ -62,6 +62,11 @@
                     </Border>
                         </Grid>
                     <ControlTemplate.Triggers>
+                        <!-- Campos de observação com altura limitada também precisam das
+                             setas. TextBox esconde a barra por padrão, mesmo multilinha. -->
+                        <Trigger Property="AcceptsReturn" Value="True">
+                            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                        </Trigger>
                         <Trigger Property="Text" Value="">
                             <Setter TargetName="placeholder" Property="Visibility" Value="Visible" />
                         </Trigger>

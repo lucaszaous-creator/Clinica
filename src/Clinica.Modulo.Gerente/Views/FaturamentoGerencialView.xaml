@@ -11,6 +11,9 @@
     </UserControl.Resources>
 
     <Grid>
+    <!-- A rolagem inclui os indicadores: em notebook eles quebram em duas linhas.
+         Se só os convênios rolarem, os cartões acima podem consumir todo o viewport. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
     <DockPanel Margin="24">
 
         <!-- ============ Cabeçalho ============ -->
@@ -220,7 +223,6 @@
                     </Grid>
                 </Border>
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
                   <StackPanel>
                     <ItemsControl ItemsSource="{Binding PorConvenio}">
                         <ItemsControl.ItemTemplate>
@@ -303,10 +305,10 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                   </StackPanel>
-                </ScrollViewer>
             </DockPanel>
         </Border>
     </DockPanel>
+    </ScrollViewer>
     <ctrl:EstadoDaTela
                        Vazio="False"
                        Carregando="{Binding Carregando}"

@@ -826,9 +826,8 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
                 .ContextoAsync(pacienteId);
             if (geracao != _geracaoCarga) return;
 
-            Alerta = conferencia.Alergias.Count == 0
-                ? null
-                : "⚠ ALERGIA: " + string.Join(" · ", conferencia.Alergias.Select(a => a.Rotulo));
+            Alerta = ProblemaPacienteService.ResumirAlergias(conferencia.Alergias) is { } alergias
+                ? "⚠ " + alergias : null;
 
             if (conferencia.MedicacoesEmUso.Count > 0)
                 partes.Add("em uso: "

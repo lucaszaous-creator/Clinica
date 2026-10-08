@@ -25,6 +25,8 @@ namespace Clinica.Clinico.ViewModels;
 public sealed class LinhaAlertaClinico
 {
     public required string Texto { get; init; }
+    public string? Detalhes { get; init; }
+    public bool TemDetalhes => !string.IsNullOrWhiteSpace(Detalhes);
 
     /// <summary>Vermelho na origem: atender assim provavelmente vira glosa.</summary>
     public required bool Grave { get; init; }
@@ -76,6 +78,46 @@ public sealed record FolhaDeHoje(
 /// </summary>
 public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 {
+    private CopiaEvolucaoPaciente? _ultimaEvolucaoParaCopiar;
+    private int _pacienteDaCopia;
+    public bool PodeCopiarUltimaEvolucao => PodeEditarProntuario && !Carregando && TemPaciente;
+
+    [RelayCommand]
+    private void CopiarUltimaEvolucao()
+    {
+        if (!PodeCopiarUltimaEvolucao) return;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "copiar a última evolução");
+            if (_ultimaEvolucaoParaCopiar is not { } m || _pacienteDaCopia != PacienteId)
+            {
+                Mensagem = "Não há evolução anterior salva deste paciente para copiar.";
+                MensagemEhErro = false;
+                return;
+            }
+            using var scope = _escopos.CreateScope();
+            if ((TemAlgoParaGravar || CamposPersonalizados.Any(c => !string.IsNullOrWhiteSpace(c.Resposta)))
+                && !scope.ServiceProvider.GetRequiredService<IDialogoService>()
+                .ConfirmarPerigo("Copiar última evolução", "Substituir os textos clínicos e as respostas dos campos personalizados pelos da última evolução deste paciente? EVA, sinais vitais e datas da sessão atual serão preservados.")) return;
+            QueixaPrincipal = m.QueixaPrincipal;
+            HistoriaDoencaAtual = m.HistoriaDoencaAtual;
+            ExameFisico = m.ExameFisico;
+            HipoteseDiagnostica = m.HipoteseDiagnostica;
+            CidSessao = m.CidSessao;
+            Conduta = m.Conduta;
+            TextoEvolucao = m.TextoEvolucao;
+            TextoEvolucaoFormatado = m.TextoEvolucaoFormatado ?? string.Empty;
+            Orientacoes = m.Orientacoes;
+            PlanoTerapeutico = m.PlanoTerapeutico;
+            Encaminhamento = m.Encaminhamento;
+            foreach (var campo in CamposPersonalizados)
+                campo.Resposta = m.CamposPersonalizados.GetValueOrDefault(campo.Id);
+            Mensagem = $"Evolução de {m.DataOrigem:dd/MM/yyyy} copiada. Revise para esta sessão e salve. Nada foi gravado.";
+            MensagemEhErro = false;
+        }
+        catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+    }
+
     [ObservableProperty] private bool _podeIndicarBsv;
     [ObservableProperty] private bool _bsvIndicado;
     public string RotuloBsv => BsvIndicado ? "Em acompanhamento BSV" : "Novo paciente de BSV";
@@ -710,6 +752,8 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         // pode implementá-los — a armadilha da parcela 88.
         PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName is nameof(Carregando) or nameof(SemPaciente))
+                OnPropertyChanged(nameof(PodeCopiarUltimaEvolucao));
             if (e.PropertyName is nameof(CidSessao) or nameof(HipoteseDiagnostica)
                 or nameof(EvolucaoId))
                 MontarEntregar();
@@ -818,6 +862,8 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     public async Task CarregarAsync()
     {
         var geracao = ++_geracaoCarga;
+        _ultimaEvolucaoParaCopiar = null;
+        _pacienteDaCopia = 0;
         PodeIndicarBsv = false;
         BsvIndicado = false;
 
@@ -955,6 +1001,10 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             if (doHorario is not null) Preencher(doHorario);
             else Limpar(_foco.DataDoHorario);
 
+            _ultimaEvolucaoParaCopiar = CopiaEvolucaoPaciente.Ultima(sessoes, PacienteId,
+                EvolucaoId, DateOnly.FromDateTime(Data));
+            _pacienteDaCopia = PacienteId;
+
             foreach (var e in sessoes.Where(e => e.Id != EvolucaoId).Take(SessoesAnterioresVisiveis))
                 Anteriores.Add(ResumoSessaoAnterior.De(e));
 
@@ -1081,20 +1131,25 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         {
             var problemas = servicos.GetRequiredService<ProblemaPacienteService>();
 
-            foreach (var p in await problemas.AlertasAsync(PacienteId))
+            var alertas = await problemas.AlertasAsync(PacienteId);
+            if (ProblemaPacienteService.ResumirAlergias(alertas) is { } resumoAlergias)
                 clinicos.Add(new LinhaAlertaClinico
                 {
-                    Texto = p.Natureza == NaturezaProblema.Alergia
-                        ? $"ALERGIA — {p.Rotulo}"
-                              + (string.IsNullOrWhiteSpace(p.Observacoes)
-                                  ? string.Empty : $": {p.Observacoes}")
-                        : $"Uso contínuo — {p.Rotulo}"
+                    Texto = resumoAlergias,
+                    Detalhes = ProblemaPacienteService.DetalharAlergias(alertas),
+                    Grave = true
+                });
+
+            foreach (var p in alertas.Where(p => p.Natureza != NaturezaProblema.Alergia))
+                clinicos.Add(new LinhaAlertaClinico
+                {
+                    Texto = $"Uso contínuo — {p.Rotulo}"
                               + (string.IsNullOrWhiteSpace(p.Observacoes)
                                   ? string.Empty : $": {p.Observacoes}"),
                     // Alergia é vermelha; uso contínuo é amarelo. A urgência viaja com
                     // cada linha, como no ElegibilidadeService: pintar as duas da cor da
                     // pior faria a interação medicamentosa parecer contraindicação.
-                    Grave = p.Natureza == NaturezaProblema.Alergia
+                    Grave = false
                 });
         }
         catch (Exception ex)

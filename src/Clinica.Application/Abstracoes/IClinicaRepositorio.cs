@@ -7,6 +7,7 @@ namespace Clinica.Application.Abstracoes;
 /// <summary>Acesso a dados usado pelos serviços. Implementado sobre EF Core na camada de infraestrutura.</summary>
 public interface IClinicaRepositorio
 {
+    Task<PrescricaoInterna?> UltimaPrescricaoEmitidaDoPacienteAsync(int pacienteId, CancellationToken ct = default);
     Task AdicionarParcelaCartaoAsync(ParcelaRecebivelCartao parcela, CancellationToken ct = default);
     Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDoLancamentoAsync(int lancamentoId, CancellationToken ct = default);
     Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoPorIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default);
@@ -695,6 +696,10 @@ public interface IClinicaRepositorio
     // ---- Lista de problemas (parcela 37) ----
 
     Task AdicionarProblemaAsync(ProblemaPaciente problema, CancellationToken ct = default);
+
+    /// <summary>Serializa relato de alergia por paciente até salvar a sessão e sua auditoria.</summary>
+    Task<T> ExecutarRegistroAlergiaAtomicoAsync<T>(
+        int pacienteId, Func<Task<T>> executar, CancellationToken ct = default);
 
     Task<ProblemaPaciente?> ObterProblemaAsync(int problemaId, CancellationToken ct = default);
 

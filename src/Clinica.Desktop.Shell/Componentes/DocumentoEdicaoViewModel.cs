@@ -178,8 +178,8 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             var conferencia = await prescricao.ConferirAsync(_pacienteId, escritos);
 
             AlertasClinicos.Clear();
-            foreach (var alergia in conferencia.Alergias)
-                AlertasClinicos.Add($"ALERGIA: {alergia.Descricao}");
+            if (ProblemaPacienteService.ResumirAlergias(conferencia.Alergias) is { } alergias)
+                AlertasClinicos.Add(alergias);
             foreach (var medicacao in conferencia.MedicacoesEmUso)
                 AlertasClinicos.Add($"Em uso contínuo: {medicacao.Descricao}");
 

@@ -118,6 +118,7 @@
                                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                                     CornerRadius="{StaticResource Raio.Medio}" Padding="4"
                                     MinWidth="{Binding ActualWidth, ElementName=PesquisaGlobal}">
+                                <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding ResultadosPesquisa}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type shell:ResultadoPesquisa}">
@@ -146,6 +147,7 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                </ScrollViewer>
                             </Border>
                         </Popup>
                     </Grid>

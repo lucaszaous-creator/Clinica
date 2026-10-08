@@ -296,30 +296,59 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         if(atual.CanceladoEm!=null || atual.PacienteAssinadoEm!=null
             || ContratoTablet.Hash(ContratoTablet.Serializar(ContratoTablet.Fotografar(atual)))!=c.ConteudoHash)
             throw ErroFormularioTablet.Criar("O documento foi alterado. Chame a enfermeira para preparar uma nova coleta.");
-        c.SubmissaoJson=json; c.SubmissaoHash=hash; c.TracoPng=png; c.Idempotencia=envio.Idempotencia;
-        c.RecebidoEm=Agora; c.Estado="recebido";
         var pergunta=d.Itens.Single(i=>i.Codigo==RespostaDeclaracao.CodigoAlergiasTablet);
         if(respostas.Respostas[pergunta.Ordem]=="Sim")
+            await repo.ExecutarRegistroAlergiaAtomicoAsync(c.PacienteId,GravarAsync,ct);
+        else
+            await GravarAsync();
+
+        async Task<bool> GravarAsync()
         {
-            var relato=respostas.AlergiasDetalhes ?? "Alergia relatada pelo paciente — agente não informado";
-            var descricao=relato.Length<=300?relato:relato[..297]+"…";
-            var existentes=await db.ProblemasPaciente.Where(p=>p.PacienteId==c.PacienteId && p.Natureza==NaturezaProblema.Alergia).ToListAsync(ct);
-            var origem=$"Coleta de termos {s.Id[..12]}";
-            var ativos=string.Join("; ",existentes.Where(p=>p.Situacao!=SituacaoProblema.Descartado).Select(p=>p.Descricao));
-            if(!string.Equals(ativos,relato,StringComparison.OrdinalIgnoreCase) && !existentes.Any(p=>string.Equals(p.Descricao,descricao,StringComparison.OrdinalIgnoreCase)
-                && (p.Situacao!=SituacaoProblema.Descartado || p.Observacoes!=null && p.Observacoes.Contains(origem))))
+            c.SubmissaoJson=json; c.SubmissaoHash=hash; c.TracoPng=png; c.Idempotencia=envio.Idempotencia;
+            c.RecebidoEm=Agora; c.Estado="recebido";
+            if(respostas.Respostas[pergunta.Ordem]=="Sim")
             {
-                db.ProblemasPaciente.Add(new ProblemaPaciente {PacienteId=c.PacienteId,Natureza=NaturezaProblema.Alergia,
-                    Descricao=descricao,Observacoes=$"Relato do paciente: {relato}. {origem}; documento {c.DocumentoId}.",
-                    CriadoPor=s.Usuario!.Login,CriadoEm=DateTime.Now});
-                await Auditar("TabletAlergiaRegistrada",c.PacienteId,c.Operadora,$"Relato confirmado no documento {c.DocumentoId}",ct);
+                var relato=respostas.AlergiasDetalhes ?? "Alergia relatada pelo paciente — agente não informado";
+                var descricao=relato.Length<=300?relato:relato[..297]+"…";
+                var existentes=await db.ProblemasPaciente.AsNoTracking()
+                    .Where(p=>p.PacienteId==c.PacienteId && p.Natureza==NaturezaProblema.Alergia).ToListAsync(ct);
+                var origem=$"Coleta de termos {s.Id[..12]}";
+                var ativas=existentes.Where(p=>p.Situacao!=SituacaoProblema.Descartado)
+                    .DistinctBy(p=>ProblemaPacienteService.NormalizarAlergia(p.Descricao)).ToArray();
+                var chaves=ativas.Select(p=>ProblemaPacienteService.NormalizarAlergia(p.Descricao)).ToHashSet();
+                // O portal preenche a lista com "; ". Confirmar essa mesma lista não
+                // cria um novo agente composto. Fora da equivalência exata, o relato
+                // continua inteiro: não interpretamos vírgulas, "e" ou marcas.
+                var confirmouLista=ativas.Length>0 &&
+                    (ProblemaPacienteService.NormalizarAlergia(string.Join("; ",ativas.Select(p=>p.Descricao)))
+                        ==ProblemaPacienteService.NormalizarAlergia(relato)
+                    || ativas.All(p=>!p.Descricao.Contains(';')) && chaves.SetEquals(
+                        relato.Split(';').Select(ProblemaPacienteService.NormalizarAlergia)));
+                var descricoes=confirmouLista?ativas.Select(p=>p.Descricao):new[]{descricao};
+                foreach(var nome in descricoes)
+                {
+                    var chave=ProblemaPacienteService.NormalizarAlergia(nome);
+                    // Uma decisão da equipe entre dois termos da MESMA coleta não
+                    // é desfeita pela repetição automática do relato no termo seguinte.
+                    if(!chaves.Contains(chave) && existentes.Any(p=>p.Situacao==SituacaoProblema.Descartado
+                        && ProblemaPacienteService.NormalizarAlergia(p.Descricao)==chave
+                        && p.Observacoes?.Contains(origem)==true)) continue;
+                    await new ProblemaPacienteService(repo).RegistrarAlergiaSemSalvarAsync(new ProblemaPaciente
+                    {
+                        PacienteId=c.PacienteId,Natureza=NaturezaProblema.Alergia,Descricao=nome,
+                        Observacoes=$"Relato do paciente: {relato}. {origem}; documento {c.DocumentoId}."
+                    },s.Usuario!.Login,$"{origem}; documento {c.DocumentoId}",ct:ct);
+                    if(!chaves.Contains(chave))
+                        await Auditar("TabletAlergiaRegistrada",c.PacienteId,c.Operadora,$"Relato confirmado no documento {c.DocumentoId}",ct);
+                }
             }
+            // A trava da alergia abrange também rubrica, versão da sessão e auditoria:
+            // uma falha de concorrência não pode deixar uma alergia solta gravada.
+            db.Entry(s).Property(x=>x.Versao).IsModified=true;
+            await Auditar("TabletRubricaRecebida",c.PacienteId,c.Operadora,$"Coleta {c.Id}; documento {c.DocumentoId}; aguardando arquivamento",ct);
+            await db.SaveChangesAsync(ct);
+            return true;
         }
-        // Concorre também com a reentrada da equipe: a sessão lida antes da entrega
-        // ou revogação não pode autorizar uma escrita depois dela.
-        db.Entry(s).Property(x=>x.Versao).IsModified=true;
-        await Auditar("TabletRubricaRecebida",c.PacienteId,c.Operadora,$"Coleta {c.Id}; documento {c.DocumentoId}; aguardando arquivamento",ct);
-        await db.SaveChangesAsync(ct);
     }
 
     public async Task EncerrarAsync(SessaoTablet s,bool recusa,string? motivo,CancellationToken ct)

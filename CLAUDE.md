@@ -157,6 +157,11 @@ Nenhum deles quebra o build quando é esquecido:
 
 ### 2. Método de repositório novo
 
+- **Alergia pertence ao paciente, não ao atendimento ou termo.** Todas as portas de relato,
+  inclusive o portal do tablet, usam a normalização e reutilização de `ProblemaPacienteService`
+  dentro de `ExecutarRegistroAlergiaAtomicoAsync`. No atendimento, os nomes únicos aparecem
+  em uma única entrada; observações/CIDs distintos ficam nos detalhes, sem apagar o histórico.
+
 - **Formatação da evolução acompanha o texto em todas as portas** (out/2026): o texto
   simples continua canônico; `TextoEvolucaoFormatado` guarda apenas negrito/itálico e
   só é aceito quando seus trechos recompõem esse mesmo texto. Cliente antigo que omite
@@ -212,6 +217,7 @@ Nenhum deles quebra o build quando é esquecido:
 
 ### 5. Perguntas que só o autor pode responder
 
+- **Última prescrição emitida:** confira os estados produzidos pelo fluxo atual. A continuidade usa `SituacaoPrescricao.Liberada`, diferente de `Assinada`, e precisa entrar junto de `Assinada` e `Encerrada` na consulta de cópia. Teste o estado `Liberada` explicitamente: apenas zerar `AssinadaEm` numa folha `Encerrada` não exercita esse caminho.
 - **Carimbo de hora novo na fila?** Entra no bloco que a REMARCAÇÃO limpa, e decida se ele é
   COLUNA — se não for, não pode ser gasto como um passo do "voltar etapa".
 - **Seção nova no MEIO de uma lista indexada?** Ela empurra todos os índices abaixo dela, e

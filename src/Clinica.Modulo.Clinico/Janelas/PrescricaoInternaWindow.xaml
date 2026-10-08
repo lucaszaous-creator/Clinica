@@ -21,7 +21,9 @@
   </StackPanel>
   <StackPanel Grid.Row="1">
    <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,8" Visibility="{Binding TemAlertas,Converter={StaticResource BoolParaVisibilidade}}">
-    <ItemsControl ItemsSource="{Binding Alertas}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+    <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+     <ItemsControl ItemsSource="{Binding Alertas}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+    </ScrollViewer>
    </Border>
    <StackPanel Visibility="{Binding Ocupado,Converter={StaticResource BoolParaVisibilidade}}" Margin="0,0,0,8">
     <TextBlock Text="{Binding TextoOperacao}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/><ProgressBar IsIndeterminate="True" Height="3" Margin="0,4"/>
@@ -37,6 +39,15 @@
        <StackPanel>
         <DockPanel Margin="0,0,0,14">
          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button Content="Copiar última prescrição deste paciente" Margin="0,0,8,0"
+                  Command="{Binding DataContext.CopiarUltimaPrescricaoCommand,RelativeSource={RelativeSource AncestorType=Window}}"
+                  IsEnabled="{Binding DataContext.PodeCopiarUltimaPrescricao,RelativeSource={RelativeSource AncestorType=Window}}"
+                  ToolTip="Copia a última prescrição deste paciente, incluindo todas as infusões, para revisar antes de salvar.">
+           <Button.Style><Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers><DataTrigger Binding="{Binding Numero}" Value="1"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+           </Style></Button.Style>
+          </Button>
           <Button Content="Modelos ▾" Style="{StaticResource BotaoSecundario}" Click="Modelos_Click" ToolTip="Usar modelo salvo ou salvar esta infusão como modelo"/>
           <Button Content="⋮" Style="{StaticResource AcaoDiscreta}" Margin="8,0,0,0" Click="Mais_Click" AutomationProperties.Name="Mais opções da infusão"/>
          </StackPanel>
