@@ -6,7 +6,7 @@ static class Program
 [STAThread] static void Main(string[] args)
 {
 var app=new System.Windows.Application {ShutdownMode=System.Windows.ShutdownMode.OnExplicitShutdown};
-app.Startup+=async(_,_)=>{try{Contratos();if(args.Contains("--entrada-only"))await EntradaQa.Executar(true);else await Fluxos.Executar(args.Contains("--web"),args.Contains("--ferramentas-only"));}catch(Exception ex){Console.WriteLine(ex);Environment.ExitCode=1;}finally{app.Shutdown();}};
+app.Startup+=async(_,_)=>{try{Contratos();if(args.Contains("--buscas-ui-only"))await BuscasDigitadasQa.Executar();else if(args.Contains("--entrada-only"))await EntradaQa.Executar(true);else await Fluxos.Executar(args.Contains("--web"),args.Contains("--ferramentas-only"));}catch(Exception ex){Console.WriteLine(ex);Environment.ExitCode=1;}finally{app.Shutdown();}};
 app.Run();
 }
 static void Contratos()

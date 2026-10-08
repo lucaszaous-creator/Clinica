@@ -87,7 +87,7 @@ public static partial class RecepcaoWebRegistro
              new P.Campo("FaltasCancelamentos", "Faltas Cancelamentos", "leitura", Visivel: null)], [],
             [
                 new P.Secao("Profissionais", "Profissionais", null, [], [],
-                    [PT("Profissionais", [], [], [new P.Acao("Filtrar", "Filtrar", Guarda: null, SemParametro: false, Visivel: null, Parametro: null)], "TemFiltroProfissional")], []),
+                    [PT("Profissionais", [new("Nome", "Profissional"), new("Quantidade", "Horários"), new("Ativo", "Filtro ativo", "booleano")], [], [new P.Acao("Filtrar", "Ver agenda deste profissional", Guarda: null, SemParametro: false, Visivel: null, Parametro: null)], "TemFiltroProfissional")], []),
                 new P.Secao("Linhas", "Linhas", null, [], [],
                     [PT("Linhas", [new P.Coluna("Horario", "Horário"), new P.Coluna("Paciente", "Paciente"), new P.Coluna("ContextoDaLista", "Contexto Da Lista"), new P.Coluna("Profissional", "Profissional"), new P.Coluna("Sala", "Sala"), new P.Coluna("Observacoes", "Recado escrito pela recepção neste horário"), new P.Coluna("Status", "Status"), new P.Coluna("StatusDetalhe", "Status Detalhe")], [], [new P.Acao("Avancar", "Avancar", Guarda: null, SemParametro: false, Visivel: "TemProximoPasso", Parametro: null), new P.Acao("EditarHorario", "Editar", Guarda: null, SemParametro: false, Visivel: "EmAberto", Parametro: null)], null)], []),
             ],
@@ -294,7 +294,7 @@ public static partial class RecepcaoWebRegistro
                 new P.Secao("DeHoje", "De Hoje", null, [], [],
                     [PT("DeHoje", [new P.Coluna("Nome", "Nome"), new P.Coluna("Hora", "Hora")], [], [new P.Acao("EscolherDeHoje", "Escolher De Hoje", Guarda: null, SemParametro: false, Visivel: null, Parametro: null)], "TemGenteHoje")], []),
                 new P.Secao("Seletor.Resultados", "Resultados", null, [], [],
-                    [PT("Seletor.Resultados", [], [], [], "Seletor.TemResultados")], []),
+                    [PT("Seletor.Resultados", [new("Nome", "Paciente"), new("Documento", "CPF / documento"), new("Telefone", "Telefone")], [], [new("EscolherPaciente", "Escolher paciente")], "Seletor.TemResultados")], []),
                 new P.Secao("Folhas", "Folhas", null, [], [],
                     [PT("Folhas", [new P.Coluna("Rotulo", "Rotulo"), new P.Coluna("Descricao", "Descricao"), new P.Coluna("Pendencia", "Pendencia"), new P.Coluna("Grupo", "Grupo")], [], [new P.Acao("EscolherFolha", "Escolher Folha", Guarda: null, SemParametro: false, Visivel: null, Parametro: null)], null)], []),
                 new P.Secao("Emitidas", "Emitidas", null, [], [],

@@ -149,14 +149,22 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
                  + $"{PoliticaRegistroPendente.DataInicio:dd/MM/yyyy}";
     }
 
-    /// <summary>"Novo prontuário" = escrever um atendimento — a tela de sempre, que abre
-    /// com a fila do dia para escolher quem.</summary>
+    /// <summary>Escolhe quem será atendido antes de abrir a escrita. O contexto de um
+    /// atendimento anterior só muda depois da confirmação da escolha.</summary>
     [RelayCommand]
-    private void NovoProntuario()
+    private async Task NovoProntuarioAsync()
     {
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            var usuario = SessaoUsuario.Atual.UsuarioId;
+            var paciente = await EscolherPacienteWindow.PerguntarAsync(
+                "Novo prontuário — escolha o paciente", JanelaDona.Atual(), _escopos);
+            if (paciente is null) return;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            if (usuario != SessaoUsuario.Atual.UsuarioId)
+                throw new InvalidOperationException("O usuário mudou durante a escolha. Abra o novo prontuário novamente.");
+            _foco.Definir(paciente.Id, paciente.Nome);
             if (!NavegacaoSuite.Ir(PostoClinico.ChaveDoAtendimento()))
             {
                 Mensagem = "Não deu para abrir a tela de atendimento.";

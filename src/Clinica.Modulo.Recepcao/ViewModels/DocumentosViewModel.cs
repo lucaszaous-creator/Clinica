@@ -290,6 +290,15 @@ public sealed partial class DocumentosViewModel : ObservableObject
     [RelayCommand]
     private void TrocarPaciente() => Seletor.Limpar();
 
+    /// <summary>A busca web usa o mesmo paciente da lista atual e a mesma reação da seleção.</summary>
+    [RelayCommand]
+    private void EscolherPaciente(Paciente? paciente)
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.VerDocumentos, "escolher o paciente do documento");
+        if (paciente is not null && Seletor.Resultados.Contains(paciente))
+            Seletor.Selecionado = paciente;
+    }
+
     partial void OnFolhaEscolhidaChanged(LinhaFolha? value)
     {
         AtualizarPrevia();

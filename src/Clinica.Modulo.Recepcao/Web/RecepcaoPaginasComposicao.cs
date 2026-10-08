@@ -72,7 +72,20 @@ public static partial class RecepcaoWebRegistro
             Acoes=p.Acoes.Select(a=>a.Comando=="Voltar"?a with{Visivel=null}:a.Comando=="LimparFiltros"?a with{Visivel=null}:a.Comando=="Atalho"?a with{Rotulo=a.Parametro?.ToString() switch {"assumir"=>"A assumir","hoje"=>"Contatos de hoje","atrasados"=>"Atrasados",_=>"Sem primeiro contato"}}:a).ToArray() };
         if(p.Campos.Any(c=>c.Propriedade=="Seletor.Termo"))
             p=p with { Acoes=[..p.Acoes,new("Seletor.LigarSugestao","Com horário hoje",Visivel:"Seletor.TemSugestao")] };
-        return p with { Secoes=p.Secoes.Select(s=>s with { Visivel=s.Visivel ?? (s.Campos.Length==0 && s.Acoes.Length==0 && s.Tabelas.Length==1 ? s.Tabelas[0].Visivel : null) }).ToArray(), Campos=p.Campos.Select(c=>c with{Visivel=Presenca(c.Visivel)}).ToArray(), Acoes=p.Acoes.Select(a=>a with{Visivel=Presenca(a.Visivel)}).ToArray() };
+        return p with { Secoes=p.Secoes.Select(s=>s with { Titulo=s.Chave=="Seletor.Resultados"?"Pacientes encontrados":s.Titulo, Visivel=s.Visivel ?? (s.Campos.Length==0 && s.Acoes.Length==0 && s.Tabelas.Length==1 ? s.Tabelas[0].Visivel : null), Acoes=s.Acoes.Select(ApresentarAcao).ToArray(), Tabelas=s.Tabelas.Select(t=>t with {Titulo=t.Chave=="Seletor.Resultados"?"Pacientes encontrados":t.Titulo, Acoes=t.Acoes.Select(ApresentarAcao).ToArray(),Colunas=t.Colunas.Select(ApresentarColuna).ToArray()}).ToArray() }).ToArray(), Campos=p.Campos.Select(c=>c with{Visivel=Presenca(c.Visivel)}).ToArray(), Acoes=p.Acoes.Select(a=>ApresentarAcao(a) with{Visivel=Presenca(a.Visivel)}).ToArray() };
     }
+    // Intenção explícita dos comandos conhecidos: a cor não depende de inferência no navegador.
+    private static P.Acao ApresentarAcao(P.Acao a) => a with {
+        Estilo=a.Comando switch {
+            "MarcarAtendimento" or "NovoHorario" or "Lancar" or "Salvar" or "SalvarConfiguracao" or "Gerar" or "Agendar" or "Avancar" or "Abrir" or "AbrirPaciente" or "EscolherPaciente" or "EscolherModalidade" or "EmitirFolhaSelecionada" or "Receber" => "primario",
+            "Cancelar" or "MarcarFalta" or "Estornar" or "ExcluirProfissional" or "ExcluirSala" or "TirarDoAr" => "perigo",
+            _=>a.Estilo
+        },
+        Rotulo=a.Comando switch {"Lancar"=>"Confirmar horário", "Avancar"=>"Avançar atendimento", "NovoLancamento"=>"Marcar outro horário", "EscolherModalidade"=>"Escolher modalidade", _=>a.Rotulo}
+    };
+    private static P.Coluna ApresentarColuna(P.Coluna c) => c with {
+        Rotulo=c.Propriedade switch {"ContextoDaLista"=>"Atendimento", "Status" or "Situacao"=>"Situação", "StatusDetalhe"=>"Desde quando", "ModalidadeTexto"=>"Modalidade", "ProximoContato"=>"Próximo contato", "ProximoPasso"=>"Próximo passo", "AgendadoPara"=>"Agendado para", "Responsavel"=>"Responsável", "DiasTexto"=>"Tempo sem retornar", "UltimoContato"=>"Último contato", "Horario"=>"Horário", _=>c.Rotulo},
+        Tipo=c.Propriedade is "Status" or "Situacao"?"status":c.Tipo
+    };
     private static string? Presenca(string? expressao) => expressao is null ? null : string.Join("&",expressao.Split('&').Select(p=> p is "Previa" or "Seletor.Selecionado" ? "presente:"+p : p));
 }

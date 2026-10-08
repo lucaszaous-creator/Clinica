@@ -2,6 +2,14 @@
 
 Esta edição portátil contém Recepção, Clínico, Financeiro, Faturamento e Gerente. Extraia a pasta inteira e abra o executável do módulo desejado. Mantenha a pasta `WebSuite` e os demais arquivos ao lado do executável. Windows 64 bits e Microsoft Edge WebView2 Runtime são necessários; o runtime .NET acompanha os aplicativos.
 
+No Explorer, use **Extrair tudo** antes de abrir. Executar diretamente dentro do ZIP pode
+deixar os recursos locais inacessíveis e causar o erro de caminho `0x80070003`.
+
+Esta revisão inclui contraste e separação de seções em todos os módulos, cores nos botões,
+agenda por dia com cartões legíveis, formulário de marcação organizado por etapas e
+resultados identificáveis nas buscas. Ao homologar, confira também nomes completos,
+seleção de outro prontuário, valores decimais e todos os detalhes/ações dos cartões.
+
 ## Banco de teste
 
 Na primeira abertura, configure **um banco PostgreSQL separado para testes**. Use dados fictícios ou uma cópia preparada para homologação. As operações continuam sendo reais: salvar, receber, cancelar e assinar alteram o banco que você informar. A abertura também aplica as migrations pendentes nesse banco.
@@ -21,3 +29,5 @@ Não configure integrações reais de envio, assinatura externa, cobrança ou pu
 - Formulários: preenchimento, validação, cancelamento, confirmação, rolagem e permissões de cada perfil.
 
 Os testes automatizados usam banco sintético. Eles não substituem sua homologação dos fluxos completos com os perfis, impressoras, câmera, monitor do paciente e integrações utilizados pela clínica. As evidências e os comandos de reprodução estão no repositório, em `docs/refatoracao-web-pr245.md`.
+
+As correções desta revisão e suas evidências estão em `docs/ajustes-homologacao-pr245.md`.

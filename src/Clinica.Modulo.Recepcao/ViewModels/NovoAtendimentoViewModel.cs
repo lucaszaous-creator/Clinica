@@ -149,8 +149,10 @@ public sealed record LinhaAlertaElegibilidade(string Descricao, bool Vermelho, b
 /// </summary>
 public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbrir
 {
-    /// <summary>Metade VISÍVEL da permissão: lançar atendimento CRIA as guias pela regra do convênio.</summary>
-    public bool PodeLancar => SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
+    /// <summary>Marcar sem guia exige agenda; criar atendimento e guias exige também o lançamento.</summary>
+    public bool PodeLancar => MarcarParaDepois
+        ? SessaoUsuario.Atual.Pode(GuiaNaMarcacao ? Permissao.EditarAgenda | Permissao.LancarAtendimento : Permissao.EditarAgenda)
+        : SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
 
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -770,6 +772,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     partial void OnMarcarParaDepoisChanged(bool value)
     {
+        OnPropertyChanged(nameof(PodeLancar));
         OnPropertyChanged(nameof(LancarAgora));
         OnPropertyChanged(nameof(TituloTela));
         OnPropertyChanged(nameof(SubtituloTela));
@@ -787,6 +790,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     partial void OnGuiaNaMarcacaoChanged(bool value)
     {
+        OnPropertyChanged(nameof(PodeLancar));
         OnPropertyChanged(nameof(NotaGuiaNaMarcacao));
         OnPropertyChanged(nameof(MostrarPrevia));
         AtualizarRotuloLancar();
@@ -2059,7 +2063,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [RelayCommand]
     private async Task Lancar()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.LancarAtendimento, "lançar atendimento");
+        // A guarda fresca da chave e das duas permissões permanece em MarcarAsync.
+        SessaoUsuario.Atual.Exigir(MarcarParaDepois ? Permissao.EditarAgenda : Permissao.LancarAtendimento,
+            MarcarParaDepois ? "marcar horário" : "lançar atendimento");
 
         if (Seletor.Selecionado is not { } paciente)
         {

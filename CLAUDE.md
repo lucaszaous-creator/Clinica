@@ -268,6 +268,18 @@ arquivo estava no COMMIT e tinha sido apagado do DISCO — e era justamente o qu
   verificadores do CI: na PR 245, `VerificarInfusao` ainda chamava `AplicarModelo` depois da
   migração para `AplicarModeloAsync`. Executar o verificador afetado por completo.
 
+- **Entrada decimal da interface web:** ponto pode ser fração, mesmo no Windows pt-BR.
+  `12.5` não pode virar `125` por uma tentativa de leitura que aceita ponto como milhar.
+  Conferir o valor persistido pelo fluxo DOM, além da leitura isolada; manter `12,5`,
+  `1.250,00` e `1250.00` nos casos de regressão.
+- **Contrato web de listas e buscas:** coleção com itens e botão não prova que seus dados
+  estão visíveis. Registrar colunas e seleção, exercitar digitação pelo DOM e verificar
+  identidade do paciente selecionado. Agenda vazia não prova legibilidade: reproduzir
+  volume e simultaneidade; conservar ações, copiar dados e rolagem pelo contexto, sem índices.
+- **Cabeçalho de página oculto dentro do diálogo:** título duplicado pode ser ocultado,
+  mas a pergunta ou orientação em `Subtitulo` precisa aparecer no corpo. Conferir
+  texto visível ao confirmar, não só título e botões.
+
 ⚠️ **Arquivo de prova temporário: LEIA antes de descartar.** Os dois que vazaram naquele dia
 renderam — um revelou o defeito da anamnese, o outro virou a rede de tradução.
 

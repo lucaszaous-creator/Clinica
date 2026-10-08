@@ -6,9 +6,9 @@ static class Program
 {
     [STAThread] static int Main(string[] args)
     {
-        if(!args.Contains("--fluxos")) return Contratos();
+        if(!args.Contains("--fluxos") && !args.Contains("--buscas")) return Contratos();
         var app = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
-        app.Startup += async (_, _) => { try { if(Contratos()!=0) throw new Exception("Contrato inválido"); await FluxosRecepcao.Executar(args.Contains("--web")); } catch(Exception ex) { Console.WriteLine(ex); Environment.ExitCode=1; } finally { app.Shutdown(); } };
+        app.Startup += async (_, _) => { try { if(Contratos()!=0) throw new Exception("Contrato inválido"); if(args.Contains("--buscas")) await BuscasPacientesQa.Executar(); else await FluxosRecepcao.Executar(args.Contains("--web")); } catch(Exception ex) { Console.WriteLine(ex); Environment.ExitCode=1; } finally { app.Shutdown(); } };
         app.Run(); return Environment.ExitCode;
     }
     static int Contratos()

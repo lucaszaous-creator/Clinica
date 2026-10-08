@@ -182,6 +182,32 @@ static class WebQa
                 var registro = await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.AsNoTracking().SingleAsync(l => l.Descricao == "QA WEB despesa integral");
                 if (registro.Valor != 123.45m) throw new InvalidOperationException("O lançamento web não preservou o valor digitado.");
             }
+            // CPF digitado sem blur: reproduz a busca que o usuário faz no formulário,
+            // com o seletor C# consultando um banco sintético e publicando opções reais.
+            int pacienteBuscaId;
+            using (var scope = servicos.CreateScope())
+            {
+                var dbBusca = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+                var pacienteBusca = new Paciente { Nome = "Zuleica Sintética Busca Financeiro", Documento = "52998224725", Convenio = Clinica.Domain.Convenio.UnimedIntercambio, Sexo = Clinica.Domain.Sexo.Feminino };
+                dbBusca.Pacientes.Add(pacienteBusca); await dbBusca.SaveChangesAsync(); pacienteBuscaId = pacienteBusca.Id;
+            }
+            await Clicar("[data-action='novo']");
+            await Esperar("!!document.querySelector('.dialogo-web')");
+            await Ler("(()=>{const e=document.querySelector('.dialogo-web select[data-campo=Tipo]');e.value=[...e.options].find(o=>o.textContent==='Entrada').value;e.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            await Esperar("!!document.querySelector('.dialogo-web input[data-campo=\"Seletor.Termo\"]')");
+            await Ler("(()=>{const e=document.querySelector('.dialogo-web input[data-campo=\"Seletor.Termo\"]');e.focus();e.value='52998224725';e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+            await Esperar("[...document.querySelector('.dialogo-web select[data-campo=\"Seletor.Selecionado\"]').options].some(o=>o.textContent.includes('Zuleica Sintética Busca Financeiro'))");
+            await Ler("(()=>{const e=document.querySelector('.dialogo-web select[data-campo=\"Seletor.Selecionado\"]');e.value=[...e.options].find(o=>o.textContent.includes('Zuleica Sintética Busca Financeiro')).value;e.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            await Campo("Descricao", "QA WEB receita paciente digitado"); await Campo("Valor", "12.5");
+            await Capturar("financeiro-busca-paciente-cpf");
+            await Clicar(".dialogo-rodape [data-comando='salvar']"); await Esperar("!document.querySelector('.dialogo-web')");
+            using (var scope = servicos.CreateScope())
+            {
+                var registro = await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.AsNoTracking().SingleAsync(l => l.Descricao == "QA WEB receita paciente digitado");
+                if (registro.PacienteId != pacienteBuscaId || registro.Valor != 12.5m)
+                    throw new InvalidOperationException("Financeiro standalone perdeu paciente buscado pelo CPF ou valor decimal 12.5.");
+            }
+            Console.WriteLine("OK Financeiro standalone DOM: CPF sem blur, resultado, seleção e gravação paciente + decimal 12.5.");
             await Clicar("[data-action='novo']");
             await Esperar("!!document.querySelector('.dialogo-web')");
             await Campo("Descricao", "QA WEB não salvar");

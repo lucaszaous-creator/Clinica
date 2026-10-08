@@ -10,6 +10,21 @@ public static partial class GerenteWebRegistro
     public static IEnumerable<Pagina> CriarPaginas()=>CriarPaginasBase().Select(Organizar);
     private static Pagina Organizar(Pagina p)
     {
+        if (p.Chave is "auditoria" or "guarda-prontuario")
+        {
+            // A extração do ListBox preservou a busca, mas perdeu seu SelectedItem.
+            // A mesma seleção aciona os eventos originais de filtro/guarda no C#.
+            var campos = p.Campos.Select(c => c.Propriedade == "Paciente.Termo"
+                ? c with { Rotulo = "Buscar paciente por nome ou CPF" } : c).ToList();
+            var indice = campos.FindIndex(c => c.Propriedade == "Paciente.Termo");
+            campos.Insert(indice + 1, new Campo("Paciente.Selecionado", "Paciente", "selecao", "Paciente.Resultados", "Nome"));
+            p = p with { Campos = campos.ToArray(), Secoes = p.Secoes.Select(s => s with
+            {
+                Tabelas = s.Tabelas.Select(t => t.Chave == "Paciente.Resultados"
+                    ? t with { Titulo = "Pacientes encontrados", Colunas = [new("Nome", "Paciente"), new("Documento", "CPF"), new("ConvenioNome", "Convênio")] }
+                    : t).ToArray()
+            }).ToArray() };
+        }
         string[] destaques=p.Chave switch
         {
             "painel-direcao"=>["EntradasMes|Entradas no mês|VariacaoEntradas","SaidasMes|Saídas no mês","SaldoMes|Saldo do mês|DeducoesMes","ContasVencidas|Contas vencidas|ContasVencidasDetalhe","PendenciasFaturamento|Pendências de faturamento|PendenciasDetalhe","AReceberPrevisto|A receber|AReceberDetalhe","DepositoAtrasado|Depósitos atrasados|DepositoAtrasadoDetalhe"],

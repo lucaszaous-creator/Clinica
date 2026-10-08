@@ -2,6 +2,7 @@ import './style.css';
 import './paginas.css';
 import './navegacao.css';
 import './ferramentas.css';
+import '../../../../Clinica.Desktop.Shell/Web/frontend/src/identidade-visual.css';
 import { treinamento, filtroTreinamento, prepararVideo, type Catalogo, type Aula } from '../../../../Clinica.Desktop.Shell/Web/frontend/src/treinamento';
 import { GraduationCap, Bell, ClipboardCheck } from 'lucide';
 import { agruparRotas } from './navegacao';
@@ -150,6 +151,14 @@ function renderDialogo() {
   const c: Contexto = { escopo: 'dialogo', id: d.id, ocupado: d.ocupado, privado: valoresOcultos };
   return `<div class="fundo-dialogo"><section class="dialogo-web" role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo" data-testid="dialogo-financeiro" data-dialogo="${h(d.id)}"><header class="dialogo-cabecalho"><h2 id="titulo-dialogo">${h(d.pagina.titulo)}</h2><button class="icone-botao" data-fechar-dialogo="${h(d.id)}" aria-label="Fechar formulário" ${!d.podeFechar || d.ocupado ? 'disabled' : ''}>${svg('fechar')}</button></header><div class="dialogo-corpo" tabindex="-1">${d.pagina.subtitulo ? `<p class="mensagem-web">${h(d.pagina.subtitulo)}</p>` : ''}${estado.erro ? `<div class="erro" role="alert">${h(estado.erro)}</div>` : ''}${renderPagina(d.pagina, c)}</div><footer class="dialogo-rodape"><div class="rolagem-dialogo"><button data-rolar-dialogo="subir" aria-label="Rolar formulário para cima">${svg('subir')}</button><button data-rolar-dialogo="descer" aria-label="Rolar formulário para baixo">${svg('descer')}</button></div><div class="acoes-web">${renderAcoes([...d.pagina.acoes.filter(a => a.chave === 'fechar'), ...d.pagina.acoes.filter(a => a.chave !== 'fechar')], c)}</div></footer></section></div>`;
 }
+function chaveRolagem(el: HTMLElement): string {
+  const dialogo = el.closest<HTMLElement>('[data-dialogo]')?.dataset.dialogo;
+  const pagina = el.closest<HTMLElement>('.conteudo');
+  const contexto = dialogo ? `dialogo:${dialogo}` : `pagina:${pagina?.dataset.rota ?? ''}:${pagina?.dataset.contexto ?? ''}`;
+  const tabela = el.closest<HTMLElement>('[data-tabela-container]')?.dataset.tabelaContainer
+    ?? el.querySelector<HTMLElement>('table[data-testid]')?.dataset.testid;
+  return `${contexto}:${tabela ? `tabela:${tabela}` : el.classList.contains('dialogo-corpo') ? 'corpo' : 'rotas'}`;
+}
 function render() {
   const videoAnterior = document.querySelector<HTMLVideoElement>('#video-aula');
   const videoRodando = videoAnterior && !videoAnterior.paused;
@@ -158,7 +167,8 @@ function render() {
   const focoId = foco?.id;
   const selecao = foco?.selectionStart;
   const valorDigitado = foco && 'value' in foco ? foco.value : null;
-  const posicoes = [...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')].map(el => [el, el.scrollTop, el.scrollLeft] as const);
+  const posicoes = new Map([...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')]
+    .map(el => [chaveRolagem(el), [el.scrollTop, el.scrollLeft] as const] as const));
   const mainAnterior = document.querySelector<HTMLElement>('.conteudo');
   const scrollAnterior = mainAnterior?.scrollTop ?? 0;
   const iniciais = estado.usuario.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || 'CL';
@@ -192,7 +202,7 @@ function render() {
     ${avisoDemo ? `<div class="toast" role="status">${h(avisoDemo)}</div>` : ''}${renderDialogo()}`;
   const conteudo = document.querySelector<HTMLElement>('.conteudo')!;
   conteudo.scrollTop = scrollAnterior;
-  [...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')].forEach((el, i) => { const anterior = posicoes[i]; if (anterior) { el.scrollTop = anterior[1]; el.scrollLeft = anterior[2]; } });
+  [...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')].forEach(el => { const anterior = posicoes.get(chaveRolagem(el)); if (anterior) { el.scrollTop = anterior[0]; el.scrollLeft = anterior[1]; } });
   document.querySelectorAll<HTMLElement>('.topbar,.menu-expandido,.fundo-menu,.atalhos-rolagem,.painel-avisos').forEach(el => el.inert = !!estado.dialogo);
   conteudo.addEventListener('scroll', atualizarRolagem, { passive: true });
   requestAnimationFrame(atualizarRolagem);

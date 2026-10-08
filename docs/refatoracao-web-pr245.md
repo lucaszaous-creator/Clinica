@@ -49,3 +49,7 @@ Os cinco pacotes foram gerados e tiveram a abertura conferida até a entrada, se
 Os testes de persistência locais usaram SQLite sintético. A integração com PostgreSQL é verificada pelo CI quando disponível e pela homologação em banco separado. Não houve envio real de WhatsApp, cobrança/Pix, assinatura paga SafeID ou publicação de documentos. Câmera física, impressora e segundo monitor físico precisam da homologação local do usuário. Nenhum teste aqui certifica todas as combinações de dados, perfis ou integrações externas.
 
 Não houve nova auditoria do Jev nesta etapa de implementação. Os três agentes trabalharam nos módulos e seus testes; a comparação de contratos e as verificações do repositório são determinísticas. A PR permanece em rascunho, sem merge e sem publicação em produção.
+
+A revisão posterior dos relatos de homologação, incluindo a consulta pontual efetiva
+ao Jev, contraste global, buscas e agenda densa, está documentada em
+`docs/ajustes-homologacao-pr245.md`.

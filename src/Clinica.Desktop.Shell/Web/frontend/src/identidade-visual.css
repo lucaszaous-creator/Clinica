@@ -1,0 +1,61 @@
+/* Superfícies e ações da suíte inteira: a cor identifica hierarquia, sem substituir os rótulos. */
+:root{--marca:#2453bd;--marca-hover:#174095;--texto:#18304f;--suave:#516581;--linha:#cbd8e9;--fundo:#eaf0f7;--verde:#237a55;--vermelho:#ae3443;background:var(--fundo);color:var(--texto)}
+body{background:var(--fundo)}
+#app .conteudo{background:var(--fundo);padding-top:26px}
+#app .topbar{border-bottom:1px solid #bfcee2;box-shadow:0 2px 9px #18304f12}
+#app .cabecalho-pagina{padding:20px 22px;border:1px solid #bfcfe5;border-left:5px solid var(--marca);border-radius:13px;background:#f8faff;box-shadow:0 3px 10px #1b315410;margin-bottom:22px}
+#app .cabecalho-pagina h1{font-weight:600;color:#18304f}
+#app .cabecalho-pagina p{color:#506787;font-size:13px}
+#app .secao-web,#app .cartao-resultado,#app .cartao-serie,#app .indicador-web,#app .grafico-web{border-color:#c5d3e6;box-shadow:0 3px 10px #18304f0c;background:#fff}
+#app .secao-web{padding:0 22px 22px;overflow:visible}
+#app .cabecalho-secao{background:#eef4fc;border-bottom:1px solid #c9d8eb;margin:0 -22px 22px;padding:16px 22px;border-radius:15px 15px 0 0;align-items:center}
+#app .cabecalho-secao h2{font-weight:600;color:#234971}
+#app .campos-web{padding:18px;border:1px solid #c8d6e8;border-radius:12px;background:#f5f8fd;gap:17px 20px;grid-template-columns:repeat(auto-fit,minmax(min(245px,100%),1fr))}
+#app .campo-web>label{color:#3f587a;font-weight:600;font-size:12px}
+#app .campo-web input,#app .campo-web select,#app .campo-web textarea{border-color:#b8cbe3;box-shadow:0 1px 3px #24416408;color:#18304f;background:#fff}
+#app .campo-web input:hover:not(:disabled),#app .campo-web select:hover:not(:disabled),#app .campo-web textarea:hover:not(:disabled){border-color:#7397c8}
+#app .campo-web output{padding:9px 12px;min-height:40px;background:#eaf0f8;border:1px solid #d2dfef;border-radius:8px;color:#24405f}
+#app .campo-leitura{gap:5px}
+#app .campo-web :disabled{background:#edf1f6;color:#60718a;box-shadow:none}
+#app .botao{background:#e7effb;border:1px solid #aac1e3;color:#234e8b;min-height:37px;height:auto;padding:9px 13px;font-weight:600;box-shadow:0 1px 2px #1b365415}
+#app .botao:hover:not(:disabled){background:#d6e5fa;border-color:#719bd2;box-shadow:0 2px 5px #23497120}
+#app .botao.primario{background:var(--marca);border-color:var(--marca);color:#fff;box-shadow:0 2px 5px #214dac24}
+#app .botao.primario:hover:not(:disabled){background:var(--marca-hover)}
+#app .botao.perigo{background:#fdebef;border-color:#e6a9b4;color:#9e2b3d}
+#app .botao.perigo:hover:not(:disabled){background:#fad8df;border-color:#c76b7c}
+#app button:disabled{opacity:.65;box-shadow:none;filter:saturate(.35)}
+#app .botao:disabled{background:#e7ecf3;border-color:#c9d2df;color:#6b7890}
+#app .nav-gatilho.ativo,#app .rota.ativo{background:#dce8ff;color:#1849b2;font-weight:600}
+#app .ancoras-secoes{flex-wrap:wrap;overflow:visible;padding-bottom:4px}
+#app .ancoras-secoes button,#app .clinico-menu>summary{background:#e6eefb;color:#284f83;border-color:#afc5e2;font-weight:600}
+#app .clinico-abas{background:#e4edf9;padding:8px;border:1px solid #bfcfe4;border-radius:10px;gap:5px;flex-wrap:wrap}
+#app .botao.clinico-aba{background:transparent;border-color:transparent;box-shadow:none}
+#app .botao.clinico-aba-ativa{background:#2453bd;color:white;border-radius:7px;border-color:#2453bd}
+#app .clinico-barra{padding-top:12px;border-top:0}
+#app .tabela-scroll{border-color:#c1d2e8;background:#fff}
+#app th{background:#e8f0fb;color:#355579;font-weight:600;border-bottom:1px solid #b9cfe8}
+#app td{border-bottom-color:#dbe5f1;padding:12px 14px}
+#app tbody tr:nth-child(even){background:#f4f7fc}
+#app tbody tr:hover{background:#e8f1fd}
+#app .linha-selecionada{background:#e2edff!important;box-shadow:inset 4px 0 #2453bd}
+#app .titulo-tabela{color:#355579;padding-bottom:8px;border-bottom:1px solid #d0dced}
+#app .titulo-tabela h3{font-weight:600}
+#app .etiqueta-web{background:#e5eefc;border:1px solid #c3d5ef;color:#315989;font-weight:500}
+#app .dialogo-cabecalho{background:#eaf2fe;border-bottom-color:#bdcee6;color:#23476e}
+#app .dialogo-corpo{background:#edf2f9}
+#app .dialogo-rodape{background:#edf4ff;border-top-color:#bacde7}
+#app .editor-web{border-color:#b9cee9;box-shadow:0 2px 6px #2441640d}
+#app .editor-web>label,#app .editor-ferramentas{background:#e8f0fb;padding-bottom:12px;border-bottom-color:#c4d6ed}
+#app .editor-conteudo{background:#fff}
+#app .mensagem-web{background:#e8f1ff;border-color:#abc5e8;color:#2c527b}
+#app .erro{background:#ffeded;color:#9a3040;border:1px solid #e8afb7}
+#app .indicador-web{border-top:4px solid #618ac7;gap:8px}
+#app .aviso-lista{background:#fff3d6;color:#765114;border:1px solid #e1c78b}
+#app .controle-tabela button,#app .atalhos-rolagem{background:#e8f0fd;border-color:#b7cce9;color:#315785}
+#app .painel-avisos{border-color:#b3c9e7;background:#f4f8ff}
+#app .painel-avisos header{padding-bottom:12px;border-bottom:1px solid #c2d4ed}
+@media(max-width:1100px){#app .cabecalho-pagina{flex-wrap:wrap}#app .cabecalho-pagina>.acoes-web{max-width:100%}#app .secao-web{padding:0 18px 18px}#app .cabecalho-secao{margin:0 -18px 18px;padding:14px 18px}#app .campos-web{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}}
+@media(max-width:700px){#app .conteudo{padding-left:12px;padding-right:12px}#app .cabecalho-pagina{padding:16px}#app .secao-web{padding:0 14px 14px}#app .cabecalho-secao{margin:0 -14px 14px;padding:14px}#app .campos-web{padding:14px}}
+#app .cabecalho-pagina:has(.clinico-acoes){display:block}#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled),#app .clinico-fluxo [data-comando="IniciarSessao"]:not(:disabled){background:var(--marca);border-color:var(--marca);color:#fff}#app .clinico-fluxo [data-comando="ReabrirSessao"]:not(:disabled){background:#fff0d0;border-color:#d7ba7d;color:#795412}#app .clinico-menu-conteudo{border-color:#abc5e7;background:#f5f9ff}#app .clinico-menu-conteudo .botao{border:1px solid #c4d6ee;background:#eaf1fc}
+
+#app .dialogo-descricao{white-space:pre-line;margin:0 0 18px;padding:16px 18px;background:#e3edfc;border:1px solid #aec6e7;border-left:4px solid var(--marca);border-radius:9px;color:#23476e;line-height:1.6}

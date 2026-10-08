@@ -1,6 +1,7 @@
 import {acoesClinicas} from './acoes-clinicas';
 import {controleEspecial} from './controles';
 import {agenda} from './agenda';
+import {camposDaPagina, listaResponsiva, tabelasDaAgenda} from './layouts';
 export type Opcao = { valor: string; rotulo: string };
 export type Campo = { chave: string; rotulo: string; tipo: string; valor: unknown; opcoes: Opcao[]; visivel: boolean; habilitado: boolean; obrigatorio: boolean; ajuda?: string; maximo?:number };
 export type Acao = { chave: string; rotulo: string; habilitada: boolean; estilo: string; visivel: boolean };
@@ -23,7 +24,7 @@ export function limparRascunhos(escopo?: Contexto['escopo']) {
 }
 
 export function acoes(itens: Acao[], contexto: Contexto, classe = '') {
-  return itens.filter(a => a.visivel !== false).map(a => `<button type="button" class="botao ${['primario', 'perigo', 'secundario'].includes(a.estilo) ? a.estilo : ''} ${classe}" data-comando="${h(a.chave)}" ${atributos(contexto)} ${a.habilitada === false || contexto.ocupado ? 'disabled' : ''}>${h(a.rotulo)}</button>`).join('');
+  return itens.filter(a => a.visivel !== false).map(a => `<button type="button" class="botao ${['primario', 'perigo', 'secundario'].includes(a.estilo) ? a.estilo : 'secundario'} ${classe}" data-comando="${h(a.chave)}" ${atributos(contexto)} ${a.habilitada === false || contexto.ocupado ? 'disabled' : ''}>${h(a.rotulo)}</button>`).join('');
 }
 
 export function campo(f: Campo, c: Contexto): string {
@@ -57,14 +58,18 @@ export function campo(f: Campo, c: Contexto): string {
     const htmlTipo = ({ data: 'date', date: 'date', mes: 'month', month: 'month', numero: 'number', number: 'number', busca: 'search', search: 'search', email: 'email', senha: 'password' } as Record<string, string>)[tipo] ?? 'text';
     controle = `<input type="${htmlTipo}" ${comum} value="${h(valor)}" ${htmlTipo === 'number' ? 'step="any"' : `maxlength="${f.maximo??5000}"`} ${['decimal', 'moeda', 'dinheiro'].includes(tipo) ? 'inputmode="decimal"' : ''} autocomplete="off"/>`;
   }
-  return `<div class="campo-web ${['textarea', 'multilinha'].includes(tipo)||tipo==='leitura'&&String(valor??'').length>140 ? 'campo-largo' : ''}"><label for="${h(id)}">${h(f.rotulo)}${f.obrigatorio ? '<span class="obrigatorio" aria-hidden="true"> *</span>' : ''}</label>${controle}${ajuda}</div>`;
+  return `<div class="campo-web ${['leitura','readonly','texto-estatico'].includes(tipo)?'campo-leitura':''} ${['textarea', 'multilinha'].includes(tipo)||tipo==='leitura'&&String(valor??'').length>140 ? 'campo-largo' : ''}"><label for="${h(id)}">${h(f.rotulo)}${f.obrigatorio ? '<span class="obrigatorio" aria-hidden="true"> *</span>' : ''}</label>${controle}${ajuda}</div>`;
 }
-export const campos = (itens: Campo[], c: Contexto) => itens.some(f => f.visivel !== false) ? `<div class="campos-web">${itens.map(f => campo(f, c)).join('')}</div>` : '';
+export function campos(itens: Campo[], c: Contexto) {
+  const conteudo=itens.map(f=>campo(f,c)).join('');
+  return conteudo?`<div class="campos-web">${conteudo}</div>`:'';
+}
 export function indicadores(itens: Indicador[], c: Contexto) {
   if (!itens.length) return '';
   return `<div class="indicadores-web">${itens.map(i => `<article class="indicador-web"><span>${h(i.rotulo)}</span><strong>${privado(i.valor, c)}</strong>${i.detalhe ? `<small>${privado(i.detalhe, c)}</small>` : ''}</article>`).join('')}</div>`;
 }
 export function tabela(t: Tabela, c: Contexto) {
+  const lista=listaResponsiva(t,c); if(lista!==null)return lista;
   const possuiCampos = t.linhas.some(l => l.campos.some(f => f.visivel !== false));
   const possuiAcoes = t.linhas.some(l => l.acoes.some(a => a.visivel !== false));
   const colunas = t.colunas.length + Number(possuiCampos) + Number(possuiAcoes);
@@ -74,7 +79,7 @@ export function tabela(t: Tabela, c: Contexto) {
     </tbody></table></div><div class="controle-tabela" hidden><button type="button" data-rolar-tabela="esquerda" aria-label="Rolar tabela para a esquerda">←</button><span>Mais colunas</span><button type="button" data-rolar-tabela="direita" aria-label="Rolar tabela para a direita">→</button></div></div>`;
 }
 export function secao(s: Secao, c: Contexto) {
-  return `<section class="secao-web" id="secao-${h(s.chave)}" data-secao="${h(s.chave)}"><div class="cabecalho-secao"><div><h2>${h(s.titulo)}</h2>${s.descricao ? `<p>${privado(s.descricao, c)}</p>` : ''}</div><div class="acoes-web">${acoes(s.acoes, c)}</div></div>${campos(s.campos, c)}${indicadores(s.indicadores, c)}${graficos(s.graficos ?? [], c)}${agenda(s,c)}${s.tabelas.map(t => tabela(t, c)).join('')}</section>`;
+  return `<section class="secao-web" id="secao-${h(s.chave)}" data-secao="${h(s.chave)}"><div class="cabecalho-secao"><div><h2>${h(s.titulo)}</h2>${s.descricao ? `<p>${privado(s.descricao, c)}</p>` : ''}</div><div class="acoes-web">${acoes(s.acoes, c)}</div></div>${campos(s.campos, c)}${indicadores(s.indicadores, c)}${graficos(s.graficos ?? [], c)}${agenda(s,c)}${tabelasDaAgenda(s,c)??s.tabelas.map(t => tabela(t, c)).join('')}</section>`;
 }
 function graficos(itens: Grafico[], c: Contexto) {
   if (!itens.length) return '';
@@ -96,14 +101,15 @@ function graficos(itens: Grafico[], c: Contexto) {
 }
 export function pagina(p: Pagina, c: Contexto) {
   const assinatura=p.chave==='AssinaturaPaciente';
+  const secoes=p.chave==='marcar-horario'?p.secoes.filter(s=>s.chave!=='Cartoes'):p.secoes;
   const termo=assinatura?p.campos.slice(0,4):p.campos, evidencia=assinatura?p.campos.slice(4):[];
-  const miolo=assinatura?campos(termo,c)+p.secoes.map(s=>secao(s,c)).join('')+campos(evidencia,c):campos(p.campos,c);
+  const miolo=assinatura?campos(termo,c)+secoes.map(s=>secao(s,c)).join('')+campos(evidencia,c):camposDaPagina(p,c);
   return `<div class="pagina-web" data-pagina="${h(p.chave)}" aria-busy="${p.carregando}"><section class="cabecalho-pagina"><div><div class="sobretitulo">FINANCEIRO</div><h1>${h(p.titulo)}</h1>${p.subtitulo ? `<p>${h(p.subtitulo)}</p>` : ''}</div><div class="acoes-web">${acoesClinicas(p,c)??acoes(p.acoes, c)}</div></section>
     ${p.naoVerificado ? '<div class="erro" role="alert">Não foi possível verificar os dados. Use Atualizar para tentar novamente.</div>' : ''}
     ${p.mensagem ? `<div class="${p.mensagemEhErro ? 'erro' : 'mensagem-web'}" role="${p.mensagemEhErro ? 'alert' : 'status'}">${privado(p.mensagem, c)}</div>` : ''}
     ${p.carregando ? '<div class="carregando-web" role="status">Atualizando dados…</div>' : ''}
     ${miolo}${indicadores(p.indicadores, c)}
     ${p.truncado ? '<div class="aviso-lista">Existem mais registros. Refine os filtros para localizar o que precisa.</div>' : ''}
-    ${p.secoes.length > 1 ? `<nav class="ancoras-secoes" aria-label="Seções desta página">${p.secoes.map(s => `<button type="button" data-ir-secao="${h(s.chave)}">${h(s.titulo)}</button>`).join('')}</nav>` : ''}
-    ${assinatura?'':p.secoes.map(s => secao(s, c)).join('')}</div>`;
+    ${secoes.length > 1 ? `<nav class="ancoras-secoes" aria-label="Seções desta página">${secoes.map(s => `<button type="button" data-ir-secao="${h(s.chave)}">${h(s.titulo)}</button>`).join('')}</nav>` : ''}
+    ${assinatura?'':secoes.map(s => secao(s, c)).join('')}</div>`;
 }
