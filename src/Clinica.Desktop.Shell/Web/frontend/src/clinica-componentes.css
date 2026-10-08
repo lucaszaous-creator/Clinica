@@ -247,3 +247,7 @@ body,#app .conteudo{background:var(--fundo);color:var(--texto)}
 #app .ancoras-secoes button:hover{background:#efedfa;color:#625093;border-color:transparent}
 #app .botao:active:not(:disabled){transform:none;filter:brightness(.97)}
 @media(prefers-reduced-motion:reduce){#app .nav-gatilho svg{transition:none}#app .botao:active:not(:disabled){filter:none}}
+
+#app .indicador-web[data-tom=positivo]>strong{color:#367969}
+#app .indicador-web[data-tom=saida]>strong{color:#a65e6b}
+#app .indicador-web[data-tom=atencao]>strong{color:#926821}

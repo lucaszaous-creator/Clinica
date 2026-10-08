@@ -41,8 +41,9 @@ export function CampoReact({campo:f,contexto:c}:{campo:Campo;contexto:Contexto})
  else {const htmlTipo:Record<string,string>={data:'date',date:'date',mes:'month',month:'month',numero:'number',number:'number',busca:'search',search:'search',email:'email',senha:'password'};const t=htmlTipo[tipo]??'text';controle=<Input type={t} {...comum} ref={ref as Ref<HTMLInputElement>} defaultValue={String(valor??'')} step={t==='number'?'any':undefined} maxLength={t==='number'?undefined:f.maximo??5000} inputMode={['decimal','moeda','dinheiro'].includes(tipo)?'decimal':undefined} autoComplete="off" placeholder={buscaCampo?(f.chave==='Seletor.Termo'?'Digite o nome ou CPF':'Digite para buscar'):undefined}/>;}
  return <div className={`campo-web ${leitura?'campo-leitura':''} ${buscaCampo?'campo-busca':''} ${['textarea','multilinha'].includes(tipo)||tipo==='leitura'&&String(valor??'').length>140?'campo-largo':''}`}><label htmlFor={id}>{f.rotulo}{f.obrigatorio&&<span className="obrigatorio" aria-hidden="true"> *</span>}</label>{controle}{ajuda}</div>;
 }
+export const campoApresentavel=(f:Campo,c:Contexto)=>f.visivel!==false&&(!['leitura','readonly','texto-estatico'].includes(f.tipo.toLowerCase())||!!String(obterValorCampo(f,c)??'').trim()||!!f.ajuda);
 export function CamposReact({campos,contexto}:{campos:Campo[];contexto:Contexto}){
- const visiveis=campos.filter(f=>f.visivel!==false&&(!['leitura','readonly','texto-estatico'].includes(f.tipo.toLowerCase())||String(obterValorCampo(f,contexto)??'').trim()||f.ajuda));
+ const visiveis=campos.filter(f=>campoApresentavel(f,contexto));
  if(!visiveis.length)return null;
  return <div className={`campos-web ${visiveis.some(f=>/buscar|pesquisar/i.test(f.rotulo)||f.chave==='Seletor.Termo')?'campos-filtros':''}`}>{visiveis.map(f=><CampoReact key={chave(f,contexto)} campo={f} contexto={contexto}/>)}</div>;
 }
@@ -57,7 +58,13 @@ export function AcoesReact({acoes,contexto:c,classe='',tituloMenu='Mais ações'
  const normais=restantes.filter(a=>a.estilo!=='perigo'),perigosas=restantes.filter(a=>a.estilo==='perigo');
  return <>{diretas.map(a=><BotaoReact key={a.chave} acao={a} contexto={c} classe={classe} principal={a===principal}/>)}{restantes.length>0&&<span className="acoes-menu-grupo"><button type="button" className="botao secundario acoes-menu-abrir" data-abrir-acoes={id} aria-haspopup="menu" aria-expanded="false" aria-controls={id} disabled={c.ocupado}>{tituloMenu}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div id={id} className="acoes-menu-painel" popover="auto" role="menu" aria-label={tituloMenu}>{normais.map(a=><BotaoReact key={a.chave} acao={a} contexto={c} classe={classe} menu/>)}{!!normais.length&&!!perigosas.length&&<div className="acoes-menu-divisor" role="separator"/>}{perigosas.map(a=><BotaoReact key={a.chave} acao={a} contexto={c} classe={classe} menu/>)}</div></span>}</>;
 }
-export function IndicadoresReact({indicadores,contexto:c}:{indicadores:Indicador[];contexto:Contexto}){if(!indicadores.length)return null;return <div className="indicadores-web">{indicadores.map((i,index)=><Paper component="article" className="indicador-web" key={`${i.rotulo}:${index}`}><span>{i.rotulo}</span><strong>{texto(i.valor,c)}</strong>{i.detalhe&&<small>{texto(i.detalhe,c)}</small>}</Paper>)}</div>;}
+// A cor identifica a categoria do indicador, sem recalcular ou interpretar seu valor.
+const tonsIndicadores:Record<string,string>={
+ 'Entradas no mês':'positivo','Receita líquida':'positivo','Atendimentos':'positivo','Atendidos':'positivo','Baixadas':'positivo','Baixados':'positivo','Assinados':'positivo',
+ 'Saídas no mês':'saida','Glosadas':'saida','Cancelados':'saida','Faltas':'saida','Não conformidades':'saida',
+ 'Contas vencidas':'atencao','Pendências de faturamento':'atencao','Depósitos atrasados':'atencao','Atrasadas':'atencao','Guias em aberto':'atencao','Pendentes':'atencao','A receber':'atencao'
+};
+export function IndicadoresReact({indicadores,contexto:c}:{indicadores:Indicador[];contexto:Contexto}){if(!indicadores.length)return null;return <div className="indicadores-web">{indicadores.map((i,index)=><Paper component="article" className="indicador-web" data-tom={tonsIndicadores[i.rotulo]} key={`${i.rotulo}:${index}`}><span>{i.rotulo}</span><strong>{texto(i.valor,c)}</strong>{i.detalhe&&<small>{texto(i.detalhe,c)}</small>}</Paper>)}</div>;}
 export function TabelaReact({tabela:t,contexto:c}:{tabela:Tabela;contexto:Contexto}){
  const colunas=useMemo<ColumnDef<LinhaPagina>[]>(()=>t.colunas.map(col=>({id:col.chave,accessorFn:l=>l.celulas[col.chave]??'',sortingFn:'alphanumeric'})),[t.colunas]);
  const modelo=useReactTable({data:t.linhas,columns:colunas,getRowId:l=>l.id,getCoreRowModel:getCoreRowModel(),getSortedRowModel:getSortedRowModel()});
