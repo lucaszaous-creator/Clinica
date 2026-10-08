@@ -4,7 +4,7 @@ A apresentação do executável Financeiro é HTML/CSS/TypeScript local em WebVi
 
 ## Executar
 
-Na pasta `Web/frontend`, execute `npm ci` e `npm run build`. Na raiz, `dotnet run --project src/Clinica.Financeiro` usa a configuração e autenticação normais. **Não use esse comando para testar contra a clínica**: para testes isolados, use o harness abaixo.
+Instale e compile primeiro `src/Clinica.Desktop.Shell/Web/frontend` com `npm ci` e `npm run build`, pois fornece os componentes React compartilhados. Depois, na pasta `Web/frontend` deste módulo, execute `npm ci` e `npm run build`. Na raiz, `dotnet run --project src/Clinica.Financeiro` usa a configuração e autenticação normais. **Não use esse comando para testar contra a clínica**: para testes isolados, use o harness abaixo.
 
 O instalador inclui WebView2 como pré-requisito e todos os assets em `Web/wwwroot`; não há servidor web ou CDN. Falha no componente visual mostra instrução de reparo. A navegação financeira não abre o shell ou formulários WPF antigos. Os demais executáveis ainda podem usar suas views nativas, preservadas durante esta migração.
 
@@ -20,7 +20,7 @@ Caixa, contas a pagar/receber, inadimplência, plano de contas, fluxo de caixa, 
 - `FinanceiroPaginasController` e registro: DTOs explícitos e propriedades/comandos permitidos para cada rota. Contexto de navegação e IDs opacos impedem usar ações de uma tela anterior ou registros fora da lista atual.
 - `DialogosFinanceiroController` e catálogo: formulários com os ViewModels existentes, campos permitidos, validação, pilha de diálogos filhos e conclusão assíncrona. Cada diálogo possui um ID próprio.
 - `DialogosDaSessao` no shell: apresentador assíncrono restrito ao fluxo de execução. Mantém a apresentação nativa dos outros aplicativos e utiliza o apresentador web nas operações do Financeiro.
-- `frontend/src/paginas.ts`: componentes compartilhados de campos, indicadores, tabelas, gráficos, ações e páginas; `main.ts` mantém o resumo visual, navegação e protocolo; CSS e fontes locais.
+- `Clinica.Desktop.Shell/Web/frontend/src/paginas-react.tsx`: componentes React compartilhados de campos, indicadores, tabelas, ações e páginas; `frontend/src/main.tsx` mantém o resumo visual, navegação e protocolo; CSS e fontes locais.
 
 A página envia `pagina-campo`/`pagina-acao` com contexto e chaves registradas. Diálogos usam `dlg-campo`, `dlg-acao` e `dlg-fechar` com ID vigente. Nenhum nome arbitrário de método ou propriedade recebido do navegador é refletido no modelo. Confirmações, erros e cancelamento continuam explícitos. O canal de um diálogo filho permanece disponível enquanto o comando pai aguarda sua resposta.
 

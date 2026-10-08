@@ -3,18 +3,23 @@ import './paginas.css';
 import './navegacao.css';
 import './suite.css';
 import './identidade-visual.css';
+import './movimento-react.css';
+import {createElement as elementoReact} from 'react';
+import {createRoot} from 'react-dom/client';
+import {flushSync} from 'react-dom';
+import {SuiteReact,type EstadoSuite} from './suite-react';
 import {ligarControles,emDesenho} from './controles';
-import {treinamento,filtroTreinamento,prepararVideo,type Catalogo,type Aula} from './treinamento';
-import {pagina,acoes,guardarRascunho,limparRascunhos,type Pagina,type Contexto} from './paginas';
-import {createElement,ChevronDown,ChevronUp,Search,X,ArrowDown,ArrowUp,Bell,GraduationCap,ClipboardCheck,type IconNode} from 'lucide';
+import {filtroTreinamento,prepararVideo} from './treinamento';
+import {guardarRascunho,limparRascunhos,type Contexto} from './paginas';
 
 type Mensagem={acao:string;valor?:unknown;chave?:string;contexto?:string;id?:string;tabela?:string;linha?:string};
-type Estado={ferramentas?:{naoLidos:number;avisos:{mensagem:string;tipo:string;hora:string}[];filaInfusaoDisponivel:boolean;resumoAssinaturasInfusao:string;treinamentoDisponivel:boolean};treinamento?:Catalogo;aula?:Aula;videoUrl?:string;tipo:'estado';titulo:string;usuario:string;ocupado:boolean;erro?:string;rotas:{chave:string;rotulo:string;grupo:string}[];pagina?:Pagina & {contexto:string};dialogo?:{id:string;pagina:Pagina;ocupado:boolean;podeFechar:boolean};aviso?:{texto:string;tipo:string}};
+type Estado=EstadoSuite;
 type Ponte={postMessage:(m:Mensagem)=>void;addEventListener:(tipo:'message',acao:(e:MessageEvent)=>void)=>void};
 declare global{interface Window{chrome?:{webview?:Ponte}}}
 const ponte=window.chrome?.webview,app=document.querySelector<HTMLDivElement>('#app')!;
+const raizReact=createRoot(app);
 const h=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-const svg=(icone:IconNode)=>createElement(icone,{width:18,height:18,'aria-hidden':'true','stroke-width':1.7}).outerHTML;
+
 let estado:Estado={tipo:'estado',titulo:'Clínica SemDor',usuario:'',ocupado:false,rotas:[]};
 let treinoAberto=false,avisosAbertos=false;
 let grupo:string|null=null,buscaAberta=false,usuarioAberto=false,busca='',retorno='';
@@ -49,19 +54,12 @@ function render(){
  const areasRolagem='.conteudo,.dialogo-corpo,.tabela-scroll,.agenda-sessoes-dia,.agenda-rolagem';
  const pos=new Map([...document.querySelectorAll<HTMLElement>(areasRolagem)].map(e=>[chaveRolagem(e),[e.scrollTop,e.scrollLeft]]));
  const detalhes=new Map([...document.querySelectorAll<HTMLDetailsElement>('details[data-preservar]')].map(e=>[JSON.stringify([e.closest<HTMLElement>('[data-pagina]')?.dataset.pagina,e.dataset.preservar]),e.open]));
- const grupos=[...new Set(estado.rotas.map(r=>r.grupo))];const p=estado.pagina,d=estado.dialogo;
- const ctx:Contexto={escopo:'pagina',id:p?.contexto??'',ocupado:estado.ocupado};
- app.innerHTML=`<header class="topbar" ${d?'inert':''}><a class="marca" href="#" data-inicio aria-label="Clínica SemDor — início"><img src="./logo-clinica.png" alt="Clínica SemDor"/></a><nav class="navegacao-topo" aria-label="Navegação do aplicativo">${grupos.map((g,i)=>`<div class="grupo-topo" data-grupo="${i}"><button id="grupo-${i}" class="nav-gatilho ${estado.rotas.some(r=>r.grupo===g&&r.chave===p?.chave)?'ativo':''}" data-grupo-botao="${i}" aria-expanded="${grupo===String(i)}" aria-controls="submenu-${i}">${h(g)}${svg(ChevronDown)}</button><div class="submenu-topo" id="submenu-${i}" ${grupo===String(i)?'':'hidden'}>${estado.rotas.filter(r=>r.grupo===g).map(r=>`<button class="rota ${p?.chave===r.chave?'ativo':''}" data-rota="${h(r.chave)}" ${p?.chave===r.chave?'aria-current="page"':''}>${h(r.rotulo)}</button>`).join('')}</div></div>`).join('')}</nav><button class="busca-global" data-treinamento aria-label="Treinamento">${svg(GraduationCap)}</button>${estado.ferramentas?.filaInfusaoDisponivel?`<button class="busca-global" data-fila-infusao aria-label="${h(estado.ferramentas.resumoAssinaturasInfusao)}">${svg(ClipboardCheck)}</button>`:''}<button class="busca-global" data-avisos aria-label="Notificações">${svg(Bell)}${estado.ferramentas?.naoLidos?`<small>${estado.ferramentas.naoLidos}</small>`:''}</button><button class="busca-global" data-busca aria-label="Pesquisar uma tela">${svg(Search)}</button><div class="usuario-area"><button class="usuario" data-usuario aria-expanded="${usuarioAberto}"><span class="avatar">${h(estado.usuario.slice(0,1))}</span><span class="nome-usuario">${h(estado.usuario)}</span>${svg(ChevronDown)}</button>${usuarioAberto?'<div class="menu-usuario"><button class="botao" data-sessao="trocar-senha">Trocar minha senha</button><button class="botao" data-sessao="trocar-usuario">Trocar usuário</button></div>':''}</div></header>
- <main class="conteudo" data-rota="${h(p?.chave)}" tabindex="-1" ${d?'inert':''}>${estado.erro&&!d?`<div class="erro" role="alert">${h(estado.erro)}</div>`:''}${treinoAberto?treinamento(estado.treinamento,estado.aula,estado.videoUrl):p?pagina(p,ctx):`<div class="mensagem-web" role="status">${ponte?'Carregando o aplicativo…':'Abra esta interface pelo aplicativo da clínica.'}</div>`}<footer class="rodape-pagina"><span>${h(estado.titulo)}</span><span>Clínica SemDor</span></footer></main>
- <div class="atalhos-rolagem" ${d?'inert':''}><button data-rolar="subir" aria-label="Rolar para cima">${svg(ArrowUp)}</button><button data-rolar="descer" aria-label="Rolar para baixo">${svg(ArrowDown)}</button></div>
- ${buscaAberta?`<div class="fundo-menu" data-fechar-busca></div><div class="menu-expandido"><label class="busca-menu">${svg(Search)}<input id="busca-tela" type="search" aria-label="Pesquisar tela" value="${h(busca)}"/></label><div class="rotas">${estado.rotas.filter(r=>r.rotulo.toLocaleLowerCase('pt-BR').includes(busca.toLocaleLowerCase('pt-BR'))).map(r=>`<button class="rota" data-rota="${h(r.chave)}">${h(r.rotulo)}<small>${h(r.grupo)}</small></button>`).join('')}</div></div>`:''}
- ${d?`<div class="fundo-dialogo"><section class="dialogo-web" role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo" ${d.pagina.subtitulo?'aria-describedby="descricao-dialogo"':''} data-dialogo="${h(d.id)}"><header class="dialogo-cabecalho"><h2 id="titulo-dialogo">${h(d.pagina.titulo)}</h2><button class="icone-botao" data-fechar-dialogo aria-label="Fechar formulário" ${d.podeFechar?'':'disabled'}>${svg(X)}</button></header><div class="dialogo-corpo">${estado.erro?`<div class="erro" role="alert">${h(estado.erro)}</div>`:''}${d.pagina.subtitulo?`<p class="dialogo-descricao" id="descricao-dialogo">${h(d.pagina.subtitulo)}</p>`:''}${pagina(d.pagina,{escopo:'dialogo',id:d.id,ocupado:d.ocupado})}</div><footer class="dialogo-rodape"><div class="rolagem-dialogo"><button data-rolar-dialogo="subir" aria-label="Rolar formulário para cima">${svg(ChevronUp)}</button><button data-rolar-dialogo="descer" aria-label="Rolar formulário para baixo">${svg(ChevronDown)}</button></div><div class="acoes-web">${acoes(d.pagina.acoes,{escopo:'dialogo',id:d.id,ocupado:d.ocupado})}</div></footer></section></div>`:''}
- ${avisosAbertos?`<aside class="painel-avisos" role="dialog" aria-label="Avisos desta sessão"><header><h2>Avisos</h2><button class="botao" data-avisos>Fechar</button></header>${estado.ferramentas?.avisos.length?estado.ferramentas.avisos.map(a=>`<article><time>${h(a.hora)}</time><p>${h(a.mensagem)}</p></article>`).join(''):'<p>Nenhum aviso nesta sessão.</p>'}</aside>`:''}
- ${estado.aviso?`<div class="toast ${estado.aviso.tipo==='erro'?'toast-erro':''}" role="status">${h(estado.aviso.texto)}</div>`:''}`;
+ // A resposta do WebView2 deve estar no DOM antes de restaurar foco/rolagem e ligar canvas.
+ flushSync(()=>raizReact.render(elementoReact(SuiteReact,{estado,grupo,buscaAberta,usuarioAberto,busca,treinoAberto,avisosAbertos,ponteDisponivel:!!ponte})));
  document.querySelectorAll<HTMLElement>(areasRolagem).forEach(el=>{const anterior=pos.get(chaveRolagem(el));if(anterior){el.scrollTop=anterior[0];el.scrollLeft=anterior[1]}});
  document.querySelectorAll<HTMLDetailsElement>('details[data-preservar]').forEach(el=>{const anterior=detalhes.get(JSON.stringify([el.closest<HTMLElement>('[data-pagina]')?.dataset.pagina,el.dataset.preservar]));if(anterior!==undefined)el.open=anterior});
- if(id){const alvo=document.getElementById(id) as HTMLInputElement|null;if(alvo){if(editor)alvo.innerHTML=editor.html;alvo.focus({preventScroll:true});if(editor)restaurarSelecao(alvo,editor.selecionado);else if(['text','search','textarea','password'].includes(alvo.type))alvo.setSelectionRange(inicio??0,fim??0)}}
- const videoNovo=document.querySelector<HTMLVideoElement>('#video-aula');if(videoAnterior&&videoNovo&&videoNovo.src===videoAnterior.src){videoNovo.replaceWith(videoAnterior);if(videoRodando)void videoAnterior.play().catch(()=>{});queueMicrotask(()=>delete videoAnterior.dataset.movendo)}
+ if(id){const alvo=document.getElementById(id) as HTMLInputElement|null;if(alvo){if(editor&&alvo!==foco)alvo.innerHTML=editor.html;alvo.focus({preventScroll:true});if(editor&&alvo!==foco)restaurarSelecao(alvo,editor.selecionado);else if(['text','search','textarea','password'].includes(alvo.type))alvo.setSelectionRange(inicio??0,fim??0)}}
+ const videoNovo=document.querySelector<HTMLVideoElement>('#video-aula');if(videoAnterior&&videoNovo&&videoNovo.src===videoAnterior.src){if(videoNovo!==videoAnterior){videoNovo.currentTime=videoAnterior.currentTime;}if(videoRodando)void videoAnterior.play().catch(()=>{});queueMicrotask(()=>delete videoAnterior.dataset.movendo)}
  prepararVideo((acao,chave,valor)=>postar({acao,chave,valor,contexto:estado.pagina?.contexto}));
  ligarControles(app,alterarEspecial);
  document.querySelectorAll<HTMLElement>('.tabela-web').forEach(t=>{const sc=t.querySelector<HTMLElement>('.tabela-scroll'),ct=t.querySelector<HTMLElement>('.controle-tabela');if(sc&&ct)ct.hidden=sc.scrollWidth<=sc.clientWidth+1});

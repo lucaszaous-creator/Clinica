@@ -17,6 +17,7 @@ A referência de implementação é `src/Clinica.Modulo.Financeiro/Web/`. Este p
 - O contrato com C# é explícito e limitado às rotas, campos e ações registrados. Validar autorização no host em cada operação, resolver IDs na lista/contexto atual e rejeitar nomes arbitrários de propriedade ou método enviados pelo cliente. Nunca expor credenciais, conexão de banco, objetos .NET ou execução de código ao HTML.
 - Revalidar a sessão, impedir dupla gravação, sinalizar carregamento/erro/resultado e preservar o formulário ao falhar. Cancelar um diálogo nunca equivale a confirmar. Navegação e respostas atrasadas não podem aplicar dados ao contexto errado.
 - Todos os recursos visuais são locais, sem CDN. O modo de demonstração é explícito, contém somente dados fictícios e nunca substitui silenciosamente uma falha da aplicação real.
+- A apresentação dos cinco módulos usa React + TypeScript + CSS desde a revisão da PR 245. Componentes compartilhados ficam em `Clinica.Desktop.Shell/Web/frontend/src/*react*`; o resumo financeiro tem JSX próprio. Preservar as chaves por contexto/campo/registro e o contrato `data-*` da ponte. Não voltar a substituir o HTML inteiro a cada resposta. Controles especializados mantêm adaptadores explícitos; consulte `docs/react-pr245.md`. Compilar o frontend compartilhado antes do Financeiro. Movimentos são curtos, respeitam `prefers-reduced-motion` e não reiniciam ao atualizar resultados de busca.
 
 ## Evidência de entrega
 

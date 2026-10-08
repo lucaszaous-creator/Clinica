@@ -63,6 +63,7 @@ static class WebQa
                 janela.Width = largura; janela.Height = altura;
                 await Task.Delay(300);
                 await Esperar("document.documentElement.scrollWidth <= window.innerWidth + 1");
+                await Esperar("(()=>{const tabela=document.querySelector('.movimentos>.tabela-scroll');return tabela&&tabela.scrollWidth<=tabela.clientWidth+1})()");
                 await Esperar("JSON.stringify([...document.querySelectorAll('.navegacao-topo [data-action=navegar]')].map(b=>b.dataset.value).sort()) === " + JsonSerializer.Serialize(JsonSerializer.Serialize(rotas.OrderBy(r => r).ToArray())));
                 await Esperar("(()=>{const itens=[...document.querySelectorAll('.navegacao-topo>*,.busca-global,.ferramenta-topo,.usuario-area')].map(e=>e.getBoundingClientRect());return itens.every(r=>r.left>=0 && r.right<=innerWidth+1) && !itens.some((a,i)=>itens.slice(i+1).some(b=>Math.min(a.right,b.right)>Math.max(a.left,b.left)+1 && Math.min(a.bottom,b.bottom)>Math.max(a.top,b.top)+1));})()");
                 await Esperar("[...document.querySelectorAll('.busca-global,.ferramenta-topo')].every(b=>{const r=b.getBoundingClientRect();return r.width>0&&r.height>0&&b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))})");
@@ -96,6 +97,14 @@ static class WebQa
             janela.Width = 1440; janela.Height = 900;
             await Task.Delay(200);
             await FinanceiroFerramentasQa.Executar(servicos, janela, navegador, treinamento, saida);
+            await navegador.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setEmulatedMedia", "{\"features\":[{\"name\":\"prefers-reduced-motion\",\"value\":\"reduce\"}]}");
+            await Ler("document.querySelector('[data-local=usuario]').click()");
+            await Esperar("matchMedia('(prefers-reduced-motion: reduce)').matches && [...document.querySelectorAll('.menu-usuario,.resumo-react,.botao')].every(el=>getComputedStyle(el).animationDuration.split(',').every(t=>parseFloat(t)<=0.01)&&getComputedStyle(el).transitionDuration.split(',').every(t=>parseFloat(t)<=0.01))");
+            await Ler("document.querySelector('[data-local=usuario]').click()");
+            await navegador.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setEmulatedMedia", "{\"features\":[]}");
+            Console.WriteLine("OK React financeiro: preferência de movimento reduzido respeitada sem alterar configuração do Windows.");
+            // Reconciliação React: atualizar os valores não remonta navegação, busca ou tabela.
+            await Ler("window.qaReactFinanceiro={topo:document.querySelector('.topbar'),busca:document.getElementById('busca'),tabela:document.querySelector('[data-testid=tabela-lancamentos]')}");
             await Ler("document.querySelector('[data-testid=alternar-privacidade]').click()");
             await Esperar("!(/R\\$\\s*[0-9]/.test(document.querySelector('.conteudo').innerText))");
             await Ler("document.querySelector('[data-testid=alternar-privacidade]').click()");
@@ -104,8 +113,11 @@ static class WebQa
             using (var imagemMovimentos = File.Create(Path.Combine(saida, "financeiro-web-movimentacoes.png")))
                 await janela.TelaWeb.CapturarPreviewAsync(imagemMovimentos);
             var antes = int.Parse(await Ler(seletorLinhas + ".length"));
-            await Ler("chrome.webview.postMessage({acao:'filtrar',valor:'Materiais'})");
+            await Ler("(()=>{const el=document.getElementById('busca');el.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'Materiais');el.dispatchEvent(new Event('input',{bubbles:true}));el.setSelectionRange(3,3)})()");
             await Esperar($"{seletorLinhas}.length > 0 && {seletorLinhas}.length < {antes}");
+            await Esperar("qaReactFinanceiro.topo===document.querySelector('.topbar') && qaReactFinanceiro.busca===document.getElementById('busca') && qaReactFinanceiro.tabela===document.querySelector('[data-testid=tabela-lancamentos]') && document.activeElement===qaReactFinanceiro.busca && qaReactFinanceiro.busca.value==='Materiais' && qaReactFinanceiro.busca.selectionStart===3");
+            await Ler("document.querySelector('.conteudo').focus()");
+            Console.WriteLine("OK React financeiro: busca ao digitar sem blur/Enter, mesma identidade DOM, foco/cursor preservados após resposta e privacidade.");
             await Ler("chrome.webview.postMessage({acao:'filtrar',valor:''})");
             await Esperar($"{seletorLinhas}.length === {antes}");
             await Ler("chrome.webview.postMessage({acao:'mes',valor:'2040-01'})");
@@ -160,6 +172,12 @@ static class WebQa
             }
             janela.Width = 1100; janela.Height = 720;
             await Navegar("caixa");
+            // O histórico do lançamento previsto está no menu da linha; o helper abre
+            // o popover e exige um alvo visível antes do clique, sem chamar a ponte diretamente.
+            await Clicar(".movimentos .acoes-menu-painel [data-action='historico']");
+            await Esperar("!!document.querySelector('.dialogo-web') && !document.querySelector('.acoes-menu-painel:popover-open')");
+            await Fechar();
+            Console.WriteLine("OK React financeiro: histórico alcançado pelo menu visível da linha, fechamento preservado.");
             await Clicar("[data-action='novo']");
             await Esperar("!!document.querySelector('.dialogo-web')");
             await Clicar(".dialogo-rodape [data-comando='salvar']");

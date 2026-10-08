@@ -55,14 +55,14 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Compilar a interface financeira local
-        working-directory: src/Clinica.Modulo.Financeiro/Web/frontend
+      - name: Compilar interface local da suíte e entrada
+        working-directory: src/Clinica.Desktop.Shell/Web/frontend
         run: |
           npm ci
           npm run build
 
-      - name: Compilar interface local da suíte e entrada
-        working-directory: src/Clinica.Desktop.Shell/Web/frontend
+      - name: Compilar a interface financeira local
+        working-directory: src/Clinica.Modulo.Financeiro/Web/frontend
         run: |
           npm ci
           npm run build

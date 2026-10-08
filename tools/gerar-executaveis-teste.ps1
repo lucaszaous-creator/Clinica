@@ -20,7 +20,7 @@ foreach ($nome in $aplicativos.Keys) {
     $projeto = $aplicativos[$nome]
     $saidaAplicativo = Join-Path $pastaSaida $nome
     $log = Join-Path $pastaSaida ("compilacao-" + $nome + '.log')
-    & $Dotnet publish (Join-Path $raizProjeto "src/$projeto/$projeto.csproj") -c Release -r win-x64 --self-contained true -m:1 -p:BuildInParallel=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -p:ClinicaTesteLocal=true -p:Version=1.0.245-test.20261008.2 -o $saidaAplicativo *> $log
+    & $Dotnet publish (Join-Path $raizProjeto "src/$projeto/$projeto.csproj") -c Release -r win-x64 --self-contained true -m:1 -p:BuildInParallel=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -p:ClinicaTesteLocal=true -p:Version=1.0.245-test.20261008.3 -o $saidaAplicativo *> $log
     if ($LASTEXITCODE -ne 0) { throw "Falha ao compilar $nome. Consulte $log" }
     foreach ($recurso in @("$projeto.exe", 'WebSuite/wwwroot/index.html', 'WebSuite/wwwroot/entrada.html', 'WebSuite/wwwroot/entrada.js', 'WebSuite/wwwroot/assinatura-paciente.html')) {
         if (!(Test-Path -LiteralPath (Join-Path $saidaAplicativo $recurso))) { throw "$nome sem recurso obrigatório: $recurso" }

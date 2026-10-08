@@ -5,9 +5,9 @@ Esta edição portátil contém Recepção, Clínico, Financeiro, Faturamento e 
 No Explorer, use **Extrair tudo** antes de abrir. Executar diretamente dentro do ZIP pode
 deixar os recursos locais inacessíveis e causar o erro de caminho `0x80070003`.
 
-A revisão visual 1.0.245-test.20261008.2 inclui fundo neutro, separação discreta de seções, cores nos botões e estados,
+A revisão React 1.0.245-test.20261008.3 inclui componentes React nos cinco módulos, separação de seções, cores nos botões e estados,
 agenda por dia com cartões legíveis, formulário de marcação organizado por etapas e
-resultados identificáveis nas buscas. Ao homologar, confira também nomes completos,
+resultados identificáveis nas buscas e transições curtas que respeitam a preferência de movimento reduzido. Ao homologar, confira também nomes completos,
 seleção de outro prontuário, valores decimais e todos os detalhes das listas e comandos do menu Mais ações.
 
 ## Banco de teste

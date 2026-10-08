@@ -22,6 +22,11 @@ const privado = (v: string, c: Contexto) => h(c.privado ? v.replace(/R\$\s*[-+âˆ
 const rascunhos = new Map<string, unknown>();
 const chaveRascunho = (c: Contexto, chave: string) => JSON.stringify([c.escopo, c.id, c.tabela, c.linha, chave]);
 export function guardarRascunho(c: Contexto, chave: string, valor: unknown) { rascunhos.set(chaveRascunho(c, chave), valor); }
+export function obterValorCampo(f: Campo, c: Contexto): unknown {
+  const key = chaveRascunho(c, f.chave);
+  if (rascunhos.has(key) && JSON.stringify(rascunhos.get(key) ?? '') === JSON.stringify(f.valor ?? '')) rascunhos.delete(key);
+  return rascunhos.has(key) ? rascunhos.get(key) : f.valor;
+}
 export function limparRascunhos(escopo?: Contexto['escopo']) {
   for (const key of rascunhos.keys()) if (!escopo || JSON.parse(key)[0] === escopo) rascunhos.delete(key);
 }
@@ -85,7 +90,7 @@ export function secao(s: Secao, c: Contexto) {
   c={...c,tituloSecao:s.titulo};
   return `<section class="secao-web" id="secao-${h(s.chave)}" data-secao="${h(s.chave)}"><div class="cabecalho-secao"><div><h2>${h(s.titulo)}</h2>${s.descricao ? `<p>${privado(s.descricao, c)}</p>` : ''}</div><div class="acoes-web">${acoes(s.acoes, c)}</div></div>${campos(s.campos, c)}${indicadores(s.indicadores, c)}${graficos(s.graficos ?? [], c)}${agenda(s,c)}${tabelasDaAgenda(s,c)??s.tabelas.map(t => tabela(t, c)).join('')}</section>`;
 }
-function graficos(itens: Grafico[], c: Contexto) {
+export function graficos(itens: Grafico[], c: Contexto) {
   if (!itens.length) return '';
   return `<div class="graficos-web">${itens.map(g => {
     const existentes = g.pontos.flatMap(p => p.valor !== null && Number.isFinite(p.valor) ? [p.valor] : []);

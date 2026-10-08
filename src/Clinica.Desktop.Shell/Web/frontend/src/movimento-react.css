@@ -1,0 +1,46 @@
+/* Movimento acompanha a ação. Respostas de busca conservam os mesmos nós React. */
+:root{--duracao-interacao:160ms;--curva-interacao:cubic-bezier(.2,.7,.2,1);--superficie:#fff;--superficie-filtro:#e5edf8;--foco:#315bd4}
+#app .pagina-web{animation:pagina-entrar 200ms var(--curva-interacao);min-width:0}
+#app .dialogo-web{animation:dialogo-entrar 220ms var(--curva-interacao);transform-origin:50% 35%}
+#app .fundo-dialogo{animation:fundo-entrar 160ms ease-out}
+#app .submenu-topo:not([hidden]),#app .menu-usuario,#app .menu-expandido,#app [popover]:popover-open{animation:menu-entrar 140ms var(--curva-interacao)}
+#app button,#app input,#app select,#app textarea,#app .registro-cartao,#app .agenda-sessao{transition:background-color var(--duracao-interacao),border-color var(--duracao-interacao),box-shadow var(--duracao-interacao),color var(--duracao-interacao)}
+#app .botao:active:not(:disabled){transform:translateY(1px)}
+#app :is(button,input,select,textarea,summary,[contenteditable]):focus-visible{outline:3px solid #315bd44d;outline-offset:3px}
+#app .campo-web:focus-within>label{color:#2448b2}
+#app .campo-web :is(input,select,textarea):focus{border-color:var(--foco);box-shadow:0 0 0 3px #315bd414}
+#app .registro-cartao:hover{background:#f3f7fd}
+#app .registro-detalhes[open]{padding:10px 14px;background:#f0f4fa;border-radius:8px}
+#app .registro-detalhes[open]>summary{margin-bottom:8px;color:#254e9b}
+#app .profissional-ativo>.botao{background:#dce8ff;border-color:#8aabea;color:#244788}
+#app .profissional-ativo [data-coluna="Quantidade"]{color:#355e9a}
+#app .indicadores-web{background:#dde8f5;border-color:#cad9ed}
+#app .indicador-web strong{color:#243f65}
+#app .secao-web{box-shadow:0 2px 5px #1c365006}
+#app .secao-web>.cabecalho-secao h2{color:#2b4565}
+#app .pagina-web>.campos-web{background:var(--superficie-filtro);border-color:#ccd9eb}
+#app .dialogo-rodape{box-shadow:0 -4px 14px #243f6508}
+#app .clinico-identidade{background:#203d60}
+#app .clinico-cabecalho .botao.clinico-aba-ativa{color:#204d9f;background:#e3edfc;border-bottom-color:#315bd4}
+#app .agenda-lista-dia>header{background:#dfe9f7;color:#2d476d}
+#app .agenda-sessao>time{background:#dce8fb;color:#254c91;font-weight:600}
+#app .agenda-sessao:hover{border-color:#a4bbde;box-shadow:0 2px 8px #27415e0a}
+#app .botao.primario:focus-visible{outline-color:#315bd470}
+#app .botao.perigo{background:#fff3f2}
+#app .toast:not(.toast-erro){background:#234c43}
+#app .toast{animation:aviso-entrar 180ms ease-out}
+/* Quebra por conteúdo, sem cortar comandos ou depender de rolagem lateral. */
+#app :is(.pagina-web,.secao-web,.campos-web,.campo-web,.dialogo-corpo,.cabecalho-secao,.cabecalho-pagina,.acoes-web){min-width:0;max-width:100%}
+#app .botao{white-space:normal;overflow-wrap:anywhere;max-width:100%}
+#app .campo-web :is(input,select,textarea){min-width:0;max-width:100%}
+#app .acoes-web{flex-wrap:wrap}
+#app .dialogo-web{max-width:calc(100vw - 32px)}
+#app .dialogo-rodape{flex-wrap:wrap;gap:10px}
+#app .dialogo-rodape>.acoes-web{flex:1;justify-content:flex-end}
+@keyframes pagina-entrar{from{opacity:.4;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes dialogo-entrar{from{opacity:0;transform:translateY(9px) scale(.99)}to{opacity:1;transform:none}}
+@keyframes fundo-entrar{from{opacity:0}to{opacity:1}}
+@keyframes menu-entrar{from{opacity:0;translate:0 -3px}to{opacity:1;translate:0 0}}
+@keyframes aviso-entrar{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
+@media(max-width:900px){#app .dialogo-web{max-width:calc(100vw - 20px)}#app .cabecalho-pagina>.acoes-web{width:100%;justify-content:flex-start}#app .indicadores-web{grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))}}
+@media(prefers-reduced-motion:reduce){#app *,#app *::before,#app *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}#app .botao:active:not(:disabled){transform:none}}

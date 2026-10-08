@@ -8,7 +8,7 @@ internal static class Program
     [STAThread] static void Main(string[] args)
     {
         var app=new System.Windows.Application{ShutdownMode=System.Windows.ShutdownMode.OnExplicitShutdown};
-        app.Startup+=async(_,_)=>{try {Contratos();if(args.Contains("--acoes-only"))await AcoesMenuQa.Executar();if(args.Contains("--rolagem-only"))await RolagemQa.Executar();if(args.Contains("--web"))await GerenteFluxos.Executar();}catch(Exception ex){Console.WriteLine(ex);Environment.ExitCode=1;}finally{app.Shutdown();}};
+        app.Startup+=async(_,_)=>{try {Contratos();if(args.Contains("--acoes-only"))await AcoesMenuQa.Executar();if(args.Contains("--react-only"))await ReactReconciliacaoQa.Executar();if(args.Contains("--rolagem-only"))await RolagemQa.Executar();if(args.Contains("--web"))await GerenteFluxos.Executar();}catch(Exception ex){Console.WriteLine(ex);Environment.ExitCode=1;}finally{app.Shutdown();}};
         app.Run();
     }
     private static void Contratos()

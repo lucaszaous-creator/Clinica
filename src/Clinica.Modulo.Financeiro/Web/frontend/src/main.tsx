@@ -6,8 +6,14 @@ import '../../../../Clinica.Desktop.Shell/Web/frontend/src/identidade-visual.css
 import { treinamento, filtroTreinamento, prepararVideo, type Catalogo, type Aula } from '../../../../Clinica.Desktop.Shell/Web/frontend/src/treinamento';
 import { GraduationCap, Bell, ClipboardCheck } from 'lucide';
 import { agruparRotas } from './navegacao';
-import { pagina as renderPagina, acoes as renderAcoes, campos as renderCampos, guardarRascunho, limparRascunhos, type Pagina, type Contexto } from './paginas';
-import { createElement, House, Landmark, Wallet, ChartNoAxesCombined, ArrowDownLeft, ArrowUpRight, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, Menu, Download, RefreshCw, X, Receipt, Check, CalendarDays, ArrowLeftRight, Package, Settings2, Rows3, CircleHelp, CreditCard, Expand, ArrowUp, ArrowDown, History, QrCode, Eye, EyeOff, ListChecks, Users, ChartColumn, type IconNode } from 'lucide';
+import { guardarRascunho, limparRascunhos, type Pagina, type Contexto, type Campo } from '../../../../Clinica.Desktop.Shell/Web/frontend/src/paginas';
+import { PaginaReact, CamposReact, AcoesReact, HtmlReact } from '../../../../Clinica.Desktop.Shell/Web/frontend/src/paginas-react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { createElement as criarElementoReact } from 'react';
+import '../../../../Clinica.Desktop.Shell/Web/frontend/src/movimento-react.css';
+import './financeiro-react.css';
+import { House, Landmark, Wallet, ChartNoAxesCombined, ArrowDownLeft, ArrowUpRight, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, Menu, Download, RefreshCw, X, Receipt, Check, CalendarDays, ArrowLeftRight, Package, Settings2, Rows3, CircleHelp, CreditCard, Expand, ArrowUp, ArrowDown, History, QrCode, Eye, EyeOff, ListChecks, Users, ChartColumn, type IconNode } from 'lucide';
 
 type Linha = { id: string; data: string; descricao: string; categoria: string; situacao: string; valor: string; podeRealizar: boolean; podeCancelar: boolean; ehEntrada: boolean };
 type Estado = {
@@ -28,20 +34,19 @@ declare global { interface Window { chrome?: { webview?: Ponte } } }
 const ponte = window.chrome?.webview;
 const demo = !ponte && new URLSearchParams(location.search).get('demo') === '1';
 const app = document.querySelector<HTMLDivElement>('#app')!;
+const raizReact = createRoot(app);
 const icones: Record<string, IconNode> = { casa: House, banco: Landmark, carteira: Wallet, grafico: ChartNoAxesCombined, entrada: ArrowDownLeft, saida: ArrowUpRight, mais: Plus, buscar: Search, baixo: ChevronDown, anterior: ChevronLeft, proximo: ChevronRight, menu: Menu, baixar: Download, atualizar: RefreshCw, fechar: X, recibo: Receipt, confirmar: Check, calendario: CalendarDays, troca: ArrowLeftRight, estoque: Package, ajustes: Settings2, linhas: Rows3, ajuda: CircleHelp, cartao: CreditCard, expandir: Expand, subir: ArrowUp, descer: ArrowDown, historico: History, pix: QrCode, olho: Eye, oculto: EyeOff, contas: ListChecks, profissionais: Users, producao: ChartColumn };
-const svg = (nome: string, classe = '') => {
-  const el = createElement(icones[nome] ?? Rows3, { width: 20, height: 20, 'stroke-width': 1.65, 'aria-hidden': 'true', focusable: 'false', class: classe });
-  return el.outerHTML;
-};
+function Icone({ nome, classe = '' }: { nome: string; classe?: string }) {
+  return <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" className={classe}>{(icones[nome] ?? Rows3).map(([tag, atributos], i) => criarElementoReact(tag, { ...atributos, key: i }))}</svg>;
+}
 Object.assign(icones, { treinamento: GraduationCap, avisos: Bell, infusao: ClipboardCheck });
-const h = (valor: unknown) => String(valor ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const moeda = (valor: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 const hoje = new Date();
 const mesInicial = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
 let estado: Estado = { tipo: 'estado', mes: mesInicial, entradas: '—', saidas: '—', saldo: '—', previsto: '—', liquido: '—', deducoes: '—', ultimoMovimento: 'Nenhum movimento disponível', detalheUltimoMovimento: '', graficoEntradas: '', graficoSaidas: '', serieDisponivel: false, situacaoSerie: 'Aguardando os dados do sistema.', linhas: [], usuario: '', carregando: !!ponte, erro: null, rotas: [], podeEditar: false };
 let valoresOcultos = false;
-const valorVisivel = (valor: string) => valoresOcultos ? '••••' : h(valor);
-const textoPrivado = (texto: string) => h(valoresOcultos ? texto.replace(/R\$\s*[\d.,]+/g, 'R$ ••••') : texto);
+const valorVisivel = (valor: string) => valoresOcultos ? '••••' : valor;
+const textoPrivado = (texto: string) => valoresOcultos ? texto.replace(/R\$\s*[\d.,]+/g, 'R$ ••••') : texto;
 let menuAberto = false;
 let grupoAberto: string | null = null;
 let usuarioAberto = false;
@@ -92,64 +97,103 @@ function enviar(acao: string, valor?: string, id?: string) {
   if (ponte) ponte.postMessage(mensagem);
   else if (demo) acaoDemo(mensagem);
 }
-function botao(acao: string, texto: string, icone?: string, classe = '', desabilitado = false) {
-  return `<button class="botao ${classe}" data-action="${acao}" ${desabilitado ? 'disabled' : ''}>${icone ? svg(icone) : ''}<span>${h(texto)}</span></button>`;
+function Botao({ acao, texto, icone, classe = '', desabilitado = false }: { acao: string; texto: string; icone?: string; classe?: string; desabilitado?: boolean }) {
+  return <button className={`botao ${classe}`} data-action={acao} disabled={desabilitado}>{icone && <Icone nome={icone}/>}<span>{texto}</span></button>;
 }
-function grafico(caminho: string, classe: string, descricao: string) {
-  // O caminho vem do cálculo da série no host. Não se cria curva se não houver série.
+function GraficoResumo({ caminho, classe, descricao }: { caminho: string; classe: string; descricao: string }) {
+  // A série e os cálculos continuam pertencendo ao host; ausência de dados não gera curva ilustrativa.
   if (!estado.serieDisponivel || !caminho || !/^[MLCQSTHVZAmlcqsthvza\d.,\s+eE-]+$/.test(caminho))
-    return `<div class="grafico-vazio">${h(estado.situacaoSerie || 'Sem movimentos para desenhar a série.')}</div>`;
-  return `<svg class="grafico ${classe}" viewBox="0 0 280 58" role="img" aria-label="${h(descricao)}" preserveAspectRatio="none"><path class="linha-base" d="M0 54H280"/><path class="curva" d="${h(caminho)}"/></svg>`;
+    return <div className="grafico-vazio">{estado.situacaoSerie || 'Sem movimentos para desenhar a série.'}</div>;
+  return <svg className={`grafico ${classe}`} viewBox="0 0 280 58" role="img" aria-label={descricao} preserveAspectRatio="none"><path className="linha-base" d="M0 54H280"/><path className="curva" d={caminho}/></svg>;
 }
-function linhas() {
-  if (estado.carregando && !estado.linhas.length) return '<tr><td colspan="5" class="vazio">Carregando os movimentos do mês…</td></tr>';
-  if (!estado.linhas.length) return `<tr><td colspan="5" class="vazio">${svg('linhas')}<strong>${termo ? 'Nenhum movimento encontrado' : 'O mês ainda não tem movimentos'}</strong><span>${termo ? 'Ajuste a busca para encontrar outro lançamento.' : 'Os lançamentos registrados aparecerão aqui.'}</span></td></tr>`;
-  return estado.linhas.map(l => `<tr>
-    <td><div class="descricao"><span class="tipo-movimento ${l.ehEntrada ? 'entrada' : 'saida'}">${svg(l.ehEntrada ? 'entrada' : 'saida')}</span><div><strong>${h(l.descricao)}</strong><small>${h(l.categoria || 'Sem categoria')}</small></div></div></td>
-    <td class="data">${h(l.data)}</td>
-    <td><span class="situacao ${/realizado|pago|recebido/i.test(l.situacao) ? 'realizado' : /cancelado/i.test(l.situacao) ? 'cancelado' : 'previsto'}"><i></i>${h(l.situacao)}</span></td>
-    <td class="valor ${l.ehEntrada ? 'valor-entrada' : ''}">${l.ehEntrada ? '+' : '−'} ${valorVisivel(l.valor.replace(/^[+−-]\s*/, ""))}</td>
-    <td class="acoes-linha">
-      <button class="acao-linha" data-action="historico" data-id="${h(l.id)}" title="Histórico" aria-label="Histórico de ${h(l.descricao)}">${svg('historico')}</button>
-      ${l.ehEntrada && estado.podeEditar ? `<button class="acao-linha" data-action="pix" data-id="${h(l.id)}" title="Cobrar com Pix" aria-label="Cobrar ${h(l.descricao)} com Pix">${svg('pix')}</button>` : ''}
-      ${l.podeRealizar && estado.podeEditar ? `<button class="acao-linha" data-action="realizar" data-id="${h(l.id)}" title="Realizar lançamento" aria-label="Realizar ${h(l.descricao)}">${svg('confirmar')}</button>` : ''}
-      ${l.ehEntrada && /realizado|pago|recebido/i.test(l.situacao) ? `<button class="acao-linha" data-action="recibo" data-id="${h(l.id)}" title="Emitir recibo" aria-label="Emitir recibo de ${h(l.descricao)}">${svg('recibo')}</button>` : ''}
-      ${l.podeCancelar && estado.podeEditar ? `<button class="acao-linha perigo" data-action="cancelar" data-id="${h(l.id)}" title="Cancelar lançamento" aria-label="Cancelar ${h(l.descricao)}">${svg('fechar')}</button>` : ''}
-    </td></tr>`).join('');
+function AcoesMovimento({ linha: l }: { linha: Linha }) {
+  const acoes = [
+    { chave: 'historico', texto: 'Histórico', icone: 'historico', mostrar: true },
+    { chave: 'pix', texto: 'Cobrar com Pix', icone: 'pix', mostrar: l.ehEntrada && estado.podeEditar },
+    { chave: 'realizar', texto: 'Realizar lançamento', icone: 'confirmar', mostrar: l.podeRealizar && estado.podeEditar },
+    { chave: 'recibo', texto: 'Emitir recibo', icone: 'recibo', mostrar: l.ehEntrada && /realizado|pago|recebido/i.test(l.situacao) },
+    { chave: 'cancelar', texto: 'Cancelar lançamento', icone: 'fechar', mostrar: l.podeCancelar && estado.podeEditar },
+  ].filter(a => a.mostrar);
+  const principal = acoes.find(a => a.chave === 'realizar') ?? acoes[0];
+  const restantes = acoes.filter(a => a !== principal);
+  const id = `movimento-acoes-${encodeURIComponent(l.id)}`;
+  const botao = (a: typeof acoes[number], menu = false) => <button key={a.chave} className={`botao ${a.chave === 'cancelar' ? 'perigo' : 'secundario'} acao-movimento`} data-action={a.chave} data-id={l.id} role={menu ? 'menuitem' : undefined} tabIndex={menu ? -1 : undefined} aria-label={`${a.texto}: ${l.descricao}`}><Icone nome={a.icone}/><span>{a.texto}</span></button>;
+  return <div className="acoes-movimento">{botao(principal)}{restantes.length === 1 ? botao(restantes[0]) : restantes.length > 1 && <span className="acoes-menu-grupo"><button type="button" className="botao secundario acoes-menu-abrir" data-abrir-acoes={id} aria-haspopup="menu" aria-controls={id} aria-expanded="false" aria-label={`Mais ações: ${l.descricao}`}>Mais ações<Icone nome="baixo"/></button><div id={id} className="acoes-menu-painel" popover="auto" role="menu" aria-label={`Ações: ${l.descricao}`}>{restantes.map(a => botao(a, true))}</div></span>}</div>;
+}
+function MovimentosResumo() {
+  if (estado.carregando && !estado.linhas.length) return <tr><td colSpan={5} className="vazio">Carregando os movimentos do mês…</td></tr>;
+  if (!estado.linhas.length) return <tr><td colSpan={5} className="vazio"><Icone nome="linhas"/><strong>{termo ? 'Nenhum movimento encontrado' : 'O mês ainda não tem movimentos'}</strong><span>{termo ? 'Ajuste a busca para encontrar outro lançamento.' : 'Os lançamentos registrados aparecerão aqui.'}</span></td></tr>;
+  return <>{estado.linhas.map(l => <tr key={l.id}>
+    <td><div className="descricao"><span className={`tipo-movimento ${l.ehEntrada ? 'entrada' : 'saida'}`}><Icone nome={l.ehEntrada ? 'entrada' : 'saida'}/></span><div><strong>{l.descricao}</strong><small>{l.categoria || 'Sem categoria'}</small></div></div></td>
+    <td className="data" data-rotulo="Data">{l.data}</td>
+    <td data-rotulo="Situação"><span className={`situacao ${/realizado|pago|recebido/i.test(l.situacao) ? 'realizado' : /cancelado/i.test(l.situacao) ? 'cancelado' : 'previsto'}`}><i/>{l.situacao}</span></td>
+    <td data-rotulo="Valor" className={`valor ${l.ehEntrada ? 'valor-entrada' : ''}`}>{l.ehEntrada ? '+' : '−'} {valorVisivel(l.valor.replace(/^[+−-]\s*/, ''))}</td>
+    <td className="acoes-linha"><AcoesMovimento linha={l}/>
+    </td></tr>)}</>;
 }
 function contextoPagina(): Contexto { return { escopo: 'pagina', id: estado.pagina?.contexto ?? '', ocupado: estado.ocupado || estado.pagina?.carregando, privado: valoresOcultos }; }
-function resumoFinanceiro(bloqueado: boolean) { return `      <section class="cabecalho-pagina"><div class="titulo-periodo"><h1>Resumo financeiro</h1><div class="periodo"><button class="seta-periodo" data-local="anterior" title="Mês anterior" aria-label="Mês anterior" ${bloqueado ? 'disabled' : ''}>${svg('anterior')}</button><label class="seletor-mes">${svg('calendario')}<span>${h(nomeMes(estado.mes))}</span>${svg('baixo')}<input id="mes" data-testid="mes" type="month" aria-label="Mês do resumo financeiro" value="${h(estado.mes)}" ${bloqueado ? 'disabled' : ''}/></label><button class="seta-periodo" data-local="proximo" title="Próximo mês" aria-label="Próximo mês" ${bloqueado ? 'disabled' : ''}>${svg('proximo')}</button></div></div><div class="acoes-cabecalho">${botao('exportar', 'Exportar', 'baixar', '', bloqueado || !estado.linhas.length)}</div></section>
-      ${estado.erro ? `<div class="erro" role="alert">${h(estado.erro)} ${botao('atualizar', 'Tentar novamente', 'atualizar')}</div>` : ''}
-      <section class="painel-principal" aria-label="Indicadores do mês">
-        <article class="cartao-resultado"><div class="rotulo-resultado"><span class="icone-circulo">${svg('carteira')}</span><span>Resultado líquido do mês</span><button class="acao-linha privacidade" data-local="privacidade" data-testid="alternar-privacidade" aria-pressed="${valoresOcultos}" aria-label="${valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'}" title="${valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'}">${svg(valoresOcultos ? 'oculto' : 'olho')}</button><button class="acao-linha" data-action="atualizar" title="Atualizar dados" aria-label="Atualizar dados" ${bloqueado || estado.carregando ? 'disabled' : ''}>${svg('atualizar', estado.carregando ? 'girando' : '')}</button></div>
-          <div data-testid="valor-resultado" class="numero-principal ${estado.saldo.includes('-') ? 'negativo' : ''}">${valorVisivel(estado.saldo)}</div><p class="contexto-resultado">Receita líquida menos saídas realizadas</p>
-          <div class="ultimo-movimento"><span class="marcador-movimento">${svg('troca')}</span><div><span>Último movimento</span><strong>${textoPrivado(estado.ultimoMovimento || 'Sem movimentos no período')}</strong><small>${textoPrivado(estado.detalheUltimoMovimento)}</small></div></div>
-          <div class="acoes-resultado">${botao('novo', 'Novo lançamento', 'mais', 'primario', bloqueado || !estado.podeEditar)}${botao('pix', 'Cobrar com Pix', 'pix', 'secundario', bloqueado || !estado.podeEditar)}</div>
-          <div class="nota-saldo">O resultado do mês não representa o saldo bancário.</div>
-        </article>
-        <div class="painel-movimentos">
-          <article class="cartao-serie"><div class="serie-cabecalho"><div><span class="rotulo-serie"><span class="ponto entrada"></span>Entradas realizadas</span><div class="numero-serie">${valorVisivel(estado.entradas)}</div></div><span class="icone-serie entrada">${svg('entrada')}</span></div>${grafico(estado.graficoEntradas, 'entrada', 'Evolução das entradas realizadas no mês')}<div class="serie-legenda"><span>Movimentos do período</span><span>${h(nomeMes(estado.mes))}</span></div></article>
-          <article class="cartao-serie"><div class="serie-cabecalho"><div><span class="rotulo-serie"><span class="ponto saida"></span>Saídas realizadas</span><div class="numero-serie">${valorVisivel(estado.saidas)}</div></div><span class="icone-serie saida">${svg('saida')}</span></div>${grafico(estado.graficoSaidas, 'saida', 'Evolução das saídas realizadas no mês')}<div class="serie-legenda"><span>Movimentos do período</span><span>${h(nomeMes(estado.mes))}</span></div></article>
-        </div>
-      </section>
-      <section class="resumo-complementar" aria-label="Composição financeira">
-        <div><span>Resultado bruto projetado</span><strong>${valorVisivel(estado.previsto)}</strong><small>Realizados + previstos, antes das deduções</small></div>
-        <div><span>Receita líquida</span><strong>${valorVisivel(estado.liquido)}</strong><small>Receita após deduções</small></div>
-        <div><span>Deduções</span><strong>${valorVisivel(estado.deducoes)}</strong><small>Taxas e impostos vinculados</small></div>
-        <button class="atalho-historico" data-local="movimentos" ${bloqueado ? 'disabled' : ''}>${svg('historico')}<span>Conferir histórico</span>${svg('proximo')}</button>
-      </section>
-      <section class="movimentos"><div class="cabecalho-movimentos"><div><h2>Movimentações</h2><p>${h(estado.resumoFiltro || 'Entradas e saídas deste mês, em um só lugar.')}</p></div><div class="acoes-movimentos">${botao('exportar', 'Exportar', 'baixar', '', bloqueado || !estado.linhas.length)}${botao('novo', 'Novo lançamento', 'mais', 'primario', bloqueado || !estado.podeEditar)}</div></div>
-        <div class="filtros"><label class="busca-movimento">${svg('buscar')}<input type="search" id="busca" data-testid="filtro-lancamentos" placeholder="Buscar descrição ou categoria" aria-label="Buscar movimentos" value="${h(termo)}" ${bloqueado ? 'disabled' : ''}/>${termo ? `<button data-local="limpar" aria-label="Limpar busca">${svg('fechar')}</button>` : ''}</label><span class="contagem">${estado.linhas.length} ${estado.linhas.length === 1 ? 'movimento' : 'movimentos'}</span></div>
-        ${estado.pagina ? renderCampos(estado.pagina.campos.filter(c => c.chave === 'FiltroSituacao'), contextoPagina()) : ''}
-        ${estado.truncado ? '<div class="aviso-lista">Há mais movimentos no período. Refine a busca para localizar o lançamento.</div>' : ''}
-        <div class="tabela-scroll" tabindex="0" aria-label="Tabela de movimentações"><table data-testid="tabela-lancamentos"><thead><tr><th>Descrição</th><th>Data</th><th>Situação</th><th class="valor">Valor</th><th class="acoes-linha">Ações</th></tr></thead><tbody>${linhas()}</tbody></table></div>
-      </section>
-`; }
-function renderDialogo() {
+function ResumoFinanceiro({ bloqueado }: { bloqueado: boolean }) {
+  return <div className="resumo-react">
+    <section className="cabecalho-pagina"><div className="titulo-periodo"><h1>Resumo financeiro</h1><div className="periodo"><button className="seta-periodo" data-local="anterior" title="Mês anterior" aria-label="Mês anterior" disabled={bloqueado}><Icone nome="anterior"/></button><label className="seletor-mes"><Icone nome="calendario"/><span>{nomeMes(estado.mes)}</span><Icone nome="baixo"/><input id="mes" data-testid="mes" type="month" aria-label="Mês do resumo financeiro" key={estado.mes} defaultValue={estado.mes} disabled={bloqueado}/></label><button className="seta-periodo" data-local="proximo" title="Próximo mês" aria-label="Próximo mês" disabled={bloqueado}><Icone nome="proximo"/></button></div></div><div className="acoes-cabecalho"><Botao acao="exportar" texto="Exportar" icone="baixar" desabilitado={bloqueado || !estado.linhas.length}/></div></section>
+    {estado.erro && <div className="erro" role="alert">{estado.erro} <Botao acao="atualizar" texto="Tentar novamente" icone="atualizar"/></div>}
+    <section className="painel-principal" aria-label="Indicadores do mês">
+      <article className="cartao-resultado"><div className="rotulo-resultado"><span className="icone-circulo"><Icone nome="carteira"/></span><span>Resultado líquido do mês</span><button className="acao-linha privacidade" data-local="privacidade" data-testid="alternar-privacidade" aria-pressed={valoresOcultos} aria-label={valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'} title={valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'}><Icone nome={valoresOcultos ? 'oculto' : 'olho'}/></button><button className="acao-linha" data-action="atualizar" title="Atualizar dados" aria-label="Atualizar dados" disabled={bloqueado || estado.carregando}><Icone nome="atualizar" classe={estado.carregando ? 'girando' : ''}/></button></div>
+        <div data-testid="valor-resultado" className={`numero-principal ${estado.saldo.includes('-') ? 'negativo' : ''}`}>{valorVisivel(estado.saldo)}</div><p className="contexto-resultado">Receita líquida menos saídas realizadas</p>
+        <div className="ultimo-movimento"><span className="marcador-movimento"><Icone nome="troca"/></span><div><span>Último movimento</span><strong>{textoPrivado(estado.ultimoMovimento || 'Sem movimentos no período')}</strong><small>{textoPrivado(estado.detalheUltimoMovimento)}</small></div></div>
+        <div className="acoes-resultado"><Botao acao="novo" texto="Novo lançamento" icone="mais" classe="primario" desabilitado={bloqueado || !estado.podeEditar}/><Botao acao="pix" texto="Cobrar com Pix" icone="pix" classe="secundario" desabilitado={bloqueado || !estado.podeEditar}/></div>
+        <div className="nota-saldo">O resultado do mês não representa o saldo bancário.</div>
+      </article>
+      <div className="painel-movimentos">{([{tipo:'entrada',titulo:'Entradas realizadas',valor:estado.entradas,caminho:estado.graficoEntradas},{tipo:'saida',titulo:'Saídas realizadas',valor:estado.saidas,caminho:estado.graficoSaidas}]).map(serie => <article className="cartao-serie" key={serie.tipo}><div className="serie-cabecalho"><div><span className="rotulo-serie"><span className={`ponto ${serie.tipo}`}/>{serie.titulo}</span><div className="numero-serie">{valorVisivel(serie.valor)}</div></div><span className={`icone-serie ${serie.tipo}`}><Icone nome={serie.tipo}/></span></div><GraficoResumo caminho={serie.caminho} classe={serie.tipo} descricao={`Evolução de ${serie.titulo.toLocaleLowerCase('pt-BR')} no mês`}/><div className="serie-legenda"><span>Movimentos do período</span><span>{nomeMes(estado.mes)}</span></div></article>)}</div>
+    </section>
+    <section className="resumo-complementar" aria-label="Composição financeira">
+      <div><span>Resultado bruto projetado</span><strong>{valorVisivel(estado.previsto)}</strong><small>Realizados + previstos, antes das deduções</small></div>
+      <div><span>Receita líquida</span><strong>{valorVisivel(estado.liquido)}</strong><small>Receita após deduções</small></div>
+      <div><span>Deduções</span><strong>{valorVisivel(estado.deducoes)}</strong><small>Taxas e impostos vinculados</small></div>
+      <button className="atalho-historico" data-local="movimentos" disabled={bloqueado}><Icone nome="historico"/><span>Conferir histórico</span><Icone nome="proximo"/></button>
+    </section>
+    <section className="movimentos"><div className="cabecalho-movimentos"><div><h2>Movimentações</h2><p>{estado.resumoFiltro || 'Entradas e saídas deste mês, em um só lugar.'}</p></div><div className="acoes-movimentos"><Botao acao="exportar" texto="Exportar" icone="baixar" desabilitado={bloqueado || !estado.linhas.length}/><Botao acao="novo" texto="Novo lançamento" icone="mais" classe="primario" desabilitado={bloqueado || !estado.podeEditar}/></div></div>
+      <div className="filtros"><label className="busca-movimento"><Icone nome="buscar"/><input type="search" id="busca" data-testid="filtro-lancamentos" placeholder="Buscar descrição ou categoria" aria-label="Buscar movimentos" value={termo} onChange={e => { termo = e.currentTarget.value; render(); }} disabled={bloqueado}/>{termo && <button data-local="limpar" aria-label="Limpar busca"><Icone nome="fechar"/></button>}</label><span className="contagem">{estado.linhas.length} {estado.linhas.length === 1 ? 'movimento' : 'movimentos'}</span></div>
+      {estado.pagina && <CamposReact campos={estado.pagina.campos.filter(c => c.chave === 'FiltroSituacao')} contexto={contextoPagina()}/>}
+      {estado.truncado && <div className="aviso-lista">Há mais movimentos no período. Refine a busca para localizar o lançamento.</div>}
+      <div className="tabela-scroll" tabIndex={0} aria-label="Tabela de movimentações"><table data-testid="tabela-lancamentos"><thead><tr><th>Descrição</th><th>Data</th><th>Situação</th><th className="valor">Valor</th><th className="acoes-linha">Ações</th></tr></thead><tbody><MovimentosResumo/></tbody></table></div>
+    </section>
+  </div>;
+}
+function DialogoFinanceiro() {
   const d = estado.dialogo;
-  if (!d) return '';
-  const c: Contexto = { escopo: 'dialogo', id: d.id, ocupado: d.ocupado, privado: valoresOcultos };
-  return `<div class="fundo-dialogo"><section class="dialogo-web" role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo" data-testid="dialogo-financeiro" data-dialogo="${h(d.id)}"><header class="dialogo-cabecalho"><h2 id="titulo-dialogo">${h(d.pagina.titulo)}</h2><button class="icone-botao" data-fechar-dialogo="${h(d.id)}" aria-label="Fechar formulário" ${!d.podeFechar || d.ocupado ? 'disabled' : ''}>${svg('fechar')}</button></header><div class="dialogo-corpo" tabindex="-1">${d.pagina.subtitulo ? `<p class="mensagem-web">${h(d.pagina.subtitulo)}</p>` : ''}${estado.erro ? `<div class="erro" role="alert">${h(estado.erro)}</div>` : ''}${renderPagina(d.pagina, c)}</div><footer class="dialogo-rodape"><div class="rolagem-dialogo"><button data-rolar-dialogo="subir" aria-label="Rolar formulário para cima">${svg('subir')}</button><button data-rolar-dialogo="descer" aria-label="Rolar formulário para baixo">${svg('descer')}</button></div><div class="acoes-web">${renderAcoes([...d.pagina.acoes.filter(a => a.chave === 'fechar'), ...d.pagina.acoes.filter(a => a.chave !== 'fechar')], c)}</div></footer></section></div>`;
+  if (!d) return null;
+  const contexto: Contexto = { escopo: 'dialogo', id: d.id, ocupado: d.ocupado, privado: valoresOcultos };
+  return <div className="fundo-dialogo"><section className="dialogo-web" role="dialog" aria-modal="true" aria-labelledby="titulo-dialogo" data-testid="dialogo-financeiro" data-dialogo={d.id}><header className="dialogo-cabecalho"><h2 id="titulo-dialogo">{d.pagina.titulo}</h2><button className="icone-botao" data-fechar-dialogo={d.id} aria-label="Fechar formulário" disabled={!d.podeFechar || d.ocupado}><Icone nome="fechar"/></button></header><div className="dialogo-corpo" tabIndex={-1}>{d.pagina.subtitulo && <p className="mensagem-web">{d.pagina.subtitulo}</p>}{estado.erro && <div className="erro" role="alert">{estado.erro}</div>}<PaginaReact key={d.id} pagina={d.pagina} contexto={contexto}/></div><footer className="dialogo-rodape"><div className="rolagem-dialogo"><button data-rolar-dialogo="subir" aria-label="Rolar formulário para cima"><Icone nome="subir"/></button><button data-rolar-dialogo="descer" aria-label="Rolar formulário para baixo"><Icone nome="descer"/></button></div><div className="acoes-web"><AcoesReact acoes={[...d.pagina.acoes.filter(a => a.chave === 'fechar'), ...d.pagina.acoes.filter(a => a.chave !== 'fechar')]} contexto={contexto}/></div></footer></section></div>;
+}
+function FinanceiroReact() {
+  const iniciais = estado.usuario.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || 'CL';
+  const bloqueado = (!ponte && !demo) || !!estado.ocupado;
+  const rotas = estado.rotas.filter(r => r.chave !== 'caixa' && r.rotulo.toLocaleLowerCase('pt-BR').includes(buscaMenu.toLocaleLowerCase('pt-BR')));
+  const grupos = agruparRotas(estado.rotas);
+  if (!grupos.some(g => g.chave === grupoAberto)) grupoAberto = null;
+  const inicio = !estado.pagina || estado.pagina.chave === 'caixa';
+  return <>
+    <header className="topbar">
+      <a className="marca" href="#resumo" data-local="inicio" aria-label="Clínica SemDor — início"><img src="./logo-clinica.png" alt="Clínica SemDor"/></a>
+      <nav className="navegacao-topo" aria-label="Navegação financeira"><button className={`nav-inicio ${inicio ? 'ativo' : ''}`} data-local="inicio" aria-current={inicio ? 'page' : undefined}>Resumo</button>
+      {grupos.map(g => <div key={g.chave} className="grupo-topo" data-grupo={g.chave}><button id={`nav-${g.chave}`} className={`nav-gatilho ${g.rotas.some(r => r.chave === estado.pagina?.chave) ? 'ativo' : ''}`} data-local="grupo" data-grupo-chave={g.chave} aria-expanded={grupoAberto === g.chave} aria-controls={`submenu-${g.chave}`}>{g.rotulo}<Icone nome="baixo"/></button><div className="submenu-topo" id={`submenu-${g.chave}`} aria-labelledby={`nav-${g.chave}`} hidden={grupoAberto !== g.chave}>{g.rotas.map(r => <button key={r.chave} className={`rota ${estado.pagina?.chave === r.chave ? 'ativo' : ''}`} data-action="navegar" data-value={r.chave} aria-current={estado.pagina?.chave === r.chave ? 'page' : undefined}><Icone nome={nomeIcone(r.rotulo)}/><span>{r.rotulo}</span></button>)}</div></div>)}
+      </nav>
+      <div className="ferramentas-topo"><button className="ferramenta-topo" data-treinamento="" aria-label="Treinamento" title="Treinamento"><Icone nome="treinamento"/></button>{estado.ferramentas?.filaInfusaoDisponivel && <button className="ferramenta-topo" data-fila-infusao="" aria-label={estado.ferramentas.resumoAssinaturasInfusao}><Icone nome="infusao"/></button>}<button className="ferramenta-topo" data-avisos="" aria-label="Avisos desta sessão" aria-expanded={avisosAbertos} title="Avisos"><Icone nome="avisos"/>{!!estado.ferramentas?.naoLidos && <small>{estado.ferramentas.naoLidos}</small>}</button><button className="busca-global" data-local="menu" aria-label="Pesquisar seção do financeiro"><Icone nome="buscar"/><span>Pesquisar no financeiro</span><kbd>Ctrl K</kbd></button></div>
+      <div className="usuario-area"><button className="usuario" data-local="usuario" aria-expanded={usuarioAberto} aria-label="Menu do usuário"><span className="avatar">{iniciais}</span><span className="nome-usuario">{estado.usuario || 'Clínica SemDor'}</span><Icone nome="baixo"/></button>{usuarioAberto && <div className="menu-usuario"><Botao acao="trocar-senha" texto="Trocar minha senha" icone="ajustes" desabilitado={bloqueado || !!estado.dialogo}/><Botao acao="trocar-usuario" texto="Trocar usuário" icone="profissionais" desabilitado={bloqueado || !!estado.dialogo}/><p>Financeiro · Clínica SemDor</p></div>}</div>
+    </header>
+    <main className="conteudo" data-testid="resumo-financeiro" data-rota={estado.pagina?.chave ?? 'caixa'} data-contexto={estado.pagina?.contexto ?? ''} id="resumo" tabIndex={-1} aria-busy={estado.pagina?.carregando ?? estado.carregando} inert={!!estado.dialogo} onScroll={atualizarRolagem}>
+      {demo && <div className="faixa-demo">Demonstração visual · dados fictícios · nenhuma operação é gravada</div>}
+      {bloqueado && <div className="aviso-conexao" role="status">Abra esta tela pelo aplicativo da clínica para carregar seus dados.</div>}
+      {(treinoAberto || estado.pagina?.chave !== 'caixa') && estado.erro && !estado.dialogo && <div className="erro" role="alert">{estado.erro}</div>}
+      {treinoAberto ? <HtmlReact html={treinamento(estado.treinamento, estado.aula, estado.videoUrl)}/> : estado.pagina && estado.pagina.chave !== 'caixa' ? <PaginaReact key={estado.pagina.contexto} pagina={estado.pagina} contexto={contextoPagina()}/> : <ResumoFinanceiro bloqueado={bloqueado}/>}
+      <footer className="rodape-pagina"><span>Clínica SemDor</span><span>{estado.carregando ? 'Atualizando dados…' : demo ? 'Ambiente de demonstração' : ponte ? 'Dados do sistema da clínica' : 'Sem conexão com o aplicativo'}</span></footer>
+    </main>
+    <div className="atalhos-rolagem" aria-label="Rolagem da página"><button data-local="subir" title="Rolar para cima" aria-label="Rolar para cima"><Icone nome="subir"/></button><button data-local="descer" title="Rolar para baixo" aria-label="Rolar para baixo"><Icone nome="descer"/></button></div>
+    {menuAberto && <><div className="fundo-menu" data-local="fechar-menu"/><nav className="menu-expandido" aria-label="Todos os recursos financeiros"><div className="menu-cabecalho"><div><small>CLÍNICA SEMDOR</small><h2>Financeiro</h2></div><button className="icone-botao" data-local="fechar-menu" aria-label="Fechar menu"><Icone nome="fechar"/></button></div><label className="busca-menu"><Icone nome="buscar"/><input id="busca-menu" value={buscaMenu} onChange={e => { buscaMenu = e.currentTarget.value; render(); }} placeholder="Encontrar uma seção" aria-label="Pesquisar seção"/></label><div className="rotas"><button className={`rota ${inicio ? 'ativo' : ''}`} data-local="inicio"><Icone nome="carteira"/><span>Resumo financeiro</span></button>{rotas.map(r => <button key={r.chave} className={`rota ${estado.pagina?.chave === r.chave ? 'ativo' : ''}`} data-action="navegar" data-value={r.chave}><Icone nome={nomeIcone(r.rotulo)}/><span>{r.rotulo}</span><Icone nome="proximo"/></button>)}{!rotas.length && <p className="nenhuma-rota">Nenhuma seção disponível para esta busca.</p>}</div><div className="nota-menu">Todas as ferramentas financeiras, no mesmo lugar.</div></nav></>}
+    {avisosAbertos && <aside className="painel-avisos" role="dialog" aria-label="Avisos desta sessão"><header><h2>Avisos</h2><button className="botao" data-avisos="">Fechar</button></header>{estado.ferramentas?.avisos.length ? estado.ferramentas.avisos.map((a,i) => <article key={`${a.hora}-${i}`}><time>{a.hora}</time><p>{textoPrivado(a.mensagem)}</p></article>) : <p>Nenhum aviso nesta sessão.</p>}</aside>}
+    {estado.aviso?.texto && <div className={`toast ${estado.aviso.tipo === 'erro' ? 'toast-erro' : ''}`} role={estado.aviso.tipo === 'erro' ? 'alert' : 'status'}>{textoPrivado(estado.aviso.texto)}</div>}
+    {avisoDemo && <div className="toast" role="status">{avisoDemo}</div>}<DialogoFinanceiro/>
+  </>;
 }
 function chaveRolagem(el: HTMLElement): string {
   const dialogo = el.closest<HTMLElement>('[data-dialogo]')?.dataset.dialogo;
@@ -160,60 +204,25 @@ function chaveRolagem(el: HTMLElement): string {
   return `${contexto}:${tabela ? `tabela:${tabela}` : el.classList.contains('dialogo-corpo') ? 'corpo' : 'rotas'}`;
 }
 function render() {
-  const videoAnterior = document.querySelector<HTMLVideoElement>('#video-aula');
-  const videoRodando = videoAnterior && !videoAnterior.paused;
-  if (videoAnterior) videoAnterior.dataset.movendo = 'true';
   const foco = document.activeElement as HTMLInputElement | null;
   const focoId = foco?.id;
   const selecao = foco?.selectionStart;
-  const valorDigitado = foco && 'value' in foco ? foco.value : null;
   const posicoes = new Map([...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')]
     .map(el => [chaveRolagem(el), [el.scrollTop, el.scrollLeft] as const] as const));
   const mainAnterior = document.querySelector<HTMLElement>('.conteudo');
   const scrollAnterior = mainAnterior?.scrollTop ?? 0;
-  const iniciais = estado.usuario.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || 'CL';
-  const bloqueado = (!ponte && !demo) || !!estado.ocupado;
-  const rotasDisponiveis = estado.rotas.filter(r => r.chave !== 'caixa');
-  const rotas = rotasDisponiveis.filter(r => r.rotulo.toLocaleLowerCase('pt-BR').includes(buscaMenu.toLocaleLowerCase('pt-BR')));
-  const grupos = agruparRotas(estado.rotas);
-  if (!grupos.some(g => g.chave === grupoAberto)) grupoAberto = null;
-  app.innerHTML = `
-    <header class="topbar">
-      <a class="marca" href="#resumo" data-local="inicio" aria-label="Clínica SemDor — início"><img src="./logo-clinica.png" alt="Clínica SemDor" /></a>
-      <nav class="navegacao-topo" aria-label="Navegação financeira">
-        <button class="nav-inicio ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'ativo' : ''}" data-local="inicio" ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'aria-current="page"' : ''}>Resumo</button>
-        ${grupos.map(g => `<div class="grupo-topo" data-grupo="${h(g.chave)}"><button id="nav-${h(g.chave)}" class="nav-gatilho ${g.rotas.some(r => r.chave === estado.pagina?.chave) ? 'ativo' : ''}" data-local="grupo" data-grupo-chave="${h(g.chave)}" aria-expanded="${grupoAberto === g.chave}" aria-controls="submenu-${h(g.chave)}">${h(g.rotulo)}${svg('baixo')}</button><div class="submenu-topo" id="submenu-${h(g.chave)}" aria-labelledby="nav-${h(g.chave)}" ${grupoAberto === g.chave ? '' : 'hidden'}>${g.rotas.map(r => `<button class="rota ${estado.pagina?.chave === r.chave ? 'ativo' : ''}" data-action="navegar" data-value="${h(r.chave)}" ${estado.pagina?.chave === r.chave ? 'aria-current="page"' : ''}>${svg(nomeIcone(r.rotulo))}<span>${h(r.rotulo)}</span></button>`).join('')}</div></div>`).join('')}
-      </nav>
-      <div class="ferramentas-topo"><button class="ferramenta-topo" data-treinamento aria-label="Treinamento" title="Treinamento">${svg('treinamento')}</button>${estado.ferramentas?.filaInfusaoDisponivel ? `<button class="ferramenta-topo" data-fila-infusao aria-label="${h(estado.ferramentas.resumoAssinaturasInfusao)}">${svg('infusao')}</button>` : ''}<button class="ferramenta-topo" data-avisos aria-label="Avisos desta sessão" aria-expanded="${avisosAbertos}" title="Avisos">${svg('avisos')}${estado.ferramentas?.naoLidos ? `<small>${estado.ferramentas.naoLidos}</small>` : ''}</button><button class="busca-global" data-local="menu" aria-label="Pesquisar seção do financeiro">${svg('buscar')}<span>Pesquisar no financeiro</span><kbd>Ctrl K</kbd></button></div>
-      <div class="usuario-area"><button class="usuario" data-local="usuario" aria-expanded="${usuarioAberto}" aria-label="Menu do usuário"><span class="avatar">${h(iniciais)}</span><span class="nome-usuario">${h(estado.usuario || 'Clínica SemDor')}</span>${svg('baixo')}</button>
-      ${usuarioAberto ? `<div class="menu-usuario">${botao('trocar-senha', 'Trocar minha senha', 'ajustes', '', bloqueado || !!estado.dialogo)}${botao('trocar-usuario', 'Trocar usuário', 'profissionais', '', bloqueado || !!estado.dialogo)}<p>Financeiro · Clínica SemDor</p></div>` : ''}</div>
-    </header>
-    <main class="conteudo" data-testid="resumo-financeiro" data-rota="${h(estado.pagina?.chave ?? 'caixa')}" data-contexto="${h(estado.pagina?.contexto ?? '')}" id="resumo" tabindex="-1" aria-busy="${estado.pagina?.carregando ?? estado.carregando}" ${estado.dialogo ? 'inert' : ''}>
-      ${demo ? '<div class="faixa-demo">Demonstração visual · dados fictícios · nenhuma operação é gravada</div>' : ''}
-      ${bloqueado ? '<div class="aviso-conexao" role="status">Abra esta tela pelo aplicativo da clínica para carregar seus dados.</div>' : ''}
-      ${(treinoAberto || estado.pagina?.chave !== 'caixa') && estado.erro && !estado.dialogo ? `<div class="erro" role="alert">${h(estado.erro)}</div>` : ''}
-      ${treinoAberto ? treinamento(estado.treinamento, estado.aula, estado.videoUrl) : estado.pagina && estado.pagina.chave !== 'caixa' ? renderPagina(estado.pagina, contextoPagina()) : resumoFinanceiro(bloqueado)}
-      <footer class="rodape-pagina"><span>Clínica SemDor</span><span>${estado.carregando ? 'Atualizando dados…' : demo ? 'Ambiente de demonstração' : ponte ? 'Dados do sistema da clínica' : 'Sem conexão com o aplicativo'}</span></footer>
-    </main>
-    <div class="atalhos-rolagem" aria-label="Rolagem da página"><button data-local="subir" title="Rolar para cima" aria-label="Rolar para cima">${svg('subir')}</button><button data-local="descer" title="Rolar para baixo" aria-label="Rolar para baixo">${svg('descer')}</button></div>
-    ${menuAberto ? `<div class="fundo-menu" data-local="fechar-menu"></div><nav class="menu-expandido" aria-label="Todos os recursos financeiros"><div class="menu-cabecalho"><div><small>CLÍNICA SEMDOR</small><h2>Financeiro</h2></div><button class="icone-botao" data-local="fechar-menu" aria-label="Fechar menu">${svg('fechar')}</button></div><label class="busca-menu">${svg('buscar')}<input id="busca-menu" value="${h(buscaMenu)}" placeholder="Encontrar uma seção" aria-label="Pesquisar seção" /></label><div class="rotas"><button class="rota ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'ativo' : ''}" data-local="inicio">${svg('carteira')}<span>Resumo financeiro</span></button>${rotas.map(r => `<button class="rota ${estado.pagina?.chave === r.chave ? 'ativo' : ''}" data-action="navegar" data-value="${h(r.chave)}">${svg(nomeIcone(r.rotulo))}<span>${h(r.rotulo)}</span>${svg('proximo')}</button>`).join('')}${!rotas.length ? '<p class="nenhuma-rota">Nenhuma seção disponível para esta busca.</p>' : ''}</div><div class="nota-menu">Todas as ferramentas financeiras, no mesmo lugar.</div></nav>` : ''}
-    ${avisosAbertos ? `<aside class="painel-avisos" role="dialog" aria-label="Avisos desta sessão"><header><h2>Avisos</h2><button class="botao" data-avisos>Fechar</button></header>${estado.ferramentas?.avisos.length ? estado.ferramentas.avisos.map(a => `<article><time>${h(a.hora)}</time><p>${textoPrivado(a.mensagem)}</p></article>`).join('') : '<p>Nenhum aviso nesta sessão.</p>'}</aside>` : ''}
-    ${estado.aviso?.texto ? `<div class="toast ${estado.aviso.tipo === 'erro' ? 'toast-erro' : ''}" role="${estado.aviso.tipo === 'erro' ? 'alert' : 'status'}">${textoPrivado(estado.aviso.texto)}</div>` : ''}
-    ${avisoDemo ? `<div class="toast" role="status">${h(avisoDemo)}</div>` : ''}${renderDialogo()}`;
+  // A ponte continua síncrona; React reconcilia cada componente sem reconstruir a janela.
+  flushSync(() => raizReact.render(<FinanceiroReact/>));
   const conteudo = document.querySelector<HTMLElement>('.conteudo')!;
   conteudo.scrollTop = scrollAnterior;
-  [...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')].forEach(el => { const anterior = posicoes.get(chaveRolagem(el)); if (anterior) { el.scrollTop = anterior[0]; el.scrollLeft = anterior[1]; } });
+  document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas').forEach(el => { const anterior = posicoes.get(chaveRolagem(el)); if (anterior) { el.scrollTop = anterior[0]; el.scrollLeft = anterior[1]; } });
   document.querySelectorAll<HTMLElement>('.topbar,.menu-expandido,.fundo-menu,.atalhos-rolagem,.painel-avisos').forEach(el => el.inert = !!estado.dialogo);
-  conteudo.addEventListener('scroll', atualizarRolagem, { passive: true });
   requestAnimationFrame(atualizarRolagem);
   if (focoId) {
     const alvo = document.getElementById(focoId) as HTMLInputElement | null;
-    if (alvo && valorDigitado !== null && ['search', 'text', 'textarea'].includes(alvo.type)) alvo.value = valorDigitado;
-    alvo?.focus({ preventScroll: true });
+    if (alvo && document.activeElement !== alvo) alvo.focus({ preventScroll: true });
     if (alvo?.type === 'search' || alvo?.type === 'text') alvo.setSelectionRange(selecao ?? 0, selecao ?? 0);
   }
-  const videoNovo = document.querySelector<HTMLVideoElement>('#video-aula');
-  if (videoAnterior && videoNovo && videoNovo.src === videoAnterior.src) { videoNovo.replaceWith(videoAnterior); if (videoRodando) void videoAnterior.play().catch(() => {}); queueMicrotask(() => delete videoAnterior.dataset.movendo); }
   prepararVideo((acao, chave, valor) => postar({ acao, chave, valor, contexto: estado.pagina?.contexto }));
 }
 
@@ -238,13 +247,10 @@ function atualizarRolagem() {
 window.addEventListener('resize', atualizarRolagem);
 
 function abrirGrupo(chave: string | null) {
-  grupoAberto = estado.dialogo || menuAberto ? null : chave;
-  document.querySelectorAll<HTMLElement>('.grupo-topo').forEach(grupo => {
-    const aberto = grupo.dataset.grupo === grupoAberto;
-    grupo.querySelector('button')?.setAttribute('aria-expanded', String(aberto));
-    const submenu = grupo.querySelector<HTMLElement>('.submenu-topo');
-    if (submenu) submenu.hidden = !aberto;
-  });
+  const proximo = estado.dialogo || menuAberto ? null : chave;
+  if (grupoAberto === proximo) return;
+  grupoAberto = proximo;
+  render();
 }
 app.addEventListener('pointerover', e => {
   if (e.pointerType !== 'mouse' || estado.dialogo || menuAberto) return;
@@ -286,6 +292,8 @@ app.addEventListener('click', e => {
     postar({ acao: b.dataset.escopo === 'dialogo' ? 'dlg-acao' : 'pagina-acao', chave: b.dataset.comando, id: b.dataset.escopo === 'dialogo' ? b.dataset.contexto : undefined, contexto: b.dataset.escopo === 'pagina' ? b.dataset.contexto : undefined, tabela: b.dataset.tabela, linha: b.dataset.linha }); return;
   }
   if (b.dataset.action) {
+    const painel = b.closest<HTMLElement>('.acoes-menu-painel');
+    if (painel?.matches(':popover-open')) painel.hidePopover();
     seletorRetorno = `[data-action="${CSS.escape(b.dataset.action)}"]`;
     if (b.dataset.action === 'navegar') { sairTreinamento(); avisosAbertos = false; menuAberto = false; usuarioAberto = false; abrirGrupo(null); }
     enviar(b.dataset.action, b.dataset.value, b.dataset.id); return;
@@ -337,6 +345,12 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && ['k', 'f'].includes(e.key.toLowerCase())) { e.preventDefault(); grupoAberto = null; menuAberto = true; render(); document.getElementById('busca-menu')?.focus(); }
 });
 
+// O contrato financeiro permite textos de até 16 mil caracteres. A adoção do
+// componente comum não pode diminuir silenciosamente esse limite de edição.
+function paginaFinanceira(p: Pagina): Pagina {
+  const campos = (itens: Campo[]) => itens.map(f => ({ ...f, maximo: f.maximo ?? 16000 }));
+  return { ...p, campos: campos(p.campos), secoes: p.secoes.map(s => ({ ...s, campos: campos(s.campos), tabelas: s.tabelas.map(t => ({ ...t, linhas: t.linhas.map(l => ({ ...l, campos: campos(l.campos) })) })) })) };
+}
 function receber(e: MessageEvent) {
   let dados: unknown = e.data;
   if (typeof dados === 'string') { try { dados = JSON.parse(dados); } catch { return; } }
@@ -347,7 +361,7 @@ function receber(e: MessageEvent) {
   const mudouDialogo = recebido.dialogo?.id !== estado.dialogo?.id;
   if (mudouPagina) limparRascunhos('pagina');
   if (mudouDialogo) limparRascunhos('dialogo');
-  estado = { ...estado, ...recebido };
+  estado = { ...estado, ...recebido, ...(recebido.pagina ? { pagina: { ...paginaFinanceira(recebido.pagina), contexto: recebido.pagina.contexto } } : {}), ...(recebido.dialogo ? { dialogo: { ...recebido.dialogo, pagina: paginaFinanceira(recebido.dialogo.pagina) } } : {}) };
   if (typeof recebido.filtroTexto === 'string' && document.activeElement?.id !== 'busca') termo = recebido.filtroTexto;
   render();
   if (mudouPagina) document.querySelector('.conteudo')?.scrollTo(0, 0);

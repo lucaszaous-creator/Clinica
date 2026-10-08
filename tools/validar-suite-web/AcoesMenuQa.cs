@@ -83,6 +83,25 @@ internal static class AcoesMenuQa
             if (mensagens.Any(m => m.Contains("dlg-fechar"))) throw new Exception("Escape do menu tentou fechar o formulário.");
             await Conferir("document.querySelector('.dialogo-web')!==null&&!document.querySelector('.dialogo-rodape .acoes-menu-painel').matches(':popover-open')", "Escape perdeu o formulário.");
             Console.WriteLine("OK WebView2: formulário conserva Salvar/Cancelar; Escape fecha somente o menu.");
+
+            object EstadoBusca(string valor, string resultado) => new { tipo = "estado", titulo = "QA React", usuario = "Demonstração", ocupado = false, rotas = new[] { new { chave = "react-busca", rotulo = "Pacientes", grupo = "Paciente" } }, pagina = new { chave = "react-busca", contexto = "react-contexto", titulo = "Pesquisar pacientes", campos = new[] { new { chave = "Busca", rotulo = "Nome ou CPF", valor, tipo = "texto", visivel = true, habilitado = true, obrigatorio = false, opcoes = Array.Empty<object>() } }, indicadores = Array.Empty<object>(), acoes = Array.Empty<object>(), secoes = new[] { new { chave = "Resultados", titulo = "Resultados", campos = Array.Empty<object>(), indicadores = Array.Empty<object>(), acoes = Array.Empty<object>(), tabelas = new[] { new { chave = "Pacientes", titulo = "Pacientes", colunas = new[] { new { chave = "Nome", rotulo = "Paciente", tipo = "texto" } }, linhas = new[] { new { id = "paciente-1", celulas = new { Nome = resultado }, campos = Array.Empty<object>(), acoes = new[] { Acao("Selecionar") }, selecionada = false } }, vazio = "Nenhum paciente" } } } }, carregando = false, naoVerificado = false, mensagemEhErro = false, truncado = false } };
+            navegador.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(EstadoBusca("", "Paciente sintético")));
+            await Task.Delay(300);
+            await navegador.CoreWebView2.ExecuteScriptAsync("window.campoAntesReact=document.querySelector('[data-campo=Busca]');window.campoAntesReact.focus();window.paginaAntesReact=document.querySelector('.pagina-web')");
+            await navegador.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.insertText", "{\"text\":\"Zule\"}");
+            await Task.Delay(350);
+            if (!mensagens.Any(m => m.Contains("pagina-campo") && m.Contains("Zule"))) throw new Exception("Busca React não enviou a digitação sem Enter.");
+            navegador.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(EstadoBusca("Zule", "Zuleica Sintética")));
+            await Task.Delay(250);
+            await Conferir("document.querySelector('[data-campo=Busca]')===window.campoAntesReact&&document.activeElement===window.campoAntesReact&&window.campoAntesReact.value==='Zule'&&document.querySelector('.pagina-web')===window.paginaAntesReact&&document.querySelector('.conteudo').innerText.includes('Zuleica Sintética')", "React remontou busca/página ou perdeu foco ao atualizar resultados.");
+            await navegador.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.insertText", "{\"text\":\"ica\"}");
+            navegador.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(EstadoBusca("Zule", "Zuleica Sintética")));
+            await Task.Delay(100);
+            await Conferir("window.campoAntesReact.value==='Zuleica'&&document.activeElement===window.campoAntesReact", "Resposta antiga apagou digitação atual.");
+            await navegador.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setEmulatedMedia", "{\"features\":[{\"name\":\"prefers-reduced-motion\",\"value\":\"reduce\"}]}");
+            await Conferir("getComputedStyle(document.querySelector('.pagina-web')).animationName==='none'&&getComputedStyle(document.querySelector('[data-campo=Busca]')).transitionDuration==='0s'", "Preferência de movimento reduzido ignorada.");
+            Console.WriteLine("OK React WebView2: campo/página conservam identidade DOM, foco e digitação diante de respostas; busca sem Enter; movimento reduzido respeitado.");
+
         }
         finally { janela.Close(); }
     }

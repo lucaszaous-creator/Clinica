@@ -1,0 +1,78 @@
+/* Composição do caixa: resultado, movimento e ação têm funções visuais distintas. */
+#app .resumo-react{max-width:1540px;margin:0 auto;animation:pagina-entrar .2s ease-out}
+#app .resumo-react .painel-principal{grid-template-columns:minmax(290px,.95fr) minmax(360px,1.3fr);gap:18px}
+#app .resumo-react .cartao-resultado{background:#173e4b;border-color:#173e4b;color:#fff;padding:24px;min-height:320px}
+#app .resumo-react .rotulo-resultado,#app .resumo-react .contexto-resultado,#app .resumo-react .nota-saldo,#app .resumo-react .ultimo-movimento small,#app .resumo-react .ultimo-movimento span:not(.marcador-movimento){color:#c5dce2}
+#app .resumo-react .ultimo-movimento strong{color:#fff;font-weight:500}
+#app .resumo-react .numero-principal{font-size:clamp(30px,3vw,44px);font-weight:600;letter-spacing:-1px}
+#app .resumo-react .numero-principal.negativo{color:#ffbac2}
+#app .resumo-react .rotulo-resultado>.acao-linha,#app .resumo-react .icone-circulo,#app .resumo-react .marcador-movimento{background:#295561;color:#eaf7fa}
+#app .resumo-react .rotulo-resultado>.acao-linha:hover{background:#376673}
+#app .resumo-react .acoes-resultado .botao.secundario{color:#fff;background:#295561;border-color:#668a94}
+#app .resumo-react .acoes-resultado .botao.secundario:hover{background:#376673}
+#app .resumo-react .cartao-serie{box-shadow:none;min-width:0;padding:20px 22px}
+#app .resumo-react .numero-serie{color:#263b50;white-space:normal;overflow-wrap:anywhere;font-weight:600}
+#app .resumo-react .grafico.entrada .curva{stroke:#27856a;stroke-width:2.2}
+#app .resumo-react .grafico.saida .curva{stroke:#b86666;stroke-width:2.2}
+#app .resumo-react .ponto.entrada{background:#27856a}
+#app .resumo-react .ponto.saida{background:#b86666}
+#app .resumo-react .resumo-complementar{padding:18px 20px;margin:18px 0 0;background:#f5f8fb;border:1px solid #ccd7e2;border-radius:10px;gap:16px}
+#app .resumo-react .resumo-complementar>div{min-width:0;gap:5px}
+#app .resumo-react .resumo-complementar strong{color:#263b50;font-size:18px;font-weight:600}
+#app .resumo-react .resumo-complementar small{line-height:1.5}
+#app .resumo-react .atalho-historico{background:#e7eef7;color:#294c83;border:1px solid #c2d1e5;min-height:36px}
+#app .resumo-react .movimentos{margin-top:22px;background:#fff;border:1px solid #ccd7e2;border-radius:12px;min-width:0;overflow:visible}
+#app .resumo-react .cabecalho-movimentos{padding:20px 22px 16px;gap:14px}
+#app .resumo-react .cabecalho-movimentos h2{font-weight:600;color:#263b50}
+#app .resumo-react .acoes-movimentos{flex-wrap:wrap}
+#app .resumo-react .filtros{margin:0;padding:14px 22px;background:#edf3f8;border-block:1px solid #d5dfe9;flex-wrap:wrap}
+#app .resumo-react .busca-movimento{height:40px;background:#fff;border:1px solid #b8c9dc;flex:1;width:auto;max-width:540px;min-width:min(260px,100%)}
+#app .resumo-react .busca-movimento input{font-size:13px;color:#263b50}
+#app .resumo-react .movimentos>.campos-web{padding:14px 22px;margin:0;background:#edf3f8;border-bottom:1px solid #d5dfe9}
+#app .resumo-react .movimentos>.aviso-lista{margin:12px 22px}
+#app .resumo-react .movimentos>.tabela-scroll{border:0;border-radius:0 0 12px 12px;overflow:visible}
+#app .resumo-react .movimentos table{min-width:0;table-layout:fixed}
+#app .resumo-react .movimentos th:first-child{width:34%}
+#app .resumo-react .movimentos th:nth-child(2){width:13%}
+#app .resumo-react .movimentos th:nth-child(3){width:15%}
+#app .resumo-react .movimentos th:nth-child(4){width:15%}
+#app .resumo-react .movimentos th:last-child{width:23%}
+#app .resumo-react .movimentos th{background:#f6f8fb;color:#4b6079;font-weight:500;padding:12px 16px}
+#app .resumo-react .movimentos td{padding:14px 16px;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
+#app .resumo-react .movimentos .descricao{min-width:0;align-items:flex-start;gap:9px}
+#app .resumo-react .movimentos .descricao>div{min-width:0}
+#app .resumo-react .movimentos .descricao strong{color:#263b50;font-weight:500;line-height:1.5}
+#app .resumo-react .movimentos .valor{font-weight:500}
+#app .resumo-react .tipo-movimento.entrada{background:#e4f2eb;color:#246e53}
+#app .resumo-react .tipo-movimento.saida{background:#f8e9ea;color:#9b4a55}
+#app .resumo-react .situacao{white-space:normal;text-align:left;line-height:1.4}
+#app .resumo-react .acoes-movimento{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;min-width:0}
+#app .resumo-react .acoes-movimento>.botao,#app .resumo-react .acoes-menu-abrir{font-size:12px;min-height:32px;height:auto;padding:7px 9px}
+#app .resumo-react .acoes-menu-painel .acao-movimento{justify-content:flex-start}
+@media(max-width:1100px){
+ #app .resumo-react .painel-principal{grid-template-columns:minmax(265px,.9fr) minmax(300px,1.1fr);gap:14px}
+ #app .resumo-react .cartao-resultado{padding:20px}
+ #app .resumo-react .cartao-serie{padding:18px;grid-template-columns:minmax(110px,.85fr) minmax(90px,1fr)}
+ #app .resumo-react .movimentos th,#app .resumo-react .movimentos td{padding:12px}
+ #app .resumo-react .cabecalho-movimentos,#app .resumo-react .filtros,#app .resumo-react .movimentos>.campos-web{padding-inline:16px}
+}
+@media(max-width:760px){
+ #app .resumo-react .painel-principal{grid-template-columns:1fr}
+ #app .resumo-react .cartao-resultado{min-height:285px}
+ #app .resumo-react .painel-movimentos{grid-template-columns:1fr 1fr;grid-template-rows:auto}
+ #app .resumo-react .cartao-serie{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
+ #app .resumo-react .cartao-serie .serie-cabecalho{grid-column:1;grid-row:1}
+ #app .resumo-react .cartao-serie .grafico,#app .resumo-react .cartao-serie .grafico-vazio{grid-column:1;grid-row:2}
+ #app .resumo-react .cartao-serie .serie-legenda{grid-column:1;grid-row:3}
+ #app .resumo-react .resumo-complementar{grid-template-columns:1fr 1fr}
+ #app .resumo-react .movimentos table,#app .resumo-react .movimentos tbody{display:block}
+ #app .resumo-react .movimentos thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ #app .resumo-react .movimentos tbody tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:15px 16px;border-bottom:1px solid #dce4ed}
+ #app .resumo-react .movimentos tbody td{display:block;width:auto;border:0;padding:0;text-align:left}
+ #app .resumo-react .movimentos tbody td:first-child,#app .resumo-react .movimentos tbody td.acoes-linha{grid-column:1/-1}
+ #app .resumo-react .movimentos td[data-rotulo]::before{content:attr(data-rotulo);display:block;font-size:11px;color:#60748a;font-weight:400;margin-bottom:5px}
+ #app .resumo-react .acoes-movimento{justify-content:flex-start;padding-top:3px}
+ #app .resumo-react .movimentos tbody td.vazio{grid-column:1/-1;padding:24px 0;text-align:center}
+}
+@media(max-width:460px){#app .resumo-react .painel-movimentos{grid-template-columns:1fr}#app .resumo-react .cartao-serie{grid-template-columns:1fr 1fr}#app .resumo-react .cartao-serie .grafico,#app .resumo-react .cartao-serie .grafico-vazio{grid-column:2;grid-row:1/3}#app .resumo-react .cartao-serie .serie-legenda{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){#app .resumo-react{animation:none}}

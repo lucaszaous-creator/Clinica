@@ -1,0 +1,11 @@
+.campos-filtros { align-items:start; }
+.campo-busca { position:relative; }
+.campo-busca input { padding-left:38px; background-color:#fff; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f728b' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10.8' cy='10.8' r='6.8'/%3E%3Cpath d='m16 16 4.5 4.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:18px;background-position:12px center; }
+.pacientes-sugestoes { width:100%;min-width:0;margin-top:8px;border:1px solid #c4d2e4;border-radius:10px;background:#fff;overflow:hidden;box-shadow:0 4px 12px #213b5710; }
+.pacientes-sugestoes-titulo { display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:#edf3fb;border-bottom:1px solid #dce5ef; }
+.pacientes-sugestoes-titulo strong { font-size:12px;color:#29435f; }.pacientes-sugestoes-titulo span { font-size:11px;color:#566d86; }
+.pacientes-sugestoes-lista { max-height:264px;overflow-y:auto; }
+.pacientes-sugestoes-lista button { display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:11px 12px;border:0;border-bottom:1px solid #edf1f6;border-radius:0;background:#fff;color:#263750;text-align:left;cursor:pointer; }
+.pacientes-sugestoes-lista button:last-child {border-bottom:0}.pacientes-sugestoes-lista button span{min-width:0;overflow-wrap:anywhere;font-weight:500;font-size:12px}.pacientes-sugestoes-lista button small{color:#315bd4;font-size:11px;flex-shrink:0}.pacientes-sugestoes-lista button:hover,.pacientes-sugestoes-lista button:focus-visible{background:#eef4fe;outline:2px solid #315bd4;outline-offset:-2px}
+.pacientes-sugestoes-mais { width:100%;padding:10px;border:0;border-top:1px solid #dce5ef;background:#f7f9fc;color:#315bd4;font-size:12px;cursor:pointer }
+@media (prefers-reduced-motion:no-preference){.pacientes-sugestoes{animation:sugestoes-aparecer 130ms ease-out}@keyframes sugestoes-aparecer{from{opacity:.45;transform:translateY(-3px)}to{opacity:1;transform:none}}}
