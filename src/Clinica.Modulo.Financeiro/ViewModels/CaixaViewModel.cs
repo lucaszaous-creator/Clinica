@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -133,6 +134,51 @@ public sealed partial class CaixaViewModel : ObservableObject
     [ObservableProperty]
     private bool _temDeducoes;
 
+    [ObservableProperty] private string _ultimoMovimento = "Carregando lançamentos…";
+    [ObservableProperty] private string _detalheUltimoMovimento = string.Empty;
+    [ObservableProperty] private string _graficoEntradas = string.Empty;
+    [ObservableProperty] private string _graficoSaidas = string.Empty;
+    [ObservableProperty] private bool _serieDisponivel;
+    [ObservableProperty] private string _situacaoSerie = "Carregando distribuição diária…";
+    [ObservableProperty] private string _fimEixoSerie = "";
+
+    /// <summary>
+    /// Minigráficos do período inteiro, na mesma escala e pela data do lançamento.
+    /// A lista cortada jamais produz uma curva com aparência de mês completo.
+    /// </summary>
+    private void AtualizarResumoVisual(IReadOnlyList<LancamentoFinanceiro> lancamentos, bool completa)
+    {
+        var ultimo = lancamentos.FirstOrDefault();
+        UltimoMovimento = ultimo?.Descricao ?? "Nenhum lançamento neste período";
+        DetalheUltimoMovimento = ultimo is null ? string.Empty
+            : $"{ultimo.Data:dd/MM} · {Rotular(ultimo.Status)} · {ultimo.Valor:C}";
+        SerieDisponivel = completa;
+        SituacaoSerie = completa ? "Realizados por dia · mesma escala" : "Gráfico indisponível: lista do mês incompleta";
+        FimEixoSerie = DateTime.DaysInMonth(Mes.Year, Mes.Month).ToString("00");
+        if (!completa)
+        {
+            GraficoEntradas = GraficoSaidas = string.Empty;
+            return;
+        }
+
+        var dias = DateTime.DaysInMonth(Mes.Year, Mes.Month);
+        var entradas = new decimal[dias];
+        var saidas = new decimal[dias];
+        foreach (var lancamento in lancamentos.Where(l => l.Status == StatusLancamento.Realizado))
+        {
+            var serie = lancamento.Tipo == TipoLancamento.Entrada ? entradas : saidas;
+            serie[lancamento.Data.Day - 1] += lancamento.Valor;
+        }
+        var maior = Math.Max(entradas.Max(), saidas.Max());
+        GraficoEntradas = MontarCurva(entradas, maior);
+        GraficoSaidas = MontarCurva(saidas, maior);
+    }
+
+    private static string MontarCurva(IReadOnlyList<decimal> valores, decimal maior)
+        => string.Join(" ", valores.Select((valor, indice) =>
+            string.Create(CultureInfo.InvariantCulture,
+                $"{(indice == 0 ? "M" : "L")} {indice * 280d / (valores.Count - 1):0.##},{48d - (maior == 0 ? 0 : (double)(valor / maior) * 44d):0.##}")));
+
     /// <summary>
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
     /// botão apagado explica por que não dá; a guarda no comando é que impede.
@@ -196,6 +242,13 @@ public sealed partial class CaixaViewModel : ObservableObject
         {
             Carregando = true;
             NaoVerificado = false;
+            SerieDisponivel = false;
+            GraficoEntradas = GraficoSaidas = string.Empty;
+            SituacaoSerie = "Carregando distribuição diária…";
+            UltimoMovimento = "Carregando lançamentos…";
+            DetalheUltimoMovimento = string.Empty;
+            Entradas = Saidas = Saldo = Previsto = Liquido = Deducoes = "—";
+            TemDeducoes = false;
             var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
             var fim = inicio.AddMonths(1).AddDays(-1);
 
@@ -244,12 +297,18 @@ public sealed partial class CaixaViewModel : ObservableObject
             Liquido = $"{resumo.EntradasLiquidas:C}";
             Deducoes = $"{resumo.TotalDeducoes:C}";
             TemDeducoes = resumo.TemDeducao;
+            AtualizarResumoVisual(lancamentos, limite is null || lancamentos.Count < limite.Value);
         }
         catch (Exception ex)
         {
             if (geracao != _geracaoCarga) return;
 
             NaoVerificado = true;
+            SerieDisponivel = false;
+            GraficoEntradas = GraficoSaidas = string.Empty;
+            SituacaoSerie = "Não foi possível carregar a distribuição diária";
+            UltimoMovimento = "Lançamentos não verificados";
+            DetalheUltimoMovimento = string.Empty;
             Clinica.Application.Diagnostico.Registrar("Financeiro — caixa não pôde ser carregado", ex);
             _snackbar.Erro($"Não foi possível carregar o caixa: {ex.Message}");
         }

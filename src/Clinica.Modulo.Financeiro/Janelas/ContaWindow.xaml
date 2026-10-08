@@ -1,92 +1,70 @@
-<Window x:Class="Clinica.Financeiro.Janelas.ContaWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-        Title="Conta a pagar ou a receber" Width="560" Height="650" MinHeight="420" MinWidth="440"
-        WindowStartupLocation="CenterOwner"
-        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" x:Class="Clinica.Financeiro.Janelas.ContaWindow" Title="Conta a pagar ou a receber" Width="560" Height="650" MinHeight="420" MinWidth="440" WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-    </Window.Resources>
+    <Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml"/></ResourceDictionary.MergedDictionaries>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="24">
-        <TextBlock Text="Conta nova" Style="{StaticResource DialogoTitulo}" />
-        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
-                   Text="Nada nasce pago: a conta entra como PREVISTA e vira realizada na baixa. O sistema sabe que ela vence, não que foi quitada." />
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+    </ResourceDictionary></Window.Resources><Window.Style><StaticResource ResourceKey="Financeiro.Janela"/></Window.Style>
 
-        <TextBlock Text="Descrição" Style="{StaticResource Rotulo}" />
-        <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}" MaxLength="200" />
+
+    <DockPanel Margin="{StaticResource Margem.Pagina}"><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" DockPanel.Dock="Bottom">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" IsCancel="True" MinWidth="110" Margin="0,0,8,0"/>
+            <Button Content="Registrar conta" Command="{Binding SalvarCommand}" IsDefault="True" MinWidth="150" ctrl:Ajudantes.EstaCarregando="{Binding Salvando}"/>
+        </StackPanel><ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="0">
+        <TextBlock Text="Conta nova" Style="{StaticResource DialogoTitulo}"/>
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12" Text="Nada nasce pago: a conta entra como PREVISTA e vira realizada na baixa. O sistema sabe que ela vence, não que foi quitada."/>
+
+        <TextBlock Text="Descrição" Style="{StaticResource Rotulo}"/>
+        <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}" MaxLength="200"/>
 
         <Grid Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Valor total da obrigação" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}" MaxLength="14" />
+                <TextBlock Text="Valor total da obrigação" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}" MaxLength="14"/>
             </StackPanel>
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Primeiro vencimento" Style="{StaticResource Rotulo}" />
-                <DatePicker SelectedDate="{Binding Vencimento}" />
+                <TextBlock Text="Primeiro vencimento" Style="{StaticResource Rotulo}"/>
+                <DatePicker SelectedDate="{Binding Vencimento}"/>
             </StackPanel>
         </Grid>
 
-        <TextBlock Text="Fornecedor / cliente" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
-        <TextBox Text="{Binding Contraparte}" MaxLength="200" />
-        <TextBlock Text="Documento de referência (nota, contrato ou cobrança)" Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
-        <TextBox Text="{Binding DocumentoReferencia}" MaxLength="100" />
-        <TextBlock Text="Competência" Style="{StaticResource Rotulo}" />
-        <DatePicker SelectedDate="{Binding Competencia}" />
-        <TextBlock Text="Quantidade de parcelas mensais" Style="{StaticResource Rotulo}" />
-        <TextBox Text="{Binding QuantidadeParcelas}" MaxLength="3" />
-        <TextBlock Text="Use 1 para pagamento único. O total será dividido entre as parcelas, com vencimentos mensais e centavos distribuídos sem alterar o total. Parcelar a obrigação não registra pagamento."
-                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,0" />
-        <TextBlock Text="Categoria" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
-        <ComboBox ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}"
-                  DisplayMemberPath="Nome" />
+        <TextBlock Text="Fornecedor / cliente" Style="{StaticResource Rotulo}" Margin="0,12,0,0"/>
+        <TextBox Text="{Binding Contraparte}" MaxLength="200"/>
+        <TextBlock Text="Documento de referência (nota, contrato ou cobrança)" Style="{StaticResource Rotulo}" TextWrapping="Wrap"/>
+        <TextBox Text="{Binding DocumentoReferencia}" MaxLength="100"/>
+        <TextBlock Text="Competência" Style="{StaticResource Rotulo}"/>
+        <DatePicker SelectedDate="{Binding Competencia}"/>
+        <TextBlock Text="Quantidade de parcelas mensais" Style="{StaticResource Rotulo}"/>
+        <TextBox Text="{Binding QuantidadeParcelas}" MaxLength="3"/>
+        <TextBlock Text="Use 1 para pagamento único. O total será dividido entre as parcelas, com vencimentos mensais e centavos distribuídos sem alterar o total. Parcelar a obrigação não registra pagamento." Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+        <TextBlock Text="Categoria" Style="{StaticResource Rotulo}" Margin="0,12,0,0"/>
+        <ComboBox ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}" DisplayMemberPath="Nome"/>
 
         <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-            <RadioButton Content="A pagar" IsChecked="{Binding EhSaida}"
-                         GroupName="TipoConta" Margin="0,0,16,0" />
-            <RadioButton Content="A receber" GroupName="TipoConta"
-                         IsChecked="{Binding EhEntrada}" />
+            <RadioButton Content="A pagar" IsChecked="{Binding EhSaida}" GroupName="TipoConta" Margin="0,0,16,0"/>
+            <RadioButton Content="A receber" GroupName="TipoConta" IsChecked="{Binding EhEntrada}"/>
         </StackPanel>
 
         <!-- Só no modo "A receber": conta a pagar não tem paciente, e o campo ali
              atrapalharia o lançamento mais comum. É este campo que dá dono à dívida —
              sem ele a tela de inadimplência ficaria vazia para sempre. -->
-        <StackPanel Margin="0,12,0,0"
-                    Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="De quem é (opcional)" Style="{StaticResource Rotulo}" />
-            <TextBox Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                     MaxLength="80" />
-            <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
-                       TextWrapping="Wrap" Margin="0,4,0,0"
-                       FontSize="{StaticResource Fonte.Legenda}" />
-            <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                     SelectedItem="{Binding Seletor.Selecionado}"
-                     ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                     MaxHeight="180" Margin="0,6,0,0"
-                     ctrl:Ajudantes.RodaDaPagina="True"
-                     BorderThickness="0" Background="Transparent" />
+        <StackPanel Margin="0,12,0,0" Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="De quem é (opcional)" Style="{StaticResource Rotulo}"/>
+            <TextBox Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}" MaxLength="80"/>
+            <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0" FontSize="{StaticResource Fonte.Legenda}"/>
+            <ListBox ItemsSource="{Binding Seletor.Resultados}" SelectedItem="{Binding Seletor.Selecionado}" ItemTemplate="{StaticResource ItemPacienteSeletor}" MaxHeight="180" Margin="0,6,0,0" ctrl:Ajudantes.RodaDaPagina="True" BorderThickness="0" Background="Transparent"/>
         </StackPanel>
 
-        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0" Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"/>
         </Border>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
-                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
-            <Button Content="Registrar conta" Command="{Binding SalvarCommand}"
-                    IsDefault="True" MinWidth="150"
-                    ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
-        </StackPanel>
+
     </StackPanel>
-    </ScrollViewer>
+    </ScrollViewer></DockPanel>
 </Window>

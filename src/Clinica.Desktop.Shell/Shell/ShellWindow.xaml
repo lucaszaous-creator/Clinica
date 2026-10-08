@@ -294,6 +294,7 @@
 
 
             <!-- Tela ativa (a View já vem com DataContext resolvido pelo módulo) -->
+            <ContentControl x:Name="NavegacaoLateral" DockPanel.Dock="Left" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
             <ContentControl x:Name="AreaDeTrabalho" Content="{Binding TelaAtual}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
         </DockPanel>
 

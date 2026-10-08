@@ -3,52 +3,48 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:vm="clr-namespace:Clinica.Financeiro.ViewModels"
-             Background="{StaticResource Brush.Fundo}">
+             >
 
     <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml" />
+            </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+            </ResourceDictionary>
     </UserControl.Resources>
+    <UserControl.Style>
+        <StaticResource ResourceKey="Financeiro.Pagina" />
+    </UserControl.Style>
 
     <Grid>
-    <DockPanel Margin="24">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="20,16">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Repasses" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="Quanto cada profissional tem a receber. A produção vem do agendamento (é ele que sabe quem atendeu) e a receita considerada é a que ENTROU — repassar sobre o que não foi recebido faria a clínica pagar dinheiro que não tem." />
-
-            <Grid Margin="0,12,0,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="◀" Style="{StaticResource BotaoSecundario}" MinWidth="44"
-                            Command="{Binding MesAnteriorCommand}" />
-                    <TextBlock Text="{Binding PeriodoRotulo}" Margin="12,0" VerticalAlignment="Center"
-                               FontWeight="SemiBold" FontSize="{StaticResource Fonte.H3}"
-                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                    <Button Content="▶" Style="{StaticResource BotaoSecundario}" MinWidth="44"
-                            Command="{Binding ProximoMesCommand}" />
+        <Border Style="{StaticResource Financeiro.Cabecalho}" Padding="0" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="Repasses" Style="{StaticResource H1}" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource Financeiro.Subtitulo}" Text="Apuração por profissional, com base na receita recebida e na regra de repasse." />
+            </StackPanel>
+        </Border>
+        <Border Style="{StaticResource Financeiro.Filtros}" Padding="0" Background="Transparent" Margin="0,0,0,8">
+            <WrapPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,16,8">
+                    <Button Content="◀" Style="{StaticResource BotaoSecundario}" MinWidth="34" MinHeight="32" Padding="8,4" Command="{Binding MesAnteriorCommand}" ToolTip="Mês anterior" AutomationProperties.Name="Mês anterior" />
+                    <TextBlock Text="{Binding PeriodoRotulo}" TextWrapping="Wrap" Margin="12,0" VerticalAlignment="Center" FontWeight="SemiBold" />
+                    <Button Content="▶" Style="{StaticResource BotaoSecundario}" MinWidth="34" MinHeight="32" Padding="8,4" Command="{Binding ProximoMesCommand}" ToolTip="Próximo mês" AutomationProperties.Name="Próximo mês" />
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <!-- O papel que o profissional recebe junto com o repasse. O número
-                         precisa vir com a CONTA que o produziu — atendimentos, receita que
-                         entrou e a regra aplicada —, senão discordar dele vira discutir
-                         memória. -->
-                    <Button Content="Exportar CSV" Style="{StaticResource BotaoSecundario}"
-                            Margin="0,0,8,0" MinWidth="120"
-                            Command="{Binding ExportarCommand}" />
-                    <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding CarregarCommand}" />
-                    <!-- Regras e apurações saíram da faixa de 400 px e viraram botão
-                         (parcela 49): a tela responde "quanto tenho a repassar agora"; o
-                         percentual muda em negociação e a apuração fechada é consulta. -->
-                    <Button Content="Regras e apurações…" Margin="8,0,0,0" MinWidth="180"
-                            Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding AbrirRegrasCommand}" />
-                </StackPanel>
-            </Grid>
-
-            <TextBlock Text="{Binding Resumo}" Margin="0,10,0,0" FontWeight="SemiBold"
-                       Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-        </StackPanel>
+                <Button Content="Exportar CSV" Style="{StaticResource BotaoSecundario}" MinHeight="32" Padding="12,4" Margin="0,0,8,8" Command="{Binding ExportarCommand}" />
+                <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}" MinHeight="32" Padding="12,4" Margin="0,0,8,8" Command="{Binding CarregarCommand}" />
+                <Button Content="Regras e apurações…" Style="{StaticResource BotaoSecundario}" MinHeight="32" Padding="12,4" Margin="0,0,0,8" Command="{Binding AbrirRegrasCommand}" />
+            </WrapPanel>
+        </Border>
+        <Border Style="{StaticResource Financeiro.Kpi}" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Resumo do período" Style="{StaticResource Financeiro.Rotulo}" />
+                <TextBlock Text="{Binding Resumo}" Margin="0,4,0,0" FontWeight="Normal" Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
 
         <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
@@ -57,23 +53,18 @@
 
         <Grid>
             <!-- ============ Cálculo do período ============ -->
-            <Border Style="{StaticResource Card}">
+            <Border Style="{StaticResource Card}" BorderThickness="0">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="A repassar no período"
                                Style="{StaticResource H3}" Margin="0,0,0,8" />
 
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Calculados}">
+                    <ItemsControl ItemsSource="{Binding Calculados}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:LinhaRepasse}">
                                     <Border Padding="0,10"
                                             BorderBrush="{StaticResource Brush.Borda}"
                                             BorderThickness="0,0,0,1">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
+                                        <StackPanel>
 
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Profissional}" FontWeight="SemiBold"
@@ -92,29 +83,30 @@
                                                            Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             </StackPanel>
 
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0"
                                                         VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Valor}" VerticalAlignment="Center"
-                                                           Margin="0,0,12,0" FontWeight="Bold"
+                                                           Margin="0,0,12,0" FontWeight="SemiBold"
                                                            FontSize="{StaticResource Fonte.H3}"
-                                                           Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                <Button Content="Apurar" Style="{StaticResource BotaoPequeno}"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                <Button Content="Apurar" Style="{StaticResource BotaoAcaoGridSecundario}"
                                                         IsEnabled="{Binding PodeApurar}"
                                                         Command="{Binding DataContext.ApurarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                             </StackPanel>
-                                        </Grid>
+                                        </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </ScrollViewer>
+
                 </DockPanel>
             </Border>
 
         </Grid>
-    </DockPanel>
+    </StackPanel>
+    </ScrollViewer>
     <ctrl:EstadoDaTela
                        Vazio="False"
                        Carregando="{Binding Carregando}"

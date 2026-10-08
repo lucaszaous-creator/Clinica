@@ -168,6 +168,19 @@ jobs:
           dotnet tool install -g vpk --version 1.2.0
           echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
 
+      - name: Preparar Node para a interface financeira
+        if: steps.alvo.outputs.app == 'financeiro'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Compilar a interface financeira local
+        if: steps.alvo.outputs.app == 'financeiro'
+        working-directory: src/Clinica.Modulo.Financeiro/Web/frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Publicar (pasta self-contained)
         run: dotnet publish ${{ steps.alvo.outputs.projeto }} -c Release -r win-x64 --self-contained true -p:Version=${{ steps.alvo.outputs.version }} -o publish
 
@@ -186,6 +199,7 @@ jobs:
             "--packTitle",   "${{ steps.alvo.outputs.titulo }}"
           )
           if ($canal -ne "win") { $args += @("--channel", $canal) }
+          if ($canal -eq "financeiro") { $args += @("--framework", "webview2") }
           & vpk @args
           if ($LASTEXITCODE -ne 0) { throw "vpk pack falhou" }
 

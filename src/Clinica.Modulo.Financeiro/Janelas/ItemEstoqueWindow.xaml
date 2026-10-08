@@ -1,89 +1,75 @@
-<Window x:Class="Clinica.Financeiro.Janelas.ItemEstoqueWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-        Title="Item do estoque" Width="600" Height="650" MinWidth="460" MinHeight="420"
-        WindowStartupLocation="CenterOwner"
-        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" x:Class="Clinica.Financeiro.Janelas.ItemEstoqueWindow" Title="Item do estoque" Width="600" Height="650" MinWidth="460" MinHeight="420" WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-    </Window.Resources>
+    <Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml"/></ResourceDictionary.MergedDictionaries>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="24">
-        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
-                   Text="Cadastre materiais assistenciais, medicamentos e produtos de rotina. O saldo é atualizado pelas entradas e consumos." />
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+    </ResourceDictionary></Window.Resources><Window.Style><StaticResource ResourceKey="Financeiro.Janela"/></Window.Style>
 
-        <TextBlock Text="Nome" Style="{StaticResource Rotulo}" />
-        <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
 
-        <TextBlock Text="Código interno" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
-        <TextBox Text="{Binding CodigoInterno}" MaxLength="40" />
-        <TextBlock Text="Código de barras" Style="{StaticResource Rotulo}" />
-        <TextBox Text="{Binding CodigoBarras}" MaxLength="60" />
-        <TextBlock Text="Grupo" Style="{StaticResource Rotulo}" />
-        <ComboBox ItemsSource="{Binding Grupos}" SelectedItem="{Binding Grupo}" ItemTemplate="{StaticResource ItemRotuloEnum}" />
-        <TextBlock Text="Uso permitido" Style="{StaticResource Rotulo}" />
-        <ComboBox ItemsSource="{Binding Usos}" SelectedItem="{Binding Uso}" ItemTemplate="{StaticResource ItemRotuloEnum}" />
-        <TextBlock Text="Fabricante" Style="{StaticResource Rotulo}" />
-        <TextBox Text="{Binding Fabricante}" MaxLength="120" />
-        <TextBlock Text="Apresentação / especificação" Style="{StaticResource Rotulo}" />
-        <TextBox Text="{Binding Apresentacao}" MaxLength="120" />
+    <DockPanel Margin="{StaticResource Margem.Pagina}"><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" DockPanel.Dock="Bottom">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" IsCancel="True" MinWidth="110" Margin="0,0,8,0"/>
+            <Button Content="Salvar item" Command="{Binding SalvarCommand}" IsDefault="True" MinWidth="140" ctrl:Ajudantes.EstaCarregando="{Binding Salvando}"/>
+        </StackPanel><ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="0">
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left"/>
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12" Text="Cadastre materiais assistenciais, medicamentos e produtos de rotina. O saldo é atualizado pelas entradas e consumos."/>
+
+        <TextBlock Text="Nome" Style="{StaticResource Rotulo}"/>
+        <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="120"/>
+
+        <TextBlock Text="Código interno" Style="{StaticResource Rotulo}" Margin="0,12,0,0"/>
+        <TextBox Text="{Binding CodigoInterno}" MaxLength="40"/>
+        <TextBlock Text="Código de barras" Style="{StaticResource Rotulo}"/>
+        <TextBox Text="{Binding CodigoBarras}" MaxLength="60"/>
+        <TextBlock Text="Grupo" Style="{StaticResource Rotulo}"/>
+        <ComboBox ItemsSource="{Binding Grupos}" SelectedItem="{Binding Grupo}" ItemTemplate="{StaticResource ItemRotuloEnum}"/>
+        <TextBlock Text="Uso permitido" Style="{StaticResource Rotulo}"/>
+        <ComboBox ItemsSource="{Binding Usos}" SelectedItem="{Binding Uso}" ItemTemplate="{StaticResource ItemRotuloEnum}"/>
+        <TextBlock Text="Fabricante" Style="{StaticResource Rotulo}"/>
+        <TextBox Text="{Binding Fabricante}" MaxLength="120"/>
+        <TextBlock Text="Apresentação / especificação" Style="{StaticResource Rotulo}"/>
+        <TextBox Text="{Binding Apresentacao}" MaxLength="120"/>
         <Grid Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Unidade de consumo" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Unidade, UpdateSourceTrigger=PropertyChanged}" MaxLength="10" />
+                <TextBlock Text="Unidade de consumo" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding Unidade, UpdateSourceTrigger=PropertyChanged}" MaxLength="10"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Estoque mínimo" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Minimo, UpdateSourceTrigger=PropertyChanged}" MaxLength="10" />
+                <TextBlock Text="Estoque mínimo" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding Minimo, UpdateSourceTrigger=PropertyChanged}" MaxLength="10"/>
             </StackPanel>
         </Grid>
 
-        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
-                   Text="Sem mínimo, o item não entra no alerta de reposição — deixe em branco quando não fizer sentido vigiar." />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" Text="Sem mínimo, o item não entra no alerta de reposição — deixe em branco quando não fizer sentido vigiar."/>
 
-        <TextBlock Text="Estoque máximo (alvo da reposição)" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
-        <TextBox Text="{Binding Maximo}" MaxLength="14" />
-        <TextBlock Text="Unidade de compra (ex.: cx)" Style="{StaticResource Rotulo}" />
-        <TextBox Text="{Binding UnidadeCompra}" MaxLength="10" />
-        <TextBlock Text="Unidades de consumo por embalagem (ex.: 100 un por cx)" Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
-        <TextBox Text="{Binding FatorCompra}" MaxLength="14" />
-        <TextBlock Text="Local de armazenamento" Style="{StaticResource Rotulo}" />
-        <TextBox Text="{Binding LocalArmazenamento}" MaxLength="100" />
-        <CheckBox Content="Exigir lote nas entradas" IsChecked="{Binding ExigirLote}" Margin="0,12,0,4" />
-        <CheckBox Content="Exigir validade nas entradas" IsChecked="{Binding ExigirValidade}" />
-        <TextBlock Text="Medicamentos sempre exigem lote e validade. Cadastre cada apresentação como um produto distinto."
-                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,12" />
-        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
-        <TextBox Text="{Binding Observacoes}" MaxLength="500" AcceptsReturn="True" TextWrapping="Wrap" Height="64" VerticalScrollBarVisibility="Auto" />
-        <CheckBox Content="Ativo" IsChecked="{Binding Ativo}" Margin="0,12,0,0" />
-        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
-                   Text="Inative produtos fora de uso. Itens com movimentação preservam seu histórico e não podem ser excluídos." />
+        <TextBlock Text="Estoque máximo (alvo da reposição)" Style="{StaticResource Rotulo}" Margin="0,12,0,0"/>
+        <TextBox Text="{Binding Maximo}" MaxLength="14"/>
+        <TextBlock Text="Unidade de compra (ex.: cx)" Style="{StaticResource Rotulo}"/>
+        <TextBox Text="{Binding UnidadeCompra}" MaxLength="10"/>
+        <TextBlock Text="Unidades de consumo por embalagem (ex.: 100 un por cx)" Style="{StaticResource Rotulo}" TextWrapping="Wrap"/>
+        <TextBox Text="{Binding FatorCompra}" MaxLength="14"/>
+        <TextBlock Text="Local de armazenamento" Style="{StaticResource Rotulo}"/>
+        <TextBox Text="{Binding LocalArmazenamento}" MaxLength="100"/>
+        <CheckBox Content="Exigir lote nas entradas" IsChecked="{Binding ExigirLote}" Margin="0,12,0,4"/>
+        <CheckBox Content="Exigir validade nas entradas" IsChecked="{Binding ExigirValidade}"/>
+        <TextBlock Text="Medicamentos sempre exigem lote e validade. Cadastre cada apresentação como um produto distinto." Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,12"/>
+        <TextBlock Text="Observações" Style="{StaticResource Rotulo}"/>
+        <TextBox Text="{Binding Observacoes}" MaxLength="500" AcceptsReturn="True" TextWrapping="Wrap" Height="64" VerticalScrollBarVisibility="Auto"/>
+        <CheckBox Content="Ativo" IsChecked="{Binding Ativo}" Margin="0,12,0,0"/>
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0" Text="Inative produtos fora de uso. Itens com movimentação preservam seu histórico e não podem ser excluídos."/>
 
-        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0" Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"/>
         </Border>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
-                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
-            <Button Content="Salvar item" Command="{Binding SalvarCommand}"
-                    IsDefault="True" MinWidth="140"
-                    ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
-        </StackPanel>
+
     </StackPanel>
-    </ScrollViewer>
+    </ScrollViewer></DockPanel>
 </Window>

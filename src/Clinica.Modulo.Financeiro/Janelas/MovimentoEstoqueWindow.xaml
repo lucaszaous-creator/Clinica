@@ -1,33 +1,25 @@
-<Window x:Class="Clinica.Financeiro.Janelas.MovimentoEstoqueWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Movimentar estoque" Width="560" Height="560" MinWidth="480" MinHeight="420"
-        WindowStartupLocation="CenterOwner"
-        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="Clinica.Financeiro.Janelas.MovimentoEstoqueWindow" Title="Movimentar estoque" Width="560" Height="560" MinWidth="480" MinHeight="420" WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-    </Window.Resources>
+    <Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml"/></ResourceDictionary.MergedDictionaries>
+
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+    </ResourceDictionary></Window.Resources><Window.Style><StaticResource ResourceKey="Financeiro.Janela"/></Window.Style>
+
 
     <DockPanel Margin="24">
 
         <StackPanel DockPanel.Dock="Top">
-            <TextBlock Text="Movimentar estoque" Style="{StaticResource DialogoTitulo}" />
-            <TextBlock Text="{Binding Item}" FontWeight="SemiBold" Margin="0,0,0,12"
-                       Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+            <TextBlock Text="Movimentar estoque" Style="{StaticResource DialogoTitulo}"/>
+            <TextBlock Text="{Binding Item}" FontWeight="SemiBold" Margin="0,0,0,12" Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left"/>
         </StackPanel>
 
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button x:Name="BtnCancelar" Content="Cancelar" Style="{StaticResource BotaoSecundario}"
-                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
-            <Button Content="Registrar" Command="{Binding SalvarCommand}"
-                    IsDefault="True" MinWidth="140" IsEnabled="{Binding PodeSalvar}" />
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="BtnCancelar" Content="Cancelar" Style="{StaticResource BotaoSecundario}" IsCancel="True" MinWidth="110" Margin="0,0,8,0"/>
+            <Button Content="Registrar" Command="{Binding SalvarCommand}" IsDefault="True" MinWidth="140" IsEnabled="{Binding PodeSalvar}"/>
         </StackPanel>
 
-        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0" Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"/>
         </Border>
 
         <!-- O miolo rola; título e botões ficam parados. Em escala do Windows a 150% um
@@ -36,102 +28,89 @@
         <StackPanel>
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="12" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="12" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="Tipo" Style="{StaticResource Rotulo}" />
-                    <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}"
-                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
+                    <TextBlock Text="Tipo" Style="{StaticResource Rotulo}"/>
+                    <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}" ItemTemplate="{StaticResource ItemRotuloEnum}"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="Quantidade" Style="{StaticResource Rotulo}" />
-                    <TextBox Text="{Binding Quantidade, UpdateSourceTrigger=PropertyChanged}"
-                             MaxLength="10" />
+                    <TextBlock Text="Quantidade" Style="{StaticResource Rotulo}"/>
+                    <TextBox Text="{Binding Quantidade, UpdateSourceTrigger=PropertyChanged}" MaxLength="10"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="4">
-                    <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
-                    <DatePicker SelectedDate="{Binding Data}" />
+                    <TextBlock Text="Data" Style="{StaticResource Rotulo}"/>
+                    <DatePicker SelectedDate="{Binding Data}"/>
                 </StackPanel>
             </Grid>
 
             <!-- Custo, validade e lote só existem na ENTRADA: é ela que traz o lote. -->
-            <Border Style="{StaticResource Card}" Margin="0,14,0,0"
-                    Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}">
+            <Border Style="{StaticResource Card}" Margin="0,14,0,0" Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}">
                 <StackPanel>
-                    <TextBlock Text="Dados da entrada" Style="{StaticResource H3}" Margin="0" />
-                    <CheckBox Content="Quantidade e custo na embalagem de compra" IsChecked="{Binding EmUnidadeCompra}" Margin="0,8,0,4" />
-                    <TextBlock Text="Marque para usar a unidade e o fator cadastrados no produto. Desmarcado: informe a unidade de consumo."
-                               Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
-                    <TextBlock Text="Fornecedor / origem" Style="{StaticResource Rotulo}" />
-                    <TextBox Text="{Binding Fornecedor}" MaxLength="100" />
-                    <TextBlock Text="Documento da entrada (nota, recibo ou referência)" Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
-                    <TextBox Text="{Binding DocumentoEntrada}" MaxLength="80" />
+                    <TextBlock Text="Dados da entrada" Style="{StaticResource H3}" Margin="0"/>
+                    <CheckBox Content="Quantidade e custo na embalagem de compra" IsChecked="{Binding EmUnidadeCompra}" Margin="0,8,0,4"/>
+                    <TextBlock Text="Marque para usar a unidade e o fator cadastrados no produto. Desmarcado: informe a unidade de consumo." Style="{StaticResource TextoSuave}" TextWrapping="Wrap"/>
+                    <TextBlock Text="Fornecedor / origem" Style="{StaticResource Rotulo}"/>
+                    <TextBox Text="{Binding Fornecedor}" MaxLength="100"/>
+                    <TextBlock Text="Documento da entrada (nota, recibo ou referência)" Style="{StaticResource Rotulo}" TextWrapping="Wrap"/>
+                    <TextBox Text="{Binding DocumentoEntrada}" MaxLength="80"/>
 
                     <Grid Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Custo unitário" Style="{StaticResource Rotulo}" />
-                            <TextBox Text="{Binding CustoUnitario, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="12" />
+                            <TextBlock Text="Custo unitário" Style="{StaticResource Rotulo}"/>
+                            <TextBox Text="{Binding CustoUnitario, UpdateSourceTrigger=PropertyChanged}" MaxLength="12"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Validade" Style="{StaticResource Rotulo}" />
-                            <DatePicker SelectedDate="{Binding Validade}" />
+                            <TextBlock Text="Validade" Style="{StaticResource Rotulo}"/>
+                            <DatePicker SelectedDate="{Binding Validade}"/>
                         </StackPanel>
 
                     </Grid>
 
-                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0"
-                               Text="A validade fica no lote, não no item: o mesmo insumo entra em lotes com vencimentos diferentes, e uma validade só por item apagaria o que vence primeiro." />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0" Text="A validade fica no lote, não no item: o mesmo insumo entra em lotes com vencimentos diferentes, e uma validade só por item apagaria o que vence primeiro."/>
                 </StackPanel>
             </Border>
 
-            <TextBlock Text="Lote de origem (conforme exigência do produto)" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
-            <TextBox Text="{Binding Lote}" MaxLength="60" />
+            <TextBlock Text="Lote de origem (conforme exigência do produto)" Style="{StaticResource Rotulo}" Margin="0,12,0,4"/>
+            <TextBox Text="{Binding Lote}" MaxLength="60"/>
             <StackPanel Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}" Margin="0,12,0,0">
-                <CheckBox Content="Registrar também a compra no financeiro" IsChecked="{Binding GerarContaCompra}" />
+                <CheckBox Content="Registrar também a compra no financeiro" IsChecked="{Binding GerarContaCompra}"/>
                 <StackPanel Visibility="{Binding GerarContaCompra, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="Fornecedor" Style="{StaticResource Rotulo}" />
-                    <TextBox Text="{Binding Fornecedor, UpdateSourceTrigger=PropertyChanged}" MaxLength="100" />
-                    <TextBlock Text="Vencimento da compra" Style="{StaticResource Rotulo}" />
-                    <DatePicker SelectedDate="{Binding VencimentoCompra}" />
-                    <CheckBox Content="Compra já paga" IsChecked="{Binding CompraPaga}" Margin="0,8,0,8" />
-                    <ComboBox ItemsSource="{Binding FormasCompra}" SelectedItem="{Binding FormaCompra}" ItemTemplate="{StaticResource ItemRotuloEnum}"
-                        Visibility="{Binding CompraPaga, Converter={StaticResource BoolParaVisibilidade}}" />
-                    <TextBlock Text="O valor será a quantidade × custo unitário. Estoque e conta serão gravados juntos."
-                        Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                    <TextBlock Text="Fornecedor" Style="{StaticResource Rotulo}"/>
+                    <TextBox Text="{Binding Fornecedor, UpdateSourceTrigger=PropertyChanged}" MaxLength="100"/>
+                    <TextBlock Text="Vencimento da compra" Style="{StaticResource Rotulo}"/>
+                    <DatePicker SelectedDate="{Binding VencimentoCompra}"/>
+                    <CheckBox Content="Compra já paga" IsChecked="{Binding CompraPaga}" Margin="0,8,0,8"/>
+                    <ComboBox ItemsSource="{Binding FormasCompra}" SelectedItem="{Binding FormaCompra}" ItemTemplate="{StaticResource ItemRotuloEnum}" Visibility="{Binding CompraPaga, Converter={StaticResource BoolParaVisibilidade}}"/>
+                    <TextBlock Text="O valor será a quantidade × custo unitário. Estoque e conta serão gravados juntos." Style="{StaticResource TextoSuave}" TextWrapping="Wrap"/>
                 </StackPanel>
             </StackPanel>
 
             <StackPanel Visibility="{Binding EhSaida, Converter={StaticResource BoolParaVisibilidade}}" Margin="0,12,0,0">
-                <TextBlock Text="Consumo de rotina — setor de destino" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding SetorDestino}" MaxLength="100" />
-                <TextBlock Text="Ex.: limpeza, recepção ou enfermagem. O produto deve permitir uso de rotina. Materiais de uma sessão são registrados no atendimento."
-                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                <TextBlock Text="Consumo de rotina — setor de destino" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding SetorDestino}" MaxLength="100"/>
+                <TextBlock Text="Ex.: limpeza, recepção ou enfermagem. O produto deve permitir uso de rotina. Materiais de uma sessão são registrados no atendimento." Style="{StaticResource TextoSuave}" TextWrapping="Wrap"/>
             </StackPanel>
-            <TextBlock Text="Observação" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
-            <TextBox Text="{Binding Observacao}" AcceptsReturn="True" Height="70"
-                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="300" />
+            <TextBlock Text="Observação" Style="{StaticResource Rotulo}" Margin="0,14,0,4"/>
+            <TextBox Text="{Binding Observacao}" AcceptsReturn="True" Height="70" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="300"/>
 
-            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
-                       Text="Perda exige motivo escrito — perda sem motivo vira estoque que não bate. Saída maior que o saldo é recusada: estoque negativo não existe no mundo." />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" Text="Perda exige motivo escrito — perda sem motivo vira estoque que não bate. Saída maior que o saldo é recusada: estoque negativo não existe no mundo."/>
         </StackPanel>
         </ScrollViewer>
     </DockPanel>

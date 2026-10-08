@@ -2,92 +2,66 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-             Background="{StaticResource Brush.Fundo}">
+             >
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <UserControl.Style>
+        <StaticResource ResourceKey="Financeiro.Pagina" />
+    </UserControl.Style>
 
     <Grid>
-    <DockPanel Margin="24">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="20,16">
 
         <!-- ============ Cabeçalho ============ -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+        <Border Style="{StaticResource Financeiro.Cabecalho}" Padding="0" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="Produção" Style="{StaticResource H1}" Margin="0,0,0,4" />
-                <TextBlock Text="Volume de códigos por mês, efetivados e pendentes."
-                           Style="{StaticResource TextoSuave}" Margin="0" />
+                <TextBlock Text="Produção" Style="{StaticResource H1}" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock Text="Códigos efetivados e pendentes por mês." Style="{StaticResource Financeiro.Subtitulo}" />
             </StackPanel>
-
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                <Button Content="6 meses" Command="{Binding Ultimos6MesesCommand}"
-                        Style="{StaticResource BotaoSecundario}" />
-                <Button Content="12 meses" Command="{Binding Ultimos12MesesCommand}"
-                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
-                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
-            </StackPanel>
-        </Grid>
+        </Border>
+        <Border Style="{StaticResource Financeiro.Filtros}" Padding="0" Background="Transparent" Margin="0,0,0,8">
+            <WrapPanel>
+                <Button Content="Últimos 6 meses" Command="{Binding Ultimos6MesesCommand}" Style="{StaticResource BotaoSecundario}" MinHeight="32" Padding="12,4" Margin="0,0,8,8" />
+                <Button Content="Últimos 12 meses" Command="{Binding Ultimos12MesesCommand}" Style="{StaticResource BotaoSecundario}" MinHeight="32" Padding="12,4" Margin="0,0,8,8" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Style="{StaticResource BotaoSecundario}" MinHeight="32" Padding="12,4" Margin="0,0,0,8" />
+            </WrapPanel>
+        </Border>
 
         <!-- ============ Indicadores ============ -->
-        <!-- WrapPanel e não UniformGrid de largura inteira (parcela 50): o UniformGrid
-             divide a largura em partes iguais e obriga o valor a caber no que sobrou —
-             "R$ 1.234.567,89" em 28 px negrito não cabe em 1/4 de 1366 px. -->
-        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
-                <StackPanel>
-                    <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="CÓDIGOS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <TextBlock Text="{Binding TotalCodigos}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
-                <StackPanel>
-                    <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso}" />
-                            <TextBlock Text="EFETIVADOS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <TextBlock Text="{Binding TotalBaixados}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
-                <StackPanel>
-                    <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Aviso}" />
-                            <TextBlock Text="PENDENTES" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <TextBlock Text="{Binding TotalPendentes}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Aviso}" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="200">
-                <StackPanel>
-                    <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="TAXA DE EFETIVAÇÃO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <TextBlock Text="{Binding TaxaBaixaFormatada}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Acento}" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </Border>
-        </WrapPanel>
+        <Border Style="{StaticResource Financeiro.Kpi}" Margin="0,0,0,16">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="3*" /></Grid.ColumnDefinitions>
+                <Border Padding="0,4,20,4"><StackPanel>
+                    <DockPanel><ctrl:BotaoMenuKpi DockPanel.Dock="Right" /><TextBlock Text="Códigos no período" Style="{StaticResource Financeiro.Rotulo}" /></DockPanel>
+                    <TextBlock Text="{Binding TotalCodigos}" Style="{StaticResource Financeiro.Kpi.Valor}" TextWrapping="Wrap" />
+                    <TextBlock Text="Produção consolidada" Style="{StaticResource Financeiro.Subtitulo}" Margin="0,6,0,0" />
+                </StackPanel></Border>
+                <WrapPanel Grid.Column="1" Margin="16,4,0,0">
+                    <Border MinWidth="145" Margin="0,0,18,14"><StackPanel>
+                <DockPanel><ctrl:BotaoMenuKpi DockPanel.Dock="Right" /><TextBlock Text="Efetivados" Style="{StaticResource Financeiro.Rotulo}" Margin="0,0,0,5" /></DockPanel>
+                <TextBlock Text="{Binding TotalBaixados}" Style="{StaticResource H3}" FontWeight="Normal" TextWrapping="Wrap" Margin="0" />
+            </StackPanel></Border><Border MinWidth="145" Margin="0,0,18,14"><StackPanel>
+                <DockPanel><ctrl:BotaoMenuKpi DockPanel.Dock="Right" /><TextBlock Text="Pendentes" Style="{StaticResource Financeiro.Rotulo}" Margin="0,0,0,5" /></DockPanel>
+                <TextBlock Text="{Binding TotalPendentes}" Style="{StaticResource H3}" FontWeight="Normal" TextWrapping="Wrap" Margin="0" />
+            </StackPanel></Border><Border MinWidth="145" Margin="0,0,18,14"><StackPanel>
+                <DockPanel><ctrl:BotaoMenuKpi DockPanel.Dock="Right" /><TextBlock Text="Taxa de efetivação" Style="{StaticResource Financeiro.Rotulo}" Margin="0,0,0,5" /></DockPanel>
+                <TextBlock Text="{Binding TaxaBaixaFormatada}" Style="{StaticResource H3}" FontWeight="Normal" TextWrapping="Wrap" Margin="0" />
+            </StackPanel></Border>
+                </WrapPanel>
+            </Grid>
+        </Border>
 
         <!-- ============ Tabela mensal ============ -->
         <Border Background="{StaticResource Brush.Superficie}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                 CornerRadius="{StaticResource Raio.Grande}">
-            <DockPanel>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" ctrl:Ajudantes.RodaDaPagina="True"><DockPanel MinWidth="760">
                 <Border DockPanel.Dock="Top" Padding="16,12"
                         BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
                     <Grid>
@@ -106,8 +80,7 @@
                     </Grid>
                 </Border>
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Meses}">
+                <ItemsControl ItemsSource="{Binding Meses}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Padding="16,10"
@@ -141,10 +114,11 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
+
+            </DockPanel></ScrollViewer>
         </Border>
-    </DockPanel>
+    </StackPanel>
+    </ScrollViewer>
     <ctrl:EstadoDaTela
                        Vazio="False"
                        Carregando="{Binding Carregando}"

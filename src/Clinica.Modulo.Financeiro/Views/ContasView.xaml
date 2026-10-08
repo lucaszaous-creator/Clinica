@@ -1,35 +1,27 @@
-<UserControl x:Class="Clinica.Financeiro.Views.ContasView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-             Background="{StaticResource Brush.Fundo}">
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" x:Class="Clinica.Financeiro.Views.ContasView">
 
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-    </UserControl.Resources>
+    <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml"/></ResourceDictionary.MergedDictionaries>
 
-    <DockPanel Margin="24">
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+    </ResourceDictionary></UserControl.Resources><UserControl.Style><StaticResource ResourceKey="Financeiro.Pagina"/></UserControl.Style>
+
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"><DockPanel Margin="24">
 
         <!-- As CONTAS FIXAS saíram da faixa lateral de 320 px e viraram botão (parcela 49):
              "o que vence esta semana" é o trabalho de todo dia, "quais contas se repetem
              todo mês" é cadastro que se mexe quando muda o aluguel. Duas perguntas, duas
              telas — a terceira pergunta do README. -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
-                <TextBlock Text="Contas a pagar e a receber" Style="{StaticResource H1}" Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                           Text="O que vence, e quando. O caixa registra o que já aconteceu; aqui está o que ainda precisa acontecer — e o que já passou da data." />
+                <TextBlock Text="Contas a pagar e a receber" Style="{StaticResource H1}" Margin="0,0,0,4"/>
+                <TextBlock Style="{StaticResource Financeiro.Subtitulo}" Margin="0" TextWrapping="Wrap" Text="Vencimentos, pagamentos e recebimentos previstos."/>
             </StackPanel>
-            <Button Content="Contas fixas…" HorizontalAlignment="Right" VerticalAlignment="Center"
-                    MinHeight="36" MinWidth="150"
-                    Style="{StaticResource BotaoSecundario}"
-                    Command="{Binding AbrirContasFixasCommand}"
-                    ToolTip="Os moldes que geram a conta prevista de cada mês" />
-        </Grid>
+            <Button Content="Contas fixas…" HorizontalAlignment="Left" VerticalAlignment="Center" MinHeight="36" MinWidth="150" Style="{StaticResource BotaoSecundario}" Command="{Binding AbrirContasFixasCommand}" ToolTip="Os moldes que geram a conta prevista de cada mês" Margin="0,12,0,0"/>
+        </StackPanel>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12" Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"/>
         </Border>
 
         <!-- ===== Faixa de totais ===== -->
@@ -39,13 +31,13 @@
              pede a largura que precisa e a fileira quebra quando não couber. -->
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
 
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
+            <Border Style="{StaticResource Financeiro.Kpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="A PAGAR VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            <TextBlock Text="" Style="{StaticResource CardKpi.Icone}"/>
+                            <TextBlock Text="A PAGAR VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </DockPanel>
                     <!-- O vencido em vermelho: é a diferença entre uma agenda de pagamentos
@@ -55,7 +47,7 @@
                             <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding TemVencido}" Value="True">
-                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -64,56 +56,56 @@
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
+            <Border Style="{StaticResource Financeiro.Kpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="A PAGAR A VENCER" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            <TextBlock Text="" Style="{StaticResource CardKpi.Icone}"/>
+                            <TextBlock Text="A PAGAR A VENCER" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </DockPanel>
-                    <TextBlock Text="{Binding APagarAVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding APagarAVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
+            <Border Style="{StaticResource Financeiro.Kpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="A RECEBER VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            <TextBlock Text="" Style="{StaticResource CardKpi.Icone}"/>
+                            <TextBlock Text="A RECEBER VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </DockPanel>
-                    <TextBlock Text="{Binding AReceberVencido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding AReceberVencido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
+            <Border Style="{StaticResource Financeiro.Kpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="A RECEBER A VENCER" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            <TextBlock Text="" Style="{StaticResource CardKpi.Icone}"/>
+                            <TextBlock Text="A RECEBER A VENCER" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </DockPanel>
-                    <TextBlock Text="{Binding AReceberAVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding AReceberAVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
+            <Border Style="{StaticResource Financeiro.Kpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right"/>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="SALDO PREVISTO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            <TextBlock Text="" Style="{StaticResource CardKpi.Icone}"/>
+                            <TextBlock Text="SALDO PREVISTO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </DockPanel>
-                    <TextBlock Text="{Binding SaldoPrevisto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="a receber menos a pagar" Style="{StaticResource CardKpi.Variacao}" />
+                    <TextBlock Text="{Binding SaldoPrevisto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="a receber menos a pagar" Style="{StaticResource CardKpi.Variacao}"/>
                 </StackPanel>
             </Border>
         </WrapPanel>
@@ -123,138 +115,95 @@
         <Border Style="{StaticResource Card}">
             <DockPanel>
 
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Em aberto" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" />
+                        <TextBlock Text="Em aberto" Style="{StaticResource H3}" Margin="0"/>
+                        <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                                VerticalAlignment="Center">
+                    <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,12,0,0">
                         <!-- O filtro que existia no ViewModel desde a parcela 12 e nunca
                              tinha sido ligado: sem ele, "só o que eu tenho a pagar" era
                              varredura visual numa lista que mistura os dois sentidos. -->
-                        <ComboBox ItemsSource="{Binding TiposDeConta}"
-                                  SelectedItem="{Binding TipoDeContaEscolhido}"
-                                  Width="150" Margin="0,0,12,0" />
-                        <TextBlock Text="Horizonte" Style="{StaticResource Rotulo}"
-                                   VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <ComboBox ItemsSource="{Binding Horizontes}"
-                                  SelectedItem="{Binding HorizonteDias}"
-                                  Width="80" Margin="0,0,12,0" />
+                        <ComboBox ItemsSource="{Binding TiposDeConta}" SelectedItem="{Binding TipoDeContaEscolhido}" Width="150" Margin="0,0,8,8"/>
+                        <TextBlock Text="Horizonte" Style="{StaticResource Rotulo}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox ItemsSource="{Binding Horizontes}" SelectedItem="{Binding HorizonteDias}" Width="80" Margin="0,0,8,8"/>
                         <!-- Lista e um botão: registrar conta é a ação, não a tela. -->
-                        <Button Content="Nova conta" Margin="0,0,8,0"
-                                IsEnabled="{Binding PodeEditar}"
-                                Command="{Binding NovaContaCommand}" />
-                        <Button Content="Gerar fixas" Style="{StaticResource BotaoSecundario}"
-                                Margin="0,0,8,0"
-                                IsEnabled="{Binding PodeEditar}"
-                                Command="{Binding GerarCommand}" />
+                        <Button Content="Nova conta" Margin="0,0,8,8" IsEnabled="{Binding PodeEditar}" Command="{Binding NovaContaCommand}"/>
+                        <Button Content="Gerar fixas" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,8" IsEnabled="{Binding PodeEditar}" Command="{Binding GerarCommand}"/>
                         <!-- A lista que vai à reunião com o contador e à conversa com o
                              banco. O PRAZO sai escrito, não só a data: é assim que se
                              pensa nele no balcão. -->
-                        <Button Content="Exportar CSV" Style="{StaticResource BotaoSecundario}"
-                                Margin="0,0,8,0" MinWidth="120"
-                                Command="{Binding ExportarCommand}" />
-                        <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
-                                Command="{Binding CarregarCommand}" />
-                    </StackPanel>
-                </Grid>
+                        <Button Content="Exportar CSV" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,8" MinWidth="120" Command="{Binding ExportarCommand}"/>
+                        <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}" Command="{Binding CarregarCommand}" Margin="0,0,8,8"/>
+                    </WrapPanel>
+                </StackPanel>
 
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}"
-                           TextWrapping="Wrap" Margin="0,0,0,8"
-                           Text="&quot;Gerar fixas&quot; cria as contas previstas das recorrências ativas até o fim do horizonte. Rodar duas vezes não duplica nada — e nenhuma delas nasce paga: o sistema sabe que a conta vence, não que ela foi quitada." />
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,8" Text="Gerar fixas cria previsões até o horizonte escolhido, sem duplicar ou marcar como pagas."/>
 
                 <TextBlock DockPanel.Dock="Top" Text="Nada em aberto no horizonte escolhido.">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Setter Property="Visibility" Value="Collapsed"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Contas.Count}" Value="0">
-                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Setter Property="Visibility" Value="Visible"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Contas}">
+                <ItemsControl ItemsSource="{Binding Contas}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="{StaticResource Brush.Borda}"
-                                        BorderThickness="0,0,0,1" Padding="0,10">
-                                    <Grid>
+                                <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="130" />
-                                            <ColumnDefinition Width="150" />
-                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="150"/>
+
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold"
-                                                       TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                             <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
-                                                <Run Text="{Binding Categoria, Mode=OneWay}" />
-                                                <Run Text=" · vence " />
-                                                <Run Text="{Binding Vencimento, Mode=OneWay}" />
+                                                <Run Text="{Binding Categoria, Mode=OneWay}"/>
+                                                <Run Text=" · vence "/>
+                                                <Run Text="{Binding Vencimento, Mode=OneWay}"/>
                                             </TextBlock>
-                                            <TextBlock Text="conta fixa" Style="{StaticResource TextoSuave}"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       FontStyle="Italic"
-                                                       Visibility="{Binding Recorrente,
-                                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                                            <TextBlock Text="conta fixa" Style="{StaticResource TextoSuave}" FontSize="{StaticResource Fonte.Legenda}" FontStyle="Italic" Visibility="{Binding Recorrente,                                                                     Converter={StaticResource BoolParaVisibilidade}}"/>
                                         </StackPanel>
 
-                                        <TextBlock Grid.Column="1" Text="{Binding Valor}"
-                                                   VerticalAlignment="Center" TextAlignment="Right"
-                                                   Margin="8,0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Valor}" VerticalAlignment="Center" TextAlignment="Right" Margin="8,0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
 
                                         <!-- O prazo em palavras e em vermelho quando venceu:
                                              ninguém calcula "10/08 menos hoje", pensa
                                              "venceu faz cinco dias". -->
-                                        <TextBlock Grid.Column="2" Text="{Binding Prazo}"
-                                                   VerticalAlignment="Center" Margin="8,0" TextTrimming="CharacterEllipsis">
+                                        <TextBlock Grid.Column="2" Text="{Binding Prazo}" VerticalAlignment="Center" Margin="8,0" TextTrimming="CharacterEllipsis">
                                             <TextBlock.Style>
-                                                <Style TargetType="TextBlock"
-                                                       BasedOn="{StaticResource TextoSuave}">
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Vencida}" Value="True">
-                                                            <Setter Property="Foreground"
-                                                                    Value="{StaticResource Brush.Erro}" />
-                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                            <Setter Property="Foreground" Value="{StaticResource Brush.Erro}"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
 
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal"
-                                                    VerticalAlignment="Center">
-                                            <Button Content="Histórico" Style="{StaticResource BotaoPequeno}" Margin="0,0,6,0"
-                                                    Command="{Binding DataContext.HistoricoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Baixar" Style="{StaticResource BotaoPequeno}"
-                                                    Margin="0,0,6,0"
-                                                    IsEnabled="{Binding DataContext.PodeEditar,
-                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    Command="{Binding DataContext.BaixarCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Adiar 7d" Style="{StaticResource BotaoPequeno}"
-                                                    IsEnabled="{Binding DataContext.PodeEditar,
-                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    Command="{Binding DataContext.AdiarCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Grid.Row="1" Grid.ColumnSpan="3" Margin="0,8,0,0">
+                                            <Button Content="Histórico" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="0,0,6,0" Command="{Binding DataContext.HistoricoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                            <Button Content="Baixar" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="0,0,6,0" IsEnabled="{Binding DataContext.PodeEditar,                                                                 RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.BaixarCommand,                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                            <Button Content="Adiar 7d" Style="{StaticResource BotaoAcaoGridSecundario}" IsEnabled="{Binding DataContext.PodeEditar,                                                                 RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.AdiarCommand,                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
             </DockPanel>
         </Border>
-    </DockPanel>
+    </DockPanel></ScrollViewer>
 </UserControl>

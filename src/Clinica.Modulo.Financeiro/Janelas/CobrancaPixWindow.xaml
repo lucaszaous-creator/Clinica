@@ -1,66 +1,52 @@
-<Window x:Class="Clinica.Financeiro.Janelas.CobrancaPixWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-        Title="Cobrar por Pix" Width="560" SizeToContent="Height"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" x:Class="Clinica.Financeiro.Janelas.CobrancaPixWindow" Title="Cobrar por Pix" Width="560" SizeToContent="Height" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
-    </Window.Resources>
+    <Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml"/></ResourceDictionary.MergedDictionaries>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="640">
-    <StackPanel Margin="24">
-        <TextBlock Text="Cobrar por Pix" Style="{StaticResource DialogoTitulo}" />
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade"/>
+    </ResourceDictionary></Window.Resources><Window.Style><StaticResource ResourceKey="Financeiro.Janela"/></Window.Style>
 
-        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,14"
-                   Text="O código é gerado aqui, sem passar por banco nenhum. Ele NÃO confirma pagamento: quem confere se o dinheiro caiu continua sendo quem olha o extrato." />
+
+    <DockPanel Margin="{StaticResource Margem.Pagina}"><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" DockPanel.Dock="Bottom">
+            <Button Content="Fechar" IsCancel="True" Style="{StaticResource BotaoSecundario}" MinWidth="110"/>
+        </StackPanel><ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="640">
+    <StackPanel Margin="0">
+        <TextBlock Text="Cobrar por Pix" Style="{StaticResource DialogoTitulo}"/>
+
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,14" Text="O código é gerado aqui, sem passar por banco nenhum. Ele NÃO confirma pagamento: quem confere se o dinheiro caiu continua sendo quem olha o extrato."/>
 
         <Grid Margin="0,0,0,4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Valor (R$)" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Text="Valor (R$)" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Referência (opcional)" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Referencia, UpdateSourceTrigger=PropertyChanged}"
-                         MaxLength="25" />
+                <TextBlock Text="Referência (opcional)" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding Referencia, UpdateSourceTrigger=PropertyChanged}" MaxLength="25"/>
             </StackPanel>
         </Grid>
 
-        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,14"
-                   Text="A referência é o que permite casar este Pix com a sessão no extrato. Sem ela, o extrato traz só o nome de quem pagou." />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,14" Text="A referência é o que permite casar este Pix com a sessão no extrato. Sem ela, o extrato traz só o nome de quem pagou."/>
 
-        <Button Content="Gerar código" Command="{Binding GerarCommand}"
-                HorizontalAlignment="Left" MinWidth="150" />
+        <Button Content="Gerar código" Command="{Binding GerarCommand}" HorizontalAlignment="Left" MinWidth="150"/>
 
         <!-- O código só aparece depois de gerado: campo vazio com cara de código
              pronto faria alguém copiar nada e mandar ao paciente. -->
-        <StackPanel Margin="0,16,0,0"
-                    Visibility="{Binding TemCodigo, Converter={StaticResource BoolParaVisibilidade}}">
+        <StackPanel Margin="0,16,0,0" Visibility="{Binding TemCodigo, Converter={StaticResource BoolParaVisibilidade}}">
 
-            <TextBlock Text="Pix copia e cola" Style="{StaticResource Rotulo}" />
-            <TextBox Text="{Binding CopiaECola, Mode=OneWay}" IsReadOnly="True"
-                     TextWrapping="Wrap" MaxHeight="120"
-                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
+            <TextBlock Text="Pix copia e cola" Style="{StaticResource Rotulo}"/>
+            <TextBox Text="{Binding CopiaECola, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="120" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
 
             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                <Button Content="Copiar" Command="{Binding CopiarCommand}" MinWidth="120" />
-                <TextBlock Text="{Binding Procedencia}" VerticalAlignment="Center"
-                           Style="{StaticResource TextoSuave}"
-                           FontSize="{StaticResource Fonte.Legenda}" Margin="12,0,0,0"
-                           TextWrapping="Wrap" MaxWidth="330" />
+                <Button Content="Copiar" Command="{Binding CopiarCommand}" MinWidth="120"/>
+                <TextBlock Text="{Binding Procedencia}" VerticalAlignment="Center" Style="{StaticResource TextoSuave}" FontSize="{StaticResource Fonte.Legenda}" Margin="12,0,0,0" TextWrapping="Wrap" MaxWidth="330"/>
             </StackPanel>
         </StackPanel>
 
@@ -68,28 +54,21 @@
              62/64). Amarrada a MensagemEhErro, esta caixa escondia o "Código copiado" — a
              única confirmação de que o Pix foi para a área de transferência, e quem não a
              vê clica de novo ou copia à mão sem precisar. -->
-        <Border Margin="0,14,0,0"
-                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                             FallbackValue=Collapsed}">
+        <Border Margin="0,14,0,0" Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},                              FallbackValue=Collapsed}">
             <Border.Style>
                 <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                            <Setter Property="Background"
-                                    Value="{StaticResource Brush.Erro.Suave}" />
-                            <Setter Property="BorderBrush"
-                                    Value="{StaticResource Brush.Erro}" />
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}"/>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
             </Border.Style>
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"/>
         </Border>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="Fechar" IsCancel="True" Style="{StaticResource BotaoSecundario}"
-                    MinWidth="110" />
-        </StackPanel>
+
     </StackPanel>
-    </ScrollViewer>
+    </ScrollViewer></DockPanel>
 </Window>
