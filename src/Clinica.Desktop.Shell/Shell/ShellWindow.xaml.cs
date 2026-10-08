@@ -23,12 +23,20 @@ public partial class ShellWindow : Window
         }
     }
 
-    public ShellWindow()
+    public ShellWindow() : this(null) { }
+
+    public ShellWindow(FrameworkElement? navegacaoLateral)
     {
         InitializeComponent();
+        NavegacaoLateral.Content = navegacaoLateral;
         SizeChanged+=(_,_)=>AjustarCabecalho();
         Loaded+=(_,_)=>AjustarCabecalho();
-        InputBindings.Add(new KeyBinding(new RelayFoco(() => Categorias.Focus()), Key.B, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(new RelayFoco(() =>
+        {
+            if (NavegacaoLateral.Content is FrameworkElement lateral)
+                lateral.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+            else Categorias.Focus();
+        }), Key.B, ModifierKeys.Control));
 
         // Ctrl+F cai no campo de pesquisa. É atalho de janela e não de TextBox porque o
         // foco, na hora do atalho, está em qualquer lugar da tela ativa.
@@ -38,6 +46,12 @@ public partial class ShellWindow : Window
 
     private void AjustarCabecalho()
     {
+        if (NavegacaoLateral.Content is not null)
+        {
+            Cabecalho.Height = 68;
+            NavegacaoSuperior.Visibility = Visibility.Collapsed;
+            return;
+        }
         // Menus and training move together to a second line on smaller windows,
         // preserving the search, notifications and session controls at 880 px.
         var compacto=ActualWidth<1300;

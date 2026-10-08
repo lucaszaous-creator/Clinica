@@ -1,113 +1,99 @@
-<Window x:Class="Clinica.Financeiro.Janelas.TaxaWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-        Title="Taxa da maquininha" Width="540" SizeToContent="Height" MinWidth="460" MaxHeight="760"
-        WindowStartupLocation="CenterOwner"
-        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" x:Class="Clinica.Financeiro.Janelas.TaxaWindow" Title="Taxa da maquininha" Width="540" SizeToContent="Height" MinWidth="460" MaxHeight="760" WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-    </Window.Resources>
+    <Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml"/></ResourceDictionary.MergedDictionaries>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="24">
-        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
-                   Text="Use as condições do contrato. Pagamentos de pacientes no cartão exigem uma regra cadastrada; taxa zero também deve ser informada. A regra da bandeira tem prioridade sobre a genérica." />
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+    </ResourceDictionary></Window.Resources><Window.Style><StaticResource ResourceKey="Financeiro.Janela"/></Window.Style>
+
+
+    <DockPanel Margin="{StaticResource Margem.Pagina}"><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" DockPanel.Dock="Bottom">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" IsCancel="True" MinWidth="110" Margin="0,0,8,0"/>
+            <Button Content="Salvar taxa" Command="{Binding SalvarCommand}" IsDefault="True" MinWidth="140" ctrl:Ajudantes.EstaCarregando="{Binding Salvando}"/>
+        </StackPanel><ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="0">
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left"/>
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12" Text="Use as condições do contrato. Pagamentos de pacientes no cartão exigem uma regra cadastrada; taxa zero também deve ser informada. A regra da bandeira tem prioridade sobre a genérica."/>
 
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Maquininha / contrato" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Adquirente, UpdateSourceTrigger=PropertyChanged}" MaxLength="60" />
+                <TextBlock Text="Maquininha / contrato" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding Adquirente, UpdateSourceTrigger=PropertyChanged}" MaxLength="60"/>
             </StackPanel>
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Bandeira (opcional)" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Bandeira, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" />
+                <TextBlock Text="Bandeira (opcional)" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding Bandeira, UpdateSourceTrigger=PropertyChanged}" MaxLength="40"/>
             </StackPanel>
         </Grid>
 
-        <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
-        <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}"
-                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
+        <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" Margin="0,12,0,0"/>
+        <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}" ItemTemplate="{StaticResource ItemRotuloEnum}"/>
 
-        <Grid Margin="0,12,0,0"
-              Visibility="{Binding EhParcelado, Converter={StaticResource BoolParaVisibilidade}}">
+        <Grid Margin="0,12,0,0" Visibility="{Binding EhParcelado, Converter={StaticResource BoolParaVisibilidade}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Parcelas de" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding ParcelasDe, UpdateSourceTrigger=PropertyChanged}" MaxLength="2" />
+                <TextBlock Text="Parcelas de" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding ParcelasDe, UpdateSourceTrigger=PropertyChanged}" MaxLength="2"/>
             </StackPanel>
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Até" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding ParcelasAte, UpdateSourceTrigger=PropertyChanged}" MaxLength="2" />
+                <TextBlock Text="Até" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding ParcelasAte, UpdateSourceTrigger=PropertyChanged}" MaxLength="2"/>
             </StackPanel>
         </Grid>
 
         <Grid Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Percentual (%)" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Percentual, UpdateSourceTrigger=PropertyChanged}" MaxLength="8" />
+                <TextBlock Text="Percentual (%)" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding Percentual, UpdateSourceTrigger=PropertyChanged}" MaxLength="8"/>
             </StackPanel>
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Primeiro crédito (dias)" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding DiasParaReceber, UpdateSourceTrigger=PropertyChanged}" MaxLength="4" />
+                <TextBlock Text="Primeiro crédito (dias)" Style="{StaticResource Rotulo}"/>
+                <TextBox Text="{Binding DiasParaReceber, UpdateSourceTrigger=PropertyChanged}" MaxLength="4"/>
             </StackPanel>
         </Grid>
 
         <Grid Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Vigente de" Style="{StaticResource Rotulo}" />
-                <DatePicker SelectedDate="{Binding VigenteDe}" />
+                <TextBlock Text="Vigente de" Style="{StaticResource Rotulo}"/>
+                <DatePicker SelectedDate="{Binding VigenteDe}"/>
             </StackPanel>
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Até" Style="{StaticResource Rotulo}" />
-                <DatePicker SelectedDate="{Binding VigenteAte}" />
+                <TextBlock Text="Até" Style="{StaticResource Rotulo}"/>
+                <DatePicker SelectedDate="{Binding VigenteAte}"/>
             </StackPanel>
         </Grid>
 
-        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
-                   Text="A adquirente renegocia: o que vale no recebimento de março é o percentual de março. Por isso o valor da taxa é COPIADO na venda, nunca referenciado — reajustar aqui não reescreve o que já foi recebido." />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" Text="A adquirente renegocia: o que vale no recebimento de março é o percentual de março. Por isso o valor da taxa é COPIADO na venda, nunca referenciado — reajustar aqui não reescreve o que já foi recebido."/>
 
         <StackPanel Margin="0,12,0,0" Visibility="{Binding EhParcelado, Converter={StaticResource BoolParaVisibilidade}}">
-            <CheckBox Content="Receber uma parcela por mês" IsChecked="{Binding LiquidacaoMensal}" />
-            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,0"
-                       Text="Marcado: primeiro depósito no prazo informado, demais nos meses seguintes. Desmarcado: valor integral no primeiro depósito. Use nomes distintos para contratos diferentes da mesma maquininha." />
+            <CheckBox Content="Receber uma parcela por mês" IsChecked="{Binding LiquidacaoMensal}"/>
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,0" Text="Marcado: primeiro depósito no prazo informado, demais nos meses seguintes. Desmarcado: valor integral no primeiro depósito. Use nomes distintos para contratos diferentes da mesma maquininha."/>
         </StackPanel>
-        <CheckBox Content="Ativa" IsChecked="{Binding Ativa}" Margin="0,12,0,0" />
+        <CheckBox Content="Ativa" IsChecked="{Binding Ativa}" Margin="0,12,0,0"/>
 
-        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0" Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"/>
         </Border>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
-                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
-            <Button Content="Salvar taxa" Command="{Binding SalvarCommand}"
-                    IsDefault="True" MinWidth="140"
-                    ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
-        </StackPanel>
+
     </StackPanel>
-    </ScrollViewer>
+    </ScrollViewer></DockPanel>
 </Window>

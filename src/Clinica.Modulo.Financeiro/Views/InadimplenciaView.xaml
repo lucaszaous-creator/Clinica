@@ -1,312 +1,218 @@
-<UserControl x:Class="Clinica.Financeiro.Views.InadimplenciaView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-             Background="{StaticResource Brush.Fundo}">
-
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" x:Class="Clinica.Financeiro.Views.InadimplenciaView" xmlns:fin="clr-namespace:Clinica.Financeiro.Views">
     <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+            <fin:AlturaCabecalhoFinanceiroConverter x:Key="AlturaCabecalhoFinanceiro"/>
+        </ResourceDictionary>
     </UserControl.Resources>
-
+    <UserControl.Style>
+        <StaticResource ResourceKey="Financeiro.Pagina"/>
+    </UserControl.Style>
     <Grid Margin="24">
-      <DockPanel>
-
-
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Quem me deve" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="Conta de paciente vencida, agrupada por pessoa. Só entra o que tem dono: conta a receber sem paciente (reembolso de convênio, venda de produto) é a receber, não inadimplência — e cobrar quem não deve custa mais do que a sessão em aberto." />
-        </StackPanel>
-
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-        </Border>
-
-        <!-- ===== Faixa de totais ===== -->
-        <!-- WrapPanel e não colunas ESTRELA (parcela 50): a coluna estrela divide a
+        <DockPanel>
+            <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource AlturaCabecalhoFinanceiro}, ConverterParameter=0.38}" Margin="0,0,0,8">
+                <StackPanel>
+                    <Border Style="{StaticResource Financeiro.Cabecalho}">
+                        <StackPanel Margin="0">
+                            <TextBlock Text="Quem me deve" Style="{StaticResource H1}" Margin="0,0,0,4"/>
+                            <TextBlock Style="{StaticResource Financeiro.Subtitulo}" Margin="0" TextWrapping="Wrap" Text="Contas vencidas por paciente, com prioridade por valor e tempo de atraso."/>
+                            <Expander Header="Quais contas aparecem aqui?" Margin="0,8,0,0">
+                                <TextBlock Text="Apenas contas a receber vencidas e vinculadas a um paciente. Reembolsos de convênio e outras contas sem paciente ficam em Contas a receber." TextWrapping="Wrap" Style="{StaticResource Financeiro.Subtitulo}"/>
+                            </Expander>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12" Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"/>
+                    </Border>
+                    <WrapPanel Margin="0,0,0,12">
+                        <Border Style="{StaticResource Financeiro.Kpi}" MinWidth="200" Margin="0,0,12,12">
+                            <StackPanel>
+                                <DockPanel>
+                                    <ctrl:BotaoMenuKpi DockPanel.Dock="Right"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}"/>
+                                        <TextBlock Text="TOTAL EM ATRASO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <TextBlock Text="{Binding Total}" Style="{StaticResource CardKpi.Valor}" Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="contas de paciente vencidas" Style="{StaticResource CardKpi.Variacao}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Financeiro.Kpi}" MinWidth="200" Margin="0,0,12,12">
+                            <StackPanel>
+                                <DockPanel>
+                                    <ctrl:BotaoMenuKpi DockPanel.Dock="Right"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="" Style="{StaticResource CardKpi.Icone}"/>
+                                        <TextBlock Text="PACIENTES" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <TextBlock Text="{Binding QuantidadePacientes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="pessoas a cobrar" Style="{StaticResource CardKpi.Variacao}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Financeiro.Kpi}" MinWidth="200" Margin="0,0,12,12">
+                            <StackPanel>
+                                <DockPanel>
+                                    <ctrl:BotaoMenuKpi DockPanel.Dock="Right"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="" Style="{StaticResource CardKpi.Icone}"/>
+                                        <TextBlock Text="CONTAS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <TextBlock Text="{Binding QuantidadeContas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="lançamentos em aberto" Style="{StaticResource CardKpi.Variacao}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Financeiro.Kpi}" MinWidth="200" Margin="0,0,12,12">
+                            <StackPanel>
+                                <DockPanel>
+                                    <ctrl:BotaoMenuKpi DockPanel.Dock="Right"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="" Style="{StaticResource CardKpi.Icone}"/>
+                                        <TextBlock Text="MÉDIO POR PACIENTE" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <!-- "—" e não "R$ 0,00": sem ninguém devendo não há média, e zero se
+                         leria como "ninguém deve quase nada". -->
+                                <TextBlock Text="{Binding MedioPorPaciente}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="quanto deve quem deve" Style="{StaticResource CardKpi.Variacao}"/>
+                            </StackPanel>
+                        </Border>
+                    </WrapPanel>
+                    <Border Margin="0,0,0,12" Style="{StaticResource Financeiro.Filtros}">
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,16,8" Width="260">
+                                <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding FiltroPaciente, UpdateSourceTrigger=PropertyChanged}" MaxLength="80" ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha"/>
+                            </StackPanel>
+                            <CheckBox Content="Só críticos (mais de 90 dias)" IsChecked="{Binding SoCriticos}" VerticalAlignment="Bottom" Margin="0,0,16,8" ToolTip="Onde a cobrança deixa de ser lembrete: acordo, ou parar de contar com o dinheiro"/>
+                            <Button Content="Limpar filtro" Command="{Binding LimparFiltroCommand}" IsEnabled="{Binding FiltroAtivo}" Style="{StaticResource BotaoSecundario}" VerticalAlignment="Bottom" MinWidth="110" Margin="0,0,16,8"/>
+                        </WrapPanel>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="16,8">
+                        <Expander Header="Distribuição por tempo de atraso">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="160" ctrl:Ajudantes.RodaDaPagina="True">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10" Text="Não é enfeite de relatório: separa o atraso que um lembrete resolve do que já exige decisão — acordo, ou parar de contar com o dinheiro."/>
+                                    <ItemsControl ItemsSource="{Binding Faixas}" ItemTemplate="{StaticResource ItemBarraRotulada}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Expander>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+            <!-- ===== Faixa de totais ===== -->
+            <!-- WrapPanel e não colunas ESTRELA (parcela 50): a coluna estrela divide a
              largura em partes iguais e obriga o valor a caber no que sobrou — num monitor
              de 1366 px isso corta "R$ 1.234.567,89" em 28 px negrito. Aqui cada cartão
              pede a largura que precisa e a fileira quebra quando não couber. -->
-        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
-                <StackPanel>
-                    <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}" />
-                            <TextBlock Text="TOTAL EM ATRASO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <TextBlock Text="{Binding Total}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="contas de paciente vencidas"
-                               Style="{StaticResource CardKpi.Variacao}" />
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
-                <StackPanel>
-                    <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE716;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="PACIENTES" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <TextBlock Text="{Binding QuantidadePacientes}"
-                               Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="pessoas a cobrar" Style="{StaticResource CardKpi.Variacao}" />
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
-                <StackPanel>
-                    <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE8F1;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="CONTAS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <TextBlock Text="{Binding QuantidadeContas}"
-                               Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="lançamentos em aberto" Style="{StaticResource CardKpi.Variacao}" />
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
-                <StackPanel>
-                    <DockPanel>
-                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE77B;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="MÉDIO POR PACIENTE" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-                    <!-- "—" e não "R$ 0,00": sem ninguém devendo não há média, e zero se
-                         leria como "ninguém deve quase nada". -->
-                    <TextBlock Text="{Binding MedioPorPaciente}"
-                               Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="quanto deve quem deve"
-                               Style="{StaticResource CardKpi.Variacao}" />
-                </StackPanel>
-            </Border>
-        </WrapPanel>
-
-        <!-- ===== Filtro =====
+            <!-- ===== Filtro =====
              Linha única acima da lista (REGRA DE LEIAUTE): é o que a pessoa AJUSTA na
              rodada de ligações. O recorte é em memória — a lista já veio inteira, e os
              totais acima continuam sendo do TODO. -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
-                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                    <TextBox Text="{Binding FiltroPaciente, UpdateSourceTrigger=PropertyChanged}"
-                             MaxLength="80"
-                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
-                </StackPanel>
-
-                <CheckBox Grid.Column="2" Content="Só críticos (mais de 90 dias)"
-                          IsChecked="{Binding SoCriticos}"
-                          VerticalAlignment="Bottom" Margin="0,0,0,8"
-                          ToolTip="Onde a cobrança deixa de ser lembrete: acordo, ou parar de contar com o dinheiro" />
-
-                <Button Grid.Column="4" Content="Limpar filtro"
-                        Command="{Binding LimparFiltroCommand}"
-                        IsEnabled="{Binding FiltroAtivo}"
-                        Style="{StaticResource BotaoSecundario}"
-                        VerticalAlignment="Bottom" MinWidth="110" />
-            </Grid>
-        </Border>
-
-        <!-- ===== Envelhecimento (coluna direita) ===== -->
-        <Border DockPanel.Dock="Right" Style="{StaticResource Card}" Width="320"
-                Margin="16,0,0,0" VerticalAlignment="Top">
-            <StackPanel>
-                <TextBlock Text="Idade da dívida" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10"
-                           Text="Não é enfeite de relatório: separa o atraso que um lembrete resolve do que já exige decisão — acordo, ou parar de contar com o dinheiro." />
-                <ItemsControl ItemsSource="{Binding Faixas}"
-                              ItemTemplate="{StaticResource ItemBarraRotulada}" />
-            </StackPanel>
-        </Border>
-
-        <!-- ===== A lista ===== -->
-        <Border Style="{StaticResource Card}">
-            <DockPanel>
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="200" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Column="0" Text="Cobrar por" Style="{StaticResource Rotulo}"
-                               VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <!-- ItemTemplate obrigatório: sem ele o WPF chama ToString() e a caixa
-                         oferece "MaisAntigo"/"MaiorValor" — o defeito da parcela 41. O
-                         humanizador do RotulosEnum devolve "Mais antigo" e "Maior valor". -->
-                    <ComboBox Grid.Column="1" ItemsSource="{Binding Ordens}"
-                              SelectedItem="{Binding Ordem}" VerticalAlignment="Center"
-                              ItemTemplate="{StaticResource ItemRotuloEnum}" />
-
-                    <TextBlock Grid.Column="2" Text="{Binding Resumo}"
-                               Style="{StaticResource TextoSuave}" VerticalAlignment="Center"
-                               TextWrapping="Wrap" Margin="12,0" />
-
-                    <StackPanel Grid.Column="3" Orientation="Horizontal">
-                        <Button Content="Atualizar" Command="{Binding CarregarCommand}"
-                                Style="{StaticResource BotaoSecundario}" MinWidth="90"
-                                Margin="0,0,8,0" />
-                        <Button Content="Exportar" Command="{Binding ExportarCommand}"
-                                Style="{StaticResource BotaoSecundario}" MinWidth="90" />
-                    </StackPanel>
-                </Grid>
-
-                <!-- A faixa verde saiu daqui: ela era a TERCEIRA resposta para "não há
+            <!-- ===== Envelhecimento (coluna direita) ===== -->
+            <!-- ===== A lista ===== -->
+            <Border Style="{StaticResource Card}">
+                <DockPanel>
+                    <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource AlturaCabecalhoFinanceiro}, ConverterParameter=0.16}" Margin="0,0,0,8">
+                        <StackPanel>
+                            <WrapPanel Margin="0,0,0,10">
+                                <TextBlock Text="Cobrar por" Style="{StaticResource Rotulo}" VerticalAlignment="Center" Margin="0,0,12,8"/>
+                                <ComboBox ItemsSource="{Binding Ordens}" SelectedItem="{Binding Ordem}" VerticalAlignment="Center" ItemTemplate="{StaticResource ItemRotuloEnum}" Margin="0,0,12,8" Width="180"/>
+                                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,8" MaxWidth="260"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,12,8">
+                                    <Button Content="Atualizar" Command="{Binding CarregarCommand}" Style="{StaticResource BotaoSecundario}" MinWidth="90" Margin="0,0,8,0"/>
+                                    <Button Content="Exportar" Command="{Binding ExportarCommand}" Style="{StaticResource BotaoSecundario}" MinWidth="90"/>
+                                </StackPanel>
+                            </WrapPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <!-- A faixa verde saiu daqui: ela era a TERCEIRA resposta para "não há
                      ninguém devendo" na mesma tela — o resumo ao lado do combo já diz, e o
                      EstadoDaTela abaixo diz de novo, com desenho. "Um estado vazio por
                      pergunta" é a regra da parcela 37, e três respostas empilhadas foi
                      exatamente o que o cliente viu como sobreposição. -->
-
-                <Grid>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Devedores}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Margin="0,0,0,10" Padding="14,12"
-                                        CornerRadius="{StaticResource Raio.Medio}"
-                                        BorderThickness="1">
-                                    <Border.Style>
-                                        <!-- Acima de 90 dias a cobrança deixa de ser
+                    <Grid>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Devedores}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,0,10" Padding="14,12" CornerRadius="{StaticResource Raio.Medio}" BorderThickness="3,0,0,1">
+                                            <Border.Style>
+                                                <!-- Acima de 90 dias a cobrança deixa de ser
                                              lembrete: a linha muda de cor porque a
                                              conversa muda de assunto. -->
-                                        <Style TargetType="Border">
-                                            <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
-                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Critico}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-
-                                    <StackPanel>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                                                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                           FontSize="{StaticResource Fonte.Corpo}" TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding Resumo}"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Margin="0,2,0,0" TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding Faixa}"
-                                                           Style="{StaticResource TextoSuave}"
-                                                           FontSize="{StaticResource Fonte.Legenda}" />
-                                            </StackPanel>
-
-                                            <TextBlock Grid.Column="1" Text="{Binding Total}"
-                                                       FontWeight="Bold" FontSize="{StaticResource Fonte.H3}"
-                                                       VerticalAlignment="Center"
-                                                       Margin="0,0,12,0" TextTrimming="CharacterEllipsis" />
-
-                                            <!-- Desabilitado sem telefone no cadastro: o
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.Superficie}"/>
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Critico}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource Brush.Superficie}"/>
+                                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                                        <TextBlock Text="{Binding Nome}" FontWeight="SemiBold" FontSize="{StaticResource Fonte.Corpo}" TextWrapping="Wrap"/>
+                                                        <TextBlock Text="{Binding Resumo}" FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                                        <TextBlock Text="{Binding Faixa}" Style="{StaticResource TextoSuave}" FontSize="{StaticResource Fonte.Legenda}"/>
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Total}" FontWeight="Bold" FontSize="{StaticResource Fonte.H3}" VerticalAlignment="Center" Margin="0,0,12,0" TextTrimming="CharacterEllipsis"/>
+                                                    <!-- Desabilitado sem telefone no cadastro: o
                                                  botão explica por que não dá, em vez de
                                                  abrir e falhar. -->
-                                            <Button Grid.Column="2" Content="WhatsApp"
-                                                    Command="{Binding DataContext.CobrarCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}"
-                                                    IsEnabled="{Binding TemTelefone}"
-                                                    Style="{StaticResource BotaoPequeno}"
-                                                    VerticalAlignment="Center" MinWidth="100" />
-                                        </Grid>
-
-                                        <!-- As contas do paciente. A mais antiga primeiro:
+                                                    <Button Grid.Column="2" Content="WhatsApp" Command="{Binding DataContext.CobrarCommand,                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" IsEnabled="{Binding TemTelefone}" Style="{StaticResource BotaoPequeno}" VerticalAlignment="Center" MinWidth="100"/>
+                                                </Grid>
+                                                <!-- As contas do paciente. A mais antiga primeiro:
                                              é a que explica a conversa ("desde março"). -->
-                                        <ItemsControl ItemsSource="{Binding Contas}" Margin="0,10,0,0">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,0,0,4">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="110" />
-                                                            <ColumnDefinition Width="90" />
-                                                            <ColumnDefinition Width="150" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <TextBlock Grid.Column="0" Text="{Binding Descricao}"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   VerticalAlignment="Center"
-                                                                   FontSize="{StaticResource Fonte.Tabela}" />
-                                                        <TextBlock Grid.Column="1" Text="{Binding Vencimento}"
-                                                                   VerticalAlignment="Center"
-                                                                   FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock Grid.Column="2" Text="{Binding Valor}"
-                                                                   VerticalAlignment="Center"
-                                                                   FontWeight="SemiBold"
-                                                                   FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock Grid.Column="3" Text="{Binding Atraso}"
-                                                                   Style="{StaticResource TextoSuave}"
-                                                                   VerticalAlignment="Center"
-                                                                   FontSize="{StaticResource Fonte.Legenda}" />
-                                                        <Button Grid.Column="4" Content="Recebi"
-                                                                Command="{Binding DataContext.ReceberCommand,
-                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}"
-                                                                IsEnabled="{Binding DataContext.PodeEditar,
-                                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                Style="{StaticResource BotaoAcaoGrid}"
-                                                                MinWidth="80" />
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-
-                <!-- ⚠️ DENTRO da região da lista, e como ÚLTIMO filho do Grid dela.
+                                                <ItemsControl ItemsSource="{Binding Contas}" Margin="0,10,0,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,0,0,4">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="110"/>
+                                                                    <ColumnDefinition Width="90"/>
+                                                                    <ColumnDefinition Width="150"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0" Text="{Binding Descricao}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontSize="{StaticResource Fonte.Tabela}"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding Vencimento}" VerticalAlignment="Center" FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Grid.Column="2" Text="{Binding Valor}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis"/>
+                                                                <TextBlock Grid.Column="3" Text="{Binding Atraso}" Style="{StaticResource TextoSuave}" VerticalAlignment="Center" FontSize="{StaticResource Fonte.Legenda}"/>
+                                                                <Button Grid.Column="4" Content="Recebi" Command="{Binding DataContext.ReceberCommand,                                                                           RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" IsEnabled="{Binding DataContext.PodeEditar,                                                                             RelativeSource={RelativeSource AncestorType=UserControl}}" Style="{StaticResource BotaoAcaoGrid}" MinWidth="80"/>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        <!-- ⚠️ DENTRO da região da lista, e como ÚLTIMO filho do Grid dela.
                      Na raiz da tela ele cobria TUDO — os KPIs, o filtro e a coluna de
                      envelhecimento —, e o "Ninguém devendo" aparecia flutuando no meio
                      da página, por cima da faixa de aviso. É o defeito que a parcela 58
                      já tinha corrigido noutras telas: a sobreposição pertence à região
                      cujo vazio ela explica, não à página. -->
-                <ctrl:EstadoDaTela Itens="{Binding Devedores}"
-                                   Carregando="{Binding Carregando}"
-                                   NaoVerificado="{Binding NaoVerificado}"
-                                   Glifo="&#xE77B;"
-                                   TextoCarregando="Somando o que está em aberto…"
-                                   Titulo="Ninguém devendo"
-                                   Descricao="{Binding VazioDescricao}" />
-                </Grid>
-            </DockPanel>
-        </Border>
-      </DockPanel>
+                        <ctrl:EstadoDaTela Itens="{Binding Devedores}" Carregando="{Binding Carregando}" NaoVerificado="{Binding NaoVerificado}" Glifo="" TextoCarregando="Somando o que está em aberto…" Titulo="Ninguém devendo" Descricao="{Binding VazioDescricao}"/>
+                    </Grid>
+                </DockPanel>
+            </Border>
+        </DockPanel>
     </Grid>
 </UserControl>

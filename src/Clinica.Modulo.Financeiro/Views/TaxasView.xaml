@@ -1,23 +1,20 @@
-<UserControl x:Class="Clinica.Financeiro.Views.TaxasView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="{StaticResource Brush.Fundo}">
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" x:Class="Clinica.Financeiro.Views.TaxasView">
 
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-    </UserControl.Resources>
+    <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml"/></ResourceDictionary.MergedDictionaries>
+
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+    </ResourceDictionary></UserControl.Resources><UserControl.Style><StaticResource ResourceKey="Financeiro.Pagina"/></UserControl.Style>
+
 
     <DockPanel Margin="24">
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Taxas e impostos" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="O que a maquininha e o fisco descontam de cada recebimento. O caixa continua guardando o valor BRUTO — o que o paciente pagou —, e o líquido é calculado a partir daqui." />
+            <TextBlock Text="Taxas e impostos" Style="{StaticResource H1}" Margin="0,0,0,4"/>
+            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap" Text="Taxas, tributos e simulação do líquido. O caixa preserva o valor bruto recebido."/>
         </StackPanel>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12" Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"/>
         </Border>
 
         <!--
@@ -29,56 +26,49 @@
         <TabControl Background="Transparent" BorderThickness="0">
 
         <TabItem Header="Maquininha">
-        <DockPanel Margin="0,12,0,0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><DockPanel Margin="0,12,0,0">
 
         <!-- ===== Catálogo ===== -->
         <Border Style="{StaticResource Card}">
             <DockPanel>
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <TextBlock Text="Taxas cadastradas" Style="{StaticResource H3}" Margin="0"
-                               VerticalAlignment="Center" />
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <TextBlock Text="Taxas cadastradas" Style="{StaticResource H3}" Margin="0" VerticalAlignment="Center"/>
                     <!-- Lista e um botão: cadastrar taxa acontece quando a adquirente
                          renegocia, não todos os dias. -->
-                    <Button Content="Nova taxa" HorizontalAlignment="Right"
-                            Command="{Binding NovaTaxaCommand}"
-                            IsEnabled="{Binding PodeEditar}" />
-                </Grid>
+                    <Button Content="Nova taxa" HorizontalAlignment="Left" Command="{Binding NovaTaxaCommand}" IsEnabled="{Binding PodeEditar}" Margin="0,12,0,0"/>
+                </StackPanel>
 
-                <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
-                           Text="Nenhuma taxa cadastrada. Sem taxa, o caixa registra só o bruto — e não inventa desconto.">
+                <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top" Text="Nenhuma taxa cadastrada. Sem taxa, o caixa registra só o bruto — e não inventa desconto.">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Setter Property="Visibility" Value="Collapsed"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Taxas.Count}" Value="0">
-                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Setter Property="Visibility" Value="Visible"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Taxas}">
+                <ItemsControl ItemsSource="{Binding Taxas}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="{StaticResource Brush.Borda}"
-                                        BorderThickness="0,0,0,1" Padding="0,10">
+                                <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="0,10">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold"
-                                                       TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                             <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
-                                                <Run Text="recebe " />
-                                                <Run Text="{Binding Prazo, Mode=OneWay}" />
-                                                <Run Text=" · vigência " />
-                                                <Run Text="{Binding Vigencia, Mode=OneWay}" />
+                                                <Run Text="recebe "/>
+                                                <Run Text="{Binding Prazo, Mode=OneWay}"/>
+                                                <Run Text=" · vigência "/>
+                                                <Run Text="{Binding Vigencia, Mode=OneWay}"/>
                                             </TextBlock>
                                         </StackPanel>
 
@@ -87,45 +77,31 @@
                                                 <Style TargetType="Border" BasedOn="{StaticResource Badge.Sucesso}">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Ativa}" Value="False">
-                                                            <Setter Property="Background"
-                                                                    Value="{StaticResource Brush.Superficie.Hover}" />
+                                                            <Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
-                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left"/>
                                         </Border>
 
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                    VerticalAlignment="Center">
-                                            <Button Content="Editar" Style="{StaticResource BotaoPequeno}"
-                                                    Margin="0,0,6,0"
-                                                    IsEnabled="{Binding DataContext.PodeEditar,
-                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    Command="{Binding DataContext.EditarCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                    IsEnabled="{Binding DataContext.PodeEditar,
-                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    Command="{Binding DataContext.ExcluirCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Content="Editar" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="0,0,6,0" IsEnabled="{Binding DataContext.PodeEditar,                                                                 RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.EditarCommand,                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                            <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}" IsEnabled="{Binding DataContext.PodeEditar,                                                                 RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.ExcluirCommand,                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
             </DockPanel>
         </Border>
-        </DockPanel>
+        </DockPanel></ScrollViewer>
         </TabItem>
 
         <!-- ===================== Regime tributário ===================== -->
         <TabItem Header="Regime tributário">
-        <DockPanel Margin="0,12,0,0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><DockPanel Margin="0,12,0,0">
 
             <!-- A ALÍQUOTA ÚNICA SÓ APARECE QUANDO ELA VALE (parcela 49).
 
@@ -143,7 +119,7 @@
             <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
                 <Border.Style>
                     <Style TargetType="Border" BasedOn="{StaticResource Card}">
-                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Setter Property="Visibility" Value="Collapsed"/>
                         <Style.Triggers>
                             <!-- A MESMA condição do serviço: o fallback arma quando não há
                                  tributo VIGENTE hoje — não quando a lista está vazia.
@@ -151,88 +127,73 @@
                                  deixavam a alíquota única valendo no cálculo com o campo
                                  dela escondido. -->
                             <DataTrigger Binding="{Binding AliquotaUnicaValendo}" Value="True">
-                                <Setter Property="Visibility" Value="Visible" />
+                                <Setter Property="Visibility" Value="Visible"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Border.Style>
 
                 <StackPanel IsEnabled="{Binding PodeEditar}">
-                    <TextBlock Text="Alíquota única (modo antigo)" Style="{StaticResource H3}"
-                               Margin="0,0,0,4" />
-                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                               HorizontalAlignment="Left" MaxWidth="820"
-                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                               Text="É ela que vale enquanto não houver nenhum tributo cadastrado acima. Cadastre o primeiro tributo e esta faixa some — o imposto passa a ser apurado por guia." />
+                    <TextBlock Text="Alíquota única (modo antigo)" Style="{StaticResource H3}" Margin="0,0,0,4"/>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" Text="É ela que vale enquanto não houver nenhum tributo cadastrado acima. Cadastre o primeiro tributo e esta faixa some — o imposto passa a ser apurado por guia."/>
 
                     <StackPanel Orientation="Horizontal">
                         <StackPanel Margin="0,0,12,0">
-                            <TextBlock Text="Alíquota (%)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding AliquotaImposto, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="6" Width="120" />
+                            <TextBlock Text="Alíquota (%)" Style="{StaticResource Rotulo}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding AliquotaImposto, UpdateSourceTrigger=PropertyChanged}" MaxLength="6" Width="120"/>
                         </StackPanel>
-                        <Button Content="Salvar alíquota" Command="{Binding SalvarImpostoCommand}"
-                                VerticalAlignment="Bottom" MinHeight="36" MinWidth="150" />
+                        <Button Content="Salvar alíquota" Command="{Binding SalvarImpostoCommand}" VerticalAlignment="Bottom" MinHeight="36" MinWidth="150"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
             <Border Style="{StaticResource Card}">
                 <DockPanel>
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Tributos cadastrados" Style="{StaticResource H3}"
-                                   Margin="0,0,0,4" />
+                        <TextBlock Text="Tributos cadastrados" Style="{StaticResource H3}" Margin="0,0,0,4"/>
                         <TextBlock Style="{StaticResource TextoSuave}">
-                            <Run Text="Sai hoje de cada recebimento: " />
-                            <Run Text="{Binding CargaHoje, Mode=OneWay}" FontWeight="SemiBold" />
+                            <Run Text="Sai hoje de cada recebimento: "/>
+                            <Run Text="{Binding CargaHoje, Mode=OneWay}" FontWeight="SemiBold"/>
                         </TextBlock>
-                        <TextBlock Text="{Binding OrigemDaCarga}" Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding OrigemDaCarga}" Style="{StaticResource TextoSuave}" FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"/>
                         </StackPanel>
                         <!-- Lista e um botão, como as outras telas. -->
-                        <Button Content="Novo tributo" HorizontalAlignment="Right"
-                                VerticalAlignment="Center"
-                                Command="{Binding NovoTributoCommand}"
-                                IsEnabled="{Binding PodeEditar}" />
-                    </Grid>
+                        <Button Content="Novo tributo" HorizontalAlignment="Left" VerticalAlignment="Center" Command="{Binding NovoTributoCommand}" IsEnabled="{Binding PodeEditar}" Margin="0,12,0,0"/>
+                    </StackPanel>
 
-                    <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
-                               Text="Nenhum tributo cadastrado. Enquanto não houver, vale a alíquota única ao lado.">
+                    <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top" Text="Nenhum tributo cadastrado. Enquanto não houver, vale a alíquota única ao lado.">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Setter Property="Visibility" Value="Collapsed"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Tributos.Count}" Value="0">
-                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Setter Property="Visibility" Value="Visible"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
 
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Tributos}">
+                    <ItemsControl ItemsSource="{Binding Tributos}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="0,10">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
 
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold"
-                                                           TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                                 <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
-                                                    <Run Text="{Binding Nome, Mode=OneWay}" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Vigencia, Mode=OneWay}" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Origem, Mode=OneWay}" />
+                                                    <Run Text="{Binding Nome, Mode=OneWay}"/>
+                                                    <Run Text=" · "/>
+                                                    <Run Text="{Binding Vigencia, Mode=OneWay}"/>
+                                                    <Run Text=" · "/>
+                                                    <Run Text="{Binding Origem, Mode=OneWay}"/>
                                                 </TextBlock>
                                             </StackPanel>
 
@@ -245,8 +206,7 @@
                                                     <Style TargetType="Border" BasedOn="{StaticResource Badge.Sucesso}">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding ValendoAgora}" Value="False">
-                                                                <Setter Property="Background"
-                                                                        Value="{StaticResource Brush.Superficie.Hover}" />
+                                                                <Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -254,10 +214,10 @@
                                                 <TextBlock>
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
-                                                            <Setter Property="Text" Value="fora de vigência" />
+                                                            <Setter Property="Text" Value="fora de vigência"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding ValendoAgora}" Value="True">
-                                                                    <Setter Property="Text" Value="valendo agora" />
+                                                                    <Setter Property="Text" Value="valendo agora"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -265,117 +225,81 @@
                                                 </TextBlock>
                                             </Border>
 
-                                            <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                        VerticalAlignment="Center">
-                                                <Button Content="Editar" Style="{StaticResource BotaoPequeno}"
-                                                        Margin="0,0,6,0"
-                                                        IsEnabled="{Binding DataContext.PodeEditar,
-                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        Command="{Binding DataContext.EditarTributoCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                                <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        IsEnabled="{Binding DataContext.PodeEditar,
-                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        Command="{Binding DataContext.ExcluirTributoCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button Content="Editar" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="0,0,6,0" IsEnabled="{Binding DataContext.PodeEditar,                                                                     RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.EditarTributoCommand,                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                                <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}" IsEnabled="{Binding DataContext.PodeEditar,                                                                     RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.ExcluirTributoCommand,                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
                                             </StackPanel>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </ScrollViewer>
                 </DockPanel>
             </Border>
-        </DockPanel>
+        </DockPanel></ScrollViewer>
         </TabItem>
 
         <!-- ===================== Simulador ===================== -->
         <TabItem Header="Simulador">
-        <DockPanel Margin="0,12,0,0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><DockPanel Margin="0,12,0,0">
             <Border DockPanel.Dock="Top" Style="{StaticResource Card}">
                 <StackPanel>
-                    <TextBlock Text="Quanto sobra e quando cai" Style="{StaticResource H3}"
-                               Margin="0,0,0,4" />
-                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                               Margin="0,0,0,12"
-                               Text="A pergunta do balcão e a da negociação com a adquirente. Usa exatamente a mesma conta da venda real — não grava nada, e o número simulado é o que vai acontecer." />
+                    <TextBlock Text="Quanto sobra e quando cai" Style="{StaticResource H3}" Margin="0,0,0,4"/>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12" Text="A pergunta do balcão e a da negociação com a adquirente. Usa exatamente a mesma conta da venda real — não grava nada, e o número simulado é o que vai acontecer."/>
 
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="180" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                    <WrapPanel>
 
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="Valor" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding SimValor, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="14" />
+
+                        <StackPanel Width="160" Margin="0,0,12,12">
+                            <TextBlock Text="Valor" Style="{StaticResource Rotulo}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding SimValor, UpdateSourceTrigger=PropertyChanged}" MaxLength="14"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Forma" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                            <ComboBox ItemsSource="{Binding FormasSimulacao}"
-                                      SelectedItem="{Binding SimForma}"
-                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
+                        <StackPanel Width="160" Margin="0,0,12,12">
+                            <TextBlock Text="Forma" Style="{StaticResource Rotulo}" Margin="0,0,0,4"/>
+                            <ComboBox ItemsSource="{Binding FormasSimulacao}" SelectedItem="{Binding SimForma}" ItemTemplate="{StaticResource ItemRotuloEnum}"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="4">
-                            <TextBlock Text="Adquirente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding SimAdquirente, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="60" />
+                        <StackPanel Width="160" Margin="0,0,12,12">
+                            <TextBlock Text="Adquirente" Style="{StaticResource Rotulo}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding SimAdquirente, UpdateSourceTrigger=PropertyChanged}" MaxLength="60"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="6">
-                            <TextBlock Text="Bandeira" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding SimBandeira, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="40" />
+                        <StackPanel Width="160" Margin="0,0,12,12">
+                            <TextBlock Text="Bandeira" Style="{StaticResource Rotulo}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding SimBandeira, UpdateSourceTrigger=PropertyChanged}" MaxLength="40"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="8">
-                            <TextBlock Text="Parcelas" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding SimParcelas, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="2" />
+                        <StackPanel Width="160" Margin="0,0,12,12">
+                            <TextBlock Text="Parcelas" Style="{StaticResource Rotulo}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding SimParcelas, UpdateSourceTrigger=PropertyChanged}" MaxLength="2"/>
                         </StackPanel>
-                    </Grid>
+                    </WrapPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                        <CheckBox Content="Reter imposto" IsChecked="{Binding SimReterImposto}"
-                                  VerticalAlignment="Center" Margin="0,0,16,0" />
-                        <Button Content="Simular" Command="{Binding SimularCommand}" MinWidth="110" />
+                        <CheckBox Content="Reter imposto" IsChecked="{Binding SimReterImposto}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <Button Content="Simular" Command="{Binding SimularCommand}" MinWidth="110"/>
                     </StackPanel>
 
                     <Border Margin="0,14,0,0">
                         <Border.Style>
                             <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
-                                <Setter Property="Visibility" Value="Visible" />
+                                <Setter Property="Visibility" Value="Visible"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding SimResultado}" Value="{x:Null}">
-                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Setter Property="Visibility" Value="Collapsed"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <TextBlock Text="{Binding SimResultado}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding SimResultado}" TextWrapping="Wrap"/>
                     </Border>
 
                     <!-- Sem taxa cadastrada não se inventa desconto — mas a tela DIZ que
                          não achou, senão o líquido igual ao bruto passaria por taxa zero. -->
-                    <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0"
-                            Visibility="{Binding SimSemTaxa, Converter={StaticResource BoolParaVisibilidade}}">
-                        <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                                   Text="Não há taxa cadastrada para essa combinação, então o líquido acima está SEM desconto de maquininha. Cadastre a taxa na aba anterior para o número ficar real." />
+                    <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0" Visibility="{Binding SimSemTaxa, Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock TextWrapping="Wrap" MaxWidth="820" Text="Não há taxa cadastrada para essa combinação, então o líquido acima está SEM desconto de maquininha. Cadastre a taxa na aba anterior para o número ficar real."/>
                     </Border>
                 </StackPanel>
             </Border>
-            <Border />
-        </DockPanel>
+            <Border/>
+        </DockPanel></ScrollViewer>
         </TabItem>
 
         <!-- ============ Apuração do mês (parcela 28) ============
@@ -383,117 +307,84 @@
              tela consolidava num número só: a clínica sabia quanto de imposto saiu e
              não sabia DE QUÊ — que é a pergunta do contador. -->
         <TabItem Header="Apuração do mês">
-        <DockPanel Margin="0,12,0,0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><DockPanel Margin="0,12,0,0">
 
-            <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBlock Text="Quanto de cada tributo saiu no mês" Style="{StaticResource H3}"
-                               Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding ResumoApuracao}" Style="{StaticResource TextoSuave}"
-                               TextWrapping="Wrap" Margin="0" />
+                    <TextBlock Text="Quanto de cada tributo saiu no mês" Style="{StaticResource H3}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding ResumoApuracao}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                    <Button Content="◀" Command="{Binding MesApuracaoAnteriorCommand}"
-                            Style="{StaticResource BotaoSecundario}" Width="40" />
-                    <Border Background="{StaticResource Brush.Superficie}"
-                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                            CornerRadius="{StaticResource Raio.Medio}" Padding="16,8" Margin="8,0">
-                        <TextBlock Text="{Binding MesApuracao, StringFormat='{}{0:MMMM/yyyy}'}"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,12,0,0">
+                    <Button Content="◀" Command="{Binding MesApuracaoAnteriorCommand}" Style="{StaticResource BotaoSecundario}" Width="40" Margin="0,0,8,8"/>
+                    <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1" CornerRadius="{StaticResource Raio.Medio}" Padding="16,8" Margin="8,0">
+                        <TextBlock Text="{Binding MesApuracao, StringFormat='{}{0:MMMM/yyyy}'}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left"/>
                     </Border>
-                    <Button Content="▶" Command="{Binding MesApuracaoProximoCommand}"
-                            Style="{StaticResource BotaoSecundario}" Width="40" />
-                    <Button Content="Apurar" Command="{Binding ApurarCommand}" Margin="8,0,0,0" />
-                    <Button Content="Exportar CSV" Command="{Binding ExportarApuracaoCommand}"
-                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="120" />
-                </StackPanel>
-            </Grid>
+                    <Button Content="▶" Command="{Binding MesApuracaoProximoCommand}" Style="{StaticResource BotaoSecundario}" Width="40" Margin="0,0,8,8"/>
+                    <Button Content="Apurar" Command="{Binding ApurarCommand}" Margin="0,0,8,8"/>
+                    <Button Content="Exportar CSV" Command="{Binding ExportarApuracaoCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,8" MinWidth="120"/>
+                </WrapPanel>
+            </StackPanel>
 
             <!-- Terceiro estado: a leitura falhou. Lista vazia por consulta quebrada se lê
                  como "não houve imposto no mês", que é a mentira mais cara desta aba. -->
-            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                    Visibility="{Binding ApuracaoNaoVerificada,
-                                 Converter={StaticResource BoolParaVisibilidade}}">
-                <TextBlock TextWrapping="Wrap"
-                           Text="Não foi possível apurar este mês. A lista está VAZIA por falha de leitura, não por ausência de imposto." />
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12" Visibility="{Binding ApuracaoNaoVerificada,                                  Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock TextWrapping="Wrap" Text="Não foi possível apurar este mês. A lista está VAZIA por falha de leitura, não por ausência de imposto."/>
             </Border>
 
             <!-- A divergência aparece em vez de ser escondida: significa que a regra mudou
                  DEPOIS de o dinheiro entrar, e é a clínica que decide qual número vale. -->
-            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
-                    Visibility="{Binding TemDivergencia,
-                                 Converter={StaticResource BoolParaVisibilidade}}">
-                <TextBlock Text="{Binding DivergenciaApuracao}" TextWrapping="Wrap" />
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12" Visibility="{Binding TemDivergencia,                                  Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding DivergenciaApuracao}" TextWrapping="Wrap"/>
             </Border>
 
-            <Border Background="{StaticResource Brush.Superficie}"
-                    BorderBrush="{StaticResource Brush.Borda}"
-                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+            <ScrollViewer ctrl:Ajudantes.RodaDaPagina="True" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"><Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}" MinWidth="900">
                 <DockPanel>
-                    <Border DockPanel.Dock="Top" Padding="16,12"
-                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                    <Border DockPanel.Dock="Top" Padding="16,12" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="130" />
-                                <ColumnDefinition Width="150" />
-                                <ColumnDefinition Width="140" />
-                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="110"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="160"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Tributo" Style="{StaticResource Rotulo}" Margin="0" />
-                            <TextBlock Grid.Column="1" Text="Nome" Style="{StaticResource Rotulo}" Margin="0" />
-                            <TextBlock Grid.Column="2" Text="Alíquota" Style="{StaticResource Rotulo}" Margin="0" />
-                            <TextBlock Grid.Column="3" Text="Base" Style="{StaticResource Rotulo}" Margin="0" />
-                            <TextBlock Grid.Column="4" Text="Valor" Style="{StaticResource Rotulo}" Margin="0" />
-                            <TextBlock Grid.Column="5" Text="Quem recolhe" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="0" Text="Tributo" Style="{StaticResource Rotulo}" Margin="0"/>
+                            <TextBlock Grid.Column="1" Text="Nome" Style="{StaticResource Rotulo}" Margin="0"/>
+                            <TextBlock Grid.Column="2" Text="Alíquota" Style="{StaticResource Rotulo}" Margin="0"/>
+                            <TextBlock Grid.Column="3" Text="Base" Style="{StaticResource Rotulo}" Margin="0"/>
+                            <TextBlock Grid.Column="4" Text="Valor" Style="{StaticResource Rotulo}" Margin="0"/>
+                            <TextBlock Grid.Column="5" Text="Quem recolhe" Style="{StaticResource Rotulo}" Margin="0"/>
                         </Grid>
                     </Border>
 
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Apuracao}">
+                    <ItemsControl ItemsSource="{Binding Apuracao}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1">
+                                    <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="110" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="130" />
-                                                <ColumnDefinition Width="150" />
-                                                <ColumnDefinition Width="140" />
-                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="110"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="130"/>
+                                                <ColumnDefinition Width="150"/>
+                                                <ColumnDefinition Width="140"/>
+                                                <ColumnDefinition Width="160"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{Binding Sigla}"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}"
-                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Nome}" TextWrapping="Wrap"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                       VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="2" Text="{Binding Aliquota}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="3" Text="{Binding Base}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="4" Text="{Binding Valor}"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}"
-                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="5" Text="{Binding Natureza}" TextWrapping="Wrap"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="0" Text="{Binding Sigla}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Nome}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Aliquota}" Foreground="{StaticResource Brush.Texto.Secundario}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding Base}" Foreground="{StaticResource Brush.Texto.Secundario}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding Valor}" Foreground="{StaticResource Brush.Texto.Primario}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding Natureza}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" VerticalAlignment="Center"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </ScrollViewer>
                 </DockPanel>
-            </Border>
-        </DockPanel>
+            </Border></ScrollViewer>
+        </DockPanel></ScrollViewer>
         </TabItem>
 
         </TabControl>

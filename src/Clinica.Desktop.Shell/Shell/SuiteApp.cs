@@ -32,7 +32,9 @@ public static class SuiteApp
     /// registram no DI e montam o menu.
     /// </param>
     public static async Task<IHost?> IniciarAsync(
-        System.Windows.Application app, string nomeApp, string titulo, IReadOnlyList<IModuloApp> modulos)
+        System.Windows.Application app, string nomeApp, string titulo, IReadOnlyList<IModuloApp> modulos,
+        Func<FrameworkElement>? criarNavegacaoLateral = null,
+        Func<IServiceProvider, Window>? criarJanela = null)
     {
         // Degradação deliberada nas camadas sem UI também deixa rastro em arquivo.
         LogSuite.Instalar();
@@ -157,11 +159,11 @@ public static class SuiteApp
         if (!await AutenticarAsync(app, host, nomeApp))
             return null;
 
-        var janela = new ShellWindow
+        var janela = criarJanela?.Invoke(host.Services) ?? new ShellWindow(criarNavegacaoLateral?.Invoke())
         {
-            DataContext = new ShellViewModel(titulo, modulos, host.Services),
-            WindowState = WindowState.Maximized
+            DataContext = new ShellViewModel(titulo, modulos, host.Services)
         };
+        janela.WindowState = WindowState.Maximized;
         app.MainWindow = janela;
         janela.Show();
         AtualizadorSuite.IniciarVerificacaoPeriodica();

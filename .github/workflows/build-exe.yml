@@ -50,6 +50,17 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Preparar Node para a interface financeira
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Compilar a interface financeira local
+        working-directory: src/Clinica.Modulo.Financeiro/Web/frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Conferir espelho dos tokens (CSS x XAML)
         run: python tokens/verificar-espelho.py
 
@@ -67,6 +78,9 @@ jobs:
 
       - name: Conferir gestão, pagamentos e estoque no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --gestao
+
+      - name: Conferir Financeiro, formulários e séries com dados fictícios
+        run: dotnet run --project tools/validar-design-financeiro -c Release
 
       - name: Conferir recall, filtros e configuração salva no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --acompanhamento
