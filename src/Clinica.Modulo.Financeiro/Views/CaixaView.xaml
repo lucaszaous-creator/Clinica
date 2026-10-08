@@ -167,12 +167,12 @@
                                         <DataTemplate>
                                             <StackPanel Margin="0,8" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Descricao}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Descricao}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Categoria}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Categoria}" FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Secundario}"/>
                                                 <TextBlock Text="Guia do faturamento" FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Acento}" Visibility="{Binding VeioDoFaturamento, Converter={StaticResource BoolParaVisibilidade}}"/>
                                             </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Categoria" Binding="{Binding Categoria}" Width="160" MinWidth="160"/>
                                 <DataGridTemplateColumn Header="Situação" Width="120" MinWidth="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
