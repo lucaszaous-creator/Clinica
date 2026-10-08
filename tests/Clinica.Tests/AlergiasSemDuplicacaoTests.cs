@@ -54,6 +54,8 @@ public class AlergiasSemDuplicacaoTests : IDisposable
         var original = await RegistrarAsync(paciente, "Plasil e bromoprida", "Reação relatada na primeira consulta.");
         if (situacao == SituacaoProblema.Resolvido)
             await _problemas.ResolverAsync(original.Id, Hoje.AddDays(-1));
+        // Compara o valor persistido: PostgreSQL guarda microssegundos, não ticks do .NET.
+        await _db.Entry(original).ReloadAsync();
         var fim = original.Fim;
         var criado = original.CriadoEm;
         var evolucoes = new EvolucaoEnfermagemService(_repo, () => DateTime.Today.AddHours(12));
