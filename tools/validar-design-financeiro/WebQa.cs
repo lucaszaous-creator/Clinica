@@ -4,14 +4,19 @@ using System.Windows;
 using System.Windows.Media;
 using Clinica.Financeiro.Web;
 using Microsoft.Web.WebView2.Wpf;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+using Clinica.Infrastructure;
+using Clinica.Financeiro.Modulo;
 
 /// <summary>Teste de integração do conteúdo empacotado com WebView2 e banco sintético do harness.</summary>
 static class WebQa
 {
     public static async Task Executar(IServiceProvider servicos, string saida)
     {
-        string? destino = null;
-        var janela = new FinanceiroWebWindow(servicos, chave => destino = chave)
+        var falhas = FinanceiroPaginasController.ValidarRegistro();
+        if (falhas.Count > 0) throw new InvalidOperationException(string.Join("\n", falhas));
+        var janela = new FinanceiroWebWindow(servicos)
         {
             Width = 1440, Height = 900, Left = -30000, Top = -30000,
             WindowStartupLocation = WindowStartupLocation.Manual, ShowInTaskbar = false
@@ -28,6 +33,8 @@ static class WebQa
                 var prazo = DateTime.UtcNow.AddSeconds(15);
                 while (DateTime.UtcNow < prazo)
                 {
+                    if (System.Windows.Application.Current.Windows.Cast<Window>().Any(w => w != janela && w.IsVisible))
+                        throw new InvalidOperationException("Uma operação financeira abriu uma janela nativa.");
                     if (await Ler(expressao) == "true") return;
                     await Task.Delay(100);
                 }
@@ -67,19 +74,123 @@ static class WebQa
             await Esperar("document.querySelector('[data-testid=valor-resultado]')?.textContent.includes('0,00') === true");
             await Ler("chrome.webview.postMessage({acao:'mes',valor:" + JsonSerializer.Serialize(DateTime.Today.ToString("yyyy-MM")) + "})");
             await Esperar($"{seletorLinhas}.length === {antes}");
-            await Ler("chrome.webview.postMessage({acao:'navegar',valor:'contas'})");
-            await Task.Delay(200);
-            if (destino != "contas") throw new InvalidOperationException("Rota permitida não chegou ao shell.");
-            destino = null;
+            async Task Navegar(string chave)
+            {
+                await Ler("chrome.webview.postMessage({acao:'navegar',valor:" + JsonSerializer.Serialize(chave) + "})");
+                await Esperar("document.querySelector('.conteudo').dataset.rota === " + JsonSerializer.Serialize(chave));
+                await Esperar("document.querySelector('.conteudo').getAttribute('aria-busy') === 'false'");
+                await Task.Delay(150);
+            }
+            async Task Clicar(string seletor)
+            {
+                await Esperar("document.querySelector(" + JsonSerializer.Serialize(seletor) + ")?.disabled === false");
+                await Ler("document.querySelector(" + JsonSerializer.Serialize(seletor) + ").click()");
+            }
+            async Task Campo(string chave, string valor)
+            {
+                var seletor = ".dialogo-web [data-campo='" + chave + "']";
+                await Esperar("!!document.querySelector(" + JsonSerializer.Serialize(seletor) + ")");
+                await Ler("(()=>{let el=document.querySelector(" + JsonSerializer.Serialize(seletor) + ");el.value=" + JsonSerializer.Serialize(valor) + ";el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));})()");
+                await Task.Delay(150);
+            }
+            async Task Fechar()
+            {
+                await Clicar(".dialogo-cabecalho [data-fechar-dialogo]");
+                await Esperar("!document.querySelector('.dialogo-web')");
+            }
+            async Task Capturar(string nome)
+            {
+                using var arquivo = File.Create(Path.Combine(saida, nome + ".png"));
+                await janela.TelaWeb.CapturarPreviewAsync(arquivo);
+            }
+            var rotas = new ModuloFinanceiro().Itens.Where(i => i.Abas.Count == 0 && i.Chave != ModuloFinanceiro.ChaveAjuda).Select(i => i.Chave).Distinct().ToArray();
+            foreach (var (largura, altura) in new[] { (1440, 900), (1100, 720), (900, 600) })
+            {
+                janela.Width = largura; janela.Height = altura;
+                foreach (var rota in rotas)
+                {
+                    await Navegar(rota);
+                    await Esperar("document.documentElement.scrollWidth <= innerWidth + 1");
+                    await Esperar("!!document.querySelector('.conteudo h1')");
+                    await Capturar($"financeiro-completo-{rota}-{largura}");
+                    Console.WriteLine($"OK página web {rota} {largura}x{altura}: mesma janela, título, navegação e layout.");
+                }
+            }
+            janela.Width = 1100; janela.Height = 720;
+            await Navegar("caixa");
+            await Clicar("[data-action='novo']");
+            await Esperar("!!document.querySelector('.dialogo-web')");
+            await Clicar(".dialogo-rodape [data-comando='salvar']");
+            await Esperar("!!document.querySelector('.dialogo-corpo [role=alert]')");
+            await Campo("Descricao", "QA WEB despesa integral");
+            await Campo("Valor", "123,45");
+            await Ler("chrome.webview.postMessage({acao:'dlg-campo',id:document.querySelector('.dialogo-web').dataset.dialogo,chave:'Data',valor:'data-invalida'})");
+            await Clicar(".dialogo-rodape [data-comando='salvar']");
+            await Esperar("document.querySelector('.dialogo-corpo')?.innerText.includes('Corrija os campos inválidos') === true");
+            using (var scope = servicos.CreateScope())
+                if (await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.AnyAsync(l => l.Descricao == "QA WEB despesa integral"))
+                    throw new InvalidOperationException("Campo inválido foi ignorado ao gravar com valor anterior.");
+            await Campo("Data", DateTime.Today.ToString("yyyy-MM-dd"));
+            await Esperar("[...document.querySelectorAll('.dialogo-rodape button')].filter(b => b.textContent.trim() === 'Cancelar').length === 1");
+            await Capturar("financeiro-formulario-lancamento");
+            await Clicar(".dialogo-rodape [data-comando='salvar']");
+            await Esperar("!document.querySelector('.dialogo-web')");
+            using (var scope = servicos.CreateScope())
+            {
+                var registro = await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.AsNoTracking().SingleAsync(l => l.Descricao == "QA WEB despesa integral");
+                if (registro.Valor != 123.45m) throw new InvalidOperationException("O lançamento web não preservou o valor digitado.");
+            }
+            await Clicar("[data-action='novo']");
+            await Esperar("!!document.querySelector('.dialogo-web')");
+            await Campo("Descricao", "QA WEB não salvar");
+            await Campo("Valor", "999");
+            await Fechar();
+            using (var scope = servicos.CreateScope())
+                if (await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.AnyAsync(l => l.Descricao == "QA WEB não salvar"))
+                    throw new InvalidOperationException("Cancelar gravou o lançamento.");
+            await Navegar("contas");
+            await Clicar("[data-comando='NovaConta']");
+            await Esperar("!!document.querySelector('.dialogo-web')");
+            await Campo("Descricao", "QA WEB conta prevista");
+            await Campo("Valor", "240,00");
+            await Capturar("financeiro-formulario-conta");
+            await Clicar(".dialogo-rodape [data-comando='salvar']");
+            await Esperar("!document.querySelector('.dialogo-web')");
+            using (var scope = servicos.CreateScope())
+            {
+                var registro = await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.AsNoTracking().SingleAsync(l => l.Descricao == "QA WEB conta prevista");
+                if (registro.Valor != 240m || registro.Status != Clinica.Domain.Entities.StatusLancamento.Previsto)
+                    throw new InvalidOperationException("Conta web não preservou valor/status previsto.");
+            }
+            await Navegar("plano-contas");
+            await Clicar("[data-comando='NovaCategoria']");
+            await Esperar("!!document.querySelector('.dialogo-web')");
+            await Campo("Codigo", "QA_WEB"); await Campo("Nome", "Categoria web de teste");
+            await Clicar(".dialogo-rodape [data-comando='salvar']");
+            await Esperar("!document.querySelector('.dialogo-web')");
+            using (var scope = servicos.CreateScope())
+                if (!await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().CategoriasFinanceiras.AnyAsync(c => c.Codigo == "QA_WEB"))
+                    throw new InvalidOperationException("Categoria criada via web não persistiu.");
+            await Navegar("estoque");
+            await Clicar("[data-comando='NovoItem']");
+            await Esperar("!!document.querySelector('.dialogo-web')");
+            await Campo("Nome", "Item web de teste");
+            await Capturar("financeiro-formulario-estoque");
+            await Clicar(".dialogo-rodape [data-comando='salvar']");
+            await Esperar("!document.querySelector('.dialogo-web')");
+            using (var scope = servicos.CreateScope())
+                if (!await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().ItensEstoque.AnyAsync(i => i.Nome == "Item web de teste"))
+                    throw new InvalidOperationException("Item criado via web não persistiu.");
+            await Navegar("caixa");
             await Ler("chrome.webview.postMessage({acao:'navegar',valor:'rota-inexistente'})");
             await Task.Delay(200);
-            if (destino is not null) throw new InvalidOperationException("Rota fora da lista foi aceita.");
+            await Esperar("document.querySelector('.conteudo').dataset.rota === 'caixa'");
             navegador.CoreWebView2.Navigate("https://example.com/");
             await Task.Delay(250);
             if (!navegador.CoreWebView2.Source.StartsWith("https://financeiro.clinica.local/"))
                 throw new InvalidOperationException("A navegação saiu da origem local permitida.");
-            await Esperar($"{seletorLinhas}.length === {antes}");
-            Console.WriteLine("OK bridge web: filtros reais, limpar, mês vazio, retorno do mês e navegação restrita.");
+            await Esperar($"{seletorLinhas}.length >= {antes}");
+            Console.WriteLine("OK web completo: 15 páginas em três dimensões, formulários com gravação e cancelamento, validação, filtros reais e navegação restrita sem telas WPF.");
         }
         finally { janela.Close(); }
     }

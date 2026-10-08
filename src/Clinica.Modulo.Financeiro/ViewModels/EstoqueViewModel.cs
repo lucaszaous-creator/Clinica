@@ -190,12 +190,12 @@ public sealed partial class EstoqueViewModel : ObservableObject
     /// clicar; o clique é para ver QUAIS.
     /// </summary>
     [RelayCommand]
-    private void AbrirValidades()
+    private async Task AbrirValidadesAsync()
     {
-        new Janelas.ValidadesEstoqueWindow(this)
+        await DialogosDaSessao.AbrirAsync("ValidadesEstoque", this, () => new Janelas.ValidadesEstoqueWindow(this)
         {
             Owner = JanelaDona.Atual()
-        }.ShowDialog();
+        }.ShowDialog());
     }
 
     /// <summary>
@@ -387,12 +387,10 @@ public sealed partial class EstoqueViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
 
         var vm = new ItemEstoqueEdicaoViewModel(_escopos, itemId);
-        var janela = new Janelas.ItemEstoqueWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("ItemEstoque", vm, () => new Janelas.ItemEstoqueWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso(itemId is null ? "Item cadastrado." : "Item atualizado.");
         await CarregarAsync();
     }
@@ -405,12 +403,10 @@ public sealed partial class EstoqueViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
 
         var vm = new MovimentoEstoqueViewModel(_escopos, linha.Id, linha.Nome);
-        var janela = new Janelas.MovimentoEstoqueWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("MovimentoEstoque", vm, () => new Janelas.MovimentoEstoqueWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso("Movimento registrado.");
         await CarregarAsync();
     }
@@ -436,15 +432,15 @@ public sealed partial class EstoqueViewModel : ObservableObject
     /// nada —, na versão do estoque.
     /// </summary>
     [RelayCommand]
-    private void Extrato(LinhaEstoque? linha)
+    private async Task ExtratoAsync(LinhaEstoque? linha)
     {
         if (linha is null) return;
 
         var vm = new ExtratoEstoqueViewModel(_escopos, linha.Id, linha.Nome);
-        new Janelas.ExtratoEstoqueWindow(vm)
+        await DialogosDaSessao.AbrirAsync("ExtratoEstoque", vm, () => new Janelas.ExtratoEstoqueWindow(vm)
         {
             Owner = System.Windows.Application.Current.MainWindow
-        }.ShowDialog();
+        }.ShowDialog());
     }
 
     [RelayCommand]
@@ -454,7 +450,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "acertar o inventário");
 
-        var contado = _dialogo.PerguntarTexto(
+        var contado = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             $"Inventário de {linha.Nome}",
             $"O sistema diz {linha.Saldo}. Quanto você CONTOU na prateleira?\n\n"
             + "Informe a quantidade contada — o sistema calcula a diferença. Se a "
@@ -467,7 +463,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
             return;
         }
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Por que a contagem não bateu?",
             "Diferença de inventário sem motivo é indistinguível de erro de digitação seis "
             + "meses depois. Escreva o que você encontrou (ex.: “frasco quebrado não "
@@ -484,11 +480,11 @@ public sealed partial class EstoqueViewModel : ObservableObject
             DateOnly? validade = null;
             if (item.ExigirLote || item.ExigirValidade || item.Grupo == GrupoEstoque.Medicamento)
             {
-                lote = _dialogo.PerguntarTexto("Lote contado", "Informe o lote responsável pela diferença encontrada. A contagem informada acima continua sendo o total do produto.");
+                lote = await DialogosDaSessao.PerguntarTextoAsync(_dialogo, "Lote contado", "Informe o lote responsável pela diferença encontrada. A contagem informada acima continua sendo o total do produto.");
                 if (string.IsNullOrWhiteSpace(lote)) return;
                 if (item.ExigirValidade || item.Grupo == GrupoEstoque.Medicamento)
                 {
-                    var texto = _dialogo.PerguntarTexto("Validade do lote", "Informe a validade do lote contado (dd/mm/aaaa).");
+                    var texto = await DialogosDaSessao.PerguntarTextoAsync(_dialogo, "Validade do lote", "Informe a validade do lote contado (dd/mm/aaaa).");
                     if (string.IsNullOrWhiteSpace(texto)) return;
                     if (!DateOnly.TryParse(texto, out var diaValidade))
                         throw new InvalidOperationException("Informe uma data de validade válida.");
@@ -577,7 +573,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
         if (linha is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
-        if (!_dialogo.ConfirmarPerigo("Excluir item",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir item",
                 $"Excluir o cadastro de \"{linha.Nome}\"? "
                 + "Só é possível excluir um item sem movimentos. Para preservar o histórico, inative itens já utilizados.")) return;
 

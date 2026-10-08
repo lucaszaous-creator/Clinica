@@ -98,6 +98,10 @@ public sealed class LinhaRecorrente
 /// </summary>
 public sealed partial class ContasViewModel : ObservableObject
 {
+    // Contador mantém a tela bloqueada até terminar inclusive uma consulta anterior superada.
+    private int _cargasPendentes;
+    [ObservableProperty] private bool _carregando;
+
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
@@ -182,6 +186,8 @@ public sealed partial class ContasViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         var geracao = ++_geracaoCarga;
 
         try
@@ -240,6 +246,10 @@ public sealed partial class ContasViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar("Financeiro — contas não puderam ser lidas", ex);
             Erro($"Não foi possível ler as contas: {ex.Message}");
         }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
+        }
     }
 
     // ---------------- Conta avulsa ----------------
@@ -258,12 +268,10 @@ public sealed partial class ContasViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar conta");
 
         var vm = new ContaEdicaoViewModel(_escopos);
-        var janela = new Janelas.ContaWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("Conta", vm, () => new Janelas.ContaWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso(vm.EhSaida ? "Conta a pagar registrada." : "Conta a receber registrada.");
         await CarregarAsync();
     }
@@ -294,7 +302,7 @@ public sealed partial class ContasViewModel : ObservableObject
                 lancamento = await scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
                     .ObterLancamentoAsync(linha.LancamentoId) ?? throw new InvalidOperationException("Conta não encontrada.");
             var vm = new BaixarLancamentoViewModel(_escopos, lancamento);
-            if (new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
+            if (await DialogosDaSessao.AbrirAsync("Recebimento", vm, () => new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog()) != true) return;
 
             _snackbar.Sucesso("Baixa registrada. Eventual saldo restante continua em aberto.");
             await CarregarAsync();
@@ -347,12 +355,12 @@ public sealed partial class ContasViewModel : ObservableObject
     /// trás sem ninguém clicar em atualizar.
     /// </summary>
     [RelayCommand]
-    private void AbrirContasFixas()
+    private async Task AbrirContasFixasAsync()
     {
-        new Janelas.ContasFixasWindow(this)
+        await DialogosDaSessao.AbrirAsync("ContasFixas", this, () => new Janelas.ContasFixasWindow(this)
         {
             Owner = JanelaDona.Atual()
-        }.ShowDialog();
+        }.ShowDialog());
     }
 
     [RelayCommand]
@@ -370,12 +378,10 @@ public sealed partial class ContasViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar conta fixa");
 
         var vm = new RecorrenteEdicaoViewModel(_escopos, recorrenteId);
-        var janela = new Janelas.RecorrenteWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("Recorrente", vm, () => new Janelas.RecorrenteWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
 
         _snackbar.Sucesso(recorrenteId == 0
             ? "Conta fixa cadastrada. Use \"Gerar\" para criar as previstas."
@@ -493,6 +499,10 @@ public sealed partial class ContasViewModel : ObservableObject
 /// </summary>
 public sealed partial class ContaEdicaoViewModel : ObservableObject
 {
+    // Contador mantém a tela bloqueada até terminar inclusive uma consulta anterior superada.
+    private int _cargasPendentes;
+    [ObservableProperty] private bool _carregando;
+
     private readonly IServiceScopeFactory _escopos;
     private readonly Guid _idempotencia = Guid.NewGuid();
     [ObservableProperty] private string? _contraparte;
@@ -540,6 +550,8 @@ public sealed partial class ContaEdicaoViewModel : ObservableObject
 
     private async Task CarregarCategoriasAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         try
         {
             using var scope = _escopos.CreateScope();
@@ -557,6 +569,10 @@ public sealed partial class ContaEdicaoViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar(
                 "Financeiro — categorias não puderam ser lidas", ex);
             Erro(ex.Message);
+        }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
         }
     }
 
@@ -640,6 +656,10 @@ public sealed partial class ContaEdicaoViewModel : ObservableObject
 /// </summary>
 public sealed partial class RecorrenteEdicaoViewModel : ObservableObject
 {
+    // Contador mantém a tela bloqueada até terminar inclusive uma consulta anterior superada.
+    private int _cargasPendentes;
+    [ObservableProperty] private bool _carregando;
+
     private readonly IServiceScopeFactory _escopos;
     private readonly int _recorrenteId;
 
@@ -686,6 +706,8 @@ public sealed partial class RecorrenteEdicaoViewModel : ObservableObject
 
     private async Task CarregarAsync()
     {
+        Interlocked.Increment(ref _cargasPendentes);
+        Carregando = true;
         try
         {
             using var scope = _escopos.CreateScope();
@@ -718,6 +740,10 @@ public sealed partial class RecorrenteEdicaoViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar(
                 "Financeiro — conta fixa não pôde ser aberta", ex);
             Erro(ex.Message);
+        }
+        finally
+        {
+            Carregando = Interlocked.Decrement(ref _cargasPendentes) > 0;
         }
     }
 

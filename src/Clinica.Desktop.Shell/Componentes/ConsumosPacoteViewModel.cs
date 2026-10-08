@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
@@ -148,7 +149,7 @@ public sealed partial class ConsumosPacoteViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "devolver sessão ao pacote");
 
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Devolver a sessão",
                 $"Por que a sessão de {linha.Data} está voltando ao saldo? "
                 + "O consumo continua no histórico, marcado com o motivo — não some.");

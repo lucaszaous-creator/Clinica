@@ -305,12 +305,12 @@ public sealed partial class PacotesViewModel : ObservableObject
     /// leitura, e dois VMs dariam duas verdades sobre a mesma tabela.
     /// </summary>
     [RelayCommand]
-    private void AbrirCatalogo()
+    private async Task AbrirCatalogoAsync()
     {
-        new CatalogoPacotesWindow(this)
+        await DialogosDaSessao.AbrirAsync("CatalogoPacotes", this, () => new CatalogoPacotesWindow(this)
         {
             Owner = JanelaDona.Atual()
-        }.ShowDialog();
+        }.ShowDialog());
     }
 
     /// <summary>
@@ -325,12 +325,10 @@ public sealed partial class PacotesViewModel : ObservableObject
             Permissao.VenderPacote | Permissao.EditarFinanceiro, "mexer no catálogo de pacotes");
 
         var vm = new PacoteCatalogoEdicaoViewModel(_escopos);
-        var janela = new PacoteCatalogoWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("PacoteCatalogo", vm, () => new PacoteCatalogoWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso("Pacote acrescentado ao catálogo.");
         await CarregarAsync();
     }
@@ -351,12 +349,10 @@ public sealed partial class PacotesViewModel : ObservableObject
             Permissao.VenderPacote | Permissao.EditarFinanceiro, "mexer no catálogo de pacotes");
 
         var vm = PacoteCatalogoEdicaoViewModel.Para(linha, _escopos);
-        var janela = new PacoteCatalogoWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("PacoteCatalogo", vm, () => new PacoteCatalogoWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso($"\"{linha.Nome}\" atualizado no catálogo. O que já foi vendido não muda.");
         await CarregarAsync();
     }
@@ -368,7 +364,7 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         SessaoUsuario.Atual.ExigirAlgum(
             Permissao.VenderPacote | Permissao.EditarFinanceiro, "mexer no catálogo de pacotes");
-        if (!_dialogo.ConfirmarPerigo("Excluir do catálogo",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir do catálogo",
                 $"Tirar \"{linha.Nome}\" da lista de venda? Os pacotes JÁ VENDIDOS continuam "
                 + "valendo — eles guardam a própria cópia do que foi contratado.")) return;
 
@@ -396,12 +392,10 @@ public sealed partial class PacotesViewModel : ObservableObject
             Permissao.VenderPacote | Permissao.EditarFinanceiro, "vender pacote");
 
         var vm = new PacoteVendaViewModel(_escopos);
-        var janela = new PacoteVendaWindow(vm)
+        if (await DialogosDaSessao.AbrirAsync("PacoteVenda", vm, () => new PacoteVendaWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        }.ShowDialog()) != true) return;
         _snackbar.Sucesso("Pacote vendido.");
         await CarregarAsync();
     }
@@ -414,7 +408,7 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         SessaoUsuario.Atual.ExigirAlgum(
             Permissao.VenderPacote | Permissao.EditarFinanceiro, "debitar sessão do pacote");
-        if (!_dialogo.Confirmar("Usar uma sessão",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Usar uma sessão",
                 $"Debitar uma sessão de \"{linha.Nome}\" ({linha.Paciente})? Hoje o saldo é: "
                 + $"{linha.Saldo}.")) return;
 
@@ -450,12 +444,8 @@ public sealed partial class PacotesViewModel : ObservableObject
         var vm = new ConsumosPacoteViewModel(
             _escopos, _dialogo, linha.Id, $"{linha.Nome} — {linha.Paciente}");
 
-        var janela = new ConsumosPacoteWindow(vm)
-        {
-            Owner = JanelaDona.Atual()
-        };
-
-        janela.ShowDialog();
+        await DialogosDaSessao.AbrirAsync("ConsumosPacote", vm,
+            () => new ConsumosPacoteWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
 
         // Só recarrega se alguma sessão voltou ao saldo: espiar a lista não pode custar
         // uma consulta à toa.
@@ -469,7 +459,7 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Cancelar pacote",
             $"Por que o pacote \"{linha.Nome}\" de {linha.Paciente} está sendo cancelado? "
             + "Ele continua na lista, com o motivo — as sessões já usadas não somem. "
@@ -486,7 +476,7 @@ public sealed partial class PacotesViewModel : ObservableObject
             // O aviso do dinheiro já recebido vai em DIÁLOGO: ele pede uma ação (a saída
             // da devolução, se houver) e não sobrevive aos 4 s do snackbar.
             if (avisos.Count > 0)
-                _dialogo.Aviso("Pacote cancelado", string.Join("\n\n", avisos));
+                await DialogosDaSessao.AvisoAsync(_dialogo, "Pacote cancelado", string.Join("\n\n", avisos));
             else
                 _snackbar.Info("Pacote cancelado.");
             await CarregarAsync();
@@ -513,7 +503,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         SessaoUsuario.Atual.ExigirAlgum(
             Permissao.VenderPacote | Permissao.EditarFinanceiro, "emitir orçamento");
 
-        var destinatario = _dialogo.PerguntarTexto(
+        var destinatario = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Orçamento", "Para quem é o orçamento? (nome de quem vai receber o papel)");
         if (string.IsNullOrWhiteSpace(destinatario)) return;
 

@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -21,6 +22,6 @@ internal static class HistoricoObrigacao
             $"#{l.Id} · {RotulosEnum.De(l.Status)} · {l.Valor:C2} · vence {l.DataVencimento:dd/MM/yyyy}"
             + (l.DataPagamento is { } data ? $" · baixa {data:dd/MM/yyyy}" : "")
             + (l.OrigemDesdobramentoId is { } origem ? $" · origem #{origem}" : "")));
-        dialogo.Aviso("Histórico da obrigação", texto);
+        await DialogosDaSessao.AvisoAsync(dialogo, "Histórico da obrigação", texto);
     }
 }

@@ -29,6 +29,18 @@ public sealed class OpcaoPacote
 /// </summary>
 public sealed partial class PacoteVendaViewModel : ObservableObject
 {
+    // As consultas existentes sinalizam a espera para não salvar valores dependentes
+    // antes de a mesma carga terminar (por exemplo, taxa ou categoria do lançamento).
+    [ObservableProperty] private bool _carregando;
+    private int _cargasPendentes;
+    private async Task CarregarAsync()
+    {
+        _cargasPendentes++;
+        Carregando = true;
+        try { await CarregarDadosAsync(); }
+        finally { Carregando = --_cargasPendentes > 0; }
+    }
+
     private readonly IServiceScopeFactory _escopos;
 
     public ObservableCollection<OpcaoPacote> Opcoes { get; } = [];
@@ -195,7 +207,7 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
         if (value is not null) ValorCobrado = value.Valor.ToString("0.00");
     }
 
-    private async Task CarregarAsync()
+    private async Task CarregarDadosAsync()
     {
         try
         {
@@ -253,9 +265,7 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
         }
 
         var vm = new PacoteCatalogoEdicaoViewModel(_escopos);
-        var janela = new PacoteCatalogoWindow(vm) { Owner = JanelaDona.Atual() };
-
-        if (janela.ShowDialog() != true) return;
+        if (await DialogosDaSessao.AbrirAsync("PacoteCatalogo", vm, () => new PacoteCatalogoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog()) != true) return;
 
         await CarregarAsync();
 

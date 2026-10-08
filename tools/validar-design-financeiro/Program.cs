@@ -82,7 +82,7 @@ static class Program
         }
         for(int i=0;i<12;i++) db.Add(new ItemEstoque { Nome=$"Material demonstrativo {i+1:00}", Unidade="un", EstoqueMinimo=5 });
         await db.SaveChangesAsync();
-        if(ApenasWeb) { await WebQa.Executar(services, Saida); return; }
+        if(ApenasWeb) { await PaginasWebQa.Executar(services); await DialogosWebQa.Executar(services); await WebQa.Executar(services, Saida); return; }
         if(ApenasDialogos) { await DialogosQa.Executar(services, Saida); return; }
         var shell = new ShellViewModel("Financeiro — Clínica SemDor · DEMONSTRAÇÃO", [modulo], services);
         var window = new ShellWindow(new Clinica.Financeiro.Views.NavegacaoFinanceira()) { DataContext=shell, ShowInTaskbar=false, Left=-30000, Top=-30000, WindowStartupLocation=WindowStartupLocation.Manual };

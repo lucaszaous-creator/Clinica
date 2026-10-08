@@ -4,6 +4,19 @@
 
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
     </ResourceDictionary></UserControl.Resources><UserControl.Style><StaticResource ResourceKey="Financeiro.Pagina"/></UserControl.Style>
+    <Grid>
+        <Grid>
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Carregando}" Value="True">
+                            <Setter Property="IsEnabled" Value="False"/>
+                            <Setter Property="Visibility" Value="Hidden"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
 
 
     <DockPanel Margin="24">
@@ -389,4 +402,9 @@
 
         </TabControl>
     </DockPanel>
+
+        </Grid>
+        <ctrl:EstadoDaTela Vazio="False" Carregando="{Binding Carregando}"
+                          TextoCarregando="Lendo taxas e tributos…"/>
+    </Grid>
 </UserControl>

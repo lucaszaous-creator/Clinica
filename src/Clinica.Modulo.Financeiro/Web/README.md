@@ -1,37 +1,39 @@
-# Interface web do Financeiro
+# Financeiro web completo
 
-Primeira etapa da nova camada visual: resumo financeiro, séries do mês, filtros e lista de lançamentos em HTML/CSS/TypeScript, dentro do aplicativo Windows com WebView2. O C# continua responsável pelos valores, permissões, comandos, confirmações e persistência.
-
-O resumo usa **resultado líquido do mês**, não saldo bancário. As curvas mostram somente realizados, na mesma escala, e não são desenhadas quando a carga é parcial. Os valores vêm de `CaixaViewModel`.
+A apresentação do executável Financeiro é HTML/CSS/TypeScript local em WebView2. As 15 rotas financeiras, seus detalhes, filtros, operações e formulários permanecem na mesma interface. C# mantém autenticação, permissões, cálculos, serviços e persistência.
 
 ## Executar
 
+Na pasta `Web/frontend`, execute `npm ci` e `npm run build`. Na raiz, `dotnet run --project src/Clinica.Financeiro` usa a configuração e autenticação normais. **Não use esse comando para testar contra a clínica**: para testes isolados, use o harness abaixo.
+
+O instalador inclui WebView2 como pré-requisito e todos os assets em `Web/wwwroot`; não há servidor web ou CDN. Falha no componente visual mostra instrução de reparo. A navegação financeira não abre o shell ou formulários WPF antigos. Os demais executáveis ainda podem usar suas views nativas, preservadas durante esta migração.
+
+`npm run dev` com `?demo=1` mostra uma demonstração visual fictícia do resumo. Essa demonstração não prova integração nem paridade do módulo; a evidência de integração vem do WebView2 real com banco sintético.
+
+## Rotas
+
+Caixa, contas a pagar/receber, inadimplência, plano de contas, fluxo de caixa, resultado e teto de despesas, fechamento, recebíveis de cartão, conciliação de receitas, extrato bancário, produção, pacotes, estoque, repasses e taxas/tributos. As antigas abas são seções acessíveis na própria página, com atalhos de seção, formulários e ações correspondentes.
+
+## Arquitetura
+
+- `FinanceiroWebView`: origem local restrita, sessão, fila de mensagens, estado e ciclo de vida do navegador.
+- `FinanceiroPaginasController` e registro: DTOs explícitos e propriedades/comandos permitidos para cada rota. Contexto de navegação e IDs opacos impedem usar ações de uma tela anterior ou registros fora da lista atual.
+- `DialogosFinanceiroController` e catálogo: formulários com os ViewModels existentes, campos permitidos, validação, pilha de diálogos filhos e conclusão assíncrona. Cada diálogo possui um ID próprio.
+- `DialogosDaSessao` no shell: apresentador assíncrono restrito ao fluxo de execução. Mantém a apresentação nativa dos outros aplicativos e utiliza o apresentador web nas operações do Financeiro.
+- `frontend/src/paginas.ts`: componentes compartilhados de campos, indicadores, tabelas, gráficos, ações e páginas; `main.ts` mantém o resumo visual, navegação e protocolo; CSS e fontes locais.
+
+A página envia `pagina-campo`/`pagina-acao` com contexto e chaves registradas. Diálogos usam `dlg-campo`, `dlg-acao` e `dlg-fechar` com ID vigente. Nenhum nome arbitrário de método ou propriedade recebido do navegador é refletido no modelo. Confirmações, erros e cancelamento continuam explícitos. O canal de um diálogo filho permanece disponível enquanto o comando pai aguarda sua resposta.
+
+Seletores de arquivo do Windows e documentos exportados podem abrir fora da interface; isso não encaminha a operação para uma tela financeira antiga.
+
+## Verificação sem produção
+
 ```powershell
-cd src/Clinica.Modulo.Financeiro/Web/frontend
-npm ci
-npm run build
+dotnet run --project tools/validar-design-financeiro -c Release -- --web
 ```
 
-Depois, na raiz do repositório:
+O harness usa SQLite em memória, serviços reais e os assets distribuídos no WebView2. Confere rotas em três dimensões, formulários, persistência/cancelamento e contexto/permissões. Capturas ficam em `artifacts/design-financeiro/capturas`. Requer o WebView2 Runtime.
 
-```powershell
-dotnet run --project src/Clinica.Financeiro
-```
+O resultado do resumo é líquido do mês, não saldo bancário. Gráficos usam séries reais do host; ausência de dado não vira ponto zero inventado. Valores e rótulos acessíveis acompanham os gráficos.
 
-Esse caminho passa pela configuração e autenticação normais do aplicativo. A interface web é o padrão para usuários com acesso financeiro. O argumento `--financeiro-nativo` permite abrir o shell nativo para suporte; ausência ou falha do WebView2 também oferece acesso nativo. O instalador do Financeiro declara o WebView2 como pré-requisito. As outras telas e os formulários são abertos pelo shell existente; ainda não foram migrados para HTML. A compilação web fica em `Web/wwwroot` e acompanha a distribuição local, sem depender de servidor web ou CDN.
-
-Para visualizar dados fictícios no navegador, executar `npm run dev` e abrir o endereço local com `?demo=1`. Esse modo não representa integração com banco e não deve ser confundido com as capturas do teste nativo abaixo.
-
-## Verificar a integração sem produção
-
-```powershell
-dotnet run --project tools/validar-design-financeiro -- --web
-```
-
-O teste usa SQLite em memória, serviços C# reais, navegador WebView2 e o conteúdo web empacotado. Gera imagens em três dimensões e verifica troca de mês, filtros, retorno dos dados e rotas permitidas. Requer WebView2 Runtime instalado.
-
-## Fronteira entre as camadas
-
-O frontend envia ações de uma lista explícita. O host verifica a origem local, a sessão, as permissões e os comandos disponíveis. IDs de lançamentos são resolvidos na coleção corrente do ViewModel. Não há objeto .NET exposto ao JavaScript, conexão de banco no frontend ou execução arbitrária de métodos recebidos pela página.
-
-Ícones vetoriais, fontes e logo são empacotados com os arquivos locais. A navegação externa, novas janelas e permissões do navegador são bloqueadas pelo host.
+O padrão reutilizável e a definição de migração completa estão no `AGENTS.md` da raiz.

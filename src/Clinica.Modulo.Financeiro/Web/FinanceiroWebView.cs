@@ -11,6 +11,7 @@ using System.Windows.Data;
 using System.Windows.Threading;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using Clinica.Financeiro.Modulo;
 using Clinica.Financeiro.ViewModels;
@@ -23,7 +24,7 @@ using Microsoft.Web.WebView2.Wpf;
 namespace Clinica.Financeiro.Web;
 
 /// <summary>
-/// Interface local do Caixa. Somente mensagens explícitas alcançam os comandos existentes;
+/// Interface local de todas as páginas e formulários do Financeiro. Somente mensagens explícitas alcançam os comandos existentes;
 /// HTML não recebe objetos do host, credenciais, conexão de banco nem acesso a serviços.
 /// </summary>
 public sealed class FinanceiroWebView : UserControl, IDisposable
@@ -31,7 +32,15 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     public const string Origem = "https://financeiro.clinica.local/";
     private const string HostVirtual = "financeiro.clinica.local";
     private readonly IServiceProvider _services;
-    private readonly Action<string>? _navegarNativo;
+    private readonly FinanceiroPaginasController _paginas;
+    private readonly DialogosFinanceiroController _dialogos = new();
+    private readonly SemaphoreSlim _filaPagina = new(1, 1);
+    private readonly Dictionary<string, SemaphoreSlim> _filasDialogos = [];
+    private readonly Dictionary<string, HashSet<string>> _camposInvalidos = [];
+    private readonly CancellationTokenSource _cancelamento = new();
+    private readonly int _usuarioInicial = SessaoUsuario.Atual.UsuarioId;
+    private readonly Permissao _permissoesIniciais = SessaoUsuario.Atual.Efetivas;
+    private static readonly JsonSerializerOptions JsonOpcoes = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private readonly ModuloFinanceiro _modulo = new();
     private readonly CaixaViewModel _caixa;
     private readonly SnackbarService? _snackbar;
@@ -41,6 +50,14 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     private bool _iniciou;
     private bool _paginaPronta;
     private bool _executando;
+    private bool _encerrando;
+
+    public bool PodeFechar => _descartado || _encerrando || !SessaoUsuario.Atual.Autenticado ||
+        SessaoUsuario.Atual.UsuarioId != _usuarioInicial || SessaoUsuario.Atual.Efetivas != _permissoesIniciais ||
+        (_dialogos.EstadoAtual is { } dialogo ? !dialogo.Ocupado : !_executando);
+
+    public void AvisarOperacaoEmAndamento() =>
+        _snackbar?.Info("Aguarde a conclusão da operação antes de fechar.");
     private bool _descartado;
     private bool _falhou;
     private int _envioPendente;
@@ -51,12 +68,14 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     public CaixaViewModel Caixa => _caixa;
     public Task QuandoPronto => _pronto.Task;
 
-    public FinanceiroWebView(IServiceProvider services, Action<string>? navegarNativo = null)
+    public FinanceiroWebView(IServiceProvider services)
     {
         ExigirSessao();
         _services = services;
-        _navegarNativo = navegarNativo;
         _caixa = services.GetRequiredService<CaixaViewModel>();
+        _paginas = new FinanceiroPaginasController(services, _caixa);
+        _paginas.Changed += AgendarEstado;
+        _dialogos.Mudou += AgendarEstado;
         _snackbar = services.GetService<SnackbarService>();
         if (_snackbar is not null) _snackbar.PropertyChanged += AoMudarEstado;
         _envio = new DispatcherTimer(DispatcherPriority.Background, Dispatcher)
@@ -72,9 +91,9 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
         Unloaded += AoDescarregar;
     }
 
-    private static void ExigirSessao()
+    private void ExigirSessao()
     {
-        if (!SessaoUsuario.Atual.Autenticado)
+        if (!SessaoUsuario.Atual.Autenticado || SessaoUsuario.Atual.UsuarioId != _usuarioInicial || SessaoUsuario.Atual.Efetivas != _permissoesIniciais)
             throw new InvalidOperationException("Entre no sistema para abrir o Financeiro.");
         SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "abrir o Financeiro");
     }
@@ -170,75 +189,153 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
         {
             if (DateTime.UtcNow - _janelaMensagens > TimeSpan.FromSeconds(1))
             { _janelaMensagens = DateTime.UtcNow; _mensagensNaJanela = 0; }
-            if (++_mensagensNaJanela > 30) return;
+            if (++_mensagensNaJanela > 80) return;
             var json = e.WebMessageAsJson;
-            if (json.Length > 4096) return;
-            var mensagem = JsonSerializer.Deserialize<Mensagem>(json);
-            if (mensagem?.Acao is null || mensagem.Acao.Length > 20 ||
-                mensagem.Valor?.Length > 160 || mensagem.Id?.Length > 12) return;
+            if (json.Length > 65536) return;
+            var m = JsonSerializer.Deserialize<Mensagem>(json);
+            if (m?.Acao is null || m.Acao.Length > 32 || m.Chave?.Length > 100 ||
+                m.Id?.Length > 80 || m.Contexto?.Length > 80 || m.Tabela?.Length > 100 || m.Linha?.Length > 100) return;
             ExigirSessao();
-            if (mensagem.Acao == "pronto")
+            if (m.Acao == "pronto")
             {
+                if (!_paginaPronta) await _paginas.NavegarAsync(ModuloFinanceiro.ChaveCaixa);
                 _paginaPronta = true;
                 EnviarEstado();
                 _pronto.TrySetResult();
                 return;
             }
-            // Ações que abrem diálogos ficam fora da chamada WebView2: um ShowDialog
-            // dentro do callback Chromium criaria um loop de mensagens reentrante.
             await System.Windows.Threading.Dispatcher.Yield(DispatcherPriority.Background);
-            if (_descartado || _falhou || !_paginaPronta || _executando ||
-                !DocumentoPermitido(_browser.CoreWebView2.Source)) return;
+            if (_descartado || _falhou || !_paginaPronta || !DocumentoPermitido(_browser.CoreWebView2.Source)) return;
             ExigirSessao();
-            _erro = null;
-            switch (mensagem.Acao)
+            if (m.Acao.StartsWith("dlg-", StringComparison.Ordinal))
             {
-                case "mes":
-                    if (DateTime.TryParseExact(mensagem.Valor, "yyyy-MM", CultureInfo.InvariantCulture,
-                        DateTimeStyles.None, out var mes) && mes.Year is >= 1900 and <= 2200)
-                        _caixa.Mes = new DateTime(mes.Year, mes.Month, 1);
-                    break;
-                case "filtrar":
-                    _caixa.FiltroTexto = (mensagem.Valor ?? string.Empty)[..Math.Min(80, mensagem.Valor?.Length ?? 0)];
-                    break;
-                case "navegar": Navegar(mensagem.Valor); break;
-                case "sistema": Navegar(ModuloFinanceiro.ChaveCaixa, sistema: true); break;
-                case "atualizar": await ExecutarComando(_caixa.CarregarCommand); break;
-                case "novo":
-                    ExigirEdicao(); await ExecutarComando(_caixa.NovoLancamentoCommand); break;
-                case "pix":
-                    await ExecutarComando(_caixa.CobrarPixCommand,
-                        mensagem.Id is null ? null : ResolverLinha(mensagem.Id)); break;
-                case "exportar": await ExecutarComando(_caixa.ExportarCommand); break;
-                case "historico": await ExecutarComando(_caixa.HistoricoCommand, ResolverLinha(mensagem.Id)); break;
-                case "realizar":
-                    ExigirEdicao();
-                    var realizar = ResolverLinha(mensagem.Id);
-                    if (realizar.PodeRealizar) await ExecutarComando(_caixa.RealizarCommand, realizar);
-                    break;
-                case "recibo":
-                    ExigirEdicao();
-                    var recibo = ResolverLinha(mensagem.Id);
-                    if (recibo.EhEntrada) await ExecutarComando(_caixa.EmitirReciboCommand, recibo);
-                    break;
-                case "cancelar":
-                    ExigirEdicao();
-                    var cancelar = ResolverLinha(mensagem.Id);
-                    if (cancelar.PodeCancelar) await ExecutarComando(_caixa.CancelarCommand, cancelar);
-                    break;
-                default: return;
+                if (m.Id is null || _dialogos.EstadoAtual?.Id != m.Id) return;
+                if (!_filasDialogos.TryGetValue(m.Id, out var fila))
+                    _filasDialogos[m.Id] = fila = new SemaphoreSlim(1, 1);
+                // Cada modal tem sua fila. Um comando do pai pode aguardar o filho sem
+                // impedir que esse filho receba seus campos, confirmação e cancelamento.
+                await fila.WaitAsync(_cancelamento.Token);
+                try
+                {
+                    ExigirSessao();
+                    if (_dialogos.EstadoAtual?.Id != m.Id) return;
+                    using var apresentacao = DialogosDaSessao.Usar(_dialogos);
+                    _erro = null;
+                    switch (m.Acao)
+                    {
+                        case "dlg-campo" when m.Chave is not null:
+                            await AtualizarCampoValidado(m.Id, m, () => _dialogos.AtualizarCampoAsync(m.Id, m.Chave, m.Valor, m.Tabela, m.Linha)); break;
+                        case "dlg-acao" when m.Chave is not null:
+                            if (m.Chave != "fechar") ExigirCamposValidos(m.Id);
+                            await _dialogos.ExecutarAcaoAsync(m.Id, m.Chave, m.Linha, m.Tabela); break;
+                        case "dlg-fechar": _dialogos.Fechar(m.Id); break;
+                    }
+                }
+                finally
+                {
+                    fila.Release();
+                    if (_dialogos.EstadoAtual?.Id != m.Id) { _filasDialogos.Remove(m.Id); _camposInvalidos.Remove(m.Id); }
+                    AgendarEstado();
+                }
+                return;
             }
-            AgendarEstado();
+            if (_dialogos.EstadoAtual is not null) return;
+            if (_executando && m.Acao != "pagina-campo") return;
+            var contextoRecebido = m.Contexto ?? _paginas.Contexto;
+            await _filaPagina.WaitAsync(_cancelamento.Token);
+            try
+            {
+                ExigirSessao();
+                if (_descartado || contextoRecebido != _paginas.Contexto || _dialogos.EstadoAtual is not null) return;
+                if (m.Acao is "pagina-campo" or "pagina-acao" && m.Contexto is null) return;
+                if (m.Acao is "mes" or "filtrar" or "atualizar" or "novo" or "pix" or "exportar" or "historico" or "realizar" or "recibo" or "cancelar"
+                    && _paginas.ObterPagina().Chave != ModuloFinanceiro.ChaveCaixa) return;
+                using var apresentacao = DialogosDaSessao.Usar(_dialogos);
+                _erro = null;
+                _executando = true;
+                AgendarEstado();
+                switch (m.Acao)
+                {
+                    case "pagina-campo" when m.Chave is not null:
+                        await AtualizarCampoValidado(contextoRecebido, m, () => _paginas.AtualizarCampoAsync(m.Chave, m.Valor, m.Tabela, m.Linha)); break;
+                    case "pagina-acao" when m.Chave is not null:
+                        ExigirCamposValidos(contextoRecebido);
+                        await _paginas.ExecutarAcaoAsync(m.Chave, m.Tabela, m.Linha); break;
+                    case "navegar": await NavegarAsync(m.Texto); break;
+                    case "trocar-usuario": await TrocarUsuarioAsync(); break;
+                    case "trocar-senha":
+                        await _dialogos.AbrirAsync("TrocaSenha", new DialogosTrocaSenhaViewModel(_services.GetRequiredService<IServiceScopeFactory>())); break;
+                    case "mes":
+                        if (DateTime.TryParseExact(m.Texto, "yyyy-MM", CultureInfo.InvariantCulture,
+                            DateTimeStyles.None, out var mes) && mes.Year is >= 1900 and <= 2200)
+                            _caixa.Mes = new DateTime(mes.Year, mes.Month, 1);
+                        break;
+                    case "filtrar": _caixa.FiltroTexto = (m.Texto ?? string.Empty)[..Math.Min(80, m.Texto?.Length ?? 0)]; break;
+                    case "atualizar": await ExecutarComando(_caixa.CarregarCommand); break;
+                    case "novo": ExigirEdicao(); await ExecutarComando(_caixa.NovoLancamentoCommand); break;
+                    case "pix": await ExecutarComando(_caixa.CobrarPixCommand, m.Id is null ? null : ResolverLinha(m.Id)); break;
+                    case "exportar": await ExecutarComando(_caixa.ExportarCommand); break;
+                    case "historico":
+                        if (m.Id is null) await _dialogos.AvisoAsync("Histórico do lançamento", "Escolha Histórico nas ações do movimento que deseja consultar.");
+                        else await ExecutarComando(_caixa.HistoricoCommand, ResolverLinha(m.Id));
+                        break;
+                    case "realizar":
+                        ExigirEdicao(); var realizar = ResolverLinha(m.Id);
+                        if (realizar.PodeRealizar) await ExecutarComando(_caixa.RealizarCommand, realizar); break;
+                    case "recibo":
+                        ExigirEdicao(); var recibo = ResolverLinha(m.Id);
+                        if (recibo.EhEntrada) await ExecutarComando(_caixa.EmitirReciboCommand, recibo); break;
+                    case "cancelar":
+                        ExigirEdicao(); var cancelar = ResolverLinha(m.Id);
+                        if (cancelar.PodeCancelar) await ExecutarComando(_caixa.CancelarCommand, cancelar); break;
+                }
+            }
+            finally { _executando = false; _filaPagina.Release(); AgendarEstado(); }
         }
-        catch (JsonException) { /* Mensagem fora do contrato não executa ação. */ }
+        catch (JsonException) { }
+        catch (OperationCanceledException) when (_descartado) { }
         catch (Exception ex)
         {
-            if (!SessaoUsuario.Atual.Autenticado || !SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
+            if (_descartado) return;
+            if (!SessaoUsuario.Atual.Autenticado || SessaoUsuario.Atual.UsuarioId != _usuarioInicial ||
+                SessaoUsuario.Atual.Efetivas != _permissoesIniciais || !SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
             { MostrarAcessoNegado(); return; }
             Clinica.Application.Diagnostico.Registrar("Financeiro web — ação não concluída", ex);
-            _erro = "Não foi possível concluir a ação. Confira seu acesso e atualize os lançamentos.";
+            _erro = ex is InvalidOperationException or UnauthorizedAccessException
+                ? ex.Message : "Não foi possível concluir a ação. Atualize os dados e tente novamente.";
             AgendarEstado();
         }
+    }
+
+    private async Task AtualizarCampoValidado(string contexto, Mensagem mensagem, Func<Task> atualizar)
+    {
+        var chave = JsonSerializer.Serialize(new[] { mensagem.Tabela, mensagem.Linha, mensagem.Chave });
+        try
+        {
+            await atualizar();
+            if (_camposInvalidos.TryGetValue(contexto, out var invalidos)) invalidos.Remove(chave);
+        }
+        catch
+        {
+            if (!_camposInvalidos.TryGetValue(contexto, out var invalidos)) _camposInvalidos[contexto] = invalidos = [];
+            invalidos.Add(chave);
+            throw;
+        }
+    }
+    private void ExigirCamposValidos(string contexto)
+    {
+        if (_camposInvalidos.TryGetValue(contexto, out var invalidos) && invalidos.Count > 0)
+            throw new InvalidOperationException("Corrija os campos inválidos antes de continuar. Nenhuma alteração foi gravada.");
+    }
+
+    private async Task TrocarUsuarioAsync()
+    {
+        if (!await _dialogos.ConfirmarAsync("Trocar usuário", "O Financeiro será reaberto na tela de entrada. Deseja continuar?", false)) return;
+        ExigirSessao();
+        var executavel = Environment.ProcessPath ?? throw new InvalidOperationException("Feche e abra o Financeiro para trocar de usuário.");
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(executavel) { UseShellExecute = true });
+        _encerrando = true;
+        System.Windows.Application.Current.Shutdown();
     }
 
     private void ExigirEdicao()
@@ -253,17 +350,11 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
         return _caixa.Linhas.FirstOrDefault(l => l.Id == numero)
             ?? throw new InvalidOperationException("O lançamento não está na lista atual.");
     }
-    private async Task ExecutarComando(ICommand comando, object? parametro = null)
+    private static async Task ExecutarComando(ICommand comando, object? parametro = null)
     {
-        if (_executando || _caixa.Carregando || !comando.CanExecute(parametro)) return;
-        _executando = true;
-        AgendarEstado();
-        try
-        {
-            if (comando is IAsyncRelayCommand assincrono) await assincrono.ExecuteAsync(parametro);
-            else comando.Execute(parametro);
-        }
-        finally { _executando = false; AgendarEstado(); }
+        if (!comando.CanExecute(parametro)) return;
+        if (comando is IAsyncRelayCommand assincrono) await assincrono.ExecuteAsync(parametro);
+        else comando.Execute(parametro);
     }
 
     private static bool PodeVerMenu(ItemMenuModulo item)
@@ -277,26 +368,14 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
         => _modulo.Itens.Select(OrganizacaoNavegacao.Aplicar).Where(i => i.Abas.Count == 0 && !i.Oculto
             && i.Chave != ModuloFinanceiro.ChaveAjuda && PodeVerMenu(i));
 
-    private void Navegar(string? chave, bool sistema = false)
+    private async Task NavegarAsync(string? chave)
     {
         ExigirSessao();
         var item = RotasPermitidas().FirstOrDefault(i => i.Chave == chave)
             ?? throw new InvalidOperationException("Esta tela não está disponível no Financeiro.");
-        if (_navegarNativo is not null) { _navegarNativo(item.Chave); return; }
-        object? tela = item.Chave == ModuloFinanceiro.ChaveCaixa
-            ? new CaixaView { DataContext = _caixa } : _modulo.CriarTela(item.Chave, _services);
-        if (tela is null) return;
-        var area = SystemParameters.WorkArea;
-        var janela = new Window
-        {
-            Title = item.Rotulo + " — Clínica SemDor", Content = tela, Owner = Window.GetWindow(this),
-            Width = Math.Min(1180, area.Width), Height = Math.Min(760, area.Height),
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            UseLayoutRounding = true, SnapsToDevicePixels = true
-        };
-        janela.Resources.MergedDictionaries.Add(new ResourceDictionary
-        { Source = new Uri("/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml", UriKind.Relative) });
-        janela.ShowDialog();
+        var contextoAnterior = _paginas.Contexto;
+        await _paginas.NavegarAsync(item.Chave);
+        _camposInvalidos.Remove(contextoAnterior);
     }
 
     private void AoMudarEstado(object? sender, PropertyChangedEventArgs e) => AgendarEstado();
@@ -316,13 +395,15 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     {
         if (_descartado || _falhou || !_paginaPronta ||
             !DocumentoPermitido(_browser.CoreWebView2.Source)) return;
-        if (!SessaoUsuario.Atual.Autenticado || !SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
+        if (!SessaoUsuario.Atual.Autenticado || SessaoUsuario.Atual.UsuarioId != _usuarioInicial ||
+            SessaoUsuario.Atual.Efetivas != _permissoesIniciais || !SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
         { MostrarAcessoNegado(); return; }
         try
         {
+            ExigirSessao();
             var estado = new
             {
-                tipo = "estado", mes = _caixa.Mes.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+                tipo = "estado", pagina = _paginas.ObterPagina(), dialogo = _dialogos.EstadoAtual, mes = _caixa.Mes.ToString("yyyy-MM", CultureInfo.InvariantCulture),
                 entradas = _caixa.Entradas, saidas = _caixa.Saidas, saldo = _caixa.Saldo,
                 previsto = _caixa.Previsto, liquido = _caixa.Liquido, deducoes = _caixa.Deducoes,
                 ultimoMovimento = _caixa.UltimoMovimento, detalheUltimoMovimento = _caixa.DetalheUltimoMovimento,
@@ -344,7 +425,7 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
                 resumoFiltro = _caixa.ResumoFiltro, filtroTexto = _caixa.FiltroTexto,
                 rotas = RotasPermitidas().Select(i => new { chave = i.Chave, rotulo = i.Rotulo }).ToArray()
             };
-            _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(estado));
+            _browser.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(estado, JsonOpcoes));
         }
         catch (Exception ex)
         {
@@ -356,46 +437,14 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     {
         _falhou = true;
         _paginaPronta = false;
+        _dialogos.Dispose();
         Clinica.Application.Diagnostico.Registrar("Financeiro web — interface local indisponível", ex);
-        _pronto.TrySetException(new InvalidOperationException("Interface web indisponível; Caixa nativo disponível.", ex));
+        _pronto.TrySetException(new InvalidOperationException("Interface financeira indisponível.", ex));
         var painel = new StackPanel { Margin = new Thickness(32), MaxWidth = 700, HorizontalAlignment = HorizontalAlignment.Left };
-        var titulo = new TextBlock { Text = "O Financeiro pode continuar na interface nativa", FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
+        var titulo = new TextBlock { Text = "Não foi possível abrir a interface do Financeiro", FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
         titulo.SetResourceReference(TextBlock.FontSizeProperty, "Fonte.H1");
         painel.Children.Add(titulo);
-        painel.Children.Add(new TextBlock { Text = "O componente visual não está disponível neste computador. Seus dados e as funções do Caixa continuam acessíveis.", Margin = new Thickness(0, 12, 0, 20), TextWrapping = TextWrapping.Wrap });
-        var nativo = new Button { Content = "Abrir Caixa nativo", HorizontalAlignment = HorizontalAlignment.Left };
-        nativo.Click += (_, _) =>
-        {
-            if (!SessaoUsuario.Atual.Autenticado || !SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
-            { MostrarAcessoNegado(); return; }
-            MostrarCaixaNativo();
-        };
-        painel.Children.Add(nativo);
-        if (_navegarNativo is not null)
-        {
-            var sistema = new Button { Content = "Abrir sistema completo", Margin = new Thickness(0, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
-            sistema.Click += (_, _) => Navegar(ModuloFinanceiro.ChaveCaixa, sistema: true);
-            painel.Children.Add(sistema);
-        }
-        Content = painel;
-    }
-
-    private void MostrarCaixaNativo()
-    {
-        var painel = new DockPanel();
-        if (_snackbar is not null)
-        {
-            var aviso = new Border { Margin = new Thickness(16), Padding = new Thickness(12) };
-            aviso.SetResourceReference(Border.BackgroundProperty, "Brush.Info.Suave");
-            aviso.SetBinding(VisibilityProperty, new Binding(nameof(SnackbarService.EstaVisivel))
-            { Source = _snackbar, Converter = new BooleanToVisibilityConverter() });
-            var texto = new TextBlock { TextWrapping = TextWrapping.Wrap };
-            texto.SetBinding(TextBlock.TextProperty, new Binding(nameof(SnackbarService.Mensagem)) { Source = _snackbar });
-            aviso.Child = texto;
-            DockPanel.SetDock(aviso, Dock.Bottom);
-            painel.Children.Add(aviso);
-        }
-        painel.Children.Add(new CaixaView { DataContext = _caixa });
+        painel.Children.Add(new TextBlock { Text = "Feche e abra o aplicativo. Se persistir, reinstale a versão atual para reparar o componente visual e os arquivos locais.", Margin = new Thickness(0, 12, 0, 20), TextWrapping = TextWrapping.Wrap });
         Content = painel;
     }
 
@@ -422,6 +471,11 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     {
         if (_descartado) return;
         _descartado = true;
+        _cancelamento.Cancel();
+        _dialogos.Mudou -= AgendarEstado;
+        _dialogos.Dispose();
+        _paginas.Changed -= AgendarEstado;
+        _paginas.Dispose();
         _envio.Stop();
         _envio.Tick -= AoEnviarPendente;
         _caixa.PropertyChanged -= AoMudarEstado;
@@ -436,7 +490,12 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     private sealed class Mensagem
     {
         [JsonPropertyName("acao")] public string? Acao { get; set; }
-        [JsonPropertyName("valor")] public string? Valor { get; set; }
+        [JsonPropertyName("valor")] public JsonElement Valor { get; set; }
+        [JsonIgnore] public string? Texto => Valor.ValueKind == JsonValueKind.String ? Valor.GetString() : null;
+        [JsonPropertyName("chave")] public string? Chave { get; set; }
+        [JsonPropertyName("contexto")] public string? Contexto { get; set; }
+        [JsonPropertyName("tabela")] public string? Tabela { get; set; }
+        [JsonPropertyName("linha")] public string? Linha { get; set; }
         [JsonPropertyName("id")] public string? Id { get; set; }
     }
 }

@@ -24,35 +24,23 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        var interfaceWeb = !e.Args.Contains("--financeiro-nativo", StringComparer.OrdinalIgnoreCase);
         _host = await SuiteApp.IniciarAsync(this, "Financeiro", "Financeiro — Clínica SemDor", _modulos,
-            criarJanela: interfaceWeb ? CriarJanelaWeb : null);
+            criarJanela: CriarJanelaWeb);
     }
 
     private Window CriarJanelaWeb(IServiceProvider servicos)
     {
         if (!SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
-            return new ShellWindow { DataContext = new ShellViewModel("Financeiro — Clínica SemDor", _modulos, servicos) };
-        ShellWindow? ferramentas = null;
-        Web.FinanceiroWebWindow? principal = null;
-        void AbrirFerramentas(string chave)
-        {
-            if (ferramentas is null)
+            return new Window
             {
-                ferramentas = new ShellWindow
+                Title = "Financeiro — Clínica SemDor",
+                Content = new System.Windows.Controls.TextBlock
                 {
-                    DataContext = new ShellViewModel("Financeiro — Clínica SemDor", _modulos, servicos),
-                    Owner = principal,
-                    WindowState = WindowState.Maximized
-                };
-                ferramentas.Closed += (_, _) => ferramentas = null;
-            }
-            ferramentas.Show();
-            NavegacaoSuite.Ir(chave);
-            ferramentas.Activate();
-        }
-        principal = new Web.FinanceiroWebWindow(servicos, AbrirFerramentas);
-        return principal;
+                    Text = "Seu usuário não tem acesso ao Financeiro. Entre com um usuário autorizado.",
+                    Margin = new Thickness(32), TextWrapping = TextWrapping.Wrap
+                }
+            };
+        return new Web.FinanceiroWebWindow(servicos);
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -693,7 +693,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
 
         if (linha.Receita.JaRealizado)
         {
-            _dialogo.Aviso(
+            await DialogosDaSessao.AvisoAsync(_dialogo,
                 "O dinheiro já entrou",
                 "Esta guia foi glosada DEPOIS de o valor cair na conta. Cancelar a "
                 + "entrada faria o caixa parar de bater com o extrato e levaria junto a "
@@ -702,7 +702,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             return;
         }
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Derrubar a receita glosada",
             $"A guia de {linha.Paciente} ({linha.Valor}) foi glosada em {linha.DataGlosa}. "
             + "Por que a receita está caindo? O lançamento NÃO é apagado — fica cancelado "
@@ -756,7 +756,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         // Guia recusada pelo convênio ainda pode virar receita — a clínica pode estar
         // certa de que recupera no recurso, e quem decide é ela. Mas ela decide SABENDO:
         // até a parcela 27 esta linha era idêntica à de uma guia paga.
-        if (linha.TemGlosa && !_dialogo.ConfirmarPerigo(
+        if (linha.TemGlosa && !await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo,
                 "Guia glosada",
                 $"{linha.AvisoGlosa}.\n\nO convênio recusou esta guia e ainda não a "
                 + "aceitou de volta. Lançar a receita agora conta um dinheiro que foi "
