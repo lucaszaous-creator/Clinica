@@ -149,6 +149,55 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     partial void OnContinuidadeAtivaChanged(bool value) => OnPropertyChanged(nameof(RotuloLiberacao));
 
     public bool PodeAssinar => PodePrescrever && !Ocupado && Itens.Count > 0;
+    public bool PodeCopiarUltimaPrescricao => PodePrescrever && !Ocupado && !_carregamentoFalhou;
+
+    private bool TemConteudoEmEdicao => !string.IsNullOrWhiteSpace(Indicacao)
+        || !string.IsNullOrWhiteSpace(Observacoes) || Infusoes.Count > 1
+        || Infusoes.Any(g => g.Diluente != "SF 0,9%" || !string.IsNullOrWhiteSpace(g.Volume)
+            || g.Via != ViaAdministracao.Endovenosa || !string.IsNullOrWhiteSpace(g.Tempo)
+            || !string.IsNullOrWhiteSpace(g.Horario))
+        || Itens.Any(i => !string.IsNullOrWhiteSpace(i.Descricao) || !string.IsNullOrWhiteSpace(i.Dose)
+            || !string.IsNullOrWhiteSpace(i.Observacoes) || i.SeNecessario);
+
+    public void AplicarCopiaDaUltima(ModeloInfusao modelo)
+    {
+        if (_carregamentoFalhou || !Exigir(Permissao.Prescrever, "copiar a última prescrição")) return;
+        // Converte e valida tudo antes de tocar no conteúdo atual.
+        var grupos = GrupoInfusaoEdicao.Carregar(modelo.Itens.Select(ModeloInfusao.Para),
+            modelo.DiluicaoUnica, modelo.DiluenteGlobal, modelo.VolumeTotal);
+        if (grupos.Count == 0)
+        {
+            Mensagem = "A última prescrição emitida não possui itens ativos para copiar.";
+            MensagemEhErro = false;
+            return;
+        }
+        if (TemConteudoEmEdicao && !_dialogo.ConfirmarPerigo("Copiar última prescrição",
+            "Substituir o conteúdo em edição pela última prescrição emitida deste paciente?")) return;
+        Indicacao = modelo.Indicacao; IndicacaoFormatada = modelo.IndicacaoFormatada;
+        Observacoes = modelo.Observacoes; ObservacoesFormatadas = modelo.ObservacoesFormatadas;
+        Infusoes.Clear();
+        foreach (var grupo in grupos) Infusoes.Add(grupo);
+        Renumerar();
+        Mensagem = "Última prescrição copiada. Revise os medicamentos, preparos e horários antes de salvar e liberar. Nada foi gravado.";
+        MensagemEhErro = false;
+    }
+
+    [RelayCommand]
+    private async Task CopiarUltimaPrescricaoAsync()
+    {
+        if (!PodeCopiarUltimaPrescricao || !Exigir(Permissao.Prescrever, "copiar a última prescrição")) return;
+        try
+        {
+            Ocupado = true; TextoOperacao = "Carregando última prescrição…";
+            using var scope = _escopos.CreateScope();
+            var modelo = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>()
+                .UltimaComoModeloAsync(_pacienteId);
+            if (modelo is not null) AplicarCopiaDaUltima(modelo);
+            else { Mensagem = "Não há prescrição de infusão emitida deste paciente para copiar."; MensagemEhErro = false; }
+        }
+        catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+        finally { Ocupado = false; }
+    }
 
     /// <param name="prescricaoId">
     /// Rascunho existente a REABRIR. Nulo cria uma prescrição nova.
@@ -244,7 +293,11 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         }catch(Exception ex){Mensagem=ex.Message;MensagemEhErro=true;return false;}finally{Ocupado=false;}
     }
 
-    partial void OnOcupadoChanged(bool value) => OnPropertyChanged(nameof(PodeAssinar));
+    partial void OnOcupadoChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PodeAssinar));
+        OnPropertyChanged(nameof(PodeCopiarUltimaPrescricao));
+    }
 
     /// <summary>
     /// Carrega o contexto clínico do paciente e, quando se está REABRINDO, o rascunho.
@@ -316,8 +369,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         var contexto = await servico.ContextoAsync(_pacienteId);
 
         Alertas.Clear();
-        foreach (var alergia in contexto.Alergias)
-            Alertas.Add($"ALERGIA: {alergia.Rotulo}");
+        if (ProblemaPacienteService.ResumirAlergias(contexto.Alergias) is { } alergias)
+            Alertas.Add(alergias);
         foreach (var medicacao in contexto.MedicacoesEmUso)
             Alertas.Add($"Em uso contínuo: {medicacao.Descricao}");
 

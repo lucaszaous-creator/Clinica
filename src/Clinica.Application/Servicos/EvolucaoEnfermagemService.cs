@@ -94,21 +94,28 @@ public class EvolucaoEnfermagemService
 
         AplicarProcesso(evolucao, processo);
 
-        await _repo.AdicionarEvolucaoEnfermagemAsync(evolucao, ct);
-        await RegistrarAlergiaSePedido(pacienteId, alergiaObservada, autor, ct);
+        if (!string.IsNullOrWhiteSpace(alergiaObservada))
+            return await _repo.ExecutarRegistroAlergiaAtomicoAsync(pacienteId, GravarAsync, ct);
+        return await GravarAsync();
 
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        async Task<EvolucaoEnfermagem> GravarAsync()
         {
-            Operador = autor.Nome,
-            Acao = intercorrencia
-                ? "EvolucaoEnfermagemIntercorrencia"
-                : "EvolucaoEnfermagemRegistrada",
-            PacienteId = pacienteId,
-            Detalhe = Descrever(evolucao)
-        }, ct);
+            await _repo.AdicionarEvolucaoEnfermagemAsync(evolucao, ct);
+            await RegistrarAlergiaSePedido(pacienteId, alergiaObservada, autor, data, hora, ct);
 
-        await _repo.SalvarAsync(ct);
-        return evolucao;
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = autor.Nome,
+                Acao = intercorrencia
+                    ? "EvolucaoEnfermagemIntercorrencia"
+                    : "EvolucaoEnfermagemRegistrada",
+                PacienteId = pacienteId,
+                Detalhe = Descrever(evolucao)
+            }, ct);
+
+            await _repo.SalvarAsync(ct);
+            return evolucao;
+        }
     }
 
     /// <summary>
@@ -431,11 +438,12 @@ public class EvolucaoEnfermagemService
     }
 
     private async Task RegistrarAlergiaSePedido(
-        int pacienteId, string? alergia, IdentificacaoExecutante autor, CancellationToken ct)
+        int pacienteId, string? alergia, IdentificacaoExecutante autor,
+        DateOnly data, TimeOnly hora, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(alergia)) return;
 
-        await _repo.AdicionarProblemaAsync(new ProblemaPaciente
+        await new ProblemaPacienteService(_repo).RegistrarAlergiaSemSalvarAsync(new ProblemaPaciente
         {
             PacienteId = pacienteId,
             Natureza = NaturezaProblema.Alergia,
@@ -445,7 +453,7 @@ public class EvolucaoEnfermagemService
             Observacoes = "Registrada pela enfermagem ao observar reação durante o atendimento.",
             CriadoEm = _agora(),
             CriadoPor = autor.Nome
-        }, ct);
+        }, autor.Nome, $"Enfermagem em {data:dd/MM/yyyy} às {hora:HH\\:mm}", ct: ct);
     }
 
     private static string Descrever(EvolucaoEnfermagem e)

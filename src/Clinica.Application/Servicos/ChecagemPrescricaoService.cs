@@ -216,22 +216,29 @@ public sealed class ChecagemPrescricaoService
         if (executante.UsuarioId is { } autorId)
             executante = executante with { Cpf = (await _repo.ObterUsuarioAsync(autorId, ct))?.Profissional?.Cpf };
         var checagem = Montar(item, situacao, hora, executante, justificativa, dataRealizacao);
-        item.Checagens.Add(checagem);
+        if (!string.IsNullOrWhiteSpace(alergiaObservada) && item.Prescricao is not null)
+            return await _repo.ExecutarRegistroAlergiaAtomicoAsync(item.Prescricao.PacienteId, GravarAsync, ct);
+        return await GravarAsync();
 
-        await RegistrarAlergiaSePedido(item, alergiaObservada, executante, ct);
-
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        async Task<ChecagemPrescricao> GravarAsync()
         {
-            Operador = executante.Nome,
-            Acao = situacao == SituacaoChecagem.Realizado
-                ? "PrescricaoItemChecado"
-                : "PrescricaoItemNaoRealizado",
-            PacienteId = item.Prescricao?.PacienteId,
-            Detalhe = Descrever(item, checagem)
-        }, ct);
+            item.Checagens.Add(checagem);
 
-        await _repo.SalvarAsync(ct);
-        return checagem;
+            await RegistrarAlergiaSePedido(item, alergiaObservada, executante, ct);
+
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = executante.Nome,
+                Acao = situacao == SituacaoChecagem.Realizado
+                    ? "PrescricaoItemChecado"
+                    : "PrescricaoItemNaoRealizado",
+                PacienteId = item.Prescricao?.PacienteId,
+                Detalhe = Descrever(item, checagem)
+            }, ct);
+
+            await _repo.SalvarAsync(ct);
+            return checagem;
+        }
     }
 
     /// <summary>
@@ -508,7 +515,7 @@ public sealed class ChecagemPrescricaoService
         if (string.IsNullOrWhiteSpace(alergia)) return;
         if (item.Prescricao is null) return;
 
-        await _repo.AdicionarProblemaAsync(new ProblemaPaciente
+        await new ProblemaPacienteService(_repo).RegistrarAlergiaSemSalvarAsync(new ProblemaPaciente
         {
             PacienteId = item.Prescricao.PacienteId,
             Natureza = NaturezaProblema.Alergia,
@@ -519,7 +526,7 @@ public sealed class ChecagemPrescricaoService
                         + $"reação ao administrar {item.TextoCompleto}.",
             CriadoEm = DateTime.Now,
             CriadoPor = executante.Nome
-        }, ct);
+        }, executante.Nome, $"Prescrição #{item.Prescricao.Id}, item #{item.Id}", ct: ct);
     }
 
     private static string Descrever(ItemPrescricaoInterna item, ChecagemPrescricao checagem)

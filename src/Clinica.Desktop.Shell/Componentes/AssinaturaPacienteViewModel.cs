@@ -447,7 +447,8 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         {
             var alertas = await _problemas!.AlertasAsync(_pacienteId);
             Alergias.Clear();
-            foreach (var a in alertas.Where(p => p.Natureza == NaturezaProblema.Alergia))
+            foreach (var a in alertas.Where(p => p.Natureza == NaturezaProblema.Alergia)
+                         .DistinctBy(p => ProblemaPacienteService.NormalizarAlergia(p.Descricao)))
                 Alergias.Add(FormatarAlergia(a));
             AlergiasNaoConferidas = false;
         }
@@ -493,9 +494,10 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
                 ProfissionalId = _profissionalId
             }, SessaoUsuario.Atual.Operador);
 
-            Alergias.Add(NovaAlergia.Trim());
             NovaAlergia = string.Empty;
-            AvisarAlergiasMudaram();
+            // O serviço pode ter reutilizado uma alergia: recarrega o registro real
+            // em vez de acrescentar outra linha visual para o mesmo relato.
+            await CarregarAlergiasAsync();
 
             MensagemEhErro = false;
             Mensagem = "Alergia registrada na lista de problemas — ela passa a alertar em toda "

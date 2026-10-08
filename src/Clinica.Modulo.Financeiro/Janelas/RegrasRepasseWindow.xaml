@@ -17,7 +17,8 @@
          período ao cálculo, e ver as duas lado a lado é o que torna essa relação óbvia. -->
 
     <Grid Margin="24">
-                        <DockPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
 
                 <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <DockPanel>
@@ -69,7 +70,6 @@
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,8"
                                    Text="Cada apuração cria uma saída prevista no caixa e trava o período — repasse pago duas vezes é dinheiro que não volta." />
 
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding Apuracoes}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:LinhaApuracao}">
@@ -108,9 +108,9 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                        </ScrollViewer>
                     </DockPanel>
                 </Border>
-            </DockPanel>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

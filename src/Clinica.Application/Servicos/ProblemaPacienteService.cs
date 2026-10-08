@@ -1,5 +1,6 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain.Entities;
+using System.Text;
 
 namespace Clinica.Application.Servicos;
 
@@ -58,12 +59,57 @@ public sealed class ProblemaPacienteService
         int pacienteId, CancellationToken ct = default)
     {
         var todos = await _repo.ProblemasDoPacienteAsync(pacienteId, somenteAtivos: false, ct);
-        return todos.Where(p => p.EhAlertaDeAtendimento).ToList();
+        // Duplicatas antigas continuam no histórico. Só a apresentação idêntica se
+        // repete menos; CID ou observações diferentes continuam visíveis.
+        return todos.Where(p => p.EhAlertaDeAtendimento)
+            .DistinctBy(p => p.Natureza == NaturezaProblema.Alergia
+                ? $"alergia:{NormalizarAlergia(p.Descricao)}\u001f{NormalizarAlergia(p.Cid)}\u001f{NormalizarAlergia(p.Observacoes)}"
+                : $"problema:{p.Id}")
+            .ToList();
     }
 
+    /// <summary>Uma única entrada de alergias, mesmo quando há relatos legados repetidos.</summary>
+    public static string? ResumirAlergias(IEnumerable<ProblemaPaciente> problemas)
+    {
+        var nomes = AgruparAlergias(problemas).Select(g => LimparEspacos(g.First().Descricao)).ToArray();
+        return nomes.Length == 0 ? null : $"ALERGIA — {string.Join("; ", nomes)}";
+    }
+
+    /// <summary>Preserva as observações e CIDs distintos para consulta na própria linha.</summary>
+    public static string? DetalharAlergias(IEnumerable<ProblemaPaciente> problemas)
+    {
+        var detalhes = AgruparAlergias(problemas).Select(g =>
+        {
+            var cids = g.Select(p => LimparEspacos(p.Cid)).Where(c => c.Length > 0)
+                .DistinctBy(NormalizarAlergia).Select(c => c.ToUpperInvariant()).ToArray();
+            var observacoes = g.SelectMany(p => (p.Observacoes ?? "").Split('\n'))
+                .Select(LimparEspacos).Where(o => o.Length > 0).DistinctBy(NormalizarAlergia).ToArray();
+            return LimparEspacos(g.First().Descricao)
+                + (cids.Length == 0 ? "" : $" (CID: {string.Join(", ", cids)})")
+                + (observacoes.Length == 0 ? "" : $": {string.Join("; ", observacoes)}");
+        }).ToArray();
+        return detalhes.Length == 0 ? null : string.Join(Environment.NewLine, detalhes);
+    }
+
+    private static IEnumerable<IGrouping<string, ProblemaPaciente>> AgruparAlergias(
+        IEnumerable<ProblemaPaciente> problemas)
+        => problemas.Where(p => p.Natureza == NaturezaProblema.Alergia && p.EhAlertaDeAtendimento)
+            .GroupBy(p => NormalizarAlergia(p.Descricao));
+
+    private static string LimparEspacos(string? texto)
+        => string.Join(" ", (texto ?? "").Normalize(NormalizationForm.FormC)
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
     /// <summary>Registra ou atualiza uma linha da lista.</summary>
-    public async Task<ProblemaPaciente> SalvarAsync(
+    public Task<ProblemaPaciente> SalvarAsync(
         ProblemaPaciente dados, string? operador = null, CancellationToken ct = default)
+        => dados.Natureza == NaturezaProblema.Alergia
+            ? _repo.ExecutarRegistroAlergiaAtomicoAsync(dados.PacienteId,
+                () => SalvarConteudoAsync(dados, operador, ct), ct)
+            : SalvarConteudoAsync(dados, operador, ct);
+
+    private async Task<ProblemaPaciente> SalvarConteudoAsync(
+        ProblemaPaciente dados, string? operador, CancellationToken ct)
     {
         if (await _repo.ObterPacienteAsync(dados.PacienteId, ct) is null)
             throw new InvalidOperationException("Paciente não encontrado.");
@@ -78,6 +124,14 @@ public sealed class ProblemaPacienteService
 
         if (dados.Inicio is { } i && i > DateOnly.FromDateTime(DateTime.Today))
             throw new InvalidOperationException("O início não pode ser uma data futura.");
+
+        if (dados.Id == 0 && dados.Natureza == NaturezaProblema.Alergia)
+        {
+            var alergia = await RegistrarAlergiaSemSalvarAsync(
+                dados, operador, "Lista de problemas", mesclarObservacoes: true, ct: ct);
+            await _repo.SalvarAsync(ct);
+            return alergia;
+        }
 
         ProblemaPaciente destino;
         var novo = dados.Id == 0;
@@ -95,6 +149,23 @@ public sealed class ProblemaPacienteService
         {
             destino = await _repo.ObterProblemaAsync(dados.Id, ct)
                 ?? throw new InvalidOperationException("Problema não encontrado.");
+            // A trava precisa ser a do dono real da linha, nunca a de outro paciente
+            // informado por um formulário antigo ou incompatível.
+            if (dados.Natureza == NaturezaProblema.Alergia && destino.PacienteId != dados.PacienteId)
+                throw new InvalidOperationException("Esta alergia pertence a outro paciente. Reabra a ficha correta.");
+            if (dados.Natureza == NaturezaProblema.Alergia
+                && destino.Situacao != SituacaoProblema.Descartado
+                && (destino.Natureza != NaturezaProblema.Alergia
+                    || NormalizarAlergia(destino.Descricao) != NormalizarAlergia(dados.Descricao)))
+            {
+                var problemas = await _repo.ProblemasDoPacienteAsync(destino.PacienteId, ct: ct);
+                if (problemas.Any(p => p.Id != destino.Id
+                    && p.Natureza == NaturezaProblema.Alergia
+                    && p.Situacao != SituacaoProblema.Descartado
+                    && NormalizarAlergia(p.Descricao) == NormalizarAlergia(dados.Descricao)))
+                    throw new InvalidOperationException(
+                        "Já existe uma alergia com esta descrição para o paciente. Abra a linha existente para atualizá-la.");
+            }
             destino.AtualizadoEm = DateTime.Now;
             destino.AtualizadoPor = operador;
         }
@@ -199,8 +270,30 @@ public sealed class ProblemaPacienteService
         var problema = await _repo.ObterProblemaAsync(problemaId, ct)
             ?? throw new InvalidOperationException("Problema não encontrado.");
 
+        return problema.Natureza == NaturezaProblema.Alergia
+            ? await _repo.ExecutarRegistroAlergiaAtomicoAsync(problema.PacienteId,
+                () => ReabrirConteudoAsync(problema, operador, ct), ct)
+            : await ReabrirConteudoAsync(problema, operador, ct);
+    }
+
+    private async Task<ProblemaPaciente> ReabrirConteudoAsync(
+        ProblemaPaciente problema, string? operador, CancellationToken ct)
+    {
+
         if (problema.Situacao == SituacaoProblema.Ativo)
             throw new InvalidOperationException("Este problema já está ativo.");
+
+        if (problema.Natureza == NaturezaProblema.Alergia)
+        {
+            var problemas = await _repo.ProblemasDoPacienteAsync(problema.PacienteId, ct: ct);
+            if (problemas.Any(p => p.Id != problema.Id
+                && p.Natureza == NaturezaProblema.Alergia
+                && p.Situacao != SituacaoProblema.Descartado
+                && NormalizarAlergia(p.Descricao) == NormalizarAlergia(problema.Descricao)))
+                throw new InvalidOperationException(
+                    "Já existe uma alergia equivalente ativa ou resolvida para este paciente. "
+                    + "Use a linha existente; este registro permanecerá preservado no histórico.");
+        }
 
         problema.Situacao = SituacaoProblema.Ativo;
         problema.Fim = null;
@@ -222,4 +315,87 @@ public sealed class ProblemaPacienteService
 
     private static string? Limpar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
+
+    /// <summary>
+    /// Reutiliza a alergia deste paciente sem salvar a unidade de trabalho do chamador.
+    /// A observação da enfermagem e sua auditoria continuam na mesma transação.
+    /// Descartadas não são reativadas: a decisão clínica anterior fica preservada.
+    /// O chamador deve usar ExecutarRegistroAlergiaAtomicoAsync e salvar a unidade
+    /// de trabalho dentro dessa mesma operação, junto dos demais registros do relato.
+    /// </summary>
+    public async Task<ProblemaPaciente> RegistrarAlergiaSemSalvarAsync(
+        ProblemaPaciente dados, string? operador, string origem,
+        bool mesclarObservacoes = false, CancellationToken ct = default)
+    {
+        var chave = NormalizarAlergia(dados.Descricao);
+        var problemas = await _repo.ProblemasDoPacienteAsync(dados.PacienteId, ct: ct);
+        var existente = problemas.FirstOrDefault(p =>
+            p.Natureza == NaturezaProblema.Alergia
+            && p.Situacao != SituacaoProblema.Descartado
+            && NormalizarAlergia(p.Descricao) == chave);
+
+        if (existente is not null)
+        {
+            // Nunca substitui a procedência, o início ou a descrição pelo relato da
+            // sessão atual. A alergia pertence ao paciente, não a cada atendimento.
+            if (mesclarObservacoes)
+            {
+                if (!string.IsNullOrWhiteSpace(dados.Cid)
+                    && !string.IsNullOrWhiteSpace(existente.Cid)
+                    && NormalizarAlergia(dados.Cid) != NormalizarAlergia(existente.Cid))
+                    throw new InvalidOperationException(
+                        "Esta alergia já está cadastrada com outro CID. Abra a alergia existente para revisar o código.");
+
+                var observacoes = Limpar(dados.Observacoes);
+                var combinadas = existente.Observacoes;
+                if (observacoes is not null
+                    && NormalizarAlergia(existente.Observacoes) != NormalizarAlergia(observacoes)
+                    && !(existente.Observacoes ?? "").Split('\n')
+                        .Any(linha => NormalizarAlergia(linha) == NormalizarAlergia(observacoes)))
+                    combinadas = string.IsNullOrWhiteSpace(combinadas)
+                        ? observacoes : $"{combinadas}\n{observacoes}";
+                if (combinadas?.Length > 2000)
+                    throw new InvalidOperationException(
+                        "Esta alergia já está cadastrada. Revise suas observações na linha existente (limite de 2000 caracteres).");
+
+                var editavel = await _repo.ObterProblemaAsync(existente.Id, ct)
+                    ?? throw new InvalidOperationException("Alergia não encontrada.");
+                editavel.Observacoes = combinadas;
+                editavel.Cid ??= Limpar(dados.Cid)?.ToUpperInvariant();
+                editavel.AtualizadoEm = DateTime.Now;
+                editavel.AtualizadoPor = operador;
+                existente = editavel;
+            }
+
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+                Acao = "AlergiaRelatadaNovamente",
+                PacienteId = dados.PacienteId,
+                Detalhe = $"Alergia #{existente.Id}: {existente.Descricao} · {origem}"
+            }, ct);
+            return existente;
+        }
+
+        dados.Descricao = dados.Descricao.Trim();
+        dados.Cid = Limpar(dados.Cid)?.ToUpperInvariant();
+        dados.Observacoes = Limpar(dados.Observacoes);
+        dados.Situacao = SituacaoProblema.Ativo;
+        dados.Fim = null;
+        dados.MotivoDescarte = null;
+        dados.CriadoPor = operador;
+        await _repo.AdicionarProblemaAsync(dados, ct);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "ProblemaRegistrado",
+            PacienteId = dados.PacienteId,
+            Detalhe = $"Alergia: {dados.Descricao} · {origem}"
+        }, ct);
+        return dados;
+    }
+
+    // Não aproxima nomes, não remove palavras nem troca marcas por princípios ativos.
+    public static string NormalizarAlergia(string? texto)
+        => LimparEspacos(texto).ToUpperInvariant();
 }

@@ -29,6 +29,9 @@
                         <Style TargetType="TextBlock">
                             <Setter Property="FontWeight" Value="Normal"/>
                             <Style.Triggers>
+                                <DataTrigger Binding="{Binding TemDetalhes}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
                                 <DataTrigger Binding="{Binding Grave}" Value="True">
                                     <Setter Property="FontWeight" Value="SemiBold"/>
                                 </DataTrigger>
@@ -36,6 +39,13 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
+                <Expander Grid.Column="1" Margin="6,0,0,0"
+                          Visibility="{Binding TemDetalhes, Converter={StaticResource BoolParaVisibilidade}}"
+                          ToolTip="Expandir para consultar as observações das alergias"
+                          AutomationProperties.Name="{Binding Texto}">
+                    <Expander.Header><TextBlock Text="{Binding Texto}" FontWeight="SemiBold" TextWrapping="Wrap"/></Expander.Header>
+                    <TextBlock Text="{Binding Detalhes}" TextWrapping="Wrap" Margin="4,4,8,8"/>
+                </Expander>
             </Grid>
         </DataTemplate>
     </UserControl.Resources>
@@ -48,7 +58,18 @@
     </StackPanel>
     <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
      <TextBlock Text="{Binding DicaRodape}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}"/>
-     <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Erro}" AutomationProperties.LiveSetting="Polite" Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}}"/>
+     <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}}">
+      <TextBlock.Style>
+       <Style TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}"/>
+        <Style.Triggers>
+         <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+          <Setter Property="Foreground" Value="{StaticResource Brush.Erro}"/>
+         </DataTrigger>
+        </Style.Triggers>
+       </Style>
+      </TextBlock.Style>
+     </TextBlock>
     </StackPanel>
    </DockPanel><ScrollViewer x:Name="ConteudoScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid MinHeight="{Binding ViewportHeight, ElementName=ConteudoScroll}"><DockPanel>
    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,20">
@@ -98,8 +119,11 @@
    <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1" CornerRadius="8">
     <DockPanel>
      <Border DockPanel.Dock="Top" Padding="22,10,16,10" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
-      <DockPanel><comp:BotaoClinico DockPanel.Dock="Right" Texto="Usar modelo" Icone="model" Command="{Binding AbrirModelosCommand}" IsEnabled="{Binding PodeEditarProntuario}" Style="{StaticResource BotaoFantasma}"/>
-       <TextBlock Text="Registro clínico" FontWeight="SemiBold" VerticalAlignment="Center"/>
+      <DockPanel><TextBlock DockPanel.Dock="Left" Text="Registro clínico" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+      <WrapPanel HorizontalAlignment="Right">
+       <comp:BotaoClinico Texto="Copiar última evolução deste paciente" Icone="model" Command="{Binding CopiarUltimaEvolucaoCommand}" IsEnabled="{Binding PodeCopiarUltimaEvolucao}" Style="{StaticResource BotaoFantasma}" ToolTip="Copia o conteúdo salvo para revisar nesta sessão, preservando EVA, sinais vitais e datas da sessão atual."/>
+       <comp:BotaoClinico Texto="Usar modelo" Icone="model" Command="{Binding AbrirModelosCommand}" IsEnabled="{Binding PodeEditarProntuario}" Style="{StaticResource BotaoFantasma}"/>
+      </WrapPanel>
       </DockPanel>
      </Border>
      <Border DockPanel.Dock="Bottom" Padding="22,16,22,10" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0" Background="{StaticResource Brush.Fundo}">

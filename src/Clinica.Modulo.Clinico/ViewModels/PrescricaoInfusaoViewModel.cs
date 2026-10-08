@@ -235,6 +235,38 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
 
     [RelayCommand]
     private async Task NovaAsync()
+        => await AbrirNovaAsync();
+
+    [RelayCommand]
+    private async Task CopiarUltimaPrescricaoAsync()
+    {
+        if (!PodeCriarPrescricao || Carregando) return;
+        var pacienteId = _pacienteId;
+        var geracao = _geracaoCarga;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "copiar a última prescrição");
+            using var scope = _escopos.CreateScope();
+            var modelo = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>()
+                .UltimaComoModeloAsync(pacienteId);
+            if (pacienteId != _pacienteId || geracao != _geracaoCarga) return;
+            if (modelo is null || modelo.Itens.Length == 0)
+            {
+                Mensagem = modelo is null ? "Não há prescrição de infusão emitida deste paciente para copiar."
+                    : "A última prescrição emitida não possui itens ativos para copiar.";
+                MensagemEhErro = false;
+                return;
+            }
+            await AbrirNovaAsync(modelo);
+        }
+        catch (Exception ex)
+        {
+            if (pacienteId != _pacienteId || geracao != _geracaoCarga) return;
+            Mensagem = ex.Message; MensagemEhErro = true;
+        }
+    }
+
+    private async Task AbrirNovaAsync(ModeloInfusao? modelo = null)
     {
         if (_pacienteId == 0)
         {
@@ -251,6 +283,15 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
             var vm = new PrescricaoInternaEdicaoViewModel(
                 _escopos, _dialogo, _pacienteId, Paciente,
                 SessaoUsuario.Atual.ProfissionalId);
+
+            if (modelo is not null)
+            {
+                var geracao = _geracaoCarga;
+                var pacienteId = _pacienteId;
+                await vm.Inicializacao;
+                if (geracao != _geracaoCarga || pacienteId != _pacienteId) return;
+                vm.AplicarCopiaDaUltima(modelo);
+            }
 
             var janela = new PrescricaoInternaWindow(vm)
             {

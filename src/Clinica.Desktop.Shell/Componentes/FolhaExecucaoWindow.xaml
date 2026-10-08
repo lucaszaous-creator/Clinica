@@ -63,6 +63,7 @@
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding TemAlertas, Converter={StaticResource BoolParaVisibilidade}}">
+            <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl ItemsSource="{Binding Alertas}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -70,6 +71,7 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            </ScrollViewer>
         </Border>
 
         <Border DockPanel.Dock="Top" Margin="0,0,0,12" Style="{StaticResource AlertaInfo}"

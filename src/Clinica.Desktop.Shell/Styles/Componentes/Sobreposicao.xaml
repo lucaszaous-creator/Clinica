@@ -1,8 +1,9 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
     <!-- ============================================================
-         Sobreposições — tooltip escuro, scrollbar fina e cabeçalho
+         Sobreposições — tooltip escuro, rolagem com setas e cabeçalho
          padrão de janelas de diálogo.
          ============================================================ -->
 
@@ -31,38 +32,132 @@
         </Setter>
     </Style>
 
-    <!-- ScrollBar fina e discreta -->
+    <!-- Setas de 24 px permitem rolar com clique ou manter pressionado no touchpad.
+         Não tomam o foco do campo: a navegação por teclado continua no conteúdo. -->
+    <Style x:Key="RolagemSeta" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Delay" Value="350" />
+        <Setter Property="Interval" Value="60" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border x:Name="fundo" Background="Transparent" CornerRadius="4" Margin="1">
+                        <Path Data="{TemplateBinding Content}" Stroke="{TemplateBinding Foreground}"
+                              StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="fundo" Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="fundo" Property="Background" Value="{StaticResource Brush.Borda.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="RolagemPagina" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style TargetType="ScrollBar">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Width" Value="8" />
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Stylus.IsPressAndHoldEnabled" Value="False" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ScrollBar">
-                    <Grid Background="Transparent">
-                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                    <DockPanel Background="{TemplateBinding Background}" LastChildFill="True">
+                        <RepeatButton x:Name="anterior" DockPanel.Dock="Top" Style="{StaticResource RolagemSeta}"
+                                      Command="{x:Static ScrollBar.LineUpCommand}"
+                                      CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
+                                      ToolTip="Rolar para cima (segure para continuar)" AutomationProperties.Name="Rolar para cima">
+                            <RepeatButton.Content><PathGeometry Figures="M 0,4 L 4,0 8,4" /></RepeatButton.Content>
+                        </RepeatButton>
+                        <RepeatButton x:Name="proximo" DockPanel.Dock="Bottom" Style="{StaticResource RolagemSeta}"
+                                      Command="{x:Static ScrollBar.LineDownCommand}"
+                                      CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
+                                      ToolTip="Rolar para baixo (segure para continuar)" AutomationProperties.Name="Rolar para baixo">
+                            <RepeatButton.Content><PathGeometry Figures="M 0,0 L 4,4 8,0" /></RepeatButton.Content>
+                        </RepeatButton>
+                        <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="{TemplateBinding Orientation}">
+                            <Track.Resources>
+                                <!-- O WPF usa metade destas métricas como tamanho mínimo do thumb. -->
+                                <sys:Double x:Key="{x:Static SystemParameters.VerticalScrollBarButtonHeightKey}">48</sys:Double>
+                                <sys:Double x:Key="{x:Static SystemParameters.HorizontalScrollBarButtonWidthKey}">48</sys:Double>
+                            </Track.Resources>
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton x:Name="paginaAnterior" Style="{StaticResource RolagemPagina}"
+                                              Command="{x:Static ScrollBar.PageUpCommand}"
+                                              CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
+                                              AutomationProperties.Name="Página acima" />
+                            </Track.DecreaseRepeatButton>
                             <Track.Thumb>
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Border x:Name="polegar" Background="{StaticResource Brush.Borda.Hover}"
-                                                    CornerRadius="4" Margin="1" />
+                                            <Border x:Name="polegar" Background="{StaticResource Brush.Texto.Secundario}"
+                                                    CornerRadius="4" Margin="4" />
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="polegar" Property="Background"
-                                                            Value="{StaticResource Brush.Texto.Secundario}" />
+                                                    <Setter TargetName="polegar" Property="Background" Value="{StaticResource Brush.Texto.Primario}" />
+                                                </Trigger>
+                                                <Trigger Property="IsDragging" Value="True">
+                                                    <Setter TargetName="polegar" Property="Background" Value="{StaticResource Brush.Foco}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
                             </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton x:Name="paginaProxima" Style="{StaticResource RolagemPagina}"
+                                              Command="{x:Static ScrollBar.PageDownCommand}"
+                                              CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
+                                              AutomationProperties.Name="Página abaixo" />
+                            </Track.IncreaseRepeatButton>
                         </Track>
-                    </Grid>
+                    </DockPanel>
                     <ControlTemplate.Triggers>
                         <Trigger Property="Orientation" Value="Horizontal">
                             <Setter Property="Width" Value="Auto" />
-                            <Setter Property="Height" Value="8" />
+                            <Setter Property="Height" Value="24" />
+                            <Setter TargetName="anterior" Property="DockPanel.Dock" Value="Left" />
+                            <Setter TargetName="proximo" Property="DockPanel.Dock" Value="Right" />
+                            <Setter TargetName="anterior" Property="Command" Value="{x:Static ScrollBar.LineLeftCommand}" />
+                            <Setter TargetName="proximo" Property="Command" Value="{x:Static ScrollBar.LineRightCommand}" />
+                            <Setter TargetName="anterior" Property="Content"><Setter.Value><PathGeometry Figures="M 4,0 L 0,4 4,8" /></Setter.Value></Setter>
+                            <Setter TargetName="proximo" Property="Content"><Setter.Value><PathGeometry Figures="M 0,0 L 4,4 0,8" /></Setter.Value></Setter>
+                            <Setter TargetName="anterior" Property="ToolTip" Value="Rolar para a esquerda (segure para continuar)" />
+                            <Setter TargetName="proximo" Property="ToolTip" Value="Rolar para a direita (segure para continuar)" />
+                            <Setter TargetName="anterior" Property="AutomationProperties.Name" Value="Rolar para a esquerda" />
+                            <Setter TargetName="proximo" Property="AutomationProperties.Name" Value="Rolar para a direita" />
+                            <Setter TargetName="paginaAnterior" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}" />
+                            <Setter TargetName="paginaProxima" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}" />
+                            <Setter TargetName="paginaAnterior" Property="AutomationProperties.Name" Value="Página à esquerda" />
+                            <Setter TargetName="paginaProxima" Property="AutomationProperties.Name" Value="Página à direita" />
                             <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

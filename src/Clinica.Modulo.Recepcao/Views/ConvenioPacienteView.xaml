@@ -21,6 +21,7 @@
                             <Grid>
                                 <ctrl:EstadoDaTela Panel.ZIndex="1" Itens="{Binding Autorizacoes}" Glifo="" Titulo="Nenhuma autorização registrada" Descricao="Cadastre a senha que o convênio liberou e o balcão passa a ser avisado quando as sessões estiverem acabando — antes de a próxima virar glosa 2006." />
 
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Autorizacoes}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -66,6 +67,7 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                </ScrollViewer>
                             </Grid>
                         </Border>
                     </DockPanel>

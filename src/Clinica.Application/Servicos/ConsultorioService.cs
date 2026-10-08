@@ -386,6 +386,7 @@ public sealed class ConsultorioService
             .Where(x => x.Natureza == NaturezaProblema.Alergia
                         && x.Situacao != SituacaoProblema.Descartado)
             .Select(x => x.Descricao)
+            .DistinctBy(ProblemaPacienteService.NormalizarAlergia)
             .ToList();
 
         var ativos = problemas
