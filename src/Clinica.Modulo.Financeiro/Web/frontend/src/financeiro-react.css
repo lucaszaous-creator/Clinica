@@ -1,78 +1,106 @@
-/* Composição do caixa: resultado, movimento e ação têm funções visuais distintas. */
-#app .resumo-react{max-width:1540px;margin:0 auto;animation:pagina-entrar .2s ease-out}
-#app .resumo-react .painel-principal{grid-template-columns:minmax(290px,.95fr) minmax(360px,1.3fr);gap:18px}
-#app .resumo-react .cartao-resultado{background:#173e4b;border-color:#173e4b;color:#fff;padding:24px;min-height:320px}
-#app .resumo-react .rotulo-resultado,#app .resumo-react .contexto-resultado,#app .resumo-react .nota-saldo,#app .resumo-react .ultimo-movimento small,#app .resumo-react .ultimo-movimento span:not(.marcador-movimento){color:#c5dce2}
-#app .resumo-react .ultimo-movimento strong{color:#fff;font-weight:500}
-#app .resumo-react .numero-principal{font-size:clamp(30px,3vw,44px);font-weight:600;letter-spacing:-1px}
-#app .resumo-react .numero-principal.negativo{color:#ffbac2}
-#app .resumo-react .rotulo-resultado>.acao-linha,#app .resumo-react .icone-circulo,#app .resumo-react .marcador-movimento{background:#295561;color:#eaf7fa}
-#app .resumo-react .rotulo-resultado>.acao-linha:hover{background:#376673}
-#app .resumo-react .acoes-resultado .botao.secundario{color:#fff;background:#295561;border-color:#668a94}
-#app .resumo-react .acoes-resultado .botao.secundario:hover{background:#376673}
-#app .resumo-react .cartao-serie{box-shadow:none;min-width:0;padding:20px 22px}
-#app .resumo-react .numero-serie{color:#263b50;white-space:normal;overflow-wrap:anywhere;font-weight:600}
-#app .resumo-react .grafico.entrada .curva{stroke:#27856a;stroke-width:2.2}
-#app .resumo-react .grafico.saida .curva{stroke:#b86666;stroke-width:2.2}
-#app .resumo-react .ponto.entrada{background:#27856a}
-#app .resumo-react .ponto.saida{background:#b86666}
-#app .resumo-react .resumo-complementar{padding:18px 20px;margin:18px 0 0;background:#f5f8fb;border:1px solid #ccd7e2;border-radius:10px;gap:16px}
-#app .resumo-react .resumo-complementar>div{min-width:0;gap:5px}
-#app .resumo-react .resumo-complementar strong{color:#263b50;font-size:18px;font-weight:600}
-#app .resumo-react .resumo-complementar small{line-height:1.5}
-#app .resumo-react .atalho-historico{background:#e7eef7;color:#294c83;border:1px solid #c2d1e5;min-height:36px}
-#app .resumo-react .movimentos{margin-top:22px;background:#fff;border:1px solid #ccd7e2;border-radius:12px;min-width:0;overflow:visible}
-#app .resumo-react .cabecalho-movimentos{padding:20px 22px 16px;gap:14px}
-#app .resumo-react .cabecalho-movimentos h2{font-weight:600;color:#263b50}
-#app .resumo-react .acoes-movimentos{flex-wrap:wrap}
-#app .resumo-react .filtros{margin:0;padding:14px 22px;background:#edf3f8;border-block:1px solid #d5dfe9;flex-wrap:wrap}
-#app .resumo-react .busca-movimento{height:40px;background:#fff;border:1px solid #b8c9dc;flex:1;width:auto;max-width:540px;min-width:min(260px,100%)}
-#app .resumo-react .busca-movimento input{font-size:13px;color:#263b50}
-#app .resumo-react .movimentos>.campos-web{padding:14px 22px;margin:0;background:#edf3f8;border-bottom:1px solid #d5dfe9}
-#app .resumo-react .movimentos>.aviso-lista{margin:12px 22px}
-#app .resumo-react .movimentos>.tabela-scroll{border:0;border-radius:0 0 12px 12px;overflow:visible}
+/* Resumo recuperado do Financeiro original (973abb1), com controles React. */
+#app .resumo-react{max-width:1680px;margin:0 auto;color:#202633}
+#app .resumo-react .financeiro-cabecalho{margin-bottom:26px;align-items:flex-start}
+#app .resumo-react .titulo-periodo h1{font-size:25px;font-weight:500;letter-spacing:-.75px;color:#202633}
+#app .resumo-react .periodo{background:transparent;padding:0;border:0;gap:5px;min-width:0}
+#app .resumo-react .seletor-mes{border:1px solid #e7eaf0;background:#fff;color:#667085;height:38px;border-radius:9px;padding-inline:12px}
+#app .resumo-react .seletor-mes span{min-width:112px}
+#app .resumo-react .seta-periodo{color:#667085;background:transparent}
+#app .resumo-react .painel-principal{display:grid;grid-template-columns:minmax(300px,.96fr) minmax(350px,1.35fr);gap:22px}
+#app .resumo-react .cartao-resultado,#app .resumo-react .financeiro-serie{background:#fff;border:1px solid #e7eaf0;border-radius:16px;box-shadow:0 3px 15px #1c2b4807;min-width:0}
+#app .resumo-react .cartao-resultado{display:flex;flex-direction:column;padding:27px 27px 20px;min-height:345px}
+#app .resumo-react .rotulo-resultado{font-size:13px;color:#667085;gap:9px}
+#app .resumo-react .rotulo-resultado>.privacidade{margin-left:0}
+#app .resumo-react .rotulo-resultado>.privacidade+.acao-linha{margin-left:auto}
+#app .resumo-react .rotulo-resultado .acao-linha{color:#667085;background:transparent;flex-shrink:0}
+#app .resumo-react .icone-circulo{background:#f0f3f7;color:#667085}
+#app .resumo-react .numero-principal{display:block;font-size:clamp(28px,3vw,43px);font-weight:500;letter-spacing:-1.7px;color:#202633;line-height:1.4;margin-top:19px;overflow-wrap:anywhere}
+#app .resumo-react .numero-principal.negativo{color:#b35a63}
+#app .resumo-react .contexto-resultado{color:#667085;line-height:1.5;font-size:12px;margin:3px 0 0}
+#app .resumo-react .ultimo-movimento{margin:25px 0;min-height:46px;min-width:0}
+#app .resumo-react .ultimo-movimento>.mantine-Stack-root{min-width:0}
+#app .resumo-react .ultimo-movimento strong{font-size:12px;font-weight:500;color:#687283;overflow-wrap:anywhere}
+#app .resumo-react .ultimo-movimento span:not(.marcador-movimento),#app .resumo-react .ultimo-movimento small{font-size:12px;color:#667085;line-height:1.5}
+#app .resumo-react .marcador-movimento{background:#f0f4f3;color:#667085;border-radius:50%;flex-shrink:0}
+#app .resumo-react .acoes-resultado{margin-top:auto}
+#app .resumo-react .nota-saldo{color:#667085;font-size:12px;line-height:1.6;margin-top:13px}
+#app .resumo-react .painel-movimentos{min-width:0;display:grid;grid-template-rows:1fr 1fr;gap:17px}
+#app .resumo-react .financeiro-serie{padding:22px 24px 17px;display:grid;grid-template-columns:minmax(145px,.85fr) minmax(120px,1.15fr);grid-template-rows:1fr auto;column-gap:17px;min-height:164px}
+#app .resumo-react .financeiro-serie>.mantine-Group-root{grid-column:1;grid-row:1/3;align-self:center}
+#app .resumo-react .financeiro-serie-valor{min-width:0;gap:11px}
+#app .resumo-react .rotulo-serie{font-size:13px;color:#667085}
+#app .resumo-react .numero-serie{font-size:25px;font-weight:500;color:#202633;letter-spacing:-.65px;white-space:normal;overflow-wrap:anywhere;margin:0;line-height:1.3}
+#app .resumo-react .icone-serie{display:none}
+#app .resumo-react .financeiro-serie .grafico,#app .resumo-react .financeiro-serie .grafico-vazio{grid-column:2;grid-row:1;height:73px;margin:0;align-self:end}
+#app .resumo-react .serie-legenda{grid-column:2;grid-row:2;display:flex;justify-content:space-between;flex-wrap:wrap;font-size:12px;color:#667085;gap:10px;margin-top:7px}
+#app .resumo-react .grafico.entrada .curva{stroke:#439484;stroke-width:1.65}
+#app .resumo-react .grafico.saida .curva{stroke:#c06d73;stroke-width:1.65}
+#app .resumo-react .grafico .linha-base{stroke:#edf0f3}
+#app .resumo-react .ponto.entrada{background:#439484}
+#app .resumo-react .ponto.saida{background:#c06d73}
+#app .resumo-react .grafico-vazio{font-size:12px;color:#667085;line-height:1.6}
+#app .resumo-react .resumo-complementar{display:grid;grid-template-columns:1fr 1fr 1fr auto;padding:25px 7px 27px;gap:21px;margin-top:11px;border:0;border-bottom:1px solid #e7eaf0;background:transparent;border-radius:0}
+#app .resumo-react .resumo-complementar>.mantine-Stack-root{min-width:0}
+#app .resumo-react .resumo-complementar span{font-size:13px;color:#667085}
+#app .resumo-react .resumo-complementar strong{font-size:17px;font-weight:500;letter-spacing:-.3px;color:#202633;overflow-wrap:anywhere}
+#app .resumo-react .resumo-complementar small{font-size:12px;color:#667085;line-height:1.5}
+#app .resumo-react .atalho-historico{font-size:12px;color:#667085;background:none;border:0;border-radius:8px;align-self:center;padding:8px;max-width:100%}
+#app .resumo-react .movimentos{margin-top:32px;min-width:0;background:transparent;border:0;border-radius:0}
+#app .resumo-react .cabecalho-movimentos{padding:0;gap:20px}
+#app .resumo-react .cabecalho-movimentos h2{font-weight:500;font-size:18px;color:#202633}
+#app .resumo-react .cabecalho-movimentos p{font-size:12px;color:#667085}
+#app .resumo-react .filtros{margin:22px 0 13px;padding:0;background:transparent;border:0;flex-wrap:wrap}
+#app .resumo-react .contagem{font-size:12px;color:#667085}
+#app .resumo-react .busca-movimento{display:block;padding:0;border:0;background:transparent;height:auto;width:355px;max-width:100%;min-width:0}
+#app .resumo-react .busca-movimento .mantine-Input-wrapper{width:100%}
+#app .resumo-react .busca-movimento .mantine-Input-input{height:38px;min-height:38px;background:#fff;border:1px solid #dce2eb;border-radius:9px;padding-inline:36px;color:#596477;font-size:12px}
+#app .resumo-react .busca-movimento .mantine-Input-input:focus{outline:2px solid #4264dd;outline-offset:2px;border-color:#4264dd}
+#app .resumo-react .busca-movimento:focus-within{outline:none}
+#app .resumo-react .busca-movimento .mantine-Input-section,#app .resumo-react .busca-movimento .mantine-Input-section button{color:#667085}
+#app .resumo-react .movimentos>.campos-web{padding:0;margin:0 0 14px;background:transparent;border:0;max-width:355px}
+#app .resumo-react .movimentos>.aviso-lista{margin:12px 0}
+#app .resumo-react .movimentos>.tabela-scroll{border:1px solid #e7eaf0;border-radius:13px;overflow:visible;background:#fff}
 #app .resumo-react .movimentos table{min-width:0;table-layout:fixed}
 #app .resumo-react .movimentos th:first-child{width:34%}
 #app .resumo-react .movimentos th:nth-child(2){width:13%}
 #app .resumo-react .movimentos th:nth-child(3){width:15%}
 #app .resumo-react .movimentos th:nth-child(4){width:15%}
 #app .resumo-react .movimentos th:last-child{width:23%}
-#app .resumo-react .movimentos th{background:#f6f8fb;color:#4b6079;font-weight:500;padding:12px 16px}
-#app .resumo-react .movimentos td{padding:14px 16px;white-space:normal;overflow-wrap:anywhere;vertical-align:middle}
-#app .resumo-react .movimentos .descricao{min-width:0;align-items:flex-start;gap:9px}
+#app .resumo-react .movimentos th{background:#fafbfc;color:#667085;font-weight:400;padding:14px 15px}
+#app .resumo-react .movimentos td{padding:14px 15px;white-space:normal;overflow-wrap:anywhere;vertical-align:middle;font-size:13px}
+#app .resumo-react .movimentos .descricao{min-width:0;align-items:flex-start;gap:11px}
 #app .resumo-react .movimentos .descricao>div{min-width:0}
-#app .resumo-react .movimentos .descricao strong{color:#263b50;font-weight:500;line-height:1.5}
-#app .resumo-react .movimentos .valor{font-weight:500}
-#app .resumo-react .tipo-movimento.entrada{background:#e4f2eb;color:#246e53}
-#app .resumo-react .tipo-movimento.saida{background:#f8e9ea;color:#9b4a55}
-#app .resumo-react .situacao{white-space:normal;text-align:left;line-height:1.4}
+#app .resumo-react .movimentos .descricao strong{color:#596576;font-weight:500;line-height:1.5}
+#app .resumo-react .movimentos .valor{font-weight:400}
+#app .resumo-react .tipo-movimento.entrada{background:#f0f6f3;color:#439484}
+#app .resumo-react .tipo-movimento.saida{background:#faf1f3;color:#c06d73}
 #app .resumo-react .acoes-movimento{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;min-width:0}
 #app .resumo-react .acoes-movimento>.botao,#app .resumo-react .acoes-menu-abrir{font-size:12px;min-height:32px;height:auto;padding:7px 9px}
 #app .resumo-react .acoes-menu-painel .acao-movimento{justify-content:flex-start}
-@media(max-width:1100px){
- #app .resumo-react .painel-principal{grid-template-columns:minmax(265px,.9fr) minmax(300px,1.1fr);gap:14px}
- #app .resumo-react .cartao-resultado{padding:20px}
- #app .resumo-react .cartao-serie{padding:18px;grid-template-columns:minmax(110px,.85fr) minmax(90px,1fr)}
- #app .resumo-react .movimentos th,#app .resumo-react .movimentos td{padding:12px}
- #app .resumo-react .cabecalho-movimentos,#app .resumo-react .filtros,#app .resumo-react .movimentos>.campos-web{padding-inline:16px}
-}
+#app .resumo-react .botao .mantine-Button-inner{min-width:0;gap:7px}
+#app .resumo-react .botao .mantine-Button-label{white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+#app .resumo-react .situacao.mantine-Badge-root{height:auto;min-height:24px;padding:5px 8px;border-radius:6px;font-weight:400;text-transform:none;letter-spacing:0;line-height:1.4}
+#app .resumo-react .situacao .mantine-Badge-label{white-space:normal;overflow-wrap:anywhere}
+#app .resumo-react .situacao.realizado{color:#3b7962;background:#eff7f2}
+#app .resumo-react .situacao.previsto{color:#876b38;background:#faf7ef}
+#app .resumo-react .situacao.cancelado{color:#74677d;background:#f5f2f5}
+@media(min-width:1500px){#app .resumo-react .painel-principal{grid-template-columns:1fr 1.6fr;gap:28px}#app .resumo-react .cartao-resultado{min-height:385px;padding:31px}#app .resumo-react .numero-principal{font-size:46px;margin-top:22px}#app .resumo-react .financeiro-serie{padding:23px 27px 16px}}
+@media(max-width:1100px){#app .resumo-react .painel-principal{grid-template-columns:minmax(260px,.95fr) minmax(290px,1.15fr);gap:16px}#app .resumo-react .cartao-resultado{padding:22px 21px 17px}#app .resumo-react .numero-principal{font-size:33px}#app .resumo-react .financeiro-serie{padding:18px;grid-template-columns:minmax(115px,.8fr) minmax(110px,1fr);column-gap:13px}#app .resumo-react .numero-serie{font-size:22px}#app .resumo-react .serie-legenda span:first-child{display:none}#app .resumo-react .serie-legenda{justify-content:flex-end}#app .resumo-react .resumo-complementar{gap:15px}#app .resumo-react .movimentos th,#app .resumo-react .movimentos td{padding:12px}}
+@media(max-width:860px){#app .resumo-react .painel-principal{grid-template-columns:1fr;gap:17px}#app .resumo-react .cartao-resultado{min-height:300px}#app .resumo-react .painel-movimentos{grid-template-columns:1fr 1fr;grid-template-rows:auto;gap:14px}#app .resumo-react .financeiro-serie{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;min-height:205px}#app .resumo-react .financeiro-serie>.mantine-Group-root{grid-column:1;grid-row:1}#app .resumo-react .financeiro-serie .grafico,#app .resumo-react .financeiro-serie .grafico-vazio{grid-column:1;grid-row:2;height:60px;margin-top:15px}#app .resumo-react .financeiro-serie .serie-legenda{grid-column:1;grid-row:3}#app .resumo-react .resumo-complementar{grid-template-columns:1fr 1fr 1fr}#app .resumo-react .atalho-historico{grid-column:1/-1;justify-self:start}#app .resumo-react .ultimo-movimento{margin:18px 0}}
 @media(max-width:760px){
- #app .resumo-react .painel-principal{grid-template-columns:1fr}
- #app .resumo-react .cartao-resultado{min-height:285px}
- #app .resumo-react .painel-movimentos{grid-template-columns:1fr 1fr;grid-template-rows:auto}
- #app .resumo-react .cartao-serie{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
- #app .resumo-react .cartao-serie .serie-cabecalho{grid-column:1;grid-row:1}
- #app .resumo-react .cartao-serie .grafico,#app .resumo-react .cartao-serie .grafico-vazio{grid-column:1;grid-row:2}
- #app .resumo-react .cartao-serie .serie-legenda{grid-column:1;grid-row:3}
- #app .resumo-react .resumo-complementar{grid-template-columns:1fr 1fr}
  #app .resumo-react .movimentos table,#app .resumo-react .movimentos tbody{display:block}
  #app .resumo-react .movimentos thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
- #app .resumo-react .movimentos tbody tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:15px 16px;border-bottom:1px solid #dce4ed}
+ #app .resumo-react .movimentos tbody tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:15px 16px;border-bottom:1px solid #e7eaf0}
  #app .resumo-react .movimentos tbody td{display:block;width:auto;border:0;padding:0;text-align:left}
  #app .resumo-react .movimentos tbody td:first-child,#app .resumo-react .movimentos tbody td.acoes-linha{grid-column:1/-1}
- #app .resumo-react .movimentos td[data-rotulo]::before{content:attr(data-rotulo);display:block;font-size:11px;color:#60748a;font-weight:400;margin-bottom:5px}
+ #app .resumo-react .movimentos td[data-rotulo]::before{content:attr(data-rotulo);display:block;font-size:11px;color:#667085;font-weight:400;margin-bottom:5px}
  #app .resumo-react .acoes-movimento{justify-content:flex-start;padding-top:3px}
  #app .resumo-react .movimentos tbody td.vazio{grid-column:1/-1;padding:24px 0;text-align:center}
 }
-@media(max-width:460px){#app .resumo-react .painel-movimentos{grid-template-columns:1fr}#app .resumo-react .cartao-serie{grid-template-columns:1fr 1fr}#app .resumo-react .cartao-serie .grafico,#app .resumo-react .cartao-serie .grafico-vazio{grid-column:2;grid-row:1/3}#app .resumo-react .cartao-serie .serie-legenda{grid-column:1/-1}}
-@media(prefers-reduced-motion:reduce){#app .resumo-react{animation:none}}
+@media(max-width:590px){#app .resumo-react .painel-movimentos{grid-template-columns:1fr}#app .resumo-react .resumo-complementar{grid-template-columns:1fr 1fr}#app .resumo-react .resumo-complementar>.mantine-Stack-root:last-of-type{grid-column:1/-1}#app .resumo-react .busca-movimento{width:100%}}
+
+/* A cor identifica a direção do movimento; texto, sinal e rótulo continuam explícitos. */
+#app .resumo-react .financeiro-serie-entrada .numero-serie{color:#439484}
+#app .resumo-react .financeiro-serie-saida .numero-serie{color:#c06d73}
+#app .resumo-react .movimentos .valor-entrada{color:#367969}
+#app .resumo-react .movimentos .valor-saida{color:#a4575e}

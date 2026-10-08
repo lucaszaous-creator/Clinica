@@ -10,7 +10,17 @@
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",
+    "@fullcalendar/core": "6.1.21",
+    "@fullcalendar/daygrid": "6.1.21",
+    "@fullcalendar/interaction": "6.1.21",
+    "@fullcalendar/list": "6.1.21",
+    "@fullcalendar/react": "6.1.21",
+    "@fullcalendar/timegrid": "6.1.21",
+    "@mantine/core": "9.7.1",
+    "@mantine/hooks": "9.7.1",
+    "@tanstack/react-table": "8.21.3",
     "lucide": "1.52.0",
+    "motion": "14.0.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

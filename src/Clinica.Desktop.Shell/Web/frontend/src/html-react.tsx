@@ -1,4 +1,5 @@
-import {createElement, Fragment, useLayoutEffect, useMemo, useRef, type ReactNode, type CSSProperties} from 'react';
+import {Button,Input,Textarea,NativeSelect} from '@mantine/core';
+import {createElement, Fragment, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref, type CSSProperties} from 'react';
 import {SugestoesPacientesReact,ehSeletorPaciente} from './sugestoes-react';
 
 /** Ponte de apresentação para os controles especializados existentes. Não injeta HTML:
@@ -35,7 +36,10 @@ function ControleReconciliado({tag,atributos,children,valor,marcado}:{tag:string
  const props={...atributos,ref,defaultValue:valor,defaultChecked:marcado};
  delete (props as Record<string,unknown>).value;delete (props as Record<string,unknown>).checked;
  if(tag==='input'&&atributos.type==='file')delete (props as Record<string,unknown>).defaultValue;
- return createElement(tag,props,tag==='input'||tag==='textarea'?undefined:children);
+ if(tag==='textarea')return <Textarea {...props} ref={ref as Ref<HTMLTextAreaElement>}/>;
+ if(tag==='select')return <NativeSelect {...props} ref={ref as Ref<HTMLSelectElement>}>{children}</NativeSelect>;
+ if(tag==='input'&&!['checkbox','radio','file','hidden'].includes(String(atributos.type??'')))return <Input {...props} ref={ref as Ref<HTMLInputElement>}/>;
+ return createElement(tag,props,tag==='input'?undefined:children);
 }
 function EditorReconciliado({atributos,html}:{atributos:Record<string,unknown>;html:string}){
  const ref=useRef<HTMLDivElement>(null),ultimo=useRef('');
@@ -68,6 +72,7 @@ function noReact(no:Node,index:number):ReactNode{
   if(tag==='select'&&ehSeletorPaciente(no.getAttribute('data-campo')??''))return <Fragment key={key}>{controle}<SugestoesPacientesReact id={no.id} opcoes={Array.from(no.querySelectorAll('option')).map(o=>({valor:o.value,rotulo:o.textContent??''}))} habilitado={!no.hasAttribute('disabled')}/></Fragment>;
   return <Fragment key={key}>{controle}</Fragment>;
  }
+ if(tag==='button'&&no.classList.contains('botao'))return <Button {...props} key={key} variant={no.classList.contains('primario')?'filled':'default'}>{children}</Button>;
  if(tag==='option')delete props.selected;
  if(tag==='details'){delete props.open;return <DetalhesReconciliados key={key} atributos={props} aberto={no.hasAttribute('open')}>{children}</DetalhesReconciliados>;}
  const vazios=['area','base','br','col','hr','img','link','meta','param','source','track','wbr'];

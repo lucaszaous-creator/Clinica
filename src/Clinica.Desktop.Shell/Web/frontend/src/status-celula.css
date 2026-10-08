@@ -3,3 +3,6 @@
 #app .etiqueta-web.estado-pendente{background:#fff6df;color:#875b16;border:0}
 #app .etiqueta-web.estado-interrompido{background:#fceef0;color:#a23947;border:0}
 #app .etiqueta-web.estado-neutro{background:#f1f3f6;color:#596273;border:0}
+#app .etiqueta-web.estado-agendado{background:#edf5f3;color:#356b60;border:0}
+#app .etiqueta-web.estado-em-curso{background:#efedfa;color:#625093;border:0}
+#app .etiqueta-web{transition:background-color 160ms,color 160ms}

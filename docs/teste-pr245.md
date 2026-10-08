@@ -5,10 +5,11 @@ Esta edição portátil contém Recepção, Clínico, Financeiro, Faturamento e 
 No Explorer, use **Extrair tudo** antes de abrir. Executar diretamente dentro do ZIP pode
 deixar os recursos locais inacessíveis e causar o erro de caminho `0x80070003`.
 
-A revisão React 1.0.245-test.20261008.3 inclui componentes React nos cinco módulos, separação de seções, cores nos botões e estados,
-agenda por dia com cartões legíveis, formulário de marcação organizado por etapas e
-resultados identificáveis nas buscas e transições curtas que respeitam a preferência de movimento reduzido. Ao homologar, confira também nomes completos,
-seleção de outro prontuário, valores decimais e todos os detalhes das listas e comandos do menu Mais ações.
+A revisão 1.0.245-test.20261008.4 reconstrói os principais espaços de trabalho com React, Mantine, FullCalendar, TanStack Table e Motion. Há fila compacta na Recepção, agendamento com conferência do paciente, ficha organizada em identificação/tratamento/alertas, histórico por sessão e composições próprias de Faturamento, Financeiro e Gestão. O calendário oferece Lista, Semana e Dia, com abertura dos horários que não cabem no resumo.
+
+A composição retoma o Financeiro original, com superfícies neutras, cores pontuais e navegação no topo. As buscas e ações continuam ligadas aos serviços originais em C#. Confira nomes completos, troca de prontuário, valores decimais e os comandos de Mais ações. Evidências e escopo técnico: `docs/componentes-clinicos-pr245.md`.
+
+As cores distinguem seleção, andamento, conclusão, pendências e interrupções. Menus, diálogos e calendário têm transições curtas; a preferência de movimento reduzido do Windows é respeitada. A atualização de resultados não remonta os campos durante a digitação.
 
 ## Banco de teste
 

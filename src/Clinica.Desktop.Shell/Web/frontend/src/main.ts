@@ -1,3 +1,4 @@
+import {ProvedorClinica} from './ui-clinica';
 import './style.css';
 import './paginas.css';
 import './navegacao.css';
@@ -11,6 +12,7 @@ import {SuiteReact,type EstadoSuite} from './suite-react';
 import {ligarControles,emDesenho} from './controles';
 import {filtroTreinamento,prepararVideo} from './treinamento';
 import {guardarRascunho,limparRascunhos,type Contexto} from './paginas';
+import './clinica-componentes.css';
 
 type Mensagem={acao:string;valor?:unknown;chave?:string;contexto?:string;id?:string;tabela?:string;linha?:string};
 type Estado=EstadoSuite;
@@ -55,7 +57,7 @@ function render(){
  const pos=new Map([...document.querySelectorAll<HTMLElement>(areasRolagem)].map(e=>[chaveRolagem(e),[e.scrollTop,e.scrollLeft]]));
  const detalhes=new Map([...document.querySelectorAll<HTMLDetailsElement>('details[data-preservar]')].map(e=>[JSON.stringify([e.closest<HTMLElement>('[data-pagina]')?.dataset.pagina,e.dataset.preservar]),e.open]));
  // A resposta do WebView2 deve estar no DOM antes de restaurar foco/rolagem e ligar canvas.
- flushSync(()=>raizReact.render(elementoReact(SuiteReact,{estado,grupo,buscaAberta,usuarioAberto,busca,treinoAberto,avisosAbertos,ponteDisponivel:!!ponte})));
+ flushSync(()=>raizReact.render(elementoReact(ProvedorClinica,null,elementoReact(SuiteReact,{estado,grupo,buscaAberta,usuarioAberto,busca,treinoAberto,avisosAbertos,ponteDisponivel:!!ponte}))));
  document.querySelectorAll<HTMLElement>(areasRolagem).forEach(el=>{const anterior=pos.get(chaveRolagem(el));if(anterior){el.scrollTop=anterior[0];el.scrollLeft=anterior[1]}});
  document.querySelectorAll<HTMLDetailsElement>('details[data-preservar]').forEach(el=>{const anterior=detalhes.get(JSON.stringify([el.closest<HTMLElement>('[data-pagina]')?.dataset.pagina,el.dataset.preservar]));if(anterior!==undefined)el.open=anterior});
  if(id){const alvo=document.getElementById(id) as HTMLInputElement|null;if(alvo){if(editor&&alvo!==foco)alvo.innerHTML=editor.html;alvo.focus({preventScroll:true});if(editor&&alvo!==foco)restaurarSelecao(alvo,editor.selecionado);else if(['text','search','textarea','password'].includes(alvo.type))alvo.setSelectionRange(inicio??0,fim??0)}}

@@ -11,7 +11,12 @@ import { PaginaReact, CamposReact, AcoesReact, HtmlReact } from '../../../../Cli
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { createElement as criarElementoReact } from 'react';
+import { Button, ActionIcon, TextInput, Paper, Badge, Group, Stack } from '@mantine/core';
+import { motion, useReducedMotion } from 'motion/react';
+import { useReactTable, getCoreRowModel, type ColumnDef } from '@tanstack/react-table';
+import { ProvedorClinica } from '../../../../Clinica.Desktop.Shell/Web/frontend/src/ui-clinica';
 import '../../../../Clinica.Desktop.Shell/Web/frontend/src/movimento-react.css';
+import '../../../../Clinica.Desktop.Shell/Web/frontend/src/clinica-componentes.css';
 import './financeiro-react.css';
 import { House, Landmark, Wallet, ChartNoAxesCombined, ArrowDownLeft, ArrowUpRight, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, Menu, Download, RefreshCw, X, Receipt, Check, CalendarDays, ArrowLeftRight, Package, Settings2, Rows3, CircleHelp, CreditCard, Expand, ArrowUp, ArrowDown, History, QrCode, Eye, EyeOff, ListChecks, Users, ChartColumn, type IconNode } from 'lucide';
 
@@ -98,13 +103,14 @@ function enviar(acao: string, valor?: string, id?: string) {
   else if (demo) acaoDemo(mensagem);
 }
 function Botao({ acao, texto, icone, classe = '', desabilitado = false }: { acao: string; texto: string; icone?: string; classe?: string; desabilitado?: boolean }) {
-  return <button className={`botao ${classe}`} data-action={acao} disabled={desabilitado}>{icone && <Icone nome={icone}/>}<span>{texto}</span></button>;
+  return <Button className={`botao ${classe}`} data-action={acao} disabled={desabilitado} variant={classe.includes('primario') ? 'filled' : 'light'} leftSection={icone ? <Icone nome={icone}/> : undefined}>{texto}</Button>;
 }
 function GraficoResumo({ caminho, classe, descricao }: { caminho: string; classe: string; descricao: string }) {
+  const reduzirMovimento = useReducedMotion();
   // A série e os cálculos continuam pertencendo ao host; ausência de dados não gera curva ilustrativa.
   if (!estado.serieDisponivel || !caminho || !/^[MLCQSTHVZAmlcqsthvza\d.,\s+eE-]+$/.test(caminho))
     return <div className="grafico-vazio">{estado.situacaoSerie || 'Sem movimentos para desenhar a série.'}</div>;
-  return <svg className={`grafico ${classe}`} viewBox="0 0 280 58" role="img" aria-label={descricao} preserveAspectRatio="none"><path className="linha-base" d="M0 54H280"/><path className="curva" d={caminho}/></svg>;
+  return <svg className={`grafico ${classe}`} viewBox="0 0 280 58" role="img" aria-label={descricao} preserveAspectRatio="none"><path className="linha-base" d="M0 54H280"/><motion.path key={caminho} className="curva" d={caminho} initial={reduzirMovimento ? false : { opacity: .35 }} animate={{ opacity: 1 }} transition={{ duration: reduzirMovimento ? 0 : .18 }}/></svg>;
 }
 function AcoesMovimento({ linha: l }: { linha: Linha }) {
   const acoes = [
@@ -117,47 +123,74 @@ function AcoesMovimento({ linha: l }: { linha: Linha }) {
   const principal = acoes.find(a => a.chave === 'realizar') ?? acoes[0];
   const restantes = acoes.filter(a => a !== principal);
   const id = `movimento-acoes-${encodeURIComponent(l.id)}`;
-  const botao = (a: typeof acoes[number], menu = false) => <button key={a.chave} className={`botao ${a.chave === 'cancelar' ? 'perigo' : 'secundario'} acao-movimento`} data-action={a.chave} data-id={l.id} role={menu ? 'menuitem' : undefined} tabIndex={menu ? -1 : undefined} aria-label={`${a.texto}: ${l.descricao}`}><Icone nome={a.icone}/><span>{a.texto}</span></button>;
+  const botao = (a: typeof acoes[number], menu = false) => <Button key={a.chave} className={`botao ${a.chave === 'cancelar' ? 'perigo' : 'secundario'} acao-movimento`} variant="light" color={a.chave === 'cancelar' ? 'red' : undefined} leftSection={<Icone nome={a.icone}/>} data-action={a.chave} data-id={l.id} role={menu ? 'menuitem' : undefined} tabIndex={menu ? -1 : undefined} aria-label={`${a.texto}: ${l.descricao}`}>{a.texto}</Button>;
   return <div className="acoes-movimento">{botao(principal)}{restantes.length === 1 ? botao(restantes[0]) : restantes.length > 1 && <span className="acoes-menu-grupo"><button type="button" className="botao secundario acoes-menu-abrir" data-abrir-acoes={id} aria-haspopup="menu" aria-controls={id} aria-expanded="false" aria-label={`Mais ações: ${l.descricao}`}>Mais ações<Icone nome="baixo"/></button><div id={id} className="acoes-menu-painel" popover="auto" role="menu" aria-label={`Ações: ${l.descricao}`}>{restantes.map(a => botao(a, true))}</div></span>}</div>;
 }
+const colunasMovimentos: ColumnDef<Linha>[] = [
+  { accessorKey: 'descricao', header: 'Descrição' },
+  { accessorKey: 'data', header: 'Data' },
+  { accessorKey: 'situacao', header: 'Situação' },
+  { accessorKey: 'valor', header: 'Valor' },
+  { id: 'acoes', header: 'Ações' },
+];
 function MovimentosResumo() {
+  // O filtro e a ordem pertencem ao host; a tabela reconcilia as linhas pela identidade real.
+  const tabela = useReactTable({ data: estado.linhas, columns: colunasMovimentos, getRowId: l => l.id, getCoreRowModel: getCoreRowModel() });
   if (estado.carregando && !estado.linhas.length) return <tr><td colSpan={5} className="vazio">Carregando os movimentos do mês…</td></tr>;
   if (!estado.linhas.length) return <tr><td colSpan={5} className="vazio"><Icone nome="linhas"/><strong>{termo ? 'Nenhum movimento encontrado' : 'O mês ainda não tem movimentos'}</strong><span>{termo ? 'Ajuste a busca para encontrar outro lançamento.' : 'Os lançamentos registrados aparecerão aqui.'}</span></td></tr>;
-  return <>{estado.linhas.map(l => <tr key={l.id}>
+  return <>{tabela.getRowModel().rows.map(({original: l}) => <tr key={l.id}>
     <td><div className="descricao"><span className={`tipo-movimento ${l.ehEntrada ? 'entrada' : 'saida'}`}><Icone nome={l.ehEntrada ? 'entrada' : 'saida'}/></span><div><strong>{l.descricao}</strong><small>{l.categoria || 'Sem categoria'}</small></div></div></td>
     <td className="data" data-rotulo="Data">{l.data}</td>
-    <td data-rotulo="Situação"><span className={`situacao ${/realizado|pago|recebido/i.test(l.situacao) ? 'realizado' : /cancelado/i.test(l.situacao) ? 'cancelado' : 'previsto'}`}><i/>{l.situacao}</span></td>
-    <td data-rotulo="Valor" className={`valor ${l.ehEntrada ? 'valor-entrada' : ''}`}>{l.ehEntrada ? '+' : '−'} {valorVisivel(l.valor.replace(/^[+−-]\s*/, ''))}</td>
+    <td data-rotulo="Situação"><Badge variant="light" className={`situacao ${/realizado|pago|recebido/i.test(l.situacao) ? 'realizado' : /cancelado/i.test(l.situacao) ? 'cancelado' : 'previsto'}`}>{l.situacao}</Badge></td>
+    <td data-rotulo="Valor" className={`valor ${l.ehEntrada ? 'valor-entrada' : 'valor-saida'}`}>{l.ehEntrada ? '+' : '−'} {valorVisivel(l.valor.replace(/^[+−-]\s*/, ''))}</td>
     <td className="acoes-linha"><AcoesMovimento linha={l}/>
     </td></tr>)}</>;
 }
 function contextoPagina(): Contexto { return { escopo: 'pagina', id: estado.pagina?.contexto ?? '', ocupado: estado.ocupado || estado.pagina?.carregando, privado: valoresOcultos }; }
+function PeriodoFinanceiro({ bloqueado }: { bloqueado: boolean }) {
+  return <Group gap={4} wrap="nowrap" className="periodo"><ActionIcon variant="subtle" className="seta-periodo" data-local="anterior" title="Mês anterior" aria-label="Mês anterior" disabled={bloqueado}><Icone nome="anterior"/></ActionIcon><label className="seletor-mes"><Icone nome="calendario"/><span>{nomeMes(estado.mes)}</span><Icone nome="baixo"/><input key={estado.mes} defaultValue={estado.mes} id="mes" data-testid="mes" type="month" aria-label="Mês do resumo financeiro" disabled={bloqueado}/></label><ActionIcon variant="subtle" className="seta-periodo" data-local="proximo" title="Próximo mês" aria-label="Próximo mês" disabled={bloqueado}><Icone nome="proximo"/></ActionIcon></Group>;
+}
+function SerieFinanceira({ tipo, titulo, valor, caminho }: { tipo: 'entrada' | 'saida'; titulo: string; valor: string; caminho: string }) {
+  return <Paper component="article" className={`financeiro-serie financeiro-serie-${tipo}`}>
+    <Group justify="space-between" align="flex-start" gap="md" wrap="nowrap"><Stack gap={8} className="financeiro-serie-valor"><span className="rotulo-serie"><span className={`ponto ${tipo}`}/>{titulo}</span><strong className="numero-serie">{valorVisivel(valor)}</strong></Stack><span className={`icone-serie ${tipo}`}><Icone nome={tipo}/></span></Group>
+    <GraficoResumo caminho={caminho} classe={tipo} descricao={`Evolução de ${titulo.toLocaleLowerCase('pt-BR')} no mês`}/><div className="serie-legenda"><span>Movimentos do período</span><span>{nomeMes(estado.mes)}</span></div>
+  </Paper>;
+}
 function ResumoFinanceiro({ bloqueado }: { bloqueado: boolean }) {
-  return <div className="resumo-react">
-    <section className="cabecalho-pagina"><div className="titulo-periodo"><h1>Resumo financeiro</h1><div className="periodo"><button className="seta-periodo" data-local="anterior" title="Mês anterior" aria-label="Mês anterior" disabled={bloqueado}><Icone nome="anterior"/></button><label className="seletor-mes"><Icone nome="calendario"/><span>{nomeMes(estado.mes)}</span><Icone nome="baixo"/><input id="mes" data-testid="mes" type="month" aria-label="Mês do resumo financeiro" key={estado.mes} defaultValue={estado.mes} disabled={bloqueado}/></label><button className="seta-periodo" data-local="proximo" title="Próximo mês" aria-label="Próximo mês" disabled={bloqueado}><Icone nome="proximo"/></button></div></div><div className="acoes-cabecalho"><Botao acao="exportar" texto="Exportar" icone="baixar" desabilitado={bloqueado || !estado.linhas.length}/></div></section>
+  const reduzirMovimento = useReducedMotion();
+  return <motion.div className="resumo-react" initial={reduzirMovimento ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduzirMovimento ? 0 : .18 }}>
+    <Group component="section" className="financeiro-cabecalho cabecalho-pagina" justify="space-between" align="flex-start" gap="lg">
+      <Stack className="titulo-periodo" gap={14}><h1>Resumo financeiro</h1><PeriodoFinanceiro bloqueado={bloqueado}/></Stack>
+      <Botao acao="exportar" texto="Exportar" icone="baixar" desabilitado={bloqueado || !estado.linhas.length}/>
+    </Group>
     {estado.erro && <div className="erro" role="alert">{estado.erro} <Botao acao="atualizar" texto="Tentar novamente" icone="atualizar"/></div>}
-    <section className="painel-principal" aria-label="Indicadores do mês">
-      <article className="cartao-resultado"><div className="rotulo-resultado"><span className="icone-circulo"><Icone nome="carteira"/></span><span>Resultado líquido do mês</span><button className="acao-linha privacidade" data-local="privacidade" data-testid="alternar-privacidade" aria-pressed={valoresOcultos} aria-label={valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'} title={valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'}><Icone nome={valoresOcultos ? 'oculto' : 'olho'}/></button><button className="acao-linha" data-action="atualizar" title="Atualizar dados" aria-label="Atualizar dados" disabled={bloqueado || estado.carregando}><Icone nome="atualizar" classe={estado.carregando ? 'girando' : ''}/></button></div>
-        <div data-testid="valor-resultado" className={`numero-principal ${estado.saldo.includes('-') ? 'negativo' : ''}`}>{valorVisivel(estado.saldo)}</div><p className="contexto-resultado">Receita líquida menos saídas realizadas</p>
-        <div className="ultimo-movimento"><span className="marcador-movimento"><Icone nome="troca"/></span><div><span>Último movimento</span><strong>{textoPrivado(estado.ultimoMovimento || 'Sem movimentos no período')}</strong><small>{textoPrivado(estado.detalheUltimoMovimento)}</small></div></div>
-        <div className="acoes-resultado"><Botao acao="novo" texto="Novo lançamento" icone="mais" classe="primario" desabilitado={bloqueado || !estado.podeEditar}/><Botao acao="pix" texto="Cobrar com Pix" icone="pix" classe="secundario" desabilitado={bloqueado || !estado.podeEditar}/></div>
-        <div className="nota-saldo">O resultado do mês não representa o saldo bancário.</div>
-      </article>
-      <div className="painel-movimentos">{([{tipo:'entrada',titulo:'Entradas realizadas',valor:estado.entradas,caminho:estado.graficoEntradas},{tipo:'saida',titulo:'Saídas realizadas',valor:estado.saidas,caminho:estado.graficoSaidas}]).map(serie => <article className="cartao-serie" key={serie.tipo}><div className="serie-cabecalho"><div><span className="rotulo-serie"><span className={`ponto ${serie.tipo}`}/>{serie.titulo}</span><div className="numero-serie">{valorVisivel(serie.valor)}</div></div><span className={`icone-serie ${serie.tipo}`}><Icone nome={serie.tipo}/></span></div><GraficoResumo caminho={serie.caminho} classe={serie.tipo} descricao={`Evolução de ${serie.titulo.toLocaleLowerCase('pt-BR')} no mês`}/><div className="serie-legenda"><span>Movimentos do período</span><span>{nomeMes(estado.mes)}</span></div></article>)}</div>
-    </section>
+    <div className="painel-principal">
+      <Paper component="article" className="cartao-resultado">
+        <Group className="rotulo-resultado" gap={9} wrap="nowrap"><span className="icone-circulo"><Icone nome="carteira"/></span><span>Resultado líquido do mês</span><ActionIcon variant="subtle" className="acao-linha privacidade" data-local="privacidade" data-testid="alternar-privacidade" aria-pressed={valoresOcultos} aria-label={valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'} title={valoresOcultos ? 'Mostrar valores' : 'Ocultar valores'}><Icone nome={valoresOcultos ? 'oculto' : 'olho'}/></ActionIcon><ActionIcon variant="subtle" className="acao-linha" data-action="atualizar" title="Atualizar dados" aria-label="Atualizar dados" disabled={bloqueado || estado.carregando}><Icone nome="atualizar" classe={estado.carregando ? 'girando' : ''}/></ActionIcon></Group>
+        <strong data-testid="valor-resultado" className={`numero-principal ${estado.saldo.includes('-') ? 'negativo' : ''}`}>{valorVisivel(estado.saldo)}</strong>
+        <p className="contexto-resultado">Receita líquida menos saídas realizadas</p>
+        <Group className="ultimo-movimento" gap={10} wrap="nowrap"><span className="marcador-movimento"><Icone nome="troca"/></span><Stack gap={4}><span>Último movimento</span><strong>{textoPrivado(estado.ultimoMovimento || 'Sem movimentos no período')}</strong><small>{textoPrivado(estado.detalheUltimoMovimento)}</small></Stack></Group>
+        <Group className="acoes-resultado" gap={9}><Botao acao="novo" texto="Novo lançamento" icone="mais" classe="primario" desabilitado={bloqueado || !estado.podeEditar}/><Botao acao="pix" texto="Cobrar com Pix" icone="pix" classe="secundario" desabilitado={bloqueado || !estado.podeEditar}/></Group>
+        <span className="nota-saldo">O resultado do mês não representa o saldo bancário.</span>
+      </Paper>
+      <Stack className="painel-movimentos" gap={17}>
+        <SerieFinanceira tipo="entrada" titulo="Entradas realizadas" valor={estado.entradas} caminho={estado.graficoEntradas}/>
+        <SerieFinanceira tipo="saida" titulo="Saídas realizadas" valor={estado.saidas} caminho={estado.graficoSaidas}/>
+      </Stack>
+    </div>
     <section className="resumo-complementar" aria-label="Composição financeira">
-      <div><span>Resultado bruto projetado</span><strong>{valorVisivel(estado.previsto)}</strong><small>Realizados + previstos, antes das deduções</small></div>
-      <div><span>Receita líquida</span><strong>{valorVisivel(estado.liquido)}</strong><small>Receita após deduções</small></div>
-      <div><span>Deduções</span><strong>{valorVisivel(estado.deducoes)}</strong><small>Taxas e impostos vinculados</small></div>
-      <button className="atalho-historico" data-local="movimentos" disabled={bloqueado}><Icone nome="historico"/><span>Conferir histórico</span><Icone nome="proximo"/></button>
+      <Stack gap={7}><span>Resultado bruto projetado</span><strong>{valorVisivel(estado.previsto)}</strong><small>Realizados + previstos, antes das deduções</small></Stack>
+      <Stack gap={7}><span>Receita líquida</span><strong>{valorVisivel(estado.liquido)}</strong><small>Receita após deduções</small></Stack>
+      <Stack gap={7}><span>Deduções</span><strong>{valorVisivel(estado.deducoes)}</strong><small>Taxas e impostos vinculados</small></Stack>
+      <Button variant="subtle" className="atalho-historico" data-local="movimentos" disabled={bloqueado} leftSection={<Icone nome="historico"/>} rightSection={<Icone nome="proximo"/>}>Conferir histórico</Button>
     </section>
-    <section className="movimentos"><div className="cabecalho-movimentos"><div><h2>Movimentações</h2><p>{estado.resumoFiltro || 'Entradas e saídas deste mês, em um só lugar.'}</p></div><div className="acoes-movimentos"><Botao acao="exportar" texto="Exportar" icone="baixar" desabilitado={bloqueado || !estado.linhas.length}/><Botao acao="novo" texto="Novo lançamento" icone="mais" classe="primario" desabilitado={bloqueado || !estado.podeEditar}/></div></div>
-      <div className="filtros"><label className="busca-movimento"><Icone nome="buscar"/><input type="search" id="busca" data-testid="filtro-lancamentos" placeholder="Buscar descrição ou categoria" aria-label="Buscar movimentos" value={termo} onChange={e => { termo = e.currentTarget.value; render(); }} disabled={bloqueado}/>{termo && <button data-local="limpar" aria-label="Limpar busca"><Icone nome="fechar"/></button>}</label><span className="contagem">{estado.linhas.length} {estado.linhas.length === 1 ? 'movimento' : 'movimentos'}</span></div>
+    <section className="movimentos"><Group className="cabecalho-movimentos" justify="space-between" gap="md"><Stack gap={5}><h2>Movimentações</h2><p>{estado.resumoFiltro || 'Entradas e saídas deste mês, em um só lugar.'}</p></Stack></Group>
+      <Group className="filtros" justify="space-between" gap="md"><TextInput className="busca-movimento" type="search" id="busca" data-testid="filtro-lancamentos" placeholder="Buscar descrição ou categoria" aria-label="Buscar movimentos" value={termo} onChange={e => { termo = e.currentTarget.value; render(); }} disabled={bloqueado} leftSection={<Icone nome="buscar"/>} rightSection={termo ? <ActionIcon variant="subtle" data-local="limpar" aria-label="Limpar busca"><Icone nome="fechar"/></ActionIcon> : undefined}/><span className="contagem">{estado.linhas.length} {estado.linhas.length === 1 ? 'movimento' : 'movimentos'}</span></Group>
       {estado.pagina && <CamposReact campos={estado.pagina.campos.filter(c => c.chave === 'FiltroSituacao')} contexto={contextoPagina()}/>}
       {estado.truncado && <div className="aviso-lista">Há mais movimentos no período. Refine a busca para localizar o lançamento.</div>}
       <div className="tabela-scroll" tabIndex={0} aria-label="Tabela de movimentações"><table data-testid="tabela-lancamentos"><thead><tr><th>Descrição</th><th>Data</th><th>Situação</th><th className="valor">Valor</th><th className="acoes-linha">Ações</th></tr></thead><tbody><MovimentosResumo/></tbody></table></div>
     </section>
-  </div>;
+  </motion.div>;
 }
 function DialogoFinanceiro() {
   const d = estado.dialogo;
@@ -212,7 +245,7 @@ function render() {
   const mainAnterior = document.querySelector<HTMLElement>('.conteudo');
   const scrollAnterior = mainAnterior?.scrollTop ?? 0;
   // A ponte continua síncrona; React reconcilia cada componente sem reconstruir a janela.
-  flushSync(() => raizReact.render(<FinanceiroReact/>));
+  flushSync(() => raizReact.render(<ProvedorClinica><FinanceiroReact/></ProvedorClinica>));
   const conteudo = document.querySelector<HTMLElement>('.conteudo')!;
   conteudo.scrollTop = scrollAnterior;
   document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas').forEach(el => { const anterior = posicoes.get(chaveRolagem(el)); if (anterior) { el.scrollTop = anterior[0]; el.scrollLeft = anterior[1]; } });

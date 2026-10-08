@@ -74,7 +74,15 @@ internal static class RolagemQa
                 await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('.agenda-sessoes-dia').scrollTop=0");
                 using var arquivo = File.Create(Path.Combine(pasta, $"semana-197-{largura}.png"));
                 await navegador.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, arquivo);
-                Console.WriteLine($"OK WebView2: 197 sessões em {largura}px; rolagem diária e detalhes preservados.");
+                Console.WriteLine($"OK WebView2: 197 sessões em {largura}px; rolagem do período e detalhes preservados.");
+                await Conferir("document.querySelector('[data-calendario=fullcalendar] .fc-listWeek-view')!==null", "Agenda não está usando a lista real do FullCalendar.");
+                await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-modo=semana]').click()");await Task.Delay(250);
+                await Conferir("document.querySelector('.fc-dayGridWeek-view')!==null&&document.querySelectorAll('.fc-daygrid-day').length===7&&document.documentElement.scrollWidth<=innerWidth+1", "Resumo semanal FullCalendar não exibiu sete dias sem vazamento lateral.");
+                await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('.fc-daygrid-more-link').click()");await Task.Delay(250);
+                await Conferir("document.querySelector('.fc-listDay-view')!==null&&document.querySelectorAll('.agenda-sessao').length>=28&&document.querySelectorAll('.agenda-sessao').length<=29&&document.documentElement.scrollWidth<=innerWidth+1", "Mais sessões não abriu o dia completo no FullCalendar.");
+                await navegador.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-agenda-modo=lista]').click()");await Task.Delay(250);
+                await Conferir("document.querySelector('.fc-listWeek-view')!==null&&document.querySelectorAll('.agenda-sessao').length===197", "Voltar à lista perdeu sessões da semana.");
+                Console.WriteLine($"OK FullCalendar {largura}px: lista real, resumo semanal de sete dias, mais sessões abre dia completo e retorno preserva 197 registros.");
             }
         }
         finally { janela.Close(); }
