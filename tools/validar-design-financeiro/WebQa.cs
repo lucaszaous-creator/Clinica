@@ -126,7 +126,7 @@ static class WebQa
             async Task Clicar(string seletor)
             {
                 await Esperar("document.querySelector(" + JsonSerializer.Serialize(seletor) + ")?.disabled === false");
-                await Ler("document.querySelector(" + JsonSerializer.Serialize(seletor) + ").click()");
+                await AcoesVisiveisQa.Clicar(navegador, seletor);
             }
             async Task Campo(string chave, string valor)
             {

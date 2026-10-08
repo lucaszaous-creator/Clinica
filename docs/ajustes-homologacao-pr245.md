@@ -93,3 +93,38 @@ As operações automatizadas usam SQLite sintético. PostgreSQL, equipamentos f�
 integrações externas dependem da homologação em ambiente separado. Os testes cobrem
 os cenários documentados; não certificam todas as combinações de dados, perfis ou
 integrações. Nenhum envio real, release ou alteração do canal de produção foi realizado.
+
+
+## Correção da direção visual — 08/10/2026
+
+A tentativa anterior de aumentar o contraste aplicou azul excessivo em superfícies, campos de leitura e contornos. O proprietário rejeitou esse resultado. O tema compartilhado agora usa fundo cinza muito claro, seções brancas com bordas neutras discretas, títulos sem caixas/faixas decorativas e azul nos controles, seleção e ação principal. Campos somente leitura voltam a parecer informação, não entradas editáveis. Entrada e assinatura também perdem a camada azul acrescentada na revisão anterior.
+
+Dois agentes participaram desta correção: um nos menus de ações e outro na adaptação das tabelas. Os conjuntos de ações mantêm até duas ações diretas e agrupam as demais em Mais ações; Salvar/Cancelar permanecem acessíveis nos formulários. O menu usa a camada superior do navegador, não é cortado pelo contêiner e aceita teclado, Escape e clique fora. Não há remoção de comandos ou alteração das permissões C#.
+
+Listas extensas e histórico com texto rico apresentam identidade, quatro dados principais e os detalhes completos em expansão vertical. A identificação aceita caminhos como Atendimento.Paciente.Nome. Relatórios numéricos conservam a tabela comparativa com quebra de texto e largura ajustada. Os testes cobrem também a largura interna das regiões, e não somente o corpo da página.
+
+### Consulta ao Jev
+
+Consulta efetiva ao Jev 1.13.0 sobre a direção proposta, antes do tema final: recomendou tema neutro, ações compactadas e linhas com detalhes (resposta choice, confiança informada 1,0 em cada escolha). Evidências locais: artifacts/jev-direcao-visual/pedido.json e resposta.json. Recebeu descrição da proposta e dos problemas, sem imagens ou dados reais de pacientes. Isso não equivale a aprovação visual das telas finais nem a execução de testes. A consulta anterior também não aprovava o tema azul rejeitado.
+
+O endereço público https://www.salteclinic.com/ redirecionava para https://salte.app/ (Salte Workers) na consulta. Sua apresentação pública foi observada como referência; não houve acesso à antiga interface clínica autenticada. A navegação superior específica da Clínica SemDor permanece.
+
+
+### Validação desta correção
+
+- 2.975 testes, zero falhas (artifacts/testes-visual-final.log); C# dos 11 projetos WPF compilado pela sombra; 225 XAML/10 projetos/143 construtores verificados.
+- 76 páginas e 97 formulários, zero divergências de contrato. Menus e largura interna em WebView2 real: 900/1366/1920, 14 colunas, seis ações, texto rico completo e Escape sem fechar formulário (artifacts/qa-visual-componentes-final.log).
+- Nome parcial durante a digitação, sem Enter/blur, em Documentos, Marcar horário e Prontuário; CPF, resultados atrasados, seleção, agendamento, permissões e densidade 34/170/197 (artifacts/qa-visual-buscas-final.log).
+- Fluxos e capturas de Recepção, Clínico, Faturamento, Financeiro e Gerente; os testes de busca/gravação/cancelamento dos demais módulos passaram com abertura do menu antes do clique (artifacts/qa-visual-buscas-faturamento-final.log). Clínico e mapa corporal verificados com os componentes finais (artifacts/qa-visual-clinico-final.log).
+- Cores de estado são apresentacionais, apenas em colunas declaradas status e por correspondência exata. Rótulos desconhecidos permanecem neutros; texto e privacidade são preservados. Não se infere estado de negócio por trecho de palavra.
+- O reforço de contraste solicitado mantém fundo cinza-azulado claro, filtros levemente tonalizados, identificação clínica distinta, abas ativas e botões secundários com preenchimento discreto. Não reintroduz faixas laterais/superiores, gradientes em indicadores nem caixas individuais em campos de leitura.
+- Versão portátil de homologação: 1.0.245-test.20261008.2. Nenhum merge, release ou envio à produção autorizado nesta etapa.
+
+
+### Composição final das áreas de trabalho
+
+O refinamento seguinte mudou a organização da tela, além da paleta. Ficha, atendimento e histórico usam uma identificação clínica compacta azul-marinho: nome, fotografia real quando houver, identificação e contexto completos, seguidos de ações e abas. Esses dados saem da grade genérica sem duplicação ou descarte. O menu do fluxo clínico se chama Atendimento, distinguindo-o das demais ações.
+
+Profissionais da agenda aparecem como filtros compactos com nome, contagem e estado ativo. A marcação agrupa Paciente, Data/horário/profissional e Modalidade; observações e conferência compartilham espaço quando a largura permite. Títulos de tabela que repetem a seção ficam disponíveis à acessibilidade sem ocupar outra linha. Indicadores formam um painel de resumo único. Diálogos recebem cabeçalho de alto contraste e editores menos altos, preservando todo o texto.
+
+Paridade clínica (identidade/contexto únicos, campos adicionais e ações) e filtros Todos34/segundo17/Todos34 foram testados novamente com WebView2. Evidências: artifacts/qa-composicao-final.log, artifacts/qa-clinico-composicao-final.log e artifacts/qa-recepcao-composicao-final.log. As regras, serviços e persistência C# não foram alterados por esta composição.

@@ -1,0 +1,11 @@
+.acoes-menu-grupo{display:inline-flex;max-width:100%;align-items:center}
+.acoes-menu-abrir{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.acoes-menu-painel{position:fixed;inset:auto;margin:0;padding:5px;width:248px;max-width:calc(100vw - 16px);overflow:auto;background:#fff;border:1px solid #e4e7ec;border-radius:8px;box-shadow:0 8px 28px #1822301f;color:#344054}
+.acoes-menu-painel::backdrop{background:transparent}
+.acoes-menu-painel .botao{display:flex;width:100%;justify-content:flex-start;min-height:34px;height:auto;padding:8px 10px;border:0!important;border-radius:5px;background:transparent!important;box-shadow:none!important;color:#344054!important;font-size:13px;font-weight:400;text-align:left;white-space:normal;line-height:1.4}
+.acoes-menu-painel .botao:hover:not(:disabled),.acoes-menu-painel .botao:focus-visible{background:#f2f4f7!important;outline:2px solid transparent}
+.acoes-menu-painel .botao:focus-visible{outline-color:#5368d6;outline-offset:-2px}
+.acoes-menu-painel .botao.perigo{color:#b42318!important}
+.acoes-menu-painel .botao.perigo:hover:not(:disabled){background:#fff1f0!important}
+.acoes-menu-painel .botao:disabled{opacity:.45;cursor:not-allowed}
+.acoes-menu-divisor{height:1px;margin:5px 4px;background:#eaecf0}

@@ -97,22 +97,24 @@ static class BuscasPacientesQa
             foreach(var rota in new[] { "documentos", "marcar-horario", "pacientes-recepcao", "prontuario", ModuloClinico.ChavePrescricoes, ModuloClinico.ChavePrescricaoInfusao })
             {
                 await view.NavegarAsync(rota); await Task.Delay(600);
-                await Digitar("Zuleica", enter:true);
+                var buscaAoDigitar = new[] { "documentos", "marcar-horario", "prontuario" }.Contains(rota);
+                await Digitar(buscaAoDigitar ? "Zule" : "Zuleica", enter: !buscaAoDigitar);
+                if (buscaAoDigitar) Exigir(await browser.CoreWebView2.ExecuteScriptAsync("document.activeElement?.dataset.campo===\"Seletor.Termo\"") == "true", "Busca exigiu sair do campo " + rota);
                 if(rota=="documentos")
                 {
                     await Esperar(browser,"document.querySelector('[data-tabela-container=\"Seletor.Resultados\"]')?.textContent.includes('Zuleica')===true", "nome visível em resultados Documentos");
-                    await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-comando=\"EscolherPaciente\"]').click()");
+                    await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"EscolherPaciente\"]')");
                     await Esperar(browser,"document.body.innerText.includes('Zuleica Sintética Busca')", "paciente do documento escolhido");
                 }
                 else await Selecionar("Zuleica");
                 using(var imagem=File.Create(Path.Combine(pasta,rota+"-selecao.png"))) await view.CapturarPreviewAsync(imagem);
-                Console.WriteLine("OK UI real: digitação + Enter + seleção " + rota);
+                Console.WriteLine("OK UI real: " + (buscaAoDigitar ? "nome parcial durante digitação, sem Enter/blur, identidade e seleção " : "digitação + Enter + seleção ") + rota);
             }
             await view.NavegarAsync("documentos"); await Task.Delay(500);
-            await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-comando=\"TrocarPaciente\"]')?.click()"); await Task.Delay(300);
+            await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"TrocarPaciente\"]')", opcional: true); await Task.Delay(300);
             await Digitar("529.982.247-25"); await Selecionar("Zuleica");
             Console.WriteLine("OK UI real: CPF formatado encontra alvo fora das primeiras 50 fichas.");
-            await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-comando=\"TrocarPaciente\"]')?.click()"); await Task.Delay(300);
+            await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"TrocarPaciente\"]')", opcional: true); await Task.Delay(300);
             await browser.CoreWebView2.ExecuteScriptAsync("(()=>{const e=document.querySelector('input[data-campo=\"Seletor.Termo\"]');e.value='Zuleica';e.dispatchEvent(new Event('input',{bubbles:true}));})()");
             await Task.Delay(650);
             await browser.CoreWebView2.ExecuteScriptAsync("(()=>{const e=document.querySelector('input[data-campo=\"Seletor.Termo\"]');e.value='Zoraide';e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()");
@@ -130,21 +132,21 @@ static class BuscasPacientesQa
             var foco=sp.GetRequiredService<PacienteEmFoco>();
             foco.Definir(foco.PacienteId!.Value,foco.Nome,agendamentoId:999,atendimentoId:888,dataDoHorario:DateOnly.FromDateTime(DateTime.Today.AddDays(-1)));
             await view.NavegarAsync(ModuloClinico.ChaveProntuarios); await Task.Delay(500);
-            await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-comando=\"NovoProntuario\"]').click()");
+            await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"NovoProntuario\"]')");
             await Esperar(browser,"!!document.querySelector('.dialogo-web input[data-campo=\"Seletor.Termo\"]')", "Novo prontuário pergunta quem será atendido");
             await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('.dialogo-web [data-fechar-dialogo]').click()");
             await Esperar(browser,"!document.querySelector('.dialogo-web')", "escolha de prontuário cancelada");
             Exigir(foco.Nome=="Zoraide Outra Sintética"&&foco.AgendamentoId==999&&foco.AtendimentoId==888,"Cancelar novo prontuário alterou foco ou vínculo anterior");
-            await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-comando=\"NovoProntuario\"]').click()");
+            await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"NovoProntuario\"]')");
             await Esperar(browser,"!!document.querySelector('.dialogo-web input[data-campo=\"Seletor.Termo\"]')", "nova escolha de prontuário");
             await Digitar("Zuleica",enter:true); await Selecionar("Zuleica");
-            await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('.dialogo-web [data-comando=\"Confirmar\"]').click()");
+            await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('.dialogo-web [data-comando=\"Confirmar\"]')");
             await Esperar(browser,"!document.querySelector('.dialogo-web')&&document.body.innerText.includes('Zuleica Sintética Busca')&&!!document.querySelector('[data-comando=\"IniciarSessao\"]')", "atendimento do novo prontuário");
             Exigir(foco.Nome=="Zuleica Sintética Busca"&&foco.AgendamentoId is null&&foco.AtendimentoId is null&&foco.DataDoHorario is null,"Novo prontuário reutilizou paciente ou sessão anterior");
             using(var imagem=File.Create(Path.Combine(pasta,"novo-prontuario-outro-paciente.png"))) await view.CapturarPreviewAsync(imagem);
             Console.WriteLine("OK UI real: Novo prontuário cancela mantendo foco e vínculos; confirmar outro paciente troca contexto e remove vínculos anteriores.");
             await view.NavegarAsync("agenda-recepcao"); await Task.Delay(700);
-            await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-comando=\"NovoHorario\"]').click()");
+            await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"NovoHorario\"]')");
             await Esperar(browser,"!!document.querySelector('input[data-campo=\"Seletor.Termo\"]') && document.body.innerText.includes('Marcar horário')", "formulário de agendamento");
             async Task Campo(string chave, string valor, bool dialogo=false)
             {
@@ -156,13 +158,13 @@ static class BuscasPacientesQa
             await Selecionar("Zuleica");
             await Campo("Data", DateTime.Today.AddDays(2).ToString("yyyy-MM-dd")); await Campo("Hora", "10:00"); await Campo("Duracao", "30");
             await browser.CoreWebView2.ExecuteScriptAsync("(()=>{const e=document.querySelector('select[data-campo=\"Profissional\"]');e.value=[...e.options].find(o=>o.textContent.includes('sintético')).value;e.dispatchEvent(new Event('change',{bubbles:true}));})()"); await Task.Delay(300);
-            await browser.CoreWebView2.ExecuteScriptAsync("(()=>{const linhas=[...document.querySelectorAll('[data-tabela-container=\"Cartoes\"] [data-linha-id]')];const linha=linhas.find(e=>e.textContent.includes('Acupuntura (apenas)'));if(!linha)throw Error('Modalidade ausente');linha.querySelector('[data-comando=\"EscolherModalidade\"]').click();})()"); await Task.Delay(500);
-            await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-comando=\"Lancar\"]').click()");
+            await AcoesVisiveisQa.ClicarExpressao(browser, "(()=>{const linhas=[...document.querySelectorAll('[data-tabela-container=\"Cartoes\"] [data-linha-id]')];const linha=linhas.find(e=>e.textContent.includes('Acupuntura (apenas)'));if(!linha)throw Error('Modalidade ausente');return linha.querySelector('[data-comando=\"EscolherModalidade\"]');})()"); await Task.Delay(500);
+            await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"Lancar\"]')");
             await Esperar(browser,"document.body.innerText.includes('Horário marcado')", "agendamento salvo");
             await Esperar(browser,"!!document.querySelector('.dialogo-web [data-comando=\"fechar\"]')", "pergunta de impressão do comprovante");
             Exigir(await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('.dialogo-web').innerText.includes('Imprimir o comprovante de agendamento para Zuleica')") == "true","Confirmação de impressão omitiu paciente, pergunta e data");
             using(var imagem=File.Create(Path.Combine(pasta,"comprovante-pergunta.png"))) await view.CapturarPreviewAsync(imagem);
-            await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('.dialogo-web [data-comando=\"fechar\"]').click()");
+            await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('.dialogo-web [data-comando=\"fechar\"]')");
             await Esperar(browser,"!document.querySelector('.dialogo-web')", "comprovante dispensado");
             using(var scope=sp.CreateScope()) Exigir(await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Agendamentos.CountAsync()==1, "UI não persistiu agendamento");
             var popup=view.ExecutarComDialogosAsync(async()=>{await view.Dialogos.AbrirAsync("RecepcaoAgendamento",new AgendamentoEdicaoViewModel(sp.GetRequiredService<IServiceScopeFactory>()));});
@@ -227,20 +229,20 @@ static class BuscasPacientesQa
                 Console.WriteLine($"OK WebView2 denso: {rota}, {esperado} cartões legíveis e ações, {largura}px.");
                 if(rota=="fila")
                 {
-                    const string linhas="[data-tabela-container=\"Profissionais\"] tbody [data-linha-id]";
+                    const string linhas="[data-tabela-container=\"Profissionais\"] .profissional-filtro[data-linha-id]";
                     await Esperar(browser,$"document.querySelectorAll('{linhas}').length===3", "Todos mais dois profissionais identificados");
-                    var dados=await browser.CoreWebView2.ExecuteScriptAsync($"[...document.querySelectorAll('{linhas}')].map(l=>[...l.querySelectorAll('td')].slice(0,3).map(c=>c.textContent.trim()))");
+                    var dados=await browser.CoreWebView2.ExecuteScriptAsync($"[...document.querySelectorAll('{linhas}')].map(l=>['Nome','Quantidade','Ativo'].map(c=>l.querySelector('[data-coluna='+c+']').textContent.trim()))");
                     Console.WriteLine("Profissionais DOM "+dados);
                     Exigir(dados.Contains("Todos")&&dados.Contains("Profissional sintético de busca")&&dados.Contains("Profissional sintético segundo"),"Nomes de profissionais ocultos");
-                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const linhas=[...document.querySelectorAll('{linhas}')];return linhas[0].children[1].textContent.trim()==='34'&&linhas[1].children[1].textContent.trim()==='17'&&linhas[2].children[1].textContent.trim()==='17'&&linhas[0].children[2].textContent.trim()==='Sim'&&linhas.slice(1).every(l=>l.children[2].textContent.trim()==='Não')}})()") == "true","Contagens ou filtro ativo incorretos antes de filtrar");
-                    await browser.CoreWebView2.ExecuteScriptAsync($"[...document.querySelectorAll('{linhas}')].find(l=>l.children[0].textContent.includes('sintético segundo')).querySelector('[data-comando=\"Filtrar\"]').click()");
+                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const linhas=[...document.querySelectorAll('{linhas}')];return parseInt(linhas[0].querySelector('[data-coluna=Quantidade]').textContent)===34&&parseInt(linhas[1].querySelector('[data-coluna=Quantidade]').textContent)===17&&parseInt(linhas[2].querySelector('[data-coluna=Quantidade]').textContent)===17&&linhas[0].querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='true'&&linhas.slice(1).every(l=>l.querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='false')}})()") == "true","Contagens ou filtro ativo incorretos antes de filtrar");
+                    await AcoesVisiveisQa.ClicarExpressao(browser, $"[...document.querySelectorAll('{linhas}')].find(l=>l.querySelector('[data-coluna=Nome]').textContent.includes('sintético segundo')).querySelector('[data-comando=\"Filtrar\"]')");
                     await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===17", "filtro do segundo profissional");
-                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const linhas=[...document.querySelectorAll('{linhas}')];return linhas.find(l=>l.children[0].textContent.includes('sintético segundo')).children[2].textContent.trim()==='Sim'&&linhas.filter(l=>!l.children[0].textContent.includes('sintético segundo')).every(l=>l.children[2].textContent.trim()==='Não')}})()") == "true","Filtro ativo não acompanha profissional escolhido");
+                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const linhas=[...document.querySelectorAll('{linhas}')];return linhas.find(l=>l.querySelector('[data-coluna=Nome]').textContent.includes('sintético segundo')).querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='true'&&linhas.filter(l=>!l.querySelector('[data-coluna=Nome]').textContent.includes('sintético segundo')).every(l=>l.querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='false')}})()") == "true","Filtro ativo não acompanha profissional escolhido");
                     await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-tabela-container=\"Profissionais\"]').scrollIntoView({block:'center'})");await Task.Delay(200);
                     using(var filtrado=File.Create(Path.Combine(pasta,"fila-profissionais-filtrada-"+largura+".png")))await view.CapturarPreviewAsync(filtrado);
-                    await browser.CoreWebView2.ExecuteScriptAsync($"[...document.querySelectorAll('{linhas}')].find(l=>l.children[0].textContent.trim()==='Todos').querySelector('[data-comando=\"Filtrar\"]').click()");
+                    await AcoesVisiveisQa.ClicarExpressao(browser, $"[...document.querySelectorAll('{linhas}')].find(l=>l.querySelector('[data-coluna=Nome]').textContent.trim()==='Todos').querySelector('[data-comando=\"Filtrar\"]')");
                     await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===34", "Todos restaura os 34 horários");
-                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"[...document.querySelectorAll('{linhas}')].find(l=>l.children[0].textContent.trim()==='Todos').children[2].textContent.trim()==='Sim'") == "true","Retorno a Todos não ativou estado");
+                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"[...document.querySelectorAll('{linhas}')].find(l=>l.querySelector('[data-coluna=Nome]').textContent.trim()==='Todos').querySelector('[data-comando=Filtrar]').getAttribute('aria-pressed')==='true'") == "true","Retorno a Todos não ativou estado");
                     await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-tabela-container=\"Profissionais\"]').scrollIntoView({block:'center'})");await Task.Delay(200);
                     using(var todos=File.Create(Path.Combine(pasta,"fila-profissionais-todos-"+largura+".png")))await view.CapturarPreviewAsync(todos);
                     Console.WriteLine($"OK profissionais UI: Todos 34, nomes 17+17, filtro segundo 17 e Todos restaura 34; estado ativo acompanha clique, {largura}px.");

@@ -1,61 +1,70 @@
-/* Superfícies e ações da suíte inteira: a cor identifica hierarquia, sem substituir os rótulos. */
-:root{--marca:#2453bd;--marca-hover:#174095;--texto:#18304f;--suave:#516581;--linha:#cbd8e9;--fundo:#eaf0f7;--verde:#237a55;--vermelho:#ae3443;background:var(--fundo);color:var(--texto)}
-body{background:var(--fundo)}
-#app .conteudo{background:var(--fundo);padding-top:26px}
-#app .topbar{border-bottom:1px solid #bfcee2;box-shadow:0 2px 9px #18304f12}
-#app .cabecalho-pagina{padding:20px 22px;border:1px solid #bfcfe5;border-left:5px solid var(--marca);border-radius:13px;background:#f8faff;box-shadow:0 3px 10px #1b315410;margin-bottom:22px}
-#app .cabecalho-pagina h1{font-weight:600;color:#18304f}
-#app .cabecalho-pagina p{color:#506787;font-size:13px}
-#app .secao-web,#app .cartao-resultado,#app .cartao-serie,#app .indicador-web,#app .grafico-web{border-color:#c5d3e6;box-shadow:0 3px 10px #18304f0c;background:#fff}
-#app .secao-web{padding:0 22px 22px;overflow:visible}
-#app .cabecalho-secao{background:#eef4fc;border-bottom:1px solid #c9d8eb;margin:0 -22px 22px;padding:16px 22px;border-radius:15px 15px 0 0;align-items:center}
-#app .cabecalho-secao h2{font-weight:600;color:#234971}
-#app .campos-web{padding:18px;border:1px solid #c8d6e8;border-radius:12px;background:#f5f8fd;gap:17px 20px;grid-template-columns:repeat(auto-fit,minmax(min(245px,100%),1fr))}
-#app .campo-web>label{color:#3f587a;font-weight:600;font-size:12px}
-#app .campo-web input,#app .campo-web select,#app .campo-web textarea{border-color:#b8cbe3;box-shadow:0 1px 3px #24416408;color:#18304f;background:#fff}
-#app .campo-web input:hover:not(:disabled),#app .campo-web select:hover:not(:disabled),#app .campo-web textarea:hover:not(:disabled){border-color:#7397c8}
-#app .campo-web output{padding:9px 12px;min-height:40px;background:#eaf0f8;border:1px solid #d2dfef;border-radius:8px;color:#24405f}
-#app .campo-leitura{gap:5px}
-#app .campo-web :disabled{background:#edf1f6;color:#60718a;box-shadow:none}
-#app .botao{background:#e7effb;border:1px solid #aac1e3;color:#234e8b;min-height:37px;height:auto;padding:9px 13px;font-weight:600;box-shadow:0 1px 2px #1b365415}
-#app .botao:hover:not(:disabled){background:#d6e5fa;border-color:#719bd2;box-shadow:0 2px 5px #23497120}
-#app .botao.primario{background:var(--marca);border-color:var(--marca);color:#fff;box-shadow:0 2px 5px #214dac24}
-#app .botao.primario:hover:not(:disabled){background:var(--marca-hover)}
-#app .botao.perigo{background:#fdebef;border-color:#e6a9b4;color:#9e2b3d}
-#app .botao.perigo:hover:not(:disabled){background:#fad8df;border-color:#c76b7c}
-#app button:disabled{opacity:.65;box-shadow:none;filter:saturate(.35)}
-#app .botao:disabled{background:#e7ecf3;border-color:#c9d2df;color:#6b7890}
-#app .nav-gatilho.ativo,#app .rota.ativo{background:#dce8ff;color:#1849b2;font-weight:600}
-#app .ancoras-secoes{flex-wrap:wrap;overflow:visible;padding-bottom:4px}
-#app .ancoras-secoes button,#app .clinico-menu>summary{background:#e6eefb;color:#284f83;border-color:#afc5e2;font-weight:600}
-#app .clinico-abas{background:#e4edf9;padding:8px;border:1px solid #bfcfe4;border-radius:10px;gap:5px;flex-wrap:wrap}
-#app .botao.clinico-aba{background:transparent;border-color:transparent;box-shadow:none}
-#app .botao.clinico-aba-ativa{background:#2453bd;color:white;border-radius:7px;border-color:#2453bd}
-#app .clinico-barra{padding-top:12px;border-top:0}
-#app .tabela-scroll{border-color:#c1d2e8;background:#fff}
-#app th{background:#e8f0fb;color:#355579;font-weight:600;border-bottom:1px solid #b9cfe8}
-#app td{border-bottom-color:#dbe5f1;padding:12px 14px}
-#app tbody tr:nth-child(even){background:#f4f7fc}
-#app tbody tr:hover{background:#e8f1fd}
-#app .linha-selecionada{background:#e2edff!important;box-shadow:inset 4px 0 #2453bd}
-#app .titulo-tabela{color:#355579;padding-bottom:8px;border-bottom:1px solid #d0dced}
-#app .titulo-tabela h3{font-weight:600}
-#app .etiqueta-web{background:#e5eefc;border:1px solid #c3d5ef;color:#315989;font-weight:500}
-#app .dialogo-cabecalho{background:#eaf2fe;border-bottom-color:#bdcee6;color:#23476e}
-#app .dialogo-corpo{background:#edf2f9}
-#app .dialogo-rodape{background:#edf4ff;border-top-color:#bacde7}
-#app .editor-web{border-color:#b9cee9;box-shadow:0 2px 6px #2441640d}
-#app .editor-web>label,#app .editor-ferramentas{background:#e8f0fb;padding-bottom:12px;border-bottom-color:#c4d6ed}
-#app .editor-conteudo{background:#fff}
-#app .mensagem-web{background:#e8f1ff;border-color:#abc5e8;color:#2c527b}
-#app .erro{background:#ffeded;color:#9a3040;border:1px solid #e8afb7}
-#app .indicador-web{border-top:4px solid #618ac7;gap:8px}
-#app .aviso-lista{background:#fff3d6;color:#765114;border:1px solid #e1c78b}
-#app .controle-tabela button,#app .atalhos-rolagem{background:#e8f0fd;border-color:#b7cce9;color:#315785}
-#app .painel-avisos{border-color:#b3c9e7;background:#f4f8ff}
-#app .painel-avisos header{padding-bottom:12px;border-bottom:1px solid #c2d4ed}
-@media(max-width:1100px){#app .cabecalho-pagina{flex-wrap:wrap}#app .cabecalho-pagina>.acoes-web{max-width:100%}#app .secao-web{padding:0 18px 18px}#app .cabecalho-secao{margin:0 -18px 18px;padding:14px 18px}#app .campos-web{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}}
-@media(max-width:700px){#app .conteudo{padding-left:12px;padding-right:12px}#app .cabecalho-pagina{padding:16px}#app .secao-web{padding:0 14px 14px}#app .cabecalho-secao{margin:0 -14px 14px;padding:14px}#app .campos-web{padding:14px}}
-#app .cabecalho-pagina:has(.clinico-acoes){display:block}#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled),#app .clinico-fluxo [data-comando="IniciarSessao"]:not(:disabled){background:var(--marca);border-color:var(--marca);color:#fff}#app .clinico-fluxo [data-comando="ReabrirSessao"]:not(:disabled){background:#fff0d0;border-color:#d7ba7d;color:#795412}#app .clinico-menu-conteudo{border-color:#abc5e7;background:#f5f9ff}#app .clinico-menu-conteudo .botao{border:1px solid #c4d6ee;background:#eaf1fc}
+/* Identidade da suíte: contraste funcional, densidade de trabalho e hierarquia consistente. */
+:root{--marca:#315bd4;--marca-hover:#2448b2;--texto:#263750;--suave:#60718a;--linha:#d6e0ec;--fundo:#e8eef5;--verde:#28735b;--vermelho:#b54748;color:var(--texto);background:var(--fundo)}
+body,#app .conteudo{background:var(--fundo)}
+#app .conteudo{padding-top:22px}
+#app .topbar{background:#fff;border-bottom:1px solid var(--linha);box-shadow:none}
+#app .cabecalho-pagina{padding:0 0 16px;margin-bottom:18px;border:0;border-bottom:1px solid var(--linha);border-radius:0;background:transparent;box-shadow:none;gap:20px}
+#app .cabecalho-pagina h1{font-size:25px;font-weight:600;color:var(--texto);letter-spacing:-.6px}
+#app .cabecalho-pagina p{font-size:13px;color:var(--suave)}
+#app .secao-web,#app .grafico-web,#app .cartao-resultado,#app .cartao-serie{background:#fff;border:1px solid var(--linha);box-shadow:none;border-radius:12px}
+#app .secao-web{padding:20px 22px;overflow:visible}
+#app .cabecalho-secao{background:transparent;border:0;border-radius:0;margin:0 0 20px;padding:0;align-items:center}
+#app .cabecalho-secao h2{font-size:17px;font-weight:600;color:var(--texto)}
+#app .campos-web{padding:0;border:0;border-radius:0;background:transparent;gap:16px 24px;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
+#app .pagina-web>.campos-web{padding:20px 24px;border:1px solid #d9e1ed;border-radius:12px;background:#eaf0f8}
+#app .campo-web>label{font-size:12px;font-weight:500;color:var(--suave)}
+#app .campo-web input,#app .campo-web select,#app .campo-web textarea{border-color:#bac9dd;background:#fff;color:var(--texto);box-shadow:none;border-radius:7px}
+#app .campo-web input:hover:not(:disabled),#app .campo-web select:hover:not(:disabled),#app .campo-web textarea:hover:not(:disabled){border-color:#a7afbe}
+#app .campo-web output{background:transparent;border:0;border-radius:0;padding:4px 0;min-height:25px;color:var(--texto);font-size:14px}
+#app .campo-web :disabled{background:#f4f5f7;color:#828894;box-shadow:none}
+#app .botao{background:#e1ebfc;border:1px solid #b8cceb;color:#2d4e82;min-height:35px;height:auto;padding:8px 12px;font-weight:500;border-radius:7px;box-shadow:none}
+#app .botao:hover:not(:disabled){background:#dfe8ff;border-color:#9eafd6;box-shadow:none}
+#app .botao.primario{background:var(--marca);border-color:var(--marca);color:#fff;box-shadow:none}
+#app .botao.primario:hover:not(:disabled){background:var(--marca-hover);border-color:var(--marca-hover)}
+#app .botao.perigo{background:#fff;border-color:#ead3d3;color:#ad3c3c}
+#app .botao.perigo:hover:not(:disabled){background:#fff4f3;border-color:#dcb9b7}
+#app .botao:disabled{background:#f4f5f7;border-color:#e6e8ed;color:#9298a3;opacity:.7;box-shadow:none}
+#app .nav-gatilho.ativo,#app .rota.ativo{background:#315bd4;color:#fff;font-weight:500}
+#app .ancoras-secoes{flex-wrap:wrap;overflow:visible;gap:6px;padding:0 0 14px;border-bottom:1px solid var(--linha)}
+#app .ancoras-secoes button{background:transparent;border-color:transparent;color:#596273;padding:7px 10px;border-radius:5px;font-weight:400}
+#app .ancoras-secoes button:hover{background:#eceef3;color:var(--texto)}
+#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled){background:var(--marca);border-color:var(--marca);color:#fff}
+#app .tabela-scroll{border-color:var(--linha);border-radius:8px;background:#fff}
+#app th{background:#e7eef8;color:#3e5577;font-weight:600;border-bottom:1px solid var(--linha)}
+#app td{border-bottom-color:#edf0f3;padding:12px 14px;color:var(--texto)}
+#app tbody tr:nth-child(even){background:#fcfcfd}
+#app tbody tr:hover{background:#f5f6f9}
+#app .linha-selecionada{background:#f0f3fd!important;box-shadow:none}
+#app .titulo-tabela{color:var(--suave);border:0;padding:0;margin-bottom:12px}
+#app .etiqueta-web{background:#f1f3f6;border:0;color:#596273;font-weight:400}
+#app .dialogo-cabecalho{background:#203d60;border-color:#203d60;color:#fff;padding:18px 24px}
+#app .dialogo-cabecalho h2,#app .dialogo-cabecalho .icone-botao{color:#fff}
+#app .dialogo-cabecalho .icone-botao:hover{background:#ffffff20}
+#app .dialogo-rodape{background:#edf2f9;border-color:#d5dfec;color:var(--texto)}
+#app .dialogo-corpo{background:#f6f8fb}
+#app .dialogo-descricao{white-space:pre-line;margin:0 0 22px;padding:0 0 16px;background:transparent;border:0;border-bottom:1px solid var(--linha);border-radius:0;color:var(--suave);line-height:1.6}
+#app .editor-web{border-color:#dfe3e9;box-shadow:none;border-radius:8px}
+#app .editor-web>label,#app .editor-ferramentas{background:#f8f9fb;border-color:var(--linha);color:#475467}
+#app .editor-conteudo{background:#fff;min-height:160px}
+#app .editor-conteudo[contenteditable="false"]{min-height:60px}
+#app .indicadores-web{display:flex;flex-wrap:wrap;gap:0;background:#fdfefe;border:1px solid #d3deec;border-radius:10px;overflow:hidden;margin-bottom:22px}
+#app .indicador-web{flex:1 1 145px;background:transparent;border:0;border-right:1px solid #e0e7f0;border-radius:0;box-shadow:none;padding:17px 20px;gap:7px}
+#app .indicador-web:last-child{border-right:0}
+#app .indicador-web>strong{font-weight:600;color:#264c78;font-size:25px}
+#app .mensagem-web{background:#f5f7fc;border-color:#e0e5f0;color:#54627b}
+#app .erro{background:#fff5f4;color:#a64038;border:1px solid #ecd6d3}
+#app .controle-tabela button,#app .atalhos-rolagem{background:#fff;border-color:var(--linha);color:var(--suave);box-shadow:none}
+#app .painel-avisos{background:#fff;border-color:var(--linha)}
+@media(max-width:1100px){#app .cabecalho-pagina{flex-wrap:wrap}#app .cabecalho-pagina>.acoes-web{max-width:100%}#app .secao-web{padding:20px}#app .campos-web{grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr))}}
+@media(max-width:700px){#app .conteudo{padding-left:12px;padding-right:12px}#app .secao-web,#app .pagina-web>.campos-web{padding:16px}}
 
-#app .dialogo-descricao{white-space:pre-line;margin:0 0 18px;padding:16px 18px;background:#e3edfc;border:1px solid #aec6e7;border-left:4px solid var(--marca);border-radius:9px;color:#23476e;line-height:1.6}
+/* Contexto do paciente e filtros têm superfície própria; o corpo clínico permanece legível. */
+#app .cabecalho-secao{padding:0 0 14px;background:transparent;border-radius:0;border-bottom:1px solid #dfe7f0;margin-bottom:18px}
+#app .secao-web .titulo-tabela h3{color:#52627b}
+#app .dados-paciente-resumo{background:#eaf0fc;border-color:#cdd9ee}
+#app .passo-formulario>header{background:#f0f3f9;border-bottom-color:#dce2ed}
+#app .ancoras-secoes button{background:#f8faff;border:1px solid #d5deee;color:#49628d}
+#app .ancoras-secoes button:hover{background:#e3ebfc;border-color:#b7c9e8;color:#2f4f95}
+#app .agenda-lista-dia>header{background:#e7edf8;color:#405778}
+#app .agenda-sessao>time{background:#eaf0ff;color:#34549c}
+#app .botao.clinico-aba:not(.clinico-aba-ativa):hover{background:#e9eef8;color:#34549c}

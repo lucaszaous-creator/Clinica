@@ -106,7 +106,7 @@ static class Fluxos
    if(defs.Any(d=>d.Chave==ModuloClinico.ChaveAtendimento)) {
     window.Width=1044;window.Height=788;await view.NavegarAsync(ModuloClinico.ChaveAtendimento);await Task.Delay(350);
     async Task EsperarJs(string expressao){for(var i=0;i<60;i++){if(await browser.CoreWebView2.ExecuteScriptAsync(expressao)=="true")return;await Task.Delay(80);}throw new Exception("Estado web não atingido: "+expressao);}
-    await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-comando=\"Atendimento.AbrirMapa\"]').click()");
+    await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"Atendimento.AbrirMapa\"]')");
     await EsperarJs("!!document.querySelector('[data-mapa=\"Costas\"]')");
     Exigir(await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-mapa]').getAttribute('viewBox')")=="\"0 0 220 460\"","Mapa diverge da geometria do PDF");
     await browser.CoreWebView2.ExecuteScriptAsync("(()=>{const s=document.querySelector('[data-mapa=\"Costas\"]');const p=s.createSVGPoint();p.x=50.6;p.y=188.6;const q=p.matrixTransform(s.getScreenCTM());const evento=new MouseEvent('click',{bubbles:true,clientX:q.x,clientY:q.y});const recebido=s.createSVGPoint();recebido.x=evento.clientX;recebido.y=evento.clientY;const esperado=recebido.matrixTransform(s.getScreenCTM().inverse());window.__qaMapa=[esperado.x,esperado.y];s.dispatchEvent(evento);})()");

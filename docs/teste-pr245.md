@@ -5,10 +5,10 @@ Esta edição portátil contém Recepção, Clínico, Financeiro, Faturamento e 
 No Explorer, use **Extrair tudo** antes de abrir. Executar diretamente dentro do ZIP pode
 deixar os recursos locais inacessíveis e causar o erro de caminho `0x80070003`.
 
-Esta revisão inclui contraste e separação de seções em todos os módulos, cores nos botões,
+A revisão visual 1.0.245-test.20261008.2 inclui fundo neutro, separação discreta de seções, cores nos botões e estados,
 agenda por dia com cartões legíveis, formulário de marcação organizado por etapas e
 resultados identificáveis nas buscas. Ao homologar, confira também nomes completos,
-seleção de outro prontuário, valores decimais e todos os detalhes/ações dos cartões.
+seleção de outro prontuário, valores decimais e todos os detalhes das listas e comandos do menu Mais ações.
 
 ## Banco de teste
 

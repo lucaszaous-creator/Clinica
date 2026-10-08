@@ -5,4 +5,4 @@
     <ProjectReference Include="../../src/Clinica.Modulo.Financeiro/Clinica.Modulo.Financeiro.csproj" />
     <ProjectReference Include="../../src/Clinica.Infrastructure/Clinica.Infrastructure.csproj" />
   </ItemGroup>
-</Project>
+<ItemGroup><Compile Include="../../tools/qa-web/AcoesVisiveisQa.cs" Link="AcoesVisiveisQa.cs" /></ItemGroup></Project>

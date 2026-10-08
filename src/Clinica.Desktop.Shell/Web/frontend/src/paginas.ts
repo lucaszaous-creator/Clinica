@@ -1,7 +1,10 @@
+import {apresentacaoClinica} from './clinico-apresentacao';
+import {celulaApresentada} from './status-celula';
+import {acoesCompactas} from './acoes-menu';
 import {acoesClinicas} from './acoes-clinicas';
 import {controleEspecial} from './controles';
 import {agenda} from './agenda';
-import {camposDaPagina, listaResponsiva, tabelasDaAgenda} from './layouts';
+import {camposDaPagina, listaResponsiva, tituloDaTabela, tabelasDaAgenda} from './layouts';
 export type Opcao = { valor: string; rotulo: string };
 export type Campo = { chave: string; rotulo: string; tipo: string; valor: unknown; opcoes: Opcao[]; visivel: boolean; habilitado: boolean; obrigatorio: boolean; ajuda?: string; maximo?:number };
 export type Acao = { chave: string; rotulo: string; habilitada: boolean; estilo: string; visivel: boolean };
@@ -11,7 +14,7 @@ export type Tabela = { chave: string; titulo: string; colunas: { chave: string; 
 export type Grafico = { chave: string; rotulo: string; tipo: 'linha' | 'barra'; unidade: string; pontos: { rotulo: string; valor: number | null; valorFormatado: string }[] };
 export type Secao = { chave: string; titulo: string; descricao?: string; campos: Campo[]; indicadores: Indicador[]; tabelas: Tabela[]; acoes: Acao[]; graficos?: Grafico[] | null };
 export type Pagina = { chave: string; titulo: string; subtitulo?: string; campos: Campo[]; indicadores: Indicador[]; secoes: Secao[]; acoes: Acao[]; carregando: boolean; naoVerificado: boolean; mensagem?: string; mensagemEhErro: boolean; truncado: boolean };
-export type Contexto = { escopo: 'pagina' | 'dialogo'; id: string; tabela?: string; linha?: string; ocupado?: boolean; privado?: boolean };
+export type Contexto = { escopo: 'pagina' | 'dialogo'; id: string; tabela?: string; linha?: string; ocupado?: boolean; privado?: boolean; tituloSecao?:string };
 
 const h = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const atributos = (c: Contexto) => `data-escopo="${c.escopo}" data-contexto="${h(c.id)}"${c.tabela ? ` data-tabela="${h(c.tabela)}"` : ''}${c.linha ? ` data-linha="${h(c.linha)}"` : ''}`;
@@ -24,7 +27,7 @@ export function limparRascunhos(escopo?: Contexto['escopo']) {
 }
 
 export function acoes(itens: Acao[], contexto: Contexto, classe = '') {
-  return itens.filter(a => a.visivel !== false).map(a => `<button type="button" class="botao ${['primario', 'perigo', 'secundario'].includes(a.estilo) ? a.estilo : 'secundario'} ${classe}" data-comando="${h(a.chave)}" ${atributos(contexto)} ${a.habilitada === false || contexto.ocupado ? 'disabled' : ''}>${h(a.rotulo)}</button>`).join('');
+  return acoesCompactas(itens, contexto, classe);
 }
 
 export function campo(f: Campo, c: Contexto): string {
@@ -73,12 +76,13 @@ export function tabela(t: Tabela, c: Contexto) {
   const possuiCampos = t.linhas.some(l => l.campos.some(f => f.visivel !== false));
   const possuiAcoes = t.linhas.some(l => l.acoes.some(a => a.visivel !== false));
   const colunas = t.colunas.length + Number(possuiCampos) + Number(possuiAcoes);
-  return `<div class="tabela-web" data-tabela-container="${h(t.chave)}"><div class="titulo-tabela"><h3>${h(t.titulo)}</h3><span>${t.linhas.length} ${t.linhas.length === 1 ? 'registro' : 'registros'}</span></div>
+  return `<div class="tabela-web" data-tabela-container="${h(t.chave)}">${tituloDaTabela(t,c)}
     <div class="tabela-scroll" tabindex="0" aria-label="${h(t.titulo)}" data-rolavel><table data-testid="tabela-${h(t.chave)}"><thead><tr>${t.colunas.map(col => `<th class="${col.tipo === 'moeda' || col.tipo === 'numero' ? 'valor' : ''}" scope="col">${h(col.rotulo)}</th>`).join('')}${possuiCampos ? '<th scope="col">Preenchimento</th>' : ''}${possuiAcoes ? '<th scope="col">Ações</th>' : ''}</tr></thead><tbody>
-    ${t.linhas.length ? t.linhas.map(l => `<tr data-linha-id="${h(l.id)}" class="${l.selecionada ? 'linha-selecionada' : ''}">${t.colunas.map(col => `<td class="${col.tipo === 'moeda' || col.tipo === 'numero' ? 'valor' : ''}">${col.tipo === 'status' ? `<span class="etiqueta-web">${privado(l.celulas[col.chave] ?? '', c)}</span>` : privado(l.celulas[col.chave] ?? '', c)}</td>`).join('')}${possuiCampos ? `<td class="campos-na-linha">${campos(l.campos, { ...c, tabela: t.chave, linha: l.id })}</td>` : ''}${possuiAcoes ? `<td><div class="acoes-na-linha">${acoes(l.acoes, { ...c, tabela: t.chave, linha: l.id })}</div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${Math.max(colunas, 1)}" class="vazio"><strong>${h(t.vazio)}</strong><span>Os registros disponíveis aparecerão aqui.</span></td></tr>`}
+    ${t.linhas.length ? t.linhas.map(l => `<tr data-linha-id="${h(l.id)}" class="${l.selecionada ? 'linha-selecionada' : ''}">${t.colunas.map(col => `<td class="${col.tipo === 'moeda' || col.tipo === 'numero' ? 'valor' : ''}">${celulaApresentada(col.tipo,l.celulas[col.chave]??'',c.privado)}</td>`).join('')}${possuiCampos ? `<td class="campos-na-linha">${campos(l.campos, { ...c, tabela: t.chave, linha: l.id })}</td>` : ''}${possuiAcoes ? `<td><div class="acoes-na-linha">${acoes(l.acoes, { ...c, tabela: t.chave, linha: l.id })}</div></td>` : ''}</tr>`).join('') : `<tr><td colspan="${Math.max(colunas, 1)}" class="vazio"><strong>${h(t.vazio)}</strong><span>Os registros disponíveis aparecerão aqui.</span></td></tr>`}
     </tbody></table></div><div class="controle-tabela" hidden><button type="button" data-rolar-tabela="esquerda" aria-label="Rolar tabela para a esquerda">←</button><span>Mais colunas</span><button type="button" data-rolar-tabela="direita" aria-label="Rolar tabela para a direita">→</button></div></div>`;
 }
 export function secao(s: Secao, c: Contexto) {
+  c={...c,tituloSecao:s.titulo};
   return `<section class="secao-web" id="secao-${h(s.chave)}" data-secao="${h(s.chave)}"><div class="cabecalho-secao"><div><h2>${h(s.titulo)}</h2>${s.descricao ? `<p>${privado(s.descricao, c)}</p>` : ''}</div><div class="acoes-web">${acoes(s.acoes, c)}</div></div>${campos(s.campos, c)}${indicadores(s.indicadores, c)}${graficos(s.graficos ?? [], c)}${agenda(s,c)}${tabelasDaAgenda(s,c)??s.tabelas.map(t => tabela(t, c)).join('')}</section>`;
 }
 function graficos(itens: Grafico[], c: Contexto) {
@@ -100,11 +104,15 @@ function graficos(itens: Grafico[], c: Contexto) {
   }).join('')}</div>`;
 }
 export function pagina(p: Pagina, c: Contexto) {
+  // O contrato conserva a chave técnica; a recepção lê o nome da tarefa.
+  if(p.chave==='fila')p={...p,secoes:p.secoes.map(s=>s.chave==='Linhas'?{...s,titulo:'Atendimentos',tabelas:s.tabelas.map(t=>t.chave==='Linhas'?{...t,titulo:'Atendimentos'}:t)}:s)};
   const assinatura=p.chave==='AssinaturaPaciente';
+  const clinico=apresentacaoClinica(p,c);
   const secoes=p.chave==='marcar-horario'?p.secoes.filter(s=>s.chave!=='Cartoes'):p.secoes;
   const termo=assinatura?p.campos.slice(0,4):p.campos, evidencia=assinatura?p.campos.slice(4):[];
-  const miolo=assinatura?campos(termo,c)+secoes.map(s=>secao(s,c)).join('')+campos(evidencia,c):camposDaPagina(p,c);
-  return `<div class="pagina-web" data-pagina="${h(p.chave)}" aria-busy="${p.carregando}"><section class="cabecalho-pagina"><div><div class="sobretitulo">FINANCEIRO</div><h1>${h(p.titulo)}</h1>${p.subtitulo ? `<p>${h(p.subtitulo)}</p>` : ''}</div><div class="acoes-web">${acoesClinicas(p,c)??acoes(p.acoes, c)}</div></section>
+  const miolo=assinatura?campos(termo,c)+secoes.map(s=>secao(s,c)).join('')+campos(evidencia,c):camposDaPagina(clinico?{...p,campos:clinico.campos}:p,c);
+  const cabecalhoGenerico=`<section class="cabecalho-pagina"><div><div class="sobretitulo">FINANCEIRO</div><h1>${h(p.titulo)}</h1>${p.subtitulo ? `<p>${h(p.subtitulo)}</p>` : ''}</div><div class="acoes-web">${c.escopo==='dialogo'?'':acoesClinicas(p,c)??acoes(p.acoes, c)}</div></section>`;
+  return `<div class="pagina-web${clinico?' pagina-clinica':''}" data-pagina="${h(p.chave)}" aria-busy="${p.carregando}">${clinico?.cabecalho??cabecalhoGenerico}
     ${p.naoVerificado ? '<div class="erro" role="alert">Não foi possível verificar os dados. Use Atualizar para tentar novamente.</div>' : ''}
     ${p.mensagem ? `<div class="${p.mensagemEhErro ? 'erro' : 'mensagem-web'}" role="${p.mensagemEhErro ? 'alert' : 'status'}">${privado(p.mensagem, c)}</div>` : ''}
     ${p.carregando ? '<div class="carregando-web" role="status">Atualizando dados…</div>' : ''}

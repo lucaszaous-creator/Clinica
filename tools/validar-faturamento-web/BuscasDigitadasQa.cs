@@ -87,7 +87,7 @@ internal static class BuscasDigitadasQa
             {
                 var seletor = (dialogo ? ".dialogo-web " : ".conteudo ") + "button[data-comando=\"" + comando + "\"]" + (tabela is null ? "" : "[data-tabela=\"" + tabela + "\"]");
                 await Esperar($"!!document.querySelector({Js(seletor)})&&!document.querySelector({Js(seletor)}).disabled", "Ação não habilitou " + comando);
-                await browser.CoreWebView2.ExecuteScriptAsync($"document.querySelector({Js(seletor)}).click()"); await Task.Delay(700);
+                await AcoesVisiveisQa.Clicar(browser, seletor); await Task.Delay(700);
             }
             async Task Foto(string nome) { using var arquivo = File.Create(Path.Combine(pasta, nome + ".png")); await view.CapturarPreviewAsync(arquivo); }
             async Task Fechar() { await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-fechar-dialogo]').click()"); await Esperar("!document.querySelector('.dialogo-web')", "Cancelar não fechou"); }
@@ -97,7 +97,7 @@ internal static class BuscasDigitadasQa
             await Digitar("TermoPaciente", "52998224725"); await Clicar("Buscar");
             await Esperar("document.querySelector('[data-tabela-container=\"Resultados\"]')?.innerText.includes('Zuleica Sintética Busca')", "Busca de guias pelo CPF"); await Foto("01-guias-cpf");
             await Digitar("TermoPaciente", "Paciente inexistente"); await Clicar("Buscar");
-            await Esperar("document.querySelector('[data-tabela-container=\"Resultados\"] tbody')?.innerText.includes('Nenhum')", "Busca vazia de guias");
+            await Esperar("document.querySelector('[data-tabela-container=\"Resultados\"] .vazio')?.innerText.includes('Nenhum')", "Busca vazia de guias");
             await view.NavegarAsync("faturamento-pendencias"); await Task.Delay(700); await Clicar("Anotar", tabela: "Codigos");
             await Digitar("Texto", "Anotação digitada e gravada pela interface", true); await Clicar("confirmar", true);
             await Esperar("!document.querySelector('.dialogo-web')", "Anotação não fechou");
@@ -123,10 +123,10 @@ internal static class BuscasDigitadasQa
             await Clicar("salvar", true); await Esperar("!document.querySelector('.dialogo-web')", "Salvar usuário não fechou");
             using (var scope = sp.CreateScope()) Exigir(await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Set<UsuarioSistema>().AnyAsync(u => u.Login == "usuario.dom.qa" && u.Nome == "Usuário fictício criado no DOM"), "Usuário digitado não persistiu");
             await Foto("03-gerente-usuario");
-            await browser.CoreWebView2.ExecuteScriptAsync("[...document.querySelectorAll('[data-tabela-container=\"Usuarios\"] tbody tr')].find(r=>r.innerText.includes('usuario.dom.qa')).querySelector('[data-comando=\"Editar\"]').click()");
+            await AcoesVisiveisQa.ClicarExpressao(browser, "[...document.querySelectorAll('[data-tabela-container=\"Usuarios\"] tbody tr')].find(r=>r.innerText.includes('usuario.dom.qa')).querySelector('[data-comando=\"Editar\"]')");
             await Digitar("Nome", "Nome cancelado no DOM", true); await Fechar();
             using (var scope = sp.CreateScope()) Exigir(!await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Set<UsuarioSistema>().AnyAsync(u => u.Nome == "Nome cancelado no DOM"), "Cancelar edição gravou nome");
-            await browser.CoreWebView2.ExecuteScriptAsync("[...document.querySelectorAll('[data-tabela-container=\"Usuarios\"] tbody tr')].find(r=>r.innerText.includes('usuario.dom.qa')).querySelector('[data-comando=\"Editar\"]').click()");
+            await AcoesVisiveisQa.ClicarExpressao(browser, "[...document.querySelectorAll('[data-tabela-container=\"Usuarios\"] tbody tr')].find(r=>r.innerText.includes('usuario.dom.qa')).querySelector('[data-comando=\"Editar\"]')");
             await Digitar("Nome", "Nome editado no DOM", true); await Clicar("salvar", true); await Esperar("!document.querySelector('.dialogo-web')", "Editar usuário não fechou");
             using (var scope = sp.CreateScope()) Exigir(await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Set<UsuarioSistema>().AnyAsync(u => u.Login == "usuario.dom.qa" && u.Nome == "Nome editado no DOM"), "Editar usuário não persistiu");
             Console.WriteLine("OK Gerente DOM: validar, criar, abrir, cancelar e editar usuário persistido. Sem banco externo.");

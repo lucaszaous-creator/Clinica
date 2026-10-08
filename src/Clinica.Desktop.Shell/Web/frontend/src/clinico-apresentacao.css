@@ -1,0 +1,26 @@
+#app .clinico-cabecalho{margin:0 0 24px;min-width:0}
+#app .clinico-titulo{display:flex;align-items:baseline;gap:14px;margin:0 0 14px}
+#app .clinico-titulo h1{margin:0;color:#26384c;font-size:20px;font-weight:600;letter-spacing:-.35px;line-height:1.3}
+#app .clinico-subtitulo{margin:0;font-size:13px;color:#667085;line-height:1.45}
+#app .clinico-identidade{display:flex;align-items:center;gap:20px;background:#203d60;border-radius:10px 10px 0 0;padding:20px 24px;color:#fff;min-width:0}
+#app .clinico-identidade-texto{flex:1;min-width:0;display:grid;gap:5px}
+#app .clinico-identidade .campo-web{margin:0;gap:0;background:transparent;border:0;padding:0;box-shadow:none}
+#app .clinico-identidade .campo-web>label{display:none}
+#app .clinico-identidade .campo-web output{display:block;min-height:0;height:auto;padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;color:#dce6f2;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;font-size:13px}
+#app .clinico-identidade .clinico-nome output{font-size:24px;font-weight:600;letter-spacing:-.4px;line-height:1.25;color:#fff}
+#app .clinico-identidade .clinico-contexto{margin-top:4px;max-width:100%}
+#app .clinico-identidade .clinico-contexto output{font-size:12px;color:#c1d2e5;line-height:1.45}
+#app .clinico-identidade .ajuda-campo{color:#dce6f2;font-size:12px;line-height:1.5}
+#app .clinico-foto{flex:0 0 60px;align-self:flex-start}
+#app .clinico-foto .foto-previa{display:block;width:60px;height:60px;max-width:60px;object-fit:cover;border-radius:8px;border:1px solid #ffffff38}
+#app .clinico-cabecalho .clinico-acoes{background:#fff;border:1px solid #dce2e9;border-top:0;border-radius:0 0 10px 10px;overflow:visible}
+#app .clinico-cabecalho .clinico-barra{margin:0;padding:12px 20px;gap:10px;border-bottom:1px solid #edf0f3}
+#app .clinico-cabecalho .clinico-abas{padding:0 14px;gap:4px;flex-wrap:wrap;border:0;overflow:visible}
+#app .clinico-cabecalho .botao.clinico-aba{border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;box-shadow:none;white-space:nowrap;color:#65748b;min-height:44px;padding:11px 12px 10px;font-size:13px;font-weight:500}
+#app .clinico-cabecalho .botao.clinico-aba:hover{background:#f3f6fa;color:#203d60}
+#app .clinico-cabecalho .botao.clinico-aba-ativa{background:#eef3fa;color:#203d60;border-bottom-color:#315e9a;font-weight:600}
+#app .clinico-cabecalho .clinico-voltar .botao{background:transparent;border-color:transparent;box-shadow:none;padding-left:0;color:#52627a}
+#app .clinico-cabecalho .clinico-fluxo{margin-left:auto}
+#app .clinico-cabecalho .clinico-menus{border-left:1px solid #e3e8ef;padding-left:12px}
+@media(max-width:900px){#app .clinico-identidade{padding:18px;gap:14px}#app .clinico-identidade .clinico-nome output{font-size:21px}#app .clinico-cabecalho .clinico-barra{padding:10px 14px}#app .clinico-cabecalho .clinico-fluxo{width:auto;margin-left:auto}#app .clinico-cabecalho .clinico-abas{padding:0 6px}#app .clinico-cabecalho .botao.clinico-aba{padding-inline:9px;font-size:12px}}
+@media(max-width:600px){#app .clinico-cabecalho .clinico-fluxo{width:100%;margin-left:0}#app .clinico-identidade{align-items:flex-start}.clinico-titulo{flex-wrap:wrap}}
