@@ -12,7 +12,7 @@ using Clinica.Financeiro.Modulo;
 /// <summary>Teste de integração do conteúdo empacotado com WebView2 e banco sintético do harness.</summary>
 static class WebQa
 {
-    public static async Task Executar(IServiceProvider servicos, string saida)
+    public static async Task Executar(IServiceProvider servicos, string saida, bool apenasNavegacao = false)
     {
         var falhas = FinanceiroPaginasController.ValidarRegistro();
         if (falhas.Count > 0) throw new InvalidOperationException(string.Join("\n", falhas));
@@ -41,7 +41,15 @@ static class WebQa
                 throw new InvalidOperationException("WebView2 não confirmou: " + expressao);
             }
             const string seletorLinhas = "document.querySelectorAll('[data-testid=tabela-lancamentos] tr')";
+            var rotas = new ModuloFinanceiro().Itens.Where(i => i.Abas.Count == 0 && i.Chave != ModuloFinanceiro.ChaveAjuda).Select(i => i.Chave).Distinct().ToArray();
             await Esperar($"{seletorLinhas}.length > 3");
+            await Esperar("!!document.querySelector('.navegacao-topo') && !document.querySelector('.trilho-financeiro') && document.querySelector('.conteudo').getBoundingClientRect().left === 0");
+            await Ler("document.querySelector('[data-grupo=contas]').dispatchEvent(new PointerEvent('pointerover',{bubbles:true,pointerType:'mouse'}))");
+            await Esperar("document.querySelector('#nav-contas').getAttribute('aria-expanded') === 'true' && !document.querySelector('#submenu-contas').hidden");
+            await Ler("document.querySelector('#nav-contas').focus();document.querySelector('#nav-contas').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))");
+            await Esperar("document.activeElement.closest('#submenu-contas') !== null");
+            await Ler("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+            await Esperar("document.querySelector('#submenu-contas').hidden && document.activeElement.id === 'nav-contas'");
             await Esperar("![...document.querySelectorAll('td.valor')].some(c => /[+−-]\\s*[+−-]/.test(c.textContent))");
             if (!navegador.Source.AbsoluteUri.StartsWith("https://financeiro.clinica.local/"))
                 throw new InvalidOperationException("A interface não usa os arquivos locais esperados.");
@@ -52,10 +60,35 @@ static class WebQa
                 janela.Width = largura; janela.Height = altura;
                 await Task.Delay(300);
                 await Esperar("document.documentElement.scrollWidth <= window.innerWidth + 1");
+                await Esperar("JSON.stringify([...document.querySelectorAll('.navegacao-topo [data-action=navegar]')].map(b=>b.dataset.value).sort()) === " + JsonSerializer.Serialize(JsonSerializer.Serialize(rotas.OrderBy(r => r).ToArray())));
+                await Esperar("(()=>{const itens=[...document.querySelectorAll('.navegacao-topo>*,.busca-global,.usuario-area')].map(e=>e.getBoundingClientRect());return itens.every(r=>r.left>=0 && r.right<=innerWidth+1) && !itens.some((a,i)=>itens.slice(i+1).some(b=>Math.min(a.right,b.right)>Math.max(a.left,b.left)+1 && Math.min(a.bottom,b.bottom)>Math.max(a.top,b.top)+1));})()");
+                foreach (var grupo in new[] { "caixa", "contas", "recebimentos", "gestao", "analises" })
+                {
+                    // Clique sem hover (toque), navegação por setas e encerramento pelo teclado.
+                    await Ler("document.querySelector('#nav-" + grupo + "').click()");
+                    await Esperar("document.querySelector('#nav-" + grupo + "').getAttribute('aria-expanded') === 'true'");
+                    await Ler("document.querySelector('#nav-" + grupo + "').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))");
+                    await Esperar("document.activeElement === document.querySelector('#submenu-" + grupo + " button')");
+                    await Ler("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}))");
+                    await Esperar("document.activeElement === [...document.querySelectorAll('#submenu-" + grupo + " button')].at(-1)");
+                    await Ler("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))");
+                    await Esperar("document.activeElement === document.querySelector('#submenu-" + grupo + " button')");
+                    await Esperar("[...document.querySelectorAll('#submenu-" + grupo + " button')].every(e=>{const r=e.getBoundingClientRect();return r.width>0 && r.left>=0 && r.right<=innerWidth+1 && r.top>=0 && r.bottom<=innerHeight;})");
+                    using (var menuImagem = File.Create(Path.Combine(saida, $"financeiro-topo-{grupo}-{largura}.png")))
+                        await janela.TelaWeb.CapturarPreviewAsync(menuImagem);
+                    await Ler("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+                    await Esperar("document.querySelector('#submenu-" + grupo + "').hidden && document.activeElement.id === 'nav-" + grupo + "'");
+                    // Hover abre, sair com o ponteiro fecha quando o foco já saiu do grupo.
+                    await Ler("document.querySelector('.conteudo').focus();document.querySelector('[data-grupo=" + grupo + "]').dispatchEvent(new PointerEvent('pointerover',{bubbles:true,pointerType:'mouse'}))");
+                    await Esperar("!document.querySelector('#submenu-" + grupo + "').hidden");
+                    await Ler("document.querySelector('[data-grupo=" + grupo + "]').dispatchEvent(new PointerEvent('pointerout',{bubbles:true,pointerType:'mouse',relatedTarget:document.body}))");
+                    await Esperar("document.querySelector('#submenu-" + grupo + "').hidden");
+                }
                 using var destinoImagem = File.Create(Path.Combine(saida, $"financeiro-web-{largura}.png"));
                 await janela.TelaWeb.CapturarPreviewAsync(destinoImagem);
                 Console.WriteLine($"OK web {largura}x{altura}: assets locais, logo, layout e dados C#.");
             }
+            if (apenasNavegacao) { Console.WriteLine($"OK navegação superior: {rotas.Length} rotas, 5 menus, hover, clique, teclado e capturas em três tamanhos."); return; }
             janela.Width = 1440; janela.Height = 900;
             await Task.Delay(200);
             await Ler("document.querySelector('[data-testid=alternar-privacidade]').click()");
@@ -76,7 +109,11 @@ static class WebQa
             await Esperar($"{seletorLinhas}.length === {antes}");
             async Task Navegar(string chave)
             {
-                await Ler("chrome.webview.postMessage({acao:'navegar',valor:" + JsonSerializer.Serialize(chave) + "})");
+                // Exercita a porta do usuário: hover abre o grupo e o clique envia a rota.
+                var seletor = JsonSerializer.Serialize(".navegacao-topo [data-action=navegar][data-value='" + chave + "']");
+                await Ler("(()=>{const item=document.querySelector(" + seletor + ");if(!item)throw new Error('Rota ausente no topo');item.closest('.grupo-topo').dispatchEvent(new PointerEvent('pointerover',{bubbles:true,pointerType:'mouse'}));})()");
+                await Esperar("(()=>{const item=document.querySelector(" + seletor + ");const r=item.getBoundingClientRect();return r.width>0 && r.left>=0 && r.right<=innerWidth+1 && r.top>=0 && r.bottom<=innerHeight;})()");
+                await Ler("document.querySelector(" + seletor + ").click()");
                 await Esperar("document.querySelector('.conteudo').dataset.rota === " + JsonSerializer.Serialize(chave));
                 await Esperar("document.querySelector('.conteudo').getAttribute('aria-busy') === 'false'");
                 await Task.Delay(150);
@@ -103,7 +140,7 @@ static class WebQa
                 using var arquivo = File.Create(Path.Combine(saida, nome + ".png"));
                 await janela.TelaWeb.CapturarPreviewAsync(arquivo);
             }
-            var rotas = new ModuloFinanceiro().Itens.Where(i => i.Abas.Count == 0 && i.Chave != ModuloFinanceiro.ChaveAjuda).Select(i => i.Chave).Distinct().ToArray();
+            await Esperar("JSON.stringify([...document.querySelectorAll('.navegacao-topo [data-action=navegar]')].map(b=>b.dataset.value).sort()) === " + JsonSerializer.Serialize(JsonSerializer.Serialize(rotas.OrderBy(r => r).ToArray())));
             foreach (var (largura, altura) in new[] { (1440, 900), (1100, 720), (900, 600) })
             {
                 janela.Width = largura; janela.Height = altura;

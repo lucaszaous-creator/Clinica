@@ -1,5 +1,7 @@
 import './style.css';
 import './paginas.css';
+import './navegacao.css';
+import { agruparRotas } from './navegacao';
 import { pagina as renderPagina, acoes as renderAcoes, campos as renderCampos, guardarRascunho, limparRascunhos, type Pagina, type Contexto } from './paginas';
 import { createElement, House, Landmark, Wallet, ChartNoAxesCombined, ArrowDownLeft, ArrowUpRight, Plus, Search, ChevronDown, ChevronLeft, ChevronRight, Menu, Download, RefreshCw, X, Receipt, Check, CalendarDays, ArrowLeftRight, Package, Settings2, Rows3, CircleHelp, CreditCard, Expand, ArrowUp, ArrowDown, History, QrCode, Eye, EyeOff, ListChecks, Users, ChartColumn, type IconNode } from 'lucide';
 
@@ -34,6 +36,7 @@ let valoresOcultos = false;
 const valorVisivel = (valor: string) => valoresOcultos ? '••••' : h(valor);
 const textoPrivado = (texto: string) => h(valoresOcultos ? texto.replace(/R\$\s*[\d.,]+/g, 'R$ ••••') : texto);
 let menuAberto = false;
+let grupoAberto: string | null = null;
 let usuarioAberto = false;
 let buscaMenu = '';
 let termo = '';
@@ -150,23 +153,19 @@ function render() {
   const bloqueado = (!ponte && !demo) || !!estado.ocupado;
   const rotasDisponiveis = estado.rotas.filter(r => r.chave !== 'caixa');
   const rotas = rotasDisponiveis.filter(r => r.rotulo.toLocaleLowerCase('pt-BR').includes(buscaMenu.toLocaleLowerCase('pt-BR')));
-  const atalhos = ['contas', 'recebiveis', 'conciliacao', 'fluxo-caixa', 'estoque', 'repasses']
-    .flatMap(chave => rotasDisponiveis.filter(r => r.chave === chave));
+  const grupos = agruparRotas(estado.rotas);
+  if (!grupos.some(g => g.chave === grupoAberto)) grupoAberto = null;
   app.innerHTML = `
     <header class="topbar">
       <a class="marca" href="#resumo" data-local="inicio" aria-label="Clínica SemDor — início"><img src="./logo-clinica.png" alt="Clínica SemDor" /></a>
-      <span class="contexto-app">Financeiro<span class="separador"></span>Visão geral</span>
+      <nav class="navegacao-topo" aria-label="Navegação financeira">
+        <button class="nav-inicio ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'ativo' : ''}" data-local="inicio" ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'aria-current="page"' : ''}>Resumo</button>
+        ${grupos.map(g => `<div class="grupo-topo" data-grupo="${h(g.chave)}"><button id="nav-${h(g.chave)}" class="nav-gatilho ${g.rotas.some(r => r.chave === estado.pagina?.chave) ? 'ativo' : ''}" data-local="grupo" data-grupo-chave="${h(g.chave)}" aria-expanded="${grupoAberto === g.chave}" aria-controls="submenu-${h(g.chave)}">${h(g.rotulo)}${svg('baixo')}</button><div class="submenu-topo" id="submenu-${h(g.chave)}" aria-labelledby="nav-${h(g.chave)}" ${grupoAberto === g.chave ? '' : 'hidden'}>${g.rotas.map(r => `<button class="rota ${estado.pagina?.chave === r.chave ? 'ativo' : ''}" data-action="navegar" data-value="${h(r.chave)}" ${estado.pagina?.chave === r.chave ? 'aria-current="page"' : ''}>${svg(nomeIcone(r.rotulo))}<span>${h(r.rotulo)}</span></button>`).join('')}</div></div>`).join('')}
+      </nav>
       <button class="busca-global" data-local="menu" aria-label="Pesquisar seção do financeiro">${svg('buscar')}<span>Pesquisar no financeiro</span><kbd>Ctrl K</kbd></button>
       <div class="usuario-area"><button class="usuario" data-local="usuario" aria-expanded="${usuarioAberto}" aria-label="Menu do usuário"><span class="avatar">${h(iniciais)}</span><span class="nome-usuario">${h(estado.usuario || 'Clínica SemDor')}</span>${svg('baixo')}</button>
       ${usuarioAberto ? `<div class="menu-usuario">${botao('trocar-senha', 'Trocar minha senha', 'ajustes', '', bloqueado || !!estado.dialogo)}${botao('trocar-usuario', 'Trocar usuário', 'profissionais', '', bloqueado || !!estado.dialogo)}<p>Financeiro · Clínica SemDor</p></div>` : ''}</div>
     </header>
-    <aside class="trilho-financeiro" aria-label="Navegação financeira">
-      <div class="atalhos-financeiros">
-      <button class="icone-botao ${!estado.pagina || estado.pagina.chave === 'caixa' ? 'ativo' : ''}" data-local="inicio" title="Resumo financeiro" aria-label="Resumo financeiro">${svg('carteira')}</button>
-      ${atalhos.map(r => `<button class="icone-botao ${estado.pagina?.chave === r.chave ? 'ativo' : ''}" data-action="navegar" data-value="${h(r.chave)}" title="${h(r.rotulo)}" aria-label="${h(r.rotulo)}">${svg(r.chave === 'contas' ? 'contas' : r.chave === 'conciliacao' ? 'troca' : nomeIcone(r.rotulo))}</button>`).join('')}
-      </div>
-      <div class="trilho-rodape"><button class="icone-botao" data-local="menu" title="Expandir menu financeiro" aria-label="Expandir menu financeiro" aria-expanded="${menuAberto}">${svg('menu')}</button></div>
-    </aside>
     <main class="conteudo" data-testid="resumo-financeiro" data-rota="${h(estado.pagina?.chave ?? 'caixa')}" data-contexto="${h(estado.pagina?.contexto ?? '')}" id="resumo" tabindex="-1" aria-busy="${estado.pagina?.carregando ?? estado.carregando}" ${estado.dialogo ? 'inert' : ''}>
       ${demo ? '<div class="faixa-demo">Demonstração visual · dados fictícios · nenhuma operação é gravada</div>' : ''}
       ${bloqueado ? '<div class="aviso-conexao" role="status">Abra esta tela pelo aplicativo da clínica para carregar seus dados.</div>' : ''}
@@ -181,7 +180,7 @@ function render() {
   const conteudo = document.querySelector<HTMLElement>('.conteudo')!;
   conteudo.scrollTop = scrollAnterior;
   [...document.querySelectorAll<HTMLElement>('.tabela-scroll,.dialogo-corpo,.rotas')].forEach((el, i) => { const anterior = posicoes[i]; if (anterior) { el.scrollTop = anterior[1]; el.scrollLeft = anterior[2]; } });
-  document.querySelectorAll<HTMLElement>('.topbar,.trilho-financeiro,.menu-expandido,.fundo-menu,.atalhos-rolagem').forEach(el => el.inert = !!estado.dialogo);
+  document.querySelectorAll<HTMLElement>('.topbar,.menu-expandido,.fundo-menu,.atalhos-rolagem').forEach(el => el.inert = !!estado.dialogo);
   conteudo.addEventListener('scroll', atualizarRolagem, { passive: true });
   requestAnimationFrame(atualizarRolagem);
   if (focoId) {
@@ -212,6 +211,33 @@ function atualizarRolagem() {
 }
 window.addEventListener('resize', atualizarRolagem);
 
+function abrirGrupo(chave: string | null) {
+  grupoAberto = estado.dialogo || menuAberto ? null : chave;
+  document.querySelectorAll<HTMLElement>('.grupo-topo').forEach(grupo => {
+    const aberto = grupo.dataset.grupo === grupoAberto;
+    grupo.querySelector('button')?.setAttribute('aria-expanded', String(aberto));
+    const submenu = grupo.querySelector<HTMLElement>('.submenu-topo');
+    if (submenu) submenu.hidden = !aberto;
+  });
+}
+app.addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse' || estado.dialogo || menuAberto) return;
+  const grupo = (e.target as Element).closest<HTMLElement>('.grupo-topo');
+  if (grupo && !(e.relatedTarget instanceof Node && grupo.contains(e.relatedTarget))) abrirGrupo(grupo.dataset.grupo!);
+});
+app.addEventListener('pointerout', e => {
+  if (e.pointerType !== 'mouse') return;
+  const grupo = (e.target as Element).closest<HTMLElement>('.grupo-topo');
+  if (grupo && !(e.relatedTarget instanceof Node && grupo.contains(e.relatedTarget)) && !grupo.contains(document.activeElement)) abrirGrupo(null);
+});
+document.addEventListener('focusin', e => {
+  const grupo = (e.target as Element).closest<HTMLElement>('.grupo-topo');
+  if (grupoAberto && grupo?.dataset.grupo !== grupoAberto) abrirGrupo(null);
+});
+document.addEventListener('click', e => {
+  if (!(e.target as Element).closest('.grupo-topo')) abrirGrupo(null);
+});
+
 app.addEventListener('click', e => {
   const b = (e.target as Element).closest<HTMLButtonElement>('button, [data-local]');
   if (!b || b.disabled) return;
@@ -227,15 +253,16 @@ app.addEventListener('click', e => {
   }
   if (b.dataset.action) {
     seletorRetorno = `[data-action="${CSS.escape(b.dataset.action)}"]`;
-    if (b.dataset.action === 'navegar') { menuAberto = false; usuarioAberto = false; }
+    if (b.dataset.action === 'navegar') { menuAberto = false; usuarioAberto = false; abrirGrupo(null); }
     enviar(b.dataset.action, b.dataset.value, b.dataset.id); return;
   }
   switch (b.dataset.local) {
-    case 'menu': menuAberto = !menuAberto; render(); if (menuAberto) document.getElementById('busca-menu')?.focus(); break;
+    case 'grupo': abrirGrupo(grupoAberto === b.dataset.grupoChave ? null : b.dataset.grupoChave!); break;
+    case 'menu': grupoAberto = null; menuAberto = !menuAberto; render(); if (menuAberto) document.getElementById('busca-menu')?.focus(); break;
     case 'fechar-menu': menuAberto = false; render(); break;
     case 'privacidade': valoresOcultos = !valoresOcultos; render(); break;
     case 'usuario': usuarioAberto = !usuarioAberto; render(); break;
-    case 'inicio': e.preventDefault(); menuAberto = false; enviar('navegar', 'caixa'); break;
+    case 'inicio': e.preventDefault(); menuAberto = false; abrirGrupo(null); enviar('navegar', 'caixa'); break;
     case 'movimentos': document.querySelector('.movimentos')?.scrollIntoView({block:'start',behavior:'smooth'}); break;
     case 'limpar': termo = ''; enviar('filtrar', ''); render(); document.getElementById('busca')?.focus(); break;
     case 'anterior': case 'proximo': {
@@ -263,7 +290,16 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === 'Escape' && (menuAberto || usuarioAberto)) { menuAberto = false; usuarioAberto = false; render(); }
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); menuAberto = true; render(); document.getElementById('busca-menu')?.focus(); }
+  const grupo = (e.target as Element).closest<HTMLElement>('.grupo-topo');
+  if (e.key === 'Escape' && grupoAberto) { e.preventDefault(); const chave = grupoAberto; abrirGrupo(null); document.getElementById('nav-' + chave)?.focus(); }
+  if (grupo && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+    e.preventDefault(); abrirGrupo(grupo.dataset.grupo!);
+    const itens = [...grupo.querySelectorAll<HTMLButtonElement>('.submenu-topo button')];
+    const atual = itens.indexOf(document.activeElement as HTMLButtonElement);
+    const i = e.key === 'Home' ? 0 : e.key === 'End' ? itens.length - 1 : e.key === 'ArrowUp' ? (atual <= 0 ? itens.length - 1 : atual - 1) : (atual + 1) % itens.length;
+    itens[i]?.focus();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); grupoAberto = null; menuAberto = true; render(); document.getElementById('busca-menu')?.focus(); }
 });
 
 function receber(e: MessageEvent) {
