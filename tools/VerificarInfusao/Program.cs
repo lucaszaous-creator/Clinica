@@ -69,7 +69,9 @@ internal static class Program
         var conteudo=ModeloInfusao.Ler(modelo.ConfiguracaoInfusao);
         Confere(conteudo.Indicacao is null&&conteudo.Observacoes is null&&conteudo.Itens.All(i=>i.Observacoes is null),"Modelo sem notas do paciente");
         vm.CriarInfusaoCommand.Execute(null);Confere(vm.Infusoes.Count==2,"Segunda infusão criada pelo comando");
-        vm.AplicarModelo(vm.Infusoes[1],modelo);Confere(vm.Infusoes[1].Horario is null,"Modelo não reaproveita horário");
+        await vm.AplicarModeloAsync(vm.Infusoes[1],modelo);
+        Confere(!vm.MensagemEhErro && vm.Infusoes[1].Itens.Single().Descricao==lidocaina.Texto && vm.Infusoes[1].Itens[0].Dose=="7 mL" && vm.Infusoes[1].Volume=="250 mL","Modelo reaplica medicamento, dose e preparo");
+        Confere(vm.Infusoes[1].Horario is null,"Modelo não reaproveita horário");
         vm.Infusoes[1].Diluente="Diluente demonstrativo";vm.Infusoes[1].Volume="100 mL";
         await vm.SalvarRascunhoCommand.ExecuteAsync(null);Confere(!vm.MensagemEhErro,vm.Mensagem??"Rascunho salvo");
         db.ChangeTracker.Clear();var p=await db.PrescricoesInternas.Include(p=>p.Itens).SingleAsync();

@@ -263,6 +263,11 @@ MEDIDO, não pelo que foi perguntado.**
 ⚠️ **Rode a suíte contra a árvore que VAI SER COMMITADA.** Em 23/08 ela ficou verde porque um
 arquivo estava no COMMIT e tinha sido apagado do DISCO — e era justamente o que reprovava.
 
+- **Método de ViewModel migrado para async:** atualizar também os chamadores em `tools/`,
+  aguardando a operação antes das asserções. Compilar os aplicativos não compila todos os
+  verificadores do CI: na PR 245, `VerificarInfusao` ainda chamava `AplicarModelo` depois da
+  migração para `AplicarModeloAsync`. Executar o verificador afetado por completo.
+
 ⚠️ **Arquivo de prova temporário: LEIA antes de descartar.** Os dois que vazaram naquele dia
 renderam — um revelou o defeito da anamnese, o outro virou a rede de tradução.
 
