@@ -1,0 +1,22 @@
+{
+  "modelo_solicitado": "jev-1.13.0",
+  "sha256_pedido": "e979f0bb876c604e6d1852379a83700b3bddd15e3d0a53fd57b5eb195c3f4273",
+  "escopo": "Buscas e seleção de pacientes nos cinco módulos; revisão estática sem imagens.",
+  "pareceres": {
+    "gerente": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 0.99,
+      "probabilities": {
+        "coberto_com_limites": 0.99,
+        "lacuna_funcional": 0.0,
+        "lacuna_integracao": 0.0,
+        "evidencia_insuficiente": 0.01
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 24110,
+    "output_tokens": 70
+  }
+}

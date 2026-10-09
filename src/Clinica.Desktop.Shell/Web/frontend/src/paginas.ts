@@ -6,7 +6,7 @@ import {controleEspecial} from './controles';
 import {agenda} from './agenda';
 import {camposDaPagina, listaResponsiva, tituloDaTabela, tabelasDaAgenda} from './layouts';
 export type Opcao = { valor: string; rotulo: string };
-export type Campo = { chave: string; rotulo: string; tipo: string; valor: unknown; opcoes: Opcao[]; visivel: boolean; habilitado: boolean; obrigatorio: boolean; ajuda?: string; maximo?:number };
+export type Campo = { chave: string; rotulo: string; tipo: string; valor: unknown; opcoes: Opcao[]; visivel: boolean; habilitado: boolean; obrigatorio: boolean; ajuda?: string; maximo?:number; buscaPaciente?:{termo:string;carregando:boolean;erro?:string|null;pacienteSelecionado?:string|null}|null };
 export type Acao = { chave: string; rotulo: string; habilitada: boolean; estilo: string; visivel: boolean };
 export type Indicador = { rotulo: string; valor: string; detalhe?: string };
 export type LinhaPagina = { id: string; celulas: Record<string, string>; campos: Campo[]; acoes: Acao[]; selecionada: boolean };
@@ -14,7 +14,7 @@ export type Tabela = { chave: string; titulo: string; colunas: { chave: string; 
 export type Grafico = { chave: string; rotulo: string; tipo: 'linha' | 'barra'; unidade: string; pontos: { rotulo: string; valor: number | null; valorFormatado: string }[] };
 export type Secao = { chave: string; titulo: string; descricao?: string; campos: Campo[]; indicadores: Indicador[]; tabelas: Tabela[]; acoes: Acao[]; graficos?: Grafico[] | null };
 export type Pagina = { chave: string; titulo: string; subtitulo?: string; campos: Campo[]; indicadores: Indicador[]; secoes: Secao[]; acoes: Acao[]; carregando: boolean; naoVerificado: boolean; mensagem?: string; mensagemEhErro: boolean; truncado: boolean };
-export type Contexto = { escopo: 'pagina' | 'dialogo'; id: string; tabela?: string; linha?: string; ocupado?: boolean; privado?: boolean; tituloSecao?:string };
+export type Contexto = { escopo: 'pagina' | 'dialogo'; id: string; tabela?: string; linha?: string; ocupado?: boolean; privado?: boolean; tituloSecao?:string; pacientesEmTabela?:boolean; buscaPacienteCarregando?:boolean; pacienteEmSeletor?:boolean };
 
 const h = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const atributos = (c: Contexto) => `data-escopo="${c.escopo}" data-contexto="${h(c.id)}"${c.tabela ? ` data-tabela="${h(c.tabela)}"` : ''}${c.linha ? ` data-linha="${h(c.linha)}"` : ''}`;
@@ -44,7 +44,8 @@ export function campo(f: Campo, c: Contexto): string {
   const id = `campo-${encodeURIComponent(key)}`;
   const tipo = f.tipo.toLowerCase();
   if (['leitura', 'readonly', 'texto-estatico'].includes(tipo) && !String(valor ?? '').trim() && !f.ajuda) return '';
-  const comum = `id="${h(id)}" data-campo="${h(f.chave)}" ${atributos(c)} ${f.habilitado === false || c.ocupado ? 'disabled' : ''} ${f.obrigatorio ? 'required aria-required="true"' : ''} ${f.ajuda ? `aria-describedby="${h(id)}-ajuda"` : ''}`;
+  const estadoBusca = f.buscaPaciente ? `data-busca-paciente="${h(JSON.stringify(f.buscaPaciente))}"` : '';
+  const comum = `id="${h(id)}" ${estadoBusca} data-campo="${h(f.chave)}" ${atributos(c)} ${f.habilitado === false || c.ocupado || f.buscaPaciente?.carregando ? 'disabled' : ''} ${f.obrigatorio ? 'required aria-required="true"' : ''} ${f.ajuda ? `aria-describedby="${h(id)}-ajuda"` : ''}`;
   const ajuda = f.ajuda ? `<small id="${h(id)}-ajuda" class="ajuda-campo">${h(f.ajuda)}</small>` : '';
   const especial=controleEspecial(f,comum,id,valor);if(especial!==null)return especial;
   if(tipo==='imagem-leitura')return `<div class="campo-web"><label>${h(f.rotulo)}</label>${typeof valor==='string'&&/^data:image\/(jpeg|png);base64,/.test(valor)?`<img class="foto-previa" src="${h(valor)}" alt="Foto do paciente"/>`:'<span>Sem fotografia</span>'}</div>`;

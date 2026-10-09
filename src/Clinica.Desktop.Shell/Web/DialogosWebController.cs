@@ -270,13 +270,14 @@ public sealed partial class DialogosWebController : IDialogosDaSessao, IDisposab
         var campos = i.Definicao.Campos.Select(c =>
         {
             var valor = Ler(i.Vm, c.Caminho);
+            var busca = c.Chave is "Seletor.Selecionado" or "Escolhido" ? Ler(i.Vm, "Seletor") as SeletorPacienteViewModel : null;
             var opcoes = Opcoes(i, c);
             object? valorWeb = c.Tipo is "texto-rico" or "texto-rico-leitura" ? new {texto=valor,formato=c.Formato is null?null:Ler(i.Vm,c.Formato)} : valor switch { DateTime data => data.ToString("yyyy-MM-dd"), bool b => b, null => null, _ => Formatar(valor) };
             if (c.Tipo == "senha") valorWeb = null;
             if ((c.Opcoes is not null && c.Tipo != "sugestao") || valor is Enum) valorWeb = valor is null ? "" : opcoes.FirstOrDefault(o => Equals(c.ValorOpcao is null?o.Objeto:Ler(o.Objeto,c.ValorOpcao), valor))?.Id ?? "";
             return new CampoWebDto(c.Chave, c.Rotulo, c.Tipo, valorWeb,
                 opcoes.Select(o => new OpcaoWebDto(o.Id, o.Rotulo)).ToArray(), Condicao(i.Vm, c.Visivel),
-                !ocupado && c.Tipo is not ("leitura" or "imagem-leitura" or "texto-rico-leitura") && Condicao(i.Vm, c.Habilitado), c.Obrigatorio || i.Vm is Pergunta { Obrigatorio: true }, c.Ajuda,c.Maximo);
+                !ocupado && c.Tipo is not ("leitura" or "imagem-leitura" or "texto-rico-leitura") && Condicao(i.Vm, c.Habilitado), c.Obrigatorio || i.Vm is Pergunta { Obrigatorio: true }, c.Ajuda,c.Maximo, busca is null ? null : new(busca.Termo ?? "", busca.Buscando, busca.Erro, (valor as Paciente)?.Nome));
         }).ToArray();
         var tabelas = i.Definicao.Tabelas.Select(t => new TabelaWebDto(t.Chave, t.Titulo,
             t.Colunas.Select(c => new ColunaWebDto(c.Caminho, c.Rotulo)).ToArray(),

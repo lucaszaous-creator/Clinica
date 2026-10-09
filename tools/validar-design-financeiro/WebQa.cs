@@ -215,7 +215,10 @@ static class WebQa
             await Esperar("!!document.querySelector('.dialogo-web input[data-campo=\"Seletor.Termo\"]')");
             await Ler("(()=>{const e=document.querySelector('.dialogo-web input[data-campo=\"Seletor.Termo\"]');e.focus();e.value='52998224725';e.dispatchEvent(new Event('input',{bubbles:true}));})()");
             await Esperar("[...document.querySelector('.dialogo-web select[data-campo=\"Seletor.Selecionado\"]').options].some(o=>o.textContent.includes('Zuleica Sintética Busca Financeiro'))");
-            await Ler("(()=>{const e=document.querySelector('.dialogo-web select[data-campo=\"Seletor.Selecionado\"]');e.value=[...e.options].find(o=>o.textContent.includes('Zuleica Sintética Busca Financeiro')).value;e.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            await Esperar("!!document.querySelector('.dialogo-web [data-sugestao-paciente]:not(:disabled)')");
+            await Capturar("financeiro-busca-paciente-resultados");
+            await Clicar(".dialogo-web [data-sugestao-paciente]");
+            await Esperar("document.querySelector('.dialogo-web .paciente-confirmado')?.textContent.includes('Zuleica Sintética Busca Financeiro')===true");
             await Campo("Descricao", "QA WEB receita paciente digitado"); await Campo("Valor", "12.5");
             await Capturar("financeiro-busca-paciente-cpf");
             await Clicar(".dialogo-rodape [data-comando='salvar']"); await Esperar("!document.querySelector('.dialogo-web')");

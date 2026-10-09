@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Windows.Input;
 using Clinica.Domain;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using System.Reflection;
 using CommunityToolkit.Mvvm.Input;
@@ -217,11 +218,12 @@ public sealed partial class PaginasWebController : IDisposable
     private CampoWebDto CriarCampo(object alvo, Campo c)
     {
         var valor = Ler(alvo, c.Propriedade);
+        var busca = c.Propriedade is "Seletor.Selecionado" or "Escolhido" ? Ler(alvo, "Seletor") as SeletorPacienteViewModel : null;
         object? exibido = c.Tipo is "texto-rico" or "texto-rico-leitura" ? new {texto=valor,formato=c.Formato is null?null:Ler(alvo,c.Formato)} : c.Tipo == "selecao" ? TokenOpcao(valor) : valor is DateTime dt ? dt.ToString(c.Tipo == "mes" ? "yyyy-MM" : "yyyy-MM-dd", CultureInfo.InvariantCulture) : valor;
         if(c.Tipo=="senha")exibido=null;
         if(c.Tipo=="leitura")exibido=valor is null?"":Formatar(valor);
         return new(c.Propriedade, c.Rotulo, c.Tipo, exibido, Opcoes(alvo, c).Select(o => new OpcaoWebDto(TokenOpcao(o.Valor), o.Rotulo)).ToArray(),
-            Visivel: Condicao(alvo, c.Visivel) && (c.Tipo != "imagem-leitura" || !string.IsNullOrWhiteSpace(valor as string)), Habilitado: c.Tipo is not ("leitura" or "imagem-leitura" or "texto-rico-leitura") && !_ocupado && !B(_vm!, "Carregando") && Permitido(c.Permissao, c.Guarda, alvo, _vm!));
+            Visivel: Condicao(alvo, c.Visivel) && (c.Tipo != "imagem-leitura" || !string.IsNullOrWhiteSpace(valor as string)), Habilitado: c.Tipo is not ("leitura" or "imagem-leitura" or "texto-rico-leitura") && !_ocupado && !B(_vm!, "Carregando") && Permitido(c.Permissao, c.Guarda, alvo, _vm!), BuscaPaciente: busca is null ? null : new(busca.Termo ?? "", busca.Buscando, busca.Erro, (valor as Paciente)?.Nome));
     }
     private AcaoWebDto CriarAcao(object vm, Acao a, object? row)
     {

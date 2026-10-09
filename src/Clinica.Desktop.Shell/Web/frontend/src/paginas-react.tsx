@@ -20,7 +20,8 @@ const texto=(v:unknown,c:Contexto)=>c.privado?String(v??'').replace(/R\$\s*[-+�
 const atributos=(c:Contexto)=>({'data-escopo':c.escopo,'data-contexto':c.id,'data-tabela':c.tabela,'data-linha':c.linha});
 const chave=(f:Campo,c:Contexto)=>JSON.stringify([c.escopo,c.id,c.tabela,c.linha,f.chave]);
 /** O host confirma o rascunho sem substituir os elementos que estão em edição. */
-export function CampoReact({campo:f,contexto:c}:{campo:Campo;contexto:Contexto}){
+export function CampoReact({campo:f,contexto:c,seletorPaciente=false}:{campo:Campo;contexto:Contexto;seletorPaciente?:boolean}){
+ const paciente=seletorPaciente||ehSeletorPaciente(f.chave);
  const valor=obterValorCampo(f,c),id=`campo-${encodeURIComponent(chave(f,c))}`,tipo=f.tipo.toLowerCase();
  const buscaCampo=!f.opcoes.length&&!['leitura','readonly','texto-estatico','textarea','multilinha'].includes(tipo)&&(/busca|search/.test(tipo)||/buscar|pesquisar/i.test(f.rotulo)||f.chave==='Seletor.Termo');
  const ref=useRef<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>(null);
@@ -29,23 +30,29 @@ export function CampoReact({campo:f,contexto:c}:{campo:Campo;contexto:Contexto})
  const leitura=['leitura','readonly','texto-estatico'].includes(tipo);
  if(leitura&&!String(valor??'').trim()&&!f.ajuda)return null;
  if(['assinatura','imagem','mapa-corporal','texto-rico','texto-rico-leitura'].includes(tipo))return <HtmlReact html={campoEspecial(f,c)}/>;
- const comum={id,'data-campo':f.chave,...atributos(c),disabled:f.habilitado===false||c.ocupado,required:f.obrigatorio,'aria-required':f.obrigatorio||undefined,'aria-describedby':f.ajuda?`${id}-ajuda`:undefined};
+ const comum={id,'data-busca-termo':f.buscaPaciente?.termo,'data-busca-carregando':f.buscaPaciente?.carregando,'data-campo':f.chave,...atributos(c),disabled:f.habilitado===false||c.ocupado||!!f.buscaPaciente?.carregando,required:f.obrigatorio,'aria-required':f.obrigatorio||undefined,'aria-describedby':f.ajuda?`${id}-ajuda`:undefined};
  const ajuda=f.ajuda?<small id={`${id}-ajuda`} className="ajuda-campo">{f.ajuda}</small>:null;
  if(tipo==='imagem-leitura')return <div className="campo-web"><label>{f.rotulo}</label>{typeof valor==='string'&&/^data:image\/(jpeg|png);base64,/.test(valor)?<img className="foto-previa" src={valor} alt="Foto do paciente"/>:<span>Sem fotografia</span>}</div>;
  if(['checkbox','booleano','bool'].includes(tipo))return <div className="campo-web campo-check"><label htmlFor={id}><input type="checkbox" {...comum} ref={ref as Ref<HTMLInputElement>} defaultChecked={valor===true||valor==='true'}/><span>{f.rotulo}</span></label>{ajuda}</div>;
  let controle:ReactNode;
  if(tipo==='sugestao')controle=<><input type="text" {...comum} ref={ref as Ref<HTMLInputElement>} defaultValue={String(valor??'')} list={`${id}-opcoes`} autoComplete="off"/><datalist id={`${id}-opcoes`}>{f.opcoes.map(o=><option key={o.valor} value={o.rotulo}/>)}</datalist></>;
- else if(['select','selecao','enum'].includes(tipo)||f.opcoes.length)controle=<><NativeSelect {...comum} ref={ref as Ref<HTMLSelectElement>} defaultValue={String(valor??'')}>{!f.opcoes.some(o=>String(o.valor)===String(valor??''))&&<option value="">Selecionar…</option>}{f.opcoes.map(o=><option key={o.valor} value={o.valor}>{o.rotulo}</option>)}</NativeSelect>{ehSeletorPaciente(f.chave)&&<SugestoesPacientesReact id={id} opcoes={f.opcoes} habilitado={!comum.disabled}/>}</>;
+ else if(['select','selecao','enum'].includes(tipo)||f.opcoes.length)controle=<><div hidden={paciente}><NativeSelect hidden={paciente} tabIndex={paciente?-1:undefined} aria-hidden={paciente||undefined} {...comum} ref={ref as Ref<HTMLSelectElement>} defaultValue={String(valor??'')}>{!f.opcoes.some(o=>String(o.valor)===String(valor??''))&&<option value="">Selecionar…</option>}{f.opcoes.map(o=><option key={o.valor} value={o.valor}>{o.rotulo}</option>)}</NativeSelect></div>{paciente&&!c.pacientesEmTabela&&<SugestoesPacientesReact estadoBusca={f.buscaPaciente} valor={String(valor??'')} id={id} opcoes={f.opcoes} habilitado={!comum.disabled}/>}</>;
  else if(['textarea','multilinha'].includes(tipo))controle=<Textarea {...comum} ref={ref as Ref<HTMLTextAreaElement>} rows={4} maxLength={f.maximo??5000} defaultValue={String(valor??'')}/>;
  else if(leitura)controle=<output id={id}>{texto(valor,c)}</output>;
  else {const htmlTipo:Record<string,string>={data:'date',date:'date',mes:'month',month:'month',numero:'number',number:'number',busca:'search',search:'search',email:'email',senha:'password'};const t=htmlTipo[tipo]??'text';controle=<Input type={t} {...comum} ref={ref as Ref<HTMLInputElement>} defaultValue={String(valor??'')} step={t==='number'?'any':undefined} maxLength={t==='number'?undefined:f.maximo??5000} inputMode={['decimal','moeda','dinheiro'].includes(tipo)?'decimal':undefined} autoComplete="off" placeholder={buscaCampo?(f.chave==='Seletor.Termo'?'Digite o nome ou CPF':'Digite para buscar'):undefined}/>;}
- return <div className={`campo-web ${leitura?'campo-leitura':''} ${buscaCampo?'campo-busca':''} ${['textarea','multilinha'].includes(tipo)||tipo==='leitura'&&String(valor??'').length>140?'campo-largo':''}`}><label htmlFor={id}>{f.rotulo}{f.obrigatorio&&<span className="obrigatorio" aria-hidden="true"> *</span>}</label>{controle}{ajuda}</div>;
+ return <div hidden={paciente&&c.pacientesEmTabela} className={`campo-web ${leitura?'campo-leitura':''} ${paciente?'campo-paciente-selecao':''} ${buscaCampo?'campo-busca':''} ${['textarea','multilinha'].includes(tipo)||tipo==='leitura'&&String(valor??'').length>140?'campo-largo':''}`}><label htmlFor={id}>{f.rotulo}{f.obrigatorio&&<span className="obrigatorio" aria-hidden="true"> *</span>}</label>{controle}{ajuda}</div>;
 }
 export const campoApresentavel=(f:Campo,c:Contexto)=>f.visivel!==false&&(!['leitura','readonly','texto-estatico'].includes(f.tipo.toLowerCase())||!!String(obterValorCampo(f,c)??'').trim()||!!f.ajuda);
 export function CamposReact({campos,contexto}:{campos:Campo[];contexto:Contexto}){
  const visiveis=campos.filter(f=>campoApresentavel(f,contexto));
  if(!visiveis.length)return null;
- return <div className={`campos-web ${visiveis.some(f=>/buscar|pesquisar/i.test(f.rotulo)||f.chave==='Seletor.Termo')?'campos-filtros':''}`}>{visiveis.map(f=><CampoReact key={chave(f,contexto)} campo={f} contexto={contexto}/>)}</div>;
+ const busca=visiveis.find(f=>f.chave==='Seletor.Termo'),paciente=visiveis.find(f=>ehSeletorPaciente(f.chave,!!busca));
+ const temPar=!!busca&&!!paciente;
+ return <div className={'campos-web '+(visiveis.some(f=>/buscar|pesquisar/i.test(f.rotulo)||f.chave==='Seletor.Termo')?'campos-filtros':'')}>{visiveis.map(f=>{
+  if(temPar&&f===paciente)return null;
+  if(temPar&&f===busca)return <section className="busca-paciente-unificada" aria-label="Localizar paciente" key={chave(f,contexto)}><CampoReact campo={{...busca,rotulo:'Buscar paciente por nome ou CPF'}} contexto={contexto}/><CampoReact campo={paciente} contexto={contexto} seletorPaciente/></section>;
+  return <CampoReact key={chave(f,contexto)} campo={f} contexto={contexto}/>;
+ })}</div>;
 }
 function BotaoReact({acao:a,contexto:c,classe='',principal=false,menu=false}:{acao:Acao;contexto:Contexto;classe?:string;principal?:boolean;menu?:boolean}){return <Button type="button" variant={principal?'filled':'default'} className={`botao ${a.estilo==='perigo'?'perigo':principal?'primario':'secundario'} ${classe}`} role={menu?'menuitem':undefined} tabIndex={menu?-1:undefined} data-comando={a.chave} {...atributos(c)} disabled={a.habilitada===false||c.ocupado}>{a.rotulo}</Button>;}
 export function AcoesReact({acoes,contexto:c,classe='',tituloMenu='Mais ações',somenteMenu=false}:{acoes:Acao[];contexto:Contexto;classe?:string;tituloMenu?:string;somenteMenu?:boolean}){
@@ -65,9 +72,11 @@ const tonsIndicadores:Record<string,string>={
  'Contas vencidas':'atencao','Pendências de faturamento':'atencao','Depósitos atrasados':'atencao','Atrasadas':'atencao','Guias em aberto':'atencao','Pendentes':'atencao','A receber':'atencao'
 };
 export function IndicadoresReact({indicadores,contexto:c}:{indicadores:Indicador[];contexto:Contexto}){if(!indicadores.length)return null;return <div className="indicadores-web">{indicadores.map((i,index)=><Paper component="article" className="indicador-web" data-tom={tonsIndicadores[i.rotulo]} key={`${i.rotulo}:${index}`}><span>{i.rotulo}</span><strong>{texto(i.valor,c)}</strong>{i.detalhe&&<small>{texto(i.detalhe,c)}</small>}</Paper>)}</div>;}
-export function TabelaReact({tabela:t,contexto:c}:{tabela:Tabela;contexto:Contexto}){
+export function TabelaReact({tabela:t,contexto}:{tabela:Tabela;contexto:Contexto}){
+ const c=t.chave==='Seletor.Resultados'?{...contexto,ocupado:contexto.ocupado||contexto.buscaPacienteCarregando}:contexto;
  const colunas=useMemo<ColumnDef<LinhaPagina>[]>(()=>t.colunas.map(col=>({id:col.chave,accessorFn:l=>l.celulas[col.chave]??'',sortingFn:'alphanumeric'})),[t.colunas]);
  const modelo=useReactTable({data:t.linhas,columns:colunas,getRowId:l=>l.id,getCoreRowModel:getCoreRowModel(),getSortedRowModel:getSortedRowModel()});
+ if(c.pacienteEmSeletor&&!c.pacientesEmTabela&&t.chave==='Seletor.Resultados'&&t.colunas.every(col=>col.chave==='Nome')&&t.linhas.every(l=>!l.acoes.length&&!l.campos.length))return null;
  if(t.colunas.some(col=>col.chave==='GrupoSituacao')&&t.colunas.some(col=>col.chave==='Hora')&&t.colunas.some(col=>col.chave==='Prontuario'))return <ListaOperacionalReact tabela={t} contexto={c} acompanhamento={false}/>;
  if(ehHistoricoSessoes(t))return <HistoricoSessoesReact tabela={t} contexto={c}/>;
  if(usaProfissionaisReact(t))return <ProfissionaisReact tabela={t} contexto={c}/>;
@@ -79,7 +88,8 @@ export function SecaoReact({secao:s,contexto}:{secao:Secao;contexto:Contexto}){
  const c={...contexto,tituloSecao:s.titulo},temAgenda=s.tabelas.some(t=>t.chave==='horarios'||t.chave==='ClinicoSemanaSessoes');
  return <Paper component="section" withBorder className="secao-web" id={`secao-${s.chave}`} data-secao={s.chave}><Group className="cabecalho-secao" justify="space-between"><div><Title order={2} size="h4">{s.titulo}</Title>{s.descricao&&<p>{texto(s.descricao,c)}</p>}</div><div className="acoes-web"><AcoesReact acoes={s.acoes} contexto={c}/></div></Group><CamposReact campos={s.campos} contexto={c}/><IndicadoresReact indicadores={s.indicadores} contexto={c}/><HtmlReact html={graficos(s.graficos??[],c)}/><AgendaReact secao={s} contexto={c}/>{s.tabelas.map(t=>temAgenda?<details className="agenda-dados" key={t.chave} data-preservar={`${c.escopo}:${c.id}:agenda-dados:${t.chave}`}><summary>{t.titulo} · {t.linhas.length} registros</summary><TabelaReact tabela={t} contexto={c}/></details>:<TabelaReact key={t.chave} tabela={t} contexto={c}/>)}</Paper>;
 }
-export function PaginaReact({pagina:original,contexto:c}:{pagina:Pagina;contexto:Contexto}){
+export function PaginaReact({pagina:original,contexto}:{pagina:Pagina;contexto:Contexto}){
+ const c={...contexto,pacienteEmSeletor:[...original.campos,...original.secoes.flatMap(s=>s.campos)].some(f=>f.visivel!==false&&f.chave==='Seletor.Selecionado'),buscaPacienteCarregando:original.campos.some(f=>f.buscaPaciente?.carregando),pacientesEmTabela:original.secoes.some(s=>s.tabelas.some(t=>t.chave==='Seletor.Resultados'&&t.linhas.some(l=>l.acoes.some(a=>a.visivel!==false&&['EscolherPaciente','AbrirPaciente'].includes(a.chave)))))};
  const p=original.chave==='fila'?{...original,secoes:original.secoes.map(s=>s.chave==='Linhas'?{...s,titulo:'Atendimentos',tabelas:s.tabelas.map(t=>t.chave==='Linhas'?{...t,titulo:'Atendimentos'}:t)}:s)}:original;
  const assinatura=p.chave==='AssinaturaPaciente',clinico=ehProntuario(p,c),secoes=p.chave==='marcar-horario'?p.secoes.filter(s=>s.chave!=='Cartoes'):p.secoes,acaoClinica=acoesClinicas(p,c);
  return <motion.div initial={{y:4}} animate={{y:0}} transition={{duration:.14,ease:[.2,.7,.2,1]}} className={`pagina-web${clinico?' pagina-clinica':''}`} data-pagina={p.chave} aria-busy={p.carregando}>

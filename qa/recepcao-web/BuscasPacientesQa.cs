@@ -87,11 +87,15 @@ static class BuscasPacientesQa
                 }
                 if(enter) await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('input[data-campo=\"Seletor.Termo\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))");
                 await Esperar(browser,"[...document.querySelectorAll('select[data-campo=\"Seletor.Selecionado\"] option')].some(o=>o.textContent.includes('Zuleica'))", "resultado da busca " + texto);
+                await Esperar(browser,"(()=>{const e=document.querySelector('select[data-campo=\"Seletor.Selecionado\"]');return e?.dataset.buscaCarregando==='false'&&e.dataset.buscaTermo===document.querySelector('input[data-campo=\"Seletor.Termo\"]').value})()", "conclusão da busca atual");
                 Exigir(await browser.CoreWebView2.ExecuteScriptAsync($"document.querySelector('input[data-campo=\"Seletor.Termo\"]').value==={JsonSerializer.Serialize(texto)}") == "true", "Rerender apagou texto digitado");
             }
             async Task Selecionar(string nome)
             {
-                await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const e=document.querySelector('select[data-campo=\"Seletor.Selecionado\"]');const o=[...e.options].find(o=>o.textContent.includes({JsonSerializer.Serialize(nome)}));if(!o)throw Error('Paciente ausente');e.value=o.value;e.dispatchEvent(new Event('change',{{bubbles:true}}));return true}})()");
+                await Esperar(browser,"(()=>{const e=document.querySelector('select[data-campo=\"Seletor.Selecionado\"]');return e?.dataset.buscaCarregando==='false'&&e.dataset.buscaTermo===document.querySelector('input[data-campo=\"Seletor.Termo\"]').value})()", "consulta atual concluída antes de selecionar");
+                var resultado = "[...document.querySelectorAll('[data-sugestao-paciente]')].find(e=>e.textContent.includes(" + JsonSerializer.Serialize(nome) + ")) ?? [...document.querySelectorAll('[data-tabela-container=\"Seletor.Resultados\"] [data-linha-id]')].find(e=>e.textContent.includes(" + JsonSerializer.Serialize(nome) + "))?.querySelector('[data-comando=\"EscolherPaciente\"],[data-comando=\"AbrirPaciente\"],[data-comando=\"Abrir\"]')";
+                await Esperar(browser, "!!(" + resultado + ") && !(" + resultado + ").disabled", "resultado visível para seleção");
+                await AcoesVisiveisQa.ClicarExpressao(browser, resultado);
                 await Task.Delay(800);
             }
             foreach(var rota in new[] { "documentos", "marcar-horario", "pacientes-recepcao", "prontuario", ModuloClinico.ChavePrescricoes, ModuloClinico.ChavePrescricaoInfusao })
@@ -100,14 +104,33 @@ static class BuscasPacientesQa
                 var buscaAoDigitar = new[] { "documentos", "marcar-horario", "prontuario" }.Contains(rota);
                 await Digitar(buscaAoDigitar ? "Zule" : "Zuleica", enter: !buscaAoDigitar);
                 if (buscaAoDigitar) Exigir(await browser.CoreWebView2.ExecuteScriptAsync("document.activeElement?.dataset.campo===\"Seletor.Termo\"") == "true", "Busca exigiu sair do campo " + rota);
+                if(rota=="marcar-horario")
+                {
+                    await Esperar(browser,"!!document.querySelector('[data-sugestao-paciente]')", "resultados apresentados em linhas");
+                    using(var imagem=File.Create(Path.Combine(pasta,"marcar-horario-resultados.png"))) await view.CapturarPreviewAsync(imagem);
+                    await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('input[data-campo=\"Seletor.Termo\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))");
+                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync("document.activeElement?.hasAttribute('data-sugestao-paciente')")=="true", "Seta para baixo não alcançou o resultado");
+                    await browser.CoreWebView2.ExecuteScriptAsync("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+                    await Esperar(browser,"document.activeElement?.dataset.campo==='Seletor.Termo'&&!document.querySelector('[data-sugestao-paciente]')", "Escape retorna à busca sem selecionar");
+                    await AcoesVisiveisQa.ClicarExpressao(browser,"[...document.querySelectorAll('button')].find(e=>e.textContent==='Mostrar resultados')");
+                }
                 if(rota=="documentos")
                 {
                     await Esperar(browser,"document.querySelector('[data-tabela-container=\"Seletor.Resultados\"]')?.textContent.includes('Zuleica')===true", "nome visível em resultados Documentos");
-                    await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"EscolherPaciente\"]')");
+                    await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"EscolherPaciente\"],[data-comando=\"AbrirPaciente\"],[data-comando=\"Abrir\"]')");
                     await Esperar(browser,"document.body.innerText.includes('Zuleica Sintética Busca')", "paciente do documento escolhido");
                 }
                 else await Selecionar("Zuleica");
                 using(var imagem=File.Create(Path.Combine(pasta,rota+"-selecao.png"))) await view.CapturarPreviewAsync(imagem);
+                if(rota=="marcar-horario")
+                {
+                    await browser.CoreWebView2.ExecuteScriptAsync("(()=>{const e=document.querySelector('input[data-campo=\"Seletor.Termo\"]');e.focus();e.value='ZZsemcadastroQA';e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+                    await Esperar(browser,"document.querySelector('.pacientes-orientacao')?.textContent.includes('Nenhum paciente')===true", "busca sem resultado");
+                    Exigir(await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('.paciente-confirmado')?.textContent.includes('Zuleica Sintética Busca')===true")=="true", "Busca vazia ocultou a identidade já escolhida");
+                    using(var imagem=File.Create(Path.Combine(pasta,"marcar-horario-sem-resultado.png"))) await view.CapturarPreviewAsync(imagem);
+                    await Digitar("Zuleica");await Selecionar("Zuleica");
+                    Console.WriteLine("OK busca sem resultado mantém identidade anterior; nova escolha explícita preserva formulário.");
+                }
                 Console.WriteLine("OK UI real: " + (buscaAoDigitar ? "nome parcial durante digitação, sem Enter/blur, identidade e seleção " : "digitação + Enter + seleção ") + rota);
             }
             await view.NavegarAsync("documentos"); await Task.Delay(500);
@@ -158,6 +181,7 @@ static class BuscasPacientesQa
             await Selecionar("Zuleica");
             await Campo("Data", DateTime.Today.AddDays(2).ToString("yyyy-MM-dd")); await Campo("Hora", "10:00"); await Campo("Duracao", "30");
             await browser.CoreWebView2.ExecuteScriptAsync("(()=>{const e=document.querySelector('select[data-campo=\"Profissional\"]');e.value=[...e.options].find(o=>o.textContent.includes('sintético')).value;e.dispatchEvent(new Event('change',{bubbles:true}));})()"); await Task.Delay(300);
+            await Esperar(browser,"[...document.querySelectorAll('[data-tabela-container=\"Cartoes\"] [data-linha-id]')].some(e=>e.textContent.includes('Acupuntura (apenas)'))", "modalidades após selecionar paciente e profissional");
             await AcoesVisiveisQa.ClicarExpressao(browser, "(()=>{const linhas=[...document.querySelectorAll('[data-tabela-container=\"Cartoes\"] [data-linha-id]')];const linha=linhas.find(e=>e.textContent.includes('Acupuntura (apenas)'));if(!linha)throw Error('Modalidade ausente');return linha.querySelector('[data-comando=\"EscolherModalidade\"]');})()"); await Task.Delay(500);
             await AcoesVisiveisQa.ClicarExpressao(browser, "document.querySelector('[data-comando=\"Lancar\"]')");
             await Esperar(browser,"document.body.innerText.includes('Horário marcado')", "agendamento salvo");
@@ -177,6 +201,18 @@ static class BuscasPacientesQa
             Console.WriteLine("OK UI real: navegar a Marcar, buscar paciente, preencher, salvar horário e cancelar popout sem gravar.");
             using(var scope=sp.CreateScope()) Exigir(await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Pacientes.CountAsync()==232, "Busca/seleção gravou paciente indevidamente");
             await ConferirDensidade(sp, view, browser, janela, pasta);
+            await view.NavegarAsync("fila");await Task.Delay(600);
+            var nomeChegada=await browser.CoreWebView2.ExecuteScriptAsync("[...document.querySelectorAll('.registro-cartao')].find(l=>[...l.querySelectorAll('button')].some(b=>b.textContent.trim()==='Registrar chegada')).querySelector('h4').textContent.trim()");
+            await browser.CoreWebView2.ExecuteScriptAsync($"(()=>{{const e=document.querySelector('[data-agenda-busca-paciente]');e.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,{nomeChegada});e.dispatchEvent(new Event('input',{{bubbles:true}}));}})()");
+            await Esperar(browser,"document.querySelectorAll('.registro-cartao').length===1", "paciente localizado para chegada");
+            await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('.registro-cartao').scrollIntoView({block:'center'})");
+            using(var imagem=File.Create(Path.Combine(pasta,"fila-busca-chegada.png"))) await view.CapturarPreviewAsync(imagem);
+            await AcoesVisiveisQa.ClicarExpressao(browser,"[...document.querySelectorAll('.registro-cartao button')].find(b=>b.textContent.trim()==='Registrar chegada')");
+            await Esperar(browser,"document.querySelector('.registro-cartao')?.textContent.includes('No local')===true", "chegada atualiza situação do paciente");
+            using(var scope=sp.CreateScope())Exigir(await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Agendamentos.CountAsync(a=>a.ChegadaEm!=null)==1,"Chegada não foi gravada uma única vez");
+            using(var imagem=File.Create(Path.Combine(pasta,"fila-chegada-confirmada.png"))) await view.CapturarPreviewAsync(imagem);
+            Console.WriteLine("OK busca da agenda + Chegou: um paciente localizado, chegada persistida e situação No local.");
+
         }
         finally { janela.Close(); }
         view.Dispose();

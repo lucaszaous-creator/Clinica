@@ -3,9 +3,10 @@ namespace Clinica.Desktop.Shell.Web;
 // Contratos de apresentação: serializar com JsonNamingPolicy.CamelCase.
 // Nenhum caminho de propriedade/comando recebido do navegador é refletido no modelo.
 public sealed record OpcaoWebDto(string Valor, string Rotulo);
+public sealed record BuscaPacienteWebDto(string Termo, bool Carregando, string? Erro, string? PacienteSelecionado);
 public sealed record CampoWebDto(string Chave, string Rotulo, string Tipo, object? Valor,
     IReadOnlyList<OpcaoWebDto> Opcoes, bool Visivel = true, bool Habilitado = true,
-    bool Obrigatorio = false, string? Ajuda = null, int Maximo = 5000);
+    bool Obrigatorio = false, string? Ajuda = null, int Maximo = 5000, BuscaPacienteWebDto? BuscaPaciente = null);
 public sealed record AcaoWebDto(string Chave, string Rotulo, bool Habilitada = true,
     string Estilo = "secundario", bool Visivel = true);
 public sealed record IndicadorWebDto(string Rotulo, string Valor, string? Detalhe = null);

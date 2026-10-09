@@ -1,4 +1,4 @@
-import {Avatar, Divider, Group, Paper, Stack, Text, Title} from '@mantine/core';
+import {Group, Paper, Stack, Text, Title} from '@mantine/core';
 import {CamposReact, AcoesReact, TabelaReact} from './paginas-react';
 import type {Campo, Contexto, Pagina} from './paginas';
 
@@ -14,18 +14,18 @@ export function AgendamentoReact({pagina:p,contexto:c}:{pagina:Pagina;contexto:C
  const modalidade=extrair(['EspecialidadeSelecionada','PrimeiroCodigo','AtendimentoJaRealizado','CriarEncaixeSeparado']);
  const observacoes=extrair(['Observacoes']);
  const avisos=extrair(['AvisoJaLancado','AvisoHorarioDoDia','AvisoCarteirinha','AvisoConsulta','SaldoAutorizacao','AvisoPendencias','ValorPrevisto','ResumoCurtoPrevia','ValidadePaciente','ExecutanteGuia','ResumoPrevia','NotaGuiaNaMarcacao','ResumoBaixas']);
- const nome=String(paciente.find(f=>f.chave==='PacienteSelecionado.Nome')?.valor??'');
+
  const visivel=(fs:Campo[])=>fs.some(f=>f.visivel!==false);
  const orientacao=p.campos.find(f=>f.chave==='SubtituloTela'&&f.visivel!==false)?.valor;
  const cartoes=p.secoes.find(s=>s.chave==='Cartoes');
  return <div className="agendamento-estacao form-agendamento">
   <div className="agendamento-trabalho">
    <Paper className="agendamento-bloco" withBorder p="lg" radius="md" data-etapa="Paciente">
-    <Group justify="space-between" mb="md"><Title order={2} size="h4">Quem será atendido?</Title></Group>
-    <CamposReact campos={busca} contexto={c}/>
+    <Group justify="space-between" mb="md"><Title order={2} size="h4">Paciente</Title></Group>
+    <CamposReact campos={busca} contexto={c}/><div className="agendamento-identidade"><CamposReact campos={paciente.filter(f=>f.chave!=='PacienteSelecionado.Nome')} contexto={c}/></div>{!!orientacao&&<Text size="sm" c="dimmed" mt="sm">{String(orientacao)}</Text>}
    </Paper>
    {visivel(horario)&&<Paper className="agendamento-bloco" withBorder p="lg" data-etapa="Data, horário e profissional">
-    <Title order={2} size="h4" mb="md">Reserve o horário</Title><CamposReact campos={horario} contexto={c}/>
+    <Title order={2} size="h4" mb="md">Data e profissional</Title><CamposReact campos={horario} contexto={c}/>
    </Paper>}
    {(cartoes||visivel(modalidade))&&<Paper className="agendamento-bloco" withBorder p="lg" data-etapa="Modalidade">
     <Title order={2} size="h4" mb={6}>Atendimento</Title><Text size="sm" c="dimmed" mb="md">Escolha o procedimento e confira as guias vinculadas.</Text>
@@ -40,13 +40,8 @@ export function AgendamentoReact({pagina:p,contexto:c}:{pagina:Pagina;contexto:C
    {visivel(observacoes)&&<Paper className="agendamento-bloco" withBorder p="lg" data-etapa="Observações"><CamposReact campos={observacoes} contexto={c}/></Paper>}
    <CamposReact campos={p.campos.filter(f=>!usados.has(f.chave))} contexto={c}/>
   </div>
-  <aside className="agendamento-contexto" aria-label="Paciente e conferência do agendamento">
-   <Paper className="agendamento-paciente" withBorder p="lg">
-    <Group align="flex-start" mb="md"><Avatar color="gray" radius="xl" size={44}>{nome?nome.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join(''):'?'}</Avatar><div><Text size="xs" c="dimmed">Paciente selecionado</Text><Text fw={600}>{nome||'Selecione na busca'}</Text></div></Group>
-    <CamposReact campos={paciente} contexto={c}/>
-    {!!orientacao&&<><Divider my="md"/><Text size="sm" c="dimmed">{String(orientacao)}</Text></>}
-   </Paper>
-   {visivel(avisos)&&<Paper className="agendamento-conferencia" withBorder p="lg"><Title order={2} size="h5" mb="md">Confira antes de confirmar</Title><CamposReact campos={avisos} contexto={c}/></Paper>}
-  </aside>
+  {visivel(avisos)&&<aside className="agendamento-contexto" aria-label="Paciente e conferência do agendamento">
+   <Paper className="agendamento-conferencia" withBorder p="lg"><Title order={2} size="h5" mb="md">Confira antes de confirmar</Title><CamposReact campos={avisos} contexto={c}/></Paper>
+  </aside>}
  </div>;
 }

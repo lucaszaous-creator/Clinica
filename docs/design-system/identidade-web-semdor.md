@@ -16,12 +16,12 @@ Orientação obrigatória do proprietário em 08/10/2026. A composição aprovad
 | Papel | Valor existente | Origem |
 |---|---|---|
 | Marca / hover | #123A9E / #0A2E86 | Cor.Azul.600 / 700 |
-| Marinho para texto e títulos | #071F5C | Cor.Azul.900 |
+| Títulos / texto principal / rótulos | #071F5C / #111827 / #374151 | Azul.900 / Cinza.900 / Cinza.700 |
 | Seleção / borda ativa | #EEF3FC / #D8E3F7 | Cor.Azul.50 / 100 |
 | Foco | #3F62C9 | Cor.Azul.500 |
 | Fundo / superfície / filtros | #F8FAFC / #FFFFFF / #F1F5F9 | Cinza.50 / Superficie / Cinza.100 |
 | Bordas / texto secundário | #E5E7EB / #6B7280 | Cinza.200 / 500 |
-| Contorno de controles | #BAC9DD | Tom já existente em identidade-visual.css |
+| Contorno de controles / hover | #6B7280 / #374151 | Cinza.500 / Cinza.700 |
 | Sucesso | #15803D / #F0FDF4 | Verde.700 / 50 |
 | Atenção | #875B16 / #FFF6DF | Âmbar já existente em status-celula.css |
 | Erro | #B91C1C / #FEE2E2 | Vermelho.700 / 100 |
@@ -31,4 +31,13 @@ Verde, vermelho e âmbar identificam somente estados funcionais. Seleção, agen
 
 ## Legibilidade de campos e ações
 
-A referência Cielo enviada pelo proprietário orienta a separação visual, sem importar sua paleta: fundo de trabalho Cinza.100 (#F1F5F9), cartões brancos e contornos de controles #BAC9DD. Placeholders mantêm o texto secundário sem redução de opacidade; rótulos editáveis usam marinho. Botões primários usam azul da marca com texto branco; ações secundárias têm texto azul, fundo de seleção suave e borda visível. Menus preservam leitura simples e realce ao passar o mouse. A cor acompanha rótulos e foco por teclado, nunca os substitui.
+A cliente relatou que campos claros pareciam invisíveis. A revisão de 08/10/2026 preserva o fundo Cinza.100 e as superfícies brancas, mas usa contorno Cinza.500 em repouso, com contraste de 4,83:1 contra branco. Placeholders usam o mesmo cinza sem redução de opacidade; conteúdo usa Cinza.900 e rótulos usam Cinza.700. Selects incluem seta escura. Campos desabilitados continuam legíveis, com fundo cinza e borda tracejada; erros mantêm vermelho e foco mantém anel azul.
+
+Ações secundárias têm superfície branca, texto escuro e contorno visível. Filtros ativos usam azul sólido, texto branco e marca de seleção; linhas selecionadas têm marca lateral. KPIs usam números e rótulos escuros, preservando cores funcionais de situação. Buscas, editor rico e seletor de mês seguem o contraste dos campos compartilhados.
+
+O proprietário rejeitou o destaque arredondado de “GESTÃO”: a navegação superior é plana, sem cápsula ou fundo pastel. A seção ativa usa texto azul e linha inferior reta de 2 px. Submenus mantêm marca lateral; foco de teclado continua visível. A cor acompanha rótulos e estados acessíveis, nunca os substitui.
+
+
+## Busca e escolha de pacientes
+
+Usar a composição compartilhada de busca ampla e resultados em linhas. Nome selecionado fica explícito, inclusive durante outra consulta; trocar requer escolher um resultado. Evitar dropdown comprimido e listas duplicadas. Preservar documentos e ações quando a tela já utiliza uma tabela de pacientes. Carregamento acompanha o estado confirmado pelo host. Detalhes e evidências em [buscas-pacientes-pr245.md](buscas-pacientes-pr245.md).

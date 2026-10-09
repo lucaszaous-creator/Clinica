@@ -65,11 +65,20 @@ function noReact(no:Node,index:number):ReactNode{
  if(no.classList.contains('campo-web')&&no.querySelector('[data-campo="Seletor.Termo"]'))props.className=String(props.className??'')+' campo-busca';
  if(tag==='input'&&no.getAttribute('data-campo')==='Seletor.Termo')props.placeholder='Digite o nome ou CPF';
  if(no.hasAttribute('contenteditable'))return <EditorReconciliado key={key} atributos={props} html={no.innerHTML}/>;
- const children=Array.from(no.childNodes).map(noReact);
+ const temBusca=!!no.closest('.campos-web')?.querySelector('[data-campo="Seletor.Termo"]');
+ const paciente=tag==='select'&&ehSeletorPaciente(no.getAttribute('data-campo')??'',temBusca);
+ if(paciente){props.hidden=true;props.tabIndex=-1;props['aria-hidden']=true}
+ if(no.classList.contains('campo-web')&&Array.from(no.querySelectorAll('select[data-campo]')).some(el=>ehSeletorPaciente(el.getAttribute('data-campo')??'',temBusca)))props.className=String(props.className??'')+' campo-paciente-selecao';
+ let children=Array.from(no.childNodes).map(noReact);
+ if(no.classList.contains('campos-web')){
+  const campos=Array.from(no.children),busca=campos.find(el=>el.querySelector('[data-campo="Seletor.Termo"]'));
+  const selecao=campos.find(el=>Array.from(el.querySelectorAll('select[data-campo]')).some(c=>ehSeletorPaciente(c.getAttribute('data-campo')??'',!!busca)));
+  if(busca&&selecao)children=campos.map((el,i)=>el===selecao?null:el===busca?<section key={identidade(el,i)} className="busca-paciente-unificada" aria-label="Localizar paciente">{noReact(busca,i)}{noReact(selecao,campos.indexOf(selecao))}</section>:noReact(el,i));
+ }
  if(['input','textarea','select'].includes(tag)){
   const valor=tag==='textarea'?no.textContent??'':tag==='select'?(no.querySelector('option[selected]') as HTMLOptionElement|null)?.value??(no.querySelector('option') as HTMLOptionElement|null)?.value??'':no.getAttribute('value')??'';
   const controle=<ControleReconciliado tag={tag} atributos={props} valor={valor} marcado={no.hasAttribute('checked')} children={children}/>;
-  if(tag==='select'&&ehSeletorPaciente(no.getAttribute('data-campo')??''))return <Fragment key={key}>{controle}<SugestoesPacientesReact id={no.id} opcoes={Array.from(no.querySelectorAll('option')).map(o=>({valor:o.value,rotulo:o.textContent??''}))} habilitado={!no.hasAttribute('disabled')}/></Fragment>;
+  if(paciente)return <Fragment key={key}><div hidden>{controle}</div><SugestoesPacientesReact estadoBusca={no.hasAttribute('data-busca-paciente')?JSON.parse(no.getAttribute('data-busca-paciente')!):undefined} valor={valor} id={no.id} opcoes={Array.from(no.querySelectorAll('option')).map(o=>({valor:o.value,rotulo:o.textContent??''}))} habilitado={!no.hasAttribute('disabled')}/></Fragment>;
   return <Fragment key={key}>{controle}</Fragment>;
  }
  if(tag==='button'&&no.classList.contains('botao'))return <Button {...props} key={key} variant={no.classList.contains('primario')?'filled':'default'}>{children}</Button>;

@@ -1,0 +1,66 @@
+{
+  "modelo_solicitado": "jev-1.13.0",
+  "sha256_pedido": "83ccf6fd9566e116104aaa61747ab03912e23659e8e4ce0a97ede5ef5a4d8311",
+  "escopo": "Buscas e seleção de pacientes nos cinco módulos; revisão estática sem imagens.",
+  "pareceres": {
+    "recepcao": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 1.0,
+      "probabilities": {
+        "coberto_com_limites": 1.0,
+        "lacuna_funcional": 0.0,
+        "lacuna_integracao": 0.0,
+        "evidencia_insuficiente": 0.0
+      }
+    },
+    "clinico": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 0.83,
+      "probabilities": {
+        "coberto_com_limites": 0.87,
+        "lacuna_funcional": 0.0,
+        "lacuna_integracao": 0.01,
+        "evidencia_insuficiente": 0.12
+      }
+    },
+    "gerente": {
+      "type": "choice",
+      "choice": "evidencia_insuficiente",
+      "confidence": 0.48,
+      "probabilities": {
+        "coberto_com_limites": 0.34,
+        "lacuna_funcional": 0.0,
+        "lacuna_integracao": 0.05,
+        "evidencia_insuficiente": 0.61
+      }
+    },
+    "faturamento": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 0.92,
+      "probabilities": {
+        "coberto_com_limites": 0.94,
+        "lacuna_funcional": 0.0,
+        "lacuna_integracao": 0.01,
+        "evidencia_insuficiente": 0.05
+      }
+    },
+    "financeiro": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 0.99,
+      "probabilities": {
+        "coberto_com_limites": 0.99,
+        "lacuna_funcional": 0.0,
+        "lacuna_integracao": 0.0,
+        "evidencia_insuficiente": 0.01
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 23361,
+    "output_tokens": 343
+  }
+}
