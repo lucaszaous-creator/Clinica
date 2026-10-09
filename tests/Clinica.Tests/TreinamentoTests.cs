@@ -42,6 +42,22 @@ public sealed class TreinamentoTests : IDisposable
         Assert.Equal(2,handler.Calls);
     }
     [Fact]
+    public async Task Erro500NaoGravaVideoNemProgressoETentativaSeguinteRecupera()
+    {
+        byte[] conteudo = [1, 2, 3, 4];
+        var handler = new Handler(conteudo) { Status = HttpStatusCode.InternalServerError };
+        using var http = new HttpClient(handler);
+        var aula = new AulaTreinamento { Id = "pacotes", Sha256 = Convert.ToHexString(SHA256.HashData(conteudo)) };
+        var acervo = new AcervoTreinamento(10, _root, _root, http);
+        await Assert.ThrowsAsync<HttpRequestException>(() => acervo.ObterVideoAsync(aula, CancellationToken.None));
+        Assert.Empty(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
+        Assert.Equal(new ProgressoAula(), acervo.Progresso(aula.Id));
+        handler.Status = HttpStatusCode.OK;
+        var caminho = await acervo.ObterVideoAsync(aula, CancellationToken.None);
+        Assert.Equal(conteudo, await File.ReadAllBytesAsync(caminho));
+        Assert.Equal(2, handler.Calls);
+    }
+    [Fact]
     public async Task IdInvalidoNaoFazDownload()
     {
         var handler=new Handler([]);using var http=new HttpClient(handler);
@@ -51,8 +67,8 @@ public sealed class TreinamentoTests : IDisposable
     }
     private sealed class Handler(byte[] content):HttpMessageHandler
     {
-        public byte[] Content=content;public int Calls;
+        public byte[] Content=content;public int Calls;public HttpStatusCode Status=HttpStatusCode.OK;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
-        {Calls++;return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new ByteArrayContent(Content)});}
+        {Calls++;return Task.FromResult(new HttpResponseMessage(Status){Content=new ByteArrayContent(Content)});}
     }
 }

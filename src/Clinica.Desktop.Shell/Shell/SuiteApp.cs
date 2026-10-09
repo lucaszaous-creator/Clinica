@@ -98,7 +98,7 @@ public static class SuiteApp
             // com o Faturamento instalado na mesma máquina.
             if (string.IsNullOrWhiteSpace(connectionString))
             {
-                if (new SetupWindow(nomeApp).ShowDialog() != true)
+                if (!await Web.EntradaWebWindow.ConfigurarAsync(nomeApp))
                 {
                     app.Shutdown();
                     return null;
@@ -111,10 +111,7 @@ public static class SuiteApp
                 {
                     // Salvou e sumiu: só acontece se a leitura de volta falhar, e o
                     // LogSuite já registrou o motivo na gravação.
-                    MessageBox.Show(
-                        "A conexão foi configurada, mas não pôde ser lida de volta.\n\n" +
-                        "Veja a pasta de logs do aplicativo.",
-                        nomeApp, MessageBoxButton.OK, MessageBoxImage.Error);
+                    await Web.EntradaWebWindow.AvisarAsync(nomeApp, "A conexão foi configurada, mas não pôde ser lida de volta.\n\nVeja a pasta de logs do aplicativo.");
                     app.Shutdown();
                     return null;
                 }
@@ -135,10 +132,8 @@ public static class SuiteApp
                 tentativa?.Dispose();
                 LogSuite.Registrar($"{nomeApp} — não foi possível preparar o banco", ex);
 
-                var reconfigurar = MessageBox.Show(
-                    $"Não foi possível conectar ao banco de dados:\n\n{ex.Message}\n\n" +
-                    "Deseja informar outra conexão?",
-                    nomeApp, MessageBoxButton.YesNo, MessageBoxImage.Error) == MessageBoxResult.Yes;
+                var reconfigurar = await Web.EntradaWebWindow.AvisarAsync(nomeApp,
+                    $"Não foi possível conectar ao banco de dados:\n\n{ex.Message}\n\nDeseja informar outra conexão?", perguntar: true);
 
                 if (!reconfigurar)
                 {
@@ -159,10 +154,10 @@ public static class SuiteApp
         if (!await AutenticarAsync(app, host, nomeApp))
             return null;
 
-        var janela = criarJanela?.Invoke(host.Services) ?? new ShellWindow(criarNavegacaoLateral?.Invoke())
-        {
-            DataContext = new ShellViewModel(titulo, modulos, host.Services)
-        };
+        var janela = criarJanela?.Invoke(host.Services) ??
+            (host.Services.GetServices<Web.IRegistroModuloWeb>().Any()
+                ? Web.SuiteWebWindow.Criar(host.Services,modulos,titulo)
+                : new ShellWindow(criarNavegacaoLateral?.Invoke()) { DataContext = new ShellViewModel(titulo, modulos, host.Services) });
         janela.WindowState = WindowState.Maximized;
         app.MainWindow = janela;
         janela.Show();
@@ -208,15 +203,15 @@ public static class SuiteApp
             primeiroAcesso = false;
         }
 
-        var login = new LoginWindow(escopos, nomeApp, primeiroAcesso);
-        if (login.ShowDialog() != true || login.Usuario is null)
+        var usuario = await Web.EntradaWebWindow.AutenticarAsync(escopos, nomeApp, primeiroAcesso);
+        if (usuario is null)
         {
             host.Dispose();
             app.Shutdown();
             return false;
         }
 
-        host.Services.GetRequiredService<SessaoUsuario>().Entrar(login.Usuario);
+        host.Services.GetRequiredService<SessaoUsuario>().Entrar(usuario);
         return true;
     }
 }

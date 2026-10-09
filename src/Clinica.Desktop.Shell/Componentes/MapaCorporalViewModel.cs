@@ -86,6 +86,39 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
     private int? _protocoloOrigemId;
     private RascunhoMapaCorporal? _antesDaUltimaAcao;
 
+    public event Action? Confirmado;
+    [RelayCommand]
+    private void UsarMapaWeb()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "usar o mapa corporal");
+        if (PodeEditar) Confirmado?.Invoke();
+    }
+    /// <summary>Contrato de gesto: coordenadas normalizadas, sem aceitar objetos clínicos do navegador.</summary>
+    public string MarcacaoWeb
+    {
+        get => System.Text.Json.JsonSerializer.Serialize(new {
+            largura=SilhuetaCorporal.Largura, altura=SilhuetaCorporal.Altura,
+            formas=SilhuetaCorporal.Formas.Select(f=>f switch {
+                ElipseSilhueta e => (object)new {tipo="elipse",cx=e.Cx,cy=e.Cy,rx=e.Rx,ry=e.Ry},
+                RetanguloSilhueta r => (object)new {tipo="retangulo",x=r.X,y=r.Y,largura=r.Largura,altura=r.Altura,raio=r.Raio},
+                _ => throw new InvalidOperationException("Forma corporal não reconhecida.") }),
+            coluna=new {x=SilhuetaCorporal.ColunaX,topo=SilhuetaCorporal.ColunaTopo,@base=SilhuetaCorporal.ColunaBase},
+            pontos=Pontos.Select(p => new { selecionado=ReferenceEquals(PontoSelecionado,p),numero=p.Numero,face = p.Face.ToString(), x = p.X, y = p.Y, nome = p.Nome, tecnica = p.Tecnica.ToString(),observacao=p.Observacao }) });
+        set
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "marcar o mapa corporal");
+            if (!PodeEditar) throw new InvalidOperationException("Aguarde a leitura do mapa corporal.");
+            using var json = System.Text.Json.JsonDocument.Parse(value);
+            var raiz = json.RootElement;
+            if (!raiz.TryGetProperty("face", out var faceJson) || !Enum.TryParse<FaceCorpo>(faceJson.GetString(), out var face) || !Enum.IsDefined(face)
+                || !raiz.TryGetProperty("x", out var xJson) || !xJson.TryGetDouble(out var x)
+                || !raiz.TryGetProperty("y", out var yJson) || !yJson.TryGetDouble(out var y)
+                || !double.IsFinite(x) || !double.IsFinite(y) || x < 0 || x > 1 || y < 0 || y > 1)
+                throw new InvalidOperationException("Posição inválida no mapa corporal.");
+            Marcar(face, x, y);
+            OnPropertyChanged(nameof(MarcacaoWeb));
+        }
+    }
     public ObservableCollection<PontoMapaItem> Pontos { get; } = [];
     public ObservableCollection<PontoMapaItem> PontosFrente { get; } = [];
     public ObservableCollection<PontoMapaItem> PontosCostas { get; } = [];
@@ -334,7 +367,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
 
             // Apagar é destrutivo e o botão fica ao lado do "Aplicar": sem a pergunta,
             // um clique errado leva embora o protocolo da clínica inteira.
-            if (!dialogo.ConfirmarPerigo("Apagar protocolo",
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(dialogo, "Apagar protocolo",
                     $"Apagar o protocolo \"{protocolo.Nome}\"? "
                     + "As sessões já salvas com ele NÃO mudam — os pontos foram copiados para cada uma."))
                 return;

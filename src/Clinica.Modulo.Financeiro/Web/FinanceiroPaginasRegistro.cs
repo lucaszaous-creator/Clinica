@@ -104,6 +104,26 @@ public sealed partial class FinanceiroPaginasController
                  S("simulador", "Simulador de recebimento", [], [F("SimValor","Valor bruto"),F("SimForma","Forma de pagamento","selecao","FormasSimulacao"),F("SimAdquirente","Adquirente"),F("SimBandeira","Bandeira"),F("SimParcelas","Parcelas"),F("SimReterImposto","Reter imposto","booleano")], [A("Simular","Simular")], descricao:"SimResultado"),
                  S("apuracao", "Apuração mensal", [T("Apuracao", "Tributos apurados", "Sigla;Nome;Aliquota|Alíquota;Base;Valor;Natureza")], [F("MesApuracao","Mês","mes")], [A("Apurar","Apurar"),A("ExportarApuracao","Exportar CSV")], ["ResumoApuracao|Apuração","DivergenciaApuracao|Divergência"], "ResumoApuracao")], [A("Carregar","Atualizar")], "OrigemDaCarga", FalhasExtras:["ApuracaoNaoVerificada"])
         ];
-        return paginas.ToDictionary(p => p.Chave, StringComparer.Ordinal);
+        return paginas.Select(PreservarAtalhos).ToDictionary(p => p.Chave, StringComparer.Ordinal);
+    }
+    private static Pagina PreservarAtalhos(Pagina pagina)
+    {
+        Acao[] atalhos = pagina.Chave switch
+        {
+            "caixa" or "resultado" or "conciliacao" => [A("MesAnterior","Mês anterior"),A("ProximoMes","Próximo mês")],
+            "repasses" => [A("MesAnterior","Mês anterior"),A("ProximoMes","Próximo mês"),A("AbrirRegras","Regras e apurações")],
+            "contas" => [A("AbrirContasFixas","Contas fixas")],
+            "estoque" => [A("AbrirValidades","Validades e mínimos")],
+            "producao" => [A("Ultimos6Meses","Últimos 6 meses"),A("Ultimos12Meses","Últimos 12 meses")],
+            "pacotes" => [A("AbrirCatalogo","Catálogo",guarda:"PodeMexerNoCatalogo")],
+            _ => []
+        };
+        return pagina with
+        {
+            Acoes=[..pagina.Acoes,..atalhos],
+            Secoes=pagina.Secoes.Select(s=>pagina.Chave=="taxas" && s.Chave=="apuracao"
+                ? s with { Acoes=[A("MesApuracaoAnterior","Mês anterior"),A("MesApuracaoProximo","Próximo mês"),..s.Acoes] }
+                : s).ToArray()
+        };
     }
 }

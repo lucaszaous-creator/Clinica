@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
@@ -220,11 +221,11 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
 
     /// <summary>A seção atual sabe ser lida por inteiro, e quem está logado pode ler.</summary>
     public bool PodeVerNaSecao =>
-        NaturezasComVer.Contains(Secao) && SessaoUsuario.Atual.Pode(AcessoParaVer);
+        (Secao == NaturezaRegistroClinico.EvolucaoEnfermagem || NaturezasComVer.Contains(Secao)) && SessaoUsuario.Atual.Pode(AcessoParaVer);
 
     public bool TemAcaoAbrir => AoAbrir is not null && PodeMexerNaSecao;
     public bool TemAcaoCancelar => AoCancelar is not null && PodeMexerNaSecao;
-    public bool TemAcaoVer => AoVer is not null && PodeVerNaSecao;
+    public bool TemAcaoVer => (Secao == NaturezaRegistroClinico.EvolucaoEnfermagem || AoVer is not null) && PodeVerNaSecao;
 
     /// <summary>
     /// A seção ainda não foi resolvida contra <see cref="SecaoInicial"/>.
@@ -276,8 +277,32 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
     private async Task VerAsync(RegistroClinicoPaciente? item)
     {
         // Guarda sobre PARÂMETRO: não dispara vindo de botão de linha (exceção da 21).
-        if (item is null || AoVer is null) return;
-        await AoVer(item);
+        if (item is null || !Itens.Contains(item)) return;
+        SessaoUsuario.Atual.Exigir(AcessoParaVer, "ler o registro clínico");
+        if (item.Natureza != NaturezaRegistroClinico.EvolucaoEnfermagem)
+        {
+            if (AoVer is not null) await AoVer(item);
+            return;
+        }
+        using var scope = _escopos.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+        var registro = await repo.ObterEvolucaoEnfermagemAsync(item.Id)
+            ?? throw new InvalidOperationException("Evolução de enfermagem não encontrada.");
+        if (registro.PacienteId != _pacienteId)
+            throw new InvalidOperationException("O registro não pertence ao paciente aberto.");
+        var paciente = await repo.ObterPacienteAsync(_pacienteId);
+        var corrigida = await repo.EvolucaoEnfermagemFoiRetificadaAsync(registro.Id);
+        var leitura = new LeituraEvolucaoEnfermagem(paciente?.Nome ?? "", LeituraEvolucaoEnfermagem.Conteudo(registro, corrigida));
+        await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+            .RegistrarAsync(_pacienteId, SessaoUsuario.Atual.Operador, OrigemAcessoProntuario.ProntuarioClinico);
+        await DialogosDaSessao.AbrirAsync("LeituraEvolucaoEnfermagem", leitura, () =>
+        {
+            var texto = new System.Windows.Controls.TextBox { Text = leitura.Paciente + "\n\n" + leitura.Texto,
+                IsReadOnly = true, TextWrapping = System.Windows.TextWrapping.Wrap,
+                VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto };
+            return new System.Windows.Window { Title = leitura.Titulo, Content = texto, Width = 800, Height = 650,
+                Owner = JanelaDona.Atual() }.ShowDialog();
+        });
     }
 
     /// <summary>Troca a seção pelo chip. Marcar um DESMARCA o irmão — sempre há uma marcada.</summary>

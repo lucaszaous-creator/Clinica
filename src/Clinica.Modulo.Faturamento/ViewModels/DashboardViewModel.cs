@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Faturamento.Web;
 using Clinica.Domain.Entities;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
@@ -33,6 +35,22 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
     /// <summary>Nome da clínica (assinatura da mensagem de WhatsApp).</summary>
     private string? _nomeClinica;
+
+    private readonly HashSet<int> _selecionadosWeb = [];
+    public bool EstaSelecionada(object linha) => linha is PendenciaCodigo p && _selecionadosWeb.Contains(p.CodigoId);
+    [RelayCommand]
+    private void AlternarSelecao(PendenciaCodigo? linha)
+    {
+        if (linha is null || !Codigos.Contains(linha)) return;
+        if (!_selecionadosWeb.Add(linha.CodigoId)) _selecionadosWeb.Remove(linha.CodigoId);
+        OnPropertyChanged(nameof(Codigos));
+    }
+    [RelayCommand]
+    private async Task DarBaixaSelecionadas()
+    {
+        await DarBaixaEmLote(Codigos.Where(c => _selecionadosWeb.Contains(c.CodigoId)).ToList());
+        _selecionadosWeb.RemoveWhere(id => !_todos.Any(c => c.CodigoId == id));
+    }
 
     public ObservableCollection<PendenciaCodigo> Codigos { get; } = new();
     public ObservableCollection<PendenciaConsulta> Consultas { get; } = new();
@@ -358,10 +376,14 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     }
 
     [RelayCommand]
-    private void DarBaixa(PendenciaCodigo? codigo)
+    private async Task DarBaixa(PendenciaCodigo? codigo)
     {
-        if (codigo is not null)
-            AbrirBaixaSolicitado?.Invoke(codigo.CodigoId);
+        if (codigo is null) return;
+        SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
+        var vm = new BaixaViewModel(_scopeFactory, _dialogo);
+        await vm.CarregarAsync(codigo.CodigoId);
+        await DialogosDaSessao.AbrirAsync("FaturamentoBaixa", vm, () => throw new InvalidOperationException("Requer apresentação web."));
+        await CarregarAsync();
     }
 
     /// <summary>
@@ -376,11 +398,8 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         // O mesmo bit da tela gerencial de pendências: anotar é escrever na guia.
         SessaoUsuario.Atual.Exigir(Permissao.VerFaturamento, "anotar a pendência");
 
-        var janela = new Alertas.ObservacaoPendenciaWindow(codigo)
-        {
-            Owner = System.Windows.Application.Current.MainWindow
-        };
-        if (janela.ShowDialog() != true) return;
+        var janela = new ObservacaoFaturamento(codigo);
+        if (await janela.AbrirAsync() != true) return;
 
         try
         {
@@ -390,7 +409,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         }
         catch (Exception ex)
         {
-            _dialogo.Aviso("Observação da pendência", ex.Message);
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Observação da pendência", ex.Message);
         }
 
         await CarregarAsync();
@@ -408,16 +427,13 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
         SessaoUsuario.Atual.Exigir(Permissao.MarcarNaoConformidade, "marcar a guia como não conformidade");
 
-        if (!_dialogo.Confirmar("Não conformidade",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Não conformidade",
                 $"Marcar a guia de {codigo.PacienteNome} como não conformidade? " +
                 "Ela sai das pendências ativas do painel e vai para a aba NC."))
             return;
 
-        var janela = new Alertas.NaoConformidadeWindow(codigo)
-        {
-            Owner = System.Windows.Application.Current.MainWindow
-        };
-        if (janela.ShowDialog() != true) return;
+        var janela = new NaoConformidadeFaturamento(codigo);
+        if (await janela.AbrirAsync() != true) return;
 
         try
         {
@@ -427,7 +443,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         }
         catch (Exception ex)
         {
-            _dialogo.Aviso("Não conformidade", ex.Message);
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Não conformidade", ex.Message);
         }
 
         await CarregarAsync();
@@ -438,7 +454,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     /// não consegue contato por ligação para obter a 1ª/2ª guia. Um clique leva direto à conversa.
     /// </summary>
     [RelayCommand]
-    private void Whatsapp(PendenciaCodigo? pendencia)
+    private async Task Whatsapp(PendenciaCodigo? pendencia)
     {
         if (pendencia is null) return;
 
@@ -451,12 +467,12 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         if (pendencia.FormaObtencao == FormaObtencao.App)
             texto += " Se o seu plano gera o código pelo aplicativo, pode nos enviar o QR Code por aqui mesmo.";
 
-        AbrirWhatsapp(pendencia.PacienteTelefone, pendencia.PacienteNome, texto);
+        await AbrirWhatsapp(pendencia.PacienteTelefone, pendencia.PacienteNome, texto);
     }
 
     /// <summary>WhatsApp para o paciente cuja consulta está a vencer (agendar a renovação).</summary>
     [RelayCommand]
-    private void WhatsappConsulta(PendenciaConsulta? item)
+    private async Task WhatsappConsulta(PendenciaConsulta? item)
     {
         if (item is null) return;
 
@@ -466,12 +482,12 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
                     $"(até {item.DataVencimento.ToString("dd/MM", PtBr)}). " +
                     "Para não interromper o seu tratamento, vamos agendar o seu retorno? Responda por aqui, por favor.";
 
-        AbrirWhatsapp(item.PacienteTelefone, item.PacienteNome, texto);
+        await AbrirWhatsapp(item.PacienteTelefone, item.PacienteNome, texto);
     }
 
     /// <summary>WhatsApp para o paciente com carteirinha vencida/a vencer (pedir a atualização).</summary>
     [RelayCommand]
-    private void WhatsappCarteirinha(PendenciaCarteirinha? item)
+    private async Task WhatsappCarteirinha(PendenciaCarteirinha? item)
     {
         if (item is null) return;
 
@@ -483,7 +499,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
                     "Para o convênio não recusar as suas guias, poderia nos enviar por aqui uma foto da carteirinha " +
                     "atualizada? Obrigado!";
 
-        AbrirWhatsapp(item.PacienteTelefone, item.PacienteNome, texto);
+        await AbrirWhatsapp(item.PacienteTelefone, item.PacienteNome, texto);
     }
 
     /// <summary>Primeiro nome do paciente (para saudação).</summary>
@@ -494,12 +510,12 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     /// Normaliza o telefone (+DDI), assina com o nome da clínica e abre o wa.me na conversa.
     /// Telefone ausente/inválido é avisado com orientação para editar em Pacientes.
     /// </summary>
-    private void AbrirWhatsapp(string? telefone, string pacienteNome, string corpo)
+    private async Task AbrirWhatsapp(string? telefone, string pacienteNome, string corpo)
     {
         var fone = Telefone.Normalizar(telefone);
         if (fone.Length is < 10 or > 13)
         {
-            _dialogo.Aviso("WhatsApp",
+            await DialogosDaSessao.AvisoAsync(_dialogo, "WhatsApp",
                 $"{pacienteNome}: telefone ausente ou inválido no cadastro (edite em Pacientes).");
             return;
         }
@@ -517,7 +533,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         }
         catch (Exception ex)
         {
-            _dialogo.Aviso("WhatsApp", $"Não foi possível abrir o WhatsApp: {ex.Message}");
+            await DialogosDaSessao.AvisoAsync(_dialogo, "WhatsApp", $"Não foi possível abrir o WhatsApp: {ex.Message}");
         }
     }
 
@@ -530,16 +546,13 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         var itens = selecionados?.OfType<PendenciaCodigo>().ToList() ?? new List<PendenciaCodigo>();
         if (itens.Count == 0)
         {
-            _dialogo.Aviso("Baixa em lote",
-                "Selecione uma ou mais linhas da tabela (Ctrl+clique ou Shift+clique) antes de usar a baixa em lote.");
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Baixa em lote",
+                "Selecione uma ou mais linhas da tabela antes de usar a baixa em lote.");
             return;
         }
 
-        var janela = new Alertas.BaixaLoteWindow(itens)
-        {
-            Owner = System.Windows.Application.Current.MainWindow
-        };
-        if (janela.ShowDialog() != true) return;
+        var janela = new BaixaLoteFaturamento(itens);
+        if (await janela.AbrirAsync() != true) return;
 
         var feitas = 0;
         var falhas = new List<string>();
@@ -568,10 +581,10 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         }
 
         if (falhas.Count > 0)
-            _dialogo.Aviso("Baixa em lote",
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Baixa em lote",
                 $"{feitas} guia(s) baixada(s); {falhas.Count} NÃO:\n\n" + string.Join("\n", falhas));
         else if (feitas == 0)
-            _dialogo.Aviso("Baixa em lote", "Nenhuma linha tinha número de guia — nada foi baixado.");
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Baixa em lote", "Nenhuma linha tinha número de guia — nada foi baixado.");
 
         await CarregarAsync();
     }
@@ -588,7 +601,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         }
         catch (Exception ex)
         {
-            _dialogo.Aviso("Renovar consulta", ex.Message);
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Renovar consulta", ex.Message);
         }
 
         await CarregarAsync();
@@ -622,7 +635,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         }
         catch (Exception ex)
         {
-            _dialogo.Aviso("Rodar pendências", ex.Message);
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Rodar pendências", ex.Message);
         }
     }
 

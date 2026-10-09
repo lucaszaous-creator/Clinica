@@ -1,0 +1,66 @@
+{
+  "modelo_solicitado": "jev-1.13.0",
+  "sha256_pedido": "7c5872f318c6c4b70b65abfdc4e6bacc1d8f06a05a694c39bf97865d3e3c9e7d",
+  "escopo": "Cobertura do padrão de ações aprovado: primárias preenchidas, auxiliares azuis com ícones; análise estática sem imagens.",
+  "pareceres": {
+    "recepcao": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 0.83,
+      "probabilities": {
+        "coberto_com_limites": 0.87,
+        "lacuna_integracao": 0.01,
+        "lacuna_cascata": 0.0,
+        "evidencia_insuficiente": 0.12
+      }
+    },
+    "clinico": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 1.0,
+      "probabilities": {
+        "coberto_com_limites": 1.0,
+        "lacuna_integracao": 0.0,
+        "lacuna_cascata": 0.0,
+        "evidencia_insuficiente": 0.0
+      }
+    },
+    "gerente": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 0.72,
+      "probabilities": {
+        "coberto_com_limites": 0.79,
+        "lacuna_integracao": 0.01,
+        "lacuna_cascata": 0.0,
+        "evidencia_insuficiente": 0.2
+      }
+    },
+    "faturamento": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 0.85,
+      "probabilities": {
+        "coberto_com_limites": 0.89,
+        "lacuna_integracao": 0.01,
+        "lacuna_cascata": 0.01,
+        "evidencia_insuficiente": 0.09
+      }
+    },
+    "financeiro": {
+      "type": "choice",
+      "choice": "coberto_com_limites",
+      "confidence": 0.91,
+      "probabilities": {
+        "coberto_com_limites": 0.9299999999999999,
+        "lacuna_integracao": 0.01,
+        "lacuna_cascata": 0.01,
+        "evidencia_insuficiente": 0.05
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 30599,
+    "output_tokens": 346
+  }
+}

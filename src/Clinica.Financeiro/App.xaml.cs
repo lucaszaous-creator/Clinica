@@ -31,15 +31,8 @@ public partial class App : System.Windows.Application
     private Window CriarJanelaWeb(IServiceProvider servicos)
     {
         if (!SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
-            return new Window
-            {
-                Title = "Financeiro — Clínica SemDor",
-                Content = new System.Windows.Controls.TextBlock
-                {
-                    Text = "Seu usuário não tem acesso ao Financeiro. Entre com um usuário autorizado.",
-                    Margin = new Thickness(32), TextWrapping = TextWrapping.Wrap
-                }
-            };
+            return new Clinica.Desktop.Shell.Web.EntradaWebWindow(new(null, "Financeiro", "aviso",
+                "Seu usuário não tem acesso ao Financeiro. Entre com um usuário autorizado."));
         return new Web.FinanceiroWebWindow(servicos);
     }
 

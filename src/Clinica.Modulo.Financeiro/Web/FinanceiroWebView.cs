@@ -16,6 +16,8 @@ using Clinica.Domain.Entities;
 using Clinica.Financeiro.Modulo;
 using Clinica.Financeiro.ViewModels;
 using Clinica.Financeiro.Views;
+using Clinica.Desktop.Shell.Configuracao;
+using Clinica.Desktop.Shell.Web;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Core;
@@ -43,6 +45,12 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     private static readonly JsonSerializerOptions JsonOpcoes = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private readonly ModuloFinanceiro _modulo = new();
     private readonly CaixaViewModel _caixa;
+    private readonly SuiteFerramentasWeb _ferramentas;
+    private readonly DispatcherTimer _relogioFerramentas;
+    private readonly string _pastaAulas;
+    private CatalogoAulasSuiteWebDto? _catalogoAulas;
+    private AulaSuiteWebDto? _aulaAtual;
+    private string? _videoUrl;
     private readonly SnackbarService? _snackbar;
     private readonly WebView2 _browser = new();
     private readonly DispatcherTimer _envio;
@@ -68,12 +76,18 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     public CaixaViewModel Caixa => _caixa;
     public Task QuandoPronto => _pronto.Task;
 
-    public FinanceiroWebView(IServiceProvider services)
+    public FinanceiroWebView(IServiceProvider services, string? dadosTreinamento = null)
     {
         ExigirSessao();
         _services = services;
         _caixa = services.GetRequiredService<CaixaViewModel>();
         _paginas = new FinanceiroPaginasController(services, _caixa);
+        var pastaTreinamento = dadosTreinamento ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), EdicaoDeTeste.NomePasta, "Treinamento");
+        _ferramentas = new(services, _modulo.Itens.ToArray(), RotasPermitidas().Select(i => i.Chave), dadosLocais: pastaTreinamento);
+        _pastaAulas = Path.Combine(pastaTreinamento, "videos");
+        _ferramentas.Changed += AgendarEstado;
+        _relogioFerramentas = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _relogioFerramentas.Tick += AtualizarFerramentas;
         _paginas.Changed += AgendarEstado;
         _dialogos.Mudou += AgendarEstado;
         _snackbar = services.GetService<SnackbarService>();
@@ -108,7 +122,7 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
             if (!File.Exists(Path.Combine(arquivos, "index.html")))
                 throw new FileNotFoundException("Os arquivos locais da interface financeira não foram encontrados.");
             var perfil = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ClinicaSemDor", "Financeiro", "WebView2");
+                EdicaoDeTeste.NomePasta, "Financeiro", "WebView2");
             Directory.CreateDirectory(perfil);
             var ambiente = await CoreWebView2Environment.CreateAsync(userDataFolder: perfil);
             if (_descartado) return;
@@ -125,6 +139,9 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
             core.Settings.IsGeneralAutofillEnabled = false;
             core.Settings.IsWebMessageEnabled = true;
             core.SetVirtualHostNameToFolderMapping(HostVirtual, arquivos, CoreWebView2HostResourceAccessKind.Deny);
+            // O mapping precisa existir antes da primeira navegação para o player carregar mídia local.
+            Directory.CreateDirectory(_pastaAulas);
+            core.SetVirtualHostNameToFolderMapping("aulas.clinica.local", _pastaAulas, CoreWebView2HostResourceAccessKind.DenyCors);
             core.NavigationStarting += AoNavegar;
             core.FrameNavigationStarting += BloquearFrame;
             core.NewWindowRequested += BloquearPopup;
@@ -136,6 +153,8 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
             core.WebResourceRequested += AoSolicitarRecurso;
             core.Navigate(Origem + "index.html");
+            _relogioFerramentas.Start();
+            await _ferramentas.AtualizarInfusoesAsync();
         }
         catch (Exception ex)
         {
@@ -167,6 +186,8 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     private static void BloquearDownload(object? sender, CoreWebView2DownloadStartingEventArgs e) => e.Cancel = true;
     private void AoSolicitarRecurso(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
     {
+        if (!_descartado && e.Request.Uri == _videoUrl && SessaoUsuario.Atual.UsuarioId == _usuarioInicial &&
+            SessaoUsuario.Atual.Efetivas == _permissoesIniciais && SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro)) return;
         if (_descartado || OrigemPermitida(e.Request.Uri)) return;
         e.Response = _browser.CoreWebView2.Environment.CreateWebResourceResponse(
             Stream.Null, 403, "Recurso externo bloqueado", "Content-Type: text/plain; charset=utf-8");
@@ -240,7 +261,7 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
                 return;
             }
             if (_dialogos.EstadoAtual is not null) return;
-            if (_executando && m.Acao != "pagina-campo") return;
+            if (_executando && m.Acao is not ("pagina-campo" or "progresso-aula" or "reiniciar-aula")) return;
             var contextoRecebido = m.Contexto ?? _paginas.Contexto;
             await _filaPagina.WaitAsync(_cancelamento.Token);
             try
@@ -263,6 +284,24 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
                         await _paginas.ExecutarAcaoAsync(m.Chave, m.Tabela, m.Linha); break;
                     case "navegar": await NavegarAsync(m.Texto); break;
                     case "trocar-usuario": await TrocarUsuarioAsync(); break;
+                    case "avisos-lidos": _ferramentas.MarcarAvisosLidos(); break;
+                    case "fila-infusao": await NavegarAsync(_ferramentas.RotaFilaInfusao()); break;
+                    case "treinamento": _catalogoAulas = _ferramentas.CatalogoAulas(); break;
+                    case "abrir-aula" when m.Chave is not null:
+                        var video = await _ferramentas.AbrirAulaAsync(m.Chave, _cancelamento.Token);
+                        ExigirSessao();
+                        var copia = Path.Combine(_pastaAulas, Path.GetFileName(video.CaminhoVideo));
+                        if (!Path.GetFullPath(copia).Equals(Path.GetFullPath(video.CaminhoVideo), StringComparison.OrdinalIgnoreCase)) File.Copy(video.CaminhoVideo, copia, true);
+                        _aulaAtual = video.Aula; _videoUrl = "https://aulas.clinica.local/" + Uri.EscapeDataString(Path.GetFileName(video.CaminhoVideo)); break;
+                    case "progresso-aula" when m.Chave is not null:
+                        if (_aulaAtual?.Id != m.Chave) throw new InvalidOperationException("Esta aula não está aberta.");
+                        if (m.Valor.ValueKind != JsonValueKind.Object || !m.Valor.TryGetProperty("posicao", out var posicao) || !posicao.TryGetDouble(out var segundos)) throw new InvalidOperationException("Posição inválida.");
+                        bool? concluida = m.Valor.TryGetProperty("concluida", out var conclusao) && conclusao.ValueKind == JsonValueKind.True ? true : null;
+                        _ferramentas.SalvarProgresso(m.Chave, segundos, concluida);
+                        _catalogoAulas = _ferramentas.CatalogoAulas(); _aulaAtual = _catalogoAulas.Aulas.Single(a => a.Id == m.Chave); break;
+                    case "reiniciar-aula" when m.Chave is not null:
+                        if (_aulaAtual?.Id != m.Chave) throw new InvalidOperationException("Esta aula não está aberta.");
+                        _ferramentas.ReiniciarAula(m.Chave); _catalogoAulas = _ferramentas.CatalogoAulas(); _aulaAtual = _catalogoAulas.Aulas.Single(a => a.Id == m.Chave); break;
                     case "trocar-senha":
                         await _dialogos.AbrirAsync("TrocaSenha", new DialogosTrocaSenhaViewModel(_services.GetRequiredService<IServiceScopeFactory>())); break;
                     case "mes":
@@ -404,6 +443,7 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
             var estado = new
             {
                 tipo = "estado", pagina = _paginas.ObterPagina(), dialogo = _dialogos.EstadoAtual, mes = _caixa.Mes.ToString("yyyy-MM", CultureInfo.InvariantCulture),
+                ferramentas = _ferramentas.Estado(), treinamento = _catalogoAulas, aula = _aulaAtual, videoUrl = _videoUrl,
                 entradas = _caixa.Entradas, saidas = _caixa.Saidas, saldo = _caixa.Saldo,
                 previsto = _caixa.Previsto, liquido = _caixa.Liquido, deducoes = _caixa.Deducoes,
                 ultimoMovimento = _caixa.UltimoMovimento, detalheUltimoMovimento = _caixa.DetalheUltimoMovimento,
@@ -452,12 +492,20 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
     {
         // Descarta o DOM com dados anteriores; uma falha de autorização nunca mantém
         // o último estado financeiro visível nem oferece o fallback com esses dados.
+        var anterior = Window.GetWindow(this);
         Dispose();
-        Content = new TextBlock
+        Content = null;
+        var aviso = new EntradaWebWindow(new(null, "Financeiro", "aviso",
+            "Seu acesso ao Financeiro não está disponível. Entre novamente no sistema com um usuário autorizado."));
+        if (anterior is not null)
         {
-            Text = "Seu acesso ao Financeiro não está disponível. Entre novamente no sistema com um usuário autorizado.",
-            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(32)
-        };
+            aviso.WindowStartupLocation = WindowStartupLocation.Manual;
+            aviso.Left = anterior.Left; aviso.Top = anterior.Top;
+            aviso.Width = anterior.Width; aviso.Height = anterior.Height; aviso.ShowInTaskbar = anterior.ShowInTaskbar;
+        }
+        if (System.Windows.Application.Current.MainWindow == anterior) System.Windows.Application.Current.MainWindow = aviso;
+        aviso.Show();
+        anterior?.Close();
     }
 
     public async Task CapturarPreviewAsync(Stream destino)
@@ -467,11 +515,14 @@ public sealed class FinanceiroWebView : UserControl, IDisposable
         await _browser.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, destino);
     }
     private void AoDescarregar(object sender, RoutedEventArgs e) => Dispose();
+    private async void AtualizarFerramentas(object? sender, EventArgs e) => await _ferramentas.AtualizarInfusoesAsync();
     public void Dispose()
     {
         if (_descartado) return;
         _descartado = true;
         _cancelamento.Cancel();
+        _relogioFerramentas.Stop(); _relogioFerramentas.Tick -= AtualizarFerramentas;
+        _ferramentas.Changed -= AgendarEstado; _ferramentas.Dispose();
         _dialogos.Mudou -= AgendarEstado;
         _dialogos.Dispose();
         _paginas.Changed -= AgendarEstado;

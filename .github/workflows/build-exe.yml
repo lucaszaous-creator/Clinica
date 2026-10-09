@@ -55,11 +55,20 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Compilar interface local da suíte e entrada
+        working-directory: src/Clinica.Desktop.Shell/Web/frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Compilar a interface financeira local
         working-directory: src/Clinica.Modulo.Financeiro/Web/frontend
         run: |
           npm ci
           npm run build
+
+      - name: Validar contratos de páginas e diálogos da suíte
+        run: dotnet run --project tools/validar-suite-web/Qa.csproj -c Release
 
       - name: Conferir espelho dos tokens (CSS x XAML)
         run: python tokens/verificar-espelho.py
@@ -105,6 +114,36 @@ jobs:
       - name: Conferir todas as páginas e operações do Financeiro no WebView2
         run: dotnet run --project tools/validar-design-financeiro -c Release -- --web
 
+      - name: Conferir ficha, sessões, exames e impressão no WebView2
+        run: dotnet run --project tests/Clinica.Clinico.Web.Qa -c Release -- --web
+
+      - name: Conferir modelos, infusão, enfermagem e seções da ficha no WebView2
+        run: dotnet run --project tests/Clinica.Clinico.Web.Qa -c Release -- --infusao-modelos
+
+      - name: Conferir cadastro, agenda e pagamentos da Recepção no WebView2
+        run: dotnet run --project qa/recepcao-web -c Release -- --web
+
+      - name: Conferir baixas, glosas, lotes e gravações gerenciais no WebView2
+        run: dotnet run --project tools/validar-faturamento-web -c Release -- --web
+
+      - name: Conferir ferramentas, treinamento e navegação compartilhados
+        run: dotnet run --project tools/validar-faturamento-web -c Release -- --ferramentas-only
+
+      - name: Conferir páginas e navegação do Gerente no WebView2
+        run: dotnet run --project tools/validar-suite-web -c Release -- --web
+
+      - name: Conferir buscas e filtros da agenda no WebView2
+        run: dotnet run --project qa/recepcao-web -c Release -- --buscas
+
+      - name: Conferir contraste das 76 rotas dos cinco módulos
+        run: dotnet run --project tools/validar-suite-web -c Release -- --contraste
+
+      - name: Conferir secretaria com 48 pacientes no WebView2
+        run: dotnet run --project qa/recepcao-web -c Release -- --agenda48
+
+      - name: Conferir confirmações, recall e avisos no WebView2
+        run: dotnet run --project qa/recepcao-web -c Release -- --acompanhamento
+
       - name: Conferir recall, filtros e configuração salva no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --acompanhamento
 
@@ -117,6 +156,18 @@ jobs:
       - name: Conferir atendimento, histórico e gravação no Windows
         run: dotnet run --project tools/ValidarAtendimentoDesktop -c Release -- artifacts/atendimento-desktop
 
+      - name: Guardar mapa de ações e evidências de interface
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: QA-acoes-cinco-modulos
+          path: |
+            artifacts/mapa-botoes/
+            artifacts/design-financeiro/capturas/*.png
+            artifacts/gerente-web/*.png
+            artifacts/faturamento-web/*.png
+          if-no-files-found: warn
+
       - name: Publicar .exe (self-contained, arquivo único)
         run: >
           dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj
@@ -127,6 +178,9 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableWindowsTargeting=true
           -o publish
+
+      - name: Conferir recursos web do Faturamento publicado
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish
 
       - name: Enviar artefato
         uses: actions/upload-artifact@v6
@@ -151,6 +205,9 @@ jobs:
           -p:EnableWindowsTargeting=true
           -o publish-recepcao
 
+      - name: Conferir recursos web da Recepção publicada
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish-recepcao
+
       - name: Enviar artefato da Recepção
         uses: actions/upload-artifact@v6
         with:
@@ -168,6 +225,9 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableWindowsTargeting=true
           -o publish-clinico
+
+      - name: Conferir recursos web do Consultório publicado
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish-clinico
 
       - name: Enviar artefato do Consultório
         uses: actions/upload-artifact@v6
@@ -187,6 +247,9 @@ jobs:
           -p:EnableWindowsTargeting=true
           -o publish-financeiro
 
+      - name: Conferir recursos web do Financeiro publicado
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish-financeiro
+
       - name: Enviar artefato do Financeiro
         uses: actions/upload-artifact@v6
         with:
@@ -204,6 +267,9 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableWindowsTargeting=true
           -o publish-gerente
+
+      - name: Conferir recursos web do Gerente publicado
+        run: ./tools/verificar-recursos-web-publicados.ps1 -Pasta publish-gerente
 
       - name: Enviar artefato do Gerente Geral
         uses: actions/upload-artifact@v6

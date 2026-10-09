@@ -22,6 +22,7 @@ public sealed record OpcaoNatureza(NaturezaProblema Valor, string Rotulo, string
 /// </summary>
 public sealed partial class ProblemaEdicaoViewModel : ObservableObject
 {
+    public event Action? Confirmado;
     private readonly IServiceScopeFactory _escopos;
     private readonly int _pacienteId;
     private readonly int _problemaId;
@@ -64,9 +65,9 @@ public sealed partial class ProblemaEdicaoViewModel : ObservableObject
     /// O campo continua aceitando qualquer texto: a lista é atalho, não validação.
     /// </summary>
     [RelayCommand]
-    private void BuscarCid()
+    private async Task BuscarCidAsync()
     {
-        if (BuscaCidWindow.Perguntar(Cid) is { } codigo) Cid = codigo;
+        if (await BuscaCidWindow.PerguntarAsync(Cid) is { } codigo) Cid = codigo;
     }
     [ObservableProperty] private DateTime? _inicio;
     [ObservableProperty] private string? _observacoes;
@@ -129,6 +130,7 @@ public sealed partial class ProblemaEdicaoViewModel : ObservableObject
                 Inicio = Inicio is { } d ? DateOnly.FromDateTime(d) : null,
                 Observacoes = Observacoes
             }, SessaoUsuario.Atual.Operador);
+            Confirmado?.Invoke();
         }
         catch (Exception ex)
         {

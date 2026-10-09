@@ -55,4 +55,12 @@ public partial class EscolherPacienteWindow : Window
         var janela = new EscolherPacienteWindow(assunto, escopos) { Owner = dono };
         return janela.ShowDialog() == true ? janela.Escolhido : null;
     }
+
+    public static async Task<Paciente?> PerguntarAsync(string assunto, Window? dono, IServiceScopeFactory escopos)
+    {
+        var vm=new Web.EscolherPacienteWebViewModel(assunto,escopos);
+        Paciente? nativo=null;
+        var confirmou=await DialogosDaSessao.AbrirAsync("EscolherPaciente",vm,()=>{nativo=Perguntar(assunto,dono,escopos);return nativo is not null;});
+        return confirmou==true ? vm.Seletor.Selecionado??nativo : null;
+    }
 }

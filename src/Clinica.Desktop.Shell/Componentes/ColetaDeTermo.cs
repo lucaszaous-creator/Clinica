@@ -55,8 +55,7 @@ public static class ColetaDeTermo
             var escolha = new EscolherTermoViewModel(
                 servicos.GetRequiredService<TermoProcedimentoService>(), pacienteNome);
 
-            var seletor = new EscolherTermoWindow(escolha) { Owner = Dono() };
-            if (seletor.ShowDialog() != true || escolha.Escolhido is not { } modelo)
+            if (await DialogosDaSessao.AbrirAsync("EscolherTermo",escolha,()=>throw new InvalidOperationException("Requer apresentação web.")) != true || escolha.Escolhido is not { } modelo)
                 return false;
 
             modeloId = modelo.Id;
@@ -85,7 +84,8 @@ public static class ColetaDeTermo
             SessaoDoTermo = sessaoRotulo
         };
 
-        new AssinaturaPacienteWindow(vm) { Owner = Dono() }.ShowDialog();
+        try { await DialogosDaSessao.AbrirAsync("AssinaturaPaciente",vm,()=>throw new InvalidOperationException("Requer apresentação web.")); }
+        finally { vm.EncerrarWeb(); }
 
         return vm.Concluido;
     }
@@ -151,8 +151,7 @@ public static class ColetaDeTermo
         var escolha = new EscolherSessaoDoTermoViewModel(
             sessoes, pacienteNome, await NomeDoModeloAsync(termos, modeloId));
 
-        var janela = new EscolherSessaoDoTermoWindow(escolha) { Owner = Dono() };
-        if (janela.ShowDialog() != true) return (null, null, true);
+        if (await DialogosDaSessao.AbrirAsync("EscolherSessaoDoTermo",escolha,()=>throw new InvalidOperationException("Requer apresentação web.")) != true) return (null, null, true);
 
         var escolhida = escolha.Escolhida;
         var rotulo = escolhida is { } id
@@ -199,7 +198,7 @@ public static class ColetaDeTermo
     /// <param name="documentoId">
     /// Um termo já emitido e ainda não assinado, quando existe. Nulo = emite um novo.
     /// </param>
-    public static bool AbrirConsentimentoLgpd(
+    public static async Task<bool> AbrirConsentimentoLgpdAsync(
         IServiceScopeFactory escopos, int pacienteId, string pacienteNome,
         int? documentoId = null)
     {
@@ -222,7 +221,8 @@ public static class ColetaDeTermo
             servicos.GetRequiredService<ProblemaPacienteService>(),
             servicos.GetRequiredService<ColetaRemotaTermoService>());
 
-        new AssinaturaPacienteWindow(vm) { Owner = Dono() }.ShowDialog();
+        try { await DialogosDaSessao.AbrirAsync("AssinaturaPaciente",vm,()=>throw new InvalidOperationException("Requer apresentação web.")); }
+        finally { vm.EncerrarWeb(); }
 
         return vm.Concluido;
     }

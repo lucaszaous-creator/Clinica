@@ -149,8 +149,7 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             var paciente = EscolherPacienteWindow.Perguntar("Registrar infusão realizada", JanelaDona.Atual(), _escopos);
             if (paciente is null) return;
             var vm = new InfusaoExternaViewModel(_escopos, paciente.Id, paciente.Nome);
-            var janela = new InfusaoExternaWindow(vm) { Owner = JanelaDona.Atual() };
-            if (janela.ShowDialog() != true || vm.PrescricaoId is not { } id) return;
+            if (await DialogosDaSessao.AbrirAsync("InfusaoExterna",vm,()=>new InfusaoExternaWindow(vm){Owner=JanelaDona.Atual()}.ShowDialog()) != true || vm.PrescricaoId is not { } id) return;
             await AbrirFolhaAsync(id);
             await CarregarAsync();
         } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
@@ -315,7 +314,7 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
         SessaoUsuario.Atual.Exigir(
             Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
 
-        EvolucaoEnfermagemWindow.Abrir(
+        await EvolucaoEnfermagemWindow.AbrirAsync(
             _escopos, _dialogo, linha.PacienteId, linha.Paciente,
             linha.PrescricaoId, linha.Numero);
 
@@ -408,11 +407,7 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
     private async Task AbrirFolhaAsync(int prescricaoId)
     {
         var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, prescricaoId);
-        var janela = new FolhaExecucaoWindow(vm)
-        {
-            Owner = JanelaDona.Atual()
-        };
-        janela.ShowDialog();
+        await DialogosDaSessao.AbrirAsync("FolhaExecucao",vm,()=>new FolhaExecucaoWindow(vm){Owner=JanelaDona.Atual()}.ShowDialog());
 
         await CarregarAsync();
     }

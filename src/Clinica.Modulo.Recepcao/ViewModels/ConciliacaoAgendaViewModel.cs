@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
@@ -213,7 +214,7 @@ public sealed partial class ConciliacaoAgendaViewModel : ObservableObject
         if (linha is null || Ocupado) return;
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar falta");
 
-        if (!_dialogo.Confirmar("Marcar falta?",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Marcar falta?",
                 $"{linha.Paciente} — horário de {linha.Quando:dd/MM/yyyy HH:mm}.\n\n"
                 + "Marcar como FALTA registra que o paciente não veio: entra nos indicadores "
                 + "de falta e no histórico de relacionamento dele.\n\nConfirma?")) return;
@@ -247,7 +248,7 @@ public sealed partial class ConciliacaoAgendaViewModel : ObservableObject
             return;
         }
 
-        if (!_dialogo.ConfirmarPerigo("Lançar atendimento retroativo?",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Lançar atendimento retroativo?",
                 $"{linha.Paciente} — horário de {linha.Quando:dd/MM/yyyy HH:mm}.\n\n"
                 + "O atendimento nasce datado do DIA DO HORÁRIO, não de hoje — é a data em "
                 + "que a sessão aconteceu. As guias nascem com a data prevista daquele dia, "
@@ -289,7 +290,7 @@ public sealed partial class ConciliacaoAgendaViewModel : ObservableObject
         if (linha.Sessoes.Count > 1)
         {
             var numeros = string.Join(" ou ", linha.Sessoes.Select(s => s.Numero));
-            var escolhido = _dialogo.PerguntarTexto("Qual sessão encerra este horário?",
+            var escolhido = await DialogosDaSessao.PerguntarTextoAsync(_dialogo, "Qual sessão encerra este horário?",
                 $"{linha.Paciente} tem {linha.Sessoes.Count} sessões lançadas em "
                 + $"{linha.Quando:dd/MM/yyyy}:\n\n"
                 + string.Join("\n", linha.Sessoes.Select(s => "• " + s.Resumo))
@@ -305,7 +306,7 @@ public sealed partial class ConciliacaoAgendaViewModel : ObservableObject
             }
         }
 
-        if (!_dialogo.Confirmar("Encerrar o horário pela sessão lançada?",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Encerrar o horário pela sessão lançada?",
                 $"{linha.Paciente} — horário de {linha.Quando:dd/MM/yyyy HH:mm}.\n\n"
                 + $"O horário será encerrado apontando para a sessão {sessao.Resumo}. Ele sai da "
                 + "ocupação, do dia do profissional e da conciliação — sem contar como "

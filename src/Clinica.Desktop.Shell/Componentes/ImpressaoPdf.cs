@@ -14,6 +14,23 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// </summary>
 public static class ImpressaoPdf
 {
+    internal sealed record DestinoNoEscopo(Func<byte[], string, string, string, Task<string?>> Entregar);
+    private static readonly AsyncLocal<Func<byte[], string, string, string, Task<string?>>?> EntregaNoEscopo = new();
+
+    // Permite validar a entrega em arquivo sem abrir um leitor ou seletor nativo no teste.
+    // O comportamento normal permanece o mesmo fora deste escopo assíncrono.
+    internal static IDisposable UsarEntregaNoEscopo(Func<byte[], string, string, string, Task<string?>> entrega)
+    {
+        var anterior = EntregaNoEscopo.Value;
+        EntregaNoEscopo.Value = entrega;
+        return new RestaurarEntrega(() => EntregaNoEscopo.Value = anterior);
+    }
+
+    private sealed class RestaurarEntrega(Action restaurar) : IDisposable
+    {
+        private Action? _restaurar = restaurar;
+        public void Dispose() => Interlocked.Exchange(ref _restaurar, null)?.Invoke();
+    }
     /// <summary>
     /// Pergunta onde salvar, grava e abre. Devolve null quando deu tudo certo (ou
     /// quando o usuário desistiu do diálogo) e a mensagem de erro quando não deu.
@@ -30,6 +47,8 @@ public static class ImpressaoPdf
     public static async Task<string?> SalvarEAbrirAsync(
         byte[] conteudo, string nomeSugerido, string filtro, string extensao)
     {
+        if (EntregaNoEscopo.Value is { } entrega)
+            return await entrega(conteudo, nomeSugerido, filtro, extensao);
         var dialogo = new Microsoft.Win32.SaveFileDialog
         {
             FileName = nomeSugerido,

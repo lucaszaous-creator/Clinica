@@ -1,0 +1,28 @@
+/* ComposiÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o operacional: os campos conduzem a leitura, sem faixas ou cartÃƒÆ’Ã‚Âµes de aviso vazios. */
+#app .form-agendamento{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr);gap:20px 24px;align-items:start}
+#app .form-agendamento>.orientacao-formulario{grid-column:1/-1;border:0;border-radius:0;background:none;padding:0;margin:0;color:var(--secundario,var(--suave));font-size:13px;line-height:1.55}
+#app .form-agendamento .orientacao-formulario p{margin:0}
+#app .form-agendamento>.passo-formulario{grid-column:1/-1;margin:0;border:1px solid var(--linha,#e4e7ec);border-radius:10px;background:white;overflow:visible}
+#app .form-agendamento>.passo-formulario>header{background:none;border:0;padding:16px 20px 0}
+#app .form-agendamento>.passo-formulario>header h2{font-size:14px;line-height:1.4;font-weight:600;color:var(--texto,#243246)}
+#app .form-agendamento>.passo-formulario>header p{font-size:12px;margin-top:4px;color:var(--secundario,var(--suave))}
+#app .form-agendamento>.passo-formulario>.campos-web{padding:14px 20px 18px;margin:0;gap:12px 16px;border:0;background:none;grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr))}
+#app .form-agendamento>.passo-formulario[data-etapa="Paciente"]>.campos-web{grid-template-columns:1fr 1fr}
+#app .form-agendamento>.passo-formulario[data-etapa="ObservaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes"]{grid-column:1}
+#app .form-agendamento>.passo-formulario[data-etapa="Confira antes de confirmar"]{grid-column:2}
+#app .form-agendamento>.passo-formulario[data-etapa="Confira antes de confirmar"]>.campos-web{grid-template-columns:1fr;gap:10px}
+#app .form-agendamento>.passo-formulario[data-etapa="ObservaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes"] textarea{min-height:110px}
+#app .form-agendamento>.dados-paciente-resumo{grid-column:1/-1;margin:-8px 0 0;border:0;border-bottom:1px solid var(--linha,#e4e7ec);border-radius:0;background:none}
+#app .form-agendamento>.dados-paciente-resumo>summary{padding:4px 2px 12px;background:none}
+#app .form-agendamento>.dados-paciente-resumo strong{display:none}
+#app .form-agendamento>.dados-paciente-resumo small{font-size:12px;color:var(--secundario,var(--suave));line-height:1.6}
+#app .form-agendamento .modalidades-lista{margin:14px 20px 18px}
+#app .form-agendamento .modalidades-lista .registros-cartoes{gap:8px;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))}
+#app .form-agendamento .modalidades-lista .registro-cartao{gap:10px;padding:12px;border:1px solid var(--linha,#e4e7ec);border-radius:8px;box-shadow:none;background:white}
+#app .form-agendamento .modalidades-lista .registro-cartao h4{font-size:13px;line-height:1.45;margin-bottom:8px;color:var(--texto,#243246)}
+#app .form-agendamento .modalidades-lista .registro-resumo{grid-template-columns:1fr 1fr;gap:6px}
+#app .form-agendamento .modalidades-lista dt{font-size:10px;color:var(--secundario,var(--suave))}
+#app .form-agendamento .modalidades-lista dd{font-size:11px;line-height:1.5}
+#app .form-agendamento .modalidades-lista .acoes-na-linha{padding:0;border:0;margin-top:auto}
+#app .form-agendamento>.campos-web{grid-column:1/-1}
+@media(max-width:1000px){#app .form-agendamento{grid-template-columns:minmax(0,1fr)}#app .form-agendamento>.passo-formulario[data-etapa="ObservaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Âµes"],#app .form-agendamento>.passo-formulario[data-etapa="Confira antes de confirmar"]{grid-column:1}#app .form-agendamento>.passo-formulario[data-etapa="Paciente"]>.campos-web{grid-template-columns:1fr}}

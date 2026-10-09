@@ -26,8 +26,7 @@ public static class Valores
 
         var limpo = texto.Trim().Replace("R$", string.Empty).Trim();
 
-        if (!decimal.TryParse(limpo, NumberStyles.Currency, new CultureInfo("pt-BR"), out valor) &&
-            !decimal.TryParse(limpo, NumberStyles.Currency, CultureInfo.InvariantCulture, out valor))
+        if (!TentarLerFormatado(limpo, NumberStyles.Currency, out valor))
             return false;
 
         return valor > 0;
@@ -45,10 +44,23 @@ public static class Valores
 
         var limpo = texto.Trim();
 
-        if (!decimal.TryParse(limpo, NumberStyles.Number, new CultureInfo("pt-BR"), out quantidade) &&
-            !decimal.TryParse(limpo, NumberStyles.Number, CultureInfo.InvariantCulture, out quantidade))
+        if (!TentarLerFormatado(limpo, NumberStyles.Number, out quantidade))
             return false;
 
         return quantidade >= 0;
+    }
+
+    private static bool TentarLerFormatado(string texto, NumberStyles estilo, out decimal valor)
+    {
+        // O navegador e o teclado podem fornecer ponto decimal. Tentar pt-BR primeiro
+        // aceita "12.5" como 125, sem falhar. O último separador define a fração:
+        // 1.250,00 e 1,250.00 mantêm seus milhares; 12,5 e 12.5 valem ambos 12,5.
+        var virgula = texto.LastIndexOf(',');
+        var ponto = texto.LastIndexOf('.');
+        var agrupamentoBrasileiro = virgula < 0 && ponto != texto.IndexOf('.');
+        var agrupamentoInternacional = ponto < 0 && virgula != texto.IndexOf(',');
+        var brasileiro = !agrupamentoInternacional && (agrupamentoBrasileiro || virgula > ponto);
+        return decimal.TryParse(texto, estilo,
+            brasileiro ? CultureInfo.GetCultureInfo("pt-BR") : CultureInfo.InvariantCulture, out valor);
     }
 }

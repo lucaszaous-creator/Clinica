@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/Clinica.Desktop.Shell/Controls/Valores.cs" Link="Controls/Valores.cs" />
     <PackageReference Include="FluentAssertions" Version="6.12.1" />
     <PackageReference Include="Velopack" Version="1.2.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
@@ -26,6 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/Clinica.Desktop.Shell/Configuracao/EdicaoDeTeste.cs" Link="Configuracao/EdicaoDeTeste.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AulaTreinamento.cs" Link="Treinamento/AulaTreinamento.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AcervoTreinamento.cs" Link="Treinamento/AcervoTreinamento.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/FonteAtualizacaoGithub.cs" Link="Atualizacao/FonteAtualizacaoGithub.cs" />

@@ -466,12 +466,10 @@ public sealed partial class MedidasViewModel : ObservableObject
             var vm = new MedidaEdicaoViewModel(
                 _escopos, PacienteId, Paciente, TipoAcompanhado?.Codigo);
 
-            var janela = new RegistrarMedidaWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
+            Func<bool?> abrirNativo = () => new RegistrarMedidaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("Medida", vm, abrirNativo);
 
-            if (janela.ShowDialog() != true) return;
+            if (respostaWeb != true) return;
 
             _snackbar.Sucesso("Medida registrada.");
 
@@ -507,7 +505,7 @@ public sealed partial class MedidasViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
             // Cancelar, nunca apagar (parcela 52) — Lei 13.787/2018, guarda de 20 anos.
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Cancelar medida",
                 $"Por que {linha.Tipo} de {linha.Valor} em {linha.Data} está sendo cancelada? "
                 + "Ela sai da curva e fica guardada, com este motivo — sem ele não haveria "

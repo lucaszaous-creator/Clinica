@@ -16,7 +16,7 @@ public sealed class AcervoTreinamento
     private readonly Dictionary<string,ProgressoAula> _assistidas;
     public AcervoTreinamento(int usuarioId,string? raiz=null,string? midia=null,HttpClient? http=null)
     {
-        _raiz=raiz??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"ClinicaSemDor","Treinamento");
+        _raiz=raiz??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),Clinica.Desktop.Shell.Configuracao.EdicaoDeTeste.NomePasta,"Treinamento");
         _http=http??Http;
         _midia=midia??Environment.GetEnvironmentVariable("CLINICA_TREINAMENTO_MIDIA")??Path.Combine(AppContext.BaseDirectory,"Treinamento","videos");
         _progresso=Path.Combine(_raiz,$"progresso-{usuarioId}.json");

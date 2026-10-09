@@ -52,4 +52,10 @@ public partial class BuscaCidWindow : Window
         DialogResult = true;
         Close();
     }
+
+    public static async Task<string?> PerguntarAsync(string? cidAtual)
+    {
+        var vm=new BuscaCidViewModel(cidAtual);
+        return await DialogosDaSessao.AbrirAsync("BuscaCid",vm,()=>new BuscaCidWindow(vm){Owner=JanelaDona.Atual()}.ShowDialog())==true?vm.Escolhido:null;
+    }
 }

@@ -28,4 +28,6 @@ Usar `-- --web` para verificar a interface HTML/CSS/TypeScript empacotada no Web
 
 Esse modo não usa o parâmetro de demonstração do frontend, não acessa o banco da clínica e não emite cobrança Pix, documento externo ou transação bancária.
 
+Usar `-- --navegacao` para conferir somente a navegação superior no WebView2 real: 15 destinos autorizados, cinco menus por hover e clique, setas/End/Escape, foco, ausência de sobreposição e capturas dos submenus em 1440×900, 1100×720 e 900×600. As mesmas verificações também fazem parte de `--web`.
+
 Os dados demonstrativos não cobrem todas as combinações de regras de negócio. Os testes de domínio e serviços permanecem na suíte `Clinica.Tests`.

@@ -15,6 +15,19 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// </summary>
 public partial class MapaCorporalWindow : Window
 {
+    public static async Task<bool?> PerguntarAsync(MapaCorporalViewModel vm, string titulo)
+    {
+        var anterior = vm.CapturarRascunho();
+        vm.Titulo = titulo;
+        try
+        {
+            var confirmou = await DialogosDaSessao.AbrirAsync("MapaCorporal", vm, () => new MapaCorporalWindow(vm, titulo) { Owner = JanelaDona.Atual() }.ShowDialog());
+            if (confirmou != true) vm.RestaurarRascunho(anterior);
+            return confirmou;
+        }
+        catch { vm.RestaurarRascunho(anterior); throw; }
+    }
+
     private readonly MapaCorporalViewModel _mapa;
     private readonly RascunhoMapaCorporal _aoAbrir;
 

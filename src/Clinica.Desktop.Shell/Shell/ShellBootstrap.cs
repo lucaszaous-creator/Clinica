@@ -29,7 +29,7 @@ public static class ShellBootstrap
     /// </summary>
     public static string? ObterConnectionString()
     {
-        var env = Environment.GetEnvironmentVariable("ConnectionStrings__Clinica");
+        var env = Environment.GetEnvironmentVariable(EdicaoDeTeste.VariavelConexao);
         if (!string.IsNullOrWhiteSpace(env)) return ConexaoStore.Normalizar(env);
 
         return ConexaoStore.Carregar();

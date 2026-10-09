@@ -1,0 +1,89 @@
+{
+  "modelo_solicitado": "jev-1.13.0",
+  "escopo": "Três consultas de fontes e logs sintéticos; Jev não executa aplicativo nem inspeciona imagens.",
+  "lotes": [
+    {
+      "modelo_solicitado": "jev-1.13.0",
+      "sha256_pedido": "028348bf7a4285adae07c8976770d0141c8e98969d910e72e50d0b2eff17d379",
+      "escopo": "Revisão das melhorias operacionais, cenários48, medição de contraste e QAfuncionais dos cinco módulos; sem execução pelo Jev.",
+      "perguntas": {
+        "secretaria48": "Ações diretas de chegada/falta/cancelamento, desistência da confirmação sem gravar, totais incluindo cancelados/faltosos, Em sala excluindo sessões encerradas e paridade com Meu dia: os 48 pacientes/horários e asserções sustentam isso?"
+      },
+      "pareceres": {
+        "secretaria48": {
+          "type": "choice",
+          "choice": "coerente_com_evidencias",
+          "confidence": 0.86,
+          "probabilities": {
+            "coerente_com_evidencias": 0.91,
+            "defeito_identificado": 0.08,
+            "evidencia_insuficiente": 0.01
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 8625,
+        "output_tokens": 68
+      }
+    },
+    {
+      "modelo_solicitado": "jev-1.13.0",
+      "sha256_pedido": "cf62c4885b253e52a20c26270e1ff38ace7d9bf6ae61e92894a92b29b34a9455",
+      "escopo": "Revisão das melhorias operacionais, cenários48, medição de contraste e QAfuncionais dos cinco módulos; sem execução pelo Jev.",
+      "perguntas": {
+        "acompanhamento": "Confirmações idempotentes, contagem atualizada e profissional carregado, Salvar/Voltar visíveis, estado de erro preservando rascunho e permissões negativas estão consistentes?",
+        "notificacoes": "A integração das ações reais de acompanhamento/confirmação com ISnackbarService é consistente? O QA exercita essas operações e verifica o sino, contador e histórico, sem enviar mensagens reais ou disparos periódicos?"
+      },
+      "pareceres": {
+        "acompanhamento": {
+          "type": "choice",
+          "choice": "coerente_com_evidencias",
+          "confidence": 0.83,
+          "probabilities": {
+            "coerente_com_evidencias": 0.89,
+            "defeito_identificado": 0.11,
+            "evidencia_insuficiente": 0.0
+          }
+        },
+        "notificacoes": {
+          "type": "choice",
+          "choice": "coerente_com_evidencias",
+          "confidence": 0.88,
+          "probabilities": {
+            "coerente_com_evidencias": 0.92,
+            "defeito_identificado": 0.08,
+            "evidencia_insuficiente": 0.0
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 15009,
+        "output_tokens": 131
+      }
+    },
+    {
+      "modelo_solicitado": "jev-1.13.0",
+      "sha256_pedido": "238b497856b7e0e19f6958e86cee69bd8e88ac1d95fd39915058e82ff956ad20",
+      "escopo": "Revisão das melhorias operacionais, cenários48, medição de contraste e QAfuncionais dos cinco módulos; sem execução pelo Jev.",
+      "perguntas": {
+        "modulos": "A composição mantém ações/regras/permissões do host e tira somente a seção Carteirinhas do Faturamento. A medição nas76rotas mais os QAfuncionais dos5módulos sustentam ausência de regressão nos cenários exercitados? Não avalie como garantia de todascombinações."
+      },
+      "pareceres": {
+        "modulos": {
+          "type": "choice",
+          "choice": "coerente_com_evidencias",
+          "confidence": 0.92,
+          "probabilities": {
+            "coerente_com_evidencias": 0.95,
+            "defeito_identificado": 0.02,
+            "evidencia_insuficiente": 0.03
+          }
+        }
+      },
+      "usage": {
+        "input_tokens": 11827,
+        "output_tokens": 65
+      }
+    }
+  ]
+}

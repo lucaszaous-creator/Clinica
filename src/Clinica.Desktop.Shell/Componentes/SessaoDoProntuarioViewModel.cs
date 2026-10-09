@@ -80,6 +80,14 @@ public sealed partial class SessaoDoProntuarioViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PodeCopiar))]
     private string? _textoParaCopiar;
 
+    [RelayCommand]
+    private void CopiarWeb()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario,"copiar a sessão");
+        if(!PodeCopiar)return;
+        try { System.Windows.Clipboard.SetText(TextoParaCopiar!);Mensagem="Registro copiado.";MensagemEhErro=false; }
+        catch { Mensagem="Não foi possível copiar o registro. Tente novamente.";MensagemEhErro=true; }
+    }
     public bool PodeCopiar => !string.IsNullOrWhiteSpace(TextoParaCopiar);
 
     [ObservableProperty] private bool _temAnexos;
@@ -142,6 +150,7 @@ public sealed partial class SessaoDoProntuarioViewModel : ObservableObject
 
             Evolucao? evolucao;
             int anexos;
+            IReadOnlyList<EvolucaoEnfermagem> enfermagem = [];
 
             using (var escopo = _escopos.CreateScope())
             {
@@ -161,6 +170,8 @@ public sealed partial class SessaoDoProntuarioViewModel : ObservableObject
 
                 var contagem = await repo.ContagemDeAnexosAsync([_evolucaoId]);
                 anexos = contagem.TryGetValue(_evolucaoId, out var q) ? q : 0;
+                if (evolucao.AgendamentoId is { } agendamentoId)
+                    enfermagem = await repo.EvolucoesEnfermagemDaSessaoAsync(evolucao.PacienteId, agendamentoId);
 
                 // Janela de dado de saúde deixa rastro — uma vez por abertura (ponto 4 do
                 // compromisso). `RegistrarAsync` não lança e loga por dentro: banco lento
@@ -176,6 +187,9 @@ public sealed partial class SessaoDoProntuarioViewModel : ObservableObject
             // dela. Sem o Include a navegação viria VAZIA em produção enquanto o teste
             // passaria pelo relationship fixup do EF (a lição da parcela 68).
             var sessao = SessaoDoProntuario.De(evolucao, anexos, evolucao.Versoes.Count);
+            var substituidas = enfermagem.Where(e => e.RetificaEvolucaoId != null).Select(e => e.RetificaEvolucaoId!.Value).ToHashSet();
+            sessao = sessao with { Blocos = [..sessao.Blocos, ..enfermagem.Select(e => new BlocoDaSessao(
+                $"Enfermagem · {e.Data:dd/MM/yyyy} {e.Hora:HH\\:mm}", LeituraEvolucaoEnfermagem.Conteudo(e, substituidas.Contains(e.Id))))] };
 
             _pacienteId = evolucao.PacienteId;
             _dia = evolucao.Data;
@@ -259,16 +273,12 @@ public sealed partial class SessaoDoProntuarioViewModel : ObservableObject
     /// mesma abertura — três cópias de uma janela que já é compartilhada.
     /// </summary>
     [RelayCommand]
-    private void VerCorrecoes()
+    private async Task VerCorrecoesAsync()
     {
         try
         {
-            new VersoesEvolucaoWindow
-            {
-                DataContext = new VersoesEvolucaoViewModel(
-                    _escopos, _evolucaoId, $"{DataTexto} — {Paciente}"),
-                Owner = JanelaDona.Atual()
-            }.ShowDialog();
+            var vm = new VersoesEvolucaoViewModel(_escopos,_evolucaoId,$"{DataTexto} — {Paciente}");
+            await DialogosDaSessao.AbrirAsync("VersoesEvolucao",vm,()=>new VersoesEvolucaoWindow{DataContext=vm,Owner=JanelaDona.Atual()}.ShowDialog());
         }
         catch (Exception ex)
         {

@@ -1,0 +1,70 @@
+/* Identidade da suÃƒÆ’Ã‚Â­te: contraste funcional, densidade de trabalho e hierarquia consistente. */
+
+body,#app .conteudo{background:var(--fundo)}
+#app .conteudo{padding-top:22px}
+#app .topbar{background:#fff;border-bottom:1px solid var(--linha);box-shadow:none}
+#app .cabecalho-pagina{padding:0 0 16px;margin-bottom:18px;border:0;border-bottom:1px solid var(--linha);border-radius:0;background:transparent;box-shadow:none;gap:20px}
+#app .cabecalho-pagina h1{font-size:25px;font-weight:600;color:var(--texto);letter-spacing:-.6px}
+#app .cabecalho-pagina p{font-size:13px;color:var(--suave)}
+#app .secao-web,#app .grafico-web,#app .cartao-resultado,#app .cartao-serie{background:#fff;border:1px solid var(--linha);box-shadow:none;border-radius:12px}
+#app .secao-web{padding:20px 22px;overflow:visible}
+#app .cabecalho-secao{background:transparent;border:0;border-radius:0;margin:0 0 20px;padding:0;align-items:center}
+#app .cabecalho-secao h2{font-size:17px;font-weight:600;color:var(--texto)}
+#app .campos-web{padding:0;border:0;border-radius:0;background:transparent;gap:16px 24px;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
+#app .pagina-web>.campos-web{padding:20px 24px;border:1px solid #d9e1ed;border-radius:12px;background:#eaf0f8}
+#app .campo-web>label{font-size:12px;font-weight:500;color:var(--suave)}
+#app .campo-web input,#app .campo-web select,#app .campo-web textarea{border-color:#bac9dd;background:#fff;color:var(--texto);box-shadow:none;border-radius:7px}
+#app .campo-web input:hover:not(:disabled),#app .campo-web select:hover:not(:disabled),#app .campo-web textarea:hover:not(:disabled){border-color:#a7afbe}
+#app .campo-web output{background:transparent;border:0;border-radius:0;padding:4px 0;min-height:25px;color:var(--texto);font-size:14px}
+#app .campo-web :disabled{background:#f4f5f7;color:#828894;box-shadow:none}
+#app .botao{background:#e1ebfc;border:1px solid #b8cceb;color:#2d4e82;min-height:35px;height:auto;padding:8px 12px;font-weight:500;border-radius:7px;box-shadow:none}
+#app .botao:hover:not(:disabled){background:#dfe8ff;border-color:#9eafd6;box-shadow:none}
+#app .botao.primario{background:var(--marca);border-color:var(--marca);color:#fff;box-shadow:none}
+#app .botao.primario:hover:not(:disabled){background:var(--marca-hover);border-color:var(--marca-hover)}
+#app .botao.perigo{background:#fff;border-color:#ead3d3;color:#ad3c3c}
+#app .botao.perigo:hover:not(:disabled){background:#fff4f3;border-color:#dcb9b7}
+#app .botao:disabled{background:#f4f5f7;border-color:#e6e8ed;color:#9298a3;opacity:.7;box-shadow:none}
+#app .nav-gatilho.ativo,#app .rota.ativo{background:var(--marca);color:#fff;font-weight:500}
+#app .ancoras-secoes{flex-wrap:wrap;overflow:visible;gap:6px;padding:0 0 14px;border-bottom:1px solid var(--linha)}
+#app .ancoras-secoes button{background:transparent;border-color:transparent;color:#596273;padding:7px 10px;border-radius:5px;font-weight:400}
+#app .ancoras-secoes button:hover{background:#eceef3;color:var(--texto)}
+#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled){background:var(--marca);border-color:var(--marca);color:#fff}
+#app .tabela-scroll{border-color:var(--linha);border-radius:8px;background:#fff}
+#app th{background:#e7eef8;color:#3e5577;font-weight:600;border-bottom:1px solid var(--linha)}
+#app td{border-bottom-color:#edf0f3;padding:12px 14px;color:var(--texto)}
+#app tbody tr:nth-child(even){background:#fcfcfd}
+#app tbody tr:hover{background:#f5f6f9}
+#app .linha-selecionada{background:#f0f3fd!important;box-shadow:none}
+#app .titulo-tabela{color:var(--suave);border:0;padding:0;margin-bottom:12px}
+#app .etiqueta-web{background:#f1f3f6;border:0;color:#596273;font-weight:400}
+#app .dialogo-cabecalho{background:#203d60;border-color:#203d60;color:#fff;padding:18px 24px}
+#app .dialogo-cabecalho h2,#app .dialogo-cabecalho .icone-botao{color:#fff}
+#app .dialogo-cabecalho .icone-botao:hover{background:#ffffff20}
+#app .dialogo-rodape{background:#edf2f9;border-color:#d5dfec;color:var(--texto)}
+#app .dialogo-corpo{background:#f6f8fb}
+#app .dialogo-descricao{white-space:pre-line;margin:0 0 22px;padding:0 0 16px;background:transparent;border:0;border-bottom:1px solid var(--linha);border-radius:0;color:var(--suave);line-height:1.6}
+#app .editor-web{border-color:#dfe3e9;box-shadow:none;border-radius:8px}
+#app .editor-web>label,#app .editor-ferramentas{background:var(--superficie-filtro);border-color:var(--linha);color:#475467}
+#app .editor-conteudo{background:#fff;min-height:160px}
+#app .editor-conteudo[contenteditable="false"]{min-height:60px}
+#app .indicadores-web{display:flex;flex-wrap:wrap;gap:0;background:#fdfefe;border:1px solid #d3deec;border-radius:10px;overflow:hidden;margin-bottom:22px}
+#app .indicador-web{flex:1 1 145px;background:transparent;border:0;border-right:1px solid #e0e7f0;border-radius:0;box-shadow:none;padding:17px 20px;gap:7px}
+#app .indicador-web:last-child{border-right:0}
+#app .indicador-web>strong{font-weight:600;color:#264c78;font-size:25px}
+#app .mensagem-web{background:#f5f7fc;border-color:#e0e5f0;color:#54627b}
+#app .erro{background:#fff5f4;color:#a64038;border:1px solid #ecd6d3}
+#app .controle-tabela button,#app .atalhos-rolagem{background:#fff;border-color:var(--linha);color:var(--suave);box-shadow:none}
+#app .painel-avisos{background:#fff;border-color:var(--linha)}
+@media(max-width:1100px){#app .cabecalho-pagina{flex-wrap:wrap}#app .cabecalho-pagina>.acoes-web{max-width:100%}#app .secao-web{padding:20px}#app .campos-web{grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr))}}
+@media(max-width:700px){#app .conteudo{padding-left:12px;padding-right:12px}#app .secao-web,#app .pagina-web>.campos-web{padding:16px}}
+
+/* Contexto do paciente e filtros tÃƒÆ’Ã‚Âªm superfÃƒÆ’Ã‚Â­cie prÃƒÆ’Ã‚Â³pria; o corpo clÃƒÆ’Ã‚Â­nico permanece legÃƒÆ’Ã‚Â­vel. */
+#app .cabecalho-secao{padding:0 0 14px;background:transparent;border-radius:0;border-bottom:1px solid #dfe7f0;margin-bottom:18px}
+#app .secao-web .titulo-tabela h3{color:#52627b}
+#app .dados-paciente-resumo{background:#eaf0fc;border-color:#cdd9ee}
+#app .passo-formulario>header{background:#f0f3f9;border-bottom-color:#dce2ed}
+#app .ancoras-secoes button{background:#f8faff;border:1px solid #d5deee;color:#49628d}
+#app .ancoras-secoes button:hover{background:#e3ebfc;border-color:#b7c9e8;color:#2f4f95}
+#app .agenda-lista-dia>header{background:#e7edf8;color:#405778}
+#app .agenda-sessao>time{background:#eaf0ff;color:#34549c}
+#app .botao.clinico-aba:not(.clinico-aba-ativa):hover{background:#e9eef8;color:#34549c}

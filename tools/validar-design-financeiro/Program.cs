@@ -30,11 +30,13 @@ static class Program
     static bool ApenasDialogos;
     static bool ApenasCaixa;
     static bool ApenasWeb;
+    static bool ApenasNavegacao;
     [STAThread] static void Main(string[] args)
     {
         ApenasDialogos = args.Contains("--dialogos");
         ApenasCaixa = args.Contains("--caixa");
         ApenasWeb = args.Contains("--web");
+        ApenasNavegacao = args.Contains("--navegacao");
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("pt-BR");
         CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
         FrameworkElement.LanguageProperty.OverrideMetadata(typeof(FrameworkElement), new FrameworkPropertyMetadata(XmlLanguage.GetLanguage("pt-BR")));
@@ -82,6 +84,7 @@ static class Program
         }
         for(int i=0;i<12;i++) db.Add(new ItemEstoque { Nome=$"Material demonstrativo {i+1:00}", Unidade="un", EstoqueMinimo=5 });
         await db.SaveChangesAsync();
+        if(ApenasNavegacao) { await WebQa.Executar(services, Saida, apenasNavegacao: true); return; }
         if(ApenasWeb) { await PaginasWebQa.Executar(services); await DialogosWebQa.Executar(services); await WebQa.Executar(services, Saida); return; }
         if(ApenasDialogos) { await DialogosQa.Executar(services, Saida); return; }
         var shell = new ShellViewModel("Financeiro — Clínica SemDor · DEMONSTRAÇÃO", [modulo], services);

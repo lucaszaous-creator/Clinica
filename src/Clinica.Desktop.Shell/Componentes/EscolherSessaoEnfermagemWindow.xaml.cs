@@ -5,6 +5,15 @@ namespace Clinica.Desktop.Shell.Componentes;
 
 public partial class EscolherSessaoEnfermagemWindow : Window
 {
+    public static async Task<int?> PerguntarAsync(string paciente,IReadOnlyList<Agendamento> sessoes)
+    {
+        var vm=new EscolherSessaoEnfermagemWebViewModel(paciente,sessoes);
+        var confirmou=await DialogosDaSessao.AbrirAsync("EscolherSessaoEnfermagem",vm,()=>{
+            var janela=new EscolherSessaoEnfermagemWindow(paciente,sessoes){Owner=JanelaDona.Atual()};
+            var resultado=janela.ShowDialog();vm.Selecionada=vm.Opcoes.FirstOrDefault(o=>o.Id==janela.Escolhida);return resultado;
+        });
+        return confirmou==true?vm.Selecionada?.Id:null;
+    }
     private sealed record Opcao(int Id, string Rotulo);
     public int? Escolhida { get; private set; }
 

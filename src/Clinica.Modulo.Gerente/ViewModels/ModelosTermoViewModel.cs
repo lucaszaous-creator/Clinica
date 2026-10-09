@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
@@ -317,7 +318,7 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
         // A confirmação existe porque o botão cria DOIS papéis e liga QUATRO exigências —
         // e passa o balcão a cobrá-los do dia seguinte em diante. Ato que muda o que a
         // recepção faz amanhã de manhã não acontece num clique distraído.
-        if (!_dialogo.Confirmar(
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo,
                 "Criar os termos do BSV",
                 "Serão criados os dois termos do BSV com o texto aprovado pela clínica:\n\n"
                 + "• TCLE — o paciente assina UMA vez, e ele fica registrado na ficha;\n"
@@ -352,7 +353,7 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
                     .Select(e => $"\"{e.Modelo?.Nome ?? "termo"}\"")
                     .Distinct());
 
-                if (!_dialogo.ConfirmarPerigo(
+                if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo,
                         "Substituir os termos do BSV",
                         $"O BSV já exige termo: {emUso}.\n\n"
                         + "Essas exigências serão DESLIGADAS e as modalidades de BSV "
@@ -491,7 +492,7 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
             return;
         }
 
-        if (linha.Ativa && !_dialogo.Confirmar(
+        if (linha.Ativa && !await DialogosDaSessao.ConfirmarAsync(_dialogo,
                 "Desligar a exigência",
                 $"O balcão deixa de cobrar o termo \"{linha.Termo}\" em {linha.Modalidade}. "
                 + "Os termos já assinados continuam guardados. Confirma?"))

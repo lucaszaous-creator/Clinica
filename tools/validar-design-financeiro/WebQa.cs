@@ -8,15 +8,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Clinica.Infrastructure;
 using Clinica.Financeiro.Modulo;
+using Clinica.Desktop.Shell.Web;
+using Clinica.Domain.Entities;
 
 /// <summary>Teste de integração do conteúdo empacotado com WebView2 e banco sintético do harness.</summary>
 static class WebQa
 {
-    public static async Task Executar(IServiceProvider servicos, string saida)
+    public static async Task Executar(IServiceProvider servicos, string saida, bool apenasNavegacao = false)
     {
         var falhas = FinanceiroPaginasController.ValidarRegistro();
         if (falhas.Count > 0) throw new InvalidOperationException(string.Join("\n", falhas));
-        var janela = new FinanceiroWebWindow(servicos)
+        var treinamento = Path.Combine(saida, "treinamento-" + Guid.NewGuid().ToString("N"));
+        var janela = new FinanceiroWebWindow(servicos, treinamento)
         {
             Width = 1440, Height = 900, Left = -30000, Top = -30000,
             WindowStartupLocation = WindowStartupLocation.Manual, ShowInTaskbar = false
@@ -41,7 +44,15 @@ static class WebQa
                 throw new InvalidOperationException("WebView2 não confirmou: " + expressao);
             }
             const string seletorLinhas = "document.querySelectorAll('[data-testid=tabela-lancamentos] tr')";
+            var rotas = new ModuloFinanceiro().Itens.Where(i => i.Abas.Count == 0 && i.Chave != ModuloFinanceiro.ChaveAjuda).Select(i => i.Chave).Distinct().ToArray();
             await Esperar($"{seletorLinhas}.length > 3");
+            await Esperar("!!document.querySelector('.navegacao-topo') && !document.querySelector('.trilho-financeiro') && document.querySelector('.conteudo').getBoundingClientRect().left === 0");
+            await Ler("document.querySelector('[data-grupo=contas]').dispatchEvent(new PointerEvent('pointerover',{bubbles:true,pointerType:'mouse'}))");
+            await Esperar("document.querySelector('#nav-contas').getAttribute('aria-expanded') === 'true' && !document.querySelector('#submenu-contas').hidden");
+            await Ler("document.querySelector('#nav-contas').focus();document.querySelector('#nav-contas').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))");
+            await Esperar("document.activeElement.closest('#submenu-contas') !== null");
+            await Ler("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+            await Esperar("document.querySelector('#submenu-contas').hidden && document.activeElement.id === 'nav-contas'");
             await Esperar("![...document.querySelectorAll('td.valor')].some(c => /[+−-]\\s*[+−-]/.test(c.textContent))");
             if (!navegador.Source.AbsoluteUri.StartsWith("https://financeiro.clinica.local/"))
                 throw new InvalidOperationException("A interface não usa os arquivos locais esperados.");
@@ -52,12 +63,48 @@ static class WebQa
                 janela.Width = largura; janela.Height = altura;
                 await Task.Delay(300);
                 await Esperar("document.documentElement.scrollWidth <= window.innerWidth + 1");
+                await Esperar("(()=>{const tabela=document.querySelector('.movimentos>.tabela-scroll');return tabela&&tabela.scrollWidth<=tabela.clientWidth+1})()");
+                await Esperar("JSON.stringify([...document.querySelectorAll('.navegacao-topo [data-action=navegar]')].map(b=>b.dataset.value).sort()) === " + JsonSerializer.Serialize(JsonSerializer.Serialize(rotas.OrderBy(r => r).ToArray())));
+                await Esperar("(()=>{const itens=[...document.querySelectorAll('.navegacao-topo>*,.busca-global,.ferramenta-topo,.usuario-area')].map(e=>e.getBoundingClientRect());return itens.every(r=>r.left>=0 && r.right<=innerWidth+1) && !itens.some((a,i)=>itens.slice(i+1).some(b=>Math.min(a.right,b.right)>Math.max(a.left,b.left)+1 && Math.min(a.bottom,b.bottom)>Math.max(a.top,b.top)+1));})()");
+                await Esperar("[...document.querySelectorAll('.busca-global,.ferramenta-topo')].every(b=>{const r=b.getBoundingClientRect();return r.width>0&&r.height>0&&b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))})");
+                foreach (var grupo in new[] { "caixa", "contas", "recebimentos", "gestao", "analises" })
+                {
+                    // Clique sem hover (toque), navegação por setas e encerramento pelo teclado.
+                    await Ler("document.querySelector('#nav-" + grupo + "').click()");
+                    await Esperar("document.querySelector('#nav-" + grupo + "').getAttribute('aria-expanded') === 'true'");
+                    await Ler("document.querySelector('#nav-" + grupo + "').focus();document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))");
+                    await Esperar("document.activeElement === document.querySelector('#submenu-" + grupo + " button')");
+                    await Ler("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true}))");
+                    await Esperar("document.activeElement === [...document.querySelectorAll('#submenu-" + grupo + " button')].at(-1)");
+                    await Ler("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}))");
+                    await Esperar("document.activeElement === document.querySelector('#submenu-" + grupo + " button')");
+                    await Esperar("[...document.querySelectorAll('#submenu-" + grupo + " button')].every(e=>{const r=e.getBoundingClientRect();return r.width>0 && r.left>=0 && r.right<=innerWidth+1 && r.top>=0 && r.bottom<=innerHeight;})");
+                    using (var menuImagem = File.Create(Path.Combine(saida, $"financeiro-topo-{grupo}-{largura}.png")))
+                        await janela.TelaWeb.CapturarPreviewAsync(menuImagem);
+                    await Ler("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+                    await Esperar("document.querySelector('#submenu-" + grupo + "').hidden && document.activeElement.id === 'nav-" + grupo + "'");
+                    // Hover abre, sair com o ponteiro fecha quando o foco já saiu do grupo.
+                    await Ler("document.querySelector('.conteudo').focus();document.querySelector('[data-grupo=" + grupo + "]').dispatchEvent(new PointerEvent('pointerover',{bubbles:true,pointerType:'mouse'}))");
+                    await Esperar("!document.querySelector('#submenu-" + grupo + "').hidden");
+                    await Ler("document.querySelector('[data-grupo=" + grupo + "]').dispatchEvent(new PointerEvent('pointerout',{bubbles:true,pointerType:'mouse',relatedTarget:document.body}))");
+                    await Esperar("document.querySelector('#submenu-" + grupo + "').hidden");
+                }
                 using var destinoImagem = File.Create(Path.Combine(saida, $"financeiro-web-{largura}.png"));
                 await janela.TelaWeb.CapturarPreviewAsync(destinoImagem);
                 Console.WriteLine($"OK web {largura}x{altura}: assets locais, logo, layout e dados C#.");
             }
+            if (apenasNavegacao) { Console.WriteLine($"OK navegação superior: {rotas.Length} rotas, 5 menus, hover, clique, teclado e capturas em três tamanhos."); return; }
             janela.Width = 1440; janela.Height = 900;
             await Task.Delay(200);
+            await FinanceiroFerramentasQa.Executar(servicos, janela, navegador, treinamento, saida);
+            await navegador.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setEmulatedMedia", "{\"features\":[{\"name\":\"prefers-reduced-motion\",\"value\":\"reduce\"}]}");
+            await Ler("document.querySelector('[data-local=usuario]').click()");
+            await Esperar("matchMedia('(prefers-reduced-motion: reduce)').matches && [...document.querySelectorAll('.menu-usuario,.resumo-react,.botao')].every(el=>getComputedStyle(el).animationDuration.split(',').every(t=>parseFloat(t)<=0.01)&&getComputedStyle(el).transitionDuration.split(',').every(t=>parseFloat(t)<=0.01))");
+            await Ler("document.querySelector('[data-local=usuario]').click()");
+            await navegador.CoreWebView2.CallDevToolsProtocolMethodAsync("Emulation.setEmulatedMedia", "{\"features\":[]}");
+            Console.WriteLine("OK React financeiro: preferência de movimento reduzido respeitada sem alterar configuração do Windows.");
+            // Reconciliação React: atualizar os valores não remonta navegação, busca ou tabela.
+            await Ler("window.qaReactFinanceiro={topo:document.querySelector('.topbar'),busca:document.getElementById('busca'),tabela:document.querySelector('[data-testid=tabela-lancamentos]')}");
             await Ler("document.querySelector('[data-testid=alternar-privacidade]').click()");
             await Esperar("!(/R\\$\\s*[0-9]/.test(document.querySelector('.conteudo').innerText))");
             await Ler("document.querySelector('[data-testid=alternar-privacidade]').click()");
@@ -66,8 +113,11 @@ static class WebQa
             using (var imagemMovimentos = File.Create(Path.Combine(saida, "financeiro-web-movimentacoes.png")))
                 await janela.TelaWeb.CapturarPreviewAsync(imagemMovimentos);
             var antes = int.Parse(await Ler(seletorLinhas + ".length"));
-            await Ler("chrome.webview.postMessage({acao:'filtrar',valor:'Materiais'})");
+            await Ler("(()=>{const el=document.getElementById('busca');el.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'Materiais');el.dispatchEvent(new Event('input',{bubbles:true}));el.setSelectionRange(3,3)})()");
             await Esperar($"{seletorLinhas}.length > 0 && {seletorLinhas}.length < {antes}");
+            await Esperar("qaReactFinanceiro.topo===document.querySelector('.topbar') && qaReactFinanceiro.busca===document.getElementById('busca') && qaReactFinanceiro.tabela===document.querySelector('[data-testid=tabela-lancamentos]') && document.activeElement===qaReactFinanceiro.busca && qaReactFinanceiro.busca.value==='Materiais' && qaReactFinanceiro.busca.selectionStart===3");
+            await Ler("document.querySelector('.conteudo').focus()");
+            Console.WriteLine("OK React financeiro: busca ao digitar sem blur/Enter, mesma identidade DOM, foco/cursor preservados após resposta e privacidade.");
             await Ler("chrome.webview.postMessage({acao:'filtrar',valor:''})");
             await Esperar($"{seletorLinhas}.length === {antes}");
             await Ler("chrome.webview.postMessage({acao:'mes',valor:'2040-01'})");
@@ -76,7 +126,11 @@ static class WebQa
             await Esperar($"{seletorLinhas}.length === {antes}");
             async Task Navegar(string chave)
             {
-                await Ler("chrome.webview.postMessage({acao:'navegar',valor:" + JsonSerializer.Serialize(chave) + "})");
+                // Exercita a porta do usuário: hover abre o grupo e o clique envia a rota.
+                var seletor = JsonSerializer.Serialize(".navegacao-topo [data-action=navegar][data-value='" + chave + "']");
+                await Ler("(()=>{const item=document.querySelector(" + seletor + ");if(!item)throw new Error('Rota ausente no topo');item.closest('.grupo-topo').dispatchEvent(new PointerEvent('pointerover',{bubbles:true,pointerType:'mouse'}));})()");
+                await Esperar("(()=>{const item=document.querySelector(" + seletor + ");const r=item.getBoundingClientRect();return r.width>0 && r.left>=0 && r.right<=innerWidth+1 && r.top>=0 && r.bottom<=innerHeight;})()");
+                await Ler("document.querySelector(" + seletor + ").click()");
                 await Esperar("document.querySelector('.conteudo').dataset.rota === " + JsonSerializer.Serialize(chave));
                 await Esperar("document.querySelector('.conteudo').getAttribute('aria-busy') === 'false'");
                 await Task.Delay(150);
@@ -84,7 +138,7 @@ static class WebQa
             async Task Clicar(string seletor)
             {
                 await Esperar("document.querySelector(" + JsonSerializer.Serialize(seletor) + ")?.disabled === false");
-                await Ler("document.querySelector(" + JsonSerializer.Serialize(seletor) + ").click()");
+                await AcoesVisiveisQa.Clicar(navegador, seletor);
             }
             async Task Campo(string chave, string valor)
             {
@@ -103,7 +157,7 @@ static class WebQa
                 using var arquivo = File.Create(Path.Combine(saida, nome + ".png"));
                 await janela.TelaWeb.CapturarPreviewAsync(arquivo);
             }
-            var rotas = new ModuloFinanceiro().Itens.Where(i => i.Abas.Count == 0 && i.Chave != ModuloFinanceiro.ChaveAjuda).Select(i => i.Chave).Distinct().ToArray();
+            await Esperar("JSON.stringify([...document.querySelectorAll('.navegacao-topo [data-action=navegar]')].map(b=>b.dataset.value).sort()) === " + JsonSerializer.Serialize(JsonSerializer.Serialize(rotas.OrderBy(r => r).ToArray())));
             foreach (var (largura, altura) in new[] { (1440, 900), (1100, 720), (900, 600) })
             {
                 janela.Width = largura; janela.Height = altura;
@@ -118,6 +172,12 @@ static class WebQa
             }
             janela.Width = 1100; janela.Height = 720;
             await Navegar("caixa");
+            // O histórico do lançamento previsto está no menu da linha; o helper abre
+            // o popover e exige um alvo visível antes do clique, sem chamar a ponte diretamente.
+            await Clicar(".movimentos .acoes-menu-painel [data-action='historico']");
+            await Esperar("!!document.querySelector('.dialogo-web') && !document.querySelector('.acoes-menu-painel:popover-open')");
+            await Fechar();
+            Console.WriteLine("OK React financeiro: histórico alcançado pelo menu visível da linha, fechamento preservado.");
             await Clicar("[data-action='novo']");
             await Esperar("!!document.querySelector('.dialogo-web')");
             await Clicar(".dialogo-rodape [data-comando='salvar']");
@@ -140,6 +200,35 @@ static class WebQa
                 var registro = await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.AsNoTracking().SingleAsync(l => l.Descricao == "QA WEB despesa integral");
                 if (registro.Valor != 123.45m) throw new InvalidOperationException("O lançamento web não preservou o valor digitado.");
             }
+            // CPF digitado sem blur: reproduz a busca que o usuário faz no formulário,
+            // com o seletor C# consultando um banco sintético e publicando opções reais.
+            int pacienteBuscaId;
+            using (var scope = servicos.CreateScope())
+            {
+                var dbBusca = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+                var pacienteBusca = new Paciente { Nome = "Zuleica Sintética Busca Financeiro", Documento = "52998224725", Convenio = Clinica.Domain.Convenio.UnimedIntercambio, Sexo = Clinica.Domain.Sexo.Feminino };
+                dbBusca.Pacientes.Add(pacienteBusca); await dbBusca.SaveChangesAsync(); pacienteBuscaId = pacienteBusca.Id;
+            }
+            await Clicar("[data-action='novo']");
+            await Esperar("!!document.querySelector('.dialogo-web')");
+            await Ler("(()=>{const e=document.querySelector('.dialogo-web select[data-campo=Tipo]');e.value=[...e.options].find(o=>o.textContent==='Entrada').value;e.dispatchEvent(new Event('change',{bubbles:true}));})()");
+            await Esperar("!!document.querySelector('.dialogo-web input[data-campo=\"Seletor.Termo\"]')");
+            await Ler("(()=>{const e=document.querySelector('.dialogo-web input[data-campo=\"Seletor.Termo\"]');e.focus();e.value='52998224725';e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+            await Esperar("[...document.querySelector('.dialogo-web select[data-campo=\"Seletor.Selecionado\"]').options].some(o=>o.textContent.includes('Zuleica Sintética Busca Financeiro'))");
+            await Esperar("!!document.querySelector('.dialogo-web [data-sugestao-paciente]:not(:disabled)')");
+            await Capturar("financeiro-busca-paciente-resultados");
+            await Clicar(".dialogo-web [data-sugestao-paciente]");
+            await Esperar("document.querySelector('.dialogo-web .paciente-confirmado')?.textContent.includes('Zuleica Sintética Busca Financeiro')===true");
+            await Campo("Descricao", "QA WEB receita paciente digitado"); await Campo("Valor", "12.5");
+            await Capturar("financeiro-busca-paciente-cpf");
+            await Clicar(".dialogo-rodape [data-comando='salvar']"); await Esperar("!document.querySelector('.dialogo-web')");
+            using (var scope = servicos.CreateScope())
+            {
+                var registro = await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.AsNoTracking().SingleAsync(l => l.Descricao == "QA WEB receita paciente digitado");
+                if (registro.PacienteId != pacienteBuscaId || registro.Valor != 12.5m)
+                    throw new InvalidOperationException("Financeiro standalone perdeu paciente buscado pelo CPF ou valor decimal 12.5.");
+            }
+            Console.WriteLine("OK Financeiro standalone DOM: CPF sem blur, resultado, seleção e gravação paciente + decimal 12.5.");
             await Clicar("[data-action='novo']");
             await Esperar("!!document.querySelector('.dialogo-web')");
             await Campo("Descricao", "QA WEB não salvar");
@@ -181,6 +270,30 @@ static class WebQa
             using (var scope = servicos.CreateScope())
                 if (!await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().ItensEstoque.AnyAsync(i => i.Nome == "Item web de teste"))
                     throw new InvalidOperationException("Item criado via web não persistiu.");
+            await Navegar("taxas");
+            int lancamentosAntesSimulacao;
+            using (var scope = servicos.CreateScope())
+                lancamentosAntesSimulacao = await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.CountAsync();
+            async Task CampoSimulacao(string chave, string valor)
+            {
+                await Ler($"(()=>{{const e=document.querySelector('[data-campo={chave}]');e.value={JsonSerializer.Serialize(valor)};e.dispatchEvent(new Event('change',{{bubbles:true}}));}})()");
+                await Task.Delay(150);
+            }
+            await CampoSimulacao("SimValor", "0");
+            await Clicar("[data-comando='Simular']");
+            await Esperar("document.body.innerText.includes('Informe um valor bruto maior que zero')");
+            await CampoSimulacao("SimValor", "200,00");
+            await CampoSimulacao("SimParcelas", "0");
+            await Clicar("[data-comando='Simular']");
+            await Esperar("document.body.innerText.includes('Informe um número inteiro de parcelas maior que zero')");
+            await CampoSimulacao("SimParcelas", "1");
+            await Ler("(()=>{const e=document.querySelector('[data-campo=SimForma]');e.value=[...e.options].find(o=>o.textContent==='Dinheiro').value;e.dispatchEvent(new Event('change',{bubbles:true}));const imposto=document.querySelector('[data-campo=SimReterImposto]');if(imposto.checked)imposto.click();})()");
+            await Clicar("[data-comando='Simular']");
+            await Esperar("document.body.innerText.includes('Bruto R$ 200,00') && document.body.innerText.includes('líquido R$ 200,00') && !document.body.innerText.includes('Informe um número inteiro')");
+            using (var scope = servicos.CreateScope())
+                if (await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.CountAsync() != lancamentosAntesSimulacao)
+                    throw new InvalidOperationException("Simular alterou os lançamentos financeiros.");
+            Console.WriteLine("OK Simular: clique informa valor/parcela inválidos, calcula bruto e líquido e não grava lançamento.");
             await Navegar("caixa");
             await Ler("chrome.webview.postMessage({acao:'navegar',valor:'rota-inexistente'})");
             await Task.Delay(200);
@@ -190,6 +303,26 @@ static class WebQa
             if (!navegador.CoreWebView2.Source.StartsWith("https://financeiro.clinica.local/"))
                 throw new InvalidOperationException("A navegação saiu da origem local permitida.");
             await Esperar($"{seletorLinhas}.length >= {antes}");
+            var usuarioAnterior = await servicos.GetRequiredService<ClinicaDbContext>().Usuarios.AsNoTracking().SingleAsync(u => u.Id == SessaoUsuario.Atual.UsuarioId);
+            try
+            {
+                SessaoUsuario.Atual.Entrar(new UsuarioSistema { Id = usuarioAnterior.Id + 100000, Nome = "Outra sessão sintética", Login = "qa-troca", Perfil = PerfilAcesso.Recepcao });
+                await Ler("chrome.webview.postMessage({acao:'treinamento'})");
+                EntradaWebWindow? aviso = null;
+                for (var i = 0; i < 100; i++)
+                {
+                    aviso = System.Windows.Application.Current.Windows.OfType<EntradaWebWindow>().FirstOrDefault();
+                    if (aviso?.Content is WebView2 entrada && entrada.CoreWebView2 is not null &&
+                        await entrada.CoreWebView2.ExecuteScriptAsync("document.body.innerText.includes('Seu acesso ao Financeiro não está disponível')") == "true") break;
+                    await Task.Delay(100);
+                }
+                if (janela.IsVisible || janela.TelaWeb.Content is not null || aviso?.Content is not WebView2 paginaAviso ||
+                    await paginaAviso.CoreWebView2.ExecuteScriptAsync("document.body.innerText.includes('Seu acesso ao Financeiro não está disponível') && !document.body.innerText.includes('Consulta particular')") != "true")
+                    throw new InvalidOperationException("Perda da sessão não descartou o DOM financeiro e abriu aviso web limpo.");
+                aviso.Close();
+                Console.WriteLine("OK acesso revogado: DOM financeiro descartado e aviso local HTML sem dados anteriores.");
+            }
+            finally { SessaoUsuario.Atual.Entrar(usuarioAnterior); }
             Console.WriteLine("OK web completo: 15 páginas em três dimensões, formulários com gravação e cancelamento, validação, filtros reais e navegação restrita sem telas WPF.");
         }
         finally { janela.Close(); }

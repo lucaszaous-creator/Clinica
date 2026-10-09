@@ -206,9 +206,9 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
 
     /// <summary>Abre a busca do CID — atalho com conferência, nunca lista fechada.</summary>
     [RelayCommand]
-    protected virtual void BuscarCid()
+    protected virtual async Task BuscarCidAsync()
     {
-        if (BuscaCidWindow.Perguntar(CidSessao) is { } escolhido)
+        if (await BuscaCidWindow.PerguntarAsync(CidSessao) is { } escolhido)
             CidSessao = escolhido;
     }
 
@@ -326,7 +326,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     /// da tela de trás (o padrão do catálogo de enfermagem, parcela 88).
     /// </summary>
     [RelayCommand]
-    protected virtual void AbrirDetalhe()
+    protected virtual async Task AbrirDetalheAsync()
     {
         if (SemPaciente)
         {
@@ -335,7 +335,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
             return;
         }
 
-        new DetalheSessaoWindow(this) { Owner = JanelaDona.Atual() }.ShowDialog();
+        await DialogosDaSessao.AbrirAsync("DetalheSessao", this, () => new DetalheSessaoWindow(this) { Owner = JanelaDona.Atual() }.ShowDialog());
     }
 
     /// <summary>
@@ -374,7 +374,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     /// Aplicar COPIA e não grava: o Salvar desta tela continua sendo o que efetiva.
     /// </summary>
     [RelayCommand]
-    protected virtual void AbrirModelos()
+    protected virtual async Task AbrirModelosAsync()
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "usar modelos de evolução");
 
@@ -393,12 +393,8 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
             RepetirUltima = Anteriores.Count > 0 ? RepetirUltima : null
         };
 
-        var janela = new ModelosEvolucaoWindow(vm)
-        {
-            Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true || janela.Escolhido is not { } m) return;
+        var confirmou = await DialogosDaSessao.AbrirAsync("ModelosEvolucao", vm, () => new ModelosEvolucaoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
+        if (confirmou != true || vm.Resultado is not { } m) return;
 
         // Preenche o que falta, nunca zera: um modelo com conduta e orientações não pode
         // apagar a queixa que o profissional acabou de digitar ouvindo o paciente.
@@ -420,6 +416,8 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(m.HipoteseDiagnostica)) HipoteseDiagnostica = m.HipoteseDiagnostica;
         if (!string.IsNullOrWhiteSpace(m.CidSessao)) CidSessao = m.CidSessao;
         if (!string.IsNullOrWhiteSpace(m.PlanoTerapeutico)) PlanoTerapeutico = m.PlanoTerapeutico;
+        Mensagem = "Modelo aplicado à sessão. Revise a evolução e os campos complementares antes de salvar.";
+        MensagemEhErro = false;
     }
 
     [ObservableProperty] private bool _carregando;
@@ -846,7 +844,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     /// existe — quem o grava continua sendo o Salvar daqui, com o id da evolução na mão.
     /// </summary>
     [RelayCommand]
-    protected virtual void AbrirMapa()
+    protected virtual async Task AbrirMapaAsync()
     {
         // O botão apagado (TemPaciente) explica; esta guarda diz por quê quando o clique
         // chega mesmo assim — guarda que volta em silêncio é botão que não faz nada.
@@ -860,10 +858,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
 
         try
         {
-            new MapaCorporalWindow(Mapa, $"Mapa corporal — {Paciente}")
-            {
-                Owner = JanelaDona.Atual()
-            }.ShowDialog();
+            await MapaCorporalWindow.PerguntarAsync(Mapa, $"Mapa corporal — {Paciente}");
 
             // O resumo do rodapé muda com o que foi marcado lá dentro.
             OnPropertyChanged(nameof(Mapa));
@@ -897,6 +892,11 @@ public sealed partial class CampoDaSessao : ObservableObject
     public required IReadOnlyList<string> Opcoes { get; init; }
 
     [ObservableProperty] private string? _resposta;
+    public IReadOnlyList<string> OpcoesSimNaoWeb { get; } = ["Sim", "Não"];
+    public string? RespostaTextoWeb { get => Resposta; set => Resposta = value; }
+    public string? RespostaListaWeb { get => Resposta; set => Resposta = value; }
+    public string? RespostaSimNaoWeb { get => Resposta; set => Resposta = value; }
+
 
     /// <summary>Escolha entre opções — o resto é caixa de texto.</summary>
     public bool EhLista => Tipo == TipoCampoPersonalizado.Lista;

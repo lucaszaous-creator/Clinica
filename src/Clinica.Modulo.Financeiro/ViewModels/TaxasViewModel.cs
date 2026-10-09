@@ -407,8 +407,16 @@ public sealed partial class TaxasViewModel : ObservableObject
             SimResultado = null;
             SimSemTaxa = false;
 
-            if (!Valores.TentarLerDecimal(SimValor, out var bruto) || bruto <= 0m) return;
-            if (!int.TryParse(SimParcelas, out var parcelas) || parcelas < 1) parcelas = 1;
+            if (!Valores.TentarLerDecimal(SimValor, out var bruto) || bruto <= 0m)
+            {
+                SimResultado = "Informe um valor bruto maior que zero para simular.";
+                return;
+            }
+            if (!int.TryParse(SimParcelas, out var parcelas) || parcelas < 1)
+            {
+                SimResultado = "Informe um número inteiro de parcelas maior que zero.";
+                return;
+            }
 
             using var scope = _escopos.CreateScope();
             var taxas = scope.ServiceProvider.GetRequiredService<TaxaService>();

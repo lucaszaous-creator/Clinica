@@ -7,9 +7,9 @@ public sealed class FinanceiroWebWindow : Window
 {
     public FinanceiroWebView TelaWeb { get; }
 
-    public FinanceiroWebWindow(IServiceProvider services)
+    public FinanceiroWebWindow(IServiceProvider services, string? dadosTreinamento = null)
     {
-        Title = "Financeiro — Clínica SemDor";
+        Title = "Financeiro — Clínica SemDor" + (Clinica.Desktop.Shell.Configuracao.EdicaoDeTeste.Ativa ? " — teste PR 245" : "");
         var area = SystemParameters.WorkArea;
         Width = Math.Min(1440, area.Width);
         Height = Math.Min(900, area.Height);
@@ -20,7 +20,7 @@ public sealed class FinanceiroWebWindow : Window
         SnapsToDevicePixels = true;
         Resources.MergedDictionaries.Add(new ResourceDictionary
         { Source = new Uri("/Clinica.Modulo.Financeiro;component/Styles/Financeiro.xaml", UriKind.Relative) });
-        TelaWeb = new FinanceiroWebView(services);
+        TelaWeb = new FinanceiroWebView(services, dadosTreinamento);
         Content = TelaWeb;
         Closing += (_, e) =>
         {

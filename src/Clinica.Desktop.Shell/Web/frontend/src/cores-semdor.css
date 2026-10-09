@@ -1,0 +1,245 @@
+/* Identidade SemDor: tokens existentes em Styles/Tokens.xaml; ambar funcional preservado. */
+:root{
+ --marca:#123A9E;--marca-hover:#0A2E86;--marca-suave:#EEF3FC;--marca-borda:#D8E3F7;--foco:#3F62C9;
+ --azul-marinho:#071F5C;--texto-primario:#111827;--texto-rotulo:#374151;--texto-secundario:#6B7280;
+ --fundo-geral:#F8FAFC;--superficie:#FFFFFF;--borda:#E5E7EB;--borda-hover:#D1D5DB;
+ --superficie-filtro:#F1F5F9;--texto:var(--texto-primario);--suave:var(--texto-secundario);--linha:var(--borda);--fundo:var(--fundo-geral);
+ --estado-sucesso:#15803D;--estado-sucesso-fundo:#F0FDF4;
+ --estado-atencao:#875B16;--estado-atencao-fundo:#FFF6DF;
+ --estado-erro:#B91C1C;--estado-erro-fundo:#FEE2E2;--estado-erro-borda:#FEE2E2;
+ --estado-info:var(--marca);--estado-info-fundo:var(--marca-suave);
+ --verde:var(--estado-sucesso);--vermelho:var(--estado-erro);
+ /* Controles precisam ser reconhecidos em repouso, inclusive vazios. */
+ --borda-controle:#6B7280;--borda-controle-hover:#374151;--placeholder:#6B7280;
+ --controle-inativo-fundo:#F1F5F9;--controle-inativo-texto:#374151;
+}
+#app :is(h1,h2,h3,h4){color:var(--azul-marinho)}
+#app .nav-gatilho.ativo,#app .rota.ativo{color:var(--marca);background:var(--marca-suave)}
+#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled){background:var(--marca);border-color:var(--marca)}
+#app .clinico-fluxo [data-comando="FinalizarSessao"]:not(:disabled):hover{background:var(--marca-hover);border-color:var(--marca-hover)}
+#app .toast:not(.toast-erro){background:var(--azul-marinho)}
+#app .indicador-web[data-tom=positivo]>strong,#app .indicador-web[data-tom=saida]>strong{color:var(--texto)}
+#app .resumo-react :is(.financeiro-serie-entrada,.financeiro-serie-saida) .numero-serie,
+#app .resumo-react .movimentos :is(.valor-entrada,.valor-saida){color:var(--texto)}
+#app .resumo-react .grafico.entrada .curva{stroke:var(--marca)}
+#app .resumo-react .grafico.saida .curva{stroke:var(--suave)}
+
+/* Contraste operacional: distinguir a area de trabalho e os controles sem nova paleta. */
+:root{--fundo:var(--superficie-filtro)}
+body,#app .conteudo{background:var(--fundo)}
+#app .botao:not(.primario):not(.perigo):not(.clinico-aba):not(:disabled){color:var(--marca);border-color:var(--marca);background:var(--superficie)}
+#app .botao:not(.primario):not(.perigo):not(.clinico-aba):hover:not(:disabled){color:var(--marca-hover);border-color:var(--marca-hover);background:var(--marca-suave)}
+#app .botao.primario:not(:disabled){background:var(--marca);border-color:var(--marca);color:var(--superficie)}
+#app .botao.primario:hover:not(:disabled){background:var(--marca-hover);border-color:var(--marca-hover)}
+#app .botao.perigo:not(:disabled){color:var(--estado-erro);border-color:var(--estado-erro);background:var(--superficie)}
+#app .acoes-menu-painel .botao:not(.primario):not(.perigo):not(:disabled){color:var(--marca);background:transparent;border-color:transparent}
+#app .acoes-menu-painel .botao:hover:not(:disabled){background:var(--superficie-filtro)}
+#app .clinico-cabecalho .botao.clinico-aba:not(:disabled){color:var(--marca)}
+#app .clinico-cabecalho .botao.clinico-aba-ativa{color:var(--marca);background:var(--marca-suave);border-bottom-color:var(--marca)}
+#app :is(.ancoras-secoes button,details>summary,.atalho-historico){color:var(--marca);font-weight:600}
+#app .ancoras-secoes button:hover,#app .icone-botao:hover:not(:disabled){color:var(--marca-hover);background:var(--marca-suave)}
+#app .mensagem-web{color:var(--estado-info);background:var(--estado-info-fundo);border-color:var(--marca-borda)}
+#app .dados-paciente-resumo{color:var(--texto);background:var(--superficie);border-color:var(--borda-hover)}
+#app .dados-paciente-resumo>summary{color:var(--texto-rotulo)}
+#app .clinico-identidade .clinico-contexto output{color:var(--texto-rotulo)}
+#app .secao-web,#app .tabela-scroll{border-color:var(--borda-hover)}
+#app .pagina-web>.campos-web,#app .campos-filtros,#app .gestao-consulta{background:var(--fundo-geral);border-color:var(--borda-hover)}
+
+/* Cinza.500 sobre branco: contraste 4,83:1; não depende de hover ou foco. */
+#app :is(.campo-web,.agenda-busca-paciente,.agenda-fc-dia) :is(input,select,textarea):where(:not([type=checkbox]):not([type=radio])){
+ border:1px solid var(--borda-controle);background-color:var(--superficie);color:var(--texto-primario);box-shadow:none;
+}
+#app :is(.campo-web,.agenda-busca-paciente,.agenda-fc-dia) :is(input,select,textarea):hover:not(:disabled):not([readonly]){border-color:var(--borda-controle-hover)}
+#app :is(.campo-web,.agenda-busca-paciente,.agenda-fc-dia) :is(input,select,textarea):focus:not(:disabled){border-color:var(--foco);outline:2px solid var(--foco);outline-offset:2px;box-shadow:none}
+#app :is(input,textarea)::placeholder{color:var(--placeholder);opacity:1}
+#app .campo-web>label,#app .campo-web:not(.campo-leitura)>label,#app .agenda-busca-paciente>label{color:var(--texto-rotulo);font-weight:600}
+#app .campo-web:focus-within>label{color:var(--texto-rotulo)}
+#app .campo-web .ajuda-campo{color:var(--texto-secundario)}
+#app .campo-web .obrigatorio{color:var(--estado-erro)}
+
+/* O texto escolhido, a seta e as opções pertencem ao mesmo controle. */
+#app .campo-web .mantine-Input-section{color:var(--texto-rotulo)}
+#app .campo-web .mantine-ComboboxChevron-chevron{color:inherit;width:18px;height:18px}
+#app .campo-web .mantine-NativeSelect-input{padding-right:38px}
+#app .campo-web select:has(option:checked[value=""]){color:var(--placeholder)}
+#app select option{color:var(--texto-primario);background:var(--superficie)}
+#app select option[value=""]{color:var(--placeholder)}
+#app .campo-web :is(input,textarea)[readonly]{background-color:var(--fundo-geral);border-style:dashed;color:var(--texto-rotulo)}
+#app :is(.campo-web,.agenda-busca-paciente,.agenda-fc-dia) :is(input,select,textarea):disabled{
+ background-color:var(--controle-inativo-fundo);border-color:var(--borda-controle);border-style:dashed;color:var(--controle-inativo-texto);opacity:1;-webkit-text-fill-color:var(--controle-inativo-texto);cursor:not-allowed;
+}
+#app .campo-web:has(:disabled) .mantine-Input-section{color:var(--controle-inativo-texto)}
+#app .campo-web :is(input,select,textarea):is([aria-invalid=true],[data-error]):not(:disabled){border-color:var(--estado-erro);outline-color:var(--estado-erro)}
+#app .campo-web:has([aria-invalid=true],[data-error])>label{color:var(--estado-erro)}
+#app .campo-check input[type=checkbox]{appearance:none;accent-color:var(--marca);flex-shrink:0;width:18px;height:18px;min-height:18px;padding:0;border:1.5px solid var(--borda-controle);border-radius:3px;background-color:var(--superficie)}
+#app .campo-check input[type=checkbox]:checked{background-color:var(--marca);border-color:var(--marca);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' fill='none' stroke='white' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 9 3 3 7-7'/%3E%3C/svg%3E")}
+#app .campo-check input[type=checkbox]:disabled:checked{background-color:var(--controle-inativo-texto);border-color:var(--controle-inativo-texto)}
+#app .campo-check input[type=checkbox]:focus-visible{outline:2px solid var(--foco);outline-offset:3px}
+@media(forced-colors:active){#app .campo-check input[type=checkbox]{appearance:auto}}
+
+/* Editor, buscas e seletor de mês também precisam do contorno, fora de CampoReact. */
+#app .editor-web{border-color:var(--borda-controle)}
+#app .editor-web>label,#app .editor-ferramentas{color:var(--texto-rotulo);background:var(--superficie-filtro)}
+#app .editor-web:focus-within{border-color:var(--foco)}
+#app .editor-conteudo:focus-visible{outline:2px solid var(--foco);outline-offset:-2px}
+#app .busca-menu{border:1px solid var(--borda-controle);background:var(--superficie);color:var(--texto-rotulo)}
+#app .busca-menu input{color:var(--texto-primario)}
+#app .busca-menu:focus-within{outline:2px solid var(--foco);outline-offset:2px}
+#app .resumo-react .busca-movimento .mantine-Input-input{border:1px solid var(--borda-controle);background:var(--superficie);color:var(--texto-primario)}
+#app .resumo-react .busca-movimento .mantine-Input-section{color:var(--texto-rotulo)}
+#app .resumo-react .busca-movimento .mantine-Input-input:hover:not(:disabled){border-color:var(--borda-controle-hover)}
+#app .resumo-react .busca-movimento .mantine-Input-input:focus{border-color:var(--foco);outline:2px solid var(--foco);outline-offset:2px;box-shadow:none}
+#app .resumo-react .busca-movimento .mantine-Input-input:disabled{background:var(--controle-inativo-fundo);color:var(--controle-inativo-texto);opacity:1;border-style:dashed}
+#app .resumo-react .seletor-mes{border-color:var(--borda-controle);color:var(--texto-rotulo)}
+#app .resumo-react .seletor-mes:focus-within{outline:2px solid var(--foco);outline-offset:2px}
+#app .resumo-react .seletor-mes:has(:disabled){background:var(--controle-inativo-fundo);border-style:dashed;color:var(--controle-inativo-texto)}
+
+/* Sugestões neutras; realce azul só no item em interação. */
+#app .pacientes-sugestoes{border-color:var(--borda-controle)}
+#app .pacientes-sugestoes-titulo{background:var(--superficie-filtro);border-color:var(--borda-hover)}
+#app .pacientes-sugestoes-titulo strong,#app .pacientes-sugestoes-lista button{color:var(--texto-primario)}
+#app .pacientes-sugestoes-titulo span{color:var(--texto-secundario)}
+#app .pacientes-sugestoes-lista button:hover,#app .pacientes-sugestoes-lista button:focus-visible{background:var(--marca-suave);color:var(--marca)}
+
+#app .botao:disabled{color:var(--controle-inativo-texto);background:var(--controle-inativo-fundo);border-color:var(--borda-hover);opacity:1}
+#app .botao.primario:not(:disabled){font-weight:600}
+#app .agenda-filtros-situacao button{border-color:var(--borda-controle)}
+#app .agenda-filtros-situacao button[aria-pressed=true]{border-color:var(--marca)}
+#app .acoes-menu-painel .botao:not(.primario):not(.perigo):not(:disabled){border-color:transparent}
+
+/* KPIs: número e rótulo escuros; cor funcional continua restrita às pendências. */
+#app .indicadores-web{background:var(--superficie);border-color:var(--borda-hover)}
+#app .indicador-web>strong,#app .faturamento-resumo .indicador-web>strong{color:var(--texto-primario);font-weight:600;font-variant-numeric:tabular-nums}
+#app .indicador-web>span,#app .faturamento-resumo .indicador-web>span{color:var(--texto-rotulo);font-weight:500}
+#app .indicador-web>small{color:var(--texto-secundario)}
+#app .indicador-web[data-tom=atencao]>strong{color:var(--estado-atencao)}
+#app .recepcao-resumo-dia .campo-web>label{color:var(--texto-rotulo)}
+#app .recepcao-resumo-dia .campo-web output{color:var(--texto-primario)}
+#app .resumo-react :is(.rotulo-resultado,.rotulo-serie,.resumo-complementar span){color:var(--texto-rotulo)}
+#app .resumo-react .ultimo-movimento strong{color:var(--texto-primario)}
+#app .resumo-react .numero-principal.negativo{color:var(--estado-erro)}
+#app .resumo-react .ponto.entrada{background:var(--marca)}
+#app .resumo-react .ponto.saida{background:var(--texto-secundario)}
+#app .resumo-react .situacao.realizado{color:var(--estado-sucesso);background:var(--estado-sucesso-fundo)}
+#app .resumo-react .situacao.previsto{color:var(--estado-atencao);background:var(--estado-atencao-fundo)}
+#app .resumo-react .situacao.cancelado{color:var(--texto-rotulo);background:var(--superficie-filtro)}
+#app .resumo-react .descricao strong{color:var(--texto-primario)}
+
+/* Filtros ativos recebem preenchimento forte e uma marca, não apenas um pastel. */
+#app .agenda-filtros-situacao button{color:var(--texto-rotulo)}
+#app .agenda-filtros-situacao button[aria-pressed=true]{color:var(--superficie);background:var(--marca);border-color:var(--marca)}
+#app .agenda-filtros-situacao button[aria-pressed=true]::before{content:'✓';font-weight:700}
+#app .agenda-filtros-situacao button[aria-pressed=true] .agenda-filtro-contagem{color:inherit}
+#app .agenda-filtros-situacao button[aria-pressed=true] .agenda-situacao-ponto{background:currentColor}
+#app .agenda-fc-modos{border-color:var(--borda-controle)}
+#app .agenda-fc-modos button{color:var(--texto-rotulo)}
+#app .agenda-fc-modos button[aria-pressed=true]{color:var(--superficie);background:var(--marca);box-shadow:none}
+#app .profissional-ativo>.botao:not(.primario):not(.perigo):not(.clinico-aba):not(:disabled){color:var(--superficie);border-color:var(--marca);background:var(--marca)}
+#app .profissional-ativo>.botao:not(:disabled) :is(small,span,[data-coluna="Quantidade"]){color:inherit}
+#app .faturamento-filtros .campo-check{border-color:var(--borda-controle)}
+#app .faturamento-filtros .campo-check:has(input:checked){border-color:var(--marca)}
+#app .faturamento-filtros .campo-check:has(input:checked) label{color:var(--marca)}
+
+/* Busca e tabelas: seleção tem uma marca de 3 px além do fundo. */
+#app .linha-selecionada{box-shadow:inset 3px 0 var(--marca)}
+#app tr.linha-selecionada>td:first-child{box-shadow:inset 3px 0 var(--marca)}
+#app .clinico-cabecalho .botao.clinico-aba-ativa{font-weight:600;border-bottom-width:3px}
+#app .nav-gatilho,#app .rota{color:var(--texto-rotulo)}
+/* Navegação plana: sem cápsula, fundo pastel ou cantos arredondados. */
+#app .navegacao-topo :is(.nav-gatilho,.nav-inicio){background:transparent;border-radius:0;border-bottom:2px solid transparent;box-shadow:none;color:var(--texto-rotulo)}
+#app .navegacao-topo :is(.nav-gatilho,.nav-inicio):hover{background:transparent;border-bottom-color:var(--borda-controle);color:var(--texto-primario)}
+#app .navegacao-topo :is(.nav-gatilho,.nav-inicio):is(.ativo,[aria-expanded=true]){background:transparent;border-bottom-color:var(--marca);color:var(--marca);font-weight:600;box-shadow:none}
+#app .rota.ativo{background:transparent;border-radius:0;box-shadow:inset 3px 0 var(--marca);font-weight:600}
+#app th,#app .faturamento-operacao .tabela-web th,#app .recepcao-lista-legenda{color:var(--texto-rotulo)}
+#app .ordenar-coluna span{color:var(--texto-rotulo)}
+#app .tabela-web th[aria-sort=ascending],#app .tabela-web th[aria-sort=descending]{color:var(--marca);box-shadow:inset 0 -2px var(--marca)}
+#app .agenda-react{--fc-now-indicator-color:var(--estado-erro);--fc-highlight-color:var(--marca-borda)}
+#app .agenda-react .fc-day-today .fc-daygrid-day-number{background:var(--marca);color:var(--superficie);border-radius:4px;font-weight:600}
+
+
+/* Busca de pacientes: uma área de trabalho, sem seletor duplicado nem cápsulas. */
+#app .busca-paciente-unificada{grid-column:1/-1;display:grid;gap:12px;min-width:0;padding:0}
+#app .busca-paciente-unificada>.campo-web{min-width:0}
+#app .busca-paciente-unificada .campo-busca input{min-height:44px;padding-left:40px;font-size:14px}
+#app .campo-paciente-selecao>label{display:none}
+#app .campo-paciente-selecao [hidden]{display:none!important}
+#app .pacientes-selecao{min-width:0}
+#app .pacientes-sugestoes{margin:0;border:1px solid var(--borda-controle);border-radius:4px;box-shadow:none;animation:none;background:var(--superficie)}
+#app .pacientes-sugestoes-titulo{padding:10px 14px;background:var(--superficie-filtro);border-bottom:1px solid var(--borda-hover)}
+#app .pacientes-sugestoes-titulo :is(strong,span){color:var(--texto-rotulo);font-size:12px}
+#app .pacientes-sugestoes-lista{max-height:264px;scrollbar-gutter:stable}
+#app .pacientes-sugestoes-lista button{min-height:48px;padding:12px 14px;border-bottom:1px solid var(--borda);color:var(--texto-primario);font:inherit}
+#app .pacientes-sugestoes-lista button>span{font-size:14px;font-weight:500;line-height:1.5}
+#app .pacientes-sugestoes-lista button small{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--marca)}
+#app .pacientes-sugestoes-lista button:is(:hover,:focus-visible):not(:disabled){background:var(--marca-suave);outline:2px solid var(--marca);outline-offset:-2px}
+#app .pacientes-sugestoes-lista button:disabled{cursor:not-allowed;color:var(--texto-secundario);background:var(--superficie-filtro)}
+#app .pacientes-sugestoes-mais{background:var(--superficie);color:var(--marca);border-color:var(--borda-hover)}
+#app .pacientes-orientacao{font-size:13px;line-height:1.6;color:var(--texto-rotulo);margin:0;padding:4px 0}
+#app .paciente-confirmado{display:flex;align-items:center;gap:12px;min-width:0;padding:12px 14px;border:1px solid var(--borda-hover);border-left:3px solid var(--marca);background:var(--superficie);margin-bottom:12px}
+#app .paciente-confirmado:last-child{margin-bottom:0}
+#app .paciente-confirmado>svg{color:var(--marca);flex-shrink:0}
+#app .paciente-confirmado>div{display:grid;gap:4px;min-width:0;flex:1}
+#app .paciente-confirmado span{color:var(--texto-rotulo);font-size:12px}
+#app .paciente-confirmado strong{color:var(--texto-primario);font-weight:600;font-size:14px;overflow-wrap:anywhere}
+#app .paciente-confirmado:focus{outline:2px solid var(--foco);outline-offset:2px}
+#app .agendamento-estacao:not(:has(.agendamento-contexto)){grid-template-columns:minmax(0,1fr)}
+#app .agendamento-bloco{padding:20px 0}
+#app .agendamento-bloco>.campos-web{padding:0;margin:0;border:0;background:transparent}
+#app .agendamento-identidade .campos-web{border:0;border-top:1px solid var(--borda);border-radius:0;background:transparent;padding:14px 0 0;margin:16px 0 0}
+#app .agendamento-identidade .campo-leitura output{background:transparent;border:0;padding:0;min-height:0}
+#app .agendamento-bloco[data-etapa="Data, horário e profissional"]>.campos-web{grid-template-columns:repeat(12,minmax(0,1fr))}
+#app .agendamento-bloco[data-etapa="Data, horário e profissional"] .campo-web{grid-column:span 4}
+#app .agendamento-bloco[data-etapa="Data, horário e profissional"] .campo-web:has([data-campo="Profissional"]){grid-column:span 6}
+#app .agendamento-bloco[data-etapa="Data, horário e profissional"] .campo-web:has([data-campo="Data"],[data-campo="Hora"]){grid-column:span 3}
+#app .agendamento-bloco[data-etapa="Data, horário e profissional"] .campo-check{grid-column:1/-1}
+#app .agenda-busca-paciente{max-width:none;padding:16px 18px;margin:0;border-bottom:1px solid var(--borda);gap:8px}
+#app .recepcao-lista-operacional>.agenda-busca-paciente{margin:0}
+#app .agenda-busca-paciente>div{max-width:760px}
+#app .agenda-busca-paciente input{min-height:44px;font-size:14px}
+#app .agenda-busca-paciente small{font-size:12px;color:var(--texto-rotulo)}
+@media(max-width:700px){
+ #app .paciente-confirmado{flex-wrap:wrap}
+ #app .paciente-confirmado .botao{margin-left:30px}
+ #app .agendamento-bloco[data-etapa="Data, horário e profissional"] .campo-web{grid-column:span 6}
+ #app .agenda-busca-paciente{padding:14px}
+}
+
+#app .campo-web[hidden]{display:none!important}
+
+/* Ações clínicas expostas: sem menus intermediários e sem comprimir o contexto. */
+#app .prontuario-estacao .clinico-faixa-acoes{display:flex;align-items:flex-start;gap:12px;padding:8px 18px;border-bottom:1px solid var(--borda)}
+#app .clinico-faixa-acoes>span{flex:0 0 76px;padding-top:10px;color:var(--texto-rotulo);font-size:12px;font-weight:600}
+#app .clinico-faixa-acoes>div{display:flex;flex:1;min-width:0;gap:4px;flex-wrap:wrap}
+#app .clinico-faixa-acoes .botao{min-height:36px}
+#app .secao-acoes-expostas>.cabecalho-secao{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+#app .secao-acoes-expostas>.cabecalho-secao>.acoes-web{display:flex;flex:1;flex-wrap:wrap;justify-content:flex-start;margin:0;gap:4px;min-width:0}
+#app .secao-acoes-expostas>.cabecalho-secao .botao{min-height:36px;padding-inline:10px}
+#app .clinico-fluxo .botao{min-height:40px}
+#app .clinico-fluxo [data-comando="FinalizarSessao"],#app [data-comando="Atendimento.Salvar"]{font-weight:600}
+#app .agendamento-acoes{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px;padding:14px 18px;margin-top:20px;background:var(--superficie);border:1px solid var(--borda-hover);border-top:2px solid var(--marca);border-radius:4px}
+#app .agendamento-acoes [data-comando="Lancar"]{order:1;min-height:44px;min-width:180px;font-weight:600}
+
+/* Azul identifica interação; branco continua sendo a superfície de leitura. */
+#app .campo-web .mantine-Input-section{color:var(--marca)}
+#app .editor-ferramentas button:not(:disabled),#app :is(.icone-botao,.busca-global,.rolagem-dialogo button,.atalhos-rolagem button):not(:disabled){color:var(--marca);border-color:var(--marca)}
+#app .registro-detalhes>summary{display:inline-flex;align-items:center;gap:8px;padding:8px 0;border:0;border-radius:0;color:var(--marca);background:transparent;font-weight:500}
+#app .registro-detalhes>summary::before{content:'+';font-size:18px;line-height:1}
+#app .registro-detalhes[open]>summary::before{content:'−'}
+#app .registro-detalhes>summary:is(:hover,:focus-visible){color:var(--marca-hover);text-decoration:underline;text-underline-offset:3px;background:transparent}
+#app .pacientes-sugestoes-mais{color:var(--marca);border-color:var(--marca)}
+#app .nav-gatilho,#app .rota,#app .ordenar-coluna span{color:var(--marca)}
+#app .botao.perigo:hover:not(:disabled){color:var(--estado-erro);background:var(--estado-erro-fundo);border-color:var(--estado-erro)}
+@media(max-width:700px){#app .prontuario-estacao .clinico-faixa-acoes{flex-direction:column;gap:8px}#app .clinico-faixa-acoes>span{flex-basis:auto;padding:0}#app .secao-acoes-expostas>.cabecalho-secao>.acoes-web{flex-basis:100%}#app .agendamento-acoes{padding:12px}}
+#app .busca-paciente-unificada .campo-busca input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23374151' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10.8' cy='10.8' r='6.8'/%3E%3Cpath d='m16 16 4.5 4.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:18px;background-position:12px center}
+
+/* Hierarquia de ações: comandos auxiliares em texto e ícone; confirmação preenchida. */
+#app :is(.clinico-faixa-acoes,.cabecalho-secao,.cabecalho-pagina,.dialogo-rodape,.agendamento-acoes) .botao:not(.primario):not(.perigo):not(:disabled){background:transparent;border-color:transparent;color:var(--marca);font-weight:500;box-shadow:none}
+#app :is(.clinico-faixa-acoes,.cabecalho-secao,.cabecalho-pagina,.dialogo-rodape,.agendamento-acoes) .botao:not(.primario):not(.perigo):hover:not(:disabled){background:var(--marca-suave);border-color:transparent;color:var(--marca-hover)}
+#app :is(.clinico-faixa-acoes,.cabecalho-secao,.cabecalho-pagina,.dialogo-rodape,.agendamento-acoes) .botao:disabled{background:transparent;border-color:transparent;color:var(--texto-secundario);font-weight:400}
+#app .botao .mantine-Button-section:empty{display:none}
+#app .botao .mantine-Button-section{margin-inline-end:7px}
+#app .botao .mantine-Button-label{font-weight:inherit}
+#app .secao-acoes-expostas [data-comando="Atendimento.Salvar"]{margin-left:auto;min-width:130px}
+#app .prontuario-estacao .clinico-identidade{padding-block:18px}
+#app .clinico-faixa-acoes:last-child{border-bottom:0}
+#app .secao-acoes-expostas .editor-web>label{background:var(--superficie);font-weight:600}

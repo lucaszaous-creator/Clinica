@@ -56,6 +56,7 @@ public sealed partial class CartaoFila : ObservableObject
     public bool TemSala => !string.IsNullOrWhiteSpace(Sala);
 
     public required EtapaFila Etapa { get; init; }
+    public string GrupoSituacao => StatusDaFila.GrupoAgenda(Situacao, Etapa, FimAtendimentoEm is not null || (InicioEm is not null && DataHora.Date < DateTime.Today));
     public string? Observacoes { get; init; }
 
     /// <summary>O status GRAVADO do horário — é ele que separa cancelado e falta do resto.</summary>
@@ -995,7 +996,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private void MontarChips()
     {
         var doDia = _doDia
-            .Where(a => a.Etapa != EtapaFila.ForaDaFila && a.ProfissionalId is not null)
+            .Where(a => a.ProfissionalId is not null)
             .GroupBy(a => a.ProfissionalId!.Value)
             .Select(g => (Id: g.Key, Nome: g.First().Profissional?.Rotulo ?? $"Profissional {g.Key}"))
             .OrderBy(p => p.Nome)
@@ -1004,19 +1005,19 @@ public sealed partial class FilaViewModel : ObservableObject
         if (_filtroProfissionalId is { } vigente && doDia.All(p => p.Id != vigente))
             _filtroProfissionalId = null;
 
-        var vivos = _doDia.Where(a => a.Etapa != EtapaFila.ForaDaFila).ToList();
+        // O filtro inclui faltas e cancelados, assim como as linhas exibidas.
 
         Profissionais.Clear();
         Profissionais.Add(new ChipProfissional
         {
-            Id = null, Nome = "Todos", Quantidade = vivos.Count,
+            Id = null, Nome = "Todos", Quantidade = _doDia.Count,
             Ativo = _filtroProfissionalId is null
         });
         foreach (var p in doDia)
             Profissionais.Add(new ChipProfissional
             {
                 Id = p.Id, Nome = p.Nome,
-                Quantidade = vivos.Count(a => a.ProfissionalId == p.Id),
+                Quantidade = _doDia.Count(a => a.ProfissionalId == p.Id),
                 Ativo = _filtroProfissionalId == p.Id
             });
 
@@ -1180,7 +1181,7 @@ public sealed partial class FilaViewModel : ObservableObject
         }
 
         Atendidos = _doDia.Count(a => a.Status == StatusAgendamento.Realizado);
-        EmSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento);
+        EmSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento && a.FimAtendimentoEm is null && a.DataHora.Date == DateTime.Today);
         // Falta e cancelamento ESTÃO na lista (apagados) desde set/2026 — o placar conta,
         // não anuncia o que foi escondido.
         FaltasCancelamentos =
@@ -1239,12 +1240,11 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "fechar a sessão");
 
             var vm = new FechamentoSessaoViewModel(_escopos, c.AgendamentoId);
-            var janela = new Janelas.FechamentoSessaoWindow(vm)
-            {
+            Func<bool?> janelaNativa = () => new Janelas.FechamentoSessaoWindow(vm) {
                 Owner = JanelaDona.Atual()
-            };
+            }.ShowDialog();
 
-            if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
+            if (await DialogosDaSessao.AbrirAsync("RecepcaoFechamentoSessao", vm, janelaNativa) != true || vm.Resultado is not { } resultado)
             {
                 // Fechar a janela não desfaz nada: a sessão continua concluída e a guia
                 // no faturamento. O que fica pendente é só o dinheiro — e ele continua
@@ -1359,7 +1359,7 @@ public sealed partial class FilaViewModel : ObservableObject
             {
                 // Diálogo, não snackbar: é erro que exige correção, e o caminho tem de
                 // continuar na tela enquanto a recepcionista resolve.
-                _dialogo.Aviso($"Sem convênio — {c.Paciente}",
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Sem convênio — {c.Paciente}",
                     $"{c.Paciente} está com o convênio \"a definir\" (a ficha veio do sistema "
                     + "anterior sem convênio), e sem convênio o atendimento não gera guia.\n\n"
                     + "A sessão NÃO foi concluída. Escolha o convênio do paciente — pelo botão "
@@ -1382,7 +1382,7 @@ public sealed partial class FilaViewModel : ObservableObject
             // Snackbar some em 4s e não sobrevive a quem virou para atender o próximo —
             // é o mesmo diálogo que o check-in usa para os alertas de elegibilidade.
             if (registro.RecadosDoLancamento.Count > 0)
-                _dialogo.Aviso($"Atenção — {c.Paciente}",
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Atenção — {c.Paciente}",
                     string.Join("\n\n", registro.RecadosDoLancamento));
 
             // Sem decisão = convênio sem pacote e sem insumo: a guia já está no faturamento
@@ -1397,14 +1397,13 @@ public sealed partial class FilaViewModel : ObservableObject
             }
 
             var vm = new FechamentoSessaoViewModel(_escopos, c.AgendamentoId);
-            var janela = new Janelas.FechamentoSessaoWindow(vm)
-            {
+            Func<bool?> janelaNativa = () => new Janelas.FechamentoSessaoWindow(vm) {
                 Owner = JanelaDona.Atual()
-            };
+            }.ShowDialog();
 
             // Modal: o await fica com a janela, e o recarregar da fila vem do
             // ExecutarAsync assim que ela fecha — inclusive quando fecha com aviso.
-            if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
+            if (await DialogosDaSessao.AbrirAsync("RecepcaoFechamentoSessao", vm, janelaNativa) != true || vm.Resultado is not { } resultado)
             {
                 // A sessão está concluída e a guia feita; o que ficou de fora foi o
                 // pacote/caixa. Dizer isso é o que impede a recepcionista de concluir de
@@ -1465,7 +1464,7 @@ public sealed partial class FilaViewModel : ObservableObject
             // porque a pessoa acreditaria ter resolvido.
             if (Dia.Date != DateTime.Today)
             {
-                _dialogo.Aviso(
+                await DialogosDaSessao.AvisoAsync(_dialogo,
                     "Termo é do dia do procedimento",
                     "O termo vale para a SESSÃO, e é colhido no dia dela. Volte para hoje "
                     + "para colher a assinatura deste paciente.");
@@ -1531,11 +1530,14 @@ public sealed partial class FilaViewModel : ObservableObject
     ///
     /// Falha NÃO passa calada nem vira "tudo certo": vira o terceiro estado escrito.
     /// </summary>
+    public Action<int, string>? AbrirFichaWeb { get; set; }
+
     [RelayCommand]
     private async Task AbrirFichaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente");
+            if (AbrirFichaWeb is not null) { AbrirFichaWeb(c.PacienteId, c.Paciente); return; }
             using var escopo = _escopos.CreateScope();
             var foco = new Clinica.Desktop.Shell.Modulos.PacienteEmFoco();
             foco.Definir(c.PacienteId, c.Paciente);
@@ -1575,7 +1577,7 @@ public sealed partial class FilaViewModel : ObservableObject
                             + "confira na ficha do paciente.");
             }
 
-            _dialogo.Aviso($"{c.Paciente} — convênio e cota",
+            await DialogosDaSessao.AvisoAsync(_dialogo, $"{c.Paciente} — convênio e cota",
                 recados.Count > 0
                     ? string.Join("\n\n", recados)
                     : "Nada a resolver: carteirinha em dia, cota disponível, sem guia "
@@ -1588,6 +1590,10 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Marcar falta",
+                    $"Registrar que {c.Paciente} faltou ao horário de {c.DataHora:dd/MM/yyyy HH:mm}?")) return;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
             IReadOnlyList<string> avisos;
             using (var e = _escopos.CreateScope())
                 avisos = await e.ServiceProvider.GetRequiredService<AgendaService>()
@@ -1598,7 +1604,7 @@ public sealed partial class FilaViewModel : ObservableObject
             // caiu; confira com o convênio", que exige ação de quem está no balcão.
             // É a mesma regra do Concluir logo acima (parcela 62).
             if (avisos.Count > 0)
-                _dialogo.Aviso($"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
             _snackbar.Info($"{c.Paciente} marcado como falta.");
         }, "marcação de falta");
 
@@ -1608,6 +1614,10 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Cancelar horário",
+                    $"Cancelar o horário de {c.Paciente} em {c.DataHora:dd/MM/yyyy HH:mm}?")) return;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
             IReadOnlyList<string> avisos;
             using (var e = _escopos.CreateScope())
                 avisos = await e.ServiceProvider.GetRequiredService<AgendaService>()
@@ -1615,7 +1625,7 @@ public sealed partial class FilaViewModel : ObservableObject
 
             // Mesma regra da falta: aviso de guia é ação, não confirmação passageira.
             if (avisos.Count > 0)
-                _dialogo.Aviso($"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
+                await DialogosDaSessao.AvisoAsync(_dialogo, $"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
             _snackbar.Info($"Agendamento de {c.Paciente} cancelado.");
         }, "cancelamento");
 
@@ -1714,14 +1724,13 @@ public sealed partial class FilaViewModel : ObservableObject
                 TituloDaEdicao = "Editar o horário"
             };
 
-            var janela = new Janelas.AgendamentoWindow(vm)
-            {
+            Func<bool?> janelaNativa = () => new Janelas.AgendamentoWindow(vm) {
                 Owner = JanelaDona.Atual()
-            };
+            }.ShowDialog();
 
             // Fechar sem salvar não recarrega: a lista é relida a cada minuto de qualquer
             // forma, e uma consulta ao banco remoto por desistência é a que ninguém pediu.
-            if (janela.ShowDialog() != true) return;
+            if (await DialogosDaSessao.AbrirAsync("RecepcaoAgendamento", vm, janelaNativa) != true) return;
 
             // Com "guia no agendamento" ligada, trocar a modalidade REGERA as guias, e o
             // que aconteceu com elas vem escrito do serviço. Dizer é a metade que faz a

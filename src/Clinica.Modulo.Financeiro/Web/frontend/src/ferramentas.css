@@ -1,0 +1,11 @@
+/* O player vem do componente de treinamento da suÃƒÆ’Ã‚Â­te; a barra conserva o layout financeiro. */
+.ferramentas-topo{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.ferramenta-topo{position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;border:0;border-radius:9px;background:transparent;color:var(--suave)}
+.ferramenta-topo:hover,.ferramenta-topo:focus-visible{background:#eef2fd;color:var(--marca)}
+.ferramenta-topo small{position:absolute;top:0;right:-1px;min-width:15px;padding:1px 3px;border-radius:9px;background:var(--marca);color:white;font-size:9px}
+.painel-avisos{position:fixed;right:24px;top:82px;z-index:45;width:min(440px,calc(100vw - 48px));max-height:70vh;overflow:auto;padding:22px;background:white;border:1px solid var(--linha);border-radius:16px;box-shadow:0 16px 50px #00000022}
+.painel-avisos header{display:flex;justify-content:space-between;align-items:center;gap:12px}.painel-avisos h2{font-size:18px}.painel-avisos article{padding:14px 0;border-bottom:1px solid var(--linha)}.painel-avisos time{font-size:11px;color:var(--suave)}.painel-avisos p{font-size:13px;white-space:pre-line;line-height:1.7}
+.catalogo-aulas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:18px}.catalogo-aulas h2{font-size:18px;margin:14px 0}.catalogo-aulas p,.aula-aberta p{line-height:1.8;font-size:13px;color:var(--suave)}.catalogo-aulas progress{display:block;width:100%;margin:18px 0;accent-color:var(--marca)}.aula-aberta video{display:block;width:100%;max-height:60vh;background:#121c30;border-radius:12px;margin:20px 0}.capitulos-aula{margin-top:22px}
+@media(max-width:1400px){.ferramentas-topo .busca-global{width:36px;height:36px;min-width:0;padding:8px;justify-content:center}.ferramentas-topo .busca-global span,.ferramentas-topo .busca-global kbd{display:none}.topbar{gap:12px}}
+@media(max-width:1100px){.topbar{gap:8px}.ferramentas-topo{gap:0}.ferramenta-topo{width:32px}.nome-usuario{max-width:80px}}
+@media(max-width:900px){.ferramentas-topo{grid-column:2;grid-row:1}.ferramentas-topo .busca-global{grid-column:auto;grid-row:auto}.painel-avisos{top:124px}.topbar{column-gap:10px}}

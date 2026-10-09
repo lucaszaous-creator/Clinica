@@ -1426,6 +1426,12 @@ for modulo in sorted(RAIZ.glob("src/Clinica.Modulo.*")) + sorted(RAIZ.glob("src/
     declaradas = set(CHAVE_ITEM.findall(texto))
     # Literais também valem (nem todo módulo usa const).
     declaradas |= set(re.findall(r'Chave\s*=\s*"([^"]+)"', texto))
+    # Registros tipados também podem gerar os itens a partir de uma tabela fixa.
+    # Só a primeira coluna de Destinos conta, e somente quando alimenta Chave.
+    if re.search(r'Destinos\.Select\(d\s*=>\s*new ItemMenuModulo\s*\{\s*Chave\s*=\s*d\.Chave', texto):
+        destinos = re.search(r'Destinos\s*=\s*\[(.*?)\];', texto, re.S)
+        if destinos:
+            declaradas |= set(re.findall(r'\(\s*"([^"]+)"\s*,', destinos.group(1)))
 
     for arq in fontes:
         corpo = _sem_comentarios(arq.read_text(encoding="utf-8"))
@@ -1492,7 +1498,7 @@ def _enums_do_dominio() -> set[str]:
         if not raiz.exists():
             continue
         for arq in raiz.rglob("*.cs"):
-            if "/obj/" in str(arq) or "/bin/" in str(arq):
+            if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
                 continue
             achados.update(
                 re.findall(r"\benum\s+([A-Za-z0-9_]+)", arq.read_text(encoding="utf-8")))
@@ -1502,7 +1508,7 @@ def _enums_do_dominio() -> set[str]:
 def _tipos_das_colecoes() -> dict[str, set[str]]:
     tipos: dict[str, set[str]] = {}
     for arq in RAIZ.rglob("src/**/*.cs"):
-        if "/obj/" in str(arq) or "/bin/" in str(arq):
+        if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
             continue
         for tipo, nome in COLECAO_TIPADA.findall(arq.read_text(encoding="utf-8")):
             chave = nome[0].upper() + nome[1:]
@@ -1514,7 +1520,7 @@ _ENUMS = _enums_do_dominio()
 _TIPOS = _tipos_das_colecoes()
 
 for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
-    if "/obj/" in str(arq) or "/bin/" in str(arq):
+    if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
         continue
     corpo = arq.read_text(encoding="utf-8")
     for achado in COMBO_SEM_ROTULO.finditer(corpo):
@@ -1595,7 +1601,7 @@ BOTAO_COM_COMANDO = re.compile(
 # nada, porque um palpite errado gasta a confiança na checagem inteira.
 _guardas: dict[tuple[str, str], list[str]] = {}
 for arq in sorted(RAIZ.rglob("src/**/*.cs")):
-    if "/obj/" in str(arq) or "/bin/" in str(arq):
+    if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
         continue
     corpo = COMENTARIO_DE_LINHA.sub("", arq.read_text(encoding="utf-8"))
     classes = re.findall(r"\b(?:sealed\s+)?partial\s+class\s+(\w+)", corpo)
@@ -1629,7 +1635,7 @@ for arq in sorted(RAIZ.rglob("src/**/*.cs")):
                 f"{rel(arq)}: if ({cond.strip()}) return;")
 
 for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
-    if "/obj/" in str(arq) or "/bin/" in str(arq):
+    if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
         continue
     corpo = arq.read_text(encoding="utf-8")
     for antes, nome, depois in BOTAO_COM_COMANDO.findall(corpo):
@@ -1750,7 +1756,7 @@ PREFIXO_EM_MARCACAO = re.compile(r"\{x:(?:Type|Static)\s+([A-Za-z_][A-Za-z0-9_]*
 PREFIXO_DECLARADO = re.compile(r'xmlns:([A-Za-z_][A-Za-z0-9_]*)\s*=')
 
 for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
-    if "/obj/" in str(arq) or "/bin/" in str(arq):
+    if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
         continue
     corpo = arq.read_text(encoding="utf-8")
 
@@ -2889,7 +2895,7 @@ def _tipos_com_convenio_enum(_cache={}) -> set[str]:
 
     achados: set[str] = set()
     for cs in RAIZ.rglob("src/**/*.cs"):
-        if "/obj/" in str(cs) or "/bin/" in str(cs):
+        if "/obj/" in cs.as_posix() or "/bin/" in cs.as_posix():
             continue
         txt = cs.read_text(encoding="utf-8", errors="ignore")
         # Recorta cada declaração de tipo até a próxima, para não atribuir a um tipo o
@@ -3759,7 +3765,7 @@ DECLARACAO_DE_TIPO = re.compile(r'\b(?:class|record|struct|interface|enum)\s+([A
 
 _tipos_da_casa: set[str] = set()
 for _cs in RAIZ.glob("src/*/**/*.cs"):
-    if "/obj/" in str(_cs) or "/bin/" in str(_cs):
+    if {"obj", "bin"}.intersection(_cs.parts):
         continue
     _tipos_da_casa.update(DECLARACAO_DE_TIPO.findall(_cs.read_text(encoding="utf-8")))
 

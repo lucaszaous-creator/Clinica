@@ -1,0 +1,62 @@
+/* Faturamento tem uma fila de trabalho; relatÃƒÆ’Ã‚Â³rios mantÃƒÆ’Ã‚Âªm comparaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o numÃƒÆ’Ã‚Â©rica. */
+#app .faturamento-operacao{display:flex;flex-direction:column;gap:20px;min-width:0}
+#app .faturamento-operacao .secao-web{margin:0;min-width:0}
+#app .faturamento-resumo{background:#fff;border:1px solid var(--linha);border-radius:10px;overflow:hidden}
+#app .faturamento-resumo-titulo{padding:15px 20px 0;color:var(--texto)}
+#app .faturamento-resumo .indicadores-web{margin:0;border:0;background:transparent;box-shadow:none;border-radius:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(165px,100%),1fr));gap:0;padding:14px 8px}
+#app .faturamento-resumo .indicador-web{background:transparent;border:0;border-radius:0;padding:8px 14px;box-shadow:none;gap:9px}
+#app .faturamento-resumo .indicador-web>strong{color:var(--texto);font-size:27px;font-weight:600;letter-spacing:-.5px}
+#app .faturamento-resumo .indicador-web>span{color:var(--suave);font-size:12px;line-height:1.5}
+#app .faturamento-filtros{padding:18px 20px;background:#fff;border:1px solid var(--linha);border-radius:10px;color:var(--texto)}
+#app .faturamento-filtros>.campos-web{padding:0;border:0;background:transparent;margin:0;gap:14px 18px;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr))}
+#app .faturamento-filtros-periodo>.campos-web{max-width:680px;grid-template-columns:repeat(2,minmax(0,1fr))}
+#app .faturamento-filtros .campo-web>label{color:var(--suave)}
+#app .faturamento-filtros .campo-check{background:#fff;border:1px solid var(--linha);border-radius:7px;padding:0 12px;min-height:42px}
+#app .faturamento-filtros .campo-check label{margin:0}
+#app .faturamento-trabalho>.secao-web>.cabecalho-secao{padding-bottom:14px;border-bottom:1px solid var(--linha)}
+#app .faturamento-trabalho .cabecalho-secao h2{font-size:19px;color:var(--texto);font-weight:600}
+#app .faturamento-alertas .secao-web{background:#fff;border-color:var(--linha);box-shadow:none;padding:16px 20px}
+#app .faturamento-alertas .cabecalho-secao{margin:0;padding:0;border:0}
+#app .faturamento-alertas .cabecalho-secao h2{font-size:14px;color:var(--suave)}
+#app .faturamento-alertas .cabecalho-secao p{font-size:12px;line-height:1.6;color:var(--suave);max-width:none}
+#app .faturamento-analises .secao-web{height:100%}
+#app .faturamento-prazos{padding-top:8px;border-top:1px solid var(--linha)}
+#app .faturamento-prazos>div>h2{color:var(--texto)}
+#app .faturamento-orientacoes .secao-web{background:var(--superficie-filtro)}
+#app .faturamento-operacao .tabela-web,#app .faturamento-operacao .tabela-scroll{min-width:0;max-width:100%}
+#app .faturamento-operacao .tabela-web table{min-width:0;table-layout:fixed}
+#app .faturamento-operacao .tabela-web :is(th,td){overflow-wrap:anywhere;white-space:normal}
+#app .faturamento-operacao .acoes-na-linha{min-width:0}
+#app .faturamento-operacao-relatorios .tabela-web .valor{font-variant-numeric:tabular-nums}
+@media(max-width:1000px){#app .faturamento-resumo .indicadores-web{grid-template-columns:repeat(4,minmax(0,1fr))}#app .faturamento-resumo .indicador-web{padding:10px}#app .faturamento-resumo .indicador-web>strong{font-size:23px}}
+@media(max-width:600px){#app .faturamento-resumo .indicadores-web{grid-template-columns:repeat(2,minmax(0,1fr))}#app .faturamento-filtros{padding:16px}#app .faturamento-filtros-periodo>.campos-web{grid-template-columns:1fr}}
+/* ComposiÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o original: resumo enxuto, papel branco e divisores discretos. */
+#app .faturamento-operacao{gap:14px}
+#app .faturamento-resumo-titulo{padding:12px 18px 0}
+#app .faturamento-resumo .indicadores-web{padding:10px 6px}
+#app .faturamento-resumo .indicador-web{padding:5px 12px;gap:5px}
+#app .faturamento-resumo .indicador-web>strong{font-size:25px;font-weight:500}
+#app .faturamento-filtros{padding:14px 18px;border-radius:8px}
+#app .faturamento-trabalho .cabecalho-secao h2{font-size:17px;font-weight:500}
+#app .faturamento-trabalho>.secao-web>.cabecalho-secao{padding-bottom:10px}
+#app .faturamento-operacao .lista-compacta .registros-cartoes{display:block;border-top:1px solid var(--linha)}
+#app .faturamento-operacao .lista-compacta .registro-cartao{padding:13px 0;margin:0;border:0;border-bottom:1px solid var(--linha);border-radius:0;box-shadow:none;background:#fff;gap:10px 20px}
+#app .faturamento-operacao .lista-compacta .registro-cartao:last-child{border-bottom:0}
+#app .faturamento-operacao .lista-compacta .registro-cartao h4{font-size:13px;font-weight:500;margin-bottom:7px}
+#app .faturamento-operacao .lista-compacta .registro-resumo{gap:8px 16px}
+#app .faturamento-operacao .lista-compacta .registro-resumo dt{font-size:10px;color:var(--suave)}
+#app .faturamento-operacao .lista-compacta .registro-resumo dd{font-size:12px;color:var(--texto)}
+#app .faturamento-operacao .lista-compacta .registro-detalhes{margin-top:7px}
+#app .faturamento-operacao .lista-compacta .registro-detalhes summary{font-size:11px;color:var(--marca)}
+#app .faturamento-operacao .tabela-web :is(th,td){padding:11px 12px;font-size:12px}
+#app .faturamento-operacao .tabela-web th{background:var(--superficie-filtro);color:var(--suave);font-size:11px;font-weight:500}
+#app .faturamento-operacao .acoes-na-linha .botao{font-size:11px;min-height:31px;height:auto;padding:6px 9px}
+
+/* PendÃƒÆ’Ã‚Âªncias e falhas tÃƒÆ’Ã‚Âªm significado prÃƒÆ’Ã‚Â³prio; o restante da superfÃƒÆ’Ã‚Â­cie continua neutro. */
+#app .faturamento-alertas [data-secao="rodada"] .cabecalho-secao h2{color:var(--estado-atencao)}
+#app .faturamento-alertas [data-secao="falha-rodada"] .cabecalho-secao h2{color:var(--estado-erro)}
+#app .faturamento-operacao .lista-compacta .registro-cartao.linha-selecionada,#app .faturamento-operacao tr.linha-selecionada{background:var(--marca-suave)}
+#app .faturamento-filtros .campo-check:has(input:checked){background:var(--marca-suave);border-color:var(--marca-borda)}
+#app .faturamento-filtros .campo-check:has(input:checked) label{color:var(--marca)}
+#app .faturamento-operacao .registro-detalhes[open]>summary{color:var(--marca)}
+@media(prefers-reduced-motion:no-preference){#app .faturamento-operacao .registro-cartao,#app .faturamento-filtros .campo-check{transition:background-color 130ms ease,border-color 130ms ease}}

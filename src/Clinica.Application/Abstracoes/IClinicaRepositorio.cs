@@ -1006,6 +1006,9 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDaPrescricaoAsync(
         int prescricaoId, CancellationToken ct = default);
 
+    Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDaSessaoAsync(
+        int pacienteId, int agendamentoId, CancellationToken ct = default);
+
     /// <summary>
     /// A linha do tempo do PACIENTE — o que a enfermagem observou nele, da mais recente
     /// para a mais antiga. Traz as canceladas e as retificadas: elas aparecem MARCADAS na

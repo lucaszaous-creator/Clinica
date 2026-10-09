@@ -548,7 +548,7 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     // `AtendimentoService.MontarAsync` recusa. Com ela desligada, marcar
                     // não cria atendimento nenhum, e exigir o convênio aqui travaria quem
                     // marca retorno por telefone numa resposta que não tem em mãos.
-                    if (!VinculoDeConvenio.Garantir(
+                    if (!await VinculoDeConvenio.GarantirAsync(
                             _escopos, paciente, SessaoUsuario.Atual.Operador))
                     {
                         Erro($"{paciente.Nome} está sem convênio, e com \"guia no agendamento\" "

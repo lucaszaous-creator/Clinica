@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Faturamento.Web;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -206,13 +208,13 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
 
     /// <summary>Abre o guia com o que cada motivo de glosa significa e como evitá-lo.</summary>
     [RelayCommand]
-    private void AbrirGuia(string? codigo)
+    private Task AbrirGuiaMotivo(MotivoRecorrente? motivo) => AbrirGuia(motivo?.Codigo);
+
+    [RelayCommand]
+    private async Task AbrirGuia(string? codigo)
     {
-        var janela = new Alertas.GuiaGlosasWindow(codigo)
-        {
-            Owner = System.Windows.Application.Current.MainWindow
-        };
-        janela.ShowDialog();
+        var janela = new GuiaGlosasFaturamento(codigo);
+        await janela.AbrirAsync();
     }
 
     [RelayCommand]
@@ -243,7 +245,7 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
 
         SessaoUsuario.Atual.Exigir(Permissao.RegistrarGlosa, "marcar a glosa como recuperada");
 
-        if (!_dialogo.Confirmar("Confirmar",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Confirmar",
             "Marcar esta glosa como recuperada (aceita pelo convênio)?")) return;
 
         try

@@ -90,17 +90,28 @@ public sealed partial class HistoricoConsultaViewModel(IServiceScopeFactory esco
         OnPropertyChanged(nameof(Vazio));
     }
     [RelayCommand]
-    private void Ler(RegistroClinicoPaciente? registro)
+    private void CopiarRegistro(RegistroClinicoPaciente? registro)
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario,"copiar um registro clínico");
+        if(registro is null || !Itens.Contains(registro) || string.IsNullOrWhiteSpace(registro.TextoParaCopia))return;
+        try { Clipboard.SetText(registro.TextoParaCopia); Mensagem="Registro copiado."; }
+        catch { Mensagem="Não foi possível copiar o registro. Tente novamente."; }
+    }
+    [RelayCommand]
+    private async Task LerAsync(RegistroClinicoPaciente? registro)
     {
         if (registro is null || !registros.Contains(registro) || !SessaoUsuario.Atual.Pode(Permissao.VerProntuario)) return;
         if (registro.Natureza == NaturezaRegistroClinico.SessaoMedica)
         {
             var vm = new SessaoDoProntuarioViewModel(escopos, registro.Id, nomePaciente, ofereceAnexos: false);
-            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("SessaoDoProntuario", vm, () => new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
             return;
         }
         var texto = string.Join("\n\n", new[] { $"{registro.Data:dd/MM/yyyy} {registro.HoraTexto} · {registro.Autor}", registro.Marca, registro.Titulo, registro.Detalhe }.Where(s => !string.IsNullOrWhiteSpace(s)));
-        var view = new TextBox { Text = texto, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, BorderThickness = new Thickness(0), Padding = new Thickness(20) };
-        new ConsultaContextualWindow(registro.Rotulo + " — leitura", view, "Voltar ao atendimento") { Owner = JanelaDona.Atual() }.ShowDialog();
+        var leitura = new Clinica.Clinico.Web.RegistroClinicoLeitura(registro.Rotulo + " — leitura", texto);
+        await DialogosDaSessao.AbrirAsync("RegistroClinicoLeitura", leitura, () => {
+            var view = new TextBox { Text = texto, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, BorderThickness = new Thickness(0), Padding = new Thickness(20) };
+            return new ConsultaContextualWindow(leitura.Titulo, view, "Voltar ao atendimento") { Owner = JanelaDona.Atual() }.ShowDialog();
+        });
     }
 }

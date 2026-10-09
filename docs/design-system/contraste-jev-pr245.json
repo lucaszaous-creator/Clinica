@@ -1,0 +1,106 @@
+{
+  "data": "2026-10-08",
+  "escopo": "Análise estática de cobertura e cascata nos cinco módulos; sem imagens ou execução pelo Jev.",
+  "respostas": [
+    {
+      "modulo": "clinico",
+      "modelo_solicitado": "jev-1.13.0",
+      "sha256_pedido": "4fc00e1499d6ff22b33cacc63455c3b093324c38a0902b3dd38181adc3165901",
+      "parecer": {
+        "type": "choice",
+        "choice": "coberto_com_limites",
+        "confidence": 0.49,
+        "probabilities": {
+          "coberto_com_limites": 0.62,
+          "lacuna_cascata": 0.36,
+          "lacuna_integracao": 0.01,
+          "evidencia_insuficiente": 0.01
+        }
+      },
+      "usage": {
+        "input_tokens": 25173,
+        "output_tokens": 71
+      }
+    },
+    {
+      "modulo": "faturamento",
+      "modelo_solicitado": "jev-1.13.0",
+      "sha256_pedido": "09e9be0bf1234430eddc5657a3ab7e0c7619e22e8c8d1e248554d9719f65b036",
+      "parecer": {
+        "type": "choice",
+        "choice": "coberto_com_limites",
+        "confidence": 0.64,
+        "probabilities": {
+          "coberto_com_limites": 0.73,
+          "lacuna_cascata": 0.24,
+          "lacuna_integracao": 0.01,
+          "evidencia_insuficiente": 0.02
+        }
+      },
+      "usage": {
+        "input_tokens": 22750,
+        "output_tokens": 71
+      }
+    },
+    {
+      "modulo": "financeiro",
+      "modelo_solicitado": "jev-1.13.0",
+      "sha256_pedido": "aad9f71a892335256959c174b8cd9a76d7dbac124df925035023d28678919426",
+      "parecer": {
+        "type": "choice",
+        "choice": "coberto_com_limites",
+        "confidence": 0.45,
+        "probabilities": {
+          "coberto_com_limites": 0.59,
+          "lacuna_cascata": 0.4,
+          "lacuna_integracao": 0.0,
+          "evidencia_insuficiente": 0.01
+        }
+      },
+      "usage": {
+        "input_tokens": 25717,
+        "output_tokens": 71
+      }
+    },
+    {
+      "modulo": "gerente",
+      "modelo_solicitado": "jev-1.13.0",
+      "sha256_pedido": "ebb3bcb853d51270680f83a53740779ff919c0f5fae0daf9e9e8206477ec44da",
+      "parecer": {
+        "type": "choice",
+        "choice": "coberto_com_limites",
+        "confidence": 0.51,
+        "probabilities": {
+          "coberto_com_limites": 0.63,
+          "lacuna_cascata": 0.31,
+          "lacuna_integracao": 0.01,
+          "evidencia_insuficiente": 0.05
+        }
+      },
+      "usage": {
+        "input_tokens": 22702,
+        "output_tokens": 71
+      }
+    },
+    {
+      "modulo": "recepcao",
+      "modelo_solicitado": "jev-1.13.0",
+      "sha256_pedido": "6430bf2e1f2ac10b3393a2ee2cbe344948a3a179b8637ab42b7aee80244336a8",
+      "parecer": {
+        "type": "choice",
+        "choice": "coberto_com_limites",
+        "confidence": 0.65,
+        "probabilities": {
+          "coberto_com_limites": 0.74,
+          "lacuna_cascata": 0.22,
+          "lacuna_integracao": 0.01,
+          "evidencia_insuficiente": 0.03
+        }
+      },
+      "usage": {
+        "input_tokens": 24456,
+        "output_tokens": 71
+      }
+    }
+  ]
+}

@@ -358,6 +358,8 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
         var ct = atual.Token;
         try
         {
+            // O debounce já pertence à nova busca; a lista anterior não está pronta para escolha.
+            Buscando = true;
             if (!imediato) await Task.Delay(AtrasoDigitacaoMs, ct);
 
             // ⚠️ OCIOSO: a tela não pediu nada, e nada vai ao banco. É este `return` que

@@ -1,0 +1,35 @@
+/* Identidade SemDor: cores funcionais somente, com rótulo e contagem. */
+#app .agenda-filtros-situacao{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0;min-width:0}
+#app .agenda-filtros-situacao button{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:6px 10px;border:1px solid var(--borda);border-radius:6px;background:var(--superficie);color:var(--texto-primario);font:inherit;font-size:12px;cursor:pointer}
+#app .agenda-filtros-situacao button[aria-pressed=true]{border-color:var(--marca);background:var(--marca-suave);color:var(--marca)}
+#app .agenda-filtros-situacao button:focus-visible{outline:2px solid var(--foco);outline-offset:2px}
+#app .agenda-filtro-contagem{font-size:11px;font-variant-numeric:tabular-nums;color:var(--texto-secundario)}
+#app .agenda-situacao-ponto{width:7px;height:7px;border-radius:50%;background:var(--situacao-cor,var(--texto-secundario));flex:none}
+#app [data-tom=sucesso]{--situacao-cor:var(--estado-sucesso);--situacao-fundo:var(--estado-sucesso-fundo)}
+#app [data-tom=atencao]{--situacao-cor:var(--estado-atencao);--situacao-fundo:var(--estado-atencao-fundo)}
+#app [data-tom=erro]{--situacao-cor:var(--estado-erro);--situacao-fundo:var(--estado-erro-fundo)}
+#app [data-tom=info]{--situacao-cor:var(--estado-info);--situacao-fundo:var(--estado-info-fundo)}
+#app .agenda-situacao{display:inline-block;font-size:11px;line-height:1.5;padding:2px 7px;border-radius:4px;color:var(--situacao-cor,var(--texto-secundario));background:var(--situacao-fundo,var(--superficie-filtro));font-weight:500}
+#app .agenda-fc-sessao .agenda-situacao{margin:4px 0}
+#app .agenda-evento-resumo .agenda-situacao{white-space:normal;line-height:1.2}
+
+/* A semana compacta oculta os metadados, mas mantém a situação legível.
+   O ponto da lista/semana e a borda fina no dia repetem a mesma cor funcional. */
+#app .agenda-react .fc-event:has(.agenda-situacao[data-tom=sucesso]){--situacao-evento:var(--estado-sucesso)}
+#app .agenda-react .fc-event:has(.agenda-situacao[data-tom=atencao]){--situacao-evento:var(--estado-atencao)}
+#app .agenda-react .fc-event:has(.agenda-situacao[data-tom=erro]){--situacao-evento:var(--estado-erro)}
+#app .agenda-react .fc-event:has(.agenda-situacao[data-tom=info]){--situacao-evento:var(--estado-info)}
+#app .agenda-react .fc-event :is(.fc-list-event-dot,.fc-daygrid-event-dot){border-color:var(--situacao-evento,var(--texto-secundario))!important}
+#app .agenda-react .fc-timegrid-event{border-inline-start:3px solid var(--situacao-evento,var(--texto-secundario))!important}
+#app .agenda-react .fc-daygrid-event .agenda-evento-resumo span.agenda-situacao{display:inline-block;justify-self:start;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+#app .agenda-react .agenda-evento-resumo span.agenda-situacao{color:var(--situacao-cor,var(--texto-secundario))}
+
+#app .agenda-busca-paciente{display:grid;gap:6px;margin:12px 0;max-width:560px;min-width:0}
+#app .agenda-busca-paciente>label{font-size:12px;color:var(--texto-primario);font-weight:500}
+#app .agenda-busca-paciente>div{display:flex;gap:8px;min-width:0}
+#app .agenda-busca-paciente input{flex:1;min-width:0;border:1px solid var(--borda-controle);border-radius:6px;background:var(--superficie);color:var(--texto-primario);padding:8px 10px;font:inherit;font-size:13px}
+#app .agenda-busca-paciente input::placeholder{color:var(--texto-secundario);opacity:1}
+#app .agenda-busca-paciente input:focus-visible{outline:2px solid var(--foco);outline-offset:2px}
+#app .agenda-busca-paciente small{font-size:11px;color:var(--texto-secundario)}
+#app .recepcao-lista-operacional>.agenda-busca-paciente{margin:14px 18px 10px}
+#app .recepcao-lista-operacional>.agenda-filtros-situacao{margin:10px 18px 14px}

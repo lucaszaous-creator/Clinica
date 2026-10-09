@@ -1,0 +1,57 @@
+.dialogo-web.dialogo-infusao{width:min(1560px,calc(100vw - 40px));max-width:calc(100vw - 40px)}
+.prescricao-infusao{display:grid;gap:14px;min-width:0}
+#app .dialogo-infusao .dialogo-descricao{margin:0 0 12px;padding-bottom:8px}
+#app .dialogo-infusao .mensagem-web{padding:10px 14px;margin-bottom:12px}
+#app .infusao-indicacao>.campos-web{margin:0}
+#app .infusao-indicacao .editor-ferramentas{display:none}
+#app .infusao-indicacao .editor-web:focus-within .editor-ferramentas{display:flex}
+.documento-composicao{display:grid;gap:16px;min-width:0}
+.modelo-autocomplete{position:relative;min-width:0}
+.modelo-sugestoes{position:absolute;top:calc(100% - 18px);left:0;right:0;z-index:40;max-height:220px;overflow:auto;background:var(--superficie);border:1px solid var(--borda-controle);border-radius:4px}
+#app .modelo-sugestoes button{display:flex;justify-content:space-between;gap:12px;width:100%;padding:10px 12px;background:var(--superficie);border:0;text-align:left;color:var(--texto);cursor:pointer}
+#app .modelo-sugestoes button[aria-selected=true],#app .modelo-sugestoes button:hover{background:var(--marca-suave);color:var(--marca)}
+.modelo-sugestoes small,.modelo-autocomplete>small{color:var(--texto-secundario);font-size:12px}
+.modelo-sugestoes p{padding:10px 12px;margin:0}
+.modelo-destino{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.documento-modelos,.documento-item{border:1px solid var(--borda-controle);border-radius:8px;padding:16px;background:var(--superficie)}
+.documento-modelos>.campos-web{margin-bottom:12px}
+.documento-modelos>details{margin-top:12px}
+.documento-item{margin-bottom:12px}
+.documento-item>header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.documento-item h3{margin:0 0 12px}
+.documento-item .editor-conteudo{min-height:70px}
+.documento-composicao details>summary{cursor:pointer}
+.documento-composicao details[open]>summary{margin-bottom:12px}
+.infusao-identificacao,.infusao-bloco>header,.infusao-nova{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.infusao-identificacao>.campos-web{flex:1;margin:0}
+.infusao-identificacao .campo-leitura{min-width:0}
+.infusao-identificacao .campo-leitura:first-child output{font-size:17px;font-weight:600}
+#app .infusao-indicacao .editor-conteudo{min-height:64px;max-height:120px;padding:12px;overflow-y:auto}
+#app .infusao-indicacao .editor-web label{padding:8px 12px 0}
+#app .infusao-indicacao .editor-ferramentas{padding:4px 12px}
+.infusao-bloco{border:1px solid var(--borda-controle);background:var(--superficie);border-radius:8px;padding:16px;min-width:0}
+.infusao-bloco>header{margin-bottom:12px}
+#app .infusao-bloco h3{margin:0;font-size:20px;color:var(--marca)}
+#app .infusao-preparo>.campos-web{display:grid;grid-template-columns:1.1fr .8fr 1fr 1fr 1fr;margin:0 0 16px;gap:14px}
+.secoes-clinicas{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}
+#app .secoes-clinicas .botao[aria-pressed=true]:not(.primario):not(.perigo):not(:disabled){border-color:var(--marca);background:var(--marca-suave);font-weight:600;box-shadow:inset 0 -2px 0 var(--marca)}
+.secao-quantidade{margin-left:8px;font-variant-numeric:tabular-nums}
+.infusao-item{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(120px,1fr) auto;gap:8px 14px;align-items:end;margin-top:10px}
+.infusao-medicamento{position:relative;min-width:0}
+.infusao-medicamento label small{font-weight:400;color:var(--texto-secundario);margin-left:12px}
+.infusao-sugestoes{position:absolute;top:100%;left:0;right:0;z-index:30;max-height:220px;overflow-y:auto;background:var(--superficie);border:1px solid var(--borda-controle);border-radius:4px}
+.infusao-sugestoes [role=option]{padding:8px 12px;cursor:pointer}
+.infusao-sugestoes [aria-selected=true],.infusao-sugestoes [role=option]:hover{background:var(--marca-suave);color:var(--marca)}
+.infusao-item-opcionais{grid-column:1/-1;font-size:12px}
+.infusao-item-opcionais>summary{width:fit-content}
+.infusao-item-opcionais .editor-conteudo{min-height:60px}
+.infusao-acoes{display:flex;justify-content:flex-end;margin-top:12px}
+.infusao-modelos{margin-top:12px;font-size:12px}
+.infusao-nova{justify-content:flex-start;color:var(--texto-secundario);font-size:13px}
+.infusao-observacoes,.infusao-dados{border:1px solid var(--borda-controle);border-radius:8px;background:var(--superficie);padding:12px 16px}
+.prescricao-infusao summary{cursor:pointer}
+.prescricao-infusao details[open]>summary{margin-bottom:12px}
+.prescricao-infusao .campos-web{min-width:0}
+.dialogo-infusao .dialogo-rodape>.acoes-web{flex-wrap:wrap}
+@media(max-width:1000px){#app .infusao-preparo>.campos-web{grid-template-columns:repeat(3,minmax(0,1fr))}.infusao-medicamento label small{display:block;margin-left:0}.infusao-remover .botao{max-width:120px;white-space:normal;height:auto;min-height:38px}}
+@media(max-width:650px){.dialogo-web.dialogo-infusao{width:calc(100vw - 16px);max-width:calc(100vw - 16px)}#app .infusao-preparo>.campos-web{grid-template-columns:repeat(2,minmax(0,1fr))}.infusao-item{grid-template-columns:minmax(0,1fr) auto}.infusao-medicamento{grid-column:1/-1}.infusao-identificacao>.campos-web{flex-basis:100%}.infusao-bloco{padding:12px}}

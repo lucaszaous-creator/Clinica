@@ -296,7 +296,7 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
             // Guarda que DIZ por que não dá (a lição da parcela 41): botão que volta calado
             // faz a pessoa concluir que o sistema quebrou.
             if (pacienteId is null
-                && !_dialogo.ConfirmarPerigo("Exportar o prontuário da clínica",
+                && !await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Exportar o prontuário da clínica",
                     "Vai sair o prontuário de TODOS os pacientes, com dado de saúde, em "
                     + "arquivos que qualquer pessoa abre. Grave em local controlado e "
                     + "entregue só a quem tem direito de recebê-lo."))

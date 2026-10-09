@@ -2153,6 +2153,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public Task<EvolucaoEnfermagem?> ObterEvolucaoEnfermagemAsync(
         int id, CancellationToken ct = default)
         => _db.EvolucoesEnfermagem
+            .Include(e => e.Prescricao)
+            .Include(e => e.Agendamento)
             .Include(e => e.Paciente)
             .Include(e => e.AutorUsuario)
             // As etapas do Processo de Enfermagem (parcela 73). Sem elas a consulta grava e
@@ -2222,6 +2224,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(e => e.Data).ThenByDescending(e => e.Hora).ThenByDescending(e => e.Id)
             .Take(limite)
             .ToListAsync(ct);
+
+    public IQueryable<EvolucaoEnfermagem> ConsultaEnfermagemDaSessao(int pacienteId, int agendamentoId)
+        => _db.EvolucoesEnfermagem.AsNoTracking()
+            .Include(e => e.Prescricao).Include(e => e.Agendamento).Include(e => e.Diagnosticos).Include(e => e.Cuidados)
+            .Where(e => e.PacienteId == pacienteId && e.AgendamentoId == agendamentoId)
+            .OrderBy(e => e.Data).ThenBy(e => e.Hora).ThenBy(e => e.Id);
+
+    public async Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDaSessaoAsync(
+        int pacienteId, int agendamentoId, CancellationToken ct = default)
+        => await ConsultaEnfermagemDaSessao(pacienteId, agendamentoId).ToListAsync(ct);
 
     public Task<bool> TemEvolucaoEnfermagemVigenteNoHorarioAsync(int agendamentoId, CancellationToken ct = default)
         => ConsultaEnfermagemVigenteNoHorario(agendamentoId).AnyAsync(ct);
@@ -3491,7 +3503,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     {
         var q = _db.Contatos.AsNoTracking()
             .Include(c => c.Paciente)
-            .Include(c => c.Agendamento)
+            .Include(c => c.Agendamento).ThenInclude(a => a!.Profissional)
             .Where(c => c.Referencia >= inicio && c.Referencia <= fim);
 
         if (tipo is { } t) q = q.Where(c => c.Tipo == t);

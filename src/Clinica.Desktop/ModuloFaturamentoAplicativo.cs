@@ -33,7 +33,8 @@ public sealed class ModuloFaturamentoAplicativo : IModuloApp
             Grupo = GrupoSidebar.Financeiro, Requer = i.Requer, RequerAlgum = i.RequerAlgum,
             PerfilExclusivo = i.PerfilExclusivo, Inicial = i.Chave == raiz.Chave,
             Oculto = i.Chave != raiz.Chave, Abas = i.Chave == raiz.Chave ? abas : i.Abas
-        }).Append(_componentes[1].Itens.Single(i => i.Chave == ChavesSuite.RetornoPacientes)).ToArray();
+        }).Append(_componentes[1].Itens.Single(i => i.Chave == ChavesSuite.RetornoPacientes))
+            .Append(new ItemMenuModulo { Chave="consultorio-paciente", Glifo="", Icone="usuario", Rotulo="Ficha do paciente", Oculto=true, Requer=Clinica.Domain.Entities.Permissao.VerFichaPaciente, Grupo=GrupoSidebar.Atendimento }).ToArray();
     }
 
     public void Registrar(IServiceCollection servicos)

@@ -1,0 +1,8 @@
+/* A cor identifica apenas o estado; o rÃƒÆ’Ã‚Â³tulo nunca depende dela para ser entendido. */
+#app .etiqueta-web.estado-concluido{background:var(--estado-sucesso-fundo);color:var(--estado-sucesso);border:0}
+#app .etiqueta-web.estado-pendente{background:var(--estado-atencao-fundo);color:var(--estado-atencao);border:0}
+#app .etiqueta-web.estado-interrompido{background:var(--estado-erro-fundo);color:var(--estado-erro);border:0}
+#app .etiqueta-web.estado-neutro{background:#f1f3f6;color:#596273;border:0}
+#app .etiqueta-web.estado-agendado{background:var(--estado-info-fundo);color:var(--estado-info);border:0}
+#app .etiqueta-web.estado-em-curso{background:var(--marca-suave);color:var(--marca);border:0}
+#app .etiqueta-web{transition:background-color 160ms,color 160ms}

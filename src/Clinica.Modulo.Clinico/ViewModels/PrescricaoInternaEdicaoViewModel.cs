@@ -21,6 +21,7 @@ namespace Clinica.Clinico.ViewModels;
 /// </summary>
 public sealed partial class LinhaItemPrescricao : ObservableObject
 {
+    public string InfusaoRotulo { get; set; } = string.Empty;
     [ObservableProperty] private string _descricao = string.Empty;
     [ObservableProperty] private string? _descricaoFormatada;
     partial void OnDescricaoChanged(string value) { DescricaoFormatada = null; OnPropertyChanged(nameof(DicaDose)); }
@@ -90,7 +91,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     private readonly int? _evolucaoId;
 
     public ObservableCollection<GrupoInfusaoEdicao> Infusoes { get; } = [];
-    public IReadOnlyList<LinhaItemPrescricao> Itens => Infusoes.SelectMany(g => g.Itens).ToArray();
+    public IReadOnlyList<LinhaItemPrescricao> Itens => Infusoes.SelectMany(g => { foreach (var i in g.Itens) i.InfusaoRotulo = g.Titulo; return g.Itens; }).ToArray();
+    public string AlertasTexto => string.Join("\n", Alertas);
     [ObservableProperty] private IReadOnlyList<MedicamentoSugerido> _catalogoMedicamentos = [];
     public Task Inicializacao { get; }
     private bool _carregamentoFalhou;
@@ -159,7 +161,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         || Itens.Any(i => !string.IsNullOrWhiteSpace(i.Descricao) || !string.IsNullOrWhiteSpace(i.Dose)
             || !string.IsNullOrWhiteSpace(i.Observacoes) || i.SeNecessario);
 
-    public void AplicarCopiaDaUltima(ModeloInfusao modelo)
+    public async Task AplicarCopiaDaUltimaAsync(ModeloInfusao modelo)
     {
         if (_carregamentoFalhou || !Exigir(Permissao.Prescrever, "copiar a última prescrição")) return;
         // Converte e valida tudo antes de tocar no conteúdo atual.
@@ -171,7 +173,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             MensagemEhErro = false;
             return;
         }
-        if (TemConteudoEmEdicao && !_dialogo.ConfirmarPerigo("Copiar última prescrição",
+        if (TemConteudoEmEdicao && !await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Copiar última prescrição",
             "Substituir o conteúdo em edição pela última prescrição emitida deste paciente?")) return;
         Indicacao = modelo.Indicacao; IndicacaoFormatada = modelo.IndicacaoFormatada;
         Observacoes = modelo.Observacoes; ObservacoesFormatadas = modelo.ObservacoesFormatadas;
@@ -192,7 +194,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var modelo = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>()
                 .UltimaComoModeloAsync(_pacienteId);
-            if (modelo is not null) AplicarCopiaDaUltima(modelo);
+            if (modelo is not null) await AplicarCopiaDaUltimaAsync(modelo);
             else { Mensagem = "Não há prescrição de infusão emitida deste paciente para copiar."; MensagemEhErro = false; }
         }
         catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
@@ -233,9 +235,29 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     }
 
     public ObservableCollection<ModeloDocumento> Modelos {get;}=[];
+    [ObservableProperty] private string _buscaModeloWeb=string.Empty;
+    public IReadOnlyList<ModeloDocumento> ModelosDisponiveisWeb => Modelos.Where(m=>System.Globalization.CultureInfo.GetCultureInfo("pt-BR").CompareInfo.IndexOf(m.Nome,BuscaModeloWeb.Trim(),System.Globalization.CompareOptions.IgnoreCase|System.Globalization.CompareOptions.IgnoreNonSpace)>=0).ToArray();
+    partial void OnBuscaModeloWebChanged(string value)=>OnPropertyChanged(nameof(ModelosDisponiveisWeb));
+
     [ObservableProperty] private ModeloDocumento? _modeloSelecionado;
     public string PreviaModelo => ModeloSelecionado?.Corpo??"Escolha um modelo para conferir o conteúdo.";
     partial void OnModeloSelecionadoChanged(ModeloDocumento? value)=>OnPropertyChanged(nameof(PreviaModelo));
+    [RelayCommand]
+    private async Task UsarModeloWebAsync(GrupoInfusaoEdicao? grupo)
+    {
+        if (grupo is null || !Infusoes.Contains(grupo)) return;
+        if (ModeloSelecionado is null || !Modelos.Contains(ModeloSelecionado))
+        { Mensagem = "Selecione um modelo antes de aplicá-lo."; MensagemEhErro = true; return; }
+        await AplicarModeloAsync(grupo, ModeloSelecionado);
+    }
+    [RelayCommand]
+    private async Task SalvarModeloWebAsync(GrupoInfusaoEdicao? grupo)
+    {
+        if (grupo is null || !Infusoes.Contains(grupo)) return;
+        var nome = await DialogosDaSessao.PerguntarTextoAsync(_dialogo, "Salvar infusão como modelo", "Nome do modelo. Guarda o preparo e os medicamentos, sem dados do paciente ou horário.");
+        if (nome is null) return;
+        await SalvarModeloAsync(grupo, nome.Trim());
+    }
     private async Task CarregarModelosAsync() {
         try {
             using var scope=_escopos.CreateScope();
@@ -259,7 +281,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         }
         catch(Exception ex) { Mensagem="A busca de medicamentos não pôde carregar. Você pode escrever livremente. "+ex.Message;MensagemEhErro=true; }
     }
-    public void AplicarModelo(GrupoInfusaoEdicao grupo, ModeloDocumento selecionado)
+    public async Task AplicarModeloAsync(GrupoInfusaoEdicao grupo, ModeloDocumento selecionado)
     {
         if(Ocupado||!Infusoes.Contains(grupo)||!Exigir(Permissao.Prescrever,"usar modelos"))return;
         try
@@ -267,7 +289,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             var modelo=ModeloInfusao.Ler(selecionado.ConfiguracaoInfusao);
             var novos=GrupoInfusaoEdicao.Carregar(modelo.Itens.Select(ModeloInfusao.Para),modelo.DiluicaoUnica,modelo.DiluenteGlobal,modelo.VolumeTotal);
             if(novos.Count==0)throw new InvalidOperationException("Modelo sem medicamentos.");
-            if(grupo.Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao)) && !_dialogo.ConfirmarPerigo("Usar modelo","Substituir os medicamentos e o preparo desta infusão?"))return;
+            if(grupo.Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao)) && !await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Usar modelo","Substituir os medicamentos e o preparo desta infusão?"))return;
             var indice=Infusoes.IndexOf(grupo);Infusoes.RemoveAt(indice);
             foreach(var g in novos)Infusoes.Insert(indice++,g);
             Renumerar();Mensagem="Modelo aplicado. Revise o preparo e as doses antes de liberar.";MensagemEhErro=false;
@@ -389,10 +411,10 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         var grupo=new GrupoInfusaoEdicao();grupo.Itens.Add(new LinhaItemPrescricao());Infusoes.Add(grupo);Renumerar();
     }
     [RelayCommand]
-    private void RemoverInfusao(GrupoInfusaoEdicao? grupo)
+    private async Task RemoverInfusaoAsync(GrupoInfusaoEdicao? grupo)
     {
         if(grupo is null)return;
-        if(grupo.Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao))&&!_dialogo.ConfirmarPerigo("Remover infusão","Remover esta infusão do rascunho em edição?"))return;
+        if(grupo.Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao))&&!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Remover infusão","Remover esta infusão do rascunho em edição?"))return;
         Infusoes.Remove(grupo);Renumerar();
     }
     [RelayCommand]
@@ -461,7 +483,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
                         .Where(a => a.Gravidade == GravidadePrescricao.Alergia)
                         .Select(a => $"• {a.Item}\n  {a.Motivo}");
 
-                    confirmouAlergia = _dialogo.ConfirmarPerigo(
+                    confirmouAlergia = await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo,
                         "Alergia registrada",
                         "Há item prescrito que bate com alergia registrada deste paciente:\n\n"
                         + string.Join("\n\n", achados)
@@ -487,7 +509,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
                 Fechar?.Invoke();
                 return;
             }
-            using var certificado = EscolherCertificadoWindow.Perguntar(
+            using var certificado = await EscolherCertificadoWindow.PerguntarAsync(
                 $"Prescrição {Numero} — {Paciente}",
                 System.Windows.Application.Current?.MainWindow, _escopos);
 

@@ -1,1 +1,4 @@
 tools/vps/*.bat text eol=crlf
+
+# Vite preserva as quebras do HTML ao gerar o pacote local.
+src/**/Web/**/*.html text eol=lf

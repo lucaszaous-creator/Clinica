@@ -122,15 +122,16 @@ public sealed partial class ExamesViewModel : ObservableObject, ICarregarAoAbrir
                 CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.PedidoExame),
                 "emitir pedido de exame");
 
-            var paciente = EscolherPacienteWindow.Perguntar(
+            var paciente = await EscolherPacienteWindow.PerguntarAsync(
                 "Novo pedido de exame — para quem?", JanelaDona.Atual(), _escopos);
             if (paciente is null) return;
 
             var vm = new DocumentoEdicaoViewModel(
                 _escopos, paciente.Id, TipoDocumentoClinico.PedidoExame);
-            var janela = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() };
+            Func<bool?> abrirNativo = () => new DocumentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("Documento", vm, abrirNativo);
 
-            var concluiu = janela.ShowDialog() == true;
+            var concluiu = respostaWeb == true;
             await CarregarAsync();
             if (concluiu)
             {
@@ -159,8 +160,8 @@ public sealed partial class ExamesViewModel : ObservableObject, ICarregarAoAbrir
 
             var vm = new ResultadoExameEdicaoViewModel(
                 _escopos, linha.PacienteId, linha.Paciente, linha.DocumentoId);
-            var janela = new RegistrarResultadoExameWindow(vm) { Owner = JanelaDona.Atual() };
-            janela.ShowDialog();
+            Func<bool?> abrirNativo = () => new RegistrarResultadoExameWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("ResultadoExame", vm, abrirNativo);
 
             await CarregarAsync();
             if (vm.Registrado)
@@ -184,7 +185,7 @@ public sealed partial class ExamesViewModel : ObservableObject, ICarregarAoAbrir
     /// outro) fica no botão de abrir o paciente, dentro dele.
     /// </summary>
     [RelayCommand]
-    private void VerResultados(PedidoDeExameLinha? linha)
+    private async Task VerResultadosAsync(PedidoDeExameLinha? linha)
     {
         if (linha is null) return;
 
@@ -193,8 +194,8 @@ public sealed partial class ExamesViewModel : ObservableObject, ICarregarAoAbrir
             SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir os exames do paciente");
 
             var vm = new ResultadosDoPedidoViewModel(_escopos, _foco, linha);
-            var janela = new ResultadosDoPedidoWindow(vm) { Owner = JanelaDona.Atual() };
-            janela.ShowDialog();
+            Func<bool?> abrirNativo = () => new ResultadosDoPedidoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("ResultadosDoPedido", vm, abrirNativo);
         }
         catch (Exception ex)
         {

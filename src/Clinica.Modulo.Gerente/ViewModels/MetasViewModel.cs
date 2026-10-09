@@ -23,6 +23,7 @@ public sealed class LinhaMeta
     public required string Realizado { get; init; }
     public required string Situacao { get; init; }
     public required decimal Valor { get; init; }
+    public string? Observacoes { get; init; }
     public int? ProfissionalId { get; init; }
 
     /// <summary>Fração da barra, de 0 a 1. Nula quando não há realizado medido.</summary>
@@ -179,6 +180,7 @@ public sealed partial class MetasViewModel : ObservableObject
             Rotulo = MetaMensal.Rotular(m.Indicador),
             Alvo = Formatar(m.Indicador, m.Valor),
             Valor = m.Valor,
+            Observacoes = m.Observacoes,
             Dono = m.Profissional?.Rotulo ?? "Clínica",
             ProfissionalId = m.ProfissionalId,
             // "—" e não "0": meta de mês que ainda não chegou não tem realizado nenhum, e
@@ -226,12 +228,8 @@ public sealed partial class MetasViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.DefinirMetas, "definir metas");
 
         var vm = new MetaEdicaoViewModel(_escopos, Ano, linha);
-        var janela = new Janelas.MetaWindow(vm)
-        {
-            Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true) return;
+        await vm.Inicializacao;
+        if (await DialogosDaSessao.AbrirAsync("MetaWindow", vm, () => throw new InvalidOperationException("Requer apresentação web.")) != true) return;
 
         _snackbar.Sucesso("Meta definida — o painel da direção já compara com ela.");
         await CarregarAsync();
@@ -251,7 +249,7 @@ public sealed partial class MetasViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.DefinirMetas, "excluir metas");
 
-            if (!_dialogo.ConfirmarPerigo(
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo,
                     "Excluir meta",
                     $"Apagar a meta de {linha.Rotulo} de {linha.Periodo}?\n\n"
                     + "O mês passa a não ter alvo — o painel volta a mostrar só a variação "
@@ -296,6 +294,7 @@ public sealed partial class MetasViewModel : ObservableObject
 /// </summary>
 public sealed partial class MetaEdicaoViewModel : ObservableObject
 {
+    public Task Inicializacao { get; }
     private readonly IServiceScopeFactory _escopos;
 
     public sealed record OpcaoIndicador(IndicadorMeta Valor, string Nome);
@@ -344,9 +343,12 @@ public sealed partial class MetaEdicaoViewModel : ObservableObject
         Indicador = Indicadores.FirstOrDefault(i =>
             i.Valor == (existente?.Indicador ?? IndicadorMeta.Faturamento));
         if (existente is not null)
+        {
             Valor = existente.Valor.ToString("0.##");
+            Observacoes = existente.Observacoes ?? string.Empty;
+        }
 
-        _ = CarregarProfissionaisAsync(existente?.ProfissionalId);
+        Inicializacao = CarregarProfissionaisAsync(existente?.ProfissionalId);
     }
 
     partial void OnIndicadorChanged(OpcaoIndicador? value) => OnPropertyChanged(nameof(UnidadeAtual));

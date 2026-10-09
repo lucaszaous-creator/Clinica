@@ -104,6 +104,25 @@ public class CampanhaServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Confirmacao_ReabrirFilaCarregaProfissionalDoHorarioESuportaHorarioSemProfissional()
+    {
+        var paciente = await CriarPacienteAsync();
+        var comProfissional = await MarcarAsync(paciente.Id, Hoje);
+        comProfissional.Profissional = new Profissional { Nome = "Profissional sintético da confirmação" };
+        await _db.SaveChangesAsync();
+        await MarcarAsync(paciente.Id, Hoje);
+        await _campanhas.GerarConfirmacoesAsync(Hoje);
+        _db.ChangeTracker.Clear();
+
+        var fila = await _campanhas.ContatosAsync(TipoContato.ConfirmacaoSessao, null, Hoje, Hoje);
+
+        fila.Should().HaveCount(2);
+        fila.Single(c => c.AgendamentoId == comProfissional.Id).Agendamento!.Profissional!.Nome
+            .Should().Be("Profissional sintético da confirmação");
+        fila.Single(c => c.AgendamentoId != comProfissional.Id).Agendamento!.Profissional.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Confirmacao_NaoExigeConsentimento()
     {
         // Avisar o paciente sobre o horário que ELE pediu é transacional, não marketing.

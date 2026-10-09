@@ -71,7 +71,7 @@ public static class VinculoDeConvenio
         // mensagem verdadeira por uma sobre convênio.
         if (paciente is null || !paciente.ConvenioADefinir) return true;
 
-        return Perguntar(servicos, paciente, operador);
+        return await PerguntarAsync(servicos, paciente, operador);
     }
 
     /// <summary>O miolo: pergunta, grava (é a ViewModel que grava) e devolve o veredito.</summary>
@@ -104,4 +104,35 @@ public static class VinculoDeConvenio
 
         return true;
     }
+    private static async Task<bool> PerguntarAsync(IServiceProvider servicos, Paciente paciente, string? operador)
+    {
+        var vm = new EscolhaDeConvenioViewModel(
+            servicos.GetRequiredService<ConvenioCatalogoService>(),
+            servicos.GetRequiredService<PacienteService>(),
+            paciente,
+            operador);
+
+
+
+        // O DialogResult diz que a janela fechou; o `Vinculado` diz que a FICHA mudou.
+        // Só o segundo libera o lançamento — fechar no "X" com um convênio destacado na
+        // lista não vinculou coisa nenhuma.
+        if (await DialogosDaSessao.AbrirAsync("EscolhaDeConvenio",vm,()=>new EscolhaDeConvenioWindow(vm){Owner=JanelaDona.Atual()}.ShowDialog()) != true || vm.Vinculado is not { } escolhido)
+            return false;
+
+        paciente.ConvenioCodigo = escolhido.Codigo;
+        paciente.Convenio = escolhido.Familia;
+        paciente.Categoria = Clinica.Domain.Regras.CategoriaConvenio.Base(
+            escolhido.Familia, paciente.PossuiApp);
+
+        // Espelha a regra do serviço: em branco PRESERVA o que a ficha já tinha.
+        if (!string.IsNullOrWhiteSpace(vm.Carteirinha))
+            paciente.Carteirinha = vm.Carteirinha.Trim();
+        if (vm.ValidadeCarteirinha is { } validade)
+            paciente.ValidadeCarteirinha = DateOnly.FromDateTime(validade);
+
+        return true;
+    }
+
+    public static async Task<bool> GarantirAsync(IServiceScopeFactory escopos,Paciente paciente,string? operador=null) { if(!paciente.ConvenioADefinir)return true;using var scope=escopos.CreateScope();return await PerguntarAsync(scope.ServiceProvider,paciente,operador); }
 }

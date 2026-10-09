@@ -68,4 +68,16 @@ public partial class EscolherCertificadoWindow : Window
         var janela = new EscolherCertificadoWindow(new EscolherCertificadoViewModel(assunto, escopos)) { Owner = dono };
         return janela.ShowDialog() == true ? janela._vm.Escolhido : null;
     }
+
+    public static async Task<CertificadoAssinatura?> PerguntarAsync(string assunto,Window? dono,
+        Microsoft.Extensions.DependencyInjection.IServiceScopeFactory? escopos=null)
+    {
+        var vm=new Web.CertificadoWebViewModel(assunto,escopos);
+        CertificadoAssinatura? nativo=null;
+        try
+        {
+            return await DialogosDaSessao.AbrirAsync("EscolherCertificado",vm,()=>{nativo=Perguntar(assunto,dono,escopos);return nativo is not null;})==true?vm.Certificado.Escolhido??nativo:null;
+        }
+        finally{vm.Senha="";vm.Certificado.Fechar=null;vm.Certificado.LiberarNaoEscolhidos();}
+    }
 }

@@ -348,7 +348,7 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     /// quem leu.
     /// </summary>
     [RelayCommand]
-    private void VerSessao(LinhaEvolucao? linha)
+    private async Task VerSessaoAsync(LinhaEvolucao? linha)
     {
         // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha (checagem 21).
         if (linha is null) return;
@@ -362,7 +362,7 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             // contagem continua na linha da lista, que é onde ela informa.
             var vm = new SessaoDoProntuarioViewModel(
                 _escopos, linha.EvolucaoId, Paciente, ofereceAnexos: false);
-            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("SessaoDoProntuario", vm, () => new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
         }
         catch (Exception ex)
         {
@@ -393,7 +393,7 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             var vm = new EscreverSessaoViewModel(
                 _escopos, _dialogo, PacienteId, Paciente, evolucaoId);
 
-            if (!EscreverSessaoWindow.Abrir(vm)) return;
+            if (!await EscreverSessaoWindow.AbrirAsync(vm)) return;
 
             _snackbar.Sucesso("Prontuário atualizado.");
             await CarregarAsync();
@@ -422,7 +422,7 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             // Cancelar, nunca apagar (parcela 52): a Lei 13.787/2018 manda guardar o
             // prontuário por 20 anos, e o motivo escrito é o que separa a correção da
             // reescrita.
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Cancelar sessão do prontuário",
                 $"Por que a sessão de {linha.Data} está sendo cancelada? Ela NÃO é apagada — "
                 + "sai do prontuário que se lê e fica guardada, com este motivo ao lado.");

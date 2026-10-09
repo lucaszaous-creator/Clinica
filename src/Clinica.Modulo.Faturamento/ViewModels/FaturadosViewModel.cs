@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Faturamento.Web;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -177,7 +179,7 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
         // recusar por permissão é fazer a pessoa decidir sobre algo que ela não pode fazer.
         SessaoUsuario.Atual.Exigir(Permissao.EstornarBaixa, "estornar a baixa da guia");
 
-        if (!_dialogo.Confirmar("Confirmar estorno",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Confirmar estorno",
             $"Estornar a baixa desta guia de {codigo.Atendimento?.Paciente?.Nome}?\n\n" +
             "A pendência voltará a aparecer no painel para ser faturada novamente.")) return;
 
@@ -200,8 +202,8 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
         using (var scopePrazo = _scopeFactory.CreateScope())
             prazo = await scopePrazo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrazoRecursoGlosaAsync();
 
-        var dialog = new GlosaWindow(descricao, prazo) { Owner = System.Windows.Application.Current.MainWindow };
-        if (dialog.ShowDialog() != true) return;
+        var dialog = new GlosaFaturamento(descricao, prazo);
+        if (await dialog.AbrirAsync() != true) return;
 
         using var scope = _scopeFactory.CreateScope();
         var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();

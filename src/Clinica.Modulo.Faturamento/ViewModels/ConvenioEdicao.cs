@@ -12,6 +12,10 @@ namespace Clinica.Desktop.ViewModels;
 /// </summary>
 public partial class ConvenioEdicao : ObservableObject
 {
+    public Array Familias => FontesEnum.Familias;
+    public Array Formatos => FontesEnum.FormatosNumeroGuia;
+    public Array Formas => FontesEnum.FormasObtencao;
+    public Array Categorias => FontesEnum.Categorias;
     public string Codigo { get; }
 
     /// <summary>Convênio embutido: a regra vive no código; não muda de família nem pode ser excluído.</summary>

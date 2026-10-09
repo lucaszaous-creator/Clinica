@@ -41,6 +41,7 @@ public sealed partial class ItemAvaliacaoViewModel : ObservableObject
 /// </summary>
 public sealed partial class AplicarAvaliacaoViewModel : ObservableObject
 {
+    public event Action? Confirmado;
     private readonly IServiceScopeFactory _escopos;
     private readonly int _pacienteId;
     private readonly int? _profissionalId;
@@ -164,6 +165,7 @@ public sealed partial class AplicarAvaliacaoViewModel : ObservableObject
                 _especialidadeCodigo,
                 Observacoes,
                 SessaoUsuario.Atual.Operador);
+            Confirmado?.Invoke();
         }
         catch (Exception ex)
         {

@@ -733,7 +733,7 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
                 PararVigia();
                 var limpou = await _coletaRemota.ConcluirAsync(_documento.Id, Testemunha);
                 if (!limpou)
-                    _dialogo.Aviso(
+                    await DialogosDaSessao.AvisoAsync(_dialogo,
                         "O link não saiu do ar",
                         "O termo foi assinado e gravado, mas o link do WhatsApp não pôde "
                         + "ser removido do armazenamento. Ele vence sozinho em 24 horas — "
@@ -780,7 +780,7 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
             return;
         }
 
-        var motivo = _dialogo.PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
             "Paciente recusou assinar",
             "Diga por que o paciente não assinou. O termo continua emitido — é ele que prova "
             + "que o documento foi apresentado a ele.",

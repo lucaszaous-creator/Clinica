@@ -229,7 +229,7 @@ public sealed partial class PlanoDeCuidadosViewModel : ObservableObject
             string? justificativa = null;
             if (situacao == SituacaoChecagem.NaoRealizado)
             {
-                justificativa = _dialogo.PerguntarTexto(
+                justificativa = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                     "Por que não foi realizado?",
                     $"{linha.Redacao}\n\n"
                     + "Ex.: paciente ausente, recusou, material em falta, condição não ocorreu.");

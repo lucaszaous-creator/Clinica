@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
@@ -225,6 +226,10 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _horaSaidaTexto;
 
     [ObservableProperty] private ModeloDocumento? _modeloSelecionado;
+    [ObservableProperty] private string _buscaModeloWeb=string.Empty;
+    public IReadOnlyList<ModeloDocumento> ModelosDisponiveisWeb => Modelos.Where(m=>CultureInfo.GetCultureInfo("pt-BR").CompareInfo.IndexOf(m.Nome,BuscaModeloWeb.Trim(),CompareOptions.IgnoreCase|CompareOptions.IgnoreNonSpace)>=0).ToArray();
+    partial void OnBuscaModeloWebChanged(string value)=>OnPropertyChanged(nameof(ModelosDisponiveisWeb));
+
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _emitindo;
@@ -491,9 +496,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     /// regra apertada demais que o projeto já rejeitou no formato do número da guia.
     /// </summary>
     [RelayCommand]
-    private void BuscarCid()
+    private async Task BuscarCidAsync()
     {
-        if (BuscaCidWindow.Perguntar(Cid) is { } codigo) Cid = codigo;
+        if (await BuscaCidWindow.PerguntarAsync(Cid) is { } codigo) Cid = codigo;
     }
 
     partial void OnCidChanged(string? value)
@@ -607,12 +612,12 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     private async Task AtualizarModeloAsync() {
         if(ModeloSelecionado is not {} m || !PodeEditar)return;
         using var scope=_escopos.CreateScope();
-        if(!scope.ServiceProvider.GetRequiredService<IDialogoService>().ConfirmarPerigo("Atualizar modelo",$"Substituir o conteúdo do modelo {m.Nome}? A alteração será usada por toda a clínica."))return;
+        if(!await DialogosDaSessao.ConfirmarPerigoAsync(scope.ServiceProvider.GetRequiredService<IDialogoService>(),"Atualizar modelo",$"Substituir o conteúdo do modelo {m.Nome}? A alteração será usada por toda a clínica."))return;
         await GuardarModeloAsync(m.Nome,m.Id);
     }
     /// <summary>Traz texto e linhas do modelo escolhido, substituindo o que estiver na tela.</summary>
     [RelayCommand]
-    private void AplicarModelo()
+    private async Task AplicarModeloAsync()
     {
         if (ModeloSelecionado is not { } modelo) return;
 
@@ -625,7 +630,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         }
         if(!string.IsNullOrWhiteSpace(Corpo)||Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao))) {
             using var scope=_escopos.CreateScope();
-            if(!scope.ServiceProvider.GetRequiredService<IDialogoService>().ConfirmarPerigo("Usar modelo","Substituir o texto e as linhas que estão neste rascunho?"))return;
+            if(!await DialogosDaSessao.ConfirmarPerigoAsync(scope.ServiceProvider.GetRequiredService<IDialogoService>(),"Usar modelo","Substituir o texto e as linhas que estão neste rascunho?"))return;
         }
         Titulo = modelo.Titulo;
         Corpo = modelo.Corpo;
@@ -663,8 +668,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     {
         if (!PodeEditar) return;
         using var scope = _escopos.CreateScope();
-        var nome = scope.ServiceProvider.GetRequiredService<IDialogoService>()
-            .PerguntarTexto("Salvar como modelo", "Nome do modelo");
+        var nome = await DialogosDaSessao.PerguntarTextoAsync(scope.ServiceProvider.GetRequiredService<IDialogoService>(),"Salvar como modelo", "Nome do modelo");
         if (nome is not null) await GuardarModeloAsync(nome, 0);
     }
 
@@ -741,7 +745,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
             // O botão fica ao lado do "Aplicar modelo": sem a pergunta, o clique errado
             // apaga o modelo que a clínica usa todo dia.
-            if (!dialogo.ConfirmarPerigo("Apagar modelo",
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(dialogo,"Apagar modelo",
                     $"Apagar o modelo \"{modelo.Nome}\"? "
                     + "Os documentos já emitidos com ele NÃO mudam — a emissão copia o conteúdo."))
                 return;
@@ -809,10 +813,12 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             byte[] pdf;
             string numero;
             string nomeArquivo;
+            ImpressaoPdf.DestinoNoEscopo? destino;
 
             using (var scope = _escopos.CreateScope())
             {
                 var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+                destino = scope.ServiceProvider.GetService<ImpressaoPdf.DestinoNoEscopo>();
                 var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
                 var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
 
@@ -826,6 +832,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
             // O documento JÁ está emitido: uma falha daqui para a frente é de impressão,
             // não de emissão — e a tela precisa dizer isso, senão alguém emite de novo.
+            using var entrega = destino is null ? null : ImpressaoPdf.UsarEntregaNoEscopo(destino.Entregar);
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
                 pdf, ImpressaoPdf.NomeSeguro(nomeArquivo));
 
@@ -861,7 +868,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(_paciente.Endereco))
         {
             var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
-            var endereco = dialogo.PerguntarTexto("Endereço para a receita",
+            var endereco = await DialogosDaSessao.PerguntarTextoAsync(dialogo,"Endereço para a receita",
                 $"Qual é o endereço residencial de {_paciente.Nome}? "
                 + "Informe rua, número, complemento, bairro e cidade. "
                 + "O endereço será guardado no cadastro para as próximas receitas.");

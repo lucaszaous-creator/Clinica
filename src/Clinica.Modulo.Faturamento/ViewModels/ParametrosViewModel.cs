@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Faturamento.Web;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
@@ -156,7 +158,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 
     /// <summary>Adiciona uma nova variante de convênio (reutiliza a regra de uma família existente).</summary>
     [RelayCommand]
-    private void NovoConvenio()
+    private async Task NovoConvenio()
     {
         // Nome único para não esbarrar na validação de duplicados ao criar vários seguidos.
         var nome = "Novo convênio";
@@ -171,7 +173,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             Ativo = true
         });
         Catalogo.Add(novo);
-        EditarConvenio(novo); // o convênio nasce só com um nome provisório: abre para preencher
+        await EditarConvenio(novo); // o convênio nasce só com um nome provisório: abre para preencher
     }
 
     /// <summary>
@@ -180,23 +182,17 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     /// vez de ocupar meia tela de painel aberto.
     /// </summary>
     [RelayCommand]
-    private void EditarConvenio(ConvenioEdicao? alvo)
+    private async Task EditarConvenio(ConvenioEdicao? alvo)
     {
         if (alvo is null) return;
 
-        new Alertas.ConvenioWindow(alvo)
-        {
-            Owner = System.Windows.Application.Current.MainWindow
-        }.ShowDialog();
+        await DialogosDaSessao.AbrirAsync("FaturamentoConvenio", alvo, () => throw new InvalidOperationException("Requer apresentação web."));
     }
 
     /// <summary>Abre os números das regras embutidas — tabela POR FAMÍLIA, com o MESMO ViewModel.</summary>
     [RelayCommand]
-    private void AbrirRegrasFamilia()
-        => new Alertas.RegrasFamiliaWindow(this)
-        {
-            Owner = System.Windows.Application.Current.MainWindow
-        }.ShowDialog();
+    private async Task AbrirRegrasFamilia()
+        => await DialogosDaSessao.AbrirAsync("FaturamentoRegrasFamilia", this, () => throw new InvalidOperationException("Requer apresentação web."));
 
     /// <summary>Exclui a variante (embutidos e convênios com pacientes são recusados pelo serviço).</summary>
     [RelayCommand]
@@ -207,7 +203,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         // A exclusão grava NA HORA, não espera o Salvar — precisa da mesma barreira dele.
         SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "excluir convênio do catálogo");
 
-        if (!_dialogo.ConfirmarPerigo("Excluir convênio",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir convênio",
                 $"Excluir o convênio \"{alvo.Nome}\"?\n\nSe houver pacientes cadastrados nele, a exclusão será recusada — nesse caso, desative-o."))
             return;
 
@@ -223,7 +219,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             }
             else
             {
-                _dialogo.Aviso("Não foi possível excluir", mensagem);
+                await DialogosDaSessao.AvisoAsync(_dialogo, "Não foi possível excluir", mensagem);
             }
         }
         catch (Exception ex)
@@ -256,7 +252,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 
         SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "excluir modalidade do catálogo");
 
-        if (!_dialogo.ConfirmarPerigo("Excluir modalidade",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir modalidade",
                 $"Excluir a modalidade \"{alvo.Nome}\"?\n\nSe houver registros usando-a, a exclusão será recusada — nesse caso, desative-a."))
             return;
 
@@ -272,7 +268,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             }
             else
             {
-                _dialogo.Aviso("Não foi possível excluir", mensagem);
+                await DialogosDaSessao.AvisoAsync(_dialogo, "Não foi possível excluir", mensagem);
             }
         }
         catch (Exception ex)
@@ -304,7 +300,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 
         SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "excluir especialidade do catálogo");
 
-        if (!_dialogo.ConfirmarPerigo("Excluir especialidade",
+        if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Excluir especialidade",
                 $"Excluir a especialidade \"{alvo.Nome}\"?\n\nSe houver registros usando-a, a exclusão será recusada — nesse caso, desative-a."))
             return;
 
@@ -320,7 +316,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             }
             else
             {
-                _dialogo.Aviso("Não foi possível excluir", mensagem);
+                await DialogosDaSessao.AvisoAsync(_dialogo, "Não foi possível excluir", mensagem);
             }
         }
         catch (Exception ex)

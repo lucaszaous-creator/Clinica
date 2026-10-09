@@ -190,6 +190,14 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     private int _geracaoCarga;
 
     [RelayCommand]
+    private void CopiarRegistroWeb(LinhaSessaoProntuario? registro)
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario,"copiar um registro clínico");
+        if(registro is null || !Sessoes.Contains(registro))return;
+        try { System.Windows.Clipboard.SetText(registro.TextoParaCopia); Mensagem="Registro copiado."; MensagemEhErro=false; }
+        catch { Mensagem="Não foi possível copiar o registro. Tente novamente."; MensagemEhErro=true; }
+    }
+    [RelayCommand]
     public async Task CarregarAsync()
     {
         var geracao = ++_geracaoCarga;
@@ -304,7 +312,7 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     /// rastreabilidade do art. 3º da Lei 13.787/2018 ser LIDA, e não só guardada.
     /// </summary>
     [RelayCommand]
-    private void VerCorrecoes(LinhaSessaoProntuario? linha)
+    private async Task VerCorrecoesAsync(LinhaSessaoProntuario? linha)
     {
         // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha, e por isso pode
         // sair calada (a exceção declarada da checagem 21).
@@ -312,12 +320,8 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
         try
         {
-            new VersoesEvolucaoWindow
-            {
-                DataContext = new VersoesEvolucaoViewModel(
-                    _escopos, linha.EvolucaoId, $"{linha.Data} — {Paciente}"),
-                Owner = JanelaDona.Atual()
-            }.ShowDialog();
+            var vm = new VersoesEvolucaoViewModel(_escopos, linha.EvolucaoId, $"{linha.Data} — {Paciente}");
+            await DialogosDaSessao.AbrirAsync("VersoesEvolucao", vm, () => new VersoesEvolucaoWindow { DataContext = vm, Owner = JanelaDona.Atual() }.ShowDialog());
         }
         catch (Exception ex)
         {
@@ -359,7 +363,7 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
             var vm = new SessaoDoProntuarioViewModel(
                 _escopos, linha.EvolucaoId, Paciente, ofereceAnexos: true);
-            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await DialogosDaSessao.AbrirAsync("SessaoDoProntuario", vm, () => new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog());
 
             if (vm.PediuAnexos) await VerAnexosAsync(linha);
         }
@@ -393,10 +397,10 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
                 _escopos, linha.EvolucaoId, $"Sessão de {linha.Data} — {Paciente}",
                 PacienteId);
 
-            new AnexosSessaoWindow(vm)
+            await DialogosDaSessao.AbrirAsync("AnexosSessao", vm, () => new AnexosSessaoWindow(vm)
             {
                 Owner = JanelaDona.Atual()
-            }.ShowDialog();
+            }.ShowDialog());
 
             // A contagem do clipe muda com o que aconteceu na janela.
             await CarregarAsync();

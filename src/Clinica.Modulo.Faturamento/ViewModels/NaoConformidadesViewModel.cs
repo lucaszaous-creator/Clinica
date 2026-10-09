@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Faturamento.Web;
 using Clinica.Domain.Entities;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
@@ -98,10 +100,10 @@ public partial class NaoConformidadesViewModel : ObservableObject, IAtalhosDeTel
 
     /// <summary>Mostra a justificativa completa da não conformidade (opção de leitura).</summary>
     [RelayCommand]
-    private void VerJustificativa(NaoConformidadeItem? item)
+    private async Task VerJustificativa(NaoConformidadeItem? item)
     {
         if (item is null) return;
-        _dialogo.Aviso($"Não conformidade — {item.PacienteNome}",
+        await DialogosDaSessao.AvisoAsync(_dialogo, $"Não conformidade — {item.PacienteNome}",
             string.IsNullOrWhiteSpace(item.Justificativa) ? "(sem justificativa registrada)" : item.Justificativa);
     }
 
@@ -113,7 +115,7 @@ public partial class NaoConformidadesViewModel : ObservableObject, IAtalhosDeTel
 
         SessaoUsuario.Atual.Exigir(Permissao.MarcarNaoConformidade, "reabrir a não conformidade");
 
-        if (!_dialogo.Confirmar("Reabrir não conformidade",
+        if (!await DialogosDaSessao.ConfirmarAsync(_dialogo, "Reabrir não conformidade",
                 $"Reabrir a guia de {item.PacienteNome}? Ela volta a ser pendência ativa (aba Pendências).")) return;
 
         try
@@ -124,7 +126,7 @@ public partial class NaoConformidadesViewModel : ObservableObject, IAtalhosDeTel
         }
         catch (Exception ex)
         {
-            _dialogo.Aviso("Reabrir não conformidade", ex.Message);
+            await DialogosDaSessao.AvisoAsync(_dialogo, "Reabrir não conformidade", ex.Message);
         }
 
         await CarregarAsync();

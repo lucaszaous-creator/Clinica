@@ -149,14 +149,22 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
                  + $"{PoliticaRegistroPendente.DataInicio:dd/MM/yyyy}";
     }
 
-    /// <summary>"Novo prontuário" = escrever um atendimento — a tela de sempre, que abre
-    /// com a fila do dia para escolher quem.</summary>
+    /// <summary>Escolhe quem será atendido antes de abrir a escrita. O contexto de um
+    /// atendimento anterior só muda depois da confirmação da escolha.</summary>
     [RelayCommand]
-    private void NovoProntuario()
+    private async Task NovoProntuarioAsync()
     {
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            var usuario = SessaoUsuario.Atual.UsuarioId;
+            var paciente = await EscolherPacienteWindow.PerguntarAsync(
+                "Novo prontuário — escolha o paciente", JanelaDona.Atual(), _escopos);
+            if (paciente is null) return;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            if (usuario != SessaoUsuario.Atual.UsuarioId)
+                throw new InvalidOperationException("O usuário mudou durante a escolha. Abra o novo prontuário novamente.");
+            _foco.Definir(paciente.Id, paciente.Nome);
             if (!NavegacaoSuite.Ir(PostoClinico.ChaveDoAtendimento()))
             {
                 Mensagem = "Não deu para abrir a tela de atendimento.";
@@ -202,7 +210,7 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
     /// folha emitida no rodapé; o prontuário completo fica a um botão de distância.
     /// </summary>
     [RelayCommand]
-    private void Abrir(LinhaProntuario? linha)
+    private async Task AbrirAsync(LinhaProntuario? linha)
     {
         if (linha is null) return;
 
@@ -213,11 +221,8 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
             var vm = new ResumoProntuarioViewModel(
                 _escopos, _foco, linha.PacienteId, linha.Paciente,
                 linha.Natureza == NaturezaLinhaProntuario.Anamnese ? linha.DocumentoId : null);
-            var janela = new Clinica.Clinico.Janelas.ResumoProntuarioWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
-            janela.ShowDialog();
+            Func<bool?> abrirNativo = () => new Clinica.Clinico.Janelas.ResumoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("ResumoProntuario", vm, abrirNativo);
         }
         catch (Exception ex)
         {
@@ -241,7 +246,7 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
                 CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.Anamnese),
                 "assinar documento clínico");
 
-            using var certificado = EscolherCertificadoWindow.Perguntar(
+            using var certificado = await EscolherCertificadoWindow.PerguntarAsync(
                 $"Assinar anamnese {linha.Numero}", JanelaDona.Atual(), _escopos);
             if (certificado is null) return;
 

@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
@@ -400,7 +401,7 @@ public sealed partial class AnamneseViewModel : ObservableObject
             string? motivo = null;
             if (jaExistia)
             {
-                motivo = _dialogo.PerguntarTexto(
+                motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                     "Revisar a anamnese",
                     "O que ela dizia antes fica guardado e recuperável. Se quiser, diga o "
                     + "que mudou (opcional):",

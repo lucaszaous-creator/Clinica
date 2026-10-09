@@ -384,11 +384,9 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
 
             var vm = new ResultadoExameEdicaoViewModel(
                 _escopos, id, _foco.Nome, pedidoDocumentoId);
-            var janela = new RegistrarResultadoExameWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
-            if (janela.ShowDialog() != true) return;
+            Func<bool?> abrirNativo = () => new RegistrarResultadoExameWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var respostaWeb = await DialogosDaSessao.AbrirAsync("ResultadoExame", vm, abrirNativo);
+            if (respostaWeb != true) return;
 
             _snackbar.Sucesso("Resultado registrado.");
             await CarregarAsync();
@@ -438,7 +436,7 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
             if (escolha.ShowDialog() != true) return;
 
             var nome = Path.GetFileName(escolha.FileName);
-            var titulo = _dialogo.PerguntarTexto(
+            var titulo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Anexar arquivo à ficha",
                 "O que é este arquivo? (ex.: Ressonância lombar, Receita de outro serviço)",
                 Path.GetFileNameWithoutExtension(nome));
@@ -446,7 +444,7 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
 
             // Cancelar não é resposta em branco (checagem 39): `null` é desistir; vazio
             // é "hoje".
-            var dataTexto = _dialogo.PerguntarTexto(
+            var dataTexto = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Data do documento",
                 "Data do documento (dd/mm/aaaa). Deixe em branco se for de hoje.",
                 obrigatorio: false);
@@ -544,7 +542,7 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            var motivo = _dialogo.PerguntarTexto(
+            var motivo = await DialogosDaSessao.PerguntarTextoAsync(_dialogo,
                 "Cancelar resultado de exame",
                 $"Por que {linha.Nome} de {linha.Data} está sendo cancelado? Ele sai da "
                 + "lista e fica guardado, com este motivo — sem ele não haveria como "

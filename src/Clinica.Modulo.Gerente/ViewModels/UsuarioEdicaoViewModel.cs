@@ -67,6 +67,7 @@ public sealed record OpcaoPerfil(PerfilAcesso Valor, string Rotulo);
 /// </summary>
 public sealed partial class UsuarioEdicaoViewModel : ObservableObject
 {
+    public Task Inicializacao { get; }
     private readonly IServiceScopeFactory _escopos;
     private readonly SessaoUsuario _sessao;
     private readonly int? _usuarioId;
@@ -168,7 +169,7 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
 
         PerfilSelecionado = Perfis.First(o => o.Valor == PerfilAcesso.Recepcao);
 
-        _ = CarregarAsync();
+        Inicializacao = CarregarAsync();
     }
 
     partial void OnProfissionalChanged(OpcaoProfissional? value)

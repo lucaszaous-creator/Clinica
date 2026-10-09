@@ -302,6 +302,7 @@ public sealed class ModuloGerente : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
+        servicos.AddSingleton<Clinica.Desktop.Shell.Web.IRegistroModuloWeb, Clinica.Gerente.Web.RegistroGerenteWeb>();
         servicos.AddTransient<PainelDirecaoViewModel>();
         servicos.AddTransient<IndicadoresViewModel>();
         servicos.AddTransient<FaturamentoGerencialViewModel>();

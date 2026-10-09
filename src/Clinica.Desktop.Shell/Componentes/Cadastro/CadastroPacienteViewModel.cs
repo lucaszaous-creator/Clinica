@@ -25,7 +25,7 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
     public int? PacienteId => _id;
     public bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
     public bool PodeAjustarCategoria => PodeEditar && SessaoUsuario.Atual.Pode(Permissao.VerFaturamento);
-    public Array Categorias => Enum.GetValues(typeof(Categoria));
+    public Array Categorias { get; } = Enum.GetValues(typeof(Categoria));
     [ObservableProperty] private Categoria _categoria;
     private bool _categoriaManual;
     private bool _carregandoCategoria;
@@ -144,6 +144,8 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
     /// <summary>Miniatura exibida no formulário (a pendente, se houve captura).</summary>
     [ObservableProperty] private byte[]? _miniatura;
 
+    public string FotoPreviaWeb => Miniatura is { Length: > 0 } foto ? "data:image/jpeg;base64," + Convert.ToBase64String(foto) : "";
+
     public bool TemFoto => Miniatura is { Length: > 0 };
 
     public event Action? Concluido;
@@ -155,7 +157,7 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
-    partial void OnMiniaturaChanged(byte[]? value) => OnPropertyChanged(nameof(TemFoto));
+    partial void OnMiniaturaChanged(byte[]? value) { OnPropertyChanged(nameof(TemFoto)); OnPropertyChanged(nameof(FotoPreviaWeb)); }
 
     private async Task CarregarAsync()
     {
@@ -227,33 +229,23 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
     /// gravar, e cadastro abandonado não pode deixar retrato solto no banco.
     /// </summary>
     [RelayCommand]
-    private void CapturarFoto()
+    private async Task CapturarFotoAsync()
     {
         if (!PodePreencher) return;
-        var janela = new CapturaFotoWindow(Nome)
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "capturar foto do paciente");
+        var captura = new Clinica.Desktop.Shell.Web.CapturaFotoWebViewModel(Nome);
+        byte[]? fotoNativa = null, miniaturaNativa = null;
+        var confirmou = await DialogosDaSessao.AbrirAsync("CapturaFoto", captura, () =>
         {
-            Owner = JanelaDona.Atual()
-        };
-
-        // Diálogo cancelado sai calado: é o caso normal, e a pessoa sabe que desistiu.
-        if (janela.ShowDialog() != true) return;
-
-        // Aqui, não. Confirmar a captura e a janela devolver quadro vazio é defeito da
-        // webcam (driver que solta o dispositivo, quadro perdido no clique) — e sair em
-        // silêncio faria a recepcionista concluir que a foto está guardada. Ela só
-        // descobriria no Salvar, com o paciente já fora do balcão.
-        if (janela.Conteudo is null || janela.Miniatura is null)
-        {
-            Erro("A câmera não devolveu a imagem. Tente capturar de novo.");
-            return;
-        }
-
-        _fotoCheiaPendente = janela.Conteudo;
-        _fotoMiniaturaPendente = janela.Miniatura;
-        _removerFoto = false;
-        Miniatura = janela.Miniatura;
-        Mensagem = "Foto capturada — ela será gravada ao salvar o cadastro.";
-        MensagemEhErro = false;
+            var janela = new CapturaFotoWindow(Nome) { Owner = JanelaDona.Atual() };
+            var resultado = janela.ShowDialog(); fotoNativa = janela.Conteudo; miniaturaNativa = janela.Miniatura;
+            return resultado;
+        });
+        if (confirmou != true) return;
+        var foto = captura.Conteudo ?? fotoNativa; var miniatura = captura.Miniatura ?? miniaturaNativa;
+        if (foto is null || miniatura is null) { Erro("A câmera não devolveu a imagem. Tente capturar de novo."); return; }
+        _fotoCheiaPendente = foto; _fotoMiniaturaPendente = miniatura; _removerFoto = false; Miniatura = miniatura;
+        Mensagem = "Foto capturada — ela será gravada ao salvar o cadastro."; MensagemEhErro = false;
     }
 
     [RelayCommand]

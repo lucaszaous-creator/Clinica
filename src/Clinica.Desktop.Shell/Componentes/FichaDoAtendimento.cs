@@ -90,9 +90,11 @@ public static class FichaDoAtendimento
 
             byte[] pdf;
             string numero;
+            ImpressaoPdf.DestinoNoEscopo? destino;
             using (var escopo = escopos.CreateScope())
             {
                 var servicos = escopo.ServiceProvider;
+                destino = servicos.GetService<ImpressaoPdf.DestinoNoEscopo>();
 
                 // SEQUENCIAL, nunca WhenAll: é o mesmo DbContext do escopo (parcela 74).
                 var documento = await servicos.GetRequiredService<DocumentoClinicoService>()
@@ -119,6 +121,7 @@ public static class FichaDoAtendimento
                         OrigemAcessoProntuario.ExportacaoClinica);
             }
 
+            using var entrega = destino is null ? null : ImpressaoPdf.UsarEntregaNoEscopo(destino.Entregar);
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
                 pdf,
                 ImpressaoPdf.NomeSeguro($"Ficha-do-atendimento-{numero.Replace('/', '-')}.pdf"));

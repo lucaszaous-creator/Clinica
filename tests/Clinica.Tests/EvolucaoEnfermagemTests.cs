@@ -55,6 +55,29 @@ public class EvolucaoEnfermagemTests : IDisposable
     // ==================== O registro ====================
 
     [Fact]
+    public async Task Folha_com_sessao_explicita_nao_escolhe_outra_sessao_do_mesmo_dia()
+    {
+        var pacienteId = await PacienteAsync();
+        var horario = await _db.Agendamentos.FirstAsync(a => a.PacienteId == pacienteId && a.DataHora.Date == DateTime.Today);
+        var outro = new Agendamento { PacienteId=pacienteId, ProfissionalId=horario.ProfissionalId,
+            DataHora=DateTime.Today.AddHours(11), ModalidadePrevista=ModalidadeAtendimento.BsvApenas };
+        _db.Add(outro); await _db.SaveChangesAsync();
+        var prescricoes = new PrescricaoInternaService(_repo, new PrescricaoService(_repo));
+        var folha = await prescricoes.CriarAsync(pacienteId, horario.ProfissionalId, horario.Id);
+        var registro = await _servico.RegistrarAsync(pacienteId, Hoje, new TimeOnly(9,0), "Registro da folha", Tecnica, prescricaoInternaId:folha.Id);
+        registro.AgendamentoId.Should().Be(horario.Id);
+        registro.PrescricaoInternaId.Should().Be(folha.Id);
+        var conflito = () => _servico.RegistrarAsync(pacienteId, Hoje, new TimeOnly(9,0), "Sessão divergente", Tecnica, folha.Id, outro.Id);
+        await conflito.Should().ThrowAsync<Exception>().WithMessage("*difere*");
+        var outroPacienteId = await PacienteAsync();
+        var pacienteErrado = () => _servico.RegistrarAsync(outroPacienteId, Hoje, new TimeOnly(9,0), "Paciente divergente", Tecnica, folha.Id);
+        await pacienteErrado.Should().ThrowAsync<Exception>().WithMessage("*outro paciente*");
+        (await _repo.EvolucoesEnfermagemDaSessaoAsync(pacienteId,horario.Id)).Should().ContainSingle().Which.Texto.Should().Be("Registro da folha");
+        (await _repo.EvolucoesEnfermagemDaSessaoAsync(pacienteId,outro.Id)).Should().BeEmpty();
+        (await _repo.EvolucoesEnfermagemDaSessaoAsync(outroPacienteId,horario.Id)).Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Registra_com_a_hora_do_FATO_e_o_relogio_ao_lado()
     {
         var pacienteId = await PacienteAsync();

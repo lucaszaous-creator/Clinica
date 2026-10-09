@@ -28,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Web\wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Recursos web precisam permanecer acessíveis ao WebView2 fora do executável. -->
+    <Content Include="Web\wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
 </Project>

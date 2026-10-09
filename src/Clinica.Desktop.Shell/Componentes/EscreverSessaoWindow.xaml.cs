@@ -43,4 +43,6 @@ public partial class EscreverSessaoWindow : Window
     }
 
     private void Fechar(object remetente, RoutedEventArgs e) => Close();
+    public static async Task<bool> AbrirAsync(EscreverSessaoViewModel vm)
+    { await DialogosDaSessao.AbrirAsync("EscreverSessao",vm,()=>new EscreverSessaoWindow(vm){Owner=JanelaDona.Atual()}.ShowDialog());return vm.Gravou; }
 }

@@ -147,12 +147,12 @@ public sealed partial class PrecosParticularViewModel : ObservableObject
             Permissao.VenderPacote | Permissao.EditarFinanceiro, "cadastrar preço do particular");
 
         var vm = new PrecoParticularEdicaoViewModel(_escopos, precoId);
-        var janela = new PrecoParticularWindow(vm)
+        Func<bool?> janelaNativa = () => new PrecoParticularWindow(vm)
         {
             Owner = JanelaDona.Atual()
-        };
+        }.ShowDialog();
 
-        if (janela.ShowDialog() != true) return;
+        if (await DialogosDaSessao.AbrirAsync("PrecoParticular", vm, janelaNativa) != true) return;
 
         _snackbar.Sucesso(precoId == 0
             ? "Preço cadastrado — o Finalizar do particular já vai propor esse valor."
@@ -171,7 +171,7 @@ public sealed partial class PrecosParticularViewModel : ObservableObject
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.VenderPacote | Permissao.EditarFinanceiro, "excluir preço do particular");
 
-            if (!_dialogo.ConfirmarPerigo("Excluir preço",
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo,"Excluir preço",
                     $"Apagar o preço de {linha.Modalidade} ({linha.Especialidade})? Se ele já "
                     + "propôs valor a alguma sessão, prefira ENCERRAR pela vigência: os lançamentos "
                     + "guardam o valor copiado, mas apagar a linha apaga a explicação de por que "

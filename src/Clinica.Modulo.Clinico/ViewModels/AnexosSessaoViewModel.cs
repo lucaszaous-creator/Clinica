@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using System.Collections.ObjectModel;
 using System.IO;
 using Clinica.Application.Modelos;
@@ -238,7 +239,7 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
 
         // Retirar, nunca apagar (parcela 52) — ver EvolucaoEdicaoViewModel.
         using var escopoDialogo = _escopos.CreateScope();
-        var motivo = escopoDialogo.ServiceProvider.GetRequiredService<IDialogoService>().PerguntarTexto(
+        var motivo = await DialogosDaSessao.PerguntarTextoAsync(escopoDialogo.ServiceProvider.GetRequiredService<IDialogoService>(),
             "Retirar anexo",
             $"Por que \"{anexo.NomeArquivo}\" está saindo do prontuário? O arquivo NÃO é "
             + "apagado — sai da lista e fica guardado, com este motivo.");
