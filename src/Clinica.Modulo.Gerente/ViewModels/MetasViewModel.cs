@@ -23,6 +23,7 @@ public sealed class LinhaMeta
     public required string Realizado { get; init; }
     public required string Situacao { get; init; }
     public required decimal Valor { get; init; }
+    public string? Observacoes { get; init; }
     public int? ProfissionalId { get; init; }
 
     /// <summary>Fração da barra, de 0 a 1. Nula quando não há realizado medido.</summary>
@@ -179,6 +180,7 @@ public sealed partial class MetasViewModel : ObservableObject
             Rotulo = MetaMensal.Rotular(m.Indicador),
             Alvo = Formatar(m.Indicador, m.Valor),
             Valor = m.Valor,
+            Observacoes = m.Observacoes,
             Dono = m.Profissional?.Rotulo ?? "Clínica",
             ProfissionalId = m.ProfissionalId,
             // "—" e não "0": meta de mês que ainda não chegou não tem realizado nenhum, e
@@ -341,7 +343,10 @@ public sealed partial class MetaEdicaoViewModel : ObservableObject
         Indicador = Indicadores.FirstOrDefault(i =>
             i.Valor == (existente?.Indicador ?? IndicadorMeta.Faturamento));
         if (existente is not null)
+        {
             Valor = existente.Valor.ToString("0.##");
+            Observacoes = existente.Observacoes ?? string.Empty;
+        }
 
         Inicializacao = CarregarProfissionaisAsync(existente?.ProfissionalId);
     }

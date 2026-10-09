@@ -41,8 +41,10 @@ static class FinanceiroFerramentasQa
         await Script("document.getElementById('busca-aula').value='aula inexistente';document.getElementById('busca-aula').dispatchEvent(new Event('input',{bubbles:true}))");
         await Esperar("!document.querySelector('[data-aula]') && document.body.textContent.includes('Nenhuma aula corresponde')");
         await Script("document.getElementById('busca-aula').value='';document.getElementById('busca-aula').dispatchEvent(new Event('input',{bubbles:true}))");
-        // Obtém somente a aula publicada, validando SHA com o mesmo acervo da aplicação.
+        // A mídia publicada acompanha o QA: o teste de botões não depende da rede/GitHub.
+        // O acervo real continua validando o SHA antes de liberar a reprodução.
         var aula = CatalogoTreinamento.Ler().Single(a => a.Id == "pacotes");
+        MidiaTreinamentoQa.Preparar(raiz, aula);
         using var cancelamento = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         await new AcervoTreinamento(SessaoUsuario.Atual.UsuarioId, raiz).ObterVideoAsync(aula, cancelamento.Token);
         await Script("document.querySelector('[data-aula=\"pacotes\"]').click()");
@@ -67,6 +69,6 @@ static class FinanceiroFerramentasQa
         await Esperar("window.__externoQa==='bloqueado'");
         await Script("document.querySelector('[data-sair-treinamento]').click()");
         await Esperar("!!document.querySelector('[data-testid=alternar-privacidade]')");
-        Console.WriteLine("OK ferramentas Financeiro: avisos/lidos e privacidade, catálogo autorizado/filtro, vídeo publicado SHA/reprodução, progresso/retomada/conclusão/reinício e recurso externo bloqueado.");
+        Console.WriteLine("OK ferramentas Financeiro: avisos/lidos e privacidade, catálogo autorizado/filtro, vídeo local publicado SHA/reprodução, progresso/retomada/conclusão/reinício e recurso externo bloqueado.");
     }
 }

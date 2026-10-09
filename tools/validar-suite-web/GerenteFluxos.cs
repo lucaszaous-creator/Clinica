@@ -84,6 +84,7 @@ internal static class GerenteFluxos
                     Console.WriteLine("OK WebView2 Gerente "+p.Chave+" "+tamanho.Item1);
                 }
             }
+            await GerenteOperacoesUiQa.Executar(sp, view, browser);
         }
         finally{janela.Close();}
     }

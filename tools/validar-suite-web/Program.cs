@@ -17,6 +17,7 @@ internal static class Program
         using var sp=servicos.BuildServiceProvider();var registros=sp.GetServices<IRegistroModuloWeb>().ToArray();
         var paginas=registros.SelectMany(r=>r.Paginas()).Concat(RegistroCompartilhadoWeb.Paginas()).Concat(PaginasPacotesCompartilhados.CriarPaginas()).GroupBy(p=>p.Chave).Select(g=>g.First()).ToArray();
         var dialogos=RegistroCompartilhadoWeb.Dialogos().Concat(registros.SelectMany(r=>r.Dialogos())).GroupBy(d=>(d.Chave,d.Tipo)).Select(g=>g.First()).ToArray();
+        MapaAcoesQa.Gravar(paginas,dialogos);
         var erros=PaginasWebController.ValidarRegistro(paginas).Concat(DialogosWebController.ValidarRegistro(dialogos)).ToList();
         foreach(var item in modulos.SelectMany(m=>m.Itens).Where(i=>i.Abas.Count==0).DistinctBy(i=>i.Chave))
             if(!paginas.Any(p=>p.Chave==item.Chave))erros.Add("Destino sem página: "+item.Chave);

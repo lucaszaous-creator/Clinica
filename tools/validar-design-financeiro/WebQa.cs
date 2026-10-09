@@ -270,6 +270,30 @@ static class WebQa
             using (var scope = servicos.CreateScope())
                 if (!await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().ItensEstoque.AnyAsync(i => i.Nome == "Item web de teste"))
                     throw new InvalidOperationException("Item criado via web não persistiu.");
+            await Navegar("taxas");
+            int lancamentosAntesSimulacao;
+            using (var scope = servicos.CreateScope())
+                lancamentosAntesSimulacao = await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.CountAsync();
+            async Task CampoSimulacao(string chave, string valor)
+            {
+                await Ler($"(()=>{{const e=document.querySelector('[data-campo={chave}]');e.value={JsonSerializer.Serialize(valor)};e.dispatchEvent(new Event('change',{{bubbles:true}}));}})()");
+                await Task.Delay(150);
+            }
+            await CampoSimulacao("SimValor", "0");
+            await Clicar("[data-comando='Simular']");
+            await Esperar("document.body.innerText.includes('Informe um valor bruto maior que zero')");
+            await CampoSimulacao("SimValor", "200,00");
+            await CampoSimulacao("SimParcelas", "0");
+            await Clicar("[data-comando='Simular']");
+            await Esperar("document.body.innerText.includes('Informe um número inteiro de parcelas maior que zero')");
+            await CampoSimulacao("SimParcelas", "1");
+            await Ler("(()=>{const e=document.querySelector('[data-campo=SimForma]');e.value=[...e.options].find(o=>o.textContent==='Dinheiro').value;e.dispatchEvent(new Event('change',{bubbles:true}));const imposto=document.querySelector('[data-campo=SimReterImposto]');if(imposto.checked)imposto.click();})()");
+            await Clicar("[data-comando='Simular']");
+            await Esperar("document.body.innerText.includes('Bruto R$ 200,00') && document.body.innerText.includes('líquido R$ 200,00') && !document.body.innerText.includes('Informe um número inteiro')");
+            using (var scope = servicos.CreateScope())
+                if (await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Lancamentos.CountAsync() != lancamentosAntesSimulacao)
+                    throw new InvalidOperationException("Simular alterou os lançamentos financeiros.");
+            Console.WriteLine("OK Simular: clique informa valor/parcela inválidos, calcula bruto e líquido e não grava lançamento.");
             await Navegar("caixa");
             await Ler("chrome.webview.postMessage({acao:'navegar',valor:'rota-inexistente'})");
             await Task.Delay(200);

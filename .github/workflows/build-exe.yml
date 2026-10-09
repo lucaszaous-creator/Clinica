@@ -120,6 +120,18 @@ jobs:
       - name: Conferir modelos, infusão, enfermagem e seções da ficha no WebView2
         run: dotnet run --project tests/Clinica.Clinico.Web.Qa -c Release -- --infusao-modelos
 
+      - name: Conferir cadastro, agenda e pagamentos da Recepção no WebView2
+        run: dotnet run --project qa/recepcao-web -c Release -- --web
+
+      - name: Conferir baixas, glosas, lotes e gravações gerenciais no WebView2
+        run: dotnet run --project tools/validar-faturamento-web -c Release -- --web
+
+      - name: Conferir ferramentas, treinamento e navegação compartilhados
+        run: dotnet run --project tools/validar-faturamento-web -c Release -- --ferramentas-only
+
+      - name: Conferir páginas e navegação do Gerente no WebView2
+        run: dotnet run --project tools/validar-suite-web -c Release -- --web
+
       - name: Conferir buscas e filtros da agenda no WebView2
         run: dotnet run --project qa/recepcao-web -c Release -- --buscas
 
@@ -143,6 +155,18 @@ jobs:
 
       - name: Conferir atendimento, histórico e gravação no Windows
         run: dotnet run --project tools/ValidarAtendimentoDesktop -c Release -- artifacts/atendimento-desktop
+
+      - name: Guardar mapa de ações e evidências de interface
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: QA-acoes-cinco-modulos
+          path: |
+            artifacts/mapa-botoes/
+            artifacts/design-financeiro/capturas/*.png
+            artifacts/gerente-web/*.png
+            artifacts/faturamento-web/*.png
+          if-no-files-found: warn
 
       - name: Publicar .exe (self-contained, arquivo único)
         run: >
