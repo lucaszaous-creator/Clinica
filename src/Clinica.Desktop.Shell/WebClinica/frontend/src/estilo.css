@@ -1,0 +1,44 @@
+:root{font-family:Inter,sans-serif;color:#111827;background:#fff;font-synthesis:none;--azul:#123a9e;--borda:#6b7280}*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid var(--azul);border-radius:6px;background:var(--azul);color:#fff;padding:10px 14px;font-weight:600;min-height:40px}button:hover:not(:disabled){background:#0a2e86}button:disabled{cursor:default;background:#f1f5f9;border-color:#d1d5db;color:#6b7280}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #3f62c9;outline-offset:3px}input,select,textarea{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--borda);border-radius:6px;color:#111827;background:#fff}input::placeholder,textarea::placeholder{color:#6b7280}label{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:600;color:#374151}.secundario{background:#fff;color:var(--azul)}.secundario:hover:not(:disabled){background:#eef3fc}.agenda{padding:18px;max-width:1800px;margin:auto}.filtros-agenda{display:flex;flex-wrap:wrap;gap:14px;align-items:end}.busca-agenda{flex:1 1 220px}.filtros-agenda>label:not(.busca-agenda){flex:0 1 230px}.campo-busca{position:relative}.campo-busca svg{position:absolute;left:12px;top:12px;color:#6b7280}.campo-busca input{padding-left:39px}.situacoes{display:flex;gap:7px;flex-wrap:wrap;margin:18px 0 10px}.filtro-situacao{display:flex;align-items:center;gap:7px;background:white;color:#374151;border-color:#d1d5db;padding:7px 10px;font-size:12px;min-height:36px}.filtro-situacao:hover:not(:disabled){background:#f8fafc}.filtro-situacao[aria-pressed=true]{border-color:#123a9e;background:#eef3fc;color:#071f5c;box-shadow:inset 0 0 0 1px #123a9e}.contagem{font-weight:600;font-variant-numeric:tabular-nums}.ponto{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:var(--estado,#6b7280)}.pendente{--estado:#ea580c;--suave:#ffedd5;--texto:#9a3412}.no-local,.em-atendimento{--estado:#123a9e;--suave:#eef3fc;--texto:#123a9e}.atendido{--estado:#15803d;--suave:#dcfce7;--texto:#15803d}.cancelado,.faltou{--estado:#b91c1c;--suave:#fee2e2;--texto:#b91c1c}.substituido,.todos{--estado:#6b7280;--suave:#f1f5f9;--texto:#374151}.resumo-agenda{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;color:#6b7280;font-size:12px;margin-bottom:12px}.resumo-agenda p{margin:4px 0;color:#374151}.vazio{text-align:center;padding:42px 16px;color:#6b7280}.vazio h2{font-size:17px;color:#374151}.vazio p{font-size:13px}.aviso{margin:12px;padding:14px;border:1px solid #b91c1c;background:#fee2e2;color:#b91c1c;border-radius:6px}summary{color:#123a9e;cursor:pointer;font-size:12px;margin-top:6px}details p{white-space:pre-wrap}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+
+/* Barra discreta; os controles de direção da agenda são botões React. */
+html{color-scheme:light;scrollbar-gutter:stable}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#f8fafc;border-radius:8px}
+::-webkit-scrollbar-thumb{background:#94a3b8;border:3px solid #f8fafc;border-radius:8px;min-height:32px}
+::-webkit-scrollbar-thumb:hover{background:#64748b}
+::-webkit-scrollbar-button{display:none;width:0;height:0}
+::-webkit-scrollbar-corner{background:#f8fafc}
+.agenda{max-width:none;padding:12px 16px 4px}.situacoes{margin:10px 0 6px}.resumo-agenda{margin-bottom:4px}
+@media(forced-colors:active){::-webkit-scrollbar-thumb{background:ButtonText;border-color:Canvas}}
+
+.situacao-compacta{display:none}
+@media(max-width:1000px){
+ .filtros-agenda{display:grid;grid-template-columns:minmax(150px,1fr) minmax(150px,190px) minmax(145px,180px) auto;gap:10px}
+ .situacao-compacta{display:flex}.situacoes{display:none}.resumo-agenda{margin-top:6px}.resumo-agenda span{display:none}
+ .filtros-agenda>label:not(.busca-agenda){min-width:0}.filtros-agenda .secundario{padding:10px}
+}
+@media(max-width:650px){.filtros-agenda{grid-template-columns:minmax(120px,1fr) minmax(120px,1fr)}.agenda{padding:10px 12px 4px}}
+.lista-agenda{border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.linha-agenda{display:grid;grid-template-columns:105px minmax(160px,1fr) 170px 120px;gap:16px;align-items:center;padding:16px;border-left:4px solid var(--estado,#6b7280);border-bottom:1px solid #e5e7eb;background:white}.linha-agenda:last-child{border-bottom:0}.linha-agenda:hover{background:#f8fafc}.horario{display:flex;flex-direction:column;gap:6px}.horario time{font-weight:600;font-size:13px}.horario span,.paciente p,.situacao small{font-size:12px;color:#6b7280}.paciente h2{font-size:14px;margin:0 0 5px;font-weight:600;overflow-wrap:anywhere}.paciente p{margin:0;line-height:1.6;overflow-wrap:anywhere}.situacao{display:flex;flex-direction:column;gap:6px}.selo{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-size:12px;font-weight:600;padding:5px 8px;border-radius:4px;background:var(--suave);color:var(--texto)}.abrir-agenda{background:#fff;color:var(--azul);font-size:12px}.abrir-agenda:hover:not(:disabled){background:#eef3fc}
+.agenda-lista{padding:18px;max-width:1800px;margin:auto}.acoes-agenda{display:flex;flex-wrap:wrap;gap:7px;max-width:240px;justify-content:flex-end}.selos-agenda{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0}.agenda-lista .situacoes{display:flex}.agenda-lista .situacao-compacta{display:none}
+@media(max-width:1000px){.agenda-lista .filtros-agenda{display:flex}}
+@media(max-width:800px){.agenda-lista{padding:12px}.linha-agenda{grid-template-columns:90px minmax(100px,1fr);gap:12px}.situacao,.acoes-agenda{grid-column:2}.acoes-agenda{justify-content:flex-start;max-width:none}.filtros-agenda>label:not(.busca-agenda){flex:1 1 180px}}
+
+.selos-agenda .selo{--suave:#f1f5f9;--texto:#374151}.selos-agenda .tom-erro{--suave:#fee2e2;--texto:#b91c1c}.selos-agenda .tom-aviso{--suave:#ffedd5;--texto:#9a3412}.selos-agenda .tom-sucesso{--suave:#dcfce7;--texto:#15803d}.selos-agenda .tom-info{--suave:#eef3fc;--texto:#123a9e}
+
+/* Todas as linhas reservam as mesmas colunas, inclusive as que não têm ação. */
+.lista-com-acoes .linha-agenda{grid-template-columns:105px minmax(160px,1fr) 170px 240px}
+.situacao{min-width:0;align-items:flex-start}.situacao small{overflow-wrap:anywhere}
+@media(max-width:800px){.lista-com-acoes .linha-agenda{grid-template-columns:90px minmax(100px,1fr)}}
+
+/* A coluna livre impede que os controles cubram os botões de atendimento. */
+.agenda-lista{padding-right:80px}
+.controles-rolagem{position:fixed;right:16px;bottom:24px;z-index:20;display:flex;flex-direction:column;align-items:center;padding:5px;border:1px solid #e2e8f0;border-radius:28px;background:#fff;box-shadow:0 4px 16px #0f234b12,0 1px 3px #0f234b08}
+.controles-rolagem button{display:grid;place-items:center;width:40px;height:40px;min-height:40px;padding:0;border:0;border-radius:50%;background:#eef3fc;color:#123a9e;transition:background .15s,box-shadow .15s}
+.controles-rolagem button svg{width:21px;height:21px;pointer-events:none}
+.controles-rolagem button:hover:not(:disabled){background:#123a9e;color:#fff;box-shadow:0 2px 6px #123a9e24}
+.controles-rolagem button:active:not(:disabled){background:#0a2e86}
+.controles-rolagem button:disabled{background:transparent;color:#a7b2c4}
+.rolagem-divisor{width:18px;height:1px;background:#e2e8f0;margin:5px 0}
+@media(max-width:800px){.agenda-lista{padding-right:76px}.controles-rolagem{right:12px;bottom:16px}}
+@media(prefers-reduced-motion:reduce){.controles-rolagem button{transition:none}}
+@media(forced-colors:active){.controles-rolagem{border-color:ButtonText}.controles-rolagem button{border:1px solid ButtonText}.controles-rolagem button:disabled{color:GrayText;border-color:GrayText}}

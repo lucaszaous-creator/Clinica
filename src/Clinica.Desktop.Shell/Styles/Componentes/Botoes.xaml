@@ -202,6 +202,21 @@
         <Setter Property="Background" Value="{StaticResource Brush.Erro}" />
     </Style>
 
+    <!-- Ações de documentos: azul identifica interações; vermelho fica reservado a remoção/cancelamento. -->
+    <Style x:Key="BotaoDocumento" TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+    </Style>
+    <Style x:Key="BotaoDocumentoPequeno" TargetType="Button" BasedOn="{StaticResource BotaoAcaoGridSecundario}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="MinHeight" Value="32" />
+    </Style>
+    <Style x:Key="BotaoDocumentoPerigo" TargetType="Button" BasedOn="{StaticResource BotaoDocumentoPequeno}">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+    </Style>
+
     <!-- Chip de filtro — PORTADO do design system do faturamento (parcela 72), onde ele
          nasceu na parcela 61. São dois design systems que não se referenciam (o débito
          permanente da Fase 4 cancelada), então portar é o caminho, e o comentário mora nos

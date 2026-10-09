@@ -1,0 +1,49 @@
+{
+  "modelo": "jev-1.13.0",
+  "escopos": {
+    "agenda": {
+      "pedido_sha256": "fb696390690d1396dbc2a959ddabd5f13bb5f393aee7331c3de02d1cd947cb4f",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.61,
+        "probabilities": {
+          "aprovar": 0.74,
+          "reprovar": 0.22,
+          "evidencia_insuficiente": 0.04
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/Agenda.tsx": "394ea0062c221e858aeb2eab498091fc09eef2fac4fd61188fe769277af11761",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/ControlesRolagem.tsx": "e0edf7f08604048eb03ff4cfd262b95a77e2a9a7f2c521438b6bdab54295c1ef",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/estilo.css": "cb30e27ad29f347188031b7cb4377293449f2bfb58a3788af513625c036957cd",
+        "src/Clinica.Application/Modelos/SituacaoVisualAgenda.cs": "fdf3d95573d2897ee081f2fd4e57282dda82d9f00a19d64fd11aca6f5f4f5a80",
+        "src/Clinica.Modulo.Recepcao/Views/AgendaBuscaWeb.cs": "7f6c7ffead978ceb45347a54e820e00bf21c763f337ad9bfbec228a185ec822c",
+        "src/Clinica.Modulo.Recepcao/Views/FilaBuscaWeb.cs": "bed77dc11f8cc05a34d15a218add97b8e616cebc65f680baaac035fba067ada3",
+        "src/Clinica.Modulo.Clinico/Views/AgendaMedicoWeb.cs": "bcfb325216f0d97a1684d7611e92490ae36125d9377fa140a0325181792b1238",
+        "src/Clinica.Desktop.Shell/WebClinica/LinhaAgendaWeb.cs": "354abad4c41eb52c530fb3356f4136ddbdd3263d9eb769beb5133241dad2c11d",
+        "tools/validar-agenda-documentos/Program.cs": "6719ab5b380ce8ba64c5d9f2988385448bc4c9a906f14c192e880e20415e8d4f",
+        "tools/validar-agenda-documentos/FilaQa.cs": "f338b66798cf4ad8107d9d1bfcc24d93ef2a3050f6ea3e54aa9a2b597adff639",
+        "tools/validar-agenda-documentos/MedicoQa.cs": "11e63d78160b05ee5f7fdd66afe692788e1d96f4b4f3f13fa0425ef5cd485dfc",
+        "tests/Clinica.Tests/SituacaoVisualAgendaTests.cs": "fbbabb8749dd8cd02ba0d76a6c289fe22143e2b752656faa9283b20886372712"
+      }
+    },
+    "rolagem": {
+      "pedido_sha256": "675cccaa1a72ca84f45a5d18bd3278e244c1e7a8af1a61241749d385df7dbef7",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.48,
+        "probabilities": {
+          "aprovar": 0.65,
+          "reprovar": 0.18,
+          "evidencia_insuficiente": 0.17
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/Styles/Componentes/Rolagem.xaml": "bafce11b05f860fd7d5f3a1efc0e3dc0080ab7ccba3973933867d465a665bab6",
+        "tools/ValidarLayoutWindows/RolagemQa.cs": "fb050564e978e93df1ab83ab09058541336eae4decc5d0bcf1c75cf000fd6e6f"
+      }
+    }
+  }
+}

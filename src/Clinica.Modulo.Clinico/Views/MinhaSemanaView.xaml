@@ -237,7 +237,7 @@
              A linha do tempo do balcão (parcela 58), aplicada à semana de quem atende: o
              vazio tem tamanho, a sessão longa cobre as faixas dela, cancelado fica
              marcado sem cobrir nada, e férias/feriado escrevem o motivo no vão. -->
-        <Grid>
+        <Grid x:Name="ConteudoAgendaBusca">
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
                 <DockPanel>

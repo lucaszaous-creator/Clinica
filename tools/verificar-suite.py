@@ -736,6 +736,20 @@ def _com_controles_da_casa(raiz: ET.Element) -> list[ET.Element]:
 _registrar_tipos_de_controle(arvores)
 _registrar_tipos_de_controle(arvores_com_faturamento)
 
+# Esta janela usa PainelClinicoWeb no code-behind. A rolagem pertence ao documento
+# HTML e o rodapé é sticky; envolver WebView2 em ScrollViewer WPF não rola seu HTML.
+# O harness tools/validar-agenda-documentos/InfusaoQa.cs confere overflow e rodapé
+# em 1180/900/650px. A exceção é só de rolagem XAML, não de altura/largura da janela.
+JANELAS_COM_ROLAGEM_WEB = {
+    "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml",
+}
+
+def _rolagem_web_explicita(arq: Path) -> bool:
+    if arq.relative_to(RAIZ).as_posix() not in JANELAS_COM_ROLAGEM_WEB:
+        return False
+    codigo = Path(str(arq) + ".cs").read_text(encoding="utf-8-sig")
+    return "new PainelClinicoWeb(" in codigo
+
 for arq, raiz in arvores.items():
     if _nome(raiz) != "Window":
         continue
@@ -768,7 +782,7 @@ for arq, raiz in arvores.items():
     ROLAM = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
     cresce = (raiz.get("SizeToContent") or "").find("Height") >= 0
     alto = altura is not None and altura >= 400
-    if (cresce or alto) and not any(
+    if (cresce or alto) and not _rolagem_web_explicita(arq) and not any(
             _nome(e) in ROLAM for e in _com_controles_da_casa(raiz)):
         erros.append(
             f"{rel(arq)}: janela que cresce com o conteúdo (ou alta) sem nenhum "
@@ -1064,7 +1078,21 @@ for vm in sorted(RAIZ.glob("src/Clinica.Modulo.*/ViewModels/*ViewModel.cs")):
         continue  # ViewModel de janela ou de item, sem tela própria
 
     if "EstadoDaTela" not in view.read_text(encoding="utf-8", errors="ignore"):
-        _pendentes.append(view.stem)
+        # Nas listas React, o contrato e os três estados vivem no adaptador/componente.
+        # Restringir às duas telas migradas evita liberar telas novas por coincidência.
+        adaptadores_react = {"MeuDiaView": "AgendaMedicoWeb.cs", "FilaView": "FilaBuscaWeb.cs"}
+        adaptador = view.parent / adaptadores_react.get(view.stem, "ausente.cs")
+        componente = RAIZ / "src/Clinica.Desktop.Shell/WebClinica/frontend/src/Agenda.tsx"
+        host = view.with_suffix(".xaml.cs").read_text(encoding="utf-8", errors="ignore")
+        estados_react = False
+        if view.stem in adaptadores_react and adaptador.exists() and componente.exists():
+            ponte = adaptador.read_text(encoding="utf-8")
+            react = componente.read_text(encoding="utf-8")
+            estados_react = ('PainelClinicoWeb("agenda"' in host
+                and "carregando = vm.Carregando" in ponte and "naoVerificado = vm.NaoVerificado" in ponte
+                and "estado.naoVerificado?" in react and "estado.carregando?" in react and "!linhas.length?" in react)
+        if not estados_react:
+            _pendentes.append(view.stem)
 
 for _t in sorted(_pendentes):
     erros.append(
