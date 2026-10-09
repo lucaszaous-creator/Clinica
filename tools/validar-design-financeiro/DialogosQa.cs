@@ -100,8 +100,9 @@ public static class DialogosQa
                 var rolagens = Desc<ScrollViewer>(conteudo).Where(s => s.IsVisible && s.ScrollableHeight > 0).ToArray();
                 foreach (var scroll in rolagens)
                 {
-                    if (!Desc<RepeatButton>(scroll).Any(b => b.IsVisible && b.Command == ScrollBar.LineDownCommand))
-                        throw new InvalidOperationException("Área rolável sem seta para descer.");
+                    if (!Desc<ScrollBar>(scroll).Any(b => b.IsVisible && b.Orientation == Orientation.Vertical
+                            && b.Template.FindName("PART_Track", b) is Track { Thumb.IsVisible: true }))
+                        throw new InvalidOperationException("Área rolável sem indicador vertical arrastável.");
                     scroll.ScrollToEnd();
                     await Estabilizar(janela);
                     if (scroll.VerticalOffset <= 0) throw new InvalidOperationException("Rolagem não alcança o conteúdo inferior.");

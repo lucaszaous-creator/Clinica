@@ -98,10 +98,16 @@ public sealed class PainelClinicoWeb : UserControl, IDisposable
             var acao = a.GetString();
             if (acao == "pronto") { _pronto = true; _ultimo = null; Enviar(); return; }
             if (!_pronto || _ocupado || !m.TryGetProperty("contextoHost", out var contexto) || contexto.GetString() != _contexto) return;
+            if (acao == "dimensionar" && _tela == "filtros-agenda")
+            {
+                if (m.TryGetProperty("altura", out var altura) && altura.TryGetDouble(out var valor) && double.IsFinite(valor))
+                    Height = Math.Clamp(Math.Ceiling(valor), 100, 260);
+                return;
+            }
             executando = true;
             _erro = null;
             // Campos são aplicados sincronamente pelo adaptador, sem bloquear a digitação.
-            _ocupado = acao != "campo";
+            _ocupado = acao is not ("campo" or "filtrar");
             if (_ocupado) Enviar();
             await _executar(m.Clone());
         }

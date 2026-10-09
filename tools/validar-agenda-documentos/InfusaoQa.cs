@@ -47,6 +47,7 @@ internal static class InfusaoQa
             new ConfiguracaoGlobal { Chave = ContinuidadeSemAssinatura.Configuracao, Valor = "true" });
         await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
         await FilaQa.Executar(sp, saida);
+        await MedicoQa.Executar(sp, db, profissional, saida);
         var dialogos = new Dialogos();
         var vm = new PrescricaoInternaEdicaoViewModel(sp.GetRequiredService<IServiceScopeFactory>(), dialogos, paciente.Id, paciente.Nome, profissional.Id);
         await vm.Inicializacao;

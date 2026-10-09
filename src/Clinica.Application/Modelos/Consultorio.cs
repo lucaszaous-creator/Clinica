@@ -34,6 +34,8 @@ public sealed record SessaoDoDia(
     int? AtendimentoId,
     int? EvolucaoId)
 {
+    public string GrupoVisual => SituacaoVisualAgenda.Grupo(Status, Etapa);
+
     /// <summary>
     /// A FAMÍLIA da modalidade — dá a cor ao traço do cartão na grade (ago/2026). A cor
     /// sai do enum e nunca do rótulo, pela regra do convênio: a variante cadastrada herda

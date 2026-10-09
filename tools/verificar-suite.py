@@ -1078,7 +1078,21 @@ for vm in sorted(RAIZ.glob("src/Clinica.Modulo.*/ViewModels/*ViewModel.cs")):
         continue  # ViewModel de janela ou de item, sem tela própria
 
     if "EstadoDaTela" not in view.read_text(encoding="utf-8", errors="ignore"):
-        _pendentes.append(view.stem)
+        # Nas listas React, o contrato e os três estados vivem no adaptador/componente.
+        # Restringir às duas telas migradas evita liberar telas novas por coincidência.
+        adaptadores_react = {"MeuDiaView": "AgendaMedicoWeb.cs", "FilaView": "FilaBuscaWeb.cs"}
+        adaptador = view.parent / adaptadores_react.get(view.stem, "ausente.cs")
+        componente = RAIZ / "src/Clinica.Desktop.Shell/WebClinica/frontend/src/Agenda.tsx"
+        host = view.with_suffix(".xaml.cs").read_text(encoding="utf-8", errors="ignore")
+        estados_react = False
+        if view.stem in adaptadores_react and adaptador.exists() and componente.exists():
+            ponte = adaptador.read_text(encoding="utf-8")
+            react = componente.read_text(encoding="utf-8")
+            estados_react = ('PainelClinicoWeb("agenda"' in host
+                and "carregando = vm.Carregando" in ponte and "naoVerificado = vm.NaoVerificado" in ponte
+                and "estado.naoVerificado?" in react and "estado.carregando?" in react and "!linhas.length?" in react)
+        if not estados_react:
+            _pendentes.append(view.stem)
 
 for _t in sorted(_pendentes):
     erros.append(

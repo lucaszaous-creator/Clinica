@@ -12,7 +12,8 @@ public partial class MinhaSemanaView : UserControl
         Loaded += (_, _) =>
         {
             if (_painelBusca is not null || DataContext is not MinhaSemanaViewModel vm) return;
-            _painelBusca = AbasAgendaWeb.Montar(ConteudoAgendaBusca, "Grade da semana", () => AgendaMedicoWeb.Semana(vm), m => AgendaMedicoWeb.ExecutarSemana(vm, m));
+            var adaptador = new AgendaMedicoWeb();
+            _painelBusca = FiltrosAgendaWeb.Montar(ConteudoAgendaBusca, () => adaptador.Semana(vm), m => adaptador.ExecutarSemana(vm, m));
             if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => _painelBusca.Dispose();
         };
     }

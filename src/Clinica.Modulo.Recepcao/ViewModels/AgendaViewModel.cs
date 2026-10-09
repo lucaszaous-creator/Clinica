@@ -18,6 +18,8 @@ namespace Clinica.Recepcao.ViewModels;
 /// <summary>Um horário na coluna de um profissional.</summary>
 public sealed class CartaoAgenda
 {
+    public string GrupoVisual => SituacaoVisualAgenda.Grupo(Situacao, Etapa);
+
     public required int AgendamentoId { get; init; }
 
     /// <summary>De quem é a coluna — é o que a lista de espera pergunta ao vagar.</summary>

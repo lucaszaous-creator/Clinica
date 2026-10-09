@@ -36,27 +36,35 @@ internal static class FilaQa
         {
             var navegador = Program.Navegador(view);
             await Program.Esperar(navegador, "document.querySelector('.resumo-agenda')?.textContent.includes('3 de 3')===true");
-            var tabela = (DataGrid)view.FindName("TabelaAgenda");
+            if (view.FindName("TabelaAgenda") is not null) throw new Exception("A recepção manteve tabela paralela à lista React.");
             await Program.Script(navegador, "(()=>{let e=document.querySelector('input');e.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'JOAO');e.dispatchEvent(new Event('input',{bubbles:true}));})()");
             await Program.Esperar(navegador, "document.querySelector('.resumo-agenda').textContent.includes('2 de 3')");
             await Task.Delay(200);
-            if (tabela.Items.Count != 2) throw new Exception("Busca React não filtrou as linhas WPF da recepção.");
+            await Program.Esperar(navegador, "document.querySelectorAll('.linha-agenda').length===2");
             await Program.Script(navegador, "document.querySelector('.filtro-situacao.cancelado').click()");
             await Program.Esperar(navegador, "document.querySelector('.resumo-agenda').textContent.includes('1 de 3')");
             await Task.Delay(200);
-            if (tabela.Items.Count != 1 || ((CartaoFila)tabela.Items[0]).AgendamentoId != 9902) throw new Exception("Filtro de situação não preservou o paciente correto.");
+            await Program.Esperar(navegador, "document.querySelectorAll('.linha-agenda').length===1 && document.querySelector('.linha-agenda h2').textContent==='João Souza'");
             await Program.Script(navegador, "document.querySelector('.filtros-agenda .secundario').click()");
             await Program.Esperar(navegador, "document.querySelector('.resumo-agenda').textContent.includes('3 de 3')");
             await Task.Delay(200);
-            if (tabela.Items.Count != 3 || tabela.Columns.Count < 4) throw new Exception("Limpar não restaurou tabela/ações da recepção.");
+            await Program.Esperar(navegador, "document.querySelectorAll('.linha-agenda').length===3 && document.querySelector('[aria-label^=\"Chegou:\"]')!==null && document.querySelector('[aria-label^=\"Editar:\"]')!==null && document.querySelector('[aria-label^=\"Ficha:\"]')!==null");
+            await Program.Script(navegador, "document.querySelector('[aria-label=\"Mais ações: João da Silva\"]').click()");
+            var prazoMenu = DateTime.UtcNow.AddSeconds(5);
+            while (view.ContextMenu?.IsOpen != true && DateTime.UtcNow < prazoMenu) await Task.Delay(50);
+            if (view.ContextMenu?.IsOpen != true || !view.ContextMenu.Items.OfType<MenuItem>().Any(m => ReferenceEquals(m.Command, vm.CancelarCommand))
+                || !view.ContextMenu.Items.OfType<MenuItem>().Any(m => ReferenceEquals(m.Command, vm.AbrirFichaCommand)))
+                throw new Exception("As ações da lista React não abriram o menu original autorizado da recepção.");
+            view.ContextMenu.IsOpen = false;
             foreach (var largura in new[] { 1100, 900 })
             {
                 janela.Width = largura; await Task.Delay(300);
                 await Program.Esperar(navegador, "document.documentElement.scrollWidth<=innerWidth+1");
-                if (tabela.ActualHeight < 120) throw new Exception("A busca consumiu a área útil da tabela.");
+                await Program.Esperar(navegador, "document.querySelector('.lista-agenda').getBoundingClientRect().height>100");
+                await Program.ConferirAlinhamento(navegador);
                 await Program.Capturar(navegador, Path.Combine(saida, $"recepcao-filtros-{largura}.png"));
             }
-            Console.WriteLine("OK recepção: tela FilaView real, React filtra tabela WPF por nome sem acentos e situação; limpar restaura linhas e ações; 1100/900 px.");
+            Console.WriteLine("OK recepção: tela FilaView real, lista React única filtra nome sem acentos e situação; limpar restaura linhas e ações; menu nativo preservado; 1100/900 px.");
         }
         finally { janela.Close(); vm.AoSairDeCena(); }
     }

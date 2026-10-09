@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--chave", type=Path, required=True)
     parser.add_argument("--executar", action="store_true")
     parser.add_argument("--base", default="5cd5d55", help="Base da main anterior às alterações, inclusive após commit.")
+    parser.add_argument("--escopos", nargs="+", choices=["agenda", "infusao", "integracao", "rolagem", "documentos"])
     args = parser.parse_args()
     saida = RAIZ / "artifacts/agenda-documentos/jev"
     saida.mkdir(parents=True, exist_ok=True)
@@ -28,16 +29,17 @@ def main():
                    "src/Clinica.Application/Modelos/SituacaoVisualAgenda.cs",
                    "src/Clinica.Modulo.Recepcao/Views/AgendaBuscaWeb.cs", "src/Clinica.Modulo.Recepcao/Views/FilaBuscaWeb.cs",
                    "src/Clinica.Modulo.Clinico/Views/AgendaMedicoWeb.cs", shell + "LinhaAgendaWeb.cs",
-                   "tools/validar-agenda-documentos/Program.cs", "tools/validar-agenda-documentos/FilaQa.cs", "tests/Clinica.Tests/SituacaoVisualAgendaTests.cs"],
+                   "tools/validar-agenda-documentos/Program.cs", "tools/validar-agenda-documentos/FilaQa.cs", "tools/validar-agenda-documentos/MedicoQa.cs", "tests/Clinica.Tests/SituacaoVisualAgendaTests.cs"],
         "infusao": [shell + "frontend/src/Infusao.tsx", shell + "frontend/src/infusao.css",
                     "src/Clinica.Modulo.Clinico/WebInfusao/InfusaoWebAdapter.cs",
                     "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml.cs",
                     "tools/validar-agenda-documentos/InfusaoQa.cs"],
-        "integracao": [shell + "PainelClinicoWeb.cs", shell + "AbasAgendaWeb.cs", shell + "frontend/src/main.tsx",
+        "integracao": [shell + "PainelClinicoWeb.cs", shell + "FiltrosAgendaWeb.cs", shell + "FiltroAgenda.cs", shell + "frontend/src/main.tsx",
                        shell + "frontend/index.html", "src/Clinica.Modulo.Recepcao/Views/AgendaView.xaml.cs",
                        "src/Clinica.Modulo.Recepcao/Views/FilaView.xaml.cs",
                        "src/Clinica.Modulo.Clinico/Views/MeuDiaView.xaml.cs", "src/Clinica.Modulo.Clinico/Views/MinhaSemanaView.xaml.cs",
                        "docs/agenda-documentos-main.md"],
+        "rolagem": ["src/Clinica.Desktop.Shell/Styles/Componentes/Rolagem.xaml", "tools/ValidarLayoutWindows/RolagemQa.cs"],
         "documentos": []
     }
     diffs = {
@@ -60,17 +62,19 @@ def main():
         if not chave or any(c.isspace() for c in chave):
             raise ValueError("Credencial Jev indisponível")
     evidencias = {}
-    for nome in ["qa-final.log", "testes.log", "verificar-suite.log", "build-recepcao.log"]:
+    for nome in ["qa-correcao.log", "testes-correcao.log", "verificar-suite.log", "qa-layout-filtros-rolagem.log", "qa-financeiro-rolagem.log"]:
         caminho = RAIZ / "artifacts" / nome
         if caminho.exists():
             linhas = caminho.read_text(encoding="utf-8-sig", errors="replace").splitlines()
-            evidencias[nome] = "\n".join(l for l in linhas if "warning" not in l.lower())[-7000:]
+            evidencias[nome] = "\n".join(l for l in linhas if "warning" not in l.lower())[-4000:]
     resultados = {}
     for nome, arquivos in grupos.items():
+        if args.escopos and nome not in args.escopos:
+            continue
         fontes = {p: (RAIZ / p).read_text(encoding="utf-8-sig") for p in arquivos}
         alteracoes = subprocess.check_output(["git", "diff", args.base, "--", *diffs[nome]], cwd=RAIZ, encoding="utf-8") if nome in diffs else ""
         pedido = {"model": "jev-1.13.0", "state": {
-            "pedido_cliente": "Busca e filtros nas agendas médico/recepção, cores de estados, ações clicáveis destacadas em documentos/prescrição infusão. Partir só main; não incorporar PR245.",
+            "pedido_cliente": "Busca e filtros nas agendas médico/recepção, cores de estados, ações clicáveis destacadas em documentos/prescrição infusão. Partir só main; não incorporar PR245. Correção solicitada: retirar abas extras; visual aprovado é lista React única de pacientes com faixas coloridas e filtros acima. Grades de disponibilidade continuam acessíveis diretamente. Modernizar scroll sem setas antigas e corrigir CI.",
             "escopo": nome, "fontes": fontes, "alteracoes": alteracoes, "evidencias_sinteticas": evidencias,
             "limites": "Revisão de código e evidências fornecidas, sem operação pelo Jev nem acesso a pacientes reais. Grade e diálogos administrativos nativos preservados; não se afirma migração completa de módulo. Sem publicação, assinatura real ou produção."
         }, "questions": {"parecer": {"type": "choice", "criteria": {

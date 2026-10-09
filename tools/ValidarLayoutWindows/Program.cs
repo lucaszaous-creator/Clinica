@@ -20,6 +20,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.WebClinica;
+using Microsoft.Web.WebView2.Wpf;
 static class Program
 {
     static string Saida = "artifacts/layout-windows";
@@ -43,6 +45,7 @@ static class Program
     }
     static async Task Executar()
     {
+        await RolagemQa.Executar();
         if (somenteA1) { await ConferirA1(); return; }
         var pausaAgenda = new PausaLeituraAgenda();
         using var conexao = new SqliteConnection("Data Source=:memory:"); conexao.Open(); var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).AddInterceptors(pausaAgenda).Options;
@@ -66,6 +69,7 @@ static class Program
             for (var a = 0; a < n; a++)
             {
                 if (abas != null) abas.SelectedIndex = a; await Task.Delay(200);
+                await AguardarPaineisWeb(win);
                 foreach (int largura in new[] { 1920, 1366, 880, 960, 1024 })
                 {
                     win.Width = largura; win.UpdateLayout(); await Task.Delay(100); win.UpdateLayout();
@@ -78,16 +82,20 @@ static class Program
                     {
                         var sv = Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault();
                         if (sv != null && sv.ScrollableWidth > 0.01) { falhas++; Console.WriteLine($"COLUNAS {nome} excedente={sv.ScrollableWidth:0}"); }
-                        if (grade.Name is "TabelaAgenda" or "TabelaMeuDia")
+                    }
+                    foreach (var web in Descendentes(win).OfType<WebView2>().Where(w => w.IsVisible && w.CoreWebView2 is not null))
+                    {
+                        var cabem = await web.CoreWebView2.ExecuteScriptAsync("document.documentElement.scrollWidth<=innerWidth+1 && (!document.querySelector('.agenda-lista') || innerHeight>=180)");
+                        if (cabem != "true")
                         {
-                            var ocupada = grade.Columns.Where(c => c.Visibility == Visibility.Visible).Sum(c => c.ActualWidth);
-                            if (ocupada < grade.ActualWidth - 30) { falhas++; Console.WriteLine($"ESPAÇO PERDIDO {nome}: {ocupada}/{grade.ActualWidth}"); }
-                            foreach (var botao in Descendentes(grade).OfType<Button>().Where(b => b.IsVisible && b.Content is string texto && texto is not ""))
-                            {
-                                DependencyObject? pai = botao; while (pai is not null && pai is not DataGridCell) pai = VisualTreeHelper.GetParent(pai);
-                                if (pai is DataGridCell celula) { var ponto = botao.TranslatePoint(new Point(), celula); if (ponto.X < -1 || ponto.X + botao.ActualWidth > celula.ActualWidth + 1) { falhas++; Console.WriteLine($"AÇÃO CORTADA {nome}: {botao.Content}"); } }
-                            }
+                            var medida = await web.CoreWebView2.ExecuteScriptAsync("JSON.stringify({largura:innerWidth,altura:innerHeight,excedente:document.documentElement.scrollWidth-innerWidth,lista:document.querySelector('.lista-agenda')?.getBoundingClientRect().top})");
+                            using var captura = File.Create(Path.Combine(Saida, nome + "-web.png"));
+                            await web.CoreWebView2.CapturePreviewAsync(Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, captura);
+                            throw new Exception($"A lista React perdeu área útil ou vazou horizontalmente em {nome}: {medida}.");
                         }
+                        var acao = await web.CoreWebView2.ExecuteScriptAsync("(()=>{const b=document.querySelector('.agenda-lista .linha-agenda button');if(!b)return true;b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1&&r.left>=0&&r.right<=innerWidth+1;})()");
+                        if (acao != "true") throw new Exception($"A ação do primeiro cartão não ficou acessível ao rolar em {nome}.");
+                        await web.CoreWebView2.ExecuteScriptAsync("scrollTo(0,0)");
                     }
                     if (largura == 1366 || largura == 960) Foto(win, nome);
                 }
@@ -97,6 +105,10 @@ static class Program
         // um horário ao apenas consultar uma vaga. Exercita a View e os bindings reais.
         NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda);
         await Task.Delay(250);
+        await AguardarPaineisWeb(win);
+        if (Descendentes(win).OfType<TabItem>().Any(t => t.Header is string titulo
+                && titulo is "Lista com busca" or "Tabela do dia" or "Grade e disponibilidade"))
+            throw new Exception("Agenda: os filtros devem acompanhar a tela original, sem uma aba adicional escondendo a grade.");
         var planejamento = Descendentes(win).OfType<FrameworkElement>().Select(e => e.DataContext)
             .OfType<Clinica.Recepcao.ViewModels.AgendaViewModel>().First();
         planejamento.Dia = DateTime.Today.AddDays(8 - (int)DateTime.Today.DayOfWeek);
@@ -106,7 +118,7 @@ static class Program
         await planejamento.CarregarAsync();
         if (planejamento.VagasPlanejamento.Count == 0) throw new Exception("Planejamento: profissional sem horários deve oferecer vagas.");
         win.UpdateLayout(); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        var botaoVaga = Descendentes(win).OfType<Button>().First(b => b.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Disponivel: true });
+        var botaoVaga = await AguardarVagaVisivel(win);
         if (!botaoVaga.IsEnabled || botaoVaga.Command is null || !botaoVaga.Command.CanExecute(botaoVaga.CommandParameter))
             throw new Exception("Planejamento: vaga visível não permite abrir a marcação no primeiro carregamento.");
         // Sala e profissional são recursos independentes: a ocupação por outro médico
@@ -122,6 +134,9 @@ static class Program
             new Agendamento { PacienteId = pac.Id, ProfissionalId = outroProfissional.Id, SalaId = salaB.Id,
                 DataHora = inicioPlanejado.AddHours(1), DuracaoMinutos = 60 });
         await db.SaveChangesAsync();
+        db.Add(new BloqueioAgenda { ProfissionalId = prof.Id, Inicio = inicioPlanejado.AddHours(3),
+            Fim = inicioPlanejado.AddHours(4), Motivo = "Bloqueio fictício para testar filtros" });
+        await db.SaveChangesAsync();
         planejamento.AgruparPorSala = true; await planejamento.CarregarAsync();
         var problemasPlanejamento = new List<string>();
         var blocosPorSala = planejamento.ColunasPlanejamento.SelectMany(c => c.Blocos).ToArray();
@@ -136,6 +151,7 @@ static class Program
                 && b.CommandParameter is Clinica.Recepcao.ViewModels.CelulaAgenda { Livre: false, NoPassado: false }))
             problemasPlanejamento.Add("Horário ocupado: atalho de marcar mais um paciente desapareceu com a trava desligada.");
         if (problemasPlanejamento.Count > 0) throw new Exception(string.Join("\n", problemasPlanejamento));
+        await ConferirBuscaGrade(win);
         Foto(win, "planejamento-salas-e-sobreposicao");
         prof.AgendaProtegida = true; await db.SaveChangesAsync(); await planejamento.CarregarAsync();
         win.UpdateLayout(); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
@@ -219,6 +235,72 @@ static class Program
             Foto(janelaEnfermagem, "sessoes-enfermagem-" + largura);
         }
         janelaEnfermagem.Close();
+    }
+
+    private static async Task ConferirBuscaGrade(Window janela)
+    {
+        var vista = Descendentes(janela).OfType<Clinica.Recepcao.Views.AgendaView>().First();
+        var web = Descendentes(vista).OfType<WebView2>().Single();
+        var modelo = (Clinica.Recepcao.ViewModels.AgendaViewModel)vista.DataContext;
+        var total = modelo.Colunas.SelectMany(c => c.Horarios).DistinctBy(c => c.AgendamentoId).Count();
+        var prazoSnapshot = DateTime.UtcNow.AddSeconds(5);
+        while (await web.CoreWebView2.ExecuteScriptAsync($"document.querySelector('.resumo-agenda')?.textContent.includes('{total} de {total}')===true") != "true")
+        {
+            if (DateTime.UtcNow >= prazoSnapshot) throw new Exception("Busca na grade: o navegador não recebeu o dia carregado.");
+            await Task.Delay(100);
+        }
+        int Cartoes() => Descendentes(vista).OfType<ContentPresenter>().Count(e => e.IsVisible && e.Content is Clinica.Recepcao.ViewModels.CartaoAgenda);
+        int Vagas() => Descendentes(vista).OfType<Button>().Count(e => e.IsVisible && e.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Disponivel: true });
+        int Bloqueios() => Descendentes(vista).OfType<Button>().Count(e => e.IsVisible && e.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Bloqueado: true });
+        var cartoes = Cartoes(); var vagas = Vagas(); var bloqueios = Bloqueios();
+        if (cartoes == 0 || vagas == 0 || bloqueios == 0) throw new Exception("Busca na grade: cenário sintético sem cartões, vagas ou bloqueios visíveis.");
+        await web.CoreWebView2.ExecuteScriptAsync("(()=>{const e=document.querySelector('input[type=search]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'inexistente');e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+        var prazo = DateTime.UtcNow.AddSeconds(5);
+        while (Cartoes() != 0 && DateTime.UtcNow < prazo) { await Task.Delay(100); janela.UpdateLayout(); }
+        if (Cartoes() != 0 || Vagas() != vagas || Bloqueios() != bloqueios)
+            throw new Exception("A busca não ocultou só os pacientes: vagas e bloqueios devem permanecer na grade.");
+        await web.CoreWebView2.ExecuteScriptAsync("document.querySelector('.filtros-agenda .secundario').click()");
+        prazo = DateTime.UtcNow.AddSeconds(5);
+        while (Cartoes() != cartoes && DateTime.UtcNow < prazo) { await Task.Delay(100); janela.UpdateLayout(); }
+        if (Cartoes() != cartoes || Vagas() != vagas || Bloqueios() != bloqueios)
+            throw new Exception("Limpar filtros não restaurou os cartões e a disponibilidade originais.");
+        Console.WriteLine("BUSCA NA GRADE: WebView real oculta pacientes, preserva vagas/bloqueios e restaura os cartões ao limpar.");
+    }
+
+    private static async Task<Button> AguardarVagaVisivel(Window janela)
+    {
+        var prazo = DateTime.UtcNow.AddSeconds(5);
+        do
+        {
+            janela.UpdateLayout();
+            var botao = Descendentes(janela).OfType<Button>().FirstOrDefault(b => b.IsVisible
+                && b.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Disponivel: true });
+            if (botao is not null) return botao;
+            await Task.Delay(50);
+        } while (DateTime.UtcNow < prazo);
+        throw new Exception("Planejamento: há vagas no ViewModel, mas nenhum botão de vaga visível na grade original. Confira abas, visibilidade e a montagem da tela.");
+    }
+
+    private static async Task AguardarPaineisWeb(Window janela)
+    {
+        foreach (var painel in Descendentes(janela).OfType<PainelClinicoWeb>().Where(p => p.IsVisible).ToArray())
+        {
+            var prazo = DateTime.UtcNow.AddSeconds(25);
+            var pronto = false;
+            do
+            {
+                var navegador = Descendentes(painel).OfType<WebView2>().FirstOrDefault();
+                if (navegador?.CoreWebView2 is not null
+                    && await navegador.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.agenda,.infusao-pagina')") == "true")
+                { pronto = true; break; }
+                await Task.Delay(100);
+            } while (DateTime.UtcNow < prazo);
+            if (!pronto)
+            {
+                var erro = string.Join(" ", Descendentes(painel).OfType<TextBlock>().Select(t => t.Text));
+                throw new Exception("A interface React não carregou antes da verificação visual. Confira o build dos assets e o runtime WebView2. " + erro);
+            }
+        }
     }
     static async Task ConferirProgressoInfusao(ServiceProvider sp, Paciente paciente, Profissional medico)
     {

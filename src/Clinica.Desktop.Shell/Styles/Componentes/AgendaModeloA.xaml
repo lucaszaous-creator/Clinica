@@ -53,33 +53,30 @@
         <Setter Property="TextElement.FontWeight" Value="Bold" />
     </Style>
     <Style x:Key="AgendaModeloA.Cartao" TargetType="Button" BasedOn="{StaticResource CartaoDeHorario}">
+        <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="fundo" Background="{StaticResource Brush.Acento.Suave}"
-                            BorderBrush="{StaticResource Brush.Acento}" BorderThickness="3,0,0,0"
+                    <Border x:Name="fundo" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="3,0,0,0"
                             CornerRadius="{StaticResource Raio.Pequeno}" Padding="10,3">
                         <ContentPresenter />
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="fundo" Property="Background" Value="{StaticResource Brush.Acento.Tint}" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="fundo" Property="BorderThickness" Value="3,1,1,1" />
-                        </Trigger>
-                        <DataTrigger Binding="{Binding EhEncaixe}" Value="True">
-                            <Setter TargetName="fundo" Property="BorderBrush" Value="{StaticResource Brush.Marca.Navy}" />
-                            <Setter TargetName="fundo" Property="BorderThickness" Value="5,0,0,0" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding ForaDoDia}" Value="True">
-                            <Setter TargetName="fundo" Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
-                            <Setter TargetName="fundo" Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
-                            <Setter Property="Opacity" Value="0.65" />
-                        </DataTrigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="fundo" Property="BorderThickness" Value="3,1,1,1" /></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="fundo" Property="BorderThickness" Value="3,2,2,2" /></Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding GrupoVisual}" Value="no-local"><Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" /><Setter Property="Background" Value="{StaticResource Brush.Acento.Suave}" /></DataTrigger>
+            <DataTrigger Binding="{Binding GrupoVisual}" Value="em-atendimento"><Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" /><Setter Property="Background" Value="{StaticResource Brush.Acento.Suave}" /></DataTrigger>
+            <DataTrigger Binding="{Binding GrupoVisual}" Value="atendido"><Setter Property="BorderBrush" Value="{StaticResource Brush.Sucesso.Forte}" /><Setter Property="Background" Value="{StaticResource Brush.Sucesso.Tint}" /></DataTrigger>
+            <DataTrigger Binding="{Binding GrupoVisual}" Value="cancelado"><Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" /><Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" /></DataTrigger>
+            <DataTrigger Binding="{Binding GrupoVisual}" Value="faltou"><Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" /><Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" /></DataTrigger>
+            <DataTrigger Binding="{Binding GrupoVisual}" Value="substituido"><Setter Property="BorderBrush" Value="{StaticResource Brush.Texto.Secundario}" /><Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}" /></DataTrigger>
+        </Style.Triggers>
     </Style>
 </ResourceDictionary>

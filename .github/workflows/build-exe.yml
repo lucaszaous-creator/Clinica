@@ -79,16 +79,7 @@ jobs:
       - name: Testes (regras de faturamento)
         run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
 
-      - name: Conferir janelas responsivas com dados fictícios
-        run: dotnet run --project tools/ValidarLayoutWindows -c Release
-
-      - name: Conferir gestão, pagamentos e estoque no Windows
-        run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --gestao
-
-      - name: Conferir Financeiro, formulários e séries com dados fictícios
-        run: dotnet run --project tools/validar-design-financeiro -c Release
-
-      - name: Preparar WebView2 para a validação financeira
+      - name: Preparar WebView2 para as telas e verificações de interface
         shell: pwsh
         run: |
           $chaves = @(
@@ -107,6 +98,15 @@ jobs:
             $processoWebView = Start-Process -FilePath $instaladorWebView -ArgumentList '/silent', '/install' -WindowStyle Hidden -Wait -PassThru
             if ($processoWebView.ExitCode -ne 0) { throw "Instalação WebView2 falhou: $($processoWebView.ExitCode)" }
           }
+
+      - name: Conferir janelas responsivas com dados fictícios
+        run: dotnet run --project tools/ValidarLayoutWindows -c Release
+
+      - name: Conferir gestão, pagamentos e estoque no Windows
+        run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --gestao
+
+      - name: Conferir Financeiro, formulários e séries com dados fictícios
+        run: dotnet run --project tools/validar-design-financeiro -c Release
 
       - name: Conferir busca, situações e prescrição no WebView2
         run: dotnet run --project tools/validar-agenda-documentos -c Release

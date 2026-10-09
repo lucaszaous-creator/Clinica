@@ -1,0 +1,73 @@
+{
+  "modelo": "jev-1.13.0",
+  "escopos": {
+    "agenda": {
+      "pedido_sha256": "1226ecd5f4050073d46edd1ca473c0b66d87b7e74c7d029258b03a54543a36c0",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.82,
+        "probabilities": {
+          "aprovar": 0.88,
+          "reprovar": 0.1,
+          "evidencia_insuficiente": 0.02
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/Agenda.tsx": "5b1e91349d1dcc7e14ec87f9bdeabadc3fc1e1b0cc023f0a5cbbf889b1d7d499",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/estilo.css": "1d0adba4e1270fc9676841c736448ef949c89c7268489a127420630e0265d24d",
+        "src/Clinica.Application/Modelos/SituacaoVisualAgenda.cs": "fdf3d95573d2897ee081f2fd4e57282dda82d9f00a19d64fd11aca6f5f4f5a80",
+        "src/Clinica.Modulo.Recepcao/Views/AgendaBuscaWeb.cs": "7f6c7ffead978ceb45347a54e820e00bf21c763f337ad9bfbec228a185ec822c",
+        "src/Clinica.Modulo.Recepcao/Views/FilaBuscaWeb.cs": "bed77dc11f8cc05a34d15a218add97b8e616cebc65f680baaac035fba067ada3",
+        "src/Clinica.Modulo.Clinico/Views/AgendaMedicoWeb.cs": "bcfb325216f0d97a1684d7611e92490ae36125d9377fa140a0325181792b1238",
+        "src/Clinica.Desktop.Shell/WebClinica/LinhaAgendaWeb.cs": "354abad4c41eb52c530fb3356f4136ddbdd3263d9eb769beb5133241dad2c11d",
+        "tools/validar-agenda-documentos/Program.cs": "91f45d86cb9977c23d67665cc02ff657bd05b2236057fbc8f5de0b6045eddd4e",
+        "tools/validar-agenda-documentos/FilaQa.cs": "f338b66798cf4ad8107d9d1bfcc24d93ef2a3050f6ea3e54aa9a2b597adff639",
+        "tools/validar-agenda-documentos/MedicoQa.cs": "11e63d78160b05ee5f7fdd66afe692788e1d96f4b4f3f13fa0425ef5cd485dfc",
+        "tests/Clinica.Tests/SituacaoVisualAgendaTests.cs": "fbbabb8749dd8cd02ba0d76a6c289fe22143e2b752656faa9283b20886372712"
+      }
+    },
+    "integracao": {
+      "pedido_sha256": "779bff2d2233328f74d0e5a28b69c258c07f2ed544fbaf266f2c79e0935752d6",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.86,
+        "probabilities": {
+          "aprovar": 0.91,
+          "reprovar": 0.08,
+          "evidencia_insuficiente": 0.01
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/WebClinica/PainelClinicoWeb.cs": "74803b729a7b25fe9bba595511f8b1b1207fccce8a0440231aef69429b92b213",
+        "src/Clinica.Desktop.Shell/WebClinica/FiltrosAgendaWeb.cs": "4cecab0a620a73afe184fc7030d79d5de0983a2e9e674574791cef2b8ba391de",
+        "src/Clinica.Desktop.Shell/WebClinica/FiltroAgenda.cs": "4154227f4a8457d2e114d799a1a3a65b04119a25631aeb4b9d219c53d699ec85",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/main.tsx": "83e35cb68ec848b7cb019be6c120a9a9379ffddaee490d8d40e552c300d91e8d",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/index.html": "d4b5491b71279fe1d86cac2f7e9738c3a5ebc3b24c9a626557bef49a1cfa04a0",
+        "src/Clinica.Modulo.Recepcao/Views/AgendaView.xaml.cs": "68a45bdadfe37bcf726bc8f018d51795eebde53b8e1e76de3c309b10d671bded",
+        "src/Clinica.Modulo.Recepcao/Views/FilaView.xaml.cs": "d6867853cb748eda607c70afe3d41f29f78533ec7b6cb7790717423c75dd6f58",
+        "src/Clinica.Modulo.Clinico/Views/MeuDiaView.xaml.cs": "d97dfa405a47ac9a6dfafb4b97bb671da5888eb5206cde387b822384f470091f",
+        "src/Clinica.Modulo.Clinico/Views/MinhaSemanaView.xaml.cs": "c726e438661babcd67fea2fcd24e77faf51a538dfb20b2c36e06f585828a9d8e",
+        "docs/agenda-documentos-main.md": "e15c14e4fecaeb05bcf459c953ae31f12db3e7c2c65ce1dff5ae05310914193f"
+      }
+    },
+    "rolagem": {
+      "pedido_sha256": "b7e799c37b726b158b27913d3567534626250a96b9e3976339b3138702dd43ad",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.55,
+        "probabilities": {
+          "aprovar": 0.7,
+          "reprovar": 0.18,
+          "evidencia_insuficiente": 0.12
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/Styles/Componentes/Rolagem.xaml": "4d195e49ff3911ec85f5bc6ac920e6286393de1d1918dd5bfddf3bb429699480",
+        "tools/ValidarLayoutWindows/RolagemQa.cs": "65df4c6cb138abfbe2d884f94b91a0b07fe9bf3d289ca78378ca76164c6a39f5"
+      }
+    }
+  }
+}

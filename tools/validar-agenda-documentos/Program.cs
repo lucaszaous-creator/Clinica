@@ -47,6 +47,9 @@ internal static class Program
         { try { return Navegador(VisualTreeHelper.GetChild(raiz, i)); } catch (InvalidOperationException) { } }
         throw new InvalidOperationException("Navegador ainda não montado.");
     }
+    public static Task ConferirAlinhamento(WebView2 navegador) => Esperar(navegador,
+        "(()=>{const x=[...document.querySelectorAll('.situacao>.selo')].map(e=>e.getBoundingClientRect().left);return innerWidth<=800 || x.length<2 || Math.max(...x)-Math.min(...x)<1})()");
+
     public static async Task Capturar(WebView2 navegador, string caminho)
     {
         using var arquivo = File.Create(caminho);
@@ -70,6 +73,7 @@ internal static class Program
             {
                 janela.Width = largura; await Task.Delay(350);
                 await Esperar(navegador, "document.documentElement.scrollWidth<=innerWidth+1");
+                await ConferirAlinhamento(navegador);
                 await Capturar(navegador, Path.Combine(saida, $"agenda-{largura}.png"));
             }
             janela.Width = 1100;
