@@ -68,8 +68,7 @@ public static partial class RecepcaoWebRegistro
             ]}).ToArray() }).ToArray() };
         if(p.Chave=="consultas") p=p with { Permissao=Permissao.LancarAtendimento };
         if(p.Chave=="retornos-a-marcar") p=p with { Permissao=Permissao.VerAgenda };
-        if(p.Chave=="retorno-pacientes") p=p with { Autorizado=()=>SessaoUsuario.Atual.PodeAlgum(Permissao.GerenciarCampanhas|Permissao.VerFaturamento),
-            Acoes=p.Acoes.Select(a=>a.Comando=="Voltar"?a with{Visivel=null}:a.Comando=="LimparFiltros"?a with{Visivel=null}:a.Comando=="Atalho"?a with{Rotulo=a.Parametro?.ToString() switch {"assumir"=>"A assumir","hoje"=>"Contatos de hoje","atrasados"=>"Atrasados",_=>"Sem primeiro contato"}}:a).ToArray() };
+        if(p.Chave=="retorno-pacientes") p=p with { Autorizado=()=>SessaoUsuario.Atual.PodeAlgum(Permissao.GerenciarCampanhas|Permissao.VerFaturamento) };
         if(p.Campos.Any(c=>c.Propriedade=="Seletor.Termo"))
             p=p with { Acoes=[..p.Acoes,new("Seletor.LigarSugestao","Com horário hoje",Visivel:"Seletor.TemSugestao")] };
         return p with { Secoes=p.Secoes.Select(s=>s with { Titulo=s.Chave=="Seletor.Resultados"?"Pacientes encontrados":s.Titulo, Visivel=s.Visivel ?? (s.Campos.Length==0 && s.Acoes.Length==0 && s.Tabelas.Length==1 ? s.Tabelas[0].Visivel : null), Acoes=s.Acoes.Select(ApresentarAcao).ToArray(), Tabelas=s.Tabelas.Select(t=>t with {Titulo=t.Chave=="Seletor.Resultados"?"Pacientes encontrados":t.Titulo, Acoes=t.Acoes.Select(ApresentarAcao).ToArray(),Colunas=t.Colunas.Select(ApresentarColuna).ToArray()}).ToArray() }).ToArray(), Campos=p.Campos.Select(c=>c with{Visivel=Presenca(c.Visivel)}).ToArray(), Acoes=p.Acoes.Select(a=>ApresentarAcao(a) with{Visivel=Presenca(a.Visivel)}).ToArray() };

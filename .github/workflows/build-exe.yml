@@ -120,6 +120,15 @@ jobs:
       - name: Conferir buscas e filtros da agenda no WebView2
         run: dotnet run --project qa/recepcao-web -c Release -- --buscas
 
+      - name: Conferir contraste das 76 rotas dos cinco módulos
+        run: dotnet run --project tools/validar-suite-web -c Release -- --contraste
+
+      - name: Conferir secretaria com 48 pacientes no WebView2
+        run: dotnet run --project qa/recepcao-web -c Release -- --agenda48
+
+      - name: Conferir confirmações, recall e avisos no WebView2
+        run: dotnet run --project qa/recepcao-web -c Release -- --acompanhamento
+
       - name: Conferir recall, filtros e configuração salva no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --acompanhamento
 

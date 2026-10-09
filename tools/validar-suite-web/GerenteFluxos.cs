@@ -16,7 +16,7 @@ using Microsoft.Web.WebView2.Wpf;
 
 internal static class GerenteFluxos
 {
-    internal static async Task Executar(bool somenteBuscas=false)
+    internal static async Task Executar(bool somenteBuscas=false,bool somenteContraste=false)
     {
         using var banco=new SqliteConnection("Data Source=:memory:");await banco.OpenAsync();
         var op=new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(banco).Options;
@@ -36,6 +36,8 @@ internal static class GerenteFluxos
         try
         {
             var view=janela.WebView;await view.QuandoPronto.WaitAsync(TimeSpan.FromSeconds(45));var browser=(WebView2)view.Content;
+
+            if(somenteContraste){await ContrasteTodosQa.Executar(sp);return;}
 
             async Task EsperarBusca(string expressao)
             {

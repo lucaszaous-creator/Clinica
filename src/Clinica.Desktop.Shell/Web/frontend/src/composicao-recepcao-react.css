@@ -19,6 +19,13 @@
 #app .recepcao-profissionais-barra .profissional-filtro>.botao:hover{border-color:#b5c2ea;background:var(--superficie-filtro);color:var(--marca)}
 #app .recepcao-operacional .recepcao-linha-acoes{min-width:0}
 
+/* Em notebook, as ações diretas ocupam uma faixa abaixo do paciente e da situação. */
+@media(min-width:781px) and (max-width:1150px){
+ #app .recepcao-agenda-dia :is(.recepcao-lista-legenda,.recepcao-linha-principal){grid-template-columns:75px minmax(0,1fr) minmax(130px,.45fr)}
+ #app .recepcao-agenda-dia .recepcao-lista-legenda>span:last-child{display:none}
+ #app .recepcao-agenda-dia .recepcao-linha-acoes{grid-column:2/-1;flex-direction:row;justify-content:flex-start;align-items:center}
+}
+
 /* Apenas o filtro efetivamente selecionado ganha o azul claro da marca. */
 #app .recepcao-profissionais-barra .profissional-ativo>.botao,#app .recepcao-profissionais-barra .profissional-ativo>.botao:hover{background:var(--marca-suave);border-color:var(--marca-borda);color:var(--marca)}
 #app .recepcao-profissionais-barra .profissional-ativo>.botao [data-coluna="Ativo"]{color:var(--marca)}

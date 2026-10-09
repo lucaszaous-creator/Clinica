@@ -3491,7 +3491,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     {
         var q = _db.Contatos.AsNoTracking()
             .Include(c => c.Paciente)
-            .Include(c => c.Agendamento)
+            .Include(c => c.Agendamento).ThenInclude(a => a!.Profissional)
             .Where(c => c.Referencia >= inicio && c.Referencia <= fim);
 
         if (tipo is { } t) q = q.Where(c => c.Tipo == t);

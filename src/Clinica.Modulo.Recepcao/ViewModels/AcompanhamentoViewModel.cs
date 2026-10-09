@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Abstracoes;
+using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
@@ -13,7 +14,7 @@ namespace Clinica.Recepcao.ViewModels;
 
 public sealed record EscolhaRecall(string Codigo, string Nome);
 
-public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos) : ObservableObject, ICarregarAoAbrir
+public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos, ISnackbarService? avisos = null) : ObservableObject, ICarregarAoAbrir
 {
     private IReadOnlyList<LinhaAcompanhamento> _todos = [];
     private Guid _idempotencia = Guid.NewGuid();
@@ -83,6 +84,7 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     [ObservableProperty] private string _diasMaximos = "";
     [ObservableProperty] private string _diasRecall = "60";
     [ObservableProperty] private string _mensagem = "";
+    [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(PodeInteragir))] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private bool _configurando;
@@ -168,10 +170,10 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     private void Refiltrar()
     {
         if (!int.TryParse(DiasMinimos, out var minimo) || minimo < 0 || (!string.IsNullOrWhiteSpace(DiasMaximos) && (!int.TryParse(DiasMaximos, out var maximo) || maximo < minimo)))
-        { Mensagem = "Confira o intervalo de dias sem retornar."; return; }
+        { Mensagem = "Confira o intervalo de dias sem retornar."; MensagemEhErro = true; return; }
         var max = int.TryParse(DiasMaximos, out var fim) ? fim : int.MaxValue;
         if (!int.TryParse(TentativasMinimas, out var tentativas) || tentativas < 0 || ContatoDesde > ContatoAte)
-        { Mensagem = "Confira a quantidade de tentativas e o período do último contato."; return; }
+        { Mensagem = "Confira a quantidade de tentativas e o período do último contato."; MensagemEhErro = true; return; }
         var motivoNome = Motivos.FirstOrDefault(m => m.Id == MotivoFiltro)?.Nome;
         var lista = _todos.Where(x => x.Tipo == Tipo && Clinica.Desktop.Shell.Componentes.Busca.Casa(x.Paciente, Busca)
             && (string.IsNullOrEmpty(Modalidade) || x.Modalidade.ToString() == Modalidade)
@@ -200,7 +202,7 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     [RelayCommand] private void Atalho(string atalho) { LimparFiltros(); if (atalho == "hoje") { SomenteMeus = true; Prazo = "Hoje"; } else if (atalho == "assumir") Condicao = "A assumir"; else if (atalho == "atrasados") Prazo = "Atrasados"; else if (atalho == "sem-contato") Condicao = "Sem primeiro contato"; else if (atalho == "cancelados") Condicao = "Cancelou ou faltou"; else if (atalho == "sem-resposta") Situacao = "Sem resposta"; }
     [RelayCommand] private async Task GerarAsync()
     {
-        if (!int.TryParse(DiasRecall, out var dias) || dias is < 1 or > 3650) { Mensagem = "Informe de 1 a 3650 dias sem retornar."; return; }
+        if (!int.TryParse(DiasRecall, out var dias) || dias is < 1 or > 3650) { Mensagem = "Informe de 1 a 3650 dias sem retornar."; MensagemEhErro = true; return; }
         var quantidade = 0;
         await Executar(async svc => quantidade = await svc.GerarRecallAsync(SessaoUsuario.Atual.UsuarioId, dias,
             Enum.TryParse<ModalidadeAtendimento>(Modalidade, out var m) ? m : null));
@@ -230,8 +232,15 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
             SessaoUsuario.Atual.UsuarioId, ProximoContato is {} data ? DateOnly.FromDateTime(data) : null,
             Enum.Parse<EtapaAcompanhamento>(EtapaEdicao), Enum.TryParse<CanalContato>(CanalEdicao, out var canal) ? canal : null,
             Observacao, Encerrar, MotivoEdicao > 0 ? MotivoEdicao : null, Reabrir)));
-        if (_falhou) return;
-        await VoltarAsync(); Mensagem = "Acompanhamento salvo com histórico.";
+        if (_falhou)
+        {
+            avisos?.Erro("Não foi possível salvar o acompanhamento. Confira a mensagem na tela.");
+            return;
+        }
+        avisos?.Sucesso("Acompanhamento salvo com histórico.");
+        await VoltarAsync();
+        if (!_falhou) Mensagem = "Acompanhamento salvo com histórico.";
+        else avisos?.Erro("Acompanhamento salvo, mas a lista não pôde ser atualizada. Use Atualizar para consultar.");
     }
     [RelayCommand] private async Task WhatsAppAsync()
     {
@@ -270,12 +279,12 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
             if (!NavegacaoSuite.Ir(Modulo.ModuloRecepcao.ChaveMarcarHorario)) throw new InvalidOperationException("A agenda não está disponível para este acesso.");
             Selecionado = null;
         }
-        catch (Exception ex) { Mensagem = ex.Message; }
+        catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }
     [RelayCommand] private void Configurar() { if (Gestor) { ResponsavelPadrao = 0; Configurando = true; } }
     [RelayCommand] private async Task SalvarConfiguracaoAsync()
     {
-        if (ProfissionalBsv is not > 0) { Mensagem = "Selecione o profissional das indicações de BSV antes de salvar."; return; }
+        if (ProfissionalBsv is not > 0) { Mensagem = "Selecione o profissional das indicações de BSV antes de salvar."; MensagemEhErro = true; return; }
         await Executar(svc => svc.ConfigurarAsync(SessaoUsuario.Atual.UsuarioId, ProfissionalBsv.Value, ResponsavelPadrao));
         if (!_falhou) { await VoltarAsync(); if (!_falhou) Mensagem = "Configuração salva. O profissional selecionado permanece vinculado às indicações de BSV."; }
     }
@@ -288,11 +297,12 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     private async Task Executar(Func<IAcompanhamentoPacienteService, Task> acao)
     {
         if (Carregando) return;
-        Carregando = true; _falhou = false; Mensagem = "";
+        Carregando = true; _falhou = false; Mensagem = ""; MensagemEhErro = false;
         try { using var scope = escopos.CreateScope(); await acao(scope.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>()); }
         catch (Exception ex)
         {
             _falhou = true;
+            MensagemEhErro = true;
             Clinica.Application.Diagnostico.Registrar("Acompanhamento de pacientes — operação não concluída", ex);
             Mensagem = ex is InvalidOperationException or UnauthorizedAccessException ? ex.Message
                 : "Não foi possível concluir a operação. Os dados anteriores foram preservados. Tente novamente; se persistir, informe o suporte. O detalhe foi registrado no diagnóstico.";

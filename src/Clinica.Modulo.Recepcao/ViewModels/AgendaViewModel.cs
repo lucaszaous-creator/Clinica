@@ -1625,7 +1625,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     [RelayCommand]
     private async Task ConfirmarSessoesAsync()
     {
-        var vm = new ConfirmacoesViewModel(_escopos);
+        var vm = new ConfirmacoesViewModel(_escopos, _snackbar);
         Func<bool?> janelaNativa = () => new Janelas.ConfirmacoesWindow(vm) {
             Owner = Dono()
         }.ShowDialog();

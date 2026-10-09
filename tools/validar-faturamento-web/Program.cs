@@ -13,6 +13,10 @@ static void Contratos()
 {
 var paginas=FaturamentoWebRegistro.CriarPaginas().ToArray();
 var erros=PaginasWebController.ValidarRegistro(paginas).Concat(DialogosWebController.ValidarRegistro(FaturamentoWebRegistro.CriarDialogos())).ToList();
+var pendencias=paginas.Single(p=>p.Chave=="faturamento-pendencias");
+if(pendencias.Secoes.Any(s=>s.Chave=="Carteirinhas")) erros.Add("Carteirinhas não deve aparecer nas pendências de faturamento");
+foreach(var chave in new[]{"Codigos","Recursos","Consultas"})
+ if(!pendencias.Secoes.Any(s=>s.Chave==chave)) erros.Add("Seção de faturamento perdida: "+chave);
 foreach(var p in paginas) foreach(var t in p.Secoes.SelectMany(s=>s.Tabelas)) {
  var prop=p.Tipo.GetProperty(t.Origens[0]);var tipo=prop?.PropertyType.GetInterfaces().Append(prop.PropertyType).FirstOrDefault(t=>t.IsGenericType&&t.GetGenericTypeDefinition()==typeof(IEnumerable<>))?.GetGenericArguments()[0];
  if(tipo is null)continue;

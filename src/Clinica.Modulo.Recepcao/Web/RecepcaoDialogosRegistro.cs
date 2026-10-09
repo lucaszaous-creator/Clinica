@@ -1,4 +1,4 @@
-﻿using Clinica.Desktop.Shell.Web;
+using Clinica.Desktop.Shell.Web;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
 using D = Clinica.Desktop.Shell.Web.DialogosWebController;
@@ -72,7 +72,7 @@ public static partial class RecepcaoWebRegistro
              DF("Resumo", "Resumo", "leitura", visivel: null)],
             [DA("AmanhaCommand", "Amanhã", habilitado: null, linha: null), DA("GerarCommand", "Gerar rodada", habilitado: "PodeEditar", linha: null), DA("EnviarEmailsCommand", "Enviar e-mails", habilitado: "PodeEditar", linha: null), DA("CarregarCommand", "Atualizar", habilitado: null, linha: null)],
             [
-                new D.Tabela("Contatos", "Contatos", "Contatos", [new D.Coluna("Horario", "Horario"), new D.Coluna("Paciente", "Paciente"), new D.Coluna("Profissional", "Profissional"), new D.Coluna("Situacao", "Situacao")], [DA("EnviarCommand", "WhatsApp", habilitado: null, linha: "TemTelefone"), DA("ConfirmouCommand", "Confirmou", habilitado: null, linha: null)], []),
+                new D.Tabela("Contatos", "Contatos", "Contatos", [new D.Coluna("Horario", "Horario"), new D.Coluna("Paciente", "Paciente"), new D.Coluna("Profissional", "Profissional"), new D.Coluna("Situacao", "Situacao")], [DA("EnviarCommand", "Abrir WhatsApp", habilitado: "PodeEditar", linha: "TemTelefone"), DA("ConfirmouCommand", "Confirmar horário", habilitado: "PodeEditar", linha: "PodeConfirmar")], []),
             ]), Permissao.VerAgenda);
         // src/Clinica.Modulo.Recepcao/Janelas/EstornoAtendimentoWindow.xaml
         yield return new("RecepcaoEstornoAtendimento", typeof(EstornoAtendimentoViewModel), new D.Definicao("Estornar atendimento", null,

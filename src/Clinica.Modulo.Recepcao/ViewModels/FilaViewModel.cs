@@ -996,7 +996,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private void MontarChips()
     {
         var doDia = _doDia
-            .Where(a => a.Etapa != EtapaFila.ForaDaFila && a.ProfissionalId is not null)
+            .Where(a => a.ProfissionalId is not null)
             .GroupBy(a => a.ProfissionalId!.Value)
             .Select(g => (Id: g.Key, Nome: g.First().Profissional?.Rotulo ?? $"Profissional {g.Key}"))
             .OrderBy(p => p.Nome)
@@ -1005,19 +1005,19 @@ public sealed partial class FilaViewModel : ObservableObject
         if (_filtroProfissionalId is { } vigente && doDia.All(p => p.Id != vigente))
             _filtroProfissionalId = null;
 
-        var vivos = _doDia.Where(a => a.Etapa != EtapaFila.ForaDaFila).ToList();
+        // O filtro inclui faltas e cancelados, assim como as linhas exibidas.
 
         Profissionais.Clear();
         Profissionais.Add(new ChipProfissional
         {
-            Id = null, Nome = "Todos", Quantidade = vivos.Count,
+            Id = null, Nome = "Todos", Quantidade = _doDia.Count,
             Ativo = _filtroProfissionalId is null
         });
         foreach (var p in doDia)
             Profissionais.Add(new ChipProfissional
             {
                 Id = p.Id, Nome = p.Nome,
-                Quantidade = vivos.Count(a => a.ProfissionalId == p.Id),
+                Quantidade = _doDia.Count(a => a.ProfissionalId == p.Id),
                 Ativo = _filtroProfissionalId == p.Id
             });
 
@@ -1181,7 +1181,7 @@ public sealed partial class FilaViewModel : ObservableObject
         }
 
         Atendidos = _doDia.Count(a => a.Status == StatusAgendamento.Realizado);
-        EmSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento);
+        EmSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento && a.FimAtendimentoEm is null && a.DataHora.Date == DateTime.Today);
         // Falta e cancelamento ESTÃO na lista (apagados) desde set/2026 — o placar conta,
         // não anuncia o que foi escondido.
         FaltasCancelamentos =
@@ -1590,6 +1590,10 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Marcar falta",
+                    $"Registrar que {c.Paciente} faltou ao horário de {c.DataHora:dd/MM/yyyy HH:mm}?")) return;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
             IReadOnlyList<string> avisos;
             using (var e = _escopos.CreateScope())
                 avisos = await e.ServiceProvider.GetRequiredService<AgendaService>()
@@ -1608,6 +1612,10 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task CancelarAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
+            if (!await DialogosDaSessao.ConfirmarPerigoAsync(_dialogo, "Cancelar horário",
+                    $"Cancelar o horário de {c.Paciente} em {c.DataHora:dd/MM/yyyy HH:mm}?")) return;
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
             IReadOnlyList<string> avisos;

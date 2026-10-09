@@ -61,7 +61,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
@@ -456,66 +455,7 @@
         </DockPanel>
         </Border>
 
-        <Border Grid.Row="5" Style="{StaticResource Card}" Margin="0,16,0,0"
-                Visibility="{Binding TemCarteirinhas, Converter={StaticResource BoolParaVisibilidade}}">
-        <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Text="Carteirinhas vencidas ou vencendo (30 dias)" Style="{StaticResource H2}" Margin="0,0,0,8" />
-        <DataGrid ItemsSource="{Binding Carteirinhas}" ctrl:Ajudantes.RodaDaPagina="True"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True" HeadersVisibility="Column" CanUserAddRows="False" MaxHeight="180">
-            <DataGrid.Columns>
-                <DataGridTemplateColumn Header="" Width="30">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <Ellipse Width="16" Height="16"
-                                     Fill="{Binding Urgencia, Converter={StaticResource UrgenciaParaCor}}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Paciente" Width="1.6*"
-                                        CellTemplate="{StaticResource CelulaPacienteContato}" />
-                <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding ConvenioNome}" Width="1.2*">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource CelulaCopiavel}" />
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Carteirinha" Binding="{Binding Carteirinha}" Width="*">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource CelulaCopiavel}" />
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Validade" Binding="{Binding Validade, StringFormat=dd/MM/yyyy}" Width="Auto">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource CelulaCopiavel}" />
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="Auto" />
-                <DataGridTemplateColumn Header="" Width="170">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <Button Content="Abrir ficha" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                        ToolTip="Abrir a ficha do paciente para atualizar a carteirinha"
-                                        Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                        CommandParameter="{Binding}" />
-                                <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
-                                        ToolTip="Chamar o paciente no WhatsApp para atualizar a carteirinha"
-                                        AutomationProperties.Name="Chamar o paciente no WhatsApp"
-                                        Command="{Binding DataContext.WhatsappCarteirinhaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                        CommandParameter="{Binding}">
-                                    <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource FonteIcones}" FontSize="{StaticResource Fonte.Tabela}" />
-                                </Button>
-                            </StackPanel>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
-        </DockPanel>
-        </Border>
-
-        <Border Grid.Row="6" Style="{StaticResource Card}" Margin="0,16,0,0">
+        <Border Grid.Row="5" Style="{StaticResource Card}" Margin="0,16,0,0">
         <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="Consultas a renovar" Style="{StaticResource H2}" Margin="0,0,0,8" />
         <DataGrid ItemsSource="{Binding Consultas}" ctrl:Ajudantes.RodaDaPagina="True"

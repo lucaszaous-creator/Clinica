@@ -31,7 +31,7 @@ export function ComposicaoFaturamentoReact({ pagina: p, contexto: c }: { pagina:
   const alertas = separar(['rodada', 'falha-rodada']);
   const principal = separar(['Codigos', 'Resultados', 'Baixados', 'Glosas', 'Itens', 'Lotes', 'PorConvenio']);
   const apoioRelatorio = p.chave === 'faturamento-relatorios' ? separar(['ConsultasEspecialidades', 'Envelhecimento']) : [];
-  const prazos = p.chave === 'faturamento-pendencias' ? separar(['Recursos', 'Carteirinhas', 'Consultas']) : [];
+  const prazos = p.chave === 'faturamento-pendencias' ? separar(['Recursos', 'Consultas']) : [];
   const orientacoes = p.chave === 'faturamento-glosas' ? separar(['motivos']) : [];
   const restantes = p.secoes.filter(s => !usadas.has(s.chave));
   const secao = (s: Secao) => <SecaoReact key={s.chave} secao={s} contexto={c}/>;
@@ -49,7 +49,7 @@ export function ComposicaoFaturamentoReact({ pagina: p, contexto: c }: { pagina:
     {alertas.length > 0 && <Stack gap="sm" className="faturamento-alertas">{alertas.map(secao)}</Stack>}
     <Stack gap="md" className="faturamento-trabalho">{principal.map(secao)}</Stack>
     {apoioRelatorio.length > 0 && <Grid gap="lg" className="faturamento-analises">{apoioRelatorio.map(s => <Grid.Col key={s.chave} span={{ base: 12, lg: 6 }}>{secao(s)}</Grid.Col>)}</Grid>}
-    {prazos.length > 0 && <section className="faturamento-prazos" aria-labelledby="titulo-prazos-faturamento"><Group justify="space-between" mb="md"><Title order={2} size="h4" id="titulo-prazos-faturamento">Prazos e renovações</Title><Text size="xs" c="dimmed">Recursos, carteirinhas e consultas</Text></Group><Stack gap="md">{prazos.map(secao)}</Stack></section>}
+    {prazos.length > 0 && <section className="faturamento-prazos" aria-labelledby="titulo-prazos-faturamento"><Group justify="space-between" mb="md"><Title order={2} size="h4" id="titulo-prazos-faturamento">Prazos e renovações</Title><Text size="xs" c="dimmed">Recursos e consultas</Text></Group><Stack gap="md">{prazos.map(secao)}</Stack></section>}
     {orientacoes.length > 0 && <Stack gap="md" className="faturamento-orientacoes">{orientacoes.map(secao)}</Stack>}
     {/* Novas seções do contrato sempre continuam acessíveis, mesmo sem composição específica. */}
     {restantes.length > 0 && <Stack gap="md" className="faturamento-complementos">{restantes.map(secao)}</Stack>}

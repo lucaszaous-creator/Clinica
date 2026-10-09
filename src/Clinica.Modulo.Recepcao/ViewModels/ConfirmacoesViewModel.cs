@@ -28,6 +28,12 @@ public sealed partial class LinhaConfirmacao : ObservableObject
 
     [ObservableProperty] private bool _enviado;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodeConfirmar))]
+    private bool _confirmado;
+
+    public bool PodeConfirmar => !Confirmado;
+
     public bool TemTelefone => !string.IsNullOrWhiteSpace(TelefoneCru);
 
     /// <summary>Tem e-mail VÁLIDO na ficha — é quem o lembrete automático alcança.</summary>
@@ -57,6 +63,7 @@ public sealed partial class LinhaConfirmacao : ObservableObject
 public sealed partial class ConfirmacoesViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
+    private readonly ISnackbarService? _avisos;
 
     public ObservableCollection<LinhaConfirmacao> Contatos { get; } = [];
 
@@ -78,9 +85,10 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
     /// </summary>
     private int _geracaoCarga;
 
-    public ConfirmacoesViewModel(IServiceScopeFactory escopos)
+    public ConfirmacoesViewModel(IServiceScopeFactory escopos, ISnackbarService? avisos = null)
     {
         _escopos = escopos;
+        _avisos = avisos;
         _ = CarregarAsync();
     }
 
@@ -124,20 +132,12 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
                     // Quem já foi contatado aparece marcado em vez de sumir: a lista é o
                     // retrato da rodada, e sumir com o enviado esconderia o que já rodou.
                     Situacao = Descrever(c),
-                    Enviado = c.EnviadoEm is not null
+                    Enviado = c.EnviadoEm is not null,
+                    Confirmado = c.Status == StatusContato.Respondido && c.Comentario == "confirmou"
                 });
             }
 
-            var enviados = Contatos.Count(c => c.Enviado);
-            var semTelefone = Contatos.Count(c => !c.TemTelefone);
-            var comEmail = Contatos.Count(c => c.TemEmail);
-
-            // Quantos o e-mail alcança entra no resumo: é o número que diz se vale a pena
-            // clicar em "Enviar e-mails" — e, quando é zero, por que o botão não fez nada.
-            Resumo = Contatos.Count == 0
-                ? "Nenhuma sessão gerada para este dia. Clique em \"Gerar rodada\"."
-                : $"{Contatos.Count} sessão(ões) · {enviados} já avisada(s) · {comEmail} com e-mail"
-                  + (semTelefone > 0 ? $" · {semTelefone} SEM TELEFONE no cadastro." : ".");
+            AtualizarResumo();
         }
         catch (Exception ex)
         {
@@ -155,9 +155,21 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
         }
     }
 
+    private void AtualizarResumo()
+    {
+        var enviados = Contatos.Count(c => c.Enviado);
+        var confirmados = Contatos.Count(c => c.Confirmado);
+        var semTelefone = Contatos.Count(c => !c.TemTelefone);
+        var comEmail = Contatos.Count(c => c.TemEmail);
+        Resumo = Contatos.Count == 0
+            ? "Nenhuma sessão gerada para este dia. Clique em \"Gerar rodada\"."
+            : $"{Contatos.Count} sessão(ões) · {confirmados} confirmada(s) · {enviados} já avisada(s) · {comEmail} com e-mail"
+              + (semTelefone > 0 ? $" · {semTelefone} sem telefone no cadastro." : ".");
+    }
+
     private static string Descrever(ContatoCampanha c) => c.Status switch
     {
-        StatusContato.Respondido => "respondeu",
+        StatusContato.Respondido => c.Comentario == "confirmou" ? "horário confirmado" : "respondeu",
         StatusContato.Dispensado => "dispensado",
         // O CANAL entra na frase: "avisado por e-mail" e "avisado pelo WhatsApp" são
         // respostas diferentes para "vale mandar de novo pelo outro?".
@@ -277,6 +289,7 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
 
             linha.Enviado = true;
             linha.Situacao = $"avisado em {DateTime.Now:dd/MM HH:mm}";
+            AtualizarResumo();
         }
         catch (Exception ex)
         {
@@ -290,7 +303,7 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
     [RelayCommand]
     private async Task ConfirmouAsync(LinhaConfirmacao? linha)
     {
-        if (linha is null) return;
+        if (linha is null || !linha.PodeConfirmar) return;
 
         try
         {
@@ -300,14 +313,20 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
             var campanhas = scope.ServiceProvider.GetRequiredService<CampanhaService>();
             await campanhas.RegistrarRespostaAsync(linha.ContatoId, "confirmou");
 
-            linha.Situacao = "respondeu";
+            linha.Situacao = "horário confirmado";
             linha.Enviado = true;
+            linha.Confirmado = true;
+            AtualizarResumo();
+            Mensagem = $"{linha.Paciente} confirmou o horário de {linha.Quando:dd/MM} às {linha.Horario}.";
+            MensagemEhErro = false;
+            _avisos?.Sucesso("Confirmação de horário registrada.");
         }
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — resposta não pôde ser registrada", ex);
             Erro(ex.Message);
+            _avisos?.Erro("Não foi possível confirmar o horário. Confira a mensagem na tela.");
         }
     }
 
