@@ -138,7 +138,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:PacienteDeHoje}">
                                             <Button Margin="0,0,6,4"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Style="{StaticResource BotaoDocumentoPequeno}"
                                                     Command="{Binding DataContext.EscolherDeHojeCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}">
@@ -202,7 +202,7 @@
                                         Background="{StaticResource Brush.Sucesso}" />
 
                                 <Button DockPanel.Dock="Right" Content="Trocar"
-                                        Style="{StaticResource BotaoSecundario}" MinWidth="90"
+                                        Style="{StaticResource BotaoDocumento}" MinWidth="90"
                                         VerticalAlignment="Center" Margin="10,0,0,0"
                                         Command="{Binding TrocarPacienteCommand}"
                                         ToolTip="Volta ao passo 1 para escolher outra pessoa." />
@@ -477,7 +477,7 @@
                             <DatePicker SelectedDate="{Binding Fim}" Width="130"
                                         VerticalAlignment="Center" />
                             <Button Content="Atualizar" Command="{Binding CarregarCommand}"
-                                    Style="{StaticResource BotaoSecundario}" MinWidth="100"
+                                    Style="{StaticResource BotaoDocumento}" MinWidth="100"
                                     VerticalAlignment="Center" Margin="10,0,0,0"
                                     ToolTip="Recorta a lista abaixo — e é o período do Fechamento do período." />
                         </StackPanel>
@@ -508,10 +508,10 @@
                             <TextBox Text="{Binding Codigo, UpdateSourceTrigger=PropertyChanged}"
                                      MaxLength="40" Width="150" VerticalAlignment="Center" />
                             <Button Content="Conferir" Command="{Binding ConferirCommand}"
-                                    Style="{StaticResource BotaoSecundario}" MinWidth="90"
+                                    Style="{StaticResource BotaoDocumento}" MinWidth="90"
                                     VerticalAlignment="Center" Margin="8,0,0,0" />
                             <Button Content="Segunda via" Command="{Binding ReimprimirConferidoCommand}"
-                                    Style="{StaticResource BotaoSecundario}" MinWidth="110"
+                                    Style="{StaticResource BotaoDocumento}" MinWidth="110"
                                     VerticalAlignment="Center" Margin="8,0,0,0"
                                     Visibility="{Binding TemConferido,
                                                  Converter={StaticResource BoolParaVisibilidade}}" />
@@ -671,7 +671,7 @@
                                                 </Button>
 
                                                 <Button Content="&#x22EF;" MinWidth="34"
-                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        Style="{StaticResource BotaoDocumentoPequeno}"
                                                         ToolTip="As outras ações deste documento"
                                                         Click="AoAbrirMenuDoDocumento" />
                                             </StackPanel>

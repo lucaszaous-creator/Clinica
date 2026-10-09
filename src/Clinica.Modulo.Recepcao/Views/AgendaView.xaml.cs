@@ -15,6 +15,8 @@ namespace Clinica.Recepcao.Views;
 /// </summary>
 public partial class AgendaView : UserControl
 {
+    private Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb? _painelBusca;
+
     public AgendaView()
     {
         InitializeComponent();
@@ -25,6 +27,12 @@ public partial class AgendaView : UserControl
             if (DataContext is not AgendaViewModel vm) return;
             vm.PropertyChanged -= AoMudarModo;
             vm.PropertyChanged += AoMudarModo;
+            if (_painelBusca is null)
+            {
+                var adaptador = new AgendaBuscaWeb(vm);
+                _painelBusca = Clinica.Desktop.Shell.WebClinica.AbasAgendaWeb.Montar(ConteudoAgendaBusca, "Grade e disponibilidade", adaptador.Estado, adaptador.Executar);
+                if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => _painelBusca.Dispose();
+            }
             AjustarLaterais(); vm.AoEntrarEmCena();
         };
         Unloaded += (_, _) =>

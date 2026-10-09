@@ -736,6 +736,20 @@ def _com_controles_da_casa(raiz: ET.Element) -> list[ET.Element]:
 _registrar_tipos_de_controle(arvores)
 _registrar_tipos_de_controle(arvores_com_faturamento)
 
+# Esta janela usa PainelClinicoWeb no code-behind. A rolagem pertence ao documento
+# HTML e o rodapé é sticky; envolver WebView2 em ScrollViewer WPF não rola seu HTML.
+# O harness tools/validar-agenda-documentos/InfusaoQa.cs confere overflow e rodapé
+# em 1180/900/650px. A exceção é só de rolagem XAML, não de altura/largura da janela.
+JANELAS_COM_ROLAGEM_WEB = {
+    "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml",
+}
+
+def _rolagem_web_explicita(arq: Path) -> bool:
+    if arq.relative_to(RAIZ).as_posix() not in JANELAS_COM_ROLAGEM_WEB:
+        return False
+    codigo = Path(str(arq) + ".cs").read_text(encoding="utf-8-sig")
+    return "new PainelClinicoWeb(" in codigo
+
 for arq, raiz in arvores.items():
     if _nome(raiz) != "Window":
         continue
@@ -768,7 +782,7 @@ for arq, raiz in arvores.items():
     ROLAM = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
     cresce = (raiz.get("SizeToContent") or "").find("Height") >= 0
     alto = altura is not None and altura >= 400
-    if (cresce or alto) and not any(
+    if (cresce or alto) and not _rolagem_web_explicita(arq) and not any(
             _nome(e) in ROLAM for e in _com_controles_da_casa(raiz)):
         erros.append(
             f"{rel(arq)}: janela que cresce com o conteúdo (ou alta) sem nenhum "

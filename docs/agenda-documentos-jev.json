@@ -1,0 +1,88 @@
+{
+  "modelo": "jev-1.13.0",
+  "escopos": {
+    "agenda": {
+      "pedido_sha256": "28cd0672e381f0b14d68b37a92a668a7f26bcab1e1316cab2b03184c9c5c9cbe",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.77,
+        "probabilities": {
+          "aprovar": 0.85,
+          "reprovar": 0.13,
+          "evidencia_insuficiente": 0.02
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/Agenda.tsx": "0c399280ad9f8dea703d1236eac600324730c2dd79a952755a4d3c0505d4ff5b",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/estilo.css": "1e038914eb47921bd7bb7e32770842c262f51bd91a94148ecd8f28d8e1645b7c",
+        "src/Clinica.Application/Modelos/SituacaoVisualAgenda.cs": "fdf3d95573d2897ee081f2fd4e57282dda82d9f00a19d64fd11aca6f5f4f5a80",
+        "src/Clinica.Modulo.Recepcao/Views/AgendaBuscaWeb.cs": "a655d204cffba88046ec44857b894369e07fd07401d95b5e91bb033cb40e92d1",
+        "src/Clinica.Modulo.Recepcao/Views/FilaBuscaWeb.cs": "695b267674a16d0f1fc6351ad25febeefaae58a20de790f8f7b1feaad2c708b8",
+        "src/Clinica.Modulo.Clinico/Views/AgendaMedicoWeb.cs": "c0b6a81dff89ac710212bb24c9aeef9c6444fea516d6de05cfe332bbe5aba890",
+        "src/Clinica.Desktop.Shell/WebClinica/LinhaAgendaWeb.cs": "354abad4c41eb52c530fb3356f4136ddbdd3263d9eb769beb5133241dad2c11d",
+        "tools/validar-agenda-documentos/Program.cs": "128ccbc7429f0f5677698901484d3e48cf2e5a7c18678bcb59611e537373e584",
+        "tools/validar-agenda-documentos/FilaQa.cs": "ef8016e995b529d94c0b3d27fdf272396ea994ff923b811e3b971c91937f95d7",
+        "tests/Clinica.Tests/SituacaoVisualAgendaTests.cs": "fbbabb8749dd8cd02ba0d76a6c289fe22143e2b752656faa9283b20886372712"
+      }
+    },
+    "infusao": {
+      "pedido_sha256": "81d9d55c88e9264c452e13169318f4ddca9e4153a4af60aca1690d826d41c754",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.59,
+        "probabilities": {
+          "aprovar": 0.73,
+          "reprovar": 0.17,
+          "evidencia_insuficiente": 0.1
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/Infusao.tsx": "e4a8313cc96cc0007f6f2b08cfa9787924b53b2ae05e6713abbff88d6955c661",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/infusao.css": "2f7107c76d51f88241c1af376b3e10cac9243cce61d6af816d81b82631d2ee55",
+        "src/Clinica.Modulo.Clinico/WebInfusao/InfusaoWebAdapter.cs": "f2d0b14a5860fa85c05502ab640ac10058502ead541348104954703ea2d7c286",
+        "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml.cs": "a0fbd5565f6ce81ec0907eb1f89d59b7a3601d9b34434883129507809bef150c",
+        "tools/validar-agenda-documentos/InfusaoQa.cs": "a58c4229c2e5b2d08397ad1479e566d88892bb0394544d5ea7f83e657da23526"
+      }
+    },
+    "integracao": {
+      "pedido_sha256": "631d0e88f72c872eb46785d6dc8f43610d4941fe251b9598c31c66949fc1fca1",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.83,
+        "probabilities": {
+          "aprovar": 0.89,
+          "reprovar": 0.1,
+          "evidencia_insuficiente": 0.01
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/WebClinica/PainelClinicoWeb.cs": "71407a07846462d53f8fed1b96e331443ee5f48f81a89c0dfd5b89f889db6148",
+        "src/Clinica.Desktop.Shell/WebClinica/AbasAgendaWeb.cs": "81b040137813d3bdd6eb012d69673df67a8ebce8aa547469f8971e50e4196b56",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/main.tsx": "d2dd86b1d7c19f650bd7384c9118725b1b0ad0e0c214b04f2b4b4859dc018c3a",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/index.html": "d4b5491b71279fe1d86cac2f7e9738c3a5ebc3b24c9a626557bef49a1cfa04a0",
+        "src/Clinica.Modulo.Recepcao/Views/AgendaView.xaml.cs": "afc9accaa75c4f5953d3a6a09c1ab245a7a4ff9ae9884a2679d6ba7efc4f6cd1",
+        "src/Clinica.Modulo.Recepcao/Views/FilaView.xaml.cs": "5385170cbfd2d24786897f537757e1a867ba255aa6d83ac1a58ac285bd39de65",
+        "src/Clinica.Modulo.Clinico/Views/MeuDiaView.xaml.cs": "f1430b5ee44a0d0e09d97d06b55013fb46da9a0293b7460d8e5300b39c601ccc",
+        "src/Clinica.Modulo.Clinico/Views/MinhaSemanaView.xaml.cs": "41688c085a72fe140e0d75bc5aa9a3eca96a5be0d36440e95fa94cdeca87a415",
+        "docs/agenda-documentos-main.md": "87b926c412ff857b875f1075db9b49b7bb7d42879e6615cd1e557beed27470a3"
+      }
+    },
+    "documentos": {
+      "pedido_sha256": "21821c16d94f6049f4c9cc416cfb00897f5edfcd65f09943451e882e187fd85c",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.86,
+        "probabilities": {
+          "aprovar": 0.91,
+          "reprovar": 0.06,
+          "evidencia_insuficiente": 0.03
+        }
+      },
+      "fontes_sha256": {}
+    }
+  }
+}

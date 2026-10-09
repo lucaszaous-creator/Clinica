@@ -121,7 +121,7 @@
                          é ele que precisa da largura garantida. -->
                     <Button DockPanel.Dock="Right" Content="Prescrição de infusão"
                             Margin="12,0,0,8" Padding="14,8" VerticalAlignment="Top"
-                            Style="{StaticResource BotaoSecundario}"
+                            Style="{StaticResource BotaoDocumento}"
                             ToolTip="Abre a folha de infusão — outra tela, com ciclo de vida próprio"
                             Command="{Binding IrParaInfusaoCommand}"
                             Visibility="{Binding TemPrescricaoDeInfusao,
@@ -140,7 +140,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type srv:FolhaCatalogo}">
                                 <Button Content="{Binding Rotulo}" Margin="0,0,8,8" Padding="14,8"
-                                        Style="{StaticResource BotaoSecundario}"
+                                        Style="{StaticResource BotaoDocumento}"
                                         ToolTip="{Binding Descricao}"
                                         Command="{Binding DataContext.EmitirCommand,
                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
@@ -273,7 +273,7 @@
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}">
                                                 <Button.Style>
-                                                    <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGridSecundario}">
+                                                    <Style TargetType="Button" BasedOn="{StaticResource BotaoDocumentoPequeno}">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding PodeAssinar}" Value="True">
                                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -284,7 +284,7 @@
                                             </Button>
 
                                             <Button Content="&#x22EF;" MinWidth="34"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Style="{StaticResource BotaoDocumentoPequeno}"
                                                     ToolTip="As outras ações deste documento"
                                                     Click="AoAbrirMenuDoDocumento" />
                                         </StackPanel>

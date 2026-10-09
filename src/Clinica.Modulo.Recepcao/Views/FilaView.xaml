@@ -259,7 +259,7 @@
 
         <!-- ============ A LISTA DO DIA ============ -->
         <Border Style="{StaticResource Card}" Padding="0">
-            <Grid>
+            <Grid x:Name="ConteudoAgendaBusca">
                 <!-- NaoVerificado ligado (parcela 62): banco fora do ar não pode desenhar
                      "ninguém marcado" — falha com cara de dia vazio, na primeira tela que
                      o balcão abre de manhã. -->
@@ -294,10 +294,17 @@
                             <Setter Property="ToolTip" Value="{Binding Detalhe}" />
                             <!-- Modelo A: estados e modalidade continuam identificados por texto; cores em azul e neutros. -->
                             <Setter Property="BorderThickness" Value="3,0,0,0" />
-                            <Setter Property="BorderBrush" Value="Transparent" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
                             <Style.Triggers>
                                 <!-- Modelo A: estados e modalidade continuam identificados por texto; cores em azul e neutros. -->
+                                <DataTrigger Binding="{Binding Etapa}" Value="Finalizado"><Setter Property="BorderBrush" Value="{StaticResource Brush.Sucesso.Forte}" /><Setter Property="Background" Value="{StaticResource Brush.Sucesso.Tint}" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Situacao}" Value="Cancelado"><Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Situacao}" Value="Faltou"><Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Situacao}" Value="Substituido"><Setter Property="BorderBrush" Value="{StaticResource Brush.Texto.Secundario}" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Etapa}" Value="Chegou"><Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" /></DataTrigger>
+                                <DataTrigger Binding="{Binding Etapa}" Value="Chamado"><Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" /></DataTrigger>
                                 <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
                                     <Setter Property="Background" Value="{StaticResource Brush.Acento.Suave}" />
                                 </DataTrigger>
                                 <!-- Modelo A: estados e modalidade continuam identificados por texto; cores em azul e neutros. -->

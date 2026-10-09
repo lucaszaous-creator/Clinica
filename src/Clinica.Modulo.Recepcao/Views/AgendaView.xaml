@@ -261,7 +261,7 @@
                         </WrapPanel>
                     </Border>
                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" TextTrimming="CharacterEllipsis" Margin="12,8" />
-                    <Grid>
+                    <Grid x:Name="ConteudoAgendaBusca">
                         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <Grid MinWidth="{Binding LarguraGrade}" VerticalAlignment="Top">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="64" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>

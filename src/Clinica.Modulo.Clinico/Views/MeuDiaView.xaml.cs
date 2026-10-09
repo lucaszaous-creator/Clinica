@@ -35,13 +35,24 @@ public partial class MeuDiaView : UserControl
         }
     }
 
+    private Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb? _painelBusca;
+
     public MeuDiaView()
     {
         InitializeComponent();
         TabelaMeuDia.SizeChanged += (_, _) => AjustarColunas();
         Loaded += (_, _) => AjustarColunas();
 
-        Loaded += (_, _) => (DataContext as MeuDiaViewModel)?.AoEntrarEmCena();
+        Loaded += (_, _) =>
+        {
+            if (DataContext is not MeuDiaViewModel vm) return;
+            if (_painelBusca is null)
+            {
+                _painelBusca = Clinica.Desktop.Shell.WebClinica.AbasAgendaWeb.Montar(ConteudoAgendaBusca, "Tabela do dia", () => AgendaMedicoWeb.Dia(vm), m => AgendaMedicoWeb.ExecutarDia(vm, m));
+                if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => _painelBusca.Dispose();
+            }
+            vm.AoEntrarEmCena();
+        };
         Unloaded += (_, _) => (DataContext as MeuDiaViewModel)?.AoSairDeCena();
     }
 }

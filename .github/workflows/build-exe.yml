@@ -55,6 +55,12 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Compilar agenda e prescrição React locais
+        working-directory: src/Clinica.Desktop.Shell/WebClinica/frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Compilar a interface financeira local
         working-directory: src/Clinica.Modulo.Financeiro/Web/frontend
         run: |
@@ -101,6 +107,9 @@ jobs:
             $processoWebView = Start-Process -FilePath $instaladorWebView -ArgumentList '/silent', '/install' -WindowStyle Hidden -Wait -PassThru
             if ($processoWebView.ExitCode -ne 0) { throw "Instalação WebView2 falhou: $($processoWebView.ExitCode)" }
           }
+
+      - name: Conferir busca, situações e prescrição no WebView2
+        run: dotnet run --project tools/validar-agenda-documentos -c Release
 
       - name: Conferir todas as páginas e operações do Financeiro no WebView2
         run: dotnet run --project tools/validar-design-financeiro -c Release -- --web

@@ -168,11 +168,16 @@ jobs:
           dotnet tool install -g vpk --version 1.2.0
           echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
 
-      - name: Preparar Node para a interface financeira
-        if: steps.alvo.outputs.app == 'financeiro'
+      - name: Preparar Node para as interfaces locais
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+
+      - name: Compilar agenda e prescrição React locais
+        working-directory: src/Clinica.Desktop.Shell/WebClinica/frontend
+        run: |
+          npm ci
+          npm run build
 
       - name: Compilar a interface financeira local
         if: steps.alvo.outputs.app == 'financeiro'

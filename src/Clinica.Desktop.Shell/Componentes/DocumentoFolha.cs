@@ -23,7 +23,7 @@ internal sealed class DocumentoFolha : DockPanel
         DockPanel.SetDock(modelo, Dock.Right); header.Children.Add(modelo);
         modelo.Click += (_, _) => AbrirOpcoes(2);
         var title = new StackPanel(); var nome = Texto("", 26, "Brush.Texto.Primario", true); nome.SetBinding(TextBlock.TextProperty, new Binding("TituloDocumento")); title.Children.Add(nome);
-        var patient = Texto("", 14, "Brush.Texto.Secundario"); patient.SetBinding(TextBlock.TextProperty, new Binding("ContextoDocumento"));
+        var patient = Texto("", 14, "Brush.Acento"); patient.SetBinding(TextBlock.TextProperty, new Binding("ContextoDocumento"));
         var dados = Botao("", false, true); dados.Content = patient; dados.FontWeight = FontWeights.Normal; dados.Padding = new Thickness(0); dados.MinHeight = 0; dados.HorizontalAlignment = HorizontalAlignment.Left; dados.Margin = new Thickness(0, 7, 0, 0);
         dados.ToolTip = "Editar data, profissional, título e observações"; dados.SetBinding(IsEnabledProperty, new Binding("PodeEditar")); dados.Click += (_, _) => AbrirOpcoes(0); title.Children.Add(dados); header.Children.Add(title);
         DockPanel.SetDock(header, Dock.Top); Children.Add(header);
@@ -75,8 +75,8 @@ internal sealed class DocumentoFolha : DockPanel
     }
     Button Botao(string text, bool primary = false, bool link = false)
     {
-        var b = new Button { Content = text, Style = (Style)System.Windows.Application.Current.FindResource(primary ? (object)typeof(Button) : "BotaoSecundario"), Padding = new Thickness(16, 9, 16, 9), MinHeight = 38, VerticalAlignment = VerticalAlignment.Center, FontSize = 14 };
-        if (link) { b.BorderThickness = new Thickness(0); b.Background = Brushes.Transparent; b.Foreground = Cor("Brush.Texto.Secundario"); b.Padding = new Thickness(0, 8, 0, 8); }
+        var b = new Button { Content = text, Style = (Style)System.Windows.Application.Current.FindResource(primary ? (object)typeof(Button) : "BotaoDocumento"), Padding = new Thickness(16, 9, 16, 9), MinHeight = 38, VerticalAlignment = VerticalAlignment.Center, FontSize = 14 };
+        if (link) { b.BorderThickness = new Thickness(0); b.Background = Brushes.Transparent; b.Foreground = Cor("Brush.Acento"); b.Padding = new Thickness(0, 8, 0, 8); }
         return b;
     }
     TextBox Campo(string path) { var b = new TextBox { Height = 40, VerticalAlignment = VerticalAlignment.Top, Padding = new Thickness(11, 0, 11, 0) }; b.SetBinding(TextBox.TextProperty, new Binding(path) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged }); return b; }
@@ -130,7 +130,7 @@ internal sealed class DocumentoFolha : DockPanel
                     if (i != 1) { field.Height = double.NaN; field.MinHeight = 40; field.TextWrapping = TextWrapping.Wrap; field.AcceptsReturn = true; field.Padding = new Thickness(11, 8, 11, 8); }
                     field.Margin = new Thickness(0, 0, 12, 0); Grid.SetColumn(field, i); row.Children.Add(field);
                 }
-                var remove = Botao("×", false, true); remove.ToolTip = "Remover exame"; remove.HorizontalAlignment = HorizontalAlignment.Center; Grid.SetColumn(remove, 3); row.Children.Add(remove);
+                var remove = Botao("×", false, true); remove.Foreground = Cor("Brush.Erro"); remove.ToolTip = "Remover exame"; System.Windows.Automation.AutomationProperties.SetName(remove, "Remover exame"); remove.HorizontalAlignment = HorizontalAlignment.Center; Grid.SetColumn(remove, 3); row.Children.Add(remove);
                 remove.Click += (_, _) => { vm.RemoverItemCommand.Execute(item); Atualizar(); }; list.Children.Add(row);
             }
         }

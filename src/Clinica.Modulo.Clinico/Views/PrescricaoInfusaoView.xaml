@@ -77,7 +77,7 @@
                         IsEnabled="{Binding PodeCriarPrescricao}"
                         Command="{Binding NovaCommand}" />
                 <Button Content="Copiar última prescrição deste paciente" Padding="14,8"
-                        HorizontalAlignment="Right" Margin="0,8,0,0" Style="{StaticResource BotaoSecundario}"
+                        HorizontalAlignment="Right" Margin="0,8,0,0" Style="{StaticResource BotaoDocumento}"
                         IsEnabled="{Binding PodeCriarPrescricao}" Command="{Binding CopiarUltimaPrescricaoCommand}"
                         ToolTip="Abre uma nova folha editável com os itens ativos da última prescrição emitida. Nada é salvo ou assinado automaticamente." />
             </StackPanel>
@@ -152,30 +152,30 @@
                                                  ação esperada, e "Abrir" leva à folha de
                                                  execução, que é da enfermagem. -->
                                             <Button Content="Editar" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Style="{StaticResource BotaoDocumentoPequeno}"
                                                     IsEnabled="{Binding PodeEditar}"
                                                     Command="{Binding DataContext.EditarCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                             <Button Content="Abrir" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Style="{StaticResource BotaoDocumentoPequeno}"
                                                     Command="{Binding DataContext.AbrirCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                             <Button Content="Imprimir" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Style="{StaticResource BotaoDocumentoPequeno}"
                                                     Command="{Binding DataContext.ImprimirCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                             <Button Content="Registro histórico" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Style="{StaticResource BotaoDocumentoPequeno}"
                                                     IsEnabled="{Binding TemRegistroExecucao}"
                                                     Visibility="{Binding ExibirRegistroSeparado, Converter={StaticResource BoolParaVisibilidade}}"
                                                     Command="{Binding DataContext.ImprimirExecucaoCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                             <Button Content="Cancelar"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Style="{StaticResource BotaoDocumentoPerigo}"
                                                     IsEnabled="{Binding PodeCancelar}"
                                                     Command="{Binding DataContext.CancelarCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"

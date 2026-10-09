@@ -54,9 +54,26 @@ public partial class FilaView : UserControl
         }
     }
 
+    private Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb? _buscaWeb;
+
     public FilaView()
     {
         InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            if (_buscaWeb is not null || DataContext is not FilaViewModel vm) return;
+            var adaptador = new FilaBuscaWeb(vm);
+            _buscaWeb = new Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb("filtros-agenda", adaptador.Estado, adaptador.Executar,
+                () => SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "consultar a agenda"));
+            var tabela = new Grid();
+            foreach (var filho in ConteudoAgendaBusca.Children.Cast<UIElement>().ToArray())
+            { ConteudoAgendaBusca.Children.Remove(filho); tabela.Children.Add(filho); }
+            ConteudoAgendaBusca.RowDefinitions.Add(new RowDefinition { Height = new GridLength(228) });
+            ConteudoAgendaBusca.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            Grid.SetRow(tabela, 1);
+            ConteudoAgendaBusca.Children.Add(_buscaWeb); ConteudoAgendaBusca.Children.Add(tabela);
+            if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => _buscaWeb.Dispose();
+        };
         SizeChanged += (_, _) => AjustarColunas();
         TabelaAgenda.SizeChanged += (_, _) => AjustarColunas();
         Loaded += (_, _) => AjustarColunas();

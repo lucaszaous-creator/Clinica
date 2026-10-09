@@ -133,7 +133,7 @@
              ⚠️ Não envolver a DataGrid num ScrollViewer: quebra a virtualização, e não há
              página rolante acima dela — a roda fica com a tabela. -->
         <Border Style="{StaticResource Card}" Padding="0">
-            <Grid>
+            <Grid x:Name="ConteudoAgendaBusca">
                 <!-- NaoVerificado ligado (parcela 61): banco fora do ar não pode desenhar
                      "Nenhum horário" — falha com cara de dia vazio, na abertura do médico. -->
                 <ctrl:EstadoDaTela Panel.ZIndex="1"
