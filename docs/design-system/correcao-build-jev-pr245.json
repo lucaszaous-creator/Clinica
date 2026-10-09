@@ -1,0 +1,35 @@
+{
+  "modelo_solicitado": "jev-1.13.0",
+  "sha256_pedido": "c3d5aa5bad580ff0cfb89b0c5e27d7e7a61ca2625ec89cea2b9e1921bf1a6042",
+  "escopo": "Revisão da sincronização e regressão do QA após falha de CI; sem execução pelo Jev.",
+  "perguntas": {
+    "sincronizacao": "Aguardar data-contexto atualizado e repetir alcance com limite antes do clique corrige a corrida de rolagem descrita sem mascarar ação permanentemente inacessível ou repetir gravações?",
+    "regressao": "O teste força reset da rolagem e exige um clique visível; o cenário permanentemente fora da área falha sem clique adicional. As asserções e log sustentam a correção?"
+  },
+  "pareceres": {
+    "sincronizacao": {
+      "type": "choice",
+      "choice": "coerente_com_evidencias",
+      "confidence": 0.83,
+      "probabilities": {
+        "coerente_com_evidencias": 0.89,
+        "defeito_identificado": 0.05,
+        "evidencia_insuficiente": 0.06
+      }
+    },
+    "regressao": {
+      "type": "choice",
+      "choice": "coerente_com_evidencias",
+      "confidence": 0.89,
+      "probabilities": {
+        "coerente_com_evidencias": 0.9299999999999999,
+        "defeito_identificado": 0.05,
+        "evidencia_insuficiente": 0.02
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 5280,
+    "output_tokens": 130
+  }
+}

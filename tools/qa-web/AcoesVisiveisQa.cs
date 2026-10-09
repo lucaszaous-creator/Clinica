@@ -35,18 +35,32 @@ internal static class AcoesVisiveisQa
                 }
                 const r=b.getBoundingClientRect();
                 if(r.width<=0||r.height<=0||r.left<0||r.right>innerWidth+1||r.top<0||r.bottom>innerHeight+1)
-                    throw Error('Ação fora da área acessível: '+JSON.stringify(r.toJSON()));
+                    return {repetir:true,erro:'Ação fora da área acessível: '+JSON.stringify({retangulo:r.toJSON(),largura:innerWidth,altura:innerHeight})};
                 b.click();return true;
             }catch(e){return {erro:String(e)};} })()
             """;
-        // Rolar e abrir são interações distintas. A área real usa rolagem suave por padrão;
-        // os eventos de scroll precisam terminar antes da abertura do popover.
-        foreach(var etapa in new[] { "rolar", "abrir", "clicar" })
+        // Uma resposta de navegação pode reposicionar a página depois da primeira rolagem.
+        // Reencontra e alcança a ação novamente, sem repetir cliques ou aceitar ação inacessível.
+        string? ultimoDeslocamento = null;
+        for (var tentativa = 0; tentativa < 20; tentativa++)
         {
-            var resultado = await browser.CoreWebView2.ExecuteScriptAsync(Script(etapa));
-            if (resultado != "true")
-                throw new Exception("Não foi possível " + etapa + " a ação visível: " + expressao + " — " + resultado);
-            if (etapa != "clicar") await Task.Delay(80);
+            foreach (var etapa in new[] { "rolar", "abrir", "clicar" })
+            {
+                var resultado = await browser.CoreWebView2.ExecuteScriptAsync(Script(etapa));
+                if (resultado != "true")
+                {
+                    using var estado = JsonDocument.Parse(resultado);
+                    if (etapa == "clicar" && estado.RootElement.TryGetProperty("repetir", out var repetir) && repetir.GetBoolean())
+                    {
+                        ultimoDeslocamento = resultado;
+                        break;
+                    }
+                    throw new Exception("Não foi possível " + etapa + " a ação visível: " + expressao + " — " + resultado);
+                }
+                if (etapa == "clicar") return;
+                await Task.Delay(80);
+            }
         }
+        throw new Exception("A ação permaneceu fora da área acessível: " + expressao + " — " + ultimoDeslocamento);
     }
 }

@@ -126,7 +126,7 @@ static partial class Fluxos
    foreach(var tamanho in SoGestos?new[]{(1044,788)}:new[]{(1440,900),(1044,788),(900,600)}) {window.Width=tamanho.Item1;window.Height=tamanho.Item2;await Task.Delay(250);
     foreach(var p in defs){await view.NavegarAsync(p.Chave);await Task.Delay(400);var ok=await browser.CoreWebView2.ExecuteScriptAsync("document.documentElement.scrollWidth<=innerWidth+1 && !!document.querySelector('.navegacao-topo') && !document.querySelector('.sidebar')");Exigir(ok=="true","Layout inválido "+p.Chave);using var f=File.Create(Path.Combine(saida,p.Chave+"-"+tamanho.Item1+".png"));await view.CapturarPreviewAsync(f);Console.WriteLine("OK WebView2 "+p.Chave+" "+tamanho.Item1);}
    }
-   if (!SoGestos && defs.Any(d=>d.Chave==ModuloClinico.ChaveAtendimento)) await ValidarAcoesExpostasAsync(view, browser, window, saida);
+   if (!SoGestos && defs.Any(d=>d.Chave==ModuloClinico.ChaveAtendimento)) { await ValidarRolagemTardiaAsync(browser); await ValidarAcoesExpostasAsync(view, browser, window, saida); }
    if (!SoGestos && defs.Any(d=>d.Chave==ModuloClinico.ChavePaciente)) await ValidarFichaVisualAsync(sp, view, browser, () => ultimoPdfEntregue);
    if(defs.Any(d=>d.Chave==ModuloClinico.ChaveAtendimento)) {
     window.Width=1044;window.Height=788;await view.NavegarAsync(ModuloClinico.ChaveAtendimento);await Task.Delay(350);

@@ -33,8 +33,10 @@ static partial class Fluxos
             }
             throw new Exception("Evolução simplificada não atingiu estado: " + expressao);
         }
+        // NavegarAsync aguarda o host; a ponte entrega o novo contexto ao DOM depois.
+        var contextoAnterior = await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-comando=\"Atendimento.AbrirDetalhe\"]')?.dataset.contexto ?? null");
         await view.NavegarAsync(ModuloClinico.ChaveAtendimento);
-        await Esperar("!!document.querySelector('[data-comando=\"Atendimento.AbrirDetalhe\"]')");
+        await Esperar("!!document.querySelector('[data-comando=\"Atendimento.AbrirDetalhe\"]') && document.querySelector('[data-comando=\"Atendimento.AbrirDetalhe\"]').dataset.contexto !== " + contextoAnterior);
         Exigir(await browser.CoreWebView2.ExecuteScriptAsync("!document.querySelector('[data-tabela-container=\"Atendimento.AlertasClinicos\"],[data-tabela-container=\"Atendimento.Alertas\"],[data-tabela-container=\"Atendimento.CamposPersonalizados\"]')") == "true",
             "Evolução ainda exibe os blocos dispensados pelo proprietário.");
         await AcoesVisiveisQa.Clicar(browser, "[data-comando=\"Atendimento.AbrirDetalhe\"]");

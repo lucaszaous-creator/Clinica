@@ -60,3 +60,11 @@ As capturas usam WebView2 e dados sintéticos. Essa cobertura não certifica tod
 O proprietário solicitou revisão adicional pelo Jev. A análise de apresentação dos cinco módulos está em [acoes-jev-pr245.json](acoes-jev-pr245.json), classificada como `coberto_com_limites`. Após os ajustes clínicos, uma nova consulta recebeu fontes e resultados de testes reais com dados sintéticos: [funcionalidades-jev-pr245.json](funcionalidades-jev-pr245.json).
 
 A revisão funcional classificou os cinco quesitos como `coerente_com_evidencias`: início/gravação/conclusão, evolução simplificada, infusão, recepção e demais módulos. Jev analisou o material fornecido; não operou o aplicativo, não inspecionou imagens e não certificou todos os cenários possíveis. A execução funcional foi realizada pelos testes locais.
+
+## Correção da sincronização no CI Windows
+
+O build de `78ed66c` falhou no clique de Campos complementares: o QA encontrou o botão do contexto anterior, rolou, e a resposta assíncrona da navegação reiniciou a rolagem antes do clique. A compilação e os testes de serviços/PostgreSQL daquele commit passaram.
+
+O teste de evolução agora aguarda o novo `data-contexto`. O helper de ações reencontra e alcança o botão com limite de tentativas quando a geometria muda antes do clique; não repete um clique já disparado e continua rejeitando ações ausentes, desabilitadas, ocultas ou permanentemente inacessíveis. A regressão `RolagemTardia.cs` força um reset entre rolar e clicar, exige exatamente um clique visível e confirma zero cliques adicionais num botão fora da área acessível. O fluxo clínico completo passou localmente com essa regressão. A alteração é restrita ao QA, sem mudar regras ou apresentação do aplicativo.
+
+A revisão adicional do Jev para esta correção de QA está em [correcao-build-jev-pr245.json](correcao-build-jev-pr245.json): sincronização e regressão classificadas como `coerente_com_evidencias`, somente por análise das fontes e do log local.
