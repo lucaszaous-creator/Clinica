@@ -204,7 +204,10 @@ jobs:
             "--packTitle",   "${{ steps.alvo.outputs.titulo }}"
           )
           if ($canal -ne "win") { $args += @("--channel", $canal) }
-          if ($canal -eq "financeiro") { $args += @("--framework", "webview2") }
+          # As agendas e a prescrição locais também dependem do WebView2.
+          if ($canal -in @("financeiro", "recepcao", "clinico", "gerente")) {
+            $args += @("--framework", "webview2")
+          }
           & vpk @args
           if ($LASTEXITCODE -ne 0) { throw "vpk pack falhou" }
 
