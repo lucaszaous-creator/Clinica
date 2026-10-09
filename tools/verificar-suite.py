@@ -1091,6 +1091,12 @@ for vm in sorted(RAIZ.glob("src/Clinica.Modulo.*/ViewModels/*ViewModel.cs")):
             estados_react = ('PainelClinicoWeb("agenda"' in host
                 and "carregando = vm.Carregando" in ponte and "naoVerificado = vm.NaoVerificado" in ponte
                 and "estado.naoVerificado?" in react and "estado.carregando?" in react and "!linhas.length?" in react)
+        if view.stem in {"PrescricoesClinicasView", "PrescricaoInfusaoView"}:
+            ponte = (view.parent / "PrescricoesWebAdapter.cs").read_text(encoding="utf-8")
+            react = (RAIZ / "src/Clinica.Desktop.Shell/WebClinica/frontend/src/Prescricoes.tsx").read_text(encoding="utf-8")
+            estados_react = ('PainelClinicoWeb("prescricoes"' in host
+                and "carregando = Carregando" in ponte and "naoVerificado = NaoVerificado" in ponte
+                and "estado.carregando?" in react and "estado.naoVerificado?" in react and "linhas.length===0?" in react)
         if not estados_react:
             _pendentes.append(view.stem)
 

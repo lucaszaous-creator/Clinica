@@ -108,7 +108,15 @@ public sealed class PainelClinicoWeb : UserControl, IDisposable
             _erro = null;
             // Campos são aplicados sincronamente pelo adaptador, sem bloquear a digitação.
             _ocupado = acao is not ("campo" or "filtrar");
-            if (_ocupado) Enviar();
+            if (_ocupado)
+            {
+                Enviar();
+                // ShowDialog pode abrir outro WebView. Sair da pilha do evento nativo
+                // antes do comando evita bloquear a inicialização desse navegador.
+                await Dispatcher.Yield(DispatcherPriority.Background);
+                if (_descartado || !IsLoaded) return;
+                ExigirAcesso();
+            }
             await _executar(m.Clone());
         }
         catch (Exception ex) { _erro = ex is JsonException ? "Comando inválido." : ex.Message; }

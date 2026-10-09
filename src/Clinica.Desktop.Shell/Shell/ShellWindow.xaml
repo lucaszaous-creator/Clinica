@@ -72,7 +72,7 @@
         </Style>
     </Window.Resources>
 
-    <Grid>
+    <Grid x:Name="RaizShell">
         <!-- ==================== CONTEÚDO ==================== -->
         <DockPanel>
             <!-- Identidade da clínica, pesquisa e sessão do usuário. -->
@@ -298,16 +298,12 @@
             <ContentControl x:Name="AreaDeTrabalho" Content="{Binding TelaAtual}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
         </DockPanel>
 
-        <!-- ===== Snackbar (sobreposto, centro inferior) =====
-             ÚLTIMO filho do Grid raiz, e não irmão dentro do DockPanel: sobreposição posta
-             num painel linear passa a OCUPAR espaço em vez de sobrepor, e ainda derruba o
-             leiaute em volta (a lição da parcela 50, hoje cobrada pela checagem 25).
-
-             Faltava desde que a suíte nasceu. O serviço existia, era injetado em quase toda
-             ViewModel e chamado 143 vezes; só o faturamento tinha onde mostrá-lo. -->
-        <Border
-                Style="{StaticResource SnackbarBorda}" Panel.ZIndex="100"
-                Visibility="{Binding Snackbar.EstaVisivel, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- Popup com HWND próprio supera o airspace do WebView2. Acompanha somente
+             esta janela ativa e preserva o serviço, histórico e duração do aviso. -->
+        <ctrl:SnackbarPopup x:Name="Notificacao" PlacementTarget="{Binding ElementName=RaizShell}"
+                            EstaVisivel="{Binding Snackbar.EstaVisivel}">
+        <Border x:Name="ConteudoNotificacao" Style="{StaticResource SnackbarBorda}" Margin="0"
+                AutomationProperties.Name="Notificação da clínica" AutomationProperties.LiveSetting="Polite">
             <StackPanel Orientation="Horizontal">
                 <TextBlock FontFamily="{StaticResource FonteIcones}"
                            FontSize="{StaticResource Fonte.Corpo}"
@@ -334,5 +330,6 @@
                            VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="400" />
             </StackPanel>
         </Border>
+        </ctrl:SnackbarPopup>
     </Grid>
 </Window>

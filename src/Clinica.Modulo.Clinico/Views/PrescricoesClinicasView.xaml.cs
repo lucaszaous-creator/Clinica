@@ -1,31 +1,30 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using Clinica.Clinico.ViewModels;
-using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.WebClinica;
 
 namespace Clinica.Clinico.Views;
 
-/// <summary>Prescrições do consultório: emitir e reimprimir documento clínico.</summary>
 public partial class PrescricoesClinicasView : UserControl
 {
-    public PrescricoesClinicasView() => InitializeComponent();
-
-    /// <summary>
-    /// O "⋯" da linha: as ações que não são a principal daquele documento.
-    ///
-    /// O menu é o do shell (<see cref="MenuDoDocumento"/>) desde set/2026 — são TRÊS telas
-    /// com os mesmos seis atos, e os rótulos deles ("Imprimir a 2ª via", "Assinar com o
-    /// e-CPF…") são metade do que a consolidação entrega: três cópias chamariam o mesmo ato
-    /// por nomes diferentes na primeira correção.
-    /// </summary>
-    private void AoAbrirMenuDoDocumento(object sender, RoutedEventArgs e)
+    private PainelClinicoWeb? _painel;
+    public PrescricoesClinicasView()
     {
-        if (sender is not FrameworkElement botao) return;
-        if (botao.DataContext is not LinhaDocumentoClinico linha) return;
-        if (DataContext is not PrescricoesClinicasViewModel vm) return;
-
-        MenuDoDocumento.Abrir(sender, linha.Documento, linha, new ComandosDoDocumento(
-            vm.ImprimirCommand, vm.AssinarCommand, vm.EnviarCommand,
-            vm.RenovarLinkCommand, vm.TirarDoArCommand, vm.CancelarCommand));
+        InitializeComponent();
+        Loaded += (_, _) => Montar();
+        DataContextChanged += (_, _) => { Desmontar(); if (IsLoaded) Montar(); };
+        Unloaded += (_, _) => Desmontar();
+    }
+    private void Montar()
+    {
+        if (_painel is not null || DataContext is not PrescricoesClinicasViewModel vm) return;
+        var adaptador = new PrescricoesWebAdapter(vm);
+        _painel = new PainelClinicoWeb("prescricoes", adaptador.ObterEstado, adaptador.ExecutarAsync, adaptador.ExigirAcesso);
+        ConteudoPrescricoes.Children.Add(_painel);
+    }
+    private void Desmontar()
+    {
+        _painel?.Dispose(); _painel = null;
+        ConteudoPrescricoes.Children.Clear();
     }
 }

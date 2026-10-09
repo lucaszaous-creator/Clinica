@@ -1,4 +1,4 @@
-using Clinica.Application.Servicos;
+﻿using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Shell.Modulos;
@@ -21,6 +21,7 @@ public sealed class LinhaPrescricaoInterna
     public required string Numero { get; init; }
     public required string Data { get; init; }
     public required string Situacao { get; init; }
+    public string GrupoVisual { get; init; } = "";
     public required string Resumo { get; init; }
     public required string Execucao { get; init; }
     public required string Codigo { get; init; }
@@ -54,6 +55,7 @@ public sealed class LinhaPrescricaoInterna
             Numero = p.Numero,
             Data = $"{p.Data:dd/MM/yyyy} às {p.Hora:HH\\:mm}",
             Situacao = RotulosEnum.De(p.Situacao),
+            GrupoVisual = p.Situacao.ToString().ToLowerInvariant(),
             Resumo = resumo,
             Execucao = execucao,
             Codigo = p.CodigoVerificacao,
@@ -107,6 +109,9 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
     [ObservableProperty] private string _paciente = string.Empty;
 
     private int _pacienteId;
+
+    public int PacienteAtualId => _pacienteId;
+    public string ContextoDaLista => $"{_pacienteId}:{_geracaoCarga}";
 
     public bool TemPaciente => !SemPaciente;
 
