@@ -4,7 +4,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
-/// <summary>Exercita o template real de rolagem sem setas, nas duas orientações.</summary>
+/// <summary>Exercita o template real de rolagem com setas modernas, nas duas orientações.</summary>
 internal static class RolagemQa
 {
     public static async Task Executar()
@@ -31,15 +31,28 @@ internal static class RolagemQa
                     ?? throw new Exception("Rolagem sem trilho nativo.");
                 if (trilho.Thumb is null || !trilho.Thumb.IsVisible)
                     throw new Exception("Rolagem sem indicador arrastável.");
-                if (Desc<RepeatButton>(barra).Any(b => b.Command == ScrollBar.LineDownCommand || b.Command == ScrollBar.LineUpCommand
-                    || b.Command == ScrollBar.LineLeftCommand || b.Command == ScrollBar.LineRightCommand))
-                    throw new Exception("Rolagem moderna ainda contém setas de linha.");
+                var avancar = Desc<RepeatButton>(barra).Single(b => b.Command == (orientacao == Orientation.Vertical ? ScrollBar.LineDownCommand : ScrollBar.LineRightCommand));
+                var voltar = Desc<RepeatButton>(barra).Single(b => b.Command == (orientacao == Orientation.Vertical ? ScrollBar.LineUpCommand : ScrollBar.LineLeftCommand));
+                foreach (var seta in new[] { avancar, voltar })
+                    if (!seta.IsVisible || seta.ActualWidth < 24 || seta.ActualHeight < 24 || !Desc<System.Windows.Shapes.Path>(seta).Any()
+                        || string.IsNullOrWhiteSpace(System.Windows.Automation.AutomationProperties.GetName(seta)) || seta.Interval <= 0)
+                        throw new Exception($"Seta {orientacao} perdeu desenho vetorial, alvo ou descrição acessível.");
+                double Deslocamento() => orientacao == Orientation.Vertical ? rolagem.VerticalOffset : rolagem.HorizontalOffset;
+                void Clicar(RepeatButton b) => ((RoutedCommand)b.Command).Execute(b.CommandParameter, b.CommandTarget);
+                Clicar(avancar); await Estabilizar();
+                var primeiroPasso = Deslocamento();
+                if (primeiroPasso <= 0) throw new Exception($"Seta não avançou {orientacao}.");
+                for (var repeticao = 0; repeticao < 3; repeticao++) { Clicar(avancar); await Estabilizar(); }
+                var repetido = Deslocamento();
+                if (repetido <= primeiroPasso) throw new Exception($"Repetição da seta não avançou {orientacao}.");
+                Clicar(voltar); await Estabilizar();
+                if (Deslocamento() >= repetido) throw new Exception($"Seta não voltou {orientacao}.");
+                rolagem.ScrollToHorizontalOffset(0); rolagem.ScrollToVerticalOffset(0); await Estabilizar();
                 var pagina = trilho.IncreaseRepeatButton;
                 if (pagina.Command is not RoutedCommand comando || !comando.CanExecute(pagina.CommandParameter, pagina.CommandTarget))
                     throw new Exception("Trilho não permite avançar uma página.");
                 comando.Execute(pagina.CommandParameter, pagina.CommandTarget);
                 await Estabilizar();
-                double Deslocamento() => orientacao == Orientation.Vertical ? rolagem.VerticalOffset : rolagem.HorizontalOffset;
                 if (Deslocamento() <= 0) throw new Exception($"Clique no trilho não rolou {orientacao}.");
                 rolagem.ScrollToHorizontalOffset(0); rolagem.ScrollToVerticalOffset(0); await Estabilizar();
                 trilho.Thumb.RaiseEvent(new DragStartedEventArgs(0, 0) { RoutedEvent = Thumb.DragStartedEvent });
@@ -59,7 +72,7 @@ internal static class RolagemQa
                 { RoutedEvent = Keyboard.KeyDownEvent });
             await Estabilizar();
             if (rolagem.VerticalOffset <= 0) throw new Exception("PageDown não rolou o conteúdo.");
-            Console.WriteLine("OK ROLAGEM: sem setas; trilho e arraste vertical/horizontal, roda e PageDown preservados.");
+            Console.WriteLine("OK ROLAGEM: setas vetoriais nas quatro direções, alvos 24px e repetição; trilho e arraste vertical/horizontal, roda e PageDown preservados.");
         }
         finally { janela.Close(); System.Windows.Application.Current.MainWindow = principalAnterior; }
     }

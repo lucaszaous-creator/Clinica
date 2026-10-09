@@ -74,6 +74,7 @@ internal static class Program
                 janela.Width = largura; await Task.Delay(350);
                 await Esperar(navegador, "document.documentElement.scrollWidth<=innerWidth+1");
                 await ConferirAlinhamento(navegador);
+                await ConferirRolagem(navegador);
                 await Capturar(navegador, Path.Combine(saida, $"agenda-{largura}.png"));
             }
             janela.Width = 1100;
@@ -83,6 +84,7 @@ internal static class Program
             }
             await Buscar("joao silva");
             await Esperar(navegador, "document.querySelectorAll('.linha-agenda').length===1 && document.querySelector('.paciente h2').textContent==='João da Silva'");
+            await Esperar(navegador, "!document.querySelector('.controles-rolagem')");
             await Script(navegador, "document.querySelector('.filtro-situacao.cancelado').click()");
             await Esperar(navegador, "document.querySelectorAll('.linha-agenda').length===0 && document.querySelector('.vazio').textContent.includes('Nenhum paciente')");
             await Script(navegador, "document.querySelector('.filtros-agenda .secundario').click()");
@@ -112,5 +114,21 @@ internal static class Program
             Console.WriteLine("OK agenda: cores, busca sem acentos, filtros combinados, vazio/erro/carga, foco, clique duplo, contexto e navegação bloqueados; 1440/1100/900/620 px.");
         }
         finally { janela.Close(); }
+    }
+
+    private static async Task ConferirRolagem(WebView2 navegador)
+    {
+        await Esperar(navegador, "document.querySelector('.controles-rolagem button[aria-label=\"Rolar para cima\"]')?.disabled===true");
+        await Esperar(navegador, "(()=>{const controle=document.querySelector('.controles-rolagem').getBoundingClientRect();return [...document.querySelectorAll('.linha-agenda')].every(e=>e.getBoundingClientRect().right<controle.left)})()");
+        await Script(navegador, "document.querySelector('[aria-label=\"Rolar para baixo\"]').click()");
+        await Esperar(navegador, "scrollY>50 && !document.querySelector('[aria-label=\"Rolar para cima\"]').disabled");
+        await Task.Delay(600);
+        await Script(navegador, "document.querySelector('[aria-label=\"Rolar para cima\"]').click()");
+        await Esperar(navegador, "scrollY<=1 && document.querySelector('[aria-label=\"Rolar para cima\"]').disabled");
+        await Script(navegador, "window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'})");
+        await Esperar(navegador, "document.querySelector('[aria-label=\"Rolar para baixo\"]').disabled");
+        await Script(navegador, "window.scrollTo({top:0,behavior:'instant'})");
+        await Esperar(navegador, "document.querySelector('[aria-label=\"Rolar para cima\"]').disabled");
+        Console.WriteLine("OK rolagem React: subir/descer move a lista, limites desabilitados e controles sem cobrir pacientes ou ações.");
     }
 }

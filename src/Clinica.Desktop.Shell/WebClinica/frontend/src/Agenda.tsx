@@ -1,4 +1,5 @@
 import {useId,useMemo,useState} from 'react';
+import ControlesRolagem from './ControlesRolagem';
 
 export interface LinhaAgenda {
  comando?:string; acoes?:{chave:string;rotulo:string;habilitada:boolean}[]; selos?:{texto:string;tom:string}[];
@@ -34,5 +35,6 @@ export default function Agenda({estado,ocupado,enviar,somenteFiltros=false}:{est
    <div className="situacao"><span className={`selo ${l.grupo}`}><span className="ponto" aria-hidden="true"/>{l.situacao}</span>{l.detalhe&&<small>{l.detalhe}</small>}{l.registro&&<small>Prontuário: <strong>{l.registro}</strong></small>}</div>
    <div className="acoes-agenda">{l.acao&&<button className="abrir-agenda" disabled={ocupado||!l.habilitada} onClick={()=>enviar({acao:l.comando??'abrir',id:l.id,contexto:estado.contexto})} aria-label={`${l.acao}: ${l.paciente}, ${l.data} às ${l.hora}`}>{l.acao}<span aria-hidden="true"> →</span></button>}{l.acoes?.map(a=><button key={a.chave} className="abrir-agenda" disabled={ocupado||!a.habilitada} onClick={()=>enviar({acao:a.chave,id:l.id,contexto:estado.contexto})} aria-label={`${a.rotulo}: ${l.paciente}`}>{a.rotulo}</button>)}</div>
   </article>)}</div>}</>)}
+ {!somenteFiltros&&<ControlesRolagem/>}
  </main>;
 }

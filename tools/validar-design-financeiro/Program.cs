@@ -121,8 +121,9 @@ static class Program
                 foreach(var scroll in Desc<ScrollViewer>(view).Where(s=>s.IsVisible && s.ScrollableWidth>0).ToArray())
                 {
                     if(!Desc<ScrollBar>(scroll).Any(b=>b.Orientation==Orientation.Horizontal && b.IsVisible
-                            && b.Template.FindName("PART_Track",b) is Track { Thumb.IsVisible: true }))
-                        throw new Exception("Sem indicador de rolagem horizontal arrastável: "+item.Chave);
+                            && b.Template.FindName("PART_Track",b) is Track { Thumb.IsVisible: true }
+                            && Desc<RepeatButton>(b).Count(r => r.IsVisible && (r.Command == ScrollBar.LineLeftCommand || r.Command == ScrollBar.LineRightCommand)) == 2))
+                        throw new Exception("Sem setas e indicador de rolagem horizontal: "+item.Chave);
                     scroll.ScrollToRightEnd(); await Estabilizar(window);
                     if(scroll.HorizontalOffset<=0) throw new Exception("Colunas não rolam: "+item.Chave);
                     Capturar(window,$"{item.Chave}-colunas-direita-{largura}");
@@ -141,8 +142,9 @@ static class Program
                 {
                     Console.WriteLine($"ROLAR {item.Chave} altura={scroll.ActualHeight:0} extensão={scroll.ExtentHeight:0}");
                     if(!Desc<ScrollBar>(scroll).Any(b=>b.Orientation==Orientation.Vertical && b.IsVisible
-                            && b.Template.FindName("PART_Track",b) is Track { Thumb.IsVisible: true }))
-                        throw new Exception("Sem indicador de rolagem vertical arrastável: "+item.Chave);
+                            && b.Template.FindName("PART_Track",b) is Track { Thumb.IsVisible: true }
+                            && Desc<RepeatButton>(b).Count(r => r.IsVisible && (r.Command == ScrollBar.LineUpCommand || r.Command == ScrollBar.LineDownCommand)) == 2))
+                        throw new Exception("Sem setas e indicador de rolagem vertical: "+item.Chave);
                     scroll.ScrollToEnd(); await Estabilizar(window);
                     if(scroll.VerticalOffset<=0) throw new Exception("Conteúdo não rola: "+item.Chave);
                 }

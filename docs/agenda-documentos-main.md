@@ -6,7 +6,7 @@ Base: `5cd5d55` (main consultada em 09/10/2026). Branch: `codex/agenda-documento
 
 - Meu dia e lista diária da recepção: lista React como apresentação única, com lupa, busca sem distinguir acentos/maiúsculas, filtros combináveis por modalidade e situação, contagens e limpeza. Não há abas extras nem tabela duplicada.
 - Grade multiprofissional e Minha semana: filtros React acima da grade existente, mantendo horários livres, bloqueios e ações administrativas. Em áreas estreitas, a situação usa um seletor compacto para preservar a área útil da grade.
-- Rolagem: barras discretas e arredondadas, sem as setas antigas, tanto no HTML quanto nas telas nativas. Arraste, roda, teclado e cliques no trilho continuam disponíveis.
+- Rolagem: nas listas React, dois botões com setas SVG ficam agrupados à direita, em espaço reservado, sem cobrir pacientes ou ações. Sobem/descem parte da página, desabilitam nos limites e respeitam movimento reduzido. A barra permanece discreta e arrastável. Nas telas nativas, setas vetoriais circulares nas quatro direções permitem clique e repetição ao segurar, junto ao trilho, arraste, roda e teclado.
 - Pendentes em âmbar; no local/em atendimento em azul; atendidos em verde; cancelamentos/faltas em vermelho; substituições em cinza. A cor sempre acompanha o texto da situação. A classificação usa status e etapa fornecidos pelo C#; não grava estado clínico pelo navegador.
 - Editor da prescrição de infusão em React/TypeScript/CSS: preparo e medicamentos agrupados por infusão, medicamentos sugeridos pelo catálogo, modelos, copiar última, texto com negrito/itálico e rodapé com salvar/liberar acessível durante a rolagem.
 - Ações nas listas de documentos e na folha: botões azuis contornados para abrir/copiar/imprimir/editar e vermelho para ações destrutivas. Essas listas continuam WPF.
@@ -26,19 +26,21 @@ As regras, persistência, confirmações e assinatura existentes continuam no ho
 
 O harness utiliza somente dados fictícios e SQLite em memória. Exercita busca sem acentos, filtros combinados, limpar, vazio/carga/erro, manutenção do foco, clique duplo, contexto e navegação bloqueados; testa MeuDiaView e FilaView reais e o editor real de infusão com adapter/ViewModel/banco. Na prescrição, cobre cancelar/aplicar modelo, salvar/reabrir com formatação, salvar modelo, liberação, cópia sem salvar automaticamente, IDs obsoletos, campos/vias inválidos e acesso negado.
 
-Lista React verificada em 1440/1100/900/620 px; Meu dia real em 1366/1100/900 px; recepção em 1100/900 px; infusão em 1180/900/650 px. Evidências locais em `artifacts/agenda-documentos`, com resultados em `artifacts/qa-correcao.log`.
+Lista React verificada em 1440/1100/900/620 px; Meu dia real em 1366/1100/900 px; recepção em 1100/900 px; infusão em 1180/900/650 px. Evidências locais em `artifacts/agenda-documentos`, com resultados da revisão em `artifacts/qa-correcao.log` e dos controles React em `artifacts/qa-setas-react.log`.
 
 Limites: certificado/assinatura externa e banco de produção não foram utilizados. Confirmações foram exercitadas com respostas determinísticas do serviço de diálogo. A execução não publica versão nem integra a branch à main.
 
 ## Revisão Jev
 
-O script `tools/validar-agenda-documentos/revisar_jev.py` envia somente fontes e resultados sintéticos, com hashes, ao modelo `jev-1.13.0`, a pedido do proprietário. Os escopos são agenda, infusão, integração, rolagem e documentos. A resposta efetiva fica em `docs/agenda-documentos-jev.json`; a aprovação é limitada à análise desses materiais e não equivale a operação do aplicativo pelo Jev ou aprovação de produção.
+O script `tools/validar-agenda-documentos/revisar_jev.py` envia somente fontes e resultados sintéticos, com hashes, ao modelo `jev-1.13.0`, a pedido do proprietário. Os escopos são agenda, infusão, integração, rolagem e documentos. As respostas efetivas ficam em `docs/agenda-documentos-jev.json`, `docs/agenda-documentos-jev-correcao.json` e `docs/agenda-documentos-jev-setas.json`; a aprovação é limitada à análise desses materiais e não equivale a operação do aplicativo pelo Jev ou aprovação de produção.
 
 ## Capturas
 
 ![Agenda com busca e situações](evidencias-agenda-documentos/agenda.png)
 
 ![Recepção com lista única e ações](evidencias-agenda-documentos/recepcao.png)
+
+![Meu dia no módulo Clínico](evidencias-agenda-documentos/clinico.png)
 
 ![Infusão com preparo e medicamentos](evidencias-agenda-documentos/infusao.png)
 

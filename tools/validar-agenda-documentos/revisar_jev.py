@@ -25,7 +25,7 @@ def main():
     saida.mkdir(parents=True, exist_ok=True)
     shell = "src/Clinica.Desktop.Shell/WebClinica/"
     grupos = {
-        "agenda": [shell + "frontend/src/Agenda.tsx", shell + "frontend/src/estilo.css",
+        "agenda": [shell + "frontend/src/Agenda.tsx", shell + "frontend/src/ControlesRolagem.tsx", shell + "frontend/src/estilo.css",
                    "src/Clinica.Application/Modelos/SituacaoVisualAgenda.cs",
                    "src/Clinica.Modulo.Recepcao/Views/AgendaBuscaWeb.cs", "src/Clinica.Modulo.Recepcao/Views/FilaBuscaWeb.cs",
                    "src/Clinica.Modulo.Clinico/Views/AgendaMedicoWeb.cs", shell + "LinhaAgendaWeb.cs",
@@ -62,7 +62,7 @@ def main():
         if not chave or any(c.isspace() for c in chave):
             raise ValueError("Credencial Jev indisponível")
     evidencias = {}
-    for nome in ["qa-correcao.log", "testes-correcao.log", "verificar-suite.log", "qa-layout-filtros-rolagem.log", "qa-financeiro-rolagem.log"]:
+    for nome in ["qa-setas-react.log", "testes-correcao.log", "verificar-suite.log", "qa-layout-setas-modernas.log", "qa-financeiro-setas-modernas.log"]:
         caminho = RAIZ / "artifacts" / nome
         if caminho.exists():
             linhas = caminho.read_text(encoding="utf-8-sig", errors="replace").splitlines()
@@ -74,7 +74,7 @@ def main():
         fontes = {p: (RAIZ / p).read_text(encoding="utf-8-sig") for p in arquivos}
         alteracoes = subprocess.check_output(["git", "diff", args.base, "--", *diffs[nome]], cwd=RAIZ, encoding="utf-8") if nome in diffs else ""
         pedido = {"model": "jev-1.13.0", "state": {
-            "pedido_cliente": "Busca e filtros nas agendas médico/recepção, cores de estados, ações clicáveis destacadas em documentos/prescrição infusão. Partir só main; não incorporar PR245. Correção solicitada: retirar abas extras; visual aprovado é lista React única de pacientes com faixas coloridas e filtros acima. Grades de disponibilidade continuam acessíveis diretamente. Modernizar scroll sem setas antigas e corrigir CI.",
+            "pedido_cliente": "Busca e filtros nas agendas médico/recepção, cores de estados, ações clicáveis destacadas em documentos/prescrição infusão. Partir só main; não incorporar PR245. Correção solicitada: retirar abas extras; visual aprovado é lista React única de pacientes com faixas coloridas e filtros acima. Grades de disponibilidade continuam acessíveis diretamente. Modernizar scroll mantendo botões subir/descer: nas listas React um par de setas SVG agrupado à direita, com espaço reservado e estados de limite; nas telas WPF setas vetoriais circulares no trilho. O primeiro desenho de botões pequenos foi rejeitado pelo cliente. Corrigir CI.",
             "escopo": nome, "fontes": fontes, "alteracoes": alteracoes, "evidencias_sinteticas": evidencias,
             "limites": "Revisão de código e evidências fornecidas, sem operação pelo Jev nem acesso a pacientes reais. Grade e diálogos administrativos nativos preservados; não se afirma migração completa de módulo. Sem publicação, assinatura real ou produção."
         }, "questions": {"parecer": {"type": "choice", "criteria": {

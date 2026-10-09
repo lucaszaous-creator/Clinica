@@ -12,8 +12,9 @@ O CI prepara o runtime antes de executar qualquer verificação de layout.
 O harness aguarda os painéis web carregarem antes das capturas e exige vagas clicáveis
 na grade original, sem precisar abrir uma aba adicional.
 
-A rolagem é exercitada com o template compartilhado sem setas: clique no trilho e
-arraste nas duas orientações, roda do mouse e tecla PageDown devem mover o conteúdo.
+A rolagem é exercitada com o template compartilhado: quatro setas vetoriais com clique
+e repetição, clique no trilho, arraste nas duas orientações, roda do mouse e tecla PageDown
+devem mover o conteúdo. O thumb permanece visível também em regiões de rolagem pequenas.
 
 Use `--retornos` para conferir somente “Retornos a marcar”, com dados fictícios,
 nos perfis Recepção e Gerente, em 880, 1024, 1366 e 1920 pixels. A verificação
