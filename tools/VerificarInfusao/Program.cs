@@ -64,6 +64,7 @@ internal static class Program
         Confere(grupo.Itens[0].DicaDose=="Quantidade em mL","Lidocaína orienta quantidade em mL");
         var janela=new PrescricaoInternaWindow(vm);Abrir(janela,1180,680);await Render(janela,"prescricao-minimalista.png");
         janela.Width=900;janela.Height=560;await Render(janela,"prescricao-900.png");janela.Close();
+        vm.Observacoes="Observação geral preexistente do paciente fictício";
         grupo.Volume="250 mL";grupo.Itens[0].Dose="7 mL";grupo.Horario="09:00";grupo.Itens[0].Observacoes="Nota do paciente fictício";
         Confere(await vm.SalvarModeloAsync(grupo,"Composição demonstrativa"),vm.Mensagem??"Salvar modelo");
         var modelo=vm.Modelos.Single(m=>m.Nome=="Composição demonstrativa");
@@ -81,6 +82,12 @@ internal static class Program
         Confere(!(await checagens.DoDiaAsync(DateOnly.FromDateTime(DateTime.Today))).Any(x=>x.Id==p.Id),"Rascunho não aparece na fila da enfermagem");
         var reaberta=new PrescricaoInternaEdicaoViewModel(escopos,dialogo,paciente.Id,paciente.Nome,profissional.Id,prescricaoId:p.Id);await reaberta.Inicializacao;
         Confere(reaberta.Infusoes.Count==2&&reaberta.Infusoes[0].Itens[0].Dose=="7 mL"&&reaberta.Infusoes[1].Volume=="100 mL","Reabrir conserva quantidade e preparos");
+        Confere(reaberta.Observacoes=="Observação geral preexistente do paciente fictício","Reabrir carrega observação geral preexistente");
+        reaberta.Infusoes[0].Volume="300 mL";
+        await reaberta.SalvarRascunhoCommand.ExecuteAsync(null);
+        db.ChangeTracker.Clear();
+        var editada=await db.PrescricoesInternas.Include(x=>x.Itens).SingleAsync();
+        Confere(!reaberta.MensagemEhErro && editada.Observacoes=="Observação geral preexistente do paciente fictício" && editada.Itens.First(x=>x.GrupoInfusao==1).Observacoes=="Nota do paciente fictício","Editar preparo sem tocar em observações preserva nota geral e nota do medicamento");
         var legado=GrupoInfusaoEdicao.Carregar([new(){Descricao="A"},new(){Descricao="B"}],false,null,null);
         Confere(legado.Count==2,"Itens antigos independentes não viram uma mistura");
         var catalogo=new MedicamentosView(escopos);await catalogo.Inicializacao;

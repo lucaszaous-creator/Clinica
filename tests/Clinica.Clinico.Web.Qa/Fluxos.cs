@@ -33,7 +33,10 @@ static partial class Fluxos
    var caminho=Path.Combine(pasta,nome);await File.WriteAllBytesAsync(caminho,bytes);ultimoPdfEntregue=caminho;return null;
   }));
   var modulo=new ModuloClinico();modulo.Registrar(sc);using var sp=sc.BuildServiceProvider();
-  using(var scope=sp.CreateScope()) {var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();await db.Database.EnsureCreatedAsync();var profissional=new Profissional{Nome="Profissional sintético",RegistroConselho="DEMONSTRACAO"};var u=new UsuarioSistema{Nome="Clínico demonstração",Login="clinico.qa",Perfil=PerfilAcesso.Gerente,Profissional=profissional};var p=new Paciente{Nome="Paciente fictícia de demonstração",Convenio=Convenio.UnimedIntercambio,Sexo=Sexo.Feminino};gestor=u;enfermeiro=new UsuarioSistema{Nome="Enfermagem sintética",Login="enfermagem.qa",Perfil=PerfilAcesso.Enfermagem,Profissional=profissional};db.AddRange(u,p,enfermeiro);await db.SaveChangesAsync();sp.GetRequiredService<SessaoUsuario>().Entrar(u);sp.GetRequiredService<PacienteEmFoco>().Definir(p.Id,p.Nome);}
+  using(var scope=sp.CreateScope()) {var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();await db.Database.EnsureCreatedAsync();var profissional=new Profissional{Nome="Profissional sintético",RegistroConselho="DEMONSTRACAO"};var u=new UsuarioSistema{Nome="Clínico demonstração",Login="clinico.qa",Perfil=PerfilAcesso.Gerente,Profissional=profissional};var p=new Paciente{Nome="Paciente fictícia de demonstração",Convenio=Convenio.UnimedIntercambio,Sexo=Sexo.Feminino};gestor=u;enfermeiro=new UsuarioSistema{Nome="Enfermagem sintética",Login="enfermagem.qa",Perfil=PerfilAcesso.Enfermagem,Profissional=profissional};db.AddRange(u,p,enfermeiro);db.CamposPersonalizadosProntuario.AddRange(
+   new CampoPersonalizadoProntuario { Rotulo="Texto sintético", Tipo=TipoCampoPersonalizado.Texto, Ordem=1 },
+   new CampoPersonalizadoProntuario { Rotulo="Lista sintética", Tipo=TipoCampoPersonalizado.Lista, Opcoes="Opção A\nOpção B", Ordem=2 },
+   new CampoPersonalizadoProntuario { Rotulo="Confirmação sintética", Tipo=TipoCampoPersonalizado.SimNao, Ordem=3 });await db.SaveChangesAsync();sp.GetRequiredService<SessaoUsuario>().Entrar(u);sp.GetRequiredService<PacienteEmFoco>().Definir(p.Id,p.Nome);}
   var defs=ClinicoWebRegistro.CriarPaginas().ToArray();var registros=ClinicoWebRegistro.CriarDialogos().Concat(RegistroCompartilhadoWeb.Dialogos()).DistinctBy(d=>(d.Chave,d.Tipo)).ToArray();
   using var pages=new PaginasWebController(sp,defs);using var dialogs=new DialogosWebController(registros);using var contexto=DialogosDaSessao.Usar(dialogs);
   foreach(var def in defs) {await pages.NavegarAsync(def.Chave);await Task.Delay(120);var dto=pages.ObterPagina();Exigir(!dto.MensagemEhErro,def.Chave+": "+dto.Mensagem);Console.WriteLine("OK página real "+def.Chave);}
@@ -68,13 +71,20 @@ static partial class Fluxos
   var workspace=(PacienteWorkspaceViewModel)pages.ViewModelAtual!;
   await pages.NavegarAsync(ModuloClinico.ChaveMedidas);await pages.NavegarAsync(ModuloClinico.ChaveAtendimento);
   Exigir(ReferenceEquals(workspace,pages.ViewModelAtual)&&workspace.Atendimento.TextoEvolucao?.Contains("sintética")==true,"Troca de aba perdeu o rascunho");
+  using(var scope=sp.CreateScope())Exigir(!await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Evolucoes.AnyAsync(),"Editar e trocar abas gravou a evolução sem executar Salvar.");
+  Console.WriteLine("OK edição sem autosave: alterar texto e navegar entre abas mantém rascunho sem criar evolução no SQLite.");
   abrir=pages.ExecutarAcaoAsync("Atendimento.AbrirMapa");dlg=await EsperarDialogo();
   await dialogs.AtualizarCampoAsync(dlg.Id,"MarcacaoWeb",J(JsonSerializer.Serialize(new{face="Frente",x=0.4,y=0.5})));
   Exigir(workspace.Atendimento.Mapa!.Pontos.Count==1,"Mapa não recebeu ponto");dialogs.Fechar(dlg.Id);await abrir;Exigir(workspace.Atendimento.Mapa.Pontos.Count==0,"Cancelar mapa não restaurou rascunho");
   abrir=pages.ExecutarAcaoAsync("Atendimento.AbrirMapa");dlg=await EsperarDialogo();await dialogs.AtualizarCampoAsync(dlg.Id,"MarcacaoWeb",J(JsonSerializer.Serialize(new{face="Frente",x=0.4,y=0.5})));await dialogs.ExecutarAcaoAsync(dlg.Id,"UsarMapaWeb");await abrir;Exigir(workspace.Atendimento.Mapa.Pontos.Count==1,"Confirmar mapa perdeu ponto");
+  await ValidarCamposComplementaresAsync(pages,dialogs,EsperarDialogo);
   await pages.ExecutarAcaoAsync("Atendimento.Salvar");
   Exigir(workspace.Atendimento.MensagemEhErro==false,"Sessão: "+workspace.Atendimento.Mensagem);
   using(var scope=sp.CreateScope())Exigir(await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Evolucoes.AnyAsync(e=>e.TextoEvolucao!.Contains("sintética")),"Sessão não persistiu");
+  using(var scope=sp.CreateScope()) {
+   var valores=await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().ValoresCampoPersonalizado.OrderBy(x=>x.Rotulo).Select(x=>x.Valor).ToListAsync();
+   Exigir(valores.SequenceEqual(new[]{"Sim","Opção B","Resposta sintética preservada"}),"Campos complementares do diálogo não persistiram os três tipos.");
+  }
   int evolucaoId;
   using(var scope=sp.CreateScope())evolucaoId=await scope.ServiceProvider.GetRequiredService<ClinicaDbContext>().Evolucoes.Select(e=>e.Id).SingleAsync();
   var leitura=new SessaoDoProntuarioViewModel(sp.GetRequiredService<IServiceScopeFactory>(),evolucaoId,"Paciente fictícia de demonstração",false);
@@ -116,6 +126,7 @@ static partial class Fluxos
    foreach(var tamanho in SoGestos?new[]{(1044,788)}:new[]{(1440,900),(1044,788),(900,600)}) {window.Width=tamanho.Item1;window.Height=tamanho.Item2;await Task.Delay(250);
     foreach(var p in defs){await view.NavegarAsync(p.Chave);await Task.Delay(400);var ok=await browser.CoreWebView2.ExecuteScriptAsync("document.documentElement.scrollWidth<=innerWidth+1 && !!document.querySelector('.navegacao-topo') && !document.querySelector('.sidebar')");Exigir(ok=="true","Layout inválido "+p.Chave);using var f=File.Create(Path.Combine(saida,p.Chave+"-"+tamanho.Item1+".png"));await view.CapturarPreviewAsync(f);Console.WriteLine("OK WebView2 "+p.Chave+" "+tamanho.Item1);}
    }
+   if (!SoGestos && defs.Any(d=>d.Chave==ModuloClinico.ChaveAtendimento)) await ValidarAcoesExpostasAsync(view, browser, window, saida);
    if (!SoGestos && defs.Any(d=>d.Chave==ModuloClinico.ChavePaciente)) await ValidarFichaVisualAsync(sp, view, browser, () => ultimoPdfEntregue);
    if(defs.Any(d=>d.Chave==ModuloClinico.ChaveAtendimento)) {
     window.Width=1044;window.Height=788;await view.NavegarAsync(ModuloClinico.ChaveAtendimento);await Task.Delay(350);
@@ -132,6 +143,7 @@ static partial class Fluxos
     using(var f=File.Create(Path.Combine(saida,"mapa-corporal-1044.png")))await view.CapturarPreviewAsync(f);
     await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-fechar-dialogo]').click()");await EsperarJs("!document.querySelector('[data-dialogo]')");
     Console.WriteLine("OK gesto DOM no mapa de costas: coordenadas fiéis a220×460, cancelamento e captura.");
+    if (!SoGestos) await ValidarConclusaoVisivelAsync(sp, view, browser, window, saida);
    }
   }finally{window.Close();}
  }

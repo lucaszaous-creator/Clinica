@@ -1,0 +1,68 @@
+{
+  "modelo_solicitado": "jev-1.13.0",
+  "sha256_pedido": "44e1f11d3023acc7de18be41b7f2b5af13664aa3defc959b788eb32526e3f729",
+  "escopo": "Revisão funcional das alterações com fontes e logs sintéticos; sem execução nem imagens pelo Jev.",
+  "perguntas": {
+    "inicio_gravacao_conclusao": "O fluxo implementado mantém Salvar explícito (sem alegar autosave), oculta Iniciar após iniciar e não duplica Concluir para médico, mantendo conclusão manual do gerente? Verificar que prazo24 é condicional e conta evolução já salva; não afirmar configuração da cliente.",
+    "evolucao_simplificada": "Remoção das três tabelas preserva acesso, edição e persistência dos campos personalizados no diálogo e não esconde editor da evolução?",
+    "infusao": "Ocultar somente Observacoes geral da prescrição preserva notas existentes, observações por medicamento e comandos de prescrição? Considerar testes reais, cancelar não grava.",
+    "recepcao": "As evidências de QA sustentam busca/seleção correta de paciente, Marcar horário acessível, gravação e cancelamento nos cenários cobertos?",
+    "outros_modulos": "Os logs de Financeiro, Gerente e Faturamento documentam operações reais e preservação funcional do padrão compartilhado, dentro dos cenários executados? Não afirmar teste exaustivo de todos os caminhos."
+  },
+  "pareceres": {
+    "inicio_gravacao_conclusao": {
+      "type": "choice",
+      "choice": "coerente_com_evidencias",
+      "confidence": 1.0,
+      "probabilities": {
+        "coerente_com_evidencias": 1.0,
+        "defeito_identificado": 0.0,
+        "evidencia_insuficiente": 0.0
+      }
+    },
+    "evolucao_simplificada": {
+      "type": "choice",
+      "choice": "coerente_com_evidencias",
+      "confidence": 1.0,
+      "probabilities": {
+        "coerente_com_evidencias": 1.0,
+        "defeito_identificado": 0.0,
+        "evidencia_insuficiente": 0.0
+      }
+    },
+    "infusao": {
+      "type": "choice",
+      "choice": "coerente_com_evidencias",
+      "confidence": 0.92,
+      "probabilities": {
+        "coerente_com_evidencias": 0.95,
+        "defeito_identificado": 0.02,
+        "evidencia_insuficiente": 0.03
+      }
+    },
+    "recepcao": {
+      "type": "choice",
+      "choice": "coerente_com_evidencias",
+      "confidence": 1.0,
+      "probabilities": {
+        "coerente_com_evidencias": 1.0,
+        "defeito_identificado": 0.0,
+        "evidencia_insuficiente": 0.0
+      }
+    },
+    "outros_modulos": {
+      "type": "choice",
+      "choice": "coerente_com_evidencias",
+      "confidence": 0.98,
+      "probabilities": {
+        "coerente_com_evidencias": 0.99,
+        "defeito_identificado": 0.0,
+        "evidencia_insuficiente": 0.01
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 31702,
+    "output_tokens": 327
+  }
+}

@@ -31,9 +31,9 @@ Verde, vermelho e âmbar identificam somente estados funcionais. Seleção, agen
 
 ## Legibilidade de campos e ações
 
-A cliente relatou que campos claros pareciam invisíveis. A revisão de 08/10/2026 preserva o fundo Cinza.100 e as superfícies brancas, mas usa contorno Cinza.500 em repouso, com contraste de 4,83:1 contra branco. Placeholders usam o mesmo cinza sem redução de opacidade; conteúdo usa Cinza.900 e rótulos usam Cinza.700. Selects incluem seta escura. Campos desabilitados continuam legíveis, com fundo cinza e borda tracejada; erros mantêm vermelho e foco mantém anel azul.
+A cliente relatou que campos claros pareciam invisíveis. A revisão de 08/10/2026 preserva o fundo Cinza.100 e as superfícies brancas, mas usa contorno Cinza.500 em repouso, com contraste de 4,83:1 contra branco. Placeholders usam o mesmo cinza sem redução de opacidade; conteúdo usa Cinza.900 e rótulos usam Cinza.700. Selects incluem seta azul. Campos desabilitados continuam legíveis, com fundo cinza e borda tracejada; erros mantêm vermelho e foco mantém anel azul.
 
-Ações secundárias têm superfície branca, texto escuro e contorno visível. Filtros ativos usam azul sólido, texto branco e marca de seleção; linhas selecionadas têm marca lateral. KPIs usam números e rótulos escuros, preservando cores funcionais de situação. Buscas, editor rico e seletor de mês seguem o contraste dos campos compartilhados.
+Confirmação, criação principal e salvar usam azul preenchido. Ações auxiliares nas barras de página, seção e diálogo usam texto e ícones azuis, alinhados sem cápsulas preenchidas; em listas, o contorno azul identifica o controle. O proprietário aprovou essa hierarquia no atendimento e pediu sua aplicação às demais telas. Não preencher todas as ações de azul com o mesmo peso. Filtros ativos usam azul sólido, texto branco e marca de seleção; linhas selecionadas têm marca lateral. KPIs usam números e rótulos escuros, preservando cores funcionais de situação. Buscas, editor rico e seletor de mês seguem o contraste dos campos compartilhados.
 
 O proprietário rejeitou o destaque arredondado de “GESTÃO”: a navegação superior é plana, sem cápsula ou fundo pastel. A seção ativa usa texto azul e linha inferior reta de 2 px. Submenus mantêm marca lateral; foco de teclado continua visível. A cor acompanha rótulos e estados acessíveis, nunca os substitui.
 

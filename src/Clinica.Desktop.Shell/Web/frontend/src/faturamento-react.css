@@ -47,7 +47,7 @@
 #app .faturamento-operacao .lista-compacta .registro-resumo dt{font-size:10px;color:var(--suave)}
 #app .faturamento-operacao .lista-compacta .registro-resumo dd{font-size:12px;color:var(--texto)}
 #app .faturamento-operacao .lista-compacta .registro-detalhes{margin-top:7px}
-#app .faturamento-operacao .lista-compacta .registro-detalhes summary{font-size:11px;color:var(--suave)}
+#app .faturamento-operacao .lista-compacta .registro-detalhes summary{font-size:11px;color:var(--marca)}
 #app .faturamento-operacao .tabela-web :is(th,td){padding:11px 12px;font-size:12px}
 #app .faturamento-operacao .tabela-web th{background:var(--superficie-filtro);color:var(--suave);font-size:11px;font-weight:500}
 #app .faturamento-operacao .acoes-na-linha .botao{font-size:11px;min-height:31px;height:auto;padding:6px 9px}

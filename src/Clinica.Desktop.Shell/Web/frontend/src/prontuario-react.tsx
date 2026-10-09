@@ -6,6 +6,7 @@ const destinos:Record<string,string>={VerAtendimentoWeb:'consultorio-atendimento
 const documentos=new Set(['EmitirDocumentos','emitir-receita','emitir-atestado','emitir-comparecimento','emitir-exame','Atendimento.PrescreverInfusao','DocumentosPacienteWeb']);
 const sessao=new Set(['IniciarSessao','ReabrirSessao','FinalizarSessao']);
 const identidade=new Set(['FotoWeb','Paciente','Contexto','Cabecalho.Linha']);
+const tabelasForaDaEvolucao=new Set(['Atendimento.AlertasClinicos','Atendimento.Alertas','Atendimento.CamposPersonalizados']);
 export const ehProntuario=(p:Pagina,c:Contexto)=>c.escopo==='pagina'&&Object.values(destinos).includes(p.chave);
 export const camposDoProntuario=(p:Pagina)=>p.campos.filter(f=>!identidade.has(f.chave));
 
@@ -15,7 +16,7 @@ export function ProntuarioCorpoReact({pagina:p,contexto:c}:{pagina:Pagina;contex
   {!!cabecalho.some(f=>f.visivel!==false&&String(f.valor??'').trim())&&<Paper className="prontuario-contexto-sessao" withBorder p="md"><CamposReact campos={cabecalho} contexto={c}/></Paper>}
   <IndicadoresReact indicadores={p.indicadores} contexto={c}/>
   {p.secoes.length>1&&<nav className="ancoras-secoes" aria-label="Seções desta página">{p.secoes.map(s=><Button key={s.chave} variant="subtle" size="compact-sm" data-ir-secao={s.chave}>{s.titulo}</Button>)}</nav>}
-  {p.secoes.map(s=>s.chave.split('.').at(-1)==='Capa'?<DadosPacienteReact key={s.chave} secao={s} contexto={c}/>:<SecaoReact key={s.chave} secao={s} contexto={c}/>)}
+  {p.secoes.map(s=>s.chave.split('.').at(-1)==='Capa'?<DadosPacienteReact key={s.chave} secao={s} contexto={c}/>:<SecaoReact key={s.chave} secao={{...s,tabelas:s.tabelas.filter(t=>!tabelasForaDaEvolucao.has(t.chave))}} contexto={c}/>)}
  </div>;
 }
 
@@ -47,8 +48,11 @@ export function ProntuarioCabecalhoReact({pagina:p,contexto:c}:{pagina:Pagina;co
   <Paper className="clinico-identidade" p="lg" withBorder>
    <Avatar src={fotoValida} color="gray" size={44} radius="xl">{nome.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('')}</Avatar>
    <div className="clinico-identidade-texto"><div className="clinico-nome"><output>{nome}</output></div><div className="clinico-identificacao"><CamposReact campos={p.campos.filter(f=>f.chave==='Cabecalho.Linha')} contexto={c}/></div><div className="clinico-contexto"><CamposReact campos={p.campos.filter(f=>f.chave==='Contexto')} contexto={c}/></div></div>
-   <div className="prontuario-operacoes"><div className="clinico-fluxo"><AcoesReact acoes={fluxo} contexto={c} tituloMenu="Atendimento"/></div></div>
+   <div className="prontuario-operacoes"><div className="clinico-fluxo" role="group" aria-label="Ações do atendimento"><AcoesReact acoes={fluxo} contexto={c} todasVisiveis/></div></div>
   </Paper>
-  <div className="clinico-acoes"><div className="clinico-barra"><nav className="clinico-abas" aria-label="Seções do paciente">{abas.map(a=><Button key={a.chave} variant="subtle" className={`botao clinico-aba${destinos[a.chave]===p.chave?' clinico-aba-ativa':''}`} aria-current={destinos[a.chave]===p.chave?'page':undefined} data-comando={a.chave} data-escopo={c.escopo} data-contexto={c.id} disabled={c.ocupado||!a.habilitada}>{a.rotulo}</Button>)}</nav><div className="clinico-menus"><AcoesReact acoes={docs} contexto={c} tituloMenu="Documentos" somenteMenu/><AcoesReact acoes={outros} contexto={c} tituloMenu="Mais ações" somenteMenu/></div></div></div>
+  <div className="clinico-acoes"><nav className="clinico-abas" aria-label="Seções do paciente">{abas.map(a=><Button key={a.chave} variant="subtle" className={`botao clinico-aba${destinos[a.chave]===p.chave?' clinico-aba-ativa':''}`} aria-current={destinos[a.chave]===p.chave?'page':undefined} data-comando={a.chave} data-escopo={c.escopo} data-contexto={c.id} disabled={c.ocupado||!a.habilitada}>{a.rotulo}</Button>)}</nav>
+   {!!docs.length&&<div className="clinico-faixa-acoes" role="group" aria-label="Documentos"><span>Documentos</span><div><AcoesReact acoes={docs} contexto={c} todasVisiveis/></div></div>}
+   {!!outros.length&&<div className="clinico-faixa-acoes" role="group" aria-label="Ações da ficha"><span>Ficha</span><div><AcoesReact acoes={outros} contexto={c} todasVisiveis/></div></div>}
+  </div>
  </section>;
 }

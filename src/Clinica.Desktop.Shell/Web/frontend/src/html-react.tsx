@@ -1,4 +1,5 @@
 import {Button,Input,Textarea,NativeSelect} from '@mantine/core';
+import {IconeAcao,iconeDoComando} from './icones-acoes';
 import {createElement, Fragment, useLayoutEffect, useMemo, useRef, type ReactNode, type Ref, type CSSProperties} from 'react';
 import {SugestoesPacientesReact,ehSeletorPaciente} from './sugestoes-react';
 
@@ -81,7 +82,10 @@ function noReact(no:Node,index:number):ReactNode{
   if(paciente)return <Fragment key={key}><div hidden>{controle}</div><SugestoesPacientesReact estadoBusca={no.hasAttribute('data-busca-paciente')?JSON.parse(no.getAttribute('data-busca-paciente')!):undefined} valor={valor} id={no.id} opcoes={Array.from(no.querySelectorAll('option')).map(o=>({valor:o.value,rotulo:o.textContent??''}))} habilitado={!no.hasAttribute('disabled')}/></Fragment>;
   return <Fragment key={key}>{controle}</Fragment>;
  }
- if(tag==='button'&&no.classList.contains('botao'))return <Button {...props} key={key} variant={no.classList.contains('primario')?'filled':'default'}>{children}</Button>;
+ if(tag==='button'&&no.classList.contains('botao')){
+  const comando=no.getAttribute('data-comando')??'';
+  return <Button {...props} key={key} variant={no.classList.contains('primario')?'filled':'default'} leftSection={!no.querySelector('svg')&&iconeDoComando(comando)?<IconeAcao comando={comando}/>:undefined}>{children}</Button>;
+ }
  if(tag==='option')delete props.selected;
  if(tag==='details'){delete props.open;return <DetalhesReconciliados key={key} atributos={props} aberto={no.hasAttribute('open')}>{children}</DetalhesReconciliados>;}
  const vazios=['area','base','br','col','hr','img','link','meta','param','source','track','wbr'];

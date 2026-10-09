@@ -27,16 +27,16 @@
 /* Contraste operacional: distinguir a area de trabalho e os controles sem nova paleta. */
 :root{--fundo:var(--superficie-filtro)}
 body,#app .conteudo{background:var(--fundo)}
-#app .botao:not(.primario):not(.perigo):not(.clinico-aba):not(:disabled){color:var(--texto-rotulo);border-color:var(--borda-controle);background:var(--superficie)}
-#app .botao:not(.primario):not(.perigo):not(.clinico-aba):hover:not(:disabled){color:var(--texto-primario);border-color:var(--borda-controle-hover);background:var(--superficie-filtro)}
+#app .botao:not(.primario):not(.perigo):not(.clinico-aba):not(:disabled){color:var(--marca);border-color:var(--marca);background:var(--superficie)}
+#app .botao:not(.primario):not(.perigo):not(.clinico-aba):hover:not(:disabled){color:var(--marca-hover);border-color:var(--marca-hover);background:var(--marca-suave)}
 #app .botao.primario:not(:disabled){background:var(--marca);border-color:var(--marca);color:var(--superficie)}
 #app .botao.primario:hover:not(:disabled){background:var(--marca-hover);border-color:var(--marca-hover)}
-#app .botao.perigo:not(:disabled){color:var(--estado-erro);border-color:var(--estado-erro-borda);background:var(--superficie)}
-#app .acoes-menu-painel .botao:not(.primario):not(.perigo):not(:disabled){background:transparent;border-color:transparent}
+#app .botao.perigo:not(:disabled){color:var(--estado-erro);border-color:var(--estado-erro);background:var(--superficie)}
+#app .acoes-menu-painel .botao:not(.primario):not(.perigo):not(:disabled){color:var(--marca);background:transparent;border-color:transparent}
 #app .acoes-menu-painel .botao:hover:not(:disabled){background:var(--superficie-filtro)}
-#app .clinico-cabecalho .botao.clinico-aba{color:var(--texto-rotulo)}
+#app .clinico-cabecalho .botao.clinico-aba:not(:disabled){color:var(--marca)}
 #app .clinico-cabecalho .botao.clinico-aba-ativa{color:var(--marca);background:var(--marca-suave);border-bottom-color:var(--marca)}
-#app :is(.ancoras-secoes button,details>summary,.atalho-historico){color:var(--texto-rotulo)}
+#app :is(.ancoras-secoes button,details>summary,.atalho-historico){color:var(--marca);font-weight:600}
 #app .ancoras-secoes button:hover,#app .icone-botao:hover:not(:disabled){color:var(--marca-hover);background:var(--marca-suave)}
 #app .mensagem-web{color:var(--estado-info);background:var(--estado-info-fundo);border-color:var(--marca-borda)}
 #app .dados-paciente-resumo{color:var(--texto);background:var(--superficie);border-color:var(--borda-hover)}
@@ -205,4 +205,41 @@ body,#app .conteudo{background:var(--fundo)}
 }
 
 #app .campo-web[hidden]{display:none!important}
+
+/* Ações clínicas expostas: sem menus intermediários e sem comprimir o contexto. */
+#app .prontuario-estacao .clinico-faixa-acoes{display:flex;align-items:flex-start;gap:12px;padding:8px 18px;border-bottom:1px solid var(--borda)}
+#app .clinico-faixa-acoes>span{flex:0 0 76px;padding-top:10px;color:var(--texto-rotulo);font-size:12px;font-weight:600}
+#app .clinico-faixa-acoes>div{display:flex;flex:1;min-width:0;gap:4px;flex-wrap:wrap}
+#app .clinico-faixa-acoes .botao{min-height:36px}
+#app .secao-acoes-expostas>.cabecalho-secao{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+#app .secao-acoes-expostas>.cabecalho-secao>.acoes-web{display:flex;flex:1;flex-wrap:wrap;justify-content:flex-start;margin:0;gap:4px;min-width:0}
+#app .secao-acoes-expostas>.cabecalho-secao .botao{min-height:36px;padding-inline:10px}
+#app .clinico-fluxo .botao{min-height:40px}
+#app .clinico-fluxo [data-comando="FinalizarSessao"],#app [data-comando="Atendimento.Salvar"]{font-weight:600}
+#app .agendamento-acoes{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px;padding:14px 18px;margin-top:20px;background:var(--superficie);border:1px solid var(--borda-hover);border-top:2px solid var(--marca);border-radius:4px}
+#app .agendamento-acoes [data-comando="Lancar"]{order:1;min-height:44px;min-width:180px;font-weight:600}
+
+/* Azul identifica interação; branco continua sendo a superfície de leitura. */
+#app .campo-web .mantine-Input-section{color:var(--marca)}
+#app .editor-ferramentas button:not(:disabled),#app :is(.icone-botao,.busca-global,.rolagem-dialogo button,.atalhos-rolagem button):not(:disabled){color:var(--marca);border-color:var(--marca)}
+#app .registro-detalhes>summary{display:inline-flex;align-items:center;gap:8px;padding:8px 0;border:0;border-radius:0;color:var(--marca);background:transparent;font-weight:500}
+#app .registro-detalhes>summary::before{content:'+';font-size:18px;line-height:1}
+#app .registro-detalhes[open]>summary::before{content:'−'}
+#app .registro-detalhes>summary:is(:hover,:focus-visible){color:var(--marca-hover);text-decoration:underline;text-underline-offset:3px;background:transparent}
+#app .pacientes-sugestoes-mais{color:var(--marca);border-color:var(--marca)}
+#app .nav-gatilho,#app .rota,#app .ordenar-coluna span{color:var(--marca)}
+#app .botao.perigo:hover:not(:disabled){color:var(--estado-erro);background:var(--estado-erro-fundo);border-color:var(--estado-erro)}
+@media(max-width:700px){#app .prontuario-estacao .clinico-faixa-acoes{flex-direction:column;gap:8px}#app .clinico-faixa-acoes>span{flex-basis:auto;padding:0}#app .secao-acoes-expostas>.cabecalho-secao>.acoes-web{flex-basis:100%}#app .agendamento-acoes{padding:12px}}
 #app .busca-paciente-unificada .campo-busca input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23374151' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10.8' cy='10.8' r='6.8'/%3E%3Cpath d='m16 16 4.5 4.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:18px;background-position:12px center}
+
+/* Hierarquia de ações: comandos auxiliares em texto e ícone; confirmação preenchida. */
+#app :is(.clinico-faixa-acoes,.cabecalho-secao,.cabecalho-pagina,.dialogo-rodape,.agendamento-acoes) .botao:not(.primario):not(.perigo):not(:disabled){background:transparent;border-color:transparent;color:var(--marca);font-weight:500;box-shadow:none}
+#app :is(.clinico-faixa-acoes,.cabecalho-secao,.cabecalho-pagina,.dialogo-rodape,.agendamento-acoes) .botao:not(.primario):not(.perigo):hover:not(:disabled){background:var(--marca-suave);border-color:transparent;color:var(--marca-hover)}
+#app :is(.clinico-faixa-acoes,.cabecalho-secao,.cabecalho-pagina,.dialogo-rodape,.agendamento-acoes) .botao:disabled{background:transparent;border-color:transparent;color:var(--texto-secundario);font-weight:400}
+#app .botao .mantine-Button-section:empty{display:none}
+#app .botao .mantine-Button-section{margin-inline-end:7px}
+#app .botao .mantine-Button-label{font-weight:inherit}
+#app .secao-acoes-expostas [data-comando="Atendimento.Salvar"]{margin-left:auto;min-width:130px}
+#app .prontuario-estacao .clinico-identidade{padding-block:18px}
+#app .clinico-faixa-acoes:last-child{border-bottom:0}
+#app .secao-acoes-expostas .editor-web>label{background:var(--superficie);font-weight:600}
