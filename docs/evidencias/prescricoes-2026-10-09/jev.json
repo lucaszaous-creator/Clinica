@@ -1,0 +1,67 @@
+{
+  "modelo": "jev-1.13.0",
+  "escopos": {
+    "interface": {
+      "pedido_sha256": "0c31d614e7be2a3f369254b3f35c13b08cd23eb992de9e98f5270984f926227c",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.73,
+        "probabilities": {
+          "aprovar": 0.82,
+          "reprovar": 0.12,
+          "evidencia_insuficiente": 0.06
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/Prescricoes.tsx": "9891263328db4c04e3335d46eb8c8b9c0fce5643b021af4b94ac6fc72914815e",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/prescricoes.css": "e4beaf36e884091be323610575933e6aa22c9a3e74edfce610a1717aed03f723",
+        "src/Clinica.Desktop.Shell/WebClinica/frontend/src/main.tsx": "9b9dd558a842946dc75771bbe203f7667f1aa4821b69d00bb2da84b172415d71",
+        "src/Clinica.Modulo.Clinico/Views/PrescricoesWebAdapter.cs": "521d3e3b2f0e3f0c6f183088d6573f315e9dfec301395da25898c74c3008e4c0",
+        "tools/validar-prescricoes/Program.cs": "afc4439925922c0956d49e91e33efa632ce92e48a63dad7f40a6532b9d7c8872"
+      }
+    },
+    "fluxo": {
+      "pedido_sha256": "c467a662a1550d90aa21e5c47d38f3bc2e2a548a6f307bb03bbe8c63b6a410e4",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.58,
+        "probabilities": {
+          "aprovar": 0.72,
+          "reprovar": 0.19,
+          "evidencia_insuficiente": 0.09
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Modulo.Clinico/Views/PrescricoesWebAdapter.cs": "521d3e3b2f0e3f0c6f183088d6573f315e9dfec301395da25898c74c3008e4c0",
+        "src/Clinica.Modulo.Clinico/Views/PrescricoesClinicasView.xaml.cs": "4051ce4eb9bf18835b76dba6e9b184eed25d29c6cfd814b7da17b137acfbf825",
+        "src/Clinica.Modulo.Clinico/Views/PrescricaoInfusaoView.xaml.cs": "d211bb725e98999ac6a31ea308b8df4ab99bcd473d24a2f694e9c5456ed7661c",
+        "src/Clinica.Modulo.Clinico/ViewModels/PrescricoesClinicasViewModel.cs": "b78c18cc47280e6eec191d4230592f0d38fb675919525ae20b01d5ddd9194bc7",
+        "src/Clinica.Modulo.Clinico/ViewModels/PrescricaoInfusaoViewModel.cs": "674d95b4731ba60fd3b79ba3bc9cc3e207fc94d9a90eb7c9bd60a9ba1e7b2e66",
+        "src/Clinica.Desktop.Shell/Componentes/SeletorPacienteViewModel.cs": "bb762098e3a3882ece529cd2a035d359127cb62522d6d4871f8a2121d71f0455",
+        "src/Clinica.Desktop.Shell/WebClinica/PainelClinicoWeb.cs": "34733c5c6aa5129de9774edf271b8bc3586cf4ed87029c55526a3c3a7bc94f58",
+        "tools/validar-prescricoes/Program.cs": "afc4439925922c0956d49e91e33efa632ce92e48a63dad7f40a6532b9d7c8872"
+      }
+    },
+    "notificacao": {
+      "pedido_sha256": "11569bfcaf38546ec162f2aa42df1dc0cf8ef8e686616dd9e0901cdf754ad17e",
+      "parecer": {
+        "type": "choice",
+        "choice": "aprovar",
+        "confidence": 0.58,
+        "probabilities": {
+          "aprovar": 0.72,
+          "reprovar": 0.21,
+          "evidencia_insuficiente": 0.07
+        }
+      },
+      "fontes_sha256": {
+        "src/Clinica.Desktop.Shell/Controls/SnackbarPopup.cs": "afb7320cf8660d5f91314e7babcee5d114dacde39421e7837d9817a2314af3e6",
+        "src/Clinica.Desktop.Shell/Controls/Snackbar.cs": "e050a697c55241fe6431c9ee7d08c61519b0b9699b76679fe1860a36011c35b1",
+        "tools/validar-notificacao-web/Program.cs": "734fddaa053d0f8a0e338d79b45ff695b73fda65c2bf8b7373452239530bd0f5",
+        "tools/validar-notificacao-web/README.md": "a14b67a9cbae041f88163e9345e06486cc9222651b7f26a85992772707b312fe"
+      }
+    }
+  }
+}

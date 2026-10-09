@@ -111,6 +111,9 @@ jobs:
       - name: Conferir busca, situações e prescrição no WebView2
         run: dotnet run --project tools/validar-agenda-documentos -c Release
 
+      - name: Conferir documentos, histórico e troca de paciente no WebView2
+        run: dotnet run --project tools/validar-prescricoes -c Release
+
       - name: Conferir todas as páginas e operações do Financeiro no WebView2
         run: dotnet run --project tools/validar-design-financeiro -c Release -- --web
 

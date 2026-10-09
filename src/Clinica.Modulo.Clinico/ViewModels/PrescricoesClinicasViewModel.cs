@@ -1,4 +1,4 @@
-using Clinica.Application.Modelos;
+﻿using Clinica.Application.Modelos;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
@@ -199,6 +199,9 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
 
     private int _pacienteId;
 
+    public int PacienteAtualId => _pacienteId;
+    public string ContextoDaLista => $"{_pacienteId}:{_geracaoCarga}";
+
     public PrescricoesClinicasViewModel(
         IServiceScopeFactory escopos, PacienteEmFoco foco,
         ISnackbarService snackbar, IDialogoService dialogo)
@@ -212,7 +215,7 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
         Seletor = new SeletorPacienteViewModel(escopos) { SemBuscaInicial = true };
         Seletor.SelecaoMudou += paciente =>
         {
-            if (paciente is null) return;
+            if (paciente is null || !MostrarCabecalho) return;
 
             // Escolher alguém aqui TROCA o foco do posto: quem foi buscar outra pessoa
             // para emitir um documento vai continuar nela nas telas seguintes, e um foco

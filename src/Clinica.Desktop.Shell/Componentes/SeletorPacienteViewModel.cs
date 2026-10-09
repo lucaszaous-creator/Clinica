@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
@@ -262,6 +262,10 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     [ObservableProperty] private string? _resumoDaLista;
 
     public ObservableCollection<Paciente> Resultados { get; } = new();
+    private string? _termoDosResultados;
+    private ModoDaBusca? _modoDosResultados;
+    public bool ResultadoAtual => !Buscando && !TemErro && _modoDosResultados == Modo
+        && _termoDosResultados == (Termo ?? "");
 
     /// <summary>
     /// Há o que escolher agora (parcela 52). Existe para a tela poder ESCONDER a lista
@@ -368,9 +372,12 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
             // tela depois de a pessoa apagar o termo é a tela afirmando que aqueles são os
             // pacientes de um campo vazio.
             var modo = Modo;
+            var termoConsultado = Termo ?? "";
 
             if (!BuscaDePaciente.Consulta(modo))
             {
+                _termoDosResultados = termoConsultado;
+                _modoDosResultados = modo;
                 Resultados.Clear();
                 MostrandoSugestao = false;
                 SugestaoVazia = false;
@@ -414,6 +421,8 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
             MostrandoSugestao = usandoSugestao;
             SugestaoVazia = usandoSugestao && encontrados.Count == 0;
 
+            _termoDosResultados = termoConsultado;
+            _modoDosResultados = modo;
             Resultados.Clear();
             foreach (var p in exibir)
                 Resultados.Add(p);
@@ -429,6 +438,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (ct.IsCancellationRequested) return;
             Clinica.Application.Diagnostico.Registrar("Suíte — busca de pacientes falhou", ex);
             Erro = $"Não foi possível buscar pacientes: {ex.Message}";
         }
