@@ -7,7 +7,7 @@ internal static class Program
  [STAThread] static void Main(string[] args)
  {
   var app=new System.Windows.Application{ShutdownMode=System.Windows.ShutdownMode.OnExplicitShutdown};
-  app.Startup+=async(_,_)=>{try{Contratos();Fluxos.SoInfusaoModelos=args.Contains("--infusao-modelos");Fluxos.SoGestos=args.Contains("--gestos");if(Fluxos.SoInfusaoModelos||args.Contains("--fluxos")||args.Contains("--web")||Fluxos.SoGestos)await Fluxos.Executar(args.Contains("--web")||Fluxos.SoGestos);}catch(Exception ex){Console.WriteLine(ex);Environment.ExitCode=1;}finally{app.Shutdown();}};
+  app.Startup+=async(_,_)=>{try{Contratos();Fluxos.SoInfusaoModelos=args.Contains("--infusao-modelos");Fluxos.SoGestos=args.Contains("--gestos");Fluxos.SoDestinosDialogos=args.Contains("--destinos-dialogos");if(Fluxos.SoInfusaoModelos||args.Contains("--fluxos")||args.Contains("--web")||Fluxos.SoGestos||Fluxos.SoDestinosDialogos)await Fluxos.Executar(args.Contains("--web")||Fluxos.SoGestos||Fluxos.SoDestinosDialogos);}catch(Exception ex){Console.WriteLine(ex);Environment.ExitCode=1;}finally{app.Shutdown();}};
   app.Run();
  }
  static void Contratos()

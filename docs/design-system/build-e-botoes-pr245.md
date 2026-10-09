@@ -26,6 +26,16 @@
 
 ## Mapeamento solicitado ao Jev
 
+A varredura adicional reproduziu e corrigiu duas falhas de navegação:
+Prontuários e Exames não acionavam `ICarregarAoAbrir`, deixando listas vazias;
+depois de carregar os dados, `Abrir prontuário completo` e `Abrir no paciente`
+enfileiravam a navegação, mas o diálogo permanecia aberto e bloqueava o destino.
+O controller agora respeita a carga contratada (sem duplicar `AoAbrir`) e fecha
+o diálogo ao receber `NavegouParaOPaciente`. As duas ações são diretas.
+O cenário `--destinos-dialogos`, também incluído em `--web`, começa em outro
+paciente, abre a consulta por botão e confere fechamento, rota, identidade e
+conteúdo persistido. A regressão foi observada antes da correção.
+
 O inventário reproduzível extrai **986 ações** dos registros de **76 páginas
 e 98 formulários**, incluindo ações de cabeçalho, seção e linha. As ações
 parametrizadas têm identificadores distintos. O Jev real (`jev-1.13.0`)

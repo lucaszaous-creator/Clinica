@@ -112,11 +112,13 @@ static partial class Fluxos
  static async Task Visual(IServiceProvider sp,ModuloClinico modulo,PaginasWebController.Pagina[] defs,DialogosWebController.RegistroDialogo[] registros)
  {
   if(SoGestos){await Capturar(sp,modulo,defs.Where(d=>d.Chave==ModuloClinico.ChaveAtendimento).ToArray(),registros);return;}
+  if(SoDestinosDialogos){await ValidarDestinosDialogosAsync(sp,modulo,defs,registros);return;}
   sp.GetRequiredService<SessaoUsuario>().Entrar(gestor);
   await Capturar(sp,modulo,defs.Where(d=>d.Chave!=ModuloClinico.ChaveSessoesEnfermagem).ToArray(),registros);
   sp.GetRequiredService<SessaoUsuario>().Entrar(enfermeiro);
   await Capturar(sp,modulo,defs.Where(d=>d.Chave==ModuloClinico.ChaveSessoesEnfermagem).ToArray(),registros);
   sp.GetRequiredService<SessaoUsuario>().Entrar(gestor);
+  await ValidarDestinosDialogosAsync(sp,modulo,defs,registros);
  }
  static async Task Capturar(IServiceProvider sp,ModuloClinico modulo,PaginasWebController.Pagina[] defs,DialogosWebController.RegistroDialogo[] registros)
  {

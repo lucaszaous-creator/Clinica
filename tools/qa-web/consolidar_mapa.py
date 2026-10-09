@@ -35,7 +35,7 @@ for a in mapa["acoes"]:
     acoes.append(item)
 logs = {}
 for nome in ("qa-financeiro-botoes", "qa-recepcao-botoes", "qa-faturamento-botoes", "qa-ferramentas-botoes",
-             "qa-gerente-botoes", "qa-clinico-botoes", "qa-infusao-botoes", "testes-botoes", "verificar-suite-botoes", "compilar-sombra-botoes"):
+             "qa-gerente-botoes", "qa-clinico-botoes", "qa-infusao-botoes", "qa-destinos-botoes", "testes-botoes", "verificar-suite-botoes", "compilar-sombra-botoes"):
     p = RAIZ / "artifacts" / (nome + ".log")
     if p.exists():
         dados = p.read_bytes()

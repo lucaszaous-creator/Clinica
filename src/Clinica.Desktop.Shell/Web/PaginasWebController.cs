@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Windows.Input;
 using Clinica.Domain;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using System.Reflection;
 using CommunityToolkit.Mvvm.Input;
@@ -96,9 +97,10 @@ public sealed partial class PaginasWebController : IDisposable
         _vm = pagina.Fabrica?.Invoke(_services) ?? _services.GetRequiredService(pagina.Tipo);
         if (!pagina.Tipo.IsInstanceOfType(_vm)) throw new InvalidOperationException("Modelo incompatível com a página.");
         if (pagina.AoAbrir is not null) await pagina.AoAbrir(_vm);
+        else if (_vm is ICarregarAoAbrir carregavel) await carregavel.CarregarAsync();
         Assinar();
         Changed?.Invoke();
-        // Os VMs iniciam suas cargas nos próprios construtores; não duplicar consultas.
+        // Sem carga explícita/contrato, o construtor é responsável por iniciar a consulta.
         return;
     }
 

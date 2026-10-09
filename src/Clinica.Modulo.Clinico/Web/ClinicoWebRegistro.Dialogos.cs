@@ -33,12 +33,12 @@ public static partial class ClinicoWebRegistro
             [new("Anexos","Arquivos da sessão","Anexos",[C("NomeArquivo","Arquivo"),C("Resumo","Informações")],[A("Baixar","Salvar em disco"),A("Remover","Retirar anexo","perigo")])]),Permissao.VerProntuario);
         yield return new("ResumoProntuario",typeof(ResumoProntuarioViewModel),new("Prontuário do paciente",null,
             [F("Paciente","Paciente","leitura"),F("LinhaIdentificacao","Identificação","leitura"),F("DiagnosticosTexto","Diagnósticos","leitura"),F("PlanoTerapeutico","Plano terapêutico","leitura"),F("AlergiasTexto","Alergias","leitura")],
-            [A("AbrirCompleto","Abrir prontuário completo"),A("SegundaVia","Segunda via da anamnese",habilitado:"TemFolhaDeAnamnese")],
+            [A("AbrirCompleto","Abrir prontuário completo","primario"),A("SegundaVia","Segunda via da anamnese",habilitado:"TemFolhaDeAnamnese")],
             [new("Evolucoes","Evoluções","Evolucoes",[C("DataTexto","Data"),C("Autor","Profissional"),C("Texto","Evolução")],[A("AbrirSessao","Abrir sessão")]),
              new("Anamnese","Anamnese","Anamnese",[C("Rotulo","Campo"),C("Texto","Registro")],[]),
              new("Anexos","Anexos","Anexos",[C("NomeArquivo","Arquivo"),C("Contexto","Contexto")],[])]),Permissao.VerProntuario);
         yield return new("ResultadosDoPedido",typeof(ResultadosDoPedidoViewModel),new("Resultados do pedido",null,
-            [F("Paciente","Paciente","leitura"),F("ExameRotulo","Exame","leitura"),F("PedidoTexto","Pedido","leitura")],[A("AbrirNoPaciente","Abrir no paciente")],
+            [F("Paciente","Paciente","leitura"),F("ExameRotulo","Exame","leitura"),F("PedidoTexto","Pedido","leitura")],[A("AbrirNoPaciente","Abrir no paciente","primario")],
             [new("Resultados","Resultados registrados","Resultados",[C("DataTexto","Data"),C("Nome","Exame"),C("Laboratorio","Laboratório"),C("Valor","Resultado"),C("Referencia","Referência"),C("Observacoes","Observações"),C("ArquivoNome","Laudo")],[A("AbrirLaudo","Abrir laudo")])]),Permissao.VerProntuario);
         yield return new("PrescricaoInterna",typeof(PrescricaoInternaEdicaoViewModel),new("Prescrição de infusão","Organize os medicamentos por infusão. Salve e libere para a enfermagem.",
             [F("Paciente","Paciente","leitura"),F("Numero","Prescrição","leitura"),F("AlertasTexto","Alertas clínicos","leitura"),F("Indicacao","Indicação","texto-rico",formato:"IndicacaoFormatada"),F("BuscaModeloWeb","Buscar modelo pelo nome"),F("ModeloSelecionado","Modelo salvo","selecao","ModelosDisponiveisWeb","Nome"),F("PreviaModelo","Prévia do modelo","leitura"),F("Observacoes","Observações","texto-rico",formato:"ObservacoesFormatadas"),F("DataPrescricao","Data","data"),F("HoraPrescricao","Hora","hora")],

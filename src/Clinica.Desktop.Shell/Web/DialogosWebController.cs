@@ -60,7 +60,7 @@ public sealed partial class DialogosWebController : IDialogosDaSessao, IDisposab
             if (Ler(viewModel, campo.Opcoes!) is { } opcoes) Observar(instancia, opcoes);
         foreach (var tabela in definicao.Tabelas)
             if (Ler(viewModel, tabela.Colecao) is { } linhas) Observar(instancia, linhas);
-        foreach (var evento in new[] { "Concluido", "Confirmado", "Salvou", "Concluiu", "Fechar", "Concluir", "Escolheu", "Vinculou", "Aplicou" }.Select(n => viewModel.GetType().GetEvent(n)).Where(e => e is not null))
+        foreach (var evento in new[] { "Concluido", "Confirmado", "Salvou", "Concluiu", "Fechar", "Concluir", "Escolheu", "Vinculou", "Aplicou", "NavegouParaOPaciente" }.Select(n => viewModel.GetType().GetEvent(n)).Where(e => e is not null))
         {
             Delegate? fechar = evento!.EventHandlerType == typeof(Action) ? new Action(() => Concluir(instancia, true))
                 : evento.EventHandlerType == typeof(Action<bool>) ? new Action<bool>(resultado => Concluir(instancia, resultado)) : null;
