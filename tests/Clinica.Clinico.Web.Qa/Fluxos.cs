@@ -38,6 +38,7 @@ static partial class Fluxos
    new CampoPersonalizadoProntuario { Rotulo="Lista sintética", Tipo=TipoCampoPersonalizado.Lista, Opcoes="Opção A\nOpção B", Ordem=2 },
    new CampoPersonalizadoProntuario { Rotulo="Confirmação sintética", Tipo=TipoCampoPersonalizado.SimNao, Ordem=3 });await db.SaveChangesAsync();sp.GetRequiredService<SessaoUsuario>().Entrar(u);sp.GetRequiredService<PacienteEmFoco>().Definir(p.Id,p.Nome);}
   var defs=ClinicoWebRegistro.CriarPaginas().ToArray();var registros=ClinicoWebRegistro.CriarDialogos().Concat(RegistroCompartilhadoWeb.Dialogos()).DistinctBy(d=>(d.Chave,d.Tipo)).ToArray();
+  if(SoInfusaoModelos){await ValidarInfusaoModelosAsync(sp,modulo,defs,registros);return;}
   using var pages=new PaginasWebController(sp,defs);using var dialogs=new DialogosWebController(registros);using var contexto=DialogosDaSessao.Usar(dialogs);
   foreach(var def in defs) {await pages.NavegarAsync(def.Chave);await Task.Delay(120);var dto=pages.ObterPagina();Exigir(!dto.MensagemEhErro,def.Chave+": "+dto.Mensagem);Console.WriteLine("OK página real "+def.Chave);}
   async Task<DialogoWebDto> EsperarDialogo(){for(var i=0;i<150;i++){if(dialogs.EstadoAtual is {} d)return d;await Task.Delay(20);}throw new Exception("Diálogo não abriu");}

@@ -11,6 +11,9 @@ public static partial class ClinicoWebRegistro
     private static P.Secao Aprimorar(P.Secao s)
     {
         if(s.Chave=="MinhaSemana")s=Semana();
+        if(s.Chave=="Anexos")s=s with {Tabelas=s.Tabelas.Select(t=>t with {Visivel=t.Chave switch {
+            "PedidosAguardando"=>"MostrandoAguardando", "Resultados"=>"MostrandoResultados",
+            "ArquivosDaFicha"=>"MostrandoArquivos", "Anexos"=>"MostrandoSessoes", _=>t.Visivel}}).ToArray()};
         if(s.Chave=="Prontuarios")s=s with {Campos=[..s.Campos,new("SoAssinaturasPendentes","Somente anamneses aguardando assinatura","booleano")],Indicadores=[..s.Indicadores,"RotuloPendentes|Assinaturas pendentes"]};
         if(s.Chave=="Emissoes")s=s with {Acoes=[..s.Acoes,new("EmitirReceitaWeb","Receita"),new("EmitirAtestadoWeb","Atestado médico"),new("EmitirComparecimentoWeb","Declaração de comparecimento"),new("EmitirPedidoWeb","Pedido de exame")]};
         if(s.Chave=="Prontuario")s=s with {Tabelas=s.Tabelas.Select(t=>t.Chave=="Sessoes"?t with {Acoes=[..t.Acoes,new("CopiarRegistroWeb","Copiar registro",Permissao.VerProntuario)],Colunas=t.Colunas.Where(c=>c.Propriedade!="Evolucao").ToArray(),Campos=[..t.Campos,new("Evolucao","Evolução","texto-rico-leitura",Formato:"EvolucaoFormatada")]}:t).ToArray()};

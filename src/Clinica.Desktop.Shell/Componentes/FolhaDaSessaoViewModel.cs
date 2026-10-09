@@ -416,6 +416,8 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(m.HipoteseDiagnostica)) HipoteseDiagnostica = m.HipoteseDiagnostica;
         if (!string.IsNullOrWhiteSpace(m.CidSessao)) CidSessao = m.CidSessao;
         if (!string.IsNullOrWhiteSpace(m.PlanoTerapeutico)) PlanoTerapeutico = m.PlanoTerapeutico;
+        Mensagem = "Modelo aplicado à sessão. Revise a evolução e os campos complementares antes de salvar.";
+        MensagemEhErro = false;
     }
 
     [ObservableProperty] private bool _carregando;

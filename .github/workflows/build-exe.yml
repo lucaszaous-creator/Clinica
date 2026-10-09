@@ -117,6 +117,9 @@ jobs:
       - name: Conferir ficha, sessões, exames e impressão no WebView2
         run: dotnet run --project tests/Clinica.Clinico.Web.Qa -c Release -- --web
 
+      - name: Conferir modelos, infusão, enfermagem e seções da ficha no WebView2
+        run: dotnet run --project tests/Clinica.Clinico.Web.Qa -c Release -- --infusao-modelos
+
       - name: Conferir buscas e filtros da agenda no WebView2
         run: dotnet run --project qa/recepcao-web -c Release -- --buscas
 

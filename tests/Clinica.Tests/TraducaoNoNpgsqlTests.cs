@@ -36,6 +36,13 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Fact]
+    public void Enfermagem_da_sessao_filtra_paciente_e_horario_no_Postgres()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaEnfermagemDaSessao(17,42).ToQueryString();
+        sql.Should().Contain("PacienteId").And.Contain("AgendamentoId").And.Contain("ORDER BY");
+    }
+    [Fact]
     public void Conferencias_em_lote_traduz_ids_no_Postgres()
     {
         using var db = Postgres();

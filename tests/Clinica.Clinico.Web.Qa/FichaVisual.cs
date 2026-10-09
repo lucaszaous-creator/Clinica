@@ -69,13 +69,12 @@ static partial class Fluxos
         await Clicar("Atendimento.PrescreverInfusao");
         await Esperar("document.querySelector('[data-dialogo]')?.textContent.includes('Prescrição de infusão') === true");
         Exigir(await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-dialogo]').textContent.includes('Paciente fictícia de demonstração')") == "true", "Infusão pela ficha perdeu o paciente.");
-        Exigir(await browser.CoreWebView2.ExecuteScriptAsync("![...document.querySelectorAll('[data-dialogo] [data-campo=\"Observacoes\"]')].some(e=>!e.dataset.tabela)") == "true", "Infusão ainda exibe o campo geral de observações.");
+        Exigir(await browser.CoreWebView2.ExecuteScriptAsync("!document.querySelector('.infusao-observacoes').open") == "true", "Observações não começam recolhidas como na referência aprovada.");
         await Clicar("CriarInfusao");
-        await Esperar("!!document.querySelector('[data-dialogo] [data-tabela-container=\"Infusoes\"] summary')");
-        await AcoesVisiveisQa.Clicar(browser, "[data-dialogo] [data-tabela-container=\"Infusoes\"] summary");
-        Exigir(await browser.CoreWebView2.ExecuteScriptAsync("[...document.querySelectorAll('[data-dialogo] [data-tabela-container=\"Infusoes\"] input:not(:disabled),[data-dialogo] [data-tabela-container=\"Infusoes\"] select:not(:disabled)')].some(e=>e.getClientRects().length && getComputedStyle(e).borderTopColor==='rgb(107, 114, 128)') && getComputedStyle(document.querySelector('[data-comando=\"AcrescentarItem\"]')).color==='rgb(18, 58, 158)'") == "true", "Infusão sem contornos legíveis e ações azuis visíveis.");
+        await Esperar("document.querySelectorAll('[data-infusao]').length===2");
+        Exigir(await browser.CoreWebView2.ExecuteScriptAsync("[...document.querySelectorAll('[data-dialogo] [data-infusao] input:not(:disabled),[data-dialogo] [data-infusao] select:not(:disabled)')].some(e=>e.getClientRects().length && getComputedStyle(e).borderTopColor==='rgb(107, 114, 128)') && getComputedStyle(document.querySelector('[data-comando=\"AcrescentarItem\"]')).color==='rgb(18, 58, 158)'") == "true", "Infusão sem contornos legíveis e ações azuis visíveis.");
         Exigir(await browser.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('[data-dialogo] [data-campo=\"Observacoes\"][data-tabela=\"Itens\"]')") == "true", "Infusão perdeu as observações específicas do medicamento.");
-        await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-dialogo] [data-tabela-container=\"Infusoes\"]').scrollIntoView({block:'start'})");
+        await browser.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-dialogo] [data-infusao]').scrollIntoView({block:'start'})");
         using (var f = File.Create(Path.GetFullPath("artifacts/clinico-web/infusao-controles.png"))) await view.CapturarPreviewAsync(f);
         await Fechar();
         using (var scope = sp.CreateScope())

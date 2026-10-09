@@ -16,6 +16,9 @@ public static partial class RegistroCompartilhadoWeb
     }
     public static IEnumerable<D.RegistroDialogo> DialogosEnfermagemCompletos()
     {
+        yield return new("LeituraEvolucaoEnfermagem", typeof(Clinica.Application.Modelos.LeituraEvolucaoEnfermagem),
+            new("Evolução de enfermagem", null,
+                [new("Paciente", "Paciente", "Paciente", "leitura"), new("Texto", "Texto", "Registro completo", "texto-rico-leitura")], [], []), Permissao.VerProntuario);
         var escrever=EscreverSessaoCompleta();
         escrever=escrever with {Tabelas=escrever.Tabelas.Select(t=>t.Chave=="CamposPersonalizados"?t with {Campos=[
             new("RespostaTextoWeb","Resposta","texto",Visivel:"EhCaixaDeTexto"),new("RespostaListaWeb","Resposta","selecao",Opcoes:"Opcoes",Visivel:"EhLista"),new("RespostaSimNaoWeb","Resposta","selecao",Opcoes:"OpcoesSimNaoWeb",Visivel:"EhSimNao")]}:t).ToArray()};

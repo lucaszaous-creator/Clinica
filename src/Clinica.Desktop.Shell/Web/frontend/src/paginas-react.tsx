@@ -1,3 +1,4 @@
+import {ModelosEvolucaoReact} from './modelo-autocomplete-react';
 import {IconeAcao,iconeDoComando} from './icones-acoes';
 import {ehRecepcaoOperacional,RecepcaoOperacionalReact,ListaOperacionalReact} from './composicao-recepcao-react';
 import {ComposicaoFaturamentoReact,ehFaturamento} from './faturamento-react';
@@ -16,6 +17,8 @@ import {ListaReact,ProfissionaisReact,usaListaReact,usaProfissionaisReact} from 
 import {celulaApresentada} from './status-celula';
 import {AgendaReact} from './agenda-react';
 import {SugestoesPacientesReact,ehSeletorPaciente} from './sugestoes-react';
+import {DocumentoReact} from './documento-react';
+import {PrescricaoInfusaoReact} from './infusao-react';
 export {HtmlReact,HTMLReact} from './html-react';
 const texto=(v:unknown,c:Contexto)=>c.privado?String(v??'').replace(/R\$\s*[-+−]?\s*[\d.,]+/g,'R$ ••••'):String(v??'');
 const atributos=(c:Contexto)=>({'data-escopo':c.escopo,'data-contexto':c.id,'data-tabela':c.tabela,'data-linha':c.linha});
@@ -80,6 +83,10 @@ export function TabelaReact({tabela:t,contexto}:{tabela:Tabela;contexto:Contexto
  const modelo=useReactTable({data:t.linhas,columns:colunas,getRowId:l=>l.id,getCoreRowModel:getCoreRowModel(),getSortedRowModel:getSortedRowModel()});
  if(t.chave==='CamposPersonalizados'&&!t.linhas.length&&c.escopo==='dialogo')return null;
  if(c.pacienteEmSeletor&&!c.pacientesEmTabela&&t.chave==='Seletor.Resultados'&&t.colunas.every(col=>col.chave==='Nome')&&t.linhas.every(l=>!l.acoes.length&&!l.campos.length))return null;
+ if((t.chave.endsWith('Chips')||t.chave.endsWith('Secoes'))&&t.colunas.some(col=>col.chave==='Marcado'))return <nav className="secoes-clinicas" aria-label={t.titulo} data-tabela-container={t.chave}>{t.linhas.map(l=>{
+  const a=l.acoes.find(a=>a.visivel!==false);if(!a)return null;
+  return <button type="button" className="botao secundario" key={l.id} data-comando={a.chave} {...atributos({...c,tabela:t.chave,linha:l.id})} aria-pressed={l.celulas.Marcado==='Sim'} disabled={c.ocupado||!a.habilitada}>{l.celulas.Rotulo||l.celulas.Nome||l.celulas.Texto}{l.celulas.Quantidade!==undefined&&<span className="secao-quantidade">{l.celulas.Quantidade}</span>}</button>;
+ })}</nav>;
  if(t.colunas.some(col=>col.chave==='GrupoSituacao')&&t.colunas.some(col=>col.chave==='Hora')&&t.colunas.some(col=>col.chave==='Prontuario'))return <ListaOperacionalReact tabela={t} contexto={c} acompanhamento={false}/>;
  if(ehHistoricoSessoes(t))return <HistoricoSessoesReact tabela={t} contexto={c}/>;
  if(usaProfissionaisReact(t))return <ProfissionaisReact tabela={t} contexto={c}/>;
@@ -95,13 +102,13 @@ export function SecaoReact({secao:s,contexto}:{secao:Secao;contexto:Contexto}){
 }
 export function PaginaReact({pagina:original,contexto}:{pagina:Pagina;contexto:Contexto}){
  const c={...contexto,pacienteEmSeletor:[...original.campos,...original.secoes.flatMap(s=>s.campos)].some(f=>f.visivel!==false&&f.chave==='Seletor.Selecionado'),buscaPacienteCarregando:original.campos.some(f=>f.buscaPaciente?.carregando),pacientesEmTabela:original.secoes.some(s=>s.tabelas.some(t=>t.chave==='Seletor.Resultados'&&t.linhas.some(l=>l.acoes.some(a=>a.visivel!==false&&['EscolherPaciente','AbrirPaciente'].includes(a.chave)))))};
- const p=original.chave==='fila'?{...original,secoes:original.secoes.map(s=>s.chave==='Linhas'?{...s,titulo:'Atendimentos',tabelas:s.tabelas.map(t=>t.chave==='Linhas'?{...t,titulo:'Atendimentos'}:t)}:s)}:original.chave==='PrescricaoInterna'?{...original,campos:original.campos.filter(f=>f.chave!=='Observacoes')}:original;
+ const p=original.chave==='fila'?{...original,secoes:original.secoes.map(s=>s.chave==='Linhas'?{...s,titulo:'Atendimentos',tabelas:s.tabelas.map(t=>t.chave==='Linhas'?{...t,titulo:'Atendimentos'}:t)}:s)}:original;
  const assinatura=p.chave==='AssinaturaPaciente',clinico=ehProntuario(p,c),secoes=p.chave==='marcar-horario'?p.secoes.filter(s=>s.chave!=='Cartoes'):p.secoes,acaoClinica=acoesClinicas(p,c);
  return <motion.div initial={{y:4}} animate={{y:0}} transition={{duration:.14,ease:[.2,.7,.2,1]}} className={`pagina-web${clinico?' pagina-clinica':''}`} data-pagina={p.chave} aria-busy={p.carregando}>
  {clinico?<ProntuarioCabecalhoReact pagina={p} contexto={c}/>:<section className="cabecalho-pagina"><div><h1>{p.titulo}</h1>{p.subtitulo&&<p>{p.subtitulo}</p>}</div><div className="acoes-web">{c.escopo!=='dialogo'&&p.chave!=='marcar-horario'&&(acaoClinica!==null?<HtmlReact html={acaoClinica}/>:<AcoesReact acoes={p.acoes} contexto={c}/>)}</div></section>}
  {p.naoVerificado&&<div className="erro" role="alert">Não foi possível verificar os dados. Use Atualizar para tentar novamente.</div>}{p.mensagem&&<div className={p.mensagemEhErro?'erro':'mensagem-web'} role={p.mensagemEhErro?'alert':'status'}>{texto(p.mensagem,c)}</div>}{p.carregando&&<div className="carregando-web" role="status">Atualizando dados…</div>}
  {p.truncado&&<div className="aviso-lista">Existem mais registros. Refine os filtros para localizar o que precisa.</div>}
- {clinico?<ProntuarioCorpoReact pagina={p} contexto={c}/>:c.escopo==='pagina'&&ehRecepcaoOperacional(p)?<RecepcaoOperacionalReact pagina={p} contexto={c}/>:c.escopo==='pagina'&&ehFaturamento(p)?<ComposicaoFaturamentoReact pagina={p} contexto={c}/>:c.escopo==='pagina'&&ehGestaoOperacional(p)?<GestaoOperacionalReact pagina={p} contexto={c}/>:<>{assinatura?<><CamposReact campos={p.campos.slice(0,4)} contexto={c}/>{secoes.map(s=><SecaoReact key={s.chave} secao={s} contexto={c}/>)}<CamposReact campos={p.campos.slice(4)} contexto={c}/></>:p.chave==='marcar-horario'?<AgendamentoReact pagina={p} contexto={c}/>:<CamposReact campos={clinico?camposDoProntuario(p):p.campos} contexto={c}/>}
+ {p.chave==='ModelosEvolucao'?<ModelosEvolucaoReact pagina={p} contexto={c}/>:p.chave==='Documento'?<DocumentoReact pagina={p} contexto={c}/>:p.chave==='PrescricaoInterna'?<PrescricaoInfusaoReact pagina={p} contexto={c}/>:clinico?<ProntuarioCorpoReact pagina={p} contexto={c}/>:c.escopo==='pagina'&&ehRecepcaoOperacional(p)?<RecepcaoOperacionalReact pagina={p} contexto={c}/>:c.escopo==='pagina'&&ehFaturamento(p)?<ComposicaoFaturamentoReact pagina={p} contexto={c}/>:c.escopo==='pagina'&&ehGestaoOperacional(p)?<GestaoOperacionalReact pagina={p} contexto={c}/>:<>{assinatura?<><CamposReact campos={p.campos.slice(0,4)} contexto={c}/>{secoes.map(s=><SecaoReact key={s.chave} secao={s} contexto={c}/>)}<CamposReact campos={p.campos.slice(4)} contexto={c}/></>:p.chave==='marcar-horario'?<AgendamentoReact pagina={p} contexto={c}/>:<CamposReact campos={clinico?camposDoProntuario(p):p.campos} contexto={c}/>}
  <IndicadoresReact indicadores={p.indicadores} contexto={c}/>{secoes.length>1&&<nav className="ancoras-secoes" aria-label="Seções desta página">{secoes.map(s=><button key={s.chave} type="button" data-ir-secao={s.chave}>{s.titulo}</button>)}</nav>}{!assinatura&&secoes.map(s=><SecaoReact key={s.chave} secao={s} contexto={c}/>)}</>}
  {p.chave==='marcar-horario'&&c.escopo==='pagina'&&<footer className="agendamento-acoes" aria-label="Confirmar agendamento"><AcoesReact acoes={p.acoes.map(a=>a.chave==='Lancar'?{...a,rotulo:'Marcar horário'}:a)} contexto={c} todasVisiveis/></footer>}
  </motion.div>;

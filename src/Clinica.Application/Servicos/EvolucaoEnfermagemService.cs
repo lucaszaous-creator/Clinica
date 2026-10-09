@@ -90,7 +90,7 @@ public class EvolucaoEnfermagemService
             pacienteId, data, hora, texto, autor,
             prescricaoInternaId, agendamentoId, intercorrencia, sinais, acesso);
 
-        evolucao.AgendamentoId = await ResolverSessaoBsvAsync(pacienteId, data, agendamentoId, ct);
+        evolucao.AgendamentoId = await ResolverSessaoDaEvolucaoAsync(pacienteId, data, agendamentoId, prescricaoInternaId, ct);
 
         AplicarProcesso(evolucao, processo);
 
@@ -278,6 +278,30 @@ public class EvolucaoEnfermagemService
 
     public static bool PermiteEvolucao(ModalidadeAtendimento modalidade)
         => modalidade is ModalidadeAtendimento.BsvApenas or ModalidadeAtendimento.BsvComAcupuntura;
+
+    public async Task<int> ResolverSessaoDaEvolucaoAsync(int pacienteId, DateOnly data,
+        int? agendamentoId, int? prescricaoId, CancellationToken ct = default)
+    {
+        if (prescricaoId is { } id)
+        {
+            var prescricao = await _repo.ObterPrescricaoInternaAsync(id, ct)
+                ?? throw ErroFormularioTablet.Criar("Prescrição não encontrada.");
+            if (prescricao.PacienteId != pacienteId)
+                throw ErroFormularioTablet.Criar("A prescrição pertence a outro paciente.");
+            var sessaoDaFolha = prescricao.AgendamentoId;
+            if (sessaoDaFolha is null && prescricao.EvolucaoId is { } evolucaoId)
+            {
+                var sessao = await _repo.ObterEvolucaoAsync(evolucaoId, ct);
+                if (sessao is null || sessao.PacienteId != pacienteId)
+                    throw ErroFormularioTablet.Criar("Confira a sessão vinculada à prescrição.");
+                sessaoDaFolha = sessao.AgendamentoId;
+            }
+            if (agendamentoId is not null && sessaoDaFolha is not null && agendamentoId != sessaoDaFolha)
+                throw ErroFormularioTablet.Criar("A sessão informada difere da sessão da prescrição.");
+            agendamentoId ??= sessaoDaFolha;
+        }
+        return await ResolverSessaoBsvAsync(pacienteId, data, agendamentoId, ct);
+    }
 
     public async Task<int> ResolverSessaoBsvAsync(int pacienteId, DateOnly data, int? agendamentoId, CancellationToken ct = default)
     {

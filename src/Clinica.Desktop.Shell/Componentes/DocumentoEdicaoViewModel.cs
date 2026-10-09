@@ -813,10 +813,12 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             byte[] pdf;
             string numero;
             string nomeArquivo;
+            ImpressaoPdf.DestinoNoEscopo? destino;
 
             using (var scope = _escopos.CreateScope())
             {
                 var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+                destino = scope.ServiceProvider.GetService<ImpressaoPdf.DestinoNoEscopo>();
                 var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
                 var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
 
@@ -830,6 +832,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
             // O documento JÁ está emitido: uma falha daqui para a frente é de impressão,
             // não de emissão — e a tela precisa dizer isso, senão alguém emite de novo.
+            using var entrega = destino is null ? null : ImpressaoPdf.UsarEntregaNoEscopo(destino.Entregar);
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
                 pdf, ImpressaoPdf.NomeSeguro(nomeArquivo));
 

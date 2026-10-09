@@ -375,7 +375,8 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         {
             using var scope = _escopos.CreateScope();
             var data = DateOnly.FromDateTime(DataDoAtendimento ?? throw new InvalidOperationException("Informe a data da sessão BSV."));
-            await scope.ServiceProvider.GetRequiredService<EvolucaoEnfermagemService>().ResolverSessaoBsvAsync(_pacienteId, data, _agendamentoId);
+            await scope.ServiceProvider.GetRequiredService<EvolucaoEnfermagemService>()
+                .ResolverSessaoDaEvolucaoAsync(_pacienteId, data, _agendamentoId, _prescricaoId);
             if (geracao != _geracaoModalidade) return;
             SessaoBsvDisponivel = true;
             AvisoModalidadeEnfermagem = null;
