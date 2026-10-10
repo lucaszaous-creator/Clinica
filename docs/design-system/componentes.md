@@ -1,6 +1,8 @@
 # Biblioteca de componentes
 
-Todos em `src/Clinica.Desktop/Styles/Componentes/`. Estados cobertos por padrão: normal, hover, focus (anel azul), disabled (opacidade 0.5–0.7); loading onde indicado.
+Estilos compartilhados em `src/Clinica.Desktop.Shell/Styles/Componentes/`; componentes em C# em `src/Clinica.Desktop.Shell/Componentes/`. Estados cobertos por padrão: normal, hover, focus (anel azul), disabled (opacidade 0.5–0.7); loading onde indicado.
+
+Para a folha de documentos, a barra superior e os ícones/botões do atendimento, seguir o [padrão aprovado nas PRs 235 e 237](padrao-desktop-aprovado.md). Ele documenta `DocumentoFolha`, `NavegacaoSuperior`, `IconeClinico` e `BotaoClinico`, com suas medidas e capturas reais.
 
 Os conversores ficam em `Styles/Conversores.xaml` (e não soltos no `App.xaml`): assim um dicionário de componente pode mergeá-los e usar `{StaticResource}` dentro dos seus templates, do mesmo jeito que faz com `Tokens.xaml`.
 
