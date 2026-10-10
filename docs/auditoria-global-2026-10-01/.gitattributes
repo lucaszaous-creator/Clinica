@@ -1,0 +1,2 @@
+# O hash registra os bytes enviados à API, inclusive terminadores de linha.
+jev/*-pedido.json text eol=lf

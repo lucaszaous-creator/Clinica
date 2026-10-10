@@ -1,0 +1,25 @@
+SEMDOR — COMPARAÇÃO VISUAL POR MÓDULO
+
+Abra index.html no navegador, mantendo os demais arquivos na mesma pasta.
+Não exige instalação nem servidor.
+
+1. Escolha Recepção, Consultório, Faturamento, Financeiro, Gerente ou CRM.
+2. Selecione a tela no menu da esquerda.
+3. Alterne Antes, Lado a lado e Depois.
+4. Clique nas ações para experimentar os estados simulados.
+5. Abra Diferenças e Funções atuais e fontes para conferir a proposta.
+
+ANTES é uma reconstrução funcional do código, não uma captura do produto real.
+DEPOIS é uma proposta, não uma funcionalidade já implementada.
+Os dados são fictícios; nenhuma ação grava ou envia informações reais.
+
+São 97 cenas comparativas e 3 referências preservadas. O inventário de 263
+arquivos inclui componentes e estilos; não são 263 telas independentes.
+Componentes sem cena própria têm referência de funções, sem redesenho detalhado.
+
+PORTAL WEB PRESERVADO: sem alteração de telas, navegação, evolução, termos ou
+comportamento. Site e web de consulta também não recebem redesenho nesta entrega.
+
+Desktop de referência: main cbde7e92075109de3a6a9f2415b6c84052bd136a.
+CRM de referência: main 33c9ffcb836286c27a61bf1f91640a62acb5b70c.
+Data da comparação: 01/10/2026.

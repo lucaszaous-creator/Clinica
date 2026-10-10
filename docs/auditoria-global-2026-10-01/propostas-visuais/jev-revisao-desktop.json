@@ -1,0 +1,50 @@
+{
+  "model": "jev-1.13.0",
+  "answers": {
+    "escopo": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.92,
+      "probabilities": {
+        "coerente": 0.94,
+        "insuficiente": 0.01,
+        "revisar": 0.05
+      }
+    },
+    "recepcao": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.91,
+      "probabilities": {
+        "revisar": 0.05,
+        "coerente": 0.94,
+        "insuficiente": 0.01
+      }
+    },
+    "consultorio": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.91,
+      "probabilities": {
+        "coerente": 0.9299999999999999,
+        "insuficiente": 0.01,
+        "revisar": 0.06
+      }
+    },
+    "resultado": {
+      "type": "choice",
+      "choice": "coerente",
+      "confidence": 0.92,
+      "probabilities": {
+        "coerente": 0.94,
+        "insuficiente": 0.01,
+        "revisar": 0.05
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 1313,
+    "output_tokens": 184
+  },
+  "limite": "Revisão textual estruturada; não inspeção das imagens nem teste funcional."
+}

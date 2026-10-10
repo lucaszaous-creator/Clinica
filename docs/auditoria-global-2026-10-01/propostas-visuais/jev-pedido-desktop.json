@@ -1,0 +1,58 @@
+{
+  "model": "jev-1.13.0",
+  "state": {
+    "objetivo": "Revisar restrição do portal e inclusão dos atendimentos desktop na proposta visual da PR 232. Dados fictícios, nenhuma alteração do produto.",
+    "propostas": {
+      "escopo": "O proprietário excluiu o portal web porque a cliente está satisfeita. Retirada a proposta de evolução e consentimentos juntos no portal. README e plano registram proibição de alterar portal, inclusive efeitos indiretos de componentes/contratos compartilhados. Auditoria histórica é preservada, mas não autoriza execução. O protótipo tem oito exemplos desktop e mapa de áreas ainda sem desenho. CRM é outro produto, não está redesenhado nesta rodada.",
+      "recepcao": "Desktop Recepção, Lançar atendimento: paciente e convênio identificados; modalidade, profissional, data, hora e observações administrativas. Horário já existente permanece vinculado. Checkbox atendimento já aconteceu inicia desmarcado e exige opção explícita. Prévia dos efeitos do lançamento antes do botão. Evolução clínica cabe ao Consultório. Protótipo não grava.",
+      "consultorio": "Desktop Consultório, sessão de hoje: grande campo livre de evolução preservado, data, EVA antes/depois, retorno; modelos e mapa corporal contextuais, detalhes históricos acessíveis sem impor vários campos ao uso principal. Ficha/exames/documentos abrem no mesmo paciente preservando texto. Abas de histórico e registros de enfermagem consultam dados existentes NO DESKTOP sem mudar portal. Botão Salvar e concluir sessão explicita a semântica atual verificada no código: médico salva evolução, conclui sessão e gera guias aplicáveis. Reutilizar texto pede confirmação antes de substituir.",
+      "resultado": "Resultado desktop da conclusão: evolução salva, sessão concluída e guias aplicáveis geradas no exemplo. Documento emitido com número preservado ainda pode aguardar assinatura, independente da conclusão. Imprimir não implica assinar ou reemitir. Falha de atualização depois de salvar oferece atualizar o registro existente, sem repetir conclusão. Distinção de concluir conversa CRM preservada."
+    }
+  },
+  "questions": {
+    "escopo": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "Avalie somente esta descrição abstrata, sem alegar inspeção de imagem ou teste do produto. A proposta respeita escopo, estados e perfis descritos?"
+      },
+      "criteria": {
+        "coerente": "A descrição é coerente com os requisitos informados.",
+        "revisar": "Existe contradição relevante nos requisitos descritos.",
+        "insuficiente": "Faltam informações para avaliar."
+      }
+    },
+    "recepcao": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "Avalie somente esta descrição abstrata, sem alegar inspeção de imagem ou teste do produto. A proposta respeita escopo, estados e perfis descritos?"
+      },
+      "criteria": {
+        "coerente": "A descrição é coerente com os requisitos informados.",
+        "revisar": "Existe contradição relevante nos requisitos descritos.",
+        "insuficiente": "Faltam informações para avaliar."
+      }
+    },
+    "consultorio": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "Avalie somente esta descrição abstrata, sem alegar inspeção de imagem ou teste do produto. A proposta respeita escopo, estados e perfis descritos?"
+      },
+      "criteria": {
+        "coerente": "A descrição é coerente com os requisitos informados.",
+        "revisar": "Existe contradição relevante nos requisitos descritos.",
+        "insuficiente": "Faltam informações para avaliar."
+      }
+    },
+    "resultado": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "Avalie somente esta descrição abstrata, sem alegar inspeção de imagem ou teste do produto. A proposta respeita escopo, estados e perfis descritos?"
+      },
+      "criteria": {
+        "coerente": "A descrição é coerente com os requisitos informados.",
+        "revisar": "Existe contradição relevante nos requisitos descritos.",
+        "insuficiente": "Faltam informações para avaliar."
+      }
+    }
+  }
+}
