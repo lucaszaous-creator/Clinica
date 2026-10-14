@@ -47,6 +47,18 @@ public sealed class PlanejamentoEnfermagemTests : IDisposable
         db.Agendamentos.Add(a); await db.SaveChangesAsync(); return a;
     }
 
+    [Fact] public async Task Contador_global_independe_do_dia_e_distingue_lido_expirado_e_acesso()
+    {
+        var id = await Criar();
+        Assert.Equal((1, 1), await svc.ContarAsync(recepcao.Id));
+        var detalhe = await svc.DetalheAsync(recepcao.Id, id);
+        await svc.AtualizarAsync(recepcao.Id, id, new(Guid.NewGuid(), detalhe.Pedido.Versao, "visto"));
+        Assert.Equal((0, 1), await svc.ContarAsync(recepcao.Id));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.ContarAsync(tecnica.Id));
+        tempo.Agora = tempo.Agora.AddDays(4);
+        Assert.Equal((0, 0), await svc.ContarAsync(recepcao.Id));
+    }
+
     [Fact] public async Task Aviso_e_reenvio_nao_modificam_agenda_nem_permissoes()
     {
         var a = await Agendar(); var p = await Pedido();

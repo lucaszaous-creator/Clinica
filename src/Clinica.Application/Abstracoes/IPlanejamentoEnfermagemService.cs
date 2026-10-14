@@ -35,6 +35,7 @@ public static class AcessoPlanejamentoEnfermagem
 
 public interface IPlanejamentoEnfermagemService
 {
+    Task<(int Novos, int Abertos)> ContarAsync(int usuarioId, CancellationToken ct = default);
     Task<IReadOnlyList<DiaPlanejamentoEnfermagem>> SemanaAsync(int usuarioId, SemanaEnfermagem semana, CancellationToken ct = default);
     Task<ResumoPeriodoEnfermagem> PeriodoAsync(int usuarioId, PeriodoEnfermagem periodo, CancellationToken ct = default);
     Task<IReadOnlyList<LinhaSolicitacaoEnfermagem>> ListarAsync(int usuarioId, DateOnly? dia = null, CancellationToken ct = default);

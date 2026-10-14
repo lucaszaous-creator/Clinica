@@ -148,7 +148,8 @@ public sealed partial class ShellViewModel : ObservableObject
             // Pode() já libera quando não há sessão autenticada — a regra mora nela.
             foreach (var item in modulo.Itens.Select(OrganizacaoNavegacao.Aplicar).Where(i => sessao?.Pode(i.Requer) != false
                 && (i.RequerAlgum == Permissao.Nenhuma || sessao?.PodeAlgum(i.RequerAlgum) != false)
-                && (i.PerfilExclusivo is null || sessao?.Perfil == i.PerfilExclusivo)))
+                && (i.PerfilExclusivo is null || sessao?.Perfil == i.PerfilExclusivo)
+                && (i.Chave != ChavesSuite.PedidosEnfermagem || sessao?.Perfil is PerfilAcesso.Recepcao or PerfilAcesso.Gerente)))
             {
                 // Dois módulos podem publicar a MESMA chave quando a tela subiu para o
                 // shell e pertence aos dois (a Sala de infusão, parcela 48: a enfermagem
@@ -443,6 +444,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         AvisosAbertos = !AvisosAbertos;
         if (AvisosAbertos) Snackbar?.MarcarLidos();
+        if (AvisosAbertos) _ = AtualizarPedidosGlobaisAsync();
     }
 
     /// <summary>

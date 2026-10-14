@@ -155,6 +155,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Button Grid.Column="0" Command="{Binding AbrirFilaInfusaoCommand}"
                                 Padding="8,5"
@@ -177,27 +178,47 @@
                                 </Border>
                             </StackPanel>
                         </Button>
-                        <Button Grid.Column="1" x:Name="Sino" Style="{StaticResource BotaoIcone}"
-                                Command="{Binding AbrirAvisosCommand}"
-                                ToolTip="Notificações — os últimos avisos desta sessão"
-                                AutomationProperties.Name="Notificações">
-                            <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" />
+                        <Button Grid.Column="1" x:Name="PedidosEnfermagemAtalho" Command="{Binding AbrirPedidosEnfermagemCommand}"
+                                Padding="10,8" Margin="0,0,8,0" ToolTip="{Binding ResumoPedidos}"
+                                AutomationProperties.Name="Pedidos da enfermagem" AutomationProperties.HelpText="{Binding ResumoPedidos}">
+                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PedidosNovos}" Value="0">
+                                        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding PodeVerPedidos}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger>
+                                </Style.Triggers>
+                            </Style></Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Pedidos da enfermagem" VerticalAlignment="Center" FontSize="{StaticResource Fonte.Legenda}" />
+                                <Border Background="{StaticResource Brush.Superficie}" CornerRadius="{StaticResource Raio.Medio}" Padding="6,3" Margin="8,0,0,0">
+                                    <TextBlock Text="{Binding ContadorPedidos}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Acento}" FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold" />
+                                </Border>
+                            </StackPanel>
                         </Button>
-                        <Border Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        <Button Grid.Column="2" x:Name="Sino" Style="{StaticResource BotaoIcone}"
+                                Command="{Binding AbrirAvisosCommand}"
+                                ToolTip="Notificações e pedidos da enfermagem"
+                                AutomationProperties.Name="Notificações">
+                            <Path Data="{StaticResource Icone.sino}" Stroke="{StaticResource Brush.Texto.Primario}"
+                                  StrokeThickness="1.7" Width="19" Height="19" Stretch="Uniform" />
+                        </Button>
+                        <Border Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Top"
                                 Margin="0,2,0,0" IsHitTestVisible="False">
                             <Border.Style>
                                 <Style TargetType="Border" BasedOn="{StaticResource BadgeContador}">
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Snackbar.NaoLidos, FallbackValue=0}" Value="0">
+                                        <DataTrigger Binding="{Binding TemAvisos, FallbackValue=False}" Value="False">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <TextBlock Text="{Binding Snackbar.NaoLidos}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding ContadorAvisos}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                         </Border>
 
-                        <Popup Grid.Column="1" IsOpen="{Binding AvisosAbertos, Mode=TwoWay}" StaysOpen="False"
+                        <Popup Grid.Column="2" IsOpen="{Binding AvisosAbertos, Mode=TwoWay}" StaysOpen="False"
                                PlacementTarget="{Binding ElementName=Sino}" Placement="Bottom"
                                AllowsTransparency="True" HorizontalOffset="-280" VerticalOffset="4">
                             <Border Background="{StaticResource Brush.Superficie}"
@@ -205,10 +226,21 @@
                                     CornerRadius="{StaticResource Raio.Medio}" Padding="4"
                                     Width="340" MaxHeight="380">
                                 <DockPanel>
-                                    <TextBlock DockPanel.Dock="Top" Text="AVISOS DESTA SESSÃO"
+                                    <TextBlock DockPanel.Dock="Top" Text="NOTIFICAÇÕES"
                                                Style="{StaticResource Rotulo}" Margin="10,8,10,6" />
+                                    <Button DockPanel.Dock="Top" Command="{Binding AbrirPedidosEnfermagemCommand}"
+                                            Margin="8,4,8,12" Padding="12" HorizontalContentAlignment="Stretch"
+                                            AutomationProperties.Name="Abrir pedidos da enfermagem de todas as datas">
+                                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                                            <Style.Triggers><DataTrigger Binding="{Binding PodeVerPedidos}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                                        </Style></Button.Style>
+                                        <StackPanel><TextBlock Text="Pedidos da enfermagem" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding ResumoPedidos}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                                            <TextBlock Text="Abrir caixa de pedidos" Margin="0,8,0,0" />
+                                        </StackPanel>
+                                    </Button>
                                     <Grid>
-                                        <TextBlock Text="Nenhum aviso por enquanto — o que o sistema disser aparece aqui."
+                                        <TextBlock Text="Nenhum aviso adicional nesta sessão."
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
                                                    FontSize="{StaticResource Fonte.Tabela}" TextWrapping="Wrap"
                                                    Margin="10,4,10,10">

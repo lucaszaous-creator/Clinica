@@ -15,10 +15,7 @@ public static class OrganizacaoNavegacao
         switch (item.Chave)
         {
             case "agenda":
-                abas = [new("Enfermagem", "consultorio-sessoes-enfermagem"), new("Dia", "fila"), new("Grade", ChavesSuite.AgendaRecepcao),
-                    new("Semana", ChavesSuite.ConsultorioSemana), new("Marcar atendimento", "marcar-horario"),
-                    new("Confirmações", "agenda-confirmacoes"), new("Retornos solicitados", "retornos-a-marcar"), new("Conferir atendimentos", "lancamentos"),
-                    new("Consultas de convênio", "consultas")];
+                abas = [new("Visão geral", ChavesSuite.OcupacaoAgenda), new("Atendimentos", "fila"), new("Grade de horários", ChavesSuite.AgendaRecepcao)];
                 break;
             case "consultorio-agenda":
                 rotulo = "Agenda";
@@ -26,7 +23,12 @@ public static class OrganizacaoNavegacao
                     new("Semana", ChavesSuite.ConsultorioSemana), new("Marcar atendimento", "marcar-horario"),
                     new("Evoluções pendentes", "consultorio-registros-pendentes")];
                 break;
-            case "atendimento": oculto = true; break;
+            case "atendimento":
+                rotulo = "Operações da agenda";
+                grupo = GrupoSidebar.Gestao;
+                abas = [new("Marcar atendimento", "marcar-horario"), new("Confirmações", ChavesSuite.ConfirmacoesAgenda),
+                    new("Retornos solicitados", "retornos-a-marcar"), new("Conferir atendimentos", "lancamentos"), new("Consultas de convênio", "consultas")];
+                break;
             case "pacientes":
                 abas = [new("Lista de pacientes", ChavesSuite.PacientesRecepcao)];
                 break;

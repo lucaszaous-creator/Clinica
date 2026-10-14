@@ -132,6 +132,9 @@ public sealed class ModuloRecepcao : IModuloApp
     // na sidebar. Perfis de Recep\u00E7\u00E3o e Profissional j\u00E1 nascem com as daqui.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
+        new ItemMenuModulo { Chave = ChavesSuite.OcupacaoAgenda, Rotulo = "Ocupação da agenda", Glifo = "", Icone = "cal", Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda },
+        new ItemMenuModulo { Chave = ChavesSuite.PedidosEnfermagem, Rotulo = "Pedidos da enfermagem", Glifo = "", Icone = "sino", Grupo = GrupoSidebar.Gestao,
+            Requer = Permissao.VerAgenda | Permissao.EditarAgenda | Permissao.VerFichaPaciente },
         new ItemMenuModulo { Chave = ChaveConfirmacoes, Rotulo = "Confirmações de agenda", Glifo = "\uE73E", Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda },
         new ItemMenuModulo
         {
@@ -166,6 +169,7 @@ public sealed class ModuloRecepcao : IModuloApp
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
             Abas =
             [
+                new AbaMenu("Visão geral", ChavesSuite.OcupacaoAgenda),
                 new AbaMenu("Dia", ChaveFila),
                 new AbaMenu("Grade", ChaveAgenda),
                 new AbaMenu("Semana do profissional", ChavesSuite.ConsultorioSemana)
@@ -473,6 +477,8 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
+        ChavesSuite.OcupacaoAgenda => new OcupacaoAgendaView(servicos),
+        ChavesSuite.PedidosEnfermagem => new PedidosEnfermagemView(servicos),
         ChaveConfirmacoes => new ConfirmacoesView { DataContext = servicos.GetRequiredService<ConfirmacoesViewModel>() },
         ChavePagamentos => new PagamentosView
         {

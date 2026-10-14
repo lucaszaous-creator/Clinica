@@ -31,6 +31,9 @@ public partial class ShellWindow : Window
         NavegacaoLateral.Content = navegacaoLateral;
         SizeChanged+=(_,_)=>AjustarCabecalho();
         Loaded+=(_,_)=>AjustarCabecalho();
+        Loaded+=(_,_)=>{ if (DataContext is ShellViewModel vm) vm.IniciarAvisosGlobais(); };
+        Unloaded+=(_,_)=>{ if (DataContext is ShellViewModel vm) vm.PararAvisosGlobais(); };
+        Closed+=(_,_)=>{ if (DataContext is ShellViewModel vm) vm.PararAvisosGlobais(); };
         InputBindings.Add(new KeyBinding(new RelayFoco(() =>
         {
             if (NavegacaoLateral.Content is FrameworkElement lateral)
@@ -54,7 +57,7 @@ public partial class ShellWindow : Window
         }
         // Menus and training move together to a second line on smaller windows,
         // preserving the search, notifications and session controls at 880 px.
-        var compacto=ActualWidth<1300;
+        var compacto=ActualWidth<(DataContext is ShellViewModel { PodeVerPedidos: true } ? 1550 : 1300);
         Cabecalho.Height=compacto?112:68;
         Grid.SetRow(NavegacaoSuperior,compacto?1:0);
         Grid.SetColumn(NavegacaoSuperior,compacto?0:1);
