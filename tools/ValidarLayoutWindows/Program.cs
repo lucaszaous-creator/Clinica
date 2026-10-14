@@ -291,7 +291,7 @@ static class Program
             {
                 var navegador = Descendentes(painel).OfType<WebView2>().FirstOrDefault();
                 if (navegador?.CoreWebView2 is not null
-                    && await navegador.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.agenda,.infusao-pagina,.prescricoes')") == "true")
+                    && await navegador.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.agenda,.infusao-pagina,.prescricoes,.ocupacao-agenda,.pedidos-enfermagem')") == "true")
                 { pronto = true; break; }
                 await Task.Delay(100);
             } while (DateTime.UtcNow < prazo);
