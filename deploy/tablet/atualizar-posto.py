@@ -194,6 +194,7 @@ with tarfile.open(pacote) as tar:
     assert manifest['contrato'] in (2,3)
     migracao = manifest['migracao_nova']
     anteriores_migracao={
+        '20261014192239_PedidosEnfermagem':'20261005193646_FormatoDaEvolucao',
         '20261002162759_GruposInfusaoECatalogoMedicamentos':'20261002140919_ContinuidadeSemAssinatura',
         '20261002140919_ContinuidadeSemAssinatura':'20261001180000_AuditoriaPreservaDetalheCompleto',
         '20261001180000_AuditoriaPreservaDetalheCompleto':'20261001140452_CertificadosA1Profissionais',
@@ -205,6 +206,7 @@ with tarfile.open(pacote) as tar:
         '20260928123100_AcompanhamentoPacientesBsvRecall':'20260926120000_DevolucaoInfusaoExterna',
     }
     arquivos_migracao={
+        '20261014192239_PedidosEnfermagem':'migracao-pedidos-enfermagem.sql',
         '20261002162759_GruposInfusaoECatalogoMedicamentos':'migracao-a1.sql',
         '20261002140919_ContinuidadeSemAssinatura':'migracao-a1.sql',
         '20261001180000_AuditoriaPreservaDetalheCompleto':'migracao-a1.sql',
@@ -349,6 +351,24 @@ if migracao in ('20260928123100_AcompanhamentoPacientesBsvRecall','2026092821112
                 if not existe or sql(f"SELECT has_sequence_privilege('{role}','{sequence}','{priv}')")!='t':
                     conceder.append(f'GRANT {priv} ON SEQUENCE {sequence} TO {ident(role)};')
                     revogar.append(f'REVOKE {priv} ON SEQUENCE {sequence} FROM {ident(role)};')
+if migracao == '20261014192239_PedidosEnfermagem':
+    desktop=sql('SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid=\'"Configuracoes"\'::regclass')
+    assert re.fullmatch(r'[a-zA-Z0-9_-]+',desktop) and desktop != role
+    # Os dois canais compartilham avisos. Nenhum privilégio novo sobre Agendamentos.
+    for tabela,privilegios in {'SolicitacoesEnfermagem':('SELECT','INSERT','UPDATE'),
+            'EventosSolicitacaoEnfermagem':('SELECT','INSERT')}.items():
+        existe=sql(f"SELECT to_regclass('{ident(tabela)}') IS NOT NULL")=='t'
+        for destinatario in (role,desktop):
+            for priv in privilegios:
+                if existe:grant(priv,tabela,destinatario)
+                else:
+                    conceder.append(f'GRANT {priv} ON {ident(tabela)} TO {ident(destinatario)};')
+                    revogar.append(f'REVOKE {priv} ON {ident(tabela)} FROM {ident(destinatario)};')
+            sequence=ident(tabela+'_Id_seq')
+            for priv in ('USAGE','SELECT'):
+                if not existe or sql(f"SELECT has_sequence_privilege('{destinatario}','{sequence}','{priv}')")!='t':
+                    conceder.append(f'GRANT {priv} ON SEQUENCE {sequence} TO {ident(destinatario)};')
+                    revogar.append(f'REVOKE {priv} ON SEQUENCE {sequence} FROM {ident(destinatario)};')
 privado(backup/'permissoes-aplicar.sql','\n'.join(conceder))
 privado(backup/'permissoes-recuar.sql','\n'.join(revogar))
 privado(backup/'release-anterior.txt',anterior)

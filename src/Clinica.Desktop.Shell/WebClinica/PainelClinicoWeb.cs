@@ -101,7 +101,7 @@ public sealed class PainelClinicoWeb : UserControl, IDisposable
             if (acao == "dimensionar" && _tela == "filtros-agenda")
             {
                 if (m.TryGetProperty("altura", out var altura) && altura.TryGetDouble(out var valor) && double.IsFinite(valor))
-                    Height = Math.Clamp(Math.Ceiling(valor), 100, 260);
+                    Height = Math.Clamp(Math.Ceiling(valor), 100, 360);
                 return;
             }
             executando = true;

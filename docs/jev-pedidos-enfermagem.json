@@ -1,0 +1,113 @@
+{
+  "data": "2026-10-14",
+  "escopo": "Validação do fluxo agenda primeiro e avisos compartilhados, por escolha estruturada, sem execução pelo Jev. Código e contexto sintético.",
+  "fontes_sha256": {
+    "src/Clinica.Application/Abstracoes/IPlanejamentoEnfermagemService.cs": "f5cd7dbc8bf99d31a6b6ffdba02a8acd4c1f32ab218766cd5ea0265dae061c22",
+    "src/Clinica.Infrastructure/Planejamento/PlanejamentoEnfermagemService.cs": "b63a4e596803e55aa9d7f0ea568815c6b4bfcbd09c1b0a8bbc41a5ee73ef0440",
+    "src/Clinica.Assinaturas.Api/RotasPlanejamentoEnfermagem.cs": "af48969a8f02b8e14af3e09b58800b73df1ed3d69597e5bc11e8e642804f57d2",
+    "src/Clinica.Modulo.Recepcao/Views/PedidosEnfermagemWeb.cs": "21ffbc528f9f8b00072c9d01825c34b037c3f380c4d8637eca5442839e1ef0d5",
+    "src/Clinica.Desktop.Shell/WebClinica/frontend/src/PedidosEnfermagem.tsx": "fd6bae705744a10128ad059dc66338458497bc25e41fcecd685acf4adb60fb55",
+    "portal/planejamento-enfermagem.js": "cbadd8c29a50ea007b3102355ac7f7d7eaea31d56e8b55718bc29e9aff6be1d7"
+  },
+  "perguntas": {
+    "simplicidade_portal": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "A implementação segue o fluxo de agenda primeiro, solicitar depois, pedido pelo usuário?"
+      },
+      "criteria": {
+        "adequado": "Agenda e pacientes são a tela principal; pedido abre em diálogo contextual.",
+        "melhorar_descoberta": "A ação de solicitar ainda precisa de melhor descoberta/contexto.",
+        "excesso_campos": "O diálogo exige informação excessiva para a primeira etapa.",
+        "evidencia_insuficiente": "Não há evidência suficiente para avaliar o fluxo."
+      }
+    },
+    "recepcao": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "O fluxo da recepção atende a caixa de notificações compartilhada pedida, sem assumir responsável?"
+      },
+      "criteria": {
+        "adequado": "Contador, abrir e visualizar aviso e atalho atendem o escopo.",
+        "complexo": "Ainda há etapas de tarefa indevidas para esse pedido.",
+        "retorno_insuficiente": "Falta retorno suficiente à enfermagem.",
+        "evidencia_insuficiente": "Não é possível concluir."
+      }
+    },
+    "permissoes": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "O código fornecido cria algum caminho para a técnica agendar ou editar agendamentos?"
+      },
+      "criteria": {
+        "sem_caminho_novo": "Os caminhos fornecidos apenas leem agenda e escrevem avisos; autorização de scheduling não é concedida.",
+        "caminho_indevido": "Existe caminho novo indevido de escrita da agenda.",
+        "evidencia_insuficiente": "Código insuficiente para avaliar este limite."
+      }
+    },
+    "risco_prioritario": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "Qual cuidado de produto mais importante permanece nesta primeira etapa?"
+      },
+      "criteria": {
+        "interpretar_como_vaga": "Evitar interpretar solicitação/quantidade como disponibilidade garantida ou reserva.",
+        "perda_de_aviso": "Descoberta e leitura dos avisos ainda requerem atenção operacional.",
+        "dia_errado": "Risco principal é enviar para outro dia sem perceber.",
+        "acesso_indevido": "Risco principal é autorização insuficiente nos trechos enviados."
+      }
+    }
+  },
+  "resposta": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "simplicidade_portal": {
+        "type": "choice",
+        "choice": "adequado",
+        "confidence": 1.0,
+        "probabilities": {
+          "adequado": 1.0,
+          "melhorar_descoberta": 0.0,
+          "excesso_campos": 0.0,
+          "evidencia_insuficiente": 0.0
+        }
+      },
+      "recepcao": {
+        "type": "choice",
+        "choice": "adequado",
+        "confidence": 0.97,
+        "probabilities": {
+          "adequado": 0.98,
+          "complexo": 0.02,
+          "retorno_insuficiente": 0.0,
+          "evidencia_insuficiente": 0.0
+        }
+      },
+      "permissoes": {
+        "type": "choice",
+        "choice": "sem_caminho_novo",
+        "confidence": 1.0,
+        "probabilities": {
+          "sem_caminho_novo": 1.0,
+          "caminho_indevido": 0.0,
+          "evidencia_insuficiente": 0.0
+        }
+      },
+      "risco_prioritario": {
+        "type": "choice",
+        "choice": "interpretar_como_vaga",
+        "confidence": 0.96,
+        "probabilities": {
+          "interpretar_como_vaga": 0.97,
+          "perda_de_aviso": 0.03,
+          "dia_errado": 0.0,
+          "acesso_indevido": 0.0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 17019,
+      "output_tokens": 259
+    }
+  }
+}

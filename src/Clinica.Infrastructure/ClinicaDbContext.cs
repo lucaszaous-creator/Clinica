@@ -133,6 +133,7 @@ public class ClinicaDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        Planejamento.MapeamentoPlanejamentoEnfermagem.Aplicar(b);
         b.Entity<CertificadoA1Profissional>(e =>
         {
             e.ToTable("CertificadosA1");
