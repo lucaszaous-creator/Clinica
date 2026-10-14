@@ -116,6 +116,17 @@ public sealed class PlanejamentoEnfermagemService(ClinicaDbContext db, TimeProvi
             .ThenByDescending(p => p.Ativa).ThenBy(p => p.Inicio).ToList();
     }
 
+    public async Task<(int Novos, int Abertos)> ContarAsync(int usuarioId, CancellationToken ct = default)
+    {
+        var u = await Usuario(usuarioId, ct);
+        if (!AcessoPlanejamentoEnfermagem.Tratar(u)) throw new UnauthorizedAccessException();
+        var agora = Agora;
+        var contagens = await db.Set<SolicitacaoEnfermagem>().AsNoTracking()
+            .Where(p => (p.Situacao == "Novo" || p.Situacao == "Visto") && p.Validade > agora)
+            .GroupBy(p => p.Situacao).Select(g => new { Situacao = g.Key, Total = g.Count() }).ToListAsync(ct);
+        return (contagens.Where(c => c.Situacao == "Novo").Sum(c => c.Total), contagens.Sum(c => c.Total));
+    }
+
     public async Task<DetalheSolicitacaoEnfermagem> DetalheAsync(int usuarioId, int id, CancellationToken ct = default)
     {
         var u = await Usuario(usuarioId, ct);

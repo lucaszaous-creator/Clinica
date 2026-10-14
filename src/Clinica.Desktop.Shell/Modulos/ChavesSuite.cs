@@ -16,6 +16,8 @@ namespace Clinica.Desktop.Shell.Modulos;
 public static class ChavesSuite
 {
     public const string Agenda = "agenda";
+    public const string OcupacaoAgenda = "ocupacao-agenda";
+    public const string PedidosEnfermagem = "pedidos-enfermagem";
     public const string Acessos = "acessos";
     public const string ConfirmacoesAgenda = "agenda-confirmacoes";
     public const string Estoque = "estoque";

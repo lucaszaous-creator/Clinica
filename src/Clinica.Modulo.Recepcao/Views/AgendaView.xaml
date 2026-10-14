@@ -177,7 +177,7 @@
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock Text="Agenda" Style="{StaticResource H1}" Margin="0" />
+                <TextBlock Text="Grade de horários" Style="{StaticResource H1}" Margin="0" />
                 <TextBlock Text="{Binding ResumoPlanejamento}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

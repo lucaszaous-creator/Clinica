@@ -3,15 +3,21 @@ using System.Windows;
 using System.Windows.Threading;
 using Clinica.Application.Abstracoes;
 using Clinica.Desktop.Shell.WebClinica;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Recepcao.Views;
 
-/// <summary>Caixa compartilhada de avisos. O ciclo de atualização acompanha a presença da agenda na tela.</summary>
-internal sealed class PedidosEnfermagemWeb(AgendaViewModel vm) : IDisposable
+/// <summary>Caixa compartilhada de avisos. Atualiza enquanto sua página ou a agenda está em cena.</summary>
+internal sealed class PedidosEnfermagemWeb(IServiceScopeFactory escopos, Func<DateTime> dia, Action<DateTime> abrirAgenda) : IDisposable
 {
+    public PedidosEnfermagemWeb(AgendaViewModel vm) : this(vm.EscoposPlanejamento, () => vm.Dia, data =>
+    {
+        vm.MostrarTodosOsProfissionais = true; vm.FiltroProfissional = null; vm.FiltroSala = null;
+        vm.ModoSemana = false; vm.Dia = data;
+    }) { }
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMinutes(1) };
     private IReadOnlyList<LinhaSolicitacaoEnfermagem> _pedidos = [];
     private DetalheSolicitacaoEnfermagem? _detalhe;
@@ -27,10 +33,10 @@ internal sealed class PedidosEnfermagemWeb(AgendaViewModel vm) : IDisposable
     public object Resumo => new { permitido = Permitido, carregando = _carregando, erro = _erro,
         novos = _erro is null ? _pedidos.Count(p => p.Ativa && p.Situacao == "Novo") : (int?)null,
         abertos = _erro is null ? _pedidos.Count(p => p.Ativa) : (int?)null,
-        noDia = _erro is null ? _pedidos.Count(p => p.Ativa && p.Inicio.Date == vm.Dia.Date) : (int?)null };
-    private object Estado() => new { contexto = _contexto, pedidos = _pedidos, detalhe = _detalhe,
-        dia = vm.Dia.ToString("yyyy-MM-dd"), carregando = _carregando, erro = _erro };
-    private static void Exigir()
+        noDia = _erro is null ? _pedidos.Count(p => p.Ativa && p.Inicio.Date == dia().Date) : (int?)null };
+    internal object Estado() => new { contexto = _contexto, pedidos = _pedidos, detalhe = _detalhe,
+        dia = dia().ToString("yyyy-MM-dd"), carregando = _carregando, erro = _erro };
+    internal static void Exigir()
     {
         if (!Permitido) throw new UnauthorizedAccessException("Este acesso não permite consultar os pedidos da recepção.");
     }
@@ -50,7 +56,7 @@ internal sealed class PedidosEnfermagemWeb(AgendaViewModel vm) : IDisposable
         _carregando = true;
         try
         {
-            using var escopo = vm.EscoposPlanejamento.CreateScope();
+            using var escopo = escopos.CreateScope();
             var linhas = await escopo.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ListarAsync(usuario);
             if (!_ativa || g != _geracao || usuario != SessaoUsuario.Atual.UsuarioId) return;
             _pedidos = linhas; _erro = null;
@@ -74,7 +80,7 @@ internal sealed class PedidosEnfermagemWeb(AgendaViewModel vm) : IDisposable
         finally { _janela = null; _detalhe = null; await Atualizar(); }
     }
 
-    private async Task Executar(JsonElement m)
+    internal async Task Executar(JsonElement m)
     {
         Exigir();
         if (!m.TryGetProperty("contexto", out var contexto) || contexto.GetString() != _contexto) return;
@@ -92,33 +98,36 @@ internal sealed class PedidosEnfermagemWeb(AgendaViewModel vm) : IDisposable
         if (acao == "ver-agenda")
         {
             // Destino vem da consulta autorizada, nunca de uma data enviada pelo navegador.
-            vm.MostrarTodosOsProfissionais = true; vm.FiltroProfissional = null; vm.FiltroSala = null;
-            vm.ModoSemana = false; vm.Dia = pedido.Inicio.Date;
+            abrirAgenda(pedido.Inicio.Date);
             _janela?.Close(); return;
         }
         if (acao != "encerrar" || _detalhe?.Pedido.Id != id) return;
         var versao = m.GetProperty("versao").GetGuid();
         var chave = m.GetProperty("idempotencia").GetGuid();
         var observacao = m.TryGetProperty("observacao", out var texto) ? texto.GetString() ?? "" : "";
-        using (var escopo = vm.EscoposPlanejamento.CreateScope())
+        using (var escopo = escopos.CreateScope())
             await escopo.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().AtualizarAsync(
                 SessaoUsuario.Atual.UsuarioId, id, new(chave, versao, "encerrar", observacao));
+        NotificacoesEnfermagem.SinalizarMudanca();
         await Atualizar(); await Detalhar(id, false);
     }
 
     private async Task Detalhar(int id, bool registrarLeitura)
     {
-        using var escopo = vm.EscoposPlanejamento.CreateScope();
+        var geracao = _geracao;
+        using var escopo = escopos.CreateScope();
         var svc = escopo.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>();
         var usuario = SessaoUsuario.Atual.UsuarioId;
         var detalhe = await svc.DetalheAsync(usuario, id);
+        if (!_ativa || geracao != _geracao || usuario != SessaoUsuario.Atual.UsuarioId) return;
         if (registrarLeitura && detalhe.Pedido is { Ativa: true, Situacao: "Novo" })
         {
             await svc.AtualizarAsync(usuario, id, new(Guid.NewGuid(), detalhe.Pedido.Versao, "visto"));
+            NotificacoesEnfermagem.SinalizarMudanca();
             detalhe = await svc.DetalheAsync(usuario, id);
             await Atualizar();
         }
-        if (_janela is not null && usuario == SessaoUsuario.Atual.UsuarioId) _detalhe = detalhe;
+        if (_ativa && geracao == _geracao && usuario == SessaoUsuario.Atual.UsuarioId) _detalhe = detalhe;
     }
     public void Dispose() { Parar(); _timer.Tick -= AtualizarTimer; _janela?.Close(); }
 }

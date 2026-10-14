@@ -849,7 +849,17 @@ public sealed partial class AgendaViewModel : ObservableObject
         try
         {
             using var scope = _escopos.CreateScope();
-            if (scope.ServiceProvider.GetService<PedidoAgenda>()?.Consumir() is not { } dia) return false;
+            var pedido = scope.ServiceProvider.GetService<PedidoAgenda>();
+            if (pedido?.Consumir() is not { } dia) return false;
+
+            if (pedido.AplicarFiltro)
+            {
+                _aplicarProfissionalSolicitado = true;
+                _profissionalSolicitado = pedido.ProfissionalId;
+                MostrarTodosOsProfissionais = true;
+                FiltroSala = null;
+                FiltroProfissional = pedido.ProfissionalId is { } id ? new(id, "Profissional selecionado") : null;
+            }
 
             var antes = (Dia, ModoSemana);
             if (ModoSemana) ModoSemana = false;

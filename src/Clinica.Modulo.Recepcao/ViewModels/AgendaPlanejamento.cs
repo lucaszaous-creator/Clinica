@@ -51,6 +51,8 @@ public sealed partial class AgendaViewModel
     private string _ultimaConsultaConcluida = "nenhuma leitura concluída";
     private bool _preparandoFiltros;
     private bool _filtrosPreparados;
+    private bool _aplicarProfissionalSolicitado;
+    private int? _profissionalSolicitado;
     private int _geracaoVagas;
     public int? ProfissionalEmFocoId => FiltroProfissional?.Id;
     public string ProfissionalEmFocoNome => FiltroProfissional?.Nome ?? "Todos os profissionais";
@@ -69,7 +71,9 @@ public sealed partial class AgendaViewModel
         try
         {
             _profissionaisPlanejamento = profissionais; _salasPlanejamento = salas;
-            var escolhido = _filtrosPreparados ? ProfissionalEmFocoId : SessaoUsuario.Atual.ProfissionalId;
+            var escolhido = _aplicarProfissionalSolicitado ? _profissionalSolicitado
+                : _filtrosPreparados ? ProfissionalEmFocoId : SessaoUsuario.Atual.ProfissionalId;
+            _aplicarProfissionalSolicitado = false;
             var sala = FiltroSala?.Id;
             FiltroProfissionais.Clear(); FiltroProfissionais.Add(new(null, "Todos os profissionais"));
             foreach (var p in profissionais) FiltroProfissionais.Add(new(p.Id, p.Rotulo));

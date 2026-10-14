@@ -13,8 +13,12 @@ namespace Clinica.Recepcao.ViewModels;
 public sealed class PedidoAgenda
 {
     private DateOnly? _dia;
+    public bool AplicarFiltro { get; private set; }
+    public int? ProfissionalId { get; private set; }
 
-    public void AbrirEm(DateOnly dia) => _dia = dia;
+    public void AbrirEm(DateOnly dia) { _dia = dia; AplicarFiltro = false; ProfissionalId = null; }
+    public void AbrirComFiltro(DateOnly dia, int? profissionalId)
+    { _dia = dia; AplicarFiltro = true; ProfissionalId = profissionalId; }
 
     public DateOnly? Consumir()
     {

@@ -114,6 +114,9 @@ jobs:
       - name: Conferir notificações da enfermagem na recepção
         run: dotnet run --project tools/validar-planejamento-enfermagem -c Release
 
+      - name: Validar ocupação e notificações globais com WebView2
+        run: dotnet run --project tools/validar-ocupacao-agenda -c Release
+
       - name: Conferir documentos, histórico e troca de paciente no WebView2
         run: dotnet run --project tools/validar-prescricoes -c Release
 

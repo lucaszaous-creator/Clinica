@@ -1,0 +1,85 @@
+using Clinica.Domain;
+using Clinica.Domain.Entities;
+using Clinica.Infrastructure;
+using Clinica.Infrastructure.Planejamento;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
+
+namespace Clinica.Tests;
+
+public sealed class OcupacaoAgendaTests : IDisposable
+{
+    private readonly SqliteConnection conexao = new("Data Source=:memory:");
+    private readonly ClinicaDbContext db;
+    private readonly OcupacaoAgendaService svc;
+    private readonly UsuarioSistema recepcao = new() { Nome = "Recepção teste", Login = "ocupacao", Perfil = PerfilAcesso.Recepcao };
+    private readonly Profissional profissional = new() { Nome = "Profissional teste", Ativo = true,
+        DiasDeAtendimento = Profissional.BitDe(DayOfWeek.Monday), AtendeDas = new(8, 0), AtendeAte = new(12, 0) };
+    private readonly Paciente paciente = new() { Nome = "Paciente teste" };
+    private static readonly DateOnly Segunda = new(2026, 10, 12);
+    public OcupacaoAgendaTests()
+    {
+        conexao.Open(); db = new(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).Options);
+        db.Database.EnsureCreated(); db.AddRange(recepcao, profissional, paciente); db.SaveChanges(); svc = new(db);
+    }
+    public void Dispose() { db.Dispose(); conexao.Dispose(); }
+    private Agendamento Horario(int hora, int minutos = 60, StatusAgendamento status = StatusAgendamento.Agendado, int dias = 0)
+        => new() { PacienteId = paciente.Id, ProfissionalId = profissional.Id, DataHora = Segunda.AddDays(dias).ToDateTime(new(hora, 0)), DuracaoMinutos = minutos, Status = status };
+
+    [Fact] public async Task Sobreposicoes_e_bloqueios_nao_duplicam_tempo_e_cancelados_nao_ocupam()
+    {
+        db.Agendamentos.AddRange(Horario(8, 120), Horario(9, 120), Horario(11, 60, StatusAgendamento.Cancelado), Horario(11, 60, StatusAgendamento.Faltou));
+        db.BloqueiosAgenda.AddRange(new BloqueioAgenda { Inicio = Segunda.ToDateTime(new(10, 0)), Fim = Segunda.ToDateTime(new(11, 0)), Motivo = "Teste" },
+            new BloqueioAgenda { ProfissionalId = profissional.Id, Inicio = Segunda.ToDateTime(new(10, 30)), Fim = Segunda.ToDateTime(new(11, 0)), Motivo = "Teste" });
+        await db.SaveChangesAsync();
+        var r = await svc.ConsultarAsync(recepcao.Id, Segunda, Segunda);
+        Assert.Equal(2, r.Resumo.Atendimentos); Assert.Equal(1, r.Resumo.Cancelados); Assert.Equal(1, r.Resumo.Faltas);
+        Assert.Equal(120, r.Resumo.MinutosOcupados); Assert.Equal(180, r.Resumo.MinutosDisponiveis);
+        Assert.Equal(60, r.Resumo.MinutosBloqueados); Assert.Equal(60, r.Resumo.MinutosLivres);
+        Assert.Equal(66.7m, r.Resumo.Percentual); Assert.Equal(1, r.Resumo.ForaDaJornada);
+        Assert.Equal(r.Resumo, Assert.Single(r.Dias).Resumo); Assert.Equal(r.Resumo, Assert.Single(r.Profissionais).Resumo);
+    }
+
+    [Fact] public async Task Dias_sem_jornada_e_cruzamento_da_meia_noite_nao_inventam_capacidade()
+    {
+        db.Agendamentos.AddRange(Horario(23, 120, dias: -1), Horario(8, dias: 1)); await db.SaveChangesAsync();
+        var r = await svc.ConsultarAsync(recepcao.Id, Segunda, Segunda.AddDays(1));
+        Assert.Equal(2, r.Resumo.Atendimentos); Assert.Equal(2, r.Resumo.ForaDaJornada);
+        Assert.Equal(240, r.Resumo.MinutosDisponiveis); Assert.Equal(0, r.Resumo.MinutosOcupados);
+        Assert.Null(r.Dias[1].Resumo.Percentual); Assert.Equal(1, r.Dias[0].Resumo.Atendimentos);
+        Assert.Equal(1, r.Dias[1].Resumo.Atendimentos);
+    }
+
+    [Fact] public async Task Profissional_sem_jornada_nao_vira_zero_porcento_e_filtro_preserva_total()
+    {
+        var outro = new Profissional { Nome = "Sem jornada", Ativo = true };
+        db.Profissionais.Add(outro); db.Agendamentos.Add(Horario(8)); await db.SaveChangesAsync();
+        var todos = await svc.ConsultarAsync(recepcao.Id, Segunda, Segunda.AddDays(6));
+        Assert.Null(todos.Resumo.Percentual); Assert.Equal(1, todos.Resumo.SemJornada);
+        var filtrado = await svc.ConsultarAsync(recepcao.Id, Segunda, Segunda.AddDays(6), profissional.Id);
+        Assert.Equal(25m, filtrado.Resumo.Percentual); Assert.Single(filtrado.Profissionais);
+        Assert.Equal(todos.Profissionais.Single(p => p.Id == profissional.Id).Resumo, filtrado.Resumo);
+    }
+
+    [Fact] public async Task Horario_sem_profissional_afeta_apenas_o_dia_correspondente()
+    {
+        var a = Horario(8, dias: 1); a.ProfissionalId = null; db.Agendamentos.Add(a); await db.SaveChangesAsync();
+        var r = await svc.ConsultarAsync(recepcao.Id, Segunda, Segunda.AddDays(1));
+        Assert.Equal(0, r.Dias[0].Resumo.SemJornada); Assert.Equal(0m, r.Dias[0].Resumo.Percentual);
+        Assert.Equal(1, r.Dias[1].Resumo.SemJornada); Assert.Null(r.Resumo.Percentual);
+    }
+
+    [Fact] public async Task Mes_inclui_profissional_inativo_com_horario_e_respeita_limites()
+    {
+        profissional.Ativo = false; db.Agendamentos.AddRange(Horario(8), Horario(9, dias: 7)); await db.SaveChangesAsync();
+        var r = await svc.ConsultarAsync(recepcao.Id, new(2026, 10, 1), new(2026, 10, 31));
+        Assert.Equal(31, r.Dias.Count); Assert.Equal(2, r.Resumo.Atendimentos); Assert.Single(r.Profissionais);
+        Assert.Equal(r.Resumo.MinutosOcupados, r.Dias.Sum(d => d.Resumo.MinutosOcupados));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ConsultarAsync(recepcao.Id, Segunda, Segunda.AddDays(42)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ConsultarAsync(recepcao.Id, Segunda, Segunda.AddDays(-1)));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.ConsultarAsync(-1, Segunda, Segunda));
+        recepcao.Ativo = false; await db.SaveChangesAsync();
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.ConsultarAsync(recepcao.Id, Segunda, Segunda));
+    }
+}
