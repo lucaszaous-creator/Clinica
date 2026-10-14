@@ -11,6 +11,8 @@ lote → envio → retorno → glosa → recurso, com XML TISS 4.01 e guia em PD
 
 Todo o código, comentários, commits e UI são em **português (pt-BR)** — mantenha esse padrão.
 
+Para propor ou alterar telas desktop, consulte o [padrão visual aprovado nas PRs 235 e 237](docs/design-system/padrao-desktop-aprovado.md). Ele registra as preferências da direção, capturas reais, ícones e critérios de fidelidade; prevalece sobre descrições visuais históricas dessas telas. O portal tem escopo próprio.
+
 ## Comandos
 
 ```bash

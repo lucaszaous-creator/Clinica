@@ -6,6 +6,10 @@ de pagamentos, conciliação, compras e estoque está em
 [Gestão consolidada](docs/gestao-consolidada.md), com responsabilidades e critérios
 dos indicadores.
 
+O [padrão visual aprovado do desktop](docs/design-system/padrao-desktop-aprovado.md)
+consolida as PRs 235 e 237: documentos, barra superior, atendimento, ícones e
+critérios para manter as próximas telas fiéis às propostas aprovadas.
+
 ## Faturamento
 
 Sistema de **faturamento** (não recebíveis) para clínica médica. Modela os fluxogramas
