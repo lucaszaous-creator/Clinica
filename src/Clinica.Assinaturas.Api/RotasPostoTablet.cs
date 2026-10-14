@@ -9,6 +9,7 @@ internal static class RotasPostoTablet
 {
     internal static void Mapear(WebApplication app, Func<HttpContext,PortalTabletService,Task<SessaoTablet>> sessao)
     {
+        RotasPlanejamentoEnfermagem.Mapear(app, sessao);
         var g=app.MapGroup("/api/posto");
         g.MapGet("/infusoes/{id:int}/liberacao", async(HttpContext c, PortalTabletService portal, PostoTabletService svc, int id)
             => Results.Ok(await svc.PrepararLiberacaoAsync(await sessao(c,portal),id,c.RequestAborted)));

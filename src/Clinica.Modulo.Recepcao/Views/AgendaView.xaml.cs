@@ -16,6 +16,7 @@ namespace Clinica.Recepcao.Views;
 public partial class AgendaView : UserControl
 {
     private Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb? _painelBusca;
+    private AgendaBuscaWeb? _adaptadorBusca;
 
     public AgendaView()
     {
@@ -30,15 +31,16 @@ public partial class AgendaView : UserControl
             if (_painelBusca is null)
             {
                 var adaptador = new AgendaBuscaWeb(vm);
+                _adaptadorBusca = adaptador;
                 _painelBusca = Clinica.Desktop.Shell.WebClinica.FiltrosAgendaWeb.Montar(ConteudoAgendaBusca, adaptador.Estado, adaptador.Executar);
-                if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => _painelBusca.Dispose();
+                if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => { _painelBusca.Dispose(); _adaptadorBusca?.Dispose(); };
             }
-            AjustarLaterais(); vm.AoEntrarEmCena();
+            _adaptadorBusca?.Iniciar(); AjustarLaterais(); vm.AoEntrarEmCena();
         };
         Unloaded += (_, _) =>
         {
             if (DataContext is not AgendaViewModel vm) return;
-            vm.PropertyChanged -= AoMudarModo; vm.AoSairDeCena();
+            _adaptadorBusca?.Parar(); vm.PropertyChanged -= AoMudarModo; vm.AoSairDeCena();
         };
     }
 

@@ -56,6 +56,7 @@ else
 builder.Services.AddScoped<IClinicaRepositorio,ClinicaRepositorio>();
 builder.Services.AddScoped<PacoteService>();
 builder.Services.AddScoped<IAcompanhamentoPacienteService,AcompanhamentoPacienteService>();
+builder.Services.AddScoped<IPlanejamentoEnfermagemService,Clinica.Infrastructure.Planejamento.PlanejamentoEnfermagemService>();
 builder.Services.AddScoped<AcessoService>();
 builder.Services.AddScoped<DocumentoClinicoService>();
 builder.Services.AddScoped<ProntuarioService>();

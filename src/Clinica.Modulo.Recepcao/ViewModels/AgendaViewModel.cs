@@ -323,6 +323,7 @@ public sealed class LinhaListaEspera
 /// </summary>
 public sealed partial class AgendaViewModel : ObservableObject
 {
+    internal IServiceScopeFactory EscoposPlanejamento => _escopos;
     [RelayCommand] private void VerDiaPlanejamento() => ModoSemana = false;
     [RelayCommand] private void VerSemanaPlanejamento() => ModoSemana = true;
     [RelayCommand] private Task BuscarVagasPlanejamentoAsync() => ConsultarVagasPlanejamentoAsync();

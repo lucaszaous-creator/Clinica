@@ -36,6 +36,15 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Fact]
+    public void Planejamento_traduz_sobreposicao_com_duracao_do_profissional()
+    {
+        using var db = Postgres();
+        new Clinica.Infrastructure.Planejamento.PlanejamentoEnfermagemService(db)
+            .ConsultaHorarios(new DateTime(2026, 10, 16, 8, 0, 0), new DateTime(2026, 10, 16, 18, 0, 0))
+            .ToQueryString().Should().Contain("interval").And.Contain("DuracaoPadraoMinutos");
+    }
+
+    [Fact]
     public void Conferencias_em_lote_traduz_ids_no_Postgres()
     {
         using var db = Postgres();

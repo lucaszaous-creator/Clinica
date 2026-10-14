@@ -20,6 +20,7 @@ Copy-Item -LiteralPath (Join-Path $sitePortal 'artifacts/portal-release') -Desti
 Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/atualizar-posto.py') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/regras_publicacao.py') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/migracao-a1.sql') -Destination $saidaPortal
+Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/migracao-pedidos-enfermagem.sql') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'docs/assinatura-a1.md') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'docs/remocao-provedor-assinatura.md') -Destination $saidaPortal
 $hashesPortal = [ordered]@{}
@@ -27,7 +28,7 @@ foreach ($arquivoPortal in (Get-ChildItem -LiteralPath $saidaPortal -File -Recur
     $relativoPortal = $arquivoPortal.FullName.Substring($saidaPortal.Length+1).Replace('\','/')
     $hashesPortal[$relativoPortal] = (Get-FileHash -LiteralPath $arquivoPortal.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 }
-[ordered]@{contrato=3;backend=$shaApiPortal;interface=$shaSitePortal;migracao_minima='20260928211121_ChecagemNaoExecutavel';migracao_nova='20261002162759_GruposInfusaoECatalogoMedicamentos';arquivos=$hashesPortal} |
+[ordered]@{contrato=3;backend=$shaApiPortal;interface=$shaSitePortal;migracao_minima='20261005193646_FormatoDaEvolucao';migracao_nova='20261014192239_PedidosEnfermagem';arquivos=$hashesPortal} |
     ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $saidaPortal 'manifesto.json') -Encoding utf8
 $pacotePortal = Join-Path (Split-Path -Parent $saidaPortal) ($nomePortal + '.tar.gz')
 & tar -czf $pacotePortal -C (Split-Path -Parent $saidaPortal) $nomePortal

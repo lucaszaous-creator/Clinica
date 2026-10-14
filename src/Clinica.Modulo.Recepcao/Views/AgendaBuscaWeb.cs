@@ -5,8 +5,12 @@ using Clinica.Recepcao.ViewModels;
 
 namespace Clinica.Recepcao.Views;
 
-internal sealed class AgendaBuscaWeb(AgendaViewModel vm)
+internal sealed class AgendaBuscaWeb(AgendaViewModel vm) : IDisposable
 {
+    private readonly PedidosEnfermagemWeb _pedidos = new(vm);
+    public void Iniciar() => _pedidos.Iniciar();
+    public void Parar() => _pedidos.Parar();
+    public void Dispose() => _pedidos.Dispose();
     private readonly FiltroAgenda _filtro = new();
     private void Filtrar()
     {
@@ -20,16 +24,20 @@ internal sealed class AgendaBuscaWeb(AgendaViewModel vm)
         Filtrar();
         return new
     {
-        contexto = Contexto, carregando = vm.Carregando, naoVerificado = vm.NaoVerificado,
+        contexto = Contexto, carregando = vm.Carregando, naoVerificado = vm.NaoVerificado, enfermagem = _pedidos.Resumo,
         linhas = Linhas.OrderBy(l => l.DataHora).Select(l => new LinhaAgendaWeb(l.AgendamentoId.ToString(),
             l.DataHora.ToString("dd/MM/yyyy"), l.Faixa, l.Paciente, l.Modalidade, l.Profissional, l.Sala,
             StatusDaFila.Palavra(l.Situacao, l.Etapa), SituacaoVisualAgenda.Grupo(l.Situacao, l.Etapa),
             l.EhEncaixe ? "Encaixe" : "", "", l.Observacoes ?? "", "Ver horário", true)).ToArray()
     };
     }
-    public Task Executar(JsonElement m)
+    public async Task Executar(JsonElement m)
     {
+        if (m.TryGetProperty("acao", out var acao) && acao.GetString() == "pedidos-enfermagem")
+        {
+            if (m.TryGetProperty("contexto", out var contexto) && contexto.GetString() == Contexto) await _pedidos.Abrir();
+            return;
+        }
         if (_filtro.Receber(m, Contexto)) Filtrar();
-        return Task.CompletedTask;
     }
 }
