@@ -11,442 +11,487 @@
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
         <!-- Para OBJETO: string vazia não é nula, e "não tem" aqui quer dizer nulo. -->
         <ctrl:ObjetoParaVisibilidade x:Key="ObjetoParaVisibilidade" />
+
+        <!-- ============================================================
+             O CARTÃO DE FOLHA (out/2026). O mesmo desenho dos cartões de "Novo
+             documento" da tela Receitas e documentos do Consultório, que o cliente
+             apontou como a referência: ladrilho de ícone, título, duas linhas de
+             descrição e o sinal de ação à direita. O cartão INTEIRO é o botão — o
+             "Escolher" azul em cada ficha fazia a régua parecer um formulário.
+
+             ⚠️ Template próprio, então o Foreground é DECLARADO: o estilo implícito de
+             Button na suíte é o PRIMÁRIO (texto invertido), e Foreground é herdado — o
+             título sairia branco sobre a superfície branca (a lição da parcela 47).
+             ============================================================ -->
+        <Style x:Key="CartaoDeFolha" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+            <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,12" />
+            <Setter Property="Margin" Value="0,0,12,12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Moldura" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource Raio.Grande}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Moldura" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                                <Setter TargetName="Moldura" Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Moldura" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                            </Trigger>
+                            <!-- Apagado, e não sumido: o cartão continua dizendo que a folha
+                                 existe e, logo abaixo do título, o que falta para ela sair. -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Moldura" Property="Opacity" Value="0.6" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- O ladrilho de ícone: o mesmo quadrado suave do cabeçalho da página e dos
+             cartões, com a cor pela NATUREZA da folha — atendimento no acento, dinheiro no
+             verde, gestão no azul de informação. -->
+        <Style x:Key="LadrilhoDeFolha" TargetType="Border">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="CornerRadius" Value="{StaticResource Raio.Medio}" />
+            <Setter Property="Background" Value="{StaticResource Brush.Acento.Tint}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Acento}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Natureza}" Value="Financeiro">
+                    <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Tint}" />
+                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Sucesso}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Natureza}" Value="Gerencial">
+                    <Setter Property="Background" Value="{StaticResource Brush.Info.Suave}" />
+                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Info}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
     <DockPanel Margin="24">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Documentos" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="Todas as folhas que a clínica emite, num lugar só — numeradas por ano, com código de conferência. Documento NÃO se apaga: cancela-se com motivo, e a segunda via sai idêntica à emitida." />
-        </StackPanel>
+        <!-- ============ O CABEÇALHO DA PÁGINA ============
+             O desenho da tela de Receitas e documentos do Consultório (out/2026): a
+             marca do lugar em cima, o título, a frase do que a tela faz e o ladrilho do
+             assunto à direita. -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Border DockPanel.Dock="Right" Width="48" Height="48" VerticalAlignment="Top"
+                    CornerRadius="{StaticResource Raio.Grande}"
+                    Background="{StaticResource Brush.Acento.Tint}" Margin="16,0,0,0">
+                <TextBlock Text="&#xE8A5;" Style="{StaticResource Icone}"
+                           FontSize="{StaticResource Fonte.H2}"
+                           Foreground="{StaticResource Brush.Acento}"
+                           HorizontalAlignment="Center" />
+            </Border>
+            <StackPanel>
+                <TextBlock Text="RECEPÇÃO" Style="{StaticResource CardKpi.Rotulo}"
+                           FontWeight="SemiBold" HorizontalAlignment="Left" Margin="0,0,0,2" />
+                <TextBlock Text="Documentos" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           HorizontalAlignment="Left"
+                           Text="Emita os papéis do paciente e consulte o que já saiu. Toda folha é numerada por ano, com código de conferência — não se apaga: cancela-se com motivo, e a segunda via sai idêntica à emitida." />
+            </StackPanel>
+        </DockPanel>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. O par antigo
+             (`Visibility` amarrada a `MensagemEhErro`) escondia junto a mensagem de ÊXITO
+             da impressão — a lição da parcela 62, que ainda não tinha chegado aqui. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            <Setter Property="BorderThickness" Value="1" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
         <!-- ============ DUAS PERGUNTAS, DUAS ABAS ============
-             (parcela 82, 2ª rodada — o cliente: "por que O que já saiu não vira uma
-             sub-aba?"). A tela respondia duas perguntas empilhadas — "emitir um papel
-             novo" e "achar o que já saiu" — com as fichas de emitir comendo o alto da
-             lista para sempre. É a regra de leiaute aplicada como a parcela 55 manda:
-             item que cobre mais de um assunto usa SUB-ABAS. De quebra, a lista ganhou a
-             LARGURA INTEIRA: o seletor de paciente é contexto da EMISSÃO (sete das nove
-             folhas são de alguém) e foi para a aba dela — a lista recorta por período,
-             não por paciente. -->
+             (parcela 82, 2ª rodada.) A tela responde duas perguntas — "emitir um papel
+             novo" e "achar o que já saiu" —, e pergunta a mais é ABA, não caixa menor. -->
         <TabControl Margin="0,4,0,0">
 
             <TabItem Header="Emitir">
-                <DockPanel Margin="0,12,0,0">
+                <!-- ============================================================
+                     A ABA EMITIR NO DESENHO DO CONSULTÓRIO (out/2026 — o cliente achou
+                     amador o par "1 · QUEM / 2 · QUAL PAPEL / 3 · O QUE VAI SAIR", com o
+                     paredão de pílulas, o "Escolher" azul em cada ficha e a caixa do passo
+                     3 no pé da página, e apontou a tela Receitas e documentos como a
+                     referência).
 
-                    <!-- ============================================================
-                         A TELA ABRE POR QUEM (set/2026, tela 3 do mockup aprovado
-                         "documentos nas quatro telas").
+                     Duas regiões, de cima para baixo: o cartão "Selecione o paciente" (que
+                     vira a faixa do paciente escolhido) e a régua "Novo documento". O clique
+                     no cartão da folha EMITE — o "o que acontece" está escrito no próprio
+                     cartão, e as duas folhas que saem sem janela perguntam antes.
 
-                         No balcão a pergunta quase nunca é "que papel existe?" — é "a
-                         paciente está aqui pedindo uma declaração". A escolha do paciente
-                         morava numa faixa de 280 px À DIREITA, com um campo de busca
-                         vazio: a recepcionista digitava o nome de alguém que o sistema já
-                         sabia que estava na clínica naquela hora.
+                     ⚠️ A página ROLA inteira, e as duas listas dentro dela devolvem a roda
+                     (`RodaDaPagina`): lista que rola por dentro come a roda do mouse e a
+                     página para de andar (parcela 90).
+                     ============================================================ -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,12,0,8">
 
-                         Agora ela é a PRIMEIRA linha, com as pílulas de quem tem horário
-                         hoje — as mesmas do Novo atendimento —, e as folhas ganham a
-                         largura inteira em vez de disputá-la com uma faixa permanente.
-                         ============================================================ -->
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
-
-                        <!-- ============ 1 · QUEM ============ -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <Border Width="19" Height="19" CornerRadius="9.5"
-                                    VerticalAlignment="Center" Margin="0,0,8,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="{StaticResource Brush.Acento}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding TemPacienteEscolhido}" Value="True">
-                                                <Setter Property="Background" Value="{StaticResource Brush.Sucesso}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <TextBlock Foreground="White" FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="1" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding TemPacienteEscolhido}" Value="True">
-                                                    <Setter Property="Text" Value="&#x2713;" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Border>
-                            <TextBlock Text="1 · QUEM" Style="{StaticResource CardKpi.Rotulo}"
-                                       VerticalAlignment="Center" HorizontalAlignment="Left" />
-                        </StackPanel>
-
-                        <!-- A BUSCA só existe enquanto ninguém foi escolhido: cumprido o
-                             passo, ela some e o lugar dela vira a faixa de identidade.
-                             Enquanto a lista de quatro resultados continua aberta ao lado
-                             de uma caixa azul com o nome, a tela não MUDOU de estado — ela
-                             acumulou, que é o que o cliente viu no print. -->
-                        <StackPanel>
+                        <!-- ============ SELECIONE O PACIENTE ============
+                             A busca só existe enquanto ninguém foi escolhido: cumprido o
+                             passo, o cartão some e o lugar dele vira a faixa do paciente.
+                             Busca aberta ao lado do nome escolhido é a tela acumulando em
+                             vez de mudar de estado. -->
+                        <Border Padding="20,18" Margin="0,0,0,20">
                             <!-- ⚠️ A inversão é DataTrigger, nunca o conversor: o
-                                 `BooleanToVisibilityConverter` mapeia true→Visible e
-                                 IGNORA o `ConverterParameter` (a lição da parcela 95). -->
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
+                                 `BooleanToVisibilityConverter` IGNORA o `ConverterParameter`. -->
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Card}">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding TemPacienteEscolhido}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </StackPanel.Style>
+                            </Border.Style>
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,14">
+                                    <Border DockPanel.Dock="Left" Width="44" Height="44" Margin="0,0,12,0"
+                                            CornerRadius="{StaticResource Raio.Medio}"
+                                            Background="{StaticResource Brush.Acento.Tint}">
+                                        <TextBlock Text="&#xE77B;" Style="{StaticResource Icone}"
+                                                   FontSize="{StaticResource Fonte.H3}"
+                                                   Foreground="{StaticResource Brush.Acento}"
+                                                   HorizontalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Selecione o paciente" Style="{StaticResource H3}" Margin="0" />
+                                        <TextBlock Text="Busque por nome ou CPF. As folhas de dinheiro e de gestão não pedem paciente."
+                                                   Style="{StaticResource TextoSuave}" Margin="0,2,0,0"
+                                                   HorizontalAlignment="Left" />
+                                    </StackPanel>
+                                </DockPanel>
 
-                        <DockPanel>
-                            <TextBox DockPanel.Dock="Left" Width="300" MaxLength="80"
-                                     VerticalAlignment="Center"
-                                     ctrl:Ajudantes.Placeholder="Quem vai receber o papel?"
-                                     Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="Nome ou CPF do paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
+                                <!-- O botão ancora à DIREITA e ao CENTRO, declarado antes do que
+                                     preenche: no DockPanel o docado ganha a largura que pede. -->
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Margin="12,0,0,0" MinWidth="170"
+                                            VerticalAlignment="Stretch"
+                                            Style="{StaticResource BotaoSecundario}"
+                                            Command="{Binding Seletor.DesligarSugestaoCommand}"
+                                            ToolTip="Lista o cadastro em ordem de nome — a listagem completa, pedida.">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Todos os pacientes" VerticalAlignment="Center" />
+                                            <TextBlock Text="&#xE76C;" Style="{StaticResource Icone}"
+                                                       FontSize="{StaticResource Fonte.Legenda}" Margin="8,0,0,0" />
+                                        </StackPanel>
+                                    </Button>
+                                    <TextBox Style="{StaticResource CampoPesquisa}" MaxLength="80"
+                                             ctrl:Ajudantes.Placeholder="Digite o nome ou o CPF de quem vai receber o papel"
+                                             Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}" />
+                                </DockPanel>
 
-                            <!-- A linha das pílulas SOME quando não há ninguém no dia:
-                                 "ou escolha de quem está hoje" seguido de nada é a frase
-                                 que faz a pessoa procurar o que não existe. -->
-                            <!-- DockPanel, e não StackPanel horizontal: ali o WrapPanel
-                                 seria medido com largura INFINITA e nunca dobraria a
-                                 linha, empurrando as pílulas para fora da tela (a
-                                 checagem 32). Aqui ele é o filho que PREENCHE. -->
-                            <DockPanel Margin="12,0,0,0" VerticalAlignment="Center"
-                                       Visibility="{Binding TemGenteHoje,
-                                                    Converter={StaticResource BoolParaVisibilidade}}">
-                                <TextBlock DockPanel.Dock="Left"
-                                           Text="{Binding RotuloDeHoje}" TextWrapping="Wrap"
-                                           Style="{StaticResource TextoSuave}"
-                                           VerticalAlignment="Center" Margin="0,0,8,0"
-                                           FontSize="{StaticResource Fonte.Legenda}" />
-                                <ItemsControl ItemsSource="{Binding DeHoje}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:PacienteDeHoje}">
-                                            <Button Margin="0,0,6,4"
-                                                    Style="{StaticResource BotaoDocumentoPequeno}"
-                                                    Command="{Binding DataContext.EscolherDeHojeCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <!-- Nome é dado do BANCO: numa pílula ele
-                                                     precisa de teto e de reticências, senão
-                                                     um nome de 60 caracteres empurra as
-                                                     outras pílulas para fora da linha. -->
-                                                <TextBlock MaxWidth="220"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           ToolTip="{Binding Nome}">
-                                                    <Run Text="{Binding Nome, Mode=OneWay}" />
-                                                    <Run Text=" " />
-                                                    <Run Text="{Binding Hora, Mode=OneWay}"
-                                                         Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                                </TextBlock>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </DockPanel>
-                        </DockPanel>
+                                <!-- O RESUMO da busca ("3 encontrados") quando há o que resumir;
+                                     sem busca, a frase de ajuda. Um texto por vez. -->
+                                <TextBlock Margin="0,10,0,0" HorizontalAlignment="Left"
+                                           Text="{Binding Seletor.ResumoDaLista}"
+                                           TextTrimming="CharacterEllipsis">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Seletor.TemResultados}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
 
-                        <!-- O resultado da BUSCA, só enquanto se busca: com o campo vazio
-                             ele não existe, e a caixa reservada faria um vão em branco no
-                             meio da tela (a lição de `SemBuscaInicial`). -->
-                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                                 SelectedItem="{Binding Seletor.Selecionado}"
-                                 ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                                 MaxHeight="216" Margin="0,8,0,0" MaxWidth="620"
-                                 HorizontalAlignment="Left"
-                                 BorderThickness="0" Background="Transparent"
-                                 Visibility="{Binding Seletor.TemResultados,
-                                              Converter={StaticResource BoolParaVisibilidade}}" />
+                                <!-- O resultado da BUSCA, só enquanto há resultado: caixa
+                                     reservada vazia é o vão em branco que `SemBuscaInicial`
+                                     existe para não abrir. Teto em número inteiro de linhas,
+                                     e a roda volta para a página no fim da lista. -->
+                                <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                                         SelectedItem="{Binding Seletor.Selecionado}"
+                                         ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                                         MaxHeight="216" Margin="0,6,0,0"
+                                         ctrl:Ajudantes.RodaDaPagina="True"
+                                         Visibility="{Binding Seletor.TemResultados,
+                                                      Converter={StaticResource BoolParaVisibilidade}}" />
 
-                        <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
-                                   TextWrapping="Wrap" Margin="0,4,0,0"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Visibility="{Binding Seletor.Erro,
-                                                Converter={StaticResource TextoParaVisibilidade},
-                                                FallbackValue=Collapsed}" />
-                        </StackPanel>
+                                <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
+                                           TextWrapping="Wrap" Margin="0,6,0,0"
+                                           HorizontalAlignment="Left"
+                                           Visibility="{Binding Seletor.Erro,
+                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                        FallbackValue=Collapsed}" />
+
+                                <!-- ============ HOJE NA CLÍNICA ============
+                                     O atalho de quem tem horário hoje, numa linha só e
+                                     discreta. Só enquanto não há resultado de busca na tela
+                                     (duas listas de pessoas ao mesmo tempo é a pessoa
+                                     perguntando qual das duas vale) e só quando há alguém
+                                     no dia. -->
+                                <StackPanel Margin="0,14,0,0">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding TemGenteHoje}" Value="True" />
+                                                        <Condition Binding="{Binding Seletor.TemResultados}" Value="False" />
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="{Binding RotuloDeHoje}" Style="{StaticResource TextoSuave}"
+                                               HorizontalAlignment="Left" Margin="0,0,0,6"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <ItemsControl ItemsSource="{Binding DeHoje}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <!-- Filho de um StackPanel VERTICAL: largura
+                                                     finita, e a linha dobra em tela estreita
+                                                     em vez de sair pela borda (checagem 32). -->
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:PacienteDeHoje}">
+                                                <Button Margin="0,0,8,6"
+                                                        Style="{StaticResource BotaoDocumentoPequeno}"
+                                                        Command="{Binding DataContext.EscolherDeHojeCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <!-- Nome é dado do BANCO: teto e reticências,
+                                                         senão um nome de 60 caracteres empurra as
+                                                         outras pílulas para fora da linha. -->
+                                                    <TextBlock MaxWidth="170"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip="{Binding Nome}">
+                                                        <Run Text="{Binding Hora, Mode=OneWay}"
+                                                             Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                        <Run Text=" " />
+                                                        <Run Text="{Binding Nome, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
 
                         <!-- ============ A FAIXA DO PACIENTE ============
-                             O passo cumprido RECOLHE numa linha (mockup 5 aprovado). O
-                             crachá que ela substitui era uma caixa de largura inteira que
-                             dizia uma coisa só — o nome —, e os campos que decidem se o
-                             papel pode sair naquele nome (documento, convênio, o horário de
-                             hoje) ficavam de fora. -->
-                        <Border Padding="10,8" CornerRadius="{StaticResource Raio.Medio}"
-                                Background="{StaticResource Brush.Superficie}"
+                             O passo cumprido RECOLHE numa linha, com o traço de acento à
+                             esquerda (a mesma marca da tela de referência) e os campos que
+                             decidem se o papel pode sair naquele nome. -->
+                        <Border Margin="0,0,0,20" Background="{StaticResource Brush.Superficie}"
                                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                                CornerRadius="{StaticResource Raio.Grande}"
                                 Visibility="{Binding Seletor.Selecionado,
                                              Converter={StaticResource ObjetoParaVisibilidade},
                                              FallbackValue=Collapsed}">
                             <DockPanel>
-                                <!-- O traço de acento à esquerda é o mesmo da linha da
-                                     agenda: identidade aberta se lê pela cor antes do
-                                     texto. -->
-                                <Border DockPanel.Dock="Left" Width="3" Margin="0,0,10,0"
+                                <Border DockPanel.Dock="Left" Width="4" Margin="0,10,0,10"
                                         CornerRadius="{StaticResource Raio.Pequeno}"
-                                        Background="{StaticResource Brush.Sucesso}" />
+                                        Background="{StaticResource Brush.Acento}" />
 
-                                <Button DockPanel.Dock="Right" Content="Trocar"
-                                        Style="{StaticResource BotaoDocumento}" MinWidth="90"
-                                        VerticalAlignment="Center" Margin="10,0,0,0"
+                                <Button DockPanel.Dock="Right" Margin="12,0,18,0"
+                                        Style="{StaticResource BotaoSecundario}" MinWidth="160"
+                                        VerticalAlignment="Center"
                                         Command="{Binding TrocarPacienteCommand}"
-                                        ToolTip="Volta ao passo 1 para escolher outra pessoa." />
+                                        ToolTip="Volta à busca para escolher outra pessoa.">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE8AB;" Style="{StaticResource Icone}"
+                                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,8,0" />
+                                        <TextBlock Text="Trocar paciente" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
 
-                                <ctrl:Avatar DockPanel.Dock="Left" Tamanho="34" Margin="0,0,10,0"
+                                <ctrl:Avatar DockPanel.Dock="Left" Tamanho="44" Margin="16,14,14,14"
                                              VerticalAlignment="Center"
                                              Nome="{Binding Seletor.Selecionado.Nome}"
                                              Foto="{Binding Seletor.Selecionado.FotoMiniatura}" />
 
-                                <StackPanel VerticalAlignment="Center">
+                                <StackPanel VerticalAlignment="Center" Margin="0,10,0,10">
+                                    <TextBlock Text="PACIENTE SELECIONADO" Style="{StaticResource CardKpi.Rotulo}"
+                                               FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
+                                               HorizontalAlignment="Left" />
                                     <TextBlock Text="{Binding Seletor.Selecionado.Nome}"
-                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                    <!-- Uma linha só, montada no MODELO: ela PULA o que a
-                                         ficha não tem, e frase feita de bindings
-                                         concatenados no XAML não sabe pular — sairia
-                                         "178.747.197-78 ·  · " numa ficha incompleta, e a
-                                         importação produziu essas às centenas. -->
+                                               FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Texto.Primario}"
+                                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                    <!-- Uma linha só, montada no MODELO: ela PULA o que a ficha
+                                         não tem — frase de bindings concatenados sairia com
+                                         " ·  · " numa ficha incompleta. -->
                                     <TextBlock Text="{Binding IdentidadeDoPaciente}"
                                                Style="{StaticResource TextoSuave}"
-                                               FontSize="{StaticResource Fonte.Legenda}"
                                                Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                               HorizontalAlignment="Left"
                                                Visibility="{Binding IdentidadeDoPaciente,
                                                             Converter={StaticResource TextoParaVisibilidade},
                                                             FallbackValue=Collapsed}" />
                                 </StackPanel>
                             </DockPanel>
                         </Border>
+
+                        <!-- ============ NOVO DOCUMENTO ============ -->
+                        <TextBlock Text="Novo documento" Style="{StaticResource H3}" Margin="0,0,0,2" />
+                        <TextBlock Margin="0,0,0,12" HorizontalAlignment="Left">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                    <Setter Property="Text" Value="Escolha o paciente para liberar as folhas da pessoa. As de dinheiro e de gestão já estão liberadas." />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding TemPacienteEscolhido}" Value="True">
+                                            <Setter Property="Text" Value="Clique no papel. O cartão diz o que o clique faz; o que precisa de janela abre a janela, e o que sai direto pergunta antes." />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <!-- O que NÃO é do balcão, dito em vez de simplesmente ausente: os
+                             cartões de receita, atestado e pedido de exame somem para quem não
+                             prescreve (a regra da parcela 59), e ausência sem explicação faz a
+                             recepcionista procurar o botão que ela viu na tela de outra pessoa.
+                             Uma linha, não uma caixa. -->
+                        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,-6,0,12"
+                                   HorizontalAlignment="Left"
+                                   Text="Receita, atestado e pedido de exame são emitidos por quem assina, no Consultório — aqui eles aparecem na aba “O que já saiu”, para segunda via."
+                                   Visibility="{Binding ExplicaOQuePedeProfissional,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
+
+                        <!-- Um bloco por natureza (do atendimento · do dinheiro · da gestão),
+                             e em cada bloco a grade de três colunas da tela de referência.
+                             `UniformGrid` aqui e não `WrapPanel`: os cartões têm a MESMA
+                             largura e a mesma altura por linha, e uma régua de papéis em
+                             escada se lê como colcha. O texto deles quebra e corta, então a
+                             coluna estreita não estoura nada. -->
+                        <ItemsControl ItemsSource="{Binding GruposDeFolhas}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:GrupoDeFolhas}">
+                                    <StackPanel Margin="0,0,0,8">
+                                        <TextBlock Text="{Binding Titulo}" Style="{StaticResource CardKpi.Rotulo}" TextTrimming="CharacterEllipsis"
+                                                   FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Left" Margin="0,0,0,8" />
+                                        <ItemsControl ItemsSource="{Binding Folhas}" Margin="0,0,-12,0">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <UniformGrid Columns="3" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:LinhaFolha}">
+                                                    <Button Style="{StaticResource CartaoDeFolha}"
+                                                            IsEnabled="{Binding PodeGerar}"
+                                                            AutomationProperties.Name="{Binding Rotulo}"
+                                                            Command="{Binding DataContext.AbrirFolhaCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}">
+                                                        <!-- A dica leva a frase INTEIRA do que o
+                                                             clique faz — a mesma do PreviaDaFolha. -->
+                                                        <Button.ToolTip>
+                                                            <StackPanel MaxWidth="380">
+                                                                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                                           TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap"
+                                                                           Margin="0,4,0,0" />
+                                                                <TextBlock Text="{Binding OQueAcontece}" TextWrapping="Wrap"
+                                                                           Margin="0,6,0,0" />
+                                                                <TextBlock Text="{Binding Pendencia}" TextWrapping="Wrap"
+                                                                           FontStyle="Italic" Margin="0,6,0,0"
+                                                                           Visibility="{Binding Pendencia,
+                                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                                        FallbackValue=Collapsed}" />
+                                                            </StackPanel>
+                                                        </Button.ToolTip>
+                                                        <DockPanel>
+                                                            <Border DockPanel.Dock="Left" Style="{StaticResource LadrilhoDeFolha}"
+                                                                    VerticalAlignment="Top" Margin="0,0,12,0">
+                                                                <TextBlock Text="{Binding Glifo}" Style="{StaticResource Icone}" TextTrimming="CharacterEllipsis"
+                                                                           FontSize="{StaticResource Fonte.H3}"
+                                                                           HorizontalAlignment="Center" />
+                                                            </Border>
+                                                            <TextBlock DockPanel.Dock="Right" Text="&#xE710;"
+                                                                       Style="{StaticResource Icone}" Margin="10,0,0,0"
+                                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <!-- Duas linhas, e não mais: o teto anda
+                                                                     junto da altura igual dos cartões. -->
+                                                                <TextBlock Text="{Binding Descricao}"
+                                                                           Style="{StaticResource TextoSuave}"
+                                                                           Margin="0,3,0,0" MaxHeight="34"
+                                                                           TextWrapping="Wrap"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           HorizontalAlignment="Left" />
+                                                                <!-- O pé do cartão: o que o clique FAZ
+                                                                     quando dá, o que FALTA quando não dá. -->
+                                                                <TextBlock Margin="0,6,0,0" TextTrimming="CharacterEllipsis"
+                                                                           FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
+                                                                           Foreground="{StaticResource Brush.Acento}"
+                                                                           Text="{Binding AcaoRotulo}"
+                                                                           Visibility="{Binding PodeGerar,
+                                                                                        Converter={StaticResource BoolParaVisibilidade}}" />
+                                                                <TextBlock Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                                           Text="{Binding Pendencia}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding PodeGerar}" Value="False">
+                                                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Aviso}" />
+                                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding Pendencia}" Value="">
+                                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
-
-                    <!-- ============ 2 · QUAL PAPEL ============
-                         O cartão ESCOLHE; ele não emite mais no primeiro clique. Quem emite
-                         é o passo 3, que mostra para quem o papel vai sair e o que o clique
-                         vai fazer — e documento numerado não se apaga: cancela-se com
-                         motivo. -->
-                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-                        <Border Width="19" Height="19" CornerRadius="9.5" Margin="0,0,8,0"
-                                VerticalAlignment="Center"
-                                Background="{StaticResource Brush.Acento}">
-                            <TextBlock Text="2" Foreground="White" FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Text="2 · QUAL PAPEL" Style="{StaticResource CardKpi.Rotulo}"
-                                   VerticalAlignment="Center" HorizontalAlignment="Left" />
-                    </StackPanel>
-
-                    <!-- O que NÃO é do balcão, dito em vez de simplesmente ausente: os
-                         cartões de receita, atestado e pedido de exame somem para quem não
-                         prescreve (a regra da parcela 59), e ausência sem explicação faz a
-                         recepcionista procurar o botão que ela viu na tela de outra
-                         pessoa. Some para quem PODE prescrever. -->
-                    <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaInfo}"
-                            Margin="0,12,0,0"
-                            Visibility="{Binding ExplicaOQuePedeProfissional,
-                                         Converter={StaticResource BoolParaVisibilidade}}">
-                        <TextBlock TextWrapping="Wrap"
-                                   Text="Receita, atestado e pedido de exame são emitidos por QUEM ASSINA, no Consultório. Aqui eles aparecem na aba “O que já saiu”, para segunda via." />
-                    </Border>
-
-                    <!-- ============ 3 · O QUE VAI SAIR ============
-                         (set/2026, mockup 5 aprovado.) O passo que o produto nunca teve: o
-                         papel dito ANTES de existir. Ele responde as três coisas que a tela
-                         calava — para quem sai, o que a folha é, e **o que o clique faz**.
-
-                         ⚠️ A região NÃO EXISTE enquanto ninguém escolheu (o `Previa` é
-                         nulo), em vez de existir vazia: bloco reservado sem conteúdo se lê
-                         como região que não carregou.
-
-                         ⚠️ Ancorado embaixo, e o conteúdo é CURTO de propósito: num
-                         DockPanel o ancorado leva a altura que pede e quem paga é o fill —
-                         aqui, as fichas. Elas rolam, então não são decepadas; ainda assim o
-                         passo 3 não pode crescer sem limite. -->
-                    <Border DockPanel.Dock="Bottom" Margin="0,12,0,0" Padding="14,12"
-                            CornerRadius="{StaticResource Raio.Medio}"
-                            Background="{StaticResource Brush.Superficie}"
-                            BorderBrush="{StaticResource Brush.Acento}" BorderThickness="1"
-                            Visibility="{Binding Previa,
-                                         Converter={StaticResource ObjetoParaVisibilidade},
-                                         FallbackValue=Collapsed}">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <Border Width="19" Height="19" CornerRadius="9.5" Margin="0,0,8,0"
-                                        VerticalAlignment="Center"
-                                        Background="{StaticResource Brush.Acento}">
-                                    <TextBlock Text="3" Foreground="White" FontSize="{StaticResource Fonte.Legenda}"
-                                               FontWeight="SemiBold"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <TextBlock Text="3 · O QUE VAI SAIR"
-                                           Style="{StaticResource CardKpi.Rotulo}"
-                                           VerticalAlignment="Center" HorizontalAlignment="Left" />
-                            </StackPanel>
-
-                            <DockPanel>
-                                <!-- O botão ancora à DIREITA e ao CENTRO: sem o
-                                     `VerticalAlignment`, uma descrição que quebra em três
-                                     linhas estica a linha e o WPF estica o BOTÃO junto
-                                     (a lição da parcela 47). -->
-                                <Button DockPanel.Dock="Right" MinWidth="150" MinHeight="36"
-                                        VerticalAlignment="Center" Margin="16,0,0,0"
-                                        Content="{Binding Previa.AcaoRotulo}"
-                                        IsEnabled="{Binding Previa.PodeEmitir}"
-                                        Command="{Binding GerarCommand}"
-                                        CommandParameter="{Binding FolhaEscolhida}" />
-
-                                <StackPanel>
-                                    <TextBlock Text="{Binding Previa.Rotulo}" FontWeight="SemiBold"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding Previa.ParaQuem}"
-                                               Style="{StaticResource TextoSuave}"
-                                               Margin="0,3,0,0" TextWrapping="Wrap" />
-
-                                    <!-- A DESCRIÇÃO volta para a tela. Nos cartões ela vive
-                                         na dica do mouse, e dica é o que ninguém lê: quem
-                                         não conhece a folha descobre o que ela é ERRANDO, e
-                                         o erro aqui custa um cancelamento com motivo. -->
-                                    <TextBlock Text="{Binding Previa.Descricao}"
-                                               Style="{StaticResource TextoSuave}"
-                                               FontSize="{StaticResource Fonte.Legenda}"
-                                               Margin="0,6,0,0" TextWrapping="Wrap" />
-
-                                    <TextBlock Text="{Binding Previa.OQueAcontece}"
-                                               Style="{StaticResource TextoSuave}"
-                                               FontSize="{StaticResource Fonte.Legenda}"
-                                               Margin="0,4,0,0" TextWrapping="Wrap" />
-
-                                    <!-- O que FALTA sai com o peso do aviso — no documento o
-                                         buraco tem de se ver como buraco. -->
-                                    <TextBlock Text="{Binding Previa.OQueFalta}"
-                                               Foreground="{StaticResource Brush.Aviso}"
-                                               FontSize="{StaticResource Fonte.Legenda}"
-                                               FontWeight="SemiBold" Margin="0,6,0,0"
-                                               TextWrapping="Wrap"
-                                               Visibility="{Binding Previa.TemPendencia,
-                                                            Converter={StaticResource BoolParaVisibilidade},
-                                                            FallbackValue=Collapsed}" />
-
-                                    <!-- ⚠️ NÃO há número aqui, e é decisão: ele é atribuído
-                                         na EMISSÃO, por ano, e adivinhá-lo escreveria na
-                                         tela um número que a próxima emissão torna falso —
-                                         é a prévia da guia, que também não tem número
-                                         porque ele nasce na baixa. -->
-                                    <TextBlock Text="{Binding Previa.Garantias}"
-                                               Style="{StaticResource TextoSuave}"
-                                               FontSize="{StaticResource Fonte.Legenda}"
-                                               Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.85" />
-                                </StackPanel>
-                            </DockPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- As fichas pedem a altura que precisam e rolam quando não couber:
-                         pilha mais alta que a janela sem rolagem é o corte da checagem 36. -->
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Folhas}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <!-- FICHA COMPACTA (parcela 82 — os cartões de 248×222
-                                     somavam ~700 px e enterravam a lista "o que já saiu"
-                                     abaixo da dobra). O que se LÊ no relance fica: o nome
-                                     da folha e O QUE FALTA (a regra da parcela 24 — o
-                                     requisito se descobre ANTES de errar). A descrição
-                                     longa mora na DICA. Height fixo + teto nos textos
-                                     andam juntos (parcelas 47 e 50). -->
-                                <Border Width="232" Height="118" Margin="0,0,10,10" Padding="12,10"
-                                        CornerRadius="{StaticResource Raio.Medio}"
-                                        Background="{StaticResource Brush.Superficie}">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="BorderThickness" Value="1" />
-                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Escolhida}" Value="True">
-                                                    <Setter Property="BorderThickness" Value="2" />
-                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <Border.ToolTip>
-                                        <StackPanel MaxWidth="360">
-                                            <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
-                                                       TextWrapping="Wrap" />
-                                            <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap"
-                                                       Margin="0,4,0,0" />
-                                            <TextBlock Text="{Binding Pendencia}" TextWrapping="Wrap"
-                                                       FontStyle="Italic" Margin="0,4,0,0" />
-                                        </StackPanel>
-                                    </Border.ToolTip>
-                                    <DockPanel>
-                                        <!-- O botão ancora embaixo: fileira de fichas com os
-                                             botões na MESMA altura é o que faz a região se
-                                             ler como um conjunto, não como uma colcha. -->
-                                        <!-- ⚠️ Escolher NÃO exige que dê para emitir: a folha
-                                             cuja exigência não está cumprida é justamente a
-                                             que precisa ser escolhida para o passo 3 poder
-                                             EXPLICAR o que falta. Botão sempre aceso, e a
-                                             barreira fica no passo 3, onde o ato acontece. -->
-                                        <Button DockPanel.Dock="Bottom"
-                                                Command="{Binding DataContext.EscolherFolhaCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}"
-                                                HorizontalAlignment="Left" MinWidth="110">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource BotaoPequeno}">
-                                                    <Setter Property="Content" Value="Escolher" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Escolhida}" Value="True">
-                                                            <Setter Property="Content" Value="Escolhida" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding Grupo}"
-                                                       Style="{StaticResource CardKpi.Rotulo}"
-                                                       HorizontalAlignment="Left"
-                                                       MaxHeight="16" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
-                                                       TextWrapping="Wrap" Margin="0,2,0,0"
-                                                       MaxHeight="38" TextTrimming="CharacterEllipsis" />
-                                            <!-- O que FALTA, quando falta — some quando não
-                                                 há pendência, em vez de reservar a linha. -->
-                                            <TextBlock Text="{Binding Pendencia}"
-                                                       Style="{StaticResource TextoSuave}"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       FontStyle="Italic" Margin="0,2,0,0"
-                                                       MaxHeight="16" TextTrimming="CharacterEllipsis"
-                                                       Visibility="{Binding Pendencia,
-                                                                    Converter={StaticResource TextoParaVisibilidade},
-                                                                    FallbackValue=Collapsed}" />
-                                        </StackPanel>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="O que já saiu">
@@ -456,9 +501,52 @@
                 <DockPanel>
                     <!-- O rótulo da REGIÃO é a própria aba; o que fica é o RESUMO,
                          que diz o recorte ("12 documento(s) de 01/08 a 24/08"). -->
-                    <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}"
-                               Style="{StaticResource TextoSuave}" Margin="0,0,0,8"
-                               HorizontalAlignment="Left" />
+                    <!-- ============ ACHAR O PAPEL ============
+                         (out/2026 — "os laudos precisam ser fáceis de LOCALIZAR e IMPRIMIR").
+                         A busca casa paciente, número ("2026/0001" ou "20260001"), código
+                         de conferência, folha e quem assinou, sobre o período já lido; o
+                         tipo recorta pela folha. A regra mora em `BuscaNasFolhas`. -->
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Buscar no que já saiu"
+                                   Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Tipo de documento"
+                                   Style="{StaticResource Rotulo}" Margin="12,0,0,6" />
+                        <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource CampoPesquisa}"
+                                 MaxLength="80"
+                                 ctrl:Ajudantes.Placeholder="Paciente, número (2026/0001), código de conferência ou quem assinou"
+                                 Text="{Binding TextoBusca, UpdateSourceTrigger=PropertyChanged, Delay=200}" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" Width="240" Margin="12,0,0,0"
+                                  VerticalAlignment="Center"
+                                  ItemsSource="{Binding TiposDeFolha}"
+                                  SelectedItem="{Binding TipoFiltro}" />
+                    </Grid>
+
+                    <!-- O resumo do PERÍODO e, quando a busca ou o tipo filtram, o recorte
+                         escrito ao lado ("3 de 30 com “laudo”") com o Limpar. Filtro
+                         esquecido que responde "nenhum documento" faria a recepcionista
+                         concluir que o papel não existe. -->
+                    <DockPanel DockPanel.Dock="Top" Margin="0,4,0,8">
+                        <Button DockPanel.Dock="Right" Content="Limpar busca"
+                                Style="{StaticResource BotaoDocumentoPequeno}"
+                                VerticalAlignment="Center" Margin="12,0,0,0"
+                                Command="{Binding LimparBuscaCommand}"
+                                Visibility="{Binding Recorte, Converter={StaticResource TextoParaVisibilidade},
+                                             FallbackValue=Collapsed}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" HorizontalAlignment="Left"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                            <Run Text="{Binding Resumo, Mode=OneWay}" />
+                            <Run Text="{Binding Recorte, Mode=OneWay}" FontWeight="SemiBold"
+                                 Foreground="{StaticResource Brush.Acento}" />
+                        </TextBlock>
+                    </DockPanel>
 
                     <!-- A barra da LISTA (parcela 82): o período mora junto do que ele
                          recorta — na faixa lateral ele parecia configuração da página — e
@@ -651,24 +739,17 @@
                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}" />
 
-                                                <!-- A 2ª via some quando o Assinar está na
-                                                     linha: duas ações do mesmo tamanho, lado
-                                                     a lado, deixam de dizer qual é a
-                                                     principal. Ela continua no menu. -->
-                                                <Button Content="2ª via" MinWidth="70" Margin="0,0,6,0"
+                                                <!-- IMPRIMIR A 2ª VIA fica SEMPRE na linha
+                                                     (out/2026 — "laudos fáceis de localizar e
+                                                     IMPRIMIR"): escondê-la quando o Assinar
+                                                     aparece mandava a recepcionista ao "⋯"
+                                                     para o ato que ela mais faz nesta aba. -->
+                                                <Button Content="Imprimir 2ª via" MinWidth="110" Margin="0,0,6,0"
+                                                        Style="{StaticResource BotaoDocumentoPequeno}"
+                                                        ToolTip="Imprime a segunda via, idêntica à que saiu."
                                                         Command="{Binding DataContext.ReimprimirCommand,
                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}">
-                                                    <Button.Style>
-                                                        <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGrid}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding PodeAssinar}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Button.Style>
-                                                </Button>
+                                                        CommandParameter="{Binding}" />
 
                                                 <Button Content="&#x22EF;" MinWidth="34"
                                                         Style="{StaticResource BotaoDocumentoPequeno}"
@@ -691,8 +772,8 @@
                                    NaoVerificado="{Binding NaoVerificado}"
                                    Glifo="&#xE8A5;"
                                    TextoCarregando="Lendo os documentos…"
-                                   Titulo="Nenhum documento emitido"
-                                   Descricao="Confira o período — e o filtro &quot;só deste paciente&quot;, se estiver ligado. Documento cancelado aparece marcado, nunca sumindo." />
+                                   Titulo="Nenhum documento nesta lista"
+                                   Descricao="Confira o período, a busca, o tipo de documento e o filtro &quot;só deste paciente&quot;, se estiver ligado. Documento cancelado aparece marcado, nunca sumindo." />
                 </Grid>
             </TabItem>
         </TabControl>

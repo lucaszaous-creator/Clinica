@@ -130,7 +130,17 @@ public sealed partial class ShellViewModel : ObservableObject
     public int TotalAssinaturasInfusao => AssinaturasEnfermagem + AssinaturasMedicas + InfusoesDevolvidas;
     public string ResumoAssinaturasInfusao => $"Abrir fila de infusões · assinaturas: enfermagem {AssinaturasEnfermagem}; médico responsável {AssinaturasMedicas}; devolvidas {InfusoesDevolvidas}";
 
-    public ShellViewModel(string titulo, IEnumerable<IModuloApp> modulos, IServiceProvider servicos)
+    /// <param name="chaveAbertura">
+    /// A tela de abertura DESTE executável, quando ele a declara (out/2026). Existe porque
+    /// <see cref="ItemMenuModulo.Inicial"/> é marca de MÓDULO, e um módulo é carregado por
+    /// vários exes: marcar o "Meu dia" no módulo do Consultório faria ele vencer o painel
+    /// da direção dentro do Gerente Geral (o defeito da parcela 22). A chave é do EXE, e
+    /// passa pelo mesmo caminho de <see cref="NavegacaoSuite"/>, então a sub-tela que
+    /// virou aba abre no item pai já na aba certa. Sem ela — ou sem permissão para o
+    /// destino —, vale a regra de sempre.
+    /// </param>
+    public ShellViewModel(string titulo, IEnumerable<IModuloApp> modulos, IServiceProvider servicos,
+        string? chaveAbertura = null)
     {
         Titulo = titulo;
         _modulos = modulos.ToList();
@@ -249,8 +259,11 @@ public sealed partial class ShellViewModel : ObservableObject
         // tela que não se sabe como alcançar de novo. Sai de `Grupos`, e não de `Itens`,
         // porque é `Grupos` que já descartou o item composto sem aba nenhuma.
         var visiveis = Grupos.SelectMany(g => g.Itens).ToList();
-        var abertura = visiveis.FirstOrDefault(i => i.Inicial) ?? visiveis.FirstOrDefault();
-        if (abertura is not null) Navegar(abertura);
+        if (chaveAbertura is null || !IrPara(chaveAbertura, apenasConferir: false))
+        {
+            var abertura = visiveis.FirstOrDefault(i => i.Inicial) ?? visiveis.FirstOrDefault();
+            if (abertura is not null) Navegar(abertura);
+        }
 
         if (sessao is { Autenticado: true } && Itens.Any(i => i.Chave == ChavesSuite.SalaInfusao)
             && (sessao.Pode(Permissao.ChecarPrescricao)

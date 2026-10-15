@@ -153,7 +153,28 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnAlergiaConferidaChanged(bool value) => EmitirCommand.NotifyCanExecuteChanged();
 
     /// <summary>Enquanto houver colisão não confirmada, o botão de emitir fica apagado.</summary>
-    private bool PodeEmitir() => !Emitindo && !Carregando && (!ColideComAlergia || AlergiaConferida);
+    private bool PodeEmitir() => !Emitindo && !Carregando && (!ColideComAlergia || AlergiaConferida)
+                                 && MotivoSemAssinante is null;
+
+    /// <summary>
+    /// A frase da abertura quando o assinante ficou em branco (login sem profissional
+    /// ligado, ou ligado a um cadastro inativo). Ver <see cref="AssinanteDoDocumento"/>.
+    /// </summary>
+    [ObservableProperty] private string? _avisoAssinante;
+
+    /// <summary>
+    /// Por que o "Emitir" está apagado por falta de quem assina — a metade VISÍVEL da
+    /// barreira (parcela 41); a guarda dentro de <see cref="EmitirAsync"/> é a outra.
+    /// </summary>
+    public string? MotivoSemAssinante =>
+        AssinanteDoDocumento.MotivoSemAssinante(TipoSelecionado, Profissional, AvisoAssinante);
+
+    partial void OnAvisoAssinanteChanged(string? value)
+    {
+        OnPropertyChanged(nameof(MotivoSemAssinante));
+        OnPropertyChanged(nameof(ResponsavelDocumento));
+        EmitirCommand.NotifyCanExecuteChanged();
+    }
 
     /// <summary>
     /// Relê o contexto clínico e reconfere os itens escritos.
@@ -254,7 +275,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         _paciente?.Nome,
         _heranca?.Procedencia(DateOnly.FromDateTime(Data)) is { Length: > 0 } origem ? origem : $"Emissão de {Data:dd/MM/yyyy}"
     }.Where(p => !string.IsNullOrWhiteSpace(p)));
-    public string ResponsavelDocumento => Profissional is null ? "Selecione o profissional responsável" :
+    public string ResponsavelDocumento => Profissional is null ? AvisoAssinante ?? "Selecione o profissional responsável" :
         string.Join(" · ", new[] { Profissional.Nome, Profissional.RegistroConselho }.Where(p => !string.IsNullOrWhiteSpace(p)));
     public string RotuloTextoFolha => ReceitaLivre ? "Prescrição e modo de usar" : "Texto complementar · opcional";
     partial void OnTituloChanged(string? value) => OnPropertyChanged(nameof(TituloFolha));
@@ -385,6 +406,8 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(Subtitulo));
         OnPropertyChanged(nameof(ResponsavelDocumento));
+        OnPropertyChanged(nameof(MotivoSemAssinante));
+        EmitirCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Receita e pedido de exame são listas; atestado e declaração, não.</summary>
@@ -464,6 +487,8 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(RotuloCorpo));
         OnPropertyChanged(nameof(OrientacaoCorpo));
         OnPropertyChanged(nameof(TemSugestoes));
+        OnPropertyChanged(nameof(MotivoSemAssinante));
+        EmitirCommand.NotifyCanExecuteChanged();
 
         // Trocar o tipo no combo é escolher OUTRO papel: o que a sessão tinha a dar para
         // ele é outra coisa, e as marcas do papel anterior mentiriam sobre este.
@@ -520,13 +545,15 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             Profissionais.Clear();
             foreach (var p in await equipe.ProfissionaisAtivosAsync()) Profissionais.Add(p);
 
-            // Quem assina, por padrão, é QUEM ESTÁ LOGADO — não o primeiro da lista, que é
-            // o primeiro em ordem alfabética. Emitir uma receita no consultório e ter de
-            // trocar o combo toda vez é o tipo de detalhe que faz a pessoa emitir com o
-            // nome do colega sem perceber, e o nome no papel é quem responde por ele.
-            Profissional = Profissionais.FirstOrDefault(
-                                p => p.Id == SessaoUsuario.Atual.ProfissionalId)
-                           ?? Profissionais.FirstOrDefault();
+            // Quem assina, por padrão, é QUEM ESTÁ LOGADO — e SÓ ele. O caminho de baixo
+            // antigo (o primeiro da lista, isto é, o primeiro em ordem alfabética) punha no
+            // papel o nome de uma colega quando o login não atende: a direção entrava como
+            // "Lucas" e o atestado saía proposto em nome de outra médica. Sem vínculo, o
+            // campo fica em branco e a tela DIZ por quê (AssinanteDoDocumento).
+            var assinante = AssinanteDoDocumento.Resolver(
+                Profissionais, SessaoUsuario.Atual.ProfissionalId);
+            AvisoAssinante = assinante.Aviso;
+            Profissional = assinante.Profissional;
 
             OnPropertyChanged(nameof(Subtitulo));
 
@@ -782,6 +809,14 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         catch (Exception ex)
         {
             Erro(ex.Message);
+            return;
+        }
+
+        // A segunda barreira do assinante: o botão já está apagado com a frase ao lado, e
+        // isto cobre o atalho de teclado e a troca de tipo no meio do caminho.
+        if (MotivoSemAssinante is { } semAssinante)
+        {
+            Erro(semAssinante);
             return;
         }
 

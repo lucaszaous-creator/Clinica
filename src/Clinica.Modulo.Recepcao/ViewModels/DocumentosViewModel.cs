@@ -28,16 +28,37 @@ public sealed partial class LinhaFolha : ObservableObject
 
     [ObservableProperty] private bool _podeGerar;
 
-    /// <summary>
-    /// Marcada no passo 2. É estado de TELA, não do catálogo: quem o escreve é o
-    /// <c>OnFolhaEscolhidaChanged</c>, por REFERÊNCIA — a coleção é montada uma vez e as
-    /// instâncias são as mesmas do começo ao fim.
-    /// </summary>
-    [ObservableProperty] private bool _escolhida;
-
-    /// <summary>Rótulo do botão: "Emitir", "Gerar PDF" ou "Ir para o Caixa".</summary>
+    /// <summary>Rótulo da ação: "Emitir", "Gerar PDF", "Colher assinatura…" ou "Ir para o Caixa".</summary>
     public required string AcaoRotulo { get; init; }
+
+    /// <summary>
+    /// O que o clique FAZ, por extenso (out/2026). Sai de <see cref="PreviaDaFolha"/> — a
+    /// MESMA frase que o passo 3 escrevia —, e não de uma segunda redação aqui: duas
+    /// definições de "o que este cartão faz" divergiriam na primeira correção.
+    /// </summary>
+    public required string OQueAcontece { get; init; }
+
+    /// <summary>De que lado da clínica a folha vem — decide a cor do ícone do cartão.</summary>
+    public NaturezaFolha Natureza => Folha.Natureza;
+
+    /// <summary>
+    /// O glifo do cartão (Segoe Fluent, a regra 3 do design system): documento para o
+    /// atendimento, cartão de pagamento para o dinheiro, gráfico para a gestão.
+    /// </summary>
+    public string Glifo => Folha.Natureza switch
+    {
+        NaturezaFolha.Financeiro => "\uE8C7",
+        NaturezaFolha.Gerencial => "\uE9D2",
+        _ => "\uE8A5"
+    };
 }
+
+/// <summary>
+/// Um bloco da régua de folhas: "DO ATENDIMENTO", "DO DINHEIRO" ou "DA GESTÃO". Montado no
+/// ViewModel, e não por <c>CollectionViewSource</c> no XAML: o catálogo é estático, e o
+/// agrupamento feito aqui é o mesmo que a tela desenha, sem binding dentro de recurso.
+/// </summary>
+public sealed record GrupoDeFolhas(string Titulo, IReadOnlyList<LinhaFolha> Folhas);
 
 /// <summary>Uma folha já emitida, como a lista a mostra.</summary>
 public sealed class LinhaFolhaEmitida
@@ -150,7 +171,66 @@ public sealed partial class DocumentosViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
 
     public ObservableCollection<LinhaFolha> Folhas { get; } = [];
+
+    /// <summary>
+    /// As mesmas folhas, em blocos por natureza — é o que a régua "Novo documento" desenha.
+    /// As instâncias são as de <see cref="Folhas"/>: a disponibilidade escrita numa chega à
+    /// outra sem cópia.
+    /// </summary>
+    public IReadOnlyList<GrupoDeFolhas> GruposDeFolhas { get; private set; } = [];
     public ObservableCollection<LinhaFolhaEmitida> Emitidas { get; } = [];
+
+    /// <summary>
+    /// Tudo o que a última carga leu, antes da busca e do tipo (out/2026). A busca filtra
+    /// EM MEMÓRIA sobre o período já lido: é a mesma lista, e voltar ao banco a cada tecla
+    /// pagaria uma consulta para responder o que já está na máquina.
+    /// </summary>
+    private IReadOnlyList<(FolhaEmitida Folha, LinhaFolhaEmitida Linha)> _lidas = [];
+
+    /// <summary>As opções do combo "Tipo de documento" — "Todas as folhas" primeiro.</summary>
+    public ObservableCollection<string> TiposDeFolha { get; } = [];
+
+    /// <summary>
+    /// O tipo escolhido no combo. <c>string?</c> de propósito: o combo cuja lista é refeita
+    /// escreve NULL aqui por um instante, e nulo é "todas" (<see cref="BuscaNasFolhas.Casa"/>).
+    /// </summary>
+    [ObservableProperty] private string? _tipoFiltro = BuscaNasFolhas.TodasAsFolhas;
+
+    /// <summary>Paciente, número ("2026/0001"), código de conferência, folha ou quem assinou.</summary>
+    [ObservableProperty] private string? _textoBusca;
+
+    /// <summary>"3 de 30 com “laudo”" — vazio quando nada filtra.</summary>
+    [ObservableProperty] private string _recorte = string.Empty;
+
+    partial void OnTipoFiltroChanged(string? value) => AplicarFiltro();
+
+    partial void OnTextoBuscaChanged(string? value) => AplicarFiltro();
+
+    /// <summary>
+    /// Republica a lista com a busca e o tipo. Síncrono do Clear() ao último Add (parcela
+    /// 62), e sobre as MESMAS instâncias de linha — recriá-las a cada tecla não muda nada na
+    /// tela e custa o que não precisa.
+    /// </summary>
+    private void AplicarFiltro()
+    {
+        var visiveis = _lidas
+            .Where(x => BuscaNasFolhas.Casa(x.Folha, TextoBusca, TipoFiltro))
+            .Select(x => x.Linha)
+            .ToList();
+
+        Emitidas.Clear();
+        foreach (var l in visiveis) Emitidas.Add(l);
+
+        Recorte = BuscaNasFolhas.Recorte(visiveis.Count, _lidas.Count, TextoBusca, TipoFiltro);
+    }
+
+    /// <summary>Limpa a busca e o tipo — o "mostrar tudo do período" num clique.</summary>
+    [RelayCommand]
+    private void LimparBusca()
+    {
+        TextoBusca = null;
+        TipoFiltro = BuscaNasFolhas.TodasAsFolhas;
+    }
 
     /// <summary>Escolher paciente é um componente só — esta tela usa o de sempre.</summary>
     public SeletorPacienteViewModel Seletor { get; }
@@ -191,13 +271,19 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// que come a tela, que o README recusa desde a parcela 38. Passando disso, digitar é
     /// mais rápido de qualquer forma, e o campo está do lado.
     /// </summary>
-    private const int PilulasNaLinha = 10;
+    /// <remarks>
+    /// Seis, e não dez (out/2026): a linha passou a morar dentro do cartão "Selecione o
+    /// paciente", que tem a largura da página menos o respiro do cartão — dez pílulas
+    /// dobravam em duas linhas no monitor de 1366 do balcão, e a régua de atalho virava um
+    /// paredão de nomes acima das folhas.
+    /// </remarks>
+    private const int PilulasNaLinha = 6;
 
     /// <summary>
     /// O rótulo DIZ quando a lista está cortada: "de quem está hoje" sobre dez pílulas de
     /// um dia de trinta faria a recepcionista concluir que só dez pessoas vêm hoje.
     /// </summary>
-    [ObservableProperty] private string _rotuloDeHoje = "ou escolha de quem está hoje:";
+    [ObservableProperty] private string _rotuloDeHoje = "Hoje na clínica";
 
     /// <summary>
     /// Explicar o que NÃO está aqui (set/2026, tela 3 do mockup aprovado).
@@ -241,16 +327,6 @@ public sealed partial class DocumentosViewModel : ObservableObject
     [ObservableProperty] private bool _soDoPaciente;
 
     /// <summary>
-    /// A folha marcada no PASSO 2. Nula enquanto ninguém escolheu — e aí o passo 3 não
-    /// existe, em vez de existir vazio: bloco reservado sem conteúdo se lê como região que
-    /// não carregou.
-    /// </summary>
-    [ObservableProperty] private LinhaFolha? _folhaEscolhida;
-
-    /// <summary>O que o PASSO 3 afirma. Nulo junto com a folha escolhida.</summary>
-    [ObservableProperty] private PreviaDaFolha? _previa;
-
-    /// <summary>
     /// A linha de baixo da faixa do passo 1: documento · idade · convênio · o horário de
     /// hoje. Montada AQUI, e não por bindings concatenados no XAML, porque ela precisa
     /// PULAR o que a ficha não tem — a importação do Smart Clinic produziu fichas
@@ -289,12 +365,6 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// </summary>
     [RelayCommand]
     private void TrocarPaciente() => Seletor.Limpar();
-
-    partial void OnFolhaEscolhidaChanged(LinhaFolha? value)
-    {
-        AtualizarPrevia();
-        foreach (var linha in Folhas) linha.Escolhida = ReferenceEquals(linha, value);
-    }
 
     [ObservableProperty] private string _resumo = string.Empty;
     [ObservableProperty] private bool _carregando;
@@ -375,20 +445,9 @@ public sealed partial class DocumentosViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
-    // ⚠️ A prévia do passo 3 vai junto: com "Fechamento do período" escolhido, o "para
-    // quem" É o período — e ele continuaria escrito com as datas de antes, afirmando na
-    // tela um recorte que o PDF não vai ter.
-    partial void OnInicioChanged(DateTime value)
-    {
-        AtualizarPrevia();
-        _ = CarregarAsync();
-    }
+    partial void OnInicioChanged(DateTime value) => _ = CarregarAsync();
 
-    partial void OnFimChanged(DateTime value)
-    {
-        AtualizarPrevia();
-        _ = CarregarAsync();
-    }
+    partial void OnFimChanged(DateTime value) => _ = CarregarAsync();
 
     // A faixa do passo 1 lê o contexto ("tem horário hoje às 14h"), e ele chega DEPOIS da
     // escolha — a lista de quem está hoje é outra consulta. Sem isto a faixa nasceria sem a
@@ -436,8 +495,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
             foreach (var p in pilulas.Take(PilulasNaLinha)) DeHoje.Add(p);
 
             RotuloDeHoje = pilulas.Count > PilulasNaLinha
-                ? $"ou escolha de quem está hoje ({PilulasNaLinha} de {pilulas.Count} — digite para achar os outros):"
-                : "ou escolha de quem está hoje:";
+                ? $"Hoje na clínica — {PilulasNaLinha} de {pilulas.Count}; digite para achar os outros"
+                : "Hoje na clínica";
         }
         catch (Exception ex)
         {
@@ -524,8 +583,17 @@ public sealed partial class DocumentosViewModel : ObservableObject
                     // que o termo saiu — com a pendência do dia continuando acesa.
                     ExigenciaFolha.TermoParaAssinar => "Colher assinatura…",
                     _ => "Emitir"
-                }
+                },
+                OQueAcontece = PreviaDaFolha.Montar(
+                    f, string.Empty, false, string.Empty, null, null, string.Empty).OQueAcontece
             });
+
+        // Os blocos seguem a ORDEM do catálogo (atendimento, dinheiro, gestão), e não a
+        // alfabética: é a ordem em que o balcão pensa — o papel do paciente primeiro.
+        GruposDeFolhas = Folhas
+            .GroupBy(l => l.Grupo)
+            .Select(g => new GrupoDeFolhas(g.Key, g.ToList()))
+            .ToList();
 
         AtualizarDisponibilidade();
     }
@@ -553,7 +621,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
                         ? (podeEmitir
                             ? string.Empty
                             : $"Seu acesso permite ver, não emitir ({PerfisAcesso.Rotular(linha.Folha.PermissaoEmitir)}).")
-                        : "Escolha o paciente no passo 1.";
+                        : "Escolha o paciente para liberar.";
                     break;
 
                 case ExigenciaFolha.LancamentoNoCaixa:
@@ -574,7 +642,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
                     // texto com calma. Quem escolhe o modelo é a janela.
                     linha.PodeGerar = temPaciente && podeEmitir;
                     linha.Pendencia = !temPaciente
-                        ? "Escolha o paciente no passo 1."
+                        ? "Escolha o paciente para liberar."
                         : podeEmitir
                             ? string.Empty
                             : $"Seu acesso permite ver, não colher ({PerfisAcesso.Rotular(linha.Folha.PermissaoEmitir)}).";
@@ -588,49 +656,56 @@ public sealed partial class DocumentosViewModel : ObservableObject
                     break;
             }
         }
-
-        // A prévia do passo 3 fala da folha escolhida E do estado de agora: trocar de
-        // paciente muda o "para quem" e pode acender ou apagar o botão.
-        AtualizarPrevia();
     }
 
     /// <summary>
-    /// O PASSO 2 escolhe; ele não emite (set/2026, mockup 5). O cartão deixou de disparar a
-    /// emissão no primeiro clique e passa a marcar a folha, e é o passo 3 que emite.
+    /// O clique no CARTÃO (out/2026 — a régua "Novo documento" no desenho da tela de
+    /// Receitas e documentos do Consultório). O passo 3 ("o que vai sair"), que a tela
+    /// tinha entre a escolha e a emissão, saiu: o cliente o leu como uma caixa vazia no pé
+    /// da página. O que ele afirmava não se perdeu, e cada parte foi para onde é lida:
     ///
-    /// ⚠️ **Escolher NÃO exige que dê para emitir.** A folha cuja exigência não está
-    /// cumprida é justamente a que precisa ser escolhida para o passo 3 poder EXPLICAR o
-    /// que falta — recusar aqui devolveria o botão que não faz nada da parcela 41.
+    /// · o que o clique FAZ está NO cartão (a ação escrita e a frase inteira na dica);
+    /// · o que FALTA está no cartão, apagado, com a razão escrita — antes do clique;
+    /// · para QUEM sai está na faixa do paciente logo acima.
+    ///
+    /// ⚠️ Quatro folhas abrem uma JANELA (escrever, colher, orçar) ou NAVEGAM (o Caixa): a
+    /// janela é a confirmação, e perguntar antes dela seria o clique a mais que ensina a
+    /// confirmar sem ler. As duas que SAEM DIRETO — a montada do prontuário, que gasta um
+    /// número na hora, e o fechamento, cujo período mora na outra aba — perguntam, com a
+    /// mesma frase do <see cref="PreviaDaFolha"/>: é o único lugar em que o "para quem" e
+    /// o "o que acontece" ainda não estavam à vista quando o papel nasce.
     /// </summary>
     [RelayCommand]
-    private void EscolherFolha(LinhaFolha? linha)
+    private async Task AbrirFolhaAsync(LinhaFolha? linha)
     {
         if (linha is null) return;
-        FolhaEscolhida = linha;
-    }
 
-    /// <summary>
-    /// Monta o que o passo 3 AFIRMA. A composição mora na Application
-    /// (<see cref="PreviaDaFolha"/>) e é pura: o que a tela afirma precisa morar onde o
-    /// `dotnet test` alcança.
-    /// </summary>
-    private void AtualizarPrevia()
-    {
-        if (FolhaEscolhida is not { } escolhida)
+        // O cartão nasce apagado quando falta algo; se o clique chegar mesmo assim (atalho
+        // de teclado, corrida de recarga), a tela DIZ o que falta em vez de voltar calada.
+        if (!linha.PodeGerar)
         {
-            Previa = null;
+            Mensagem = string.IsNullOrWhiteSpace(linha.Pendencia)
+                ? $"{linha.Rotulo}: não dá para emitir agora."
+                : $"{linha.Rotulo}: {linha.Pendencia}";
+            MensagemEhErro = true;
             return;
         }
 
-        var paciente = Seletor.Selecionado;
-        Previa = PreviaDaFolha.Montar(
-            escolhida.Folha,
-            escolhida.AcaoRotulo,
-            escolhida.PodeGerar,
-            escolhida.Pendencia,
-            paciente?.Nome,
-            paciente?.DocumentoFormatado,
-            $"de {Inicio:dd/MM/yyyy} a {Fim:dd/MM/yyyy}");
+        if (linha.Folha.Exigencia is ExigenciaFolha.PacienteComProntuario or ExigenciaFolha.Periodo)
+        {
+            var paciente = Seletor.Selecionado;
+            var previa = PreviaDaFolha.Montar(
+                linha.Folha, linha.AcaoRotulo, linha.PodeGerar, linha.Pendencia,
+                paciente?.Nome, paciente?.DocumentoFormatado,
+                $"de {Inicio:dd/MM/yyyy} a {Fim:dd/MM/yyyy}");
+
+            if (!_dialogo.Confirmar(
+                    linha.Rotulo,
+                    $"Para: {previa.ParaQuem}\n\n{previa.OQueAcontece}\n\n{previa.Garantias}"))
+                return;
+        }
+
+        await GerarAsync(linha);
     }
 
     [RelayCommand]
@@ -666,8 +741,20 @@ public sealed partial class DocumentosViewModel : ObservableObject
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            Emitidas.Clear();
-            foreach (var e in emitidas) Emitidas.Add(Montar(e));
+            _lidas = emitidas.Select(e => (e, Montar(e))).ToList();
+
+            // O combo de tipo é refeito com o catálogo E o que a carga trouxe. O escolhido
+            // é guardado ANTES do Clear: o combo escreve NULL nele quando a lista esvazia, e
+            // sem isto toda recarga desligaria o filtro que a pessoa deixou marcado.
+            var tipoEscolhido = TipoFiltro;
+            var tipos = BuscaNasFolhas.Tipos(Folhas.Select(f => f.Rotulo), emitidas);
+            TiposDeFolha.Clear();
+            foreach (var t in tipos) TiposDeFolha.Add(t);
+            TipoFiltro = tipoEscolhido is not null && tipos.Contains(tipoEscolhido)
+                ? tipoEscolhido
+                : BuscaNasFolhas.TodasAsFolhas;
+
+            AplicarFiltro();
 
             // ⚠️ O resumo conta o RESULTADO, e por isso sai da lista que acabou de ser lida
             // — não de um segundo `ResumoAsync`, que refazia a MESMA consulta e, agora, a
@@ -753,7 +840,10 @@ public sealed partial class DocumentosViewModel : ObservableObject
             {
                 e.Valor is { } v ? v.ToString("C2", Brasil) : null,
                 e.Profissional,
-                string.IsNullOrWhiteSpace(e.CriadoPor) ? null : $"por {e.CriadoPor}"
+                string.IsNullOrWhiteSpace(e.CriadoPor) ? null : $"por {e.CriadoPor}",
+                // O código do rodapé à vista: é por ele que a busca acha o papel que alguém
+                // trouxe na mão, e a linha precisa mostrar POR QUE ela bateu.
+                string.IsNullOrWhiteSpace(e.CodigoVerificacao) ? null : $"conferência {e.CodigoVerificacao}"
             }.Where(x => !string.IsNullOrWhiteSpace(x))),
         Cancelado = e.Cancelado,
         // Cancelar e republicar pedem o acesso de EMITIR daquela folha, não um bit geral
@@ -868,10 +958,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
     // ==================== Gerar ====================
 
-    [RelayCommand]
-    private async Task GerarAsync(LinhaFolha? linha)
+    private async Task GerarAsync(LinhaFolha linha)
     {
-        if (linha is null || !linha.PodeGerar) return;
 
         try
         {

@@ -32,6 +32,16 @@ internal sealed class DocumentoFolha : DockPanel
         var close = Botao("Fechar"); close.IsCancel = true; actions.Children.Add(close);
         var emit = Botao("Emitir e imprimir", true); emit.IsDefault = true; emit.Margin = new Thickness(10, 0, 0, 0); emit.Command = vm.EmitirCommand; actions.Children.Add(emit);
         var save = Botao("Salvar como modelo", false, true); save.HorizontalAlignment = HorizontalAlignment.Left; save.Command = vm.PedirNomeModeloCommand; save.SetBinding(IsEnabledProperty, new Binding("PodeEditar")); footer.Children.Add(save);
+        // Por que o "Emitir" está apagado quando falta quem assina (o login não está ligado
+        // a um profissional): a frase fica AO LADO do botão, com a porta para escolher —
+        // botão apagado sem explicação se lê como sistema travado (parcela 41).
+        var semAssinante = new DockPanel { Margin = new Thickness(0, 10, 0, 0) }; DockPanel.SetDock(semAssinante, Dock.Bottom);
+        semAssinante.SetBinding(VisibilityProperty, new Binding("MotivoSemAssinante") { Converter = new TextoParaVisibilidade() });
+        var escolher = Botao("Escolher quem assina\u2026", false, true); escolher.Margin = new Thickness(12, 0, 0, 0); escolher.VerticalAlignment = VerticalAlignment.Center;
+        escolher.SetBinding(IsEnabledProperty, new Binding("PodeEditar")); escolher.Click += (_, _) => AbrirOpcoes(0);
+        DockPanel.SetDock(escolher, Dock.Right); semAssinante.Children.Add(escolher);
+        var motivo = Texto("", 14, "Brush.Aviso"); motivo.SetBinding(TextBlock.TextProperty, new Binding("MotivoSemAssinante")); motivo.VerticalAlignment = VerticalAlignment.Center; semAssinante.Children.Add(motivo);
+        Children.Add(semAssinante);
         var message = Texto("", 14, "Brush.Texto.Secundario"); message.SetBinding(TextBlock.TextProperty, new Binding("Mensagem")); message.SetBinding(VisibilityProperty, new Binding("Mensagem") { Converter = new TextoParaVisibilidade() }); message.Margin = new Thickness(0, 8, 0, 0); DockPanel.SetDock(message, Dock.Bottom); Children.Add(message);
         System.Windows.Automation.AutomationProperties.SetLiveSetting(message, System.Windows.Automation.AutomationLiveSetting.Polite);
         var surface = new Border { Background = Cor("Brush.Fundo"), CornerRadius = new CornerRadius(8), Padding = new Thickness(45, 20, 45, 20) }; Children.Add(surface);
@@ -151,8 +161,13 @@ internal sealed class DocumentoFolha : DockPanel
     {
         var p = new DockPanel();
         var label = Texto(title, 13, "Brush.Texto.Secundario"); label.Margin = new Thickness(0, 0, 0, 8); DockPanel.SetDock(label, Dock.Top); p.Children.Add(label);
-        var editor = new EditorTextoClinico { MinHeight = 150 }; System.Windows.Automation.AutomationProperties.SetName(editor, title); editor.SetBinding(EditorTextoClinico.TextoProperty, new Binding("Corpo") { Mode = BindingMode.TwoWay }); editor.SetBinding(EditorTextoClinico.FormatoProperty, new Binding("CorpoFormatado") { Mode = BindingMode.TwoWay }); p.Children.Add(editor);
+        var editor = new EditorTextoClinico { MinHeight = 240 }; System.Windows.Automation.AutomationProperties.SetName(editor, title); editor.SetBinding(EditorTextoClinico.TextoProperty, new Binding("Corpo") { Mode = BindingMode.TwoWay }); editor.SetBinding(EditorTextoClinico.FormatoProperty, new Binding("CorpoFormatado") { Mode = BindingMode.TwoWay });
         editor.ModoFolha = sheet;
+        // A área de escrever tem MOLDURA e altura mínima generosa (out/2026 — o cliente via
+        // o laudo como "tela branca enorme": o editor em modo folha não tem borda, e sem ela
+        // não se sabe onde clicar para escrever nem até onde vai o texto do documento).
+        var moldura = new Border { BorderBrush = Cor("Brush.Borda"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(12, 10, 12, 10), MinHeight = 260, Child = editor };
+        p.Children.Add(moldura);
         return p;
     }
 }

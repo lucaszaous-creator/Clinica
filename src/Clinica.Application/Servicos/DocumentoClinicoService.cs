@@ -768,11 +768,9 @@ public sealed class DocumentoClinicoService
             throw new InvalidOperationException("A saída é anterior à chegada.");
     }
 
-    /// <summary>Documento que só vale assinado por profissional habilitado.</summary>
-    private static bool ExigeAssinante(TipoDocumentoClinico tipo)
-        => tipo is TipoDocumentoClinico.Receita
-               or TipoDocumentoClinico.Atestado
-               or TipoDocumentoClinico.PedidoExame;
+    /// <summary>Documento que só vale assinado por profissional habilitado — a definição
+    /// mora em <see cref="AssinanteDoDocumento.Exige"/>, que a tela também lê.</summary>
+    private static bool ExigeAssinante(TipoDocumentoClinico tipo) => AssinanteDoDocumento.Exige(tipo);
 
     private async Task<string> NumerarAsync(int ano, CancellationToken ct)
     {

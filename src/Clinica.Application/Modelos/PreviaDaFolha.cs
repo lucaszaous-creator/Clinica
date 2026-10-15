@@ -11,6 +11,13 @@ namespace Clinica.Application.Modelos;
 /// terceiro: para quem o papel sai, o que ele é, o que FALTA e — o que nenhuma tela dizia —
 /// **o que o clique vai fazer**.
 ///
+/// ⚠️ **O PASSO 3 DEIXOU DE SER UMA REGIÃO DA TELA** (out/2026 — a aba Emitir passou ao
+/// desenho da tela Receitas e documentos do Consultório, e o cliente lia a caixa do passo 3
+/// como um vão no pé da página). Este registro continua sendo a fonte do que a tela afirma:
+/// <see cref="OQueAcontece"/> é escrito NO cartão de cada folha, e as duas folhas que saem
+/// sem janela (a montada do prontuário e o fechamento do período) perguntam antes com
+/// <see cref="ParaQuem"/>, <see cref="OQueAcontece"/> e <see cref="Garantias"/>.
+///
 /// ⚠️ ELA NÃO PROMETE O QUE NÃO ENTREGA, e é por isso que ela é curta.
 /// O mockup desenhava o número da folha ("2026/0189") no passo 3; ele é atribuído na
 /// EMISSÃO, por ano e por tipo, e adivinhá-lo aqui seria escrever na tela um número que a
