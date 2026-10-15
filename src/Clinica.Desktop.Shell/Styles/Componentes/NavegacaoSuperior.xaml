@@ -36,7 +36,7 @@
     <Border x:Name="Faixa" BorderThickness="0,0,0,2" BorderBrush="Transparent" Background="Transparent">
      <StackPanel Orientation="Horizontal" Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
       <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
-      <TextBlock Text="⌄" Margin="8,0,0,0" VerticalAlignment="Center"/>
+      <TextBlock x:Name="Seta" Text="⌄" Margin="8,0,0,0" VerticalAlignment="Center"/>
      </StackPanel>
     </Border>
     <Popup x:Name="PART_Popup" IsOpen="{Binding IsSubmenuOpen,RelativeSource={RelativeSource TemplatedParent}}"
@@ -56,6 +56,9 @@
     <Trigger Property="IsSubmenuOpen" Value="True"><Setter TargetName="Faixa" Property="BorderBrush" Value="{StaticResource Brush.Acento}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
     <DataTrigger Binding="{Binding EstaAtivo}" Value="True"><Setter TargetName="Faixa" Property="BorderBrush" Value="{StaticResource Brush.Acento}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger>
     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger>
+    <!-- Entrada direta da barra plana (out/2026): sem submenu, sem seta. A seta mora NESTE template.
+         Pôr o gatilho no template do Item é MC4111: TargetName que o template não declara. -->
+    <DataTrigger Binding="{Binding TemSubmenu}" Value="False"><Setter TargetName="Seta" Property="Visibility" Value="Collapsed"/></DataTrigger>
    </ControlTemplate.Triggers>
   </ControlTemplate></Setter.Value></Setter>
  </Style>

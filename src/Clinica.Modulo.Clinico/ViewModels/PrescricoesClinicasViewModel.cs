@@ -479,6 +479,18 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
         await AplicarAsync(await AcoesDoDocumento.ImprimirAsync(linha.Documento, _escopos));
     }
 
+    /// <summary>
+    /// Altera o laudo emitindo uma nova versão, que cancela a anterior no mesmo gravar
+    /// (out/2026). O ato é o do shell; esta tela só o liga ao "⋯" da linha.
+    /// </summary>
+    [RelayCommand]
+    private async Task NovaVersaoAsync(LinhaDocumentoClinico? linha)
+    {
+        if (linha is null) return;
+        await AplicarAsync(
+            await AcoesDoDocumento.NovaVersaoAsync(linha.Documento, _escopos, _snackbar));
+    }
+
     /// <summary>Assina com o certificado ICP-Brasil um documento já emitido (parcela 43).</summary>
     [RelayCommand]
     private async Task AssinarAsync(LinhaDocumentoClinico? linha)

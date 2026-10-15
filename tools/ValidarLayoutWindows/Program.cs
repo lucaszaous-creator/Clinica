@@ -465,8 +465,8 @@ static class Program
                 var grid = Descendentes(janela).OfType<DataGrid>().Single();
                 var scroll = Descendentes(grid).OfType<ScrollViewer>().First();
                 if (scroll.ScrollableWidth > 1) throw new Exception("Retornos exige rolagem horizontal em " + largura);
-                var botoes = Descendentes(grid).OfType<Button>().Where(b => b.IsVisible && b.Content is string t && t is "Marcar horário" or "WhatsApp").ToArray();
-                if (!botoes.Any(b => Equals(b.Content, "Marcar horário")) || !botoes.Any(b => Equals(b.Content, "WhatsApp"))) throw new Exception("Ações de retorno ausentes");
+                var botoes = Descendentes(grid).OfType<Button>().Where(b => b.IsVisible && b.Content is string t && t is "Marcar horário" or "Convidar").ToArray();
+                if (!botoes.Any(b => Equals(b.Content, "Marcar horário")) || !botoes.Any(b => Equals(b.Content, "Convidar"))) throw new Exception("Ações de retorno ausentes");
                 foreach (var b in botoes)
                 {
                     var ponto = b.TranslatePoint(new Point(), janela);

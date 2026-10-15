@@ -72,6 +72,13 @@ public sealed partial class CartaoFila : ObservableObject
     public bool ForaDaFila => StatusDaFila.ForaDaFila(Situacao);
 
     /// <summary>
+    /// O grupo da COR (out/2026): pendente, no local, em atendimento, atendido, cancelado,
+    /// falta, substituído — a mesma chave do filtro de situação e dos cartões da Grade, para a
+    /// pílula, o traço da linha e o ponto do filtro dizerem a mesma coisa.
+    /// </summary>
+    public string GrupoVisual => SituacaoVisualAgenda.Grupo(Situacao, Etapa);
+
+    /// <summary>
     /// A coluna STATUS da lista: a etapa em UMA palavra, no MESMO vocabulário do Meu dia
     /// do médico (<see cref="StatusDaFila"/>) — duas telas sobre o mesmo horário, uma
     /// palavra.
@@ -444,14 +451,6 @@ public sealed partial class ChipProfissional : ObservableObject
 /// </summary>
 public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
-    public bool PodeMarcarAtendimento => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
-    [RelayCommand] private void MarcarAtendimento()
-    {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar atendimento");
-        if (!NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario))
-            throw new InvalidOperationException("A marcação não está disponível neste acesso.");
-    }
-
     /// <summary>A partir daqui a espera é longa o bastante para destacar o cartão.</summary>
     private const int EsperaLongaMinutos = 30;
 
@@ -512,6 +511,30 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
     /// <summary>O quadro só filtra com DOIS ou mais profissionais no dia — chip único é ruído.</summary>
     public bool TemFiltroProfissional => Profissionais.Count > 2;
 
+    /// <summary>"Hoje · qui, 15/10" — o dia como o mockup aprovado o escreve (out/2026).</summary>
+    public string TituloDoDia => Clinica.Application.Modelos.RodadaDeConfirmacao.TituloDoDia(
+        DateOnly.FromDateTime(Dia), DateOnly.FromDateTime(DateTime.Today));
+
+    private ChipProfissional? _profissionalEscolhido;
+    private bool _remontandoChips;
+
+    /// <summary>
+    /// O profissional do combo "Todos os profissionais ▾" (out/2026, mockup aprovado) — a
+    /// mesma regra dos chips de antes, pelo mesmo <see cref="Filtrar"/>. A lista refeita
+    /// escreve NULO pelo binding; nulo aqui não filtra nada.
+    /// </summary>
+    public ChipProfissional? ProfissionalEscolhido
+    {
+        get => _profissionalEscolhido;
+        set
+        {
+            if (ReferenceEquals(value, _profissionalEscolhido)) return;
+            _profissionalEscolhido = value;
+            OnPropertyChanged();
+            if (!_remontandoChips && value is not null) Filtrar(value);
+        }
+    }
+
     /// <summary>O filtro vigente (nulo = todos). Vive fora dos chips para sobreviver à recarga.</summary>
     private int? _filtroProfissionalId;
 
@@ -524,21 +547,6 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
     [ObservableProperty]
     private bool _carregando;
 
-    /// <summary>
-    /// O PLACAR do dia (set/2026 — a agenda com cor, mockup aprovado): cada número com o
-    /// glifo semântico e a cor que a métrica já tem no sistema, no lugar da frase corrida
-    /// "3 atendido(s) · 1 em sala".
-    ///
-    /// ⛔ A "espera média" saiu quando os botões de fila saíram: ela vai da CHEGADA do
-    /// paciente até a chamada, e sem check-in nenhum horário carimba chegada — o número
-    /// seria "—" todo dia. A conta segue no <c>PainelRecepcaoService</c>, certa e testada,
-    /// esperando a tela que a devolva.
-    /// </summary>
-    [ObservableProperty] private int _atendidos;
-    [ObservableProperty] private int _emSala;
-
-    /// <summary>"1 · 0" — faltas e cancelamentos, que estão na lista apagados.</summary>
-    [ObservableProperty] private string _faltasCancelamentos = "0 · 0";
 
     /// <summary>
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
@@ -603,15 +611,6 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
     /// botão "Debitar pacote" e do item do menu "⋯" (set/2026).
     /// </summary>
     public bool PodeFecharSessao => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
-
-    /// <summary>
-    /// Colher o termo é ato de outro bit — a técnica de enfermagem o tem e não tem o da
-    /// agenda —, e por isso ele é perguntado à parte no menu "⋯". É a metade visível que
-    /// faltava: enquanto o menu montava os itens só pelo ESTADO do cartão, o XAML já
-    /// prometia que "quem decide item a item é o próprio menu", e as guardas recusavam
-    /// depois do clique.
-    /// </summary>
-    public bool PodeColherTermo => SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
 
     /// <summary>
     /// A metade visível do "Conferir convênio e cota…". É <c>VerFichaPaciente</c>, e não
@@ -782,6 +781,7 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
     partial void OnDiaChanged(DateTime value)
     {
         OnPropertyChanged(nameof(EhHoje));
+        OnPropertyChanged(nameof(TituloDoDia));
         _ = CarregarAsync();
     }
 
@@ -1032,7 +1032,7 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
         Profissionais.Clear();
         Profissionais.Add(new ChipProfissional
         {
-            Id = null, Nome = "Todos", Quantidade = vivos.Count,
+            Id = null, Nome = "Todos os profissionais", Quantidade = vivos.Count,
             Ativo = _filtroProfissionalId is null
         });
         foreach (var p in doDia)
@@ -1043,6 +1043,9 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
                 Ativo = _filtroProfissionalId == p.Id
             });
 
+        _remontandoChips = true;
+        try { ProfissionalEscolhido = Profissionais.FirstOrDefault(p => p.Ativo) ?? Profissionais.FirstOrDefault(); }
+        finally { _remontandoChips = false; }
         OnPropertyChanged(nameof(TemFiltroProfissional));
     }
 
@@ -1202,13 +1205,8 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
                 cartao.InicioEm, cartao.FimAtendimentoEm);
         }
 
-        Atendidos = _doDia.Count(a => a.Status == StatusAgendamento.Realizado);
-        EmSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento);
-        // Falta e cancelamento ESTÃO na lista (apagados) desde set/2026 — o placar conta,
-        // não anuncia o que foi escondido.
-        FaltasCancelamentos =
-            $"{_doDia.Count(a => a.Status == StatusAgendamento.Faltou)} · "
-            + $"{_doDia.Count(a => a.Status == StatusAgendamento.Cancelado)}";
+        // O placar de três cartões saiu (out/2026, mockup aprovado): as contagens moram nos
+        // chips de situação da barra, que contam o dia inteiro.
     }
 
     /// <summary>
@@ -1462,79 +1460,6 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
     }
 
     /// <summary>
-    /// Abre a coleta do termo do procedimento (parcela 66) — a PORTA do alerta que o
-    /// check-in dá.
-    ///
-    /// Vem para cá, e não para uma tela do Consultório, porque o termo se colhe com o
-    /// paciente no balcão, antes de ele subir para a sala: quem recebe é quem apresenta o
-    /// papel. Alerta sem porta no mesmo app é pior que alerta nenhum — ele ensina a pessoa
-    /// a ignorá-lo (a lição da parcela 48).
-    ///
-    /// Quando há mais de um termo pendente, colhe o PRIMEIRO e o cartão continua marcado:
-    /// o próximo clique abre o seguinte. Empilhar duas janelas obrigaria o paciente a
-    /// assinar duas vezes sem saber quantas faltam.
-    /// </summary>
-    [RelayCommand]
-    private async Task ColherTermoAsync(CartaoFila? cartao)
-        => await ExecutarAsync(cartao, async c =>
-        {
-            SessaoUsuario.Atual.Exigir(
-                Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente");
-
-            // ⚠️ Só HOJE, e a guarda FALA. O quadro navega dias (`DiaAnterior`/`ProximoDia`),
-            // mas a emissão carimba `DateTime.Today` — colher com o quadro em 12/08 criaria
-            // um termo datado de hoje que nunca casaria com aquele dia: o papel sairia
-            // assinado e a pendência de 12/08 continuaria acesa. Pior que não ter o botão,
-            // porque a pessoa acreditaria ter resolvido.
-            if (Dia.Date != DateTime.Today)
-            {
-                _dialogo.Aviso(
-                    "Termo é do dia do procedimento",
-                    "O termo vale para a SESSÃO, e é colhido no dia dela. Volte para hoje "
-                    + "para colher a assinatura deste paciente.");
-                return;
-            }
-
-            IReadOnlyList<SituacaoTermo> situacoes;
-            using (var e = _escopos.CreateScope())
-                situacoes = await e.ServiceProvider.GetRequiredService<TermoProcedimentoService>()
-                    .SituacaoDoDiaAsync(c.PacienteId, DateOnly.FromDateTime(Dia));
-
-            // ⚠️ O que JÁ FOI ASSINADO no celular vem primeiro (set/2026): ele está a UM
-            // clique de terminar, enquanto o não assinado ainda precisa do paciente na
-            // frente. Abrir o outro primeiro faria a técnica colher de novo a assinatura
-            // de quem já assinou.
-            var pendente = PendenciasDeTermo.Primeira(situacoes);
-
-            // Guarda que FALA: o cartão pode ter sido resolvido noutra máquina entre a
-            // carga do quadro e o clique, e sair calada aqui seria botão que não faz nada.
-            if (pendente is null)
-            {
-                c.TemTermoPendente = false;
-                c.TemTermoAConferir = false;
-                _snackbar.Info($"Não há termo pendente para {c.Paciente}.");
-                return;
-            }
-
-            await ColetaDeTermo.AbrirAsync(
-                _escopos, c.PacienteId, c.Paciente,
-                pendente.ModeloId, pendente.DocumentoId,
-                // O profissional do HORÁRIO: sem ele o termo nasce órfão e a via que o
-                // paciente assina — e que fica 20 anos no prontuário — sai com
-                // "Profissional responsável" no lugar do nome e do CRM de quem faz o
-                // procedimento.
-                _doDia.FirstOrDefault(a => a.Id == c.AgendamentoId)?.ProfissionalId,
-                // E a SESSÃO: aqui o cartão É o horário, então não há o que perguntar.
-                // Sem isto a coleta cairia no caminho de quem NÃO sabe e abriria a janela
-                // de escolha por cima de uma resposta que a tela já tem na mão.
-                c.AgendamentoId);
-
-            // Recarrega SEMPRE, e não só no concluiu: abrir a janela já emite o termo
-            // numerado, e o selo do cartão precisa refletir isso.
-            await CarregarAsync();
-        }, "coleta do termo");
-
-    /// <summary>
     /// CONFERIR CONVÊNIO E COTA com o paciente na frente — a porta que o check-in levou
     /// embora (set/2026).
     ///
@@ -1559,13 +1484,14 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
         => await ExecutarAsync(cartao, async c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente");
-            using var escopo = _escopos.CreateScope();
-            var foco = new Clinica.Desktop.Shell.Modulos.PacienteEmFoco();
-            foco.Definir(c.PacienteId, c.Paciente);
+            // A MESMA ficha do balcão da tela Pacientes (out/2026, mockup "4 · Ficha"): duas
+            // fichas para a mesma pessoa no mesmo app fariam procurar a diferença que não existe.
             ConsultaContextualWindow? janela = null;
-            var ficha = escopo.ServiceProvider.GetRequiredService<Clinica.Desktop.Shell.Modulos.IFabricaFichaPaciente>()
-                .Criar(foco, () => janela?.Close());
-            janela = new ConsultaContextualWindow($"Ficha — {c.Paciente}", ficha, "Voltar à fila do dia");
+            var ficha = new Views.FichaBalcaoView
+            {
+                DataContext = new FichaBalcaoViewModel(_escopos, _snackbar, _dialogo, c.PacienteId, () => janela?.Close())
+            };
+            janela = new ConsultaContextualWindow($"Ficha — {c.Paciente}", ficha, "Voltar à agenda do dia");
             janela.ShowDialog();
             await Task.CompletedTask;
         }, "ficha do paciente");
@@ -1631,6 +1557,11 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
+            // A MESMA pergunta da Grade (out/2026): o mesmo ato tinha confirmação numa porta
+            // e não na outra, e "Cancelar" fica ao lado de "Marcar falta" no menu — o clique
+            // errado aqui sumia com o horário sem uma pergunta.
+            if (!_dialogo.Confirmar("Cancelar horário", $"Cancelar o horário de {c.Paciente} ({c.Horario})?")) return;
+
             IReadOnlyList<string> avisos;
             using (var e = _escopos.CreateScope())
                 avisos = await e.ServiceProvider.GetRequiredService<AgendaService>()
@@ -1687,9 +1618,9 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
             if (NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario)) return;
 
             // Não foi: o pedido é DESFEITO (pedido órfão pré-preencheria a abertura de
-            // amanhã com o clique de hoje) e a grade abre neste dia.
+            // amanhã com o clique de hoje) e a tela DIZ que a marcação não está aqui.
             ponte.Consumir();
-            AbrirGradeNoDia(scope);
+            _snackbar.Info("A tela de marcar não está disponível para o seu acesso.");
         }
         catch (Exception ex)
         {
@@ -1764,32 +1695,55 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
     }
 
     /// <summary>
-    /// "Abrir na grade" (menu "⋯"): leva ao vão deste dia na GRADE, onde moram remarcar,
-    /// reabrir o cancelado, o comprovante e o WhatsApp de confirmação — a janela do horário
-    /// da parcela 58. A lista não repete essas sete ações: duas janelas do horário
-    /// divergiriam na primeira correção. É LEITURA: sem <c>Exigir</c>.
+    /// "Abrir o horário…" (menu "⋯"): a janela do horário da parcela 58 — remarcar, reabrir
+    /// o cancelado, o comprovante, o WhatsApp, quem chamar e a série. A lista não repete
+    /// essas sete ações: o dono delas continua sendo o <see cref="AgendaViewModel"/>, que
+    /// aqui não é desenhado (a grade saiu da navegação em out/2026). É LEITURA: sem
+    /// <c>Exigir</c> — cada ação da janela exige o seu bit.
     /// </summary>
     [RelayCommand]
-    private void AbrirNaGrade(CartaoFila? cartao)
+    private async Task AbrirHorarioAsync(CartaoFila? cartao)
     {
+        if (cartao is null) return;
         try
         {
             using var scope = _escopos.CreateScope();
-            AbrirGradeNoDia(scope);
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaViewModel>();
+            if (!await agenda.AbrirJanelaDoHorarioAsync(DateOnly.FromDateTime(Dia), cartao.AgendamentoId))
+                _snackbar.Info("Este horário não está mais neste dia — ele pode ter sido remarcado em outra máquina.");
+            if (!string.IsNullOrWhiteSpace(agenda.Mensagem))
+            {
+                if (agenda.MensagemEhErro) _snackbar.Erro(agenda.Mensagem); else _snackbar.Info(agenda.Mensagem);
+            }
+            await CarregarAsync(silencioso: true);
         }
         catch (Exception ex)
         {
-            Clinica.Application.Diagnostico.Registrar("Recepção — abrir a grade pela agenda do dia", ex);
+            Clinica.Application.Diagnostico.Registrar("Recepção — abrir o horário pela agenda do dia", ex);
             _snackbar.Erro(ex.Message);
         }
     }
 
-    /// <summary>Pede à grade que abra no dia da lista (a ponte <see cref="PedidoAgenda"/>) e navega.</summary>
-    private void AbrirGradeNoDia(IServiceScope scope)
+    /// <summary>
+    /// A folha do dia (o botão do cabeçalho no mockup). Quem a imprime continua sendo a
+    /// agenda — a mesma folha, sem dado clínico, respeitando o profissional filtrado.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImprimirFolhaAsync()
     {
-        scope.ServiceProvider.GetRequiredService<PedidoAgenda>().AbrirEm(DateOnly.FromDateTime(Dia));
-        if (!NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda))
-            _snackbar.Info("A grade não está disponível para o seu acesso.");
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaViewModel>();
+            await agenda.PosicionarAsync(DateOnly.FromDateTime(Dia), _filtroProfissionalId);
+            await agenda.ImprimirAgendaCommand.ExecuteAsync(null);
+            if (!string.IsNullOrWhiteSpace(agenda.Mensagem)) _snackbar.Erro(agenda.Mensagem);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — folha do dia não pôde ser impressa", ex);
+            _snackbar.Erro(ex.Message);
+        }
     }
 
     [RelayCommand]

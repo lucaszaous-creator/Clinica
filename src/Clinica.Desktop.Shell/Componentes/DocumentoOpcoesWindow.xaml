@@ -15,7 +15,7 @@
    <TabItem Header="Dados da emissão">
     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="0,16,12,0">
      <TextBlock Text="Tipo de documento" Style="{StaticResource Rotulo}"/>
-     <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}" ItemTemplate="{StaticResource ItemRotuloEnum}"/>
+     <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}" ItemTemplate="{StaticResource ItemRotuloEnum}" IsEnabled="{Binding PodeTrocarTipo}"/>
      <TextBlock Text="Data de emissão" Style="{StaticResource Rotulo}" Margin="0,12,0,4"/><DatePicker SelectedDate="{Binding Data}"/>
      <TextBlock Text="Profissional responsável" Style="{StaticResource Rotulo}" Margin="0,12,0,4"/>
      <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}" DisplayMemberPath="Rotulo"/>

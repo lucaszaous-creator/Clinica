@@ -304,7 +304,9 @@ Consultas reais à TypeSafe, modelo retornado `jev-1.13.0`. Jev analisou o mapa 
 
 **Destino:** Gestão → Relacionamento → Recall de pacientes
 
-**Evidência:** `src/Clinica.Modulo.Gerente/ViewModels/CampanhasViewModel.cs:233`.
+**Atualização (out/2026):** a sobreposição continuava — três caminhos para "quem chamar de volta". Saíram `RetornoView`/`RetornoViewModel` (sem rota), a tela "Quem parou de vir" com o `RetencaoPacienteService`, a rodada de recall do `CampanhaService` e os atalhos de Campanhas para Confirmações e Recall. O tratamento longo, o pacote em aberto e o CSV foram para o Acompanhamento, que passou a ler a configuração de dias do recall (antes gravada e sem leitor).
+
+**Destino atual:** Gestão → Relacionamento → Acompanhamento de pacientes (Gerente); Gestão → Acompanhamento de pacientes (Recepção e Faturamento).
 
 ### 28. Renovação de consulta do convênio
 

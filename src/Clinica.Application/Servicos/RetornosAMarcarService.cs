@@ -24,6 +24,10 @@ public sealed class RetornosAMarcarService
     }
 
     public async Task<IReadOnlyList<RetornoAMarcar>> ListarAsync(CancellationToken ct = default)
+        => (await ListarComMarcadosAsync(ct)).Where(r => !r.JaMarcado).ToList();
+
+    /// <summary>A fila e os retornos já resolvidos — o chip "Já marcados" da tela (out/2026).</summary>
+    public async Task<IReadOnlyList<RetornoAMarcar>> ListarComMarcadosAsync(CancellationToken ct = default)
     {
         var hoje = _hoje();
         var sugestoes = await _repo.RetornosSugeridosAsync(
@@ -37,6 +41,6 @@ public sealed class RetornosAMarcarService
             sugestoes.Min(s => s.Sessao),
             ct);
 
-        return RetornosAMarcar.Montar(sugestoes, horarios, hoje);
+        return RetornosAMarcar.MontarComMarcados(sugestoes, horarios, hoje);
     }
 }

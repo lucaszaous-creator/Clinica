@@ -25,14 +25,34 @@ public class FolhasParaEntregarTests
         => FolhasParaEntregar.Montar(heranca, acessos).Single(c => c.Chave == chave);
 
     /// <summary>
-    /// A ordem é a de quem ATENDE, e as cinco folhas são as que se entregam ao fim da
-    /// sessão — o termo e a anamnese ficam de fora de propósito.
+    /// A ordem é a de quem ATENDE, e as seis folhas são as que se entregam ao fim da
+    /// sessão — o termo e a anamnese ficam de fora de propósito. O laudo entrou ao lado
+    /// do atestado (out/2026, "em emitir dentro do atendimento, sem nova aba").
     /// </summary>
     [Fact]
-    public void A_coluna_tem_as_cinco_folhas_na_ordem_de_quem_atende()
+    public void A_coluna_tem_as_seis_folhas_na_ordem_de_quem_atende()
         => FolhasParaEntregar.Montar(new HerancaDaSessao(1), TudoDoConsultorio)
             .Select(c => c.Chave)
-            .Should().Equal("receita", "atestado", "pedido-exame", "comparecimento", "relatorio-evolucao");
+            .Should().Equal("receita", "atestado", "laudo-medico", "pedido-exame",
+                "comparecimento", "relatorio-evolucao");
+
+    /// <summary>
+    /// O laudo herda SÓ o CID: o texto é do médico, e copiar a conduta para o papel que vai
+    /// à perícia seria decidir por ele o que a perícia lê.
+    /// </summary>
+    [Fact]
+    public void O_laudo_herda_o_CID_e_deixa_o_texto_para_o_medico()
+    {
+        var comCid = Cartao(
+            new HerancaDaSessao(1, Cid: "F41.1", Hipotese: "Ansiedade generalizada"), "laudo-medico");
+        comCid.VemDaSessao.Should().BeTrue();
+        comCid.Heranca.Should().Contain("CID F41.1").And.Contain("o texto você escreve");
+        comCid.PodeEmitir.Should().BeTrue();
+
+        var semCid = Cartao(new HerancaDaSessao(1), "laudo-medico");
+        semCid.VemDaSessao.Should().BeFalse();
+        semCid.Heranca.Should().Contain("em branco");
+    }
 
     /// <summary>
     /// ⚠️ O DESVIO DECLARADO do mockup: o desenho mostra a receita dizendo "já com a

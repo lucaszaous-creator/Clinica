@@ -50,8 +50,29 @@ public sealed record RetornoAMarcar(
         _ => $"em {-DiasDeAtraso} dias"
     };
 
+    /// <summary>
+    /// O primeiro horário ATIVO depois da sessão — preenchido só no chip "Já marcados"
+    /// (out/2026, mockup aprovado): o retorno pedido que o balcão JÁ resolveu. Nulo em
+    /// toda linha da fila de trabalho.
+    /// </summary>
+    public DateOnly? MarcadoPara { get; init; }
+    public bool JaMarcado => MarcadoPara is not null;
+    public string SituacaoTexto => MarcadoPara is { } d ? $"marcado para {d:dd/MM}" : Situacao;
+
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
     public bool TemNota => !string.IsNullOrWhiteSpace(Nota);
+
+    /// <summary>
+    /// A faixa do chip (out/2026): atrasado, esta semana (de hoje a seis dias) ou mais
+    /// adiante. Sai do MESMO <see cref="DiasDeAtraso"/> que a frase da linha — duas contas
+    /// para "atrasado" dariam um chip discordando da linha que ele filtra.
+    /// </summary>
+    public FaixaRetorno Faixa => MarcadoPara is not null ? FaixaRetorno.JaMarcado : DiasDeAtraso switch
+    {
+        > 0 => FaixaRetorno.Atrasado,
+        >= -6 => FaixaRetorno.EstaSemana,
+        _ => FaixaRetorno.MaisAdiante
+    };
 }
 
 /// <summary>
@@ -80,6 +101,9 @@ public sealed record RetornoAMarcar(
 /// O que ela nunca faz: marcar, dispensar ou gravar qualquer coisa. Marcar é o Marcar da
 /// Recepção, pré-preenchido; a linha some sozinha quando o horário passa a existir.
 /// </summary>
+/// <summary>As faixas de "Retornos a marcar" (out/2026).</summary>
+public enum FaixaRetorno { Atrasado, EstaSemana, MaisAdiante, JaMarcado }
+
 public static class RetornosAMarcar
 {
     /// <summary>
@@ -93,6 +117,18 @@ public static class RetornosAMarcar
         IReadOnlyList<RetornoSugerido> sugestoes,
         IReadOnlyList<HorarioPosterior> horarios,
         DateOnly hoje)
+        => MontarComMarcados(sugestoes, horarios, hoje).Where(r => !r.JaMarcado).ToList();
+
+    /// <summary>
+    /// A fila E os retornos já resolvidos (o chip "Já marcados"). A MESMA regra de
+    /// cobertura de <see cref="Montar"/> — é ela que chama esta —, só que a linha coberta
+    /// fica, com a data do horário que a cobriu: duas regras de "coberto" dariam um chip
+    /// discordando da fila.
+    /// </summary>
+    public static IReadOnlyList<RetornoAMarcar> MontarComMarcados(
+        IReadOnlyList<RetornoSugerido> sugestoes,
+        IReadOnlyList<HorarioPosterior> horarios,
+        DateOnly hoje)
     {
         var porPaciente = horarios
             .GroupBy(h => h.PacienteId)
@@ -102,17 +138,19 @@ public static class RetornosAMarcar
             .GroupBy(s => s.PacienteId)
             // A sessão mais recente de cada paciente; empate de data desempata pelo id.
             .Select(g => g.OrderByDescending(s => s.Sessao).ThenByDescending(s => s.EvolucaoId).First())
-            .Where(s => !porPaciente.TryGetValue(s.PacienteId, out var dias) || dias.All(d => d <= s.Sessao))
-            .Select(s => new RetornoAMarcar(
-                s.PacienteId,
-                s.Paciente,
-                s.Telefone,
-                s.Sessao,
-                s.RetornoEm,
-                string.IsNullOrWhiteSpace(s.Nota) ? null : s.Nota.Trim(),
-                s.ProfissionalId,
-                Rotulo(s.ProfissionalNomeCurto, s.ProfissionalNome),
-                hoje.DayNumber - s.RetornoEm.DayNumber))
+            .Select(s => (s, Marcado: porPaciente.TryGetValue(s.PacienteId, out var dias)
+                ? dias.Where(d => d > s.Sessao).Order().Cast<DateOnly?>().FirstOrDefault() : null))
+            .Select(x => (Sugestao: x.s, x.Marcado))
+            .Select(x => new RetornoAMarcar(
+                x.Sugestao.PacienteId,
+                x.Sugestao.Paciente,
+                x.Sugestao.Telefone,
+                x.Sugestao.Sessao,
+                x.Sugestao.RetornoEm,
+                string.IsNullOrWhiteSpace(x.Sugestao.Nota) ? null : x.Sugestao.Nota.Trim(),
+                x.Sugestao.ProfissionalId,
+                Rotulo(x.Sugestao.ProfissionalNomeCurto, x.Sugestao.ProfissionalNome),
+                hoje.DayNumber - x.Sugestao.RetornoEm.DayNumber) { MarcadoPara = x.Marcado })
             .OrderBy(r => r.RetornoEm)
             .ThenBy(r => r.Paciente)
             .ToList();

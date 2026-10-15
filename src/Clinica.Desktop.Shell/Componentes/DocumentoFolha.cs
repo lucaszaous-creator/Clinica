@@ -53,6 +53,7 @@ internal sealed class DocumentoFolha : DockPanel
         var centered = Texto("", 18, "Brush.Texto.Primario", true); centered.SetBinding(TextBlock.TextProperty, new Binding("TituloFolha")); centered.HorizontalAlignment = HorizontalAlignment.Center; centered.Margin = new Thickness(0, 0, 0, 20); heading.Children.Add(centered);
         heading.Children.Add(Alertas());
         if (vm.MostraAtestado) heading.Children.Add(Afastamento());
+        else if (vm.MostraLaudo) heading.Children.Add(CidDoLaudo());
         else if (vm.MostraComparecimento) heading.Children.Add(Comparecimento());
         else if (vm.MostraItens) heading.Children.Add(Exames());
         var signer = new StackPanel { Margin = new Thickness(0, 18, 0, 0) }; DockPanel.SetDock(signer, Dock.Bottom); body.Children.Add(signer);
@@ -102,11 +103,28 @@ internal sealed class DocumentoFolha : DockPanel
         var panel = new StackPanel();
         var date = new DatePicker { Height = 40 }; date.SetBinding(DatePicker.SelectedDateProperty, new Binding("PeriodoInicio"));
         panel.Children.Add(Colunas(Rotulo("Dias de afastamento", Campo("DiasAfastamentoTexto")), Rotulo("Início do afastamento", date), Rotulo("CID · opcional", Campo("Cid"))));
+        AutorizacaoDoCid(panel);
+        return panel;
+    }
+    /// <summary>
+    /// O laudo leva só o CID acima do texto — dias e data são do afastamento. A autorização
+    /// e os três avisos são os MESMOS do atestado: duas regras para o mesmo sigilo
+    /// divergiriam na primeira correção.
+    /// </summary>
+    FrameworkElement CidDoLaudo()
+    {
+        var panel = new StackPanel();
+        var cid = Rotulo("CID · opcional", Campo("Cid")); cid.MaxWidth = 260; cid.HorizontalAlignment = HorizontalAlignment.Left; cid.Margin = new Thickness(0, 0, 0, 20);
+        panel.Children.Add(cid);
+        AutorizacaoDoCid(panel);
+        return panel;
+    }
+    void AutorizacaoDoCid(Panel panel)
+    {
         var check = new CheckBox { Content = "Paciente autorizou a inclusão do CID", FontSize = 13, Margin = new Thickness(0, -5, 0, 22) }; check.SetBinding(CheckBox.IsCheckedProperty, new Binding("CidAutorizado")); panel.Children.Add(check);
         panel.Children.Add(Aviso("DescricaoCid", null));
         panel.Children.Add(Aviso("ExplicacaoDoCid", "CidVeioDaSessao"));
         panel.Children.Add(Aviso(null, "AvisaCidOmitido", "O CID será omitido do documento enquanto não houver autorização."));
-        return panel;
     }
     FrameworkElement Comparecimento()
     {

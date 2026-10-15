@@ -174,90 +174,13 @@ public sealed class CampanhaService
             Detratores: respondidos.Count(c => c.Classe == ClasseNps.Detrator));
     }
 
-    // ==================== Recall (feature 11) ====================
-
-    /// <summary>
-    /// Quem parou de vir: sem atendimento há <paramref name="diasInatividade"/> dias e
-    /// sem horário futuro marcado.
-    ///
-    /// Paciente que NUNCA veio não entra: ele não sumiu, ele nunca chegou — e chamá-lo
-    /// de volta seria uma mensagem sem sentido. Quem já tem horário marcado também não:
-    /// o recall existe para trazer de volta, não para lembrar quem já voltou.
-    /// </summary>
-    public async Task<IReadOnlyList<CandidatoRecall>> CandidatosRecallAsync(
-        DateOnly referencia,
-        int diasInatividade = DiasInatividadePadrao,
-        CancellationToken ct = default)
-    {
-        var inatividade = await _repo.InatividadeAsync(referencia, ct);
-
-        var candidatos = inatividade
-            .Where(i => i.UltimoAtendimento is not null
-                        && i.ProximoAgendamento is null
-                        && referencia.DayNumber - i.UltimoAtendimento!.Value.DayNumber >= diasInatividade)
-            .ToList();
-
-        if (candidatos.Count == 0) return [];
-
-        var comConsentimento = (await _repo.PacientesComConsentimentoVigenteAsync(
-            FinalidadeConsentimento.ComunicacaoEMarketing,
-            candidatos.Select(c => c.PacienteId).ToList(),
-            ct)).ToHashSet();
-
-        return candidatos
-            .Select(c => new CandidatoRecall(
-                c.PacienteId,
-                c.Nome,
-                c.Telefone,
-                c.UltimoAtendimento,
-                referencia.DayNumber - c.UltimoAtendimento!.Value.DayNumber,
-                comConsentimento.Contains(c.PacienteId),
-                TemTelefone(c.Telefone)))
-            .OrderByDescending(c => c.DiasSemVir)
-            .ThenBy(c => c.Nome)
-            .ToList();
-    }
-
-    /// <summary>
-    /// Gera a rodada de recall do mês. Quem continua sumido volta a entrar no mês
-    /// seguinte (a origem é por paciente e mês), mas nunca duas vezes na mesma rodada.
-    /// </summary>
-    public async Task<ResultadoCampanha> GerarRecallAsync(
-        DateOnly referencia,
-        int diasInatividade = DiasInatividadePadrao,
-        CancellationToken ct = default)
-    {
-        var candidatos = await CandidatosRecallAsync(referencia, diasInatividade, ct);
-
-        var origens = candidatos
-            .Select(c => ContatoCampanha.OrigemDeRecall(c.PacienteId, referencia))
-            .ToList();
-        var existentes = (await _repo.OrigensDeContatoAsync(TipoContato.Recall, origens, ct)).ToHashSet();
-
-        int gerados = 0, jaExistiam = 0, semConsentimento = 0, semTelefone = 0;
-
-        foreach (var candidato in candidatos)
-        {
-            var origem = ContatoCampanha.OrigemDeRecall(candidato.PacienteId, referencia);
-            if (existentes.Contains(origem)) { jaExistiam++; continue; }
-            if (!candidato.TemConsentimento) { semConsentimento++; continue; }
-            if (!candidato.TemTelefone) { semTelefone++; continue; }
-
-            await _repo.AdicionarContatoAsync(new ContatoCampanha
-            {
-                PacienteId = candidato.PacienteId,
-                Tipo = TipoContato.Recall,
-                Origem = origem,
-                Referencia = referencia,
-                Comentario = $"Sem vir há {candidato.DiasSemVir} dias."
-            }, ct);
-            gerados++;
-        }
-
-        if (gerados > 0) await _repo.SalvarAsync(ct);
-
-        return new ResultadoCampanha(TipoContato.Recall, gerados, jaExistiam, semConsentimento, semTelefone);
-    }
+    // ⚠️ AQUI MORAVA A RODADA DE RECALL (feature 11), e ela saiu em out/2026. O recall
+    // passou a ser a FILA do Acompanhamento (`IAcompanhamentoPacienteService.
+    // GerarRecallAsync`), que registra quem ligou, o resultado e o próximo contato — e que
+    // já importa para o histórico os contatos de recall gravados por esta rodada. Duas
+    // definições de "quem sumiu" divergiam na primeira correção; os contatos `Recall`
+    // antigos continuam legíveis e enviáveis pela fila desta classe.
+    // `DiasInatividadePadrao` fica: é o padrão da configuração que a fila nova lê.
 
     // ==================== Fila de contatos (comum aos três) ====================
 

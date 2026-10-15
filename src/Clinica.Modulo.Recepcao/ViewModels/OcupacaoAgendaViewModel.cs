@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.Modulo;
@@ -13,8 +15,6 @@ namespace Clinica.Recepcao.ViewModels;
 /// <summary>Uma opção do combo de profissional; <c>Id</c> nulo é "toda a equipe".</summary>
 public sealed record OpcaoProfissionalOcupacao(int? Id, string Nome);
 
-/// <summary>Um atalho de "Outras operações": a chave do destino e o nome escrito.</summary>
-public sealed record OperacaoAgenda(string Chave, string Nome);
 
 /// <summary>Frases de uma medida de ocupação — as mesmas regras da versão web.</summary>
 public static class TextoOcupacao
@@ -67,6 +67,37 @@ public sealed class DiaOcupacaoCartao
         + $"{Resumo.Atendimentos} atendimentos, {TextoOcupacao.Percentual(Resumo.Percentual)} de ocupação";
 }
 
+/// <summary>
+/// Um item da coluna do dia na SEMANA (out/2026, mockup aprovado): um atendimento — com o
+/// traço na cor da família da modalidade, riscado quando cancelado ou falta — ou um VÃO
+/// livre, que é um botão "+ 14:00 livre" que marca ali.
+/// </summary>
+public sealed class ItemSemanaVisao
+{
+    public required DateTime Inicio { get; init; }
+    public string Hora => Inicio.ToString("HH:mm");
+    public HorarioOcupacaoLinha? Horario { get; init; }
+    public VaoLivre? Vao { get; init; }
+    public bool EhVao => Vao is not null;
+    public string Paciente => Horario?.Paciente ?? "";
+    public bool Inativo => Horario?.Inativo ?? false;
+    public ModalidadeAtendimento Familia => Horario?.Horario.Familia ?? ModalidadeAtendimento.AcupunturaSimples;
+    public string Dica => Vao?.Dica ?? $"{Horario?.Paciente} · {Horario?.Modalidade} · {Horario?.Profissional} · {Horario?.Situacao}";
+    public string RotuloVao => Vao?.Rotulo ?? "";
+}
+
+/// <summary>Uma coluna da semana — o dia com os atendimentos e os vãos em ordem de hora.</summary>
+public sealed class ColunaSemanaVisao
+{
+    public required DateOnly Dia { get; init; }
+    public required string Titulo { get; init; }
+    public required string Subtitulo { get; init; }
+    public required bool EhHoje { get; init; }
+    public string? Fechado { get; init; }
+    public bool EstaFechado => Fechado is not null;
+    public required IReadOnlyList<ItemSemanaVisao> Itens { get; init; }
+}
+
 /// <summary>Uma linha da ocupação por profissional.</summary>
 public sealed class ProfissionalOcupacaoLinha(ProfissionalOcupacao p)
 {
@@ -94,14 +125,10 @@ public sealed class ProfissionalOcupacaoLinha(ProfissionalOcupacao p)
 public sealed partial class OcupacaoAgendaViewModel : ObservableObject
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
-    private static readonly (string Valor, string Chave, string Nome)[] Rotas =
-    [
-        ("confirmacoes", ChavesSuite.ConfirmacoesAgenda, "Confirmar agendamentos"),
-        ("retornos", "retornos-a-marcar", "Retornos solicitados"),
-        ("conferir", "lancamentos", "Conferir atendimentos"),
-        ("convenio", "consultas", "Consultas de convênio"),
-        ("enfermagem", "consultorio-sessoes-enfermagem", "Sessões de enfermagem")
-    ];
+    // ⚠️ AQUI MORAVA O COMBO "Outras operações" (out/2026): confirmações, retornos,
+    // conferência, consultas de convênio e sessões de enfermagem — cinco telas que já são
+    // ABAS da sidebar ("Operações da agenda" e a Agenda do Consultório). Um segundo menu
+    // dentro da tela é um segundo caminho para cada uma delas, e saiu.
 
     private readonly IServiceProvider _servicos;
     private readonly int _usuario = SessaoUsuario.Atual.UsuarioId;
@@ -117,10 +144,30 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     }
 
     public ObservableCollection<OpcaoProfissionalOcupacao> Profissionais { get; } = [];
-    public ObservableCollection<OperacaoAgenda> Operacoes { get; } = [];
     public ObservableCollection<HorarioOcupacaoLinha> HorariosDoDia { get; } = [];
     public ObservableCollection<DiaOcupacaoCartao> Dias { get; } = [];
     public ObservableCollection<ProfissionalOcupacaoLinha> Equipe { get; } = [];
+    public ObservableCollection<ColunaSemanaVisao> Semana { get; } = [];
+
+    /// <summary>"12 a 17 de outubro" — o período do navegador, como no mockup.</summary>
+    public string PeriodoCurto
+    {
+        get
+        {
+            if (Dados is not { } d) return TituloPeriodo;
+            if (Modo == "dia") return d.Inicio.ToDateTime(TimeOnly.MinValue).ToString("ddd, d 'de' MMMM", PtBr);
+            if (Modo == "mes") return d.Inicio.ToDateTime(TimeOnly.MinValue).ToString("MMMM 'de' yyyy", PtBr);
+            var ultimo = Semana.Count > 0 ? Semana[^1].Dia : d.Fim;
+            return d.Inicio.Month == ultimo.Month
+                ? $"{d.Inicio.Day} a {ultimo.Day} de {ultimo.ToDateTime(TimeOnly.MinValue).ToString("MMMM", PtBr)}"
+                : $"{d.Inicio.ToDateTime(TimeOnly.MinValue).ToString("d MMM", PtBr)} a {ultimo.ToDateTime(TimeOnly.MinValue).ToString("d MMM", PtBr)}";
+        }
+    }
+    public int ColunasDaSemana => Math.Max(1, Semana.Count);
+    public bool TemVagasPossiveis => Filtrando;
+    public string DicaDaSemana => !Filtrando ? "Escolha um profissional para ver os horários livres"
+        : Dados?.SemJornadaParaVagas == true ? "Cadastre a jornada do profissional para ver os horários livres"
+        : "Clique numa vaga para marcar ali";
 
     [ObservableProperty] private DateOnly _dia = DateOnly.FromDateTime(DateTime.Today);
     /// <summary>"dia", "semana" ou "mes".</summary>
@@ -129,7 +176,6 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     [ObservableProperty] private OcupacaoAgenda? _dados;
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string? _erro;
-    [ObservableProperty] private OperacaoAgenda? _operacaoEscolhida;
 
     public bool Bloqueado => Carregando;
     public bool Livre => !Carregando;
@@ -137,7 +183,6 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     public bool TemDados => Dados is not null && Erro is null;
     public bool PodeAgendar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda) && NavegacaoSuite.Existe(ModuloRecepcao.ChaveMarcarHorario);
     public bool AgendarHabilitado => Livre && TemDados;
-    public bool TemOperacoes => Operacoes.Count > 0;
     public bool ModoDia => Modo == "dia";
     public bool ModoSemana => Modo == "semana";
     public bool ModoMes => Modo == "mes";
@@ -231,27 +276,13 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     partial void OnDiaChanged(DateOnly value) { OnPropertyChanged(nameof(DataReferencia)); OnPropertyChanged(nameof(TituloPeriodo)); }
     partial void OnProfissionalEscolhidoChanged(OpcaoProfissionalOcupacao? value)
     {
-        OnPropertyChanged(nameof(Filtrando));
+        OnPropertyChanged(nameof(Filtrando)); OnPropertyChanged(nameof(TemVagasPossiveis)); OnPropertyChanged(nameof(DicaDaSemana));
         if (_trocandoProfissional) return;
         // Combo cuja lista é refeita escreve NULO: nulo aqui é "toda a equipe", e não recarrega.
         if (value is null) return;
         if (value.Id is { } id && !_idsProfissionais.Contains(id)) return;
         _ = CarregarAsync();
     }
-    partial void OnOperacaoEscolhidaChanged(OperacaoAgenda? value)
-    {
-        if (value is null) return;
-        try
-        {
-            Exigir();
-            // A rota sai da lista fixa `Rotas`, conferida por `Existe` ao montar o combo.
-            var destino = value.Chave;
-            NavegacaoSuite.Ir(destino);
-        }
-        catch (Exception ex) { Erro = ex.Message; }
-        finally { OperacaoEscolhida = null; }
-    }
-
     private void AvisarDados()
     {
         foreach (var n in new[] { nameof(TemErro), nameof(TemDados), nameof(AgendarHabilitado), nameof(TituloPeriodo),
@@ -273,11 +304,36 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     public void Iniciar()
     {
         _ativa = true;
-        Operacoes.Clear();
-        foreach (var (_, destino, nome) in Rotas)
-            if (NavegacaoSuite.Existe(destino)) Operacoes.Add(new(destino, nome));
-        OnPropertyChanged(nameof(TemOperacoes)); OnPropertyChanged(nameof(PodeAgendar));
+        OnPropertyChanged(nameof(PodeAgendar));
+        ConsumirPedidoDeDia();
         _ = CarregarAsync();
+    }
+
+    /// <summary>
+    /// A ponte <see cref="PedidoAgenda"/>: a ficha do paciente ("próximos horários") e os
+    /// atalhos antigos da grade pedem para a agenda abrir num DIA. A grade saiu da navegação
+    /// (out/2026) e o shell redireciona a chave dela para cá — sem consumir aqui, o pedido
+    /// ficava ÓRFÃO e a tela abria na semana de sempre, ignorando o clique.
+    /// </summary>
+    private void ConsumirPedidoDeDia()
+    {
+        try
+        {
+            var pedido = _servicos.GetService<PedidoAgenda>();
+            if (pedido?.Consumir() is not { } dia) return;
+            if (pedido.AplicarFiltro && pedido.ProfissionalId is { } id && _idsProfissionais.Contains(id))
+            {
+                _trocandoProfissional = true;
+                try { ProfissionalEscolhido = Profissionais.FirstOrDefault(p => p.Id == id) ?? ProfissionalEscolhido; }
+                finally { _trocandoProfissional = false; }
+            }
+            Dia = dia;
+            Modo = "dia";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Visão geral — pedido de dia da agenda não pôde ser lido", ex);
+        }
     }
 
     public void Parar() { _ativa = false; ++_geracao; }
@@ -333,7 +389,7 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     /// <summary>Monta as três listas da tela. Entre o Clear e o último Add não há await.</summary>
     private void Montar(OcupacaoAgenda? d)
     {
-        HorariosDoDia.Clear(); Dias.Clear(); Equipe.Clear();
+        HorariosDoDia.Clear(); Dias.Clear(); Equipe.Clear(); Semana.Clear();
         if (d is not null)
         {
             foreach (var h in d.Horarios) HorariosDoDia.Add(new(h));
@@ -358,9 +414,68 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
                 });
             }
             foreach (var p in d.Profissionais) Equipe.Add(new(p));
+            if (Modo == "semana") MontarSemana(d);
         }
+        OnPropertyChanged(nameof(PeriodoCurto)); OnPropertyChanged(nameof(ColunasDaSemana)); OnPropertyChanged(nameof(DicaDaSemana));
         OnPropertyChanged(nameof(SemHorariosNoDia)); OnPropertyChanged(nameof(SemEquipe));
     }
+
+    private static readonly string[] Semanas = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+    /// <summary>
+    /// A semana em colunas — cada dia com TODOS os atendimentos e os vãos livres, em ordem de
+    /// hora. O domingo só entra quando tem alguma coisa: a clínica não abre, e uma coluna
+    /// vazia toda semana gastaria um sétimo da largura para dizer isso.
+    /// </summary>
+    private void MontarSemana(OcupacaoAgenda d)
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        foreach (var dia in d.Dias)
+        {
+            var inicioDia = dia.Dia.ToDateTime(TimeOnly.MinValue);
+            var fimDia = inicioDia.AddDays(1);
+            var horarios = d.Horarios.Where(h => h.Inicio >= inicioDia && h.Inicio < fimDia)
+                .Select(h => new ItemSemanaVisao { Inicio = h.Inicio, Horario = new(h) });
+            var vaos = d.Vagas.Where(v => v.Dia == dia.Dia).Select(v => new ItemSemanaVisao { Inicio = v.Inicio, Vao = v });
+            var itens = horarios.Concat(vaos).OrderBy(i => i.Inicio).ThenBy(i => i.EhVao).ToList();
+            var fechado = d.Fechados.FirstOrDefault(f => f.Dia == dia.Dia)?.Motivo;
+            if (dia.Dia.DayOfWeek == DayOfWeek.Sunday && itens.Count == 0 && fechado is null) continue;
+
+            var nVagas = itens.Count(i => i.EhVao);
+            var atend = dia.Resumo.Atendimentos;
+            var sub = fechado is not null ? fechado.Replace("Agenda fechada · ", "", StringComparison.Ordinal)
+                : $"{atend} {(atend == 1 ? "atendimento" : "atendimentos")}"
+                  + (Filtrando && Dados?.SemJornadaParaVagas != true ? (nVagas == 0 ? " · sem vaga" : $" · {nVagas} {(nVagas == 1 ? "vaga" : "vagas")}") : "");
+            Semana.Add(new ColunaSemanaVisao
+            {
+                Dia = dia.Dia,
+                Titulo = $"{Semanas[(int)dia.Dia.DayOfWeek]} {dia.Dia.Day}",
+                Subtitulo = dia.Dia == hoje ? $"hoje · {sub}" : sub,
+                EhHoje = dia.Dia == hoje,
+                Fechado = fechado,
+                Itens = itens
+            });
+        }
+    }
+
+    /// <summary>
+    /// Clique no vão livre: o Marcar já com o dia, a HORA do vão e o profissional filtrado —
+    /// redigitar a hora que se acabou de apontar é onde ela sai errada (parcela 58).
+    /// </summary>
+    [RelayCommand]
+    private void MarcarNoVao(ItemSemanaVisao? item)
+    {
+        Exigir();
+        if (item?.Vao is not { } vao || Dados is null || Erro is not null) return;
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "agendar");
+        var ponte = _servicos.GetRequiredService<PreenchimentoNovoAtendimento>();
+        ponte.Definir(new(true, vao.Inicio, ProfissionalEscolhido?.Id, null));
+        if (!NavegacaoSuite.Ir(ModuloRecepcao.ChaveMarcarHorario)) ponte.Consumir();
+    }
+
+    /// <summary>Clique num atendimento da semana: a janela do horário, como na lista do dia.</summary>
+    [RelayCommand]
+    private Task AbrirItemSemana(ItemSemanaVisao? item) => item?.Horario is { } h ? AbrirHorarioAsync(h) : Task.CompletedTask;
 
     // ==================== Comandos ====================
 
@@ -426,13 +541,76 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
         if (!NavegacaoSuite.Ir(ModuloRecepcao.ChaveMarcarHorario)) ponte.Consumir();
     }
 
+    // ==================== A janela do horário e "Mais ações" ====================
+    //
+    // A GRADE saiu da navegação (out/2026, mockup aprovado: "a visão geral já não contempla
+    // a semana do profissional?"), e com ela iam junto a janela do horário e cinco ações
+    // de agenda que só ela oferecia. O dono delas continua sendo o AgendaViewModel — sem
+    // ser desenhado — para nenhuma ganhar uma segunda cópia (permissão, aviso e recarga
+    // num lugar só). Cada chamada abre escopo próprio: a tela é de vida longa.
+
+    /// <summary>Clique numa linha do modo DIA: a janela do horário (remarcar, reabrir, comprovante…).</summary>
     [RelayCommand]
-    private void AbrirGrade()
+    private async Task AbrirHorarioAsync(HorarioOcupacaoLinha? linha)
     {
         Exigir();
-        if (Dados is null || Erro is not null) return;
-        var ponte = _servicos.GetRequiredService<PedidoAgenda>();
-        ponte.AbrirComFiltro(Dia, ProfissionalEscolhido?.Id);
-        if (!NavegacaoSuite.Ir(ChavesSuite.AgendaRecepcao)) ponte.Consumir();
+        if (linha is null || Carregando) return;
+        await ComAgendaAsync("abrir o horário", async agenda =>
+        {
+            if (!await agenda.AbrirJanelaDoHorarioAsync(DateOnly.FromDateTime(linha.Horario.Inicio), linha.Horario.Id))
+                Avisar("Este horário não está mais neste dia — ele pode ter sido remarcado em outra máquina.");
+        });
     }
+
+    public bool PodeMexerNaAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    [RelayCommand]
+    private Task FecharAgendaAsync() => AcaoDeAgendaAsync("fechar a agenda", a => a.FecharAgendaCommand.ExecuteAsync(null));
+
+    [RelayCommand]
+    private Task HorariosETravasAsync() => AcaoDeAgendaAsync("configurar horários e travas", a => a.ConfigurarHorariosCommand.ExecuteAsync(null));
+
+    [RelayCommand]
+    private Task ListaDeEsperaAsync() => AcaoDeAgendaAsync("abrir a lista de espera", a => a.AbrirEsperaCommand.ExecuteAsync(null));
+
+    [RelayCommand]
+    private Task ConciliarAgendaAsync() => AcaoDeAgendaAsync("conciliar a agenda", a => a.ConciliarAgendaCommand.ExecuteAsync(null));
+
+    [RelayCommand]
+    private Task ImprimirFolhaAsync() => AcaoDeAgendaAsync("imprimir a folha do dia", a => a.ImprimirAgendaCommand.ExecuteAsync(null));
+
+    private Task AcaoDeAgendaAsync(string ato, Func<AgendaViewModel, Task> acao)
+    {
+        Exigir();
+        if (Carregando) return Task.CompletedTask;
+        return ComAgendaAsync(ato, async agenda =>
+        {
+            await agenda.PosicionarAsync(Dia, ProfissionalEscolhido?.Id);
+            await acao(agenda);
+        });
+    }
+
+    private async Task ComAgendaAsync(string ato, Func<AgendaViewModel, Task> acao)
+    {
+        Mensagem = string.Empty;
+        try
+        {
+            using var scope = _servicos.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaViewModel>();
+            await acao(agenda);
+            if (!string.IsNullOrWhiteSpace(agenda.Mensagem)) Avisar(agenda.Mensagem, agenda.MensagemEhErro);
+            if (_ativa) await CarregarAsync();
+        }
+        catch (UnauthorizedAccessException ex) { Avisar(ex.Message, erro: true); }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Visão geral — {ato}", ex);
+            Avisar($"Não foi possível {ato}: {ex.Message}", erro: true);
+        }
+    }
+
+    /// <summary>Recado de uma ação — perto do cabeçalho, como a mensagem das outras telas.</summary>
+    [ObservableProperty] private string _mensagem = string.Empty;
+    [ObservableProperty] private bool _mensagemEhErro;
+    private void Avisar(string texto, bool erro = false) { Mensagem = texto; MensagemEhErro = erro; }
 }

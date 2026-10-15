@@ -1,49 +1,193 @@
-<UserControl x:Class="Clinica.Recepcao.Views.ConfirmacoesView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell">
+<UserControl x:Class="Clinica.Recepcao.Views.ConfirmacoesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <!-- ====================================================================
+         CONFIRMAÇÕES (out/2026, mockup aprovado "7 · Relacionamento — Confirmações")
+
+         A rodada da véspera como QUADRO: o dia numa linha (setas), quanto da rodada já foi
+         avisado numa barra, quatro cartões que contam e FILTRAM a tabela, e a tabela com o
+         aviso e a resposta de cada sessão. Era uma lista corrida com cinco botões soltos em
+         cima — respondia "quem é", não "quanto falta".
+
+         O placar sai SEMPRE da rodada inteira; o cartão escolhido recorta só a tabela, e o
+         rodapé DIZ o recorte.
+         ==================================================================== -->
+
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+
+        <Style x:Key="CartaoPlacar" TargetType="Button" BasedOn="{StaticResource BotaoCartao}">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="16,14" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+
+        <Style x:Key="IconePlacar" TargetType="Border">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="CornerRadius" Value="{StaticResource Raio.Medio}" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
+    <DockPanel Margin="24,20,24,24">
 
+        <!-- ============ CABEÇALHO ============ -->
         <StackPanel DockPanel.Dock="Top">
-            <TextBlock Text="Confirmar sessões" Style="{StaticResource DialogoTitulo}" />
-            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
-                       Text="Confirmar a própria sessão é transacional: o paciente pediu o horário, e avisar sobre ele não é marketing — não exige consentimento. Gerar é o trabalho automático; enviar é um clique por paciente, porque o número é o WhatsApp da clínica." />
+            <TextBlock Text="Confirmações" Style="{StaticResource H1}" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,14"
+                       Text="Avisar quem vem: um clique por paciente no WhatsApp da clínica, ou o e-mail automático para quem tem endereço." />
 
-            <!-- WrapPanel, não StackPanel horizontal: com o quinto botão a barra passa da
-                 largura mínima da janela (560), e StackPanel horizontal não dobra — o botão
-                 sairia cortado pela borda. Dentro de um StackPanel vertical a largura é
-                 finita, então o WrapPanel dobra de verdade (checagem 32). -->
-            <WrapPanel Margin="0,0,0,4">
-                <TextBlock Text="Dia" Style="{StaticResource Rotulo}"
-                           VerticalAlignment="Center" Margin="0,0,6,6" />
-                <DatePicker SelectedDate="{Binding Dia}" Width="150" Margin="0,0,8,6" />
-                <Button Content="Amanhã" Margin="0,0,8,6"
-                        Style="{StaticResource BotaoSecundario}"
-                        Command="{Binding AmanhaCommand}" />
-                <Button Content="Gerar rodada" Margin="0,0,8,6"
-                        Command="{Binding GerarCommand}" IsEnabled="{Binding PodeEditar}" />
-                <!-- O lembrete automático da abertura, por clique: para o app que ficou
-                     aberto desde ontem ou para o e-mail cadastrado agora. -->
-                <Button Content="Enviar e-mails" Margin="0,0,8,6"
-                        Style="{StaticResource BotaoSecundario}"
-                        Command="{Binding EnviarEmailsCommand}" IsEnabled="{Binding PodeEditar}"
-                        ToolTip="Manda o lembrete por e-mail a quem ainda não foi avisado e tem e-mail na ficha. O mesmo envio roda sozinho na abertura da Recepção e do Gerente." />
-                <Button Content="Atualizar" Margin="0,0,0,6"
-                        Style="{StaticResource BotaoSecundario}"
-                        Command="{Binding CarregarCommand}" />
-            </WrapPanel>
+            <!-- Dia · progresso · ações. Grid com o miolo elástico: a barra de progresso cresce
+                 com a janela, e as ações ficam encostadas à direita. -->
+            <DockPanel Margin="0,0,0,14" LastChildFill="True">
 
-            <TextBlock Text="{Binding Resumo}" FontWeight="SemiBold" Margin="0,0,0,8"
-                       TextWrapping="Wrap"
-                       Foreground="{StaticResource Brush.Acento}" />
+                <Border DockPanel.Dock="Left" Style="{StaticResource Card}" Padding="0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="‹" Command="{Binding DiaAnteriorCommand}" Style="{StaticResource BotaoFantasma}"
+                                Padding="12,6" AutomationProperties.Name="Dia anterior" />
+                        <TextBlock Text="{Binding TituloDoDia}" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   MinWidth="150" TextAlignment="Center" Margin="8,0" TextTrimming="CharacterEllipsis" />
+                        <Button Content="›" Command="{Binding ProximoDiaCommand}" Style="{StaticResource BotaoFantasma}"
+                                Padding="12,6" AutomationProperties.Name="Próximo dia" />
+                    </StackPanel>
+                </Border>
+
+                <Grid DockPanel.Dock="Left" Margin="16,0" VerticalAlignment="Center" Width="380">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis">
+                        <Run Text="{Binding TotalSessoes, Mode=OneWay}" /><Run Text=" sessões" />
+                    </TextBlock>
+                    <ProgressBar Grid.Column="1" Style="{StaticResource BarraDado}" VerticalAlignment="Center"
+                                 Value="{Binding FracaoAvisado, Mode=OneWay}" AutomationProperties.Name="Parte da rodada já avisada" />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="12,0,0,0" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis">
+                        <Run Text="{Binding PercentualAvisado, Mode=OneWay}" /><Run Text="% avisados" />
+                    </TextBlock>
+                </Grid>
+
+                <!-- O filho que PREENCHE (checagem 32): dobra de verdade em janela estreita. -->
+                <WrapPanel VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <Button Content="Gerar rodada" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0"
+                            Command="{Binding GerarCommand}" IsEnabled="{Binding PodeEditar}"
+                            ToolTip="Põe na rodada as sessões do dia que ainda não estão nela. Clicar duas vezes não repete ninguém." />
+                    <!-- O lembrete automático da abertura, por clique: para o app que ficou
+                         aberto desde ontem ou para o e-mail cadastrado agora. -->
+                    <Button Content="Enviar por e-mail a quem tem" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0"
+                            Command="{Binding EnviarEmailsCommand}" IsEnabled="{Binding PodeEditar}"
+                            ToolTip="Manda o lembrete por e-mail a quem ainda não foi avisado e tem e-mail na ficha. O mesmo envio roda sozinho na abertura da Recepção e do Gerente." />
+                    <Button Content="{Binding RotuloAvisarProximo}" Command="{Binding AvisarProximoCommand}"
+                            IsEnabled="{Binding TemQuemAvisar}"
+                            ToolTip="Abre o WhatsApp do próximo que falta avisar — um clique por paciente, porque o número é o da clínica." />
+                </WrapPanel>
+            </DockPanel>
+
+            <!-- ============ O PLACAR — cada cartão filtra a tabela ============ -->
+            <UniformGrid Rows="1" Margin="0,0,-12,14">
+                <Button Command="{Binding EscolherFiltroCommand}" CommandParameter="confirmaram"
+                        AutomationProperties.Name="Mostrar quem confirmou">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource CartaoPlacar}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding FiltroConfirmaram}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Style="{StaticResource IconePlacar}" Background="{StaticResource Brush.Sucesso.Suave}">
+                            <TextBlock Text="&#xE73E;" FontFamily="{StaticResource FonteIcones}" Foreground="{StaticResource Brush.Sucesso}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Confirmaram}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="Confirmaram" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding EscolherFiltroCommand}" CommandParameter="sem-resposta"
+                        AutomationProperties.Name="Mostrar avisados sem resposta">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource CartaoPlacar}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding FiltroSemResposta}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Style="{StaticResource IconePlacar}" Background="{StaticResource Brush.Acento.Suave}">
+                            <TextBlock Text="&#xE823;" FontFamily="{StaticResource FonteIcones}" Foreground="{StaticResource Brush.Acento}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="{Binding SemResposta}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="Avisados, sem resposta" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding EscolherFiltroCommand}" CommandParameter="nao-avisados"
+                        AutomationProperties.Name="Mostrar quem ainda não foi avisado">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource CartaoPlacar}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding FiltroNaoAvisados}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Style="{StaticResource IconePlacar}" Background="{StaticResource Brush.Aviso.Suave}">
+                            <TextBlock Text="&#xE724;" FontFamily="{StaticResource FonteIcones}" Foreground="{StaticResource Brush.Aviso}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="{Binding NaoAvisados}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="Ainda não avisados" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding EscolherFiltroCommand}" CommandParameter="remarcar"
+                        AutomationProperties.Name="Mostrar quem pediu para remarcar">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource CartaoPlacar}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding FiltroRemarcar}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Style="{StaticResource IconePlacar}" Background="{StaticResource Brush.Erro.Suave}">
+                            <TextBlock Text="&#xE787;" FontFamily="{StaticResource FonteIcones}" Foreground="{StaticResource Brush.Erro}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel>
+                            <TextBlock Text="{Binding PediramRemarcar}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="Pediram remarcar" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+            </UniformGrid>
         </StackPanel>
 
+        <!-- O recado das ações fica perto delas, acima do rodapé. -->
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
-                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                             FallbackValue=Collapsed}">
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}">
             <Border.Style>
                 <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
                     <Style.Triggers>
@@ -57,75 +201,116 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <Grid>
-<ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding Contatos}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:LinhaConfirmacao}">
-                        <Border Padding="0,10"
-                                BorderBrush="{StaticResource Brush.Borda}"
-                                BorderThickness="0,0,0,1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="70" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+        <!-- ============ A TABELA ============ -->
+        <Border Style="{StaticResource Card}" Padding="0">
+            <DockPanel>
+                <Grid DockPanel.Dock="Top" Margin="20,12,20,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="2*" MinWidth="180" />
+                        <ColumnDefinition Width="1.6*" MinWidth="150" />
+                        <ColumnDefinition Width="1.6*" MinWidth="150" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="HORA" Style="{StaticResource Rotulo}" />
+                    <TextBlock Grid.Column="1" Text="PACIENTE" Style="{StaticResource Rotulo}" />
+                    <TextBlock Grid.Column="2" Text="ATENDIMENTO" Style="{StaticResource Rotulo}" />
+                    <TextBlock Grid.Column="3" Text="AVISO" Style="{StaticResource Rotulo}" />
+                    <TextBlock Grid.Column="4" Text="RESPOSTA DO PACIENTE" Style="{StaticResource Rotulo}" MinWidth="300" TextAlignment="Right" />
+                </Grid>
 
-                                <TextBlock Grid.Column="0" Text="{Binding Horario}"
-                                           FontWeight="SemiBold" VerticalAlignment="Center"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
+                <Grid DockPanel.Dock="Bottom" Margin="20,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding RecorteTexto}" Style="{StaticResource CelulaSuave}" Margin="0,0,16,0" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding Resumo}" Style="{StaticResource CelulaSuave}" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
+                </Grid>
 
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                               TextWrapping="Wrap"
-                                               Foreground="{StaticResource Brush.Texto.Primario}" />
-                                    <TextBlock Margin="0,2,0,0"
-                                               FontSize="{StaticResource Fonte.Legenda}"
-                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
-                                        <Run Text="{Binding Profissional, Mode=OneWay}" />
-                                        <Run Text=" · " />
-                                        <Run Text="{Binding Situacao, Mode=OneWay}" />
-                                    </TextBlock>
-                                    <!-- Sem telefone a linha FICA, marcada: some da tela
-                                         seria esconder uma pendência de cadastro. -->
-                                    <TextBlock Text="Sem telefone no cadastro — ligue ou complete a ficha."
-                                               Margin="0,2,0,0" TextWrapping="Wrap"
-                                               FontSize="{StaticResource Fonte.Legenda}"
-                                               Foreground="{StaticResource Brush.Aviso}">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding TemTelefone}" Value="False">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1">
+                        <ItemsControl ItemsSource="{Binding Contatos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:LinhaConfirmacao}">
+                                    <Border Padding="20,10" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80" />
+                                                <ColumnDefinition Width="2*" MinWidth="180" />
+                                                <ColumnDefinition Width="1.6*" MinWidth="150" />
+                                                <ColumnDefinition Width="1.6*" MinWidth="150" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                            VerticalAlignment="Center">
-                                    <Button Content="WhatsApp" Style="{StaticResource BotaoPequeno}"
-                                            IsEnabled="{Binding TemTelefone}"
-                                            Command="{Binding DataContext.EnviarCommand,
-                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            CommandParameter="{Binding}" />
-                                    <Button Content="Confirmou" Margin="8,0,0,0"
-                                            Style="{StaticResource BotaoAcaoGridSecundario}"
-                                            Command="{Binding DataContext.ConfirmouCommand,
-                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            CommandParameter="{Binding}" />
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
-<ctrl:EstadoDaTela Itens="{Binding Contatos}" Carregando="{Binding Carregando}" Titulo="Nenhuma confirmação para este dia" Descricao="Escolha a data ou gere a rodada de confirmações." />
-</Grid>
+                                            <TextBlock Text="{Binding Horario}" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
+
+                                            <DockPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                <ctrl:Avatar DockPanel.Dock="Left" Nome="{Binding NomeCru}" Tamanho="34" Margin="0,0,10,0" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                    <TextBlock x:Name="telefone" Text="{Binding Telefone}" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </DockPanel>
+
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                <TextBlock Text="{Binding Atendimento}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Profissional}" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                <Border x:Name="pilula" Style="{StaticResource Badge.Info}" HorizontalAlignment="Left">
+                                                    <TextBlock Text="{Binding Aviso}" TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <TextBlock Text="{Binding Situacao}" Style="{StaticResource CelulaSuave}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right" MinWidth="300">
+                                                <!-- Sem telefone o botão nasce apagado e a linha DIZ por quê
+                                                     (a frase sob o nome) — sumir seria esconder uma pendência. -->
+                                                <Button x:Name="enviar" Content="{Binding RotuloEnviar}" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        IsEnabled="{Binding TemTelefone}"
+                                                        Command="{Binding DataContext.EnviarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button x:Name="confirmou" Content="Confirmou" Margin="8,0,0,0" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        Command="{Binding DataContext.ConfirmouCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button x:Name="remarcar" Content="Remarcar" Margin="8,0,0,0" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        Command="{Binding DataContext.RemarcarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Border x:Name="respondeu" Style="{StaticResource Badge.Sucesso}" Visibility="Collapsed" Margin="8,0,0,0">
+                                                    <TextBlock Text="{Binding Situacao}" TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding NaoAvisado}" Value="True">
+                                            <Setter TargetName="pilula" Property="Style" Value="{StaticResource Badge}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding TemTelefone}" Value="False">
+                                            <Setter TargetName="telefone" Property="Text" Value="Sem telefone — ligue ou complete a ficha" />
+                                            <Setter TargetName="telefone" Property="Foreground" Value="{StaticResource Brush.Aviso}" />
+                                        </DataTrigger>
+                                        <!-- Quem já respondeu não precisa dos botões: a resposta fica escrita. -->
+                                        <DataTrigger Binding="{Binding Respondeu}" Value="True">
+                                            <Setter TargetName="enviar" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="confirmou" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="remarcar" Property="Visibility" Value="Collapsed" />
+                                            <Setter TargetName="respondeu" Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <ctrl:EstadoDaTela Itens="{Binding Contatos}" Carregando="{Binding Carregando}"
+                                       Titulo="Nenhuma sessão neste recorte"
+                                       Descricao="Troque o dia, escolha outro cartão ou gere a rodada de confirmações." />
+                </Grid>
+            </DockPanel>
+        </Border>
     </DockPanel>
 </UserControl>

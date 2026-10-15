@@ -4475,6 +4475,112 @@ for _cenario, _texto, _implicitos_do_teste, _deve_pegar in (
         )
 
 
+# --------------------------------------------------------------- checagem 49
+# GATILHO DE TEMPLATE APONTANDO PARA UM NOME QUE O TEMPLATE NÃO DECLARA: `MC4111`, e só o
+# CI vê (out/2026 — o build do Windows da rodada de UI da Recepção caiu em
+# `NavegacaoSuperior.xaml`).
+#
+# O gatilho "entrada direta da barra plana não tem seta" foi escrito no template do ITEM
+# do menu, e a `Seta` mora no template da CATEGORIA, logo abaixo no mesmo arquivo. O WPF
+# resolve `TargetName`/`SourceName` dentro do template DONO do gatilho, e recusa com
+# "Cannot find the Trigger target".
+#
+# ⚠️ Nenhuma rede local pegava: o XML é bem-formado, o `compilar-sombra` não lê o corpo do
+# XAML e o nome EXISTE no arquivo, só que no template vizinho.
+#
+# A regra é a do compilador: os nomes que valem são os do CONTEÚDO do próprio template,
+# sem descer em template aninhado (que tem escopo próprio). Medido antes de ligar: uma
+# ocorrência no repositório, que era o defeito.
+
+TIPOS_DE_TEMPLATE = {"ControlTemplate", "DataTemplate", "HierarchicalDataTemplate"}
+
+
+def _tag_49(el: ET.Element) -> str:
+    return el.tag.split("}")[-1]
+
+
+def _nome_x(el: ET.Element) -> str | None:
+    for chave, valor in el.attrib.items():
+        if chave.split("}")[-1] == "Name" and (chave.startswith("{") or chave == "Name"):
+            return valor
+    return None
+
+
+def _nomes_do_template(tpl: ET.Element) -> set[str]:
+    nomes: set[str] = set()
+
+    def descer(el: ET.Element) -> None:
+        for filho in el:
+            tag = _tag_49(filho)
+            if tag in TIPOS_DE_TEMPLATE or tag.endswith(".Triggers"):
+                continue
+            nome = _nome_x(filho)
+            if nome:
+                nomes.add(nome)
+            descer(filho)
+
+    descer(tpl)
+    return nomes
+
+
+def _alvos_orfaos(raiz: ET.Element) -> list[tuple[str, str]]:
+    """(tipo do template, nome) de cada TargetName/SourceName sem dono no template."""
+    achados = []
+    for tpl in raiz.iter():
+        if _tag_49(tpl) not in TIPOS_DE_TEMPLATE:
+            continue
+        nomes = _nomes_do_template(tpl)
+        for gatilhos in tpl:
+            if not _tag_49(gatilhos).endswith(".Triggers"):
+                continue
+            for el in gatilhos.iter():
+                if _tag_49(el) in TIPOS_DE_TEMPLATE:
+                    break
+                for atributo in ("TargetName", "SourceName"):
+                    alvo = el.attrib.get(atributo)
+                    if alvo and alvo not in nomes:
+                        achados.append((_tag_49(tpl), alvo))
+    return achados
+
+
+for f, raiz in arvores_com_faturamento.items():
+    for _tipo, _alvo in _alvos_orfaos(raiz):
+        erros.append(
+            f"{rel(f)}: um gatilho de {_tipo} aponta TargetName/SourceName=\"{_alvo}\", "
+            f"que este template não declara (MC4111 no build do Windows). O nome tem de "
+            f"estar no CONTEÚDO do mesmo template — mova o gatilho para o template onde "
+            f"\"{_alvo}\" mora."
+        )
+
+_XAML_49 = (
+    '<ResourceDictionary xmlns="w" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">'
+    '<ControlTemplate><Border x:Name="Fundo">{conteudo}</Border>'
+    "<ControlTemplate.Triggers>{gatilho}</ControlTemplate.Triggers></ControlTemplate>"
+    "{vizinho}</ResourceDictionary>"
+)
+_SETTER = '<Trigger><Setter TargetName="{}" Property="Visibility" Value="Collapsed"/></Trigger>'
+_VIZINHO = '<ControlTemplate><TextBlock x:Name="Seta"/></ControlTemplate>'
+for _cenario, _conteudo, _gatilho, _vizinho, _deve_pegar in (
+    ("o caso real: o nome mora no template vizinho", "", _SETTER.format("Seta"), _VIZINHO, True),
+    ("nome declarado no próprio template", '<TextBlock x:Name="Seta"/>', _SETTER.format("Seta"), "", False),
+    ("o elemento raiz do template também vale", "", _SETTER.format("Fundo"), "", False),
+    (
+        "nome dentro de template ANINHADO não conta",
+        '<ContentControl><ContentControl.ContentTemplate><DataTemplate><TextBlock x:Name="Seta"/>'
+        "</DataTemplate></ContentControl.ContentTemplate></ContentControl>",
+        _SETTER.format("Seta"),
+        "",
+        True,
+    ),
+):
+    _arvore = ET.fromstring(_XAML_49.format(conteudo=_conteudo, gatilho=_gatilho, vizinho=_vizinho))
+    if bool(_alvos_orfaos(_arvore)) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 49 mudou de resposta ({_cenario}) — "
+            f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

@@ -26,6 +26,7 @@ public partial class PrescricoesClinicasView : UserControl
 
         MenuDoDocumento.Abrir(sender, linha.Documento, linha, new ComandosDoDocumento(
             vm.ImprimirCommand, vm.AssinarCommand, vm.EnviarCommand,
-            vm.RenovarLinkCommand, vm.TirarDoArCommand, vm.CancelarCommand));
+            vm.RenovarLinkCommand, vm.TirarDoArCommand, vm.CancelarCommand,
+            vm.NovaVersaoCommand));
     }
 }

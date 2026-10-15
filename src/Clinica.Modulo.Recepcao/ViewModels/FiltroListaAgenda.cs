@@ -19,6 +19,9 @@ public sealed class ChipSituacaoAgenda : ObservableObject
     public ChipSituacaoAgenda(string chave, string rotulo) { Chave = chave; Rotulo = rotulo; }
     public string Chave { get; }
     public string Rotulo { get; }
+
+    /// <summary>A chave É o grupo visual: o ponto da pílula usa o mesmo estilo de cor da linha.</summary>
+    public string GrupoVisual => Chave;
     public int Contagem { get => _contagem; set => SetProperty(ref _contagem, value); }
 
     /// <summary>
@@ -59,6 +62,9 @@ public sealed partial class FiltroListaAgenda : ObservableObject
         _nomeDoPeriodo = nomeDoPeriodo;
         Situacoes =
         [
+            // As OITO pílulas da agenda em produção (out/2026, pedido da clínica: a versão
+            // de seis, com falta e cancelamento juntos, foi lida como regressão). Cada uma
+            // com o ponto na cor da situação e a contagem ANTES do clique.
             new("todos", "Todos"), new("pendente", "Pendentes"), new("no-local", "No local"),
             new("em-atendimento", "Em atendimento"), new("atendido", "Atendidos"),
             new("cancelado", "Cancelados"), new("faltou", "Faltas"), new("substituido", "Substituídos")
@@ -87,6 +93,9 @@ public sealed partial class FiltroListaAgenda : ObservableObject
 
     /// <summary>Há horários no período, e NENHUM passa pelos filtros — a pergunta é outra.</summary>
     [ObservableProperty] private bool _nenhumCorresponde;
+
+    /// <summary>A pílula casa com o grupo visual da linha.</summary>
+    private static bool Casa(string chave, string grupo) => chave == grupo;
 
     private bool ModalidadeAtiva => !string.IsNullOrEmpty(Modalidade) && Modalidade != TodasModalidades;
 
@@ -136,7 +145,7 @@ public sealed partial class FiltroListaAgenda : ObservableObject
 
     /// <summary>O predicado da vista. Item que não é horário (o vão livre) sempre passa.</summary>
     public bool Aceita(object item) =>
-        _extrair(item) is not { } h || (PassaBuscaEModalidade(h) && (Situacao == "todos" || h.Grupo == Situacao));
+        _extrair(item) is not { } h || (PassaBuscaEModalidade(h) && (Situacao == "todos" || Casa(Situacao, h.Grupo)));
 
     /// <summary>Refaz modalidades, contagens e resumo a partir da lista INTEIRA do período.</summary>
     public void Recalcular(IEnumerable<object> todos, bool carregando)
@@ -167,8 +176,8 @@ public sealed partial class FiltroListaAgenda : ObservableObject
 
         var pesquisadas = horarios.Where(PassaBuscaEModalidade).ToList();
         foreach (var chip in Situacoes)
-            chip.Contagem = chip.Chave == "todos" ? pesquisadas.Count : pesquisadas.Count(h => h.Grupo == chip.Chave);
-        var visiveis = Situacao == "todos" ? pesquisadas.Count : pesquisadas.Count(h => h.Grupo == Situacao);
+            chip.Contagem = chip.Chave == "todos" ? pesquisadas.Count : pesquisadas.Count(h => Casa(chip.Chave, h.Grupo));
+        var visiveis = Situacao == "todos" ? pesquisadas.Count : pesquisadas.Count(h => Casa(Situacao, h.Grupo));
 
         NenhumCorresponde = !carregando && horarios.Count > 0 && visiveis == 0 && TemFiltros;
         Resumo = carregando ? "Atualizando agenda…" : $"{visiveis} de {horarios.Count} horários {_nomeDoPeriodo}";

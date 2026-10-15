@@ -116,6 +116,7 @@
           <MenuItem Header="Declaração de comparecimento" Command="{Binding Atendimento.EmitirTipoCommand}" CommandParameter="comparecimento"/>
          </ContextMenu></comp:BotaoClinico.ContextMenu>
         </comp:BotaoClinico>
+        <comp:BotaoClinico Texto="Laudo médico" Icone="record" Style="{StaticResource AcaoLateral}" Command="{Binding Atendimento.EmitirTipoCommand}" CommandParameter="laudo-medico" IsEnabled="{Binding Atendimento.PodePrescreverInfusao}" ToolTip="Escreva o laudo. Ele fica registrado: 2ª via idêntica e alteração por nova versão, em Documentos emitidos."/>
         <comp:BotaoClinico Texto="Pedido de exame" Icone="exam" Style="{StaticResource AcaoLateral}" Command="{Binding Atendimento.EmitirTipoCommand}" CommandParameter="pedido-exame" IsEnabled="{Binding Atendimento.PodePrescreverInfusao}"/>
         <comp:BotaoClinico Texto="Prescrição de infusão" Icone="infusion" Style="{StaticResource AcaoLateral}" Command="{Binding Atendimento.PrescreverInfusaoCommand}" IsEnabled="{Binding Atendimento.PodePrescreverInfusao}"/>
         <comp:BotaoClinico Texto="Mapa corporal" Icone="body" Style="{StaticResource AcaoLateral}" Command="{Binding Atendimento.AbrirMapaCommand}" Margin="0,23,0,0" IsEnabled="{Binding Atendimento.PodeEditarProntuario}"/>

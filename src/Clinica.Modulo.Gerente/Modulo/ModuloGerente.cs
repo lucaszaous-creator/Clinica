@@ -42,7 +42,6 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveAcessos = "acessos";
     public const string ChaveConfiguracoes = "configuracoes";
     public const string ChaveMetas = "metas";
-    public const string ChaveRetencao = "retencao";
     public const string ChaveOrigens = "origens-pacientes";
 
     /// <summary>
@@ -56,7 +55,7 @@ public sealed class ModuloGerente : IModuloApp
     /// Recepção porque é ato de MIGRAÇÃO, feito uma vez pela direção — e porque cria
     /// centenas de fichas num clique, o que não é trabalho de balcão.
     /// </summary>
-    public const string ChaveImportacao = "importar-pacientes";
+    public const string ChaveImportacao = ChavesSuite.ImportarPacientes;
 
     // ===== Itens COMPOSTOS (parcela 55) =====
     // A Direção é quem publica os que ATRAVESSAM módulo, porque ela é o único app que
@@ -152,10 +151,14 @@ public sealed class ModuloGerente : IModuloApp
                 new AbaMenu("Custo de taxas e impostos", ChaveCusto)
             ]
         },
-        // As três primeiras falam com quem não está vindo, por caminhos diferentes: a
-        // rodada automática, a lista para decidir caso a caso, e o telefonema do balcão.
-        // A quarta é a outra ponta do mesmo assunto — de onde vêm os que CHEGAM, que é a
-        // pergunta que decide onde vale gastar o dinheiro de trazer gente.
+        // ⚠️ "Quem parou de vir" SAIU (out/2026, pedido da direção: "dois ou mais caminhos
+        // levam ao mesmo lugar"). Ela respondia a MESMA pergunta do Recall do
+        // Acompanhamento — quem sumiu e quem vale um telefonema — com uma segunda definição
+        // de "sumido" e sem o registro do contato. O que ela tinha de próprio (o tratamento
+        // longo, o pacote em aberto e o CSV) foi para o Acompanhamento, que é a fila onde o
+        // contato fica registrado. Sobram três abas, uma pergunta cada: a rodada de NPS e o
+        // histórico das mensagens, a fila de quem chamar de volta, e de onde vêm os que
+        // CHEGAM.
         new ItemMenuModulo
         {
             Chave = ChaveGrupoMarketing, Rotulo = "Marketing / Recall", Glifo = "\uE715", Icone = "mega",
@@ -163,7 +166,6 @@ public sealed class ModuloGerente : IModuloApp
             Abas =
             [
                 new AbaMenu("Campanhas", ChaveCampanhas),
-                new AbaMenu("Quem parou de vir", ChaveRetencao),
                 new AbaMenu("Acompanhamento de pacientes", ChavesSuite.RetornoPacientes),
                 new AbaMenu("De onde vêm os pacientes", ChaveOrigens)
             ]
@@ -255,11 +257,6 @@ public sealed class ModuloGerente : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveRetencao, Rotulo = "Quem parou de vir", Glifo = "\uE8AF", Icone = "volta",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
-        },
-        new ItemMenuModulo
-        {
             Chave = ChaveOrigens, Rotulo = "De onde v\u00EAm os pacientes", Glifo = "\uE8AF", Icone = "mega",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
         },
@@ -315,7 +312,6 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<AcessosViewModel>();
         servicos.AddTransient<ConfiguracoesViewModel>();
         servicos.AddTransient<MetasViewModel>();
-        servicos.AddTransient<RetencaoViewModel>();
         servicos.AddTransient<OrigensViewModel>();
         servicos.AddTransient<DocumentosEmitidosViewModel>();
         servicos.AddTransient<ImportacaoPacientesViewModel>();
@@ -376,10 +372,6 @@ public sealed class ModuloGerente : IModuloApp
         ChaveMetas => new MetasView
         {
             DataContext = servicos.GetRequiredService<MetasViewModel>()
-        },
-        ChaveRetencao => new RetencaoView
-        {
-            DataContext = servicos.GetRequiredService<RetencaoViewModel>()
         },
         ChaveDocumentosEmitidos => new DocumentosEmitidosView
         {

@@ -15,7 +15,9 @@ public static class OrganizacaoNavegacao
         switch (item.Chave)
         {
             case "agenda":
-                abas = [new("Visão geral", ChavesSuite.OcupacaoAgenda), new("Atendimentos", "fila")];
+                // O DIA primeiro (out/2026, pedido da clínica): é a aba que o clique em
+                // "Agenda" abre, e a recepção vive nela a manhã inteira.
+                abas = [new("Dia", "fila"), new("Visão geral", ChavesSuite.OcupacaoAgenda)];
                 break;
             case "consultorio-agenda":
                 rotulo = "Agenda";
@@ -24,16 +26,22 @@ public static class OrganizacaoNavegacao
                     new("Evoluções pendentes", "consultorio-registros-pendentes")];
                 break;
             case "atendimento":
-                rotulo = "Operações da agenda";
-                grupo = GrupoSidebar.Gestao;
-                abas = [new("Marcar atendimento", "marcar-horario"), new("Confirmações", ChavesSuite.ConfirmacoesAgenda),
-                    new("Retornos solicitados", "retornos-a-marcar"), new("Conferir atendimentos", "lancamentos"), new("Consultas de convênio", "consultas")];
+                // Marcar, conferir o que foi lançado e renovar a consulta do convênio. As
+                // conversas com o paciente (confirmar, convidar de volta, acompanhar) saíram
+                // para "Relacionamento" — out/2026, mockup aprovado.
+                rotulo = "Atendimento";
+                abas = [new("Marcar", "marcar-horario"), new("Lançamentos", "lancamentos"), new("Consultas de convênio", "consultas")];
                 break;
             case "pacientes":
                 abas = [new("Lista de pacientes", ChavesSuite.PacientesRecepcao)];
                 break;
             case "consultorio-pacientes": oculto = true; break;
             case ChavesSuite.AgendaRecepcao: oculto = true; break;
+            // A caixa dos pedidos é ABA de "Relacionamento" (out/2026, pedido da clínica) e
+            // o sino continua avisando o pedido novo. Como item solto ela fica escondida:
+            // quem a mostra é o composto, e duas entradas para a mesma caixa eram a
+            // redundância que a direção mandou tirar.
+            case ChavesSuite.PedidosEnfermagem: oculto = true; break;
             case "pagamentos-recepcao": rotulo = "Recebimentos de pacientes"; grupo = GrupoSidebar.Financeiro; break;
             case "particular": rotulo = "Particular e pacotes"; grupo = GrupoSidebar.Financeiro; break;
             case "pacotes": case "precos-particular": grupo = GrupoSidebar.Financeiro; break;
@@ -41,11 +49,16 @@ public static class OrganizacaoNavegacao
             case "acessos": rotulo = "Usuários e permissões"; grupo = GrupoSidebar.Gestao; break;
             case "configuracoes": case "auditoria": case "conformidade":
             case "consultorio-modelos": case "importar-pacientes": case "guarda-prontuario": case "documentos-emitidos": grupo = GrupoSidebar.Gestao; break;
-            case "marketing": rotulo = "Relacionamento"; grupo = GrupoSidebar.Gestao; break;
-            case "retorno-pacientes": rotulo = "Acompanhamento de pacientes"; grupo = GrupoSidebar.Gestao; break;
-            case "retornos-a-marcar": rotulo = "Retornos solicitados pelo profissional"; grupo = GrupoSidebar.Gestao; break;
-            case "marcar-horario": rotulo = "Marcar atendimento"; grupo = GrupoSidebar.Gestao; break;
-            case "lancamentos": rotulo = "Conferir atendimentos"; grupo = GrupoSidebar.Gestao; break;
+            // As campanhas e a origem dos pacientes ficam ao lado do Relacionamento do balcão. O
+            // Acompanhamento sai daqui: ele é aba do "Relacionamento" — dois compostos com a
+            // mesma tela eram dois caminhos para o mesmo lugar.
+            case "marketing":
+                rotulo = "Campanhas e origem"; grupo = GrupoSidebar.Relacionamento;
+                abas = [.. item.Abas.Where(a => a.Chave != ChavesSuite.RetornoPacientes)];
+                break;
+            case "retorno-pacientes": rotulo = "Acompanhamento de pacientes"; grupo = GrupoSidebar.Relacionamento; break;
+            case "retornos-a-marcar": grupo = GrupoSidebar.Relacionamento; break;
+            case ChavesSuite.ConfirmacoesAgenda: rotulo = "Confirmações"; grupo = GrupoSidebar.Relacionamento; break;
             case "producao": case "consultorio-meus-numeros": grupo = GrupoSidebar.Inteligencia; break;
             case "resultado": grupo = GrupoSidebar.Inteligencia; rotulo = "Resultado e teto de despesas"; break;
             case "conciliacao": rotulo = "Conciliação de receitas"; break;
@@ -53,6 +66,7 @@ public static class OrganizacaoNavegacao
         }
         return new ItemMenuModulo { Chave = item.Chave, Rotulo = rotulo, Grupo = grupo,
             Glifo = item.Glifo, Icone = item.Icone, Requer = requer, RequerAlgum = requerAlgum, PerfilExclusivo = item.PerfilExclusivo,
-            Inicial = item.Inicial, Oculto = oculto, Abas = abas, PreservarAoNavegar = item.PreservarAoNavegar };
+            Inicial = item.Inicial, Oculto = oculto, Abas = abas, PreservarAoNavegar = item.PreservarAoNavegar,
+            Principal = item.Principal };
     }
 }

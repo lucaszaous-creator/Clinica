@@ -123,14 +123,16 @@ public sealed record FolhaParaEntregar(
 public static class FolhasParaEntregar
 {
     /// <summary>
-    /// As cinco folhas da coluna, na ordem em que quem atende as pede — e não na ordem do
-    /// catálogo, que é a da central. Termo e anamnese ficam de fora: o termo é colhido com
+    /// As seis folhas da coluna, na ordem em que quem atende as pede — e não na ordem do
+    /// catálogo, que é a da central. O LAUDO entrou ao lado do atestado (out/2026, pedido
+    /// da clínica: "em emitir dentro do atendimento, sem nova aba") — os dois são o texto
+    /// do médico sobre o quadro, com o CID da hipótese à mão. Termo e anamnese ficam de fora: o termo é colhido com
     /// assinatura do paciente (outra janela, outro gesto) e a anamnese é da primeira
     /// avaliação, não do que se entrega ao fim da sessão. Os dois continuam na aba
     /// "Prescrições e documentos", que é a pasta clínica dela.
     /// </summary>
     public static readonly IReadOnlyList<string> Ordem =
-        ["receita", "atestado", "pedido-exame", "comparecimento", "relatorio-evolucao"];
+        ["receita", "atestado", "laudo-medico", "pedido-exame", "comparecimento", "relatorio-evolucao"];
 
     /// <summary>Monta a coluna para esta sessão e este conjunto de acessos.</summary>
     public static IReadOnlyList<FolhaParaEntregar> Montar(HerancaDaSessao heranca, Permissao acessos)
@@ -196,6 +198,13 @@ public static class FolhasParaEntregar
         "atestado" => string.IsNullOrWhiteSpace(h.Cid)
             ? ("dias e data — o CID você escreve", false)
             : ($"CID {h.Cid.Trim()} da sua hipótese", true),
+
+        // O TEXTO do laudo é do médico, sempre: a conduta e a evolução são registros da
+        // sessão, e copiá-los para um papel que vai à perícia seria decidir por ele o que
+        // a perícia lê. Herda só o CID, que é campo próprio.
+        "laudo-medico" => string.IsNullOrWhiteSpace(h.Cid)
+            ? ("em branco — você escreve o laudo", false)
+            : ($"CID {h.Cid.Trim()} da sua hipótese — o texto você escreve", true),
 
         "pedido-exame" => string.IsNullOrWhiteSpace(h.Hipotese)
             ? ("em branco — você escreve os exames", false)

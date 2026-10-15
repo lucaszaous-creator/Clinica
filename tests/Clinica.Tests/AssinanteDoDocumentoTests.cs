@@ -56,6 +56,7 @@ public class AssinanteDoDocumentoTests
     [Theory]
     [InlineData(TipoDocumentoClinico.Receita, true)]
     [InlineData(TipoDocumentoClinico.Atestado, true)]
+    [InlineData(TipoDocumentoClinico.LaudoMedico, true)]
     [InlineData(TipoDocumentoClinico.PedidoExame, true)]
     [InlineData(TipoDocumentoClinico.Comparecimento, false)]
     [InlineData(TipoDocumentoClinico.RelatorioEvolucao, false)]

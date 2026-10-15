@@ -48,7 +48,8 @@ public static class AssinanteDoDocumento
     public static bool Exige(TipoDocumentoClinico tipo)
         => tipo is TipoDocumentoClinico.Receita
                or TipoDocumentoClinico.Atestado
-               or TipoDocumentoClinico.PedidoExame;
+               or TipoDocumentoClinico.PedidoExame
+               or TipoDocumentoClinico.LaudoMedico;
 
     /// <summary>
     /// O assinante proposto a partir da lista de profissionais ATIVOS que a tela oferece e

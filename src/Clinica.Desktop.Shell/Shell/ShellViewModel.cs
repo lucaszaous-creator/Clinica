@@ -65,7 +65,22 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Título da janela (nome do app, ex.: "Recepção").</summary>
     public string Titulo { get; }
 
+    /// <summary>
+    /// O nome do app ao lado da logo ("Recepção"), como no mockup aprovado (out/2026): com
+    /// cinco executáveis na mesma máquina, a marca sozinha não diz em qual deles se está.
+    /// Sai do título da janela ("Recepção — Clínica SemDor"), que cada exe já declara.
+    /// </summary>
+    public string NomeDoApp => Titulo.Split('—')[0].Trim();
+
     public IReadOnlyList<GrupoMenuModulo> Grupos { get; }
+
+    /// <summary>
+    /// O que a barra do topo mostra. Num executável de UM módulo que declara itens
+    /// principais (a Recepção — mockup aprovado em out/2026) a barra é PLANA: os principais
+    /// direto, na ordem declarada, e o resto num "Mais". Nos outros, as categorias de sempre.
+    /// Nenhuma tela some: o que não é principal continua um clique adiante.
+    /// </summary>
+    public IReadOnlyList<GrupoMenuModulo> Superiores { get; }
     [ObservableProperty] private GrupoMenuModulo? _grupoSelecionado;
 
     /// <summary>Todos os itens, em ordem — usado para achar o item por chave.</summary>
@@ -246,6 +261,17 @@ public sealed partial class ShellViewModel : ObservableObject
             .Select(g => new GrupoMenuModulo(
                 g.Key, g.OrderByDescending(i => i.Inicial).ToList()))
             .ToList();
+
+        var visiveisNaBarra = Grupos.SelectMany(g => g.Itens).ToList();
+        var principais = visiveisNaBarra.Where(i => i.Principal is not null).OrderBy(i => i.Principal).ToList();
+        if (principais.Count > 0 && _modulos.Count(m => m is not ModuloContextual) == 1)
+        {
+            var barra = principais.Select(i => new GrupoMenuModulo(i)).ToList();
+            var resto = visiveisNaBarra.Where(i => i.Principal is null).ToList();
+            if (resto.Count > 0) barra.Add(new GrupoMenuModulo("Mais", resto));
+            Superiores = barra;
+        }
+        else Superiores = Grupos;
 
         // Uma tela pode pedir para abrir outra (o painel da direção leva ao assunto do
         // alerta). Ligado aqui porque é este objeto que sabe navegar.
@@ -504,7 +530,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         AvisosAbertos = !AvisosAbertos;
         if (AvisosAbertos) Snackbar?.MarcarLidos();
-        if (AvisosAbertos) _ = AtualizarPedidosGlobaisAsync();
+        if (AvisosAbertos) { _ = AtualizarPedidosGlobaisAsync(); _ = CarregarPedidosDoSinoAsync(); }
     }
 
     /// <summary>
