@@ -15,6 +15,9 @@ declare global {interface Window {chrome?:{webview?:{postMessage:(m:unknown)=>vo
 function App(){
  const [dados,setDados]=useState<Envelope>();
  useEffect(()=>{const ponte=window.chrome?.webview;const receber=(e:MessageEvent<Envelope>)=>setDados(e.data);ponte?.addEventListener('message',receber);ponte?.postMessage({acao:'pronto'});return()=>ponte?.removeEventListener('message',receber)},[]);
+ // O host mantém a área com fundo claro até aqui: avisa só depois que o primeiro estado foi PINTADO.
+ const temDados=!!dados;
+ useEffect(()=>{if(!temDados)return;let b=0;const a=requestAnimationFrame(()=>{b=requestAnimationFrame(()=>window.chrome?.webview?.postMessage({acao:'exibido'}))});return()=>{cancelAnimationFrame(a);cancelAnimationFrame(b)}},[temDados]);
  useEffect(()=>{
   if(dados?.tela!=='filtros-agenda')return;
   const root=document.getElementById('root')!;

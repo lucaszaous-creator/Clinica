@@ -14,7 +14,8 @@ public static class DependencyInjection
     {
         // Pool aquecido e com keepalive: abrir conexão nova na VPS custa segundos (ver ConexaoRemota).
         connectionString = ConexaoRemota.Ajustar(connectionString);
-        services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql));
+        services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql)
+            .AddInterceptors(InterceptadorMedicao.Instancia)); // só conta idas e tempo (ver MedicaoBanco)
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
         services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();

@@ -65,6 +65,28 @@ public class PreviaLancamentoTests : IDisposable
     }
 
     /// <summary>
+    /// A leitura única do Novo atendimento devolve exatamente as duas prévias de antes.
+    /// </summary>
+    [Fact]
+    public async Task Previa_combinada_e_igual_as_duas_separadas()
+    {
+        var paciente = await SemearAsync(Convenio.UnimedIntercambio);
+        var servico = new AtendimentoService(_repo);
+        var data = new DateOnly(2026, 8, 8);
+        var codigos = new[] { "AcupunturaComEletro", "Acupuntura", "Consulta" };
+
+        var separada = await servico.PreverAsync(paciente.Id, data, ModalidadeAtendimento.AcupunturaComEletro,
+            primeiroCodigo: TipoCodigo.Acupuntura, modalidadeCodigo: "AcupunturaComEletro");
+        var porModalidade = await servico.PreverModalidadesAsync(paciente.Id, data, codigos);
+        var (combinada, combinadas) = await servico.PreverComModalidadesAsync(paciente.Id, data,
+            ModalidadeAtendimento.AcupunturaComEletro, codigos, primeiroCodigo: TipoCodigo.Acupuntura,
+            modalidadeCodigo: "AcupunturaComEletro");
+
+        combinada.Should().BeEquivalentTo(separada);
+        combinadas.Should().BeEquivalentTo(porModalidade);
+    }
+
+    /// <summary>
     /// A prévia NÃO grava. Ela roda a cada troca de modalidade — e a recepcionista compara
     /// as opções antes de decidir.
     /// </summary>

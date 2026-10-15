@@ -321,7 +321,7 @@ public sealed class LinhaListaEspera
 /// consultórios ao mesmo tempo. Ao lado dela fica a LISTA DE ESPERA: quando um horário
 /// vaga, a recepção vê na mesma tela quem chamar, em vez de tentar lembrar.
 /// </summary>
-public sealed partial class AgendaViewModel : ObservableObject
+public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     internal IServiceScopeFactory EscoposPlanejamento => _escopos;
     [RelayCommand] private void VerDiaPlanejamento() => ModoSemana = false;
@@ -349,6 +349,12 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// mesmo dia.
     /// </summary>
     private readonly DispatcherTimer _relogio;
+
+    /// <summary>
+    /// O banco avisa quando a agenda muda noutra máquina (out/2026): a tela relê em menos de
+    /// um segundo em vez de esperar o relógio, que continua como rede para aviso perdido.
+    /// </summary>
+    private readonly Clinica.Desktop.Shell.Modulos.EscutaDoBanco _escutaAgenda;
 
     public ObservableCollection<ColunaAgenda> Colunas { get; } = [];
     public ObservableCollection<LinhaListaEspera> Espera { get; } = [];
@@ -506,6 +512,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         // pode ser verdade quando a recepcionista clica nele.
         _relogio = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
         _relogio.Tick += (_, _) => _ = ReconferirAsync();
+        _escutaAgenda = new Clinica.Desktop.Shell.Modulos.EscutaDoBanco(RelerAoVoltarAsync, "Agendamentos");
 
         _ = CarregarAsync();
     }
@@ -814,6 +821,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     public void AoEntrarEmCena()
     {
         _relogio.Start();
+        _escutaAgenda.Ligar();
 
         var pediuOutroDia = ConsumirPedidoDeDia();
         if (_jaEsteveEmCena && !pediuOutroDia) _ = RelerAoVoltarAsync();
@@ -929,7 +937,18 @@ public sealed partial class AgendaViewModel : ObservableObject
             : string.Empty;
 
     /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
-    public void AoSairDeCena() => _relogio.Stop();
+    public void AoSairDeCena()
+    {
+        _relogio.Stop();
+        _escutaAgenda.Desligar();
+    }
+
+    /// <summary>
+    /// Volta do histórico: a releitura já acontece pelo <see cref="AoEntrarEmCena"/> (o
+    /// <c>Loaded</c> chega de novo quando a tela reaparece). Ler aqui também seria a segunda
+    /// consulta pela mesma volta.
+    /// </summary>
+    void Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar.AtualizarAoVoltar() { }
 
     /// <summary>
     /// A semana da data escolhida, uma coluna por dia (segunda a domingo).

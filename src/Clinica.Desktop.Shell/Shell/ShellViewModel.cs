@@ -372,10 +372,14 @@ public sealed partial class ShellViewModel : ObservableObject
 
         // O histórico já guarda estas instâncias. Recriá-las ao escolher o menu novamente
         // reiniciava o navegador e deixava a instância anterior ocupando memória.
-        var recente = item.PreservarAoNavegar && SessaoUsuario.Atual.Autenticado
-            && SessaoUsuario.Atual.UsuarioId == _usuarioDasTelas && SessaoUsuario.Atual.Efetivas == _permissoesDasTelas
-            ? _historico.FindLastIndex(h => ReferenceEquals(h.Item, item)) : -1;
+        // Volta do histórico quem o item manda preservar OU quem sabe se reler por trás
+        // (IAtualizarAoVoltar, out/2026) — sempre na mesma sessão e com as mesmas permissões.
+        var mesmaSessao = SessaoUsuario.Atual.Autenticado
+            && SessaoUsuario.Atual.UsuarioId == _usuarioDasTelas && SessaoUsuario.Atual.Efetivas == _permissoesDasTelas;
+        var recente = mesmaSessao ? _historico.FindLastIndex(h => ReferenceEquals(h.Item, item)
+            && (item.PreservarAoNavegar || CicloDeVidaTela.SabeAtualizarAoVoltar(h.Tela))) : -1;
         object? tela;
+        var reaproveitada = false;
         if (recente >= 0)
         {
             tela = _historico[recente].Tela;
@@ -385,7 +389,13 @@ public sealed partial class ShellViewModel : ObservableObject
                 CicloDeVidaTela.Descartar(tela);
                 tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
             }
-            else if (tela is TelaComAbas composta) composta.Selecionar(abaInicial);
+            else
+            {
+                reaproveitada = true;
+                if (tela is TelaComAbas composta) composta.Selecionar(abaInicial);
+                // A tela volta COM o que mostrava e relê por trás (item 3 do plano de desempenho).
+                CicloDeVidaTela.AtualizarAoVoltar(tela);
+            }
         }
         else tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
         if (tela is null) return;
@@ -404,6 +414,7 @@ public sealed partial class ShellViewModel : ObservableObject
         TelaAtual = tela;
         TituloTela = item.Rotulo;
         ModuloAtual = GruposSidebar.Rotulo(item.Grupo);
+        MedirTroca(item.Rotulo, reaproveitada);
     }
 
     public void LiberarTelas()

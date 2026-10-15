@@ -442,7 +442,7 @@ public sealed partial class ChipProfissional : ObservableObject
 /// As cinco coleções por etapa continuam existindo por baixo (a faixa CHAMANDO e o
 /// contador leem delas); a tela lê <see cref="Linhas"/>, que é o dia inteiro em ordem.
 /// </summary>
-public sealed partial class FilaViewModel : ObservableObject
+public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     public bool PodeMarcarAtendimento => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
     [RelayCommand] private void MarcarAtendimento()
@@ -470,6 +470,12 @@ public sealed partial class FilaViewModel : ObservableObject
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
     private readonly DispatcherTimer _relogio;
+
+    /// <summary>
+    /// O banco avisa quando a agenda muda noutra máquina (out/2026): a tela relê em menos de
+    /// um segundo em vez de esperar o relógio, que continua como rede para aviso perdido.
+    /// </summary>
+    private readonly Clinica.Desktop.Shell.Modulos.EscutaDoBanco _escutaAgenda;
 
     private List<Agendamento> _doDia = [];
 
@@ -674,6 +680,7 @@ public sealed partial class FilaViewModel : ObservableObject
         // cada navegação, e um timer rodando manteria vivo cada ViewModel já trocado.
         _relogio = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
         _relogio.Tick += (_, _) => _ = ReconferirAsync();
+        _escutaAgenda = new Clinica.Desktop.Shell.Modulos.EscutaDoBanco(RelerAoVoltarAsync, "Agendamentos");
 
         _ = CarregarAsync();
     }
@@ -727,6 +734,7 @@ public sealed partial class FilaViewModel : ObservableObject
     public void AoEntrarEmCena()
     {
         _relogio.Start();
+        _escutaAgenda.Ligar();
         if (_jaEsteveEmCena) _ = RelerAoVoltarAsync();
         _jaEsteveEmCena = true;
     }
@@ -758,7 +766,18 @@ public sealed partial class FilaViewModel : ObservableObject
     }
 
     /// <summary>Desliga o relógio (chamado quando a tela sai de cena).</summary>
-    public void AoSairDeCena() => _relogio.Stop();
+    public void AoSairDeCena()
+    {
+        _relogio.Stop();
+        _escutaAgenda.Desligar();
+    }
+
+    /// <summary>
+    /// Volta do histórico: a releitura já acontece pelo <see cref="AoEntrarEmCena"/> (o
+    /// <c>Loaded</c> chega de novo quando a tela reaparece). Ler aqui também seria a segunda
+    /// consulta pela mesma volta.
+    /// </summary>
+    void Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar.AtualizarAoVoltar() { }
 
     partial void OnDiaChanged(DateTime value)
     {

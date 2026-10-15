@@ -32,6 +32,15 @@ public partial class ShellWindow : Window
         SizeChanged+=(_,_)=>AjustarCabecalho();
         Loaded+=(_,_)=>AjustarCabecalho();
         Loaded+=(_,_)=>{ if (DataContext is ShellViewModel vm) vm.IniciarAvisosGlobais(); };
+        // Só os apps que têm tela web (Recepção e Consultório, e o Gerente que carrega os dois)
+        // sobem o navegador escondido — e depois da primeira tela, para não disputar a abertura.
+        ContentRendered+=async (_,_)=>
+        {
+            if (DataContext is not ShellViewModel vm
+                || !vm.Itens.Any(i => i.ModuloNome is "Recepção" or "Consultório")) return;
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            WebClinica.PainelClinicoWeb.Preaquecer(this);
+        };
         Unloaded+=(_,_)=>{ if (DataContext is ShellViewModel vm) vm.PararAvisosGlobais(); };
         Closed+=(_,_)=>{ if (DataContext is ShellViewModel vm) { vm.PararAvisosGlobais(); vm.LiberarTelas(); } };
         InputBindings.Add(new KeyBinding(new RelayFoco(() =>

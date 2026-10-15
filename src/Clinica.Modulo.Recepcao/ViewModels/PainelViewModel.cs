@@ -54,7 +54,7 @@ public sealed class LinhaAniversariante
 /// As guias pendentes aparecem só recortadas para os pacientes de HOJE, porque é o
 /// único momento barato de cobrar o documento — depois vira telefonema do faturamento.
 /// </summary>
-public sealed partial class PainelViewModel : ObservableObject
+public sealed partial class PainelViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     /// <summary>Jornada de referência para a barra de ocupação (8h em minutos).</summary>
     private const int JornadaMinutos = 8 * 60;
@@ -171,6 +171,12 @@ public sealed partial class PainelViewModel : ObservableObject
     private readonly DispatcherTimer _relogio;
 
     /// <summary>
+    /// O banco avisa quando a agenda muda noutra máquina (out/2026): a tela relê em menos de
+    /// um segundo em vez de esperar o relógio, que continua como rede para aviso perdido.
+    /// </summary>
+    private readonly Clinica.Desktop.Shell.Modulos.EscutaDoBanco _escutaAgenda;
+
+    /// <summary>
     /// ⚠️ NADA de serviço SCOPED no construtor — a mesma regra da Fila, e pela mesma razão.
     ///
     /// O shell resolve esta tela do provedor RAIZ, e serviço Scoped pedido à raiz vive no
@@ -190,6 +196,7 @@ public sealed partial class PainelViewModel : ObservableObject
         // banco remoto. Um minuto aqui seria pagar o dobro pela mesma resposta.
         _relogio = new DispatcherTimer { Interval = TimeSpan.FromMinutes(2) };
         _relogio.Tick += (_, _) => _ = ReconferirAsync();
+        _escutaAgenda = new Clinica.Desktop.Shell.Modulos.EscutaDoBanco(RelerAoVoltarAsync, "Agendamentos");
 
         _ = CarregarAsync();
     }
@@ -285,17 +292,42 @@ public sealed partial class PainelViewModel : ObservableObject
     }
 
     /// <summary>
-    /// A tela entrou em cena: liga a releitura periódica.
-    ///
-    /// ⚠️ Aqui NÃO há releitura ao voltar, e é decisão: o "Início" é item simples da
-    /// sidebar, e o shell monta a tela do zero a cada navegação (só o item COMPOSTO
-    /// guarda as abas já montadas). O construtor já lê — acrescentar uma segunda leitura
-    /// seria a consulta que ninguém pediu, a cada volta ao painel.
+    /// A tela entrou em cena: liga a releitura periódica. Na PRIMEIRA abertura o construtor
+    /// já lê; a releitura de quando ela volta do histórico é <see cref="AtualizarAoVoltar"/>.
     /// </summary>
-    public void AoEntrarEmCena() => _relogio.Start();
+    public void AoEntrarEmCena()
+    {
+        _relogio.Start();
+        _escutaAgenda.Ligar();
+    }
+
+    /// <summary>
+    /// O painel voltou do histórico (out/2026): o shell devolve a MESMA tela, com os números
+    /// de quando a pessoa saiu, e ela relê por trás — sem "Carregando" e sem apagar nada.
+    /// Sem a recusa de "só HOJE" da batida: é uma leitura só, no instante em que a pessoa chega.
+    /// </summary>
+    public void AtualizarAoVoltar() => _ = RelerAoVoltarAsync();
+
+    private async Task RelerAoVoltarAsync()
+    {
+        if (Carregando) return;
+        try
+        {
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — releitura do painel ao voltar falhou", ex);
+        }
+    }
 
     /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
-    public void AoSairDeCena() => _relogio.Stop();
+    public void AoSairDeCena()
+    {
+        _relogio.Stop();
+        _escutaAgenda.Desligar();
+    }
 
     /// <summary>
     /// Aniversariantes do dia e dos próximos dias. A janela existe porque a clínica não

@@ -1669,14 +1669,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             using var scope = _scopeFactory.CreateScope();
             var atendimentos = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
 
-            var previa = await atendimentos.PreverAsync(
-                pacienteId, data, Modalidade,
+            // Uma leitura para as duas prévias (antes: paciente, mês e parâmetros lidos 2×).
+            var (previa, porModalidade) = await atendimentos.PreverComModalidadesAsync(
+                pacienteId, data, Modalidade, codigosDosCartoes,
                 primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
                 modalidadeCodigo: codigoModalidade,
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
-
-            var porModalidade = await atendimentos.PreverModalidadesAsync(
-                pacienteId, data, codigosDosCartoes);
 
             // O particular não tem guia: o que a prévia dele mostra é COMO esta sessão vai
             // ser paga — o preço da tabela, ou o PACOTE que a cobre.

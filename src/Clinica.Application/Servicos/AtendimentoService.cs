@@ -511,6 +511,41 @@ public sealed class AtendimentoService
     }
 
     /// <summary>
+    /// <see cref="PreverAsync"/> e <see cref="PreverModalidadesAsync"/> numa leitura só (out/2026):
+    /// o Novo atendimento pedia as duas a cada troca e lia o MESMO paciente, o MESMO histórico do
+    /// mês e os MESMOS parâmetros duas vezes. As simulações são as mesmas, em memória.
+    /// </summary>
+    public async Task<(PreviaLancamento Previa, IReadOnlyDictionary<string, PreviaLancamento> PorModalidade)> PreverComModalidadesAsync(
+        int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, IEnumerable<string> modalidadeCodigos,
+        CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
+        string? modalidadeCodigo = null, string? especialidadeConsultaCodigo = null)
+    {
+        var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
+            ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
+        var historicoMes = await _repo.CodigosDoPacienteNoMesAsync(pacienteId, data.Year, data.Month, ct);
+        var parametros = _parametros is null ? null : await _parametros.ObterAsync(ct);
+
+        var previa = Simular(paciente, data, modalidade, historicoMes, parametros,
+            primeiroCodigo, null, modalidadeCodigo, especialidadeConsultaCodigo);
+
+        var previas = new Dictionary<string, PreviaLancamento>();
+        foreach (var codigo in modalidadeCodigos.Distinct())
+        {
+            try
+            {
+                previas[codigo] = Simular(
+                    paciente, data, CatalogoModalidades.Base(codigo), historicoMes, parametros,
+                    primeiroCodigo: null, null, codigo, null);
+            }
+            catch (Exception ex)
+            {
+                Diagnostico.Registrar($"Prévia da modalidade {codigo} falhou", ex);
+            }
+        }
+        return (previa, previas);
+    }
+
+    /// <summary>
     /// O miolo compartilhado entre o lançamento e a prévia: monta o atendimento
     /// transitório, resolve o contexto do convênio e roda a regra. Sem banco.
     /// </summary>

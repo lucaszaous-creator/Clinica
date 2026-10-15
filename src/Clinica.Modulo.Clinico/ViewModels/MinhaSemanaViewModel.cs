@@ -41,7 +41,7 @@ public sealed class CabecalhoDia
 /// abre o paciente de qualquer sessão. O montador da grade é puro e mora na Application
 /// (<see cref="GradeSemana"/>), porque a camada de tela não compila nos testes.
 /// </summary>
-public sealed partial class MinhaSemanaViewModel : ObservableObject
+public sealed partial class MinhaSemanaViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     private readonly IServiceScopeFactory _escopos;
     private readonly PacienteEmFoco _foco;
@@ -90,16 +90,31 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
     partial void OnReferenciaChanged(DateTime value) => _ = CarregarAsync();
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => LerAsync(silencioso: false);
+
+    /// <summary>
+    /// A tela voltou do histórico com a semana que mostrava: relê por trás, sem "Carregando"
+    /// e sem apagar a grade. Uma demora do banco aqui fica no log, não na tela.
+    /// </summary>
+    public void AtualizarAoVoltar()
+    {
+        if (Carregando) return;
+        _ = LerAsync(silencioso: true);
+    }
+
+    private async Task LerAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
 
         try
         {
-            Carregando = true;
-            NaoVerificado = false;
-            Mensagem = null;
-            MensagemEhErro = false;
+            if (!silencioso)
+            {
+                Carregando = true;
+                NaoVerificado = false;
+                Mensagem = null;
+                MensagemEhErro = false;
+            }
 
             // De quem é esta lista — a resposta mora num lugar só (PostoClinico):
             // a enfermagem NÃO tem agenda própria, e filtrar por ela devolvia a
@@ -172,16 +187,17 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — a semana não pôde ser carregada", ex);
+            if (silencioso) return;
+            NaoVerificado = true;
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }
         finally
         {
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
-            if (geracao == _geracaoCarga) Carregando = false;
+            if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
     }
 

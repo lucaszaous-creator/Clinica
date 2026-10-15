@@ -26,7 +26,7 @@ namespace Clinica.Clinico.ViewModels;
 /// largura inteira da tela</b>, e seção que não é sobre o que a tela é sobre vira porta,
 /// não caixa. O "Meu dia" ficou com um botão que diz o tamanho da dívida e traz para cá.
 /// </summary>
-public sealed partial class RegistrosPendentesViewModel : ObservableObject
+public sealed partial class RegistrosPendentesViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     private readonly IServiceScopeFactory _escopos;
     private readonly PacienteEmFoco _foco;
@@ -117,16 +117,31 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
     private int _geracaoCarga;
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => LerAsync(silencioso: false);
+
+    /// <summary>
+    /// A tela voltou do histórico com a fila que mostrava: relê por trás, sem "Carregando"
+    /// e sem apagar a lista. Uma demora do banco aqui fica no log, não na tela.
+    /// </summary>
+    public void AtualizarAoVoltar()
+    {
+        if (Carregando) return;
+        _ = LerAsync(silencioso: true);
+    }
+
+    private async Task LerAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
 
         try
         {
-            Carregando = true;
-            NaoVerificado = false;
-            Mensagem = null;
-            MensagemEhErro = false;
+            if (!silencioso)
+            {
+                Carregando = true;
+                NaoVerificado = false;
+                Mensagem = null;
+                MensagemEhErro = false;
+            }
 
             // De quem é esta lista — a resposta mora num lugar só (PostoClinico):
             // a enfermagem NÃO tem agenda própria, e filtrar por ela devolvia a
@@ -173,6 +188,12 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
         {
             if (geracao != _geracaoCarga) return;
 
+            if (silencioso)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Consultório — releitura das sessões sem evolução ao voltar falhou", ex);
+                return;
+            }
             NaoVerificado = true;
             // A base também esvazia: refiltrar sobre resto de carga antiga repovoaria a
             // tela por baixo do "não verificado".
@@ -185,7 +206,7 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
         }
         finally
         {
-            if (geracao == _geracaoCarga) Carregando = false;
+            if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
     }
 

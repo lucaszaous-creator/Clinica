@@ -37,6 +37,7 @@ public sealed partial class ShellViewModel
         if (_avisosEmCena) return;
         _avisosEmCena = true;
         NotificacoesEnfermagem.Mudaram += MudaramPedidos;
+        Clinica.Infrastructure.OuvinteDeMudancas.Mudou += MudouNoBanco;
         if (Snackbar is not null) Snackbar.PropertyChanged += MudouSnackbar;
         // 15 s, não 30: o pedido da enfermagem é feito com a técnica esperando a resposta, e a
         // batida custa três leituras pequenas (acesso, contagem e marca). A página aberta deixa de
@@ -49,14 +50,32 @@ public sealed partial class ShellViewModel
     {
         _avisosEmCena = false; ++_geracaoPedidos; _relogioAvisos?.Stop(); _marcaPedidos = null;
         NotificacoesEnfermagem.Mudaram -= MudaramPedidos;
+        Clinica.Infrastructure.OuvinteDeMudancas.Mudou -= MudouNoBanco;
         if (Snackbar is not null) Snackbar.PropertyChanged -= MudouSnackbar;
+    }
+
+    /// <summary>
+    /// O banco avisou que um pedido mudou (out/2026): o cabeçalho relê na hora — e, se a marca
+    /// mudou, a página aberta relê junto pelo sinal de sempre. Chega numa thread do Npgsql.
+    /// </summary>
+    private void MudouNoBanco(string tabela)
+    {
+        if (tabela is not ("SolicitacoesEnfermagem" or "EventosSolicitacaoEnfermagem" or "*")) return;
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => { _ = AtualizarPedidosGlobaisAsync(); });
     }
     private void MudouSnackbar(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != "NaoLidos") return;
         OnPropertyChanged(nameof(TotalAvisos)); OnPropertyChanged(nameof(ContadorAvisos)); OnPropertyChanged(nameof(TemAvisos));
     }
-    private void BatidaAvisos(object? sender, EventArgs e) => _ = AtualizarPedidosGlobaisAsync();
+    private void BatidaAvisos(object? sender, EventArgs e)
+    {
+        // Com o banco avisando, o relógio é só a rede para aviso perdido: 1 min em vez de 15 s
+        // (cada batida são três leituras, em todo posto, o dia inteiro).
+        var intervalo = Clinica.Infrastructure.OuvinteDeMudancas.Ativo ? TimeSpan.FromMinutes(1) : TimeSpan.FromSeconds(15);
+        if (_relogioAvisos is { } r && r.Interval != intervalo) r.Interval = intervalo;
+        _ = AtualizarPedidosGlobaisAsync();
+    }
     private void MudaramPedidos() => _ = AtualizarPedidosGlobaisAsync();
     public async Task AtualizarPedidosGlobaisAsync()
     {

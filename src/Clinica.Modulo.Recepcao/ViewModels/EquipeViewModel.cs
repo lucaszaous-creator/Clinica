@@ -158,13 +158,16 @@ public sealed partial class EquipeViewModel : ObservableObject
             var bloqueios = scope.ServiceProvider.GetRequiredService<BloqueioAgendaService>();
 
             var linhasBloqueio = new List<LinhaBloqueio>();
-            foreach (var b in await bloqueios.ListarAsync())
+            var lista = await bloqueios.ListarAsync();
+            // Uma leitura por grupo de bloqueios próximos, não uma por bloqueio.
+            var marcadosDeCada = await bloqueios.MarcadosDentroDeCadaAsync(lista);
+            if (geracao != _geracaoCarga) return;
+            foreach (var b in lista)
             {
                 // Quem já está marcado dentro do período fechado aparece na linha:
                 // bloquear NÃO desmarca ninguém, e o paciente combinou aquele horário
                 // com uma pessoa — quem desmarca avisa.
-                var marcados = await bloqueios.MarcadosDentroAsync(b);
-                if (geracao != _geracaoCarga) return;
+                var marcados = marcadosDeCada[b.Id];
 
                 linhasBloqueio.Add(new LinhaBloqueio
                 {

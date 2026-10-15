@@ -97,7 +97,12 @@ public static class ShellBootstrap
         // A string vem do EF, nunca de conexao.ConnectionString: depois de aberta, o Npgsql tira
         // a senha dela, e a outra string cairia num pool diferente que nem autentica.
         if (db.Database.GetConnectionString() is { Length: > 0 } cadeia)
+        {
             _ = Task.Run(() => ConexaoRemota.AquecerAsync(cadeia), CancellationToken.None);
+            // Escuta os avisos do banco (agenda e pedidos da enfermagem): as telas abertas
+            // relêem na hora em que outra máquina grava, sem esperar o relógio.
+            OuvinteDeMudancas.Iniciar(cadeia);
+        }
 
         // Catálogos (convênios, modalidades, especialidades) no cache em memória.
         await scope.ServiceProvider
