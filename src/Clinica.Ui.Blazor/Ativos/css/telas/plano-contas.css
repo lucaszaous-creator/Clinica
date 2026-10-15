@@ -1,1 +1,8 @@
 /* Estilo PRÓPRIO da tela (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
+.pdc-titulo{padding:var(--space-4) var(--space-6) var(--space-4)}
+.pdc-codigo{font-family:var(--font-mono);font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);
+  background:var(--cinza-100);border-radius:var(--radius-pequeno);padding:2px var(--space-2)}
+.pdc-tipo{display:inline-flex;align-items:center;gap:6px;font-weight:500}
+.pdc-tipo .icone{width:14px;height:14px}
+.pdc-tipo.entrada{color:var(--sucesso-forte)}
+.pdc-tipo.saida{color:var(--info-texto)}

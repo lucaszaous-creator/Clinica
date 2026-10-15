@@ -1,0 +1,335 @@
+@*
+  QUEM ME DEVE (out/2026, migrado do InadimplenciaView/InadimplenciaViewModel do WPF).
+
+  Conta de PACIENTE vencida, agrupada por pessoa, somada e envelhecida por faixa. A situação
+  é CALCULADA, sempre — não existe (e não deve existir) campo "inadimplente" no cadastro:
+  paciente marcado assim continua marcado depois de pagar.
+
+  O que a tela afirma (o corte de "crítico", a frase de cada devedor, o filtro, o resumo que
+  DIZ que está filtrado e as quatro faixas sempre presentes) mora em QuemMeDeveTela, na
+  Application, com teste. Aqui só se desenha.
+
+  Cobrança: no WPF o botão ABRIA o WhatsApp com o lembrete pronto. O hospedeiro Blazor não
+  tem "abrir endereço externo"; a tela COPIA a mensagem (e, à parte, o link do wa.me) para
+  a pessoa colar. Cobrança não exige consentimento de marketing — é transacional, como a
+  confirmação da própria sessão — e é um clique por paciente, de propósito.
+*@
+@inherits TelaBase
+
+<div class="pagina qmd @(Carregando && _todos.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Cobrança" Titulo="Quem me deve"
+                     Subtitulo="Contas vencidas por paciente, com prioridade por valor e tempo de atraso.">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" disabled="@Carregando"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(_filtrados.Count == 0)"><Icone Nome="baixar" />Exportar CSV</button>
+    </CabecalhoPagina>
+
+    <details class="qmd-explica">
+        <summary>Quais contas aparecem aqui?</summary>
+        <p>Apenas contas a receber vencidas e vinculadas a um paciente. Reembolsos de convênio e outras contas sem paciente ficam em Contas a receber.</p>
+    </details>
+
+    @if (_resumo is null && Carregando)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+    }
+    else if (_resumo is { } r)
+    {
+        <section class="kpis" aria-label="Resumo da inadimplência">
+            <Kpi Rotulo="Total em atraso" Valor="@Formato.Dinheiro(r.Total)" Icone="alerta"
+                 Tom="@(r.Vazio ? "neutro" : "perigo")" ClasseValor="@(r.Vazio ? null : "negativo")"
+                 Nota="Contas de paciente vencidas" />
+            <Kpi Rotulo="Pacientes" Valor="@r.Pacientes.ToString(Formato.PtBr)" Icone="pessoas" Nota="Pessoas a cobrar" />
+            <Kpi Rotulo="Contas" Valor="@r.Contas.ToString(Formato.PtBr)" Icone="lista" Nota="Lançamentos em aberto" />
+            @* "—" e não "R$ 0,00": sem ninguém devendo não há média, e zero se leria como "ninguém deve quase nada". *@
+            <Kpi Rotulo="Médio por paciente" Valor="@(r.MedioPorPaciente is { } m ? Formato.Dinheiro(m) : "—")" Icone="moeda"
+                 Tom="neutro" Nota="Quanto deve quem deve" />
+        </section>
+
+        <section class="cartao">
+            <div class="cartao-titulo qmd-titulo">
+                <div>
+                    <h2>Distribuição por tempo de atraso</h2>
+                    <p>Separa o atraso que um lembrete resolve do que já exige decisão — acordo, ou parar de contar com o dinheiro.</p>
+                </div>
+            </div>
+            @* TODAS as faixas, mesmo vazias: aging sem a faixa de 90+ se lê como "não há dívida velha". *@
+            <ul class="qmd-faixas">
+                @foreach (var f in QuemMeDeveTela.FaixasDoEnvelhecimento(r))
+                {
+                    <li class="@(f.Faixa == FaixasInadimplencia.Acima90 ? "critica" : null)">
+                        <span class="qmd-faixa-rotulo">@f.Faixa</span>
+                        <span class="qmd-faixa-valor numero" title="@QuemMeDeveTela.ValorDaFaixa(f)">@Formato.Dinheiro(f.Valor)</span>
+                        <span class="qmd-faixa-nota">@(f.Pacientes == 0 ? "ninguém" : $"{f.Pacientes} paciente(s)") · @Formato.Porcentagem(f.Fracao)</span>
+                        <span class="trilho" aria-hidden="true"><i style="width:@(Largura(f.Fracao))"></i></span>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="filtros">
+            <Campo Rotulo="Paciente">
+                <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Parte do nome" title="Parte do nome — o acento não atrapalha" value="@_filtroPaciente" @oninput="FiltroMudou" maxlength="80" /></div>
+            </Campo>
+            <Campo Rotulo="Cobrar por">
+                <select class="campo" value="@_ordem" @onchange="OrdemMudouAsync">
+                    @foreach (var o in Enum.GetValues<OrdemInadimplencia>())
+                    {
+                        <option value="@o">@RotulosEnum.De(o)</option>
+                    }
+                </select>
+            </Campo>
+            <label class="alternar qmd-criticos" title="Onde a cobrança deixa de ser lembrete: acordo, ou parar de contar com o dinheiro">
+                <input type="checkbox" checked="@_soCriticos" @onchange="CriticosMudou" />
+                Só críticos (mais de 90 dias)
+            </label>
+            @if (FiltroAtivo)
+            {
+                <button type="button" class="botao fantasma" @onclick="LimparFiltro">Limpar filtro</button>
+            }
+            @if (_resumo is { } rr)
+            {
+                <span class="resumo-filtro">@QuemMeDeveTela.ResumoDaLista(rr, _filtrados.Count, FiltroAtivo)</span>
+            }
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a inadimplência" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (Carregando && _todos.Count == 0)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_filtrados.Count == 0)
+        {
+            <EstadoVazio Titulo="@QuemMeDeveTela.TituloDoVazio(FiltroAtivo)" Descricao="@QuemMeDeveTela.DescricaoDoVazio(FiltroAtivo)"
+                         Icone="@(FiltroAtivo ? "filtro" : "ok")" />
+        }
+        else
+        {
+            <ul class="qmd-devedores">
+                @foreach (var d in _filtrados)
+                {
+                    var critico = QuemMeDeveTela.EhCritico(d);
+                    var temFone = QuemMeDeveTela.TelefoneParaWhatsApp(d.Telefone) is not null;
+                    <li class="qmd-devedor @(critico ? "critico" : null)" @key="d.PacienteId">
+                        <div class="qmd-devedor-topo">
+                            <div class="qmd-devedor-nome">
+                                <span class="principal">@d.Nome</span>
+                                <span class="secundario">
+                                    @QuemMeDeveTela.ResumoDoDevedor(d)
+                                    <Selo Tom="@(critico ? "perigo" : "aviso")">@d.Faixa</Selo>
+                                </span>
+                                <span class="secundario">@(string.IsNullOrWhiteSpace(d.Telefone) ? "Sem telefone no cadastro" : Clinica.Domain.Telefone.Formatar(d.Telefone))</span>
+                            </div>
+                            <span class="qmd-devedor-total numero">@Formato.Dinheiro(d.Total)</span>
+                            <div class="botoes-linha">
+                                @* Sem telefone utilizável o botão explica por que não dá, em vez de copiar e a pessoa não ter para quem mandar. *@
+                                <button type="button" class="botao mini primario" disabled="@(!temFone)"
+                                        title="@(temFone ? "Copia o lembrete pronto para colar no WhatsApp do paciente" : "Telefone ausente ou inválido no cadastro")"
+                                        @onclick="() => CopiarCobrancaAsync(d)"><Icone Nome="copiar" />Copiar cobrança</button>
+                                <button type="button" class="botao mini icone" disabled="@(!temFone)"
+                                        title="Copiar o link do WhatsApp (abre a conversa com o lembrete)" aria-label="Copiar o link do WhatsApp"
+                                        @onclick="() => CopiarLinkAsync(d)"><Icone Nome="link" /></button>
+                            </div>
+                        </div>
+                        @* A mais antiga primeiro: é a que explica a conversa ("desde março"). *@
+                        <table class="qmd-contas">
+                            <colgroup><col /><col class="qmd-col-venc" /><col class="qmd-col-valor" /><col class="qmd-col-atraso" /><col class="qmd-col-acao" /></colgroup>
+                            <tbody>
+                                @foreach (var c in d.Detalhe)
+                                {
+                                    <tr @key="c.LancamentoId">
+                                        <td class="qmd-conta-descricao">@c.Descricao</td>
+                                        <td class="nao-quebra">venc. @Formato.Data(c.Vencimento)</td>
+                                        <td class="direita numero qmd-conta-valor">@Formato.Dinheiro(c.Valor)</td>
+                                        <td class="nao-quebra secundario-cel">@QuemMeDeveTela.AtrasoDaConta(c)</td>
+                                        <td class="direita">
+                                            <button type="button" class="botao mini" disabled="@(!PodeEditar)"
+                                                    title="@(PodeEditar ? "Registrar o recebimento desta conta" : "Seu acesso não permite dar baixa em conta de paciente.")"
+                                                    @onclick="() => Receber(c)"><Icone Nome="check" />Recebi</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+</div>
+
+@if (_receber is { } idReceber)
+{
+    <RecebimentoForm LancamentoId="idReceber" AoFechar="() => _receber = null" AoConcluir="RecebidoAsync" />
+}
+
+@code {
+    private List<PacienteInadimplente> _todos = [];
+    private IReadOnlyList<PacienteInadimplente> _filtrados = [];
+    private ResumoInadimplencia? _resumo;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    /// <summary>Mais antigo primeiro por padrão: a chance de receber cai com o tempo.</summary>
+    private OrdemInadimplencia _ordem = OrdemInadimplencia.MaisAntigo;
+    private string _filtroPaciente = string.Empty;
+    private bool _soCriticos;
+
+    private int? _receber;
+
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+    private bool FiltroAtivo => QuemMeDeveTela.FiltroAtivo(_filtroPaciente, _soCriticos);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar a ordenação duas vezes rápido
+    /// não pode deixar a lista de uma ordem sob o combo marcado com a outra. Tudo é publicado
+    /// depois do último await.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            using var escopo = Escopo();
+            var devedores = await escopo.ServiceProvider.GetRequiredService<InadimplenciaService>()
+                .PorPacienteAsync(hoje, _ordem);
+            if (geracao != _geracao || Descartada) return;
+
+            _todos = devedores.ToList();
+            _resumo = InadimplenciaService.Resumir(devedores);
+            Refiltrar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — inadimplência não pôde ser lida", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _resumo = null;
+            _todos = [];
+            _filtrados = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>O filtro é em memória: os KPIs e as faixas continuam sendo do TODO.</summary>
+    private void Refiltrar() => _filtrados = QuemMeDeveTela.Filtrar(_todos, _filtroPaciente, _soCriticos);
+
+    private void FiltroMudou(ChangeEventArgs e)
+    {
+        _filtroPaciente = e.Value?.ToString() ?? string.Empty;
+        Refiltrar();
+    }
+
+    private void CriticosMudou(ChangeEventArgs e)
+    {
+        _soCriticos = e.Value is true;
+        Refiltrar();
+    }
+
+    private void LimparFiltro()
+    {
+        _filtroPaciente = string.Empty;
+        _soCriticos = false;
+        Refiltrar();
+    }
+
+    private Task OrdemMudouAsync(ChangeEventArgs e)
+    {
+        _ordem = Enum.TryParse<OrdemInadimplencia>(e.Value?.ToString(), out var o) ? o : OrdemInadimplencia.MaisAntigo;
+        return CarregarAsync();
+    }
+
+    /// <summary>
+    /// O lembrete pronto, para colar no WhatsApp. É lembrete, não ameaça, e não traz dado
+    /// clínico — a frase é do serviço, igual em toda tela que cobrar.
+    /// </summary>
+    private async Task CopiarCobrancaAsync(PacienteInadimplente d)
+    {
+        if (QuemMeDeveTela.TelefoneParaWhatsApp(d.Telefone) is null)
+        {
+            Notificacoes.Erro($"{d.Nome}: telefone ausente ou inválido no cadastro.");
+            return;
+        }
+        if (await Host.CopiarAsync(InadimplenciaService.MensagemDeCobranca(d)))
+            Notificacoes.Sucesso($"Lembrete de {d.Nome} copiado — cole no WhatsApp de {Clinica.Domain.Telefone.Formatar(d.Telefone)}.");
+        else
+            Notificacoes.Erro("A área de transferência não aceitou a mensagem. Tente de novo em instantes.");
+    }
+
+    private async Task CopiarLinkAsync(PacienteInadimplente d)
+    {
+        if (QuemMeDeveTela.LinkWhatsApp(d.Telefone, InadimplenciaService.MensagemDeCobranca(d)) is not { } link)
+        {
+            Notificacoes.Erro($"{d.Nome}: telefone ausente ou inválido no cadastro.");
+            return;
+        }
+        if (await Host.CopiarAsync(link))
+            Notificacoes.Sucesso($"Link do WhatsApp de {d.Nome} copiado — cole no navegador para abrir a conversa.");
+        else
+            Notificacoes.Erro("A área de transferência não aceitou o link. Tente de novo em instantes.");
+    }
+
+    /// <summary>
+    /// Registrar o recebimento passa pelo MESMO formulário do Caixa (o lançamento previsto
+    /// é realizado pelo FinanceiroService — quem grava dinheiro continua sendo um só). O
+    /// formulário mostra o valor e pede a forma de pagamento: dar baixa por engano numa
+    /// conta vencida apaga uma dívida real.
+    /// </summary>
+    private void Receber(ContaEmAtraso c)
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "dar baixa em conta de paciente")) _receber = c.LancamentoId;
+    }
+
+    private async Task RecebidoAsync()
+    {
+        _receber = null;
+        Notificacoes.Sucesso("Recebimento registrado.");
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// A planilha da rodada de ligações. Leva NOME de paciente e a dívida dele para um
+    /// arquivo — saída de dado: o bit é o de LER o financeiro, que é o que o arquivo carrega.
+    /// </summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar a inadimplência")) return;
+        try
+        {
+            var linhas = _filtrados.Select(d => (IReadOnlyList<string>)
+            [
+                d.Nome, Formato.Dinheiro(d.Total), d.Contas.ToString(Formato.PtBr), d.Faixa,
+                d.Detalhe.Count > 0 ? Formato.Data(d.Detalhe[0].Vencimento) : "—"
+            ]).ToList();
+            var erro = await Host.ExportarCsvAsync(
+                ["Paciente", "Total em atraso", "Contas", "Faixa", "Vencimento mais antigo"], linhas,
+                $"inadimplencia-{DateTime.Today:yyyy-MM-dd}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — inadimplência não pôde ser exportada", ex);
+            Notificacoes.Erro($"Não foi possível exportar: {ex.Message}");
+        }
+    }
+
+    private static string Largura(double fracao)
+        => string.Create(CultureInfo.InvariantCulture, $"{Math.Clamp(fracao, 0d, 1d) * 100:0.#}%");
+}
