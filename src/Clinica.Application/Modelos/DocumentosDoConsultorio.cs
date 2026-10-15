@@ -56,6 +56,38 @@ public static class DocumentosDoConsultorio
             .ToList();
 
     /// <summary>
+    /// Os CARTÕES de "Novo documento" (out/2026 — a tela de produção da clínica): a mesma
+    /// régua de <see cref="ParaEmitir"/>, cada folha com o ícone dela. Lida pela tela de
+    /// Receitas e documentos do Consultório e pela escolha de documento da ficha do
+    /// paciente — duas listas escritas à mão divergiriam na primeira folha nova.
+    /// </summary>
+    public static IReadOnlyList<CartaoDeFolha> Cartoes(Permissao acessos)
+        => ParaEmitir(acessos).Select(f => new CartaoDeFolha(f, Icone(f))).ToList();
+
+    /// <summary>
+    /// O ícone de cada papel, pelo TIPO (nome do traço em <c>IconeClinico</c>). O tipo, e
+    /// não a chave: é o tipo que decide qual folha a janela abre, e o desenho segue o que
+    /// vai sair. Vale para TODAS as folhas do catálogo — a central de Documentos da
+    /// Recepção e do Gerente desenha os mesmos cartões (a mesma tela em todos os módulos).
+    /// </summary>
+    public static string Icone(FolhaCatalogo folha) => folha.TipoClinico switch
+    {
+        TipoDocumentoClinico.Receita => "rx",
+        TipoDocumentoClinico.Atestado => "document",
+        TipoDocumentoClinico.LaudoMedico => "record",
+        TipoDocumentoClinico.Comparecimento => "check",
+        TipoDocumentoClinico.PedidoExame => "exam",
+        TipoDocumentoClinico.RelatorioEvolucao => "chart",
+        TipoDocumentoClinico.Anamnese => "model",
+        TipoDocumentoClinico.TermoProcedimento or TipoDocumentoClinico.Consentimento => "record",
+        // As folhas que não são do atendimento — a central de Documentos as mostra no MESMO
+        // cartão: o dinheiro com a pasta, a gestão com o gráfico.
+        _ when folha.Natureza == NaturezaFolha.Financeiro => "folder",
+        _ when folha.Natureza == NaturezaFolha.Gerencial => "chart",
+        _ => "document"
+    };
+
+    /// <summary>
     /// As opções do combo "Tipo": "Todas as folhas", depois as folhas CLÍNICAS do catálogo
     /// que este acesso pode LER (o laudo médico entre elas), e por fim os tipos que só a
     /// lista trouxe.
@@ -120,4 +152,14 @@ public static class DocumentosDoConsultorio
                "Confira o número, o código de conferência ou o tipo escolhido, ou use Limpar busca.")
             : ("Nenhum documento emitido para este paciente",
                "Receita, atestado, laudo e pedido de exame aparecem aqui assim que forem emitidos.");
+}
+
+/// <summary>
+/// Um cartão de "Novo documento": a folha do catálogo e o ícone dela. O clique entrega a
+/// FOLHA a quem emite — é ela que diz qual papel a janela abre (<see cref="FolhaCatalogo.TipoClinico"/>).
+/// </summary>
+public sealed record CartaoDeFolha(FolhaCatalogo Folha, string Icone)
+{
+    public string Rotulo => Folha.Rotulo;
+    public string Descricao => Folha.Descricao;
 }

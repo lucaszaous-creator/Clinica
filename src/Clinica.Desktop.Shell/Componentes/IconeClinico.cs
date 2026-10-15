@@ -34,6 +34,14 @@ public sealed class IconeClinico : Control
             "body"=>"M 14.5,4 A 2.5,2.5 0 1 1 9.5,4 A 2.5,2.5 0 1 1 14.5,4 M 4,9 L 8,8 16,8 20,9 M 8,8 L 9,14 7,22 M 16,8 L 15,14 17,22 M 9,14 L 15,14",
             "more"=>"M 4,12 L 4.1,12 M 12,12 L 12.1,12 M 20,12 L 20.1,12",
             "check"=>"M 4,12 L 9,17 20,6",
+            // As páginas de Receitas e documentos / Prescrição de infusão (out/2026): os
+            // traços da tela de produção, na mesma grade de 24.
+            "search"=>"M 21,21 L 16.6,16.6 M 19,10.5 A 8.5,8.5 0 1 1 2,10.5 A 8.5,8.5 0 1 1 19,10.5",
+            "swap"=>"M 4,7 L 20,7 M 16,3 L 20,7 16,11 M 20,17 L 4,17 M 8,13 L 4,17 8,21",
+            "refresh"=>"M 20,7 L 20,12 15,12 M 4,17 L 4,12 9,12 M 6.1,6 A 8,8 0 0 1 19.3,9 M 4.7,15 A 8,8 0 0 0 17.9,18",
+            "arrow"=>"M 5,12 L 19,12 M 14,7 L 19,12 14,17",
+            "copy"=>"M 8,8 L 20,8 20,21 8,21 Z M 16,8 L 16,3 3,3 3,16 8,16",
+            "plus"=>"M 12,5 L 12,19 M 5,12 L 19,12",
             _=>"M 12,4 L 12,20 M 4,12 L 20,12"};
         var pen = new Pen(Foreground, name == "more" ? 3 : 1.8) { StartLineCap=PenLineCap.Round, EndLineCap=PenLineCap.Round, LineJoin=PenLineJoin.Round };
         dc.PushTransform(new ScaleTransform(ActualWidth / 24, ActualHeight / 24));

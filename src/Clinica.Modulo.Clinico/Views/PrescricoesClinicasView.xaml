@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
-             xmlns:srv="clr-namespace:Clinica.Application.Servicos;assembly=Clinica.Application"
+             xmlns:md="clr-namespace:Clinica.Application.Modelos;assembly=Clinica.Application"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              Background="{StaticResource Brush.Fundo}">
 
@@ -13,400 +13,353 @@
     </UserControl.Resources>
 
     <!-- ============================================================
-         DOIS CONTEÚDOS ALTERNATIVOS, nunca sobrepostos: ou a tela é a BUSCA (ela abre
-         pela sidebar sem ninguém em foco), ou é o trabalho sobre o paciente escolhido.
+         RECEITAS E DOCUMENTOS (out/2026 — o desenho da tela de PRODUÇÃO da clínica).
 
-         Antes, sem paciente, ela mostrava o cabeçalho com o nome vazio, os quatro botões
-         APAGADOS e a busca espremida numa coluna de 320 px no canto — a tela mostrando o
-         que se faz DEPOIS de escolher, antes de haver quem escolher.
+         A tela que a clínica usava era a versão em HTML; ao sair o WebView2 (PR 250) a
+         volta para o WPF trouxe a régua de botões soltos e a pilha anterior, e a clínica
+         a reconheceu como "a tela antiga". Este é o desenho aprovado, em XAML:
 
-         ⚠️ Como SEÇÃO da tela do paciente (`MostrarCabecalho` falso) a busca NUNCA
-         aparece: ali a identidade está acima e o seletor trocaria o `PacienteEmFoco` por
-         baixo das outras seções.
+         1. o cabeçalho (sobretítulo, título e a marca da seção);
+         2. o PACIENTE — a busca enquanto ninguém foi escolhido (ou durante "Trocar
+            paciente"), o cartão "Paciente selecionado" depois;
+         3. NOVO DOCUMENTO — um cartão por papel, e cada cartão abre O FORMULÁRIO DELE
+            (receita abre receita; comparecimento abre comparecimento). Apagados sem
+            paciente, e o subtítulo da região diz por quê;
+         4. o HISTÓRICO — busca, tipo, a tabela e a 2ª via à vista.
+
+         A página ROLA inteira, como a de produção; por isso a tabela tem teto e devolve a
+         roda à página (checagens 36 e 43).
+
+         ⚠️ Como SEÇÃO da tela do paciente (`MostrarCabecalho` falso) não há cabeçalho nem
+         cartão de paciente: ali a identidade está no crachá, e o seletor daqui trocaria o
+         `PacienteEmFoco` por baixo das outras seções.
          ============================================================ -->
-    <Grid>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,24"
-                      Visibility="{Binding EscolhendoPaciente,
-                                   Converter={StaticResource BoolParaVisibilidade}}">
-            <comp:BuscaDePacienteView DataContext="{Binding Seletor}"
-                                      Pergunta="Para quem é a prescrição?"
-                                      Explicacao="Receita, atestado, laudo médico, pedido de exame e comparecimento — emitidos por quem atende."
-                                      Convite="Comece digitando o nome ou o CPF. Quem você chamou da fila já entra escolhido." />
-        </ScrollViewer>
-
-    <DockPanel Visibility="{Binding TrabalhandoNoPaciente,
-                            Converter={StaticResource BoolParaVisibilidade}}">
-        <DockPanel.Style>
-            <Style TargetType="DockPanel">
-                <!-- Como TELA (item de menu) ela tem a margem da página; como SEÇÃO do
-                     paciente, o workspace já deu a margem e repeti-la afastaria o
-                     conteúdo do crachá logo acima. -->
-                <Setter Property="Margin" Value="24,20,24,24" />
-                <Style.Triggers>
-                    <DataTrigger Binding="{Binding MostrarCabecalho}" Value="False">
-                        <Setter Property="Margin" Value="0,4,0,0" />
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
-        </DockPanel.Style>
-
-        <!-- Cabeçalho: quem, e o que se pode emitir. Os quatro tipos são BOTÕES porque no
-             consultório a decisão vem antes do clique — ninguém pensa "vou emitir um
-             documento", pensa "vou dar um atestado". -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel Grid.Column="0" Margin="0,0,16,0"
-                        Visibility="{Binding MostrarCabecalho,
-                                     Converter={StaticResource BoolParaVisibilidade}}">
-                <TextBlock Text="Prescrições" Style="{StaticResource H1}" Margin="0,0,0,2" />
-                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
-                           Text="Receita, atestado, laudo médico, pedido de exame e comparecimento — emitidos por quem atende." />
-                <TextBlock Text="{Binding Paciente}" Margin="0,8,0,0"
-                           FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold"
-                           TextWrapping="Wrap"
-                           Foreground="{StaticResource Brush.Texto.Primario}"
-                           Visibility="{Binding TemPaciente,
-                                        Converter={StaticResource BoolParaVisibilidade}}" />
-            </StackPanel>
-
-            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                <!-- A busca é ATALHO: o caminho normal é o paciente que já está em foco.
-                     A lista de resultados só aparece depois de digitar — caixa de
-                     resultados vazia permanente é o defeito que a regra de leiaute proíbe. -->
-                <StackPanel Width="320" HorizontalAlignment="Right"
-                            Visibility="{Binding MostrarCabecalho,
-                                         Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBox Style="{StaticResource CampoPesquisa}"
-                             Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                             ctrl:Ajudantes.Placeholder="Buscar outro paciente" />
-                    <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                             SelectedItem="{Binding Seletor.Selecionado}"
-                             ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                             MaxHeight="220" Margin="0,4,0,0">
-                        <ListBox.Style>
-                            <Style TargetType="ListBox">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Seletor.Termo}" Value="">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ListBox.Style>
-                    </ListBox>
-                </StackPanel>
-
-                <!-- Reler a lista do paciente: o documento assinado ou cancelado noutra
-                     máquina só aparece aqui depois de uma releitura. -->
-                <Button Content="Atualizar" Command="{Binding CarregarCommand}"
-                        Style="{StaticResource BotaoSecundario}"
-                        HorizontalAlignment="Right" Margin="0,8,0,0"
-                        ToolTip="Relê os documentos deste paciente" />
-            </StackPanel>
-                <!-- ============================================================
-                     A RÉGUA "EMITIR" (set/2026, tela 2 do mockup aprovado).
-
-                     Eram quatro botões escritos à mão e o catálogo tem SEIS folhas
-                     clínicas de paciente: o relatório de evolução — o papel que o paciente
-                     leva ao convênio — e a ficha de anamnese só se emitiam pela central da
-                     RECEPÇÃO. Agora a régua vem do catálogo, e cada folha traz o BIT dela.
-
-                     ⚠️ O `IsEnabled` do painel virou `TemPaciente`, e não
-                     `PodeEmitirDocumento`: aquele é o bit do PRONTUÁRIO, e o
-                     comparecimento pede o do CADASTRO. Sob um bit só, quem tem um e não o
-                     outro veria os seis apagados ou os seis acesos. Quem filtra por
-                     permissão é a própria lista.
-                     ============================================================ -->
-                <DockPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,0,0" IsEnabled="{Binding TemPaciente}">
-                    <!-- Declarado ANTES do que preenche: no DockPanel o docado ganha, e
-                         é ele que precisa da largura garantida. -->
-                    <Button DockPanel.Dock="Right" Content="Prescrição de infusão"
-                            Margin="12,0,0,8" Padding="14,8" VerticalAlignment="Top"
-                            Style="{StaticResource BotaoDocumento}"
-                            ToolTip="Abre a folha de infusão — outra tela, com ciclo de vida próprio"
-                            Command="{Binding IrParaInfusaoCommand}"
-                            Visibility="{Binding TemPrescricaoDeInfusao,
-                                         Converter={StaticResource BoolParaVisibilidade}}" />
-
-                    <!-- O nome da régua: sem ele, os botões soltos à direita não dizem
-                         que é ali que nasce o papel novo — e o laudo médico, o mais novo
-                         deles, é justamente o que a clínica procura. -->
-                    <TextBlock DockPanel.Dock="Left" Text="Novo documento"
-                               Style="{StaticResource Rotulo}"
-                               VerticalAlignment="Top" Margin="0,9,16,0" />
-
-                    <ItemsControl ItemsSource="{Binding FolhasParaEmitir}"
-                                  HorizontalAlignment="Right">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <!-- WrapPanel como filho que PREENCHE: docado, ele seria
-                                     medido com largura infinita e nunca dobraria a linha
-                                     (a checagem 32). -->
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type srv:FolhaCatalogo}">
-                                <Button Content="{Binding Rotulo}" Margin="0,0,8,8" Padding="14,8"
-                                        Style="{StaticResource BotaoDocumento}"
-                                        ToolTip="{Binding Descricao}"
-                                        Command="{Binding DataContext.EmitirCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </DockPanel>
-        </Grid>
-
-        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Amarrar a
-             visibilidade a MensagemEhErro escondia junto toda mensagem de ÊXITO (parcela 62). -->
-        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
-                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                             FallbackValue=Collapsed}">
-            <Border.Style>
-                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel MaxWidth="1520">
+            <StackPanel.Style>
+                <Style TargetType="StackPanel">
+                    <Setter Property="Margin" Value="28,24,28,40" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        <DataTrigger Binding="{Binding MostrarCabecalho}" Value="False">
+                            <Setter Property="Margin" Value="0,4,0,8" />
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
-            </Border.Style>
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-        </Border>
+            </StackPanel.Style>
 
-        <!-- ============================================================
-             HISTÓRICO DE DOCUMENTOS (out/2026 — a clínica: "os laudos precisam ser fáceis
-             de LOCALIZAR e REIMPRIMIR").
-
-             Era uma pilha corrida, sem busca nem filtro: quem tinha o número do laudo na
-             mão rolava a vida inteira do paciente. Agora é TABELA — tipo, número, data,
-             quem assinou e situação em colunas que se leem de relance — com a busca da
-             central da Recepção (`BuscaNasFolhas`, a MESMA regra: número com ou sem a
-             barra, código de conferência, folha, quem assinou) e o filtro por tipo, com
-             "Laudo médico" entre as opções.
-
-             Uma superfície só para a região (título, filtro e tabela), e o estado vazio é
-             o último filho do Grid da TABELA: ele explica o vazio da lista, e cobrir o
-             filtro tiraria da pessoa o "Limpar busca" que o resolve (parcelas 58/64/79).
-             ============================================================ -->
-        <Border Background="{StaticResource Brush.Superficie}"
-                BorderBrush="{StaticResource Brush.Borda}"
-                BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
-            <DockPanel>
-                <DockPanel DockPanel.Dock="Top" Margin="16,14,16,0">
-                    <TextBlock DockPanel.Dock="Left" Text="Histórico de documentos"
-                               Style="{StaticResource H3}" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
-                               VerticalAlignment="Center" Margin="12,0,0,0"
-                               TextTrimming="CharacterEllipsis"
-                               Visibility="{Binding Resumo, Converter={StaticResource TextoParaVisibilidade},
-                                            FallbackValue=Collapsed}" />
-                </DockPanel>
-
-                <!-- Achar o papel. Só existe com paciente: busca sobre lista nenhuma é o
-                     campo morto da parcela 49. -->
-                <Grid DockPanel.Dock="Top" Margin="16,12,16,0"
-                      Visibility="{Binding TemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Buscar documento"
-                               Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Tipo"
-                               Style="{StaticResource Rotulo}" Margin="12,0,0,6" />
-                    <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource CampoPesquisa}"
-                             MaxLength="80"
-                             ctrl:Ajudantes.Placeholder="Número (2026/0014), código de conferência, tipo ou quem assinou"
-                             Text="{Binding TextoBusca, UpdateSourceTrigger=PropertyChanged, Delay=200}" />
-                    <ComboBox Grid.Row="1" Grid.Column="1" Width="240" Margin="12,0,0,0"
-                              VerticalAlignment="Center"
-                              ItemsSource="{Binding TiposDeFolha}"
-                              SelectedItem="{Binding TipoFiltro}" />
-                </Grid>
-
-                <!-- O recorte escrito ("3 de 12 de Laudo médico") e o Limpar. Filtro
-                     esquecido que responde "nenhum documento" faria emitir de novo um
-                     laudo que já existe. -->
-                <DockPanel DockPanel.Dock="Top" Margin="16,8,16,0"
-                           Visibility="{Binding Recorte, Converter={StaticResource TextoParaVisibilidade},
-                                        FallbackValue=Collapsed}">
-                    <Button DockPanel.Dock="Right" Content="Limpar busca"
-                            Style="{StaticResource BotaoDocumentoPequeno}"
-                            VerticalAlignment="Center" Margin="12,0,0,0"
-                            Command="{Binding LimparBuscaCommand}" />
-                    <TextBlock Text="{Binding Recorte}" FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Acento}"
-                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                </DockPanel>
-
-                <Grid Margin="0,12,0,0">
-                    <!-- ⚠️ A ALTURA DA LINHA É A DO CONTEÚDO (checagem 47): a célula do
-                         documento empilha tipo, número, sessão e link, e o `RowHeight="36"`
-                         do estilo implícito a DECEPARIA na borda. -->
-                    <DataGrid ItemsSource="{Binding Documentos}"
-                              BorderThickness="0,1,0,0"
-                              CanUserSortColumns="False"
-                              RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="52"
-                              Visibility="{Binding TemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
-                        <DataGrid.RowStyle>
-                            <!-- Cancelado fica na lista, MARCADO e apagado — nunca some: a via
-                                 impressa não desaparece por ser cancelada aqui. -->
-                            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Cancelado}" Value="True">
-                                        <Setter Property="Opacity" Value="0.75" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </DataGrid.RowStyle>
-                        <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="DOCUMENTO" Width="*" MinWidth="220">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel VerticalAlignment="Center" Margin="6,8,8,8">
-                                            <TextBlock Text="{Binding Tipo}" FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
-                                            <TextBlock Style="{StaticResource CelulaSuave}"
-                                                       Margin="0,2,0,0" TextTrimming="CharacterEllipsis">
-                                                <Run Text="Nº " /><Run Text="{Binding Numero, Mode=OneWay}" FontWeight="SemiBold" />
-                                                <Run Text=" · conferência " /><Run Text="{Binding Codigo, Mode=OneWay}" />
-                                            </TextBlock>
-                                            <!-- A SESSÃO a que o documento pertence. SOME no avulso. -->
-                                            <TextBlock Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Acento}"
-                                                       Text="{Binding Sessao}" ToolTip="{Binding Sessao}"
-                                                       Visibility="{Binding Sessao,
-                                                                    Converter={StaticResource TextoParaVisibilidade},
-                                                                    FallbackValue=Collapsed}" />
-                                            <!-- O estado do LINK público — só em documento que já teve link. -->
-                                            <TextBlock Text="{Binding Link}" Style="{StaticResource CelulaSuave}"
-                                                       Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
-                                                       Visibility="{Binding Link,
-                                                                    Converter={StaticResource TextoParaVisibilidade},
-                                                                    FallbackValue=Collapsed}" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-
-                            <DataGridTemplateColumn Header="DATA" Width="100" MinWidth="100">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Data}" VerticalAlignment="Center"
-                                                   Margin="6,0" TextTrimming="CharacterEllipsis" />
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-
-                            <DataGridTemplateColumn Header="QUEM ASSINOU" Width="190" MinWidth="140">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Profissional}" ToolTip="{Binding Profissional}"
-                                                   VerticalAlignment="Center" Margin="6,0"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-
-                            <!-- SITUAÇÃO: a cor segue a gravidade — vermelho cancelado, verde
-                                 selado com e-CPF, neutro emitido (vale pela caneta). -->
-                            <DataGridTemplateColumn Header="SITUAÇÃO" Width="190" MinWidth="150">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Border Margin="6,0" ToolTip="{Binding Situacao}">
-                                            <Border.Style>
-                                                <Style TargetType="Border" BasedOn="{StaticResource Badge}">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Estado}" Value="Cancelado">
-                                                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                                                            <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro}" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding Estado}" Value="Assinado">
-                                                            <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
-                                                            <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <TextBlock Text="{Binding Situacao}" TextTrimming="CharacterEllipsis" />
-                                        </Border>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-
-                            <!-- AÇÕES: a 2ª via SEMPRE à vista — reimprimir é o pedido —, o
-                                 Assinar quando falta o selo, e o "⋯" com os outros atos do
-                                 shell (enviar, link, nova versão do laudo, cancelar). -->
-                            <DataGridTemplateColumn Header="AÇÕES" Width="250" MinWidth="250" CanUserSort="False">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                                                    Margin="6,0">
-                                            <Button Content="Assinar" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGrid}"
-                                                    Visibility="{Binding PodeAssinar,
-                                                                 Converter={StaticResource BoolParaVisibilidade}}"
-                                                    ToolTip="Sela o arquivo com o e-CPF. Depois disso, corrigir é cancelar e emitir outro."
-                                                    Command="{Binding DataContext.AssinarCommand,
-                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Imprimir 2ª via" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoDocumentoPequeno}"
-                                                    ToolTip="Reimprime a folha exatamente como foi emitida"
-                                                    Command="{Binding DataContext.ImprimirCommand,
-                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="&#x22EF;" MinWidth="34"
-                                                    Style="{StaticResource BotaoDocumentoPequeno}"
-                                                    ToolTip="As outras ações deste documento"
-                                                    Click="AoAbrirMenuDoDocumento" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-
-                    <!-- Dois vazios diferentes, e a diferença importa: "escolha alguém" e
-                         "esta pessoa não tem documento" são respostas a perguntas distintas. -->
-                    <ctrl:EmptyState Glifo="&#xE77B;"
-                                     Titulo="Escolha um paciente"
-                                     Descricao="A tela abre no paciente que você está atendendo; use a busca para emitir a segunda via de outra pessoa."
-                                     Visibility="{Binding SemPaciente,
-                                                  Converter={StaticResource BoolParaVisibilidade}}" />
-
-                    <!-- O vazio da TABELA, com as duas perguntas separadas pela VM: "não há
-                         documento" e "nenhum bate com a busca". Último filho do Grid da
-                         tabela — a sobreposição explica a lista, não cobre o filtro. -->
-                    <ctrl:EstadoDaTela Itens="{Binding Documentos}"
-                                       Carregando="{Binding Carregando}"
-                                       NaoVerificado="{Binding NaoVerificado}"
-                                       Ativo="{Binding TemPaciente}"
-                                       Glifo="&#xE8A5;"
-                                       TextoCarregando="Procurando documentos…"
-                                       Titulo="{Binding TituloVazio}"
-                                       Descricao="{Binding DescricaoVazio}" />
-                </Grid>
+            <!-- 1 · Cabeçalho -->
+            <DockPanel Margin="0,0,0,24"
+                       Visibility="{Binding MostrarCabecalho, Converter={StaticResource BoolParaVisibilidade}}">
+                <Border DockPanel.Dock="Right" Style="{StaticResource PaginaDocumentos.Marca}" VerticalAlignment="Center">
+                    <comp:IconeClinico Nome="document" Width="26" Height="26"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{StaticResource Brush.Acento}" />
+                </Border>
+                <StackPanel Margin="0,0,20,0">
+                    <TextBlock Text="ATENDIMENTO CLÍNICO" Style="{StaticResource PaginaDocumentos.Sobretitulo}" />
+                    <TextBlock Text="Receitas e documentos" Style="{StaticResource PaginaDocumentos.Titulo}" />
+                    <TextBlock Text="Crie documentos e acompanhe o histórico do paciente em um só lugar."
+                               Style="{StaticResource PaginaDocumentos.Subtitulo}" />
+                </StackPanel>
             </DockPanel>
-        </Border>
-    </DockPanel>
-    </Grid>
+
+            <!-- 2 · O paciente: o MESMO componente nas três páginas de documentos. -->
+            <comp:PacienteDaPaginaView />
+
+            <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade (parcela 62). -->
+            <Border Margin="0,0,0,16"
+                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- 3 · NOVO DOCUMENTO: um cartão por papel. O cartão entrega a FOLHA, e é o tipo
+                 dela que decide o formulário que abre. -->
+            <DockPanel Margin="0,0,0,14">
+                <Button DockPanel.Dock="Right" Style="{StaticResource BotaoFantasma}" Foreground="{StaticResource Brush.Acento}" VerticalAlignment="Center"
+                        Command="{Binding IrParaInfusaoCommand}" IsEnabled="{Binding TemPaciente}"
+                        Visibility="{Binding TemPrescricaoDeInfusao, Converter={StaticResource BoolParaVisibilidade}}"
+                        ToolTip="A folha de infusão é outra tela, com ciclo de vida próprio">
+                    <StackPanel Orientation="Horizontal">
+                        <comp:IconeClinico Nome="infusion" Width="18" Height="18" Margin="0,0,8,0"
+                                           VerticalAlignment="Center" Foreground="{StaticResource Brush.Acento}" />
+                        <TextBlock Text="Prescrição de infusão" VerticalAlignment="Center" />
+                        <comp:IconeClinico Nome="arrow" Width="16" Height="16" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" Foreground="{StaticResource Brush.Acento}" />
+                    </StackPanel>
+                </Button>
+                <StackPanel Margin="0,0,16,0">
+                    <TextBlock Text="Novo documento" Style="{StaticResource PaginaDocumentos.Secao}" />
+                    <TextBlock Text="{Binding TextoAcoes}" Style="{StaticResource PaginaDocumentos.Legenda}" Margin="0,3,0,0" />
+                </StackPanel>
+            </DockPanel>
+
+            <!-- A margem negativa à direita devolve o espaçamento do último cartão de cada
+                 linha: o cartão leva margem à direita e embaixo, e a coluna da direita não
+                 pode ficar 12 px mais estreita que a borda das outras regiões. -->
+            <ItemsControl ItemsSource="{Binding Cartoes}" IsEnabled="{Binding TemPaciente}" Margin="0,0,-12,14">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="3" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type md:CartaoDeFolha}">
+                        <Button Style="{StaticResource PaginaDocumentos.Cartao}"
+                                AutomationProperties.Name="{Binding Rotulo}"
+                                Command="{Binding DataContext.EmitirCommand,
+                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding Folha}">
+                            <DockPanel>
+                                <comp:IconeClinico DockPanel.Dock="Right" Nome="plus" Width="18" Height="18"
+                                                   Margin="12,0,0,0" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                <Border DockPanel.Dock="Left" Style="{StaticResource PaginaDocumentos.IconeBloco}"
+                                        Margin="0,0,14,0" VerticalAlignment="Center">
+                                    <comp:IconeClinico Nome="{Binding Icone}" HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Brush.Acento}" />
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                    <TextBlock Text="{Binding Descricao}" Style="{StaticResource PaginaDocumentos.Legenda}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- 4 · HISTÓRICO DE DOCUMENTOS — uma superfície só: título, filtros e tabela. -->
+            <Border Style="{StaticResource PaginaDocumentos.Painel}">
+                <StackPanel>
+                    <DockPanel Margin="22,20,22,16">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource BotaoSecundario}" VerticalAlignment="Center"
+                                Command="{Binding CarregarCommand}" IsEnabled="{Binding TemPaciente}"
+                                ToolTip="Relê os documentos deste paciente — o que foi assinado ou cancelado noutra máquina">
+                            <StackPanel Orientation="Horizontal">
+                                <comp:IconeClinico Nome="refresh" Width="16" Height="16" Margin="0,0,8,0"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                <TextBlock Text="Atualizar" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <comp:IconeClinico DockPanel.Dock="Left" Nome="history" Margin="0,2,13,0" VerticalAlignment="Top"
+                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                        <StackPanel Margin="0,0,16,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Histórico de documentos" Style="{StaticResource PaginaDocumentos.Secao}" />
+                                <Border Style="{StaticResource PaginaDocumentos.Contador}"
+                                        Visibility="{Binding TemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
+                                    <TextBlock Text="{Binding TotalLido}" TextTrimming="CharacterEllipsis" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding TextoHistorico}" Style="{StaticResource PaginaDocumentos.Legenda}" Margin="0,3,0,0" />
+                            <TextBlock Text="{Binding Resumo}" Style="{StaticResource PaginaDocumentos.Legenda}" Margin="0,2,0,0"
+                                       Visibility="{Binding Resumo, Converter={StaticResource TextoParaVisibilidade},
+                                                    FallbackValue=Collapsed}" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <!-- Achar o papel. Só existe com paciente: busca sobre lista nenhuma é o
+                         campo morto da parcela 49. -->
+                    <Grid Margin="22,0,22,12"
+                          Visibility="{Binding TemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Buscar no histórico"
+                                   Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Tipo de documento"
+                                   Style="{StaticResource Rotulo}" Margin="12,0,0,6" />
+                        <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource CampoPesquisa}"
+                                 MaxLength="80"
+                                 ctrl:Ajudantes.Placeholder="Número (2026/0014), código de conferência, tipo ou quem assinou"
+                                 Text="{Binding TextoBusca, UpdateSourceTrigger=PropertyChanged, Delay=200}" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" Width="240" Margin="12,0,0,0"
+                                  VerticalAlignment="Center"
+                                  ItemsSource="{Binding TiposDeFolha}"
+                                  SelectedItem="{Binding TipoFiltro}" />
+                    </Grid>
+
+                    <!-- O recorte escrito ("3 de 12 de Laudo médico") e o Limpar. -->
+                    <DockPanel Margin="22,0,22,12"
+                               Visibility="{Binding Recorte, Converter={StaticResource TextoParaVisibilidade},
+                                            FallbackValue=Collapsed}">
+                        <Button DockPanel.Dock="Right" Content="Limpar busca"
+                                Style="{StaticResource BotaoDocumentoPequeno}"
+                                VerticalAlignment="Center" Margin="12,0,0,0"
+                                Command="{Binding LimparBuscaCommand}" />
+                        <TextBlock Text="{Binding Recorte}" FontWeight="SemiBold"
+                                   Foreground="{StaticResource Brush.Acento}"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+
+                    <Grid MinHeight="200">
+                        <DataGrid ItemsSource="{Binding Documentos}"
+                                  BorderThickness="0,1,0,0"
+                                  CanUserSortColumns="False"
+                                  RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="52"
+                                  MaxHeight="560" ctrl:Ajudantes.RodaDaPagina="True"
+                                  Visibility="{Binding TemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
+                            <DataGrid.RowStyle>
+                                <!-- Cancelado fica na lista, MARCADO e apagado — nunca some: a via
+                                     impressa não desaparece por ser cancelada aqui. -->
+                                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Cancelado}" Value="True">
+                                            <Setter Property="Opacity" Value="0.75" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="DOCUMENTO" Width="*" MinWidth="220">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Margin="6,8,8,8">
+                                                <TextBlock Text="{Binding Tipo}" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Style="{StaticResource CelulaSuave}"
+                                                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis">
+                                                    <Run Text="Nº " /><Run Text="{Binding Numero, Mode=OneWay}" FontWeight="SemiBold" />
+                                                    <Run Text=" · conferência " /><Run Text="{Binding Codigo, Mode=OneWay}" />
+                                                </TextBlock>
+                                                <!-- A SESSÃO a que o documento pertence. SOME no avulso. -->
+                                                <TextBlock Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Acento}"
+                                                           Text="{Binding Sessao}" ToolTip="{Binding Sessao}"
+                                                           Visibility="{Binding Sessao,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
+                                                <!-- O estado do LINK público — só em documento que já teve link. -->
+                                                <TextBlock Text="{Binding Link}" Style="{StaticResource CelulaSuave}"
+                                                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                                           Visibility="{Binding Link,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Header="DATA" Width="100" MinWidth="100">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Data}" VerticalAlignment="Center"
+                                                       Margin="6,0" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTemplateColumn Header="QUEM ASSINOU" Width="190" MinWidth="140">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Profissional}" ToolTip="{Binding Profissional}"
+                                                       VerticalAlignment="Center" Margin="6,0"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <!-- SITUAÇÃO: a cor segue a gravidade — vermelho cancelado, verde
+                                     selado com e-CPF, neutro emitido (vale pela caneta). -->
+                                <DataGridTemplateColumn Header="SITUAÇÃO" Width="190" MinWidth="150">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="6,0" ToolTip="{Binding Situacao}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border" BasedOn="{StaticResource Badge}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Estado}" Value="Cancelado">
+                                                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                                                <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro}" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Estado}" Value="Assinado">
+                                                                <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+                                                                <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding Situacao}" TextTrimming="CharacterEllipsis" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <!-- AÇÕES: a 2ª via SEMPRE à vista — reimprimir é o pedido —, o
+                                     Assinar quando falta o selo, e o "⋯" com os outros atos do
+                                     shell (enviar, link, nova versão do laudo, cancelar). -->
+                                <DataGridTemplateColumn Header="AÇÕES" Width="250" MinWidth="250" CanUserSort="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                                        Margin="6,0">
+                                                <Button Content="Assinar" Margin="0,0,6,0"
+                                                        Style="{StaticResource BotaoAcaoGrid}"
+                                                        Visibility="{Binding PodeAssinar,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        ToolTip="Sela o arquivo com o e-CPF. Depois disso, corrigir é cancelar e emitir outro."
+                                                        Command="{Binding DataContext.AssinarCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Imprimir 2ª via" Margin="0,0,6,0"
+                                                        Style="{StaticResource BotaoDocumentoPequeno}"
+                                                        ToolTip="Reimprime a folha exatamente como foi emitida"
+                                                        Command="{Binding DataContext.ImprimirCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="&#x22EF;" MinWidth="34"
+                                                        Style="{StaticResource BotaoDocumentoPequeno}"
+                                                        ToolTip="As outras ações deste documento"
+                                                        Click="AoAbrirMenuDoDocumento" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Sem paciente: tudo começa por ele. -->
+                        <ctrl:EmptyState Glifo="&#xE77B;"
+                                         Titulo="Tudo começa pelo paciente"
+                                         Descricao="Após selecionar, você poderá criar e consultar receitas e documentos."
+                                         Visibility="{Binding SemPaciente,
+                                                      Converter={StaticResource BoolParaVisibilidade}}" />
+
+                        <!-- O vazio da TABELA, com as duas perguntas separadas pela VM. Último
+                             filho do Grid da tabela — explica a lista, não cobre o filtro. -->
+                        <ctrl:EstadoDaTela Itens="{Binding Documentos}"
+                                           Carregando="{Binding Carregando}"
+                                           NaoVerificado="{Binding NaoVerificado}"
+                                           Ativo="{Binding TemPaciente}"
+                                           Glifo="&#xE8A5;"
+                                           TextoCarregando="Procurando documentos…"
+                                           Titulo="{Binding TituloVazio}"
+                                           Descricao="{Binding DescricaoVazio}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

@@ -4538,6 +4538,29 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   menu ficou à esquerda dele e foi empurrado para fora da janela em 880 px. Quem ancora
   à direita declara `DockPanel.Dock="Right"` e vem ANTES do filho que preenche.
 
+- **A TELA DE DOCUMENTOS É UMA SÓ EM TODOS OS MÓDULOS — e tirar o navegador não podia
+  trazer a tela antiga de volta** (out/2026; a direção, com o print da tela de produção:
+  *"você retrocedeu… ela tem que ser a mesma para todos os módulos"*). A PR 250 tirou o
+  WebView2 e devolveu "Receitas e documentos" e "Prescrição de infusão" ao XAML que existia
+  ANTES da versão em HTML — a régua de botões soltos e a lista corrida. A clínica já usava o
+  desenho HTML (sobretítulo, título e marca; "Selecione o paciente" com a faixa de acento;
+  cartões de papel em três colunas; histórico com contador) e leu o XAML como regressão.
+  ⚠️ **Ao trocar a TECNOLOGIA de uma tela, o desenho que está em produção é o contrato, não
+  o XAML que havia antes dela.** Converter de volta "para o que existia" é restaurar a tela
+  que a clínica já tinha aposentado.
+  Agora o desenho mora no shell (`Styles/Componentes/PaginaDocumentos.xaml` +
+  `PacienteDaPaginaView`) e as TRÊS páginas o usam — Receitas e documentos, Prescrição de
+  infusão e a central de Documentos (Recepção/Gerente), que perdeu as duas abas e virou a
+  mesma página com o histórico embaixo. Os cartões saem de `DocumentosDoConsultorio.Cartoes`
+  e o ícone de `DocumentosDoConsultorio.Icone`: duas listas escritas à mão divergiriam na
+  primeira folha nova.
+  ⚠️ **"Sempre leva ao mesmo papel": a ficha abria a janela de emissão num tipo PADRÃO, com
+  o tipo escondido atrás do link de dados.** Agora ela pergunta (`EscolhaDeDocumentoWindow`,
+  os mesmos cartões) e a janela de emissão mostra o tipo como régua de abas no topo, trocável
+  em um clique. Uma folha branca com editor é parecida em todos os tipos — tipo que só se vê
+  no título é tipo que a pessoa não confere. `CadaPapelAbreOSeuTests` prende chave → tipo
+  das três portas.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

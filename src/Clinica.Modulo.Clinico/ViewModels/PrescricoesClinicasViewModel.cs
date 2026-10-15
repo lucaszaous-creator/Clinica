@@ -150,27 +150,19 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     public ObservableCollection<LinhaDocumentoClinico> Documentos { get; } = [];
 
     /// <summary>
-    /// A régua EMITIR — as folhas clínicas que ESTA pessoa pode emitir (set/2026, tela 2
-    /// do mockup aprovado "documentos nas quatro telas").
+    /// Os CARTÕES de "Novo documento" — as folhas clínicas que ESTA pessoa pode emitir, no
+    /// desenho da tela de produção (out/2026: a volta ao WPF trouxe de volta a régua de
+    /// botões soltos, e a clínica a leu como "a tela antiga").
     ///
-    /// Eram QUATRO botões escritos à mão no XAML (receita, atestado, comparecimento,
-    /// pedido de exame), e o catálogo tem seis folhas clínicas de paciente: o
-    /// <b>relatório de evolução</b> — o papel que o paciente leva ao convênio — e a
-    /// <b>ficha de anamnese</b> só se emitiam pela central da RECEPÇÃO. Quem atende
-    /// pedia ao balcão o relatório do próprio paciente.
+    /// ⚠️ A lista vem do CATÁLOGO (<see cref="DocumentosDoConsultorio.Cartoes"/>): folha nova
+    /// aparece sozinha e cada uma traz o BIT dela. O clique entrega a FOLHA, e é o
+    /// <c>TipoClinico</c> dela que decide qual papel a janela abre — receita abre receita,
+    /// comparecimento abre comparecimento, nunca uma folha padrão.
     ///
-    /// ⚠️ A lista vem do CATÁLOGO, e não de mais dois botões no XAML: folha nova aparece
-    /// aqui sozinha, e — o que mais importa — cada uma traz o BIT dela. O comparecimento
-    /// pede <c>EditarPaciente</c> e a receita pede <c>Prescrever</c>; com a régua inteira
-    /// sob um <c>IsEnabled</c> só, quem tem um e não o outro via os seis apagados ou os
-    /// seis acesos.
-    ///
-    /// ⚠️ Os dois TERMOS assinados pelo paciente ficam de fora, e é decisão: eles não se
-    /// emitem por janela nenhuma — colhem-se com o traço na tela —, e a pendência deles
-    /// já tem porta na RÉGUA do workspace, que acompanha o prontuário aberto nas sete
-    /// seções. Duas portas para o mesmo ato na mesma tela é o que a parcela 79 tirou daqui.
+    /// Os dois TERMOS assinados pelo paciente ficam de fora: colhem-se com o traço na tela,
+    /// e a pendência deles tem porta própria na tela do paciente.
     /// </summary>
-    public ObservableCollection<FolhaCatalogo> FolhasParaEmitir { get; } = [];
+    public IReadOnlyList<CartaoDeFolha> Cartoes { get; }
 
     // ==================== O HISTÓRICO: achar o papel e reimprimir ====================
     //
@@ -282,16 +274,49 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// nunca está sem ninguém — a identidade está acima, e o seletor daqui trocaria o
     /// <c>PacienteEmFoco</c> por baixo das outras seções.
     /// </summary>
-    public bool EscolhendoPaciente => MostrarCabecalho && SemPaciente;
+    public bool EscolhendoPaciente => MostrarCabecalho && (SemPaciente || TrocandoPaciente);
 
-    /// <summary>O par invertido — o projeto não tem conversor de booleano invertido.</summary>
-    public bool TrabalhandoNoPaciente => !EscolhendoPaciente;
+    /// <summary>O cartão "Paciente selecionado" — o par de <see cref="EscolhendoPaciente"/>.</summary>
+    public bool MostraPacienteEscolhido => MostrarCabecalho && TemPaciente && !TrocandoPaciente;
+
+    /// <summary>
+    /// "Trocar paciente" abriu a busca sobre um paciente já escolhido. O paciente continua
+    /// sendo o mesmo até alguém escolher outro — "Manter paciente" volta sem mexer em nada.
+    /// </summary>
+    [ObservableProperty] private bool _trocandoPaciente;
+
+    partial void OnTrocandoPacienteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(EscolhendoPaciente));
+        OnPropertyChanged(nameof(MostraPacienteEscolhido));
+    }
+
+    [RelayCommand]
+    private void TrocarPaciente() => TrocandoPaciente = true;
+
+    [RelayCommand]
+    private void ManterPaciente() => TrocandoPaciente = false;
+
+    /// <summary>O que a região "Novo documento" diz, com e sem paciente.</summary>
+    public string TextoAcoes => TemPaciente
+        ? "Escolha o papel: cada cartão abre o formulário dele."
+        : "Selecione um paciente para liberar as ações.";
+
+    /// <summary>O subtítulo do histórico, com e sem paciente.</summary>
+    public string TextoHistorico => TemPaciente
+        ? "Consulte os registros e as ações disponíveis para cada documento."
+        : "Os registros aparecem após a seleção do paciente.";
+
+    /// <summary>Quantos documentos a carga leu — o contador ao lado do título do histórico.</summary>
+    [ObservableProperty] private int _totalLido;
 
     partial void OnSemPacienteChanged(bool value)
     {
         OnPropertyChanged(nameof(TemPaciente));
         OnPropertyChanged(nameof(EscolhendoPaciente));
-        OnPropertyChanged(nameof(TrabalhandoNoPaciente));
+        OnPropertyChanged(nameof(MostraPacienteEscolhido));
+        OnPropertyChanged(nameof(TextoAcoes));
+        OnPropertyChanged(nameof(TextoHistorico));
     }
 
     private int _pacienteId;
@@ -320,13 +345,13 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             _foco.Definir(paciente.Id, paciente.Nome);
             _pacienteId = paciente.Id;
             Paciente = paciente.Nome;
+            TrocandoPaciente = false;
             _ = CarregarAsync();
         };
 
-        // A régua de emitir: as folhas CLÍNICAS de paciente que este acesso alcança.
-        // Estática — a lista de papéis que a clínica emite não depende do banco.
-        foreach (var folha in DocumentosDoConsultorio.ParaEmitir(SessaoUsuario.Atual.Efetivas))
-            FolhasParaEmitir.Add(folha);
+        // Os cartões de emitir: as folhas CLÍNICAS de paciente que este acesso alcança.
+        // Estáticos — a lista de papéis que a clínica emite não depende do banco.
+        Cartoes = DocumentosDoConsultorio.Cartoes(SessaoUsuario.Atual.Efetivas);
 
         // O combo de tipo já nasce com o catálogo — antes da primeira carga ele não pode
         // abrir vazio, que se lê como "o sistema não sabe filtrar laudo".
@@ -374,6 +399,7 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             _buscaDe = _pacienteId;
             _lidas = [];
             Resumo = string.Empty;
+            TotalLido = 0;
             TextoBusca = null;
             AplicarFiltro();
         }
@@ -414,6 +440,7 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             MontarTipos();
             AplicarFiltro();
             Resumo = DocumentosDoConsultorio.Resumo(_lidas.Select(l => l.Folha).ToList());
+            TotalLido = _lidas.Count;
         }
         catch (Exception ex)
         {
@@ -453,7 +480,7 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
         if (_pacienteId == 0)
         {
             Mensagem = "Escolha um paciente antes de emitir: a tela abre no paciente que "
-                     + "você está atendendo, ou use a busca ao lado.";
+                     + "você está atendendo, ou use a busca acima.";
             MensagemEhErro = true;
             return;
         }

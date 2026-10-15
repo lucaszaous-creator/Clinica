@@ -27,6 +27,7 @@ internal sealed class DocumentoFolha : DockPanel
         var dados = Botao("", false, true); dados.Content = patient; dados.FontWeight = FontWeights.Normal; dados.Padding = new Thickness(0); dados.MinHeight = 0; dados.HorizontalAlignment = HorizontalAlignment.Left; dados.Margin = new Thickness(0, 7, 0, 0);
         dados.ToolTip = "Editar data, profissional, título e observações"; dados.SetBinding(IsEnabledProperty, new Binding("PodeEditar")); dados.Click += (_, _) => AbrirOpcoes(0); title.Children.Add(dados); header.Children.Add(title);
         DockPanel.SetDock(header, Dock.Top); Children.Add(header);
+        if (vm.PodeTrocarTipo) { var tipos = SeletorDeTipo(); DockPanel.SetDock(tipos, Dock.Top); Children.Add(tipos); }
         var footer = new DockPanel { Margin = new Thickness(0, 18, 0, 0) }; DockPanel.SetDock(footer, Dock.Bottom); Children.Add(footer);
         var actions = new StackPanel { Orientation = Orientation.Horizontal }; DockPanel.SetDock(actions, Dock.Right); footer.Children.Add(actions);
         var close = Botao("Fechar"); close.IsCancel = true; actions.Children.Add(close);
@@ -67,6 +68,43 @@ internal sealed class DocumentoFolha : DockPanel
         else if (vm.MostraItens) body.Children.Add(Exames());
         body.Children.Add(Editor(vm.RotuloTextoFolha, true, vm.MostraLaudo ? 320 : 220));
         body.Children.Add(BlocoDeAssinatura());
+    }
+
+    /// <summary>
+    /// QUAL PAPEL é este, à vista (out/2026 — a clínica: "cliquei em receita e fui levado
+    /// ao laudo"). O tipo só se via no título e só se trocava dentro de "dados do
+    /// documento"; uma folha branca com editor é parecida em todos os tipos, e a pessoa não
+    /// tinha como conferir, de relance, que estava no papel certo. Agora o tipo é uma régua
+    /// de abas no topo: o escolhido aceso, os outros a um clique — e trocar refaz a folha
+    /// com os campos DO papel escolhido (afastamento, CID, horários, exames).
+    /// </summary>
+    FrameworkElement SeletorDeTipo()
+    {
+        var linha = new WrapPanel { Margin = new Thickness(0, -10, 0, 18) };
+        linha.SetBinding(IsEnabledProperty, new Binding("PodeEditar"));
+        foreach (var tipo in vm.Tipos)
+        {
+            var chip = new System.Windows.Controls.Primitives.ToggleButton
+            {
+                Content = TipoDocumentoInfo.Rotular(tipo),
+                IsChecked = tipo == vm.TipoSelecionado,
+                Margin = new Thickness(0, 0, 8, 8),
+                Style = (Style)System.Windows.Application.Current.FindResource("ChipFiltro")
+            };
+            System.Windows.Automation.AutomationProperties.SetName(chip, $"Tipo de documento: {TipoDocumentoInfo.Rotular(tipo)}");
+            var escolhido = tipo;
+            chip.Click += (_, _) =>
+            {
+                if (escolhido != vm.TipoSelecionado)
+                {
+                    vm.TipoSelecionado = escolhido;
+                    ((DocumentoWindow)owner).AtualizarFolha();
+                }
+                else chip.IsChecked = true; // o aceso não se desliga: sempre há um papel escolhido
+            };
+            linha.Children.Add(chip);
+        }
+        return linha;
     }
 
     /// <summary>

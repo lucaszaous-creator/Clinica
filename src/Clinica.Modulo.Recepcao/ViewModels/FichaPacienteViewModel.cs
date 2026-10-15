@@ -1787,14 +1787,37 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoDocumentoAsync()
     {
-        // A janela oferece receita, atestado, declaração e pedido de exame — três dos
-        // quatro mandam alguém tomar ou fazer alguma coisa. `EditarPaciente` (o bit do
-        // CADASTRO) autorizava todos eles até a parcela 59.
-        SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "emitir documento clínico");
-
         if (PacienteId == 0) return;
 
-        var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
+        // QUAL PAPEL, antes da janela (out/2026 — a clínica: "dentro da ficha, Emitir
+        // documento sempre nos leva à mesma folha"). A janela de emissão abria num tipo
+        // padrão com o tipo escondido; agora a ficha pergunta, com os MESMOS cartões da
+        // página de documentos, e cada um abre o formulário dele. Só entram as folhas que
+        // ESTE acesso emite — cada uma com o bit dela (a receita pede `Prescrever`; o
+        // comparecimento, `EditarPaciente`).
+        var cartoes = DocumentosDoConsultorio.Cartoes(SessaoUsuario.Atual.Efetivas);
+        if (cartoes.Count == 0)
+        {
+            MensagemEhErro = true;
+            Mensagem = "Seu acesso não emite documento clínico. Peça à direção a permissão, em Acessos.";
+            return;
+        }
+
+        var folha = EscolhaDeDocumentoWindow.Perguntar(cartoes, Nome, JanelaDona.Atual());
+        if (folha?.TipoClinico is not { } tipo) return;
+
+        // A segunda barreira, pelo bit da FOLHA escolhida — não um fixo.
+        SessaoUsuario.Atual.Exigir(
+            folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}");
+
+        // As montadas do prontuário não têm o que digitar: emitem e imprimem.
+        if (folha.MontadaDoProntuario)
+        {
+            await EmitirMontadoAsync(tipo);
+            return;
+        }
+
+        var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId, tipo);
         var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
         {
             Owner = JanelaDona.Atual()
