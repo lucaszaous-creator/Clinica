@@ -315,6 +315,8 @@
 
     protected override Task OnInitializedAsync() => CarregarTudoAsync();
 
+    protected override Task AoVoltarAsync() => CarregarTudoAsync();
+
     private async Task CarregarTudoAsync()
     {
         await CarregarAsync();

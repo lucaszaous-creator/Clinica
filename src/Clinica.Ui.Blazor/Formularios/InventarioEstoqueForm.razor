@@ -97,7 +97,7 @@
     {
         if (_salvando || _carregando || _cargaFalhou) return;
         _mensagem = null;
-        if (string.IsNullOrWhiteSpace(_contado) || !LeituraDeValores.TentarLerQuantidade(_contado, out var quantidade))
+        if (string.IsNullOrWhiteSpace(_contado) || !LeituraDeValores.TentarLerDecimal(_contado, out var quantidade))
         {
             _mensagem = "Informe a quantidade contada (não pode ser negativa).";
             return;

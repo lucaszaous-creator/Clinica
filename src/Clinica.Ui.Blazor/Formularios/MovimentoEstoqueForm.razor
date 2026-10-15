@@ -139,7 +139,7 @@
             _salvando = true;
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "movimentar estoque e registrar compras");
 
-            if (!LeituraDeValores.TentarLerQuantidade(_quantidade, out var quantidade) || quantidade <= 0)
+            if (!LeituraDeValores.TentarLerNumeroExato(_quantidade, out var quantidade) || quantidade <= 0)
                 throw new InvalidOperationException("Informe a quantidade (um número maior que zero).");
 
             decimal? custo = null;

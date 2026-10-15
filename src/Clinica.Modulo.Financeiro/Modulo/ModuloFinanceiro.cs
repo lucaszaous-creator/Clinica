@@ -259,7 +259,7 @@ public sealed class ModuloFinanceiro : IModuloApp
             DataContext = servicos
                 .GetRequiredService<Clinica.Desktop.Shell.Componentes.PacotesViewModel>()
         },
-        ChaveEstoque => new EstoqueView { DataContext = servicos.GetRequiredService<EstoqueViewModel>() },
+        ChaveEstoque => Blazor(typeof(Clinica.Ui.Blazor.Telas.Estoque), servicos),
         ChaveRepasses => Blazor(typeof(Clinica.Ui.Blazor.Telas.Repasses), servicos),
         ChaveTaxas => Blazor(typeof(Clinica.Ui.Blazor.Telas.TaxasEImpostos), servicos),
         ChavePlanoContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.PlanoDeContas), servicos),

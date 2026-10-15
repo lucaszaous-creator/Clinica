@@ -144,14 +144,14 @@
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "editar cadastro do estoque");
 
             var minimo = 0m;
-            if (!string.IsNullOrWhiteSpace(_minimo) && !LeituraDeValores.TentarLerQuantidade(_minimo, out minimo))
+            if (!string.IsNullOrWhiteSpace(_minimo) && !LeituraDeValores.TentarLerNumeroExato(_minimo, out minimo))
                 throw new InvalidOperationException("O mínimo tem de ser um número (não negativo).");
-            if (!LeituraDeValores.TentarLerQuantidade(_fatorCompra, out var fator) || fator <= 0)
+            if (!LeituraDeValores.TentarLerNumeroExato(_fatorCompra, out var fator) || fator <= 0)
                 throw new InvalidOperationException("Informe quantas unidades de consumo há em cada embalagem de compra.");
             decimal? maximo = null;
             if (!string.IsNullOrWhiteSpace(_maximo))
             {
-                if (!LeituraDeValores.TentarLerQuantidade(_maximo, out var valorMaximo))
+                if (!LeituraDeValores.TentarLerNumeroExato(_maximo, out var valorMaximo))
                     throw new InvalidOperationException("O máximo deve ser um número.");
                 maximo = valorMaximo;
             }

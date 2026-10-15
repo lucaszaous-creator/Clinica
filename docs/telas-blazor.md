@@ -67,8 +67,9 @@ nenhum arquivo comum precisa ser editado para acrescentar uma tela.
 7. 💾 **Disco/cópia/navegação** pelo `Host` (`ExportarCsvAsync`, `SalvarEAbrirAsync`,
    `EscolherArquivoAsync`, `CopiarAsync`, `NavegarAsync`). CSV: `Exigir(VerFinanceiro)` antes.
 8. 💰 **Formato pt-BR fixo** (`Formato.Dinheiro/Data/Mes/Numero/ParaCampo`); o que a pessoa
-   digita, pela `LeituraDeValores` (`TentarLerDecimal`, `TentarLerNumeroExato`,
-   `TentarLerQuantidade`). Número dentro de SVG: `CultureInfo.InvariantCulture`.
+   digita, pela `LeituraDeValores` — o MESMO método que o ViewModel WPF usava naquele
+   campo. ⚠️ `TentarLerQuantidade` lê em pt-BR primeiro, então "2.5" vira 25 (o ponto é
+   milhar): use-o só onde o WPF usava; quantidade de estoque é `TentarLerNumeroExato`. Número dentro de SVG: `CultureInfo.InvariantCulture`.
 9. 🏷️ **Enum nunca cru na tela**: `RotulosEnum.De(valor)` (o defeito da parcela 41).
 10. 🎨 **Só token no CSS**. Classe de TOM é `tom-*` (`Selo Tom="aviso"` vira `.tom-aviso`):
     `.aviso` sozinho é o ALERTA — foi assim que o selo "Previsto" saiu inchado.
