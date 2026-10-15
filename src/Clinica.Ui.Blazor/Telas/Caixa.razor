@@ -1,0 +1,423 @@
+@*
+  CAIXA DO MÊS (out/2026, migrado do CaixaView/CaixaViewModel do WPF).
+
+  Responde "quanto entrou e saiu neste mês, e o que ainda vai entrar ou sair?". Os totais
+  vêm do MÊS INTEIRO (FinanceiroService.ResumoAsync); a lista mostra os 300 mais recentes
+  quando não há filtro — e diz isso. Com filtro a lista vem COMPLETA, porque "não achei"
+  sobre um mês pela metade se lê como "não existe".
+
+  Receita de guia do convênio não nasce aqui: ela entra pela Conciliação, já vinculada, e
+  a linha diz "Guia do faturamento" para o elo entre os módulos ficar visível.
+*@
+@inherits TelaBase
+
+<div class="pagina @(Carregando && _todas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Caixa" Titulo="Caixa do mês"
+                     Subtitulo="O que entrou e saiu, pela data do lançamento. O resultado do mês não é o saldo da conta bancária — confira os créditos no extrato.">
+        <SeletorMes Valor="Mes" ValorChanged="TrocarMesAsync" />
+        <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(Linhas.Count == 0)"><Icone Nome="baixar" />Exportar CSV</button>
+        <button type="button" class="botao" @onclick="() => _pix = new()"><Icone Nome="pix" />Cobrar por Pix</button>
+        <button type="button" class="botao primario" @onclick="NovoLancamento" disabled="@(!PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite lançar no caixa.")"><Icone Nome="mais" />Novo lançamento</button>
+    </CabecalhoPagina>
+
+    @if (Resumo is null && Carregando)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+    }
+    else if (Resumo is { } r)
+    {
+        <section class="kpis" aria-label="Resumo do mês">
+            <Kpi Rotulo="Resultado do mês" Valor="@Formato.Dinheiro(r.SaldoLiquido)" Icone="resultado"
+                 Tom="@(r.SaldoLiquido < 0 ? "perigo" : "sucesso")" ClasseValor="@(r.SaldoLiquido < 0 ? "negativo" : "positivo")"
+                 Nota="Entradas líquidas menos saídas realizadas" />
+            <Kpi Rotulo="Entrou" Valor="@Formato.Dinheiro(r.EntradasRealizadas)" Icone="entrada"
+                 Nota="@(r.TemDeducao ? $"Líquido {Formato.Dinheiro(r.EntradasLiquidas)} · taxas e impostos {Formato.Dinheiro(r.TotalDeducoes)}" : "Valor bruto, o que o paciente pagou")">
+                @Curva(_curvaEntradas, "entrada")
+            </Kpi>
+            <Kpi Rotulo="Saiu" Valor="@Formato.Dinheiro(r.SaidasRealizadas)" Icone="saida" Tom="saida" Nota="Despesas realizadas no mês">
+                @Curva(_curvaSaidas, "saida")
+            </Kpi>
+            <Kpi Rotulo="Projeção do mês" Valor="@Formato.Dinheiro(r.SaldoPrevisto)" Icone="calendario" Tom="neutro"
+                 Nota="Somando o que ainda vai entrar e sair (bruto)" />
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="filtros">
+            <Campo Rotulo="Descrição ou categoria">
+                <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Buscar lançamentos" value="@_filtroTexto" @oninput="FiltroTextoMudouAsync" maxlength="80" /></div>
+            </Campo>
+            <Campo Rotulo="Situação">
+                <select class="campo" value="@_filtroSituacao" @onchange="FiltroSituacaoMudouAsync">
+                    @foreach (var s in Situacoes) { <option value="@s">@s</option> }
+                </select>
+            </Campo>
+            @if (FiltroAtivo)
+            {
+                <button type="button" class="botao fantasma" @onclick="LimparFiltroAsync">Limpar filtro</button>
+                <span class="resumo-filtro">@Linhas.Count de @_todas.Count lançamento(s) no filtro</span>
+            }
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler o caixa" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (Carregando && _todas.Count == 0)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (Linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="@(FiltroAtivo ? "Nenhum lançamento bate com o filtro" : "Nenhum lançamento neste mês")"
+                         Descricao="@(FiltroAtivo ? "Limpe o filtro para ver o mês inteiro." : "Receita de guia entra pela Conciliação, já vinculada. O resto entra por Novo lançamento.")" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr><th style="width:72px">Data</th><th>Descrição</th><th style="width:120px">Situação</th><th class="direita" style="width:140px">Valor</th><th class="direita" style="width:200px">Ações</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Linhas)
+                        {
+                            <tr class="@(l.Status == StatusLancamento.Cancelado ? "apagada" : null)" @key="l.Id">
+                                <td class="nao-quebra">@Formato.DataCurta(l.Data)</td>
+                                <td>
+                                    <span class="principal">@l.Descricao</span>
+                                    <span class="secundario">
+                                        @(l.Categoria?.Nome ?? "Sem categoria")
+                                        @if (l.CodigoFaturamentoId is not null) { <Selo Tom="info">Guia do faturamento</Selo> }
+                                    </span>
+                                </td>
+                                <td><Selo Tom="@HistoricoObrigacaoForm.TomDe(l.Status)">@Rotular(l.Status)</Selo></td>
+                                <td class="direita numero"><span class="@(l.Tipo == TipoLancamento.Entrada ? "valor-entrada" : "valor-saida")">@(l.Tipo == TipoLancamento.Entrada ? "+" : "−") @Formato.Dinheiro(l.Valor)</span></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini icone" title="Histórico da obrigação" aria-label="Histórico da obrigação" @onclick="() => _historico = l.Id"><Icone Nome="historico" /></button>
+                                        @if (l.Status == StatusLancamento.Previsto)
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => Realizar(l)"><Icone Nome="check" />Realizar</button>
+                                            @if (l.Tipo == TipoLancamento.Entrada)
+                                            {
+                                                <button type="button" class="botao mini icone" title="Cobrar este valor por Pix" aria-label="Cobrar este valor por Pix" @onclick="() => _pix = (l.Valor, l.Descricao)"><Icone Nome="pix" /></button>
+                                            }
+                                        }
+                                        @if (l.Tipo == TipoLancamento.Entrada && l.Status != StatusLancamento.Cancelado)
+                                        {
+                                            <button type="button" class="botao mini icone" title="Emitir recibo" aria-label="Emitir recibo" disabled="@(!PodeEditar)" @onclick="() => EmitirReciboAsync(l)"><Icone Nome="recibo" /></button>
+                                        }
+                                        @if (l.Status != StatusLancamento.Cancelado)
+                                        {
+                                            <button type="button" class="botao mini icone contorno-perigo" title="Cancelar lançamento" aria-label="Cancelar lançamento" disabled="@(!PodeEditar)" @onclick="() => CancelarAsync(l)"><Icone Nome="cancelar" /></button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (Truncado)
+            {
+                <div class="rodape-lista">Mostrando os @LimiteLinhas lançamentos mais recentes deste mês. Os totais acima consideram o mês inteiro — use o filtro para achar um lançamento antigo.</div>
+            }
+        }
+    </section>
+</div>
+
+@if (_novo)
+{
+    <LancamentoForm AoFechar="() => _novo = false" AoConcluir="LancamentoGravadoAsync" />
+}
+@if (_realizar is { } idRealizar)
+{
+    <RecebimentoForm LancamentoId="idRealizar" AoFechar="() => _realizar = null" AoConcluir="RealizadoAsync" />
+}
+@if (_historico is { } idHistorico)
+{
+    <HistoricoObrigacaoForm LancamentoId="idHistorico" AoFechar="() => _historico = null" />
+}
+@if (_pix is { } pix)
+{
+    <CobrancaPixForm ValorSugerido="pix.Valor" ReferenciaSugerida="pix.Referencia" AoFechar="() => _pix = null" />
+}
+
+@code {
+    /// <summary>Quantas linhas a lista traz sem filtro. Os TOTAIS não dependem deste corte.</summary>
+    public const int LimiteLinhas = 300;
+
+    // As MESMAS strings do rótulo da linha e do filtro: o recorte casa por texto.
+    private const string Todas = "Todas";
+    private static readonly string[] Situacoes = [Todas, "Previsto", "Realizado", "Cancelado"];
+
+    private DateOnly Mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private ResumoCaixa? Resumo;
+    private List<LancamentoFinanceiro> _todas = [];
+    private List<LancamentoFinanceiro> Linhas = [];
+    private bool _cargaCompleta;
+    private bool Truncado;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private string _filtroTexto = string.Empty;
+    private string _filtroSituacao = Todas;
+    private string? _curvaEntradas;
+    private string? _curvaSaidas;
+    private int _geracao;
+    private CancellationTokenSource? _esperaFiltro;
+
+    // Formulários abertos (no máximo um de cada).
+    private bool _novo;
+    private int? _realizar;
+    private int? _historico;
+    private (decimal? Valor, string? Referencia)? _pix;
+
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+    private bool FiltroAtivo => _filtroSituacao != Todas || !string.IsNullOrWhiteSpace(_filtroTexto);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private Task TrocarMesAsync(DateOnly mes) { Mes = mes; return CarregarAsync(); }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o mês duas vezes rápido não
+    /// pode deixar a lista de uma carga sob o título da outra. Tudo é PUBLICADO depois do
+    /// último await — entre limpar e preencher não há espera.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            var inicio = Mes;
+            var fim = inicio.AddMonths(1).AddDays(-1);
+            int? limite = FiltroAtivo ? null : LimiteLinhas;
+
+            using var escopo = Escopo();
+            var financeiro = escopo.ServiceProvider.GetRequiredService<FinanceiroService>();
+            var lancamentos = await financeiro.DoPeriodoAsync(inicio, fim, limite);
+            if (geracao != _geracao || Descartada) return;
+            var resumo = await financeiro.ResumoAsync(inicio, fim);
+            if (geracao != _geracao || Descartada) return;
+
+            _cargaCompleta = limite is null;
+            _todas = lancamentos.ToList();
+            Resumo = resumo;
+            var completa = limite is null || lancamentos.Count < limite.Value;
+            (_curvaEntradas, _curvaSaidas) = completa ? Curvas(lancamentos) : (null, null);
+            Refiltrar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — caixa não pôde ser carregado", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            Resumo = null;
+            _todas = [];
+            Linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>O recorte do filtro, em memória — a carga completa já está em mãos.</summary>
+    private void Refiltrar()
+    {
+        IEnumerable<LancamentoFinanceiro> filtradas = _todas.Where(l =>
+            (_filtroSituacao == Todas || Rotular(l.Status) == _filtroSituacao)
+            // Descrição OU categoria: quem digita "aluguel" não sabe em qual das duas está.
+            && (Busca.Casa(l.Descricao, _filtroTexto) || Busca.Casa(l.Categoria?.Nome, _filtroTexto)));
+        if (!FiltroAtivo) filtradas = filtradas.Take(LimiteLinhas);
+        Linhas = filtradas.ToList();
+        Truncado = !FiltroAtivo && (_cargaCompleta ? _todas.Count > LimiteLinhas : _todas.Count >= LimiteLinhas);
+    }
+
+    /// <summary>Filtro ativo exige a carga COMPLETA; com ela em mãos, só refiltra.</summary>
+    private Task AplicarFiltroAsync()
+    {
+        if (FiltroAtivo && !_cargaCompleta) return CarregarAsync();
+        Refiltrar();
+        return Task.CompletedTask;
+    }
+
+    private async Task FiltroTextoMudouAsync(ChangeEventArgs e)
+    {
+        _filtroTexto = e.Value?.ToString() ?? string.Empty;
+        _esperaFiltro?.Cancel();
+        _esperaFiltro = new CancellationTokenSource();
+        try { await Task.Delay(200, _esperaFiltro.Token); } catch (OperationCanceledException) { return; }
+        await AplicarFiltroAsync();
+    }
+
+    private Task FiltroSituacaoMudouAsync(ChangeEventArgs e)
+    {
+        _filtroSituacao = e.Value?.ToString() ?? Todas;
+        return AplicarFiltroAsync();
+    }
+
+    private Task LimparFiltroAsync()
+    {
+        _filtroTexto = string.Empty;
+        _filtroSituacao = Todas;
+        return AplicarFiltroAsync();
+    }
+
+    private void NovoLancamento()
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "lançar no caixa")) _novo = true;
+    }
+
+    private async Task LancamentoGravadoAsync()
+    {
+        _novo = false;
+        Notificacoes.Sucesso("Lançamento registrado.");
+        await CarregarAsync();
+    }
+
+    private void Realizar(LancamentoFinanceiro l)
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "lançar no caixa")) _realizar = l.Id;
+    }
+
+    private async Task RealizadoAsync()
+    {
+        _realizar = null;
+        Notificacoes.Sucesso("Lançamento realizado.");
+        await CarregarAsync();
+    }
+
+    /// <summary>Cancela — nunca apaga: sai dos totais e fica no histórico com o motivo, que o serviço exige.</summary>
+    private async Task CancelarAsync(LancamentoFinanceiro l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "cancelar lançamento")) return;
+        try
+        {
+            var motivo = await Dialogos.PerguntarTextoAsync("Cancelar lançamento",
+                $"Por que \"{l.Descricao}\" está sendo cancelado? O lançamento sai dos totais mas continua no histórico. Pagamentos ligados a uma baixa parcial devolvem o valor à obrigação em aberto. O recibo vigente também será cancelado.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                    .CancelarAsync(l.Id, motivo, operador: SessaoUsuario.Atual.Operador);
+            Notificacoes.Sucesso("Lançamento cancelado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — lançamento não pôde ser cancelado", ex);
+            Notificacoes.Erro($"Não foi possível cancelar: {ex.Message}");
+        }
+    }
+
+    /// <summary>O recibo APONTA para o lançamento e não o substitui: o caixa continua sendo a verdade.</summary>
+    private async Task EmitirReciboAsync(LancamentoFinanceiro l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "emitir recibo")) return;
+        try
+        {
+            var destinatario = await Dialogos.PerguntarTextoAsync("Recibo",
+                "Para quem é o recibo? Deixe em branco para usar o nome do paciente do lançamento.", obrigatorio: false);
+            // Cancelar é "não quero o recibo" — nunca "siga com o nome padrão" (checagem 39).
+            if (destinatario is null) return;
+
+            using var escopo = Escopo();
+            var documento = await escopo.ServiceProvider.GetRequiredService<DocumentoFinanceiroService>()
+                .EmitirReciboDoLancamentoAsync(l.Id, string.IsNullOrWhiteSpace(destinatario) ? null : destinatario,
+                    SessaoUsuario.Atual.Operador);
+            var pdf = await escopo.ServiceProvider.GetRequiredService<DocumentosFinanceirosPdfService>()
+                .GerarAsync(documento.Id, await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+
+            // O recibo JÁ está emitido: falha daqui para a frente é de impressão.
+            var erro = await Host.SalvarEAbrirAsync(pdf, $"Recibo-{documento.Numero.Replace('/', '-')}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro($"{erro} O recibo {documento.Numero} está emitido.");
+            else Notificacoes.Sucesso($"Recibo {documento.Numero} emitido.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — recibo não pôde ser emitido", ex);
+            Notificacoes.Erro($"Não foi possível emitir o recibo: {ex.Message}");
+        }
+    }
+
+    /// <summary>O extrato do mês em CSV — o elo com o faturamento vai junto, coluna "Origem".</summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar o caixa")) return;
+        try
+        {
+            var linhas = Linhas.Select(l => (IReadOnlyList<string>)
+            [
+                Formato.DataCurta(l.Data), l.Descricao, l.Categoria?.Nome ?? "—",
+                l.Tipo == TipoLancamento.Entrada ? "Entrada" : "Saída",
+                $"{(l.Tipo == TipoLancamento.Entrada ? "+" : "-")} {Formato.Dinheiro(l.Valor)}",
+                Rotular(l.Status),
+                l.CodigoFaturamentoId is not null ? "guia do faturamento" : "lançamento manual"
+            ]).ToList();
+            var erro = await Host.ExportarCsvAsync(
+                ["Data", "Descrição", "Categoria", "Tipo", "Valor", "Situação", "Origem"], linhas,
+                $"caixa-{Mes:yyyy-MM}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — caixa não pôde ser exportado", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    private static string Rotular(StatusLancamento s) => s switch
+    {
+        StatusLancamento.Previsto => "Previsto",
+        StatusLancamento.Realizado => "Realizado",
+        StatusLancamento.Cancelado => "Cancelado",
+        _ => RotulosEnum.De(s)
+    };
+
+    /// <summary>
+    /// As duas minicurvas do mês, por dia, na MESMA escala. Só com a lista COMPLETA: a lista
+    /// cortada jamais produz uma curva com aparência de mês inteiro.
+    /// </summary>
+    private (string?, string?) Curvas(IReadOnlyList<LancamentoFinanceiro> lancamentos)
+    {
+        var dias = DateTime.DaysInMonth(Mes.Year, Mes.Month);
+        var entradas = new decimal[dias];
+        var saidas = new decimal[dias];
+        foreach (var l in lancamentos.Where(l => l.Status == StatusLancamento.Realizado && l.Data.Month == Mes.Month))
+            (l.Tipo == TipoLancamento.Entrada ? entradas : saidas)[l.Data.Day - 1] += l.Valor;
+        var maior = Math.Max(entradas.Max(), saidas.Max());
+        if (maior == 0m) return (null, null);
+        string Pontos(decimal[] v) => string.Join(" ", v.Select((x, i) =>
+            string.Create(CultureInfo.InvariantCulture, $"{i * 200d / (dias - 1):0.#},{30 - (double)(x / maior) * 28:0.#}")));
+        return (Pontos(entradas), Pontos(saidas));
+    }
+
+    private static RenderFragment Curva(string? pontos, string classe) => b =>
+    {
+        if (pontos is null) return;
+        b.OpenElement(0, "svg");
+        b.AddAttribute(1, "class", $"minicurva {classe}");
+        b.AddAttribute(2, "viewBox", "0 0 200 32");
+        b.AddAttribute(3, "preserveAspectRatio", "none");
+        b.AddAttribute(4, "aria-hidden", "true");
+        b.OpenElement(5, "polyline");
+        b.AddAttribute(6, "points", pontos);
+        b.CloseElement();
+        b.CloseElement();
+    };
+
+    public override void Dispose()
+    {
+        _esperaFiltro?.Cancel();
+        base.Dispose();
+    }
+}

@@ -1,0 +1,82 @@
+@*
+  O histórico de uma obrigação: o lançamento original e o que nasceu dele (baixas parciais,
+  desdobramentos). Somente leitura — e exige VerFinanceiro, como no WPF.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Histórico da obrigação" Subtitulo="@_linhas.FirstOrDefault()?.Descricao" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_falha is not null)
+        {
+            <Aviso Tom="erro" Texto="@_falha" />
+        }
+        else if (_linhas.Count == 0)
+        {
+            <Esqueleto Altura="140" />
+        }
+        else
+        {
+            <section class="kpis tres">
+                <Kpi Rotulo="Valor original" Valor="@Formato.Dinheiro(_original)" Icone="moeda" Tom="neutro" />
+                <Kpi Rotulo="Pago / recebido" Valor="@Formato.Dinheiro(_pago)" Icone="check" Tom="sucesso" />
+                <Kpi Rotulo="Em aberto" Valor="@Formato.Dinheiro(_aberto)" Icone="relogio" Tom="@(_aberto > 0 ? "aviso" : "neutro")" />
+            </section>
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead><tr><th>#</th><th>Situação</th><th class="direita">Valor</th><th>Vencimento</th><th>Baixa</th><th>Origem</th></tr></thead>
+                    <tbody>
+                        @foreach (var l in _linhas)
+                        {
+                            <tr class="@(l.Status == StatusLancamento.Cancelado ? "apagada" : null)">
+                                <td class="nao-quebra">#@l.Id</td>
+                                <td><Selo Tom="@TomDe(l.Status)">@RotulosEnum.De(l.Status)</Selo></td>
+                                <td class="direita numero">@Formato.Dinheiro(l.Valor)</td>
+                                <td class="nao-quebra">@(l.DataVencimento is { } v ? Formato.Data(v) : "—")</td>
+                                <td class="nao-quebra">@(l.DataPagamento is { } d ? Formato.Data(d) : "—")</td>
+                                <td class="nao-quebra">@(l.OrigemDesdobramentoId is { } o ? $"#{o}" : "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int LancamentoId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<LancamentoFinanceiro> _linhas = [];
+    private string? _falha;
+    private decimal _original, _pago, _aberto;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "consultar histórico da obrigação");
+            using var escopo = Escopos.CreateScope();
+            _linhas = await escopo.ServiceProvider.GetRequiredService<ContasService>().HistoricoObrigacaoAsync(LancamentoId);
+            if (_linhas.Count == 0) { _falha = "Não há histórico para este lançamento."; return; }
+            _original = _linhas[0].ValorOriginalObrigacao ?? _linhas[0].Valor;
+            _pago = _linhas.Where(l => l.Status == StatusLancamento.Realizado).Sum(l => l.Valor);
+            _aberto = _linhas.Where(l => l.Status == StatusLancamento.Previsto).Sum(l => l.Valor);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — histórico da obrigação não pôde ser lido", ex);
+            _falha = ex.Message;
+        }
+    }
+
+    public static string TomDe(StatusLancamento s) => s switch
+    {
+        StatusLancamento.Realizado => "sucesso",
+        StatusLancamento.Previsto => "aviso",
+        _ => "neutro"
+    };
+}

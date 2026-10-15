@@ -55,7 +55,7 @@
         <section class="kpis">
             @for (var i = 0; i < 4; i++)
             {
-                <div class="cartao kpi"><div class="esqueleto" style="height:14px;width:40%"></div><div class="esqueleto" style="height:32px;width:70%"></div></div>
+                <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div>
             }
         </section>
         <div class="cartao cartao-corpo"><div class="esqueleto" style="height:280px"></div></div>
@@ -63,27 +63,14 @@
     else if (Serie.Count > 0)
     {
         <section class="kpis" aria-label="Resumo do período">
-            <div class="cartao kpi">
-                <div class="kpi-rotulo"><span class="kpi-icone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg></span>Entrou</div>
-                <div class="kpi-valor">@Formato.Dinheiro(Resumo?.Entradas ?? 0m)</div>
-                <div class="kpi-nota">Recebido de @PeriodoTexto</div>
-            </div>
-            <div class="cartao kpi">
-                <div class="kpi-rotulo"><span class="kpi-icone saida"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></svg></span>Saiu</div>
-                <div class="kpi-valor">@Formato.Dinheiro(Resumo?.Saidas ?? 0m)</div>
-                <div class="kpi-nota">@(MaiorSaidaTexto ?? "Nenhuma despesa no período")</div>
-            </div>
-            <div class="cartao kpi">
-                <div class="kpi-rotulo"><span class="kpi-icone resultado @(ResultadoNegativo ? "neg" : null)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></svg></span>Resultado</div>
-                <div class="kpi-valor @(ResultadoNegativo ? "negativo" : "positivo")">@Formato.Dinheiro(Resumo?.Resultado ?? 0m)</div>
-                <div class="kpi-nota">Entradas menos saídas realizadas</div>
-            </div>
-            <div class="cartao kpi">
-                <div class="kpi-rotulo"><span class="kpi-icone margem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="2.5" /><circle cx="17" cy="17" r="2.5" /><path d="M19 5 5 19" /></svg></span>Margem</div>
-                @* Sem receita a margem não é 0% — ela não existe ("—"), como na tela WPF. *@
-                <div class="kpi-valor">@(Resumo?.Margem is { } margem ? Formato.Porcentagem(margem) : "—")</div>
-                <div class="kpi-nota">De cada real que entrou, quanto sobrou</div>
-            </div>
+            <Kpi Rotulo="Entrou" Valor="@Formato.Dinheiro(Resumo?.Entradas ?? 0m)" Icone="entrada" Nota="@($"Recebido de {PeriodoTexto}")" />
+            <Kpi Rotulo="Saiu" Valor="@Formato.Dinheiro(Resumo?.Saidas ?? 0m)" Icone="saida" Tom="saida" Nota="@(MaiorSaidaTexto ?? "Nenhuma despesa no período")" />
+            <Kpi Rotulo="Resultado" Valor="@Formato.Dinheiro(Resumo?.Resultado ?? 0m)" Icone="resultado"
+                 Tom="@(ResultadoNegativo ? "perigo" : "sucesso")" ClasseValor="@(ResultadoNegativo ? "negativo" : "positivo")"
+                 Nota="Entradas menos saídas realizadas" />
+            @* Sem receita a margem não é 0% — ela não existe ("—"), como na tela WPF. *@
+            <Kpi Rotulo="Margem" Valor="@(Resumo?.Margem is { } margem ? Formato.Porcentagem(margem) : "—")" Icone="margem" Tom="neutro"
+                 Nota="De cada real que entrou, quanto sobrou" />
         </section>
 
         <section class="cartao cartao-corpo">

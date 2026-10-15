@@ -52,7 +52,7 @@ public sealed class SementeBase : ISemente
                 var data = mes.AddDays(Math.Min(dia, 27));
                 db.Add(new LancamentoFinanceiro
                 {
-                    Data = data, Tipo = tipo, Valor = valor, Descricao = categoria,
+                    Data = data, Tipo = tipo, Valor = valor, Descricao = Descrever(categoria, mes),
                     Status = previsto ? StatusLancamento.Previsto : StatusLancamento.Realizado,
                     DataPagamento = previsto ? null : data,
                     DataVencimento = previsto ? data : null,
@@ -79,4 +79,17 @@ public sealed class SementeBase : ISemente
         }
         db.SaveChanges();
     }
+
+    private static string Descrever(string categoria, DateOnly mes) => categoria switch
+    {
+        "Convênios" => $"Repasse Unimed — competência {mes.AddMonths(-1):MM/yyyy}",
+        "Particular" => "Sessões particulares recebidas no balcão",
+        "Pacotes" => "Venda de pacotes de acupuntura",
+        "Folha de pagamento" => "Folha de pagamento da equipe",
+        "Aluguel" => "Aluguel da sala — Rua das Flores, 120",
+        "Insumos e medicamentos" => "Agulhas e material descartável",
+        "Impostos" => "DAS do Simples Nacional",
+        "Marketing" => "Campanha de redes sociais",
+        _ => categoria
+    };
 }

@@ -94,10 +94,7 @@ h1{font-size:28px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.1
 .kpi-nota{color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.4}
 .positivo{color:var(--sucesso-forte)}
 .negativo{color:var(--erro-texto)}
-.kpi-icone.saida{background:var(--info-suave);color:var(--info-texto)}
-.kpi-icone.resultado{background:var(--sucesso-suave);color:var(--sucesso-forte)}
-.kpi-icone.resultado.neg{background:var(--erro-suave);color:var(--erro-texto)}
-.kpi-icone.margem{background:var(--cinza-100);color:var(--cinza-700)}
+.kpi-icone.tom-saida{background:var(--info-suave);color:var(--info-texto)}
 
 /* ---------- Gráfico ---------- */
 .legenda{display:flex;flex-wrap:wrap;gap:var(--space-4);font-size:var(--text-small-size);color:var(--texto-secundario)}
@@ -264,19 +261,19 @@ td .valor-entrada{color:var(--sucesso-forte);font-weight:600}
 td .valor-saida{color:var(--erro-texto);font-weight:600}
 
 /* ---------- Selos ---------- */
-.selo.sucesso{background:var(--sucesso-suave);color:var(--sucesso-forte)}
-.selo.aviso{background:var(--aviso-suave);color:var(--aviso-texto)}
-.selo.perigo{background:var(--erro-suave);color:var(--erro-texto)}
-.selo.neutro{background:var(--cinza-100);color:var(--cinza-700)}
-.selo.info{background:var(--info-suave);color:var(--info-texto)}
+.selo.tom-sucesso{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.selo.tom-aviso{background:var(--aviso-suave);color:var(--aviso-texto)}
+.selo.tom-perigo{background:var(--erro-suave);color:var(--erro-texto)}
+.selo.tom-neutro{background:var(--cinza-100);color:var(--cinza-700)}
+.selo.tom-info{background:var(--info-suave);color:var(--info-texto)}
 td .selo{margin-left:0}
 
 /* ---------- Ícones de KPI (tons) ---------- */
-.kpi-icone.sucesso{background:var(--sucesso-suave);color:var(--sucesso-forte)}
-.kpi-icone.perigo{background:var(--erro-suave);color:var(--erro-texto)}
-.kpi-icone.aviso{background:var(--aviso-suave);color:var(--aviso-texto)}
-.kpi-icone.neutro{background:var(--cinza-100);color:var(--cinza-700)}
-.kpi-valor.aviso{color:var(--aviso-texto)}
+.kpi-icone.tom-sucesso{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.kpi-icone.tom-perigo{background:var(--erro-suave);color:var(--erro-texto)}
+.kpi-icone.tom-aviso{background:var(--aviso-suave);color:var(--aviso-texto)}
+.kpi-icone.tom-neutro{background:var(--cinza-100);color:var(--cinza-700)}
+.kpi-valor.tom-aviso{color:var(--aviso-texto)}
 .kpis.tres{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:1180px){.kpis.tres{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:900px){.kpis.tres{grid-template-columns:1fr}}
@@ -340,3 +337,19 @@ td .selo{margin-left:0}
 .pares{display:grid;grid-template-columns:auto 1fr;gap:6px var(--space-4);margin:0}
 .pares dt{color:var(--texto-secundario)}
 .pares dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+
+/* ---------- Seletor de paciente ---------- */
+.seletor-escolhido{display:flex;align-items:center;gap:var(--space-3);padding:8px 10px;border:1px solid var(--borda);
+  border-radius:var(--radius-control);background:var(--acento-suave)}
+.seletor-nome{flex:1;min-width:0}
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--acento);
+  color:var(--texto-invertido);font-weight:700;font-size:12px;flex:none}
+.seletor-resultados{list-style:none;margin:0;padding:4px;border:1px solid var(--borda);border-radius:var(--radius-control);
+  max-height:224px;overflow-y:auto;background:var(--superficie);box-shadow:var(--sombra-tooltip)}
+.seletor-resultados li{padding:8px 10px;border-radius:6px;cursor:pointer}
+.seletor-resultados li:hover{background:var(--acento-suave)}
+.modal-corpo > .segmentado{align-self:flex-start}
+.segmentado button{display:inline-flex;align-items:center;gap:6px}
+.botoes-linha{flex-wrap:nowrap}
+.modal .kpi-valor{font-size:22px}
+.modal .kpi{padding:var(--space-3) var(--space-4) var(--space-4)}

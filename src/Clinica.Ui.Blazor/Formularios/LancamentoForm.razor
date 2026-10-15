@@ -1,0 +1,267 @@
+@*
+  Novo lançamento manual do caixa (o que no WPF era a LancamentoWindow /
+  LancamentoEdicaoViewModel): o dinheiro que o faturamento não conhece — aluguel, material,
+  recebimento avulso. Receita de guia continua entrando pela Conciliação, já vinculada.
+
+  As regras que vieram junto, todas do ViewModel original:
+  - só a ENTRADA tem dono (paciente) e sessão; numa saída seriam invenção;
+  - as sessões oferecidas são as do paciente SEM dinheiro registrado, ANTES de hoje (a de
+    hoje é fechada pelo Finalizar), e "não é de uma sessão" é a primeira opção;
+  - taxa da maquininha e imposto retido são calculados a cada mudança — com contador de
+    geração, porque o resultado é GRAVADO junto e a resposta de "125" não pode chegar
+    depois da de "1250";
+  - o feedback é INLINE: é formulário, e a mensagem fica enquanto a pessoa corrige.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Novo lançamento" Subtitulo="Entrada ou saída que não veio de guia do convênio." Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="segmentado" role="group" aria-label="Tipo">
+            <button type="button" aria-pressed="@(_tipo == TipoLancamento.Entrada ? "true" : "false")" @onclick="() => TrocarTipoAsync(TipoLancamento.Entrada)"><Icone Nome="entrada" /> Entrada</button>
+            <button type="button" aria-pressed="@(_tipo == TipoLancamento.Saida ? "true" : "false")" @onclick="() => TrocarTipoAsync(TipoLancamento.Saida)"><Icone Nome="saida" /> Saída</button>
+        </div>
+        <div class="campos">
+            <Campo Rotulo="Descrição" Obrigatorio="true" Classe="largo">
+                <input class="campo" @bind="_descricao" maxlength="200" placeholder="@(_tipo == TipoLancamento.Entrada ? "Ex.: Sessão avulsa — pagamento no balcão" : "Ex.: Aluguel de setembro")" />
+            </Campo>
+            <Campo Rotulo="Valor" Obrigatorio="true" Dica="Aceita 1.250,00 ou 1250.00.">
+                <input class="campo valor" value="@_valor" @oninput="e => MudouAsync(() => _valor = e.Value?.ToString())" inputmode="decimal" placeholder="0,00" />
+            </Campo>
+            <Campo Rotulo="Data (competência)" Obrigatorio="true">
+                <input type="date" class="campo" value="@_data.ToString("yyyy-MM-dd")" @onchange="e => MudouAsync(() => _data = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : _data)" />
+            </Campo>
+            <Campo Rotulo="Situação">
+                <select class="campo" @bind="_situacao">
+                    <option value="@StatusLancamento.Realizado">Realizado (o dinheiro já se moveu)</option>
+                    <option value="@StatusLancamento.Previsto">Previsto (ainda vai acontecer)</option>
+                </select>
+            </Campo>
+            <Campo Rotulo="Categoria" Dica="@(_categoriasFalharam ? "Não foi possível ler as categorias — o lançamento pode ser gravado sem." : null)">
+                <select class="campo" @bind="_categoriaId">
+                    <option value="">(sem categoria)</option>
+                    @foreach (var c in _categorias)
+                    {
+                        <option value="@c.Id">@c.Nome</option>
+                    }
+                </select>
+            </Campo>
+            <Campo Rotulo="Forma de pagamento">
+                <select class="campo" value="@(_forma?.ToString() ?? "")" @onchange="e => MudouAsync(() => _forma = Enum.TryParse<FormaPagamento>(e.Value?.ToString(), out var f) ? f : null)">
+                    <option value="">(não informada)</option>
+                    @foreach (var f in Enum.GetValues<FormaPagamento>())
+                    {
+                        <option value="@f">@RotulosEnum.De(f)</option>
+                    }
+                </select>
+            </Campo>
+            @if (EhCartao)
+            {
+                <Campo Rotulo="Adquirente (maquininha)">
+                    <input class="campo" value="@_adquirente" @onchange="e => MudouAsync(() => _adquirente = e.Value?.ToString())" maxlength="60" placeholder="Ex.: Stone, Cielo" />
+                </Campo>
+                <Campo Rotulo="Bandeira">
+                    <input class="campo" value="@_bandeira" @onchange="e => MudouAsync(() => _bandeira = e.Value?.ToString())" maxlength="40" placeholder="Ex.: Visa" />
+                </Campo>
+                <Campo Rotulo="Parcelas">
+                    <input type="number" min="1" max="24" class="campo" value="@_parcelas" @onchange="e => MudouAsync(() => _parcelas = int.TryParse(e.Value?.ToString(), out var n) && n >= 1 ? n : 1)" />
+                </Campo>
+            }
+            @if (_tipo == TipoLancamento.Entrada)
+            {
+                <label class="marcar largo">
+                    <input type="checkbox" checked="@_reterImposto" @onchange="e => MudouAsync(() => _reterImposto = e.Value is true)" />
+                    Reter o imposto deste recebimento
+                </label>
+            }
+        </div>
+
+        @if (_resumoDeducoes is not null)
+        {
+            <Aviso Tom="info" Texto="@_resumoDeducoes" />
+        }
+
+        @if (_tipo == TipoLancamento.Entrada)
+        {
+            <div class="secao-form">
+                <h3>De quem é o recebimento</h3>
+                <div class="campos">
+                    <Campo Rotulo="Paciente" Dica="Opcional. Amarrar o recebimento à sessão tira a sessão da aba Particulares da Conciliação.">
+                        <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="TrocarPacienteAsync" />
+                    </Campo>
+                    <Campo Rotulo="Sessão" Erro="@_avisoSessoes">
+                        <select class="campo" @bind="_atendimentoId" disabled="@(_paciente is null)">
+                            <option value="">(não é de uma sessão)</option>
+                            @foreach (var s in _sessoes)
+                            {
+                                <option value="@s.AtendimentoId">@Formato.Data(s.Data) — @Clinica.Domain.Regras.CatalogoModalidades.Nome(s.CodigoDaModalidade)</option>
+                            }
+                        </select>
+                    </Campo>
+                </div>
+            </div>
+        }
+
+        <Campo Rotulo="Observações">
+            <textarea class="campo" rows="2" @bind="_observacoes" maxlength="500"></textarea>
+        </Campo>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite lançar no caixa.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Registrar lançamento")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private TipoLancamento _tipo = TipoLancamento.Saida;
+    private string? _descricao;
+    private string? _valor;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private StatusLancamento _situacao = StatusLancamento.Realizado;
+    private int? _categoriaId;
+    private FormaPagamento? _forma;
+    private string? _adquirente;
+    private string? _bandeira;
+    private int _parcelas = 1;
+    private bool _reterImposto;
+    private string? _observacoes;
+    private Paciente? _paciente;
+    private int? _atendimentoId;
+    private IReadOnlyList<CategoriaFinanceira> _categorias = [];
+    private bool _categoriasFalharam;
+    private IReadOnlyList<Clinica.Application.Modelos.SessaoSemReceita> _sessoes = [];
+    private string? _avisoSessoes;
+    private string? _resumoDeducoes;
+    private DeducoesRecebimento? _deducoes;
+    private string? _mensagem;
+    private bool _ocupado;
+    private int _geracaoDeducoes;
+    private int _geracaoSessoes;
+    private int _geracaoCategorias;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+    private bool EhCartao => _forma is FormaPagamento.CartaoCredito or FormaPagamento.CartaoDebito;
+
+    protected override Task OnInitializedAsync() => CarregarCategoriasAsync();
+
+    private async Task TrocarTipoAsync(TipoLancamento tipo)
+    {
+        if (_tipo == tipo) return;
+        _tipo = tipo;
+        _categoriaId = null; // a categoria escolhida deixou de valer para o outro tipo
+        await CarregarCategoriasAsync();
+        await RecalcularDeducoesAsync();
+    }
+
+    private async Task MudouAsync(Action atribuir)
+    {
+        atribuir();
+        await RecalcularDeducoesAsync();
+    }
+
+    private async Task CarregarCategoriasAsync()
+    {
+        var geracao = ++_geracaoCategorias;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var lidas = await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().CategoriasAsync(_tipo);
+            if (geracao != _geracaoCategorias) return;
+            _categorias = lidas;
+            _categoriasFalharam = false;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCategorias) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — categorias não puderam ser lidas", ex);
+            _categorias = [];
+            _categoriasFalharam = true;
+        }
+    }
+
+    private async Task TrocarPacienteAsync(Paciente? paciente)
+    {
+        _paciente = paciente;
+        _atendimentoId = null;
+        _sessoes = [];
+        _avisoSessoes = null;
+        if (paciente is null) return;
+        var geracao = ++_geracaoSessoes;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var lidas = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                .SessoesParticularesSemReceitaDoPacienteAsync(paciente.Id, DateOnly.FromDateTime(DateTime.Today.AddDays(1)));
+            if (geracao != _geracaoSessoes) return;
+            _sessoes = lidas;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoSessoes) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — sessões sem receita do paciente não puderam ser lidas", ex);
+            _avisoSessoes = "Não foi possível ler as sessões deste paciente — a lista NÃO está vazia por não haver sessão em aberto.";
+        }
+    }
+
+    /// <summary>Prévia do desconto. Só faz sentido em ENTRADA; falha não trava o formulário.</summary>
+    private async Task RecalcularDeducoesAsync()
+    {
+        var geracao = ++_geracaoDeducoes;
+        _deducoes = null;
+        _resumoDeducoes = null;
+        if (_tipo != TipoLancamento.Entrada || !LeituraDeValores.TentarLerDecimal(_valor, out var bruto)) return;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var d = await escopo.ServiceProvider.GetRequiredService<TaxaService>().CalcularAsync(
+                bruto, _data, _forma, _adquirente, _bandeira, _parcelas, _reterImposto);
+            if (geracao != _geracaoDeducoes || d.Total <= 0m) return;
+            _deducoes = d;
+            var partes = new List<string>();
+            if (d.ValorTaxa is { } taxa) partes.Add($"taxa {d.TaxaPercentual?.ToString("0.##", Formato.PtBr)}% = {Formato.Dinheiro(taxa)}");
+            if (d.ValorImposto is { } imposto) partes.Add($"imposto {d.AliquotaImposto?.ToString("0.##", Formato.PtBr)}% = {Formato.Dinheiro(imposto)}");
+            if (d.PrevisaoRecebimento is { } previsao) partes.Add($"cai em {Formato.Data(previsao)}");
+            _resumoDeducoes = $"Líquido {Formato.Dinheiro(bruto - d.Total)} — " + string.Join(" · ", partes);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — prévia de taxa não pôde ser calculada", ex);
+        }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        if (string.IsNullOrWhiteSpace(_descricao)) { _mensagem = "Informe a descrição do lançamento."; return; }
+        if (!LeituraDeValores.TentarLerDecimal(_valor, out var valor)) { _mensagem = "Informe um valor maior que zero (ex.: 1.250,00)."; return; }
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
+            using var escopo = Escopos.CreateScope();
+            var entrada = _tipo == TipoLancamento.Entrada;
+            await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().LancarAsync(
+                data: _data, tipo: _tipo, descricao: _descricao!.Trim(), valor: valor, status: _situacao,
+                formaPagamento: _forma, categoriaId: _categoriaId,
+                pacienteId: entrada ? _paciente?.Id : null,
+                atendimentoId: entrada ? _atendimentoId : null,
+                observacoes: string.IsNullOrWhiteSpace(_observacoes) ? null : _observacoes,
+                operador: SessaoUsuario.Atual.Operador,
+                deducoes: _deducoes,
+                adquirente: EhCartao ? _adquirente : null,
+                bandeira: EhCartao ? _bandeira : null,
+                modalidadeCartao: TaxaService.ModalidadeDe(_forma, _parcelas),
+                parcelas: EhCartao ? _parcelas : null);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex) { _mensagem = $"Não foi possível salvar: {ex.Message}"; }
+        finally { _ocupado = false; }
+    }
+}

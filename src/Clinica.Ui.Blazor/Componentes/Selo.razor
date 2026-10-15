@@ -1,4 +1,4 @@
-<span class="selo @Tom" title="@Dica">@ChildContent</span>
+<span class="selo @(string.IsNullOrEmpty(Tom) ? null : "tom-" + Tom)" title="@Dica">@ChildContent</span>
 @code {
     /// <summary>"" (acento), "sucesso", "aviso", "perigo", "neutro" ou "info".</summary>
     [Parameter] public string Tom { get; set; } = string.Empty;

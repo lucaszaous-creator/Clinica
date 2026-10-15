@@ -7,7 +7,7 @@
     <div class="kpi-rotulo">
         @if (Icone is not null)
         {
-            <span class="kpi-icone @Tom"><Icone Nome="@Icone" /></span>
+            <span class="kpi-icone @(string.IsNullOrEmpty(Tom) ? null : "tom-" + Tom)"><Icone Nome="@Icone" /></span>
         }
         @Rotulo
     </div>

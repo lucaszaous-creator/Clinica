@@ -1,11 +1,25 @@
 @*
   A RAIZ de toda tela Blazor (out/2026). O BlazorWebView do WPF e a prévia montam ESTE
   componente, com a tela como parâmetro — é o que garante que toda tela tenha os mesmos
-  vizinhos: a camada de diálogos (confirmação/pergunta/aviso em HTML) e as notificações
-  passageiras. Tela que os desenhasse por conta própria seria a segunda cópia.
+  vizinhos: a camada de diálogos (confirmação/pergunta/aviso em HTML), as notificações
+  passageiras e a ÚLTIMA REDE (o ErrorBoundary): uma exceção que escapou de uma tela vira
+  um cartão com "Voltar à tela", vai para o log, e nunca deixa a aba em branco.
 *@
-
-<DynamicComponent Type="Tela" />
+<ErrorBoundary @ref="_rede">
+    <ChildContent>
+        <DynamicComponent Type="Tela" />
+    </ChildContent>
+    <ErrorContent Context="erro">
+        @{ Registrar(erro); }
+        <div class="pagina">
+            <div class="cartao">
+                <FalhaDeLeitura Titulo="Algo deu errado nesta tela"
+                                Detalhe="@($"{erro.Message} — o erro foi registrado no log. Nada foi gravado pela metade: o que já estava salvo continua salvo.")"
+                                AoTentarDeNovo="() => _rede?.Recover()" />
+            </div>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
 <CamadaDeDialogos />
 <PilhaDeNotificacoes />
 
@@ -13,4 +27,13 @@
     /// <summary>O componente da tela (ex.: <c>typeof(Telas.Caixa)</c>).</summary>
     [Parameter, EditorRequired] public Type Tela { get; set; } = default!;
 
+    private ErrorBoundary? _rede;
+    private Exception? _registrado;
+
+    private void Registrar(Exception erro)
+    {
+        if (ReferenceEquals(erro, _registrado)) return;
+        _registrado = erro;
+        Clinica.Application.Diagnostico.Registrar($"Blazor — exceção não tratada na tela {Tela.Name}", erro);
+    }
 }

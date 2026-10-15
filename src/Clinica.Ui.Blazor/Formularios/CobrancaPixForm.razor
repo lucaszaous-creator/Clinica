@@ -1,0 +1,120 @@
+@*
+  Cobrança por Pix (o que no WPF era a CobrancaPixWindow). O código é montado OFFLINE, sem
+  banco nenhum: gerar NÃO dá baixa, e a janela diz isso. Qualquer edição invalida o
+  código já gerado — ele deixou de corresponder ao valor na tela.
+*@
+@inject IServiceScopeFactory Escopos
+@inject IHostDaTela Host
+
+<Modal Titulo="Cobrar por Pix" Subtitulo="O código vai para a chave Pix da clínica. Gerar não registra o pagamento — confira o extrato antes de dar baixa." Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Valor" Obrigatorio="true" Dica="Pix sem valor deixa o paciente digitar quanto quiser.">
+                <input class="campo valor" value="@_valor" @oninput="e => { _valor = e.Value?.ToString() ?? string.Empty; Invalidar(); }" inputmode="decimal" placeholder="0,00" />
+            </Campo>
+            <Campo Rotulo="Referência" Dica="Aparece no extrato do paciente.">
+                <input class="campo" value="@_referencia" @oninput="e => { _referencia = e.Value?.ToString() ?? string.Empty; Invalidar(); }" maxlength="25" />
+            </Campo>
+        </div>
+        @if (_codigo is not null)
+        {
+            <div class="secao-form">
+                <h3>Pix copia e cola</h3>
+                <textarea class="campo codigo-pix" readonly rows="4">@_codigo</textarea>
+                <span class="campo-dica">@_procedencia</span>
+            </div>
+        }
+        <Aviso Tom="@(_erro ? "erro" : "sucesso")" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        @if (_codigo is not null)
+        {
+            <button type="button" class="botao" @onclick="CopiarAsync"><Icone Nome="copiar" />Copiar código</button>
+        }
+        <button type="button" class="botao primario" @onclick="GerarAsync"><Icone Nome="pix" />Gerar código</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public decimal? ValorSugerido { get; set; }
+    [Parameter] public string? ReferenciaSugerida { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string _valor = string.Empty;
+    private string _referencia = string.Empty;
+    private string? _codigo;
+    private string? _procedencia;
+    private string? _mensagem;
+    private bool _erro;
+
+    protected override void OnInitialized()
+    {
+        if (ValorSugerido is { } v) _valor = Formato.ParaCampo(v);
+        _referencia = ReferenciaSugerida ?? string.Empty;
+    }
+
+    private void Invalidar()
+    {
+        _codigo = null;
+        _procedencia = null;
+    }
+
+    private async Task GerarAsync()
+    {
+        _mensagem = null;
+        _erro = false;
+        try
+        {
+            if (!LeituraDeValores.TentarLerDecimal(_valor, out var valor))
+            {
+                Falhar("Informe o valor da cobrança — Pix sem valor deixa o paciente digitar quanto quiser.");
+                return;
+            }
+            using var escopo = Escopos.CreateScope();
+            var prestador = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+            if (string.IsNullOrWhiteSpace(prestador.ChavePix))
+            {
+                Falhar("A clínica ainda não tem chave Pix cadastrada. Cadastre-a em Configurações → Dados da clínica (no Gerente).");
+                return;
+            }
+            var cobranca = escopo.ServiceProvider.GetRequiredService<PixService>().Gerar(
+                prestador.ChavePix, prestador.NomeFantasia ?? prestador.RazaoSocial ?? "Clinica",
+                prestador.Cidade ?? string.Empty, valor,
+                string.IsNullOrWhiteSpace(_referencia) ? null : _referencia);
+            _codigo = cobranca.CopiaECola;
+            _procedencia = $"Para {cobranca.Recebedor} · chave {Resumir(cobranca.Chave)} ({Rotular(cobranca.TipoChave)}).";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — código Pix não pôde ser gerado", ex);
+            Falhar(ex.Message);
+        }
+    }
+
+    private async Task CopiarAsync()
+    {
+        if (_codigo is null) return;
+        if (await Host.CopiarAsync(_codigo))
+        {
+            _erro = false;
+            _mensagem = "Código copiado. Cole no aplicativo do paciente ou mande pelo WhatsApp.";
+        }
+        else Falhar("Não foi possível copiar. Selecione o texto acima e copie manualmente.");
+    }
+
+    private void Falhar(string texto) { _mensagem = texto; _erro = true; }
+
+    /// <summary>A chave aparece encurtada: ela é dado sensível e a tela fica virada para o balcão.</summary>
+    private static string Resumir(string chave) => chave.Length <= 12 ? chave : $"{chave[..5]}…{chave[^4..]}";
+
+    private static string Rotular(TipoChavePix tipo) => tipo switch
+    {
+        TipoChavePix.Cpf => "CPF",
+        TipoChavePix.Cnpj => "CNPJ",
+        TipoChavePix.Email => "e-mail",
+        TipoChavePix.Telefone => "telefone",
+        TipoChavePix.Aleatoria => "aleatória",
+        _ => "formato não reconhecido"
+    };
+}

@@ -204,24 +204,56 @@ Nenhum deles quebra o build quando é esquecido:
 
 - **Escopo do executável:** registrar componentes compartilhados não autoriza publicar seus menus/rotas. O Faturamento usa `ModuloFaturamentoAplicativo`, conferido pela mesma composição na verificação Windows, para abrir apenas Financeiro/Faturamento de guias mesmo com acesso de gerente. Testar abertura, busca e navegação direta; `Oculto` sozinho não bloqueia uma rota.
 
-- **Sem WebView2 (out/2026).** As telas em HTML (Financeiro inteiro, prescrições, infusão,
-  agenda do médico, fila, filtros da agenda, ocupação e pedidos da enfermagem) voltaram para
-  WPF: o navegador é uma janela NATIVA que fica PRETA até pintar (1–5 s a cada tela nova, em
-  todos os módulos), o WPF não desenha por cima dela, e cada tela pagava a partida do
-  navegador. Tela nova é XAML + ViewModel; não reintroduza navegador embutido.
-  ⚠️ **Exceção autorizada pela direção (out/2026): o PILOTO EM BLAZOR** (`docs/piloto-blazor.md`).
-  Uma tela só, o Fluxo de caixa em `Clinica.Ui.Blazor`, como aba NOVA ao lado da WPF, que
-  continua intacta. Ele ataca as três causas da tela preta (fundo pintado no WPF, no
-  WebView2 e na `index.html`; controle montado uma vez por aba; arquivos embutidos na DLL), e
-  o C# do Razor chama os serviços direto, sem ponte de mensagens. Fora dele, a regra acima
-  continua valendo até a direção decidir pelo resultado do piloto.
-  ⚠️ **A razão de existir é VER a tela antes de ela chegar à clínica**: `tools/PreviaBlazor`
-  roda a MESMA tela em Linux com dados fictícios, e o Playwright do ambiente a fotografa.
-  Mexeu em tela Blazor, fotografe nas larguras 1024 e 1366 antes do push. Foi assim que
-  apareceu o valor cortado ("R$ 981.87…") dos cartões em 1024, que nenhuma rede pegaria.
-  ⚠️ O pacote `Microsoft.AspNetCore.Components.WebView.Wpf` só tem `lib/net8.0-windows`; o
-  `compilar-sombra` o troca pelas dependências `net8.0` + a DLL baixada
-  (`PACOTES_SO_WINDOWS`). Pacote só-Windows novo entra nessa tabela, senão a sombra para.
+- **⛔ TELA NOVA É BLAZOR — o padrão da casa desde out/2026** 🎨 (decisão da direção, depois
+  de ver o piloto do Fluxo de caixa: *"Simplesmente perfeito! … para que toda tela seja feita
+  dessa forma"*). O guia completo, com o passo a passo, está em **`docs/telas-blazor.md`** —
+  leia ANTES de escrever a primeira linha. Em uma frase: **a tela é HTML/CSS em Razor
+  (`Clinica.Ui.Blazor`), o C# dela chama os MESMOS serviços da Application, e o WPF só a
+  hospeda** (`TelaBlazor`, um `BlazorWebView` por aba). O que isso exige, sempre:
+  - 🧱 **Componentes antes de HTML solto**: `CabecalhoPagina`, `Kpi`, `Modal` (o formulário),
+    `Campo`, `Aviso`, `EstadoVazio`, `FalhaDeLeitura`, `Selo`, `SeletorMes`,
+    `SeletorDePaciente`, `Icone`. Tela que redesenha um deles é a segunda cópia.
+  - 🎨 **Cor, raio e espaço só de TOKEN** (`tokens/*.css`, o espelho do `Tokens.xaml` conferido
+    no CI). Número solto no CSS é dívida no ato — a regra do design system vale igual aqui.
+    Estilo próprio da tela mora em `Ativos/css/telas/<tela>.css`; o comum, em `clinica.css`.
+  - 🔐 **As duas barreiras**: o botão nasce `disabled` sem o bit (`Pode`) e o clique chama
+    `Exigir`/`ExigirAlgum` da `TelaBase`, que DEVOLVE FALSO e diz por quê — exceção solta num
+    evento derruba o circuito da tela (a `Raiz` tem um `ErrorBoundary` como última rede, mas
+    rede não é desenho).
+  - 🔁 **Escopo por operação** (`using var escopo = Escopo();`) — nunca serviço Scoped da
+    Application injetado na tela (checagem 37 pelo outro lado: a aba vive o dia inteiro).
+  - 🧮 **Contador de geração** em toda carga, publicação DEPOIS do último `await`, e o
+    **terceiro estado** (`FalhaDeLeitura`) quando a leitura falha — vazio por erro não tem a
+    cara de vazio por não haver nada.
+  - 💬 **Diálogo é HTML** (`Dialogos`: confirmar, perguntar texto, avisar) e **formulário é
+    `Modal`** em `Formularios/` — nunca janela do sistema. Cancelar uma pergunta é `null`,
+    NUNCA texto vazio (checagem 39). Feedback de formulário é INLINE (`Aviso`); a confirmação
+    passageira de ação de linha vai para `Notificacoes`.
+  - 💾 **Disco, área de transferência e navegação passam pelo `IHostDaTela`** (CSV, PDF,
+    escolher arquivo, copiar, `NavegarAsync`) — o hospedeiro WPF reusa as rotinas do shell, e
+    a prévia responde com uma frase. CSV é saída de dado: `Exigir(VerFinanceiro)` antes.
+  - 💰 **Dinheiro e data em pt-BR FIXO** (`Formato`), número de SVG em invariante, e o que a
+    pessoa digita lido pela `LeituraDeValores` da Application (a mesma do WPF).
+  - 📸 **A razão de existir é VER a tela antes de ela chegar à clínica**: `tools/PreviaBlazor`
+    roda a MESMA tela em Linux com dados fictícios (`Sementes/`, uma por tela, achadas por
+    reflexão), e `tools/PreviaBlazor/foto.js` a fotografa. **Toda tela é fotografada em 1024
+    e 1366, e todo formulário aberto**, antes do push. Foi assim que apareceram o valor cortado
+    ("R$ 981.87…") dos cartões em 1024 e o selo "Previsto" inchado pela classe `.aviso` que
+    ele herdava do alerta — nenhuma rede pegaria nenhum dos dois.
+  - ⚠️ **O que decide o que a tela AFIRMA continua morando na Application**, com teste — Razor
+    não é lugar de regra de negócio. A tela formata e desenha; o serviço decide.
+  - ⚠️ O pacote `Microsoft.AspNetCore.Components.WebView.Wpf` só tem `lib/net8.0-windows`; o
+    `compilar-sombra` o troca pelas dependências `net8.0` + a DLL baixada
+    (`PACOTES_SO_WINDOWS`). Pacote só-Windows novo entra nessa tabela, senão a sombra para.
+  - 🕰️ **Histórico**: em out/2026 as telas em HTML do WebView2 (Financeiro, prescrições,
+    infusão, agenda do médico, fila…) tinham voltado para WPF por causa da tela PRETA de 1–5 s
+    a cada abertura. O Blazor não é aquilo: o fundo é pintado nas TRÊS camadas que aparecem
+    antes do conteúdo (o controle WPF, o `WEBVIEW2_DEFAULT_BACKGROUND_COLOR` e a
+    `index.html`), a aba é montada UMA vez e guardada, os arquivos vão embutidos na DLL, e o
+    Razor chama o serviço direto — sem ponte de mensagens nem segunda cópia de regra. **Não
+    reintroduza HTML escrito à mão conversando por mensagem**; tela HTML é Razor.
+  - 🗂️ As telas WPF que ainda existem continuam valendo e se mantêm em XAML até serem
+    migradas; tela NOVA não nasce em XAML.
 - **Tela de leitura que volta do histórico** implementa `IAtualizarAoVoltar`: reaparece na hora
   com o que mostrava e relê em silêncio (sem "Carregando", sem limpar, falha só no log).
   Formulário e prontuário em edição NÃO implementam — voltar não pode reler por baixo de quem digita.
