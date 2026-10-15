@@ -1,0 +1,295 @@
+@*
+  REPASSES (out/2026, migrado do RepassesView/RepassesViewModel do WPF).
+
+  Responde "quanto tenho a repassar a cada profissional neste mês, e de onde saiu o
+  número?". A tela mostra o cálculo ANTES de apurar: quem paga precisa ver quantos
+  atendimentos, quanta receita ENTROU e qual regra foi aplicada antes de o dinheiro virar
+  uma saída no caixa (RepasseService.CalcularAsync, que não grava nada).
+
+  Apurar TRAVA o período (RepasseApurado) e cria a saída PREVISTA no caixa — o pagamento
+  de fato é o "Realizar" daquela saída, no Caixa. Cancelar a apuração cancela a saída junto.
+  Regras e apurações moram num formulário, como no WPF (parcela 49): são cadastro e
+  histórico, e a tela existe para responder "quanto tenho a repassar agora".
+*@
+@inherits TelaBase
+@using Clinica.Application.Modelos
+
+<div class="pagina @(Carregando && _calculados.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Repasses" Titulo="Repasses"
+                     Subtitulo="Apuração por profissional, com base na receita recebida e na regra de repasse.">
+        <SeletorMes Valor="Mes" ValorChanged="TrocarMesAsync" />
+        <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(_calculados.Count == 0)"><Icone Nome="baixar" />Exportar CSV</button>
+        <button type="button" class="botao" @onclick="() => _regrasAbertas = true"><Icone Nome="lista" />Regras e apurações</button>
+        <button type="button" class="botao primario" @onclick="NovaRegra" disabled="@(!PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite mexer nos repasses.")"><Icone Nome="mais" />Nova regra</button>
+    </CabecalhoPagina>
+
+    @if (_totais is null && Carregando)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+    }
+    else if (_totais is { } t)
+    {
+        <section class="kpis" aria-label="Resumo do período">
+            <Kpi Rotulo="A repassar no período" Valor="@Formato.Dinheiro(t.ARepassar)" Icone="repasse" Tom="saida"
+                 Nota="Soma do que cada regra calculou sobre a receita que entrou" />
+            <Kpi Rotulo="Profissionais com atendimento" Valor="@t.Profissionais.ToString(Formato.PtBr)" Icone="pessoas" Tom="neutro"
+                 Nota="Sessões realizadas no período, pelo horário da agenda" />
+            <Kpi Rotulo="A apurar" Valor="@t.AApurar.ToString(Formato.PtBr)" Icone="cadeado"
+                 Nota="@(t.JaApurados > 0 ? $"{t.JaApurados} já apurado(s) neste período" : "Nenhum período travado ainda")" />
+            <Kpi Rotulo="Sem regra cadastrada" Valor="@t.SemRegra.ToString(Formato.PtBr)" Icone="alerta"
+                 Tom="@(t.SemRegra > 0 ? "aviso" : "neutro")" ClasseValor="@(t.SemRegra > 0 ? "tom-aviso" : null)"
+                 Nota="@(t.SemRegra > 0 ? "Sem regra não há o que pagar — cadastre antes de apurar" : "Todos com regra vigente")" />
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="cartao-titulo">
+            <div>
+                <h2>A repassar em @Formato.Mes(Mes)</h2>
+                <p>@(_resumo ?? LeituraDosRepasses.Periodo(Inicio, Fim))</p>
+            </div>
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível calcular os repasses" Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erroLeitura}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (Carregando && _calculados.Count == 0)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="200" /></div>
+        }
+        else if (_calculados.Count == 0)
+        {
+            <EstadoVazio Icone="repasse" Titulo="Nenhum atendimento realizado neste mês"
+                         Descricao="O repasse sai das sessões realizadas na agenda, com o profissional que atendeu. Sem sessão, não há o que repassar." />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Profissional</th>
+                            <th class="direita" style="width:100px">Atendimentos</th>
+                            <th class="direita" style="width:140px">Receita que entrou</th>
+                            <th class="direita" style="width:130px">A receber</th>
+                            <th style="width:220px">Situação</th>
+                            <th class="direita" style="width:110px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _calculados)
+                        {
+                            var podeApurar = LeituraDosRepasses.PodeApurar(c);
+                            <tr @key="c.ProfissionalId" class="@(!c.TemRegra ? "repasse-sem-regra" : null)">
+                                <td>
+                                    <span class="principal">@c.Profissional</span>
+                                    @if (c.TemRegra) { <span class="secundario">@c.RegraDescricao</span> }
+                                </td>
+                                <td class="direita numero">@c.Atendimentos</td>
+                                <td class="direita numero">@Formato.Dinheiro(c.ReceitaVinculada)</td>
+                                <td class="direita numero"><span class="repasse-valor">@Formato.Dinheiro(c.Valor)</span></td>
+                                <td class="repasse-situacao"><Selo Tom="@(!c.TemRegra ? "aviso" : c.JaApurado ? "sucesso" : "info")">@c.Situacao</Selo></td>
+                                <td class="direita">
+                                    <button type="button" class="botao mini primario" disabled="@(!podeApurar || !PodeEditar)"
+                                            title="@DicaApurar(c)" @onclick="() => ApurarAsync(c)"><Icone Nome="cadeado" />Apurar</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">
+                O percentual incide sobre a receita que ENTROU dos atendimentos de cada um — não sobre o faturado e ainda não recebido.
+                Apurar trava o período e cria a saída prevista no caixa; o pagamento é confirmado no Caixa.
+            </div>
+        }
+    </section>
+</div>
+
+@if (_regrasAbertas)
+{
+    <RegrasRepasseForm Regras="_regras" Apuracoes="_apuracoes" NaoVerificado="_naoVerificado"
+                       AoFechar="() => _regrasAbertas = false" AoNovaRegra="NovaRegra"
+                       AoExcluirRegra="ExcluirRegraAsync" AoCancelarApuracao="CancelarApuracaoAsync" />
+}
+@if (_novaRegra)
+{
+    <RegraRepasseForm AoFechar="() => _novaRegra = false" AoConcluir="RegraSalvaAsync" />
+}
+
+@code {
+    private DateOnly Mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateOnly Inicio => Mes;
+    private DateOnly Fim => Mes.AddMonths(1).AddDays(-1);
+
+    private IReadOnlyList<RepasseCalculado> _calculados = [];
+    private IReadOnlyList<RepasseApurado> _apuracoes = [];
+    private IReadOnlyList<RegraRepasse> _regras = [];
+    private TotaisDosRepasses? _totais;
+    private string? _resumo;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    private bool _regrasAbertas;
+    private bool _novaRegra;
+
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private Task TrocarMesAsync(DateOnly mes) { Mes = mes; return CarregarAsync(); }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o mês duas vezes rápido
+    /// deixaria o cálculo de um mês sob o título do outro — e é sobre esse número que se
+    /// apura. As três leituras vão em FILA no mesmo escopo (mesmo DbContext) e tudo é
+    /// publicado depois do último await.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopo();
+            var repasses = escopo.ServiceProvider.GetRequiredService<RepasseService>();
+            var calculados = await repasses.CalcularAsync(Inicio, Fim);
+            if (geracao != _geracao || Descartada) return;
+            var apuracoes = await repasses.ApuradosAsync();
+            if (geracao != _geracao || Descartada) return;
+            var regras = await repasses.RegrasAsync();
+            if (geracao != _geracao || Descartada) return;
+
+            _calculados = calculados;
+            _apuracoes = apuracoes;
+            _regras = regras;
+            _totais = LeituraDosRepasses.Totais(calculados);
+            _resumo = LeituraDosRepasses.Resumo(calculados);
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — repasses não puderam ser calculados", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _calculados = [];
+            _totais = null;
+            _resumo = null;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private static string? DicaApurar(RepasseCalculado c)
+    {
+        if (!PodeEditar) return "Seu acesso não permite mexer nos repasses.";
+        if (!c.TemRegra) return "Cadastre a regra de repasse deste profissional antes de apurar.";
+        if (c.JaApurado) return "Este período já foi apurado. Cancele a apuração em \"Regras e apurações\" para apurar de novo.";
+        if (c.Valor <= 0m) return "O repasse calculado ficou em zero — não há o que pagar neste período.";
+        return "Fecha o repasse do período e cria a saída prevista no caixa.";
+    }
+
+    private async Task ApurarAsync(RepasseCalculado c)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
+        if (!await Dialogos.ConfirmarAsync("Apurar repasse",
+                $"Fechar {Formato.Dinheiro(c.Valor)} para {c.Profissional} em {LeituraDosRepasses.Periodo(Inicio, Fim)}? "
+                + "Isso cria uma SAÍDA PREVISTA no caixa e impede apurar o mesmo período de novo.",
+                confirmar: "Apurar")) return;
+
+        var inicio = Inicio;
+        var fim = Fim;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<RepasseService>()
+                    .ApurarAsync(c.ProfissionalId, inicio, fim, categoriaId: null, operador: Operador);
+            }, "Blazor — repasse não pôde ser apurado", "Repasse apurado e lançado no caixa como saída prevista."))
+            await CarregarAsync();
+    }
+
+    private async Task CancelarApuracaoAsync(RepasseApurado a)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Cancelar apuração",
+            $"Por que a apuração de {a.Profissional?.Rotulo ?? "—"} ({LeituraDosRepasses.Periodo(a.Inicio, a.Fim)}) está sendo cancelada? "
+            + "A saída prevista no caixa é cancelada junto.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<RepasseService>()
+                    .CancelarApuracaoAsync(a.Id, motivo, Operador);
+            }, "Blazor — apuração não pôde ser cancelada", "Apuração cancelada."))
+            await CarregarAsync();
+    }
+
+    private async Task ExcluirRegraAsync(RegraRepasse r)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir regra",
+                $"Apagar a regra de {r.Profissional?.Rotulo ?? $"Profissional {r.ProfissionalId}"} ({r.Descricao})? As apurações JÁ FEITAS "
+                + "continuam valendo — elas guardam a própria cópia do cálculo.", perigoso: true, confirmar: "Excluir regra")) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<RepasseService>().ExcluirRegraAsync(r.Id);
+            }, "Blazor — regra de repasse não pôde ser excluída", "Regra excluída."))
+            await CarregarAsync();
+    }
+
+    private void NovaRegra()
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) _novaRegra = true;
+    }
+
+    private async Task RegraSalvaAsync()
+    {
+        _novaRegra = false;
+        Notificacoes.Sucesso("Regra de repasse salva.");
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// O extrato do mês em CSV — o papel que o profissional recebe junto com o repasse
+    /// (parcela 32): o número vem com a CONTA que o produziu, senão discordar dele vira
+    /// discutir memória.
+    /// </summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar os repasses")) return;
+        if (_calculados.Count == 0)
+        {
+            Notificacoes.Info("Não há repasse para exportar neste mês.");
+            return;
+        }
+        try
+        {
+            var linhas = _calculados.Select(c => (IReadOnlyList<string>)
+            [
+                c.Profissional, c.Atendimentos.ToString(Formato.PtBr), Formato.Dinheiro(c.ReceitaVinculada),
+                c.RegraDescricao, Formato.Dinheiro(c.Valor), c.Situacao
+            ]).ToList();
+            var erro = await Host.ExportarCsvAsync(
+                ["Profissional", "Atendimentos", "Receita que entrou", "Regra", "A receber", "Situação"],
+                linhas, $"repasses-{Mes:yyyy-MM}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — repasses não puderam ser exportados", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+}

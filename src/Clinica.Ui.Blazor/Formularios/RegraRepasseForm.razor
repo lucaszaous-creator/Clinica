@@ -1,0 +1,155 @@
+@*
+  Cadastro de uma regra de repasse (o que no WPF era a RegraRepasseWindow /
+  RegraRepasseViewModel). Percentual da receita que ENTROU ou valor fixo por sessão
+  realizada, com vigência. Subir o percentual depois é criar uma regra NOVA — a apuração
+  antiga continua com a que valia no período.
+
+  As validações de valor e vigência são do RepasseService.SalvarRegraAsync; aqui só se lê
+  o que a pessoa digitou (LeituraDeValores, a mesma do WPF) e se mostra o erro INLINE.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Nova regra de repasse" Subtitulo="Quanto do trabalho de cada profissional é dele." Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Profissional" Obrigatorio="true" Classe="largo"
+                   Dica="@(_equipeFalhou ? "Não foi possível ler a equipe — feche e tente de novo." : null)">
+                <select class="campo" @bind="_profissionalId">
+                    @if (_profissionais.Count == 0) { <option value="">(nenhum profissional ativo)</option> }
+                    @foreach (var p in _profissionais)
+                    {
+                        <option value="@p.Id">@p.Rotulo</option>
+                    }
+                </select>
+            </Campo>
+            <Campo Rotulo="Base do cálculo" Classe="largo">
+                <div class="segmentado repasse-base" role="group" aria-label="Base do cálculo">
+                    @foreach (var b in Enum.GetValues<BaseRepasse>())
+                    {
+                        var esta = b;
+                        <button type="button" aria-pressed="@(_base == esta ? "true" : "false")" @onclick="() => _base = esta">@RotulosEnum.De(esta)</button>
+                    }
+                </div>
+            </Campo>
+            @if (EhPercentual)
+            {
+                <Campo Rotulo="Percentual da receita (%)" Obrigatorio="true" Classe="largo"
+                       Dica="Incide sobre a receita que ENTROU dos atendimentos dele no período — não sobre o que foi faturado e ainda não recebido.">
+                    <input class="campo valor repasse-campo-curto" @bind="_percentual" @bind:event="oninput" maxlength="6" inputmode="decimal" placeholder="40" />
+                </Campo>
+            }
+            else
+            {
+                <Campo Rotulo="Valor por atendimento" Obrigatorio="true" Classe="largo"
+                       Dica="Valor fixo por sessão realizada, independente do que entrou no caixa.">
+                    <input class="campo valor repasse-campo-curto" @bind="_valorPorAtendimento" @bind:event="oninput" maxlength="12" inputmode="decimal" placeholder="50,00" />
+                </Campo>
+            }
+            <Campo Rotulo="Vigente de">
+                <input type="date" class="campo" value="@(_vigenteDe?.ToString("yyyy-MM-dd") ?? "")" @onchange="e => _vigenteDe = LerData(e)" />
+            </Campo>
+            <Campo Rotulo="Vigente até">
+                <input type="date" class="campo" value="@(_vigenteAte?.ToString("yyyy-MM-dd") ?? "")" @onchange="e => _vigenteAte = LerData(e)" />
+            </Campo>
+            <span class="campo-dica largo">Deixe o fim em branco para a regra valer daqui em diante. Subir o percentual depois é criar uma regra nova — a apuração antiga continua com a que valia no período.</span>
+            <Campo Rotulo="Observações" Classe="largo">
+                <textarea class="campo" rows="2" @bind="_observacoes" maxlength="500"></textarea>
+            </Campo>
+        </div>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || _carregando || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite mexer nos repasses.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar regra")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<Profissional> _profissionais = [];
+    private bool _equipeFalhou;
+    private int? _profissionalId;
+    private BaseRepasse _base = BaseRepasse.PercentualDaReceita;
+    private string? _percentual;
+    private string? _valorPorAtendimento;
+    private DateOnly? _vigenteDe = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly? _vigenteAte;
+    private string? _observacoes;
+    private string? _mensagem;
+    private bool _ocupado;
+    private bool _carregando = true;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+    private bool EhPercentual => _base == BaseRepasse.PercentualDaReceita;
+
+    private static DateOnly? LerData(ChangeEventArgs e) => DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d) ? d : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _profissionais = await escopo.ServiceProvider.GetRequiredService<EquipeService>().ProfissionaisAtivosAsync();
+            _profissionalId = _profissionais.FirstOrDefault()?.Id;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — equipe não pôde ser lida para a regra de repasse", ex);
+            _equipeFalhou = true;
+            _mensagem = ex.Message;
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
+            if (_profissionalId is not { } profissionalId) throw new InvalidOperationException("Escolha o profissional.");
+
+            decimal? percentual = null;
+            decimal? porAtendimento = null;
+            if (EhPercentual)
+            {
+                if (!LeituraDeValores.TentarLerDecimal(_percentual, out var lido))
+                    throw new InvalidOperationException("Informe o percentual (ex.: 40).");
+                percentual = lido;
+            }
+            else
+            {
+                if (!LeituraDeValores.TentarLerDecimal(_valorPorAtendimento, out var lido))
+                    throw new InvalidOperationException("Informe o valor por atendimento (ex.: 50,00).");
+                porAtendimento = lido;
+            }
+
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<RepasseService>().SalvarRegraAsync(new RegraRepasse
+            {
+                ProfissionalId = profissionalId,
+                Base = _base,
+                Percentual = percentual,
+                ValorPorAtendimento = porAtendimento,
+                VigenteDe = _vigenteDe,
+                VigenteAte = _vigenteAte,
+                Ativa = true,
+                Observacoes = _observacoes
+            }, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — regra de repasse não pôde ser salva", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

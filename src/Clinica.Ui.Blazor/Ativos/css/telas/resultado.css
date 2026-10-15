@@ -1,1 +1,26 @@
 /* Estilo PRÓPRIO da tela (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
+/* A cascata do bruto ao resultado: cada passo um bloco, o operador entre eles. Quebra em
+   linhas em tela estreita sem perder a ordem de leitura. */
+.resultado-cascata{display:flex;flex-wrap:wrap;align-items:stretch;gap:var(--space-2)}
+.resultado-passo{flex:1 1 140px;min-width:0;display:flex;flex-direction:column;gap:var(--space-1);
+  padding:var(--space-3) var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--cinza-50)}
+.resultado-passo span{font-size:var(--text-small-size);color:var(--texto-secundario);font-weight:500}
+.resultado-passo b{font-family:var(--font-num);font-size:var(--text-h3-size);font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resultado-passo.deducao b{color:var(--aviso-texto)}
+.resultado-passo.total{background:var(--sucesso-suave);border-color:var(--verde-100)}
+.resultado-passo.total b{color:var(--sucesso-forte)}
+.resultado-passo.total.prejuizo{background:var(--erro-suave);border-color:var(--vermelho-100)}
+.resultado-passo.total.prejuizo b{color:var(--erro-texto)}
+.resultado-operador{display:grid;place-items:center;color:var(--texto-secundario);font-size:var(--text-h3-size);font-weight:600}
+/* Aba de teto: título e ação na mesma linha, a ação encostada à direita. */
+.resultado-teto-topo{align-items:flex-start}
+.resultado-teto-topo p{max-width:640px}
+.resultado-situacao.atencao{color:var(--aviso-texto);font-weight:600}
+.resultado-situacao.estourou{color:var(--erro-texto);font-weight:600}
+.resultado-trilho{margin-top:var(--space-2);max-width:420px}
+.resultado-trilho > i{background:var(--acento)}
+.resultado-trilho.atencao > i{background:var(--aviso)}
+.resultado-trilho.estourou > i{background:var(--erro)}
+.resultado-campo-teto{max-width:220px}
+.abas .selo{margin-left:var(--space-2)}

@@ -1,1 +1,9 @@
 /* Estilo PRÓPRIO da tela (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
+/* As três parcelas da barra: efetivado (o que já virou guia), pendente (o que falta baixar)
+   e não conformidade (justificada na rodada). */
+.amostra.producao-efetivado{background:var(--serie-entrada)}
+.amostra.producao-pendente{background:var(--aviso)}
+.amostra.producao-nc{background:var(--cinza-300)}
+.grafico .producao-barra-efetivado{fill:var(--serie-entrada)}
+.grafico .producao-barra-pendente{fill:var(--aviso)}
+.grafico .producao-barra-nc{fill:var(--cinza-300)}

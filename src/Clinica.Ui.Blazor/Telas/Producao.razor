@@ -1,0 +1,269 @@
+@*
+  PRODUÇÃO (out/2026, migrado do ProducaoView/ProducaoViewModel do WPF).
+
+  Responde "quantos códigos o período produziu, quantos já foram efetivados (baixados no
+  portal do convênio) e quantos continuam pendentes?". É a base de conferência do
+  faturamento e a matéria-prima do repasse. Só CONTAGENS — faturamento não é recebível, e
+  nenhum número daqui vira dinheiro (RelatorioService.ComparativoMensalAsync).
+
+  O gráfico empilha efetivados, pendentes e não conformidades para a barra somar o total
+  da tabela; o eixo ANCORA NO ZERO (a regra do gráfico da casa).
+*@
+@inherits TelaBase
+@using Clinica.Application.Modelos
+
+<div class="pagina @(Carregando && _meses.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Produção" Titulo="Produção"
+                     Subtitulo="Códigos efetivados e pendentes por mês. Só contagens: faturamento não é recebível, e nenhum número daqui é dinheiro.">
+        <div class="segmentado" role="group" aria-label="Período">
+            @foreach (var j in Janelas)
+            {
+                var esta = j;
+                <button type="button" aria-pressed="@(esta == _janela ? "true" : "false")" @onclick="() => TrocarJanelaAsync(esta)">Últimos @esta meses</button>
+            }
+        </div>
+    </CabecalhoPagina>
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível carregar a produção"
+                            Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        </section>
+    }
+    else if (_totais is null)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+        <div class="cartao cartao-corpo"><Esqueleto Altura="260" /></div>
+    }
+    else
+    {
+        var t = _totais;
+        <section class="kpis" aria-label="Resumo do período">
+            <Kpi Rotulo="Códigos no período" Valor="@Numero(t.Codigos)" Icone="documento"
+                 Nota="@($"Produção consolidada · últimos {_janela} meses")" />
+            <Kpi Rotulo="Efetivados" Valor="@Numero(t.Baixados)" Icone="check" Tom="sucesso"
+                 Nota="Guias baixadas no portal do convênio" />
+            <Kpi Rotulo="Pendentes" Valor="@Numero(t.Pendentes)" Icone="relogio" Tom="@(t.Pendentes > 0 ? "aviso" : "neutro")"
+                 Nota="Ainda sem baixa — fora as não conformidades justificadas" />
+            <Kpi Rotulo="Taxa de efetivação" Valor="@LeituraDaProducao.Taxa(t)" Icone="percentual" Tom="neutro"
+                 Nota="@(t.Taxa is null ? "Sem código no período, não há taxa — não é 0%" : "Efetivados sobre o total de códigos")" />
+        </section>
+
+        @if (t.Codigos == 0)
+        {
+            <section class="cartao">
+                <EstadoVazio Icone="documento" Titulo="Nenhum código no período"
+                             Descricao="Os códigos nascem com o atendimento lançado. Sem sessão registrada nestes meses, não há produção a conferir." />
+            </section>
+        }
+        else
+        {
+            <section class="cartao cartao-corpo">
+                <div class="cartao-titulo">
+                    <div>
+                        <h2>Códigos por mês</h2>
+                        <p>Passe o mouse sobre um mês para ver os números.</p>
+                    </div>
+                    <div class="legenda" aria-hidden="true">
+                        <span><i class="amostra producao-efetivado"></i>Efetivados</span>
+                        <span><i class="amostra producao-pendente"></i>Pendentes</span>
+                        <span><i class="amostra producao-nc"></i>Não conformidade</span>
+                    </div>
+                </div>
+                <div class="grafico">
+                    <svg viewBox="0 0 @N(L) @N(A)" role="img" aria-label="Gráfico de códigos por mês. Os números estão na tabela abaixo.">
+                        <g class="grade eixo">
+                            @foreach (var m in _marcas)
+                            {
+                                var y = Y(m);
+                                <line x1="@N(Esq)" x2="@N(L - Dir)" y1="@N(y)" y2="@N(y)" class="@(m == 0 ? "zero" : null)" />
+                                @Texto(Esq - 10, y + 4, "end", null, Numero(m))
+                            }
+                        </g>
+                        @for (var i = 0; i < _meses.Count; i++)
+                        {
+                            var indice = i;
+                            var mes = _meses[i];
+                            var col = (L - Esq - Dir) / _meses.Count;
+                            var x0 = Esq + i * col;
+                            var largura = Math.Min(col * 0.56, 44);
+                            var xb = x0 + (col - largura) / 2;
+                            var atual = mes.Ano == _hoje.Year && mes.Mes == _hoje.Month;
+                            <g class="mes @(_ativo == indice ? "ativo" : null) @(atual ? "atual" : null)"
+                               @onmouseenter="() => _ativo = indice" @onmouseleave="() => _ativo = null">
+                                <rect class="alvo" x="@N(x0 + 2)" y="@N(Topo)" width="@N(col - 4)" height="@N(Base - Topo)" rx="6" />
+                                @Pilha(xb, largura, mes)
+                                @Texto(x0 + col / 2, A - 6, "middle", "rotulo-mes", mes.Rotulo)
+                            </g>
+                        }
+                    </svg>
+                    @if (_ativo is { } a && a < _meses.Count)
+                    {
+                        var m = _meses[a];
+                        var direita = a < _meses.Count / 2;
+                        var col = (L - Esq - Dir) / _meses.Count;
+                        var x = (Esq + (direita ? a + 1 : a) * col) / L * 100;
+                        <div class="dica @(direita ? "direita" : "esquerda")" style="left:@N(x)%">
+                            <strong>@m.Rotulo</strong>
+                            <div class="linha"><span><i class="amostra producao-efetivado"></i>Efetivados</span><b>@Numero(m.Baixados)</b></div>
+                            <div class="linha"><span><i class="amostra producao-pendente"></i>Pendentes</span><b>@Numero(m.Pendentes)</b></div>
+                            @if (LeituraDaProducao.NaoConformidades(m) is > 0 and var nc)
+                            {
+                                <div class="linha"><span><i class="amostra producao-nc"></i>Não conformidade</span><b>@Numero(nc)</b></div>
+                            }
+                            <hr />
+                            <div class="linha"><span>Total</span><b>@Numero(m.TotalCodigos)</b></div>
+                            <div class="linha"><span>Taxa</span><b>@LeituraDaProducao.TaxaDoMes(m)</b></div>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="cartao lista-cartao">
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr>
+                                <th>Mês</th>
+                                <th class="direita">Códigos</th>
+                                <th class="direita">Efetivados</th>
+                                <th class="direita">Pendentes</th>
+                                <th class="direita" style="width:140px">Taxa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in _meses)
+                            {
+                                var atual = m.Ano == _hoje.Year && m.Mes == _hoje.Month;
+                                <tr @key="(m.Ano * 100 + m.Mes)" class="@(atual ? "atual" : null)">
+                                    <td class="nao-quebra"><span class="principal">@m.Rotulo</span>@if (atual) {<span class="selo">em curso</span>}</td>
+                                    <td class="direita numero">@Numero(m.TotalCodigos)</td>
+                                    <td class="direita numero">@Numero(m.Baixados)</td>
+                                    <td class="direita numero">@Numero(m.Pendentes)</td>
+                                    <td class="direita numero">@LeituraDaProducao.TaxaDoMes(m)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista">Pendentes não incluem as não conformidades justificadas na rodada — por isso efetivados e pendentes podem não somar o total.</div>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private static readonly int[] Janelas = [6, 12];
+
+    // A geometria do desenho (viewBox), como a do Fluxo de caixa.
+    private const double L = 1000, A = 260, Esq = 48, Dir = 8, Topo = 12, Base = 232;
+
+    private int _janela = 6;
+    private IReadOnlyList<ResumoMensal> _meses = [];
+    private TotaisDaProducao? _totais;
+    private IReadOnlyList<int> _marcas = [0];
+    private int _maximo = 1;
+    private DateOnly _hoje = DateOnly.FromDateTime(DateTime.Today);
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erro;
+    private int? _ativo;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private Task TrocarJanelaAsync(int meses)
+    {
+        if (meses == _janela) return Task.CompletedTask;
+        _janela = meses;
+        return CarregarAsync();
+    }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): alternar 6 ↔ 12 meses rápido
+    /// deixaria os totais de uma janela sob o botão marcado da outra.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        _ativo = null;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            using var escopo = Escopo();
+            var meses = await escopo.ServiceProvider.GetRequiredService<RelatorioService>()
+                .ComparativoMensalAsync(hoje, _janela);
+            if (geracao != _geracao || Descartada) return;
+
+            _hoje = hoje;
+            _meses = meses;
+            _totais = LeituraDaProducao.Somar(meses);
+            (_maximo, _marcas) = Escala(meses.Count == 0 ? 0 : meses.Max(m => m.TotalCodigos));
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — produção não pôde ser carregada", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _meses = [];
+            _totais = null;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>Teto "redondo" do eixo e as marcas (zero incluso) — a escala só é desenho.</summary>
+    private static (int Maximo, IReadOnlyList<int> Marcas) Escala(int maior)
+    {
+        if (maior <= 0) return (1, [0]);
+        var bruto = maior / 4.0;
+        var potencia = Math.Pow(10, Math.Floor(Math.Log10(bruto)));
+        var passo = (int)Math.Max(1, new[] { 1, 2, 5, 10 }.Select(f => f * potencia).First(p => p >= bruto));
+        var maximo = (int)Math.Ceiling(maior / (double)passo) * passo;
+        return (maximo, Enumerable.Range(0, maximo / passo + 1).Select(i => i * passo).ToList());
+    }
+
+    private double Altura(int valor) => valor <= 0 ? 0 : (double)valor / _maximo * (Base - Topo);
+    private double Y(int valor) => Base - Altura(valor);
+
+    private static string Numero(int n) => n.ToString("N0", Formato.PtBr);
+
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private RenderFragment Pilha(double x, double largura, ResumoMensal m) => __builder =>
+    {
+        var y = Base;
+        foreach (var (valor, classe) in new[]
+                 {
+                     (m.Baixados, "producao-barra-efetivado"),
+                     (m.Pendentes, "producao-barra-pendente"),
+                     (LeituraDaProducao.NaoConformidades(m), "producao-barra-nc")
+                 })
+        {
+            var h = Altura(valor);
+            if (h <= 0) continue;
+            y -= h;
+            <rect class="@classe" x="@N(x)" y="@N(y)" width="@N(largura)" height="@N(h)" />
+        }
+    };
+
+    // `<text>` é palavra reservada do Razor, então o texto do SVG sai pelo construtor da árvore.
+    private static RenderFragment Texto(double x, double y, string ancora, string? classe, string conteudo) => b =>
+    {
+        b.OpenElement(0, "text");
+        b.AddAttribute(1, "x", N(x));
+        b.AddAttribute(2, "y", N(y));
+        b.AddAttribute(3, "text-anchor", ancora);
+        if (classe is not null) b.AddAttribute(4, "class", classe);
+        b.AddContent(5, conteudo);
+        b.CloseElement();
+    };
+}

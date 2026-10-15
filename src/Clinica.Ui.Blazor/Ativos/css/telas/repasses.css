@@ -1,1 +1,12 @@
 /* Estilo PRÓPRIO da tela (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
+/* O valor a receber é o número que se lê em voz alta: peso de destaque, sem cor de entrada/saída. */
+.repasse-valor{font-weight:600;color:var(--texto-primario)}
+/* Quem não tem regra continua na lista (é o cadastro que falta), com o valor apagado. */
+table.lista tr.repasse-sem-regra .repasse-valor{color:var(--texto-secundario);font-weight:500}
+/* Dentro do formulário a tabela encosta na borda do modal, como a lista da tela. */
+.modal .repasse-tabela-form{margin:0 calc(-1 * var(--space-6))}
+.repasse-nota{margin:0}
+.repasse-campo-curto{max-width:200px}
+.repasse-situacao .selo{white-space:nowrap}
+.repasse-base{align-self:flex-start}
+.repasse-tabela-form .selo{white-space:nowrap}
