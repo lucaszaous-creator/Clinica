@@ -187,6 +187,15 @@ Nenhum deles quebra o build quando é esquecido:
   ele responde quase sincronamente e as consultas nunca se sobrepõem.
 - Leitura composta nova ganha um teste com o **interceptor de lentidão**
   (`CabecalhoClinicoTests.LentidaoDeRede`).
+- **Leituras INDEPENDENTES correm juntas, cada uma no seu escopo** (`ILeituraParalela`,
+  out/2026): com o banco a ~250 ms por ida, oito conferências em fila são 2 s; em paralelo, o
+  tempo da mais lenta. Sem `ILeituraParalela` (testes) o serviço continua em fila. O resultado
+  tem de ser o MESMO — `ElegibilidadeParalelaTests` compara as duas formas, ordem incluída.
+- **A mesma pergunta duas vezes na mesma carga não vai duas vezes ao banco**: o repositório
+  memoriza por poucos segundos as leituras de clínica inteira (códigos em aberto, consultas,
+  carteirinhas) e a fotografia das configurações, e TUDO isso some em qualquer `SaveChanges`
+  do escopo. Leitura de UM paciente se filtra no banco, nunca trazendo a clínica e filtrando
+  em memória. Detalhes em `docs/desempenho-leituras-2026-10-15.md`.
 
 ### 4. ViewModel e tela
 

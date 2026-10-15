@@ -196,7 +196,9 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar a ficha clínica");
-            await Capa.CarregarAsync();
+            // Recém-criada, a capa já está carregando desde o construtor: espera ESSA carga.
+            var recemCriada = !_secaoCapa.IsValueCreated;
+            await (recemCriada ? Capa.CargaInicial : Capa.CarregarAsync());
             new ConsultaContextualWindow($"Ficha — {Paciente}",
                 new Views.PacienteView { DataContext = this }, "Voltar ao atendimento").ShowDialog();
         }
@@ -494,7 +496,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
 
     public async Task AtualizarCadastroAsync()
     {
-        await Capa.CarregarAsync();
+        var recemCriada = !_secaoCapa.IsValueCreated;
+        await (recemCriada ? Capa.CargaInicial : Capa.CarregarAsync());
         if (!Capa.NaoVerificado) Paciente = Capa.Paciente;
         await CarregarCabecalhoAsync();
     }
