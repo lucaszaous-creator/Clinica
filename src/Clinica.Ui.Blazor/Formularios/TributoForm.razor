@@ -1,0 +1,217 @@
+@*
+  Um tributo do regime (o que no WPF era a TributoWindow / TributoEdicaoViewModel).
+
+  A BASE DE CÁLCULO existe porque nem todo tributo incide sobre a receita inteira: no Lucro
+  Presumido o IRPJ de 15% incide sobre 32%, e a efetiva é 4,8%. O CONVÊNIO preenchido quer
+  dizer retido na fonte por aquela operadora — a retenção SUBSTITUI os tributos gerais
+  naquele recebimento, nunca se soma.
+
+  Em relação ao WPF:
+  - o convênio é ESCOLHIDO do catálogo, não digitado: a retenção casa pelo CÓDIGO gravado no
+    recebimento, e um código digitado errado faria a retenção nunca valer, calada. Um código
+    já gravado que não está no catálogo continua na lista, para a edição não o apagar;
+  - alíquota zero é aceita (TentarLerPercentual), como na taxa;
+  - as OBSERVAÇÕES, que a janela não mostra, voltam intactas na edição (quem não edita,
+    PRESERVA — o SalvarAsync copia campo a campo).
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(TributoId == 0 ? "Tributo novo" : "Editar tributo")"
+       Subtitulo="Uma linha por guia que a clínica recolhe. Cada tributo é arredondado ao centavo separadamente, porque é o detalhe que vai ao contador."
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="200" />
+        }
+        else if (_falhaAoAbrir is not null)
+        {
+            <Aviso Tom="erro" Texto="@_falhaAoAbrir" />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Sigla" Obrigatorio="true" Dica="ISS, PIS, COFINS, IRPJ, CSLL, SIMPLES.">
+                    <input class="campo" @bind="_sigla" @bind:event="oninput" maxlength="12" placeholder="Ex.: ISS" />
+                </Campo>
+                <Campo Rotulo="Nome" Dica="Em branco = a sigla.">
+                    <input class="campo" @bind="_nome" @bind:event="oninput" maxlength="80" placeholder="Ex.: Imposto Sobre Serviços" />
+                </Campo>
+                <Campo Rotulo="Alíquota (%)" Obrigatorio="true">
+                    <input class="campo valor" @bind="_percentual" @bind:event="oninput" maxlength="8" inputmode="decimal" placeholder="Ex.: 3 ou 0,65" />
+                </Campo>
+                <Campo Rotulo="Base de cálculo (%)" Dica="Em branco = 100%, que é o caso normal.">
+                    <input class="campo valor" @bind="_base" @bind:event="oninput" maxlength="8" inputmode="decimal" placeholder="100" />
+                </Campo>
+                @if (EfetivaTexto is { } efetiva)
+                {
+                    <div class="largo"><Aviso Tom="info" Texto="@efetiva" /></div>
+                }
+                <Campo Rotulo="Convênio que retém na fonte" Classe="largo"
+                       Erro="@_falhaConvenios"
+                       Dica="Escolhido = a operadora retém este tributo antes de depositar. A retenção SUBSTITUI os tributos gerais naquele recebimento, nunca se soma — os dois são o mesmo imposto, e somá-los conta duas vezes.">
+                    <select class="campo" @bind="_convenio">
+                        <option value="">(nenhum — recolhido pela clínica)</option>
+                        @foreach (var c in _convenios)
+                        {
+                            <option value="@c.Codigo">@c.Nome</option>
+                        }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Vigente de">
+                    <input type="date" class="campo" @bind="_vigenteDe" />
+                </Campo>
+                <Campo Rotulo="Até" Dica="Em branco = sem fim.">
+                    <input type="date" class="campo" @bind="_vigenteAte" />
+                </Campo>
+            </div>
+            <Aviso Tom="info" Texto="Reajuste do ISS entra como linha nova: sem vigência, o mês já declarado mudaria junto. Encerre a linha antiga pela data e cadastre a nova." />
+            <label class="alternar"><input type="checkbox" @bind="_ativo" /> Ativo</label>
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync"
+                disabled="@(_carregando || _falhaAoAbrir is not null || _ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite cadastrar tributo.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar tributo")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>0 = tributo novo.</summary>
+    [Parameter] public int TributoId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _sigla;
+    private string? _nome;
+    private string? _percentual;
+    private string? _base = "100";
+    private string _convenio = string.Empty;
+    private DateOnly? _vigenteDe;
+    private DateOnly? _vigenteAte;
+    private bool _ativo = true;
+    private string? _observacoes;
+
+    private List<(string Codigo, string Nome)> _convenios = [];
+    private string? _falhaConvenios;
+
+    private bool _carregando = true;
+    private string? _falhaAoAbrir;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    /// <summary>"15% sobre 32% = 4,8% de cada recebimento" — só quando a base não é 100%.</summary>
+    private string? EfetivaTexto
+    {
+        get
+        {
+            if (!TaxasEImpostosNaTela.TentarLerPercentual(_percentual, out var p)) return null;
+            var b = 100m;
+            if (!string.IsNullOrWhiteSpace(_base) && !TaxasEImpostosNaTela.TentarLerPercentual(_base, out b)) return null;
+            if (b == 100m || b <= 0m) return null;
+            var t = new Tributo { Sigla = string.IsNullOrWhiteSpace(_sigla) ? "Tributo" : _sigla!.Trim().ToUpperInvariant(), Percentual = p, BasePercentual = b };
+            return $"{t.Descricao} — é a alíquota efetiva que sai de cada recebimento.";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var sp = escopo.ServiceProvider;
+            if (TributoId != 0)
+            {
+                var t = (await sp.GetRequiredService<TributoService>().CatalogoAsync())
+                    .FirstOrDefault(x => x.Id == TributoId);
+                if (t is null)
+                {
+                    _falhaAoAbrir = "Tributo não encontrado — ele pode ter sido excluído em outra máquina.";
+                    return;
+                }
+                _sigla = t.Sigla;
+                _nome = t.Nome;
+                _percentual = t.Percentual.ToString("0.####", Formato.PtBr);
+                _base = t.BasePercentual.ToString("0.####", Formato.PtBr);
+                _convenio = t.ConvenioCodigo ?? string.Empty;
+                _vigenteDe = t.VigenteDe;
+                _vigenteAte = t.VigenteAte;
+                _ativo = t.Ativo;
+                _observacoes = t.Observacoes;
+            }
+
+            try
+            {
+                // Só operadora retém: o particular e o "a definir" não geram guia nem depositam.
+                _convenios = (await sp.GetRequiredService<ConvenioCatalogoService>().ListarAsync())
+                    .Where(c => c.GeraGuia && c.Ativo)
+                    .Select(c => (c.Codigo, c.Nome)).ToList();
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — convênios não puderam ser lidos no tributo", ex);
+                _falhaConvenios = "Não foi possível ler os convênios — a lista NÃO está vazia por não haver convênio.";
+            }
+            // O código já gravado continua escolhível mesmo fora do catálogo (inativo, renomeado):
+            // sem ele o select cairia em "(nenhum)" e o Salvar apagaria a retenção.
+            if (!string.IsNullOrWhiteSpace(_convenio)
+                && !_convenios.Any(c => string.Equals(c.Codigo, _convenio, StringComparison.OrdinalIgnoreCase)))
+                _convenios.Insert(0, (_convenio, $"{_convenio} (código gravado)"));
+            else if (!string.IsNullOrWhiteSpace(_convenio))
+                _convenio = _convenios.First(c => string.Equals(c.Codigo, _convenio, StringComparison.OrdinalIgnoreCase)).Codigo;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — tributo não pôde ser aberto", ex);
+            _falhaAoAbrir = $"Não foi possível abrir o tributo: {ex.Message}";
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        if (string.IsNullOrWhiteSpace(_sigla)) { _mensagem = "Informe a sigla do tributo (ISS, PIS, COFINS, IRPJ, CSLL, SIMPLES)."; return; }
+        if (!TaxasEImpostosNaTela.TentarLerPercentual(_percentual, out var percentual)) { _mensagem = "Informe a alíquota do tributo, de 0 a 100 (ex.: 3 ou 0,65)."; return; }
+        // Base vazia = 100%, o caso normal: exigir o número faria digitar "100" cinco vezes num regime.
+        var baseCalculo = 100m;
+        if (!string.IsNullOrWhiteSpace(_base) && (!TaxasEImpostosNaTela.TentarLerPercentual(_base, out baseCalculo) || baseCalculo <= 0m))
+        {
+            _mensagem = "A base de cálculo vai de 0 a 100 (ex.: 32 no IRPJ do Lucro Presumido).";
+            return;
+        }
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar tributo");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<TributoService>().SalvarAsync(new Tributo
+            {
+                Id = TributoId,
+                Sigla = _sigla!,
+                Nome = string.IsNullOrWhiteSpace(_nome) ? _sigla! : _nome!,
+                Percentual = percentual,
+                BasePercentual = baseCalculo,
+                ConvenioCodigo = string.IsNullOrWhiteSpace(_convenio) ? null : _convenio,
+                VigenteDe = _vigenteDe,
+                VigenteAte = _vigenteAte,
+                Ativo = _ativo,
+                Observacoes = _observacoes
+            }, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — tributo não pôde ser salvo", ex);
+            _mensagem = $"Não foi possível salvar: {ex.Message}";
+        }
+        finally { _ocupado = false; }
+    }
+}

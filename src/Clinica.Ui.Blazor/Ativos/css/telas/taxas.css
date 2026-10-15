@@ -1,1 +1,25 @@
 /* Estilo PRÓPRIO da tela (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
+.taxas-abas{padding:0 var(--space-6);background:var(--cinza-50)}
+.taxas .lista-cartao > .cartao-titulo{padding:var(--space-4) var(--space-6);margin-bottom:0;border-bottom:1px solid var(--cinza-100);
+  align-items:center}
+.taxas .cartao-titulo p strong{color:var(--texto-primario);font-variant-numeric:tabular-nums}
+.taxas .cartao-titulo p{max-width:820px;line-height:1.45}
+.taxas td .secundario .selo{margin-left:0}
+
+/* A alíquota única: faixa de largura inteira que SÓ existe quando ela vale. */
+.aliquota-unica{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-4);
+  padding:var(--space-4) var(--space-6);border-top:1px solid var(--borda);background:var(--aviso-suave)}
+.aliquota-unica-texto{flex:1 1 360px;min-width:0}
+.aliquota-unica-texto h3{margin:0 0 4px;font-size:14px;font-weight:700;color:var(--aviso-texto)}
+.aliquota-unica-texto p{margin:0;color:var(--cinza-700);line-height:1.45;font-size:var(--text-table-size)}
+.aliquota-unica-campo{display:flex;align-items:flex-start;gap:var(--space-3)}
+.aliquota-unica-campo .campo-bloco{width:160px}
+.aliquota-unica-campo .botao{margin-top:25px}
+
+/* Simulador: cinco campos numa grade que dobra, e o resultado logo abaixo. */
+.simulador{display:flex;flex-direction:column;gap:var(--space-4)}
+.simulador-campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--space-4)}
+.simulador-acoes{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
+
+.taxas .apuracao-aviso{padding-bottom:0}
+.taxa-faixa{gap:var(--space-3)}

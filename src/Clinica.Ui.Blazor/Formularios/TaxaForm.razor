@@ -1,0 +1,200 @@
+@*
+  A taxa da maquininha (o que no WPF era a TaxaWindow / TaxaEdicaoViewModel).
+
+  A regra mais ESPECÍFICA ganha: bandeira vence o adquirente genérico, e a faixa de parcelas
+  vence a modalidade solta. A VIGÊNCIA existe porque a adquirente renegocia — o que vale no
+  recebimento de março é o percentual de março, e por isso o valor é COPIADO na venda.
+
+  Duas correções em relação ao WPF, as duas da AUDITORIA DE LINHA:
+  - taxa ZERO é aceita (TaxasEImpostosNaTela.TentarLerPercentual): o próprio texto da
+    janela manda informá-la, e a leitura de DINHEIRO do WPF a recusava;
+  - as OBSERVAÇÕES, que a janela não mostra, voltam intactas na edição — `SalvarAsync` copia
+    campo a campo e gravaria nulo por cima (lugares 3 e 6: quem não edita, PRESERVA).
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(TaxaId == 0 ? "Taxa nova" : "Editar taxa")"
+       Subtitulo="Use as condições do contrato. Pagamentos de pacientes no cartão exigem uma regra cadastrada — taxa zero também deve ser informada. A regra da bandeira tem prioridade sobre a genérica."
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="200" />
+        }
+        else if (_falhaAoAbrir is not null)
+        {
+            <Aviso Tom="erro" Texto="@_falhaAoAbrir" />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Maquininha / contrato" Obrigatorio="true" Dica="Nomes distintos para contratos diferentes da mesma maquininha.">
+                    <input class="campo" @bind="_adquirente" @bind:event="oninput" maxlength="60" placeholder="Ex.: Stone, Cielo, Rede" />
+                </Campo>
+                <Campo Rotulo="Bandeira" Dica="Em branco = vale para todas as bandeiras.">
+                    <input class="campo" @bind="_bandeira" @bind:event="oninput" maxlength="40" placeholder="Ex.: Visa, Master, Elo" />
+                </Campo>
+                <Campo Rotulo="Modalidade" Obrigatorio="true">
+                    <select class="campo" @bind="_modalidade">
+                        @foreach (var m in Enum.GetValues<ModalidadeCartao>())
+                        {
+                            <option value="@m">@Maiuscula(RotulosEnum.De(m))</option>
+                        }
+                    </select>
+                </Campo>
+                @if (EhParcelado)
+                {
+                    <div class="campos taxa-faixa">
+                        <Campo Rotulo="Parcelas de">
+                            <input type="number" min="2" max="24" class="campo" @bind="_parcelasDe" placeholder="2" />
+                        </Campo>
+                        <Campo Rotulo="Até">
+                            <input type="number" min="2" max="24" class="campo" @bind="_parcelasAte" placeholder="12" />
+                        </Campo>
+                    </div>
+                }
+                else
+                {
+                    <div aria-hidden="true"></div>
+                }
+                <Campo Rotulo="Percentual (%)" Obrigatorio="true">
+                    <input class="campo valor" @bind="_percentual" @bind:event="oninput" maxlength="8" inputmode="decimal" placeholder="Ex.: 3,2" />
+                </Campo>
+                <Campo Rotulo="Primeiro crédito (dias)" Obrigatorio="true" Dica="0 para na hora.">
+                    <input type="number" min="0" max="999" class="campo" @bind="_dias" />
+                </Campo>
+                <Campo Rotulo="Vigente de">
+                    <input type="date" class="campo" @bind="_vigenteDe" />
+                </Campo>
+                <Campo Rotulo="Até" Dica="Em branco = sem fim.">
+                    <input type="date" class="campo" @bind="_vigenteAte" />
+                </Campo>
+            </div>
+
+            <Aviso Tom="info" Texto="A adquirente renegocia: o que vale no recebimento de março é o percentual de março. Por isso o valor da taxa é COPIADO na venda, nunca referenciado — reajustar aqui não reescreve o que já foi recebido." />
+
+            @if (EhParcelado)
+            {
+                <div class="secao-form">
+                    <label class="marcar"><input type="checkbox" @bind="_liquidacaoMensal" /> Receber uma parcela por mês</label>
+                    <span class="campo-dica">Marcado: primeiro depósito no prazo informado, os demais nos meses seguintes. Desmarcado: valor integral no primeiro depósito.</span>
+                </div>
+            }
+            <label class="alternar"><input type="checkbox" @bind="_ativa" /> Ativa</label>
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync"
+                disabled="@(_carregando || _falhaAoAbrir is not null || _ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite cadastrar taxa de cartão.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar taxa")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>0 = taxa nova.</summary>
+    [Parameter] public int TaxaId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _adquirente;
+    private string? _bandeira;
+    private ModalidadeCartao _modalidade = ModalidadeCartao.CreditoAVista;
+    private string? _percentual;
+    private int _dias = 30;
+    private bool _liquidacaoMensal;
+    private int? _parcelasDe;
+    private int? _parcelasAte;
+    private DateOnly? _vigenteDe;
+    private DateOnly? _vigenteAte;
+    private bool _ativa = true;
+    private string? _observacoes;
+
+    private bool _carregando;
+    private string? _falhaAoAbrir;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    /// <summary>Faixa de parcelas e liquidação mensal só fazem sentido no crédito parcelado.</summary>
+    private bool EhParcelado => _modalidade == ModalidadeCartao.CreditoParcelado;
+
+    private static string Maiuscula(string s) => s.Length == 0 ? s : char.ToUpper(s[0], Formato.PtBr) + s[1..];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (TaxaId == 0) return;
+        _carregando = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var t = (await escopo.ServiceProvider.GetRequiredService<TaxaService>().CatalogoAsync())
+                .FirstOrDefault(x => x.Id == TaxaId);
+            if (t is null)
+            {
+                _falhaAoAbrir = "Taxa não encontrada — ela pode ter sido excluída em outra máquina.";
+                return;
+            }
+            _adquirente = t.Adquirente;
+            _bandeira = t.Bandeira;
+            _modalidade = t.Modalidade;
+            _percentual = t.Percentual.ToString("0.##", Formato.PtBr);
+            _dias = t.DiasParaReceber;
+            _liquidacaoMensal = t.LiquidacaoMensal;
+            _parcelasDe = t.ParcelasDe;
+            _parcelasAte = t.ParcelasAte;
+            _vigenteDe = t.VigenteDe;
+            _vigenteAte = t.VigenteAte;
+            _ativa = t.Ativa;
+            _observacoes = t.Observacoes;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — taxa não pôde ser aberta", ex);
+            _falhaAoAbrir = $"Não foi possível abrir a taxa: {ex.Message}";
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        if (string.IsNullOrWhiteSpace(_adquirente)) { _mensagem = "Diga de qual adquirente é a taxa (Stone, Cielo, Rede…)."; return; }
+        if (!TaxasEImpostosNaTela.TentarLerPercentual(_percentual, out var percentual)) { _mensagem = "Informe o percentual da taxa, de 0 a 100 (ex.: 3,2)."; return; }
+        if (_dias < 0) { _mensagem = "Informe em quantos dias o dinheiro cai (0 para na hora)."; return; }
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar taxa de cartão");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<TaxaService>().SalvarAsync(new TaxaCartao
+            {
+                Id = TaxaId,
+                Adquirente = _adquirente!,
+                Bandeira = _bandeira,
+                Modalidade = _modalidade,
+                Percentual = percentual,
+                DiasParaReceber = _dias,
+                LiquidacaoMensal = EhParcelado && _liquidacaoMensal,
+                ParcelasDe = EhParcelado ? _parcelasDe : null,
+                ParcelasAte = EhParcelado ? _parcelasAte : null,
+                VigenteDe = _vigenteDe,
+                VigenteAte = _vigenteAte,
+                Ativa = _ativa,
+                Observacoes = _observacoes
+            }, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — taxa não pôde ser salva", ex);
+            _mensagem = $"Não foi possível salvar: {ex.Message}";
+        }
+        finally { _ocupado = false; }
+    }
+}

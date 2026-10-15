@@ -1,0 +1,305 @@
+@*
+  EXTRATO DO BANCO (out/2026, migrado do ExtratoBancoView/ExtratoBancoViewModel do WPF) —
+  a conciliação bancária por OFX (parcela 63).
+
+  Responde "o que o sistema diz que entrou e saiu bate com o que o BANCO diz?". Não confundir
+  com a Conciliação ao lado, que casa GUIA com receita: são duas conferências diferentes.
+
+  A tela PROPÕE e a pessoa confirma — nada é conciliado sozinho, nem a linha que casa
+  perfeitamente. A proposta só vem pré-escolhida quando há UM candidato; na ambígua o campo
+  fica em branco. "Só no sistema" é a metade que ninguém pede e onde mora o erro caro: a
+  venda marcada como recebida que nunca caiu. As frases e as decisões de cada linha vêm de
+  ExtratoDoBancoNaTela, na Application, com teste.
+*@
+@inherits TelaBase
+@using Clinica.Application.Modelos
+
+<div class="pagina extrato @(Carregando && _linhas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Extrato do banco" Titulo="Extrato do banco"
+                     Subtitulo="Compare o extrato OFX que o banco exporta com os lançamentos realizados e confirme as correspondências. Nada é conciliado sozinho.">
+        @if (_conteudo is not null)
+        {
+            <button type="button" class="botao" @onclick="CruzarAsync" disabled="@Carregando"
+                    title="Cruza de novo o mesmo arquivo com o que está no sistema agora"><Icone Nome="atualizar" />Recruzar</button>
+            <button type="button" class="botao primario" @onclick="AbrirArquivoAsync" disabled="@_abrindo"><Icone Nome="banco" />Abrir outro extrato…</button>
+        }
+    </CabecalhoPagina>
+
+    @if (_resultado is { } r && !_naoVerificado)
+    {
+        <section class="kpis" aria-label="Resumo do extrato">
+            <Kpi Rotulo="Linhas no extrato" Valor="@r.Linhas.Count.ToString(Formato.PtBr)" Icone="banco" Tom="neutro"
+                 Nota="@(r.Inicio is { } de && r.Fim is { } ate ? $"{Formato.Data(de)} a {Formato.Data(ate)}" : _arquivo)" />
+            <Kpi Rotulo="Já casam" Valor="@r.Casadas.ToString(Formato.PtBr)" Icone="check" Tom="sucesso"
+                 Nota="Propostas prontas para você confirmar" />
+            <Kpi Rotulo="Pedem atenção" Valor="@r.Pendentes.ToString(Formato.PtBr)" Icone="alerta" Tom="@(r.Pendentes > 0 ? "aviso" : "neutro")"
+                 Nota="Escolher o candidato, ou só no banco" />
+            <Kpi Rotulo="Só no sistema" Valor="@r.SoNoSistema.Count.ToString(Formato.PtBr)" Icone="caixa" Tom="@(r.SoNoSistema.Count > 0 ? "perigo" : "neutro")"
+                 Nota="Dado como recebido/pago e ausente do banco" />
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        @if (_resultado is not null || _naoVerificado)
+        {
+            <div class="cartao-titulo extrato-titulo">
+                <div>
+                    <h2><Icone Nome="documento" />@_arquivo</h2>
+                    <p>@(_naoVerificado ? "O arquivo foi aberto, mas o cruzamento com o sistema falhou." : _resumo)</p>
+                </div>
+            </div>
+        }
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível cruzar o extrato" Detalhe="@_erroLeitura" AoTentarDeNovo="CruzarAsync" />
+        }
+        else if (Carregando && _linhas.Count == 0)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_resultado is null)
+        {
+            <EstadoVazio Icone="banco" Titulo="Nenhum extrato aberto"
+                         Descricao="Abra o arquivo OFX que o banco exporta — o mesmo que o internet banking oferece para baixar, procurando por “OFX” ou “Money/Quicken”. Não serve o PDF nem o CSV.">
+                <button type="button" class="botao primario" @onclick="AbrirArquivoAsync" disabled="@_abrindo"><Icone Nome="banco" />Abrir extrato (.ofx)…</button>
+            </EstadoVazio>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Icone="documento" Titulo="Este arquivo não tem nenhuma transação"
+                         Descricao="Confira se é o extrato OFX que o banco exporta — não o PDF nem o CSV." />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr><th style="width:96px">Data</th><th class="direita" style="width:140px">Valor</th><th>Descrição e conciliação</th><th class="direita" style="width:150px">Ações</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _linhas)
+                        {
+                            var x = l.Linha.Extrato;
+                            <tr @key="l.Chave" class="@(l.Estado == EstadoLinhaExtrato.JaConferida ? "conferida" : null)">
+                                <td class="nao-quebra">@Formato.Data(x.Data)</td>
+                                <td class="direita numero"><span class="@(x.Entrada ? "valor-entrada" : "valor-saida")">@(x.Entrada ? "+" : "−") @Formato.Dinheiro(x.ValorAbsoluto)</span></td>
+                                <td>
+                                    <span class="principal">@x.Descricao</span>
+                                    <span class="secundario extrato-situacao">
+                                        <Selo Tom="@ExtratoDoBancoNaTela.Tom(l.Estado)">@ExtratoDoBancoNaTela.Selo(l.Estado)</Selo>
+                                        <span>@ExtratoDoBancoNaTela.Detalhe(l.Linha)</span>
+                                    </span>
+                                    @if (ExtratoDoBancoNaTela.PedeEscolha(l.Linha))
+                                    {
+                                        <select class="campo extrato-candidato" aria-label="Com qual lançamento esta linha casa"
+                                                value="@(l.Escolhido?.Chave ?? "")" @onchange="e => Escolher(l, e.Value?.ToString())">
+                                            <option value="">Escolha o lançamento…</option>
+                                            @foreach (var c in l.Linha.Candidatos)
+                                            {
+                                                <option value="@c.Chave">@ExtratoDoBancoNaTela.Candidato(c)</option>
+                                            }
+                                        </select>
+                                    }
+                                    else if (l.Estado is EstadoLinhaExtrato.Casada && l.Escolhido is { } unico)
+                                    {
+                                        <span class="secundario">↳ @ExtratoDoBancoNaTela.Candidato(unico)</span>
+                                    }
+                                </td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        @if (ExtratoDoBancoNaTela.PodeConferir(l.Linha))
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeConciliar || l.Ocupada)"
+                                                    title="@(PodeConciliar ? null : "Seu acesso não permite conciliar com o extrato.")"
+                                                    @onclick="() => ConferirAsync(l)"><Icone Nome="check" />Conferir</button>
+                                        }
+                                        @if (ExtratoDoBancoNaTela.PodeDesfazer(l.Linha))
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!PodeConciliar || l.Ocupada)"
+                                                    title="@(PodeConciliar ? "Desfaz a conciliação desta linha" : "Seu acesso não permite desfazer a conciliação.")"
+                                                    @onclick="() => DesfazerAsync(l)"><Icone Nome="historico" />Desfazer</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    @* A metade que o extrato não mostra: some quando está vazia — uma caixa dizendo "nada
+       aqui" ocuparia o lugar para não dizer nada. *@
+    @if (!_naoVerificado && _resultado is { SoNoSistema.Count: > 0 } rs)
+    {
+        <section class="cartao lista-cartao so-no-sistema">
+            <div class="cartao-titulo">
+                <div>
+                    <h2><Icone Nome="alerta" />No sistema e NÃO no extrato</h2>
+                    <p>Dado como recebido ou pago aqui e sem correspondência no banco neste período. Confira cada um: a venda marcada como recebida que nunca caiu é o erro mais caro do caixa.</p>
+                </div>
+            </div>
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead><tr><th style="width:96px">Data</th><th class="direita" style="width:140px">Valor no banco</th><th>Descrição</th></tr></thead>
+                    <tbody>
+                        @foreach (var i in rs.SoNoSistema)
+                        {
+                            <tr @key="i.Chave">
+                                <td class="nao-quebra">@Formato.Data(i.Data)</td>
+                                <td class="direita numero"><span class="@(i.Tipo == TipoLancamento.Entrada ? "valor-entrada" : "valor-saida")">@(i.Tipo == TipoLancamento.Entrada ? "+" : "−") @Formato.Dinheiro(i.ValorBancario)</span></td>
+                                <td>@i.Descricao</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    /// <summary>Uma linha do extrato na tela, com o que a pessoa escolheu para ela.</summary>
+    private sealed class LinhaNaTela(LinhaConciliada linha, string chave)
+    {
+        public LinhaConciliada Linha { get; } = linha;
+        public string Chave { get; } = chave;
+        public EstadoLinhaExtrato Estado { get; } = ExtratoDoBancoNaTela.Estado(linha);
+        public ItemConciliacao? Escolhido { get; set; } = ExtratoDoBancoNaTela.Proposta(linha);
+        public bool Ocupada { get; set; }
+    }
+
+    /// <summary>O conteúdo do arquivo lido, para recruzar depois de cada confirmação.</summary>
+    private string? _conteudo;
+    private string? _conta;
+    private string _arquivo = string.Empty;
+    private ResultadoConciliacao? _resultado;
+    private List<LinhaNaTela> _linhas = [];
+    private string _resumo = string.Empty;
+    private bool Carregando;
+    private bool _abrindo;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    /// <summary>Mexer no financeiro é o que conciliar é.</summary>
+    private static bool PodeConciliar => Pode(Permissao.EditarFinanceiro);
+
+    private async Task AbrirArquivoAsync()
+    {
+        if (_abrindo) return;
+        try
+        {
+            _abrindo = true;
+            var arquivo = await Host.EscolherArquivoAsync(
+                "Extrato OFX (*.ofx)|*.ofx|Todos os arquivos (*.*)|*.*", "Extrato do banco (OFX)");
+            // Desistiu da janela: é o caso normal, e a pessoa sabe que desistiu.
+            if (arquivo is null) return;
+
+            _conteudo = ExtratoDoBancoNaTela.Decodificar(arquivo.Conteudo);
+            _conta = LeitorOfx.Ler(_conteudo).IdentificacaoConta;
+            _arquivo = arquivo.Nome;
+            await CruzarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — extrato OFX não pôde ser lido", ex);
+            Notificacoes.Erro($"Não foi possível ler o arquivo: {ex.Message}");
+        }
+        finally { _abrindo = false; }
+    }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): cada confirmação recruza o arquivo,
+    /// e duas cargas no ar se intercalariam. Monta em lista local e só então publica.
+    /// </summary>
+    private async Task CruzarAsync()
+    {
+        if (_conteudo is null) return;
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopo();
+            var r = await escopo.ServiceProvider.GetRequiredService<ConciliacaoBancariaService>().CruzarAsync(_conteudo);
+            if (geracao != _geracao || Descartada) return;
+
+            // A escolha feita numa linha ambígua sobrevive ao recruzamento quando o candidato
+            // continua lá: confirmar a linha de cima não pode apagar o que a pessoa já escolheu
+            // na de baixo.
+            var anteriores = _linhas.Where(l => l.Escolhido is not null)
+                .GroupBy(l => l.Chave).ToDictionary(g => g.Key, g => g.First().Escolhido!.Chave);
+            var linhas = r.Linhas.Select((l, i) =>
+            {
+                var linha = new LinhaNaTela(l, $"{l.Extrato.Id}#{i}");
+                if (linha.Escolhido is null && anteriores.TryGetValue(linha.Chave, out var chave))
+                    linha.Escolhido = l.Candidatos.FirstOrDefault(c => c.Chave == chave);
+                return linha;
+            }).ToList();
+
+            _resultado = r;
+            _linhas = linhas;
+            _resumo = ExtratoDoBancoNaTela.Resumo(r);
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — extrato não pôde ser cruzado", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _resultado = null;
+            _linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private static void Escolher(LinhaNaTela l, string? chave)
+        => l.Escolhido = string.IsNullOrEmpty(chave) ? null : l.Linha.Candidatos.FirstOrDefault(c => c.Chave == chave);
+
+    private async Task ConferirAsync(LinhaNaTela l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "conciliar com o extrato")) return;
+        // Guarda com VOZ (parcela 41): na linha ambígua, sair calado faria o botão parecer quebrado.
+        if (ExtratoDoBancoNaTela.ItensAConferir(l.Linha, l.Escolhido) is not { } itens)
+        {
+            Notificacoes.Erro(ExtratoDoBancoNaTela.FaltaEscolher);
+            return;
+        }
+        l.Ocupada = true;
+        var valor = Formato.Dinheiro(l.Linha.Extrato.ValorAbsoluto);
+        var ok = await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<ConciliacaoBancariaService>()
+                    .ConciliarItensAsync(itens, l.Linha.Extrato, Operador, _conta);
+            }, "Blazor — linha do extrato não pôde ser conciliada", $"{valor} conferido contra o extrato.");
+        l.Ocupada = false;
+        if (ok) await CruzarAsync();
+    }
+
+    /// <summary>
+    /// Conciliar é humano e errar também: casada a linha errada, sem isto a única saída
+    /// seria mexer no banco.
+    /// </summary>
+    private async Task DesfazerAsync(LinhaNaTela l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "desfazer a conciliação")) return;
+        if (l.Linha.Candidatos.FirstOrDefault() is not { } lancamento) return;
+        l.Ocupada = true;
+        var ok = await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                var servico = escopo.ServiceProvider.GetRequiredService<ConciliacaoBancariaService>();
+                if (lancamento.ParcelaId is { } parcelaId) await servico.DesfazerParcelaAsync(parcelaId, Operador);
+                else await servico.DesfazerAsync(lancamento.Id, Operador);
+            }, "Blazor — conciliação não pôde ser desfeita", "Conciliação desfeita. A linha voltou para a lista.");
+        l.Ocupada = false;
+        if (ok) await CruzarAsync();
+    }
+}

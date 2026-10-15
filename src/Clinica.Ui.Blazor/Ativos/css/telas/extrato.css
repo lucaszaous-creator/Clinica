@@ -1,1 +1,14 @@
 /* Estilo PRÓPRIO da tela (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
+.extrato .lista-cartao > .cartao-titulo{padding:var(--space-4) var(--space-6);margin-bottom:0;border-bottom:1px solid var(--cinza-100)}
+.extrato .cartao-titulo h2{display:flex;align-items:center;gap:var(--space-2);word-break:break-all}
+.extrato .cartao-titulo h2 .icone{color:var(--texto-secundario)}
+.extrato .cartao-titulo p{line-height:1.45}
+.extrato-situacao{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px}
+.extrato-situacao .selo{margin-left:0}
+.extrato-candidato{margin-top:8px;max-width:520px}
+table.lista tr.conferida td{color:var(--texto-secundario)}
+table.lista tr.conferida td .principal{color:var(--texto-secundario)}
+.so-no-sistema{border-color:var(--laranja-100)}
+.so-no-sistema .cartao-titulo{background:var(--aviso-suave)}
+.so-no-sistema .cartao-titulo h2,.so-no-sistema .cartao-titulo h2 .icone{color:var(--aviso-texto)}
+.extrato .vazio-estado > span{max-width:620px;line-height:1.5}
