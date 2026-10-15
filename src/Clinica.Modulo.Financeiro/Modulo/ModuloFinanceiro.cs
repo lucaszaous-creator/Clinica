@@ -244,12 +244,12 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.Contas), servicos),
         ChaveInadimplencia => new InadimplenciaView { DataContext = servicos.GetRequiredService<InadimplenciaViewModel>() },
         ChaveFluxo => Blazor(typeof(Clinica.Ui.Blazor.Telas.FluxoDeCaixa), servicos),
-        ChaveResultado => new ResultadoView { DataContext = servicos.GetRequiredService<ResultadoViewModel>() },
+        ChaveResultado => Blazor(typeof(Clinica.Ui.Blazor.Telas.ResultadoDoMes), servicos),
         ChaveFechamento => Blazor(typeof(Clinica.Ui.Blazor.Telas.FechamentoDeCaixa), servicos),
         ChaveRecebiveis => Blazor(typeof(Clinica.Ui.Blazor.Telas.Recebiveis), servicos),
         ChaveConciliacao => Blazor(typeof(Clinica.Ui.Blazor.Telas.Conciliacao), servicos),
         ChaveExtrato => Blazor(typeof(Clinica.Ui.Blazor.Telas.ExtratoDoBanco), servicos),
-        ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
+        ChaveProducao => Blazor(typeof(Clinica.Ui.Blazor.Telas.Producao), servicos),
         // A tela SUBIU para o shell (parcela 60), como a sala de infusão na 48: quem
         // vende as dez sessões ao paciente é a RECEPÇÃO, no balcão, e a única porta estava
         // no app do Financeiro. Os dois módulos publicam a MESMA chave — a dedupe do
@@ -260,7 +260,7 @@ public sealed class ModuloFinanceiro : IModuloApp
                 .GetRequiredService<Clinica.Desktop.Shell.Componentes.PacotesViewModel>()
         },
         ChaveEstoque => new EstoqueView { DataContext = servicos.GetRequiredService<EstoqueViewModel>() },
-        ChaveRepasses => new RepassesView { DataContext = servicos.GetRequiredService<RepassesViewModel>() },
+        ChaveRepasses => Blazor(typeof(Clinica.Ui.Blazor.Telas.Repasses), servicos),
         ChaveTaxas => Blazor(typeof(Clinica.Ui.Blazor.Telas.TaxasEImpostos), servicos),
         ChavePlanoContas => new PlanoContasView { DataContext = servicos.GetRequiredService<PlanoContasViewModel>() },
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
