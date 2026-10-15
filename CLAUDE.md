@@ -4473,6 +4473,37 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   incluído), juntar Início e Visão geral, unificar a fórmula de ocupação dos dois e a faixa
   de pedidos da enfermagem dentro da Grade (que tem o salto para o dia do pedido).
 
+- **A RODADA DE UI DA RECEPÇÃO — quatro telas refeitas a partir de mockup aprovado, e o
+  que a fidelidade custou** (out/2026; mockups em canvas aprovados antes de uma linha de
+  WPF, com a promessa de entregar "fielmente igual" e declarar todo desvio).
+  ⚠️ **Início**: saudação + quatro números + "próximos a chegar" + o que é do balcão. Tudo
+  o que a tela AFIRMA mora em `InicioDoBalcao` (Application, pura): a situação da chegada
+  só diz "Confirmou/Não confirmou" quando a rodada disse (sem contato não há selo), e
+  "Confirmar amanhã" é NULO sem rodada — contar zero ali afirmaria que ninguém precisa de
+  aviso. A ocupação vem do `IOcupacaoAgendaService`, a mesma da agenda.
+  ⚠️ **Pacientes**: os chips de recorte e a página usam o MESMO filtro no banco
+  (`AplicarRecorte`) — contagem de chip calculada por outra consulta divergiria do que o
+  clique mostra. Visitas (última e próxima) vêm em LOTE para a página, nunca por linha.
+  ⚠️ **Ficha do balcão ≠ ficha clínica.** A Recepção abria o workspace do Consultório, que
+  responde "o que foi feito com este paciente"; o balcão pergunta quem é, quando volta, se
+  o convênio está em dia e o que falta assinar. `FichaBalcaoView` reusa o
+  `FichaPacienteViewModel` inteiro (mesma leitura, barreiras e trilha) e o prontuário
+  fica a um botão, para quem tem `VerProntuario` — tirar a porta seria a regra 3 do
+  faturamento. A linha do tempo do balcão é ADMINISTRATIVA (sessão, contato, papel): a
+  evolução é dado de saúde e não entra. Sessão sai sem hora porque o atendimento guarda só
+  o dia — inventar hora seria a sequência fabricada da parcela 72.
+  ⚠️ **Marcar**: as horas viraram pílulas (`PilulasDeHorario`, pura): passo = duração da
+  sessão, jornada declarada ou 8h–18h presumidas, hoje começa agora, e a OCUPADA não some
+  (fica tracejada e clicável — a agenda avisa e não impede). O campo "Outro horário"
+  continua: pílula é atalho, não teto.
+  ⚠️ **"Colher termo" saiu do balcão** (Dia e Início), a pedido da direção: a enfermagem
+  já o colhe. O SELO de termo pendente fica — é informação para quem recebe; o que saiu
+  foi a porta duplicada.
+  A lição de método: **fidelidade a mockup não é copiar o que o desenho mostra, é
+  entregar o que ele promete com os dados que o sistema TEM** — onde falta dado (busca
+  por telefone, hora da sessão realizada, histórico de pagamento por pacote), o desvio é
+  escrito na entrega com o motivo, nunca preenchido com algo que pareça certo.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

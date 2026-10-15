@@ -299,4 +299,25 @@ public class RecepcaoNovaUiTests
         FichaDoBalcao.DiaDoHorario(hoje, hoje).Should().Be(("HOJE", "15"));
         FichaDoBalcao.DiaDoHorario(new DateOnly(2026, 10, 22), hoje).Should().Be(("QUI", "22"));
     }
+
+    [Fact]
+    public void Pilulas_de_horario_seguem_jornada_passo_e_marcam_ocupada_sem_sumir()
+    {
+        var quinta = new DateOnly(2026, 10, 22);
+        var prof = new Profissional { Nome = "Dra. A", AtendeDas = new TimeOnly(14, 0), AtendeAte = new TimeOnly(16, 0) };
+        var ocupados = new[] { (quinta.ToDateTime(new TimeOnly(14, 30)), quinta.ToDateTime(new TimeOnly(15, 0))) };
+
+        var pilulas = PilulasDeHorario.Montar(prof, quinta, ocupados, 30, new DateTime(2026, 10, 15, 9, 0, 0));
+
+        pilulas.Select(p => p.Rotulo).Should().Equal("14:00", "14:30", "15:00", "15:30");
+        pilulas.Single(p => p.Ocupada).Rotulo.Should().Be("14:30");
+        // Hoje começa agora; domingo sem jornada declarada não é oferecido.
+        PilulasDeHorario.Montar(prof, quinta, [], 30, quinta.ToDateTime(new TimeOnly(15, 10)))
+            .Select(p => p.Rotulo).Should().Equal("15:30");
+        PilulasDeHorario.Montar(new Profissional { Nome = "B" }, new DateOnly(2026, 10, 25), [], null, new DateTime(2026, 10, 15))
+            .Should().BeEmpty();
+        // Sem jornada: a régua presumida, no passo padrão da casa.
+        PilulasDeHorario.Montar(new Profissional { Nome = "B" }, quinta, [], null, new DateTime(2026, 10, 15))
+            .First().Rotulo.Should().Be("08:00");
+    }
 }
