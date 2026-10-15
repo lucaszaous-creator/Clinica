@@ -101,16 +101,19 @@ static class Program
                 }
             }
         }
-        // Modelo A: a nova organização continua abrindo o mesmo formulário, sem gravar
-        // um horário ao apenas consultar uma vaga. Exercita a View e os bindings reais.
+        // A rota antiga agora deve abrir a Visão geral, sem expor a Grade removida.
         NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda);
         await Task.Delay(250);
         await AguardarPaineisWeb(win);
-        if (Descendentes(win).OfType<TabItem>().Any(t => t.Header is string titulo
-                && titulo is "Lista com busca" or "Tabela do dia" or "Grade e disponibilidade"))
-            throw new Exception("Agenda: os filtros devem acompanhar a tela original, sem uma aba adicional escondendo a grade.");
-        var planejamento = Descendentes(win).OfType<FrameworkElement>().Select(e => e.DataContext)
-            .OfType<Clinica.Recepcao.ViewModels.AgendaViewModel>().First();
+        if (!Descendentes(win).OfType<Clinica.Recepcao.Views.OcupacaoAgendaView>().Any()
+            || Descendentes(win).OfType<Clinica.Recepcao.Views.AgendaView>().Any())
+            throw new Exception("A rota antiga deve abrir a Visão geral sem a Grade.");
+        // Conserva a regressão de disponibilidade e formulário do componente legado,
+        // montando-o diretamente no teste: ele não faz mais parte da navegação pública.
+        var planejamento = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AgendaViewModel>();
+        vm.TelaAtual = new Clinica.Recepcao.Views.AgendaView { DataContext = planejamento };
+        await Task.Delay(250);
+        await AguardarPaineisWeb(win);
         planejamento.Dia = DateTime.Today.AddDays(8 - (int)DateTime.Today.DayOfWeek);
         await planejamento.CarregarAsync();
         planejamento.FiltroProfissional = planejamento.FiltroProfissionais.First(p => p.Id == prof.Id);
