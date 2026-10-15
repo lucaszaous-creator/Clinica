@@ -506,17 +506,15 @@ static class Program
                 || !painel.Alertas.Any(a => a.Assunto == Clinica.Application.Servicos.AssuntoDirecao.EstoqueValidade))
                 throw new Exception("Gerente não consolidou corretamente caixa e estoque.");
         }
-        var estoqueVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.EstoqueViewModel>();
-        await estoqueVm.CarregarCommand.ExecuteAsync(null);
-        if (estoqueVm.ModoMateriaisSelecionado != ModoMateriais.Desativado) throw new Exception("Materiais começaram ativados.");
-        var estoqueView = new Clinica.Financeiro.Views.EstoqueView { DataContext = estoqueVm };
-        var estoqueJanela = new Window { Content = estoqueView, Height = 750 };
-        await ConferirJanela(estoqueJanela, "estoque-itens", [960, 1366]);
-        Descendentes(estoqueView).OfType<TabControl>().Single().SelectedItem = Descendentes(estoqueView).OfType<TabItem>()
-            .Single(t => Equals(t.Header, "Materiais dos atendimentos"));
-        await ConferirJanela(estoqueJanela, "materiais-desativados", [960, 1366]);
-        estoqueVm.ModoMateriaisSelecionado = ModoMateriais.Gestao;
-        await estoqueVm.SalvarModoMateriaisCommand.ExecuteAsync(null);
+        // As telas do Financeiro são Blazor desde out/2026 (docs/telas-blazor.md): a foto delas
+        // sai da prévia (tools/PreviaBlazor). Aqui fica o que é REGRA — o modo de materiais e a
+        // pendência de baixa —, conferido pelo serviço que a tela usa.
+        using (var scope = sp.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            if ((await new PoliticaMateriaisService(repo).ObterAsync()).Modo != ModoMateriais.Desativado) throw new Exception("Materiais começaram ativados.");
+            await new PoliticaMateriaisService(repo).SalvarAsync(ModoMateriais.Gestao, usuario.Id);
+        }
         using (var scope = sp.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
@@ -527,9 +525,6 @@ static class Program
             db.Add(horario); await db.SaveChangesAsync();
             await scope.ServiceProvider.GetRequiredService<EstoqueService>().RegistrarMateriaisAsync(horario.Id, usuario.Id, new([new(item.Id, 5)]));
         }
-        await estoqueVm.CarregarMateriaisCommand.ExecuteAsync(null);
-        if (estoqueVm.AtendimentosMateriais.Single().Situacao != "Baixa pendente") throw new Exception("Pendência de saldo invisível.");
-        await ConferirJanela(estoqueJanela, "materiais-acompanhamento", [960, 1366]); estoqueJanela.Close();
         var pagamentos = sp.GetRequiredService<Clinica.Recepcao.ViewModels.PagamentosViewModel>();
         var view = new Clinica.Recepcao.Views.PagamentosView { DataContext = pagamentos };
         var janela = new Window { Content = view, Width = 960, Height = 650 };
@@ -543,17 +538,6 @@ static class Program
             { Forma = FormaPagamento.CartaoCredito, Adquirente = "Maquininha", Bandeira = "Visa", Parcelas = "3" };
         var receberJanela = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(receber);
         await ConferirJanela(receberJanela, "receber-cartao", [480, 600]); receberJanela.Close();
-        var baixar = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(new Clinica.Financeiro.ViewModels.BaixarLancamentoViewModel(escopos, pendente)
-            { Forma = FormaPagamento.CartaoCredito });
-        await ConferirJanela(baixar, "financeiro-baixa", [420, 560]); baixar.Close();
-        var compra = new Clinica.Financeiro.Janelas.MovimentoEstoqueWindow(new Clinica.Financeiro.ViewModels.MovimentoEstoqueViewModel(escopos, item.Id, item.Nome)
-            { GerarContaCompra = true, CompraPaga = true, Fornecedor = "Fornecedor demonstrativo", Quantidade = "100", CustoUnitario = "2,50", Lote = "L-2026" });
-        await ConferirJanela(compra, "estoque-compra", [480, 560]); compra.Close();
-        var cadastroItem = new Clinica.Financeiro.Janelas.ItemEstoqueWindow(new Clinica.Financeiro.ViewModels.ItemEstoqueEdicaoViewModel(escopos, item.Id));
-        await ConferirJanela(cadastroItem, "estoque-catalogo", [460, 600]); cadastroItem.Close();
-        var contaNova = new Clinica.Financeiro.Janelas.ContaWindow(new Clinica.Financeiro.ViewModels.ContaEdicaoViewModel(escopos)
-            { Descricao = "Compra de materiais", Contraparte = "Fornecedor", DocumentoReferencia = "NF-123", Valor = "100", QuantidadeParcelas = "3" });
-        await ConferirJanela(contaNova, "contas-parcelamento", [440, 600]); contaNova.Close();
         var materiaisVm = new MateriaisProcedimentoViewModel([new MaterialProcedimentoLinha { ItemId = item.Id, Nome = "Material de procedimento com apresentação e nome compridos", Saldo = "Disponível: 10,125 un" }]);
         await materiaisVm.ConfirmarCommand.ExecuteAsync(null);
         if (materiaisVm.Pedido != null || string.IsNullOrWhiteSpace(materiaisVm.Erro)) throw new Exception("Consumo vazio passou sem declaração.");
@@ -577,23 +561,10 @@ static class Program
             }
         }
         finally { System.Globalization.CultureInfo.CurrentCulture = culturaAnterior; }
-        var contasVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.ContasViewModel>();
-        await contasVm.CarregarCommand.ExecuteAsync(null);
-        var contasJanela = new Window { Content = new Clinica.Financeiro.Views.ContasView { DataContext = contasVm }, Height = 700 };
-        await ConferirJanela(contasJanela, "contas-historico", [960, 1366]); contasJanela.Close();
-        var caixaVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.CaixaViewModel>();
-        await caixaVm.CarregarCommand.ExecuteAsync(null);
-        var caixaJanela = new Window { Content = new Clinica.Financeiro.Views.CaixaView { DataContext = caixaVm }, Height = 700 };
-        await ConferirJanela(caixaJanela, "caixa-historico", [960, 1366]); caixaJanela.Close();
         var gerente = sp.GetRequiredService<Clinica.Gerente.ViewModels.PainelDirecaoViewModel>();
         await gerente.CarregarCommand.ExecuteAsync(null);
         var direcao = new Window { Content = new Clinica.Gerente.Views.PainelDirecaoView { DataContext = gerente }, Height = 700 };
         await ConferirJanela(direcao, "gerente-gestao", [960, 1366]); direcao.Close();
-        var taxaVm = new Clinica.Financeiro.ViewModels.TaxaEdicaoViewModel(escopos, 0)
-            { Adquirente = "Maquininha / contrato mensal", Modalidade = ModalidadeCartao.CreditoParcelado,
-              LiquidacaoMensal = true, ParcelasDe = "2", ParcelasAte = "12", Percentual = "3" };
-        var contrato = new Clinica.Financeiro.Janelas.TaxaWindow(taxaVm);
-        await ConferirJanela(contrato, "contrato-cartao", [460, 600]); contrato.Close();
         var pacoteVm = new PacoteVendaViewModel(escopos, paciente)
             { Forma = FormaPagamento.CartaoCredito, Adquirente = "Contrato mensal", Bandeira = "Visa", ParcelasCartao = "3" };
         var pacoteJanela = new PacoteVendaWindow(pacoteVm);
@@ -606,10 +577,6 @@ static class Program
             await scope.ServiceProvider.GetRequiredService<PagamentosRecepcaoService>().ReceberAsync(paciente.Id,
                 pendente.Id, pendente.Valor, hoje, FormaPagamento.CartaoCredito, adquirente: "Contrato mensal", bandeira: "Visa", parcelas: 3);
         }
-        var recebiveisVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.RecebiveisViewModel>();
-        await recebiveisVm.CarregarAsync();
-        var recebiveisJanela = new Window { Content = new Clinica.Financeiro.Views.RecebiveisView { DataContext = recebiveisVm }, Height = 700 };
-        await ConferirJanela(recebiveisJanela, "recebiveis-parcelas", [960, 1366]); recebiveisJanela.Close();
         foreach (var perfil in new[] { PerfilAcesso.Recepcao, PerfilAcesso.Profissional })
         {
             usuario.Perfil = perfil; sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);

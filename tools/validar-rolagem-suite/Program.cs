@@ -142,14 +142,6 @@ internal static class Program
         Montar(convenios);
         ConferirSetas(Descendentes<ScrollViewer>(convenios).First(), false, "Recepção / 85 autorizações");
         Janela.Close();
-        Janela = new Clinica.Financeiro.Janelas.RegrasRepasseWindow(null!) { Left = -30000, Top = -30000, ShowInTaskbar = false, ShowActivated = false,
-            DataContext = new { Regras = Enumerable.Range(1, 85).Select(n => new { Profissional = $"Regra {n:000}", Regra = "Regra sintética", Vigencia = "Demonstração" }).ToArray(),
-                Apuracoes = Enumerable.Range(1, 85).Select(n => new { Profissional = $"Apuração {n:000}", Valor = "Dados fictícios", Periodo = "Demonstração", Situacao = "Teste", PodeCancelar = false }).ToArray() } };
-        Janela.Show(); Atualizar();
-        ConferirSetas(Descendentes<ScrollViewer>(Janela).First(), false, "Financeiro / 85 regras e 85 apurações");
-        Janela.Height = Janela.MinHeight; Atualizar();
-        ConferirSetas(Descendentes<ScrollViewer>(Janela).First(), false, "Financeiro / janela na altura mínima");
-        Janela.Close();
         Janela = new Window { Width = 900, Height = 600, Left = -30000, Top = -30000, ShowInTaskbar = false, ShowActivated = false };
         Janela.Show();
         foreach (var arquivo in new[] { "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml", "src/Clinica.Desktop.Shell/Componentes/FolhaExecucaoWindow.xaml", "src/Clinica.Desktop.Shell/Shell/ShellWindow.xaml" })

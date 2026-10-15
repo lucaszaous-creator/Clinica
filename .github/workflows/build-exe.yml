@@ -112,9 +112,6 @@ jobs:
       - name: Conferir gestão, pagamentos e estoque no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --gestao
 
-      - name: Conferir Financeiro, formulários e séries com dados fictícios
-        run: dotnet run --project tools/validar-design-financeiro -c Release
-
       - name: Conferir recall, filtros e configuração salva no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --acompanhamento
 

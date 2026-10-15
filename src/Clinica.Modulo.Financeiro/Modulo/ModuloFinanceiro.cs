@@ -1,7 +1,5 @@
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
-using Clinica.Financeiro.ViewModels;
-using Clinica.Financeiro.Views;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.Modulo;
@@ -209,37 +207,21 @@ public sealed class ModuloFinanceiro : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
-        servicos.AddTransient<CaixaViewModel>();
-        // Transient de propósito: cada janela de lançamento abre com o formulário limpo.
-        servicos.AddTransient<LancamentoEdicaoViewModel>();
-        servicos.AddTransient<ContasViewModel>();
-        servicos.AddTransient<InadimplenciaViewModel>();
-        servicos.AddTransient<FluxoCaixaViewModel>();
-        // O piloto em Blazor: o motor do BlazorWebView e o que a tela pede ao WPF.
+        // O Financeiro é BLAZOR desde out/2026 (docs/telas-blazor.md): as telas não têm
+        // ViewModel registrado — cada uma abre escopo por operação. Aqui só o motor do
+        // BlazorWebView, o que a tela pede ao WPF e os serviços de tela (diálogos, avisos).
         servicos.AddWpfBlazorWebView();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IHostDaTela, Web.HostDaTelaWpf>();
         Clinica.Ui.Blazor.Hospedagem.RegistroTelas.AddTelasBlazor(servicos);
-        servicos.AddTransient<ResultadoViewModel>();
-        servicos.AddTransient<FechamentoCaixaViewModel>();
-        servicos.AddTransient<RecebiveisViewModel>();
-        servicos.AddTransient<ConciliacaoViewModel>();
-        servicos.AddTransient<ExtratoBancoViewModel>();
-        servicos.AddTransient<ProducaoViewModel>();
+        // Pacotes continua WPF: a tela é do SHELL e a Recepção publica a mesma chave.
         servicos.AddTransient<Clinica.Desktop.Shell.Componentes.PacotesViewModel>();
-        servicos.AddTransient<EstoqueViewModel>();
-        servicos.AddTransient<RepassesViewModel>();
-        servicos.AddTransient<TaxasViewModel>();
-        servicos.AddTransient<PlanoContasViewModel>();
-        // Os ViewModels de formulário (venda de pacote, movimento de estoque, regra de
-        // repasse) são construídos à mão pelas telas: cada janela abre limpa e precisa
-        // receber o contexto (o item, o pacote) no construtor.
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         // ===== Telas em Blazor (out/2026, docs/telas-blazor.md) =====
-        // HTML/CSS sobre os MESMOS serviços; o WPF só hospeda. As telas WPF ficam no
-        // projeto até a validação no Windows, mas nenhuma chave aponta mais para elas.
+        // HTML/CSS sobre os MESMOS serviços; o WPF só hospeda. As telas WPF antigas foram
+        // removidas — o Financeiro é só Blazor.
         ChaveCaixa => Blazor(typeof(Clinica.Ui.Blazor.Telas.Caixa), servicos),
         ChaveContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.Contas), servicos),
         ChaveInadimplencia => Blazor(typeof(Clinica.Ui.Blazor.Telas.QuemMeDeve), servicos),

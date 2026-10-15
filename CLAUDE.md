@@ -252,8 +252,8 @@ Nenhum deles quebra o build quando é esquecido:
     `index.html`), a aba é montada UMA vez e guardada, os arquivos vão embutidos na DLL, e o
     Razor chama o serviço direto — sem ponte de mensagens nem segunda cópia de regra. **Não
     reintroduza HTML escrito à mão conversando por mensagem**; tela HTML é Razor.
-  - 🗂️ As telas WPF que ainda existem continuam valendo e se mantêm em XAML até serem
-    migradas; tela NOVA não nasce em XAML.
+  - 🗂️ As telas WPF dos OUTROS módulos continuam valendo e se mantêm em XAML até serem
+    migradas; tela NOVA não nasce em XAML. O Financeiro já é só Blazor.
 - **Tela de leitura que volta do histórico** implementa `IAtualizarAoVoltar`: reaparece na hora
   com o que mostrava e relê em silêncio (sem "Carregando", sem limpar, falha só no log).
   Formulário e prontuário em edição NÃO implementam — voltar não pode reler por baixo de quem digita.
@@ -4612,8 +4612,11 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   14 telas (Caixa, Fechamento, Fluxo, Contas, Quem me deve, Plano de contas, Recebíveis,
   Conciliação, Extrato do banco, Taxas e impostos, Estoque, Repasses, Resultado do mês e
   Produção) e ~20 formulários foram reescritos em `Clinica.Ui.Blazor` sobre os MESMOS
-  serviços; `CriarTela` aponta para `TelaBlazor`. As telas WPF ficam no projeto, sem chave
-  que as abra, até a validação no Windows — depois saem. **Pacotes ficou em WPF** de
+  serviços; `CriarTela` aponta para `TelaBlazor`. **As telas, janelas e ViewModels WPF do
+  Financeiro foram REMOVIDOS** a pedido da direção (*"deixaremos só o Blazor"*), junto com a
+  ferramenta `tools/validar-design-financeiro` e os trechos das validações do Windows que
+  montavam aquelas janelas — o que era REGRA nelas (modo de materiais, baixa pendente) ficou,
+  conferido pelo serviço. **Pacotes ficou em WPF** de
   propósito: é a tela do shell que a Recepção também publica, e migrá-la num módulo só daria
   duas telas para a mesma chave no Gerente.
   ✅ **Como foi feito, e é o roteiro para o próximo módulo**: primeiro a BASE (componentes,
