@@ -71,8 +71,11 @@ public sealed partial class ShellViewModel
     private void BatidaAvisos(object? sender, EventArgs e)
     {
         // Com o banco avisando, o relógio é só a rede para aviso perdido: 1 min em vez de 15 s
-        // (cada batida são três leituras, em todo posto, o dia inteiro).
-        var intervalo = Clinica.Infrastructure.OuvinteDeMudancas.Ativo ? TimeSpan.FromMinutes(1) : TimeSpan.FromSeconds(15);
+        // (cada batida são três leituras, em todo posto, o dia inteiro). Pergunta pela TABELA,
+        // não pela escuta: na clínica os pedidos podem não ter gatilho (outro dono), e
+        // espaçar o relógio aí deixaria o pedido esperando 1 min sem aviso nenhum.
+        var intervalo = Clinica.Infrastructure.OuvinteDeMudancas.Avisa("SolicitacoesEnfermagem")
+            ? TimeSpan.FromMinutes(1) : TimeSpan.FromSeconds(15);
         if (_relogioAvisos is { } r && r.Interval != intervalo) r.Interval = intervalo;
         _ = AtualizarPedidosGlobaisAsync();
     }

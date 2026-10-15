@@ -15,7 +15,14 @@ name: Build EXE (Windows)
 # O que se perde: um push DIRETO na main (sem PR) não gera build. Aqui tudo entra
 # por PR; para o caso raro, o `workflow_dispatch` roda em qualquer branch.
 #
-# ⚠️ Este job é um SUPERCONJUNTO do `verificar.yml`: ele roda o espelho de tokens, o
+# ⚠️ EM PARALELO, desde out/2026 (eram ~15 min em fila num job só). Três jobs correm
+# juntos: `testes` (Linux — o que não precisa de Windows, e Linux é faturado 1×),
+# `conferencias` (testes e verificadores de tela no Windows) e `publicar` (os cinco .exe).
+# O job `build` só espera os três e responde por eles: é o NOME do check do PR, e
+# renomeá-lo soltaria qualquer regra de proteção da main que o exija. O cache do NuGet
+# corta a restauração em todos.
+#
+# ⚠️ Este workflow é um SUPERCONJUNTO do `verificar.yml`: ele roda o espelho de tokens, o
 # `verificar-suite`, os testes E o compilador de marcação do WPF. Por isso o
 # `verificar` não precisa disparar em PR — seria a terceira execução das mesmas
 # três redes no mesmo commit.
@@ -38,10 +45,17 @@ concurrency:
   group: build-exe-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-jobs:
-  build:
-    runs-on: windows-latest
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
+jobs:
+  # ============================================================
+  # O que não precisa de Windows: redes estáticas e a suíte geral.
+  # ============================================================
+  testes:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
 
@@ -50,17 +64,41 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Cache do NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Conferir espelho dos tokens (CSS x XAML)
-        run: python tokens/verificar-espelho.py
+        run: python3 tokens/verificar-espelho.py
 
       - name: Conferir a suíte multi-exe (XAML, pack URIs, projetos)
-        run: python tools/verificar-suite.py
-
-      - name: Restaurar
-        run: dotnet restore Clinica.sln
+        run: python3 tools/verificar-suite.py
 
       - name: Testes (regras de faturamento)
         run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
+
+  # ============================================================
+  # Testes e verificadores que só rodam com o WPF de verdade.
+  # ============================================================
+  conferencias:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache do NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Testar carregamento e cache das telas Windows
         run: dotnet test tests/Clinica.Windows.Tests/Clinica.Windows.Tests.csproj -c Release
@@ -72,13 +110,13 @@ jobs:
         run: dotnet run --project tools/ValidarLayoutWindows -c Release
 
       - name: Conferir gestão, pagamentos e estoque no Windows
-        run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --gestao
+        run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --gestao
 
       - name: Conferir Financeiro, formulários e séries com dados fictícios
         run: dotnet run --project tools/validar-design-financeiro -c Release
 
       - name: Conferir recall, filtros e configuração salva no Windows
-        run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --acompanhamento
+        run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --acompanhamento
 
       - name: Conferir navegação dos cinco aplicativos e perfis
         run: dotnet run --project tools/Clinica.Verificacao.Desktop -c Release -- artifacts/navegacao-desktop
@@ -88,6 +126,27 @@ jobs:
 
       - name: Conferir atendimento, histórico e gravação no Windows
         run: dotnet run --project tools/ValidarAtendimentoDesktop -c Release -- artifacts/atendimento-desktop
+
+  # ============================================================
+  # Os cinco .exe portáteis (ver docs/arquitetura-multi-exe.md).
+  # Estes projetos são net8.0-windows/WPF e NÃO compilam em Linux.
+  # ============================================================
+  publicar:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache do NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Publicar .exe (self-contained, arquivo único)
         run: >
@@ -107,11 +166,6 @@ jobs:
           path: publish/
           if-no-files-found: error
 
-      # ============================================================
-      # Suíte multi-exe (ver docs/arquitetura-multi-exe.md).
-      # Estes projetos são net8.0-windows/WPF e NÃO compilam em Linux —
-      # este runner Windows é a única validação que eles têm.
-      # ============================================================
       - name: Publicar .exe da Recepção (self-contained, arquivo único)
         run: >
           dotnet publish src/Clinica.Recepcao/Clinica.Recepcao.csproj
@@ -183,3 +237,18 @@ jobs:
           name: Clinica-Gerente-win-x64
           path: publish-gerente/
           if-no-files-found: error
+
+  # ============================================================
+  # O check `build` do PR: verde só quando os três ficaram verdes.
+  # ============================================================
+  build:
+    runs-on: ubuntu-latest
+    needs: [testes, conferencias, publicar]
+    if: always()
+    steps:
+      - name: Conferir os três jobs
+        run: |
+          echo "testes=${{ needs.testes.result }} conferencias=${{ needs.conferencias.result }} publicar=${{ needs.publicar.result }}"
+          test "${{ needs.testes.result }}" = success
+          test "${{ needs.conferencias.result }}" = success
+          test "${{ needs.publicar.result }}" = success

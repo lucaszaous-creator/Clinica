@@ -4073,6 +4073,21 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do XAML e o binding morto é silencioso —, e a conferência é `grep` do membro no tipo
   base.
 
+- **DDL de migration só alcança as tabelas cujo DONO é o papel do desktop** (out/2026 — a
+  Recepção não abriu: `42501: permission denied for table SolicitacoesEnfermagem`). As
+  tabelas dos pedidos da enfermagem são criadas pelo atualizador do posto
+  (`deploy/tablet`) como `postgres`, e o desktop recebe só SELECT/INSERT/UPDATE nelas. A
+  migration `AvisosInstantaneos` fazia `CREATE TRIGGER` incondicional nas três tabelas e o
+  app parava na abertura — mensagem de "conexão" para um erro de privilégio (a lição da
+  parcela 79). Agora cada gatilho só nasce onde `has_table_privilege(…, 'TRIGGER')`, o
+  ouvinte lê quais tabelas TÊM gatilho (`OuvinteDeMudancas.Avisa`) e o relógio dos pedidos
+  só se espaça quando a tabela dele avisa; `deploy/tablet/avisos-instantaneos-enfermagem.sql`
+  cria os dois que faltam como dono. **Nenhum teste via**: a suíte aplica as migrations
+  como superusuário. Reproduza com um papel sem dono antes de mexer em tabela do posto.
+- **O build do Windows roda em PARALELO** (out/2026, ~15 → ~7 min): `testes` em Linux
+  (o que não precisa de WPF), `conferencias` e `publicar` no Windows, cache do NuGet, e o
+  job `build` só espera os três — é o nome do check do PR. Passo novo entra no job certo;
+  pôr teste de Linux no runner Windows paga 2× e alonga a fila.
 - **Triggers usados pelo portal devem funcionar com seu papel restrito.** `SELECT FOR SHARE`
   exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita
   conceder ao portal permissao de editar profissionais. Testar com papel sem UPDATE.

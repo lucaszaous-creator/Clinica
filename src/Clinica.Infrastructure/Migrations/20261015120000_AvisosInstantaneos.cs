@@ -25,24 +25,49 @@ namespace Clinica.Infrastructure.Migrations
         {
             if (!ActiveProvider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase)) return;
 
+            // ⚠️ Cada gatilho só nasce onde o papel que roda a migration TEM o privilégio
+            // TRIGGER. Na clínica, as tabelas dos pedidos da enfermagem são criadas pelo
+            // atualizador do posto (deploy/tablet) como postgres, e o papel do desktop recebe só
+            // SELECT/INSERT/UPDATE nelas: um CREATE TRIGGER incondicional fazia a migration
+            // falhar com 42501 e o app NÃO ABRIA. Sem o gatilho a tela segue pelo relógio, como
+            // sempre; o script deploy/tablet/avisos-instantaneos-enfermagem.sql cria os dois que
+            // faltam, rodado como dono das tabelas.
             migrationBuilder.Sql("""
-                CREATE OR REPLACE FUNCTION clinica_avisar_mudanca() RETURNS trigger
-                LANGUAGE plpgsql AS $$
+                DO $avisos$
+                DECLARE gatilho text; tabela text;
                 BEGIN
-                    PERFORM pg_notify('clinica_mudancas', TG_TABLE_NAME);
-                    RETURN NULL;
-                END;
-                $$;
+                    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'clinica_avisar_mudanca'
+                                   AND pronamespace = 'public'::regnamespace) THEN
+                        IF NOT has_schema_privilege(current_user, 'public', 'CREATE') THEN
+                            RETURN;
+                        END IF;
+                        EXECUTE $f$
+                            CREATE FUNCTION public.clinica_avisar_mudanca() RETURNS trigger
+                            LANGUAGE plpgsql AS $corpo$
+                            BEGIN
+                                PERFORM pg_notify('clinica_mudancas', TG_TABLE_NAME);
+                                RETURN NULL;
+                            END;
+                            $corpo$
+                        $f$;
+                    END IF;
 
-                CREATE TRIGGER clinica_avisar_agendamentos
-                    AFTER INSERT OR UPDATE OR DELETE ON "Agendamentos"
-                    FOR EACH STATEMENT EXECUTE FUNCTION clinica_avisar_mudanca();
-                CREATE TRIGGER clinica_avisar_solicitacoes_enfermagem
-                    AFTER INSERT OR UPDATE OR DELETE ON "SolicitacoesEnfermagem"
-                    FOR EACH STATEMENT EXECUTE FUNCTION clinica_avisar_mudanca();
-                CREATE TRIGGER clinica_avisar_eventos_solicitacao_enfermagem
-                    AFTER INSERT OR UPDATE OR DELETE ON "EventosSolicitacaoEnfermagem"
-                    FOR EACH STATEMENT EXECUTE FUNCTION clinica_avisar_mudanca();
+                    FOR gatilho, tabela IN
+                        VALUES ('clinica_avisar_agendamentos', 'Agendamentos'),
+                               ('clinica_avisar_solicitacoes_enfermagem', 'SolicitacoesEnfermagem'),
+                               ('clinica_avisar_eventos_solicitacao_enfermagem', 'EventosSolicitacaoEnfermagem')
+                    LOOP
+                        CONTINUE WHEN to_regclass(format('public.%I', tabela)) IS NULL;
+                        CONTINUE WHEN EXISTS (SELECT 1 FROM pg_trigger
+                                              WHERE tgname = gatilho
+                                                AND tgrelid = format('public.%I', tabela)::regclass);
+                        CONTINUE WHEN NOT has_table_privilege(current_user, format('public.%I', tabela), 'TRIGGER');
+                        EXECUTE format('CREATE TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON public.%I '
+                                       'FOR EACH STATEMENT EXECUTE FUNCTION public.clinica_avisar_mudanca()',
+                                       gatilho, tabela);
+                    END LOOP;
+                END
+                $avisos$;
                 """);
         }
 

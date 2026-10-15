@@ -32,6 +32,16 @@ public static class OuvinteDeMudancas
     /// <summary>Verdadeiro enquanto a conexão de escuta está aberta e escutando.</summary>
     public static bool Ativo { get; private set; }
 
+    /// <summary>
+    /// As tabelas que TÊM o gatilho neste banco, lidas a cada conexão da escuta. O gatilho só
+    /// nasce onde o papel da migration tinha privilégio (na clínica, as tabelas dos pedidos
+    /// da enfermagem são de outro dono): escuta de pé não quer dizer que TODA tabela avisa, e
+    /// quem espaça o relógio por causa do aviso pergunta pela tabela dele.
+    /// </summary>
+    public static bool Avisa(string tabela) => Ativo && _avisadas.Contains(tabela);
+
+    private static volatile HashSet<string> _avisadas = new(StringComparer.Ordinal);
+
     private static int _iniciado;
 
     /// <summary>Liga a escuta (uma vez por processo). Falha nunca derruba nada: os relógios seguem.</summary>
@@ -68,6 +78,13 @@ public static class OuvinteDeMudancas
                 await conexao.OpenAsync();
                 await using (var cmd = new NpgsqlCommand($"LISTEN {Canal}", conexao))
                     await cmd.ExecuteNonQueryAsync();
+                var avisadas = new HashSet<string>(StringComparer.Ordinal);
+                await using (var cmd = new NpgsqlCommand(
+                    "SELECT c.relname FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid " +
+                    "WHERE t.tgname LIKE 'clinica_avisar_%' AND NOT t.tgisinternal", conexao))
+                await using (var leitor = await cmd.ExecuteReaderAsync())
+                    while (await leitor.ReadAsync()) avisadas.Add(leitor.GetString(0));
+                _avisadas = avisadas;
 
                 Ativo = true;
                 registrarFalha = true;
