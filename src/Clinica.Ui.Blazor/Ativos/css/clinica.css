@@ -177,7 +177,7 @@ td.vazio{color:var(--cinza-300)}
 /* ================================================================
    Componentes comuns das telas do Financeiro (out/2026).
    ================================================================ */
-.icone{width:16px;height:16px;flex:none}
+svg.icone{width:16px;height:16px;flex:none}
 .texto-secundario{color:var(--texto-secundario)}
 .pequeno{font-size:var(--text-small-size)}
 .numero{font-variant-numeric:tabular-nums;white-space:nowrap}

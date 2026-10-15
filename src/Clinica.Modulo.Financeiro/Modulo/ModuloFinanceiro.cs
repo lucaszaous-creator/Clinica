@@ -241,7 +241,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         // HTML/CSS sobre os MESMOS serviços; o WPF só hospeda. As telas WPF ficam no
         // projeto até a validação no Windows, mas nenhuma chave aponta mais para elas.
         ChaveCaixa => Blazor(typeof(Clinica.Ui.Blazor.Telas.Caixa), servicos),
-        ChaveContas => new ContasView { DataContext = servicos.GetRequiredService<ContasViewModel>() },
+        ChaveContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.Contas), servicos),
         ChaveInadimplencia => new InadimplenciaView { DataContext = servicos.GetRequiredService<InadimplenciaViewModel>() },
         ChaveFluxo => Blazor(typeof(Clinica.Ui.Blazor.Telas.FluxoDeCaixa), servicos),
         ChaveResultado => new ResultadoView { DataContext = servicos.GetRequiredService<ResultadoViewModel>() },
