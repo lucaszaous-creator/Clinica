@@ -9,9 +9,9 @@
   DIZ que está filtrado e as quatro faixas sempre presentes) mora em QuemMeDeveTela, na
   Application, com teste. Aqui só se desenha.
 
-  Cobrança: no WPF o botão ABRIA o WhatsApp com o lembrete pronto. O hospedeiro Blazor não
-  tem "abrir endereço externo"; a tela COPIA a mensagem (e, à parte, o link do wa.me) para
-  a pessoa colar. Cobrança não exige consentimento de marketing — é transacional, como a
+  Cobrança: o botão ABRE o WhatsApp com o lembrete pronto (Host.AbrirEnderecoAsync, como o
+  WPF fazia); se o navegador não abrir, o link vai para a área de transferência e a tela diz.
+  Copiar só a mensagem continua ao lado, para quem cola noutro aparelho. Cobrança não exige consentimento de marketing — é transacional, como a
   confirmação da própria sessão — e é um clique por paciente, de propósito.
 *@
 @inherits TelaBase
@@ -130,11 +130,11 @@
                             <div class="botoes-linha">
                                 @* Sem telefone utilizável o botão explica por que não dá, em vez de copiar e a pessoa não ter para quem mandar. *@
                                 <button type="button" class="botao mini primario" disabled="@(!temFone)"
-                                        title="@(temFone ? "Copia o lembrete pronto para colar no WhatsApp do paciente" : "Telefone ausente ou inválido no cadastro")"
-                                        @onclick="() => CopiarCobrancaAsync(d)"><Icone Nome="copiar" />Copiar cobrança</button>
+                                        title="@(temFone ? "Abre o WhatsApp do paciente com o lembrete pronto" : "Telefone ausente ou inválido no cadastro")"
+                                        @onclick="() => AbrirWhatsAppAsync(d)"><Icone Nome="enviar" />WhatsApp</button>
                                 <button type="button" class="botao mini icone" disabled="@(!temFone)"
-                                        title="Copiar o link do WhatsApp (abre a conversa com o lembrete)" aria-label="Copiar o link do WhatsApp"
-                                        @onclick="() => CopiarLinkAsync(d)"><Icone Nome="link" /></button>
+                                        title="Copiar só a mensagem de cobrança" aria-label="Copiar só a mensagem de cobrança"
+                                        @onclick="() => CopiarCobrancaAsync(d)"><Icone Nome="copiar" /></button>
                             </div>
                         </div>
                         @* A mais antiga primeiro: é a que explica a conversa ("desde março"). *@
@@ -273,15 +273,17 @@
             Notificacoes.Erro("A área de transferência não aceitou a mensagem. Tente de novo em instantes.");
     }
 
-    private async Task CopiarLinkAsync(PacienteInadimplente d)
+    private async Task AbrirWhatsAppAsync(PacienteInadimplente d)
     {
         if (QuemMeDeveTela.LinkWhatsApp(d.Telefone, InadimplenciaService.MensagemDeCobranca(d)) is not { } link)
         {
             Notificacoes.Erro($"{d.Nome}: telefone ausente ou inválido no cadastro.");
             return;
         }
+        if (await Host.AbrirEnderecoAsync(link)) return;
+        // Não abriu (a prévia, um navegador bloqueado): o link vai para a área de transferência.
         if (await Host.CopiarAsync(link))
-            Notificacoes.Sucesso($"Link do WhatsApp de {d.Nome} copiado — cole no navegador para abrir a conversa.");
+            Notificacoes.Info($"Não foi possível abrir o WhatsApp — o link da conversa com {d.Nome} foi copiado; cole no navegador.");
         else
             Notificacoes.Erro("A área de transferência não aceitou o link. Tente de novo em instantes.");
     }

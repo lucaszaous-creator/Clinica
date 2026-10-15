@@ -242,7 +242,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         // projeto até a validação no Windows, mas nenhuma chave aponta mais para elas.
         ChaveCaixa => Blazor(typeof(Clinica.Ui.Blazor.Telas.Caixa), servicos),
         ChaveContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.Contas), servicos),
-        ChaveInadimplencia => new InadimplenciaView { DataContext = servicos.GetRequiredService<InadimplenciaViewModel>() },
+        ChaveInadimplencia => Blazor(typeof(Clinica.Ui.Blazor.Telas.QuemMeDeve), servicos),
         ChaveFluxo => Blazor(typeof(Clinica.Ui.Blazor.Telas.FluxoDeCaixa), servicos),
         ChaveResultado => Blazor(typeof(Clinica.Ui.Blazor.Telas.ResultadoDoMes), servicos),
         ChaveFechamento => Blazor(typeof(Clinica.Ui.Blazor.Telas.FechamentoDeCaixa), servicos),
@@ -262,7 +262,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveEstoque => new EstoqueView { DataContext = servicos.GetRequiredService<EstoqueViewModel>() },
         ChaveRepasses => Blazor(typeof(Clinica.Ui.Blazor.Telas.Repasses), servicos),
         ChaveTaxas => Blazor(typeof(Clinica.Ui.Blazor.Telas.TaxasEImpostos), servicos),
-        ChavePlanoContas => new PlanoContasView { DataContext = servicos.GetRequiredService<PlanoContasViewModel>() },
+        ChavePlanoContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.PlanoDeContas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
         ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),
         _ => null
