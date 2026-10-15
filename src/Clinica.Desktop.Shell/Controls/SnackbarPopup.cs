@@ -6,8 +6,8 @@ using System.Windows.Interop;
 namespace Clinica.Desktop.Controls;
 
 /// <summary>
-/// Janela transitória da notificação: o HWND do WebView2 fica acima de qualquer Border
-/// WPF, mesmo com ZIndex. O popup vence esse airspace sem alterar o navegador.
+/// Janela transitória da notificação, sobre o conteúdo da tela ativa (nasceu para vencer o
+/// HWND do WebView2, que saiu do produto em out/2026; o popup continua servindo ao recado).
 /// Só acompanha sua janela ativa; não captura foco, mouse nem permanece sobre outros apps.
 /// </summary>
 public sealed class SnackbarPopup : Popup

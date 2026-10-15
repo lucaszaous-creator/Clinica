@@ -224,31 +224,25 @@ static class Program
     private static async Task ConferirBuscaGrade(Window janela)
     {
         var vista = Descendentes(janela).OfType<Clinica.Recepcao.Views.AgendaView>().First();
-        var web = Descendentes(vista).OfType<WebView2>().Single();
-        var modelo = (Clinica.Recepcao.ViewModels.AgendaViewModel)vista.DataContext;
-        var total = modelo.Colunas.SelectMany(c => c.Horarios).DistinctBy(c => c.AgendamentoId).Count();
-        var prazoSnapshot = DateTime.UtcNow.AddSeconds(5);
-        while (await web.CoreWebView2.ExecuteScriptAsync($"document.querySelector('.resumo-agenda')?.textContent.includes('{total} de {total}')===true") != "true")
-        {
-            if (DateTime.UtcNow >= prazoSnapshot) throw new Exception("Busca na grade: o navegador não recebeu o dia carregado.");
-            await Task.Delay(100);
-        }
+        var barra = Descendentes(vista).OfType<Clinica.Recepcao.Views.FiltrosAgendaBarra>().Single();
+        var filtro = (Clinica.Recepcao.ViewModels.FiltroListaAgenda)barra.DataContext;
         int Cartoes() => Descendentes(vista).OfType<ContentPresenter>().Count(e => e.IsVisible && e.Content is Clinica.Recepcao.ViewModels.CartaoAgenda);
         int Vagas() => Descendentes(vista).OfType<Button>().Count(e => e.IsVisible && e.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Disponivel: true });
         int Bloqueios() => Descendentes(vista).OfType<Button>().Count(e => e.IsVisible && e.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Bloqueado: true });
+        janela.UpdateLayout();
         var cartoes = Cartoes(); var vagas = Vagas(); var bloqueios = Bloqueios();
         if (cartoes == 0 || vagas == 0 || bloqueios == 0) throw new Exception("Busca na grade: cenário sintético sem cartões, vagas ou bloqueios visíveis.");
-        await web.CoreWebView2.ExecuteScriptAsync("(()=>{const e=document.querySelector('input[type=search]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'inexistente');e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+        filtro.Busca = "inexistente";
         var prazo = DateTime.UtcNow.AddSeconds(5);
         while (Cartoes() != 0 && DateTime.UtcNow < prazo) { await Task.Delay(100); janela.UpdateLayout(); }
         if (Cartoes() != 0 || Vagas() != vagas || Bloqueios() != bloqueios)
             throw new Exception("A busca não ocultou só os pacientes: vagas e bloqueios devem permanecer na grade.");
-        await web.CoreWebView2.ExecuteScriptAsync("document.querySelector('.filtros-agenda .secundario').click()");
+        filtro.LimparCommand.Execute(null);
         prazo = DateTime.UtcNow.AddSeconds(5);
         while (Cartoes() != cartoes && DateTime.UtcNow < prazo) { await Task.Delay(100); janela.UpdateLayout(); }
         if (Cartoes() != cartoes || Vagas() != vagas || Bloqueios() != bloqueios)
             throw new Exception("Limpar filtros não restaurou os cartões e a disponibilidade originais.");
-        Console.WriteLine("BUSCA NA GRADE: WebView real oculta pacientes, preserva vagas/bloqueios e restaura os cartões ao limpar.");
+        Console.WriteLine("BUSCA NA GRADE: filtro nativo oculta pacientes, preserva vagas/bloqueios e restaura os cartões ao limpar.");
     }
 
     private static async Task<Button> AguardarVagaVisivel(Window janela)
