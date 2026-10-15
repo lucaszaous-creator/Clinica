@@ -31,137 +31,191 @@
     <Grid>
 
         <!-- ==================================================================
-             TELA 1 — a LISTA, com a largura inteira.
+             TELA 1 — a LISTA (out/2026, mockup aprovado "3 · Pacientes").
+
+             A busca grande é o assunto da tela; os chips são os recortes que o balcão
+             pede todo dia, cada um com a CONTAGEM antes do clique; e a tabela diz o que
+             se pergunta de quem aparece — telefone, convênio, a última visita e o próximo
+             horário — com as duas ações na linha. Nada vai ao banco ao abrir: a lista
+             aparece quando alguém busca ou escolhe um recorte.
              ================================================================== -->
-        <DockPanel Margin="24,20,24,24"
+        <DockPanel Margin="32,24,32,24"
                    Visibility="{Binding MostrandoLista, Converter={StaticResource BoolParaVisibilidade}}">
 
-            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-                <TextBlock Text="Pacientes" Style="{StaticResource H1}" Margin="0" />
-                <TextBlock Style="{StaticResource TextoSuave}"
-                           Text="Cadastro, elegibilidade, prontuário e LGPD. Abra alguém para ver a ficha completa." />
-            </StackPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Importar" Style="{StaticResource BotaoSecundario}" Margin="0,0,10,0"
+                            Command="{Binding ImportarCommand}"
+                            Visibility="{Binding PodeImportar, Converter={StaticResource BoolParaVisibilidade}}"
+                            ToolTip="Trazer a carteira do sistema anterior" />
+                    <Button Command="{Binding NovoPacienteCommand}" IsEnabled="{Binding PodeEditarCadastro}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="+" FontSize="{StaticResource Fonte.H3}" Margin="0,-2,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Novo paciente" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="Pacientes" Style="{StaticResource H1}" Margin="0,0,0,2" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Subtitulo}" Style="{StaticResource TextoSuave}" Margin="0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <!-- A listagem completa continua a um clique — ela só não chega sem ser pedida. -->
+                        <Button Content="Ver todas" Style="{StaticResource BotaoFantasma}" Foreground="{StaticResource Brush.Acento}"
+                                Padding="6,0" MinHeight="0" Margin="6,0,0,0" VerticalAlignment="Center"
+                                Command="{Binding EscolherRecorteCommand}" CommandParameter="Todos"
+                                ToolTip="O cadastro inteiro em páginas de 100, em ordem de nome" />
+                    </StackPanel>
+                </StackPanel>
+            </DockPanel>
 
-            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
-                <TextBlock Text="Mostrar" VerticalAlignment="Center" Margin="0,0,12,0" />
-                <ComboBox ItemsSource="{Binding Filtros}" SelectedIndex="{Binding Filtro}" MinWidth="220" AutomationProperties.Name="Filtrar pacientes" />
-            </StackPanel>
-
-            <!-- Busca e ação na MESMA linha: a barra de uma tela de lista responde
-                 "ache alguém" e "cadastre alguém", e empilhar as duas custaria uma faixa. -->
+            <!-- A busca é o assunto: campo largo, alto, com a dica do que ela acha. -->
             <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" MaxWidth="420" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <TextBox Grid.Column="0" Style="{StaticResource CampoPesquisa}"
+                <TextBox x:Name="Busca" Style="{StaticResource CampoPesquisa}" MinHeight="48" FontSize="{StaticResource Fonte.H3}"
                          Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                         ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
-
-                <TextBlock Grid.Column="1" Text="{Binding Resumo}" VerticalAlignment="Center"
-                           Margin="14,0,12,0" TextTrimming="CharacterEllipsis"
-                           Foreground="{StaticResource Brush.Texto.Secundario}" />
-
-                <!-- ⚠️ A LISTAGEM COMPLETA PASSOU A SER PEDIDA (set/2026 — o cliente: "a
-                     tela de pacientes ainda carrega todos os pacientes"). Ela é a consulta
-                     mais cara do sistema: `limite: null` com o campo vazio traz as 2.284
-                     fichas, e isso acontecia a cada abertura da tela num banco remoto.
-
-                     A lista continua sendo o que a tela OFERECE — o que mudou é que ela
-                     chega quando alguém a quer. O botão SOME depois de clicado: aceso
-                     sobre a lista que ele acabou de trazer, ele manda clicar de novo. -->
-                <Button Grid.Column="2" Content="Ver todos" VerticalAlignment="Center"
-                        Margin="0,0,8,0" MinWidth="110"
-                        Command="{Binding Seletor.DesligarSugestaoCommand}"
-                        ToolTip="Consulte o cadastro em páginas de 100 pacientes, em ordem de nome.">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding ListandoTudo}" Value="True">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
-
-                <Button Grid.Column="3" Content="Novo paciente" VerticalAlignment="Center"
-                        Command="{Binding NovoPacienteCommand}"
-                        IsEnabled="{Binding PodeEditarCadastro}" />
+                         ctrl:Ajudantes.Placeholder="Buscar paciente" KeyDown="AoTeclarNaBusca"
+                         AutomationProperties.Name="Buscar paciente por nome ou CPF" />
+                <TextBlock Text="nome ou CPF" Style="{StaticResource CelulaSuave}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                           Margin="0,0,18,0" IsHitTestVisible="False" TextTrimming="CharacterEllipsis" />
             </Grid>
 
-            <TextBlock DockPanel.Dock="Top" Text="{Binding Seletor.Erro}"
-                       Style="{StaticResource TextoSuave}"
-                       Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8" />
+            <!-- Os recortes. Fora de um painel de largura infinita (checagem 32): o WrapPanel é
+                 filho de um DockPanel com Dock=Top, que lhe dá a largura da tela. -->
+            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                <ToggleButton Content="{Binding ChipBusca}" Style="{StaticResource ChipFiltro}" Margin="0,0,8,8"
+                              IsChecked="{Binding TemTermo, Mode=OneWay}" IsHitTestVisible="False" Focusable="False"
+                              Visibility="{Binding TemTermo, Converter={StaticResource BoolParaVisibilidade}}" />
+                <ToggleButton Content="{Binding ChipHoje}" Style="{StaticResource ChipFiltro}" Margin="0,0,8,8"
+                              IsChecked="{Binding RecorteHoje, Mode=OneWay}"
+                              Command="{Binding EscolherRecorteCommand}" CommandParameter="ComHorarioHoje" />
+                <ToggleButton Content="{Binding ChipIncompleto}" Style="{StaticResource ChipFiltro}" Margin="0,0,8,8"
+                              IsChecked="{Binding RecorteIncompleto, Mode=OneWay}"
+                              Command="{Binding EscolherRecorteCommand}" CommandParameter="CadastroIncompleto" />
+                <ToggleButton Content="{Binding ChipSemConvenio}" Style="{StaticResource ChipFiltro}" Margin="0,0,8,8"
+                              IsChecked="{Binding RecorteSemConvenio, Mode=OneWay}"
+                              Command="{Binding EscolherRecorteCommand}" CommandParameter="SemConvenioDefinido" />
+                <ToggleButton Content="{Binding ChipAniversario}" Style="{StaticResource ChipFiltro}" Margin="0,0,8,8"
+                              IsChecked="{Binding RecorteAniversario, Mode=OneWay}"
+                              Command="{Binding EscolherRecorteCommand}" CommandParameter="AniversarioNaSemana" />
+            </WrapPanel>
 
-            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,12,0,0"
-                        Visibility="{Binding Seletor.AlgoFoiPedido, Converter={StaticResource BoolParaVisibilidade}}">
-                <Button Content="Anterior" Command="{Binding Seletor.PaginaAnteriorCommand}"
-                        IsEnabled="{Binding Seletor.PodePaginaAnterior}" Style="{StaticResource BotaoSecundario}" />
-                <TextBlock Text="{Binding Seletor.ResumoPagina}" Margin="12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <Button Content="Próxima" Command="{Binding Seletor.ProximaPaginaCommand}"
-                        IsEnabled="{Binding Seletor.PodeProximaPagina}" Style="{StaticResource BotaoSecundario}" />
-            </StackPanel>
+            <TextBlock DockPanel.Dock="Top" Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8"
+                       Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}" />
 
-            <!-- UMA superfície para a região inteira da lista, e a separação entre as
-                 linhas por espaço — não uma moldura por paciente.
+            <!-- Antes de pedir, a tela CONVIDA — "nenhum paciente encontrado" numa tela
+                 recém-aberta seria falso sobre uma clínica de milhares de fichas. -->
+            <Border Style="{StaticResource Card}" Padding="24"
+                    Visibility="{Binding Seletor.Ocioso, Converter={StaticResource BoolParaVisibilidade}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="Busque pelo nome ou CPF, ou escolha um recorte acima." HorizontalAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock Text="A lista não carrega sozinha: o cadastro inteiro é a consulta mais cara do sistema." Style="{StaticResource CelulaSuave}"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
 
-                 ⚠️ Ela SOME no ocioso (set/2026): sem lista pedida, a moldura ficaria
-                 vazia com o cabeçalho de colunas órfão em cima de nada. Quem convida ali é
-                 o resumo ao lado da busca — um estado vazio por pergunta (parcela 37). -->
-            <Border Style="{StaticResource Card}"
-                    Visibility="{Binding Seletor.AlgoFoiPedido,
-                                 Converter={StaticResource BoolParaVisibilidade}}">
-                <Grid>
-                    <!-- ⚠️ `Ativo`: com a tela OCIOSA (nada pedido ainda) o vazio fica
-                         DESLIGADO — "Nenhum paciente encontrado" numa tela recém-aberta
-                         seria uma afirmação falsa sobre uma clínica de 2.284 fichas, e é a
-                         leitura que leva a cadastrar de novo quem já tem ficha (parcela
-                         57). Quem convida ali é o resumo ao lado da busca. -->
-                    <ctrl:EstadoDaTela Panel.ZIndex="1"
-                                       Itens="{Binding Seletor.Resultados}"
-                                       Carregando="{Binding Seletor.Buscando}"
-                                       Ativo="{Binding Seletor.AlgoFoiPedido}"
-                                       Glifo="&#xE77B;"
-                                       Titulo="Nenhum paciente encontrado"
-                                       Descricao="Ajuste a busca ou cadastre alguém em “Novo paciente”." />
+            <Border Style="{StaticResource Card}" Padding="0"
+                    Visibility="{Binding Seletor.AlgoFoiPedido, Converter={StaticResource BoolParaVisibilidade}}">
+                <DockPanel Grid.IsSharedSizeScope="True">
+                    <!-- Rodapé: o que está na tela e de onde veio, e as páginas. -->
+                    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0" Padding="20,10">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                        Visibility="{Binding Seletor.MostrandoPaginacao, Converter={StaticResource BoolParaVisibilidade}}">
+                                <Button Content="Anterior" Command="{Binding Seletor.PaginaAnteriorCommand}"
+                                        IsEnabled="{Binding Seletor.PodePaginaAnterior}" Style="{StaticResource BotaoAcaoGridSecundario}" />
+                                <TextBlock Text="{Binding Seletor.ResumoPagina}" Margin="10,0" VerticalAlignment="Center" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis" />
+                                <Button Content="Próxima" Command="{Binding Seletor.ProximaPaginaCommand}"
+                                        IsEnabled="{Binding Seletor.PodeProximaPagina}" Style="{StaticResource BotaoAcaoGridSecundario}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Rodape}" Style="{StaticResource CelulaSuave}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                    </Border>
 
-                    <!-- O escopo do tamanho compartilhado. Ele é o que faz o cabeçalho e
-                         as linhas — que são Grids SEPARADOS, um por item da lista —
-                         concordarem sobre onde cada coluna começa. Ver o comentário do
-                         `ItemPacienteLinha`. -->
-                    <DockPanel Grid.IsSharedSizeScope="True">
-                        <!-- As MESMAS quatro colunas da linha, com os mesmos grupos. A
-                             primeira fica vazia aqui: ela existe para acompanhar a largura
-                             do avatar, que antes era imitada por uma margem de 54 px
-                             escrita à mão — e margem à mão não segue quem a mudar. -->
-                        <!-- O cabeçalho é da TABELA: sem linhas ele não descreve nada, e
-                             ficaria pairando sobre o "nenhum paciente encontrado". -->
-                        <Grid DockPanel.Dock="Top" Margin="0,0,0,6"
-                              Visibility="{Binding Seletor.TemResultados,
-                                           Converter={StaticResource BoolParaVisibilidade}}">
+                    <!-- Cabeçalho das colunas: os mesmos grupos das linhas. -->
+                    <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="20,12"
+                            Visibility="{Binding Seletor.TemResultados, Converter={StaticResource BoolParaVisibilidade}}">
+                        <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaAvatar" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="160" />
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaSelos" />
+                                <ColumnDefinition Width="*" MinWidth="220" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="200" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacAcoes" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="1" Text="PACIENTE" Style="{StaticResource Rotulo}" Margin="0" />
-                            <TextBlock Grid.Column="2" Text="TELEFONE" Style="{StaticResource Rotulo}" Margin="0" />
-                            <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Text="PACIENTE" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="1" Text="TELEFONE" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="3" Text="ÚLTIMA VISITA" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="4" Text="PRÓXIMO HORÁRIO" Style="{StaticResource Rotulo}" Margin="0" />
                         </Grid>
+                    </Border>
 
-                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                                 SelectedItem="{Binding Seletor.Selecionado}"
-                                 ItemTemplate="{StaticResource ItemPacienteLinha}"
-                                 BorderThickness="0" Background="Transparent"
-                                 HorizontalContentAlignment="Stretch"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
-                    </DockPanel>
-                </Grid>
+                    <Grid>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding Linhas}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="20,10"
+                                                Background="Transparent" ToolTip="Clique duas vezes para abrir a ficha">
+                                            <Border.InputBindings>
+                                                <MouseBinding MouseAction="LeftDoubleClick"
+                                                              Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                              CommandParameter="{Binding}" />
+                                            </Border.InputBindings>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" MinWidth="220" />
+                                                    <ColumnDefinition Width="170" />
+                                                    <ColumnDefinition Width="180" />
+                                                    <ColumnDefinition Width="170" />
+                                                    <ColumnDefinition Width="200" />
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="PacAcoes" />
+                                                </Grid.ColumnDefinitions>
+                                                <DockPanel Margin="0,0,12,0">
+                                                    <ctrl:Avatar DockPanel.Dock="Left" Nome="{Binding Nome}" Foto="{Binding Foto}" Tamanho="36"
+                                                                 Margin="0,0,12,0" VerticalAlignment="Center" />
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Nome}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Nome}" />
+                                                        <TextBlock Text="{Binding Identificacao}" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding Telefone}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <Border x:Name="convenio" Grid.Column="2" Style="{StaticResource Badge}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                        ToolTip="{Binding ConvenioCompleto}" Margin="0,0,10,0">
+                                                    <TextBlock Text="{Binding Convenio}" TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <TextBlock Grid.Column="3" Text="{Binding UltimaVisita}" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding UltimaVisita}" />
+                                                <TextBlock Grid.Column="4" Text="{Binding ProximoHorario}" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding ProximoHorario}" />
+                                                <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Button Content="Abrir ficha" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="0,0,8,0"
+                                                            Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Content="Marcar" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                            IsEnabled="{Binding DataContext.PodeMarcar, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            Command="{Binding DataContext.MarcarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding ConvenioADefinir}" Value="True">
+                                                <Setter TargetName="convenio" Property="Style" Value="{StaticResource Badge.Aviso}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <ctrl:EstadoDaTela Itens="{Binding Linhas}" Carregando="{Binding Seletor.Buscando}"
+                                           Ativo="{Binding Seletor.AlgoFoiPedido}" Glifo="&#xE77B;"
+                                           Titulo="Nenhum paciente encontrado"
+                                           Descricao="Ajuste a busca ou cadastre alguém em “Novo paciente”." />
+                    </Grid>
+                </DockPanel>
             </Border>
         </DockPanel>
 

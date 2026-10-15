@@ -668,7 +668,78 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             query = query.Where(p => p.Documento == null || p.Documento.Trim() == "");
         if (filtro == FiltroListaPacientes.EmTratamento)
             query = query.Where(p => _db.Agendamentos.Any(a => a.PacienteId == p.Id && a.Status == StatusAgendamento.Realizado));
+        query = AplicarRecorte(query, filtro, DateOnly.FromDateTime(DateTime.Today));
         return query.OrderBy(p => p.Nome).ThenBy(p => p.Id).Skip(ignorar).Take(quantidade);
+    }
+
+    /// <summary>
+    /// Os recortes do mockup aprovado "3 · Pacientes" (out/2026). Um lugar só, lido pela
+    /// página E pela contagem do chip — duas definições dariam um chip "41" sobre uma lista
+    /// de 39.
+    /// </summary>
+    private IQueryable<Paciente> AplicarRecorte(IQueryable<Paciente> query, FiltroListaPacientes filtro, DateOnly hoje)
+    {
+        switch (filtro)
+        {
+            case FiltroListaPacientes.ComHorarioHoje:
+                var inicio = hoje.ToDateTime(TimeOnly.MinValue);
+                var fim = inicio.AddDays(1);
+                // A lista POSITIVA (a coluna, nunca a derivada OcupaAgenda, que o EF não traduz).
+                return query.Where(p => _db.Agendamentos.Any(a => a.PacienteId == p.Id
+                    && a.DataHora >= inicio && a.DataHora < fim
+                    && (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado)));
+            case FiltroListaPacientes.SemConvenioDefinido:
+                return query.Where(p => p.ConvenioCodigo == ConvenioCadastro.CodigoADefinir);
+            case FiltroListaPacientes.AniversarioNaSemana:
+                var dias = Clinica.Application.Modelos.ListaDePacientes.DiasDoAniversario(hoje).ToList();
+                return query.Where(p => p.DataNascimento != null
+                    && dias.Contains(p.DataNascimento.Value.Month * 100 + p.DataNascimento.Value.Day));
+            default:
+                return query;
+        }
+    }
+
+    public async Task<Clinica.Application.Modelos.RecortesDePacientes> ContarRecortesDePacientesAsync(
+        DateOnly hoje, CancellationToken ct = default)
+    {
+        // SEQUENCIAL: o mesmo DbContext não aceita duas operações ao mesmo tempo.
+        var baseQ = _db.Pacientes.AsNoTracking();
+        var total = await baseQ.CountAsync(ct);
+        var comHorario = await AplicarRecorte(baseQ, FiltroListaPacientes.ComHorarioHoje, hoje).CountAsync(ct);
+        var incompleto = await baseQ.CountAsync(p => p.Documento == null || p.Documento.Trim() == "", ct);
+        var semConvenio = await AplicarRecorte(baseQ, FiltroListaPacientes.SemConvenioDefinido, hoje).CountAsync(ct);
+        var aniversario = await AplicarRecorte(baseQ, FiltroListaPacientes.AniversarioNaSemana, hoje).CountAsync(ct);
+        return new(total, comHorario, incompleto, semConvenio, aniversario);
+    }
+
+    public async Task<IReadOnlyDictionary<int, Clinica.Application.Modelos.VisitaDoPaciente>> VisitasDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, DateTime agora, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return new Dictionary<int, Clinica.Application.Modelos.VisitaDoPaciente>();
+        var ids = pacienteIds.Distinct().ToList();
+        var desde = agora.AddYears(-2);
+        // Só as colunas que as duas frases usam — nada de Include de entidade inteira.
+        var linhas = await _db.Agendamentos.AsNoTracking()
+            .Where(a => ids.Contains(a.PacienteId)
+                && ((a.Status == StatusAgendamento.Realizado && a.DataHora >= desde)
+                    || (a.Status == StatusAgendamento.Agendado && a.DataHora >= agora)))
+            .Select(a => new
+            {
+                a.PacienteId, a.DataHora, a.Status, a.ModalidadeCodigo, a.ModalidadePrevista, a.EspecialidadeConsultaCodigo,
+                Profissional = a.Profissional == null ? null : (a.Profissional.NomeCurto ?? a.Profissional.Nome)
+            })
+            .ToListAsync(ct);
+
+        return linhas.GroupBy(l => l.PacienteId).ToDictionary(g => g.Key, g =>
+        {
+            var ultima = g.Where(l => l.Status == StatusAgendamento.Realizado).MaxBy(l => l.DataHora);
+            var proxima = g.Where(l => l.Status == StatusAgendamento.Agendado).MinBy(l => l.DataHora);
+            return new Clinica.Application.Modelos.VisitaDoPaciente(g.Key,
+                ultima?.DataHora,
+                ultima is null ? null : Clinica.Domain.Regras.CatalogoModalidades.NomeComEspecialidade(ultima.ModalidadeCodigo, ultima.ModalidadePrevista, ultima.EspecialidadeConsultaCodigo),
+                proxima?.DataHora,
+                proxima?.Profissional);
+        });
     }
 
     public async Task<IReadOnlyList<Paciente>> PacientesComCarteirinhaAteAsync(DateOnly ate, CancellationToken ct = default)

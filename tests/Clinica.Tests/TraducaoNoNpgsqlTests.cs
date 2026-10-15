@@ -39,6 +39,9 @@ public class TraducaoNoNpgsqlTests
     [InlineData(FiltroListaPacientes.Todos)]
     [InlineData(FiltroListaPacientes.EmTratamento)]
     [InlineData(FiltroListaPacientes.CadastroIncompleto)]
+    [InlineData(FiltroListaPacientes.ComHorarioHoje)]
+    [InlineData(FiltroListaPacientes.SemConvenioDefinido)]
+    [InlineData(FiltroListaPacientes.AniversarioNaSemana)]
     public void Busca_paginada_traduz_filtros_antes_do_limite(FiltroListaPacientes filtro)
     {
         using var db = Postgres();

@@ -123,14 +123,12 @@ public partial class FilaView : UserControl
     // ==================== O "⋯" da linha ====================
 
     /// <summary>
-    /// As ações de exceção da linha: o termo, o fechamento, a conferência de convênio e
+    /// As ações de exceção da linha: o fechamento, a conferência de convênio e
     /// cota, falta, cancelamento — e a porta para a GRADE, onde mora a janela do horário
     /// (remarcar, reabrir, comprovante, WhatsApp).
     ///
     /// ⚠️ A visibilidade de cada item é ESTADO **e** PERMISSÃO. O bloco não segue um
-    /// `IsEnabled` só porque os atos pedem bits diferentes — colher o termo é
-    /// `ColherAssinaturaPaciente` (a técnica de enfermagem o tem e não tem o da agenda),
-    /// conferir convênio é `VerFichaPaciente`, e falta/cancelamento são do balcão,
+    /// `IsEnabled` só porque os atos pedem bits diferentes — conferir convênio é `VerFichaPaciente`, e falta/cancelamento são do balcão,
     /// `EditarAgenda` estrito. Sem esta metade, o item aparecia aceso e a recusa só
     /// chegava depois do clique.
     /// </summary>
@@ -163,21 +161,9 @@ public partial class FilaView : UserControl
 
         Acrescentar("Ficha do paciente…", vm.AbrirFichaCommand, vm.PodeVerFicha);
 
-        // A PORTA do termo (parcela 66). Vem primeira quando há termo pendente: o SELO da
-        // linha diz que falta assinar, e alerta sem porta no mesmo app é pior que alerta
-        // nenhum — ele ensina a pessoa a ignorá-lo (a lição da parcela 48).
-        //
-        // ⚠️ O RÓTULO segue o selo (set/2026): quem já assinou pelo celular não precisa
-        // assinar de novo, precisa de conferência — e "colher o termo" ali mandaria a
-        // técnica pedir ao paciente uma segunda assinatura que o sistema já tem guardada.
-        // O comando é o MESMO: ele abre o termo com o traço aplicado, e o clique que falta
-        // é o Confirmar.
-        Acrescentar(
-            cartao.TemTermoAConferir
-                ? "Conferir o termo assinado no celular…"
-                : "Colher o termo do procedimento…",
-            vm.ColherTermoCommand,
-            (cartao.TemTermoPendente || cartao.TemTermoAConferir) && vm.PodeColherTermo);
+        // O termo NÃO é colhido aqui (out/2026, decisão da clínica): quem colhe é a
+        // ENFERMAGEM, na tela dela. O selo da linha continua dizendo que falta — é o que
+        // faz o balcão encaminhar o paciente —, mas a porta mora num só posto.
 
         // A PORTA do dinheiro depois que o médico concluiu (parcela 95). Ela fica AQUI, e
         // não como botão da linha, porque só o PACOTE é anunciado como pendência: insumo e

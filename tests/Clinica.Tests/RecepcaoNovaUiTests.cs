@@ -155,4 +155,93 @@ public class RecepcaoNovaUiTests
         RodadaDeConfirmacao.TituloDoDia(hoje, hoje).Should().StartWith("Hoje · ");
         RodadaDeConfirmacao.TituloDoDia(new DateOnly(2026, 10, 20), hoje).Should().Be("ter, 20/10");
     }
+
+    // ==================== Início ====================
+
+    private static Agendamento Horario(int id, int hora, int minuto = 0)
+        => new()
+        {
+            Id = id, PacienteId = id, DataHora = Segunda.ToDateTime(new TimeOnly(hora, minuto)),
+            ModalidadePrevista = ModalidadeAtendimento.AcupunturaSimples,
+            Paciente = new Paciente { Id = id, Nome = $"Paciente {id}", Telefone = "21999990000" },
+            Profissional = new Profissional { Id = 7, Nome = "Helena" }
+        };
+
+    [Fact]
+    public void Proximos_a_chegar_sao_quem_ainda_nao_entrou_na_ordem_da_hora()
+    {
+        var agora = Segunda.ToDateTime(new TimeOnly(14, 12));
+        var naSala = Horario(1, 13); naSala.InicioAtendimentoEm = agora.AddMinutes(-20);
+        var faltou = Horario(2, 13, 30); faltou.Status = StatusAgendamento.Faltou;
+        var noLocal = Horario(3, 14); noLocal.ChegadaEm = agora.AddMinutes(-12);
+        var confirmou = Horario(4, 14, 30);
+        var avisado = Horario(5, 15);
+        var semContato = Horario(6, 15, 30);
+        var confirmacoes = new Dictionary<int, StatusContato> { [4] = StatusContato.Respondido, [5] = StatusContato.Enviado };
+
+        var lista = InicioDoBalcao.Proximos([semContato, avisado, confirmou, noLocal, faltou, naSala], confirmacoes, agora);
+
+        lista.Select(l => l.AgendamentoId).Should().Equal(3, 4, 5, 6);
+        lista[0].Pilula.Should().Be("No local · espera 12 min");
+        lista[0].Acao.Should().Be("Abrir");
+        lista[1].Situacao.Should().Be(SituacaoChegada.Confirmou);
+        lista[1].Acao.Should().Be("Chegou");
+        lista[2].Pilula.Should().Be("Não confirmou");
+        // Sem contato registrado não há pílula: "não confirmou" seria acusar quem nunca foi avisado.
+        lista[3].Situacao.Should().Be(SituacaoChegada.Marcado);
+        lista[3].Pilula.Should().BeEmpty();
+        lista[3].Atendimento.Should().EndWith("· Helena");
+    }
+
+    [Fact]
+    public void Saudacao_e_linha_do_dia_dizem_a_hora_e_o_que_falta()
+    {
+        InicioDoBalcao.Saudacao(new DateTime(2026, 10, 15, 9, 0, 0), "Ana Lima").Should().Be("Bom dia, Ana");
+        InicioDoBalcao.Saudacao(new DateTime(2026, 10, 15, 14, 0, 0), null).Should().Be("Boa tarde");
+        InicioDoBalcao.Saudacao(new DateTime(2026, 10, 15, 19, 0, 0), "Ana").Should().Be("Boa noite, Ana");
+        InicioDoBalcao.LinhaDoDia(new DateOnly(2026, 10, 15), 28, 9)
+            .Should().Be("Quinta-feira, 15 de outubro · 28 horários hoje, 9 ainda por chegar");
+        InicioDoBalcao.LinhaDoDia(new DateOnly(2026, 10, 15), 0, 0).Should().EndWith("nenhum horário hoje");
+        InicioDoBalcao.FaltasECancelamentos(2, 1).Should().Be("2 faltas · 1 cancelamento");
+    }
+
+    [Fact]
+    public void Confirmar_amanha_sem_rodada_e_nulo_e_nao_zero()
+    {
+        InicioDoBalcao.ConfirmarAmanha([]).Valor.Should().BeNull();
+        InicioDoBalcao.ConfirmarAmanha([]).ValorTexto.Should().Be("—");
+
+        var avisados = InicioDoBalcao.ConfirmarAmanha([
+            SituacaoConfirmacao.Confirmou, SituacaoConfirmacao.AvisadoSemResposta,
+            SituacaoConfirmacao.AvisadoSemResposta, SituacaoConfirmacao.Dispensado]);
+        avisados.Valor.Should().Be(2);
+        avisados.Detalhe.Should().Be("2 sem resposta de 3 avisados");
+
+        var faltaAvisar = InicioDoBalcao.ConfirmarAmanha([SituacaoConfirmacao.NaoAvisado, SituacaoConfirmacao.AvisadoSemResposta]);
+        faltaAvisar.Valor.Should().Be(2);
+        faltaAvisar.Detalhe.Should().Be("1 a avisar · 1 sem resposta");
+    }
+
+    // ==================== Pacientes ====================
+
+    [Fact]
+    public void Linha_do_paciente_diz_documento_idade_e_visitas()
+    {
+        var hoje = new DateOnly(2026, 10, 15);
+        ListaDePacientes.Identificacao(new Paciente { Nome = "A", Documento = "12345678900", DataNascimento = new DateOnly(1972, 3, 1) }, hoje)
+            .Should().Be("CPF 123.456.789-00 · 54 anos");
+        ListaDePacientes.Identificacao(new Paciente { Nome = "B", Documento = "RG 12.345.678-9" }, hoje)
+            .Should().Be("RG 12.345.678-9");
+        ListaDePacientes.Identificacao(new Paciente { Nome = "C", DataNascimento = new DateOnly(1851, 1, 1) }, hoje)
+            .Should().Be("sem documento · data de nascimento a conferir");
+
+        var v = new VisitaDoPaciente(1, new DateTime(2026, 10, 8, 9, 0, 0), "Acupuntura", new DateTime(2026, 10, 15, 14, 0, 0), "Dra. Helena");
+        ListaDePacientes.UltimaVisita(v, hoje).Should().Be("08/10 · Acupuntura");
+        ListaDePacientes.ProximoHorario(v, hoje).Should().Be("hoje 14:00 · Dra. Helena");
+        ListaDePacientes.ProximoHorario(v with { Proximo = new DateTime(2026, 10, 22, 9, 0, 0) }, hoje)
+            .Should().Be("qui, 22/10 · Dra. Helena");
+        ListaDePacientes.UltimaVisita(v with { Ultima = new DateTime(2025, 6, 11) }, hoje).Should().StartWith("11/06/25");
+        ListaDePacientes.Rodape(6, "maria s", null).Should().Be("6 pacientes para “maria s” · Enter abre a ficha quando sobra um só");
+        ListaDePacientes.DiasDoAniversario(new DateOnly(2026, 12, 29)).Should().Equal(1229, 1230, 1231, 101, 102, 103, 104);
+    }
 }

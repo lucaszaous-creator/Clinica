@@ -606,15 +606,6 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
     public bool PodeFecharSessao => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
 
     /// <summary>
-    /// Colher o termo é ato de outro bit — a técnica de enfermagem o tem e não tem o da
-    /// agenda —, e por isso ele é perguntado à parte no menu "⋯". É a metade visível que
-    /// faltava: enquanto o menu montava os itens só pelo ESTADO do cartão, o XAML já
-    /// prometia que "quem decide item a item é o próprio menu", e as guardas recusavam
-    /// depois do clique.
-    /// </summary>
-    public bool PodeColherTermo => SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
-
-    /// <summary>
     /// A metade visível do "Conferir convênio e cota…". É <c>VerFichaPaciente</c>, e não
     /// <c>VerProntuario</c>, pelo corte da parcela 49: carteirinha, cota, dívida e guia são
     /// dado CADASTRAL e de convênio — quem recebe no balcão precisa deles e não precisa da
@@ -1460,79 +1451,6 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
             ? $"Sessão de {c.Paciente} fechada — nada a debitar nem a lançar."
             : $"Sessão de {c.Paciente} fechada — {string.Join(" · ", partes)}.");
     }
-
-    /// <summary>
-    /// Abre a coleta do termo do procedimento (parcela 66) — a PORTA do alerta que o
-    /// check-in dá.
-    ///
-    /// Vem para cá, e não para uma tela do Consultório, porque o termo se colhe com o
-    /// paciente no balcão, antes de ele subir para a sala: quem recebe é quem apresenta o
-    /// papel. Alerta sem porta no mesmo app é pior que alerta nenhum — ele ensina a pessoa
-    /// a ignorá-lo (a lição da parcela 48).
-    ///
-    /// Quando há mais de um termo pendente, colhe o PRIMEIRO e o cartão continua marcado:
-    /// o próximo clique abre o seguinte. Empilhar duas janelas obrigaria o paciente a
-    /// assinar duas vezes sem saber quantas faltam.
-    /// </summary>
-    [RelayCommand]
-    private async Task ColherTermoAsync(CartaoFila? cartao)
-        => await ExecutarAsync(cartao, async c =>
-        {
-            SessaoUsuario.Atual.Exigir(
-                Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente");
-
-            // ⚠️ Só HOJE, e a guarda FALA. O quadro navega dias (`DiaAnterior`/`ProximoDia`),
-            // mas a emissão carimba `DateTime.Today` — colher com o quadro em 12/08 criaria
-            // um termo datado de hoje que nunca casaria com aquele dia: o papel sairia
-            // assinado e a pendência de 12/08 continuaria acesa. Pior que não ter o botão,
-            // porque a pessoa acreditaria ter resolvido.
-            if (Dia.Date != DateTime.Today)
-            {
-                _dialogo.Aviso(
-                    "Termo é do dia do procedimento",
-                    "O termo vale para a SESSÃO, e é colhido no dia dela. Volte para hoje "
-                    + "para colher a assinatura deste paciente.");
-                return;
-            }
-
-            IReadOnlyList<SituacaoTermo> situacoes;
-            using (var e = _escopos.CreateScope())
-                situacoes = await e.ServiceProvider.GetRequiredService<TermoProcedimentoService>()
-                    .SituacaoDoDiaAsync(c.PacienteId, DateOnly.FromDateTime(Dia));
-
-            // ⚠️ O que JÁ FOI ASSINADO no celular vem primeiro (set/2026): ele está a UM
-            // clique de terminar, enquanto o não assinado ainda precisa do paciente na
-            // frente. Abrir o outro primeiro faria a técnica colher de novo a assinatura
-            // de quem já assinou.
-            var pendente = PendenciasDeTermo.Primeira(situacoes);
-
-            // Guarda que FALA: o cartão pode ter sido resolvido noutra máquina entre a
-            // carga do quadro e o clique, e sair calada aqui seria botão que não faz nada.
-            if (pendente is null)
-            {
-                c.TemTermoPendente = false;
-                c.TemTermoAConferir = false;
-                _snackbar.Info($"Não há termo pendente para {c.Paciente}.");
-                return;
-            }
-
-            await ColetaDeTermo.AbrirAsync(
-                _escopos, c.PacienteId, c.Paciente,
-                pendente.ModeloId, pendente.DocumentoId,
-                // O profissional do HORÁRIO: sem ele o termo nasce órfão e a via que o
-                // paciente assina — e que fica 20 anos no prontuário — sai com
-                // "Profissional responsável" no lugar do nome e do CRM de quem faz o
-                // procedimento.
-                _doDia.FirstOrDefault(a => a.Id == c.AgendamentoId)?.ProfissionalId,
-                // E a SESSÃO: aqui o cartão É o horário, então não há o que perguntar.
-                // Sem isto a coleta cairia no caminho de quem NÃO sabe e abriria a janela
-                // de escolha por cima de uma resposta que a tela já tem na mão.
-                c.AgendamentoId);
-
-            // Recarrega SEMPRE, e não só no concluiu: abrir a janela já emite o termo
-            // numerado, e o selo do cartão precisa refletir isso.
-            await CarregarAsync();
-        }, "coleta do termo");
 
     /// <summary>
     /// CONFERIR CONVÊNIO E COTA com o paciente na frente — a porta que o check-in levou

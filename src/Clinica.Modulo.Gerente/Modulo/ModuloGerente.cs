@@ -55,7 +55,7 @@ public sealed class ModuloGerente : IModuloApp
     /// Recepção porque é ato de MIGRAÇÃO, feito uma vez pela direção — e porque cria
     /// centenas de fichas num clique, o que não é trabalho de balcão.
     /// </summary>
-    public const string ChaveImportacao = "importar-pacientes";
+    public const string ChaveImportacao = ChavesSuite.ImportarPacientes;
 
     // ===== Itens COMPOSTOS (parcela 55) =====
     // A Direção é quem publica os que ATRAVESSAM módulo, porque ela é o único app que

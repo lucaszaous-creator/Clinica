@@ -87,6 +87,16 @@ public interface IClinicaRepositorio
 
     Task<IReadOnlyList<Paciente>> PacientesComCarteirinhaAteAsync(DateOnly ate, CancellationToken ct = default);
 
+    /// <summary>Quantos pacientes cabem em cada recorte da lista (out/2026) — uma contagem por chip.</summary>
+    Task<Modelos.RecortesDePacientes> ContarRecortesDePacientesAsync(DateOnly hoje, CancellationToken ct = default);
+
+    /// <summary>
+    /// A última sessão REALIZADA (até dois anos atrás) e o próximo horário marcado de cada
+    /// paciente da página — em lote, uma ida ao banco para a página inteira.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, Modelos.VisitaDoPaciente>> VisitasDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, DateTime agora, CancellationToken ct = default);
+
     /// <summary>
     /// Origem e "indicado por" de TODA a base, projetados — três colunas, nunca a linha
     /// inteira: o relatório de origem não precisa da miniatura da foto nem do endereço, e

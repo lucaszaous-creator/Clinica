@@ -164,6 +164,70 @@ public sealed class DesempenhoLeituraTests : IDisposable
     }
 
     [Fact]
+    public async Task Recortes_da_lista_contam_o_mesmo_que_a_pagina_mostra()
+    {
+        // O chip e a página leem o MESMO recorte: chip "2" sobre uma lista de 1 seria a
+        // tela mentindo sobre ela mesma.
+        var hoje = _dia;
+        var aniversariante = new Paciente { Nome = "Aniversário", Documento = "12345678901",
+            DataNascimento = new DateOnly(1980, hoje.AddDays(3).Month, hoje.AddDays(3).Day) };
+        var semConvenio = new Paciente { Nome = "Importado", Documento = "98765432100", ConvenioCodigo = ConvenioCadastro.CodigoADefinir };
+        var foraDaSemana = new Paciente { Nome = "Fora", Documento = "11122233344",
+            DataNascimento = new DateOnly(1980, hoje.AddDays(20).Month, hoje.AddDays(20).Day) };
+        _db.Pacientes.AddRange(aniversariante, semConvenio, foraDaSemana);
+        await _db.SaveChangesAsync();
+        _db.Agendamentos.AddRange(
+            new Agendamento { PacienteId = semConvenio.Id, DataHora = hoje.ToDateTime(new TimeOnly(14, 0)), Status = StatusAgendamento.Agendado },
+            // Cancelado hoje não é "com horário hoje".
+            new Agendamento { PacienteId = foraDaSemana.Id, DataHora = hoje.ToDateTime(new TimeOnly(15, 0)), Status = StatusAgendamento.Cancelado });
+        await _db.SaveChangesAsync();
+
+        var recortes = await _repo.ContarRecortesDePacientesAsync(hoje);
+        recortes.Total.Should().Be(4);
+        recortes.ComHorarioHoje.Should().Be(1);
+        recortes.SemConvenio.Should().Be(1);
+        recortes.AniversarioNaSemana.Should().Be(1);
+        recortes.CadastroIncompleto.Should().Be(1, "só a ficha do fixture não tem documento");
+
+        (await _repo.BuscarPaginaPacientesAsync(null, 0, 101, FiltroListaPacientes.ComHorarioHoje))
+            .Should().ContainSingle().Which.Id.Should().Be(semConvenio.Id);
+        (await _repo.BuscarPaginaPacientesAsync(null, 0, 101, FiltroListaPacientes.SemConvenioDefinido))
+            .Should().ContainSingle().Which.Id.Should().Be(semConvenio.Id);
+        (await _repo.BuscarPaginaPacientesAsync(null, 0, 101, FiltroListaPacientes.AniversarioNaSemana))
+            .Should().ContainSingle().Which.Id.Should().Be(aniversariante.Id);
+    }
+
+    [Fact]
+    public async Task Visitas_trazem_a_ultima_realizada_e_o_proximo_marcado_numa_consulta()
+    {
+        var agora = _dia.ToDateTime(new TimeOnly(12, 0));
+        var helena = new Profissional { Nome = "Helena Souza", NomeCurto = "Dra. Helena" };
+        _db.Profissionais.Add(helena);
+        await _db.SaveChangesAsync();
+        _db.Agendamentos.AddRange(
+            new Agendamento { PacienteId = _paciente.Id, DataHora = agora.AddDays(-30), Status = StatusAgendamento.Realizado,
+                ModalidadePrevista = ModalidadeAtendimento.AcupunturaSimples },
+            new Agendamento { PacienteId = _paciente.Id, DataHora = agora.AddDays(-5), Status = StatusAgendamento.Realizado,
+                ModalidadePrevista = ModalidadeAtendimento.BsvApenas },
+            new Agendamento { PacienteId = _paciente.Id, DataHora = agora.AddDays(-2), Status = StatusAgendamento.Faltou },
+            new Agendamento { PacienteId = _paciente.Id, DataHora = agora.AddDays(9), Status = StatusAgendamento.Agendado, ProfissionalId = helena.Id },
+            new Agendamento { PacienteId = _paciente.Id, DataHora = agora.AddDays(2), Status = StatusAgendamento.Agendado, ProfissionalId = helena.Id });
+        await _db.SaveChangesAsync();
+        _medidor.Consultas.Clear();
+
+        var visitas = await _repo.VisitasDosPacientesAsync([_paciente.Id, 999], agora);
+
+        _medidor.Consultas.Should().ContainSingle();
+        var v = visitas[_paciente.Id];
+        v.Ultima.Should().Be(agora.AddDays(-5));
+        v.UltimaAtendimento.Should().NotBeNullOrWhiteSpace();
+        v.Proximo.Should().Be(agora.AddDays(2));
+        v.ProximoProfissional.Should().Be("Dra. Helena");
+        visitas.Should().NotContainKey(999);
+        ListaDePacientes.UltimaVisita(null, _dia).Should().Be("sem visita registrada");
+    }
+
+    [Fact]
     public async Task Carteirinhas_filtram_no_banco_sem_transferir_foto_ou_ficha_completa()
     {
         _paciente.ValidadeCarteirinha = _dia.AddDays(-10);
