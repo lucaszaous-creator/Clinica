@@ -13,6 +13,14 @@ public sealed partial class GrupoInfusaoEdicao : ObservableObject
     [ObservableProperty] private string? _tempo;
     [ObservableProperty] private string? _horario;
     public string Titulo => $"Infusão {Numero}";
+
+    /// <summary>
+    /// "Salvar esta infusão como modelo" aberto NESTA infusão (out/2026). É estado de tela,
+    /// e mora no grupo porque cada infusão tem o seu formulário: o nome digitado numa não
+    /// pode aparecer no campo da outra.
+    /// </summary>
+    [ObservableProperty] private bool _salvandoComoModelo;
+    [ObservableProperty] private string _nomeDoModelo = string.Empty;
     partial void OnNumeroChanged(int value) => OnPropertyChanged(nameof(Titulo));
     public ObservableCollection<LinhaItemPrescricao> Itens { get; } = [];
 

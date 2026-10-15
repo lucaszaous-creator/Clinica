@@ -124,6 +124,10 @@ public sealed class LinhaSessao
     /// </summary>
     public string Status => StatusDaFila.Palavra(Estado, Etapa);
 
+    /// <summary>O grupo visual da situação — a cor da linha e a pílula do filtro (out/2026).
+    /// Mesma regra da grade da semana e do balcão: <see cref="SituacaoVisualAgenda"/>.</summary>
+    public string GrupoVisual => SituacaoVisualAgenda.Grupo(Estado, Etapa);
+
     /// <summary>
     /// A hora do fato abaixo do status — "chegou às 14:40 · espera 12 min", "chamado há 4
     /// min", "desde 14:52", "às 15:20". Vazio quando não há fato. A redação é a de
@@ -339,6 +343,15 @@ public sealed partial class MeuDiaViewModel : ObservableObject, Clinica.Desktop.
     public bool QuadroVazio => Sessoes.Count == 0;
 
     /// <summary>
+    /// Busca por paciente, modalidade e situação (out/2026 — era da tela web embutida). Filtra só a
+    /// VISTA da lista: <see cref="Sessoes"/> continua inteira para quem conta o dia.
+    /// </summary>
+    public FiltroDaAgenda Filtro { get; } = new();
+
+    private void RecalcularFiltro() => Filtro.Recalcular(
+        Sessoes.Select(l => (l.Paciente, l.Modalidade, l.GrupoVisual)).ToList());
+
+    /// <summary>
     /// A chamada só faz sentido HOJE. Olhar a agenda de terça que vem e poder chamar
     /// alguém de lá seria mandar a recepção anunciar um nome com dois dias de antecedência.
     /// </summary>
@@ -387,6 +400,12 @@ public sealed partial class MeuDiaViewModel : ObservableObject, Clinica.Desktop.
         };
         _relogio.Tick += (_, _) => _ = ReconferirAsync();
         _escutaAgenda = new Clinica.Desktop.Shell.Modulos.EscutaDoBanco(RelerAoVoltarAsync, "Agendamentos");
+
+        // A tabela lê a vista PADRÃO da coleção; o filtro mora nela e sobrevive às
+        // releituras, porque a coleção é a mesma instância (Clear + Add).
+        var vista = System.Windows.Data.CollectionViewSource.GetDefaultView(Sessoes);
+        vista.Filter = o => o is LinhaSessao l && Filtro.Aceitar(l.Paciente, l.Modalidade, l.GrupoVisual);
+        Filtro.Mudou += () => vista.Refresh();
 
         _ = CarregarAsync();
     }
@@ -563,6 +582,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject, Clinica.Desktop.
                 .ToList();
             Sessoes.Clear();
             foreach (var l in linhas) Sessoes.Add(l);
+            RecalcularFiltro();
 
             OnPropertyChanged(nameof(QuadroVazio));
 

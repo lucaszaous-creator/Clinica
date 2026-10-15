@@ -223,6 +223,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         Paciente = paciente;
 
         Infusoes.CollectionChanged += (_, _) => OnPropertyChanged(nameof(PodeAssinar));
+        Modelos.CollectionChanged += (_, _) => AtualizarListaDeModelos();
 
         // Só a prescrição NOVA nasce com uma linha em branco: reabrir um rascunho e ganhar
         // um item vazio no fim faria a folha impressa sair com uma linha fantasma se
@@ -316,6 +317,111 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         }
         catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; return false; }
         finally { Ocupado = false; }
+    }
+
+    // ============ A LISTA DE MODELOS NA TELA (out/2026) ============
+    // A busca, a contagem e a confirmação da exclusão eram do editor React; voltaram ao
+    // WPF sem mudar o que se grava: usar copia o modelo (AplicarModelo), salvar e excluir
+    // passam pelos mesmos métodos, com a mesma barreira e a mesma auditoria do serviço.
+
+    private System.ComponentModel.ICollectionView? _modelosVisiveis;
+
+    /// <summary>Os modelos que casam com a busca. Vista PRÓPRIA, não a padrão: o filtro da
+    /// tela não pode esconder modelo de quem conta ou confere a coleção.</summary>
+    public System.ComponentModel.ICollectionView ModelosVisiveis
+    {
+        get
+        {
+            if (_modelosVisiveis is not null) return _modelosVisiveis;
+            _modelosVisiveis = new System.Windows.Data.ListCollectionView(Modelos)
+            {
+                Filter = o => o is ModeloDocumento m && CasaComBusca(m)
+            };
+            return _modelosVisiveis;
+        }
+    }
+
+    [ObservableProperty] private string _buscaModelo = string.Empty;
+    partial void OnBuscaModeloChanged(string value)
+    {
+        _modelosVisiveis?.Refresh();
+        AtualizarListaDeModelos();
+    }
+
+    private bool CasaComBusca(ModeloDocumento m) =>
+        string.IsNullOrWhiteSpace(BuscaModelo)
+        || System.Globalization.CultureInfo.GetCultureInfo("pt-BR").CompareInfo.IndexOf(
+               m.Nome, BuscaModelo.Trim(),
+               System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0;
+
+    public string RotuloUsarModelo => $"Usar modelo salvo ({Modelos.Count})";
+
+    /// <summary>Nada a mostrar na lista — e a frase distingue "não há modelo" de "a busca
+    /// não achou", que mandam fazer coisas diferentes.</summary>
+    public bool NenhumModeloVisivel => !Modelos.Any(CasaComBusca);
+    public string TextoSemModelos => Modelos.Count == 0
+        ? "Nenhum modelo cadastrado. Você pode salvar esta infusão como modelo."
+        : "Nenhum modelo encontrado.";
+
+    private void AtualizarListaDeModelos()
+    {
+        OnPropertyChanged(nameof(RotuloUsarModelo));
+        OnPropertyChanged(nameof(NenhumModeloVisivel));
+        OnPropertyChanged(nameof(TextoSemModelos));
+        if (ModeloEmExclusao is int id && Modelos.All(m => m.Id != id)) ModeloEmExclusao = null;
+    }
+
+    /// <summary>
+    /// O modelo cuja exclusão está sendo confirmada. A confirmação abre NO PRÓPRIO modelo:
+    /// no fim da lista ela ficava longe do nome, e quem rola não sabia qual ia sair.
+    /// </summary>
+    [ObservableProperty] private int? _modeloEmExclusao;
+
+    [RelayCommand]
+    private void PedirExclusaoModelo(ModeloDocumento? modelo)
+    {
+        if (modelo is null || Ocupado) return;
+        if (!Exigir(Permissao.Prescrever, "excluir modelos de infusão")) return;
+        ModeloEmExclusao = modelo.Id;
+    }
+
+    [RelayCommand]
+    private void ManterModelo() => ModeloEmExclusao = null;
+
+    [RelayCommand]
+    private async Task ConfirmarExclusaoModeloAsync(ModeloDocumento? modelo)
+    {
+        if (modelo is null) return;
+        try
+        {
+            if (await ExcluirModeloAsync(modelo.Id)) ModeloEmExclusao = null;
+        }
+        catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+    }
+
+    [RelayCommand]
+    private void AlternarSalvarModelo(GrupoInfusaoEdicao? grupo)
+    {
+        if (grupo is null) return;
+        grupo.SalvandoComoModelo = !grupo.SalvandoComoModelo;
+    }
+
+    [RelayCommand]
+    private async Task SalvarComoModeloAsync(GrupoInfusaoEdicao? grupo)
+    {
+        if (grupo is null) return;
+        var nome = grupo.NomeDoModelo.Trim();
+        if (nome.Length == 0)
+        {
+            Mensagem = "Dê um nome ao modelo para encontrá-lo depois.";
+            MensagemEhErro = true;
+            return;
+        }
+        if (await SalvarModeloAsync(grupo, nome))
+        {
+            grupo.SalvandoComoModelo = false;
+            grupo.NomeDoModelo = string.Empty;
+        }
     }
 
     /// <summary>

@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Clinico.Views.MinhaSemanaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Clinica.Clinico.Views"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:mod="clr-namespace:Clinica.Application.Modelos;assembly=Clinica.Application"
@@ -233,11 +234,15 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
+        <!-- A BUSCA NA AGENDA (out/2026): o mesmo controle do Meu dia e da Minha semana. -->
+        <local:FiltroDaAgendaView DockPanel.Dock="Top" Margin="0,0,0,12"
+                                  DataContext="{Binding Filtro}" />
+
         <!-- ============ A GRADE ============
              A linha do tempo do balcão (parcela 58), aplicada à semana de quem atende: o
              vazio tem tamanho, a sessão longa cobre as faixas dela, cancelado fica
              marcado sem cobrir nada, e férias/feriado escrevem o motivo no vão. -->
-        <Grid x:Name="ConteudoAgendaBusca">
+        <Grid>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
                 <DockPanel>
@@ -258,13 +263,19 @@
                 </DockPanel>
             </ScrollViewer>
 
-            <ctrl:EstadoDaTela Vazio="{Binding Vazio}"
+            <ctrl:EstadoDaTela Panel.ZIndex="1" Vazio="{Binding Vazio}"
                                Carregando="{Binding Carregando}"
                                NaoVerificado="{Binding NaoVerificado}"
                                Glifo="&#xE787;"
                                TextoCarregando="Montando a semana…"
                                Titulo="Nenhum horário nesta semana"
                                Descricao="Os horários aparecem aqui assim que a recepção marcar." />
+
+            <!-- O OUTRO vazio: há horários na semana, e o filtro escondeu todos. -->
+            <ctrl:EstadoDaTela Panel.ZIndex="1" Vazio="{Binding Filtro.SemResultado}"
+                               Glifo="&#xE721;"
+                               Titulo="Nenhum paciente corresponde aos filtros"
+                               Descricao="Confira o nome, a modalidade ou a situação escolhida, ou use Limpar filtros." />
         </Grid>
     </DockPanel>
 </UserControl>

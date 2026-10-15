@@ -80,10 +80,43 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject, Clinica.Des
     /// </summary>
     private int _geracaoCarga;
 
+    /// <summary>
+    /// Busca por paciente, modalidade e situação na grade (out/2026 — era da tela web embutida).
+    /// Só esconde CARTÕES: a grade, os vãos livres, os bloqueios e as contagens dos dias
+    /// continuam sendo da semana inteira.
+    /// </summary>
+    public FiltroDaAgenda Filtro { get; } = new();
+
+    /// <summary>
+    /// Põe o filtro na vista de cada célula e refaz as contagens. As células nascem a cada
+    /// leitura, então a vista de cada uma é nova e recebe o filtro aqui — numa passada só,
+    /// sem await (parcela 62).
+    /// </summary>
+    private void AplicarFiltro()
+    {
+        foreach (var celula in Faixas.SelectMany(f => f.Celulas))
+        {
+            var vista = System.Windows.Data.CollectionViewSource.GetDefaultView(celula.Sessoes);
+            if (vista is null) continue;
+            if (vista.Filter is null)
+                vista.Filter = o => o is SessaoDoDia s
+                    && Filtro.Aceitar(s.PacienteNome, s.Modalidade, s.GrupoVisual);
+            else
+                vista.Refresh();
+        }
+
+        // A sessão de uma hora aparece em duas faixas: conta-se UMA vez.
+        Filtro.Recalcular(Faixas.SelectMany(f => f.Celulas).SelectMany(c => c.Sessoes)
+            .DistinctBy(s => s.AgendamentoId)
+            .Select(s => (s.PacienteNome, s.Modalidade, s.GrupoVisual))
+            .ToList());
+    }
+
     public MinhaSemanaViewModel(IServiceScopeFactory escopos, PacienteEmFoco foco)
     {
         _escopos = escopos;
         _foco = foco;
+        Filtro.Mudou += AplicarFiltro;
         _ = CarregarAsync();
     }
 
@@ -175,6 +208,7 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject, Clinica.Des
 
             Faixas.Clear();
             foreach (var f in grade.Faixas) Faixas.Add(f);
+            AplicarFiltro();
 
             Vazio = semana.Sessoes == 0;
 
