@@ -18,11 +18,14 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <!-- Piloto em Blazor (out/2026): exibe as telas do Clinica.Ui.Blazor dentro do WPF. -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="8.0.100" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
     <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
     <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+    <ProjectReference Include="..\Clinica.Ui.Blazor\Clinica.Ui.Blazor.csproj" />
   </ItemGroup>
 </Project>

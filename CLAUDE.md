@@ -209,6 +209,19 @@ Nenhum deles quebra o build quando é esquecido:
   WPF: o navegador é uma janela NATIVA que fica PRETA até pintar (1–5 s a cada tela nova, em
   todos os módulos), o WPF não desenha por cima dela, e cada tela pagava a partida do
   navegador. Tela nova é XAML + ViewModel; não reintroduza navegador embutido.
+  ⚠️ **Exceção autorizada pela direção (out/2026): o PILOTO EM BLAZOR** (`docs/piloto-blazor.md`).
+  Uma tela só, o Fluxo de caixa em `Clinica.Ui.Blazor`, como aba NOVA ao lado da WPF, que
+  continua intacta. Ele ataca as três causas da tela preta (fundo pintado no WPF, no
+  WebView2 e na `index.html`; controle montado uma vez por aba; arquivos embutidos na DLL), e
+  o C# do Razor chama os serviços direto, sem ponte de mensagens. Fora dele, a regra acima
+  continua valendo até a direção decidir pelo resultado do piloto.
+  ⚠️ **A razão de existir é VER a tela antes de ela chegar à clínica**: `tools/PreviaBlazor`
+  roda a MESMA tela em Linux com dados fictícios, e o Playwright do ambiente a fotografa.
+  Mexeu em tela Blazor, fotografe nas larguras 1024 e 1366 antes do push. Foi assim que
+  apareceu o valor cortado ("R$ 981.87…") dos cartões em 1024, que nenhuma rede pegaria.
+  ⚠️ O pacote `Microsoft.AspNetCore.Components.WebView.Wpf` só tem `lib/net8.0-windows`; o
+  `compilar-sombra` o troca pelas dependências `net8.0` + a DLL baixada
+  (`PACOTES_SO_WINDOWS`). Pacote só-Windows novo entra nessa tabela, senão a sombra para.
 - **Tela de leitura que volta do histórico** implementa `IAtualizarAoVoltar`: reaparece na hora
   com o que mostrava e relê em silêncio (sem "Carregando", sem limpar, falha só no log).
   Formulário e prontuário em edição NÃO implementam — voltar não pode reler por baixo de quem digita.

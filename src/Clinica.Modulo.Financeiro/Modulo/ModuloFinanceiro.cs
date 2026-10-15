@@ -27,6 +27,13 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveContas = ChavesSuite.Contas;
     public const string ChaveInadimplencia = ChavesSuite.Inadimplencia;
     public const string ChaveFluxo = "fluxo-caixa";
+
+    /// <summary>
+    /// O PILOTO em Blazor (out/2026, docs/piloto-blazor.md): o mesmo fluxo de caixa, sobre
+    /// o mesmo serviço, desenhado em HTML/CSS. Fica AO LADO da tela WPF, que continua
+    /// intacta, para a direção comparar as duas antes de decidir qualquer migração.
+    /// </summary>
+    public const string ChaveFluxoWeb = "fluxo-caixa-web";
     public const string ChaveResultado = ChavesSuite.Resultado;
     public const string ChaveFechamento = ChavesSuite.FechamentoCaixa;
     public const string ChaveRecebiveis = ChavesSuite.Recebiveis;
@@ -79,7 +86,8 @@ public sealed class ModuloFinanceiro : IModuloApp
             [
                 new AbaMenu("Caixa", ChaveCaixa),
                 new AbaMenu("Fechamento", ChaveFechamento),
-                new AbaMenu("Fluxo", ChaveFluxo)
+                new AbaMenu("Fluxo", ChaveFluxo),
+                new AbaMenu("Fluxo (novo visual)", ChaveFluxoWeb)
             ]
         },
         new ItemMenuModulo
@@ -153,6 +161,11 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChaveFluxoWeb, Rotulo = "Fluxo de caixa (novo visual)", Glifo = "\uE7C4", Icone = "grafico",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveContas, Rotulo = "Contas a pagar/receber", Glifo = "\uE8F1", Icone = "lista",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
@@ -214,6 +227,9 @@ public sealed class ModuloFinanceiro : IModuloApp
         servicos.AddTransient<ContasViewModel>();
         servicos.AddTransient<InadimplenciaViewModel>();
         servicos.AddTransient<FluxoCaixaViewModel>();
+        // O piloto em Blazor: o motor do BlazorWebView e o que a tela pede ao WPF.
+        servicos.AddWpfBlazorWebView();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IHostDaTela, Web.HostDaTelaWpf>();
         servicos.AddTransient<ResultadoViewModel>();
         servicos.AddTransient<FechamentoCaixaViewModel>();
         servicos.AddTransient<RecebiveisViewModel>();
@@ -236,6 +252,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveContas => new ContasView { DataContext = servicos.GetRequiredService<ContasViewModel>() },
         ChaveInadimplencia => new InadimplenciaView { DataContext = servicos.GetRequiredService<InadimplenciaViewModel>() },
         ChaveFluxo => new FluxoCaixaView { DataContext = servicos.GetRequiredService<FluxoCaixaViewModel>() },
+        ChaveFluxoWeb => new Web.TelaBlazor(typeof(Clinica.Ui.Blazor.Telas.FluxoDeCaixa), servicos),
         ChaveResultado => new ResultadoView { DataContext = servicos.GetRequiredService<ResultadoViewModel>() },
         ChaveFechamento => new FechamentoCaixaView { DataContext = servicos.GetRequiredService<FechamentoCaixaViewModel>() },
         ChaveRecebiveis => new RecebiveisView { DataContext = servicos.GetRequiredService<RecebiveisViewModel>() },

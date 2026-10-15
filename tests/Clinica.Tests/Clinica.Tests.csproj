@@ -33,6 +33,7 @@
     <ProjectReference Include="..\..\src\Clinica.Domain\Clinica.Domain.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Application\Clinica.Application.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Clinica.Ui.Blazor\Clinica.Ui.Blazor.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,164 @@
+/* ================================================================
+   Estilo das telas Blazor (piloto, out/2026).
+   Toda cor, raio e espaço vem dos TOKENS do design system (tokens/*.css,
+   espelho conferido do Tokens.xaml). Número solto aqui é dívida.
+   ================================================================ */
+@import url("../tokens/colors.css");
+@import url("../tokens/typography.css");
+@import url("../tokens/layout.css");
+@import url("../tokens/semantic.css");
+@import url("../tokens/web-extras.css");
+
+:root{
+  /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.
+     Fora do Windows (a prévia), cai na do sistema. */
+  --font-ui:"Segoe UI Variable Text","Segoe UI",Inter,system-ui,-apple-system,sans-serif;
+  --font-num:"Segoe UI Variable Display","Segoe UI",Inter,system-ui,sans-serif;
+  --sombra-cartao:0 1px 2px rgba(17,24,39,.04);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;background:var(--fundo)}
+body{
+  font-family:var(--font-ui);font-size:var(--text-body-size);color:var(--texto-primario);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+button,select,input{font:inherit;color:inherit}
+
+/* ---------- Página ---------- */
+.pagina{padding:var(--space-6) var(--space-8) var(--space-10);max-width:1440px;margin:0 auto;
+  display:flex;flex-direction:column;gap:var(--space-6)}
+.cabecalho{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-4)}
+.sobretitulo{font-size:var(--text-secao-size);font-weight:600;letter-spacing:var(--text-secao-tracking);
+  text-transform:uppercase;color:var(--acento);margin:0 0 var(--space-1)}
+h1{font-size:28px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.15}
+.subtitulo{color:var(--texto-secundario);margin:var(--space-2) 0 0;max-width:640px;line-height:1.5}
+.acoes{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3)}
+
+/* ---------- Controles ---------- */
+.segmentado{display:inline-flex;background:var(--superficie);border:1px solid var(--borda);
+  border-radius:var(--radius-control);padding:3px;gap:2px}
+.segmentado button{border:0;background:transparent;padding:6px 12px;border-radius:6px;cursor:pointer;
+  color:var(--texto-secundario);font-weight:500;transition:background var(--duracao-rapida),color var(--duracao-rapida)}
+.segmentado button:hover{color:var(--texto-primario);background:var(--superficie-hover)}
+.segmentado button[aria-pressed="true"]{background:var(--acento);color:var(--texto-invertido)}
+
+.alternar{display:inline-flex;align-items:center;gap:var(--space-2);cursor:pointer;user-select:none;
+  color:var(--cinza-700);font-weight:500}
+.alternar input{appearance:none;width:34px;height:20px;border-radius:999px;background:var(--cinza-300);
+  position:relative;margin:0;cursor:pointer;transition:background var(--duracao-normal)}
+.alternar input::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform var(--duracao-normal)}
+.alternar input:checked{background:var(--acento)}
+.alternar input:checked::after{transform:translateX(14px)}
+
+.botao{display:inline-flex;align-items:center;gap:var(--space-2);height:36px;padding:0 14px;
+  border-radius:var(--radius-control);border:1px solid var(--borda);background:var(--superficie);
+  font-weight:600;cursor:pointer;transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.botao:hover{border-color:var(--borda-hover);background:var(--superficie-hover)}
+.botao:disabled{opacity:.5;cursor:default}
+.botao svg{width:16px;height:16px}
+:focus-visible{outline:2px solid var(--foco);outline-offset:2px}
+
+/* ---------- Cartões ---------- */
+.cartao{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);
+  box-shadow:var(--sombra-cartao)}
+.cartao-corpo{padding:var(--space-6)}
+.cartao-titulo{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--space-3);
+  margin-bottom:var(--space-4)}
+.cartao-titulo h2{font-size:16px;font-weight:600;margin:0}
+.cartao-titulo p{margin:2px 0 0;color:var(--texto-secundario);font-size:var(--text-table-size)}
+
+/* ---------- KPIs ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-4)}
+.kpi{padding:var(--space-4) var(--space-6) var(--space-6);display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+.kpi-rotulo{display:flex;align-items:center;gap:var(--space-2);color:var(--texto-secundario);font-weight:500;font-size:13px}
+.kpi-icone{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--acento-suave);color:var(--acento)}
+.kpi-icone svg{width:16px;height:16px}
+.kpi-valor{font-family:var(--font-num);font-size:var(--text-kpi-size);font-weight:700;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi-nota{color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.4}
+.positivo{color:var(--sucesso-forte)}
+.negativo{color:var(--erro-texto)}
+.kpi-icone.saida{background:var(--info-suave);color:var(--info-texto)}
+.kpi-icone.resultado{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.kpi-icone.resultado.neg{background:var(--erro-suave);color:var(--erro-texto)}
+.kpi-icone.margem{background:var(--cinza-100);color:var(--cinza-700)}
+
+/* ---------- Gráfico ---------- */
+.legenda{display:flex;flex-wrap:wrap;gap:var(--space-4);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.legenda span{display:inline-flex;align-items:center;gap:6px}
+.amostra{width:10px;height:10px;border-radius:3px;display:inline-block}
+.amostra.entrada{background:var(--serie-entrada)}
+.amostra.saida{background:var(--serie-saida)}
+.amostra.prevista{background:repeating-linear-gradient(135deg,var(--cinza-500) 0 2px,transparent 2px 4px);
+  border:1px solid var(--cinza-500)}
+:root{--serie-entrada:var(--azul-500);--serie-saida:var(--ciano-500)}
+
+.grafico{position:relative}
+.grafico svg{display:block;width:100%;height:auto;overflow:visible}
+.grafico .grade line{stroke:var(--borda);stroke-width:1}
+.grafico .grade line.zero{stroke:var(--cinza-300)}
+.grafico .eixo text{fill:var(--texto-secundario);font-size:11px;font-variant-numeric:tabular-nums}
+.grafico .barra-entrada{fill:var(--serie-entrada)}
+.grafico .barra-saida{fill:var(--serie-saida)}
+.grafico .mes{cursor:default}
+.grafico .mes .alvo{fill:transparent}
+.grafico .mes:hover .alvo,.grafico .mes.ativo .alvo{fill:var(--acento-suave)}
+.grafico .mes.atual text.rotulo-mes{fill:var(--acento);font-weight:600}
+.dica{position:absolute;top:8px;pointer-events:none;z-index:2;min-width:200px;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:10px;box-shadow:var(--sombra-tooltip);
+  padding:10px 12px;font-size:12px}
+.dica strong{display:block;font-size:13px;margin-bottom:6px}
+.dica .linha{display:flex;justify-content:space-between;gap:var(--space-4);padding:2px 0;font-variant-numeric:tabular-nums}
+.dica .linha span:first-child{display:inline-flex;align-items:center;gap:6px;color:var(--texto-secundario)}
+.dica hr{border:0;border-top:1px solid var(--borda);margin:6px 0}
+
+/* ---------- Categorias ---------- */
+.duas-colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:var(--space-4)}
+.categorias{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-4)}
+.categoria-topo{display:flex;justify-content:space-between;gap:var(--space-3);margin-bottom:6px}
+.categoria-nome{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.categoria-valor{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--cinza-700)}
+.categoria-valor small{color:var(--texto-secundario);margin-left:6px}
+.trilho{height:6px;border-radius:999px;background:var(--cinza-100);overflow:hidden}
+.trilho > i{display:block;height:100%;border-radius:999px;background:var(--serie-entrada)}
+.categorias.saidas .trilho > i{background:var(--serie-saida)}
+.sem-categoria .categoria-nome{color:var(--aviso-texto)}
+
+/* ---------- Tabela ---------- */
+.tabela-rolagem{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:var(--text-table-size);font-variant-numeric:tabular-nums}
+th{text-align:right;font-weight:600;color:var(--texto-secundario);font-size:12px;padding:10px 12px;
+  border-bottom:1px solid var(--borda);white-space:nowrap}
+td{text-align:right;padding:10px 12px;border-bottom:1px solid var(--cinza-100);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+tbody tr:hover td{background:var(--cinza-50)}
+tbody tr.atual td:first-child{color:var(--acento);font-weight:600}
+td.vazio{color:var(--cinza-300)}
+.selo{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;
+  background:var(--acento-suave);color:var(--acento)}
+
+/* ---------- Estados ---------- */
+.aviso{display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-4);border-radius:var(--radius-control);
+  border:1px solid var(--borda);background:var(--superficie);line-height:1.5}
+.aviso.erro{border-color:#FECACA;background:var(--erro-suave);color:var(--erro-texto)}
+.aviso.info{background:var(--acento-suave);border-color:var(--acento-tint);color:var(--azul-700)}
+.aviso svg{flex:none;width:18px;height:18px;margin-top:2px}
+.vazio-estado{padding:var(--space-10) var(--space-6);text-align:center;color:var(--texto-secundario)}
+.vazio-estado strong{display:block;color:var(--texto-primario);font-size:15px;margin-bottom:4px}
+.esqueleto{background:linear-gradient(90deg,var(--cinza-100),var(--cinza-50),var(--cinza-100));background-size:200% 100%;
+  animation:brilho 1.2s linear infinite;border-radius:6px}
+@keyframes brilho{to{background-position:-200% 0}}
+.carregando{opacity:.55;transition:opacity var(--duracao-normal)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.grafico text.rotulo-mes{fill:var(--texto-secundario);font-size:11px}
+.grafico .mes.atual text.rotulo-mes{fill:var(--acento);font-weight:600}
+.dica.direita{transform:translateX(4px)}
+.dica.esquerda{transform:translateX(calc(-100% - 4px))}
+/* Quatro valores de nove dígitos não cabem lado a lado numa janela estreita: o número
+   cortado com reticências é o defeito que a checagem 24 existe para pegar no WPF. Abaixo
+   de 1180px a fileira vira 2 × 2, e nunca 3 + 1 (um cartão órfão na segunda linha). */
+.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:1180px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.kpis{grid-template-columns:1fr}.pagina{padding:var(--space-4)}}

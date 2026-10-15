@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    PILOTO DE INTERFACE EM BLAZOR (out/2026) — ver docs/piloto-blazor.md.
+
+    As telas deste projeto são HTML/CSS escritos em Razor, com o C# chamando os MESMOS
+    serviços da Application que as telas WPF chamam. Ele é `net8.0` puro, então compila
+    e roda em Linux: a prévia (tools/PreviaBlazor) mostra a tela num navegador comum, e é
+    isso que permite FOTOGRAFAR o que foi escrito antes de ele chegar à clínica.
+
+    Na clínica, a mesma tela é exibida dentro do WPF por um BlazorWebView. Os arquivos de
+    estilo vão EMBUTIDOS na DLL (manifesto de recursos), e não como pasta solta ao lado do
+    .exe: não há o que esquecer de copiar no pacote do Velopack.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Clinica.Ui.Blazor</RootNamespace>
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.11" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+    <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- A página-hospedeira e o estilo próprio das telas. -->
+    <EmbeddedResource Include="Ativos\**\*" />
+    <!-- Os tokens do design system: os MESMOS arquivos que o espelho do XAML confere no CI
+         (tokens/verificar-espelho.py). Linkados, nunca copiados — cópia diverge. O
+         fonts.css fica de fora porque importa uma fonte da internet, e a tela tem de abrir
+         sem rede. -->
+    <EmbeddedResource Include="..\..\tokens\colors.css;..\..\tokens\typography.css;..\..\tokens\layout.css;..\..\tokens\semantic.css;..\..\tokens\web-extras.css"
+                      Link="Ativos\tokens\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

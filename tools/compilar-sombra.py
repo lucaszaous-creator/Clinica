@@ -386,6 +386,36 @@ def gerar_gcs(destino: Path, wpf: dict[str, str], proprios: dict[str, str],
 # 4. Projetos-sombra
 # ---------------------------------------------------------------------------
 
+# Pacotes que só têm `lib/net8.0-windows` — a sombra é `net8.0`, e o NuGet recusaria
+# restaurá-los (NU1202). Para cada um: as dependências que o pacote declara (essas têm
+# versão para `net8.0`) e a DLL dele, baixada e referenciada direto, como as do WPF.
+# Entrou com o piloto em Blazor (out/2026): o BlazorWebView do WPF.
+PACOTES_SO_WINDOWS = {
+    "Microsoft.AspNetCore.Components.WebView.Wpf": {
+        "dll": "lib/net8.0-windows7.0/Microsoft.AspNetCore.Components.WebView.Wpf.dll",
+        "dependencias": [
+            ("Microsoft.AspNetCore.Components.WebView", "8.0.10"),
+            ("Microsoft.Web.WebView2", "1.0.2592.51"),
+        ],
+    },
+}
+
+
+def garantir_dll_de_pacote(nome: str, versao: str, caminho_dll: str) -> Path:
+    destino = SOMBRA / "pacotes" / f"{nome}.{versao}"
+    dll = destino / Path(caminho_dll).name
+    if dll.exists():
+        return dll
+    destino.mkdir(parents=True, exist_ok=True)
+    pacote = destino / "pacote.nupkg"
+    url = (f"https://api.nuget.org/v3-flatcontainer/{nome.lower()}/{versao}/"
+           f"{nome.lower()}.{versao}.nupkg")
+    urllib.request.urlretrieve(url, pacote)
+    with zipfile.ZipFile(pacote) as z:
+        dll.write_bytes(z.read(caminho_dll))
+    return dll
+
+
 def ler_csproj(caminho: Path) -> ET.Element:
     return ET.parse(caminho).getroot()
 
@@ -394,10 +424,17 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
     raiz = ler_csproj(original)
 
     pacotes = []
+    so_windows = []
     for pr in raiz.iter("PackageReference"):
         inc = pr.get("Include")
         ver = pr.get("Version")
-        if inc and ver:
+        if inc in PACOTES_SO_WINDOWS and ver:
+            info = PACOTES_SO_WINDOWS[inc]
+            dll = garantir_dll_de_pacote(inc, ver, info["dll"])
+            so_windows.append(f'    <Reference Include="{dll.stem}"><HintPath>{dll}</HintPath></Reference>')
+            for dep, dep_ver in info["dependencias"]:
+                pacotes.append(f'    <PackageReference Include="{dep}" Version="{dep_ver}" />')
+        elif inc and ver:
             pacotes.append(f'    <PackageReference Include="{inc}" Version="{ver}" />')
 
     projetos = []
@@ -458,6 +495,7 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
 
   <ItemGroup>
 {dlls}
+{chr(10).join(so_windows)}
   </ItemGroup>
 
   <ItemGroup>
