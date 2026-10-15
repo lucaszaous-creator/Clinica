@@ -26,6 +26,7 @@ internal sealed class PedidosEnfermagemWeb(IServiceScopeFactory escopos, Func<Da
     private string? _erro;
     private Window? _janela;
     private readonly string _contexto = Guid.NewGuid().ToString("N");
+    public event Action? EstadoAlterado;
     private static bool Permitido => SessaoUsuario.Atual.Autenticado
         && SessaoUsuario.Atual.Perfil is PerfilAcesso.Recepcao or PerfilAcesso.Gerente
         && SessaoUsuario.Atual.Pode(Permissao.VerAgenda | Permissao.EditarAgenda | Permissao.VerFichaPaciente);
@@ -44,6 +45,7 @@ internal sealed class PedidosEnfermagemWeb(IServiceScopeFactory escopos, Func<Da
     public void Iniciar()
     {
         _ativa = true;
+        _detalhe = null;
         if (!_registrado) { _timer.Tick += AtualizarTimer; _registrado = true; }
         if (Permitido) { _timer.Start(); _ = Atualizar(); }
     }
@@ -54,6 +56,7 @@ internal sealed class PedidosEnfermagemWeb(IServiceScopeFactory escopos, Func<Da
         if (!_ativa || _carregando || !Permitido) return;
         var g = _geracao; var usuario = SessaoUsuario.Atual.UsuarioId;
         _carregando = true;
+        EstadoAlterado?.Invoke();
         try
         {
             using var escopo = escopos.CreateScope();
@@ -62,7 +65,14 @@ internal sealed class PedidosEnfermagemWeb(IServiceScopeFactory escopos, Func<Da
             _pedidos = linhas; _erro = null;
         }
         catch (Exception ex) { if (_ativa && g == _geracao) _erro = "Avisos indisponíveis. Abra os pedidos e tente Atualizar. " + ex.Message; }
-        finally { _carregando = false; }
+        finally
+        {
+            _carregando = false;
+            EstadoAlterado?.Invoke();
+            // Se saiu e voltou durante a consulta, sua resposta foi descartada acima.
+            // Iniciar não pôde reler enquanto ela estava pendente: atualize a geração atual.
+            if (_ativa && g != _geracao && usuario == SessaoUsuario.Atual.UsuarioId) _ = Atualizar();
+        }
     }
 
     public async Task Abrir()

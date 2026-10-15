@@ -429,6 +429,25 @@ public class DocumentosClinicosTests : IDisposable
         return modelo.Id;
     }
 
+    [Fact]
+    public async Task Excluir_modelo_de_infusao_registra_autoria_e_rejeita_modelo_de_outro_tipo()
+    {
+        var modelo = await _documentos.SalvarModeloAsync(new ModeloDocumento
+        {
+            Nome = "Infusão de teste", Tipo = TipoDocumentoClinico.Receita, ParaInfusao = true,
+            ConfiguracaoInfusao = new ModeloInfusao(null, null, [new("Medicamento fictício")]).Guardar(),
+            Corpo = "Medicamento fictício", Ativo = true
+        }, "criador");
+        var outro = await ModeloDeTermoAsync();
+        await _documentos.ExcluirModeloInfusaoAsync(modelo.Id, "operador teste");
+        _db.ChangeTracker.Clear();
+        (await _db.ModelosDocumento.AnyAsync(m => m.Id == modelo.Id)).Should().BeFalse();
+        (await _db.Auditoria.SingleAsync(a => a.Acao == "ModeloInfusaoExcluido")).Operador.Should().Be("operador teste");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _documentos.ExcluirModeloInfusaoAsync(outro, "operador teste"));
+        (await _db.ModelosDocumento.AnyAsync(m => m.Id == outro)).Should().BeTrue();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _documentos.ExcluirModeloInfusaoAsync(modelo.Id, "operador teste"));
+    }
+
     // ==================== PDF ====================
 
     [Fact]

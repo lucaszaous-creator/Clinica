@@ -13,9 +13,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Recepcao.Views;
 
 /// <summary>Panorama da agenda. Datas, filtros, autorização e ocupação são resolvidos no host.</summary>
-public sealed class OcupacaoAgendaView : UserControl
+public sealed class OcupacaoAgendaView : UserControl, IReceberNavegacao
 {
     private readonly IServiceProvider _servicos;
+    private readonly PainelClinicoWeb _painel;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly int _usuario = SessaoUsuario.Atual.UsuarioId;
     private OcupacaoAgenda? _dados;
@@ -35,9 +36,9 @@ public sealed class OcupacaoAgendaView : UserControl
     public OcupacaoAgendaView(IServiceProvider servicos)
     {
         _servicos = servicos;
-        Content = new PainelClinicoWeb("ocupacao-agenda", Estado, Executar, Exigir);
+        Content = _painel = new PainelClinicoWeb("ocupacao-agenda", Estado, Executar, Exigir);
         _timer.Tick += async (_, _) => { if (!_carregando) await Carregar(); };
-        Loaded += async (_, _) => { _ativa = true; _timer.Start(); await Carregar(); };
+        Loaded += async (_, _) => { _ativa = true; _timer.Start(); ConsumirPedido(); await Carregar(); };
         Unloaded += (_, _) => { _ativa = false; ++_geracao; _timer.Stop(); };
     }
     private void Exigir()
@@ -45,6 +46,18 @@ public sealed class OcupacaoAgendaView : UserControl
         if (!SessaoUsuario.Atual.Autenticado || SessaoUsuario.Atual.UsuarioId != _usuario)
             throw new UnauthorizedAccessException("Abra a agenda novamente após entrar.");
         SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "consultar a ocupação");
+    }
+    public void AoNavegar()
+    {
+        if (_ativa && ConsumirPedido()) _ = Carregar();
+    }
+    private bool ConsumirPedido()
+    {
+        var pedido = _servicos.GetService<PedidoAgenda>();
+        if (pedido?.Consumir() is not { } dia) return false;
+        _dia = dia; _modo = "dia";
+        if (pedido.AplicarFiltro) _profissional = pedido.ProfissionalId;
+        return true;
     }
     private object Estado() => new { contexto = _contexto, dia = _dia, modo = _modo, profissionalId = _profissional,
         profissionais = _profissionais, dados = _dados, carregando = _carregando, erro = _erro,
@@ -59,16 +72,17 @@ public sealed class OcupacaoAgendaView : UserControl
     private async Task Carregar()
     {
         var g = ++_geracao; _carregando = true; _erro = null; _contexto = Guid.NewGuid().ToString("N");
+        _painel.AtualizarEstado();
         var (inicio, fim) = Periodo(); var filtro = _profissional;
         try
         {
             Exigir();
             using var scope = _servicos.CreateScope();
             var svc = scope.ServiceProvider.GetRequiredService<IOcupacaoAgendaService>();
-            var resultado = await svc.ConsultarAsync(_usuario, inicio, fim, filtro);
+            var resultado = await svc.ConsultarMovimentoAsync(_usuario, inicio, fim, filtro);
             if (!_ativa || g != _geracao || SessaoUsuario.Atual.UsuarioId != _usuario) return;
             _dados = resultado;
-            if (filtro is null)
+            if (filtro is null || _profissionais.Count == 0)
             {
                 _profissionais = resultado.Profissionais.Select(p => (object)new { p.Id, p.Nome }).ToArray();
                 _idsProfissionais = resultado.Profissionais.Select(p => p.Id).ToHashSet();
@@ -79,7 +93,7 @@ public sealed class OcupacaoAgendaView : UserControl
             if (_ativa && g == _geracao) { _dados = null; _erro = "Não foi possível consultar a ocupação. Tente atualizar."; }
             Clinica.Application.Diagnostico.Registrar("Ocupação da agenda", ex);
         }
-        finally { if (g == _geracao) _carregando = false; }
+        finally { if (g == _geracao) { _carregando = false; _painel.AtualizarEstado(); } }
     }
     private async Task Executar(JsonElement m)
     {
@@ -129,12 +143,6 @@ public sealed class OcupacaoAgendaView : UserControl
             var ponte = _servicos.GetRequiredService<PreenchimentoNovoAtendimento>();
             ponte.Definir(new(true, _dia.ToDateTime(TimeOnly.MinValue), _profissional, null));
             if (!NavegacaoSuite.Ir(ModuloRecepcao.ChaveMarcarHorario)) ponte.Consumir();
-        }
-        if (acao == "grade")
-        {
-            var ponte = _servicos.GetRequiredService<PedidoAgenda>();
-            ponte.AbrirComFiltro(_dia, _profissional);
-            if (!NavegacaoSuite.Ir(ChavesSuite.AgendaRecepcao)) ponte.Consumir();
         }
     }
 }

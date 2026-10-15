@@ -56,6 +56,7 @@ public partial class TelaComAbas : UserControl
     public void Selecionar(int indice)
     {
         if (indice >= 0 && indice < Abas.Items.Count) Abas.SelectedIndex = indice;
+        if (Abas.SelectedItem is TabItem { Content: IReceberNavegacao destino }) destino.AoNavegar();
     }
 
     private void AoTrocarAba(object sender, SelectionChangedEventArgs e)

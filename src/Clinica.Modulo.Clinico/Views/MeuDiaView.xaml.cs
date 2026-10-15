@@ -35,7 +35,6 @@ public partial class MeuDiaView : UserControl
                 _painelBusca = new Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb("agenda", () => adaptador.Dia(vm), m => adaptador.ExecutarDia(vm, m),
                     () => Clinica.Domain.Entities.SessaoUsuario.Atual.Exigir(Clinica.Domain.Entities.Permissao.VerAgenda, "consultar a agenda"));
                 ConteudoAgendaBusca.Children.Add(_painelBusca);
-                if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => _painelBusca.Dispose();
             }
             vm.AoEntrarEmCena();
         };

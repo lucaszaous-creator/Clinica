@@ -711,6 +711,20 @@ public sealed class DocumentoClinicoService
         await _repo.SalvarAsync(ct);
     }
 
+    public async Task ExcluirModeloInfusaoAsync(int modeloId, string operador, CancellationToken ct = default)
+    {
+        var modelo = await _repo.ObterModeloDocumentoAsync(modeloId, ct)
+            ?? throw new InvalidOperationException("Este modelo já foi removido. Atualize a lista.");
+        if (!modelo.ParaInfusao) throw new InvalidOperationException("Escolha um modelo de infusão.");
+        await _repo.RemoverModeloDocumentoAsync(modeloId, ct);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = operador, Acao = "ModeloInfusaoExcluido",
+            Detalhe = $"Modelo {modelo.Id} — {modelo.Nome}"
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ==================== Bastidores ====================
 
     private async Task ValidarAsync(

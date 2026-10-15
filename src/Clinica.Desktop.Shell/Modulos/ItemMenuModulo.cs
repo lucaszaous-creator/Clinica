@@ -115,6 +115,9 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// <summary>Identifica a tela dentro do módulo (ex.: "fila"). Única dentro do módulo.</summary>
     public required string Chave { get; init; }
 
+    /// <summary>Reutiliza a instância recente; a tela deve atualizar os dados no Loaded.</summary>
+    public bool PreservarAoNavegar { get; init; }
+
     /// <summary>Texto exibido na sidebar.</summary>
     public required string Rotulo { get; init; }
 

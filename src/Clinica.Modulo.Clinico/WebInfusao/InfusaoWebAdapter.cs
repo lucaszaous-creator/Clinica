@@ -115,6 +115,12 @@ public sealed class InfusaoWebAdapter(PrescricaoInternaEdicaoViewModel vm, Actio
                 vm.AplicarModelo(grupo, modelo);
                 break;
             case "salvarModelo": await vm.SalvarModeloAsync(Grupo(mensagem), Texto(mensagem, "nome", 100).Trim()); break;
+            case "excluirModelo":
+                if (!mensagem.TryGetProperty("confirmado", out var confirmado) || confirmado.ValueKind != JsonValueKind.True
+                    || !mensagem.TryGetProperty("modelo", out var excluir) || !excluir.TryGetInt32(out var excluirId))
+                    throw new InvalidOperationException("Confirme a exclusão do modelo selecionado.");
+                await vm.ExcluirModeloAsync(excluirId);
+                break;
             default: throw new InvalidOperationException("Ação não disponível nesta prescrição.");
         }
     }

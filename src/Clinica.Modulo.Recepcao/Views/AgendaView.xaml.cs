@@ -33,7 +33,6 @@ public partial class AgendaView : UserControl
                 var adaptador = new AgendaBuscaWeb(vm);
                 _adaptadorBusca = adaptador;
                 _painelBusca = Clinica.Desktop.Shell.WebClinica.FiltrosAgendaWeb.Montar(ConteudoAgendaBusca, adaptador.Estado, adaptador.Executar);
-                if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => { _painelBusca.Dispose(); _adaptadorBusca?.Dispose(); };
             }
             _adaptadorBusca?.Iniciar(); AjustarLaterais(); vm.AoEntrarEmCena();
         };

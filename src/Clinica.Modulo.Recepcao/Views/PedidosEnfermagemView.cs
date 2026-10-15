@@ -19,6 +19,7 @@ public sealed class PedidosEnfermagemView : UserControl
             });
         var painel = new PainelClinicoWeb("pedidos-enfermagem", adaptador.Estado, adaptador.Executar, PedidosEnfermagemWeb.Exigir);
         Content = painel;
+        adaptador.EstadoAlterado += painel.AtualizarEstado;
         Loaded += (_, _) => adaptador.Iniciar();
         Unloaded += (_, _) => adaptador.Parar();
     }

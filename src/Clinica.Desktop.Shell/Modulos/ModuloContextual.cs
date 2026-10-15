@@ -8,7 +8,7 @@ public sealed class ModuloContextual(IModuloApp modulo, params string[] visiveis
     public string Nome => modulo.Nome;
     public IReadOnlyList<ItemMenuModulo> Itens { get; } = modulo.Itens.Select(i => new ItemMenuModulo
     {
-        Chave = i.Chave, Rotulo = i.Rotulo, Grupo = i.Grupo, Glifo = i.Glifo, Icone = i.Icone,
+        Chave = i.Chave, Rotulo = i.Rotulo, Grupo = i.Grupo, Glifo = i.Glifo, Icone = i.Icone, PreservarAoNavegar = i.PreservarAoNavegar,
         Requer = i.Requer, RequerAlgum = i.RequerAlgum, PerfilExclusivo = i.PerfilExclusivo, Oculto = !visiveis.Contains(i.Chave), Abas = i.Abas
     }).ToList();
     public void Registrar(IServiceCollection servicos) => modulo.Registrar(servicos);

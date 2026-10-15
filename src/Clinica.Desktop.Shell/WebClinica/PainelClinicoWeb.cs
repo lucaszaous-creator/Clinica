@@ -13,7 +13,8 @@ namespace Clinica.Desktop.Shell.WebClinica;
 public sealed class PainelClinicoWeb : UserControl, IDisposable
 {
     private const string Origem = "https://interface.clinica.local/index.html";
-    private readonly WebView2 _browser = new();
+    private readonly WebView2 _browser = new() { DefaultBackgroundColor = System.Drawing.Color.White };
+    private Window? _janela;
     private readonly Func<object> _estado;
     private readonly Func<JsonElement, Task> _executar;
     private readonly Action _acesso;
@@ -25,6 +26,7 @@ public sealed class PainelClinicoWeb : UserControl, IDisposable
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private bool _iniciou, _pronto, _ocupado, _descartado;
     private string? _ultimo, _erro;
+    public bool PodeReutilizar => !_descartado && ReferenceEquals(Content, _browser);
 
     public PainelClinicoWeb(string tela, Func<object> obterEstado, Func<JsonElement, Task> executar, Action exigirAcesso)
     {
@@ -46,8 +48,13 @@ public sealed class PainelClinicoWeb : UserControl, IDisposable
     private async void Carregar(object sender, RoutedEventArgs e)
     {
         if (_descartado) return;
+        if (_janela is null && Window.GetWindow(this) is { } janela)
+        {
+            _janela = janela;
+            WeakEventManager<Window, EventArgs>.AddHandler(janela, nameof(Window.Closed), AoFecharJanela);
+        }
         _timer.Start();
-        if (_iniciou) return;
+        if (_iniciou) { Enviar(); return; }
         _iniciou = true;
         try
         {
@@ -136,6 +143,9 @@ public sealed class PainelClinicoWeb : UserControl, IDisposable
         catch (Exception ex) { Falhar(ex.Message); }
     }
 
+    /// <summary>Publica mudanças já carregadas, sem esperar a próxima batida do timer.</summary>
+    public void AtualizarEstado() => Enviar();
+
     private void Falhar(string mensagem)
     {
         _pronto = false; _timer.Stop();
@@ -146,5 +156,9 @@ public sealed class PainelClinicoWeb : UserControl, IDisposable
     {
         if (_descartado) return;
         _descartado = true; _timer.Stop(); _browser.Dispose();
+        if (_janela is not null)
+            WeakEventManager<Window, EventArgs>.RemoveHandler(_janela, nameof(Window.Closed), AoFecharJanela);
+        _janela = null;
     }
+    private void AoFecharJanela(object? sender, EventArgs e) => Dispose();
 }

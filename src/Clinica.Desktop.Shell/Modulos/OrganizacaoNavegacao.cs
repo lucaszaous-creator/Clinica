@@ -15,11 +15,11 @@ public static class OrganizacaoNavegacao
         switch (item.Chave)
         {
             case "agenda":
-                abas = [new("Visão geral", ChavesSuite.OcupacaoAgenda), new("Atendimentos", "fila"), new("Grade de horários", ChavesSuite.AgendaRecepcao)];
+                abas = [new("Visão geral", ChavesSuite.OcupacaoAgenda), new("Atendimentos", "fila")];
                 break;
             case "consultorio-agenda":
                 rotulo = "Agenda";
-                abas = [new("Enfermagem", "consultorio-sessoes-enfermagem"), new("Dia", ChavesSuite.ConsultorioMeuDia), new("Grade", ChavesSuite.AgendaRecepcao),
+                abas = [new("Visão geral", ChavesSuite.OcupacaoAgenda), new("Enfermagem", "consultorio-sessoes-enfermagem"), new("Dia", ChavesSuite.ConsultorioMeuDia),
                     new("Semana", ChavesSuite.ConsultorioSemana), new("Marcar atendimento", "marcar-horario"),
                     new("Evoluções pendentes", "consultorio-registros-pendentes")];
                 break;
@@ -33,6 +33,7 @@ public static class OrganizacaoNavegacao
                 abas = [new("Lista de pacientes", ChavesSuite.PacientesRecepcao)];
                 break;
             case "consultorio-pacientes": oculto = true; break;
+            case ChavesSuite.AgendaRecepcao: oculto = true; break;
             case "pagamentos-recepcao": rotulo = "Recebimentos de pacientes"; grupo = GrupoSidebar.Financeiro; break;
             case "particular": rotulo = "Particular e pacotes"; grupo = GrupoSidebar.Financeiro; break;
             case "pacotes": case "precos-particular": grupo = GrupoSidebar.Financeiro; break;
@@ -52,6 +53,6 @@ public static class OrganizacaoNavegacao
         }
         return new ItemMenuModulo { Chave = item.Chave, Rotulo = rotulo, Grupo = grupo,
             Glifo = item.Glifo, Icone = item.Icone, Requer = requer, RequerAlgum = requerAlgum, PerfilExclusivo = item.PerfilExclusivo,
-            Inicial = item.Inicial, Oculto = oculto, Abas = abas };
+            Inicial = item.Inicial, Oculto = oculto, Abas = abas, PreservarAoNavegar = item.PreservarAoNavegar };
     }
 }

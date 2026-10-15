@@ -44,7 +44,6 @@ public partial class FilaView : UserControl
             _buscaWeb = new Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb("agenda", adaptador.Estado, adaptador.Executar,
                 () => SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "consultar a agenda"));
             ConteudoAgendaBusca.Children.Add(_buscaWeb);
-            if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => _buscaWeb.Dispose();
         };
         SizeChanged += (_, _) => AjustarCabecalho();
         Loaded += (_, _) => AjustarCabecalho();

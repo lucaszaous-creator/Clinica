@@ -44,13 +44,17 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     private ItemMenuModulo? _itemAtual;
     private readonly List<(ItemMenuModulo Item, object Tela)> _historico = [];
+    private readonly int _usuarioDasTelas = SessaoUsuario.Atual.UsuarioId;
+    private readonly Permissao _permissoesDasTelas = SessaoUsuario.Atual.Efetivas;
     private bool Voltar()
     {
         if (_historico.Count == 0) return false;
         var anterior = _historico[^1];
         _historico.RemoveAt(_historico.Count - 1);
+        var saiu = TelaAtual;
         _itemAtual = anterior.Item;
         TelaAtual = anterior.Tela;
+        if (saiu is not null && !ReferenceEquals(saiu, TelaAtual)) CicloDeVidaTela.Descartar(saiu);
         TituloTela = anterior.Item.Rotulo;
         ModuloAtual = GruposSidebar.Rotulo(anterior.Item.Grupo);
         GrupoSelecionado = Grupos.FirstOrDefault(g => g.Itens.Contains(anterior.Item)) ?? GrupoSelecionado;
@@ -323,6 +327,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     private bool IrPara(string chave, bool apenasConferir)
     {
+        // Atalhos antigos mantêm seu pedido de data, agora atendido pela Visão geral.
+        if (chave == ChavesSuite.AgendaRecepcao && Itens.Any(i => i.Chave == ChavesSuite.OcupacaoAgenda))
+            chave = ChavesSuite.OcupacaoAgenda;
         if (!Itens.Any(i => i.Chave == chave)) return false;
         var pai = Grupos
             .SelectMany(g => g.Itens)
@@ -359,22 +366,51 @@ public sealed partial class ShellViewModel : ObservableObject
                 && _servicos.GetService<PacienteEmFoco>() is { } foco && !contexto.Corresponde(foco)))
         {
             if (TelaAtual is TelaComAbas jaAberta) jaAberta.Selecionar(abaInicial);
+            else if (TelaAtual is IReceberNavegacao destino) destino.AoNavegar();
             return;
         }
 
-        var tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
+        // O histórico já guarda estas instâncias. Recriá-las ao escolher o menu novamente
+        // reiniciava o navegador e deixava a instância anterior ocupando memória.
+        var recente = item.PreservarAoNavegar && SessaoUsuario.Atual.Autenticado
+            && SessaoUsuario.Atual.UsuarioId == _usuarioDasTelas && SessaoUsuario.Atual.Efetivas == _permissoesDasTelas
+            ? _historico.FindLastIndex(h => ReferenceEquals(h.Item, item)) : -1;
+        object? tela;
+        if (recente >= 0)
+        {
+            tela = _historico[recente].Tela;
+            _historico.RemoveAt(recente);
+            if (!CicloDeVidaTela.PodeReutilizar(tela))
+            {
+                CicloDeVidaTela.Descartar(tela);
+                tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
+            }
+            else if (tela is TelaComAbas composta) composta.Selecionar(abaInicial);
+        }
+        else tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
         if (tela is null) return;
 
         if (_itemAtual is not null && TelaAtual is not null)
         {
             _historico.Add((_itemAtual, TelaAtual));
-            if (_historico.Count > 8) _historico.RemoveAt(0);
+            if (_historico.Count > 8)
+            {
+                CicloDeVidaTela.Descartar(_historico[0].Tela);
+                _historico.RemoveAt(0);
+            }
         }
         _itemAtual = item;
         foreach (var i in Itens) i.EstaAtivo = ReferenceEquals(i, item);
         TelaAtual = tela;
         TituloTela = item.Rotulo;
         ModuloAtual = GruposSidebar.Rotulo(item.Grupo);
+    }
+
+    public void LiberarTelas()
+    {
+        foreach (var entrada in _historico) CicloDeVidaTela.Descartar(entrada.Tela);
+        _historico.Clear();
+        if (TelaAtual is { } atual) CicloDeVidaTela.Descartar(atual);
     }
 
     /// <summary>Monta a tela de um item simples pedindo ao módulo dono.</summary>

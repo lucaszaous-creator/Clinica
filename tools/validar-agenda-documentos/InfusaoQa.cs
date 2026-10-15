@@ -120,6 +120,29 @@ internal static class InfusaoQa
             if (!await db.Set<ModeloDocumento>().AnyAsync(m => m.Nome == "Modelo salvo no QA")) throw new InvalidOperationException("Salvar modelo não persistiu.");
             await Clicar("Cancelar");
 
+            var modeloExcluir = await db.Set<ModeloDocumento>().AsNoTracking().SingleAsync(m => m.Nome == "Modelo salvo no QA");
+            await Rejeitar(adaptador, new { acao = "excluirModelo", modelo = modeloExcluir.Id, confirmado = false });
+            await Rejeitar(adaptador, new { acao = "excluirModelo", modelo = int.MaxValue, confirmado = true });
+            const string botaoExcluir = "document.querySelector('[aria-label=\"Excluir modelo Modelo salvo no QA\"]')";
+            await Program.Script(navegador, "(()=>{const d=document.querySelector('.inf-modelos details');if(!d.open)d.querySelector('summary').click();})()");
+            await Program.Esperar(navegador, botaoExcluir + ".getBoundingClientRect().height>0");
+            await Program.Script(navegador, botaoExcluir + ".click()");
+            await Clicar("Cancelar exclusão");
+            if (!await db.Set<ModeloDocumento>().AnyAsync(m => m.Id == modeloExcluir.Id)) throw new InvalidOperationException("Cancelar excluiu o modelo.");
+            await Program.Script(navegador, botaoExcluir + ".click()");
+            await Program.Esperar(navegador, "document.querySelector('.inf-excluir-modelo')?.getBoundingClientRect().height>0");
+            await Program.Script(navegador, "document.querySelector('.inf-excluir-modelo').scrollIntoView({block:'center'})");
+            await Program.Capturar(navegador, Path.Combine(saida, "confirmar-exclusao-modelo.png"));
+            await Clicar("Confirmar exclusão");
+            await Program.Esperar(navegador, "document.querySelector('.inf-aviso')?.textContent.includes('Modelo excluído')===true");
+            db.ChangeTracker.Clear();
+            if (await db.Set<ModeloDocumento>().AnyAsync(m => m.Id == modeloExcluir.Id)) throw new InvalidOperationException("Modelo confirmado permaneceu no banco.");
+            var preservada = await db.PrescricoesInternas.AsNoTracking().Include(p => p.Itens).SingleAsync(p => p.Id == gravada.Id);
+            if (preservada.Itens.Single().Descricao != gravada.Itens.Single().Descricao || vm.Itens.Single().Descricao != gravada.Itens.Single().Descricao)
+                throw new InvalidOperationException("Excluir modelo alterou a prescrição existente ou o rascunho aberto.");
+            if (!await db.Auditoria.AnyAsync(a => a.Acao == "ModeloInfusaoExcluido")) throw new InvalidOperationException("Exclusão sem auditoria.");
+            Console.WriteLine("OK infusão: cancelar exclusão, confirmar, rejeitar ID externo e preservar prescrição e rascunho.");
+
             foreach (var (largura, altura) in new[] { (1180, 760), (900, 600), (650, 650) })
             {
                 janela.Width = largura; janela.Height = altura; await Task.Delay(250);

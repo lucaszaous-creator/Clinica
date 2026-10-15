@@ -17,6 +17,8 @@ public sealed record OcupacaoAgenda(DateOnly Inicio, DateOnly Fim, DateTime Atua
 
 public interface IOcupacaoAgendaService
 {
+    Task<OcupacaoAgenda> ConsultarMovimentoAsync(int usuarioId, DateOnly inicio, DateOnly fim, int? profissionalId = null,
+        CancellationToken ct = default);
     Task<OcupacaoAgenda> ConsultarAsync(int usuarioId, DateOnly inicio, DateOnly fim, int? profissionalId = null,
         CancellationToken ct = default);
 }

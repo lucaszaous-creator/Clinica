@@ -133,7 +133,7 @@ public sealed class ModuloRecepcao : IModuloApp
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
         new ItemMenuModulo { Chave = ChavesSuite.OcupacaoAgenda, Rotulo = "Ocupação da agenda", Glifo = "", Icone = "cal", Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda },
-        new ItemMenuModulo { Chave = ChavesSuite.PedidosEnfermagem, Rotulo = "Pedidos da enfermagem", Glifo = "", Icone = "sino", Grupo = GrupoSidebar.Gestao,
+        new ItemMenuModulo { Chave = ChavesSuite.PedidosEnfermagem, PreservarAoNavegar = true, Rotulo = "Pedidos da enfermagem", Glifo = "", Icone = "sino", Grupo = GrupoSidebar.Gestao,
             Requer = Permissao.VerAgenda | Permissao.EditarAgenda | Permissao.VerFichaPaciente },
         new ItemMenuModulo { Chave = ChaveConfirmacoes, Rotulo = "Confirmações de agenda", Glifo = "\uE73E", Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda },
         new ItemMenuModulo
@@ -166,6 +166,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveGrupoAgenda, Rotulo = "Agenda", Glifo = "\uE787", Icone = "cal",
+            PreservarAoNavegar = true,
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
             Abas =
             [

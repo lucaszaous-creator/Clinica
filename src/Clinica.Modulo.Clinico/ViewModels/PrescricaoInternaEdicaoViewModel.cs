@@ -299,6 +299,25 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(PodeCopiarUltimaPrescricao));
     }
 
+    public async Task<bool> ExcluirModeloAsync(int modeloId)
+    {
+        if (Ocupado || !PodeCopiarUltimaPrescricao || !Exigir(Permissao.Prescrever, "excluir modelos de infusão")) return false;
+        if (!Modelos.Any(m => m.Id == modeloId && m.ParaInfusao))
+            throw new InvalidOperationException("Escolha um modelo de infusão disponível nesta lista.");
+        try
+        {
+            Ocupado = true; TextoOperacao = "Excluindo modelo…";
+            using var scope = _escopos.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>()
+                .ExcluirModeloInfusaoAsync(modeloId, SessaoUsuario.Atual.Operador);
+            await CarregarModelosAsync();
+            Mensagem = "Modelo excluído. As prescrições já criadas foram mantidas."; MensagemEhErro = false;
+            return true;
+        }
+        catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; return false; }
+        finally { Ocupado = false; }
+    }
+
     /// <summary>
     /// Carrega o contexto clínico do paciente e, quando se está REABRINDO, o rascunho.
     /// Prescrição nova não é criada aqui — ver o comentário adiante.

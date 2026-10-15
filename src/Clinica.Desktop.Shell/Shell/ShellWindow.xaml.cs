@@ -33,7 +33,7 @@ public partial class ShellWindow : Window
         Loaded+=(_,_)=>AjustarCabecalho();
         Loaded+=(_,_)=>{ if (DataContext is ShellViewModel vm) vm.IniciarAvisosGlobais(); };
         Unloaded+=(_,_)=>{ if (DataContext is ShellViewModel vm) vm.PararAvisosGlobais(); };
-        Closed+=(_,_)=>{ if (DataContext is ShellViewModel vm) vm.PararAvisosGlobais(); };
+        Closed+=(_,_)=>{ if (DataContext is ShellViewModel vm) { vm.PararAvisosGlobais(); vm.LiberarTelas(); } };
         InputBindings.Add(new KeyBinding(new RelayFoco(() =>
         {
             if (NavegacaoLateral.Content is FrameworkElement lateral)
