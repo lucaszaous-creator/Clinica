@@ -246,8 +246,8 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveFluxo => Blazor(typeof(Clinica.Ui.Blazor.Telas.FluxoDeCaixa), servicos),
         ChaveResultado => new ResultadoView { DataContext = servicos.GetRequiredService<ResultadoViewModel>() },
         ChaveFechamento => Blazor(typeof(Clinica.Ui.Blazor.Telas.FechamentoDeCaixa), servicos),
-        ChaveRecebiveis => new RecebiveisView { DataContext = servicos.GetRequiredService<RecebiveisViewModel>() },
-        ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },
+        ChaveRecebiveis => Blazor(typeof(Clinica.Ui.Blazor.Telas.Recebiveis), servicos),
+        ChaveConciliacao => Blazor(typeof(Clinica.Ui.Blazor.Telas.Conciliacao), servicos),
         ChaveExtrato => new ExtratoBancoView { DataContext = servicos.GetRequiredService<ExtratoBancoViewModel>() },
         ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
         // A tela SUBIU para o shell (parcela 60), como a sala de infusão na 48: quem
