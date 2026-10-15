@@ -505,7 +505,9 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavePainel => new PainelView { DataContext = servicos.GetRequiredService<PainelViewModel>() },
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
-        ChavePacientes => new PacientesView { DataContext = servicos.GetRequiredService<PacientesViewModel>() },
+        // A lista de Pacientes do BALCÃO abre a ficha do balcão (out/2026, mockup "4 · Ficha");
+        // o Prontuário e o Consultório, que reusam a mesma lista, continuam na ficha clínica.
+        ChavePacientes => new PacientesView { DataContext = ComFichaDoBalcao(servicos.GetRequiredService<PacientesViewModel>()) },
         ChaveMarcarHorario => NovoAtendimento(servicos, marcar: true),
         ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
         ChaveLancamentos => new LancamentosView
@@ -545,4 +547,10 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveAjuda => new AjudaView(),
         _ => null
     };
+
+    private static PacientesViewModel ComFichaDoBalcao(PacientesViewModel vm)
+    {
+        vm.AbrirFichaDoBalcao = true;
+        return vm;
+    }
 }

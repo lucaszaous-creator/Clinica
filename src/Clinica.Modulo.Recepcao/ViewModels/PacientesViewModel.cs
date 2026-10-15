@@ -40,6 +40,7 @@ public sealed partial class PacientesViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
+    private readonly IDialogoService _dialogo;
 
     public SeletorPacienteViewModel Seletor { get; }
 
@@ -88,6 +89,13 @@ public sealed partial class PacientesViewModel : ObservableObject
     private int _geracaoVisitas;
 
     public int SecaoInicial { get; set; } = 2;
+
+    /// <summary>
+    /// A lista do BALCÃO abre a ficha do balcão (out/2026, mockup aprovado "4 · Ficha"); quem
+    /// reusa a lista para o prontuário (Recepção → Prontuário, Consultório) continua na ficha
+    /// clínica única, que é o que aquela porta promete.
+    /// </summary>
+    public bool AbrirFichaDoBalcao { get; set; }
     public bool MostrarVoltar { get; init; } = true;
 
     [ObservableProperty] private string _resumo = string.Empty;
@@ -122,6 +130,7 @@ public sealed partial class PacientesViewModel : ObservableObject
     {
         _escopos = escopos;
         _snackbar = snackbar;
+        _dialogo = dialogo;
         _fabrica = fabrica;
 
         // Listagem sob demanda: todo o cadastro continua acessível por páginas.
@@ -164,6 +173,14 @@ public sealed partial class PacientesViewModel : ObservableObject
         if (paciente is null) return;
 
         MostrandoFicha = true;
+        if (AbrirFichaDoBalcao)
+        {
+            FichaUnica = new Views.FichaBalcaoView
+            {
+                DataContext = new FichaBalcaoViewModel(_escopos, _snackbar, _dialogo, paciente.Id, Voltar)
+            };
+            return;
+        }
         var foco = new PacienteEmFoco();
         foco.Definir(paciente.Id, paciente.Nome);
         FichaUnica = _fabrica.Criar(foco, Voltar, SecaoInicial);

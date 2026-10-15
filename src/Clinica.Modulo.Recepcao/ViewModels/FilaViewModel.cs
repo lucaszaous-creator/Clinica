@@ -1477,13 +1477,14 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
         => await ExecutarAsync(cartao, async c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente");
-            using var escopo = _escopos.CreateScope();
-            var foco = new Clinica.Desktop.Shell.Modulos.PacienteEmFoco();
-            foco.Definir(c.PacienteId, c.Paciente);
+            // A MESMA ficha do balcão da tela Pacientes (out/2026, mockup "4 · Ficha"): duas
+            // fichas para a mesma pessoa no mesmo app fariam procurar a diferença que não existe.
             ConsultaContextualWindow? janela = null;
-            var ficha = escopo.ServiceProvider.GetRequiredService<Clinica.Desktop.Shell.Modulos.IFabricaFichaPaciente>()
-                .Criar(foco, () => janela?.Close());
-            janela = new ConsultaContextualWindow($"Ficha — {c.Paciente}", ficha, "Voltar à fila do dia");
+            var ficha = new Views.FichaBalcaoView
+            {
+                DataContext = new FichaBalcaoViewModel(_escopos, _snackbar, _dialogo, c.PacienteId, () => janela?.Close())
+            };
+            janela = new ConsultaContextualWindow($"Ficha — {c.Paciente}", ficha, "Voltar à agenda do dia");
             janela.ShowDialog();
             await Task.CompletedTask;
         }, "ficha do paciente");

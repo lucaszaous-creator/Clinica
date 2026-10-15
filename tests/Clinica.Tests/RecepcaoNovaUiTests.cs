@@ -244,4 +244,59 @@ public class RecepcaoNovaUiTests
         ListaDePacientes.Rodape(6, "maria s", null).Should().Be("6 pacientes para “maria s” · Enter abre a ficha quando sobra um só");
         ListaDePacientes.DiasDoAniversario(new DateOnly(2026, 12, 29)).Should().Equal(1229, 1230, 1231, 101, 102, 103, 104);
     }
+
+    // ==================== Ficha do balcão ====================
+
+    private static Atendimento Sessao(int id, DateOnly dia, bool realizada = true, bool estornada = false, params StatusCodigo[] guias)
+        => new()
+        {
+            Id = id, Data = dia, Modalidade = ModalidadeAtendimento.AcupunturaSimples,
+            RealizadoEm = realizada ? dia.ToDateTime(new TimeOnly(10, 0)) : null,
+            EstornadoEm = estornada ? dia.ToDateTime(new TimeOnly(11, 0)) : null,
+            Codigos = guias.Select(g => new CodigoFaturamento { Status = g, DataBaixa = g == StatusCodigo.Baixado ? dia : null }).ToList()
+        };
+
+    [Fact]
+    public void Ficha_conta_so_sessao_que_aconteceu_e_diz_as_guias()
+    {
+        var atendimentos = new[]
+        {
+            Sessao(1, new DateOnly(2023, 5, 2), guias: [StatusCodigo.Baixado, StatusCodigo.Baixado]),
+            Sessao(2, new DateOnly(2026, 10, 8), guias: [StatusCodigo.Baixado, StatusCodigo.Aberto]),
+            Sessao(3, new DateOnly(2026, 10, 22), realizada: false),
+            Sessao(4, new DateOnly(2026, 9, 1), estornada: true)
+        };
+
+        FichaDoBalcao.PacienteDesde(atendimentos).Should().Be("2023 · 2 sessões");
+        FichaDoBalcao.PacienteDesde([]).Should().Be("nenhuma sessão realizada ainda");
+        var sessoes = FichaDoBalcao.Sessoes(atendimentos);
+        sessoes.Select(x => x.Data).Should().Equal(new DateOnly(2026, 10, 8), new DateOnly(2023, 5, 2));
+        sessoes[0].Guias.Should().Be("1 de 2 guias baixadas");
+        sessoes[1].Guias.Should().Be("guias 1 e 2 baixadas");
+        FichaDoBalcao.Guias([new CodigoFaturamento { Status = StatusCodigo.NaoAplicavel }]).Should().Be("sem guia a faturar");
+    }
+
+    [Fact]
+    public void Linha_do_tempo_junta_sessao_contato_e_documento_do_mais_recente()
+    {
+        var hoje = new DateOnly(2026, 10, 15);
+        var sessao = Sessao(1, new DateOnly(2026, 10, 8), guias: [StatusCodigo.Baixado]);
+        var confirmou = new ContatoCampanha
+        {
+            Tipo = TipoContato.ConfirmacaoSessao, Status = StatusContato.Respondido, Referencia = new DateOnly(2026, 10, 8),
+            EnviadoEm = new DateTime(2026, 10, 7, 9, 0, 0), RespondidoEm = new DateTime(2026, 10, 7, 10, 12, 0), EnviadoPor = "ana"
+        };
+        var nuncaEnviado = new ContatoCampanha { Tipo = TipoContato.Recall, Referencia = hoje };
+        var documento = new ItemLinhaDoTempoBalcao(new DateTime(2026, 9, 24), false, "Declaração de comparecimento", "2026/0412", "documento");
+
+        var linha = FichaDoBalcao.LinhaDoTempo([sessao], [confirmou, nuncaEnviado], [documento]);
+
+        linha.Select(i => i.Tipo).Should().Equal("sessao", "contato", "documento");
+        linha[1].Titulo.Should().Be("Confirmou a sessão de 08/10");
+        linha[1].QuandoTexto.Should().Be("07/10 10:12");
+        linha[1].Detalhe.Should().Be("WhatsApp · ana");
+        linha[0].QuandoTexto.Should().Be("08/10");
+        FichaDoBalcao.DiaDoHorario(hoje, hoje).Should().Be(("HOJE", "15"));
+        FichaDoBalcao.DiaDoHorario(new DateOnly(2026, 10, 22), hoje).Should().Be(("QUI", "22"));
+    }
 }
