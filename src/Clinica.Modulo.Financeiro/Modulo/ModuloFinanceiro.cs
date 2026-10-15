@@ -28,12 +28,6 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveInadimplencia = ChavesSuite.Inadimplencia;
     public const string ChaveFluxo = "fluxo-caixa";
 
-    /// <summary>
-    /// O PILOTO em Blazor (out/2026, docs/piloto-blazor.md): o mesmo fluxo de caixa, sobre
-    /// o mesmo serviço, desenhado em HTML/CSS. Fica AO LADO da tela WPF, que continua
-    /// intacta, para a direção comparar as duas antes de decidir qualquer migração.
-    /// </summary>
-    public const string ChaveFluxoWeb = "fluxo-caixa-web";
     public const string ChaveResultado = ChavesSuite.Resultado;
     public const string ChaveFechamento = ChavesSuite.FechamentoCaixa;
     public const string ChaveRecebiveis = ChavesSuite.Recebiveis;
@@ -86,8 +80,7 @@ public sealed class ModuloFinanceiro : IModuloApp
             [
                 new AbaMenu("Caixa", ChaveCaixa),
                 new AbaMenu("Fechamento", ChaveFechamento),
-                new AbaMenu("Fluxo", ChaveFluxo),
-                new AbaMenu("Fluxo (novo visual)", ChaveFluxoWeb)
+                new AbaMenu("Fluxo", ChaveFluxo)
             ]
         },
         new ItemMenuModulo
@@ -157,11 +150,6 @@ public sealed class ModuloFinanceiro : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveFluxo, Rotulo = "Fluxo de caixa", Glifo = "\uEB05", Icone = "grafico",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChaveFluxoWeb, Rotulo = "Fluxo de caixa (novo visual)", Glifo = "\uE7C4", Icone = "grafico",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
@@ -249,13 +237,15 @@ public sealed class ModuloFinanceiro : IModuloApp
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
-        ChaveCaixa => new CaixaView { DataContext = servicos.GetRequiredService<CaixaViewModel>() },
+        // ===== Telas em Blazor (out/2026, docs/telas-blazor.md) =====
+        // HTML/CSS sobre os MESMOS serviços; o WPF só hospeda. As telas WPF ficam no
+        // projeto até a validação no Windows, mas nenhuma chave aponta mais para elas.
+        ChaveCaixa => Blazor(typeof(Clinica.Ui.Blazor.Telas.Caixa), servicos),
         ChaveContas => new ContasView { DataContext = servicos.GetRequiredService<ContasViewModel>() },
         ChaveInadimplencia => new InadimplenciaView { DataContext = servicos.GetRequiredService<InadimplenciaViewModel>() },
-        ChaveFluxo => new FluxoCaixaView { DataContext = servicos.GetRequiredService<FluxoCaixaViewModel>() },
-        ChaveFluxoWeb => new Web.TelaBlazor(typeof(Clinica.Ui.Blazor.Telas.FluxoDeCaixa), servicos),
+        ChaveFluxo => Blazor(typeof(Clinica.Ui.Blazor.Telas.FluxoDeCaixa), servicos),
         ChaveResultado => new ResultadoView { DataContext = servicos.GetRequiredService<ResultadoViewModel>() },
-        ChaveFechamento => new FechamentoCaixaView { DataContext = servicos.GetRequiredService<FechamentoCaixaViewModel>() },
+        ChaveFechamento => Blazor(typeof(Clinica.Ui.Blazor.Telas.FechamentoDeCaixa), servicos),
         ChaveRecebiveis => new RecebiveisView { DataContext = servicos.GetRequiredService<RecebiveisViewModel>() },
         ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },
         ChaveExtrato => new ExtratoBancoView { DataContext = servicos.GetRequiredService<ExtratoBancoViewModel>() },
@@ -277,4 +267,6 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),
         _ => null
     };
+
+    private static Web.TelaBlazor Blazor(Type tela, IServiceProvider servicos) => new(tela, servicos);
 }
