@@ -185,7 +185,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnAvisoAssinanteChanged(string? value)
     {
         OnPropertyChanged(nameof(MotivoSemAssinante));
-        OnPropertyChanged(nameof(ResponsavelDocumento));
+        OnPropertyChanged(nameof(FaltaAssinante));
         EmitirCommand.NotifyCanExecuteChanged();
     }
 
@@ -292,11 +292,54 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         // Quem altera precisa ler, ANTES de emitir, que o anterior vai ser cancelado.
         _versaoDe is { } anterior ? $"nova versão do {anterior.Numero} — ele será cancelado ao emitir" : null
     }.Where(p => !string.IsNullOrWhiteSpace(p)));
-    public string ResponsavelDocumento => Profissional is null ? AvisoAssinante ?? "Selecione o profissional responsável" :
-        string.Join(" · ", new[] { Profissional.Nome, Profissional.RegistroConselho }.Where(p => !string.IsNullOrWhiteSpace(p)));
     public string RotuloTextoFolha => ReceitaLivre ? "Prescrição e modo de usar" : MostraLaudo ? "Texto do laudo" : "Texto complementar · opcional";
+
+    // ===================== O cabeçalho da folha (out/2026) =====================
+    //
+    // O laudo abria como uma página branca com o título no meio: quem escrevia não via, na
+    // própria folha, DE QUEM era o documento nem que número ele ia ter. O cabeçalho da
+    // folha diz as três coisas que o papel impresso vai dizer — paciente, data e número —,
+    // e o número diz a verdade: ele só nasce na emissão.
+
+    /// <summary>O nome do paciente na folha — "carregando" enquanto a ficha não chegou.</summary>
+    public string PacienteDaFolha => _paciente?.Nome ?? "Carregando o paciente…";
+
+    /// <summary>Documento e idade, pulando o que a ficha não tem (nunca "· anos ·").</summary>
+    public string IdentificacaoDaFolha => _paciente is null ? string.Empty : string.Join("   ·   ", new[]
+    {
+        _paciente.DocumentoFormatado is { Length: > 0 } documento ? $"CPF/doc. {documento}" : null,
+        IdadeDoPaciente.Texto(_paciente.DataNascimento, DateOnly.FromDateTime(DateTime.Today)),
+        _paciente.ConvenioNome
+    }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+    public string DataDaFolha => $"{Data:dd/MM/yyyy}";
+
+    /// <summary>Sem número inventado: ele é dado na emissão, por ano, e só lá.</summary>
+    public string NumeroDaFolha => _versaoDe is { } anterior
+        ? $"Nº gerado ao emitir · substitui o {anterior.Numero}"
+        : "Nº gerado ao emitir";
+
+    // ===================== O bloco de assinatura da folha =====================
+
+    public bool TemAssinante => Profissional is not null;
+    public string NomeDoAssinante => Profissional?.Nome ?? string.Empty;
+    public string RegistroDoAssinante => Profissional?.RegistroConselho is { Length: > 0 } r ? r : "Registro no conselho não cadastrado";
+    /// <summary>Quando ninguém assina ainda: a frase do motivo (login sem profissional) ou o pedido.</summary>
+    public string FaltaAssinante => AvisoAssinante ?? "Escolha quem assina este documento.";
+
+    /// <summary>A ajuda do campo vazio — no laudo, o roteiro que a perícia espera ler.</summary>
+    public string AjudaDoTexto => TipoSelecionado switch
+    {
+        TipoDocumentoClinico.LaudoMedico => "Descreva o quadro clínico, achados e conclusão…",
+        TipoDocumentoClinico.Receita => "Medicamento, dose e modo de usar…",
+        _ => "Texto complementar (opcional)…"
+    };
     partial void OnTituloChanged(string? value) => OnPropertyChanged(nameof(TituloFolha));
-    partial void OnDataChanged(DateTime value) => OnPropertyChanged(nameof(ContextoDocumento));
+    partial void OnDataChanged(DateTime value)
+    {
+        OnPropertyChanged(nameof(ContextoDocumento));
+        OnPropertyChanged(nameof(DataDaFolha));
+    }
     public bool TemSugestoes => ReceitaLivre && Sugestoes.Count > 0;
     public string EnderecoDaReceita => string.IsNullOrWhiteSpace(_paciente?.Endereco)
         ? "Endereço: será solicitado ao emitir."
@@ -315,6 +358,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnCarregandoChanged(bool value)
     {
         EmitirCommand.NotifyCanExecuteChanged();
+        PreverCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(PodeEditar));
     }
 
@@ -323,6 +367,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnEmitindoChanged(bool value)
     {
         EmitirCommand.NotifyCanExecuteChanged();
+        PreverCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(PodeEditar));
     }
 
@@ -424,7 +469,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnProfissionalChanged(Profissional? value)
     {
         OnPropertyChanged(nameof(Subtitulo));
-        OnPropertyChanged(nameof(ResponsavelDocumento));
+        OnPropertyChanged(nameof(TemAssinante));
+        OnPropertyChanged(nameof(NomeDoAssinante));
+        OnPropertyChanged(nameof(RegistroDoAssinante));
         OnPropertyChanged(nameof(MotivoSemAssinante));
         EmitirCommand.NotifyCanExecuteChanged();
     }
@@ -542,6 +589,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(ReceitaLivre));
         OnPropertyChanged(nameof(RotuloCorpo));
         OnPropertyChanged(nameof(OrientacaoCorpo));
+        OnPropertyChanged(nameof(AjudaDoTexto));
         OnPropertyChanged(nameof(TemSugestoes));
         OnPropertyChanged(nameof(MotivoSemAssinante));
         EmitirCommand.NotifyCanExecuteChanged();
@@ -618,6 +666,8 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
             _paciente = await pacientes.ObterComHistoricoAsync(_pacienteId);
             OnPropertyChanged(nameof(ContextoDocumento));
+            OnPropertyChanged(nameof(PacienteDaFolha));
+            OnPropertyChanged(nameof(IdentificacaoDaFolha));
             OnPropertyChanged(nameof(Subtitulo));
             OnPropertyChanged(nameof(EnderecoDaReceita));
 
@@ -945,6 +995,79 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         finally
         {
             Emitindo = false;
+        }
+    }
+
+    // ===================== Pré-visualizar (out/2026) =====================
+
+    /// <summary>Uma prévia está sendo montada — o segundo clique não monta outra.</summary>
+    [ObservableProperty] private bool _gerandoPrevia;
+
+    partial void OnGerandoPreviaChanged(bool value) => PreverCommand.NotifyCanExecuteChanged();
+
+    private bool PodePrever() => !Emitindo && !Carregando && !GerandoPrevia;
+
+    /// <summary>
+    /// Gera o PDF do que está na tela SEM emitir: sem número, sem código de conferência,
+    /// com a marca PRÉVIA no papel — e abre no leitor. Nada é gravado (o serviço para
+    /// antes de numerar), então conferir dez vezes não gasta dez números do ano.
+    ///
+    /// Passa pela MESMA montagem e pela MESMA validação da emissão: prévia que mostra uma
+    /// folha que a emissão recusaria é pior do que prévia nenhuma. O que ela NÃO faz é o
+    /// que só faz sentido no ato de emitir: pedir o endereço da receita e cobrar a
+    /// confirmação da alergia — conferir o texto não é prescrever.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(PodePrever))]
+    private async Task PreverAsync()
+    {
+        if (Emitindo || Carregando || GerandoPrevia) return;
+
+        Mensagem = string.Empty;
+        MensagemEhErro = false;
+
+        // A prévia mostra o papel inteiro, com o paciente e o diagnóstico: pede o MESMO
+        // acesso de emitir este tipo (a segunda barreira; a primeira é o botão).
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                CentralDocumentosService.AcessoParaEmitir(TipoSelecionado),
+                $"pré-visualizar {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()}");
+        }
+        catch (Exception ex)
+        {
+            Erro(ex.Message);
+            return;
+        }
+
+        GerandoPrevia = true;
+        try
+        {
+            var dados = MontarDocumento();
+            byte[] pdf;
+            using (var scope = _escopos.CreateScope())
+            {
+                var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+                var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+
+                var previa = await documentos.PreverAsync(dados);
+                pdf = pdfs.Gerar(previa, await parametros.ObterPrestadorAsync(), previa: true);
+            }
+
+            var erro = await ImpressaoPdf.AbrirPreviaAsync(
+                pdf, $"Previa-{TipoDocumentoInfo.Rotular(TipoSelecionado)}.pdf");
+            if (erro is not null) Erro(erro);
+            else Informar("Prévia aberta. Ela não tem número nem valor de documento — nada foi emitido.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Documento clínico — prévia não pôde ser gerada", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            GerandoPrevia = false;
         }
     }
 

@@ -183,12 +183,69 @@ public sealed class DocumentoClinicoService
 
         await ValidarAsync(dados, itens, ct);
 
+        var documento = Copiar(dados, itens, operador);
+        documento.Numero = await NumerarAsync(documento.Data.Year, ct);
+        documento.CodigoVerificacao = GerarCodigo();
+
+        await _repo.AdicionarDocumentoAsync(documento, ct);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "DocumentoClinicoEmitido",
+            Detalhe = $"{TipoDocumentoInfo.Rotular(documento.Tipo)} {documento.Numero} — {paciente.Nome}",
+            PacienteId = documento.PacienteId
+        }, ct);
+
+        return documento;
+    }
+
+    /// <summary>
+    /// A PRÉVIA do documento (out/2026 — "pré-visualizar o laudo antes de emitir").
+    ///
+    /// Passa pela MESMA validação e pela MESMA cópia da emissão — prévia que não bate com o
+    /// que a emissão entrega é pior do que prévia nenhuma (a lição da prévia da guia,
+    /// parcela 47) — e para ANTES de tudo o que faz dela um fato: não numera, não gera
+    /// código de conferência, não entra no contexto e não grava trilha. Numerar uma prévia
+    /// faria a sequência do ano pular a cada conferência, e a direção leria o buraco como
+    /// documento sumido.
+    ///
+    /// Paciente e profissional vêm LIGADOS, porque a folha os imprime; o documento devolvido
+    /// não é rastreado e não deve ser gravado por ninguém.
+    /// </summary>
+    public async Task<DocumentoClinico> PreverAsync(
+        DocumentoClinico dados, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(dados);
+
+        var paciente = await _repo.ObterPacienteAsync(dados.PacienteId, ct)
+            ?? throw new InvalidOperationException("Paciente não encontrado.");
+
+        var itens = dados.Itens
+            .Where(i => !string.IsNullOrWhiteSpace(i.Descricao))
+            .ToList();
+
+        await ValidarAsync(dados, itens, ct);
+
+        var previa = Copiar(dados, itens, operador: null);
+        previa.Paciente = paciente;
+        previa.Profissional = dados.ProfissionalId is int profissionalId
+            ? await _repo.ObterProfissionalAsync(profissionalId, ct)
+            : null;
+        return previa;
+    }
+
+    /// <summary>
+    /// A cópia campo a campo do que a tela mandou, sem número e sem código — o miolo comum
+    /// da emissão e da prévia. Um só lugar, porque é exatamente aqui que este serviço já
+    /// perdeu dado duas vezes (o <c>Desenho</c> e o <c>Codigo</c> do item).
+    /// </summary>
+    private static DocumentoClinico Copiar(
+        DocumentoClinico dados, IReadOnlyList<ItemDocumento> itens, string? operador)
+    {
         var data = dados.Data == default ? DateOnly.FromDateTime(DateTime.Today) : dados.Data;
 
         var documento = new DocumentoClinico
         {
-            Numero = await NumerarAsync(data.Year, ct),
-            CodigoVerificacao = GerarCodigo(),
             Tipo = dados.Tipo,
             PacienteId = dados.PacienteId,
             ProfissionalId = dados.ProfissionalId,
@@ -234,15 +291,6 @@ public sealed class DocumentoClinicoService
                 Desenho = i.Desenho,
                 Codigo = Limpar(i.Codigo)
             });
-
-        await _repo.AdicionarDocumentoAsync(documento, ct);
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
-        {
-            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
-            Acao = "DocumentoClinicoEmitido",
-            Detalhe = $"{TipoDocumentoInfo.Rotular(documento.Tipo)} {documento.Numero} — {paciente.Nome}",
-            PacienteId = documento.PacienteId
-        }, ct);
 
         return documento;
     }
