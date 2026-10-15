@@ -1,0 +1,407 @@
+@*
+  CONTAS A PAGAR E A RECEBER (out/2026, migrado do ContasView/ContasViewModel do WPF).
+
+  Responde a pergunta que o financeiro faz toda segunda-feira: "o que vence esta semana?".
+  A lista traz tudo o que está PREVISTO com vencimento até o horizonte — inclusive o que já
+  venceu, que é justamente o que mais importa. Os cartões são o retrato do horizonte e NÃO
+  encolhem com o filtro de tipo (mudariam de significado); a lista e a frase acima dela, sim.
+
+  As CONTAS FIXAS são o molde, não a conta: moram atrás de um botão (ContasFixasForm), e
+  "Gerar fixas" é um CLIQUE — conta nascendo sozinha enquanto alguém abre a tela é escrita
+  que o balcão não vê acontecer. Nada nasce pago: a baixa é o RecebimentoForm do Caixa.
+
+  O que a tela afirma (prazo em palavras, a frase do resumo, a do "Gerar") mora em
+  ContasDaTela, na Application, com teste.
+*@
+@inherits TelaBase
+
+<div class="pagina pagina-contas @(Carregando && _abertas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Contas" Titulo="Contas a pagar e a receber"
+                     Subtitulo="Vencimentos, pagamentos e recebimentos previstos. Nada nasce pago: a conta entra prevista e vira realizada na baixa.">
+        <button type="button" class="botao" @onclick="() => _contasFixas = true" title="Os moldes que geram a conta prevista de cada mês"><Icone Nome="calendario" />Contas fixas…</button>
+        <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(Linhas.Count == 0)"><Icone Nome="baixar" />Exportar CSV</button>
+        <button type="button" class="botao primario" @onclick="NovaConta" disabled="@(!PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite lançar conta.")"><Icone Nome="mais" />Nova conta</button>
+    </CabecalhoPagina>
+
+    @if (Resumo is null && Carregando)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 5; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+    }
+    else if (Resumo is { } r)
+    {
+        <section class="kpis" aria-label="Totais do horizonte">
+            <Kpi Rotulo="A pagar vencido" Valor="@Formato.Dinheiro(r.APagarVencido)" Icone="alerta"
+                 Tom="@(r.APagarVencido > 0 ? "perigo" : "neutro")" ClasseValor="@(r.APagarVencido > 0 ? "negativo" : null)"
+                 Nota="Já passou do vencimento e não foi pago" />
+            <Kpi Rotulo="A pagar a vencer" Valor="@Formato.Dinheiro(r.APagarAVencer)" Icone="saida" Tom="saida"
+                 Nota="@($"Vence nos próximos {_horizonte} dias")" />
+            <Kpi Rotulo="A receber vencido" Valor="@Formato.Dinheiro(r.AReceberVencido)" Icone="relogio"
+                 Tom="@(r.AReceberVencido > 0 ? "aviso" : "neutro")" ClasseValor="@(r.AReceberVencido > 0 ? "tom-aviso" : null)"
+                 Nota="Deveria ter entrado e não entrou" />
+            <Kpi Rotulo="A receber a vencer" Valor="@Formato.Dinheiro(r.AReceberAVencer)" Icone="entrada" Tom="sucesso"
+                 Nota="@($"Vence nos próximos {_horizonte} dias")" />
+            <Kpi Rotulo="Saldo previsto" Valor="@Formato.Dinheiro(r.SaldoPrevisto)" Icone="resultado"
+                 Tom="@(r.SaldoPrevisto < 0 ? "perigo" : "")" ClasseValor="@(r.SaldoPrevisto < 0 ? "negativo" : "positivo")"
+                 Nota="A receber menos a pagar, vencidos incluídos" />
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Em aberto</h2>
+                @if (!_naoVerificado && Resumo is not null)
+                {
+                    <p class="@(_temVencidaNaLista ? "contas-resumo-vencido" : null)">@_frase</p>
+                }
+            </div>
+        </div>
+        <div class="filtros">
+            <Campo Rotulo="Mostrar">
+                <select class="campo" value="@_tipoTexto" @onchange="TipoMudou">
+                    <option value="">Pagar e receber</option>
+                    <option value="@TipoLancamento.Saida">Só a pagar</option>
+                    <option value="@TipoLancamento.Entrada">Só a receber</option>
+                </select>
+            </Campo>
+            <Campo Rotulo="Horizonte">
+                <select class="campo" value="@_horizonte" @onchange="HorizonteMudouAsync">
+                    @foreach (var h in ContasDaTela.Horizontes) { <option value="@h">Próximos @h dias</option> }
+                </select>
+            </Campo>
+            <div class="contas-acoes-lista">
+                <button type="button" class="botao" @onclick="GerarAsync" disabled="@(!PodeEditar || _gerando)"
+                        title="Cria as previsões das contas fixas até o horizonte escolhido, sem duplicar nem marcar como pagas.">
+                    <Icone Nome="repasse" />@(_gerando ? "Gerando…" : "Gerar fixas")</button>
+                <button type="button" class="botao icone" title="Atualizar" aria-label="Atualizar" @onclick="() => CarregarAsync()"><Icone Nome="atualizar" /></button>
+            </div>
+        </div>
+        @if (_mensagemGeracao is not null)
+        {
+            <div class="contas-aviso"><Aviso Tom="erro" Texto="@_mensagemGeracao" /></div>
+        }
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as contas" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (Carregando && _abertas.Count == 0)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (Linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="Nada em aberto no horizonte escolhido"
+                         Descricao="@(_tipo is null ? "Registre uma conta por Nova conta, ou use Gerar fixas para criar as previsões das contas fixas." : "Mude o filtro para ver o outro lado das contas.")" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th style="width:104px">Vencimento</th>
+                            <th>Conta</th>
+                            <th style="width:150px">Prazo</th>
+                            <th class="direita" style="width:140px">Valor</th>
+                            <th class="direita" style="width:170px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Linhas)
+                        {
+                            var vencida = l.EstaVencido(_hoje);
+                            var dias = l.DiasAteVencer(_hoje);
+                            var contexto = ContasDaTela.Contexto(l);
+                            <tr @key="l.Id" class="@(vencida ? "contas-vencida" : null)">
+                                <td class="nao-quebra">@(l.DataVencimento is { } v ? Formato.Data(v) : "—")</td>
+                                <td>
+                                    <span class="principal">@ContasDaTela.Descricao(l)</span>
+                                    <span class="secundario">
+                                        <Selo Tom="@(l.Tipo == TipoLancamento.Saida ? "neutro" : "info")">@(l.Tipo == TipoLancamento.Saida ? "A pagar" : "A receber")</Selo>
+                                        @if (ContasDaTela.DeContaFixa(l)) { <Selo Tom="">Conta fixa</Selo> }
+                                        @if (contexto.Length > 0) { <span class="contas-contexto">@contexto</span> }
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (vencida) { <Selo Tom="perigo">@ContasDaTela.Prazo(dias)</Selo> }
+                                    else if (dias is 0) { <Selo Tom="aviso">@ContasDaTela.Prazo(dias)</Selo> }
+                                    else { <span class="texto-secundario">@ContasDaTela.Prazo(dias)</span> }
+                                </td>
+                                <td class="direita numero"><span class="@(l.Tipo == TipoLancamento.Entrada ? "valor-entrada" : "valor-saida")">@(l.Tipo == TipoLancamento.Entrada ? "+" : "−") @Formato.Dinheiro(l.Valor)</span></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => Baixar(l)"
+                                                title="@(l.Tipo == TipoLancamento.Saida ? "Registrar o pagamento" : "Registrar o recebimento")"><Icone Nome="check" />Baixar</button>
+                                        <button type="button" class="botao mini icone" title="Adiar 7 dias" aria-label="Adiar 7 dias" disabled="@(!PodeEditar)" @onclick="() => AdiarAsync(l)"><Icone Nome="relogio" /></button>
+                                        <button type="button" class="botao mini icone" title="Histórico da obrigação" aria-label="Histórico da obrigação" @onclick="() => _historico = l.Id"><Icone Nome="historico" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">"Adiar" leva o vencimento para daqui a 7 dias. "Baixar" aceita pagamento parcial: o saldo continua em aberto com o novo vencimento.</div>
+        }
+    </section>
+</div>
+
+@if (_contasFixas)
+{
+    <ContasFixasForm Recorrentes="_recorrentes" Falhou="_recorrentesFalharam" Carregando="Carregando"
+                     AoNova="() => AbrirRecorrente(0)" AoEditar="AbrirRecorrente" AoFechar="() => _contasFixas = false" />
+}
+@if (_recorrente is { } idRecorrente)
+{
+    <RecorrenteForm RecorrenteId="idRecorrente" AoFechar="() => _recorrente = null" AoConcluir="RecorrenteGravadaAsync" />
+}
+@if (_nova)
+{
+    <ContaForm AoFechar="() => _nova = false" AoConcluir="ContaGravadaAsync" />
+}
+@if (_baixar is { } idBaixar)
+{
+    <RecebimentoForm LancamentoId="idBaixar" AoFechar="() => _baixar = null" AoConcluir="BaixadaAsync" />
+}
+@if (_historico is { } idHistorico)
+{
+    <HistoricoObrigacaoForm LancamentoId="idHistorico" AoFechar="() => _historico = null" />
+}
+
+@code {
+    private DateOnly _hoje = DateOnly.FromDateTime(DateTime.Today);
+    private int _horizonte = ContasDaTela.HorizontePadrao;
+    private TipoLancamento? _tipo;
+    private IReadOnlyList<LancamentoFinanceiro> _abertas = [];
+    private IReadOnlyList<LancamentoFinanceiro> Linhas = [];
+    private IReadOnlyList<LancamentoRecorrente> _recorrentes = [];
+    private bool _recorrentesFalharam;
+    private ResumoContas? Resumo;
+    private string _frase = string.Empty;
+    private bool _temVencidaNaLista;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private string? _mensagemGeracao;
+    private bool _gerando;
+    private int _geracao;
+
+    // Formulários abertos.
+    private bool _contasFixas;
+    private int? _recorrente;
+    private bool _nova;
+    private int? _baixar;
+    private int? _historico;
+
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+    private string _tipoTexto => _tipo?.ToString() ?? string.Empty;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o horizonte duas vezes
+    /// rápido deixaria a lista de um recorte sob os totais do outro. Tudo é PUBLICADO
+    /// depois do último await.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var ate = hoje.AddDays(Math.Max(_horizonte, 0));
+
+            using var escopo = Escopo();
+            var contas = escopo.ServiceProvider.GetRequiredService<ContasService>();
+            var abertas = await contas.EmAbertoAsync(ate);
+            if (geracao != _geracao || Descartada) return;
+
+            // As fixas falham SOZINHAS: a lista do que vence não some porque o catálogo de
+            // moldes não pôde ser lido — a janela das fixas diz o terceiro estado dela.
+            IReadOnlyList<LancamentoRecorrente> recorrentes = [];
+            var recorrentesFalharam = false;
+            try { recorrentes = await contas.RecorrentesAsync(); }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — contas fixas não puderam ser lidas", ex);
+                recorrentesFalharam = true;
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _hoje = hoje;
+            _abertas = abertas;
+            _recorrentes = recorrentes;
+            _recorrentesFalharam = recorrentesFalharam;
+            Resumo = ContasService.Resumir(abertas, hoje);
+            Refiltrar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — contas não puderam ser lidas", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            Resumo = null;
+            _abertas = [];
+            Linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>O recorte por tipo, em memória: a carga já traz os dois lados.</summary>
+    private void Refiltrar()
+    {
+        Linhas = ContasDaTela.Filtrar(_abertas, _tipo);
+        _frase = ContasDaTela.Resumo(Linhas, _tipo, _horizonte, _hoje);
+        _temVencidaNaLista = Linhas.Any(l => l.EstaVencido(_hoje));
+    }
+
+    private void TipoMudou(ChangeEventArgs e)
+    {
+        _tipo = Enum.TryParse<TipoLancamento>(e.Value?.ToString(), out var t) ? t : null;
+        Refiltrar();
+    }
+
+    private Task HorizonteMudouAsync(ChangeEventArgs e)
+    {
+        _horizonte = int.TryParse(e.Value?.ToString(), out var h) ? h : ContasDaTela.HorizontePadrao;
+        _mensagemGeracao = null;
+        return CarregarAsync();
+    }
+
+    // ---------------- Conta avulsa ----------------
+
+    private void NovaConta()
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "lançar conta")) _nova = true;
+    }
+
+    private async Task ContaGravadaAsync(bool ehSaida)
+    {
+        _nova = false;
+        Notificacoes.Sucesso(ehSaida ? "Conta a pagar registrada." : "Conta a receber registrada.");
+        await CarregarAsync();
+    }
+
+    /// <summary>Dá baixa: a conta e o lançamento são a mesma coisa — é o RecebimentoForm do Caixa.</summary>
+    private void Baixar(LancamentoFinanceiro l)
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "dar baixa em conta")) _baixar = l.Id;
+    }
+
+    private async Task BaixadaAsync()
+    {
+        _baixar = null;
+        Notificacoes.Sucesso("Baixa registrada. Eventual saldo restante continua em aberto.");
+        await CarregarAsync();
+    }
+
+    /// <summary>Adia o vencimento em uma semana — o "renegociei o prazo" do dia a dia.</summary>
+    private async Task AdiarAsync(LancamentoFinanceiro l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "reagendar conta")) return;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ContasService>()
+                    .ReagendarAsync(l.Id, DateOnly.FromDateTime(DateTime.Today).AddDays(7), Operador);
+            Notificacoes.Info($"\"{ContasDaTela.Descricao(l)}\" adiada para daqui a 7 dias.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — conta não pôde ser reagendada", ex);
+            Notificacoes.Erro($"Não foi possível adiar: {ex.Message}");
+        }
+    }
+
+    // ---------------- Contas fixas ----------------
+
+    private void AbrirRecorrente(int id)
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "cadastrar conta fixa")) _recorrente = id;
+    }
+
+    private async Task RecorrenteGravadaAsync()
+    {
+        var nova = _recorrente == 0;
+        _recorrente = null;
+        Notificacoes.Sucesso(nova
+            ? "Conta fixa cadastrada. Use \"Gerar fixas\" para criar as previstas."
+            // Quem muda o valor esperando corrigir a conta deste mês precisa saber que o
+            // que já nasceu continua como estava.
+            : "Conta fixa atualizada — vale para o que ainda não foi gerado.");
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Gera as previstas das fixas ativas até o fim do horizonte. Idempotente: clicar duas
+    /// vezes não cobra o aluguel duas vezes — e a frase diz quantas já existiam.
+    /// </summary>
+    private async Task GerarAsync()
+    {
+        if (_gerando || !Exigir(Permissao.EditarFinanceiro, "gerar contas fixas")) return;
+        _gerando = true;
+        _mensagemGeracao = null;
+        try
+        {
+            var ate = DateOnly.FromDateTime(DateTime.Today).AddDays(Math.Max(_horizonte, 0));
+            ResultadoGeracaoContas r;
+            using (var escopo = Escopo())
+                r = await escopo.ServiceProvider.GetRequiredService<ContasService>().GerarAsync(ate, Operador);
+
+            // Recarrega ANTES de escrever a frase: no WPF a recarga começava zerando a
+            // mensagem, e a falha da geração nunca aparecia.
+            await CarregarAsync();
+            var (ehErro, texto) = ContasDaTela.DesfechoDaGeracao(r, ate);
+            if (ehErro) _mensagemGeracao = texto; // aviso não é sucesso: fica na tela
+            else Notificacoes.Sucesso(texto);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — geração de contas fixas falhou", ex);
+            _mensagemGeracao = $"Não foi possível gerar as contas fixas: {ex.Message}";
+        }
+        finally { _gerando = false; }
+    }
+
+    /// <summary>
+    /// O que vence, em CSV — a lista da reunião com o contador. O PRAZO vai escrito, não só
+    /// a data: a planilha que só traz 10/08 obriga quem lê a refazer a conta.
+    /// </summary>
+    private async Task ExportarAsync()
+    {
+        if (Linhas.Count == 0) { Notificacoes.Info("Não há conta para exportar neste recorte."); return; }
+        if (!Exigir(Permissao.VerFinanceiro, "exportar as contas")) return;
+        try
+        {
+            var linhas = Linhas.Select(l => (IReadOnlyList<string>)
+            [
+                ContasDaTela.Descricao(l), ContasDaTela.Contexto(l),
+                l.Tipo == TipoLancamento.Saida ? "A pagar" : "A receber",
+                Formato.Dinheiro(l.Valor),
+                l.DataVencimento is { } v ? Formato.Data(v) : "—",
+                ContasDaTela.Prazo(l.DiasAteVencer(_hoje)),
+                ContasDaTela.DeContaFixa(l) ? "conta fixa" : "avulsa"
+            ]).ToList();
+            var erro = await Host.ExportarCsvAsync(
+                ["Descrição", "Categoria/Paciente", "Tipo", "Valor", "Vencimento", "Prazo", "Origem"], linhas,
+                $"contas-{DateTime.Today:yyyy-MM-dd}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — contas não puderam ser exportadas", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+}
