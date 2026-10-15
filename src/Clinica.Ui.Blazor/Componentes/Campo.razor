@@ -1,0 +1,27 @@
+@*
+  Rótulo em cima, controle embaixo, dica e erro abaixo dele. Rótulo e campo na mesma
+  coluna de grade: o rótulo que quebra em duas linhas NÃO desalinha a fileira (a lição do
+  formulário de paciente, parcela 57) — `.campos` é grid com `align-items:end`.
+*@
+<label class="campo-bloco @Classe">
+    <span class="campo-rotulo">@Rotulo @if (Obrigatorio) { <b class="obrigatorio" aria-hidden="true">*</b> }</span>
+    @ChildContent
+    @if (!string.IsNullOrWhiteSpace(Erro))
+    {
+        <span class="campo-erro">@Erro</span>
+    }
+    else if (!string.IsNullOrWhiteSpace(Dica))
+    {
+        <span class="campo-dica">@Dica</span>
+    }
+</label>
+
+@code {
+    [Parameter, EditorRequired] public string Rotulo { get; set; } = string.Empty;
+    [Parameter] public string? Dica { get; set; }
+    [Parameter] public string? Erro { get; set; }
+    [Parameter] public bool Obrigatorio { get; set; }
+    /// <summary>"largo" ocupa a linha inteira da grade de campos.</summary>
+    [Parameter] public string? Classe { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

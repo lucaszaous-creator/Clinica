@@ -1,0 +1,46 @@
+@*
+  O FORMULÁRIO das telas Blazor (out/2026): o que no WPF era uma Window modal. Fica DENTRO
+  da página, sobre um fundo que escurece a tela — a mesma tela, com o mesmo estilo, sem
+  uma janela do sistema com outra cara.
+
+  A tela é dona do estado (aberto/fechado) e do que o formulário grava; o Modal só desenha
+  a moldura. Esc fecha (= Cancelar), e o clique FORA não fecha: formulário pela metade
+  perdido por um clique no lugar errado é o pior desfecho de um modal.
+*@
+<div class="modal-fundo" @onkeydown="Tecla" @onkeydown:stopPropagation="true">
+    <div class="modal @Largura" role="dialog" aria-modal="true" aria-label="@Titulo">
+        <header class="modal-topo">
+            <div>
+                <h2>@Titulo</h2>
+                @if (!string.IsNullOrWhiteSpace(Subtitulo))
+                {
+                    <p>@Subtitulo</p>
+                }
+            </div>
+            <button type="button" class="fechar" aria-label="Fechar" @onclick="Fechar">×</button>
+        </header>
+        <div class="modal-corpo">
+            @ChildContent
+        </div>
+        @if (Rodape is not null)
+        {
+            <footer class="modal-rodape">@Rodape</footer>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = string.Empty;
+    [Parameter] public string? Subtitulo { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Rodape { get; set; }
+
+    /// <summary>"pequeno" (420), "medio" (560, padrão), "grande" (760) ou "largo" (960).</summary>
+    [Parameter] public string Largura { get; set; } = "medio";
+
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private Task Fechar() => AoFechar.InvokeAsync();
+
+    private Task Tecla(KeyboardEventArgs e) => e.Key == "Escape" ? Fechar() : Task.CompletedTask;
+}

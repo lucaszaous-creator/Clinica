@@ -1,0 +1,33 @@
+@*
+  Cartão de número (o CardKpi do WPF): ícone e rótulo na mesma linha, o valor grande e uma
+  nota. O TOM do ícone repete a cor que a tela deu ao número — nunca é escolha do ícone
+  (regra 3 do design system).
+*@
+<div class="cartao kpi" title="@Dica">
+    <div class="kpi-rotulo">
+        @if (Icone is not null)
+        {
+            <span class="kpi-icone @Tom"><Icone Nome="@Icone" /></span>
+        }
+        @Rotulo
+    </div>
+    <div class="kpi-valor @ClasseValor" title="@Valor">@Valor</div>
+    @if (!string.IsNullOrWhiteSpace(Nota))
+    {
+        <div class="kpi-nota">@Nota</div>
+    }
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Rotulo { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Valor { get; set; } = "—";
+    [Parameter] public string? Nota { get; set; }
+    [Parameter] public string? Icone { get; set; }
+    /// <summary>"" (acento), "saida", "sucesso", "perigo", "aviso" ou "neutro".</summary>
+    [Parameter] public string Tom { get; set; } = string.Empty;
+    /// <summary>"positivo"/"negativo" pinta o número.</summary>
+    [Parameter] public string? ClasseValor { get; set; }
+    [Parameter] public string? Dica { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

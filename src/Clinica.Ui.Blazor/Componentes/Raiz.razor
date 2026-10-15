@@ -1,0 +1,16 @@
+@*
+  A RAIZ de toda tela Blazor (out/2026). O BlazorWebView do WPF e a prévia montam ESTE
+  componente, com a tela como parâmetro — é o que garante que toda tela tenha os mesmos
+  vizinhos: a camada de diálogos (confirmação/pergunta/aviso em HTML) e as notificações
+  passageiras. Tela que os desenhasse por conta própria seria a segunda cópia.
+*@
+
+<DynamicComponent Type="Tela" />
+<CamadaDeDialogos />
+<PilhaDeNotificacoes />
+
+@code {
+    /// <summary>O componente da tela (ex.: <c>typeof(Telas.Caixa)</c>).</summary>
+    [Parameter, EditorRequired] public Type Tela { get; set; } = default!;
+
+}

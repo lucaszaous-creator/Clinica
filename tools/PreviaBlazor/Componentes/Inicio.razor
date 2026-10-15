@@ -1,3 +1,19 @@
 @page "/"
-@using Clinica.Ui.Blazor.Telas
-<FluxoDeCaixa @rendermode="Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer" />
+@* O índice da prévia: um link por tela. A tela em si abre em /tela/{Nome}. *@
+<div class="pagina">
+    <CabecalhoPagina Sobretitulo="Prévia" Titulo="Telas Blazor" Subtitulo="Dados fictícios num SQLite em memória. Nada aqui é da clínica." />
+    <div class="cartao cartao-corpo">
+        <ul>
+            @foreach (var t in Telas)
+            {
+                <li><a href="tela/@t.Name">@t.Name</a></li>
+            }
+        </ul>
+    </div>
+</div>
+
+@code {
+    private static readonly IReadOnlyList<Type> Telas = typeof(Clinica.Ui.Blazor.Hospedagem.IHostDaTela).Assembly.GetTypes()
+        .Where(t => t.Namespace == "Clinica.Ui.Blazor.Telas" && typeof(ComponentBase).IsAssignableFrom(t) && !t.IsAbstract)
+        .OrderBy(t => t.Name).ToList();
+}

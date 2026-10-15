@@ -1,0 +1,19 @@
+@*
+  O TERCEIRO ESTADO (regra do projeto): a leitura FALHOU. Lista vazia por erro não pode
+  ter a cara de lista vazia por não haver nada — a pessoa conclui e age.
+*@
+<div class="vazio-estado falha">
+    <Icone Nome="alerta" />
+    <strong>@Titulo</strong>
+    <span>@Detalhe</span>
+    @if (AoTentarDeNovo.HasDelegate)
+    {
+        <button type="button" class="botao" @onclick="AoTentarDeNovo">Tentar de novo</button>
+    }
+</div>
+
+@code {
+    [Parameter] public string Titulo { get; set; } = "Não foi possível ler os dados";
+    [Parameter] public string? Detalhe { get; set; }
+    [Parameter] public EventCallback AoTentarDeNovo { get; set; }
+}

@@ -8,6 +8,20 @@
 @import url("../tokens/layout.css");
 @import url("../tokens/semantic.css");
 @import url("../tokens/web-extras.css");
+/* Um arquivo por tela: cada uma mexe só no seu, e o comum fica aqui embaixo. */
+@import url("telas/caixa.css");
+@import url("telas/fechamento.css");
+@import url("telas/contas.css");
+@import url("telas/inadimplencia.css");
+@import url("telas/plano-contas.css");
+@import url("telas/recebiveis.css");
+@import url("telas/conciliacao.css");
+@import url("telas/extrato.css");
+@import url("telas/taxas.css");
+@import url("telas/resultado.css");
+@import url("telas/producao.css");
+@import url("telas/estoque.css");
+@import url("telas/repasses.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.
@@ -162,3 +176,167 @@ td.vazio{color:var(--cinza-300)}
 .kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media (max-width:1180px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:640px){.kpis{grid-template-columns:1fr}.pagina{padding:var(--space-4)}}
+
+/* ================================================================
+   Componentes comuns das telas do Financeiro (out/2026).
+   ================================================================ */
+.icone{width:16px;height:16px;flex:none}
+.texto-secundario{color:var(--texto-secundario)}
+.pequeno{font-size:var(--text-small-size)}
+.numero{font-variant-numeric:tabular-nums;white-space:nowrap}
+.cabecalho-texto{min-width:0}
+
+/* ---------- Botões ---------- */
+.botao.primario{background:var(--acento);border-color:var(--acento);color:var(--texto-invertido)}
+.botao.primario:hover{background:var(--acento-hover);border-color:var(--acento-hover)}
+.botao.perigo{background:var(--erro);border-color:var(--erro);color:var(--texto-invertido)}
+.botao.perigo:hover{background:var(--erro-hover);border-color:var(--erro-hover)}
+.botao.fantasma{background:transparent;border-color:transparent}
+.botao.fantasma:hover{background:var(--superficie-hover)}
+.botao.contorno-perigo{color:var(--erro-texto)}
+.botao.contorno-perigo:hover{border-color:var(--erro);background:var(--erro-suave)}
+.botao.icone{width:36px;padding:0;justify-content:center}
+.botao.mini{height:28px;padding:0 10px;font-size:var(--text-small-size);gap:6px}
+.botao.mini .icone{width:14px;height:14px}
+.botao.mini.icone{width:28px}
+.botoes-linha{display:inline-flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.link{background:none;border:0;padding:0;color:var(--acento);font-weight:600;cursor:pointer}
+.link:hover{text-decoration:underline}
+
+/* ---------- Campos ---------- */
+.campo{width:100%;min-height:36px;padding:7px 10px;border:1px solid var(--borda);border-radius:var(--radius-control);
+  background:var(--superficie);transition:border-color var(--duracao-rapida)}
+.campo:hover{border-color:var(--borda-hover)}
+.campo:focus{outline:none;border-color:var(--foco);box-shadow:0 0 0 3px var(--acento-tint)}
+.campo:disabled{background:var(--cinza-100);color:var(--texto-secundario)}
+textarea.campo{resize:vertical;min-height:72px;line-height:1.45}
+select.campo{appearance:none;padding-right:32px;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;background-size:16px}
+input.campo.valor{text-align:right;font-variant-numeric:tabular-nums}
+.campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4) var(--space-4);align-items:start}
+.campos.tres{grid-template-columns:repeat(3,minmax(0,1fr))}
+.campos .largo{grid-column:1/-1}
+@media (max-width:640px){.campos,.campos.tres{grid-template-columns:1fr}}
+.campo-bloco{display:flex;flex-direction:column;gap:6px;min-width:0}
+.campo-rotulo{font-size:13px;font-weight:600;color:var(--cinza-700)}
+.campo-rotulo .obrigatorio{color:var(--erro);font-weight:700}
+.campo-dica{font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.4}
+.campo-erro{font-size:var(--text-small-size);color:var(--erro-texto);line-height:1.4}
+.marcar{display:inline-flex;align-items:center;gap:var(--space-2);cursor:pointer;font-weight:500}
+.marcar input{width:16px;height:16px;accent-color:var(--acento);margin:0}
+
+/* ---------- Barra de filtros ---------- */
+.filtros{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3);padding:var(--space-4) var(--space-6);
+  border-bottom:1px solid var(--borda)}
+.filtros .campo-bloco{min-width:180px}
+.filtros .resumo-filtro{color:var(--texto-secundario);font-size:var(--text-small-size);padding-bottom:9px}
+.busca{position:relative}
+.busca .icone{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--texto-secundario)}
+.busca .campo{padding-left:32px}
+
+/* ---------- Seletor de mês ---------- */
+.seletor-mes{display:inline-flex;align-items:center;gap:var(--space-2);background:var(--superficie);
+  border:1px solid var(--borda);border-radius:var(--radius-control);padding:2px}
+.seletor-mes .botao{border:0;height:30px;width:30px;background:transparent}
+.seletor-mes .botao:hover{background:var(--superficie-hover)}
+.seletor-mes-rotulo{min-width:150px;text-align:center;font-weight:600}
+
+/* ---------- Lista (tabela de linhas com ações) ---------- */
+.lista-cartao{padding:0;overflow:hidden}
+.lista-cartao .cartao-titulo{padding:var(--space-4) var(--space-6) 0}
+table.lista th,table.lista td{text-align:left}
+table.lista th.direita,table.lista td.direita{text-align:right}
+table.lista th.centro,table.lista td.centro{text-align:center}
+table.lista th{background:var(--cinza-50);text-transform:none}
+table.lista td{white-space:normal;vertical-align:middle}
+table.lista td.nao-quebra{white-space:nowrap}
+table.lista th:first-child,table.lista td:first-child{padding-left:var(--space-6)}
+table.lista th:last-child,table.lista td:last-child{padding-right:var(--space-6)}
+table.lista tbody tr:last-child td{border-bottom:0}
+table.lista tr.apagada td{color:var(--texto-secundario)}
+table.lista tr.apagada td .principal{text-decoration:line-through}
+.principal{font-weight:600;color:var(--texto-primario)}
+.secundario{display:block;font-size:var(--text-small-size);color:var(--texto-secundario);margin-top:2px}
+.rodape-lista{padding:var(--space-3) var(--space-6);border-top:1px solid var(--borda);color:var(--texto-secundario);
+  font-size:var(--text-small-size);background:var(--cinza-50)}
+td .valor-entrada{color:var(--sucesso-forte);font-weight:600}
+td .valor-saida{color:var(--erro-texto);font-weight:600}
+
+/* ---------- Selos ---------- */
+.selo.sucesso{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.selo.aviso{background:var(--aviso-suave);color:var(--aviso-texto)}
+.selo.perigo{background:var(--erro-suave);color:var(--erro-texto)}
+.selo.neutro{background:var(--cinza-100);color:var(--cinza-700)}
+.selo.info{background:var(--info-suave);color:var(--info-texto)}
+td .selo{margin-left:0}
+
+/* ---------- Ícones de KPI (tons) ---------- */
+.kpi-icone.sucesso{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.kpi-icone.perigo{background:var(--erro-suave);color:var(--erro-texto)}
+.kpi-icone.aviso{background:var(--aviso-suave);color:var(--aviso-texto)}
+.kpi-icone.neutro{background:var(--cinza-100);color:var(--cinza-700)}
+.kpi-valor.aviso{color:var(--aviso-texto)}
+.kpis.tres{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:1180px){.kpis.tres{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:900px){.kpis.tres{grid-template-columns:1fr}}
+
+/* ---------- Avisos e estados ---------- */
+.aviso.sucesso{background:var(--sucesso-suave);border-color:var(--verde-100);color:var(--sucesso-forte)}
+.aviso.atencao{background:var(--aviso-suave);border-color:var(--laranja-100);color:var(--aviso-texto)}
+.aviso .icone{width:18px;height:18px;margin-top:2px}
+.vazio-estado{display:flex;flex-direction:column;align-items:center;gap:6px}
+.vazio-estado > .icone{width:32px;height:32px;color:var(--cinza-300);margin-bottom:4px}
+.vazio-estado strong{margin-bottom:0}
+.vazio-estado .botao{margin-top:var(--space-3)}
+.vazio-estado.falha > .icone{color:var(--erro)}
+
+/* ---------- Modal (o formulário) ---------- */
+.modal-fundo{position:fixed;inset:0;z-index:50;background:rgba(17,24,39,.42);display:flex;align-items:flex-start;
+  justify-content:center;padding:6vh var(--space-4) var(--space-4);overflow-y:auto;animation:surgir var(--duracao-normal) ease-out}
+.modal{background:var(--superficie);border-radius:14px;box-shadow:var(--sombra-popup),0 24px 48px rgba(17,24,39,.18);
+  width:100%;max-width:560px;display:flex;flex-direction:column;max-height:88vh}
+.modal.pequeno{max-width:440px}
+.modal.grande{max-width:760px}
+.modal.largo{max-width:960px}
+.modal-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);
+  padding:var(--space-6) var(--space-6) var(--space-4)}
+.modal-topo h2{margin:0;font-size:18px;font-weight:700}
+.modal-topo p{margin:4px 0 0;color:var(--texto-secundario);font-size:var(--text-table-size);line-height:1.45}
+.modal-corpo{padding:0 var(--space-6) var(--space-6);overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-4)}
+.modal-rodape{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:var(--space-2);
+  padding:var(--space-4) var(--space-6);border-top:1px solid var(--borda);background:var(--cinza-50);border-radius:0 0 14px 14px}
+.modal-rodape .esquerda{margin-right:auto;color:var(--texto-secundario);font-size:var(--text-small-size);max-width:60%}
+.fechar{border:0;background:transparent;font-size:22px;line-height:1;width:32px;height:32px;border-radius:8px;
+  cursor:pointer;color:var(--texto-secundario);flex:none}
+.fechar:hover{background:var(--superficie-hover);color:var(--texto-primario)}
+.dialogo-mensagem{margin:0;line-height:1.55;white-space:pre-line;color:var(--cinza-700)}
+.secao-form{display:flex;flex-direction:column;gap:var(--space-3)}
+.secao-form > h3{margin:0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);
+  color:var(--texto-secundario)}
+@keyframes surgir{from{opacity:0}to{opacity:1}}
+
+/* ---------- Notificações ---------- */
+.notificacoes{position:fixed;right:var(--space-6);bottom:var(--space-6);z-index:60;display:flex;flex-direction:column;
+  gap:var(--space-2);max-width:420px}
+.notificacao{display:flex;align-items:flex-start;gap:var(--space-3);padding:12px 12px 12px 14px;border-radius:10px;
+  background:var(--cinza-900);color:#fff;box-shadow:var(--sombra-popup);line-height:1.45;animation:surgir var(--duracao-normal) ease-out}
+.notificacao .icone{width:18px;height:18px;margin-top:1px}
+.notificacao.sucesso .icone{color:#86EFAC}
+.notificacao.erro{background:var(--erro-texto)}
+.notificacao.info .icone{color:var(--azul-100)}
+.notificacao span{flex:1}
+.notificacao .fechar{color:rgba(255,255,255,.7);width:24px;height:24px;font-size:18px}
+.notificacao .fechar:hover{background:rgba(255,255,255,.12);color:#fff}
+
+/* ---------- Abas internas ---------- */
+.abas{display:flex;gap:2px;border-bottom:1px solid var(--borda)}
+.abas button{border:0;background:transparent;padding:10px 14px;font-weight:600;color:var(--texto-secundario);cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px}
+.abas button:hover{color:var(--texto-primario)}
+.abas button[aria-selected="true"]{color:var(--acento);border-bottom-color:var(--acento)}
+
+/* ---------- Pares rótulo:valor ---------- */
+.pares{display:grid;grid-template-columns:auto 1fr;gap:6px var(--space-4);margin:0}
+.pares dt{color:var(--texto-secundario)}
+.pares dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}

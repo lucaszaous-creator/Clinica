@@ -46,7 +46,14 @@ public sealed class TelaBlazor : UserControl
             Services = servicos
         };
         visor.SetResourceReference(BackgroundProperty, "Brush.Fundo");
-        visor.RootComponents.Add(new RootComponent { Selector = "#app", ComponentType = componente });
+        // A tela entra pela RAIZ, que desenha junto a camada de diálogos e as notificações —
+        // toda tela tem os mesmos vizinhos (ver Clinica.Ui.Blazor/Componentes/Raiz.razor).
+        visor.RootComponents.Add(new RootComponent
+        {
+            Selector = "#app",
+            ComponentType = typeof(Clinica.Ui.Blazor.Componentes.Raiz),
+            Parameters = new Dictionary<string, object?> { ["Tela"] = componente }
+        });
 
         visor.BlazorWebViewInitializing += (_, e) =>
         {
@@ -91,8 +98,11 @@ public sealed class TelaBlazor : UserControl
 
 /// <summary>
 /// O que a tela Blazor pede ao WPF. Reusa as rotinas do shell — CSV no padrão do Excel em
-/// português (ponto e vírgula + BOM) e a janela "Salvar como" — para não existir uma
-/// segunda definição de "como sai um arquivo desta clínica".
+/// português (ponto e vírgula + BOM), a janela "Salvar como", a área de transferência e a
+/// navegação da suíte — para não existir uma segunda definição de nenhuma delas.
+///
+/// O BlazorWebView roda os componentes no Dispatcher do WPF, então estas chamadas já
+/// chegam na thread da interface; o `InvokeAsync` é a garantia, não a regra.
 /// </summary>
 public sealed class HostDaTelaWpf : IHostDaTela
 {
@@ -102,6 +112,39 @@ public sealed class HostDaTelaWpf : IHostDaTela
         string nomeArquivo)
     {
         var csv = ExportacaoCsv.Montar(cabecalho, linhas);
-        return ImpressaoPdf.SalvarEAbrirAsync(csv, nomeArquivo, "CSV (*.csv)|*.csv", ".csv");
+        return NaInterface(() => ImpressaoPdf.SalvarEAbrirAsync(csv, ImpressaoPdf.NomeSeguro(nomeArquivo), "CSV (*.csv)|*.csv", ".csv"));
+    }
+
+    public Task<string?> SalvarEAbrirAsync(byte[] conteudo, string nomeSugerido, string filtro, string extensao)
+        => NaInterface(() => ImpressaoPdf.SalvarEAbrirAsync(conteudo, ImpressaoPdf.NomeSeguro(nomeSugerido), filtro, extensao));
+
+    public Task<ArquivoEscolhido?> EscolherArquivoAsync(string filtro, string titulo)
+        => NaInterface(async () =>
+        {
+            var caminho = ImpressaoPdf.Escolher(filtro, titulo);
+            if (caminho is null) return null;
+            return new ArquivoEscolhido(Path.GetFileName(caminho), await File.ReadAllBytesAsync(caminho));
+        });
+
+    public Task<bool> CopiarAsync(string texto)
+        => NaInterface(() =>
+        {
+            // A área de transferência é recurso ÚNICO da máquina e fica presa enquanto outro
+            // programa a segura: três tentativas, e falha nunca vira "copiado".
+            for (var i = 0; i < 3; i++)
+            {
+                try { Clipboard.SetText(texto); return Task.FromResult(true); }
+                catch (System.Runtime.InteropServices.COMException) { Thread.Sleep(60); }
+            }
+            return Task.FromResult(false);
+        });
+
+    public Task<bool> NavegarAsync(string chave)
+        => NaInterface(() => Task.FromResult(Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(chave)));
+
+    private static Task<T> NaInterface<T>(Func<Task<T>> acao)
+    {
+        var d = System.Windows.Application.Current?.Dispatcher;
+        return d is null || d.CheckAccess() ? acao() : d.InvokeAsync(acao).Task.Unwrap();
     }
 }

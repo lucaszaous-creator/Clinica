@@ -230,6 +230,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         // O piloto em Blazor: o motor do BlazorWebView e o que a tela pede ao WPF.
         servicos.AddWpfBlazorWebView();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IHostDaTela, Web.HostDaTelaWpf>();
+        Clinica.Ui.Blazor.Hospedagem.RegistroTelas.AddTelasBlazor(servicos);
         servicos.AddTransient<ResultadoViewModel>();
         servicos.AddTransient<FechamentoCaixaViewModel>();
         servicos.AddTransient<RecebiveisViewModel>();

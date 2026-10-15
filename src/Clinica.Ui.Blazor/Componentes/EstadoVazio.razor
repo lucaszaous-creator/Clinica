@@ -1,0 +1,17 @@
+@* Um estado vazio por pergunta (parcela 37) — e o vazio de um FILTRO diz que é filtro. *@
+<div class="vazio-estado">
+    <Icone Nome="@Icone" />
+    <strong>@Titulo</strong>
+    @if (!string.IsNullOrWhiteSpace(Descricao))
+    {
+        <span>@Descricao</span>
+    }
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = string.Empty;
+    [Parameter] public string? Descricao { get; set; }
+    [Parameter] public string Icone { get; set; } = "vazio";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
