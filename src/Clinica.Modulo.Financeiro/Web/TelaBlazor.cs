@@ -36,6 +36,8 @@ public sealed class TelaBlazor : UserControl
         Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", FundoArgb);
     }
 
+    private readonly SinalDeVolta _sinal = new();
+
     public TelaBlazor(Type componente, IServiceProvider servicos)
     {
         SetResourceReference(BackgroundProperty, "Brush.Fundo");
@@ -52,8 +54,12 @@ public sealed class TelaBlazor : UserControl
         {
             Selector = "#app",
             ComponentType = typeof(Clinica.Ui.Blazor.Componentes.Raiz),
-            Parameters = new Dictionary<string, object?> { ["Tela"] = componente }
+            Parameters = new Dictionary<string, object?> { ["Tela"] = componente, ["Sinal"] = _sinal }
         });
+
+        // O shell reconhece telas que sabem se reler ao voltar pelo DataContext
+        // (IAtualizarAoVoltar). É ele que faz a aba guardada voltar ATUALIZADA.
+        DataContext = new AvisoDeVolta(_sinal);
 
         visor.BlazorWebViewInitializing += (_, e) =>
         {
@@ -89,6 +95,11 @@ public sealed class TelaBlazor : UserControl
     /// Serve a página e o CSS de DENTRO da DLL do Clinica.Ui.Blazor (manifesto de recursos)
     /// em vez de uma pasta ao lado do .exe — não há arquivo que o pacote possa esquecer.
     /// </summary>
+    private sealed class AvisoDeVolta(SinalDeVolta sinal) : Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
+    {
+        public void AtualizarAoVoltar() => sinal.Avisar();
+    }
+
     private sealed class VisorEmbutido : BlazorWebView
     {
         public override IFileProvider CreateFileProvider(string contentRootDir) =>

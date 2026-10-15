@@ -198,6 +198,8 @@
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
     private void ContagemMudou(ChangeEventArgs e) => _contado = e.Value?.ToString();
 
     private Task DiaEscolhidoAsync(ChangeEventArgs e)

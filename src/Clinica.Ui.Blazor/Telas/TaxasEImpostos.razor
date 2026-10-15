@@ -342,6 +342,8 @@
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
     /// <summary>
     /// Uma carga, um escopo, leituras em SEQUÊNCIA (o mesmo DbContext não aceita duas ao
     /// mesmo tempo) e tudo publicado depois do último await. O contador de geração descarta

@@ -74,8 +74,7 @@ public class TelasBlazorBaseTests
     /// Toda TELA herda a TelaBase. Uma tela que injetasse serviço da Application direto
     /// guardaria o DbContext da abertura pela vida inteira da aba (checagem 37 pelo outro
     /// lado), e uma que chamasse SessaoUsuario.Exigir solto num evento derrubaria o
-    /// circuito ao negar. O piloto do Fluxo de caixa é a exceção declarada: ele nasceu antes
-    /// da base e não grava nada.
+    /// circuito ao negar.
     /// </summary>
     [Fact]
     public void Toda_tela_herda_a_TelaBase_e_nao_injeta_servico_da_Application()
@@ -87,7 +86,6 @@ public class TelasBlazorBaseTests
         {
             var nome = Path.GetFileNameWithoutExtension(arquivo);
             var texto = File.ReadAllText(arquivo);
-            if (nome == "FluxoDeCaixa") continue;
             Assert.True(texto.Contains("@inherits TelaBase"), $"{nome}.razor não herda a TelaBase");
             Assert.False(Regex.IsMatch(texto, @"@inject\s+\w*Service\b"), $"{nome}.razor injeta serviço da Application — abra escopo por operação");
         }

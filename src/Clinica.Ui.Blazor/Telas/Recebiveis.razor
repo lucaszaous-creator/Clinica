@@ -182,6 +182,8 @@
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
     private Task TrocarHorizonteAsync(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out var h)) _horizonte = h;

@@ -319,6 +319,8 @@
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
     private Task TrocarMesAsync(DateOnly mes) { _mes = mes; return CarregarAsync(); }
 
     private void FiltroConvenioMudou(ChangeEventArgs e)

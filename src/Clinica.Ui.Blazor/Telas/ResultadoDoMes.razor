@@ -186,6 +186,8 @@
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
     private Task TrocarMesAsync(DateOnly mes) { Mes = mes; return CarregarAsync(); }
 
     /// <summary>

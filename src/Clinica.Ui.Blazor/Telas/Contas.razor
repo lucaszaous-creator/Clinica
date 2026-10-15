@@ -202,6 +202,8 @@
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 50): trocar o horizonte duas vezes
     /// rápido deixaria a lista de um recorte sob os totais do outro. Tudo é PUBLICADO

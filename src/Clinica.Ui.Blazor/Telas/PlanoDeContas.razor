@@ -93,6 +93,8 @@
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
     private async Task CarregarAsync()
     {
         var geracao = ++_geracao;

@@ -175,6 +175,8 @@
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
     private Task TrocarJanelaAsync(int meses)
     {
         if (meses == _janela) return Task.CompletedTask;

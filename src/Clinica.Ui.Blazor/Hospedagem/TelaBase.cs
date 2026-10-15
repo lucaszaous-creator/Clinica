@@ -22,6 +22,33 @@ public abstract class TelaBase : ComponentBase, IDisposable
     [Inject] protected Dialogos Dialogos { get; set; } = default!;
     [Inject] protected Notificacoes Notificacoes { get; set; } = default!;
 
+    /// <summary>O aviso de "voltou à aba", vindo da Raiz (nulo na prévia).</summary>
+    [CascadingParameter] protected SinalDeVolta? Sinal { get; set; }
+
+    private bool _escutando;
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await base.SetParametersAsync(parameters);
+        if (!_escutando && Sinal is not null)
+        {
+            _escutando = true;
+            Sinal.Voltou += AoSinal;
+        }
+    }
+
+    private void AoSinal() => _ = InvokeAsync(async () =>
+    {
+        try { await AoVoltarAsync(); StateHasChanged(); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar($"Blazor — releitura ao voltar ({GetType().Name})", ex); }
+    });
+
+    /// <summary>
+    /// A pessoa voltou a esta aba: releia por trás, SEM limpar o que está na tela (a regra do
+    /// <c>IAtualizarAoVoltar</c>). Formulário em edição não relê — por isso o padrão é nada.
+    /// </summary>
+    protected virtual Task AoVoltarAsync() => Task.CompletedTask;
+
     /// <summary>A tela saiu de cena: carga que chega depois não escreve em nada.</summary>
     protected bool Descartada { get; private set; }
 
@@ -80,6 +107,7 @@ public abstract class TelaBase : ComponentBase, IDisposable
     public virtual void Dispose()
     {
         Descartada = true;
+        if (_escutando && Sinal is not null) Sinal.Voltou -= AoSinal;
         GC.SuppressFinalize(this);
     }
 }

@@ -190,6 +190,8 @@
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 50): trocar a ordenação duas vezes rápido
     /// não pode deixar a lista de uma ordem sob o combo marcado com a outra. Tudo é publicado

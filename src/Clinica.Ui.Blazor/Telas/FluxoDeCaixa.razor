@@ -10,9 +10,7 @@
   1. Realizado e previsto nunca viram uma barra só — o previsto é a parte HACHURADA.
   2. A última coluna da tabela é VARIAÇÃO acumulada, e não saldo em conta.
 *@
-@implements IDisposable
-@inject IServiceScopeFactory Escopos
-@inject IHostDaTela Host
+@inherits TelaBase
 
 <div class="pagina @(Carregando && Serie.Count > 0 ? "carregando" : null)">
 
@@ -228,9 +226,10 @@
     // Descarte de resposta fora de ordem (parcela 50): trocar a janela duas vezes rápido
     // não pode deixar a série de uma janela sob o período escrito da outra.
     private int _geracao;
-    private bool _descartada;
 
     protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
 
     private Task TrocarJanela(int meses)
     {
@@ -262,14 +261,14 @@
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var serie = await fluxo.ProjecaoAsync(hoje, MesesJanela);
-            if (geracao != _geracao || _descartada) return;
+            if (geracao != _geracao || Descartada) return;
 
             // A quebra por categoria é do período INTEIRO da janela — a despesa trimestral
             // que explica o mês ruim sumiria numa quebra mensal (a regra da tela WPF).
             var inicio = new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(-(MesesJanela - 1));
             var fim = new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(1).AddDays(-1);
             var categorias = await fluxo.PorCategoriaAsync(inicio, fim, IncluirPrevisto);
-            if (geracao != _geracao || _descartada) return;
+            if (geracao != _geracao || Descartada) return;
 
             // Tudo publicado de uma vez, depois do último await (parcela 62).
             Hoje = hoje;
@@ -283,7 +282,7 @@
         }
         catch (Exception ex)
         {
-            if (geracao != _geracao || _descartada) return;
+            if (geracao != _geracao || Descartada) return;
             Clinica.Application.Diagnostico.Registrar("Financeiro (Blazor) — fluxo de caixa não pôde ser lido", ex);
             // Terceiro estado: a falha diz que é falha, e a série anterior continua na tela.
             Mensagem = $"Não foi possível montar o fluxo: {ex.Message}";
@@ -297,11 +296,11 @@
 
     private async Task ExportarAsync()
     {
+        // CSV é saída de dado e leva a segunda barreira, como na tela WPF.
+        if (!Exigir(Permissao.VerFinanceiro, "exportar o fluxo de caixa")) return;
         Exportando = true;
         try
         {
-            // CSV é saída de dado e leva a segunda barreira, como na tela WPF.
-            SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "exportar o fluxo de caixa");
 
             var linhas = new List<IReadOnlyList<string>>();
             foreach (var (m, acumulado) in Acumulado)
@@ -398,7 +397,6 @@
         </ul>
     };
 
-    public void Dispose() => _descartada = true;
 
     /// <summary>
     /// As contas do desenho. O eixo ANCORA NO ZERO (a regra do gráfico da casa): escala que

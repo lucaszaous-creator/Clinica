@@ -7,7 +7,9 @@
 *@
 <ErrorBoundary @ref="_rede">
     <ChildContent>
-        <DynamicComponent Type="Tela" />
+        <CascadingValue Value="Sinal" IsFixed="true">
+            <DynamicComponent Type="Tela" />
+        </CascadingValue>
     </ChildContent>
     <ErrorContent Context="erro">
         @{ Registrar(erro); }
@@ -26,6 +28,9 @@
 @code {
     /// <summary>O componente da tela (ex.: <c>typeof(Telas.Caixa)</c>).</summary>
     [Parameter, EditorRequired] public Type Tela { get; set; } = default!;
+
+    /// <summary>"Voltou à aba", vindo do hospedeiro WPF. Nulo na prévia.</summary>
+    [Parameter] public SinalDeVolta? Sinal { get; set; }
 
     private ErrorBoundary? _rede;
     private Exception? _registrado;
