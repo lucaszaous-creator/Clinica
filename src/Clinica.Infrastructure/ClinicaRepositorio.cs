@@ -3022,6 +3022,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (tributo is not null) _db.Tributos.Remove(tributo);
     }
 
+    public Task<bool> ExisteEntradaVivaAsync(
+        int? codigoFaturamentoId, int? atendimentoId, CancellationToken ct = default)
+        => _db.Lancamentos.AsNoTracking()
+            .Where(l => l.Tipo == TipoLancamento.Entrada && l.Status != StatusLancamento.Cancelado)
+            .AnyAsync(l => (codigoFaturamentoId != null && l.CodigoFaturamentoId == codigoFaturamentoId)
+                        || (atendimentoId != null && l.AtendimentoId == atendimentoId), ct);
+
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
     {

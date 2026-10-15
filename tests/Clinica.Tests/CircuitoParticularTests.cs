@@ -413,6 +413,21 @@ public class CircuitoParticularTests : IDisposable
     }
 
     [Fact]
+    public async Task Segundo_lancamento_da_mesma_sessao_e_recusado()
+    {
+        var paciente = await ParticularAsync("Repete");
+        await RealizarAsync(paciente);
+        var sessao = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
+
+        await _financeiro.LancarReceitaDaSessaoAsync(sessao, 150m, FormaPagamento.Pix, operador: "fin");
+        var outra = () => _financeiro.LancarReceitaDaSessaoAsync(
+            sessao, 150m, vencimento: Dia.AddDays(30), operador: "fin");
+
+        await outra.Should().ThrowAsync<InvalidOperationException>().WithMessage("*já tem dinheiro*");
+        (await _financeiro.ResumoAsync(Dia, Dia)).EntradasRealizadas.Should().Be(150m);
+    }
+
+    [Fact]
     public async Task A_sessao_sai_da_conciliacao_por_passar_a_TER_lancamento_recebido_ou_a_receber()
     {
         var recebe = await ParticularAsync("Recebe");

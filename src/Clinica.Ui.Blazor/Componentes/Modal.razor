@@ -8,7 +8,7 @@
   perdido por um clique no lugar errado é o pior desfecho de um modal.
 *@
 <div class="modal-fundo" @onkeydown="Tecla" @onkeydown:stopPropagation="true">
-    <div class="modal @Largura" role="dialog" aria-modal="true" aria-label="@Titulo">
+    <div class="modal @Largura" role="dialog" aria-modal="true" aria-label="@Titulo" tabindex="-1" @ref="_caixa">
         <header class="modal-topo">
             <div>
                 <h2>@Titulo</h2>
@@ -39,6 +39,17 @@
     [Parameter] public string Largura { get; set; } = "medio";
 
     [Parameter] public EventCallback AoFechar { get; set; }
+
+    private ElementReference _caixa;
+
+    // O foco fica no botão que ABRIU o formulário, atrás do fundo — e ali o Esc não chega ao
+    // modal. Ao abrir, o foco entra na caixa: Esc e Tab passam a valer dentro dela.
+    protected override async Task OnAfterRenderAsync(bool primeira)
+    {
+        if (!primeira) return;
+        try { await _caixa.FocusAsync(); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — foco do formulário", ex); }
+    }
 
     private Task Fechar() => AoFechar.InvokeAsync();
 

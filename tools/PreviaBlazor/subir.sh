@@ -14,7 +14,14 @@ for p in /proc/[0-9]*; do
   fi
 done
 for i in $(seq 1 20); do curl -s -o /dev/null http://127.0.0.1:$PORTA/ || break; sleep 0.5; done
-dotnet build "$AQUI/PreviaBlazor.csproj" -nologo -v q 2>&1 | grep -E " error |Build succeeded|Compilação" | sort -u
+# A prévia antiga em bin/ não pode subir quando a compilação falhou: as fotos mostrariam
+# a tela de ANTES e passariam por novas.
+if ! SAIDA=$(dotnet build "$AQUI/PreviaBlazor.csproj" -nologo -v q 2>&1); then
+    echo "$SAIDA" | grep -E " error " | sort -u
+    echo "compilação falhou — a prévia não foi iniciada" >&2
+    exit 1
+fi
+echo "$SAIDA" | grep -E "Build succeeded|Compilação" | sort -u
 cd "$AQUI" && ASPNETCORE_URLS=http://127.0.0.1:$PORTA nohup dotnet bin/Debug/net8.0/PreviaBlazor.dll > "$AQUI/.previa-$PORTA.log" 2>&1 &
 echo $! > "$PID"
 for i in $(seq 1 60); do curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:$PORTA/ | grep -q 200 && break; sleep 1; done

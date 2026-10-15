@@ -1385,6 +1385,14 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Agendamento>> AgendamentosComAtendimentoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
+    /// <summary>
+    /// Há ENTRADA não cancelada para esta guia (pelo código) ou para esta sessão (pelo
+    /// atendimento)? É a guarda contra a segunda receita do mesmo fato — dois cliques, ou
+    /// duas máquinas conciliando o mesmo mês (out/2026).
+    /// </summary>
+    Task<bool> ExisteEntradaVivaAsync(
+        int? codigoFaturamentoId, int? atendimentoId, CancellationToken ct = default);
+
     /// <summary>Entradas realizadas ligadas a uma lista de atendimentos (base do repasse).</summary>
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);

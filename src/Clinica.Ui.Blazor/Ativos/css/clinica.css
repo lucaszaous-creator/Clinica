@@ -296,6 +296,7 @@ td .selo{margin-left:0}
 .modal.pequeno{max-width:440px}
 .modal.grande{max-width:760px}
 .modal.largo{max-width:960px}
+.modal:focus{outline:none} /* o foco programático da abertura; os campos de dentro mantêm o anel */
 .modal-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);
   padding:var(--space-6) var(--space-6) var(--space-4)}
 .modal-topo h2{margin:0;font-size:18px;font-weight:700}

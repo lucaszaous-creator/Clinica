@@ -115,7 +115,7 @@
                                         <div class="campo-dinheiro"><span>R$</span><input class="campo valor" inputmode="decimal" aria-label="Valor recebido de @l.Guia.Paciente"
                                                value="@l.Valor" @oninput="@(e => { l.Valor = e.Value?.ToString() ?? ""; l.Retencao = null; })" /></div>
                                         <button type="button" class="botao mini" title="Calcular a retenção na fonte deste valor" @onclick="() => PreverAsync(l)">Reter?</button>
-                                        <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => LancarAsync(l)"><Icone Nome="check" />Lançar</button>
+                                        <button type="button" class="botao mini primario" disabled="@(!PodeEditar || l.Gravando)" @onclick="() => LancarAsync(l)"><Icone Nome="check" />Lançar</button>
                                     </div>
                                     @if (l.Procedencia is not null) { <span class="nota-linha">@l.Procedencia</span> }
                                     @if (l.Retencao is not null) { <span class="nota-linha retencao">@l.Retencao</span> }
@@ -252,7 +252,7 @@
                                                     @foreach (var f in ConciliacaoNaTela.FormasDoParticular) { <option value="@f">@RotulosEnum.De(f)</option> }
                                                 </select>
                                             }
-                                            <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => LancarSessaoAsync(p)"><Icone Nome="check" />Lançar</button>
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeEditar || p.Gravando)" @onclick="() => LancarSessaoAsync(p)"><Icone Nome="check" />Lançar</button>
                                         </div>
                                         @if (p.Procedencia is not null) { <span class="nota-linha">@p.Procedencia</span> }
                                     </td>
@@ -279,6 +279,8 @@
         public string Valor { get; set; } = string.Empty;
         public string? Procedencia { get; init; }
         public string? Retencao { get; set; }
+        // O segundo clique durante a gravação viraria uma SEGUNDA receita da mesma guia.
+        public bool Gravando { get; set; }
     }
 
     /// <summary>Sessão particular sem dinheiro — carrega a decisão que o balcão não tomou no dia.</summary>
@@ -290,6 +292,8 @@
         public FormaPagamento? Forma { get; set; } = ConciliacaoNaTela.FormaPadrao;
         public bool AReceber { get; set; }
         public DateOnly? Vencimento { get; set; } = ConciliacaoNaTela.VencimentoPadrao(DateOnly.FromDateTime(DateTime.Today));
+        // O segundo clique durante a gravação viraria uma SEGUNDA receita da mesma sessão.
+        public bool Gravando { get; set; }
     }
 
     private Aba _aba = Aba.Guias;
@@ -471,9 +475,11 @@
     /// <summary>Lança a receita da guia com o valor da linha — bruto no valor, retenção ao lado.</summary>
     private async Task LancarAsync(LinhaGuia l)
     {
+        if (l.Gravando) return;
         if (!Exigir(Permissao.EditarFinanceiro, "lançar receita no caixa")) return;
         if (ConciliacaoNaTela.LerValor(l.Valor, out var valor) is { } erro) { Notificacoes.Erro(erro); return; }
 
+        l.Gravando = true;
         try
         {
             // Guia recusada pelo convênio ainda pode virar receita — mas a clínica decide SABENDO.
@@ -497,6 +503,7 @@
             Clinica.Application.Diagnostico.Registrar("Blazor — receita da guia não pôde ser lançada", ex);
             Notificacoes.Erro(ex.Message);
         }
+        finally { l.Gravando = false; }
     }
 
     /// <summary>
@@ -534,6 +541,7 @@
     /// <summary>Registra o dinheiro de uma sessão particular — recebido, ou a receber com vencimento.</summary>
     private async Task LancarSessaoAsync(LinhaParticular p)
     {
+        if (p.Gravando) return;
         // O mesmo bit do Lançar das guias: é entrar dinheiro (ou dívida) no caixa.
         if (!Exigir(Permissao.EditarFinanceiro, "lançar receita no caixa")) return;
         var vencimento = p.AReceber ? p.Vencimento : null;
@@ -543,6 +551,7 @@
             return;
         }
 
+        p.Gravando = true;
         try
         {
             using (var escopo = Escopo())
@@ -563,5 +572,6 @@
             Clinica.Application.Diagnostico.Registrar("Blazor — receita da sessão particular não pôde ser lançada", ex);
             Notificacoes.Erro(ex.Message);
         }
+        finally { p.Gravando = false; }
     }
 }
