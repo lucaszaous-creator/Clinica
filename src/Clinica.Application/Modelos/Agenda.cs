@@ -81,6 +81,9 @@ public sealed record ResumoDiaRecepcao(
     int NaListaDeEspera,
     IReadOnlyList<OcupacaoProfissional> Ocupacao)
 {
+    /// <summary>IDs da mesma leitura do resumo, reutilizados nas pendências desta carga.</summary>
+    public IReadOnlyCollection<int> PacientesDoDia { get; init; } = [];
+
     /// <summary>Taxa de falta do dia, em % dos horários que chegaram ao fim (atendidos + faltas).</summary>
     public int TaxaFaltaPercentual
     {

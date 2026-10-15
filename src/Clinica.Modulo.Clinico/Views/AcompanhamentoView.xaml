@@ -19,14 +19,14 @@
          TabControl é o implícito do design system — o mesmo das abas do Atendimento. -->
     <TabControl SelectedIndex="{Binding SubAbaAcompanhamento}"
                 Background="Transparent" BorderThickness="0">
-        <TabItem Header="Evolução da dor">
-            <views:EvolucaoDorView DataContext="{Binding Dor}" />
+        <TabItem Content="{Binding}" Header="Evolução da dor">
+            <TabItem.ContentTemplate><DataTemplate><views:EvolucaoDorView DataContext="{Binding Dor}" /></DataTemplate></TabItem.ContentTemplate>
         </TabItem>
-        <TabItem Header="Medidas">
-            <views:MedidasView DataContext="{Binding Medidas}" />
+        <TabItem Content="{Binding}" Header="Medidas">
+            <TabItem.ContentTemplate><DataTemplate><views:MedidasView DataContext="{Binding Medidas}" /></DataTemplate></TabItem.ContentTemplate>
         </TabItem>
-        <TabItem Header="Avaliações">
-            <views:AvaliacoesView DataContext="{Binding Avaliacoes}" />
+        <TabItem Content="{Binding}" Header="Avaliações">
+            <TabItem.ContentTemplate><DataTemplate><views:AvaliacoesView DataContext="{Binding Avaliacoes}" /></DataTemplate></TabItem.ContentTemplate>
         </TabItem>
     </TabControl>
 </UserControl>

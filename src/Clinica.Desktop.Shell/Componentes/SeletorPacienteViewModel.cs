@@ -47,6 +47,40 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     public int? Limite { get; }
     public Func<string?, CancellationToken, Task<IReadOnlyList<Paciente>>>? ConsultaPersonalizada { get; set; }
 
+    /// <summary>Listas extensas pedem uma página e uma linha extra, nunca o cadastro inteiro.</summary>
+    public int TamanhoPagina { get; init; }
+    public Func<string?, int, int, CancellationToken, Task<IReadOnlyList<Paciente>>>? ConsultaPagina { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResumoPagina))]
+    [NotifyPropertyChangedFor(nameof(PodePaginaAnterior))]
+    private int _paginaAtual = 1;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodeProximaPagina))]
+    private bool _temProximaPagina;
+
+    [ObservableProperty] private bool _mostrandoPaginacao;
+
+    public void CancelarBusca()
+    {
+        _cts?.Cancel();
+        Buscando = false;
+        MostrandoPaginacao = false;
+        TemProximaPagina = false;
+        PaginaAtual = 1;
+    }
+
+    public bool PodePaginaAnterior => PaginaAtual > 1 && !Buscando;
+    public bool PodeProximaPagina => TemProximaPagina && !Buscando;
+    public string ResumoPagina => $"Página {PaginaAtual} · até {TamanhoPagina} pacientes por página";
+
+    [RelayCommand]
+    private Task ProximaPaginaAsync() => PodeProximaPagina ? BuscarAsync(true, PaginaAtual) : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task PaginaAnteriorAsync() => PodePaginaAnterior ? BuscarAsync(true, PaginaAtual - 2) : Task.CompletedTask;
+
     /// <summary>Refino opcional em memória sobre o que veio do banco (filtro, ordenação alternativa).</summary>
     public Func<IReadOnlyList<Paciente>, IEnumerable<Paciente>>? Refinar { get; set; }
 
@@ -286,7 +320,10 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SugestaoNaTela))]
     private string? _termo;
     [ObservableProperty] private Paciente? _selecionado;
-    [ObservableProperty] private bool _buscando;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodePaginaAnterior))]
+    [NotifyPropertyChangedFor(nameof(PodeProximaPagina))]
+    private bool _buscando;
 
     /// <summary>Trava a escolha (remarcação: mover o horário não troca de pessoa).</summary>
     [ObservableProperty]
@@ -352,7 +389,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// falso espera <see cref="AtrasoDigitacaoMs"/> — se outra tecla chegar nesse meio-tempo,
     /// esta busca é cancelada antes de sair da máquina.
     /// </summary>
-    public async Task BuscarAsync(bool imediato = false)
+    public async Task BuscarAsync(bool imediato = false, int pagina = 0)
     {
         var atual = new CancellationTokenSource();
         var anterior = _cts;
@@ -360,6 +397,8 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
         anterior?.Cancel();
 
         var ct = atual.Token;
+        Buscando = true;
+        TemProximaPagina = false;
         try
         {
             if (!imediato) await Task.Delay(AtrasoDigitacaoMs, ct);
@@ -376,6 +415,8 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
 
             if (!BuscaDePaciente.Consulta(modo))
             {
+                MostrandoPaginacao = false;
+                PaginaAtual = 1;
                 _termoDosResultados = termoConsultado;
                 _modoDosResultados = modo;
                 Resultados.Clear();
@@ -404,13 +445,25 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
             {
                 using var scope = _scopeFactory.CreateScope();
                 var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-                encontrados = ConsultaPersonalizada is null
+                encontrados = TamanhoPagina > 0
+                    ? ConsultaPagina is null
+                        ? await service.BuscarPaginaAsync(Termo, pagina * TamanhoPagina, TamanhoPagina + 1, ct: ct)
+                        : await ConsultaPagina(Termo, pagina * TamanhoPagina, TamanhoPagina + 1, ct)
+                    : ConsultaPersonalizada is null
                     ? await service.BuscarAsync(Termo, Limite, ct)
                     : await ConsultaPersonalizada(Termo, ct);
             }
 
             // Resposta fora de ordem: só a busca mais recente pode escrever na lista.
             if (ct.IsCancellationRequested) return;
+
+            if (TamanhoPagina > 0 && !usandoSugestao)
+            {
+                TemProximaPagina = encontrados.Count > TamanhoPagina;
+                encontrados = encontrados.Take(TamanhoPagina).ToList();
+            }
+            PaginaAtual = pagina + 1;
+            MostrandoPaginacao = TamanhoPagina > 0 && !usandoSugestao;
 
             // ⚠️ O `Refinar` NÃO se aplica à sugestão: ele é o refino de um RESULTADO DE
             // BUSCA (filtrar quem já está na fila, reordenar por última sessão), e quem
@@ -438,6 +491,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (ct.IsCancellationRequested) return;
             if (ct.IsCancellationRequested) return;
             Clinica.Application.Diagnostico.Registrar("Suíte — busca de pacientes falhou", ex);
             Erro = $"Não foi possível buscar pacientes: {ex.Message}";

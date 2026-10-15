@@ -35,6 +35,17 @@ namespace Clinica.Tests;
 /// </summary>
 public class TraducaoNoNpgsqlTests
 {
+    [Theory]
+    [InlineData(FiltroListaPacientes.Todos)]
+    [InlineData(FiltroListaPacientes.EmTratamento)]
+    [InlineData(FiltroListaPacientes.CadastroIncompleto)]
+    public void Busca_paginada_traduz_filtros_antes_do_limite(FiltroListaPacientes filtro)
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaPaginaPacientes("123", 100, 101, filtro).ToQueryString();
+        sql.Should().Contain("LIMIT").And.Contain("OFFSET").And.Contain("ORDER BY").And.Contain("WHERE");
+        if (filtro == FiltroListaPacientes.EmTratamento) sql.Should().Contain("EXISTS");
+    }
     [Fact]
     public void Ocupacao_traduz_duracao_e_filtro_no_Postgres()
     {

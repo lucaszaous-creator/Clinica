@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Windows.Data;
 using System.Windows.Threading;
 using Clinica.Application.Modelos;
@@ -130,7 +130,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     /// aferiu vinte minutos antes, e quem infunde precisa da conduta da consulta de hoje —
     /// é a metade XY da parcela 72.
     /// </summary>
-    public AtendimentoEnfermagemViewModel Enfermagem { get; }
+    private readonly Lazy<AtendimentoEnfermagemViewModel> _secaoEnfermagem;
+    public AtendimentoEnfermagemViewModel Enfermagem => _secaoEnfermagem.Value;
 
     /// <summary>
     /// A ANAMNESE do paciente (parcela 75) — o que se pergunta uma vez e se revisa.
@@ -139,19 +140,23 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     /// atende pela primeira vez precisa dos antecedentes na frente, e quem atende pela
     /// vigésima confere se algo mudou.
     /// </summary>
-    public AnamneseViewModel Anamnese { get; }
+    private readonly Lazy<AnamneseViewModel> _secaoAnamnese;
+    public AnamneseViewModel Anamnese => _secaoAnamnese.Value;
 
     /// <summary>
     /// A CAPA: quem é, o que ela tem e o que está assinado em nome dela. É a tela nova do
     /// redesenho, e a única do Consultório que lê o cadastro — em leitura, porque editar
     /// contato e convênio continua sendo do balcão.
     /// </summary>
-    public PacienteCapaViewModel Capa { get; }
-    public IFichaAdministrativaPaciente? Administrativo { get; }
+    private readonly Lazy<PacienteCapaViewModel> _secaoCapa;
+    public PacienteCapaViewModel Capa => _secaoCapa.Value;
+    private readonly Lazy<IFichaAdministrativaPaciente?> _administrativo;
+    public IFichaAdministrativaPaciente? Administrativo => _administrativo.Value;
     public bool PodeVerAdministrativo => Capa.PodeVerFicha && Administrativo is not null;
     public Action? VoltarParaOrigem { get; init; }
 
-    public ProntuarioClinicoViewModel Prontuario { get; }
+    private readonly Lazy<ProntuarioClinicoViewModel> _secaoProntuario;
+    public ProntuarioClinicoViewModel Prontuario => _secaoProntuario.Value;
 
     /// <summary>
     /// Receita, atestado, comparecimento e pedido de exame — DENTRO do paciente
@@ -164,8 +169,10 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     /// eletrônico de verdade. O item de menu CONTINUA existindo: quem entra pela sidebar
     /// escolhe o paciente ali, como sempre fez.
     /// </summary>
-    public PrescricoesClinicasViewModel Prescricoes { get; }
-    public PrescricaoInfusaoViewModel Infusoes { get; }
+    private readonly Lazy<PrescricoesClinicasViewModel> _secaoPrescricoes;
+    public PrescricoesClinicasViewModel Prescricoes => _secaoPrescricoes.Value;
+    private readonly Lazy<PrescricaoInfusaoViewModel> _secaoInfusoes;
+    public PrescricaoInfusaoViewModel Infusoes => _secaoInfusoes.Value;
     [ObservableProperty] private int _subAbaDocumentos;
 
     [RelayCommand]
@@ -211,11 +218,15 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     }
 
     /// <summary>Exames e laudos do PACIENTE, não da sessão. Ver a ViewModel.</summary>
-    public AnexosPacienteViewModel Anexos { get; }
+    private readonly Lazy<AnexosPacienteViewModel> _secaoAnexos;
+    public AnexosPacienteViewModel Anexos => _secaoAnexos.Value;
 
-    public EvolucaoDorViewModel Dor { get; }
-    public MedidasViewModel Medidas { get; }
-    public AvaliacoesViewModel Avaliacoes { get; }
+    private readonly Lazy<EvolucaoDorViewModel> _secaoDor;
+    public EvolucaoDorViewModel Dor => _secaoDor.Value;
+    private readonly Lazy<MedidasViewModel> _secaoMedidas;
+    public MedidasViewModel Medidas => _secaoMedidas.Value;
+    private readonly Lazy<AvaliacoesViewModel> _secaoAvaliacoes;
+    public AvaliacoesViewModel Avaliacoes => _secaoAvaliacoes.Value;
 
     /// <summary>
     /// A aba de dentro de "Acompanhamento" (parcela 95): 0 dor · 1 medidas · 2 avaliações.
@@ -351,34 +362,31 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         _escopos = servicos.GetRequiredService<IServiceScopeFactory>();
         _dialogo = servicos.GetRequiredService<IDialogoService>();
 
-        // As seções são construídas juntas de propósito. Elas falam da MESMA pessoa,
-        // e trocar de aba é folhear o prontuário dela — se cada aba fosse carregada no
-        // primeiro clique, folhear custaria uma ida ao banco por página, justamente no
-        // momento em que se está com o paciente na frente.
+        // A seção só consulta quando sua view for aberta. A instância pertence a este
+        // paciente e permanece viva ao trocar de aba, preservando editores e rascunhos.
         var focoClinico = SessaoUsuario.Atual.Pode(Permissao.VerProntuario) ? foco : new PacienteEmFoco();
         Atendimento = ActivatorUtilities.CreateInstance<AtendimentoViewModel>(servicos, focoClinico);
-        Enfermagem = ActivatorUtilities.CreateInstance<AtendimentoEnfermagemViewModel>(servicos, focoClinico);
-        Anamnese = ActivatorUtilities.CreateInstance<AnamneseViewModel>(servicos, focoClinico);
-        Capa = ActivatorUtilities.CreateInstance<PacienteCapaViewModel>(servicos, foco);
-        Prontuario = ActivatorUtilities.CreateInstance<ProntuarioClinicoViewModel>(servicos, focoClinico);
-        Prescricoes = ActivatorUtilities.CreateInstance<PrescricoesClinicasViewModel>(servicos, focoClinico);
-        if (Capa.PodeVerFicha)
+        _secaoEnfermagem = new(() => ActivatorUtilities.CreateInstance<AtendimentoEnfermagemViewModel>(servicos, focoClinico));
+        _secaoAnamnese = new(() => ActivatorUtilities.CreateInstance<AnamneseViewModel>(servicos, focoClinico));
+        _secaoCapa = new(() => ActivatorUtilities.CreateInstance<PacienteCapaViewModel>(servicos, foco));
+        _secaoProntuario = new(() => ActivatorUtilities.CreateInstance<ProntuarioClinicoViewModel>(servicos, focoClinico));
+        _secaoPrescricoes = new(() => { var vm = ActivatorUtilities.CreateInstance<PrescricoesClinicasViewModel>(servicos, focoClinico); vm.MostrarCabecalho = false; vm.AbrirInfusaoNoPaciente = () => SubAbaDocumentos = 1; return vm; });
+        _administrativo = new(() =>
         {
-            Administrativo = servicos.GetService<IFichaAdministrativaPaciente>();
-            if (Administrativo is not null) Administrativo.Alterou += () => _ = AtualizarCadastroAsync();
-            if (foco.PacienteId is { } pacienteId) Administrativo?.DefinirPaciente(pacienteId);
-        }
+            if (!SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente)) return null;
+            var vm = servicos.GetService<IFichaAdministrativaPaciente>();
+            if (vm is not null) vm.Alterou += () => _ = AtualizarCadastroAsync();
+            if (foco.PacienteId is { } pacienteId) vm?.DefinirPaciente(pacienteId);
+            return vm;
+        });
         // Dentro do paciente ela não desenha o próprio cabeçalho: o nome já está no
         // crachá, uma vez, e o seletor de busca dela trocaria o paciente do posto por
         // baixo desta tela — o mestre-detalhe que o workspace existe para acabar.
-        Prescricoes.MostrarCabecalho = false;
-        Prescricoes.AbrirInfusaoNoPaciente = () => SubAbaDocumentos = 1;
-        Infusoes = ActivatorUtilities.CreateInstance<PrescricaoInfusaoViewModel>(servicos, focoClinico);
-        Infusoes.MostrarCabecalho = false;
-        Anexos = ActivatorUtilities.CreateInstance<AnexosPacienteViewModel>(servicos, focoClinico);
-        Dor = ActivatorUtilities.CreateInstance<EvolucaoDorViewModel>(servicos, focoClinico);
-        Medidas = ActivatorUtilities.CreateInstance<MedidasViewModel>(servicos, focoClinico);
-        Avaliacoes = ActivatorUtilities.CreateInstance<AvaliacoesViewModel>(servicos, focoClinico);
+        _secaoInfusoes = new(() => { var vm = ActivatorUtilities.CreateInstance<PrescricaoInfusaoViewModel>(servicos, focoClinico); vm.MostrarCabecalho = false; return vm; });
+        _secaoAnexos = new(() => ActivatorUtilities.CreateInstance<AnexosPacienteViewModel>(servicos, focoClinico));
+        _secaoDor = new(() => ActivatorUtilities.CreateInstance<EvolucaoDorViewModel>(servicos, focoClinico));
+        _secaoMedidas = new(() => ActivatorUtilities.CreateInstance<MedidasViewModel>(servicos, focoClinico));
+        _secaoAvaliacoes = new(() => ActivatorUtilities.CreateInstance<AvaliacoesViewModel>(servicos, focoClinico));
 
         SemPaciente = !_foco.Definido;
         Paciente = _foco.Nome;
@@ -453,8 +461,27 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     [RelayCommand]
     public async Task AtualizarDocumentosAsync()
     {
-        await Prescricoes.CarregarAsync();
-        await Infusoes.CarregarAsync();
+        // Atualização explícita da aba visível; abrir a outra inicia sua própria carga.
+        if (SubAbaDocumentos == 1)
+        {
+            if (_secaoInfusoes.IsValueCreated) await Infusoes.CarregarAsync();
+            else _ = Infusoes;
+        }
+        else
+        {
+            if (_secaoPrescricoes.IsValueCreated) await Prescricoes.CarregarAsync();
+            else _ = Prescricoes;
+        }
+    }
+
+    private bool _documentosExibidos;
+    public Task AoExibirDocumentosAsync()
+    {
+        // Na primeira exibição o construtor da seção já inicia a leitura.
+        // Ao voltar, atualiza para incluir documentos emitidos no atendimento.
+        if (_documentosExibidos) return AtualizarDocumentosAsync();
+        _documentosExibidos = true;
+        return Task.CompletedTask;
     }
 
     /// <summary>Atualiza somente dados cadastrais; mantém os editores clínicos e seus rascunhos.</summary>
@@ -725,7 +752,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         // O que não pode é sumir CALADA: quem digitou e não clicou em Registrar perde o
         // que escreveu ao trocar de tela, e o registro refeito de memória é o que este
         // módulo existe para evitar. Então a tela PERGUNTA, com a consequência escrita.
-        if (!Enfermagem.PassagemEmBranco
+        if (_secaoEnfermagem.IsValueCreated && !Enfermagem.PassagemEmBranco
             && !_dialogo.Confirmar(
                 "Há uma passagem de enfermagem não registrada",
                 "Você escreveu uma passagem de enfermagem e ainda não clicou em "

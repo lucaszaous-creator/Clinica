@@ -180,6 +180,11 @@ public sealed class InadimplenciaService
     public async Task<ResumoInadimplencia> ResumoAsync(DateOnly hoje, CancellationToken ct = default)
     {
         var devedores = await PorPacienteAsync(hoje, ct: ct);
+        return Resumir(devedores);
+    }
+
+    public static ResumoInadimplencia Resumir(IReadOnlyList<PacienteInadimplente> devedores)
+    {
         if (devedores.Count == 0)
             return new ResumoInadimplencia(0m, 0, 0, []);
 

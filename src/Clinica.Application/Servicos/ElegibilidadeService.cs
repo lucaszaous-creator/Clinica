@@ -98,9 +98,9 @@ public sealed class ElegibilidadeService
         await ConferirSessaoSemReceitaAsync(pacienteId, referencia, alertas, ct);
         await ConferirGlosaAsync(pacienteId, referencia, alertas, ct);
         await ConferirPacoteAsync(pacienteId, referencia, alertas, ct);
-        await ConferirTermoAsync(pacienteId, referencia, alertas, ct);
+        var termos = await ConferirTermoAsync(pacienteId, referencia, alertas, ct);
 
-        return new Elegibilidade(pacienteId, paciente.Nome, alertas);
+        return new Elegibilidade(pacienteId, paciente.Nome, alertas) { TermosDoDia = termos };
     }
 
     /// <summary>
@@ -111,13 +111,13 @@ public sealed class ElegibilidadeService
     /// com o pacote, e a alternativa — escrever a conferência na tela que o cliente
     /// apontou — deixaria as outras três portas passando.
     /// </summary>
-    private async Task ConferirTermoAsync(
+    private async Task<IReadOnlyList<SituacaoTermo>?> ConferirTermoAsync(
         int pacienteId, DateOnly referencia, List<AlertaElegibilidade> alertas,
         CancellationToken ct)
     {
         // Opcional pela mesma razão do Financeiro e do pacote: este serviço tem de
         // continuar construível sem o módulo que trouxe a feature.
-        if (_termos is null) return;
+        if (_termos is null) return null;
 
         // ⚠️ SÓ para HOJE. A conferência é chamada também com data FUTURA — o formulário de
         // agendamento pergunta pela data marcada, para avisar o que se resolve com o
@@ -126,7 +126,7 @@ public sealed class ElegibilidadeService
         // atender: quem marcasse um BSV para o mês que vem veria vermelho sem ter o que
         // fazer. Alerta que dispara para todo mundo é alerta que ninguém lê — e este
         // ensinaria a ignorar justamente o que aparece no dia certo.
-        if (referencia != DateOnly.FromDateTime(DateTime.Today)) return;
+        if (referencia != DateOnly.FromDateTime(DateTime.Today)) return null;
 
         var situacoes = await _termos.SituacaoDoDiaAsync(pacienteId, referencia, ct);
 
@@ -163,6 +163,7 @@ public sealed class ElegibilidadeService
                 NivelUrgencia.Vermelho,
                 $"No termo \"{s.NomeDoTermo}\" o paciente respondeu NÃO em: "
                 + $"{string.Join("; ", s.DeclaracoesNegadas)}."));
+        return situacoes;
     }
 
     /// <summary>

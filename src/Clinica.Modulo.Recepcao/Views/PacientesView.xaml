@@ -76,7 +76,7 @@
                 <Button Grid.Column="2" Content="Ver todos" VerticalAlignment="Center"
                         Margin="0,0,8,0" MinWidth="110"
                         Command="{Binding Seletor.DesligarSugestaoCommand}"
-                        ToolTip="Traz o cadastro inteiro, em ordem de nome. São 2 mil e poucas fichas — por isso ele não vem sozinho.">
+                        ToolTip="Consulte o cadastro em páginas de 100 pacientes, em ordem de nome.">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
                             <Style.Triggers>
@@ -96,6 +96,15 @@
             <TextBlock DockPanel.Dock="Top" Text="{Binding Seletor.Erro}"
                        Style="{StaticResource TextoSuave}"
                        Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8" />
+
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,12,0,0"
+                        Visibility="{Binding Seletor.AlgoFoiPedido, Converter={StaticResource BoolParaVisibilidade}}">
+                <Button Content="Anterior" Command="{Binding Seletor.PaginaAnteriorCommand}"
+                        IsEnabled="{Binding Seletor.PodePaginaAnterior}" Style="{StaticResource BotaoSecundario}" />
+                <TextBlock Text="{Binding Seletor.ResumoPagina}" Margin="12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Button Content="Próxima" Command="{Binding Seletor.ProximaPaginaCommand}"
+                        IsEnabled="{Binding Seletor.PodeProximaPagina}" Style="{StaticResource BotaoSecundario}" />
+            </StackPanel>
 
             <!-- UMA superfície para a região inteira da lista, e a separação entre as
                  linhas por espaço — não uma moldura por paciente.

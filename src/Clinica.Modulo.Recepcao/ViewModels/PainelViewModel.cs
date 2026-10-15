@@ -204,6 +204,7 @@ public sealed partial class PainelViewModel : ObservableObject
         var geracao = ++_geracaoCarga;
 
         var dia = DateOnly.FromDateTime(Dia);
+        IReadOnlyCollection<int>? pacientesDoDia = null;
         try
         {
             if (!silencioso)
@@ -219,6 +220,7 @@ public sealed partial class PainelViewModel : ObservableObject
             var painel = escopo.ServiceProvider.GetRequiredService<PainelRecepcaoService>();
 
             var resumo = await painel.ResumoAsync(dia);
+            pacientesDoDia = resumo.PacientesDoDia;
 
             // O delta só existe em dia ENCERRADO (ver o comentário das Variacao*), e a
             // leitura do dia-base é SEQUENCIAL — mesmo repositório do escopo.
@@ -252,7 +254,7 @@ public sealed partial class PainelViewModel : ObservableObject
             if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
 
-        await CarregarPendenciasAsync(dia, geracao, silencioso);
+        await CarregarPendenciasAsync(dia, geracao, silencioso, pacientesDoDia);
         await CarregarAniversariantesAsync(dia, geracao, silencioso);
     }
 
@@ -419,14 +421,17 @@ public sealed partial class PainelViewModel : ObservableObject
     /// Guias pendentes dos pacientes do dia. Isolada do resto de propósito: se ela
     /// falhar, o painel continua mostrando o dia — e diz que não conseguiu conferir.
     /// </summary>
-    private async Task CarregarPendenciasAsync(DateOnly dia, int geracao, bool silencioso = false)
+    private async Task CarregarPendenciasAsync(DateOnly dia, int geracao, bool silencioso = false,
+        IReadOnlyCollection<int>? pacientesDoDia = null)
     {
         try
         {
             using var escopoPendencias = _escopos.CreateScope();
-            var pendencias = await escopoPendencias.ServiceProvider
-                .GetRequiredService<PainelRecepcaoService>()
-                .PendenciasDoDiaAsync(dia);
+            var painel = escopoPendencias.ServiceProvider.GetRequiredService<PainelRecepcaoService>();
+            // Se o resumo falhou, a leitura independente das pendências continua disponível.
+            var pendencias = pacientesDoDia is null
+                ? await painel.PendenciasDoDiaAsync(dia)
+                : await painel.PendenciasDosPacientesAsync(dia, pacientesDoDia);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

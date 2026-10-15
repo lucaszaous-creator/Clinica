@@ -10,8 +10,8 @@
                        Style="{StaticResource TextoSuave}" VerticalAlignment="Center" />
         </DockPanel>
         <TabControl SelectedIndex="{Binding SubAbaDocumentos}" Background="Transparent" BorderThickness="0">
-            <TabItem Header="Receitas e documentos"><views:PrescricoesClinicasView DataContext="{Binding Prescricoes}" /></TabItem>
-            <TabItem Header="Infusões"><views:PrescricaoInfusaoView DataContext="{Binding Infusoes}" /></TabItem>
+            <TabItem Content="{Binding}" Header="Receitas e documentos"><TabItem.ContentTemplate><DataTemplate><views:PrescricoesClinicasView DataContext="{Binding Prescricoes}" /></DataTemplate></TabItem.ContentTemplate></TabItem>
+            <TabItem Content="{Binding}" Header="Infusões"><TabItem.ContentTemplate><DataTemplate><views:PrescricaoInfusaoView DataContext="{Binding Infusoes}" /></DataTemplate></TabItem.ContentTemplate></TabItem>
         </TabControl>
     </DockPanel>
 </UserControl>

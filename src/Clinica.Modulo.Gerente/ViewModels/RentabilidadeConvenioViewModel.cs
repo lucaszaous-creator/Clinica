@@ -127,7 +127,7 @@ public sealed partial class RentabilidadeConvenioViewModel : ObservableObject
             Periodo = $"{inicio:MM/yyyy} a {fim:MM/yyyy}";
 
             var porConvenio = await servico.PorConvenioAsync(inicio, fim);
-            var r = await servico.ResumoAsync(inicio, fim);
+            var r = RentabilidadeConvenioService.Resumir(porConvenio);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

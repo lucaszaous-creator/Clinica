@@ -1,4 +1,5 @@
 using Clinica.Domain.Entities;
+using Clinica.Application.Servicos;
 
 namespace Clinica.Application.Modelos;
 
@@ -248,6 +249,9 @@ public sealed record Elegibilidade(
     string PacienteNome,
     IReadOnlyList<AlertaElegibilidade> Alertas)
 {
+    /// <summary>Termos já conferidos nesta carga; nulo quando essa conferência não se aplica.</summary>
+    public IReadOnlyList<SituacaoTermo>? TermosDoDia { get; init; }
+
     /// <summary>Nada impede nem preocupa.</summary>
     public bool Liberado => Alertas.Count == 0;
 

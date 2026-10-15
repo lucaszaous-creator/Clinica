@@ -655,6 +655,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     private async Task CarregarSaiuHojeAsync()
     {
         var doDia = DateOnly.FromDateTime(Data);
+        var geracao = _geracaoCarga;
 
         // ⚠️ Descarte de resposta fora de ordem (parcela 60), e aqui ele não é otimização:
         // trocar de paciente enquanto esta leitura está no ar poria os PAPÉIS de quem já
@@ -670,7 +671,8 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             var todos = await documentos.DoPacienteAsync(doPaciente);
 
             // Chegou tarde: o posto já está em outro paciente.
-            if (doPaciente != PacienteId) return;
+            if (doPaciente != PacienteId || geracao != _geracaoCarga
+                || doDia != DateOnly.FromDateTime(Data)) return;
 
             // Entre o Clear() e o último Add não pode haver await (parcela 62).
             var linhas = todos
@@ -684,7 +686,8 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         }
         catch (Exception ex)
         {
-            if (doPaciente != PacienteId) return;
+            if (doPaciente != PacienteId || geracao != _geracaoCarga
+                || doDia != DateOnly.FromDateTime(Data)) return;
 
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — documentos do dia não puderam ser lidos", ex);
@@ -1010,44 +1013,31 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 
             ContextoDaUltimaSessao = ResumoSessaoAnterior.ContextoDaUltima(Anteriores.FirstOrDefault());
 
-            await CarregarAlertasAsync(scope.ServiceProvider, geracao);
-            if (geracao != _geracaoCarga) return;
-
-            // A data é a da SESSÃO que está na tela, nunca hoje: a dívida de prontuário e a
-            // Minha semana abrem horários de dias passados, e a aferição de hoje ao lado da
-            // sessão de terça diria que aquela PA foi medida nesta consulta.
-            await CarregarSinaisVitaisAsync(
-                scope.ServiceProvider,
-                doHorario?.Data ?? _foco.DataDoHorario ?? DateOnly.FromDateTime(DateTime.Today),
-                geracao);
-            if (geracao != _geracaoCarga) return;
-
             // O mapa vem depois de resolvida a evolução do horário: ele precisa saber
             // se está editando uma sessão já escrita (e então carrega os pontos dela) ou
             // começando uma nova.
             var mapa = new MapaCorporalViewModel(
                 _escopos, PacienteId, EvolucaoId == 0 ? null : EvolucaoId, DateOnly.FromDateTime(Data));
-            await mapa.CarregarAsync();
-            if (geracao != _geracaoCarga) return;
-            Mapa = mapa;
 
             // A coluna de papéis, com o que a sessão já sabe. Depois do `Preencher`, que é
             // quem põe o CID e a hipótese na tela.
             MontarEntregar();
 
-            // Sequencial, como todo o resto desta carga: leitura composta em paralelo
-            // sobre o mesmo repositório é o defeito que o SQLite dos testes esconde
-            // (parcela 74), e aqui não há nada a ganhar em antecipá-la.
-            await CarregarSaiuHojeAsync();
-            if (geracao != _geracaoCarga) return;
-
-            var dor = await prontuario.EvolucaoDaDorAsync(PacienteId);
+            var dor = ProntuarioService.CalcularEvolucaoDaDor(sessoes);
             if (geracao != _geracaoCarga) return;
             ResumoDor = dor.SessoesComMedida == 0
                 ? "Nenhuma sessão com o par EVA (antes e depois) ainda."
                 : $"Começou em {dor.DorInicial}/10 e está em {dor.DorAtual}/10 — "
                   + $"{dor.SessoesComMedida} sessão(ões) medidas, alívio médio de "
                   + $"{dor.AlivioMedioPorSessao:0.#} por sessão.";
+
+            // Dois grupos independentes: o apoio abre OUTRO DbContext. Cada grupo
+            // continua sequencial internamente; aguardamos ambos antes de liberar scopes.
+            // A data é a da sessão, inclusive quando o médico abre um dia anterior.
+            await Task.WhenAll(
+                CarregarAlertasAsync(scope.ServiceProvider, geracao),
+                CarregarApoioAsync(mapa, PacienteId,
+                    doHorario?.Data ?? _foco.DataDoHorario ?? DateOnly.FromDateTime(DateTime.Today), geracao));
         }
         catch (Exception ex)
         {
@@ -1065,6 +1055,18 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         }
     }
 
+    private async Task CarregarApoioAsync(
+        MapaCorporalViewModel mapa, int pacienteId, DateOnly dataDaSessao, int geracao)
+    {
+        using var scope = _escopos.CreateScope();
+        await CarregarSinaisVitaisAsync(scope.ServiceProvider, pacienteId, dataDaSessao, geracao);
+        if (geracao != _geracaoCarga) return;
+        await mapa.CarregarAsync();
+        if (geracao != _geracaoCarga) return;
+        Mapa = mapa;
+        await CarregarSaiuHojeAsync();
+    }
+
     /// <summary>
     /// Lê os sinais vitais da enfermagem para o dia desta sessão.
     ///
@@ -1073,12 +1075,12 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     /// também não passa calada — vira o terceiro estado na tela, e vai para o log.
     /// </summary>
     private async Task CarregarSinaisVitaisAsync(
-        IServiceProvider provedor, DateOnly dataDaSessao, int geracao)
+        IServiceProvider provedor, int pacienteId, DateOnly dataDaSessao, int geracao)
     {
         try
         {
             var vitais = await provedor.GetRequiredService<ConsultorioService>()
-                .SinaisVitaisDaSessaoAsync(PacienteId, dataDaSessao);
+                .SinaisVitaisDaSessaoAsync(pacienteId, dataDaSessao);
 
             if (geracao != _geracaoCarga) return;
 
@@ -1115,6 +1117,8 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     /// </summary>
     private async Task CarregarAlertasAsync(IServiceProvider servicos, int geracao)
     {
+        var pacienteId = PacienteId;
+        var dataDaSessao = DateOnly.FromDateTime(Data);
         // As listas são montadas LOCALMENTE e só publicadas no fim, sob a guarda de
         // geração. Entre o `Clear()` e o último `Add` não pode haver await (a lição da
         // parcela 62): com três leituras no meio, trocar de paciente enquanto a primeira
@@ -1131,7 +1135,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         {
             var problemas = servicos.GetRequiredService<ProblemaPacienteService>();
 
-            var alertas = await problemas.AlertasAsync(PacienteId);
+            var alertas = await problemas.AlertasAsync(pacienteId);
             if (ProblemaPacienteService.ResumirAlergias(alertas) is { } resumoAlergias)
                 clinicos.Add(new LinhaAlertaClinico
                 {
@@ -1180,7 +1184,8 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         try
         {
             var enfermagem = servicos.GetRequiredService<EvolucaoEnfermagemService>();
-            var recentes = await enfermagem.DoPacienteAsync(PacienteId, limite: 30);
+            if (geracao != _geracaoCarga) return;
+            var recentes = await enfermagem.DoPacienteAsync(pacienteId, limite: 30);
 
             // Retificada não alerta: quem corrigiu já disse que o registro anterior estava
             // errado, e a correção entra sozinha se ela também marcar intercorrência.
@@ -1222,8 +1227,9 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         try
         {
             var elegibilidade = servicos.GetRequiredService<ElegibilidadeService>();
+            if (geracao != _geracaoCarga) return;
             var resposta = await elegibilidade.ConferirAsync(
-                PacienteId, DateOnly.FromDateTime(Data));
+                pacienteId, dataDaSessao);
 
             // A urgência viaja COM cada alerta, e não num sinalizador da tela inteira:
             // carteirinha vencida (vermelho) e dívida do paciente (amarelo) chegam juntas
@@ -1244,8 +1250,8 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             // Profissional e Enfermagem desde a 66 — o modelo de permissão previu esta
             // porta antes de ela existir.
             var termos = servicos.GetRequiredService<TermoProcedimentoService>();
-            var situacoes = await termos.SituacaoDoDiaAsync(
-                PacienteId, DateOnly.FromDateTime(Data));
+            var situacoes = resposta.TermosDoDia ?? await termos.SituacaoDoDiaAsync(
+                pacienteId, dataDaSessao);
 
             pendente = PendenciasDeTermo.Primeira(situacoes);
         }

@@ -643,6 +643,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default)
     {
+        var query = FiltrarPacientes(termo);
+        query = query.OrderBy(p => p.Nome).ThenBy(p => p.Id);
+        if (limite is > 0) query = query.Take(limite.Value);
+        return await query.ToListAsync(ct);
+    }
+
+    private IQueryable<Paciente> FiltrarPacientes(string? termo)
+    {
         var query = _db.Pacientes.AsQueryable();
         termo = Cpf.Normalizar(termo).Length > 0 ? termo!.Trim() : termo?.Trim();
 
@@ -655,12 +663,34 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 || (digitos.Length > 0 && p.Documento != null && p.Documento.Contains(digitos)));
         }
 
-        query = query.OrderBy(p => p.Nome);
-        // O corte vai para o SQL (LIMIT), não para um Take() depois de materializar a lista.
-        if (limite is > 0) query = query.Take(limite.Value);
-
-        return await query.ToListAsync(ct);
+        return query;
     }
+
+    public async Task<IReadOnlyList<Paciente>> BuscarPaginaPacientesAsync(string? termo, int ignorar, int quantidade,
+        FiltroListaPacientes filtro = FiltroListaPacientes.Todos, CancellationToken ct = default)
+        => await ConsultaPaginaPacientes(termo, ignorar, quantidade, filtro).ToListAsync(ct);
+
+    internal IQueryable<Paciente> ConsultaPaginaPacientes(string? termo, int ignorar, int quantidade,
+        FiltroListaPacientes filtro = FiltroListaPacientes.Todos)
+    {
+        if (ignorar < 0 || quantidade is < 1 or > 201 || !Enum.IsDefined(filtro))
+            throw new ArgumentOutOfRangeException(nameof(quantidade));
+        var query = FiltrarPacientes(termo).AsNoTracking();
+        if (filtro == FiltroListaPacientes.CadastroIncompleto)
+            query = query.Where(p => p.Documento == null || p.Documento.Trim() == "");
+        if (filtro == FiltroListaPacientes.EmTratamento)
+            query = query.Where(p => _db.Agendamentos.Any(a => a.PacienteId == p.Id && a.Status == StatusAgendamento.Realizado));
+        return query.OrderBy(p => p.Nome).ThenBy(p => p.Id).Skip(ignorar).Take(quantidade);
+    }
+
+    public async Task<IReadOnlyList<Paciente>> PacientesComCarteirinhaAteAsync(DateOnly ate, CancellationToken ct = default)
+        => await _db.Pacientes.AsNoTracking()
+            .Where(p => p.ValidadeCarteirinha != null && p.ValidadeCarteirinha <= ate)
+            .Select(p => new Paciente
+            {
+                Id = p.Id, Nome = p.Nome, Convenio = p.Convenio, ConvenioCodigo = p.ConvenioCodigo,
+                Carteirinha = p.Carteirinha, ValidadeCarteirinha = p.ValidadeCarteirinha, Telefone = p.Telefone
+            }).ToListAsync(ct);
 
     public Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default)
         => _db.Pacientes

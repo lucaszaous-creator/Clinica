@@ -436,7 +436,12 @@ public sealed class ProntuarioService
     public async Task<EvolucaoDaDor> EvolucaoDaDorAsync(int pacienteId, CancellationToken ct = default)
     {
         var evolucoes = await _repo.EvolucoesDoPacienteAsync(pacienteId, ct);
+        return CalcularEvolucaoDaDor(evolucoes);
+    }
 
+    /// <summary>Reutiliza as sessões vigentes já lidas para o atendimento.</summary>
+    public static EvolucaoDaDor CalcularEvolucaoDaDor(IReadOnlyList<Evolucao> evolucoes)
+    {
         var pontos = evolucoes
             .Where(e => e.TemParEva)
             .OrderBy(e => e.Data).ThenBy(e => e.Id)

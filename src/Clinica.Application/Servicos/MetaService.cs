@@ -210,11 +210,11 @@ public sealed class MetaService
 
         if (metas.Any(m => m.Indicador is IndicadorMeta.Sessoes or IndicadorMeta.Ocupacao))
         {
-            var painel = await _indicadores.GerarAsync(inicio, ate, ct);
-            sessoes = painel.Agenda.Atendidos;
+            var agenda = await _indicadores.AgendaAsync(inicio, ate, ct);
+            sessoes = agenda.Atendidos;
             // Nulo quando não houve agenda: 0% de ocupação e "não medido" são coisas
             // diferentes, e a segunda não pode virar meta perdida.
-            ocupacao = painel.Agenda.OcupacaoPercentual is { } o ? (decimal)o : null;
+            ocupacao = agenda.OcupacaoPercentual is { } o ? (decimal)o : null;
         }
 
         var diasCorridos = ate.Day;

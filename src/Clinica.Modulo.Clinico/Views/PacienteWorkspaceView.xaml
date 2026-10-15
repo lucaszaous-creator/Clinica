@@ -130,13 +130,13 @@
      <TextBlock DockPanel.Dock="Top" Text="{Binding MensagemSessao}" TextWrapping="Wrap" Margin="28,8,28,0" Foreground="{StaticResource Brush.Erro}" AutomationProperties.LiveSetting="Polite" Visibility="{Binding MensagemSessao, Converter={StaticResource TextoParaVisibilidade}}"/>
      <TabControl SelectedIndex="{Binding AbaAtual}" Background="Transparent" BorderThickness="0">
       <TabControl.Template><ControlTemplate TargetType="TabControl"><ContentPresenter ContentSource="SelectedContent"/></ControlTemplate></TabControl.Template>
-      <TabItem Header="Atendimento"><views:AtendimentoView DataContext="{Binding Atendimento}"/></TabItem>
-      <TabItem Header="Atendimento de enfermagem"><TabItem.Style><Style TargetType="TabItem"><Style.Triggers><DataTrigger Binding="{Binding Secoes[1].Oculta}" Value="True"><Setter Property="Visibility" Value="Collapsed"/><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></TabItem.Style><views:AtendimentoEnfermagemView DataContext="{Binding Enfermagem}" Margin="28,20"/></TabItem>
-      <TabItem Header="Ficha do paciente"><views:PacienteView Margin="28,20"/></TabItem>
-      <TabItem Header="Histórico"><views:ProntuarioClinicoView DataContext="{Binding Prontuario}" Margin="28,20"/></TabItem>
-      <TabItem Header="Exames e anexos"><views:AnexosPacienteView DataContext="{Binding Anexos}" Margin="28,20"/></TabItem>
-      <TabItem Header="Prescrições e documentos"><views:DocumentosPacienteView Margin="28,20"/></TabItem>
-      <TabItem Header="Acompanhamento"><views:AcompanhamentoView Margin="28,20"/></TabItem>
+      <TabItem Content="{Binding}" Header="Atendimento"><TabItem.ContentTemplate><DataTemplate><views:AtendimentoView DataContext="{Binding Atendimento}"/></DataTemplate></TabItem.ContentTemplate></TabItem>
+      <TabItem Content="{Binding}" Header="Atendimento de enfermagem"><TabItem.Style><Style TargetType="TabItem"><Style.Triggers><DataTrigger Binding="{Binding Secoes[1].Oculta}" Value="True"><Setter Property="Visibility" Value="Collapsed"/><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></TabItem.Style><TabItem.ContentTemplate><DataTemplate><views:AtendimentoEnfermagemView DataContext="{Binding Enfermagem}" Margin="28,20"/></DataTemplate></TabItem.ContentTemplate></TabItem>
+      <TabItem Content="{Binding}" Header="Ficha do paciente"><TabItem.ContentTemplate><DataTemplate><views:PacienteView Margin="28,20"/></DataTemplate></TabItem.ContentTemplate></TabItem>
+      <TabItem Content="{Binding}" Header="Histórico"><TabItem.ContentTemplate><DataTemplate><views:ProntuarioClinicoView DataContext="{Binding Prontuario}" Margin="28,20"/></DataTemplate></TabItem.ContentTemplate></TabItem>
+      <TabItem Content="{Binding}" Header="Exames e anexos"><TabItem.ContentTemplate><DataTemplate><views:AnexosPacienteView DataContext="{Binding Anexos}" Margin="28,20"/></DataTemplate></TabItem.ContentTemplate></TabItem>
+      <TabItem Content="{Binding}" Header="Prescrições e documentos"><TabItem.ContentTemplate><DataTemplate><views:DocumentosPacienteView Margin="28,20"/></DataTemplate></TabItem.ContentTemplate></TabItem>
+      <TabItem Content="{Binding}" Header="Acompanhamento"><TabItem.ContentTemplate><DataTemplate><views:AcompanhamentoView Margin="28,20"/></DataTemplate></TabItem.ContentTemplate></TabItem>
      </TabControl>
     </DockPanel>
    </Grid>

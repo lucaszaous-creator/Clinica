@@ -2604,7 +2604,7 @@ XMLNS_SEM_ASSEMBLY = re.compile(r'clr-namespace:([\w.]+)(?=["\'])')
 _namespaces_por_projeto: dict[str, set[str]] = {}
 for _cs in RAIZ.glob("src/*/**/*.cs"):
     _partes = _cs.relative_to(RAIZ).parts
-    if len(_partes) < 2:
+    if len(_partes) < 2 or "obj" in _partes or "bin" in _partes:
         continue
     for _ns in re.findall(r'^\s*namespace\s+([\w.]+)', _cs.read_text(encoding="utf-8"), re.M):
         _namespaces_por_projeto.setdefault(_partes[1], set()).add(_ns)
@@ -2644,7 +2644,7 @@ for _ns, _projeto, _deve_pegar in (
     ("Clinica.Desktop.Controls", "Clinica.Modulo.Gerente", True),
     # Legítimo: o shell declara esse namespace, então sem `assembly=` está certo.
     ("Clinica.Desktop.Controls", "Clinica.Desktop.Shell", False),
-    # Legítimo: o faturamento também o declara (os dois design systems, parcela 7).
+    # O executável usa os controles do shell; fontes geradas antigas não contam.
     ("Clinica.Desktop.Controls", "Clinica.Desktop", True),
 ):
     _declarados = _namespaces_por_projeto.get(_projeto, set())
@@ -2717,6 +2717,8 @@ def _membros_do_tipo(nome, _cache={}):
 
     achado = None
     for cs in RAIZ.joinpath("src").rglob("*.cs"):
+        if "obj" in cs.parts or "bin" in cs.parts:
+            continue
         txt = cs.read_text(encoding="utf-8", errors="ignore")
         m = re.search(
             rf'\b(?:class|record)\s+{re.escape(nome)}\b\s*(?::\s*([\w<>, ]+))?', txt)

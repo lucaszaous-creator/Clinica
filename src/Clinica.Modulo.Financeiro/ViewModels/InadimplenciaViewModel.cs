@@ -166,7 +166,7 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
             var servico = scope.ServiceProvider.GetRequiredService<InadimplenciaService>();
 
             var devedores = await servico.PorPacienteAsync(hoje, Ordem);
-            var resumo = await servico.ResumoAsync(hoje);
+            var resumo = InadimplenciaService.Resumir(devedores);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

@@ -294,8 +294,9 @@ public sealed class PainelDirecaoService
         var contas = new ResumoContas(0m, 0m, 0m, 0m, 0);
         try
         {
-            contas = await _contas.ResumoAsync(hoje, hoje.AddDays(HorizonteDias), ct);
-            var aPagar = await _contas.VencidasAsync(hoje, TipoLancamento.Saida, ct);
+            var abertas = await _contas.EmAbertoAsync(hoje.AddDays(HorizonteDias), ct: ct);
+            contas = ContasService.Resumir(abertas, hoje);
+            var aPagar = abertas.Where(l => l.Tipo == TipoLancamento.Saida && l.EstaVencido(hoje)).ToList();
 
             if (aPagar.Count > 0)
                 alertas.Add(new AlertaDirecao(

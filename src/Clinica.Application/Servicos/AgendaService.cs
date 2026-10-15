@@ -605,8 +605,12 @@ public sealed class AgendaService
         DateOnly dia, CancellationToken ct = default)
     {
         var doDia = await DoDiaAsync(dia, ct);
+        return CalcularOcupacao(doDia);
+    }
 
-        return doDia
+    /// <summary>Calcula a ocupação sobre a agenda já lida nesta carga.</summary>
+    public static IReadOnlyList<OcupacaoProfissional> CalcularOcupacao(IEnumerable<Agendamento> doDia)
+        => doDia
             .GroupBy(a => a.ProfissionalId)
             .Select(g => new OcupacaoProfissional(
                 g.Key,
@@ -621,7 +625,6 @@ public sealed class AgendaService
             .ThenByDescending(o => o.Total)
             .ThenBy(o => o.Nome)
             .ToList();
-    }
 
     // ==================== Fila em kanban ====================
 

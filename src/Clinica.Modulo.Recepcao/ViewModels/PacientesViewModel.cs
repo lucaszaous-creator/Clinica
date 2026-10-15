@@ -1,6 +1,7 @@
 using Clinica.Desktop.Shell.Componentes.Cadastro;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Application.Servicos;
+using Clinica.Application.Modelos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
@@ -32,7 +33,7 @@ namespace Clinica.Recepcao.ViewModels;
 ///
 /// A busca NÃO é reescrita aqui: usa o <see cref="SeletorPacienteViewModel"/> da suíte,
 /// que já resolve limite no SQL, agrupamento das teclas e descarte de resposta fora de
-/// ordem. Como esta é a tela de LISTAGEM, ela o usa com <c>limite: null</c>.
+/// ordem. A listagem usa páginas de 100 pacientes, com busca e filtros no banco.
 /// </summary>
 public sealed partial class PacientesViewModel : ObservableObject
 {
@@ -48,17 +49,20 @@ public sealed partial class PacientesViewModel : ObservableObject
         : new[] { "Todos", "Cadastro incompleto" };
     [ObservableProperty] private int _filtro;
     partial void OnFiltroChanged(int value) { if (Seletor is not null) { if (string.IsNullOrWhiteSpace(Seletor.Termo)) Seletor.DesligarSugestaoCommand.Execute(null); else _ = Seletor.BuscarAsync(imediato: true); } }
-    private async Task<IReadOnlyList<Paciente>> BuscarListaAsync(string? termo, CancellationToken ct)
+    private async Task<IReadOnlyList<Paciente>> BuscarListaAsync(string? termo, int ignorar, int quantidade, CancellationToken ct)
     {
         using var scope = _escopos.CreateScope();
-        var pacientes = await scope.ServiceProvider.GetRequiredService<PacienteService>().BuscarAsync(termo, null, ct);
         var filtro = Filtros[Math.Clamp(Filtro, 0, Filtros.Count - 1)];
-        if (filtro == "Cadastro incompleto") return pacientes.Where(p => string.IsNullOrWhiteSpace(p.Documento)).ToList();
-        if (filtro != "Em tratamento") return pacientes;
-        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar pacientes em tratamento");
-        var sessoes = await scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
-            .SessoesDosPacientesAsync(pacientes.Select(p => p.Id).ToList(), ct);
-        return pacientes.Where(p => sessoes.TryGetValue(p.Id, out var resumo) && resumo.Sessoes > 0).ToList();
+        if (filtro == "Em tratamento")
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar pacientes em tratamento");
+        var criterio = filtro switch
+        {
+            "Em tratamento" => FiltroListaPacientes.EmTratamento,
+            "Cadastro incompleto" => FiltroListaPacientes.CadastroIncompleto,
+            _ => FiltroListaPacientes.Todos
+        };
+        return await scope.ServiceProvider.GetRequiredService<PacienteService>()
+            .BuscarPaginaAsync(termo, ignorar, quantidade, criterio, ct);
     }
     public int SecaoInicial { get; set; } = 2;
     public bool MostrarVoltar { get; init; } = true;
@@ -97,7 +101,7 @@ public sealed partial class PacientesViewModel : ObservableObject
         _snackbar = snackbar;
         _fabrica = fabrica;
 
-        // Listagem: sem corte, é ela que precisa mostrar todo mundo QUANDO alguém pedir.
+        // Listagem sob demanda: todo o cadastro continua acessível por páginas.
         //
         // ⚠️ `SemBuscaInicial` (set/2026 — o cliente: "a tela de pacientes ainda carrega
         // todos os pacientes"). Esta era a consulta mais cara do sistema: `limite: null`
@@ -108,7 +112,10 @@ public sealed partial class PacientesViewModel : ObservableObject
         // a lista É a resposta". O argumento continua valendo para o que a tela OFERECE, e
         // não para o que ela faz sozinha: a listagem completa continua a um clique
         // ("Ver todos"), e é justamente por ser cara que ela precisa ser PEDIDA.
-        Seletor = new SeletorPacienteViewModel(escopos, limite: null) { SemBuscaInicial = true, ConsultaPersonalizada = BuscarListaAsync };
+        Seletor = new SeletorPacienteViewModel(escopos)
+        {
+            SemBuscaInicial = true, TamanhoPagina = 100, ConsultaPagina = BuscarListaAsync
+        };
         Seletor.SelecaoMudou += AoTrocarPaciente;
         Seletor.Atualizou += AtualizarResumo;
 
@@ -159,8 +166,8 @@ public sealed partial class PacientesViewModel : ObservableObject
             : Seletor.Resultados.Count switch
             {
                 0 => "Nenhum paciente encontrado.",
-                1 => "1 paciente.",
-                var n => $"{n} pacientes."
+                1 => "1 paciente nesta página.",
+                var n => $"{n} pacientes nesta página."
             };
 
         OnPropertyChanged(nameof(ListandoTudo));

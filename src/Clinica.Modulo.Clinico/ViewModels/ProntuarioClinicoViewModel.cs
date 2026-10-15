@@ -172,20 +172,22 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     /// Último paciente cujo acesso já foi registrado nesta tela.
     ///
     /// A trilha de LEITURA (parcela 52) é registrada quando o PACIENTE muda, e não a cada
-    /// <c>CarregarAsync</c>: a tela recarrega a cada tecla da busca de sessão, e uma
-    /// consulta ao banco por tecla digitada seria caro sem responder nada de novo — quem
-    /// filtra já está com o prontuário aberto, e o acesso é o mesmo. A janela de silêncio
-    /// do serviço cobriria a duplicata, mas só depois de ir ao banco perguntar.
+    /// <c>CarregarAsync</c>. O filtro usa o conteúdo da tela em memória; digitar não
+    /// representa outro acesso nem dispara consultas. Atualizar relê os dados do banco.
     /// </summary>
     private int _acessoRegistradoDe;
 
-    partial void OnTermoSessaoChanged(string value) => _ = CarregarAsync();
+    // Cache apenas da tela aberta: uma carga, um paciente. Atualizar/editar/trocar
+    // paciente descarta os dados; digitar um filtro não faz uma nova viagem à VPS.
+    private int _pacienteCarregado;
+    private IReadOnlyList<Evolucao> _sessoesCarregadas = [];
+    private IReadOnlyDictionary<int, int> _anexosCarregados = new Dictionary<int, int>();
+    private IReadOnlyDictionary<int, int> _correcoesCarregadas = new Dictionary<int, int>();
+
+    partial void OnTermoSessaoChanged(string value) => AplicarFiltro();
 
     /// <summary>
-    /// Descarte de resposta fora de ordem (parcela 50): a tela recarrega a cada tecla do
-    /// filtro de sessão, e a resposta do termo ANTIGO chegando por último ANEXARIA as
-    /// sessões dele à lista do termo novo — com o resumo dizendo "3 de 40 contêm X" sobre
-    /// uma lista que tem outra coisa. Quem começou primeiro perde.
+    /// Descarte de resposta fora de ordem ao atualizar ou trocar de paciente.
     /// </summary>
     private int _geracaoCarga;
 
@@ -193,12 +195,19 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     public async Task CarregarAsync()
     {
         var geracao = ++_geracaoCarga;
+        var pacienteId = PacienteId;
+        _pacienteCarregado = 0;
+        _sessoesCarregadas = [];
+        _anexosCarregados = new Dictionary<int, int>();
+        _correcoesCarregadas = new Dictionary<int, int>();
+        ResumoSessoes = string.Empty;
 
-        SemPaciente = PacienteId == 0;
+        SemPaciente = pacienteId == 0;
         Sessoes.Clear();
 
         if (SemPaciente)
         {
+            Carregando = false;
             Paciente = string.Empty;
             await LinhaDoTempo.CarregarAsync(0);
             return;
@@ -206,7 +215,15 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
         // O componente tem contador de geração próprio e filtro de acesso por natureza —
         // ele não depende de nada desta carga.
-        _ = LinhaDoTempo.CarregarAsync(PacienteId);
+        _ = LinhaDoTempo.CarregarAsync(pacienteId);
+
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario))
+        {
+            Carregando = false;
+            NaoVerificado = true;
+            Mensagem = "O seu acesso não permite ler o prontuário deste paciente.";
+            return;
+        }
 
         try
         {
@@ -222,43 +239,32 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
             // Quem abriu este prontuário, e quando. A LGPD e o dever de prestação de
             // contas alcançam a LEITURA, e até a parcela 52 a trilha só via escrita.
             // Não bloqueia nem derruba a tela: o serviço engole a falha com rastro.
-            if (_acessoRegistradoDe != PacienteId)
+            if (_acessoRegistradoDe != pacienteId)
             {
-                _acessoRegistradoDe = PacienteId;
+                _acessoRegistradoDe = pacienteId;
                 await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
-                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                    .RegistrarAsync(pacienteId, SessaoUsuario.Atual.Operador,
                         OrigemAcessoProntuario.ProntuarioClinico);
             }
 
-            var todas = await prontuario.DoPacienteAsync(PacienteId);
-            var termo = TermoSessao.Trim();
+            if (geracao != _geracaoCarga || pacienteId != PacienteId) return;
+            var todas = await prontuario.DoPacienteAsync(pacienteId);
+            if (geracao != _geracaoCarga || pacienteId != PacienteId) return;
 
-            var filtradas = termo.Length == 0
-                ? todas.ToList()
-                : todas.Where(e => Casa(e, termo)).ToList();
-
-            // Uma consulta para o prontuário inteiro — e só sobre o que vai à tela.
+            // Contagens da carga inteira: mudar o filtro não precisa reler o banco.
             var contagens = await prontuario.ContagemDeAnexosAsync(
-                filtradas.Select(e => e.Id).ToList());
+                todas.Select(e => e.Id).ToList());
+            if (geracao != _geracaoCarga || pacienteId != PacienteId) return;
 
             var correcoes = await prontuario.ContagemDeVersoesAsync(
-                filtradas.Select(e => e.Id).ToList());
+                todas.Select(e => e.Id).ToList());
 
-            // Chegou tarde: outra tecla já pediu uma carga mais nova.
-            if (geracao != _geracaoCarga) return;
-
-            foreach (var e in filtradas)
-                Sessoes.Add(LinhaSessaoProntuario.De(
-                    e,
-                    contagens.TryGetValue(e.Id, out var quantos) ? quantos : 0,
-                    correcoes.TryGetValue(e.Id, out var vezes) ? vezes : 0,
-                    Paciente));
-
-            ResumoSessoes = termo.Length == 0
-                ? $"{todas.Count} sessão(ões) no prontuário."
-                // A lista filtrada DIZ que está filtrada, e diz sobre quantas: "3 sessões"
-                // sozinho faria o profissional concluir que o paciente veio três vezes.
-                : $"{Sessoes.Count} de {todas.Count} sessão(ões) contêm “{termo}”.";
+            if (geracao != _geracaoCarga || pacienteId != PacienteId) return;
+            _pacienteCarregado = pacienteId;
+            _sessoesCarregadas = todas;
+            _anexosCarregados = contagens;
+            _correcoesCarregadas = correcoes;
+            AplicarFiltro();
 
         }
         catch (Exception ex)
@@ -276,6 +282,23 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
             if (geracao == _geracaoCarga) Carregando = false;
         }
+    }
+
+    private void AplicarFiltro()
+    {
+        Sessoes.Clear();
+        ResumoSessoes = string.Empty;
+        if (_pacienteCarregado == 0 || _pacienteCarregado != PacienteId
+            || !SessaoUsuario.Atual.Pode(Permissao.VerProntuario)) return;
+
+        var termo = TermoSessao.Trim();
+        foreach (var e in _sessoesCarregadas.Where(e => termo.Length == 0 || Casa(e, termo)))
+            Sessoes.Add(LinhaSessaoProntuario.De(e,
+                _anexosCarregados.GetValueOrDefault(e.Id), _correcoesCarregadas.GetValueOrDefault(e.Id), Paciente));
+
+        ResumoSessoes = termo.Length == 0
+            ? $"{_sessoesCarregadas.Count} sessão(ões) no prontuário."
+            : $"{Sessoes.Count} de {_sessoesCarregadas.Count} sessão(ões) contêm “{termo}”.";
     }
 
 

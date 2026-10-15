@@ -118,6 +118,11 @@ public sealed class RecebiveisService
         DateOnly hoje, DateOnly ate, CancellationToken ct = default)
     {
         var esperados = await EsperadosAsync(ate, ct);
+        return Resumir(esperados, hoje);
+    }
+
+    public static ResumoRecebiveis Resumir(IReadOnlyList<DepositoEsperado> esperados, DateOnly hoje)
+    {
         var atrasados = esperados.Where(d => d.Atrasado(hoje)).ToList();
 
         return new ResumoRecebiveis(

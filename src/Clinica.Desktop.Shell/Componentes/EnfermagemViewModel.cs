@@ -245,7 +245,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         // da carga — um cronômetro que não anda, que é pior do que cronômetro nenhum.
         _relogio.Tick += (_, _) => AtualizarCronometro();
 
-        Seletor = new SeletorPacienteViewModel(escopos, limite: null);
+        Seletor = new SeletorPacienteViewModel(escopos) { TamanhoPagina = 100 };
 
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
         {
@@ -387,8 +387,8 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         foreach (var p in achados) Pacientes.Add(p);
 
         ResumoDaLista = string.IsNullOrWhiteSpace(termo)
-            ? $"Todos os pacientes — {achados.Count}."
-            : $"Busca “{termo}” — {achados.Count} paciente(s).";
+            ? $"Todos os pacientes — {achados.Count} nesta página."
+            : $"Busca “{termo}” — {achados.Count} paciente(s) nesta página.";
 
         CarregandoLista = false;
     }
@@ -405,6 +405,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     {
         MostrandoTodos = false;
         Seletor.Termo = null;
+        Seletor.CancelarBusca();
         await CarregarListaAsync();
     }
 

@@ -237,8 +237,8 @@ public sealed class PendenciaService
     /// </summary>
     public async Task<IReadOnlyList<PendenciaCarteirinha>> CarteirinhasAVencerAsync(DateOnly referencia, CancellationToken ct = default)
     {
-        // Sem limite: a varredura de carteirinhas precisa olhar a base inteira.
-        var pacientes = await _repo.BuscarPacientesAsync(null, limite: null, ct);
+        // O banco filtra toda a base; só os campos das carteirinhas no prazo atravessam a rede.
+        var pacientes = await _repo.PacientesComCarteirinhaAteAsync(referencia.AddDays(JanelaAlertaCarteirinhaDias), ct);
 
         return pacientes
             .Where(p => p.ValidadeCarteirinha is not null)

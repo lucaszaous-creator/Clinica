@@ -201,13 +201,14 @@ public sealed partial class ContasViewModel : ObservableObject
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var ate = hoje.AddDays(Math.Max(HorizonteDias, 0));
 
-            var emAberto = await contas.EmAbertoAsync(ate, FiltroTipo);
+            var tipo = FiltroTipo;
+            var emAberto = await contas.EmAbertoAsync(ate);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
             Contas.Clear();
-            foreach (var l in emAberto)
+            foreach (var l in emAberto.Where(l => tipo is null || l.Tipo == tipo))
                 Contas.Add(LinhaConta.De(l, hoje));
 
             var recorrentes = await contas.RecorrentesAsync();
@@ -221,7 +222,7 @@ public sealed partial class ContasViewModel : ObservableObject
 
             // O resumo ignora o filtro de tipo de propósito: a faixa de totais é o retrato
             // do mês, e mudaria de significado se encolhesse junto com a lista.
-            var resumo = await contas.ResumoAsync(hoje, ate);
+            var resumo = ContasService.Resumir(emAberto, hoje);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

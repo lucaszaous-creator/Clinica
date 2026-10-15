@@ -19,6 +19,11 @@ public sealed class PacienteService
     public Task<IReadOnlyList<Paciente>> BuscarAsync(string? termo, int? limite = null, CancellationToken ct = default)
         => _repo.BuscarPacientesAsync(termo, limite, ct);
 
+    public Task<IReadOnlyList<Paciente>> BuscarPaginaAsync(string? termo, int ignorar, int quantidade,
+        Clinica.Application.Modelos.FiltroListaPacientes filtro = Clinica.Application.Modelos.FiltroListaPacientes.Todos,
+        CancellationToken ct = default)
+        => _repo.BuscarPaginaPacientesAsync(termo, ignorar, quantidade, filtro, ct);
+
     public Task<Paciente?> ObterComHistoricoAsync(int pacienteId, CancellationToken ct = default)
         => _repo.ObterPacienteComHistoricoAsync(pacienteId, ct);
 

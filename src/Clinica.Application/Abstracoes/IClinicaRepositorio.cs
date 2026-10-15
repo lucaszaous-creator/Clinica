@@ -109,6 +109,11 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default);
 
+    Task<IReadOnlyList<Paciente>> BuscarPaginaPacientesAsync(string? termo, int ignorar, int quantidade,
+        Modelos.FiltroListaPacientes filtro = Modelos.FiltroListaPacientes.Todos, CancellationToken ct = default);
+
+    Task<IReadOnlyList<Paciente>> PacientesComCarteirinhaAteAsync(DateOnly ate, CancellationToken ct = default);
+
     /// <summary>
     /// Origem e "indicado por" de TODA a base, projetados — três colunas, nunca a linha
     /// inteira: o relatório de origem não precisa da miniatura da foto nem do endereço, e
