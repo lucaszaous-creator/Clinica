@@ -1,0 +1,79 @@
+<UserControl x:Class="Clinica.Recepcao.Views.FiltrosAgendaBarra"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels">
+
+    <!-- ====================================================================
+         BUSCA E FILTROS DA AGENDA (out/2026 — de volta ao WPF)
+
+         Buscar paciente pelo nome, escolher a modalidade e recortar pela situação, com a
+         contagem de cada situação visível ANTES do clique. O DataContext é um
+         `FiltroListaAgenda`: apresentação pura, a mesma regra nas duas listas (Dia e Grade).
+         O resumo diz quantos horários estão à vista de quantos — lista filtrada que se
+         anuncia como "a agenda" faz alguém concluir que o dia está vazio.
+         ==================================================================== -->
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Margin="0,0,12,0" MaxWidth="460" HorizontalAlignment="Stretch">
+            <TextBlock Text="Buscar paciente" Style="{StaticResource Rotulo}" />
+            <TextBox Style="{StaticResource CampoPesquisa}"
+                     Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
+                     ctrl:Ajudantes.Placeholder="Digite o nome do paciente"
+                     AutomationProperties.Name="Buscar paciente pelo nome" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Width="220" Margin="0,0,12,0">
+            <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
+            <ComboBox ItemsSource="{Binding NomesDeModalidade}" SelectedItem="{Binding Modalidade}"
+                      AutomationProperties.Name="Filtrar por modalidade" />
+        </StackPanel>
+        <Button Grid.Column="2" Content="Limpar filtros" Command="{Binding LimparCommand}"
+                IsEnabled="{Binding TemFiltros}" Style="{StaticResource BotaoSecundario}"
+                VerticalAlignment="Bottom" />
+
+        <!-- As pílulas de situação. WrapPanel numa linha de largura finita: dobra de verdade
+             em tela estreita (checagem 32). -->
+        <ItemsControl Grid.Row="1" Grid.ColumnSpan="3" Margin="0,10,0,0"
+                      ItemsSource="{Binding Situacoes}"
+                      AutomationProperties.Name="Filtrar por situação">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:ChipSituacaoAgenda}">
+                    <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,6"
+                                  IsChecked="{Binding Marcado, Mode=OneWay}"
+                                  Command="{Binding DataContext.EscolherSituacaoCommand,
+                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  CommandParameter="{Binding}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Rotulo}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Contagem}" Margin="6,0,0,0" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </ToggleButton>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <DockPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,4,0,0">
+            <TextBlock DockPanel.Dock="Right" Text="Cores indicam a situação do atendimento."
+                       Style="{StaticResource TextoSuave}" Margin="12,0,0,0" />
+            <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       AutomationProperties.LiveSetting="Polite" />
+        </DockPanel>
+    </Grid>
+</UserControl>

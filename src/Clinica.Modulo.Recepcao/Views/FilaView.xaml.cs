@@ -1,6 +1,10 @@
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
 
@@ -30,23 +34,87 @@ public partial class FilaView : UserControl
     public static readonly DependencyProperty ModoCompactoProperty = ModoCompactoPropertyKey.DependencyProperty;
     public bool ModoCompacto => (bool)GetValue(ModoCompactoProperty);
 
-    private void AjustarCabecalho() => SetValue(ModoCompactoPropertyKey, ActualWidth < 1100);
+    // Em notebook o profissional acompanha o paciente na mesma célula. O dado continua
+    // visível e a largura recuperada evita nomes espremidos e ações fora da tabela.
+    private void AjustarColunas()
+    {
+        var compacto = ActualWidth < 1100;
+        SetValue(ModoCompactoPropertyKey, compacto);
+        ColunaProfissional.Visibility = compacto ? Visibility.Collapsed : Visibility.Visible;
+        ColunaHorario.Width = new DataGridLength(compacto ? 110 : 135);
+        // Ao ocultar uma coluna o DataGrid pode conservar a distribuição estrela da
+        // largura anterior. Repartir a largura útil evita células encolhidas e vazio à
+        // direita durante a mudança de monitor/tamanho. A barra vertical fica reservada.
+        if (TabelaAgenda.ActualWidth > 0)
+        {
+            // As demais colunas têm largura em pixels declarada no XAML. Usá-la aqui
+            // mantém as ações visíveis quando o espaçamento do design system muda.
+            var larguraFixa = 0d;
+            foreach (var coluna in TabelaAgenda.Columns)
+                if (coluna != ColunaPaciente && coluna.Visibility == Visibility.Visible)
+                    larguraFixa += Math.Max(coluna.MinWidth, coluna.Width.Value);
+            ColunaPaciente.Width = new DataGridLength(Math.Max(ColunaPaciente.MinWidth,
+                TabelaAgenda.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12 - larguraFixa));
+        }
+    }
 
-    private Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb? _buscaWeb;
+    // ==================== Busca e filtros ====================
+
+    /// <summary>
+    /// Apresentação: filtra a VISTA da lista, nunca <c>Linhas</c>. O ViewModel continua
+    /// lendo, contando e agindo sobre o dia inteiro (o placar do topo é do dia, não do
+    /// recorte), e a recarga silenciosa não perde o que a pessoa digitou.
+    /// </summary>
+    private readonly FiltroListaAgenda _filtro = new(item => item is CartaoFila l
+        ? new HorarioFiltravel(l.Paciente, l.Modalidade, SituacaoVisualAgenda.Grupo(l.Situacao, l.Etapa))
+        : null, "no dia");
+    private FilaViewModel? _ligado;
+
+    private void Ligar()
+    {
+        if (DataContext is not FilaViewModel vm || ReferenceEquals(vm, _ligado)) return;
+        Desligar();
+        _ligado = vm;
+        CollectionViewSource.GetDefaultView(vm.Linhas).Filter = _filtro.Aceita;
+        vm.Linhas.CollectionChanged += AoMudarLinhas;
+        vm.PropertyChanged += AoMudarVm;
+        Recontar();
+    }
+
+    private void Desligar()
+    {
+        if (_ligado is null) return;
+        _ligado.Linhas.CollectionChanged -= AoMudarLinhas;
+        _ligado.PropertyChanged -= AoMudarVm;
+        _ligado = null;
+    }
+
+    private void AoMudarLinhas(object? sender, NotifyCollectionChangedEventArgs e) => Recontar();
+    private void AoMudarVm(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(FilaViewModel.Carregando)) Recontar();
+    }
+    private void Recontar()
+    {
+        if (_ligado is { } vm) _filtro.Recalcular(vm.Linhas, vm.Carregando);
+    }
+    private void AoMudarFiltro()
+    {
+        if (_ligado is not { } vm) return;
+        CollectionViewSource.GetDefaultView(vm.Linhas).Refresh();
+        Recontar();
+    }
 
     public FilaView()
     {
         InitializeComponent();
-        Loaded += (_, _) =>
-        {
-            if (_buscaWeb is not null || DataContext is not FilaViewModel vm) return;
-            var adaptador = new FilaBuscaWeb(vm, AbrirMenuDaLinha);
-            _buscaWeb = new Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb("agenda", adaptador.Estado, adaptador.Executar,
-                () => SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "consultar a agenda"));
-            ConteudoAgendaBusca.Children.Add(_buscaWeb);
-        };
-        SizeChanged += (_, _) => AjustarCabecalho();
-        Loaded += (_, _) => AjustarCabecalho();
+        BarraFiltros.DataContext = _filtro;
+        _filtro.Mudou += AoMudarFiltro;
+        SizeChanged += (_, _) => AjustarColunas();
+        TabelaAgenda.SizeChanged += (_, _) => AjustarColunas();
+        Loaded += (_, _) => AjustarColunas();
+        Loaded += (_, _) => Ligar();
+        DataContextChanged += (_, _) => { if (IsLoaded) Ligar(); };
 
         Loaded += (_, _) => (DataContext as FilaViewModel)?.AoEntrarEmCena();
         Unloaded += (_, _) => (DataContext as FilaViewModel)?.AoSairDeCena();
@@ -66,15 +134,20 @@ public partial class FilaView : UserControl
     /// `EditarAgenda` estrito. Sem esta metade, o item aparecia aceso e a recusa só
     /// chegava depois do clique.
     /// </summary>
-    private void AbrirMenuDaLinha(CartaoFila cartao)
+    private void AoAbrirMenuDaLinha(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: CartaoFila cartao } botao) AbrirMenuDaLinha(cartao, botao);
+    }
+
+    private void AbrirMenuDaLinha(CartaoFila cartao, FrameworkElement origem)
     {
         SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "consultar a agenda");
         if (DataContext is not FilaViewModel vm || vm.Carregando || vm.NaoVerificado || !vm.Linhas.Contains(cartao)) return;
 
         var menu = new ContextMenu
         {
-            PlacementTarget = this,
-            Placement = PlacementMode.MousePoint
+            PlacementTarget = origem,
+            Placement = PlacementMode.Bottom
         };
 
         void Acrescentar(string rotulo, System.Windows.Input.ICommand comando, bool visivel)
@@ -144,7 +217,6 @@ public partial class FilaView : UserControl
         // Separador no fim é lixo visual: tira se ficou órfão.
         if (menu.Items[^1] is Separator) menu.Items.RemoveAt(menu.Items.Count - 1);
 
-        ContextMenu = menu;
         menu.IsOpen = true;
     }
 }
