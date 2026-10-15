@@ -33,7 +33,6 @@ public static class CicloDeVidaTela
 
     public static bool PodeReutilizar(object tela)
     {
-        if (tela is WebClinica.PainelClinicoWeb painel) return painel.PodeReutilizar;
         return tela is not DependencyObject elemento
             || LogicalTreeHelper.GetChildren(elemento).Cast<object>().All(PodeReutilizar);
     }

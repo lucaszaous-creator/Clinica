@@ -1,7 +1,6 @@
 using System.Windows;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Modulos;
-using Clinica.Domain.Entities;
 using Microsoft.Extensions.Hosting;
 
 namespace Clinica.Financeiro;
@@ -24,23 +23,10 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        _host = await SuiteApp.IniciarAsync(this, "Financeiro", "Financeiro — Clínica SemDor", _modulos,
-            criarJanela: CriarJanelaWeb);
-    }
-
-    private Window CriarJanelaWeb(IServiceProvider servicos)
-    {
-        if (!SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
-            return new Window
-            {
-                Title = "Financeiro — Clínica SemDor",
-                Content = new System.Windows.Controls.TextBlock
-                {
-                    Text = "Seu usuário não tem acesso ao Financeiro. Entre com um usuário autorizado.",
-                    Margin = new Thickness(32), TextWrapping = TextWrapping.Wrap
-                }
-            };
-        return new Web.FinanceiroWebWindow(servicos);
+        // A janela é a do shell, com as telas WPF do Financeiro (out/2026): a interface web
+        // (WebView2) saiu do produto — a área preta ao abrir cada tela era o navegador antes
+        // de pintar, e as telas nativas são as mesmas que o Gerente sempre usou.
+        _host = await SuiteApp.IniciarAsync(this, "Financeiro", "Financeiro — Clínica SemDor", _modulos);
     }
 
     protected override void OnExit(ExitEventArgs e)

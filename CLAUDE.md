@@ -204,6 +204,14 @@ Nenhum deles quebra o build quando é esquecido:
 
 - **Escopo do executável:** registrar componentes compartilhados não autoriza publicar seus menus/rotas. O Faturamento usa `ModuloFaturamentoAplicativo`, conferido pela mesma composição na verificação Windows, para abrir apenas Financeiro/Faturamento de guias mesmo com acesso de gerente. Testar abertura, busca e navegação direta; `Oculto` sozinho não bloqueia uma rota.
 
+- **Sem WebView2 (out/2026).** As telas em HTML (Financeiro inteiro, prescrições, infusão,
+  agenda do médico, fila, filtros da agenda, ocupação e pedidos da enfermagem) voltaram para
+  WPF: o navegador é uma janela NATIVA que fica PRETA até pintar (1–5 s a cada tela nova, em
+  todos os módulos), o WPF não desenha por cima dela, e cada tela pagava a partida do
+  navegador. Tela nova é XAML + ViewModel; não reintroduza navegador embutido.
+- **Tela de leitura que volta do histórico** implementa `IAtualizarAoVoltar`: reaparece na hora
+  com o que mostrava e relê em silêncio (sem "Carregando", sem limpar, falha só no log).
+  Formulário e prontuário em edição NÃO implementam — voltar não pode reler por baixo de quem digita.
 - **Carga async** disparada por tecla/clique/timer/troca-de-paciente: **contador de geração**.
 - **Disponibilidade da agenda:** só libere vagas depois de concluir todas as leituras do período. Na visão por sala, combine o profissional selecionado com a sala de cada coluna; preserve o atalho de sobreposição e a trava. Regressões na PR #205: `tools/ValidarLayoutWindows` cobre ocupação cruzada, trava ligada/desligada e leitura pausada após os bloqueios.
 - **Entre o `Clear()` e o último `Add` não pode haver `await`.**

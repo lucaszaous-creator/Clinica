@@ -20,8 +20,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
-using Clinica.Desktop.Shell.WebClinica;
-using Microsoft.Web.WebView2.Wpf;
 static class Program
 {
     static string Saida = "artifacts/layout-windows";
@@ -69,7 +67,6 @@ static class Program
             for (var a = 0; a < n; a++)
             {
                 if (abas != null) abas.SelectedIndex = a; await Task.Delay(200);
-                await AguardarPaineisWeb(win);
                 foreach (int largura in new[] { 1920, 1366, 880, 960, 1024 })
                 {
                     win.Width = largura; win.UpdateLayout(); await Task.Delay(100); win.UpdateLayout();
@@ -83,20 +80,6 @@ static class Program
                         var sv = Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault();
                         if (sv != null && sv.ScrollableWidth > 0.01) { falhas++; Console.WriteLine($"COLUNAS {nome} excedente={sv.ScrollableWidth:0}"); }
                     }
-                    foreach (var web in Descendentes(win).OfType<WebView2>().Where(w => w.IsVisible && w.CoreWebView2 is not null))
-                    {
-                        var cabem = await web.CoreWebView2.ExecuteScriptAsync("document.documentElement.scrollWidth<=innerWidth+1 && (!document.querySelector('.agenda-lista') || innerHeight>=180)");
-                        if (cabem != "true")
-                        {
-                            var medida = await web.CoreWebView2.ExecuteScriptAsync("JSON.stringify({largura:innerWidth,altura:innerHeight,excedente:document.documentElement.scrollWidth-innerWidth,lista:document.querySelector('.lista-agenda')?.getBoundingClientRect().top})");
-                            using var captura = File.Create(Path.Combine(Saida, nome + "-web.png"));
-                            await web.CoreWebView2.CapturePreviewAsync(Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, captura);
-                            throw new Exception($"A lista React perdeu área útil ou vazou horizontalmente em {nome}: {medida}.");
-                        }
-                        var acao = await web.CoreWebView2.ExecuteScriptAsync("(()=>{const b=document.querySelector('.agenda-lista .linha-agenda button');if(!b)return true;b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1&&r.left>=0&&r.right<=innerWidth+1;})()");
-                        if (acao != "true") throw new Exception($"A ação do primeiro cartão não ficou acessível ao rolar em {nome}.");
-                        await web.CoreWebView2.ExecuteScriptAsync("scrollTo(0,0)");
-                    }
                     if (largura == 1366 || largura == 960) Foto(win, nome);
                 }
             }
@@ -104,7 +87,6 @@ static class Program
         // A rota antiga agora deve abrir a Visão geral, sem expor a Grade removida.
         NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda);
         await Task.Delay(250);
-        await AguardarPaineisWeb(win);
         if (!Descendentes(win).OfType<Clinica.Recepcao.Views.OcupacaoAgendaView>().Any()
             || Descendentes(win).OfType<Clinica.Recepcao.Views.AgendaView>().Any())
             throw new Exception("A rota antiga deve abrir a Visão geral sem a Grade.");
@@ -113,7 +95,6 @@ static class Program
         var planejamento = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AgendaViewModel>();
         vm.TelaAtual = new Clinica.Recepcao.Views.AgendaView { DataContext = planejamento };
         await Task.Delay(250);
-        await AguardarPaineisWeb(win);
         planejamento.Dia = DateTime.Today.AddDays(8 - (int)DateTime.Today.DayOfWeek);
         await planejamento.CarregarAsync();
         planejamento.FiltroProfissional = planejamento.FiltroProfissionais.First(p => p.Id == prof.Id);
@@ -284,27 +265,6 @@ static class Program
         throw new Exception("Planejamento: há vagas no ViewModel, mas nenhum botão de vaga visível na grade original. Confira abas, visibilidade e a montagem da tela.");
     }
 
-    private static async Task AguardarPaineisWeb(Window janela)
-    {
-        foreach (var painel in Descendentes(janela).OfType<PainelClinicoWeb>().Where(p => p.IsVisible).ToArray())
-        {
-            var prazo = DateTime.UtcNow.AddSeconds(25);
-            var pronto = false;
-            do
-            {
-                var navegador = Descendentes(painel).OfType<WebView2>().FirstOrDefault();
-                if (navegador?.CoreWebView2 is not null
-                    && await navegador.CoreWebView2.ExecuteScriptAsync("!!document.querySelector('.agenda,.infusao-pagina,.prescricoes,.ocupacao-agenda,.pedidos-enfermagem')") == "true")
-                { pronto = true; break; }
-                await Task.Delay(100);
-            } while (DateTime.UtcNow < prazo);
-            if (!pronto)
-            {
-                var erro = string.Join(" ", Descendentes(painel).OfType<TextBlock>().Select(t => t.Text));
-                throw new Exception("A interface React não carregou antes da verificação visual. Confira o build dos assets e o runtime WebView2. " + erro);
-            }
-        }
-    }
     static async Task ConferirProgressoInfusao(ServiceProvider sp, Paciente paciente, Profissional medico)
     {
         var escopos = sp.GetRequiredService<IServiceScopeFactory>();

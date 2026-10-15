@@ -19,7 +19,6 @@ using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Web.WebView2.Wpf;
 using Npgsql;
 
 internal static class Program
@@ -151,17 +150,6 @@ internal static class Program
         try
         {
             await Esperar(pronto); var dados=cron.Elapsed.TotalMilliseconds;
-            if(tela is "documentos" or "infusoes")
-            {
-                var web=Descendentes(w).OfType<WebView2>().Single();
-                await Esperar(()=>web.CoreWebView2 is not null);
-                var limite=Stopwatch.StartNew();
-                while(await web.CoreWebView2.ExecuteScriptAsync($"document.querySelectorAll('.rx-linha').length==={linhas()}")!="true")
-                { if(limite.Elapsed.TotalSeconds>60) throw new TimeoutException("DOM sem as linhas esperadas."); await Task.Delay(20); }
-                await web.CoreWebView2.ExecuteScriptAsync("window.__benchQuadro=false;requestAnimationFrame(()=>requestAnimationFrame(()=>window.__benchQuadro=true));");
-                while(await web.CoreWebView2.ExecuteScriptAsync("window.__benchQuadro")!="true")
-                { if(limite.Elapsed.TotalSeconds>60) throw new TimeoutException("WebView sem quadro renderizado."); await Task.Delay(20); }
-            }
             await Quadro(w);
             if(tela=="prontuario" && !Descendentes(w).OfType<ItemsControl>().Any(i=>i.Items.Count==linhas() && i.ItemContainerGenerator.ContainerFromIndex(0) is not null)) throw new Exception("Prontuário WPF sem linhas materializadas.");
             await Registrar(fase,atraso,amostra,tela,paciente,linhas(),dados,cron.Elapsed.TotalMilliseconds);

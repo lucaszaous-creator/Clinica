@@ -159,8 +159,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <!-- A tela voltou do histórico com o que já mostrava e relê por trás: o aviso
-                             fica NA BARRA, nunca sobre o conteúdo (o painel web não deixa nada
-                             desenhar por cima dele). -->
+                             fica NA BARRA, nunca sobre o conteúdo. -->
                         <TextBlock Grid.Column="0" Text="Atualizando…" Margin="0,0,12,0" VerticalAlignment="Center"
                                    Foreground="{StaticResource Brush.Texto.Secundario}"
                                    FontSize="{StaticResource Fonte.Legenda}" TextWrapping="NoWrap"
@@ -340,7 +339,7 @@
             <ContentControl x:Name="AreaDeTrabalho" Content="{Binding TelaAtual}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
         </DockPanel>
 
-        <!-- Popup com HWND próprio supera o airspace do WebView2. Acompanha somente
+        <!-- Popup com HWND próprio (fica acima de qualquer conteúdo nativo). Acompanha somente
              esta janela ativa e preserva o serviço, histórico e duração do aviso. -->
         <ctrl:SnackbarPopup x:Name="Notificacao" PlacementTarget="{Binding ElementName=RaizShell}"
                             EstaVisivel="{Binding Snackbar.EstaVisivel}">
