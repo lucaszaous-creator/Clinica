@@ -65,8 +65,12 @@ sealed class HostDaPrevia : IHostDaTela
     public Task<string?> SalvarEAbrirAsync(byte[] conteudo, string nomeSugerido, string filtro, string extensao)
         => Task.FromResult<string?>($"Na prévia o arquivo não é gravado ({nomeSugerido}, {conteudo.Length} bytes).");
 
+    // O extrato do banco é a única tela que lê arquivo: a prévia entrega o OFX FICTÍCIO que a
+    // semente montou, coerente com os lançamentos semeados. Sem semente, desistiu.
     public Task<ArquivoEscolhido?> EscolherArquivoAsync(string filtro, string titulo)
-        => Task.FromResult<ArquivoEscolhido?>(null);
+        => Task.FromResult(SementeTaxasExtrato.ExemploOfx is { } ofx
+            ? new ArquivoEscolhido("extrato-exemplo.ofx", System.Text.Encoding.Latin1.GetBytes(ofx))
+            : null);
 
     public Task<bool> CopiarAsync(string texto) => Task.FromResult(true);
 

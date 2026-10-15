@@ -248,7 +248,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveFechamento => Blazor(typeof(Clinica.Ui.Blazor.Telas.FechamentoDeCaixa), servicos),
         ChaveRecebiveis => Blazor(typeof(Clinica.Ui.Blazor.Telas.Recebiveis), servicos),
         ChaveConciliacao => Blazor(typeof(Clinica.Ui.Blazor.Telas.Conciliacao), servicos),
-        ChaveExtrato => new ExtratoBancoView { DataContext = servicos.GetRequiredService<ExtratoBancoViewModel>() },
+        ChaveExtrato => Blazor(typeof(Clinica.Ui.Blazor.Telas.ExtratoDoBanco), servicos),
         ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
         // A tela SUBIU para o shell (parcela 60), como a sala de infusão na 48: quem
         // vende as dez sessões ao paciente é a RECEPÇÃO, no balcão, e a única porta estava
@@ -261,7 +261,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         ChaveEstoque => new EstoqueView { DataContext = servicos.GetRequiredService<EstoqueViewModel>() },
         ChaveRepasses => new RepassesView { DataContext = servicos.GetRequiredService<RepassesViewModel>() },
-        ChaveTaxas => new TaxasView { DataContext = servicos.GetRequiredService<TaxasViewModel>() },
+        ChaveTaxas => Blazor(typeof(Clinica.Ui.Blazor.Telas.TaxasEImpostos), servicos),
         ChavePlanoContas => new PlanoContasView { DataContext = servicos.GetRequiredService<PlanoContasViewModel>() },
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
         ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),
