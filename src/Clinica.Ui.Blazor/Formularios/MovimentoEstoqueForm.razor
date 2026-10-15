@@ -1,0 +1,187 @@
+@*
+  Entrada, saída de rotina ou perda de um item (o que no WPF era a MovimentoEstoqueWindow /
+  MovimentoEstoqueViewModel).
+
+  As regras que vieram junto, todas do ViewModel original:
+  - custo, validade, fornecedor e documento só existem na ENTRADA — é ela que traz o lote;
+    a validade fica no LOTE, não no item (o mesmo insumo entra com vencimentos diferentes);
+  - a SAÍDA daqui é consumo de ROTINA, com setor de destino: material de sessão se registra
+    no atendimento;
+  - PERDA exige motivo escrito (a recusa mora no serviço; a tela avisa antes, perto do campo);
+  - a compra no financeiro grava estoque e conta JUNTOS (ComprarAsync), e só na entrada.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Movimentar estoque" Subtitulo="@Item" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="segmentado" role="group" aria-label="Tipo do movimento">
+            @foreach (var t in Tipos)
+            {
+                <button type="button" aria-pressed="@(_tipo == t ? "true" : "false")" @onclick="() => _tipo = t">
+                    <Icone Nome="@(t switch { TipoMovimentoEstoque.Entrada => "entrada", TipoMovimentoEstoque.Saida => "saida", _ => "alerta" })" /> @RotulosEnum.De(t)
+                </button>
+            }
+        </div>
+
+        <div class="campos">
+            <Campo Rotulo="Quantidade" Obrigatorio="true" Dica="@(EhEntrada && _emUnidadeCompra ? "Em embalagens de compra." : "Na unidade de consumo. Aceita fração (0,5).")">
+                <input class="campo valor" @bind="_quantidade" maxlength="10" inputmode="decimal" placeholder="0" />
+            </Campo>
+            <Campo Rotulo="Data" Obrigatorio="true">
+                <input type="date" class="campo" value="@_data.ToString("yyyy-MM-dd")" @onchange="e => _data = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : _data" />
+            </Campo>
+        </div>
+
+        @if (EhEntrada)
+        {
+            <div class="secao-form">
+                <h3>Dados da entrada</h3>
+                <label class="marcar"><input type="checkbox" @bind="_emUnidadeCompra" /> Quantidade e custo na embalagem de compra</label>
+                <p class="campo-dica">Marque para usar a unidade e o fator cadastrados no produto. Desmarcado: informe na unidade de consumo.</p>
+                <div class="campos">
+                    <Campo Rotulo="Fornecedor / origem" Obrigatorio="@_gerarContaCompra"><input class="campo" @bind="_fornecedor" maxlength="100" /></Campo>
+                    <Campo Rotulo="Documento da entrada" Dica="Nota, recibo ou referência."><input class="campo" @bind="_documentoEntrada" maxlength="80" /></Campo>
+                    <Campo Rotulo="Custo unitário" Obrigatorio="@_gerarContaCompra" Dica="Ex.: 12,50">
+                        <input class="campo valor" @bind="_custoUnitario" maxlength="12" inputmode="decimal" placeholder="0,00" />
+                    </Campo>
+                    <Campo Rotulo="Validade do lote">
+                        <input type="date" class="campo" value="@(_validade?.ToString("yyyy-MM-dd"))" @onchange="e => _validade = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null" />
+                    </Campo>
+                </div>
+                <p class="campo-dica">A validade fica no lote, não no item: o mesmo insumo entra em lotes com vencimentos diferentes, e uma validade só por item apagaria o que vence primeiro.</p>
+            </div>
+        }
+
+        <Campo Rotulo="@(EhEntrada ? "Lote" : "Lote de origem")" Dica="Conforme a exigência do produto.">
+            <input class="campo" @bind="_lote" maxlength="60" />
+        </Campo>
+
+        @if (EhEntrada)
+        {
+            <div class="secao-form">
+                <label class="marcar"><input type="checkbox" @bind="_gerarContaCompra" /> Registrar também a compra no financeiro</label>
+                @if (_gerarContaCompra)
+                {
+                    <div class="campos">
+                        <Campo Rotulo="Vencimento da compra" Obrigatorio="true">
+                            <input type="date" class="campo" value="@_vencimentoCompra.ToString("yyyy-MM-dd")" @onchange="e => _vencimentoCompra = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : _vencimentoCompra" />
+                        </Campo>
+                        <Campo Rotulo="Forma de pagamento" Dica="@(_compraPaga ? null : "Só quando a compra já foi paga.")">
+                            <select class="campo" value="@(_formaCompra?.ToString() ?? "")" disabled="@(!_compraPaga)"
+                                    @onchange="e => _formaCompra = Enum.TryParse<FormaPagamento>(e.Value?.ToString(), out var f) ? f : null">
+                                <option value="">(escolha)</option>
+                                @foreach (var f in FormasCompra) { <option value="@f">@RotulosEnum.De(f)</option> }
+                            </select>
+                        </Campo>
+                    </div>
+                    <label class="marcar"><input type="checkbox" @bind="_compraPaga" /> Compra já paga</label>
+                    <p class="campo-dica">O valor da conta será a quantidade × custo unitário, com o fornecedor informado acima. Estoque e conta são gravados juntos.</p>
+                }
+            </div>
+        }
+
+        @if (EhSaida)
+        {
+            <Campo Rotulo="Consumo de rotina — setor de destino" Obrigatorio="true"
+                   Dica="Ex.: limpeza, recepção ou enfermagem. O produto deve permitir uso de rotina. Materiais de uma sessão são registrados no atendimento.">
+                <input class="campo" @bind="_setorDestino" maxlength="100" />
+            </Campo>
+        }
+
+        <Campo Rotulo="@(EhPerda ? "Motivo da perda" : "Observação")" Obrigatorio="EhPerda"
+               Dica="@(EhPerda ? "Perda sem motivo escrito vira estoque que não bate — diga o que houve (quebrou, venceu, extraviou)." : null)">
+            <textarea class="campo" rows="2" @bind="_observacao" maxlength="300"></textarea>
+        </Campo>
+        <p class="campo-dica">Saída maior que o saldo é recusada: estoque negativo não existe no mundo.</p>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(!PodeSalvar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite movimentar o estoque.")">
+            <Icone Nome="check" />@(_salvando ? "Gravando…" : "Registrar")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int ItemId { get; set; }
+    [Parameter] public string Item { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private static readonly TipoMovimentoEstoque[] Tipos =
+        [TipoMovimentoEstoque.Entrada, TipoMovimentoEstoque.Saida, TipoMovimentoEstoque.Perda];
+    private static readonly FormaPagamento[] FormasCompra =
+        Enum.GetValues<FormaPagamento>().Where(f => f != FormaPagamento.Convenio).ToArray();
+
+    private TipoMovimentoEstoque _tipo = TipoMovimentoEstoque.Entrada;
+    private string? _quantidade, _custoUnitario, _lote, _observacao, _fornecedor, _documentoEntrada, _setorDestino;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly? _validade;
+    private bool _emUnidadeCompra, _gerarContaCompra, _compraPaga, _salvando;
+    private DateOnly _vencimentoCompra = DateOnly.FromDateTime(DateTime.Today);
+    private FormaPagamento? _formaCompra;
+    private string? _mensagem;
+
+    private bool EhEntrada => _tipo == TipoMovimentoEstoque.Entrada;
+    private bool EhSaida => _tipo == TipoMovimentoEstoque.Saida;
+    private bool EhPerda => _tipo == TipoMovimentoEstoque.Perda;
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+    private bool PodeSalvar => !_salvando && PodeEditar;
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando) return;
+        _mensagem = null;
+        try
+        {
+            _salvando = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "movimentar estoque e registrar compras");
+
+            if (!LeituraDeValores.TentarLerQuantidade(_quantidade, out var quantidade) || quantidade <= 0)
+                throw new InvalidOperationException("Informe a quantidade (um número maior que zero).");
+
+            decimal? custo = null;
+            if (EhEntrada && !string.IsNullOrWhiteSpace(_custoUnitario))
+            {
+                if (!LeituraDeValores.TentarLerNumeroExato(_custoUnitario, out var lido))
+                    throw new InvalidOperationException("Não entendi o custo: use algo como 12,50.");
+                custo = lido;
+            }
+
+            if (EhPerda && string.IsNullOrWhiteSpace(_observacao))
+                throw new InvalidOperationException("Perda sem motivo escrito vira estoque que não bate — diga o que houve.");
+
+            var dados = new MovimentoEstoque
+            {
+                ItemEstoqueId = ItemId,
+                DestinoConsumo = EhSaida ? DestinoConsumoEstoque.Rotina : DestinoConsumoEstoque.NaoInformado,
+                SetorDestino = _setorDestino,
+                DocumentoEntrada = _documentoEntrada,
+                Fornecedor = _fornecedor,
+                Tipo = _tipo,
+                Quantidade = quantidade,
+                CustoUnitario = custo,
+                Data = _data,
+                Validade = EhEntrada ? _validade : null,
+                Lote = _lote,
+                Observacao = _observacao
+            };
+            using var escopo = Escopos.CreateScope();
+            var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
+            if (EhEntrada && _gerarContaCompra)
+                await estoque.ComprarAsync(dados, _fornecedor ?? string.Empty, _vencimentoCompra,
+                    _compraPaga, _formaCompra, SessaoUsuario.Atual.Operador, emUnidadeCompra: _emUnidadeCompra);
+            else
+                await estoque.MovimentarAsync(dados, SessaoUsuario.Atual.Operador, emUnidadeCompra: EhEntrada && _emUnidadeCompra);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — movimento de estoque não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _salvando = false; }
+    }
+}

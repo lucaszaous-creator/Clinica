@@ -1,0 +1,182 @@
+@*
+  Cadastro do item de estoque (o que no WPF era a ItemEstoqueWindow / ItemEstoqueEdicaoViewModel).
+  Serve para CRIAR e para CORRIGIR: antes o formulário só criava, e item com o nome errado
+  ou sem mínimo ficava assim para sempre — a alternativa era excluir, levando o histórico.
+
+  As regras que vieram junto, todas do ViewModel original:
+  - mínimo ZERO é "sem mínimo": o campo abre em branco, não "0" (que pareceria alerta);
+  - quem valida limites, código repetido e troca de unidade com movimentos é o SERVIÇO;
+  - carga que falhou não deixa salvar — gravaria o formulário em branco por cima do item.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(ItemId == 0 ? "Item novo" : "Editar item")"
+       Subtitulo="Cadastre materiais assistenciais, medicamentos e produtos de rotina. O saldo é atualizado pelas entradas e consumos."
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="260" />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Nome" Obrigatorio="true" Classe="largo">
+                    <input class="campo" @bind="_nome" maxlength="120" placeholder="Ex.: Agulha 0,25 × 30 mm" />
+                </Campo>
+                <Campo Rotulo="Código interno"><input class="campo" @bind="_codigoInterno" maxlength="40" /></Campo>
+                <Campo Rotulo="Código de barras"><input class="campo" @bind="_codigoBarras" maxlength="60" /></Campo>
+                <Campo Rotulo="Grupo">
+                    <select class="campo" value="@_grupo" @onchange="e => _grupo = Enum.TryParse<GrupoEstoque>(e.Value?.ToString(), out var g) ? g : _grupo">
+                        @foreach (var g in Enum.GetValues<GrupoEstoque>()) { <option value="@g">@RotulosEnum.De(g)</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Uso permitido">
+                    <select class="campo" value="@_uso" @onchange="e => _uso = Enum.TryParse<UsoEstoque>(e.Value?.ToString(), out var u) ? u : _uso">
+                        @foreach (var u in Enum.GetValues<UsoEstoque>()) { <option value="@u">@RotulosEnum.De(u)</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Fabricante"><input class="campo" @bind="_fabricante" maxlength="120" /></Campo>
+                <Campo Rotulo="Apresentação / especificação"><input class="campo" @bind="_apresentacao" maxlength="120" /></Campo>
+            </div>
+
+            <div class="secao-form">
+                <h3>Quantidades e reposição</h3>
+                <div class="campos tres">
+                    <Campo Rotulo="Unidade de consumo" Obrigatorio="true"><input class="campo" @bind="_unidade" maxlength="10" placeholder="un" /></Campo>
+                    <Campo Rotulo="Estoque mínimo"><input class="campo valor" @bind="_minimo" maxlength="10" inputmode="decimal" /></Campo>
+                    <Campo Rotulo="Estoque máximo" Dica="Alvo da reposição."><input class="campo valor" @bind="_maximo" maxlength="14" inputmode="decimal" /></Campo>
+                </div>
+                <p class="campo-dica">Sem mínimo, o item não entra no alerta de reposição — deixe em branco quando não fizer sentido vigiar.</p>
+                <div class="campos">
+                    <Campo Rotulo="Unidade de compra" Dica="Ex.: cx"><input class="campo" @bind="_unidadeCompra" maxlength="10" /></Campo>
+                    <Campo Rotulo="Unidades de consumo por embalagem" Dica="Ex.: 100 un por cx"><input class="campo valor" @bind="_fatorCompra" maxlength="14" inputmode="decimal" /></Campo>
+                    <Campo Rotulo="Local de armazenamento" Classe="largo"><input class="campo" @bind="_localArmazenamento" maxlength="100" /></Campo>
+                </div>
+            </div>
+
+            <div class="secao-form">
+                <h3>Rastreabilidade</h3>
+                <div class="marcas">
+                    <label class="marcar"><input type="checkbox" @bind="_exigirLote" /> Exigir lote nas entradas</label>
+                    <label class="marcar"><input type="checkbox" @bind="_exigirValidade" /> Exigir validade nas entradas</label>
+                </div>
+                <p class="campo-dica">Medicamentos sempre exigem lote e validade. Cadastre cada apresentação como um produto distinto.</p>
+            </div>
+
+            <Campo Rotulo="Observações"><textarea class="campo" rows="2" @bind="_observacoes" maxlength="500"></textarea></Campo>
+            <div>
+                <label class="marcar"><input type="checkbox" @bind="_ativo" /> Ativo</label>
+                <p class="campo-dica">Inative produtos fora de uso. Itens com movimentação preservam seu histórico e não podem ser excluídos.</p>
+            </div>
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_salvando || _carregando || _cargaFalhou || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite editar o cadastro do estoque.")">
+            <Icone Nome="check" />@(_salvando ? "Gravando…" : "Salvar item")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Zero = item novo.</summary>
+    [Parameter] public int ItemId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _nome, _codigoInterno, _codigoBarras, _fabricante, _apresentacao;
+    private string? _unidade = "un", _minimo, _maximo, _unidadeCompra, _fatorCompra = "1", _localArmazenamento, _observacoes;
+    private GrupoEstoque _grupo;
+    private UsoEstoque _uso;
+    private bool _exigirLote, _exigirValidade, _ativo = true;
+    private bool _carregando, _cargaFalhou, _salvando;
+    private string? _mensagem;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ItemId == 0) return;
+        _carregando = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var item = await escopo.ServiceProvider.GetRequiredService<EstoqueService>().ObterItemAsync(ItemId)
+                ?? throw new InvalidOperationException("Item não encontrado. Feche e atualize o estoque.");
+            _nome = item.Nome;
+            _codigoInterno = item.CodigoInterno;
+            _codigoBarras = item.CodigoBarras;
+            _fabricante = item.Fabricante;
+            _apresentacao = item.Apresentacao;
+            _grupo = item.Grupo;
+            _uso = item.Uso;
+            _exigirLote = item.ExigirLote;
+            _exigirValidade = item.ExigirValidade;
+            _unidadeCompra = item.UnidadeCompra;
+            _fatorCompra = TelaDoEstoque.Quantidade(item.FatorCompra);
+            _maximo = item.EstoqueMaximo is { } max ? TelaDoEstoque.Quantidade(max) : null;
+            _localArmazenamento = item.LocalArmazenamento;
+            _observacoes = item.Observacoes;
+            _unidade = item.Unidade;
+            // Mínimo zero é "sem mínimo": mostrar "0" faria achar que há alerta configurado.
+            _minimo = item.EstoqueMinimo > 0 ? TelaDoEstoque.Quantidade(item.EstoqueMinimo) : null;
+            _ativo = item.Ativo;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — item de estoque não pôde ser carregado", ex);
+            _cargaFalhou = true;
+            _mensagem = ex.Message;
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando || _carregando || _cargaFalhou) return;
+        _mensagem = null;
+        try
+        {
+            _salvando = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "editar cadastro do estoque");
+
+            var minimo = 0m;
+            if (!string.IsNullOrWhiteSpace(_minimo) && !LeituraDeValores.TentarLerQuantidade(_minimo, out minimo))
+                throw new InvalidOperationException("O mínimo tem de ser um número (não negativo).");
+            if (!LeituraDeValores.TentarLerQuantidade(_fatorCompra, out var fator) || fator <= 0)
+                throw new InvalidOperationException("Informe quantas unidades de consumo há em cada embalagem de compra.");
+            decimal? maximo = null;
+            if (!string.IsNullOrWhiteSpace(_maximo))
+            {
+                if (!LeituraDeValores.TentarLerQuantidade(_maximo, out var valorMaximo))
+                    throw new InvalidOperationException("O máximo deve ser um número.");
+                maximo = valorMaximo;
+            }
+
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<EstoqueService>().SalvarItemAsync(new ItemEstoque
+            {
+                Id = ItemId,
+                Nome = _nome ?? string.Empty,
+                Unidade = string.IsNullOrWhiteSpace(_unidade) ? "un" : _unidade!,
+                EstoqueMinimo = minimo,
+                CodigoInterno = _codigoInterno, CodigoBarras = _codigoBarras,
+                Fabricante = _fabricante, Apresentacao = _apresentacao,
+                Grupo = _grupo, Uso = _uso, ExigirLote = _exigirLote, ExigirValidade = _exigirValidade,
+                UnidadeCompra = _unidadeCompra, FatorCompra = fator, EstoqueMaximo = maximo,
+                LocalArmazenamento = _localArmazenamento, Observacoes = _observacoes,
+                Ativo = _ativo
+            }, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — item de estoque não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _salvando = false; }
+    }
+}

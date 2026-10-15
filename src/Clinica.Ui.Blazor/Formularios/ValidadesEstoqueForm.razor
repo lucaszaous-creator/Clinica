@@ -1,0 +1,89 @@
+@*
+  VALIDADES E MÍNIMOS (o que no WPF era a ValidadesEstoqueWindow, parcela 49): o alerta
+  saiu da faixa lateral e virou botão — no dia em que não há nada vencendo, a faixa gastava
+  um terço da tela para escrever "nada vencendo". O número continua no topo da tela; aqui é
+  para ver QUAIS.
+
+  Recebe o que a tela de trás JÁ LEU (o mesmo saldo e a mesma leitura de validades), como a
+  janela do WPF recebia o mesmo ViewModel: duas leituras dariam dois alertas.
+
+  A seção "Abaixo do mínimo" é nova no desenho e não na regra: a janela do WPF se chamava
+  "Validades e mínimos" e só listava as validades — o nome prometia o que a lista não dava.
+*@
+
+<Modal Titulo="Validades e mínimos" Subtitulo="@($"Lotes vencidos ou a vencer nos próximos {EstoqueService.DiasAlertaValidade} dias, só dos itens que ainda têm saldo — alertar sobre item zerado seria barulho.")" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (Validades.Count == 0 && AbaixoDoMinimo.Count == 0)
+        {
+            <EstadoVazio Icone="ok" Titulo="Nada vencendo e nada abaixo do mínimo" Descricao="O estoque não pede reposição nem descarte agora." />
+        }
+        else
+        {
+            <div class="secao-form">
+                <h3>Validades</h3>
+                @if (Validades.Count == 0)
+                {
+                    <p class="texto-secundario">Nenhum lote vencido ou a vencer.</p>
+                }
+                else
+                {
+                    <div class="tabela-rolagem">
+                        <table class="lista compacta">
+                            <thead><tr><th>Item</th><th style="width:110px">Lote</th><th style="width:100px">Validade</th><th class="direita" style="width:90px">Quantidade</th><th style="width:150px">Situação</th></tr></thead>
+                            <tbody>
+                                @foreach (var v in Validades)
+                                {
+                                    <tr>
+                                        <td><span class="principal">@v.Nome</span></td>
+                                        <td class="nao-quebra">@(string.IsNullOrWhiteSpace(v.Lote) ? "—" : v.Lote)</td>
+                                        <td class="nao-quebra">@Formato.Data(v.Validade)</td>
+                                        <td class="direita numero">@TelaDoEstoque.Quantidade(v.Quantidade)</td>
+                                        <td class="nao-quebra"><Selo Tom="@(v.Vencido(Hoje) ? "perigo" : "aviso")">@TelaDoEstoque.SituacaoDoLote(v, Hoje)</Selo></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+            <div class="secao-form">
+                <h3>Abaixo do mínimo</h3>
+                @if (AbaixoDoMinimo.Count == 0)
+                {
+                    <p class="texto-secundario">Nenhum item precisa de reposição.</p>
+                }
+                else
+                {
+                    <div class="tabela-rolagem">
+                        <table class="lista compacta">
+                            <thead><tr><th>Item</th><th class="direita" style="width:110px">Saldo</th><th class="direita" style="width:110px">Mínimo</th><th class="direita" style="width:130px">Comprar</th></tr></thead>
+                            <tbody>
+                                @foreach (var s in AbaixoDoMinimo)
+                                {
+                                    <tr>
+                                        <td><span class="principal">@s.Nome</span></td>
+                                        <td class="direita numero"><span class="saldo-baixo">@TelaDoEstoque.QuantidadeComUnidade(s.Saldo, s.Unidade)</span></td>
+                                        <td class="direita numero">@TelaDoEstoque.Minimo(s)</td>
+                                        <td class="direita numero">@TelaDoEstoque.QuantidadeComUnidade(TelaDoEstoque.SugestaoDeCompra(s), s.Unidade)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="campo-dica">A sugestão repõe até o máximo cadastrado, ou o dobro do mínimo quando não há máximo — repor só até o mínimo faz o item voltar ao alerta na semana seguinte.</p>
+                }
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public IReadOnlyList<ValidadeProxima> Validades { get; set; } = [];
+    [Parameter] public IReadOnlyList<SaldoItemEstoque> AbaixoDoMinimo { get; set; } = [];
+    /// <summary>O dia da leitura: "vence em N dias" conta a partir dele, não do relógio de agora.</summary>
+    [Parameter] public DateOnly Hoje { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    [Parameter] public EventCallback AoFechar { get; set; }
+}

@@ -1,0 +1,173 @@
+@*
+  Materiais de UMA sessão (o que no WPF era a MateriaisProcedimentoWindow do shell, aberta
+  por ConferenciaMateriaisProcedimento.AbrirAsync): o registro OPCIONAL, depois do
+  atendimento, do que foi usado — e a baixa no estoque.
+
+  As regras que vieram junto, todas do original:
+  - quem pode é o serviço que decide (PoliticaMateriaisService.ExigirRegistroAsync): gestão
+    do estoque, ou o profissional do horário quando a política libera para a equipe;
+  - itens de ROTINA ficam de fora; o que já foi registrado — pela conferência ou por baixas
+    antigas — aparece PREENCHIDO para conferência, e o serviço impede repetir a baixa;
+  - registro gravado não se edita: só "Tentar baixa novamente" quando a baixa ficou pendente;
+  - o filtro mantém as quantidades preenchidas, e "Outro lote" dá uma segunda linha ao
+    mesmo produto. Montar as linhas e o pedido é de TelaDoEstoque, na Application.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Quais materiais foram usados?" Subtitulo="@_contexto" Largura="grande" AoFechar="Fechar">
+    <ChildContent>
+        @if (_falha is not null)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível abrir os materiais desta sessão" Detalhe="@_falha" />
+        }
+        else if (_carregando)
+        {
+            <Esqueleto Altura="220" />
+        }
+        else
+        {
+            <p class="texto-secundario">Informe as quantidades na unidade de consumo e os lotes utilizados. Materiais já registrados aparecem preenchidos para conferência.</p>
+            <Campo Rotulo="Buscar produto por nome ou código" Dica="O filtro mantém as quantidades preenchidas. Use Outro lote quando o mesmo produto veio de mais de um lote.">
+                <div class="busca"><Icone Nome="busca" /><input class="campo" value="@_busca" @oninput="e => _busca = e.Value?.ToString()" maxlength="120" /></div>
+            </Campo>
+            @if (Filtradas.Count == 0)
+            {
+                <EstadoVazio Icone="busca" Titulo="@(_linhas.Count == 0 ? "Nenhum material de uso clínico cadastrado" : "Nenhum produto bate com a busca")" />
+            }
+            else
+            {
+                <div class="tabela-rolagem materiais-tabela">
+                    <table class="lista compacta">
+                        <thead><tr><th>Produto</th><th style="width:130px">Quantidade</th><th style="width:150px">Lote</th><th class="direita" style="width:110px"></th></tr></thead>
+                        <tbody>
+                            @foreach (var l in Filtradas)
+                            {
+                                <tr>
+                                    <td><span class="principal">@l.Nome</span><span class="secundario">@l.Saldo</span></td>
+                                    <td><input class="campo valor" value="@l.Quantidade" @onchange="e => l.Quantidade = e.Value?.ToString()" disabled="@(!_podeEditar)" maxlength="14" inputmode="decimal" aria-label="Quantidade utilizada de @l.Nome" /></td>
+                                    <td><input class="campo" value="@l.Lote" @onchange="e => l.Lote = e.Value?.ToString()" disabled="@(!_podeEditar)" maxlength="60" aria-label="Lote utilizado de @l.Nome" /></td>
+                                    <td class="direita"><button type="button" class="botao mini" disabled="@(!_podeEditar)" @onclick="() => OutroLote(l)"><Icone Nome="mais" />Outro lote</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            <p class="materiais-situacao">@_situacao</p>
+            <label class="marcar"><input type="checkbox" @bind="_semConsumo" disabled="@(!_podeEditar)" /> Confirmo que não houve consumo de materiais nesta sessão</label>
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="Fechar">Fechar</button>
+        @if (_falha is null)
+        {
+            <button type="button" class="botao primario" @onclick="ConfirmarAsync" disabled="@(_carregando || _salvando || !_podeConfirmar)">
+                <Icone Nome="check" />@(_salvando ? "Gravando…" : _rotuloConfirmar)
+            </button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int AgendamentoId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private List<LinhaMaterialDaSessao> _linhas = [];
+    private string? _busca, _contexto, _falha, _mensagem;
+    private bool _carregando = true, _salvando, _semConsumo, _podeEditar = true, _podeConfirmar = true;
+    private string _situacao = "Não informado. O atendimento e as guias já estão concluídos.";
+    private string _rotuloConfirmar = "Registrar materiais";
+    private PedidoConsumoProcedimento? _pedido;
+    private bool _gravou;
+
+    private List<LinhaMaterialDaSessao> Filtradas => _linhas
+        .Where(l => string.IsNullOrWhiteSpace(_busca) || l.Nome.Contains(_busca.Trim(), StringComparison.CurrentCultureIgnoreCase))
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var repo = escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
+            var horario = await repo.ObterAgendamentoAsync(AgendamentoId)
+                ?? throw new InvalidOperationException("Horário não encontrado.");
+            await new PoliticaMateriaisService(repo).ExigirRegistroAsync(AgendamentoId, SessaoUsuario.Atual.UsuarioId);
+            var registro = await estoque.ConferenciaDoProcedimentoAsync(horario.AtendimentoId!.Value);
+            var saldos = await estoque.SaldosAsync(somenteAtivos: true);
+
+            // Baixas antigas são apresentadas para conferência; o serviço impede repeti-las.
+            var registrados = registro is not null ? EstoqueService.MateriaisRegistrados(registro) : [];
+            if (registrados.Count == 0 && registro?.SemConsumo != true)
+                registrados = (await repo.MovimentosDoAtendimentoAsync(horario.AtendimentoId.Value))
+                    .Where(m => m.Tipo == TipoMovimentoEstoque.Saida)
+                    .Select(m => new MaterialConsumidoProcedimento(m.ItemEstoqueId, m.Quantidade, m.Lote)).ToArray();
+
+            var nomes = new Dictionary<int, string>();
+            foreach (var id in registrados.Select(r => r.ItemId).Distinct()
+                         .Where(id => saldos.All(s => s.ItemId != id || s.Uso == UsoEstoque.Rotina)))
+                nomes[id] = (await estoque.ObterItemAsync(id))?.Nome ?? $"Item #{id}";
+
+            _linhas = TelaDoEstoque.LinhasDosMateriais(saldos, registrados, nomes);
+            _contexto = $"{horario.Paciente?.Nome} · {Formato.DataHora(horario.DataHora)}";
+            if (registro is not null)
+            {
+                _semConsumo = registro.SemConsumo;
+                _pedido = new PedidoConsumoProcedimento(EstoqueService.MateriaisRegistrados(registro), registro.SemConsumo);
+                MostrarRegistro(registro);
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — materiais da sessão não puderam ser abertos", ex);
+            _falha = ex.Message;
+        }
+        finally { _carregando = false; }
+    }
+
+    private void MostrarRegistro(ConferenciaConsumoProcedimento r)
+    {
+        _podeEditar = false;
+        _podeConfirmar = r.BaixadoEm is null;
+        _rotuloConfirmar = "Tentar baixa novamente";
+        _situacao = TelaDoEstoque.SituacaoDoRegistro(r);
+    }
+
+    private void OutroLote(LinhaMaterialDaSessao l)
+    {
+        var i = _linhas.IndexOf(l);
+        _linhas.Insert(i + 1, new LinhaMaterialDaSessao { ItemId = l.ItemId, Nome = l.Nome, Saldo = l.Saldo });
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (_salvando) return;
+        _mensagem = null;
+        try
+        {
+            _salvando = true;
+            if (_podeEditar) _pedido = TelaDoEstoque.PedidoDosMateriais(_linhas, _semConsumo);
+            using var escopo = Escopos.CreateScope();
+            var registro = await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
+                .RegistrarMateriaisAsync(AgendamentoId, SessaoUsuario.Atual.UsuarioId, _pedido!);
+            MostrarRegistro(registro);
+            _gravou = true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — materiais da sessão não puderam ser registrados", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _salvando = false; }
+    }
+
+    /// <summary>Fechar depois de gravar avisa a tela de trás: o saldo e a lista mudaram.</summary>
+    private async Task Fechar()
+    {
+        if (_gravou) await AoConcluir.InvokeAsync();
+        await AoFechar.InvokeAsync();
+    }
+}
