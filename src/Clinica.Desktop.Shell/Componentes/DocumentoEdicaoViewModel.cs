@@ -53,9 +53,22 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     [
         TipoDocumentoClinico.Receita,
         TipoDocumentoClinico.Atestado,
+        TipoDocumentoClinico.LaudoMedico,
         TipoDocumentoClinico.Comparecimento,
         TipoDocumentoClinico.PedidoExame
     ];
+
+    /// <summary>
+    /// O laudo que esta emissão SUBSTITUI (out/2026 — "alterar" o laudo). Nulo na emissão
+    /// comum. Com ele, a janela abre com o texto do anterior, o tipo fica travado e o
+    /// "Emitir" passa pela <c>EmitirNovaVersaoAsync</c>, que cancela o anterior no mesmo
+    /// gravar — sem isso a pessoa emitiria a versão nova e esqueceria de cancelar a velha,
+    /// ficando com dois laudos válidos dizendo coisas diferentes.
+    /// </summary>
+    private readonly DocumentoClinico? _versaoDe;
+
+    /// <summary>O combo de tipo só se troca na emissão comum: a nova versão é do mesmo papel.</summary>
+    public bool PodeTrocarTipo => _versaoDe is null;
 
     public ObservableCollection<Profissional> Profissionais { get; } = [];
     public ObservableCollection<LinhaItemDocumento> Itens { get; } = [];
@@ -153,7 +166,28 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnAlergiaConferidaChanged(bool value) => EmitirCommand.NotifyCanExecuteChanged();
 
     /// <summary>Enquanto houver colisão não confirmada, o botão de emitir fica apagado.</summary>
-    private bool PodeEmitir() => !Emitindo && !Carregando && (!ColideComAlergia || AlergiaConferida);
+    private bool PodeEmitir() => !Emitindo && !Carregando && (!ColideComAlergia || AlergiaConferida)
+                                 && MotivoSemAssinante is null;
+
+    /// <summary>
+    /// A frase da abertura quando o assinante ficou em branco (login sem profissional
+    /// ligado, ou ligado a um cadastro inativo). Ver <see cref="AssinanteDoDocumento"/>.
+    /// </summary>
+    [ObservableProperty] private string? _avisoAssinante;
+
+    /// <summary>
+    /// Por que o "Emitir" está apagado por falta de quem assina — a metade VISÍVEL da
+    /// barreira (parcela 41); a guarda dentro de <see cref="EmitirAsync"/> é a outra.
+    /// </summary>
+    public string? MotivoSemAssinante =>
+        AssinanteDoDocumento.MotivoSemAssinante(TipoSelecionado, Profissional, AvisoAssinante);
+
+    partial void OnAvisoAssinanteChanged(string? value)
+    {
+        OnPropertyChanged(nameof(MotivoSemAssinante));
+        OnPropertyChanged(nameof(FaltaAssinante));
+        EmitirCommand.NotifyCanExecuteChanged();
+    }
 
     /// <summary>
     /// Relê o contexto clínico e reconfere os itens escritos.
@@ -231,12 +265,13 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     [ObservableProperty] private bool _carregando = true;
 
     public bool ReceitaLivre => TipoSelecionado == TipoDocumentoClinico.Receita;
-    public string RotuloCorpo => ReceitaLivre ? "Prescrição" : "Texto complementar (opcional)";
+    public string RotuloCorpo => ReceitaLivre ? "Prescrição" : MostraLaudo ? "Texto do laudo" : "Texto complementar (opcional)";
     public string OrientacaoCorpo => TipoSelecionado switch
     {
         TipoDocumentoClinico.Receita => "Escreva os medicamentos e o modo de usar ou aplique um modelo salvo.",
         TipoDocumentoClinico.Atestado => "O afastamento é gerado com os campos acima. Acrescente aqui apenas o texto complementar.",
         TipoDocumentoClinico.Comparecimento => "A declaração é gerada com o dia e os horários informados. Acrescente aqui apenas o texto complementar.",
+        TipoDocumentoClinico.LaudoMedico => "Escreva o laudo. Ele fica registrado: sai em 2ª via idêntica e se altera emitindo uma nova versão.",
         _ => "Acrescente orientações complementares aos exames solicitados."
     };
     public bool PodeEditar => !Emitindo && !Carregando;
@@ -246,19 +281,65 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         TipoDocumentoClinico.Atestado => "Atestado médico",
         TipoDocumentoClinico.Comparecimento => "Declaração de comparecimento",
         TipoDocumentoClinico.PedidoExame => "Pedido de exames",
+        TipoDocumentoClinico.LaudoMedico => "Laudo médico",
         _ => TipoDocumentoInfo.Rotular(TipoSelecionado)
     };
     public string TituloFolha => (string.IsNullOrWhiteSpace(Titulo) ? TituloDocumento : Titulo.Trim()).ToUpperInvariant();
     public string ContextoDocumento => string.Join("   ·   ", new[]
     {
         _paciente?.Nome,
-        _heranca?.Procedencia(DateOnly.FromDateTime(Data)) is { Length: > 0 } origem ? origem : $"Emissão de {Data:dd/MM/yyyy}"
+        _heranca?.Procedencia(DateOnly.FromDateTime(Data)) is { Length: > 0 } origem ? origem : $"Emissão de {Data:dd/MM/yyyy}",
+        // Quem altera precisa ler, ANTES de emitir, que o anterior vai ser cancelado.
+        _versaoDe is { } anterior ? $"nova versão do {anterior.Numero} — ele será cancelado ao emitir" : null
     }.Where(p => !string.IsNullOrWhiteSpace(p)));
-    public string ResponsavelDocumento => Profissional is null ? "Selecione o profissional responsável" :
-        string.Join(" · ", new[] { Profissional.Nome, Profissional.RegistroConselho }.Where(p => !string.IsNullOrWhiteSpace(p)));
-    public string RotuloTextoFolha => ReceitaLivre ? "Prescrição e modo de usar" : "Texto complementar · opcional";
+    public string RotuloTextoFolha => ReceitaLivre ? "Prescrição e modo de usar" : MostraLaudo ? "Texto do laudo" : "Texto complementar · opcional";
+
+    // ===================== O cabeçalho da folha (out/2026) =====================
+    //
+    // O laudo abria como uma página branca com o título no meio: quem escrevia não via, na
+    // própria folha, DE QUEM era o documento nem que número ele ia ter. O cabeçalho da
+    // folha diz as três coisas que o papel impresso vai dizer — paciente, data e número —,
+    // e o número diz a verdade: ele só nasce na emissão.
+
+    /// <summary>O nome do paciente na folha — "carregando" enquanto a ficha não chegou.</summary>
+    public string PacienteDaFolha => _paciente?.Nome ?? "Carregando o paciente…";
+
+    /// <summary>Documento e idade, pulando o que a ficha não tem (nunca "· anos ·").</summary>
+    public string IdentificacaoDaFolha => _paciente is null ? string.Empty : string.Join("   ·   ", new[]
+    {
+        _paciente.DocumentoFormatado is { Length: > 0 } documento ? $"CPF/doc. {documento}" : null,
+        IdadeDoPaciente.Texto(_paciente.DataNascimento, DateOnly.FromDateTime(DateTime.Today)),
+        _paciente.ConvenioNome
+    }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+    public string DataDaFolha => $"{Data:dd/MM/yyyy}";
+
+    /// <summary>Sem número inventado: ele é dado na emissão, por ano, e só lá.</summary>
+    public string NumeroDaFolha => _versaoDe is { } anterior
+        ? $"Nº gerado ao emitir · substitui o {anterior.Numero}"
+        : "Nº gerado ao emitir";
+
+    // ===================== O bloco de assinatura da folha =====================
+
+    public bool TemAssinante => Profissional is not null;
+    public string NomeDoAssinante => Profissional?.Nome ?? string.Empty;
+    public string RegistroDoAssinante => Profissional?.RegistroConselho is { Length: > 0 } r ? r : "Registro no conselho não cadastrado";
+    /// <summary>Quando ninguém assina ainda: a frase do motivo (login sem profissional) ou o pedido.</summary>
+    public string FaltaAssinante => AvisoAssinante ?? "Escolha quem assina este documento.";
+
+    /// <summary>A ajuda do campo vazio — no laudo, o roteiro que a perícia espera ler.</summary>
+    public string AjudaDoTexto => TipoSelecionado switch
+    {
+        TipoDocumentoClinico.LaudoMedico => "Descreva o quadro clínico, achados e conclusão…",
+        TipoDocumentoClinico.Receita => "Medicamento, dose e modo de usar…",
+        _ => "Texto complementar (opcional)…"
+    };
     partial void OnTituloChanged(string? value) => OnPropertyChanged(nameof(TituloFolha));
-    partial void OnDataChanged(DateTime value) => OnPropertyChanged(nameof(ContextoDocumento));
+    partial void OnDataChanged(DateTime value)
+    {
+        OnPropertyChanged(nameof(ContextoDocumento));
+        OnPropertyChanged(nameof(DataDaFolha));
+    }
     public bool TemSugestoes => ReceitaLivre && Sugestoes.Count > 0;
     public string EnderecoDaReceita => string.IsNullOrWhiteSpace(_paciente?.Endereco)
         ? "Endereço: será solicitado ao emitir."
@@ -277,6 +358,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnCarregandoChanged(bool value)
     {
         EmitirCommand.NotifyCanExecuteChanged();
+        PreverCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(PodeEditar));
     }
 
@@ -285,10 +367,13 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnEmitindoChanged(bool value)
     {
         EmitirCommand.NotifyCanExecuteChanged();
+        PreverCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(PodeEditar));
     }
 
-    public string TituloJanela => $"Emitir {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()}";
+    public string TituloJanela => _versaoDe is { } anterior
+        ? $"Nova versão do {TipoDocumentoInfo.Rotular(anterior.Tipo).ToLowerInvariant()} {anterior.Numero}"
+        : $"Emitir {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()}";
 
     // ===================================================================================
     //  O QUE VEIO DA SESSÃO (set/2026, tela 1 do mockup aprovado)
@@ -351,7 +436,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
         switch (TipoSelecionado)
         {
-            case TipoDocumentoClinico.Atestado
+            case TipoDocumentoClinico.Atestado or TipoDocumentoClinico.LaudoMedico
                 when !string.IsNullOrWhiteSpace(_heranca.Cid) && string.IsNullOrWhiteSpace(Cid):
                 Cid = _heranca.Cid;
                 CidVeioDaSessao = true;
@@ -384,13 +469,23 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnProfissionalChanged(Profissional? value)
     {
         OnPropertyChanged(nameof(Subtitulo));
-        OnPropertyChanged(nameof(ResponsavelDocumento));
+        OnPropertyChanged(nameof(TemAssinante));
+        OnPropertyChanged(nameof(NomeDoAssinante));
+        OnPropertyChanged(nameof(RegistroDoAssinante));
+        OnPropertyChanged(nameof(MotivoSemAssinante));
+        EmitirCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Receita e pedido de exame são listas; atestado e declaração, não.</summary>
     public bool MostraItens => TipoDocumentoInfo.ExigeItens(TipoSelecionado);
 
     public bool MostraAtestado => TipoSelecionado == TipoDocumentoClinico.Atestado;
+
+    /// <summary>O laudo: o texto é do médico, e o CID sai com a mesma autorização do atestado.</summary>
+    public bool MostraLaudo => TipoSelecionado == TipoDocumentoClinico.LaudoMedico;
+
+    /// <summary>Os papéis que levam CID — e, com ele, a autorização expressa do paciente.</summary>
+    public bool MostraCid => MostraAtestado || MostraLaudo;
 
     public bool MostraComparecimento => TipoSelecionado == TipoDocumentoClinico.Comparecimento;
 
@@ -416,7 +511,8 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     public DocumentoEdicaoViewModel(
         IServiceScopeFactory escopos, int pacienteId,
         TipoDocumentoClinico tipoInicial = TipoDocumentoClinico.Receita,
-        HerancaDaSessao? heranca = null)
+        HerancaDaSessao? heranca = null,
+        DocumentoClinico? versaoDe = null)
     {
         // ⚠️ Esta janela NÃO sabe montar o termo que o paciente assina (parcela 66): ela não
         // copia o modelo, não traz as declarações e não grava `ModeloOrigemId`. Emitir por
@@ -440,11 +536,39 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                       + "ou enviar o link pelo WhatsApp."
                     : "Colha-o na ficha do paciente, aba Documentos, no dia do procedimento."));
 
+        // A nova versão é do MESMO papel e do MESMO paciente — a recusa mora no serviço,
+        // e aqui ela é dita antes de a janela abrir, em vez de depois de a pessoa reescrever
+        // o laudo inteiro.
+        if (versaoDe is not null)
+        {
+            if (!TipoDocumentoInfo.PermiteNovaVersao(versaoDe.Tipo))
+                throw new InvalidOperationException(
+                    $"{TipoDocumentoInfo.Rotular(versaoDe.Tipo)} não se altera por nova versão.");
+            if (versaoDe.PacienteId != pacienteId)
+                throw new InvalidOperationException($"O documento {versaoDe.Numero} é de outro paciente.");
+            tipoInicial = versaoDe.Tipo;
+        }
+
         _escopos = escopos;
         _pacienteId = pacienteId;
         _tipoSelecionado = tipoInicial;
         _heranca = heranca;
+        _versaoDe = versaoDe;
         Itens.Add(new LinhaItemDocumento());
+
+        // Alterar começa do que o laudo DIZ, não de uma folha em branco: quem corrige uma
+        // linha não pode ter de reescrever as outras vinte.
+        if (versaoDe is not null)
+        {
+            _titulo = versaoDe.Titulo;
+            _corpo = versaoDe.Corpo;
+            _corpoFormatado = versaoDe.CorpoFormatado;
+            _observacoes = versaoDe.Observacoes;
+            _observacoesFormatadas = versaoDe.ObservacoesFormatadas;
+            _cid = versaoDe.Cid;
+            _cidAutorizado = versaoDe.CidAutorizado;
+        }
+
         AplicarHeranca();
         _ = CarregarAsync();
     }
@@ -457,13 +581,18 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(RotuloTextoFolha));
         OnPropertyChanged(nameof(MostraItens));
         OnPropertyChanged(nameof(MostraAtestado));
+        OnPropertyChanged(nameof(MostraLaudo));
+        OnPropertyChanged(nameof(MostraCid));
         OnPropertyChanged(nameof(MostraComparecimento));
         OnPropertyChanged(nameof(RotuloItens));
         OnPropertyChanged(nameof(RotuloDetalhe));
         OnPropertyChanged(nameof(ReceitaLivre));
         OnPropertyChanged(nameof(RotuloCorpo));
         OnPropertyChanged(nameof(OrientacaoCorpo));
+        OnPropertyChanged(nameof(AjudaDoTexto));
         OnPropertyChanged(nameof(TemSugestoes));
+        OnPropertyChanged(nameof(MotivoSemAssinante));
+        EmitirCommand.NotifyCanExecuteChanged();
 
         // Trocar o tipo no combo é escolher OUTRO papel: o que a sessão tinha a dar para
         // ele é outra coisa, e as marcas do papel anterior mentiriam sobre este.
@@ -520,13 +649,15 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             Profissionais.Clear();
             foreach (var p in await equipe.ProfissionaisAtivosAsync()) Profissionais.Add(p);
 
-            // Quem assina, por padrão, é QUEM ESTÁ LOGADO — não o primeiro da lista, que é
-            // o primeiro em ordem alfabética. Emitir uma receita no consultório e ter de
-            // trocar o combo toda vez é o tipo de detalhe que faz a pessoa emitir com o
-            // nome do colega sem perceber, e o nome no papel é quem responde por ele.
-            Profissional = Profissionais.FirstOrDefault(
-                                p => p.Id == SessaoUsuario.Atual.ProfissionalId)
-                           ?? Profissionais.FirstOrDefault();
+            // Quem assina, por padrão, é QUEM ESTÁ LOGADO — e SÓ ele. O caminho de baixo
+            // antigo (o primeiro da lista, isto é, o primeiro em ordem alfabética) punha no
+            // papel o nome de uma colega quando o login não atende: a direção entrava como
+            // "Lucas" e o atestado saía proposto em nome de outra médica. Sem vínculo, o
+            // campo fica em branco e a tela DIZ por quê (AssinanteDoDocumento).
+            var assinante = AssinanteDoDocumento.Resolver(
+                Profissionais, SessaoUsuario.Atual.ProfissionalId);
+            AvisoAssinante = assinante.Aviso;
+            Profissional = assinante.Profissional;
 
             OnPropertyChanged(nameof(Subtitulo));
 
@@ -535,6 +666,8 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
             _paciente = await pacientes.ObterComHistoricoAsync(_pacienteId);
             OnPropertyChanged(nameof(ContextoDocumento));
+            OnPropertyChanged(nameof(PacienteDaFolha));
+            OnPropertyChanged(nameof(IdentificacaoDaFolha));
             OnPropertyChanged(nameof(Subtitulo));
             OnPropertyChanged(nameof(EnderecoDaReceita));
 
@@ -785,12 +918,26 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             return;
         }
 
+        // A segunda barreira do assinante: o botão já está apagado com a frase ao lado, e
+        // isto cobre o atalho de teclado e a troca de tipo no meio do caminho.
+        if (MotivoSemAssinante is { } semAssinante)
+        {
+            Erro(semAssinante);
+            return;
+        }
+
         Emitindo = true;
         try
         {
             if (ReceitaLivre && string.IsNullOrWhiteSpace(Corpo))
             {
                 Erro("Escreva a prescrição antes de emitir a receita.");
+                return;
+            }
+
+            if (MostraLaudo && string.IsNullOrWhiteSpace(Corpo))
+            {
+                Erro("Escreva o laudo antes de emiti-lo.");
                 return;
             }
 
@@ -816,7 +963,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                 var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
                 var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
 
-                var emitido = await documentos.EmitirAsync(dados, SessaoUsuario.Atual.Operador);
+                var emitido = _versaoDe is { } anterior
+                    ? await documentos.EmitirNovaVersaoAsync(anterior.Id, dados, SessaoUsuario.Atual.Operador)
+                    : await documentos.EmitirAsync(dados, SessaoUsuario.Atual.Operador);
                 DocumentoEmitidoId = emitido.Id;
                 numero = emitido.Numero;
                 nomeArquivo = $"{TipoDocumentoInfo.Rotular(TipoSelecionado)}-{numero.Replace('/', '-')}.pdf";
@@ -846,6 +995,79 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         finally
         {
             Emitindo = false;
+        }
+    }
+
+    // ===================== Pré-visualizar (out/2026) =====================
+
+    /// <summary>Uma prévia está sendo montada — o segundo clique não monta outra.</summary>
+    [ObservableProperty] private bool _gerandoPrevia;
+
+    partial void OnGerandoPreviaChanged(bool value) => PreverCommand.NotifyCanExecuteChanged();
+
+    private bool PodePrever() => !Emitindo && !Carregando && !GerandoPrevia;
+
+    /// <summary>
+    /// Gera o PDF do que está na tela SEM emitir: sem número, sem código de conferência,
+    /// com a marca PRÉVIA no papel — e abre no leitor. Nada é gravado (o serviço para
+    /// antes de numerar), então conferir dez vezes não gasta dez números do ano.
+    ///
+    /// Passa pela MESMA montagem e pela MESMA validação da emissão: prévia que mostra uma
+    /// folha que a emissão recusaria é pior do que prévia nenhuma. O que ela NÃO faz é o
+    /// que só faz sentido no ato de emitir: pedir o endereço da receita e cobrar a
+    /// confirmação da alergia — conferir o texto não é prescrever.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(PodePrever))]
+    private async Task PreverAsync()
+    {
+        if (Emitindo || Carregando || GerandoPrevia) return;
+
+        Mensagem = string.Empty;
+        MensagemEhErro = false;
+
+        // A prévia mostra o papel inteiro, com o paciente e o diagnóstico: pede o MESMO
+        // acesso de emitir este tipo (a segunda barreira; a primeira é o botão).
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                CentralDocumentosService.AcessoParaEmitir(TipoSelecionado),
+                $"pré-visualizar {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()}");
+        }
+        catch (Exception ex)
+        {
+            Erro(ex.Message);
+            return;
+        }
+
+        GerandoPrevia = true;
+        try
+        {
+            var dados = MontarDocumento();
+            byte[] pdf;
+            using (var scope = _escopos.CreateScope())
+            {
+                var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+                var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+
+                var previa = await documentos.PreverAsync(dados);
+                pdf = pdfs.Gerar(previa, await parametros.ObterPrestadorAsync(), previa: true);
+            }
+
+            var erro = await ImpressaoPdf.AbrirPreviaAsync(
+                pdf, $"Previa-{TipoDocumentoInfo.Rotular(TipoSelecionado)}.pdf");
+            if (erro is not null) Erro(erro);
+            else Informar("Prévia aberta. Ela não tem número nem valor de documento — nada foi emitido.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Documento clínico — prévia não pôde ser gerada", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            GerandoPrevia = false;
         }
     }
 
@@ -940,15 +1162,15 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                     Detalhe = i.Detalhe, DetalheFormatado = i.DetalheFormatado
                 });
 
-        if (MostraAtestado)
+        if (MostraAtestado && !string.IsNullOrWhiteSpace(DiasAfastamentoTexto))
         {
-            if (!string.IsNullOrWhiteSpace(DiasAfastamentoTexto))
-            {
-                if (!int.TryParse(DiasAfastamentoTexto, out var dias))
-                    throw new InvalidOperationException("Os dias de afastamento devem ser um número.");
-                documento.DiasAfastamento = dias;
-            }
+            if (!int.TryParse(DiasAfastamentoTexto, out var dias))
+                throw new InvalidOperationException("Os dias de afastamento devem ser um número.");
+            documento.DiasAfastamento = dias;
+        }
 
+        if (MostraCid)
+        {
             documento.Cid = Cid;
             documento.CidAutorizado = CidAutorizado;
         }

@@ -46,6 +46,11 @@ public sealed class DocumentosClinicosPdfService
     private const string VerdeForte = "#15803D";
     private const string VermelhoForte = "#B91C1C";
     private const string VermelhoSuave = "#FEE2E2";
+    private const string AmareloForte = "#B45309";
+    private const string AmareloSuave = "#FEF3C7";
+
+    /// <summary>A marca-d'água da prévia: ARGB, cinza-azulado a ~12% de opacidade.</summary>
+    private const string MarcaDagua = "#1F64748B";
 
     /// <summary>A dor ANTES da sessão, na curva. Quente para se distinguir do azul da marca
     /// sem virar alarme — a linha de cima não é um erro, é o ponto de partida.</summary>
@@ -206,10 +211,17 @@ public sealed class DocumentosClinicosPdfService
     /// <c>AssinaturaDoPacienteService.ColherAsync</c>, que recusa colher traço em documento
     /// já assinado eletronicamente.
     /// </param>
+    /// <param name="previa">
+    /// A folha é uma PRÉVIA (out/2026): o documento ainda não foi emitido, então não tem
+    /// número nem código de conferência — e a folha DIZ isso no cabeçalho, no rodapé e numa
+    /// marca-d'água atrás do texto. Sem as três marcas, uma prévia impressa por engano
+    /// seria um papel com cara de documento e sem registro nenhum por trás dele — a
+    /// garantia aparente que este serviço recusa desde a parcela 3.
+    /// </param>
     public byte[] Gerar(
         DocumentoClinico documento, DadosPrestador? prestador = null,
         bool paraAssinaturaEletronica = false, string? urlDoArquivo = null,
-        byte[]? tracoPaciente = null, bool somentePaciente = false)
+        byte[]? tracoPaciente = null, bool somentePaciente = false, bool previa = false)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -224,6 +236,15 @@ public sealed class DocumentosClinicosPdfService
                 page.Size(PageSizes.A4);
                 page.Margin(1.5f, Unit.Centimetre);
                 page.DefaultTextStyle(t => t.FontSize(10).FontColor(TextoPrimario));
+
+                // Na FRENTE, e TRANSLÚCIDA: atrás do conteúdo, os painéis de fundo (paciente,
+                // CID) a escondiam pela metade e a marca saía picada. Com 12% de opacidade
+                // ela atravessa a folha inteira sem atrapalhar a leitura do texto, que é o
+                // que a prévia existe para conferir. Uma palavra só: a frase longa quebrava
+                // em duas linhas na diagonal.
+                if (previa)
+                    page.Foreground().AlignCenter().AlignMiddle().Rotate(-40)
+                        .Text("PRÉVIA").Bold().FontSize(130).FontColor(MarcaDagua);
 
                 page.Header().Column(col =>
                 {
@@ -260,11 +281,26 @@ public sealed class DocumentosClinicosPdfService
                                     .Background(VermelhoSuave).PaddingVertical(3).PaddingHorizontal(10)
                                     .Text("CANCELADO").Bold().FontSize(9).FontColor(VermelhoForte);
 
-                            c.Item().AlignRight().PaddingTop(6)
-                                .Text($"Nº {documento.Numero}").Bold().FontSize(11);
-                            c.Item().AlignRight()
-                                .Text($"Emitido em {documento.Data:dd/MM/yyyy}")
-                                .FontSize(8.5f).FontColor(TextoSecundario);
+                            if (previa)
+                            {
+                                c.Item().AlignRight().PaddingTop(4)
+                                    .Background(AmareloSuave).PaddingVertical(3).PaddingHorizontal(10)
+                                    .Text("PRÉVIA").Bold().FontSize(9).FontColor(AmareloForte);
+                                c.Item().AlignRight().PaddingTop(6)
+                                    .Text("Nº gerado ao emitir").Bold().FontSize(11)
+                                    .FontColor(TextoSecundario);
+                                c.Item().AlignRight()
+                                    .Text($"Data prevista {documento.Data:dd/MM/yyyy}")
+                                    .FontSize(8.5f).FontColor(TextoSecundario);
+                            }
+                            else
+                            {
+                                c.Item().AlignRight().PaddingTop(6)
+                                    .Text($"Nº {documento.Numero}").Bold().FontSize(11);
+                                c.Item().AlignRight()
+                                    .Text($"Emitido em {documento.Data:dd/MM/yyyy}")
+                                    .FontSize(8.5f).FontColor(TextoSecundario);
+                            }
                         });
                     });
 
@@ -289,6 +325,10 @@ public sealed class DocumentosClinicosPdfService
                         col, paciente,
                         comEndereco: documento.Tipo == TipoDocumentoClinico.Receita);
 
+                    // O laudo desenha o próprio texto (CorpoDoLaudo): ele É o documento, e sai
+                    // depois do CID, com entrelinha e parágrafos de texto corrido.
+                    var corpoProprio = documento.Tipo == TipoDocumentoClinico.LaudoMedico;
+
                     if (documento.Tipo == TipoDocumentoClinico.Receita && itens.Count == 0)
                     {
                         col.Item().Text("Prescrição").Bold().FontSize(11).FontColor(AzulEscuro);
@@ -296,9 +336,9 @@ public sealed class DocumentosClinicosPdfService
                         // livre continue nas páginas seguintes, sem uma tabela vazia.
                         col.Item().TextoClinico(documento.Corpo,documento.CorpoFormatado);
                     }
-                    else if (!string.IsNullOrWhiteSpace(documento.CorpoFormatado))
+                    else if (!corpoProprio && !string.IsNullOrWhiteSpace(documento.CorpoFormatado))
                         col.Item().TextoClinico(documento.Corpo,documento.CorpoFormatado);
-                    else if (!string.IsNullOrWhiteSpace(documento.Corpo))
+                    else if (!corpoProprio && !string.IsNullOrWhiteSpace(documento.Corpo))
                         Paragrafos(col, documento.Corpo!,
                             // O TERMO é o único documento cujo corpo é um texto LONGO — dez,
                             // doze parágrafos de consentimento. Com o espaçamento de 10 que
@@ -324,6 +364,10 @@ public sealed class DocumentosClinicosPdfService
 
                         case TipoDocumentoClinico.Comparecimento:
                             BlocoComparecimento(col, documento);
+                            break;
+
+                        case TipoDocumentoClinico.LaudoMedico:
+                            CorpoDoLaudo(col, documento);
                             break;
 
                         case TipoDocumentoClinico.RelatorioEvolucao:
@@ -362,7 +406,7 @@ public sealed class DocumentosClinicosPdfService
                     Assinaturas(col, documento, paraAssinaturaEletronica, tracoPaciente, somentePaciente);
                 });
 
-                Rodape(page, documento, paraAssinaturaEletronica, urlDoArquivo);
+                Rodape(page, documento, paraAssinaturaEletronica, urlDoArquivo, previa);
             });
         }).GeneratePdf();
     }
@@ -387,7 +431,7 @@ public sealed class DocumentosClinicosPdfService
     /// </summary>
     private static void Rodape(
         PageDescriptor page, DocumentoClinico documento, bool assinaturaEletronica,
-        string? urlDoArquivo = null)
+        string? urlDoArquivo = null, bool previa = false)
     {
         page.Footer().Height(assinaturaEletronica ? AlturaRodape : 34).Column(col =>
         {
@@ -443,14 +487,30 @@ public sealed class DocumentosClinicosPdfService
 
             col.Item().Row(row =>
             {
-                row.RelativeItem().Text(t =>
-                {
-                    t.Span("Conferência  ").FontSize(8).FontColor(TextoSecundario);
-                    t.Span(documento.CodigoVerificacao).SemiBold().FontSize(8.5f);
-                    t.Span("  ·  código interno da clínica (confere-se na ficha do "
-                           + "paciente) — não é o código que o validador gov.br pede.")
-                        .FontSize(8).FontColor(TextoSecundario);
-                });
+                // A prévia não tem código: ele nasce na emissão, e um código inventado aqui
+                // seria conferível contra nada.
+                if (previa)
+                    row.RelativeItem().Text(t =>
+                    {
+                        t.Span("PRÉVIA  ").Bold().FontSize(8).FontColor(AmareloForte);
+                        t.Span("sem número e sem código de conferência — não tem valor de "
+                               + "documento. Emita para numerar e registrar na ficha do paciente.")
+                            .FontSize(8).FontColor(TextoSecundario);
+                    });
+                else
+                    row.RelativeItem().Text(t =>
+                    {
+                        t.Span("Conferência  ").FontSize(8).FontColor(TextoSecundario);
+                        t.Span(documento.CodigoVerificacao).SemiBold().FontSize(8.5f);
+                        // A ressalva do validador só existe onde há QR e validador — na folha
+                        // assinada. Na via em papel ela era uma segunda linha de rodapé
+                        // falando de um site que esta folha não manda visitar.
+                        t.Span(assinaturaEletronica
+                                ? "  ·  código interno da clínica (confere-se na ficha do "
+                                  + "paciente) — não é o código que o validador gov.br pede."
+                                : "  ·  confere-se na ficha do paciente, na clínica.")
+                            .FontSize(8).FontColor(TextoSecundario);
+                    });
                 row.ConstantItem(90).AlignRight().Text(t =>
                 {
                     t.Span("Página ").FontSize(8).FontColor(TextoSecundario);
@@ -515,7 +575,9 @@ public sealed class DocumentosClinicosPdfService
                     t.Span("CPF  ").FontSize(8.5f).FontColor(TextoSecundario);
                     t.Span(Cpf.Formatar(paciente?.Documento)).FontSize(9.5f);
                 });
-                r.RelativeItem().Text(t =>
+                // 1,4 e não 1: "20/05/1980 (46 anos)" quebrava em duas linhas na coluna
+                // igual à do CPF, e o painel do paciente saía torto em toda folha.
+                r.RelativeItem(1.4f).Text(t =>
                 {
                     t.Span("Nascimento  ").FontSize(8.5f).FontColor(TextoSecundario);
                     // ⚠️ A idade só é IMPRESSA quando é plausível (`IdadeDoPaciente`, no
@@ -527,7 +589,7 @@ public sealed class DocumentosClinicosPdfService
                         ? $"{n:dd/MM/yyyy} ({IdadeDoPaciente.Texto(n, DateOnly.FromDateTime(DateTime.Today))})"
                         : "—").FontSize(9.5f);
                 });
-                r.RelativeItem(2).Text(t =>
+                r.RelativeItem(1.8f).Text(t =>
                 {
                     t.Span("Convênio  ").FontSize(8.5f).FontColor(TextoSecundario);
                     t.Span(paciente is null
@@ -611,6 +673,56 @@ public sealed class DocumentosClinicosPdfService
         if (documento.PeriodoInicio is { } inicio && documento.DiasAfastamento is not null)
             col.Item().Text($"A partir de {inicio:dd/MM/yyyy}.").FontSize(9.5f).FontColor(TextoSecundario);
     }
+
+    /// <summary>
+    /// O miolo do LAUDO (out/2026 — "imprimível e profissional"): o CID numa linha, o texto
+    /// do médico como texto CORRIDO e a data por extenso antes da assinatura.
+    ///
+    /// <para>O <b>CID vem ANTES do texto</b>, e com a regra do atestado: só sai quando o
+    /// paciente autorizou — o laudo vai à perícia, ao convênio e à escola, e o diagnóstico é
+    /// sigilo dele. Sem autorização não sai nada, nem um "CID omitido" que anunciaria que
+    /// existe um. Quando o código está no atalho da clínica, a DESCRIÇÃO sai ao lado: quem
+    /// lê o laudo fora da clínica não decora a CID-10, e "M51.1" sozinho não diz nada.</para>
+    ///
+    /// <para>O <b>texto</b> sai com entrelinha e espaço entre parágrafos: o laudo é o único
+    /// papel escrito à mão que é LIDO como texto, e um bloco de corpo 10 sem respiro (como a
+    /// orientação de uma receita) parecia rascunho. O negrito e o itálico que o médico
+    /// marcou atravessam pelo mesmo <c>TextoFormatadoPdf</c> dos outros papéis.</para>
+    /// </summary>
+    private static void CorpoDoLaudo(ColumnDescriptor col, DocumentoClinico documento)
+    {
+        if (documento.CidImpresso is { } cid)
+            col.Item().BorderLeft(3).BorderColor(Azul).Background(FundoSuave)
+                .PaddingVertical(8).PaddingHorizontal(12).Row(r =>
+                {
+                    r.ConstantItem(52).AlignMiddle().Text("CID-10").Bold().FontSize(8)
+                        .FontColor(TextoSecundario).LetterSpacing(0.08f);
+                    r.RelativeItem().AlignMiddle().Text(t =>
+                    {
+                        t.Span(cid).Bold().FontSize(11).FontColor(AzulEscuro);
+                        if (CatalogoCid.Descrever(cid) is { Length: > 0 } descricao)
+                            t.Span($"   {descricao}").FontSize(10);
+                    });
+                });
+
+        if (!string.IsNullOrWhiteSpace(documento.Corpo))
+            col.Item().PaddingTop(6)
+                .DefaultTextStyle(x => x.FontSize(10.5f).LineHeight(1.45f))
+                .Text(t =>
+                {
+                    t.Justify();
+                    t.ParagraphSpacing(7);
+                    TextoFormatadoPdf.Trechos(t, documento.Corpo, documento.CorpoFormatado, 10.5f);
+                });
+
+        // A data por extenso fecha o texto, como num laudo em papel timbrado. A cultura é
+        // FIXA: o papel sai igual em qualquer posto (a lição dos textos gravados, parcela 15).
+        col.Item().PaddingTop(10).AlignRight()
+            .Text(documento.Data.ToString("d 'de' MMMM 'de' yyyy", PtBr) + ".")
+            .FontSize(10).FontColor(TextoPrimario);
+    }
+
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     private static void BlocoComparecimento(ColumnDescriptor col, DocumentoClinico documento)
     {
@@ -1028,6 +1140,28 @@ public sealed class DocumentosClinicosPdfService
         // `ShowEntire()` pela razão do bloco assinado acima: a linha de assinatura e o nome
         // embaixo dela são UMA coisa, e quebrar entre os dois deixa a via com um traço
         // órfão no fim de uma página e o nome de quem assinou no começo da seguinte.
+        // Só o PROFISSIONAL assina: a linha fica CENTRADA e com a largura de uma
+        // assinatura, com espaço acima para a caneta e o carimbo (out/2026). A linha da
+        // margem à margem que saía antes riscava a folha inteira e se lia como separador,
+        // não como lugar de assinar.
+        if (!assinaPaciente && !assinaturaEletronica)
+        {
+            col.Item().PaddingTop(14).ShowEntire().AlignCenter().Width(260).Column(c =>
+            {
+                c.Item().Height(AlturaDaAssinatura);
+                c.Item().LineHorizontal(1).LineColor(TextoSecundario);
+                c.Item().PaddingTop(3).AlignCenter()
+                    .Text(documento.Profissional?.Nome ?? "Profissional responsável")
+                    .SemiBold().FontSize(9.5f);
+
+                var registro = documento.Profissional?.RegistroConselho;
+                c.Item().AlignCenter()
+                    .Text(string.IsNullOrWhiteSpace(registro) ? "Assinatura e carimbo" : registro!)
+                    .FontSize(8.5f).FontColor(TextoSecundario);
+            });
+            return;
+        }
+
         col.Item().PaddingTop(30).ShowEntire().Row(row =>
         {
             if (!assinaturaEletronica)

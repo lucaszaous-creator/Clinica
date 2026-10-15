@@ -126,6 +126,14 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveAjuda = ChavesSuite.Ajuda;
 
     public const string ChaveConfirmacoes = ChavesSuite.ConfirmacoesAgenda;
+
+    /// <summary>
+    /// O item composto "Relacionamento" (out/2026, mockup aprovado): confirmar a sessão de
+    /// amanhã, convidar quem o profissional pediu de volta e acompanhar quem sumiu são o
+    /// MESMO ato — falar com o paciente fora da sessão — e moravam em três lugares
+    /// (Operações da agenda, Gestão e o Marketing do Gerente). Uma porta, três abas.
+    /// </summary>
+    public const string ChaveGrupoRelacionamento = "relacionamento";
     public string Nome => "Recepção";
 
     // A permiss\u00E3o exigida por item entrou na parcela 5: quem n\u00E3o a tem n\u00E3o v\u00EA o item
@@ -133,7 +141,7 @@ public sealed class ModuloRecepcao : IModuloApp
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
         new ItemMenuModulo { Chave = ChavesSuite.OcupacaoAgenda, Rotulo = "Ocupação da agenda", Glifo = "", Icone = "cal", Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda },
-        new ItemMenuModulo { Chave = ChavesSuite.PedidosEnfermagem, Rotulo = "Pedidos da enfermagem", Glifo = "", Icone = "sino", Grupo = GrupoSidebar.Gestao,
+        new ItemMenuModulo { Chave = ChavesSuite.PedidosEnfermagem, PreservarAoNavegar = true, Rotulo = "Pedidos da enfermagem", Glifo = "", Icone = "sino", Grupo = GrupoSidebar.Gestao,
             Requer = Permissao.VerAgenda | Permissao.EditarAgenda | Permissao.VerFichaPaciente },
         new ItemMenuModulo { Chave = ChaveConfirmacoes, Rotulo = "Confirmações de agenda", Glifo = "\uE73E", Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda },
         new ItemMenuModulo
@@ -147,7 +155,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // pai não existe e este volta a ser menu: é ele que a recepção vê ao entrar.
         new ItemMenuModulo
         {
-            Chave = ChavePainel, Rotulo = "In\u00EDcio", Glifo = "\uE80F", Icone = "home",
+            Chave = ChavePainel, Rotulo = "In\u00EDcio", Glifo = "\uE80F", Icone = "home", Principal = 1,
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda, Inicial = true
         },
         // ===== GESTÃO =====
@@ -165,12 +173,16 @@ public sealed class ModuloRecepcao : IModuloApp
         // porque o painel e o Consultório navegam por ela — quem a esconde é este pai.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoAgenda, Rotulo = "Agenda", Glifo = "\uE787", Icone = "cal",
+            Chave = ChaveGrupoAgenda, Rotulo = "Agenda", Glifo = "\uE787", Icone = "cal", Principal = 2,
+            PreservarAoNavegar = true,
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
+            // O DIA vem primeiro (out/2026, pedido da clínica): é ele que a recepção abre
+            // a manhã inteira, e a primeira aba é a que o clique em "Agenda" mostra. A
+            // rota antiga da agenda continua levando à Visão geral (o pedido de data).
             Abas =
             [
-                new AbaMenu("Visão geral", ChavesSuite.OcupacaoAgenda),
                 new AbaMenu("Dia", ChaveFila),
+                new AbaMenu("Visão geral", ChavesSuite.OcupacaoAgenda),
                 new AbaMenu("Grade", ChaveAgenda),
                 new AbaMenu("Semana do profissional", ChavesSuite.ConsultorioSemana)
             ]
@@ -230,7 +242,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // diferença.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoPacientes, Rotulo = "Pacientes", Glifo = "\uE77B", Icone = "pessoa",
+            Chave = ChaveGrupoPacientes, Rotulo = "Pacientes", Glifo = "\uE77B", Icone = "pessoa", Principal = 3,
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente,
             Abas =
             [
@@ -241,13 +253,12 @@ public sealed class ModuloRecepcao : IModuloApp
         // Marcação, retornos e conferência administrativa sem lançamento clínico direto.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoAtendimento, Rotulo = "Marcar", Glifo = "\uE787", Icone = "cal",
+            Chave = ChaveGrupoAtendimento, Rotulo = "Marcar", Glifo = "\uE787", Icone = "cal", Principal = 4,
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.EditarAgenda,
             // O formulário é aberto somente no modo de marcação, com EditarAgenda.
             Abas =
             [
                 new AbaMenu("Marcar", ChaveMarcarHorario),
-                new AbaMenu("Retornos a marcar", ChaveRetornosAMarcar),
                 new AbaMenu("Lan\u00E7amentos", ChaveLancamentos),
                 new AbaMenu("Consultas de conv\u00EAnio", ChaveConsultas)
             ]
@@ -262,6 +273,20 @@ public sealed class ModuloRecepcao : IModuloApp
         // composto, e "Prontu\u00E1rios" volta a ser item de menu comum. \u00C9 o mecanismo da tela
         // \u00F3rf\u00E3 (parcela 55): esconder por decreto faria a tela sumir do \u00FAnico app onde
         // algu\u00E9m a usa todo dia.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoRelacionamento, Rotulo = "Relacionamento", Glifo = "\uE8BD", Icone = "mega", Principal = 5,
+            Grupo = GrupoSidebar.Relacionamento, Requer = Permissao.VerAgenda,
+            Abas =
+            [
+                new AbaMenu("Confirma\u00E7\u00F5es", ChaveConfirmacoes),
+                new AbaMenu("Retornos a marcar", ChaveRetornosAMarcar),
+                new AbaMenu("Acompanhamento", ChaveRetorno),
+                // Os pedidos da enfermagem (out/2026, pedido da clínica): a recepção os
+                // atende como atende o paciente que liga — é conversa, não agenda.
+                new AbaMenu("Pedidos da enfermagem", ChavesSuite.PedidosEnfermagem)
+            ]
+        },
         new ItemMenuModulo
         {
             Chave = ChaveProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3", Icone = "ficha",
@@ -449,7 +474,6 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<LancamentosViewModel>();
         servicos.AddTransient<RetornosAMarcarViewModel>();
-        servicos.AddTransient<RetornoViewModel>();
         servicos.AddTransient<AcompanhamentoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
@@ -487,7 +511,9 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavePainel => new PainelView { DataContext = servicos.GetRequiredService<PainelViewModel>() },
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
-        ChavePacientes => new PacientesView { DataContext = servicos.GetRequiredService<PacientesViewModel>() },
+        // A lista de Pacientes do BALCÃO abre a ficha do balcão (out/2026, mockup "4 · Ficha");
+        // o Prontuário e o Consultório, que reusam a mesma lista, continuam na ficha clínica.
+        ChavePacientes => new PacientesView { DataContext = ComFichaDoBalcao(servicos.GetRequiredService<PacientesViewModel>()) },
         ChaveMarcarHorario => NovoAtendimento(servicos, marcar: true),
         ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
         ChaveLancamentos => new LancamentosView
@@ -527,4 +553,15 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveAjuda => new AjudaView(),
         _ => null
     };
+
+    private static PacientesViewModel ComFichaDoBalcao(PacientesViewModel vm)
+    {
+        vm.AbrirFichaDoBalcao = true;
+        // A tela ABRE no recorte de quem tem horário hoje (out/2026 — o cliente: a abertura
+        // "vazia, só com a busca" ficou feia e caducada). É quem o balcão procura primeiro,
+        // e a consulta é pequena (o dia, não o cadastro): o cadastro inteiro continua sendo
+        // PEDIDO, pelo "Ver todas".
+        vm.IniciarComRecorte(Clinica.Application.Modelos.FiltroListaPacientes.ComHorarioHoje);
+        return vm;
+    }
 }

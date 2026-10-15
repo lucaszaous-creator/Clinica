@@ -289,11 +289,13 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Lê tudo do paciente. Cinco serviços que já existem — nenhuma consulta nova foi
-    /// escrita para este componente.
+    /// Lê somente as naturezas visíveis. Cada atualização consulta novamente o banco.
     /// </summary>
     public async Task CarregarAsync(int pacienteId)
     {
+        var geracao = ++_geracaoCarga;
+        // O conteúdo anterior não pode ficar sob o nome do próximo paciente.
+        if (_pacienteId != pacienteId) Limpar();
         _pacienteId = pacienteId;
 
         if (pacienteId == 0)
@@ -302,7 +304,6 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
             // anterior que ainda está no ar responde DEPOIS do Limpar e republica o
             // prontuário DELE numa tela que já trocou de pessoa — o defeito da parcela 60
             // no caminho que parece não ter carga nenhuma.
-            ++_geracaoCarga;
             Limpar();
             SemAcesso = false;
             return;
@@ -320,7 +321,7 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
             return;
         }
 
-        var geracao = ++_geracaoCarga;
+        SemAcesso = false;
         Carregando = true;
         NaoVerificado = false;
         Mensagem = null;
@@ -328,42 +329,14 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
         try
         {
             using var scope = _escopos.CreateScope();
-            var servicos = scope.ServiceProvider;
-
-            var prontuario = servicos.GetRequiredService<ProntuarioService>();
-            var sessoes = await prontuario.DoPacienteAsync(pacienteId);
-            if (geracao != _geracaoCarga) return;
-
-            var anexos = await prontuario.ContagemDeAnexosAsync(
-                sessoes.Select(e => e.Id).ToList());
-            if (geracao != _geracaoCarga) return;
-
-            var enfermagem = await servicos.GetRequiredService<EvolucaoEnfermagemService>()
-                .DoPacienteAsync(pacienteId, limite: 200);
-            if (geracao != _geracaoCarga) return;
-
-            var infusoes = await servicos.GetRequiredService<PrescricaoInternaService>()
-                .DoPacienteAsync(pacienteId, limite: 200);
-            if (geracao != _geracaoCarga) return;
-
-            var documentos = MostrarDocumentos
-                ? await servicos.GetRequiredService<DocumentoClinicoService>()
-                    .DoPacienteAsync(pacienteId)
-                : [];
-            if (geracao != _geracaoCarga) return;
-
-            // Os arquivos da ficha, COM os cancelados: cancelado aparece marcado, nunca
-            // sumindo (a regra da central de documentos).
-            var arquivosDaFicha = await servicos.GetRequiredService<AnexoPacienteService>()
-                .DaFichaAsync(pacienteId, incluirCancelados: true);
+            var porNatureza = await scope.ServiceProvider.GetRequiredService<LeituraLinhaDoTempoService>()
+                .LerAsync(pacienteId, SessaoUsuario.Atual.Efetivas, SecoesVisiveis, MostrarDocumentos);
             if (geracao != _geracaoCarga) return;
 
             // ⚠️ `Efetivas` e não `Permissoes` cru: sem sessão autenticada `Pode` LIBERA
             // (a regra do projeto), e ler o campo direto faria o componente abrir vazio
             // fora do login — tela vazia se lê como defeito.
-            _porNatureza = LinhaDoTempoClinica.Montar(
-                SessaoUsuario.Atual.Efetivas,
-                sessoes, anexos, enfermagem, infusoes, documentos, arquivosDaFicha);
+            _porNatureza = porNatureza;
 
             MontarChips();
             Publicar();

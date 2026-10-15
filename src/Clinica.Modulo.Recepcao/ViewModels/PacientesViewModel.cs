@@ -1,9 +1,11 @@
 using Clinica.Desktop.Shell.Componentes.Cadastro;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Application.Servicos;
+using Clinica.Application.Modelos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -32,35 +34,68 @@ namespace Clinica.Recepcao.ViewModels;
 ///
 /// A busca NÃO é reescrita aqui: usa o <see cref="SeletorPacienteViewModel"/> da suíte,
 /// que já resolve limite no SQL, agrupamento das teclas e descarte de resposta fora de
-/// ordem. Como esta é a tela de LISTAGEM, ela o usa com <c>limite: null</c>.
+/// ordem. A listagem usa páginas de 100 pacientes, com busca e filtros no banco.
 /// </summary>
 public sealed partial class PacientesViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
+    private readonly IDialogoService _dialogo;
 
     public SeletorPacienteViewModel Seletor { get; }
 
     private readonly IFabricaFichaPaciente _fabrica;
     [ObservableProperty] private object? _fichaUnica;
-    public IReadOnlyList<string> Filtros { get; } = SessaoUsuario.Atual.Pode(Permissao.VerProntuario)
-        ? new[] { "Todos", "Em tratamento", "Cadastro incompleto" }
-        : new[] { "Todos", "Cadastro incompleto" };
-    [ObservableProperty] private int _filtro;
-    partial void OnFiltroChanged(int value) { if (Seletor is not null) { if (string.IsNullOrWhiteSpace(Seletor.Termo)) Seletor.DesligarSugestaoCommand.Execute(null); else _ = Seletor.BuscarAsync(imediato: true); } }
-    private async Task<IReadOnlyList<Paciente>> BuscarListaAsync(string? termo, CancellationToken ct)
+    /// <summary>
+    /// O recorte escolhido nos chips (out/2026, mockup aprovado "3 · Pacientes"). Vale
+    /// só com o campo VAZIO: digitar é buscar no cadastro inteiro, e o chip "Resultado da
+    /// busca" passa a ser o aceso — dois filtros invisíveis somados fariam a busca
+    /// responder "ninguém" sobre quem existe fora do recorte.
+    /// </summary>
+    [ObservableProperty] private FiltroListaPacientes _recorte = FiltroListaPacientes.Todos;
+
+    private async Task<IReadOnlyList<Paciente>> BuscarListaAsync(string? termo, int ignorar, int quantidade, CancellationToken ct)
     {
         using var scope = _escopos.CreateScope();
-        var pacientes = await scope.ServiceProvider.GetRequiredService<PacienteService>().BuscarAsync(termo, null, ct);
-        var filtro = Filtros[Math.Clamp(Filtro, 0, Filtros.Count - 1)];
-        if (filtro == "Cadastro incompleto") return pacientes.Where(p => string.IsNullOrWhiteSpace(p.Documento)).ToList();
-        if (filtro != "Em tratamento") return pacientes;
-        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar pacientes em tratamento");
-        var sessoes = await scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
-            .SessoesDosPacientesAsync(pacientes.Select(p => p.Id).ToList(), ct);
-        return pacientes.Where(p => sessoes.TryGetValue(p.Id, out var resumo) && resumo.Sessoes > 0).ToList();
+        var criterio = string.IsNullOrWhiteSpace(termo) ? Recorte : FiltroListaPacientes.Todos;
+        if (criterio == FiltroListaPacientes.EmTratamento)
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar pacientes em tratamento");
+        return await scope.ServiceProvider.GetRequiredService<PacienteService>()
+            .BuscarPaginaAsync(termo, ignorar, quantidade, criterio, ct);
     }
+
+    /// <summary>As linhas da tabela: o paciente e o que a tabela diz dele.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<LinhaPacienteLista> Linhas { get; } = [];
+
+    [ObservableProperty] private string _subtitulo = "Fichas cadastradas · a lista aparece quando você busca ou escolhe um recorte";
+    [ObservableProperty] private string _rodape = string.Empty;
+    [ObservableProperty] private string _chipBusca = "Resultado da busca";
+    [ObservableProperty] private string _chipHoje = "Com horário hoje";
+    [ObservableProperty] private string _chipIncompleto = "Cadastro incompleto";
+    [ObservableProperty] private string _chipSemConvenio = "Sem convênio definido";
+    [ObservableProperty] private string _chipAniversario = "Aniversário nesta semana";
+
+    public bool TemTermo => !string.IsNullOrWhiteSpace(Seletor.Termo);
+    public bool RecorteHoje => !TemTermo && Seletor.AlgoFoiPedido && Recorte == FiltroListaPacientes.ComHorarioHoje;
+    public bool RecorteIncompleto => !TemTermo && Seletor.AlgoFoiPedido && Recorte == FiltroListaPacientes.CadastroIncompleto;
+    public bool RecorteSemConvenio => !TemTermo && Seletor.AlgoFoiPedido && Recorte == FiltroListaPacientes.SemConvenioDefinido;
+    public bool RecorteAniversario => !TemTermo && Seletor.AlgoFoiPedido && Recorte == FiltroListaPacientes.AniversarioNaSemana;
+
+    /// <summary>"Importar" só aparece onde a importação existe (o Gerente) — botão que não abre nada é a parcela 41.</summary>
+    public bool PodeImportar => NavegacaoSuite.Existe(ChavesSuite.ImportarPacientes);
+
+    public bool PodeMarcar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    private int _geracaoVisitas;
+
     public int SecaoInicial { get; set; } = 2;
+
+    /// <summary>
+    /// A lista do BALCÃO abre a ficha do balcão (out/2026, mockup aprovado "4 · Ficha"); quem
+    /// reusa a lista para o prontuário (Recepção → Prontuário, Consultório) continua na ficha
+    /// clínica única, que é o que aquela porta promete.
+    /// </summary>
+    public bool AbrirFichaDoBalcao { get; set; }
     public bool MostrarVoltar { get; init; } = true;
 
     [ObservableProperty] private string _resumo = string.Empty;
@@ -95,9 +130,10 @@ public sealed partial class PacientesViewModel : ObservableObject
     {
         _escopos = escopos;
         _snackbar = snackbar;
+        _dialogo = dialogo;
         _fabrica = fabrica;
 
-        // Listagem: sem corte, é ela que precisa mostrar todo mundo QUANDO alguém pedir.
+        // Listagem sob demanda: todo o cadastro continua acessível por páginas.
         //
         // ⚠️ `SemBuscaInicial` (set/2026 — o cliente: "a tela de pacientes ainda carrega
         // todos os pacientes"). Esta era a consulta mais cara do sistema: `limite: null`
@@ -108,9 +144,19 @@ public sealed partial class PacientesViewModel : ObservableObject
         // a lista É a resposta". O argumento continua valendo para o que a tela OFERECE, e
         // não para o que ela faz sozinha: a listagem completa continua a um clique
         // ("Ver todos"), e é justamente por ser cara que ela precisa ser PEDIDA.
-        Seletor = new SeletorPacienteViewModel(escopos, limite: null) { SemBuscaInicial = true, ConsultaPersonalizada = BuscarListaAsync };
+        Seletor = new SeletorPacienteViewModel(escopos)
+        {
+            SemBuscaInicial = true, TamanhoPagina = 100, ConsultaPagina = BuscarListaAsync
+        };
         Seletor.SelecaoMudou += AoTrocarPaciente;
         Seletor.Atualizou += AtualizarResumo;
+        Seletor.Atualizou += MontarLinhas;
+        Seletor.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(SeletorPacienteViewModel.Termo) or nameof(SeletorPacienteViewModel.Modo))
+                AvisarRecortes();
+        };
+        _ = CarregarRecortesAsync();
 
 
         AtualizarResumo();
@@ -127,6 +173,14 @@ public sealed partial class PacientesViewModel : ObservableObject
         if (paciente is null) return;
 
         MostrandoFicha = true;
+        if (AbrirFichaDoBalcao)
+        {
+            FichaUnica = new Views.FichaBalcaoView
+            {
+                DataContext = new FichaBalcaoViewModel(_escopos, _snackbar, _dialogo, paciente.Id, Voltar)
+            };
+            return;
+        }
         var foco = new PacienteEmFoco();
         foco.Definir(paciente.Id, paciente.Nome);
         FichaUnica = _fabrica.Criar(foco, Voltar, SecaoInicial);
@@ -159,8 +213,8 @@ public sealed partial class PacientesViewModel : ObservableObject
             : Seletor.Resultados.Count switch
             {
                 0 => "Nenhum paciente encontrado.",
-                1 => "1 paciente.",
-                var n => $"{n} pacientes."
+                1 => "1 paciente nesta página.",
+                var n => $"{n} pacientes nesta página."
             };
 
         OnPropertyChanged(nameof(ListandoTudo));
@@ -171,6 +225,138 @@ public sealed partial class PacientesViewModel : ObservableObject
     /// clicado: botão que continua aceso depois de fazer o que faz manda clicar de novo.
     /// </summary>
     public bool ListandoTudo => Seletor.ListandoTodos;
+
+    partial void OnRecorteChanged(FiltroListaPacientes value) => AvisarRecortes();
+
+    private void AvisarRecortes()
+    {
+        OnPropertyChanged(nameof(TemTermo));
+        OnPropertyChanged(nameof(RecorteHoje));
+        OnPropertyChanged(nameof(RecorteIncompleto));
+        OnPropertyChanged(nameof(RecorteSemConvenio));
+        OnPropertyChanged(nameof(RecorteAniversario));
+    }
+
+    /// <summary>A tela abre já num recorte (o "Pacientes da clínica" do Consultório abre em tratamento).</summary>
+    public void IniciarComRecorte(FiltroListaPacientes recorte) => EscolherRecorte(recorte.ToString());
+
+    /// <summary>Clique num chip: esvazia a busca e lista o recorte (o parâmetro é o nome do valor do enum).</summary>
+    [RelayCommand]
+    private void EscolherRecorte(string? nome)
+    {
+        if (!Enum.TryParse<FiltroListaPacientes>(nome, out var recorte) || recorte.ToString() != nome) return;
+        Recorte = recorte;
+        Seletor.DesligarSugestaoCommand.Execute(null);
+        AvisarRecortes();
+    }
+
+    /// <summary>Os números dos chips. Falha não derruba a lista: o chip fica sem número.</summary>
+    private async Task CarregarRecortesAsync()
+    {
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var r = await scope.ServiceProvider.GetRequiredService<PacienteService>()
+                .RecortesAsync(DateOnly.FromDateTime(DateTime.Today));
+            var pt = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+            Subtitulo = $"{r.Total.ToString("N0", pt)} {(r.Total == 1 ? "ficha cadastrada" : "fichas cadastradas")} · busque por nome ou CPF, ou escolha um recorte";
+            ChipHoje = $"Com horário hoje · {r.ComHorarioHoje.ToString("N0", pt)}";
+            ChipIncompleto = $"Cadastro incompleto · {r.CadastroIncompleto.ToString("N0", pt)}";
+            ChipSemConvenio = $"Sem convênio definido · {r.SemConvenio.ToString("N0", pt)}";
+            ChipAniversario = $"Aniversário nesta semana · {r.AniversarioNaSemana.ToString("N0", pt)}";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — contagem dos recortes de pacientes", ex);
+        }
+    }
+
+    /// <summary>
+    /// Remonta as linhas a cada busca concluída (sem await entre o Clear e o último Add) e
+    /// depois pede, em LOTE, a última visita e o próximo horário da página.
+    /// </summary>
+    private void MontarLinhas()
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        Linhas.Clear();
+        foreach (var p in Seletor.Resultados) Linhas.Add(new LinhaPacienteLista(p, hoje));
+        ChipBusca = TemTermo ? $"Resultado da busca · {Linhas.Count}" : "Resultado da busca";
+        var recorte = Recorte switch
+        {
+            FiltroListaPacientes.ComHorarioHoje => "com horário hoje",
+            FiltroListaPacientes.CadastroIncompleto => "cadastro incompleto",
+            FiltroListaPacientes.SemConvenioDefinido => "sem convênio definido",
+            FiltroListaPacientes.AniversarioNaSemana => "aniversário nesta semana",
+            FiltroListaPacientes.EmTratamento => "em tratamento",
+            _ => "todos, em ordem de nome"
+        };
+        Rodape = ListaDePacientes.Rodape(Linhas.Count, Seletor.Termo, recorte);
+        _ = CarregarVisitasAsync(Linhas.ToList(), ++_geracaoVisitas);
+    }
+
+    private async Task CarregarVisitasAsync(IReadOnlyList<LinhaPacienteLista> linhas, int geracao)
+    {
+        if (linhas.Count == 0) return;
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var visitas = await scope.ServiceProvider.GetRequiredService<PacienteService>()
+                .VisitasAsync(linhas.Select(l => l.Paciente.Id).ToList(), DateTime.Now);
+            if (geracao != _geracaoVisitas) return;
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            foreach (var l in linhas)
+            {
+                visitas.TryGetValue(l.Paciente.Id, out var v);
+                l.UltimaVisita = ListaDePacientes.UltimaVisita(v, hoje);
+                l.ProximoHorario = ListaDePacientes.ProximoHorario(v, hoje);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoVisitas) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — visitas dos pacientes da lista", ex);
+            foreach (var l in linhas) { l.UltimaVisita = "não foi possível conferir"; l.ProximoHorario = "—"; }
+        }
+    }
+
+    [RelayCommand]
+    private void AbrirFicha(LinhaPacienteLista? linha)
+    {
+        if (linha is not null) AoTrocarPaciente(linha.Paciente);
+    }
+
+    /// <summary>Enter na busca: abre a ficha quando sobra um só (o rodapé promete isso).</summary>
+    public void AbrirSeUnico()
+    {
+        if (Linhas.Count == 1) AoTrocarPaciente(Linhas[0].Paciente);
+    }
+
+    [RelayCommand]
+    private void Marcar(LinhaPacienteLista? linha)
+    {
+        if (linha is null) return;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar atendimento");
+            using var scope = _escopos.CreateScope();
+            scope.ServiceProvider.GetRequiredService<PreenchimentoNovoAtendimento>()
+                .Definir(new PedidoNovoAtendimento(MarcarParaDepois: true, DataHora: DateTime.Today,
+                    ProfissionalId: null, SalaId: null, PacienteId: linha.Paciente.Id));
+            if (!NavegacaoSuite.Ir(Modulo.ModuloRecepcao.ChaveMarcarHorario))
+                _snackbar.Info("A tela de marcar atendimento não está disponível para o seu acesso.");
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Erro(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void Importar()
+    {
+        if (!NavegacaoSuite.Ir(ChavesSuite.ImportarPacientes))
+            _snackbar.Info("A importação de pacientes fica no aplicativo do Gerente.");
+    }
 
     [RelayCommand]
     private void NovoPaciente()
@@ -194,5 +380,31 @@ public sealed partial class PacientesViewModel : ObservableObject
         // que se lê como "não salvou". Buscar pelo nome sai do ocioso E mostra exatamente
         // a ficha nova, em vez de trazer as 2.284 para ela se perder no meio.
         Seletor.Termo = vm.Nome;
+        _ = CarregarRecortesAsync();
     }
+}
+
+/// <summary>Uma linha da tabela de Pacientes (out/2026, mockup aprovado "3 · Pacientes").</summary>
+public sealed partial class LinhaPacienteLista : ObservableObject
+{
+    public LinhaPacienteLista(Paciente paciente, DateOnly hoje)
+    {
+        Paciente = paciente;
+        Identificacao = ListaDePacientes.Identificacao(paciente, hoje);
+        Telefone = string.IsNullOrWhiteSpace(paciente.Telefone) ? "—" : paciente.TelefoneFormatado;
+        Convenio = paciente.ConvenioADefinir ? "sem convênio" : paciente.ConvenioNome;
+    }
+
+    public Paciente Paciente { get; }
+    public string Nome => Paciente.Nome;
+    public byte[]? Foto => Paciente.FotoMiniatura;
+    public string Identificacao { get; }
+    public string Telefone { get; }
+    public string Convenio { get; }
+    public string ConvenioCompleto => Paciente.ConvenioNome;
+    public bool ConvenioADefinir => Paciente.ConvenioADefinir;
+
+    /// <summary>"…" enquanto a leitura em lote não volta — nunca "—", que afirmaria "não há".</summary>
+    [ObservableProperty] private string _ultimaVisita = "…";
+    [ObservableProperty] private string _proximoHorario = "…";
 }

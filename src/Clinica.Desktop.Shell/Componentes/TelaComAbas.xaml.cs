@@ -52,10 +52,18 @@ public partial class TelaComAbas : UserControl
         Materializar(alvo);
     }
 
+    /// <summary>O conteúdo das abas já montadas.</summary>
+    public IEnumerable<object> ConteudosAbertos
+        => Abas.Items.OfType<TabItem>().Select(t => t.Content).OfType<object>();
+
+    /// <summary>O conteúdo da aba selecionada, se já montado.</summary>
+    public object? ConteudoVisivel => (Abas.SelectedItem as TabItem)?.Content;
+
     /// <summary>Abre uma aba já existente — usada quando se navega para a mesma tela composta.</summary>
     public void Selecionar(int indice)
     {
         if (indice >= 0 && indice < Abas.Items.Count) Abas.SelectedIndex = indice;
+        if (Abas.SelectedItem is TabItem { Content: IReceberNavegacao destino }) destino.AoNavegar();
     }
 
     private void AoTrocarAba(object sender, SelectionChangedEventArgs e)
@@ -67,7 +75,11 @@ public partial class TelaComAbas : UserControl
         if (_montando) return;
         if (!ReferenceEquals(e.OriginalSource, Abas)) return;
 
+        // Aba JÁ montada volta com o que tinha e relê por trás, se souber (IAtualizarAoVoltar);
+        // aba nova é montada como sempre.
+        var jaMontada = Abas.SelectedItem is TabItem { Content: not null };
         Materializar(Abas.SelectedIndex);
+        if (jaMontada && ConteudoVisivel is { } visivel) CicloDeVidaTela.AtualizarAoVoltar(visivel);
     }
 
     /// <summary>

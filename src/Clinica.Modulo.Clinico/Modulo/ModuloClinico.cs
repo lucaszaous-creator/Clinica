@@ -238,15 +238,19 @@ public sealed class ModuloClinico : IModuloApp
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.RegistrarEvolucaoEnfermagem,
             PerfilExclusivo = PerfilAcesso.Enfermagem
         },
-        // A abertura do Clinica.Clinico.exe é este item — e ele NÃO declara `Inicial`.
+        // A abertura do Clinica.Clinico.exe é o "Meu dia" (aba "Dia" deste item) — e
+        // NENHUM item daqui declara `Inicial`.
         //
-        // Parece descuido, e não é. `Inicial` marca a abertura do APP, e o shell escolhe o
-        // PRIMEIRO item marcado entre TODOS os módulos carregados (`ShellViewModel`). Este
-        // executável carrega um módulo só, então o primeiro item já é a abertura sem marca
-        // nenhuma. Marcá-lo, ao contrário, quebraria o Gerente Geral: lá o Consultório é
-        // carregado antes do módulo da direção, e a marca daqui venceria a do painel — que
-        // é exatamente o defeito que a parcela 22 corrigiu (quem manda na clínica entrava
-        // no sistema e caía na fila do balcão).
+        // `Inicial` marca a abertura no MÓDULO, e o shell escolhe o PRIMEIRO item marcado
+        // entre TODOS os módulos carregados (`ShellViewModel`). Marcar aqui quebraria o
+        // Gerente Geral: lá o Consultório é carregado antes do módulo da direção, e a
+        // marca daqui venceria a do painel — o defeito que a parcela 22 corrigiu.
+        //
+        // ⚠️ E "o primeiro item já é a abertura" deixou de ser verdade quando a navegação
+        // reorganizou as abas deste item (a primeira virou "Visão geral"): o app passou a
+        // abrir longe do Meu dia sem ninguém ter mexido nele. Por isso a abertura é
+        // declarada pelo EXE (`SuiteApp.IniciarAsync(..., chaveAbertura:)`), por CHAVE —
+        // ordem de menu não é contrato.
         new ItemMenuModulo
         {
             Chave = ChaveGrupoAgenda, Rotulo = "Minha agenda", Glifo = "\uE706", Icone = "sol",

@@ -179,7 +179,7 @@ public sealed partial class FluxoCaixaViewModel : ObservableObject
             foreach (var c in categorias)
                 (c.Tipo == TipoLancamento.Saida ? Saidas : Entradas).Add(LinhaCategoriaFluxo.De(c));
 
-            var resumo = await fluxo.ResumoAsync(inicio, fim, IncluirPrevisto);
+            var resumo = FluxoCaixaService.Resumir(categorias);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

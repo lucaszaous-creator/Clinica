@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -107,7 +108,11 @@ public sealed class CustoTransacaoService
         DateOnly inicio, DateOnly fim, CancellationToken ct = default)
     {
         var recebimentos = await _repo.RecebimentosComDeducaoAsync(inicio, fim, ct);
+        return AgruparAdquirentes(recebimentos);
+    }
 
+    private static IReadOnlyList<CustoAdquirente> AgruparAdquirentes(IReadOnlyList<RecebimentoComDeducao> recebimentos)
+    {
         var linhas = recebimentos
             .GroupBy(l => string.IsNullOrWhiteSpace(l.Adquirente) ? "(sem maquininha)" : l.Adquirente!)
             .Select(g => new CustoAdquirente(
@@ -142,7 +147,11 @@ public sealed class CustoTransacaoService
         var ultimo = new DateOnly(referencia.Year, referencia.Month, 1).AddMonths(1).AddDays(-1);
 
         var recebimentos = await _repo.RecebimentosComDeducaoAsync(primeiro, ultimo, ct);
+        return MontarSerie(recebimentos, primeiro, meses);
+    }
 
+    private static IReadOnlyList<MesCusto> MontarSerie(IReadOnlyList<RecebimentoComDeducao> recebimentos, DateOnly primeiro, int meses)
+    {
         var serie = new List<MesCusto>(meses);
         for (var i = 0; i < meses; i++)
         {
@@ -167,8 +176,11 @@ public sealed class CustoTransacaoService
         DateOnly inicio, DateOnly fim, CancellationToken ct = default)
     {
         var recebimentos = await _repo.RecebimentosComDeducaoAsync(inicio, fim, ct);
-        var porAdquirente = await PorAdquirenteAsync(inicio, fim, ct);
+        return Resumir(recebimentos, AgruparAdquirentes(recebimentos));
+    }
 
+    private static ResumoCustoTransacao Resumir(IReadOnlyList<RecebimentoComDeducao> recebimentos, IReadOnlyList<CustoAdquirente> porAdquirente)
+    {
         return new ResumoCustoTransacao(
             recebimentos.Sum(l => l.Valor),
             recebimentos.Sum(l => l.ValorTaxa ?? 0m),
@@ -196,5 +208,22 @@ public sealed class CustoTransacaoService
             .ToList();
 
         return vigentes.Count == 0 ? null : (vigentes.Min(), vigentes.Max());
+    }
+
+    /// <summary>Duas leituras por tela: recebimentos e tabelas, independentemente do número de adquirentes.</summary>
+    public async Task<(IReadOnlyList<MesCusto> Serie, ResumoCustoTransacao Resumo,
+        IReadOnlyList<CustoAdquirente> Adquirentes, IReadOnlyDictionary<string, (decimal Menor, decimal Maior)> Faixas)>
+        PainelAsync(DateOnly referencia, int meses = 12, CancellationToken ct = default)
+    {
+        meses = Math.Max(1, meses);
+        var primeiro = new DateOnly(referencia.Year, referencia.Month, 1).AddMonths(-(meses - 1));
+        var ultimo = new DateOnly(referencia.Year, referencia.Month, 1).AddMonths(1).AddDays(-1);
+        var recebimentos = await _repo.RecebimentosComDeducaoAsync(primeiro, ultimo, ct);
+        var adquirentes = AgruparAdquirentes(recebimentos);
+        var taxas = await _repo.TaxasCartaoAsync(somenteAtivas: true, ct);
+        var faixas = taxas.Where(t => t.VigenteEm(referencia))
+            .GroupBy(t => t.Adquirente, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => (g.Min(t => t.Percentual), g.Max(t => t.Percentual)), StringComparer.OrdinalIgnoreCase);
+        return (MontarSerie(recebimentos, primeiro, meses), Resumir(recebimentos, adquirentes), adquirentes, faixas);
     }
 }

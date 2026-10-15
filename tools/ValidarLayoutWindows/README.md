@@ -6,11 +6,8 @@ Execute na raiz do repositório:
 dotnet run --project tools/ValidarLayoutWindows
 ```
 
-As telas com filtros React precisam do runtime WebView2 e dos assets locais compilados
-em `src/Clinica.Desktop.Shell/WebClinica/frontend` (`npm ci` e `npm run build`).
-O CI prepara o runtime antes de executar qualquer verificação de layout.
-O harness aguarda os painéis web carregarem antes das capturas e exige vagas clicáveis
-na grade original, sem precisar abrir uma aba adicional.
+Todas as telas são WPF nativas (o WebView2 saiu do produto em out/2026). O harness exige
+vagas clicáveis na grade original, sem precisar abrir uma aba adicional.
 
 A rolagem é exercitada com o template compartilhado: quatro setas vetoriais com clique
 e repetição, clique no trilho, arraste nas duas orientações, roda do mouse e tecla PageDown

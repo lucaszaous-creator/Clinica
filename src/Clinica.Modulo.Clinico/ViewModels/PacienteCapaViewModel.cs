@@ -172,8 +172,15 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
         _dialogo = dialogo;
         _foco = foco;
 
-        if (_foco.Definido) _ = CarregarAsync();
+        CargaInicial = _foco.Definido ? CarregarAsync() : Task.CompletedTask;
     }
+
+    /// <summary>
+    /// A carga disparada pelo construtor. Quem cria a capa e quer esperá-la espera ESTA, em vez de
+    /// pedir uma segunda carga logo atrás — que descartava a primeira depois de pagar as idas ao
+    /// banco dela (out/2026).
+    /// </summary>
+    public Task CargaInicial { get; }
 
     private int PacienteId => _foco.PacienteId ?? 0;
 

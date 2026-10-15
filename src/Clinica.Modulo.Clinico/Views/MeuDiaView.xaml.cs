@@ -20,25 +20,28 @@ namespace Clinica.Clinico.Views;
 /// </summary>
 public partial class MeuDiaView : UserControl
 {
-    private Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb? _painelBusca;
+    private void AjustarColunas()
+    {
+        // As ações têm espaço desde a primeira carga, antes de a tabela medir os
+        // botões trazidos pela consulta. O restante pertence ao nome e contexto.
+        if (TabelaMeuDia.ActualWidth > 0)
+        {
+            var larguraFixa = 0d;
+            foreach (var coluna in TabelaMeuDia.Columns)
+                if (coluna != ColunaPaciente && coluna.Visibility == Visibility.Visible)
+                    larguraFixa += Math.Max(coluna.MinWidth, coluna.Width.Value);
+            ColunaPaciente.Width = new DataGridLength(Math.Max(ColunaPaciente.MinWidth,
+                TabelaMeuDia.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12 - larguraFixa));
+        }
+    }
 
     public MeuDiaView()
     {
         InitializeComponent();
+        TabelaMeuDia.SizeChanged += (_, _) => AjustarColunas();
+        Loaded += (_, _) => AjustarColunas();
 
-        Loaded += (_, _) =>
-        {
-            if (DataContext is not MeuDiaViewModel vm) return;
-            if (_painelBusca is null)
-            {
-                var adaptador = new AgendaMedicoWeb();
-                _painelBusca = new Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb("agenda", () => adaptador.Dia(vm), m => adaptador.ExecutarDia(vm, m),
-                    () => Clinica.Domain.Entities.SessaoUsuario.Atual.Exigir(Clinica.Domain.Entities.Permissao.VerAgenda, "consultar a agenda"));
-                ConteudoAgendaBusca.Children.Add(_painelBusca);
-                if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => _painelBusca.Dispose();
-            }
-            vm.AoEntrarEmCena();
-        };
+        Loaded += (_, _) => (DataContext as MeuDiaViewModel)?.AoEntrarEmCena();
         Unloaded += (_, _) => (DataContext as MeuDiaViewModel)?.AoSairDeCena();
     }
 }

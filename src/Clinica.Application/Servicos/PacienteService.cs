@@ -19,6 +19,20 @@ public sealed class PacienteService
     public Task<IReadOnlyList<Paciente>> BuscarAsync(string? termo, int? limite = null, CancellationToken ct = default)
         => _repo.BuscarPacientesAsync(termo, limite, ct);
 
+    public Task<IReadOnlyList<Paciente>> BuscarPaginaAsync(string? termo, int ignorar, int quantidade,
+        Clinica.Application.Modelos.FiltroListaPacientes filtro = Clinica.Application.Modelos.FiltroListaPacientes.Todos,
+        CancellationToken ct = default)
+        => _repo.BuscarPaginaPacientesAsync(termo, ignorar, quantidade, filtro, ct);
+
+    /// <summary>Os números dos chips da lista de Pacientes (out/2026).</summary>
+    public Task<Clinica.Application.Modelos.RecortesDePacientes> RecortesAsync(DateOnly hoje, CancellationToken ct = default)
+        => _repo.ContarRecortesDePacientesAsync(hoje, ct);
+
+    /// <summary>Última visita e próximo horário dos pacientes da página, em lote.</summary>
+    public Task<IReadOnlyDictionary<int, Clinica.Application.Modelos.VisitaDoPaciente>> VisitasAsync(
+        IReadOnlyCollection<int> pacienteIds, DateTime agora, CancellationToken ct = default)
+        => _repo.VisitasDosPacientesAsync(pacienteIds, agora, ct);
+
     public Task<Paciente?> ObterComHistoricoAsync(int pacienteId, CancellationToken ct = default)
         => _repo.ObterPacienteComHistoricoAsync(pacienteId, ct);
 

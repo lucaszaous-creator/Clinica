@@ -35,6 +35,20 @@ namespace Clinica.Tests;
 /// </summary>
 public class TraducaoNoNpgsqlTests
 {
+    [Theory]
+    [InlineData(FiltroListaPacientes.Todos)]
+    [InlineData(FiltroListaPacientes.EmTratamento)]
+    [InlineData(FiltroListaPacientes.CadastroIncompleto)]
+    [InlineData(FiltroListaPacientes.ComHorarioHoje)]
+    [InlineData(FiltroListaPacientes.SemConvenioDefinido)]
+    [InlineData(FiltroListaPacientes.AniversarioNaSemana)]
+    public void Busca_paginada_traduz_filtros_antes_do_limite(FiltroListaPacientes filtro)
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaPaginaPacientes("123", 100, 101, filtro).ToQueryString();
+        sql.Should().Contain("LIMIT").And.Contain("OFFSET").And.Contain("ORDER BY").And.Contain("WHERE");
+        if (filtro == FiltroListaPacientes.EmTratamento) sql.Should().Contain("EXISTS");
+    }
     [Fact]
     public void Ocupacao_traduz_duracao_e_filtro_no_Postgres()
     {
@@ -50,6 +64,32 @@ public class TraducaoNoNpgsqlTests
         new Clinica.Infrastructure.Planejamento.PlanejamentoEnfermagemService(db)
             .ConsultaHorarios(new DateTime(2026, 10, 16, 8, 0, 0), new DateTime(2026, 10, 16, 18, 0, 0))
             .ToQueryString().Should().Contain("interval").And.Contain("DuracaoPadraoMinutos");
+    }
+
+    [Fact]
+    public void Codigos_em_aberto_traduz_ficha_leve_sem_foto()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var geral = repo.ConsultaCodigosEmAberto(null).ToQueryString();
+        geral.Should().Contain("\"Nome\"").And.NotContain("FotoMiniatura").And.NotContain("\"Observacoes\" AS");
+        repo.ConsultaCodigosEmAberto(7).ToQueryString().Should().Contain("PacienteId");
+    }
+
+    [Fact]
+    public void Agendamentos_para_leitura_traduz_sem_foto_do_paciente()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaAgendamentosParaLeitura(new(2026, 10, 1), new(2026, 10, 2))
+            .ToQueryString().Should().NotContain("FotoMiniatura").And.Contain("DuracaoPadraoMinutos");
+    }
+
+    [Fact]
+    public void Pacientes_com_consultas_traduz_colecao_projetada_sem_foto()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaPacientesComConsultas().ToQueryString()
+            .Should().Contain("Consultas").And.NotContain("FotoMiniatura");
     }
 
     [Fact]

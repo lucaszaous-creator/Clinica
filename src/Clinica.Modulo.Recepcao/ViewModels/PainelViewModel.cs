@@ -1,27 +1,21 @@
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain;
+using Clinica.Domain.Entities;
+using Clinica.Recepcao.Modulo;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Recepcao.ViewModels;
 
-/// <summary>Uma faixa de ocupação do dia (um profissional).</summary>
-public sealed class LinhaOcupacao
-{
-    public required string Nome { get; init; }
-    public required string Horarios { get; init; }
-    public required string Carga { get; init; }
-    public required string Faltas { get; init; }
-
-    /// <summary>0..1 — quanto da jornada de referência já está tomado (para a barra).</summary>
-    public required double Fracao { get; init; }
-}
-
-/// <summary>Guia pendente de um paciente que vem hoje.</summary>
+/// <summary>Guia pendente de um paciente que vem hoje (a lista do contador "Guias do 2º código").</summary>
 public sealed class LinhaPendenciaRecepcao
 {
     public required int PacienteId { get; init; }
@@ -46,155 +40,91 @@ public sealed class LinhaAniversariante
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
 }
 
-/// <summary>
-/// Painel próprio da Recepção — que NÃO é o do faturamento.
-///
-/// Lá a pergunta é "que guia vence primeiro"; aqui é "como está o dia": quem chegou,
-/// quem espera, quanto cada profissional tem na agenda e quem está na lista de espera.
-/// As guias pendentes aparecem só recortadas para os pacientes de HOJE, porque é o
-/// único momento barato de cobrar o documento — depois vira telefonema do faturamento.
-/// </summary>
-public sealed partial class PainelViewModel : ObservableObject
+/// <summary>Um contador de "O que resolver no balcão", com o destino do clique.</summary>
+public sealed class ItemBalcao
 {
-    /// <summary>Jornada de referência para a barra de ocupação (8h em minutos).</summary>
-    private const int JornadaMinutos = 8 * 60;
+    public required string Chave { get; init; }
+    public required string Titulo { get; init; }
+    public required string Valor { get; init; }
+    public required string Detalhe { get; init; }
 
-    /// <summary>
-    /// Quantos dias à frente a lista de aniversário alcança. Seis dias cobrem a semana
-    /// inteira: a clínica que abre de segunda a sexta perderia todo aniversário de
-    /// domingo se a lista fosse só do dia.
-    /// </summary>
+    /// <summary>Nome do ícone (o mesmo dicionário da navegação) e o tom do quadradinho.</summary>
+    public required string Icone { get; init; }
+    public required string Tom { get; init; }
+
+    /// <summary>A chave de navegação; nula quando o clique abre a lista NA PRÓPRIA tela.</summary>
+    public string? Destino { get; init; }
+}
+
+/// <summary>
+/// O INÍCIO da Recepção (out/2026, mockup aprovado "1 · Início").
+///
+/// Era um painel de oito números e três listas — respondia "como está o dia" em números,
+/// e o balcão tinha de ir a outra tela para AGIR. Virou três respostas: quantos (quatro
+/// cartões), QUEM vem agora com o passo seguinte na linha, e o que está por resolver
+/// (cinco contadores que levam cada um à tela dona). Sempre HOJE: o dia de outra data é
+/// a Agenda.
+///
+/// ⚠️ Nada de serviço SCOPED no construtor (checagem 37): um escopo por carga, que é o que
+/// faz a tela ver o que a outra máquina gravou.
+/// </summary>
+public sealed partial class PainelViewModel : ObservableObject, IAtualizarAoVoltar
+{
     private const int JanelaAniversarioDias = 6;
 
-
     private readonly IServiceScopeFactory _escopos;
+    private readonly ISnackbarService _snackbar;
 
-    public ObservableCollection<LinhaOcupacao> Ocupacao { get; } = [];
+    public ObservableCollection<ProximoAChegar> Proximos { get; } = [];
+    public ObservableCollection<ItemBalcao> Balcao { get; } = [];
     public ObservableCollection<LinhaPendenciaRecepcao> Pendencias { get; } = [];
-
-    /// <summary>
-    /// Quem faz aniversário. A data estava no cadastro desde sempre e NENHUMA tela a
-    /// lia — a ligação mais barata que a clínica faz (trinta segundos, sem nada a
-    /// vender) era a que se perdia.
-    /// </summary>
     public ObservableCollection<LinhaAniversariante> Aniversariantes { get; } = [];
 
-    /// <summary>Falha na leitura dos aniversariantes: lista vazia por erro, não por não haver.</summary>
-    [ObservableProperty] private bool _aniversariantesNaoVerificados;
-
-    [ObservableProperty] private DateTime _dia = DateTime.Today;
     [ObservableProperty] private bool _carregando;
+    [ObservableProperty] private bool _naoVerificado;
+    [ObservableProperty] private string _saudacao = InicioDoBalcao.Saudacao(DateTime.Now, SessaoUsuario.Atual.Nome);
+    [ObservableProperty] private string _linhaDoDia = string.Empty;
 
     [ObservableProperty] private string _agendados = "—";
-
-    /// <summary>
-    /// Quantos do dia ainda não entraram na sala. Ocupou o lugar de "Na recepção"
-    /// (set/2026): aquele contava quem tinha feito CHECK-IN, e sem os botões de fila o
-    /// carimbo de chegada não existe mais — o cartão diria ZERO todo dia, e cartão que
-    /// diz sempre a mesma coisa é o que ensina a não olhar a fileira. Esta contagem
-    /// (<c>ResumoDiaRecepcao.Aguardando</c>) estava calculada e sem leitor desde que o
-    /// painel nasceu, e é a que o balcão de fato quer: quantos ainda faltam hoje.
-    /// </summary>
+    [ObservableProperty] private double _ocupacaoFracao;
+    [ObservableProperty] private bool _temOcupacao;
+    [ObservableProperty] private string _agendadosDetalhe = string.Empty;
     [ObservableProperty] private string _aAtender = "—";
+    [ObservableProperty] private string _aAtenderDetalhe = string.Empty;
     [ObservableProperty] private string _emAtendimento = "—";
+    [ObservableProperty] private string _emAtendimentoDetalhe = string.Empty;
     [ObservableProperty] private string _atendidos = "—";
-    [ObservableProperty] private string _faltas = "—";
-    [ObservableProperty] private string _listaDeEspera = "—";
-    [ObservableProperty] private string _encaixes = "—";
-    [ObservableProperty] private string _taxaFalta = "—";
+    [ObservableProperty] private string _atendidosDetalhe = string.Empty;
 
-    /// <summary>
-    /// As duas frações REAIS do dia, para a barra do cartão de KPI.
-    ///
-    /// "Atendidos" sobre "Agendados" é o andamento do dia — e o denominador é honesto:
-    /// <c>Agendados</c> conta todo horário que OCUPA a agenda, o realizado inclusive, e
-    /// não o que ainda falta. A taxa de falta já é percentual por definição.
-    ///
-    /// Os outros cartões não ganham barra: "Na recepção", "Encaixes" e "Na lista de
-    /// espera" são contagens sem denominador, e inventar um para ter o desenho daria um
-    /// número errado com cara de exato.
-    ///
-    /// O par <c>Tem…</c> decide se a barra APARECE. Dia sem horário nenhum e dia sem
-    /// nenhum horário concluído não têm base de cálculo, e barra vazia ali afirmaria ZERO
-    /// onde o que há é "não medido".
-    /// </summary>
-    [ObservableProperty] private double _atendidosFracao;
-    [ObservableProperty] private bool _temAtendidos;
-    [ObservableProperty] private double _taxaFaltaFracao;
-    [ObservableProperty] private bool _temTaxaFalta;
+    [ObservableProperty] private string _resumoProximos = string.Empty;
+    [ObservableProperty] private bool _pendenciasAbertas;
+    [ObservableProperty] private bool _aniversariantesAbertos;
+    [ObservableProperty] private string _rodapeAniversario = string.Empty;
+    [ObservableProperty] private bool _aniversariantesNaoVerificados;
 
-    /// <summary>
-    /// O delta contra o MESMO dia da semana anterior — e SÓ em dia encerrado (ago/2026).
-    /// Hoje pela metade contra um dia inteiro apontaria queda em toda manhã: é a mesma
-    /// comparação que o painel da direção recusa (5 dias contra 30). Em dia passado a
-    /// régua é honesta, e a semana (não a véspera) é a base certa: segunda contra domingo
-    /// compararia dias de naturezas diferentes. Nulo = sem delta, e a tela não desenha.
-    /// </summary>
-    [ObservableProperty] private VariacaoKpi? _variacaoAgendados;
-    [ObservableProperty] private VariacaoKpi? _variacaoAtendidos;
-    [ObservableProperty] private VariacaoKpi? _variacaoFaltas;
-    [ObservableProperty] private VariacaoKpi? _variacaoTaxaFalta;
-
-    /// <summary>Feedback inline: fica na tela enquanto o problema existir.</summary>
-    [ObservableProperty] private string _mensagem = string.Empty;
-    [ObservableProperty] private bool _mensagemEhErro;
-
-    /// <summary>
-    /// Terceiro estado do bloco de pendências: a checagem NÃO rodou. Sem ele, uma
-    /// consulta que falhou apareceria como "nenhuma pendência" — falha exibida como
-    /// sucesso é o pior desfecho possível aqui.
-    /// </summary>
-    [ObservableProperty] private bool _pendenciasNaoVerificadas;
-
-    /// <summary>
-    /// O RESUMO do dia não pôde ser lido — o terceiro estado do painel inteiro
-    /// (parcela 62). O XAML já ligava <c>NaoVerificado</c> e a propriedade NÃO EXISTIA:
-    /// binding morto, que em WPF falha calado. A frase "os números não estão zerados —
-    /// eles não puderam ser lidos" estava escrita na tela e nunca apareceu, e o painel
-    /// mostrava zeros de uma leitura que falhou. É o defeito que este componente existe
-    /// para impedir, dentro da tela de abertura do balcão.
-    /// </summary>
-    [ObservableProperty] private bool _naoVerificado;
-
-    /// <summary>
-    /// Descarte de resposta fora de ordem (parcela 50): os steppers de dia disparam uma
-    /// carga por clique, e num banco remoto a resposta de ontem pode chegar depois da de
-    /// hoje — o painel mostraria o dia errado sob o título certo. Só a carga mais nova
-    /// escreve na tela.
-    /// </summary>
+    /// <summary>Descarte de resposta fora de ordem (parcela 50).</summary>
     private int _geracaoCarga;
 
-    /// <summary>
-    /// A releitura de fundo. Ligada e desligada pela View (Loaded/Unloaded), como na
-    /// Fila e na Agenda — o shell cria uma tela nova a cada navegação.
-    /// </summary>
     private readonly DispatcherTimer _relogio;
+    private readonly EscutaDoBanco _escutaAgenda;
+    private List<Agendamento> _doDia = [];
 
-    /// <summary>
-    /// ⚠️ NADA de serviço SCOPED no construtor — a mesma regra da Fila, e pela mesma razão.
-    ///
-    /// O shell resolve esta tela do provedor RAIZ, e serviço Scoped pedido à raiz vive no
-    /// escopo raiz: pela vida inteira do aplicativo, com o <c>DbContext</c> junto. As
-    /// contagens do painel (A atender · Em atendimento · Atendidos · Faltas) ficavam
-    /// congeladas no número da ABERTURA do app, a manhã inteira, porque a
-    /// releitura de dois minutos relia pelo mesmo contexto — que devolve o que ele já
-    /// rastreava. Só o que era clicado NESTA máquina aparecia, o que faz o painel parecer
-    /// perfeito justamente para quem está olhando.
-    /// </summary>
-    public PainelViewModel(IServiceScopeFactory escopos)
+    public bool PodeMarcar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    public bool PodeMoverFila => SessaoUsuario.Atual.PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila);
+
+    public PainelViewModel(IServiceScopeFactory escopos, ISnackbarService snackbar)
     {
         _escopos = escopos;
+        _snackbar = snackbar;
 
-        // Dois minutos, e não um: o painel são CONTAGENS do dia, que mudam mais devagar
-        // do que a coluna de um cartão na fila, e cada batida custa três consultas ao
-        // banco remoto. Um minuto aqui seria pagar o dobro pela mesma resposta.
+        // Dois minutos: contagens do dia, e cada batida custa várias consultas ao banco
+        // remoto. O aviso do banco (EscutaDoBanco) traz a mudança da outra máquina antes.
         _relogio = new DispatcherTimer { Interval = TimeSpan.FromMinutes(2) };
-        _relogio.Tick += (_, _) => _ = ReconferirAsync();
+        _relogio.Tick += (_, _) => _ = RelerAoVoltarAsync();
+        _escutaAgenda = new EscutaDoBanco(RelerAoVoltarAsync, "Agendamentos");
 
         _ = CarregarAsync();
     }
-
-    partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
 
     [RelayCommand]
     public Task CarregarAsync() => CarregarAsync(silencioso: false);
@@ -202,114 +132,151 @@ public sealed partial class PainelViewModel : ObservableObject
     private async Task CarregarAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
-
-        var dia = DateOnly.FromDateTime(Dia);
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var agora = DateTime.Now;
         try
         {
-            if (!silencioso)
-            {
-                Carregando = true;
-                NaoVerificado = false;
-                Mensagem = string.Empty;
-                MensagemEhErro = false;
-            }
+            if (!silencioso) { Carregando = true; NaoVerificado = false; }
 
-            // Um ESCOPO por carga: é o que faz o painel ver o que a outra máquina gravou.
             using var escopo = _escopos.CreateScope();
-            var painel = escopo.ServiceProvider.GetRequiredService<PainelRecepcaoService>();
+            var sp = escopo.ServiceProvider;
+            var painel = sp.GetRequiredService<PainelRecepcaoService>();
+            var repo = sp.GetRequiredService<IClinicaRepositorio>();
 
-            var resumo = await painel.ResumoAsync(dia);
+            // Leituras SEQUENCIAIS: o mesmo DbContext não aceita duas operações ao mesmo tempo.
+            var resumo = await painel.ResumoAsync(hoje);
+            var doDia = (await sp.GetRequiredService<AgendaService>().DoDiaAsync(hoje)).ToList();
 
-            // O delta só existe em dia ENCERRADO (ver o comentário das Variacao*), e a
-            // leitura do dia-base é SEQUENCIAL — mesmo repositório do escopo.
-            var comparavel = dia < DateOnly.FromDateTime(DateTime.Today);
-            var resumoAnterior = comparavel ? await painel.ResumoAsync(dia.AddDays(-7)) : null;
+            var confirmacoes = await Tentar(() => repo.ConfirmacoesDosAgendamentosAsync(doDia.Select(a => a.Id).ToList()),
+                "confirmações do dia", (IReadOnlyDictionary<int, StatusContato>?)null);
+            var ocupacao = SessaoUsuario.Atual.Pode(Permissao.VerAgenda)
+                ? await Tentar(() => sp.GetRequiredService<IOcupacaoAgendaService>()
+                    .ConsultarAsync(SessaoUsuario.Atual.UsuarioId, hoje, hoje), "ocupação do dia", (OcupacaoAgenda?)null)
+                : null;
+            var pendencias = await Tentar(() => painel.PendenciasDosPacientesAsync(hoje, resumo.PacientesDoDia),
+                "guias pendentes do dia", (IReadOnlyList<PendenciaCodigo>?)null);
+            var amanha = await Tentar(() => sp.GetRequiredService<CampanhaService>()
+                    .ContatosAsync(TipoContato.ConfirmacaoSessao, null, hoje.AddDays(1), hoje.AddDays(1)),
+                "rodada de amanhã", (IReadOnlyList<ContatoCampanha>?)null);
+            var retornos = await Tentar(() => sp.GetRequiredService<RetornosAMarcarService>().ListarAsync(),
+                "retornos a marcar", (IReadOnlyList<RetornoAMarcar>?)null);
+            var acompanhamento = await Tentar(() => sp.GetRequiredService<IAcompanhamentoPacienteService>()
+                    .ListarAsync(SessaoUsuario.Atual.UsuarioId), "acompanhamento", (IReadOnlyList<LinhaAcompanhamento>?)null);
 
-            // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            AplicarResumo(resumo, resumoAnterior,
-                $"Mesmo dia da semana anterior: {dia.AddDays(-7):dddd, dd/MM/yyyy}");
+            // ===== Cabeçalho e cartões =====
+            Saudacao = InicioDoBalcao.Saudacao(agora, SessaoUsuario.Atual.Nome);
+            var porChegar = InicioDoBalcao.PorChegar(doDia);
+            LinhaDoDia = InicioDoBalcao.LinhaDoDia(hoje, resumo.Agendados, porChegar);
+
+            Agendados = resumo.Agendados.ToString();
+            var percentual = ocupacao?.Resumo.Percentual;
+            TemOcupacao = percentual is not null;
+            OcupacaoFracao = percentual is { } p ? Math.Clamp((double)p / 100.0, 0, 1) : 0;
+            var encaixes = $"{resumo.Encaixes} {(resumo.Encaixes == 1 ? "encaixe" : "encaixes")}";
+            AgendadosDetalhe = percentual is { } pct
+                ? $"{Math.Round(pct):0}% da agenda ocupada · {encaixes}"
+                : $"ocupação sem jornada declarada · {encaixes}";
+
+            AAtender = resumo.Aguardando.ToString();
+            var noLocal = doDia.Count(a => a.Etapa is EtapaFila.Chegou or EtapaFila.Chamado);
+            AAtenderDetalhe = noLocal == 0 ? "ninguém no local ainda"
+                : $"{noLocal} {(noLocal == 1 ? "já está" : "já estão")} no local";
+
+            EmAtendimento = resumo.EmAtendimento.ToString();
+            EmAtendimentoDetalhe = InicioDoBalcao.QuemAtende(doDia);
+            Atendidos = resumo.Atendidos.ToString();
+            AtendidosDetalhe = InicioDoBalcao.FaltasECancelamentos(resumo.Faltas, resumo.Cancelados);
+
+            // ===== Próximos a chegar =====
+            _doDia = doDia;
+            var proximos = InicioDoBalcao.Proximos(doDia,
+                confirmacoes ?? new Dictionary<int, StatusContato>(), agora);
+            Proximos.Clear();
+            foreach (var l in proximos) Proximos.Add(l);
+            ResumoProximos = $"{proximos.Count} {(proximos.Count == 1 ? "pessoa" : "pessoas")}";
+
+            // ===== O que resolver no balcão =====
+            var guias = pendencias?.Where(x => x.Ordem == OrdemCodigo.Segundo).ToList();
+            Pendencias.Clear();
+            foreach (var x in guias ?? [])
+                Pendencias.Add(new LinhaPendenciaRecepcao
+                {
+                    PacienteId = x.PacienteId,
+                    Paciente = x.PacienteNome,
+                    Descricao = x.Descricao ?? $"{RotulosEnum.De(x.Tipo)} ({RotulosEnum.De(x.Ordem)})",
+                    Atraso = x.DiasEmAtraso <= 0 ? "vence hoje" : $"{x.DiasEmAtraso} dia(s) em atraso",
+                    Telefone = x.PacienteTelefone
+                });
+
+            var rodada = amanha?.Select(c => RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario)).ToList();
+            var confirmar = rodada is null
+                ? new ContadorDoBalcao("Confirmar amanhã", null, "não foi possível conferir")
+                : InicioDoBalcao.ConfirmarAmanha(rodada);
+            var recall = acompanhamento?.Count(a => a.Pendente && a.ProximoContato <= hoje);
+
+            var itens = new List<ItemBalcao>
+            {
+                Item("guias", "Guias do 2º código", guias?.Count, "de pacientes que vêm hoje", "doc", "erro", null),
+                new ItemBalcao
+                {
+                    Chave = "confirmar", Titulo = confirmar.Titulo, Valor = confirmar.ValorTexto, Detalhe = confirmar.Detalhe,
+                    Icone = "balao", Tom = "info", Destino = ModuloRecepcao.ChaveConfirmacoes
+                },
+                Item("retornos", "Retornos pedidos pelo médico", retornos?.Count, "ainda sem horário marcado",
+                    "volta", "info", ModuloRecepcao.ChaveRetornosAMarcar),
+                Item("recall", "Recall de hoje", recall, "contatos combinados para hoje",
+                    "telefone", "neutro", ModuloRecepcao.ChaveRetorno)
+            };
+            Balcao.Clear();
+            foreach (var i in itens.Where(i => i.Destino is null || NavegacaoSuite.Existe(i.Destino))) Balcao.Add(i);
         }
         catch (Exception ex)
         {
-            // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
-
-            Clinica.Application.Diagnostico.Registrar("Recepção — painel não pôde ser carregado", ex);
-
-            // Releitura de fundo que falha não pinta a tela: o painel segue com o que
-            // tinha, e o log guarda o motivo.
+            Clinica.Application.Diagnostico.Registrar("Recepção — Início não pôde ser carregado", ex);
             if (silencioso) return;
-
             NaoVerificado = true;
-            Mensagem = $"Não foi possível carregar o painel: {ex.Message}";
-            MensagemEhErro = true;
+            _snackbar.Erro($"Não foi possível carregar o início: {ex.Message}");
         }
         finally
         {
-            // A carga superada não apaga o "Carregando" da que ainda está no ar.
             if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
 
-        await CarregarPendenciasAsync(dia, geracao, silencioso);
-        await CarregarAniversariantesAsync(dia, geracao, silencioso);
+        await CarregarAniversariantesAsync(hoje, geracao, silencioso);
     }
 
-    /// <summary>
-    /// A batida do relógio (parcela 62). O painel é a tela de ABERTURA do balcão — é a
-    /// que fica no monitor a manhã inteira sem ninguém tocar —, e ela conta quem chegou,
-    /// quem falta e as guias pendentes do dia. Sem releitura, o número que a
-    /// recepcionista olha às 11h é o das 8h, e ela concluiria que ninguém chegou.
-    ///
-    /// Só HOJE, pela razão da Fila: quem está olhando o painel de terça que vem não tem
-    /// nada correndo, e recarregar por baixo faria os números se mexerem enquanto lê.
-    /// </summary>
-    private async Task ReconferirAsync()
-    {
-        if (Dia.Date != DateTime.Today || Carregando) return;
-
-        try
+    private static ItemBalcao Item(string chave, string titulo, int? valor, string detalhe, string icone, string tom, string? destino)
+        => new()
         {
-            await CarregarAsync(silencioso: true);
-        }
+            Chave = chave, Titulo = titulo, Valor = valor?.ToString() ?? "—",
+            Detalhe = valor is null ? "não foi possível conferir" : detalhe,
+            Icone = icone, Tom = tom, Destino = destino
+        };
+
+    /// <summary>
+    /// Cada bloco falha SOZINHO: um contador que não pôde ser lido mostra "—" e diz isso,
+    /// e o resto da tela continua. Zero por falha seria indistinguível de "nada a resolver".
+    /// </summary>
+    private static async Task<T> Tentar<T>(Func<Task<T>> leitura, string oque, T seFalhar)
+    {
+        try { return await leitura(); }
         catch (Exception ex)
         {
-            Clinica.Application.Diagnostico.Registrar(
-                "Recepção — releitura automática do painel falhou", ex);
+            Clinica.Application.Diagnostico.Registrar($"Recepção — Início: {oque} não pôde ser lido", ex);
+            return seFalhar;
         }
     }
 
-    /// <summary>
-    /// A tela entrou em cena: liga a releitura periódica.
-    ///
-    /// ⚠️ Aqui NÃO há releitura ao voltar, e é decisão: o "Início" é item simples da
-    /// sidebar, e o shell monta a tela do zero a cada navegação (só o item COMPOSTO
-    /// guarda as abas já montadas). O construtor já lê — acrescentar uma segunda leitura
-    /// seria a consulta que ninguém pediu, a cada volta ao painel.
-    /// </summary>
-    public void AoEntrarEmCena() => _relogio.Start();
-
-    /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
-    public void AoSairDeCena() => _relogio.Stop();
-
-    /// <summary>
-    /// Aniversariantes do dia e dos próximos dias. A janela existe porque a clínica não
-    /// abre todo dia: sem ela, todo aniversário de domingo se perderia.
-    ///
-    /// Isolada do resto, como as pendências: se falhar, o painel continua mostrando o dia.
-    /// </summary>
-    private async Task CarregarAniversariantesAsync(DateOnly dia, int geracao, bool silencioso = false)
+    private async Task CarregarAniversariantesAsync(DateOnly dia, int geracao, bool silencioso)
     {
         try
         {
-            if (!silencioso) AniversariantesNaoVerificados = false;
-            using var escopoAniversario = _escopos.CreateScope();
-            var lista = await escopoAniversario.ServiceProvider
-                .GetRequiredService<RelacionamentoService>()
-                .AniversariantesAsync(dia, JanelaAniversarioDias);
-
-            // Chegou tarde: outra carga mais nova já foi pedida.
+            using var escopo = _escopos.CreateScope();
+            var lista = await escopo.ServiceProvider.GetRequiredService<RelacionamentoService>()
+                .AniversariantesAsync(dia, JanelaAniversarioDias, _doDia.Select(a => a.PacienteId).ToHashSet());
             if (geracao != _geracaoCarga) return;
 
             Aniversariantes.Clear();
@@ -321,170 +288,127 @@ public sealed partial class PainelViewModel : ObservableObject
                     Telefone = a.Telefone,
                     VemHoje = a.VemHoje,
                     Detalhe = (a.Idade is { } idade ? $"{idade} anos · " : string.Empty)
-                              + a.DiaEMes
-                              + (a.VemHoje ? " · vem hoje" : string.Empty)
+                              + a.DiaEMes + (a.VemHoje ? " · vem hoje" : string.Empty)
                 });
-
-            // Sucesso limpa o aviso mesmo na batida de fundo — a lista acabou de ser
-            // conferida de verdade (o padrão das pendências logo abaixo).
             AniversariantesNaoVerificados = false;
+            RodapeAniversario = lista.Count switch
+            {
+                0 => "Nenhum aniversariante nesta semana",
+                1 => "1 aniversariante nesta semana",
+                var n => $"{n} aniversariantes nesta semana"
+            };
         }
         catch (Exception ex)
         {
-            // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
-
-            Clinica.Application.Diagnostico.Registrar(
-                "Recepção — aniversariantes não puderam ser lidos", ex);
-
-            // Batida de fundo que falha NÃO pinta a tela (a regra do bloco principal,
-            // que faltava aqui): uma engasgada do banco às 10h limparia a lista e
-            // escreveria "não verificado" por cima de um painel cheio, sem clique nenhum.
+            Clinica.Application.Diagnostico.Registrar("Recepção — aniversariantes não puderam ser lidos", ex);
             if (silencioso) return;
-
             Aniversariantes.Clear();
             AniversariantesNaoVerificados = true;
+            RodapeAniversario = "Aniversariantes: não foi possível conferir";
         }
     }
 
-    /// <summary>Abre o WhatsApp para dar os parabéns — mensagem sem nada a vender.</summary>
+    // ============================ Releitura ============================
+
+    public void AoEntrarEmCena() { _relogio.Start(); _escutaAgenda.Ligar(); }
+    public void AoSairDeCena() { _relogio.Stop(); _escutaAgenda.Desligar(); }
+    public void AtualizarAoVoltar() => _ = RelerAoVoltarAsync();
+
+    private async Task RelerAoVoltarAsync()
+    {
+        if (Carregando) return;
+        try { await CarregarAsync(silencioso: true); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Recepção — releitura do Início falhou", ex); }
+    }
+
+    // ============================ Ações ============================
+
     [RelayCommand]
-    private void Parabenizar(LinhaAniversariante? linha)
+    private void MarcarAtendimento()
     {
-        if (linha?.Telefone is not { } telefone) return;
-
-        var primeiro = linha.Paciente.Split(' ').FirstOrDefault() ?? linha.Paciente;
-        var erro = Whatsapp.Abrir(
-            telefone, linha.Paciente,
-            $"Feliz aniversário, {primeiro}! Toda a equipe da clínica deseja um ótimo dia.");
-
-        if (erro is null) return;
-        Mensagem = erro;
-        MensagemEhErro = true;
+        if (!NavegacaoSuite.Ir(ModuloRecepcao.ChaveMarcarHorario))
+            _snackbar.Info("Marcar atendimento não está disponível para o seu acesso.");
     }
 
-    private void AplicarResumo(
-        ResumoDiaRecepcao resumo, ResumoDiaRecepcao? anterior, string detalheDelta)
+    [RelayCommand]
+    private void VerAgendaDoDia()
     {
-        const string rotuloDelta = "vs. semana anterior";
-        // Delta só com base honesta: dia-base sem agenda nenhuma não compara com nada.
-        // "A atender", "Em atendimento" e "Na lista de espera" NUNCA têm delta — são
-        // estado AO VIVO, e num dia passado valem zero por definição.
-        VariacaoAgendados = VariacaoKpi.Relativa(
-            resumo.Agendados, anterior?.Agendados, rotuloDelta, detalheDelta);
-        VariacaoAtendidos = VariacaoKpi.Relativa(
-            resumo.Atendidos, anterior?.Atendidos, rotuloDelta, detalheDelta);
-        VariacaoFaltas = VariacaoKpi.Relativa(
-            resumo.Faltas, anterior?.Faltas, rotuloDelta, detalheDelta, melhorQuandoMenor: true);
-        VariacaoTaxaFalta = VariacaoKpi.EmPontos(
-            resumo.Atendidos + resumo.Faltas > 0 ? resumo.TaxaFaltaPercentual : null,
-            anterior is { } a && a.Atendidos + a.Faltas > 0 ? a.TaxaFaltaPercentual : null,
-            rotuloDelta, detalheDelta, melhorQuandoMenor: true);
-
-        Agendados = resumo.Agendados.ToString();
-        AAtender = resumo.Aguardando.ToString();
-        EmAtendimento = resumo.EmAtendimento.ToString();
-        Atendidos = resumo.Atendidos.ToString();
-        Faltas = resumo.Faltas.ToString();
-        ListaDeEspera = resumo.NaListaDeEspera.ToString();
-        Encaixes = resumo.Encaixes.ToString();
-        TaxaFalta = $"{resumo.TaxaFaltaPercentual}%";
-
-        // O andamento do dia e a taxa de falta como barra — cada uma só quando tem base.
-        TemAtendidos = resumo.Agendados > 0;
-        AtendidosFracao = TemAtendidos
-            ? Math.Clamp(resumo.Atendidos / (double)resumo.Agendados, 0, 1)
-            : 0;
-
-        // A base da taxa de falta é a MESMA do número ao lado: os horários que chegaram
-        // ao fim (atendidos + faltas). Sem nenhum, não há taxa para desenhar.
-        TemTaxaFalta = resumo.Atendidos + resumo.Faltas > 0;
-        TaxaFaltaFracao = TemTaxaFalta
-            ? Math.Clamp(resumo.TaxaFaltaPercentual / 100.0, 0, 1)
-            : 0;
-
-        Ocupacao.Clear();
-        foreach (var o in resumo.Ocupacao)
-            Ocupacao.Add(new LinhaOcupacao
-            {
-                Nome = o.Nome,
-                Horarios = $"{o.Total} horário(s)",
-                Carga = $"{o.MinutosOcupados} min",
-                Faltas = o.Faltas == 0 ? "—" : $"{o.Faltas} falta(s)",
-                Fracao = Math.Min(1.0, o.MinutosOcupados / (double)JornadaMinutos)
-            });
+        if (!NavegacaoSuite.Ir(ModuloRecepcao.ChaveFila))
+            _snackbar.Info("A agenda do dia não está disponível para o seu acesso.");
     }
+
+    /// <summary>Clique num contador: leva à tela dona; as guias abrem a lista aqui mesmo.</summary>
+    [RelayCommand]
+    private void AbrirItem(ItemBalcao? item)
+    {
+        if (item is null) return;
+        if (item.Destino is null) { PendenciasAbertas = true; return; }
+        if (!NavegacaoSuite.Ir(item.Destino))
+            _snackbar.Info($"{item.Titulo}: esta tela não está disponível para o seu acesso.");
+    }
+
+    [RelayCommand] private void VerAniversariantes() => AniversariantesAbertos = true;
 
     /// <summary>
-    /// Guias pendentes dos pacientes do dia. Isolada do resto de propósito: se ela
-    /// falhar, o painel continua mostrando o dia — e diz que não conseguiu conferir.
+    /// O passo da linha: abrir (já está no local) ou registrar a chegada. O termo não é
+    /// colhido no balcão (out/2026, decisão da clínica) — quem colhe é a enfermagem.
     /// </summary>
-    private async Task CarregarPendenciasAsync(DateOnly dia, int geracao, bool silencioso = false)
+    [RelayCommand]
+    private async Task AcaoDaLinhaAsync(ProximoAChegar? linha)
     {
+        if (linha is null) return;
         try
         {
-            using var escopoPendencias = _escopos.CreateScope();
-            var pendencias = await escopoPendencias.ServiceProvider
-                .GetRequiredService<PainelRecepcaoService>()
-                .PendenciasDoDiaAsync(dia);
-
-            // Chegou tarde: outra carga mais nova já foi pedida.
-            if (geracao != _geracaoCarga) return;
-
-            Pendencias.Clear();
-            foreach (var p in pendencias)
-                Pendencias.Add(new LinhaPendenciaRecepcao
-                {
-                    PacienteId = p.PacienteId,
-                    Paciente = p.PacienteNome,
-                    Descricao = p.Descricao
-                        ?? $"{Clinica.Domain.RotulosEnum.De(p.Tipo)} ({Clinica.Domain.RotulosEnum.De(p.Ordem)})",
-                    Atraso = p.DiasEmAtraso <= 0
-                        ? "vence hoje"
-                        : $"{p.DiasEmAtraso} dia(s) em atraso",
-                    Telefone = p.PacienteTelefone
-                });
-
-            PendenciasNaoVerificadas = false;
+            switch (linha.Situacao)
+            {
+                case SituacaoChegada.NoLocal:
+                    await AbrirHorarioAsync(linha);
+                    break;
+                default:
+                    SessaoUsuario.Atual.ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "registrar a chegada");
+                    using (var escopo = _escopos.CreateScope())
+                        await escopo.ServiceProvider.GetRequiredService<AgendaService>()
+                            .RegistrarChegadaAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
+                    _snackbar.Sucesso($"{linha.Paciente} está no local.");
+                    break;
+            }
+            await CarregarAsync(silencioso: true);
         }
         catch (Exception ex)
         {
-            // Chegou tarde: outra carga mais nova já foi pedida.
-            if (geracao != _geracaoCarga) return;
-
-            Clinica.Application.Diagnostico.Registrar(
-                "Recepção — pendências do dia não puderam ser verificadas", ex);
-
-            // Mesma regra do bloco principal: a releitura de fundo que falha não limpa
-            // as guias pendentes do dia nem acende "não verificado" sozinha.
-            if (silencioso) return;
-
-            Pendencias.Clear();
-            PendenciasNaoVerificadas = true;
+            Clinica.Application.Diagnostico.Registrar("Recepção — ação da linha do Início", ex);
+            _snackbar.Erro(ex.Message);
         }
     }
 
-    /// <summary>Cobra o documento pelo WhatsApp, direto da linha da pendência.</summary>
+    private async Task AbrirHorarioAsync(ProximoAChegar linha)
+    {
+        using var scope = _escopos.CreateScope();
+        var agenda = scope.ServiceProvider.GetRequiredService<AgendaViewModel>();
+        if (!await agenda.AbrirJanelaDoHorarioAsync(DateOnly.FromDateTime(linha.Hora), linha.AgendamentoId))
+            _snackbar.Info("Este horário não está mais neste dia — ele pode ter sido remarcado em outra máquina.");
+        else if (!string.IsNullOrWhiteSpace(agenda.Mensagem))
+        {
+            if (agenda.MensagemEhErro) _snackbar.Erro(agenda.Mensagem); else _snackbar.Info(agenda.Mensagem);
+        }
+    }
+
     [RelayCommand]
     private void CobrarGuia(LinhaPendenciaRecepcao? linha)
     {
         if (linha is null) return;
-
-        var erro = Whatsapp.Abrir(
-            linha.Telefone, linha.Paciente,
-            Whatsapp.CobrancaDeGuia(linha.Paciente));
-
-        if (erro is null) return;
-        Mensagem = erro;
-        MensagemEhErro = true;
+        var erro = Whatsapp.Abrir(linha.Telefone, linha.Paciente, Whatsapp.CobrancaDeGuia(linha.Paciente));
+        if (erro is not null) _snackbar.Erro(erro);
     }
 
     [RelayCommand]
-    private void DiaAnterior() => Dia = Dia.AddDays(-1);
-
-    [RelayCommand]
-    private void ProximoDia() => Dia = Dia.AddDays(1);
-
-    [RelayCommand]
-    private void Hoje() => Dia = DateTime.Today;
+    private void Parabenizar(LinhaAniversariante? linha)
+    {
+        if (linha?.Telefone is not { } telefone) return;
+        var primeiro = linha.Paciente.Split(' ').FirstOrDefault() ?? linha.Paciente;
+        var erro = Whatsapp.Abrir(telefone, linha.Paciente,
+            $"Feliz aniversário, {primeiro}! Toda a equipe da clínica deseja um ótimo dia.");
+        if (erro is not null) _snackbar.Erro(erro);
+    }
 }

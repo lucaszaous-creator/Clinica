@@ -4,6 +4,9 @@
  xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
  Title="Dados e modelos do documento" Width="760" Height="590" MinWidth="620" MinHeight="440"
  WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Superficie}" FontFamily="Segoe UI">
+ <Window.Resources>
+  <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade"/>
+ </Window.Resources>
  <DockPanel Margin="24">
   <TextBlock DockPanel.Dock="Top" Text="Dados e modelos do documento" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap"/>
   <Button DockPanel.Dock="Bottom" Content="Concluir" IsCancel="True" Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Right" Margin="0,16,0,0"/>
@@ -12,10 +15,11 @@
    <TabItem Header="Dados da emissão">
     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="0,16,12,0">
      <TextBlock Text="Tipo de documento" Style="{StaticResource Rotulo}"/>
-     <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}" ItemTemplate="{StaticResource ItemRotuloEnum}"/>
+     <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}" ItemTemplate="{StaticResource ItemRotuloEnum}" IsEnabled="{Binding PodeTrocarTipo}"/>
      <TextBlock Text="Data de emissão" Style="{StaticResource Rotulo}" Margin="0,12,0,4"/><DatePicker SelectedDate="{Binding Data}"/>
      <TextBlock Text="Profissional responsável" Style="{StaticResource Rotulo}" Margin="0,12,0,4"/>
      <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}" DisplayMemberPath="Rotulo"/>
+     <TextBlock Text="{Binding MotivoSemAssinante}" Visibility="{Binding MotivoSemAssinante, Converter={StaticResource TextoParaVisibilidade}}" Foreground="{StaticResource Brush.Aviso}" TextWrapping="Wrap" Margin="0,6,0,0"/>
      <TextBlock Text="Título impresso (opcional)" Style="{StaticResource Rotulo}" Margin="0,12,0,4"/><TextBox Text="{Binding Titulo}" MaxLength="200"/>
      <TextBlock Text="{Binding EnderecoDaReceita}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,12,0,0"/>
      <Button Content="Buscar CID" Command="{Binding BuscarCidCommand}" Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Left" Margin="0,12,0,0"/>

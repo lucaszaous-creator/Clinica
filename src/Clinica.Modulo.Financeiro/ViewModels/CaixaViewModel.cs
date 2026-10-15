@@ -44,7 +44,7 @@ public sealed class LinhaCaixa
 /// Caixa do mês: entradas, saídas e saldo. Lançamentos vindos de guias do
 /// faturamento aparecem marcados, para deixar visível o elo entre os módulos.
 /// </summary>
-public sealed partial class CaixaViewModel : ObservableObject
+public sealed partial class CaixaViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
@@ -234,21 +234,36 @@ public sealed partial class CaixaViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => LerAsync(silencioso: false);
+
+    /// <summary>
+    /// A tela voltou do histórico com o que mostrava (out/2026): relê por trás, sem
+    /// "Carregando" e sem apagar nada. Uma demora do banco aqui fica no log, não na tela.
+    /// </summary>
+    public void AtualizarAoVoltar()
+    {
+        if (Carregando) return;
+        _ = LerAsync(silencioso: true);
+    }
+
+    private async Task LerAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
 
         try
         {
-            Carregando = true;
-            NaoVerificado = false;
-            SerieDisponivel = false;
-            GraficoEntradas = GraficoSaidas = string.Empty;
-            SituacaoSerie = "Carregando distribuição diária…";
-            UltimoMovimento = "Carregando lançamentos…";
-            DetalheUltimoMovimento = string.Empty;
-            Entradas = Saidas = Saldo = Previsto = Liquido = Deducoes = "—";
-            TemDeducoes = false;
+            if (!silencioso)
+            {
+                Carregando = true;
+                NaoVerificado = false;
+                SerieDisponivel = false;
+                GraficoEntradas = GraficoSaidas = string.Empty;
+                SituacaoSerie = "Carregando distribuição diária…";
+                UltimoMovimento = "Carregando lançamentos…";
+                DetalheUltimoMovimento = string.Empty;
+                Entradas = Saidas = Saldo = Previsto = Liquido = Deducoes = "—";
+                TemDeducoes = false;
+            }
             var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
             var fim = inicio.AddMonths(1).AddDays(-1);
 
@@ -303,6 +318,11 @@ public sealed partial class CaixaViewModel : ObservableObject
         {
             if (geracao != _geracaoCarga) return;
 
+            if (silencioso)
+            {
+                Clinica.Application.Diagnostico.Registrar("Financeiro — releitura do caixa ao voltar falhou", ex);
+                return;
+            }
             NaoVerificado = true;
             SerieDisponivel = false;
             GraficoEntradas = GraficoSaidas = string.Empty;
@@ -315,7 +335,7 @@ public sealed partial class CaixaViewModel : ObservableObject
         finally
         {
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
-            if (geracao == _geracaoCarga) Carregando = false;
+            if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
     }
 

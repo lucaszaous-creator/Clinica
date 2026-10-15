@@ -57,9 +57,11 @@ public sealed class ElegibilidadeService
         ConsultaService consultas,
         InadimplenciaService? inadimplencia = null,
         PacoteService? pacotes = null,
-        TermoProcedimentoService? termos = null)
+        TermoProcedimentoService? termos = null,
+        ILeituraParalela? paralela = null)
     {
         _repo = repo;
+        _paralela = paralela;
         _autorizacoes = autorizacoes;
         _consentimentos = consentimentos;
         // Obrigatório, ao contrário do Financeiro abaixo: a consulta renovável é do mesmo
@@ -91,16 +93,51 @@ public sealed class ElegibilidadeService
 
         ConferirConvenioADefinir(paciente, alertas);
         ConferirCarteirinha(paciente, referencia, alertas);
-        await ConferirConsultaAsync(pacienteId, referencia, alertas, ct);
-        await ConferirCotaAsync(pacienteId, referencia, alertas, ct);
-        await ConferirConsentimentoAsync(pacienteId, alertas, ct);
-        await ConferirDebitoAsync(pacienteId, referencia, alertas, ct);
-        await ConferirSessaoSemReceitaAsync(pacienteId, referencia, alertas, ct);
-        await ConferirGlosaAsync(pacienteId, referencia, alertas, ct);
-        await ConferirPacoteAsync(pacienteId, referencia, alertas, ct);
-        await ConferirTermoAsync(pacienteId, referencia, alertas, ct);
 
-        return new Elegibilidade(pacienteId, paciente.Nome, alertas);
+        if (_paralela is null)
+        {
+            // Em fila: todas as conferências dividem o mesmo DbContext.
+            for (var bloco = 0; bloco < BlocosDeConferencia; bloco++)
+                alertas.AddRange((await ConferirBlocoAsync(bloco, pacienteId, referencia, ct)).Alertas);
+            var termosEmFila = await ConferirTermoAsync(pacienteId, referencia, alertas, ct);
+            return new Elegibilidade(pacienteId, paciente.Nome, alertas) { TermosDoDia = termosEmFila };
+        }
+
+        // Em paralelo (out/2026): as oito conferências são independentes e custavam ~15 idas
+        // em fila ao banco remoto a cada paciente escolhido. Cada uma roda numa instância
+        // deste serviço resolvida num escopo próprio, e os alertas são juntados NA MESMA ORDEM
+        // de antes — a tela lê a lista de cima para baixo.
+        var blocos = Enumerable.Range(0, BlocosDeConferencia)
+            .Select(b => _paralela.LerAsync<ElegibilidadeService, (List<AlertaElegibilidade> Alertas, IReadOnlyList<SituacaoTermo>? Termos)>(
+                svc => svc.ConferirBlocoAsync(b, pacienteId, referencia, ct)))
+            .ToList();
+        var deTermo = _paralela.LerAsync<ElegibilidadeService, (List<AlertaElegibilidade> Alertas, IReadOnlyList<SituacaoTermo>? Termos)>(
+            async svc => { var lista = new List<AlertaElegibilidade>(); var t = await svc.ConferirTermoAsync(pacienteId, referencia, lista, ct); return (lista, t); });
+        await Task.WhenAll(blocos.Append(deTermo));
+        foreach (var b in blocos) alertas.AddRange(b.Result.Alertas);
+        alertas.AddRange(deTermo.Result.Alertas);
+        return new Elegibilidade(pacienteId, paciente.Nome, alertas) { TermosDoDia = deTermo.Result.Termos };
+    }
+
+    private readonly ILeituraParalela? _paralela;
+    private const int BlocosDeConferencia = 7;
+
+    /// <summary>Uma conferência, na ordem fixa em que os alertas aparecem.</summary>
+    private async Task<(List<AlertaElegibilidade> Alertas, IReadOnlyList<SituacaoTermo>? Termos)> ConferirBlocoAsync(
+        int bloco, int pacienteId, DateOnly referencia, CancellationToken ct)
+    {
+        var alertas = new List<AlertaElegibilidade>();
+        switch (bloco)
+        {
+            case 0: await ConferirConsultaAsync(pacienteId, referencia, alertas, ct); break;
+            case 1: await ConferirCotaAsync(pacienteId, referencia, alertas, ct); break;
+            case 2: await ConferirConsentimentoAsync(pacienteId, alertas, ct); break;
+            case 3: await ConferirDebitoAsync(pacienteId, referencia, alertas, ct); break;
+            case 4: await ConferirSessaoSemReceitaAsync(pacienteId, referencia, alertas, ct); break;
+            case 5: await ConferirGlosaAsync(pacienteId, referencia, alertas, ct); break;
+            case 6: await ConferirPacoteAsync(pacienteId, referencia, alertas, ct); break;
+        }
+        return (alertas, null);
     }
 
     /// <summary>
@@ -111,13 +148,13 @@ public sealed class ElegibilidadeService
     /// com o pacote, e a alternativa — escrever a conferência na tela que o cliente
     /// apontou — deixaria as outras três portas passando.
     /// </summary>
-    private async Task ConferirTermoAsync(
+    private async Task<IReadOnlyList<SituacaoTermo>?> ConferirTermoAsync(
         int pacienteId, DateOnly referencia, List<AlertaElegibilidade> alertas,
         CancellationToken ct)
     {
         // Opcional pela mesma razão do Financeiro e do pacote: este serviço tem de
         // continuar construível sem o módulo que trouxe a feature.
-        if (_termos is null) return;
+        if (_termos is null) return null;
 
         // ⚠️ SÓ para HOJE. A conferência é chamada também com data FUTURA — o formulário de
         // agendamento pergunta pela data marcada, para avisar o que se resolve com o
@@ -126,7 +163,7 @@ public sealed class ElegibilidadeService
         // atender: quem marcasse um BSV para o mês que vem veria vermelho sem ter o que
         // fazer. Alerta que dispara para todo mundo é alerta que ninguém lê — e este
         // ensinaria a ignorar justamente o que aparece no dia certo.
-        if (referencia != DateOnly.FromDateTime(DateTime.Today)) return;
+        if (referencia != DateOnly.FromDateTime(DateTime.Today)) return null;
 
         var situacoes = await _termos.SituacaoDoDiaAsync(pacienteId, referencia, ct);
 
@@ -163,6 +200,7 @@ public sealed class ElegibilidadeService
                 NivelUrgencia.Vermelho,
                 $"No termo \"{s.NomeDoTermo}\" o paciente respondeu NÃO em: "
                 + $"{string.Join("; ", s.DeclaracoesNegadas)}."));
+        return situacoes;
     }
 
     /// <summary>

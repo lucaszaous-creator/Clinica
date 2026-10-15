@@ -36,6 +36,14 @@ public enum GrupoSidebar
     /// <summary>O ato de atender: lançar e marcar, prontuário, prescrições, enfermagem.</summary>
     Atendimento,
 
+    /// <summary>
+    /// Falar com quem vem, com quem precisa voltar e com quem sumiu (out/2026): as
+    /// confirmações da véspera, os retornos pedidos pelo profissional e o acompanhamento.
+    /// Morava em GESTÃO, ao lado do painel e da equipe — e "gestão" não diz a ninguém que
+    /// é ali que se chama o paciente de volta.
+    /// </summary>
+    Relacionamento,
+
     /// <summary>O dinheiro: caixa, contas, faturamento, estoque.</summary>
     Financeiro,
 
@@ -51,6 +59,7 @@ public static class GruposSidebar
         GrupoSidebar.Gestao => "GESTÃO",
         GrupoSidebar.Paciente => "PACIENTE",
         GrupoSidebar.Atendimento => "ATENDIMENTO",
+        GrupoSidebar.Relacionamento => "RELACIONAMENTO",
         GrupoSidebar.Financeiro => "FINANCEIRO",
         GrupoSidebar.Inteligencia => "INTELIGÊNCIA",
         _ => grupo.ToString().ToUpperInvariant()
@@ -66,6 +75,7 @@ public static class GruposSidebar
         GrupoSidebar.Gestao => "Dia",
         GrupoSidebar.Paciente => "Paciente",
         GrupoSidebar.Atendimento => "Atender",
+        GrupoSidebar.Relacionamento => "Contato",
         GrupoSidebar.Financeiro => "Dinheiro",
         GrupoSidebar.Inteligencia => "Direção",
         _ => Rotulo(grupo)
@@ -81,6 +91,7 @@ public static class GruposSidebar
         GrupoSidebar.Gestao => "\uE80F",          // Home — o dia da clínica
         GrupoSidebar.Paciente => "\uE77B",        // Contact — a pessoa atendida
         GrupoSidebar.Atendimento => "\uE95E",     // Health — o ato de atender
+        GrupoSidebar.Relacionamento => "\uE8BD",  // Message — o contato com o paciente
         GrupoSidebar.Financeiro => "\uE825",      // Bank — o dinheiro
         GrupoSidebar.Inteligencia => "\uE9D2",    // BarChart — a leitura do negócio
         _ => "\uE700"
@@ -114,6 +125,17 @@ public sealed partial class ItemMenuModulo : ObservableObject
 {
     /// <summary>Identifica a tela dentro do módulo (ex.: "fila"). Única dentro do módulo.</summary>
     public required string Chave { get; init; }
+
+    /// <summary>Reutiliza a instância recente; a tela deve atualizar os dados no Loaded.</summary>
+    public bool PreservarAoNavegar { get; init; }
+
+    /// <summary>
+    /// Posição do item na barra PLANA do topo (out/2026, mockup aprovado da Recepção:
+    /// "Início · Agenda · Pacientes · Atendimento · Relacionamento"). Nulo = o item mora no
+    /// menu "Mais". A barra plana só vale no executável de UM módulo que declara itens
+    /// principais — no Gerente, que carrega todos, as categorias continuam.
+    /// </summary>
+    public int? Principal { get; init; }
 
     /// <summary>Texto exibido na sidebar.</summary>
     public required string Rotulo { get; init; }
@@ -233,6 +255,22 @@ public sealed partial class ItemMenuModulo : ObservableObject
 /// <summary>Grupo de abas da navegação superior. A seleção não troca a tela aberta.</summary>
 public sealed partial class GrupoMenuModulo : ObservableObject
 {
+    /// <summary>Entrada DIRETA da barra plana: o rótulo do item, e o clique navega.</summary>
+    public GrupoMenuModulo(ItemMenuModulo direto) : this(direto.Grupo, [])
+    {
+        Direto = direto;
+        _nomeProprio = direto.Rotulo;
+        direto.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ItemMenuModulo.EstaAtivo)) OnPropertyChanged(nameof(EstaAtivo)); };
+    }
+
+    /// <summary>O "Mais" da barra plana: o que não é principal, num menu só.</summary>
+    public GrupoMenuModulo(string nome, IReadOnlyList<ItemMenuModulo> itens) : this(GrupoSidebar.Gestao, itens)
+        => _nomeProprio = nome;
+
+    private readonly string? _nomeProprio;
+    public ItemMenuModulo? Direto { get; }
+    public bool TemSubmenu => Direto is null;
+
     public GrupoMenuModulo(GrupoSidebar grupo, IReadOnlyList<ItemMenuModulo> itens)
     {
         Grupo = grupo;
@@ -246,13 +284,14 @@ public sealed partial class GrupoMenuModulo : ObservableObject
 
     public GrupoSidebar Grupo { get; }
     public string Nome { get; }
-    public string NomeNavegacao => Grupo switch
+    public string NomeNavegacao => _nomeProprio ?? Grupo switch
     {
         GrupoSidebar.Gestao => "Gestão", GrupoSidebar.Paciente => "Paciente",
-        GrupoSidebar.Atendimento => "Atendimento", GrupoSidebar.Financeiro => "Financeiro",
+        GrupoSidebar.Atendimento => "Atendimento", GrupoSidebar.Relacionamento => "Relacionamento",
+        GrupoSidebar.Financeiro => "Financeiro",
         GrupoSidebar.Inteligencia => "Inteligência", _ => Nome
     };
-    public bool EstaAtivo => Itens.Any(i => i.EstaAtivo);
+    public bool EstaAtivo => Direto?.EstaAtivo ?? Itens.Any(i => i.EstaAtivo);
     public string NomeCurto { get; }
     public string Glifo { get; }
     public IReadOnlyList<ItemMenuModulo> Itens { get; }

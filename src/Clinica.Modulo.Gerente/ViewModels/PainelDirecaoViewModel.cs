@@ -124,7 +124,7 @@ public sealed partial class LinhaAlertaDirecao : ObservableObject
 /// problema e não leva até ele faz a pessoa decorar em qual seção mora cada coisa — e
 /// resolver o que está à mão em vez do que é urgente.
 /// </summary>
-public sealed partial class PainelDirecaoViewModel : ObservableObject
+public sealed partial class PainelDirecaoViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     private static readonly CultureInfo Brasil = new("pt-BR");
 
@@ -195,14 +195,29 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => LerAsync(silencioso: false);
+
+    /// <summary>
+    /// O painel voltou do histórico com os números que mostrava (out/2026): relê por trás,
+    /// sem "Carregando" e sem trocar a mensagem da tela. Falha fica no log.
+    /// </summary>
+    public void AtualizarAoVoltar() => _ = LerAsync(silencioso: true);
+
+    /// <summary>Uma montagem por vez — a silenciosa não acende "Carregando", então a guarda é esta.</summary>
+    private bool _montando;
+
+    private async Task LerAsync(bool silencioso)
     {
-        if (Carregando) return;
-        Carregando = true;
+        if (Carregando || _montando) return;
+        _montando = true;
+        if (!silencioso) Carregando = true;
         try
         {
-            Mensagem = null;
-            MensagemEhErro = false;
+            if (!silencioso)
+            {
+                Mensagem = null;
+                MensagemEhErro = false;
+            }
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             Saudacao = SaudacaoDaHora(DateTime.Now.Hour);
@@ -278,12 +293,14 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Gerente — painel da direção não pôde ser montado", ex);
+            if (silencioso) return;
             Mensagem = $"Não foi possível montar o painel: {ex.Message}";
             MensagemEhErro = true;
         }
         finally
         {
-            Carregando = false;
+            _montando = false;
+            if (!silencioso) Carregando = false;
         }
     }
 

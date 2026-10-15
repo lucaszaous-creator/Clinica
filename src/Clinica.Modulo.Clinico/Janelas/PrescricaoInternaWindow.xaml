@@ -1,6 +1,262 @@
 <Window x:Class="Clinica.Clinico.Janelas.PrescricaoInternaWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="Prescrição de infusão" Width="1180" Height="680" MinWidth="640" MinHeight="560"
+ xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+ xmlns:jan="clr-namespace:Clinica.Clinico.Janelas"
+ Title="Prescrição de infusão" Width="1180" Height="680" MinWidth="900" MinHeight="560"
  WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Superficie}">
- <Grid />
+ <Window.Resources>
+  <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade"/>
+  <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade"/>
+  <jan:ModeloEmExclusao x:Key="ModeloEmExclusao"/>
+  <Style x:Key="AcaoDiscreta" TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+   <Setter Property="BorderThickness" Value="0"/><Setter Property="Background" Value="Transparent"/>
+   <Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="Padding" Value="8,6"/>
+  </Style>
+ </Window.Resources>
+
+ <!-- ============================================================
+      O EDITOR NATIVO DA FOLHA DE INFUSÃO (out/2026 — saiu da tela web embutida).
+      Toda gravação continua no ViewModel e nos serviços clínicos; esta tela só desenha.
+      O que o editor web acrescentou e foi trazido para cá: "Copiar última" no cabeçalho,
+      "Remover infusão" à vista, a lista de modelos com busca e EXCLUSÃO confirmada no
+      próprio modelo, salvar como modelo na própria infusão, e o catálogo de medicamentos
+      que se relê sem fechar a janela.
+      ============================================================ -->
+ <Grid Margin="32,20">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+  <DockPanel Margin="0,0,0,14">
+   <!-- Copiar a última é decisão sobre a FOLHA inteira (todas as infusões), então mora no
+        cabeçalho, e não dentro da primeira infusão. -->
+   <Button DockPanel.Dock="Right" VerticalAlignment="Top" Content="Copiar última prescrição deste paciente"
+           Style="{StaticResource BotaoSecundario}"
+           Command="{Binding CopiarUltimaPrescricaoCommand}"
+           IsEnabled="{Binding PodeCopiarUltimaPrescricao}"
+           ToolTipService.ShowOnDisabled="True"
+           ToolTip="Copia a última prescrição deste paciente, incluindo todas as infusões, para revisar antes de salvar. Nada é gravado sozinho."/>
+   <StackPanel Margin="0,0,16,0">
+    <TextBlock Text="Prescrição de infusão" Style="{StaticResource H1}" Margin="0"/>
+    <TextBlock Text="{Binding Paciente}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Paciente}" FontSize="{StaticResource Fonte.H3}" Margin="0,4,0,0"/>
+    <TextBlock Text="{Binding Numero}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}" Margin="0,4,0,0"/>
+   </StackPanel>
+  </DockPanel>
+
+  <StackPanel Grid.Row="1">
+   <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,8" Visibility="{Binding TemAlertas,Converter={StaticResource BoolParaVisibilidade}}">
+    <StackPanel>
+     <TextBlock Text="Confira antes de prescrever" FontWeight="SemiBold" Margin="0,0,0,4"/>
+     <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl ItemsSource="{Binding Alertas}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+     </ScrollViewer>
+    </StackPanel>
+   </Border>
+   <StackPanel Visibility="{Binding Ocupado,Converter={StaticResource BoolParaVisibilidade}}" Margin="0,0,0,8">
+    <TextBlock Text="{Binding TextoOperacao}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/><ProgressBar IsIndeterminate="True" Height="3" Margin="0,4"/>
+   </StackPanel>
+  </StackPanel>
+
+  <!-- Editável só quando a folha carregou, quem está usando pode prescrever e nada está em
+       andamento — é a mesma condição que o editor web usava (PodeCopiarUltimaPrescricao). -->
+  <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <StackPanel IsEnabled="{Binding PodeCopiarUltimaPrescricao}">
+    <Expander Header="Indicação" Margin="0,0,0,12"><ctrl:EditorTextoClinico Texto="{Binding Indicacao,UpdateSourceTrigger=PropertyChanged}" Formato="{Binding IndicacaoFormatada,UpdateSourceTrigger=PropertyChanged}"/></Expander>
+    <ItemsControl ItemsSource="{Binding Infusoes}">
+     <ItemsControl.ItemTemplate><DataTemplate>
+      <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,1" Padding="0,16" Margin="0,0,0,12">
+       <StackPanel>
+        <DockPanel Margin="0,0,0,10">
+         <Button DockPanel.Dock="Right" Content="Remover infusão" Style="{StaticResource BotaoSecundarioPerigo}" VerticalAlignment="Center"
+                 Command="{Binding DataContext.RemoverInfusaoCommand,RelativeSource={RelativeSource AncestorType=Window}}"
+                 CommandParameter="{Binding}" AutomationProperties.Name="Remover esta infusão"/>
+         <StackPanel>
+          <TextBlock Text="Preparo e medicamentos" Style="{StaticResource TextoSuave}" FontSize="{StaticResource Fonte.Legenda}" Margin="0"/>
+          <TextBlock Text="{Binding Titulo}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.H2}" FontWeight="SemiBold"/>
+         </StackPanel>
+        </DockPanel>
+
+        <!-- ===== MODELOS SALVOS =====
+             Usar copia o preparo e os medicamentos para ESTA infusão (aplicar copia, nunca
+             aponta). Excluir pede confirmação no próprio modelo, com "Excluir modelo" e
+             "Manter" lado a lado, e os dois apagam enquanto a exclusão está no ar. -->
+        <Expander Header="{Binding DataContext.RotuloUsarModelo,RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,0,0,8">
+         <StackPanel Margin="0,8,0,0">
+          <TextBox Style="{StaticResource CampoPesquisa}" Margin="0,0,0,8"
+                   Text="{Binding DataContext.BuscaModelo,RelativeSource={RelativeSource AncestorType=Window},UpdateSourceTrigger=PropertyChanged}"
+                   ctrl:Ajudantes.Placeholder="Buscar modelo pelo nome"
+                   AutomationProperties.Name="Buscar modelo"/>
+          <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                        ctrl:Ajudantes.RodaDaPagina="True">
+           <ItemsControl ItemsSource="{Binding DataContext.ModelosVisiveis,RelativeSource={RelativeSource AncestorType=Window}}">
+            <ItemsControl.ItemTemplate><DataTemplate>
+             <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="0,8">
+              <Grid>
+               <!-- A linha de sempre: usar e, ao lado, o pedido de exclusão. -->
+               <DockPanel>
+                <DockPanel.Visibility>
+                 <MultiBinding Converter="{StaticResource ModeloEmExclusao}">
+                  <Binding Path="DataContext.ModeloEmExclusao" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                  <Binding Path="Id"/>
+                 </MultiBinding>
+                </DockPanel.Visibility>
+                <Button DockPanel.Dock="Right" Content="Excluir modelo" Style="{StaticResource BotaoAcaoGridPerigo}" VerticalAlignment="Center" Margin="8,0,0,0"
+                        Command="{Binding DataContext.PedirExclusaoModeloCommand,RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}"
+                        ToolTip="Excluir este modelo para toda a clínica"/>
+                <Button DockPanel.Dock="Right" Content="Usar e revisar" Style="{StaticResource BotaoAcaoGrid}" VerticalAlignment="Center" Margin="8,0,0,0"
+                        Tag="{Binding DataContext,RelativeSource={RelativeSource AncestorType=Expander}}"
+                        Click="UsarModelo_Click"
+                        ToolTip="Aplica o preparo e os medicamentos do modelo a esta infusão, para revisar antes de salvar"/>
+                <StackPanel>
+                 <TextBlock Text="{Binding Nome}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Nome}"/>
+                 <TextBlock Text="{Binding Corpo}" Style="{StaticResource TextoSuave}" FontSize="{StaticResource Fonte.Legenda}"
+                            Margin="0,2,0,0" MaxHeight="36" TextTrimming="CharacterEllipsis" TextWrapping="Wrap"
+                            ToolTip="{Binding Corpo}"
+                            Visibility="{Binding Corpo,Converter={StaticResource TextoParaVisibilidade},FallbackValue=Collapsed}"/>
+                </StackPanel>
+               </DockPanel>
+
+               <!-- A confirmação, no lugar da linha. -->
+               <Border Style="{StaticResource AlertaPerigo}" Margin="0">
+                <Border.Visibility>
+                 <MultiBinding Converter="{StaticResource ModeloEmExclusao}" ConverterParameter="Confirmacao">
+                  <Binding Path="DataContext.ModeloEmExclusao" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                  <Binding Path="Id"/>
+                 </MultiBinding>
+                </Border.Visibility>
+                <DockPanel>
+                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                  <Button Margin="0,0,8,0"
+                          Command="{Binding DataContext.ConfirmarExclusaoModeloCommand,RelativeSource={RelativeSource AncestorType=Window}}"
+                          CommandParameter="{Binding}"
+                          IsEnabled="{Binding DataContext.PodeCopiarUltimaPrescricao,RelativeSource={RelativeSource AncestorType=Window}}">
+                   <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource BotaoPerigo}">
+                     <Setter Property="Content" Value="Excluir modelo"/>
+                     <Style.Triggers>
+                      <DataTrigger Binding="{Binding DataContext.Ocupado,RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                       <Setter Property="Content" Value="Excluindo…"/>
+                      </DataTrigger>
+                     </Style.Triggers>
+                    </Style>
+                   </Button.Style>
+                  </Button>
+                  <Button Content="Manter" Style="{StaticResource BotaoSecundario}"
+                          Command="{Binding DataContext.ManterModeloCommand,RelativeSource={RelativeSource AncestorType=Window}}"
+                          IsEnabled="{Binding DataContext.PodeCopiarUltimaPrescricao,RelativeSource={RelativeSource AncestorType=Window}}"/>
+                 </StackPanel>
+                 <TextBlock TextWrapping="Wrap" VerticalAlignment="Center">
+                  <Run Text="Excluir o modelo "/><Run Text="{Binding Nome,Mode=OneWay}" FontWeight="SemiBold"/><Run Text=" para toda a clínica? As prescrições já criadas com ele não mudam."/>
+                 </TextBlock>
+                </DockPanel>
+               </Border>
+              </Grid>
+             </Border>
+            </DataTemplate></ItemsControl.ItemTemplate>
+           </ItemsControl>
+          </ScrollViewer>
+          <TextBlock Text="{Binding DataContext.TextoSemModelos,RelativeSource={RelativeSource AncestorType=Window}}"
+                     Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0"
+                     Visibility="{Binding DataContext.NenhumModeloVisivel,RelativeSource={RelativeSource AncestorType=Window},Converter={StaticResource BoolParaVisibilidade}}"/>
+         </StackPanel>
+        </Expander>
+
+        <!-- Salvar ESTA infusão como modelo: o formulário abre na própria infusão. -->
+        <Button Content="Salvar esta infusão como modelo" Style="{StaticResource AcaoDiscreta}" HorizontalAlignment="Left" Margin="0,0,0,8"
+                Command="{Binding DataContext.AlternarSalvarModeloCommand,RelativeSource={RelativeSource AncestorType=Window}}"
+                CommandParameter="{Binding}"/>
+        <Border Style="{StaticResource AlertaInfo}" Margin="0,0,0,14"
+                Visibility="{Binding SalvandoComoModelo,Converter={StaticResource BoolParaVisibilidade}}">
+         <StackPanel>
+          <TextBlock Text="Nome do modelo" Style="{StaticResource Rotulo}"/>
+          <TextBox Text="{Binding NomeDoModelo,UpdateSourceTrigger=PropertyChanged}" MaxLength="100"
+                   ctrl:Ajudantes.Placeholder="Nome para encontrar depois" AutomationProperties.Name="Nome do modelo"/>
+          <TextBlock Text="Guarda o preparo e os medicamentos desta infusão, sem dados do paciente ou horário."
+                     Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+           <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0"
+                   Command="{Binding DataContext.AlternarSalvarModeloCommand,RelativeSource={RelativeSource AncestorType=Window}}"
+                   CommandParameter="{Binding}"/>
+           <Button Content="Salvar modelo"
+                   Command="{Binding DataContext.SalvarComoModeloCommand,RelativeSource={RelativeSource AncestorType=Window}}"
+                   CommandParameter="{Binding}">
+            <Button.Style>
+             <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+              <Style.Triggers>
+               <DataTrigger Binding="{Binding NomeDoModelo}" Value="">
+                <Setter Property="IsEnabled" Value="False"/>
+               </DataTrigger>
+              </Style.Triggers>
+             </Style>
+            </Button.Style>
+           </Button>
+          </StackPanel>
+         </StackPanel>
+        </Border>
+
+        <Grid Margin="0,0,0,18">
+         <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.8*"/><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+         <StackPanel Margin="0,0,12,0"><TextBlock Text="Diluente" Style="{StaticResource Rotulo}"/><TextBox Text="{Binding Diluente,UpdateSourceTrigger=PropertyChanged}" MaxLength="120" AutomationProperties.Name="Diluente da infusão"/></StackPanel>
+         <StackPanel Grid.Column="1" Margin="0,0,12,0"><TextBlock Text="Volume (mL)" Style="{StaticResource Rotulo}"/><TextBox Text="{Binding Volume,UpdateSourceTrigger=PropertyChanged}" MaxLength="60" AutomationProperties.Name="Volume total da infusão em mL"/></StackPanel>
+         <StackPanel Grid.Column="2" Margin="0,0,12,0"><TextBlock Text="Via" Style="{StaticResource Rotulo}"/><ComboBox ItemTemplate="{StaticResource ItemRotuloEnum}" ItemsSource="{Binding DataContext.Vias,RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Via}" AutomationProperties.Name="Via de administração"/></StackPanel>
+         <StackPanel Grid.Column="3" Margin="0,0,12,0"><TextBlock Text="Tempo" Style="{StaticResource Rotulo}"/><TextBox Text="{Binding Tempo,UpdateSourceTrigger=PropertyChanged}" MaxLength="60" AutomationProperties.Name="Tempo de infusão"/></StackPanel>
+         <StackPanel Grid.Column="4"><TextBlock Text="Horário (opcional)" Style="{StaticResource Rotulo}"/><TextBox Text="{Binding Horario,UpdateSourceTrigger=PropertyChanged}" MaxLength="5" ctrl:Ajudantes.Placeholder="HH:mm" ToolTip="Opcional, no formato HH:mm" AutomationProperties.Name="Horário previsto da infusão"/></StackPanel>
+        </Grid>
+        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="210"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions><TextBlock Text="Medicamento" Style="{StaticResource Rotulo}"/><TextBlock Grid.Column="1" Text="Quantidade / dose" Style="{StaticResource Rotulo}"/></Grid>
+        <ItemsControl ItemsSource="{Binding Itens}"><ItemsControl.ItemTemplate><DataTemplate>
+         <StackPanel Margin="0,0,0,8">
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="210"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+           <ctrl:BuscaMedicamento Margin="0,0,12,0" Texto="{Binding Descricao,UpdateSourceTrigger=PropertyChanged}" Catalogo="{Binding DataContext.CatalogoMedicamentos,RelativeSource={RelativeSource AncestorType=Window}}"/>
+           <TextBox Grid.Column="1" Text="{Binding Dose,UpdateSourceTrigger=PropertyChanged}" ctrl:Ajudantes.Placeholder="{Binding DicaDose}" MaxLength="60" VerticalAlignment="Top" AutomationProperties.Name="Quantidade ou dose com unidade" ToolTip="Informe a quantidade junto da medida, por exemplo: 1 ampola."/>
+           <Button Grid.Column="2" Content="Remover" Style="{StaticResource BotaoAcaoGridPerigo}" VerticalAlignment="Top" Margin="8,0,0,0" Command="{Binding DataContext.RemoverItemCommand,RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" AutomationProperties.Name="Remover medicamento"/>
+          </Grid>
+          <Expander Header="Observações do medicamento / SOS" FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0">
+           <StackPanel><CheckBox Content="Se necessário (SOS)" IsChecked="{Binding SeNecessario}" Margin="0,6"/>
+            <TextBlock Text="Observação do medicamento" Style="{StaticResource Rotulo}"/><ctrl:EditorTextoClinico Texto="{Binding Observacoes,UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas,UpdateSourceTrigger=PropertyChanged}"/>
+           </StackPanel>
+          </Expander>
+         </StackPanel>
+        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+        <TextBlock Text="Sugestões a partir de 2 letras" Style="{StaticResource TextoSuave}" Margin="0,2,0,6"/>
+        <Button Content="+ Adicionar medicamento" Style="{StaticResource AcaoDiscreta}" HorizontalAlignment="Left" Command="{Binding DataContext.AcrescentarItemCommand,RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+       </StackPanel>
+      </Border>
+     </DataTemplate></ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Button Content="+ Adicionar outra infusão" Style="{StaticResource AcaoDiscreta}" HorizontalAlignment="Left" Command="{Binding CriarInfusaoCommand}" Margin="0,0,0,12"
+            ToolTip="Com preparo e medicamentos próprios"/>
+    <Expander Header="Observações" Margin="0,0,0,12"><ctrl:EditorTextoClinico Texto="{Binding Observacoes,UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas,UpdateSourceTrigger=PropertyChanged}"/></Expander>
+    <Expander Header="Data, hora e cadastro de medicamentos" Margin="0,0,0,8">
+     <WrapPanel Margin="0,8">
+      <DatePicker SelectedDate="{Binding DataPrescricao}" Width="160" Margin="0,0,12,0" AutomationProperties.Name="Data da prescrição"/>
+      <TextBox Text="{Binding HoraPrescricao,UpdateSourceTrigger=PropertyChanged}" Width="90" MaxLength="5" Margin="0,0,12,0" ctrl:Ajudantes.Placeholder="HH:mm" AutomationProperties.Name="Hora da prescrição"/>
+      <Button Content="Atualizar catálogo de medicamentos" Style="{StaticResource BotaoSecundario}" Command="{Binding RecarregarMedicamentosCommand}"
+              ToolTip="Relê os medicamentos cadastrados sem fechar a prescrição"/>
+     </WrapPanel>
+    </Expander>
+   </StackPanel>
+  </ScrollViewer>
+
+  <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a gravidade (parcela 62). -->
+  <Border Grid.Row="3" Margin="0,8,0,0" Visibility="{Binding Mensagem,Converter={StaticResource TextoParaVisibilidade},FallbackValue=Collapsed}">
+   <Border.Style>
+    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+     <Style.Triggers>
+      <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+       <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}"/>
+       <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}"/>
+      </DataTrigger>
+     </Style.Triggers>
+    </Style>
+   </Border.Style>
+   <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+  </Border>
+  <DockPanel Grid.Row="4" Margin="0,16,0,0">
+   <Button DockPanel.Dock="Left" Content="Fechar" IsCancel="True" Style="{StaticResource AcaoDiscreta}" VerticalAlignment="Center"/>
+   <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+    <Button Content="Salvar rascunho" Style="{StaticResource BotaoSecundario}" Command="{Binding SalvarRascunhoCommand}" IsEnabled="{Binding PodeCopiarUltimaPrescricao}" Margin="0,0,10,0"/>
+    <Button Content="{Binding RotuloLiberacao}" Command="{Binding AssinarCommand}" IsEnabled="{Binding PodeAssinar}"/>
+   </StackPanel>
+   <TextBlock Text="Salvar rascunho mantém a prescrição em edição." Style="{StaticResource TextoSuave}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="16,0"/>
+  </DockPanel>
+ </Grid>
 </Window>

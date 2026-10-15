@@ -46,6 +46,17 @@ public sealed record PrecoProposto(decimal Valor, string Procedencia)
 public sealed class PrecoConvenioService
 {
     private readonly IClinicaRepositorio _repo;
+    // Desempenho: a tabela de ativos é lida UMA vez por operação. Resolver uma lista de guias, sessões
+    // ou recebimentos relia a tabela inteira a cada linha — 200 linhas eram 200 idas ao banco
+    // remoto. Validade curta e invalidação ao gravar, como as configurações.
+    private (IReadOnlyList<PrecoConvenio> Lista, DateTime Em)? _ativos;
+    private async Task<IReadOnlyList<PrecoConvenio>> AtivosAsync(CancellationToken ct)
+    {
+        if (_ativos is { } c && DateTime.UtcNow - c.Em < TimeSpan.FromSeconds(20)) return c.Lista;
+        var lista = await _repo.PrecosConvenioAsync(somenteAtivos: true, ct);
+        _ativos = (lista, DateTime.UtcNow);
+        return lista;
+    }
 
     public PrecoConvenioService(IClinicaRepositorio repo) => _repo = repo;
 
@@ -91,6 +102,7 @@ public sealed class PrecoConvenioService
             Detalhe = $"{preco.Descricao} · {preco.Vigencia}",
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
+        _ativos = null;
         await _repo.SalvarAsync(ct);
         return preco;
     }
@@ -103,6 +115,7 @@ public sealed class PrecoConvenioService
     public async Task ExcluirAsync(int precoId, CancellationToken ct = default)
     {
         await _repo.RemoverPrecoConvenioAsync(precoId, ct);
+        _ativos = null;
         await _repo.SalvarAsync(ct);
     }
 
@@ -120,7 +133,7 @@ public sealed class PrecoConvenioService
     {
         if (string.IsNullOrWhiteSpace(convenioCodigo)) return null;
 
-        var candidatos = (await _repo.PrecosConvenioAsync(somenteAtivos: true, ct))
+        var candidatos = (await AtivosAsync(ct))
             .Where(p => string.Equals(p.ConvenioCodigo, convenioCodigo, StringComparison.OrdinalIgnoreCase))
             .Where(p => p.Tipo == tipo)
             .Where(p => p.VigenteEm(dia))

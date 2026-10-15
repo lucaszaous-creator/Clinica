@@ -88,7 +88,12 @@ public sealed partial class ContasService
         DateOnly hoje, DateOnly ate, CancellationToken ct = default)
     {
         var abertas = await _repo.LancamentosComVencimentoAteAsync(ate, null, ct);
+        return Resumir(abertas, hoje);
+    }
 
+    /// <summary>Totais sobre a mesma leitura da tela, antes de aplicar seu filtro de tipo.</summary>
+    public static ResumoContas Resumir(IReadOnlyList<LancamentoFinanceiro> abertas, DateOnly hoje)
+    {
         decimal Somar(TipoLancamento tipo, bool vencido) => abertas
             .Where(l => l.Tipo == tipo && l.EstaVencido(hoje) == vencido)
             .Sum(l => l.Valor);

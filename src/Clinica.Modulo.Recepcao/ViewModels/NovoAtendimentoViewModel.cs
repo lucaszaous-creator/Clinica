@@ -321,7 +321,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// pergunta é só quem atendeu — a mesma régua de campos, com o rótulo dizendo a
     /// verdade de cada modo.
     /// </summary>
-    public string TituloPassoQuando => MarcarParaDepois ? "2 · QUANDO E COM QUEM" : "2 · QUEM ATENDEU";
+    public string TituloPassoQuando => MarcarParaDepois ? "QUANDO E COM QUEM" : "QUEM ATENDEU";
 
     /// <summary>O botão de zerar a tela depois do desfecho, no verbo do modo.</summary>
     public string RotuloOutro => MarcarParaDepois ? "Marcar outro" : "Lançar outro";
@@ -381,7 +381,95 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// Cabeçalho do passo da modalidade (o 3, desde que o QUANDO virou o passo 2 no
     /// redesenho) — "FOI feito" mentiria sobre uma sessão marcada para semana que vem.
     /// </summary>
-    public string TituloPasso2 => MarcarParaDepois ? "3 · O QUE SERÁ FEITO" : "3 · O QUE FOI FEITO";
+    public string TituloPasso2 => MarcarParaDepois ? "O QUE FOI PEDIDO" : "O QUE FOI FEITO";
+
+    // ==================== Mockup aprovado "6 · Marcar" (out/2026) ====================
+
+    /// <summary>Documento e idade em colunas rotuladas no cartão QUEM (o mockup), não numa frase.</summary>
+    [ObservableProperty] private string _documentoPaciente = TravessaoDaGuia;
+    [ObservableProperty] private string _idadePaciente = TravessaoDaGuia;
+
+    /// <summary>As horas do dia de quem atende, como pílulas (ocupada tracejada, clicável).</summary>
+    public ObservableCollection<HoraDoDia> Horas { get; } = [];
+    [ObservableProperty] private string? _avisoHoras;
+
+    /// <summary>O resumo do painel da direita: o que o clique vai gravar, em palavras.</summary>
+    [ObservableProperty] private string _resumoAtendimento = TravessaoDaGuia;
+    [ObservableProperty] private string _resumoQuando = TravessaoDaGuia;
+    [ObservableProperty] private string _resumoCom = TravessaoDaGuia;
+    [ObservableProperty] private string _resumoGuias = TravessaoDaGuia;
+    public string TituloResumo => MarcarParaDepois ? "O que vai ser marcado" : "O que vai ser lançado";
+
+    /// <summary>No marcar a hora é "Outro horário" (as pílulas são o caminho normal); no lançar, é a hora.</summary>
+    public string RotuloHora => MarcarParaDepois ? "Outro horário" : "Hora";
+
+    private int _geracaoHoras;
+
+    /// <summary>"qui, 22/10 às 14:30" — a mesma redação do botão e do resumo.</summary>
+    private string QuandoPorExtenso()
+    {
+        var dia = RodadaDeConfirmacao.TituloDoDia(DateOnly.FromDateTime(Data), DateOnly.MinValue);
+        return TimeOnly.TryParse(Hora, out var h) ? $"{dia} às {h:HH:mm}" : dia;
+    }
+
+    private int DuracaoEfetiva()
+        => int.TryParse(Duracao, out var d) && d > 0 ? d
+            : Profissional?.DuracaoPadraoMinutos is > 0 ? Profissional.DuracaoPadraoMinutos.Value
+            : Agendamento.DuracaoPadraoMinutos;
+
+    private void AtualizarResumo()
+    {
+        var cartao = Cartoes.FirstOrDefault(c => c.Escolhida);
+        ResumoAtendimento = ModalidadeSelecionada is null ? TravessaoDaGuia
+            : ModalidadeConsulta && EspecialidadeSelecionada is { } esp ? $"{ModalidadeSelecionada.Nome} · {esp.Nome}"
+            : ModalidadeSelecionada.Nome;
+        ResumoQuando = MarcarParaDepois ? $"{QuandoPorExtenso()} · {DuracaoEfetiva()} min" : QuandoPorExtenso();
+        var com = new[] { Profissional?.Rotulo, Sala?.Nome }.Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+        ResumoCom = com.Count == 0 ? "a definir" : string.Join(" · ", com);
+        ResumoGuias = cartao is null ? TravessaoDaGuia : $"{cartao.QuantasGuias.Replace(" guias", "").Replace(" guia", "")} · {cartao.Quando}";
+        OnPropertyChanged(nameof(TituloResumo));
+    }
+
+    /// <summary>Remonta as pílulas de hora: só no modo marcar, e só com quem atende escolhido.</summary>
+    private async Task MontarHorasAsync()
+    {
+        var geracao = ++_geracaoHoras;
+        if (!MarcarParaDepois || Profissional is not { } prof)
+        {
+            Horas.Clear();
+            AvisoHoras = MarcarParaDepois ? "Escolha quem atende para ver os horários do dia." : null;
+            return;
+        }
+        try
+        {
+            var dia = DateOnly.FromDateTime(Data);
+            using var scope = _scopeFactory.CreateScope();
+            var doDia = await scope.ServiceProvider.GetRequiredService<AgendaService>().DoDiaAsync(dia);
+            if (geracao != _geracaoHoras) return;
+            var ocupados = doDia.Where(a => a.ProfissionalId == prof.Id && a.OcupaAgenda)
+                .Select(a => (a.DataHora, a.FimPrevisto));
+            var pilulas = PilulasDeHorario.Montar(prof, dia, ocupados,
+                int.TryParse(Duracao, out var d) && d > 0 ? d : null, DateTime.Now);
+            Horas.Clear();
+            foreach (var p in pilulas) Horas.Add(new HoraDoDia(p) { Escolhida = p.Rotulo == Hora });
+            AvisoHoras = pilulas.Count == 0
+                ? "Nenhuma hora a oferecer neste dia (fora da jornada, ou o dia já passou) — use \"Outro horário\"."
+                : null;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoHoras) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — horas do dia não puderam ser lidas", ex);
+            Horas.Clear();
+            AvisoHoras = "Não foi possível ler a agenda deste dia — digite a hora em \"Outro horário\".";
+        }
+    }
+
+    [RelayCommand]
+    private void EscolherHora(HoraDoDia? hora)
+    {
+        if (hora is not null) Hora = hora.Rotulo;
+    }
 
     [ObservableProperty] private DateTime _data = DateTime.Today;
 
@@ -748,6 +836,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     partial void OnDataChanged(DateTime value)
     {
         _ = PreverAsync();
+        _ = MontarHorasAsync();
+        AtualizarRotuloLancar();
         _ = ConferirConflitosAsync();
         OnPropertyChanged(nameof(AvisoHorarioDoDia));
 
@@ -777,12 +867,14 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         OnPropertyChanged(nameof(RotuloOutro));
         OnPropertyChanged(nameof(MostrarPrevia));
         OnPropertyChanged(nameof(TituloPasso2));
+        OnPropertyChanged(nameof(RotuloHora));
         OnPropertyChanged(nameof(SemProfissionalEscolhido));
         OnPropertyChanged(nameof(UsarHorarioDoDia));
         OnPropertyChanged(nameof(MostrarEscolhaEncaixe));
         OnPropertyChanged(nameof(AvisoHorarioDoDia));
         AtualizarRotuloLancar();
         _ = ConferirConflitosAsync();
+        _ = MontarHorasAsync();
     }
 
     partial void OnGuiaNaMarcacaoChanged(bool value)
@@ -794,15 +886,31 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     // A crítica de choque segue TODAS as entradas que o produzem (hora, duração,
     // profissional, sala) — a mesma regra da prévia, aplicada ao outro aviso da tela.
-    partial void OnHoraChanged(string value) => _ = ConferirConflitosAsync();
-    partial void OnDuracaoChanged(string value) => _ = ConferirConflitosAsync();
-    partial void OnSalaChanged(Sala? value) => _ = ConferirConflitosAsync();
+    partial void OnHoraChanged(string value)
+    {
+        _ = ConferirConflitosAsync();
+        foreach (var h in Horas) h.Escolhida = h.Rotulo == value;
+        AtualizarRotuloLancar();
+    }
+    partial void OnDuracaoChanged(string value)
+    {
+        _ = ConferirConflitosAsync();
+        _ = MontarHorasAsync();
+        AtualizarResumo();
+    }
+    partial void OnSalaChanged(Sala? value)
+    {
+        _ = ConferirConflitosAsync();
+        AtualizarResumo();
+    }
 
     partial void OnProfissionalChanged(Profissional? value)
     {
         CarregarCatalogos();
         OnPropertyChanged(nameof(SemProfissionalEscolhido));
         _ = ConferirConflitosAsync();
+        _ = MontarHorasAsync();
+        AtualizarResumo();
     }
 
     /// <summary>
@@ -835,6 +943,13 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
         try
         {
+            // Agrupa as teclas (out/2026), como a busca de paciente já faz: digitar "14:30"
+            // disparava uma conferência por tecla — quatro idas ao banco remoto cada — e só a
+            // última resposta era usada. A conferência é a mesma; só deixa de ser feita para a
+            // hora pela metade.
+            await Task.Delay(250);
+            if (geracao != _geracaoConflitos) return;
+
             using var scope = _scopeFactory.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
 
@@ -1177,6 +1292,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     private void AtualizarFichaDaGuia(Paciente? p)
     {
         MetaPaciente = p is null ? null : MontarMetaDoPaciente(p);
+        DocumentoPaciente = string.IsNullOrWhiteSpace(p?.Documento) ? TravessaoDaGuia : FormatarDocumento(p!.Documento!);
+        IdadePaciente = p is null ? TravessaoDaGuia
+            : IdadeDoPaciente.Implausivel(p.DataNascimento, DateOnly.FromDateTime(DateTime.Today)) ? "a conferir"
+            : IdadeDoPaciente.Texto(p.DataNascimento, DateOnly.FromDateTime(DateTime.Today)) ?? TravessaoDaGuia;
         CarteirinhaPaciente = string.IsNullOrWhiteSpace(p?.Carteirinha)
             ? TravessaoDaGuia
             : p!.Carteirinha!;
@@ -1662,14 +1781,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             using var scope = _scopeFactory.CreateScope();
             var atendimentos = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
 
-            var previa = await atendimentos.PreverAsync(
-                pacienteId, data, Modalidade,
+            // Uma leitura para as duas prévias (antes: paciente, mês e parâmetros lidos 2×).
+            var (previa, porModalidade) = await atendimentos.PreverComModalidadesAsync(
+                pacienteId, data, Modalidade, codigosDosCartoes,
                 primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
                 modalidadeCodigo: codigoModalidade,
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
-
-            var porModalidade = await atendimentos.PreverModalidadesAsync(
-                pacienteId, data, codigosDosCartoes);
 
             // O particular não tem guia: o que a prévia dele mostra é COMO esta sessão vai
             // ser paga — o preço da tabela, ou o PACOTE que a cobre.
@@ -1757,16 +1874,20 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// </summary>
     private void AtualizarRotuloLancar()
     {
+        AtualizarResumo();
         if (MarcarParaDepois)
         {
+            // O botão diz QUANDO (mockup aprovado): "Marcar qui, 22/10 às 14:30" é o que faz
+            // perceber, antes do clique, que o dia ou a hora estão errados.
+            var quando = QuandoPorExtenso();
             RotuloLancar = !GuiaNaMarcacao
-                ? "Marcar horário"
+                ? $"Marcar {quando}"
                 : _totalGuiasPrevia switch
                 {
-                    null => "Marcar e gerar as guias",
-                    0 => "Marcar horário",
-                    1 => "Marcar e gerar 1 guia",
-                    var t => $"Marcar e gerar {t} guias"
+                    null => $"Marcar {quando} e gerar as guias",
+                    0 => $"Marcar {quando}",
+                    1 => $"Marcar {quando} e gerar 1 guia",
+                    var t => $"Marcar {quando} e gerar {t} guias"
                 };
             return;
         }
@@ -2554,4 +2675,13 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         await ImpressaoPdf.SalvarEAbrirAsync(
             pdf, $"Capa-INICIAL-{NumeroAtendimento ?? _ultimoAtendimentoId.ToString()}-{Data:yyyy-MM-dd}.pdf");
     }
+}
+
+/// <summary>Uma pílula de hora na tela (o modelo puro mais a marca de escolhida).</summary>
+public sealed partial class HoraDoDia(PilulaDeHorario pilula) : ObservableObject
+{
+    public string Rotulo => pilula.Rotulo;
+    public bool Ocupada => pilula.Ocupada;
+    public string Dica => pilula.Dica;
+    [ObservableProperty] private bool _escolhida;
 }

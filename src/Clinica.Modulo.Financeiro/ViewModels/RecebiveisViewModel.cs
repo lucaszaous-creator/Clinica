@@ -182,7 +182,7 @@ public sealed partial class RecebiveisViewModel : ObservableObject
             foreach (var d in esperados)
                 Depositos.Add(LinhaRecebivel.De(d, hoje));
 
-            var r = await recebiveis.ResumoAsync(hoje, ate);
+            var r = RecebiveisService.Resumir(esperados, hoje);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

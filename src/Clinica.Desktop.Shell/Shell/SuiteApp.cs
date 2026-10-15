@@ -34,7 +34,8 @@ public static class SuiteApp
     public static async Task<IHost?> IniciarAsync(
         System.Windows.Application app, string nomeApp, string titulo, IReadOnlyList<IModuloApp> modulos,
         Func<FrameworkElement>? criarNavegacaoLateral = null,
-        Func<IServiceProvider, Window>? criarJanela = null)
+        Func<IServiceProvider, Window>? criarJanela = null,
+        string? chaveAbertura = null)
     {
         // Degradação deliberada nas camadas sem UI também deixa rastro em arquivo.
         LogSuite.Instalar();
@@ -161,7 +162,7 @@ public static class SuiteApp
 
         var janela = criarJanela?.Invoke(host.Services) ?? new ShellWindow(criarNavegacaoLateral?.Invoke())
         {
-            DataContext = new ShellViewModel(titulo, modulos, host.Services)
+            DataContext = new ShellViewModel(titulo, modulos, host.Services, chaveAbertura)
         };
         janela.WindowState = WindowState.Maximized;
         app.MainWindow = janela;

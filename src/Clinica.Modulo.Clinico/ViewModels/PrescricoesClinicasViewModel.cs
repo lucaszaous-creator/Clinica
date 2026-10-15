@@ -44,6 +44,15 @@ public sealed class LinhaDocumentoClinico
     public required string Codigo { get; init; }
     public required string Situacao { get; init; }
 
+    /// <summary>O estado que decide a COR do selo (out/2026): cancelado, selado, emitido.</summary>
+    public required EstadoDoDocumento Estado { get; init; }
+
+    /// <summary>
+    /// O documento no formato de "o que já saiu" — é sobre ele que a busca do histórico
+    /// roda, pela MESMA regra da central (<see cref="BuscaNasFolhas"/>).
+    /// </summary>
+    public required FolhaEmitida Folha { get; init; }
+
     /// <summary>
     /// A SESSÃO a que este documento pertence (set/2026) — "Sessão de 08/09/2026, 09h00 ·
     /// Acupuntura + eletro". Vazio no documento avulso, e a linha SOME em vez de mostrar
@@ -66,23 +75,28 @@ public sealed class LinhaDocumentoClinico
     public bool PodeRenovarLink => Documento.OferecerRenovarLink;
     public bool PodeTirarDoAr => Documento.OferecerTirarDoAr;
 
-    public static LinhaDocumentoClinico De(DocumentoClinico d) => new()
+    public static LinhaDocumentoClinico De(DocumentoClinico d)
     {
-        Documento = DocumentoNaTela.De(d),
-        Data = d.Data.ToString("dd/MM/yyyy"),
-        Sessao = ProcedenciaDaSessao.Descrever(d.Agendamento),
-        Profissional = d.Profissional?.Rotulo ?? "—",
-        Codigo = d.CodigoVerificacao,
-        Situacao = d.Cancelado
-            ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
-            : d.AssinadoEletronicamente
-                ? $"Assinado digitalmente em {d.AssinadoEm:dd/MM/yyyy}"
-                : "Válido",
-        Link = string.IsNullOrWhiteSpace(d.TokenPublicacao) ? string.Empty
-            : d.LinkNoAr(DateOnly.FromDateTime(DateTime.Today))
-                ? $"link no ar até {d.PublicadoAte:dd/MM/yyyy}"
-                : "link vencido — dá para renovar"
-    };
+        var situacao = DocumentosDoConsultorio.Situacao(d);
+        return new()
+        {
+            // O rótulo é o do CATÁLOGO ("Receituário", "Laudo médico") — o mesmo dos botões
+            // de emitir acima e o do combo de tipo. Com o do enum a linha diria "Receita"
+            // debaixo de um botão "Receituário", e o filtro por tipo não acharia nada.
+            Documento = DocumentoNaTela.De(d, CentralDocumentosService.RotularClinico(d.Tipo)),
+            Folha = CentralDocumentosService.ComoFolha(d),
+            Data = d.Data.ToString("dd/MM/yyyy"),
+            Sessao = ProcedenciaDaSessao.Descrever(d.Agendamento),
+            Profissional = d.Profissional?.Rotulo ?? "—",
+            Codigo = d.CodigoVerificacao,
+            Situacao = situacao.Texto,
+            Estado = situacao.Estado,
+            Link = string.IsNullOrWhiteSpace(d.TokenPublicacao) ? string.Empty
+                : d.LinkNoAr(DateOnly.FromDateTime(DateTime.Today))
+                    ? $"link no ar até {d.PublicadoAte:dd/MM/yyyy}"
+                    : "link vencido — dá para renovar"
+        };
+    }
 }
 
 /// <summary>
@@ -158,6 +172,89 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<FolhaCatalogo> FolhasParaEmitir { get; } = [];
 
+    // ==================== O HISTÓRICO: achar o papel e reimprimir ====================
+    //
+    // (out/2026 — a clínica: "os laudos precisam ser fáceis de LOCALIZAR e REIMPRIMIR".)
+    // A lista era uma pilha corrida sem busca: quem tinha o número do laudo na mão rolava a
+    // vida inteira do paciente. A busca é a MESMA da central da Recepção
+    // (`BuscaNasFolhas`) — número com ou sem a barra, código de conferência, folha e quem
+    // assinou —, e roda EM MEMÓRIA sobre o que a carga já leu: voltar ao banco a cada tecla
+    // pagaria uma consulta para responder o que já está na máquina.
+
+    /// <summary>Tudo o que a última carga leu, antes da busca e do tipo.</summary>
+    private IReadOnlyList<LinhaDocumentoClinico> _lidas = [];
+
+    /// <summary>As opções do combo "Tipo" — "Todas as folhas" primeiro, o laudo entre elas.</summary>
+    public ObservableCollection<string> TiposDeFolha { get; } = [];
+
+    /// <summary>
+    /// O tipo escolhido. <c>string?</c> de propósito: o combo cuja lista é refeita escreve
+    /// NULL aqui por um instante, e nulo é "todas" (<see cref="BuscaNasFolhas.Casa"/>).
+    /// </summary>
+    [ObservableProperty] private string? _tipoFiltro = BuscaNasFolhas.TodasAsFolhas;
+
+    /// <summary>Número ("2026/0014" ou "20260014"), código de conferência, folha ou quem assinou.</summary>
+    [ObservableProperty] private string? _textoBusca;
+
+    /// <summary>"3 de 30 com “laudo”" — vazio quando nada filtra.</summary>
+    [ObservableProperty] private string _recorte = string.Empty;
+
+    /// <summary>"12 documentos deste paciente · 2 cancelados" — sobre o que foi LIDO.</summary>
+    [ObservableProperty] private string _resumo = string.Empty;
+
+    /// <summary>
+    /// O vazio, com as duas perguntas separadas: "não há documento" e "nenhum bate com a
+    /// busca" (<see cref="DocumentosDoConsultorio.Vazio"/>).
+    /// </summary>
+    [ObservableProperty] private string _tituloVazio = DocumentosDoConsultorio.Vazio(false).Titulo;
+    [ObservableProperty] private string _descricaoVazio = DocumentosDoConsultorio.Vazio(false).Descricao;
+
+    partial void OnTipoFiltroChanged(string? value) => AplicarFiltro();
+
+    partial void OnTextoBuscaChanged(string? value) => AplicarFiltro();
+
+    /// <summary>
+    /// Republica a lista com a busca e o tipo. Síncrono do Clear() ao último Add (parcela
+    /// 62), e sobre as MESMAS instâncias de linha.
+    /// </summary>
+    private void AplicarFiltro()
+    {
+        var visiveis = _lidas
+            .Where(l => BuscaNasFolhas.Casa(l.Folha, TextoBusca, TipoFiltro))
+            .ToList();
+
+        Documentos.Clear();
+        foreach (var l in visiveis) Documentos.Add(l);
+
+        Recorte = BuscaNasFolhas.Recorte(visiveis.Count, _lidas.Count, TextoBusca, TipoFiltro);
+        (TituloVazio, DescricaoVazio) = DocumentosDoConsultorio.Vazio(_lidas.Count > 0);
+    }
+
+    /// <summary>Limpa a busca e o tipo — o "mostrar tudo deste paciente" num clique.</summary>
+    [RelayCommand]
+    private void LimparBusca()
+    {
+        TextoBusca = null;
+        TipoFiltro = BuscaNasFolhas.TodasAsFolhas;
+    }
+
+    /// <summary>
+    /// Refaz o combo de tipo com o catálogo E o que a carga trouxe. O escolhido é guardado
+    /// ANTES do Clear: o combo escreve NULL nele quando a lista esvazia, e sem isto toda
+    /// recarga desligaria o filtro que a pessoa deixou marcado.
+    /// </summary>
+    private void MontarTipos()
+    {
+        var escolhido = TipoFiltro;
+        var tipos = DocumentosDoConsultorio.Tipos(
+            SessaoUsuario.Atual.Efetivas, _lidas.Select(l => l.Folha));
+        TiposDeFolha.Clear();
+        foreach (var t in tipos) TiposDeFolha.Add(t);
+        TipoFiltro = escolhido is not null && tipos.Contains(escolhido)
+            ? escolhido
+            : BuscaNasFolhas.TodasAsFolhas;
+    }
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
@@ -228,8 +325,12 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
 
         // A régua de emitir: as folhas CLÍNICAS de paciente que este acesso alcança.
         // Estática — a lista de papéis que a clínica emite não depende do banco.
-        foreach (var folha in CentralDocumentosService.Catalogo.Where(EhFolhaDesteConsultorio))
+        foreach (var folha in DocumentosDoConsultorio.ParaEmitir(SessaoUsuario.Atual.Efetivas))
             FolhasParaEmitir.Add(folha);
+
+        // O combo de tipo já nasce com o catálogo — antes da primeira carga ele não pode
+        // abrir vazio, que se lê como "o sistema não sabe filtrar laudo".
+        MontarTipos();
 
         // Abre já no paciente do posto — este é o ponto da tela.
         if (_foco.PacienteId is { } id)
@@ -251,13 +352,31 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// <summary>Último paciente cujo acesso já entrou na trilha — a tela recarrega mais do que troca.</summary>
     private int _acessoRegistradoDe;
 
+    /// <summary>De quem é a busca digitada — trocar de paciente a limpa.</summary>
+    private int _buscaDe;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
         var geracao = ++_geracaoCarga;
 
         SemPaciente = _pacienteId == 0;
-        Documentos.Clear();
+
+        // ⚠️ Trocou de paciente: limpa ANTES do await (a lição da parcela 89) — uma leitura
+        // que falha não pode deixar na tela os documentos do paciente ANTERIOR, com a "2ª
+        // via" apontando para o papel de outra pessoa. E a busca digitada para outro
+        // paciente não vale para este: o "2026/0014" de um não é papel do outro.
+        // Recarregar o MESMO paciente (depois de assinar, cancelar) mantém a lista e a
+        // busca até a resposta chegar — apagar e redesenhar faria a linha que a pessoa
+        // acabou de mexer piscar e sumir.
+        if (_buscaDe != _pacienteId)
+        {
+            _buscaDe = _pacienteId;
+            _lidas = [];
+            Resumo = string.Empty;
+            TextoBusca = null;
+            AplicarFiltro();
+        }
 
         if (SemPaciente)
         {
@@ -291,8 +410,10 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             // Chegou tarde: outra seleção já pediu uma carga mais nova.
             if (geracao != _geracaoCarga) return;
 
-            foreach (var d in documentos)
-                Documentos.Add(LinhaDocumentoClinico.De(d));
+            _lidas = documentos.Select(LinhaDocumentoClinico.De).ToList();
+            MontarTipos();
+            AplicarFiltro();
+            Resumo = DocumentosDoConsultorio.Resumo(_lidas.Select(l => l.Folha).ToList());
         }
         catch (Exception ex)
         {
@@ -310,18 +431,6 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             if (geracao == _geracaoCarga) Carregando = false;
         }
     }
-
-    /// <summary>
-    /// A folha entra na régua desta tela: clínica, de PACIENTE, e emitida por quem atende.
-    ///
-    /// Os dois termos assinados pelo paciente ficam de fora (ver
-    /// <see cref="FolhasParaEmitir"/>), e o recibo, o orçamento e o fechamento do período
-    /// também: nenhum deles é papel de quem está com o paciente na sala.
-    /// </summary>
-    private static bool EhFolhaDesteConsultorio(FolhaCatalogo f)
-        => f.Natureza == NaturezaFolha.Clinico
-           && f.Exigencia is ExigenciaFolha.Paciente or ExigenciaFolha.PacienteComProntuario
-           && SessaoUsuario.Atual.Pode(f.PermissaoEmitir);
 
     /// <summary>
     /// Emite já a folha pedida.
@@ -382,6 +491,9 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
 
         // Recarrega dos dois jeitos: fechar sem concluir não significa que nada
         // aconteceu — o documento pode ter sido emitido e só a impressão ter falhado.
+        // A busca sai junto: o papel que acabou de sair tem de APARECER, e um filtro
+        // esquecido o esconderia logo depois de emitido.
+        if (concluiu) LimparBusca();
         await CarregarAsync();
 
         if (concluiu) _snackbar.Sucesso($"{folha.Rotulo} emitido(a).");
@@ -405,6 +517,7 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
                 : await servico.EmitirRelatorioEvolucaoAsync(_pacienteId, operador: operador);
         }
 
+        LimparBusca();
         await CarregarAsync();
 
         // Pelo DOCUMENTO recém-emitido, e não pela linha da lista: a folha pode não estar na
@@ -458,13 +571,16 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// </summary>
     private async Task AplicarAsync(ResultadoAcaoDocumento r)
     {
+        // Relê PRIMEIRO e escreve DEPOIS: a carga começa zerando a mensagem, e na ordem
+        // inversa a frase do ato ("Laudo 2026/0014 cancelado") sumia no mesmo instante em
+        // que era escrita — só o erro sobrevivia (a lição da parcela 68).
+        if (r.Mudou) await CarregarAsync();
+
         if (!r.Silencioso)
         {
             Mensagem = r.Inline;
             MensagemEhErro = r.EhErro;
         }
-
-        if (r.Mudou) await CarregarAsync();
     }
 
     /// <summary>
@@ -477,6 +593,18 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     {
         if (linha is null) return;
         await AplicarAsync(await AcoesDoDocumento.ImprimirAsync(linha.Documento, _escopos));
+    }
+
+    /// <summary>
+    /// Altera o laudo emitindo uma nova versão, que cancela a anterior no mesmo gravar
+    /// (out/2026). O ato é o do shell; esta tela só o liga ao "⋯" da linha.
+    /// </summary>
+    [RelayCommand]
+    private async Task NovaVersaoAsync(LinhaDocumentoClinico? linha)
+    {
+        if (linha is null) return;
+        await AplicarAsync(
+            await AcoesDoDocumento.NovaVersaoAsync(linha.Documento, _escopos, _snackbar));
     }
 
     /// <summary>Assina com o certificado ICP-Brasil um documento já emitido (parcela 43).</summary>

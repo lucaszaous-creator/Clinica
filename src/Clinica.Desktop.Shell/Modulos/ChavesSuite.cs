@@ -217,4 +217,10 @@ public static class ChavesSuite
     /// do Pacotes: chave diferente faria o Gerente Geral mostrar a tela duas vezes.
     /// </summary>
     public const string PrecosParticular = "precos-particular";
+
+    /// <summary>
+    /// Importar pacientes do sistema anterior: a tela é do Gerente, e o "Importar" da lista
+    /// de Pacientes (out/2026, mockup aprovado) navega para ela onde ela existe.
+    /// </summary>
+    public const string ImportarPacientes = "importar-pacientes";
 }

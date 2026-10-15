@@ -33,7 +33,7 @@ public sealed class PainelRecepcaoService
     {
         var referencia = agora ?? DateTime.Now;
         var doDia = await _agenda.DoDiaAsync(dia, ct);
-        var ocupacao = await _agenda.OcupacaoDoDiaAsync(dia, ct);
+        var ocupacao = AgendaService.CalcularOcupacao(doDia);
         var espera = await _repo.ListaEsperaAsync(somenteAguardando: true, ct);
 
         var esperaMedia = EsperaMediaMinutos(doDia, referencia);
@@ -50,7 +50,10 @@ public sealed class PainelRecepcaoService
             Encaixes: doDia.Count(a => a.Encaixe && a.OcupaAgenda),
             EsperaMediaMinutos: esperaMedia,
             NaListaDeEspera: espera.Count,
-            Ocupacao: ocupacao);
+            Ocupacao: ocupacao)
+        {
+            PacientesDoDia = doDia.Where(a => a.OcupaAgenda).Select(a => a.PacienteId).Distinct().ToArray()
+        };
     }
 
     /// <summary>
@@ -91,7 +94,15 @@ public sealed class PainelRecepcaoService
             .Select(a => a.PacienteId)
             .ToHashSet();
 
-        if (pacientesDoDia.Count == 0) return [];
+        return await PendenciasDosPacientesAsync(dia, pacientesDoDia, ct);
+    }
+
+    /// <summary>Reutiliza os pacientes do resumo, sem outra leitura da agenda.</summary>
+    public async Task<IReadOnlyList<PendenciaCodigo>> PendenciasDosPacientesAsync(
+        DateOnly dia, IReadOnlyCollection<int> pacientes, CancellationToken ct = default)
+    {
+        if (pacientes.Count == 0) return [];
+        var pacientesDoDia = pacientes.ToHashSet();
 
         var pendentes = await _pendencias.CodigosPendentesAsync(dia, ct);
         return pendentes.Where(p => pacientesDoDia.Contains(p.PacienteId)).ToList();

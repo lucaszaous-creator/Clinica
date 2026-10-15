@@ -229,6 +229,23 @@ public sealed class PainelDirecaoService
     private readonly ConsultorioService _consultorio;
     private readonly OrcamentoService _orcamentos;
     private readonly ChecagemPrescricaoService _checagens;
+    private readonly ILeituraParalela? _paralela;
+
+    /// <summary>
+    /// Com <see cref="ILeituraParalela"/> (o app), a leitura do bloco COMEÇA agora, num escopo
+    /// próprio, e o bloco só espera por ela na sua vez; sem ela (os testes), a leitura é feita
+    /// na vez do bloco, em fila, como sempre. Cada bloco continua com a sua regra e o seu
+    /// try/catch — o que muda é que as ~18 idas ao banco remoto deixam de ser somadas.
+    /// </summary>
+    private Func<Task<T>> Antecipar<TServico, T>(Func<TServico, Task<T>> leitura, TServico local) where TServico : notnull
+    {
+        if (_paralela is null) return () => leitura(local);
+        var tarefa = _paralela.LerAsync(leitura);
+        // A falha é tratada no bloco que a espera; isto só evita exceção "não observada"
+        // se o painel parar antes de chegar ao bloco.
+        _ = tarefa.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+        return () => tarefa;
+    }
 
     public PainelDirecaoService(
         IClinicaRepositorio repo,
@@ -243,8 +260,10 @@ public sealed class PainelDirecaoService
         MetaService metas,
         OrcamentoService orcamentos,
         ConsultorioService consultorio,
-        ChecagemPrescricaoService checagens)
+        ChecagemPrescricaoService checagens,
+        ILeituraParalela? paralela = null)
     {
+        _paralela = paralela;
         _receitaGlosada = receitaGlosada;
         _metas = metas;
         _consultorio = consultorio;
@@ -267,17 +286,36 @@ public sealed class PainelDirecaoService
 
         var inicioMes = new DateOnly(hoje.Year, hoje.Month, 1);
 
+        var lerResumoMes = Antecipar(s => s.ResumoAsync(inicioMes, hoje, ct), _financeiro);
+        var lerTrechoAnterior = Antecipar(s => s.EntradasDoTrechoAnteriorAsync(hoje, ct), this);
+        var lerContas = Antecipar(s => s.EmAbertoAsync(hoje.AddDays(HorizonteDias), ct: ct), _contas);
+        var lerInadimplencia = Antecipar(s => s.ResumoAsync(hoje, ct), _inadimplencia);
+        var lerRecebiveis = Antecipar(s => s.ResumoAsync(hoje, hoje.AddDays(HorizonteDias), ct), _recebiveis);
+        var lerCaixa = Antecipar(s => s.NaoConferidosAsync(hoje.AddDays(-JanelaConferenciaDias), hoje, ct), _fechamento);
+        var lerGuiasSemReceita = Antecipar(s => s.GuiasSemLancamentoAsync(inicioMes, hoje, ct), _financeiro);
+        var lerGlosadas = Antecipar(s => s.ResumoPrevistoAsync(inicioMes, hoje, ct), _receitaGlosada);
+        var lerMetas = Antecipar(s => s.ApurarMesAsync(hoje, ct), _metas);
+        var lerTetos = Antecipar(s => s.ApurarMesAsync(hoje.Year, hoje.Month, ct), _orcamentos);
+        var lerRodada = Antecipar(s => s.ObterStatusAsync(hoje, ct), _rodada);
+        var lerProntuario = Antecipar(s => s.RegistrosPendentesAsync(hoje, null, ct), _consultorio);
+        var lerInfusaoAguardando = Antecipar(s => s.PendentesDoDiaAsync(hoje, null, ct), _checagens);
+        var lerInfusaoSemAssinatura = Antecipar(s => s.AguardandoAssinaturaAsync(null, ct), _checagens);
+        var lerGlosas = Antecipar(s => s.GlosasARecorrerAsync(hoje, ct), _pendencias);
+        var lerParticulares = Antecipar(s => s.SessoesParticularesSemReceitaAsync(inicioMes, hoje, ct), _financeiro);
+        var lerBanco = Antecipar(r => r.LancamentosParaConciliacaoAsync(inicioMes, hoje, ct), _repo);
+        var lerParcelasBanco = Antecipar(r => r.ParcelasCartaoParaConciliacaoAsync(inicioMes, hoje, ct), _repo);
+
         // ---- Dinheiro do mês ----
         decimal entradas = 0m, saidas = 0m, taxas = 0m, impostos = 0m;
         decimal? entradasAnterior = null;
         try
         {
-            var resumo = await _financeiro.ResumoAsync(inicioMes, hoje, ct);
+            var resumo = await lerResumoMes();
             entradas = resumo.EntradasRealizadas;
             saidas = resumo.SaidasRealizadas;
             taxas = resumo.TaxasDescontadas;
             impostos = resumo.ImpostosRetidos;
-            entradasAnterior = await EntradasDoTrechoAnteriorAsync(hoje, ct);
+            entradasAnterior = await lerTrechoAnterior();
         }
         catch (Exception ex)
         {
@@ -294,8 +332,9 @@ public sealed class PainelDirecaoService
         var contas = new ResumoContas(0m, 0m, 0m, 0m, 0);
         try
         {
-            contas = await _contas.ResumoAsync(hoje, hoje.AddDays(HorizonteDias), ct);
-            var aPagar = await _contas.VencidasAsync(hoje, TipoLancamento.Saida, ct);
+            var abertas = await lerContas();
+            contas = ContasService.Resumir(abertas, hoje);
+            var aPagar = abertas.Where(l => l.Tipo == TipoLancamento.Saida && l.EstaVencido(hoje)).ToList();
 
             if (aPagar.Count > 0)
                 alertas.Add(new AlertaDirecao(
@@ -315,7 +354,7 @@ public sealed class PainelDirecaoService
         var totalDevido = 0m;
         try
         {
-            var resumo = await _inadimplencia.ResumoAsync(hoje, ct);
+            var resumo = await lerInadimplencia();
             pacientesDevendo = resumo.Pacientes;
             totalDevido = resumo.Total;
 
@@ -348,7 +387,7 @@ public sealed class PainelDirecaoService
         var recebiveis = new ResumoRecebiveis(0m, 0m, 0, null);
         try
         {
-            recebiveis = await _recebiveis.ResumoAsync(hoje, hoje.AddDays(HorizonteDias), ct);
+            recebiveis = await lerRecebiveis();
             if (recebiveis.TemAtraso)
                 alertas.Add(new AlertaDirecao(
                     AssuntoDirecao.DepositoAtrasado,
@@ -368,8 +407,7 @@ public sealed class PainelDirecaoService
         var especieNaoConferida = 0m;
         try
         {
-            var pendentes = await _fechamento.NaoConferidosAsync(
-                hoje.AddDays(-JanelaConferenciaDias), hoje, ct);
+            var pendentes = await lerCaixa();
             diasCaixa = pendentes.Count;
             especieNaoConferida = pendentes.Sum(d => d.Esperado);
 
@@ -395,7 +433,7 @@ public sealed class PainelDirecaoService
         {
             // O período é o do MÊS, igual ao resto do painel: guia baixada há seis meses
             // e nunca lançada é problema de conciliação histórica, não da manhã de hoje.
-            guiasSemReceita = (await _financeiro.GuiasSemLancamentoAsync(inicioMes, hoje, ct)).Count;
+            guiasSemReceita = (await lerGuiasSemReceita()).Count;
             if (guiasSemReceita > 0)
                 alertas.Add(new AlertaDirecao(
                     AssuntoDirecao.GuiasSemReceita,
@@ -414,8 +452,7 @@ public sealed class PainelDirecaoService
         var valorGlosado = 0m;
         try
         {
-            (guiasGlosadas, valorGlosado) = await _receitaGlosada.ResumoPrevistoAsync(
-                inicioMes, hoje, ct);
+            (guiasGlosadas, valorGlosado) = await lerGlosadas();
 
             if (guiasGlosadas > 0)
                 alertas.Add(new AlertaDirecao(
@@ -439,7 +476,7 @@ public sealed class PainelDirecaoService
         IReadOnlyList<MetaApurada> metas = [];
         try
         {
-            metas = await _metas.ApurarMesAsync(hoje, ct);
+            metas = await lerMetas();
 
             // Um alerta por meta em risco, e não um alerta somado: "2 metas em risco" não
             // diz qual, e a direção precisa saber se o problema é faturamento ou agenda —
@@ -466,7 +503,7 @@ public sealed class PainelDirecaoService
         // ---- Teto de gasto estourado (parcela 31) ----
         try
         {
-            var tetos = await _orcamentos.ApurarMesAsync(hoje.Year, hoje.Month, ct);
+            var tetos = await lerTetos();
 
             // Um alerta por categoria, e não um somado: "3 categorias estouraram" não diz
             // se o problema é material, aluguel ou repasse — e são três decisões
@@ -504,7 +541,7 @@ public sealed class PainelDirecaoService
             // Pelo serviço da rodada, que já resolve o prazo configurado e a carência de
             // 1ª execução. Recontar aqui daria um número diferente do que o faturamento
             // mostra, sobre a mesma guia.
-            var status = await _rodada.ObterStatusAsync(hoje, ct);
+            var status = await lerRodada();
             pendenciasVencidas = status.GuiasParaDecisao;
             pendenciasAbertas = status.GuiasPendentes;
 
@@ -532,7 +569,7 @@ public sealed class PainelDirecaoService
         {
             // profissionalId nulo = a clínica inteira. É o mesmo método que o Consultório
             // usa para o dono da agenda.
-            var emAberto = await _consultorio.RegistrosPendentesAsync(hoje, null, ct);
+            var emAberto = await lerProntuario();
             sessoesSemEvolucao = emAberto.Count;
             sessoesSemEvolucaoComGuia = emAberto.Count(r => r.AtendimentoId is not null);
 
@@ -571,7 +608,7 @@ public sealed class PainelDirecaoService
         var folhasInfusaoSemAssinatura = 0;
         try
         {
-            folhasInfusaoAguardando = await _checagens.PendentesDoDiaAsync(hoje, null, ct);
+            folhasInfusaoAguardando = await lerInfusaoAguardando();
 
             if (folhasInfusaoAguardando > 0)
                 alertas.Add(new AlertaDirecao(
@@ -583,7 +620,7 @@ public sealed class PainelDirecaoService
                     GravidadeDirecao.Aviso));
 
             folhasInfusaoSemAssinatura =
-                (await _checagens.AguardandoAssinaturaAsync(null, ct)).Count;
+                (await lerInfusaoSemAssinatura()).Count;
 
             if (folhasInfusaoSemAssinatura > 0)
                 alertas.Add(new AlertaDirecao(
@@ -605,7 +642,7 @@ public sealed class PainelDirecaoService
         int glosasVencidas = 0, glosasAVencer = 0;
         try
         {
-            var glosas = await _pendencias.GlosasARecorrerAsync(hoje, ct);
+            var glosas = await lerGlosas();
             // DiasParaFimPrazo negativo = a data-limite de recurso já passou.
             glosasVencidas = glosas.Count(g => g.DiasParaFimPrazo < 0);
             glosasAVencer = glosas.Count - glosasVencidas;
@@ -657,14 +694,14 @@ public sealed class PainelDirecaoService
 
         try
         {
-            var sessoes = await _financeiro.SessoesParticularesSemReceitaAsync(inicioMes, hoje, ct);
+            var sessoes = await lerParticulares();
             if (sessoes.Count > 0)
                 alertas.Add(new AlertaDirecao(AssuntoDirecao.PagamentosPendentes,
                     $"{sessoes.Count} sessão(ões) particular(es) sem cobrança",
                     "Atendidas neste mês, sem pagamento nem conta a receber registrados. Confira a conciliação do particular.",
                     GravidadeDirecao.Perigo));
-            var banco = await _repo.LancamentosParaConciliacaoAsync(inicioMes, hoje, ct);
-            var parcelasBanco = await _repo.ParcelasCartaoParaConciliacaoAsync(inicioMes, hoje, ct);
+            var banco = await lerBanco();
+            var parcelasBanco = await lerParcelasBanco();
             var pendentes = banco.Count(l => !l.Conciliado) + parcelasBanco.Count(p => p.ConciliadoEm is null);
             if (pendentes > 0)
                 alertas.Add(new AlertaDirecao(AssuntoDirecao.BancoNaoConciliado,

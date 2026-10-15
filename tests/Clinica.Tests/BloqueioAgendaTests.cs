@@ -84,6 +84,37 @@ public class BloqueioAgendaTests : IDisposable
     /// disputado; este diz que não há ninguém na clínica para atender.
     /// </summary>
     [Fact]
+    public async Task Leitura_em_lote_responde_por_bloqueio_o_mesmo_que_a_leitura_individual()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var ana = await CriarProfissionalAsync("Dra. Ana");
+        var bruno = await CriarProfissionalAsync("Dr. Bruno");
+        // Dois próximos (dividem a leitura), um longe (leitura própria), um de outra pessoa.
+        foreach (var (dia, prof) in new[] { (0, ana), (1, ana), (3, bruno), (40, ana), (41, bruno) })
+            await _agenda.AgendarAsync(pacienteId, Manha.AddDays(dia), ModalidadeAtendimento.AcupunturaComEletro,
+                null, profissionalId: prof, encaixe: true);
+
+        var criados = new[]
+        {
+            (await _bloqueios.CriarAsync(Manha.Date, Manha.Date.AddDays(2), "Congresso", profissionalId: ana)).Bloqueio,
+            (await _bloqueios.CriarAsync(Manha.Date.AddDays(3), Manha.Date.AddDays(4), "Folga", profissionalId: bruno)).Bloqueio,
+            (await _bloqueios.CriarAsync(Manha.Date.AddDays(40), Manha.Date.AddDays(42), "Férias")).Bloqueio,
+            (await _bloqueios.CriarAsync(Manha.Date.AddHours(14), Manha.Date.AddHours(15), "Tarde")).Bloqueio
+        };
+
+        var emLote = await _bloqueios.MarcadosDentroDeCadaAsync(criados);
+
+        foreach (var b in criados)
+        {
+            var individual = await _bloqueios.MarcadosDentroAsync(b);
+            emLote[b.Id].Select(a => a.Id).Should().Equal(individual.Select(a => a.Id), b.Motivo);
+        }
+        emLote[criados[0].Id].Should().HaveCount(2);
+        emLote[criados[2].Id].Should().HaveCount(2);
+        emLote[criados[3].Id].Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Marcar_dentro_do_bloqueio_MARCA_e_avisa_com_o_motivo()
     {
         var pacienteId = await CriarPacienteAsync();

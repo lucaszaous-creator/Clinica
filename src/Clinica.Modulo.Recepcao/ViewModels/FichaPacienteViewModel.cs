@@ -1,5 +1,6 @@
 using Clinica.Desktop.Shell.Componentes.Cadastro;
 using System.Collections.ObjectModel;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
@@ -435,6 +436,29 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// <summary>De onde o paciente veio. "Não perguntado" é um estado legítimo.</summary>
     [ObservableProperty] private string _origem = "Não perguntado";
 
+    // ==================== A ficha do balcão (out/2026, mockup aprovado "4 · Ficha") ====================
+
+    /// <summary>"2023 · 46 sessões" — só sessões que ACONTECERAM (FichaDoBalcao).</summary>
+    [ObservableProperty] private string _pacienteDesde = "—";
+    [ObservableProperty] private string _idade = "—";
+    [ObservableProperty] private string _email = "—";
+    [ObservableProperty] private string _endereco = "—";
+
+    /// <summary>A resposta ao consentimento de comunicação — é o que diz se dá para mandar a confirmação.</summary>
+    [ObservableProperty] private string _comunicacao = "Conferindo…";
+
+    /// <summary>O pacote que a próxima sessão debita (o mesmo critério da baixa), ou nulo.</summary>
+    [ObservableProperty] private LinhaPacoteFicha? _pacoteAtivo;
+    [ObservableProperty] private bool _pacotesNaoVerificados;
+
+    public ObservableCollection<LinhaPacoteFicha> Pacotes { get; } = [];
+    public ObservableCollection<SessaoDaFicha> Sessoes { get; } = [];
+    public ObservableCollection<ItemLinhaDoTempoBalcao> LinhaDoTempoBalcao { get; } = [];
+
+    private IReadOnlyList<Atendimento> _atendimentos = [];
+    private IReadOnlyList<ContatoCampanha> _contatosBrutos = [];
+    private IReadOnlyList<ItemLinhaDoTempoBalcao> _documentosNaLinha = [];
+
     [ObservableProperty] private bool _temPaciente;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -820,38 +844,60 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             }
 
             AplicarCadastro(paciente);
-            var consulta = await scope.ServiceProvider.GetRequiredService<ConsultaService>()
-                .DoPacienteAsync(id, DateOnly.FromDateTime(DateTime.Today));
-            if (geracao != _geracaoCarga) return;
-            UsaConsultaRenovavel = consulta?.UsaConsulta == true;
-            ValidadeConsulta = consulta is null ? "Validade não disponível."
-                : !consulta.UsaConsulta ? "Este convênio não usa consulta renovável."
-                : consulta.Vencimento is null ? "Nenhuma validade de consulta registrada."
-                : $"Validade da consulta do convênio: {consulta.Vencimento:dd/MM/yyyy}.";
 
+            // Os blocos da ficha são INDEPENDENTES entre si — cada um escreve as suas próprias
+            // propriedades e listas — e corriam em fila, ~35 idas ao banco remoto na abertura de
+            // cada ficha (out/2026). Agora cada um tem o seu escopo (o DbContext não aceita duas
+            // operações ao mesmo tempo) e correm juntos; os dados e as regras de cada bloco são
+            // os mesmos, e o contador de geração de cada um continua descartando carga velha.
+            async Task Bloco(Func<IServiceScope, Task> carga)
+            {
+                using var proprio = _escopos.CreateScope();
+                await carga(proprio);
+            }
 
-            var foto = await pacientes.ObterFotoAsync(id);
-            // Chegou tarde: outra carga mais nova já foi pedida.
+            var blocos = new List<Task>
+            {
+                Bloco(async s =>
+                {
+                    var consulta = await s.ServiceProvider.GetRequiredService<ConsultaService>()
+                        .DoPacienteAsync(id, DateOnly.FromDateTime(DateTime.Today));
+                    if (geracao != _geracaoCarga) return;
+                    UsaConsultaRenovavel = consulta?.UsaConsulta == true;
+                    ValidadeConsulta = consulta is null ? "Validade não disponível."
+                        : !consulta.UsaConsulta ? "Este convênio não usa consulta renovável."
+                        : consulta.Vencimento is null ? "Nenhuma validade de consulta registrada."
+                        : $"Validade da consulta do convênio: {consulta.Vencimento:dd/MM/yyyy}.";
+                }),
+                Bloco(async s =>
+                {
+                    var foto = await s.ServiceProvider.GetRequiredService<PacienteService>().ObterFotoAsync(id);
+                    // Chegou tarde: outra carga mais nova já foi pedida.
+                    if (geracao != _geracaoCarga) return;
+                    Foto = foto ?? paciente.FotoMiniatura;
+                }),
+                Bloco(s => CarregarConsentimentosAsync(s, id, geracao)),
+                Bloco(s => CarregarTermosAsync(s, id, geracao)),
+                Bloco(s => CarregarCrmAsync(s, id, geracao)),
+                Bloco(s => CarregarElegibilidadeAsync(s, id, geracao)),
+                Bloco(s => CarregarFaltasAsync(s, id, geracao)),
+                Bloco(s => CarregarAutorizacoesAsync(s, id, geracao)),
+                Bloco(s => CarregarProximosHorariosAsync(s, id, geracao)),
+            };
+            blocos.Add(Bloco(s => CarregarPacotesAsync(s, id, geracao)));
+            if (!SomenteAdministrativo)
+            {
+                blocos.Add(Bloco(s => CarregarProntuarioAsync(s, id, geracao)));
+                blocos.Add(Bloco(s => CarregarDocumentosAsync(s, id, geracao)));
+            }
+            await Task.WhenAll(blocos);
             if (geracao != _geracaoCarga) return;
-            Foto = foto ?? paciente.FotoMiniatura;
 
-            if (!SomenteAdministrativo) await CarregarProntuarioAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarConsentimentosAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            if (!SomenteAdministrativo) await CarregarDocumentosAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarTermosAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarCrmAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarElegibilidadeAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarFaltasAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarAutorizacoesAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarProximosHorariosAsync(scope, id, geracao);
+            // A linha do tempo do balcão junta três leituras que acabaram de terminar — e é
+            // montada numa passada só, sem await entre o Clear e o último Add.
+            LinhaDoTempoBalcao.Clear();
+            foreach (var item in FichaDoBalcao.LinhaDoTempo(_atendimentos, _contatosBrutos, _documentosNaLinha))
+                LinhaDoTempoBalcao.Add(item);
         }
         catch (Exception ex)
         {
@@ -902,6 +948,17 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
                 => $"Indicação de {p.IndicadoPor}",
             var o => RotulosEnum.De(o)
         };
+
+        var hojeFicha = DateOnly.FromDateTime(DateTime.Today);
+        Idade = p.DataNascimento is { } nasc
+            ? $"{IdadeDoPaciente.Texto(nasc, hojeFicha)} · {nasc:dd/MM/yyyy}"
+            : "—";
+        Email = string.IsNullOrWhiteSpace(p.Email) ? "—" : p.Email!.Trim();
+        Endereco = string.IsNullOrWhiteSpace(p.Endereco) ? "—" : p.Endereco!.Trim();
+        PacienteDesde = FichaDoBalcao.PacienteDesde(p.Atendimentos);
+        _atendimentos = p.Atendimentos.ToList();
+        Sessoes.Clear();
+        foreach (var sessao in FichaDoBalcao.Sessoes(p.Atendimentos)) Sessoes.Add(sessao);
 
         var codigos = p.Atendimentos.SelectMany(a => a.Codigos).ToList();
         TotalSessoes = p.Atendimentos.Count.ToString();
@@ -1231,6 +1288,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
                 RegistroId = atual?.Id
             });
         }
+        var comunicacao = Consentimentos.FirstOrDefault(c => c.Finalidade == FinalidadeConsentimento.ComunicacaoEMarketing);
+        Comunicacao = comunicacao is null ? "—" : comunicacao.Vigente ? "Mensagens autorizadas" : comunicacao.Situacao;
     }
 
     /// <summary>
@@ -1238,6 +1297,35 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// aqui, no balcão, onde alguém vai atender essa pessoa e precisa saber o que já foi
     /// falado com ela. Falhar aqui não derruba a ficha — é histórico, não o conteúdo.
     /// </summary>
+    /// <summary>
+    /// Os pacotes do paciente (out/2026, ficha do balcão). Falhar não derruba a ficha, e
+    /// diz que não conferiu — lista vazia por erro é indistinguível de "nunca comprou".
+    /// </summary>
+    private async Task CarregarPacotesAsync(IServiceScope scope, int pacienteId, int geracao)
+    {
+        try
+        {
+            var pacotes = await scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                .PacotesDosPacientesAsync([pacienteId]);
+            if (geracao != _geracaoCarga) return;
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var ativo = PacotePaciente.ADebitar(pacotes, hoje);
+            Pacotes.Clear();
+            foreach (var pacote in pacotes.OrderByDescending(x => x.DataCompra))
+                Pacotes.Add(LinhaPacoteFicha.De(pacote, hoje));
+            PacoteAtivo = ativo is null ? null : LinhaPacoteFicha.De(ativo, hoje);
+            PacotesNaoVerificados = false;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCarga) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — pacotes do paciente não puderam ser lidos", ex);
+            Pacotes.Clear();
+            PacoteAtivo = null;
+            PacotesNaoVerificados = true;
+        }
+    }
+
     private async Task CarregarCrmAsync(IServiceScope scope, int pacienteId, int geracao)
     {
         try
@@ -1249,6 +1337,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             Contatos.Clear();
             foreach (var c in contatos)
                 Contatos.Add(LinhaContato.De(c));
+            _contatosBrutos = contatos.ToList();
         }
         catch (Exception ex)
         {
@@ -1360,6 +1449,13 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             if (SessaoUsuario.Atual.PodeAlgum(linha.Documento.AcessoParaVer))
                 Documentos.Add(linha);
         }
+        // Os papéis que esta pessoa alcança entram na linha do tempo da ficha do balcão —
+        // o mesmo filtro da lista, para a linha não contar a existência do que a lista esconde.
+        _documentosNaLinha = doPaciente
+            .Where(d => Documentos.Any(l => l.DocumentoId == d.Id))
+            .Select(d => new ItemLinhaDoTempoBalcao(d.Data.ToDateTime(TimeOnly.MinValue), false,
+                LinhaDocumento.De(d).Tipo, $"{d.Numero}{(d.Profissional is null ? "" : " · " + d.Profissional.Rotulo)}", "documento"))
+            .ToList();
 
         // O termo LGPD sai da mesma leitura, mas precisa de UMA pergunta a mais: quais
         // deles carregam as finalidades (parcela 89, 2ª rodada). A resposta não vem daqui
@@ -2151,6 +2247,13 @@ public sealed class LinhaHorarioFuturo
 
     public required bool Encaixe { get; init; }
 
+    /// <summary>O bloquinho de data da ficha do balcão: "HOJE"/"QUI" e o número do dia.</summary>
+    public string Sigla => FichaDoBalcao.DiaDoHorario(Dia, DateOnly.FromDateTime(DateTime.Today)).Sigla;
+    public string NumeroDoDia => FichaDoBalcao.DiaDoHorario(Dia, DateOnly.FromDateTime(DateTime.Today)).Numero;
+
+    /// <summary>"14:00 · Acupuntura" — a linha forte do horário no cartão do Resumo.</summary>
+    public string HoraEAtendimento { get; init; } = string.Empty;
+
     public static LinhaHorarioFuturo De(Agendamento a)
     {
         // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia "AcupunturaComEletro" na
@@ -2166,7 +2269,8 @@ public sealed class LinhaHorarioFuturo
             Dia = DateOnly.FromDateTime(a.DataHora),
             Rotulo = $"{DiaDaSemana(a.DataHora)} {a.DataHora:dd/MM} · {a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}",
             Contexto = string.Join(" · ", partes),
-            Encaixe = a.Encaixe
+            Encaixe = a.Encaixe,
+            HoraEAtendimento = $"{a.DataHora:HH:mm} · {modalidade}"
         };
     }
 
@@ -2180,4 +2284,32 @@ public sealed class LinhaHorarioFuturo
         DayOfWeek.Saturday => "sáb",
         _ => "dom"
     };
+}
+
+/// <summary>Um pacote do paciente na ficha do balcão (out/2026).</summary>
+public sealed class LinhaPacoteFicha
+{
+    public required string Nome { get; init; }
+    public required string Uso { get; init; }
+    public required double Fracao { get; init; }
+    public required bool TemFracao { get; init; }
+    public required string Situacao { get; init; }
+
+    public static LinhaPacoteFicha De(PacotePaciente p, DateOnly hoje)
+    {
+        var contratadas = p.SessoesContratadas;
+        var situacao = p.Situacao(hoje);
+        return new LinhaPacoteFicha
+        {
+            Nome = p.Nome,
+            Uso = contratadas is { } c ? $"{p.SessoesUsadas} de {c} usadas" : $"{p.SessoesUsadas} sessões usadas",
+            Fracao = contratadas is > 0 ? Math.Clamp(p.SessoesUsadas / (double)contratadas.Value, 0, 1) : 0,
+            TemFracao = contratadas is > 0,
+            Situacao = situacao switch
+            {
+                StatusPacote.Ativo => p.ValidoAte is { } v ? $"Vence em {v:dd/MM/yyyy}" : "Sem validade",
+                _ => RotulosEnum.De(situacao)
+            } + $" · comprado em {p.DataCompra:dd/MM/yyyy}"
+        };
+    }
 }

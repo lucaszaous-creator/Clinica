@@ -41,7 +41,7 @@ public sealed class CabecalhoDia
 /// abre o paciente de qualquer sessão. O montador da grade é puro e mora na Application
 /// (<see cref="GradeSemana"/>), porque a camada de tela não compila nos testes.
 /// </summary>
-public sealed partial class MinhaSemanaViewModel : ObservableObject
+public sealed partial class MinhaSemanaViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     private readonly IServiceScopeFactory _escopos;
     private readonly PacienteEmFoco _foco;
@@ -80,26 +80,74 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
     /// </summary>
     private int _geracaoCarga;
 
+    /// <summary>
+    /// Busca por paciente, modalidade e situação na grade (out/2026 — era da tela web embutida).
+    /// Só esconde CARTÕES: a grade, os vãos livres, os bloqueios e as contagens dos dias
+    /// continuam sendo da semana inteira.
+    /// </summary>
+    public FiltroDaAgenda Filtro { get; } = new();
+
+    /// <summary>
+    /// Põe o filtro na vista de cada célula e refaz as contagens. As células nascem a cada
+    /// leitura, então a vista de cada uma é nova e recebe o filtro aqui — numa passada só,
+    /// sem await (parcela 62).
+    /// </summary>
+    private void AplicarFiltro()
+    {
+        foreach (var celula in Faixas.SelectMany(f => f.Celulas))
+        {
+            var vista = System.Windows.Data.CollectionViewSource.GetDefaultView(celula.Sessoes);
+            if (vista is null) continue;
+            if (vista.Filter is null)
+                vista.Filter = o => o is SessaoDoDia s
+                    && Filtro.Aceitar(s.PacienteNome, s.Modalidade, s.GrupoVisual);
+            else
+                vista.Refresh();
+        }
+
+        // A sessão de uma hora aparece em duas faixas: conta-se UMA vez.
+        Filtro.Recalcular(Faixas.SelectMany(f => f.Celulas).SelectMany(c => c.Sessoes)
+            .DistinctBy(s => s.AgendamentoId)
+            .Select(s => (s.PacienteNome, s.Modalidade, s.GrupoVisual))
+            .ToList());
+    }
+
     public MinhaSemanaViewModel(IServiceScopeFactory escopos, PacienteEmFoco foco)
     {
         _escopos = escopos;
         _foco = foco;
+        Filtro.Mudou += AplicarFiltro;
         _ = CarregarAsync();
     }
 
     partial void OnReferenciaChanged(DateTime value) => _ = CarregarAsync();
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => LerAsync(silencioso: false);
+
+    /// <summary>
+    /// A tela voltou do histórico com a semana que mostrava: relê por trás, sem "Carregando"
+    /// e sem apagar a grade. Uma demora do banco aqui fica no log, não na tela.
+    /// </summary>
+    public void AtualizarAoVoltar()
+    {
+        if (Carregando) return;
+        _ = LerAsync(silencioso: true);
+    }
+
+    private async Task LerAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
 
         try
         {
-            Carregando = true;
-            NaoVerificado = false;
-            Mensagem = null;
-            MensagemEhErro = false;
+            if (!silencioso)
+            {
+                Carregando = true;
+                NaoVerificado = false;
+                Mensagem = null;
+                MensagemEhErro = false;
+            }
 
             // De quem é esta lista — a resposta mora num lugar só (PostoClinico):
             // a enfermagem NÃO tem agenda própria, e filtrar por ela devolvia a
@@ -160,6 +208,7 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
 
             Faixas.Clear();
             foreach (var f in grade.Faixas) Faixas.Add(f);
+            AplicarFiltro();
 
             Vazio = semana.Sessoes == 0;
 
@@ -172,16 +221,17 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — a semana não pôde ser carregada", ex);
+            if (silencioso) return;
+            NaoVerificado = true;
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }
         finally
         {
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
-            if (geracao == _geracaoCarga) Carregando = false;
+            if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
     }
 

@@ -45,6 +45,48 @@ public sealed partial class RetornosAMarcarViewModel : ObservableObject, ICarreg
 
     public ObservableCollection<RetornoAMarcar> Linhas { get; } = [];
 
+    /// <summary>A fila inteira; a tabela mostra o recorte do chip.</summary>
+    private IReadOnlyList<RetornoAMarcar> _todas = [];
+
+    [ObservableProperty] private int _total;
+    [ObservableProperty] private int _atrasados;
+    [ObservableProperty] private int _estaSemana;
+    [ObservableProperty] private int _maisAdiante;
+    [ObservableProperty] private int _jaMarcados;
+
+    /// <summary>Chip escolhido (nulo = todos). Clicar no escolhido volta para todos.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(FiltroAtrasados), nameof(FiltroEstaSemana), nameof(FiltroMaisAdiante), nameof(FiltroJaMarcados), nameof(FiltroTodos))]
+    private FaixaRetorno? _filtro;
+    public bool FiltroAtrasados => Filtro == FaixaRetorno.Atrasado;
+    public bool FiltroEstaSemana => Filtro == FaixaRetorno.EstaSemana;
+    public bool FiltroMaisAdiante => Filtro == FaixaRetorno.MaisAdiante;
+    public bool FiltroJaMarcados => Filtro == FaixaRetorno.JaMarcado;
+    public bool FiltroTodos => Filtro is null;
+
+    partial void OnFiltroChanged(FaixaRetorno? value) => Publicar();
+
+    [RelayCommand]
+    private void EscolherFiltro(string? qual)
+    {
+        FaixaRetorno? novo = qual switch
+        {
+            "atrasados" => FaixaRetorno.Atrasado,
+            "semana" => FaixaRetorno.EstaSemana,
+            "adiante" => FaixaRetorno.MaisAdiante,
+            "marcados" => FaixaRetorno.JaMarcado,
+            _ => null
+        };
+        Filtro = Filtro == novo ? null : novo;
+    }
+
+    /// <summary>Remonta a tabela do recorte. Entre o Clear e o último Add não há await.</summary>
+    private void Publicar()
+    {
+        Linhas.Clear();
+        // "Todos" é a FILA DE TRABALHO: o já marcado só aparece no chip dele.
+        foreach (var l in _todas.Where(l => Filtro is null ? !l.JaMarcado : l.Faixa == Filtro)) Linhas.Add(l);
+    }
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
 
@@ -79,7 +121,7 @@ public sealed partial class RetornosAMarcarViewModel : ObservableObject, ICarreg
             using var scope = _scopeFactory.CreateScope();
             var retornos = await scope.ServiceProvider
                 .GetRequiredService<RetornosAMarcarService>()
-                .ListarAsync();
+                .ListarComMarcadosAsync();
             if (geracao != _geracao) return;
 
             // O motivo sai da LINHA para quem não pode lê-lo — não só da tela. Escondê-lo
@@ -90,13 +132,19 @@ public sealed partial class RetornosAMarcarViewModel : ObservableObject, ICarreg
 
             // Monta em lista local e só ENTÃO publica: entre o Clear e o último Add não
             // pode haver await (parcela 62).
-            Linhas.Clear();
-            foreach (var l in linhas) Linhas.Add(l);
+            _todas = linhas;
+            Total = linhas.Count(l => !l.JaMarcado);
+            JaMarcados = linhas.Count(l => l.JaMarcado);
+            Atrasados = linhas.Count(l => l.Faixa == FaixaRetorno.Atrasado);
+            EstaSemana = linhas.Count(l => l.Faixa == FaixaRetorno.EstaSemana);
+            MaisAdiante = linhas.Count(l => l.Faixa == FaixaRetorno.MaisAdiante);
+            Publicar();
 
-            var atrasados = linhas.Count(l => l.Atrasado);
-            Resumo = linhas.Count == 0
+            var atrasados = Atrasados;
+            var fila = linhas.Where(l => !l.JaMarcado).ToList();
+            Resumo = fila.Count == 0
                 ? "Ninguém com retorno pedido sem horário marcado."
-                : $"{linhas.Count} retorno(s) a marcar"
+                : $"{fila.Count} retorno(s) a marcar"
                   + (atrasados > 0 ? $" · {atrasados} com a data sugerida já passada" : string.Empty);
         }
         catch (Exception ex)

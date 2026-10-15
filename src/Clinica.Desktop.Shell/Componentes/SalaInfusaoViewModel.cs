@@ -206,15 +206,20 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
                 MensagemEhErro = false;
             }
 
-            using var scope = _escopos.CreateScope();
-            var servico = scope.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>();
-
             SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar infusões");
             var profissional = PodeChecar ? null : SessaoUsuario.Atual.ProfissionalId;
             if (!PodeChecar && profissional is null) throw new InvalidOperationException("Vincule seu usuário ao profissional responsável para consultar as infusões.");
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
-            var folhas = await servico.DoDiaAsync(hoje, profissionalId: profissional, incluirEncerradas: IncluirEncerradas);
+            // As três leituras são independentes e correm juntas, cada uma no seu escopo
+            // (out/2026): em fila custavam três idas pesadas ao banco remoto a cada minuto.
+            async Task<IReadOnlyList<PrescricaoInterna>> Ler(Func<ChecagemPrescricaoService, Task<IReadOnlyList<PrescricaoInterna>>> leitura)
+            {
+                using var proprio = _escopos.CreateScope();
+                return await leitura(proprio.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>());
+            }
+            var incluirEncerradas = IncluirEncerradas;
+            var tFolhas = Ler(s => s.DoDiaAsync(hoje, profissionalId: profissional, incluirEncerradas: incluirEncerradas));
 
             // ⚠️ A folha que AGUARDA A 2ª ASSINATURA entra SEMPRE, de qualquer dia e
             // independente da caixa "mostrar encerradas". Ela só fica assinável depois de
@@ -222,10 +227,15 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             // padrão e, no dia seguinte, sumia de vez. A única volta era digitar o código
             // impresso. Era o "alerta sem porta" na pior variante: o que a pessoa precisa
             // reencontrar é exatamente o que a lista escondia.
-            IReadOnlyList<PrescricaoInterna> aguardando = PodeChecar ? await servico.AguardandoAssinaturaAsync(profissional) : [];
-            IReadOnlyList<PrescricaoInterna> validacoes = PodePrescrever
-                ? await servico.AguardandoValidacaoMedicaAsync(SessaoUsuario.Atual.ProfissionalId!.Value)
-                : [];
+            var tAguardando = PodeChecar ? Ler(s => s.AguardandoAssinaturaAsync(profissional))
+                : Task.FromResult<IReadOnlyList<PrescricaoInterna>>([]);
+            var medico = SessaoUsuario.Atual.ProfissionalId;
+            var tValidacoes = PodePrescrever ? Ler(s => s.AguardandoValidacaoMedicaAsync(medico!.Value))
+                : Task.FromResult<IReadOnlyList<PrescricaoInterna>>([]);
+            await Task.WhenAll(tFolhas, tAguardando, tValidacoes);
+            var folhas = tFolhas.Result;
+            IReadOnlyList<PrescricaoInterna> aguardando = tAguardando.Result;
+            IReadOnlyList<PrescricaoInterna> validacoes = tValidacoes.Result;
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

@@ -876,7 +876,7 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 | Item | Estado | Onde |
 |---|---|---|
 | NPS automático pós-consulta | ✅ | `CampanhaService.GerarNpsAsync`, `ResumoNps` |
-| Recall de pacientes inativos | ✅ | `CampanhaService.GerarRecallAsync`, `CandidatoRecall` |
+| Recall de pacientes inativos | ✅ | Fila do Acompanhamento (`IAcompanhamentoPacienteService.GerarRecallAsync`) — desde out/2026 a ÚNICA porta; a rodada de recall do `CampanhaService` e a tela "Quem parou de vir" saíram |
 | Campanhas por WhatsApp | ✅ | Tela `CampanhasView` + `Whatsapp` do shell |
 
 > **As três campanhas são UMA entidade** (`ContatoCampanha`): o fato registrado é o
@@ -1110,7 +1110,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **PACIENTE** · Pacientes / CRM | Recepção | ✅ | `PacientesView` + origem/indicação/contatos (parcela 8) |
 | **PACIENTE** · Prontuário | Recepção | ✅ | `ProntuarioView` — item de menu próprio desde a parcela 8 |
 | **ATENDIMENTO** · Documentos (era, em parte, "Prescrições") | Recepção | ✅ set/2026 | `DocumentosView` — a central passou a **assinar, enviar, renovar o link e tirar do ar**, que eram os únicos atos que só a tela "Prescrições / Receituário" tinha. Com isso ela saiu: eram TRÊS portas para o mesmo papel, cada uma com um pedaço do trabalho. A central ganhou o filtro **"Só deste paciente"**; a ficha do paciente mantém a aba Documentos, com os mesmos seis atos |
-| **PACIENTE** · Retorno de pacientes | Recepção | 🔵 | `RetornoView` (parcela 48) — o recall onde quem telefona trabalha |
+| **GESTÃO** · Acompanhamento de pacientes | Recepção · Gerente · Faturamento | ✅ out/2026 | `AcompanhamentoView` — recall e novos BSV numa fila com responsável e histórico. Absorveu a `RetornoView` (sem rota desde a navegação unificada) e "Quem parou de vir" (tratamento longo, pacote em aberto, CSV) |
 | **PACIENTE** · Convênio (senha/cota) | Recepção | 🔵 | aba na ficha + `AutorizacaoWindow` (parcela 48) |
 | **GESTÃO** · Sala de infusão | Recepção · Consultório | 🔵 | `Desktop.Shell/Componentes/SalaInfusaoView` (parcelas 42 e 48) |
 | **PACIENTE** · Telemedicina | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |

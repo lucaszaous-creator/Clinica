@@ -290,8 +290,11 @@ public partial class MainViewModel : ObservableObject
 
     // ===== Pesquisa global (seções + pacientes por nome/CPF) =====
 
+    private CancellationTokenSource? _pesquisaPacientes;
+
     partial void OnTextoPesquisaGlobalChanged(string value)
     {
+        _pesquisaPacientes?.Cancel();
         ResultadosPesquisa.Clear();
         var termo = value.Trim();
         if (termo.Length == 0)
@@ -317,16 +320,20 @@ public partial class MainViewModel : ObservableObject
 
     private async Task PesquisarPacientesAsync(string termo)
     {
+        var atual = new CancellationTokenSource();
+        _pesquisaPacientes = atual;
+        var ct = atual.Token;
         try
         {
+            await Task.Delay(250, ct);
             using var scope = _sp.CreateScope();
             var pacientes = await scope.ServiceProvider
                 .GetRequiredService<Clinica.Application.Servicos.PacienteService>()
                 // O corte vai no SQL: a pesquisa global mostra no máximo 6 nomes.
-                .BuscarAsync(termo, limite: MaximoPacientesNaPesquisa);
+                .BuscarAsync(termo, limite: MaximoPacientesNaPesquisa, ct: ct);
 
             // O usuário pode ter continuado digitando enquanto o banco respondia.
-            if (TextoPesquisaGlobal.Trim() != termo) return;
+            if (ct.IsCancellationRequested || TextoPesquisaGlobal.Trim() != termo) return;
 
             foreach (var p in pacientes)
                 ResultadosPesquisa.Add(new ItemMenu
@@ -340,10 +347,16 @@ public partial class MainViewModel : ObservableObject
 
             PesquisaAberta = ResultadosPesquisa.Count > 0;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex)
         {
             // Banco fora do ar não pode quebrar a digitação na pesquisa.
             Configuracao.LogErros.Registrar("Pesquisa global — busca de pacientes falhou", ex);
+        }
+        finally
+        {
+            if (ReferenceEquals(_pesquisaPacientes, atual)) _pesquisaPacientes = null;
+            atual.Dispose();
         }
     }
 

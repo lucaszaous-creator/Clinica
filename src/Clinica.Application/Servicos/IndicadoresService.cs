@@ -55,6 +55,16 @@ public sealed class IndicadoresService
         return new PainelGerencial(inicio, fim, jornada, agenda, produtividade, serie);
     }
 
+    /// <summary>Somente indicadores da agenda; metas não precisam transferir as evoluções clínicas.</summary>
+    public async Task<IndicadoresAgenda> AgendaAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+    {
+        if (fim < inicio) (inicio, fim) = (fim, inicio);
+        var jornada = await _parametros.ObterJornadaDiariaAsync(ct);
+        var agendamentos = await AgendamentosAsync(inicio, fim, ct);
+        var profissionais = await _repo.ProfissionaisAsync(ct);
+        return ResumirAgenda(agendamentos, jornada, profissionais.ToDictionary(p => p.Id));
+    }
+
     /// <summary>Só a produtividade, para quem já tem o período na tela.</summary>
     public async Task<IReadOnlyList<ProdutividadeProfissional>> ProdutividadeAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default)

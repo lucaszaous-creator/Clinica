@@ -101,7 +101,7 @@
                     <StackPanel Grid.Column="2">
                       <TextBlock Text="Recall: dias sem vir" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
                       <TextBox Text="{Binding DiasInatividadeRecall}" MaxLength="4" />
-                      <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Text="A partir de quantos dias parado o paciente entra na lista de recall." />
+                      <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Text="A partir de quantos dias parado o paciente entra na fila de recall do Acompanhamento de pacientes, quando a fila é aberta." />
                     </StackPanel>
                   </Grid>
                   <StackPanel Margin="0,14,0,0">

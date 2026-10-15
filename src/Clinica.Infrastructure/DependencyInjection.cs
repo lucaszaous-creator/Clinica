@@ -12,8 +12,12 @@ public static class DependencyInjection
     /// <summary>Registra DbContext, repositório, motor de regras e serviços de aplicação.</summary>
     public static IServiceCollection AddClinica(this IServiceCollection services, string connectionString)
     {
-        services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql));
+        // Pool aquecido e com keepalive: abrir conexão nova na VPS custa segundos (ver ConexaoRemota).
+        connectionString = ConexaoRemota.Ajustar(connectionString);
+        services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql)
+            .AddInterceptors(InterceptadorMedicao.Instancia)); // só conta idas e tempo (ver MedicaoBanco)
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
+        services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
         services.AddScoped<IPlanejamentoEnfermagemService, Planejamento.PlanejamentoEnfermagemService>();
         services.AddScoped<IOcupacaoAgendaService, Planejamento.OcupacaoAgendaService>();
@@ -38,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<BloqueioAgendaService>();
         services.AddScoped<PainelRecepcaoService>();
         services.AddScoped<ProntuarioService>();
+        services.AddScoped<LeituraLinhaDoTempoService>();
         // Onde a mídia grande do prontuário mora (set/2026): banco ou armazenamento.
         services.AddScoped<MidiaProntuarioService>();
         // O catálogo do que ESTA clínica anota além dos campos do sistema (set/2026).
@@ -86,7 +91,6 @@ public static class DependencyInjection
         services.AddScoped<MetaService>();
         services.AddScoped<OrcamentoService>();
         services.AddScoped<ResultadoMensalService>();
-        services.AddScoped<RetencaoPacienteService>();
         services.AddScoped<OrigemPacientesService>();
         services.AddScoped<ImportacaoPacientesService>();
         services.AddScoped<ImportacaoSmartClinicService>();

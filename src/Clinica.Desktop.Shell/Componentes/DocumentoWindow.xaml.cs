@@ -2,7 +2,7 @@ using System.Windows;
 
 namespace Clinica.Desktop.Shell.Componentes;
 
-/// <summary>Emissão de receita, atestado, declaração de comparecimento e pedido de exame.</summary>
+/// <summary>Emissão de receita, atestado, laudo, declaração de comparecimento e pedido de exame.</summary>
 public partial class DocumentoWindow : Window
 {
     internal void AtualizarFolha()

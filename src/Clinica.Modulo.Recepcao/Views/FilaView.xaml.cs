@@ -1,6 +1,10 @@
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
 
@@ -30,24 +34,87 @@ public partial class FilaView : UserControl
     public static readonly DependencyProperty ModoCompactoProperty = ModoCompactoPropertyKey.DependencyProperty;
     public bool ModoCompacto => (bool)GetValue(ModoCompactoProperty);
 
-    private void AjustarCabecalho() => SetValue(ModoCompactoPropertyKey, ActualWidth < 1100);
+    // Em notebook o profissional acompanha o paciente na mesma célula. O dado continua
+    // visível e a largura recuperada evita nomes espremidos e ações fora da tabela.
+    private void AjustarColunas()
+    {
+        var compacto = ActualWidth < 1100;
+        SetValue(ModoCompactoPropertyKey, compacto);
+        ColunaProfissional.Visibility = compacto ? Visibility.Collapsed : Visibility.Visible;
+        ColunaHorario.Width = new DataGridLength(compacto ? 110 : 135);
+        // Ao ocultar uma coluna o DataGrid pode conservar a distribuição estrela da
+        // largura anterior. Repartir a largura útil evita células encolhidas e vazio à
+        // direita durante a mudança de monitor/tamanho. A barra vertical fica reservada.
+        if (TabelaAgenda.ActualWidth > 0)
+        {
+            // As demais colunas têm largura em pixels declarada no XAML. Usá-la aqui
+            // mantém as ações visíveis quando o espaçamento do design system muda.
+            var larguraFixa = 0d;
+            foreach (var coluna in TabelaAgenda.Columns)
+                if (coluna != ColunaPaciente && coluna.Visibility == Visibility.Visible)
+                    larguraFixa += Math.Max(coluna.MinWidth, coluna.Width.Value);
+            ColunaPaciente.Width = new DataGridLength(Math.Max(ColunaPaciente.MinWidth,
+                TabelaAgenda.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12 - larguraFixa));
+        }
+    }
 
-    private Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb? _buscaWeb;
+    // ==================== Busca e filtros ====================
+
+    /// <summary>
+    /// Apresentação: filtra a VISTA da lista, nunca <c>Linhas</c>. O ViewModel continua
+    /// lendo, contando e agindo sobre o dia inteiro (o placar do topo é do dia, não do
+    /// recorte), e a recarga silenciosa não perde o que a pessoa digitou.
+    /// </summary>
+    private readonly FiltroListaAgenda _filtro = new(item => item is CartaoFila l
+        ? new HorarioFiltravel(l.Paciente, l.Modalidade, SituacaoVisualAgenda.Grupo(l.Situacao, l.Etapa))
+        : null, "no dia");
+    private FilaViewModel? _ligado;
+
+    private void Ligar()
+    {
+        if (DataContext is not FilaViewModel vm || ReferenceEquals(vm, _ligado)) return;
+        Desligar();
+        _ligado = vm;
+        CollectionViewSource.GetDefaultView(vm.Linhas).Filter = _filtro.Aceita;
+        vm.Linhas.CollectionChanged += AoMudarLinhas;
+        vm.PropertyChanged += AoMudarVm;
+        Recontar();
+    }
+
+    private void Desligar()
+    {
+        if (_ligado is null) return;
+        _ligado.Linhas.CollectionChanged -= AoMudarLinhas;
+        _ligado.PropertyChanged -= AoMudarVm;
+        _ligado = null;
+    }
+
+    private void AoMudarLinhas(object? sender, NotifyCollectionChangedEventArgs e) => Recontar();
+    private void AoMudarVm(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(FilaViewModel.Carregando)) Recontar();
+    }
+    private void Recontar()
+    {
+        if (_ligado is { } vm) _filtro.Recalcular(vm.Linhas, vm.Carregando);
+    }
+    private void AoMudarFiltro()
+    {
+        if (_ligado is not { } vm) return;
+        CollectionViewSource.GetDefaultView(vm.Linhas).Refresh();
+        Recontar();
+    }
 
     public FilaView()
     {
         InitializeComponent();
-        Loaded += (_, _) =>
-        {
-            if (_buscaWeb is not null || DataContext is not FilaViewModel vm) return;
-            var adaptador = new FilaBuscaWeb(vm, AbrirMenuDaLinha);
-            _buscaWeb = new Clinica.Desktop.Shell.WebClinica.PainelClinicoWeb("agenda", adaptador.Estado, adaptador.Executar,
-                () => SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "consultar a agenda"));
-            ConteudoAgendaBusca.Children.Add(_buscaWeb);
-            if (Window.GetWindow(this) is { } janela) janela.Closed += (_, _) => _buscaWeb.Dispose();
-        };
-        SizeChanged += (_, _) => AjustarCabecalho();
-        Loaded += (_, _) => AjustarCabecalho();
+        BarraFiltros.DataContext = _filtro;
+        _filtro.Mudou += AoMudarFiltro;
+        SizeChanged += (_, _) => AjustarColunas();
+        TabelaAgenda.SizeChanged += (_, _) => AjustarColunas();
+        Loaded += (_, _) => AjustarColunas();
+        Loaded += (_, _) => Ligar();
+        DataContextChanged += (_, _) => { if (IsLoaded) Ligar(); };
 
         Loaded += (_, _) => (DataContext as FilaViewModel)?.AoEntrarEmCena();
         Unloaded += (_, _) => (DataContext as FilaViewModel)?.AoSairDeCena();
@@ -56,26 +123,29 @@ public partial class FilaView : UserControl
     // ==================== O "⋯" da linha ====================
 
     /// <summary>
-    /// As ações de exceção da linha: o termo, o fechamento, a conferência de convênio e
+    /// As ações de exceção da linha: o fechamento, a conferência de convênio e
     /// cota, falta, cancelamento — e a porta para a GRADE, onde mora a janela do horário
     /// (remarcar, reabrir, comprovante, WhatsApp).
     ///
     /// ⚠️ A visibilidade de cada item é ESTADO **e** PERMISSÃO. O bloco não segue um
-    /// `IsEnabled` só porque os atos pedem bits diferentes — colher o termo é
-    /// `ColherAssinaturaPaciente` (a técnica de enfermagem o tem e não tem o da agenda),
-    /// conferir convênio é `VerFichaPaciente`, e falta/cancelamento são do balcão,
+    /// `IsEnabled` só porque os atos pedem bits diferentes — conferir convênio é `VerFichaPaciente`, e falta/cancelamento são do balcão,
     /// `EditarAgenda` estrito. Sem esta metade, o item aparecia aceso e a recusa só
     /// chegava depois do clique.
     /// </summary>
-    private void AbrirMenuDaLinha(CartaoFila cartao)
+    private void AoAbrirMenuDaLinha(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: CartaoFila cartao } botao) AbrirMenuDaLinha(cartao, botao);
+    }
+
+    private void AbrirMenuDaLinha(CartaoFila cartao, FrameworkElement origem)
     {
         SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "consultar a agenda");
         if (DataContext is not FilaViewModel vm || vm.Carregando || vm.NaoVerificado || !vm.Linhas.Contains(cartao)) return;
 
         var menu = new ContextMenu
         {
-            PlacementTarget = this,
-            Placement = PlacementMode.MousePoint
+            PlacementTarget = origem,
+            Placement = PlacementMode.Bottom
         };
 
         void Acrescentar(string rotulo, System.Windows.Input.ICommand comando, bool visivel)
@@ -91,21 +161,9 @@ public partial class FilaView : UserControl
 
         Acrescentar("Ficha do paciente…", vm.AbrirFichaCommand, vm.PodeVerFicha);
 
-        // A PORTA do termo (parcela 66). Vem primeira quando há termo pendente: o SELO da
-        // linha diz que falta assinar, e alerta sem porta no mesmo app é pior que alerta
-        // nenhum — ele ensina a pessoa a ignorá-lo (a lição da parcela 48).
-        //
-        // ⚠️ O RÓTULO segue o selo (set/2026): quem já assinou pelo celular não precisa
-        // assinar de novo, precisa de conferência — e "colher o termo" ali mandaria a
-        // técnica pedir ao paciente uma segunda assinatura que o sistema já tem guardada.
-        // O comando é o MESMO: ele abre o termo com o traço aplicado, e o clique que falta
-        // é o Confirmar.
-        Acrescentar(
-            cartao.TemTermoAConferir
-                ? "Conferir o termo assinado no celular…"
-                : "Colher o termo do procedimento…",
-            vm.ColherTermoCommand,
-            (cartao.TemTermoPendente || cartao.TemTermoAConferir) && vm.PodeColherTermo);
+        // O termo NÃO é colhido aqui (out/2026, decisão da clínica): quem colhe é a
+        // ENFERMAGEM, na tela dela. O selo da linha continua dizendo que falta — é o que
+        // faz o balcão encaminhar o paciente —, mas a porta mora num só posto.
 
         // A PORTA do dinheiro depois que o médico concluiu (parcela 95). Ela fica AQUI, e
         // não como botão da linha, porque só o PACOTE é anunciado como pendência: insumo e
@@ -136,16 +194,16 @@ public partial class FilaView : UserControl
 
         Separar();
 
-        // A GRADE é onde moram remarcar, reabrir o cancelado (a parcela 69), o comprovante
-        // e o WhatsApp — a janela do horário. Sempre disponível: é leitura, e para a linha
-        // cancelada ou de falta é a ÚNICA ação que sobra, com razão.
-        Acrescentar(cartao.ForaDaFila ? "Abrir na grade (reabrir ou remarcar)…" : "Abrir na grade…",
-            vm.AbrirNaGradeCommand, true);
+        // A JANELA DO HORÁRIO é onde moram reabrir o cancelado (a parcela 69), o comprovante,
+        // o WhatsApp e a série. Sempre disponível: abrir é leitura, e para a linha cancelada
+        // ou de falta é a ÚNICA ação que sobra, com razão. Era "Abrir na grade…" — a grade
+        // saiu da navegação em out/2026, e a janela passou a abrir daqui mesmo.
+        Acrescentar(cartao.ForaDaFila ? "Abrir o horário (reabrir ou remarcar)…" : "Abrir o horário…",
+            vm.AbrirHorarioCommand, true);
 
         // Separador no fim é lixo visual: tira se ficou órfão.
         if (menu.Items[^1] is Separator) menu.Items.RemoveAt(menu.Items.Count - 1);
 
-        ContextMenu = menu;
         menu.IsOpen = true;
     }
 }

@@ -207,7 +207,11 @@ public sealed class FluxoCaixaService
         DateOnly inicio, DateOnly fim, bool incluirPrevisto = false, CancellationToken ct = default)
     {
         var categorias = await PorCategoriaAsync(inicio, fim, incluirPrevisto, ct);
+        return Resumir(categorias);
+    }
 
+    public static ResumoFluxo Resumir(IReadOnlyList<ResultadoCategoria> categorias)
+    {
         decimal Total(TipoLancamento tipo) =>
             categorias.Where(c => c.Tipo == tipo).Sum(c => c.Total);
 

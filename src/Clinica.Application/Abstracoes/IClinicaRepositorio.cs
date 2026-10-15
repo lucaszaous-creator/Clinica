@@ -31,7 +31,7 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<CodigoFaturamento>> CodigosDoPacienteNoMesAsync(int pacienteId, int ano, int mes, CancellationToken ct = default);
 
     /// <summary>Todos os códigos ainda em aberto (não baixados, não "não aplicável" e não "não conformidade"), com paciente carregado.</summary>
-    Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default, int? pacienteId = null);
 
     /// <summary>Guias em não conformidade (justificadas numa rodada e silenciadas), com paciente carregado.</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosEmNaoConformidadeAsync(CancellationToken ct = default);
@@ -44,33 +44,6 @@ public interface IClinicaRepositorio
 
     /// <summary>Pacientes com seus atendimentos carregados (usado para calcular renovação de consulta).</summary>
     Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default);
-
-    /// <summary>
-    /// Uma linha por paciente que já foi atendido: quando foi a última sessão e quantas
-    /// foram no total, agrupadas NO BANCO.
-    ///
-    /// Existe para não repetir o que a leitura de retenção fazia: carregar toda a tabela
-    /// de pacientes com toda a de atendimentos para, no fim, usar duas agregações por
-    /// pessoa. Numa base de alguns milhares de pacientes isso é o banco inteiro na
-    /// memória do cliente — e o banco é remoto.
-    /// </summary>
-    Task<IReadOnlyList<ResumoAtendimentosPaciente>> ResumoAtendimentosPorPacienteAsync(
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Dos pacientes informados, quais têm agendamento ainda de pé a partir de
-    /// <paramref name="dia"/>. Uma consulta para o conjunto, não uma por pessoa.
-    /// </summary>
-    Task<IReadOnlyList<int>> PacientesComAgendamentoFuturoAsync(
-        IReadOnlyCollection<int> pacienteIds, DateOnly dia, CancellationToken ct = default);
-
-    /// <summary>
-    /// Dos pacientes informados, quais já receberam contato do tipo indicado com
-    /// referência igual ou posterior à data da última sessão de cada um.
-    /// </summary>
-    Task<IReadOnlyList<int>> PacientesJaContatadosAsync(
-        IReadOnlyDictionary<int, DateOnly> desdeQuandoPorPaciente,
-        TipoContato tipo, CancellationToken ct = default);
 
     /// <summary>Pacotes dos pacientes informados, numa consulta só.</summary>
     Task<IReadOnlyList<PacotePaciente>> PacotesDosPacientesAsync(
@@ -108,6 +81,21 @@ public interface IClinicaRepositorio
     /// (o banco é remoto). Null = sem corte, para quem precisa varrer todo mundo.
     /// </summary>
     Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default);
+
+    Task<IReadOnlyList<Paciente>> BuscarPaginaPacientesAsync(string? termo, int ignorar, int quantidade,
+        Modelos.FiltroListaPacientes filtro = Modelos.FiltroListaPacientes.Todos, CancellationToken ct = default);
+
+    Task<IReadOnlyList<Paciente>> PacientesComCarteirinhaAteAsync(DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>Quantos pacientes cabem em cada recorte da lista (out/2026) — uma contagem por chip.</summary>
+    Task<Modelos.RecortesDePacientes> ContarRecortesDePacientesAsync(DateOnly hoje, CancellationToken ct = default);
+
+    /// <summary>
+    /// A última sessão REALIZADA (até dois anos atrás) e o próximo horário marcado de cada
+    /// paciente da página — em lote, uma ida ao banco para a página inteira.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, Modelos.VisitaDoPaciente>> VisitasDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, DateTime agora, CancellationToken ct = default);
 
     /// <summary>
     /// Origem e "indicado por" de TODA a base, projetados — três colunas, nunca a linha
@@ -356,6 +344,13 @@ public interface IClinicaRepositorio
 
     Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default);
     Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
+    /// <summary>
+    /// Os mesmos horários de <see cref="AgendamentosNoPeriodoAsync"/>, SEM rastreio e com a ficha
+    /// do paciente reduzida a Id e nome (profissional e sala inteiros). Para LISTAS de leitura que
+    /// cobrem muitos dias: a ficha completa traz a miniatura da foto e as observações de cada um.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoParaLeituraAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
+
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
     Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
@@ -952,7 +947,7 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasDoDiaAsync(
         DateOnly data, int? profissionalId = null, bool incluirEncerradas = false,
-        CancellationToken ct = default);
+        CancellationToken ct = default, int? pacienteId = null);
 
     /// <summary>
     /// As folhas ENCERRADAS que ainda devem a assinatura eletrônica da enfermagem —
@@ -1660,7 +1655,7 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<LancamentoFinanceiro>> ContasDoParcelamentoAsync(Guid grupo, CancellationToken ct = default);
 
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
-        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default);
+        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default, int? pacienteId = null);
 
     /// <summary>
     /// Quais das origens de recorrência informadas já existem. É a checagem de
@@ -1721,15 +1716,6 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Modelos.PedidoDeExameLinha>> PedidosDeExameAsync(
         DateOnly? inicio = null, DateOnly? fim = null, int? profissionalId = null,
         int? pacienteId = null, CancellationToken ct = default);
-
-    /// <summary>
-    /// Quando cada paciente veio pela última vez e se já tem horário futuro — por
-    /// PROJEÇÃO, resolvida no banco. É a base do recall, e a pergunta é sobre a base
-    /// inteira: trazer todo paciente com o histórico junto arrastaria a tabela de
-    /// atendimentos pela rede a cada rodada.
-    /// </summary>
-    Task<IReadOnlyList<Modelos.InatividadePaciente>> InatividadeAsync(
-        DateOnly referencia, CancellationToken ct = default);
 
     // ---- Campanhas: confirmação, NPS e recall (parcela 5) ----
 

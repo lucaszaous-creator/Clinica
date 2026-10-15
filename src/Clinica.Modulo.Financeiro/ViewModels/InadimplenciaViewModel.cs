@@ -55,7 +55,7 @@ public sealed record LinhaFaixaAtraso(string Rotulo, string ValorRotulo, double 
 /// marcado assim continua marcado depois de pagar, e quem lê a ficha dois meses depois
 /// trata como caloteiro alguém que quitou. A situação é calculada, sempre.
 /// </summary>
-public sealed partial class InadimplenciaViewModel : ObservableObject
+public sealed partial class InadimplenciaViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     private static readonly CultureInfo Brasil = new("pt-BR");
 
@@ -149,16 +149,31 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
     private int _geracaoCarga;
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => LerAsync(silencioso: false);
+
+    /// <summary>
+    /// A tela voltou do histórico com o que mostrava (out/2026): relê por trás, sem
+    /// "Carregando" e sem apagar nada. Uma demora do banco aqui fica no log, não na tela.
+    /// </summary>
+    public void AtualizarAoVoltar()
+    {
+        if (Carregando) return;
+        _ = LerAsync(silencioso: true);
+    }
+
+    private async Task LerAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
 
-        Carregando = true;
-            NaoVerificado = false;
-        try
+        if (!silencioso)
         {
+            Carregando = true;
+            NaoVerificado = false;
             Mensagem = null;
             MensagemEhErro = false;
+        }
+        try
+        {
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
@@ -166,7 +181,7 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
             var servico = scope.ServiceProvider.GetRequiredService<InadimplenciaService>();
 
             var devedores = await servico.PorPacienteAsync(hoje, Ordem);
-            var resumo = await servico.ResumoAsync(hoje);
+            var resumo = InadimplenciaService.Resumir(devedores);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -199,15 +214,16 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
         {
             if (geracao != _geracaoCarga) return;
 
-            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Financeiro — inadimplência não pôde ser lida", ex);
+            if (silencioso) return;
+            NaoVerificado = true;
             Mensagem = $"Não foi possível ler a inadimplência: {ex.Message}";
             MensagemEhErro = true;
         }
         finally
         {
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
-            if (geracao == _geracaoCarga) Carregando = false;
+            if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
     }
 

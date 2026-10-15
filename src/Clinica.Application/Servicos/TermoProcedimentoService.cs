@@ -230,15 +230,24 @@ public sealed class TermoProcedimentoService
     /// lembraria de ajustar é justamente a do quadro — onde o erro aparece como cartão
     /// limpo, que é indistinguível de termo em dia.
     /// </summary>
-    public async Task<IReadOnlyDictionary<int, IReadOnlyList<SituacaoTermo>>> DoDiaAsync(
+    public Task<IReadOnlyDictionary<int, IReadOnlyList<SituacaoTermo>>> DoDiaAsync(
         DateOnly data, CancellationToken ct = default)
+        => DoDiaAsync(data, null, ct);
+
+    /// <summary>
+    /// Igual ao de cima, reaproveitando os horários do dia que quem chama ACABOU de ler
+    /// (<c>AgendaService.DoDiaAsync</c> é a mesma consulta). A fila relê o dia a cada minuto e
+    /// pagava a mesma leitura duas vezes.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, IReadOnlyList<SituacaoTermo>>> DoDiaAsync(
+        DateOnly data, IReadOnlyList<Agendamento>? agendamentosDoDia, CancellationToken ct = default)
     {
         var vazio = new Dictionary<int, IReadOnlyList<SituacaoTermo>>();
 
         var exigencias = (await _repo.ExigenciasTermoAsync(ct)).Where(e => e.Ativa).ToList();
         if (exigencias.Count == 0) return vazio;
 
-        var agendamentos = await _repo.AgendamentosNoPeriodoAsync(
+        var agendamentos = agendamentosDoDia ?? await _repo.AgendamentosNoPeriodoAsync(
             data.ToDateTime(TimeOnly.MinValue), data.ToDateTime(TimeOnly.MaxValue), ct);
 
         var pacientes = agendamentos.Select(a => a.PacienteId).Distinct().ToList();

@@ -41,6 +41,21 @@ public sealed class OcupacaoAgendaTests : IDisposable
         Assert.Equal(r.Resumo, Assert.Single(r.Dias).Resumo); Assert.Equal(r.Resumo, Assert.Single(r.Profissionais).Resumo);
     }
 
+    [Fact] public async Task Movimento_preserva_contagens_filtros_e_autorizacao_sem_consultar_bloqueios()
+    {
+        db.Agendamentos.AddRange(Horario(8), Horario(9, status: StatusAgendamento.Cancelado), Horario(10, status: StatusAgendamento.Faltou));
+        profissional.AtendeDas = null; profissional.AtendeAte = null;
+        await db.SaveChangesAsync();
+        var tabela = db.Model.FindEntityType(typeof(BloqueioAgenda))!.GetTableName();
+        await db.Database.ExecuteSqlRawAsync($"DROP TABLE \"{tabela}\"");
+        var r = await svc.ConsultarMovimentoAsync(recepcao.Id, Segunda, Segunda, profissional.Id);
+        Assert.Equal(1, r.Resumo.Atendimentos); Assert.Equal(1, r.Resumo.Cancelados); Assert.Equal(1, r.Resumo.Faltas);
+        Assert.Equal(3, r.Horarios.Count); Assert.Single(r.Profissionais); Assert.Single(r.Dias);
+        Assert.Empty(r.Profissionais[0].Jornada);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.ConsultarMovimentoAsync(-1, Segunda, Segunda));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ConsultarMovimentoAsync(recepcao.Id, Segunda, Segunda.AddDays(42)));
+    }
+
     [Fact] public async Task Dias_sem_jornada_e_cruzamento_da_meia_noite_nao_inventam_capacidade()
     {
         db.Agendamentos.AddRange(Horario(23, 120, dias: -1), Horario(8, dias: 1)); await db.SaveChangesAsync();

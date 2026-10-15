@@ -65,16 +65,33 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
         return true;
     }
 
+    private IQueryable<Agendamento> Pendentes(PoliticaConclusao regra, DateTime agora, int? id)
+    {
+        var limite = agora.AddHours(-regra.Horas);
+        return Abertos().AsNoTracking()
+            .Where(a => (id == null || a.Id == id) && a.DataHora <= agora
+                && db.Evolucoes.Any(e => e.AgendamentoId == a.Id && e.CanceladaEm == null
+                    && (e.AtualizadoEm ?? e.CriadoEm) >= regra.AtivadaEm && (e.AtualizadoEm ?? e.CriadoEm) <= limite))
+            .OrderBy(a => a.DataHora).Take(100);
+    }
+
+    /// <summary>
+    /// Quantas pendências <see cref="PendenciasAsync"/> listaria — a mesma consulta, contada no banco.
+    /// O aviso de fundo (a cada minuto, em todo posto) usa só o número, e montar a lista custava
+    /// uma a três consultas POR LINHA para escrever um motivo que ninguém lia ali (out/2026).
+    /// </summary>
+    public async Task<int> ContarPendenciasAsync(DateTime agora, CancellationToken ct = default)
+    {
+        var regra = await politica.ObterAsync(ct);
+        if (!regra.Automatica) return 0;
+        return await Pendentes(regra, agora, null).CountAsync(ct);
+    }
+
     public async Task<IReadOnlyList<PendenciaConclusao>> PendenciasAsync(DateTime agora, int? id = null, CancellationToken ct = default)
     {
         var regra = await politica.ObterAsync(ct);
         if (!regra.Automatica) return [];
-        var limite = agora.AddHours(-regra.Horas);
-        var lista = await Abertos().AsNoTracking().Include(a => a.Paciente).Include(a => a.Profissional)
-            .Where(a => (id == null || a.Id == id) && a.DataHora <= agora
-                && db.Evolucoes.Any(e => e.AgendamentoId == a.Id && e.CanceladaEm == null
-                    && (e.AtualizadoEm ?? e.CriadoEm) >= regra.AtivadaEm && (e.AtualizadoEm ?? e.CriadoEm) <= limite))
-            .OrderBy(a => a.DataHora).Take(100).ToListAsync(ct);
+        var lista = await Pendentes(regra, agora, id).Include(a => a.Paciente).Include(a => a.Profissional).ToListAsync(ct);
         var resultado = new List<PendenciaConclusao>();
         foreach (var a in lista)
             resultado.Add(new(a.Id, a.Paciente?.Nome ?? "", a.Profissional?.Nome ?? "", a.DataHora,
@@ -112,10 +129,10 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
                 if (avisar is not null)
                 {
                     using var scope = scopes.CreateScope();
-                    var pendencias = await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>().PendenciasAsync(Agora, ct: ct);
-                    if (pendencias.Count > 0 && (pendencias.Count != quantidadeAnterior || Agora - ultimoAviso >= TimeSpan.FromHours(1)))
-                    { avisar(pendencias.Count); ultimoAviso = Agora; }
-                    quantidadeAnterior = pendencias.Count;
+                    var quantidade = await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>().ContarPendenciasAsync(Agora, ct);
+                    if (quantidade > 0 && (quantidade != quantidadeAnterior || Agora - ultimoAviso >= TimeSpan.FromHours(1)))
+                    { avisar(quantidade); ultimoAviso = Agora; }
+                    quantidadeAnterior = quantidade;
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }

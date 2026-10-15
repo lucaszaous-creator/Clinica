@@ -163,34 +163,6 @@ public sealed record ResumoNps(
         => Enviados == 0 ? 0 : Math.Round(Respondidos * 100.0 / Enviados, 1);
 }
 
-/// <summary>
-/// Projeção de inatividade de um paciente, resolvida no SQL: quando veio pela última
-/// vez e se já tem horário marcado. É a base do recall — e vem por projeção porque a
-/// pergunta é sobre a base INTEIRA de pacientes, e trazer todos com histórico junto
-/// arrastaria a tabela de atendimentos pela rede.
-/// </summary>
-public sealed record InatividadePaciente(
-    int PacienteId,
-    string Nome,
-    string? Telefone,
-    DateOnly? UltimoAtendimento,
-    DateTime? ProximoAgendamento);
-
-/// <summary>
-/// Um paciente que sumiu, já com o que a tela precisa mostrar para decidir chamar.
-/// <see cref="TemConsentimento"/> é exibido, não escondido: quem não autorizou
-/// comunicação aparece marcado, para a clínica saber que precisa pedir o consentimento
-/// — não some da lista sem explicação.
-/// </summary>
-public sealed record CandidatoRecall(
-    int PacienteId,
-    string Nome,
-    string? Telefone,
-    DateOnly? UltimoAtendimento,
-    int DiasSemVir,
-    bool TemConsentimento,
-    bool TemTelefone);
-
 // ==================== Caixa ====================
 
 /// <summary>
@@ -282,18 +254,3 @@ public sealed record LancamentoDatado(
     /// </summary>
     public int? CategoriaId { get; init; }
 }
-
-/// <summary>
-/// O que a leitura de retenção precisa de cada paciente já atendido — agrupado no BANCO.
-///
-/// Antes disso, responder "quem parou de vir" exigia carregar a tabela de pacientes
-/// inteira com a de atendimentos junto, para no fim usar duas agregações por pessoa: a
-/// data da última sessão e a contagem. Numa base de alguns milhares de pacientes isso é
-/// o banco inteiro trafegando até o cliente — e o banco é remoto (Neon).
-/// </summary>
-public sealed record ResumoAtendimentosPaciente(
-    int PacienteId,
-    string Nome,
-    string? Telefone,
-    DateOnly UltimaSessao,
-    int TotalSessoes);

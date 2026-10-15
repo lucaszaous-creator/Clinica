@@ -27,7 +27,11 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        _host = await SuiteApp.IniciarAsync(this, "Consultório", "Consultório — Clínica SemDor", _modulos);
+        // A abertura é SEMPRE o "Meu dia" — a pergunta de quem chega ao consultório é "quem
+        // eu vejo hoje". Declarada aqui, no EXE, e não como `Inicial` no módulo: o módulo
+        // também é carregado pelo Gerente Geral, onde a abertura é o painel da direção.
+        _host = await SuiteApp.IniciarAsync(this, "Consultório", "Consultório — Clínica SemDor", _modulos,
+            chaveAbertura: ChavesSuite.ConsultorioMeuDia);
     }
 
     protected override void OnExit(ExitEventArgs e)

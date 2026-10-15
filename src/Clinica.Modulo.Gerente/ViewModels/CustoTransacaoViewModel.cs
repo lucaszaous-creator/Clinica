@@ -123,13 +123,15 @@ public sealed partial class CustoTransacaoViewModel : ObservableObject
             var fim = new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(1).AddDays(-1);
             Periodo = $"{inicio:MM/yyyy} a {fim:MM/yyyy}";
 
-            var serie = await custo.SerieAsync(hoje, MesesJanela);
-            var resumo = await custo.ResumoAsync(inicio, fim);
+            var painel = await custo.PainelAsync(hoje, MesesJanela);
+            if (geracao != _geracaoCarga) return;
+            var serie = painel.Serie;
+            var resumo = painel.Resumo;
 
             var linhasAdquirente = new List<LinhaAdquirente>();
-            foreach (var a in await custo.PorAdquirenteAsync(inicio, fim))
+            foreach (var a in painel.Adquirentes)
             {
-                var faixa = await custo.FaixaDeTabelaAsync(a.Adquirente, hoje);
+                (decimal Menor, decimal Maior)? faixa = painel.Faixas.TryGetValue(a.Adquirente, out var encontrada) ? encontrada : null;
                 var efetiva = a.TaxaEfetiva;
 
                 // A comparação só aparece quando há os dois lados. Escrever "efetiva 3,9%"

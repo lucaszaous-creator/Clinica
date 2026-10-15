@@ -105,6 +105,14 @@
 
             <!-- UMA superfície para a região inteira, e a separação entre as linhas por
                  espaço — não uma moldura por paciente. -->
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,12,0,0"
+                        Visibility="{Binding Seletor.MostrandoPaginacao, Converter={StaticResource BoolParaVisibilidade}}">
+                <Button Content="Anterior" Command="{Binding Seletor.PaginaAnteriorCommand}"
+                        IsEnabled="{Binding Seletor.PodePaginaAnterior}" Style="{StaticResource BotaoSecundario}" />
+                <TextBlock Text="{Binding Seletor.ResumoPagina}" Margin="12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Button Content="Próxima" Command="{Binding Seletor.ProximaPaginaCommand}"
+                        IsEnabled="{Binding Seletor.PodeProximaPagina}" Style="{StaticResource BotaoSecundario}" />
+            </StackPanel>
             <Border Style="{StaticResource Card}">
                 <Grid>
                     <ctrl:EstadoDaTela Panel.ZIndex="1"

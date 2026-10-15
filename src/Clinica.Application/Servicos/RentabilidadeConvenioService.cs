@@ -179,7 +179,11 @@ public sealed class RentabilidadeConvenioService
         DateOnly inicio, DateOnly fim, CancellationToken ct = default)
     {
         var linhas = await PorConvenioAsync(inicio, fim, ct);
+        return Resumir(linhas);
+    }
 
+    public static ResumoRentabilidade Resumir(IReadOnlyList<RentabilidadeConvenio> linhas)
+    {
         var comMedia = linhas.Where(l => l.LiquidoPorGuia is not null).ToList();
 
         return new ResumoRentabilidade(

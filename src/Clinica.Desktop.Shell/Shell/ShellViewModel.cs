@@ -44,13 +44,17 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     private ItemMenuModulo? _itemAtual;
     private readonly List<(ItemMenuModulo Item, object Tela)> _historico = [];
+    private readonly int _usuarioDasTelas = SessaoUsuario.Atual.UsuarioId;
+    private readonly Permissao _permissoesDasTelas = SessaoUsuario.Atual.Efetivas;
     private bool Voltar()
     {
         if (_historico.Count == 0) return false;
         var anterior = _historico[^1];
         _historico.RemoveAt(_historico.Count - 1);
+        var saiu = TelaAtual;
         _itemAtual = anterior.Item;
         TelaAtual = anterior.Tela;
+        if (saiu is not null && !ReferenceEquals(saiu, TelaAtual)) CicloDeVidaTela.Descartar(saiu);
         TituloTela = anterior.Item.Rotulo;
         ModuloAtual = GruposSidebar.Rotulo(anterior.Item.Grupo);
         GrupoSelecionado = Grupos.FirstOrDefault(g => g.Itens.Contains(anterior.Item)) ?? GrupoSelecionado;
@@ -61,7 +65,22 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Título da janela (nome do app, ex.: "Recepção").</summary>
     public string Titulo { get; }
 
+    /// <summary>
+    /// O nome do app ao lado da logo ("Recepção"), como no mockup aprovado (out/2026): com
+    /// cinco executáveis na mesma máquina, a marca sozinha não diz em qual deles se está.
+    /// Sai do título da janela ("Recepção — Clínica SemDor"), que cada exe já declara.
+    /// </summary>
+    public string NomeDoApp => Titulo.Split('—')[0].Trim();
+
     public IReadOnlyList<GrupoMenuModulo> Grupos { get; }
+
+    /// <summary>
+    /// O que a barra do topo mostra. Num executável de UM módulo que declara itens
+    /// principais (a Recepção — mockup aprovado em out/2026) a barra é PLANA: os principais
+    /// direto, na ordem declarada, e o resto num "Mais". Nos outros, as categorias de sempre.
+    /// Nenhuma tela some: o que não é principal continua um clique adiante.
+    /// </summary>
+    public IReadOnlyList<GrupoMenuModulo> Superiores { get; }
     [ObservableProperty] private GrupoMenuModulo? _grupoSelecionado;
 
     /// <summary>Todos os itens, em ordem — usado para achar o item por chave.</summary>
@@ -126,7 +145,17 @@ public sealed partial class ShellViewModel : ObservableObject
     public int TotalAssinaturasInfusao => AssinaturasEnfermagem + AssinaturasMedicas + InfusoesDevolvidas;
     public string ResumoAssinaturasInfusao => $"Abrir fila de infusões · assinaturas: enfermagem {AssinaturasEnfermagem}; médico responsável {AssinaturasMedicas}; devolvidas {InfusoesDevolvidas}";
 
-    public ShellViewModel(string titulo, IEnumerable<IModuloApp> modulos, IServiceProvider servicos)
+    /// <param name="chaveAbertura">
+    /// A tela de abertura DESTE executável, quando ele a declara (out/2026). Existe porque
+    /// <see cref="ItemMenuModulo.Inicial"/> é marca de MÓDULO, e um módulo é carregado por
+    /// vários exes: marcar o "Meu dia" no módulo do Consultório faria ele vencer o painel
+    /// da direção dentro do Gerente Geral (o defeito da parcela 22). A chave é do EXE, e
+    /// passa pelo mesmo caminho de <see cref="NavegacaoSuite"/>, então a sub-tela que
+    /// virou aba abre no item pai já na aba certa. Sem ela — ou sem permissão para o
+    /// destino —, vale a regra de sempre.
+    /// </param>
+    public ShellViewModel(string titulo, IEnumerable<IModuloApp> modulos, IServiceProvider servicos,
+        string? chaveAbertura = null)
     {
         Titulo = titulo;
         _modulos = modulos.ToList();
@@ -233,6 +262,17 @@ public sealed partial class ShellViewModel : ObservableObject
                 g.Key, g.OrderByDescending(i => i.Inicial).ToList()))
             .ToList();
 
+        var visiveisNaBarra = Grupos.SelectMany(g => g.Itens).ToList();
+        var principais = visiveisNaBarra.Where(i => i.Principal is not null).OrderBy(i => i.Principal).ToList();
+        if (principais.Count > 0 && _modulos.Count(m => m is not ModuloContextual) == 1)
+        {
+            var barra = principais.Select(i => new GrupoMenuModulo(i)).ToList();
+            var resto = visiveisNaBarra.Where(i => i.Principal is null).ToList();
+            if (resto.Count > 0) barra.Add(new GrupoMenuModulo("Mais", resto));
+            Superiores = barra;
+        }
+        else Superiores = Grupos;
+
         // Uma tela pode pedir para abrir outra (o painel da direção leva ao assunto do
         // alerta). Ligado aqui porque é este objeto que sabe navegar.
         NavegacaoSuite.Ligar(IrPara, Voltar);
@@ -245,8 +285,11 @@ public sealed partial class ShellViewModel : ObservableObject
         // tela que não se sabe como alcançar de novo. Sai de `Grupos`, e não de `Itens`,
         // porque é `Grupos` que já descartou o item composto sem aba nenhuma.
         var visiveis = Grupos.SelectMany(g => g.Itens).ToList();
-        var abertura = visiveis.FirstOrDefault(i => i.Inicial) ?? visiveis.FirstOrDefault();
-        if (abertura is not null) Navegar(abertura);
+        if (chaveAbertura is null || !IrPara(chaveAbertura, apenasConferir: false))
+        {
+            var abertura = visiveis.FirstOrDefault(i => i.Inicial) ?? visiveis.FirstOrDefault();
+            if (abertura is not null) Navegar(abertura);
+        }
 
         if (sessao is { Autenticado: true } && Itens.Any(i => i.Chave == ChavesSuite.SalaInfusao)
             && (sessao.Pode(Permissao.ChecarPrescricao)
@@ -323,6 +366,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     private bool IrPara(string chave, bool apenasConferir)
     {
+        // Atalhos antigos mantêm seu pedido de data, agora atendido pela Visão geral.
+        if (chave == ChavesSuite.AgendaRecepcao && Itens.Any(i => i.Chave == ChavesSuite.OcupacaoAgenda))
+            chave = ChavesSuite.OcupacaoAgenda;
         if (!Itens.Any(i => i.Chave == chave)) return false;
         var pai = Grupos
             .SelectMany(g => g.Itens)
@@ -359,22 +405,62 @@ public sealed partial class ShellViewModel : ObservableObject
                 && _servicos.GetService<PacienteEmFoco>() is { } foco && !contexto.Corresponde(foco)))
         {
             if (TelaAtual is TelaComAbas jaAberta) jaAberta.Selecionar(abaInicial);
+            else if (TelaAtual is IReceberNavegacao destino) destino.AoNavegar();
             return;
         }
 
-        var tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
+        // O histórico já guarda estas instâncias. Recriá-las ao escolher o menu novamente
+        // reiniciava o navegador e deixava a instância anterior ocupando memória.
+        // Volta do histórico quem o item manda preservar OU quem sabe se reler por trás
+        // (IAtualizarAoVoltar, out/2026) — sempre na mesma sessão e com as mesmas permissões.
+        var mesmaSessao = SessaoUsuario.Atual.Autenticado
+            && SessaoUsuario.Atual.UsuarioId == _usuarioDasTelas && SessaoUsuario.Atual.Efetivas == _permissoesDasTelas;
+        var recente = mesmaSessao ? _historico.FindLastIndex(h => ReferenceEquals(h.Item, item)
+            && (item.PreservarAoNavegar || CicloDeVidaTela.SabeAtualizarAoVoltar(h.Tela))) : -1;
+        object? tela;
+        var reaproveitada = false;
+        if (recente >= 0)
+        {
+            tela = _historico[recente].Tela;
+            _historico.RemoveAt(recente);
+            if (!CicloDeVidaTela.PodeReutilizar(tela))
+            {
+                CicloDeVidaTela.Descartar(tela);
+                tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
+            }
+            else
+            {
+                reaproveitada = true;
+                if (tela is TelaComAbas composta) composta.Selecionar(abaInicial);
+                // A tela volta COM o que mostrava e relê por trás (item 3 do plano de desempenho).
+                CicloDeVidaTela.AtualizarAoVoltar(tela);
+            }
+        }
+        else tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
         if (tela is null) return;
 
         if (_itemAtual is not null && TelaAtual is not null)
         {
             _historico.Add((_itemAtual, TelaAtual));
-            if (_historico.Count > 8) _historico.RemoveAt(0);
+            if (_historico.Count > 8)
+            {
+                CicloDeVidaTela.Descartar(_historico[0].Tela);
+                _historico.RemoveAt(0);
+            }
         }
         _itemAtual = item;
         foreach (var i in Itens) i.EstaAtivo = ReferenceEquals(i, item);
         TelaAtual = tela;
         TituloTela = item.Rotulo;
         ModuloAtual = GruposSidebar.Rotulo(item.Grupo);
+        MedirTroca(item.Rotulo, reaproveitada);
+    }
+
+    public void LiberarTelas()
+    {
+        foreach (var entrada in _historico) CicloDeVidaTela.Descartar(entrada.Tela);
+        _historico.Clear();
+        if (TelaAtual is { } atual) CicloDeVidaTela.Descartar(atual);
     }
 
     /// <summary>Monta a tela de um item simples pedindo ao módulo dono.</summary>
@@ -444,7 +530,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         AvisosAbertos = !AvisosAbertos;
         if (AvisosAbertos) Snackbar?.MarcarLidos();
-        if (AvisosAbertos) _ = AtualizarPedidosGlobaisAsync();
+        if (AvisosAbertos) { _ = AtualizarPedidosGlobaisAsync(); _ = CarregarPedidosDoSinoAsync(); }
     }
 
     /// <summary>

@@ -94,14 +94,21 @@ public sealed class RelacionamentoService
     /// Marca quem **vem hoje**: com o paciente no balcão, o parabéns é dado na hora e não
     /// custa nem a ligação.
     /// </summary>
-    public async Task<IReadOnlyList<Aniversariante>> AniversariantesAsync(
+    public Task<IReadOnlyList<Aniversariante>> AniversariantesAsync(
         DateOnly dia, int janelaDias = 0, CancellationToken ct = default)
+        => AniversariantesAsync(dia, janelaDias, null, ct);
+
+    /// <summary>
+    /// Igual, com os pacientes que vêm no dia já conhecidos por quem chama (o painel acabou de
+    /// ler a agenda do dia — é o mesmo conjunto: horários que ocupam a agenda).
+    /// </summary>
+    public async Task<IReadOnlyList<Aniversariante>> AniversariantesAsync(
+        DateOnly dia, int janelaDias, IReadOnlyCollection<int>? pacientesDoDia, CancellationToken ct = default)
     {
         var pacientes = await _repo.AniversariantesAsync(dia, janelaDias, ct);
         if (pacientes.Count == 0) return [];
 
-        var doDia = await _agenda.DoDiaAsync(dia, ct);
-        var vemHoje = doDia
+        var vemHoje = pacientesDoDia?.ToHashSet() ?? (await _agenda.DoDiaAsync(dia, ct))
             .Where(a => a.OcupaAgenda)
             .Select(a => a.PacienteId)
             .ToHashSet();

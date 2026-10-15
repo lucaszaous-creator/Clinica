@@ -338,6 +338,20 @@ public sealed class CentralDocumentosService
             PermissaoEmitir = Permissao.Prescrever
         },
 
+        // O laudo é ESCRITO pelo médico e carrega diagnóstico: é dado de saúde para ler e
+        // ato de quem prescreve para emitir — os mesmos bits do atestado, que é o papel
+        // mais parecido com ele. Alterar é emitir uma NOVA VERSÃO, que cancela a anterior
+        // com o número da nova no motivo (out/2026).
+        new("laudo-medico", "Laudo médico",
+            "Texto do médico sobre o quadro do paciente. Fica registrado: sai em 2ª via "
+            + "idêntica e se altera emitindo uma nova versão, que substitui a anterior.",
+            NaturezaFolha.Clinico, ExigenciaFolha.Paciente)
+        {
+            TipoClinico = TipoDocumentoClinico.LaudoMedico,
+            PermissaoVer = Permissao.VerProntuario,
+            PermissaoEmitir = Permissao.Prescrever
+        },
+
         // Comparecimento: prova que a pessoa ESTEVE aqui, com hora de chegada e de saída.
         // Não diz o que ela tem, e quem o entrega é o balcão — fica no cadastro.
         new("comparecimento", "Declaração de comparecimento",
@@ -515,6 +529,28 @@ public sealed class CentralDocumentosService
         => Catalogo.FirstOrDefault(f => f.TipoClinico == tipo)?.Rotulo
            ?? TipoDocumentoInfo.Rotular(tipo);
 
+    /// <summary>
+    /// Um documento clínico como LINHA de "o que já saiu" — o mesmo formato da central.
+    ///
+    /// ⚠️ Ponto único da conversão (out/2026): o histórico de documentos do Consultório
+    /// passou a buscar pela MESMA regra da central (<see cref="BuscaNasFolhas"/>), e
+    /// a busca lê esta linha. Duas montagens divergiriam no rótulo ("Receita" × "Receituário")
+    /// e o filtro por tipo de uma tela deixaria de achar o que a outra acha.
+    /// </summary>
+    public static FolhaEmitida ComoFolha(DocumentoClinico d) => new(
+        d.Id, NaturezaFolha.Clinico, d.Numero, d.CodigoVerificacao,
+        RotularClinico(d.Tipo),
+        d.Paciente?.Nome, d.Profissional?.Nome,
+        d.Data, d.CriadoEm, d.CriadoPor,
+        d.Cancelado, d.MotivoCancelamento)
+    {
+        PacienteId = d.PacienteId,
+        PublicadoAte = d.PublicadoAte,
+        JaTeveLink = !string.IsNullOrWhiteSpace(d.TokenPublicacao),
+        Assinado = d.AssinaturaTipo is not null,
+        Chave = Catalogo.FirstOrDefault(f => f.TipoClinico == d.Tipo)?.Chave ?? string.Empty
+    };
+
     /// <summary>Rótulo da folha correspondente a um documento financeiro.</summary>
     public static string RotularFinanceiro(TipoDocumentoFinanceiro tipo)
         => Catalogo.FirstOrDefault(f => f.TipoFinanceiro == tipo)?.Rotulo
@@ -557,19 +593,7 @@ public sealed class CentralDocumentosService
             var clinicos = await _repo.DocumentosClinicosNoPeriodoAsync(
                 inicio, fim, folha?.TipoClinico, pacienteId, ct);
 
-            lista.AddRange(clinicos.Select(d => new FolhaEmitida(
-                d.Id, NaturezaFolha.Clinico, d.Numero, d.CodigoVerificacao,
-                RotularClinico(d.Tipo),
-                d.Paciente?.Nome, d.Profissional?.Nome,
-                d.Data, d.CriadoEm, d.CriadoPor,
-                d.Cancelado, d.MotivoCancelamento)
-            {
-                PacienteId = d.PacienteId,
-                PublicadoAte = d.PublicadoAte,
-                JaTeveLink = !string.IsNullOrWhiteSpace(d.TokenPublicacao),
-                Assinado = d.AssinaturaTipo is not null,
-                Chave = Catalogo.FirstOrDefault(f => f.TipoClinico == d.Tipo)?.Chave ?? string.Empty
-            }));
+            lista.AddRange(clinicos.Select(ComoFolha));
         }
 
         if (folha is null || folha.Natureza == NaturezaFolha.Financeiro)

@@ -183,7 +183,9 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Content="Horários e travas" Command="{Binding ConfigurarHorariosCommand}"
                         IsEnabled="{Binding PodeEditarAgenda}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0" />
-                <Button Content="Agendar" Command="{Binding MarcarAtendimentoCommand}" IsEnabled="{Binding PodeMarcarAtendimento}" MinWidth="120" />
+                <!-- UM botão de marcar (out/2026): "Agendar" aqui e "Novo horário" dentro de
+                     Mais ações faziam a MESMA marcação, com o mesmo pré-preenchimento. -->
+                <Button Content="Marcar atendimento" Command="{Binding NovoHorarioCommand}" IsEnabled="{Binding PodeEditarAgenda}" MinWidth="160" />
             </StackPanel>
         </Grid>
         <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="14,10" Margin="0,0,0,14">
@@ -207,14 +209,13 @@
                 <Button Content="Próximas vagas" Command="{Binding BuscarVagasPlanejamentoCommand}" Style="{StaticResource BotaoSecundario}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
             </WrapPanel>
         </Border>
-        <Expander DockPanel.Dock="Top" Header="Operações da agenda" Margin="0,0,0,12">
+        <Expander DockPanel.Dock="Top" Header="Mais ações da grade" Margin="0,0,0,12">
             <WrapPanel Margin="0,8,0,0">
                 <Button Content="{Binding EsperaResumo}" Command="{Binding AbrirEsperaCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
-                <Button Content="Confirmar amanhã…" Command="{Binding ConfirmarSessoesCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
+                <Button Content="Confirmar amanhã" Command="{Binding ConfirmarSessoesCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
                 <Button Content="Conferir atendimentos…" Command="{Binding ConciliarAgendaCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
                 <Button Content="Imprimir folha" Command="{Binding ImprimirAgendaCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
                 <Button Content="Fechar agenda…" Command="{Binding FecharAgendaCommand}" IsEnabled="{Binding PodeEditarAgenda}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
-                <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}" IsEnabled="{Binding PodeEditarAgenda}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
             </WrapPanel>
         </Expander>
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,12"
@@ -260,8 +261,31 @@
                             <Button Content="Atualizar" Command="{Binding CarregarCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,0,6" />
                         </WrapPanel>
                     </Border>
+                    <!-- ============ PEDIDOS DA ENFERMAGEM + BUSCA ============
+                         O resumo dos avisos da enfermagem (só para quem trata os pedidos) e a
+                         busca por paciente, modalidade e situação. Os dois são do código-behind:
+                         o resumo tem o próprio relógio, e o filtro é apresentação — recorta a
+                         vista dos blocos, nunca a disponibilidade calculada pelo ViewModel. -->
+                    <StackPanel DockPanel.Dock="Top">
+                        <Border x:Name="AvisoEnfermagem" Style="{StaticResource AlertaInfo}" Margin="12,12,12,0"
+                                Visibility="{Binding PodeVerResumo, Converter={StaticResource BoolParaVisibilidade}, FallbackValue=Collapsed}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Ver pedidos" Click="AoVerPedidos"
+                                        IsEnabled="{Binding Livre}" Style="{StaticResource BotaoSecundario}"
+                                        Margin="12,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap">
+                                    <Run Text="Pedidos da enfermagem" FontWeight="SemiBold" />
+                                    <Run Text=" · " />
+                                    <Run Text="{Binding ResumoAviso, Mode=OneWay}" />
+                                </TextBlock>
+                            </DockPanel>
+                        </Border>
+                        <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="12,10">
+                            <local:FiltrosAgendaBarra x:Name="BarraFiltros" />
+                        </Border>
+                    </StackPanel>
                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" TextTrimming="CharacterEllipsis" Margin="12,8" />
-                    <Grid x:Name="ConteudoAgendaBusca">
+                    <Grid>
                         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                             <Grid MinWidth="{Binding LarguraGrade}" VerticalAlignment="Top">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="64" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
@@ -288,9 +312,23 @@
                                 </ItemsControl>
                             </Grid>
                         </ScrollViewer>
-                        <ctrl:EstadoDaTela Itens="{Binding ColunasPlanejamento}" Carregando="{Binding Carregando}"
+                        <ctrl:EstadoDaTela Panel.ZIndex="1" Itens="{Binding ColunasPlanejamento}" Carregando="{Binding Carregando}"
                                            Glifo="&#xE787;" TextoCarregando="Montando a agenda…"
                                            Titulo="Nenhuma coluna para este filtro" Descricao="Confira o profissional ou a sala escolhida." />
+                        <!-- Horários no período e NENHUM passa pela busca: diz o que fazer, em vez
+                             de deixar a grade de vãos parecer um dia sem paciente. -->
+                        <Border Panel.ZIndex="1" Style="{StaticResource AlertaAviso}" Margin="12"
+                                VerticalAlignment="Top" HorizontalAlignment="Center" MaxWidth="460"
+                                Visibility="{Binding DataContext.NenhumCorresponde, ElementName=BarraFiltros,
+                                             Converter={StaticResource BoolParaVisibilidade}, FallbackValue=Collapsed}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Limpar filtros" Margin="12,0,0,0" VerticalAlignment="Center"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        Command="{Binding DataContext.LimparCommand, ElementName=BarraFiltros}" />
+                                <TextBlock Text="Nenhum paciente corresponde aos filtros. Confira o nome, a modalidade ou a situação escolhida."
+                                           TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
                     </Grid>
                 </DockPanel>
             </Border>

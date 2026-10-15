@@ -123,6 +123,18 @@ public sealed class GuardaProntuarioService
 
     public GuardaProntuarioService(IClinicaRepositorio repo) => _repo = repo;
 
+    /// <summary>Com leitura paralela, o retrato da clínica lê vários pacientes ao mesmo tempo.</summary>
+    public GuardaProntuarioService(IClinicaRepositorio repo, ILeituraParalela paralela) : this(repo)
+        => _paralela = paralela;
+
+    private readonly ILeituraParalela? _paralela;
+
+    /// <summary>
+    /// Quantos pacientes o retrato da clínica lê ao mesmo tempo. Menos que o teto do app (6):
+    /// as outras telas abertas continuam tendo conexão enquanto o retrato roda.
+    /// </summary>
+    private const int PacientesAoMesmoTempo = 4;
+
     /// <summary>A guarda do prontuário de um paciente.</summary>
     public async Task<SituacaoGuarda> DoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
@@ -273,11 +285,8 @@ public sealed class GuardaProntuarioService
         var total = 0;
         DateOnly? maisAntigo = null;
 
-        foreach (var p in pacientes)
+        foreach (var situacao in await SituacoesAsync(pacientes.Select(p => p.Id).ToList(), ct))
         {
-            ct.ThrowIfCancellationRequested();
-
-            var situacao = await DoPacienteAsync(p.Id, ct);
             total += situacao.TotalDeRegistros;
 
             if (situacao.UltimoRegistro is not { } ultimo) continue;
@@ -288,5 +297,42 @@ public sealed class GuardaProntuarioService
         }
 
         return new ResumoGuarda(pacientes.Count, comRegistro, cumpriram, maisAntigo, total);
+    }
+
+    /// <summary>
+    /// A situação de cada paciente, pela MESMA <see cref="DoPacienteAsync"/> (out/2026). O
+    /// retrato da clínica fazia ~14 idas ao banco por paciente, uma depois da outra — numa base
+    /// de dois mil, horas. Com leitura paralela, alguns pacientes são lidos ao mesmo tempo, cada
+    /// um no seu escopo; o resumo só soma, então a ordem em que chegam não muda o número.
+    /// </summary>
+    private async Task<IReadOnlyList<SituacaoGuarda>> SituacoesAsync(
+        IReadOnlyList<int> ids, CancellationToken ct)
+    {
+        if (_paralela is null)
+        {
+            var lidas = new List<SituacaoGuarda>(ids.Count);
+            foreach (var id in ids)
+            {
+                ct.ThrowIfCancellationRequested();
+                lidas.Add(await DoPacienteAsync(id, ct));
+            }
+            return lidas;
+        }
+
+        var resultado = new SituacaoGuarda[ids.Count];
+        var proximo = -1;
+        async Task Trabalhar()
+        {
+            int i;
+            while ((i = Interlocked.Increment(ref proximo)) < ids.Count)
+            {
+                ct.ThrowIfCancellationRequested();
+                var id = ids[i];
+                resultado[i] = await _paralela.LerAsync<GuardaProntuarioService, SituacaoGuarda>(
+                    g => g.DoPacienteAsync(id, ct));
+            }
+        }
+        await Task.WhenAll(Enumerable.Range(0, Math.Min(PacientesAoMesmoTempo, ids.Count)).Select(_ => Trabalhar()));
+        return resultado;
     }
 }

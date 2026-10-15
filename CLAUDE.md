@@ -187,6 +187,15 @@ Nenhum deles quebra o build quando é esquecido:
   ele responde quase sincronamente e as consultas nunca se sobrepõem.
 - Leitura composta nova ganha um teste com o **interceptor de lentidão**
   (`CabecalhoClinicoTests.LentidaoDeRede`).
+- **Leituras INDEPENDENTES correm juntas, cada uma no seu escopo** (`ILeituraParalela`,
+  out/2026): com o banco a ~250 ms por ida, oito conferências em fila são 2 s; em paralelo, o
+  tempo da mais lenta. Sem `ILeituraParalela` (testes) o serviço continua em fila. O resultado
+  tem de ser o MESMO — `ElegibilidadeParalelaTests` compara as duas formas, ordem incluída.
+- **A mesma pergunta duas vezes na mesma carga não vai duas vezes ao banco**: o repositório
+  memoriza por poucos segundos as leituras de clínica inteira (códigos em aberto, consultas,
+  carteirinhas) e a fotografia das configurações, e TUDO isso some em qualquer `SaveChanges`
+  do escopo. Leitura de UM paciente se filtra no banco, nunca trazendo a clínica e filtrando
+  em memória. Detalhes em `docs/desempenho-leituras-2026-10-15.md`.
 
 ### 4. ViewModel e tela
 
@@ -195,6 +204,14 @@ Nenhum deles quebra o build quando é esquecido:
 
 - **Escopo do executável:** registrar componentes compartilhados não autoriza publicar seus menus/rotas. O Faturamento usa `ModuloFaturamentoAplicativo`, conferido pela mesma composição na verificação Windows, para abrir apenas Financeiro/Faturamento de guias mesmo com acesso de gerente. Testar abertura, busca e navegação direta; `Oculto` sozinho não bloqueia uma rota.
 
+- **Sem WebView2 (out/2026).** As telas em HTML (Financeiro inteiro, prescrições, infusão,
+  agenda do médico, fila, filtros da agenda, ocupação e pedidos da enfermagem) voltaram para
+  WPF: o navegador é uma janela NATIVA que fica PRETA até pintar (1–5 s a cada tela nova, em
+  todos os módulos), o WPF não desenha por cima dela, e cada tela pagava a partida do
+  navegador. Tela nova é XAML + ViewModel; não reintroduza navegador embutido.
+- **Tela de leitura que volta do histórico** implementa `IAtualizarAoVoltar`: reaparece na hora
+  com o que mostrava e relê em silêncio (sem "Carregando", sem limpar, falha só no log).
+  Formulário e prontuário em edição NÃO implementam — voltar não pode reler por baixo de quem digita.
 - **Carga async** disparada por tecla/clique/timer/troca-de-paciente: **contador de geração**.
 - **Disponibilidade da agenda:** só libere vagas depois de concluir todas as leituras do período. Na visão por sala, combine o profissional selecionado com a sala de cada coluna; preserve o atalho de sobreposição e a trava. Regressões na PR #205: `tools/ValidarLayoutWindows` cobre ocupação cruzada, trava ligada/desligada e leitura pausada após os bloqueios.
 - **Entre o `Clear()` e o último `Add` não pode haver `await`.**
@@ -3666,6 +3683,14 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   um PR fica vermelho, a primeira pergunta é "qual rede local deveria ter visto isto?"** —
   e se a resposta é nenhuma, a correção vem com a checagem.
 
+  ⚠️ **`TargetName` de gatilho resolve no template DONO do gatilho, não no arquivo**
+  (out/2026 — o build do Windows da rodada de UI da Recepção caiu com `MC4111`). O
+  gatilho "entrada direta sem seta" foi escrito no template do ITEM do menu, e a `Seta`
+  mora no template da CATEGORIA, vinte linhas abaixo no mesmo dicionário. O nome existia
+  no arquivo, e foi isso que o fez parecer certo. Virou a **checagem 49** (o nome tem de
+  estar no CONTEÚDO do mesmo template, sem descer em template aninhado), medida antes de
+  ligar: uma ocorrência, que era o defeito.
+
 - **A CONFERÊNCIA PEDIDA PELA DIREÇÃO SOBRE A AGENDA — três defeitos com 2261 testes
   verdes, e os três da mesma família** (set/2026: *"verifique se nossa agenda tem falhas
   que você não viu quando construiu"*). Nenhum quebrava build, teste ou rede; os três
@@ -4056,6 +4081,21 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do XAML e o binding morto é silencioso —, e a conferência é `grep` do membro no tipo
   base.
 
+- **DDL de migration só alcança as tabelas cujo DONO é o papel do desktop** (out/2026 — a
+  Recepção não abriu: `42501: permission denied for table SolicitacoesEnfermagem`). As
+  tabelas dos pedidos da enfermagem são criadas pelo atualizador do posto
+  (`deploy/tablet`) como `postgres`, e o desktop recebe só SELECT/INSERT/UPDATE nelas. A
+  migration `AvisosInstantaneos` fazia `CREATE TRIGGER` incondicional nas três tabelas e o
+  app parava na abertura — mensagem de "conexão" para um erro de privilégio (a lição da
+  parcela 79). Agora cada gatilho só nasce onde `has_table_privilege(…, 'TRIGGER')`, o
+  ouvinte lê quais tabelas TÊM gatilho (`OuvinteDeMudancas.Avisa`) e o relógio dos pedidos
+  só se espaça quando a tabela dele avisa; `deploy/tablet/avisos-instantaneos-enfermagem.sql`
+  cria os dois que faltam como dono. **Nenhum teste via**: a suíte aplica as migrations
+  como superusuário. Reproduza com um papel sem dono antes de mexer em tabela do posto.
+- **O build do Windows roda em PARALELO** (out/2026, ~15 → ~7 min): `testes` em Linux
+  (o que não precisa de WPF), `conferencias` e `publicar` no Windows, cache do NuGet, e o
+  job `build` só espera os três — é o nome do check do PR. Passo novo entra no job certo;
+  pôr teste de Linux no runner Windows paga 2× e alonga a fila.
 - **Triggers usados pelo portal devem funcionar com seu papel restrito.** `SELECT FOR SHARE`
   exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita
   conceder ao portal permissao de editar profissionais. Testar com papel sem UPDATE.
@@ -4408,6 +4448,95 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   dois, e a declaração de comparecimento — o papel mais corriqueiro do balcão — paga esse
   clique todo dia.
 
+
+- **"DOIS OU MAIS CAMINHOS LEVAM AO MESMO LUGAR" — o recall tinha TRÊS motores e a agenda
+  tinha seis botões de marcar** (out/2026, pedido da direção sobre a PR 250). Nada falhava;
+  cada porta fazia o seu pedaço, e a pessoa abria as três para descobrir a diferença.
+  ⚠️ **Recall: uma fila só.** "Quem parou de vir" (Gerente, `RetencaoPacienteService`), a
+  rodada de recall do `CampanhaService` e a `RetornoView` (sem rota desde a navegação
+  unificada) respondiam a MESMA pergunta do Recall do Acompanhamento — com duas definições
+  de "sumido" e sem o registro do contato. Saíram inteiras, com os métodos de repositório
+  que só elas chamavam. O que tinham de PRÓPRIO foi para a fila que fica: o **tratamento
+  longo** (`LinhaAcompanhamento.TotalSessoes`, contado no banco, com condição e atalho), o
+  **pacote em aberto** (já existia) e o **CSV** — com a coluna de quem pode receber
+  mensagem, senão a planilha vira lista de disparo. **Ao aposentar uma tela redundante,
+  liste o que ela fazia MELHOR e leve junto**; o resto é regressão vestida de limpeza.
+  ⚠️ **A configuração "Recall: dias sem vir" era gravada e NINGUÉM a lia** — o Acompanhamento
+  usava 60 fixo. É a configuração que não faz efeito, e ela só apareceu porque a tela que a
+  "usava" saiu: a fila passou a lê-la. **Ao remover um leitor, procure os campos que só ele
+  parecia ler — e confira se ele os lia de fato.**
+  ⚠️ **Atalho para a aba vizinha é caminho duplicado.** Campanhas tinha "Abrir fila de
+  recall" (a aba ao LADO, no mesmo item) e "Abrir confirmações"; a Grade abria uma JANELA
+  própria de Confirmações com o mesmo ViewModel da aba; a Visão geral tinha um combo
+  "Outras operações" repetindo as abas de Operações da agenda. Os atalhos saíram, a janela
+  saiu (o botão da Grade agora NAVEGA), e o mesmo ato passou a ter uma pergunta só (o
+  Cancelar da lista do Dia ganhou a confirmação que a Grade já fazia).
+  **Marcar é UM botão por tela**, com o nome que a sidebar usa ("Marcar atendimento") e o
+  pré-preenchimento do dia: eram dois lado a lado no Dia e dois na Grade, levando à mesma aba.
+  ⚠️ **Script de remoção de membro por chaves balanceadas erra o expression-bodied** que
+  tem `new { ... }` no meio: ele parou no `}` do tipo anônimo e deixou o resto do método
+  solto — o `compilar-sombra` acusou em segundos. Depois de remover código por script,
+  leia o diff do arquivo inteiro (a lição da parcela 95, outra vez).
+  **Ficou para a rodada de UI, por decisão da direção**: o redesenho visual (Acompanhamento
+  incluído), juntar Início e Visão geral, unificar a fórmula de ocupação dos dois e a faixa
+  de pedidos da enfermagem dentro da Grade (que tem o salto para o dia do pedido).
+
+- **A RODADA DE UI DA RECEPÇÃO — quatro telas refeitas a partir de mockup aprovado, e o
+  que a fidelidade custou** (out/2026; mockups em canvas aprovados antes de uma linha de
+  WPF, com a promessa de entregar "fielmente igual" e declarar todo desvio).
+  ⚠️ **Início**: saudação + quatro números + "próximos a chegar" + o que é do balcão. Tudo
+  o que a tela AFIRMA mora em `InicioDoBalcao` (Application, pura): a situação da chegada
+  só diz "Confirmou/Não confirmou" quando a rodada disse (sem contato não há selo), e
+  "Confirmar amanhã" é NULO sem rodada — contar zero ali afirmaria que ninguém precisa de
+  aviso. A ocupação vem do `IOcupacaoAgendaService`, a mesma da agenda.
+  ⚠️ **Pacientes**: os chips de recorte e a página usam o MESMO filtro no banco
+  (`AplicarRecorte`) — contagem de chip calculada por outra consulta divergiria do que o
+  clique mostra. Visitas (última e próxima) vêm em LOTE para a página, nunca por linha.
+  ⚠️ **Ficha do balcão ≠ ficha clínica.** A Recepção abria o workspace do Consultório, que
+  responde "o que foi feito com este paciente"; o balcão pergunta quem é, quando volta, se
+  o convênio está em dia e o que falta assinar. `FichaBalcaoView` reusa o
+  `FichaPacienteViewModel` inteiro (mesma leitura, barreiras e trilha) e o prontuário
+  fica a um botão, para quem tem `VerProntuario` — tirar a porta seria a regra 3 do
+  faturamento. A linha do tempo do balcão é ADMINISTRATIVA (sessão, contato, papel): a
+  evolução é dado de saúde e não entra. Sessão sai sem hora porque o atendimento guarda só
+  o dia — inventar hora seria a sequência fabricada da parcela 72.
+  ⚠️ **Marcar**: as horas viraram pílulas (`PilulasDeHorario`, pura): passo = duração da
+  sessão, jornada declarada ou 8h–18h presumidas, hoje começa agora, e a OCUPADA não some
+  (fica tracejada e clicável — a agenda avisa e não impede). O campo "Outro horário"
+  continua: pílula é atalho, não teto.
+  ⚠️ **"Colher termo" saiu do balcão** (Dia e Início), a pedido da direção: a enfermagem
+  já o colhe. O SELO de termo pendente fica — é informação para quem recebe; o que saiu
+  foi a porta duplicada.
+  A lição de método: **fidelidade a mockup não é copiar o que o desenho mostra, é
+  entregar o que ele promete com os dados que o sistema TEM** — onde falta dado (busca
+  por telefone, hora da sessão realizada, histórico de pagamento por pacote), o desvio é
+  escrito na entrega com o motivo, nunca preenchido com algo que pareça certo.
+
+- **O LAUDO MÉDICO, e o que "alterar" quer dizer num documento que não se reescreve**
+  (out/2026 — a clínica: *"escrever e ficar registrado caso precise emitir novamente ou
+  alterar"*; a direção: *"em emitir dentro do atendimento, sem nova aba"*).
+  `TipoDocumentoClinico.LaudoMedico` é um papel ESCRITO, com os bits do atestado
+  (`VerProntuario` para ler, `Prescrever` para emitir) e o CID sob a MESMA autorização
+  expressa. A porta é o botão "Laudo médico" no EMITIR do atendimento, e ele aparece
+  sozinho na régua das Prescrições e na central porque as duas leem o catálogo.
+  ⚠️ **"Emitir novamente" já existia (2ª via idêntica); "alterar" não podia ser
+  reescrever.** `EmitirNovaVersaoAsync` numera a versão nova e CANCELA a anterior no
+  MESMO `SaveChanges`, com o motivo nomeando o número que a substituiu e a trilha
+  `DocumentoClinicoSubstituido`. Em duas gravações, uma falha no meio deixaria dois
+  laudos válidos dizendo coisas diferentes, ou nenhum; e cancelar à mão para emitir de
+  novo é exatamente o passo que se esquece. A recusa vem antes de qualquer gravação
+  (outro paciente, outro tipo, já cancelado), e o teste prova que a versão recusada não
+  cancela a anterior.
+  ⚠️ **Só o laudo** (`TipoDocumentoInfo.PermiteNovaVersao`): receita e atestado valem
+  para um dia e se corrigem como sempre. O ato mora em `AcoesDoDocumento.NovaVersaoAsync`
+  e entra no "⋯" por um comando OPCIONAL no fim de `ComandosDoDocumento` — as telas que
+  não listam laudo continuam compilando sem saber dele.
+  ⚠️ **O texto do laudo nunca é herdado da sessão**: copiar a conduta para o papel que
+  vai à perícia seria decidir pelo médico o que a perícia lê. Herda só o CID.
+  ⚠️ E a lição de leiaute da mesma rodada: **em `DockPanel`, filho que não é o último
+  ganha `Dock=Left` por padrão** — o botão de Treinamento declarado sem `Dock` antes do
+  menu ficou à esquerda dele e foi empurrado para fora da janela em 880 px. Quem ancora
+  à direita declara `DockPanel.Dock="Right"` e vem ANTES do filho que preenche.
 
 ### Convenções
 

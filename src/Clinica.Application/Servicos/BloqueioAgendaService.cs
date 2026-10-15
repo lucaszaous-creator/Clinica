@@ -233,12 +233,51 @@ public sealed class BloqueioAgendaService
         BloqueioAgenda bloqueio, CancellationToken ct = default)
     {
         var doPeriodo = await _repo.AgendamentosNoPeriodoAsync(bloqueio.Inicio.Date, bloqueio.Fim, ct);
+        return Dentro(bloqueio, doPeriodo);
+    }
 
-        return doPeriodo
+    /// <summary>
+    /// O mesmo <see cref="MarcadosDentroAsync"/> para uma LISTA de bloqueios (out/2026): a tela
+    /// de Equipe fazia uma ida ao banco por bloqueio. Bloqueios próximos no calendário (até
+    /// <see cref="FolgaParaAgrupar"/> de distância) dividem UMA leitura do período que os
+    /// cobre; o filtro de cada um é o MESMO, então a resposta por bloqueio é idêntica.
+    /// Bloqueios distantes continuam com leitura própria — juntar dezembro com hoje leria
+    /// meses de agenda para responder duas contagens.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, IReadOnlyList<Agendamento>>> MarcadosDentroDeCadaAsync(
+        IReadOnlyList<BloqueioAgenda> bloqueios, CancellationToken ct = default)
+    {
+        var resposta = new Dictionary<int, IReadOnlyList<Agendamento>>();
+        var ordenados = bloqueios.OrderBy(b => b.Inicio).ToList();
+        var i = 0;
+        while (i < ordenados.Count)
+        {
+            var grupo = new List<BloqueioAgenda> { ordenados[i] };
+            var fim = ordenados[i].Fim;
+            i++;
+            while (i < ordenados.Count && ordenados[i].Inicio.Date <= fim.Add(FolgaParaAgrupar))
+            {
+                grupo.Add(ordenados[i]);
+                if (ordenados[i].Fim > fim) fim = ordenados[i].Fim;
+                i++;
+            }
+
+            var doPeriodo = await _repo.AgendamentosNoPeriodoAsync(grupo[0].Inicio.Date, fim, ct);
+            // A janela de cada um é a MESMA da leitura individual: a do grupo é só maior.
+            foreach (var b in grupo)
+                resposta[b.Id] = Dentro(b, doPeriodo.Where(a => a.DataHora >= b.Inicio.Date && a.DataHora <= b.Fim));
+        }
+        return resposta;
+    }
+
+    /// <summary>Distância máxima entre dois bloqueios para dividirem a mesma leitura.</summary>
+    public static readonly TimeSpan FolgaParaAgrupar = TimeSpan.FromDays(7);
+
+    private static List<Agendamento> Dentro(BloqueioAgenda bloqueio, IEnumerable<Agendamento> doPeriodo)
+        => doPeriodo
             .Where(a => a.OcupaAgenda)
             .Where(a => a.ColideCom(bloqueio.Inicio, bloqueio.Fim))
             .Where(a => bloqueio.AlcancaRecurso(a.ProfissionalId, a.SalaId))
             .OrderBy(a => a.DataHora)
             .ToList();
-    }
 }

@@ -114,6 +114,57 @@ public static class ImpressaoPdf
         return dialogo.ShowDialog() == true ? dialogo.FolderName : null;
     }
 
+    /// <summary>
+    /// Abre uma PRÉVIA no leitor de PDF sem perguntar onde salvar (out/2026 — o
+    /// "Pré-visualizar" do laudo). Prévia é para olhar e fechar: um diálogo de "Salvar
+    /// como" a cada conferência ensinaria a pessoa a guardar rascunho sem número ao lado
+    /// dos documentos de verdade.
+    ///
+    /// O arquivo vai para uma pasta própria do temporário do Windows, e as prévias de
+    /// mais de um dia são apagadas a cada abertura — elas têm dado de saúde, e não podem
+    /// se acumular ali. Devolve null quando abriu, e a frase do erro quando não.
+    /// </summary>
+    public static async Task<string?> AbrirPreviaAsync(byte[] pdf, string nomeSugerido)
+    {
+        string caminho;
+        try
+        {
+            var pasta = Path.Combine(Path.GetTempPath(), "ClinicaPrevias");
+            Directory.CreateDirectory(pasta);
+            foreach (var antigo in Directory.EnumerateFiles(pasta, "*.pdf"))
+            {
+                try
+                {
+                    if (File.GetLastWriteTime(antigo) < DateTime.Now.AddDays(-1)) File.Delete(antigo);
+                }
+                catch (IOException)
+                {
+                    // Prévia velha ainda aberta no leitor: fica para a próxima limpeza.
+                }
+            }
+
+            caminho = Path.Combine(pasta,
+                $"{Path.GetFileNameWithoutExtension(NomeSeguro(nomeSugerido))}-{DateTime.Now:HHmmss}.pdf");
+            await File.WriteAllBytesAsync(caminho, pdf);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Suíte — prévia não pôde ser gravada", ex);
+            return $"Não foi possível gravar a prévia: {ex.Message}";
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(caminho) { UseShellExecute = true });
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Suíte — prévia não pôde ser aberta", ex);
+            return $"A prévia foi gerada em {caminho}, mas não foi possível abri-la.";
+        }
+    }
+
     /// <summary>Nome de arquivo sem os caracteres que o Windows recusa.</summary>
     public static string NomeSeguro(string bruto)
     {

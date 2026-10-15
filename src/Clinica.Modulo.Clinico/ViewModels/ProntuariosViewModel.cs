@@ -23,7 +23,7 @@ namespace Clinica.Clinico.ViewModels;
 /// sem registro ("A escrever"). Pintar "Assinada" numa evolução seria a garantia
 /// aparente que o projeto recusa desde a parcela 3.
 /// </summary>
-public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAoAbrir
+public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAoAbrir, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
     /// <summary>A janela das ESCRITAS (evoluções e anamneses); o resumo DIZ o recorte.
     /// As pendências de sessão começam na data de corte definida pela política.</summary>
@@ -63,32 +63,42 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
     partial void OnSoAssinaturasPendentesChanged(bool value) => Refiltrar();
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => LerAsync(silencioso: false);
+
+    /// <summary>Voltou do histórico com a lista que mostrava: relê por trás, sem spinner.</summary>
+    public void AtualizarAoVoltar()
+    {
+        if (Carregando) return;
+        _ = LerAsync(silencioso: true);
+    }
+
+    private async Task LerAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
-        Carregando = true;
+        if (!silencioso) Carregando = true;
 
         try
         {
             var profissionalId = PostoClinico.ProfissionalDaLista();
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
-            IReadOnlyList<RegistroPendente> pendentes;
-            IReadOnlyList<LinhaEvolucaoProntuarios> evolucoes;
-            IReadOnlyList<DocumentoClinico> anamneses;
-
-            // SEQUENCIAL, nunca WhenAll: é o mesmo DbContext do escopo (parcela 74).
-            using (var scope = _escopos.CreateScope())
+            // As três leituras são independentes: cada uma no SEU escopo (seu DbContext) e
+            // ao mesmo tempo — nunca WhenAll sobre o mesmo escopo (parcela 74).
+            async Task<T> Ler<T>(Func<IServiceProvider, Task<T>> leitura)
             {
-                var consultorio = scope.ServiceProvider.GetRequiredService<ConsultorioService>();
-                var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
-
-                pendentes = await consultorio.RegistrosPendentesAsync(hoje, profissionalId);
-                evolucoes = await repo.EvolucoesParaProntuariosAsync(
-                    hoje.AddDays(-JanelaDias), hoje, profissionalId);
-                anamneses = await repo.DocumentosClinicosNoPeriodoAsync(
-                    hoje.AddDays(-JanelaDias), hoje, TipoDocumentoClinico.Anamnese);
+                using var scope = _escopos.CreateScope();
+                return await leitura(scope.ServiceProvider);
             }
+            var tPendentes = Ler(sp => sp.GetRequiredService<ConsultorioService>()
+                .RegistrosPendentesAsync(hoje, profissionalId));
+            var tEvolucoes = Ler(sp => sp.GetRequiredService<IClinicaRepositorio>()
+                .EvolucoesParaProntuariosAsync(hoje.AddDays(-JanelaDias), hoje, profissionalId));
+            var tAnamneses = Ler(sp => sp.GetRequiredService<IClinicaRepositorio>()
+                .DocumentosClinicosNoPeriodoAsync(hoje.AddDays(-JanelaDias), hoje, TipoDocumentoClinico.Anamnese));
+            await Task.WhenAll(tPendentes, tEvolucoes, tAnamneses);
+            IReadOnlyList<RegistroPendente> pendentes = tPendentes.Result;
+            IReadOnlyList<LinhaEvolucaoProntuarios> evolucoes = tEvolucoes.Result;
+            IReadOnlyList<DocumentoClinico> anamneses = tAnamneses.Result;
 
             if (geracao != _geracaoCarga) return;
 
@@ -115,11 +125,11 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
             if (geracao != _geracaoCarga) return;
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — a lista de prontuários não pôde ser carregada", ex);
-            NaoVerificado = true;
+            if (!silencioso) NaoVerificado = true;
         }
         finally
         {
-            if (geracao == _geracaoCarga) Carregando = false;
+            if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
     }
 

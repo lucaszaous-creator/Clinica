@@ -8,7 +8,8 @@ public partial class DocumentosPacienteView : UserControl
         Loaded += async (_, _) =>
         {
             if (DataContext is ViewModels.PacienteWorkspaceViewModel vm && !vm.AtualizarDocumentosCommand.IsRunning)
-                await vm.AtualizarDocumentosCommand.ExecuteAsync(null);
+                await vm.AoExibirDocumentosAsync();
         };
+
     }
 }
