@@ -24,8 +24,6 @@
     <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Fundo" Property="Background" Value="{StaticResource Brush.Acento.Suave}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter TargetName="Icone" Property="Foreground" Value="{StaticResource Brush.Acento}"/></Trigger>
     <DataTrigger Binding="{Binding EstaAtivo}" Value="True"><Setter TargetName="Fundo" Property="Background" Value="{StaticResource Brush.Acento.Suave}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter TargetName="Icone" Property="Foreground" Value="{StaticResource Brush.Acento}"/></DataTrigger>
     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger>
-    <!-- Entrada direta da barra plana (out/2026): sem submenu, sem seta. -->
-    <DataTrigger Binding="{Binding TemSubmenu}" Value="False"><Setter TargetName="Seta" Property="Visibility" Value="Collapsed"/></DataTrigger>
    </ControlTemplate.Triggers>
   </ControlTemplate></Setter.Value></Setter>
  </Style>
@@ -58,6 +56,9 @@
     <Trigger Property="IsSubmenuOpen" Value="True"><Setter TargetName="Faixa" Property="BorderBrush" Value="{StaticResource Brush.Acento}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger>
     <DataTrigger Binding="{Binding EstaAtivo}" Value="True"><Setter TargetName="Faixa" Property="BorderBrush" Value="{StaticResource Brush.Acento}"/><Setter Property="Foreground" Value="{StaticResource Brush.Acento}"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger>
     <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger>
+    <!-- Entrada direta da barra plana (out/2026): sem submenu, sem seta. A seta mora NESTE template.
+         Pôr o gatilho no template do Item é MC4111: TargetName que o template não declara. -->
+    <DataTrigger Binding="{Binding TemSubmenu}" Value="False"><Setter TargetName="Seta" Property="Visibility" Value="Collapsed"/></DataTrigger>
    </ControlTemplate.Triggers>
   </ControlTemplate></Setter.Value></Setter>
  </Style>

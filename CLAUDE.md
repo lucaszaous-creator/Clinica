@@ -3683,6 +3683,14 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   um PR fica vermelho, a primeira pergunta é "qual rede local deveria ter visto isto?"** —
   e se a resposta é nenhuma, a correção vem com a checagem.
 
+  ⚠️ **`TargetName` de gatilho resolve no template DONO do gatilho, não no arquivo**
+  (out/2026 — o build do Windows da rodada de UI da Recepção caiu com `MC4111`). O
+  gatilho "entrada direta sem seta" foi escrito no template do ITEM do menu, e a `Seta`
+  mora no template da CATEGORIA, vinte linhas abaixo no mesmo dicionário. O nome existia
+  no arquivo, e foi isso que o fez parecer certo. Virou a **checagem 49** (o nome tem de
+  estar no CONTEÚDO do mesmo template, sem descer em template aninhado), medida antes de
+  ligar: uma ocorrência, que era o defeito.
+
 - **A CONFERÊNCIA PEDIDA PELA DIREÇÃO SOBRE A AGENDA — três defeitos com 2261 testes
   verdes, e os três da mesma família** (set/2026: *"verifique se nossa agenda tem falhas
   que você não viu quando construiu"*). Nenhum quebrava build, teste ou rede; os três
