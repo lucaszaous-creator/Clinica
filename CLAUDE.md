@@ -4441,6 +4441,38 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   clique todo dia.
 
 
+- **"DOIS OU MAIS CAMINHOS LEVAM AO MESMO LUGAR" — o recall tinha TRÊS motores e a agenda
+  tinha seis botões de marcar** (out/2026, pedido da direção sobre a PR 250). Nada falhava;
+  cada porta fazia o seu pedaço, e a pessoa abria as três para descobrir a diferença.
+  ⚠️ **Recall: uma fila só.** "Quem parou de vir" (Gerente, `RetencaoPacienteService`), a
+  rodada de recall do `CampanhaService` e a `RetornoView` (sem rota desde a navegação
+  unificada) respondiam a MESMA pergunta do Recall do Acompanhamento — com duas definições
+  de "sumido" e sem o registro do contato. Saíram inteiras, com os métodos de repositório
+  que só elas chamavam. O que tinham de PRÓPRIO foi para a fila que fica: o **tratamento
+  longo** (`LinhaAcompanhamento.TotalSessoes`, contado no banco, com condição e atalho), o
+  **pacote em aberto** (já existia) e o **CSV** — com a coluna de quem pode receber
+  mensagem, senão a planilha vira lista de disparo. **Ao aposentar uma tela redundante,
+  liste o que ela fazia MELHOR e leve junto**; o resto é regressão vestida de limpeza.
+  ⚠️ **A configuração "Recall: dias sem vir" era gravada e NINGUÉM a lia** — o Acompanhamento
+  usava 60 fixo. É a configuração que não faz efeito, e ela só apareceu porque a tela que a
+  "usava" saiu: a fila passou a lê-la. **Ao remover um leitor, procure os campos que só ele
+  parecia ler — e confira se ele os lia de fato.**
+  ⚠️ **Atalho para a aba vizinha é caminho duplicado.** Campanhas tinha "Abrir fila de
+  recall" (a aba ao LADO, no mesmo item) e "Abrir confirmações"; a Grade abria uma JANELA
+  própria de Confirmações com o mesmo ViewModel da aba; a Visão geral tinha um combo
+  "Outras operações" repetindo as abas de Operações da agenda. Os atalhos saíram, a janela
+  saiu (o botão da Grade agora NAVEGA), e o mesmo ato passou a ter uma pergunta só (o
+  Cancelar da lista do Dia ganhou a confirmação que a Grade já fazia).
+  **Marcar é UM botão por tela**, com o nome que a sidebar usa ("Marcar atendimento") e o
+  pré-preenchimento do dia: eram dois lado a lado no Dia e dois na Grade, levando à mesma aba.
+  ⚠️ **Script de remoção de membro por chaves balanceadas erra o expression-bodied** que
+  tem `new { ... }` no meio: ele parou no `}` do tipo anônimo e deixou o resto do método
+  solto — o `compilar-sombra` acusou em segundos. Depois de remover código por script,
+  leia o diff do arquivo inteiro (a lição da parcela 95, outra vez).
+  **Ficou para a rodada de UI, por decisão da direção**: o redesenho visual (Acompanhamento
+  incluído), juntar Início e Visão geral, unificar a fórmula de ocupação dos dois e a faixa
+  de pedidos da enfermagem dentro da Grade (que tem o salto para o dia do pedido).
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

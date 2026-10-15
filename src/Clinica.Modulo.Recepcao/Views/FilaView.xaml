@@ -240,10 +240,11 @@
                     </Border>
                 </UniformGrid>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Marcar atendimento" MinWidth="160" Padding="12,8" Command="{Binding MarcarAtendimentoCommand}" IsEnabled="{Binding PodeMarcarAtendimento}" />
-                <Border Width="8" />
-                <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
-                        IsEnabled="{Binding PodeMarcar}" MinWidth="118" Style="{StaticResource BotaoSecundario}" Padding="12,8"
+                <!-- UM botão de marcar (out/2026): eram dois lado a lado, "Marcar atendimento"
+                     e "Novo horário", levando à MESMA aba Marcar — o segundo só trazia o dia
+                     preenchido. Ficou o que preenche, com o nome que a sidebar usa. -->
+                <Button Content="Marcar atendimento" Command="{Binding NovoHorarioCommand}"
+                        IsEnabled="{Binding PodeMarcar}" MinWidth="160" Padding="12,8"
                         ToolTipService.ShowOnDisabled="True"
                         ToolTip="Marcar um horário neste dia. Exige a permissão Editar agenda." />
             </StackPanel>

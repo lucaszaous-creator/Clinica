@@ -86,6 +86,27 @@ public sealed class AcompanhamentoPacienteTests : IDisposable
         Assert.Equal(ModalidadeAtendimento.BsvApenas, (await Linha()).Modalidade);
         Assert.Equal(0, await svc.GerarRecallAsync(gestora.Id, 60));
     }
+    /// <summary>
+    /// O recorte que veio da antiga "Quem parou de vir" (out/2026): o paciente de
+    /// tratamento longo que some é a ligação que mais vale. A conta é de sessões
+    /// REALIZADAS e não estornadas, de qualquer modalidade — e é feita no banco.
+    /// </summary>
+    [Fact] public async Task Recall_marca_tratamento_longo_pelas_sessoes_realizadas()
+    {
+        for (var i = 0; i < LinhaAcompanhamento.SessoesDeTratamentoLongo - 1; i++) Atendimento(ModalidadeAtendimento.BsvApenas, -200 + i);
+        db.Atendimentos.Add(new() { PacienteId = paciente.Id, Modalidade = ModalidadeAtendimento.BsvApenas,
+            Data = DateOnly.FromDateTime(DateTime.Today.AddDays(-150)), RealizadoEm = DateTime.Now.AddDays(-150), EstornadoEm = DateTime.Now });
+        await db.SaveChangesAsync();
+        await svc.GerarRecallAsync(gestora.Id, 60);
+        var linha = await Linha();
+        Assert.Equal(LinhaAcompanhamento.SessoesDeTratamentoLongo - 1, linha.TotalSessoes);
+        Assert.False(linha.TratamentoLongo);
+
+        Atendimento(ModalidadeAtendimento.Consulta, -120);
+        linha = await Linha();
+        Assert.True(linha.TratamentoLongo);
+        Assert.Contains("Tratamento longo", linha.Marcadores);
+    }
     [Fact] public async Task Sem_sessao_realizada_nao_entra_no_recall()
     {
         db.Atendimentos.Add(new() { PacienteId = paciente.Id, Modalidade = ModalidadeAtendimento.BsvApenas, Data = DateOnly.FromDateTime(DateTime.Today.AddDays(-100)) });

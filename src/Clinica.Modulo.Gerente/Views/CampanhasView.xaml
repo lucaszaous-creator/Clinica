@@ -44,13 +44,13 @@
                            FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10"
                            Text="O sistema descobre quem contatar, respeita o consentimento de comunicação (LGPD) e nunca repete o mesmo paciente na mesma rodada. O envio continua sendo um clique por pessoa — é o WhatsApp da clínica." />
 
+                <!-- Só a rodada que MORA aqui (out/2026). "Abrir confirmações da agenda" e
+                     "Abrir fila de recall" saíram: eram atalhos para telas que já têm item
+                     próprio — a segunda era a aba VIZINHA deste mesmo item —, e dois caminhos
+                     para o mesmo lugar fazem a pessoa procurar a diferença que não existe.
+                     Confirmações: Operações da agenda → Confirmações. Recall: Acompanhamento. -->
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Abrir confirmações da agenda" Command="{Binding GerarConfirmacoesCommand}"
-                            MinWidth="200" />
-                    <Button Content="NPS de ontem" Command="{Binding GerarNpsCommand}"
-                            MinWidth="150" Margin="8,0,0,0" Style="{StaticResource BotaoSecundario}" />
-                    <Button Content="Abrir fila de recall" Command="{Binding GerarRecallCommand}"
-                            MinWidth="150" Margin="8,0,0,0" Style="{StaticResource BotaoSecundario}" />
+                    <Button Content="Gerar NPS de ontem" Command="{Binding GerarNpsCommand}" MinWidth="180" />
                 </StackPanel>
 
                 <TextBlock Text="{Binding ResultadoRodada}" Style="{StaticResource TextoSuave}"

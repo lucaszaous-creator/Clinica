@@ -138,13 +138,6 @@ public class ContatoCampanha
 
     public static string OrigemDeAtendimento(int atendimentoId) => $"ATD:{atendimentoId}";
 
-    /// <summary>
-    /// Recall é por paciente e por MÊS: quem continua sumido entra de novo na rodada do
-    /// mês seguinte, mas nunca duas vezes na mesma.
-    /// </summary>
-    public static string OrigemDeRecall(int pacienteId, DateOnly referencia)
-        => $"REC:{pacienteId}:{referencia:yyyy-MM}";
-
     /// <summary>Já saiu do fluxo (respondido ou dispensado)?</summary>
     public bool Encerrado => Status is StatusContato.Respondido or StatusContato.Dispensado;
 }

@@ -183,6 +183,12 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         var consentidos = (await repo.PacientesComConsentimentoVigenteAsync(FinalidadeConsentimento.ComunicacaoEMarketing, ids, ct)).ToHashSet();
         var comPacote = (await repo.PacotesDosPacientesAsync(ids, ct)).GroupBy(p => p.PacienteId)
             .Where(g => pacotes.Descrever(g, Hoje).Any(p => p.Ativo && (p.SaldoSessoes == null || p.SaldoSessoes > 0))).Select(g => g.Key).ToHashSet();
+        // Total de sessões por paciente, agrupado NO BANCO: é o que separa quem era de
+        // tratamento de quem veio uma vez (o recorte da antiga "Quem parou de vir").
+        var totalSessoes = await db.Atendimentos.AsNoTracking()
+            .Where(a => ids.Contains(a.PacienteId) && a.RealizadoEm != null && a.EstornadoEm == null)
+            .GroupBy(a => a.PacienteId).Select(g => new { g.Key, Total = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Total, ct);
         var profissionais = await db.Profissionais.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nome, ct);
         var convenios = await db.Convenios.AsNoTracking().ToDictionaryAsync(c => c.Codigo, c => c.Nome, ct);
         var resultado = new List<LinhaAcompanhamento>();
@@ -207,7 +213,8 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
                 c.ResponsavelId, c.Responsavel == null ? "A assumir" : c.Responsavel.Nome + (c.Responsavel.Ativo ? "" : " (inativo)"), c.ReferenciaEm,
                 Hoje.DayNumber - DateOnly.FromDateTime(c.ReferenciaEm).DayNumber, situacao, pendente, pendente && c.ProximoContato < Hoje,
                 c.ProximoContato, c.Etapa, contato?.Total ?? 0, contato?.Ultimo, null, consentidos.Contains(c.PacienteId), comPacote.Contains(c.PacienteId),
-                agendado?.DataHora, cancelou, faltou, c.Versao, c.MotivoEncerramento, c.Motivo?.Nome));
+                agendado?.DataHora, cancelou, faltou, c.Versao, c.MotivoEncerramento, c.Motivo?.Nome,
+                totalSessoes.GetValueOrDefault(c.PacienteId)));
         }
         return resultado.OrderByDescending(x => x.Atrasado).ThenBy(x => x.ProximoContato).ThenBy(x => x.Paciente).ToList();
     }

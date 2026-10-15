@@ -48,12 +48,7 @@
                                Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <ComboBox Width="220" Margin="0,0,8,0" ItemsSource="{Binding Operacoes}"
-                              SelectedItem="{Binding OperacaoEscolhida}" DisplayMemberPath="Nome"
-                              IsEnabled="{Binding Livre}" ToolTip="Outras operações"
-                              AutomationProperties.Name="Outras operações"
-                              Visibility="{Binding TemOperacoes, Converter={StaticResource BoolParaVisibilidade}}" />
-                    <Button Content="+ Agendar atendimento" Command="{Binding AgendarCommand}"
+                    <Button Content="Marcar atendimento" Command="{Binding AgendarCommand}"
                             IsEnabled="{Binding AgendarHabilitado}"
                             Visibility="{Binding PodeAgendar, Converter={StaticResource BoolParaVisibilidade}}" />
                 </StackPanel>

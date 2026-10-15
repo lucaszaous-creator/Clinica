@@ -36,13 +36,14 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
         .Concat(Enum.GetValues<CanalContato>().Select(c => new EscolhaRecall(c.ToString(), c.ToString()))).ToArray();
     public IReadOnlyList<string> EstadosFila { get; } = ["Pendentes", "Todas", "A contatar", "Sem resposta", "Retornar na data combinada", "Aguardando plano", "Pronto para agendar", "Cancelou", "Faltou", "Conferir comparecimento", "Agendado", "Sessão realizada", "Encerrado com justificativa"];
     public IReadOnlyList<string> Prazos { get; } = ["Todos os prazos", "Hoje", "Atrasados", "Próximos 7 dias"];
-    public IReadOnlyList<string> Condicoes { get; } = ["Todas as condições", "A assumir", "Sem primeiro contato", "Com tentativas", "Pacote com saldo", "Sem telefone", "Contato não autorizado", "Cancelou ou faltou"];
+    public IReadOnlyList<string> Condicoes { get; } = ["Todas as condições", "A assumir", "Sem primeiro contato", "Com tentativas", "Pacote com saldo", "Tratamento longo", "Sem telefone", "Contato não autorizado", "Cancelou ou faltou"];
     public bool Gestor => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente;
     public bool PodeAgendar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
     public bool PodeInteragir => !Carregando;
     public bool ListaVisivel => Selecionado == null && !Configurando && !Filtrando;
     public bool DetalheVisivel => Selecionado != null && !Configurando && !Filtrando;
     public bool EhRecall => Aba == "Recall";
+    public string TratamentoLongoTexto => $"Tratamento longo ({_todos.Count(x => x.Tipo == Tipo && x.Pendente && x.TratamentoLongo)})";
     public string Titulo => EhRecall ? "Recall de pacientes" : "Novos pacientes BSV";
     public string DescricaoFila => EhRecall ? "Encontre quem está sem retornar e organize o próximo contato." : "Acompanhe cada indicação até o agendamento da primeira sessão de bloqueio.";
     public string FiltrosAtivos => string.Join(" · ", new[] {
@@ -139,7 +140,15 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
             OnPropertyChanged(nameof(ProfissionalBsv)); OnPropertyChanged(nameof(ConfiguracaoTexto));
             if (!_recallInicializado && EhRecall)
             {
-                await svc.GerarRecallAsync(SessaoUsuario.Atual.UsuarioId, 60);
+                // ⚠️ Os dias vêm da CONFIGURAÇÃO (Gerente → Configurações → "dias sem vir
+                // para o recall"), e não de um 60 fixo: aquele campo era gravado e nada o
+                // lia — a configuração que não faz efeito, que é pior do que não ter o campo.
+                int dias;
+                using (var p = escopos.CreateScope())
+                    dias = await p.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.ParametrosService>()
+                        .ObterDiasInatividadeRecallAsync();
+                await svc.GerarRecallAsync(SessaoUsuario.Atual.UsuarioId, dias);
+                DiasRecall = dias.ToString();
                 _recallInicializado = true;
             }
             _todos = await svc.ListarAsync(SessaoUsuario.Atual.UsuarioId);
@@ -186,9 +195,10 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
             && (!SomenteMeus || x.ResponsavelId == SessaoUsuario.Atual.UsuarioId)
             && x.Dias >= minimo && x.Dias <= max
             && (Prazo switch { "Hoje" => x.Pendente && x.ProximoContato <= Hoje, "Atrasados" => x.Atrasado, "Próximos 7 dias" => x.Pendente && x.ProximoContato >= Hoje && x.ProximoContato <= Hoje.AddDays(7), _ => true })
-            && (Condicao switch { "A assumir" => x.ResponsavelId == null, "Sem primeiro contato" => x.Tentativas == 0, "Com tentativas" => x.Tentativas > 0, "Pacote com saldo" => x.PacoteComSaldo, "Sem telefone" => string.IsNullOrWhiteSpace(x.Telefone), "Contato não autorizado" => !x.Consentimento, "Cancelou ou faltou" => x.Cancelou || x.Faltou, _ => true }));
+            && (Condicao switch { "A assumir" => x.ResponsavelId == null, "Sem primeiro contato" => x.Tentativas == 0, "Com tentativas" => x.Tentativas > 0, "Pacote com saldo" => x.PacoteComSaldo, "Tratamento longo" => x.TratamentoLongo, "Sem telefone" => string.IsNullOrWhiteSpace(x.Telefone), "Contato não autorizado" => !x.Consentimento, "Cancelou ou faltou" => x.Cancelou || x.Faltou, _ => true }));
         Pacientes.Clear(); foreach (var x in lista) Pacientes.Add(x);
-        foreach (var nome in new[] { nameof(Resumo), nameof(HojeTexto), nameof(AtrasadosTexto), nameof(AAssumirTexto), nameof(SemContatoTexto), nameof(CanceladosTexto), nameof(FiltrosAtivos) }) OnPropertyChanged(nome);
+        foreach (var nome in new[] { nameof(Resumo), nameof(HojeTexto), nameof(AtrasadosTexto), nameof(AAssumirTexto), nameof(SemContatoTexto), nameof(CanceladosTexto), nameof(FiltrosAtivos),
+            nameof(TratamentoLongoTexto), nameof(TemParaExportar) }) OnPropertyChanged(nome);
         VisaoGestao.Clear();
         foreach (var g in _todos.Where(x => x.Tipo == Tipo).GroupBy(x => x.Responsavel))
             VisaoGestao.Add($"{g.Key}: {g.Count(x => x.Pendente)} pendentes · {g.Count(x => x.Atrasado)} atrasados · {g.Count(x => x.Situacao == "Agendado")} agendados · {g.Count(x => x.Situacao == "Sessão realizada")} realizados");
@@ -197,7 +207,7 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     }
     [RelayCommand] private void TrocarAba(string aba) { Aba = aba; LimparFiltros(); }
     [RelayCommand] private void LimparFiltros() { Busca = ""; Modalidade = ""; Situacao = "Pendentes"; Prazo = "Todos os prazos"; Condicao = "Todas as condições"; Convenio = "Todos os convênios"; Profissional = "Todos os profissionais"; ResponsavelFiltro = 0; MotivoFiltro = 0; TentativasMinimas = "0"; ContatoDesde = null; ContatoAte = null; SomenteMeus = false; DiasMinimos = "0"; DiasMaximos = ""; }
-    [RelayCommand] private void Atalho(string atalho) { LimparFiltros(); if (atalho == "hoje") { SomenteMeus = true; Prazo = "Hoje"; } else if (atalho == "assumir") Condicao = "A assumir"; else if (atalho == "atrasados") Prazo = "Atrasados"; else if (atalho == "sem-contato") Condicao = "Sem primeiro contato"; else if (atalho == "cancelados") Condicao = "Cancelou ou faltou"; else if (atalho == "sem-resposta") Situacao = "Sem resposta"; }
+    [RelayCommand] private void Atalho(string atalho) { LimparFiltros(); if (atalho == "hoje") { SomenteMeus = true; Prazo = "Hoje"; } else if (atalho == "assumir") Condicao = "A assumir"; else if (atalho == "atrasados") Prazo = "Atrasados"; else if (atalho == "sem-contato") Condicao = "Sem primeiro contato"; else if (atalho == "tratamento-longo") Condicao = "Tratamento longo"; else if (atalho == "cancelados") Condicao = "Cancelou ou faltou"; else if (atalho == "sem-resposta") Situacao = "Sem resposta"; }
     [RelayCommand] private async Task GerarAsync()
     {
         if (!int.TryParse(DiasRecall, out var dias) || dias is < 1 or > 3650) { Mensagem = "Informe de 1 a 3650 dias sem retornar."; return; }
@@ -284,6 +294,46 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
         await Executar(svc => svc.AdicionarMotivoAsync(SessaoUsuario.Atual.UsuarioId, NovoMotivo));
         if (!_falhou) { NovoMotivo = ""; Mensagem = "Motivo cadastrado. Ficará disponível ao voltar à lista."; }
     }
+    public bool TemParaExportar => Pacientes.Count > 0;
+
+    /// <summary>
+    /// A lista do filtro em CSV — veio da antiga "Quem parou de vir" (out/2026), onde a
+    /// direção trabalhava a lista fora da tela. Sai nome e TELEFONE de paciente, então a
+    /// segunda barreira é a MESMA da tela (`VerFichaPaciente` e um dos dois bits do
+    /// acompanhamento), e a coluna "Pode receber mensagem" leva o impedimento junto: sem
+    /// ela, a planilha viraria lista de disparo para quem não consentiu.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExportarAsync()
+    {
+        if (Pacientes.Count == 0) { Mensagem = "Não há ninguém na lista para exportar."; return; }
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "exportar a lista de acompanhamento");
+            SessaoUsuario.Atual.ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "exportar a lista de acompanhamento");
+            var csv = ExportacaoCsv.Montar(
+                ["Paciente", "Telefone", "Convênio", "Modalidade", "Situação", "Próximo contato", "Responsável",
+                 "Dias", "Tentativas", "Sessões realizadas", "Pacote com saldo", "Pode receber mensagem"],
+                Pacientes.Select(x => (IReadOnlyList<string>)new[]
+                {
+                    x.Paciente, x.Telefone ?? "—", x.Convenio, x.ModalidadeTexto, x.Situacao,
+                    x.ProximoContato.ToString("dd/MM/yyyy"), x.Responsavel, x.Dias.ToString(), x.Tentativas.ToString(),
+                    x.TotalSessoes.ToString(), x.PacoteComSaldo ? "sim" : "não",
+                    string.IsNullOrWhiteSpace(x.Telefone) ? "não — sem telefone" : !x.Consentimento ? "não — sem consentimento (LGPD)" : "sim"
+                }));
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(csv,
+                ImpressaoPdf.NomeSeguro($"acompanhamento-{(EhRecall ? "recall" : "bsv")}-{DateTime.Today:yyyy-MM-dd}.csv"),
+                "CSV (*.csv)|*.csv", ".csv");
+            if (erro is null) return;
+            Mensagem = erro;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Acompanhamento de pacientes — lista não exportada", ex);
+            Mensagem = ex.Message;
+        }
+    }
+
     private bool _falhou;
     private async Task Executar(Func<IAcompanhamentoPacienteService, Task> acao)
     {

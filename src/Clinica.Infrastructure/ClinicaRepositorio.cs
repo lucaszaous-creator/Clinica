@@ -387,71 +387,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default)
         => await _db.Pacientes.AsNoTracking().Include(p => p.Atendimentos).ToListAsync(ct);
 
-    /// <summary>
-    /// Uma linha por paciente já atendido, agregada NO BANCO.
-    ///
-    /// O `GroupBy` sai em SQL (`MAX(data)`, `COUNT(*)`), e o `join` com pacientes traz
-    /// só as três colunas que a lista mostra. Quem antes fazia isso em memória arrastava
-    /// pacientes e atendimentos inteiros pela rede para usar dois números por pessoa.
-    /// </summary>
-    public async Task<IReadOnlyList<ResumoAtendimentosPaciente>> ResumoAtendimentosPorPacienteAsync(
-        CancellationToken ct = default)
-        => await _db.Atendimentos.AsNoTracking()
-            // Só sessão que ACONTECEU (parcela 70): com a guia nascendo na marcação, a
-            // linha registrada não é mais sinônimo de visita — a marcada para o futuro
-            // ainda não visitou, e a cancelada nunca visitou ("cancelado não é visita").
-            .Where(a => a.RealizadoEm != null)
-            .GroupBy(a => a.PacienteId)
-            .Select(g => new { PacienteId = g.Key, Ultima = g.Max(a => a.Data), Total = g.Count() })
-            .Join(_db.Pacientes.AsNoTracking(),
-                r => r.PacienteId, p => p.Id,
-                (r, p) => new ResumoAtendimentosPaciente(
-                    p.Id, p.Nome, p.Telefone, r.Ultima, r.Total))
-            .ToListAsync(ct);
-
-    public async Task<IReadOnlyList<int>> PacientesComAgendamentoFuturoAsync(
-        IReadOnlyCollection<int> pacienteIds, DateOnly dia, CancellationToken ct = default)
-    {
-        if (pacienteIds.Count == 0) return [];
-
-        // `DataHora` é DateTime e o corte é por DIA: comparar contra a meia-noite do dia
-        // mantém a sessão marcada para hoje mais tarde dentro do resultado.
-        var corte = dia.ToDateTime(TimeOnly.MinValue);
-
-        return await _db.Agendamentos.AsNoTracking()
-            .Where(a => pacienteIds.Contains(a.PacienteId)
-                        && a.Status == StatusAgendamento.Agendado
-                        && a.DataHora >= corte)
-            .Select(a => a.PacienteId)
-            .Distinct()
-            .ToListAsync(ct);
-    }
-
-    public async Task<IReadOnlyList<int>> PacientesJaContatadosAsync(
-        IReadOnlyDictionary<int, DateOnly> desdeQuandoPorPaciente,
-        TipoContato tipo, CancellationToken ct = default)
-    {
-        if (desdeQuandoPorPaciente.Count == 0) return [];
-
-        var ids = desdeQuandoPorPaciente.Keys.ToList();
-
-        // O corte por paciente é diferente (cada um tem a sua última sessão), e traduzir
-        // isso para SQL exigiria um OR por pessoa. Traz-se então o par (paciente, data)
-        // do conjunto — que é pequeno, um contato por paciente por rodada — e o corte
-        // acontece aqui. Continua sendo UMA consulta.
-        var contatos = await _db.Contatos.AsNoTracking()
-            .Where(c => ids.Contains(c.PacienteId) && c.Tipo == tipo)
-            .Select(c => new { c.PacienteId, c.Referencia })
-            .ToListAsync(ct);
-
-        return contatos
-            .Where(c => desdeQuandoPorPaciente.TryGetValue(c.PacienteId, out var desde)
-                        && c.Referencia >= desde)
-            .Select(c => c.PacienteId)
-            .Distinct()
-            .ToList();
-    }
-
     public async Task<IReadOnlyList<PacotePaciente>> PacotesDosPacientesAsync(
         IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
     {
@@ -3621,27 +3556,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 _db.ResultadosExame.Count(r => r.PedidoDocumentoId == d.Id && r.CanceladoEm == null),
                 d.CanceladoEm != null,
                 d.Profissional == null ? null : d.Profissional.Nome))
-            .ToListAsync(ct);
-    }
-
-    public async Task<IReadOnlyList<Clinica.Application.Modelos.InatividadePaciente>> InatividadeAsync(
-        DateOnly referencia, CancellationToken ct = default)
-    {
-        var apartirDe = referencia.ToDateTime(TimeOnly.MinValue);
-
-        // Projeção pura: o banco devolve uma linha por paciente com duas agregações, em
-        // vez de mandar a base de atendimentos inteira para a aplicação contar.
-        return await _db.Pacientes.AsNoTracking()
-            .Select(p => new Clinica.Application.Modelos.InatividadePaciente(
-                p.Id,
-                p.Nome,
-                p.Telefone,
-                p.Atendimentos.Max(a => (DateOnly?)a.Data),
-                _db.Agendamentos
-                    .Where(a => a.PacienteId == p.Id
-                                && a.DataHora >= apartirDe
-                                && a.Status == StatusAgendamento.Agendado)
-                    .Min(a => (DateTime?)a.DataHora)))
             .ToListAsync(ct);
     }
 

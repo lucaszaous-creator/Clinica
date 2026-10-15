@@ -450,7 +450,6 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<LancamentosViewModel>();
         servicos.AddTransient<RetornosAMarcarViewModel>();
-        servicos.AddTransient<RetornoViewModel>();
         servicos.AddTransient<AcompanhamentoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();

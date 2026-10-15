@@ -18,8 +18,18 @@ public sealed record LinhaAcompanhamento(int Id, int PacienteId, string Paciente
     string Situacao, bool Pendente, bool Atrasado, DateOnly ProximoContato, EtapaAcompanhamento Etapa,
     int Tentativas, DateTime? UltimoContato, string? UltimoResultado, bool Consentimento,
     bool PacoteComSaldo, DateTime? AgendadoPara, bool Cancelou, bool Faltou, Guid Versao,
-    string? MotivoEncerramento, string? Motivo)
+    string? MotivoEncerramento, string? Motivo, int TotalSessoes = 0)
 {
+    /// <summary>
+    /// Sessões realizadas a partir das quais o paciente era de TRATAMENTO, e não de uma
+    /// visita. Veio da antiga tela "Quem parou de vir" (out/2026), que saiu por responder a
+    /// mesma pergunta desta fila: o paciente de tratamento longo que some é a ligação que
+    /// mais vale, e a fila precisava separá-lo.
+    /// </summary>
+    public const int SessoesDeTratamentoLongo = 5;
+
+    public bool TratamentoLongo => TotalSessoes >= SessoesDeTratamentoLongo;
+
     public string ModalidadeTexto => Tipo == TipoAcompanhamento.NovoBsv ? "BSV / BSV + acupuntura" : RotulosEnum.De(Modalidade);
     public string DiasTexto => Tipo == TipoAcompanhamento.Recall ? $"{Dias} dias sem retornar" : $"Indicado há {Dias} dias";
     public string AcaoTexto => Pendente ? "Registrar contato" : "Ver acompanhamento";
@@ -32,6 +42,7 @@ public sealed record LinhaAcompanhamento(int Id, int PacienteId, string Paciente
         : Tentativas == 0 ? "Fazer o primeiro contato" : "Retomar contato com o paciente";
     public bool PodeContatar => !string.IsNullOrWhiteSpace(Telefone) && Consentimento && Pendente;
     public string Marcadores => string.Join(" · ", new[] { Atrasado ? "Contato atrasado" : null,
+        Tipo == TipoAcompanhamento.Recall && TratamentoLongo ? $"Tratamento longo ({TotalSessoes} sessões)" : null,
         PacoteComSaldo ? "Pacote com saldo" : null, string.IsNullOrWhiteSpace(Telefone) ? "Sem telefone" : null,
         !Consentimento ? "Contato não autorizado" : null, Motivo }.Where(x => x != null));
 }

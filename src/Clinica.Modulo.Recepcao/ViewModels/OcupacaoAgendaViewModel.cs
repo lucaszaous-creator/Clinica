@@ -13,8 +13,6 @@ namespace Clinica.Recepcao.ViewModels;
 /// <summary>Uma opção do combo de profissional; <c>Id</c> nulo é "toda a equipe".</summary>
 public sealed record OpcaoProfissionalOcupacao(int? Id, string Nome);
 
-/// <summary>Um atalho de "Outras operações": a chave do destino e o nome escrito.</summary>
-public sealed record OperacaoAgenda(string Chave, string Nome);
 
 /// <summary>Frases de uma medida de ocupação — as mesmas regras da versão web.</summary>
 public static class TextoOcupacao
@@ -94,14 +92,10 @@ public sealed class ProfissionalOcupacaoLinha(ProfissionalOcupacao p)
 public sealed partial class OcupacaoAgendaViewModel : ObservableObject
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
-    private static readonly (string Valor, string Chave, string Nome)[] Rotas =
-    [
-        ("confirmacoes", ChavesSuite.ConfirmacoesAgenda, "Confirmar agendamentos"),
-        ("retornos", "retornos-a-marcar", "Retornos solicitados"),
-        ("conferir", "lancamentos", "Conferir atendimentos"),
-        ("convenio", "consultas", "Consultas de convênio"),
-        ("enfermagem", "consultorio-sessoes-enfermagem", "Sessões de enfermagem")
-    ];
+    // ⚠️ AQUI MORAVA O COMBO "Outras operações" (out/2026): confirmações, retornos,
+    // conferência, consultas de convênio e sessões de enfermagem — cinco telas que já são
+    // ABAS da sidebar ("Operações da agenda" e a Agenda do Consultório). Um segundo menu
+    // dentro da tela é um segundo caminho para cada uma delas, e saiu.
 
     private readonly IServiceProvider _servicos;
     private readonly int _usuario = SessaoUsuario.Atual.UsuarioId;
@@ -117,7 +111,6 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     }
 
     public ObservableCollection<OpcaoProfissionalOcupacao> Profissionais { get; } = [];
-    public ObservableCollection<OperacaoAgenda> Operacoes { get; } = [];
     public ObservableCollection<HorarioOcupacaoLinha> HorariosDoDia { get; } = [];
     public ObservableCollection<DiaOcupacaoCartao> Dias { get; } = [];
     public ObservableCollection<ProfissionalOcupacaoLinha> Equipe { get; } = [];
@@ -129,7 +122,6 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     [ObservableProperty] private OcupacaoAgenda? _dados;
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string? _erro;
-    [ObservableProperty] private OperacaoAgenda? _operacaoEscolhida;
 
     public bool Bloqueado => Carregando;
     public bool Livre => !Carregando;
@@ -137,7 +129,6 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     public bool TemDados => Dados is not null && Erro is null;
     public bool PodeAgendar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda) && NavegacaoSuite.Existe(ModuloRecepcao.ChaveMarcarHorario);
     public bool AgendarHabilitado => Livre && TemDados;
-    public bool TemOperacoes => Operacoes.Count > 0;
     public bool ModoDia => Modo == "dia";
     public bool ModoSemana => Modo == "semana";
     public bool ModoMes => Modo == "mes";
@@ -238,20 +229,6 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
         if (value.Id is { } id && !_idsProfissionais.Contains(id)) return;
         _ = CarregarAsync();
     }
-    partial void OnOperacaoEscolhidaChanged(OperacaoAgenda? value)
-    {
-        if (value is null) return;
-        try
-        {
-            Exigir();
-            // A rota sai da lista fixa `Rotas`, conferida por `Existe` ao montar o combo.
-            var destino = value.Chave;
-            NavegacaoSuite.Ir(destino);
-        }
-        catch (Exception ex) { Erro = ex.Message; }
-        finally { OperacaoEscolhida = null; }
-    }
-
     private void AvisarDados()
     {
         foreach (var n in new[] { nameof(TemErro), nameof(TemDados), nameof(AgendarHabilitado), nameof(TituloPeriodo),
@@ -273,10 +250,7 @@ public sealed partial class OcupacaoAgendaViewModel : ObservableObject
     public void Iniciar()
     {
         _ativa = true;
-        Operacoes.Clear();
-        foreach (var (_, destino, nome) in Rotas)
-            if (NavegacaoSuite.Existe(destino)) Operacoes.Add(new(destino, nome));
-        OnPropertyChanged(nameof(TemOperacoes)); OnPropertyChanged(nameof(PodeAgendar));
+        OnPropertyChanged(nameof(PodeAgendar));
         _ = CarregarAsync();
     }
 

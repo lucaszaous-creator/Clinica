@@ -19,7 +19,7 @@
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Text="Retornos a marcar" Style="{StaticResource H1}" Margin="0" />
             <TextBlock Style="{StaticResource TextoSuave}"
-                       Text="Quem saiu do atendimento com pedido de retorno e ainda não tem horário marcado. A linha some sozinha quando o horário é marcado; passados 60 dias da data sugerida, o paciente sai daqui e passa a ser assunto de Quem parou de vir." />
+                       Text="Quem saiu do atendimento com pedido de retorno e ainda não tem horário marcado. A linha some sozinha quando o horário é marcado; passados 60 dias da data sugerida, o paciente sai daqui e passa a ser assunto do Recall, em Acompanhamento de pacientes." />
         </StackPanel>
 
         <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">

@@ -19,6 +19,7 @@
       <Button Content="Recall · pacientes sem retorno" Command="{Binding TrocarAbaCommand}" CommandParameter="Recall" Style="{StaticResource Acao}"/>
       <Button Content="Novos BSV · primeira sessão" Command="{Binding TrocarAbaCommand}" CommandParameter="BSV" Style="{StaticResource Acao}"/>
       <Button Content="Atualizar" Command="{Binding RecarregarCommand}" Style="{StaticResource Acao}"/>
+      <Button Content="Exportar CSV" Command="{Binding ExportarCommand}" IsEnabled="{Binding TemParaExportar}" Style="{StaticResource Acao}" ToolTip="A lista do filtro, com a coluna de quem pode receber mensagem."/>
       <Button Content="Configurar acompanhamento" Command="{Binding ConfigurarCommand}" Style="{StaticResource Acao}" Visibility="{Binding Gestor, Converter={StaticResource Bool}}"/>
      </WrapPanel>
      <TextBlock TextWrapping="Wrap" Text="{Binding Titulo}" FontSize="{StaticResource Fonte.H1}" FontWeight="Bold" Margin="0,2,0,4"/>
@@ -35,6 +36,8 @@
       <Button Content="{Binding AAssumirTexto}" Command="{Binding AtalhoCommand}" CommandParameter="assumir" Style="{StaticResource Acao}"/><Button Content="{Binding HojeTexto}" Command="{Binding AtalhoCommand}" CommandParameter="hoje" Style="{StaticResource Acao}"/>
       <Button Content="{Binding AtrasadosTexto}" Command="{Binding AtalhoCommand}" CommandParameter="atrasados" Style="{StaticResource Acao}"/>
       <Button Content="{Binding SemContatoTexto}" Command="{Binding AtalhoCommand}" CommandParameter="sem-contato" Style="{StaticResource Acao}"/>
+      <!-- Veio da antiga "Quem parou de vir" (out/2026): o paciente de tratamento longo que some é a ligação que mais vale. -->
+      <Button Content="{Binding TratamentoLongoTexto}" Command="{Binding AtalhoCommand}" CommandParameter="tratamento-longo" Style="{StaticResource Acao}" Visibility="{Binding EhRecall, Converter={StaticResource Bool}}"/>
 
 
      </WrapPanel>

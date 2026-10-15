@@ -444,14 +444,6 @@ public sealed partial class ChipProfissional : ObservableObject
 /// </summary>
 public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Shell.Modulos.IAtualizarAoVoltar
 {
-    public bool PodeMarcarAtendimento => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
-    [RelayCommand] private void MarcarAtendimento()
-    {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar atendimento");
-        if (!NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario))
-            throw new InvalidOperationException("A marcação não está disponível neste acesso.");
-    }
-
     /// <summary>A partir daqui a espera é longa o bastante para destacar o cartão.</summary>
     private const int EsperaLongaMinutos = 30;
 
@@ -1630,6 +1622,11 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
         => await ExecutarAsync(cartao, async c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
+            // A MESMA pergunta da Grade (out/2026): o mesmo ato tinha confirmação numa porta
+            // e não na outra, e "Cancelar" fica ao lado de "Marcar falta" no menu — o clique
+            // errado aqui sumia com o horário sem uma pergunta.
+            if (!_dialogo.Confirmar("Cancelar horário", $"Cancelar o horário de {c.Paciente} ({c.Horario})?")) return;
 
             IReadOnlyList<string> avisos;
             using (var e = _escopos.CreateScope())

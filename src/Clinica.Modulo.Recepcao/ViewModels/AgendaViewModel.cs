@@ -328,15 +328,6 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
     [RelayCommand] private void VerSemanaPlanejamento() => ModoSemana = true;
     [RelayCommand] private Task BuscarVagasPlanejamentoAsync() => ConsultarVagasPlanejamentoAsync();
     [RelayCommand] private Task EscolherVagaPlanejamentoAsync(Vaga? vaga) => AbrirVagaPlanejamentoAsync(vaga);
-    public bool PodeMarcarAtendimento => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
-    [RelayCommand] private void MarcarAtendimento()
-    {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar atendimento");
-        if (!IrParaNovoAtendimento(new PedidoNovoAtendimento(true, Dia.Date, ProfissionalEmFocoId, FiltroSala?.Id,
-                DuracaoMinutos: int.TryParse(DuracaoPlanejamento, out var d) ? d : null,
-                ModalidadeCodigo: ModalidadePlanejamento?.Codigo)))
-            throw new InvalidOperationException("A marcação não está disponível neste acesso.");
-    }
 
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
@@ -1654,27 +1645,19 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
     }
 
     /// <summary>
-    /// A rodada de confirmação das sessões de amanhã.
+    /// A rodada de confirmação das sessões de amanhã — LEVA à aba Confirmações.
     ///
-    /// A capacidade existia desde a parcela 5 e morava só no Gerente Geral — mas quem
-    /// confirma as sessões de amanhã é quem está no balcão. É a mesma rodada, o mesmo
-    /// serviço e a mesma chave de idempotência: rodar aqui e lá no mesmo dia não manda
-    /// duas mensagens para o mesmo paciente.
+    /// ⚠️ Até out/2026 este botão abria uma JANELA própria com a mesma tela, o mesmo
+    /// ViewModel e o mesmo serviço da aba "Confirmações" de Operações da agenda: dois
+    /// caminhos para o mesmo lugar, e a janela era a cópia que ninguém lembrava de
+    /// atualizar. O botão fica (é aqui que a recepcionista lembra de confirmar amanhã),
+    /// mas o destino é um só.
     /// </summary>
     [RelayCommand]
-    private async Task ConfirmarSessoesAsync()
+    private void ConfirmarSessoes()
     {
-        var vm = new ConfirmacoesViewModel(_escopos);
-        var janela = new Janelas.ConfirmacoesWindow(vm)
-        {
-            Owner = Dono()
-        };
-
-        janela.ShowDialog();
-
-        // A confirmação não muda a agenda do dia aberto, mas pode ter registrado
-        // resposta de quem vem amanhã — recarregar mantém a tela honesta.
-        await CarregarAsync();
+        if (!NavegacaoSuite.Ir(Modulo.ModuloRecepcao.ChaveConfirmacoes))
+            Mensagem = "As confirmações não estão disponíveis para este acesso.";
     }
 
     /// <summary>
