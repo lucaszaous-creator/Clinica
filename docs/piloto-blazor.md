@@ -1,5 +1,9 @@
 # Piloto de interface em Blazor — Fluxo de caixa (out/2026)
 
+> ✅ **Aprovado pela direção.** O Financeiro inteiro foi migrado depois do piloto; o padrão
+> para toda tela nova está em `docs/telas-blazor.md`. Este documento fica como o registro do
+> porquê.
+
 ## Por que existe
 
 A direção perguntou por que os mockups saem bonitos e as telas WPF saem com cara de

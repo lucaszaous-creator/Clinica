@@ -4606,6 +4606,55 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   no título é tipo que a pessoa não confere. `CadaPapelAbreOSeuTests` prende chave → tipo
   das três portas.
 
+- **🎨 O FINANCEIRO INTEIRO VIROU BLAZOR — e a migração achou defeito que o WPF escondia**
+  (out/2026; a direção, depois de ver o piloto: *"Simplesmente perfeito! … refazer todo o
+  visual do módulo financeiro dessa forma"* e *"todo o financeiro, telas e formulários"*). As
+  14 telas (Caixa, Fechamento, Fluxo, Contas, Quem me deve, Plano de contas, Recebíveis,
+  Conciliação, Extrato do banco, Taxas e impostos, Estoque, Repasses, Resultado do mês e
+  Produção) e ~20 formulários foram reescritos em `Clinica.Ui.Blazor` sobre os MESMOS
+  serviços; `CriarTela` aponta para `TelaBlazor`. As telas WPF ficam no projeto, sem chave
+  que as abra, até a validação no Windows — depois saem. **Pacotes ficou em WPF** de
+  propósito: é a tela do shell que a Recepção também publica, e migrá-la num módulo só daria
+  duas telas para a mesma chave no Gerente.
+  ✅ **Como foi feito, e é o roteiro para o próximo módulo**: primeiro a BASE (componentes,
+  `TelaBase`, `Dialogos`, `Notificacoes`, `IHostDaTela`, prévia com `AddClinica` e sementes
+  por reflexão), depois UMA tela de escrita completa como MODELO (o Caixa, com quatro
+  formulários), depois o guia (`docs/telas-blazor.md`) — e só então o resto em paralelo, cada
+  frente num worktree, com arquivos que não se cruzam (tela, formulário, `telas/<x>.css`,
+  semente). Nenhuma frente editou arquivo comum, e o merge foi cherry-pick sem conflito.
+  🐛 **Reescrever lendo o ViewModel inteiro achou o que três redes e 3000 testes não viam**:
+  a faixa da alíquota única que sumia enquanto continuava cobrando (condição diferente da do
+  serviço — a lição da parcela 69 sobrevivendo NUMA linha); editar taxa, tributo e conta fixa
+  APAGANDO as observações (a cópia campo a campo, lugar 3, em três formulários); o percentual
+  zero que a tela pedia e a leitura recusava; o resumo de Contas contando vencidos a receber
+  sob "Só a pagar"; a falha do "Gerar fixas" que a recarga apagava antes de aparecer; o "Nova
+  regra" de repasse sem botão; e a auditoria da receita de guia gravando "?" no operador.
+  **Migração de tela é auditoria de graça — desde que quem migra leia o ViewModel inteiro, e
+  não só o XAML.**
+  ⚠️ **Três armadilhas que a base comum cobrou e agora estão escritas no guia**: (a) classe de
+  TOM com nome de componente — `.aviso` era o alerta, e o `Selo Tom="aviso"` herdou padding e
+  borda e saiu inchado; os tons viraram `tom-*`; (b) `.icone{height:16px}` sem seletor de
+  elemento achatava o BOTÃO que também tinha a classe `icone` — virou `svg.icone`; (c) o guia
+  mandava ler quantidade com `TentarLerQuantidade`, que lê em pt-BR primeiro e transforma
+  "2.5" em 25 (o ponto é milhar) — o WPF do estoque usava `TentarLerNumeroExato`. **Regra de
+  guia vale o mesmo que regra de código: ela é copiada por todo mundo de uma vez**, e uma
+  instrução errada nele espalha o defeito para N telas no mesmo dia.
+  ⚠️ **A prévia precisa da cultura da clínica** (`DefaultThreadCurrentCulture = pt-BR`): os
+  serviços formatam mensagens na cultura do processo, e em Linux a invariante mostrava
+  "¤15.00" — um defeito que não existe no app, escondendo os que existissem. O que a TELA
+  formata continua em pt-BR FIXO (`Formato`), porque a web de leitura roda em Linux de verdade.
+  ⚠️ **Parâmetro de componente interativo da prévia tem de ser serializável**: um `Type` não
+  é; a rota passa o NOME da tela e um componente de dentro resolve o tipo.
+  ⚠️ **`pkill -f` com um trecho do próprio comando mata o shell que o roda** — foi assim que
+  duas rodadas de fotos morreram com código 144. Pare a prévia pelo pid (`subir.sh` cuida).
+  🔁 **Voltar à aba relê** (`SinalDeVolta` → `TelaBase.AoVoltarAsync`), o equivalente do
+  `IAtualizarAoVoltar`: o `TelaBlazor` põe no `DataContext` um adaptador que o shell
+  reconhece. Sem isso a aba guardada voltaria com o lançamento da outra máquina invisível.
+  **O que fica para depois, com o motivo**: um `BlazorWebView` por aba (catorze controladores
+  num dia cheio) — um por módulo com navegação interna economiza memória, mas mexe no
+  `TelaComAbas` e só vale medir no Windows; e o menu "⋯" dos cartões de número, que o `Kpi`
+  ainda não tem.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
