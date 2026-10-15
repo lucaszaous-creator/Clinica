@@ -200,6 +200,26 @@ public enum TipoDocumentoClinico
     TermoProcedimento,
 
     /// <summary>
+    /// Laudo médico (out/2026, pedido da clínica: "escrever e ficar registrado caso precise
+    /// emitir novamente ou alterar").
+    ///
+    /// É um papel ESCRITO pelo médico, como o atestado — e ao contrário dele não se esgota
+    /// num dia: o laudo da perícia, do convênio ou da escola é o mesmo documento pedido de
+    /// novo meses depois, às vezes com uma linha a mais. Por isso ele tem as duas portas
+    /// que o pedido nomeia: a 2ª via (sai idêntica, como todo documento clínico) e a NOVA
+    /// VERSÃO (<c>DocumentoClinicoService.EmitirNovaVersaoAsync</c>), que emite o texto
+    /// corrigido com número novo e CANCELA o anterior no mesmo gravar, com o motivo
+    /// dizendo qual número o substituiu. Reescrever o laudo emitido no lugar seria apagar
+    /// devagar o que o paciente já levou (Lei 13.787/2018, art. 3º).
+    ///
+    /// ⚠️ O tipo é gravado como TEXTO (o conversor tolerante), então a posição no enum
+    /// não importa ao banco — e o binário ANTERIOR lê este nome como
+    /// <see cref="Desconhecido"/>, com a tela aberta e a frase "atualize o sistema". A
+    /// janela de atualização dos cinco apps é o desenho, não o acidente (parcela 67).
+    /// </summary>
+    LaudoMedico,
+
+    /// <summary>
     /// O tipo que ESTE build não conhece — um documento gravado por uma versão mais nova.
     ///
     /// ⚠️ <b>Não é um tipo de documento; é a ausência de um.</b> Ele nunca é escrito, nunca
@@ -237,6 +257,7 @@ public static class TipoDocumentoInfo
         TipoDocumentoClinico.Consentimento => "Termo de consentimento",
         TipoDocumentoClinico.Anamnese => "Anamnese",
         TipoDocumentoClinico.TermoProcedimento => "Termo de procedimento",
+        TipoDocumentoClinico.LaudoMedico => "Laudo médico",
 
         // Diz o que fazer, não só o que houve: "Desconhecido" sozinho mandaria a clínica
         // procurar defeito no documento, e o que falta é atualizar o programa.
@@ -276,6 +297,16 @@ public static class TipoDocumentoInfo
         => tipo is TipoDocumentoClinico.PedidoExame;
 
     /// <summary>
+    /// O papel se ALTERA emitindo uma nova versão, que substitui a anterior (out/2026).
+    ///
+    /// Só o laudo, e é decisão: a receita e o atestado errados se resolvem como sempre —
+    /// cancelando com motivo e emitindo outro —, porque eles valem para um dia. O laudo é
+    /// o documento que volta a ser pedido, e é nele que "alterar" é o gesto comum.
+    /// </summary>
+    public static bool PermiteNovaVersao(TipoDocumentoClinico tipo)
+        => tipo is TipoDocumentoClinico.LaudoMedico;
+
+    /// <summary>
     /// Os tipos que a clínica EMITE. <see cref="TipoDocumentoClinico.Desconhecido"/> fica de
     /// fora de propósito: ele não é papel nenhum, é o nome que este build não soube ler.
     /// Escrita à mão em vez de <c>Enum.GetValues</c> justamente por isso — e é o que faz o
@@ -290,7 +321,8 @@ public static class TipoDocumentoInfo
         TipoDocumentoClinico.RelatorioEvolucao,
         TipoDocumentoClinico.Consentimento,
         TipoDocumentoClinico.Anamnese,
-        TipoDocumentoClinico.TermoProcedimento
+        TipoDocumentoClinico.TermoProcedimento,
+        TipoDocumentoClinico.LaudoMedico
     ];
 }
 

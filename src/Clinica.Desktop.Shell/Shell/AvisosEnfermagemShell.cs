@@ -95,10 +95,22 @@ public sealed partial class ShellViewModel
             using var scope = _servicos.CreateScope();
             var resumo = await scope.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ResumoAsync(usuario);
             if (!_avisosEmCena || g != _geracaoPedidos || usuario != _sessaoClinica.UsuarioId) return;
+            var primeiraLeitura = _marcaPedidos is null;
             mudou = _marcaPedidos is { } anterior && anterior != resumo.UltimoEvento;
             _marcaPedidos = resumo.UltimoEvento;
             PedidosNovos = resumo.Novos; ErroPedidos = false; PedidosConsultados = true;
             ResumoPedidos = $"{resumo.Novos} novos · {resumo.Abertos} em aberto · todas as datas";
+
+            // O pedido novo vira NOTIFICAÇÃO (out/2026, pedido da clínica): a contagem no sino
+            // diz que há algo, e a notificação diz O QUÊ, na hora, com o aviso passageiro e a
+            // linha no histórico. As linhas só são lidas quando há novo E algo mudou (ou é a
+            // primeira leitura): a batida de 15 s continua custando só a contagem.
+            if (resumo.Novos > 0 && (primeiraLeitura || mudou))
+            {
+                var linhas = await scope.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ListarAsync(usuario);
+                if (!_avisosEmCena || g != _geracaoPedidos || usuario != _sessaoClinica.UsuarioId) return;
+                AvisarPedidosNovos(linhas, DateTime.Now);
+            }
         }
         catch (Exception ex)
         {
@@ -112,6 +124,31 @@ public sealed partial class ShellViewModel
         // Fora do try: o próprio cabeçalho escuta o sinal, e a releitura dele acha a marca igual.
         if (mudou) NotificacoesEnfermagem.SinalizarMudanca();
     }
+    /// <summary>Pedidos que já viraram notificação nesta sessão — cada um avisa UMA vez.</summary>
+    private readonly HashSet<int> _pedidosNotificados = [];
+
+    /// <summary>
+    /// Cada pedido NOVO ainda não avisado entra nas notificações (o aviso passageiro e o
+    /// histórico do sino). Uma vez por pedido: a batida relê a cada 15 s, e repetir o mesmo
+    /// aviso a cada batida ensinaria a ignorá-lo. Teto de cinco por leitura: na abertura do
+    /// app, uma fila acumulada não pode virar uma rajada.
+    /// </summary>
+    private void AvisarPedidosNovos(IReadOnlyList<LinhaSolicitacaoEnfermagem> linhas, DateTime agora)
+    {
+        if (Snackbar is null) return;
+        var novos = linhas.Where(l => l.Ativa && l.Situacao == "Novo" && !_pedidosNotificados.Contains(l.Id))
+            .OrderBy(l => l.CriadaEm ?? l.Inicio).ToList();
+        foreach (var l in novos) _pedidosNotificados.Add(l.Id);
+        foreach (var l in novos.TakeLast(5)) Snackbar.Info(FraseDoPedidoNovo(NoSino(l, agora)));
+    }
+
+    /// <summary>"Pedido da enfermagem · Até 1 atendimento a mais · BSV — hoje 14:00–15:00 (Joana)".</summary>
+    public static string FraseDoPedidoNovo(PedidoNoSino p)
+    {
+        var quem = p.Origem.Split(" · ")[0].Trim();
+        return $"Pedido da enfermagem · {p.Titulo} — {p.Quando}" + (quem.Length > 0 ? $" ({quem})" : "");
+    }
+
     // ==================== A lista do sino (out/2026) ====================
     //
     // O sino virou a porta ÚNICA dos pedidos (mockup aprovado): havia o sino E um botão

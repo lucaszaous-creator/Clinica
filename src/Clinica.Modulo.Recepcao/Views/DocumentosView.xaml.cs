@@ -41,7 +41,8 @@ public partial class DocumentosView : UserControl
 
         MenuDoDocumento.Abrir(sender, doc, linha, new ComandosDoDocumento(
             vm.ReimprimirCommand, vm.AssinarCommand, vm.EnviarCommand,
-            vm.RenovarLinkCommand, vm.TirarDoArCommand, vm.CancelarCommand));
+            vm.RenovarLinkCommand, vm.TirarDoArCommand, vm.CancelarCommand,
+            vm.NovaVersaoCommand));
     }
 
     /// <summary>

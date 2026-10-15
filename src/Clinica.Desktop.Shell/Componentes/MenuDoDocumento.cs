@@ -10,9 +10,14 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// dos <c>[RelayCommand]</c> mudam de uma para outra), e é só isto que o menu precisa saber
 /// delas.
 /// </summary>
+/// <remarks>
+/// <c>NovaVersao</c> é opcional e vem no FIM: só as telas que listam laudo o ligam, e as
+/// chamadas posicionais que já existiam continuam valendo sem saber que ele existe.
+/// </remarks>
 public sealed record ComandosDoDocumento(
     ICommand Imprimir, ICommand Assinar, ICommand Enviar,
-    ICommand RenovarLink, ICommand TirarDoAr, ICommand Cancelar);
+    ICommand RenovarLink, ICommand TirarDoAr, ICommand Cancelar,
+    ICommand? NovaVersao = null);
 
 /// <summary>
 /// O "⋯" da linha de um documento: as ações que não são a principal daquele papel
@@ -69,6 +74,12 @@ public static class MenuDoDocumento
         // o que impede o menu de nascer vazio — "⋯" que abre e fecha sem dizer nada é o
         // botão que não faz nada da parcela 41.
         Acrescentar("Imprimir a 2ª via", comandos.Imprimir, true);
+
+        // Alterar o laudo é emitir a versão corrigida: a anterior fica cancelada, apontando
+        // para a nova. Vem logo depois da 2ª via porque são as duas perguntas do pedido —
+        // "emitir novamente ou alterar".
+        if (comandos.NovaVersao is { } novaVersao)
+            Acrescentar("Alterar (emitir nova versão)…", novaVersao, doc.OferecerNovaVersao);
 
         Acrescentar("Assinar com o e-CPF…", comandos.Assinar, doc.OferecerAssinar);
 

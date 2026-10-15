@@ -4512,6 +4512,32 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   por telefone, hora da sessão realizada, histórico de pagamento por pacote), o desvio é
   escrito na entrega com o motivo, nunca preenchido com algo que pareça certo.
 
+- **O LAUDO MÉDICO, e o que "alterar" quer dizer num documento que não se reescreve**
+  (out/2026 — a clínica: *"escrever e ficar registrado caso precise emitir novamente ou
+  alterar"*; a direção: *"em emitir dentro do atendimento, sem nova aba"*).
+  `TipoDocumentoClinico.LaudoMedico` é um papel ESCRITO, com os bits do atestado
+  (`VerProntuario` para ler, `Prescrever` para emitir) e o CID sob a MESMA autorização
+  expressa. A porta é o botão "Laudo médico" no EMITIR do atendimento, e ele aparece
+  sozinho na régua das Prescrições e na central porque as duas leem o catálogo.
+  ⚠️ **"Emitir novamente" já existia (2ª via idêntica); "alterar" não podia ser
+  reescrever.** `EmitirNovaVersaoAsync` numera a versão nova e CANCELA a anterior no
+  MESMO `SaveChanges`, com o motivo nomeando o número que a substituiu e a trilha
+  `DocumentoClinicoSubstituido`. Em duas gravações, uma falha no meio deixaria dois
+  laudos válidos dizendo coisas diferentes, ou nenhum; e cancelar à mão para emitir de
+  novo é exatamente o passo que se esquece. A recusa vem antes de qualquer gravação
+  (outro paciente, outro tipo, já cancelado), e o teste prova que a versão recusada não
+  cancela a anterior.
+  ⚠️ **Só o laudo** (`TipoDocumentoInfo.PermiteNovaVersao`): receita e atestado valem
+  para um dia e se corrigem como sempre. O ato mora em `AcoesDoDocumento.NovaVersaoAsync`
+  e entra no "⋯" por um comando OPCIONAL no fim de `ComandosDoDocumento` — as telas que
+  não listam laudo continuam compilando sem saber dele.
+  ⚠️ **O texto do laudo nunca é herdado da sessão**: copiar a conduta para o papel que
+  vai à perícia seria decidir pelo médico o que a perícia lê. Herda só o CID.
+  ⚠️ E a lição de leiaute da mesma rodada: **em `DockPanel`, filho que não é o último
+  ganha `Dock=Left` por padrão** — o botão de Treinamento declarado sem `Dock` antes do
+  menu ficou à esquerda dele e foi empurrado para fora da janela em 880 px. Quem ancora
+  à direita declara `DockPanel.Dock="Right"` e vem ANTES do filho que preenche.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

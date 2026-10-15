@@ -102,17 +102,34 @@
                        Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8"
                        Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}" />
 
+            <!-- ⚠️ Os dois estados (o convite e a lista) moram num GRID que é o ÚLTIMO filho do
+                 DockPanel. Como irmãos soltos, o primeiro deles ganhava Dock=Left por padrão e o
+                 convite saía como um cartão estreito encostado à esquerda (out/2026, o print do
+                 cliente). Aqui os dois ocupam a largura inteira, um de cada vez. -->
+            <Grid>
             <!-- Antes de pedir, a tela CONVIDA — "nenhum paciente encontrado" numa tela
-                 recém-aberta seria falso sobre uma clínica de milhares de fichas. -->
-            <Border Style="{StaticResource Card}" Padding="24"
+                 recém-aberta seria falso sobre uma clínica de milhares de fichas. A tela da
+                 Recepção abre no recorte de hoje; o convite aparece quando a busca é limpa. -->
+            <Border Style="{StaticResource Card}" Padding="32"
                     Visibility="{Binding Seletor.Ocioso, Converter={StaticResource BoolParaVisibilidade}}">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock Text="Busque pelo nome ou CPF, ou escolha um recorte acima." HorizontalAlignment="Center" TextWrapping="Wrap" />
-                    <TextBlock Text="A lista não carrega sozinha: o cadastro inteiro é a consulta mais cara do sistema." Style="{StaticResource CelulaSuave}"
-                               HorizontalAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520">
+                    <Border Width="56" Height="56" CornerRadius="28" Background="{StaticResource Brush.Acento.Suave}"
+                            HorizontalAlignment="Center" Margin="0,0,0,14">
+                        <TextBlock Text="&#xE721;" FontFamily="{StaticResource FonteIcones}" FontSize="{StaticResource Fonte.H2}"
+                                   Foreground="{StaticResource Brush.Acento}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Quem você procura?" Style="{StaticResource H3}" HorizontalAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock Text="Digite o nome ou o CPF na busca acima, ou escolha um dos recortes — quem tem horário hoje, cadastro incompleto, sem convênio ou aniversário na semana."
+                               Style="{StaticResource TextoSuave}" HorizontalAlignment="Center" TextAlignment="Center"
+                               TextWrapping="Wrap" Margin="0,6,0,16" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="Quem tem horário hoje" Margin="0,0,8,0"
+                                Command="{Binding EscolherRecorteCommand}" CommandParameter="ComHorarioHoje" />
+                        <Button Content="Ver todas as fichas" Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding EscolherRecorteCommand}" CommandParameter="Todos" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
-
             <Border Style="{StaticResource Card}" Padding="0"
                     Visibility="{Binding Seletor.AlgoFoiPedido, Converter={StaticResource BoolParaVisibilidade}}">
                 <DockPanel Grid.IsSharedSizeScope="True">
@@ -217,6 +234,7 @@
                     </Grid>
                 </DockPanel>
             </Border>
+            </Grid>
         </DockPanel>
 
         <!-- ==================================================================

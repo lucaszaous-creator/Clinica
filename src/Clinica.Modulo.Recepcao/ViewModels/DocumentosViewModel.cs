@@ -1143,6 +1143,18 @@ public sealed partial class DocumentosViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Altera o laudo emitindo uma nova versão, que cancela a anterior no mesmo gravar
+    /// (out/2026) — a mesma porta das Prescrições do Consultório, pelo ato do shell.
+    /// </summary>
+    [RelayCommand]
+    private async Task NovaVersaoAsync(LinhaFolhaEmitida? linha)
+    {
+        if (linha?.Documento is not { } doc) return;
+        await AplicarNoDocumentoAsync(
+            await AcoesDoDocumento.NovaVersaoAsync(doc, _escopos, _snackbar));
+    }
+
+    /// <summary>
     /// Entrega o ARQUIVO assinado ao paciente pelo WhatsApp — o segundo ato que faltava.
     /// A assinatura vive nos bytes: quem sai só com o papel leva um documento sem ela.
     /// </summary>

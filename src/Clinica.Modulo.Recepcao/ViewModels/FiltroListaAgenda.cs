@@ -19,6 +19,9 @@ public sealed class ChipSituacaoAgenda : ObservableObject
     public ChipSituacaoAgenda(string chave, string rotulo) { Chave = chave; Rotulo = rotulo; }
     public string Chave { get; }
     public string Rotulo { get; }
+
+    /// <summary>A chave É o grupo visual: o ponto da pílula usa o mesmo estilo de cor da linha.</summary>
+    public string GrupoVisual => Chave;
     public int Contagem { get => _contagem; set => SetProperty(ref _contagem, value); }
 
     /// <summary>
@@ -59,12 +62,12 @@ public sealed partial class FiltroListaAgenda : ObservableObject
         _nomeDoPeriodo = nomeDoPeriodo;
         Situacoes =
         [
-            // Os rótulos do mockup aprovado (out/2026). Falta, cancelamento e substituição
-            // são UMA pílula: as três dizem "esta sessão não vai acontecer", e três pílulas
-            // quase sempre zeradas gastavam a linha.
-            new("todos", "Todos"), new("pendente", "Marcado"), new("no-local", "No local"),
-            new("em-atendimento", "Em atendimento"), new("atendido", "Concluído"),
-            new(FaltaOuCancelado, "Falta / cancelado")
+            // As OITO pílulas da agenda em produção (out/2026, pedido da clínica: a versão
+            // de seis, com falta e cancelamento juntos, foi lida como regressão). Cada uma
+            // com o ponto na cor da situação e a contagem ANTES do clique.
+            new("todos", "Todos"), new("pendente", "Pendentes"), new("no-local", "No local"),
+            new("em-atendimento", "Em atendimento"), new("atendido", "Atendidos"),
+            new("cancelado", "Cancelados"), new("faltou", "Faltas"), new("substituido", "Substituídos")
         ];
         Situacoes[0].Marcado = true;
         NomesDeModalidade.Add(TodasModalidades);
@@ -91,11 +94,8 @@ public sealed partial class FiltroListaAgenda : ObservableObject
     /// <summary>Há horários no período, e NENHUM passa pelos filtros — a pergunta é outra.</summary>
     [ObservableProperty] private bool _nenhumCorresponde;
 
-    private const string FaltaOuCancelado = "falta-cancelado";
-
-    /// <summary>A pílula casa com o grupo visual da linha — a de falta/cancelado com os três grupos.</summary>
-    private static bool Casa(string chave, string grupo) =>
-        chave == grupo || chave == FaltaOuCancelado && grupo is "cancelado" or "faltou" or "substituido";
+    /// <summary>A pílula casa com o grupo visual da linha.</summary>
+    private static bool Casa(string chave, string grupo) => chave == grupo;
 
     private bool ModalidadeAtiva => !string.IsNullOrEmpty(Modalidade) && Modalidade != TodasModalidades;
 
@@ -177,7 +177,7 @@ public sealed partial class FiltroListaAgenda : ObservableObject
         var pesquisadas = horarios.Where(PassaBuscaEModalidade).ToList();
         foreach (var chip in Situacoes)
             chip.Contagem = chip.Chave == "todos" ? pesquisadas.Count : pesquisadas.Count(h => Casa(chip.Chave, h.Grupo));
-        var visiveis = Situacao == "todos" ? pesquisadas.Count : pesquisadas.Count(h => h.Grupo == Situacao);
+        var visiveis = Situacao == "todos" ? pesquisadas.Count : pesquisadas.Count(h => Casa(Situacao, h.Grupo));
 
         NenhumCorresponde = !carregando && horarios.Count > 0 && visiveis == 0 && TemFiltros;
         Resumo = carregando ? "Atualizando agenda…" : $"{visiveis} de {horarios.Count} horários {_nomeDoPeriodo}";

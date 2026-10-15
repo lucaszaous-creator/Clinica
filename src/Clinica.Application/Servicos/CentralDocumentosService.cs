@@ -338,6 +338,20 @@ public sealed class CentralDocumentosService
             PermissaoEmitir = Permissao.Prescrever
         },
 
+        // O laudo é ESCRITO pelo médico e carrega diagnóstico: é dado de saúde para ler e
+        // ato de quem prescreve para emitir — os mesmos bits do atestado, que é o papel
+        // mais parecido com ele. Alterar é emitir uma NOVA VERSÃO, que cancela a anterior
+        // com o número da nova no motivo (out/2026).
+        new("laudo-medico", "Laudo médico",
+            "Texto do médico sobre o quadro do paciente. Fica registrado: sai em 2ª via "
+            + "idêntica e se altera emitindo uma nova versão, que substitui a anterior.",
+            NaturezaFolha.Clinico, ExigenciaFolha.Paciente)
+        {
+            TipoClinico = TipoDocumentoClinico.LaudoMedico,
+            PermissaoVer = Permissao.VerProntuario,
+            PermissaoEmitir = Permissao.Prescrever
+        },
+
         // Comparecimento: prova que a pessoa ESTEVE aqui, com hora de chegada e de saída.
         // Não diz o que ela tem, e quem o entrega é o balcão — fica no cadastro.
         new("comparecimento", "Declaração de comparecimento",

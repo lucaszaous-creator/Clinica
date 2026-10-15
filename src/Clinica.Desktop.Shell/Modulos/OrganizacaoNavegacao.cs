@@ -15,7 +15,9 @@ public static class OrganizacaoNavegacao
         switch (item.Chave)
         {
             case "agenda":
-                abas = [new("Visão geral", ChavesSuite.OcupacaoAgenda), new("Dia", "fila")];
+                // O DIA primeiro (out/2026, pedido da clínica): é a aba que o clique em
+                // "Agenda" abre, e a recepção vive nela a manhã inteira.
+                abas = [new("Dia", "fila"), new("Visão geral", ChavesSuite.OcupacaoAgenda)];
                 break;
             case "consultorio-agenda":
                 rotulo = "Agenda";
@@ -35,8 +37,10 @@ public static class OrganizacaoNavegacao
                 break;
             case "consultorio-pacientes": oculto = true; break;
             case ChavesSuite.AgendaRecepcao: oculto = true; break;
-            // O SINO é a porta única dos pedidos (out/2026): a caixa continua destino de
-            // navegação ("Ver todos os avisos"), mas sem uma segunda entrada no menu.
+            // A caixa dos pedidos é ABA de "Relacionamento" (out/2026, pedido da clínica) e
+            // o sino continua avisando o pedido novo. Como item solto ela fica escondida:
+            // quem a mostra é o composto, e duas entradas para a mesma caixa eram a
+            // redundância que a direção mandou tirar.
             case ChavesSuite.PedidosEnfermagem: oculto = true; break;
             case "pagamentos-recepcao": rotulo = "Recebimentos de pacientes"; grupo = GrupoSidebar.Financeiro; break;
             case "particular": rotulo = "Particular e pacotes"; grupo = GrupoSidebar.Financeiro; break;

@@ -59,7 +59,7 @@ static partial class Program
             Check(vm.Atendimento.PodeEditarProntuario==(profile is PerfilAcesso.Profissional or PerfilAcesso.Gerente or PerfilAcesso.Psicologia),"Escrita médica incorreta: "+profile);
             await vm.Atendimento.HistoricoConsulta.RecarregarAsync();
             Check(profile!=PerfilAcesso.Recepcao || vm.Atendimento.HistoricoConsulta.Itens.Count==0,"Recepção viu prontuário.");
-            foreach(var key in new[]{"receita","atestado","comparecimento","pedido-exame"})
+            foreach(var key in new[]{"receita","atestado","laudo-medico","comparecimento","pedido-exame"})
             {
                 var folha=CentralDocumentosService.Folha(key)!;
                 bool expected=profile!=PerfilAcesso.Recepcao && SessaoUsuario.Atual.Pode(folha.PermissaoEmitir);

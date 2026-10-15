@@ -81,7 +81,7 @@ public sealed record DocumentoNaTela
     public bool EmissaoSemCertificado => Tipo is TipoDocumentoClinico.Receita
         or TipoDocumentoClinico.Atestado or TipoDocumentoClinico.Comparecimento
         or TipoDocumentoClinico.PedidoExame or TipoDocumentoClinico.RelatorioEvolucao
-        or TipoDocumentoClinico.Anamnese;
+        or TipoDocumentoClinico.Anamnese or TipoDocumentoClinico.LaudoMedico;
 
     /// <summary>Só o ASSINADO se entrega como arquivo — sem assinatura, o que vale é a via de caneta.</summary>
     public bool PodeEnviar => Assinado && !Cancelado;
@@ -99,6 +99,13 @@ public sealed record DocumentoNaTela
 
     /// <summary>Oferecer "Enviar ao paciente".</summary>
     public bool OferecerEnviar => PodeEnviar && SessaoUsuario.Atual.Pode(AcessoParaMexer);
+
+    /// <summary>
+    /// Oferecer "Alterar (nova versão)" — só no papel que se altera assim (o laudo) e só
+    /// enquanto ele vale: o cancelado não tem o que substituir.
+    /// </summary>
+    public bool OferecerNovaVersao => TipoDocumentoInfo.PermiteNovaVersao(Tipo) && !Cancelado
+        && PacienteId is not null && SessaoUsuario.Atual.Pode(AcessoParaMexer);
 
     /// <summary>Oferecer "Cancelar" — cancelar duas vezes não existe.</summary>
     public bool OferecerCancelar => !Cancelado && SessaoUsuario.Atual.Pode(AcessoParaMexer);
@@ -415,6 +422,62 @@ public static class AcoesDoDocumento
         {
             Clinica.Application.Diagnostico.Registrar(
                 $"Documento {doc.Numero} — link não pôde ser renovado", ex);
+            return ResultadoAcaoDocumento.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// ALTERA o laudo emitindo uma NOVA VERSÃO (out/2026): a janela de emissão abre com o
+    /// texto do anterior, e o "Emitir" numera a nova e CANCELA a anterior no mesmo gravar
+    /// (<c>DocumentoClinicoService.EmitirNovaVersaoAsync</c>), com o motivo dizendo qual
+    /// número a substituiu.
+    ///
+    /// ⚠️ Mora aqui, e não em cada tela, pela razão de todo este arquivo: são três listas de
+    /// documento, e a que ficasse sem o ato obrigaria a pessoa a cancelar à mão e emitir de
+    /// novo — o caminho em que se esquece de cancelar e ficam dois laudos válidos.
+    /// </summary>
+    public static async Task<ResultadoAcaoDocumento> NovaVersaoAsync(
+        DocumentoNaTela doc, IServiceScopeFactory escopos, ISnackbarService snackbar)
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                doc.AcessoParaMexer, $"alterar {doc.Rotulo.ToLowerInvariant()}");
+
+            if (!TipoDocumentoInfo.PermiteNovaVersao(doc.Tipo))
+                return ResultadoAcaoDocumento.Erro(
+                    $"{doc.Rotulo} não se altera por nova versão: cancele com motivo e emita outro.");
+
+            if (doc.Cancelado)
+                return ResultadoAcaoDocumento.Erro(
+                    $"{doc.Numero} está cancelado — não há o que substituir. A 2ª via dele sai como foi emitido.");
+
+            if (doc.PacienteId is not { } pacienteId)
+                return ResultadoAcaoDocumento.Erro($"{doc.Numero} não é de um paciente.");
+
+            DocumentoClinico? anterior;
+            using (var escopo = escopos.CreateScope())
+                anterior = await escopo.ServiceProvider
+                    .GetRequiredService<DocumentoClinicoService>().ObterAsync(doc.DocumentoId);
+
+            if (anterior is null)
+                return ResultadoAcaoDocumento.Erro($"{doc.Numero} não foi encontrado.");
+
+            var vm = new DocumentoEdicaoViewModel(escopos, pacienteId, anterior.Tipo, versaoDe: anterior);
+            var concluiu = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() == true;
+
+            // Relê dos dois jeitos: fechar sem concluir não quer dizer que nada aconteceu — a
+            // versão nova pode ter sido emitida e só a impressão ter falhado.
+            if (concluiu)
+                snackbar.Sucesso(
+                    $"Nova versão emitida. {doc.Numero} foi cancelado e aponta para ela.");
+
+            return new ResultadoAcaoDocumento(Mudou: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                $"Documento {doc.Numero} — nova versão não pôde ser aberta", ex);
             return ResultadoAcaoDocumento.Erro(ex.Message);
         }
     }

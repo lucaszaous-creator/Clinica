@@ -176,10 +176,13 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveGrupoAgenda, Rotulo = "Agenda", Glifo = "\uE787", Icone = "cal", Principal = 2,
             PreservarAoNavegar = true,
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
+            // O DIA vem primeiro (out/2026, pedido da clínica): é ele que a recepção abre
+            // a manhã inteira, e a primeira aba é a que o clique em "Agenda" mostra. A
+            // rota antiga da agenda continua levando à Visão geral (o pedido de data).
             Abas =
             [
-                new AbaMenu("Visão geral", ChavesSuite.OcupacaoAgenda),
                 new AbaMenu("Dia", ChaveFila),
+                new AbaMenu("Visão geral", ChavesSuite.OcupacaoAgenda),
                 new AbaMenu("Grade", ChaveAgenda),
                 new AbaMenu("Semana do profissional", ChavesSuite.ConsultorioSemana)
             ]
@@ -278,7 +281,10 @@ public sealed class ModuloRecepcao : IModuloApp
             [
                 new AbaMenu("Confirma\u00E7\u00F5es", ChaveConfirmacoes),
                 new AbaMenu("Retornos a marcar", ChaveRetornosAMarcar),
-                new AbaMenu("Acompanhamento", ChaveRetorno)
+                new AbaMenu("Acompanhamento", ChaveRetorno),
+                // Os pedidos da enfermagem (out/2026, pedido da clínica): a recepção os
+                // atende como atende o paciente que liga — é conversa, não agenda.
+                new AbaMenu("Pedidos da enfermagem", ChavesSuite.PedidosEnfermagem)
             ]
         },
         new ItemMenuModulo
@@ -551,6 +557,11 @@ public sealed class ModuloRecepcao : IModuloApp
     private static PacientesViewModel ComFichaDoBalcao(PacientesViewModel vm)
     {
         vm.AbrirFichaDoBalcao = true;
+        // A tela ABRE no recorte de quem tem horário hoje (out/2026 — o cliente: a abertura
+        // "vazia, só com a busca" ficou feia e caducada). É quem o balcão procura primeiro,
+        // e a consulta é pequena (o dia, não o cadastro): o cadastro inteiro continua sendo
+        // PEDIDO, pelo "Ver todas".
+        vm.IniciarComRecorte(Clinica.Application.Modelos.FiltroListaPacientes.ComHorarioHoje);
         return vm;
     }
 }

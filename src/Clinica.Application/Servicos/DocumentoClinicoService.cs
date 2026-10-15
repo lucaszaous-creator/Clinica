@@ -89,11 +89,90 @@ public sealed class DocumentoClinicoService
 
     /// <summary>
     /// Emite um documento escrito pelo profissional (receita, atestado, declaração,
-    /// pedido de exame). Numera, gera o código de conferência e grava auditoria no
+    /// pedido de exame, laudo). Numera, gera o código de conferência e grava auditoria no
     /// mesmo SaveChanges.
     /// </summary>
     public async Task<DocumentoClinico> EmitirAsync(
         DocumentoClinico dados, string? operador = null, CancellationToken ct = default)
+    {
+        var documento = await PrepararEmissaoAsync(dados, operador, ct);
+        await _repo.SalvarAsync(ct);
+        return documento;
+    }
+
+    /// <summary>
+    /// ALTERA um laudo emitindo uma NOVA VERSÃO (out/2026 — "escrever e ficar registrado
+    /// caso precise emitir novamente ou alterar").
+    ///
+    /// O documento emitido não se reescreve: o paciente pode ter levado a via à perícia, e
+    /// reescrevê-lo no lugar seria apagar devagar o que ela dizia (Lei 13.787/2018, art.
+    /// 3º). Então alterar são DOIS fatos, e eles acontecem no MESMO <c>SaveChanges</c>: a
+    /// versão nova nasce com número próprio e a anterior é CANCELADA com o motivo dizendo
+    /// qual número a substituiu. Em duas gravações, uma falha no meio deixaria dois laudos
+    /// válidos dizendo coisas diferentes — ou nenhum.
+    ///
+    /// ⚠️ A lista é das recusas, e cada uma tem razão: o anterior tem de ser do MESMO
+    /// paciente (senão o motivo apontaria para o laudo de outra pessoa), do MESMO tipo, de
+    /// um tipo que se altera assim (<see cref="TipoDocumentoInfo.PermiteNovaVersao"/>) e
+    /// ainda VÁLIDO — cancelado não tem o que substituir, e a 2ª via dele é que sai.
+    /// </summary>
+    public async Task<DocumentoClinico> EmitirNovaVersaoAsync(
+        int anteriorId, DocumentoClinico dados, string? operador = null,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(dados);
+
+        var anterior = await _repo.ObterDocumentoAsync(anteriorId, ct)
+            ?? throw new InvalidOperationException("O documento a substituir não foi encontrado.");
+
+        if (!TipoDocumentoInfo.PermiteNovaVersao(anterior.Tipo))
+            throw new InvalidOperationException(
+                $"{TipoDocumentoInfo.Rotular(anterior.Tipo)} não se altera por nova versão: "
+                + "cancele com motivo e emita outro.");
+
+        if (anterior.Cancelado)
+            throw new InvalidOperationException(
+                $"O documento {anterior.Numero} já está cancelado — não há o que substituir.");
+
+        if (anterior.PacienteId != dados.PacienteId)
+            throw new InvalidOperationException(
+                $"O documento {anterior.Numero} é de outro paciente.");
+
+        if (anterior.Tipo != dados.Tipo)
+            throw new InvalidOperationException(
+                $"A nova versão de {anterior.Numero} tem de ser um(a) "
+                + $"{TipoDocumentoInfo.Rotular(anterior.Tipo).ToLowerInvariant()}.");
+
+        var novo = await PrepararEmissaoAsync(dados, operador, ct);
+
+        anterior.CanceladoEm = DateTime.Now;
+        anterior.MotivoCancelamento = $"Substituído pela nova versão {novo.Numero}.";
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "DocumentoClinicoSubstituido",
+            Detalhe = $"{TipoDocumentoInfo.Rotular(anterior.Tipo)} {anterior.Numero} → {novo.Numero}",
+            PacienteId = anterior.PacienteId
+        }, ct);
+
+        await _repo.SalvarAsync(ct);
+
+        // Depois do gravar, pela mesma razão do cancelamento: a substituição é o fato que
+        // não pode falhar, e um armazenamento fora do ar não pode desfazê-la.
+        if (_publicacao is not null)
+            await _publicacao.DespublicarAsync(anterior, operador, ct);
+
+        return novo;
+    }
+
+    /// <summary>
+    /// Valida, numera e põe no contexto o documento novo, com a trilha — SEM gravar. É o
+    /// miolo comum da emissão e da nova versão: duas montagens divergiriam na primeira
+    /// correção da cópia campo a campo, que é onde este serviço já perdeu dado duas vezes.
+    /// </summary>
+    private async Task<DocumentoClinico> PrepararEmissaoAsync(
+        DocumentoClinico dados, string? operador, CancellationToken ct)
     {
         var paciente = await _repo.ObterPacienteAsync(dados.PacienteId, ct)
             ?? throw new InvalidOperationException("Paciente não encontrado.");
@@ -165,7 +244,6 @@ public sealed class DocumentoClinicoService
             PacienteId = documento.PacienteId
         }, ct);
 
-        await _repo.SalvarAsync(ct);
         return documento;
     }
 
@@ -737,7 +815,12 @@ public sealed class DocumentoClinicoService
             && itens.Count == 0 && string.IsNullOrWhiteSpace(dados.Corpo))
             throw new InvalidOperationException("Escreva a prescrição antes de emitir a receita.");
 
-        // Receita, atestado e pedido de exame só existem porque alguém habilitado
+        // O laudo É o texto: sem ele o papel sairia numerado com cabeçalho e assinatura e
+        // nada no meio.
+        if (dados.Tipo == TipoDocumentoClinico.LaudoMedico && string.IsNullOrWhiteSpace(dados.Corpo))
+            throw new InvalidOperationException("Escreva o laudo antes de emiti-lo.");
+
+        // Receita, atestado, pedido de exame e laudo só existem porque alguém habilitado
         // assina. Sem assinante o papel não vale nada — e vale menos ainda descobrir
         // isso na frente do paciente, com o documento já impresso.
         if (ExigeAssinante(dados.Tipo))
@@ -772,7 +855,8 @@ public sealed class DocumentoClinicoService
     private static bool ExigeAssinante(TipoDocumentoClinico tipo)
         => tipo is TipoDocumentoClinico.Receita
                or TipoDocumentoClinico.Atestado
-               or TipoDocumentoClinico.PedidoExame;
+               or TipoDocumentoClinico.PedidoExame
+               or TipoDocumentoClinico.LaudoMedico;
 
     private async Task<string> NumerarAsync(int ano, CancellationToken ct)
     {

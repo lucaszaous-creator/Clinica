@@ -326,6 +326,10 @@ public sealed class DocumentosClinicosPdfService
                             BlocoComparecimento(col, documento);
                             break;
 
+                        case TipoDocumentoClinico.LaudoMedico:
+                            BlocoCidDoLaudo(col, documento);
+                            break;
+
                         case TipoDocumentoClinico.RelatorioEvolucao:
                             CurvaDaDor(col, itens);
                             TabelaSessoes(col, itens);
@@ -610,6 +614,22 @@ public sealed class DocumentosClinicosPdfService
 
         if (documento.PeriodoInicio is { } inicio && documento.DiasAfastamento is not null)
             col.Item().Text($"A partir de {inicio:dd/MM/yyyy}.").FontSize(9.5f).FontColor(TextoSecundario);
+    }
+
+    /// <summary>
+    /// O CID do laudo, com a MESMA regra do atestado: só sai quando o paciente autorizou —
+    /// o laudo vai à perícia, ao convênio e à escola, e o diagnóstico é sigilo dele. Sem
+    /// autorização não sai nada, nem um "CID omitido" que anunciaria que existe um.
+    /// </summary>
+    private static void BlocoCidDoLaudo(ColumnDescriptor col, DocumentoClinico documento)
+    {
+        if (documento.CidImpresso is not { } cid) return;
+
+        col.Item().Border(1).BorderColor(Borda).Padding(12).Column(c =>
+        {
+            c.Item().Text("CID").Bold().FontSize(8).FontColor(TextoSecundario).LetterSpacing(0.08f);
+            c.Item().PaddingTop(2).Text(cid).Bold().FontSize(13).FontColor(AzulEscuro);
+        });
     }
 
     private static void BlocoComparecimento(ColumnDescriptor col, DocumentoClinico documento)

@@ -72,6 +72,13 @@ public sealed partial class CartaoFila : ObservableObject
     public bool ForaDaFila => StatusDaFila.ForaDaFila(Situacao);
 
     /// <summary>
+    /// O grupo da COR (out/2026): pendente, no local, em atendimento, atendido, cancelado,
+    /// falta, substituído — a mesma chave do filtro de situação e dos cartões da Grade, para a
+    /// pílula, o traço da linha e o ponto do filtro dizerem a mesma coisa.
+    /// </summary>
+    public string GrupoVisual => SituacaoVisualAgenda.Grupo(Situacao, Etapa);
+
+    /// <summary>
     /// A coluna STATUS da lista: a etapa em UMA palavra, no MESMO vocabulário do Meu dia
     /// do médico (<see cref="StatusDaFila"/>) — duas telas sobre o mesmo horário, uma
     /// palavra.

@@ -259,7 +259,7 @@ public sealed partial class PacientesViewModel : ObservableObject
             var r = await scope.ServiceProvider.GetRequiredService<PacienteService>()
                 .RecortesAsync(DateOnly.FromDateTime(DateTime.Today));
             var pt = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
-            Subtitulo = $"{r.Total.ToString("N0", pt)} {(r.Total == 1 ? "ficha cadastrada" : "fichas cadastradas")} · a lista aparece quando você busca ou escolhe um recorte";
+            Subtitulo = $"{r.Total.ToString("N0", pt)} {(r.Total == 1 ? "ficha cadastrada" : "fichas cadastradas")} · busque por nome ou CPF, ou escolha um recorte";
             ChipHoje = $"Com horário hoje · {r.ComHorarioHoje.ToString("N0", pt)}";
             ChipIncompleto = $"Cadastro incompleto · {r.CadastroIncompleto.ToString("N0", pt)}";
             ChipSemConvenio = $"Sem convênio definido · {r.SemConvenio.ToString("N0", pt)}";

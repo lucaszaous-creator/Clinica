@@ -210,6 +210,115 @@ public class DocumentosClinicosTests : IDisposable
         atestado.CidImpresso.Should().Be("M54.5");
     }
 
+    // ==================== Laudo médico (out/2026) ====================
+
+    private Task<DocumentoClinico> EmitirLaudoAsync(
+        int pacienteId, int? profissionalId, string? corpo = "Paciente em acompanhamento desde 03/2026.",
+        string? cid = null, bool cidAutorizado = false)
+        => _documentos.EmitirAsync(LaudoNovo(pacienteId, profissionalId, corpo, cid, cidAutorizado), "dra.ana");
+
+    private static DocumentoClinico LaudoNovo(
+        int pacienteId, int? profissionalId, string? corpo, string? cid = null, bool cidAutorizado = false)
+        => new()
+        {
+            Tipo = TipoDocumentoClinico.LaudoMedico,
+            PacienteId = pacienteId,
+            ProfissionalId = profissionalId,
+            Data = Dia,
+            Titulo = "Laudo para perícia",
+            Corpo = corpo,
+            Cid = cid,
+            CidAutorizado = cidAutorizado
+        };
+
+    [Fact]
+    public async Task Laudo_sem_texto_ou_sem_quem_assina_e_recusado()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var profissionalId = await CriarProfissionalAsync();
+
+        var semTexto = () => EmitirLaudoAsync(pacienteId, profissionalId, corpo: "   ");
+        await semTexto.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Escreva o laudo*");
+
+        var semAssinante = () => EmitirLaudoAsync(pacienteId, profissionalId: null);
+        await semAssinante.Should().ThrowAsync<InvalidOperationException>().WithMessage("*profissional que assina*");
+
+        (await _documentos.DoPacienteAsync(pacienteId)).Should().BeEmpty("nada recusado gasta número");
+    }
+
+    /// <summary>
+    /// ALTERAR o laudo: a versão nova nasce com número próprio e a anterior fica CANCELADA,
+    /// com o motivo dizendo qual número a substituiu — e a anterior continua na lista, com o
+    /// texto que o paciente levou. Reescrever no lugar apagaria o que ela dizia.
+    /// </summary>
+    [Fact]
+    public async Task Nova_versao_do_laudo_substitui_a_anterior_sem_apagar_o_que_ela_dizia()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var profissionalId = await CriarProfissionalAsync();
+        var primeira = await EmitirLaudoAsync(pacienteId, profissionalId, corpo: "Texto da primeira versão.");
+
+        var segunda = await _documentos.EmitirNovaVersaoAsync(
+            primeira.Id, LaudoNovo(pacienteId, profissionalId, "Texto corrigido.", "M54.5", true), "dra.ana");
+
+        segunda.Numero.Should().NotBe(primeira.Numero);
+        segunda.Cancelado.Should().BeFalse();
+        segunda.Corpo.Should().Be("Texto corrigido.");
+        segunda.CidImpresso.Should().Be("M54.5");
+
+        var anterior = await _documentos.ObterAsync(primeira.Id);
+        anterior!.Cancelado.Should().BeTrue();
+        anterior.MotivoCancelamento.Should().Contain(segunda.Numero);
+        anterior.Corpo.Should().Be("Texto da primeira versão.", "o que o paciente levou não se reescreve");
+
+        (await _documentos.DoPacienteAsync(pacienteId)).Should().HaveCount(2);
+        _db.Auditoria.Should().Contain(e => e.Acao == "DocumentoClinicoSubstituido"
+            && e.Detalhe!.Contains(primeira.Numero) && e.Detalhe.Contains(segunda.Numero));
+    }
+
+    /// <summary>
+    /// Os dois fatos andam juntos: se a versão nova é recusada, a anterior continua VÁLIDA —
+    /// senão a clínica ficaria sem laudo nenhum por causa de um campo em branco.
+    /// </summary>
+    [Fact]
+    public async Task Nova_versao_recusada_nao_cancela_a_anterior()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var profissionalId = await CriarProfissionalAsync();
+        var primeira = await EmitirLaudoAsync(pacienteId, profissionalId);
+
+        var semTexto = () => _documentos.EmitirNovaVersaoAsync(
+            primeira.Id, LaudoNovo(pacienteId, profissionalId, corpo: null), "dra.ana");
+        await semTexto.Should().ThrowAsync<InvalidOperationException>();
+
+        _db.ChangeTracker.Clear();
+        (await _documentos.ObterAsync(primeira.Id))!.Cancelado.Should().BeFalse();
+        (await _documentos.DoPacienteAsync(pacienteId)).Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task Nova_versao_recusa_outro_paciente_outro_tipo_e_documento_cancelado()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var outroId = await CriarPacienteAsync("João");
+        var profissionalId = await CriarProfissionalAsync();
+        var laudo = await EmitirLaudoAsync(pacienteId, profissionalId);
+        var receita = await EmitirReceitaAsync(pacienteId, profissionalId);
+
+        var deOutro = () => _documentos.EmitirNovaVersaoAsync(
+            laudo.Id, LaudoNovo(outroId, profissionalId, "x"), "dra.ana");
+        await deOutro.Should().ThrowAsync<InvalidOperationException>().WithMessage("*outro paciente*");
+
+        var daReceita = () => _documentos.EmitirNovaVersaoAsync(
+            receita.Id, LaudoNovo(pacienteId, profissionalId, "x"), "dra.ana");
+        await daReceita.Should().ThrowAsync<InvalidOperationException>().WithMessage("*não se altera*");
+
+        await _documentos.CancelarAsync(laudo.Id, "emitido por engano", "dra.ana");
+        var doCancelado = () => _documentos.EmitirNovaVersaoAsync(
+            laudo.Id, LaudoNovo(pacienteId, profissionalId, "x"), "dra.ana");
+        await doCancelado.Should().ThrowAsync<InvalidOperationException>().WithMessage("*já está cancelado*");
+    }
+
     // ==================== Cancelamento ====================
 
     [Fact]
@@ -451,7 +560,7 @@ public class DocumentosClinicosTests : IDisposable
     // ==================== PDF ====================
 
     [Fact]
-    public async Task Os_oito_documentos_geram_PDF()
+    public async Task Os_nove_documentos_geram_PDF()
     {
         var pacienteId = await CriarPacienteAsync();
         var profissionalId = await CriarProfissionalAsync();
@@ -492,7 +601,9 @@ public class DocumentosClinicosTests : IDisposable
             // O termo que o PACIENTE assina (parcela 66). Entra aqui porque a asserção
             // abaixo cobra `TipoDocumentoInfo.Todos`: tipo novo sem PDF passaria no build e
             // só falharia na frente de quem fosse imprimi-lo.
-            await _documentos.EmitirTermoProcedimentoAsync(pacienteId, await ModeloDeTermoAsync())
+            await _documentos.EmitirTermoProcedimentoAsync(pacienteId, await ModeloDeTermoAsync()),
+            // O laudo (out/2026), com o CID autorizado — o bloco que só ele desenha.
+            await EmitirLaudoAsync(pacienteId, profissionalId, cid: "F41.1", cidAutorizado: true)
         };
 
         emitidos.Select(d => d.Tipo).Should().BeEquivalentTo(TipoDocumentoInfo.Todos);
