@@ -17,6 +17,22 @@ public partial class RetornosAMarcarView : UserControl
     {
         InitializeComponent();
         IsVisibleChanged += AoMudarVisibilidade;
+        Tabela.SizeChanged += (_, _) => AjustarColunas();
+    }
+
+    /// <summary>Soma dos mínimos das colunas COM a nota (180 + 140 + 150 + 160 + 250 = 880), mais a
+    /// barra de rolagem vertical e a borda. Abaixo disso a tabela rolaria de lado.</summary>
+    private const double LarguraComNota = 910;
+
+    /// <summary>
+    /// Na janela estreita (880–1024 px) a NOTA sai da tabela, e o resto cabe sem rolar de lado:
+    /// tabela que rola para a direita esconde justamente a coluna de AÇÃO. A nota continua no
+    /// prontuário e volta sozinha quando a janela alarga.
+    /// </summary>
+    private void AjustarColunas()
+    {
+        var v = Tabela.ActualWidth >= LarguraComNota ? Visibility.Visible : Visibility.Collapsed;
+        if (ColunaNota.Visibility != v) ColunaNota.Visibility = v;
     }
 
     /// <summary>

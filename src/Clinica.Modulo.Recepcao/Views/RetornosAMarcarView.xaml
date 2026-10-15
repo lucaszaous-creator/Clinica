@@ -97,14 +97,14 @@
                      célula, sem erro, sem aviso e sem barra de rolagem para alcançar o que sumiu.
                      `NaN` devolve o "do tamanho do conteúdo" que é o padrão do WPF; o `MinRowHeight`
                      guarda o piso de densidade para as linhas que couberem numa linha só. -->
-                <DataGrid ItemsSource="{Binding Linhas}"
+                <DataGrid x:Name="Tabela" ItemsSource="{Binding Linhas}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False"
                           CanUserSortColumns="True" SelectionMode="Single"
                           RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="56" CanUserReorderColumns="False" ScrollViewer.HorizontalScrollBarVisibility="Auto">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="PACIENTE" Width="1.6*" MinWidth="200" SortMemberPath="Paciente">
+                        <DataGridTemplateColumn Header="PACIENTE" Width="1.6*" MinWidth="180" SortMemberPath="Paciente">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <DockPanel Margin="8,6,8,6">
@@ -118,7 +118,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="PEDIDO POR" Width="1.3*" MinWidth="170" SortMemberPath="Profissional">
+                        <DataGridTemplateColumn Header="PEDIDO POR" Width="1.3*" MinWidth="140" SortMemberPath="Profissional">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
@@ -129,7 +129,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="PARA QUANDO" Width="170" SortMemberPath="RetornoEm">
+                        <DataGridTemplateColumn Header="PARA QUANDO" Width="150" SortMemberPath="RetornoEm">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
@@ -150,7 +150,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="NOTA DO PROFISSIONAL" Width="1.6*" MinWidth="180" CanUserSort="False">
+                        <DataGridTemplateColumn x:Name="ColunaNota" Header="NOTA DO PROFISSIONAL" Width="1.6*" MinWidth="160" CanUserSort="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <!-- O motivo só vem na linha para quem tem VerProntuario:

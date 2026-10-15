@@ -6,6 +6,7 @@
  Background="{StaticResource Brush.Fundo}">
  <UserControl.Resources>
   <BooleanToVisibilityConverter x:Key="Bool"/>
+  <ctrl:TextoParaVisibilidade x:Key="Texto"/>
   <Style x:Key="Campo" TargetType="StackPanel"><Setter Property="Margin" Value="0,0,16,10"/><Setter Property="MinWidth" Value="180"/></Style>
   <Style x:Key="Acao" TargetType="Button" BasedOn="{StaticResource BotaoSecundario}"><Setter Property="Margin" Value="0,0,8,6"/><Setter Property="MinHeight" Value="34"/><Setter Property="Padding" Value="10,6"/></Style>
  </UserControl.Resources>
@@ -22,14 +23,14 @@
         ==================================================================== -->
    <DockPanel Visibility="{Binding ListaVisivel, Converter={StaticResource Bool}}">
     <StackPanel DockPanel.Dock="Top">
-     <DockPanel Margin="0,0,0,12">
+     <DockPanel Margin="0,0,0,10">
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
        <Button Content="Atualizar" Command="{Binding RecarregarCommand}" Style="{StaticResource Acao}"/>
        <Button Content="Exportar CSV" Command="{Binding ExportarCommand}" IsEnabled="{Binding TemParaExportar}" Style="{StaticResource Acao}" ToolTip="A lista do filtro, com a coluna de quem pode receber mensagem."/>
        <Button Content="Configurar" Command="{Binding ConfigurarCommand}" Style="{StaticResource Acao}" Visibility="{Binding Gestor, Converter={StaticResource Bool}}"/>
       </StackPanel>
       <!-- O controle segmentado: as duas filas, com a contagem de pendentes de cada uma. -->
-      <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+      <Border DockPanel.Dock="Left" Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
               CornerRadius="{StaticResource Raio.Medio}" Padding="3" HorizontalAlignment="Left" VerticalAlignment="Center">
        <StackPanel Orientation="Horizontal">
         <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,4,0" IsChecked="{Binding EhRecall, Mode=OneWay}"
@@ -42,8 +43,11 @@
         </ToggleButton>
        </StackPanel>
       </Border>
+      <!-- A descrição da fila mora NA LINHA do controle segmentado, e não numa linha própria:
+           a lista precisa de altura útil na janela baixa (600 px), e o cabeçalho era o que a comia. -->
+      <TextBlock Text="{Binding DescricaoFila}" Style="{StaticResource CelulaSuave}" TextTrimming="CharacterEllipsis"
+                 ToolTip="{Binding DescricaoFila}" VerticalAlignment="Center" Margin="12,0,8,0"/>
      </DockPanel>
-     <TextBlock Text="{Binding DescricaoFila}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"/>
 
      <WrapPanel Margin="0,0,0,8">
       <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,6" IsChecked="{Binding ChipAssumir, Mode=OneWay}" Content="{Binding AAssumirTexto}" Command="{Binding AtalhoCommand}" CommandParameter="assumir"/>
@@ -60,13 +64,14 @@
       </StackPanel>
      </WrapPanel>
      <WrapPanel Margin="0,0,0,6">
-      <TextBox x:Name="BuscaPaciente" ctrl:Ajudantes.Placeholder="Buscar paciente pelo nome" Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}" Width="240" MinHeight="36" Padding="10,2" Margin="0,0,8,6" AutomationProperties.Name="Buscar paciente pelo nome" ToolTip="Buscar paciente pelo nome"/>
+      <TextBox x:Name="BuscaPaciente" ctrl:Ajudantes.Placeholder="Buscar paciente pelo nome" Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}" Width="200" MinHeight="36" Padding="10,2" Margin="0,0,8,6" AutomationProperties.Name="Buscar paciente pelo nome" ToolTip="Buscar paciente pelo nome"/>
       <ComboBox x:Name="SituacaoFiltro" ItemsSource="{Binding EstadosFila}" SelectedItem="{Binding Situacao}" Width="175" MinHeight="36" Margin="0,0,8,6" AutomationProperties.Name="Situação do acompanhamento"/>
       <ComboBox x:Name="ModalidadeFiltro" ItemsSource="{Binding Modalidades}" DisplayMemberPath="Nome" SelectedValuePath="Codigo" SelectedValue="{Binding Modalidade}" Width="180" MinHeight="36" Margin="0,0,8,6" AutomationProperties.Name="Modalidade do recall"/>
       <Button Content="Mais filtros" Command="{Binding AbrirFiltrosCommand}" Style="{StaticResource Acao}"/>
       <Button Content="Limpar filtros" Command="{Binding LimparFiltrosCommand}" Style="{StaticResource Acao}"/>
      </WrapPanel>
-     <TextBlock Text="{Binding FiltrosAtivos}" TextWrapping="Wrap" Margin="0,0,0,6" Style="{StaticResource CelulaSuave}"/>
+     <TextBlock Text="{Binding FiltrosAtivos}" TextWrapping="Wrap" Margin="0,0,0,6" Style="{StaticResource CelulaSuave}"
+                Visibility="{Binding FiltrosAtivos, Converter={StaticResource Texto}}"/>
     </StackPanel>
     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Resumo}" TextWrapping="Wrap" Margin="0,8,0,0" Style="{StaticResource CelulaSuave}"/>
     <Grid>
