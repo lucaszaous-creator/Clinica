@@ -234,12 +234,16 @@ static class Program
         if (cartoes == 0 || vagas == 0 || bloqueios == 0) throw new Exception("Busca na grade: cenário sintético sem cartões, vagas ou bloqueios visíveis.");
         filtro.Busca = "inexistente";
         var prazo = DateTime.UtcNow.AddSeconds(5);
-        while (Cartoes() != 0 && DateTime.UtcNow < prazo) { await Task.Delay(100); janela.UpdateLayout(); }
+        // Refresh() da vista refaz TODOS os contêineres da coluna: os cartões somem antes de
+        // as vagas e bloqueios voltarem a ser gerados. Espera o estado inteiro, não só a metade.
+        while ((Cartoes() != 0 || Vagas() != vagas || Bloqueios() != bloqueios) && DateTime.UtcNow < prazo)
+        { await Task.Delay(100); janela.UpdateLayout(); }
         if (Cartoes() != 0 || Vagas() != vagas || Bloqueios() != bloqueios)
-            throw new Exception("A busca não ocultou só os pacientes: vagas e bloqueios devem permanecer na grade.");
+            throw new Exception($"A busca não ocultou só os pacientes: vagas e bloqueios devem permanecer na grade (antes {cartoes}/{vagas}/{bloqueios}, depois {Cartoes()}/{Vagas()}/{Bloqueios()}).");
         filtro.LimparCommand.Execute(null);
         prazo = DateTime.UtcNow.AddSeconds(5);
-        while (Cartoes() != cartoes && DateTime.UtcNow < prazo) { await Task.Delay(100); janela.UpdateLayout(); }
+        while ((Cartoes() != cartoes || Vagas() != vagas || Bloqueios() != bloqueios) && DateTime.UtcNow < prazo)
+        { await Task.Delay(100); janela.UpdateLayout(); }
         if (Cartoes() != cartoes || Vagas() != vagas || Bloqueios() != bloqueios)
             throw new Exception("Limpar filtros não restaurou os cartões e a disponibilidade originais.");
         Console.WriteLine("BUSCA NA GRADE: filtro nativo oculta pacientes, preserva vagas/bloqueios e restaura os cartões ao limpar.");
