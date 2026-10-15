@@ -116,10 +116,38 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
     public bool TemPaciente => !SemPaciente;
 
     /// <summary>Na porta avulsa, pede paciente; dentro da ficha, usa o paciente já aberto.</summary>
-    public bool EscolhendoPaciente => MostrarCabecalho && SemPaciente;
+    public bool EscolhendoPaciente => MostrarCabecalho && (SemPaciente || TrocandoPaciente);
 
-    /// <summary>O par invertido — o projeto não tem conversor de booleano invertido.</summary>
-    public bool TrabalhandoNoPaciente => !EscolhendoPaciente;
+    /// <summary>O cartão "Paciente selecionado" — o par de <see cref="EscolhendoPaciente"/>.</summary>
+    public bool MostraPacienteEscolhido => MostrarCabecalho && TemPaciente && !TrocandoPaciente;
+
+    /// <summary>
+    /// "Trocar paciente" abriu a busca sobre um paciente já escolhido (out/2026, o desenho
+    /// da tela de produção). O paciente continua o mesmo até alguém escolher outro.
+    /// </summary>
+    [ObservableProperty] private bool _trocandoPaciente;
+
+    partial void OnTrocandoPacienteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(EscolhendoPaciente));
+        OnPropertyChanged(nameof(MostraPacienteEscolhido));
+    }
+
+    [RelayCommand]
+    private void TrocarPaciente() => TrocandoPaciente = true;
+
+    [RelayCommand]
+    private void ManterPaciente() => TrocandoPaciente = false;
+
+    /// <summary>O que a região "Preparar prescrição" diz, com e sem paciente.</summary>
+    public string TextoAcoes => TemPaciente
+        ? "Escreva uma nova folha ou parta da última deste paciente."
+        : "Selecione um paciente para liberar as ações.";
+
+    /// <summary>O subtítulo do histórico, com e sem paciente.</summary>
+    public string TextoHistorico => TemPaciente
+        ? "Consulte as folhas e as ações disponíveis para cada uma."
+        : "Os registros aparecem após a seleção do paciente.";
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodePrescrever => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
@@ -135,8 +163,10 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(TemPaciente));
         OnPropertyChanged(nameof(EscolhendoPaciente));
-        OnPropertyChanged(nameof(TrabalhandoNoPaciente));
+        OnPropertyChanged(nameof(MostraPacienteEscolhido));
         OnPropertyChanged(nameof(PodeCriarPrescricao));
+        OnPropertyChanged(nameof(TextoAcoes));
+        OnPropertyChanged(nameof(TextoHistorico));
     }
 
     public PrescricaoInfusaoViewModel(
@@ -157,6 +187,7 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
             _foco.Definir(paciente.Id, paciente.Nome);
             _pacienteId = paciente.Id;
             Paciente = paciente.Nome;
+            TrocandoPaciente = false;
             _ = CarregarAsync();
         };
 

@@ -38,19 +38,13 @@ public sealed partial class LinhaFolha : ObservableObject
     /// </summary>
     public required string OQueAcontece { get; init; }
 
-    /// <summary>De que lado da clínica a folha vem — decide a cor do ícone do cartão.</summary>
-    public NaturezaFolha Natureza => Folha.Natureza;
-
     /// <summary>
-    /// O glifo do cartão (Segoe Fluent, a regra 3 do design system): documento para o
-    /// atendimento, cartão de pagamento para o dinheiro, gráfico para a gestão.
+    /// O ícone de traço do cartão (out/2026) — o MESMO das páginas do Consultório
+    /// (<see cref="DocumentosDoConsultorio.Icone"/>): a direção pediu a mesma tela de
+    /// documentos em todos os módulos, e um ícone diferente para a mesma folha é a
+    /// primeira coisa que denuncia duas telas.
     /// </summary>
-    public string Glifo => Folha.Natureza switch
-    {
-        NaturezaFolha.Financeiro => "\uE8C7",
-        NaturezaFolha.Gerencial => "\uE9D2",
-        _ => "\uE8A5"
-    };
+    public string Icone => DocumentosDoConsultorio.Icone(Folha);
 }
 
 /// <summary>
@@ -358,13 +352,55 @@ public sealed partial class DocumentosViewModel : ObservableObject
         }
     }
 
+    // ==================== O PACIENTE DA PÁGINA (out/2026) ====================
+    //
+    // A direção pediu a MESMA tela de documentos em todos os módulos, e o paciente é o
+    // componente do shell `PacienteDaPaginaView` — o mesmo das páginas do Consultório. Ele
+    // lê da página: Paciente, EscolhendoPaciente, MostraPacienteEscolhido, TrocandoPaciente
+    // e os comandos Trocar/Manter.
+
+    /// <summary>O nome no cartão "Paciente selecionado".</summary>
+    public string Paciente => Seletor.Selecionado?.Nome ?? string.Empty;
+
     /// <summary>
-    /// Volta ao passo 1. Limpar a escolha é o que faz a busca reaparecer — e ela reaparece
-    /// com o termo de antes, que é o certo: quem troca de paciente quase sempre troca
-    /// dentro da mesma família de nomes.
+    /// "Trocar paciente" abriu a busca SEM soltar quem estava escolhido: as folhas da pessoa
+    /// continuam valendo para ela até alguém escolher outra, e "Manter paciente" volta sem
+    /// mexer em nada.
     /// </summary>
+    [ObservableProperty] private bool _trocandoPaciente;
+
+    /// <summary>A busca na tela: ninguém escolhido, ou "Trocar paciente".</summary>
+    public bool EscolhendoPaciente => Seletor.Selecionado is null || TrocandoPaciente;
+
+    /// <summary>O cartão "Paciente selecionado" — o par de <see cref="EscolhendoPaciente"/>.</summary>
+    public bool MostraPacienteEscolhido => Seletor.Selecionado is not null && !TrocandoPaciente;
+
+    /// <summary>
+    /// O último paciente escolhido. Existe porque a lista da busca é a dona da seleção: ao
+    /// digitar outro nome ela se refaz, e um <c>Selector</c> cujo item escolhido sai da lista
+    /// devolve NULL pelo binding — "Manter paciente" precisa saber quem devolver.
+    /// </summary>
+    private Paciente? _ultimoEscolhido;
+
+    partial void OnTrocandoPacienteChanged(bool value) => AvisarPaciente();
+
+    private void AvisarPaciente()
+    {
+        OnPropertyChanged(nameof(Paciente));
+        OnPropertyChanged(nameof(EscolhendoPaciente));
+        OnPropertyChanged(nameof(MostraPacienteEscolhido));
+    }
+
     [RelayCommand]
-    private void TrocarPaciente() => Seletor.Limpar();
+    private void TrocarPaciente() => TrocandoPaciente = true;
+
+    [RelayCommand]
+    private void ManterPaciente()
+    {
+        if (Seletor.Selecionado is null && _ultimoEscolhido is { } anterior)
+            Seletor.SelecionarGarantindoNaLista(anterior);
+        TrocandoPaciente = false;
+    }
 
     [ObservableProperty] private string _resumo = string.Empty;
     [ObservableProperty] private bool _carregando;
@@ -429,6 +465,12 @@ public sealed partial class DocumentosViewModel : ObservableObject
         // descartá-la. O `compilar-sombra` pegou; o CI pegaria sete minutos depois.
         Seletor.SelecaoMudou += escolhido =>
         {
+            if (escolhido is not null)
+            {
+                _ultimoEscolhido = escolhido;
+                TrocandoPaciente = false;
+            }
+            AvisarPaciente();
             AtualizarDisponibilidade();
             AtualizarContextoDoPaciente();
             OnPropertyChanged(nameof(TemPacienteEscolhido));

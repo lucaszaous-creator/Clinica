@@ -502,13 +502,17 @@
                 <!-- Duas metades, cada uma com a SUA rolagem: os termos (view que já existia,
                      com rolagem própria) e os documentos emitidos. Aninhar as duas numa rolagem
                      só faria a de dentro comer a roda do mouse. -->
+                <!-- O termo tem a altura do que ele DIZ (com teto), e a lista de documentos
+                     emitidos fica com o resto. Antes as duas metades dividiam a aba ao meio,
+                     e o termo sem procedimento hoje — duas linhas de texto — deixava um vão
+                     branco do tamanho da metade da tela acima da lista (out/2026). -->
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="16" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <views:TermosPacienteView DataContext="{Binding Ficha}" />
+                    <views:TermosPacienteView DataContext="{Binding Ficha}" MaxHeight="360" />
                         <Border Grid.Row="2" Style="{StaticResource CartaoFicha}">
                             <DockPanel>
                                 <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">

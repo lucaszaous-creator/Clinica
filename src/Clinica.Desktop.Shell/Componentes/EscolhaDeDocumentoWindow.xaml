@@ -1,0 +1,75 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.EscolhaDeDocumentoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes"
+        xmlns:md="clr-namespace:Clinica.Application.Modelos;assembly=Clinica.Application"
+        Title="Emitir documento" Width="980" Height="560" MinWidth="720" MinHeight="420"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}"
+        FontFamily="Segoe UI" FontSize="{StaticResource Fonte.Corpo}">
+
+    <!-- ============================================================
+         QUAL PAPEL? (out/2026 — a clínica: "dentro da ficha do paciente, quando clicamos
+         em Emitir documento, sempre nos leva a uma folha só").
+
+         A ficha abria a janela de emissão direto num tipo padrão, com o tipo escondido
+         atrás do link "dados do documento" — quem queria um atestado caía numa receita e
+         achava que o botão estava errado. Agora a ficha PERGUNTA, com os MESMOS cartões
+         da página de documentos (a mesma tela em todos os módulos), e cada cartão abre o
+         formulário DELE.
+         ============================================================ -->
+    <DockPanel Margin="28,24,28,20">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,20">
+            <Border DockPanel.Dock="Right" Style="{StaticResource PaginaDocumentos.Marca}" VerticalAlignment="Center">
+                <comp:IconeClinico Nome="document" Width="26" Height="26"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Acento}" />
+            </Border>
+            <StackPanel Margin="0,0,20,0">
+                <TextBlock x:Name="Sobretitulo" Style="{StaticResource PaginaDocumentos.Sobretitulo}"
+                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                <TextBlock Text="Novo documento" Style="{StaticResource PaginaDocumentos.Titulo}" />
+                <TextBlock Text="Escolha o papel: cada cartão abre o formulário dele."
+                           Style="{StaticResource PaginaDocumentos.Subtitulo}" />
+            </StackPanel>
+        </DockPanel>
+
+        <Button DockPanel.Dock="Bottom" Content="Fechar" IsCancel="True" HorizontalAlignment="Right"
+                Style="{StaticResource BotaoSecundario}" Margin="0,12,0,0" />
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="Cartoes" Margin="0,0,-12,0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="3" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type md:CartaoDeFolha}">
+                        <Button Style="{StaticResource PaginaDocumentos.Cartao}"
+                                AutomationProperties.Name="{Binding Rotulo}"
+                                Click="AoEscolher">
+                            <DockPanel>
+                                <comp:IconeClinico DockPanel.Dock="Right" Nome="plus" Width="18" Height="18"
+                                                   Margin="12,0,0,0" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                <Border DockPanel.Dock="Left" Style="{StaticResource PaginaDocumentos.IconeBloco}"
+                                        Margin="0,0,14,0" VerticalAlignment="Center">
+                                    <comp:IconeClinico Nome="{Binding Icone}" HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Brush.Acento}" />
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                    <TextBlock Text="{Binding Descricao}" Style="{StaticResource PaginaDocumentos.Legenda}"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
