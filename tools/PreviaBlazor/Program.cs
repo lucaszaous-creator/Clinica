@@ -6,6 +6,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using PreviaBlazor.Sementes;
 
+// A clínica roda num Windows em pt-BR, e os serviços formatam algumas mensagens na cultura
+// do processo ("difere do esperado em R$ 15,00"). Sem isto a prévia mostraria "¤15.00" —
+// um defeito que não existe no app, e esconderia um que existisse.
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = new System.Globalization.CultureInfo("pt-BR");
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = new System.Globalization.CultureInfo("pt-BR");
+
 var builder = WebApplication.CreateBuilder(args);
 
 // OS MESMOS serviços do app (AddClinica), com o banco trocado por um SQLite em memória que
@@ -65,4 +71,6 @@ sealed class HostDaPrevia : IHostDaTela
     public Task<bool> CopiarAsync(string texto) => Task.FromResult(true);
 
     public Task<bool> NavegarAsync(string chave) => Task.FromResult(false);
+
+    public Task<bool> AbrirEnderecoAsync(string url) => Task.FromResult(false);
 }

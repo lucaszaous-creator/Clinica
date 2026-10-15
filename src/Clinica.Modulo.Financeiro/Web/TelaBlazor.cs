@@ -142,6 +142,24 @@ public sealed class HostDaTelaWpf : IHostDaTela
     public Task<bool> NavegarAsync(string chave)
         => NaInterface(() => Task.FromResult(Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(chave)));
 
+    public Task<bool> AbrirEnderecoAsync(string url)
+    {
+        // Só http(s): o endereço vem montado pela tela, mas nada que não seja web sai daqui
+        // como "abrir" — um file:// ou um executável pela mesma porta seria outra coisa.
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+            return Task.FromResult(false);
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+            return Task.FromResult(true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — endereço externo não pôde ser aberto", ex);
+            return Task.FromResult(false);
+        }
+    }
+
     private static Task<T> NaInterface<T>(Func<Task<T>> acao)
     {
         var d = System.Windows.Application.Current?.Dispatcher;

@@ -43,6 +43,13 @@ public interface IHostDaTela
     /// defeito da parcela 37.
     /// </summary>
     Task<bool> NavegarAsync(string chave);
+
+    /// <summary>
+    /// Abre um endereço FORA do app (o wa.me da cobrança, o validador público): no app vai
+    /// para o navegador padrão do Windows — a tela nunca navega para fora de si mesma.
+    /// Falso quando não abriu; quem chama oferece copiar o endereço.
+    /// </summary>
+    Task<bool> AbrirEnderecoAsync(string url);
 }
 
 /// <summary>Arquivo escolhido pela pessoa: o nome (para mostrar) e o conteúdo.</summary>
