@@ -1,0 +1,565 @@
+@*
+  CONCILIAÇÃO (out/2026, migrada do ConciliacaoView/ConciliacaoViewModel do WPF).
+
+  A tela onde o faturamento e o financeiro se encontram, nos DOIS sentidos (parcela 27):
+  - "A lançar": guias efetivadas no convênio ainda sem receita. Lançar grava o vínculo, e a
+    guia sai da lista por passar a TER receita — não por alguém marcá-la.
+  - "Glosadas": o caminho de volta. Guia que já virou receita e que o convênio recusou depois.
+  - "Particulares" (set/2026): a mesma pergunta para quem não tem guia — sessão realizada sem
+    dinheiro registrado.
+
+  ⚠️ A linha GUARDA o valor digitado: o filtro escolhe quais aparecem e nunca as recria —
+  senão o valor teclado em cinco guias sumiria ao estreitar a lista para achar a sexta.
+  As frases e o filtro moram em `ConciliacaoNaTela`, na Application, com teste.
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Regras
+@inherits TelaBase
+
+<div class="pagina conciliacao @(Carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Conciliação" Titulo="Conciliação"
+                     Subtitulo="Guias efetivadas no convênio e sessões particulares que ainda não viraram dinheiro no caixa — e as receitas que o convênio recusou depois.">
+        <SeletorMes Valor="_mes" ValorChanged="TrocarMesAsync" />
+        <button type="button" class="botao" @onclick="CarregarAsync" disabled="@Carregando"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    <section class="cartao lista-cartao">
+        <div class="abas" role="tablist" aria-label="Conciliação">
+            <button type="button" role="tab" aria-selected="@Sel(Aba.Guias)" @onclick="() => _aba = Aba.Guias">
+                A lançar @if (_carregou && !_naoVerificado) { <span class="contagem">@_todas.Count</span> }
+            </button>
+            <button type="button" role="tab" aria-selected="@Sel(Aba.Glosadas)" @onclick="() => _aba = Aba.Glosadas">
+                Glosadas @if (_carregouGlosadas && !_glosadasNaoVerificadas) { <span class="contagem @(_glosadas.Any(g => g.AindaPrevisto) ? "alerta" : null)">@_glosadas.Count</span> }
+            </button>
+            <button type="button" role="tab" aria-selected="@Sel(Aba.Particulares)" @onclick="() => _aba = Aba.Particulares">
+                Particulares @if (_carregouParticulares && !_particularesNaoVerificadas) { <span class="contagem">@_particulares.Count</span> }
+            </button>
+        </div>
+
+        @if (_aba == Aba.Guias) { @AbaGuias }
+        else if (_aba == Aba.Glosadas) { @AbaGlosadas }
+        else { @AbaParticulares }
+    </section>
+</div>
+
+@code {
+    private RenderFragment AbaGuias => @<text>
+        <p class="explica">Guias que o faturamento já efetivou no convênio e ainda sem receita no caixa. Informe o valor recebido para lançar — a guia sai da lista e o lançamento fica vinculado a ela.</p>
+        <div class="filtros">
+            <Campo Rotulo="Convênio">
+                <select class="campo" value="@_filtro.Convenio" @onchange="FiltroConvenioMudou">
+                    @foreach (var c in _convenios) { <option value="@c">@c</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Paciente">
+                <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Parte do nome — o acento não atrapalha" maxlength="80"
+                       value="@_filtro.Paciente" @oninput="@(e => Filtrar(_filtro with { Paciente = e.Value?.ToString() ?? "" }))" /></div>
+            </Campo>
+            <Campo Rotulo="Nº da guia" Classe="estreito">
+                <input class="campo" placeholder="Trecho do número" maxlength="40"
+                       value="@_filtro.Guia" @oninput="@(e => Filtrar(_filtro with { Guia = e.Value?.ToString() ?? "" }))" />
+            </Campo>
+            <label class="marcar">
+                <input type="checkbox" checked="@_filtro.SomenteSemValor" @onchange="@(e => Filtrar(_filtro with { SomenteSemValor = e.Value is true }))" />
+                Só as sem valor proposto
+            </label>
+            @if (_filtro.Ativo)
+            {
+                <button type="button" class="botao fantasma" @onclick="() => Filtrar(FiltroConciliacao.Nenhum)">Limpar filtro</button>
+            }
+        </div>
+        @if (_carregou && !_naoVerificado)
+        {
+            <div class="resumo-guias @(_filtro.Ativo ? "filtrado" : null)">@_resumo</div>
+        }
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível carregar a conciliação" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="@ConciliacaoNaTela.TituloDoVazio(_filtro.Ativo)" Icone="@(_filtro.Ativo ? "filtro" : "ok")"
+                         Descricao="@ConciliacaoNaTela.DescricaoDoVazio(_filtro.Ativo, _todas.Count)">
+                @if (_filtro.Ativo) { <button type="button" class="botao" @onclick="() => Filtrar(FiltroConciliacao.Nenhum)">Limpar filtro</button> }
+            </EstadoVazio>
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr><th style="width:120px">Baixa</th><th>Paciente</th><th style="width:20%">Convênio</th><th style="width:120px">Guia</th><th style="width:330px">Valor recebido</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _linhas)
+                        {
+                            <tr @key="l.Guia.CodigoId" class="@(l.Guia.GlosaEmAberto ? "glosada" : null)">
+                                <td class="nao-quebra texto-secundario">@Formato.Data(l.Guia.DataBaixa)</td>
+                                <td>
+                                    <span class="principal">@l.Guia.Paciente</span>
+                                    <span class="secundario">@l.Tipo</span>
+                                </td>
+                                <td><span class="corta texto-secundario" title="@l.Convenio">@l.Convenio</span></td>
+                                <td><span class="corta texto-secundario" title="@l.NumeroGuia">@l.NumeroGuia</span></td>
+                                <td>
+                                    @if (l.Guia.GlosaEmAberto)
+                                    {
+                                        <div class="marca-glosa"><Icone Nome="alerta" />@ConciliacaoNaTela.AvisoDeGlosa(l.Guia)</div>
+                                    }
+                                    <div class="lancar">
+                                        <div class="campo-dinheiro"><span>R$</span><input class="campo valor" inputmode="decimal" aria-label="Valor recebido de @l.Guia.Paciente"
+                                               value="@l.Valor" @oninput="@(e => { l.Valor = e.Value?.ToString() ?? ""; l.Retencao = null; })" /></div>
+                                        <button type="button" class="botao mini" title="Calcular a retenção na fonte deste valor" @onclick="() => PreverAsync(l)">Reter?</button>
+                                        <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => LancarAsync(l)"><Icone Nome="check" />Lançar</button>
+                                    </div>
+                                    @if (l.Procedencia is not null) { <span class="nota-linha">@l.Procedencia</span> }
+                                    @if (l.Retencao is not null) { <span class="nota-linha retencao">@l.Retencao</span> }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </text>;
+
+    private RenderFragment AbaGlosadas => @<text>
+        <div class="faixa-alerta">
+            <Aviso Tom="atencao" Texto="Guias glosadas pelo convênio que ainda têm receita lançada no caixa. Derrubar a receita NÃO apaga o lançamento: ele fica cancelado com o motivo, e a guia volta para a aba “A lançar” caso o recurso seja aceito. Receita já RECEBIDA não se cancela — se a operadora estornou, lance a devolução como saída." />
+        </div>
+
+        @if (_glosadasNaoVerificadas)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível conferir as glosas deste mês"
+                            Detalhe="@($"A lista está VAZIA por falha de leitura, não por não haver glosa. {_erroGlosadas}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_carregouGlosadas)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="160" /></div>
+        }
+        else
+        {
+            <div class="resumo-guias">@_resumoGlosadas</div>
+            @if (_glosadas.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhuma receita glosada neste mês" Icone="ok"
+                             Descricao="Quando o convênio recusar uma guia que já virou receita, ela aparece aqui para a receita prevista ser derrubada." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr><th style="width:120px">Glosa</th><th>Paciente e motivo</th><th style="width:130px">Guia</th><th class="direita" style="width:120px">Valor</th><th style="width:200px">Situação</th><th class="direita" style="width:200px">Ações</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in _glosadas)
+                            {
+                                var dias = r.DiasParaFimRecurso(Hoje);
+                                <tr @key="r.CodigoId">
+                                    <td class="nao-quebra texto-secundario">@Formato.Data(r.DataGlosa)</td>
+                                    <td>
+                                        <span class="principal">@r.Paciente</span>
+                                        <span class="secundario">@ConciliacaoNaTela.MotivoDaGlosa(r)</span>
+                                        @if (ConciliacaoNaTela.OrientacaoDaReceita(r) is { } o) { <span class="secundario orienta">@o</span> }
+                                    </td>
+                                    <td><span class="corta texto-secundario" title="@(r.NumeroGuiaReal ?? "—")">@(r.NumeroGuiaReal ?? "—")</span></td>
+                                    <td class="direita numero"><strong>@Formato.Dinheiro(r.Valor)</strong></td>
+                                    <td>
+                                        <Selo Tom="@(r.AindaPrevisto ? "aviso" : "neutro")">@ConciliacaoNaTela.SituacaoDaReceita(r)</Selo>
+                                        <span class="secundario @(dias < 0 ? "alerta-atraso" : null)">@ConciliacaoNaTela.PrazoDoRecurso(dias)</span>
+                                    </td>
+                                    <td class="direita">
+                                        @* Só a receita PREVISTA se cancela; a já realizada leva ao aviso que explica o estorno. *@
+                                        <button type="button" class="botao mini contorno-perigo nao-quebra" disabled="@(!PodeEditar || !r.AindaPrevisto)"
+                                                title="@(r.AindaPrevisto ? null : "O dinheiro já entrou — lance a devolução como saída no Caixa.")"
+                                                @onclick="() => DerrubarAsync(r)"><Icone Nome="cancelar" />Derrubar receita</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </text>;
+
+    private RenderFragment AbaParticulares => @<text>
+        <p class="explica" title="Sessões particulares realizadas no mês sem nenhum dinheiro registrado. Informe o valor e diga se foi RECEBIDO (forma de pagamento) ou se fica A RECEBER (vencimento) — nos dois casos a sessão sai da lista e o lançamento fica vinculado a ela. O balcão é avisado na próxima visita de quem está aqui.">
+            Sessões realizadas sem lançamento. Informe o valor e registre como recebido ou a receber — nos dois casos a sessão sai da lista e o lançamento fica vinculado a ela.
+        </p>
+
+        @if (_particularesNaoVerificadas)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível conferir as sessões particulares deste mês"
+                            Detalhe="@($"A lista está VAZIA por falha de leitura, não por estar tudo pago. {_erroParticulares}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_carregouParticulares)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="160" /></div>
+        }
+        else
+        {
+            <div class="resumo-guias">@_resumoParticulares</div>
+            @if (_particulares.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhuma sessão particular sem dinheiro registrado" Icone="ok"
+                             Descricao="A sessão sai desta lista quando passa a TER lançamento — recebido ou a receber —, não quando alguém a marca." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr><th style="width:120px">Sessão</th><th>Paciente</th><th style="width:20%">Modalidade</th><th style="width:380px">Como foi paga</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in _particulares)
+                            {
+                                <tr @key="p.Sessao.AtendimentoId">
+                                    <td class="nao-quebra texto-secundario">@Formato.Data(p.Sessao.Data)</td>
+                                    <td>
+                                        <span class="principal">@p.Sessao.Paciente</span>
+                                        <span class="secundario">@p.Sessao.ConvenioNome</span>
+                                    </td>
+                                    <td><span class="corta texto-secundario" title="@p.Sessao.ModalidadeNome">@p.Sessao.ModalidadeNome</span></td>
+                                    <td>
+                                        <div class="lancar">
+                                            <div class="campo-dinheiro"><span>R$</span><input class="campo valor" inputmode="decimal" aria-label="Valor da sessão de @p.Sessao.Paciente"
+                                                   value="@p.Valor" @oninput="@(e => p.Valor = e.Value?.ToString() ?? "")" /></div>
+                                            <div class="segmentado" role="group" aria-label="Recebido ou a receber">
+                                                <button type="button" aria-pressed="@(!p.AReceber ? "true" : "false")" @onclick="() => p.AReceber = false">Recebido</button>
+                                                <button type="button" aria-pressed="@(p.AReceber ? "true" : "false")" @onclick="() => p.AReceber = true">A receber</button>
+                                            </div>
+                                        </div>
+                                        <div class="lancar">
+                                            @if (p.AReceber)
+                                            {
+                                                <label class="vence"><span>Vence</span>
+                                                    <input type="date" class="campo" aria-label="Vencimento" value="@p.Vencimento?.ToString("yyyy-MM-dd")"
+                                                           @onchange="@(e => p.Vencimento = DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var v) ? v : null)" />
+                                                </label>
+                                            }
+                                            else
+                                            {
+                                                <select class="campo forma" aria-label="Forma de pagamento" value="@(p.Forma?.ToString() ?? "")"
+                                                        @onchange="@(e => p.Forma = Enum.TryParse<FormaPagamento>(e.Value?.ToString(), out var f) ? f : null)">
+                                                    @foreach (var f in ConciliacaoNaTela.FormasDoParticular) { <option value="@f">@RotulosEnum.De(f)</option> }
+                                                </select>
+                                            }
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => LancarSessaoAsync(p)"><Icone Nome="check" />Lançar</button>
+                                        </div>
+                                        @if (p.Procedencia is not null) { <span class="nota-linha">@p.Procedencia</span> }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </text>;
+}
+
+@code {
+    private enum Aba { Guias, Glosadas, Particulares }
+
+    /// <summary>Guia efetivada esperando virar dinheiro — guarda o que a pessoa DIGITOU.</summary>
+    private sealed class LinhaGuia(GuiaSemLancamento guia)
+    {
+        public GuiaSemLancamento Guia { get; } = guia;
+        public required string Convenio { get; init; }
+        public required string NumeroGuia { get; init; }
+        public required string Tipo { get; init; }
+        public string Valor { get; set; } = string.Empty;
+        public string? Procedencia { get; init; }
+        public string? Retencao { get; set; }
+    }
+
+    /// <summary>Sessão particular sem dinheiro — carrega a decisão que o balcão não tomou no dia.</summary>
+    private sealed class LinhaParticular(SessaoSemReceita sessao)
+    {
+        public SessaoSemReceita Sessao { get; } = sessao;
+        public string Valor { get; set; } = string.Empty;
+        public string? Procedencia { get; init; }
+        public FormaPagamento? Forma { get; set; } = ConciliacaoNaTela.FormaPadrao;
+        public bool AReceber { get; set; }
+        public DateOnly? Vencimento { get; set; } = ConciliacaoNaTela.VencimentoPadrao(DateOnly.FromDateTime(DateTime.Today));
+    }
+
+    private Aba _aba = Aba.Guias;
+    private DateOnly _mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    // TODAS as guias do mês; `_linhas` é o recorte. O filtro reaproveita as MESMAS instâncias.
+    private List<LinhaGuia> _todas = [];
+    private List<LinhaGuia> _linhas = [];
+    private IReadOnlyList<string> _convenios = [ConciliacaoNaTela.TodosConvenios];
+    private FiltroConciliacao _filtro = FiltroConciliacao.Nenhum;
+    private string _resumo = string.Empty;
+
+    private List<ReceitaGlosada> _glosadas = [];
+    private string _resumoGlosadas = string.Empty;
+    private List<LinhaParticular> _particulares = [];
+    private string _resumoParticulares = string.Empty;
+
+    private bool Carregando;
+    private bool _carregou, _carregouGlosadas, _carregouParticulares;
+    private bool _naoVerificado, _glosadasNaoVerificadas, _particularesNaoVerificadas;
+    private string? _erroLeitura, _erroGlosadas, _erroParticulares;
+    private int _geracao;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+    private string Sel(Aba a) => _aba == a ? "true" : "false";
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private Task TrocarMesAsync(DateOnly mes) { _mes = mes; return CarregarAsync(); }
+
+    private void FiltroConvenioMudou(ChangeEventArgs e)
+        => Filtrar(_filtro with { Convenio = e.Value?.ToString() ?? ConciliacaoNaTela.TodosConvenios });
+
+    /// <summary>Recorta `_todas` em `_linhas` — mesma instância, o valor digitado sobrevive.</summary>
+    private void Filtrar(FiltroConciliacao filtro)
+    {
+        _filtro = filtro;
+        _linhas = _todas.Where(l => _filtro.Casa(l.Convenio, l.Guia.Paciente, l.NumeroGuia, l.Procedencia is not null)).ToList();
+        _resumo = ConciliacaoNaTela.ResumoDasGuias(_todas.Count, _linhas.Count,
+            _linhas.Count(l => l.Procedencia is null), _filtro.Ativo);
+    }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o mês duas vezes rápido deixaria
+    /// as guias de um mês sob o título do outro — na tela em que se lança dinheiro. Cada aba
+    /// carrega sozinha: as glosadas quebrarem não leva junto a lista a lançar.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        var inicio = _mes;
+        var fim = inicio.AddMonths(1).AddDays(-1);
+        try
+        {
+            using var escopo = Escopo();
+            var financeiro = escopo.ServiceProvider.GetRequiredService<FinanceiroService>();
+            var precos = escopo.ServiceProvider.GetRequiredService<PrecoConvenioService>();
+            var guias = await financeiro.GuiasSemLancamentoAsync(inicio, fim);
+            var novas = new List<LinhaGuia>();
+            foreach (var g in guias)
+            {
+                // A TABELA DE PREÇO preenche o valor — proposta, não imposição, e com a procedência.
+                var proposto = await precos.ProporAsync(g);
+                if (geracao != _geracao || Descartada) return;
+                novas.Add(new LinhaGuia(g)
+                {
+                    Convenio = CatalogoConvenios.Nome(g.ConvenioCodigo, g.Convenio),
+                    NumeroGuia = g.NumeroGuiaReal ?? "—",
+                    Tipo = RotulosEnum.De(g.Tipo),
+                    Valor = ConciliacaoNaTela.ValorDoCampo(proposto),
+                    Procedencia = ConciliacaoNaTela.Procedencia(proposto)
+                });
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _todas = novas;
+            _convenios = ConciliacaoNaTela.ConveniosDoMes(novas.Select(l => l.Convenio));
+            _naoVerificado = false;
+            _carregou = true;
+            Filtrar(_filtro with { Convenio = ConciliacaoNaTela.PreservarConvenio(_filtro.Convenio, _convenios) });
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — conciliação não pôde ser carregada", ex);
+            _naoVerificado = true;
+            _carregou = true;
+            _erroLeitura = ex.Message;
+            _todas = [];
+            _linhas = [];
+        }
+
+        await CarregarGlosadasAsync(geracao, inicio, fim);
+        await CarregarParticularesAsync(geracao, inicio, fim);
+        if (geracao == _geracao) Carregando = false;
+    }
+
+    private async Task CarregarGlosadasAsync(int geracao, DateOnly inicio, DateOnly fim)
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var receitas = await escopo.ServiceProvider.GetRequiredService<ReceitaGlosadaService>().PendentesAsync(inicio, fim);
+            if (geracao != _geracao || Descartada) return;
+            _glosadas = receitas.ToList();
+            _resumoGlosadas = ConciliacaoNaTela.ResumoDasGlosadas(receitas);
+            _glosadasNaoVerificadas = false;
+            _carregouGlosadas = true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — receita glosada não pôde ser carregada", ex);
+            if (geracao != _geracao) return;
+            _glosadas = [];
+            _glosadasNaoVerificadas = true;
+            _carregouGlosadas = true;
+            _erroGlosadas = ex.Message;
+        }
+    }
+
+    private async Task CarregarParticularesAsync(int geracao, DateOnly inicio, DateOnly fim)
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var sessoes = await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().SessoesParticularesSemReceitaAsync(inicio, fim);
+            var precos = escopo.ServiceProvider.GetRequiredService<PrecoParticularService>();
+            var novas = new List<LinhaParticular>();
+            foreach (var s in sessoes)
+            {
+                var proposto = await precos.ProporAsync(s.CodigoDaModalidade, s.Modalidade, s.CodigoDaEspecialidade, s.Data);
+                if (geracao != _geracao || Descartada) return;
+                novas.Add(new LinhaParticular(s)
+                {
+                    Valor = ConciliacaoNaTela.ValorDoCampo(proposto),
+                    Procedencia = ConciliacaoNaTela.Procedencia(proposto)
+                });
+            }
+            if (geracao != _geracao || Descartada) return;
+            _particulares = novas;
+            _resumoParticulares = ConciliacaoNaTela.ResumoDosParticulares(novas.Count, novas.Count(l => l.Procedencia is null));
+            _particularesNaoVerificadas = false;
+            _carregouParticulares = true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — sessões particulares sem receita não puderam ser carregadas", ex);
+            if (geracao != _geracao) return;
+            _particulares = [];
+            _particularesNaoVerificadas = true;
+            _carregouParticulares = true;
+            _erroParticulares = ex.Message;
+        }
+    }
+
+    /// <summary>A retenção na fonte deste valor, sem gravar — a MESMA conta do Lançar.</summary>
+    private async Task PreverAsync(LinhaGuia l)
+    {
+        l.Retencao = null;
+        if (ConciliacaoNaTela.LerValor(l.Valor, out var valor) is { } erro) { Notificacoes.Erro(erro); return; }
+        try
+        {
+            using var escopo = Escopo();
+            var d = await escopo.ServiceProvider.GetRequiredService<TaxaService>().CalcularAsync(
+                valor, l.Guia.DataBaixa, FormaPagamento.Convenio, reterImposto: true, convenioCodigo: l.Guia.ConvenioCodigo);
+            l.Retencao = ConciliacaoNaTela.Retencao(valor, d);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — prévia da retenção falhou", ex);
+            Notificacoes.Erro($"Não foi possível calcular a retenção: {ex.Message}");
+        }
+    }
+
+    /// <summary>Lança a receita da guia com o valor da linha — bruto no valor, retenção ao lado.</summary>
+    private async Task LancarAsync(LinhaGuia l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "lançar receita no caixa")) return;
+        if (ConciliacaoNaTela.LerValor(l.Valor, out var valor) is { } erro) { Notificacoes.Erro(erro); return; }
+
+        try
+        {
+            // Guia recusada pelo convênio ainda pode virar receita — mas a clínica decide SABENDO.
+            if (l.Guia.GlosaEmAberto && !await Dialogos.ConfirmarAsync("Guia glosada",
+                    ConciliacaoNaTela.PerguntaDeGuiaGlosada(l.Guia), perigoso: true, confirmar: "Lançar mesmo assim"))
+                return;
+
+            DeducoesRecebimento deducoes;
+            using (var escopo = Escopo())
+            {
+                deducoes = await escopo.ServiceProvider.GetRequiredService<TaxaService>().CalcularAsync(
+                    valor, l.Guia.DataBaixa, FormaPagamento.Convenio, reterImposto: true, convenioCodigo: l.Guia.ConvenioCodigo);
+                await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                    .LancarReceitaDaGuiaAsync(l.Guia, valor, operador: Operador, deducoes: deducoes);
+            }
+            Notificacoes.Sucesso(ConciliacaoNaTela.SucessoDaGuia(valor, l.Guia.Paciente, deducoes));
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — receita da guia não pôde ser lançada", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Derruba a receita PREVISTA de uma guia glosada — cancela com motivo, nunca apaga, e a
+    /// guia volta sozinha para "A lançar" (no mês do atendimento).
+    /// </summary>
+    private async Task DerrubarAsync(ReceitaGlosada r)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "cancelar receita no caixa")) return;
+        try
+        {
+            if (r.JaRealizado)
+            {
+                await Dialogos.AvisoAsync("O dinheiro já entrou", ConciliacaoNaTela.AvisoReceitaJaEntrou);
+                return;
+            }
+
+            var motivo = await Dialogos.PerguntarTextoAsync("Derrubar a receita glosada",
+                ConciliacaoNaTela.PerguntaDeDerrubar(r), ConciliacaoNaTela.MotivoDaGlosa(r));
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ReceitaGlosadaService>()
+                    .CancelarReceitaAsync(r.CodigoId, motivo, Operador);
+            Notificacoes.Info(ConciliacaoNaTela.SucessoDeDerrubar(r, _mes));
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — receita glosada não pôde ser cancelada", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>Registra o dinheiro de uma sessão particular — recebido, ou a receber com vencimento.</summary>
+    private async Task LancarSessaoAsync(LinhaParticular p)
+    {
+        // O mesmo bit do Lançar das guias: é entrar dinheiro (ou dívida) no caixa.
+        if (!Exigir(Permissao.EditarFinanceiro, "lançar receita no caixa")) return;
+        var vencimento = p.AReceber ? p.Vencimento : null;
+        if (ConciliacaoNaTela.ConferirSessao(p.Valor, p.AReceber, p.Forma, vencimento, p.Sessao.Data, out var valor) is { } erro)
+        {
+            Notificacoes.Erro(erro);
+            return;
+        }
+
+        try
+        {
+            using (var escopo = Escopo())
+            {
+                // Taxa da maquininha e imposto só no RECEBIDO: parcela futura não tem forma ainda.
+                DeducoesRecebimento? deducoes = null;
+                if (!p.AReceber && p.Forma is { } forma)
+                    deducoes = await escopo.ServiceProvider.GetRequiredService<TaxaService>()
+                        .CalcularAsync(valor, p.Sessao.Data, forma, reterImposto: true);
+                await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                    .LancarReceitaDaSessaoAsync(p.Sessao, valor, p.Forma, vencimento, operador: Operador, deducoes: deducoes);
+            }
+            Notificacoes.Sucesso(ConciliacaoNaTela.SucessoDaSessao(p.Sessao.Paciente, valor, vencimento));
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — receita da sessão particular não pôde ser lançada", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+}

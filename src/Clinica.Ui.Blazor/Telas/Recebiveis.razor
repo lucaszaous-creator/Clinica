@@ -1,0 +1,295 @@
+@*
+  RECEBÍVEIS DE CARTÃO (out/2026, migrado do RecebiveisView/RecebiveisViewModel do WPF).
+
+  Responde "o que a maquininha ainda deve depositar, e o que ela deveria ter depositado e
+  não depositou?" — a segunda é a que importa: dinheiro de cartão que não caiu não aparece
+  em lugar nenhum do sistema (parcela 16).
+
+  A conferência é por DEPÓSITO, não por venda: a adquirente deposita o lote do dia, e
+  conferir venda a venda contra um extrato que traz um valor só nunca fecharia. A data do
+  crédito é INFORMADA (a clínica confere na segunda o que caiu na sexta); as frases da tela
+  moram em `RecebiveisNaTela`, na Application, com teste.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina recebiveis @(Carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Recebíveis" Titulo="Recebíveis de cartão"
+                     Subtitulo="Previsão e conferência dos créditos de cada contrato, já descontadas as taxas.">
+        <label class="horizonte">
+            <span>Horizonte</span>
+            <select class="campo" value="@_horizonte" @onchange="TrocarHorizonteAsync" aria-label="Horizonte em dias">
+                @foreach (var h in RecebiveisNaTela.Horizontes) { <option value="@h">@h dias</option> }
+            </select>
+        </label>
+        <button type="button" class="botao" @onclick="CarregarAsync" disabled="@Carregando"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    <Aviso Tom="erro" Texto="@_mensagem" />
+
+    @if (_resumo is null && (Carregando || !_carregou))
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+    }
+    else if (_resumo is { } r)
+    {
+        <section class="kpis" aria-label="Resumo dos recebíveis">
+            <Kpi Rotulo="A receber" Valor="@Formato.Dinheiro(r.LiquidoAVencer)" Icone="cartao" Nota="Líquido, já descontada a taxa" />
+            @* Vermelho só quando há atraso: é a única linha desta tela que pede ação. *@
+            <Kpi Rotulo="Atrasado" Valor="@Formato.Dinheiro(r.LiquidoAtrasado)" Icone="alerta"
+                 Tom="@(r.TemAtraso ? "perigo" : "neutro")" ClasseValor="@(r.TemAtraso ? "negativo" : null)"
+                 Nota="@(r.TemAtraso ? $"{r.QuantidadeAtrasada} crédito(s) que já deviam ter caído" : "Nenhum depósito passou da data")" />
+            <Kpi Rotulo="Total" Valor="@Formato.Dinheiro(r.Total)" Icone="moeda" Tom="neutro" Nota="A vencer mais o atrasado" />
+            <Kpi Rotulo="Próximo depósito" Valor="@RecebiveisNaTela.Proximo(r)" Icone="calendario" Tom="neutro"
+                 Nota="@(r.ProximoDeposito is null ? "Nada previsto no horizonte" : "Data prevista pela adquirente")" />
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="abas" role="tablist" aria-label="Recebíveis">
+            <button type="button" role="tab" aria-selected="@(_aba == Aba.Previstos ? "true" : "false")" @onclick="() => _aba = Aba.Previstos">
+                Previstos @if (_carregou && !_naoVerificado) { <span class="contagem">@_depositos.Count</span> }
+            </button>
+            <button type="button" role="tab" aria-selected="@(_aba == Aba.Confirmados ? "true" : "false")" @onclick="() => _aba = Aba.Confirmados">
+                Já caíram @if (_carregou && !_naoVerificado) { <span class="contagem">@_confirmados.Count</span> }
+            </button>
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler os recebíveis" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_aba == Aba.Previstos)
+        {
+            <div class="faixa-aba">
+                <p class="resumo-aba @(_resumo?.TemAtraso == true ? "atrasado" : null)">@_resumoPrevistos</p>
+                <label class="caiu-em" title="@(PodeEditar ? null : "Seu acesso não permite confirmar recebimento.")">
+                    <span>Caiu em</span>
+                    <input type="date" class="campo" value="@_dataCredito?.ToString("yyyy-MM-dd")" max="@Hoje.ToString("yyyy-MM-dd")"
+                           disabled="@(!PodeEditar)" @onchange="TrocarDataCredito" aria-label="Data em que o crédito caiu" />
+                    <small>A data em que o crédito entrou na conta, conforme o extrato.</small>
+                </label>
+            </div>
+
+            @if (_depositos.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhum recebimento de cartão pendente" Icone="cartao"
+                             Descricao="Vendas em dinheiro e Pix entram inteiras e na hora — não há o que esperar." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr><th>Adquirente / previsão</th><th class="direita" style="width:130px">Bruto</th><th class="direita" style="width:120px">Taxa</th><th class="direita" style="width:140px">Líquido</th><th class="direita" style="width:110px">Confirmar</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in _depositos)
+                            {
+                                var atrasado = d.Atrasado(Hoje);
+                                <tr class="@(atrasado ? "atrasado" : null)" @key="(d.Adquirente, d.Previsao)">
+                                    <td>
+                                        <span class="principal">@d.Adquirente · @Formato.Data(d.Previsao)</span>
+                                        <span class="secundario @(atrasado ? "alerta-atraso" : null)">@RecebiveisNaTela.DetalheDoEsperado(d, Hoje)</span>
+                                    </td>
+                                    <td class="direita numero texto-secundario">@Formato.Dinheiro(d.Bruto)</td>
+                                    <td class="direita numero texto-secundario">@Formato.Dinheiro(d.Taxa)</td>
+                                    <td class="direita numero"><strong>@Formato.Dinheiro(d.Liquido)</strong></td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => ConfirmarAsync(d)"><Icone Nome="check" />Caiu</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="faixa-aba">
+                <div class="resumo-bloco">
+                    <p class="resumo-aba destaque">@_resumoConfirmados</p>
+                    <details class="sobre">
+                        <summary>Sobre as datas e como desfazer uma confirmação</summary>
+                        <p>As duas datas ficam gravadas separadas — a prevista e a real —, e é por isso que o atraso continua visível depois de o dinheiro entrar. Confirmação lançada no dia errado se desfaz aqui: o lançamento continua no caixa, só a data do crédito é apagada.</p>
+                    </details>
+                </div>
+            </div>
+
+            @if (_confirmados.Count == 0)
+            {
+                <EstadoVazio Titulo="@($"Nenhum depósito confirmado nos últimos {RecebiveisNaTela.DiasConfirmados} dias")" Icone="historico"
+                             Descricao="Quando um depósito for marcado como caído, ele aparece aqui — e é daqui que a confirmação errada se desfaz." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr><th>Adquirente / crédito</th><th class="direita" style="width:140px">Líquido</th><th class="direita" style="width:130px">Ações</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in _confirmados)
+                            {
+                                <tr @key="(d.Adquirente, d.Creditado)">
+                                    <td>
+                                        <span class="principal">@d.Adquirente · caiu em @Formato.Data(d.Creditado)</span>
+                                        <span class="secundario @(RecebiveisNaTela.Atrasou(d) ? "alerta-aviso" : null)">@RecebiveisNaTela.DetalheDoConfirmado(d)</span>
+                                    </td>
+                                    <td class="direita numero"><strong>@Formato.Dinheiro(d.Liquido)</strong></td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEditar)" @onclick="() => DesfazerAsync(d)"><Icone Nome="historico" />Desfazer</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </section>
+</div>
+
+@code {
+    private enum Aba { Previstos, Confirmados }
+
+    private Aba _aba = Aba.Previstos;
+    private int _horizonte = RecebiveisNaTela.HorizontePadrao;
+    private DateOnly? _dataCredito = DateOnly.FromDateTime(DateTime.Today);
+
+    private List<DepositoEsperado> _depositos = [];
+    private List<DepositoConfirmado> _confirmados = [];
+    private ResumoRecebiveis? _resumo;
+    private string _resumoPrevistos = string.Empty;
+    private string _resumoConfirmados = string.Empty;
+
+    private bool Carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private string? _mensagem;
+    private int _geracao;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private Task TrocarHorizonteAsync(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var h)) _horizonte = h;
+        return CarregarAsync();
+    }
+
+    private void TrocarDataCredito(ChangeEventArgs e)
+        => _dataCredito = DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d) ? d : null;
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o horizonte duas vezes rápido
+    /// deixaria os depósitos de uma janela sob os totais da outra. As duas leituras correm em
+    /// FILA no mesmo escopo, e tudo é publicado depois da última.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _mensagem = null;
+        try
+        {
+            var hoje = Hoje;
+            using var escopo = Escopo();
+            var recebiveis = escopo.ServiceProvider.GetRequiredService<RecebiveisService>();
+            var esperados = await recebiveis.EsperadosAsync(hoje.AddDays(Math.Max(_horizonte, 0)));
+            if (geracao != _geracao || Descartada) return;
+            var confirmados = await recebiveis.ConfirmadosAsync(hoje.AddDays(-RecebiveisNaTela.DiasConfirmados), hoje);
+            if (geracao != _geracao || Descartada) return;
+
+            var resumo = RecebiveisService.Resumir(esperados, hoje);
+            _depositos = esperados.ToList();
+            _confirmados = confirmados.ToList();
+            _resumo = resumo;
+            _resumoPrevistos = RecebiveisNaTela.ResumoDosPrevistos(esperados.Count, resumo);
+            _resumoConfirmados = RecebiveisNaTela.ResumoDosConfirmados(confirmados, RecebiveisNaTela.DiasConfirmados);
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — recebíveis não puderam ser lidos", ex);
+            _naoVerificado = true;
+            _carregou = true;
+            _erroLeitura = ex.Message;
+            _resumo = null;
+            _depositos = [];
+            _confirmados = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Marca o depósito como creditado na data INFORMADA — gravar "hoje" transformaria todo
+    /// depósito conferido na segunda num atraso de três dias que não houve.
+    /// </summary>
+    private async Task ConfirmarAsync(DepositoEsperado d)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "confirmar recebimento")) return;
+        _mensagem = RecebiveisNaTela.ConferirDataDoCredito(_dataCredito);
+        if (_mensagem is not null || _dataCredito is not { } dia) return;
+
+        try
+        {
+            if (!await Dialogos.ConfirmarAsync("Confirmar depósito", RecebiveisNaTela.PerguntaDeConfirmar(d, dia, Hoje),
+                    confirmar: "Confirmar depósito")) return;
+
+            int n;
+            using (var escopo = Escopo())
+                n = await escopo.ServiceProvider.GetRequiredService<RecebiveisService>()
+                    .ConfirmarAsync(d.LancamentoIds, dia, Operador, parcelaIds: d.ParcelaIds);
+            Notificacoes.Sucesso($"{n} recebimento(s) confirmado(s).");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — recebimento não pôde ser confirmado", ex);
+            _mensagem = ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Devolve o depósito à espera — para quando alguém confirmou o dia errado. Não apaga
+    /// nada: só limpa a data do crédito, e o lançamento continua no caixa.
+    /// </summary>
+    private async Task DesfazerAsync(DepositoConfirmado d)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "desfazer recebimento")) return;
+        _mensagem = null;
+        try
+        {
+            if (!await Dialogos.ConfirmarAsync("Desfazer confirmação", RecebiveisNaTela.PerguntaDeDesfazer(d),
+                    perigoso: true, confirmar: "Desfazer confirmação")) return;
+
+            int n;
+            using (var escopo = Escopo())
+                n = await escopo.ServiceProvider.GetRequiredService<RecebiveisService>()
+                    .DesfazerConfirmacaoAsync(d.LancamentoIds, Operador, parcelaIds: d.ParcelaIds);
+            Notificacoes.Info($"{n} recebimento(s) devolvido(s) à espera.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — confirmação de recebimento não pôde ser desfeita", ex);
+            _mensagem = ex.Message;
+        }
+    }
+}

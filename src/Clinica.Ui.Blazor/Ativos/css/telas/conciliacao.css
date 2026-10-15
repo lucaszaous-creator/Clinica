@@ -1,1 +1,35 @@
-/* Estilo PRÓPRIO da tela (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
+/* Estilo PRÓPRIO da tela de Conciliação (out/2026). O comum mora em ../clinica.css. */
+.conciliacao .lista-cartao > .abas{padding:0 var(--space-6)}
+.conciliacao .abas .contagem{display:inline-block;margin-left:6px;min-width:20px;padding:0 6px;border-radius:var(--radius-pilula);
+  background:var(--cinza-100);color:var(--cinza-700);font-size:11px;line-height:18px;text-align:center}
+.conciliacao .abas button[aria-selected="true"] .contagem{background:var(--acento-suave);color:var(--acento)}
+.conciliacao .abas .contagem.alerta{background:var(--aviso-suave);color:var(--aviso-texto)}
+.conciliacao .explica{margin:0;padding:var(--space-4) var(--space-6) 0;color:var(--texto-secundario);line-height:1.5;max-width:820px}
+.conciliacao .filtros{border-bottom:0}
+.conciliacao .filtros .estreito{min-width:150px;max-width:170px}
+.conciliacao .filtros .marcar{padding-bottom:9px}
+.conciliacao .resumo-guias{padding:var(--space-3) var(--space-6);border-top:1px solid var(--borda);border-bottom:1px solid var(--borda);
+  background:var(--cinza-50);color:var(--texto-secundario);font-size:var(--text-small-size)}
+.conciliacao .resumo-guias.filtrado{background:var(--acento-suave);color:var(--azul-700);font-weight:600}
+.conciliacao .faixa-alerta{padding:var(--space-4) var(--space-6)}
+.conciliacao .corta{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.conciliacao table.lista{table-layout:fixed}
+.conciliacao .lancar{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.conciliacao .lancar + .lancar{margin-top:6px}
+.conciliacao .campo-dinheiro{position:relative;width:118px;flex:none}
+.conciliacao .campo-dinheiro span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--texto-secundario);font-size:var(--text-small-size)}
+.conciliacao .campo-dinheiro .campo{min-height:28px;height:28px;padding:3px 8px 3px 30px;text-align:right;font-variant-numeric:tabular-nums}
+.conciliacao .lancar .segmentado button{padding:3px 10px;font-size:var(--text-small-size)}
+.conciliacao .lancar select.forma,.conciliacao .vence .campo{min-height:28px;height:28px;padding:2px 8px;width:170px}
+.conciliacao .vence{display:inline-flex;align-items:center;gap:6px;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.conciliacao .nota-linha{display:block;margin-top:4px;font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.4}
+.conciliacao .nota-linha.retencao{color:var(--info-texto)}
+.conciliacao .marca-glosa{display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;padding:4px 8px;border-radius:var(--radius-pequeno);
+  background:var(--aviso-suave);color:var(--aviso-texto);font-size:var(--text-small-size);font-weight:600;line-height:1.4}
+.conciliacao .marca-glosa .icone{width:14px;height:14px;margin-top:2px}
+.conciliacao tr.glosada td:first-child{box-shadow:inset 3px 0 0 var(--aviso)}
+.conciliacao .orienta{color:var(--aviso-texto)}
+.conciliacao .alerta-atraso{color:var(--erro-texto);font-weight:600}
+.conciliacao td .selo{margin-left:0}
+.conciliacao .explica + .resumo-guias{margin-top:var(--space-4)}
+.conciliacao .botao.nao-quebra{white-space:nowrap}
