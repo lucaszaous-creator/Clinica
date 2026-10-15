@@ -35,8 +35,12 @@ internal sealed class PedidosEnfermagemWeb(IServiceScopeFactory escopos, Func<Da
         novos = _erro is null ? _pedidos.Count(p => p.Ativa && p.Situacao == "Novo") : (int?)null,
         abertos = _erro is null ? _pedidos.Count(p => p.Ativa) : (int?)null,
         noDia = _erro is null ? _pedidos.Count(p => p.Ativa && p.Inicio.Date == dia().Date) : (int?)null };
+    // Hora da última leitura bem-sucedida: a tela diz que se atualiza sozinha e QUANDO leu,
+    // para "não chegou nada" não ser confundido com uma lista parada.
+    private DateTime? _lidoEm;
     internal object Estado() => new { contexto = _contexto, pedidos = _pedidos, detalhe = _detalhe,
-        dia = dia().ToString("yyyy-MM-dd"), carregando = _carregando, erro = _erro };
+        dia = dia().ToString("yyyy-MM-dd"), carregando = _carregando, erro = _erro,
+        agora = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"), lidoEm = _lidoEm?.ToString("HH:mm") };
     internal static void Exigir()
     {
         if (!Permitido) throw new UnauthorizedAccessException("Este acesso não permite consultar os pedidos da recepção.");
@@ -81,7 +85,7 @@ internal sealed class PedidosEnfermagemWeb(IServiceScopeFactory escopos, Func<Da
             using var escopo = escopos.CreateScope();
             var linhas = await escopo.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ListarAsync(usuario);
             if (!_ativa || g != _geracao || usuario != SessaoUsuario.Atual.UsuarioId) return;
-            _pedidos = linhas; _erro = null;
+            _pedidos = linhas; _erro = null; _lidoEm = DateTime.Now;
         }
         catch (Exception ex) { if (_ativa && g == _geracao) _erro = "Avisos indisponíveis. Abra os pedidos e tente Atualizar. " + ex.Message; }
         finally

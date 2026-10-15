@@ -127,13 +127,13 @@ internal static class InfusaoQa
             await Program.Script(navegador, "(()=>{const d=document.querySelector('.inf-modelos details');if(!d.open)d.querySelector('summary').click();})()");
             await Program.Esperar(navegador, botaoExcluir + ".getBoundingClientRect().height>0");
             await Program.Script(navegador, botaoExcluir + ".click()");
-            await Clicar("Cancelar exclusão");
+            await Clicar("Manter");
             if (!await db.Set<ModeloDocumento>().AnyAsync(m => m.Id == modeloExcluir.Id)) throw new InvalidOperationException("Cancelar excluiu o modelo.");
             await Program.Script(navegador, botaoExcluir + ".click()");
             await Program.Esperar(navegador, "document.querySelector('.inf-excluir-modelo')?.getBoundingClientRect().height>0");
             await Program.Script(navegador, "document.querySelector('.inf-excluir-modelo').scrollIntoView({block:'center'})");
             await Program.Capturar(navegador, Path.Combine(saida, "confirmar-exclusao-modelo.png"));
-            await Clicar("Confirmar exclusão");
+            await Clicar("Excluir modelo");
             await Program.Esperar(navegador, "document.querySelector('.inf-aviso')?.textContent.includes('Modelo excluído')===true");
             db.ChangeTracker.Clear();
             if (await db.Set<ModeloDocumento>().AnyAsync(m => m.Id == modeloExcluir.Id)) throw new InvalidOperationException("Modelo confirmado permaneceu no banco.");

@@ -19,7 +19,11 @@ public sealed record ResumoPeriodoEnfermagem(DateTime Inicio, DateTime Fim, int 
 public sealed record LinhaSolicitacaoEnfermagem(int Id, DateTime Inicio, DateTime Fim, DateTime Validade,
     string Modalidade, ModalidadeAtendimento ModalidadeCodigo, int Quantidade, string Autora, int AutoraId,
     string Situacao, string Observacao, DateTime? VistaEm, string VistaPor, int TotalReferencia,
-    bool Ativa, bool PodeTratar, bool PodeRetirar, Guid Versao);
+    bool Ativa, bool PodeTratar, bool PodeRetirar, Guid Versao)
+{
+    /// <summary>Quando a enfermagem enviou — é o "chegou há 3 min" da caixa da recepção.</summary>
+    public DateTime? CriadaEm { get; init; }
+}
 /// <summary>
 /// Contagem do cabeçalho com a MARCA da última alteração (o maior evento registrado). Duas leituras
 /// com contagens iguais podem esconder um pedido novo e outro visto no mesmo intervalo; a marca não.

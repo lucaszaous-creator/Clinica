@@ -101,7 +101,7 @@ public sealed class PlanejamentoEnfermagemService(ClinicaDbContext db, TimeProvi
         p.Validade, Modalidade(p.Modalidade), p.Modalidade, p.Quantidade, p.Autora?.Nome ?? "Enfermagem", p.AutoraId,
         p.Situacao is "Novo" or "Visto" && !Ativa(p) ? "Expirado" : p.Situacao, p.Observacao, p.VistaEm, p.VistaPor,
         p.TotalReferencia, Ativa(p), Ativa(p) && AcessoPlanejamentoEnfermagem.Tratar(u),
-        Ativa(p) && p.AutoraId == u.Id && AcessoPlanejamentoEnfermagem.Solicitar(u), p.Versao);
+        Ativa(p) && p.AutoraId == u.Id && AcessoPlanejamentoEnfermagem.Solicitar(u), p.Versao) { CriadaEm = p.CriadaEm };
 
     public async Task<IReadOnlyList<LinhaSolicitacaoEnfermagem>> ListarAsync(int usuarioId, DateOnly? dia = null, CancellationToken ct = default)
     {

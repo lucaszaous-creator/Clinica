@@ -89,14 +89,20 @@ function Medicamento({item, catalogo, mudar}: {item: Item; catalogo: InfusaoEsta
  </label>;
 }
 
-function Modelos({grupo, modelos, enviar}: {grupo: Grupo; modelos: Modelo[]; enviar: Enviar}) {
+function Modelos({grupo, modelos, enviar, ocupado}: {grupo: Grupo; modelos: Modelo[]; enviar: Enviar; ocupado: boolean}) {
  const id = useId(), [busca, setBusca] = useState(''), [nome, setNome] = useState(''), [salvando, setSalvando] = useState(false);
- const [excluir, setExcluir] = useState<Modelo>();
+ // A confirmação abre NO PRÓPRIO modelo (out/2026): no fim da lista ela ficava longe do nome
+ // escolhido, e quem rola a lista não sabia qual modelo estava prestes a sair.
+ const [excluir, setExcluir] = useState<number>();
  const filtrados = modelos.filter(m => m.nome.toLocaleLowerCase('pt-BR').includes(busca.toLocaleLowerCase('pt-BR')));
  return <div className="inf-modelos"><details><summary>Usar modelo salvo <span className="inf-contagem">{modelos.length}</span></summary><div className="inf-modelos-conteudo">
   <label className="inf-campo" htmlFor={id}><span>Buscar modelo</span><input id={id} value={busca} onChange={e => setBusca(e.currentTarget.value)} placeholder="Nome do modelo"/></label>
-  <div className="inf-modelos-lista">{filtrados.map(m => <div className="inf-modelo-linha" key={m.id}><button type="button" onClick={() => enviar({acao: 'aplicarModelo', grupo: grupo.id, modelo: m.id})}><strong>{m.nome}</strong><small>{m.previa || 'Aplicar preparo e medicamentos à infusão'}</small><span>Usar e revisar</span></button><button type="button" className="inf-perigo" aria-label={`Excluir modelo ${m.nome}`} onClick={() => setExcluir(m)}>Excluir</button></div>)}</div>
-  {excluir && modelos.some(m => m.id === excluir.id) && <div className="inf-excluir-modelo" role="group" aria-label="Confirmar exclusão do modelo"><p>Excluir o modelo <strong>{excluir.nome}</strong> para toda a clínica? As prescrições já criadas não serão alteradas.</p><button type="button" className="inf-perigo" onClick={() => enviar({acao: 'excluirModelo', modelo: excluir.id, confirmado: true})}>Confirmar exclusão</button><button type="button" onClick={() => setExcluir(undefined)}>Cancelar exclusão</button></div>}
+  <div className="inf-modelos-lista">{filtrados.map(m => excluir === m.id
+   ? <div className="inf-modelo-linha inf-excluir-modelo" key={m.id} role="group" aria-label={`Confirmar exclusão do modelo ${m.nome}`}>
+      <p>Excluir o modelo <strong>{m.nome}</strong> para toda a clínica? As prescrições já criadas com ele não mudam.</p>
+      <div className="inf-excluir-acoes"><button type="button" className="inf-perigo-solido" disabled={ocupado} onClick={() => enviar({acao: 'excluirModelo', modelo: m.id, confirmado: true})}>{ocupado ? 'Excluindo…' : 'Excluir modelo'}</button><button type="button" disabled={ocupado} onClick={() => setExcluir(undefined)}>Manter</button></div>
+     </div>
+   : <div className="inf-modelo-linha" key={m.id}><button type="button" onClick={() => enviar({acao: 'aplicarModelo', grupo: grupo.id, modelo: m.id})}><strong>{m.nome}</strong><small>{m.previa || 'Aplicar preparo e medicamentos à infusão'}</small><span>Usar e revisar</span></button><button type="button" className="inf-excluir-botao" disabled={ocupado} aria-label={`Excluir modelo ${m.nome}`} title="Excluir este modelo" onClick={() => setExcluir(m.id)}>Excluir</button></div>)}</div>
   {!filtrados.length && <p>{modelos.length ? 'Nenhum modelo encontrado.' : 'Nenhum modelo cadastrado. Você pode salvar esta infusão como modelo.'}</p>}
  </div></details><button type="button" className="inf-acao" onClick={() => setSalvando(!salvando)} aria-expanded={salvando}>Salvar esta infusão como modelo</button>
  {salvando && <div className="inf-salvar-modelo"><label className="inf-campo"><span>Nome do modelo</span><input maxLength={100} value={nome} onChange={e => setNome(e.currentTarget.value)} placeholder="Nome para encontrar depois"/></label><p>Guarda o preparo e os medicamentos, sem dados do paciente ou horário.</p><button type="button" className="inf-primario" disabled={!nome.trim()} onClick={() => enviar({acao: 'salvarModelo', grupo: grupo.id, nome})}>Salvar modelo</button><button type="button" onClick={() => setSalvando(false)}>Cancelar</button></div>}
@@ -115,7 +121,7 @@ export default function Infusao({estado: e, enviar, ocupado}: {estado: InfusaoEs
    <TextoClinico rotulo="Indicação" texto={e.indicacao} formato={e.indicacaoFormatada} desabilitado={bloqueado} mudar={(v, formato) => campo('indicacao', v, {formato})}/>
    {e.grupos.map(g => <section className="inf-grupo" key={g.id} aria-label={g.titulo}>
     <header><div><span className="inf-etiqueta">Preparo e medicamentos</span><h2>{g.titulo}</h2></div><button type="button" className="inf-perigo" onClick={() => enviar({acao: 'removerInfusao', grupo: g.id})}>Remover infusão</button></header>
-    <Modelos grupo={g} modelos={e.modelos} enviar={enviar}/>
+    <Modelos grupo={g} modelos={e.modelos} enviar={enviar} ocupado={ocupado || e.ocupado}/>
     <div className="inf-preparo"><Campo rotulo="Diluente" valor={g.diluente} maximo={120} mudar={v => campo('diluente', v, {grupo: g.id})}/><Campo rotulo="Volume (mL)" valor={g.volume} maximo={60} mudar={v => campo('volume', v, {grupo: g.id})}/><label className="inf-campo"><span>Via de administração</span><select value={g.via} onChange={event => campo('via', event.currentTarget.value, {grupo: g.id})}>{e.vias.map(v => <option key={v.valor} value={v.valor}>{v.rotulo}</option>)}</select></label><Campo rotulo="Tempo" valor={g.tempo} maximo={60} mudar={v => campo('tempo', v, {grupo: g.id})}/><Campo rotulo="Horário (opcional)" valor={g.horario} maximo={5} dica="HH:mm" mudar={v => campo('horario', v, {grupo: g.id})}/></div>
     <div className="inf-itens">{g.itens.map(i => <div className="inf-item" key={i.id}>
      <div className="inf-item-linha"><Medicamento item={i} catalogo={e.medicamentos} mudar={v => campo('descricao', v, {grupo: g.id, item: i.id})}/><Campo rotulo="Quantidade / dose" valor={i.dose} maximo={60} dica={i.dicaDose} mudar={v => campo('dose', v, {grupo: g.id, item: i.id})}/><button type="button" className="inf-perigo" aria-label={`Remover ${i.descricao || 'medicamento'}`} onClick={() => enviar({acao: 'removerItem', grupo: g.id, item: i.id})}>Remover</button></div>
