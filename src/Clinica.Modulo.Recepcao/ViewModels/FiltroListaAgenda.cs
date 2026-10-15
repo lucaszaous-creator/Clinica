@@ -59,9 +59,12 @@ public sealed partial class FiltroListaAgenda : ObservableObject
         _nomeDoPeriodo = nomeDoPeriodo;
         Situacoes =
         [
-            new("todos", "Todos"), new("pendente", "Pendentes"), new("no-local", "No local"),
-            new("em-atendimento", "Em atendimento"), new("atendido", "Atendidos"),
-            new("cancelado", "Cancelados"), new("faltou", "Faltas"), new("substituido", "Substituídos")
+            // Os rótulos do mockup aprovado (out/2026). Falta, cancelamento e substituição
+            // são UMA pílula: as três dizem "esta sessão não vai acontecer", e três pílulas
+            // quase sempre zeradas gastavam a linha.
+            new("todos", "Todos"), new("pendente", "Marcado"), new("no-local", "No local"),
+            new("em-atendimento", "Em atendimento"), new("atendido", "Concluído"),
+            new(FaltaOuCancelado, "Falta / cancelado")
         ];
         Situacoes[0].Marcado = true;
         NomesDeModalidade.Add(TodasModalidades);
@@ -87,6 +90,12 @@ public sealed partial class FiltroListaAgenda : ObservableObject
 
     /// <summary>Há horários no período, e NENHUM passa pelos filtros — a pergunta é outra.</summary>
     [ObservableProperty] private bool _nenhumCorresponde;
+
+    private const string FaltaOuCancelado = "falta-cancelado";
+
+    /// <summary>A pílula casa com o grupo visual da linha — a de falta/cancelado com os três grupos.</summary>
+    private static bool Casa(string chave, string grupo) =>
+        chave == grupo || chave == FaltaOuCancelado && grupo is "cancelado" or "faltou" or "substituido";
 
     private bool ModalidadeAtiva => !string.IsNullOrEmpty(Modalidade) && Modalidade != TodasModalidades;
 
@@ -136,7 +145,7 @@ public sealed partial class FiltroListaAgenda : ObservableObject
 
     /// <summary>O predicado da vista. Item que não é horário (o vão livre) sempre passa.</summary>
     public bool Aceita(object item) =>
-        _extrair(item) is not { } h || (PassaBuscaEModalidade(h) && (Situacao == "todos" || h.Grupo == Situacao));
+        _extrair(item) is not { } h || (PassaBuscaEModalidade(h) && (Situacao == "todos" || Casa(Situacao, h.Grupo)));
 
     /// <summary>Refaz modalidades, contagens e resumo a partir da lista INTEIRA do período.</summary>
     public void Recalcular(IEnumerable<object> todos, bool carregando)
@@ -167,7 +176,7 @@ public sealed partial class FiltroListaAgenda : ObservableObject
 
         var pesquisadas = horarios.Where(PassaBuscaEModalidade).ToList();
         foreach (var chip in Situacoes)
-            chip.Contagem = chip.Chave == "todos" ? pesquisadas.Count : pesquisadas.Count(h => h.Grupo == chip.Chave);
+            chip.Contagem = chip.Chave == "todos" ? pesquisadas.Count : pesquisadas.Count(h => Casa(chip.Chave, h.Grupo));
         var visiveis = Situacao == "todos" ? pesquisadas.Count : pesquisadas.Count(h => h.Grupo == Situacao);
 
         NenhumCorresponde = !carregando && horarios.Count > 0 && visiveis == 0 && TemFiltros;

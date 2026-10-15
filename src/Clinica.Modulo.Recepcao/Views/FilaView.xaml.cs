@@ -208,11 +208,12 @@ public partial class FilaView : UserControl
 
         Separar();
 
-        // A GRADE é onde moram remarcar, reabrir o cancelado (a parcela 69), o comprovante
-        // e o WhatsApp — a janela do horário. Sempre disponível: é leitura, e para a linha
-        // cancelada ou de falta é a ÚNICA ação que sobra, com razão.
-        Acrescentar(cartao.ForaDaFila ? "Abrir na grade (reabrir ou remarcar)…" : "Abrir na grade…",
-            vm.AbrirNaGradeCommand, true);
+        // A JANELA DO HORÁRIO é onde moram reabrir o cancelado (a parcela 69), o comprovante,
+        // o WhatsApp e a série. Sempre disponível: abrir é leitura, e para a linha cancelada
+        // ou de falta é a ÚNICA ação que sobra, com razão. Era "Abrir na grade…" — a grade
+        // saiu da navegação em out/2026, e a janela passou a abrir daqui mesmo.
+        Acrescentar(cartao.ForaDaFila ? "Abrir o horário (reabrir ou remarcar)…" : "Abrir o horário…",
+            vm.AbrirHorarioCommand, true);
 
         // Separador no fim é lixo visual: tira se ficou órfão.
         if (menu.Items[^1] is Separator) menu.Items.RemoveAt(menu.Items.Count - 1);

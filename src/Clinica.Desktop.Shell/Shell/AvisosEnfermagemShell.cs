@@ -1,4 +1,6 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using Clinica.Application.Abstracoes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
@@ -8,6 +10,9 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Windows.Threading;
 
 namespace Clinica.Desktop.Shell;
+
+/// <summary>Um pedido da enfermagem na lista do sino (out/2026).</summary>
+public sealed record PedidoNoSino(int Id, string Titulo, string Quando, string Origem, bool Novo);
 
 public sealed partial class ShellViewModel
 {
@@ -107,6 +112,79 @@ public sealed partial class ShellViewModel
         // Fora do try: o próprio cabeçalho escuta o sinal, e a releitura dele acha a marca igual.
         if (mudou) NotificacoesEnfermagem.SinalizarMudanca();
     }
+    // ==================== A lista do sino (out/2026) ====================
+    //
+    // O sino virou a porta ÚNICA dos pedidos (mockup aprovado): havia o sino E um botão
+    // "Pedidos da enfermagem" lado a lado no cabeçalho, dois caminhos para a mesma caixa.
+    // A lista só é lida quando o sino ABRE — a batida de 15 s continua contando, e uma
+    // leitura de linhas a cada batida, em todo posto, seria custo para ninguém olhar.
+
+    public ObservableCollection<PedidoNoSino> PedidosNoSino { get; } = [];
+    [ObservableProperty] private string _situacaoSino = "";
+    private int _geracaoSino;
+
+    private async Task CarregarPedidosDoSinoAsync()
+    {
+        if (!PodeVerPedidos) return;
+        var g = ++_geracaoSino; var usuario = _sessaoClinica!.UsuarioId;
+        SituacaoSino = PedidosNoSino.Count == 0 ? "Consultando pedidos…" : SituacaoSino;
+        try
+        {
+            using var scope = _servicos.CreateScope();
+            var linhas = await scope.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ListarAsync(usuario);
+            if (g != _geracaoSino || usuario != _sessaoClinica.UsuarioId) return;
+            var ativos = linhas.Where(l => l.Ativa)
+                .OrderByDescending(l => l.Situacao == "Novo").ThenByDescending(l => l.CriadaEm ?? l.Inicio)
+                .ToList();
+            var novos = new List<PedidoNoSino>();
+            foreach (var l in ativos.Take(5)) novos.Add(NoSino(l, DateTime.Now));
+            // Entre o Clear e o último Add não há await.
+            PedidosNoSino.Clear();
+            foreach (var n in novos) PedidosNoSino.Add(n);
+            SituacaoSino = ativos.Count == 0 ? "Nenhum pedido em aberto."
+                : ativos.Count > novos.Count ? $"Mostrando {novos.Count} de {ativos.Count} em aberto." : "";
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracaoSino) return;
+            // Terceiro estado: lista vazia por falha não pode parecer "nenhum pedido".
+            PedidosNoSino.Clear();
+            SituacaoSino = "Não foi possível consultar os pedidos. Abra a caixa para tentar de novo.";
+            Clinica.Application.Diagnostico.Registrar("Pedidos no sino", ex);
+        }
+    }
+
+    private static readonly CultureInfo PtBrSino = CultureInfo.GetCultureInfo("pt-BR");
+
+    /// <summary>A frase de um pedido no sino — o que, quando e quem pediu.</summary>
+    public static PedidoNoSino NoSino(LinhaSolicitacaoEnfermagem l, DateTime agora)
+    {
+        var quantos = l.Quantidade == 1 ? "1 atendimento a mais" : $"{l.Quantidade} atendimentos a mais";
+        var dia = l.Inicio.Date == agora.Date ? "hoje"
+            : l.Inicio.Date == agora.Date.AddDays(1) ? "amanhã"
+            : l.Inicio.ToString("ddd, dd/MM", PtBrSino);
+        var chegou = l.CriadaEm is not { } c ? "" : (agora - c) switch
+        {
+            var d when d.TotalMinutes < 1 => " · agora",
+            var d when d.TotalMinutes < 60 => $" · há {(int)d.TotalMinutes} min",
+            var d when c.Date == agora.Date => $" · há {(int)d.TotalHours} h",
+            _ => $" · {c:dd/MM}"
+        };
+        return new PedidoNoSino(l.Id, $"Até {quantos} · {l.Modalidade}",
+            $"{dia} {l.Inicio:HH:mm}–{l.Fim:HH:mm}", $"{l.Autora}{chegou}", l.Situacao == "Novo");
+    }
+
+    [RelayCommand]
+    private void AbrirPedidoDoSino(PedidoNoSino? pedido)
+    {
+        if (pedido is null || !PodeVerPedidos) return;
+        NotificacoesEnfermagem.PedirAbertura(pedido.Id);
+        AvisosAbertos = false;
+        if (!IrPara(ChavesSuite.PedidosEnfermagem, false)) { NotificacoesEnfermagem.ConsumirAbertura(); return; }
+        // A caixa já aberta relê pelo sinal; a recém-aberta lê ao entrar.
+        NotificacoesEnfermagem.SinalizarMudanca();
+    }
+
     [RelayCommand]
     private void AbrirPedidosEnfermagem()
     {

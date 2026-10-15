@@ -3574,9 +3574,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         TipoContato? tipo, StatusContato? status,
         DateOnly inicio, DateOnly fim, CancellationToken ct = default)
     {
+        // O profissional do horário entra junto (out/2026): a rodada de confirmação mostrava
+        // "—" em toda linha, porque lia `Agendamento.Profissional` sem que ninguém o trouxesse.
         var q = _db.Contatos.AsNoTracking()
             .Include(c => c.Paciente)
-            .Include(c => c.Agendamento)
+            .Include(c => c.Agendamento).ThenInclude(a => a!.Profissional)
             .Where(c => c.Referencia >= inicio && c.Referencia <= fim);
 
         if (tipo is { } t) q = q.Where(c => c.Tipo == t);

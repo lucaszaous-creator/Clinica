@@ -13,6 +13,18 @@ public partial class ShellWindow : Window
             categoria.IsSubmenuOpen = true;
     }
 
+    /// <summary>Entrada DIRETA da barra plana (sem submenu): o clique navega para o item.</summary>
+    private void AoEscolherCategoria(object sender, RoutedEventArgs e)
+    {
+        if (!ReferenceEquals(sender, e.OriginalSource)) return;
+        if (sender is MenuItem { DataContext: Modulos.GrupoMenuModulo { Direto: { } item } } && DataContext is ShellViewModel vm
+            && vm.NavegarCommand.CanExecute(item))
+        {
+            vm.NavegarCommand.Execute(item);
+            e.Handled = true;
+        }
+    }
+
     private void AoEscolherTela(object sender, RoutedEventArgs e)
     {
         if (sender is MenuItem { DataContext: Modulos.ItemMenuModulo item } && DataContext is ShellViewModel vm
@@ -57,7 +69,7 @@ public partial class ShellWindow : Window
         }
         // Menus and training move together to a second line on smaller windows,
         // preserving the search, notifications and session controls at 880 px.
-        var compacto=ActualWidth<(DataContext is ShellViewModel { PodeVerPedidos: true } ? 1550 : 1300);
+        var compacto=ActualWidth<1300;
         Cabecalho.Height=compacto?112:68;
         Grid.SetRow(NavegacaoSuperior,compacto?1:0);
         Grid.SetColumn(NavegacaoSuperior,compacto?0:1);

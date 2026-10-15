@@ -40,10 +40,10 @@ public sealed class OcupacaoAgendaService(ClinicaDbContext db) : IOcupacaoAgenda
         if (profissionalId != null && profissionais.Count == 0)
             throw new InvalidOperationException("O profissional não está disponível neste período.");
         var bloqueios = calcularJornadas ? await db.BloqueiosAgenda.AsNoTracking().Where(b => b.Inicio < ate && b.Fim > de)
-            .Select(b => new BloqueioAgenda { ProfissionalId = b.ProfissionalId, SalaId = b.SalaId, Inicio = b.Inicio, Fim = b.Fim }).ToListAsync(ct) : [];
+            .Select(b => new BloqueioAgenda { ProfissionalId = b.ProfissionalId, SalaId = b.SalaId, Inicio = b.Inicio, Fim = b.Fim, Motivo = b.Motivo }).ToListAsync(ct) : [];
         var horarios = linhas.Select(a => new HorarioOcupacao(a.Id, a.DataHora, a.DataHora.AddMinutes(a.Duracao),
             a.ProfissionalId, a.Profissional, a.Paciente, RotulosEnum.De(a.ModalidadePrevista), RotulosEnum.De(a.Status),
-            a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)).ToList();
+            a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado) { Familia = a.ModalidadePrevista }).ToList();
         MedidaOcupacao Medir(DateOnly primeiro, DateOnly ultimo, IReadOnlyList<Profissional> equipe, IReadOnlyList<HorarioOcupacao> agenda)
         {
             var ocupados = 0; var capacidade = 0; var bloqueados = 0; var fora = new HashSet<int>();
@@ -79,10 +79,20 @@ public sealed class OcupacaoAgendaService(ClinicaDbContext db) : IOcupacaoAgenda
         }
         var dias = Enumerable.Range(0, fim.DayNumber - inicio.DayNumber + 1).Select(i => inicio.AddDays(i))
             .Select(d => new DiaOcupacao(d, Medir(d, d, profissionais, horarios))).ToArray();
+        // Vãos e dias fechados (out/2026): os vãos só com UM profissional escolhido — "livre"
+        // para a equipe inteira não diz com quem marcar.
+        var filtrado = profissionalId is { } fid ? profissionais.FirstOrDefault(p => p.Id == fid) : null;
+        var vagas = calcularJornadas && filtrado is not null
+            ? Clinica.Application.Modelos.VaosDaAgenda.Calcular(filtrado, inicio, fim, horarios, bloqueios, DateTime.Now) : [];
+        var fechados = calcularJornadas ? Clinica.Application.Modelos.VaosDaAgenda.Fechados(filtrado, inicio, fim, bloqueios) : [];
         return new(inicio, fim, DateTime.Now, Medir(inicio, fim, profissionais, horarios), dias,
             profissionais.Select(p => new ProfissionalOcupacao(p.Id, p.Nome,
                 !calcularJornadas ? "" : p.DiasDeAtendimento == null || p.MinutosDeJornada == null ? "Jornada incompleta" : p.DescricaoJornada ?? "",
-                Medir(inicio, fim, [p], horarios.Where(a => a.ProfissionalId == p.Id).ToList()))).ToArray(), horarios);
+                Medir(inicio, fim, [p], horarios.Where(a => a.ProfissionalId == p.Id).ToList()))).ToArray(), horarios)
+        {
+            Vagas = vagas, Fechados = fechados,
+            SemJornadaParaVagas = calcularJornadas && filtrado is not null && (filtrado.AtendeDas is null || filtrado.AtendeAte is null)
+        };
     }
 
     internal IQueryable<Agendamento> ConsultaHorarios(DateTime de, DateTime ate, int? profissionalId)

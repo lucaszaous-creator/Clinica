@@ -1479,6 +1479,40 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
         }
     }
 
+    /// <summary>
+    /// Abre a janela do horário SEM a grade na tela (out/2026). A grade saiu da navegação
+    /// (a Visão geral cobre a semana por profissional), e com ela iam junto as sete ações
+    /// da janela do horário — remarcar, reabrir o cancelado, comprovante, WhatsApp, quem
+    /// chamar, cancelar a série. A lista do dia e a Visão geral pedem a janela por aqui:
+    /// esta tela continua sendo o DONO das sete ações (permissão, recarga e erro num lugar
+    /// só), só que sem ser desenhada.
+    /// </summary>
+    /// <returns><c>false</c> quando o horário não está mais no dia (a outra máquina o tirou).</returns>
+    public async Task<bool> AbrirJanelaDoHorarioAsync(DateOnly dia, int agendamentoId)
+    {
+        FiltroSala = null;
+        FiltroProfissional = null;
+        MostrarTodosOsProfissionais = true;
+        if (ModoSemana) ModoSemana = false;
+        Dia = dia.ToDateTime(TimeOnly.MinValue);
+        await CarregarAsync();
+        var cartao = Colunas.SelectMany(c => c.Horarios).FirstOrDefault(h => h.AgendamentoId == agendamentoId);
+        if (cartao is null) return false;
+        await AbrirHorarioAsync(cartao);
+        return true;
+    }
+
+    /// <summary>Põe a tela (sem desenho) no dia pedido antes de uma ação de "Mais ações".</summary>
+    public async Task PosicionarAsync(DateOnly dia, int? profissionalId)
+    {
+        FiltroSala = null;
+        FiltroProfissional = profissionalId is { } id ? new(id, "Profissional selecionado") : null;
+        MostrarTodosOsProfissionais = true;
+        if (ModoSemana) ModoSemana = false;
+        Dia = dia.ToDateTime(TimeOnly.MinValue);
+        await CarregarAsync();
+    }
+
     /// <summary>Remarca: move o horário preservando o registro (e o histórico).</summary>
     [RelayCommand]
     private async Task RemarcarAsync(CartaoAgenda? cartao)

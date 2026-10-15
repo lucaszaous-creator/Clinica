@@ -287,6 +287,12 @@ public sealed partial class PedidosEnfermagemViewModel : ObservableObject, IDisp
             Clinica.Application.Diagnostico.Registrar("Pedidos da enfermagem", ex);
         }
         finally { Carregando = false; }
+        // O sino pediu um aviso: abre-o depois da lista (é ela que autoriza o id).
+        if (_ativa && g == _geracao && _jaLeu && NotificacoesEnfermagem.ConsumirAbertura() is { } pedido)
+        {
+            if (_pedidos.Any(p => p.Id == pedido)) await ExecutarAsync(() => DetalharAsync(pedido, true));
+            else Mensagem = "Este aviso não está mais na caixa — ele pode ter sido encerrado em outra máquina.";
+        }
     }
 
     // ==================== Comandos ====================

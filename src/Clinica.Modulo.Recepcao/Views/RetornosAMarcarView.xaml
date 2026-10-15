@@ -18,38 +18,66 @@
     <DockPanel Margin="24,20,24,20">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Text="Retornos a marcar" Style="{StaticResource H1}" Margin="0" />
-            <TextBlock Style="{StaticResource TextoSuave}"
-                       Text="Quem saiu do atendimento com pedido de retorno e ainda não tem horário marcado. A linha some sozinha quando o horário é marcado; passados 60 dias da data sugerida, o paciente sai daqui e passa a ser assunto do Recall, em Acompanhamento de pacientes." />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       Text="Quem saiu do atendimento com pedido de retorno e ainda não tem horário marcado. A linha some sozinha quando o horário é marcado; passados 60 dias da data sugerida, o paciente passa para a aba Acompanhamento." />
         </StackPanel>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-            <StackPanel>
-                <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="Atualizar" MinHeight="36" MinWidth="110"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding CarregarCommand}"
-                            ctrl:Ajudantes.EstaCarregando="{Binding Carregando}" />
-                    <TextBlock Text="{Binding Resumo}" Style="{StaticResource Rotulo}"
-                               VerticalAlignment="Center" Margin="0" TextWrapping="Wrap" />
-                </DockPanel>
-                <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a gravidade (parcela 62). -->
-                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"
-                           HorizontalAlignment="Left" Margin="0,10,0,0"
-                           Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </StackPanel>
-        </Border>
+        <!-- Os chips contam e FILTRAM (out/2026, mockup aprovado). A contagem sai da fila
+             inteira — o chip escolhido recorta só a tabela. -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Button DockPanel.Dock="Right" Content="Atualizar" MinWidth="110"
+                    VerticalAlignment="Center" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding CarregarCommand}"
+                    ctrl:Ajudantes.EstaCarregando="{Binding Carregando}" />
+            <WrapPanel VerticalAlignment="Center">
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,0"
+                              IsChecked="{Binding FiltroTodos, Mode=OneWay}"
+                              Command="{Binding EscolherFiltroCommand}" CommandParameter="todos">
+                    <TextBlock TextTrimming="CharacterEllipsis"><Run Text="Todos " /><Run Text="{Binding Total, Mode=OneWay}" FontWeight="SemiBold" /></TextBlock>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,0"
+                              IsChecked="{Binding FiltroAtrasados, Mode=OneWay}"
+                              Command="{Binding EscolherFiltroCommand}" CommandParameter="atrasados">
+                    <TextBlock TextTrimming="CharacterEllipsis"><Run Text="Atrasados " /><Run Text="{Binding Atrasados, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Aviso}" /></TextBlock>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,0"
+                              IsChecked="{Binding FiltroEstaSemana, Mode=OneWay}"
+                              Command="{Binding EscolherFiltroCommand}" CommandParameter="semana">
+                    <TextBlock TextTrimming="CharacterEllipsis"><Run Text="Esta semana " /><Run Text="{Binding EstaSemana, Mode=OneWay}" FontWeight="SemiBold" /></TextBlock>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,0"
+                              IsChecked="{Binding FiltroMaisAdiante, Mode=OneWay}"
+                              Command="{Binding EscolherFiltroCommand}" CommandParameter="adiante">
+                    <TextBlock TextTrimming="CharacterEllipsis"><Run Text="Mais adiante " /><Run Text="{Binding MaisAdiante, Mode=OneWay}" FontWeight="SemiBold" /></TextBlock>
+                </ToggleButton>
+                <!-- Os retornos que o balcão JÁ resolveu — saem da fila, e aqui se confere. -->
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,16,0"
+                              IsChecked="{Binding FiltroJaMarcados, Mode=OneWay}"
+                              Command="{Binding EscolherFiltroCommand}" CommandParameter="marcados">
+                    <TextBlock TextTrimming="CharacterEllipsis"><Run Text="Já marcados " /><Run Text="{Binding JaMarcados, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Sucesso}" /></TextBlock>
+                </ToggleButton>
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource CelulaSuave}" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </WrapPanel>
+        </DockPanel>
+
+        <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a gravidade (parcela 62). -->
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Mensagem}" TextWrapping="Wrap"
+                   HorizontalAlignment="Left" Margin="0,0,0,10"
+                   Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+
+        <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource CelulaSuave}" TextWrapping="Wrap" Margin="0,10,0,0"
+                   Text="O convite pelo WhatsApp nunca leva o motivo clínico: diz quem pediu o retorno e para quando. &quot;Marcar horário&quot; abre Atendimento › Marcar com o paciente, a data e o profissional já preenchidos." />
 
         <Border Style="{StaticResource Card}">
             <Grid>
@@ -74,14 +102,76 @@
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False"
                           CanUserSortColumns="True" SelectionMode="Single"
-                          RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="56" FrozenColumnCount="1" CanUserReorderColumns="False" ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                          RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="56" CanUserReorderColumns="False" ScrollViewer.HorizontalScrollBarVisibility="Auto">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="AÇÕES" Width="250" CanUserSort="False">
+                        <DataGridTemplateColumn Header="PACIENTE" Width="1.6*" MinWidth="200" SortMemberPath="Paciente">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" Margin="8,0">
+                                    <DockPanel Margin="8,6,8,6">
+                                        <ctrl:Avatar DockPanel.Dock="Left" Nome="{Binding Paciente}" Tamanho="34" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Telefone, TargetNullValue='sem telefone no cadastro'}"
+                                                       Style="{StaticResource CelulaSuave}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="PEDIDO POR" Width="1.3*" MinWidth="170" SortMemberPath="Profissional">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Profissional}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Sessao, StringFormat='na sessão de {0:dd/MM}'}"
+                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="PARA QUANDO" Width="170" SortMemberPath="RetornoEm">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
+                                        <Border x:Name="pilula" Style="{StaticResource Badge.Info}" HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding SituacaoTexto}" TextTrimming="CharacterEllipsis" />
+                                        </Border>
+                                        <TextBlock Text="{Binding RetornoEm, StringFormat='dd/MM/yyyy'}"
+                                                   Style="{StaticResource CelulaSuave}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Atrasado}" Value="True">
+                                            <Setter TargetName="pilula" Property="Style" Value="{StaticResource Badge.Aviso}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding JaMarcado}" Value="True">
+                                            <Setter TargetName="pilula" Property="Style" Value="{StaticResource Badge.Sucesso}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="NOTA DO PROFISSIONAL" Width="1.6*" MinWidth="180" CanUserSort="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <!-- O motivo só vem na linha para quem tem VerProntuario:
+                                         a ViewModel o tira antes de publicar. -->
+                                    <TextBlock Text="{Binding Nota, TargetNullValue='—'}" Margin="0,6,8,6" VerticalAlignment="Center"
+                                               Style="{StaticResource CelulaSuave}" TextWrapping="Wrap" MaxHeight="40" TextTrimming="CharacterEllipsis" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="AÇÃO" Width="250" CanUserSort="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel x:Name="acoes" Orientation="Horizontal" Margin="8,0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <Button Content="Convidar" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                ToolTip="Convida o paciente a marcar pelo WhatsApp — sem dado clínico na mensagem"
+                                                IsEnabled="{Binding TemTelefone}"
+                                                Command="{Binding DataContext.WhatsAppCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
                                         <!-- As DUAS barreiras: o botão explica, o comando impede. -->
-                                        <Button Content="Marcar horário"
+                                        <Button Content="Marcar horário" Margin="8,0,0,0"
                                                 Style="{StaticResource BotaoAcaoGrid}"
                                                 ToolTip="Abre o Marcar já com o paciente, a data sugerida e quem atende"
                                                 IsEnabled="{Binding DataContext.PodeMarcar,
@@ -89,67 +179,16 @@
                                                 Command="{Binding DataContext.MarcarCommand,
                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}" />
-                                        <Button Content="WhatsApp" Margin="8,0,0,0"
-                                                Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                ToolTip="Convida o paciente a marcar — sem dado clínico na mensagem"
-                                                IsEnabled="{Binding TemTelefone}"
-                                                Command="{Binding DataContext.WhatsAppCommand,
-                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}" />
                                     </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="RETORNO" Width="150" SortMemberPath="RetornoEm">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,6,8,6">
-                                        <TextBlock Text="{Binding RetornoEm, StringFormat='dd/MM/yyyy'}"
-                                                   FontWeight="SemiBold" TextWrapping="Wrap" />
-                                        <TextBlock x:Name="situacao" Text="{Binding Situacao}"
-                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0" />
-                                    </StackPanel>
+                                    <!-- O já marcado não tem o que fazer: a linha é conferência. -->
                                     <DataTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding Atrasado}" Value="True">
-                                            <Setter TargetName="situacao" Property="Foreground"
-                                                    Value="{StaticResource Brush.Aviso}" />
-                                            <Setter TargetName="situacao" Property="FontWeight" Value="SemiBold" />
+                                        <DataTrigger Binding="{Binding JaMarcado}" Value="True">
+                                            <Setter TargetName="acoes" Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="PACIENTE" Width="*" SortMemberPath="Paciente">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,6,8,6">
-                                        <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                   TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding Telefone, TargetNullValue='sem telefone no cadastro'}"
-                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="SESSÃO / QUEM PEDIU" Width="1.2*" SortMemberPath="Sessao">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,6,8,6">
-                                        <TextBlock TextWrapping="Wrap">
-                                            <Run Text="{Binding Sessao, Mode=OneWay, StringFormat='dd/MM/yyyy'}" />
-                                            <Run Text=" · " />
-                                            <Run Text="{Binding Profissional, Mode=OneWay}" />
-                                        </TextBlock>
-                                        <!-- O motivo só vem na linha para quem tem VerProntuario:
-                                             a ViewModel o tira antes de publicar. -->
-                                        <TextBlock Text="{Binding Nota}"
-                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0"
-                                                   Visibility="{Binding TemNota, Converter={StaticResource BoolParaVisibilidade}}" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>
