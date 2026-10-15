@@ -20,6 +20,11 @@ public sealed record LinhaSolicitacaoEnfermagem(int Id, DateTime Inicio, DateTim
     string Modalidade, ModalidadeAtendimento ModalidadeCodigo, int Quantidade, string Autora, int AutoraId,
     string Situacao, string Observacao, DateTime? VistaEm, string VistaPor, int TotalReferencia,
     bool Ativa, bool PodeTratar, bool PodeRetirar, Guid Versao);
+/// <summary>
+/// Contagem do cabeçalho com a MARCA da última alteração (o maior evento registrado). Duas leituras
+/// com contagens iguais podem esconder um pedido novo e outro visto no mesmo intervalo; a marca não.
+/// </summary>
+public sealed record ResumoPedidosEnfermagem(int Novos, int Abertos, int UltimoEvento);
 public sealed record EventoPlanejamento(DateTime Em, string Autor, string Acao, string Observacao);
 public sealed record DetalheSolicitacaoEnfermagem(LinhaSolicitacaoEnfermagem Pedido,
     ResumoPeriodoEnfermagem Periodo, bool AgendaAlterada, IReadOnlyList<EventoPlanejamento> Historico);
@@ -36,6 +41,7 @@ public static class AcessoPlanejamentoEnfermagem
 public interface IPlanejamentoEnfermagemService
 {
     Task<(int Novos, int Abertos)> ContarAsync(int usuarioId, CancellationToken ct = default);
+    Task<ResumoPedidosEnfermagem> ResumoAsync(int usuarioId, CancellationToken ct = default);
     Task<IReadOnlyList<DiaPlanejamentoEnfermagem>> SemanaAsync(int usuarioId, SemanaEnfermagem semana, CancellationToken ct = default);
     Task<ResumoPeriodoEnfermagem> PeriodoAsync(int usuarioId, PeriodoEnfermagem periodo, CancellationToken ct = default);
     Task<IReadOnlyList<LinhaSolicitacaoEnfermagem>> ListarAsync(int usuarioId, DateOnly? dia = null, CancellationToken ct = default);

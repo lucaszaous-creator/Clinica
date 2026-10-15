@@ -64,6 +64,32 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Codigos_em_aberto_traduz_ficha_leve_sem_foto()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var geral = repo.ConsultaCodigosEmAberto(null).ToQueryString();
+        geral.Should().Contain("\"Nome\"").And.NotContain("FotoMiniatura").And.NotContain("\"Observacoes\" AS");
+        repo.ConsultaCodigosEmAberto(7).ToQueryString().Should().Contain("PacienteId");
+    }
+
+    [Fact]
+    public void Agendamentos_para_leitura_traduz_sem_foto_do_paciente()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaAgendamentosParaLeitura(new(2026, 10, 1), new(2026, 10, 2))
+            .ToQueryString().Should().NotContain("FotoMiniatura").And.Contain("DuracaoPadraoMinutos");
+    }
+
+    [Fact]
+    public void Pacientes_com_consultas_traduz_colecao_projetada_sem_foto()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaPacientesComConsultas().ToQueryString()
+            .Should().Contain("Consultas").And.NotContain("FotoMiniatura");
+    }
+
+    [Fact]
     public void Conferencias_em_lote_traduz_ids_no_Postgres()
     {
         using var db = Postgres();

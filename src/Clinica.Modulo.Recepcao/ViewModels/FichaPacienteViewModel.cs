@@ -820,38 +820,52 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             }
 
             AplicarCadastro(paciente);
-            var consulta = await scope.ServiceProvider.GetRequiredService<ConsultaService>()
-                .DoPacienteAsync(id, DateOnly.FromDateTime(DateTime.Today));
-            if (geracao != _geracaoCarga) return;
-            UsaConsultaRenovavel = consulta?.UsaConsulta == true;
-            ValidadeConsulta = consulta is null ? "Validade não disponível."
-                : !consulta.UsaConsulta ? "Este convênio não usa consulta renovável."
-                : consulta.Vencimento is null ? "Nenhuma validade de consulta registrada."
-                : $"Validade da consulta do convênio: {consulta.Vencimento:dd/MM/yyyy}.";
 
+            // Os blocos da ficha são INDEPENDENTES entre si — cada um escreve as suas próprias
+            // propriedades e listas — e corriam em fila, ~35 idas ao banco remoto na abertura de
+            // cada ficha (out/2026). Agora cada um tem o seu escopo (o DbContext não aceita duas
+            // operações ao mesmo tempo) e correm juntos; os dados e as regras de cada bloco são
+            // os mesmos, e o contador de geração de cada um continua descartando carga velha.
+            async Task Bloco(Func<IServiceScope, Task> carga)
+            {
+                using var proprio = _escopos.CreateScope();
+                await carga(proprio);
+            }
 
-            var foto = await pacientes.ObterFotoAsync(id);
-            // Chegou tarde: outra carga mais nova já foi pedida.
-            if (geracao != _geracaoCarga) return;
-            Foto = foto ?? paciente.FotoMiniatura;
-
-            if (!SomenteAdministrativo) await CarregarProntuarioAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarConsentimentosAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            if (!SomenteAdministrativo) await CarregarDocumentosAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarTermosAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarCrmAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarElegibilidadeAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarFaltasAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarAutorizacoesAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
-            await CarregarProximosHorariosAsync(scope, id, geracao);
+            var blocos = new List<Task>
+            {
+                Bloco(async s =>
+                {
+                    var consulta = await s.ServiceProvider.GetRequiredService<ConsultaService>()
+                        .DoPacienteAsync(id, DateOnly.FromDateTime(DateTime.Today));
+                    if (geracao != _geracaoCarga) return;
+                    UsaConsultaRenovavel = consulta?.UsaConsulta == true;
+                    ValidadeConsulta = consulta is null ? "Validade não disponível."
+                        : !consulta.UsaConsulta ? "Este convênio não usa consulta renovável."
+                        : consulta.Vencimento is null ? "Nenhuma validade de consulta registrada."
+                        : $"Validade da consulta do convênio: {consulta.Vencimento:dd/MM/yyyy}.";
+                }),
+                Bloco(async s =>
+                {
+                    var foto = await s.ServiceProvider.GetRequiredService<PacienteService>().ObterFotoAsync(id);
+                    // Chegou tarde: outra carga mais nova já foi pedida.
+                    if (geracao != _geracaoCarga) return;
+                    Foto = foto ?? paciente.FotoMiniatura;
+                }),
+                Bloco(s => CarregarConsentimentosAsync(s, id, geracao)),
+                Bloco(s => CarregarTermosAsync(s, id, geracao)),
+                Bloco(s => CarregarCrmAsync(s, id, geracao)),
+                Bloco(s => CarregarElegibilidadeAsync(s, id, geracao)),
+                Bloco(s => CarregarFaltasAsync(s, id, geracao)),
+                Bloco(s => CarregarAutorizacoesAsync(s, id, geracao)),
+                Bloco(s => CarregarProximosHorariosAsync(s, id, geracao)),
+            };
+            if (!SomenteAdministrativo)
+            {
+                blocos.Add(Bloco(s => CarregarProntuarioAsync(s, id, geracao)));
+                blocos.Add(Bloco(s => CarregarDocumentosAsync(s, id, geracao)));
+            }
+            await Task.WhenAll(blocos);
         }
         catch (Exception ex)
         {

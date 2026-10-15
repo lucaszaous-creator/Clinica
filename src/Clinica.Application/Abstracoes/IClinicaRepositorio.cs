@@ -31,7 +31,7 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<CodigoFaturamento>> CodigosDoPacienteNoMesAsync(int pacienteId, int ano, int mes, CancellationToken ct = default);
 
     /// <summary>Todos os códigos ainda em aberto (não baixados, não "não aplicável" e não "não conformidade"), com paciente carregado.</summary>
-    Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default, int? pacienteId = null);
 
     /// <summary>Guias em não conformidade (justificadas numa rodada e silenciadas), com paciente carregado.</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosEmNaoConformidadeAsync(CancellationToken ct = default);
@@ -361,6 +361,13 @@ public interface IClinicaRepositorio
 
     Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default);
     Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
+    /// <summary>
+    /// Os mesmos horários de <see cref="AgendamentosNoPeriodoAsync"/>, SEM rastreio e com a ficha
+    /// do paciente reduzida a Id e nome (profissional e sala inteiros). Para LISTAS de leitura que
+    /// cobrem muitos dias: a ficha completa traz a miniatura da foto e as observações de cada um.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoParaLeituraAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
+
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
     Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
@@ -957,7 +964,7 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasDoDiaAsync(
         DateOnly data, int? profissionalId = null, bool incluirEncerradas = false,
-        CancellationToken ct = default);
+        CancellationToken ct = default, int? pacienteId = null);
 
     /// <summary>
     /// As folhas ENCERRADAS que ainda devem a assinatura eletrônica da enfermagem —
@@ -1665,7 +1672,7 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<LancamentoFinanceiro>> ContasDoParcelamentoAsync(Guid grupo, CancellationToken ct = default);
 
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
-        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default);
+        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default, int? pacienteId = null);
 
     /// <summary>
     /// Quais das origens de recorrência informadas já existem. É a checagem de

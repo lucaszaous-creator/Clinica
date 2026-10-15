@@ -835,6 +835,13 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
         try
         {
+            // Agrupa as teclas (out/2026), como a busca de paciente já faz: digitar "14:30"
+            // disparava uma conferência por tecla — quatro idas ao banco remoto cada — e só a
+            // última resposta era usada. A conferência é a mesma; só deixa de ser feita para a
+            // hora pela metade.
+            await Task.Delay(250);
+            if (geracao != _geracaoConflitos) return;
+
             using var scope = _scopeFactory.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
 

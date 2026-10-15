@@ -30,7 +30,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     }
     private readonly ClinicaDbContext _db;
 
-    public ClinicaRepositorio(ClinicaDbContext db) => _db = db;
+    public ClinicaRepositorio(ClinicaDbContext db)
+    {
+        _db = db;
+        // Qualquer gravação do escopo — pelo SalvarAsync ou por outro serviço que use o mesmo
+        // DbContext — apaga a memória de leitura e a fotografia das configurações.
+        _db.SavingChanges += (_, _) => { _memoria.Clear(); _configs = null; };
+    }
 
     public Task<DocumentoFinanceiro?> ReciboVigenteDoLancamentoAsync(int lancamentoId, CancellationToken ct = default)
         => _db.DocumentosFinanceiros.Include(d => d.Itens).Where(d => d.LancamentoFinanceiroId == lancamentoId
@@ -126,8 +132,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         DateTime inicio, DateTime fim, CancellationToken ct = default)
         => await _db.Agendamentos.AsNoTracking()
             .Include(a => a.Profissional).Include(a => a.Paciente).Include(a => a.Sala)
+            // O piso é o que deixa o índice de DataHora trabalhar: a soma da duração não é
+            // indexável, e sem piso a conferência varria TODO o histórico da agenda (a cada tecla
+            // do horário e a cada minuto da grade). Sete dias de folga: nenhuma sessão real dura
+            // isso, então o resultado é o mesmo de antes — só deixa de ler os anos anteriores.
             .Where(a => (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado)
-                && a.DataHora < fim
+                && a.DataHora < fim && a.DataHora > inicio.AddDays(-7)
                 && a.DataHora.AddMinutes(a.DuracaoMinutos ?? (a.Profissional == null ? null : a.Profissional.DuracaoPadraoMinutos) ?? Agendamento.DuracaoPadraoMinutos) > inicio)
             .ToListAsync(ct);
 
@@ -209,12 +219,51 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default)
-        => await _db.Codigos
-            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+    /// <remarks>
+    /// Desempenho (out/2026): é a consulta mais repetida da suíte — Fila a cada minuto, Painel,
+    /// Novo atendimento, pendências do faturamento — e cobre a clínica inteira. Ela trazia a ficha
+    /// INTEIRA do paciente de cada guia (miniatura da foto e as observações importadas do sistema
+    /// anterior incluídas) e rastreada. Agora é sem rastreio e a ficha vem só com o que os leitores
+    /// usam (nome, convênio, telefone, carteirinha); o código e o atendimento continuam inteiros.
+    /// Quem precisa da ficha completa para gravar lê pelo Id, como sempre fez.
+    /// </remarks>
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default, int? pacienteId = null)
+        => await Memorizar($"{nameof(CodigosEmAbertoAsync)}:{pacienteId}", async () => (IReadOnlyList<CodigoFaturamento>)Montar(await ConsultaCodigosEmAberto(pacienteId).ToListAsync(ct)));
+
+    internal IQueryable<CodigoComFichaLeve> ConsultaCodigosEmAberto(int? pacienteId)
+        => _db.Codigos.AsNoTracking()
             .Where(c => c.DataBaixa == null && c.Status != StatusCodigo.NaoAplicavel
                         && c.Status != StatusCodigo.NaoConformidade)
-            .ToListAsync(ct);
+            // Um paciente só (balcão, novo atendimento): filtrado no banco.
+            .Where(c => pacienteId == null || c.Atendimento!.PacienteId == pacienteId)
+            .Select(c => new CodigoComFichaLeve(c, c.Atendimento, c.Atendimento!.Paciente == null ? null : new Paciente
+            {
+                Id = c.Atendimento.Paciente.Id, Nome = c.Atendimento.Paciente.Nome,
+                Telefone = c.Atendimento.Paciente.Telefone, Convenio = c.Atendimento.Paciente.Convenio,
+                ConvenioCodigo = c.Atendimento.Paciente.ConvenioCodigo, Carteirinha = c.Atendimento.Paciente.Carteirinha,
+                ValidadeCarteirinha = c.Atendimento.Paciente.ValidadeCarteirinha, Categoria = c.Atendimento.Paciente.Categoria
+            }));
+
+    internal sealed record CodigoComFichaLeve(CodigoFaturamento Codigo, Atendimento? Atendimento, Paciente? Paciente);
+
+    private static List<CodigoFaturamento> Montar(List<CodigoComFichaLeve> linhas)
+    {
+        // Um atendimento tem dois ou mais códigos: a mesma instância para os irmãos, como o
+        // Include rastreado entregava (quem agrupa por referência continua funcionando).
+        var atendimentos = new Dictionary<int, Atendimento>();
+        foreach (var l in linhas)
+        {
+            if (l.Atendimento is { } a)
+            {
+                if (!atendimentos.TryGetValue(a.Id, out var unico))
+                {
+                    unico = a; unico.Paciente = l.Paciente; atendimentos[a.Id] = unico;
+                }
+                l.Codigo.Atendimento = unico;
+            }
+        }
+        return linhas.Select(l => l.Codigo).ToList();
+    }
 
     public async Task<IReadOnlyList<CodigoFaturamento>> CodigosEmNaoConformidadeAsync(CancellationToken ct = default)
         => await _db.Codigos
@@ -484,8 +533,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
         var meses = dias.Select(d => d.Month).Distinct().ToList();
 
+        // Só o que a lista mostra (nome, telefone, nascimento): o painel relê isto a cada dois
+        // minutos, e a ficha inteira trazia a miniatura da foto e as observações de cada
+        // aniversariante do MÊS.
         var candidatos = await _db.Pacientes.AsNoTracking()
             .Where(p => p.DataNascimento != null && meses.Contains(p.DataNascimento.Value.Month))
+            .Select(p => new Paciente { Id = p.Id, Nome = p.Nome, Telefone = p.Telefone, DataNascimento = p.DataNascimento })
             .ToListAsync(ct);
 
         return candidatos
@@ -684,13 +737,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     }
 
     public async Task<IReadOnlyList<Paciente>> PacientesComCarteirinhaAteAsync(DateOnly ate, CancellationToken ct = default)
-        => await _db.Pacientes.AsNoTracking()
+        => await Memorizar($"{nameof(PacientesComCarteirinhaAteAsync)}:{ate:O}", async () => (IReadOnlyList<Paciente>)await _db.Pacientes.AsNoTracking()
             .Where(p => p.ValidadeCarteirinha != null && p.ValidadeCarteirinha <= ate)
             .Select(p => new Paciente
             {
                 Id = p.Id, Nome = p.Nome, Convenio = p.Convenio, ConvenioCodigo = p.ConvenioCodigo,
                 Carteirinha = p.Carteirinha, ValidadeCarteirinha = p.ValidadeCarteirinha, Telefone = p.Telefone
-            }).ToListAsync(ct);
+            }).ToListAsync(ct));
 
     public Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default)
         => _db.Pacientes
@@ -1067,11 +1120,60 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
            || await _db.Codigos.AnyAsync(c => c.EspecialidadeCodigo == codigo, ct)
            || await _db.Agendamentos.AnyAsync(a => a.EspecialidadeConsultaCodigo == codigo, ct);
 
+    // ==== Configurações: uma leitura por operação, não uma por chave (out/2026) ====
+    // Telas como Configurações, o horário do paciente e a elegibilidade leem de 5 a 28 chaves
+    // em sequência — cada uma era uma ida ao banco remoto (~250 ms). A primeira leitura do
+    // escopo traz TODAS as chaves curtas de uma vez; valor longo (JSON de cadastro, tabelas)
+    // continua lido sob demanda, para a fotografia não arrastar o que ninguém pediu.
+    // Validade curta e invalidação em toda escrita: o escopo é por operação, e quem grava
+    // uma chave volta a ler o banco, exatamente como antes.
+    private const int TetoValorNaFotografia = 2000;
+    private static readonly TimeSpan ValidadeFotografiaConfig = TimeSpan.FromSeconds(20);
+    private Dictionary<string, string?>? _configs;
+    private DateTime _configsEm;
+
     public async Task<string?> ObterConfiguracaoAsync(string chave, CancellationToken ct = default)
-        => (await _db.Configuracoes.AsNoTracking().FirstOrDefaultAsync(c => c.Chave == chave, ct))?.Valor;
+    {
+        if (_configs is null || DateTime.UtcNow - _configsEm > ValidadeFotografiaConfig)
+        {
+            var linhas = await _db.Configuracoes.AsNoTracking()
+                .Select(c => new { c.Chave, Valor = c.Valor.Length <= TetoValorNaFotografia ? c.Valor : null })
+                .ToListAsync(ct);
+            _configs = linhas.ToDictionary(l => l.Chave, l => l.Valor, StringComparer.Ordinal);
+            _configsEm = DateTime.UtcNow;
+        }
+        if (!_configs.TryGetValue(chave, out var valor)) return null; // a chave não existe
+        if (valor is not null) return valor;
+        // Valor longo: lido agora, e guardado até a próxima invalidação.
+        valor = (await _db.Configuracoes.AsNoTracking().FirstOrDefaultAsync(c => c.Chave == chave, ct))?.Valor;
+        if (_configs is not null) _configs[chave] = valor;
+        return valor;
+    }
+
+    private void InvalidarConfiguracoes() => _configs = null;
+
+    // ==== Leituras repetidas NA MESMA operação (out/2026) ====
+    // O painel de pendências do faturamento pedia os códigos em aberto da clínica três vezes
+    // numa carga (lista, guias vencidas e situação da rodada), as consultas e as carteirinhas
+    // duas. Dentro do mesmo escopo, a segunda pergunta feita segundos depois recebe a mesma
+    // resposta da primeira. Qualquer gravação do escopo (SalvarAsync) apaga a memória, e ela
+    // vale poucos segundos: não é cache entre telas, é não perguntar duas vezes na mesma carga.
+    // As listas devolvidas são de leitura (sem rastreio).
+    private static readonly TimeSpan ValidadeMemoria = TimeSpan.FromSeconds(5);
+    private readonly Dictionary<string, (DateTime Em, object Valor)> _memoria = new(StringComparer.Ordinal);
+
+    private async Task<T> Memorizar<T>(string chave, Func<Task<T>> ler) where T : class
+    {
+        if (_memoria.TryGetValue(chave, out var m) && DateTime.UtcNow - m.Em < ValidadeMemoria && m.Valor is T guardado)
+            return guardado;
+        var valor = await ler();
+        _memoria[chave] = (DateTime.UtcNow, valor);
+        return valor;
+    }
 
     public async Task SalvarConfiguracaoAsync(string chave, string valor, CancellationToken ct = default)
     {
+        InvalidarConfiguracoes();
         var existe = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == chave, ct);
         if (existe is null)
             await _db.Configuracoes.AddAsync(new ConfiguracaoGlobal { Chave = chave, Valor = valor }, ct);
@@ -1100,6 +1202,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task SalvarConfiguracaoSeValorIgualAsync(
         string chave, string valorEsperado, string novoValor, CancellationToken ct = default)
     {
+        InvalidarConfiguracoes();
         var existente = await _db.Configuracoes
             .SingleOrDefaultAsync(c => c.Chave == chave, ct);
         if (existente is null || !string.Equals(existente.Valor, valorEsperado, StringComparison.Ordinal))
@@ -1112,6 +1215,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task SalvarSegredoSemRebaixarProtecaoAsync(
         string chave, string valor, CancellationToken ct = default)
     {
+        InvalidarConfiguracoes();
         var existente = await _db.Configuracoes
             .SingleOrDefaultAsync(c => c.Chave == chave, ct);
         if (existente is not null)
@@ -1144,11 +1248,21 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<Paciente>> PacientesComConsultasAsync(CancellationToken ct = default)
-        => await _db.Pacientes.AsNoTracking()
+        => await Memorizar(nameof(PacientesComConsultasAsync), async () => (IReadOnlyList<Paciente>)await ConsultaPacientesComConsultas().ToListAsync(ct));
+
+    internal IQueryable<Paciente> ConsultaPacientesComConsultas()
+        => _db.Pacientes.AsNoTracking()
             // Leitura pura (aba Consultas e pendências do painel): sem rastreamento o
             // EF não precisa guardar milhares de pacientes no change tracker, o que
             // também tira custo do SaveChanges seguinte no mesmo escopo.
-            .Include(p => p.Consultas).OrderBy(p => p.Nome).ToListAsync(ct);
+            // Desempenho (out/2026): a ficha vem só com o que os leitores usam — a carteira
+            // INTEIRA passava por aqui com miniatura da foto e observações de cada paciente.
+            .OrderBy(p => p.Nome)
+            .Select(p => new Paciente
+            {
+                Id = p.Id, Nome = p.Nome, Convenio = p.Convenio, ConvenioCodigo = p.ConvenioCodigo,
+                Telefone = p.Telefone, Consultas = p.Consultas.ToList()
+            });
 
     public async Task<IReadOnlyList<Consulta>> ConsultasDosPacientesAsync(
         IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
@@ -1176,6 +1290,27 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Profissional)
             .Include(a => a.Sala)
             .FirstOrDefaultAsync(a => a.Id == agendamentoId, ct);
+
+    internal sealed record AgendamentoLeve(Agendamento Agendamento, Profissional? Profissional, Sala? Sala, Paciente Paciente);
+
+    internal IQueryable<AgendamentoLeve> ConsultaAgendamentosParaLeitura(DateTime inicio, DateTime fim)
+        => _db.Agendamentos.AsNoTracking()
+            .Where(a => a.DataHora >= inicio && a.DataHora <= fim)
+            .OrderBy(a => a.DataHora)
+            .Select(a => new AgendamentoLeve(a, a.Profissional, a.Sala,
+                new Paciente { Id = a.Paciente!.Id, Nome = a.Paciente.Nome }));
+
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoParaLeituraAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
+    {
+        var linhas = await ConsultaAgendamentosParaLeitura(inicio, fim).ToListAsync(ct);
+        foreach (var l in linhas)
+        {
+            l.Agendamento.Paciente = l.Paciente;
+            l.Agendamento.Profissional = l.Profissional;
+            l.Agendamento.Sala = l.Sala;
+        }
+        return linhas.Select(l => l.Agendamento).ToList();
+    }
 
     public async Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
         => await _db.Agendamentos
@@ -2079,7 +2214,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasDoDiaAsync(
         DateOnly data, int? profissionalId = null, bool incluirEncerradas = false,
-        CancellationToken ct = default)
+        CancellationToken ct = default, int? pacienteId = null)
     {
         var q = _db.PrescricoesInternas.AsNoTracking()
             .Include(p => p.Paciente)
@@ -2099,6 +2234,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
         if (profissionalId is int pid)
             q = q.Where(p => p.ProfissionalId == pid);
+        // A carteira da enfermagem pergunta pela folha de UM paciente: sem o filtro, vinham as
+        // folhas da sala inteira (itens, checagens e assinaturas de todos) para ficar com uma.
+        if (pacienteId is int pac)
+            q = q.Where(p => p.PacienteId == pac);
 
         return await q.OrderBy(p => p.Hora).ThenBy(p => p.Id).ToListAsync(ct);
     }
@@ -3335,7 +3474,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => await ConsultaContasDoParcelamento(grupo).ToListAsync(ct);
 
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
-        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default)
+        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default, int? pacienteId = null)
     {
         var q = _db.Lancamentos
             .Include(l => l.Categoria)
@@ -3344,6 +3483,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Where(l => l.DataVencimento != null && l.DataVencimento <= ate);
 
         if (tipo is { } t) q = q.Where(l => l.Tipo == t);
+        // Um paciente só (ficha, balcão): filtra no banco em vez de trazer a clínica inteira.
+        if (pacienteId is { } pid) q = q.Where(l => l.PacienteId == pid);
 
         // Do vencimento mais antigo para o mais novo: é a ordem em que se paga, e a
         // vencida tem de vir no topo sem que a tela precise reordenar.
@@ -3605,6 +3746,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task<int> SalvarAsync(CancellationToken ct = default)
     {
+        InvalidarConfiguracoes(); // gravação no escopo pode ter tocado configurações por outro caminho
+        _memoria.Clear();
         try
         {
             return await _db.SaveChangesAsync(ct);

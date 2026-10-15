@@ -51,7 +51,9 @@ public sealed class ConsultorioService
     public async Task<DiaDoProfissional> DoDiaAsync(
         DateOnly dia, int? profissionalId, CancellationToken ct = default)
     {
-        var todos = await _repo.AgendamentosNoPeriodoAsync(
+        // Leitura leve (out/2026): Montar usa só o nome do paciente; a ficha inteira (foto incluída)
+        // vinha a cada batida de 30 s do Meu dia.
+        var todos = await _repo.AgendamentosNoPeriodoParaLeituraAsync(
             dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct);
 
         // A disputa pela evolução avulsa é sobre TODAS as sessões do paciente no dia,
@@ -95,7 +97,9 @@ public sealed class ConsultorioService
         var inicio = InicioDaSemana(referencia);
         var fim = inicio.AddDays(6);
 
-        var todos = await _repo.AgendamentosNoPeriodoAsync(
+        // Leitura leve (out/2026): Montar usa só o nome do paciente; a ficha inteira (foto incluída)
+        // vinha a cada batida de 30 s do Meu dia.
+        var todos = await _repo.AgendamentosNoPeriodoParaLeituraAsync(
             inicio.ToDateTime(TimeOnly.MinValue), fim.ToDateTime(TimeOnly.MaxValue), ct);
 
         // A disputa pela evolução avulsa é sobre TODAS as sessões do paciente no dia,
@@ -156,7 +160,10 @@ public sealed class ConsultorioService
         var ontem = hoje.AddDays(-1);
         if (ontem < inicio) return [];
 
-        var todos = await _repo.AgendamentosNoPeriodoAsync(
+        // Leitura leve (out/2026): o período começa numa data FIXA e cresce todo dia, e a
+        // leitura completa trazia a ficha inteira (foto incluída) de cada horário desde então.
+        // A lista usa só o nome do paciente e os nomes de profissional e sala.
+        var todos = await _repo.AgendamentosNoPeriodoParaLeituraAsync(
             inicio.ToDateTime(TimeOnly.MinValue), ontem.ToDateTime(TimeOnly.MaxValue), ct);
 
         // A disputa pela evolução avulsa é sobre TODAS as sessões do paciente no dia,
@@ -309,11 +316,10 @@ public sealed class ConsultorioService
     /// </summary>
     public async Task<IReadOnlyList<Agendamento>> SessoesDoPacienteNoDiaAsync(
         int pacienteId, DateOnly dia, CancellationToken ct = default)
-        => (await _repo.AgendamentosNoPeriodoAsync(
-                dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct))
-            .Where(a => a.PacienteId == pacienteId)
-            .OrderBy(a => a.DataHora)
-            .ToList();
+        // Filtrado no banco e sem rastreio: lia o dia INTEIRO da clínica (com a ficha e a foto de
+        // cada paciente) para ficar com as linhas de uma pessoa. Os leitores usam só os campos do
+        // próprio horário (Id, data, status, carimbos), nunca as navegações.
+        => await _repo.AgendamentosDoPacienteNoDiaAsync(pacienteId, dia, ct);
 
     /// <summary>
     /// O CRACHÁ CLÍNICO da pessoa que está na sala (parcela 74).

@@ -92,6 +92,13 @@ public static class ShellBootstrap
             await conexao.CloseAsync();
         }
 
+        // As conexões mínimas do pool abrem em segundo plano enquanto os catálogos carregam:
+        // é a primeira troca de tela que deixaria de pagar os segundos da abertura.
+        // A string vem do EF, nunca de conexao.ConnectionString: depois de aberta, o Npgsql tira
+        // a senha dela, e a outra string cairia num pool diferente que nem autentica.
+        if (db.Database.GetConnectionString() is { Length: > 0 } cadeia)
+            _ = Task.Run(() => ConexaoRemota.AquecerAsync(cadeia), CancellationToken.None);
+
         // Catálogos (convênios, modalidades, especialidades) no cache em memória.
         await scope.ServiceProvider
             .GetRequiredService<Clinica.Application.Servicos.ConvenioCatalogoService>()

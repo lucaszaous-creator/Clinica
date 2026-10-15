@@ -204,7 +204,9 @@ public sealed class DesempenhoLeituraTests : IDisposable
         _medidor.Consultas.Clear();
         var agenda = await servico.AgendaAsync(_dia, _dia);
         agenda.Should().BeEquivalentTo(completo.Agenda);
-        _medidor.Consultas.Should().HaveCount(3).And.NotContain(q => q.Contains("FROM \"Evolucoes\""));
+        // Duas: a jornada configurada já veio na leitura única de configurações do escopo
+        // (out/2026), feita pela carga completa logo acima.
+        _medidor.Consultas.Should().HaveCount(2).And.NotContain(q => q.Contains("FROM \"Evolucoes\""));
     }
 
     [Fact]

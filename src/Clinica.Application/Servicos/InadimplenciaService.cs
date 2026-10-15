@@ -133,9 +133,13 @@ public sealed class InadimplenciaService
         DateOnly hoje,
         OrdemInadimplencia ordem = OrdemInadimplencia.MaisAntigo,
         CancellationToken ct = default)
+        => await PorPacienteAsync(hoje, ordem, null, ct);
+
+    private async Task<IReadOnlyList<PacienteInadimplente>> PorPacienteAsync(
+        DateOnly hoje, OrdemInadimplencia ordem, int? somenteDoPaciente, CancellationToken ct)
     {
         // O repositório já traz só o previsto com vencimento, e com o paciente carregado.
-        var abertas = await _repo.LancamentosComVencimentoAteAsync(hoje, TipoLancamento.Entrada, ct);
+        var abertas = await _repo.LancamentosComVencimentoAteAsync(hoje, TipoLancamento.Entrada, ct, somenteDoPaciente);
 
         var devedores = abertas
             .Where(l => l.EstaVencido(hoje) && l.Paciente is not null)
@@ -214,7 +218,9 @@ public sealed class InadimplenciaService
     /// </summary>
     public async Task<PacienteInadimplente?> DoPacienteAsync(
         int pacienteId, DateOnly hoje, CancellationToken ct = default)
-        => (await PorPacienteAsync(hoje, ct: ct)).FirstOrDefault(d => d.PacienteId == pacienteId);
+        // Filtrado no banco: a ficha e o balcão perguntam por UMA pessoa, e a regra de agrupamento
+        // é a mesma da lista da clínica (é o mesmo método).
+        => (await PorPacienteAsync(hoje, OrdemInadimplencia.MaisAntigo, pacienteId, ct)).FirstOrDefault(d => d.PacienteId == pacienteId);
 
     /// <summary>
     /// Registra o recebimento da conta. Delega ao <see cref="FinanceiroService"/> de

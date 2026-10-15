@@ -736,6 +736,12 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
                         OrigemAcessoProntuario.SalaInfusao);
             }
 
+            // A linha do tempo e o plano de cuidados têm ESCOPO PRÓPRIO (e contador de geração
+            // próprio): correm ao lado das leituras abaixo em vez de esperar por elas — eram
+            // a maior parte dos ~20 passos em fila de cada clique num paciente.
+            var linhaDoTempo = LinhaDoTempo.CarregarAsync(pacienteId);
+            var plano = Plano.CarregarAsync(pacienteId);
+
             // O ATENDIMENTO EM CURSO deste paciente hoje: é dele que sai o cronômetro, e é
             // ele que o compositor precisa para o selo "DESTA SESSÃO" da linha do tempo.
             // Leitura pequena — os horários de UM paciente num dia —, SEQUENCIAL como todas
@@ -759,17 +765,14 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
             if (geracao != _geracaoCarga) return;
 
-            // O prontuário inteiro sai do componente compartilhado — ele tem contador de
-            // geração próprio e o filtro de acesso por natureza.
-            await LinhaDoTempo.CarregarAsync(pacienteId);
-            if (geracao != _geracaoCarga) return;
-
             // A leitura acima também alimenta o CONTEXTO: a última aferição é o dado que a
             // comparação de daqui a vinte minutos usa, e o valor isolado quase não diz nada.
             await CarregarContextoAsync(servicos, pacienteId, lista, geracao);
             if (geracao != _geracaoCarga) return;
 
-            await Plano.CarregarAsync(pacienteId);
+            // O prontuário inteiro sai do componente compartilhado — ele tem contador de
+            // geração próprio e o filtro de acesso por natureza.
+            await Task.WhenAll(linhaDoTempo, plano);
         }
         catch (Exception ex)
         {
@@ -877,7 +880,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
             // A folha de hoje — a ponte entre a carteira e a sala.
             var folhas = await servicos.GetRequiredService<ChecagemPrescricaoService>()
-                .DoDiaAsync(hoje, incluirEncerradas: true);
+                .DoDiaAsync(hoje, incluirEncerradas: true, pacienteId: pacienteId);
             if (geracao != _geracaoCarga) return;
 
             if (folhas.FirstOrDefault(f => f.PacienteId == pacienteId) is { } folha)

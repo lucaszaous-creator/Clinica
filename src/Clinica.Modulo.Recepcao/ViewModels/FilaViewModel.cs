@@ -796,6 +796,10 @@ public sealed partial class FilaViewModel : ObservableObject
             var servicoTermos = escopo.ServiceProvider.GetRequiredService<TermoProcedimentoService>();
 
             var doDia = await agenda.DoDiaAsync(DateOnly.FromDateTime(Dia));
+            var horariosDoDia = doDia; // só o dia, como o serviço de termos o leria
+            // Os pacientes do DIA (antes de somar as pendências de outros dias), exatamente o
+            // conjunto que PendenciasDoDiaAsync montava relendo a agenda: a releitura saiu.
+            var pacientesDoDia = doDia.Where(a => a.OcupaAgenda).Select(a => a.PacienteId).ToHashSet();
             // Pendências atravessam a virada do dia e continuam resolvíveis na mesma lista.
             if (Dia.Date == DateTime.Today)
             {
@@ -815,7 +819,7 @@ public sealed partial class FilaViewModel : ObservableObject
             HashSet<int> comPendencia;
             try
             {
-                var pendencias = await painel.PendenciasDoDiaAsync(DateOnly.FromDateTime(Dia));
+                var pendencias = await painel.PendenciasDosPacientesAsync(DateOnly.FromDateTime(Dia), pacientesDoDia);
                 comPendencia = pendencias.Select(p => p.PacienteId).ToHashSet();
             }
             catch (Exception ex)
@@ -857,7 +861,7 @@ public sealed partial class FilaViewModel : ObservableObject
             try
             {
                 termos = new Dictionary<int, IReadOnlyList<SituacaoTermo>>(
-                    await servicoTermos.DoDiaAsync(DateOnly.FromDateTime(Dia)));
+                    await servicoTermos.DoDiaAsync(DateOnly.FromDateTime(Dia), horariosDoDia));
             }
             catch (Exception ex)
             {

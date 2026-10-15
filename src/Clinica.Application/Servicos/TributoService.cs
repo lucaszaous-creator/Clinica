@@ -40,6 +40,17 @@ public sealed record ImpostoApurado(decimal Aliquota, decimal Valor, string? Det
 public sealed class TributoService
 {
     private readonly IClinicaRepositorio _repo;
+    // Desempenho: a tabela de ativos é lida UMA vez por operação. Resolver uma lista de guias, sessões
+    // ou recebimentos relia a tabela inteira a cada linha — 200 linhas eram 200 idas ao banco
+    // remoto. Validade curta e invalidação ao gravar, como as configurações.
+    private (IReadOnlyList<Tributo> Lista, DateTime Em)? _ativos;
+    private async Task<IReadOnlyList<Tributo>> AtivosAsync(CancellationToken ct)
+    {
+        if (_ativos is { } c && DateTime.UtcNow - c.Em < TimeSpan.FromSeconds(20)) return c.Lista;
+        var lista = await _repo.TributosAsync(somenteAtivos: true, ct);
+        _ativos = (lista, DateTime.UtcNow);
+        return lista;
+    }
     private readonly ParametrosService? _parametros;
 
     public TributoService(IClinicaRepositorio repo, ParametrosService? parametros = null)
@@ -68,7 +79,7 @@ public sealed class TributoService
     public async Task<IReadOnlyList<Tributo>> VigentesEmAsync(
         DateOnly dia, string? convenioCodigo = null, CancellationToken ct = default)
     {
-        var vigentes = (await _repo.TributosAsync(somenteAtivos: true, ct))
+        var vigentes = (await AtivosAsync(ct))
             .Where(t => t.VigenteEm(dia))
             .ToList();
 
@@ -131,6 +142,7 @@ public sealed class TributoService
             Detalhe = tributo.Descricao + $" · {tributo.Vigencia}",
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
+        _ativos = null;
         await _repo.SalvarAsync(ct);
         return tributo;
     }
@@ -143,6 +155,7 @@ public sealed class TributoService
     public async Task ExcluirAsync(int tributoId, CancellationToken ct = default)
     {
         await _repo.RemoverTributoAsync(tributoId, ct);
+        _ativos = null;
         await _repo.SalvarAsync(ct);
     }
 

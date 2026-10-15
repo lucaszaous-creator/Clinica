@@ -254,8 +254,10 @@ public sealed partial class PainelViewModel : ObservableObject
             if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
 
-        await CarregarPendenciasAsync(dia, geracao, silencioso, pacientesDoDia);
-        await CarregarAniversariantesAsync(dia, geracao, silencioso);
+        // Cada bloco tem escopo próprio: correm juntos em vez de um esperar o outro.
+        await Task.WhenAll(
+            CarregarPendenciasAsync(dia, geracao, silencioso, pacientesDoDia),
+            CarregarAniversariantesAsync(dia, geracao, silencioso, pacientesDoDia));
     }
 
     /// <summary>
@@ -301,7 +303,8 @@ public sealed partial class PainelViewModel : ObservableObject
     ///
     /// Isolada do resto, como as pendências: se falhar, o painel continua mostrando o dia.
     /// </summary>
-    private async Task CarregarAniversariantesAsync(DateOnly dia, int geracao, bool silencioso = false)
+    private async Task CarregarAniversariantesAsync(DateOnly dia, int geracao, bool silencioso = false,
+        IReadOnlyCollection<int>? pacientesDoDia = null)
     {
         try
         {
@@ -309,7 +312,7 @@ public sealed partial class PainelViewModel : ObservableObject
             using var escopoAniversario = _escopos.CreateScope();
             var lista = await escopoAniversario.ServiceProvider
                 .GetRequiredService<RelacionamentoService>()
-                .AniversariantesAsync(dia, JanelaAniversarioDias);
+                .AniversariantesAsync(dia, JanelaAniversarioDias, pacientesDoDia);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

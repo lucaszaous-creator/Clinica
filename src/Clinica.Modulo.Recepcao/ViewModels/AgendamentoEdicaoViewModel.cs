@@ -440,6 +440,11 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
 
         try
         {
+            // Agrupa as teclas da hora/duração (out/2026): a mesma conferência, sem uma ida ao
+            // banco remoto por tecla digitada.
+            await Task.Delay(250);
+            if (geracao != _geracaoConflitos) return;
+
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
 

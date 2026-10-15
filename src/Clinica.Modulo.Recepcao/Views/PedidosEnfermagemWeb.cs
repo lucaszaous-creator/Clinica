@@ -47,10 +47,29 @@ internal sealed class PedidosEnfermagemWeb(IServiceScopeFactory escopos, Func<Da
         _ativa = true;
         _detalhe = null;
         if (!_registrado) { _timer.Tick += AtualizarTimer; _registrado = true; }
+        // O cabeçalho bate a cada 15 s e sinaliza quando a marca dos pedidos muda: a lista relê
+        // NA HORA em vez de esperar este relógio, que fica só como rede para o cabeçalho parado.
+        NotificacoesEnfermagem.Mudaram -= AoMudarem; NotificacoesEnfermagem.Mudaram += AoMudarem;
         if (Permitido) { _timer.Start(); _ = Atualizar(); }
     }
-    public void Parar() { _ativa = false; _geracao++; _timer.Stop(); }
+    public void Parar() { _ativa = false; _geracao++; _timer.Stop(); NotificacoesEnfermagem.Mudaram -= AoMudarem; }
     private void AtualizarTimer(object? sender, EventArgs e) { _ = Atualizar(); }
+    private void AoMudarem()
+    {
+        if (!_ativa) return;
+        // O detalhe aberto também é relido: "visto por outra recepcionista" precisa aparecer nele.
+        _ = AtualizarComDetalheAsync();
+    }
+    private async Task AtualizarComDetalheAsync()
+    {
+        try
+        {
+            await Atualizar();
+            if (_detalhe is { } aberto) await Detalhar(aberto.Pedido.Id, false);
+        }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Pedidos da enfermagem — releitura por sinal", ex); }
+        EstadoAlterado?.Invoke();
+    }
     private async Task Atualizar()
     {
         if (!_ativa || _carregando || !Permitido) return;

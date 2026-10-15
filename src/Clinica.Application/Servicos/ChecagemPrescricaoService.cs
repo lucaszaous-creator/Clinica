@@ -135,8 +135,8 @@ public sealed class ChecagemPrescricaoService
     /// <summary>As folhas assinadas do dia — a fila da sala de infusão.</summary>
     public Task<IReadOnlyList<PrescricaoInterna>> DoDiaAsync(
         DateOnly data, int? profissionalId = null, bool incluirEncerradas = false,
-        CancellationToken ct = default)
-        => _repo.PrescricoesInternasDoDiaAsync(data, profissionalId, incluirEncerradas, ct);
+        CancellationToken ct = default, int? pacienteId = null)
+        => _repo.PrescricoesInternasDoDiaAsync(data, profissionalId, incluirEncerradas, ct, pacienteId);
 
     /// <summary>
     /// As folhas encerradas que ainda devem a assinatura eletrônica da enfermagem, de

@@ -12,8 +12,11 @@ public static class DependencyInjection
     /// <summary>Registra DbContext, repositório, motor de regras e serviços de aplicação.</summary>
     public static IServiceCollection AddClinica(this IServiceCollection services, string connectionString)
     {
+        // Pool aquecido e com keepalive: abrir conexão nova na VPS custa segundos (ver ConexaoRemota).
+        connectionString = ConexaoRemota.Ajustar(connectionString);
         services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql));
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
+        services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
         services.AddScoped<IPlanejamentoEnfermagemService, Planejamento.PlanejamentoEnfermagemService>();
         services.AddScoped<IOcupacaoAgendaService, Planejamento.OcupacaoAgendaService>();

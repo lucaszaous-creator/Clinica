@@ -14,6 +14,8 @@ public sealed partial class ShellViewModel
     private DispatcherTimer? _relogioAvisos;
     private bool _avisosEmCena, _consultandoPedidos;
     private int _geracaoPedidos;
+    // Marca da última alteração lida (null = ainda não leu). Mudou → a página de pedidos relê na hora.
+    private int? _marcaPedidos;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ContadorPedidos))]
     private bool _pedidosConsultados;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(TotalAvisos), nameof(ContadorAvisos), nameof(TemAvisos), nameof(ContadorPedidos))]
@@ -36,13 +38,16 @@ public sealed partial class ShellViewModel
         _avisosEmCena = true;
         NotificacoesEnfermagem.Mudaram += MudaramPedidos;
         if (Snackbar is not null) Snackbar.PropertyChanged += MudouSnackbar;
-        _relogioAvisos ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        // 15 s, não 30: o pedido da enfermagem é feito com a técnica esperando a resposta, e a
+        // batida custa três leituras pequenas (acesso, contagem e marca). A página aberta deixa de
+        // ter relógio próprio de 1 min: ela relê quando esta batida vê a marca mudar.
+        _relogioAvisos ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         _relogioAvisos.Tick -= BatidaAvisos; _relogioAvisos.Tick += BatidaAvisos;
         _relogioAvisos.Start(); _ = AtualizarPedidosGlobaisAsync();
     }
     public void PararAvisosGlobais()
     {
-        _avisosEmCena = false; ++_geracaoPedidos; _relogioAvisos?.Stop();
+        _avisosEmCena = false; ++_geracaoPedidos; _relogioAvisos?.Stop(); _marcaPedidos = null;
         NotificacoesEnfermagem.Mudaram -= MudaramPedidos;
         if (Snackbar is not null) Snackbar.PropertyChanged -= MudouSnackbar;
     }
@@ -57,11 +62,14 @@ public sealed partial class ShellViewModel
     {
         if (!_avisosEmCena || _consultandoPedidos || !PodeVerPedidos) return;
         var g = _geracaoPedidos; var usuario = _sessaoClinica!.UsuarioId; _consultandoPedidos = true;
+        var mudou = false;
         try
         {
             using var scope = _servicos.CreateScope();
-            var resumo = await scope.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ContarAsync(usuario);
+            var resumo = await scope.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ResumoAsync(usuario);
             if (!_avisosEmCena || g != _geracaoPedidos || usuario != _sessaoClinica.UsuarioId) return;
+            mudou = _marcaPedidos is { } anterior && anterior != resumo.UltimoEvento;
+            _marcaPedidos = resumo.UltimoEvento;
             PedidosNovos = resumo.Novos; ErroPedidos = false; PedidosConsultados = true;
             ResumoPedidos = $"{resumo.Novos} novos · {resumo.Abertos} em aberto · todas as datas";
         }
@@ -74,6 +82,8 @@ public sealed partial class ShellViewModel
             }
         }
         finally { _consultandoPedidos = false; }
+        // Fora do try: o próprio cabeçalho escuta o sinal, e a releitura dele acha a marca igual.
+        if (mudou) NotificacoesEnfermagem.SinalizarMudanca();
     }
     [RelayCommand]
     private void AbrirPedidosEnfermagem()

@@ -545,6 +545,13 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// </summary>
     private int _geracaoCarga;
 
+    /// <summary>Uma leitura num escopo (e DbContext) próprio — para correr ao lado das outras.</summary>
+    private async Task<T> LerAsync<TServico, T>(Func<TServico, Task<T>> leitura) where TServico : notnull
+    {
+        using var escopo = _escopos.CreateScope();
+        return await leitura(escopo.ServiceProvider.GetRequiredService<TServico>());
+    }
+
     [RelayCommand]
     public Task CarregarAsync() => CarregarAsync(silencioso: false);
 
@@ -575,16 +582,22 @@ public sealed partial class AgendaViewModel : ObservableObject
             // `MontarSemanaAsync`, e o dia escolhido já está dentro do período dela.
             // Buscá-lo assim mesmo era uma ida inteira ao banco remoto (com três joins)
             // cujo resultado ninguém abria, a cada clique nas setas de semana.
-            IReadOnlyList<Agendamento> doDia = ModoSemana ? [] : await agenda.DoDiaAsync(dia);
-            var anteriores = await agenda.OcupacoesNaViradaAsync(ModoSemana ? SegundaDa(Dia) : Dia.Date);
-            var profissionais = await equipe.ProfissionaisAtivosAsync();
-
-            // As salas são lidas AQUI, com o resto — e não lá embaixo, no ramo que as usa.
-            // Depois do Clear das colunas, qualquer await deixa a grade vazia na tela pelo
-            // tempo do roundtrip, e a releitura de fundo (1 min, silenciosa) fazia isso
-            // debaixo do olho de quem marca horário. É a regra da parcela 62: entre o
-            // Clear() e o último Add não pode haver await.
-            var salas = await equipe.SalasAtivasAsync();
+            // As quatro leituras são INDEPENDENTES e correm juntas, cada uma no seu escopo (out/2026):
+            // em fila custavam quatro idas ao banco remoto a cada carga — e a releitura de fundo
+            // roda a cada minuto. Os dados são os mesmos; só o tempo de espera vira o da mais lenta.
+            // As salas continuam lidas AQUI, com o resto, e não depois do Clear das colunas: entre
+            // o Clear() e o último Add não pode haver await (parcela 62).
+            var tDia = ModoSemana ? Task.FromResult<IReadOnlyList<Agendamento>>([])
+                : LerAsync<AgendaService, IReadOnlyList<Agendamento>>(a => a.DoDiaAsync(dia));
+            var tAnteriores = LerAsync<AgendaService, IReadOnlyList<Agendamento>>(
+                a => a.OcupacoesNaViradaAsync(ModoSemana ? SegundaDa(Dia) : Dia.Date));
+            var tProfissionais = LerAsync<EquipeService, IReadOnlyList<Profissional>>(e => e.ProfissionaisAtivosAsync());
+            var tSalas = LerAsync<EquipeService, IReadOnlyList<Sala>>(e => e.SalasAtivasAsync());
+            await Task.WhenAll(tDia, tAnteriores, tProfissionais, tSalas);
+            IReadOnlyList<Agendamento> doDia = tDia.Result;
+            var anteriores = tAnteriores.Result;
+            var profissionais = tProfissionais.Result;
+            var salas = tSalas.Result;
 
             // Chegou tarde: outro clique já pediu uma carga mais nova.
             if (geracao != _geracaoCarga) return;

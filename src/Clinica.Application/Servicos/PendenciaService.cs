@@ -28,9 +28,12 @@ public sealed class PendenciaService
     }
 
     /// <summary>Códigos pendentes de baixa cuja data prevista já chegou, ordenados do mais atrasado ao menos.</summary>
-    public async Task<IReadOnlyList<PendenciaCodigo>> CodigosPendentesAsync(DateOnly referencia, CancellationToken ct = default)
+    public Task<IReadOnlyList<PendenciaCodigo>> CodigosPendentesAsync(DateOnly referencia, CancellationToken ct = default)
+        => CodigosPendentesAsync(referencia, null, ct);
+
+    private async Task<IReadOnlyList<PendenciaCodigo>> CodigosPendentesAsync(DateOnly referencia, int? pacienteId, CancellationToken ct)
     {
-        var abertos = await _repo.CodigosEmAbertoAsync(ct);
+        var abertos = await _repo.CodigosEmAbertoAsync(ct, pacienteId);
 
         return abertos
             .Where(c => c.EstaPendente(referencia))
@@ -94,7 +97,8 @@ public sealed class PendenciaService
     public async Task<IReadOnlyList<PendenciaCodigo>> PendenciasDoPacienteAsync(
         int pacienteId, DateOnly referencia, CancellationToken ct = default)
     {
-        var todas = await CodigosPendentesAsync(referencia, ct);
+        // Filtrado no banco: perguntar por UM paciente trazia as guias abertas da clínica inteira.
+        var todas = await CodigosPendentesAsync(referencia, pacienteId, ct);
         return todas.Where(p => p.PacienteId == pacienteId).ToList();
     }
 
@@ -106,6 +110,11 @@ public sealed class PendenciaService
         DateOnly referencia, CancellationToken ct = default)
     {
         var ncs = await _repo.CodigosEmNaoConformidadeAsync(ct);
+        return ComoPendencia(ncs, referencia);
+    }
+
+    private static IReadOnlyList<PendenciaCodigo> ComoPendencia(IReadOnlyList<CodigoFaturamento> ncs, DateOnly referencia)
+    {
         return ncs
             .Select(c =>
             {
@@ -140,8 +149,9 @@ public sealed class PendenciaService
     public async Task<IReadOnlyList<PendenciaCodigo>> NaoConformidadesDoPacienteAsync(
         int pacienteId, DateOnly referencia, CancellationToken ct = default)
     {
-        var todas = await NaoConformidadesComoPendenciaAsync(referencia, ct);
-        return todas.Where(p => p.PacienteId == pacienteId).ToList();
+        // Filtrado no banco (o repositório já tinha a consulta por paciente).
+        var ncs = await _repo.CodigosEmNaoConformidadeDoPacienteAsync(pacienteId, ct);
+        return ComoPendencia(ncs, referencia).Where(p => p.PacienteId == pacienteId).ToList();
     }
 
     /// <summary>Consultas a renovar (vencidas ou a vencer dentro da janela de alerta).</summary>

@@ -66,7 +66,7 @@ public sealed class PlanejamentoEnfermagemService(ClinicaDbContext db, TimeProvi
 
     internal IQueryable<Agendamento> ConsultaHorarios(DateTime inicio, DateTime fim) => db.Agendamentos.AsNoTracking()
             .Where(a => (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado)
-                && a.DataHora < fim
+                && a.DataHora < fim && a.DataHora > inicio.AddDays(-7) // piso indexável; nenhuma sessão dura sete dias
                 && a.DataHora.AddMinutes(a.DuracaoMinutos ?? (a.Profissional != null ? a.Profissional.DuracaoPadraoMinutos : null) ?? 30) > inicio)
             .OrderBy(a => a.DataHora).ThenBy(a => a.Id);
 
@@ -118,13 +118,21 @@ public sealed class PlanejamentoEnfermagemService(ClinicaDbContext db, TimeProvi
 
     public async Task<(int Novos, int Abertos)> ContarAsync(int usuarioId, CancellationToken ct = default)
     {
+        var r = await ResumoAsync(usuarioId, ct);
+        return (r.Novos, r.Abertos);
+    }
+
+    public async Task<ResumoPedidosEnfermagem> ResumoAsync(int usuarioId, CancellationToken ct = default)
+    {
         var u = await Usuario(usuarioId, ct);
         if (!AcessoPlanejamentoEnfermagem.Tratar(u)) throw new UnauthorizedAccessException();
         var agora = Agora;
         var contagens = await db.Set<SolicitacaoEnfermagem>().AsNoTracking()
             .Where(p => (p.Situacao == "Novo" || p.Situacao == "Visto") && p.Validade > agora)
             .GroupBy(p => p.Situacao).Select(g => new { Situacao = g.Key, Total = g.Count() }).ToListAsync(ct);
-        return (contagens.Where(c => c.Situacao == "Novo").Sum(c => c.Total), contagens.Sum(c => c.Total));
+        // Criar, ver, encerrar e retirar gravam um evento: o maior Id muda a cada alteração.
+        var ultimo = await db.Set<EventoSolicitacaoEnfermagem>().AsNoTracking().MaxAsync(e => (int?)e.Id, ct) ?? 0;
+        return new(contagens.Where(c => c.Situacao == "Novo").Sum(c => c.Total), contagens.Sum(c => c.Total), ultimo);
     }
 
     public async Task<DetalheSolicitacaoEnfermagem> DetalheAsync(int usuarioId, int id, CancellationToken ct = default)
