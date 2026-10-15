@@ -1,0 +1,2678 @@
+{
+  "sql": {
+    "sql": {
+      "nome-raro": {
+        "antes": {
+          "Linhas": 1,
+          "MedianaMs": 10.881,
+          "P95Ms": 13.8161,
+          "ExecucaoSqlMs": 9.259
+        },
+        "texto": {
+          "Linhas": 1,
+          "MedianaMs": 0.439,
+          "P95Ms": 0.6011,
+          "ExecucaoSqlMs": 0.047
+        },
+        "completo": {
+          "Linhas": 1,
+          "MedianaMs": 0.4379,
+          "P95Ms": 0.496,
+          "ExecucaoSqlMs": 0.032
+        },
+        "completo2": {
+          "Linhas": 1,
+          "MedianaMs": 0.5152,
+          "P95Ms": 0.6032,
+          "ExecucaoSqlMs": 0.04
+        },
+        "antes2": {
+          "Linhas": 1,
+          "MedianaMs": 10.0903,
+          "P95Ms": 11.0028,
+          "ExecucaoSqlMs": 9.348
+        }
+      },
+      "nome-comum": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 19.4165,
+          "P95Ms": 20.5481,
+          "ExecucaoSqlMs": 18.201
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 24.9359,
+          "P95Ms": 26.1386,
+          "ExecucaoSqlMs": 23.789
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 0.5871,
+          "P95Ms": 0.8741,
+          "ExecucaoSqlMs": 0.06
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 0.6492,
+          "P95Ms": 0.8247,
+          "ExecucaoSqlMs": 0.06
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 17.8932,
+          "P95Ms": 18.9047,
+          "ExecucaoSqlMs": 18.023
+        }
+      },
+      "nome-com-acento": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 11.5323,
+          "P95Ms": 12.1683,
+          "ExecucaoSqlMs": 10.364
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 1.997,
+          "P95Ms": 2.4991,
+          "ExecucaoSqlMs": 0.882
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 1.1593,
+          "P95Ms": 1.3539,
+          "ExecucaoSqlMs": 0.631
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 1.2402,
+          "P95Ms": 1.5087,
+          "ExecucaoSqlMs": 0.632
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 10.6458,
+          "P95Ms": 10.8698,
+          "ExecucaoSqlMs": 9.65
+        }
+      },
+      "nome-sem-acento-sem-correspondencia": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 10.6855,
+          "P95Ms": 11.9772,
+          "ExecucaoSqlMs": 9.512
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 0.5302,
+          "P95Ms": 0.7775,
+          "ExecucaoSqlMs": 0.034
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 0.442,
+          "P95Ms": 0.5521,
+          "ExecucaoSqlMs": 0.025
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 0.4472,
+          "P95Ms": 0.4992,
+          "ExecucaoSqlMs": 0.025
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 10.1497,
+          "P95Ms": 10.827,
+          "ExecucaoSqlMs": 9.728
+        }
+      },
+      "um-caractere": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 27.7587,
+          "P95Ms": 32.138,
+          "ExecucaoSqlMs": 27.893
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 26.8323,
+          "P95Ms": 41.4885,
+          "ExecucaoSqlMs": 27.354
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 0.5839,
+          "P95Ms": 0.6367,
+          "ExecucaoSqlMs": 0.059
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 0.62,
+          "P95Ms": 0.8191,
+          "ExecucaoSqlMs": 0.059
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 25.9072,
+          "P95Ms": 27.3618,
+          "ExecucaoSqlMs": 26.731
+        }
+      },
+      "dois-caracteres": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 19.1895,
+          "P95Ms": 35.2124,
+          "ExecucaoSqlMs": 18.635
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 18.7534,
+          "P95Ms": 22.2459,
+          "ExecucaoSqlMs": 17.514
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 6.6303,
+          "P95Ms": 7.4617,
+          "ExecucaoSqlMs": 6.096
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 6.6733,
+          "P95Ms": 7.1499,
+          "ExecucaoSqlMs": 5.685
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 17.794,
+          "P95Ms": 34.5531,
+          "ExecucaoSqlMs": 18.219
+        }
+      },
+      "tres-caracteres": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 19.0732,
+          "P95Ms": 35.7749,
+          "ExecucaoSqlMs": 17.507
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 14.8886,
+          "P95Ms": 16.3556,
+          "ExecucaoSqlMs": 19.104
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 0.6467,
+          "P95Ms": 0.7313,
+          "ExecucaoSqlMs": 0.059
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 0.5903,
+          "P95Ms": 0.9671,
+          "ExecucaoSqlMs": 0.06
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 17.7753,
+          "P95Ms": 18.6833,
+          "ExecucaoSqlMs": 18.245
+        }
+      },
+      "inexistente": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 10.9574,
+          "P95Ms": 15.8472,
+          "ExecucaoSqlMs": 13.635
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 0.499,
+          "P95Ms": 0.9962,
+          "ExecucaoSqlMs": 0.045
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 0.4437,
+          "P95Ms": 0.6241,
+          "ExecucaoSqlMs": 0.031
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 0.4968,
+          "P95Ms": 0.5495,
+          "ExecucaoSqlMs": 0.03
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 10.5154,
+          "P95Ms": 18.6353,
+          "ExecucaoSqlMs": 14.18
+        }
+      },
+      "lista-inicial": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 18.9537,
+          "P95Ms": 26.5333,
+          "ExecucaoSqlMs": 18.322
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 21.9688,
+          "P95Ms": 29.6009,
+          "ExecucaoSqlMs": 18.261
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 0.5195,
+          "P95Ms": 0.5744,
+          "ExecucaoSqlMs": 0.044
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 0.5203,
+          "P95Ms": 0.6538,
+          "ExecucaoSqlMs": 0.044
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 17.3906,
+          "P95Ms": 18.2206,
+          "ExecucaoSqlMs": 18.841
+        }
+      },
+      "pagina-1000": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 21.0833,
+          "P95Ms": 36.9647,
+          "ExecucaoSqlMs": 19.196
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 18.6758,
+          "P95Ms": 19.1086,
+          "ExecucaoSqlMs": 18.529
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 0.6897,
+          "P95Ms": 0.8888,
+          "ExecucaoSqlMs": 0.277
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 0.6837,
+          "P95Ms": 1.0714,
+          "ExecucaoSqlMs": 0.279
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 18.2305,
+          "P95Ms": 18.9957,
+          "ExecucaoSqlMs": 19.476
+        }
+      },
+      "cpf-inteiro": {
+        "antes": {
+          "Linhas": 1,
+          "MedianaMs": 16.5242,
+          "P95Ms": 29.6526,
+          "ExecucaoSqlMs": 18.713
+        },
+        "texto": {
+          "Linhas": 1,
+          "MedianaMs": 0.7498,
+          "P95Ms": 1.0297,
+          "ExecucaoSqlMs": 0.454
+        },
+        "completo": {
+          "Linhas": 1,
+          "MedianaMs": 0.7686,
+          "P95Ms": 1.0597,
+          "ExecucaoSqlMs": 0.298
+        },
+        "completo2": {
+          "Linhas": 1,
+          "MedianaMs": 0.7918,
+          "P95Ms": 1.0586,
+          "ExecucaoSqlMs": 0.292
+        },
+        "antes2": {
+          "Linhas": 1,
+          "MedianaMs": 15.6544,
+          "P95Ms": 15.7959,
+          "ExecucaoSqlMs": 14.698
+        }
+      },
+      "cpf-parcial": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 22.3565,
+          "P95Ms": 25.2379,
+          "ExecucaoSqlMs": 23.928
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 0.7211,
+          "P95Ms": 1.1162,
+          "ExecucaoSqlMs": 0.227
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 0.7588,
+          "P95Ms": 1.0732,
+          "ExecucaoSqlMs": 0.214
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 0.8939,
+          "P95Ms": 1.2722,
+          "ExecucaoSqlMs": 0.223
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 12.7753,
+          "P95Ms": 13.7125,
+          "ExecucaoSqlMs": 12.185
+        }
+      },
+      "cpf-curto": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 20.5639,
+          "P95Ms": 26.3392,
+          "ExecucaoSqlMs": 13.775
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 14.1773,
+          "P95Ms": 21.9265,
+          "ExecucaoSqlMs": 13.469
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 1.337,
+          "P95Ms": 1.6867,
+          "ExecucaoSqlMs": 0.616
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 1.1907,
+          "P95Ms": 1.5022,
+          "ExecucaoSqlMs": 0.614
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 13.6041,
+          "P95Ms": 19.8745,
+          "ExecucaoSqlMs": 12.905
+        }
+      },
+      "caractere-coringa-literal": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 11.2661,
+          "P95Ms": 14.6435,
+          "ExecucaoSqlMs": 12.316
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 10.2862,
+          "P95Ms": 11.4285,
+          "ExecucaoSqlMs": 10.674
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 10.889,
+          "P95Ms": 12.3995,
+          "ExecucaoSqlMs": 12.825
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 9.8238,
+          "P95Ms": 11.2277,
+          "ExecucaoSqlMs": 8.963
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 10.2674,
+          "P95Ms": 10.85,
+          "ExecucaoSqlMs": 9.791
+        }
+      },
+      "em-tratamento": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 69.6019,
+          "P95Ms": 82.833,
+          "ExecucaoSqlMs": 68.764
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 72.7891,
+          "P95Ms": 84.791,
+          "ExecucaoSqlMs": 76.738
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 0.9572,
+          "P95Ms": 1.0909,
+          "ExecucaoSqlMs": 0.202
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 0.9911,
+          "P95Ms": 1.3287,
+          "ExecucaoSqlMs": 0.208
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 57.7859,
+          "P95Ms": 76.2353,
+          "ExecucaoSqlMs": 59.024
+        }
+      },
+      "cadastro-incompleto": {
+        "antes": {
+          "Linhas": 101,
+          "MedianaMs": 16.9469,
+          "P95Ms": 20.8907,
+          "ExecucaoSqlMs": 13.396
+        },
+        "texto": {
+          "Linhas": 101,
+          "MedianaMs": 12.5128,
+          "P95Ms": 15.3298,
+          "ExecucaoSqlMs": 11.045
+        },
+        "completo": {
+          "Linhas": 101,
+          "MedianaMs": 1.3168,
+          "P95Ms": 1.5317,
+          "ExecucaoSqlMs": 0.664
+        },
+        "completo2": {
+          "Linhas": 101,
+          "MedianaMs": 1.3813,
+          "P95Ms": 1.5731,
+          "ExecucaoSqlMs": 0.647
+        },
+        "antes2": {
+          "Linhas": 101,
+          "MedianaMs": 13.9601,
+          "P95Ms": 14.611,
+          "ExecucaoSqlMs": 13.183
+        }
+      },
+      "documentos-paciente-1": {
+        "antes": {
+          "Linhas": 3000,
+          "MedianaMs": 66.9022,
+          "P95Ms": 83.9121,
+          "ExecucaoSqlMs": 56.315
+        },
+        "texto": {
+          "Linhas": 3000,
+          "MedianaMs": 58.3245,
+          "P95Ms": 65.2012,
+          "ExecucaoSqlMs": 45.502
+        },
+        "completo": {
+          "Linhas": 3000,
+          "MedianaMs": 53.1011,
+          "P95Ms": 61.9724,
+          "ExecucaoSqlMs": 36.208
+        },
+        "completo2": {
+          "Linhas": 3000,
+          "MedianaMs": 48.9382,
+          "P95Ms": 59.3165,
+          "ExecucaoSqlMs": 39.291
+        },
+        "antes2": {
+          "Linhas": 3000,
+          "MedianaMs": 46.0059,
+          "P95Ms": 54.0422,
+          "ExecucaoSqlMs": 36.538
+        }
+      },
+      "receitas-paciente-1": {
+        "antes": {
+          "Linhas": 751,
+          "MedianaMs": 53.9306,
+          "P95Ms": 65.1197,
+          "ExecucaoSqlMs": 45.913
+        },
+        "texto": {
+          "Linhas": 751,
+          "MedianaMs": 51.5634,
+          "P95Ms": 62.1858,
+          "ExecucaoSqlMs": 47.738
+        },
+        "completo": {
+          "Linhas": 751,
+          "MedianaMs": 5.6317,
+          "P95Ms": 6.5515,
+          "ExecucaoSqlMs": 1.191
+        },
+        "completo2": {
+          "Linhas": 751,
+          "MedianaMs": 5.6059,
+          "P95Ms": 7.1132,
+          "ExecucaoSqlMs": 1.168
+        },
+        "antes2": {
+          "Linhas": 751,
+          "MedianaMs": 38.3126,
+          "P95Ms": 39.732,
+          "ExecucaoSqlMs": 36.627
+        }
+      },
+      "prescricoes-paciente-1": {
+        "antes": {
+          "Linhas": 50,
+          "MedianaMs": 2.7752,
+          "P95Ms": 4.4868,
+          "ExecucaoSqlMs": 0.595
+        },
+        "texto": {
+          "Linhas": 50,
+          "MedianaMs": 2.5048,
+          "P95Ms": 3.1428,
+          "ExecucaoSqlMs": 0.556
+        },
+        "completo": {
+          "Linhas": 50,
+          "MedianaMs": 2.1382,
+          "P95Ms": 2.9054,
+          "ExecucaoSqlMs": 0.492
+        },
+        "completo2": {
+          "Linhas": 50,
+          "MedianaMs": 2.6221,
+          "P95Ms": 3.3361,
+          "ExecucaoSqlMs": 0.509
+        },
+        "antes2": {
+          "Linhas": 50,
+          "MedianaMs": 1.9419,
+          "P95Ms": 2.4869,
+          "ExecucaoSqlMs": 0.496
+        }
+      },
+      "ultima-prescricao-1": {
+        "antes": {
+          "Linhas": 1,
+          "MedianaMs": 0.9804,
+          "P95Ms": 1.5705,
+          "ExecucaoSqlMs": 0.039
+        },
+        "texto": {
+          "Linhas": 1,
+          "MedianaMs": 1.303,
+          "P95Ms": 1.5973,
+          "ExecucaoSqlMs": 0.051
+        },
+        "completo": {
+          "Linhas": 1,
+          "MedianaMs": 0.9494,
+          "P95Ms": 1.1172,
+          "ExecucaoSqlMs": 0.04
+        },
+        "completo2": {
+          "Linhas": 1,
+          "MedianaMs": 0.785,
+          "P95Ms": 0.9837,
+          "ExecucaoSqlMs": 0.049
+        },
+        "antes2": {
+          "Linhas": 1,
+          "MedianaMs": 0.9033,
+          "P95Ms": 1.1764,
+          "ExecucaoSqlMs": 0.053
+        }
+      },
+      "ficha-sessoes-1": {
+        "antes": {
+          "Linhas": 51,
+          "MedianaMs": 2.2631,
+          "P95Ms": 2.8224,
+          "ExecucaoSqlMs": 1.01
+        },
+        "texto": {
+          "Linhas": 51,
+          "MedianaMs": 2.6729,
+          "P95Ms": 3.6144,
+          "ExecucaoSqlMs": 2.136
+        },
+        "completo": {
+          "Linhas": 51,
+          "MedianaMs": 1.7866,
+          "P95Ms": 2.1133,
+          "ExecucaoSqlMs": 1.076
+        },
+        "completo2": {
+          "Linhas": 51,
+          "MedianaMs": 2.1392,
+          "P95Ms": 2.9069,
+          "ExecucaoSqlMs": 1.121
+        },
+        "antes2": {
+          "Linhas": 51,
+          "MedianaMs": 1.8058,
+          "P95Ms": 2.288,
+          "ExecucaoSqlMs": 0.987
+        }
+      },
+      "evolucoes-paciente-1": {
+        "antes": {
+          "Linhas": 3000,
+          "MedianaMs": 24.7747,
+          "P95Ms": 31.2661,
+          "ExecucaoSqlMs": 17.59
+        },
+        "texto": {
+          "Linhas": 3000,
+          "MedianaMs": 28.0986,
+          "P95Ms": 31.5006,
+          "ExecucaoSqlMs": 15.126
+        },
+        "completo": {
+          "Linhas": 3000,
+          "MedianaMs": 24.9211,
+          "P95Ms": 28.7367,
+          "ExecucaoSqlMs": 11.428
+        },
+        "completo2": {
+          "Linhas": 3000,
+          "MedianaMs": 23.184,
+          "P95Ms": 28.739,
+          "ExecucaoSqlMs": 13.445
+        },
+        "antes2": {
+          "Linhas": 3000,
+          "MedianaMs": 21.1429,
+          "P95Ms": 22.6283,
+          "ExecucaoSqlMs": 11.506
+        }
+      },
+      "termos-paciente-1": {
+        "antes": {
+          "Linhas": 750,
+          "MedianaMs": 48.8924,
+          "P95Ms": 54.6451,
+          "ExecucaoSqlMs": 44.816
+        },
+        "texto": {
+          "Linhas": 750,
+          "MedianaMs": 37.4016,
+          "P95Ms": 44.575,
+          "ExecucaoSqlMs": 34.334
+        },
+        "completo": {
+          "Linhas": 750,
+          "MedianaMs": 5.79,
+          "P95Ms": 7.412,
+          "ExecucaoSqlMs": 1.601
+        },
+        "completo2": {
+          "Linhas": 750,
+          "MedianaMs": 5.3395,
+          "P95Ms": 7.1017,
+          "ExecucaoSqlMs": 1.247
+        },
+        "antes2": {
+          "Linhas": 750,
+          "MedianaMs": 40.7478,
+          "P95Ms": 45.9548,
+          "ExecucaoSqlMs": 39.302
+        }
+      },
+      "exames-paciente-1": {
+        "antes": {
+          "Linhas": 749,
+          "MedianaMs": 7.9555,
+          "P95Ms": 10.8842,
+          "ExecucaoSqlMs": 6.792
+        },
+        "texto": {
+          "Linhas": 749,
+          "MedianaMs": 7.1484,
+          "P95Ms": 11.2064,
+          "ExecucaoSqlMs": 5.923
+        },
+        "completo": {
+          "Linhas": 749,
+          "MedianaMs": 6.9594,
+          "P95Ms": 7.459,
+          "ExecucaoSqlMs": 5.614
+        },
+        "completo2": {
+          "Linhas": 749,
+          "MedianaMs": 6.7732,
+          "P95Ms": 7.5963,
+          "ExecucaoSqlMs": 5.682
+        },
+        "antes2": {
+          "Linhas": 749,
+          "MedianaMs": 7.2063,
+          "P95Ms": 8.2806,
+          "ExecucaoSqlMs": 5.891
+        }
+      },
+      "documentos-paciente-10001": {
+        "antes": {
+          "Linhas": 4,
+          "MedianaMs": 1.2386,
+          "P95Ms": 1.7831,
+          "ExecucaoSqlMs": 0.076
+        },
+        "texto": {
+          "Linhas": 4,
+          "MedianaMs": 0.9185,
+          "P95Ms": 1.2107,
+          "ExecucaoSqlMs": 0.077
+        },
+        "completo": {
+          "Linhas": 4,
+          "MedianaMs": 0.874,
+          "P95Ms": 1.0625,
+          "ExecucaoSqlMs": 0.068
+        },
+        "completo2": {
+          "Linhas": 4,
+          "MedianaMs": 0.8887,
+          "P95Ms": 0.9776,
+          "ExecucaoSqlMs": 0.069
+        },
+        "antes2": {
+          "Linhas": 4,
+          "MedianaMs": 0.8386,
+          "P95Ms": 0.9679,
+          "ExecucaoSqlMs": 0.073
+        }
+      },
+      "receitas-paciente-10001": {
+        "antes": {
+          "Linhas": 1,
+          "MedianaMs": 1.2269,
+          "P95Ms": 1.8795,
+          "ExecucaoSqlMs": 0.124
+        },
+        "texto": {
+          "Linhas": 1,
+          "MedianaMs": 0.7986,
+          "P95Ms": 1.3778,
+          "ExecucaoSqlMs": 0.06
+        },
+        "completo": {
+          "Linhas": 1,
+          "MedianaMs": 0.8763,
+          "P95Ms": 1.4447,
+          "ExecucaoSqlMs": 0.046
+        },
+        "completo2": {
+          "Linhas": 1,
+          "MedianaMs": 0.8162,
+          "P95Ms": 1.0734,
+          "ExecucaoSqlMs": 0.047
+        },
+        "antes2": {
+          "Linhas": 1,
+          "MedianaMs": 0.8559,
+          "P95Ms": 1.2371,
+          "ExecucaoSqlMs": 0.062
+        }
+      },
+      "prescricoes-paciente-10001": {
+        "antes": {
+          "Linhas": 4,
+          "MedianaMs": 2.3717,
+          "P95Ms": 3.1104,
+          "ExecucaoSqlMs": 0.158
+        },
+        "texto": {
+          "Linhas": 4,
+          "MedianaMs": 1.4609,
+          "P95Ms": 2.0846,
+          "ExecucaoSqlMs": 0.151
+        },
+        "completo": {
+          "Linhas": 4,
+          "MedianaMs": 1.4883,
+          "P95Ms": 1.8718,
+          "ExecucaoSqlMs": 0.13
+        },
+        "completo2": {
+          "Linhas": 4,
+          "MedianaMs": 1.4241,
+          "P95Ms": 1.6531,
+          "ExecucaoSqlMs": 0.13
+        },
+        "antes2": {
+          "Linhas": 4,
+          "MedianaMs": 1.2667,
+          "P95Ms": 1.7762,
+          "ExecucaoSqlMs": 0.127
+        }
+      },
+      "ultima-prescricao-10001": {
+        "antes": {
+          "Linhas": 1,
+          "MedianaMs": 1.0337,
+          "P95Ms": 1.807,
+          "ExecucaoSqlMs": 0.054
+        },
+        "texto": {
+          "Linhas": 1,
+          "MedianaMs": 0.941,
+          "P95Ms": 1.2287,
+          "ExecucaoSqlMs": 0.041
+        },
+        "completo": {
+          "Linhas": 1,
+          "MedianaMs": 0.896,
+          "P95Ms": 1.1697,
+          "ExecucaoSqlMs": 0.04
+        },
+        "completo2": {
+          "Linhas": 1,
+          "MedianaMs": 0.8735,
+          "P95Ms": 1.149,
+          "ExecucaoSqlMs": 0.038
+        },
+        "antes2": {
+          "Linhas": 1,
+          "MedianaMs": 0.7869,
+          "P95Ms": 1.6682,
+          "ExecucaoSqlMs": 0.042
+        }
+      },
+      "ficha-sessoes-10001": {
+        "antes": {
+          "Linhas": 4,
+          "MedianaMs": 1.0447,
+          "P95Ms": 1.3256,
+          "ExecucaoSqlMs": 0.113
+        },
+        "texto": {
+          "Linhas": 4,
+          "MedianaMs": 0.9089,
+          "P95Ms": 1.1902,
+          "ExecucaoSqlMs": 0.101
+        },
+        "completo": {
+          "Linhas": 4,
+          "MedianaMs": 0.9416,
+          "P95Ms": 1.2117,
+          "ExecucaoSqlMs": 0.103
+        },
+        "completo2": {
+          "Linhas": 4,
+          "MedianaMs": 0.924,
+          "P95Ms": 1.2061,
+          "ExecucaoSqlMs": 0.089
+        },
+        "antes2": {
+          "Linhas": 4,
+          "MedianaMs": 0.9028,
+          "P95Ms": 1.2006,
+          "ExecucaoSqlMs": 0.075
+        }
+      },
+      "evolucoes-paciente-10001": {
+        "antes": {
+          "Linhas": 4,
+          "MedianaMs": 0.8197,
+          "P95Ms": 0.9773,
+          "ExecucaoSqlMs": 0.062
+        },
+        "texto": {
+          "Linhas": 4,
+          "MedianaMs": 0.8781,
+          "P95Ms": 0.9862,
+          "ExecucaoSqlMs": 0.097
+        },
+        "completo": {
+          "Linhas": 4,
+          "MedianaMs": 0.7029,
+          "P95Ms": 0.8948,
+          "ExecucaoSqlMs": 0.058
+        },
+        "completo2": {
+          "Linhas": 4,
+          "MedianaMs": 0.6824,
+          "P95Ms": 0.8292,
+          "ExecucaoSqlMs": 0.058
+        },
+        "antes2": {
+          "Linhas": 4,
+          "MedianaMs": 0.684,
+          "P95Ms": 0.9704,
+          "ExecucaoSqlMs": 0.062
+        }
+      },
+      "termos-paciente-10001": {
+        "antes": {
+          "Linhas": 1,
+          "MedianaMs": 0.7443,
+          "P95Ms": 1.3695,
+          "ExecucaoSqlMs": 0.053
+        },
+        "texto": {
+          "Linhas": 1,
+          "MedianaMs": 0.8774,
+          "P95Ms": 1.0722,
+          "ExecucaoSqlMs": 0.057
+        },
+        "completo": {
+          "Linhas": 1,
+          "MedianaMs": 0.6499,
+          "P95Ms": 0.8387,
+          "ExecucaoSqlMs": 0.025
+        },
+        "completo2": {
+          "Linhas": 1,
+          "MedianaMs": 0.6491,
+          "P95Ms": 0.8536,
+          "ExecucaoSqlMs": 0.024
+        },
+        "antes2": {
+          "Linhas": 1,
+          "MedianaMs": 0.6779,
+          "P95Ms": 0.8228,
+          "ExecucaoSqlMs": 0.034
+        }
+      },
+      "exames-paciente-10001": {
+        "antes": {
+          "Linhas": 1,
+          "MedianaMs": 1.1486,
+          "P95Ms": 1.75,
+          "ExecucaoSqlMs": 0.093
+        },
+        "texto": {
+          "Linhas": 1,
+          "MedianaMs": 1.1647,
+          "P95Ms": 1.5206,
+          "ExecucaoSqlMs": 0.077
+        },
+        "completo": {
+          "Linhas": 1,
+          "MedianaMs": 0.7938,
+          "P95Ms": 0.9603,
+          "ExecucaoSqlMs": 0.058
+        },
+        "completo2": {
+          "Linhas": 1,
+          "MedianaMs": 0.8028,
+          "P95Ms": 1.069,
+          "ExecucaoSqlMs": 0.058
+        },
+        "antes2": {
+          "Linhas": 1,
+          "MedianaMs": 0.8769,
+          "P95Ms": 1.1049,
+          "ExecucaoSqlMs": 0.088
+        }
+      },
+      "documentos-paciente-50001": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 0.9875,
+          "P95Ms": 1.7715,
+          "ExecucaoSqlMs": 0.061
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 1.2144,
+          "P95Ms": 1.5608,
+          "ExecucaoSqlMs": 0.054
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 0.7805,
+          "P95Ms": 1.0002,
+          "ExecucaoSqlMs": 0.046
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 0.8286,
+          "P95Ms": 1.1925,
+          "ExecucaoSqlMs": 0.045
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 0.8053,
+          "P95Ms": 1.0024,
+          "ExecucaoSqlMs": 0.047
+        }
+      },
+      "receitas-paciente-50001": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 0.8767,
+          "P95Ms": 1.4009,
+          "ExecucaoSqlMs": 0.066
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 0.8709,
+          "P95Ms": 1.3968,
+          "ExecucaoSqlMs": 0.061
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 0.7255,
+          "P95Ms": 1.004,
+          "ExecucaoSqlMs": 0.033
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 1.0054,
+          "P95Ms": 1.2036,
+          "ExecucaoSqlMs": 0.057
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 0.7608,
+          "P95Ms": 0.8954,
+          "ExecucaoSqlMs": 0.044
+        }
+      },
+      "prescricoes-paciente-50001": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 1.9842,
+          "P95Ms": 2.5891,
+          "ExecucaoSqlMs": 0.152
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 1.3118,
+          "P95Ms": 2.2057,
+          "ExecucaoSqlMs": 0.066
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 1.227,
+          "P95Ms": 1.2992,
+          "ExecucaoSqlMs": 0.09
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 1.4719,
+          "P95Ms": 2.1116,
+          "ExecucaoSqlMs": 0.12
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 1.2385,
+          "P95Ms": 1.6399,
+          "ExecucaoSqlMs": 0.075
+        }
+      },
+      "ultima-prescricao-50001": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 1.0841,
+          "P95Ms": 1.7795,
+          "ExecucaoSqlMs": 0.058
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 0.7551,
+          "P95Ms": 1.0967,
+          "ExecucaoSqlMs": 0.032
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 0.7431,
+          "P95Ms": 1.0762,
+          "ExecucaoSqlMs": 0.031
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 0.7563,
+          "P95Ms": 0.8418,
+          "ExecucaoSqlMs": 0.038
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 0.7828,
+          "P95Ms": 1.1623,
+          "ExecucaoSqlMs": 0.029
+        }
+      },
+      "ficha-sessoes-50001": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 1.0126,
+          "P95Ms": 1.4834,
+          "ExecucaoSqlMs": 0.105
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 0.7991,
+          "P95Ms": 1.3733,
+          "ExecucaoSqlMs": 0.042
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 0.7628,
+          "P95Ms": 1.2273,
+          "ExecucaoSqlMs": 0.045
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 0.7735,
+          "P95Ms": 1.0097,
+          "ExecucaoSqlMs": 0.038
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 0.8153,
+          "P95Ms": 0.9526,
+          "ExecucaoSqlMs": 0.038
+        }
+      },
+      "evolucoes-paciente-50001": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 0.606,
+          "P95Ms": 0.77,
+          "ExecucaoSqlMs": 0.034
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 0.6114,
+          "P95Ms": 0.9055,
+          "ExecucaoSqlMs": 0.032
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 0.6044,
+          "P95Ms": 0.7037,
+          "ExecucaoSqlMs": 0.032
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 0.5947,
+          "P95Ms": 0.8875,
+          "ExecucaoSqlMs": 0.042
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 0.6068,
+          "P95Ms": 0.7088,
+          "ExecucaoSqlMs": 0.032
+        }
+      },
+      "termos-paciente-50001": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 0.6374,
+          "P95Ms": 1.21,
+          "ExecucaoSqlMs": 0.024
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 0.6342,
+          "P95Ms": 0.8536,
+          "ExecucaoSqlMs": 0.025
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 0.7716,
+          "P95Ms": 0.9015,
+          "ExecucaoSqlMs": 0.02
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 0.7451,
+          "P95Ms": 1.2581,
+          "ExecucaoSqlMs": 0.019
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 0.6218,
+          "P95Ms": 0.7634,
+          "ExecucaoSqlMs": 0.025
+        }
+      },
+      "exames-paciente-50001": {
+        "antes": {
+          "Linhas": 0,
+          "MedianaMs": 0.8727,
+          "P95Ms": 1.3756,
+          "ExecucaoSqlMs": 0.037
+        },
+        "texto": {
+          "Linhas": 0,
+          "MedianaMs": 0.7462,
+          "P95Ms": 1.0428,
+          "ExecucaoSqlMs": 0.046
+        },
+        "completo": {
+          "Linhas": 0,
+          "MedianaMs": 0.7755,
+          "P95Ms": 1.0856,
+          "ExecucaoSqlMs": 0.042
+        },
+        "completo2": {
+          "Linhas": 0,
+          "MedianaMs": 0.7368,
+          "P95Ms": 0.915,
+          "ExecucaoSqlMs": 0.031
+        },
+        "antes2": {
+          "Linhas": 0,
+          "MedianaMs": 0.9448,
+          "P95Ms": 1.0633,
+          "ExecucaoSqlMs": 0.057
+        }
+      }
+    },
+    "indices_nos_planos": {
+      "nome-raro": [
+        "bench_pacientes_nome_trgm"
+      ],
+      "nome-comum": [
+        "bench_pacientes_ordem"
+      ],
+      "nome-com-acento": [
+        "bench_pacientes_nome_trgm"
+      ],
+      "nome-sem-acento-sem-correspondencia": [
+        "bench_pacientes_nome_trgm"
+      ],
+      "um-caractere": [
+        "bench_pacientes_ordem"
+      ],
+      "dois-caracteres": [
+        "bench_pacientes_ordem"
+      ],
+      "tres-caracteres": [
+        "bench_pacientes_ordem"
+      ],
+      "inexistente": [
+        "bench_pacientes_nome_trgm"
+      ],
+      "lista-inicial": [
+        "bench_pacientes_ordem"
+      ],
+      "pagina-1000": [
+        "bench_pacientes_ordem"
+      ],
+      "cpf-inteiro": [
+        "bench_pacientes_documento_trgm",
+        "bench_pacientes_nome_trgm"
+      ],
+      "cpf-parcial": [
+        "bench_pacientes_documento_trgm",
+        "bench_pacientes_nome_trgm"
+      ],
+      "cpf-curto": [
+        "bench_pacientes_ordem"
+      ],
+      "caractere-coringa-literal": [],
+      "em-tratamento": [
+        "IX_Agendamentos_PacienteId",
+        "bench_pacientes_ordem"
+      ],
+      "cadastro-incompleto": [
+        "bench_pacientes_ordem"
+      ],
+      "documentos-paciente-1": [
+        "IX_DocumentosClinicos_PacienteId_Data",
+        "PK_Agendamentos"
+      ],
+      "receitas-paciente-1": [
+        "PK_Pacientes",
+        "bench_documentos_paciente_tipo"
+      ],
+      "prescricoes-paciente-1": [
+        "IX_ItensPrescricaoInterna_PrescricaoInternaId",
+        "IX_PrescricoesInternas_PacienteId_Data"
+      ],
+      "ultima-prescricao-1": [
+        "IX_ItensPrescricaoInterna_PrescricaoInternaId",
+        "IX_PrescricoesInternas_PacienteId_Data"
+      ],
+      "ficha-sessoes-1": [
+        "IX_Agendamentos_DataHora",
+        "IX_Evolucoes_AgendamentoId"
+      ],
+      "evolucoes-paciente-1": [
+        "IX_Evolucoes_PacienteId_Data"
+      ],
+      "termos-paciente-1": [
+        "IX_ItensDocumento_DocumentoClinicoId",
+        "bench_documentos_paciente_tipo"
+      ],
+      "exames-paciente-1": [
+        "IX_ItensDocumento_DocumentoClinicoId",
+        "PK_Pacientes",
+        "bench_documentos_paciente_tipo"
+      ],
+      "documentos-paciente-10001": [
+        "IX_DocumentosClinicos_PacienteId_Data",
+        "PK_Agendamentos"
+      ],
+      "receitas-paciente-10001": [
+        "PK_Pacientes",
+        "bench_documentos_paciente_tipo"
+      ],
+      "prescricoes-paciente-10001": [
+        "IX_ItensPrescricaoInterna_PrescricaoInternaId",
+        "IX_PrescricoesInternas_PacienteId_Data"
+      ],
+      "ultima-prescricao-10001": [
+        "IX_ItensPrescricaoInterna_PrescricaoInternaId",
+        "IX_PrescricoesInternas_PacienteId_Data"
+      ],
+      "ficha-sessoes-10001": [
+        "IX_Agendamentos_PacienteId",
+        "IX_Evolucoes_AgendamentoId"
+      ],
+      "evolucoes-paciente-10001": [
+        "IX_Evolucoes_PacienteId_Data"
+      ],
+      "termos-paciente-10001": [
+        "IX_ItensDocumento_DocumentoClinicoId",
+        "bench_documentos_paciente_tipo"
+      ],
+      "exames-paciente-10001": [
+        "IX_ItensDocumento_DocumentoClinicoId",
+        "PK_Pacientes",
+        "bench_documentos_paciente_tipo"
+      ],
+      "documentos-paciente-50001": [
+        "IX_DocumentosClinicos_PacienteId_Data",
+        "PK_Agendamentos"
+      ],
+      "receitas-paciente-50001": [
+        "PK_Pacientes",
+        "bench_documentos_paciente_tipo"
+      ],
+      "prescricoes-paciente-50001": [
+        "IX_ItensPrescricaoInterna_PrescricaoInternaId",
+        "IX_PrescricoesInternas_PacienteId_Data"
+      ],
+      "ultima-prescricao-50001": [
+        "IX_ItensPrescricaoInterna_PrescricaoInternaId",
+        "IX_PrescricoesInternas_PacienteId_Data"
+      ],
+      "ficha-sessoes-50001": [
+        "IX_Agendamentos_PacienteId",
+        "IX_Evolucoes_AgendamentoId"
+      ],
+      "evolucoes-paciente-50001": [
+        "IX_Evolucoes_PacienteId_Data"
+      ],
+      "termos-paciente-50001": [
+        "IX_ItensDocumento_DocumentoClinicoId",
+        "bench_documentos_paciente_tipo"
+      ],
+      "exames-paciente-50001": [
+        "IX_ItensDocumento_DocumentoClinicoId",
+        "PK_Pacientes",
+        "bench_documentos_paciente_tipo"
+      ]
+    },
+    "custos": [
+      {
+        "fase": "antes",
+        "escrita1000P50Ms": 20.5682,
+        "indices": {}
+      },
+      {
+        "fase": "texto",
+        "escrita1000P50Ms": 39.698,
+        "indices": {
+          "bench_pacientes_documento_trgm": 2220032,
+          "bench_pacientes_nome_trgm": 7028736
+        }
+      },
+      {
+        "fase": "completo",
+        "escrita1000P50Ms": 27.6719,
+        "indices": {
+          "bench_documentos_paciente_tipo": 8601600,
+          "bench_pacientes_documento_trgm": 2220032,
+          "bench_pacientes_nome_trgm": 7389184,
+          "bench_pacientes_ordem": 2924544
+        }
+      },
+      {
+        "fase": "completo2",
+        "escrita1000P50Ms": 27.5997,
+        "indices": {
+          "bench_documentos_paciente_tipo": 8601600,
+          "bench_pacientes_documento_trgm": 2220032,
+          "bench_pacientes_nome_trgm": 7389184,
+          "bench_pacientes_ordem": 3080192
+        }
+      },
+      {
+        "fase": "antes2",
+        "escrita1000P50Ms": 20.2003,
+        "indices": {}
+      }
+    ]
+  },
+  "telas_antes": [
+    {
+      "tela": "pacientes-lista",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 44.3213,
+      "minimoMs": 43.3755,
+      "maximoMs": 166.2366,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-zefirina",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 319.6173,
+      "minimoMs": 276.3869,
+      "maximoMs": 858.8316,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-silva",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 470.8383,
+      "minimoMs": 336.4188,
+      "maximoMs": 591.4524,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-00000012345",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 286.1179,
+      "minimoMs": 276.3756,
+      "maximoMs": 423.5022,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "documentos",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 1517.8252,
+      "minimoMs": 777.1167,
+      "maximoMs": 1526.2938,
+      "comandosMin": 2,
+      "comandosMax": 3
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 578.8988,
+      "minimoMs": 560.8026,
+      "maximoMs": 1621.3719,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 137.6426,
+      "minimoMs": 127.8323,
+      "maximoMs": 432.5139,
+      "comandosMin": 6,
+      "comandosMax": 7
+    },
+    {
+      "tela": "ficha",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 135.7136,
+      "minimoMs": 130.2,
+      "maximoMs": 607.7616,
+      "comandosMin": 28,
+      "comandosMax": 29
+    },
+    {
+      "tela": "documentos",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 1876.8728,
+      "minimoMs": 1813.0722,
+      "maximoMs": 1951.0762,
+      "comandosMin": 2,
+      "comandosMax": 3
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 722.7434,
+      "minimoMs": 559.1674,
+      "maximoMs": 1597.5313,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 50553.5249,
+      "minimoMs": 48006.7402,
+      "maximoMs": 56605.414,
+      "comandosMin": 6,
+      "comandosMax": 7
+    },
+    {
+      "tela": "ficha",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 891.0078,
+      "minimoMs": 250.4313,
+      "maximoMs": 983.9032,
+      "comandosMin": 28,
+      "comandosMax": 29
+    },
+    {
+      "tela": "pacientes-lista",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 337.7025,
+      "minimoMs": 327.7258,
+      "maximoMs": 348.0052,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-zefirina",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 517.1694,
+      "minimoMs": 516.1089,
+      "maximoMs": 1037.4595,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-silva",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 537.6102,
+      "minimoMs": 534.3252,
+      "maximoMs": 556.3711,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-00000012345",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 533.3418,
+      "minimoMs": 532.2288,
+      "maximoMs": 535.7136,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "documentos",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 1521.5035,
+      "minimoMs": 703.7154,
+      "maximoMs": 1612.4602,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 825.4936,
+      "minimoMs": 605.3457,
+      "maximoMs": 1057.9004,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 1047.0639,
+      "minimoMs": 1037.9601,
+      "maximoMs": 1060.386,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 4548.7413,
+      "minimoMs": 4540.6984,
+      "maximoMs": 4667.5813,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "documentos",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 2776.2522,
+      "minimoMs": 1821.3508,
+      "maximoMs": 2792.9858,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 709.4324,
+      "minimoMs": 655.375,
+      "maximoMs": 719.2309,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 28315.3719,
+      "minimoMs": 27716.5595,
+      "maximoMs": 52713.6676,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 4878.6411,
+      "minimoMs": 4813.5475,
+      "maximoMs": 5243.3857,
+      "comandosMin": 28,
+      "comandosMax": 28
+    }
+  ],
+  "telas_virtualizadas": [
+    {
+      "tela": "pacientes-lista",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 43.615,
+      "minimoMs": 43.1388,
+      "maximoMs": 151.9389,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-zefirina",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 271.0813,
+      "minimoMs": 267.5191,
+      "maximoMs": 312.7291,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-silva",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 298.4128,
+      "minimoMs": 287.6871,
+      "maximoMs": 335.5015,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-00000012345",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 285.916,
+      "minimoMs": 271.5013,
+      "maximoMs": 285.9472,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "documentos",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 1474.544,
+      "minimoMs": 603.3261,
+      "maximoMs": 1591.9148,
+      "comandosMin": 2,
+      "comandosMax": 3
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 616.1424,
+      "minimoMs": 609.105,
+      "maximoMs": 669.9046,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 133.5396,
+      "minimoMs": 124.0395,
+      "maximoMs": 420.9939,
+      "comandosMin": 6,
+      "comandosMax": 7
+    },
+    {
+      "tela": "ficha",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 127.4512,
+      "minimoMs": 114.9926,
+      "maximoMs": 558.0214,
+      "comandosMin": 28,
+      "comandosMax": 29
+    },
+    {
+      "tela": "documentos",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 1822.1122,
+      "minimoMs": 1754.7365,
+      "maximoMs": 1902.664,
+      "comandosMin": 2,
+      "comandosMax": 3
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 679.4495,
+      "minimoMs": 603.6897,
+      "maximoMs": 714.8411,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 164.8892,
+      "minimoMs": 160.0739,
+      "maximoMs": 233.7418,
+      "comandosMin": 6,
+      "comandosMax": 7
+    },
+    {
+      "tela": "ficha",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 223.2289,
+      "minimoMs": 180.784,
+      "maximoMs": 274.4052,
+      "comandosMin": 28,
+      "comandosMax": 29
+    },
+    {
+      "tela": "pacientes-lista",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 298.1973,
+      "minimoMs": 298.1435,
+      "maximoMs": 307.6785,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-zefirina",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 530.1888,
+      "minimoMs": 529.1988,
+      "maximoMs": 534.4464,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-silva",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 534.0563,
+      "minimoMs": 533.4394,
+      "maximoMs": 591.9415,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-00000012345",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 531.205,
+      "minimoMs": 531.1254,
+      "maximoMs": 542.0545,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "documentos",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 645.3793,
+      "minimoMs": 626.3521,
+      "maximoMs": 818.2992,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 681.178,
+      "minimoMs": 620.6813,
+      "maximoMs": 732.5973,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 1041.8271,
+      "minimoMs": 1032.1849,
+      "maximoMs": 1046.7507,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 4540.4018,
+      "minimoMs": 4536.5022,
+      "maximoMs": 4551.3427,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "documentos",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 2416.6025,
+      "minimoMs": 1869.8736,
+      "maximoMs": 2653.3264,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 713.6024,
+      "minimoMs": 638.7971,
+      "maximoMs": 865.0642,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 1084.431,
+      "minimoMs": 1082.5276,
+      "maximoMs": 1100.6119,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes",
+      "amostras": 3,
+      "medianaMs": 4578.6202,
+      "minimoMs": 4565.6999,
+      "maximoMs": 4580.9414,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "pacientes-lista",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 19.2286,
+      "minimoMs": 13.4285,
+      "maximoMs": 23.6422,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-zefirina",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 264.7353,
+      "minimoMs": 264.4621,
+      "maximoMs": 265.5178,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-silva",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 267.5171,
+      "minimoMs": 265.6541,
+      "maximoMs": 269.2574,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-00000012345",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 264.8056,
+      "minimoMs": 264.4568,
+      "maximoMs": 268.8125,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "documentos",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 619.1457,
+      "minimoMs": 583.4201,
+      "maximoMs": 674.2935,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 665.3929,
+      "minimoMs": 644.4088,
+      "maximoMs": 672.2175,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 120.105,
+      "minimoMs": 105.6815,
+      "maximoMs": 126.723,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 104.8761,
+      "minimoMs": 82.8492,
+      "maximoMs": 106.6812,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "documentos",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 1932.0906,
+      "minimoMs": 1811.2664,
+      "maximoMs": 2001.1528,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 1565.2418,
+      "minimoMs": 716.8209,
+      "maximoMs": 1643.1042,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 151.0991,
+      "minimoMs": 137.6396,
+      "maximoMs": 174.3933,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 199.1996,
+      "minimoMs": 164.1096,
+      "maximoMs": 211.4961,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "pacientes-lista",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 273.8135,
+      "minimoMs": 262.1858,
+      "maximoMs": 280.211,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-zefirina",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 511.8335,
+      "minimoMs": 509.0109,
+      "maximoMs": 513.4062,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-silva",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 513.3595,
+      "minimoMs": 512.5162,
+      "maximoMs": 517.6415,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-00000012345",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 512.4878,
+      "minimoMs": 510.0754,
+      "maximoMs": 513.8245,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "documentos",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 637.5243,
+      "minimoMs": 610.7618,
+      "maximoMs": 650.2595,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 646.6262,
+      "minimoMs": 599.4864,
+      "maximoMs": 680.2295,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 1033.1569,
+      "minimoMs": 1031.9088,
+      "maximoMs": 1033.4698,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 4541.0296,
+      "minimoMs": 4540.65,
+      "maximoMs": 4545.9558,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "documentos",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 2665.5714,
+      "minimoMs": 2617.1614,
+      "maximoMs": 2837.837,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 641.1098,
+      "minimoMs": 626.685,
+      "maximoMs": 745.1549,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 1077.6205,
+      "minimoMs": 1075.2507,
+      "maximoMs": 1079.38,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "indices",
+      "amostras": 3,
+      "medianaMs": 4566.0959,
+      "minimoMs": 4563.6867,
+      "maximoMs": 4570.0461,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "pacientes-lista",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 33.2973,
+      "minimoMs": 32.5442,
+      "maximoMs": 33.719,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-zefirina",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 268.2729,
+      "minimoMs": 266.8531,
+      "maximoMs": 268.3082,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-silva",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 286.9609,
+      "minimoMs": 285.6195,
+      "maximoMs": 292.3117,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-00000012345",
+      "paciente": 0,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 286.809,
+      "minimoMs": 271.1648,
+      "maximoMs": 286.8848,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "documentos",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 1492.2328,
+      "minimoMs": 574.2067,
+      "maximoMs": 1499.284,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 609.0881,
+      "minimoMs": 577.295,
+      "maximoMs": 661.3332,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 103.3439,
+      "minimoMs": 103.1671,
+      "maximoMs": 112.5462,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 10001,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 97.6593,
+      "minimoMs": 89.5007,
+      "maximoMs": 108.3819,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "documentos",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 1778.3948,
+      "minimoMs": 1715.3682,
+      "maximoMs": 2258.9068,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 760.5252,
+      "minimoMs": 618.2765,
+      "maximoMs": 1587.8443,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 145.8925,
+      "minimoMs": 138.2369,
+      "maximoMs": 220.6241,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 1,
+      "atrasoMs": 0,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 185.1827,
+      "minimoMs": 178.7433,
+      "maximoMs": 202.2488,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "pacientes-lista",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 288.8713,
+      "minimoMs": 280.1546,
+      "maximoMs": 293.2985,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-zefirina",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 515.5088,
+      "minimoMs": 514.8217,
+      "maximoMs": 517.3447,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-silva",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 534.8438,
+      "minimoMs": 533.3308,
+      "maximoMs": 535.2504,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "pacientes-00000012345",
+      "paciente": 0,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 533.236,
+      "minimoMs": 530.3734,
+      "maximoMs": 534.9864,
+      "comandosMin": 1,
+      "comandosMax": 1
+    },
+    {
+      "tela": "documentos",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 591.2266,
+      "minimoMs": 573.114,
+      "maximoMs": 651.2516,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 618.3733,
+      "minimoMs": 599.0256,
+      "maximoMs": 633.9784,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 1037.736,
+      "minimoMs": 1036.7513,
+      "maximoMs": 1039.6236,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 10001,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 4535.8212,
+      "minimoMs": 4533.7083,
+      "maximoMs": 4543.4779,
+      "comandosMin": 28,
+      "comandosMax": 28
+    },
+    {
+      "tela": "documentos",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 2673.043,
+      "minimoMs": 1793.6603,
+      "maximoMs": 2675.237,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "infusoes",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 627.1043,
+      "minimoMs": 613.0928,
+      "maximoMs": 636.3924,
+      "comandosMin": 2,
+      "comandosMax": 2
+    },
+    {
+      "tela": "prontuario",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 1075.239,
+      "minimoMs": 1073.7377,
+      "maximoMs": 1076.9824,
+      "comandosMin": 6,
+      "comandosMax": 6
+    },
+    {
+      "tela": "ficha",
+      "paciente": 1,
+      "atrasoMs": 250,
+      "fase": "antes2",
+      "amostras": 3,
+      "medianaMs": 4572.3951,
+      "minimoMs": 4564.199,
+      "maximoMs": 4576.7124,
+      "comandosMin": 28,
+      "comandosMax": 28
+    }
+  ],
+  "jev": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "ganhos": {
+        "type": "choice",
+        "choice": "adequado",
+        "confidence": 0.97,
+        "probabilities": {
+          "adequado": 0.98,
+          "ajustar": 0.01,
+          "insuficiente": 0.01
+        }
+      },
+      "indices": {
+        "type": "choice",
+        "choice": "adequado",
+        "confidence": 0.46,
+        "probabilities": {
+          "adequado": 0.64,
+          "ajustar": 0.32,
+          "insuficiente": 0.04
+        }
+      },
+      "producao": {
+        "type": "choice",
+        "choice": "adequado",
+        "confidence": 0.91,
+        "probabilities": {
+          "adequado": 0.94,
+          "ajustar": 0.05,
+          "insuficiente": 0.01
+        }
+      },
+      "telas": {
+        "type": "choice",
+        "choice": "adequado",
+        "confidence": 0.55,
+        "probabilities": {
+          "adequado": 0.7,
+          "ajustar": 0.21,
+          "insuficiente": 0.09
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 11749,
+      "output_tokens": 183
+    }
+  }
+}

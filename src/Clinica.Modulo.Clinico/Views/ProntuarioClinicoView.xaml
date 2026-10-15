@@ -33,8 +33,23 @@
                 <TabControl Background="Transparent" BorderThickness="0">
                     <TabItem Header="Evoluções médicas">
                 <Grid>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Sessoes}">
+                        <ItemsControl ItemsSource="{Binding Sessoes}"
+                                      VirtualizingPanel.IsVirtualizing="True"
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      VirtualizingPanel.ScrollUnit="Pixel">
+                            <!-- O viewport precisa limitar o painel: um ScrollViewer externo
+                                 mede a lista inteira e cria todos os controles do histórico. -->
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
@@ -109,7 +124,6 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </ScrollViewer>
 
                     <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
                                        Carregando="{Binding Carregando}"
