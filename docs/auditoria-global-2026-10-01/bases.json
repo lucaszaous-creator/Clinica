@@ -1,0 +1,32 @@
+{
+  "Clinica": {
+    "commit": "e6dec9abddb6242b1faaec79a48cc62c054ca79c",
+    "ref": "origin/main",
+    "arquivos_git": 1817,
+    "fontes_extraidas": 1128,
+    "head_local": "e6dec9abddb6242b1faaec79a48cc62c054ca79c"
+  },
+  "clinica-site": {
+    "commit": "cc45636a9c8894605b81c39fffe84333e6065553",
+    "ref": "origin/main",
+    "arquivos_git": 328,
+    "fontes_extraidas": 48,
+    "head_local": "a8bb98989d90d1100cf6d6e0cb4a4a6e2beb28d7"
+  },
+  "semdor-crm": {
+    "commit": "33c9ffcb836286c27a61bf1f91640a62acb5b70c",
+    "ref": "origin/main",
+    "arquivos_git": 810,
+    "fontes_extraidas": 509,
+    "head_local": "33c9ffcb836286c27a61bf1f91640a62acb5b70c"
+  },
+  "contagens": {
+    "arquivos": 2955,
+    "superficies": 263,
+    "controles": 6743,
+    "funcoes": 7986,
+    "rotas": 182,
+    "links": 430,
+    "navegacao": 443
+  }
+}

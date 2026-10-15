@@ -1,0 +1,444 @@
+﻿repo,arquivo,linha,declaracao
+Clinica,src/Clinica.Desktop.Shell/Componentes/BuscaCidViewModel.cs,39,Inicial = null)
+Clinica,src/Clinica.Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs,435,"Inicial = TipoDocumentoClinico.Receita,"
+Clinica,src/Clinica.Desktop.Shell/Componentes/EnfermagemViewModel.cs,252,"Inicial = NaturezaRegistroClinico.SessaoMedica,"
+Clinica,src/Clinica.Desktop.Shell/Componentes/EnfermagemViewModel.cs,445,NavegacaoSuite.Existe(ChavesSuite.AtendimentoEnfermagem))
+Clinica,src/Clinica.Desktop.Shell/Componentes/EnfermagemViewModel.cs,463,NavegacaoSuite.Ir(ChavesSuite.AtendimentoEnfermagem)) return
+Clinica,src/Clinica.Desktop.Shell/Componentes/FolhaDaSessaoViewModel.cs,474,"Rotulo = d.Rotulo,"
+Clinica,src/Clinica.Desktop.Shell/Componentes/InfusaoExternaViewModel.cs,42,Inicial = agendamentoId; _retificaPrescricaoId = retificaPrescricaoId;
+Clinica,src/Clinica.Desktop.Shell/Componentes/LinhaDoTempoClinicaViewModel.cs,412,"Rotulo = RotuloCurto(n),"
+Clinica,src/Clinica.Desktop.Shell/Componentes/MapaCorporalViewModel.cs,50,Rotulo => string.IsNullOrWhiteSpace(Nome)
+Clinica,src/Clinica.Desktop.Shell/Componentes/MapaCorporalViewModel.cs,54,"Rotulo => Face == FaceCorpo.Frente ? ""frente"" : ""costas"";"
+Clinica,src/Clinica.Desktop.Shell/Componentes/PacoteVendaViewModel.cs,212,Rotulo = p.SessoesIncluidas is { } n
+Clinica,src/Clinica.Desktop.Shell/Modulos/ItemMenuModulo.cs,219,Grupo = grupo;
+Clinica,src/Clinica.Desktop.Shell/Modulos/ModuloContextual.cs,11,"Chave = i.Chave, Rotulo = i.Rotulo, Grupo = i.Grupo, Glifo = i.Glifo, Icone = i.Icone,"
+Clinica,src/Clinica.Desktop.Shell/Modulos/ModuloContextual.cs,12,"Requer = i.Requer, RequerAlgum = i.RequerAlgum, PerfilExclusivo = i.PerfilExclusivo, Oculto = !visiveis.Contains(i.Chave), Abas = i.Abas"
+Clinica,src/Clinica.Desktop.Shell/Modulos/OrganizacaoNavegacao.cs,51,"Chave = item.Chave, Rotulo = rotulo, Grupo = grupo,"
+Clinica,src/Clinica.Desktop.Shell/Modulos/OrganizacaoNavegacao.cs,52,"Requer = requer, RequerAlgum = requerAlgum, PerfilExclusivo = item.PerfilExclusivo,"
+Clinica,src/Clinica.Desktop.Shell/Modulos/OrganizacaoNavegacao.cs,53,"Inicial = item.Inicial, Oculto = oculto, Abas = abas };"
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,39,"Chave=""treinamento"",Rotulo=""Treinamento"",Glifo="""",Oculto=true};"
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,140,Rotulo = sessao?.Rotulo ?? Environment.UserName;
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,150,RequerAlgum == Permissao.Nenhuma || sessao?.PodeAlgum(i.RequerAlgum) != false)
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,160,Chave == item.Chave)) continue;
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,171,Chave==k)).ToHashSet(StringComparer.Ordinal);
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,177,Chave==chave))mudou|=_telasTreinamento.Add(chave);
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,194,"Chave == ""consultorio-agenda"" && Itens.Any(x => x.Chave == ""agenda"" && !x.Oculto)) && i.Abas.Count > 0 && AbasDisponiveis(i).Count > 0)"
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,218,"Chave == ""consultorio-agenda"" && Itens.Any(x => x.Chave == ""agenda"" && !x.Oculto))"
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,250,Chave == ChavesSuite.SalaInfusao)
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,306,Chave == aba.Chave);
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,325,Chave == chave)) return false;
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,328,Chave == chave));
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,334,Chave == chave);
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,340,Chave == chave);
+Clinica,src/Clinica.Desktop.Shell/Shell/ShellViewModel.cs,382,"Chave==""treinamento"")return new Treinamento.TreinamentoView("
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,25,Chave == ChavesSuite.FaturamentoTiss);
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,26,"Chave == ""faturamento-resumo"");"
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,28,Chave == i.Chave))
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,29,"new AbaMenu(i.Rotulo, i.Chave))).ToArray()"
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,32,"Chave = i.Chave, Rotulo = i.Rotulo, Glifo = i.Glifo, Icone = i.Icone,"
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,33,"Grupo = GrupoSidebar.Financeiro, Requer = i.Requer, RequerAlgum = i.RequerAlgum,"
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,34,"PerfilExclusivo = i.PerfilExclusivo, Inicial = i.Chave == raiz.Chave,"
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,35,"Oculto = i.Chave != raiz.Chave, Abas = i.Chave == raiz.Chave ? abas : i.Abas"
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,36,Chave == ChavesSuite.RetornoPacientes)).ToArray();
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,47,Chave == chave)) return null;
+Clinica,src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs,48,Chave == chave));
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,236,"Chave = ChaveSessoesEnfermagem, Rotulo = ""Sessões de enfermagem"", Glifo = """", Icone = ""coracao"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,237,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.RegistrarEvolucaoEnfermagem,"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,238,PerfilExclusivo = PerfilAcesso.Enfermagem
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,251,"Chave = ChaveGrupoAgenda, Rotulo = ""Minha agenda"", Glifo = """", Icone = ""sol"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,252,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,255,"new AbaMenu(""Hoje"", ChaveMeuDia),"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,256,"new AbaMenu(""Semana"", ChaveMinhaSemana),"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,257,"new AbaMenu(""Sem evolução"", ChaveRegistrosPendentes)"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,262,"Chave = ChaveMeuDia, Rotulo = ""Meu dia"", Glifo = """", Icone = ""sol"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,263,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,267,"Chave = ChaveRegistrosPendentes, Rotulo = ""Sessões sem evolução"", Glifo = """", Icone = ""cheque"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,268,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerProntuario"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,272,"Chave = ChaveMinhaSemana, Rotulo = ""Minha semana"", Glifo = """", Icone = ""semana"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,273,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,277,"Chave = ChaveGrupoPacientes, Rotulo = ""Pacientes"", Glifo = """", Icone = ""pessoa"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,278,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario,"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,281,"new AbaMenu(""Buscar pacientes"", ChavePacientesDaClinica)"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,286,"Chave = ChaveGrupoProntuario, Rotulo = ""Prontuário"", Glifo = """", Icone = ""ficha"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,287,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario,"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,290,"new AbaMenu(""Registros e pendências"", ChaveProntuarios),"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,291,"new AbaMenu(""Exames"", ChaveExames)"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,300,"Chave = ChavePacientesDaClinica, Rotulo = ""Pacientes"", Glifo = """", Icone = ""pessoa"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,301,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,308,"Chave = ChaveProntuarios, Rotulo = ""Prontuários"", Glifo = """", Icone = ""ficha"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,309,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,313,"Chave = ChaveExames, Rotulo = ""Exames"", Glifo = """", Icone = ""lista"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,314,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,318,"Chave = ChaveGrupoPrescricoes, Rotulo = ""Prescrições"", Glifo = """", Icone = ""rx"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,319,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario,"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,322,"new AbaMenu(""Receitas e documentos"", ChavePrescricoes),"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,323,"new AbaMenu(""Infusão"", ChavePrescricaoInfusao)"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,328,"Chave = ChavePrescricoes, Rotulo = ""Prescrições"", Glifo = """", Icone = ""rx"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,329,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,333,"Chave = ChavePrescricaoInfusao, Rotulo = ""Prescrição de infusão"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,334,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.Prescrever"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,346,"Chave = ChaveGrupoEnfermagem, Rotulo = ""Infusões e enfermagem"", Glifo = """", Icone = ""coracao"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,347,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerAgenda,"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,350,"new AbaMenu(""Sala de infusão"", ChaveSalaInfusao),"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,351,"new AbaMenu(""Passagens"", ChaveEnfermagem)"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,356,"Chave = ChaveSalaInfusao, Rotulo = ""Sala de infusão"", Glifo = """", Icone = ""gota"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,357,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,367,"Chave = ChaveEnfermagem, Rotulo = ""Enfermagem"", Glifo = """", Icone = ""coracao"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,368,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.RegistrarEvolucaoEnfermagem"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,372,"Chave = ChaveMeusNumeros, Rotulo = ""Meus números"", Glifo = """", Icone = ""numeros"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,373,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAgenda"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,386,"Chave = ChavePaciente, Rotulo = ""Paciente"", Glifo = """", Icone = ""pessoa"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,387,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,391,"Chave = ChaveAtendimento, Rotulo = ""Atendimento"", Glifo = """", Icone = ""prancheta"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,392,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,404,"Chave = ChaveAtendimentoEnfermagem, Rotulo = ""Atendimento de enfermagem"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,405,"Grupo = GrupoSidebar.Atendimento,"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,406,"Requer = Permissao.VerProntuario, Oculto = true"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,410,"Chave = ChaveProntuario, Rotulo = ""Prontuário"", Glifo = """", Icone = ""ficha"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,411,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,415,"Chave = ChaveEvolucaoDor, Rotulo = ""Evolução da dor"", Glifo = """", Icone = ""grafico"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,416,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,420,"Chave = ChaveMedidas, Rotulo = ""Medidas"", Glifo = """", Icone = ""barras"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,421,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,425,"Chave = ChaveAvaliacoes, Rotulo = ""Avaliações"", Glifo = """", Icone = ""cheque"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,426,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,433,"Chave = ChaveExamesDoPaciente, Rotulo = ""Exames e anexos"", Glifo = """", Icone = ""pasta"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,434,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true"
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,441,"Chave = ChaveAjuda, Rotulo = ""Ajuda e suporte"", Glifo = """", Icone = ""ajuda"","
+Clinica,src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs,442,Grupo = GrupoSidebar.Gestao
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnamneseViewModel.cs,163,"Chave == SecaoEscolhida)?.Rotulo ?? ""Anamnese"";"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnamneseViewModel.cs,202,"Chave = ChaveAntecedentesPessoais, Rotulo = ""Antecedentes pessoais"" });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnamneseViewModel.cs,203,"Chave = ChaveAntecedentesFamiliares, Rotulo = ""Antecedentes familiares"" });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnamneseViewModel.cs,204,"Chave = ChaveHabitosDeVida, Rotulo = ""Hábitos de vida"" });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnamneseViewModel.cs,205,"Chave = ChaveRevisaoDeSistemas, Rotulo = ""Interrogatório"" });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnamneseViewModel.cs,206,"Chave = ChaveHistoriaObstetrica, Rotulo = ""História obstétrica"" });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnamneseViewModel.cs,207,"Chave = ChaveObservacoes, Rotulo = ""Observações"" });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnamneseViewModel.cs,212,Chave == SecaoEscolhida;
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnexosPacienteViewModel.cs,120,Chave == SecaoEscolhida;
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnexosPacienteViewModel.cs,138,"Chave = SecaoAguardando, Rotulo = ""Aguardando"", Quantidade = PedidosAguardando.Count });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnexosPacienteViewModel.cs,139,"Chave = SecaoResultados, Rotulo = ""Com resultado"", Quantidade = Resultados.Count });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnexosPacienteViewModel.cs,140,"Chave = SecaoArquivos, Rotulo = ""Arquivos da ficha"", Quantidade = ArquivosDaFicha.Count });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnexosPacienteViewModel.cs,141,"Chave = SecaoSessoes, Rotulo = ""Anexos de sessão"", Quantidade = Anexos.Count });"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AnexosPacienteViewModel.cs,146,Chave == SecaoEscolhida;
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AplicarAvaliacaoViewModel.cs,28,"Rotulo => $""{Numero}. {Enunciado}"";"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AtendimentoEnfermagemViewModel.cs,218,"Inicial = NaturezaRegistroClinico.SessaoMedica,"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AtendimentoViewModel.cs,214,"Rotulo => TermoAConferir ? ""Termo assinado · conferir"" : ""Termo não assinado · colher"";"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/AtendimentoViewModel.cs,717,Inicial = Clinica.Domain.Prontuario.NaturezaRegistroClinico.EvolucaoEnfermagem
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/EvolucaoDorViewModel.cs,83,"Inicial = ""—"";"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/EvolucaoDorViewModel.cs,175,"Inicial = DorAtual = GanhoAcumulado = AlivioMedio = ""—"";"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/EvolucaoDorViewModel.cs,185,"Inicial = $""{dor.DorInicial}/10"";"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/ExamesViewModel.cs,222,NavegacaoSuite.Ir(ModuloClinico.ChaveExamesDoPaciente))
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/MedidasViewModel.cs,313,"Rotulo = ""IMC (calculado)"","
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/MedidasViewModel.cs,333,"Rotulo = m.TipoNome,"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/MedidasViewModel.cs,588,NavegacaoSuite.Ir(ModuloClinico.ChaveProntuario)
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/MeuDiaViewModel.cs,702,NavegacaoSuite.Ir(PostoClinico.ChaveDoAtendimento())
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/MeuDiaViewModel.cs,753,NavegacaoSuite.Ir(ModuloClinico.ChaveRegistrosPendentes)
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/MeusNumerosViewModel.cs,377,NavegacaoSuite.Ir(ModuloClinico.ChaveRegistrosPendentes)
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/MinhaSemanaViewModel.cs,254,NavegacaoSuite.Ir(ModuloClinico.ChavePaciente)
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/PacienteCapaViewModel.cs,43,"Rotulo = p.Rotulo,"
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/PacienteWorkspaceViewModel.cs,408,NavegacaoSuite.Ir(ChaveDeVolta(_foco.AgendamentoId))
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/PacienteWorkspaceViewModel.cs,413,NavegacaoSuite.Existe(ModuloClinico.ChaveMeuDia)
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/PrescricaoInfusaoViewModel.cs,144,Inicial = true };
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/PrescricoesClinicasViewModel.cs,212,Inicial = true };
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/PrescricoesClinicasViewModel.cs,429,NavegacaoSuite.Ir(ChavesSuite.ConsultorioPrescricaoInfusao)
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/PrescricoesClinicasViewModel.cs,440,NavegacaoSuite.Existe(ChavesSuite.ConsultorioPrescricaoInfusao)
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/ProntuarioClinicoViewModel.cs,158,Inicial = NaturezaRegistroClinico.EvolucaoEnfermagem
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/ProntuariosViewModel.cs,160,NavegacaoSuite.Ir(PostoClinico.ChaveDoAtendimento()))
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/ProntuariosViewModel.cs,186,NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento))
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/RegistrosPendentesViewModel.cs,236,NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento)
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/ResultadosDoPedidoViewModel.cs,43,Rotulo => _pedido.ExameRotulo;
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/ResultadosDoPedidoViewModel.cs,160,NavegacaoSuite.Ir(ModuloClinico.ChaveExamesDoPaciente))
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/ResumoProntuarioViewModel.cs,71,Inicial => _documentoAnamneseId is null ? 0 : 1;
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/ResumoProntuarioViewModel.cs,236,NavegacaoSuite.Ir(ModuloClinico.ChaveProntuario))
+Clinica,src/Clinica.Modulo.Clinico/ViewModels/SessoesEnfermagemViewModel.cs,56,NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimentoEnfermagem)
+Clinica,src/Clinica.Modulo.Faturamento/Modulo/ModuloFaturamento.cs,24,"Chave = ChavesSuite.FaturamentoTiss, Rotulo = ""Faturamento de guias"", Glifo = """", Icone = ""recibo"", Grupo = GrupoSidebar.Financeiro,"
+Clinica,src/Clinica.Modulo.Faturamento/Modulo/ModuloFaturamento.cs,25,"Requer = Permissao.VerFaturamento, Abas = new[] { new AbaMenu(""Resumo"", ""faturamento-resumo"") }.Concat(Destinos.Take(6).Select(d => new AbaMenu(d.Rotulo,d.Chave))).ToArray() }"
+Clinica,src/Clinica.Modulo.Faturamento/Modulo/ModuloFaturamento.cs,26,"Chave = d.Chave, Rotulo = d.Rotulo, Glifo = """", Icone = ""recibo"", Requer = d.Permissao,"
+Clinica,src/Clinica.Modulo.Faturamento/Modulo/ModuloFaturamento.cs,27,Grupo = d.Secao == Secao.Parametros ? GrupoSidebar.Gestao : d.Secao == Secao.Relatorios ? GrupoSidebar.Inteligencia : GrupoSidebar.Financeiro })).ToArray();
+Clinica,src/Clinica.Modulo.Faturamento/Modulo/ModuloFaturamento.cs,43,Chave == chave);
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/GlosasViewModel.cs,23,Rotulo => PrazoRecurso is null
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/GlosasViewModel.cs,33,"Rotulo => $""{Ocorrencias}× · {Codigo} — {Descricao}"";"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,51,Rotulo = string.Empty;
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,82,Rotulo = SessaoUsuario.Atual.Rotulo;
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,98,"Rotulo = ""Pendências"", Glifo = """", Grupo = ""Painel"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,99,"Requer = Permissao.VerFaturamento },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,100,"Rotulo = ""NC"", Glifo = """", Grupo = ""Painel"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,101,"Requer = Permissao.VerFaturamento },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,102,"Rotulo = ""Agenda"", Glifo = """", Grupo = ""Agenda"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,103,"Requer = Permissao.VerAgenda },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,104,"Rotulo = ""Consultar guias"", Glifo = """", Grupo = ""Faturamento"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,105,"Requer = Permissao.VerFaturamento },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,106,"Rotulo = ""Faturados"", Glifo = """", Grupo = ""Faturamento"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,107,"Requer = Permissao.VerFaturamento },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,108,"Rotulo = ""Glosas"", Glifo = """", Grupo = ""Faturamento"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,109,"Requer = Permissao.VerFaturamento },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,110,"Rotulo = ""Guias TISS"", Glifo = """", Grupo = ""Faturamento"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,111,"Requer = Permissao.VerFaturamento },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,112,"Rotulo = ""Pacientes"", Glifo = """", Grupo = ""Cadastros e ajustes"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,113,"Requer = Permissao.VerFichaPaciente },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,114,"Rotulo = ""Relatórios"", Glifo = """", Grupo = ""Cadastros e ajustes"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,115,"Requer = Permissao.VerIndicadores },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,121,"Rotulo = ""Acessos"", Glifo = """", Grupo = ""Cadastros e ajustes"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,122,"Requer = Permissao.GerenciarUsuarios },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,123,"Rotulo = ""Configurações"", Glifo = """", Grupo = ""Cadastros e ajustes"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,124,"Requer = Permissao.ConfigurarFaturamento },"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,335,"Rotulo = p.Nome,"
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,337,"Grupo = ""Paciente"","
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,391,NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.PacientesRecepcao)
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,394,NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.Agenda)
+Clinica,src/Clinica.Modulo.Faturamento/ViewModels/MainViewModel.cs,460,NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.Acessos)
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,76,"Chave = ChaveGrupoCaixa, Rotulo = ""Caixa"", Glifo = """", Icone = ""cofre"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,77,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,80,"new AbaMenu(""Caixa"", ChaveCaixa),"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,81,"new AbaMenu(""Fechamento"", ChaveFechamento),"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,82,"new AbaMenu(""Fluxo"", ChaveFluxo)"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,87,"Chave = ChaveGrupoContas, Rotulo = ""Contas"", Glifo = """", Icone = ""lista"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,88,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,94,"new AbaMenu(""A pagar/receber"", ChaveContas),"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,95,"new AbaMenu(""Quem me deve"", ChaveInadimplencia),"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,96,"new AbaMenu(""Plano de contas"", ChavePlanoContas)"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,101,"Chave = ChaveGrupoRecebimentos, Rotulo = ""Recebimentos"", Glifo = """", Icone = ""cartao"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,102,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,105,"new AbaMenu(""Recebíveis de cartão"", ChaveRecebiveis),"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,106,"new AbaMenu(""Conciliação"", ChaveConciliacao),"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,107,"new AbaMenu(""Extrato do banco"", ChaveExtrato),"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,108,"new AbaMenu(""Taxas e impostos"", ChaveTaxas)"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,115,"Chave = ChavePacotes, Rotulo = ""Pacotes"", Glifo = """", Icone = ""caixa"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,116,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VenderPacote"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,120,"Chave = ChaveEstoque, Rotulo = ""Estoque"", Glifo = """", Icone = ""estoque"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,121,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,125,"Chave = ChaveRepasses, Rotulo = ""Repasses"", Glifo = """", Icone = ""repasse"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,126,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,141,"Chave = ChaveCaixa, Rotulo = ""Caixa"", Glifo = """", Icone = ""cofre"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,142,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,146,"Chave = ChaveFechamento, Rotulo = ""Fechamento de caixa"", Glifo = """", Icone = ""cheque"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,147,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,151,"Chave = ChaveFluxo, Rotulo = ""Fluxo de caixa"", Glifo = """", Icone = ""grafico"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,152,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,156,"Chave = ChaveContas, Rotulo = ""Contas a pagar/receber"", Glifo = """", Icone = ""lista"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,157,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,161,"Chave = ChaveInadimplencia, Rotulo = ""Quem me deve"", Glifo = """", Icone = ""pessoa"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,162,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,166,"Chave = ChavePlanoContas, Rotulo = ""Plano de contas"", Glifo = """", Icone = ""lista"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,167,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,171,"Chave = ChaveRecebiveis, Rotulo = ""Recebíveis de cartão"", Glifo = """", Icone = ""cartao"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,172,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,176,"Chave = ChaveConciliacao, Rotulo = ""Conciliação"", Glifo = """", Icone = ""cheque"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,177,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,181,"Chave = ChaveExtrato, Rotulo = ""Extrato do banco"", Glifo = """", Icone = ""recibo"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,182,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,186,"Chave = ChaveTaxas, Rotulo = ""Taxas e impostos"", Glifo = """", Icone = ""etiqueta"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,187,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,191,"Chave = ChaveResultado, Rotulo = ""Resultado do mês"", Glifo = """", Icone = ""grafico"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,192,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,196,"Chave = ChaveProducao, Rotulo = ""Produção"", Glifo = """", Icone = ""barras"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,197,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,204,"Chave = ChaveAjuda, Rotulo = ""Ajuda e suporte"", Glifo = """", Icone = ""ajuda"","
+Clinica,src/Clinica.Modulo.Financeiro/Modulo/ModuloFinanceiro.cs,205,Grupo = GrupoSidebar.Gestao
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/CaixaViewModel.cs,227,"Rotulo = Rotular(l.Status),"
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/CaixaViewModel.cs,271,Rotulo == FiltroSituacao)
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/EstoqueViewModel.cs,485,Grupo == GrupoEstoque.Medicamento)
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/EstoqueViewModel.cs,489,Grupo == GrupoEstoque.Medicamento)
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/EstoqueViewModel.cs,669,Grupo = item.Grupo;
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/EstoqueViewModel.cs,731,"Grupo = Grupo, Uso = Uso, ExigirLote = ExigirLote, ExigirValidade = ExigirValidade,"
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/FluxoCaixaViewModel.cs,47,"Rotulo = c.Categoria,"
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/FluxoCaixaViewModel.cs,50,"Rotulo = $""{c.Total:C} · {c.Fracao:P0} ({c.Quantidade})"","
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/LancamentoEdicaoViewModel.cs,118,Inicial = true };
+Clinica,src/Clinica.Modulo.Financeiro/ViewModels/RepassesViewModel.cs,78,"Rotulo => $""{Inicio:dd/MM/yyyy} a {Fim:dd/MM/yyyy}"";"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,89,"Chave = ChaveGrupoPainel, Rotulo = ""Painel"", Glifo = """", Icone = ""painel"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,90,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores, Inicial = true,"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,93,"new AbaMenu(""Direção"", ChavePainel),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,94,"new AbaMenu(""Recepção"", ChavesSuite.PainelRecepcao),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,95,"new AbaMenu(""Meu dia"", ChavesSuite.ConsultorioMeuDia)"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,110,"Chave = ChaveFaturamento, Rotulo = ""Resumo de faturamento"", Glifo = """", Icone = ""recibo"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,111,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFaturamento"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,118,"Chave = ChaveGrupoPrecos, Rotulo = ""Tabela de preço"", Glifo = """", Icone = ""etiqueta"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,119,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,122,"new AbaMenu(""Convênios"", ChavePrecos),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,123,"new AbaMenu(""Particular"", ChavesSuite.PrecosParticular)"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,134,"Chave = ChaveGrupoRelatorios, Rotulo = ""Relatórios / BI"", Glifo = """", Icone = ""grafico"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,135,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores,"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,138,"new AbaMenu(""Indicadores"", ChaveIndicadores),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,139,"new AbaMenu(""Metas"", ChaveMetas),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,140,"new AbaMenu(""Resultado do mês"", ChavesSuite.Resultado),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,141,"new AbaMenu(""Produção"", ChavesSuite.Producao),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,142,"new AbaMenu(""Meus números"", ChavesSuite.ConsultorioMeusNumeros)"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,147,"Chave = ChaveGrupoRentabilidade, Rotulo = ""Rentabilidade e custos"", Glifo = """", Icone = ""pizza"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,148,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro,"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,151,"new AbaMenu(""Por convênio"", ChaveRentabilidade),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,152,"new AbaMenu(""Custo de taxas e impostos"", ChaveCusto)"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,161,"Chave = ChaveGrupoMarketing, Rotulo = ""Marketing / Recall"", Glifo = """", Icone = ""mega"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,162,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas,"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,165,"new AbaMenu(""Campanhas"", ChaveCampanhas),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,166,"new AbaMenu(""Quem parou de vir"", ChaveRetencao),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,167,"new AbaMenu(""Acompanhamento de pacientes"", ChavesSuite.RetornoPacientes),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,168,"new AbaMenu(""De onde vêm os pacientes"", ChaveOrigens)"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,181,"Chave = ChaveGrupoConformidade, Rotulo = ""Conformidade e acessos"", Glifo = """", Icone = ""escudo"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,182,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria,"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,185,"new AbaMenu(""Auditoria"", ChaveAuditoria),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,190,"new AbaMenu(""Documentos emitidos"", ChaveDocumentosEmitidos),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,191,"new AbaMenu(""Guarda do prontuário"", ChaveGuarda),"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,192,"new AbaMenu(""Acessos"", ChaveAcessos)"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,197,"Chave = ChaveConfiguracoes, Rotulo = ""Configurações"", Glifo = """", Icone = ""engr"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,198,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,206,"Chave = ChaveImportacao, Rotulo = ""Importar pacientes"", Glifo = """", Icone = ""importar"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,207,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.EditarPaciente"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,215,"Chave = ChavePainel, Rotulo = ""Painel da direção"", Glifo = """", Icone = ""painel"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,216,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,220,"Chave = ChaveIndicadores, Rotulo = ""Relatórios / BI"", Glifo = """", Icone = ""grafico"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,221,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,225,"Chave = ChavePrecos, Rotulo = ""Tabela de preço por convênio"", Glifo = """", Icone = ""etiqueta"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,226,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,233,"Chave = ChavesSuite.PrecosParticular, Rotulo = ""Preços do particular"", Glifo = """", Icone = ""etiqueta"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,234,"Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro, Oculto = true"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,238,"Chave = ChaveMetas, Rotulo = ""Metas"", Glifo = """", Icone = ""alvo"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,239,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,243,"Chave = ChaveRentabilidade, Rotulo = ""Rentabilidade por convênio"", Glifo = """", Icone = ""pizza"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,244,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,248,"Chave = ChaveCusto, Rotulo = ""Custo de taxas e impostos"", Glifo = """", Icone = ""pizza"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,249,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,253,"Chave = ChaveCampanhas, Rotulo = ""Campanhas"", Glifo = """", Icone = ""mega"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,254,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,258,"Chave = ChaveRetencao, Rotulo = ""Quem parou de vir"", Glifo = """", Icone = ""volta"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,259,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,263,"Chave = ChaveOrigens, Rotulo = ""De onde vêm os pacientes"", Glifo = """", Icone = ""mega"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,264,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,268,"Chave = ChaveAuditoria, Rotulo = ""Auditoria"", Glifo = """", Icone = ""escudo"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,269,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,279,"Chave = ChaveDocumentosEmitidos, Rotulo = ""Documentos emitidos"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,281,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerDocumentos"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,285,"Chave = ChaveGuarda, Rotulo = ""Guarda do prontuário"", Glifo = """", Icone = ""estoque"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,286,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,290,"Chave = ChaveAcessos, Rotulo = ""Acessos"", Glifo = """", Icone = ""escudo"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,291,"Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios"
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,298,"Chave = ChaveAjuda, Rotulo = ""Ajuda e suporte"", Glifo = """", Icone = ""ajuda"","
+Clinica,src/Clinica.Modulo.Gerente/Modulo/ModuloGerente.cs,299,Grupo = GrupoSidebar.Gestao
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/CampanhasViewModel.cs,225,NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.ConfirmacoesAgenda)
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/CampanhasViewModel.cs,233,NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.RetornoPacientes)
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/CamposPersonalizadosViewModel.cs,100,"Rotulo = c.Rotulo,"
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/CamposPersonalizadosViewModel.cs,151,Rotulo = achado.Rotulo;
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/CamposPersonalizadosViewModel.cs,172,Rotulo = null;
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/CamposPersonalizadosViewModel.cs,194,"Rotulo = Rotulo ?? string.Empty,"
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/ConfiguracoesViewModel.cs,71,Rotulo => string.IsNullOrWhiteSpace(ChavePix)
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/ConfiguracoesViewModel.cs,438,Chave = doAmbiente.Chave;
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/ConfiguracoesViewModel.cs,448,Chave = chave;
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/CustoTransacaoViewModel.cs,148,"Rotulo = a.Adquirente,"
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/CustoTransacaoViewModel.cs,149,"Rotulo = $""{a.Taxa:C} de {a.Bruto:C} ({a.Quantidade})"","
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/ImportacaoPacientesViewModel.cs,20,Rotulo => CamposImportacao.Rotulo(Campo);
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/MetasViewModel.cs,179,"Rotulo = MetaMensal.Rotular(m.Indicador),"
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/ModelosTermoViewModel.cs,549,"Rotulo => Ativa ? ""Desligar"" : ""Ligar"";"
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/OrigensViewModel.cs,108,"Rotulo = l.Rotulo,"
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/PainelDirecaoViewModel.cs,54,"Rotulo = m.Rotulo + (m.Profissional is { } prof ? $"" · {prof}"" : string.Empty),"
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/PainelDirecaoViewModel.cs,99,NavegacaoSuite.Existe(value)
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/PainelDirecaoViewModel.cs,106,NavegacaoSuite.Ir(Destino)
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/PainelDirecaoViewModel.cs,299,Rotulo = rotulo
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/RentabilidadeConvenioViewModel.cs,34,"Rotulo = c.Convenio,"
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/RentabilidadeConvenioViewModel.cs,35,"Rotulo = $""{c.Liquido:C} líquido em {c.Guias} guia(s)"","
+Clinica,src/Clinica.Modulo.Gerente/ViewModels/UsuarioEdicaoViewModel.cs,156,"Rotulo = PerfisAcesso.Rotular(p),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,135,"Chave = ChaveConfirmacoes, Rotulo = ""Confirmações de agenda"", Glifo = """", Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda },"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,138,"Chave = ChavePagamentos, Rotulo = ""Pagamentos"", Glifo = """", Icone = ""recibo"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,139,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,147,"Chave = ChavePainel, Rotulo = ""Início"", Glifo = """", Icone = ""home"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,148,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda, Inicial = true"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,165,"Chave = ChaveGrupoAgenda, Rotulo = ""Agenda"", Glifo = """", Icone = ""cal"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,166,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,169,"new AbaMenu(""Dia"", ChaveFila),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,170,"new AbaMenu(""Grade"", ChaveAgenda),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,171,"new AbaMenu(""Semana do profissional"", ChavesSuite.ConsultorioSemana)"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,179,"Chave = ChaveFila, Rotulo = ""Agenda do dia"", Glifo = """", Icone = ""dia"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,180,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,194,"Chave = ChaveSalaInfusao, Rotulo = ""Sala de infusão"", Glifo = """", Icone = ""gota"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,195,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.ChecarPrescricao"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,205,"Chave = ChaveEnfermagem, Rotulo = ""Enfermagem"", Glifo = """", Icone = ""coracao"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,206,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.RegistrarEvolucaoEnfermagem"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,212,"Chave = ChaveEquipe, Rotulo = ""Profissionais e salas"", Glifo = """", Icone = ""equipe"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,213,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.GerenciarEquipe"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,229,"Chave = ChaveGrupoPacientes, Rotulo = ""Pacientes"", Glifo = """", Icone = ""pessoa"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,230,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente,"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,233,"new AbaMenu(""Cadastro"", ChavePacientes),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,234,"new AbaMenu(""Em tratamento"", ChavesSuite.ConsultorioPacientes)"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,240,"Chave = ChaveGrupoAtendimento, Rotulo = ""Marcar"", Glifo = """", Icone = ""cal"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,241,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.EditarAgenda,"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,245,"new AbaMenu(""Marcar"", ChaveMarcarHorario),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,246,"new AbaMenu(""Retornos a marcar"", ChaveRetornosAMarcar),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,247,"new AbaMenu(""Lançamentos"", ChaveLancamentos),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,248,"new AbaMenu(""Consultas de convênio"", ChaveConsultas)"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,263,"Chave = ChaveProntuario, Rotulo = ""Prontuário"", Glifo = """", Icone = ""ficha"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,264,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,278,"Chave = ChaveGrupoProntuario, Rotulo = ""Prontuário"", Glifo = """", Icone = ""ficha"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,279,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario,"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,282,"new AbaMenu(""Por paciente"", ChaveProntuario),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,283,"new AbaMenu(""Registros e pendências"", ChavesSuite.ConsultorioProntuarios),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,284,"new AbaMenu(""Exames"", ChavesSuite.ConsultorioExames)"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,316,"Chave = ChaveDocumentos, Rotulo = ""Documentos"", Glifo = """", Icone = ""pasta"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,323,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerDocumentos"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,336,"Chave = ChaveGrupoParticular, Rotulo = ""Particular e pacotes"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,338,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote,"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,341,"new AbaMenu(""Pacotes"", ChavePacotes),"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,342,"new AbaMenu(""Preço da sessão"", ChavePrecosParticular)"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,352,"Chave = ChaveAgenda, Rotulo = ""Agenda"", Glifo = """", Icone = ""cal"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,353,"Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,357,"Chave = ChavePacientes, Rotulo = ""Pacientes / CRM"", Glifo = """", Icone = ""pessoa"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,358,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,369,"Chave = ChavePacotes, Rotulo = ""Pacotes"", Glifo = """", Icone = ""caixa"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,370,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,374,"Chave = ChavePrecosParticular, Rotulo = ""Preços do particular"", Glifo = """", Icone = ""etiqueta"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,375,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,383,"Chave = ChaveMarcarHorario, Rotulo = ""Marcar horário"", Glifo = """", Icone = ""cal"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,384,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.EditarAgenda"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,388,"Chave = ChaveConsultas, Rotulo = ""Consultas (convênio)"", Glifo = """", Icone = ""recibo"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,389,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,396,"Chave = ChaveLancamentos, Rotulo = ""Lançamentos"", Glifo = """", Icone = ""lista"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,397,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,403,"Chave = ChaveRetornosAMarcar, Rotulo = ""Retornos a marcar"", Glifo = """", Icone = ""volta"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,404,"Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerAgenda"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,411,"Chave = ChaveRetorno, Rotulo = ""Acompanhamento de pacientes"", Glifo = """", Icone = ""volta"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,412,"Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente,"
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,413,RequerAlgum = Permissao.GerenciarCampanhas | Permissao.VerFaturamento
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,423,"Chave = ChaveAjuda, Rotulo = ""Ajuda e suporte"", Glifo = """", Icone = ""ajuda"","
+Clinica,src/Clinica.Modulo.Recepcao/Modulo/ModuloRecepcao.cs,424,Grupo = GrupoSidebar.Gestao
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/AcompanhamentoViewModel.cs,270,"NavegacaoSuite.Ir(Modulo.ModuloRecepcao.ChaveMarcarHorario)) throw new InvalidOperationException(""A agenda não está disponível para este acesso."")"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/AgendaViewModel.cs,115,"Rotulo == ""Confirmou"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/AgendaViewModel.cs,116,"Rotulo == ""Não confirmou"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/AgendaViewModel.cs,1026,"Rotulo = Rotular(a.Status),"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/AgendaViewModel.cs,1036,Rotulo = Confirmacao(a)
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/AgendaViewModel.cs,1144,"Rotulo = hora.ToString(""HH:mm""),"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/AgendaViewModel.cs,1360,NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario))
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/AgendamentoEdicaoViewModel.cs,170,Inicial = true };
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs,356,Inicial = true };
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs,510,"Rotulo = f.Rotulo,"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs,512,Grupo = f.Natureza switch
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs,518,Rotulo = f.Exigencia switch
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs,563,NavegacaoSuite.Existe(ChavesSuite.Caixa)
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs,734,"Rotulo = e.FolhaRotulo,"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/DocumentosViewModel.cs,881,NavegacaoSuite.Ir(ChavesSuite.Caixa)
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FabricaListaPacientes.cs,10,Inicial = secao;
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FechamentoSessaoViewModel.cs,24,"Rotulo => $""saldo {Saldo:0.##} {Unidade}"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FechamentoSessaoViewModel.cs,218,Rotulo = proposta.PacoteADebitar is { } p
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FichaPacienteViewModel.cs,420,"Inicial = ""—"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FichaPacienteViewModel.cs,971,"Inicial = DorAtual = GanhoAcumulado = AlivioMedio = ""—"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FichaPacienteViewModel.cs,979,"Inicial = $""{dor.DorInicial}/10"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FichaPacienteViewModel.cs,1088,NavegacaoSuite.Ir(Modulo.ModuloRecepcao.ChaveAgenda))
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FichaPacienteViewModel.cs,1227,"Rotulo = ConsentimentoService.Rotular(finalidade),"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FichaPacienteViewModel.cs,2167,"Rotulo = $""{DiaDaSemana(a.DataHora)} {a.DataHora:dd/MM} · {a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}"","
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FilaViewModel.cs,416,"Rotulo => $""{Nome} · {Quantidade}"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FilaViewModel.cs,451,NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario))
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FilaViewModel.cs,1095,"Rotulo = confirmacao,"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FilaViewModel.cs,1664,NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario)) return
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/FilaViewModel.cs,1768,NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda))
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/LancamentosViewModel.cs,351,"Rotulo = atendimento.Data.ToString(""dd/MM""),"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/ListaEsperaEdicaoViewModel.cs,62,Inicial = true };
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/NovoAtendimentoViewModel.cs,34,Rotulo => RotularTipo(Codigo.Tipo);
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/NovoAtendimentoViewModel.cs,36,Rotulo => Codigo.EspecialidadeCodigo is { } cod
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/NovoAtendimentoViewModel.cs,40,"Rotulo => Codigo.Ordem == OrdemCodigo.Segundo ? ""2º"" : ""1º"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/NovoAtendimentoViewModel.cs,684,Inicial = PacientesComHorarioHojeAsync;
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/NovoAtendimentoViewModel.cs,2312,Chave = _scopeFactory.CreateScope();
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/PacientesViewModel.cs,111,"Inicial = true, ConsultaPersonalizada = BuscarListaAsync };"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/PagamentosViewModel.cs,44,Inicial = true };
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/ProfissionalEdicaoViewModel.cs,105,"Rotulo = $""{modalidade.Nome} · {especialidade.Nome}"", Habilitado = true"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/ProfissionalEdicaoViewModel.cs,111,"Rotulo = modalidade.Nome, Habilitado = true"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/ProntuarioViewModel.cs,69,"Inicial = ""—"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/ProntuarioViewModel.cs,118,Inicial = true };
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/ProntuarioViewModel.cs,288,"Inicial = DorAtual = GanhoAcumulado = AlivioMedio = ""—"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/ProntuarioViewModel.cs,296,"Inicial = $""{dor.DorInicial}/10"";"
+Clinica,src/Clinica.Modulo.Recepcao/ViewModels/RetornosAMarcarViewModel.cs,140,NavegacaoSuite.Ir(Modulo.ModuloRecepcao.ChaveMarcarHorario))
