@@ -98,16 +98,20 @@
                         <TextBlock Text="{Binding NomeDoApp}" VerticalAlignment="Center" FontSize="{StaticResource Fonte.Corpo}"
                                    Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" MaxWidth="140" />
                     </StackPanel>
-                    <StackPanel x:Name="NavegacaoSuperior" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- DockPanel, e não StackPanel horizontal: na janela estreita a barra desce para a
+                         segunda linha com largura FINITA, e o Menu (cujo painel é um WrapPanel) dobra as
+                         categorias em vez de empurrar o "Treinamento" para fora da borda. O botão vai à
+                         direita, declarado antes do Menu, que é o filho que preenche. -->
+                    <DockPanel x:Name="NavegacaoSuperior" Grid.Column="1" VerticalAlignment="Center" LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Content="Treinamento" Command="{Binding AbrirTreinamentoCommand}"
+                            Style="{StaticResource BotaoSecundario}" Margin="0" Padding="16,8" VerticalAlignment="Center"
+                            BorderThickness="0" Background="Transparent" FontWeight="Normal"
+                            ToolTip="Videoaulas das telas deste módulo" AutomationProperties.Name="Abrir treinamento"/>
                     <Menu x:Name="Categorias" ItemsSource="{Binding Superiores}"
                           ItemContainerStyle="{StaticResource CategoriaSuperior}" Background="Transparent"
                           VerticalAlignment="Center" KeyboardNavigation.TabNavigation="Once"
                           AutomationProperties.Name="Navegação principal" />
-                    <Button Content="Treinamento" Command="{Binding AbrirTreinamentoCommand}"
-                            Style="{StaticResource BotaoSecundario}" Margin="0" Padding="16,8"
-                            BorderThickness="0" Background="Transparent" FontWeight="Normal"
-                            ToolTip="Videoaulas das telas deste módulo" AutomationProperties.Name="Abrir treinamento"/>
-                    </StackPanel>
+                    </DockPanel>
                     <Grid Grid.Column="2" VerticalAlignment="Center" Margin="8,0" MinWidth="80" MaxWidth="320">
                         <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisaPilula}"
                                  ctrl:Ajudantes.Placeholder="Pesquisar"
