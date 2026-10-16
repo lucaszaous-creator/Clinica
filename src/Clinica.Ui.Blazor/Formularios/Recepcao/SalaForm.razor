@@ -1,0 +1,131 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  Cadastro da SALA (o que no WPF era a SalaWindow / SalaEdicaoViewModel).
+
+  A CAPACIDADE é o campo que parece supérfluo e não é: é ela que decide quando a agenda avisa
+  choque de sala — numa sala com duas macas, dois atendimentos no mesmo horário são rotina.
+  Os cinco campos que o serviço copia são carregados e devolvidos (quem não edita, preserva).
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(SalaId == 0 ? "Nova sala" : "Editar sala")"
+       Subtitulo="Onde se atende. A sala é opcional na marcação — sem ela, a agenda funciona por profissional."
+       Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="200" />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Nome" Obrigatorio="true" Classe="largo">
+                    <input class="campo" @bind="_nome" maxlength="80" placeholder="Ex.: Consultório 2, Sala de infusão" />
+                </Campo>
+                <Campo Rotulo="Capacidade" Obrigatorio="true"
+                       Dica="Quantos atendimentos cabem ao mesmo tempo. É isto que decide quando a agenda avisa choque de sala.">
+                    <input class="campo valor" @bind="_capacidade" maxlength="3" inputmode="numeric" />
+                </Campo>
+                <Campo Rotulo="Ordem nas listas" Dica="Menor aparece primeiro.">
+                    <input class="campo valor" @bind="_ordem" maxlength="4" inputmode="numeric" />
+                </Campo>
+            </div>
+            <div class="secao-form">
+                <h3>Situação</h3>
+                <label class="alternar"><input type="checkbox" @bind="_ativa" /> @(_ativa ? "Ativa" : "Inativa")</label>
+                <p class="campo-dica">@TelaDaEquipe.EfeitoDaSituacao(_ativa, ehSala: true)</p>
+            </div>
+            <Campo Rotulo="Observações"><textarea class="campo" rows="2" @bind="_observacoes" maxlength="500"></textarea></Campo>
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_salvando || _carregando || _cargaFalhou || !PodeSalvar)"
+                title="@(PodeSalvar ? null : "Seu acesso não permite mexer no cadastro da equipe.")">
+            <Icone Nome="check" />@(_salvando ? "Gravando…" : "Salvar sala")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Zero = sala nova.</summary>
+    [Parameter] public int SalaId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _nome, _capacidade = "1", _ordem = "0", _observacoes;
+    private bool _ativa = true;
+    private bool _carregando, _cargaFalhou, _salvando;
+    private string? _mensagem;
+
+    private static bool PodeSalvar => SessaoUsuario.Atual.Pode(Permissao.GerenciarEquipe);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SalaId == 0) return;
+        _carregando = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var s = await escopo.ServiceProvider.GetRequiredService<EquipeService>().ObterSalaAsync(SalaId)
+                ?? throw new InvalidOperationException("Sala não encontrada. Feche e atualize a lista.");
+            _nome = s.Nome;
+            _capacidade = s.Capacidade.ToString(CultureInfo.InvariantCulture);
+            _ordem = s.Ordem.ToString(CultureInfo.InvariantCulture);
+            _ativa = s.Ativa;
+            _observacoes = s.Observacoes;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — sala não pôde ser carregada", ex);
+            _cargaFalhou = true;
+            _mensagem = $"Não foi possível carregar a sala: {ex.Message}";
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando || _carregando || _cargaFalhou) return;
+        _mensagem = null;
+        if (!SessaoUsuario.Atual.Pode(Permissao.GerenciarEquipe))
+        {
+            _mensagem = "Seu acesso não permite mexer no cadastro da equipe. Fale com a direção da clínica.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_nome))
+        {
+            _mensagem = "Informe o nome da sala.";
+            return;
+        }
+        if (!int.TryParse(_capacidade?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var capacidade) || capacidade < 1)
+        {
+            _mensagem = "A capacidade precisa ser um número maior ou igual a 1.";
+            return;
+        }
+        if (!int.TryParse(_ordem?.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var ordem)) ordem = 0;
+
+        try
+        {
+            _salvando = true;
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<EquipeService>().SalvarSalaAsync(new Sala
+            {
+                Id = SalaId,
+                Nome = _nome!,
+                Capacidade = capacidade,
+                Ordem = ordem,
+                Ativa = _ativa,
+                Observacoes = _observacoes
+            });
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — sala não pôde ser salva", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _salvando = false; }
+    }
+}

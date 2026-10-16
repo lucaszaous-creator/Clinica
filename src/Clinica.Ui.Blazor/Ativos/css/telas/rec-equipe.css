@@ -1,1 +1,62 @@
-/* Estilo próprio da tela (rec-equipe). Só tokens — ver docs/telas-blazor.md. */
+/* Estilo próprio da tela (rec-equipe). Só tokens — ver docs/telas-blazor.md.
+   Os formulários desta tela moram FORA de .rec-equipe (o modal é irmão da página), então
+   tudo o que eles usam é prefixado por "eq-" em vez de aninhado. */
+
+/* Abas dentro do cartão: a régua encosta no topo do cartão, com a contagem ao lado. */
+.rec-equipe .eq-abas{padding:0 var(--space-6)}
+.eq-contagem{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;margin-left:var(--space-1);
+  border-radius:var(--radius-pilula);background:var(--cinza-100);color:var(--cinza-700);font-size:11px;font-weight:700;
+  font-variant-numeric:tabular-nums}
+.eq-contagem.alerta{background:var(--aviso-suave);color:var(--aviso-texto)}
+
+.rec-equipe .filtros .eq-busca{flex:1 1 320px;max-width:520px}
+.rec-equipe .filtros .segmentado{align-self:flex-end}
+
+/* A pessoa: avatar (com a cor dela na agenda, quando reconhecida) + nome e a linha de contexto. */
+.eq-pessoa{display:flex;align-items:flex-start;gap:var(--space-3);min-width:0}
+.eq-pessoa-texto{min-width:0}
+.eq-pessoa-texto .secundario{display:block}
+.eq-avatar{margin-top:2px}
+.eq-avatar.com-cor{background:var(--eq-cor)}
+.eq-login{display:inline-flex !important;align-items:center;gap:var(--space-1)}
+.eq-login svg.icone{width:12px;height:12px}
+
+/* A semana de relance: os sete dias, aceso o que ele atende. */
+.eq-dias{display:flex;gap:2px;margin-bottom:var(--space-1)}
+.eq-dia{display:inline-grid;place-items:center;width:30px;height:22px;border-radius:var(--radius-pequeno);
+  background:var(--cinza-100);color:var(--cinza-500);font-size:11px;font-weight:600}
+.eq-dia.sim{background:var(--acento-suave);color:var(--acento)}
+.eq-trava{display:inline-flex;align-items:center;gap:var(--space-1);margin-top:var(--space-1);padding:1px 8px;
+  border-radius:var(--radius-pilula);background:var(--info-suave);color:var(--info-texto);font-size:11px;font-weight:600}
+.eq-trava svg.icone{width:12px;height:12px}
+.eq-alerta{color:var(--aviso-texto);font-weight:600}
+.secundario.eq-alerta{font-weight:500}
+
+.rec-equipe .eq-explica{border-bottom:1px solid var(--borda)}
+.rec-equipe .eq-explica p{margin:0;max-width:860px;line-height:1.5;color:var(--texto-secundario);font-size:var(--text-table-size)}
+
+/* ---------- Formulários ---------- */
+
+/* Os dias da semana como pílulas marcáveis (o checkbox fica, para o teclado e o leitor de tela). */
+.eq-semana{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.eq-dia-marcar{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--borda);
+  border-radius:var(--radius-pilula);background:var(--superficie);cursor:pointer;font-weight:600;user-select:none}
+.eq-dia-marcar:hover{background:var(--superficie-hover)}
+.eq-dia-marcar input{margin:0;accent-color:var(--acento)}
+.eq-dia-marcar.sim{background:var(--acento-suave);border-color:var(--acento);color:var(--acento)}
+
+.eq-habilitacoes-acoes{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+.eq-habilitacoes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-2) var(--space-4);
+  max-height:220px;overflow-y:auto;padding:var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);
+  background:var(--cinza-50)}
+.eq-habilitacoes .marcar{font-weight:500}
+.eq-apagada{color:var(--texto-secundario);cursor:not-allowed}
+
+.eq-cor{display:flex;align-items:center;gap:var(--space-2)}
+.eq-amostra{flex:none;width:24px;height:24px;border-radius:var(--radius-pequeno);border:1px dashed var(--cinza-300);background:var(--cinza-50)}
+.eq-amostra.com-cor{border:1px solid var(--borda);background:var(--eq-cor)}
+
+.eq-titulo-linha{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.eq-bloqueios{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.eq-bloqueios li{padding:var(--space-2) var(--space-3);border-radius:var(--radius-pequeno);background:var(--acento-suave);
+  font-size:var(--text-table-size)}
