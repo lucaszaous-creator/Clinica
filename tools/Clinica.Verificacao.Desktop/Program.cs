@@ -28,6 +28,7 @@ internal static partial class Program
 {
     static readonly List<object> Evidencias = [];
     static readonly List<string> Falhas = [];
+    static readonly List<ServiceProvider> Provedores = [];
     static string Saida = "";
     [STAThread] public static int Main(string[] args)
     {
@@ -42,6 +43,9 @@ internal static partial class Program
         app.Startup += async (_, _) =>
         {
             try { await VerificarAsync(); } catch(Exception ex) { Falhas.Add(ex.ToString()); }
+            // Deixa os navegadores das janelas fechadas terminarem antes de descartar os provedores.
+            await Task.Delay(1000); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            foreach (var p in Provedores) await p.DisposeAsync();
             File.WriteAllText(Path.Combine(Saida,"resultado.json"), JsonSerializer.Serialize(new { evidencias = Evidencias, falhas = Falhas }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine($"VERIFICACOES={Evidencias.Count(e => e.GetType().GetProperty("teste") is not null)} FALHAS={Falhas.Count}");
             foreach(var f in Falhas) Console.WriteLine(f);
@@ -78,7 +82,10 @@ internal static partial class Program
             s.AddSingleton<SessaoUsuario>(); s.AddSingleton<SnackbarService>();
             s.AddSingleton<ISnackbarService>(sp => sp.GetRequiredService<SnackbarService>()); s.AddSingleton<IDialogoService,DialogoService>();
             foreach(var modulo in modulos) modulo.Registrar(s);
-            using var provider = s.BuildServiceProvider();
+            // O provedor vive até o FIM da verificação, como vive o app inteiro na clínica: o
+            // navegador de uma janela já fechada ainda pode se ligar à página depois, e descartar o
+            // provedor no fim de cada perfil dava ObjectDisposedException em AttachToPageAsync.
+            var provider = s.BuildServiceProvider(); Provedores.Add(provider);
             provider.GetRequiredService<SessaoUsuario>().Entrar(new UsuarioSistema { Id=1,Nome="Acesso de demonstração",Perfil=perfil });
             using(var inicializacao=provider.CreateScope())
                 await inicializacao.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.ConvenioCatalogoService>().RecarregarCacheAsync();
