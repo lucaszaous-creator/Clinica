@@ -1,0 +1,92 @@
+@*
+  O HISTÓRICO DE UMA GUIA (out/2026, migrado da HistoricoGuiaWindow do WPF): baixa,
+  estorno, glosa, recurso, lote, não conformidade — quem mexeu, quando e o quê.
+
+  SOMENTE LEITURA, e isso é decisão: registro de auditoria que se pode editar não é
+  auditoria. Vazio e FALHA são dois estados diferentes: "esta guia não tem histórico" e
+  "não consegui ler o histórico" levam a conclusões opostas sobre a mesma guia.
+
+  A ação sai como foi GRAVADA ("BaixaGuia", "Glosa"), igual à tela de Auditoria do
+  Gerente: humanizá-la só aqui daria dois vocabulários para a mesma trilha.
+  A barreira (VerAuditoria) é de quem abre, e é repetida aqui: a leitura é da trilha.
+*@
+@inject IServiceScopeFactory Escopos
+@implements IDisposable
+
+<Modal Titulo="Histórico da guia" Subtitulo="@ConsultaDeGuiasNaTela.Descrever(Guia)" Largura="largo" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_falha is not null)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler o histórico desta guia" Detalhe="@_falha" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_linhas is null)
+        {
+            <Esqueleto Altura="160" />
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="Sem histórico para esta guia" Icone="historico"
+                         Descricao="Guias baixadas antes da versão que passou a gravar a trilha não têm registro — e uma guia ainda em aberto não tem o que registrar." />
+        }
+        else
+        {
+            <div class="tabela-rolagem historico-guia">
+                <table class="lista">
+                    <thead><tr><th style="width:130px">Quando</th><th style="width:150px">Quem</th><th style="width:170px">O que fez</th><th>Detalhe</th></tr></thead>
+                    <tbody>
+                        @foreach (var e in _linhas)
+                        {
+                            <tr @key="e.Id">
+                                <td class="nao-quebra texto-secundario">@Formato.DataHora(e.DataHora)</td>
+                                <td><span class="corta" title="@e.Operador">@e.Operador</span></td>
+                                <td><span class="corta principal" title="@e.Acao">@e.Acao</span></td>
+                                <td><span class="detalhe-trilha">@(e.Detalhe ?? "—")</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda">A trilha é somente leitura. Quem assina cada linha é quem fez login, não o usuário do Windows.</span>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public CodigoFaturamento Guia { get; set; } = default!;
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private List<EventoAuditoria>? _linhas;
+    private string? _falha;
+    private int _geracao;
+    private bool _fechado;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        _falha = null;
+        _linhas = null;
+        try
+        {
+            if (!SessaoUsuario.Atual.Pode(Permissao.VerAuditoria))
+                throw new InvalidOperationException("Seu acesso não permite ver o histórico da guia. Fale com a direção da clínica.");
+
+            using var escopo = Escopos.CreateScope();
+            var eventos = await escopo.ServiceProvider.GetRequiredService<AuditoriaService>().DaGuiaAsync(Guia.Id);
+            if (g != _geracao || _fechado) return;
+            _linhas = eventos.OrderByDescending(e => e.DataHora).ToList();
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — histórico da guia não pôde ser lido", ex);
+            _falha = ex.Message;
+        }
+    }
+
+    public void Dispose() => _fechado = true;
+}

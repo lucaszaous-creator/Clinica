@@ -1,1 +1,16 @@
-/* fat-guias: estilo só desta tela do Faturamento (tokens apenas). */
+/* fat-guias: estilo só desta tela do Faturamento (tokens apenas) — Consultar guias e o histórico da guia.
+   O resumo, a faixa e o corte são compartilhados com Guias faturadas (as duas listam guias). */
+.fat-guias .filtros{border-bottom:0}
+.fat-guias .filtros .estreito{min-width:140px;max-width:170px}
+.fat-guias .filtros .data{min-width:150px;max-width:160px}
+.fat-guias .resumo-guias,.fat-faturados .resumo-guias{padding:var(--space-3) var(--space-6);border-top:1px solid var(--borda);
+  border-bottom:1px solid var(--borda);background:var(--cinza-50);color:var(--texto-secundario);font-size:var(--text-small-size)}
+.fat-guias .resumo-guias.filtrado,.fat-faturados .resumo-guias.filtrado{background:var(--acento-suave);color:var(--azul-700);font-weight:600}
+.fat-guias .faixa,.fat-faturados .faixa{padding:var(--space-3) var(--space-6) 0}
+.fat-guias .corta,.fat-faturados .corta,.historico-guia .corta{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.fat-guias table.lista,.fat-faturados table.lista{table-layout:fixed}
+.fat-guias td .selo{white-space:nowrap}
+.fat-guias td .selo + .selo{margin-top:var(--space-1)}
+/* O histórico da guia (formulário): o detalhe da trilha quebra linha — ele é a resposta. */
+.historico-guia table.lista{table-layout:fixed}
+.historico-guia .detalhe-trilha{display:block;white-space:normal;line-height:1.45;color:var(--texto-secundario)}

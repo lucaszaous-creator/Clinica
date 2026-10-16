@@ -1,0 +1,315 @@
+@*
+  GUIAS FATURADAS (out/2026, migrada do FaturadosView/FaturadosViewModel do WPF).
+
+  As guias BAIXADAS no período, com o que se faz com uma guia que já saiu: imprimir a guia
+  TISS (leiaute ANS) e a capa, registrar a GLOSA que a operadora devolveu e ESTORNAR a baixa
+  (a pendência volta ao painel). O filtro é em memória sobre o período carregado, pela
+  OPERADORA que a coluna mostra (`GuiasFaturadasNaTela`, na Application, com teste).
+
+  Barreiras: estornar desfaz o trabalho de outra pessoa (EstornarBaixa); glosar afirma que a
+  operadora recusou e chega ao caixa (RegistrarGlosa); o CSV leva nome de paciente e número
+  de guia para fora do app (VerFaturamento). F5 = buscar, Ctrl+P = exportar CSV, como no WPF.
+*@
+@inherits TelaBase
+
+<div class="pagina fat-faturados @(Carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Faturamento · Faturados" Titulo="Guias faturadas (baixadas)"
+                     Subtitulo="As guias efetivadas no convênio no período, pela data da baixa. Daqui sai a guia impressa, a glosa que voltou e o estorno de uma baixa feita por engano.">
+        <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(!PodeExportar)"
+                title="@(PodeExportar ? "Exportar as guias da lista em CSV (abre no Excel) — Ctrl+P" : "Seu acesso não permite exportar as guias.")"><Icone Nome="baixar" />Exportar CSV</button>
+    </CabecalhoPagina>
+
+    <section class="cartao lista-cartao">
+        <div class="filtros periodo">
+            <Campo Rotulo="Baixadas de" Classe="data">
+                <input type="date" class="campo" value="@Iso(_inicio)" @onchange="@(e => TrocarPeriodoAsync(Data(e) ?? _inicio, _fim))" />
+            </Campo>
+            <Campo Rotulo="até" Classe="data">
+                <input type="date" class="campo" value="@Iso(_fim)" @onchange="@(e => TrocarPeriodoAsync(_inicio, Data(e) ?? _fim))" />
+            </Campo>
+            <button type="button" class="botao primario" @onclick="() => CarregarAsync()" disabled="@Carregando"><Icone Nome="busca" />Buscar</button>
+            <span class="divisor" aria-hidden="true"></span>
+            <Campo Rotulo="Paciente">
+                <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Parte do nome — o acento não atrapalha" maxlength="80"
+                       value="@_filtro.Paciente" @oninput="@(e => Filtrar(_filtro with { Paciente = e.Value?.ToString() ?? "" }))" /></div>
+            </Campo>
+            <Campo Rotulo="Nº da guia" Classe="estreito">
+                <input class="campo" placeholder="Trecho do número" maxlength="40"
+                       value="@_filtro.Guia" @oninput="@(e => Filtrar(_filtro with { Guia = e.Value?.ToString() ?? "" }))" />
+            </Campo>
+            <Campo Rotulo="Convênio">
+                <select class="campo" value="@_filtro.Convenio" @onchange="@(e => Filtrar(_filtro with { Convenio = e.Value?.ToString() ?? GuiasFaturadasNaTela.TodosConvenios }))">
+                    @foreach (var c in _convenios) { <option value="@c">@c</option> }
+                </select>
+            </Campo>
+            @if (_filtro.Ativo)
+            {
+                <button type="button" class="botao fantasma" @onclick="() => Filtrar(FiltroFaturados.Nenhum)">Limpar filtro</button>
+            }
+        </div>
+
+        @if (_carregou && !_naoVerificado)
+        {
+            <div class="resumo-guias @(_filtro.Ativo ? "filtrado" : null)">@GuiasFaturadasNaTela.Resumo(_filtro, _linhas.Count, _todas.Count)</div>
+        }
+        @if (_fim < _inicio)
+        {
+            <div class="faixa"><Aviso Tom="atencao" Texto="A data final está antes da inicial — nenhuma baixa cabe nesse período. Corrija as datas." /></div>
+        }
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as guias faturadas" Detalhe="@($"A lista está vazia por falha de leitura, não por não haver baixa. {_erro}")" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="240" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="@(_filtro.Ativo && _todas.Count > 0 ? "Nenhuma guia bate com o filtro" : "Nenhuma guia baixada no período")"
+                         Icone="@(_filtro.Ativo && _todas.Count > 0 ? "filtro" : "documento")"
+                         Descricao="@(_filtro.Ativo && _todas.Count > 0 ? $"O período tem {_todas.Count} guia(s) baixada(s); limpe o filtro para vê-las." : "Escolha outro período — a baixa é registrada no painel de pendências.")">
+                @if (_filtro.Ativo && _todas.Count > 0) { <button type="button" class="botao" @onclick="() => Filtrar(FiltroFaturados.Nenhum)">Limpar filtro</button> }
+            </EstadoVazio>
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Paciente</th>
+                            <th style="width:18%">Convênio</th>
+                            <th style="width:124px">Código</th>
+                            <th style="width:100px">Nº guia</th>
+                            <th style="width:96px">Baixa</th>
+                            <th style="width:100px">Glosa</th>
+                            <th class="direita" style="width:212px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _linhas)
+                        {
+                            var glosa = ConsultaDeGuiasNaTela.Glosa(c.Glosa);
+                            <tr @key="c.Id">
+                                <td><span class="principal corta" title="@c.Atendimento?.Paciente?.Nome">@(c.Atendimento?.Paciente?.Nome ?? "—")</span>
+                                    @if (c.Atendimento is { } a) { <span class="secundario corta" title="Data do atendimento">atend. @Formato.Data(a.Data)</span> }</td>
+                                <td><span class="corta texto-secundario" title="@ConsultaDeGuiasNaTela.Convenio(c)">@ConsultaDeGuiasNaTela.Convenio(c)</span></td>
+                                <td><span class="corta">@RotulosEnum.De(c.Tipo)</span><span class="secundario">@RotulosEnum.De(c.Ordem)</span></td>
+                                <td><span class="corta numero" title="@c.NumeroGuiaReal">@(string.IsNullOrWhiteSpace(c.NumeroGuiaReal) ? "—" : c.NumeroGuiaReal)</span></td>
+                                <td class="nao-quebra">@(c.DataBaixa is { } b ? Formato.Data(b) : "—")</td>
+                                <td>@if (glosa is { } gl) { <Selo Tom="@gl.Tom">@gl.Texto</Selo> } else { <span class="texto-secundario">—</span> }</td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini primario" disabled="@(_ocupado == c.Id)" @onclick="() => GuiaPdfAsync(c)"
+                                                title="Imprimir a guia deste atendimento no leiaute padrão ANS (PDF)"><Icone Nome="imprimir" />Guia</button>
+                                        <button type="button" class="botao mini icone" title="Reimprimir a capa de faturamento deste atendimento" aria-label="Reimprimir a capa de faturamento deste atendimento"
+                                                disabled="@(_ocupado == c.Id)" @onclick="() => CapaAsync(c)"><Icone Nome="documento" /></button>
+                                        <button type="button" class="botao mini icone" title="@(PodeGlosar ? "Registrar a glosa desta guia" : "Seu acesso não permite registrar glosa.")" aria-label="Registrar a glosa desta guia"
+                                                disabled="@(!PodeGlosar)" @onclick="() => AbrirGlosa(c)"><Icone Nome="alerta" /></button>
+                                        <button type="button" class="botao mini icone contorno-perigo" title="@(PodeEstornar ? "Estornar a baixa — a pendência volta ao painel" : "Seu acesso não permite estornar a baixa.")" aria-label="Estornar a baixa desta guia"
+                                                disabled="@(!PodeEstornar || _ocupado == c.Id)" @onclick="() => EstornarAsync(c)"><Icone Nome="cancelar" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@if (_glosando is { } g)
+{
+    <GlosaForm CodigoId="g.Id" Descricao="@GuiasFaturadasNaTela.DescricaoParaGlosa(g)" AoFechar="() => _glosando = null" AoConcluir="GlosouAsync" />
+}
+
+@code {
+    private DateOnly _inicio;
+    private DateOnly _fim;
+    private List<CodigoFaturamento> _todas = [];
+    private List<CodigoFaturamento> _linhas = [];
+    private IReadOnlyList<string> _convenios = [GuiasFaturadasNaTela.TodosConvenios];
+    private FiltroFaturados _filtro = FiltroFaturados.Nenhum;
+    private bool _carregou;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+    private int? _ocupado;
+    private CodigoFaturamento? _glosando;
+
+    private static bool PodeEstornar => Pode(Permissao.EstornarBaixa);
+    private static bool PodeGlosar => Pode(Permissao.RegistrarGlosa);
+    private static bool PodeExportar => Pode(Permissao.VerFaturamento);
+
+    protected override Task OnInitializedAsync()
+    {
+        (_inicio, _fim) = GuiasFaturadasNaTela.MesDe(DateOnly.FromDateTime(DateTime.Today));
+        return CarregarAsync();
+    }
+
+    protected override Task AoVoltarAsync() => CarregarAsync(silenciosa: true);
+
+    /// <summary>F5 relê; Ctrl+P exporta o CSV — o MESMO caminho do botão, com a barreira.</summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => ExportarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    private Task TrocarPeriodoAsync(DateOnly inicio, DateOnly fim)
+    {
+        _inicio = inicio;
+        _fim = fim;
+        return CarregarAsync();
+    }
+
+    /// <summary>
+    /// Contador de geração, e publicar tudo depois do último await. A escolha de convênio
+    /// sobrevive à recarga enquanto ainda existir no período.
+    /// </summary>
+    private async Task CarregarAsync(bool silenciosa = false)
+    {
+        var g = ++_geracao;
+        if (!silenciosa) { Carregando = true; _naoVerificado = false; }
+        try
+        {
+            using var escopo = Escopo();
+            var lista = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                .CodigosBaixadosNoPeriodoAsync(_inicio, _fim);
+            if (g != _geracao || Descartada) return;
+
+            _todas = lista.ToList();
+            _convenios = GuiasFaturadasNaTela.Convenios(_todas);
+            _filtro = GuiasFaturadasNaTela.Preservar(_filtro, _convenios);
+            _linhas = _todas.Where(_filtro.Casa).ToList();
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — guias faturadas não puderam ser lidas", ex);
+            if (silenciosa && _carregou) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _todas = [];
+            _linhas = [];
+            _carregou = true;
+        }
+        finally
+        {
+            if (g == _geracao) Carregando = false;
+        }
+    }
+
+    private void Filtrar(FiltroFaturados filtro)
+    {
+        _filtro = filtro;
+        _linhas = _todas.Where(_filtro.Casa).ToList();
+    }
+
+    /// <summary>
+    /// Antes da confirmação, nunca depois: perguntar "estornar?" e só então recusar por
+    /// permissão é fazer a pessoa decidir sobre algo que ela não pode fazer.
+    /// </summary>
+    private async Task EstornarAsync(CodigoFaturamento c)
+    {
+        if (!Exigir(Permissao.EstornarBaixa, "estornar a baixa da guia")) return;
+        var ok = await Dialogos.ConfirmarAsync("Confirmar estorno",
+            $"Estornar a baixa desta guia de {c.Atendimento?.Paciente?.Nome}{(string.IsNullOrWhiteSpace(c.NumeroGuiaReal) ? "" : $" (guia {c.NumeroGuiaReal})")}?\n\n" +
+            "A pendência voltará a aparecer no painel para ser faturada novamente.", perigoso: true, confirmar: "Estornar a baixa");
+        if (!ok || Descartada) return;
+
+        _ocupado = c.Id;
+        try
+        {
+            var feito = await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<FaturamentoService>()
+                    .EstornarBaixaAsync(c.Id, "estorno pela tela de Faturados", Operador);
+            }, "Blazor — estorno da baixa", "Baixa estornada — a pendência voltou ao painel.");
+            if (feito) await CarregarAsync();
+        }
+        finally { _ocupado = null; }
+    }
+
+    private void AbrirGlosa(CodigoFaturamento c)
+    {
+        if (!Exigir(Permissao.RegistrarGlosa, "registrar glosa")) return;
+        _glosando = c;
+    }
+
+    private async Task GlosouAsync()
+    {
+        _glosando = null;
+        Notificacoes.Sucesso("Glosa registrada — o prazo de recurso já está no painel de pendências.");
+        await CarregarAsync();
+    }
+
+    /// <summary>Guia TISS impressa (PDF, leiaute ANS) do atendimento desta guia.</summary>
+    private Task GuiaPdfAsync(CodigoFaturamento c) => PdfAsync(c, "guia", async escopo =>
+    {
+        var prestador = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+        return await escopo.ServiceProvider.GetRequiredService<GuiaTissPdfService>().GerarPdfAsync(c.AtendimentoId, prestador);
+    }, $"Guia-TISS-{c.Atendimento?.Numero ?? c.AtendimentoId.ToString()}-{(c.Atendimento?.Data ?? default):yyyy-MM-dd}.pdf");
+
+    /// <summary>Reimpressão da capa de faturamento do atendimento (estado atual).</summary>
+    private Task CapaAsync(CodigoFaturamento c) => PdfAsync(c, "capa", async escopo =>
+    {
+        var prestador = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+        return await escopo.ServiceProvider.GetRequiredService<CapaFaturamentoService>().GerarPdfAsync(c.AtendimentoId, prestador);
+    }, $"Capa-{c.Atendimento?.Numero ?? c.AtendimentoId.ToString()}-{(c.Atendimento?.Data ?? default):yyyy-MM-dd}.pdf");
+
+    private async Task PdfAsync(CodigoFaturamento c, string oque, Func<IServiceScope, Task<byte[]>> gerar, string nome)
+    {
+        if (_ocupado is not null) return;
+        _ocupado = c.Id;
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo()) pdf = await gerar(escopo);
+            var erro = await Host.SalvarEAbrirAsync(pdf, nome, "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — {oque} da guia não pôde ser gerada", ex);
+            Notificacoes.Erro($"Não foi possível gerar a {oque}: {ex.Message}");
+        }
+        finally { _ocupado = null; }
+    }
+
+    /// <summary>As guias DA LISTA (o filtro vale) em CSV, para conferência com o convênio.</summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFaturamento, "exportar as guias faturadas")) return;
+        if (_linhas.Count == 0)
+        {
+            Notificacoes.Info("Nada a exportar — busque um período com guias baixadas.");
+            return;
+        }
+        try
+        {
+            var erro = await Host.ExportarCsvAsync(GuiasFaturadasNaTela.CabecalhoCsv,
+                _linhas.Select(GuiasFaturadasNaTela.LinhaCsv).ToList(),
+                GuiasFaturadasNaTela.NomeArquivoCsv(_inicio, _fim));
+            if (erro is not null) Notificacoes.Erro($"Não foi possível exportar: {erro}");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — guias faturadas não puderam ser exportadas", ex);
+            Notificacoes.Erro($"Não foi possível exportar: {ex.Message}");
+        }
+    }
+
+    private static string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static DateOnly? Data(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+}
