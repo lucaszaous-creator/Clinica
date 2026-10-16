@@ -15,6 +15,12 @@ namespace Clinica.Tests;
 /// que as duas portas não podem divergir: número = baixa, justificativa = não conformidade,
 /// linha em branco intocada, e UMA falha não aborta as outras.
 /// </summary>
+/// <remarks>
+/// <see cref="DecisoesDaRodada"/> lê o <see cref="SessaoUsuario.Atual"/> GLOBAL (as duas
+/// barreiras). Por isso a classe entra na coleção de quem troca a sessão e parte da sessão
+/// anônima: sem isso, um teste que deixasse uma Faturista logada a reprovaria conforme a ordem.
+/// </remarks>
+[Collection(ColecaoDiagnostico.Nome)]
 public sealed class DecisoesDaRodadaTests : IDisposable
 {
     private readonly SqliteConnection _conn;
@@ -32,6 +38,7 @@ public sealed class DecisoesDaRodadaTests : IDisposable
         _repo = new ClinicaRepositorio(_db);
         _rodada = new RodadaPendenciasService(_repo, new PendenciaService(_repo), new ParametrosService(_repo));
         _faturamento = new FaturamentoService(_repo);
+        new SessaoUsuario().Entrar(new UsuarioSistema());
     }
 
     private async Task<IReadOnlyList<CodigoFaturamento>> CodigosAsync()
