@@ -12,7 +12,9 @@ public static class EstornoNaTela
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
-    public static string Titulo(PreviaDoEstorno p) => $"Estornar o atendimento nº {p.Numero}";
+    public static string Titulo(PreviaDoEstorno p) =>
+        // Sem número gravado o serviço devolve "#<id>": "nº #412" diria o número duas vezes.
+        p.Numero.StartsWith('#') ? $"Estornar o atendimento {p.Numero}" : $"Estornar o atendimento nº {p.Numero}";
 
     public static string Subtitulo(PreviaDoEstorno p) => $"{p.Paciente} · {p.Modalidade} · {p.Data.ToString("dd/MM/yyyy", PtBr)}";
 
