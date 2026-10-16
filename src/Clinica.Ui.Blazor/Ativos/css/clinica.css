@@ -35,6 +35,20 @@
 /* Relacionamento (out/2026) */
 @import url("telas/comissao-recuperacao.css");
 @import url("telas/acompanhamento.css");
+/* A Recepção em Blazor e o canal de SMS / tendências / metas (out/2026). */
+@import url("telas/rec-inicio.css");
+@import url("telas/rec-pedidos-enfermagem.css");
+@import url("telas/rec-dia.css");
+@import url("telas/rec-confirmacoes.css");
+@import url("telas/rec-retornos.css");
+@import url("telas/canal-sms.css");
+@import url("telas/rec-lancamentos.css");
+@import url("telas/rec-consultas.css");
+@import url("telas/rec-pagamentos.css");
+@import url("telas/rec-ocupacao.css");
+@import url("telas/rec-equipe.css");
+@import url("telas/tendencias.css");
+@import url("telas/metas.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.

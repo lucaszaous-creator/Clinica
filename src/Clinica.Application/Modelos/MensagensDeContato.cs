@@ -80,6 +80,29 @@ public static class MensagensDeContato
         => $"Olá, {PrimeiroNome(nomePaciente)}! Aqui é da clínica. Podemos conversar sobre o agendamento do seu atendimento?"
            + Assinatura(nomeClinica);
 
+    /// <summary>
+    /// O SMS da confirmação (out/2026). CURTO de propósito: tem de caber em UM segmento de
+    /// 160 caracteres com o link — cada segmento a mais é cobrado em toda sessão da clínica.
+    /// Sai SEM ACENTO (<see cref="Clinica.Domain.TextoSms.ParaGsm"/>), e quem chama não
+    /// precisa lembrar disso. Sem link (publicação não configurada), pede resposta por
+    /// telefone em vez de prometer um botão que não existe.
+    /// </summary>
+    public static string ConfirmacaoPorSms(
+        string nomePaciente, DateTime quando, DateOnly hoje, string? nomeClinica, string? link)
+    {
+        var quem = string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $"{nomeClinica.Trim()}: ";
+        var corpo = $"{quem}{PrimeiroNome(nomePaciente)}, sua sessao e {QuandoPorExtenso(quando, hoje)}.";
+        corpo += link is null
+            ? " Se nao puder vir, ligue para a clinica."
+            : $" Confirme ou desmarque: {link}";
+        var texto = Clinica.Domain.TextoSms.ParaGsm(corpo);
+
+        // O nome da clínica é o que mais cresce; se estourar um segmento, ele sai primeiro.
+        if (texto.Length > Clinica.Domain.TextoSms.CaracteresPorSegmentoGsm && quem.Length > 0)
+            return ConfirmacaoPorSms(nomePaciente, quando, hoje, null, link);
+        return texto;
+    }
+
     private static string Assinatura(string? nomeClinica)
         => string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}";
 }

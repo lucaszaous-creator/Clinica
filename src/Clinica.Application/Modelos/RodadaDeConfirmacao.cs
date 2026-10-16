@@ -1,5 +1,6 @@
 using System.Globalization;
 using Clinica.Domain.Entities;
+using Clinica.Domain;
 
 namespace Clinica.Application.Modelos;
 
@@ -28,10 +29,22 @@ public static class RodadaDeConfirmacao
     /// </summary>
     public const string RespostaRemarcar = "pediu para remarcar";
 
+    /// <summary>
+    /// O que se grava quando o paciente responde pelo LINK do SMS que NÃO vai (out/2026).
+    /// Classifica como <see cref="SituacaoConfirmacao.PediuRemarcar"/>: para o balcão os
+    /// dois pedem o MESMO gesto — ligar, remarcar e liberar o horário —, e uma segunda
+    /// situação com a mesma ação faria a recepcionista procurar a diferença que não há.
+    /// </summary>
+    public const string RespostaNaoVaiPeloLink = "avisou pelo SMS que não vai";
+
+    /// <summary>O que se grava quando o paciente confirma pelo link do SMS.</summary>
+    public const string RespostaConfirmouPeloLink = "confirmou pelo SMS";
+
     public static SituacaoConfirmacao Classificar(StatusContato status, DateTime? enviadoEm, string? comentario) => status switch
     {
         StatusContato.Dispensado => SituacaoConfirmacao.Dispensado,
         StatusContato.Respondido when string.Equals(comentario?.Trim(), RespostaRemarcar, StringComparison.OrdinalIgnoreCase)
+                                   || string.Equals(comentario?.Trim(), RespostaNaoVaiPeloLink, StringComparison.OrdinalIgnoreCase)
             => SituacaoConfirmacao.PediuRemarcar,
         StatusContato.Respondido => SituacaoConfirmacao.Confirmou,
         _ when enviadoEm is not null => SituacaoConfirmacao.AvisadoSemResposta,
@@ -73,12 +86,44 @@ public static class RodadaDeConfirmacao
         return relativo is null ? rotulo : $"{relativo} · {rotulo}";
     }
 
+    /// <summary>A pílula "não vem" das listas do dia — quem respondeu que não vai.</summary>
+    public const string SeloNaoVem = "Não vem — remarcar";
+
+    /// <summary>
+    /// O selo de UMA linha da agenda (lista do dia, grade, Início, quadro do médico): o que a
+    /// rodada AFIRMOU, numa definição só (out/2026). Antes, cada tela trocava o status
+    /// <c>Respondido</c> por "Confirmou" — e quem respondeu pelo SMS que NÃO vai aparecia
+    /// como confirmado. Sem contato não há selo: acusar de "não confirmou" quem nunca foi
+    /// avisado seria o selo mentindo (parcela 87).
+    /// </summary>
+    public static string SeloDaLista(RespostaDeConfirmacao? r) => r?.Situacao switch
+    {
+        SituacaoConfirmacao.Confirmou => "Confirmou",
+        SituacaoConfirmacao.PediuRemarcar => SeloNaoVem,
+        SituacaoConfirmacao.AvisadoSemResposta => "Não confirmou",
+        _ => string.Empty
+    };
+
     /// <summary>A frase do canal no "aviso" de cada linha.</summary>
     public static string Canal(CanalContato canal) => canal switch
     {
         CanalContato.Email => "E-mail enviado",
         CanalContato.Telefone => "Ligação feita",
         CanalContato.Presencial => "Avisado no balcão",
+        CanalContato.Sms => "SMS enviado",
         _ => "WhatsApp enviado"
     };
 }
+
+/// <summary>
+/// O contato de confirmação de UM horário, com o que é preciso para dizer em que ponto ele
+/// está (<see cref="RodadaDeConfirmacao.Classificar"/>) e por qual canal saiu.
+/// </summary>
+public sealed record RespostaDeConfirmacao(
+    StatusContato Status, DateTime? EnviadoEm, string? Comentario, CanalContato Canal)
+{
+    public SituacaoConfirmacao Situacao => RodadaDeConfirmacao.Classificar(Status, EnviadoEm, Comentario);
+}
+
+/// <summary>O mínimo de uma ficha para falar com a pessoa — a projeção da campanha de SMS.</summary>
+public sealed record PacienteParaContato(int Id, string Nome, string? Telefone, string? ConvenioCodigo, Convenio ConvenioFamilia = default);

@@ -116,6 +116,7 @@ public sealed class CartaoAgenda
 
     public bool ConfirmouPresenca => ConfirmacaoRotulo == "Confirmou";
     public bool NaoConfirmou => ConfirmacaoRotulo == "Não confirmou";
+    public bool NaoVem => ConfirmacaoRotulo == RodadaDeConfirmacao.SeloNaoVem;
 
     /// <summary>
     /// A METADE VISÍVEL da permissão, dentro da janela do horário.
@@ -886,7 +887,7 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
     }
 
     /// <summary>A resposta da rodada de confirmação por agendamento — a leitura em LOTE da Fila.</summary>
-    private IReadOnlyDictionary<int, StatusContato> _confirmacoes = new Dictionary<int, StatusContato>();
+    private IReadOnlyDictionary<int, RespostaDeConfirmacao> _confirmacoes = new Dictionary<int, RespostaDeConfirmacao>();
 
     /// <summary>
     /// Lê as confirmações dos horários que vão virar cartão, numa consulta só (set/2026).
@@ -897,13 +898,13 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
     {
         if (horarios.Count == 0)
         {
-            _confirmacoes = new Dictionary<int, StatusContato>();
+            _confirmacoes = new Dictionary<int, RespostaDeConfirmacao>();
             return;
         }
         try
         {
             var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
-            var lidas = await repo.ConfirmacoesDosAgendamentosAsync(horarios.Select(a => a.Id).ToList());
+            var lidas = await repo.RespostasDeConfirmacaoAsync(horarios.Select(a => a.Id).ToList());
             if (geracao != _geracaoCarga) return;
             _confirmacoes = lidas;
         }
@@ -912,19 +913,14 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — confirmações da agenda não puderam ser lidas", ex);
             if (geracao != _geracaoCarga) return;
-            _confirmacoes = new Dictionary<int, StatusContato>();
+            _confirmacoes = new Dictionary<int, RespostaDeConfirmacao>();
         }
     }
 
     /// <summary>A MESMA regra da Fila: só em AGUARDANDO, e só o que a rodada afirmou.</summary>
     private string Confirmacao(Agendamento a)
-        => a.Etapa == EtapaFila.Aguardando && _confirmacoes.TryGetValue(a.Id, out var status)
-            ? status switch
-            {
-                StatusContato.Respondido => "Confirmou",
-                StatusContato.Enviado => "Não confirmou",
-                _ => string.Empty
-            }
+        => a.Etapa == EtapaFila.Aguardando && _confirmacoes.TryGetValue(a.Id, out var resposta)
+            ? RodadaDeConfirmacao.SeloDaLista(resposta)
             : string.Empty;
 
     /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>

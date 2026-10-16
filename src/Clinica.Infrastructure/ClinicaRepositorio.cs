@@ -2952,10 +2952,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public Task<MetaMensal?> ObterMetaAsync(
         int ano, int mes, IndicadorMeta indicador, int? profissionalId,
+        string modalidadeCodigo = "", string especialidadeCodigo = "",
         CancellationToken ct = default)
         => _db.Metas.FirstOrDefaultAsync(
             m => m.Ano == ano && m.Mes == mes && m.Indicador == indicador
-                 && m.ProfissionalId == profissionalId, ct);
+                 && m.ProfissionalId == profissionalId
+                 && m.ModalidadeCodigo == modalidadeCodigo
+                 && m.EspecialidadeCodigo == especialidadeCodigo, ct);
 
     public Task<MetaMensal?> ObterMetaPorIdAsync(int metaId, CancellationToken ct = default)
         => _db.Metas.FirstOrDefaultAsync(m => m.Id == metaId, ct);
@@ -3686,6 +3689,119 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Select(g => new { g.Key, Status = g.Max(c => c.Status) })
             .ToDictionaryAsync(x => x.Key, x => x.Status, ct);
     }
+
+    public async Task<IReadOnlyDictionary<int, RespostaDeConfirmacao>> RespostasDeConfirmacaoAsync(
+        IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default)
+    {
+        if (agendamentoIds.Count == 0) return new Dictionary<int, RespostaDeConfirmacao>();
+
+        var linhas = await _db.Contatos.AsNoTracking()
+            .Where(c => c.Tipo == TipoContato.ConfirmacaoSessao
+                        && c.AgendamentoId != null
+                        && agendamentoIds.Contains(c.AgendamentoId.Value))
+            .Select(c => new { Agendamento = c.AgendamentoId!.Value, c.Id, c.Status, c.EnviadoEm, c.Comentario, c.Canal })
+            .ToListAsync(ct);
+
+        // Um por agendamento (índice único); o mais recente vence se houver dado antigo.
+        return linhas
+            .GroupBy(l => l.Agendamento)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(l => l.Id)
+                      .Select(l => new RespostaDeConfirmacao(l.Status, l.EnviadoEm, l.Comentario, l.Canal))
+                      .First());
+    }
+
+    public async Task<IReadOnlyList<PacienteParaContato>> PacientesParaContatoAsync(
+        IReadOnlyCollection<int>? pacienteIds, CancellationToken ct = default)
+    {
+        var q = _db.Pacientes.AsNoTracking();
+        if (pacienteIds is not null)
+        {
+            if (pacienteIds.Count == 0) return [];
+            q = q.Where(p => pacienteIds.Contains(p.Id));
+        }
+        return await q
+            .OrderBy(p => p.Nome)
+            .Select(p => new PacienteParaContato(p.Id, p.Nome, p.Telefone, p.ConvenioCodigo, p.Convenio))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ReceitaDeAtendimento>> ReceitaPorAtendimentoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await ConsultaReceitaPorAtendimento(inicio, fim).ToListAsync(ct);
+
+    // Só o dinheiro que ENTROU (realizado, pela data do pagamento) e que se liga a um
+    // atendimento — direto, ou pela guia. Projeção: a tendência precisa de seis colunas, não
+    // do lançamento inteiro com categoria, paciente e transação bancária. `internal` para a
+    // rede de tradução do Npgsql compilar a MESMA consulta.
+    internal IQueryable<ReceitaDeAtendimento> ConsultaReceitaPorAtendimento(DateOnly inicio, DateOnly fim)
+        // ⚠️ `l.Atendimento ?? l.CodigoFaturamento.Atendimento` NÃO traduz (coalescência entre
+        // duas navegações de ENTIDADE) — a rede do Npgsql pegou, o SQLite nunca o teria
+        // executado. O id se resolve como escalar e o atendimento entra por JOIN.
+        => from l in _db.Lancamentos.AsNoTracking()
+           where l.Tipo == TipoLancamento.Entrada
+                 && l.Status == StatusLancamento.Realizado
+                 && l.DataPagamento != null && l.DataPagamento >= inicio && l.DataPagamento <= fim
+                 && (l.AtendimentoId != null || l.CodigoFaturamentoId != null)
+           let atendimentoId = l.AtendimentoId ?? l.CodigoFaturamento!.AtendimentoId
+           join a in _db.Atendimentos.AsNoTracking() on atendimentoId equals a.Id
+           where a.EstornadoEm == null
+           select new ReceitaDeAtendimento(
+               l.Valor, l.DataPagamento!.Value, a.Id, a.PacienteId,
+               a.Modalidade, a.ModalidadeCodigo, a.EspecialidadeConsultaCodigo,
+               _db.Agendamentos.Where(ag => ag.AtendimentoId == a.Id).Select(ag => ag.ProfissionalId).FirstOrDefault());
+
+    public async Task<bool> ReservarMensagemSmsAsync(MensagemSms mensagem, CancellationToken ct = default)
+    {
+        _memoria.Clear();
+        _db.MensagensSms.Add(mensagem);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateException ex) when (EhDuplicidade(ex))
+        {
+            // A outra máquina reservou primeiro. A linha recusada sai do contexto — senão o
+            // próximo SalvarAsync deste escopo tentaria gravá-la de novo e estouraria lá.
+            _db.Entry(mensagem).State = EntityState.Detached;
+            return false;
+        }
+    }
+
+    private static bool EhDuplicidade(DbUpdateException ex) => ex.GetBaseException() switch
+    {
+        Npgsql.PostgresException pg => pg.SqlState == "23505",
+        // O SQLite dos testes só existe fora do Release (o pacote é condicional no csproj):
+        // reconhecer pelo NOME do tipo mantém o build de produção sem a referência.
+        var e when e.GetType().Name == "SqliteException"
+            => e.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase),
+        _ => false
+    };
+
+    public Task<MensagemSms?> MensagemSmsPorChaveAsync(string chave, CancellationToken ct = default)
+        => _db.MensagensSms.FirstOrDefaultAsync(m => m.ChaveIdempotencia == chave, ct);
+
+    public async Task<IReadOnlyList<MensagemSms>> MensagensSmsAsync(
+        DateTime inicio, DateTime fim, int limite = 500, CancellationToken ct = default)
+        => await _db.MensagensSms.AsNoTracking()
+            .Include(m => m.Paciente)
+            .Where(m => m.CriadaEm >= inicio && m.CriadaEm <= fim)
+            .OrderByDescending(m => m.CriadaEm).ThenByDescending(m => m.Id)
+            .Take(limite)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ContatoCampanha>> ContatosAguardandoRespostaPorLinkAsync(
+        DateOnly desde, CancellationToken ct = default)
+        => await _db.Contatos
+            .Include(c => c.Agendamento)
+            .Where(c => c.Tipo == TipoContato.ConfirmacaoSessao
+                        && c.TokenResposta != null
+                        && c.Status == StatusContato.Enviado
+                        && c.Referencia >= desde)
+            .OrderBy(c => c.Id)
+            .ToListAsync(ct);
 
     // Aqui a ordem é a oposta da fila: é HISTÓRICO, e histórico se lê do mais novo para
     // o mais velho. O corte vai no SQL, como manda a convenção do projeto.

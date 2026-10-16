@@ -3,6 +3,8 @@
  *
  *   /t/TOKEN   → o TERMO PELO WHATSAPP (parcela 81): a página onde o paciente lê,
  *                responde e assina no celular. Decisão em docs/termo-pelo-whatsapp.md.
+ *   /c/TOKEN   → a CONFIRMAÇÃO DA SESSÃO pelo SMS (out/2026): "Confirmo" ou "Não vou".
+ *                Decisão em docs/canal-sms.md.
  *   (resto)    → as RECEITAS: o PDF no navegador e o contrato de QR do validador
  *                gov.br (parcela 68). Roteiro em docs/validar-pelo-qr-code.md.
  *
@@ -62,9 +64,9 @@ const caminhoResposta = (token) => `t/${token.slice(0, 2)}/${token}.resposta.jso
 export default {
   async fetch(request, env) {
     const partes = new URL(request.url).pathname.split("/").filter(Boolean);
-    return partes[0] === "t"
-      ? atenderTermo(request, env)
-      : atenderReceita(request, env);
+    if (partes[0] === "t") return atenderTermo(request, env);
+    if (partes[0] === "c") return atenderConfirmacao(request, env);
+    return atenderReceita(request, env);
   },
 };
 
@@ -199,6 +201,119 @@ async function atenderTermo(request, env) {
 
     return json(405, { erro: "Método não suportado." });
 }
+
+// ==================== A confirmação da sessão pelo SMS ====================
+
+// 12 caracteres do mesmo alfabeto das receitas — ConfirmacaoPorLink.TamanhoToken no app.
+const TOKEN_CONFIRMACAO = /^[A-Z2-9]{12}$/;
+const caminhoPedidoConf = (token) => `c/${token.slice(0, 2)}/${token}.json`;
+const caminhoRespostaConf = (token) => `c/${token.slice(0, 2)}/${token}.resposta.json`;
+
+async function atenderConfirmacao(request, env) {
+    const url = new URL(request.url);
+    const partes = url.pathname.split("/").filter(Boolean); // ["c", TOKEN]
+    const token = (partes[1] ?? "").toUpperCase();
+
+    if (!TOKEN_CONFIRMACAO.test(token))
+      return pagina(404, "Endereço incompleto", "Confira o link recebido por SMS.");
+
+    const objetoPedido = await env.BUCKET.get(caminhoPedidoConf(token));
+    if (!objetoPedido)
+      return pagina(404, "Este link não vale mais",
+        "A sessão pode já ter passado ou ter sido remarcada. Em caso de dúvida, ligue para a clínica.");
+
+    const pedido = await objetoPedido.json();
+    // A sessão passou: o link morre junto (a expiração vem DE DENTRO do pedido).
+    if (Date.now() > (pedido.expiraEmUnixMs ?? 0))
+      return pagina(410, "Este horário já passou", "Para marcar outra sessão, fale com a clínica.");
+
+    const jaRespondido = await env.BUCKET.get(caminhoRespostaConf(token));
+
+    if (request.method === "GET") {
+      if (jaRespondido) {
+        const r = await jaRespondido.json();
+        return pagina(200, "Resposta recebida",
+          r.resposta === "confirma"
+            ? "Sua presença está confirmada. Até lá!"
+            : "Avisamos a clínica que você não poderá ir. A recepção vai entrar em contato para remarcar.");
+      }
+      return new Response(paginaDaConfirmacao(pedido), { headers: CABECALHOS_PAGINA });
+    }
+
+    if (request.method === "POST") {
+      // WRITE-ONCE: a primeira resposta é A resposta. Mudou de ideia? Liga para a clínica —
+      // a recepção pode já ter oferecido o horário a outra pessoa.
+      if (jaRespondido) return json(409, { erro: "Esta sessão já foi respondida." });
+
+      let corpo;
+      try { corpo = await request.json(); } catch { return json(400, { erro: "Envio ilegível." }); }
+      const resposta = corpo?.resposta;
+      if (resposta !== "confirma" && resposta !== "nao-vai")
+        return json(400, { erro: "Escolha uma das duas opções." });
+
+      await env.BUCKET.put(caminhoRespostaConf(token), JSON.stringify({
+        versao: 1,
+        resposta,
+        respondidoEmUnixMs: Date.now(),
+        ip: request.headers.get("cf-connecting-ip") ?? "",
+        aparelho: (request.headers.get("user-agent") ?? "").slice(0, 200),
+      }), { httpMetadata: { contentType: "application/json; charset=utf-8" } });
+
+      return json(200, { ok: true });
+    }
+
+    return json(405, { erro: "Método não suportado." });
+}
+
+/** A página: quem, quando, e dois botões grandes. Nada de dado clínico — só o que estava no SMS. */
+const paginaDaConfirmacao = (pedido) => `<!doctype html><html lang="pt-BR"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confirmar sessão</title>
+<style>
+  body{font-family:system-ui,sans-serif;margin:0;background:#f4f6f8;color:#1c2430}
+  .caixa{max-width:480px;margin:0 auto;padding:28px 16px}
+  .cartao{background:#fff;border:1px solid #dde3ea;border-radius:14px;padding:24px}
+  .clinica{color:#66788c;font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px}
+  h1{font-size:1.25rem;margin:0 0 6px}
+  .quando{font-size:1.1rem;margin:0 0 22px;line-height:1.4}
+  button{display:block;width:100%;padding:16px 0;border-radius:10px;font-size:1.05rem;margin-top:10px;
+    border:1.5px solid #b9c4d0;background:#fff;color:#1c2430}
+  #sim{background:#12467b;border-color:#12467b;color:#fff;font-weight:600}
+  #aviso{color:#a3272b;font-weight:600;min-height:1.2em;margin:12px 0 0}
+  .rodape{color:#66788c;font-size:.8rem;line-height:1.45;margin-top:16px}
+</style>
+<body><div class="caixa"><div class="cartao">
+  ${pedido.clinica ? `<p class="clinica">${escapar(pedido.clinica)}</p>` : ""}
+  <h1>Olá, ${escapar(pedido.paciente ?? "")}!</h1>
+  <p class="quando">Sua sessão é <strong>${escapar(pedido.quando ?? "")}</strong>.</p>
+  <button type="button" id="sim">Confirmo, estarei lá</button>
+  <button type="button" id="nao">Não poderei ir</button>
+  <p id="aviso"></p>
+  <p class="rodape">Sua resposta chega direto à recepção. Se não puder ir, eles vão falar com você para remarcar.</p>
+</div></div>
+<script>
+  const aviso = document.getElementById("aviso");
+  const enviar = async (resposta) => {
+    document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    aviso.textContent = "";
+    try {
+      const r = await fetch(location.pathname, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ resposta }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { aviso.textContent = j.erro || "A resposta não saiu — tente de novo."; document.querySelectorAll("button").forEach((b) => (b.disabled = false)); return; }
+      document.querySelector(".cartao").innerHTML = resposta === "confirma"
+        ? "<h1>Presença confirmada ✓</h1><p class='quando'>Obrigado! Até lá.</p>"
+        : "<h1>Avisamos a clínica</h1><p class='quando'>A recepção vai entrar em contato para remarcar.</p>";
+    } catch {
+      aviso.textContent = "A resposta não saiu — confira a internet e tente de novo.";
+      document.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    }
+  };
+  document.getElementById("sim").onclick = () => enviar("confirma");
+  document.getElementById("nao").onclick = () => enviar("nao-vai");
+</script></body></html>`;
 
 const cors = () => ({
   "access-control-allow-origin": "*",

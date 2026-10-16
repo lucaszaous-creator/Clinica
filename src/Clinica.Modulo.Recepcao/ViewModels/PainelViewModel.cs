@@ -147,8 +147,8 @@ public sealed partial class PainelViewModel : ObservableObject, IAtualizarAoVolt
             var resumo = await painel.ResumoAsync(hoje);
             var doDia = (await sp.GetRequiredService<AgendaService>().DoDiaAsync(hoje)).ToList();
 
-            var confirmacoes = await Tentar(() => repo.ConfirmacoesDosAgendamentosAsync(doDia.Select(a => a.Id).ToList()),
-                "confirmações do dia", (IReadOnlyDictionary<int, StatusContato>?)null);
+            var confirmacoes = await Tentar(() => repo.RespostasDeConfirmacaoAsync(doDia.Select(a => a.Id).ToList()),
+                "confirmações do dia", (IReadOnlyDictionary<int, RespostaDeConfirmacao>?)null);
             var ocupacao = SessaoUsuario.Atual.Pode(Permissao.VerAgenda)
                 ? await Tentar(() => sp.GetRequiredService<IOcupacaoAgendaService>()
                     .ConsultarAsync(SessaoUsuario.Atual.UsuarioId, hoje, hoje), "ocupação do dia", (OcupacaoAgenda?)null)
@@ -192,7 +192,7 @@ public sealed partial class PainelViewModel : ObservableObject, IAtualizarAoVolt
             // ===== Próximos a chegar =====
             _doDia = doDia;
             var proximos = InicioDoBalcao.Proximos(doDia,
-                confirmacoes ?? new Dictionary<int, StatusContato>(), agora);
+                confirmacoes ?? new Dictionary<int, RespostaDeConfirmacao>(), agora);
             Proximos.Clear();
             foreach (var l in proximos) Proximos.Add(l);
             ResumoProximos = $"{proximos.Count} {(proximos.Count == 1 ? "pessoa" : "pessoas")}";

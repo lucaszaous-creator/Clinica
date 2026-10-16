@@ -482,7 +482,7 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
     // MontarQuadro, que o filtro por profissional chama sem voltar ao banco.
     private HashSet<int> _comPendencia = [];
     private Dictionary<int, IReadOnlyList<SituacaoTermo>> _termos = [];
-    private Dictionary<int, StatusContato> _confirmacoes = [];
+    private Dictionary<int, RespostaDeConfirmacao> _confirmacoes = [];
     private Dictionary<int, (int Usadas, int Contratadas)> _pacotes = [];
 
     /// <summary>
@@ -892,12 +892,12 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
             // O selo da rodada de confirmação ("Confirmou" / "Não confirmou"): a rodada
             // grava a resposta desde a parcela 5, e o quadro nunca a mostrou. Aviso, não
             // conteúdo — falha não derruba a fila.
-            Dictionary<int, StatusContato> confirmacoes;
+            Dictionary<int, RespostaDeConfirmacao> confirmacoes;
             try
             {
                 var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
-                confirmacoes = new Dictionary<int, StatusContato>(
-                    await repo.ConfirmacoesDosAgendamentosAsync(_doDia.Select(a => a.Id).ToList()));
+                confirmacoes = new Dictionary<int, RespostaDeConfirmacao>(
+                    await repo.RespostasDeConfirmacaoAsync(_doDia.Select(a => a.Id).ToList()));
             }
             catch (Exception ex)
             {
@@ -1070,13 +1070,8 @@ public sealed partial class FilaViewModel : ObservableObject, Clinica.Desktop.Sh
             // O selo de confirmação só fala em AGUARDANDO — depois do check-in a pessoa
             // está aqui, e o selo viraria ruído.
             var confirmacao = a.Etapa == EtapaFila.Aguardando
-                              && _confirmacoes.TryGetValue(a.Id, out var status)
-                ? status switch
-                {
-                    StatusContato.Respondido => "Confirmou",
-                    StatusContato.Enviado => "Não confirmou",
-                    _ => string.Empty
-                }
+                              && _confirmacoes.TryGetValue(a.Id, out var resposta)
+                ? RodadaDeConfirmacao.SeloDaLista(resposta)
                 : string.Empty;
 
             var cartao = new CartaoFila

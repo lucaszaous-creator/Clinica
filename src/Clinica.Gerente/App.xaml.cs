@@ -50,6 +50,7 @@ public partial class App : System.Windows.Application
             await CopiaDeSegurancaAsync(_host);
             await ExpirarLinksVencidosAsync(_host);
             await LembretesPorEmailAsync(_host);
+            RelogioDoSms.Iniciar(_host, "Gerente");
         }
     }
 

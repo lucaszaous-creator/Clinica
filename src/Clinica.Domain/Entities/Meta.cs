@@ -62,6 +62,28 @@ public class MetaMensal
     public int? ProfissionalId { get; set; }
     public Profissional? Profissional { get; set; }
 
+    /// <summary>
+    /// O SEGMENTO da meta (out/2026 — a cliente pediu metas por categoria e especialidade):
+    /// código da modalidade ("Acupuntura", "BSV"…). <b>Vazio = todas</b>, e é vazio e não
+    /// nulo de propósito: no Postgres NULL não é igual a NULL num índice único, e duas metas
+    /// "de todas as modalidades" para o mesmo mês passariam pelo índice (a lição da
+    /// exigência de termo, parcela 66).
+    /// </summary>
+    public string ModalidadeCodigo { get; set; } = string.Empty;
+
+    /// <summary>Código da especialidade do segmento. Vazio = todas. Mesma razão do vazio acima.</summary>
+    public string EspecialidadeCodigo { get; set; } = string.Empty;
+
+    /// <summary>A meta é de um recorte (profissional, modalidade ou especialidade), e não da clínica inteira.</summary>
+    public bool Segmentada => ProfissionalId is not null || ModalidadeCodigo.Length > 0 || EspecialidadeCodigo.Length > 0;
+
+    /// <summary>
+    /// Só volume e dinheiro se recortam por modalidade/especialidade: ocupação é minuto de
+    /// agenda sobre jornada, e jornada não tem modalidade — uma "ocupação da acupuntura"
+    /// dividiria minutos de uma coisa pela capacidade de outra.
+    /// </summary>
+    public static bool AceitaSegmento(IndicadorMeta indicador) => indicador != IndicadorMeta.Ocupacao;
+
     public string? Observacoes { get; set; }
 
     public DateTime CriadoEm { get; set; } = DateTime.Now;
