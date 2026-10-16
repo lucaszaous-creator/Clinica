@@ -1,0 +1,1511 @@
+@*
+  LANÇAR E MARCAR ATENDIMENTO (out/2026 — migrada do NovoAtendimentoView/ViewModel WPF).
+
+  UM componente para as DUAS abas: "Lançar" (o paciente está no balcão — encaixe com check-in
+  e a guia nasce agora; ou SOBRE o horário que ele já tem no dia) e "Marcar" (o horário entra
+  na agenda de quem atende). No WPF era o MESMO ViewModel com o modo fixado por quem montava a
+  aba (FixarModo); aqui é o mesmo componente com o parâmetro Marcar, e as telas LancarAtendimento
+  e MarcarAtendimento são cascas — dois componentes divergiriam na primeira correção da prévia,
+  da elegibilidade ou da gravação.
+
+  O desenho é o aprovado (mockup 05 + "6 · Marcar"): sem paciente, a tela É a busca
+  (BuscaDePacienteNaTela, com a sugestão "com horário hoje"); escolhido, o formulário à
+  esquerda (1 QUEM · 2 O QUE FOI FEITO/PEDIDO · 3 QUEM ATENDEU/QUANDO E COM QUEM) e a
+  CONSEQUÊNCIA à direita (resumo, avisos antes de lançar, o pagamento do particular, a guia
+  que vai nascer e o BOTÃO que diz o número de guias).
+
+  A tela não decide regra: grava pelos MESMOS serviços (AgendaService.LancarAvulsoAsync /
+  LancarNoHorarioAsync / AgendarAsync, FechamentoSessaoService), e o que ela AFIRMA mora em
+  AtendimentoDoBalcaoNaTela (Application, com teste). As janelas que continuam WPF (convênio,
+  fechamento, venda de pacote, cobrança, cadastro) entram por IJanelasDoAtendimento.
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Regras
+@inherits TelaBase
+
+<div class="pagina rec-atendimento">
+    @if (_paciente is null)
+    {
+        <BuscaDePacienteNaTela Pergunta="@(Marcar ? "Quem vai ser marcado?" : "Quem vai ser atendido?")"
+                               Contexto="@ContextoDaBusca" SugestaoDeHoje="true" PermiteVerTodos="true"
+                               AoEscolher="EscolherAsync" AoCadastrar="@(PodeCadastrar ? EventCallback.Factory.Create(this, CadastrarAsync) : default)" />
+    }
+    else
+    {
+        <CabecalhoPagina Sobretitulo="Recepção · Atendimento" Titulo="@AtendimentoDoBalcaoNaTela.Titulo(Marcar)"
+                         Subtitulo="@AtendimentoDoBalcaoNaTela.Subtitulo(Marcar)" />
+
+        <div class="ra-grade">
+            <div class="ra-form">
+                @* ============ 1 · QUEM ============ *@
+                <section class="ra-quem" aria-label="Quem">
+                    <FaixaDoPaciente Paciente="_paciente" AoTrocar="Trocar" />
+                    <p class="ra-carteirinha">
+                        <span>Carteirinha <b>@_carteirinha</b> · vence <b class="@(_avisoCarteirinha is null ? null : "ra-vencida")">@_validade</b></span>
+                        @if (_paciente.ConvenioADefinir)
+                        {
+                            <Selo Tom="perigo">sem convênio</Selo>
+                        }
+                    </p>
+                </section>
+
+                @* ============ 2 · O QUE FOI FEITO / PEDIDO ============ *@
+                <section class="cartao ra-passo">
+                    @Passo("2", AtendimentoDoBalcaoNaTela.TituloPassoModalidade(Marcar))
+                    @if (_modalidades.Count == 0)
+                    {
+                        <p class="ra-dica">Nenhuma modalidade ativa@(_profissional is null ? "" : " que este profissional atenda") — confira o catálogo em Configurações e as habilitações em Profissionais e salas.</p>
+                    }
+                    <div class="ra-modalidades" role="radiogroup" aria-label="Modalidade">
+                        @foreach (var m in _modalidades)
+                        {
+                            var c = _consequencias.GetValueOrDefault(m.Codigo, ConsequenciaDaModalidade.Calculando);
+                            var escolhida = m.Codigo == _modalidade?.Codigo;
+                            <button type="button" role="radio" aria-checked="@(escolhida ? "true" : "false")"
+                                    class="ra-modalidade @AtendimentoDoBalcaoNaTela.ClasseDaFamilia(m.Base) @(escolhida ? "escolhida" : null)"
+                                    @onclick="() => EscolherModalidade(m)">
+                                <span class="ra-mod-nome">
+                                    <span>@m.Nome</span>
+                                    @if (m.Codigo == _paciente.ModalidadePreferidaCodigo)
+                                    {
+                                        <span class="ra-habitual">o de sempre dele</span>
+                                    }
+                                </span>
+                                <span class="ra-mod-guias">@c.QuantasGuias</span>
+                                <span class="ra-mod-quando @(c.TemSegundoCodigo ? "segundo" : null)">@c.Quando</span>
+                            </button>
+                        }
+                    </div>
+
+                    <div class="campos ra-campos-mod">
+                        @if (EhConsulta)
+                        {
+                            <Campo Rotulo="Especialidade da consulta" Dica="Fica registrada na guia e nos relatórios." Obrigatorio="true">
+                                <select class="campo" value="@(_especialidade?.Codigo ?? "")" @onchange="TrocarEspecialidade">
+                                    <option value="">Escolha…</option>
+                                    @foreach (var e in _especialidades)
+                                    {
+                                        <option value="@e.Codigo">@e.Nome</option>
+                                    }
+                                </select>
+                            </Campo>
+                        }
+                        @if (_opcoesPrimeiro.Count > 0)
+                        {
+                            <Campo Rotulo="Qual código libera primeiro?" Dica="O outro vira o 2º código, previsto para +24h.">
+                                <select class="campo" value="@(_primeiroCodigo?.ToString() ?? "")" @onchange="TrocarPrimeiroCodigo">
+                                    @foreach (var t in _opcoesPrimeiro)
+                                    {
+                                        <option value="@t">@AtendimentoDoBalcaoNaTela.RotularTipo(t)</option>
+                                    }
+                                </select>
+                            </Campo>
+                        }
+                        <Campo Rotulo="Observações" Classe="largo">
+                            <textarea class="campo" rows="2" maxlength="500" @bind="_observacoes" @bind:event="oninput"></textarea>
+                        </Campo>
+                    </div>
+                </section>
+
+                @* ============ 3 · QUEM ATENDEU / QUANDO E COM QUEM ============ *@
+                <section class="cartao ra-passo">
+                    @Passo("3", AtendimentoDoBalcaoNaTela.TituloPassoQuando(Marcar))
+                    <div class="campos tres">
+                        <Campo Rotulo="Data">
+                            <input type="date" class="campo" value="@_data.ToString("yyyy-MM-dd")" @onchange="TrocarData" />
+                        </Campo>
+                        <Campo Rotulo="Profissional" Dica="Aparece no app de quem atende e entra no repasse.">
+                            <select class="campo" value="@(_profissional?.Id.ToString() ?? "")" @onchange="TrocarProfissional">
+                                <option value="">Escolha quem atende</option>
+                                @foreach (var p in _profissionais)
+                                {
+                                    <option value="@p.Id">@p.Rotulo</option>
+                                }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Sala">
+                            <select class="campo" value="@(_sala?.Id.ToString() ?? "")" @onchange="TrocarSala">
+                                <option value="">Opcional</option>
+                                @foreach (var s in _salas)
+                                {
+                                    <option value="@s.Id">@s.Nome</option>
+                                }
+                            </select>
+                        </Campo>
+                    </div>
+                    @if (_equipeLida && _profissionais.Count == 0)
+                    {
+                        <p class="ra-dica">Nenhum profissional ativo cadastrado — a sessão sai sem dono e não aparece no app de quem atende. Cadastre em Profissionais e salas.</p>
+                    }
+
+                    @if (Marcar)
+                    {
+                        @if (_horas.Count > 0)
+                        {
+                            <div class="ra-horas" role="group" aria-label="Horários do dia">
+                                @foreach (var h in _horas)
+                                {
+                                    <button type="button" class="ra-hora @(h.Ocupada ? "ocupada" : null) @(h.Rotulo == _hora ? "escolhida" : null)"
+                                            title="@h.Dica" aria-pressed="@(h.Rotulo == _hora ? "true" : "false")" @onclick="() => TrocarHora(h.Rotulo)">@h.Rotulo</button>
+                                }
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_avisoHoras))
+                        {
+                            <p class="ra-dica">@_avisoHoras</p>
+                        }
+                    }
+
+                    <div class="ra-linha-hora">
+                        <Campo Rotulo="@AtendimentoDoBalcaoNaTela.RotuloHora(Marcar)">
+                            <input class="campo ra-hora-campo" maxlength="5" value="@_hora" @oninput="e => TrocarHora(e.Value?.ToString() ?? string.Empty)"
+                                   title="Hora da sessão — qualquer hora, mesmo fora das pílulas." />
+                        </Campo>
+                        @if (Marcar)
+                        {
+                            <Campo Rotulo="Duração (min)">
+                                <input class="campo ra-duracao" maxlength="3" value="@_duracao" placeholder="@($"{AtendimentoDoBalcaoNaTela.DuracaoEfetiva(null, _profissional)}")"
+                                       @oninput="e => TrocarDuracao(e.Value?.ToString() ?? string.Empty)" title="Vazio usa a duração padrão do profissional." />
+                            </Campo>
+                            <button type="button" class="botao ra-vagas-botao" disabled="@(_profissional is null)" @onclick="ProximasVagasAsync"
+                                    title="@(_profissional is null ? "Escolha quem atende para buscar as vagas dele." : "Lista os próximos horários livres de quem atende; escolher um preenche a data e a hora")">
+                                <Icone Nome="calendario" />Próximas vagas…
+                            </button>
+                        }
+                    </div>
+
+                    @if (SemProfissionalEscolhido)
+                    {
+                        <div class="ra-traco tom-aviso">@AtendimentoDoBalcaoNaTela.SemProfissionalNaMarcacao</div>
+                    }
+                    @if (Marcar && _conflitos.Count > 0)
+                    {
+                        <p class="ra-dica">@AvisosDeChoque.CabecalhoPara(_conflitos)</p>
+                        @foreach (var a in _conflitos)
+                        {
+                            <div class="ra-traco @(a.Grave ? "tom-perigo" : "tom-aviso")">@a.Texto</div>
+                        }
+                        <label class="marcar ra-encaixe"><input type="checkbox" @bind="_comoEncaixe" />Registrar como encaixe (atender por cima de um horário que já tem paciente)</label>
+                    }
+                </section>
+
+                @* ============ o desfecho ============ *@
+                @if (_lancado)
+                {
+                    <section class="cartao ra-passo ra-resultado" aria-live="polite">
+                        <div class="ra-resultado-topo">
+                            <div>
+                                <strong>@_tituloResultado</strong>
+                                @if (_resumoBaixas is not null)
+                                {
+                                    <span class="secundario">@_resumoBaixas</span>
+                                }
+                            </div>
+                            @if (_ultimoAtendimentoId != 0)
+                            {
+                                <button type="button" class="botao" @onclick="GerarCapaAsync"><Icone Nome="imprimir" />Capa inicial (PDF)</button>
+                            }
+                        </div>
+                        @if (_codigos.Count > 0)
+                        {
+                            <table class="lista ra-codigos">
+                                <thead><tr><th>Guia</th><th>Especialidade</th><th>Ordem</th><th>Faturar em</th><th>Como obter</th></tr></thead>
+                                <tbody>
+                                    @foreach (var c in _codigos)
+                                    {
+                                        <tr>
+                                            <td><span class="principal">@c.Tipo</span><span class="secundario @(c.Baixado ? "ra-ok" : c.TemImpedimento ? "ra-espera" : null)">@c.Situacao</span></td>
+                                            <td>@c.Especialidade</td>
+                                            <td>@c.Ordem</td>
+                                            <td class="nao-quebra">@c.FaturarEm</td>
+                                            <td>@c.ComoObter</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                        @foreach (var a in _avisos)
+                        {
+                            <div class="ra-traco tom-aviso">@a</div>
+                        }
+                    </section>
+                }
+            </div>
+
+            @* ============ A CONSEQUÊNCIA ============ *@
+            <aside class="cartao ra-lado" aria-label="O que vai ser gravado">
+                <div class="ra-lado-corpo">
+                    <h3 class="ra-lado-titulo">@AtendimentoDoBalcaoNaTela.TituloResumo(Marcar)</h3>
+                    <dl class="pares ra-resumo">
+                        <dt>Paciente</dt><dd>@_paciente.Nome</dd>
+                        <dt>Atendimento</dt><dd>@ResumoAtendimento</dd>
+                        <dt>Quando</dt><dd>@ResumoQuando</dd>
+                        <dt>Com</dt><dd>@ResumoCom</dd>
+                        <dt>Guias</dt><dd>@ResumoGuias</dd>
+                    </dl>
+
+                    @if (TemAvisos)
+                    {
+                        <h3 class="ra-lado-titulo">Antes de @(Marcar ? "marcar" : "lançar")</h3>
+                        <div class="ra-avisos">
+                            @if (_paciente.ConvenioADefinir)
+                            {
+                                <div class="ra-traco tom-perigo">
+                                    <span>@AtendimentoDoBalcaoNaTela.SemConvenio</span>
+                                    <button type="button" class="botao mini" @onclick="EscolherConvenioAsync">Escolher convênio…</button>
+                                </div>
+                            }
+                            @if (_avisoJaLancado is not null)
+                            {
+                                <div class="ra-traco tom-perigo">@_avisoJaLancado</div>
+                            }
+                            @if (AvisoHorarioDoDia is { } horario)
+                            {
+                                <div class="ra-traco tom-aviso">
+                                    <span>@horario</span>
+                                    @if (_horarioDoDia is not null && !Marcar)
+                                    {
+                                        <label class="marcar"><input type="checkbox" checked="@_criarEncaixeSeparado" @onchange="TrocarEncaixeSeparado" />Criar um encaixe separado (o horário continua na agenda)</label>
+                                    }
+                                </div>
+                            }
+                            @if (_avisoCarteirinha is not null)
+                            {
+                                <div class="ra-traco tom-perigo">@_avisoCarteirinha</div>
+                            }
+                            @if (_avisoConsulta is not null)
+                            {
+                                <div class="ra-traco @(_consultaVencida ? "tom-perigo" : "tom-aviso")">@_avisoConsulta</div>
+                            }
+                            @if (_saldoAutorizacao is not null)
+                            {
+                                <div class="ra-traco @(_autorizacaoCritica ? "tom-perigo" : _autorizacaoNaUltima ? "tom-aviso" : "tom-info")">@_saldoAutorizacao</div>
+                            }
+                            @if (_avisoPendencias is not null)
+                            {
+                                <div class="ra-traco tom-aviso">@_avisoPendencias</div>
+                            }
+                            @foreach (var a in _alertas)
+                            {
+                                <div class="ra-traco @(a.Vermelho ? "tom-perigo" : "tom-aviso")">
+                                    <span>@a.Descricao</span>
+                                    @if (a.PodeReceber)
+                                    {
+                                        <button type="button" class="botao mini" disabled="@(!PodeAlgum(QuemRecebe))" @onclick="ReceberDividaAsync"
+                                                title="@(PodeAlgum(QuemRecebe) ? "Receber a dívida aqui no balcão" : "Receber exige acesso ao caixa, ao lançamento ou à venda de pacote.")">Receber…</button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_valorPrevisto))
+                    {
+                        <h3 class="ra-lado-titulo">O pagamento</h3>
+                        <p class="ra-pagamento">@_valorPrevisto</p>
+                        @if (_oferecerVenderPacote && PodeAlgum(Permissao.VenderPacote | Permissao.EditarFinanceiro))
+                        {
+                            <button type="button" class="botao" @onclick="VenderPacoteAsync"><Icone Nome="etiqueta" />Vender pacote…</button>
+                        }
+                    }
+
+                    @if (MostrarPrevia)
+                    {
+                        <div class="ra-guia-cab">
+                            <h3 class="ra-lado-titulo">A guia</h3>
+                            <button type="button" class="botao mini fantasma" @onclick="() => _guiaAberta = !_guiaAberta">@(_guiaAberta ? "Ocultar a guia" : "Ver a guia")</button>
+                        </div>
+                        <p class="ra-guia-curta">@(_resumoCurto.Length > 0 ? _resumoCurto : _resumoPrevia)</p>
+                        @if (_guiaAberta)
+                        {
+                            <div class="ra-guia" aria-label="Prévia da guia">
+                                <div class="ra-guia-tarja"><span>PRÉVIA — NADA FOI GRAVADO AINDA</span>@if (_paciente.ConvenioADefinir) { <Selo Tom="perigo">sem convênio</Selo> }</div>
+                                <dl class="ra-guia-campos">
+                                    <div class="@(_paciente.ConvenioADefinir ? "falta" : null)"><dt>Convênio</dt><dd>@_paciente.ConvenioNome</dd></div>
+                                    <div><dt>Carteirinha</dt><dd>@_carteirinha</dd></div>
+                                    <div><dt>Beneficiário</dt><dd>@_paciente.Nome</dd></div>
+                                    <div class="@(_avisoCarteirinha is null ? null : "falta")"><dt>Validade</dt><dd>@_validade</dd></div>
+                                    <div class="@(ExecutanteADefinir ? "a-definir" : null)"><dt>Executante</dt><dd>@(_profissional?.Rotulo ?? "a definir")</dd></div>
+                                    <div><dt>Nº da guia</dt><dd class="secundario">ao baixar</dd></div>
+                                </dl>
+                                <p class="ra-guia-resumo">@_resumoPrevia</p>
+                                @foreach (var l in _previa)
+                                {
+                                    <div class="ra-guia-codigo @(l.EhSegundo ? "segundo" : null)">
+                                        <span><b>@l.Tipo</b> <span class="secundario">@l.Ordem · faturar em @l.FaturarEm · @l.ComoObter</span></span>
+                                        @if (l.Especialidade != AtendimentoDoBalcaoNaTela.Travessao) { <span class="secundario">@l.Especialidade</span> }
+                                        <span class="ra-nota">@l.Nota</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else if (!string.IsNullOrEmpty(_resumoPrevia) && _previaFalhou)
+                    {
+                        <p class="ra-guia-curta">@_resumoPrevia</p>
+                    }
+                </div>
+
+                <div class="ra-lado-rodape">
+                    <Aviso Texto="@_mensagem" Tom="@_tomMensagem" />
+                    @if (!Marcar && !_lancado)
+                    {
+                        <label class="marcar" title="Deixe desmarcado para o médico iniciar e finalizar. Marque apenas ao registrar uma sessão já realizada.">
+                            <input type="checkbox" @bind="_jaRealizado" />O atendimento já aconteceu — registrar como realizado
+                        </label>
+                    }
+                    @if (!_lancado)
+                    {
+                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar)" @onclick="LancarAsync"
+                                title="@(PodeGravar ? null : Marcar ? "Marcar exige acesso de edição à agenda (e ao lançamento, com a guia na marcação)." : "Lançar exige o acesso de lançamento de atendimento.")">
+                            @(_ocupado ? "Gravando…" : RotuloDoBotao)
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" class="botao primario ra-acao" @onclick="NovoLancamento">@AtendimentoDoBalcaoNaTela.RotuloOutro(Marcar)</button>
+                    }
+                    @if (Marcar)
+                    {
+                        <p class="ra-dica">@AtendimentoDoBalcaoNaTela.NotaGuiaNaMarcacao(_guiaNaMarcacao)</p>
+                    }
+                    <button type="button" class="botao fantasma ra-limpar" @onclick="NovoLancamento">Limpar</button>
+                </div>
+            </aside>
+        </div>
+    }
+</div>
+
+@if (_vagas is { } resultadoVagas)
+{
+    <ProximasVagasForm Resultado="resultadoVagas" AoFechar="() => _vagas = null" AoEscolher="EscolherVagaAsync" />
+}
+
+@code {
+    /// <summary>A aba: marcar (true) ou lançar (false). Fixado por quem monta a tela.</summary>
+    [Parameter] public bool Marcar { get; set; }
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    /// <summary>As janelas WPF da Recepção; onde não existem, a versão que responde "não disponível".</summary>
+    private IJanelasDoAtendimento Janelas => Servicos.GetService<IJanelasDoAtendimento>() ?? JanelasDoAtendimentoIndisponiveis.Instancia;
+
+    /// <summary>O bit de receber no balcão (o mesmo QuemRecebe da CobrancaDoPacienteViewModel).</summary>
+    private const Permissao QuemRecebe = Permissao.EditarFinanceiro | Permissao.LancarAtendimento | Permissao.VenderPacote;
+
+    // ==================== estado ====================
+    private Paciente? _paciente;
+    private List<EntradaModalidade> _modalidades = [];
+    private List<EntradaEspecialidade> _especialidades = [];
+    private List<Profissional> _profissionais = [];
+    private List<Sala> _salas = [];
+    private bool _equipeLida;
+    private EntradaModalidade? _modalidade;
+    private EntradaEspecialidade? _especialidade;
+    private IReadOnlyList<TipoCodigo> _opcoesPrimeiro = [];
+    private TipoCodigo? _primeiroCodigo;
+    private Profissional? _profissional;
+    private Sala? _sala;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string _hora = DateTime.Now.ToString("HH:mm");
+    private string _duracao = string.Empty;
+    private string? _observacoes;
+    private bool _comoEncaixe, _jaRealizado, _guiaNaMarcacao, _guiaAberta, _ocupado;
+    private string? _contextoDoPedido;
+
+    private List<PilulaDeHorario> _horas = [];
+    private string? _avisoHoras;
+    private List<AvisoDeChoque> _conflitos = [];
+
+    private Dictionary<string, ConsequenciaDaModalidade> _consequencias = [];
+    private IReadOnlyDictionary<string, PreviaLancamento>? _ultimaPrevia;
+    private List<LinhaPreviaGuia> _previa = [];
+    private string _resumoPrevia = string.Empty, _resumoCurto = string.Empty, _valorPrevisto = string.Empty;
+    private bool _oferecerVenderPacote, _previaFalhou;
+    private int? _totalGuias;
+
+    private string _carteirinha = AtendimentoDoBalcaoNaTela.Travessao, _validade = AtendimentoDoBalcaoNaTela.Travessao;
+    private string? _avisoCarteirinha, _avisoConsulta, _avisoPendencias, _avisoJaLancado, _saldoAutorizacao;
+    private bool _consultaVencida, _autorizacaoCritica, _autorizacaoNaUltima;
+    private HorarioEmAberto? _horarioDoDia;
+    private int _outrosHorarios;
+    private bool _horarioNaoVerificado, _criarEncaixeSeparado;
+    private List<(string Descricao, bool Vermelho, bool PodeReceber)> _alertas = [];
+
+    private bool _lancado;
+    private int _ultimoAtendimentoId;
+    private string? _numeroAtendimento, _tituloResultado, _resumoBaixas;
+    private List<CodigoGeradoNaTela> _codigos = [];
+    private List<string> _avisos = [];
+    private string? _mensagem;
+    private string _tomMensagem = "info";
+
+    private ResultadoBuscaDeVagas? _vagas;
+
+    private int _gPrevia, _gHoras, _gConflitos, _gElegibilidade, _gJaLancado, _gHorarioDoDia, _gConsulta, _gAutorizacao, _gPendencias;
+
+    // ==================== derivados ====================
+    private ModalidadeAtendimento Base => _modalidade?.Base ?? ModalidadeAtendimento.AcupunturaComEletro;
+    private bool EhConsulta => Base == ModalidadeAtendimento.Consulta;
+    private bool EhDupla => AtendimentoDoBalcaoNaTela.EhDupla(Base);
+    private bool SemProfissionalEscolhido => Marcar && _profissional is null && _profissionais.Count > 0;
+    private bool ExecutanteADefinir => _profissional is null && _profissionais.Count > 0;
+    private bool UsarHorarioDoDia => _horarioDoDia is not null && !Marcar && !_criarEncaixeSeparado;
+    private bool MostrarPrevia => _previa.Count > 0 && !_lancado && AtendimentoDoBalcaoNaTela.MostraPrevia(Marcar, _guiaNaMarcacao);
+    private bool PodeCadastrar => Janelas.Disponivel && Pode(Permissao.EditarPaciente);
+
+    /// <summary>
+    /// A metade VISÍVEL da permissão do botão. No lançar, <c>LancarAtendimento</c>; no marcar,
+    /// <c>EditarAgenda</c> — e também <c>LancarAtendimento</c> quando a chave "guia no
+    /// agendamento" está ligada (marcar CRIA as guias). A guarda do clique relê a chave.
+    /// </summary>
+    private bool PodeGravar => Marcar
+        ? Pode(Permissao.EditarAgenda) && (!_guiaNaMarcacao || Pode(Permissao.LancarAtendimento))
+        : Pode(Permissao.LancarAtendimento);
+
+    private string? AvisoHorarioDoDia => AtendimentoDoBalcaoNaTela.AvisoHorarioDoDia(
+        _horarioDoDia, _outrosHorarios, _horarioNaoVerificado, Marcar, _data);
+
+    private bool TemAvisos => _paciente is { } p && (p.ConvenioADefinir || _avisoJaLancado is not null
+        || AvisoHorarioDoDia is not null || _avisoCarteirinha is not null || _avisoConsulta is not null
+        || _saldoAutorizacao is not null || _avisoPendencias is not null || _alertas.Count > 0);
+
+    private string QuandoPorExtenso => AtendimentoDoBalcaoNaTela.QuandoPorExtenso(_data, _hora);
+
+    private string RotuloDoBotao => AtendimentoDoBalcaoNaTela.RotuloDoBotao(
+        Marcar, _guiaNaMarcacao, _totalGuias, QuandoPorExtenso, UsarHorarioDoDia ? _horarioDoDia!.Hora : null);
+
+    private string ResumoAtendimento => _modalidade is null ? AtendimentoDoBalcaoNaTela.Travessao
+        : EhConsulta && _especialidade is { } esp ? $"{_modalidade.Nome} · {esp.Nome}" : _modalidade.Nome;
+
+    private string ResumoQuando => Marcar
+        ? $"{QuandoPorExtenso} · {AtendimentoDoBalcaoNaTela.DuracaoEfetiva(_duracao, _profissional)} min"
+        : QuandoPorExtenso;
+
+    private string ResumoCom
+    {
+        get
+        {
+            var com = new[] { _profissional?.Rotulo, _sala?.Nome }.Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+            return com.Count == 0 ? "a definir" : string.Join(" · ", com);
+        }
+    }
+
+    private string ResumoGuias => _modalidade is not null && _consequencias.TryGetValue(_modalidade.Codigo, out var c)
+        ? $"{c.QuantasGuias.Replace(" guias", "").Replace(" guia", "")} · {c.Quando}" : AtendimentoDoBalcaoNaTela.Travessao;
+
+    private string? ContextoDaBusca => _contextoDoPedido ?? AtendimentoDoBalcaoNaTela.Subtitulo(Marcar);
+
+    private RenderFragment Passo(string numero, string titulo, bool feito = false) => __builder =>
+    {
+        <div class="ra-passo-cab"><span class="ra-numero @(feito ? "feito" : null)">@numero</span><h2>@titulo</h2></div>
+    };
+
+    // ==================== abertura e volta ====================
+
+    protected override async Task OnInitializedAsync()
+    {
+        CarregarCatalogos();
+        await CarregarEquipeAsync();
+        await LerChaveAsync();
+        await AplicarPedidoAsync(Janelas.ConsumirPedido(Marcar), daAbertura: true);
+        Disparar(MontarHorasAsync);
+    }
+
+    /// <summary>
+    /// A volta à aba (a outra aba estornou, ou a fila "Retornos a marcar" deixou um pedido): o
+    /// PEDIDO primeiro; sem pedido, relê o que mudou fora daqui sobre o paciente escolhido — a
+    /// capa do "já lançado" e o horário em aberto do dia. Nunca limpa o que está na tela.
+    /// </summary>
+    protected override async Task AoVoltarAsync()
+    {
+        if (Janelas.HaPedido(Marcar))
+        {
+            await AplicarPedidoAsync(Janelas.ConsumirPedido(Marcar), daAbertura: false);
+            return;
+        }
+        if (_paciente is { } p)
+        {
+            await VerificarJaLancadoAsync(p.Id);
+            await VerificarHorarioDoDiaAsync(p.Id);
+        }
+    }
+
+    /// <summary>F5 relê o que mudou fora; Ctrl+S lança/marca pelo MESMO caminho do botão.</summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => AoVoltarAsync(),
+        AtalhoDeTela.Salvar when _paciente is not null && !_lancado => LancarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>
+    /// Aplica o pedido da ponte: dia, hora, profissional, sala, modalidade e duração; o paciente
+    /// por último. Pedido SEM paciente (o clique no vão da grade) TIRA o paciente do uso anterior
+    /// — deixá-lo marcaria o vão na pessoa errada.
+    /// </summary>
+    private async Task AplicarPedidoAsync(PedidoDoAtendimento? pedido, bool daAbertura)
+    {
+        if (pedido is null) return;
+        if (pedido.DataHora is { } quando)
+        {
+            _data = DateOnly.FromDateTime(quando);
+            if (quando.TimeOfDay > TimeSpan.Zero) _hora = quando.ToString("HH:mm");
+        }
+        if (pedido.ProfissionalId is { } pid && _profissionais.FirstOrDefault(p => p.Id == pid) is { } prof)
+        {
+            _profissional = prof;
+            CarregarCatalogos();
+        }
+        if (pedido.SalaId is { } sid) _sala = _salas.FirstOrDefault(s => s.Id == sid) ?? _sala;
+        if (pedido.ModalidadeCodigo is { } cod && _modalidades.FirstOrDefault(m => m.Codigo == cod) is { } mod)
+            DefinirModalidade(mod);
+        if (pedido.DuracaoMinutos is { } d) _duracao = d.ToString();
+
+        _contextoDoPedido = pedido.DataHora is { } dh
+            ? $"Para {AtendimentoDoBalcaoNaTela.QuandoPorExtenso(DateOnly.FromDateTime(dh), dh.TimeOfDay > TimeSpan.Zero ? dh.ToString("HH:mm") : null)}"
+              + (_profissional is null ? "" : $" com {_profissional.Rotulo}") + "."
+            : null;
+
+        if (pedido.PacienteId is { } pacienteId)
+        {
+            try
+            {
+                using var escopo = Escopo();
+                var paciente = await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(pacienteId);
+                if (paciente is not null) await EscolherAsync(paciente);
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Recepção — paciente do pedido não pôde ser carregado", ex);
+            }
+        }
+        else if (!daAbertura)
+        {
+            Trocar();
+        }
+        Disparar(MontarHorasAsync);
+        Disparar(ConferirConflitosAsync);
+    }
+
+    /// <summary>Profissionais ativos e salas. Falhar não derruba: lança-se sem dono, e a tela diz.</summary>
+    private async Task CarregarEquipeAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var equipe = escopo.ServiceProvider.GetRequiredService<EquipeService>();
+            var ativos = await equipe.ProfissionaisAtivosAsync();
+            var salas = await equipe.SalasAtivasAsync();
+            _profissionais = ativos.ToList();
+            _salas = salas.ToList();
+            _equipeLida = true;
+            // Um profissional só: não há o que escolher.
+            if (_profissionais.Count == 1)
+            {
+                _profissional = _profissionais[0];
+                CarregarCatalogos();
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — profissionais não puderam ser lidos (Lançar/Marcar)", ex);
+        }
+    }
+
+    /// <summary>A chave "guia no agendamento". Falha presume o regime antigo: a nota promete MENOS, nunca mais.</summary>
+    private async Task LerChaveAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            _guiaNaMarcacao = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().GuiaNoAgendamentoAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — chave da guia na marcação não pôde ser lida", ex);
+            _guiaNaMarcacao = false;
+        }
+    }
+
+    /// <summary>Modalidades e especialidades do catálogo (reflete Configurações), filtradas por quem atende.</summary>
+    private void CarregarCatalogos()
+    {
+        var atual = _modalidade?.Codigo;
+        _modalidades = AtendimentoDoBalcaoNaTela.Modalidades(CatalogoModalidades.Ativas, CatalogoEspecialidades.Ativas, _profissional).ToList();
+        var nova = _modalidades.FirstOrDefault(m => m.Codigo == atual)
+                   ?? _modalidades.FirstOrDefault(m => m.Base == ModalidadeAtendimento.AcupunturaComEletro)
+                   ?? _modalidades.FirstOrDefault();
+        DefinirModalidade(nova, prever: false);
+        if (_ultimaPrevia is { } ultima) AplicarNasLinhas(ultima);
+    }
+
+    private void FiltrarEspecialidades()
+    {
+        var atual = _especialidade?.Codigo;
+        _especialidades = AtendimentoDoBalcaoNaTela.Especialidades(CatalogoEspecialidades.Ativas, EhConsulta, _modalidade?.Codigo, _profissional).ToList();
+        _especialidade = _especialidades.FirstOrDefault(e => e.Codigo == atual)
+                         ?? (EhConsulta && _especialidades.Count == 1 ? _especialidades[0] : null);
+    }
+
+    // ==================== o paciente ====================
+
+    private async Task EscolherAsync(Paciente paciente)
+    {
+        _paciente = paciente;
+        _jaRealizado = false;
+        _avisoJaLancado = null;
+        _horarioDoDia = null;
+        _outrosHorarios = 0;
+        _horarioNaoVerificado = false;
+        _criarEncaixeSeparado = false;
+        _avisoPendencias = null;
+        _avisoConsulta = null;
+        _consultaVencida = false;
+        _alertas = [];
+        _saldoAutorizacao = null;
+        _autorizacaoCritica = _autorizacaoNaUltima = false;
+        AtualizarFicha(paciente);
+
+        // A modalidade habitual do paciente, pelo código salvo; senão pela base.
+        var habitual = _modalidades.FirstOrDefault(m => m.Codigo == paciente.ModalidadePreferidaCodigo)
+                       ?? _modalidades.FirstOrDefault(m => m.Base == paciente.ModalidadePreferida);
+        if (habitual is not null) DefinirModalidade(habitual, prever: false);
+
+        // A prévia guardada é do paciente ANTERIOR: mostrar o número dele no cartão do novo é pior
+        // que "calculando…" — é sobre esse número que a recepcionista decide.
+        _ultimaPrevia = null;
+        _consequencias = [];
+        LimparPrevia();
+
+        var id = paciente.Id;
+        Disparar(PreverAsync);
+        Disparar(() => VerificarPendenciasAsync(id));
+        Disparar(() => VerificarAutorizacaoAsync(id));
+        Disparar(() => VerificarConsultaAsync(id));
+        Disparar(() => VerificarJaLancadoAsync(id));
+        Disparar(() => VerificarHorarioDoDiaAsync(id));
+        Disparar(() => VerificarElegibilidadeAsync(id));
+        Disparar(ConferirConflitosAsync);
+        await Task.CompletedTask;
+    }
+
+    private void AtualizarFicha(Paciente p)
+    {
+        _carteirinha = string.IsNullOrWhiteSpace(p.Carteirinha) ? AtendimentoDoBalcaoNaTela.Travessao : p.Carteirinha!;
+        _validade = p.ValidadeCarteirinha is { } v ? v.ToString("dd/MM/yyyy") : AtendimentoDoBalcaoNaTela.Travessao;
+        _avisoCarteirinha = AtendimentoDoBalcaoNaTela.AvisoCarteirinha(p);
+    }
+
+    /// <summary>Volta para a busca. Data, hora e quem atende ficam (o vão escolhido continua valendo).</summary>
+    private void Trocar()
+    {
+        _paciente = null;
+        _contextoDoPedido = null;
+        _gPrevia++; _gElegibilidade++; _gJaLancado++; _gHorarioDoDia++; _gConsulta++; _gAutorizacao++; _gPendencias++;
+        LimparPrevia();
+        _consequencias = [];
+        _ultimaPrevia = null;
+    }
+
+    private async Task CadastrarAsync()
+    {
+        if (!Exigir(Permissao.EditarPaciente, "cadastrar paciente")) return;
+        if (await Janelas.CadastrarPacienteAsync() is not { } novo)
+        {
+            if (!Janelas.Disponivel) Notificacoes.Info(JanelasDoAtendimentoIndisponiveis.Frase);
+            return;
+        }
+        try
+        {
+            using var escopo = Escopo();
+            if (await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(novo) is { } paciente)
+            {
+                Notificacoes.Sucesso("Paciente cadastrado.");
+                await EscolherAsync(paciente);
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — paciente recém-cadastrado não pôde ser lido", ex);
+            Notificacoes.Erro("O paciente foi cadastrado, mas não pôde ser aberto aqui — busque pelo nome.");
+        }
+    }
+
+    // ==================== entradas ====================
+
+    private void EscolherModalidade(EntradaModalidade m) => DefinirModalidade(m);
+
+    /// <summary>Trocar a modalidade muda o que a regra gera: primeiro código, especialidade e a prévia seguem.</summary>
+    private void DefinirModalidade(EntradaModalidade? m, bool prever = true)
+    {
+        _modalidade = m;
+        _opcoesPrimeiro = AtendimentoDoBalcaoNaTela.OpcoesPrimeiroCodigo(Base);
+        _primeiroCodigo = AtendimentoDoBalcaoNaTela.PrimeiroCodigoApos(Base, _primeiroCodigo);
+        if (!EhConsulta) _especialidade = null;
+        FiltrarEspecialidades();
+        if (prever) Disparar(PreverAsync);
+    }
+
+    private void TrocarEspecialidade(ChangeEventArgs e)
+    {
+        var cod = e.Value?.ToString();
+        _especialidade = _especialidades.FirstOrDefault(x => x.Codigo == cod);
+        Disparar(PreverAsync);
+    }
+
+    private void TrocarPrimeiroCodigo(ChangeEventArgs e)
+    {
+        _primeiroCodigo = Enum.TryParse<TipoCodigo>(e.Value?.ToString(), out var t) && _opcoesPrimeiro.Contains(t) ? t : _primeiroCodigo;
+        Disparar(PreverAsync);
+    }
+
+    /// <summary>
+    /// A data muda a prévia, as horas, o choque e — com paciente — a cota, a consulta, a
+    /// elegibilidade, a capa e o horário do dia: todos respondem PELA DATA.
+    /// </summary>
+    private void TrocarData(ChangeEventArgs e)
+    {
+        if (!DateOnly.TryParse(e.Value?.ToString(), out var d)) return;
+        _data = d;
+        Disparar(PreverAsync);
+        Disparar(MontarHorasAsync);
+        Disparar(ConferirConflitosAsync);
+        if (_paciente is { } p)
+        {
+            var id = p.Id;
+            Disparar(() => VerificarJaLancadoAsync(id));
+            Disparar(() => VerificarHorarioDoDiaAsync(id));
+            Disparar(() => VerificarAutorizacaoAsync(id));
+            Disparar(() => VerificarConsultaAsync(id));
+            Disparar(() => VerificarElegibilidadeAsync(id));
+        }
+    }
+
+    private void TrocarProfissional(ChangeEventArgs e)
+    {
+        _profissional = int.TryParse(e.Value?.ToString(), out var id) ? _profissionais.FirstOrDefault(p => p.Id == id) : null;
+        CarregarCatalogos();
+        Disparar(PreverAsync);
+        Disparar(ConferirConflitosAsync);
+        Disparar(MontarHorasAsync);
+    }
+
+    private void TrocarSala(ChangeEventArgs e)
+    {
+        _sala = int.TryParse(e.Value?.ToString(), out var id) ? _salas.FirstOrDefault(s => s.Id == id) : null;
+        Disparar(ConferirConflitosAsync);
+    }
+
+    private void TrocarHora(string hora)
+    {
+        _hora = hora.Trim();
+        Disparar(ConferirConflitosAsync);
+    }
+
+    private void TrocarDuracao(string duracao)
+    {
+        _duracao = duracao.Trim();
+        Disparar(ConferirConflitosAsync);
+        Disparar(MontarHorasAsync);
+    }
+
+    private void TrocarEncaixeSeparado(ChangeEventArgs e) => _criarEncaixeSeparado = e.Value is true;
+
+    /// <summary>Roda uma leitura em paralelo à tela e redesenha quando ela volta (cada uma no seu escopo).</summary>
+    private void Disparar(Func<Task> trabalho) => _ = DispararAsync(trabalho);
+
+    private async Task DispararAsync(Func<Task> trabalho)
+    {
+        try { await trabalho(); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Recepção — leitura do Lançar/Marcar", ex); }
+        if (!Descartada) await InvokeAsync(StateHasChanged);
+    }
+
+    // ==================== leituras ====================
+
+    /// <summary>As pílulas de hora: só no marcar e só com quem atende escolhido.</summary>
+    private async Task MontarHorasAsync()
+    {
+        var g = ++_gHoras;
+        if (!Marcar || _profissional is not { } prof)
+        {
+            _horas = [];
+            _avisoHoras = Marcar ? "Escolha quem atende para ver os horários do dia." : null;
+            return;
+        }
+        try
+        {
+            var dia = _data;
+            using var escopo = Escopo();
+            var doDia = await escopo.ServiceProvider.GetRequiredService<AgendaService>().DoDiaAsync(dia);
+            if (g != _gHoras || Descartada) return;
+            var ocupados = doDia.Where(a => a.ProfissionalId == prof.Id && a.OcupaAgenda).Select(a => (a.DataHora, a.FimPrevisto));
+            _horas = PilulasDeHorario.Montar(prof, dia, ocupados, AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao), DateTime.Now).ToList();
+            _avisoHoras = _horas.Count == 0
+                ? "Nenhuma hora a oferecer neste dia (fora do horário de atendimento, ou o dia já passou) — use \"Outro horário\"."
+                : null;
+        }
+        catch (Exception ex)
+        {
+            if (g != _gHoras) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — horas do dia não puderam ser lidas", ex);
+            _horas = [];
+            _avisoHoras = "Não foi possível ler a agenda deste dia — digite a hora em \"Outro horário\".";
+        }
+    }
+
+    /// <summary>
+    /// Choque e agenda fechada ANTES de marcar (AgendaService.ConflitosAsync — sem cópia). Nada
+    /// impede (set/2026): esta lista é o único lugar onde a clínica vê que há alguém ali. Agrupa
+    /// as teclas da hora.
+    /// </summary>
+    private async Task ConferirConflitosAsync()
+    {
+        var g = ++_gConflitos;
+        if (!Marcar || !TimeOnly.TryParse(_hora, out var hora))
+        {
+            _conflitos = [];
+            if (!Marcar) _comoEncaixe = false;
+            return;
+        }
+        try
+        {
+            await Task.Delay(250);
+            if (g != _gConflitos || Descartada) return;
+            using var escopo = Escopo();
+            var achados = await escopo.ServiceProvider.GetRequiredService<AgendaService>().ConflitosAsync(
+                _data.ToDateTime(hora), AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao),
+                _profissional?.Id, _sala?.Id, pacienteId: _paciente?.Id);
+            if (g != _gConflitos) return;
+            _conflitos = AvisosDeChoque.Montar(achados).ToList();
+        }
+        catch (Exception ex)
+        {
+            if (g != _gConflitos) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — conflitos da agenda não puderam ser conferidos", ex);
+            _conflitos = [new AvisoDeChoque("Não foi possível conferir a disponibilidade. Ao salvar, a agenda será verificada novamente.", true)];
+        }
+        // O choque sumiu: a caixinha "como encaixe" some, e não pode ficar ARMADA invisível.
+        if (_conflitos.Count == 0) _comoEncaixe = false;
+    }
+
+    /// <summary>
+    /// Roda o motor de regras SEM gravar: a lista de guias e a frase de cada modalidade, e a
+    /// cobrança do particular (preço da tabela ou o PACOTE que a cobre — CobrancaDaSessao).
+    /// Falha nunca impede o lançamento, e não deixa número velho na tela.
+    /// </summary>
+    private async Task PreverAsync()
+    {
+        var g = ++_gPrevia;
+        if (_paciente is not { } paciente || _modalidade is not { } modalidade)
+        {
+            LimparPrevia();
+            return;
+        }
+        var data = _data;
+        var baseMod = modalidade.Base;
+        var especialidade = EhConsulta ? _especialidade?.Codigo : null;
+        var primeiro = EhDupla ? _primeiroCodigo : null;
+        var codigos = _modalidades.Select(m => m.Codigo).ToList();
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var (previa, porModalidade) = await sp.GetRequiredService<AtendimentoService>().PreverComModalidadesAsync(
+                paciente.Id, data, baseMod, codigos, primeiroCodigo: primeiro,
+                modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade);
+
+            // ⚠️ Sequencial, nunca WhenAll — é o mesmo DbContext do escopo.
+            var cobranca = CobrancaDaSessao.Nenhuma;
+            var ehParticular = !paciente.ConvenioADefinir
+                               && !CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
+            if (ehParticular)
+            {
+                var preco = await sp.GetRequiredService<PrecoParticularService>().ProporAsync(modalidade.Codigo, baseMod, especialidade, data);
+                var pacote = await sp.GetRequiredService<PacoteService>().ADebitarAsync(paciente.Id, data);
+                cobranca = CobrancaDaSessao.Montar(ehParticular, preco, pacote);
+            }
+
+            if (g != _gPrevia || Descartada) return;
+            _valorPrevisto = cobranca.Frase;
+            _oferecerVenderPacote = ehParticular;
+            _previa = AtendimentoDoBalcaoNaTela.LinhasDaPrevia(previa).ToList();
+            _totalGuias = AtendimentoDoBalcaoNaTela.TotalDeGuias(previa);
+            _resumoPrevia = AtendimentoDoBalcaoNaTela.ResumoPrevia(previa);
+            _resumoCurto = AtendimentoDoBalcaoNaTela.ResumoCurtoPrevia(previa);
+            _previaFalhou = false;
+            AplicarNasLinhas(porModalidade);
+        }
+        catch (Exception ex)
+        {
+            if (g != _gPrevia) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — prévia das guias não pôde ser calculada", ex);
+            LimparPrevia();
+            _previaFalhou = true;
+            _resumoPrevia = AtendimentoDoBalcaoNaTela.PreviaFalhou;
+            _consequencias = _modalidades.ToDictionary(m => m.Codigo, _ => ConsequenciaDaModalidade.NaoCalculada);
+        }
+    }
+
+    private void AplicarNasLinhas(IReadOnlyDictionary<string, PreviaLancamento> porModalidade)
+    {
+        _ultimaPrevia = porModalidade;
+        _consequencias = _modalidades.ToDictionary(m => m.Codigo,
+            m => porModalidade.TryGetValue(m.Codigo, out var p) ? AtendimentoDoBalcaoNaTela.Consequencia(p) : ConsequenciaDaModalidade.SemPrevia);
+    }
+
+    private void LimparPrevia()
+    {
+        _previa = [];
+        _valorPrevisto = string.Empty;
+        _oferecerVenderPacote = false;
+        _resumoPrevia = _resumoCurto = string.Empty;
+        _totalGuias = null;
+        _previaFalhou = false;
+    }
+
+    /// <summary>Os alertas de elegibilidade que a tela NÃO diz por conta própria (dívida, glosa, pacote, termo…).</summary>
+    private async Task VerificarElegibilidadeAsync(int pacienteId)
+    {
+        var g = ++_gElegibilidade;
+        try
+        {
+            using var escopo = Escopo();
+            var resultado = await escopo.ServiceProvider.GetRequiredService<ElegibilidadeService>().ConferirAsync(pacienteId, _data);
+            if (g != _gElegibilidade || _paciente?.Id != pacienteId) return;
+            _alertas = resultado.Alertas.Where(a => !AtendimentoDoBalcaoNaTela.JaDitoPelaTela(a.Motivo))
+                .Select(a => (a.Descricao, a.Urgencia == NivelUrgencia.Vermelho, a.Motivo == ImpedimentoElegibilidade.PacienteEmDebito))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            if (g != _gElegibilidade) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — elegibilidade não pôde ser conferida", ex);
+            _alertas = [("Não foi possível conferir dívida, pacote e termo agora.", false, false)];
+        }
+    }
+
+    /// <summary>A capa do que o paciente já tem no dia — o aviso ANTES da pergunta.</summary>
+    private async Task VerificarJaLancadoAsync(int pacienteId)
+    {
+        var g = ++_gJaLancado;
+        try
+        {
+            using var escopo = Escopo();
+            var capas = await escopo.ServiceProvider.GetRequiredService<AtendimentoService>().CapasDoDiaAsync(pacienteId, _data);
+            if (g != _gJaLancado || _paciente?.Id != pacienteId) return;
+            _avisoJaLancado = AtendimentoDoBalcaoNaTela.AvisoJaLancado(capas, _data);
+        }
+        catch (Exception ex)
+        {
+            if (g != _gJaLancado) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — atendimentos do dia do paciente não puderam ser lidos", ex);
+            _avisoJaLancado = null;
+        }
+    }
+
+    /// <summary>
+    /// O horário em aberto que o paciente já tem no dia: o lançar vai SOBRE ele. Marcado por
+    /// aqui, a modalidade dele vem selecionada; o importado diz "Consulta" para tudo, e aí a
+    /// habitual do paciente é o palpite melhor.
+    /// </summary>
+    private async Task VerificarHorarioDoDiaAsync(int pacienteId)
+    {
+        var g = ++_gHorarioDoDia;
+        try
+        {
+            using var escopo = Escopo();
+            var abertos = await escopo.ServiceProvider.GetRequiredService<AgendaService>().HorariosEmAbertoDoDiaAsync(pacienteId, _data);
+            if (g != _gHorarioDoDia || _paciente?.Id != pacienteId) return;
+            _horarioNaoVerificado = false;
+            _outrosHorarios = Math.Max(0, abertos.Count - 1);
+            _horarioDoDia = abertos.FirstOrDefault();
+            if (!Marcar && _horarioDoDia is { Importado: false, ModalidadeCodigo: { } codigo }
+                && _modalidades.FirstOrDefault(m => m.Codigo == codigo) is { } marcada)
+            {
+                DefinirModalidade(marcada);
+                if (EhConsulta)
+                    _especialidade = _especialidades.FirstOrDefault(e => e.Codigo == _horarioDoDia.EspecialidadeConsultaCodigo) ?? _especialidade;
+            }
+        }
+        catch (Exception ex)
+        {
+            if (g != _gHorarioDoDia) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — horários do dia do paciente não puderam ser lidos", ex);
+            _horarioDoDia = null;
+            _horarioNaoVerificado = true;
+        }
+    }
+
+    private async Task VerificarConsultaAsync(int pacienteId)
+    {
+        var g = ++_gConsulta;
+        try
+        {
+            using var escopo = Escopo();
+            var situacao = await escopo.ServiceProvider.GetRequiredService<ConsultaService>().DoPacienteAsync(pacienteId, _data);
+            if (g != _gConsulta || _paciente?.Id != pacienteId) return;
+            _avisoConsulta = situacao?.AvisoRenovacao;
+            _consultaVencida = situacao?.Vencida ?? false;
+        }
+        catch (Exception ex)
+        {
+            if (g != _gConsulta) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — consulta renovável não pôde ser lida", ex);
+            _avisoConsulta = "Não foi possível conferir a consulta renovável deste paciente.";
+            _consultaVencida = false;
+        }
+    }
+
+    private async Task VerificarAutorizacaoAsync(int pacienteId)
+    {
+        var g = ++_gAutorizacao;
+        try
+        {
+            using var escopo = Escopo();
+            var saldo = await escopo.ServiceProvider.GetRequiredService<AutorizacaoService>().VigenteAsync(pacienteId, _data);
+            if (g != _gAutorizacao || _paciente?.Id != pacienteId) return;
+            _saldoAutorizacao = AtendimentoDoBalcaoNaTela.SaldoAutorizacao(saldo);
+            _autorizacaoCritica = AtendimentoDoBalcaoNaTela.AutorizacaoCritica(saldo);
+            _autorizacaoNaUltima = AtendimentoDoBalcaoNaTela.AutorizacaoNaUltima(saldo);
+        }
+        catch (Exception ex)
+        {
+            if (g != _gAutorizacao) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — cota de sessões não pôde ser lida", ex);
+            _saldoAutorizacao = null;
+            _autorizacaoCritica = _autorizacaoNaUltima = false;
+        }
+    }
+
+    private async Task VerificarPendenciasAsync(int pacienteId)
+    {
+        var g = ++_gPendencias;
+        try
+        {
+            using var escopo = Escopo();
+            var pendencias = escopo.ServiceProvider.GetRequiredService<PendenciaService>();
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var lista = await pendencias.PendenciasDoPacienteAsync(pacienteId, hoje);
+            var ncs = await pendencias.NaoConformidadesDoPacienteAsync(pacienteId, hoje);
+            if (g != _gPendencias || _paciente?.Id != pacienteId) return;
+            _avisoPendencias = AtendimentoDoBalcaoNaTela.AvisoPendencias(lista, ncs.Count);
+        }
+        catch (Exception ex)
+        {
+            if (g != _gPendencias) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — pendências do paciente não puderam ser lidas", ex);
+            _avisoPendencias = null;
+        }
+    }
+
+    // ==================== as janelas da Recepção ====================
+
+    private async Task EscolherConvenioAsync()
+    {
+        if (_paciente is not { ConvenioADefinir: true } p) return;
+        if (!Janelas.Disponivel)
+        {
+            Avisar(AtendimentoDoBalcaoNaTela.RecusaSemConvenio(p.Nome) + " " + JanelasDoAtendimentoIndisponiveis.Frase, "erro");
+            return;
+        }
+        if (await Janelas.EscolherConvenioAsync(p.Id)) await RelerPacienteAsync(p.Id);
+    }
+
+    /// <summary>
+    /// A ficha acabou de ganhar convênio: o que a tela mostra sobre ele muda junto — a prévia
+    /// sobretudo (a mesma modalidade gera 2 guias numa operadora e 1 noutra).
+    /// </summary>
+    private async Task RelerPacienteAsync(int pacienteId)
+    {
+        try
+        {
+            using var escopo = Escopo();
+            if (await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(pacienteId) is not { } p) return;
+            _paciente = p;
+            AtualizarFicha(p);
+            _ultimaPrevia = null;
+            _consequencias = [];
+            Disparar(PreverAsync);
+            Disparar(() => VerificarElegibilidadeAsync(p.Id));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — ficha não pôde ser relida depois do convênio", ex);
+        }
+    }
+
+    private async Task ReceberDividaAsync()
+    {
+        if (_paciente is not { } p) return;
+        if (!ExigirAlgum(QuemRecebe, "receber no balcão")) return;
+        if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDoAtendimentoIndisponiveis.Frase); return; }
+        try
+        {
+            if (await Janelas.ReceberDividaAsync(p.Id)) await VerificarElegibilidadeAsync(p.Id);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — cobrança no balcão não pôde abrir", ex);
+            Avisar(ex.Message, "erro");
+        }
+    }
+
+    /// <summary>Vende o pacote com o paciente já escolhido; vendido, a prévia é relida ("debita do pacote").</summary>
+    private async Task VenderPacoteAsync()
+    {
+        if (_paciente is not { } p) return;
+        if (!ExigirAlgum(Permissao.VenderPacote | Permissao.EditarFinanceiro, "vender pacote")) return;
+        if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDoAtendimentoIndisponiveis.Frase); return; }
+        try
+        {
+            if (!await Janelas.VenderPacoteAsync(p.Id)) return;
+            Avisar($"Pacote vendido para {p.Nome}. Esta sessão já debita dele — confira a coluna da direita.", "sucesso");
+            await PreverAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — venda de pacote não pôde abrir", ex);
+            Avisar(ex.Message, "erro");
+        }
+    }
+
+    private async Task ProximasVagasAsync()
+    {
+        if (_profissional is not { } prof)
+        {
+            Avisar("Escolha quem atende para buscar as vagas dele.", "atencao");
+            return;
+        }
+        try
+        {
+            var aPartirDe = _data == DateOnly.FromDateTime(DateTime.Today) ? DateTime.Now : _data.ToDateTime(TimeOnly.MinValue);
+            using var escopo = Escopo();
+            _vagas = await escopo.ServiceProvider.GetRequiredService<BuscaDeVagasService>()
+                .ProximasAsync(prof.Id, aPartirDe, AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — busca de vagas falhou", ex);
+            Avisar($"Não foi possível buscar as vagas: {ex.Message}", "erro");
+        }
+    }
+
+    private Task EscolherVagaAsync(Vaga vaga)
+    {
+        _vagas = null;
+        _data = DateOnly.FromDateTime(vaga.Inicio);
+        _hora = vaga.Inicio.ToString("HH:mm");
+        TrocarData(new ChangeEventArgs { Value = _data.ToString("yyyy-MM-dd") });
+        return Task.CompletedTask;
+    }
+
+    // ==================== lançar / marcar ====================
+
+    private void Avisar(string texto, string tom = "info")
+    {
+        _mensagem = texto;
+        _tomMensagem = tom;
+    }
+
+    private async Task LancarAsync()
+    {
+        if (_ocupado || _lancado) return;
+        if (!Marcar && !Exigir(Permissao.LancarAtendimento, "lançar atendimento")) return;
+        if (_paciente is not { } paciente) { Avisar("Selecione o paciente.", "erro"); return; }
+        if (_modalidade is not { } modalidade) { Avisar("Selecione a modalidade.", "erro"); return; }
+        if (EhConsulta && _especialidade is null) { Avisar("Informe a especialidade da consulta.", "erro"); return; }
+        if (!TimeOnly.TryParse(_hora, out var hora)) { Avisar("Informe a hora da sessão no formato HH:mm.", "erro"); return; }
+
+        // SEM CONVÊNIO NÃO SE LANÇA (parcela 92) — a condição vale onde o atendimento NASCE.
+        if (AtendimentoDoBalcaoNaTela.NasceAtendimento(Marcar, _guiaNaMarcacao) && paciente.ConvenioADefinir)
+        {
+            if (!Janelas.Disponivel || !await Janelas.EscolherConvenioAsync(paciente.Id))
+            {
+                Avisar(AtendimentoDoBalcaoNaTela.RecusaSemConvenio(paciente.Nome)
+                       + (Janelas.Disponivel ? "" : " " + JanelasDoAtendimentoIndisponiveis.Frase), "erro");
+                return;
+            }
+            await RelerPacienteAsync(paciente.Id);
+            if (_paciente is not { } relido) return;
+            paciente = relido;
+        }
+
+        if (Marcar)
+        {
+            await MarcarAsync(paciente, modalidade, hora);
+            return;
+        }
+
+        // A pergunta informada (parcela 65/70): pergunta, nunca recusa.
+        if (!await ConfirmarSeJaLancadoAsync(paciente)) return;
+
+        _ocupado = true;
+        int agendamentoId;
+        try
+        {
+            _codigos = [];
+            _avisos = [];
+            _mensagem = null;
+            StateHasChanged();
+
+            using var escopo = Escopo();
+            var agenda = escopo.ServiceProvider.GetRequiredService<AgendaService>();
+            var horarioUsado = UsarHorarioDoDia ? _horarioDoDia : null;
+            var especialidade = EhConsulta ? _especialidade?.Codigo : null;
+            var primeiro = EhDupla ? _primeiroCodigo : null;
+            var (agendamento, lancamento) = horarioUsado is not null
+                ? await agenda.LancarNoHorarioAsync(
+                    horarioUsado.AgendamentoId, _observacoes,
+                    modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade,
+                    primeiroCodigo: primeiro, profissionalId: _profissional?.Id, operador: Operador,
+                    salaId: _sala?.Id, concluirSessao: _jaRealizado)
+                : await agenda.LancarAvulsoAsync(
+                    paciente.Id, _data.ToDateTime(hora), modalidade.Base, _observacoes,
+                    modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade,
+                    primeiroCodigo: primeiro, profissionalId: _profissional?.Id, operador: Operador,
+                    salaId: _sala?.Id, concluirSessao: _jaRealizado);
+
+            agendamentoId = agendamento.Id;
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            _codigos = AtendimentoDoBalcaoNaTela.CodigosGerados(lancamento.Atendimento.Codigos, hoje).ToList();
+            _resumoBaixas = AtendimentoDoBalcaoNaTela.ResumoBaixas(lancamento.Atendimento.Codigos, hoje);
+            _avisos = lancamento.Avisos.ToList();
+            _ultimoAtendimentoId = lancamento.Atendimento.Id;
+            _numeroAtendimento = lancamento.Atendimento.Numero;
+            _tituloResultado = $"Atendimento nº {lancamento.Atendimento.Numero} lançado"
+                               + (horarioUsado is not null ? $" no horário das {agendamento.DataHora:HH'h'mm}" : "");
+            _lancado = true;
+            Disparar(() => VerificarHorarioDoDiaAsync(paciente.Id));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — lançamento falhou", ex);
+            Avisar($"Não foi possível lançar: {ex.Message} Nada foi gravado — corrija e tente de novo.", "erro");
+            _ocupado = false;
+            return;
+        }
+
+        if (!_jaRealizado)
+        {
+            Avisar("Atendimento e guias registrados. A sessão continua aberta para o profissional atender e finalizar.", "sucesso");
+            _ocupado = false;
+            return;
+        }
+
+        RegistroAtendimento registro;
+        try
+        {
+            using var escopo = Escopo();
+            registro = await escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>()
+                .RegistrarAtendimentoAsync(agendamentoId, Operador);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — proposta de fechamento não pôde ser montada", ex);
+            Avisar("Atendimento registrado e guia gerada. O passo de pacote/caixa não pôde abrir — dá para resolver pela Fila ou pelo Financeiro.", "atencao");
+            _ocupado = false;
+            return;
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+
+        // Pacote, insumo e caixa: a MESMA janela da Fila, e só quando há o que decidir.
+        if (!registro.TemDecisao)
+        {
+            Avisar(AtendimentoDoBalcaoNaTela.DesfechoSemDecisao(registro.GuiasGeradas), "sucesso");
+            return;
+        }
+        if (!Janelas.Disponivel)
+        {
+            Avisar("Atendimento registrado e guia gerada. O pacote/caixa se resolvem pelo \"Fechar sessão\" da Agenda do dia — "
+                   + JanelasDoAtendimentoIndisponiveis.Frase, "atencao");
+            return;
+        }
+        try
+        {
+            if (await Janelas.FecharSessaoAsync(agendamentoId) is not { } resultado)
+            {
+                Avisar("Atendimento registrado e guia gerada. O pacote/caixa NÃO foram registrados — dá para resolver pela Fila ou pelo Financeiro.", "atencao");
+                return;
+            }
+            _avisos.AddRange(resultado.Avisos);
+            Avisar(AtendimentoDoBalcaoNaTela.DesfechoSemDecisao(registro.GuiasGeradas), _avisos.Count > 0 ? "atencao" : "sucesso");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — fechamento não pôde ser concluído", ex);
+            Avisar($"Atendimento registrado e guia gerada, mas o pacote/caixa falhou: {ex.Message}. Resolva pela Fila ou pelo Financeiro.", "atencao");
+        }
+    }
+
+    /// <summary>
+    /// O modo MARCAR: o AgendaService.AgendarAsync de sempre (com a chave ligada, atendimento e
+    /// guias no MESMO grafo). A chave é RELIDA aqui — guarda que decidisse pelo valor da abertura
+    /// deixaria quem só tem EditarAgenda gerar guia; na dúvida, a guarda pede MAIS.
+    /// </summary>
+    private async Task MarcarAsync(Paciente paciente, EntradaModalidade modalidade, TimeOnly hora)
+    {
+        bool chaveLigada;
+        try
+        {
+            using var escopoChave = Escopo();
+            chaveLigada = await escopoChave.ServiceProvider.GetRequiredService<ParametrosService>().GuiaNoAgendamentoAsync();
+            _guiaNaMarcacao = chaveLigada;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — chave da guia não pôde ser relida na guarda", ex);
+            chaveLigada = true;
+        }
+        if (!Exigir(chaveLigada ? Permissao.EditarAgenda | Permissao.LancarAtendimento : Permissao.EditarAgenda, "marcar horário"))
+            return;
+
+        if (!string.IsNullOrWhiteSpace(_duracao) && AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao) is null)
+        {
+            Avisar("A duração precisa ser um número de minutos maior que zero.", "erro");
+            return;
+        }
+        if (SemProfissionalEscolhido)
+        {
+            Avisar(AtendimentoDoBalcaoNaTela.RecusaSemProfissional, "erro");
+            return;
+        }
+        if (_ocupado) return;
+        if (!await ConfirmarSeJaLancadoAsync(paciente)) return;
+
+        _ocupado = true;
+        try
+        {
+            _codigos = [];
+            _avisos = [];
+            _mensagem = null;
+            StateHasChanged();
+
+            var dataHora = _data.ToDateTime(hora);
+            using var escopo = Escopo();
+            var ag = await escopo.ServiceProvider.GetRequiredService<AgendaService>().AgendarAsync(
+                paciente.Id, dataHora, modalidade.Base, _observacoes,
+                modalidadeCodigo: modalidade.Codigo,
+                especialidadeConsultaCodigo: EhConsulta ? _especialidade?.Codigo : null,
+                profissionalId: _profissional?.Id, salaId: _sala?.Id,
+                duracaoMinutos: AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao), encaixe: _comoEncaixe,
+                operador: Operador, primeiroCodigo: EhDupla ? _primeiroCodigo : null);
+
+            if (ag.Atendimento is { } atendimento)
+            {
+                var hoje = DateOnly.FromDateTime(DateTime.Today);
+                _codigos = AtendimentoDoBalcaoNaTela.CodigosGerados(atendimento.Codigos, hoje).ToList();
+                _resumoBaixas = AtendimentoDoBalcaoNaTela.ResumoBaixas(atendimento.Codigos, hoje);
+                _ultimoAtendimentoId = atendimento.Id;
+                _numeroAtendimento = atendimento.Numero;
+                _tituloResultado = $"Atendimento nº {atendimento.Numero} marcado para {dataHora:dd/MM/yyyy 'às' HH:mm}";
+                _lancado = true;
+                var guias = atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
+                Avisar(AtendimentoDoBalcaoNaTela.DesfechoDaMarcacao(dataHora, guias), "sucesso");
+            }
+            else
+            {
+                _tituloResultado = $"Horário marcado para {dataHora:dd/MM/yyyy 'às' HH:mm}";
+                _lancado = true;
+                Avisar(AtendimentoDoBalcaoNaTela.DesfechoDaMarcacao(dataHora, null), "sucesso");
+            }
+
+            await PerguntarComprovanteAsync(ag.Id, paciente.Nome, dataHora);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — marcação falhou", ex);
+            Avisar($"Não foi possível marcar: {ex.Message}", "erro");
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    /// <summary>"Imprimir o comprovante de agendamento?" — falha vira aviso, nunca por cima da confirmação.</summary>
+    private async Task PerguntarComprovanteAsync(int agendamentoId, string paciente, DateTime dataHora)
+    {
+        try
+        {
+            if (!await Dialogos.ConfirmarAsync("Comprovante de agendamento",
+                    $"Imprimir o comprovante de agendamento para {paciente} ({dataHora:dd/MM/yyyy 'às' HH:mm})?"))
+                return;
+            using var escopo = Escopo();
+            var prestador = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+            var pdf = await escopo.ServiceProvider.GetRequiredService<AgendaPdfService>().ComprovanteAsync(agendamentoId, prestador);
+            var erro = await Host.SalvarEAbrirAsync(pdf, AtendimentoDoBalcaoNaTela.NomeDoArquivo($"comprovante-{paciente}-{dataHora:yyyy-MM-dd}.pdf"),
+                "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) _avisos.Add(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — comprovante não pôde ser gerado", ex);
+            _avisos.Add($"O comprovante não pôde ser gerado: {ex.Message}. Dá para imprimir pela janela do horário, na Agenda.");
+        }
+    }
+
+    /// <summary>
+    /// A pergunta INFORMADA antes de lançar (ou marcar) de novo quem já tem atendimento no dia.
+    /// Falha da conferência não trava o balcão, mas fica no log.
+    /// </summary>
+    private async Task<bool> ConfirmarSeJaLancadoAsync(Paciente paciente)
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var capas = await escopo.ServiceProvider.GetRequiredService<AtendimentoService>().CapasDoDiaAsync(paciente.Id, _data);
+            if (capas.Count == 0) return true;
+            return await Dialogos.ConfirmarAsync("Atendimento repetido?",
+                AtendimentoDoBalcaoNaTela.PerguntaDeRepetido(paciente.Nome, capas, _data, Marcar), perigoso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — conferência de lançamento repetido falhou", ex);
+            return true;
+        }
+    }
+
+    /// <summary>A capa de faturamento (PDF) do atendimento recém-lançado.</summary>
+    private async Task GerarCapaAsync()
+    {
+        if (_ultimoAtendimentoId == 0) return;
+        try
+        {
+            using var escopo = Escopo();
+            var prestador = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+            var pdf = await escopo.ServiceProvider.GetRequiredService<CapaFaturamentoService>().GerarPdfAsync(_ultimoAtendimentoId, prestador);
+            var erro = await Host.SalvarEAbrirAsync(pdf,
+                AtendimentoDoBalcaoNaTela.NomeDoArquivo($"Capa-INICIAL-{_numeroAtendimento ?? _ultimoAtendimentoId.ToString()}-{_data:yyyy-MM-dd}.pdf"),
+                "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Avisar(erro, "erro");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — capa de faturamento não pôde ser gerada", ex);
+            Avisar($"Não foi possível gerar a capa: {ex.Message}", "erro");
+        }
+    }
+
+    /// <summary>Zera a tela para outro lançamento, sem sair dela. O MODO é o da aba.</summary>
+    private void NovoLancamento()
+    {
+        _lancado = false;
+        _numeroAtendimento = _tituloResultado = _resumoBaixas = null;
+        _ultimoAtendimentoId = 0;
+        _jaRealizado = false;
+        _codigos = [];
+        _avisos = [];
+        _observacoes = null;
+        _mensagem = null;
+        _comoEncaixe = false;
+        _guiaAberta = false;
+        _data = DateOnly.FromDateTime(DateTime.Today);
+        Trocar();
+        Disparar(MontarHorasAsync);
+    }
+}

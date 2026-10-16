@@ -1,0 +1,10 @@
+@*
+  LANÇAR ATENDIMENTO (aba "Lançar" — out/2026, migrada do NovoAtendimentoView WPF no modo
+  lançar). O paciente está no balcão: encaixe com check-in e a guia nasce agora, ou SOBRE o
+  horário que ele já tem no dia. A tela inteira é o componente comum AtendimentoDoBalcao —
+  esta casca só fixa o modo (o FixarModo do WPF), para Lançar e Marcar não divergirem.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<AtendimentoDoBalcao Marcar="false" />

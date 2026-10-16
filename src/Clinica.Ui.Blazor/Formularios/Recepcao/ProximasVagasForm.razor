@@ -1,0 +1,39 @@
+@*
+  PRÓXIMAS VAGAS (out/2026 — a ProximasVagasWindow WPF, agora formulário da tela Lançar/Marcar).
+  "Quando cabe?" em lista: as próximas vagas de quem atende, já descontando o que está marcado,
+  os bloqueios e o horário de atendimento dele (BuscaDeVagasService — o mesmo do WPF).
+  Escolher uma vaga só PREENCHE data e hora; quem marca é o botão da tela, de sempre.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+
+<Modal Titulo="Próximas vagas" Subtitulo="@Resultado.Criterio" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (Resultado.Vazio)
+        {
+            <p class="ra-vagas-vazio">
+                Nenhuma vaga LIVRE com esta duração nos próximos @BuscaDeVagas.DiasMaximos dias. Confira o horário de
+                atendimento e os bloqueios de quem atende — ou escolha a data e a hora à mão: marcar sobre um horário que
+                já tem paciente é permitido, e a tela avisa.
+            </p>
+        }
+        else
+        {
+            <div class="ra-vagas" role="list" aria-label="Vagas livres">
+                @foreach (var v in Resultado.Vagas)
+                {
+                    <button type="button" class="botao ra-vaga" role="listitem" @onclick="() => AoEscolher.InvokeAsync(v)">@v.Rotulo</button>
+                }
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public ResultadoBuscaDeVagas Resultado { get; set; } = default!;
+    [Parameter] public EventCallback<Vaga> AoEscolher { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+}

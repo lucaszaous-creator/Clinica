@@ -490,6 +490,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao, BalcaoDaRecepcao>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaAgenda, JanelasDaAgendaWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral, AgendaDaVisaoGeral>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento, JanelasDoAtendimentoWpf>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
         // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
