@@ -34,6 +34,7 @@
 @import url("telas/fat-configuracoes.css");
 /* Relacionamento (out/2026) */
 @import url("telas/comissao-recuperacao.css");
+@import url("telas/acompanhamento.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.

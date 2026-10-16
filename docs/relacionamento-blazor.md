@@ -125,9 +125,6 @@ voltar" (que a gestão pode encerrar sem tentativa) aceitam "sem contato".
    "Exportar CSV" — vieram da tela WPF (2.2 da lista de paridade); os dois da gestão só aparecem
    para o perfil Gerente.
 6. **"Gerar recall" só aparece na fila Recall** — na de BSV não faz sentido.
-7. **O estilo da tela é ligado por `<link>` dentro da própria tela**, e não por `@import` no
-   `clinica.css`, porque outra frente mexe naquele arquivo em paralelo. Quando as duas se
-   juntarem, a linha pode subir para o `@import` (é uma linha).
 
 ## 5. Como se garantiu que nada se perdeu
 

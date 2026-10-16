@@ -20,10 +20,6 @@
 @using Clinica.Application.Abstracoes
 @inherits TelaBase
 
-@* O estilo próprio desta tela, ligado aqui e não no clinica.css (out/2026): outra frente mexe
-   naquele arquivo em paralelo. Quando as duas se juntarem, a linha pode subir para o @import. *@
-<link rel="stylesheet" href="css/telas/acompanhamento.css" />
-
 <div class="pagina acompanhamento @(Carregando && _todos.Count > 0 ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Relacionamento · Acompanhamento" Titulo="Acompanhamento de pacientes"
                      Subtitulo="Quem sumiu e as indicações de BSV — do primeiro contato até a sessão realizada.">
