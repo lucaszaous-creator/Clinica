@@ -33,6 +33,10 @@
 
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;background:var(--fundo)}
+/* O palco (out/2026): várias telas no mesmo documento, cada uma no seu contêiner que rola
+   sozinho — senão a rolagem de uma tela vazaria para a outra. */
+.palco-tela{position:absolute;inset:0;overflow:auto}
+.palco-tela[hidden]{display:none}
 body{
   font-family:var(--font-ui);font-size:var(--text-body-size);color:var(--texto-primario);
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;

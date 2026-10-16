@@ -1,0 +1,30 @@
+@*
+  O PALCO (out/2026): o único componente-raiz do navegador da janela. Cada tela aberta tem
+  a sua Raiz (com a rede de erro dela) num contêiner próprio — só a atual fica à vista, as
+  outras continuam montadas e ocultas. Cada contêiner ROLA SOZINHO: com todas as telas no
+  mesmo documento, a rolagem da página seria uma só, e voltar ao Caixa traria a rolagem do
+  Fechamento. Diálogos e notificações são do navegador (serviços do mesmo escopo), então
+  existem UMA vez aqui, e não uma por tela.
+*@
+@implements IDisposable
+
+@foreach (var t in Palco.Telas)
+{
+    <div @key="t.Id" class="palco-tela" hidden="@(t.Id != Palco.Atual)">
+        <Raiz Tela="t.Tela" Sinal="t.Sinal" ComCamadas="false" />
+    </div>
+}
+<CamadaDeDialogos />
+<PilhaDeNotificacoes />
+
+@code {
+    [Parameter, EditorRequired] public Palco Palco { get; set; } = default!;
+
+    protected override void OnInitialized() => Palco.Mudou += Redesenhar;
+
+    private void Redesenhar() => _ = InvokeAsync(StateHasChanged);
+
+    protected override void OnAfterRender(bool firstRender) => Palco.AvisarMontagem();
+
+    public void Dispose() => Palco.Mudou -= Redesenhar;
+}

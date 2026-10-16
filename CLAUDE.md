@@ -95,6 +95,25 @@ Release: tag `vX.Y.Z` (ou Actions → "Release") dispara `.github/workflows/rele
 os cinco apps com **Velopack** (um canal por app; o faturamento fica no canal padrão `win` e **nunca
 muda**) e publica na mesma release; os apps instalados se auto-atualizam.
 
+## ⛔ UX · DX · CX — toda implementação e toda refatoração respondem às três (out/2026)
+
+**Decisão da direção.** Nenhuma implementação ou refatoração — tela, serviço, migração,
+ferramenta, CI — é proposta, documentada ou entregue sem dizer o que ela faz com:
+
+- 🧑‍💻 **UX** — quem USA a tela: o que vê, quanto espera, o que pisca, quantos cliques, o
+  que acontece quando falha.
+- 🛠️ **DX** — quem MANTÉM o código: quantas peças novas, onde a regra mora, como se testa,
+  o que a próxima pessoa precisa saber para não quebrar.
+- 🤝 **CX** — a CLÍNICA como cliente: confiança no produto ("parece profissional?"),
+  custo (máquina, Actions, suporte), risco em produção e o que muda no dia de quem atende.
+
+**Todo `.md` de decisão ou de feature leva as três seções**, e toda proposta com mais de
+um caminho traz a COMPARAÇÃO das opções nos três eixos antes da recomendação. E quando a
+direção sugere um caminho e pede para ser refutada, a resposta é a comparação — com a
+opção dela, a recomendada e as melhores que existirem —, nunca só "concordo, vou fazer".
+A tela preta das telas Blazor (um navegador por tela) é o caso que originou a regra: a
+escolha foi feita olhando só o DX, e o UX foi a clínica quem mediu, em vídeo.
+
 ## ⛔ AUDITORIA DE LINHA — a conferência é NA ESCRITA, e não existe rodada depois
 
 **Regra de processo, decidida em 23/08/2026 e reafirmada pela direção em 24/08/2026.**
@@ -212,7 +231,8 @@ Nenhum deles quebra o build quando é esquecido:
   dessa forma"*). O guia completo, com o passo a passo, está em **`docs/telas-blazor.md`** —
   leia ANTES de escrever a primeira linha. Em uma frase: **a tela é HTML/CSS em Razor
   (`Clinica.Ui.Blazor`), o C# dela chama os MESMOS serviços da Application, e o WPF só a
-  hospeda** (`TelaBlazor`, um `BlazorWebView` por aba). O que isso exige, sempre:
+  hospeda** (`TelaBlazor` marca o lugar; o navegador é UM por janela — `NavegadorDaJanela` +
+  `Palco`, ver o 🕰️ abaixo). O que isso exige, sempre:
   - 🧱 **Componentes antes de HTML solto**: `CabecalhoPagina`, `Kpi`, `Modal` (o formulário),
     `Campo`, `Aviso`, `EstadoVazio`, `FalhaDeLeitura`, `Selo`, `SeletorMes`,
     `SeletorDePaciente`, `Icone`. Tela que redesenha um deles é a segunda cópia.
@@ -259,11 +279,16 @@ Nenhum deles quebra o build quando é esquecido:
     (`PACOTES_SO_WINDOWS`). Pacote só-Windows novo entra nessa tabela, senão a sombra para.
   - 🕰️ **Histórico**: em out/2026 as telas em HTML do WebView2 (Financeiro, prescrições,
     infusão, agenda do médico, fila…) tinham voltado para WPF por causa da tela PRETA de 1–5 s
-    a cada abertura. O Blazor não é aquilo: o fundo é pintado nas TRÊS camadas que aparecem
-    antes do conteúdo (o controle WPF, o `WEBVIEW2_DEFAULT_BACKGROUND_COLOR` e a
-    `index.html`), a aba é montada UMA vez e guardada, os arquivos vão embutidos na DLL, e o
-    Razor chama o serviço direto — sem ponte de mensagens nem segunda cópia de regra. **Não
-    reintroduza HTML escrito à mão conversando por mensagem**; tela HTML é Razor.
+    a cada abertura. ⚠️ **E a primeira versão Blazor repetiu o flash** (~100 ms pretos a
+    cada tela, a clínica mandou o vídeo): ela criava um `BlazorWebView` POR TELA, e a janela
+    nativa do WebView2 nasce preta antes de o navegador existir dentro dela — pintar o fundo
+    em três camadas (controle WPF, `WEBVIEW2_DEFAULT_BACKGROUND_COLOR`, `index.html`) não
+    cobre esse instante. **O navegador é UM POR JANELA** (`NavegadorDaJanela`, na camada
+    persistente do `ShellWindow`), criado escondido e só mostrado depois da primeira
+    renderização; as telas trocam DENTRO dele (`Palco` + `PalcoDeTelas`), ficam montadas
+    ocultas e cada uma rola sozinha. **Nunca crie `BlazorWebView` por tela.** Os arquivos vão
+    embutidos na DLL e o Razor chama o serviço direto. **Não reintroduza HTML escrito à mão
+    conversando por mensagem**; tela HTML é Razor.
   - 🗂️ As telas WPF dos OUTROS módulos continuam valendo e se mantêm em XAML até serem
     migradas; tela NOVA não nasce em XAML. O Financeiro já é só Blazor.
 - **Tela de leitura que volta do histórico** implementa `IAtualizarAoVoltar`: reaparece na hora
@@ -4668,12 +4693,11 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **`pkill -f` com um trecho do próprio comando mata o shell que o roda** — foi assim que
   duas rodadas de fotos morreram com código 144. Pare a prévia pelo pid (`subir.sh` cuida).
   🔁 **Voltar à aba relê** (`SinalDeVolta` → `TelaBase.AoVoltarAsync`), o equivalente do
-  `IAtualizarAoVoltar`: o `TelaBlazor` põe no `DataContext` um adaptador que o shell
-  reconhece. Sem isso a aba guardada voltaria com o lançamento da outra máquina invisível.
-  **O que fica para depois, com o motivo**: um `BlazorWebView` por aba (catorze controladores
-  num dia cheio) — um por módulo com navegação interna economiza memória, mas mexe no
-  `TelaComAbas` e só vale medir no Windows; e o menu "⋯" dos cartões de número, que o `Kpi`
-  ainda não tem.
+  `IAtualizarAoVoltar`: quem avisa é o `Palco`, ao reativar uma tela já montada. Sem isso a aba guardada voltaria com o lançamento da outra máquina invisível.
+  **O que fica para depois, com o motivo**: aquecer o navegador no login (a primeira tela
+  do dia ainda espera o navegador nascer) e o menu "⋯" dos cartões de número, que o `Kpi`
+  ainda não tem. (O "um `BlazorWebView` por aba" que estava aqui foi pago na rodada da tela
+  preta — ver o 🕰️ da seção de telas.)
 
 ### Convenções
 

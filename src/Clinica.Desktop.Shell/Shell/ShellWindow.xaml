@@ -381,7 +381,14 @@
 
             <!-- Tela ativa (a View já vem com DataContext resolvido pelo módulo) -->
             <ContentControl x:Name="NavegacaoLateral" DockPanel.Dock="Left" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
-            <ContentControl x:Name="AreaDeTrabalho" Content="{Binding TelaAtual}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+            <Grid>
+                <ContentControl x:Name="AreaDeTrabalho" Content="{Binding TelaAtual}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+                <!-- A CAMADA PERSISTENTE (out/2026): mora aqui o navegador ÚNICO da janela, que as
+                     telas Blazor compartilham (ver Clinica.Ui.Blazor/Hospedagem/Palco.cs). Ele é
+                     criado uma vez e só muda de lugar e de conteúdo; recriá-lo a cada tela era a
+                     tela preta. Sem fundo, a camada não intercepta clique nenhum. -->
+                <Grid x:Name="CamadaPersistente" />
+            </Grid>
         </DockPanel>
 
         <!-- Popup com HWND próprio (fica acima de qualquer conteúdo nativo). Acompanha somente

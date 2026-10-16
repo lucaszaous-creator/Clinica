@@ -129,3 +129,35 @@ dotnet build src/Clinica.Ui.Blazor && dotnet build tools/PreviaBlazor
 python3 tools/compilar-sombra.py && python3 tools/verificar-suite.py
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 ```
+
+## 7. O navegador: UM por janela 🪟 (decisão de out/2026)
+
+A primeira versão criava um `BlazorWebView` **por tela**, e a clínica mandou o vídeo: ~100 ms
+**pretos** a cada tela aberta. A janela nativa do WebView2 nasce preta antes de o navegador
+existir dentro dela, e cor de fundo nenhuma vale nesse instante. Hoje:
+
+- `TelaBlazor` (no módulo) só **marca o lugar** da tela na área de trabalho;
+- `NavegadorDaJanela` é o navegador **único** da janela, na camada persistente do
+  `ShellWindow` (`CamadaDaJanela`), posicionado sobre a tela à vista e escondido quando a tela
+  é WPF. Ele nasce **escondido** e só aparece depois da primeira renderização (rede: 3 s);
+- `Palco` + `PalcoDeTelas` trocam as telas **dentro** dele: cada tela aberta fica montada
+  (oculta), num contêiner que rola sozinho, e reativá-la dispara a releitura silenciosa
+  (`SinalDeVolta`). Diálogos e notificações existem uma vez por navegador.
+
+**Nunca crie `BlazorWebView` por tela.** Tela nova só precisa do `new Web.TelaBlazor(...)` no
+`CriarTela`; o palco cuida do resto.
+
+### As opções que foram comparadas 🧑‍💻 🛠️ 🤝
+
+| Opção | UX (quem usa) | DX (quem mantém) | CX (a clínica) |
+|---|---|---|---|
+| Um navegador por tela | flash preto e ~0,5 s a cada tela; perde filtro/rolagem ao voltar | a mais simples | amadora (o vídeo); memória cresce por tela |
+| Um navegador por módulo | flash só ao entrar no módulo | média | igual à de baixo enquanto só o Financeiro for Blazor; no Gerente, um navegador e um flash a mais por módulo que migrar |
+| **Um navegador por janela** (escolhida) | sem flash depois da primeira; troca instantânea; a tela volta como foi deixada | camada sobreposta que acompanha a área da tela | profissional; memória fixa por janela |
+| + aquecer no login (próximo passo) | até a primeira tela é instantânea | um gancho no login | o melhor do curto prazo |
+| App inteiro em Blazor (menu incluso) | uma tecnologia só, sem fronteira WPF↔navegador | reescrever o shell | direção de longo prazo, quando mais módulos migrarem |
+
+⚠️ **O que ficou de fora e o custo aceito:** nada do WPF desenha POR CIMA da área do
+navegador (é janela nativa — vale para qualquer WebView2); menus e popups do shell são janelas
+próprias e passam por cima normalmente. E um diálogo HTML aberto numa tela continua aberto se
+a pessoa trocar de tela pelo menu (o serviço de diálogos é do navegador).

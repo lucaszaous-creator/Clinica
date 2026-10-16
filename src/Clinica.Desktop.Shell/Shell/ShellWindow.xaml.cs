@@ -35,6 +35,13 @@ public partial class ShellWindow : Window
         }
     }
 
+    /// <summary>
+    /// A camada sobre a área de trabalho onde mora o que precisa SOBREVIVER à troca de tela
+    /// — hoje, o navegador único das telas Blazor. Nenhum módulo é conhecido aqui: quem põe o
+    /// navegador na camada é o módulo que tem telas Blazor.
+    /// </summary>
+    public Panel CamadaDaJanela => CamadaPersistente;
+
     public ShellWindow() : this(null) { }
 
     public ShellWindow(FrameworkElement? navegacaoLateral)

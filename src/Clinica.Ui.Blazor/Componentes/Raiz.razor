@@ -22,8 +22,11 @@
         </div>
     </ErrorContent>
 </ErrorBoundary>
-<CamadaDeDialogos />
-<PilhaDeNotificacoes />
+@if (ComCamadas)
+{
+    <CamadaDeDialogos />
+    <PilhaDeNotificacoes />
+}
 
 @code {
     /// <summary>O componente da tela (ex.: <c>typeof(Telas.Caixa)</c>).</summary>
@@ -31,6 +34,12 @@
 
     /// <summary>"Voltou à aba", vindo do hospedeiro WPF. Nulo na prévia.</summary>
     [Parameter] public SinalDeVolta? Sinal { get; set; }
+
+    /// <summary>
+    /// Falso quando a raiz está dentro do <see cref="PalcoDeTelas"/>, que desenha a camada de
+    /// diálogos e as notificações UMA vez para o navegador inteiro.
+    /// </summary>
+    [Parameter] public bool ComCamadas { get; set; } = true;
 
     private ErrorBoundary? _rede;
     private Exception? _registrado;
