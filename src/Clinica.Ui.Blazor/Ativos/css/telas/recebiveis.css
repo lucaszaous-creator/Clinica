@@ -1,0 +1,23 @@
+/* Estilo PRÓPRIO da tela de Recebíveis de cartão (out/2026). O comum mora em ../clinica.css. */
+.recebiveis .horizonte{display:inline-flex;align-items:center;gap:var(--space-2);font-weight:600;font-size:13px;color:var(--cinza-700)}
+.recebiveis .horizonte .campo{width:auto;min-width:110px}
+.recebiveis .lista-cartao > .abas{padding:0 var(--space-6)}
+.recebiveis .abas .contagem{display:inline-block;margin-left:6px;min-width:20px;padding:0 6px;border-radius:var(--radius-pilula);
+  background:var(--cinza-100);color:var(--cinza-700);font-size:11px;line-height:18px;text-align:center}
+.recebiveis .abas button[aria-selected="true"] .contagem{background:var(--acento-suave);color:var(--acento)}
+.recebiveis .faixa-aba{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-4);
+  padding:var(--space-4) var(--space-6);border-bottom:1px solid var(--borda)}
+.recebiveis .resumo-aba{margin:0;color:var(--texto-secundario);line-height:1.5;max-width:640px}
+.recebiveis .resumo-aba.atrasado{color:var(--erro-texto);font-weight:600}
+.recebiveis .resumo-aba.destaque{color:var(--acento);font-weight:600}
+.recebiveis .resumo-bloco{display:flex;flex-direction:column;gap:var(--space-2);max-width:720px}
+.recebiveis .caiu-em{display:grid;grid-template-columns:auto 170px;justify-content:end;align-items:center;gap:4px var(--space-3)}
+.recebiveis .caiu-em > span{text-align:right}
+.recebiveis .caiu-em > span{font-weight:600;font-size:13px;color:var(--cinza-700)}
+.recebiveis .caiu-em small{grid-column:1/-1;text-align:right;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.recebiveis tr.atrasado td:first-child{box-shadow:inset 3px 0 0 var(--erro)}
+.recebiveis .alerta-atraso{color:var(--erro-texto);font-weight:600}
+.recebiveis .alerta-aviso{color:var(--aviso-texto);font-weight:600}
+.recebiveis .sobre summary{cursor:pointer;color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600}
+.recebiveis .sobre summary:hover{color:var(--texto-primario)}
+.recebiveis .sobre p{margin:var(--space-2) 0 0;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.5}

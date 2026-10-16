@@ -1,0 +1,387 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@using System.Globalization
+@*
+  A CONVERSA DO PACIENTE (out/2026, desenho A do Relacionamento): um formulário só, aberto por
+  cima da fila. No WPF eram três modos — o painel ao lado da lista, o "Registrar contato…" com
+  seis campos e texto obrigatório até para "não atendeu", e o histórico embaixo. Aqui:
+
+  - o cabeçalho diz quem é, o que é (recall de qual modalidade, ou indicação de BSV), a última
+    sessão e com quem, o telefone e o selo da situação;
+  - o TRILHO de cinco degraus mostra de onde o caso saiu e para onde vai;
+  - a mensagem que vai sair é vista ANTES do clique, com os três jeitos de falar;
+  - "Como foi?" em cartões: o desfecho escolhido já sabe a etapa e o próximo contato (proposto
+    e editável); a observação é opcional, menos para encerrar ("Não quer voltar" pede motivo
+    e justificativa, como o serviço);
+  - ao lado, a ficha (convênio, sessões, pacote, autorização de mensagem) e o histórico.
+
+  O que monta o pedido e recusa o que falta mora em ConversaDoAcompanhamento (Application, com
+  teste). Registrar = AtualizarAsync com a Idempotencia desta abertura e a Versao da linha: o
+  segundo clique não grava duas vezes, e quem chegou depois de outra pessoa é avisado.
+*@
+@inject IServiceScopeFactory Escopos
+@inject IHostDaTela Host
+@inject IServiceProvider Servicos
+
+<Modal Titulo="@Linha.Paciente" Subtitulo="@ConversaDoAcompanhamento.Cabecalho(Linha)" Largura="largo" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="acomp-conversa">
+            <div class="acomp-conversa-principal">
+                <div class="acomp-conversa-topo">
+                    <span class="acomp-telefone">
+                        @if (string.IsNullOrWhiteSpace(Linha.Telefone)) { <span class="texto-secundario">sem telefone no cadastro</span> }
+                        else { <Icone Nome="pessoa" />@Linha.Telefone }
+                    </span>
+                    <Selo Tom="@(string.IsNullOrEmpty(_selo.Tom) ? "neutro" : _selo.Tom)">@_selo.Texto</Selo>
+                </div>
+
+                <ol class="acomp-trilho" aria-label="Progresso do caso">
+                    @foreach (var d in _trilho)
+                    {
+                        <li class="@(d.Agora ? "agora" : d.Feito ? "feito" : null)">
+                            <span class="acomp-trilho-ponto" aria-hidden="true"></span>
+                            <span class="acomp-trilho-rotulo">@d.Rotulo</span>
+                            @if (d.Detalhe is not null) { <span class="acomp-trilho-detalhe">@d.Detalhe</span> }
+                            else if (d.Agora) { <span class="acomp-trilho-detalhe">agora</span> }
+                        </li>
+                    }
+                </ol>
+
+                @if (Encerrado)
+                {
+                    <Aviso Tom="atencao" Texto="@($"Encerrado{(string.IsNullOrWhiteSpace(Linha.Motivo) ? "" : " · " + Linha.Motivo)}: {Linha.MotivoEncerramento}")" />
+                    <p class="acomp-rotulo">Reabrir o acompanhamento</p>
+                    <div class="campos">
+                        <Campo Rotulo="Próximo contato" Obrigatorio="true">
+                            <input class="campo" type="date" value="@Iso(_data ?? Hoje)" min="@Iso(Hoje)" @onchange="TrocarData" />
+                        </Campo>
+                        <Campo Rotulo="Motivo (legenda)">
+                            <select class="campo" value="@(_motivoId?.ToString() ?? "")" @onchange="TrocarMotivo">
+                                <option value="">Sem motivo especial</option>
+                                @foreach (var m in Motivos) { <option value="@m.Id">@m.Nome</option> }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Por que volta" Obrigatorio="true" Classe="largo" Dica="@($"Pelo menos {ConversaDoAcompanhamento.MinimoJustificativa} letras — fica no histórico.")">
+                            <textarea class="campo" rows="3" maxlength="2000" @bind="_observacao" @bind:event="oninput"
+                                      placeholder="Ex.: o paciente ligou pedindo para retomar o tratamento"></textarea>
+                        </Campo>
+                    </div>
+                }
+                else
+                {
+                    <p class="acomp-rotulo">A mensagem que vai sair</p>
+                    @if (Linha.PodeContatar)
+                    {
+                        <div class="acomp-mensagem">@AcompanhamentoNaTela.Mensagem(Linha, NomeClinica)</div>
+                    }
+                    else
+                    {
+                        <Aviso Tom="atencao" Texto="@(string.IsNullOrWhiteSpace(Linha.Telefone)
+                            ? "Sem telefone no cadastro — atualize a ficha do paciente antes de falar com ele."
+                            : !Linha.Consentimento ? "A mensagem não está autorizada (LGPD) — colha a autorização na ficha; ligar ou falar no balcão continua possível."
+                            : "Este caso não pede contato agora.")" />
+                    }
+                    <div class="acomp-acoes">
+                        <button type="button" class="botao acomp-whats" disabled="@(!Linha.PodeContatar || _ocupado)" @onclick="WhatsappAsync"
+                                title="@(Linha.PodeContatar ? "Abrir o WhatsApp com a mensagem" : "Sem telefone ou sem autorização de mensagem")"><Icone Nome="enviar" />Abrir no WhatsApp</button>
+                        <button type="button" class="botao" disabled="@string.IsNullOrWhiteSpace(Linha.Telefone)" @onclick="CopiarTelefoneAsync"
+                                title="Copiar o número para ligar"><Icone Nome="copiar" />Copiar o telefone para ligar</button>
+                        <button type="button" class="botao primario" disabled="@(!PodeMarcar || _ocupado)" @onclick="MarcarAsync"
+                                title="@(PodeMarcar ? "Abrir a marcação já com o paciente" : "A marcação exige acesso à agenda da recepção.")"><Icone Nome="calendario" />Marcar horário</button>
+                    </div>
+
+                    <p class="acomp-rotulo">Como foi?</p>
+                    <div class="acomp-desfechos" role="radiogroup" aria-label="Como foi o contato">
+                        @foreach (var d in Desfechos)
+                        {
+                            <button type="button" role="radio" aria-checked="@Bool(_desfecho == d)" class="acomp-desfecho @(d == DesfechoContato.NaoQuerVoltar ? "encerrar" : null)"
+                                    @onclick="() => Escolher(d)">
+                                <b>@AcompanhamentoNaTela.Rotulo(d)</b>
+                                <span>@AcompanhamentoNaTela.Explicacao(d)</span>
+                            </button>
+                        }
+                    </div>
+
+                    @if (_desfecho is { } escolhido)
+                    {
+                        <div class="campos acomp-detalhes">
+                            <Campo Rotulo="Por onde foi" Classe="largo"
+                                   Dica="@(ConversaDoAcompanhamento.ExigeCanal(escolhido) ? null : "Pode ser sem contato — a resposta do plano, uma decisão da gestão.")">
+                                <div class="segmentado acomp-canais" role="group" aria-label="Canal do contato">
+                                    @* "Sem contato" só onde o desfecho admite — para "não respondeu" ele seria a resposta errada já marcada. *@
+                                    @foreach (var (canal, rotulo) in Canais.Where(c => c.Canal is not null || !ConversaDoAcompanhamento.ExigeCanal(escolhido)))
+                                    {
+                                        <button type="button" aria-pressed="@Bool(_canal == canal)" @onclick="() => _canal = canal">@rotulo</button>
+                                    }
+                                </div>
+                            </Campo>
+                            @if (escolhido != DesfechoContato.NaoQuerVoltar)
+                            {
+                                <Campo Rotulo="Próximo contato" Obrigatorio="@(escolhido == DesfechoContato.PediuOutraData)"
+                                       Dica="@DicaDaData(escolhido)">
+                                    <input class="campo" type="date" value="@(_data is { } d ? Iso(d) : "")" min="@Iso(Hoje)" @onchange="TrocarData" />
+                                </Campo>
+                            }
+                            <Campo Rotulo="@(escolhido == DesfechoContato.NaoQuerVoltar ? "Motivo do encerramento" : "Motivo (legenda)")"
+                                   Obrigatorio="@(escolhido == DesfechoContato.NaoQuerVoltar)">
+                                <select class="campo" value="@(_motivoId?.ToString() ?? "")" @onchange="TrocarMotivo">
+                                    <option value="">@(escolhido == DesfechoContato.NaoQuerVoltar ? "Escolha o motivo" : "Sem motivo especial")</option>
+                                    @foreach (var m in Motivos) { <option value="@m.Id">@m.Nome</option> }
+                                </select>
+                            </Campo>
+                            <Campo Rotulo="@(ConversaDoAcompanhamento.ExigeObservacao(escolhido) ? "Justificativa" : "Observação (opcional)")"
+                                   Obrigatorio="@ConversaDoAcompanhamento.ExigeObservacao(escolhido)" Classe="largo">
+                                <textarea class="campo" rows="2" maxlength="2000" @bind="_observacao" @bind:event="oninput"
+                                          placeholder="@(escolhido == DesfechoContato.NaoQuerVoltar ? "Ex.: mudou de cidade e vai continuar o tratamento lá" : "O que o paciente disse, se valer anotar")"></textarea>
+                            </Campo>
+                        </div>
+                    }
+                }
+                <Aviso Tom="erro" Texto="@_mensagem" />
+            </div>
+
+            <aside class="acomp-conversa-lado">
+                <dl class="pares acomp-ficha">
+                    <dt>Convênio</dt><dd>@Linha.Convenio</dd>
+                    <dt>Sessões</dt><dd>@Linha.TotalSessoes.ToString(Formato.PtBr)@(Linha.TratamentoLongo ? " · tratamento longo" : "")</dd>
+                    <dt>Pacote</dt><dd>@(Linha.PacoteComSaldo ? "com saldo de sessões" : "nenhum em aberto")</dd>
+                    <dt>Mensagem</dt><dd class="@(Linha.Consentimento && !string.IsNullOrWhiteSpace(Linha.Telefone) ? "positivo" : "acomp-alerta")">@ConversaDoAcompanhamento.Autorizacao(Linha)</dd>
+                    <dt>Próximo contato</dt><dd>@(Linha.Pendente ? Formato.Data(Linha.ProximoContato) : "—")</dd>
+                </dl>
+                <button type="button" class="botao fantasma mini acomp-abrir-ficha" @onclick="AbrirFichaAsync"><Icone Nome="abrir" />Abrir a ficha do paciente</button>
+                <p class="acomp-rotulo">Histórico</p>
+                @if (_historicoFalhou)
+                {
+                    <p class="acomp-alerta pequeno">Não foi possível ler o histórico agora. O registro continua possível.</p>
+                }
+                else if (_historico is null)
+                {
+                    <Esqueleto Altura="80" />
+                }
+                else if (_historico.Count == 0)
+                {
+                    <p class="texto-secundario pequeno">Nenhum contato registrado ainda.</p>
+                }
+                else
+                {
+                    <ul class="acomp-historico">
+                        @foreach (var h in _historico)
+                        {
+                            <li title="@h.Observacao">
+                                <span class="acomp-historico-quando">@Formato.DataHora(h.Em)@(h.Canal is { } c ? " · " + Canal(c) : "") · @h.Operador</span>
+                                <span>@h.Resultado</span>
+                                @if (!string.IsNullOrWhiteSpace(h.Observacao)) { <span class="texto-secundario">@h.Observacao</span> }
+                            </li>
+                        }
+                    </ul>
+                }
+            </aside>
+        </div>
+    </ChildContent>
+    <Rodape>
+        <span class="texto-secundario pequeno acomp-quem">Registrado por @SessaoUsuario.Atual.Nome (usuário conectado)</span>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        @if (Encerrado)
+        {
+            <button type="button" class="botao primario" disabled="@(_ocupado || !PodeEscrever)" @onclick="ReabrirAsync"><Icone Nome="destravar" />@(_ocupado ? "Gravando…" : "Reabrir")</button>
+        }
+        else
+        {
+            <button type="button" class="botao @(_desfecho == DesfechoContato.NaoQuerVoltar ? "perigo" : "primario")" disabled="@(_ocupado || !PodeEscrever || _desfecho is null)"
+                    title="@(_desfecho is null ? "Escolha como foi o contato" : null)" @onclick="RegistrarAsync">
+                <Icone Nome="check" />@(_ocupado ? "Gravando…" : _desfecho is { } d ? $"Registrar \"{AcompanhamentoNaTela.Rotulo(d)}\"" : "Registrar")
+            </button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public LinhaAcompanhamento Linha { get; set; } = default!;
+    [Parameter] public int UsuarioId { get; set; }
+    [Parameter] public string? NomeClinica { get; set; }
+    [Parameter] public IReadOnlyList<OpcaoAcompanhamento> Motivos { get; set; } = [];
+    /// <summary>WhatsApp quando a conversa abre logo depois de o WhatsApp ter sido aberto.</summary>
+    [Parameter] public CanalContato? CanalInicial { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Gravou — com a frase da confirmação.</summary>
+    [Parameter] public EventCallback<string> AoConcluir { get; set; }
+
+    private static readonly DesfechoContato[] Desfechos =
+        [DesfechoContato.NaoRespondeu, DesfechoContato.PediuOutraData, DesfechoContato.QuerMarcar, DesfechoContato.AguardandoPlano, DesfechoContato.NaoQuerVoltar];
+
+    private static readonly (CanalContato? Canal, string Rotulo)[] Canais =
+        [(CanalContato.WhatsApp, "WhatsApp"), (CanalContato.Telefone, "Telefone"), (CanalContato.Presencial, "Presencial"), (CanalContato.Email, "E-mail"), (null, "Sem contato")];
+
+    // Uma idempotência por ABERTURA: o segundo clique no Registrar (ou a volta depois de uma
+    // falha de rede) não grava o mesmo contato duas vezes.
+    private readonly Guid _idempotencia = Guid.NewGuid();
+    private DesfechoContato? _desfecho;
+    private CanalContato? _canal;
+    private DateOnly? _data;
+    private int? _motivoId;
+    private string? _observacao;
+    private string? _mensagem;
+    private bool _ocupado;
+    private (string Texto, string Tom) _selo;
+    private IReadOnlyList<DegrauDoTrilho> _trilho = [];
+    private IReadOnlyList<ContatoAcompanhamento>? _historico;
+    private bool _historicoFalhou;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private bool Encerrado => Linha.MotivoEncerramento is not null;
+    private static bool PodeEscrever => SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente)
+        && SessaoUsuario.Atual.PodeAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento);
+    private static bool PodeMarcar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _selo = AcompanhamentoNaTela.Selo(Linha, Hoje);
+        _trilho = ConversaDoAcompanhamento.Trilho(Linha, UsuarioId);
+        _canal = CanalInicial;
+        // A legenda que o caso já tem continua: o serviço grava o motivo do pedido, e mandar
+        // vazio APAGARIA a legenda num simples "não respondeu".
+        _motivoId = Motivos.FirstOrDefault(m => m.Nome == Linha.Motivo)?.Id;
+        if (Encerrado) _data = Hoje;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _historico = await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().HistoricoAsync(UsuarioId, Linha.Id);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — histórico do acompanhamento não pôde ser lido", ex);
+            _historicoFalhou = true;
+        }
+    }
+
+    private void Escolher(DesfechoContato d)
+    {
+        _desfecho = d;
+        _mensagem = null;
+        _data = AcompanhamentoNaTela.DataProposta(d, Hoje);
+    }
+
+    private void TrocarData(ChangeEventArgs e)
+        => _data = DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    private void TrocarMotivo(ChangeEventArgs e) => _motivoId = int.TryParse(e.Value?.ToString(), out var id) ? id : null;
+
+    private async Task RegistrarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        var (pedido, impedimento) = ConversaDoAcompanhamento.Pedido(Linha, _desfecho, Hoje, _data, _canal, _observacao, _motivoId, UsuarioId, _idempotencia);
+        if (pedido is null) { _mensagem = impedimento; return; }
+        if (!await GravarAsync(pedido)) return;
+        var frase = _desfecho == DesfechoContato.NaoQuerVoltar
+            ? $"Acompanhamento de {Linha.Paciente} encerrado — fica no histórico e pode ser reaberto."
+            : $"Contato com {Linha.Paciente} registrado: {AcompanhamentoNaTela.Rotulo(_desfecho!.Value).ToLowerInvariant()}"
+              + (pedido.ProximoContato is { } p ? $" · próximo contato em {Formato.Data(p)}." : ".");
+        // "Quer marcar": grava e então abre a marcação já com o paciente.
+        if (_desfecho == DesfechoContato.QuerMarcar && PodeMarcar && !await Marcacao().MarcarAsync(Linha.PacienteId, Linha.ProfissionalId, Linha.Modalidade.ToString()))
+            frase += " A marcação de horário não está disponível neste aplicativo — marque pela Agenda da Recepção.";
+        await AoConcluir.InvokeAsync(frase);
+    }
+
+    private async Task ReabrirAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        var (pedido, impedimento) = ConversaDoAcompanhamento.Reabertura(Linha, Hoje, _data, _observacao, _motivoId, UsuarioId, _idempotencia);
+        if (pedido is null) { _mensagem = impedimento; return; }
+        if (await GravarAsync(pedido)) await AoConcluir.InvokeAsync($"Acompanhamento de {Linha.Paciente} reaberto.");
+    }
+
+    /// <summary>As duas barreiras e a gravação. Recusa do serviço (versão, autorização, prazo) fica INLINE.</summary>
+    private async Task<bool> GravarAsync(AtualizarAcompanhamento pedido)
+    {
+        if (!PodeEscrever) { _mensagem = "Seu acesso não permite registrar o acompanhamento. Fale com a direção da clínica."; return false; }
+        try
+        {
+            _ocupado = true;
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().AtualizarAsync(UsuarioId, Linha.Id, pedido);
+            return true;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
+        {
+            _mensagem = ex.Message;
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — contato do acompanhamento não pôde ser gravado", ex);
+            _mensagem = "Não foi possível gravar agora. Os dados anteriores foram preservados; tente de novo.";
+            return false;
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task WhatsappAsync()
+    {
+        _mensagem = null;
+        if (!PodeEscrever) { _mensagem = "Seu acesso não permite contatar o paciente."; return; }
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().ValidarContatoAsync(UsuarioId, Linha.Id);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { _mensagem = ex.Message; return; }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — contato do acompanhamento não pôde ser conferido", ex);
+            _mensagem = "Não foi possível conferir o contato agora. Tente de novo.";
+            return;
+        }
+        var link = PainelPendenciasFaturamento.LinkWhatsApp(Linha.Telefone, AcompanhamentoNaTela.Mensagem(Linha, null), NomeClinica);
+        if (link is not null && await Host.AbrirEnderecoAsync(link)) { _canal = CanalContato.WhatsApp; return; }
+        var copiou = link is not null && await Host.CopiarAsync(link);
+        _mensagem = copiou
+            ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
+            : "Não foi possível abrir o WhatsApp neste computador.";
+    }
+
+    private async Task CopiarTelefoneAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Linha.Telefone)) return;
+        _mensagem = await Host.CopiarAsync(Linha.Telefone) ? null : "A área de transferência não aceitou agora. Tente de novo.";
+        if (_mensagem is null) _canal ??= CanalContato.Telefone;
+    }
+
+    private async Task MarcarAsync()
+    {
+        _mensagem = null;
+        if (!PodeMarcar) { _mensagem = "Seu acesso não permite marcar horário."; return; }
+        if (!await Marcacao().MarcarAsync(Linha.PacienteId, Linha.ProfissionalId, Linha.Modalidade.ToString()))
+            _mensagem = "A marcação de horário não está disponível neste aplicativo — marque pela Agenda da Recepção.";
+    }
+
+    private async Task AbrirFichaAsync()
+    {
+        _mensagem = null;
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente)) { _mensagem = "Seu acesso não permite abrir a ficha do paciente."; return; }
+        if (!await Host.AbrirFichaDoPacienteAsync(Linha.PacienteId))
+            _mensagem = "A ficha do paciente não está disponível neste aplicativo — abra-a em Pacientes.";
+    }
+
+    private IMarcacaoDeHorario Marcacao() => Servicos.GetService<IMarcacaoDeHorario>() ?? MarcacaoIndisponivel.Instancia;
+
+    private string? DicaDaData(DesfechoContato d) => d switch
+    {
+        DesfechoContato.PediuOutraData => "O dia que o paciente pediu.",
+        _ when _data is { } x => $"Proposto: {x.ToString("dddd, dd/MM", Formato.PtBr)} — dá para trocar.",
+        _ => null
+    };
+
+    private static string Canal(CanalContato c) => c switch
+    {
+        CanalContato.WhatsApp => "WhatsApp",
+        CanalContato.Telefone => "Telefone",
+        CanalContato.Presencial => "Presencial",
+        CanalContato.Email => "E-mail",
+        _ => RotulosEnum.De(c)
+    };
+
+    private static string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    private static string Bool(bool v) => v ? "true" : "false";
+}

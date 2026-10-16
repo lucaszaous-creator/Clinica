@@ -12,7 +12,6 @@ using Clinica.Infrastructure;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Clinica.Recepcao.ViewModels;
 
 // Demonstration host: uses the actual production window, modules, resources and
 // services. The only database is an in-memory SQLite connection. SuiteApp startup,
@@ -96,32 +95,28 @@ static class Program
         app.MainWindow=window;window.Show();
         File.WriteAllText(Path.Combine(output,"pronto.txt"),"Janela real da suite. SQLite em memoria. Nenhuma conexao com producao.");
         await Capture(window,"00-painel");
+        // O Acompanhamento é tela BLAZOR desde out/2026 (docs/relacionamento-blazor.md): a foto da
+        // janela mostra o lugar dela, e o roteiro do treinamento é conferido pelo SERVIÇO, que é
+        // o mesmo que a tela chama — sem depender de ViewModel nenhum.
         vm.Navegar(vm.Itens.Single(i=>i.Rotulo=="Acompanhamento de pacientes"));
-        var recall=(AcompanhamentoViewModel)((FrameworkElement)vm.TelaAtual!).DataContext;
-        while(recall.Carregando)await Task.Delay(100);
-        if(recall.Pacientes.Count!=4)throw new InvalidOperationException("A demonstração deve ter exatamente quatro pacientes fictícios: "+recall.Mensagem);
         await Capture(window,"01-lista");
-        recall.DiasRecall="60";await recall.GerarCommand.ExecuteAsync(null);
-        if(recall.Pacientes.Count!=4)throw new InvalidOperationException("Busca do recall falhou: "+recall.Mensagem);
-        await Capture(window,"02-busca");
-        recall.AbrirFiltrosCommand.Execute(null);
-        await Capture(window,"03-filtros");
-        await recall.VoltarCommand.ExecuteAsync(null);
-        recall.Busca="Marina";
-        await Capture(window,"04-filtrada");
-        await recall.AbrirCommand.ExecuteAsync(recall.Pacientes.Single());
-        await Capture(window,"05-contato");
-        recall.EtapaEdicao=nameof(EtapaAcompanhamento.RetornarNaData);
-        recall.ProximoContato=DateTime.Today.AddDays(2);
-        recall.Observacao="Preparar o retorno para acompanhar a autorização do plano. Registro de demonstração, sem contato externo.";
-        await Capture(window,"06-preenchido");
-        await recall.SalvarCommand.ExecuteAsync(null);
-        if(recall.Mensagem!="Acompanhamento salvo com histórico.")throw new InvalidOperationException("Falha ao salvar: "+recall.Mensagem);
-        await Capture(window,"07-salvo");
-        await recall.AbrirCommand.ExecuteAsync(recall.Pacientes.Single());
-        if(recall.Historico.Count==0)throw new InvalidOperationException("Histórico ausente");
-        await Capture(window,"08-historico");
-        File.WriteAllText(Path.Combine(output,"verificado.txt"),"4 pacientes fictícios; busca por 60 dias; filtro por nome; responsável da sessão; atualização administrativa persistida; histórico conferido. Nenhum contato externo realizado.");
+        var acompanhamento=services.GetRequiredService<Clinica.Application.Abstracoes.IAcompanhamentoPacienteService>();
+        var fila=await acompanhamento.ListarAsync(user.Id);
+        if(fila.Count!=4)throw new InvalidOperationException("A demonstração deve ter exatamente quatro pacientes fictícios.");
+        await acompanhamento.GerarRecallAsync(user.Id,60);
+        fila=await acompanhamento.ListarAsync(user.Id);
+        if(fila.Count!=4)throw new InvalidOperationException("Busca do recall falhou.");
+        var marina=fila.Single(l=>l.Paciente=="Marina Exemplo");
+        var hoje=DateOnly.FromDateTime(DateTime.Today);
+        var (pedido,impedimento)=ConversaDoAcompanhamento.Pedido(marina,DesfechoContato.PediuOutraData,hoje,hoje.AddDays(2),CanalContato.Telefone,
+            "Preparar o retorno para acompanhar a autorização do plano. Registro de demonstração, sem contato externo.",null,user.Id,Guid.NewGuid());
+        if(pedido is null)throw new InvalidOperationException("Conversa recusou o registro: "+impedimento);
+        // Canal "Telefone" exige telefone e autorização no cadastro; a demonstração não os tem, então
+        // o registro sai como atualização administrativa (sem canal), como no roteiro antigo.
+        await acompanhamento.AtualizarAsync(user.Id,marina.Id,pedido with {Canal=null});
+        var historico=await acompanhamento.HistoricoAsync(user.Id,marina.Id);
+        if(historico.Count==0)throw new InvalidOperationException("Histórico ausente");
+        File.WriteAllText(Path.Combine(output,"verificado.txt"),"4 pacientes fictícios; busca por 60 dias; responsável da sessão; atualização administrativa persistida; histórico conferido. Nenhum contato externo realizado.");
         app.Shutdown();
     }
     static async Task Capture(Window window,string name)

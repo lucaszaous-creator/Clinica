@@ -1,0 +1,304 @@
+@*
+  FECHAMENTO DE CAIXA — a conferência da gaveta (out/2026, migrado do
+  FechamentoCaixaView/ViewModel do WPF; regras da parcela 14).
+
+  O sistema soma o que passou pela gaveta (SÓ espécie: cartão e PIX caem na conta dias
+  depois, e incluí-los faria a conferência nunca bater) e o número que vale é o que a pessoa
+  CONTOU. A diferença aparece ENQUANTO ela digita — é a hora em que a gaveta ainda está aberta
+  e dá para recontar. Divergência exige justificativa escrita (a única recusa do serviço), e
+  reabrir não apaga: a conferência anterior fica marcada com o motivo.
+
+  O painel de dias NÃO conferidos é o que dá utilidade ao resto: conferência que só existe
+  quando alguém lembra de abrir a tela não controla nada.
+*@
+@inherits TelaBase
+
+<div class="pagina @(Carregando && _proposta is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Caixa" Titulo="Fechamento de caixa"
+                     Subtitulo="Conte a gaveta e confira com o que o sistema registrou em espécie. Cartão e PIX não entram: caem na conta dias depois.">
+        <div class="seletor-mes" role="group" aria-label="Dia">
+            <button type="button" class="botao icone" title="Dia anterior" aria-label="Dia anterior" @onclick="() => TrocarDiaAsync(_dia.AddDays(-1))"><Icone Nome="esquerda" /></button>
+            <input type="date" class="campo-dia" value="@_dia.ToString("yyyy-MM-dd")" @onchange="DiaEscolhidoAsync" aria-label="Dia da conferência" />
+            <button type="button" class="botao icone" title="Próximo dia" aria-label="Próximo dia" @onclick="() => TrocarDiaAsync(_dia.AddDays(1))"><Icone Nome="direita" /></button>
+        </div>
+        @if (_dia != Hoje)
+        {
+            <button type="button" class="botao" @onclick="() => TrocarDiaAsync(Hoje)">Hoje</button>
+        }
+    </CabecalhoPagina>
+
+    @if (_falha is not null)
+    {
+        <div class="cartao"><FalhaDeLeitura Titulo="Não foi possível montar a conferência" Detalhe="@_falha" AoTentarDeNovo="CarregarAsync" /></div>
+    }
+    else
+    {
+        <div class="fechamento-grade">
+            <section class="cartao cartao-corpo conferencia">
+                <div class="cartao-titulo">
+                    <div>
+                        <h2>Conferência de @Formato.Data(_dia)</h2>
+                        <p>@(_proposta is null ? "Somando a gaveta…" : $"{_proposta.QuantidadeLancamentos} lançamento(s) em espécie")</p>
+                    </div>
+                    @if (_proposta?.JaConferido is { } c)
+                    {
+                        <Selo Tom="@(c.Bateu ? "sucesso" : "aviso")">@(c.Bateu ? "Conferido — bateu" : "Conferido com divergência")</Selo>
+                    }
+                    else if (_proposta is not null)
+                    {
+                        <Selo Tom="neutro">Não conferido</Selo>
+                    }
+                </div>
+
+                @if (_proposta is null)
+                {
+                    <Esqueleto Altura="160" />
+                }
+                else
+                {
+                    <div class="contas-gaveta">
+                        <div><span class="texto-secundario">Entrou em espécie</span><strong class="numero valor-entrada">+ @Formato.Dinheiro(_proposta.EntradasEspecie)</strong></div>
+                        <div><span class="texto-secundario">Saiu em espécie</span><strong class="numero valor-saida">− @Formato.Dinheiro(_proposta.SaidasEspecie)</strong></div>
+                        <div class="esperado"><span>Deveria haver na gaveta</span><strong class="numero">@Formato.Dinheiro(_proposta.Esperado)</strong></div>
+                    </div>
+
+                    @if (_proposta.JaConferido is { } conferencia)
+                    {
+                        @* Conferido e "ainda não conferido" têm a mesma cara de calmaria — e são estados diferentes. *@
+                        <Aviso Tom="@(conferencia.Bateu ? "sucesso" : "atencao")"
+                               Texto="@($"Conferido em {Formato.DataHora(conferencia.ConferidoEm)} por {conferencia.ConferidoPor ?? "—"}: " + (conferencia.Bateu ? "bateu." : $"diferença de {Formato.Dinheiro(conferencia.Diferenca)} — {conferencia.Justificativa}"))" />
+                        <p class="campo-dica">Para recontar este dia, use "Reabrir" no histórico abaixo — a conferência atual fica registrada com o motivo.</p>
+                    }
+                    else
+                    {
+                        <div class="campos">
+                            <Campo Rotulo="Quanto havia na gaveta" Obrigatorio="true" Dica="O que você CONTOU — não o que o sistema diz.">
+                                <input class="campo valor contagem" value="@_contado" @oninput="ContagemMudou" inputmode="decimal" placeholder="0,00" />
+                            </Campo>
+                            <div class="diferenca @ClasseDiferenca" aria-live="polite">
+                                <span class="texto-secundario">Diferença</span>
+                                <strong>@TextoDiferenca</strong>
+                            </div>
+                            @if (TemDiferenca)
+                            {
+                                <Campo Rotulo="Justificativa da diferença" Obrigatorio="true" Classe="largo"
+                                       Dica="Divergência sem explicação não se grava. Sobra costuma ser venda não lançada; falta, troco sem registro.">
+                                    <textarea class="campo" rows="3" @bind="_justificativa" @bind:event="oninput" maxlength="500"></textarea>
+                                </Campo>
+                            }
+                        </div>
+                        <Aviso Tom="erro" Texto="@_mensagem" />
+                        <div class="acoes-form">
+                            <button type="button" class="botao primario" @onclick="ConferirAsync"
+                                    disabled="@(!PodeEditar || _ocupado)" title="@(PodeEditar ? null : "Seu acesso não permite conferir o caixa.")">
+                                <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Conferir o caixa")
+                            </button>
+                        </div>
+                    }
+                }
+            </section>
+
+            <section class="cartao lista-cartao pendentes">
+                <div class="cartao-titulo">
+                    <div>
+                        <h2>Dias não conferidos</h2>
+                        <p>Últimos 60 dias com dinheiro na gaveta que ninguém contou.</p>
+                    </div>
+                    @if (_naoConferidos.Count > 0) { <Selo Tom="aviso">@_naoConferidos.Count</Selo> }
+                </div>
+                @if (_naoConferidos.Count == 0)
+                {
+                    <EstadoVazio Icone="ok" Titulo="Tudo conferido" Descricao="Todos os dias com dinheiro na gaveta foram conferidos nos últimos 60 dias." />
+                }
+                else
+                {
+                    <ul class="lista-dias">
+                        @foreach (var d in _naoConferidos)
+                        {
+                            <li class="@(d.Data == _dia ? "atual" : null)">
+                                <button type="button" @onclick="() => TrocarDiaAsync(d.Data)">
+                                    <span><span class="principal">@Formato.Data(d.Data)</span><span class="secundario">@d.QuantidadeLancamentos lançamento(s) em espécie</span></span>
+                                    <span class="numero">@Formato.Dinheiro(d.Esperado)</span>
+                                    <Icone Nome="direita" />
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        </div>
+
+        <section class="cartao lista-cartao">
+            <div class="cartao-titulo"><div><h2>Histórico de conferências</h2><p>Últimos 60 dias. Reaberto não some: fica marcado com o motivo.</p></div></div>
+            @if (_historico.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhuma conferência nos últimos 60 dias" Descricao="A primeira aparece aqui assim que alguém conferir a gaveta." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th>Dia</th><th class="direita">Esperado</th><th class="direita">Contado</th><th class="direita">Diferença</th><th>Situação</th><th>Detalhe</th><th class="direita">Ações</th></tr></thead>
+                        <tbody>
+                            @foreach (var f in _historico)
+                            {
+                                <tr class="@(f.Reaberto ? "apagada" : null)">
+                                    <td class="nao-quebra"><span class="principal">@Formato.Data(f.Data)</span></td>
+                                    <td class="direita numero">@Formato.Dinheiro(f.Esperado)</td>
+                                    <td class="direita numero">@Formato.Dinheiro(f.ValorContado)</td>
+                                    @* Zero não vira "R$ 0,00": bateu é um estado, não um número. *@
+                                    <td class="direita numero">@(f.Bateu ? "—" : Formato.Dinheiro(f.Diferenca))</td>
+                                    <td><Selo Tom="@(f.Reaberto ? "neutro" : f.Bateu ? "sucesso" : "aviso")">@f.Situacao</Selo></td>
+                                    <td><span class="secundario">@Detalhe(f)</span></td>
+                                    <td class="direita">
+                                        @if (!f.Reaberto)
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!PodeEditar)" @onclick="() => ReabrirAsync(f)"><Icone Nome="destravar" />Reabrir</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    private DateOnly _dia = DateOnly.FromDateTime(DateTime.Today);
+    private PropostaFechamentoCaixa? _proposta;
+    private IReadOnlyList<FechamentoCaixa> _historico = [];
+    private IReadOnlyList<DiaNaoConferido> _naoConferidos = [];
+    private string? _contado;
+    private string? _justificativa;
+    private string? _mensagem;
+    private string? _falha;
+    private bool _ocupado;
+    private bool Carregando;
+    private int _geracao;
+
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    private decimal? Contado => LeituraDeValores.TentarLerDecimal(_contado, out var v) ? v : null;
+    private decimal? Diferenca => Contado is { } c && _proposta is not null ? c - _proposta.Esperado : null;
+    /// <summary>A justificativa aparece SÓ com divergência — pedi-la sempre a transformaria em ritual.</summary>
+    private bool TemDiferenca => Diferenca is { } d && d != 0m;
+    private string TextoDiferenca => Diferenca switch
+    {
+        null => "—",
+        0m => "Bateu.",
+        > 0m and var d => $"Sobra de {Formato.Dinheiro(d)} — costuma ser venda não lançada.",
+        var d => $"Falta de {Formato.Dinheiro(Math.Abs(d.Value))}."
+    };
+    private string? ClasseDiferenca => Diferenca switch { null => null, 0m => "bateu", _ => "divergiu" };
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private void ContagemMudou(ChangeEventArgs e) => _contado = e.Value?.ToString();
+
+    private Task DiaEscolhidoAsync(ChangeEventArgs e)
+        => DateOnly.TryParse(e.Value?.ToString(), out var d) ? TrocarDiaAsync(d) : Task.CompletedTask;
+
+    private Task TrocarDiaAsync(DateOnly dia)
+    {
+        _dia = dia;
+        _mensagem = null;
+        return CarregarAsync();
+    }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o dia duas vezes rápido deixaria
+    /// a proposta de um dia sob a data do outro — e é contra esse "esperado" que se confere a
+    /// gaveta. Tudo é publicado depois do último await.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _falha = null;
+        if (_proposta?.Data != _dia) _proposta = null;
+        try
+        {
+            var hoje = Hoje;
+            var inicio = hoje.AddDays(-60);
+            using var escopo = Escopo();
+            var servico = escopo.ServiceProvider.GetRequiredService<FechamentoCaixaService>();
+            var proposta = await servico.PrepararAsync(_dia);
+            if (geracao != _geracao || Descartada) return;
+            var historico = await servico.HistoricoAsync(inicio, hoje);
+            if (geracao != _geracao || Descartada) return;
+            var pendentes = await servico.NaoConferidosAsync(inicio, hoje);
+            if (geracao != _geracao || Descartada) return;
+
+            _proposta = proposta;
+            _historico = historico;
+            _naoConferidos = pendentes;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — fechamento de caixa não pôde ser lido", ex);
+            _falha = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private async Task ConferirAsync()
+    {
+        if (_ocupado || _proposta is null) return;
+        _mensagem = null;
+        if (Contado is not { } contado) { _mensagem = "Informe quanto havia na gaveta (ex.: 1.250,00)."; return; }
+        if (!Exigir(Permissao.EditarFinanceiro, "conferir o caixa")) return;
+        try
+        {
+            _ocupado = true;
+            var divergiu = TemDiferenca;
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<FechamentoCaixaService>()
+                    .ConferirAsync(_dia, contado, _justificativa, operador: Operador);
+            Notificacoes.Sucesso(divergiu ? "Caixa conferido com a divergência registrada." : "Caixa conferido — bateu.");
+            _contado = null;
+            _justificativa = null;
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — caixa não pôde ser conferido", ex);
+            // INLINE, não notificação: a recusa da divergência sem justificativa precisa
+            // ficar na tela enquanto a pessoa escreve a explicação.
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task ReabrirAsync(FechamentoCaixa f)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "reabrir o caixa")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Reabrir o caixa",
+            $"Por que o caixa de {Formato.Data(f.Data)} precisa ser recontado? A conferência atual continua no histórico, marcada com este motivo.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<FechamentoCaixaService>().ReabrirAsync(f.Data, motivo, Operador);
+        }, "Blazor — caixa não pôde ser reaberto");
+        if (!ok) return;
+        Notificacoes.Info($"Caixa de {Formato.Data(f.Data)} reaberto para recontagem.");
+        await TrocarDiaAsync(f.Data);
+    }
+
+    private static string Detalhe(FechamentoCaixa f) => f.Reaberto
+        ? $"reaberto: {f.MotivoReabertura}"
+        : string.IsNullOrWhiteSpace(f.Justificativa)
+            ? $"{f.QuantidadeLancamentos} lançamento(s) · {f.ConferidoPor ?? "—"}"
+            : $"{f.Justificativa} · {f.ConferidoPor ?? "—"}";
+}

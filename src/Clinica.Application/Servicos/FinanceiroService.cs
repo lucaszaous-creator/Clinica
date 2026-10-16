@@ -396,7 +396,15 @@ public sealed class FinanceiroService
         string? operador = null,
         DeducoesRecebimento? deducoes = null,
         CancellationToken ct = default)
-        => await LancarAsync(
+    {
+        ArgumentNullException.ThrowIfNull(guia);
+        // A lista da conciliação é lida ANTES do clique: o segundo clique, ou a outra máquina
+        // que concilia o mesmo mês, gravaria uma segunda receita da mesma guia.
+        if (await _repo.ExisteEntradaVivaAsync(guia.CodigoId, null, ct))
+            throw new InvalidOperationException(
+                $"A guia de {guia.Paciente} já tem receita lançada — atualize a conciliação.");
+
+        return await LancarAsync(
             data: guia.DataBaixa,
             tipo: TipoLancamento.Entrada,
             descricao: $"{guia.Convenio} — guia {guia.NumeroGuiaReal ?? guia.CodigoId.ToString()} ({guia.Paciente})",
@@ -414,6 +422,7 @@ public sealed class FinanceiroService
             operador: operador,
             deducoes: deducoes,
             ct: ct);
+    }
 
     // ==================== A conciliação do PARTICULAR (set/2026) ====================
 
@@ -437,7 +446,7 @@ public sealed class FinanceiroService
     /// informada, ou na da sessão); com vencimento = fica A RECEBER, previsto, com dono —
     /// e a inadimplência passa a enxergá-lo quando vencer.
     /// </summary>
-    public Task<LancamentoFinanceiro> LancarReceitaDaSessaoAsync(
+    public async Task<LancamentoFinanceiro> LancarReceitaDaSessaoAsync(
         SessaoSemReceita sessao,
         decimal valor,
         FormaPagamento? forma = null,
@@ -451,7 +460,13 @@ public sealed class FinanceiroService
         ArgumentNullException.ThrowIfNull(sessao);
         var aReceber = vencimento is not null;
 
-        return LancarAsync(
+        // Mesma guarda da guia: a sessão que já tem dinheiro (recebido ou a receber) não
+        // ganha um segundo lançamento pelo clique repetido ou pela outra máquina.
+        if (await _repo.ExisteEntradaVivaAsync(null, sessao.AtendimentoId, ct))
+            throw new InvalidOperationException(
+                $"A sessão de {sessao.Paciente} já tem dinheiro registrado — atualize a conciliação.");
+
+        return await LancarAsync(
             data: sessao.Data,
             tipo: TipoLancamento.Entrada,
             descricao: DescricaoDaSessao(sessao.Data, sessao.ModalidadeNome, sessao.Paciente),

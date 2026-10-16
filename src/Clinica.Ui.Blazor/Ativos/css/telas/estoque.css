@@ -1,0 +1,41 @@
+/* Estilo PRÓPRIO da tela de Estoque (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
+
+/* O contador do botão "Validades e mínimos": o número que pede o clique. */
+.estoque .contador-alerta{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;
+  background:var(--aviso-suave);color:var(--aviso-texto);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Abas dentro do cartão da lista: a régua encosta no topo do cartão. */
+.estoque .abas-estoque{padding:0 var(--space-6)}
+
+.estoque .filtros .busca-larga{flex:1 1 360px;max-width:560px}
+
+/* Saldo no mínimo ou abaixo: o número que manda repor, na cor do alerta. */
+.saldo-baixo{color:var(--aviso-texto);font-weight:700}
+
+/* As abas de materiais e de custo: título, explicação e a linha de controles. */
+.estoque .secao-aba{display:flex;flex-direction:column;gap:var(--space-4);border-bottom:1px solid var(--borda)}
+.estoque .titulo-aba{font-size:16px;font-weight:600;margin:0}
+.estoque .descricao-aba{margin:var(--space-1) 0 0;max-width:820px;line-height:1.5;font-size:var(--text-table-size)}
+.estoque .linha-controles{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3)}
+.estoque .linha-controles .campo-bloco{min-width:160px}
+.estoque .linha-controles input[type=date].campo{min-width:150px}
+.estoque .separador-vertical{align-self:stretch;width:1px;background:var(--borda);margin:0 var(--space-2)}
+.estoque .resumo-aba{margin:0;color:var(--texto-secundario);font-size:var(--text-table-size);line-height:1.5}
+.estoque .secao-aba .kpis{margin-top:0}
+
+/* Formulários do estoque. */
+.marcas{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-6)}
+.inventario-saldo{padding:var(--space-3) var(--space-4);background:var(--cinza-50);border:1px solid var(--borda);
+  border-radius:var(--radius-control)}
+.inventario-saldo dd{font-size:16px}
+.extrato-resumo{margin:0}
+.extrato-tabela,.materiais-tabela{border:1px solid var(--borda);border-radius:var(--radius-control);max-height:52vh;overflow-y:auto}
+.extrato-tabela table.lista th,.materiais-tabela table.lista th{position:sticky;top:0;z-index:1}
+table.lista tr.linha-perda td{background:var(--erro-suave)}
+table.lista tr.linha-perda:hover td{background:var(--erro-suave)}
+table.lista td.tipo-perda{color:var(--erro-texto);font-weight:600}
+table.lista.compacta th,table.lista.compacta td{padding:8px 10px}
+table.lista.compacta th:first-child,table.lista.compacta td:first-child{padding-left:var(--space-4)}
+table.lista.compacta th:last-child,table.lista.compacta td:last-child{padding-right:var(--space-4)}
+table.lista.compacta .campo{min-height:32px;padding:5px 8px}
+.materiais-situacao{margin:0;color:var(--cinza-700);line-height:1.5}

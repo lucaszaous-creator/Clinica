@@ -1,0 +1,84 @@
+@*
+  Categoria nova do plano de contas (o que no WPF era a CategoriaWindow /
+  CategoriaEdicaoViewModel): código, nome e tipo.
+
+  O CÓDIGO só existe aqui — depois de criado ele não se edita em lugar nenhum, porque é a
+  referência estável que os lançamentos já gravados apontam. A validação (código e nome
+  obrigatórios, código repetido recusado) é do FinanceiroService; o formulário mostra a
+  frase dele INLINE, perto do campo, enquanto a pessoa corrige.
+
+  As duas barreiras: o botão nasce apagado sem EditarFinanceiro, e o Exigir no clique é o
+  que impede (o WPF só guardava a abertura da janela).
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Categoria nova" Largura="pequeno" AoFechar="AoFechar"
+       Subtitulo="É a classificação que responde “para onde foi o dinheiro” no fluxo de caixa. Sem categoria o lançamento não some do total — aparece como “Sem categoria”.">
+    <ChildContent>
+        <div class="segmentado" role="group" aria-label="Tipo">
+            <button type="button" aria-pressed="@(_tipo == TipoLancamento.Entrada ? "true" : "false")" @onclick="() => _tipo = TipoLancamento.Entrada"><Icone Nome="entrada" /> Entrada</button>
+            <button type="button" aria-pressed="@(_tipo == TipoLancamento.Saida ? "true" : "false")" @onclick="() => _tipo = TipoLancamento.Saida"><Icone Nome="saida" /> Saída</button>
+        </div>
+        <div class="campos">
+            <Campo Rotulo="Código" Obrigatorio="true" Classe="largo"
+                   Dica="NÃO muda depois de criado: é a referência que os lançamentos já gravados apontam. Nome, ordem e ativa mudam à vontade.">
+                <input class="campo" @bind="_codigo" @bind:event="oninput" maxlength="40" placeholder="Ex.: S6" />
+            </Campo>
+            <Campo Rotulo="Nome" Obrigatorio="true" Classe="largo">
+                <input class="campo" @bind="_nome" @bind:event="oninput" maxlength="80" placeholder="@(_tipo == TipoLancamento.Entrada ? "Ex.: Venda de produtos" : "Ex.: Energia elétrica")" />
+            </Campo>
+        </div>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite mexer no plano de contas.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Criar categoria")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>A ordem que a categoria nova recebe: o fim da lista, como no WPF.</summary>
+    [Parameter] public int OrdemSugerida { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _codigo;
+    private string? _nome;
+    private TipoLancamento _tipo = TipoLancamento.Entrada;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        if (!SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro))
+        {
+            _mensagem = "Seu acesso não permite mexer no plano de contas. Fale com a direção da clínica.";
+            return;
+        }
+        // O serviço recusa os dois em branco com ArgumentException, cuja mensagem traz o
+        // "(Parameter 'codigo')" do .NET — a frase para quem digita fica aqui, antes dele.
+        if (string.IsNullOrWhiteSpace(_codigo)) { _mensagem = "Informe o código da categoria."; return; }
+        if (string.IsNullOrWhiteSpace(_nome)) { _mensagem = "Informe o nome da categoria."; return; }
+        try
+        {
+            _ocupado = true;
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                .CriarCategoriaAsync(_codigo ?? string.Empty, _nome ?? string.Empty, _tipo, ordem: OrdemSugerida);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — categoria não pôde ser criada", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

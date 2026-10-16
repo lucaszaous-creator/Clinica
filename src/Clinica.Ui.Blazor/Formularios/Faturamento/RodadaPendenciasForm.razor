@@ -1,0 +1,146 @@
+@*
+  RODAR PENDÊNCIAS (out/2026, migrado da RodadaPendenciasWindow + RodadaPendenciasFluxo do WPF),
+  no modo NÃO bloqueante: o botão do painel lista TODAS as guias pendentes para a cobrança
+  proativa — dê baixa no que puder (número da guia) e justifique o resto como não conformidade.
+
+  O modo BLOQUEANTE da abertura do app continua sendo a janela WPF: ele trava o sistema antes
+  de a área de trabalho existir, e um formulário dentro do navegador não trava nada.
+
+  A regra INTEIRA mora em DecisoesDaRodada (Application) — montar, o texto do topo, o que
+  impede de concluir e a aplicação linha a linha —, a MESMA da janela bloqueante: duas cópias
+  de "como se aplica a rodada" divergiriam na primeira correção.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Rodar pendências" Subtitulo="@_resumo" Largura="largo" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_falhou)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as pendências" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_linhas is null)
+        {
+            <Esqueleto Altura="200" />
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="Nada a decidir" Descricao="Não há guia pendente agora. A rodada está em dia." Icone="ok" />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Data da baixa" Obrigatorio="true" Dica="Vale para as guias em que você informar o número.">
+                    <input type="date" class="campo" value="@_data.ToString("yyyy-MM-dd")"
+                           @onchange="e => _data = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : _data" />
+                </Campo>
+            </div>
+            <div class="fat-rodada">
+                <table class="lista">
+                    <thead><tr><th>Guia</th><th style="width:220px">Nº da guia (baixa)</th><th style="width:300px">ou justificativa (não conformidade)</th></tr></thead>
+                    <tbody>
+                        @foreach (var l in _linhas)
+                        {
+                            <tr @key="l.CodigoId">
+                                <td>
+                                    <span class="principal">@l.Descricao</span>
+                                    <span class="secundario">@l.Situacao</span>
+                                </td>
+                                <td>
+                                    <input class="campo numero-guia @(l.CriticaDoNumero is not null ? "invalido" : null)" value="@l.NumeroGuia" maxlength="40"
+                                           aria-label="@($"Número da guia — {l.Descricao}")" autocomplete="off" disabled="@(!PodeBaixar)"
+                                           title="@(PodeBaixar ? "Informe o número da guia para dar baixa" : "Seu acesso não permite dar baixa.")"
+                                           @oninput="e => l.NumeroGuia = e.Value?.ToString()" />
+                                    @if (l.CriticaDoNumero is { } critica) { <span class="campo-erro">@critica</span> }
+                                </td>
+                                <td>
+                                    <textarea class="campo fat-texto" rows="1" maxlength="500" aria-label="@($"Justificativa — {l.Descricao}")"
+                                              disabled="@(!PodeMarcarNc || !string.IsNullOrWhiteSpace(l.NumeroGuia))"
+                                              title="@(!PodeMarcarNc ? "Seu acesso não permite registrar não conformidade." : !string.IsNullOrWhiteSpace(l.NumeroGuia) ? "Com número informado, a guia recebe baixa." : "Se não for baixar, justifique como não conformidade")"
+                                              value="@l.Justificativa" @oninput="e => l.Justificativa = e.Value?.ToString()"></textarea>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        <div class="fat-mensagem"><Aviso Tom="erro" Texto="@_mensagem" /></div>
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda texto-secundario pequeno">Para cada guia: o nº da guia (baixa) OU uma justificativa (não conformidade). Em branco, a guia continua pendente.</span>
+        <button type="button" class="botao" @onclick="AoFechar">@(_linhas is { Count: 0 } ? "Fechar" : "Cancelar")</button>
+        @if (_linhas is { Count: > 0 })
+        {
+            <button type="button" class="botao primario" @onclick="ConcluirAsync" disabled="@(_ocupado || !DecisoesDaRodada.PodeDecidir())">
+                <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Concluir rodada")
+            </button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Concluída: a frase das falhas (nula = tudo aplicado).</summary>
+    [Parameter] public EventCallback<string?> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<LinhaDaRodada>? _linhas;
+    private string? _resumo;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string? _mensagem;
+    private bool _ocupado;
+    private bool _falhou;
+    private string? _erroLeitura;
+
+    private static bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
+    private static bool PodeMarcarNc => SessaoUsuario.Atual.Pode(Permissao.MarcarNaoConformidade);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        _falhou = false;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            using var escopo = Escopos.CreateScope();
+            var status = await escopo.ServiceProvider.GetRequiredService<RodadaPendenciasService>().ObterStatusAsync(hoje);
+            var itens = await escopo.ServiceProvider.GetRequiredService<PendenciaService>().CodigosPendentesAsync(hoje); // manual: todas as pendentes
+            _linhas = DecisoesDaRodada.Montar(itens);
+            _resumo = DecisoesDaRodada.Resumo(_linhas.Count, status, bloqueante: false);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — rodada de pendências não pôde ser lida", ex);
+            _falhou = true;
+            _erroLeitura = ex.Message;
+        }
+    }
+
+    private async Task ConcluirAsync()
+    {
+        if (_ocupado || _linhas is null) return;
+        _mensagem = null;
+        if (!DecisoesDaRodada.PodeDecidir()) { _mensagem = PainelPendenciasFaturamento.RodadaSemPermissao; return; }
+        if (DecisoesDaRodada.ImpedimentoParaConcluir(_linhas, bloqueante: false) is { } impedimento) { _mensagem = impedimento; return; }
+
+        _ocupado = true;
+        string? falhas;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var aplicadas = await DecisoesDaRodada.AplicarAsync(_linhas, _data,
+                escopo.ServiceProvider.GetRequiredService<FaturamentoService>(),
+                escopo.ServiceProvider.GetRequiredService<RodadaPendenciasService>());
+            falhas = DecisoesDaRodada.ResumoDasFalhas(aplicadas);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — rodada de pendências não pôde ser aplicada", ex);
+            _mensagem = $"Não foi possível concluir a rodada: {ex.Message}";
+            _ocupado = false;
+            return;
+        }
+        _ocupado = false;
+        await AoConcluir.InvokeAsync(falhas);
+    }
+}

@@ -1,3 +1,4 @@
+using Clinica.Desktop.Blazor;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
@@ -474,7 +475,11 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<LancamentosViewModel>();
         servicos.AddTransient<RetornosAMarcarViewModel>();
-        servicos.AddTransient<AcompanhamentoViewModel>();
+        // O Acompanhamento de pacientes é tela BLAZOR desde out/2026 (docs/relacionamento-blazor.md):
+        // a hospedagem é a MESMA do Financeiro e do Faturamento (um navegador por janela,
+        // idempotente), e o "Marcar horário" dela chega à aba Marcar pela ponte desta Recepção.
+        servicos.AddHospedagemBlazor();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IMarcacaoDeHorario, MarcacaoDaRecepcao>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
         // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
@@ -524,7 +529,7 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             DataContext = servicos.GetRequiredService<RetornosAMarcarViewModel>()
         },
-        ChaveRetorno => new AcompanhamentoView { DataContext = servicos.GetRequiredService<AcompanhamentoViewModel>() },
+        ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
         ChaveSalaInfusao => new SalaInfusaoView
         {
             DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()

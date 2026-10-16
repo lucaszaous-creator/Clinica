@@ -1,0 +1,152 @@
+@*
+  Conta avulsa a pagar ou a receber (o que no WPF era a ContaWindow / ContaEdicaoViewModel).
+
+  Nada nasce pago: a conta entra PREVISTA e vira realizada na baixa. Pode ser parcelada em
+  meses — o total é dividido com os centavos distribuídos sem alterar o total, e a gravação
+  é atômica e IDEMPOTENTE: a chave de idempotência nasce com o formulário, então o segundo
+  clique depois de uma resposta lenta não cria a obrigação duas vezes.
+
+  O campo que só existe em "A receber" é o PACIENTE: conta a pagar não tem dono desse tipo,
+  e é ele que dá dono à dívida — sem ele a tela de inadimplência ficaria vazia para sempre.
+  Trocar para "A pagar" depois de escolher alguém NÃO grava o paciente.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Conta nova" Subtitulo="Nada nasce pago: a conta entra como PREVISTA e vira realizada na baixa. O sistema sabe que ela vence, não que foi quitada." Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="segmentado" role="group" aria-label="Tipo">
+            <button type="button" aria-pressed="@(_ehSaida ? "true" : "false")" @onclick="() => _ehSaida = true"><Icone Nome="saida" /> A pagar</button>
+            <button type="button" aria-pressed="@(!_ehSaida ? "true" : "false")" @onclick="() => _ehSaida = false"><Icone Nome="entrada" /> A receber</button>
+        </div>
+        <div class="campos">
+            <Campo Rotulo="Descrição" Obrigatorio="true" Classe="largo">
+                <input class="campo" @bind="_descricao" @bind:event="oninput" maxlength="200"
+                       placeholder="@(_ehSaida ? "Ex.: Fornecedor de agulhas — pedido de outubro" : "Ex.: Sessões de setembro — acerto")" />
+            </Campo>
+            <Campo Rotulo="Valor total da obrigação" Obrigatorio="true" Dica="Aceita 1.250,00 ou 1250.00.">
+                <input class="campo valor" @bind="_valor" @bind:event="oninput" maxlength="14" inputmode="decimal" placeholder="0,00" />
+            </Campo>
+            <Campo Rotulo="Primeiro vencimento" Obrigatorio="true" Dica="É ele que faz a conta aparecer na lista.">
+                <input type="date" class="campo" @bind="_vencimento" />
+            </Campo>
+            <Campo Rotulo="Parcelas mensais" Dica="1 = pagamento único. O total é dividido mês a mês, sem mudar o total; parcelar não registra pagamento.">
+                <input type="number" min="1" max="120" class="campo" @bind="_parcelas" @bind:event="oninput" />
+            </Campo>
+            <Campo Rotulo="Competência" Dica="O mês a que a obrigação se refere.">
+                <input type="date" class="campo" @bind="_competencia" />
+            </Campo>
+            <Campo Rotulo="@(_ehSaida ? "Fornecedor" : "Cliente")">
+                <input class="campo" @bind="_contraparte" maxlength="200" placeholder="@(_ehSaida ? "Ex.: Distribuidora Saúde Ltda." : "Ex.: Convênio, empresa parceira")" />
+            </Campo>
+            <Campo Rotulo="Documento de referência" Dica="Nota, contrato ou cobrança.">
+                <input class="campo" @bind="_documento" maxlength="100" placeholder="Ex.: NF 4521" />
+            </Campo>
+            <Campo Rotulo="Categoria" Classe="largo" Dica="@(_categoriasFalharam ? "Não foi possível ler as categorias — a conta pode ser gravada sem." : null)">
+                <select class="campo" @bind="_categoriaId">
+                    <option value="">(sem categoria)</option>
+                    @foreach (var c in _categorias)
+                    {
+                        <option value="@c.Id">@c.Nome</option>
+                    }
+                </select>
+            </Campo>
+        </div>
+
+        @if (!_ehSaida)
+        {
+            <div class="secao-form">
+                <h3>De quem é</h3>
+                <Campo Rotulo="Paciente (opcional)" Dica="Dá dono à dívida: é assim que ela aparece em Quem me deve.">
+                    <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="p => _paciente = p" />
+                </Campo>
+            </div>
+        }
+
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite lançar conta.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Registrar conta")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Gravou: o argumento diz se foi a pagar (true) ou a receber (false).</summary>
+    [Parameter] public EventCallback<bool> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private readonly Guid _idempotencia = Guid.NewGuid();
+    private bool _ehSaida = true;
+    private string? _descricao;
+    private string? _valor;
+    private DateOnly? _vencimento = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _competencia = DateOnly.FromDateTime(DateTime.Today);
+    private string _parcelas = "1";
+    private string? _contraparte;
+    private string? _documento;
+    private int? _categoriaId;
+    private Paciente? _paciente;
+    private List<CategoriaFinanceira> _categorias = [];
+    private bool _categoriasFalharam;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _categorias = (await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().CategoriasAsync())
+                .Where(c => c.Ativa).ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — categorias da conta não puderam ser lidas", ex);
+            _categoriasFalharam = true;
+        }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        if (string.IsNullOrWhiteSpace(_descricao)) { _mensagem = "Diga o que é a conta (aluguel, fornecedor, convênio…)."; return; }
+        if (!LeituraDeValores.TentarLerDecimal(_valor, out var valor) || valor <= 0m) { _mensagem = "Informe o valor da conta (ex.: 1.250,00)."; return; }
+        if (_vencimento is not { } venc) { _mensagem = "Informe a data de vencimento — é ela que faz a conta aparecer na lista."; return; }
+        if (!int.TryParse(_parcelas, out var parcelas)) { _mensagem = "Informe o número de parcelas mensais."; return; }
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar conta");
+            using var escopo = Escopos.CreateScope();
+            var ehSaida = _ehSaida;
+            await escopo.ServiceProvider.GetRequiredService<ContasService>().LancarParcelamentoAsync(
+                _idempotencia,
+                ehSaida ? TipoLancamento.Saida : TipoLancamento.Entrada,
+                _descricao!,
+                valor,
+                parcelas,
+                venc,
+                _competencia,
+                contraparte: _contraparte,
+                documentoReferencia: _documento,
+                categoriaId: _categoriaId,
+                operador: SessaoUsuario.Atual.Operador,
+                // Só na conta a RECEBER: gravar o paciente num aluguel deixaria a
+                // inadimplência apontando para quem não deve nada.
+                pacienteId: ehSaida ? null : _paciente?.Id);
+            await AoConcluir.InvokeAsync(ehSaida);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — conta não pôde ser lançada", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

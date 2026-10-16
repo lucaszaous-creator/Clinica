@@ -24,5 +24,8 @@
     <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
     <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
     <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+    <ProjectReference Include="..\Clinica.Ui.Blazor\Clinica.Ui.Blazor.csproj" />
+    <!-- O navegador único da janela e o hospedeiro (compartilhado com o Faturamento). -->
+    <ProjectReference Include="..\Clinica.Desktop.Blazor\Clinica.Desktop.Blazor.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    PRÉVIA das telas Blazor (out/2026, docs/piloto-blazor.md) — NÃO é produto e não vai
+    para release nenhuma. Existe para uma coisa só: mostrar, num navegador deste ambiente
+    Linux, a MESMA tela que o WPF vai exibir, com dados fictícios num SQLite em memória.
+    É isso que permite fotografar a tela antes de ela chegar à clínica.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Clinica.Ui.Blazor\Clinica.Ui.Blazor.csproj" />
+    <ProjectReference Include="..\..\src\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

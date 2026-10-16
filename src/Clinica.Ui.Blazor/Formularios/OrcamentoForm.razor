@@ -1,0 +1,95 @@
+@*
+  Definir o teto de uma categoria no mês (o que no WPF era a OrcamentoWindow /
+  OrcamentoEdicaoViewModel). Só categoria de SAÍDA aparece: alvo de receita é meta, e a
+  direção define metas na tela própria do Gerente. Definir de novo a mesma categoria
+  ATUALIZA o teto (OrcamentoService.DefinirAsync, com auditoria do antes → depois).
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@($"Teto de gasto — {Formato.Mes(Mes)}")" Largura="medio" AoFechar="AoFechar"
+       Subtitulo="O teto vale para ESTE mês e não reescreve os anteriores — reajustar agosto deixa julho com a régua que ele tinha na época.">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Categoria de saída" Obrigatorio="true" Classe="largo"
+                   Dica="@(_categoriasFalharam ? "Não foi possível ler as categorias — feche e tente de novo." : "Só categoria de saída tem teto: alvo de receita é meta.")">
+                <select class="campo" @bind="_categoriaId">
+                    @if (_categorias.Count == 0) { <option value="">(nenhuma categoria de saída)</option> }
+                    @foreach (var c in _categorias)
+                    {
+                        <option value="@c.Id">@c.Nome</option>
+                    }
+                </select>
+            </Campo>
+            <Campo Rotulo="Teto do mês (R$)" Obrigatorio="true" Classe="largo"
+                   Dica="Zero é uma decisão legítima (“não se gasta nada nesta categoria”). Apagar o teto é outra coisa: a categoria volta a não ter régua nenhuma.">
+                <input class="campo valor resultado-campo-teto" @bind="_teto" @bind:event="oninput" maxlength="12" inputmode="decimal" placeholder="0,00" />
+            </Campo>
+        </div>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || _carregando || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite definir teto de gasto.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar teto")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>O primeiro dia do mês do teto.</summary>
+    [Parameter, EditorRequired] public DateOnly Mes { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<CategoriaFinanceira> _categorias = [];
+    private bool _categoriasFalharam;
+    private int? _categoriaId;
+    private string? _teto;
+    private string? _mensagem;
+    private bool _ocupado;
+    private bool _carregando = true;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _categorias = await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().CategoriasAsync(TipoLancamento.Saida);
+            _categoriaId = _categorias.FirstOrDefault()?.Id;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — categorias não puderam ser lidas para o teto", ex);
+            _categoriasFalharam = true;
+            _mensagem = ex.Message;
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "definir teto de gasto");
+            if (_categoriaId is not { } categoriaId) throw new InvalidOperationException("Escolha a categoria.");
+            if (!LeituraDeValores.TentarLerDecimal(_teto, out var teto)) throw new InvalidOperationException("Informe o teto do mês.");
+
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<OrcamentoService>()
+                .DefinirAsync(Mes.Year, Mes.Month, categoriaId, teto, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — teto não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

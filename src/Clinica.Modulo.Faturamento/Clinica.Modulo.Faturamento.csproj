@@ -8,5 +8,8 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <ProjectReference Include="../Clinica.Desktop.Shell/Clinica.Desktop.Shell.csproj" />
     <ProjectReference Include="../Clinica.Infrastructure/Clinica.Infrastructure.csproj" />
+      <!-- Telas Blazor (out/2026): o navegador único da janela + as telas do Clinica.Ui.Blazor. -->
+    <ProjectReference Include="../Clinica.Desktop.Blazor/Clinica.Desktop.Blazor.csproj" />
+    <ProjectReference Include="../Clinica.Ui.Blazor/Clinica.Ui.Blazor.csproj" />
   </ItemGroup>
 </Project>

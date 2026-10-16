@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
         services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
+        services.AddScoped<IComissaoRecuperacaoService, ComissaoRecuperacaoService>();
         services.AddScoped<IPlanejamentoEnfermagemService, Planejamento.PlanejamentoEnfermagemService>();
         services.AddScoped<IOcupacaoAgendaService, Planejamento.OcupacaoAgendaService>();
         services.AddSingleton(new RegistroRegras());

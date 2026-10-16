@@ -1,0 +1,348 @@
+@*
+  RESULTADO DO MÊS E TETO DE GASTO (out/2026, migrado do ResultadoView/ResultadoViewModel
+  do WPF, parcela 31).
+
+  Responde as duas perguntas que a direção faz todo mês: "sobrou quanto?" (aba Resultado)
+  e "o gasto ficou dentro do que a gente combinou?" (aba Teto de gasto). São o mesmo
+  assunto visto dos dois lados: um diz o que aconteceu, o outro o que deveria ter acontecido.
+
+  As honestidades do serviço continuam escritas na tela: regime de CAIXA (só o realizado
+  entra), taxa e imposto são DEDUÇÃO da receita e não despesa, e margem sobre zero é "—".
+  Cada bloco falha SOZINHO: o orçamento quebrar não apaga o resultado, que é a resposta
+  principal.
+*@
+@inherits TelaBase
+@using Clinica.Application.Modelos
+
+<div class="pagina @(Carregando && _resultado is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Resultado" Titulo="Resultado do mês" Subtitulo="@LeituraDoResultado.RegimeDeCaixa">
+        <SeletorMes Valor="Mes" ValorChanged="TrocarMesAsync" />
+        <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(_resultado is null)"><Icone Nome="baixar" />Exportar CSV</button>
+    </CabecalhoPagina>
+
+    <div class="abas" role="tablist">
+        <button type="button" role="tab" aria-selected="@(_aba == 0 ? "true" : "false")" @onclick="() => _aba = 0">Resultado</button>
+        <button type="button" role="tab" aria-selected="@(_aba == 1 ? "true" : "false")" @onclick="() => _aba = 1">
+            Teto de gasto @if (_estourados > 0) { <Selo Tom="perigo">@_estourados estourou</Selo> }
+        </button>
+    </div>
+
+    @if (_aba == 0)
+    {
+        @if (_resultadoNaoVerificado)
+        {
+            <section class="cartao">
+                <FalhaDeLeitura Titulo="Não foi possível apurar este mês"
+                                Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erroResultado}")" AoTentarDeNovo="CarregarAsync" />
+            </section>
+        }
+        else if (_resultado is null)
+        {
+            <section class="kpis">
+                @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+            </section>
+            <div class="cartao cartao-corpo"><Esqueleto Altura="200" /></div>
+        }
+        else
+        {
+            var r = _resultado;
+            <section class="kpis" aria-label="Resumo do mês">
+                <Kpi Rotulo="Resultado do mês" Valor="@Formato.Dinheiro(r.Resultado)" Icone="resultado"
+                     Tom="@(r.Prejuizo ? "perigo" : "sucesso")" ClasseValor="@(r.Vazio ? null : r.Prejuizo ? "negativo" : "positivo")"
+                     Nota="@LeituraDoResultado.Resumo(r)" />
+                <Kpi Rotulo="Receita bruta" Valor="@Formato.Dinheiro(r.Receita)" Icone="entrada"
+                     Nota="O que entrou no mês, antes de qualquer desconto" />
+                <Kpi Rotulo="Despesas" Valor="@Formato.Dinheiro(r.Despesas)" Icone="saida" Tom="saida"
+                     Nota="Saídas realizadas no mês" />
+                <Kpi Rotulo="Margem" Valor="@LeituraDoResultado.Margem(r.Margem)" Icone="margem" Tom="neutro"
+                     Nota="@(r.Margem is null ? "Sem receita, não há margem — não é 0%" : "De cada real faturado, quanto sobrou")" />
+            </section>
+
+            <section class="cartao cartao-corpo">
+                <div class="cartao-titulo">
+                    <div>
+                        <h2>Do faturado ao que sobrou</h2>
+                        <p>Taxa de maquininha e imposto saem da receita antes de ela existir — são dedução, não despesa.</p>
+                    </div>
+                </div>
+                <div class="resultado-cascata">
+                    <div class="resultado-passo"><span>Receita bruta</span><b>@Formato.Dinheiro(r.Receita)</b></div>
+                    <div class="resultado-operador" aria-hidden="true">−</div>
+                    <div class="resultado-passo deducao"><span>Deduções (taxa e imposto)</span><b>@Formato.Dinheiro(r.Deducoes)</b></div>
+                    <div class="resultado-operador" aria-hidden="true">=</div>
+                    <div class="resultado-passo"><span>Receita líquida</span><b>@Formato.Dinheiro(r.ReceitaLiquida)</b></div>
+                    <div class="resultado-operador" aria-hidden="true">−</div>
+                    <div class="resultado-passo"><span>Despesas</span><b>@Formato.Dinheiro(r.Despesas)</b></div>
+                    <div class="resultado-operador" aria-hidden="true">=</div>
+                    <div class="resultado-passo total @(r.Prejuizo ? "prejuizo" : null)"><span>Resultado</span><b>@Formato.Dinheiro(r.Resultado)</b></div>
+                </div>
+            </section>
+
+            <section class="duas-colunas">
+                <div class="cartao cartao-corpo">
+                    <div class="cartao-titulo"><div><h2>De onde veio</h2><p>Entradas realizadas por categoria · @Formato.Mes(Mes)</p></div></div>
+                    @Categorias(r.Entradas, false, "Nenhuma entrada realizada neste mês.")
+                </div>
+                <div class="cartao cartao-corpo">
+                    <div class="cartao-titulo"><div><h2>Para onde foi</h2><p>Saídas realizadas por categoria · @Formato.Mes(Mes)</p></div></div>
+                    @Categorias(r.Saidas, true, "Nenhuma saída realizada neste mês.")
+                </div>
+            </section>
+        }
+    }
+    else
+    {
+        <section class="cartao lista-cartao">
+            <div class="cartao-titulo resultado-teto-topo">
+                <div>
+                    <h2>Teto de gasto · @Formato.Mes(Mes)</h2>
+                    <p>@(_orcamentoNaoVerificado ? "Não foi possível ler os tetos deste mês." : _resumoTetos)</p>
+                </div>
+                <button type="button" class="botao primario" @onclick="DefinirTeto" disabled="@(!PodeEditar)"
+                        title="@(PodeEditar ? null : "Seu acesso não permite definir teto de gasto.")"><Icone Nome="mais" />Definir teto</button>
+            </div>
+
+            @if (_orcamentoNaoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível ler os tetos"
+                                Detalhe="@($"A lista está vazia por falha de leitura, não por ausência de teto. {_erroOrcamento}")" AoTentarDeNovo="CarregarAsync" />
+            }
+            else if (_tetos is null)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="160" /></div>
+            }
+            else if (_tetos.Count == 0)
+            {
+                <EstadoVazio Icone="cofre" Titulo="Nenhum teto definido para este mês"
+                             Descricao="Sem teto, o gasto só é julgado contra o mês anterior. Defina quanto cada categoria de saída pode gastar." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr>
+                                <th>Categoria</th>
+                                <th class="direita" style="width:130px">Teto</th>
+                                <th class="direita" style="width:130px">Gasto</th>
+                                <th class="direita" style="width:130px" title="Contas previstas da categoria que ainda vão vencer no mês">A vencer</th>
+                                <th class="direita" style="width:140px">Disponível</th>
+                                <th class="direita" style="width:72px">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var o in _tetos)
+                            {
+                                var g = LeituraDoResultado.Gravidade(o);
+                                <tr @key="o.CategoriaId">
+                                    <td>
+                                        <span class="principal">@o.Categoria</span>
+                                        <span class="secundario resultado-situacao @Classe(g)">@LeituraDoResultado.Situacao(o)</span>
+                                        <div class="trilho resultado-trilho @Classe(g)"><i style="width:@N(Math.Max(LeituraDoResultado.Fracao(o) * 100, 1.5))%"></i></div>
+                                    </td>
+                                    <td class="direita numero">@Formato.Dinheiro(o.Teto)</td>
+                                    <td class="direita numero">@Formato.Dinheiro(o.Gasto)</td>
+                                    <td class="direita numero">@(o.Comprometido is { } c ? Formato.Dinheiro(c) : "—")</td>
+                                    <td class="direita numero"><span class="@(o.Saldo < 0 ? "negativo" : null)">@Formato.Dinheiro(o.Saldo)</span></td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini icone contorno-perigo" title="Excluir teto" aria-label="Excluir teto"
+                                                disabled="@(!PodeEditar)" @onclick="() => ExcluirTetoAsync(o)"><Icone Nome="lixo" /></button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista">O teto vale para este mês e não reescreve os anteriores. "A vencer" é o já contratado e ainda não pago — é nele que o teto costuma estourar.</div>
+            }
+        </section>
+    }
+</div>
+
+@if (_definindo)
+{
+    <OrcamentoForm Mes="Mes" AoFechar="() => _definindo = false" AoConcluir="TetoDefinidoAsync" />
+}
+
+@code {
+    private DateOnly Mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private int _aba;
+
+    private ResultadoMensal? _resultado;
+    private bool _resultadoNaoVerificado;
+    private string? _erroResultado;
+
+    private IReadOnlyList<OrcamentoApurado>? _tetos;
+    private string _resumoTetos = string.Empty;
+    private int _estourados;
+    private bool _orcamentoNaoVerificado;
+    private string? _erroOrcamento;
+
+    private bool Carregando;
+    private bool _definindo;
+    private int _geracao;
+
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private Task TrocarMesAsync(DateOnly mes) { Mes = mes; return CarregarAsync(); }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50). Cada bloco carrega SOZINHO, em fila:
+    /// o orçamento quebrar não pode apagar o resultado, que é a resposta principal da tela.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        var ano = Mes.Year;
+        var mes = Mes.Month;
+
+        ResultadoMensal? resultado = null;
+        string? erroResultado = null;
+        try
+        {
+            using var escopo = Escopo();
+            resultado = await escopo.ServiceProvider.GetRequiredService<ResultadoMensalService>().DoMesAsync(ano, mes);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — resultado do mês não pôde ser lido", ex);
+            erroResultado = ex.Message;
+        }
+        if (geracao != _geracao || Descartada) return;
+
+        IReadOnlyList<OrcamentoApurado>? tetos = null;
+        string? erroOrcamento = null;
+        try
+        {
+            using var escopo = Escopo();
+            tetos = await escopo.ServiceProvider.GetRequiredService<OrcamentoService>().ApurarMesAsync(ano, mes);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — orçamento do mês não pôde ser lido", ex);
+            erroOrcamento = ex.Message;
+        }
+        if (geracao != _geracao || Descartada) return;
+
+        // Tudo publicado depois do último await (parcela 62).
+        _resultado = resultado;
+        _resultadoNaoVerificado = resultado is null;
+        _erroResultado = erroResultado;
+        _tetos = tetos;
+        _orcamentoNaoVerificado = tetos is null;
+        _erroOrcamento = erroOrcamento;
+        _resumoTetos = tetos is null ? string.Empty : LeituraDoResultado.ResumoDosTetos(tetos);
+        _estourados = tetos?.Count(o => o.Estourou) ?? 0;
+        Carregando = false;
+    }
+
+    private void DefinirTeto()
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "definir teto de gasto")) _definindo = true;
+    }
+
+    private async Task TetoDefinidoAsync()
+    {
+        _definindo = false;
+        Notificacoes.Sucesso("Teto definido — o painel da direção já avisa quando estourar.");
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Apagar o teto é diferente de zerá-lo: sem linha, a categoria volta a não ter régua;
+    /// zero declara que não se gasta nada nela.
+    /// </summary>
+    private async Task ExcluirTetoAsync(OrcamentoApurado o)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "excluir teto de gasto")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir teto",
+                $"Tirar o teto de {o.Categoria} neste mês?\n\n"
+                + "A categoria volta a não ter régua: o gasto passa a ser julgado só contra o mês anterior. "
+                + "Se a intenção é declarar que não se gasta nada nela, defina o valor zero em vez de apagar.",
+                perigoso: true, confirmar: "Excluir teto")) return;
+
+        var ano = Mes.Year;
+        var mes = Mes.Month;
+        var excluiu = false;
+        await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            var servico = escopo.ServiceProvider.GetRequiredService<OrcamentoService>();
+            var alvo = (await servico.DoMesAsync(ano, mes)).FirstOrDefault(t => t.CategoriaFinanceiraId == o.CategoriaId);
+            if (alvo is null) return;
+            await servico.ExcluirAsync(alvo.Id, Operador);
+            excluiu = true;
+        }, "Blazor — teto não pôde ser excluído");
+        if (excluiu) Notificacoes.Info("Teto excluído.");
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// O resultado em CSV, para o contador. CSV é saída de dado: a segunda barreira vem antes.
+    /// </summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar o resultado do mês")) return;
+        if (_resultado is not { } r || (r.Entradas.Count == 0 && r.Saidas.Count == 0))
+        {
+            Notificacoes.Info("Não há movimento para exportar neste mês.");
+            return;
+        }
+        try
+        {
+            var linhas = new List<IReadOnlyList<string>>();
+            foreach (var e in r.Entradas) linhas.Add(["Entrada", e.Categoria, Formato.Dinheiro(e.Valor)]);
+            foreach (var s in r.Saidas) linhas.Add(["Saída", s.Categoria, Formato.Dinheiro(s.Valor)]);
+            linhas.Add(["Total", "Receita bruta", Formato.Dinheiro(r.Receita)]);
+            linhas.Add(["Total", "Deduções (taxa e imposto)", Formato.Dinheiro(r.Deducoes)]);
+            linhas.Add(["Total", "Receita líquida", Formato.Dinheiro(r.ReceitaLiquida)]);
+            linhas.Add(["Total", "Despesas", Formato.Dinheiro(r.Despesas)]);
+            linhas.Add(["Total", "Resultado", Formato.Dinheiro(r.Resultado)]);
+            linhas.Add(["Total", "Margem", LeituraDoResultado.Margem(r.Margem)]);
+            var erro = await Host.ExportarCsvAsync(["Tipo", "Categoria", "Valor"], linhas, $"resultado-{Mes:yyyy-MM}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — resultado não pôde ser exportado", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    private static string Classe(GravidadeDoTeto g) => g switch
+    {
+        GravidadeDoTeto.Estourou => "estourou",
+        GravidadeDoTeto.Atencao => "atencao",
+        _ => string.Empty
+    };
+
+    /// <summary>Número para atributo de estilo: ponto decimal SEMPRE.</summary>
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private RenderFragment Categorias(IReadOnlyList<LinhaResultado> lista, bool saidas, string vazio) => __builder =>
+    {
+        if (lista.Count == 0)
+        {
+            <div class="vazio-estado">@vazio</div>
+            return;
+        }
+        <ul class="categorias @(saidas ? "saidas" : null)">
+            @foreach (var c in lista)
+            {
+                // "Sem categoria" aparece nomeado, nunca some: senão as linhas não fecham com o total.
+                <li class="@(c.Categoria == "Sem categoria" ? "sem-categoria" : null)">
+                    <div class="categoria-topo">
+                        <span class="categoria-nome" title="@c.Categoria">@c.Categoria</span>
+                        <span class="categoria-valor">@Formato.Dinheiro(c.Valor)<small>@Formato.Porcentagem(c.Fracao)</small></span>
+                    </div>
+                    <div class="trilho"><i style="width:@N(Math.Max(c.Fracao * 100, 1.5))%"></i></div>
+                </li>
+            }
+        </ul>
+    };
+}

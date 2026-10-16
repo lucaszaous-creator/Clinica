@@ -38,3 +38,7 @@ ui_kits/*/tools/capturas/
 __pycache__/
 *.pyc
 .claude/worktrees/
+
+# Prévia Blazor: pid e log locais
+tools/PreviaBlazor/.previa-*
+TestResults/

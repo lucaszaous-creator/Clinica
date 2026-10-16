@@ -56,10 +56,19 @@ public class RegraRepasse
            && (VigenteDe is null || dia >= VigenteDe)
            && (VigenteAte is null || dia <= VigenteAte);
 
-    /// <summary>Como a regra aparece escrita na tela e no lançamento.</summary>
+    /// <summary>
+    /// Como a regra aparece escrita na tela e no lançamento — em pt-BR FIXO, não na cultura
+    /// da máquina (out/2026). O texto é GRAVADO (`RepasseApurado.RegraDescricao` e a
+    /// observação da saída no caixa), e dois postos escreveriam "R$ 50,00" e "¤50.00" na
+    /// mesma coluna; é a regra do `Tributo.Descricao` (parcela 15). E a tela Blazor roda
+    /// também na prévia em Linux, onde a cultura do processo é a invariante.
+    /// </summary>
     public string Descricao => Base == BaseRepasse.PercentualDaReceita
-        ? $"{Percentual:0.##}% da receita"
-        : $"{ValorPorAtendimento:C} por atendimento";
+        ? string.Format(PtBr, "{0:0.##}% da receita", Percentual)
+        : string.Format(PtBr, "{0:C} por atendimento", ValorPorAtendimento);
+
+    private static readonly System.Globalization.CultureInfo PtBr =
+        System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
 }
 
 /// <summary>

@@ -1,0 +1,19 @@
+@implements IDisposable
+@inject Notificacoes Notificacoes
+
+<div class="notificacoes" role="status" aria-live="polite">
+    @foreach (var n in Notificacoes.Ativas)
+    {
+        <div class="notificacao @n.Tom.ToString().ToLowerInvariant()" @key="n.Id">
+            <Icone Nome="@(n.Tom switch { TomNotificacao.Sucesso => "ok", TomNotificacao.Erro => "alerta", _ => "info" })" />
+            <span>@n.Texto</span>
+            <button type="button" class="fechar" aria-label="Fechar" @onclick="() => Notificacoes.Fechar(n)">×</button>
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized() => Notificacoes.Mudou += Redesenhar;
+    private void Redesenhar() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Notificacoes.Mudou -= Redesenhar;
+}

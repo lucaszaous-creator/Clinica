@@ -69,16 +69,9 @@ public static class Whatsapp
              + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
     }
 
-    /// <summary>Mensagem padrão de recall: o paciente parou de vir e a clínica está chamando de volta.</summary>
+    /// <summary>Mensagem padrão de recall — o TEXTO mora em <see cref="Clinica.Application.Modelos.MensagensDeContato.Recall"/>.</summary>
     public static string Recall(string nomePaciente, int? diasSemVir = null, string? nomeClinica = null)
-    {
-        var primeiroNome = PrimeiroNome(nomePaciente);
-        var tempo = diasSemVir is >= 60 ? " Faz um tempinho desde a sua última sessão." : string.Empty;
-
-        return $"Olá, {primeiroNome}! Tudo bem?{tempo}"
-             + " Estamos com horários abertos e podemos reservar um para você — quer que eu marque?"
-             + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
-    }
+        => Clinica.Application.Modelos.MensagensDeContato.Recall(nomePaciente, diasSemVir, nomeClinica);
 
     private static string PrimeiroNome(string nomePaciente)
         => nomePaciente.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nomePaciente;

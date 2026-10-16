@@ -1,0 +1,367 @@
+@*
+  GLOSAS E RECURSOS (out/2026, migrada do GlosasView/GlosasViewModel do faturamento WPF).
+
+  Acompanha as guias que o convênio recusou, com o prazo de recurso no semáforo (vencido,
+  vencendo em até 3 e em até 7 dias), reapresenta, marca recuperada e gera o XML de recurso
+  de glosa (TISS) com as glosas EM ABERTO da lista que está na tela.
+
+  A carga traz TODAS as glosas e o recorte é em memória: é o que dá o "N em aberto de M no
+  total" — a caixinha "só em aberto", ligada por padrão, escondia o resto sem dizer. As
+  frases, o filtro, o semáforo e o ranking dos motivos moram em `GlosasNaTela`, com teste.
+
+  Defeitos do WPF corrigidos aqui: "Reapresentar" e "Recuperada" acesos em toda linha
+  (agora só onde o domínio aceita); a coluna Situação com o enum cru; o XML de recurso sem a
+  segunda barreira (o Ctrl+P passava direto pelo bit RegistrarGlosa); e a recusa do
+  "Recuperada" lançada fora do try.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina fat-glosas @(Carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Faturamento · Glosas" Titulo="Glosas e recursos"
+                     Subtitulo="Guias que o convênio recusou, com o prazo para recorrer. Reapresente, marque as recuperadas e gere o XML de recurso (TISS) com as que ainda estão em aberto.">
+        <button type="button" class="botao" @onclick="() => _guia = string.Empty"><Icone Nome="info" />Por que as guias são glosadas</button>
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" disabled="@Carregando"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao primario" @onclick="GerarRecursoAsync" disabled="@(!PodeRegistrarGlosa || _gerando)"
+                title="@(PodeRegistrarGlosa ? "Gerar o XML de recurso de glosa (padrão TISS) com as glosas em aberto da lista (Ctrl+P)" : "Seu acesso não permite registrar glosa.")">
+            <Icone Nome="documento" />Recurso de glosa (.xml)</button>
+    </CabecalhoPagina>
+
+    @if (_carregou && !_naoVerificado)
+    {
+        <section class="kpis tres" aria-label="Resumo das glosas">
+            <Kpi Rotulo="Em aberto" Valor="@Formato.Numero(_contagem.EmAberto, 0)" Icone="alerta" Tom="@(_contagem.EmAberto > 0 ? "aviso" : "neutro")"
+                 Nota="Glosadas ou reapresentadas, ainda não recuperadas" />
+            <Kpi Rotulo="Prazo de recurso vencido" Valor="@Formato.Numero(_contagem.Vencidas, 0)" Icone="relogio" Tom="@(_contagem.Vencidas > 0 ? "perigo" : "neutro")"
+                 ClasseValor="@(_contagem.Vencidas > 0 ? "negativo" : null)" Nota="Viraram decisão: recorrer fora do prazo raramente prospera" />
+            <Kpi Rotulo="Vencendo em até 7 dias" Valor="@Formato.Numero(_contagem.VencendoEmSete, 0)" Icone="calendario" Tom="@(_contagem.VencendoEmSete > 0 ? "aviso" : "neutro")"
+                 Nota="O que pede recurso esta semana" />
+        </section>
+    }
+
+    @if (_motivos.Count > 0)
+    {
+        <section class="cartao motivos-recorrentes" aria-label="O que mais glosa nesta clínica">
+            <h3>O que mais glosa nesta clínica</h3>
+            <ul>
+                @foreach (var m in _motivos)
+                {
+                    <li @key="m.Codigo">
+                        <Selo Tom="perigo">@m.Rotulo</Selo>
+                        <span class="como-evitar">@m.ComoEvitar</span>
+                        @if (m.Catalogado)
+                        {
+                            <button type="button" class="botao mini" @onclick="() => _guia = m.Codigo">Entenda</button>
+                        }
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="filtros">
+            <Campo Rotulo="Paciente">
+                <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Parte do nome — o acento não atrapalha" maxlength="80"
+                       value="@_filtro.Paciente" @oninput="@(e => Filtrar(_filtro with { Paciente = e.Value?.ToString() ?? "" }))" /></div>
+            </Campo>
+            <Campo Rotulo="Nº da guia" Classe="estreito">
+                <input class="campo" placeholder="Trecho do número" maxlength="40"
+                       value="@_filtro.Guia" @oninput="@(e => Filtrar(_filtro with { Guia = e.Value?.ToString() ?? "" }))" />
+            </Campo>
+            <label class="marcar">
+                <input type="checkbox" checked="@_filtro.SomenteEmAberto" @onchange="@(e => Filtrar(_filtro with { SomenteEmAberto = e.Value is true }))" />
+                Mostrar só glosas em aberto
+            </label>
+            <label class="marcar" title="Só as glosas cujo prazo de recorrer já passou — as que viraram decisão">
+                <input type="checkbox" checked="@_filtro.SoPrazoVencido" @onchange="@(e => Filtrar(_filtro with { SoPrazoVencido = e.Value is true }))" />
+                Só prazo de recurso vencido
+            </label>
+            @if (_filtro.Ativo)
+            {
+                <button type="button" class="botao fantasma" @onclick="LimparFiltro">Limpar filtro</button>
+            }
+            @if (_carregou && !_naoVerificado)
+            {
+                <span class="resumo-filtro">@_resumo</span>
+            }
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as glosas" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            var (titulo, descricao) = GlosasNaTela.Vazio(_todas.Count, _filtro);
+            <EstadoVazio Titulo="@titulo" Descricao="@descricao" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Paciente</th>
+                            <th>Código · guia</th>
+                            <th>Motivo</th>
+                            <th style="width:146px">Prazo de recurso</th>
+                            <th style="width:128px">Situação</th>
+                            <th class="direita" style="width:256px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var g in _linhas)
+                        {
+                            <tr class="@(g.Codigo.GlosaEmAberto ? null : "apagada")" @key="g.Codigo.Id">
+                                <td>
+                                    <span class="principal">@g.PacienteNome</span>
+                                    <span class="secundario">@g.ConvenioNome</span>
+                                </td>
+                                <td>
+                                    <span class="principal">@RotulosEnum.De(g.Codigo.Tipo)</span>
+                                    <span class="secundario">@(string.IsNullOrWhiteSpace(g.Codigo.NumeroGuiaReal) ? "sem nº de guia" : $"guia {g.Codigo.NumeroGuiaReal}")</span>
+                                </td>
+                                <td>
+                                    <span class="principal" title="@(string.IsNullOrWhiteSpace(g.Codigo.MotivoGlosaCodigo) ? g.MotivoPrincipal : $"Código ANS {g.Codigo.MotivoGlosaCodigo} — {g.MotivoPrincipal}")">@g.MotivoPrincipal</span>
+                                    @if (g.MotivoComplemento is { } complemento)
+                                    {
+                                        <span class="secundario" title="@complemento">@complemento</span>
+                                    }
+                                </td>
+                                <td class="nao-quebra">
+                                    @if (g.DiasParaFimPrazo is null)
+                                    {
+                                        <span class="secundario">—</span>
+                                    }
+                                    else
+                                    {
+                                        <Selo Tom="@TomDoPrazo(g.Urgencia)" Dica="Urgência do prazo de recurso">@g.PrazoRotulo</Selo>
+                                    }
+                                </td>
+                                <td>
+                                    <Selo Tom="@TomDaSituacao(g)">@g.Situacao</Selo>
+                                    <span class="secundario">@(g.Codigo.DataGlosa is { } d ? $"em {Formato.Data(d)}" : "sem data de glosa")</span>
+                                </td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        @if (g.PodeReapresentar)
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeRegistrarGlosa)" @onclick="() => ReapresentarAsync(g)"><Icone Nome="enviar" />Reapresentar</button>
+                                        }
+                                        @if (g.PodeRecuperar)
+                                        {
+                                            <button type="button" class="botao mini icone" title="Marcar como recuperada (aceita pelo convênio)" aria-label="Marcar como recuperada"
+                                                    disabled="@(!PodeRegistrarGlosa)" @onclick="() => RecuperarAsync(g)"><Icone Nome="check" /></button>
+                                        }
+                                        @if (g.MotivoCatalogado)
+                                        {
+                                            <button type="button" class="botao mini icone" title="Entenda este motivo de glosa" aria-label="Entenda este motivo de glosa"
+                                                    @onclick="() => _guia = g.Codigo.MotivoGlosaCodigo"><Icone Nome="info" /></button>
+                                        }
+                                        @if (g.PacienteId is { } pid)
+                                        {
+                                            <button type="button" class="botao mini icone" title="Abrir a ficha do paciente" aria-label="Abrir a ficha do paciente"
+                                                    disabled="@(!Pode(Permissao.VerFichaPaciente))" @onclick="() => AbrirFichaAsync(pid)"><Icone Nome="pessoa" /></button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@if (_guia is not null)
+{
+    <GuiaGlosasForm CodigoInicial="@(string.IsNullOrEmpty(_guia) ? null : _guia)" AoFechar="() => _guia = null" />
+}
+
+@code {
+    private List<GlosaNaTela> _todas = [];
+    private IReadOnlyList<GlosaNaTela> _linhas = [];
+    private IReadOnlyList<MotivoDeGlosaRecorrente> _motivos = [];
+    private (int EmAberto, int Vencidas, int VencendoEmSete) _contagem;
+    private FiltroGlosas _filtro = new();
+    private string _resumo = string.Empty;
+    private bool _carregou;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private bool _gerando;
+    private int _geracao;
+
+    /// <summary>O guia de motivos aberto: null = fechado; "" = sem motivo escolhido (abre no primeiro).</summary>
+    private string? _guia;
+
+    /// <summary>Metade VISÍVEL da permissão de mexer em glosa (reapresentar, recuperar, recurso).</summary>
+    private static bool PodeRegistrarGlosa => Pode(Permissao.RegistrarGlosa);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Voltou à aba: relê por trás, sem limpar nem acender o carregando.</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync(silenciosa: true);
+
+    /// <summary>Os atalhos do WPF (IAtalhosDeTela): F5 = Atualizar, Ctrl+P = gerar o XML de recurso.</summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => GerarRecursoAsync(),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a resposta mais velha pode chegar por
+    /// último num banco remoto. SEMPRE tudo, e o recorte fica em memória.
+    /// </summary>
+    private async Task CarregarAsync(bool silenciosa = false)
+    {
+        var geracao = ++_geracao;
+        if (!silenciosa) { Carregando = true; _naoVerificado = false; }
+        try
+        {
+            using var escopo = Escopo();
+            var lista = await escopo.ServiceProvider.GetRequiredService<GlosaService>().ListarAsync(somenteEmAberto: false);
+            if (geracao != _geracao || Descartada) return;
+
+            _todas = GlosasNaTela.Montar(lista, DateOnly.FromDateTime(DateTime.Today)).ToList();
+            _carregou = true;
+            _naoVerificado = false;
+            Refiltrar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — glosas não puderam ser lidas", ex);
+            // A releitura silenciosa não pinta a tela por cima do que ela já mostrava.
+            if (silenciosa && _carregou) return;
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _todas = [];
+            _linhas = [];
+            _motivos = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Filtrar(FiltroGlosas filtro)
+    {
+        _filtro = filtro;
+        Refiltrar();
+    }
+
+    private void LimparFiltro() => Filtrar(_filtro with { Paciente = string.Empty, Guia = string.Empty, SoPrazoVencido = false });
+
+    private void Refiltrar()
+    {
+        _linhas = GlosasNaTela.Filtrar(_todas, _filtro);
+        _resumo = GlosasNaTela.Resumo(_linhas.Count, _todas.Count, _filtro);
+        _motivos = GlosasNaTela.MotivosRecorrentes(_todas, _filtro.SomenteEmAberto);
+        _contagem = GlosasNaTela.Contagem(_todas);
+    }
+
+    private async Task ReapresentarAsync(GlosaNaTela g)
+    {
+        if (!Exigir(Permissao.RegistrarGlosa, "reapresentar a guia glosada")) return;
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<GlosaService>()
+                .ReapresentarAsync(g.Codigo.Id, DateOnly.FromDateTime(DateTime.Today), Operador);
+        }, "Blazor — glosa não pôde ser reapresentada", $"Guia de {g.PacienteNome} marcada como reapresentada.");
+        if (ok) await CarregarAsync();
+    }
+
+    private async Task RecuperarAsync(GlosaNaTela g)
+    {
+        if (!Exigir(Permissao.RegistrarGlosa, "marcar a glosa como recuperada")) return;
+        if (!await Dialogos.ConfirmarAsync("Confirmar",
+                $"Marcar a glosa da guia de {g.PacienteNome} como recuperada (aceita pelo convênio)?")) return;
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<GlosaService>().MarcarRecuperadaAsync(g.Codigo.Id, Operador);
+        }, "Blazor — glosa não pôde ser marcada como recuperada", "Glosa marcada como recuperada.");
+        if (ok) await CarregarAsync();
+    }
+
+    /// <summary>
+    /// O XML de recurso de glosa (TISS) com as glosas EM ABERTO da lista que está na tela. No
+    /// WPF só o botão apagava sem o bit; o Ctrl+P passava direto — aqui as duas barreiras.
+    /// </summary>
+    private async Task GerarRecursoAsync()
+    {
+        if (!Exigir(Permissao.RegistrarGlosa, "gerar o recurso de glosa")) return;
+        var emAberto = GlosasNaTela.ParaRecurso(_linhas);
+        if (emAberto.Count == 0)
+        {
+            Notificacoes.Erro("Nenhuma glosa em aberto na lista para recorrer.");
+            return;
+        }
+
+        _gerando = true;
+        try
+        {
+            string xml;
+            using (var escopo = Escopo())
+            {
+                var tiss = escopo.ServiceProvider.GetRequiredService<TissExportService>();
+                var dados = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                var numero = DateTime.Now.ToString("yyyyMMddHHmm", CultureInfo.InvariantCulture); // identificador do recurso
+                xml = tiss.GerarRecursoGlosaXml(emAberto, dados, numero);
+            }
+
+            // Só SALVA, como no WPF (decisão da direção, out/2026): o arquivo vai para o portal da
+            // operadora, e abri-lo sozinho não era pedido. A pergunta vem antes de gravar, e
+            // desistir dela é desistir — nada é gravado.
+            var caminho = await Host.PerguntarOndeSalvarAsync(
+                $"TISS-Recurso-Glosa-{DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.xml",
+                "Arquivo TISS (*.xml)|*.xml", ".xml");
+            if (caminho is null) return;
+            var erro = await Host.GravarArquivoAsync(caminho, System.Text.Encoding.UTF8.GetBytes(xml));
+            if (erro is not null) Notificacoes.Erro(erro);
+            else Notificacoes.Sucesso($"Recurso de glosa com {emAberto.Count} guia(s) salvo em {caminho}.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — recurso de glosa não pôde ser gerado", ex);
+            Notificacoes.Erro($"Não foi possível gerar o recurso: {ex.Message}");
+        }
+        finally
+        {
+            _gerando = false;
+        }
+    }
+
+    private async Task AbrirFichaAsync(int pacienteId)
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente")) return;
+        if (!await Host.AbrirFichaDoPacienteAsync(pacienteId))
+            Notificacoes.Erro("A ficha do paciente não está disponível neste aplicativo.");
+    }
+
+    private static string TomDoPrazo(NivelUrgencia u) => u switch
+    {
+        NivelUrgencia.Vermelho => "perigo",
+        NivelUrgencia.Amarelo => "aviso",
+        _ => "sucesso"
+    };
+
+    private static string TomDaSituacao(GlosaNaTela g) => g.Codigo.Glosa switch
+    {
+        StatusGlosa.Glosada => "perigo",
+        StatusGlosa.Reapresentada => "info",
+        StatusGlosa.Recuperada => "sucesso",
+        _ => "neutro"
+    };
+}

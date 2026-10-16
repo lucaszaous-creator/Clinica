@@ -1,0 +1,8 @@
+@page "/tela/{Nome}"
+@* Abre qualquer tela de Clinica.Ui.Blazor.Telas pelo nome da classe. O parâmetro que
+   atravessa para o modo interativo é o NOME (string): um Type não é serializável. *@
+<TelaInterativa Nome="@Nome" @rendermode="Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer" />
+
+@code {
+    [Parameter] public string Nome { get; set; } = string.Empty;
+}

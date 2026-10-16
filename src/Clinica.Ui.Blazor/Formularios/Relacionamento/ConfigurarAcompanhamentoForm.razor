@@ -1,0 +1,143 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@using System.Globalization
+@*
+  CONFIGURAR O ACOMPANHAMENTO (out/2026, desenho A) — só a gestão (perfil Gerente, a régua do
+  serviço). O profissional autorizado a indicar novos pacientes BSV, quem recebe as indicações
+  por padrão (em branco, elas ficam "A assumir" na fila compartilhada) e os motivos/legendas
+  que a equipe usa para encerrar ou marcar um caso.
+
+  ⚠️ A tela WPF zerava o responsável padrão a cada "Configurar" (não havia campo para ele) e o
+  Salvar gravava zero por cima do que estava configurado. Aqui ele abre com o valor gravado.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Configurar acompanhamento" Subtitulo="Quem indica os novos BSV, quem os recebe e os motivos da equipe." Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_falhou)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a configuração" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_config is null)
+        {
+            <Esqueleto Altura="160" />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Profissional que indica os novos BSV" Obrigatorio="true" Classe="largo" Erro="@_erroProfissional"
+                       Dica="Só ele vê o botão de indicar BSV durante a consulta.">
+                    <select class="campo" value="@(_profissional > 0 ? _profissional.ToString() : "")" @onchange="e => _profissional = int.TryParse(e.Value?.ToString(), out var id) ? id : 0">
+                        <option value="">Escolha o profissional</option>
+                        @foreach (var p in _config.Profissionais) { <option value="@p.Id">@p.Nome</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Quem recebe as indicações" Classe="largo" Dica="Em branco, as novas indicações ficam A assumir na fila de toda a equipe.">
+                    <select class="campo" value="@(_responsavel > 0 ? _responsavel.ToString() : "")" @onchange="e => _responsavel = int.TryParse(e.Value?.ToString(), out var id) ? id : 0">
+                        <option value="">Ninguém — ficam A assumir</option>
+                        @foreach (var r in _config.Responsaveis) { <option value="@r.Id">@r.Nome</option> }
+                    </select>
+                </Campo>
+            </div>
+            <div class="acomp-secao">
+                <p class="acomp-rotulo">Motivos e legendas</p>
+                <p class="texto-secundario pequeno">Ex.: plano negou autorização, paciente pediu adiamento, desistência informada, telefone desatualizado.</p>
+                @if (_config.Motivos.Count == 0)
+                {
+                    <p class="texto-secundario pequeno">Nenhum motivo cadastrado ainda.</p>
+                }
+                else
+                {
+                    <ul class="acomp-motivos">@foreach (var m in _config.Motivos) { <li>@m.Nome</li> }</ul>
+                }
+                <div class="acomp-novo-motivo">
+                    <input class="campo" maxlength="100" placeholder="Novo motivo" aria-label="Nome do novo motivo" value="@_novoMotivo" @oninput="e => _novoMotivo = e.Value?.ToString()" />
+                    <button type="button" class="botao" disabled="@_ocupado" @onclick="CadastrarMotivoAsync"><Icone Nome="mais" />Cadastrar motivo</button>
+                </div>
+            </div>
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+        <Aviso Tom="sucesso" Texto="@_confirmacao" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" disabled="@(_ocupado || _config is null)" @onclick="SalvarAsync"><Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar configuração")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+
+    private ConfiguracaoAcompanhamento? _config;
+    private int _profissional, _responsavel;
+    private string? _novoMotivo, _mensagem, _confirmacao, _erroProfissional, _erroLeitura;
+    private bool _ocupado, _falhou;
+
+    private static bool Gestor => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        _falhou = false;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var c = await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().ConfiguracaoAsync(SessaoUsuario.Atual.UsuarioId);
+            _config = c;
+            if (_profissional == 0) _profissional = c.ProfissionalBsvId;
+            if (_responsavel == 0) _responsavel = c.ResponsavelPadraoId;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — configuração do acompanhamento não pôde ser lida", ex);
+            _falhou = true;
+            _erroLeitura = ex.Message;
+        }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = _confirmacao = _erroProfissional = null;
+        if (!Gestor) { _mensagem = "A configuração é exclusiva da gestão."; return; }
+        if (_profissional <= 0) { _erroProfissional = "Escolha o profissional das indicações de BSV antes de salvar."; return; }
+        if (await TentarAsync(svc => svc.ConfigurarAsync(SessaoUsuario.Atual.UsuarioId, _profissional, _responsavel), "configuração do acompanhamento"))
+            await AoConcluir.InvokeAsync();
+    }
+
+    private async Task CadastrarMotivoAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = _confirmacao = null;
+        if (!Gestor) { _mensagem = "Somente a gestão cadastra motivos."; return; }
+        var nome = _novoMotivo?.Trim() ?? string.Empty;
+        if (nome.Length is < 3 or > 100) { _mensagem = "Informe um motivo de 3 a 100 caracteres."; return; }
+        if (await TentarAsync(svc => svc.AdicionarMotivoAsync(SessaoUsuario.Atual.UsuarioId, nome), "motivo do acompanhamento"))
+        {
+            _novoMotivo = null;
+            _confirmacao = $"Motivo \"{nome}\" cadastrado.";
+            await CarregarAsync();
+        }
+    }
+
+    private async Task<bool> TentarAsync(Func<IAcompanhamentoPacienteService, Task> acao, string oque)
+    {
+        try
+        {
+            _ocupado = true;
+            using var escopo = Escopos.CreateScope();
+            await acao(escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>());
+            return true;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { _mensagem = ex.Message; return false; }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — {oque} não pôde ser gravado", ex);
+            _mensagem = "Não foi possível gravar agora. Tente de novo.";
+            return false;
+        }
+        finally { _ocupado = false; }
+    }
+}

@@ -1,7 +1,5 @@
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
-using Clinica.Financeiro.ViewModels;
-using Clinica.Financeiro.Views;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.Modulo;
@@ -27,6 +25,7 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveContas = ChavesSuite.Contas;
     public const string ChaveInadimplencia = ChavesSuite.Inadimplencia;
     public const string ChaveFluxo = "fluxo-caixa";
+
     public const string ChaveResultado = ChavesSuite.Resultado;
     public const string ChaveFechamento = ChavesSuite.FechamentoCaixa;
     public const string ChaveRecebiveis = ChavesSuite.Recebiveis;
@@ -208,40 +207,29 @@ public sealed class ModuloFinanceiro : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
-        servicos.AddTransient<CaixaViewModel>();
-        // Transient de propósito: cada janela de lançamento abre com o formulário limpo.
-        servicos.AddTransient<LancamentoEdicaoViewModel>();
-        servicos.AddTransient<ContasViewModel>();
-        servicos.AddTransient<InadimplenciaViewModel>();
-        servicos.AddTransient<FluxoCaixaViewModel>();
-        servicos.AddTransient<ResultadoViewModel>();
-        servicos.AddTransient<FechamentoCaixaViewModel>();
-        servicos.AddTransient<RecebiveisViewModel>();
-        servicos.AddTransient<ConciliacaoViewModel>();
-        servicos.AddTransient<ExtratoBancoViewModel>();
-        servicos.AddTransient<ProducaoViewModel>();
+        // O Financeiro é BLAZOR desde out/2026 (docs/telas-blazor.md): as telas não têm
+        // ViewModel registrado — cada uma abre escopo por operação. Aqui só o motor do
+        // BlazorWebView, o que a tela pede ao WPF e os serviços de tela (diálogos, avisos).
+        Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
+        // Pacotes continua WPF: a tela é do SHELL e a Recepção publica a mesma chave.
         servicos.AddTransient<Clinica.Desktop.Shell.Componentes.PacotesViewModel>();
-        servicos.AddTransient<EstoqueViewModel>();
-        servicos.AddTransient<RepassesViewModel>();
-        servicos.AddTransient<TaxasViewModel>();
-        servicos.AddTransient<PlanoContasViewModel>();
-        // Os ViewModels de formulário (venda de pacote, movimento de estoque, regra de
-        // repasse) são construídos à mão pelas telas: cada janela abre limpa e precisa
-        // receber o contexto (o item, o pacote) no construtor.
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
-        ChaveCaixa => new CaixaView { DataContext = servicos.GetRequiredService<CaixaViewModel>() },
-        ChaveContas => new ContasView { DataContext = servicos.GetRequiredService<ContasViewModel>() },
-        ChaveInadimplencia => new InadimplenciaView { DataContext = servicos.GetRequiredService<InadimplenciaViewModel>() },
-        ChaveFluxo => new FluxoCaixaView { DataContext = servicos.GetRequiredService<FluxoCaixaViewModel>() },
-        ChaveResultado => new ResultadoView { DataContext = servicos.GetRequiredService<ResultadoViewModel>() },
-        ChaveFechamento => new FechamentoCaixaView { DataContext = servicos.GetRequiredService<FechamentoCaixaViewModel>() },
-        ChaveRecebiveis => new RecebiveisView { DataContext = servicos.GetRequiredService<RecebiveisViewModel>() },
-        ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },
-        ChaveExtrato => new ExtratoBancoView { DataContext = servicos.GetRequiredService<ExtratoBancoViewModel>() },
-        ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
+        // ===== Telas em Blazor (out/2026, docs/telas-blazor.md) =====
+        // HTML/CSS sobre os MESMOS serviços; o WPF só hospeda. As telas WPF antigas foram
+        // removidas — o Financeiro é só Blazor.
+        ChaveCaixa => Blazor(typeof(Clinica.Ui.Blazor.Telas.Caixa), servicos),
+        ChaveContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.Contas), servicos),
+        ChaveInadimplencia => Blazor(typeof(Clinica.Ui.Blazor.Telas.QuemMeDeve), servicos),
+        ChaveFluxo => Blazor(typeof(Clinica.Ui.Blazor.Telas.FluxoDeCaixa), servicos),
+        ChaveResultado => Blazor(typeof(Clinica.Ui.Blazor.Telas.ResultadoDoMes), servicos),
+        ChaveFechamento => Blazor(typeof(Clinica.Ui.Blazor.Telas.FechamentoDeCaixa), servicos),
+        ChaveRecebiveis => Blazor(typeof(Clinica.Ui.Blazor.Telas.Recebiveis), servicos),
+        ChaveConciliacao => Blazor(typeof(Clinica.Ui.Blazor.Telas.Conciliacao), servicos),
+        ChaveExtrato => Blazor(typeof(Clinica.Ui.Blazor.Telas.ExtratoDoBanco), servicos),
+        ChaveProducao => Blazor(typeof(Clinica.Ui.Blazor.Telas.Producao), servicos),
         // A tela SUBIU para o shell (parcela 60), como a sala de infusão na 48: quem
         // vende as dez sessões ao paciente é a RECEPÇÃO, no balcão, e a única porta estava
         // no app do Financeiro. Os dois módulos publicam a MESMA chave — a dedupe do
@@ -251,12 +239,15 @@ public sealed class ModuloFinanceiro : IModuloApp
             DataContext = servicos
                 .GetRequiredService<Clinica.Desktop.Shell.Componentes.PacotesViewModel>()
         },
-        ChaveEstoque => new EstoqueView { DataContext = servicos.GetRequiredService<EstoqueViewModel>() },
-        ChaveRepasses => new RepassesView { DataContext = servicos.GetRequiredService<RepassesViewModel>() },
-        ChaveTaxas => new TaxasView { DataContext = servicos.GetRequiredService<TaxasViewModel>() },
-        ChavePlanoContas => new PlanoContasView { DataContext = servicos.GetRequiredService<PlanoContasViewModel>() },
+        ChaveEstoque => Blazor(typeof(Clinica.Ui.Blazor.Telas.Estoque), servicos),
+        ChaveRepasses => Blazor(typeof(Clinica.Ui.Blazor.Telas.Repasses), servicos),
+        ChaveTaxas => Blazor(typeof(Clinica.Ui.Blazor.Telas.TaxasEImpostos), servicos),
+        ChavePlanoContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.PlanoDeContas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
         ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),
         _ => null
     };
+
+    private static Clinica.Desktop.Blazor.TelaBlazor Blazor(Type tela, IServiceProvider servicos)
+        => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(tela, servicos);
 }

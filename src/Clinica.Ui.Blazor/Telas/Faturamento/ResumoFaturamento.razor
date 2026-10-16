@@ -1,0 +1,344 @@
+@*
+  RESUMO DO FATURAMENTO — a aba "Resumo" do app de faturamento (out/2026, migrada do
+  FaturamentoGerencialView/ViewModel, que morava no módulo Gerente).
+
+  SÓ LEITURA: lê os MESMOS serviços compartilhados (RelatorioService, PendenciaService) e não
+  grava nada — não há baixa, estorno nem lote, então duas máquinas nunca disputam a mesma guia.
+  A pergunta é "a clínica está perdendo faturamento, e onde?".
+
+  O que a tela afirma (taxas com "—" sem base, a fração das faixas, o buraco do mês sem guia,
+  os deltas) mora em ResumoFaturamentoNaTela, na Application, com teste.
+*@
+@inherits TelaBase
+
+<div class="pagina fat-resumo @(_carregando && _painel is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Faturamento · Resumo" Titulo="Faturamento"
+                     Subtitulo="@($"Visão consolidada das guias{(_painel is null ? "" : " · " + _painel.IntervaloTexto)}. Use as abas ao lado para baixas, glosas, não conformidades e lotes.")">
+        <div class="segmentado" role="group" aria-label="Período">
+            @foreach (var p in ResumoFaturamentoNaTela.Periodos)
+            {
+                <button type="button" aria-pressed="@(p == _periodo ? "true" : "false")" @onclick="() => TrocarPeriodoAsync(p)">@p</button>
+            }
+        </div>
+        <button type="button" class="botao" @onclick="CarregarAsync" disabled="@_carregando" title="F5"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao" @onclick="GerarFechamentoAsync" disabled="@_gerando"
+                title="A folha que vai ao contador, do período escolhido ao lado"><Icone Nome="imprimir" />@(_gerando ? "Gerando…" : "Fechamento em PDF")</button>
+    </CabecalhoPagina>
+
+    <Aviso Tom="erro" Texto="@_mensagemErro" />
+
+    @if (_painel is null && _naoVerificado)
+    {
+        <section class="cartao"><FalhaDeLeitura Titulo="Não foi possível montar esta tela"
+                        Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erroLeitura}")" AoTentarDeNovo="CarregarAsync" /></section>
+    }
+    else if (_painel is null)
+    {
+        <section class="kpis fat-resumo-kpis">
+            @for (var i = 0; i < 5; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="50%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+        <div class="cartao cartao-corpo"><Esqueleto Altura="220" /></div>
+    }
+    else
+    {
+        var p = _painel;
+        <section class="kpis fat-resumo-kpis" aria-label="Resumo do período">
+            <Kpi Rotulo="Guias no período" Valor="@p.TotalGuias.ToString(Formato.PtBr)" Icone="documento" Tom="neutro"
+                 Nota="@($"{p.Baixadas} baixadas · {p.Pendentes} pendentes · {p.NaoConformidades} NC")">
+                @Delta(p.VariacaoGuias)
+            </Kpi>
+            <Kpi Rotulo="Taxa de baixa" Valor="@p.TaxaBaixa" Icone="check" Tom="sucesso" ClasseValor="positivo">
+                @Barra(p.TaxaBaixaFracao, "sucesso")
+                @Delta(p.VariacaoTaxaBaixa)
+            </Kpi>
+            <Kpi Rotulo="Taxa de glosa" Valor="@p.TaxaGlosa" Icone="cancelar" Tom="perigo" ClasseValor="negativo">
+                @Barra(p.TaxaGlosaFracao, "perigo")
+                @Delta(p.VariacaoTaxaGlosa)
+            </Kpi>
+            <Kpi Rotulo="Atendimento → baixa" Valor="@p.TempoMedio" Icone="relogio" Tom="neutro" Nota="Tempo médio até a guia ser baixada">
+                @Delta(p.VariacaoTempoMedio)
+            </Kpi>
+            @* "Pendentes hoje" NÃO tem delta, de propósito: é estoque em aberto AGORA, sem eixo temporal. *@
+            <Kpi Rotulo="Pendentes hoje" Valor="@p.PendenciasEmAberto.ToString(Formato.PtBr)" Icone="historico" Tom="aviso" ClasseValor="tom-aviso"
+                 Nota="Em aberto agora — é o que ainda dá para salvar" />
+        </section>
+
+        @if (p.MensagemVazio is { } vazio)
+        {
+            <Aviso Tom="info" Texto="@vazio" />
+        }
+
+        <section class="cartao cartao-corpo">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>Pendências em aberto por atraso</h2>
+                    <p>A porcentagem é da fatia de cada faixa no total em aberto.</p>
+                </div>
+            </div>
+            @* Todas as faixas aparecem, inclusive as vazias: aging sem a faixa mais velha se lê como "não há pendência velha". *@
+            <ul class="fat-resumo-faixas">
+                @foreach (var f in p.Envelhecimento)
+                {
+                    <li>
+                        <div class="fat-resumo-faixa-topo"><span>@f.Rotulo</span><b>@f.ValorRotulo</b></div>
+                        <div class="trilho fat-resumo-trilho"><i style="width:@N(f.Fracao * 100)%"></i></div>
+                    </li>
+                }
+            </ul>
+        </section>
+
+        <section class="cartao lista-cartao">
+            <div class="cartao-titulo"><div><h2>Por convênio</h2><p>Cada operadora numa linha — nunca a família de regra, que fundiria operadoras diferentes.</p></div></div>
+            @if (p.PorConvenio.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhuma guia no período" Descricao="Troque o período ao lado para ver outro trecho." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr><th>Convênio</th><th class="direita">Guias</th><th class="direita">Baixadas</th><th class="direita">Pendentes</th>
+                                <th class="direita">Taxa de baixa</th><th class="direita">Glosa</th><th class="direita">Tempo médio</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in p.PorConvenio)
+                            {
+                                <tr>
+                                    <td><span class="principal">@c.Convenio</span></td>
+                                    <td class="direita numero">@c.Total</td>
+                                    <td class="direita numero">@c.Baixados</td>
+                                    <td class="direita numero">@c.Pendentes</td>
+                                    <td class="direita numero">@c.TaxaBaixa</td>
+                                    <td class="direita numero">@c.TaxaGlosa</td>
+                                    <td class="direita numero nao-quebra">@c.TempoMedio</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="cartao lista-cartao">
+            <div class="cartao-titulo"><div><h2>Evolução da taxa de baixa</h2><p>Os últimos 6 meses. Mês sem guia fica em branco na curva — nunca como 0%.</p></div></div>
+            @if (p.TemSerie)
+            {
+                <div class="cartao-corpo fat-resumo-curva">@Curva(p.Serie)</div>
+            }
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead><tr><th>Mês</th><th class="direita">Guias</th><th class="direita">Baixadas</th><th class="direita">Taxa de baixa</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in p.Meses)
+                        {
+                            <tr>
+                                <td>@m.Rotulo</td>
+                                <td class="direita numero">@m.Guias</td>
+                                <td class="direita numero">@m.Baixadas</td>
+                                <td class="direita numero">@m.TaxaBaixa</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private string _periodo = ResumoFaturamentoNaTela.EsteMes;
+    private PainelDoResumo? _painel;
+    private bool _carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private string? _mensagemErro;
+    private bool _gerando;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private Task TrocarPeriodoAsync(string periodo)
+    {
+        if (periodo == _periodo) return Task.CompletedTask;
+        _periodo = periodo;
+        return CarregarAsync();
+    }
+
+    private Task CarregarAsync() => CarregarAsync(silencioso: false);
+
+    /// <summary>
+    /// SEQUENCIAL no mesmo escopo, nunca WhenAll (é o mesmo DbContext). Contador de geração:
+    /// trocar o período duas vezes rápido não pode deixar os números de um sob o título do outro.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso)
+    {
+        var geracao = ++_geracao;
+        _carregando = true;
+        if (!silencioso) _mensagemErro = null;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var (inicio, fim) = ResumoFaturamentoNaTela.Intervalo(_periodo, hoje);
+
+            using var escopo = Escopo();
+            var relatorios = escopo.ServiceProvider.GetRequiredService<RelatorioService>();
+            var pendencias = escopo.ServiceProvider.GetRequiredService<PendenciaService>();
+
+            var relatorio = await relatorios.GerarAsync(inicio, fim, hoje);
+            var trecho = TrechoAnterior.De(inicio, fim);
+            var anterior = trecho is { } t ? await relatorios.GerarAsync(t.Inicio, t.Fim, hoje) : null;
+            var meses = await relatorios.ComparativoMensalAsync(hoje, 6);
+            var emAberto = await pendencias.CodigosPendentesAsync(hoje);
+            if (geracao != _geracao || Descartada) return;
+
+            _painel = ResumoFaturamentoNaTela.Montar(relatorio, anterior, trecho, meses, emAberto.Count);
+            _naoVerificado = false;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — resumo do faturamento não pôde ser carregado", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            // Com números na tela, a falha DIZ que eles podem estar velhos — nunca os zera.
+            if (_painel is not null && !silencioso)
+                _mensagemErro = $"Não foi possível atualizar o faturamento: {ex.Message}. Os números abaixo são da leitura anterior.";
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// O fechamento do período em PDF — a folha que vai ao contador (parcela 54). Chama o MESMO
+    /// CentralDocumentosService da Recepção: duas gerações do mesmo papel divergiriam.
+    /// </summary>
+    private async Task GerarFechamentoAsync()
+    {
+        if (_gerando) return;
+        // Saída de dado: a segunda barreira, com o bit que abre esta tela.
+        if (!Exigir(Permissao.VerFaturamento, "gerar o fechamento do período")) return;
+        _gerando = true;
+        _mensagemErro = null;
+        try
+        {
+            var (inicio, fim) = ResumoFaturamentoNaTela.Intervalo(_periodo, DateOnly.FromDateTime(DateTime.Today));
+            byte[] pdf;
+            using (var escopo = Escopo())
+                pdf = await escopo.ServiceProvider.GetRequiredService<CentralDocumentosService>()
+                    .GerarFechamentoPeriodoAsync(inicio, fim);
+
+            var nome = $"Fechamento-{inicio.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}-a-{fim.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.pdf";
+            _mensagemErro = await Host.SalvarEAbrirAsync(pdf, nome, "PDF (*.pdf)|*.pdf", ".pdf");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — fechamento do período não pôde ser gerado", ex);
+            _mensagemErro = $"Não foi possível gerar o fechamento: {ex.Message}";
+        }
+        finally
+        {
+            _gerando = false;
+        }
+    }
+
+    // ============================ Desenho ============================
+
+    /// <summary>Número para atributo/estilo: ponto decimal SEMPRE.</summary>
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    /// <summary>A barra só existe onde a fração é REAL; sem base, some (barra vazia afirmaria zero).</summary>
+    private static RenderFragment Barra(double? fracao, string tom) => __builder =>
+    {
+        if (fracao is not { } f) return;
+        <div class="trilho fat-resumo-trilho tom-@tom" aria-hidden="true"><i style="width:@N(f * 100)%"></i></div>
+    };
+
+    /// <summary>O delta é a ÚLTIMA linha do cartão; sem base não há seta.</summary>
+    private static RenderFragment Delta(VariacaoKpi? v) => __builder =>
+    {
+        if (v is null) return;
+        var classe = v.Leitura switch { LeituraKpi.Boa => "boa", LeituraKpi.Ruim => "ruim", _ => "neutra" };
+        <div class="fat-resumo-delta @classe" title="@v.Detalhe"><b>@v.Texto</b> <span>@v.Rotulo</span></div>
+    };
+
+    /// <summary>
+    /// A curva da taxa de baixa. O eixo ANCORA em 0 e 100% (é taxa), e o mês sem guia
+    /// INTERROMPE a linha — uma linha descendo ao eixo num mês sem faturamento inventaria uma queda.
+    /// </summary>
+    private const double CurvaLargura = 1000, CurvaAltura = 200, CurvaEsq = 48, CurvaDir = 16, CurvaTopo = 12, CurvaBase = 170;
+
+    private static double CurvaX(int i, int n)
+        => n > 1 ? CurvaEsq + i * (CurvaLargura - CurvaEsq - CurvaDir) / (n - 1) : CurvaEsq + (CurvaLargura - CurvaEsq - CurvaDir) / 2;
+
+    private static double CurvaY(double v) => CurvaBase - Math.Clamp(v, 0, 100) / 100 * (CurvaBase - CurvaTopo);
+
+    /// <summary>Os trechos CONTÍNUOS da curva, cada um já como "x,y x,y" — o buraco separa trechos.</summary>
+    private static IReadOnlyList<string> Trechos(IReadOnlyList<PontoDoResumo> serie)
+    {
+        var trechos = new List<string>();
+        var atual = new List<string>();
+        for (var i = 0; i < serie.Count; i++)
+        {
+            if (serie[i].Valor is { } v) atual.Add($"{N(CurvaX(i, serie.Count))},{N(CurvaY(v))}");
+            else if (atual.Count > 0) { trechos.Add(string.Join(" ", atual)); atual.Clear(); }
+        }
+        if (atual.Count > 0) trechos.Add(string.Join(" ", atual));
+        return trechos;
+    }
+
+    /// <summary>
+    /// A curva da taxa de baixa. O eixo ANCORA em 0 e 100% (é taxa), e o mês sem guia
+    /// INTERROMPE a linha — uma linha descendo ao eixo num mês sem faturamento inventaria uma queda.
+    /// </summary>
+    private RenderFragment Curva(IReadOnlyList<PontoDoResumo> serie) => __builder =>
+    {
+        <div class="grafico">
+            <svg viewBox="0 0 @N(CurvaLargura) @N(CurvaAltura)" role="img" aria-label="Curva da taxa de baixa nos últimos 6 meses. Os números estão na tabela abaixo.">
+                <g class="grade eixo">
+                    @foreach (var marca in MarcasDaCurva)
+                    {
+                        var y = CurvaY(marca);
+                        <line x1="@N(CurvaEsq)" x2="@N(CurvaLargura - CurvaDir)" y1="@N(y)" y2="@N(y)" class="@(marca == 0 ? "zero" : null)" />
+                        @Texto(CurvaEsq - 8, y + 4, "end", null, $"{marca}%")
+                    }
+                </g>
+                @foreach (var trecho in Trechos(serie))
+                {
+                    <polyline class="fat-resumo-linha" points="@trecho" />
+                }
+                @for (var i = 0; i < serie.Count; i++)
+                {
+                    var ponto = serie[i];
+                    var x = CurvaX(i, serie.Count);
+                    if (ponto.Valor is { } v)
+                    {
+                        <circle class="fat-resumo-ponto" cx="@N(x)" cy="@N(CurvaY(v))" r="4"><title>@ponto.Rotulo: @ResumoFaturamentoNaTela.Taxa(v, true)</title></circle>
+                    }
+                    @Texto(x, CurvaAltura - 6, "middle", "rotulo-mes", ponto.Valor is null ? $"{ponto.Rotulo} (sem guia)" : ponto.Rotulo)
+                }
+            </svg>
+        </div>
+    };
+
+    private static readonly int[] MarcasDaCurva = [0, 50, 100];
+
+    // `<text>` é palavra reservada do Razor: o texto do SVG sai pelo construtor da árvore.
+    private static RenderFragment Texto(double x, double y, string ancora, string? classe, string conteudo) => b =>
+    {
+        b.OpenElement(0, "text");
+        b.AddAttribute(1, "x", N(x));
+        b.AddAttribute(2, "y", N(y));
+        b.AddAttribute(3, "text-anchor", ancora);
+        if (classe is not null) b.AddAttribute(4, "class", classe);
+        b.AddContent(5, conteudo);
+        b.CloseElement();
+    };
+}

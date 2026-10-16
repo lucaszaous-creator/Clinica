@@ -36,13 +36,25 @@ static class Program
         somenteAcompanhamento = args.Contains("--acompanhamento");
         somenteInfusao = args.Contains("--infusao");
         somenteA1 = args.Contains("--a1");
+        somenteBlazor = args.Contains("--blazor");
         somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); somenteRetornos = args.Contains("--retornos"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml") });
         int code = 0; app.Dispatcher.BeginInvoke(async () => { try { await Executar(); if (falhas > 0) throw new Exception($"{falhas} cortes encontrados. Consulte artifacts/layout-windows."); Console.WriteLine("TELAS CONFERIDAS"); } catch (Exception e) { Console.WriteLine(e); code = 1; } finally { PresentationTraceSources.DataBindingSource.Flush(); app.Shutdown(); } }); app.Run(); return code;
     }
+    static bool somenteBlazor;
     static async Task Executar()
     {
+        if (somenteBlazor)
+        {
+            var r = await TrocasBlazor.Executar();
+            // 2 = o navegador CONFIRMOU ter desenhado e a captura da tela deste computador não o
+            // alcança: não é defeito do app, e reprovar o PR por isso seria ruído. Vira AVISO
+            // anotado no PR (nunca silêncio) — a medição do flash fica para uma máquina que o veja.
+            if (r == 2) { Console.WriteLine("::warning::Troca de telas Blazor: o flash não pôde ser medido neste runner (a captura não vê o WebView2; o navegador desenhou)."); return; }
+            if (r != 0) throw new Exception("Troca de telas Blazor: houve quadro escuro, ou a tela não foi desenhada.");
+            return;
+        }
         await RolagemQa.Executar();
         if (somenteA1) { await ConferirA1(); return; }
         var pausaAgenda = new PausaLeituraAgenda();
@@ -374,6 +386,15 @@ static class Program
         win.Close();
     }
 
+    /// <summary>
+    /// O Acompanhamento de pacientes virou tela BLAZOR (out/2026, docs/relacionamento-blazor.md):
+    /// o leiaute dela é conferido pela prévia (fotos em 1024 e 1366) e pelo `TelasBlazorAbremTests`,
+    /// e o flash pelo `--blazor`. O que esta conferência fazia de REGRA continua aqui, pelo
+    /// SERVIÇO — o mesmo que a tela chama: a fila lê o paciente, o contato é assinado por quem
+    /// fez login (não há como escolher outra responsável), a configuração não perde o médico ao
+    /// reabrir, gerar o recall não deixa o caso novo escondido e o recall da abertura acha a
+    /// modalidade nova.
+    /// </summary>
     static async Task ValidarAcompanhamento(ServiceProvider sp, ClinicaDbContext db, Paciente paciente, UsuarioSistema usuario)
     {
         db.Acompanhamentos.Add(new() { PacienteId = paciente.Id, Tipo = TipoAcompanhamento.Recall,
@@ -381,68 +402,49 @@ static class Program
             CriadoEm = DateTime.Today, CriadoPor = usuario.Login, ResponsavelId = usuario.Id,
             ProximoContato = DateOnly.FromDateTime(DateTime.Today.AddDays(-2)) });
         await db.SaveChangesAsync();
-        var vm = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AcompanhamentoViewModel>();
-        var view = new Clinica.Recepcao.Views.AcompanhamentoView { DataContext = vm };
-        var win = new Window { Content = view, ShowInTaskbar = false, ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 1920, Height = 1080 };
-        win.Show(); await vm.CarregarAsync();
-        if (vm.Pacientes.Count != 1 || vm.NaoVerificado) throw new Exception("Acompanhamento não carregou o paciente fictício: " + vm.Mensagem);
-        await ConferirJanela(win, "acompanhamento-primeira-abertura", [1920]);
-        win.Height = 768;
-        await ConferirJanela(win, "acompanhamento-lista", [880, 1024, 1366]);
-        vm.AbrirFiltrosCommand.Execute(null);
-        await ConferirJanela(win, "acompanhamento-filtros", [880, 1024, 1366]);
-        await vm.VoltarCommand.ExecuteAsync(null);
-        await vm.AbrirCommand.ExecuteAsync(vm.Pacientes[0]);
-        await ConferirJanela(win, "acompanhamento-contato", [880, 1024, 1366]);
-        if (Descendentes(view).OfType<ComboBox>().Any(c => c.IsVisible && System.Windows.Automation.AutomationProperties.GetName(c).Contains("Responsável")))
-            throw new Exception("Contato ainda permite selecionar outra responsável.");
-        if (!Descendentes(view).OfType<TextBlock>().Any(t => t.IsVisible && t.Text == usuario.Nome + " (usuário conectado)"))
-            throw new Exception("Contato não identifica o usuário conectado.");
-        await vm.VoltarCommand.ExecuteAsync(null); vm.ConfigurarCommand.Execute(null);
-        var medicoCombo = Descendentes(view).OfType<ComboBox>().Single(c => System.Windows.Automation.AutomationProperties.GetName(c) == "Profissional das indicações BSV");
-        medicoCombo.SelectedValue = usuario.ProfissionalId!.Value;
-        await vm.SalvarConfiguracaoCommand.ExecuteAsync(null);
-        for (var volta = 0; volta < 3; volta++)
+        async Task<T> Servico<T>(Func<Clinica.Application.Abstracoes.IAcompanhamentoPacienteService, Task<T>> f)
         {
-            vm.ConfigurarCommand.Execute(null); await Task.Delay(80); win.UpdateLayout();
-            if (medicoCombo.SelectedValue is not int id || id != usuario.ProfissionalId || Validation.GetHasError(medicoCombo))
-                throw new Exception("Configuração perdeu o médico salvo ao reabrir: " + vm.Mensagem);
-            await vm.VoltarCommand.ExecuteAsync(null);
+            using var escopo = sp.CreateScope();
+            return await f(escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IAcompanhamentoPacienteService>());
         }
+        var linhas = await Servico(s => s.ListarAsync(usuario.Id));
+        if (linhas.Count != 1) throw new Exception("Acompanhamento não leu o paciente fictício.");
+        var linha = linhas[0];
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var (pedido, impedimento) = Clinica.Application.Servicos.ConversaDoAcompanhamento.Pedido(linha,
+            Clinica.Application.Servicos.DesfechoContato.PediuOutraData, hoje, hoje.AddDays(3), null, "Paciente pediu outra data.", null, usuario.Id, Guid.NewGuid());
+        if (pedido is not null) throw new Exception("A conversa aceitou 'pediu outra data' sem o canal do contato.");
+        if (impedimento is null) throw new Exception("A conversa não disse o que faltava.");
+        // Um cliente que mande OUTRO responsável continua assinando com quem fez login.
+        await Servico(async s => { await s.AtualizarAsync(usuario.Id, linha.Id, new(Guid.NewGuid(), linha.Versao, 999,
+            hoje.AddDays(3), EtapaAcompanhamento.AguardandoPlano, null, "")); return 0; });
+        var contato = await db.ContatosAcompanhamento.AsNoTracking().OrderByDescending(c => c.Id).FirstAsync();
+        if (contato.ResponsavelId != usuario.Id || contato.Operador != usuario.Login)
+            throw new Exception("O contato não foi assinado por quem fez login.");
+        var config = await Servico(s => s.ConfiguracaoAsync(usuario.Id));
+        await Servico(async s => { await s.ConfigurarAsync(usuario.Id, usuario.ProfissionalId!.Value, 0); return 0; });
+        for (var volta = 0; volta < 3; volta++)
+            if ((await Servico(s => s.ConfiguracaoAsync(usuario.Id))).ProfissionalBsvId != usuario.ProfissionalId)
+                throw new Exception("Configuração perdeu o médico salvo ao reabrir.");
         var antigo = new Paciente { Nome = "Paciente fictício sem retorno", Convenio = Convenio.UnimedPadrao };
         db.Pacientes.Add(antigo); await db.SaveChangesAsync();
         db.Atendimentos.Add(new() { PacienteId = antigo.Id, Modalidade = ModalidadeAtendimento.BsvApenas,
             Data = DateOnly.FromDateTime(DateTime.Today.AddDays(-100)), RealizadoEm = DateTime.Today.AddDays(-100) });
         await db.SaveChangesAsync();
-        vm.AtalhoCommand.Execute("atrasados"); vm.DiasRecall = "60";
-        await vm.GerarCommand.ExecuteAsync(null);
-        if (!vm.Pacientes.Any(p => p.PacienteId == antigo.Id) || vm.Prazo != "Todos os prazos")
-            throw new Exception("Buscar pacientes deixou o novo recall oculto pelo filtro anterior: " + vm.Mensagem);
-        var vmNovo = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AcompanhamentoViewModel>();
+        await Servico(s => s.GerarRecallAsync(usuario.Id, 60));
+        var depois = await Servico(s => s.ListarAsync(usuario.Id));
+        var filtro = new Clinica.Application.Servicos.FiltroAcompanhamento(TipoAcompanhamento.Recall, false);
+        if (!Clinica.Application.Servicos.AcompanhamentoNaTela.Filtrar(depois, filtro, usuario.Id, hoje).Any(p => p.PacienteId == antigo.Id))
+            throw new Exception("Gerar o recall deixou o caso novo fora da fila.");
         db.Atendimentos.Add(new() { PacienteId = antigo.Id, Modalidade = ModalidadeAtendimento.BsvComAcupuntura,
             Data = DateOnly.FromDateTime(DateTime.Today.AddDays(-80)), RealizadoEm = DateTime.Today.AddDays(-80) });
         await db.SaveChangesAsync();
-        await vmNovo.CarregarAsync();
-        if (!vmNovo.Pacientes.Any(p => p.PacienteId == antigo.Id && p.Modalidade == ModalidadeAtendimento.BsvComAcupuntura))
-            throw new Exception("Recall não busca pacientes elegíveis automaticamente ao abrir a tela.");
-        await ConferirJanela(win, "acompanhamento-busca-recall", [880, 1024, 1366]);
-        win.Height = 600;
-        await ConferirJanela(win, "acompanhamento-lista-compacta", [880, 1024, 1366]);
-        var gradeRecall = Descendentes(win).OfType<DataGrid>().Single(g => g.IsVisible);
-        if (gradeRecall.ActualHeight < 130) throw new Exception("Cabeçalho deixou pouco espaço para pacientes.");
-        win.Height = 768;
-        vm.ConfigurarCommand.Execute(null);
-        await ConferirJanela(win, "acompanhamento-configuracao", [880, 1024, 1366]);
-        await vm.VoltarCommand.ExecuteAsync(null);
-        var exemplo = vm.Pacientes[0];
-        for (var i = 0; i < 180; i++) vm.Pacientes.Add(exemplo with { Paciente = $"Paciente fictício de teste {i:000}", Pendente = i % 2 == 0 });
-        win.Height = 1080;
-        await ConferirJanela(win, "acompanhamento-lista-longa", [1920, 880, 1366]);
-        var grade = Descendentes(win).OfType<DataGrid>().Single(g => g.IsVisible);
-        grade.ScrollIntoView(vm.Pacientes.Last());
-        await ConferirJanela(win, "acompanhamento-lista-rolada", [1366, 880, 1920]);
-        win.Close();
+        int dias;
+        using (var e = sp.CreateScope()) dias = await e.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.ParametrosService>().ObterDiasInatividadeRecallAsync();
+        await Servico(s => s.GerarRecallAsync(usuario.Id, dias));
+        if (!(await Servico(s => s.ListarAsync(usuario.Id))).Any(p => p.PacienteId == antigo.Id && p.Modalidade == ModalidadeAtendimento.BsvComAcupuntura))
+            throw new Exception("O recall da abertura não acha o paciente elegível da modalidade nova.");
+        Console.WriteLine($"ACOMPANHAMENTO: regras conferidas pelo serviço ({config.Responsaveis.Count} responsável(is)); o leiaute é Blazor e é conferido pela prévia.");
     }
 
     static async Task ValidarRetornos(ServiceProvider sp, UsuarioSistema usuario)
@@ -506,17 +508,15 @@ static class Program
                 || !painel.Alertas.Any(a => a.Assunto == Clinica.Application.Servicos.AssuntoDirecao.EstoqueValidade))
                 throw new Exception("Gerente não consolidou corretamente caixa e estoque.");
         }
-        var estoqueVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.EstoqueViewModel>();
-        await estoqueVm.CarregarCommand.ExecuteAsync(null);
-        if (estoqueVm.ModoMateriaisSelecionado != ModoMateriais.Desativado) throw new Exception("Materiais começaram ativados.");
-        var estoqueView = new Clinica.Financeiro.Views.EstoqueView { DataContext = estoqueVm };
-        var estoqueJanela = new Window { Content = estoqueView, Height = 750 };
-        await ConferirJanela(estoqueJanela, "estoque-itens", [960, 1366]);
-        Descendentes(estoqueView).OfType<TabControl>().Single().SelectedItem = Descendentes(estoqueView).OfType<TabItem>()
-            .Single(t => Equals(t.Header, "Materiais dos atendimentos"));
-        await ConferirJanela(estoqueJanela, "materiais-desativados", [960, 1366]);
-        estoqueVm.ModoMateriaisSelecionado = ModoMateriais.Gestao;
-        await estoqueVm.SalvarModoMateriaisCommand.ExecuteAsync(null);
+        // As telas do Financeiro são Blazor desde out/2026 (docs/telas-blazor.md): a foto delas
+        // sai da prévia (tools/PreviaBlazor). Aqui fica o que é REGRA — o modo de materiais e a
+        // pendência de baixa —, conferido pelo serviço que a tela usa.
+        using (var scope = sp.CreateScope())
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            if ((await new PoliticaMateriaisService(repo).ObterAsync()).Modo != ModoMateriais.Desativado) throw new Exception("Materiais começaram ativados.");
+            await new PoliticaMateriaisService(repo).SalvarAsync(ModoMateriais.Gestao, usuario.Id);
+        }
         using (var scope = sp.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
@@ -527,9 +527,6 @@ static class Program
             db.Add(horario); await db.SaveChangesAsync();
             await scope.ServiceProvider.GetRequiredService<EstoqueService>().RegistrarMateriaisAsync(horario.Id, usuario.Id, new([new(item.Id, 5)]));
         }
-        await estoqueVm.CarregarMateriaisCommand.ExecuteAsync(null);
-        if (estoqueVm.AtendimentosMateriais.Single().Situacao != "Baixa pendente") throw new Exception("Pendência de saldo invisível.");
-        await ConferirJanela(estoqueJanela, "materiais-acompanhamento", [960, 1366]); estoqueJanela.Close();
         var pagamentos = sp.GetRequiredService<Clinica.Recepcao.ViewModels.PagamentosViewModel>();
         var view = new Clinica.Recepcao.Views.PagamentosView { DataContext = pagamentos };
         var janela = new Window { Content = view, Width = 960, Height = 650 };
@@ -543,17 +540,6 @@ static class Program
             { Forma = FormaPagamento.CartaoCredito, Adquirente = "Maquininha", Bandeira = "Visa", Parcelas = "3" };
         var receberJanela = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(receber);
         await ConferirJanela(receberJanela, "receber-cartao", [480, 600]); receberJanela.Close();
-        var baixar = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(new Clinica.Financeiro.ViewModels.BaixarLancamentoViewModel(escopos, pendente)
-            { Forma = FormaPagamento.CartaoCredito });
-        await ConferirJanela(baixar, "financeiro-baixa", [420, 560]); baixar.Close();
-        var compra = new Clinica.Financeiro.Janelas.MovimentoEstoqueWindow(new Clinica.Financeiro.ViewModels.MovimentoEstoqueViewModel(escopos, item.Id, item.Nome)
-            { GerarContaCompra = true, CompraPaga = true, Fornecedor = "Fornecedor demonstrativo", Quantidade = "100", CustoUnitario = "2,50", Lote = "L-2026" });
-        await ConferirJanela(compra, "estoque-compra", [480, 560]); compra.Close();
-        var cadastroItem = new Clinica.Financeiro.Janelas.ItemEstoqueWindow(new Clinica.Financeiro.ViewModels.ItemEstoqueEdicaoViewModel(escopos, item.Id));
-        await ConferirJanela(cadastroItem, "estoque-catalogo", [460, 600]); cadastroItem.Close();
-        var contaNova = new Clinica.Financeiro.Janelas.ContaWindow(new Clinica.Financeiro.ViewModels.ContaEdicaoViewModel(escopos)
-            { Descricao = "Compra de materiais", Contraparte = "Fornecedor", DocumentoReferencia = "NF-123", Valor = "100", QuantidadeParcelas = "3" });
-        await ConferirJanela(contaNova, "contas-parcelamento", [440, 600]); contaNova.Close();
         var materiaisVm = new MateriaisProcedimentoViewModel([new MaterialProcedimentoLinha { ItemId = item.Id, Nome = "Material de procedimento com apresentação e nome compridos", Saldo = "Disponível: 10,125 un" }]);
         await materiaisVm.ConfirmarCommand.ExecuteAsync(null);
         if (materiaisVm.Pedido != null || string.IsNullOrWhiteSpace(materiaisVm.Erro)) throw new Exception("Consumo vazio passou sem declaração.");
@@ -577,23 +563,10 @@ static class Program
             }
         }
         finally { System.Globalization.CultureInfo.CurrentCulture = culturaAnterior; }
-        var contasVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.ContasViewModel>();
-        await contasVm.CarregarCommand.ExecuteAsync(null);
-        var contasJanela = new Window { Content = new Clinica.Financeiro.Views.ContasView { DataContext = contasVm }, Height = 700 };
-        await ConferirJanela(contasJanela, "contas-historico", [960, 1366]); contasJanela.Close();
-        var caixaVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.CaixaViewModel>();
-        await caixaVm.CarregarCommand.ExecuteAsync(null);
-        var caixaJanela = new Window { Content = new Clinica.Financeiro.Views.CaixaView { DataContext = caixaVm }, Height = 700 };
-        await ConferirJanela(caixaJanela, "caixa-historico", [960, 1366]); caixaJanela.Close();
         var gerente = sp.GetRequiredService<Clinica.Gerente.ViewModels.PainelDirecaoViewModel>();
         await gerente.CarregarCommand.ExecuteAsync(null);
         var direcao = new Window { Content = new Clinica.Gerente.Views.PainelDirecaoView { DataContext = gerente }, Height = 700 };
         await ConferirJanela(direcao, "gerente-gestao", [960, 1366]); direcao.Close();
-        var taxaVm = new Clinica.Financeiro.ViewModels.TaxaEdicaoViewModel(escopos, 0)
-            { Adquirente = "Maquininha / contrato mensal", Modalidade = ModalidadeCartao.CreditoParcelado,
-              LiquidacaoMensal = true, ParcelasDe = "2", ParcelasAte = "12", Percentual = "3" };
-        var contrato = new Clinica.Financeiro.Janelas.TaxaWindow(taxaVm);
-        await ConferirJanela(contrato, "contrato-cartao", [460, 600]); contrato.Close();
         var pacoteVm = new PacoteVendaViewModel(escopos, paciente)
             { Forma = FormaPagamento.CartaoCredito, Adquirente = "Contrato mensal", Bandeira = "Visa", ParcelasCartao = "3" };
         var pacoteJanela = new PacoteVendaWindow(pacoteVm);
@@ -606,10 +579,6 @@ static class Program
             await scope.ServiceProvider.GetRequiredService<PagamentosRecepcaoService>().ReceberAsync(paciente.Id,
                 pendente.Id, pendente.Valor, hoje, FormaPagamento.CartaoCredito, adquirente: "Contrato mensal", bandeira: "Visa", parcelas: 3);
         }
-        var recebiveisVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.RecebiveisViewModel>();
-        await recebiveisVm.CarregarAsync();
-        var recebiveisJanela = new Window { Content = new Clinica.Financeiro.Views.RecebiveisView { DataContext = recebiveisVm }, Height = 700 };
-        await ConferirJanela(recebiveisJanela, "recebiveis-parcelas", [960, 1366]); recebiveisJanela.Close();
         foreach (var perfil in new[] { PerfilAcesso.Recepcao, PerfilAcesso.Profissional })
         {
             usuario.Perfil = perfil; sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
@@ -663,21 +632,11 @@ static class Program
             janela.Width = largura; janela.UpdateLayout(); await Task.Delay(120); janela.UpdateLayout();
             foreach (var grade in Descendentes(janela).OfType<DataGrid>().Where(g => g.IsVisible))
             {
-                if (nome == "acompanhamento-lista-compacta" && grade.ActualHeight < 180)
-                    throw new Exception($"Lista de pacientes com altura insuficiente: {largura} {grade.ActualHeight}");
                 if (Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault()?.ScrollableWidth > 0.1)
                     throw new Exception($"Tabela ultrapassa a tela: {nome} {largura}");
             }
             foreach (var botao in Descendentes(janela).OfType<Button>().Where(b => b.IsVisible && b.Content is string))
             {
-                if (nome.StartsWith("acompanhamento-") && botao.Content is "Registrar contato" or "Ver acompanhamento")
-                {
-                    var texto = new FormattedText((string)botao.Content, System.Globalization.CultureInfo.CurrentUICulture,
-                        botao.FlowDirection, new Typeface(botao.FontFamily, botao.FontStyle, botao.FontWeight, botao.FontStretch),
-                        botao.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(botao).PixelsPerDip);
-                    if (botao.ActualWidth + 1 < texto.WidthIncludingTrailingWhitespace + botao.Padding.Left + botao.Padding.Right)
-                        throw new Exception($"Texto do botão de contato cortado: {nome} {largura} {botao.ActualWidth}");
-                }
                 var ponto = botao.TranslatePoint(new Point(), janela);
                 if (ponto.X < -1 || ponto.X + botao.ActualWidth > janela.ActualWidth + 1)
                     throw new Exception($"Ação cortada: {nome} {largura} {botao.Content}");

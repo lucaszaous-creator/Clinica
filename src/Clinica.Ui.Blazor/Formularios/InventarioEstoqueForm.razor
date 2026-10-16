@@ -1,0 +1,129 @@
+@*
+  Acerto de INVENTÁRIO (o que no WPF eram as perguntas em sequência do InventariarAsync).
+  A contagem física não bateu com o saldo do sistema.
+
+  As regras que vieram junto (parcela 30):
+  - pede a quantidade CONTADA, nunca a diferença: quem está com a caixa na mão conta
+    "tenho 37" — o sistema faz a conta que a pessoa erra;
+  - o motivo é OBRIGATÓRIO: diferença sem explicação é indistinguível de erro de digitação
+    seis meses depois;
+  - não é perda: a contagem que acha A MAIS não é perda nenhuma;
+  - contagem igual ao saldo NÃO vira movimento (o serviço devolve nada, e a tela diz);
+  - item que exige lote/validade, ou medicamento, pede o lote (e a validade) da diferença —
+    quem decide é TelaDoEstoque, a mesma regra do ViewModel.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@($"Inventário de {Item}")" Subtitulo="Informe a quantidade contada — o sistema calcula a diferença. Se a contagem bater, nada é registrado." Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <dl class="pares inventario-saldo">
+            <dt>O sistema diz</dt>
+            <dd>@SaldoAtual</dd>
+        </dl>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="120" />
+        }
+        else
+        {
+            <Campo Rotulo="Quanto você CONTOU na prateleira?" Obrigatorio="true" Dica="Não pode ser negativa.">
+                <input class="campo valor" @bind="_contado" maxlength="14" inputmode="decimal" placeholder="0" />
+            </Campo>
+            <Campo Rotulo="Por que a contagem não bateu?" Obrigatorio="true"
+                   Dica="Escreva o que você encontrou (ex.: “frasco quebrado não lançado”, “entrada digitada em dobro em maio”).">
+                <textarea class="campo" rows="3" @bind="_motivo" maxlength="250"></textarea>
+            </Campo>
+            @if (_pedeLote)
+            {
+                <div class="campos">
+                    <Campo Rotulo="Lote contado" Obrigatorio="true" Dica="O lote responsável pela diferença. A contagem acima continua sendo o total do produto.">
+                        <input class="campo" @bind="_lote" maxlength="60" />
+                    </Campo>
+                    @if (_pedeValidade)
+                    {
+                        <Campo Rotulo="Validade do lote" Obrigatorio="true">
+                            <input type="date" class="campo" value="@(_validade?.ToString("yyyy-MM-dd"))" @onchange="e => _validade = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null" />
+                        </Campo>
+                    }
+                </div>
+            }
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_salvando || _carregando || _cargaFalhou || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite acertar o inventário.")">
+            <Icone Nome="check" />@(_salvando ? "Gravando…" : "Registrar contagem")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int ItemId { get; set; }
+    [Parameter] public string Item { get; set; } = string.Empty;
+    [Parameter] public string SaldoAtual { get; set; } = "—";
+    /// <summary>Recebe o movimento de ajuste, ou null quando a contagem bateu.</summary>
+    [Parameter] public EventCallback<MovimentoEstoque?> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _contado, _motivo, _lote;
+    private DateOnly? _validade;
+    private bool _pedeLote, _pedeValidade, _carregando = true, _cargaFalhou, _salvando;
+    private string? _mensagem;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var item = await escopo.ServiceProvider.GetRequiredService<EstoqueService>().ObterItemAsync(ItemId)
+                ?? throw new InvalidOperationException("Item não encontrado.");
+            _pedeLote = TelaDoEstoque.InventarioPedeLote(item);
+            _pedeValidade = TelaDoEstoque.InventarioPedeValidade(item);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — item do inventário não pôde ser lido", ex);
+            _cargaFalhou = true;
+            _mensagem = ex.Message;
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando || _carregando || _cargaFalhou) return;
+        _mensagem = null;
+        if (string.IsNullOrWhiteSpace(_contado) || !LeituraDeValores.TentarLerDecimal(_contado, out var quantidade))
+        {
+            _mensagem = "Informe a quantidade contada (não pode ser negativa).";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_motivo))
+        {
+            _mensagem = "Diferença de inventário sem motivo é indistinguível de erro de digitação seis meses depois. Escreva o que você encontrou.";
+            return;
+        }
+        if (_pedeLote && string.IsNullOrWhiteSpace(_lote)) { _mensagem = "Informe o lote responsável pela diferença."; return; }
+        if (_pedeValidade && _validade is null) { _mensagem = "Informe uma data de validade válida."; return; }
+        try
+        {
+            _salvando = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "acertar o inventário");
+            using var escopo = Escopos.CreateScope();
+            var movimento = await escopo.ServiceProvider.GetRequiredService<EstoqueService>().AjustarInventarioAsync(
+                ItemId, quantidade, _motivo!, SessaoUsuario.Atual.Operador,
+                lote: _pedeLote ? _lote!.Trim() : null, validade: _pedeValidade ? _validade : null);
+            await AoConcluir.InvokeAsync(movimento);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — inventário não pôde ser ajustado", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _salvando = false; }
+    }
+}

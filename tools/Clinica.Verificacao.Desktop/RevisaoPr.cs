@@ -66,8 +66,8 @@ internal static partial class Program
 
         var escopos = provider.GetRequiredService<IServiceScopeFactory>();
         var conta = new LancamentoFinanceiro { Valor = 100, Descricao = "Recebimento fictício" };
-        foreach (var recebimento in new IRecebimento[] { new ReceberPagamentoViewModel(escopos, conta),
-                     new Clinica.Financeiro.ViewModels.BaixarLancamentoViewModel(escopos, conta) })
+        // A baixa do Financeiro é Blazor desde out/2026 (RecebimentoForm); aqui fica a da Recepção.
+        foreach (var recebimento in new IRecebimento[] { new ReceberPagamentoViewModel(escopos, conta) })
         {
             var ocupado = recebimento.GetType().GetProperty("Ocupado")!;
             var janela = new RecebimentoWindow(recebimento) { ShowInTaskbar = false, Left = -30000, Top = -30000,

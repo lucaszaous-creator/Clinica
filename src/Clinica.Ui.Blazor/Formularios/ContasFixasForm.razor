@@ -1,0 +1,74 @@
+@*
+  As CONTAS FIXAS (o que no WPF era a ContasFixasWindow): o catálogo dos MOLDES que geram a
+  conta prevista de cada mês — aluguel, luz, contador, software. Somente leitura aqui; a
+  edição é o RecorrenteForm, aberto pela TELA (a dona do estado), que recarrega a lista e
+  a devolve a este formulário. É o mesmo desenho do WPF, onde a janela recebia o ViewModel
+  da tela de trás para mostrar na hora o que foi gravado.
+
+  O molde NÃO entra em total nenhum: quem entra é a conta prevista que ele gera.
+*@
+
+<Modal Titulo="Contas fixas" Subtitulo="Os moldes que geram a conta prevista de cada período. Mudar um molde vale só para o que ainda não foi gerado." Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (Falhou)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as contas fixas" Detalhe="Feche e reabra esta janela, ou atualize a tela de contas." />
+        }
+        else if (Recorrentes.Count == 0)
+        {
+            @if (Carregando) { <Esqueleto Altura="140" /> }
+            else
+            {
+                <EstadoVazio Titulo="Nenhuma conta fixa" Icone="calendario"
+                             Descricao="Enquanto não houver, o aluguel continua sendo redigitado todo mês." />
+            }
+        }
+        else
+        {
+            <div class="tabela-rolagem contas-fixas-tabela">
+                <table class="lista">
+                    <thead>
+                        <tr><th>Conta</th><th style="width:110px">Situação</th><th class="direita" style="width:130px">Valor</th><th class="direita" style="width:96px"></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Recorrentes)
+                        {
+                            <tr @key="r.Id" class="@(r.Ativa ? null : "contas-fixa-inativa")">
+                                <td>
+                                    <span class="principal">@r.Descricao</span>
+                                    <span class="secundario">
+                                        <Selo Tom="@(r.Tipo == TipoLancamento.Saida ? "neutro" : "info")">@(r.Tipo == TipoLancamento.Saida ? "A pagar" : "A receber")</Selo>
+                                        <span class="contas-contexto">@r.PeriodicidadeTexto · @ContasDaTela.Vigencia(r)@(r.Categoria is { } c ? $" · {c.Nome}" : null)</span>
+                                    </span>
+                                </td>
+                                <td><Selo Tom="@(r.Ativa ? "sucesso" : "neutro")">@(r.Ativa ? "Ativa" : "Inativa")</Selo></td>
+                                <td class="direita numero">@Formato.Dinheiro(r.Valor)</td>
+                                <td class="direita">
+                                    <button type="button" class="botao mini" disabled="@(!PodeEditar)" @onclick="() => AoEditar.InvokeAsync(r.Id)"
+                                            title="@(PodeEditar ? null : "Seu acesso não permite cadastrar conta fixa.")"><Icone Nome="editar" />Editar</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda">Desativada para de gerar, mas o que já foi gerado permanece.</span>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" @onclick="AoNova" disabled="@(!PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite cadastrar conta fixa.")"><Icone Nome="mais" />Nova conta fixa</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<LancamentoRecorrente> Recorrentes { get; set; } = [];
+    [Parameter] public bool Falhou { get; set; }
+    [Parameter] public bool Carregando { get; set; }
+    [Parameter] public EventCallback AoNova { get; set; }
+    [Parameter] public EventCallback<int> AoEditar { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+}

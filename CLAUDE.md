@@ -20,7 +20,7 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 # Um teste específico
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~RegrasFaturamentoTests"
 
-# A MESMA suíte contra um Postgres de verdade (o que o CI faz no job `testes-postgres`).
+# A MESMA suíte contra um Postgres de verdade (LOCAL — o job `testes-postgres` saiu do CI em out/2026).
 # Localmente: apt-get install postgresql-16, `service postgresql start`, senha no usuário
 # postgres, e a variável abaixo — as migrations são aplicadas UMA vez num banco-modelo e
 # cada teste ganha uma cópia dele (tests/Clinica.Tests/BancoDosTestes.cs). ~10 min.
@@ -74,12 +74,15 @@ desde a parcela 90 ele dispara **só no PR para a `main`** — commit em branch 
 build sozinho, e o push da `main` depois do merge também não. ⚠️ **Não é economia às cegas**: num
 evento `pull_request` o GitHub faz checkout de `refs/pull/N/merge`, então o que o PR compila é
 EXATAMENTE a árvore que a `main` vai ter; e o runner Windows é faturado **2×**, de modo que rodar
-os dois gatilhos pagava ~13 minutos de cota duas vezes pelo mesmo código. Pela mesma razão o
-`verificar.yml` perdeu o gatilho de PR: o `build-exe` é um **superconjunto** dele (roda o espelho
-de tokens, o `verificar-suite`, os testes E o compilador de marcação), e com os dois ligados cada
-commit era conferido **três vezes**. O que sobrou: `verificar` em todo push (inclusive na `main`,
-que é a rede caso a base ande entre o PR ficar verde e o merge acontecer) e `build-exe` no PR,
-com `concurrency` nos dois para o push seguinte cancelar o anterior.
+os dois gatilhos pagava ~13 minutos de cota duas vezes pelo mesmo código.
+
+⚠️ **O `verificar.yml` (Linux, em todo push) SAIU em out/2026, por decisão da direção — para
+economizar minutos de Actions.** Com ele foram embora do CI: a suíte contra o **Postgres**, os
+testes do **tablet** (`deploy/tablet` em Python e `Clinica.Assinaturas.Tests`), a compilação da
+**web de leitura** e a `compilar-sombra`. O que ficou no GitHub é só o `build-exe` no PR (os jobs
+`testes`, `conferencias` e `publicar`, com `concurrency`). **Tudo o que saiu continua sendo rede
+LOCAL obrigatória antes do push** — a seção 6 e a tabela acima —, e mexer em migration, tablet ou
+web sem rodá-las aqui é empurrar o que nenhuma máquina conferiu.
 
 **Testar sem publicar**: `build-exe.yml` tem `workflow_dispatch` e roda em qualquer branch,
 gerando os cinco `.exe` PORTÁTEIS — sem `vpk pack`, então `mgr.IsInstalled` é falso e eles não se
@@ -91,6 +94,25 @@ em `%APPDATA%`) e **nunca** use a tela de Setup no build de teste, que grava. Ro
 Release: tag `vX.Y.Z` (ou Actions → "Release") dispara `.github/workflows/release.yml`, que empacota
 os cinco apps com **Velopack** (um canal por app; o faturamento fica no canal padrão `win` e **nunca
 muda**) e publica na mesma release; os apps instalados se auto-atualizam.
+
+## ⛔ UX · DX · CX — toda implementação e toda refatoração respondem às três (out/2026)
+
+**Decisão da direção.** Nenhuma implementação ou refatoração — tela, serviço, migração,
+ferramenta, CI — é proposta, documentada ou entregue sem dizer o que ela faz com:
+
+- 🧑‍💻 **UX** — quem USA a tela: o que vê, quanto espera, o que pisca, quantos cliques, o
+  que acontece quando falha.
+- 🛠️ **DX** — quem MANTÉM o código: quantas peças novas, onde a regra mora, como se testa,
+  o que a próxima pessoa precisa saber para não quebrar.
+- 🤝 **CX** — a CLÍNICA como cliente: confiança no produto ("parece profissional?"),
+  custo (máquina, Actions, suporte), risco em produção e o que muda no dia de quem atende.
+
+**Todo `.md` de decisão ou de feature leva as três seções**, e toda proposta com mais de
+um caminho traz a COMPARAÇÃO das opções nos três eixos antes da recomendação. E quando a
+direção sugere um caminho e pede para ser refutada, a resposta é a comparação — com a
+opção dela, a recomendada e as melhores que existirem —, nunca só "concordo, vou fazer".
+A tela preta das telas Blazor (um navegador por tela) é o caso que originou a regra: a
+escolha foi feita olhando só o DX, e o UX foi a clínica quem mediu, em vídeo.
 
 ## ⛔ AUDITORIA DE LINHA — a conferência é NA ESCRITA, e não existe rodada depois
 
@@ -204,11 +226,72 @@ Nenhum deles quebra o build quando é esquecido:
 
 - **Escopo do executável:** registrar componentes compartilhados não autoriza publicar seus menus/rotas. O Faturamento usa `ModuloFaturamentoAplicativo`, conferido pela mesma composição na verificação Windows, para abrir apenas Financeiro/Faturamento de guias mesmo com acesso de gerente. Testar abertura, busca e navegação direta; `Oculto` sozinho não bloqueia uma rota.
 
-- **Sem WebView2 (out/2026).** As telas em HTML (Financeiro inteiro, prescrições, infusão,
-  agenda do médico, fila, filtros da agenda, ocupação e pedidos da enfermagem) voltaram para
-  WPF: o navegador é uma janela NATIVA que fica PRETA até pintar (1–5 s a cada tela nova, em
-  todos os módulos), o WPF não desenha por cima dela, e cada tela pagava a partida do
-  navegador. Tela nova é XAML + ViewModel; não reintroduza navegador embutido.
+- **⛔ TELA NOVA É BLAZOR — o padrão da casa desde out/2026** 🎨 (decisão da direção, depois
+  de ver o piloto do Fluxo de caixa: *"Simplesmente perfeito! … para que toda tela seja feita
+  dessa forma"*). O guia completo, com o passo a passo, está em **`docs/telas-blazor.md`** —
+  leia ANTES de escrever a primeira linha. Em uma frase: **a tela é HTML/CSS em Razor
+  (`Clinica.Ui.Blazor`), o C# dela chama os MESMOS serviços da Application, e o WPF só a
+  hospeda** (`TelaBlazor` marca o lugar; o navegador é UM por janela — `NavegadorDaJanela` +
+  `Palco`, ver o 🕰️ abaixo). O que isso exige, sempre:
+  - 🧱 **Componentes antes de HTML solto**: `CabecalhoPagina`, `Kpi`, `Modal` (o formulário),
+    `Campo`, `Aviso`, `EstadoVazio`, `FalhaDeLeitura`, `Selo`, `SeletorMes`,
+    `SeletorDePaciente`, `Icone`. Tela que redesenha um deles é a segunda cópia.
+  - 🎨 **Cor, raio e espaço só de TOKEN** (`tokens/*.css`, o espelho do `Tokens.xaml` conferido
+    no CI). Número solto no CSS é dívida no ato — a regra do design system vale igual aqui.
+    Estilo próprio da tela mora em `Ativos/css/telas/<tela>.css`; o comum, em `clinica.css`.
+  - 🔐 **As duas barreiras**: o botão nasce `disabled` sem o bit (`Pode`) e o clique chama
+    `Exigir`/`ExigirAlgum` da `TelaBase`, que DEVOLVE FALSO e diz por quê — exceção solta num
+    evento derruba o circuito da tela (a `Raiz` tem um `ErrorBoundary` como última rede, mas
+    rede não é desenho).
+  - 🔁 **Escopo por operação** (`using var escopo = Escopo();`) — nunca serviço Scoped da
+    Application injetado na tela (checagem 37 pelo outro lado: a aba vive o dia inteiro).
+  - 🧮 **Contador de geração** em toda carga, publicação DEPOIS do último `await`, e o
+    **terceiro estado** (`FalhaDeLeitura`) quando a leitura falha — vazio por erro não tem a
+    cara de vazio por não haver nada.
+  - 💬 **Diálogo é HTML** (`Dialogos`: confirmar, perguntar texto, avisar) e **formulário é
+    `Modal`** em `Formularios/` — nunca janela do sistema. Cancelar uma pergunta é `null`,
+    NUNCA texto vazio (checagem 39). Feedback de formulário é INLINE (`Aviso`); a confirmação
+    passageira de ação de linha vai para `Notificacoes`.
+  - 💾 **Disco, área de transferência e navegação passam pelo `IHostDaTela`** (CSV, PDF,
+    escolher arquivo, copiar, `NavegarAsync`) — o hospedeiro WPF reusa as rotinas do shell, e
+    a prévia responde com uma frase. CSV é saída de dado: `Exigir(VerFinanceiro)` antes.
+  - 💰 **Dinheiro e data em pt-BR FIXO** (`Formato`), número de SVG em invariante, e o que a
+    pessoa digita lido pela `LeituraDeValores` da Application (a mesma do WPF).
+  - 📸 **A razão de existir é VER a tela antes de ela chegar à clínica**: `tools/PreviaBlazor`
+    roda a MESMA tela em Linux com dados fictícios (`Sementes/`, uma por tela, achadas por
+    reflexão), e `tools/PreviaBlazor/foto.js` a fotografa. **Toda tela é fotografada em 1024
+    e 1366, e todo formulário aberto**, antes do push. Foi assim que apareceram o valor cortado
+    ("R$ 981.87…") dos cartões em 1024 e o selo "Previsto" inchado pela classe `.aviso` que
+    ele herdava do alerta — nenhuma rede pegaria nenhum dos dois.
+  - 🤖 **E o `dotnet test` ABRE cada tela e clica cada botão** (`TelasBlazorAbremTests`,
+    out/2026): a MESMA `Raiz` do WPF, com bUnit, sobre os serviços do app e as MESMAS
+    `Sementes/` da prévia, com a direção logada. Reprova com o cartão do `ErrorBoundary`, com
+    `FalhaDeLeitura` na abertura e com exceção que não é recusa de regra no `Diagnostico` —
+    um clique por RÓTULO, descendo dois níveis no que o clique faz aparecer (aba, formulário,
+    diálogo). Tela nova entra sozinha (é achada por reflexão); **semente nova vale para os
+    dois**. A foto continua sendo o que vê leiaute; o teste é o que vê a tela QUEBRAR. Ele
+    nasceu provado: um `throw` posto no botão de um formulário reprovou «Nova categoria →
+    Entrada», e a primeira rodada achou a tela de Estoque lendo materiais sem login.
+  - ⚠️ **O que decide o que a tela AFIRMA continua morando na Application**, com teste — Razor
+    não é lugar de regra de negócio. A tela formata e desenha; o serviço decide.
+  - ⚠️ O pacote `Microsoft.AspNetCore.Components.WebView.Wpf` só tem `lib/net8.0-windows`; o
+    `compilar-sombra` o troca pelas dependências `net8.0` + a DLL baixada
+    (`PACOTES_SO_WINDOWS`). Pacote só-Windows novo entra nessa tabela, senão a sombra para.
+  - 🕰️ **Histórico**: em out/2026 as telas em HTML do WebView2 (Financeiro, prescrições,
+    infusão, agenda do médico, fila…) tinham voltado para WPF por causa da tela PRETA de 1–5 s
+    a cada abertura. ⚠️ **E a primeira versão Blazor repetiu o flash** (~100 ms pretos a
+    cada tela, a clínica mandou o vídeo): ela criava um `BlazorWebView` POR TELA, e a janela
+    nativa do WebView2 nasce preta antes de o navegador existir dentro dela — pintar o fundo
+    em três camadas (controle WPF, `WEBVIEW2_DEFAULT_BACKGROUND_COLOR`, `index.html`) não
+    cobre esse instante. **O navegador é UM POR JANELA** (`NavegadorDaJanela`, na camada
+    persistente do `ShellWindow`), criado escondido e só mostrado depois da primeira
+    renderização; as telas trocam DENTRO dele (`Palco` + `PalcoDeTelas`), ficam montadas
+    ocultas e cada uma rola sozinha. **Nunca crie `BlazorWebView` por tela.** Os arquivos vão
+    embutidos na DLL e o Razor chama o serviço direto. **Não reintroduza HTML escrito à mão
+    conversando por mensagem**; tela HTML é Razor.
+  - 🗂️ As telas WPF dos OUTROS módulos continuam valendo e se mantêm em XAML até serem
+    migradas; tela NOVA não nasce em XAML. O Financeiro e o Faturamento de guias já são só
+    Blazor (o Faturamento desde out/2026 — `docs/faturamento-blazor.md`).
 - **Tela de leitura que volta do histórico** implementa `IAtualizarAoVoltar`: reaparece na hora
   com o que mostrava e relê em silêncio (sem "Carregando", sem limpar, falha só no log).
   Formulário e prontuário em edição NÃO implementam — voltar não pode reler por baixo de quem digita.
@@ -266,7 +349,11 @@ Nenhum deles quebra o build quando é esquecido:
 git status --porcelain --untracked-files=all   # nenhum arquivo de prova pode entrar
 python3 tools/compilar-sombra.py
 python3 tools/verificar-suite.py
-dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj   # inclui TelasBlazorAbremTests: toda tela Blazor e cada botão dela
+# E, desde que o verificar.yml saiu do CI (out/2026), também LOCAL quando o assunto toca:
+#   migration/coluna/consulta → a suíte com CLINICA_TESTES_POSTGRES
+#   tablet → python3 -m unittest discover -s deploy/tablet -p 'test_*.py' e Clinica.Assinaturas.Tests (-c Debug)
+#   web de leitura → dotnet build src/Clinica.Web
 ```
 
 ⚠️ **`dotnet build` INCREMENTAL esconde warning de arquivo que ele não recompilou.** Ao
@@ -442,8 +529,9 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   para ficar profissional"). Os testes rodam em SQLite, e "só o Postgres pega" já tinha
   custado à clínica o `xmin`, as seis datas com fuso da parcela 52 e o 22001 do "Imprimir
   esta sessão" — cada um com uma rede própria escrita DEPOIS do estrago. A rede genérica
-  é o job `testes-postgres` do `verificar.yml`: um Postgres 16 em container, a variável
-  `CLINICA_TESTES_POSTGRES`, e a MESMA suíte.
+  era o job `testes-postgres` do `verificar.yml` (que saiu do CI em out/2026 — hoje roda
+  LOCAL, com a variável `CLINICA_TESTES_POSTGRES` e a MESMA suíte, antes de todo push que
+  mexa em migration, coluna ou consulta).
   ⚠️ **O interruptor tem o MESMO nome do método do EF de propósito.** Os 147 arquivos de
   teste montam o banco com `UseSqlite(conn)` + `EnsureCreated()`, sem fixture comum; um
   helper `BancoDeTeste.Abrir()` seria contrato que depende de alguém lembrar, e o teste
@@ -4092,9 +4180,15 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   só se espaça quando a tabela dele avisa; `deploy/tablet/avisos-instantaneos-enfermagem.sql`
   cria os dois que faltam como dono. **Nenhum teste via**: a suíte aplica as migrations
   como superusuário. Reproduza com um papel sem dono antes de mexer em tabela do posto.
-- **O build do Windows roda em PARALELO** (out/2026, ~15 → ~7 min): `testes` em Linux
-  (o que não precisa de WPF), `conferencias` e `publicar` no Windows, cache do NuGet, e o
-  job `build` só espera os três — é o nome do check do PR. Passo novo entra no job certo;
+  ⚠️ **E `FOREIGN KEY` para essas tabelas também é DDL que pede privilégio** (`REFERENCES`):
+  a comissão de recuperação (out/2026) apontava para `Acompanhamentos` — criada pelo script
+  do posto — e o app não abriu com o mesmo 42501. A chave só nasce onde
+  `has_table_privilege(…, 'REFERENCES')`, e `deploy/tablet/comissao-recuperacao-chave.sql`
+  a cria como dono. **Tabela nova que aponta para tabela do posto: chave condicional + script.**
+- **O build do Windows roda em duas etapas** (out/2026): `testes` em Linux (o que não
+  precisa de WPF) e `conferencias` no Windows correm em PARALELO; `publicar` (os cinco
+  `.exe`) só começa depois que os DOIS passaram — pedido da direção: `.exe` de commit
+  reprovado não fica para download. O job `build` espera os três — é o nome do check do PR. Passo novo entra no job certo;
   pôr teste de Linux no runner Windows paga 2× e alonga a fila.
 - **Triggers usados pelo portal devem funcionar com seu papel restrito.** `SELECT FOR SHARE`
   exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita
@@ -4560,6 +4654,122 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   em um clique. Uma folha branca com editor é parecida em todos os tipos — tipo que só se vê
   no título é tipo que a pessoa não confere. `CadaPapelAbreOSeuTests` prende chave → tipo
   das três portas.
+
+- **🎨 O FINANCEIRO INTEIRO VIROU BLAZOR — e a migração achou defeito que o WPF escondia**
+  (out/2026; a direção, depois de ver o piloto: *"Simplesmente perfeito! … refazer todo o
+  visual do módulo financeiro dessa forma"* e *"todo o financeiro, telas e formulários"*). As
+  14 telas (Caixa, Fechamento, Fluxo, Contas, Quem me deve, Plano de contas, Recebíveis,
+  Conciliação, Extrato do banco, Taxas e impostos, Estoque, Repasses, Resultado do mês e
+  Produção) e ~20 formulários foram reescritos em `Clinica.Ui.Blazor` sobre os MESMOS
+  serviços; `CriarTela` aponta para `TelaBlazor`. **As telas, janelas e ViewModels WPF do
+  Financeiro foram REMOVIDOS** a pedido da direção (*"deixaremos só o Blazor"*), junto com a
+  ferramenta `tools/validar-design-financeiro` e os trechos das validações do Windows que
+  montavam aquelas janelas — o que era REGRA nelas (modo de materiais, baixa pendente) ficou,
+  conferido pelo serviço. **Pacotes ficou em WPF** de
+  propósito: é a tela do shell que a Recepção também publica, e migrá-la num módulo só daria
+  duas telas para a mesma chave no Gerente.
+  ✅ **Como foi feito, e é o roteiro para o próximo módulo**: primeiro a BASE (componentes,
+  `TelaBase`, `Dialogos`, `Notificacoes`, `IHostDaTela`, prévia com `AddClinica` e sementes
+  por reflexão), depois UMA tela de escrita completa como MODELO (o Caixa, com quatro
+  formulários), depois o guia (`docs/telas-blazor.md`) — e só então o resto em paralelo, cada
+  frente num worktree, com arquivos que não se cruzam (tela, formulário, `telas/<x>.css`,
+  semente). Nenhuma frente editou arquivo comum, e o merge foi cherry-pick sem conflito.
+  🐛 **Reescrever lendo o ViewModel inteiro achou o que três redes e 3000 testes não viam**:
+  a faixa da alíquota única que sumia enquanto continuava cobrando (condição diferente da do
+  serviço — a lição da parcela 69 sobrevivendo NUMA linha); editar taxa, tributo e conta fixa
+  APAGANDO as observações (a cópia campo a campo, lugar 3, em três formulários); o percentual
+  zero que a tela pedia e a leitura recusava; o resumo de Contas contando vencidos a receber
+  sob "Só a pagar"; a falha do "Gerar fixas" que a recarga apagava antes de aparecer; o "Nova
+  regra" de repasse sem botão; e a auditoria da receita de guia gravando "?" no operador.
+  **Migração de tela é auditoria de graça — desde que quem migra leia o ViewModel inteiro, e
+  não só o XAML.**
+  ⚠️ **Três armadilhas que a base comum cobrou e agora estão escritas no guia**: (a) classe de
+  TOM com nome de componente — `.aviso` era o alerta, e o `Selo Tom="aviso"` herdou padding e
+  borda e saiu inchado; os tons viraram `tom-*`; (b) `.icone{height:16px}` sem seletor de
+  elemento achatava o BOTÃO que também tinha a classe `icone` — virou `svg.icone`; (c) o guia
+  mandava ler quantidade com `TentarLerQuantidade`, que lê em pt-BR primeiro e transforma
+  "2.5" em 25 (o ponto é milhar) — o WPF do estoque usava `TentarLerNumeroExato`. **Regra de
+  guia vale o mesmo que regra de código: ela é copiada por todo mundo de uma vez**, e uma
+  instrução errada nele espalha o defeito para N telas no mesmo dia.
+  ⚠️ **A prévia precisa da cultura da clínica** (`DefaultThreadCurrentCulture = pt-BR`): os
+  serviços formatam mensagens na cultura do processo, e em Linux a invariante mostrava
+  "¤15.00" — um defeito que não existe no app, escondendo os que existissem. O que a TELA
+  formata continua em pt-BR FIXO (`Formato`), porque a web de leitura roda em Linux de verdade.
+  ⚠️ **Parâmetro de componente interativo da prévia tem de ser serializável**: um `Type` não
+  é; a rota passa o NOME da tela e um componente de dentro resolve o tipo.
+  ⚠️ **`pkill -f` com um trecho do próprio comando mata o shell que o roda** — foi assim que
+  duas rodadas de fotos morreram com código 144. Pare a prévia pelo pid (`subir.sh` cuida).
+  🔁 **Voltar à aba relê** (`SinalDeVolta` → `TelaBase.AoVoltarAsync`), o equivalente do
+  `IAtualizarAoVoltar`: quem avisa é o `Palco`, ao reativar uma tela já montada. Sem isso a aba guardada voltaria com o lançamento da outra máquina invisível.
+  🔁 **Trocar de tela muitas vezes, medido em três lugares** (out/2026, pedido da direção
+  depois do vídeo): o palco mantém toda tela montada, então defeito de troca NÃO some ao
+  fechar — acumula. `PalcoTrocaRepetidaTests` (bUnit, 14 telas reais, 5 rodadas + rajada),
+  `tools/PreviaBlazor/trocas.js` + `analisar.py` (Chromium, quadro a quadro) e
+  `ValidarLayoutWindows --blazor` (o preto do WebView2, na tela real do runner Windows, no
+  CI do PR). Acharam DOIS restos: o **Extrato do banco não recruzava ao voltar** (mostraria
+  como pendente o que a outra máquina conciliou) e **o diálogo aberto ficava por cima da
+  próxima tela** — o serviço é do navegador, e "Sim, continuar" agiria sobre a tela que
+  saiu; trocar de tela agora DESISTE (seguro: "desisti" nunca grava, checagem 39).
+  ⚠️ **Toda medição foi provada com o defeito** antes de valer: o teste reprova sem a
+  correção do Extrato, o `analisar.py` reprova com `FLASH_DE_TESTE=1`, e o `--blazor`
+  nunca dá "zero flash" com a câmera cega: no runner a captura da tela NÃO vê o WebView2
+  (uniformidade 0,99), então ele pergunta ao próprio navegador se desenhou — sim vira AVISO
+  "não medido" no PR, não vira aprovação. E a análise errou uma vez por MIM: 7
+  "quadros sem tela" eram a tela WPF ainda valendo (o clique chega ao servidor depois do
+  seguinte) — **antes de chamar de defeito, olhe os quadros vizinhos**.
+  **O que fica para depois, com o motivo**: aquecer o navegador no login (a primeira tela
+  do dia ainda espera o navegador nascer) e o menu "⋯" dos cartões de número, que o `Kpi`
+  ainda não tem. (O "um `BlazorWebView` por aba" que estava aqui foi pago na rodada da tela
+  preta — ver o 🕰️ da seção de telas.)
+
+- **🎨 O FATURAMENTO DE GUIAS VIROU BLAZOR — e "nada se perde" foi medido, não prometido**
+  (out/2026; a direção, depois do Financeiro aprovado: *"se certificando que nada irá ser
+  perdido ou nada irá deixar de funcionar"*; o mapa está em `docs/faturamento-blazor.md`).
+  As nove telas (Pendências, Consultar guias, Faturados, Glosas, NC, Lotes TISS, Relatórios,
+  Configurações e o Resumo, que mora no Gerente) e as onze janelas viraram Razor sobre os
+  MESMOS serviços, em cinco frentes paralelas, cada uma devolvendo a LISTA DE PARIDADE — cada
+  comando, filtro, coluna, atalho, exportação e permissão do ViewModel WPF → onde ficou.
+  ⚠️ **Continuam WPF, de propósito, as duas janelas da ABERTURA** (aviso de pendências e a
+  rodada BLOQUEANTE): elas travam o app antes de a área de trabalho existir, e um formulário
+  dentro do navegador trava só a tela dele. A REGRA da rodada é uma só
+  (`DecisoesDaRodada`, Application, com teste), chamada pela janela e pelo painel.
+  ⚠️ **A hospedagem subiu para `Clinica.Desktop.Blazor`**: o dicionário "um navegador por
+  janela" é estático POR CLASSE, e uma cópia no Faturamento daria dois navegadores (e um flash
+  a mais) na janela do Gerente, que carrega os dois módulos.
+  ⚠️ **As perdas que a migração quase produziu, e que só a lista de paridade mostrou**: os
+  atalhos Ctrl+S/P/F5 (com o navegador em foco o WPF não recebe a tecla — e o F5 recarregaria
+  a página; agora `TelaBase.AoAtalhoAsync`), o menu "⋯" dos cartões de número (já faltava no
+  Financeiro; agora mora no `Kpi`), a ficha do paciente a partir da pendência
+  (`AbrirFichaDoPacienteAsync`, a MESMA ficha do shell por cima da tela) e — a mais cara — o
+  lote TISS: o WPF perguntava o destino ANTES de criar o lote, e a primeira versão Blazor
+  criava primeiro e salvava depois, gastando o número da sequência da ANS quando a pessoa
+  desistia da janela, e mandava vários lotes num .zip que a operadora não espera.
+  **Ao trocar a tecnologia de uma tela, o que mais se perde não é o que ela mostra — é a
+  ORDEM em que ela faz as coisas.**
+  🐛 **E reler o ViewModel inteiro achou de novo o que as redes não viam**: o retorno do lote
+  regravava a glosa já registrada com motivo VAZIO e reiniciava o prazo de recurso; o XML de
+  recurso saía pelo Ctrl+P sem a segunda barreira; a guia em NC aparecia como "Aberto —
+  faturar em…"; "Salvar configurações" aparecia nas abas que ele não grava; excluir o
+  "Particular" apagava em silêncio o nome que a clínica deu (o catálogo o recria). Todos
+  corrigidos nas telas novas, com teste.
+
+- **A COMISSÃO DE RECUPERAÇÃO É APURADA DOS FATOS, NUNCA MARCADA** (out/2026; o mapa está em
+  `docs/comissao-recuperacao.md`). Atendente assume quem sumiu (fila do Acompanhamento, Recepção
+  e Faturamento) → paciente volta → conclui a sessão → a guia nasce → a gestão VALIDA no Gerente.
+  Quem atende não vê valor; o valor (`RegraComissaoRecuperacao`, com vigência, o mais específico
+  ganha) e a verificação são da gestão (`VerFinanceiro`/`EditarFinanceiro`).
+  ⚠️ **O responsável PADRÃO da indicação de BSV não é "a atendente assumiu"**: a configuração
+  distribui o caso com `ResponsavelId` preenchido no próprio registro de abertura. Contar esse
+  registro pagaria comissão a quem não fez nada — só conta registro feito pela própria pessoa
+  (assumir ou contato). O primeiro teste do "ninguém assumiu" PASSAVA com o defeito, porque o
+  recall abre sem dono; quem o pegou foi um teste pelo caminho do BSV. **Teste de exclusão tem de
+  exercitar o caminho em que o dado excluído EXISTE.**
+  ⚠️ Validar copia o valor; quem recebe não valida a própria; recusar e desfazer exigem motivo e
+  não apagam (índice único filtrado em `CanceladaEm IS NULL` deixa decidir de novo). A tela
+  calcula e valida — não lança pagamento no caixa, por decisão.
+  ⚠️ **`dotnet ef` instala neste ambiente** (`dotnet tool install --global dotnet-ef --version
+  8.0.11`, pelo proxy do NuGet): migration gerada pela ferramenta, com Designer e snapshot
+  certos, em vez de escrita à mão.
 
 ### Convenções
 

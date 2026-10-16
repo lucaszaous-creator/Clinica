@@ -1,0 +1,14 @@
+@* ◀ setembro de 2026 ▶ — o mês é a unidade de quase toda tela do Financeiro. *@
+<div class="seletor-mes" role="group" aria-label="Mês">
+    <button type="button" class="botao icone" title="Mês anterior" aria-label="Mês anterior" @onclick="() => Mudar(-1)"><Icone Nome="esquerda" /></button>
+    <span class="seletor-mes-rotulo">@Formato.Mes(Valor)</span>
+    <button type="button" class="botao icone" title="Próximo mês" aria-label="Próximo mês" @onclick="() => Mudar(1)"><Icone Nome="direita" /></button>
+</div>
+
+@code {
+    /// <summary>O primeiro dia do mês.</summary>
+    [Parameter] public DateOnly Valor { get; set; }
+    [Parameter] public EventCallback<DateOnly> ValorChanged { get; set; }
+
+    private Task Mudar(int meses) => ValorChanged.InvokeAsync(new DateOnly(Valor.Year, Valor.Month, 1).AddMonths(meses));
+}

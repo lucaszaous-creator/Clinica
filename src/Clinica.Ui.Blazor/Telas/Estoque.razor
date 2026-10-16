@@ -1,0 +1,597 @@
+@*
+  ESTOQUE (out/2026, migrado do EstoqueView/EstoqueViewModel do WPF).
+
+  Responde "o que está faltando, o que vai vencer e quanto custa uma sessão em insumo?". A
+  tela abre pelos ALERTAS (os quatro números e a frase do topo): quem entra aqui quer saber
+  o que repor e o que descartar — a lista completa é consulta, não o motivo da visita.
+
+  O saldo NUNCA é campo: é a soma dos movimentos (parcela 4), e o Extrato de cada item é
+  onde a soma se confere — com o motivo escrito da perda e a direção do acerto, que eram
+  gravados e nenhuma tela lia (parcela 69). As frases e as contas saem de TelaDoEstoque,
+  na Application, com teste; aqui só se desenha.
+*@
+@inherits TelaBase
+
+<div class="pagina estoque @(Carregando && _saldos.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Estoque" Titulo="Estoque"
+                     Subtitulo="Materiais assistenciais, medicamentos e produtos de rotina. Acompanhe saldos, lotes, compras e consumos.">
+        <button type="button" class="botao fantasma" title="Atualizar" aria-label="Atualizar" @onclick="CarregarTudoAsync"><Icone Nome="atualizar" /></button>
+        <button type="button" class="botao" @onclick="() => _validades = true" title="Lotes vencendo e itens abaixo do mínimo">
+            <Icone Nome="calendario" />Validades e mínimos
+            @if (_validadesLidas.Count + _faltando > 0) { <span class="contador-alerta">@(_validadesLidas.Count + _faltando)</span> }
+        </button>
+        <button type="button" class="botao" @onclick="ListaDeComprasAsync" title="O que está abaixo do mínimo e quanto comprar, em CSV"><Icone Nome="baixar" />Lista de compras</button>
+        <button type="button" class="botao primario" disabled="@(!PodeEditar)" @onclick="() => AbrirItem(null)"
+                title="@(PodeEditar ? null : "Seu acesso não permite mexer no estoque.")"><Icone Nome="mais" />Novo item</button>
+    </CabecalhoPagina>
+
+    @if (!_naoVerificado && _lido)
+    {
+        <section class="kpis" aria-label="Alertas do estoque">
+            <Kpi Rotulo="Itens no estoque" Valor="@_saldos.Count(s => s.Ativo).ToString()" Icone="estoque" Tom="neutro" Nota="@_resumo" />
+            <Kpi Rotulo="Abaixo do mínimo" Valor="@_faltando.ToString()" Icone="alerta" Tom="@(_faltando > 0 ? "aviso" : "neutro")"
+                 ClasseValor="@(_faltando > 0 ? "tom-aviso" : null)" Nota="@(_faltando > 0 ? "Hora de repor — a lista de compras diz quanto." : "Nenhum item precisa de reposição.")" />
+            <Kpi Rotulo="Lotes a vencer" Valor="@_aVencer.ToString()" Icone="relogio" Tom="@(_aVencer > 0 ? "aviso" : "neutro")"
+                 Nota="@($"Nos próximos {EstoqueService.DiasAlertaValidade} dias, dos itens com saldo.")" />
+            <Kpi Rotulo="Lotes vencidos" Valor="@_vencidos.ToString()" Icone="cancelar" Tom="@(_vencidos > 0 ? "perigo" : "neutro")"
+                 ClasseValor="@(_vencidos > 0 ? "negativo" : null)" Nota="@(_vencidos > 0 ? "Ainda com saldo na prateleira — registre a perda." : "Nenhum lote vencido com saldo.")" />
+        </section>
+    }
+    else if (Carregando && !_lido)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="50%" /></div> }
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="abas abas-estoque" role="tablist">
+            <button type="button" role="tab" aria-selected="@(_aba == Aba.Itens ? "true" : "false")" @onclick="() => _aba = Aba.Itens">Itens</button>
+            <button type="button" role="tab" aria-selected="@(_aba == Aba.Materiais ? "true" : "false")" @onclick="() => _aba = Aba.Materiais">Materiais dos atendimentos</button>
+            <button type="button" role="tab" aria-selected="@(_aba == Aba.Custo ? "true" : "false")" @onclick="() => _aba = Aba.Custo">Custo por sessão</button>
+        </div>
+
+        @if (_aba == Aba.Itens)
+        {
+            <div class="filtros">
+                <Campo Rotulo="Buscar produto, código de barras, fabricante, grupo ou local" Classe="busca-larga">
+                    <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Ex.: agulha, AG25, armário 1" value="@_busca" @oninput="BuscaMudou" maxlength="120" /></div>
+                </Campo>
+                @if (!string.IsNullOrWhiteSpace(_busca))
+                {
+                    <button type="button" class="botao fantasma" @onclick="() => _busca = string.Empty">Limpar busca</button>
+                    <span class="resumo-filtro">@Itens.Count de @_saldos.Count item(ns) na busca</span>
+                }
+            </div>
+
+            @if (_naoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível ler o estoque" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarTudoAsync" />
+            }
+            else if (Carregando && !_lido)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+            }
+            else if (Itens.Count == 0)
+            {
+                @if (_saldos.Count == 0)
+                {
+                    <EstadoVazio Icone="estoque" Titulo="Nenhum item cadastrado" Descricao="O saldo é a soma dos movimentos: cadastre o item e lance a entrada." />
+                }
+                else
+                {
+                    <EstadoVazio Icone="busca" Titulo="Nenhum item bate com a busca" Descricao="Limpe a busca para ver o estoque inteiro." />
+                }
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th class="direita" style="width:120px">Saldo</th>
+                                <th class="direita" style="width:110px">Mínimo</th>
+                                <th class="direita" style="width:120px">Custo médio</th>
+                                <th class="direita" style="width:250px">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in Itens)
+                            {
+                                <tr class="@(s.Ativo ? null : "apagada")" @key="s.ItemId">
+                                    <td>
+                                        <span class="principal" title="@TelaDoEstoque.Cadastro(s)">@s.Nome</span>
+                                        @if (s.AbaixoDoMinimo) { <Selo Tom="aviso" Dica="Saldo no mínimo ou abaixo dele">repor</Selo> }
+                                        @if (!s.Ativo) { <Selo Tom="neutro" Dica="Fora de uso: o histórico fica preservado">inativo</Selo> }
+                                        <span class="secundario">@TelaDoEstoque.Cadastro(s)</span>
+                                    </td>
+                                    <td class="direita numero"><span class="@(s.AbaixoDoMinimo ? "saldo-baixo" : "principal")">@TelaDoEstoque.QuantidadeComUnidade(s.Saldo, s.Unidade)</span></td>
+                                    <td class="direita numero">@TelaDoEstoque.Minimo(s)</td>
+                                    <td class="direita numero">@TelaDoEstoque.CustoMedio(s)</td>
+                                    <td class="direita">
+                                        <div class="botoes-linha">
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => Movimentar(s)"
+                                                    title="Entrada, saída de rotina ou perda"><Icone Nome="estoque" />Movimentar</button>
+                                            <button type="button" class="botao mini icone" title="Extrato — todos os movimentos, com o saldo depois de cada um" aria-label="Extrato" @onclick="() => _extrato = s"><Icone Nome="historico" /></button>
+                                            <button type="button" class="botao mini icone" title="Inventário — informar a quantidade contada" aria-label="Inventário" disabled="@(!PodeEditar)" @onclick="() => Inventariar(s)"><Icone Nome="lista" /></button>
+                                            <button type="button" class="botao mini icone" title="Editar o cadastro" aria-label="Editar o cadastro" disabled="@(!PodeEditar)" @onclick="() => AbrirItem(s.ItemId)"><Icone Nome="editar" /></button>
+                                            <button type="button" class="botao mini icone contorno-perigo" title="Excluir (só item sem movimentos)" aria-label="Excluir" disabled="@(!PodeEditar)" @onclick="() => ExcluirAsync(s)"><Icone Nome="lixo" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista">Itens com movimentação não se excluem: inative-os no cadastro para preservar o histórico. O saldo é a soma dos movimentos — o Extrato mostra quais.</div>
+            }
+        }
+        else if (_aba == Aba.Materiais)
+        {
+            <div class="cartao-corpo secao-aba">
+                <div>
+                    <h2 class="titulo-aba">Materiais após o atendimento</h2>
+                    <p class="texto-secundario descricao-aba">Comece pela gestão e libere para a equipe quando estiver preparada. O registro é opcional e não interfere no atendimento nem nas guias. Atendimentos anteriores à ativação não viram pendências.</p>
+                </div>
+                <div class="linha-controles">
+                    <Campo Rotulo="Disponibilidade do registro">
+                        <select class="campo" value="@_modoMateriais" @onchange="e => _modoMateriais = Enum.TryParse<ModoMateriais>(e.Value?.ToString(), out var m) ? m : _modoMateriais" disabled="@(!PodeConfigurarMateriais)">
+                            @foreach (var (modo, nome) in ModosMateriais) { <option value="@modo">@nome</option> }
+                        </select>
+                    </Campo>
+                    <button type="button" class="botao" disabled="@(!PodeConfigurarMateriais || _salvandoModo)" @onclick="SalvarModoMateriaisAsync"><Icone Nome="check" />Salvar ativação</button>
+                    <span class="separador-vertical" aria-hidden="true"></span>
+                    <Campo Rotulo="De"><input type="date" class="campo" value="@_materiaisInicio.ToString("yyyy-MM-dd")" @onchange="e => _materiaisInicio = LerData(e, _materiaisInicio)" /></Campo>
+                    <Campo Rotulo="Até"><input type="date" class="campo" value="@_materiaisFim.ToString("yyyy-MM-dd")" @onchange="e => _materiaisFim = LerData(e, _materiaisFim)" /></Campo>
+                    <button type="button" class="botao" @onclick="CarregarMateriaisAsync"><Icone Nome="busca" />Consultar</button>
+                </div>
+                @if (!_materiaisFalhou)
+                {
+                    <p class="resumo-aba">@_resumoMateriais@(PodeConfigurarMateriais ? null : " A ativação é da gerência.")</p>
+                }
+            </div>
+            @if (_materiaisFalhou)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível verificar os materiais" Detalhe="@_erroMateriais" AoTentarDeNovo="CarregarMateriaisAsync" />
+            }
+            else if (_atendimentosMateriais.Count == 0)
+            {
+                <EstadoVazio Icone="estoque" Titulo="Nenhum atendimento para conferir"
+                             Descricao="@(_modoMateriais == ModoMateriais.Desativado ? "O registro de materiais está desativado." : "Nenhum atendimento concluído no período abrangido pelo registro.")" />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th>Paciente</th><th style="width:150px">Atendimento</th><th style="width:190px">Situação</th><th class="direita" style="width:220px">Ações</th></tr></thead>
+                        <tbody>
+                            @foreach (var a in _atendimentosMateriais)
+                            {
+                                <tr @key="a.AgendamentoId">
+                                    <td>
+                                        <span class="principal">@a.Paciente</span>
+                                        @if (!string.IsNullOrWhiteSpace(a.Pendencia)) { <span class="secundario">@a.Pendencia</span> }
+                                    </td>
+                                    <td class="nao-quebra">@Formato.DataHora(a.Data)</td>
+                                    <td><Selo Tom="@TomDaSituacao(a.Situacao)">@a.Situacao</Selo></td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini" disabled="@(!PodeEditar)" @onclick="() => _materiais = a"><Icone Nome="lista" />Ver / registrar materiais</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="cartao-corpo secao-aba">
+                <div>
+                    <h2 class="titulo-aba">Quanto custa uma sessão</h2>
+                    <p class="texto-secundario descricao-aba">Só entra saída ligada a um atendimento — a baixa digitada à mão não pertence a sessão nenhuma, e rateá-la daria a cada sessão um custo que ela não teve. A baixa por sessão sai do fechamento do atendimento, na Recepção.</p>
+                </div>
+                <div class="linha-controles">
+                    <Campo Rotulo="De"><input type="date" class="campo" value="@_custoInicio.ToString("yyyy-MM-dd")" @onchange="e => TrocarCustoAsync(LerData(e, _custoInicio), _custoFim)" /></Campo>
+                    <Campo Rotulo="Até"><input type="date" class="campo" value="@_custoFim.ToString("yyyy-MM-dd")" @onchange="e => TrocarCustoAsync(_custoInicio, LerData(e, _custoFim))" /></Campo>
+                    <button type="button" class="botao" @onclick="CarregarCustosAsync"><Icone Nome="atualizar" />Atualizar</button>
+                </div>
+                <Aviso Tom="erro" Texto="@_erroCustoPeriodo" />
+                @if (_custoFalhou)
+                {
+                    <FalhaDeLeitura Titulo="Não foi possível ler o custo por sessão" Detalhe="@_erroCusto" AoTentarDeNovo="CarregarCustosAsync" />
+                }
+                else if (_resumoCusto is { } rc)
+                {
+                    <section class="kpis tres">
+                        <Kpi Rotulo="Sessões" Valor="@rc.Sessoes" Icone="pessoas" Tom="neutro" Nota="Com saída de insumo ligada ao atendimento" />
+                        <Kpi Rotulo="Custo médio" Valor="@rc.Medio" Icone="moeda" Nota="@(rc.Medio == "—" ? "Sem base completa para a média" : "Por sessão, no período")" />
+                        <Kpi Rotulo="Total no período" Valor="@rc.Total" Icone="estoque" Tom="saida" Nota="Insumo consumido nas sessões" />
+                    </section>
+                    <p class="resumo-aba">@rc.Frase</p>
+                }
+            </div>
+            @if (!_custoFalhou && _resumoCusto is not null && _custos.Count > 0)
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th style="width:100px">Data</th><th>Paciente e itens</th><th class="direita" style="width:160px">Custo</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _custos)
+                            {
+                                <tr @key="c.AtendimentoId">
+                                    <td class="nao-quebra">@Formato.Data(c.Data)</td>
+                                    <td>
+                                        <span class="principal">@TelaDoEstoque.PacienteDaSessao(c)</span>
+                                        <span class="secundario">@TelaDoEstoque.ItensDaSessao(c)</span>
+                                    </td>
+                                    <td class="direita numero"><span class="principal">@TelaDoEstoque.CustoDaSessao(c)</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </section>
+</div>
+
+@if (_item is { } item)
+{
+    <ItemEstoqueForm ItemId="item.Id" AoFechar="() => _item = null" AoConcluir="ItemGravadoAsync" />
+}
+@if (_movimentar is { } mov)
+{
+    <MovimentoEstoqueForm ItemId="mov.ItemId" Item="@mov.Nome" AoFechar="() => _movimentar = null" AoConcluir="MovimentoGravadoAsync" />
+}
+@if (_inventario is { } inv)
+{
+    <InventarioEstoqueForm ItemId="inv.ItemId" Item="@inv.Nome" SaldoAtual="@TelaDoEstoque.QuantidadeComUnidade(inv.Saldo, inv.Unidade)"
+                           AoFechar="() => _inventario = null" AoConcluir="InventarioFeitoAsync" />
+}
+@if (_extrato is { } ext)
+{
+    <ExtratoEstoqueForm ItemId="ext.ItemId" Item="@ext.Nome" AoFechar="() => _extrato = null" />
+}
+@if (_validades)
+{
+    <ValidadesEstoqueForm Validades="_validadesLidas" AbaixoDoMinimo="AbaixoDoMinimo" Hoje="_hojeDaCarga" AoFechar="() => _validades = false" />
+}
+@if (_materiais is { } mat)
+{
+    <MateriaisAtendimentoForm AgendamentoId="mat.AgendamentoId" AoFechar="() => _materiais = null" AoConcluir="MateriaisRegistradosAsync" />
+}
+
+@code {
+    private enum Aba { Itens, Materiais, Custo }
+
+    private static readonly (ModoMateriais Modo, string Nome)[] ModosMateriais =
+        [(ModoMateriais.Desativado, "Desativado"), (ModoMateriais.Gestao, "Somente gestão"), (ModoMateriais.Equipe, "Gestão e consultório")];
+
+    private Aba _aba = Aba.Itens;
+
+    // ---- Itens e alertas ----
+    private List<SaldoItemEstoque> _saldos = [];
+    private List<ValidadeProxima> _validadesLidas = [];
+    private DateOnly _hojeDaCarga = DateOnly.FromDateTime(DateTime.Today);
+    private string _resumo = "—";
+    private int _faltando, _aVencer, _vencidos;
+    private bool Carregando, _lido, _naoVerificado;
+    private string? _erroLeitura;
+    private string _busca = string.Empty;
+    private int _geracao;
+
+    // ---- Custo por sessão (parcela 25) ----
+    private DateOnly _custoInicio = DateOnly.FromDateTime(DateTime.Today.AddDays(-30));
+    private DateOnly _custoFim = DateOnly.FromDateTime(DateTime.Today);
+    private List<CustoDeSessao> _custos = [];
+    private ResumoDoCusto? _resumoCusto;
+    private bool _custoFalhou;
+    private string? _erroCusto, _erroCustoPeriodo;
+    private int _geracaoCustos;
+
+    // ---- Materiais dos atendimentos ----
+    private ModoMateriais _modoMateriais;
+    private DateOnly _materiaisInicio = DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
+    private DateOnly _materiaisFim = DateOnly.FromDateTime(DateTime.Today);
+    private List<MateriaisDoAtendimento> _atendimentosMateriais = [];
+    private string _resumoMateriais = "Registro de materiais desativado.";
+    private bool _materiaisFalhou, _salvandoModo;
+    private string? _erroMateriais;
+    private int _geracaoMateriais;
+
+    // Formulários abertos (no máximo um de cada).
+    private ItemEstoque? _item;
+    private SaldoItemEstoque? _movimentar, _inventario, _extrato;
+    private MateriaisDoAtendimento? _materiais;
+    private bool _validades;
+
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+    private static bool PodeConfigurarMateriais => PodeEditar && SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente;
+
+    private List<SaldoItemEstoque> Itens => _saldos.Where(s => TelaDoEstoque.CasaBusca(s, _busca)).ToList();
+    private IReadOnlyList<SaldoItemEstoque> AbaixoDoMinimo => _saldos.Where(s => s.Ativo && s.AbaixoDoMinimo).OrderBy(s => s.Saldo).ToList();
+
+    protected override Task OnInitializedAsync() => CarregarTudoAsync();
+
+    protected override Task AoVoltarAsync() => CarregarTudoAsync();
+
+    private async Task CarregarTudoAsync()
+    {
+        await CarregarAsync();
+        await CarregarCustosAsync();
+        await CarregarMateriaisAsync();
+    }
+
+    /// <summary>
+    /// Saldos e validades numa carga só, com contador de geração (parcela 50): dois
+    /// "Atualizar" seguidos num banco remoto podem responder invertidos, e a leitura mais
+    /// velha faria o saldo da tela mentir sobre a prateleira. Publica depois do último await.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopo();
+            var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
+            var saldos = await estoque.SaldosAsync();
+            if (geracao != _geracao || Descartada) return;
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var validades = await estoque.ValidadesAsync(hoje);
+            if (geracao != _geracao || Descartada) return;
+
+            _saldos = saldos.ToList();
+            _validadesLidas = validades.ToList();
+            _hojeDaCarga = hoje;
+            _faltando = saldos.Count(s => s.AbaixoDoMinimo);
+            _vencidos = validades.Count(v => v.Vencido(hoje));
+            _aVencer = validades.Count - _vencidos;
+            _resumo = TelaDoEstoque.Resumo(saldos.Count, _faltando, validades.Count).Texto;
+            _lido = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — estoque não pôde ser carregado", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _saldos = [];
+            _validadesLidas = [];
+            _lido = false;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void BuscaMudou(ChangeEventArgs e) => _busca = e.Value?.ToString() ?? string.Empty;
+
+    private static DateOnly LerData(ChangeEventArgs e, DateOnly atual)
+        => DateOnly.TryParse(e.Value?.ToString(), Formato.PtBr, out var d)
+           || DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out d) ? d : atual;
+
+    // ==================== Custo por sessão ====================
+
+    private Task TrocarCustoAsync(DateOnly de, DateOnly ate)
+    {
+        _custoInicio = de;
+        _custoFim = ate;
+        return CarregarCustosAsync();
+    }
+
+    /// <summary>
+    /// Quanto custou cada sessão em insumo no período. Contador próprio: ajustar as duas
+    /// datas dispara duas cargas, e a do período antigo não pode responder por cima.
+    /// </summary>
+    private async Task CarregarCustosAsync()
+    {
+        var geracao = ++_geracaoCustos;
+        _erroCustoPeriodo = null;
+        if (_custoFim < _custoInicio)
+        {
+            _erroCustoPeriodo = "A data final do custo é anterior à inicial.";
+            return;
+        }
+        try
+        {
+            using var escopo = Escopo();
+            var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
+            var sessoes = await estoque.CustosDeSessaoAsync(_custoInicio, _custoFim);
+            if (geracao != _geracaoCustos || Descartada) return;
+            var resumo = await estoque.ResumoCustoSessoesAsync(_custoInicio, _custoFim);
+            if (geracao != _geracaoCustos || Descartada) return;
+
+            _custos = sessoes.ToList();
+            _resumoCusto = TelaDoEstoque.ResumoDeCusto(resumo);
+            _custoFalhou = false;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCustos) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — custo por sessão não pôde ser lido", ex);
+            _custoFalhou = true;
+            _erroCusto = ex.Message;
+            _custos = [];
+            _resumoCusto = null;
+        }
+    }
+
+    // ==================== Materiais dos atendimentos ====================
+
+    /// <summary>
+    /// A política vale para todos; a LISTA só para quem gerencia o estoque — o serviço
+    /// recusa os outros, e a tela nem pergunta.
+    /// </summary>
+    private async Task CarregarMateriaisAsync()
+    {
+        var geracao = ++_geracaoMateriais;
+        try
+        {
+            using var escopo = Escopo();
+            var repo = escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var politica = await new PoliticaMateriaisService(repo).ObterAsync();
+            if (geracao != _geracaoMateriais || Descartada) return;
+            IReadOnlyList<MateriaisDoAtendimento> lista = PodeEditar
+                ? await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
+                    .MateriaisDosAtendimentosAsync(_materiaisInicio, _materiaisFim, SessaoUsuario.Atual.UsuarioId)
+                : [];
+            if (geracao != _geracaoMateriais || Descartada) return;
+
+            _modoMateriais = politica.Modo;
+            _atendimentosMateriais = lista.ToList();
+            _resumoMateriais = TelaDoEstoque.ResumoMateriais(politica, lista);
+            _materiaisFalhou = false;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoMateriais) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — materiais dos atendimentos não puderam ser lidos", ex);
+            _materiaisFalhou = true;
+            _erroMateriais = ex.Message;
+            _atendimentosMateriais = [];
+        }
+    }
+
+    private async Task SalvarModoMateriaisAsync()
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "ativar os materiais dos atendimentos")) return;
+        if (SessaoUsuario.Atual.Perfil != PerfilAcesso.Gerente)
+        {
+            Notificacoes.Erro("Somente a gerência pode ativar os materiais dos atendimentos.");
+            return;
+        }
+        _salvandoModo = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await new PoliticaMateriaisService(escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>())
+                    .SalvarAsync(_modoMateriais, SessaoUsuario.Atual.UsuarioId);
+            await CarregarMateriaisAsync();
+            Notificacoes.Sucesso("Ativação dos materiais atualizada.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — ativação dos materiais não pôde ser salva", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+        finally { _salvandoModo = false; }
+    }
+
+    private async Task MateriaisRegistradosAsync()
+    {
+        await CarregarTudoAsync();
+    }
+
+    private static string TomDaSituacao(string situacao) => situacao switch
+    {
+        "Baixa registrada" => "sucesso",
+        "Baixa pendente" => "aviso",
+        "Sem consumo declarado" => "neutro",
+        _ => "info"
+    };
+
+    // ==================== Itens ====================
+
+    /// <summary>Cadastro e edição numa janela: a lista é o motivo da visita, o cadastro é raro.</summary>
+    private void AbrirItem(int? itemId)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer no estoque")) return;
+        _item = new ItemEstoque { Id = itemId ?? 0 };
+    }
+
+    private async Task ItemGravadoAsync()
+    {
+        var novo = _item?.Id == 0;
+        _item = null;
+        Notificacoes.Sucesso(novo ? "Item cadastrado." : "Item atualizado.");
+        await CarregarAsync();
+    }
+
+    private void Movimentar(SaldoItemEstoque s)
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "mexer no estoque")) _movimentar = s;
+    }
+
+    private async Task MovimentoGravadoAsync()
+    {
+        _movimentar = null;
+        Notificacoes.Sucesso("Movimento registrado.");
+        await CarregarAsync();
+        await CarregarCustosAsync();
+    }
+
+    /// <summary>
+    /// Acerto de INVENTÁRIO pela quantidade CONTADA — nunca pela diferença: quem está com a
+    /// caixa na mão conta "tenho 37". A contagem que acha a mais não é perda (parcela 30).
+    /// </summary>
+    private void Inventariar(SaldoItemEstoque s)
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "acertar o inventário")) _inventario = s;
+    }
+
+    private async Task InventarioFeitoAsync(MovimentoEstoque? movimento)
+    {
+        _inventario = null;
+        if (movimento is null)
+        {
+            // Contagem igual ao saldo não vira movimento: nada a recarregar.
+            Notificacoes.Info(TelaDoEstoque.ResultadoDoInventario(null));
+            return;
+        }
+        Notificacoes.Sucesso(TelaDoEstoque.ResultadoDoInventario(movimento));
+        await CarregarAsync();
+    }
+
+    private async Task ExcluirAsync(SaldoItemEstoque s)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer no estoque")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir item",
+                $"Excluir o cadastro de \"{s.Nome}\"? Só é possível excluir um item sem movimentos. Para preservar o histórico, inative itens já utilizados.",
+                perigoso: true, confirmar: "Excluir")) return;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<EstoqueService>().ExcluirItemAsync(s.ItemId);
+            Notificacoes.Info("Item excluído.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — item de estoque não pôde ser excluído", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// A lista de compras: o que está abaixo do mínimo e QUANTO comprar. Quem vai ao
+    /// fornecedor não leva a tela, leva um papel — e CSV é saída de dado.
+    /// </summary>
+    private async Task ListaDeComprasAsync()
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar a lista de compras")) return;
+        try
+        {
+            IReadOnlyList<SaldoItemEstoque> faltando;
+            using (var escopo = Escopo())
+                faltando = await escopo.ServiceProvider.GetRequiredService<EstoqueService>().AbaixoDoMinimoAsync();
+            if (faltando.Count == 0)
+            {
+                Notificacoes.Info("Nada abaixo do mínimo — não há o que comprar.");
+                return;
+            }
+            var erro = await Host.ExportarCsvAsync(TelaDoEstoque.CabecalhoListaDeCompras, TelaDoEstoque.ListaDeCompras(faltando),
+                $"lista-de-compras-{DateTime.Today:yyyy-MM-dd}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — lista de compras não pôde ser gerada", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+}

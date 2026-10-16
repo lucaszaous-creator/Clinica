@@ -1,0 +1,23 @@
+/* Estilo PRÓPRIO da tela (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
+
+/* Cinco números (a pagar ×2, a receber ×2, saldo): cinco colunas na janela larga; na
+   estreita, duas linhas pelo SENTIDO — a pagar em cima (2), a receber e o saldo embaixo
+   (3) — nunca um cartão órfão sozinho numa linha. */
+.pagina-contas .kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1180px){
+  .pagina-contas .kpis{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .pagina-contas .kpis > *{grid-column:span 2}
+  .pagina-contas .kpis > :nth-child(-n+2){grid-column:span 3}
+}
+@media (max-width:640px){.pagina-contas .kpis{grid-template-columns:1fr}.pagina-contas .kpis > *{grid-column:auto}}
+
+.pagina-contas .cartao-titulo{margin-bottom:0}
+.contas-resumo-vencido{color:var(--erro-texto);font-weight:600}
+.contas-acoes-lista{display:flex;gap:var(--space-2);margin-left:auto}
+.contas-aviso{padding:var(--space-4) var(--space-6) 0}
+.contas-contexto{margin-left:var(--space-1)}
+.pagina-contas td .secundario .selo{margin-right:var(--space-1)}
+table.lista tr.contas-vencida td:first-child{color:var(--erro-texto);font-weight:600}
+table.lista tr.contas-fixa-inativa td:not(:last-child){color:var(--texto-secundario)}
+table.lista tr.contas-fixa-inativa td .principal{color:var(--texto-secundario)}
+.contas-fixas-tabela{margin:0 calc(-1 * var(--space-6))}

@@ -1,0 +1,7 @@
+<span class="selo @(string.IsNullOrEmpty(Tom) ? null : "tom-" + Tom)" title="@Dica">@ChildContent</span>
+@code {
+    /// <summary>"" (acento), "sucesso", "aviso", "perigo", "neutro" ou "info".</summary>
+    [Parameter] public string Tom { get; set; } = string.Empty;
+    [Parameter] public string? Dica { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

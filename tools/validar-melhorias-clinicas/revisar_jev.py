@@ -82,14 +82,13 @@ def main():
                 "src/Clinica.Desktop.Shell/Styles/Componentes/Sobreposicao.xaml",
                 "src/Clinica.Desktop.Shell/Styles/Componentes/Campos.xaml",
                 "src/Clinica.Modulo.Recepcao/Views/ConvenioPacienteView.xaml",
-                "src/Clinica.Modulo.Financeiro/Janelas/RegrasRepasseWindow.xaml",
                 "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml",
                 "src/Clinica.Desktop.Shell/Componentes/FolhaExecucaoWindow.xaml",
                 "src/Clinica.Desktop.Shell/Shell/ShellWindow.xaml",
                 "src/Clinica.Modulo.Gerente/Views/FaturamentoGerencialView.xaml",
                 "docs/design-system/acessibilidade.md"
             ],
-            "complementos": ["tools/validar-rolagem-suite/Program.cs", "tools/validar-rolagem-suite/Qa.csproj", "tools/validar-painel-gerencial/Program.cs", "tools/validar-painel-gerencial/Qa.csproj", "tools/validar-melhorias-clinicas/Program.cs"],
+            "complementos": ["tools/validar-rolagem-suite/Program.cs", "tools/validar-rolagem-suite/Qa.csproj", "tools/validar-melhorias-clinicas/Program.cs"],
             "criterio": "Setas clicáveis usáveis em notebook nas barras verticais e horizontais do estilo compartilhado dos cinco apps, aparecendo quando há overflow. Clique mantido deve repetir. Preservar arraste, avanço por página, controles internos, virtualização, nomes acessíveis e layout sem sobreposição. TextBox multilinha deve exibir barra quando precisa. Corrigir seis lacunas concretas: autorizações, regras/apurações de repasse, alertas de prescrição, alertas da folha de execução, pesquisa global e painel gerencial em 900x600. Alertas não podem esconder corpo/rodapé; último item deve permanecer alcançável."
         }
     }

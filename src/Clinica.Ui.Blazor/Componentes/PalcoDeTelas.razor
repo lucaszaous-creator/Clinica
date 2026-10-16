@@ -1,0 +1,71 @@
+@*
+  O PALCO (out/2026): o único componente-raiz do navegador da janela. Cada tela aberta tem
+  a sua Raiz (com a rede de erro dela) num contêiner próprio — só a atual fica à vista, as
+  outras continuam montadas e ocultas. Cada contêiner ROLA SOZINHO: com todas as telas no
+  mesmo documento, a rolagem da página seria uma só, e voltar ao Caixa traria a rolagem do
+  Fechamento. Diálogos e notificações são do navegador (serviços do mesmo escopo), então
+  existem UMA vez aqui, e não uma por tela.
+*@
+@implements IDisposable
+@inject Clinica.Ui.Blazor.Hospedagem.Dialogos Dialogos
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+@foreach (var t in Palco.Telas)
+{
+    <div @key="t.Id" class="palco-tela" hidden="@(t.Id != Palco.Atual)">
+        <Raiz Tela="t.Tela" Sinal="t.Sinal" ComCamadas="false" />
+    </div>
+}
+<CamadaDeDialogos />
+<PilhaDeNotificacoes />
+
+@code {
+    [Parameter, EditorRequired] public Palco Palco { get; set; } = default!;
+
+    private int? _atual;
+
+    protected override void OnInitialized() => Palco.Mudou += Redesenhar;
+
+    private void Redesenhar() => _ = InvokeAsync(() =>
+    {
+        // Trocou de tela com uma pergunta aberta: ela era da tela que saiu, e respondida aqui
+        // agiria sobre uma tela que já não está à vista (Dialogos.DesistirDeTodos).
+        if (Palco.Atual != _atual) { _atual = Palco.Atual; Dialogos.DesistirDeTodos(); }
+        StateHasChanged();
+    });
+
+    private Microsoft.JSInterop.DotNetObjectReference<PalcoDeTelas>? _ref;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        Palco.AvisarMontagem();
+        if (!firstRender) return;
+        // Os atalhos do teclado (Ctrl+S, Ctrl+P, F5) chegam por aqui: com o navegador em foco,
+        // o WPF não recebe a tecla. Falhar não derruba nada — a tela continua com os botões.
+        try
+        {
+            _ref = Microsoft.JSInterop.DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("clinicaAtalhos.ligar", _ref);
+        }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — atalhos do teclado não ligaram", ex); }
+    }
+
+    /// <summary>Chamado pelo script da página quando a pessoa aperta um dos três atalhos.</summary>
+    [Microsoft.JSInterop.JSInvokable]
+    public Task Atalho(string nome)
+    {
+        if (!Enum.TryParse<Clinica.Ui.Blazor.Hospedagem.AtalhoDeTela>(nome, out var atalho)
+            || atalho.ToString() != nome) return Task.CompletedTask;
+        var atual = Palco.Telas.FirstOrDefault(t => t.Id == Palco.Atual);
+        // Com uma pergunta aberta, o atalho não age por baixo dela.
+        if (atual is null || Dialogos.Atual is not null) return Task.CompletedTask;
+        return atual.Sinal.AvisarAtalhoAsync(atalho);
+    }
+
+    public void Dispose()
+    {
+        Palco.Mudou -= Redesenhar;
+        _ref?.Dispose();
+    }
+}

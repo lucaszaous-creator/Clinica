@@ -1,0 +1,325 @@
+@*
+  CONSULTAR GUIAS (out/2026, migrada do ConsultaGuiasView/ConsultaGuiasViewModel do WPF).
+
+  Localiza qualquer guia por filtros combinados: paciente (nome ou CPF), número, observação
+  da pendência, período do ATENDIMENTO, situação, convênio (pela família — parcela 45),
+  modalidade e especialidade. A consulta traz as 500 mais recentes (o teto do repositório),
+  e o resumo DIZ o recorte e o teto. As frases e a situação de cada guia moram em
+  `ConsultaDeGuiasNaTela`, na Application, com teste.
+
+  Ações de linha: a capa de faturamento do atendimento (PDF) e o histórico da guia — a
+  trilha de auditoria, sob VerAuditoria (o mesmo bit da Auditoria do Gerente).
+  F5 = buscar de novo, como o AtalhoAtualizar do WPF.
+*@
+@inherits TelaBase
+
+<div class="pagina fat-guias @(Carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Faturamento · Consulta" Titulo="Consultar guias"
+                     Subtitulo="Qualquer guia, por paciente, número, período do atendimento, situação, convênio, modalidade ou especialidade.">
+        <button type="button" class="botao" @onclick="() => BuscarAsync()" disabled="@Carregando"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    <section class="cartao lista-cartao">
+        <div class="filtros">
+            <Campo Rotulo="Paciente (nome ou CPF)">
+                <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Nome ou CPF…" maxlength="80"
+                       value="@_paciente" @oninput="@(e => TextoMudou(() => _paciente = e.Value?.ToString()))" @onkeydown="Enter" /></div>
+            </Campo>
+            <Campo Rotulo="Nº da guia" Classe="estreito">
+                <input class="campo" placeholder="Trecho do número" maxlength="40"
+                       value="@_numero" @oninput="@(e => TextoMudou(() => _numero = e.Value?.ToString()))" @onkeydown="Enter" />
+            </Campo>
+            <Campo Rotulo="Observação da pendência">
+                <input class="campo" placeholder="Ex.: portal fora do ar…" maxlength="80"
+                       value="@_observacao" @oninput="@(e => TextoMudou(() => _observacao = e.Value?.ToString()))" @onkeydown="Enter" />
+            </Campo>
+            <Campo Rotulo="De (atendimento)" Classe="data">
+                <input type="date" class="campo" value="@Iso(_inicio)" @onchange="@(e => Mudou(() => _inicio = Data(e)))" />
+            </Campo>
+            <Campo Rotulo="Até" Classe="data">
+                <input type="date" class="campo" value="@Iso(_fim)" @onchange="@(e => Mudou(() => _fim = Data(e)))" />
+            </Campo>
+            <Campo Rotulo="Situação" Classe="estreito">
+                <select class="campo" value="@_status" @onchange="@(e => Mudou(() => _status = Enum.TryParse<FiltroStatusGuia>(e.Value?.ToString(), out var s) ? s : FiltroStatusGuia.Todos))">
+                    @foreach (var s in Enum.GetValues<FiltroStatusGuia>()) { <option value="@s">@ConsultaDeGuiasNaTela.Rotulo(s)</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Convênio">
+                <select class="campo" value="@(_convenio?.ToString() ?? "")" @onchange="@(e => Mudou(() => _convenio = Enum.TryParse<Convenio>(e.Value?.ToString(), out var c) ? c : null))">
+                    <option value="">Todos</option>
+                    @foreach (var c in Enum.GetValues<Convenio>()) { <option value="@c">@ConsultaDeGuiasNaTela.RotuloConvenio(c)</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Modalidade">
+                <select class="campo" value="@(_modalidade?.ToString() ?? "")" @onchange="@(e => Mudou(() => _modalidade = Enum.TryParse<ModalidadeAtendimento>(e.Value?.ToString(), out var m) ? m : null))">
+                    <option value="">Todas</option>
+                    @foreach (var m in Enum.GetValues<ModalidadeAtendimento>()) { <option value="@m">@ModalidadeInfo.NomeExibicao(m)</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Especialidade">
+                <select class="campo" value="@(_especialidade?.ToString() ?? "")" @onchange="@(e => Mudou(() => _especialidade = Enum.TryParse<Especialidade>(e.Value?.ToString(), out var esp) ? esp : null))">
+                    <option value="">Todas</option>
+                    @foreach (var esp in Enum.GetValues<Especialidade>()) { <option value="@esp">@EspecialidadeInfo.NomeExibicao(esp)</option> }
+                </select>
+            </Campo>
+            <button type="button" class="botao primario" @onclick="() => BuscarAsync()" disabled="@Carregando"><Icone Nome="busca" />Buscar</button>
+            @if (ConsultaDeGuiasNaTela.FiltroAtivo(Filtro))
+            {
+                <button type="button" class="botao fantasma" @onclick="LimparAsync">Limpar</button>
+            }
+        </div>
+
+        @if (_carregou && !_naoVerificado)
+        {
+            <div class="resumo-guias @(ConsultaDeGuiasNaTela.FiltroAtivo(_aplicado) ? "filtrado" : null)">@_resumo</div>
+        }
+        @if (_periodoInvertido)
+        {
+            <div class="faixa"><Aviso Tom="atencao" Texto="A data final está antes da inicial — nenhuma guia cabe nesse período. Corrija as datas." /></div>
+        }
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível consultar as guias" Detalhe="@($"A lista está vazia por falha de leitura, não por não haver guia. {_erro}")" AoTentarDeNovo="() => BuscarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="260" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            var filtrado = ConsultaDeGuiasNaTela.FiltroAtivo(_aplicado);
+            <EstadoVazio Titulo="@(filtrado ? "Nenhuma guia bate com o filtro" : "Nenhuma guia encontrada")" Icone="@(filtrado ? "filtro" : "busca")"
+                         Descricao="@(filtrado ? "Ajuste ou limpe os filtros acima e busque de novo." : "Ainda não há guia gerada por nenhum atendimento.")">
+                @if (filtrado) { <button type="button" class="botao" @onclick="LimparAsync">Limpar filtros</button> }
+            </EstadoVazio>
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th style="width:112px">Atendimento</th>
+                            <th>Paciente</th>
+                            <th style="width:15%">Convênio</th>
+                            <th style="width:19%">Modalidade e código</th>
+                            <th style="width:96px">Nº guia</th>
+                            <th style="width:178px">Situação</th>
+                            <th class="direita" style="width:160px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _linhas)
+                        {
+                            var (situacao, tom) = ConsultaDeGuiasNaTela.Situacao(c);
+                            var glosa = ConsultaDeGuiasNaTela.Glosa(c.Glosa);
+                            var especialidade = ConsultaDeGuiasNaTela.Especialidade(c);
+                            <tr @key="c.Id">
+                                <td class="nao-quebra">
+                                    <span class="principal">@(c.Atendimento is { } a ? Formato.Data(a.Data) : "—")</span>
+                                    @if (!string.IsNullOrWhiteSpace(c.Atendimento?.Numero)) { <span class="secundario corta" title="Atendimento nº @c.Atendimento!.Numero">nº @c.Atendimento!.Numero</span> }
+                                </td>
+                                <td>
+                                    <span class="principal corta" title="@c.Atendimento?.Paciente?.Nome">@(c.Atendimento?.Paciente?.Nome ?? "—")</span>
+                                    @* Quem LANÇOU o atendimento (parcela 58). Vazio antes da parcela — inventar um nome seria pior. *@
+                                    @if (!string.IsNullOrWhiteSpace(c.Atendimento?.LancadoPor)) { <span class="secundario corta" title="Quem lançou o atendimento">lançado por @c.Atendimento!.LancadoPor</span> }
+                                </td>
+                                <td><span class="corta texto-secundario" title="@ConsultaDeGuiasNaTela.Convenio(c)">@ConsultaDeGuiasNaTela.Convenio(c)</span></td>
+                                <td>
+                                    <span class="corta" title="@ConsultaDeGuiasNaTela.Modalidade(c.Atendimento)">@ConsultaDeGuiasNaTela.Modalidade(c.Atendimento)@(especialidade is null ? null : $" · {especialidade}")</span>
+                                    <span class="secundario corta">@ConsultaDeGuiasNaTela.Codigo(c)</span>
+                                </td>
+                                <td><span class="corta numero" title="@c.NumeroGuiaReal">@(string.IsNullOrWhiteSpace(c.NumeroGuiaReal) ? "—" : c.NumeroGuiaReal)</span></td>
+                                <td>
+                                    <Selo Tom="@tom">@situacao</Selo>
+                                    @if (glosa is { } gl) { <Selo Tom="@gl.Tom">@gl.Texto</Selo> }
+                                    @* A observação da pendência mora junto da situação que ela explica. *@
+                                    @if (!string.IsNullOrWhiteSpace(c.ObservacaoPendencia)) { <span class="secundario corta" title="@c.ObservacaoPendencia">obs.: @c.ObservacaoPendencia</span> }
+                                </td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini primario" disabled="@(!PodeVerHistorico)" @onclick="() => AbrirHistorico(c)"
+                                                title="@(PodeVerHistorico ? "Quem mexeu nesta guia, quando e o quê" : "Seu acesso não permite ver o histórico da guia.")"><Icone Nome="historico" />Histórico</button>
+                                        <button type="button" class="botao mini icone" title="Reimprimir a capa de faturamento deste atendimento" aria-label="Reimprimir a capa de faturamento deste atendimento"
+                                                disabled="@_gerandoCapa" @onclick="() => CapaAsync(c)"><Icone Nome="imprimir" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (_linhas.Count >= ConsultaDeGuiasNaTela.Limite)
+            {
+                <div class="rodape-lista">Mostrando as @ConsultaDeGuiasNaTela.Limite guias mais recentes pelo atendimento. Estreite o filtro para achar uma guia antiga.</div>
+            }
+        }
+    </section>
+</div>
+
+@if (_historico is { } guia)
+{
+    <HistoricoGuiaForm Guia="guia" AoFechar="() => _historico = null" />
+}
+
+@code {
+    private string? _paciente;
+    private string? _numero;
+    private string? _observacao;
+    private DateOnly? _inicio;
+    private DateOnly? _fim;
+    private FiltroStatusGuia _status = FiltroStatusGuia.Todos;
+    private Convenio? _convenio;
+    private ModalidadeAtendimento? _modalidade;
+    private Especialidade? _especialidade;
+
+    /// <summary>O filtro com que a lista à vista foi buscada — é dele que o resumo fala.</summary>
+    private FiltroConsultaGuias _aplicado = new();
+    private List<CodigoFaturamento> _linhas = [];
+    private string? _resumo;
+    private bool _carregou;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private bool _periodoInvertido;
+    private string? _erro;
+    private int _geracao;
+    private bool _gerandoCapa;
+    private CodigoFaturamento? _historico;
+    private CancellationTokenSource? _espera;
+
+    private static bool PodeVerHistorico => Pode(Permissao.VerAuditoria);
+
+    private FiltroConsultaGuias Filtro => new()
+    {
+        TermoPaciente = _paciente,
+        NumeroGuia = _numero,
+        TermoObservacao = _observacao,
+        Inicio = _inicio,
+        Fim = _fim,
+        Status = _status,
+        Convenio = _convenio,
+        Modalidade = _modalidade,
+        Especialidade = _especialidade
+    };
+
+    protected override Task OnInitializedAsync() => BuscarAsync();
+
+    /// <summary>Voltar à aba relê em silêncio, com o filtro que estava valendo.</summary>
+    protected override Task AoVoltarAsync() => BuscarAsync(silenciosa: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? BuscarAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// Contador de geração (parcela 60): trocar o filtro duas vezes rápido não pode deixar a
+    /// lista de uma busca sob o resumo da outra. Tudo é publicado depois do último await.
+    /// </summary>
+    private async Task BuscarAsync(bool silenciosa = false)
+    {
+        _espera?.Cancel();
+        var g = ++_geracao;
+        var filtro = Filtro;
+        _periodoInvertido = ConsultaDeGuiasNaTela.PeriodoInvertido(filtro.Inicio, filtro.Fim);
+        if (!silenciosa) { Carregando = true; _naoVerificado = false; }
+        try
+        {
+            using var escopo = Escopo();
+            var lista = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                .ConsultarCodigosAsync(filtro);
+            if (g != _geracao || Descartada) return;
+
+            _linhas = lista.ToList();
+            _aplicado = filtro;
+            _resumo = ConsultaDeGuiasNaTela.Resumo(filtro, lista.Count);
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — consulta de guias não pôde ser lida", ex);
+            // A releitura de fundo que falha não troca a lista à vista por uma falha.
+            if (silenciosa && _carregou) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _linhas = [];
+            _carregou = true;
+        }
+        finally
+        {
+            if (g == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>Texto digitado busca sozinho depois de uma pausa — e o Enter busca na hora.</summary>
+    private async Task TextoMudou(Action aplicar)
+    {
+        aplicar();
+        _espera?.Cancel();
+        var espera = _espera = new CancellationTokenSource();
+        try { await Task.Delay(400, espera.Token); } catch (OperationCanceledException) { return; }
+        await BuscarAsync();
+    }
+
+    private Task Mudou(Action aplicar)
+    {
+        aplicar();
+        return BuscarAsync();
+    }
+
+    private Task Enter(KeyboardEventArgs e) => e.Key == "Enter" ? BuscarAsync() : Task.CompletedTask;
+
+    private Task LimparAsync()
+    {
+        _paciente = _numero = _observacao = null;
+        _inicio = _fim = null;
+        _status = FiltroStatusGuia.Todos;
+        _convenio = null;
+        _modalidade = null;
+        _especialidade = null;
+        return BuscarAsync();
+    }
+
+    private void AbrirHistorico(CodigoFaturamento c)
+    {
+        if (!Exigir(Permissao.VerAuditoria, "ver o histórico da guia")) return;
+        _historico = c;
+    }
+
+    /// <summary>Reimpressão da capa de faturamento do atendimento desta guia (estado atual).</summary>
+    private async Task CapaAsync(CodigoFaturamento c)
+    {
+        if (_gerandoCapa) return;
+        _gerandoCapa = true;
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var prestador = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                pdf = await escopo.ServiceProvider.GetRequiredService<CapaFaturamentoService>().GerarPdfAsync(c.AtendimentoId, prestador);
+            }
+            var nome = $"Capa-{c.Atendimento?.Numero ?? c.AtendimentoId.ToString()}-{(c.Atendimento?.Data ?? default):yyyy-MM-dd}.pdf";
+            var erro = await Host.SalvarEAbrirAsync(pdf, nome, "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — capa de faturamento não pôde ser gerada", ex);
+            Notificacoes.Erro($"Não foi possível gerar a capa: {ex.Message}");
+        }
+        finally { _gerandoCapa = false; }
+    }
+
+    private static string Iso(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private static DateOnly? Data(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    public override void Dispose()
+    {
+        _espera?.Cancel();
+        base.Dispose();
+    }
+}

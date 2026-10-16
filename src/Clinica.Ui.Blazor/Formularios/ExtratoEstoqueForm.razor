@@ -1,0 +1,89 @@
+@*
+  O EXTRATO de um item (o que no WPF era a ExtratoEstoqueWindow / ExtratoEstoqueViewModel):
+  a resposta a "que movimentos produziram este saldo?" (parcela 69).
+
+  Todos os movimentos, do mais recente para o mais antigo, com o saldo DEPOIS de cada um.
+  A primeira linha TEM de bater com o saldo da lista de trás — as duas somas usam a mesma
+  conta (MovimentoEstoque.Delta), e quem monta é TelaDoEstoque.Extrato. A perda vem em
+  destaque: é a linha que carrega a justificativa que a clínica exige. Somente leitura.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@Item" Subtitulo="Todos os movimentos, do mais recente para o mais antigo, com o saldo depois de cada um. O motivo escrito da perda e a direção do acerto de inventário aparecem na coluna de detalhe." Largura="largo" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_falha is not null)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler os movimentos" Detalhe="@_falha" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_extrato is null)
+        {
+            <Esqueleto Altura="200" />
+        }
+        else if (_extrato.Linhas.Count == 0)
+        {
+            <EstadoVazio Icone="historico" Titulo="Nenhum movimento registrado" Descricao="O saldo deste item ainda não teve entrada nem saída." />
+        }
+        else
+        {
+            <p class="texto-secundario pequeno extrato-resumo">@_extrato.Resumo</p>
+            <div class="tabela-rolagem extrato-tabela">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th style="width:96px">Data</th>
+                            <th style="width:96px">Tipo</th>
+                            <th class="direita" style="width:100px">Movimento</th>
+                            <th class="direita" style="width:96px">Saldo após</th>
+                            <th>Detalhe (motivo · lote · validade)</th>
+                            <th style="width:140px">Quem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _extrato.Linhas)
+                        {
+                            <tr class="@(l.EhPerda ? "linha-perda" : null)">
+                                <td class="nao-quebra">@Formato.Data(l.Data)</td>
+                                <td class="nao-quebra @(l.EhPerda ? "tipo-perda" : null)">@l.Tipo</td>
+                                <td class="direita numero"><span class="@(l.Acrescimo ? "valor-entrada" : "valor-saida")">@l.Movimento</span></td>
+                                <td class="direita numero"><span class="principal">@l.SaldoApos</span></td>
+                                <td class="texto-secundario">@l.Detalhe</td>
+                                <td class="texto-secundario">@l.Quem</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int ItemId { get; set; }
+    [Parameter] public string Item { get; set; } = "Extrato do item";
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private ExtratoDoItem? _extrato;
+    private string? _falha;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        _falha = null;
+        _extrato = null;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var lista = await escopo.ServiceProvider.GetRequiredService<EstoqueService>().MovimentosAsync(ItemId);
+            _extrato = TelaDoEstoque.Extrato(lista);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — extrato do item de estoque não pôde ser lido", ex);
+            _falha = ex.Message;
+        }
+    }
+}

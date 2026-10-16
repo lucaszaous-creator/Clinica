@@ -1,0 +1,163 @@
+@*
+  REGISTRAR GLOSA (out/2026, migrado da GlosaWindow e da GuiaGlosasWindow do WPF).
+
+  A data, o motivo da tabela ANS e um complemento. O motivo escolhido mostra o que ele
+  significa, como evitá-lo e o que juntar para recorrer — é o que transforma o código
+  seco do demonstrativo em ação. "Ver todos os motivos" é o guia consultável (a
+  GuiaGlosasWindow), aberto DENTRO do formulário, com busca: escolher um ali preenche o
+  motivo.
+
+  As duas barreiras: o botão nasce apagado sem RegistrarGlosa, e o Exigir no clique é o que
+  impede — anotar glosa afirma que a operadora recusou, e isso chega ao caixa.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Registrar glosa da guia" Subtitulo="@Descricao" Largura="@(_guiaAberto ? "largo" : "medio")" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Data da glosa" Obrigatorio="true">
+                <input type="date" class="campo" @bind="_data" />
+            </Campo>
+            <Campo Rotulo="Motivo (tabela ANS)">
+                <select class="campo" value="@_motivoCodigo" @onchange="MotivoMudou">
+                    <option value="">Sem motivo da tabela</option>
+                    @foreach (var m in MotivosGlosa.Todos) { <option value="@m.Codigo">@m.Codigo — @m.Descricao</option> }
+                </select>
+            </Campo>
+        </div>
+
+        @if (Motivo is { } motivo)
+        {
+            <div class="orientacao-glosa">
+                <p>@motivo.Significado</p>
+                <h3>Como evitar</h3>
+                <p>@motivo.ComoEvitar</p>
+                <h3>Lastro do recurso</h3>
+                <p>@motivo.Lastro</p>
+                @if (!motivo.ValeRecorrer)
+                {
+                    <Aviso Tom="atencao" Texto="Para este motivo o recurso raramente prospera — avalie o custo de recorrer antes de juntar a documentação." />
+                }
+            </div>
+        }
+
+        <button type="button" class="botao fantasma alinhar-inicio" @onclick="() => _guiaAberto = !_guiaAberto">
+            <Icone Nome="@(_guiaAberto ? "abaixo" : "lista")" />@(_guiaAberto ? "Fechar o guia de motivos" : "Ver o guia completo dos motivos")
+        </button>
+
+        @if (_guiaAberto)
+        {
+            <section class="guia-motivos" aria-label="Por que as guias são glosadas">
+                <p class="explica">O demonstrativo da operadora chega com um código seco. Aqui está o que cada um quer dizer, como não repetir — e o que juntar para sustentar o recurso.</p>
+                <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Buscar por código ou palavra…" maxlength="60" value="@_buscaGuia" @oninput="@(e => _buscaGuia = e.Value?.ToString() ?? "")" /></div>
+                @if (MotivosDoGuia.Count == 0)
+                {
+                    <EstadoVazio Titulo="Nenhum motivo bate com a busca" Icone="filtro" Descricao="Tente o código (ex.: 1801) ou uma palavra da descrição." />
+                }
+                else
+                {
+                    <ul class="motivos">
+                        @foreach (var m in MotivosDoGuia)
+                        {
+                            <li @key="m.Codigo" class="@(m.Codigo == _motivoCodigo ? "escolhido" : null)">
+                                <div class="motivo-topo">
+                                    <Selo Tom="info">@m.Codigo</Selo>
+                                    <Selo Tom="@(m.ValeRecorrer ? "sucesso" : "aviso")">@(m.ValeRecorrer ? "Costuma valer o recurso" : "Recurso raramente prospera")</Selo>
+                                    <strong>@m.Descricao</strong>
+                                    <button type="button" class="botao mini" @onclick="() => _motivoCodigo = m.Codigo">Usar este motivo</button>
+                                </div>
+                                <p>@m.Significado</p>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+
+        <Campo Rotulo="Complemento / observação" Classe="largo">
+            <textarea class="campo" rows="3" maxlength="500" @bind="_complemento" @bind:event="oninput"></textarea>
+        </Campo>
+        <p class="nota-prazo">@NotaPrazo</p>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao perigo" @onclick="RegistrarAsync" disabled="@(_ocupado || !PodeGlosar)"
+                title="@(PodeGlosar ? null : "Seu acesso não permite registrar glosa.")">
+            <Icone Nome="alerta" />@(_ocupado ? "Gravando…" : "Registrar glosa")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int CodigoId { get; set; }
+    [Parameter, EditorRequired] public string Descricao { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string _motivoCodigo = string.Empty;
+    private string? _complemento;
+    private string _buscaGuia = string.Empty;
+    private bool _guiaAberto;
+    private int? _prazo;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeGlosar => SessaoUsuario.Atual.Pode(Permissao.RegistrarGlosa);
+    private MotivoGlosa? Motivo => MotivosGlosa.Obter(string.IsNullOrEmpty(_motivoCodigo) ? null : _motivoCodigo);
+
+    private string NotaPrazo => _prazo is { } p
+        ? $"O prazo de recurso desta glosa será de {p} dias e aparecerá no painel de pendências até ser resolvido."
+        : "O prazo de recurso desta glosa aparecerá no painel de pendências até ser resolvido.";
+
+    /// <summary>A mesma busca da GuiaGlosasWindow: código, descrição, significado e como evitar.</summary>
+    private IReadOnlyList<MotivoGlosa> MotivosDoGuia => string.IsNullOrWhiteSpace(_buscaGuia)
+        ? MotivosGlosa.Todos
+        : MotivosGlosa.Todos.Where(m =>
+            m.Codigo.Contains(_buscaGuia, StringComparison.OrdinalIgnoreCase)
+            || Busca.Casa(m.Descricao, _buscaGuia) || Busca.Casa(m.Significado, _buscaGuia)
+            || Busca.Casa(m.ComoEvitar, _buscaGuia)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // O prazo é só a frase de orientação: falhar aqui não impede a glosa — o serviço
+        // relê o prazo ao gravar. A frase cai para a versão sem número, e o log registra.
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _prazo = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrazoRecursoGlosaAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — prazo de recurso de glosa não pôde ser lido", ex);
+        }
+    }
+
+    private void MotivoMudou(ChangeEventArgs e) => _motivoCodigo = e.Value?.ToString() ?? string.Empty;
+
+    private async Task RegistrarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        if (!PodeGlosar) { _mensagem = "Seu acesso não permite registrar glosa. Fale com a direção da clínica."; return; }
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.RegistrarGlosa, "registrar glosa");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<GlosaService>().RegistrarAsync(
+                CodigoId, _data,
+                string.IsNullOrWhiteSpace(_complemento) ? null : _complemento.Trim(),
+                string.IsNullOrEmpty(_motivoCodigo) ? null : _motivoCodigo,
+                SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — glosa não pôde ser registrada", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

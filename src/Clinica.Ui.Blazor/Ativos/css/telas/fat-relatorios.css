@@ -1,0 +1,18 @@
+/* fat-relatorios: estilo só desta tela do Faturamento (tokens apenas). */
+/* Seis números: em 1366 cabem numa fileira; em 1024 dobram em duas de três (nunca 4+2,
+   que deixa um vão). O seletor duplo vence o .kpis comum, que é importado depois. */
+.kpis.fat-rel-kpis{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media (max-width:1240px){.kpis.fat-rel-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.kpis.fat-rel-kpis{grid-template-columns:minmax(0,1fr)}}
+/* Duas colunas como no WPF (2* e 1*): as tabelas largas à esquerda, as curtas à direita.
+   Abaixo de 1100px viram uma coluna só — "por convênio" tem oito colunas e não espreme. */
+.fat-rel-colunas{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:var(--space-4);align-items:start}
+.fat-rel-coluna{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+@media (max-width:1100px){.fat-rel-colunas{grid-template-columns:minmax(0,1fr)}}
+/* Teto nas tabelas que crescem com o dado (vinte operadoras, cinquenta NCs): rolam por dentro. */
+.fat-rel-teto{max-height:320px;overflow:auto}
+.fat-rel-teto-alto{max-height:380px;overflow:auto}
+.fat-rel-teto table.lista th,.fat-rel-teto-alto table.lista th{position:sticky;top:0;z-index:1}
+.fat-rel-corta{display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.fat-rel-justificativa{min-width:200px}
+.fat-rel-vazio{margin:0;padding:0 var(--space-6) var(--space-6);color:var(--texto-secundario)}

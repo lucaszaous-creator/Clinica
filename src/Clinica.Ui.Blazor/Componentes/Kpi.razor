@@ -1,0 +1,71 @@
+@*
+  Cartão de número (o CardKpi do WPF): ícone e rótulo na mesma linha, o valor grande e uma
+  nota. O TOM do ícone repete a cor que a tela deu ao número — nunca é escolha do ícone
+  (regra 3 do design system).
+*@
+<div class="cartao kpi" title="@Dica">
+    <div class="kpi-rotulo">
+        @if (Icone is not null)
+        {
+            <span class="kpi-icone @(string.IsNullOrEmpty(Tom) ? null : "tom-" + Tom)"><Icone Nome="@Icone" /></span>
+        }
+        <span class="kpi-rotulo-texto">@Rotulo</span>
+        <span class="kpi-menu">
+            <button type="button" class="kpi-menu-botao" title="Opções do cartão" aria-label="Opções do cartão @Rotulo"
+                    aria-expanded="@(_menuAberto ? "true" : "false")" @onclick="() => _menuAberto = !_menuAberto">⋯</button>
+            @if (_menuAberto)
+            {
+                <span class="kpi-menu-lista" role="menu">
+                    @if (Medido)
+                    {
+                        <button type="button" role="menuitem" @onclick="() => CopiarAsync(Valor)">Copiar valor</button>
+                        <button type="button" role="menuitem" @onclick="CopiarParAsync">Copiar rótulo e valor</button>
+                    }
+                    else
+                    {
+                        @* "—" é "não medido": copiar um travessão não serve a ninguém, e o item DIZ por quê. *@
+                        <button type="button" role="menuitem" disabled>Nada para copiar — valor não medido</button>
+                    }
+                </span>
+            }
+        </span>
+    </div>
+    <div class="kpi-valor @ClasseValor" title="@Valor">@Valor</div>
+    @if (!string.IsNullOrWhiteSpace(Nota))
+    {
+        <div class="kpi-nota">@Nota</div>
+    }
+    @ChildContent
+</div>
+
+@code {
+    // O menu "⋯" do cartão (o BotaoMenuKpi do WPF): COPIAR o número que a direção leva para a
+    // reunião ou cola na planilha — retipar é onde nasce o erro. Mora no componente para todo
+    // cartão das telas Blazor ter o mesmo menu sem fiação por tela.
+    [Inject] private Clinica.Ui.Blazor.Hospedagem.IHostDaTela Host { get; set; } = default!;
+    [Inject] private Clinica.Ui.Blazor.Hospedagem.Notificacoes Notificacoes { get; set; } = default!;
+
+    private bool _menuAberto;
+    private bool Medido => !string.IsNullOrWhiteSpace(Valor) && Valor != "—";
+
+    private Task CopiarParAsync() => CopiarAsync($"{Rotulo}: {Valor}");
+
+    private async Task CopiarAsync(string texto)
+    {
+        _menuAberto = false;
+        // Falha nunca vira "copiado": colar o conteúdo anterior sem conferir é pior que não copiar.
+        if (await Host.CopiarAsync(texto)) Notificacoes.Sucesso("Copiado.");
+        else Notificacoes.Erro("A área de transferência está ocupada por outro programa — tente de novo.");
+    }
+
+    [Parameter, EditorRequired] public string Rotulo { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Valor { get; set; } = "—";
+    [Parameter] public string? Nota { get; set; }
+    [Parameter] public string? Icone { get; set; }
+    /// <summary>"" (acento), "saida", "sucesso", "perigo", "aviso" ou "neutro".</summary>
+    [Parameter] public string Tom { get; set; } = string.Empty;
+    /// <summary>"positivo"/"negativo" pinta o número.</summary>
+    [Parameter] public string? ClasseValor { get; set; }
+    [Parameter] public string? Dica { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

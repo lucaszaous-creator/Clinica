@@ -1,0 +1,75 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@using System.Globalization
+@*
+  GERAR RECALL (out/2026, desenho A): o "sem vir há N dias ou mais — Buscar" da barra da tela
+  WPF. Põe na fila quem está há N dias ou mais sem uma sessão realizada da modalidade (todas,
+  ou uma só), sem duplicar quem já está. Os dias propostos são os da CONFIGURAÇÃO (Gerente →
+  Configurações → "dias sem vir para o recall"); trocar aqui vale só para esta busca.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Gerar recall" Subtitulo="Pôr na fila quem está há N dias ou mais sem retornar — quem já está na fila não é duplicado." Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Sem vir há (dias)" Obrigatorio="true" Erro="@_erroDias" Dica="De 1 a 3650 dias.">
+                <input class="campo" type="number" min="1" max="3650" value="@_dias" @oninput="e => _dias = e.Value?.ToString()" />
+            </Campo>
+            <Campo Rotulo="Modalidade">
+                <select class="campo" value="@(_modalidade?.ToString() ?? "")" @onchange="e => _modalidade = Enum.TryParse<ModalidadeAtendimento>(e.Value?.ToString(), out var m) ? m : null">
+                    <option value="">Todas as modalidades</option>
+                    @foreach (var m in Enum.GetValues<ModalidadeAtendimento>()) { <option value="@m">@RotulosEnum.De(m)</option> }
+                </select>
+            </Campo>
+        </div>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_ocupado || !PodeGerar)" @onclick="GerarAsync"
+                title="@(PodeGerar ? null : "Seu acesso não permite gerar o recall.")"><Icone Nome="atualizar" />@(_ocupado ? "Buscando…" : "Gerar")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public int Dias { get; set; } = 60;
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback<(int Novos, int Dias, ModalidadeAtendimento? Modalidade)> AoConcluir { get; set; }
+
+    private string? _dias;
+    private ModalidadeAtendimento? _modalidade;
+    private string? _erroDias, _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeGerar => SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente)
+        && SessaoUsuario.Atual.PodeAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento);
+
+    protected override void OnInitialized() => _dias = Dias.ToString(CultureInfo.InvariantCulture);
+
+    private async Task GerarAsync()
+    {
+        if (_ocupado) return;
+        _erroDias = _mensagem = null;
+        if (!int.TryParse(_dias, NumberStyles.Integer, CultureInfo.InvariantCulture, out var dias) || dias is < 1 or > 3650)
+        {
+            _erroDias = "Informe de 1 a 3650 dias sem retornar.";
+            return;
+        }
+        if (!PodeGerar) { _mensagem = "Seu acesso não permite gerar o recall. Fale com a direção da clínica."; return; }
+        try
+        {
+            _ocupado = true;
+            using var escopo = Escopos.CreateScope();
+            var novos = await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>()
+                .GerarRecallAsync(SessaoUsuario.Atual.UsuarioId, dias, _modalidade);
+            await AoConcluir.InvokeAsync((novos, dias, _modalidade));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { _mensagem = ex.Message; }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — recall não pôde ser gerado", ex);
+            _mensagem = "Não foi possível gerar o recall agora. Tente de novo.";
+        }
+        finally { _ocupado = false; }
+    }
+}

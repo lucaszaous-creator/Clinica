@@ -1,54 +1,19 @@
-using System.Globalization;
-
 namespace Clinica.Desktop.Controls;
 
 /// <summary>
-/// Leitura dos números que a clínica digita. Fica no shell porque dinheiro é digitado em
-/// mais de um módulo — no lançamento do Financeiro e no fechamento da sessão da Recepção
-/// — e duas cópias da mesma regra viram dois comportamentos diferentes no dia em que uma
-/// delas for corrigida.
+/// Leitura dos números que a clínica digita. A REGRA mora em
+/// <see cref="Clinica.Application.Formatacao.LeituraDeValores"/> desde out/2026, porque as
+/// telas Blazor do Financeiro também a usam; este tipo só repassa, para as telas WPF não
+/// precisarem mudar.
 /// </summary>
 public static class Valores
 {
-    /// <summary>Entrada decimal sem separador de milhar; vírgula e ponto indicam fração, independentemente do Windows.</summary>
     public static bool TentarLerNumeroExato(string? texto, out decimal valor)
-        => decimal.TryParse(texto?.Trim().Replace(',', '.'),
-            NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out valor);
+        => global::Clinica.Application.Formatacao.LeituraDeValores.TentarLerNumeroExato(texto, out valor);
 
-    /// <summary>
-    /// Aceita o valor como a clínica digita: "1.250,00" (pt-BR) e também "1250.00".
-    /// O sinal nunca sai daqui — quem decide entrada ou saída é o tipo do lançamento.
-    /// </summary>
     public static bool TentarLerDecimal(string? texto, out decimal valor)
-    {
-        valor = 0;
-        if (string.IsNullOrWhiteSpace(texto)) return false;
+        => global::Clinica.Application.Formatacao.LeituraDeValores.TentarLerDecimal(texto, out valor);
 
-        var limpo = texto.Trim().Replace("R$", string.Empty).Trim();
-
-        if (!decimal.TryParse(limpo, NumberStyles.Currency, new CultureInfo("pt-BR"), out valor) &&
-            !decimal.TryParse(limpo, NumberStyles.Currency, CultureInfo.InvariantCulture, out valor))
-            return false;
-
-        return valor > 0;
-    }
-
-    /// <summary>
-    /// Quantidade de insumo: aceita fração ("0,5" de um frasco) e recusa o negativo —
-    /// quem tira do estoque é o tipo do movimento, não o sinal digitado. Campo vazio
-    /// devolve zero e vale como "não consumiu", que é o caso comum.
-    /// </summary>
     public static bool TentarLerQuantidade(string? texto, out decimal quantidade)
-    {
-        quantidade = 0;
-        if (string.IsNullOrWhiteSpace(texto)) return true;
-
-        var limpo = texto.Trim();
-
-        if (!decimal.TryParse(limpo, NumberStyles.Number, new CultureInfo("pt-BR"), out quantidade) &&
-            !decimal.TryParse(limpo, NumberStyles.Number, CultureInfo.InvariantCulture, out quantidade))
-            return false;
-
-        return quantidade >= 0;
-    }
+        => global::Clinica.Application.Formatacao.LeituraDeValores.TentarLerQuantidade(texto, out quantidade);
 }

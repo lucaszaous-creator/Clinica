@@ -1,0 +1,63 @@
+@implements IDisposable
+@inject Dialogos Dialogos
+
+@if (Dialogos.Atual is { } d)
+{
+    <div class="modal-fundo" @onkeydown="Tecla">
+        <div class="modal pequeno" role="alertdialog" aria-modal="true" aria-labelledby="dlg-titulo">
+            <header class="modal-topo">
+                <h2 id="dlg-titulo">@d.Titulo</h2>
+            </header>
+            <div class="modal-corpo">
+                <p class="dialogo-mensagem">@d.Mensagem</p>
+                @if (d.Tipo == TipoDialogo.Texto)
+                {
+                    <textarea class="campo" rows="3" @bind="d.Texto" @bind:event="oninput" @ref="_caixa"
+                              placeholder="@(d.Obrigatorio ? "Escreva aqui" : "Opcional")" maxlength="500"></textarea>
+                    @if (d.Erro is not null)
+                    {
+                        <p class="campo-erro">@d.Erro</p>
+                    }
+                }
+            </div>
+            <footer class="modal-rodape">
+                @if (d.Tipo != TipoDialogo.Aviso)
+                {
+                    <button type="button" class="botao" @onclick="() => Dialogos.Responder(d, false)">Cancelar</button>
+                }
+                <button type="button" class="botao @(d.Perigoso ? "perigo" : "primario")" @ref="_confirmar"
+                        @onclick="() => Dialogos.Responder(d, true)">@d.RotuloConfirmar</button>
+            </footer>
+        </div>
+    </div>
+}
+
+@code {
+    private ElementReference _caixa;
+    private ElementReference _confirmar;
+    private DialogoAberto? _focado;
+
+    protected override void OnInitialized() => Dialogos.Mudou += Redesenhar;
+
+    private void Redesenhar() => InvokeAsync(StateHasChanged);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // O foco vai para o diálogo que acabou de abrir — senão o Enter da pessoa cai no
+        // botão da tela de trás, que é justamente o que abriu o diálogo.
+        if (Dialogos.Atual is { } d && !ReferenceEquals(d, _focado))
+        {
+            _focado = d;
+            try { await (d.Tipo == TipoDialogo.Texto ? _caixa : _confirmar).FocusAsync(); }
+            catch (Exception) { /* o elemento pode não existir mais: foco é conforto */ }
+        }
+    }
+
+    private void Tecla(KeyboardEventArgs e)
+    {
+        if (Dialogos.Atual is not { } d) return;
+        if (e.Key == "Escape") Dialogos.Responder(d, false);
+    }
+
+    public void Dispose() => Dialogos.Mudou -= Redesenhar;
+}

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clínica SemDor</title>
+    <!-- Página-hospedeira do BlazorWebView. O fundo é pintado AQUI, na primeira linha que o
+         navegador lê: junto com a cor de fundo do próprio WebView2 (TelaBlazor.cs), é o que
+         impede a tela preta que fez o WebView2 sair em out/2026. -->
+    <style>html,body{background:#F8FAFC;margin:0}</style>
+    <link rel="stylesheet" href="css/clinica.css" />
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        // Atalhos de teclado das telas (Ctrl+S salvar, Ctrl+P imprimir/exportar, F5 atualizar):
+        // com o navegador em foco o WPF não recebe a tecla, então a página a repassa à tela à
+        // vista (PalcoDeTelas.Atalho). preventDefault impede o navegador de recarregar (F5) ou
+        // abrir a impressão da página (Ctrl+P).
+        window.clinicaAtalhos = {
+            ligar: function (ref) {
+                document.addEventListener('keydown', function (e) {
+                    var k = (e.key || '').toLowerCase(), nome = null;
+                    if (e.ctrlKey && !e.altKey && !e.shiftKey && k === 's') nome = 'Salvar';
+                    else if (e.ctrlKey && !e.altKey && !e.shiftKey && k === 'p') nome = 'Imprimir';
+                    else if (e.key === 'F5' && !e.ctrlKey && !e.altKey) nome = 'Atualizar';
+                    if (!nome) return;
+                    e.preventDefault();
+                    ref.invokeMethodAsync('Atalho', nome);
+                });
+            }
+        };
+    </script>
+    <script src="_framework/blazor.webview.js" autostart="true"></script>
+</body>
+</html>

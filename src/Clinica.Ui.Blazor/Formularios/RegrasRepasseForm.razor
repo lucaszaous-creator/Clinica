@@ -1,0 +1,120 @@
+@*
+  REGRAS E APURAÇÕES DE REPASSE (o que no WPF era a RegrasRepasseWindow).
+
+  Regra é CADASTRO; apuração é HISTÓRICO (parcela 49). Ficam juntas de propósito: cancelar
+  uma apuração é o que devolve o período ao cálculo, e ver as duas lado a lado torna essa
+  relação óbvia.
+
+  Como no WPF a janela recebia o MESMO ViewModel da tela, aqui o formulário recebe as
+  MESMAS listas da tela de Repasses e devolve as ações a ela: mudar uma regra ou cancelar
+  uma apuração muda o número que está atrás, e duas leituras dariam duas respostas para a
+  mesma pergunta. Quem grava, pergunta e recarrega é a tela.
+*@
+@using Clinica.Application.Modelos
+
+<Modal Titulo="Regras e apurações de repasse" Largura="largo" AoFechar="AoFechar"
+       Subtitulo="A regra tem vigência: subir o percentual em setembro não reescreve o repasse de agosto, que já foi pago.">
+    <ChildContent>
+        <div class="abas" role="tablist">
+            <button type="button" role="tab" aria-selected="@(_aba == 0 ? "true" : "false")" @onclick="() => _aba = 0">Regras (@Regras.Count)</button>
+            <button type="button" role="tab" aria-selected="@(_aba == 1 ? "true" : "false")" @onclick="() => _aba = 1">Apurações (@Apuracoes.Count)</button>
+        </div>
+
+        @if (NaoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler regras e apurações" Detalhe="Feche e tente de novo pela tela de Repasses." />
+        }
+        else if (_aba == 0)
+        {
+            @if (Regras.Count == 0)
+            {
+                <EstadoVazio Icone="percentual" Titulo="Nenhuma regra de repasse cadastrada"
+                             Descricao="Sem regra, o profissional aparece no cálculo com valor zero — e não há o que apurar." />
+            }
+            else
+            {
+                <div class="tabela-rolagem repasse-tabela-form">
+                    <table class="lista">
+                        <thead><tr><th>Profissional</th><th style="width:200px">Regra</th><th style="width:220px">Vigência</th><th class="direita" style="width:72px">Ações</th></tr></thead>
+                        <tbody>
+                            @foreach (var r in Regras)
+                            {
+                                <tr @key="r.Id" class="@(r.Ativa ? null : "apagada")">
+                                    <td>
+                                        <span class="principal">@(r.Profissional?.Rotulo ?? $"Profissional {r.ProfissionalId}")</span>
+                                        @if (!string.IsNullOrWhiteSpace(r.Observacoes)) { <span class="secundario">@r.Observacoes</span> }
+                                    </td>
+                                    <td>@r.Descricao</td>
+                                    <td class="nao-quebra">@LeituraDosRepasses.Vigencia(r.VigenteDe, r.VigenteAte)</td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini icone contorno-perigo" title="Excluir regra" aria-label="Excluir regra"
+                                                disabled="@(!PodeEditar)" @onclick="() => AoExcluirRegra.InvokeAsync(r)"><Icone Nome="lixo" /></button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+        else
+        {
+            <p class="texto-secundario pequeno repasse-nota">Cada apuração cria uma saída prevista no caixa e trava o período — repasse pago duas vezes é dinheiro que não volta.</p>
+            @if (Apuracoes.Count == 0)
+            {
+                <EstadoVazio Icone="cadeado" Titulo="Nenhuma apuração fechada"
+                             Descricao="Apure um profissional na tela de Repasses para o período aparecer aqui." />
+            }
+            else
+            {
+                <div class="tabela-rolagem repasse-tabela-form">
+                    <table class="lista">
+                        <thead><tr><th>Profissional</th><th style="width:200px">Período</th><th class="direita" style="width:130px">Valor</th><th style="width:200px">Situação</th><th class="direita" style="width:72px">Ações</th></tr></thead>
+                        <tbody>
+                            @foreach (var a in Apuracoes)
+                            {
+                                <tr @key="a.Id" class="@(a.Cancelado ? "apagada" : null)">
+                                    <td>
+                                        <span class="principal">@(a.Profissional?.Rotulo ?? "—")</span>
+                                        <span class="secundario">@a.Atendimentos atendimento(s) · @(a.RegraDescricao ?? "—")</span>
+                                    </td>
+                                    <td class="nao-quebra">@LeituraDosRepasses.Periodo(a.Inicio, a.Fim)</td>
+                                    <td class="direita numero">@Formato.Dinheiro(a.Valor)</td>
+                                    <td>
+                                        <Selo Tom="@(a.Cancelado ? "neutro" : "sucesso")" Dica="@a.MotivoCancelamento">@LeituraDosRepasses.SituacaoDaApuracao(a)</Selo>
+                                    </td>
+                                    <td class="direita">
+                                        @if (!a.Cancelado)
+                                        {
+                                            <button type="button" class="botao mini icone contorno-perigo" title="Cancelar apuração" aria-label="Cancelar apuração"
+                                                    disabled="@(!PodeEditar)" @onclick="() => AoCancelarApuracao.InvokeAsync(a)"><Icone Nome="cancelar" /></button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" @onclick="AoNovaRegra" disabled="@(!PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite mexer nos repasses.")"><Icone Nome="mais" />Nova regra</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<RegraRepasse> Regras { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<RepasseApurado> Apuracoes { get; set; } = [];
+    [Parameter] public bool NaoVerificado { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback AoNovaRegra { get; set; }
+    [Parameter] public EventCallback<RegraRepasse> AoExcluirRegra { get; set; }
+    [Parameter] public EventCallback<RepasseApurado> AoCancelarApuracao { get; set; }
+
+    private int _aba;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+}

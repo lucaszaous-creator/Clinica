@@ -1,0 +1,156 @@
+@*
+  PLANO DE CONTAS (out/2026, migrado do PlanoContasView/PlanoContasViewModel do WPF).
+
+  As categorias que classificam entradas e saídas. O CÓDIGO não se edita depois de criado:
+  é a referência estável que os lançamentos já gravados apontam, e trocá-lo desligaria o
+  histórico da categoria em silêncio. Ativar/desativar muda à vontade — inativa some dos
+  combos do lançamento e continua no histórico.
+
+  Criar categoria é JANELA (formulário), não faixa fixa: acontece na implantação e quase
+  nunca depois, e o formulário fixo tomava a primeira faixa da tela todos os dias.
+*@
+@inherits TelaBase
+
+<div class="pagina @(Carregando && _categorias.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Cadastros" Titulo="Plano de contas"
+                     Subtitulo="Organize entradas e saídas por categoria. O código permanece fixo após o cadastro.">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" disabled="@Carregando"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao primario" @onclick="NovaCategoria" disabled="@(!PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite mexer no plano de contas.")"><Icone Nome="mais" />Nova categoria</button>
+    </CabecalhoPagina>
+
+    <section class="cartao lista-cartao">
+        <div class="cartao-titulo pdc-titulo">
+            <div>
+                <h2>Categorias</h2>
+                <p>@(_naoVerificado ? "—" : _resumo)</p>
+            </div>
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível carregar o plano de contas" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (Carregando && _categorias.Count == 0)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_categorias.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhuma categoria cadastrada"
+                         Descricao="Lançamento sem categoria aparece como Sem categoria nos relatórios, nunca sumindo." Icone="etiqueta" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr><th style="width:160px">Código</th><th>Nome</th><th style="width:120px">Tipo</th><th style="width:110px">Situação</th><th class="direita" style="width:170px">Ações</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _categorias)
+                        {
+                            <tr class="@(c.Ativa ? null : "apagada")" @key="c.Id">
+                                <td class="nao-quebra"><span class="pdc-codigo">@c.Codigo</span></td>
+                                <td><span class="principal">@c.Nome</span></td>
+                                <td>
+                                    <span class="pdc-tipo @(c.Tipo == TipoLancamento.Entrada ? "entrada" : "saida")">
+                                        <Icone Nome="@(c.Tipo == TipoLancamento.Entrada ? "entrada" : "saida")" />@(c.Tipo == TipoLancamento.Entrada ? "Entrada" : "Saída")
+                                    </span>
+                                </td>
+                                <td>@if (c.Ativa) { <Selo Tom="sucesso">Ativa</Selo> } else { <Selo Tom="neutro">Inativa</Selo> }</td>
+                                <td class="direita">
+                                    <button type="button" class="botao mini" disabled="@(!PodeEditar)"
+                                            title="@(c.Ativa ? "Inativa some dos combos do lançamento e continua no histórico." : "Volta a aparecer nos combos do lançamento.")"
+                                            @onclick="() => AlternarAtivaAsync(c)">
+                                        <Icone Nome="@(c.Ativa ? "cadeado" : "destravar")" />@(c.Ativa ? "Desativar" : "Reativar")
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@if (_nova)
+{
+    <CategoriaForm OrdemSugerida="_categorias.Count" AoFechar="() => _nova = false" AoConcluir="CriadaAsync" />
+}
+
+@code {
+    private List<CategoriaFinanceira> _categorias = [];
+    private string _resumo = "—";
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+    private bool _nova;
+
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopo();
+            var lidas = await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().CategoriasAsync();
+            if (geracao != _geracao || Descartada) return;
+            _categorias = lidas.ToList();
+            _resumo = PlanoDeContasTela.Resumo(lidas);
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — plano de contas não pôde ser carregado", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _categorias = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void NovaCategoria()
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "mexer no plano de contas")) _nova = true;
+    }
+
+    private async Task CriadaAsync()
+    {
+        _nova = false;
+        Notificacoes.Sucesso("Categoria criada.");
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Liga/desliga a categoria. A ordem gravada é a POSIÇÃO na lista, como no WPF: o
+    /// serviço pede a ordem junto, e a lista já vem na ordem de exibição.
+    /// </summary>
+    private async Task AlternarAtivaAsync(CategoriaFinanceira c)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer no plano de contas")) return;
+        var ordem = _categorias.IndexOf(c);
+        var ativa = c.Ativa;
+        if (await ExecutarAsync(async () =>
+                {
+                    using var escopo = Escopo();
+                    await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                        .AtualizarCategoriaAsync(c.Id, c.Nome, !ativa, ordem);
+                },
+                "Blazor — categoria não pôde ser alterada",
+                ativa ? "Categoria desativada." : "Categoria reativada."))
+            await CarregarAsync();
+    }
+}

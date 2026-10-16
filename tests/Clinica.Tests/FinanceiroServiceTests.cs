@@ -275,6 +275,30 @@ public class FinanceiroServiceTests : IDisposable
         depois.Should().ContainSingle(g => g.CodigoId == codigo.Id);
     }
 
+    [Fact]
+    public async Task Segunda_receita_da_mesma_guia_e_recusada_mas_a_cancelada_nao_conta()
+    {
+        // A lista é lida antes do clique: o segundo clique (ou a outra máquina) chegaria aqui
+        // com a MESMA guia e gravaria a receita duas vezes.
+        var paciente = await CriarPacienteAsync();
+        var data = new DateOnly(2026, 7, 10);
+        var resultado = await _atendimentos.LancarAsync(
+            paciente.Id, data, ModalidadeAtendimento.AcupunturaComEletro);
+        resultado.Atendimento.Codigos.First().DataBaixa = data;
+        await _db.SaveChangesAsync();
+
+        var guia = (await _financeiro.GuiasSemLancamentoAsync(data, data)).Single();
+        var primeira = await _financeiro.LancarReceitaDaGuiaAsync(guia, 80m);
+
+        var segunda = () => _financeiro.LancarReceitaDaGuiaAsync(guia, 80m);
+        await segunda.Should().ThrowAsync<InvalidOperationException>().WithMessage("*já tem receita*");
+
+        // Cancelada (valor errado, glosa), a guia volta a poder receber receita.
+        await _financeiro.CancelarAsync(primeira.Id, "valor errado");
+        var refeita = await _financeiro.LancarReceitaDaGuiaAsync(guia, 75m);
+        refeita.Valor.Should().Be(75m);
+    }
+
     // ---------- Categorias (plano de contas) ----------
 
     [Fact]

@@ -1,0 +1,16 @@
+@* Mensagem inline perto da ação. Quem decide se aparece é o TEXTO; a cor é a GRAVIDADE (parcela 62). *@
+@if (!string.IsNullOrWhiteSpace(Texto))
+{
+    <div class="aviso @Tom" role="@(Tom == "erro" ? "alert" : "status")">
+        <Icone Nome="@(Tom switch { "erro" => "alerta", "sucesso" => "ok", "atencao" => "alerta", _ => "info" })" />
+        <span>@Texto</span>
+        @ChildContent
+    </div>
+}
+
+@code {
+    [Parameter] public string? Texto { get; set; }
+    /// <summary>"info", "erro", "sucesso" ou "atencao".</summary>
+    [Parameter] public string Tom { get; set; } = "info";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

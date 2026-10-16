@@ -1,0 +1,154 @@
+@*
+  UM CONVÊNIO do catálogo (o que no WPF era a ConvenioWindow, parcela 69).
+
+  Edita a MESMA linha da lista da tela de trás — não uma cópia própria: duas cópias dariam
+  duas verdades sobre a mesma linha. Por isso não há "Cancelar": quem grava continua sendo o
+  "Salvar configurações" da tela, e o rodapé DIZ isso em vez de deixar a pessoa supor.
+
+  Nome e família moram SÓ aqui (a lista é de leitura): dois campos editando o mesmo dado a
+  300 px um do outro é o que fazia a tela "não se entender" (parcela 69).
+*@
+@using Clinica.Application.Servicos
+
+<Modal Titulo="@(string.IsNullOrWhiteSpace(Convenio.Nome) ? "Convênio" : Convenio.Nome)"
+       Subtitulo="@(Embutido
+           ? "Convênio embutido: a regra de faturamento é fixa no sistema. Aqui você pode renomeá-lo, ligar ou desligar as guias e ajustar o número da guia."
+           : "Convênio cadastrado pela clínica. Ele fatura pela regra da família escolhida abaixo.")"
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <fieldset class="fat-conv-campos" disabled="@(!PodeEditar)">
+            <div class="secao-form">
+                <h3>Identificação</h3>
+                <div class="campos">
+                    <Campo Rotulo="Nome do convênio">
+                        <input class="campo" maxlength="80" placeholder="Como a operadora se chama"
+                               value="@Convenio.Nome" @oninput="@(e => Mudar(() => Convenio.Nome = e.Value?.ToString() ?? string.Empty))" />
+                    </Campo>
+                    <Campo Rotulo="Segue a regra de faturamento de"
+                           Dica="@(Embutido ? "Embutido: a família não muda." : null)">
+                        <select class="campo" disabled="@Embutido" value="@Convenio.Familia"
+                                @onchange="@(e => Mudar(() => { if (Enum.TryParse<Convenio>(e.Value?.ToString(), out var f)) Convenio.Familia = f; }))">
+                            @foreach (var f in ConfiguracoesFaturamentoNaTela.Familias)
+                            {
+                                <option value="@f">@ConfiguracoesFaturamentoNaTela.Familia(f)</option>
+                            }
+                        </select>
+                    </Campo>
+                </div>
+                <span class="campo-dica">A regra decide quantas guias saem por atendimento, quando o 2º código libera e a cor do semáforo. Escolha “Personalizado” para configurar tudo isso à mão, aqui embaixo.</span>
+                <label class="alternar"><input type="checkbox" checked="@Convenio.Ativo" @onchange="@(e => Mudar(() => Convenio.Ativo = e.Value is true))" /> Convênio ativo (aparece nos cadastros e nos lançamentos)</label>
+                <span class="campo-dica">Desligar não apaga nada: o histórico continua, o convênio só some das listas de escolha.</span>
+            </div>
+
+            <div class="secao-form">
+                <h3>Guias deste convênio</h3>
+                <label class="alternar"><input type="checkbox" checked="@Convenio.GeraGuia" @onchange="@(e => Mudar(() => Convenio.GeraGuia = e.Value is true))" /> Gera guia para faturar no convênio</label>
+                <span class="campo-dica">Desligue para cadastrar o PARTICULAR — o paciente que vem sem convênio. O atendimento continua sendo registrado e entra nos indicadores, mas nenhuma guia entra no painel de pendências nem na rodada de 10 dias. A cobrança é no caixa.</span>
+                <div class="campos">
+                    <Campo Rotulo="Como é o número da guia aqui">
+                        <select class="campo" value="@Convenio.FormatoNumeroGuia"
+                                @onchange="@(e => Mudar(() => { if (Enum.TryParse<FormatoNumeroGuia>(e.Value?.ToString(), out var g)) Convenio.FormatoNumeroGuia = g; }))">
+                            @foreach (var g in Enum.GetValues<FormatoNumeroGuia>())
+                            {
+                                <option value="@g">@ConfiguracoesFaturamentoNaTela.Formato(g)</option>
+                            }
+                        </select>
+                    </Campo>
+                    <Campo Rotulo="Registro ANS desta operadora">
+                        <input class="campo" maxlength="20" placeholder="Em branco = usa o da clínica"
+                               value="@Convenio.RegistroAnsOperadora" @oninput="@(e => Mudar(() => Convenio.RegistroAnsOperadora = e.Value?.ToString()))" />
+                    </Campo>
+                </div>
+                <span class="campo-dica">A baixa recusa o número que não seguir esta forma — é o que pega o zero digitado como “O”, que hoje só aparece no retorno da operadora, semanas depois. O registro ANS sai no cabeçalho do lote TISS desta operadora.</span>
+            </div>
+
+            <div class="secao-form">
+                <h3>Como o faturamento é gerado</h3>
+                @if (Convenio.Familia != Clinica.Domain.Convenio.Personalizado)
+                {
+                    <p class="fat-conv-texto">Este convênio fatura pela regra fixa da família escolhida acima — quais códigos saem, quando o 2º libera e a cor do semáforo já estão no sistema e não se editam aqui.</p>
+                    <p class="fat-conv-texto">Os números dessa regra (validade da consulta, dias até o 2º código e as cores) valem para TODOS os convênios da mesma família e ficam em “Números das regras”, na tela de trás.</p>
+                }
+                else
+                {
+                    <p class="fat-conv-texto">Como este convênio é personalizado, os ajustes abaixo é que definem o que o sistema gera a cada atendimento.</p>
+                    <label class="alternar"><input type="checkbox" checked="@Convenio.FazEletro" @onchange="@(e => Mudar(() => Convenio.FazEletro = e.Value is true))" /> A clínica atende com eletroacupuntura neste convênio</label>
+                    <label class="alternar"><input type="checkbox" checked="@Convenio.TemSegundoCodigo" @onchange="@(e => Mudar(() => Convenio.TemSegundoCodigo = e.Value is true))" /> Gera um 2º código alguns dias depois do atendimento</label>
+                    <label class="alternar"><input type="checkbox" checked="@Convenio.SegundoCodigoDependeApp" @onchange="@(e => Mudar(() => Convenio.SegundoCodigoDependeApp = e.Value is true))" /> O 2º código só é possível se o paciente tiver o app do convênio</label>
+                    <label class="alternar"><input type="checkbox" checked="@Convenio.FaturaBsv" @onchange="@(e => Mudar(() => Convenio.FaturaBsv = e.Value is true))" /> Fatura BSV</label>
+                    <label class="alternar"><input type="checkbox" checked="@Convenio.InverteDatasBsv" @onchange="@(e => Mudar(() => Convenio.InverteDatasBsv = e.Value is true))" /> No BSV, as datas precisam ser invertidas no sistema da operadora</label>
+
+                    <div class="campos tres">
+                        <Campo Rotulo="Como o 2º código é obtido">
+                            <select class="campo" value="@Convenio.FormaSegundoCodigo"
+                                    @onchange="@(e => Mudar(() => { if (Enum.TryParse<FormaObtencao>(e.Value?.ToString(), out var f)) Convenio.FormaSegundoCodigo = f; }))">
+                                @foreach (var f in FormasDoCombo)
+                                {
+                                    <option value="@f">@ConfiguracoesFaturamentoNaTela.Forma(f)</option>
+                                }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Dias até o 2º código">
+                            <input type="number" min="0" max="999" class="campo" value="@Convenio.DiasSegundoCodigo"
+                                   @onchange="@(e => Mudar(() => { if (int.TryParse(e.Value?.ToString(), out var d) && d >= 0) Convenio.DiasSegundoCodigo = d; }))" />
+                        </Campo>
+                        <Campo Rotulo="Validade da consulta, em dias">
+                            <input type="number" min="0" max="9999" class="campo" placeholder="Não renova" value="@Convenio.ValidadeConsultaDias"
+                                   @onchange="@(e => Mudar(() => Convenio.ValidadeConsultaDias = int.TryParse(e.Value?.ToString(), out var v) && v >= 0 ? v : null))" />
+                        </Campo>
+                    </div>
+                    <span class="campo-dica">Deixe a validade da consulta em branco se este convênio não exige renovar a consulta de tempos em tempos.</span>
+
+                    <div class="campos">
+                        <Campo Rotulo="Semáforo quando o paciente TEM app">
+                            <select class="campo" value="@Convenio.CategoriaComApp"
+                                    @onchange="@(e => Mudar(() => { if (Enum.TryParse<Categoria>(e.Value?.ToString(), out var c)) Convenio.CategoriaComApp = c; }))">
+                                @foreach (var c in Enum.GetValues<Categoria>()) { <option value="@c">@ConfiguracoesFaturamentoNaTela.Categoria(c)</option> }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Semáforo quando NÃO tem app">
+                            <select class="campo" value="@Convenio.CategoriaSemApp"
+                                    @onchange="@(e => Mudar(() => { if (Enum.TryParse<Categoria>(e.Value?.ToString(), out var c)) Convenio.CategoriaSemApp = c; }))">
+                                @foreach (var c in Enum.GetValues<Categoria>()) { <option value="@c">@ConfiguracoesFaturamentoNaTela.Categoria(c)</option> }
+                            </select>
+                        </Campo>
+                    </div>
+                    <span class="campo-dica">É a cor com que a pendência do paciente aparece no painel: verde faz acupuntura + eletro e terá 2º código; amarela faz só acupuntura.</span>
+                }
+            </div>
+        </fieldset>
+        @if (!PodeEditar)
+        {
+            <Aviso Tom="info" Texto="Seu acesso permite ver a configuração, não alterá-la." />
+        }
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda">As alterações valem quando você clicar em “Salvar configurações”, na tela de trás.</span>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>A linha da lista da tela — editada no lugar.</summary>
+    [Parameter, EditorRequired] public ConvenioCadastro Convenio { get; set; } = default!;
+    [Parameter] public bool PodeEditar { get; set; }
+    /// <summary>Algo mudou: a tela marca "alterações não salvas" e redesenha a lista.</summary>
+    [Parameter] public EventCallback AoMudar { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private bool Embutido => ConfiguracoesFaturamentoNaTela.ConvenioEmbutido(Convenio);
+
+    // A forma gravada que não está entre as oferecidas (ex.: "não aplica", de uma base antiga)
+    // entra no combo, senão o select mostraria outra opção e a pessoa leria a errada.
+    private IEnumerable<FormaObtencao> FormasDoCombo =>
+        ConfiguracoesFaturamentoNaTela.FormasObtencao.Contains(Convenio.FormaSegundoCodigo)
+            ? ConfiguracoesFaturamentoNaTela.FormasObtencao
+            : ConfiguracoesFaturamentoNaTela.FormasObtencao.Prepend(Convenio.FormaSegundoCodigo);
+
+    private Task Mudar(Action alterar)
+    {
+        if (!PodeEditar) return Task.CompletedTask;
+        alterar();
+        return AoMudar.InvokeAsync();
+    }
+}

@@ -60,49 +60,14 @@ public static class RodadaPendenciasFluxo
         if (janela.ShowDialog() != true)
             return false;
 
-        // Aplica linha a linha, mas UMA falha (nº de guia inválido, concorrência etc.) não pode abortar
-        // as demais nem passar despercebida: registra a falha e segue; ao fim, resume o que não aplicou.
-        var falhas = new List<string>();
-        foreach (var l in janela.Linhas)
-        {
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(l.NumeroGuia))
-                {
-                    SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
-                    await faturamento.DarBaixaAsync(l.CodigoId, janela.DataBaixa, l.NumeroGuia!.Trim(),
-                        SessaoUsuario.Atual.Operador, "baixa na rodada de pendências");
-                }
-                else if (!string.IsNullOrWhiteSpace(l.Justificativa))
-                {
-                    SessaoUsuario.Atual.Exigir(
-                        Permissao.MarcarNaoConformidade, "registrar a não conformidade");
-                    await rodada.MarcarNaoConformidadeAsync(l.CodigoId, l.Justificativa!.Trim(), SessaoUsuario.Atual.Operador);
-                }
-            }
-            catch (Exception ex)
-            {
-                LogErros.Registrar($"Rodada de pendências — falha ao aplicar guia {l.CodigoId}", ex);
-                falhas.Add($"• {l.Descricao}: {ex.Message}");
-            }
-        }
-
-        if (falhas.Count > 0)
-            MessageBox.Show(
-                $"{falhas.Count} guia(s) não puderam ser aplicadas e continuam pendentes:\n\n" +
-                string.Join("\n", falhas) +
-                "\n\nO restante foi processado. Reveja essas guias no painel.",
-                "Rodar pendências", MessageBoxButton.OK, MessageBoxImage.Warning);
+        // Aplica linha a linha pela MESMA regra do painel (DecisoesDaRodada): uma falha não
+        // aborta as demais nem passa despercebida.
+        var falhas = await DecisoesDaRodada.AplicarAsync(janela.Linhas, janela.DataBaixa, faturamento, rodada);
+        if (DecisoesDaRodada.ResumoDasFalhas(falhas) is { } resumo)
+            MessageBox.Show(resumo, "Rodar pendências", MessageBoxButton.OK, MessageBoxImage.Warning);
 
         return true;
     }
 
-    /// <summary>
-    /// A rodada só faz sentido para quem consegue tomar ALGUMA das duas decisões que ela
-    /// cobra. Com uma das duas já dá para andar: quem só pode baixar resolve as guias que
-    /// saíram, e as demais continuam pendentes — que é a verdade sobre elas.
-    /// </summary>
-    private static bool PodeDecidir()
-        => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia)
-           || SessaoUsuario.Atual.Pode(Permissao.MarcarNaoConformidade);
+    private static bool PodeDecidir() => DecisoesDaRodada.PodeDecidir();
 }

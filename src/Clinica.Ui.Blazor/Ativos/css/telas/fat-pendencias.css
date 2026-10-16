@@ -1,0 +1,85 @@
+/* fat-pendencias: estilo só desta tela do Faturamento (tokens apenas). */
+
+/* Banner da rodada (vencida / não verificada): o botão mora DENTRO da faixa, à direita. */
+.fat-pendencias .faixa-rodada .aviso{align-items:center}
+.fat-pendencias .faixa-rodada .aviso > span{flex:1;font-weight:600}
+.fat-pendencias .faixa-rodada .aviso .botao{flex:none}
+
+/* A barra do cartão "Urgentes": quanto da pilha está no vermelho. */
+.fat-pendencias .barra-urgentes{height:6px;margin-top:var(--space-2);border-radius:var(--radius-pilula);background:var(--erro-suave);overflow:hidden}
+.fat-pendencias .barra-urgentes > i{display:block;height:100%;background:var(--erro);border-radius:var(--radius-pilula)}
+
+/* Título da lista: o resumo do recorte com o "Limpar" ao lado. */
+.fat-pendencias .lista-cartao .cartao-titulo{padding:var(--space-4) var(--space-6) var(--space-2);margin-bottom:0;align-items:center}
+.fat-pendencias .cartao-titulo p{font-weight:600}
+.fat-pendencias .botao.limpar{height:auto;padding:2px 8px;margin-left:var(--space-2);font-weight:600}
+.fat-pendencias .lista-cartao + .lista-cartao{margin-top:var(--space-4)}
+
+/* Chips: a pergunta de duas respostas, com a contagem À VISTA antes do clique. */
+.fat-pendencias .chips{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);padding-bottom:2px}
+.fat-pendencias .chips-separador{width:1px;align-self:stretch;margin:4px var(--space-1);background:var(--borda)}
+.fat-pendencias .chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:var(--radius-pilula);
+  border:1px solid var(--borda);background:var(--superficie);color:var(--cinza-700);font:inherit;font-size:var(--text-table-size);cursor:pointer;white-space:nowrap;
+  transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.fat-pendencias .chip:hover{border-color:var(--borda-hover);background:var(--superficie-hover)}
+.fat-pendencias .chip b{font-weight:700;color:var(--texto-primario)}
+.fat-pendencias .chip[aria-pressed="true"]{background:var(--acento-suave);border-color:var(--acento-tint);color:var(--acento)}
+.fat-pendencias .chip[aria-pressed="true"] b{color:var(--acento)}
+.fat-pendencias .filtros .campo-bloco{min-width:150px;max-width:190px}
+
+/* Semáforo da guia (verde/amarelo/vermelho/cinza). */
+.fat-pendencias .semaforo{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;background:var(--semaforo-verde)}
+.fat-pendencias .semaforo.amarelo{background:var(--semaforo-amarelo)}
+.fat-pendencias .semaforo.vermelho{background:var(--semaforo-vermelho)}
+.fat-pendencias .semaforo.cinza{background:var(--cinza-300)}
+.fat-pendencias .com-semaforo{display:inline-flex;align-items:center;gap:var(--space-2)}
+
+/* Primeira coluna: semáforo + caixinha da baixa em lote. */
+.fat-pendencias table.lista th.col-marca,.fat-pendencias table.lista td.col-marca{width:64px;white-space:nowrap}
+.fat-pendencias td.col-marca{display:table-cell}
+.fat-pendencias td.col-marca .semaforo{margin-right:var(--space-2);vertical-align:middle}
+.fat-pendencias td.col-marca input,.fat-pendencias th.col-marca input{width:16px;height:16px;accent-color:var(--acento);vertical-align:middle;margin:0}
+.fat-pendencias tr.marcada td{background:var(--acento-suave)}
+
+/* Observação: uma linha com reticências; o texto inteiro na dica. */
+.fat-pendencias td.col-obs{max-width:220px}
+.fat-pendencias .obs{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.fat-pendencias .secundario.atrasada{color:var(--erro-texto);font-weight:600}
+.fat-pendencias .sem-telefone{font-style:italic}
+
+/* O dado que se COPIA: mão e sublinhado no hover — recurso que não se anuncia ninguém descobre. */
+.fat-pendencias .copiavel{cursor:pointer;border-radius:var(--radius-pequeno)}
+.fat-pendencias .copiavel:hover{text-decoration:underline;text-decoration-color:var(--acento-tint);text-underline-offset:3px}
+.fat-pendencias span.copiavel:not(.secundario){display:inline}
+.fat-pendencias .botao.icone.com-nota{border-color:var(--aviso);color:var(--aviso-texto);background:var(--aviso-suave)}
+
+/* Em 1024 a observação cede antes das ações. */
+@media (max-width:1180px){
+  .fat-pendencias td.col-obs,.fat-pendencias .obs{max-width:140px}
+}
+
+/* ---------- Formulários do painel ---------- */
+.fat-baixa-guia .guia-resumo{display:flex;flex-direction:column;gap:2px;padding:var(--space-3) var(--space-4);margin-bottom:var(--space-3);
+  border-radius:var(--radius-control);background:var(--info-suave);color:var(--info-texto)}
+.fat-baixa-guia .guia-resumo .principal{color:var(--info-texto)}
+.fat-baixa-guia .aviso{margin-bottom:var(--space-3)}
+.numero-guia{font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.campo.invalido{border-color:var(--erro)}
+.fat-lote,.fat-rodada{max-height:420px;overflow:auto;margin-top:var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control)}
+.fat-lote table.lista td,.fat-rodada table.lista td{vertical-align:top}
+.fat-lote .campo-erro,.fat-lote .campo-dica,.fat-rodada .campo-erro{display:block;margin-top:4px;white-space:normal}
+.fat-lote .campo-dica{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.fat-rodada textarea.campo{min-height:36px;resize:vertical}
+.fat-mensagem .aviso{margin-top:var(--space-3)}
+.fat-mensagem .aviso span{white-space:pre-line}
+
+/* Ajustes medidos nas fotos de 1024/1366. */
+.fat-pendencias .chips{flex-basis:100%}
+.fat-pendencias .botao.mini{white-space:nowrap}
+.fat-pendencias .telefone{white-space:nowrap}
+/* A lista das guias rola por dentro (como o MaxHeight do WPF): 60 pendências não podem empurrar
+   glosas, carteirinhas e consultas para longe — o cabeçalho fica preso no alto. */
+.fat-pendencias .tabela-rolagem.guias{max-height:560px;overflow:auto}
+.fat-pendencias .tabela-rolagem.guias thead th{position:sticky;top:0;z-index:1}
+.fat-pendencias td.col-conv{min-width:150px}
+textarea.campo.fat-texto{font:inherit}

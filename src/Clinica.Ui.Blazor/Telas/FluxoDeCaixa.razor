@@ -1,0 +1,437 @@
+@*
+  FLUXO DE CAIXA — a primeira tela do piloto em Blazor (out/2026, docs/piloto-blazor.md).
+
+  Responde as MESMAS duas perguntas da tela WPF (FluxoCaixaView), sobre o MESMO serviço
+  (FluxoCaixaService): "como está o mês comparado com os anteriores?" e "para onde está
+  indo o dinheiro?". Nenhuma regra mora aqui — a tela só desenha o que o serviço devolve.
+
+  As duas honestidades do serviço continuam escritas na tela, porque o desenho mais bonito
+  não pode desfazê-las:
+  1. Realizado e previsto nunca viram uma barra só — o previsto é a parte HACHURADA.
+  2. A última coluna da tabela é VARIAÇÃO acumulada, e não saldo em conta.
+*@
+@inherits TelaBase
+
+<div class="pagina @(Carregando && Serie.Count > 0 ? "carregando" : null)">
+
+    <header class="cabecalho">
+        <div>
+            <p class="sobretitulo">Financeiro · Caixa</p>
+            <h1>Fluxo de caixa</h1>
+            <p class="subtitulo">O que entrou e o que saiu, mês a mês, e para onde o dinheiro está indo.
+                O previsto aparece hachurado e nunca se soma ao que já aconteceu.</p>
+        </div>
+        <div class="acoes">
+            <div class="segmentado" role="group" aria-label="Período">
+                @foreach (var j in Janelas)
+                {
+                    <button type="button" aria-pressed="@(j == MesesJanela ? "true" : "false")"
+                            @onclick="() => TrocarJanela(j)">@j meses</button>
+                }
+            </div>
+            <label class="alternar" title="A quebra por categoria responde para onde o dinheiro JÁ foi. Ligue para incluir o que ainda vai vencer.">
+                <input type="checkbox" checked="@IncluirPrevisto" @onchange="TrocarPrevisto" />
+                Previsto nas categorias
+            </label>
+            <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(Serie.Count == 0 || Exportando)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+                Exportar CSV
+            </button>
+        </div>
+    </header>
+
+    @if (Mensagem is not null)
+    {
+        <div class="aviso @(MensagemEhErro ? "erro" : "info")" role="status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" stroke-linecap="round" /></svg>
+            <span>@Mensagem</span>
+        </div>
+    }
+
+    @if (Serie.Count == 0 && Carregando)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++)
+            {
+                <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div>
+            }
+        </section>
+        <div class="cartao cartao-corpo"><div class="esqueleto" style="height:280px"></div></div>
+    }
+    else if (Serie.Count > 0)
+    {
+        <section class="kpis" aria-label="Resumo do período">
+            <Kpi Rotulo="Entrou" Valor="@Formato.Dinheiro(Resumo?.Entradas ?? 0m)" Icone="entrada" Nota="@($"Recebido de {PeriodoTexto}")" />
+            <Kpi Rotulo="Saiu" Valor="@Formato.Dinheiro(Resumo?.Saidas ?? 0m)" Icone="saida" Tom="saida" Nota="@(MaiorSaidaTexto ?? "Nenhuma despesa no período")" />
+            <Kpi Rotulo="Resultado" Valor="@Formato.Dinheiro(Resumo?.Resultado ?? 0m)" Icone="resultado"
+                 Tom="@(ResultadoNegativo ? "perigo" : "sucesso")" ClasseValor="@(ResultadoNegativo ? "negativo" : "positivo")"
+                 Nota="Entradas menos saídas realizadas" />
+            @* Sem receita a margem não é 0% — ela não existe ("—"), como na tela WPF. *@
+            <Kpi Rotulo="Margem" Valor="@(Resumo?.Margem is { } margem ? Formato.Porcentagem(margem) : "—")" Icone="margem" Tom="neutro"
+                 Nota="De cada real que entrou, quanto sobrou" />
+        </section>
+
+        <section class="cartao cartao-corpo">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>Entradas e saídas por mês</h2>
+                    <p>Passe o mouse sobre um mês para ver os números.</p>
+                </div>
+                <div class="legenda" aria-hidden="true">
+                    <span><i class="amostra entrada"></i>Entradas</span>
+                    <span><i class="amostra saida"></i>Saídas</span>
+                    <span><i class="amostra prevista"></i>Previsto (ainda vai vencer)</span>
+                </div>
+            </div>
+            @if (Serie.All(s => s.Vazio))
+            {
+                <div class="vazio-estado"><strong>Nenhum lançamento no período</strong>Lance entradas e saídas no Caixa para o fluxo aparecer aqui.</div>
+            }
+            else
+            {
+                <div class="grafico">
+                    <svg viewBox="0 0 @G.Largura @G.Altura" role="img" aria-label="Gráfico de entradas e saídas por mês. Os números estão na tabela abaixo.">
+                        <defs>
+                            <pattern id="hach-entrada" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                                <rect width="5" height="5" fill="#D8E3F7" /><line x1="0" y1="0" x2="0" y2="5" stroke="#3F62C9" stroke-width="2" />
+                            </pattern>
+                            <pattern id="hach-saida" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                                <rect width="5" height="5" fill="#E0F2FE" /><line x1="0" y1="0" x2="0" y2="5" stroke="#0EA5E9" stroke-width="2" />
+                            </pattern>
+                        </defs>
+                        <g class="grade eixo">
+                            @foreach (var t in G.Marcas)
+                            {
+                                var y = G.Y(t);
+                                <line x1="@N(G.Esquerda)" x2="@N(G.Largura - G.Direita)" y1="@N(y)" y2="@N(y)" class="@(t == 0m ? "zero" : null)" />
+                                @Texto(G.Esquerda - 10, y + 4, "end", null, Formato.DinheiroCurto(t))
+                            }
+                        </g>
+                        @for (var i = 0; i < Serie.Count; i++)
+                        {
+                            var indice = i;
+                            var m = Serie[i];
+                            var x0 = G.Esquerda + i * G.Coluna;
+                            var centro = x0 + G.Coluna / 2;
+                            var xe = centro - G.Barra - 1;
+                            var xs = centro + 1;
+                            var atual = m.Ano == Hoje.Year && m.Mes == Hoje.Month;
+                            <g class="mes @(Ativo == indice ? "ativo" : null) @(atual ? "atual" : null)"
+                               @onmouseenter="() => Ativo = indice" @onmouseleave="() => Ativo = null">
+                                <rect class="alvo" x="@N(x0 + 2)" y="@N(G.Topo)" width="@N(G.Coluna - 4)" height="@N(G.Base - G.Topo)" rx="6" />
+                                @Pilha(xe, m.EntradasRealizadas, m.EntradasPrevistas, "barra-entrada", "url(#hach-entrada)")
+                                @Pilha(xs, m.SaidasRealizadas, m.SaidasPrevistas, "barra-saida", "url(#hach-saida)")
+                                @if (MostrarRotulo(i))
+                                {
+                                    @Texto(centro, G.Altura - 6, "middle", "rotulo-mes", m.Rotulo)
+                                }
+                            </g>
+                        }
+                    </svg>
+                    @if (Ativo is { } a && a < Serie.Count)
+                    {
+                        var m = Serie[a];
+                        var pos = (G.Esquerda + (a + 0.5) * G.Coluna) / G.Largura * 100;
+                        @* A dica fica AO LADO da coluna, nunca em cima dela: cobrir a barra que se está lendo
+                           é esconder o número que ela explica. *@
+                        <div class="dica @(pos > 60 ? "esquerda" : "direita")" style="left:@N((G.Esquerda + (pos > 60 ? a : a + 1) * G.Coluna) / G.Largura * 100)%">
+                            <strong>@NomeDoMes(m)</strong>
+                            <div class="linha"><span><i class="amostra entrada"></i>Entrou</span><b>@Formato.Dinheiro(m.EntradasRealizadas)</b></div>
+                            <div class="linha"><span><i class="amostra saida"></i>Saiu</span><b>@Formato.Dinheiro(m.SaidasRealizadas)</b></div>
+                            <div class="linha"><span>Resultado</span><b class="@(m.Realizado < 0 ? "negativo" : "positivo")">@Formato.Dinheiro(m.Realizado)</b></div>
+                            @if (m.EntradasPrevistas != 0m || m.SaidasPrevistas != 0m)
+                            {
+                                <hr />
+                                <div class="linha"><span><i class="amostra prevista"></i>A receber</span><b>@Formato.Dinheiro(m.EntradasPrevistas)</b></div>
+                                <div class="linha"><span><i class="amostra prevista"></i>A pagar</span><b>@Formato.Dinheiro(m.SaidasPrevistas)</b></div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="duas-colunas">
+            <div class="cartao cartao-corpo">
+                <div class="cartao-titulo"><div><h2>De onde veio</h2><p>Entradas por categoria · @PeriodoTexto</p></div></div>
+                @ListaCategorias(Entradas, false, "Nenhuma entrada no período.")
+            </div>
+            <div class="cartao cartao-corpo">
+                <div class="cartao-titulo"><div><h2>Para onde foi</h2><p>Saídas por categoria · @PeriodoTexto</p></div></div>
+                @ListaCategorias(Saidas, true, "Nenhuma saída no período.")
+            </div>
+        </section>
+
+        <section class="cartao">
+            <div class="cartao-corpo" style="padding-bottom:var(--space-2)">
+                <div class="cartao-titulo">
+                    <div>
+                        <h2>Mês a mês</h2>
+                        <p>A última coluna é a variação acumulada desde o início do período — <b>não é o saldo da conta</b>, porque a clínica não cadastrou saldo inicial.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="tabela-rolagem">
+                <table>
+                    <thead><tr><th>Mês</th><th>Entrou</th><th>Saiu</th><th>Resultado</th><th>Previsto</th><th>Variação acumulada</th></tr></thead>
+                    <tbody>
+                        @foreach (var (m, acumulado) in Acumulado)
+                        {
+                            var atual = m.Ano == Hoje.Year && m.Mes == Hoje.Month;
+                            <tr class="@(atual ? "atual" : null)">
+                                <td>@NomeDoMes(m)@if (atual) {<span class="selo">em curso</span>}</td>
+                                <td>@Formato.Dinheiro(m.EntradasRealizadas)</td>
+                                <td>@Formato.Dinheiro(m.SaidasRealizadas)</td>
+                                <td class="@(m.Realizado < 0 ? "negativo" : null)">@Formato.Dinheiro(m.Realizado)</td>
+                                @* "R$ 0,00" num mês fechado sugeriria que ainda há algo por vir. *@
+                                @if (m.Previsto == 0m) { <td class="vazio">—</td> } else { <td>@Formato.Dinheiro(m.Previsto)</td> }
+                                <td class="@(acumulado < 0 ? "negativo" : null)">@Formato.Dinheiro(acumulado)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private static readonly int[] Janelas = [3, 6, 12, 24];
+    private static readonly string[] NomesMes =
+        ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+    private int MesesJanela = 12;
+    private bool IncluirPrevisto;
+    private bool Carregando;
+    private bool Exportando;
+    private string? Mensagem;
+    private bool MensagemEhErro;
+    private int? Ativo;
+    private DateOnly Hoje = DateOnly.FromDateTime(DateTime.Today);
+
+    private IReadOnlyList<MesFluxo> Serie = [];
+    private IReadOnlyList<(MesFluxo Mes, decimal Acumulado)> Acumulado = [];
+    private IReadOnlyList<ResultadoCategoria> Entradas = [];
+    private IReadOnlyList<ResultadoCategoria> Saidas = [];
+    private ResumoFluxo? Resumo;
+    private string PeriodoTexto = string.Empty;
+    private Geometria G = Geometria.Vazia;
+
+    private bool ResultadoNegativo => (Resumo?.Resultado ?? 0m) < 0m;
+
+    private string? MaiorSaidaTexto => Resumo?.MaiorSaida is { } s
+        ? $"Maior despesa: {s.Categoria} ({Formato.Porcentagem(s.Fracao)})"
+        : null;
+
+    // Descarte de resposta fora de ordem (parcela 50): trocar a janela duas vezes rápido
+    // não pode deixar a série de uma janela sob o período escrito da outra.
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private Task TrocarJanela(int meses)
+    {
+        if (meses == MesesJanela) return Task.CompletedTask;
+        MesesJanela = meses;
+        return CarregarAsync();
+    }
+
+    private Task TrocarPrevisto(ChangeEventArgs e)
+    {
+        IncluirPrevisto = e.Value is true || (e.Value as string) == "true";
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        Mensagem = null;
+        MensagemEhErro = false;
+        Ativo = null;
+
+        try
+        {
+            // Escopo POR operação, nunca o do hospedeiro: a tela vive a manhã inteira, e um
+            // DbContext de vida longa responderia com o que leu na abertura (checagem 37).
+            using var escopo = Escopos.CreateScope();
+            var fluxo = escopo.ServiceProvider.GetRequiredService<FluxoCaixaService>();
+
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var serie = await fluxo.ProjecaoAsync(hoje, MesesJanela);
+            if (geracao != _geracao || Descartada) return;
+
+            // A quebra por categoria é do período INTEIRO da janela — a despesa trimestral
+            // que explica o mês ruim sumiria numa quebra mensal (a regra da tela WPF).
+            var inicio = new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(-(MesesJanela - 1));
+            var fim = new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(1).AddDays(-1);
+            var categorias = await fluxo.PorCategoriaAsync(inicio, fim, IncluirPrevisto);
+            if (geracao != _geracao || Descartada) return;
+
+            // Tudo publicado de uma vez, depois do último await (parcela 62).
+            Hoje = hoje;
+            Serie = serie;
+            Acumulado = FluxoCaixaService.Acumular(serie);
+            Entradas = categorias.Where(c => c.Tipo == TipoLancamento.Entrada).ToList();
+            Saidas = categorias.Where(c => c.Tipo == TipoLancamento.Saida).ToList();
+            Resumo = FluxoCaixaService.Resumir(categorias);
+            PeriodoTexto = $"{NomeCurto(inicio)} a {NomeCurto(fim)}";
+            G = Geometria.Montar(serie);
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Financeiro (Blazor) — fluxo de caixa não pôde ser lido", ex);
+            // Terceiro estado: a falha diz que é falha, e a série anterior continua na tela.
+            Mensagem = $"Não foi possível montar o fluxo: {ex.Message}";
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private async Task ExportarAsync()
+    {
+        // CSV é saída de dado e leva a segunda barreira, como na tela WPF.
+        if (!Exigir(Permissao.VerFinanceiro, "exportar o fluxo de caixa")) return;
+        Exportando = true;
+        try
+        {
+
+            var linhas = new List<IReadOnlyList<string>>();
+            foreach (var (m, acumulado) in Acumulado)
+                linhas.Add(["Mes", m.Rotulo, Formato.Dinheiro(m.EntradasRealizadas), Formato.Dinheiro(m.SaidasRealizadas),
+                    Formato.Dinheiro(m.Realizado), m.Previsto == 0m ? "—" : Formato.Dinheiro(m.Previsto), Formato.Dinheiro(acumulado)]);
+            foreach (var c in Entradas)
+                linhas.Add(["Entrada", c.Categoria, Formato.Dinheiro(c.Total), "", "", "", ""]);
+            foreach (var c in Saidas)
+                linhas.Add(["Saida", c.Categoria, "", Formato.Dinheiro(c.Total), "", "", ""]);
+
+            var erro = await Host.ExportarCsvAsync(
+                ["Tipo", "Rotulo", "Entradas", "Saidas", "Resultado", "Previsto", "Acumulado"],
+                linhas, $"fluxo-caixa-{DateTime.Today:yyyy-MM-dd}.csv");
+            Mensagem = erro;
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro (Blazor) — fluxo não pôde ser exportado", ex);
+            Mensagem = $"Não foi possível exportar: {ex.Message}";
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            Exportando = false;
+        }
+    }
+
+    private bool MostrarRotulo(int i) => Serie.Count <= 12 || i % 2 == (Serie.Count - 1) % 2;
+
+    private static string NomeDoMes(MesFluxo m) => $"{Maiuscula(NomesMes[m.Mes - 1])} de {m.Ano}";
+    private static string NomeCurto(DateOnly d) => $"{NomesMes[d.Month - 1][..3]}/{d.Year % 100:00}";
+    private static string Maiuscula(string s) => char.ToUpper(s[0], Formato.PtBr) + s[1..];
+
+    /// <summary>Número para atributo SVG: ponto decimal SEMPRE — "110,5" é atributo inválido.</summary>
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+    private static string N(decimal v) => N((double)v);
+
+    private RenderFragment Pilha(double x, decimal realizado, decimal previsto, string classe, string hachura) => __builder =>
+    {
+        var hReal = G.Altura0(realizado);
+        var hPrev = G.Altura0(previsto);
+        var yReal = G.Base - hReal;
+        // O 2px de superfície entre o realizado e o previsto (marca de pilha); só a ponta
+        // de cima é arredondada, e a barra encosta na linha do zero.
+        if (hReal > 0)
+        {
+            <path class="@classe" d="@Barra(x, yReal, G.Barra, hReal, hPrev <= 0)" />
+        }
+        if (hPrev > 0)
+        {
+            var yPrev = yReal - hPrev - (hReal > 0 ? 2 : 0);
+            <path d="@Barra(x, yPrev, G.Barra, hPrev, true)" fill="@hachura" />
+        }
+    };
+
+    private static string Barra(double x, double y, double w, double h, bool arredondar)
+    {
+        var r = arredondar ? Math.Min(4, Math.Min(w / 2, h)) : 0;
+        return $"M{N(x)},{N(y + h)}V{N(y + r)}Q{N(x)},{N(y)} {N(x + r)},{N(y)}H{N(x + w - r)}Q{N(x + w)},{N(y)} {N(x + w)},{N(y + r)}V{N(y + h)}Z";
+    }
+
+    // `<text>` é palavra reservada do Razor, então o texto do SVG sai pelo construtor da árvore.
+    private static RenderFragment Texto(double x, double y, string ancora, string? classe, string conteudo) => b =>
+    {
+        b.OpenElement(0, "text");
+        b.AddAttribute(1, "x", N(x));
+        b.AddAttribute(2, "y", N(y));
+        b.AddAttribute(3, "text-anchor", ancora);
+        if (classe is not null) b.AddAttribute(4, "class", classe);
+        b.AddContent(5, conteudo);
+        b.CloseElement();
+    };
+
+    private RenderFragment ListaCategorias(IReadOnlyList<ResultadoCategoria> lista, bool saidas, string vazio) => __builder =>
+    {
+        if (lista.Count == 0)
+        {
+            <div class="vazio-estado">@vazio</div>
+            return;
+        }
+        <ul class="categorias @(saidas ? "saidas" : null)">
+            @foreach (var c in lista)
+            {
+                // "Sem categoria" aparece, nunca some: é o dinheiro que a direção precisa mandar classificar.
+                <li class="@(c.Categoria == "Sem categoria" ? "sem-categoria" : null)">
+                    <div class="categoria-topo">
+                        <span class="categoria-nome" title="@c.Categoria">@c.Categoria</span>
+                        <span class="categoria-valor">@Formato.Dinheiro(c.Total)<small>@Formato.Porcentagem(c.Fracao) · @c.Quantidade lanç.</small></span>
+                    </div>
+                    <div class="trilho"><i style="width:@N(Math.Max(c.Fracao * 100, 1.5))%"></i></div>
+                </li>
+            }
+        </ul>
+    };
+
+
+    /// <summary>
+    /// As contas do desenho. O eixo ANCORA NO ZERO (a regra do gráfico da casa): escala que
+    /// começa no menor valor transforma variação de 2% num despencar visual.
+    /// </summary>
+    private sealed record Geometria(double Largura, double Altura, double Esquerda, double Direita,
+        double Topo, double Base, double Coluna, double Barra, decimal Maximo, IReadOnlyList<decimal> Marcas)
+    {
+        public static readonly Geometria Vazia = new(1000, 300, 72, 8, 12, 272, 1, 1, 1, [0m]);
+
+        public double Y(decimal valor) => Base - Altura0(valor);
+        public double Altura0(decimal valor) =>
+            valor <= 0 || Maximo <= 0 ? 0 : (double)(valor / Maximo) * (Base - Topo);
+
+        public static Geometria Montar(IReadOnlyList<MesFluxo> serie)
+        {
+            const double largura = 1000, altura = 300, esquerda = 72, direita = 8, topo = 12, @base = 272;
+            var maior = serie.Count == 0 ? 0m : serie.Max(m => Math.Max(
+                m.EntradasRealizadas + m.EntradasPrevistas, m.SaidasRealizadas + m.SaidasPrevistas));
+            var passo = PassoRedondo(maior / 4m);
+            var maximo = passo * 4m;
+            var marcas = Enumerable.Range(0, 5).Select(i => passo * i).ToList();
+            var coluna = (largura - esquerda - direita) / Math.Max(serie.Count, 1);
+            var barra = Math.Clamp(coluna * 0.3, 6, 26);
+            return new Geometria(largura, altura, esquerda, direita, topo, @base, coluna, barra, maximo, marcas);
+        }
+
+        /// <summary>1, 2, 2,5 ou 5 vezes uma potência de dez — o eixo lê "R$ 5 mil", nunca "R$ 4.871".</summary>
+        private static decimal PassoRedondo(decimal bruto)
+        {
+            if (bruto <= 0) return 1000m;
+            var potencia = (decimal)Math.Pow(10, Math.Floor(Math.Log10((double)bruto)));
+            foreach (var f in new[] { 1m, 2m, 2.5m, 5m, 10m })
+                if (potencia * f >= bruto) return potencia * f;
+            return potencia * 10m;
+        }
+    }
+}

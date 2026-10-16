@@ -1,0 +1,39 @@
+/* fat-glosas: estilo só desta tela do Faturamento (tokens apenas). Telas: GlosasERecursos + GuiaGlosasForm. */
+.fat-glosas .filtros{border-bottom:0}
+.fat-glosas .filtros .estreito{min-width:150px;max-width:170px}
+.fat-glosas .filtros .marcar{padding-bottom:9px}
+
+/* O que mais glosa nesta clínica: o padrão da clínica, com o que fazer a respeito. */
+.fat-glosas .motivos-recorrentes{padding:var(--space-4) var(--space-6)}
+.fat-glosas .motivos-recorrentes h3{margin:0 0 var(--space-2);font-size:var(--text-body-size);font-weight:var(--text-label-weight)}
+.fat-glosas .motivos-recorrentes ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.fat-glosas .motivos-recorrentes li{display:flex;align-items:center;gap:var(--space-3)}
+.fat-glosas .motivos-recorrentes li .selo{margin-left:0;flex:none;max-width:40%;white-space:normal}
+.fat-glosas .motivos-recorrentes .como-evitar{flex:1;min-width:0;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.4}
+.fat-glosas .motivos-recorrentes li .botao{flex:none}
+
+.fat-glosas table.lista{table-layout:fixed}
+.fat-glosas table.lista td .principal,.fat-glosas table.lista td .secundario{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fat-glosas table.lista td .principal{display:block}
+.fat-glosas td .selo{margin-left:0}
+
+/* O guia "Por que as guias são glosadas": lista de códigos à esquerda, o detalhe à direita. */
+.guia-glosas{display:grid;grid-template-columns:300px 1fr;gap:var(--space-6);min-height:0}
+.guia-glosas-lista{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.guia-glosas-itens{list-style:none;margin:0;padding:0;max-height:420px;overflow-y:auto;border:1px solid var(--borda);border-radius:var(--radius-control)}
+.guia-glosas-itens li + li{border-top:1px solid var(--borda)}
+.guia-glosas-item{display:block;width:100%;text-align:left;border:0;background:var(--superficie);padding:var(--space-2) var(--space-3);cursor:pointer;
+  font:inherit;color:var(--texto-primario)}
+.guia-glosas-item:hover{background:var(--superficie-hover)}
+.guia-glosas-item.ativo{background:var(--acento-suave);box-shadow:inset 3px 0 0 var(--acento)}
+.guia-glosas-codigo{display:block;font-weight:700;color:var(--acento);font-size:var(--text-small-size)}
+.guia-glosas-descricao{display:block;font-weight:600;margin-top:2px;line-height:1.35}
+.guia-glosas-detalhe{min-width:0;max-height:470px;overflow-y:auto}
+.guia-glosas-detalhe h3{margin:var(--space-3) 0 0;font-size:var(--text-h3-size);font-weight:var(--text-h3-weight)}
+.guia-glosas-detalhe p{margin:var(--space-2) 0 0;line-height:1.6}
+.guia-glosas-selos{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.guia-glosas-selos .selo{margin-left:0}
+.guia-glosas-secao{margin:var(--space-4) 0 0;padding-bottom:var(--space-1);border-bottom:1px solid var(--borda);
+  font-size:var(--text-small-size);letter-spacing:var(--text-secao-tracking);text-transform:uppercase;color:var(--texto-secundario)}
+.guia-glosas-detalhe .aviso{margin-top:var(--space-4)}
+@media (max-width:1100px){.guia-glosas{grid-template-columns:240px 1fr}}

@@ -223,4 +223,43 @@ public sealed class AcompanhamentoPacienteTests : IDisposable
             return result;
         }
     }
+
+    // ===== desenho A do Relacionamento (out/2026) =====
+
+    [Fact] public async Task Assumir_nao_pede_texto_grava_quem_assumiu_e_nao_mexe_na_etapa()
+    {
+        await svc.ConfigurarAsync(gestora.Id, medico.ProfissionalId!.Value, 0);
+        await svc.IndicarBsvAsync(medico.Id, consulta.Id); var linha = await Linha();
+        Assert.Null(linha.ResponsavelId);
+        await svc.AssumirAsync(recepcao.Id, linha.Id, linha.Versao);
+        var depois = await Linha();
+        Assert.Equal(recepcao.Id, depois.ResponsavelId);
+        Assert.Equal(linha.Etapa, depois.Etapa);
+        var trilha = await svc.HistoricoAsync(gestora.Id, linha.Id);
+        Assert.Contains(trilha, c => c.Resultado.EndsWith("Assumiu o acompanhamento") && c.Operador == recepcao.Login);
+        // Com a versão velha, a outra máquina leva a frase — não toma o caso de quem pegou primeiro.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.AssumirAsync(gestora.Id, linha.Id, linha.Versao));
+    }
+
+    [Fact] public async Task Desfecho_de_rotina_grava_sem_observacao_mas_encerrar_continua_pedindo_justificativa()
+    {
+        await svc.IndicarBsvAsync(medico.Id, consulta.Id); await Consentir(); var linha = await Linha();
+        await svc.AtualizarAsync(recepcao.Id, linha.Id, new(Guid.NewGuid(), linha.Versao, recepcao.Id,
+            DateOnly.FromDateTime(DateTime.Today.AddDays(2)), EtapaAcompanhamento.SemResposta, CanalContato.WhatsApp, ""));
+        linha = await Linha();
+        Assert.Equal(1, linha.Tentativas);
+        await svc.AdicionarMotivoAsync(gestora.Id, "Paciente desistiu"); var motivo = await db.MotivosAcompanhamento.SingleAsync(m => m.Nome == "Paciente desistiu");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.AtualizarAsync(recepcao.Id, linha.Id, new(Guid.NewGuid(), linha.Versao,
+            recepcao.Id, null, EtapaAcompanhamento.AContatar, null, "", Encerrar: true, MotivoId: motivo.Id)));
+    }
+
+    [Fact] public async Task A_linha_diz_quando_o_paciente_voltou()
+    {
+        await svc.IndicarBsvAsync(medico.Id, consulta.Id);
+        Assert.Null((await Linha()).VoltouEm);
+        Atendimento(ModalidadeAtendimento.BsvApenas, 1);
+        var linha = await Linha();
+        Assert.Equal(DateOnly.FromDateTime(DateTime.Today.AddDays(1)), linha.VoltouEm);
+        Assert.False(linha.Pendente);
+    }
 }

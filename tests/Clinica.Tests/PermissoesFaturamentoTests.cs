@@ -17,6 +17,7 @@ namespace Clinica.Tests;
 /// mudar um padrão, é aqui que aparece — e a pergunta passa a ser "a direção decidiu
 /// isso?", que é a pergunta certa.
 /// </summary>
+[Collection(ColecaoDiagnostico.Nome)]
 public class PermissoesFaturamentoTests
 {
     /// <summary>
@@ -588,5 +589,10 @@ public class PermissoesFaturamentoTests
         // O operador gravado na auditoria passa a ser o LOGIN, não o usuário do Windows —
         // que é o que faltava para a direção conseguir auditar quem fez o quê.
         sessao.Operador.Should().Be("ana");
+
+        // `Entrar` aponta o SessaoUsuario.Atual GLOBAL para esta sessão. Sem devolvê-lo à
+        // sessão anônima, todo teste que rodar depois neste processo herda uma Faturista sem
+        // NC — foi assim que DecisoesDaRodadaTests falhava "às vezes", conforme a ordem.
+        new SessaoUsuario().Entrar(new UsuarioSistema());
     }
 }

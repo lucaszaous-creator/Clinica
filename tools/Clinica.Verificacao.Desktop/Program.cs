@@ -28,6 +28,7 @@ internal static partial class Program
 {
     static readonly List<object> Evidencias = [];
     static readonly List<string> Falhas = [];
+    static readonly List<ServiceProvider> Provedores = [];
     static string Saida = "";
     [STAThread] public static int Main(string[] args)
     {
@@ -42,6 +43,9 @@ internal static partial class Program
         app.Startup += async (_, _) =>
         {
             try { await VerificarAsync(); } catch(Exception ex) { Falhas.Add(ex.ToString()); }
+            // Deixa os navegadores das janelas fechadas terminarem antes de descartar os provedores.
+            await Task.Delay(1000); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            foreach (var p in Provedores) await p.DisposeAsync();
             File.WriteAllText(Path.Combine(Saida,"resultado.json"), JsonSerializer.Serialize(new { evidencias = Evidencias, falhas = Falhas }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine($"VERIFICACOES={Evidencias.Count(e => e.GetType().GetProperty("teste") is not null)} FALHAS={Falhas.Count}");
             foreach(var f in Falhas) Console.WriteLine(f);
@@ -78,7 +82,10 @@ internal static partial class Program
             s.AddSingleton<SessaoUsuario>(); s.AddSingleton<SnackbarService>();
             s.AddSingleton<ISnackbarService>(sp => sp.GetRequiredService<SnackbarService>()); s.AddSingleton<IDialogoService,DialogoService>();
             foreach(var modulo in modulos) modulo.Registrar(s);
-            using var provider = s.BuildServiceProvider();
+            // O provedor vive até o FIM da verificação, como vive o app inteiro na clínica: o
+            // navegador de uma janela já fechada ainda pode se ligar à página depois, e descartar o
+            // provedor no fim de cada perfil dava ObjectDisposedException em AttachToPageAsync.
+            var provider = s.BuildServiceProvider(); Provedores.Add(provider);
             provider.GetRequiredService<SessaoUsuario>().Entrar(new UsuarioSistema { Id=1,Nome="Acesso de demonstração",Perfil=perfil });
             using(var inicializacao=provider.CreateScope())
                 await inicializacao.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.ConvenioCatalogoService>().RecarregarCacheAsync();
@@ -98,7 +105,8 @@ internal static partial class Program
                 if (perfil == PerfilAcesso.Gerente) esperadas = esperadas.Concat(new[] { "Relatórios de guias", "Regras e catálogos TISS" }).ToArray();
                 Conferir(regua.Items.Cast<TabItem>().Select(a => (string)a.Header).SequenceEqual(esperadas),
                     $"{nome}: subabas de guias preservadas conforme permissão");
-                Conferir(regua.SelectedIndex == 0 && ((TabItem)regua.Items[0]).Content is Clinica.Gerente.Views.FaturamentoGerencialView,
+                // Blazor desde out/2026: a aba materializa o LUGAR da tela (o navegador é o da janela).
+                Conferir(regua.SelectedIndex == 0 && ((TabItem)regua.Items[0]).Content is Clinica.Desktop.Blazor.TelaBlazor,
                     $"{nome}: Resumo materializa a tela de faturamento");
                 foreach (var chave in new[] { "agenda", "fila", ChavesSuite.AgendaRecepcao, ChavesSuite.ConsultorioSemana,
                     "agenda-confirmacoes", "retornos-a-marcar", "marcar-horario", "pacientes", "acessos", "configuracoes" })
@@ -221,9 +229,10 @@ internal static partial class Program
                 var prestador=await parametros.ObterPrestadorAsync();prestador.CodigosTuss[TipoCodigo.Acupuntura]="12345678";await parametros.SalvarPrestadorAsync(prestador);
                 clinica.NomeFantasia="Clínica demonstrativa";await clinica.SalvarCommand.ExecuteAsync(null);
                 Conferir((await parametros.ObterPrestadorAsync()).NomeFantasia=="Clínica demonstrativa" && (await parametros.ObterPrestadorAsync()).CodigoTuss(TipoCodigo.Acupuntura)=="12345678","Salvar dados da clínica preserva TUSS atualizado em outro acesso");
-                var tiss=provider.GetRequiredService<Clinica.Desktop.ViewModels.ParametrosViewModel>();await tiss.CarregarAsync();
+                // A tela Blazor de Configurações salva os TUSS pelo MESMO método (relê e mescla).
                 prestador=await parametros.ObterPrestadorAsync();prestador.ChavePix="pix-ficticio";await parametros.SalvarPrestadorAsync(prestador);
-                tiss.TussAcupuntura="87654321";await tiss.SalvarCommand.ExecuteAsync(null);
+                await Clinica.Application.Servicos.ConfiguracoesFaturamentoNaTela.SalvarCodigosTussAsync(parametros,
+                    new Dictionary<TipoCodigo,string?>{[TipoCodigo.Acupuntura]="87654321"});
                 Conferir((await parametros.ObterPrestadorAsync()).CodigoTuss(TipoCodigo.Acupuntura)=="87654321" && (await parametros.ObterPrestadorAsync()).ChavePix=="pix-ficticio","Salvar catálogo TISS preserva Pix atualizado em outro acesso");
 
             }

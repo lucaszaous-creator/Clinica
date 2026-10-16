@@ -1,0 +1,15 @@
+@if (Tipo is null)
+{
+    <p style="padding:24px">Tela "@Nome" não existe.</p>
+}
+else
+{
+    <Raiz Tela="Tipo" />
+}
+
+@code {
+    [Parameter] public string Nome { get; set; } = string.Empty;
+
+    private Type? Tipo => typeof(Clinica.Ui.Blazor.Hospedagem.IHostDaTela).Assembly
+        .GetType("Clinica.Ui.Blazor.Telas." + Nome);
+}

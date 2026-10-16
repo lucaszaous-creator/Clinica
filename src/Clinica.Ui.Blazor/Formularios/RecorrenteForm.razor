@@ -1,0 +1,180 @@
+@*
+  A conta fixa nova ou em edição (o que no WPF era a RecorrenteWindow /
+  RecorrenteEdicaoViewModel). Ela é um MOLDE: editar vale para o que ainda NÃO foi gerado —
+  corrigir o molde não reescreve março, que já foi pago e conciliado.
+
+  Regras que vieram do ViewModel original:
+  - periodicidade, 1º vencimento e tipo só na CRIAÇÃO: eles ancoram a série inteira, e
+    mudá-los depois faria a próxima ocorrência não bater com as já geradas;
+  - a série sai sempre do 1º vencimento mais N períodos (o aluguel do dia 31 não vira o do
+    dia 28 por causa de fevereiro) — a frase está na tela;
+  - quem não edita PRESERVA: a categoria inativa e as observações do molde voltam intactas
+    (no WPF, editar apagava as duas).
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(EhNova ? "Conta fixa nova" : "Editar conta fixa")"
+       Subtitulo="Aluguel, luz, contador, mensalidade de software. O molde não entra em total nenhum: quem entra é a conta prevista que ele gera."
+       Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="220" />
+        }
+        else if (_falha is not null)
+        {
+            <Aviso Tom="erro" Texto="@_falha" />
+        }
+        else
+        {
+            <div class="segmentado" role="group" aria-label="Tipo">
+                <button type="button" disabled="@(!EhNova)" aria-pressed="@(_ehSaida ? "true" : "false")" @onclick="() => _ehSaida = true"><Icone Nome="saida" /> A pagar</button>
+                <button type="button" disabled="@(!EhNova)" aria-pressed="@(!_ehSaida ? "true" : "false")" @onclick="() => _ehSaida = false"><Icone Nome="entrada" /> A receber</button>
+            </div>
+            <div class="campos">
+                <Campo Rotulo="Descrição" Obrigatorio="true" Classe="largo">
+                    <input class="campo" @bind="_descricao" @bind:event="oninput" maxlength="200" placeholder="Ex.: Honorários do contador" />
+                </Campo>
+                <Campo Rotulo="Valor de cada ocorrência" Obrigatorio="true" Dica="Aceita 3.200,00 ou 3200.00.">
+                    <input class="campo valor" @bind="_valor" @bind:event="oninput" maxlength="14" inputmode="decimal" placeholder="0,00" />
+                </Campo>
+                <Campo Rotulo="Repete" Dica="@(EhNova ? null : "Só na criação: ancora a série inteira.")">
+                    <select class="campo" @bind="_periodicidade" disabled="@(!EhNova)">
+                        @foreach (var p in Enum.GetValues<PeriodicidadeRecorrencia>())
+                        {
+                            <option value="@p">@RotulosEnum.De(p)</option>
+                        }
+                    </select>
+                </Campo>
+                <Campo Rotulo="1º vencimento" Obrigatorio="true">
+                    <input type="date" class="campo" @bind="_primeiro" disabled="@(!EhNova)" />
+                </Campo>
+                <Campo Rotulo="Até (opcional)" Dica="Contrato com prazo: a série se encerra sozinha.">
+                    <input type="date" class="campo" @bind="_ultimo" />
+                </Campo>
+                <Campo Rotulo="Categoria" Classe="largo" Dica="@(_categoriasFalharam ? "Não foi possível ler as categorias — a conta fixa pode ser gravada sem." : null)">
+                    <select class="campo" @bind="_categoriaId">
+                        <option value="">(sem categoria)</option>
+                        @foreach (var c in _categorias)
+                        {
+                            <option value="@c.Id">@c.Nome@(c.Ativa ? null : " (inativa)")</option>
+                        }
+                    </select>
+                </Campo>
+            </div>
+            <p class="campo-dica">A série sai sempre do 1º vencimento mais N períodos, nunca da ocorrência anterior mais um — encadear faria o aluguel do dia 31 virar aluguel do dia 28 para sempre por causa de fevereiro.</p>
+            @if (!EhNova)
+            {
+                <label class="alternar">
+                    <input type="checkbox" @bind="_ativa" />
+                    Ativa
+                </label>
+                <p class="campo-dica">Desativada para de gerar, mas o que já foi gerado permanece: contas de meses passados não somem porque o contrato acabou.</p>
+            }
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || _carregando || _falha is not null || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite cadastrar conta fixa.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar conta fixa")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>0 = conta fixa nova.</summary>
+    [Parameter] public int RecorrenteId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private bool EhNova => RecorrenteId == 0;
+    private string? _descricao;
+    private string? _valor;
+    private PeriodicidadeRecorrencia _periodicidade = PeriodicidadeRecorrencia.Mensal;
+    private DateOnly? _primeiro = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly? _ultimo;
+    private bool _ehSaida = true;
+    private bool _ativa = true;
+    private int? _categoriaId;
+    private string? _observacoes;
+    private List<CategoriaFinanceira> _categorias = [];
+    private bool _categoriasFalharam;
+    private bool _carregando = true;
+    private string? _falha;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            try
+            {
+                _categorias = (await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().CategoriasAsync())
+                    .Where(c => c.Ativa).ToList();
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — categorias da conta fixa não puderam ser lidas", ex);
+                _categoriasFalharam = true;
+            }
+            if (EhNova) return;
+
+            var r = (await escopo.ServiceProvider.GetRequiredService<ContasService>().RecorrentesAsync())
+                .FirstOrDefault(x => x.Id == RecorrenteId);
+            if (r is null) { _falha = "Conta fixa não encontrada — ela pode ter sido removida em outra máquina."; return; }
+
+            _descricao = r.Descricao;
+            _valor = Formato.ParaCampo(r.Valor);
+            _periodicidade = r.Periodicidade;
+            _primeiro = r.PrimeiroVencimento;
+            _ultimo = r.UltimoVencimento;
+            _ehSaida = r.Tipo == TipoLancamento.Saida;
+            _ativa = r.Ativa;
+            _observacoes = r.Observacoes;
+            _categoriaId = r.CategoriaFinanceiraId;
+            // Categoria desativada depois: continua na lista, marcada, para o Salvar não a apagar.
+            if (r.Categoria is { } cat && _categorias.All(c => c.Id != cat.Id)) _categorias.Add(cat);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — conta fixa não pôde ser aberta", ex);
+            _falha = $"Não foi possível abrir a conta fixa: {ex.Message}";
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        if (string.IsNullOrWhiteSpace(_descricao)) { _mensagem = "Diga que conta se repete (aluguel, luz, contador…)."; return; }
+        if (!LeituraDeValores.TentarLerDecimal(_valor, out var valor) || valor <= 0m) { _mensagem = "Informe o valor de cada ocorrência (ex.: 3.200,00)."; return; }
+        if (_primeiro is not { } primeiro) { _mensagem = "Informe o primeiro vencimento — é ele que ancora toda a série."; return; }
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar conta fixa");
+            using var escopo = Escopos.CreateScope();
+            var contas = escopo.ServiceProvider.GetRequiredService<ContasService>();
+            if (EhNova)
+                await contas.CriarRecorrenteAsync(_descricao!, _ehSaida ? TipoLancamento.Saida : TipoLancamento.Entrada,
+                    valor, _periodicidade, primeiro, _ultimo, categoriaId: _categoriaId, operador: SessaoUsuario.Atual.Operador);
+            else
+                await contas.AtualizarRecorrenteAsync(RecorrenteId, _descricao!, valor, _ultimo, _ativa,
+                    categoriaId: _categoriaId, observacoes: _observacoes, operador: SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — conta fixa não pôde ser salva", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

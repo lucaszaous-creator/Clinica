@@ -22,10 +22,9 @@ name: Build EXE (Windows)
 # renomeá-lo soltaria qualquer regra de proteção da main que o exija. O cache do NuGet
 # corta a restauração em todos.
 #
-# ⚠️ Este workflow é um SUPERCONJUNTO do `verificar.yml`: ele roda o espelho de tokens, o
-# `verificar-suite`, os testes E o compilador de marcação do WPF. Por isso o
-# `verificar` não precisa disparar em PR — seria a terceira execução das mesmas
-# três redes no mesmo commit.
+# ⚠️ É o ÚNICO CI de código desde out/2026: o `verificar.yml` (Linux, em todo push) saiu
+# para economizar minutos de Actions. Postgres, tablet, web de leitura e compilação-sombra
+# viraram rede LOCAL obrigatória antes do push (CLAUDE.md, seção 6).
 
 on:
   pull_request:
@@ -112,11 +111,23 @@ jobs:
       - name: Conferir gestão, pagamentos e estoque no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --gestao
 
-      - name: Conferir Financeiro, formulários e séries com dados fictícios
-        run: dotnet run --project tools/validar-design-financeiro -c Release
-
       - name: Conferir recall, filtros e configuração salva no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --acompanhamento
+
+      # O flash preto das telas Blazor, medido na TELA DE VERDADE (out/2026): abre o shell
+      # do Financeiro na tela, troca 160 vezes entre as 14 telas Blazor e as WPF, e fotografa
+      # a área de trabalho em laço. Reprova com uma foto escura; e reprova também quando a
+      # foto não enxerga o WebView2 — "zero flash" com a câmera cega seria garantia aparente.
+      - name: Conferir que a troca de telas Blazor não pisca preto
+        run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --blazor
+
+      - name: Guardar as fotos da troca de telas Blazor
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: trocas-blazor
+          path: artifacts/trocas-blazor/
+          if-no-files-found: ignore
 
       - name: Conferir navegação dos cinco aplicativos e perfis
         run: dotnet run --project tools/Clinica.Verificacao.Desktop -c Release -- artifacts/navegacao-desktop
@@ -130,9 +141,12 @@ jobs:
   # ============================================================
   # Os cinco .exe portáteis (ver docs/arquitetura-multi-exe.md).
   # Estes projetos são net8.0-windows/WPF e NÃO compilam em Linux.
+  # Só são gerados DEPOIS de os testes e as conferências passarem (out/2026, pedido da
+  # direção): artefato de um commit reprovado não pode ficar disponível para download.
   # ============================================================
   publicar:
     runs-on: windows-latest
+    needs: [testes, conferencias]
     steps:
       - uses: actions/checkout@v5
 

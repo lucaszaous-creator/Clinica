@@ -1,0 +1,5 @@
+@page "/palco"
+@* O PALCO na prévia (out/2026): o MESMO PalcoDeTelas que o navegador da janela do WPF
+   hospeda, com uma barra de botões para trocar de tela — é por aqui que o teste de trocas
+   repetidas do navegador (tools/PreviaBlazor/trocas.js) mede quadro a quadro. *@
+<PalcoInterativo @rendermode="Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer" />

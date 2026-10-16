@@ -1,0 +1,192 @@
+@*
+  NÃO CONFORMIDADES (NC) DO FATURAMENTO (out/2026, migrada do NaoConformidadesView/
+  NaoConformidadesViewModel do WPF).
+
+  Guias que, ao rodar as pendências, não puderam ser baixadas e foram justificadas. Elas saem
+  da aba Pendências e ficam aqui, documentadas. Reabrir devolve a guia à cobrança do painel
+  (bit MarcarNaoConformidade, o mesmo que a marca — é a permissão que faz uma pendência
+  sumir ou voltar sem a guia ter sido faturada).
+
+  O filtro e as frases moram em `NaoConformidadesNaTela`, na Application, com teste.
+  Defeitos do WPF corrigidos aqui: a carga sem contador de geração e sem terceiro estado
+  (falha virava lista vazia, "nada justificado"), a recusa do Reabrir lançada fora do try e
+  a coluna Ordem com o enum cru ("Primeiro").
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina fat-nc @(Carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Faturamento · NC" Titulo="Não conformidades (NC)"
+                     Subtitulo="Guias que, ao rodar as pendências, não puderam ser baixadas e foram justificadas. Elas saem da aba Pendências e ficam aqui, documentadas. Reabra quando aparecer uma solução — a guia volta a ser pendência ativa.">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" disabled="@Carregando"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    <section class="cartao lista-cartao">
+        <div class="filtros">
+            <Campo Rotulo="Paciente ou justificativa">
+                <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Nome ou palavra do motivo" maxlength="80"
+                       value="@_termo" @oninput="TermoMudou" /></div>
+            </Campo>
+            @if (FiltroAtivo)
+            {
+                <button type="button" class="botao fantasma" @onclick="LimparFiltro">Limpar filtro</button>
+            }
+            @if (_carregou && !_naoVerificado)
+            {
+                <span class="resumo-filtro">@NaoConformidadesNaTela.Resumo(_linhas.Count, _todas.Count, _termo)</span>
+            }
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as não conformidades" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="200" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhuma não conformidade" Descricao="@NaoConformidadesNaTela.VazioDescricao(_termo)" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Paciente</th>
+                            <th>Código</th>
+                            <th style="width:92px">Prevista</th>
+                            <th style="width:140px">Registrada</th>
+                            <th>Justificativa</th>
+                            <th class="direita" style="width:150px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var n in _linhas)
+                        {
+                            <tr @key="n.CodigoId">
+                                <td>
+                                    <span class="principal">@n.PacienteNome</span>
+                                    <span class="secundario">@n.ConvenioNome</span>
+                                </td>
+                                <td>
+                                    <span class="principal">@RotulosEnum.De(n.Tipo)</span>
+                                    <span class="secundario">@RotulosEnum.De(n.Ordem)</span>
+                                </td>
+                                <td class="nao-quebra">@Formato.Data(n.DataPrevista)</td>
+                                <td class="nao-quebra">@(n.Em is { } em ? Formato.DataHora(em) : "—")</td>
+                                <td><span class="justificativa" title="@n.Justificativa">@NaoConformidadesNaTela.Justificativa(n)</span></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini primario" disabled="@(!PodeMarcarNaoConformidade)"
+                                                title="Reabrir: a guia volta a ser pendência ativa" @onclick="() => ReabrirAsync(n)"><Icone Nome="destravar" />Reabrir</button>
+                                        <button type="button" class="botao mini icone" title="Ler a justificativa completa" aria-label="Ver justificativa"
+                                                @onclick="() => VerJustificativaAsync(n)"><Icone Nome="documento" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<NaoConformidadeItem> _todas = [];
+    private IReadOnlyList<NaoConformidadeItem> _linhas = [];
+    private string _termo = string.Empty;
+    private bool _carregou;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    /// <summary>Metade VISÍVEL da permissão: reabrir devolve a guia à cobrança do painel.</summary>
+    private static bool PodeMarcarNaoConformidade => Pode(Permissao.MarcarNaoConformidade);
+
+    private bool FiltroAtivo => !string.IsNullOrWhiteSpace(_termo);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync(silenciosa: true);
+
+    /// <summary>O atalho do WPF (IAtalhosDeTela): F5 = Atualizar.</summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private async Task CarregarAsync(bool silenciosa = false)
+    {
+        var geracao = ++_geracao;
+        if (!silenciosa) { Carregando = true; _naoVerificado = false; }
+        try
+        {
+            using var escopo = Escopo();
+            var lista = await escopo.ServiceProvider.GetRequiredService<RodadaPendenciasService>().NaoConformidadesAsync();
+            if (geracao != _geracao || Descartada) return;
+
+            _todas = lista.ToList();
+            _carregou = true;
+            _naoVerificado = false;
+            Refiltrar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — não conformidades não puderam ser lidas", ex);
+            if (silenciosa && _carregou) return;
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _todas = [];
+            _linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void TermoMudou(ChangeEventArgs e)
+    {
+        _termo = e.Value?.ToString() ?? string.Empty;
+        Refiltrar();
+    }
+
+    private void LimparFiltro()
+    {
+        _termo = string.Empty;
+        Refiltrar();
+    }
+
+    private void Refiltrar() => _linhas = NaoConformidadesNaTela.Filtrar(_todas, _termo);
+
+    /// <summary>A justificativa completa (opção de leitura) — sem permissão, como no WPF.</summary>
+    private Task VerJustificativaAsync(NaoConformidadeItem n)
+        => Dialogos.AvisoAsync($"Não conformidade — {n.PacienteNome}", NaoConformidadesNaTela.Justificativa(n));
+
+    /// <summary>Reabre a NC: a guia volta a ser pendência ativa e pode ser baixada.</summary>
+    private async Task ReabrirAsync(NaoConformidadeItem n)
+    {
+        if (!Exigir(Permissao.MarcarNaoConformidade, "reabrir a não conformidade")) return;
+        if (!await Dialogos.ConfirmarAsync("Reabrir não conformidade",
+                $"Reabrir a guia de {n.PacienteNome}? Ela volta a ser pendência ativa (aba Pendências).", confirmar: "Reabrir")) return;
+
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<RodadaPendenciasService>()
+                    .ReabrirNaoConformidadeAsync(n.CodigoId, Operador);
+            Notificacoes.Sucesso($"A guia de {n.PacienteNome} voltou às pendências.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — não conformidade não pôde ser reaberta", ex);
+            await Dialogos.AvisoAsync("Reabrir não conformidade", ex.Message);
+        }
+
+        await CarregarAsync();
+    }
+}

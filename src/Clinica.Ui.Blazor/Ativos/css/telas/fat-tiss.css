@@ -1,0 +1,21 @@
+/* fat-tiss: estilo só desta tela do Faturamento (tokens apenas). */
+/* A barra do novo lote: datas e botão na mesma linha; dobra em tela estreita. */
+.fat-tiss-barra{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3);margin-bottom:var(--space-3)}
+.fat-tiss-barra .campo-bloco{min-width:160px}
+.fat-tiss-novo .cartao-titulo{margin-bottom:var(--space-3)}
+/* Protocolo é dado da operadora, de tamanho imprevisível: corta com reticências, a dica mostra inteiro. */
+.fat-tiss-protocolo{display:block;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.fat-tiss-glosadas{color:var(--erro-texto);font-weight:600}
+.fat-tiss-lotes td{white-space:nowrap}
+.fat-tiss-lotes td .principal{white-space:normal}
+/* O formulário de retorno: o botão de importar acima da lista, a lista rola por dentro. */
+.fat-tiss-importar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3)}
+.fat-tiss-importar .secundario{margin-top:0}
+.fat-tiss-retorno{max-height:340px;overflow:auto;border:1px solid var(--borda);border-radius:var(--radius-control);margin:var(--space-3) 0 var(--space-4)}
+.fat-tiss-retorno table.lista th{position:sticky;top:0;z-index:1}
+.fat-tiss-retorno .campo{width:100%}
+.fat-tiss-retorno tr.fat-tiss-glosada td{background:var(--erro-suave)}
+.fat-tiss-contagem{margin-right:auto;color:var(--texto-secundario);font-size:var(--text-small-size)}
+/* As ações da linha não quebram: botão de duas linhas desalinha a fileira inteira. */
+.fat-tiss-lotes .botoes-linha{flex-wrap:nowrap}
+.fat-tiss-lotes .botoes-linha .botao{white-space:nowrap}

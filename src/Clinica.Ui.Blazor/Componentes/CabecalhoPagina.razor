@@ -1,0 +1,25 @@
+<header class="cabecalho">
+    <div class="cabecalho-texto">
+        @if (!string.IsNullOrWhiteSpace(Sobretitulo))
+        {
+            <p class="sobretitulo">@Sobretitulo</p>
+        }
+        <h1>@Titulo</h1>
+        @if (!string.IsNullOrWhiteSpace(Subtitulo))
+        {
+            <p class="subtitulo">@Subtitulo</p>
+        }
+    </div>
+    @if (ChildContent is not null)
+    {
+        <div class="acoes">@ChildContent</div>
+    }
+</header>
+
+@code {
+    [Parameter] public string? Sobretitulo { get; set; }
+    [Parameter, EditorRequired] public string Titulo { get; set; } = string.Empty;
+    [Parameter] public string? Subtitulo { get; set; }
+    /// <summary>As ações da página (botões, período), à direita do título.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

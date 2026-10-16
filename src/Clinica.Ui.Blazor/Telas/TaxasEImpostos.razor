@@ -1,0 +1,629 @@
+@*
+  TAXAS E IMPOSTOS (out/2026, migrado do TaxasView/TaxasViewModel do WPF, com as janelas
+  TaxaWindow e TributoWindow virando TaxaForm e TributoForm).
+
+  Responde "o que sai de cada real recebido, e de quê?". Quatro assuntos em ABAS, como no
+  WPF: a taxa que a maquininha cobra, o regime tributário da clínica, o simulador do balcão
+  e a apuração do mês por tributo (a pergunta do contador).
+
+  O caixa continua guardando o BRUTO (parcela 9): taxa e imposto são deduções ao lado, e o
+  líquido é calculado. Tudo o que a tela AFIRMA — a frase do mecanismo que vale, a faixa da
+  alíquota única, a situação de cada linha, o resultado do simulador — vem de
+  TaxasEImpostosNaTela, na Application, com teste.
+*@
+@inherits TelaBase
+
+<div class="pagina taxas @(Carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Financeiro · Taxas e impostos" Titulo="Taxas e impostos"
+                     Subtitulo="Taxas da maquininha, tributos do regime e simulação do líquido. O caixa preserva o valor bruto recebido — taxa e imposto são deduções ao lado." />
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível ler as taxas e os tributos" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarAsync" />
+        </section>
+    }
+    else if (!_carregou)
+    {
+        <section class="kpis tres">
+            @for (var i = 0; i < 3; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="60%" /></div> }
+        </section>
+        <section class="cartao cartao-corpo"><Esqueleto Altura="220" /></section>
+    }
+    else
+    {
+        <section class="kpis tres" aria-label="Resumo">
+            <Kpi Rotulo="Sai hoje de cada recebimento" Valor="@_cargaHoje" Icone="percentual"
+                 Tom="@(_aliquotaUnicaValendo ? "aviso" : "")"
+                 Nota="@(_cargaHoje == "—" ? "Nenhum imposto é retido hoje" : _aliquotaUnicaValendo ? "Pela alíquota única (modo antigo)" : "Soma dos tributos gerais vigentes hoje")" />
+            <Kpi Rotulo="Taxas da maquininha valendo" Valor="@_taxasValendo.ToString(Formato.PtBr)" Icone="cartao" Tom="neutro"
+                 Nota="@($"{_taxas.Count} cadastrada(s) no total")" />
+            <Kpi Rotulo="Tributos vigentes hoje" Valor="@_tributosValendo.ToString(Formato.PtBr)" Icone="documento" Tom="neutro"
+                 Nota="@($"{_tributos.Count} cadastrado(s), retenções de convênio incluídas")" />
+        </section>
+
+        <section class="cartao lista-cartao">
+            <div class="abas taxas-abas" role="tablist">
+                @foreach (var (aba, rotulo) in Abas)
+                {
+                    <button type="button" role="tab" aria-selected="@(_aba == aba ? "true" : "false")" @onclick="() => TrocarAbaAsync(aba)">@rotulo</button>
+                }
+            </div>
+
+            @switch (_aba)
+            {
+                case Aba.Maquininha:
+                    <div class="cartao-titulo">
+                        <div>
+                            <h2>Taxas cadastradas</h2>
+                            <p>A regra mais específica ganha: a bandeira vence a regra geral do adquirente, e a faixa de parcelas vence a modalidade solta.</p>
+                        </div>
+                        <button type="button" class="botao primario" disabled="@(!PodeEditar)" @onclick="() => AbrirTaxa(0)"
+                                title="@(PodeEditar ? null : "Seu acesso não permite cadastrar taxa de cartão.")"><Icone Nome="mais" />Nova taxa</button>
+                    </div>
+                    @if (_taxas.Count == 0)
+                    {
+                        <EstadoVazio Icone="cartao" Titulo="Nenhuma taxa cadastrada"
+                                     Descricao="Sem taxa, o caixa registra só o bruto — e não inventa desconto. Cadastre as condições do contrato com a adquirente." />
+                    }
+                    else
+                    {
+                        <div class="tabela-rolagem">
+                            <table class="lista">
+                                <thead><tr><th>Taxa</th><th style="width:170px">Situação</th><th class="direita" style="width:96px">Ações</th></tr></thead>
+                                <tbody>
+                                    @foreach (var t in _taxas)
+                                    {
+                                        var (rotulo, tom) = TaxasEImpostosNaTela.SituacaoTaxa(t, _hoje);
+                                        <tr class="@(t.Ativa ? null : "apagada")" @key="t.Id">
+                                            <td>
+                                                <span class="principal">@TaxasEImpostosNaTela.DescreverTaxa(t)</span>
+                                                <span class="secundario">recebe @TaxasEImpostosNaTela.Prazo(t) · vigência @TaxasEImpostosNaTela.Vigencia(t.VigenteDe, t.VigenteAte)</span>
+                                            </td>
+                                            <td><Selo Tom="@tom">@rotulo</Selo></td>
+                                            <td class="direita">
+                                                <div class="botoes-linha">
+                                                    <button type="button" class="botao mini icone" title="Editar taxa" aria-label="Editar taxa" disabled="@(!PodeEditar)" @onclick="() => AbrirTaxa(t.Id)"><Icone Nome="editar" /></button>
+                                                    <button type="button" class="botao mini icone contorno-perigo" title="Excluir taxa" aria-label="Excluir taxa" disabled="@(!PodeEditar)" @onclick="() => ExcluirTaxaAsync(t)"><Icone Nome="lixo" /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="rodape-lista">Excluir só serve para o que foi cadastrado errado. A taxa que já descontou algum recebimento deve ser INATIVADA — o lançamento guardou o valor copiado, mas a regra é a explicação do desconto.</div>
+                    }
+                    break;
+
+                case Aba.Regime:
+                    <div class="cartao-titulo">
+                        <div>
+                            <h2>Tributos cadastrados</h2>
+                            <p>Sai hoje de cada recebimento: <strong>@_cargaHoje</strong> · @_origemDaCarga</p>
+                        </div>
+                        <button type="button" class="botao primario" disabled="@(!PodeEditar)" @onclick="() => AbrirTributo(0)"
+                                title="@(PodeEditar ? null : "Seu acesso não permite cadastrar tributo.")"><Icone Nome="mais" />Novo tributo</button>
+                    </div>
+                    @if (_tributos.Count == 0)
+                    {
+                        <EstadoVazio Icone="documento" Titulo="Nenhum tributo cadastrado"
+                                     Descricao="Enquanto não houver, vale a alíquota única abaixo. Cadastre uma linha por guia que a clínica recolhe (ISS, PIS, COFINS, IRPJ, CSLL ou SIMPLES)." />
+                    }
+                    else
+                    {
+                        <div class="tabela-rolagem">
+                            <table class="lista">
+                                <thead><tr><th>Tributo</th><th style="width:170px">Situação</th><th class="direita" style="width:96px">Ações</th></tr></thead>
+                                <tbody>
+                                    @foreach (var t in _tributos)
+                                    {
+                                        var valendo = TaxasEImpostosNaTela.ValendoAgora(t, _hoje);
+                                        <tr class="@(t.Ativo ? null : "apagada")" @key="t.Id">
+                                            <td>
+                                                <span class="principal">@t.Descricao</span>
+                                                <span class="secundario">
+                                                    @t.Nome · @t.Vigencia ·
+                                                    @if (t.RetidoNaFonte) { <Selo Tom="info">@TaxasEImpostosNaTela.Origem(t, _nomesConvenios)</Selo> }
+                                                    else { <span>@TaxasEImpostosNaTela.Origem(t, _nomesConvenios)</span> }
+                                                </span>
+                                            </td>
+                                            <td><Selo Tom="@(valendo ? "sucesso" : "neutro")">@(valendo ? "Valendo agora" : t.Ativo ? "Fora de vigência" : "Inativo")</Selo></td>
+                                            <td class="direita">
+                                                <div class="botoes-linha">
+                                                    <button type="button" class="botao mini icone" title="Editar tributo" aria-label="Editar tributo" disabled="@(!PodeEditar)" @onclick="() => AbrirTributo(t.Id)"><Icone Nome="editar" /></button>
+                                                    <button type="button" class="botao mini icone contorno-perigo" title="Excluir tributo" aria-label="Excluir tributo" disabled="@(!PodeEditar)" @onclick="() => ExcluirTributoAsync(t)"><Icone Nome="lixo" /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    @* A ALÍQUOTA ÚNICA SÓ APARECE QUANDO ELA VALE — com a MESMA condição do serviço
+                       (nenhum tributo GERAL vigente hoje). Campo invisível que faz efeito é pior
+                       que campo nenhum; campo visível que não faz efeito também. *@
+                    @if (_aliquotaUnicaValendo)
+                    {
+                        <div class="aliquota-unica">
+                            <div class="aliquota-unica-texto">
+                                <h3>Alíquota única (modo antigo)</h3>
+                                <p>É ela que vale enquanto não houver tributo geral vigente. Cadastre (ou reative) o primeiro tributo e esta faixa some — o imposto passa a ser apurado por guia.</p>
+                            </div>
+                            <div class="aliquota-unica-campo">
+                                <Campo Rotulo="Alíquota (%)" Erro="@_erroAliquota" Dica="Em branco = não reter imposto.">
+                                    <input class="campo valor" @bind="_aliquotaImposto" @bind:event="oninput" maxlength="6" inputmode="decimal" placeholder="0,00" disabled="@(!PodeEditar)" />
+                                </Campo>
+                                <button type="button" class="botao primario" disabled="@(!PodeEditar || _salvandoAliquota)" @onclick="SalvarAliquotaAsync"
+                                        title="@(PodeEditar ? null : "Seu acesso não permite mudar a alíquota de imposto.")"><Icone Nome="check" />@(_salvandoAliquota ? "Gravando…" : "Salvar alíquota")</button>
+                            </div>
+                        </div>
+                    }
+                    break;
+
+                case Aba.Simulador:
+                    <div class="cartao-titulo">
+                        <div>
+                            <h2>Quanto sobra e quando cai</h2>
+                            <p>A pergunta do balcão e a da negociação com a adquirente. Usa exatamente a mesma conta da venda real — não grava nada, e o número simulado é o que vai acontecer.</p>
+                        </div>
+                    </div>
+                    <div class="cartao-corpo simulador">
+                        <div class="simulador-campos">
+                            <Campo Rotulo="Valor">
+                                <input class="campo valor" @bind="_simValor" @bind:event="oninput" maxlength="14" inputmode="decimal" />
+                            </Campo>
+                            <Campo Rotulo="Forma">
+                                <select class="campo" @bind="_simForma">
+                                    @foreach (var f in FormasSimulacao) { <option value="@f">@RotulosEnum.De(f)</option> }
+                                </select>
+                            </Campo>
+                            <Campo Rotulo="Adquirente">
+                                <input class="campo" @bind="_simAdquirente" @bind:event="oninput" maxlength="60" placeholder="Ex.: Stone" />
+                            </Campo>
+                            <Campo Rotulo="Bandeira">
+                                <input class="campo" @bind="_simBandeira" @bind:event="oninput" maxlength="40" placeholder="Ex.: Visa" />
+                            </Campo>
+                            <Campo Rotulo="Parcelas">
+                                <input type="number" min="1" max="24" class="campo" @bind="_simParcelas" @bind:event="oninput" />
+                            </Campo>
+                        </div>
+                        <div class="simulador-acoes">
+                            <label class="marcar"><input type="checkbox" @bind="_simReterImposto" /> Reter imposto</label>
+                            <button type="button" class="botao primario" disabled="@_simulando" @onclick="SimularAsync"><Icone Nome="percentual" />Simular</button>
+                        </div>
+                        <Aviso Tom="@(_simFalhou ? "erro" : "info")" Texto="@_simResultado" />
+                        @if (_simSemTaxa)
+                        {
+                            <Aviso Tom="atencao" Texto="Não há taxa cadastrada para essa combinação, então o líquido acima está SEM desconto de maquininha. Cadastre a taxa na aba Maquininha para o número ficar real." />
+                        }
+                    </div>
+                    break;
+
+                case Aba.Apuracao:
+                    <div class="cartao-titulo">
+                        <div>
+                            <h2>Quanto de cada tributo saiu no mês</h2>
+                            <p>@(_apuracaoCarregando && _apuracao is null ? "Apurando…" : _resumoApuracao)</p>
+                        </div>
+                        <div class="acoes">
+                            <SeletorMes Valor="_mesApuracao" ValorChanged="TrocarMesApuracaoAsync" />
+                            <button type="button" class="botao" @onclick="ApurarAsync" disabled="@_apuracaoCarregando"><Icone Nome="atualizar" />Apurar</button>
+                            <button type="button" class="botao" @onclick="ExportarApuracaoAsync" disabled="@(_apuracao is not { Linhas.Count: > 0 })"><Icone Nome="baixar" />Exportar CSV</button>
+                        </div>
+                    </div>
+                    @if (_apuracaoNaoVerificada)
+                    {
+                        <FalhaDeLeitura Titulo="Não foi possível apurar este mês"
+                                        Detalhe="@($"A lista está VAZIA por falha de leitura, não por ausência de imposto. {_erroApuracao}")"
+                                        AoTentarDeNovo="ApurarAsync" />
+                    }
+                    else if (_apuracao is null)
+                    {
+                        <div class="cartao-corpo"><Esqueleto Altura="160" /></div>
+                    }
+                    else
+                    {
+                        @if (_divergencia is not null)
+                        {
+                            <div class="cartao-corpo apuracao-aviso"><Aviso Tom="atencao" Texto="@_divergencia" /></div>
+                        }
+                        @if (_apuracao.Vazia)
+                        {
+                            <EstadoVazio Icone="documento" Titulo="Nenhum tributo incidiu neste mês"
+                                         Descricao="Nenhum tributo vigente incidiu sobre os recebimentos deste mês — ou não houve recebimento. Confira as vigências na aba Regime tributário." />
+                        }
+                        else
+                        {
+                            <div class="tabela-rolagem">
+                                <table class="lista">
+                                    <thead>
+                                        <tr><th style="width:110px">Tributo</th><th>Nome</th><th class="direita" style="width:130px">Alíquota efetiva</th><th class="direita" style="width:150px">Base</th><th class="direita" style="width:140px">Valor</th><th style="width:160px">Quem recolhe</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var l in _apuracao.Linhas)
+                                        {
+                                            <tr>
+                                                <td class="principal">@l.Sigla</td>
+                                                <td class="texto-secundario">@l.Nome</td>
+                                                <td class="direita numero">@TaxasEImpostosNaTela.AliquotaEfetiva(l.Aliquota)</td>
+                                                <td class="direita numero">@Formato.Dinheiro(l.Base)</td>
+                                                <td class="direita numero principal">@Formato.Dinheiro(l.Valor)</td>
+                                                <td><Selo Tom="@(l.RetidoNaFonte ? "info" : "neutro")">@l.Natureza</Selo></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="rodape-lista">Retido na fonte já saiu — a operadora descontou antes de depositar; a recolher ainda vai sair, na guia do mês. Período pelo dia do RECEBIMENTO.</div>
+                        }
+                    }
+                    break;
+            }
+        </section>
+    }
+</div>
+
+@if (_editandoTaxa is { } idTaxa)
+{
+    <TaxaForm TaxaId="idTaxa" AoFechar="() => _editandoTaxa = null" AoConcluir="() => TaxaGravadaAsync(idTaxa)" />
+}
+@if (_editandoTributo is { } idTributo)
+{
+    <TributoForm TributoId="idTributo" AoFechar="() => _editandoTributo = null" AoConcluir="() => TributoGravadoAsync(idTributo)" />
+}
+
+@code {
+    private enum Aba { Maquininha, Regime, Simulador, Apuracao }
+
+    private static readonly (Aba, string)[] Abas =
+    [
+        (Aba.Maquininha, "Maquininha"),
+        (Aba.Regime, "Regime tributário"),
+        (Aba.Simulador, "Simulador"),
+        (Aba.Apuracao, "Apuração do mês")
+    ];
+
+    private static readonly FormaPagamento[] FormasSimulacao =
+        [FormaPagamento.Dinheiro, FormaPagamento.Pix, FormaPagamento.CartaoDebito, FormaPagamento.CartaoCredito];
+
+    private Aba _aba = Aba.Maquininha;
+    private DateOnly _hoje = DateOnly.FromDateTime(DateTime.Today);
+
+    private bool Carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    private List<TaxaCartao> _taxas = [];
+    private List<Tributo> _tributos = [];
+    private IReadOnlyDictionary<string, string> _nomesConvenios = new Dictionary<string, string>();
+    private int _taxasValendo;
+    private int _tributosValendo;
+    private string _cargaHoje = "—";
+    private string _origemDaCarga = string.Empty;
+    private bool _aliquotaUnicaValendo = true;
+
+    // Alíquota única (legado da parcela 9).
+    private string? _aliquotaImposto;
+    private string? _erroAliquota;
+    private bool _salvandoAliquota;
+
+    // Simulador.
+    private string? _simValor = "200";
+    private string? _simAdquirente;
+    private string? _simBandeira;
+    private FormaPagamento _simForma = FormaPagamento.CartaoCredito;
+    private int _simParcelas = 1;
+    private bool _simReterImposto = true;
+    private string? _simResultado;
+    private bool _simSemTaxa;
+    private bool _simFalhou;
+    private bool _simulando;
+    private int _geracaoSim;
+
+    // Apuração do mês.
+    private DateOnly _mesApuracao = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private ApuracaoMensal? _apuracao;
+    private string _resumoApuracao = string.Empty;
+    private string? _divergencia;
+    private bool _apuracaoNaoVerificada;
+    private string? _erroApuracao;
+    private bool _apuracaoCarregando;
+    private int _geracaoApuracao;
+
+    // Formulários abertos.
+    private int? _editandoTaxa;
+    private int? _editandoTributo;
+
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    /// <summary>
+    /// Uma carga, um escopo, leituras em SEQUÊNCIA (o mesmo DbContext não aceita duas ao
+    /// mesmo tempo) e tudo publicado depois do último await. O contador de geração descarta
+    /// a resposta de uma carga superada.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var taxas = await sp.GetRequiredService<TaxaService>().CatalogoAsync();
+            if (geracao != _geracao || Descartada) return;
+            var aliquota = await sp.GetRequiredService<ParametrosService>().ObterAliquotaImpostoAsync();
+            if (geracao != _geracao || Descartada) return;
+            var tributoService = sp.GetRequiredService<TributoService>();
+            var tributos = await tributoService.CatalogoAsync();
+            if (geracao != _geracao || Descartada) return;
+            var carga = await tributoService.AliquotaTotalAsync(hoje);
+            if (geracao != _geracao || Descartada) return;
+
+            // O nome da operadora que retém: falha aqui não derruba a tela — a linha mostra
+            // o código como foi gravado, que é a verdade disponível.
+            IReadOnlyDictionary<string, string> nomes;
+            try
+            {
+                nomes = (await sp.GetRequiredService<ConvenioCatalogoService>().ListarAsync())
+                    .GroupBy(c => c.Codigo, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First().Nome, StringComparer.OrdinalIgnoreCase);
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — catálogo de convênios não pôde ser lido nas taxas", ex);
+                nomes = new Dictionary<string, string>();
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _hoje = hoje;
+            _taxas = taxas.ToList();
+            _tributos = tributos.ToList();
+            _nomesConvenios = nomes;
+            _taxasValendo = taxas.Count(t => t.VigenteEm(hoje));
+            _tributosValendo = tributos.Count(t => t.VigenteEm(hoje));
+            _cargaHoje = TaxasEImpostosNaTela.CargaHoje(carga);
+            _aliquotaUnicaValendo = TaxasEImpostosNaTela.AliquotaUnicaValendo(tributos, hoje);
+            _origemDaCarga = TaxasEImpostosNaTela.OrigemDaCarga(tributos, aliquota, hoje);
+            _aliquotaImposto = TaxasEImpostosNaTela.AliquotaParaCampo(aliquota);
+            _erroAliquota = null;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — taxas e tributos não puderam ser lidos", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _taxas = [];
+            _tributos = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+
+        // O simulador abre já respondendo — como no WPF, que simulava no fim da carga.
+        if (geracao == _geracao && !_naoVerificado) await SimularAsync();
+    }
+
+    private async Task TrocarAbaAsync(Aba aba)
+    {
+        _aba = aba;
+        // A apuração só vai ao banco quando alguém a abre: ela lê o mês inteiro de recebimentos.
+        if (aba == Aba.Apuracao && _apuracao is null && !_apuracaoCarregando) await ApurarAsync();
+    }
+
+    // ==================== Taxas ====================
+
+    private void AbrirTaxa(int id)
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "cadastrar taxa de cartão")) _editandoTaxa = id;
+    }
+
+    private async Task TaxaGravadaAsync(int id)
+    {
+        _editandoTaxa = null;
+        Notificacoes.Sucesso(id == 0 ? "Taxa cadastrada." : "Taxa atualizada.");
+        await CarregarAsync();
+    }
+
+    private async Task ExcluirTaxaAsync(TaxaCartao t)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "excluir taxa de cartão")) return;
+        var descricao = TaxasEImpostosNaTela.DescreverTaxa(t);
+        if (!await Dialogos.ConfirmarAsync("Excluir taxa",
+                $"Apagar a taxa {descricao}?\n\nSe ela já descontou algum recebimento, prefira INATIVAR: os lançamentos guardam o valor descontado, mas apagar a regra apaga a explicação de por que o desconto foi aquele.",
+                perigoso: true, confirmar: "Excluir taxa")) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<TaxaService>().ExcluirAsync(t.Id);
+            }, "Blazor — taxa não pôde ser excluída", "Taxa excluída."))
+            await CarregarAsync();
+    }
+
+    // ==================== Tributos ====================
+
+    private void AbrirTributo(int id)
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "cadastrar tributo")) _editandoTributo = id;
+    }
+
+    private async Task TributoGravadoAsync(int id)
+    {
+        _editandoTributo = null;
+        Notificacoes.Sucesso(id == 0 ? "Tributo cadastrado." : "Tributo atualizado.");
+        // A apuração aberta pode ter mudado com a regra nova: some, e é refeita ao voltar à aba.
+        _apuracao = null;
+        await CarregarAsync();
+        if (_aba == Aba.Apuracao) await ApurarAsync();
+    }
+
+    private async Task ExcluirTributoAsync(Tributo t)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "excluir tributo")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir tributo",
+                $"Apagar {t.Descricao}?\n\nSe ele já reteve imposto de algum recebimento, prefira ENCERRAR pela vigência: os lançamentos guardam o valor retido, mas apagar a regra apaga a explicação de por que a retenção foi aquela.",
+                perigoso: true, confirmar: "Excluir tributo")) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<TributoService>().ExcluirAsync(t.Id);
+            }, "Blazor — tributo não pôde ser excluído", "Tributo excluído."))
+        {
+            _apuracao = null;
+            await CarregarAsync();
+        }
+    }
+
+    /// <summary>Campo vazio = zerar a retenção, que é o padrão de quem não retém.</summary>
+    private async Task SalvarAliquotaAsync()
+    {
+        _erroAliquota = null;
+        if (!Exigir(Permissao.EditarFinanceiro, "mudar a alíquota de imposto")) return;
+        var aliquota = 0m;
+        if (!string.IsNullOrWhiteSpace(_aliquotaImposto)
+            && !TaxasEImpostosNaTela.TentarLerPercentual(_aliquotaImposto, out aliquota))
+        {
+            _erroAliquota = "Informe a alíquota em percentual (ex.: 2,5) ou deixe em branco para não reter.";
+            return;
+        }
+        try
+        {
+            _salvandoAliquota = true;
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ParametrosService>().SalvarAliquotaImpostoAsync(aliquota);
+            Notificacoes.Sucesso(aliquota > 0m
+                ? $"Imposto retido em {aliquota.ToString("0.##", Formato.PtBr)}%."
+                : "Retenção de imposto desligada.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — alíquota não pôde ser salva", ex);
+            _erroAliquota = $"Não foi possível salvar: {ex.Message}";
+        }
+        finally { _salvandoAliquota = false; }
+    }
+
+    // ==================== Simulador ====================
+
+    /// <summary>
+    /// "Se eu passar R$ 200 no crédito 3x na Cielo, quanto sobra e quando cai?" — pelo MESMO
+    /// TaxaService.CalcularAsync da venda real. Não grava nada.
+    /// </summary>
+    private async Task SimularAsync()
+    {
+        var geracao = ++_geracaoSim;
+        _simResultado = null;
+        _simSemTaxa = false;
+        _simFalhou = false;
+        if (!LeituraDeValores.TentarLerDecimal(_simValor, out var bruto)) return;
+        var parcelas = _simParcelas < 1 ? 1 : _simParcelas;
+        try
+        {
+            _simulando = true;
+            using var escopo = Escopo();
+            var d = await escopo.ServiceProvider.GetRequiredService<TaxaService>().CalcularAsync(
+                bruto, DateOnly.FromDateTime(DateTime.Today), _simForma, _simAdquirente, _simBandeira, parcelas, _simReterImposto);
+            if (geracao != _geracaoSim || Descartada) return;
+            _simResultado = TaxasEImpostosNaTela.Simulacao(bruto, d,
+                TaxaService.ModalidadeDe(_simForma, parcelas) is not null, out var semTaxa);
+            _simSemTaxa = semTaxa;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoSim) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — simulação falhou", ex);
+            _simResultado = $"Não foi possível simular: {ex.Message}";
+            _simFalhou = true;
+        }
+        finally
+        {
+            if (geracao == _geracaoSim) _simulando = false;
+        }
+    }
+
+    // ==================== Apuração do mês ====================
+
+    private Task TrocarMesApuracaoAsync(DateOnly mes)
+    {
+        _mesApuracao = mes;
+        return ApurarAsync();
+    }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem: trocar o mês duas vezes rápido não pode deixar os
+    /// tributos de um mês sob o título do outro — é esse número que vai para a guia do contador.
+    /// </summary>
+    private async Task ApurarAsync()
+    {
+        var geracao = ++_geracaoApuracao;
+        _apuracaoCarregando = true;
+        _apuracaoNaoVerificada = false;
+        _apuracao = null;
+        _divergencia = null;
+        try
+        {
+            using var escopo = Escopo();
+            var r = await escopo.ServiceProvider.GetRequiredService<TributoService>()
+                .ApuracaoMensalAsync(_mesApuracao.Year, _mesApuracao.Month);
+            if (geracao != _geracaoApuracao || Descartada) return;
+            _apuracao = r;
+            _resumoApuracao = TaxasEImpostosNaTela.ResumoApuracao(r);
+            _divergencia = TaxasEImpostosNaTela.Divergencia(r);
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoApuracao) return;
+            // Falha nunca aparece como sucesso: lista vazia por consulta quebrada se lê como
+            // "não houve imposto no mês", que é a mentira mais cara desta aba.
+            Clinica.Application.Diagnostico.Registrar("Blazor — apuração mensal por tributo falhou", ex);
+            _apuracaoNaoVerificada = true;
+            _erroApuracao = ex.Message;
+            _resumoApuracao = "Não foi possível apurar o mês.";
+        }
+        finally
+        {
+            if (geracao == _geracaoApuracao) _apuracaoCarregando = false;
+        }
+    }
+
+    /// <summary>O CSV que vai ao contador — saída de dado, com a segunda barreira antes.</summary>
+    private async Task ExportarApuracaoAsync()
+    {
+        if (_apuracao is not { Linhas.Count: > 0 } r)
+        {
+            Notificacoes.Info("Não há apuração para exportar neste mês.");
+            return;
+        }
+        if (!Exigir(Permissao.VerFinanceiro, "exportar a apuração")) return;
+        try
+        {
+            var linhas = r.Linhas.Select(l => (IReadOnlyList<string>)
+            [
+                l.Sigla, l.Nome, TaxasEImpostosNaTela.AliquotaEfetiva(l.Aliquota),
+                Formato.Dinheiro(l.Base), Formato.Dinheiro(l.Valor), l.Natureza
+            ]).ToList();
+            var erro = await Host.ExportarCsvAsync(
+                ["Tributo", "Nome", "Alíquota efetiva", "Base", "Valor", "Natureza"], linhas,
+                $"apuracao-{_mesApuracao:yyyy-MM}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — apuração não pôde ser exportada", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+}

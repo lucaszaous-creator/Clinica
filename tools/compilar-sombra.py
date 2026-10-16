@@ -78,6 +78,9 @@ URL_WD = (
 PROJETOS_WPF = [
     "Clinica.Desktop",
     "Clinica.Desktop.Shell",
+    # A hospedagem das telas Blazor (out/2026): o navegador único da janela, compartilhado
+    # pelo Financeiro e pelo Faturamento.
+    "Clinica.Desktop.Blazor",
     "Clinica.Modulo.Recepcao",
     "Clinica.Modulo.Financeiro",
     "Clinica.Modulo.Gerente",
@@ -87,7 +90,18 @@ PROJETOS_WPF = [
     "Clinica.Financeiro",
     "Clinica.Gerente",
     "Clinica.Clinico",
+    # A ferramenta de conferência das telas no Windows (out/2026): o CI a roda no PR, e
+    # um erro dela só aparecia lá — foram dois ciclos de CI seguidos (o comentário com
+    # "--" no .csproj e o System.IO que o WPF não importa sozinho).
+    "ValidarLayoutWindows",
 ]
+
+# Onde mora cada projeto: src/ por padrão; as ferramentas de tools/ ficam ao lado.
+PASTAS = {"ValidarLayoutWindows": "tools/ValidarLayoutWindows"}
+
+
+def pasta_do_projeto(nome: str) -> Path:
+    return RAIZ / PASTAS.get(nome, f"src/{nome}")
 
 XMLNS_XAML = "http://schemas.microsoft.com/winfx/2006/xaml"
 XMLNS_WPF = "http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -386,6 +400,36 @@ def gerar_gcs(destino: Path, wpf: dict[str, str], proprios: dict[str, str],
 # 4. Projetos-sombra
 # ---------------------------------------------------------------------------
 
+# Pacotes que só têm `lib/net8.0-windows` — a sombra é `net8.0`, e o NuGet recusaria
+# restaurá-los (NU1202). Para cada um: as dependências que o pacote declara (essas têm
+# versão para `net8.0`) e a DLL dele, baixada e referenciada direto, como as do WPF.
+# Entrou com o piloto em Blazor (out/2026): o BlazorWebView do WPF.
+PACOTES_SO_WINDOWS = {
+    "Microsoft.AspNetCore.Components.WebView.Wpf": {
+        "dll": "lib/net8.0-windows7.0/Microsoft.AspNetCore.Components.WebView.Wpf.dll",
+        "dependencias": [
+            ("Microsoft.AspNetCore.Components.WebView", "8.0.10"),
+            ("Microsoft.Web.WebView2", "1.0.2592.51"),
+        ],
+    },
+}
+
+
+def garantir_dll_de_pacote(nome: str, versao: str, caminho_dll: str) -> Path:
+    destino = SOMBRA / "pacotes" / f"{nome}.{versao}"
+    dll = destino / Path(caminho_dll).name
+    if dll.exists():
+        return dll
+    destino.mkdir(parents=True, exist_ok=True)
+    pacote = destino / "pacote.nupkg"
+    url = (f"https://api.nuget.org/v3-flatcontainer/{nome.lower()}/{versao}/"
+           f"{nome.lower()}.{versao}.nupkg")
+    urllib.request.urlretrieve(url, pacote)
+    with zipfile.ZipFile(pacote) as z:
+        dll.write_bytes(z.read(caminho_dll))
+    return dll
+
+
 def ler_csproj(caminho: Path) -> ET.Element:
     return ET.parse(caminho).getroot()
 
@@ -394,10 +438,17 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
     raiz = ler_csproj(original)
 
     pacotes = []
+    so_windows = []
     for pr in raiz.iter("PackageReference"):
         inc = pr.get("Include")
         ver = pr.get("Version")
-        if inc and ver:
+        if inc in PACOTES_SO_WINDOWS and ver:
+            info = PACOTES_SO_WINDOWS[inc]
+            dll = garantir_dll_de_pacote(inc, ver, info["dll"])
+            so_windows.append(f'    <Reference Include="{dll.stem}"><HintPath>{dll}</HintPath></Reference>')
+            for dep, dep_ver in info["dependencias"]:
+                pacotes.append(f'    <PackageReference Include="{dep}" Version="{dep_ver}" />')
+        elif inc and ver:
             pacotes.append(f'    <PackageReference Include="{inc}" Version="{ver}" />')
 
     projetos = []
@@ -416,7 +467,13 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
     vinculados = []
     for item in raiz.iter("Compile"):
         inc = item.get("Include", "").replace("\\", "/")
-        if not inc or "*" in inc or not (item.get("Link") or item.find("Link") is not None):
+        if not inc or not (item.get("Link") or item.find("Link") is not None):
+            continue
+        if "*" in inc:
+            # Curinga fora da pasta (as sementes da prévia): o MSBuild expande igual.
+            alvo_dir = (original.parent / inc).parent.resolve()
+            if alvo_dir.is_relative_to(RAIZ.resolve()) and not alvo_dir.is_relative_to(original.parent.resolve()):
+                vinculados.append(ET.tostring(ET.Element("Compile", {"Include": str(alvo_dir / Path(inc).name)}), encoding="unicode"))
             continue
         alvo = (original.parent / inc).resolve()
         if not alvo.is_relative_to(original.parent.resolve()):
@@ -432,6 +489,7 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
                       "System.Windows.Controls.Ribbon", "UIAutomationTypes")
     )
 
+    pasta = original.parent
     return f"""<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Gerado por tools/compilar-sombra.py. Não versionado. -->
@@ -439,7 +497,10 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- As MESMAS usings implícitas de um projeto WPF: o SDK do WindowsDesktop TIRA
+         System.IO e System.Net.Http (conflitam com System.Windows.Shapes.Path), e uma
+         sombra net8.0 com as do console aceitaria o File/Path que o CI recusa. -->
+    <ImplicitUsings>disable</ImplicitUsings>
     <RootNamespace>{root_ns}</RootNamespace>
     <AssemblyName>Sombra.{nome}</AssemblyName>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
@@ -450,14 +511,23 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="{RAIZ}/src/{nome}/**/*.cs"
-             Exclude="{RAIZ}/src/{nome}/obj/**;{RAIZ}/src/{nome}/bin/**" />
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Linq" />
+    <Using Include="System.Threading" />
+    <Using Include="System.Threading.Tasks" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="{pasta}/**/*.cs"
+             Exclude="{pasta}/obj/**;{pasta}/bin/**" />
     <Compile Include="{gerados}/*.g.cs" />
 {chr(10).join(vinculados)}
   </ItemGroup>
 
   <ItemGroup>
 {dlls}
+{chr(10).join(so_windows)}
   </ItemGroup>
 
   <ItemGroup>
@@ -495,7 +565,7 @@ def main() -> int:
 
     total_gerados = 0
     for nome in PROJETOS_WPF:
-        origem = RAIZ / "src" / nome
+        origem = pasta_do_projeto(nome)
         destino = SOMBRA / nome
         destino.mkdir(parents=True, exist_ok=True)
 

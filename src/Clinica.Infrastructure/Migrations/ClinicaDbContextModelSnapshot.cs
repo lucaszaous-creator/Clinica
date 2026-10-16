@@ -1372,6 +1372,83 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("ColetasTablet", (string)null);
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.ComissaoRecuperacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AcompanhamentoPacienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("AssumidoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("AtendimentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CanceladaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CanceladaPor")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime>("DecididaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DecididaPor")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Decisao")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("MotivoCancelamento")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("PacienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RegraDescricao")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateOnly>("RetornoEm")
+                        .HasColumnType("date");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcompanhamentoPacienteId");
+
+                    b.HasIndex("AtendimentoId")
+                        .IsUnique()
+                        .HasFilter("\"CanceladaEm\" IS NULL");
+
+                    b.HasIndex("PacienteId");
+
+                    b.HasIndex("UsuarioId", "RetornoEm");
+
+                    b.ToTable("ComissoesRecuperacao");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.ConferenciaConsumoProcedimento", b =>
                 {
                     b.Property<int>("Id")
@@ -4904,6 +4981,52 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("ProtocolosCorporais");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.RegraComissaoRecuperacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CriadaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CriadaPor")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Modalidade")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Tipo")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("Valor")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.Property<DateOnly?>("VigenteAte")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("VigenteDe")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RegrasComissaoRecuperacao");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.RegraRepasse", b =>
                 {
                     b.Property<int>("Id")
@@ -6091,6 +6214,37 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Paciente");
 
                     b.Navigation("Sessao");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ComissaoRecuperacao", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.AcompanhamentoPaciente", "Acompanhamento")
+                        .WithMany()
+                        .HasForeignKey("AcompanhamentoPacienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Clinica.Domain.Entities.Atendimento", null)
+                        .WithMany()
+                        .HasForeignKey("AtendimentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Clinica.Domain.Entities.Paciente", null)
+                        .WithMany()
+                        .HasForeignKey("PacienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Clinica.Domain.Entities.UsuarioSistema", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Acompanhamento");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ConferenciaConsumoProcedimento", b =>

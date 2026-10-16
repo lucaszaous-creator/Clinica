@@ -1,0 +1,116 @@
+@*
+  Escolher paciente nas telas Blazor (out/2026) — a mesma regra do SeletorPacienteViewModel:
+  com o campo VAZIO não consulta nada (SemBuscaInicial: o vazio não filtra e despejaria o
+  começo do alfabeto), agrupa as teclas, descarta resposta fora de ordem e diz o terceiro
+  estado quando a busca falha. Escolhido, vira um crachá com "trocar".
+*@
+@implements IDisposable
+@inject IServiceScopeFactory Escopos
+
+@if (Selecionado is { } p)
+{
+    <div class="seletor-escolhido">
+        <span class="avatar">@Iniciais(p.Nome)</span>
+        <span class="seletor-nome"><span class="principal">@p.Nome</span>
+            @if (!string.IsNullOrWhiteSpace(p.Telefone)) { <span class="secundario">@p.Telefone</span> }</span>
+        <button type="button" class="botao mini" @onclick="Trocar">Trocar</button>
+    </div>
+}
+else
+{
+    <div class="busca">
+        <Icone Nome="busca" />
+        <input class="campo" placeholder="@Placeholder" value="@_termo" @oninput="Digitou" maxlength="80" />
+    </div>
+    @if (_erro is not null)
+    {
+        <span class="campo-erro">@_erro</span>
+    }
+    else if (_resultados.Count > 0)
+    {
+        <ul class="seletor-resultados" role="listbox">
+            @foreach (var r in _resultados)
+            {
+                <li role="option" @onclick="() => Escolher(r)">
+                    <span class="principal">@r.Nome</span>
+                    @if (!string.IsNullOrWhiteSpace(r.Telefone)) { <span class="secundario">@r.Telefone</span> }
+                </li>
+            }
+        </ul>
+    }
+    else if (_buscou && !string.IsNullOrWhiteSpace(_termo))
+    {
+        <span class="campo-dica">Nenhum paciente com "@_termo".</span>
+    }
+}
+
+@code {
+    [Parameter] public Paciente? Selecionado { get; set; }
+    [Parameter] public EventCallback<Paciente?> SelecionadoChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Digite o nome ou o CPF";
+
+    private string _termo = string.Empty;
+    private List<Paciente> _resultados = [];
+    private string? _erro;
+    private bool _buscou;
+    private int _geracao;
+    private CancellationTokenSource? _espera;
+
+    private async Task Digitou(ChangeEventArgs e)
+    {
+        _termo = e.Value?.ToString() ?? string.Empty;
+        var geracao = ++_geracao;
+        _espera?.Cancel();
+        _espera = new CancellationTokenSource();
+        var ct = _espera.Token;
+
+        if (string.IsNullOrWhiteSpace(_termo))
+        {
+            _resultados = [];
+            _buscou = false;
+            _erro = null;
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(250, ct); // agrupa as teclas: uma ida ao banco por pausa, não por letra
+            using var escopo = Escopos.CreateScope();
+            var achados = await escopo.ServiceProvider.GetRequiredService<PacienteService>().BuscarAsync(_termo, 8, ct);
+            if (geracao != _geracao) return;
+            _resultados = achados.ToList();
+            _buscou = true;
+            _erro = null;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — busca de paciente falhou", ex);
+            _resultados = [];
+            _erro = "Não foi possível buscar agora — a lista NÃO está vazia por falta de paciente.";
+        }
+    }
+
+    private async Task Escolher(Paciente p)
+    {
+        _resultados = [];
+        _termo = string.Empty;
+        await SelecionadoChanged.InvokeAsync(p);
+    }
+
+    private Task Trocar() => SelecionadoChanged.InvokeAsync(null);
+
+    private static string Iniciais(string nome)
+    {
+        var partes = nome.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => partes[0][..1].ToUpperInvariant(),
+            _ => (partes[0][..1] + partes[^1][..1]).ToUpperInvariant()
+        };
+    }
+
+    public void Dispose() => _espera?.Cancel();
+}

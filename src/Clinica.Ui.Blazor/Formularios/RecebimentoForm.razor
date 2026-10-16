@@ -1,0 +1,145 @@
+@*
+  Confirmar o pagamento ou o recebimento de um lançamento PREVISTO — o que no WPF era a
+  RecebimentoWindow (BaixarLancamentoViewModel). Pagamento PARCIAL é permitido: o valor
+  pago menor que o saldo deixa o resto em aberto, com o vencimento escolhido aqui.
+
+  As duas barreiras: o botão nasce apagado sem EditarFinanceiro, e o Exigir no clique é o
+  que impede.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@Titulo" Subtitulo="@_lancamento?.Descricao" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_lancamento is null)
+        {
+            @if (_falha is not null) { <Aviso Tom="erro" Texto="@_falha" /> } else { <Esqueleto Altura="120" /> }
+        }
+        else
+        {
+            <dl class="pares">
+                <dt>Saldo da conta</dt><dd>@Formato.Dinheiro(_lancamento.Valor)</dd>
+                @if (_lancamento.DataVencimento is { } v) { <dt>Vencimento</dt><dd>@Formato.Data(v)</dd> }
+            </dl>
+            <div class="campos">
+                <Campo Rotulo="Data do pagamento" Obrigatorio="true">
+                    <input type="date" class="campo" @bind="_data" />
+                </Campo>
+                <Campo Rotulo="Forma de pagamento" Obrigatorio="true">
+                    <select class="campo" @bind="_forma">
+                        <option value="">Escolha…</option>
+                        @foreach (var f in Enum.GetValues<FormaPagamento>())
+                        {
+                            <option value="@f">@RotulosEnum.De(f)</option>
+                        }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Valor efetivamente pago" Obrigatorio="true"
+                       Dica="Menor que o saldo = pagamento parcial; o resto continua em aberto.">
+                    <input class="campo valor" @bind="_valorPago" @bind:event="oninput" inputmode="decimal" />
+                </Campo>
+                @if (EhParcial)
+                {
+                    <Campo Rotulo="Novo vencimento do saldo" Dica="@($"Ficam em aberto {Formato.Dinheiro(_lancamento.Valor - _valorLido)}.")">
+                        <input type="date" class="campo" @bind="_vencimentoSaldo" />
+                    </Campo>
+                }
+                @if (EhCartao)
+                {
+                    <Campo Rotulo="Adquirente (maquininha)">
+                        <input class="campo" @bind="_adquirente" maxlength="60" placeholder="Ex.: Stone, Cielo" />
+                    </Campo>
+                    <Campo Rotulo="Bandeira">
+                        <input class="campo" @bind="_bandeira" maxlength="40" placeholder="Ex.: Visa" />
+                    </Campo>
+                    @if (_forma == FormaPagamento.CartaoCredito)
+                    {
+                        <Campo Rotulo="Parcelas">
+                            <input type="number" min="1" max="24" class="campo" @bind="_parcelas" />
+                        </Campo>
+                    }
+                }
+            </div>
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="ConfirmarAsync"
+                disabled="@(_lancamento is null || _ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite registrar pagamentos.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Confirmar")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int LancamentoId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private LancamentoFinanceiro? _lancamento;
+    private string? _falha;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private FormaPagamento? _forma;
+    private string _valorPago = string.Empty;
+    private DateOnly _vencimentoSaldo = DateOnly.FromDateTime(DateTime.Today);
+    private string? _adquirente;
+    private string? _bandeira;
+    private int _parcelas = 1;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+    private string Titulo => _lancamento?.Tipo == TipoLancamento.Saida ? "Confirmar pagamento" : "Confirmar recebimento";
+    private bool EhCartao => _lancamento?.Tipo == TipoLancamento.Entrada
+                             && _forma is FormaPagamento.CartaoCredito or FormaPagamento.CartaoDebito;
+    private decimal _valorLido => LeituraDeValores.TentarLerNumeroExato(_valorPago, out var v) ? v : 0m;
+    private bool EhParcial => _lancamento is not null && _valorLido > 0m && _valorLido < _lancamento.Valor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _lancamento = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                .ObterLancamentoAsync(LancamentoId);
+            if (_lancamento is null) { _falha = "Lançamento não encontrado — ele pode ter sido cancelado em outra máquina."; return; }
+            _forma = _lancamento.FormaPagamento;
+            _adquirente = _lancamento.Adquirente;
+            _bandeira = _lancamento.Bandeira;
+            _parcelas = _lancamento.Parcelas ?? 1;
+            _valorPago = Formato.ParaCampo(_lancamento.Valor);
+            _vencimentoSaldo = _lancamento.DataVencimento ?? DateOnly.FromDateTime(DateTime.Today);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — lançamento a confirmar não pôde ser lido", ex);
+            _falha = $"Não foi possível ler o lançamento: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (_ocupado || _lancamento is null) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "confirmar pagamento ou recebimento");
+            if (_forma is not { } forma) throw new InvalidOperationException("Informe a forma de pagamento.");
+            if (!LeituraDeValores.TentarLerNumeroExato(_valorPago, out var valorPago) || valorPago <= 0m)
+                throw new InvalidOperationException("Informe o valor efetivamente pago ou recebido.");
+            if (_parcelas < 1) throw new InvalidOperationException("Informe o número de parcelas.");
+
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().RealizarAsync(
+                _lancamento.Id, _data, forma, SessaoUsuario.Atual.Operador,
+                adquirente: EhCartao ? _adquirente : null, bandeira: EhCartao ? _bandeira : null,
+                parcelas: forma == FormaPagamento.CartaoCredito ? _parcelas : 1,
+                valorConferido: _lancamento.Valor, valorPago: valorPago, vencimentoSaldo: _vencimentoSaldo);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex) { _mensagem = ex.Message; }
+        finally { _ocupado = false; }
+    }
+}
