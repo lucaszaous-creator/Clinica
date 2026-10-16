@@ -30,9 +30,12 @@ public sealed class SementeAcompanhamento : ISemente
         var ana = new UsuarioSistema { Nome = "Ana Lima", Login = "ana.previa", Perfil = PerfilAcesso.Gerente, SenhaHash = "-", SenhaSalt = "-", Ativo = true };
         var bruno = new UsuarioSistema { Nome = "Bruno Castro", Login = "bruno.previa", Perfil = PerfilAcesso.Recepcao, SenhaHash = "-", SenhaSalt = "-", Ativo = true };
         db.AddRange(ana, bruno);
+        // As migrations já semeiam alguns motivos (no Postgres da suíte elas rodam; no SQLite não):
+        // reaproveita o que existe pelo nome — o índice é único — e só cria o que falta.
+        var existentes = db.MotivosAcompanhamento.ToList();
         var motivos = new[] { "Plano negou autorização", "Pediu adiamento", "Mudou de cidade" }
-            .Select(n => new MotivoAcompanhamento { Nome = n }).ToArray();
-        db.AddRange(motivos);
+            .Select(n => existentes.FirstOrDefault(m => m.Nome == n) ?? new MotivoAcompanhamento { Nome = n }).ToArray();
+        db.AddRange(motivos.Where(m => m.Id == 0));
         db.SaveChanges();
 
         var helena = db.Profissionais.First(p => p.Nome == "Dra. Helena Duarte");
