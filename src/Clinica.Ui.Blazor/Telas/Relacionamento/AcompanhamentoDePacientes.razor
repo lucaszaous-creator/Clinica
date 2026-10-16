@@ -1,0 +1,585 @@
+@*
+  ACOMPANHAMENTO DE PACIENTES (out/2026, desenho A aprovado pela cliente:
+  docs/mockups/relacionamento-dois-desenhos.html — migrado do AcompanhamentoView WPF).
+
+  A pergunta da cliente era "como a usuária assume, atende, manda mensagem, vê progresso?".
+  A resposta é a FILA COM A PRÓXIMA AÇÃO: cada linha tem UM botão — o passo seguinte daquele
+  paciente (assumir, falar no WhatsApp, marcar horário…) —, e o FUNIL em cima mostra o
+  progresso da equipe e serve de filtro (clicar de novo limpa). Clicar na linha abre a
+  CONVERSA do paciente por cima da fila: a mensagem que vai sair, o trilho de cinco degraus,
+  o "Como foi?" em cartões e o histórico.
+
+  Nada de regra aqui: o passo, a faixa, o degrau, o selo, o que cada desfecho grava e o que
+  a tela diz quando está vazia moram em AcompanhamentoNaTela e ConversaDoAcompanhamento, na
+  Application, com teste. O serviço é o MESMO da tela WPF (IAcompanhamentoPacienteService).
+  A lista de paridade (cada comando, filtro e mensagem do WPF → onde ficou) está em
+  docs/relacionamento-blazor.md.
+*@
+@* Mora numa pasta própria, mas no MESMO namespace das telas: a prévia e os testes acham as telas por ele. *@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Abstracoes
+@inherits TelaBase
+
+@* O estilo próprio desta tela, ligado aqui e não no clinica.css (out/2026): outra frente mexe
+   naquele arquivo em paralelo. Quando as duas se juntarem, a linha pode subir para o @import. *@
+<link rel="stylesheet" href="css/telas/acompanhamento.css" />
+
+<div class="pagina acompanhamento @(Carregando && _todos.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Relacionamento · Acompanhamento" Titulo="Acompanhamento de pacientes"
+                     Subtitulo="Quem sumiu e as indicações de BSV — do primeiro contato até a sessão realizada.">
+        @if (_tipo == TipoAcompanhamento.Recall)
+        {
+            <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="AbrirGerarRecall"
+                    title="@(PodeAcompanhar ? "Buscar quem está há N dias ou mais sem retornar e pôr na fila" : SemAcesso)">
+                <Icone Nome="atualizar" />Gerar recall (@_diasRecall dias)
+            </button>
+        }
+        <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="ExportarAsync" title="A lista à vista, com a coluna de quem pode receber mensagem (Ctrl+P)">
+            <Icone Nome="baixar" />Exportar CSV
+        </button>
+        <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a lista"><Icone Nome="atualizar" /></button>
+        @if (Gestor)
+        {
+            <button type="button" class="botao" @onclick="AbrirEquipe" title="O que cada responsável tem nas mãos e os encerramentos por motivo"><Icone Nome="pessoas" />Por responsável</button>
+            <button type="button" class="botao" @onclick="AbrirConfigurar" title="Profissional das indicações de BSV, responsável padrão e motivos"><Icone Nome="ajustes" />Configurar</button>
+        }
+    </CabecalhoPagina>
+
+    @if (!PodeAcompanhar)
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="Seu acesso não alcança o acompanhamento" Descricao="@SemAcesso" Icone="cadeado" />
+        </section>
+    }
+    else if (_naoVerificado)
+    {
+        <section class="cartao lista-cartao">
+            <FalhaDeLeitura Titulo="Não foi possível ler a fila de acompanhamento" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        </section>
+    }
+    else if (!_carregou)
+    {
+        <section class="cartao acomp-funil"><Esqueleto Altura="72" /></section>
+        <section class="cartao lista-cartao"><div class="cartao-corpo"><Esqueleto Altura="260" /></div></section>
+    }
+    else
+    {
+        <section class="cartao acomp-funil" aria-label="Progresso da fila — clique para filtrar">
+            @Faixa(FaixaAcompanhamento.AAssumir, "A assumir", _funil.AAssumir.ToString(Formato.PtBr), "ninguém pegou ainda", null)
+            @Faixa(FaixaAcompanhamento.ContatarHoje, "Para contatar hoje", _funil.ContatarHoje.ToString(Formato.PtBr),
+                   _funil.Atrasados == 0 ? "nenhum atrasado" : _funil.Atrasados == 1 ? "1 atrasado" : $"{_funil.Atrasados} atrasados",
+                   _funil.Atrasados > 0 ? "perigo" : null)
+            @Faixa(FaixaAcompanhamento.EmConversa, "Em conversa", _funil.EmConversa.ToString(Formato.PtBr), "aguardando resposta ou data", null)
+            @Faixa(FaixaAcompanhamento.Agendado, "Agendados", _funil.Agendados.ToString(Formato.PtBr), "próxima sessão marcada", null)
+            @Faixa(FaixaAcompanhamento.Voltou, $"Voltaram em {AcompanhamentoNaTela.DiasDoPeriodo} dias", _funil.Voltaram.ToString(Formato.PtBr),
+                   _funil.TaxaDeRetorno is { } taxa ? $"de {_funil.ContatadosNoPeriodo} contatados · {taxa}%" : "nenhum contato no período", "sucesso")
+        </section>
+
+        <section class="cartao lista-cartao">
+            <div class="filtros acomp-barra">
+                <div class="segmentado" role="group" aria-label="Qual fila">
+                    <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.Recall)" @onclick="() => TrocarTipo(TipoAcompanhamento.Recall)"
+                            title="Quem parou de vir — por modalidade">Recall · <b>@_pendentesRecall</b></button>
+                    <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.NovoBsv)" @onclick="() => TrocarTipo(TipoAcompanhamento.NovoBsv)"
+                            title="As indicações de BSV do profissional configurado, até a 1ª sessão">Novos BSV · <b>@_pendentesBsv</b></button>
+                </div>
+                <div class="segmentado" role="group" aria-label="De quem">
+                    <button type="button" aria-pressed="@Bool(_minha)" @onclick="() => TrocarEscopo(true)" title="O que é seu e o que ninguém assumiu ainda">Minha fila</button>
+                    <button type="button" aria-pressed="@Bool(!_minha)" @onclick="() => TrocarEscopo(false)" title="A fila de toda a equipe">Toda a equipe</button>
+                </div>
+                <label class="busca acomp-busca">
+                    <Icone Nome="busca" />
+                    <input class="campo" type="search" placeholder="Nome, telefone ou convênio" aria-label="Buscar por nome, telefone ou convênio"
+                           value="@_busca" @oninput="Buscar" />
+                </label>
+                <button type="button" class="botao @(Extras > 0 ? "acomp-com-filtro" : null)" @onclick="AbrirFiltros"
+                        title="Modalidade, convênio, profissional, responsável, motivo, tentativas, último contato, dias sem vir…">
+                    <Icone Nome="filtro" />Mais filtros@(Extras > 0 ? $" ({Extras})" : "")
+                </button>
+            </div>
+
+            <div class="cartao-titulo acomp-resumo">
+                <p>@_resumo
+                    @if (_ultimaLeitura is { } em) { <span class="texto-secundario"> · lista atualizada às @em.ToString("HH:mm", Formato.PtBr)</span> }
+                </p>
+                <div class="acoes">
+                    @if (_faixa is not null || Filtrada)
+                    {
+                        <button type="button" class="botao fantasma mini" @onclick="LimparFiltros">Limpar filtros</button>
+                    }
+                    <button type="button" class="botao fantasma mini" aria-pressed="@Bool(_faixa == FaixaAcompanhamento.Encerrado)"
+                            @onclick="() => EscolherFaixa(FaixaAcompanhamento.Encerrado)"
+                            title="Os casos encerrados com motivo — dá para ler a justificativa e reabrir">Encerrados (@_encerrados)</button>
+                </div>
+            </div>
+
+            @if (_linhas.Count == 0)
+            {
+                var (titulo, descricao) = ConversaDoAcompanhamento.Vazio(_naFila, Filtrada, _faixa);
+                <EstadoVazio Titulo="@titulo" Descricao="@descricao" Icone="@(Filtrada && _naFila > 0 ? "filtro" : "ok")" />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista acomp-lista">
+                        <thead>
+                            <tr>
+                                <th>Paciente</th>
+                                <th class="nao-quebra">@(_tipo == TipoAcompanhamento.Recall ? "Sem vir" : "Indicado há")</th>
+                                <th>Progresso</th>
+                                <th>Situação</th>
+                                <th>Responsável</th>
+                                <th class="direita">Próximo passo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _linhas)
+                            {
+                                var passo = AcompanhamentoNaTela.Passo(l);
+                                var (selo, tom) = AcompanhamentoNaTela.Selo(l, Hoje);
+                                <tr @key="l.Id" class="acomp-linha" @onclick="() => AbrirConversa(l, null)" title="Abrir a conversa com @l.Paciente">
+                                    <td>
+                                        <span class="principal">@l.Paciente</span>
+                                        <span class="secundario">@AcompanhamentoNaTela.Contexto(l)@(string.IsNullOrWhiteSpace(l.Telefone) ? " · sem telefone" : "")</span>
+                                    </td>
+                                    <td class="nao-quebra">@ConversaDoAcompanhamento.TempoTexto(l)</td>
+                                    <td>@Passos(l)</td>
+                                    <td><Selo Tom="@(string.IsNullOrEmpty(tom) ? "neutro" : tom)">@selo</Selo></td>
+                                    <td class="nao-quebra">
+                                        @if (l.ResponsavelId is null)
+                                        {
+                                            <span class="texto-secundario">ninguém</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="acomp-dono" title="@l.Responsavel"><span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(l.Responsavel)</span>@ConversaDoAcompanhamento.Dono(l, UsuarioId)</span>
+                                        }
+                                    </td>
+                                    <td class="direita nao-quebra" @onclick:stopPropagation="true">@Botao(l, passo)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <details class="rodape-lista acomp-legenda">
+                    <summary>Clicar na linha abre a conversa do paciente; o botão da direita faz o passo direto. Entenda as situações</summary>
+                    <p><b>A contatar</b>: primeira tentativa · <b>Sem resposta</b>: tentar de novo no prazo · <b>Retornar em…</b>: a data combinada com o paciente · <b>Aguardando o plano</b>: acompanhar a autorização · <b>Quer marcar</b>: escolher o horário · <b>Agendado</b>: sai dos pendentes até a sessão · <b>Cancelou / Faltou</b>: retomar o contato · <b>Conferir comparecimento</b>: ver na agenda se a sessão passada aconteceu · <b>Encerrado</b>: justificativa registrada, pode ser reaberto.</p>
+                    <p><b>Atrasado</b> é o próximo contato que venceu — diferente de estar há muitos dias sem vir. <b>Sem telefone</b> e <b>mensagem não autorizada</b> se resolvem na ficha do paciente. As cores sempre vêm com o texto.</p>
+                </details>
+            }
+        </section>
+    }
+</div>
+
+@if (_conversa is { } c)
+{
+    <ConversaDoPacienteForm Linha="c" UsuarioId="UsuarioId" NomeClinica="@_nomeClinica" Motivos="_motivos" CanalInicial="_canalInicial"
+                            AoFechar="FecharConversaAsync" AoConcluir="ConversaGravouAsync" />
+}
+@if (_maisFiltros)
+{
+    <MaisFiltrosAcompanhamentoForm Filtro="FiltroAtual" Extra="_extra" Linhas="_todos" Responsaveis="_responsaveis" Motivos="_motivos"
+                                   AoFechar="() => _maisFiltros = false" AoAplicar="AplicarFiltros" />
+}
+@if (_gerarRecall)
+{
+    <GerarRecallForm Dias="_diasRecall" AoFechar="() => _gerarRecall = false" AoConcluir="RecallGeradoAsync" />
+}
+@if (_configurar)
+{
+    <ConfigurarAcompanhamentoForm AoFechar="() => _configurar = false" AoConcluir="ConfiguradoAsync" />
+}
+@if (_equipe)
+{
+    <EquipeAcompanhamentoForm Linhas="_todos" Tipo="_tipo" AoFechar="() => _equipe = false" />
+}
+
+@code {
+    private const string SemAcesso = "O acompanhamento pede a ficha do paciente e o acesso às campanhas ou ao faturamento. Fale com a direção da clínica.";
+
+    private IReadOnlyList<LinhaAcompanhamento> _todos = [];
+    private List<LinhaAcompanhamento> _linhas = [];
+    private IReadOnlyList<OpcaoAcompanhamento> _motivos = [];
+    private IReadOnlyList<OpcaoAcompanhamento> _responsaveis = [];
+    private FunilAcompanhamento _funil = new(0, 0, 0, 0, 0, 0, 0, 0);
+    private string _resumo = string.Empty;
+    private int _naFila, _encerrados, _pendentesRecall, _pendentesBsv;
+    private DateTime? _ultimaLeitura;
+    private string? _nomeClinica;
+    private int _diasRecall = 60;
+    private bool _recallGerado;
+
+    // O recorte: a fila (Recall/BSV), de quem (minha/equipe), a faixa do funil, a busca e "Mais filtros".
+    private TipoAcompanhamento _tipo = TipoAcompanhamento.Recall;
+    private bool _minha = true;
+    private FaixaAcompanhamento? _faixa;
+    private string _busca = string.Empty;
+    private FiltroAcompanhamento _extrasFiltro = new(TipoAcompanhamento.Recall, true);
+    private FiltroExtraAcompanhamento _extra = FiltroExtraAcompanhamento.Nenhum;
+
+    private bool Carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    // Formulários abertos.
+    private LinhaAcompanhamento? _conversa;
+    private CanalContato? _canalInicial;
+    private bool _maisFiltros, _gerarRecall, _configurar, _equipe;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static int UsuarioId => SessaoUsuario.Atual.UsuarioId;
+
+    /// <summary>A permissão do SERVIÇO: a ficha do paciente E (as campanhas OU o faturamento).</summary>
+    private static bool PodeAcompanhar => Pode(Permissao.VerFichaPaciente) && PodeAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento);
+
+    /// <summary>Configurar e a visão por responsável são da gestão — a mesma régua do serviço (perfil Gerente).</summary>
+    private static bool Gestor => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente;
+
+    private int Extras => _extrasFiltro.Extras + _extra.Contagem;
+    private bool Filtrada => !string.IsNullOrWhiteSpace(_busca) || Extras > 0;
+
+    private FiltroAcompanhamento FiltroAtual => _extrasFiltro with { Tipo = _tipo, SoMinhaFila = _minha, Faixa = _faixa, Busca = _busca };
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Volta à aba: relê por trás, sem limpar o que está na tela (falha só vai ao log).</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+
+    /// <summary>F5 relê e Ctrl+P exporta o CSV — pelo MESMO caminho dos botões, com as duas barreiras.</summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        _ when FormularioAberto => Task.CompletedTask,
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => ExportarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    private bool FormularioAberto => _conversa is not null || _maisFiltros || _gerarRecall || _configurar || _equipe;
+
+    /// <summary>
+    /// A fila, a configuração (motivos e responsáveis), os dias do recall e o nome da clínica —
+    /// SEQUENCIAL no mesmo escopo, com contador de geração e tudo publicado depois do último
+    /// await. Na primeira abertura gera o recall com os dias da CONFIGURAÇÃO (como a tela WPF):
+    /// sem isso, quem sumiu desde ontem só entraria na fila no clique de alguém.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        if (!PodeAcompanhar) return;
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var servico = sp.GetRequiredService<IAcompanhamentoPacienteService>();
+            var parametros = sp.GetRequiredService<ParametrosService>();
+            var dias = await parametros.ObterDiasInatividadeRecallAsync();
+            if (!_recallGerado)
+            {
+                await servico.GerarRecallAsync(UsuarioId, dias);
+                _recallGerado = true;
+            }
+            var config = await servico.ConfiguracaoAsync(UsuarioId);
+            var linhas = await servico.ListarAsync(UsuarioId);
+            string? nome = _nomeClinica;
+            if (nome is null)
+            {
+                var d = await parametros.ObterPrestadorAsync();
+                nome = string.IsNullOrWhiteSpace(d.NomeFantasia) ? d.RazaoSocial : d.NomeFantasia;
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _todos = linhas;
+            _motivos = config.Motivos;
+            _responsaveis = config.Responsaveis;
+            _diasRecall = dias;
+            _nomeClinica = nome;
+            _ultimaLeitura = DateTime.Now;
+            _naoVerificado = false;
+            _carregou = true;
+            Refiltrar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — fila de acompanhamento não pôde ser lida", ex);
+            // A releitura de fundo não pinta a tela de erro por cima do que já estava certo.
+            if (silencioso && _carregou) return;
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _todos = [];
+            _linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Refiltrar()
+    {
+        var hoje = Hoje;
+        _linhas = AcompanhamentoNaTela.Filtrar(_todos, FiltroAtual, UsuarioId, hoje).Where(_extra.Aceita).ToList();
+        _naFila = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(_tipo, _minha, _faixa), UsuarioId, hoje).Count;
+        _encerrados = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(_tipo, _minha, FaixaAcompanhamento.Encerrado), UsuarioId, hoje).Count;
+        _funil = AcompanhamentoNaTela.Funil(_todos, _tipo, _minha, UsuarioId, hoje);
+        _pendentesRecall = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(TipoAcompanhamento.Recall, _minha), UsuarioId, hoje).Count;
+        _pendentesBsv = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(TipoAcompanhamento.NovoBsv, _minha), UsuarioId, hoje).Count;
+        _resumo = ConversaDoAcompanhamento.Resumo(_linhas.Count, _naFila, Filtrada);
+    }
+
+    private void TrocarTipo(TipoAcompanhamento tipo) { _tipo = tipo; _faixa = null; Refiltrar(); }
+    private void TrocarEscopo(bool minha) { _minha = minha; Refiltrar(); }
+
+    /// <summary>O funil é o filtro: clicar escolhe a faixa; clicar de novo limpa.</summary>
+    private void EscolherFaixa(FaixaAcompanhamento faixa) { _faixa = _faixa == faixa ? null : faixa; Refiltrar(); }
+
+    private void Buscar(ChangeEventArgs e) { _busca = e.Value?.ToString() ?? string.Empty; Refiltrar(); }
+
+    private void LimparFiltros()
+    {
+        _faixa = null;
+        _busca = string.Empty;
+        _extrasFiltro = new(_tipo, _minha);
+        _extra = FiltroExtraAcompanhamento.Nenhum;
+        Refiltrar();
+    }
+
+    private void AbrirFiltros() => _maisFiltros = true;
+
+    private void AplicarFiltros((FiltroAcompanhamento Filtro, FiltroExtraAcompanhamento Extra) escolha)
+    {
+        _maisFiltros = false;
+        _extrasFiltro = escolha.Filtro;
+        _extra = escolha.Extra;
+        Refiltrar();
+    }
+
+    // ==================== o passo da linha ====================
+
+    private async Task ExecutarPassoAsync(LinhaAcompanhamento l, PassoAcompanhamento passo)
+    {
+        switch (passo)
+        {
+            case PassoAcompanhamento.Assumir: await AssumirAsync(l); break;
+            case PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo: await WhatsappAsync(l); break;
+            case PassoAcompanhamento.MarcarHorario: await MarcarAsync(l); break;
+            case PassoAcompanhamento.AtualizarFicha or PassoAcompanhamento.ColherAutorizacao: await AbrirFichaAsync(l); break;
+            case PassoAcompanhamento.ConferirAgenda: await ConferirAgendaAsync(); break;
+            default: AbrirConversa(l, null); break;
+        }
+    }
+
+    /// <summary>Assumir com UM clique, sem texto: a trilha grava quem assumiu e quando.</summary>
+    private async Task AssumirAsync(LinhaAcompanhamento l)
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "assumir o acompanhamento")
+            || !ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "assumir o acompanhamento")) return;
+        if (await RecusaOuFalhaAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().AssumirAsync(UsuarioId, l.Id, l.Versao);
+            }, "Blazor — acompanhamento não pôde ser assumido"))
+        {
+            Notificacoes.Sucesso($"Você assumiu o acompanhamento de {l.Paciente}.");
+            await CarregarAsync();
+        }
+    }
+
+    /// <summary>
+    /// Falar no WhatsApp: confere telefone e autorização NO SERVIÇO, abre a conversa do
+    /// WhatsApp com a mensagem e, em seguida, a conversa do paciente já no "Como foi?".
+    /// </summary>
+    private async Task WhatsappAsync(LinhaAcompanhamento l)
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "contatar o paciente")
+            || !ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "contatar o paciente")) return;
+        var abriu = false;
+        var conferido = await RecusaOuFalhaAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().ValidarContatoAsync(UsuarioId, l.Id);
+        }, "Blazor — contato do acompanhamento não pôde ser conferido");
+        if (!conferido) return;
+        var link = PainelPendenciasFaturamento.LinkWhatsApp(l.Telefone, AcompanhamentoNaTela.Mensagem(l, null), _nomeClinica);
+        if (link is null) { await Dialogos.AvisoAsync("WhatsApp", PainelPendenciasFaturamento.SemTelefone(l.Paciente)); return; }
+        abriu = await Host.AbrirEnderecoAsync(link);
+        if (!abriu)
+        {
+            var copiou = await Host.CopiarAsync(link);
+            Notificacoes.Erro(copiou
+                ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
+                : "Não foi possível abrir o WhatsApp neste computador.");
+        }
+        AbrirConversa(l, abriu ? CanalContato.WhatsApp : null);
+    }
+
+    private async Task MarcarAsync(LinhaAcompanhamento l)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "marcar horário")) return;
+        var marcacao = Servicos.GetService<IMarcacaoDeHorario>() ?? MarcacaoIndisponivel.Instancia;
+        if (!await marcacao.MarcarAsync(l.PacienteId, l.ProfissionalId, l.Modalidade.ToString()))
+            Notificacoes.Erro("A marcação de horário não está disponível neste aplicativo — marque pela Agenda da Recepção.");
+    }
+
+    private async Task AbrirFichaAsync(LinhaAcompanhamento l)
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente")) return;
+        if (await Host.AbrirFichaDoPacienteAsync(l.PacienteId)) await CarregarAsync(silencioso: true);
+        else Notificacoes.Erro("A ficha do paciente não está disponível neste aplicativo — atualize o telefone ou a autorização em Pacientes.");
+    }
+
+    private async Task ConferirAgendaAsync()
+    {
+        if (!await Host.NavegarAsync("agenda-recepcao"))
+            Notificacoes.Erro("A agenda não está disponível neste aplicativo — confira a presença pela Agenda da Recepção.");
+    }
+
+    private void AbrirConversa(LinhaAcompanhamento l, CanalContato? canal)
+    {
+        _canalInicial = canal;
+        _conversa = l;
+    }
+
+    private async Task FecharConversaAsync()
+    {
+        _conversa = null;
+        await CarregarAsync(silencioso: true);
+    }
+
+    private async Task ConversaGravouAsync(string mensagem)
+    {
+        _conversa = null;
+        Notificacoes.Sucesso(mensagem);
+        await CarregarAsync();
+    }
+
+    // ==================== topo ====================
+
+    private void AbrirGerarRecall()
+    {
+        if (Exigir(Permissao.VerFichaPaciente, "gerar o recall") && ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "gerar o recall"))
+            _gerarRecall = true;
+    }
+
+    /// <summary>
+    /// Depois de gerar, a fila mostra o que a busca achou — como a tela WPF: os filtros se
+    /// limpam e ficam só a modalidade e os dias pedidos, senão o filtro anterior esconderia o recall novo.
+    /// </summary>
+    private async Task RecallGeradoAsync((int Novos, int Dias, ModalidadeAtendimento? Modalidade) r)
+    {
+        _gerarRecall = false;
+        _tipo = TipoAcompanhamento.Recall;
+        _faixa = null;
+        _busca = string.Empty;
+        _extrasFiltro = new(_tipo, _minha, Modalidade: r.Modalidade);
+        _extra = FiltroExtraAcompanhamento.Nenhum with { DiasMinimos = r.Dias };
+        await CarregarAsync();
+        Notificacoes.Sucesso($"{_linhas.Count} paciente(s) sem retornar há {r.Dias} dias ou mais na fila · {r.Novos} novo(s) acompanhamento(s).");
+    }
+
+    private void AbrirConfigurar()
+    {
+        if (!Gestor) { Notificacoes.Erro("A configuração do acompanhamento é exclusiva da gestão."); return; }
+        _configurar = true;
+    }
+
+    private async Task ConfiguradoAsync()
+    {
+        _configurar = false;
+        await CarregarAsync();
+    }
+
+    private void AbrirEquipe()
+    {
+        if (!Gestor) { Notificacoes.Erro("A visão por responsável é da gestão."); return; }
+        _equipe = true;
+    }
+
+    /// <summary>
+    /// A lista À VISTA em CSV. Sai nome e TELEFONE de paciente: a segunda barreira é a MESMA da
+    /// tela, e a coluna "Pode receber mensagem" leva o impedimento junto — sem ela a planilha
+    /// viraria lista de disparo para quem não consentiu.
+    /// </summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "exportar a lista de acompanhamento")
+            || !ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "exportar a lista de acompanhamento")) return;
+        if (_linhas.Count == 0) { await Dialogos.AvisoAsync("Exportar CSV", "Não há ninguém na lista para exportar."); return; }
+        var cabecalho = new[] { "Paciente", "Telefone", "Convênio", "Modalidade", "Situação", "Próximo contato", "Responsável",
+            "Dias", "Tentativas", "Sessões realizadas", "Pacote com saldo", "Pode receber mensagem" };
+        var linhas = _linhas.Select(x => (IReadOnlyList<string>)new[]
+        {
+            x.Paciente, x.Telefone ?? "—", x.Convenio, x.ModalidadeTexto, AcompanhamentoNaTela.Selo(x, Hoje).Texto,
+            x.ProximoContato.ToString("dd/MM/yyyy", Formato.PtBr), x.Responsavel, x.Dias.ToString(Formato.PtBr), x.Tentativas.ToString(Formato.PtBr),
+            x.TotalSessoes.ToString(Formato.PtBr), x.PacoteComSaldo ? "sim" : "não", ConversaDoAcompanhamento.PodeReceberMensagem(x)
+        }).ToList();
+        var erro = await Host.ExportarCsvAsync(cabecalho, linhas,
+            $"acompanhamento-{(_tipo == TipoAcompanhamento.Recall ? "recall" : "bsv")}-{DateTime.Today:yyyy-MM-dd}.csv");
+        if (erro is not null) Notificacoes.Erro(erro);
+    }
+
+    /// <summary>
+    /// Recusa de regra (versão desatualizada, sem telefone, sem autorização) vira a frase do
+    /// serviço numa notificação, sem log — é a tela funcionando. O resto vai ao log.
+    /// </summary>
+    private async Task<bool> RecusaOuFalhaAsync(Func<Task> acao, string contexto)
+    {
+        try { await acao(); return true; }
+        catch (InvalidOperationException ex) { Notificacoes.Erro(ex.Message); return false; }
+        catch (UnauthorizedAccessException ex) { Notificacoes.Erro(ex.Message); return false; }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(contexto, ex);
+            Notificacoes.Erro("Não foi possível concluir agora. Os dados anteriores foram preservados; tente de novo.");
+            return false;
+        }
+    }
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    // ==================== desenho ====================
+
+    private RenderFragment Faixa(FaixaAcompanhamento faixa, string rotulo, string numero, string nota, string? tom) => @<button type="button"
+        class="acomp-faixa @(tom is null ? null : "tom-" + tom)" aria-pressed="@Bool(_faixa == faixa)" @onclick="() => EscolherFaixa(faixa)"
+        title="@(_faixa == faixa ? "Clique de novo para ver a fila inteira" : $"Mostrar só: {rotulo}")">
+        <span class="acomp-faixa-rotulo">@rotulo</span>
+        <span class="acomp-faixa-numero">@numero</span>
+        <span class="acomp-faixa-nota">@nota</span>
+    </button>;
+
+    /// <summary>O trilho compacto da linha: um traço por degrau a partir do 2º, cheio até onde o caso chegou.</summary>
+    private RenderFragment Passos(LinhaAcompanhamento l)
+    {
+        var degrau = AcompanhamentoNaTela.Degrau(l);
+        var rotulos = AcompanhamentoNaTela.Degraus(l.Tipo);
+        return @<span class="acomp-passos" role="img" aria-label="@($"Progresso: {rotulos[degrau]}")" title="@($"Chegou em: {rotulos[degrau]}")">
+            @for (var i = 1; i < rotulos.Count; i++)
+            {
+                <i class="@(i <= degrau ? (degrau == 4 ? "voltou" : "feito") : null)"></i>
+            }
+        </span>;
+    }
+
+    private RenderFragment Botao(LinhaAcompanhamento l, PassoAcompanhamento passo)
+    {
+        var rotulo = AcompanhamentoNaTela.Rotulo(passo);
+        var (classe, icone, pode, dica) = passo switch
+        {
+            PassoAcompanhamento.Assumir => ("primario", "pessoa", PodeAcompanhar, "Pegar este paciente para você"),
+            PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo => ("acomp-whats", "enviar", PodeAcompanhar, "Abrir o WhatsApp com a mensagem e, em seguida, registrar como foi"),
+            PassoAcompanhamento.MarcarHorario => ("primario", "calendario", Pode(Permissao.EditarAgenda),
+                Pode(Permissao.EditarAgenda) ? "Abrir a marcação já com o paciente" : "A marcação exige acesso à agenda da recepção."),
+            PassoAcompanhamento.AtualizarFicha => ("", "editar", Pode(Permissao.VerFichaPaciente), "Sem telefone no cadastro — abrir a ficha"),
+            PassoAcompanhamento.ColherAutorizacao => ("", "cadeado", Pode(Permissao.VerFichaPaciente), "A mensagem não está autorizada — ver na ficha"),
+            PassoAcompanhamento.ConferirAgenda => ("", "calendario", true, "Ver na agenda se a sessão passada aconteceu"),
+            PassoAcompanhamento.AcompanharPlano => ("", "historico", PodeAcompanhar, "Registrar a resposta do plano"),
+            _ => ("", "abrir", true, "Abrir a conversa e o histórico")
+        };
+        return @<button type="button" class="botao mini @classe" disabled="@(!pode)" title="@dica" @onclick="() => ExecutarPassoAsync(l, passo)"><Icone Nome="@icone" />@rotulo</button>;
+    }
+
+    private static string Bool(bool v) => v ? "true" : "false";
+}

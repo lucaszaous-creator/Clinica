@@ -1,0 +1,55 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@using System.Globalization
+@*
+  POR RESPONSÁVEL (out/2026) — o expander "Visão da gestão — responsáveis e motivos" da tela
+  WPF, que só a gestão via: o que cada pessoa tem nas mãos e os encerramentos por motivo, na
+  fila escolhida (Recall ou BSV). Leitura pura; a conta mora em ConversaDoAcompanhamento.
+*@
+
+<Modal Titulo="@($"Por responsável — {(Tipo == TipoAcompanhamento.Recall ? "Recall" : "Novos BSV")}")" Subtitulo="O que cada pessoa da equipe tem nas mãos e por que os casos foram encerrados." Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_responsaveis.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhum caso nesta fila" Descricao="Quando houver acompanhamentos, a carga de cada responsável aparece aqui." />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead><tr><th>Responsável</th><th class="direita">Pendentes</th><th class="direita">Atrasados</th><th class="direita">Agendados</th><th class="direita">Voltaram</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in _responsaveis)
+                        {
+                            <tr><td class="principal">@r.Responsavel</td><td class="direita">@r.Pendentes</td><td class="direita @(r.Atrasados > 0 ? "negativo" : null)">@r.Atrasados</td><td class="direita">@r.Agendados</td><td class="direita">@r.Voltaram</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        <p class="acomp-rotulo">Encerramentos por motivo</p>
+        @if (_encerramentos.Count == 0)
+        {
+            <p class="texto-secundario pequeno">Nenhum caso encerrado nesta fila.</p>
+        }
+        else
+        {
+            <ul class="acomp-motivos">@foreach (var e in _encerramentos) { <li><b>@e.Quantidade</b> · @e.Motivo</li> }</ul>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public IReadOnlyList<LinhaAcompanhamento> Linhas { get; set; } = [];
+    [Parameter] public TipoAcompanhamento Tipo { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<CargaDoResponsavel> _responsaveis = [];
+    private IReadOnlyList<EncerramentosPorMotivo> _encerramentos = [];
+
+    protected override void OnParametersSet()
+        => (_responsaveis, _encerramentos) = ConversaDoAcompanhamento.VisaoDaEquipe(Linhas, Tipo, DateOnly.FromDateTime(DateTime.Today));
+}

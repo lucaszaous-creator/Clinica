@@ -1,0 +1,136 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@using System.Globalization
+@*
+  "MAIS FILTROS" do Acompanhamento (out/2026, desenho A): os filtros raros saíram da barra — a
+  tela WPF tinha 13 situações, 9 condições e 12 filtros extras, e quem a abria não sabia por
+  onde começar. Nada se perdeu: estão aqui, e o botão da barra DIZ quantos estão ligados
+  (um filtro esquecido esconde a fila). Aplicar devolve o recorte; a tela refiltra em memória.
+*@
+
+<Modal Titulo="Mais filtros" Subtitulo="Recortes que se usa de vez em quando. O botão da barra diz quantos estão ligados." Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos tres">
+            <Campo Rotulo="Modalidade">
+                <select class="campo" value="@(_modalidade?.ToString() ?? "")" @onchange="e => _modalidade = Enum.TryParse<ModalidadeAtendimento>(e.Value?.ToString(), out var m) ? m : null">
+                    <option value="">Todas</option>
+                    @foreach (var m in Enum.GetValues<ModalidadeAtendimento>()) { <option value="@m">@RotulosEnum.De(m)</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Convênio">
+                <select class="campo" value="@(_convenio ?? "")" @onchange="e => _convenio = Vazio(e.Value?.ToString())">
+                    <option value="">Todos</option>
+                    @foreach (var c in _convenios) { <option value="@c">@c</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Profissional (quem atendia)">
+                <select class="campo" value="@(_profissional ?? "")" @onchange="e => _profissional = Vazio(e.Value?.ToString())">
+                    <option value="">Todos</option>
+                    @foreach (var p in _profissionais) { <option value="@p">@p</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Responsável">
+                <select class="campo" value="@(_responsavel?.ToString() ?? "")" @onchange="e => _responsavel = int.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                    <option value="">Todas as responsáveis</option>
+                    @foreach (var r in Responsaveis) { <option value="@r.Id">@r.Nome</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Motivo (legenda)">
+                <select class="campo" value="@(_motivo ?? "")" @onchange="e => _motivo = Vazio(e.Value?.ToString())">
+                    <option value="">Todos os motivos</option>
+                    @foreach (var m in Motivos) { <option value="@m.Nome">@m.Nome</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Etapa">
+                <select class="campo" value="@(_etapa?.ToString() ?? "")" @onchange="e => _etapa = Enum.TryParse<EtapaAcompanhamento>(e.Value?.ToString(), out var x) ? x : null">
+                    <option value="">Todas</option>
+                    @foreach (var x in Enum.GetValues<EtapaAcompanhamento>()) { <option value="@x">@RegrasAcompanhamento.Rotulo(x)</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Tentativas — no mínimo">
+                <input class="campo" type="number" min="0" value="@_tentativas" @onchange="e => _tentativas = int.TryParse(e.Value?.ToString(), out var t) ? t : 0" />
+            </Campo>
+            <Campo Rotulo="Último contato — de">
+                <input class="campo" type="date" value="@Iso(_contatoDesde)" @onchange="e => _contatoDesde = Data(e)" />
+            </Campo>
+            <Campo Rotulo="Último contato — até">
+                <input class="campo" type="date" value="@Iso(_contatoAte)" @onchange="e => _contatoAte = Data(e)" />
+            </Campo>
+            <Campo Rotulo="Dias sem vir — mínimo">
+                <input class="campo" type="number" min="0" value="@(_diasMin?.ToString() ?? "")" @onchange="e => _diasMin = Inteiro(e)" />
+            </Campo>
+            <Campo Rotulo="Dias sem vir — máximo">
+                <input class="campo" type="number" min="0" value="@(_diasMax?.ToString() ?? "")" @onchange="e => _diasMax = Inteiro(e)" />
+            </Campo>
+        </div>
+        <div class="acomp-marcas">
+            <label class="marcar"><input type="checkbox" checked="@_tratamentoLongo" @onchange="e => _tratamentoLongo = e.Value is true" />Tratamento longo (@LinhaAcompanhamento.SessoesDeTratamentoLongo+ sessões)</label>
+            <label class="marcar"><input type="checkbox" checked="@_pacote" @onchange="e => _pacote = e.Value is true" />Pacote com saldo</label>
+            <label class="marcar"><input type="checkbox" checked="@_semContato" @onchange="e => _semContato = e.Value is true" />Sem telefone ou sem autorização</label>
+            <label class="marcar"><input type="checkbox" checked="@_cancelou" @onchange="e => _cancelou = e.Value is true" />Cancelou ou faltou</label>
+        </div>
+        <p class="texto-secundario pequeno">Contato <b>atrasado</b> é o próximo contato que venceu — diferente de estar há muitos dias sem vir. Para pôr na fila quem sumiu há N dias, use "Gerar recall".</p>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao fantasma" @onclick="Limpar">Limpar estes filtros</button>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="AplicarAsync"><Icone Nome="filtro" />Aplicar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public FiltroAcompanhamento Filtro { get; set; } = default!;
+    [Parameter] public FiltroExtraAcompanhamento Extra { get; set; } = FiltroExtraAcompanhamento.Nenhum;
+    /// <summary>A fila inteira — os convênios e profissionais oferecidos saem dela (opção que só leva a vazio não é oferecida).</summary>
+    [Parameter] public IReadOnlyList<LinhaAcompanhamento> Linhas { get; set; } = [];
+    [Parameter] public IReadOnlyList<OpcaoAcompanhamento> Responsaveis { get; set; } = [];
+    [Parameter] public IReadOnlyList<OpcaoAcompanhamento> Motivos { get; set; } = [];
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback<(FiltroAcompanhamento Filtro, FiltroExtraAcompanhamento Extra)> AoAplicar { get; set; }
+
+    private ModalidadeAtendimento? _modalidade;
+    private string? _convenio, _profissional, _motivo, _mensagem;
+    private int? _responsavel, _diasMin, _diasMax;
+    private EtapaAcompanhamento? _etapa;
+    private int _tentativas;
+    private DateOnly? _contatoDesde, _contatoAte;
+    private bool _tratamentoLongo, _pacote, _semContato, _cancelou;
+    private IReadOnlyList<string> _convenios = [];
+    private IReadOnlyList<string> _profissionais = [];
+
+    protected override void OnInitialized()
+    {
+        _convenios = Linhas.Select(l => l.Convenio).Where(c => !string.IsNullOrWhiteSpace(c)).Distinct().Order(StringComparer.CurrentCultureIgnoreCase).ToList();
+        _profissionais = Linhas.Select(l => l.Profissional).Where(p => p is { Length: > 0 } && p != "—").Distinct().Order(StringComparer.CurrentCultureIgnoreCase).ToList();
+        _modalidade = Filtro.Modalidade; _convenio = Filtro.Convenio; _profissional = Filtro.Profissional; _responsavel = Filtro.ResponsavelId;
+        _motivo = Filtro.Motivo; _tratamentoLongo = Filtro.SoTratamentoLongo; _pacote = Filtro.SoPacoteComSaldo;
+        _semContato = Filtro.SoSemTelefoneOuAutorizacao; _cancelou = Filtro.SoCancelouOuFaltou;
+        _etapa = Extra.Etapa; _tentativas = Extra.TentativasMinimas; _contatoDesde = Extra.ContatoDesde; _contatoAte = Extra.ContatoAte;
+        _diasMin = Extra.DiasMinimos; _diasMax = Extra.DiasMaximos;
+    }
+
+    private void Limpar()
+    {
+        _modalidade = null; _convenio = _profissional = _motivo = null; _responsavel = _diasMin = _diasMax = null; _etapa = null;
+        _tentativas = 0; _contatoDesde = _contatoAte = null; _tratamentoLongo = _pacote = _semContato = _cancelou = false; _mensagem = null;
+    }
+
+    private async Task AplicarAsync()
+    {
+        var extra = new FiltroExtraAcompanhamento(_tentativas, _contatoDesde, _contatoAte, _diasMin, _diasMax, _etapa);
+        if (extra.Impedimento() is { } erro) { _mensagem = erro; return; }
+        var filtro = Filtro with
+        {
+            Modalidade = _modalidade, Convenio = _convenio, Profissional = _profissional, ResponsavelId = _responsavel, Motivo = _motivo,
+            SoTratamentoLongo = _tratamentoLongo, SoPacoteComSaldo = _pacote, SoSemTelefoneOuAutorizacao = _semContato, SoCancelouOuFaltou = _cancelou
+        };
+        await AoAplicar.InvokeAsync((filtro, extra));
+    }
+
+    private static string? Vazio(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
+    private static int? Inteiro(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) ? n : null;
+    private static DateOnly? Data(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+    private static string Iso(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+}

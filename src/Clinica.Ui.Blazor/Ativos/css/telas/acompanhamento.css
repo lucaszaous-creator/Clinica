@@ -1,0 +1,111 @@
+/* acompanhamento: estilo só da tela "Acompanhamento de pacientes" e da conversa (tokens apenas).
+   Desenho A aprovado: docs/mockups/relacionamento-dois-desenhos.html. */
+
+/* ---------- Funil: cinco faixas numa régua só, e cada uma é o filtro ---------- */
+.acompanhamento .acomp-funil{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:0;overflow:hidden}
+.acomp-faixa{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;padding:var(--space-3) var(--space-4);
+  border:0;border-right:1px solid var(--borda);background:var(--superficie);font:inherit;text-align:left;cursor:pointer;
+  transition:background var(--duracao-rapida)}
+.acomp-faixa:last-child{border-right:0}
+.acomp-faixa:hover{background:var(--superficie-hover)}
+.acomp-faixa[aria-pressed="true"]{background:var(--acento-suave)}
+.acomp-faixa[aria-pressed="true"] .acomp-faixa-rotulo{color:var(--acento)}
+.acomp-faixa-rotulo{font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.acomp-faixa-numero{font-family:var(--font-num);font-size:var(--text-h2-size);font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+.acomp-faixa-nota{font-size:var(--text-small-size);color:var(--texto-secundario);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.acomp-faixa.tom-sucesso .acomp-faixa-numero{color:var(--sucesso-forte)}
+.acomp-faixa.tom-perigo .acomp-faixa-nota{color:var(--erro-texto);font-weight:600}
+
+/* ---------- Barra: as duas filas, de quem, a busca e "Mais filtros" ---------- */
+.acompanhamento .acomp-barra{align-items:center}
+.acompanhamento .acomp-barra .segmentado b{font-weight:700}
+.acompanhamento .acomp-busca{flex:1;min-width:220px}
+.acompanhamento .botao.acomp-com-filtro{border-color:var(--acento-tint);background:var(--acento-suave);color:var(--acento)}
+.acompanhamento .acomp-resumo{padding:var(--space-3) var(--space-6) var(--space-2);margin-bottom:0;align-items:center}
+.acompanhamento .acomp-resumo p{font-weight:600;color:var(--texto-primario)}
+.acompanhamento .acomp-resumo .acoes{gap:var(--space-2)}
+.acompanhamento .acomp-resumo .botao[aria-pressed="true"]{background:var(--acento-suave);color:var(--acento)}
+
+/* ---------- A lista: a linha inteira abre a conversa; o botão da direita faz o passo ---------- */
+.acompanhamento tr.acomp-linha{cursor:pointer}
+.acompanhamento .acomp-dono{display:inline-flex;align-items:center;gap:var(--space-2)}
+.avatar.acomp-avatar{width:22px;height:22px;font-size:10px;background:var(--acento-suave);color:var(--acento)}
+.acomp-passos{display:inline-flex;align-items:center;gap:4px}
+.acomp-passos i{display:inline-block;width:18px;height:6px;border-radius:var(--radius-pilula);background:var(--cinza-200)}
+.acomp-passos i.feito{background:var(--acento)}
+.acomp-passos i.voltou{background:var(--sucesso)}
+.botao.acomp-whats{background:var(--sucesso);border-color:var(--sucesso);color:var(--texto-invertido)}
+.botao.acomp-whats:hover:not(:disabled){background:var(--sucesso-forte);border-color:var(--sucesso-forte)}
+.acomp-legenda summary{cursor:pointer}
+.acomp-legenda p{margin:var(--space-2) 0 0;line-height:1.5}
+
+/* ---------- A conversa ---------- */
+.acomp-conversa{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:var(--space-6)}
+@media (max-width:900px){.acomp-conversa{grid-template-columns:1fr}}
+.acomp-conversa-principal{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.acomp-conversa-topo{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3)}
+.acomp-telefone{display:inline-flex;align-items:center;gap:var(--space-2);font-weight:600;font-variant-numeric:tabular-nums}
+.acomp-rotulo{margin:var(--space-2) 0 0;font-size:var(--text-secao-size);font-weight:700;letter-spacing:var(--text-secao-tracking);
+  text-transform:uppercase;color:var(--texto-secundario)}
+.acomp-mensagem{padding:var(--space-3) var(--space-4);border:1px solid var(--verde-100);border-radius:var(--radius-control);
+  background:var(--sucesso-suave);color:var(--sucesso-forte);line-height:1.5}
+.acomp-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.acomp-alerta{color:var(--aviso-texto)}
+.acomp-quem{margin-right:auto}
+
+/* O trilho de cinco degraus: o feito em acento, o "agora" vazado, o futuro em cinza. */
+.acomp-trilho{display:flex;list-style:none;margin:var(--space-1) 0 var(--space-2);padding:0}
+.acomp-trilho li{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;padding-top:22px;
+  font-size:var(--text-small-size);color:var(--texto-secundario);text-align:center}
+.acomp-trilho li::after{content:"";position:absolute;top:11px;left:-50%;width:100%;height:2px;background:var(--cinza-200)}
+.acomp-trilho li:first-child::after{display:none}
+.acomp-trilho-ponto{position:absolute;top:6px;left:50%;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--cinza-200);z-index:1}
+.acomp-trilho li.feito{color:var(--cinza-700);font-weight:600}
+.acomp-trilho li.feito::after{background:var(--acento)}
+.acomp-trilho li.feito .acomp-trilho-ponto{background:var(--acento)}
+.acomp-trilho li.agora{color:var(--acento);font-weight:700}
+.acomp-trilho li.agora::after{background:var(--acento)}
+.acomp-trilho li.agora .acomp-trilho-ponto{background:var(--superficie);border:3px solid var(--acento);width:14px;height:14px;margin-left:-7px;top:5px}
+.acomp-trilho-detalhe{font-weight:400;color:var(--texto-secundario)}
+
+/* "Como foi?": cartões clicáveis, o escolhido destacado. */
+.acomp-desfechos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2)}
+.acomp-desfecho{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:var(--space-2) var(--space-3);text-align:left;
+  border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie);font:inherit;cursor:pointer;
+  transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.acomp-desfecho:hover{border-color:var(--borda-hover);background:var(--superficie-hover)}
+.acomp-desfecho b{font-size:var(--text-table-size)}
+.acomp-desfecho span{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.acomp-desfecho[aria-checked="true"]{border-color:var(--acento);background:var(--acento-suave)}
+.acomp-desfecho.encerrar{grid-column:1/-1}
+.acomp-desfecho.encerrar b{color:var(--erro-texto)}
+.acomp-desfecho.encerrar[aria-checked="true"]{border-color:var(--erro);background:var(--erro-suave)}
+.acomp-detalhes{margin-top:var(--space-1)}
+.acomp-canais{flex-wrap:wrap;align-self:flex-start}
+
+/* A ficha lateral e o histórico. */
+.acomp-conversa-lado{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+.acomp-ficha{padding:var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);font-size:var(--text-small-size)}
+.acomp-ficha dd{font-weight:600}
+.acomp-ficha dd.positivo{color:var(--sucesso-forte)}
+.acomp-abrir-ficha{align-self:flex-start}
+.acomp-historico{list-style:none;margin:0;padding:0;font-size:var(--text-small-size);max-height:320px;overflow-y:auto}
+.acomp-historico li{position:relative;display:flex;flex-direction:column;gap:1px;padding:var(--space-1) 0 var(--space-2) var(--space-3);
+  margin-left:4px;border-left:2px solid var(--borda)}
+.acomp-historico li::before{content:"";position:absolute;left:-5px;top:9px;width:8px;height:8px;border-radius:50%;background:var(--cinza-300)}
+.acomp-historico-quando{color:var(--texto-secundario)}
+
+/* Mais filtros e Configurar. */
+.acomp-marcas{display:flex;flex-wrap:wrap;gap:var(--space-3) var(--space-6);margin:var(--space-4) 0 var(--space-2)}
+.acomp-secao{margin-top:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)}
+.acomp-motivos{margin:0;padding-left:var(--space-6);line-height:1.6}
+.acomp-novo-motivo{display:flex;gap:var(--space-2)}
+.acomp-novo-motivo .campo{flex:1}
+
+@media (max-width:1180px){
+  .acompanhamento .acomp-funil{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .acomp-faixa{padding:var(--space-3)}
+}
+
+/* O selo da situação não quebra: duas linhas de selo numa linha de tabela se leem como dois selos. */
+.acompanhamento .acomp-lista .selo{white-space:nowrap}
