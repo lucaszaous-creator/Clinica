@@ -5,5 +5,13 @@
       "maxFindings": 5,
       "maxChars": 8000
     }
+  },
+  "detector": {
+    "extensions": [
+      {
+        "ext": ".razor",
+        "engine": "html"
+      }
+    ]
   }
 }
