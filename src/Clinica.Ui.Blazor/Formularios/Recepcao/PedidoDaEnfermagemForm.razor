@@ -1,0 +1,242 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Modelos
+@*
+  UM PEDIDO DA ENFERMAGEM (out/2026) — o detalhe que, no WPF, tomava o lugar da lista na
+  PedidosEnfermagemView. Abrir um aviso NOVO é LÊ-LO: ele passa a "Visto pela recepção" para
+  todo o balcão (o serviço grava o evento; abrir de novo não grava outro).
+
+  O que a recepção faz aqui: conferir a agenda do período (o que mudou desde o envio, os
+  bloqueios), levar a Agenda para o dia e ENCERRAR o aviso, com um retorno opcional para a
+  enfermagem. Encerrar não confirma que houve agendamento — a frase diz isso antes do clique.
+*@
+@inject IServiceScopeFactory Escopos
+@inject IServiceProvider Servicos
+@inject Notificacoes Notificacoes
+
+<Modal Titulo="Pedido de atendimentos" Subtitulo="Consulte o aviso e confira o período antes de marcar." Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_detalhe is null)
+        {
+            @if (_falha is not null)
+            {
+                <FalhaDeLeitura Titulo="O aviso não pôde ser lido" Detalhe="@_falha" AoTentarDeNovo="() => CarregarAsync(false)" />
+            }
+            else
+            {
+                <Esqueleto Altura="220" />
+            }
+        }
+        else
+        {
+            var p = _detalhe.Pedido;
+            <div class="rec-pedido-cabeca">
+                <div>
+                    <p class="rec-pedido-faixa">@PedidosDaEnfermagemTela.DetalheFaixa(p)</p>
+                    <h3 class="rec-pedido-titulo numero">@PedidosDaEnfermagemTela.DetalheTitulo(p)</h3>
+                    <p class="rec-pedido-quantidade">@PedidosDaEnfermagemTela.DetalheQuantidade(p)</p>
+                </div>
+                <Selo Tom="@PedidosDaEnfermagemTela.TomDaSituacao(p.Situacao)">@PedidosDaEnfermagemTela.RotuloSituacao(p.Situacao)</Selo>
+            </div>
+            <p class="rec-pedido-observacao">@PedidosDaEnfermagemTela.DetalheObservacao(p)</p>
+            <p class="texto-secundario pequeno">@PedidosDaEnfermagemTela.DetalheMeta(p)</p>
+
+            @if (_detalhe.AgendaAlterada)
+            {
+                <Aviso Tom="atencao" Texto="@("A agenda mudou desde o envio. " + PedidosDaEnfermagemTela.TextoAgendaAlterada(_detalhe))" />
+            }
+
+            <div class="secao-form">
+                <h3>Agenda atual do período</h3>
+                <p class="rec-pedido-periodo">@PedidosDaEnfermagemTela.ResumoPeriodo(_detalhe.Periodo)</p>
+                @if (_bloqueios.Count > 0)
+                {
+                    <p class="campo-rotulo">Bloqueios no período</p>
+                    <ul class="rec-pedido-bloqueios">
+                        @foreach (var b in _bloqueios) { <li>@b</li> }
+                    </ul>
+                }
+            </div>
+
+            @if (_confirmando && p.PodeTratar)
+            {
+                <div class="secao-form rec-pedido-encerrar">
+                    <h3>Encerrar este aviso?</h3>
+                    <p class="texto-secundario">Ele ficará no histórico. Encerrar o aviso não confirma que houve agendamento.</p>
+                    <Campo Rotulo="Retorno para a enfermagem (opcional)">
+                        <textarea class="campo" maxlength="1000" @bind="_observacao" @bind:event="oninput"
+                                  placeholder="Ex.: marcamos 3 BSV às 14h; o resto do período está cheio."></textarea>
+                    </Campo>
+                    <Aviso Tom="erro" Texto="@_mensagem" />
+                    <div class="botoes-linha">
+                        <button type="button" class="botao" disabled="@_ocupado" @onclick="() => _confirmando = false">Continuar com o aviso aberto</button>
+                        <button type="button" class="botao perigo" disabled="@(_ocupado || !Permitido)" @onclick="EncerrarAsync">
+                            <Icone Nome="check" />@(_ocupado ? "Encerrando…" : "Confirmar encerramento")
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <Aviso Tom="erro" Texto="@_mensagem" />
+            }
+
+            <div class="secao-form">
+                <h3>Histórico do aviso</h3>
+                @if (_historico.Count == 0)
+                {
+                    <p class="texto-secundario pequeno">Sem registros.</p>
+                }
+                else
+                {
+                    <ol class="rec-pedido-historico">
+                        @foreach (var h in _historico)
+                        {
+                            <li>
+                                <span class="principal">@h.Acao</span>
+                                <span class="secundario">@h.Quando</span>
+                                @if (h.TemObservacao) { <span class="rec-pedido-hist-obs">@h.Observacao</span> }
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        @if (_detalhe is { } d)
+        {
+            <button type="button" class="botao" disabled="@_ocupado" @onclick="VerAgendaAsync" title="Abre a Agenda neste dia, com todos os profissionais">
+                <Icone Nome="calendario" />Ver este dia na agenda
+            </button>
+            @if (d.Pedido.PodeTratar && !_confirmando)
+            {
+                <button type="button" class="botao contorno-perigo" disabled="@(_ocupado || !Permitido)" @onclick="PedirEncerramento">
+                    Encerrar aviso
+                </button>
+            }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PedidoId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>O aviso mudou (visto ou encerrado): a tela relê a caixa.</summary>
+    [Parameter] public EventCallback AoMudar { get; set; }
+
+    private DetalheSolicitacaoEnfermagem? _detalhe;
+    private IReadOnlyList<string> _bloqueios = [];
+    private IReadOnlyList<LinhaHistoricoDoPedido> _historico = [];
+    private string? _falha;
+    private string? _mensagem;
+    private bool _ocupado;
+    private bool _confirmando;
+    private string _observacao = string.Empty;
+    private (string Texto, Guid Chave)? _envio;
+
+    private static bool Permitido => PedidosDaEnfermagemTela.Permitido(
+        SessaoUsuario.Atual.Autenticado, SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.Efetivas);
+
+    private IBalcaoDaRecepcao Balcao => Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
+
+    protected override Task OnInitializedAsync() => CarregarAsync(registrarLeitura: true);
+
+    private bool Exigir()
+    {
+        if (Permitido) return true;
+        Notificacoes.Erro("Seu acesso não permite consultar os pedidos da recepção. Fale com a direção da clínica.");
+        return false;
+    }
+
+    /// <summary>
+    /// Lê o aviso; se ele é NOVO, abrir é lê-lo — marca "visto" e relê. A mudança volta à tela
+    /// (<see cref="AoMudar"/>), que relê a caixa e avisa as outras telas deste app.
+    /// </summary>
+    private async Task CarregarAsync(bool registrarLeitura)
+    {
+        if (!Exigir()) return;
+        _falha = null;
+        var usuario = SessaoUsuario.Atual.UsuarioId;
+        var mudou = false;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var svc = escopo.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>();
+            var detalhe = await svc.DetalheAsync(usuario, PedidoId);
+            if (registrarLeitura && detalhe.Pedido is { Ativa: true, Situacao: "Novo" })
+            {
+                await svc.AtualizarAsync(usuario, PedidoId, new(Guid.NewGuid(), detalhe.Pedido.Versao, "visto"));
+                detalhe = await svc.DetalheAsync(usuario, PedidoId);
+                mudou = true;
+            }
+            if (usuario != SessaoUsuario.Atual.UsuarioId) return;
+            Publicar(detalhe);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — aviso da enfermagem não pôde ser lido", ex);
+            _falha = ex.Message;
+        }
+        if (mudou) await AoMudar.InvokeAsync();
+    }
+
+    private void Publicar(DetalheSolicitacaoEnfermagem detalhe)
+    {
+        // Trocar de versão (outra máquina mexeu) zera o rascunho do encerramento.
+        if (_detalhe?.Pedido.Versao != detalhe.Pedido.Versao) _envio = null;
+        _detalhe = detalhe;
+        _bloqueios = PedidosDaEnfermagemTela.Bloqueios(detalhe.Periodo);
+        _historico = PedidosDaEnfermagemTela.Historico(detalhe);
+        if (!detalhe.Pedido.PodeTratar) _confirmando = false;
+    }
+
+    private void PedirEncerramento()
+    {
+        if (!Exigir()) return;
+        if (_detalhe?.Pedido.PodeTratar == true) { _confirmando = true; _mensagem = null; }
+    }
+
+    /// <summary>
+    /// Encerra o aviso. A MESMA chave para a mesma tentativa: o segundo clique depois de uma
+    /// resposta perdida não encerra duas vezes (idempotência do serviço).
+    /// </summary>
+    private async Task EncerrarAsync()
+    {
+        if (_ocupado || !Exigir()) return;
+        if (_detalhe?.Pedido is not { PodeTratar: true } p) return;
+        _mensagem = null;
+        _ocupado = true;
+        try
+        {
+            var texto = $"{p.Id}|{p.Versao}|{_observacao}";
+            if (_envio?.Texto != texto) _envio = (texto, Guid.NewGuid());
+            var usuario = SessaoUsuario.Atual.UsuarioId;
+            using (var escopo = Escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().AtualizarAsync(
+                    usuario, p.Id, new(_envio.Value.Chave, p.Versao, "encerrar", _observacao));
+            _confirmando = false;
+            _observacao = string.Empty;
+            Notificacoes.Sucesso("Aviso encerrado. Ele fica no histórico da caixa.");
+            await AoMudar.InvokeAsync();
+            await CarregarAsync(registrarLeitura: false);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — aviso da enfermagem não pôde ser encerrado", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+
+    /// <summary>Leva a Agenda ao dia do PEDIDO — o destino vem da consulta autorizada, nunca de uma data digitada.</summary>
+    private async Task VerAgendaAsync()
+    {
+        if (!Exigir() || _detalhe is null) return;
+        if (await Balcao.AbrirDiaNaAgendaAsync(DateOnly.FromDateTime(_detalhe.Pedido.Inicio)))
+            await AoFechar.InvokeAsync();
+        else
+            Notificacoes.Erro("A agenda não está disponível neste aplicativo — abra o dia pela Agenda da Recepção.");
+    }
+}

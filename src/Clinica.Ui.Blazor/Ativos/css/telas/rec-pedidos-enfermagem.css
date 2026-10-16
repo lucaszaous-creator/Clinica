@@ -1,1 +1,35 @@
-/* Estilo próprio da tela (rec-pedidos-enfermagem). Só tokens — ver docs/telas-blazor.md. */
+/* Estilo próprio da tela (rec-pedidos-enfermagem). Só tokens — ver docs/telas-blazor.md.
+   Pedidos da enfermagem: a caixa compartilhada da recepção, e o aviso aberto por cima. */
+
+.rec-pedidos .rec-pedidos-filtros{align-items:center}
+.rec-pedidos .rec-pedidos-filtros .resumo-filtro{padding-bottom:0;margin-left:auto}
+
+/* O aviso NOVO é o que pede ação: um traço de aviso à esquerda e o título em destaque. */
+.rec-pedidos-lista tr.rec-pedido-novo td:first-child{box-shadow:inset 3px 0 0 var(--aviso)}
+.rec-pedidos-lista tr.rec-pedido-novo .principal{color:var(--texto-primario)}
+.rec-pedidos-lista .rec-pedido-obs{max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-pedidos-lista .rec-pedido-meta{margin-top:0}
+
+/* ---------- O aviso aberto ---------- */
+.rec-pedido-cabeca{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)}
+.rec-pedido-cabeca .selo{margin-left:0;flex:none}
+.rec-pedido-faixa{margin:0;font-size:var(--text-secao-size);font-weight:600;letter-spacing:var(--text-secao-tracking);
+  text-transform:uppercase;color:var(--texto-secundario)}
+.rec-pedido-titulo{margin:var(--space-1) 0 0;font-size:var(--text-h3-size);font-weight:700}
+.rec-pedido-quantidade{margin:var(--space-1) 0 0;color:var(--cinza-700);font-weight:600}
+.rec-pedido-observacao{margin:0;padding:var(--space-3) var(--space-4);border-radius:var(--radius-control);
+  background:var(--cinza-50);border:1px solid var(--borda);line-height:1.5;white-space:pre-line}
+.rec-pedido-periodo{margin:0;font-variant-numeric:tabular-nums;color:var(--cinza-700)}
+.rec-pedido-bloqueios{margin:0;padding-left:var(--space-6);color:var(--cinza-700);font-variant-numeric:tabular-nums}
+.rec-pedido-encerrar{padding:var(--space-4);border:1px solid var(--vermelho-100);border-radius:var(--radius-control);background:var(--erro-suave)}
+.rec-pedido-encerrar > h3{color:var(--erro-texto)}
+.rec-pedido-encerrar .texto-secundario{margin:0}
+.rec-pedido-encerrar .campo{background:var(--superficie)}
+.rec-pedido-encerrar .botoes-linha{justify-content:flex-end}
+
+.rec-pedido-historico{list-style:none;margin:0;padding:0 0 0 var(--space-4);border-left:2px solid var(--borda);
+  display:flex;flex-direction:column;gap:var(--space-3)}
+.rec-pedido-historico li{position:relative;display:flex;flex-direction:column}
+.rec-pedido-historico li::before{content:"";position:absolute;left:calc(-1 * var(--space-4) - 5px);top:6px;width:8px;height:8px;
+  border-radius:50%;background:var(--acento)}
+.rec-pedido-hist-obs{margin-top:var(--space-1);color:var(--cinza-700);line-height:1.45}

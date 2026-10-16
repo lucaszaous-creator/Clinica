@@ -1,0 +1,495 @@
+@*
+  INÍCIO DA RECEPÇÃO (out/2026 — migrado do PainelView WPF, mockup aprovado "1 · Início").
+
+  Três respostas, nesta ordem: QUANTOS (quatro cartões), QUEM vem agora com o passo seguinte
+  na própria linha, e O QUE resolver no balcão (contadores que levam cada um à tela dona).
+  Sempre HOJE — outro dia é a Agenda.
+
+  Nada de regra aqui: a saudação, a linha do dia, a pílula de cada linha, os contadores e
+  as frases moram em InicioDoBalcao e InicioRecepcaoTela (Application, com teste). O que só
+  a Recepção WPF sabe fazer (abrir a janela do horário) passa pelo IBalcaoDaRecepcao.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina rec-inicio @(Carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Início" Titulo="@_saudacao" Subtitulo="@_linhaDoDia">
+        <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar o início"><Icone Nome="atualizar" /></button>
+        <button type="button" class="botao" @onclick="VerAgendaDoDiaAsync" title="A lista do dia inteiro, com quem já chegou, está na sala ou foi atendido">
+            <Icone Nome="lista" />Ver a agenda do dia
+        </button>
+        <button type="button" class="botao primario" disabled="@(!PodeMarcar)" @onclick="MarcarAtendimentoAsync"
+                title="@(PodeMarcar ? "Marcar um atendimento — com dia, hora e quem atende" : "Seu acesso não permite marcar horários.")">
+            <Icone Nome="mais" />Marcar atendimento
+        </button>
+    </CabecalhoPagina>
+
+    @if (_naoVerificado && !_carregou)
+    {
+        <section class="cartao lista-cartao">
+            <FalhaDeLeitura Titulo="Os números de hoje não puderam ser lidos — eles não estão zerados"
+                            Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        </section>
+    }
+    else if (!_carregou)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="72" /></div> }
+        </section>
+        <section class="cartao lista-cartao"><div class="cartao-corpo"><Esqueleto Altura="260" /></div></section>
+    }
+    else
+    {
+        @if (_naoVerificado)
+        {
+            <Aviso Tom="erro" Texto="Os números de hoje não puderam ser relidos agora — o que está na tela é da última leitura. Tente de novo em instantes." />
+        }
+
+        <section class="kpis">
+            <Kpi Rotulo="Agendados hoje" Valor="@_agendados" Icone="calendario" Nota="@_agendadosDetalhe">
+                @if (_fracaoOcupada is { } f)
+                {
+                    <div class="trilho rec-ocupacao" role="img" aria-label="Quanto da agenda de hoje está ocupado: @Formato.Porcentagem(f)">
+                        <i style="width:@((f * 100).ToString("0.#", CultureInfo.InvariantCulture))%"></i>
+                    </div>
+                }
+            </Kpi>
+            <Kpi Rotulo="A atender" Valor="@_aAtender" Icone="relogio" Tom="aviso" Nota="@_aAtenderDetalhe" />
+            <Kpi Rotulo="Em atendimento" Valor="@_emAtendimento" Icone="pessoa" Tom="neutro" Nota="@_emAtendimentoDetalhe" Dica="@_emAtendimentoDetalhe" />
+            <Kpi Rotulo="Atendidos" Valor="@_atendidos" Icone="ok" Tom="sucesso" Nota="@_atendidosDetalhe" />
+        </section>
+
+        <div class="rec-inicio-corpo">
+            <section class="cartao lista-cartao rec-proximos" aria-label="Próximos a chegar">
+                <div class="cartao-titulo rec-titulo">
+                    <div class="rec-titulo-texto">
+                        <h2>Próximos a chegar</h2>
+                        <Selo Tom="neutro">@_resumoProximos</Selo>
+                    </div>
+                    <button type="button" class="botao fantasma mini" @onclick="VerAgendaDoDiaAsync">Ver a agenda do dia<Icone Nome="direita" /></button>
+                </div>
+                @if (_proximos.Count == 0)
+                {
+                    <EstadoVazio Titulo="Ninguém mais por chegar hoje"
+                                 Descricao="Quem já chegou, está na sala ou foi atendido continua na agenda do dia." Icone="ok" />
+                }
+                else
+                {
+                    <ul class="rec-chegadas">
+                        @foreach (var l in _proximos)
+                        {
+                            <li @key="l.AgendamentoId" class="rec-chegada fam-@l.Familia">
+                                <span class="rec-hora numero">@l.Hora.ToString("HH:mm", Formato.PtBr)</span>
+                                <span class="avatar rec-avatar" aria-hidden="true">@ConversaDoAcompanhamento.Iniciais(l.Paciente)</span>
+                                <span class="rec-quem">
+                                    <button type="button" class="rec-nome" title="Abrir a ficha de @l.Paciente" @onclick="() => AbrirFichaAsync(l.PacienteId, l.Paciente)">@l.Paciente</button>
+                                    @if (!string.IsNullOrWhiteSpace(l.Contato))
+                                    {
+                                        <span class="secundario">@l.Contato</span>
+                                    }
+                                </span>
+                                <span class="rec-atendimento" title="@l.Atendimento"><i class="rec-familia" aria-hidden="true"></i>@l.Atendimento</span>
+                                <span class="rec-pilula">
+                                    @if (!string.IsNullOrEmpty(l.Pilula))
+                                    {
+                                        <Selo Tom="@InicioRecepcaoTela.TomDaPilula(l.Situacao)">@l.Pilula</Selo>
+                                    }
+                                </span>
+                                <span class="rec-acao">
+                                    <button type="button" class="botao mini @(l.Situacao == SituacaoChegada.NoLocal ? null : "primario")"
+                                            disabled="@(!PodeMoverFila || _ocupado)" @onclick="() => AcaoDaLinhaAsync(l)"
+                                            title="@(!PodeMoverFila ? "Seu acesso não permite mexer na fila." : l.Situacao == SituacaoChegada.NoLocal ? "Abrir o horário" : "Registrar que chegou")">
+                                        @l.Acao
+                                    </button>
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <section class="cartao lista-cartao rec-balcao" aria-label="O que resolver no balcão">
+                <div class="cartao-titulo rec-titulo"><h2>O que resolver no balcão</h2></div>
+                <ul class="rec-itens">
+                    @foreach (var i in _balcao)
+                    {
+                        <li @key="i.Chave">
+                            <button type="button" class="rec-item tom-@i.Tom" @onclick="() => AbrirItemAsync(i)" aria-label="@i.Titulo: @i.Valor">
+                                <span class="rec-item-icone"><Icone Nome="@IconeDoItem(i.Chave)" /></span>
+                                <span class="rec-item-texto">
+                                    <span class="rec-item-titulo">@i.Titulo</span>
+                                    <span class="secundario" title="@i.Detalhe">@i.Detalhe</span>
+                                </span>
+                                <span class="rec-item-valor numero @(i.NaoVerificado ? "texto-secundario" : null)">@i.Valor</span>
+                                <Icone Nome="direita" />
+                            </button>
+                        </li>
+                    }
+                </ul>
+                <div class="rec-aniversario">
+                    <span class="rec-item-icone tom-sucesso"><Icone Nome="etiqueta" /></span>
+                    <span class="rec-aniversario-texto">@_rodapeAniversario</span>
+                    <button type="button" class="botao mini" @onclick="() => _aniversariosAbertos = true">Ver</button>
+                </div>
+            </section>
+        </div>
+    }
+</div>
+
+@if (_guiasAbertas)
+{
+    <Modal Titulo="Guias do 2º código" Subtitulo="De quem vem hoje — cobre o documento com o paciente aqui." Largura="medio" AoFechar="() => _guiasAbertas = false">
+        <ChildContent>
+            @if (_guias is null)
+            {
+                <FalhaDeLeitura Titulo="As guias de hoje não puderam ser lidas" Detalhe="Elas não estão zeradas — tente de novo em instantes." />
+            }
+            else if (_guias.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhuma guia por cobrar" Descricao="Ninguém que vem hoje tem 2º código pendente." Icone="ok" />
+            }
+            else
+            {
+                <ul class="rec-lista-modal">
+                    @foreach (var g in _guias)
+                    {
+                        <li>
+                            <span class="rec-quem">
+                                <span class="principal">@g.Paciente</span>
+                                <span class="secundario">@g.Descricao · @g.Atraso</span>
+                            </span>
+                            <button type="button" class="botao mini" disabled="@(!g.TemTelefone)" @onclick="() => CobrarGuiaAsync(g)"
+                                    title="@(g.TemTelefone ? "Abre o WhatsApp para pedir o documento" : "Sem telefone no cadastro")">
+                                <Icone Nome="enviar" />Cobrar
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </ChildContent>
+        <Rodape><button type="button" class="botao" @onclick="() => _guiasAbertas = false">Fechar</button></Rodape>
+    </Modal>
+}
+
+@if (_aniversariosAbertos)
+{
+    <Modal Titulo="Aniversariantes da semana" Subtitulo="Hoje e os próximos seis dias — quem vem hoje recebe o parabéns no balcão." Largura="medio" AoFechar="() => _aniversariosAbertos = false">
+        <ChildContent>
+            @if (_aniversariantes is null)
+            {
+                <FalhaDeLeitura Titulo="Os aniversariantes não puderam ser lidos" Detalhe="A lista não está vazia — tente de novo em instantes." />
+            }
+            else if (_aniversariantes.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhum aniversariante nesta semana" Descricao="A lista cobre hoje e os próximos seis dias." />
+            }
+            else
+            {
+                <ul class="rec-lista-modal">
+                    @foreach (var a in _aniversariantes)
+                    {
+                        <li>
+                            <span class="rec-quem">
+                                <span class="principal">@a.Paciente @if (a.VemHoje) { <Selo Tom="sucesso">vem hoje</Selo> }</span>
+                                <span class="secundario">@a.Detalhe</span>
+                            </span>
+                            <button type="button" class="botao mini" disabled="@(!a.TemTelefone)" @onclick="() => ParabenizarAsync(a)"
+                                    title="@(a.TemTelefone ? "Abre o WhatsApp com a mensagem de parabéns" : "Sem telefone no cadastro")">
+                                <Icone Nome="enviar" />Parabéns
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </ChildContent>
+        <Rodape><button type="button" class="botao" @onclick="() => _aniversariosAbertos = false">Fechar</button></Rodape>
+    </Modal>
+}
+
+@code {
+    // As chaves do menu (ModuloRecepcao / ChavesSuite) — esta biblioteca não enxerga o módulo.
+    private const string ChaveMarcarHorario = "marcar-horario";
+    private const string ChaveAgendaDoDia = "fila";
+    private const string ChaveConfirmacoes = "agenda-confirmacoes";
+    private const string ChaveRetornosAMarcar = "retornos-a-marcar";
+    private const string ChaveRecall = "retorno-pacientes";
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private bool Carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private bool _ocupado;
+    private string? _erro;
+    private int _geracao;
+
+    private string _saudacao = InicioDoBalcao.Saudacao(DateTime.Now, SessaoUsuario.Atual.Nome);
+    private string _linhaDoDia = string.Empty;
+    private string _agendados = "—", _agendadosDetalhe = string.Empty;
+    private double? _fracaoOcupada;
+    private string _aAtender = "—", _aAtenderDetalhe = string.Empty;
+    private string _emAtendimento = "—", _emAtendimentoDetalhe = string.Empty;
+    private string _atendidos = "—", _atendidosDetalhe = string.Empty;
+    private string _resumoProximos = string.Empty;
+    private IReadOnlyList<ProximoAChegar> _proximos = [];
+    private IReadOnlyList<ItemDoBalcao> _balcao = [];
+    private IReadOnlyList<GuiaDoBalcao>? _guias = [];
+    private IReadOnlyList<AniversarianteDoBalcao>? _aniversariantes = [];
+    private string _rodapeAniversario = string.Empty;
+    private bool _guiasAbertas, _aniversariosAbertos;
+
+    // O relógio do Início (o DispatcherTimer de 2 min do WPF): contagens do dia, e cada batida
+    // custa várias consultas ao banco remoto.
+    private PeriodicTimer? _relogio;
+    private CancellationTokenSource? _parar;
+
+    private static bool PodeMarcar => Pode(Permissao.EditarAgenda);
+    private static bool PodeMoverFila => PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila);
+
+    private IBalcaoDaRecepcao Balcao => Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
+
+    protected override async Task OnInitializedAsync()
+    {
+        IniciarRelogio();
+        await CarregarAsync();
+    }
+
+    /// <summary>Volta à aba: relê por trás, sem limpar o que está na tela (falha só vai ao log).</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar && !_guiasAbertas && !_aniversariosAbertos ? CarregarAsync() : Task.CompletedTask;
+
+    private void IniciarRelogio()
+    {
+        _parar = new CancellationTokenSource();
+        _relogio = new PeriodicTimer(TimeSpan.FromMinutes(2));
+        var token = _parar.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (await _relogio.WaitForNextTickAsync(token))
+                    await InvokeAsync(async () => { if (!Carregando && !Descartada) { await CarregarAsync(silencioso: true); StateHasChanged(); } });
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — relógio do Início da Recepção", ex); }
+        });
+    }
+
+    /// <summary>
+    /// A carga: resumo e o dia SEQUENCIAIS no mesmo escopo (o mesmo DbContext não aceita duas
+    /// operações ao mesmo tempo), cada bloco secundário falhando SOZINHO ("—" e "não foi
+    /// possível conferir"), contador de geração e tudo publicado depois do último await.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        var geracao = ++_geracao;
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var agora = DateTime.Now;
+        if (!silencioso) Carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var painel = sp.GetRequiredService<PainelRecepcaoService>();
+            var repo = sp.GetRequiredService<IClinicaRepositorio>();
+
+            var resumo = await painel.ResumoAsync(hoje);
+            var doDia = (await sp.GetRequiredService<AgendaService>().DoDiaAsync(hoje)).ToList();
+
+            var confirmacoes = await Tentar(() => repo.RespostasDeConfirmacaoAsync(doDia.Select(a => a.Id).ToList()),
+                "confirmações do dia", (IReadOnlyDictionary<int, RespostaDeConfirmacao>?)null);
+            var ocupacao = Pode(Permissao.VerAgenda)
+                ? await Tentar(() => sp.GetRequiredService<IOcupacaoAgendaService>()
+                    .ConsultarAsync(SessaoUsuario.Atual.UsuarioId, hoje, hoje), "ocupação do dia", (OcupacaoAgenda?)null)
+                : null;
+            var pendencias = await Tentar(() => painel.PendenciasDosPacientesAsync(hoje, resumo.PacientesDoDia),
+                "guias pendentes do dia", (IReadOnlyList<PendenciaCodigo>?)null);
+            var amanha = await Tentar(() => sp.GetRequiredService<CampanhaService>()
+                    .ContatosAsync(TipoContato.ConfirmacaoSessao, null, hoje.AddDays(1), hoje.AddDays(1)),
+                "rodada de amanhã", (IReadOnlyList<ContatoCampanha>?)null);
+            var retornos = await Tentar(() => sp.GetRequiredService<RetornosAMarcarService>().ListarAsync(),
+                "retornos a marcar", (IReadOnlyList<RetornoAMarcar>?)null);
+            var acompanhamento = await Tentar(() => sp.GetRequiredService<IAcompanhamentoPacienteService>()
+                .ListarAsync(SessaoUsuario.Atual.UsuarioId), "acompanhamento", (IReadOnlyList<LinhaAcompanhamento>?)null);
+            var aniversarios = await Tentar(() => sp.GetRequiredService<RelacionamentoService>()
+                    .AniversariantesAsync(hoje, InicioRecepcaoTela.JanelaAniversarioDias, doDia.Select(a => a.PacienteId).ToHashSet()),
+                "aniversariantes", (IReadOnlyList<Aniversariante>?)null);
+
+            if (geracao != _geracao || Descartada) return;
+
+            // ===== Cabeçalho e cartões =====
+            _saudacao = InicioDoBalcao.Saudacao(agora, SessaoUsuario.Atual.Nome);
+            _linhaDoDia = InicioDoBalcao.LinhaDoDia(hoje, resumo.Agendados, InicioDoBalcao.PorChegar(doDia));
+            var percentual = ocupacao?.Resumo.Percentual;
+            _agendados = resumo.Agendados.ToString(Formato.PtBr);
+            _agendadosDetalhe = InicioRecepcaoTela.DetalheAgendados(percentual, resumo.Encaixes);
+            _fracaoOcupada = InicioRecepcaoTela.FracaoOcupada(percentual);
+            _aAtender = resumo.Aguardando.ToString(Formato.PtBr);
+            _aAtenderDetalhe = InicioRecepcaoTela.DetalheAAtender(InicioRecepcaoTela.NoLocal(doDia));
+            _emAtendimento = resumo.EmAtendimento.ToString(Formato.PtBr);
+            _emAtendimentoDetalhe = InicioDoBalcao.QuemAtende(doDia);
+            _atendidos = resumo.Atendidos.ToString(Formato.PtBr);
+            _atendidosDetalhe = InicioDoBalcao.FaltasECancelamentos(resumo.Faltas, resumo.Cancelados);
+
+            // ===== Próximos a chegar =====
+            _proximos = InicioDoBalcao.Proximos(doDia, confirmacoes ?? new Dictionary<int, RespostaDeConfirmacao>(), agora);
+            _resumoProximos = InicioRecepcaoTela.ResumoProximos(_proximos.Count);
+
+            // ===== O que resolver no balcão =====
+            _guias = pendencias is null ? null : InicioRecepcaoTela.GuiasDoSegundoCodigo(pendencias);
+            var confirmar = amanha is null ? null
+                : InicioDoBalcao.ConfirmarAmanha(amanha.Select(c => RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario)).ToList());
+            var recall = acompanhamento is null ? (int?)null : InicioRecepcaoTela.RecallDeHoje(acompanhamento, hoje);
+            _balcao = InicioRecepcaoTela.ItensDoBalcao(_guias?.Count, confirmar, retornos?.Count, recall)
+                .Where(i => Destino(i.Chave) is not { } chave || Balcao.DestinoExiste(chave))
+                .ToList();
+
+            _aniversariantes = aniversarios?.Select(InicioRecepcaoTela.Aniversariante).ToList();
+            _rodapeAniversario = InicioRecepcaoTela.RodapeAniversarios(_aniversariantes?.Count);
+
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — Início da Recepção não pôde ser carregado", ex);
+            // A releitura de fundo não pinta a tela de erro por cima do que já estava certo.
+            if (silencioso && _carregou) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Cada bloco falha SOZINHO: o contador que não pôde ser lido mostra "—" e diz isso, e o
+    /// resto da tela continua. Zero por falha seria indistinguível de "nada a resolver".
+    /// </summary>
+    private static async Task<T> Tentar<T>(Func<Task<T>> leitura, string oque, T seFalhar)
+    {
+        try { return await leitura(); }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — Início da Recepção: {oque} não pôde ser lido", ex);
+            return seFalhar;
+        }
+    }
+
+    /// <summary>Para onde leva cada contador. As guias abrem a lista AQUI (nulo).</summary>
+    private static string? Destino(string chave) => chave switch
+    {
+        "confirmar" => ChaveConfirmacoes,
+        "retornos" => ChaveRetornosAMarcar,
+        "recall" => ChaveRecall,
+        _ => null
+    };
+
+    private static string IconeDoItem(string chave) => chave switch
+    {
+        "guias" => "documento",
+        "confirmar" => "check",
+        "retornos" => "historico",
+        "recall" => "pessoas",
+        _ => "info"
+    };
+
+    // ==================== Ações ====================
+
+    private async Task MarcarAtendimentoAsync()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "marcar horários")) return;
+        if (!await Host.NavegarAsync(ChaveMarcarHorario))
+            Notificacoes.Info("Marcar atendimento não está disponível para o seu acesso neste aplicativo.");
+    }
+
+    private async Task VerAgendaDoDiaAsync()
+    {
+        if (!await Host.NavegarAsync(ChaveAgendaDoDia))
+            Notificacoes.Info("A agenda do dia não está disponível para o seu acesso neste aplicativo.");
+    }
+
+    /// <summary>Clique num contador: leva à tela dona; as guias abrem a lista aqui mesmo.</summary>
+    private async Task AbrirItemAsync(ItemDoBalcao item)
+    {
+        if (Destino(item.Chave) is not { } destino) { _guiasAbertas = true; return; }
+        if (!await Host.NavegarAsync(destino))
+            Notificacoes.Info($"{item.Titulo}: esta tela não está disponível para o seu acesso neste aplicativo.");
+    }
+
+    private async Task AbrirFichaAsync(int pacienteId, string paciente)
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente")) return;
+        if (!await Host.AbrirFichaDoPacienteAsync(pacienteId))
+            Notificacoes.Info($"A ficha de {paciente} não está disponível neste aplicativo — abra por Pacientes.");
+    }
+
+    /// <summary>
+    /// O passo da linha: abrir o horário (já está no local) ou registrar a chegada. O termo não
+    /// é colhido no balcão (out/2026, decisão da clínica) — quem colhe é a enfermagem.
+    /// </summary>
+    private async Task AcaoDaLinhaAsync(ProximoAChegar linha)
+    {
+        if (_ocupado) return;
+        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila")) return;
+        _ocupado = true;
+        try
+        {
+            if (linha.Situacao == SituacaoChegada.NoLocal)
+            {
+                var r = await Balcao.AbrirHorarioAsync(DateOnly.FromDateTime(linha.Hora), linha.AgendamentoId);
+                if (!string.IsNullOrWhiteSpace(r.Mensagem))
+                {
+                    if (!r.Abriu || r.MensagemEhErro) Notificacoes.Erro(r.Mensagem); else Notificacoes.Info(r.Mensagem);
+                }
+            }
+            else
+            {
+                var ok = await ExecutarAsync(async () =>
+                {
+                    using var escopo = Escopo();
+                    await escopo.ServiceProvider.GetRequiredService<AgendaService>()
+                        .RegistrarChegadaAsync(linha.AgendamentoId, Operador);
+                }, "Blazor — Início da Recepção: registrar a chegada", $"{linha.Paciente} está no local.");
+                if (!ok) return;
+            }
+            await CarregarAsync(silencioso: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    private Task CobrarGuiaAsync(GuiaDoBalcao g)
+        => WhatsappAsync(g.Telefone, g.Paciente, InicioRecepcaoTela.CobrancaDeGuia(g.Paciente));
+
+    private Task ParabenizarAsync(AniversarianteDoBalcao a)
+        => WhatsappAsync(a.Telefone, a.Paciente, InicioRecepcaoTela.Parabens(a.Paciente));
+
+    /// <summary>
+    /// Abre o WhatsApp com a mensagem (a MESMA regra de telefone do shell). Sem telefone útil,
+    /// diz onde corrigir; se o navegador não abriu, copia o endereço — nunca falha em silêncio.
+    /// </summary>
+    private async Task WhatsappAsync(string? telefone, string paciente, string mensagem)
+    {
+        var link = QuemMeDeveTela.LinkWhatsApp(telefone, mensagem);
+        if (link is null) { Notificacoes.Erro(PainelPendenciasFaturamento.SemTelefone(paciente)); return; }
+        if (await Host.AbrirEnderecoAsync(link)) return;
+        Notificacoes.Erro(await Host.CopiarAsync(link)
+            ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
+            : "Não foi possível abrir o WhatsApp neste computador.");
+    }
+
+    public override void Dispose()
+    {
+        _parar?.Cancel();
+        _relogio?.Dispose();
+        _parar?.Dispose();
+        base.Dispose();
+    }
+}

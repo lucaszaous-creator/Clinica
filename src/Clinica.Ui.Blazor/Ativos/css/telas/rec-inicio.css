@@ -1,1 +1,80 @@
-/* Estilo próprio da tela (rec-inicio). Só tokens — ver docs/telas-blazor.md. */
+/* Estilo próprio da tela (rec-inicio). Só tokens — ver docs/telas-blazor.md.
+   Início da Recepção: quatro números, quem vem agora (a lista larga) e o que resolver no
+   balcão (a coluna estreita). Mockup aprovado "1 · Início". */
+
+/* A barra de ocupação mora DENTRO do cartão "Agendados hoje". */
+.rec-inicio .rec-ocupacao{margin-top:var(--space-1)}
+.rec-inicio .rec-ocupacao > i{background:var(--acento)}
+
+/* ---------- Duas colunas: a lista de chegada cresce; o balcão tem largura fixa ---------- */
+.rec-inicio-corpo{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:var(--space-4);align-items:start}
+@media (max-width:1180px){.rec-inicio-corpo{grid-template-columns:minmax(0,1fr) 300px}}
+@media (max-width:980px){.rec-inicio-corpo{grid-template-columns:1fr}}
+
+.rec-inicio .rec-titulo{padding:var(--space-4) var(--space-6) var(--space-3);margin:0;align-items:center;border-bottom:1px solid var(--borda)}
+.rec-inicio .rec-titulo-texto{display:flex;align-items:center;gap:var(--space-2);min-width:0}
+.rec-inicio .rec-titulo .selo{margin-left:0}
+
+/* ---------- Próximos a chegar ---------- */
+.rec-chegadas{list-style:none;margin:0;padding:0;max-height:560px;overflow-y:auto}
+.rec-chegada{display:grid;grid-template-columns:52px 32px minmax(0,1.3fr) minmax(0,1fr) 170px 84px;align-items:center;
+  gap:var(--space-3);padding:var(--space-3) var(--space-6);border-bottom:1px solid var(--cinza-100);position:relative}
+.rec-chegada:last-child{border-bottom:0}
+.rec-chegada:hover{background:var(--cinza-50)}
+/* O traço da FAMÍLIA à esquerda — os mesmos tokens do cartão da agenda. */
+.rec-chegada::before{content:"";position:absolute;left:0;top:var(--space-2);bottom:var(--space-2);width:3px;
+  border-radius:0 var(--radius-pequeno) var(--radius-pequeno) 0;background:var(--fam, var(--acento))}
+.rec-chegada.fam-AcupunturaSimples{--fam:var(--acento)}
+.rec-chegada.fam-AcupunturaComEletro{--fam:var(--violeta-600)}
+.rec-chegada.fam-BsvApenas{--fam:var(--teal-600)}
+.rec-chegada.fam-BsvComAcupuntura{--fam:var(--ciano-500)}
+.rec-chegada.fam-Consulta{--fam:var(--rosa-600)}
+
+.rec-hora{font-weight:700;color:var(--texto-primario)}
+.avatar.rec-avatar{background:var(--acento-suave);color:var(--acento)}
+.rec-quem{display:flex;flex-direction:column;min-width:0}
+.rec-quem .secundario{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-nome{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--texto-primario);text-align:left;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rec-nome:hover{color:var(--acento);text-decoration:underline}
+.rec-atendimento{display:flex;align-items:center;gap:var(--space-2);min-width:0;color:var(--cinza-700);font-size:var(--text-table-size);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-familia{flex:none;width:8px;height:8px;border-radius:50%;background:var(--fam, var(--acento))}
+.rec-pilula{display:flex;justify-content:flex-end;min-width:0}
+.rec-pilula .selo{margin-left:0;white-space:nowrap}
+.rec-acao{display:flex;justify-content:flex-end}
+.rec-acao .botao{min-width:72px;justify-content:center}
+
+@media (max-width:1180px){
+  .rec-chegada{grid-template-columns:48px 32px minmax(0,1fr) auto auto}
+  .rec-atendimento{grid-column:3;grid-row:2;margin-top:calc(-1 * var(--space-2))}
+}
+
+/* ---------- O que resolver no balcão ---------- */
+.rec-itens{list-style:none;margin:0;padding:var(--space-2)}
+.rec-item{display:flex;align-items:center;gap:var(--space-3);width:100%;padding:var(--space-3);border:0;border-radius:var(--radius-control);
+  background:transparent;font:inherit;text-align:left;cursor:pointer;color:inherit}
+.rec-item:hover{background:var(--superficie-hover)}
+.rec-item:focus-visible{outline:2px solid var(--foco);outline-offset:-2px}
+.rec-item > svg.icone{color:var(--cinza-300)}
+.rec-item-icone{flex:none;width:32px;height:32px;border-radius:var(--radius-control);display:grid;place-items:center;
+  background:var(--superficie-hover);color:var(--cinza-700)}
+.rec-item.tom-perigo .rec-item-icone{background:var(--erro-suave);color:var(--erro-texto)}
+.rec-item.tom-aviso .rec-item-icone{background:var(--aviso-suave);color:var(--aviso-texto)}
+.rec-item.tom-info .rec-item-icone{background:var(--acento-suave);color:var(--acento)}
+.rec-item-icone.tom-sucesso{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.rec-item-texto{flex:1;min-width:0;display:flex;flex-direction:column}
+.rec-item-titulo{font-weight:600;line-height:1.3}
+.rec-item-texto .secundario{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-item-valor{font-family:var(--font-num);font-size:var(--text-h3-size);font-weight:700}
+
+.rec-aniversario{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+  border-top:1px solid var(--borda);background:var(--cinza-50)}
+.rec-aniversario-texto{flex:1;min-width:0;color:var(--cinza-700);line-height:1.35}
+
+/* ---------- As listas que abrem por cima (guias e aniversariantes) ---------- */
+.rec-lista-modal{list-style:none;margin:0;padding:0;border:1px solid var(--borda);border-radius:var(--radius-control)}
+.rec-lista-modal li{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--cinza-100)}
+.rec-lista-modal li:last-child{border-bottom:0}
+.rec-lista-modal .rec-quem{flex:1}
+.rec-lista-modal .principal .selo{margin-left:var(--space-2)}
