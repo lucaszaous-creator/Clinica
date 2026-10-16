@@ -5004,6 +5004,10 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("HabilitacoesAtendimentoJson")
                         .HasColumnType("text");
 
+                    b.Property<string>("HorariosAtendimento")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(120)

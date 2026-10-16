@@ -492,6 +492,9 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Email).HasMaxLength(120);
             e.Property(p => p.Cor).HasMaxLength(9);
             e.Property(p => p.Observacoes).HasMaxLength(500);
+            // Faixas por dia (out/2026): "1=08:00-12:00,14:00-18:00;…" — sete dias com três
+            // faixas cabem com folga em 400.
+            e.Property(p => p.HorariosAtendimento).HasMaxLength(400);
             e.Ignore(p => p.Rotulo);
             e.HasIndex(p => p.Nome);
         });

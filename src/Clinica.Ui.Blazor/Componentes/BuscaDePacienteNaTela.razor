@@ -1,0 +1,300 @@
+@*
+  QUEM É O PACIENTE — a busca que É a tela (out/2026; o padrão do Novo atendimento aprovado no
+  mockup 05, agora em Blazor e compartilhado por Pacientes, Marcar/Lançar atendimento e
+  Documentos). Uma tela que escolhe paciente usa ESTE componente; não reescreva a busca.
+
+  As regras são as do SeletorPacienteViewModel e da BuscaDePaciente.Modo (Application):
+  • coluna central de 760 px, campo de 48 px — a única altura de campo fora dos 36 da suíte,
+    porque aqui ele é o único controle da tela;
+  • com o campo VAZIO não consulta o cadastro (o vazio não filtra e despejaria o alfabeto);
+    a sugestão "com horário hoje" é uma leitura da agenda do dia, opt-in;
+  • agrupa as teclas (uma ida ao banco por pausa), descarta resposta fora de ordem e escreve
+    o terceiro estado quando a busca falha — "não achei" e "não consegui buscar" não se
+    confundem;
+  • ↑ ↓ andam na lista, Enter escolhe (com UM resultado, escolhe direto), Esc limpa;
+  • "nenhum paciente com 'x'" só aparece para uma BUSCA que respondeu — numa tela recém-aberta
+    seria afirmação falsa sobre o cadastro inteiro (é o que leva a cadastrar de novo quem já
+    tem ficha, parcela 57). Com AoCadastrar, o vazio oferece o cadastro ali mesmo.
+*@
+@using Clinica.Application.Modelos
+@implements IDisposable
+@inject IServiceScopeFactory Escopos
+
+<div class="quem">
+    @if (!string.IsNullOrWhiteSpace(Pergunta))
+    {
+        <h2 class="quem-pergunta">@Pergunta</h2>
+    }
+    @if (!string.IsNullOrWhiteSpace(Contexto))
+    {
+        <p class="quem-contexto">@Contexto</p>
+    }
+
+    <div class="busca quem-campo">
+        <Icone Nome="busca" />
+        <input class="campo" placeholder="Nome, CPF ou telefone" value="@_termo" @oninput="Digitou"
+               @onkeydown="Tecla" @onkeydown:preventDefault="_engolirTecla" maxlength="80"
+               aria-label="Buscar paciente por nome, CPF ou telefone" autocomplete="off" autofocus />
+        @if (!string.IsNullOrEmpty(_termo))
+        {
+            <button type="button" class="botao fantasma mini quem-limpar" @onclick="Limpar" aria-label="Limpar a busca">Limpar</button>
+        }
+    </div>
+
+    <div class="quem-chips" role="group" aria-label="O que mostrar">
+        @if (SugestaoDeHoje)
+        {
+            <button type="button" class="chip" aria-pressed="@(_modo == ModoDaBusca.Sugestao ? "true" : "false")"
+                    @onclick="MostrarSugestaoAsync">Com horário hoje @(_hoje is null ? null : $"· {_hoje.Count}")</button>
+        }
+        @if (PermiteVerTodos)
+        {
+            <button type="button" class="chip" aria-pressed="@(_modo == ModoDaBusca.Todos ? "true" : "false")"
+                    @onclick="VerTodosAsync">Todos os pacientes</button>
+        }
+        @if (AoCadastrar.HasDelegate)
+        {
+            <button type="button" class="botao mini quem-novo" @onclick="AoCadastrar"><Icone Nome="mais" />Cadastrar paciente</button>
+        }
+    </div>
+
+    @if (_erro is not null)
+    {
+        <div class="aviso erro" role="alert"><Icone Nome="alerta" /><span>@_erro</span></div>
+    }
+    else if (_buscando && _linhas.Count == 0)
+    {
+        <p class="quem-dica">Procurando…</p>
+    }
+    else if (_linhas.Count > 0)
+    {
+        <div class="quem-lista" role="listbox" aria-label="Pacientes">
+            <div class="quem-cab" aria-hidden="true">
+                <span>Paciente</span><span>Documento</span><span>Telefone</span><span>@(_modo == ModoDaBusca.Sugestao ? "Hoje" : "Convênio")</span>
+            </div>
+            @for (var i = 0; i < _linhas.Count; i++)
+            {
+                var l = _linhas[i];
+                var indice = i;
+                <div class="quem-linha @(indice == _marcado ? "marcada" : null)" role="option"
+                     aria-selected="@(indice == _marcado ? "true" : "false")"
+                     @onclick="() => EscolherAsync(l.Paciente)" @onmouseenter="() => _marcado = indice">
+                    <span class="quem-nome">
+                        <span class="avatar">@Iniciais(l.Paciente.Nome)</span>
+                        <span class="quem-nome-texto">
+                            <span class="principal">@l.Paciente.Nome</span>
+                            @if (l.Idade is not null) { <span class="secundario">@l.Idade</span> }
+                        </span>
+                    </span>
+                    <span class="quem-doc">@(string.IsNullOrWhiteSpace(l.Paciente.Documento) ? "—" : l.Paciente.DocumentoFormatado)</span>
+                    <span class="quem-tel">@(string.IsNullOrWhiteSpace(l.Paciente.Telefone) ? "—" : l.Paciente.Telefone)</span>
+                    <span class="quem-extra" title="@l.Extra">@l.Extra</span>
+                </div>
+            }
+        </div>
+        @if (_modo == ModoDaBusca.PorTermo && _linhas.Count == Limite)
+        {
+            <p class="quem-dica">Mostrando os @Limite primeiros — continue digitando para estreitar.</p>
+        }
+    }
+    else if (_modo == ModoDaBusca.PorTermo && _respondeu)
+    {
+        <div class="quem-vazio">
+            <strong>Nenhum paciente com "@_termo".</strong>
+            <span>Confira a grafia, tente o CPF ou o telefone.</span>
+            @if (AoCadastrar.HasDelegate)
+            {
+                <button type="button" class="botao primario" @onclick="AoCadastrar"><Icone Nome="mais" />Cadastrar "@_termo"</button>
+            }
+        </div>
+    }
+    else if (_modo == ModoDaBusca.Sugestao && _hoje is { Count: 0 })
+    {
+        <p class="quem-dica">Ninguém com horário hoje — digite o nome para buscar no cadastro.</p>
+    }
+    else if (_modo == ModoDaBusca.Ocioso)
+    {
+        <p class="quem-dica">Digite ao menos duas letras do nome, ou o CPF, ou o telefone.</p>
+    }
+</div>
+
+@code {
+    /// <summary>A pergunta da tela — "Quem vai ser atendido?", "Para quem é o documento?".</summary>
+    [Parameter] public string? Pergunta { get; set; }
+    [Parameter] public string? Contexto { get; set; }
+    /// <summary>Abre mostrando quem tem horário HOJE (uma leitura da agenda do dia).</summary>
+    [Parameter] public bool SugestaoDeHoje { get; set; }
+    /// <summary>Oferece "Todos os pacientes" — a listagem PEDIDA, nunca a de abertura.</summary>
+    [Parameter] public bool PermiteVerTodos { get; set; }
+    [Parameter] public int Limite { get; set; } = 30;
+    [Parameter] public EventCallback<Paciente> AoEscolher { get; set; }
+    /// <summary>Com ele, o vazio da busca oferece cadastrar o paciente ali mesmo.</summary>
+    [Parameter] public EventCallback AoCadastrar { get; set; }
+
+    private sealed record Linha(Paciente Paciente, string? Idade, string Extra);
+
+    private string _termo = string.Empty;
+    private List<Linha> _linhas = [];
+    private List<Linha>? _hoje;
+    private ModoDaBusca _modo = ModoDaBusca.Ocioso;
+    private string? _erro;
+    private bool _buscando, _respondeu, _engolirTecla;
+    private int _marcado = -1, _geracao;
+    private CancellationTokenSource? _espera;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SugestaoDeHoje) await MostrarSugestaoAsync();
+    }
+
+    private async Task Digitou(ChangeEventArgs e)
+    {
+        _termo = e.Value?.ToString() ?? string.Empty;
+        var geracao = ++_geracao;
+        _espera?.Cancel();
+        _espera = new CancellationTokenSource();
+        var ct = _espera.Token;
+        _respondeu = false;
+        _erro = null;
+        _marcado = -1;
+
+        if (string.IsNullOrWhiteSpace(_termo) || _termo.Trim().Length < 2)
+        {
+            _buscando = false;
+            if (string.IsNullOrWhiteSpace(_termo) && SugestaoDeHoje) { _modo = ModoDaBusca.Sugestao; _linhas = _hoje ?? []; }
+            else { _modo = ModoDaBusca.Ocioso; _linhas = []; }
+            return;
+        }
+
+        _modo = ModoDaBusca.PorTermo;
+        _buscando = true;
+        try
+        {
+            await Task.Delay(250, ct); // agrupa as teclas: uma ida ao banco por pausa, não por letra
+            using var escopo = Escopos.CreateScope();
+            var achados = await escopo.ServiceProvider.GetRequiredService<PacienteService>().BuscarAsync(_termo, Limite, ct);
+            if (geracao != _geracao) return;
+            _linhas = achados.Select(p => new Linha(p, Idade(p), p.ConvenioNome)).ToList();
+            _marcado = _linhas.Count > 0 ? 0 : -1;
+            _respondeu = true;
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — busca de paciente falhou", ex);
+            _linhas = [];
+            _erro = "Não foi possível buscar agora — tente de novo. A lista NÃO está vazia por falta de paciente.";
+        }
+        finally
+        {
+            if (geracao == _geracao) _buscando = false;
+        }
+    }
+
+    private async Task MostrarSugestaoAsync()
+    {
+        _termo = string.Empty;
+        _modo = ModoDaBusca.Sugestao;
+        _erro = null;
+        if (_hoje is null)
+        {
+            var geracao = ++_geracao;
+            _buscando = true;
+            try
+            {
+                using var escopo = Escopos.CreateScope();
+                var agenda = await escopo.ServiceProvider.GetRequiredService<AgendaService>()
+                    .DoDiaAsync(DateOnly.FromDateTime(DateTime.Today));
+                if (geracao != _geracao) return;
+                _hoje = agenda.Where(a => a.OcupaAgenda && a.Paciente is not null)
+                    .OrderBy(a => a.DataHora)
+                    .GroupBy(a => a.PacienteId).Select(g => g.First())
+                    .Select(a => new Linha(a.Paciente!, Idade(a.Paciente!),
+                        $"{a.DataHora:HH\\:mm} · {Clinica.Domain.Regras.CatalogoModalidades.Nome(a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString())}"))
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                if (geracao != _geracao) return;
+                Clinica.Application.Diagnostico.Registrar("Blazor — sugestão de pacientes do dia falhou", ex);
+                _erro = "Não foi possível ler a agenda de hoje — digite o nome para buscar no cadastro.";
+                _hoje = null;
+            }
+            finally { if (geracao == _geracao) _buscando = false; }
+        }
+        _linhas = _hoje ?? [];
+        _marcado = _linhas.Count > 0 ? 0 : -1;
+    }
+
+    private async Task VerTodosAsync()
+    {
+        _termo = string.Empty;
+        _modo = ModoDaBusca.Todos;
+        _erro = null;
+        var geracao = ++_geracao;
+        _buscando = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var todos = await escopo.ServiceProvider.GetRequiredService<PacienteService>().BuscarAsync(null, 200);
+            if (geracao != _geracao) return;
+            _linhas = todos.Select(p => new Linha(p, Idade(p), p.ConvenioNome)).ToList();
+            _marcado = _linhas.Count > 0 ? 0 : -1;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — listagem de pacientes falhou", ex);
+            _linhas = [];
+            _erro = "Não foi possível listar os pacientes agora.";
+        }
+        finally { if (geracao == _geracao) _buscando = false; }
+    }
+
+    private async Task Tecla(KeyboardEventArgs e)
+    {
+        _engolirTecla = e.Key is "ArrowDown" or "ArrowUp" or "Enter";
+        switch (e.Key)
+        {
+            case "ArrowDown" when _linhas.Count > 0:
+                _marcado = Math.Min(_linhas.Count - 1, _marcado + 1); break;
+            case "ArrowUp" when _linhas.Count > 0:
+                _marcado = Math.Max(0, _marcado - 1); break;
+            case "Enter" when _marcado >= 0 && _marcado < _linhas.Count:
+                await EscolherAsync(_linhas[_marcado].Paciente); break;
+            case "Escape":
+                Limpar(); break;
+        }
+    }
+
+    private void Limpar()
+    {
+        _termo = string.Empty;
+        _geracao++;
+        _espera?.Cancel();
+        _erro = null;
+        _respondeu = false;
+        if (SugestaoDeHoje) { _modo = ModoDaBusca.Sugestao; _linhas = _hoje ?? []; }
+        else { _modo = ModoDaBusca.Ocioso; _linhas = []; }
+        _marcado = _linhas.Count > 0 ? 0 : -1;
+    }
+
+    private Task EscolherAsync(Paciente p) => AoEscolher.InvokeAsync(p);
+
+    private static string? Idade(Paciente p) => p.DataNascimento is null
+        ? null : IdadeDoPaciente.Texto(p.DataNascimento, DateOnly.FromDateTime(DateTime.Today));
+
+    private static string Iniciais(string nome)
+    {
+        var partes = nome.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => partes[0][..1].ToUpperInvariant(),
+            _ => (partes[0][..1] + partes[^1][..1]).ToUpperInvariant()
+        };
+    }
+
+    public void Dispose() => _espera?.Cancel();
+}

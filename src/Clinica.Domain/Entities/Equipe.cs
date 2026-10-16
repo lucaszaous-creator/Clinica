@@ -106,55 +106,127 @@ public class Profissional
     /// <summary>Fim do horário de atendimento. Anda em par com <see cref="AtendeDas"/>.</summary>
     public TimeOnly? AtendeAte { get; set; }
 
-    /// <summary>Há jornada declarada — dias, horário, ou os dois.</summary>
-    public bool JornadaDeclarada => DiasDeAtendimento is not null || (AtendeDas is not null && AtendeAte is not null);
+    // ==================== Horários de atendimento por dia (out/2026) ====================
+    //
+    // A jornada de set/2026 tinha UM horário para todos os dias ("seg · qua, das 08:00 às
+    // 12:00"): quem atende de manhã na segunda e à tarde na quinta, ou tem almoço, não cabia
+    // nela — e a clínica não conseguia dizer o que é "jornada", porque a tela pedia uma coisa
+    // que não descrevia a semana de ninguém. Agora cada dia tem as SUAS faixas
+    // ("seg 08:00–12:00 e 14:00–18:00 · qui 14:00–19:00"), gravadas em texto compacto.
+    //
+    // Os três campos antigos continuam gravados (união das faixas) porque o binário anterior e
+    // a web de leitura os leem; quem decide é sempre <see cref="FaixasEm"/>.
+
+    /// <summary>
+    /// As faixas por dia, em texto: <c>1=08:00-12:00,14:00-18:00;4=14:00-19:00</c> (o número é
+    /// o <see cref="DayOfWeek"/>). Nulo = cadastro anterior a out/2026 — vale o legado.
+    /// </summary>
+    public string? HorariosAtendimento { get; set; }
+
+    /// <summary>Há horário de atendimento declarado (por dia, ou o legado).</summary>
+    public bool JornadaDeclarada => HorariosAtendimento is not null
+        || DiasDeAtendimento is not null || (AtendeDas is not null && AtendeAte is not null);
+
+    /// <summary>
+    /// O horário diz a semana INTEIRA (dias e horas) — o que a ocupação precisa para ter
+    /// denominador. Só horas sem dias (legado) não basta: contaria o domingo como vago.
+    /// </summary>
+    public bool HorarioCompleto => HorariosAtendimento is not null
+        || (DiasDeAtendimento is not null && AtendeDas is not null && AtendeAte is not null);
 
     public static int BitDe(DayOfWeek dia) => 1 << (int)dia;
 
     /// <summary>Máscara com os sete dias marcados.</summary>
     public const int TodosOsDias = 0b111_1111;
 
-    /// <summary>Atende neste dia da semana? Sem dias declarados, sim.</summary>
-    public bool AtendeEm(DayOfWeek dia) => DiasDeAtendimento is not { } dias || (dias & BitDe(dia)) != 0;
+    /// <summary>
+    /// As faixas deste dia da semana. Lista VAZIA = não atende nesse dia; NULO = sem horário
+    /// declarado para o dia (qualquer hora). São três respostas, e confundir as duas últimas
+    /// pintaria de "fechado" o dia de quem nunca preencheu nada.
+    /// </summary>
+    public IReadOnlyList<FaixaDeAtendimento>? FaixasEm(DayOfWeek dia)
+    {
+        if (HorariosAtendimento is not null)
+            return HorariosDeAtendimento.Ler(HorariosAtendimento).TryGetValue(dia, out var f) ? f : [];
+        if (DiasDeAtendimento is { } dias && (dias & BitDe(dia)) == 0) return [];
+        return AtendeDas is { } das && AtendeAte is { } ate && ate > das ? [new FaixaDeAtendimento(das, ate)] : null;
+    }
+
+    /// <summary>A semana inteira, dia a dia (segunda primeiro), na forma de <see cref="FaixasEm"/>.</summary>
+    public IReadOnlyDictionary<DayOfWeek, IReadOnlyList<FaixaDeAtendimento>?> Semana()
+        => OrdemDaSemana.ToDictionary(d => d, FaixasEm);
+
+    /// <summary>Atende neste dia da semana? Sem horário declarado, sim.</summary>
+    public bool AtendeEm(DayOfWeek dia) => FaixasEm(dia) is not { Count: 0 };
 
     /// <summary>
-    /// O intervalo [início, fim) cabe na jornada declarada? Sem jornada, sempre cabe. Sessão
-    /// que atravessa a meia-noite nunca cabe — a jornada é do dia.
+    /// O intervalo [início, fim) cabe numa faixa do dia? Sem horário declarado, sempre cabe.
+    /// Sessão que atravessa a meia-noite nunca cabe — o horário é do dia.
     /// </summary>
     public bool DentroDoExpediente(DateTime inicio, DateTime fim)
     {
-        if (!AtendeEm(inicio.DayOfWeek)) return false;
-        if (AtendeDas is not { } das || AtendeAte is not { } ate) return true;
+        var faixas = FaixasEm(inicio.DayOfWeek);
+        if (faixas is null) return true;
         if (fim.Date > inicio.Date) return false;
-        return TimeOnly.FromDateTime(inicio) >= das && TimeOnly.FromDateTime(fim) <= ate;
+        var de = TimeOnly.FromDateTime(inicio);
+        var ate = TimeOnly.FromDateTime(fim);
+        return faixas.Any(f => de >= f.Inicio && ate <= f.Fim);
+    }
+
+    /// <summary>Os minutos de atendimento neste dia — a base da ocupação. Nulo sem horário.</summary>
+    public int? MinutosEm(DayOfWeek dia) => FaixasEm(dia) is { } f ? f.Sum(x => x.Minutos) : null;
+
+    /// <summary>Primeira hora e última hora do dia (para abrir a grade). Nulo sem horário.</summary>
+    public (TimeOnly Abre, TimeOnly Fecha)? LimitesEm(DayOfWeek dia)
+        => FaixasEm(dia) is { Count: > 0 } f ? (f.Min(x => x.Inicio), f.Max(x => x.Fim)) : null;
+
+    /// <summary>
+    /// Grava os horários por dia (o editor único — <c>ConfiguracaoAgendaService</c>) e o legado
+    /// junto: os dias com faixa e a UNIÃO das horas. Nulo/sem nenhum dia = "não declarado".
+    /// </summary>
+    public void DefinirHorarios(IReadOnlyDictionary<DayOfWeek, IReadOnlyList<FaixaDeAtendimento>>? semana)
+    {
+        var limpo = semana?.Where(d => d.Value.Count > 0).ToDictionary(d => d.Key, d => d.Value);
+        if (limpo is null || limpo.Count == 0)
+        {
+            HorariosAtendimento = null; DiasDeAtendimento = null; AtendeDas = null; AtendeAte = null;
+            return;
+        }
+        HorariosAtendimento = HorariosDeAtendimento.Escrever(limpo);
+        DiasDeAtendimento = limpo.Keys.Aggregate(0, (m, d) => m | BitDe(d));
+        AtendeDas = limpo.Values.SelectMany(f => f).Min(f => f.Inicio);
+        AtendeAte = limpo.Values.SelectMany(f => f).Max(f => f.Fim);
     }
 
     /// <summary>
-    /// Os minutos de um dia de trabalho declarado — a base da ocupação deste profissional
-    /// no BI, no lugar da jornada global. Nulo sem horário declarado.
-    /// </summary>
-    public int? MinutosDeJornada
-        => AtendeDas is { } das && AtendeAte is { } ate && ate > das
-            ? (int)(ate - das).TotalMinutes
-            : null;
-
-    /// <summary>
-    /// "seg · qua · sex, das 08:00 às 12:00" — como a jornada se lê na equipe, na grade e
-    /// na recusa. Nulo quando nada foi declarado.
+    /// "seg · qua · sex 08:00–12:00 e 14:00–18:00 · qui 14:00–19:00" — como o horário se lê na
+    /// equipe, na grade e no aviso. Dias com as mesmas faixas se juntam. Nulo sem horário.
     /// </summary>
     public string? DescricaoJornada
     {
         get
         {
             if (!JornadaDeclarada) return null;
-            var partes = new List<string>();
-            if (DiasDeAtendimento is { } dias && dias != TodosOsDias)
-                partes.Add(string.Join(" · ", OrdemDaSemana.Where(d => (dias & BitDe(d)) != 0).Select(Abreviar)));
-            if (AtendeDas is { } das && AtendeAte is { } ate)
-                partes.Add($"das {das:HH:mm} às {ate:HH:mm}");
-            return partes.Count == 0 ? "todos os dias" : string.Join(", ", partes);
+            var grupos = new List<(List<DayOfWeek> Dias, string Faixas)>();
+            foreach (var d in OrdemDaSemana)
+            {
+                var f = FaixasEm(d);
+                if (f is { Count: 0 }) continue;
+                var texto = f is null ? "qualquer hora" : string.Join(" e ", f.Select(x => x.ToString()));
+                var g = grupos.FindIndex(x => x.Faixas == texto);
+                if (g >= 0) grupos[g].Dias.Add(d); else grupos.Add(([d], texto));
+            }
+            if (grupos.Count == 0) return "nenhum dia";
+            if (grupos.Count == 1 && grupos[0].Dias.Count == 7) return "todos os dias, " + grupos[0].Faixas;
+            return string.Join(" · ", grupos.Select(g => string.Join(" · ", g.Dias.Select(Abreviar)) + " " + g.Faixas));
         }
     }
+
+    /// <summary>Segunda primeiro — a semana como a clínica a lê.</summary>
+    public static IReadOnlyList<DayOfWeek> DiasDaSemana => OrdemDaSemana;
+
+    /// <summary>"seg", "ter"... — o rótulo curto de cada dia, igual em toda tela.</summary>
+    public static string AbreviarDia(DayOfWeek dia) => Abreviar(dia);
 
     private static readonly DayOfWeek[] OrdemDaSemana =
     [

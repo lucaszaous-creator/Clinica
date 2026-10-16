@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Modelos;
@@ -87,32 +88,32 @@ public static class BuscaDeVagas
             .Where(b => b.AlcancaRecurso(profissional.Id, sala?.Id))
             .ToList();
 
-        var abre = profissional.AtendeDas ?? Agendamento.AberturaPadraoGrade;
-        var fecha = profissional.AtendeAte ?? Agendamento.FechamentoPadraoGrade;
-
         var vagas = new List<Vaga>();
         var ultimoDia = aPartirDe.Date.AddDays(diasMaximos);
 
         for (var dia = aPartirDe.Date; dia < ultimoDia && vagas.Count < quantidade; dia = dia.AddDays(1))
         {
-            if (!AtendeNoDia(profissional, dia.DayOfWeek)) continue;
-
-            var limite = dia.Add(fecha.ToTimeSpan());
-            for (var inicio = dia.Add(abre.ToTimeSpan()); inicio.AddMinutes(duracaoMinutos) <= limite; inicio = inicio.AddMinutes(passoMinutos))
+            foreach (var faixa in FaixasDoDia(profissional, dia.DayOfWeek,
+                         Agendamento.AberturaPadraoGrade, Agendamento.FechamentoPadraoGrade))
             {
-                if (inicio < aPartirDe) continue;
-                var fim = inicio.AddMinutes(duracaoMinutos);
-                if (dele.Any(a => a.ColideCom(inicio, fim))) continue;
-                if (fechamentos.Any(b => b.ColideCom(inicio, fim))) continue;
-                // Mesmos critérios usados na conferência do formulário de marcação.
-                // A busca só lê; a validação definitiva continua acontecendo ao salvar.
-                if (sala is not null && ocupados.Count(a => a.OcupaAgenda && a.SalaId == sala.Id
-                        && a.ColideCom(inicio, fim)) >= sala.Capacidade) continue;
-                if (pacienteId is not null && ocupados.Any(a => a.OcupaAgenda
-                        && a.PacienteId == pacienteId && a.ColideCom(inicio, fim))) continue;
-
-                vagas.Add(new Vaga(inicio, fim));
                 if (vagas.Count == quantidade) break;
+                var limite = dia.Add(faixa.Fim.ToTimeSpan());
+                for (var inicio = dia.Add(faixa.Inicio.ToTimeSpan()); inicio.AddMinutes(duracaoMinutos) <= limite; inicio = inicio.AddMinutes(passoMinutos))
+                {
+                    if (inicio < aPartirDe) continue;
+                    var fim = inicio.AddMinutes(duracaoMinutos);
+                    if (dele.Any(a => a.ColideCom(inicio, fim))) continue;
+                    if (fechamentos.Any(b => b.ColideCom(inicio, fim))) continue;
+                    // Mesmos critérios usados na conferência do formulário de marcação.
+                    // A busca só lê; a validação definitiva continua acontecendo ao salvar.
+                    if (sala is not null && ocupados.Count(a => a.OcupaAgenda && a.SalaId == sala.Id
+                            && a.ColideCom(inicio, fim)) >= sala.Capacidade) continue;
+                    if (pacienteId is not null && ocupados.Any(a => a.OcupaAgenda
+                            && a.PacienteId == pacienteId && a.ColideCom(inicio, fim))) continue;
+
+                    vagas.Add(new Vaga(inicio, fim));
+                    if (vagas.Count == quantidade) break;
+                }
             }
         }
 
@@ -120,13 +121,25 @@ public static class BuscaDeVagas
     }
 
     /// <summary>
-    /// Sem dias declarados, a busca presume segunda a sábado — domingo não se oferece a
-    /// ninguém sem que alguém tenha dito que a clínica abre. Com dias declarados, são eles.
+    /// Atende neste dia? Pela MESMA regra de <see cref="FaixasDoDia"/> (domingo presumido fechado
+    /// para quem não declarou nada).
     /// </summary>
     public static bool AtendeNoDia(Profissional profissional, DayOfWeek dia)
-        => profissional.DiasDeAtendimento is null
-            ? dia != DayOfWeek.Sunday
-            : profissional.AtendeEm(dia);
+        => FaixasDoDia(profissional, dia, Agendamento.AberturaPadraoGrade, Agendamento.FechamentoPadraoGrade).Count > 0;
+
+    /// <summary>
+    /// As faixas em que se OFERECE horário neste dia: as declaradas; sem horário no dia, a
+    /// faixa presumida (<paramref name="abre"/>–<paramref name="fecha"/>); e sem NADA declarado
+    /// no cadastro, o domingo fica de fora — não se oferece domingo a ninguém sem que alguém
+    /// tenha dito que a clínica abre. Um ponto só para a busca de vaga, os vãos e as pílulas.
+    /// </summary>
+    public static IReadOnlyList<FaixaDeAtendimento> FaixasDoDia(Profissional profissional, DayOfWeek dia,
+        TimeOnly abre, TimeOnly fecha)
+    {
+        if (profissional.FaixasEm(dia) is { } declaradas) return declaradas;
+        if (!profissional.JornadaDeclarada && dia == DayOfWeek.Sunday) return [];
+        return fecha > abre ? [new FaixaDeAtendimento(abre, fecha)] : [];
+    }
 
     /// <summary>A jornada foi presumida quando nada foi declarado no cadastro.</summary>
     public static bool JornadaPresumida(Profissional profissional) => !profissional.JornadaDeclarada;

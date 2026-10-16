@@ -1120,8 +1120,9 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
 
         var todos = Colunas.SelectMany(c => c.Horarios).ToList();
 
-        var inicio = ProfissionalDoFiltro?.AtendeDas ?? AberturaPadrao;
-        var fim = ProfissionalDoFiltro?.AtendeAte ?? FechamentoPadrao;
+        var limites = ProfissionalDoFiltro?.LimitesEm(Dia.DayOfWeek);
+        var inicio = limites?.Abre ?? AberturaPadrao;
+        var fim = limites?.Fecha ?? FechamentoPadrao;
         foreach (var c in todos)
         {
             var comeco = TimeOnly.FromDateTime(c.DataHora);
@@ -1636,11 +1637,12 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "configurar horários e travas");
-            var vm = new HorariosProfissionalViewModel(_escopos)
-            { ProfissionalPreferidoId = ProfissionalEmFocoId, FecharAgendaCommand = FecharAgendaCommand };
-            await vm.CarregarAsync();
-            new Janelas.HorariosProfissionalWindow(vm) { Owner = Dono() }.ShowDialog();
-            if (vm.Alterou) await CarregarAsync();
+            // Out/2026: o horário de atendimento tem UM editor — o de Profissionais e salas
+            // (faixas por dia). A janela WPF de um horário só para a semana inteira saiu: ela
+            // apagaria as faixas de quem atende manhã e tarde em dias diferentes.
+            if (!NavegacaoSuite.Ir(Modulo.ModuloRecepcao.ChaveEquipe))
+                Mensagem = "Os horários de atendimento ficam em Profissionais e salas — peça acesso a essa tela.";
+            await Task.CompletedTask;
         }
         catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }

@@ -36,7 +36,8 @@ public sealed class OcupacaoAgendaService(ClinicaDbContext db) : IOcupacaoAgenda
         var profissionais = await db.Profissionais.AsNoTracking()
             .Where(p => (p.Ativo || ids.Contains(p.Id)) && (profissionalId == null || p.Id == profissionalId))
             .OrderBy(p => p.Nome).Select(p => new Profissional { Id = p.Id, Nome = p.Nome,
-                Ativo = p.Ativo, DiasDeAtendimento = p.DiasDeAtendimento, AtendeDas = p.AtendeDas, AtendeAte = p.AtendeAte }).ToListAsync(ct);
+                Ativo = p.Ativo, DiasDeAtendimento = p.DiasDeAtendimento, AtendeDas = p.AtendeDas, AtendeAte = p.AtendeAte,
+                HorariosAtendimento = p.HorariosAtendimento }).ToListAsync(ct);
         if (profissionalId != null && profissionais.Count == 0)
             throw new InvalidOperationException("O profissional não está disponível neste período.");
         var bloqueios = calcularJornadas ? await db.BloqueiosAgenda.AsNoTracking().Where(b => b.Inicio < ate && b.Fim > de)
@@ -52,26 +53,34 @@ public sealed class OcupacaoAgendaService(ClinicaDbContext db) : IOcupacaoAgenda
             if (!calcularJornadas)
                 return new(relevantes.Count(a => a.Ocupa), relevantes.Count(a => a.Situacao == RotulosEnum.De(StatusAgendamento.Cancelado)),
                     relevantes.Count(a => a.Situacao == RotulosEnum.De(StatusAgendamento.Faltou)), 0, 0, 0, 0, 0);
-            var sem = equipe.Count(p => p.DiasDeAtendimento == null || p.MinutosDeJornada == null);
+            var sem = equipe.Count(p => !p.HorarioCompleto);
             if (relevantes.Any(a => a.Ocupa && a.ProfissionalId == null)) sem++;
             foreach (var p in equipe)
             {
-                if (p.DiasDeAtendimento == null || p.MinutosDeJornada == null) continue;
+                if (!p.HorarioCompleto) continue;
                 var marcados = agenda.Where(a => a.Ocupa && a.ProfissionalId == p.Id).ToList();
                 for (var d = primeiro; d <= ultimo; d = d.AddDays(1))
                 {
                     var diaInicio = d.ToDateTime(TimeOnly.MinValue); var diaFim = diaInicio.AddDays(1);
                     var doDia = marcados.Where(a => a.Inicio < diaFim && a.Fim > diaInicio).ToList();
-                    if (!p.AtendeEm(d.DayOfWeek)) { foreach (var a in doDia) fora.Add(a.Id); continue; }
-                    var abre = d.ToDateTime(p.AtendeDas!.Value); var fecha = d.ToDateTime(p.AtendeAte!.Value);
-                    var fechados = Unir(bloqueios.Where(b => b.AlcancaRecurso(p.Id, null))
-                        .Select(b => Cortar(b.Inicio, b.Fim, abre, fecha)));
-                    var ocupacao = Unir(doDia.Select(a => Cortar(a.Inicio, a.Fim, abre, fecha)));
-                    var bloqueio = Minutos(fechados);
-                    var intersecao = Minutos(Unir(ocupacao.SelectMany(a => fechados.Select(b => Cortar(a.Inicio, a.Fim, b.Inicio, b.Fim)))));
-                    bloqueados += bloqueio; capacidade += (int)(fecha - abre).TotalMinutes - bloqueio;
-                    ocupados += Minutos(ocupacao) - intersecao;
-                    foreach (var a in doDia.Where(a => a.Inicio < abre || a.Fim > fecha || fechados.Any(b => a.Inicio < b.Fim && a.Fim > b.Inicio))) fora.Add(a.Id);
+                    var faixas = p.FaixasEm(d.DayOfWeek) ?? [];
+                    if (faixas.Count == 0) { foreach (var a in doDia) fora.Add(a.Id); continue; }
+                    // Cada faixa do dia (manhã, tarde) mede-se sozinha: o almoço não é vago.
+                    var todosFechados = new List<(DateTime Inicio, DateTime Fim)>();
+                    foreach (var faixa in faixas)
+                    {
+                        var abre = d.ToDateTime(faixa.Inicio); var fecha = d.ToDateTime(faixa.Fim);
+                        var fechados = Unir(bloqueios.Where(b => b.AlcancaRecurso(p.Id, null))
+                            .Select(b => Cortar(b.Inicio, b.Fim, abre, fecha)));
+                        var ocupacao = Unir(doDia.Select(a => Cortar(a.Inicio, a.Fim, abre, fecha)));
+                        var bloqueio = Minutos(fechados);
+                        var intersecao = Minutos(Unir(ocupacao.SelectMany(a => fechados.Select(b => Cortar(a.Inicio, a.Fim, b.Inicio, b.Fim)))));
+                        bloqueados += bloqueio; capacidade += (int)(fecha - abre).TotalMinutes - bloqueio;
+                        ocupados += Minutos(ocupacao) - intersecao;
+                        todosFechados.AddRange(fechados);
+                    }
+                    foreach (var a in doDia.Where(a => !faixas.Any(f => a.Inicio >= d.ToDateTime(f.Inicio) && a.Fim <= d.ToDateTime(f.Fim))
+                        || todosFechados.Any(b => a.Inicio < b.Fim && a.Fim > b.Inicio))) fora.Add(a.Id);
                 }
             }
             return new(relevantes.Count(a => a.Ocupa), relevantes.Count(a => a.Situacao == RotulosEnum.De(StatusAgendamento.Cancelado)),
@@ -87,11 +96,11 @@ public sealed class OcupacaoAgendaService(ClinicaDbContext db) : IOcupacaoAgenda
         var fechados = calcularJornadas ? Clinica.Application.Modelos.VaosDaAgenda.Fechados(filtrado, inicio, fim, bloqueios) : [];
         return new(inicio, fim, DateTime.Now, Medir(inicio, fim, profissionais, horarios), dias,
             profissionais.Select(p => new ProfissionalOcupacao(p.Id, p.Nome,
-                !calcularJornadas ? "" : p.DiasDeAtendimento == null || p.MinutosDeJornada == null ? "Jornada incompleta" : p.DescricaoJornada ?? "",
+                !calcularJornadas ? "" : !p.HorarioCompleto ? "Horário de atendimento não cadastrado" : p.DescricaoJornada ?? "",
                 Medir(inicio, fim, [p], horarios.Where(a => a.ProfissionalId == p.Id).ToList()))).ToArray(), horarios)
         {
             Vagas = vagas, Fechados = fechados,
-            SemJornadaParaVagas = calcularJornadas && filtrado is not null && (filtrado.AtendeDas is null || filtrado.AtendeAte is null)
+            SemJornadaParaVagas = calcularJornadas && filtrado is not null && !filtrado.HorarioCompleto
         };
     }
 

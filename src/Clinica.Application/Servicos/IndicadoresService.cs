@@ -106,14 +106,14 @@ public sealed class IndicadoresService
             .Where(a => a.OcupaAgenda)
             .Select(a => (a.ProfissionalId, Dia: DateOnly.FromDateTime(a.DataHora)))
             .Distinct()
-            .Sum(par => JornadaDe(par.ProfissionalId, jornada, profissionais));
+            .Sum(par => JornadaDe(par.ProfissionalId, par.Dia.DayOfWeek, jornada, profissionais));
 
     /// <summary>
     /// Os minutos de um dia de agenda deste profissional: a jornada declarada no cadastro
     /// dele (set/2026) ou, sem ela, a global da clínica — o comportamento de sempre.
     /// </summary>
-    private static int JornadaDe(int? profissionalId, int jornada, IReadOnlyDictionary<int, Profissional> profissionais)
-        => profissionalId is { } id && profissionais.TryGetValue(id, out var p) && p.MinutosDeJornada is { } minutos
+    private static int JornadaDe(int? profissionalId, DayOfWeek dia, int jornada, IReadOnlyDictionary<int, Profissional> profissionais)
+        => profissionalId is { } id && profissionais.TryGetValue(id, out var p) && p.MinutosEm(dia) is { } minutos and > 0
             ? minutos
             : jornada;
 
@@ -162,7 +162,8 @@ public sealed class IndicadoresService
                     PacientesDistintos: ocupam.Select(a => a.PacienteId).Distinct().Count(),
                     MinutosOcupados: ocupam.Sum(a => a.DuracaoEfetiva),
                     DiasComAgenda: dias,
-                    MinutosDisponiveis: dias * JornadaDe(g.Key, jornada, porId),
+                    MinutosDisponiveis: ocupam.Select(a => DateOnly.FromDateTime(a.DataHora)).Distinct()
+                        .Sum(d => JornadaDe(g.Key, d.DayOfWeek, jornada, porId)),
                     Evolucoes: doProfissional.Count,
                     // A EVA só entra em PAR (regra da parcela 2): média de meia medida
                     // oscila por falta de dado, não por dor.

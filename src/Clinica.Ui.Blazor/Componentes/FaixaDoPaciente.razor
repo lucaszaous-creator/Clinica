@@ -1,0 +1,51 @@
+@*
+  O PASSO "QUEM" CUMPRIDO (out/2026): a busca recolhe e vira esta faixa — o paciente escolhido
+  com os campos que decidem se o que a tela vai fazer pode sair no nome dele (documento,
+  idade, telefone, convênio). O mesmo desenho em Pacientes, Marcar/Lançar e Documentos.
+  "Trocar" devolve a busca; o slot Acoes recebe o que é da tela (ex.: "Abrir a ficha").
+*@
+@if (Paciente is { } p)
+{
+    <div class="faixa-paciente" role="group" aria-label="Paciente escolhido">
+        <span class="avatar grande">@Iniciais(p.Nome)</span>
+        <div class="faixa-paciente-id">
+            <strong class="faixa-paciente-nome">@p.Nome</strong>
+            <dl class="faixa-paciente-campos">
+                <div><dt>Documento</dt><dd>@(string.IsNullOrWhiteSpace(p.Documento) ? "—" : p.DocumentoFormatado)</dd></div>
+                <div><dt>Idade</dt><dd>@(Clinica.Domain.IdadeDoPaciente.Texto(p.DataNascimento, DateOnly.FromDateTime(DateTime.Today)) ?? "—")</dd></div>
+                <div><dt>Telefone</dt><dd>@(string.IsNullOrWhiteSpace(p.Telefone) ? "—" : p.Telefone)</dd></div>
+                <div><dt>Convênio</dt><dd>@p.ConvenioNome</dd></div>
+                @if (!string.IsNullOrWhiteSpace(Contexto))
+                {
+                    <div><dt>Hoje</dt><dd>@Contexto</dd></div>
+                }
+            </dl>
+        </div>
+        <div class="faixa-paciente-acoes">
+            @Acoes
+            @if (AoTrocar.HasDelegate)
+            {
+                <button type="button" class="botao" @onclick="AoTrocar">Trocar paciente</button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Paciente? Paciente { get; set; }
+    /// <summary>Uma linha a mais quando a tela sabe ("tem horário hoje às 14:00").</summary>
+    [Parameter] public string? Contexto { get; set; }
+    [Parameter] public EventCallback AoTrocar { get; set; }
+    [Parameter] public RenderFragment? Acoes { get; set; }
+
+    private static string Iniciais(string nome)
+    {
+        var partes = nome.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => partes[0][..1].ToUpperInvariant(),
+            _ => (partes[0][..1] + partes[^1][..1]).ToUpperInvariant()
+        };
+    }
+}
