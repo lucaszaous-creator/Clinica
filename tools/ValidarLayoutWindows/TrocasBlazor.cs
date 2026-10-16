@@ -234,14 +234,26 @@ static class TrocasBlazor
         if (core is null) return new Sonda(false);
         try
         {
-            var texto = await core.ExecuteScriptAsync("(document.querySelector('.palco-tela:not([hidden])')?.innerText ?? '').length");
+            // A leitura do texto é uma CORRIDA com a primeira renderização: a foto do navegador
+            // já mostrava a tela (uniformidade 0,51) e o texto vinha 0. Por isso relê por até
+            // 5 s, e soma TODAS as telas visíveis do palco (com a página inteira como caminho de
+            // baixo) — a primeira pode ser uma casca ainda vazia ao lado da que está desenhada.
+            const string Script = "(() => { const t = [...document.querySelectorAll('.palco-tela:not([hidden])')]" +
+                ".reduce((s, e) => s + (e.innerText ?? '').trim().length, 0);" +
+                " return t > 0 ? t : (document.body?.innerText ?? '').trim().length; })()";
+            var caracteres = 0;
+            for (var tentativa = 0; tentativa < 10 && caracteres == 0; tentativa++)
+            {
+                if (tentativa > 0) await Task.Delay(500);
+                var texto = await core.ExecuteScriptAsync(Script);
+                caracteres = int.TryParse(texto, out var n) ? n : 0;
+            }
             using var ms = new MemoryStream();
             await core.CapturePreviewAsync(Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, ms);
             ms.Position = 0;
             using var foto = new Bitmap(ms);
             foto.Save($"{Saida}/sonda-navegador.png", ImageFormat.Png);
             var (_, uniforme) = Medir(foto);
-            var caracteres = int.TryParse(texto, out var n) ? n : 0;
             Console.WriteLine($"BLAZOR sonda: tela à vista com {caracteres} caracteres · foto do próprio navegador {foto.Width}x{foto.Height}, uniformidade {uniforme:0.000}");
             return new Sonda(caracteres > 0 && uniforme < 0.97);
         }
