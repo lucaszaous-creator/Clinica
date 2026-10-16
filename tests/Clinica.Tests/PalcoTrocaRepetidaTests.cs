@@ -219,6 +219,9 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
         public Task<bool> NavegarAsync(string c) => Task.FromResult(false);
         public Task<bool> AbrirEnderecoAsync(string u) => Task.FromResult(false);
         public Task<bool> AbrirFichaDoPacienteAsync(int id) => Task.FromResult(false);
+        public Task<string?> PerguntarOndeSalvarAsync(string n, string f, string e) => Task.FromResult<string?>("/teste/" + n);
+        public Task<string?> PerguntarPastaAsync(string t) => Task.FromResult<string?>("/teste");
+        public Task<string?> GravarArquivoAsync(string c, byte[] b) => Task.FromResult<string?>(null);
     }
 
 }

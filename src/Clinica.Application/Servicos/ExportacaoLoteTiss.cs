@@ -1,4 +1,3 @@
-using System.IO.Compression;
 using System.Text;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
@@ -77,33 +76,8 @@ public static class ExportacaoLoteTiss
     /// <summary>O nome da 2ª via de um lote já criado.</summary>
     public static string NomeDaSegundaVia(int numeroLote) => $"TISS-Lote-{numeroLote:000000}.xml";
 
-    /// <summary>O nome do pacote quando o período sai em mais de um lote.</summary>
-    public static string NomeDoPacote(IReadOnlyList<int> numeros, DateOnly fim)
-        => $"TISS-Lotes-{numeros.Min():000000}-a-{numeros.Max():000000}-{fim:yyyy-MM}.zip";
-
     /// <summary>O XML como ele vai para o disco: UTF-8 sem BOM, como o WPF gravava.</summary>
     public static byte[] Bytes(string xml) => new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(xml);
-
-    /// <summary>
-    /// Vários lotes num ARQUIVO SÓ (.zip), cada XML com o nome da sua operadora. O WPF pedia
-    /// uma pasta; aqui o hospedeiro só salva um arquivo, e pedir N janelas de salvar em
-    /// sequência é como o terceiro é gravado por cima do segundo sem ninguém notar.
-    /// </summary>
-    public static byte[] Compactar(IReadOnlyList<(string Nome, string Xml)> arquivos)
-    {
-        using var memoria = new MemoryStream();
-        using (var zip = new ZipArchive(memoria, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            foreach (var (nome, xml) in arquivos)
-            {
-                var entrada = zip.CreateEntry(nome, CompressionLevel.Optimal);
-                using var destino = entrada.Open();
-                var bytes = Bytes(xml);
-                destino.Write(bytes, 0, bytes.Length);
-            }
-        }
-        return memoria.ToArray();
-    }
 
     /// <summary>A pasta onde o app guarda a cópia de cada lote e os .xsd da ANS (%APPDATA%\ClinicaFaturamento\tiss).</summary>
     public static string PastaTiss() => Path.Combine(
@@ -166,18 +140,13 @@ public static class ExportacaoLoteTiss
            string.Join("\n\n", avisos) +
            "\n\nCorrija os cadastros/Configurações e use \"XML\" na linha do lote para regenerar o arquivo antes de enviar.";
 
-    /// <summary>
-    /// A frase depois de gerar. ⚠️ O hospedeiro devolve "deu certo" também quando a pessoa
-    /// DESISTE da janela de salvar — e o lote já existe nesse momento. Por isso a frase sempre
-    /// diz como pegar o arquivo de novo: o botão "XML" da linha.
-    /// </summary>
-    public static string MensagemDeGerados(IReadOnlyList<string> gerados)
+    /// <summary>A frase depois de gerar, com ONDE foi gravado (o arquivo ou a pasta), como no WPF.</summary>
+    public static string MensagemDeGerados(IReadOnlyList<string> gerados, string destino)
         => gerados.Count switch
         {
             0 => "Nenhum lote gerado — outra máquina exportou as guias no meio-tempo.",
-            1 => $"Lote {gerados[0]} gerado. Se o arquivo não foi gravado, use \"XML\" na linha do lote.",
-            _ => $"{gerados.Count} lotes gerados: " + string.Join(" · ", gerados) +
-                 ". Se o arquivo não foi gravado, use \"XML\" na linha de cada lote."
+            1 => $"Lote {gerados[0]}: {destino}",
+            _ => $"{gerados.Count} lotes gerados em {destino}: " + string.Join(" · ", gerados)
         };
 
     /// <summary>

@@ -58,6 +58,19 @@ public interface IHostDaTela
     /// A barreira (<c>VerFichaPaciente</c>) é de quem chama, como toda segunda barreira.
     /// </summary>
     Task<bool> AbrirFichaDoPacienteAsync(int pacienteId);
+
+    /// <summary>
+    /// Pergunta ONDE salvar sem gravar nada ainda — para o ato que gasta um número só
+    /// acontecer depois de a pessoa escolher o destino (o lote TISS consome a sequência da
+    /// ANS: desistir da janela não pode ter gasto o número). Null = desistiu.
+    /// </summary>
+    Task<string?> PerguntarOndeSalvarAsync(string nomeSugerido, string filtro, string extensao);
+
+    /// <summary>Pergunta uma PASTA (vários arquivos de uma vez: um XML por operadora). Null = desistiu.</summary>
+    Task<string?> PerguntarPastaAsync(string titulo);
+
+    /// <summary>Grava no caminho já escolhido. Null = gravou; a frase = falhou (o arquivo não está lá).</summary>
+    Task<string?> GravarArquivoAsync(string caminho, byte[] conteudo);
 }
 
 /// <summary>Arquivo escolhido pela pessoa: o nome (para mostrar) e o conteúdo.</summary>

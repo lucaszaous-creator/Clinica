@@ -10,11 +10,11 @@
   duas ou mais), o radar de glosas e os dados do prestador incompletos. O que a tela afirma
   e decide mora em ExportacaoLoteTiss (Application), com teste.
 
-  ⚠️ Diferença declarada do WPF: lá o destino era escolhido ANTES de criar o lote (cancelar
-  não gastava número). O hospedeiro só salva DEPOIS de ter os bytes, e devolve "deu certo"
-  também quando a pessoa desiste da janela — então a frase final sempre diz como pegar o
-  arquivo de novo (o botão XML da linha). Mais de um lote sai num .zip, um XML por
-  operadora: o WPF pedia uma pasta; aqui é uma janela de salvar só.
+  O destino é escolhido ANTES de criar o lote, como no WPF: o lote consome o próximo
+  número da sequência TISS, e desistir da janela de salvar não pode ter gastado o número.
+  Uma operadora: a janela de salvar de sempre. Mais de uma: uma PASTA, e cada XML sai com
+  o nome da operadora — N janelas de salvar em sequência fariam o terceiro ser gravado por
+  cima do segundo sem ninguém notar.
 *@
 @inherits TelaBase
 
@@ -265,8 +265,21 @@
                 return;
             }
 
-            var arquivos = new List<(string Nome, string Xml)>();
-            var numeros = new List<int>();
+            // O DESTINO ANTES DO LOTE (como no WPF): desistir aqui não consome número.
+            string? arquivoUnico = null, pastaDestino = null;
+            if (grupos.Count == 1)
+            {
+                var numeroPrevisto = await parametros.ObterProximoNumeroLoteTissAsync();
+                arquivoUnico = await Host.PerguntarOndeSalvarAsync(
+                    ExportacaoLoteTiss.NomeDoArquivo(numeroPrevisto, _fim, null), "Arquivo TISS (*.xml)|*.xml", ".xml");
+                if (arquivoUnico is null) { Mensagem("Exportação cancelada — nenhum lote foi criado.", "info"); return; }
+            }
+            else
+            {
+                pastaDestino = await Host.PerguntarPastaAsync("Onde gravar os XML dos lotes (um por operadora)");
+                if (pastaDestino is null) { Mensagem("Exportação cancelada — nenhum lote foi criado.", "info"); return; }
+            }
+
             var gerados = new List<string>();
             var avisos = new List<string>();
             var pastaTiss = ExportacaoLoteTiss.PastaTiss();
@@ -279,8 +292,11 @@
                 if (lote is null) continue; // outra máquina exportou estas guias no meio-tempo
 
                 var xml = tiss.GerarLoteXml(lote.Codigos.ToList(), dados.ComRegistroAns(registro), lote.Numero.ToString());
-                arquivos.Add((ExportacaoLoteTiss.NomeDoArquivo(lote.Numero, _fim, grupos.Count == 1 ? null : grupo.Nome), xml));
-                numeros.Add(lote.Numero);
+                var caminho = arquivoUnico ?? Path.Combine(pastaDestino!, ExportacaoLoteTiss.NomeDoArquivo(lote.Numero, _fim, grupo.Nome));
+                // Os lotes JÁ existem daqui para a frente: falha de gravar é de arquivo, não de
+                // lote — e a frase diz como pegar o arquivo de novo (o botão XML da linha).
+                if (await Host.GravarArquivoAsync(caminho, ExportacaoLoteTiss.Bytes(xml)) is { } erroArquivo)
+                    avisos.Add($"{erroArquivo} Use \"XML\" na linha do lote nº {lote.Numero} para gravar de novo.");
 
                 // A cópia de histórico mora na máquina da clínica (%APPDATA%); a prévia e os
                 // testes, fora do Windows, não deixam arquivo pelo caminho.
@@ -294,17 +310,8 @@
                 gerados.Add($"nº {lote.Numero} — {grupo.Nome}, {lote.Codigos.Count} guia(s)");
             }
 
-            // Os lotes JÁ existem daqui para a frente: falha de gravar é de arquivo, não de lote.
-            string? erroArquivo = null;
-            if (arquivos.Count == 1)
-                erroArquivo = await Host.SalvarEAbrirAsync(ExportacaoLoteTiss.Bytes(arquivos[0].Xml), arquivos[0].Nome,
-                    "Arquivo TISS (*.xml)|*.xml", ".xml");
-            else if (arquivos.Count > 1)
-                erroArquivo = await Host.SalvarEAbrirAsync(ExportacaoLoteTiss.Compactar(arquivos),
-                    ExportacaoLoteTiss.NomeDoPacote(numeros, _fim), "Pacote de lotes TISS (*.zip)|*.zip", ".zip");
-
-            Mensagem(ExportacaoLoteTiss.MensagemDeGerados(gerados) + (erroArquivo is null ? string.Empty : $" {erroArquivo}"),
-                gerados.Count == 0 ? "atencao" : erroArquivo is null ? "sucesso" : "atencao");
+            Mensagem(ExportacaoLoteTiss.MensagemDeGerados(gerados, arquivoUnico ?? pastaDestino!),
+                gerados.Count == 0 ? "atencao" : "sucesso");
 
             if (avisos.Count > 0)
                 await Dialogos.AvisoAsync("Validação do XML TISS", ExportacaoLoteTiss.AvisoDeValidacao(avisos));

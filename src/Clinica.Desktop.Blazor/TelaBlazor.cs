@@ -321,6 +321,33 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
             return true;
         });
 
+    public Task<string?> PerguntarOndeSalvarAsync(string nomeSugerido, string filtro, string extensao)
+        => NaInterface(() =>
+        {
+            var dialogo = new Microsoft.Win32.SaveFileDialog
+            {
+                FileName = ImpressaoPdf.NomeSeguro(nomeSugerido), Filter = filtro, DefaultExt = extensao
+            };
+            return Task.FromResult(dialogo.ShowDialog() == true ? dialogo.FileName : null);
+        });
+
+    public Task<string?> PerguntarPastaAsync(string titulo)
+        => NaInterface(() => Task.FromResult(ImpressaoPdf.EscolherPasta(titulo)));
+
+    public async Task<string?> GravarArquivoAsync(string caminho, byte[] conteudo)
+    {
+        try
+        {
+            await File.WriteAllBytesAsync(caminho, conteudo);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — arquivo não pôde ser gravado", ex);
+            return $"Não foi possível gravar {Path.GetFileName(caminho)}: {ex.Message}";
+        }
+    }
+
     private static Task<T> NaInterface<T>(Func<Task<T>> acao)
     {
         var d = System.Windows.Application.Current?.Dispatcher;

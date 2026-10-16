@@ -79,4 +79,12 @@ sealed class HostDaPrevia : IHostDaTela
     public Task<bool> AbrirEnderecoAsync(string url) => Task.FromResult(false);
 
     public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId) => Task.FromResult(false);
+
+    // A prévia não tem disco: devolve um destino fictício, e "gravar" só confere que veio algo.
+    public Task<string?> PerguntarOndeSalvarAsync(string nomeSugerido, string filtro, string extensao)
+        => Task.FromResult<string?>("/previa/" + nomeSugerido);
+
+    public Task<string?> PerguntarPastaAsync(string titulo) => Task.FromResult<string?>("/previa");
+
+    public Task<string?> GravarArquivoAsync(string caminho, byte[] conteudo) => Task.FromResult<string?>(null);
 }

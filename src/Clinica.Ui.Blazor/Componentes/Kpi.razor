@@ -9,7 +9,26 @@
         {
             <span class="kpi-icone @(string.IsNullOrEmpty(Tom) ? null : "tom-" + Tom)"><Icone Nome="@Icone" /></span>
         }
-        @Rotulo
+        <span class="kpi-rotulo-texto">@Rotulo</span>
+        <span class="kpi-menu">
+            <button type="button" class="kpi-menu-botao" title="Opções do cartão" aria-label="Opções do cartão @Rotulo"
+                    aria-expanded="@(_menuAberto ? "true" : "false")" @onclick="() => _menuAberto = !_menuAberto">⋯</button>
+            @if (_menuAberto)
+            {
+                <span class="kpi-menu-lista" role="menu">
+                    @if (Medido)
+                    {
+                        <button type="button" role="menuitem" @onclick="() => CopiarAsync(Valor)">Copiar valor</button>
+                        <button type="button" role="menuitem" @onclick="CopiarParAsync">Copiar rótulo e valor</button>
+                    }
+                    else
+                    {
+                        @* "—" é "não medido": copiar um travessão não serve a ninguém, e o item DIZ por quê. *@
+                        <button type="button" role="menuitem" disabled>Nada para copiar — valor não medido</button>
+                    }
+                </span>
+            }
+        </span>
     </div>
     <div class="kpi-valor @ClasseValor" title="@Valor">@Valor</div>
     @if (!string.IsNullOrWhiteSpace(Nota))
@@ -20,6 +39,25 @@
 </div>
 
 @code {
+    // O menu "⋯" do cartão (o BotaoMenuKpi do WPF): COPIAR o número que a direção leva para a
+    // reunião ou cola na planilha — retipar é onde nasce o erro. Mora no componente para todo
+    // cartão das telas Blazor ter o mesmo menu sem fiação por tela.
+    [Inject] private Clinica.Ui.Blazor.Hospedagem.IHostDaTela Host { get; set; } = default!;
+    [Inject] private Clinica.Ui.Blazor.Hospedagem.Notificacoes Notificacoes { get; set; } = default!;
+
+    private bool _menuAberto;
+    private bool Medido => !string.IsNullOrWhiteSpace(Valor) && Valor != "—";
+
+    private Task CopiarParAsync() => CopiarAsync($"{Rotulo}: {Valor}");
+
+    private async Task CopiarAsync(string texto)
+    {
+        _menuAberto = false;
+        // Falha nunca vira "copiado": colar o conteúdo anterior sem conferir é pior que não copiar.
+        if (await Host.CopiarAsync(texto)) Notificacoes.Sucesso("Copiado.");
+        else Notificacoes.Erro("A área de transferência está ocupada por outro programa — tente de novo.");
+    }
+
     [Parameter, EditorRequired] public string Rotulo { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Valor { get; set; } = "—";
     [Parameter] public string? Nota { get; set; }

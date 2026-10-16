@@ -259,6 +259,9 @@ public sealed class TelasBlazorAbremTests : IClassFixture<BancoDasTelas>, IDispo
         public Task<bool> NavegarAsync(string chave) => Task.FromResult(false);
         public Task<bool> AbrirEnderecoAsync(string url) => Task.FromResult(false);
         public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId) => Task.FromResult(false);
+        public Task<string?> PerguntarOndeSalvarAsync(string n, string f, string e) => Task.FromResult<string?>("/teste/" + n);
+        public Task<string?> PerguntarPastaAsync(string t) => Task.FromResult<string?>("/teste");
+        public Task<string?> GravarArquivoAsync(string c, byte[] b) => Task.FromResult<string?>(null);
     }
 }
 

@@ -1,4 +1,3 @@
-using System.IO.Compression;
 using System.Text;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
@@ -73,20 +72,12 @@ public class ExportacaoLoteTissTests
         ExportacaoLoteTiss.NomeDoArquivo(42, fim, null).Should().Be("TISS-Lote-000042-2026-10.xml");
         ExportacaoLoteTiss.NomeDoArquivo(42, fim, "Unimed Costa do Sol/RJ").Should().Be("TISS-Lote-000042-Unimed-Costa-do-Sol-RJ-2026-10.xml");
         ExportacaoLoteTiss.NomeDaSegundaVia(7).Should().Be("TISS-Lote-000007.xml");
-        ExportacaoLoteTiss.NomeDoPacote([12, 10, 11], fim).Should().Be("TISS-Lotes-000010-a-000012-2026-10.zip");
     }
 
     [Fact]
-    public void Varios_lotes_saem_num_zip_com_um_XML_por_operadora_em_UTF8_sem_BOM()
+    public void O_XML_vai_para_o_disco_em_UTF8_sem_BOM()
     {
-        var zip = ExportacaoLoteTiss.Compactar([("a.xml", "<a>ção</a>"), ("b.xml", "<b/>")]);
-
-        using var arquivo = new ZipArchive(new MemoryStream(zip), ZipArchiveMode.Read);
-        arquivo.Entries.Select(e => e.FullName).Should().Equal("a.xml", "b.xml");
-        using var leitor = new MemoryStream();
-        arquivo.Entries[0].Open().CopyTo(leitor);
-        leitor.ToArray().Should().Equal(Encoding.UTF8.GetBytes("<a>ção</a>")); // sem os três bytes do BOM
-        ExportacaoLoteTiss.Bytes("<b/>").Should().Equal(Encoding.UTF8.GetBytes("<b/>"));
+        ExportacaoLoteTiss.Bytes("<a>ção</a>").Should().Equal(Encoding.UTF8.GetBytes("<a>ção</a>")); // sem os três bytes do BOM
     }
 
     [Fact]
@@ -105,11 +96,11 @@ public class ExportacaoLoteTissTests
     }
 
     [Fact]
-    public void A_frase_depois_de_gerar_sempre_diz_como_pegar_o_arquivo_de_novo()
+    public void A_frase_depois_de_gerar_diz_onde_gravou()
     {
-        ExportacaoLoteTiss.MensagemDeGerados([]).Should().Contain("outra máquina");
-        ExportacaoLoteTiss.MensagemDeGerados(["nº 5 — Amil, 2 guia(s)"]).Should().Contain("Lote nº 5").And.Contain("\"XML\"");
-        ExportacaoLoteTiss.MensagemDeGerados(["nº 5", "nº 6"]).Should().StartWith("2 lotes gerados").And.Contain("\"XML\"");
+        ExportacaoLoteTiss.MensagemDeGerados([], @"C:\x").Should().Contain("outra máquina");
+        ExportacaoLoteTiss.MensagemDeGerados(["nº 5 — Amil, 2 guia(s)"], @"C:\lote.xml").Should().Be(@"Lote nº 5 — Amil, 2 guia(s): C:\lote.xml");
+        ExportacaoLoteTiss.MensagemDeGerados(["nº 5", "nº 6"], @"C:\tiss").Should().StartWith(@"2 lotes gerados em C:\tiss");
     }
 
     [Fact]

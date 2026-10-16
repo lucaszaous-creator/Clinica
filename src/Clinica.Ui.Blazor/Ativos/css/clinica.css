@@ -103,6 +103,17 @@ h1{font-size:28px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.1
 .kpi-rotulo{display:flex;align-items:center;gap:var(--space-2);color:var(--texto-secundario);font-weight:500;font-size:13px}
 .kpi-icone{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--acento-suave);color:var(--acento)}
 .kpi-icone svg{width:16px;height:16px}
+.kpi-rotulo-texto{flex:1;min-width:0}
+.kpi-menu{position:relative;margin-left:auto}
+.kpi-menu-botao{border:0;background:transparent;color:var(--texto-secundario);cursor:pointer;border-radius:var(--radius-pequeno);
+  padding:0 var(--space-2);font-size:var(--text-body-size);line-height:1.4}
+.kpi-menu-botao:hover,.kpi-menu-botao[aria-expanded=true]{background:var(--fundo);color:var(--texto-primario)}
+.kpi-menu-lista{position:absolute;right:0;top:100%;z-index:20;display:flex;flex-direction:column;min-width:200px;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);box-shadow:var(--sombra-popup);padding:var(--space-1)}
+.kpi-menu-lista button{border:0;background:transparent;text-align:left;padding:var(--space-2) var(--space-3);border-radius:var(--radius-pequeno);
+  font:inherit;font-weight:400;color:var(--texto-primario);cursor:pointer;white-space:nowrap}
+.kpi-menu-lista button:hover:not(:disabled){background:var(--fundo)}
+.kpi-menu-lista button:disabled{color:var(--texto-secundario);cursor:default}
 .kpi-valor{font-family:var(--font-num);font-size:var(--text-kpi-size);font-weight:700;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi-nota{color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.4}
