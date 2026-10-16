@@ -173,7 +173,7 @@ antes de ser aceita (a que nunca reprovou não mede nada):
 |---|---|---|---|
 | `PalcoTrocaRepetidaTests` (bUnit) | `dotnet test` | 5 rodadas pelas 14 telas reais + rajada: uma tela à vista por vez, nunca recriada, com conteúdo, camadas únicas, sem erro no log, e **toda volta relê o banco** | o Extrato do banco, que não recruzava ao voltar (achado por ele e corrigido) |
 | `tools/PreviaBlazor/trocas.js` + `analisar.py` | Chromium do Linux, na prévia (`/palco`) | 300 trocas medidas quadro a quadro (sonda em `requestAnimationFrame` + screencast): nenhum quadro sem tela entre duas Blazor, sobreposto, vazio, com esqueleto numa volta, escuro ou em branco | `FLASH_DE_TESTE=1` injeta 200 ms pretos por troca — reprova com 38 quadros |
-| `ValidarLayoutWindows --blazor` | runner Windows (CI do PR) | o **preto da janela nativa do WebView2**, que só existe no Windows: o shell real na tela, 160 trocas, fotos da área de trabalho em laço | reprova também quando a foto **não enxerga** o navegador — "zero flash" com a câmera cega seria garantia aparente |
+| `ValidarLayoutWindows --blazor` | runner Windows (CI do PR) | o **preto da janela nativa do WebView2**, que só existe no Windows: o shell real na tela, 160 trocas, fotos da área de trabalho em laço | quando a foto **não enxerga** o navegador, pergunta ao PRÓPRIO navegador (texto da tela + `CapturePreviewAsync`): se ele desenhou, é limite da captura do runner e vira **aviso no PR** ("não medido"), nunca "zero flash"; se não desenhou, reprova. O escuro antes da 1ª navegação é da janela WPF se compondo (o navegador ainda não existe) e sai contado à parte |
 
 ```bash
 tools/PreviaBlazor/subir.sh 5199

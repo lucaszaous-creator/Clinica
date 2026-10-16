@@ -4705,7 +4705,9 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   saiu; trocar de tela agora DESISTE (seguro: "desisti" nunca grava, checagem 39).
   ⚠️ **Toda medição foi provada com o defeito** antes de valer: o teste reprova sem a
   correção do Extrato, o `analisar.py` reprova com `FLASH_DE_TESTE=1`, e o `--blazor`
-  reprova quando a foto não enxerga o navegador. E a análise errou uma vez por MIM: 7
+  nunca dá "zero flash" com a câmera cega: no runner a captura da tela NÃO vê o WebView2
+  (uniformidade 0,99), então ele pergunta ao próprio navegador se desenhou — sim vira AVISO
+  "não medido" no PR, não vira aprovação. E a análise errou uma vez por MIM: 7
   "quadros sem tela" eram a tela WPF ainda valendo (o clique chega ao servidor depois do
   seguinte) — **antes de chamar de defeito, olhe os quadros vizinhos**.
   **O que fica para depois, com o motivo**: aquecer o navegador no login (a primeira tela

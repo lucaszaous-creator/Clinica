@@ -136,7 +136,14 @@ static class TrocasBlazor
         }
 
         // 1. a primeira abertura de cada tela (é aqui que o desenho antigo piscava, uma vez por tela)
-        foreach (var c in blazor) await Ir(c, "abrir", 1500);
+        Sonda? sonda = null;
+        foreach (var c in blazor)
+        {
+            await Ir(c, "abrir", 1500);
+            // Depois da 1ª tela assentada, pergunta ao PRÓPRIO navegador o que ele desenhou: é o
+            // que separa "a foto da tela não alcança o WebView2" de "o navegador não desenhou".
+            sonda ??= await Sondar(win);
+        }
         await Ir(wpf[0], "abrir", 800);
         await Ir(wpf[1], "abrir", 800);
         // 2. trocas: aleatórias, intervalos de 0 a 600 ms, a WPF uma vez em cinco
@@ -166,6 +173,13 @@ static class TrocasBlazor
             var p = passos.LastOrDefault(x => x.Ms <= f.Ms);
             if (p is not null && f.Escuro >= LimiarEscuro) escuras.Add((f, p));
         }
+        // Antes da 1ª navegação o navegador ainda NÃO EXISTE (ele nasce com a 1ª tela Blazor):
+        // o escuro ali é a janela WPF do shell se compondo, não o WebView2. Conta e mostra à
+        // parte, para não esconder nem atribuir ao lugar errado.
+        var daJanela = escuras.Where(e => e.Passo.Fase == "abrir" && e.Passo.Chave == "(abertura do app)").ToList();
+        if (daJanela.Count > 0)
+            Console.WriteLine($"BLAZOR abertura da janela WPF (antes do navegador existir): {daJanela.Count} foto(s) escura(s), até {daJanela.Max(e => e.Foto.Ms - e.Passo.Ms):0} ms depois do Show");
+        escuras = escuras.Except(daJanela).ToList();
         var pior = fotos.Count > 0 ? fotos.Max(f => f.Escuro) : 0;
         Console.WriteLine($"BLAZOR maior fração escura numa foto: {pior:P1} · fotos escuras: {escuras.Count} (abrir: {escuras.Count(e => e.Passo.Fase == "abrir")}, trocar: {escuras.Count(e => e.Passo.Fase == "trocar")})");
         foreach (var (f, p) in escuras.Take(20))
@@ -184,13 +198,65 @@ static class TrocasBlazor
             return FormattableString.Invariant($"{f.Ms:0.0};{f.Escuro:0.0000};{f.Uniforme:0.0000};{p?.Fase};{p?.Chave};{(p is null ? 0 : f.Ms - p.Ms):0}");
         }).Prepend("ms;escuro;uniforme;fase;chave;ms_desde_clique"));
 
-        if (!veNavegador) { Console.WriteLine("BLAZOR INCONCLUSIVO: a captura não alcança o conteúdo do WebView2 neste computador."); return 2; }
+        if (!veNavegador)
+        {
+            // O navegador desenhou a tela (a sonda leu o texto e a própria foto dele tem
+            // conteúdo) e a foto da TELA não vê: é limite da captura deste computador, não
+            // defeito do app. Sem a sonda confirmar, a tela em branco é defeito.
+            if (sonda is { Desenhou: true })
+            {
+                Console.WriteLine("BLAZOR INCONCLUSIVO: o navegador desenhou a tela, mas a captura da tela deste computador não alcança o WebView2 — o flash não pode ser medido aqui.");
+                return 2;
+            }
+            Console.WriteLine("BLAZOR REPROVADO: a tela Blazor assentada está em branco e o próprio navegador não confirma ter desenhado.");
+            return 1;
+        }
         if (escuras.Count > 0) { Console.WriteLine("BLAZOR REPROVADO: houve quadro escuro na troca de telas."); return 1; }
         Console.WriteLine("BLAZOR SEM FLASH: nenhuma foto escura em " + passos.Count + " navegações.");
         return 0;
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern uint GetDpiForSystem();
+
+    sealed record Sonda(bool Desenhou);
+
+    /// <summary>Pergunta ao navegador da janela: quantos caracteres a página tem e o que a foto DELE mostra.</summary>
+    static async Task<Sonda> Sondar(Window win)
+    {
+        var visor = Descendentes(win).OfType<Microsoft.AspNetCore.Components.WebView.Wpf.BlazorWebView>().FirstOrDefault();
+        if (visor is null) { Console.WriteLine("BLAZOR sonda: nenhum navegador na janela"); return new Sonda(false); }
+        var core = visor.WebView?.CoreWebView2;
+        Console.WriteLine($"BLAZOR sonda: navegador {visor.Visibility} {visor.ActualWidth:0}x{visor.ActualHeight:0} · núcleo {(core is null ? "NÃO inicializado" : "inicializado " + core.Environment.BrowserVersionString)}");
+        if (core is null) return new Sonda(false);
+        try
+        {
+            var texto = await core.ExecuteScriptAsync("(document.querySelector('.palco-tela:not([hidden])')?.innerText ?? '').length");
+            using var ms = new MemoryStream();
+            await core.CapturePreviewAsync(Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, ms);
+            ms.Position = 0;
+            using var foto = new Bitmap(ms);
+            foto.Save($"{Saida}/sonda-navegador.png", ImageFormat.Png);
+            var (_, uniforme) = Medir(foto);
+            var caracteres = int.TryParse(texto, out var n) ? n : 0;
+            Console.WriteLine($"BLAZOR sonda: tela à vista com {caracteres} caracteres · foto do próprio navegador {foto.Width}x{foto.Height}, uniformidade {uniforme:0.000}");
+            return new Sonda(caracteres > 0 && uniforme < 0.97);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"BLAZOR sonda falhou: {ex.GetType().Name}: {ex.Message}");
+            return new Sonda(false);
+        }
+    }
+
+    static IEnumerable<DependencyObject> Descendentes(DependencyObject raiz)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(raiz); i++)
+        {
+            var filho = VisualTreeHelper.GetChild(raiz, i);
+            yield return filho;
+            foreach (var d in Descendentes(filho)) yield return d;
+        }
+    }
 
     /// <summary>Mede a área de trabalho da foto; guarda a imagem só das escuras e de uma a cada 40 (memória).</summary>
     static void Guardar(List<Foto> fotos, double ms, Bitmap janela, DRet recorte)
