@@ -41,3 +41,4 @@ __pycache__/
 
 # Prévia Blazor: pid e log locais
 tools/PreviaBlazor/.previa-*
+TestResults/

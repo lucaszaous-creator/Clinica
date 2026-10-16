@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="bunit" Version="1.40.0" />
     <PackageReference Include="FluentAssertions" Version="6.12.1" />
     <PackageReference Include="Velopack" Version="1.2.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
@@ -30,6 +31,9 @@
     <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AcervoTreinamento.cs" Link="Treinamento/AcervoTreinamento.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/FonteAtualizacaoGithub.cs" Link="Atualizacao/FonteAtualizacaoGithub.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/DownloadComPrazo.cs" Link="Atualizacao/DownloadComPrazo.cs" />
+    <!-- As MESMAS sementes fictícias da prévia: o teste das telas abre cada uma com os dados que
+         foram fotografados (TelasBlazorAbremTests). -->
+    <Compile Include="../../tools/PreviaBlazor/Sementes/*.cs" Link="PreviaBlazor/Sementes/%(Filename)%(Extension)" />
     <ProjectReference Include="..\..\src\Clinica.Domain\Clinica.Domain.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Application\Clinica.Application.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />

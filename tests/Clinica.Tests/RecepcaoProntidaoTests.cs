@@ -20,6 +20,7 @@ namespace Clinica.Tests;
 ///
 /// Estes testes fixam as três correções que o compilador não é capaz de proteger sozinho.
 /// </summary>
+[Collection(ColecaoDiagnostico.Nome)]
 public class RecepcaoProntidaoTests : IDisposable
 {
     private readonly SqliteConnection _conn;

@@ -22,10 +22,9 @@ name: Build EXE (Windows)
 # renomeá-lo soltaria qualquer regra de proteção da main que o exija. O cache do NuGet
 # corta a restauração em todos.
 #
-# ⚠️ Este workflow é um SUPERCONJUNTO do `verificar.yml`: ele roda o espelho de tokens, o
-# `verificar-suite`, os testes E o compilador de marcação do WPF. Por isso o
-# `verificar` não precisa disparar em PR — seria a terceira execução das mesmas
-# três redes no mesmo commit.
+# ⚠️ É o ÚNICO CI de código desde out/2026: o `verificar.yml` (Linux, em todo push) saiu
+# para economizar minutos de Actions. Postgres, tablet, web de leitura e compilação-sombra
+# viraram rede LOCAL obrigatória antes do push (CLAUDE.md, seção 6).
 
 on:
   pull_request:

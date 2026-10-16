@@ -82,7 +82,6 @@ def main():
                 "src/Clinica.Desktop.Shell/Styles/Componentes/Sobreposicao.xaml",
                 "src/Clinica.Desktop.Shell/Styles/Componentes/Campos.xaml",
                 "src/Clinica.Modulo.Recepcao/Views/ConvenioPacienteView.xaml",
-                "src/Clinica.Modulo.Financeiro/Janelas/RegrasRepasseWindow.xaml",
                 "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml",
                 "src/Clinica.Desktop.Shell/Componentes/FolhaExecucaoWindow.xaml",
                 "src/Clinica.Desktop.Shell/Shell/ShellWindow.xaml",

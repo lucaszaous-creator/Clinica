@@ -20,7 +20,7 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 # Um teste específico
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~RegrasFaturamentoTests"
 
-# A MESMA suíte contra um Postgres de verdade (o que o CI faz no job `testes-postgres`).
+# A MESMA suíte contra um Postgres de verdade (LOCAL — o job `testes-postgres` saiu do CI em out/2026).
 # Localmente: apt-get install postgresql-16, `service postgresql start`, senha no usuário
 # postgres, e a variável abaixo — as migrations são aplicadas UMA vez num banco-modelo e
 # cada teste ganha uma cópia dele (tests/Clinica.Tests/BancoDosTestes.cs). ~10 min.
@@ -74,12 +74,15 @@ desde a parcela 90 ele dispara **só no PR para a `main`** — commit em branch 
 build sozinho, e o push da `main` depois do merge também não. ⚠️ **Não é economia às cegas**: num
 evento `pull_request` o GitHub faz checkout de `refs/pull/N/merge`, então o que o PR compila é
 EXATAMENTE a árvore que a `main` vai ter; e o runner Windows é faturado **2×**, de modo que rodar
-os dois gatilhos pagava ~13 minutos de cota duas vezes pelo mesmo código. Pela mesma razão o
-`verificar.yml` perdeu o gatilho de PR: o `build-exe` é um **superconjunto** dele (roda o espelho
-de tokens, o `verificar-suite`, os testes E o compilador de marcação), e com os dois ligados cada
-commit era conferido **três vezes**. O que sobrou: `verificar` em todo push (inclusive na `main`,
-que é a rede caso a base ande entre o PR ficar verde e o merge acontecer) e `build-exe` no PR,
-com `concurrency` nos dois para o push seguinte cancelar o anterior.
+os dois gatilhos pagava ~13 minutos de cota duas vezes pelo mesmo código.
+
+⚠️ **O `verificar.yml` (Linux, em todo push) SAIU em out/2026, por decisão da direção — para
+economizar minutos de Actions.** Com ele foram embora do CI: a suíte contra o **Postgres**, os
+testes do **tablet** (`deploy/tablet` em Python e `Clinica.Assinaturas.Tests`), a compilação da
+**web de leitura** e a `compilar-sombra`. O que ficou no GitHub é só o `build-exe` no PR (os jobs
+`testes`, `conferencias` e `publicar`, com `concurrency`). **Tudo o que saiu continua sendo rede
+LOCAL obrigatória antes do push** — a seção 6 e a tabela acima —, e mexer em migration, tablet ou
+web sem rodá-las aqui é empurrar o que nenhuma máquina conferiu.
 
 **Testar sem publicar**: `build-exe.yml` tem `workflow_dispatch` e roda em qualquer branch,
 gerando os cinco `.exe` PORTÁTEIS — sem `vpk pack`, então `mgr.IsInstalled` é falso e eles não se
@@ -240,6 +243,15 @@ Nenhum deles quebra o build quando é esquecido:
     e 1366, e todo formulário aberto**, antes do push. Foi assim que apareceram o valor cortado
     ("R$ 981.87…") dos cartões em 1024 e o selo "Previsto" inchado pela classe `.aviso` que
     ele herdava do alerta — nenhuma rede pegaria nenhum dos dois.
+  - 🤖 **E o `dotnet test` ABRE cada tela e clica cada botão** (`TelasBlazorAbremTests`,
+    out/2026): a MESMA `Raiz` do WPF, com bUnit, sobre os serviços do app e as MESMAS
+    `Sementes/` da prévia, com a direção logada. Reprova com o cartão do `ErrorBoundary`, com
+    `FalhaDeLeitura` na abertura e com exceção que não é recusa de regra no `Diagnostico` —
+    um clique por RÓTULO, descendo dois níveis no que o clique faz aparecer (aba, formulário,
+    diálogo). Tela nova entra sozinha (é achada por reflexão); **semente nova vale para os
+    dois**. A foto continua sendo o que vê leiaute; o teste é o que vê a tela QUEBRAR. Ele
+    nasceu provado: um `throw` posto no botão de um formulário reprovou «Nova categoria →
+    Entrada», e a primeira rodada achou a tela de Estoque lendo materiais sem login.
   - ⚠️ **O que decide o que a tela AFIRMA continua morando na Application**, com teste — Razor
     não é lugar de regra de negócio. A tela formata e desenha; o serviço decide.
   - ⚠️ O pacote `Microsoft.AspNetCore.Components.WebView.Wpf` só tem `lib/net8.0-windows`; o
@@ -311,7 +323,11 @@ Nenhum deles quebra o build quando é esquecido:
 git status --porcelain --untracked-files=all   # nenhum arquivo de prova pode entrar
 python3 tools/compilar-sombra.py
 python3 tools/verificar-suite.py
-dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj   # inclui TelasBlazorAbremTests: toda tela Blazor e cada botão dela
+# E, desde que o verificar.yml saiu do CI (out/2026), também LOCAL quando o assunto toca:
+#   migration/coluna/consulta → a suíte com CLINICA_TESTES_POSTGRES
+#   tablet → python3 -m unittest discover -s deploy/tablet -p 'test_*.py' e Clinica.Assinaturas.Tests (-c Debug)
+#   web de leitura → dotnet build src/Clinica.Web
 ```
 
 ⚠️ **`dotnet build` INCREMENTAL esconde warning de arquivo que ele não recompilou.** Ao
@@ -487,8 +503,9 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   para ficar profissional"). Os testes rodam em SQLite, e "só o Postgres pega" já tinha
   custado à clínica o `xmin`, as seis datas com fuso da parcela 52 e o 22001 do "Imprimir
   esta sessão" — cada um com uma rede própria escrita DEPOIS do estrago. A rede genérica
-  é o job `testes-postgres` do `verificar.yml`: um Postgres 16 em container, a variável
-  `CLINICA_TESTES_POSTGRES`, e a MESMA suíte.
+  era o job `testes-postgres` do `verificar.yml` (que saiu do CI em out/2026 — hoje roda
+  LOCAL, com a variável `CLINICA_TESTES_POSTGRES` e a MESMA suíte, antes de todo push que
+  mexa em migration, coluna ou consulta).
   ⚠️ **O interruptor tem o MESMO nome do método do EF de propósito.** Os 147 arquivos de
   teste montam o banco com `UseSqlite(conn)` + `EnsureCreated()`, sem fixture comum; um
   helper `BancoDeTeste.Abrir()` seria contrato que depende de alguém lembrar, e o teste

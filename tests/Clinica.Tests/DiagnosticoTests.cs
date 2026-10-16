@@ -9,6 +9,7 @@ namespace Clinica.Tests;
 /// "nunca atrapalha quem chamou": ela é usada dentro de catch de degradação
 /// deliberada, então uma falha dela não pode virar uma segunda exceção.
 /// </summary>
+[Collection(ColecaoDiagnostico.Nome)]
 public class DiagnosticoTests : IDisposable
 {
     private readonly Action<string, Exception>? _sinkOriginal = Diagnostico.Sink;

@@ -29,6 +29,7 @@ namespace Clinica.Tests;
 ///    prontuário" (a leitura própria da parcela 52, que ficou sem chamador até aqui).
 /// E, do lado do domínio puro, a regra ÚNICA de mover a fila nos dois quadros (parcela 61).
 /// </summary>
+[Collection(ColecaoDiagnostico.Nome)]
 public class CircuitoClinicoTests : IDisposable
 {
     private readonly SqliteConnection _conn;

@@ -116,6 +116,12 @@ O `foto.js` imprime os erros do console: tela bonita com erro no console não es
 A prévia roda os MESMOS serviços do app (`AddClinica`) sobre um SQLite em memória; sem
 sessão autenticada, `Pode` libera tudo (como no app fora do login).
 
+**O `dotnet test` também abre a tela, sem navegador** (`tests/Clinica.Tests/TelasBlazorAbremTests.cs`):
+toda tela de `Clinica.Ui.Blazor.Telas` é montada pela `Raiz` com as mesmas sementes e a direção
+logada, e cada botão é clicado uma vez por rótulo, descendo dois níveis no que o clique faz
+aparecer. Reprova com o cartão "Algo deu errado", com falha de leitura na abertura e com exceção
+que não é recusa de regra no log. Tela nova é coberta sozinha; dê a ela uma semente.
+
 ## 6. Antes do push 🚦
 
 ```bash
