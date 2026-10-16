@@ -1,0 +1,214 @@
+@*
+  CONSULTAS DE CONVÊNIO (out/2026, migrado do ConsultasView/ConsultasViewModel do WPF).
+
+  A consulta do convênio tem validade, e RENOVAR é uma assinatura — colhe-se com o paciente na
+  frente (parcela 46). A lista é UMA LINHA POR PACIENTE de convênio, ordenada por quem precisa
+  agir primeiro; o filtro (situação, convênio, nome) é em memória sobre a carteira já lida.
+
+  A renovação aqui é a MESMA linha que o PendenciaService lê do outro lado, no faturamento. As
+  frases e a classificação moram em ConsultasNaTela (Application, com teste); a validade sai
+  do ConsultaService.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina rec-consultas @(Carregando && _todas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Atendimento" Titulo="Consultas de convênio"
+                     Subtitulo="A consulta do convênio tem validade. Renove com o paciente na frente — descobrir que ela venceu na hora de faturar é ligar para quem já foi embora.">
+        <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a lista"><Icone Nome="atualizar" /></button>
+    </CabecalhoPagina>
+
+    @if (_lido && !_naoVerificado)
+    {
+        <section class="kpis tres" aria-label="Situação da carteira">
+            <Kpi Rotulo="Precisam renovar" Valor="@Contar(ConsultasNaTela.SituacaoPrecisaRenovar).ToString(Formato.PtBr)" Icone="alerta"
+                 Tom="@(Contar(ConsultasNaTela.SituacaoPrecisaRenovar) > 0 ? "perigo" : "sucesso")"
+                 Nota="Vencidas, sem consulta ou a vencer na janela de alerta" />
+            <Kpi Rotulo="Vencem em breve" Valor="@Contar(ConsultasNaTela.SituacaoVenceEmBreve).ToString(Formato.PtBr)" Icone="relogio" Tom="aviso"
+                 Nota="Ainda valem, mas já dá para renovar" />
+            <Kpi Rotulo="Em dia" Valor="@Contar(ConsultasNaTela.SituacaoEmDia).ToString(Formato.PtBr)" Icone="ok" Tom="sucesso"
+                 Nota="@($"{_todas.Count} paciente(s) de convênio na carteira")" />
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="filtros">
+            <Campo Rotulo="Paciente">
+                <div class="busca"><Icone Nome="busca" />
+                    <input class="campo" placeholder="Parte do nome — o acento não atrapalha" value="@_filtroPaciente" @oninput="PacienteMudou" maxlength="80" />
+                </div>
+            </Campo>
+            <Campo Rotulo="Situação">
+                <select class="campo" value="@_filtroSituacao" @onchange="e => { _filtroSituacao = e.Value?.ToString() ?? ConsultasNaTela.TodasSituacoes; Refiltrar(); }">
+                    @foreach (var s in ConsultasNaTela.OpcoesSituacao) { <option value="@s">@s</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Convênio">
+                <select class="campo" value="@_filtroConvenio" @onchange="e => { _filtroConvenio = e.Value?.ToString() ?? ConsultasNaTela.TodosConvenios; Refiltrar(); }">
+                    @foreach (var c in _convenios) { <option value="@c">@c</option> }
+                </select>
+            </Campo>
+            @if (FiltroAtivo)
+            {
+                <button type="button" class="botao fantasma" @onclick="LimparFiltro">Limpar filtro</button>
+            }
+            <span class="resumo-filtro">@ConsultasNaTela.Resumo(_linhas.Count, _todas.Count, Contar(ConsultasNaTela.SituacaoPrecisaRenovar), FiltroAtivo)</span>
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as consultas" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_lido)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhuma consulta a acompanhar" Descricao="@ConsultasNaTela.VazioDescricao(FiltroAtivo)"
+                         Icone="@(FiltroAtivo ? "filtro" : "vazio")" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista rec-cons-lista">
+                    <thead>
+                        <tr>
+                            <th>Paciente · situação</th>
+                            <th style="width:200px">Convênio</th>
+                            <th class="nao-quebra" style="width:120px">Última emissão</th>
+                            <th class="nao-quebra" style="width:110px">Vencimento</th>
+                            <th class="direita" style="width:120px"><span class="rec-cons-oculto">Ações</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _linhas)
+                        {
+                            <tr @key="l.Status.PacienteId" class="rec-cons-linha @Semaforo(l)">
+                                <td>
+                                    <span class="principal">@l.Paciente</span>
+                                    <span class="secundario rec-cons-situacao">@l.Situacao</span>
+                                </td>
+                                <td><span class="rec-cons-convenio" title="@l.Convenio">@l.Convenio</span></td>
+                                <td class="nao-quebra numero">@l.UltimaEmissao</td>
+                                <td class="nao-quebra numero">@l.Vencimento</td>
+                                <td class="direita">
+                                    <button type="button" class="botao mini @(l.Status.PrecisaRenovar ? "primario" : null)"
+                                            disabled="@(!PodeRenovar || !l.TemRenovacao)"
+                                            title="@(!l.TemRenovacao ? "O convênio não usa consulta renovável." : PodeRenovar ? "Emite a consulta de hoje, com a validade do convênio" : "Seu acesso não permite renovar consultas.")"
+                                            @onclick="() => RenovarAsync(l)">Renovar</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">Renovar registra a validade da consulta do convênio para hoje — não registra uma consulta clínica.</div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<LinhaConsultaBalcao> _todas = [];
+    private List<LinhaConsultaBalcao> _linhas = [];
+    private IReadOnlyList<string> _convenios = [ConsultasNaTela.TodosConvenios];
+    private string _filtroSituacao = ConsultasNaTela.TodasSituacoes;
+    private string _filtroConvenio = ConsultasNaTela.TodosConvenios;
+    private string _filtroPaciente = string.Empty;
+    private bool Carregando;
+    private bool _lido;
+    private bool _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    /// <summary>
+    /// Renovar consulta CRIA a linha que sustenta o faturamento do convênio — o mesmo bit de
+    /// lançar atendimento (os dois são "o que habilita faturar").
+    /// </summary>
+    private static bool PodeRenovar => Pode(Permissao.LancarAtendimento);
+    private bool FiltroAtivo => ConsultasNaTela.FiltroAtivo(_filtroSituacao, _filtroConvenio, _filtroPaciente);
+    private int Contar(string situacao) => _todas.Count(l => l.SituacaoFiltro == situacao);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a leitura VELHA respondendo por último
+    /// voltaria a mostrar "a renovar" a consulta que acabou de ser renovada.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopo();
+            var lista = await escopo.ServiceProvider.GetRequiredService<ConsultaService>().ListarAsync(DateOnly.FromDateTime(DateTime.Today));
+            if (geracao != _geracao || Descartada) return;
+
+            _todas = ConsultasNaTela.Ordenar(lista).ToList();
+            _convenios = ConsultasNaTela.Convenios(_todas);
+            // Atualizar a lista não desfaz o filtro de quem está trabalhando nela.
+            if (!_convenios.Contains(_filtroConvenio)) _filtroConvenio = ConsultasNaTela.TodosConvenios;
+            Refiltrar();
+            _lido = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — Consultas: a situação não pôde ser lida", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _todas = [];
+            _linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Refiltrar()
+        => _linhas = _todas.Where(l => ConsultasNaTela.Passa(l, _filtroSituacao, _filtroConvenio, _filtroPaciente)).ToList();
+
+    private void PacienteMudou(ChangeEventArgs e) { _filtroPaciente = e.Value?.ToString() ?? string.Empty; Refiltrar(); }
+
+    private void LimparFiltro()
+    {
+        _filtroSituacao = ConsultasNaTela.TodasSituacoes;
+        _filtroConvenio = ConsultasNaTela.TodosConvenios;
+        _filtroPaciente = string.Empty;
+        Refiltrar();
+    }
+
+    private static string? Semaforo(LinhaConsultaBalcao l) => l.EhVermelha ? "vermelho" : l.EhAmarela ? "amarelo" : null;
+
+    /// <summary>Gera/renova a consulta do paciente para hoje. A validade sai da configuração do convênio.</summary>
+    private async Task RenovarAsync(LinhaConsultaBalcao l)
+    {
+        if (!Exigir(Permissao.LancarAtendimento, "renovar a consulta")) return;
+        var item = l.Status;
+        // Convênio sem consulta renovável: AVISO, não erro — quem clicou não fez nada de errado.
+        if (!item.UsaConsulta)
+        {
+            Notificacoes.Info($"{item.PacienteNome}: o convênio não usa consulta renovável.");
+            return;
+        }
+        if (!await Dialogos.ConfirmarAsync("Renovar validade da consulta do convênio",
+                $"Registrar a renovação do convênio de {item.PacienteNome} para hoje? Esta ação não registra uma consulta clínica."))
+            return;
+
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<ConsultaService>().RenovarAsync(item.PacienteId, DateOnly.FromDateTime(DateTime.Today));
+        }, "Blazor — Consultas: renovação não pôde ser registrada");
+        if (!ok) return;
+
+        // A confirmação vem DEPOIS de reler: a lista mostra a consulta renovada e o aviso fica.
+        await CarregarAsync();
+        Notificacoes.Sucesso($"Consulta de {item.PacienteNome} renovada.");
+    }
+}

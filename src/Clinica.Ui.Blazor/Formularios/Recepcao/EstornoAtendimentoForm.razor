@@ -1,0 +1,141 @@
+@*
+  ESTORNAR UM ATENDIMENTO (parcela 94; out/2026, migrado da EstornoAtendimentoWindow /
+  EstornoAtendimentoViewModel do WPF). Desfazer uma sessão lançada por engano.
+
+  Pergunta ITEM A ITEM — decisão da direção: as GUIAS saem sempre (são a razão do estorno);
+  caixa, pacote e insumo só se marcados, e só aparece o que aquele atendimento de fato
+  produziu. A CONSULTA renovada é informação, sem caixinha. A RECUSA (guia já saiu da
+  clínica) e o que desfazer são do EstornoAtendimentoService, não daqui. As frases moram em
+  EstornoNaTela, com teste.
+
+  As duas barreiras: o botão nasce apagado sem LancarAtendimento (e sem motivo), e o clique
+  confere de novo.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(_previa is { } t ? EstornoNaTela.Titulo(t) : "Estornar atendimento")"
+       Subtitulo="@(_previa is { } s ? EstornoNaTela.Subtitulo(s) : null)" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_previa is null)
+        {
+            @if (_falha is not null) { <Aviso Tom="erro" Texto="@_falha" /> } else { <Esqueleto Altura="140" /> }
+        }
+        else
+        {
+            var p = _previa;
+            @if (p.Impedimento is { } impedimento)
+            {
+                <Aviso Tom="erro" Texto="@impedimento" />
+            }
+            <p class="rec-estorno-guias"><Icone Nome="documento" />@EstornoNaTela.Guias(p)</p>
+
+            @if (p.TemCaixa || p.TemPacote || p.TemInsumo)
+            {
+                <div class="secao-form">
+                    <h3>O que mais desfazer</h3>
+                    @if (EstornoNaTela.RotuloCaixa(p) is { } caixa)
+                    {
+                        <label class="marcar"><input type="checkbox" @bind="_desfazerCaixa" disabled="@(!p.Pode)" />@caixa</label>
+                    }
+                    @if (p.TemPacote)
+                    {
+                        <label class="marcar"><input type="checkbox" @bind="_devolverPacote" disabled="@(!p.Pode)" />@EstornoNaTela.RotuloPacote</label>
+                    }
+                    @if (EstornoNaTela.RotuloInsumo(p) is { } insumo)
+                    {
+                        <label class="marcar"><input type="checkbox" @bind="_devolverInsumo" disabled="@(!p.Pode)" />@insumo</label>
+                    }
+                </div>
+            }
+
+            @if (EstornoNaTela.ConsultaRenovada(p) is { } consulta)
+            {
+                <Aviso Tom="atencao" Texto="@consulta" />
+            }
+
+            <Campo Rotulo="Por que está estornando?" Obrigatorio="true"
+                   Dica="Obrigatório: é o que fica na trilha de auditoria para quem for conferir depois.">
+                <textarea class="campo" rows="3" maxlength="300" disabled="@(!p.Pode)"
+                          @bind="_motivo" @bind:event="oninput"></textarea>
+            </Campo>
+
+            @if (EstornoNaTela.Horario(p) is { } horario)
+            {
+                <Aviso Tom="info" Texto="@horario" />
+            }
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao perigo" @onclick="EstornarAsync"
+                disabled="@(_ocupado || !EstornoNaTela.PodeEstornar(_previa, _motivo, PodeLancar))"
+                title="@(PodeLancar ? null : "Seu acesso não permite estornar atendimentos.")">
+            @(_ocupado ? "Estornando…" : "Estornar atendimento")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int AtendimentoId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback<ResultadoDoEstorno> AoConcluir { get; set; }
+
+    private PreviaDoEstorno? _previa;
+    private string? _falha;
+    private bool _desfazerCaixa;
+    private bool _devolverPacote;
+    private bool _devolverInsumo;
+    private string _motivo = string.Empty;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeLancar => SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _previa = await escopo.ServiceProvider.GetRequiredService<EstornoAtendimentoService>().PreverAsync(AtendimentoId);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — estorno: prévia não pôde ser lida", ex);
+            _falha = "Não foi possível ler o que este atendimento produziu: " + ex.Message;
+        }
+    }
+
+    private async Task EstornarAsync()
+    {
+        if (_ocupado || _previa is null) return;
+        _mensagem = null;
+        // A SEGUNDA barreira: o botão apagado explica, isto impede.
+        if (!SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento))
+        {
+            _mensagem = "Seu acesso não permite estornar o atendimento. Fale com a direção da clínica.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_motivo))
+        {
+            _mensagem = "Diga por que este atendimento está sendo estornado.";
+            return;
+        }
+        try
+        {
+            _ocupado = true;
+            using var escopo = Escopos.CreateScope();
+            var r = await escopo.ServiceProvider.GetRequiredService<EstornoAtendimentoService>().EstornarAsync(
+                AtendimentoId, new DecisaoDeEstorno(_motivo, _desfazerCaixa, _devolverPacote, _devolverInsumo),
+                SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync(r);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — estorno do atendimento falhou", ex);
+            _mensagem = $"Não foi possível estornar: {ex.Message}";
+        }
+        finally { _ocupado = false; }
+    }
+}

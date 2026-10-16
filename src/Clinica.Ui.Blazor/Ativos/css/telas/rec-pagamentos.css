@@ -1,1 +1,10 @@
-/* Estilo próprio da tela (rec-pagamentos). Só tokens — ver docs/telas-blazor.md. */
+/* Estilo próprio da tela Pagamentos da Recepção (rec-pagamentos). Só tokens — ver docs/telas-blazor.md. */
+/* Sem paciente, a tela É a busca: uma coluna centrada, sem deserto em volta (mockup 05). */
+.rec-pagamentos .rec-pag-busca{width:100%;max-width:760px;margin:var(--space-12) auto 0;display:flex;flex-direction:column;
+  gap:var(--space-3)}
+.rec-pagamentos .rec-pag-busca .subtitulo{margin:0 0 var(--space-2)}
+.rec-pagamentos .rec-pag-busca-campo{padding:var(--space-4)}
+.rec-pagamentos .rec-pag-paciente{padding:var(--space-3) var(--space-4)}
+.rec-pagamentos .rec-pag-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.rec-pagamentos .lista-cartao .cartao-titulo{margin-bottom:var(--space-3)}
+.rec-pagamentos td .selo + .secundario{margin-top:var(--space-1)}

@@ -1,0 +1,250 @@
+@*
+  LANÇAMENTOS DO BALCÃO (out/2026, migrado do LancamentosView/LancamentosViewModel do WPF).
+
+  A conferência antes de fechar o balcão: os atendimentos de um período, quem lançou, quantas
+  guias saíram e o que ainda não liberou — e o ESTORNO da sessão lançada por engano, onde o
+  engano é percebido (parcela 94).
+
+  O filtro é de CLIENTE, sobre o período já carregado: a consulta do banco é uma só, por
+  período (AtendimentosNoPeriodoAsync, com códigos e paciente juntos). O que a tela AFIRMA —
+  a frase da guia, a pendência, a autoria, o teto de 366 dias, o recorte — mora em
+  LancamentosNaTela, na Application, com teste.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Abstracoes
+@inherits TelaBase
+
+<div class="pagina rec-lancamentos @(Carregando && _carregadas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Atendimento" Titulo="Lançamentos"
+                     Subtitulo="Os atendimentos lançados no período — a conferência antes de fechar o balcão. Quem lançou, quantas guias saíram e o que ainda não liberou.">
+        <div class="rec-lanc-periodo" role="group" aria-label="Período">
+            <label><span>De</span><input type="date" class="campo" value="@_de.ToString("yyyy-MM-dd")" @onchange="DeMudouAsync" /></label>
+            <label><span>Até</span><input type="date" class="campo" value="@_ate.ToString("yyyy-MM-dd")" @onchange="AteMudouAsync" /></label>
+        </div>
+        <button type="button" class="botao" @onclick="HojeAsync" disabled="@(EhHoje)" title="Voltar a conferir só o dia de hoje">Hoje</button>
+        <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a lista"><Icone Nome="atualizar" /></button>
+    </CabecalhoPagina>
+
+    @if (_recusa is not null)
+    {
+        <Aviso Tom="atencao" Texto="@_recusa" />
+    }
+
+    @if (!_naoVerificado && _lido)
+    {
+        <section class="kpis tres" aria-label="Resumo do período">
+            <Kpi Rotulo="Atendimentos" Valor="@_carregadas.Count.ToString(Formato.PtBr)" Icone="lista"
+                 Nota="@(_carregadas.Count == 0 ? "Nenhum lançamento no período" : $"{Operadores} pessoa(s) lançaram")" />
+            <Kpi Rotulo="Guias geradas" Valor="@_carregadas.Sum(l => l.QuantidadeGuias).ToString(Formato.PtBr)" Icone="documento" Tom="neutro"
+                 Nota="@($"{_carregadas.Count(l => l.QuantidadeGuias == 0)} sem guia (particular ou suspensa)")" />
+            <Kpi Rotulo="Guia por liberar" Valor="@ComPendencia.ToString(Formato.PtBr)" Icone="relogio"
+                 Tom="@(ComPendencia > 0 ? "aviso" : "sucesso")" ClasseValor="@(ComPendencia > 0 ? "tom-aviso" : null)"
+                 Nota="Sessões cuja guia ainda não pode ser faturada" />
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="filtros">
+            <Campo Rotulo="Convênio">
+                <select class="campo" value="@_filtro.Convenio" @onchange="e => Filtrar(_filtro with { Convenio = e.Value?.ToString() })">
+                    @foreach (var o in _convenios) { <option value="@o">@o</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Modalidade">
+                <select class="campo" value="@_filtro.Modalidade" @onchange="e => Filtrar(_filtro with { Modalidade = e.Value?.ToString() })">
+                    @foreach (var o in _modalidades) { <option value="@o">@o</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Quem lançou">
+                <select class="campo" value="@_filtro.Operador" @onchange="e => Filtrar(_filtro with { Operador = e.Value?.ToString() })">
+                    @foreach (var o in _operadores) { <option value="@o">@o</option> }
+                </select>
+            </Campo>
+            <label class="alternar rec-lanc-alternar" title="As sessões cuja guia ainda não pode ser faturada">
+                <input type="checkbox" checked="@_filtro.SomenteComPendencia"
+                       @onchange="e => Filtrar(_filtro with { SomenteComPendencia = e.Value is true })" />
+                Só com guia por liberar
+            </label>
+            @if (_filtro.Ativo)
+            {
+                <button type="button" class="botao fantasma" @onclick="() => Filtrar(FiltroInicial)">Limpar filtros</button>
+            }
+            <span class="resumo-filtro">@LancamentosNaTela.Resumo(_linhas.Count, _carregadas.Count)</span>
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler os atendimentos do período" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_lido)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="@(_filtro.Ativo && _carregadas.Count > 0 ? "Nenhum atendimento bate com o filtro" : "Nenhum atendimento no período")"
+                         Descricao="@(_filtro.Ativo && _carregadas.Count > 0 ? "Limpe os filtros para ver o período inteiro." : "Mude as datas. O avulso e a marcação entram por aqui; quem estava na agenda aparece na lista do dia.")"
+                         Icone="@(_filtro.Ativo && _carregadas.Count > 0 ? "filtro" : "vazio")" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista rec-lanc-lista">
+                    <thead>
+                        <tr>
+                            <th class="nao-quebra" style="width:64px">Dia</th>
+                            <th>Paciente · modalidade · quem lançou</th>
+                            <th style="width:220px">Guias</th>
+                            <th class="nao-quebra" style="width:130px">Atendimento</th>
+                            <th style="width:200px">Convênio</th>
+                            <th class="direita" style="width:120px"><span class="rec-lanc-oculto">Ações</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _linhas)
+                        {
+                            <tr @key="l.AtendimentoId" class="@(l.TemPendencia ? "rec-lanc-pendente" : null)">
+                                <td class="nao-quebra numero">@l.DataRotulo</td>
+                                <td>
+                                    <span class="principal">@l.Paciente</span>
+                                    <span class="secundario">@l.Modalidade · @l.Lancamento</span>
+                                </td>
+                                <td>
+                                    <span>@l.Guias</span>
+                                    <span class="secundario @(l.TemPendencia ? "rec-lanc-aviso" : null)">@l.Pendencia</span>
+                                </td>
+                                <td class="nao-quebra numero">@l.Numero</td>
+                                <td><Selo Tom="neutro" Dica="@l.Convenio"><span class="rec-lanc-convenio">@l.Convenio</span></Selo></td>
+                                <td class="direita">
+                                    <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEstornar)"
+                                            title="@(PodeEstornar ? "Desfazer esta sessão lançada por engano" : "Seu acesso não permite estornar atendimentos.")"
+                                            @onclick="() => Estornar(l)">Estornar…</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">O estorno nunca apaga: o atendimento fica marcado e as guias ficam no histórico, com o motivo na trilha.</div>
+        }
+    </section>
+</div>
+
+@if (_estornando is { } e)
+{
+    <EstornoAtendimentoForm AtendimentoId="e.AtendimentoId" AoFechar="() => _estornando = null" AoConcluir="r => EstornouAsync(e, r)" />
+}
+
+@code {
+    private static readonly FiltroLancamentos FiltroInicial = new(LancamentosNaTela.Todos, LancamentosNaTela.Todos, LancamentosNaTela.Todos, false);
+
+    private DateOnly _de = Hoje;
+    private DateOnly _ate = Hoje;
+    private FiltroLancamentos _filtro = FiltroInicial;
+    private List<LinhaLancamentoBalcao> _carregadas = [];
+    private List<LinhaLancamentoBalcao> _linhas = [];
+    private IReadOnlyList<string> _convenios = [LancamentosNaTela.Todos];
+    private IReadOnlyList<string> _modalidades = [LancamentosNaTela.Todos];
+    private IReadOnlyList<string> _operadores = [LancamentosNaTela.Todos];
+    private bool Carregando;
+    private bool _lido;
+    private bool _naoVerificado;
+    private string? _erro;
+    private string? _recusa;
+    private int _geracao;
+    private LinhaLancamentoBalcao? _estornando;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private bool EhHoje => _de == Hoje && _ate == Hoje;
+    private static bool PodeEstornar => Pode(Permissao.LancarAtendimento);
+    private int ComPendencia => LancamentosNaTela.ComPendencia(_carregadas);
+    private int Operadores => _carregadas.Select(l => l.Operador).Where(o => o != LancamentosNaTela.SemRegistroDeOperador).Distinct().Count();
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Volta à aba: relê só quando o período inclui hoje (o lançamento da aba do lado nasce com a data de hoje).</summary>
+    protected override Task AoVoltarAsync()
+        => LancamentosNaTela.RelerAoVoltar(_de, _ate, Hoje) ? CarregarAsync() : Task.CompletedTask;
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private Task DeMudouAsync(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var d)) { _de = d; return CarregarAsync(); }
+        return Task.CompletedTask;
+    }
+
+    private Task AteMudouAsync(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var d)) { _ate = d; return CarregarAsync(); }
+        return Task.CompletedTask;
+    }
+
+    private Task HojeAsync() { _de = Hoje; _ate = Hoje; return CarregarAsync(); }
+
+    /// <summary>
+    /// Lê o período. Descarte de resposta fora de ordem: mexer nas datas dispara carga a cada
+    /// mudança, e duas no ar ao mesmo tempo é o caso normal. Tudo PUBLICADO depois do último await.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        var (inicio, fim, recusa) = LancamentosNaTela.Periodo(_de, _ate);
+        _recusa = recusa;
+        if (recusa is not null) return;
+
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopo();
+            var atendimentos = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>().AtendimentosNoPeriodoAsync(inicio, fim);
+            if (geracao != _geracao || Descartada) return;
+
+            _carregadas = atendimentos.Select(LancamentosNaTela.Montar).ToList();
+            _convenios = LancamentosNaTela.Opcoes(_carregadas.Select(l => l.Convenio));
+            _modalidades = LancamentosNaTela.Opcoes(_carregadas.Select(l => l.Modalidade));
+            _operadores = LancamentosNaTela.Opcoes(_carregadas.Select(l => l.Operador));
+            _filtro = new FiltroLancamentos(
+                LancamentosNaTela.Preservar(_filtro.Convenio, _convenios),
+                LancamentosNaTela.Preservar(_filtro.Modalidade, _modalidades),
+                LancamentosNaTela.Preservar(_filtro.Operador, _operadores),
+                _filtro.SomenteComPendencia);
+            Aplicar();
+            _lido = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — Lançamentos: atendimentos do período não puderam ser lidos", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _carregadas = [];
+            _linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Filtrar(FiltroLancamentos f) { _filtro = f; Aplicar(); }
+
+    private void Aplicar() => _linhas = _carregadas.Where(l => LancamentosNaTela.Passa(l, _filtro)).ToList();
+
+    private void Estornar(LinhaLancamentoBalcao l)
+    {
+        if (Exigir(Permissao.LancarAtendimento, "estornar o atendimento")) _estornando = l;
+    }
+
+    private async Task EstornouAsync(LinhaLancamentoBalcao l, ResultadoDoEstorno r)
+    {
+        _estornando = null;
+        await CarregarAsync();
+        // Os avisos das reversões de FORA não podem sumir com a janela: o estorno das guias
+        // está gravado, e o que falhou lá continua para ser resolvido à mão.
+        var recado = LancamentosNaTela.RecadoDoEstorno(l.Numero, r.Avisos);
+        if (r.Avisos.Count > 0) await Dialogos.AvisoAsync("Atendimento estornado", recado);
+        else Notificacoes.Sucesso(recado);
+    }
+}

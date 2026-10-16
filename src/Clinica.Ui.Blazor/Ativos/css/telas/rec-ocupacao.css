@@ -1,1 +1,98 @@
-/* Estilo próprio da tela (rec-ocupacao). Só tokens — ver docs/telas-blazor.md. */
+/* Estilo próprio da Visão geral da agenda (rec-ocupacao). Só tokens — ver docs/telas-blazor.md. */
+
+/* ---------- "Mais ações" ---------- */
+.rec-ocupacao .rec-oc-menu{position:relative;display:inline-flex}
+.rec-ocupacao .rec-oc-menu-lista{position:absolute;right:0;top:calc(100% + var(--space-1));z-index:20;display:flex;flex-direction:column;
+  min-width:280px;background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);
+  box-shadow:var(--sombra-popup);padding:var(--space-1)}
+.rec-ocupacao .rec-oc-menu-lista button{border:0;background:transparent;text-align:left;padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-pequeno);cursor:pointer;white-space:nowrap}
+.rec-ocupacao .rec-oc-menu-lista button:hover{background:var(--fundo)}
+.rec-ocupacao .rec-oc-menu-lista hr{border:0;border-top:1px solid var(--borda);margin:var(--space-1) 0}
+
+/* ---------- Barra do período ---------- */
+.rec-ocupacao .rec-oc-barra{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4)}
+.rec-ocupacao .rec-oc-navegador{display:inline-flex;align-items:center;gap:var(--space-1)}
+.rec-ocupacao .rec-oc-periodo{min-width:190px;justify-content:center}
+.rec-ocupacao .rec-oc-data{position:relative;display:inline-flex;align-items:center}
+.rec-ocupacao .rec-oc-data .icone{position:absolute;left:var(--space-3);color:var(--texto-secundario);pointer-events:none}
+.rec-ocupacao .rec-oc-data .campo{width:auto;padding-left:34px}
+.rec-ocupacao .rec-oc-profissional{width:auto;min-width:200px;max-width:280px}
+.rec-ocupacao .rec-oc-atualizado{margin-left:auto;color:var(--texto-secundario);font-size:var(--text-small-size)}
+
+/* ---------- Calendário ---------- */
+.rec-ocupacao .rec-oc-dica{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.rec-ocupacao tr.rec-oc-linha{cursor:pointer}
+.rec-ocupacao .rec-oc-dia td{vertical-align:top}
+.rec-ocupacao .rec-oc-traco{display:inline-block;width:3px;height:14px;border-radius:var(--radius-pequeno);margin-right:var(--space-2);
+  vertical-align:-2px;background:var(--fam)}
+
+/* A família da modalidade — os MESMOS tokens do Brush.Modalidade.* do WPF. */
+.rec-ocupacao .fam-acupuntura{--fam:var(--acento)}
+.rec-ocupacao .fam-eletro{--fam:var(--violeta-600)}
+.rec-ocupacao .fam-bsv{--fam:var(--teal-600)}
+.rec-ocupacao .fam-bsv-acupuntura{--fam:var(--ciano-500)}
+.rec-ocupacao .fam-consulta{--fam:var(--rosa-600)}
+
+/* Semana: uma coluna por dia (o domingo só entra quando tem algo). */
+.rec-ocupacao .rec-oc-semana{display:grid;grid-template-columns:repeat(var(--colunas),minmax(0,1fr));gap:var(--space-2);overflow-x:auto}
+.rec-ocupacao .rec-oc-coluna{display:flex;flex-direction:column;gap:var(--space-1);min-width:112px;padding:var(--space-2);
+  border-radius:var(--radius-control);background:var(--cinza-50);border:1px solid var(--cinza-100)}
+.rec-ocupacao .rec-oc-coluna.hoje{border-color:var(--acento-tint);background:var(--acento-suave)}
+.rec-ocupacao .rec-oc-coluna.fechado{background:repeating-linear-gradient(135deg,var(--cinza-100) 0 6px,var(--cinza-50) 6px 12px)}
+.rec-ocupacao .rec-oc-coluna-topo{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:0;background:transparent;
+  padding:var(--space-1) var(--space-1) var(--space-2);cursor:pointer;text-align:left;border-bottom:1px solid var(--borda);margin-bottom:var(--space-1)}
+.rec-ocupacao .rec-oc-coluna-topo strong{font-size:var(--text-body-size)}
+.rec-ocupacao .rec-oc-coluna.hoje .rec-oc-coluna-topo strong{color:var(--acento)}
+.rec-ocupacao .rec-oc-coluna-topo span{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.rec-ocupacao .rec-oc-fechado{color:var(--aviso-texto);font-size:var(--text-small-size);font-weight:600}
+.rec-ocupacao .rec-oc-item{display:flex;align-items:baseline;gap:var(--space-2);width:100%;padding:6px var(--space-2);border:1px solid var(--borda);
+  border-left:3px solid var(--fam);border-radius:var(--radius-pequeno);background:var(--superficie);cursor:pointer;text-align:left;
+  font-size:var(--text-small-size)}
+.rec-ocupacao .rec-oc-item:hover{border-color:var(--borda-hover);border-left-color:var(--fam)}
+.rec-ocupacao .rec-oc-item .numero{color:var(--texto-secundario);font-weight:600}
+.rec-ocupacao .rec-oc-item-nome{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.rec-ocupacao .rec-oc-item.inativo{background:transparent;color:var(--texto-secundario)}
+.rec-ocupacao .rec-oc-item.inativo .rec-oc-item-nome{text-decoration:line-through;font-weight:500}
+.rec-ocupacao .rec-oc-vao{width:100%;padding:6px var(--space-2);border:1px dashed var(--sucesso);border-radius:var(--radius-pequeno);
+  background:var(--sucesso-suave);color:var(--sucesso-forte);font-weight:600;font-size:var(--text-small-size);cursor:pointer;text-align:left}
+.rec-ocupacao .rec-oc-vao:hover:not(:disabled){background:var(--verde-100)}
+.rec-ocupacao .rec-oc-vao:disabled{opacity:.6;cursor:default}
+.rec-ocupacao .rec-oc-sem{color:var(--cinza-300);font-size:var(--text-small-size);padding:var(--space-1)}
+
+/* Mês: sete colunas, segunda primeiro. */
+.rec-ocupacao .rec-oc-mes{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-2)}
+.rec-ocupacao .rec-oc-dia-semana{font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);padding:0 var(--space-1)}
+.rec-ocupacao .rec-oc-celula{display:flex;flex-direction:column;align-items:stretch;gap:var(--space-1);min-height:96px;padding:var(--space-2);
+  border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie);cursor:pointer;text-align:left;min-width:0}
+.rec-ocupacao .rec-oc-celula:hover:not(:disabled){border-color:var(--borda-hover);background:var(--superficie-hover)}
+.rec-ocupacao .rec-oc-celula.vazia{background:transparent;border-style:dashed;border-color:var(--cinza-100);cursor:default}
+.rec-ocupacao .rec-oc-celula.selecionado{border-color:var(--acento);box-shadow:inset 0 0 0 1px var(--acento)}
+.rec-ocupacao .rec-oc-celula-dia{font-weight:700;font-variant-numeric:tabular-nums}
+.rec-ocupacao .rec-oc-celula.selecionado .rec-oc-celula-dia{color:var(--acento)}
+.rec-ocupacao .rec-oc-celula-total{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.rec-ocupacao .rec-oc-celula-total strong{color:var(--texto-primario);font-size:var(--text-body-size)}
+.rec-ocupacao .rec-oc-celula-sem{font-size:var(--text-small-size);color:var(--cinza-300)}
+.rec-ocupacao .rec-oc-celula-taxa{font-size:var(--text-small-size);color:var(--texto-secundario);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-ocupacao .rec-oc-celula-taxa.sem-base{color:var(--aviso-texto)}
+
+/* ---------- Equipe ---------- */
+.rec-ocupacao .rec-oc-pessoas{list-style:none;margin:0;padding:0}
+.rec-ocupacao .rec-oc-pessoas li + li{border-top:1px solid var(--cinza-100)}
+.rec-ocupacao .rec-oc-pessoa{display:grid;grid-template-columns:minmax(0,2fr) minmax(120px,1fr) minmax(160px,1.2fr) minmax(120px,1fr);
+  align-items:center;gap:var(--space-4);width:100%;padding:var(--space-3) var(--space-6);border:0;background:transparent;cursor:pointer;text-align:left}
+.rec-ocupacao .rec-oc-pessoa:hover:not(:disabled){background:var(--cinza-50)}
+.rec-ocupacao .rec-oc-pessoa.ativa{background:var(--acento-suave);box-shadow:inset 3px 0 0 var(--acento)}
+.rec-ocupacao .rec-oc-pessoa-nome{min-width:0}
+.rec-ocupacao .rec-oc-pessoa-nome .principal,.rec-ocupacao .rec-oc-pessoa-nome .secundario{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-ocupacao .rec-oc-pessoa-total{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.rec-ocupacao .rec-oc-pessoa-total strong{color:var(--texto-primario);font-size:var(--text-body-size)}
+.rec-ocupacao .rec-oc-pessoa-barra{display:flex;align-items:center;gap:var(--space-2)}
+.rec-ocupacao .rec-oc-pessoa-barra .trilho{flex:1}
+.rec-ocupacao .rec-oc-pessoa-pct{min-width:52px;font-weight:600}
+.rec-ocupacao .rec-oc-pessoa-livres{margin:0}
+.rec-ocupacao .kpi .trilho{margin-top:var(--space-1)}
+@media (max-width:1180px){
+  .rec-ocupacao .rec-oc-pessoa{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1.2fr)}
+  .rec-ocupacao .rec-oc-pessoa-livres{display:none}
+}

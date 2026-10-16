@@ -1,0 +1,149 @@
+@*
+  RECEBER PAGAMENTO DO PACIENTE NO BALCÃO (out/2026, migrado do ReceberPagamentoViewModel +
+  RecebimentoWindow do shell, aberto pela tela de Pagamentos da Recepção).
+
+  Grava pelo PagamentosRecepcaoService.ReceberAsync — sobre o MESMO caixa do Financeiro, com a
+  auditoria no mesmo SaveChanges. As recusas (forma Convênio, parcelas fora de 1–36, data
+  futura, valor alterado na outra máquina, dia de caixa fechado) são do serviço: aqui elas
+  aparecem inline, perto do botão.
+
+  A FORMA de pagamento é escolhida, nunca presumida: herdar a última gravaria PIX no dinheiro
+  que o paciente acabou de pôr no balcão. Pagamento PARCIAL deixa o resto em aberto, com o
+  vencimento escolhido aqui.
+
+  As duas barreiras: o botão apaga sem nenhum dos bits de QuemRecebe, e o clique confere de novo.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Receber pagamento do paciente" Subtitulo="@_cobranca?.Descricao" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_cobranca is null)
+        {
+            @if (_falha is not null) { <Aviso Tom="erro" Texto="@_falha" /> } else { <Esqueleto Altura="120" /> }
+        }
+        else
+        {
+            <dl class="pares">
+                <dt>Saldo da cobrança</dt><dd>@Formato.Dinheiro(_cobranca.Valor)</dd>
+                @if (_cobranca.DataVencimento is { } v) { <dt>Vencimento</dt><dd>@Formato.Data(v)</dd> }
+            </dl>
+            <div class="campos">
+                <Campo Rotulo="Data do pagamento" Obrigatorio="true" Dica="Pagamento futuro continua a receber.">
+                    <input type="date" class="campo" @bind="_data" />
+                </Campo>
+                <Campo Rotulo="Forma de pagamento" Obrigatorio="true">
+                    <select class="campo" @bind="_forma">
+                        <option value="">Escolha…</option>
+                        @foreach (var f in Formas) { <option value="@f">@RotulosEnum.De(f)</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Valor recebido agora" Obrigatorio="true"
+                       Dica="Menor que o saldo = pagamento parcial; o resto continua em aberto.">
+                    <input class="campo valor" @bind="_valorRecebido" @bind:event="oninput" inputmode="decimal" />
+                </Campo>
+                @if (EhParcial)
+                {
+                    <Campo Rotulo="Novo vencimento do saldo" Dica="@($"Ficam em aberto {Formato.Dinheiro(_cobranca.Valor - ValorLido)}.")">
+                        <input type="date" class="campo" @bind="_vencimentoSaldo" />
+                    </Campo>
+                }
+                @if (EhCartao)
+                {
+                    <Campo Rotulo="Adquirente (maquininha)">
+                        <input class="campo" @bind="_adquirente" maxlength="60" placeholder="Ex.: Stone, Cielo" />
+                    </Campo>
+                    <Campo Rotulo="Bandeira">
+                        <input class="campo" @bind="_bandeira" maxlength="40" placeholder="Ex.: Visa" />
+                    </Campo>
+                    @if (_forma == FormaPagamento.CartaoCredito)
+                    {
+                        <Campo Rotulo="Parcelas">
+                            <input type="number" min="1" max="36" class="campo" @bind="_parcelas" />
+                        </Campo>
+                    }
+                }
+            </div>
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="ConfirmarAsync"
+                disabled="@(_cobranca is null || _ocupado || !PodeConfirmar)"
+                title="@(PodeConfirmar ? null : "Seu acesso não permite receber pagamentos do paciente.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Confirmar recebimento")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter, EditorRequired] public int LancamentoId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>Recebimento de operadora pertence ao Financeiro — o balcão não oferece "Convênio".</summary>
+    private static readonly FormaPagamento[] Formas = Enum.GetValues<FormaPagamento>().Where(f => f != FormaPagamento.Convenio).ToArray();
+
+    private LancamentoFinanceiro? _cobranca;
+    private string? _falha;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private FormaPagamento? _forma;
+    private string _valorRecebido = string.Empty;
+    private DateOnly _vencimentoSaldo = DateOnly.FromDateTime(DateTime.Today);
+    private string? _adquirente;
+    private string? _bandeira;
+    private int _parcelas = 1;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeConfirmar => SessaoUsuario.Atual.PodeAlgum(PagamentosNaTela.QuemRecebe);
+    private bool EhCartao => _forma is FormaPagamento.CartaoCredito or FormaPagamento.CartaoDebito;
+    private decimal ValorLido => LeituraDeValores.TentarLerNumeroExato(_valorRecebido, out var v) ? v : 0m;
+    private bool EhParcial => _cobranca is not null && ValorLido > 0m && ValorLido < _cobranca.Valor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _cobranca = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                .ObterLancamentoAsync(LancamentoId);
+            if (_cobranca is null) { _falha = "Cobrança não encontrada — ela pode ter sido recebida ou cancelada em outra máquina."; return; }
+            _valorRecebido = Formato.ParaCampo(_cobranca.Valor);
+            _vencimentoSaldo = _cobranca.DataVencimento ?? DateOnly.FromDateTime(DateTime.Today);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — Recepção: cobrança a receber não pôde ser lida", ex);
+            _falha = $"Não foi possível ler a cobrança: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (_ocupado || _cobranca is null) return;
+        _mensagem = null;
+        if (!SessaoUsuario.Atual.PodeAlgum(PagamentosNaTela.QuemRecebe))
+        {
+            _mensagem = "Seu acesso não permite receber pagamento do paciente. Fale com a direção da clínica.";
+            return;
+        }
+        try
+        {
+            _ocupado = true;
+            if (_forma is not { } forma) throw new InvalidOperationException("Informe a forma de pagamento.");
+            if (!LeituraDeValores.TentarLerNumeroExato(_valorRecebido, out var recebido)) throw new InvalidOperationException("Informe o valor recebido agora.");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<PagamentosRecepcaoService>().ReceberAsync(
+                PacienteId, _cobranca.Id, _cobranca.Valor, _data, forma, SessaoUsuario.Atual.Operador,
+                EhCartao ? _adquirente : null, EhCartao ? _bandeira : null,
+                forma == FormaPagamento.CartaoCredito ? _parcelas : 1,
+                valorRecebido: recebido, vencimentoSaldo: _vencimentoSaldo);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex) { _mensagem = ex.Message; }
+        finally { _ocupado = false; }
+    }
+}
