@@ -478,7 +478,6 @@ public sealed class ModuloRecepcao : IModuloApp
 
         servicos.AddTransient<PagamentosViewModel>();
         servicos.AddTransient<AgendaViewModel>();
-        servicos.AddTransient<DocumentosViewModel>();
         servicos.AddTransient<PacientesViewModel>();
         servicos.AddTransient<RetornosAMarcarViewModel>();
         // O Acompanhamento de pacientes é tela BLAZOR desde out/2026 (docs/relacionamento-blazor.md):
@@ -543,7 +542,7 @@ public sealed class ModuloRecepcao : IModuloApp
             DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
         },
         ChaveProntuario => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(secao: 3),
-        ChaveDocumentos => new DocumentosView { DataContext = servicos.GetRequiredService<DocumentosViewModel>() },
+        ChaveDocumentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao), servicos),
         ChaveEquipe => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProfissionaisESalas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
         ChaveAjuda => new AjudaView(),
