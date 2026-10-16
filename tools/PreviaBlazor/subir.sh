@@ -16,7 +16,9 @@ done
 for i in $(seq 1 20); do curl -s -o /dev/null http://127.0.0.1:$PORTA/ || break; sleep 0.5; done
 # A prévia antiga em bin/ não pode subir quando a compilação falhou: as fotos mostrariam
 # a tela de ANTES e passariam por novas.
-if ! SAIDA=$(dotnet build "$AQUI/PreviaBlazor.csproj" -nologo -v q 2>&1); then
+# -nodeReuse:false: o nó do MSBuild que sobra herda a saída deste script, e quem chama
+# com pipe (`subir.sh | tail`) ficava preso esperando um processo que nunca termina.
+if ! SAIDA=$(dotnet build "$AQUI/PreviaBlazor.csproj" -nologo -v q -nodeReuse:false 2>&1); then
     echo "$SAIDA" | grep -E " error " | sort -u
     echo "compilação falhou — a prévia não foi iniciada" >&2
     exit 1

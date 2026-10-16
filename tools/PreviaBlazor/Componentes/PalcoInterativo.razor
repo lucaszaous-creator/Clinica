@@ -1,0 +1,19 @@
+@using Clinica.Ui.Blazor.Hospedagem
+<div id="barra-palco" style="position:fixed;top:0;left:0;right:0;height:36px;z-index:9999;display:flex;gap:2px;overflow:hidden;background:#fff;border-bottom:1px solid #ddd">
+    @foreach (var t in Telas)
+    {
+        <button type="button" data-tela="@t.Name" style="font-size:10px;padding:0 4px" @onclick="() => _palco.Ativar(t)">@t.Name</button>
+    }
+    <button type="button" data-tela="WPF" style="font-size:10px;padding:0 4px" @onclick="() => _palco.Desativar()">WPF</button>
+</div>
+<div id="area-palco" style="position:fixed;top:36px;left:0;right:0;bottom:0">
+    <PalcoDeTelas Palco="_palco" />
+</div>
+
+@code {
+    private readonly Palco _palco = new();
+
+    private static readonly IReadOnlyList<Type> Telas = typeof(IHostDaTela).Assembly.GetTypes()
+        .Where(t => t.Namespace == "Clinica.Ui.Blazor.Telas" && typeof(TelaBase).IsAssignableFrom(t) && !t.IsAbstract)
+        .OrderBy(t => t.Name).ToList();
+}

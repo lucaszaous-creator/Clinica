@@ -57,6 +57,22 @@ public sealed class Dialogos
         return d.Resposta.Task;
     }
 
+    /// <summary>
+    /// A pessoa saiu da tela com uma pergunta aberta (trocou pelo menu): todas desistem.
+    /// O serviço é UM por navegador e o navegador é um por janela (out/2026), então a
+    /// pergunta da tela que saiu ficaria por cima da próxima — respondida ali, ela agiria
+    /// sobre a tela que já não está à vista. Desistir é seguro por construção: a porta
+    /// "desisti" nunca é a que efetiva o ato (checagem 39).
+    /// </summary>
+    public void DesistirDeTodos()
+    {
+        if (_fila.Count == 0) return;
+        var abertos = _fila.ToList();
+        _fila.Clear();
+        Mudou?.Invoke();
+        foreach (var d in abertos) d.Resposta.TrySetResult(null);
+    }
+
     /// <summary>Chamado pela camada: confirma (com o texto, quando há) ou desiste (null).</summary>
     public void Responder(DialogoAberto d, bool confirmou)
     {

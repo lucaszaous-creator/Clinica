@@ -4694,6 +4694,20 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   duas rodadas de fotos morreram com código 144. Pare a prévia pelo pid (`subir.sh` cuida).
   🔁 **Voltar à aba relê** (`SinalDeVolta` → `TelaBase.AoVoltarAsync`), o equivalente do
   `IAtualizarAoVoltar`: quem avisa é o `Palco`, ao reativar uma tela já montada. Sem isso a aba guardada voltaria com o lançamento da outra máquina invisível.
+  🔁 **Trocar de tela muitas vezes, medido em três lugares** (out/2026, pedido da direção
+  depois do vídeo): o palco mantém toda tela montada, então defeito de troca NÃO some ao
+  fechar — acumula. `PalcoTrocaRepetidaTests` (bUnit, 14 telas reais, 5 rodadas + rajada),
+  `tools/PreviaBlazor/trocas.js` + `analisar.py` (Chromium, quadro a quadro) e
+  `ValidarLayoutWindows --blazor` (o preto do WebView2, na tela real do runner Windows, no
+  CI do PR). Acharam DOIS restos: o **Extrato do banco não recruzava ao voltar** (mostraria
+  como pendente o que a outra máquina conciliou) e **o diálogo aberto ficava por cima da
+  próxima tela** — o serviço é do navegador, e "Sim, continuar" agiria sobre a tela que
+  saiu; trocar de tela agora DESISTE (seguro: "desisti" nunca grava, checagem 39).
+  ⚠️ **Toda medição foi provada com o defeito** antes de valer: o teste reprova sem a
+  correção do Extrato, o `analisar.py` reprova com `FLASH_DE_TESTE=1`, e o `--blazor`
+  reprova quando a foto não enxerga o navegador. E a análise errou uma vez por MIM: 7
+  "quadros sem tela" eram a tela WPF ainda valendo (o clique chega ao servidor depois do
+  seguinte) — **antes de chamar de defeito, olhe os quadros vizinhos**.
   **O que fica para depois, com o motivo**: aquecer o navegador no login (a primeira tela
   do dia ainda espera o navegador nascer) e o menu "⋯" dos cartões de número, que o `Kpi`
   ainda não tem. (O "um `BlazorWebView` por aba" que estava aqui foi pago na rodada da tela

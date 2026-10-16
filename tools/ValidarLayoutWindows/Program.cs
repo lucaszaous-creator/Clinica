@@ -36,13 +36,16 @@ static class Program
         somenteAcompanhamento = args.Contains("--acompanhamento");
         somenteInfusao = args.Contains("--infusao");
         somenteA1 = args.Contains("--a1");
+        somenteBlazor = args.Contains("--blazor");
         somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); somenteRetornos = args.Contains("--retornos"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml") });
         int code = 0; app.Dispatcher.BeginInvoke(async () => { try { await Executar(); if (falhas > 0) throw new Exception($"{falhas} cortes encontrados. Consulte artifacts/layout-windows."); Console.WriteLine("TELAS CONFERIDAS"); } catch (Exception e) { Console.WriteLine(e); code = 1; } finally { PresentationTraceSources.DataBindingSource.Flush(); app.Shutdown(); } }); app.Run(); return code;
     }
+    static bool somenteBlazor;
     static async Task Executar()
     {
+        if (somenteBlazor) { var r = await TrocasBlazor.Executar(); if (r != 0) throw new Exception(r == 2 ? "Troca de telas Blazor: medição inconclusiva (a captura não vê o WebView2)." : "Troca de telas Blazor: houve quadro escuro."); return; }
         await RolagemQa.Executar();
         if (somenteA1) { await ConferirA1(); return; }
         var pausaAgenda = new PausaLeituraAgenda();

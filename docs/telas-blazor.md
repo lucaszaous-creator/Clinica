@@ -159,5 +159,28 @@ existir dentro dela, e cor de fundo nenhuma vale nesse instante. Hoje:
 
 ⚠️ **O que ficou de fora e o custo aceito:** nada do WPF desenha POR CIMA da área do
 navegador (é janela nativa — vale para qualquer WebView2); menus e popups do shell são janelas
-próprias e passam por cima normalmente. E um diálogo HTML aberto numa tela continua aberto se
-a pessoa trocar de tela pelo menu (o serviço de diálogos é do navegador).
+próprias e passam por cima normalmente. Diálogo HTML aberto quando a pessoa troca de tela pelo
+menu **desiste** (`Dialogos.DesistirDeTodos`): o serviço é do navegador, e a pergunta da tela
+que saiu ficaria por cima da próxima — "Sim, continuar" agiria sobre uma tela fora de vista.
+Desistir é seguro porque a porta "desisti" nunca efetiva o ato (checagem 39).
+
+### Como se confere que a troca não deixa resto 🔁
+
+Três medições, cada uma vendo o que as outras não veem — e cada uma **provada com o defeito**
+antes de ser aceita (a que nunca reprovou não mede nada):
+
+| Medição | Onde roda | O que vê | Provada contra |
+|---|---|---|---|
+| `PalcoTrocaRepetidaTests` (bUnit) | `dotnet test` | 5 rodadas pelas 14 telas reais + rajada: uma tela à vista por vez, nunca recriada, com conteúdo, camadas únicas, sem erro no log, e **toda volta relê o banco** | o Extrato do banco, que não recruzava ao voltar (achado por ele e corrigido) |
+| `tools/PreviaBlazor/trocas.js` + `analisar.py` | Chromium do Linux, na prévia (`/palco`) | 300 trocas medidas quadro a quadro (sonda em `requestAnimationFrame` + screencast): nenhum quadro sem tela entre duas Blazor, sobreposto, vazio, com esqueleto numa volta, escuro ou em branco | `FLASH_DE_TESTE=1` injeta 200 ms pretos por troca — reprova com 38 quadros |
+| `ValidarLayoutWindows --blazor` | runner Windows (CI do PR) | o **preto da janela nativa do WebView2**, que só existe no Windows: o shell real na tela, 160 trocas, fotos da área de trabalho em laço | reprova também quando a foto **não enxerga** o navegador — "zero flash" com a câmera cega seria garantia aparente |
+
+```bash
+tools/PreviaBlazor/subir.sh 5199
+node tools/PreviaBlazor/trocas.js http://127.0.0.1:5199 /tmp/trocas 300
+python3 tools/PreviaBlazor/analisar.py /tmp/trocas
+```
+
+🧑‍💻 **UX**: o que a clínica viu no vídeo vira uma reprovação no PR, antes do `.exe`.
+🛠️ **DX**: tela nova entra nas três sozinha (achada por reflexão / pela lista do módulo).
+🤝 **CX**: ~1 min a mais no runner Windows já pago pelo `build-exe`; nada novo no Linux.

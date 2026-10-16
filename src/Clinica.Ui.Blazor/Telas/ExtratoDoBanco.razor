@@ -259,6 +259,14 @@
         }
     }
 
+    /// <summary>
+    /// Voltar à aba recruza o arquivo já aberto (out/2026): enquanto a pessoa estava noutra
+    /// tela, a outra máquina pode ter conciliado ou lançado o que este extrato cruza, e a
+    /// lista mostraria como pendente o que já foi resolvido. Sem arquivo, não há o que reler.
+    /// Achado pelo teste de trocas repetidas (PalcoTrocaRepetidaTests).
+    /// </summary>
+    protected override Task AoVoltarAsync() => CruzarAsync();
+
     private static void Escolher(LinhaNaTela l, string? chave)
         => l.Escolhido = string.IsNullOrEmpty(chave) ? null : l.Linha.Candidatos.FirstOrDefault(c => c.Chave == chave);
 

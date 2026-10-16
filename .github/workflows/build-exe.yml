@@ -114,6 +114,21 @@ jobs:
       - name: Conferir recall, filtros e configuração salva no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --acompanhamento
 
+      # O flash preto das telas Blazor, medido na TELA DE VERDADE (out/2026): abre o shell
+      # do Financeiro na tela, troca 160 vezes entre as 14 telas Blazor e as WPF, e fotografa
+      # a área de trabalho em laço. Reprova com uma foto escura; e reprova também quando a
+      # foto não enxerga o WebView2 — "zero flash" com a câmera cega seria garantia aparente.
+      - name: Conferir que a troca de telas Blazor não pisca preto
+        run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --blazor
+
+      - name: Guardar as fotos da troca de telas Blazor
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: trocas-blazor
+          path: artifacts/trocas-blazor/
+          if-no-files-found: ignore
+
       - name: Conferir navegação dos cinco aplicativos e perfis
         run: dotnet run --project tools/Clinica.Verificacao.Desktop -c Release -- artifacts/navegacao-desktop
 

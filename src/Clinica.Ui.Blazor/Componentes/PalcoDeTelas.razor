@@ -7,6 +7,7 @@
   existem UMA vez aqui, e não uma por tela.
 *@
 @implements IDisposable
+@inject Clinica.Ui.Blazor.Hospedagem.Dialogos Dialogos
 
 @foreach (var t in Palco.Telas)
 {
@@ -20,9 +21,17 @@
 @code {
     [Parameter, EditorRequired] public Palco Palco { get; set; } = default!;
 
+    private int? _atual;
+
     protected override void OnInitialized() => Palco.Mudou += Redesenhar;
 
-    private void Redesenhar() => _ = InvokeAsync(StateHasChanged);
+    private void Redesenhar() => _ = InvokeAsync(() =>
+    {
+        // Trocou de tela com uma pergunta aberta: ela era da tela que saiu, e respondida aqui
+        // agiria sobre uma tela que já não está à vista (Dialogos.DesistirDeTodos).
+        if (Palco.Atual != _atual) { _atual = Palco.Atual; Dialogos.DesistirDeTodos(); }
+        StateHasChanged();
+    });
 
     protected override void OnAfterRender(bool firstRender) => Palco.AvisarMontagem();
 

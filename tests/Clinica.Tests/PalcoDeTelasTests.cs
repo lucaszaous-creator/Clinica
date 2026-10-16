@@ -91,4 +91,30 @@ public sealed class PalcoDeTelasTests : TestContext
         Assert.Equal(1, r.FindComponents<CamadaDeDialogos>().Count);
         Assert.Equal(1, r.FindComponents<PilhaDeNotificacoes>().Count);
     }
+
+    [Fact]
+    public void Trocar_de_tela_com_uma_pergunta_aberta_desiste_dela()
+    {
+        // O resto mais perigoso da troca: a pergunta da tela que saiu ficaria por cima da
+        // próxima, e "Sim, continuar" agiria sobre uma tela que já não está à vista.
+        var palco = new Palco();
+        var r = RenderComponent<PalcoDeTelas>(p => p.Add(x => x.Palco, palco));
+        palco.Ativar(typeof(TelaA));
+        var dialogos = Services.GetRequiredService<Dialogos>();
+        Task<bool>? confirmacao = null;
+        r.InvokeAsync(() => confirmacao = dialogos.ConfirmarAsync("Cancelar o lançamento?", "…", perigoso: true));
+        r.WaitForAssertion(() => Assert.Single(r.FindAll(".modal-fundo")));
+
+        palco.Ativar(typeof(TelaB));
+        r.WaitForAssertion(() => Assert.Empty(r.FindAll(".modal-fundo")));
+        Assert.True(confirmacao!.Wait(TimeSpan.FromSeconds(5)));
+        Assert.False(confirmacao.Result); // desistiu — nunca "sim"
+
+        // E a mesma pergunta aberta com a tela à vista continua lá enquanto ela fica.
+        r.InvokeAsync(() => _ = dialogos.AvisoAsync("Aviso", "…"));
+        r.WaitForAssertion(() => Assert.Single(r.FindAll(".modal-fundo")));
+        palco.Ativar(typeof(TelaB)); // a mesma tela: não é troca
+        Thread.Sleep(100);
+        Assert.Single(r.FindAll(".modal-fundo"));
+    }
 }
