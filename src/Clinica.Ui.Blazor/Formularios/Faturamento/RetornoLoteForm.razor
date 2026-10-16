@@ -1,0 +1,240 @@
+@*
+  Registrar o RETORNO de um lote TISS (out/2026, a RetornoLoteWindow do WPF): conforme o
+  demonstrativo de análise da operadora, marcam-se as guias GLOSADAS com o motivo da tabela
+  ANS; as demais são aceitas. As glosas vão para o Controle de glosas com o prazo de recurso
+  correndo (LoteTissService.RegistrarRetornoAsync, auditoria no mesmo SaveChanges).
+
+  O demonstrativo em XML pré-preenche as decisões guia a guia (TissRetornoImport.Ler): a
+  digitação vira conferência. No WPF a pergunta "veio em XML?" abria ANTES da janela; aqui
+  é um botão dentro do formulário — a mesma capacidade, sem uma pergunta no caminho de
+  quem vai digitar. As ressalvas da importação ficam escritas acima da lista, onde a pessoa
+  confere, em vez de um aviso que some ao fechar.
+
+  ⚠️ Glosa já registrada aparece pré-marcada E com o motivo dela: o WPF pré-marcava sem o
+  motivo, e confirmar regravava a glosa com motivo vazio — apagando o que estava escrito.
+*@
+@inject IServiceScopeFactory Escopos
+@inject IHostDaTela Host
+
+<Modal Titulo="@($"Registrar retorno do lote nº {NumeroLote}")"
+       Subtitulo="Conforme o demonstrativo de análise da operadora, marque as guias GLOSADAS e informe o motivo. As demais serão consideradas aceitas. As glosas entram no Controle de glosas com o prazo de recurso correndo."
+       Largura="largo" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_linhas is null)
+        {
+            @if (_falha is not null) { <Aviso Tom="erro" Texto="@_falha" /> } else { <Esqueleto Altura="200" /> }
+        }
+        else
+        {
+            <div class="fat-tiss-importar">
+                <button type="button" class="botao" @onclick="ImportarAsync" disabled="@(_importando || _ocupado)">
+                    <Icone Nome="abrir" />@(_importando ? "Lendo…" : "Importar demonstrativo XML…")
+                </button>
+                <span class="secundario">@(_arquivo is null ? "Se a operadora mandou o demonstrativo em XML, as decisões são preenchidas para você conferir." : $"Preenchido a partir de {_arquivo} — confira antes de registrar.")</span>
+            </div>
+            <Aviso Tom="atencao" Texto="@_ressalvas" />
+            <Aviso Tom="erro" Texto="@_erroImportacao" />
+
+            @if (_linhas.Count == 0)
+            {
+                <EstadoVazio Titulo="Lote sem guias" Descricao="Não há guia para decidir neste lote." />
+            }
+            else
+            {
+                <div class="tabela-rolagem fat-tiss-retorno">
+                    <table class="lista">
+                        <thead>
+                            <tr>
+                                <th class="centro" style="width:72px">Glosada</th>
+                                <th>Paciente</th>
+                                <th style="width:130px">Código</th>
+                                <th style="width:100px">Nº guia</th>
+                                <th style="width:230px">Motivo da glosa (tabela ANS)</th>
+                                <th style="width:180px">Complemento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _linhas)
+                            {
+                                <tr @key="l.CodigoId" class="@(l.Glosada ? "fat-tiss-glosada" : null)">
+                                    <td class="centro">
+                                        <label class="marcar"><input type="checkbox" checked="@l.Glosada" aria-label="@($"Glosada — {l.Paciente}")"
+                                               @onchange="e => l.Glosada = e.Value is true" /></label>
+                                    </td>
+                                    <td><span class="principal">@l.Paciente</span></td>
+                                    <td>@l.Tipo</td>
+                                    <td class="nao-quebra numero">@(l.NumeroGuia ?? "—")</td>
+                                    <td>
+                                        <select class="campo" disabled="@(!l.Glosada)" value="@l.MotivoCodigo" aria-label="Motivo da glosa"
+                                                @onchange="e => l.MotivoCodigo = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
+                                            <option value="">Escolha o motivo…</option>
+                                            @if (l.MotivoCodigo is { } fora && !MotivosGlosa.Todos.Any(m => m.Codigo == fora))
+                                            {
+                                                @* Glosa já registrada com um código fora da tabela interna: ele aparece, e fica. *@
+                                                <option value="@fora">@fora — fora da tabela interna</option>
+                                            }
+                                            @foreach (var m in MotivosGlosa.Todos)
+                                            {
+                                                <option value="@m.Codigo" title="@m.Significado">@m</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input class="campo" disabled="@(!l.Glosada)" maxlength="300" aria-label="Complemento do motivo"
+                                               value="@l.Complemento" @onchange="e => l.Complemento = e.Value?.ToString()" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="campos">
+                <Campo Rotulo="Data do retorno" Obrigatorio="true">
+                    <input type="date" class="campo" @bind="_data" />
+                </Campo>
+                <Campo Rotulo="Observação" Dica="Opcional — o que a operadora disse no demonstrativo.">
+                    <input class="campo" @bind="_observacao" maxlength="500" />
+                </Campo>
+            </div>
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <span class="fat-tiss-contagem">@(_linhas is null ? null : $"{_linhas.Count(l => l.Glosada)} de {_linhas.Count} guia(s) marcada(s) como glosada(s)")</span>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="ConfirmarAsync" disabled="@(_linhas is null || _ocupado || !PodeGerenciar)"
+                title="@(PodeGerenciar ? null : "Seu acesso não permite registrar o retorno do lote.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Registrar retorno")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int LoteId { get; set; }
+    [Parameter, EditorRequired] public int NumeroLote { get; set; }
+    /// <summary>Gravou: devolve a frase do desfecho (quantas glosadas) para a tela confirmar.</summary>
+    [Parameter] public EventCallback<string> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>Uma guia do lote e a decisão da operadora sobre ela.</summary>
+    private sealed class Linha
+    {
+        public required int CodigoId { get; init; }
+        public required string Paciente { get; init; }
+        public required string Tipo { get; init; }
+        public string? NumeroGuia { get; init; }
+        public bool Glosada { get; set; }
+        public string? MotivoCodigo { get; set; }
+        public string? Complemento { get; set; }
+    }
+
+    private List<Linha>? _linhas;
+    private List<CodigoFaturamento> _codigos = [];
+    private string? _falha;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string? _observacao;
+    private string? _mensagem;
+    private string? _ressalvas;
+    private string? _erroImportacao;
+    private string? _arquivo;
+    private bool _ocupado;
+    private bool _importando;
+
+    private static bool PodeGerenciar => SessaoUsuario.Atual.Pode(Permissao.GerenciarLotesTiss);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var lote = await escopo.ServiceProvider.GetRequiredService<LoteTissService>().ObterAsync(LoteId);
+            _codigos = lote.Codigos.ToList();
+            _linhas = _codigos.Select(c => new Linha
+            {
+                CodigoId = c.Id,
+                Paciente = c.Atendimento?.Paciente?.Nome ?? "(desconhecido)",
+                Tipo = RotulosEnum.De(c.Tipo),
+                NumeroGuia = c.NumeroGuiaReal,
+                // Glosa já registrada aparece pré-marcada — e com o motivo dela, senão
+                // confirmar regravaria a glosa sem motivo.
+                Glosada = c.GlosaEmAberto,
+                MotivoCodigo = c.GlosaEmAberto ? c.MotivoGlosaCodigo : null,
+                Complemento = c.GlosaEmAberto ? c.MotivoGlosa : null
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — lote para o retorno não pôde ser lido", ex);
+            _falha = $"Não foi possível ler o lote: {ex.Message}";
+        }
+    }
+
+    /// <summary>Lê o demonstrativo XML da operadora e pré-preenche as decisões guia a guia.</summary>
+    private async Task ImportarAsync()
+    {
+        if (_importando || _linhas is null) return;
+        _importando = true;
+        _erroImportacao = null;
+        try
+        {
+            var arquivo = await Host.EscolherArquivoAsync(
+                "Demonstrativo TISS (*.xml)|*.xml|Todos os arquivos (*.*)|*.*", "Demonstrativo de análise do lote");
+            if (arquivo is null) return; // desistiu da janela
+
+            var resultado = TissRetornoImport.Ler(ExportacaoLoteTiss.LerDemonstrativo(arquivo.Conteudo), _codigos);
+            if (resultado.DataDemonstrativo is { } data) _data = data;
+            foreach (var decisao in resultado.Decisoes)
+            {
+                var linha = _linhas.FirstOrDefault(l => l.CodigoId == decisao.CodigoId);
+                if (linha is null) continue;
+                linha.Glosada = decisao.Glosada;
+                linha.MotivoCodigo = decisao.MotivoCodigo is { } codigo && MotivosGlosa.Todos.Any(m => m.Codigo == codigo) ? codigo : null;
+                linha.Complemento = decisao.MotivoTexto;
+            }
+            _ressalvas = ExportacaoLoteTiss.RessalvasDaImportacao(resultado);
+            _arquivo = arquivo.Nome;
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Arquivo que não é demonstrativo: a frase do leitor já diz o que é.
+            _erroImportacao = $"Não foi possível importar: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — demonstrativo TISS não pôde ser importado", ex);
+            _erroImportacao = $"Não foi possível importar: {ex.Message}";
+        }
+        finally { _importando = false; }
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (_ocupado || _linhas is null) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarLotesTiss, "registrar o retorno do lote");
+            var decisoes = _linhas
+                .Select(l => new RetornoGuiaDecisao(l.CodigoId, l.Glosada, l.Glosada ? l.MotivoCodigo : null,
+                    l.Glosada && !string.IsNullOrWhiteSpace(l.Complemento) ? l.Complemento.Trim() : null))
+                .ToList();
+            var observacao = string.IsNullOrWhiteSpace(_observacao) ? null : _observacao.Trim();
+
+            using (var escopo = Escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<LoteTissService>()
+                    .RegistrarRetornoAsync(LoteId, _data, decisoes, observacao, SessaoUsuario.Atual.Operador);
+
+            await AoConcluir.InvokeAsync(ExportacaoLoteTiss.MensagemDoRetorno(NumeroLote, decisoes.Count(d => d.Glosada)));
+        }
+        catch (Exception ex)
+        {
+            if (ex is not InvalidOperationException)
+                Clinica.Application.Diagnostico.Registrar("Blazor — retorno do lote não pôde ser registrado", ex);
+            _mensagem = $"Não foi possível registrar o retorno: {ex.Message}";
+        }
+        finally { _ocupado = false; }
+    }
+}

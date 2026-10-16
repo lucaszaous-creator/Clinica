@@ -1,0 +1,409 @@
+@*
+  LOTES E XML TISS (out/2026, migrado do TissView/TissViewModel do WPF).
+
+  Responde "o que já saiu para a operadora, e o que falta mandar?": gera o lote (XML TISS
+  4.01) com as guias BAIXADAS do período que ainda não entraram em lote — UM LOTE POR
+  OPERADORA (parcela 60) —, acompanha o envio (protocolo) e registra o retorno do
+  demonstrativo, e as glosas vão para o Controle de glosas com o prazo de recurso correndo.
+
+  As três perguntas antes de gerar são as do WPF, na mesma ordem: as operadoras (só com
+  duas ou mais), o radar de glosas e os dados do prestador incompletos. O que a tela afirma
+  e decide mora em ExportacaoLoteTiss (Application), com teste.
+
+  ⚠️ Diferença declarada do WPF: lá o destino era escolhido ANTES de criar o lote (cancelar
+  não gastava número). O hospedeiro só salva DEPOIS de ter os bytes, e devolve "deu certo"
+  também quando a pessoa desiste da janela — então a frase final sempre diz como pegar o
+  arquivo de novo (o botão XML da linha). Mais de um lote sai num .zip, um XML por
+  operadora: o WPF pedia uma pasta; aqui é uma janela de salvar só.
+*@
+@inherits TelaBase
+
+<div class="pagina @(Carregando && _lotes.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Faturamento · TISS" Titulo="Guias TISS — lotes"
+                     Subtitulo="Gere o lote (XML padrão TISS 4.01) com as guias baixadas ainda não exportadas, marque o envio à operadora (protocolo) e registre o retorno do demonstrativo — glosas entram no Controle de glosas com prazo de recurso. Dados do prestador e códigos TUSS ficam em Configurações.">
+        <button type="button" class="botao" title="Ler os lotes de novo (F5)" @onclick="() => CarregarAsync()">
+            <Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    <section class="cartao fat-tiss-novo" aria-label="Novo lote">
+        <div class="cartao-corpo">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>Novo lote</h2>
+                    <p>Guias baixadas no período (pela data do atendimento) que ainda não estão em nenhum lote. Sai um lote por operadora.</p>
+                </div>
+            </div>
+            <div class="fat-tiss-barra">
+                <Campo Rotulo="De">
+                    <input type="date" class="campo" value="@_inicio.ToString("yyyy-MM-dd")" @onchange="e => _inicio = LerData(e, _inicio)" />
+                </Campo>
+                <Campo Rotulo="Até">
+                    <input type="date" class="campo" value="@_fim.ToString("yyyy-MM-dd")" @onchange="e => _fim = LerData(e, _fim)" />
+                </Campo>
+                <button type="button" class="botao primario" disabled="@(!PodeGerenciar || _ocupado)"
+                        title="@(PodeGerenciar ? "Gerar o lote e o XML (Ctrl+P)" : "Seu acesso não permite gerar lote TISS.")"
+                        @onclick="ExportarAsync">
+                    <Icone Nome="documento" />@(_ocupado ? "Gerando…" : "Gerar lote TISS (.xml)")
+                </button>
+            </div>
+            <Aviso Tom="@_tomMensagem" Texto="@_mensagem" />
+        </div>
+    </section>
+
+    <section class="cartao lista-cartao">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Lotes gerados</h2>
+                <p>Do mais recente ao mais antigo. A situação anda de Gerado para Enviado (com o protocolo) e para Processado (com o retorno).</p>
+            </div>
+        </div>
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler os lotes" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (Carregando && _lotes.Count == 0)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="200" /></div>
+        }
+        else if (_lotes.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhum lote ainda" Descricao="Os lotes exportados aparecem aqui com o histórico de envio e retorno." />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista fat-tiss-lotes">
+                    <thead>
+                        <tr>
+                            <th class="direita" style="width:72px">Nº lote</th>
+                            <th>Operadora</th>
+                            <th style="width:92px">Gerado em</th>
+                            <th class="direita" style="width:56px">Guias</th>
+                            <th style="width:100px">Situação</th>
+                            <th style="width:140px">Envio · protocolo</th>
+                            <th style="width:92px">Retorno em</th>
+                            <th class="direita" style="width:76px">Glosadas</th>
+                            <th class="direita" style="width:200px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _lotes)
+                        {
+                            <tr @key="l.Id">
+                                <td class="direita numero nao-quebra">@l.Numero.ToString("000000")</td>
+                                <td><span class="principal">@l.Operadora</span></td>
+                                <td class="nao-quebra">@Formato.Data(l.DataGeracao)</td>
+                                <td class="direita numero">@l.Guias</td>
+                                <td><Selo Tom="@TomDe(l.Status)">@RotuloDe(l.Status)</Selo></td>
+                                <td>
+                                    @(l.DataEnvio is { } e ? Formato.Data(e) : "—")
+                                    @if (!string.IsNullOrWhiteSpace(l.Protocolo))
+                                    {
+                                        <span class="secundario fat-tiss-protocolo" title="@($"Protocolo da operadora: {l.Protocolo}")">@l.Protocolo</span>
+                                    }
+                                </td>
+                                <td class="nao-quebra">@(l.DataRetorno is { } r ? Formato.Data(r) : "—")</td>
+                                <td class="direita numero"><span class="@(l.Glosadas > 0 ? "fat-tiss-glosadas" : null)">@l.Glosadas</span></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        @if (l.Status == StatusLoteTiss.Gerado)
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeGerenciar)"
+                                                    title="@(PodeGerenciar ? "Registrar que o lote foi entregue à operadora" : "Seu acesso não permite registrar o envio do lote.")"
+                                                    @onclick="() => AbrirEnvio(l)"><Icone Nome="enviar" />Marcar enviado</button>
+                                        }
+                                        else if (l.Status == StatusLoteTiss.Enviado)
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeGerenciar)"
+                                                    title="@(PodeGerenciar ? "Registrar o demonstrativo de análise da operadora" : "Seu acesso não permite registrar o retorno do lote.")"
+                                                    @onclick="() => AbrirRetorno(l)"><Icone Nome="entrada" />Registrar retorno</button>
+                                        }
+                                        <button type="button" class="botao mini icone" title="Baixar novamente o XML deste lote (2ª via)"
+                                                aria-label="Baixar novamente o XML deste lote (2ª via)" disabled="@(_baixando == l.Id)"
+                                                @onclick="() => BaixarXmlAsync(l)"><Icone Nome="baixar" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@if (_envio is { } envio)
+{
+    <EnvioLoteForm LoteId="envio.Id" NumeroLote="envio.Numero" AoFechar="() => _envio = null" AoConcluir="EnviadoAsync" />
+}
+@if (_retorno is { } retorno)
+{
+    <RetornoLoteForm LoteId="retorno.Id" NumeroLote="retorno.Numero" AoFechar="() => _retorno = null" AoConcluir="RetornoRegistradoAsync" />
+}
+
+@code {
+    /// <summary>Uma linha da tabela de lotes, com o que a tela mostra já resolvido.</summary>
+    private sealed record LinhaLote(int Id, int Numero, string Operadora, DateOnly DataGeracao, StatusLoteTiss Status,
+        int Guias, int Glosadas, DateOnly? DataEnvio, string? Protocolo, DateOnly? DataRetorno);
+
+    private DateOnly _inicio = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateOnly _fim = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1).AddDays(-1);
+    private List<LinhaLote> _lotes = [];
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private bool _ocupado;
+    private int? _baixando;
+    private string? _mensagem;
+    private string _tomMensagem = "info";
+    private int _geracao;
+
+    private LinhaLote? _envio;
+    private LinhaLote? _retorno;
+
+    /// <summary>Metade VISÍVEL da permissão: o lote é o que SAI da clínica para a operadora.</summary>
+    private static bool PodeGerenciar => Pode(Permissao.GerenciarLotesTiss);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    /// <summary>Ctrl+P = gerar o lote (o AtalhoImprimir do WPF); F5 = ler de novo.</summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Imprimir => ExportarAsync(),
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>Descarte de resposta fora de ordem: a lista é PUBLICADA depois do último await.</summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopo();
+            var lotes = await escopo.ServiceProvider.GetRequiredService<LoteTissService>().ListarAsync();
+            if (geracao != _geracao || Descartada) return;
+
+            _lotes = lotes.Select(l => new LinhaLote(
+                l.Id, l.Numero,
+                // "—" nos lotes antigos, gerados quando o lote ainda era por período: histórico.
+                l.ConvenioCodigo is null ? "—" : CatalogoConvenios.Nome(l.ConvenioCodigo),
+                l.DataGeracao, l.Status, l.Codigos.Count,
+                l.Codigos.Count(c => c.Glosa != StatusGlosa.SemGlosa),
+                l.DataEnvio, l.ProtocoloOperadora, l.DataRetorno)).ToList();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — lotes TISS não puderam ser lidos", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _lotes = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Mensagem(string texto, string tom) { _mensagem = texto; _tomMensagem = tom; }
+
+    /// <summary>Gera um NOVO lote por operadora com as guias baixadas do período que ainda não foram exportadas.</summary>
+    private async Task ExportarAsync()
+    {
+        if (_ocupado) return;
+        if (!Exigir(Permissao.GerenciarLotesTiss, "gerar lote TISS")) return;
+        if (_fim < _inicio) { Mensagem("A data final é anterior à inicial — ajuste o período.", "erro"); return; }
+
+        _ocupado = true;
+        _mensagem = null;
+        try
+        {
+            using var escopo = Escopo();
+            var servicos = escopo.ServiceProvider;
+            var lotes = servicos.GetRequiredService<LoteTissService>();
+            var tiss = servicos.GetRequiredService<TissExportService>();
+            var parametros = servicos.GetRequiredService<ParametrosService>();
+
+            var candidatas = await lotes.CandidatasAsync(_inicio, _fim);
+            if (candidatas.Count == 0)
+            {
+                Mensagem("Nenhuma guia baixada nova no período — as já exportadas ficam nos lotes abaixo.", "info");
+                return;
+            }
+
+            // UM LOTE POR OPERADORA: o XML tem um destino só.
+            var grupos = ExportacaoLoteTiss.Agrupar(candidatas);
+            if (grupos.Count > 1 &&
+                !await Dialogos.ConfirmarAsync("Um lote por operadora", ExportacaoLoteTiss.ConfirmacaoDeOperadoras(grupos), confirmar: "Gerar os lotes"))
+            {
+                Mensagem("Exportação cancelada.", "info");
+                return;
+            }
+
+            // Radar de glosas: avisa AGORA o que provavelmente voltará glosado.
+            var alertas = await servicos.GetRequiredService<PrevencaoGlosaService>()
+                .AnalisarAsync(candidatas, DateOnly.FromDateTime(DateTime.Today));
+            if (alertas.Count > 0 &&
+                !await Dialogos.ConfirmarAsync("Radar de glosas", ExportacaoLoteTiss.ConfirmacaoDoRadar(alertas), perigoso: true))
+            {
+                Mensagem("Exportação cancelada pelo radar de glosas — corrija as guias apontadas.", "atencao");
+                return;
+            }
+
+            // Pré-validação: operadoras rejeitam lotes com dados obrigatórios em branco.
+            var dados = await parametros.ObterPrestadorAsync();
+            var pendencias = tiss.ValidarPrestador(dados, candidatas.Select(c => c.Tipo));
+            if (pendencias.Count > 0 &&
+                !await Dialogos.ConfirmarAsync("Dados incompletos para o TISS", ExportacaoLoteTiss.ConfirmacaoDePendencias(pendencias), perigoso: true))
+            {
+                Mensagem("Exportação cancelada — complete as Configurações.", "atencao");
+                return;
+            }
+
+            var arquivos = new List<(string Nome, string Xml)>();
+            var numeros = new List<int>();
+            var gerados = new List<string>();
+            var avisos = new List<string>();
+            var pastaTiss = ExportacaoLoteTiss.PastaTiss();
+
+            foreach (var grupo in grupos)
+            {
+                // O registro ANS é o DA OPERADORA quando o catálogo o tem; sem ele, o global.
+                var registro = CatalogoConvenios.RegistroAns(grupo.ConvenioCodigo) ?? dados.RegistroAnsOperadora;
+                var lote = await lotes.CriarAsync(_inicio, _fim, registro, Operador, convenioCodigo: grupo.ConvenioCodigo);
+                if (lote is null) continue; // outra máquina exportou estas guias no meio-tempo
+
+                var xml = tiss.GerarLoteXml(lote.Codigos.ToList(), dados.ComRegistroAns(registro), lote.Numero.ToString());
+                arquivos.Add((ExportacaoLoteTiss.NomeDoArquivo(lote.Numero, _fim, grupos.Count == 1 ? null : grupo.Nome), xml));
+                numeros.Add(lote.Numero);
+
+                // A cópia de histórico mora na máquina da clínica (%APPDATA%); a prévia e os
+                // testes, fora do Windows, não deixam arquivo pelo caminho.
+                if (OperatingSystem.IsWindows())
+                    ExportacaoLoteTiss.ArquivarCopia(xml, lote.Numero, pastaTiss, DateTime.Now);
+
+                var problemas = ExportacaoLoteTiss.ValidarXml(xml, Path.Combine(pastaTiss, "schemas"));
+                if (ExportacaoLoteTiss.ProblemasDoLote(lote.Numero, grupo.Nome, problemas) is { } aviso)
+                    avisos.Add(aviso);
+
+                gerados.Add($"nº {lote.Numero} — {grupo.Nome}, {lote.Codigos.Count} guia(s)");
+            }
+
+            // Os lotes JÁ existem daqui para a frente: falha de gravar é de arquivo, não de lote.
+            string? erroArquivo = null;
+            if (arquivos.Count == 1)
+                erroArquivo = await Host.SalvarEAbrirAsync(ExportacaoLoteTiss.Bytes(arquivos[0].Xml), arquivos[0].Nome,
+                    "Arquivo TISS (*.xml)|*.xml", ".xml");
+            else if (arquivos.Count > 1)
+                erroArquivo = await Host.SalvarEAbrirAsync(ExportacaoLoteTiss.Compactar(arquivos),
+                    ExportacaoLoteTiss.NomeDoPacote(numeros, _fim), "Pacote de lotes TISS (*.zip)|*.zip", ".zip");
+
+            Mensagem(ExportacaoLoteTiss.MensagemDeGerados(gerados) + (erroArquivo is null ? string.Empty : $" {erroArquivo}"),
+                gerados.Count == 0 ? "atencao" : erroArquivo is null ? "sucesso" : "atencao");
+
+            if (avisos.Count > 0)
+                await Dialogos.AvisoAsync("Validação do XML TISS", ExportacaoLoteTiss.AvisoDeValidacao(avisos));
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — lote TISS não pôde ser gerado", ex);
+            Mensagem($"Não foi possível gerar o lote: {ex.Message}", "erro");
+            await CarregarAsync();
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    /// <summary>Regenera o XML de um lote já criado (reenvio/2ª via), com o registro ANS que o lote GRAVOU.</summary>
+    private async Task BaixarXmlAsync(LinhaLote linha)
+    {
+        if (_baixando is not null) return;
+        // O XML leva nome e carteirinha de paciente para fora do sistema: saída de dado.
+        if (!Exigir(Permissao.VerFaturamento, "baixar o XML do lote")) return;
+        _baixando = linha.Id;
+        try
+        {
+            string xml;
+            int numero;
+            using (var escopo = Escopo())
+            {
+                var lote = await escopo.ServiceProvider.GetRequiredService<LoteTissService>().ObterAsync(linha.Id);
+                var dados = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                // Regenerar com o global reescreveria o destino de um lote por operadora (parcela 60).
+                if (!string.IsNullOrWhiteSpace(lote.RegistroAnsOperadora))
+                    dados = dados.ComRegistroAns(lote.RegistroAnsOperadora);
+                xml = escopo.ServiceProvider.GetRequiredService<TissExportService>()
+                    .GerarLoteXml(lote.Codigos.ToList(), dados, lote.Numero.ToString());
+                numero = lote.Numero;
+            }
+
+            var problemas = ExportacaoLoteTiss.ValidarXml(xml, Path.Combine(ExportacaoLoteTiss.PastaTiss(), "schemas"));
+            var erro = await Host.SalvarEAbrirAsync(ExportacaoLoteTiss.Bytes(xml), ExportacaoLoteTiss.NomeDaSegundaVia(numero),
+                "Arquivo TISS (*.xml)|*.xml", ".xml");
+            if (erro is not null) Notificacoes.Erro(erro);
+            else if (problemas.Count > 0)
+                await Dialogos.AvisoAsync("Validação do XML TISS",
+                    $"O XML do lote nº {numero} foi regenerado, com {problemas.Count} problema(s) de validação:\n\n• " +
+                    string.Join("\n• ", problemas.Take(ExportacaoLoteTiss.ProblemasPorLote)));
+            else Notificacoes.Sucesso($"XML do lote nº {numero} regenerado.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — XML do lote não pôde ser regenerado", ex);
+            Notificacoes.Erro($"Não foi possível regenerar o XML: {ex.Message}");
+        }
+        finally { _baixando = null; }
+    }
+
+    private void AbrirEnvio(LinhaLote l)
+    {
+        if (Exigir(Permissao.GerenciarLotesTiss, "registrar o envio do lote")) _envio = l;
+    }
+
+    private async Task EnviadoAsync()
+    {
+        var numero = _envio?.Numero;
+        _envio = null;
+        Notificacoes.Sucesso($"Lote nº {numero} marcado como enviado.");
+        await CarregarAsync();
+    }
+
+    private void AbrirRetorno(LinhaLote l)
+    {
+        if (Exigir(Permissao.GerenciarLotesTiss, "registrar o retorno do lote")) _retorno = l;
+    }
+
+    private async Task RetornoRegistradoAsync(string mensagem)
+    {
+        _retorno = null;
+        Notificacoes.Sucesso(mensagem);
+        await CarregarAsync();
+    }
+
+    private static DateOnly LerData(ChangeEventArgs e, DateOnly atual)
+        => DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d) ? d : atual;
+
+    private static string RotuloDe(StatusLoteTiss s) => s switch
+    {
+        StatusLoteTiss.Gerado => "Gerado",
+        StatusLoteTiss.Enviado => "Enviado",
+        StatusLoteTiss.Processado => "Processado",
+        _ => RotulosEnum.De(s)
+    };
+
+    private static string TomDe(StatusLoteTiss s) => s switch
+    {
+        StatusLoteTiss.Gerado => "aviso",
+        StatusLoteTiss.Enviado => "info",
+        StatusLoteTiss.Processado => "sucesso",
+        _ => "neutro"
+    };
+}

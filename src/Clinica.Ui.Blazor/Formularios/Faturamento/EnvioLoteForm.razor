@@ -1,0 +1,71 @@
+@*
+  Marcar um lote TISS como ENVIADO à operadora (out/2026, a EnvioLoteWindow do WPF): a data
+  em que ele foi entregue (portal/webservice) e o protocolo devolvido. O formulário grava
+  (LoteTissService.MarcarEnviadoAsync, com a auditoria no mesmo SaveChanges) e avisa a tela.
+
+  As duas barreiras: o botão nasce apagado sem GerenciarLotesTiss, e o Exigir no clique é o
+  que impede.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@($"Marcar lote nº {NumeroLote} como enviado")"
+       Subtitulo="Registre quando o lote foi entregue à operadora (portal/webservice) e o protocolo devolvido por ela."
+       Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Data do envio" Obrigatorio="true" Classe="largo">
+                <input type="date" class="campo" @bind="_data" />
+            </Campo>
+            <Campo Rotulo="Protocolo da operadora" Dica="Opcional — o número que o portal devolveu ao receber o lote." Classe="largo">
+                <input class="campo" @bind="_protocolo" maxlength="60" placeholder="Ex.: 2026-0042" />
+            </Campo>
+        </div>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="ConfirmarAsync" disabled="@(_ocupado || !PodeGerenciar)"
+                title="@(PodeGerenciar ? null : "Seu acesso não permite registrar o envio do lote.")">
+            <Icone Nome="enviar" />@(_ocupado ? "Gravando…" : "Marcar enviado")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int LoteId { get; set; }
+    [Parameter, EditorRequired] public int NumeroLote { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string? _protocolo;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeGerenciar => SessaoUsuario.Atual.Pode(Permissao.GerenciarLotesTiss);
+
+    private async Task ConfirmarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarLotesTiss, "registrar o envio do lote");
+            var protocolo = string.IsNullOrWhiteSpace(_protocolo) ? null : _protocolo.Trim();
+
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<LoteTissService>()
+                .MarcarEnviadoAsync(LoteId, _data, protocolo, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            if (ex is not InvalidOperationException)
+                Clinica.Application.Diagnostico.Registrar("Blazor — envio do lote não pôde ser registrado", ex);
+            _mensagem = $"Não foi possível marcar o envio: {ex.Message}";
+        }
+        finally { _ocupado = false; }
+    }
+}

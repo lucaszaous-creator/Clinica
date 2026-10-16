@@ -1,0 +1,300 @@
+@*
+  RELATÓRIOS DE GUIAS (out/2026, migrado do RelatoriosView/RelatoriosViewModel do WPF).
+
+  Responde "como foi o faturamento do período?": a taxa de baixa (a métrica-chave), a
+  quebra por OPERADORA (nunca pela família de regra — parcela 68), as consultas por
+  especialidade, as não conformidades justificadas na rodada, o envelhecimento das
+  pendências em aberto (hoje) e a evolução dos últimos seis meses. O PDF de fechamento
+  (FechamentoPdfService) e o CSV saem do mesmo período.
+
+  O CSV é montado por CsvRelatorioFaturamento (Application, com teste), em pt-BR fixo.
+*@
+@inherits TelaBase
+
+<div class="pagina @(Carregando && _rel is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Faturamento · Relatórios" Titulo="Relatórios de faturamento"
+                     Subtitulo="Taxa de baixa, faturamento por convênio e envelhecimento das pendências do período. O envelhecimento é sempre de hoje — é o que está em aberto agora.">
+        <Campo Rotulo="De">
+            <input type="date" class="campo" value="@_inicio.ToString("yyyy-MM-dd")" @onchange="e => _inicio = LerData(e, _inicio)" />
+        </Campo>
+        <Campo Rotulo="Até">
+            <input type="date" class="campo" value="@_fim.ToString("yyyy-MM-dd")" @onchange="e => _fim = LerData(e, _fim)" />
+        </Campo>
+        <button type="button" class="botao primario" title="Gerar o relatório do período (F5)" @onclick="() => GerarAsync()">
+            <Icone Nome="atualizar" />Gerar</button>
+        <button type="button" class="botao" title="Exportar as tabelas deste relatório em CSV, que abre no Excel (Ctrl+P)"
+                disabled="@(!PodeVer || _exportando)" @onclick="ExportarCsvAsync"><Icone Nome="baixar" />Exportar CSV</button>
+        <button type="button" class="botao" title="PDF de fechamento do período: pendências vencidas nominais, glosas em aberto e evolução mensal"
+                disabled="@(!PodeVer || _gerandoFechamento)" @onclick="GerarFechamentoAsync">
+            <Icone Nome="imprimir" />@(_gerandoFechamento ? "Gerando…" : "Fechamento (PDF)")</button>
+    </CabecalhoPagina>
+
+    <Aviso Tom="erro" Texto="@_mensagem" />
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao"><FalhaDeLeitura Titulo="Não foi possível gerar o relatório" Detalhe="@_erroLeitura" AoTentarDeNovo="() => GerarAsync()" /></section>
+    }
+    else if (_rel is null)
+    {
+        <section class="kpis fat-rel-kpis">
+            @for (var i = 0; i < 6; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="50%" /><Esqueleto Altura="32" Largura="60%" /></div> }
+        </section>
+        <section class="cartao"><div class="cartao-corpo"><Esqueleto Altura="240" /></div></section>
+    }
+    else
+    {
+        var r = _rel.Resumo;
+        <section class="kpis fat-rel-kpis" aria-label="Resumo do período">
+            <Kpi Rotulo="Códigos gerados" Valor="@r.TotalCodigos.ToString(Formato.PtBr)" Icone="documento" />
+            <Kpi Rotulo="Baixados" Valor="@r.Baixados.ToString(Formato.PtBr)" Icone="check" Tom="sucesso" ClasseValor="positivo" />
+            <Kpi Rotulo="Pendentes" Valor="@r.Pendentes.ToString(Formato.PtBr)" Icone="relogio" Tom="perigo" ClasseValor="@(r.Pendentes > 0 ? "negativo" : null)" />
+            <Kpi Rotulo="Taxa de baixa" Valor="@($"{CsvRelatorioFaturamento.Taxa(r.TaxaBaixa)}%")" Icone="percentual"
+                 Nota="Das guias geradas no período, quantas já foram baixadas" />
+            <Kpi Rotulo="Taxa de glosa" Valor="@($"{CsvRelatorioFaturamento.Taxa(r.TaxaGlosa)}%")" Icone="alerta" Tom="aviso"
+                 Nota="@($"{r.Glosadas} glosada(s) entre as baixadas")" />
+            <Kpi Rotulo="Tempo médio de baixa" Valor="@(r.TempoMedioBaixaDias is { } t ? $"{CsvRelatorioFaturamento.Taxa(t)} dias" : "—")"
+                 Icone="calendario" Tom="neutro" Nota="Do atendimento à baixa" />
+        </section>
+
+        <div class="fat-rel-colunas">
+            <div class="fat-rel-coluna">
+                <section class="cartao lista-cartao">
+                    <div class="cartao-titulo"><div><h2>Faturamento por convênio (período)</h2><p>Uma linha por operadora.</p></div></div>
+                    @if (_rel.PorConvenio.Count == 0)
+                    {
+                        <EstadoVazio Titulo="Nenhuma guia no período" Descricao="Escolha outro período ou lance os atendimentos." />
+                    }
+                    else
+                    {
+                        <div class="tabela-rolagem fat-rel-teto">
+                            <table class="lista">
+                                <thead>
+                                    <tr><th>Convênio</th><th class="direita">Gerados</th><th class="direita">Baixados</th><th class="direita">Pendentes</th>
+                                        <th class="direita">% baixa</th><th class="direita">Glosadas</th><th class="direita">% glosa</th><th class="direita">Baixa média (d)</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var c in _rel.PorConvenio)
+                                    {
+                                        <tr>
+                                            <td><span class="principal fat-rel-corta" title="@c.ConvenioNome">@c.ConvenioNome</span></td>
+                                            <td class="direita numero">@c.TotalCodigos</td>
+                                            <td class="direita numero">@c.Baixados</td>
+                                            <td class="direita numero">@c.Pendentes</td>
+                                            <td class="direita numero">@CsvRelatorioFaturamento.Taxa(c.TaxaBaixa)</td>
+                                            <td class="direita numero">@c.Glosadas</td>
+                                            <td class="direita numero">@CsvRelatorioFaturamento.Taxa(c.TaxaGlosa)</td>
+                                            <td class="direita numero">@(c.TempoMedioBaixaDias is { } d ? CsvRelatorioFaturamento.Taxa(d) : "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </section>
+
+                <section class="cartao lista-cartao">
+                    <div class="cartao-titulo"><div><h2>Consultas por especialidade (período)</h2></div></div>
+                    @if (_rel.ConsultasEspecialidades.Count == 0)
+                    {
+                        <p class="fat-rel-vazio">Nenhuma consulta avulsa lançada no período.</p>
+                    }
+                    else
+                    {
+                        <div class="tabela-rolagem fat-rel-teto">
+                            <table class="lista">
+                                <thead><tr><th>Especialidade</th><th class="direita">Consultas</th><th class="direita">Baixadas</th></tr></thead>
+                                <tbody>
+                                    @foreach (var c in _rel.ConsultasEspecialidades)
+                                    {
+                                        <tr><td>@c.Especialidade</td><td class="direita numero">@c.Quantidade</td><td class="direita numero">@c.Baixadas</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </section>
+
+                @if (_rel.NaoConformidades.Count > 0)
+                {
+                    <section class="cartao lista-cartao">
+                        <div class="cartao-titulo"><div><h2>Não conformidades (guias justificadas na rodada)</h2><p>@_rel.NaoConformidades.Count guia(s) no período.</p></div></div>
+                        <div class="tabela-rolagem fat-rel-teto-alto">
+                            <table class="lista">
+                                <thead>
+                                    <tr><th>Paciente</th><th>Convênio</th><th>Tipo</th><th style="width:92px">Prevista</th><th>Justificativa</th><th style="width:92px">Registrada</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var n in _rel.NaoConformidades)
+                                    {
+                                        <tr>
+                                            <td><span class="principal">@n.PacienteNome</span></td>
+                                            <td><span class="fat-rel-corta" title="@n.ConvenioNome">@n.ConvenioNome</span></td>
+                                            <td>@RotulosEnum.De(n.Tipo)</td>
+                                            <td class="nao-quebra">@Formato.Data(n.DataPrevista)</td>
+                                            <td class="fat-rel-justificativa">@n.Justificativa</td>
+                                            <td class="nao-quebra">@(n.Em is { } em ? Formato.Data(DateOnly.FromDateTime(em)) : "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                }
+            </div>
+
+            <div class="fat-rel-coluna">
+                <section class="cartao lista-cartao">
+                    <div class="cartao-titulo"><div><h2>Pendências em aberto (envelhecimento)</h2><p>Hoje, por faixa de atraso.</p></div></div>
+                    <table class="lista">
+                        <thead><tr><th>Faixa</th><th class="direita">Qtde</th></tr></thead>
+                        <tbody>
+                            @foreach (var f in _rel.Envelhecimento)
+                            {
+                                <tr><td>@f.Faixa</td><td class="direita numero">@f.Quantidade</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="cartao lista-cartao">
+                    <div class="cartao-titulo"><div><h2>Evolução mensal (últimos 6 meses)</h2><p>Até o mês da data final.</p></div></div>
+                    <table class="lista">
+                        <thead><tr><th>Mês</th><th class="direita">Gerados</th><th class="direita">Baixados</th><th class="direita">% baixa</th></tr></thead>
+                        <tbody>
+                            @foreach (var m in _comparativo)
+                            {
+                                <tr><td>@m.Rotulo</td><td class="direita numero">@m.TotalCodigos</td><td class="direita numero">@m.Baixados</td><td class="direita numero">@CsvRelatorioFaturamento.Taxa(m.TaxaBaixa)</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DateOnly _inicio = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateOnly _fim = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1).AddDays(-1);
+    private RelatorioFaturamento? _rel;
+    private IReadOnlyList<ResumoMensal> _comparativo = [];
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private string? _mensagem;
+    private bool _gerandoFechamento;
+    private bool _exportando;
+    private int _geracao;
+
+    /// <summary>A tela é de quem lê indicadores (o bit do item no menu); as saídas pedem o mesmo.</summary>
+    private static bool PodeVer => Pode(Permissao.VerIndicadores);
+
+    protected override Task OnInitializedAsync() => GerarAsync();
+
+    protected override Task AoVoltarAsync() => GerarAsync();
+
+    /// <summary>F5 = gerar de novo; Ctrl+P = o CSV (os atalhos do WPF).</summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => GerarAsync(),
+        AtalhoDeTela.Imprimir => ExportarCsvAsync(),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem: duas gerações rápidas não podem deixar o relatório
+    /// de um período sob as datas do outro. Tudo é PUBLICADO depois do último await.
+    /// </summary>
+    private async Task GerarAsync()
+    {
+        if (_fim < _inicio) { _mensagem = "A data final é anterior à inicial — ajuste o período."; return; }
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        _mensagem = null;
+        try
+        {
+            var inicio = _inicio;
+            var fim = _fim;
+            using var escopo = Escopo();
+            var relatorios = escopo.ServiceProvider.GetRequiredService<RelatorioService>();
+            var rel = await relatorios.GerarAsync(inicio, fim, DateOnly.FromDateTime(DateTime.Today));
+            if (geracao != _geracao || Descartada) return;
+            var comparativo = await relatorios.ComparativoMensalAsync(fim);
+            if (geracao != _geracao || Descartada) return;
+
+            _rel = rel;
+            _comparativo = comparativo;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — relatório de faturamento não pôde ser gerado", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _rel = null;
+            _comparativo = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Fechamento do período (semana ou mês, conforme as datas): PDF com o checklist da
+    /// faturista — pendências vencidas nominais, glosas em aberto, taxas.
+    /// </summary>
+    private async Task GerarFechamentoAsync()
+    {
+        if (_gerandoFechamento) return;
+        // Pendências nominais (nome de paciente) saindo para um arquivo: saída de dado.
+        if (!Exigir(Permissao.VerIndicadores, "gerar o fechamento do período")) return;
+        if (_fim < _inicio) { _mensagem = "A data final é anterior à inicial — ajuste o período."; return; }
+        _gerandoFechamento = true;
+        _mensagem = null;
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var prestador = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                pdf = await escopo.ServiceProvider.GetRequiredService<FechamentoPdfService>().GerarAsync(_inicio, _fim, prestador);
+            }
+            var erro = await Host.SalvarEAbrirAsync(pdf, $"Fechamento-{_inicio:yyyy-MM-dd}-a-{_fim:yyyy-MM-dd}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — fechamento do período não pôde ser gerado", ex);
+            _mensagem = $"Não foi possível gerar o fechamento: {ex.Message}";
+        }
+        finally { _gerandoFechamento = false; }
+    }
+
+    /// <summary>As tabelas deste relatório em CSV (o Excel em português: ";" e BOM — quem grava cuida).</summary>
+    private async Task ExportarCsvAsync()
+    {
+        if (_exportando) return;
+        if (!Exigir(Permissao.VerIndicadores, "exportar o relatório de faturamento")) return;
+        _exportando = true;
+        try
+        {
+            if (_rel is null) await GerarAsync();
+            if (_rel is not { } rel) return; // a geração falhou e a tela já diz por quê
+            var (cabecalho, linhas) = CsvRelatorioFaturamento.Montar(rel, _comparativo);
+            var erro = await Host.ExportarCsvAsync(cabecalho, linhas, CsvRelatorioFaturamento.NomeDoArquivo(rel.Inicio, rel.Fim));
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — relatório de faturamento não pôde ser exportado", ex);
+            Notificacoes.Erro($"Não foi possível exportar: {ex.Message}");
+        }
+        finally { _exportando = false; }
+    }
+
+    private static DateOnly LerData(ChangeEventArgs e, DateOnly atual)
+        => DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d) ? d : atual;
+}
