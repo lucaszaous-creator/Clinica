@@ -4771,6 +4771,39 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   8.0.11`, pelo proxy do NuGet): migration gerada pela ferramenta, com Designer e snapshot
   certos, em vez de escrita à mão.
 
+- **O CANAL DE SMS, a confirmação por link e "não vem" como resposta cotidiana** (out/2026; o
+  mapa está em `docs/canal-sms.md`). Lembrete 24h antes (`ConfirmacaoPorLink.MomentoDoLembrete`:
+  sábado e domingo adiantam para a sexta, porque ninguém liga o computador no domingo), link
+  `/c/TOKEN` no MESMO Worker das receitas, resposta write-once pelo balde — o Worker nunca toca o
+  banco. É a MESMA rodada de confirmação do balcão (o mesmo contato, a mesma origem `AGD:`), com
+  outro canal.
+  ⚠️ **SMS é cobrado, então a idempotência é de BANCO**: a linha de `MensagemSms` é gravada ANTES
+  do envio com `ChaveIdempotencia` única, e a segunda máquina (Recepção e Gerente rodam o relógio)
+  esbarra no índice. Reconhecer a duplicidade do SQLite pelo NOME do tipo, porque o pacote do
+  SQLite é condicional no csproj e não existe no build Release.
+  ⚠️ **Um acento só triplica o custo**: fora do GSM-7 o segmento cai de 160 para 70 caracteres.
+  O texto que sai passa por `TextoSms.ParaGsm`, e o lembrete cabe em UM segmento com o link
+  (token de 12 caracteres, não os 26 das receitas).
+  ⚠️ **Status sozinho chamava de "Confirmou" quem respondeu que NÃO vem.** Cinco leitores
+  (agenda, lista do dia, Início, ficha, painel) traduziam `Respondido` → "Confirmou", e só a tela
+  de Confirmações lia o comentário. Com o link do SMS, "não vou" virou resposta de todo dia. O selo
+  virou UMA função (`RodadaDeConfirmacao.SeloDaLista`), alimentada por `RespostasDeConfirmacaoAsync`
+  (status + comentário). **Ao acrescentar um VALOR a uma resposta que já tem leitores, procure
+  quem resume a resposta pelo status** — eles não quebram, só passam a mentir.
+  ⚠️ **"Não vem" NÃO cancela sozinho**: vira selo vermelho, e a recepção liga, remarca e oferece a
+  vaga na mesma ligação. Com o SMS ligado, o e-mail da abertura CEDE para quem tem celular — senão
+  ele tiraria o contato de pendente dias antes e o SMS, que a clínica paga, nunca sairia.
+- **TENDÊNCIA E METAS POR RECORTE** (out/2026; `docs/tendencias-e-metas.md`). "Em alta"/"em baixa"
+  exigem percentual E diferença mínima (a regra da reincidência de faltas: 1 → 2 é "+100%" e não diz
+  nada). Sessões pelo MESMO critério do `IndicadoresService` (status Realizado).
+  ⚠️ **A meta de UM profissional era apurada com o número da CLÍNICA inteira** desde a parcela 28:
+  `ApurarMesAsync` ignorava `ProfissionalId`. Nada falhava — a meta dele aparecia batida com o
+  trabalho de todos. Toda meta de recorte agora sai dos fatos da tendência. **Campo de recorte que a
+  apuração não lê é filtro de enfeite.**
+  ⚠️ **`a ?? b` entre duas navegações de ENTIDADE não traduz no EF** (`l.Atendimento ??
+  l.CodigoFaturamento.Atendimento`); a rede do Npgsql pegou, e o SQLite nunca teria executado a
+  consulta porque nenhum teste a chamava. Resolva o ID como escalar e entre por JOIN.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
