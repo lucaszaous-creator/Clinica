@@ -100,34 +100,78 @@ public class TelaDaEquipeTests
     }
 
     [Fact]
-    public void Jornada_em_branco_e_qualquer_dia_e_declarada_usa_a_frase_do_dominio()
+    public void Horario_em_branco_diz_nao_cadastrado_e_declarado_usa_a_frase_do_dominio()
     {
-        TelaDaEquipe.Jornada(new Profissional()).Should().Be("qualquer dia e horário");
-        var p = new Profissional
+        TelaDaEquipe.Horario(new Profissional()).Should().Be("horário não cadastrado");
+        TelaDaEquipe.MiniSemana(new Profissional()).Should().BeEmpty();
+        var p = new Profissional();
+        p.DefinirHorarios(new Dictionary<DayOfWeek, IReadOnlyList<FaixaDeAtendimento>>
         {
-            DiasDeAtendimento = Profissional.BitDe(DayOfWeek.Monday) | Profissional.BitDe(DayOfWeek.Wednesday),
-            AtendeDas = new TimeOnly(8, 0), AtendeAte = new TimeOnly(12, 0)
-        };
-        TelaDaEquipe.Jornada(p).Should().Be(p.DescricaoJornada).And.Be("seg · qua 08:00–12:00");
-        TelaDaEquipe.DiasDeclarados(p).Should().Equal(DayOfWeek.Monday, DayOfWeek.Wednesday);
-        TelaDaEquipe.DiasDeclarados(new Profissional()).Should().BeEmpty();
+            [DayOfWeek.Monday] = [new(new TimeOnly(8, 0), new TimeOnly(12, 0)), new(new TimeOnly(14, 0), new TimeOnly(18, 0))],
+            [DayOfWeek.Thursday] = [new(new TimeOnly(14, 0), new TimeOnly(19, 0))]
+        });
+        TelaDaEquipe.Horario(p).Should().Be(p.DescricaoJornada).And.Be("seg 08:00–12:00 e 14:00–18:00 · qui 14:00–19:00");
+        var semana = TelaDaEquipe.MiniSemana(p);
+        semana.Should().HaveCount(7);
+        semana[0].Curto.Should().Be("seg");
+        semana[0].Faixas.Should().Be("08:00–12:00 · 14:00–18:00");
+        semana[1].Atende.Should().BeFalse();
+        semana[1].Faixas.Should().Be("não atende");
+        semana[3].Faixas.Should().Be("14:00–19:00");
     }
 
     [Fact]
-    public void Ler_jornada_aceita_os_dois_vazios_e_recusa_meio_horario_e_fim_antes_do_inicio()
+    public void Editor_abre_com_o_horario_liga_dia_copiando_e_le_o_que_vai_gravar()
     {
-        TelaDaEquipe.LerJornada([], "", " ").Should().Be((null, null, null, null));
+        var p = new Profissional();
+        p.DefinirHorarios(new Dictionary<DayOfWeek, IReadOnlyList<FaixaDeAtendimento>>
+        {
+            [DayOfWeek.Monday] = [new(new TimeOnly(8, 0), new TimeOnly(12, 0)), new(new TimeOnly(14, 0), new TimeOnly(18, 0))]
+        });
+        var e = EditorDeHorarios.De(p);
+        e.Dias.Select(d => d.Curto).Should().Equal("seg", "ter", "qua", "qui", "sex", "sáb", "dom");
+        e.Dia(DayOfWeek.Monday).Faixas.Should().HaveCount(2);
+        e.Dia(DayOfWeek.Tuesday).Atende.Should().BeFalse();
 
-        var ok = TelaDaEquipe.LerJornada([DayOfWeek.Tuesday, DayOfWeek.Tuesday], "08:00", "18:00");
-        ok.Erro.Should().BeNull();
-        ok.Dias.Should().Be(Profissional.BitDe(DayOfWeek.Tuesday));
-        ok.Das.Should().Be(new TimeOnly(8, 0));
+        // Ligar a terça traz as faixas da segunda.
+        e.Alternar(DayOfWeek.Tuesday, true);
+        e.Dia(DayOfWeek.Tuesday).Faixas.Select(f => f.Inicio).Should().Equal("08:00", "14:00");
+        e.Resultado().Should().Be("seg · ter 08:00–12:00 e 14:00–18:00");
 
-        TelaDaEquipe.LerJornada([], "08:00", "").Erro.Should().Contain("início E fim");
-        TelaDaEquipe.LerJornada([], "8h", "18:00").Erro.Should().Contain("início E fim");
-        TelaDaEquipe.LerJornada([], "18:00", "08:00").Erro.Should().Contain("depois do início");
-        // O campo de hora de alguns navegadores devolve segundos.
-        TelaDaEquipe.LerJornada([], "08:00:00", "12:30:00").Erro.Should().BeNull();
+        // "+ faixa" começa uma hora depois do fim da última.
+        e.AdicionarFaixa(DayOfWeek.Tuesday);
+        e.Dia(DayOfWeek.Tuesday).Faixas[^1].Inicio.Should().Be("19:00");
+        e.RemoverFaixa(DayOfWeek.Tuesday, 2);
+
+        e.CopiarParaDiasUteis(DayOfWeek.Monday);
+        e.Ler().Semana!.Keys.Should().BeEquivalentTo(new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday });
+
+        // Sobreposição: a MESMA regra do serviço, dita antes do clique.
+        e.Dia(DayOfWeek.Friday).Faixas[1].Inicio = "11:00";
+        e.TemErro.Should().BeTrue();
+        e.Resultado().Should().Contain("se sobrepõem");
+        e.Dia(DayOfWeek.Friday).Faixas[1].Fim = "";
+        e.Resultado().Should().Contain("informe início e fim");
+    }
+
+    [Fact]
+    public void Editor_sem_dia_nenhum_volta_a_sem_horario_e_tirar_a_ultima_faixa_desliga_o_dia()
+    {
+        var e = EditorDeHorarios.De(new Profissional());
+        e.Dias.Should().OnlyContain(d => !d.Atende);
+        e.Ler().Should().Be((null, null));
+        e.Resultado().Should().Be(EditorDeHorarios.SemHorario);
+
+        e.Alternar(DayOfWeek.Wednesday, true); // sem modelo: manhã e tarde
+        e.Dia(DayOfWeek.Wednesday).Faixas.Should().HaveCount(2);
+        e.RemoverFaixa(DayOfWeek.Wednesday, 0);
+        e.RemoverFaixa(DayOfWeek.Wednesday, 0);
+        e.Dia(DayOfWeek.Wednesday).Atende.Should().BeFalse();
+
+        // Cadastro antigo com dias e sem horas: o dia abre ligado e SEM faixa, e o salvar pede a faixa.
+        var antigo = EditorDeHorarios.De(new Profissional { DiasDeAtendimento = Profissional.BitDe(DayOfWeek.Monday) });
+        antigo.Dia(DayOfWeek.Monday).Atende.Should().BeTrue();
+        antigo.Ler().Erro.Should().Contain("ao menos uma faixa");
     }
 
     [Fact]

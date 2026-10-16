@@ -1,0 +1,286 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  HORÁRIO DE ATENDIMENTO de um profissional (out/2026 — docs/recepcao-ux-out2026.md §2). O
+  EDITOR ÚNICO: substituiu a janela "Jornada, trava e bloqueios" e a edição de dias e horas do
+  cadastro do profissional — duas telas para a mesma coisa, com frases diferentes, era o que a
+  direção chamou de confuso.
+
+  A semana, segunda primeiro: cada dia com o interruptor "atende" e as faixas dele ("+ faixa"
+  para a tarde), "copiar para os dias úteis" e a FRASE do resultado ao vivo — a mesma da grade
+  e da equipe (Profissional.DescricaoJornada). O que decide mora em EditorDeHorarios
+  (Application, com teste); a gravação é ConfiguracaoAgendaService.SalvarHorariosAsync, sob
+  EditarAgenda, com a trilha e a conferência de concorrência (outro posto salvou no meio =
+  recusa, nunca sobrescreve em silêncio).
+
+  A antiga "trava" virou a FRASE do que ela faz, desligada por padrão. Os bloqueios dos próximos
+  60 dias e o atalho "Fechar a agenda…" continuam aqui. Salvar NÃO fecha: dá para configurar um
+  profissional depois do outro.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Horário de atendimento" Largura="largo" AoFechar="AoFechar"
+       Subtitulo="Quando o profissional atende, dia a dia. Vale em todos os computadores; horários já marcados são preservados.">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="320" />
+        }
+        else
+        {
+            <Campo Rotulo="Profissional">
+                <select class="campo" value="@(_escolhido?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" @onchange="TrocarProfissionalAsync" disabled="@_salvando">
+                    <option value="">(escolha)</option>
+                    @foreach (var p in _profissionais) { <option value="@p.Id">@p.Nome</option> }
+                </select>
+            </Campo>
+
+            @if (_escolhido is null || _editor is null)
+            {
+                <p class="campo-dica">@(_profissionais.Count == 0 ? "Cadastre um profissional ativo em Profissionais e salas." : "Escolha o profissional que deseja configurar.")</p>
+            }
+            else
+            {
+                var editor = _editor;
+                <div class="secao-form">
+                    <div class="eq-titulo-linha">
+                        <h3>Dias e faixas</h3>
+                        <button type="button" class="botao mini" disabled="@_salvando" @onclick="CopiarSegunda"
+                                title="A segunda vale de segunda a sexta"><Icone Nome="copiar" />Copiar segunda para os dias úteis</button>
+                    </div>
+                    <div class="eq-horarios" role="group" aria-label="Horário de atendimento por dia">
+                        @foreach (var d in editor.Dias)
+                        {
+                            var dia = d.Dia;
+                            <div class="eq-horario-dia @(d.Atende ? "atende" : null)" @key="dia">
+                                <label class="alternar eq-horario-nome" title="@d.Nome">
+                                    <input type="checkbox" checked="@d.Atende" disabled="@_salvando" @onchange="e => Alternar(dia, e)" aria-label="@($"{d.Nome}: atende")" />
+                                    <span>@d.Nome</span>
+                                </label>
+                                <div class="eq-horario-faixas">
+                                    @if (!d.Atende)
+                                    {
+                                        <span class="secundario">não atende</span>
+                                    }
+                                    else
+                                    {
+                                        @for (var i = 0; i < d.Faixas.Count; i++)
+                                        {
+                                            var indice = i;
+                                            var f = d.Faixas[i];
+                                            <span class="eq-faixa">
+                                                <input type="time" class="campo" value="@f.Inicio" disabled="@_salvando" aria-label="@($"{d.Nome}, faixa {indice + 1}: início")"
+                                                       @onchange="e => { f.Inicio = e.Value?.ToString(); _mensagem = null; }" />
+                                                <span class="secundario">às</span>
+                                                <input type="time" class="campo" value="@f.Fim" disabled="@_salvando" aria-label="@($"{d.Nome}, faixa {indice + 1}: fim")"
+                                                       @onchange="e => { f.Fim = e.Value?.ToString(); _mensagem = null; }" />
+                                                <button type="button" class="botao mini icone" disabled="@_salvando" title="Remover esta faixa"
+                                                        aria-label="@($"Remover a faixa {indice + 1} de {d.Nome}")" @onclick="() => editor.RemoverFaixa(dia, indice)"><Icone Nome="x" /></button>
+                                            </span>
+                                        }
+                                        @if (d.Faixas.Count == 0)
+                                        {
+                                            <span class="eq-alerta">informe a faixa</span>
+                                        }
+                                        <button type="button" class="botao mini fantasma" disabled="@_salvando" @onclick="() => editor.AdicionarFaixa(dia)"
+                                                title="Mais uma faixa no dia (a tarde, depois do almoço)"><Icone Nome="mais" />faixa</button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <p class="eq-horario-resultado @(editor.TemErro ? "erro" : null)" aria-live="polite">
+                        <Icone Nome="@(editor.TemErro ? "alerta" : "relogio")" />@editor.Resultado()
+                    </p>
+                    <p class="campo-dica">Nenhum dia ligado = sem horário cadastrado: a agenda aceita qualquer dia e hora, e a ocupação dele não é medida. Com horário, a grade pinta o que está fora e a visão geral mede a ocupação dentro dele — o almoço entre duas faixas não conta como vago.</p>
+                </div>
+
+                <div class="secao-form">
+                    <h3>Proteção da agenda</h3>
+                    <label class="alternar"><input type="checkbox" @bind="_trava" disabled="@_salvando" /> Recusar marcação fora deste horário, em agenda fechada ou em cima de outro paciente</label>
+                    <p class="campo-dica">Desligado (o padrão), a agenda da clínica <b>avisa e não impede</b> — a recepção vê o aviso e decide. Ligado, a marcação é recusada nesses casos, inclusive o encaixe.</p>
+                </div>
+
+                <div class="secao-form">
+                    <div class="eq-titulo-linha">
+                        <h3>Agenda fechada — próximos 60 dias</h3>
+                        <div class="botoes-linha">
+                            <button type="button" class="botao mini" @onclick="CarregarBloqueiosAsync"><Icone Nome="atualizar" />Atualizar</button>
+                            @if (AoFecharAgenda.HasDelegate)
+                            {
+                                <button type="button" class="botao mini" disabled="@(!PodeFecharAgenda)" @onclick="() => AoFecharAgenda.InvokeAsync(_escolhido.Id)"><Icone Nome="calendario" />Fechar a agenda…</button>
+                            }
+                        </div>
+                    </div>
+                    @if (_bloqueiosFalharam)
+                    {
+                        <Aviso Tom="atencao" Texto="Bloqueios não verificados. Atualize para conferir." />
+                    }
+                    else if (_bloqueios.Count == 0)
+                    {
+                        <p class="campo-dica">Nenhum bloqueio dele nem da clínica nos próximos 60 dias.</p>
+                    }
+                    else
+                    {
+                        <ul class="eq-bloqueios">
+                            @foreach (var b in _bloqueios)
+                            {
+                                <li><span class="principal">@TelaDaEquipe.PeriodoDoBloqueio(b)</span> · @b.Motivo
+                                    @if (b.DaClinica) { <Selo Tom="info" Dica="Vale para a clínica inteira">clínica</Selo> }</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        }
+        <Aviso Tom="@(_mensagemEhErro ? "erro" : "sucesso")" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(!PodeSalvar)"
+                title="@(SessaoUsuario.Atual.Pode(Permissao.EditarAgenda) ? null : "Seu acesso não permite configurar a agenda.")">
+            <Icone Nome="check" />@(_salvando ? "Gravando…" : "Salvar horário")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>O profissional que abre escolhido (nulo = escolher no seletor).</summary>
+    [Parameter] public int? ProfissionalId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Gravou: quem abriu relê o que mostra (a janela continua aberta).</summary>
+    [Parameter] public EventCallback AoAlterar { get; set; }
+    /// <summary>Opcional: a porta para fechar a agenda deste profissional (o formulário de bloqueio).</summary>
+    [Parameter] public EventCallback<int> AoFecharAgenda { get; set; }
+
+    private List<Profissional> _profissionais = [];
+    private Profissional? _escolhido;
+    private EditorDeHorarios? _editor;
+    private bool _trava;
+    // A leitura que a tela fez — o serviço recusa se outro posto salvou no meio.
+    private (bool Protegida, string? Horarios) _lido;
+    private List<BloqueioAgenda> _bloqueios = [];
+    private bool _bloqueiosFalharam;
+    private bool _carregando = true, _salvando;
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private int _geracaoBloqueios;
+
+    private bool PodeSalvar => _escolhido is not null && _editor is not null && !_carregando && !_salvando
+                               && !_editor.TemErro && SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    private static bool PodeFecharAgenda => SessaoUsuario.Atual.PodeAlgum(Permissao.EditarAgenda | Permissao.GerenciarEquipe);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _profissionais = (await escopo.ServiceProvider.GetRequiredService<EquipeService>().ProfissionaisAtivosAsync())
+                .OrderBy(p => p.Nome, StringComparer.Create(Formato.PtBr, true)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — horário de atendimento: profissionais não puderam ser lidos", ex);
+            Erro(ex.Message);
+        }
+        finally { _carregando = false; }
+
+        if (ProfissionalId is { } id && _profissionais.FirstOrDefault(p => p.Id == id) is { } p)
+            await EscolherAsync(p);
+    }
+
+    private async Task TrocarProfissionalAsync(ChangeEventArgs e)
+    {
+        var p = int.TryParse(e.Value?.ToString(), out var id) ? _profissionais.FirstOrDefault(x => x.Id == id) : null;
+        await EscolherAsync(p);
+    }
+
+    private async Task EscolherAsync(Profissional? p)
+    {
+        _escolhido = p;
+        _mensagem = null;
+        _editor = p is null ? null : EditorDeHorarios.De(p);
+        _trava = p?.AgendaProtegida ?? false;
+        _lido = p is null ? default : (p.AgendaProtegida, ConfiguracaoAgendaService.Atual(p));
+        await CarregarBloqueiosAsync();
+    }
+
+    private void Alternar(DayOfWeek dia, ChangeEventArgs e)
+    {
+        _editor?.Alternar(dia, e.Value is true);
+        _mensagem = null;
+    }
+
+    private void CopiarSegunda()
+    {
+        _editor?.CopiarParaDiasUteis(DayOfWeek.Monday);
+        _mensagem = null;
+    }
+
+    /// <summary>Os fechamentos que alcançam o profissional (dele e da clínica), com contador de geração.</summary>
+    private async Task CarregarBloqueiosAsync()
+    {
+        var geracao = ++_geracaoBloqueios;
+        if (_escolhido is not { } p) { _bloqueios = []; return; }
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var lista = await escopo.ServiceProvider.GetRequiredService<BloqueioAgendaService>()
+                .NoPeriodoAsync(DateTime.Today, DateTime.Today.AddDays(60));
+            if (geracao != _geracaoBloqueios) return;
+            _bloqueios = lista.Where(b => b.AlcancaRecurso(p.Id, null)).OrderBy(b => b.Inicio).ToList();
+            _bloqueiosFalharam = false;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoBloqueios) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — horário de atendimento: leitura dos bloqueios", ex);
+            _bloqueios = [];
+            _bloqueiosFalharam = true;
+        }
+    }
+
+    private async Task SalvarAsync()
+    {
+        // A segunda barreira (o botão já nasce apagado sem o bit).
+        if (!SessaoUsuario.Atual.Pode(Permissao.EditarAgenda))
+        {
+            Erro("Seu acesso não permite configurar o horário de atendimento. Fale com a direção da clínica.");
+            return;
+        }
+        if (_salvando || _escolhido is not { } p || _editor is not { } editor) return;
+        var (semana, erro) = editor.Ler();
+        if (erro is not null)
+        {
+            Erro(erro);
+            return;
+        }
+
+        _salvando = true;
+        try
+        {
+            using (var escopo = Escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<ConfiguracaoAgendaService>().SalvarHorariosAsync(
+                    p.Id, _trava, semana, SessaoUsuario.Atual.Operador, _lido);
+            // O que ficou gravado passa a ser a "leitura anterior" da próxima gravação.
+            p.AgendaProtegida = _trava;
+            p.DefinirHorarios(semana);
+            _lido = (p.AgendaProtegida, ConfiguracaoAgendaService.Atual(p));
+            _mensagem = $"Horário de {p.Rotulo} salvo para todos os postos: {p.DescricaoJornada ?? "sem horário cadastrado"}. "
+                        + (_trava ? "Fora dele, a marcação é recusada." : "Fora dele, a agenda avisa e não impede.");
+            _mensagemEhErro = false;
+            await AoAlterar.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — horário de atendimento não pôde ser salvo", ex);
+            Erro(ex.Message);
+        }
+        finally { _salvando = false; }
+    }
+
+    private void Erro(string texto)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = true;
+    }
+}

@@ -47,6 +47,17 @@ public sealed class AgendaDaVisaoGeral(IServiceProvider servicos) : IAgendaDaVis
         return Task.FromResult(false);
     });
 
+    public Task<bool> AbrirDiaAsync(DateOnly dia, int? profissionalId) => NoDespachanteAsync(() =>
+    {
+        // Pergunta antes: pedido definido e navegação recusada deixariam um pedido ÓRFÃO.
+        if (!NavegacaoSuite.Existe(ModuloRecepcao.ChaveFila)) return Task.FromResult(false);
+        var ponte = servicos.GetRequiredService<PedidoDaAgendaDoDia>();
+        ponte.Definir(dia, profissionalId);
+        if (NavegacaoSuite.Ir(ModuloRecepcao.ChaveFila)) return Task.FromResult(true);
+        ponte.Consumir();
+        return Task.FromResult(false);
+    });
+
     public PedidoDeDiaDaAgenda? ConsumirPedidoDeDia()
     {
         var pedido = servicos.GetService<PedidoAgenda>();

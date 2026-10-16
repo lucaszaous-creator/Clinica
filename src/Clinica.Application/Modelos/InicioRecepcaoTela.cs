@@ -53,16 +53,16 @@ public static class InicioRecepcaoTela
     /// <summary>Os dias que a lista de aniversariantes cobre além de hoje (a semana).</summary>
     public const int JanelaAniversarioDias = 6;
 
-    /// <summary>"62% da agenda ocupada · 2 encaixes" — sem jornada, a ocupação não é medida.</summary>
+    /// <summary>"62% da agenda ocupada · 2 encaixes" — sem horário de atendimento, a ocupação não é medida.</summary>
     public static string DetalheAgendados(decimal? percentualOcupado, int encaixes)
     {
         var e = $"{encaixes} {(encaixes == 1 ? "encaixe" : "encaixes")}";
         return percentualOcupado is { } p
             ? $"{Math.Round(p).ToString("0", PtBr)}% da agenda ocupada · {e}"
-            : $"ocupação sem jornada declarada · {e}";
+            : $"ocupação sem horário de atendimento cadastrado · {e}";
     }
 
-    /// <summary>A fração da barra de ocupação (0 a 1); nula quando não há jornada.</summary>
+    /// <summary>A fração da barra de ocupação (0 a 1); nula quando não há horário de atendimento.</summary>
     public static double? FracaoOcupada(decimal? percentualOcupado)
         => percentualOcupado is { } p ? Math.Clamp((double)p / 100.0, 0, 1) : null;
 

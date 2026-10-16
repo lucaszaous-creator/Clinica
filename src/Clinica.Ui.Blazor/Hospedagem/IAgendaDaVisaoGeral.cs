@@ -57,6 +57,13 @@ public interface IAgendaDaVisaoGeral
 
     /// <summary>Consome (LIMPA) o pedido de dia deixado por outra tela. Nulo quando não há.</summary>
     PedidoDeDiaDaAgenda? ConsumirPedidoDeDia();
+
+    /// <summary>
+    /// A célula da matriz (out/2026): abre a aba DIA da Agenda naquele dia, com o profissional
+    /// filtrado. Falso = a aba não existe neste aplicativo (e nada ficou pendurado na ponte) — a
+    /// tela então abre o dia nela mesma.
+    /// </summary>
+    Task<bool> AbrirDiaAsync(DateOnly dia, int? profissionalId);
 }
 
 /// <summary>A agenda de onde ela não existe: tudo responde "não disponível", e a tela diz.</summary>
@@ -69,4 +76,5 @@ public sealed class AgendaIndisponivel : IAgendaDaVisaoGeral
     public Task<RespostaDaAgenda> ExecutarAsync(AcaoDaAgenda acao, DateOnly dia, int? profissionalId) => Task.FromResult(RespostaDaAgenda.Indisponivel);
     public Task<bool> MarcarAsync(DateTime dataHora, int? profissionalId) => Task.FromResult(false);
     public PedidoDeDiaDaAgenda? ConsumirPedidoDeDia() => null;
+    public Task<bool> AbrirDiaAsync(DateOnly dia, int? profissionalId) => Task.FromResult(false);
 }

@@ -113,7 +113,7 @@ public sealed class MetaService
         if ((modalidade.Length > 0 || especialidade.Length > 0) && !MetaMensal.AceitaSegmento(indicador))
             throw new InvalidOperationException(
                 "Ocupação não se recorta por modalidade ou especialidade: ela mede a agenda inteira "
-                + "contra a jornada, e jornada não tem modalidade. Recorte por profissional, ou use "
+                + "contra o horário de atendimento, e horário não tem modalidade. Recorte por profissional, ou use "
                 + "a meta de sessões.");
 
         if (mes is < 1 or > 12)
@@ -124,7 +124,7 @@ public sealed class MetaService
 
         if (indicador == IndicadorMeta.Ocupacao && valor > 100m)
             throw new InvalidOperationException(
-                "Ocupação é percentual: o máximo é 100. Agenda mais cheia que a jornada "
+                "Ocupação é percentual: o máximo é 100. Agenda mais cheia que o horário de atendimento "
                 + "significa encaixe, e encaixe não é meta.");
 
         var existente = await _repo.ObterMetaAsync(ano, mes, indicador, profissionalId, modalidade, especialidade, ct);

@@ -95,9 +95,20 @@ public sealed class OcupacaoAgendaService(ClinicaDbContext db) : IOcupacaoAgenda
             ? Clinica.Application.Modelos.VaosDaAgenda.Calcular(filtrado, inicio, fim, horarios, bloqueios, DateTime.Now) : [];
         var fechados = calcularJornadas ? Clinica.Application.Modelos.VaosDaAgenda.Fechados(filtrado, inicio, fim, bloqueios) : [];
         return new(inicio, fim, DateTime.Now, Medir(inicio, fim, profissionais, horarios), dias,
-            profissionais.Select(p => new ProfissionalOcupacao(p.Id, p.Nome,
-                !calcularJornadas ? "" : !p.HorarioCompleto ? "Horário de atendimento não cadastrado" : p.DescricaoJornada ?? "",
-                Medir(inicio, fim, [p], horarios.Where(a => a.ProfissionalId == p.Id).ToList()))).ToArray(), horarios)
+            profissionais.Select(p =>
+            {
+                var dele = horarios.Where(a => a.ProfissionalId == p.Id).ToList();
+                // Dia a dia (a matriz da semana e a linha do tempo do dia): só com horários calculados.
+                var fechadosDele = calcularJornadas ? Clinica.Application.Modelos.VaosDaAgenda.Fechados(p, inicio, fim, bloqueios) : [];
+                var porDia = calcularJornadas
+                    ? Enumerable.Range(0, fim.DayNumber - inicio.DayNumber + 1).Select(i => inicio.AddDays(i))
+                        .Select(d => new DiaDoProfissionalOcupacao(d, Medir(d, d, [p], dele), p.FaixasEm(d.DayOfWeek),
+                            fechadosDele.FirstOrDefault(f => f.Dia == d)?.Motivo)).ToArray()
+                    : [];
+                return new ProfissionalOcupacao(p.Id, p.Nome,
+                    !calcularJornadas ? "" : !p.HorarioCompleto ? "Horário de atendimento não cadastrado" : p.DescricaoJornada ?? "",
+                    Medir(inicio, fim, [p], dele)) { Dias = porDia };
+            }).ToArray(), horarios)
         {
             Vagas = vagas, Fechados = fechados,
             SemJornadaParaVagas = calcularJornadas && filtrado is not null && !filtrado.HorarioCompleto

@@ -229,9 +229,9 @@ public sealed class RecepcaoBlazorNaTelaTests
         var sem = Medida(semJornada: 1, fora: 2);
         Assert.Equal("—", VisaoGeralDaAgendaNaTela.OcupacaoTexto(sem));
         Assert.Equal("—", VisaoGeralDaAgendaNaTela.LivreTexto(sem));
-        Assert.Equal("1 sem jornada completa", VisaoGeralDaAgendaNaTela.OcupacaoDetalhe(sem));
-        Assert.Equal("Complete as jornadas para calcular", VisaoGeralDaAgendaNaTela.LivreDetalhe(sem));
-        Assert.StartsWith("2 atendimento(s) fora da jornada", VisaoGeralDaAgendaNaTela.TextoForaDaJornada(sem));
+        Assert.Equal("1 sem horário de atendimento cadastrado", VisaoGeralDaAgendaNaTela.OcupacaoDetalhe(sem));
+        Assert.Equal("Cadastre os horários de atendimento para calcular", VisaoGeralDaAgendaNaTela.LivreDetalhe(sem));
+        Assert.StartsWith("2 atendimento(s) fora do horário de atendimento", VisaoGeralDaAgendaNaTela.TextoForaDaJornada(sem));
         Assert.Equal(0, VisaoGeralDaAgendaNaTela.Fracao(null));
         Assert.Equal(1, VisaoGeralDaAgendaNaTela.Fracao(130m));
     }
@@ -273,7 +273,7 @@ public sealed class RecepcaoBlazorNaTelaTests
 
         Assert.Equal("Escolha um profissional para ver os horários livres", VisaoGeralDaAgendaNaTela.DicaDaSemana(false, d));
         Assert.Equal("Clique numa vaga para marcar ali", VisaoGeralDaAgendaNaTela.DicaDaSemana(true, d));
-        Assert.Equal("Cadastre a jornada do profissional para ver os horários livres",
+        Assert.Equal("Cadastre o horário de atendimento do profissional para ver os horários livres",
             VisaoGeralDaAgendaNaTela.DicaDaSemana(true, d with { SemJornadaParaVagas = true }));
         // O rótulo termina na última coluna MOSTRADA (o domingo vazio saiu) — como no WPF.
         Assert.Equal("12 a 17 de outubro", VisaoGeralDaAgendaNaTela.PeriodoCurto(ModoVisaoAgenda.Semana, Hoje, d, colunas[^1].Dia));
@@ -302,7 +302,7 @@ public sealed class RecepcaoBlazorNaTelaTests
         var d = Agenda(Hoje, Hoje, [Horario(Hoje, 9, prof: null)], semJornadaResumo: 1);
         var texto = VisaoGeralDaAgendaNaTela.TextoSemJornada(d);
         Assert.NotNull(texto);
-        Assert.Contains("Jornada incompleta: Dra. Ana.", texto);
+        Assert.Contains("Sem horário de atendimento cadastrado: Dra. Ana.", texto);
         Assert.Contains("sem profissional vinculado", texto);
         Assert.Null(VisaoGeralDaAgendaNaTela.TextoSemJornada(Agenda(Hoje, Hoje, [])));
 
@@ -310,7 +310,7 @@ public sealed class RecepcaoBlazorNaTelaTests
         Assert.Equal("09:00", linhas[0].Inicio);
         Assert.Equal("até 09:50", linhas[0].Ate);
         var equipe = VisaoGeralDaAgendaNaTela.Equipe(d);
-        Assert.Equal("Jornada incompleta", equipe[0].Livres);
+        Assert.Equal("Sem horário cadastrado", equipe[0].Livres);
         Assert.Equal("—", equipe[0].Percentual);
     }
 }

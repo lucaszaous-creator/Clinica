@@ -42,8 +42,8 @@ public sealed record ResultadoBuscaDeVagas(
         => $"Vagas de {DuracaoMinutos} min para {Profissional}, de {APartirDe:dd/MM} a {AteQuando:dd/MM}"
            + (JornadaPresumida
                ? $", das {Agendamento.AberturaPadraoGrade:HH:mm} às {Agendamento.FechamentoPadraoGrade:HH:mm} "
-                 + "de segunda a sábado — jornada não cadastrada em Equipe."
-               : $", dentro da jornada dele ({Jornada}).");
+                 + "de segunda a sábado — horário de atendimento não cadastrado em Profissionais e salas."
+               : $", dentro do horário de atendimento dele ({Jornada}).");
 }
 
 /// <summary>

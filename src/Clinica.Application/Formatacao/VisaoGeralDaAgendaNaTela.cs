@@ -26,7 +26,7 @@ public sealed record CartaoDiaOcupacao(DateOnly Dia, MedidaOcupacao Resumo, stri
     public double Fracao => VisaoGeralDaAgendaNaTela.Fracao(Resumo.Percentual);
     public bool SemBase => Resumo.Percentual is null;
     public string Taxa => Resumo.Percentual is not null ? $"{VisaoGeralDaAgendaNaTela.Percentual(Resumo.Percentual)} ocupado"
-        : Resumo.SemJornada > 0 ? "Jornada incompleta" : "Sem jornada no dia";
+        : Resumo.SemJornada > 0 ? "Sem horário cadastrado" : "Ninguém atende neste dia";
     public bool TemMais => Resumo.Atendimentos > 3;
     public string Mais => TemMais ? $"+{Resumo.Atendimentos - 3} atendimentos" : "";
     public string Acessivel => $"{Dia.ToDateTime(TimeOnly.MinValue).ToString("dddd, d 'de' MMMM", VisaoGeralDaAgendaNaTela.PtBr)}, "
@@ -55,9 +55,9 @@ public sealed record LinhaProfissionalOcupacao(ProfissionalOcupacao Profissional
     public int Atendimentos => Profissional.Resumo.Atendimentos;
     public string Percentual => Profissional.Resumo.Percentual is null ? "—" : VisaoGeralDaAgendaNaTela.Percentual(Profissional.Resumo.Percentual);
     public double Fracao => VisaoGeralDaAgendaNaTela.Fracao(Profissional.Resumo.Percentual);
-    public string Livres => Profissional.Resumo.SemJornada > 0 ? "Jornada incompleta"
+    public string Livres => Profissional.Resumo.SemJornada > 0 ? "Sem horário cadastrado"
         : Profissional.Resumo.MinutosDisponiveis > 0 ? $"{VisaoGeralDaAgendaNaTela.Tempo(Profissional.Resumo.MinutosLivres)} livres"
-        : "Sem jornada no período";
+        : "Não atende no período";
 }
 
 /// <summary>
@@ -145,13 +145,13 @@ public static class VisaoGeralDaAgendaNaTela
     public static string OcupacaoTexto(MedidaOcupacao? r) => r?.Percentual is null ? "—" : Percentual(r.Percentual);
 
     public static string OcupacaoDetalhe(MedidaOcupacao? r) => r is null ? ""
-        : r.SemJornada > 0 ? $"{r.SemJornada} sem jornada completa"
+        : r.SemJornada > 0 ? $"{r.SemJornada} sem horário de atendimento cadastrado"
         : r.MinutosDisponiveis > 0 ? $"{Tempo(r.MinutosOcupados)} de {Tempo(r.MinutosDisponiveis)} disponíveis"
-        : "Sem jornada disponível neste período";
+        : "Ninguém atende neste período";
 
     public static string LivreTexto(MedidaOcupacao? r) => r is null ? "—" : r.SemJornada > 0 ? "—" : Tempo(r.MinutosLivres);
 
-    public static string LivreDetalhe(MedidaOcupacao? r) => r?.SemJornada > 0 ? "Complete as jornadas para calcular" : "Somado entre os profissionais";
+    public static string LivreDetalhe(MedidaOcupacao? r) => r?.SemJornada > 0 ? "Cadastre os horários de atendimento para calcular" : "Somado entre os profissionais";
 
     public static string BloqueadoTexto(MedidaOcupacao? r) => r is null ? "—" : Tempo(r.MinutosBloqueados);
 
@@ -162,18 +162,18 @@ public static class VisaoGeralDaAgendaNaTela
     {
         if (d is null || d.Resumo.SemJornada == 0) return null;
         var incompletos = d.Profissionais.Where(p => p.Resumo.SemJornada > 0).Select(p => p.Nome).ToList();
-        var texto = incompletos.Count > 0 ? $"Jornada incompleta: {string.Join(", ", incompletos)}. " : "";
+        var texto = incompletos.Count > 0 ? $"Sem horário de atendimento cadastrado: {string.Join(", ", incompletos)}. " : "";
         if (d.Horarios.Any(h => h.Ocupa && h.ProfissionalId is null)) texto += "Há atendimentos sem profissional vinculado. ";
-        return texto + "Os atendimentos continuam visíveis; consulte abaixo as jornadas disponíveis.";
+        return texto + "Os atendimentos continuam visíveis.";
     }
 
     public static string? TextoForaDaJornada(MedidaOcupacao? r) => r is not { ForaDaJornada: > 0 } ? null
-        : $"{r.ForaDaJornada} atendimento(s) fora da jornada ou sobre um bloqueio. Confira a grade de horários antes de agendar.";
+        : $"{r.ForaDaJornada} atendimento(s) fora do horário de atendimento ou sobre um bloqueio. Confira a grade antes de agendar.";
 
     /// <summary>A dica da semana: sem profissional não há vaga a mostrar; sem jornada, também não.</summary>
     public static string DicaDaSemana(bool filtrando, OcupacaoAgenda? d) => !filtrando
         ? "Escolha um profissional para ver os horários livres"
-        : d?.SemJornadaParaVagas == true ? "Cadastre a jornada do profissional para ver os horários livres"
+        : d?.SemJornadaParaVagas == true ? "Cadastre o horário de atendimento do profissional para ver os horários livres"
         : "Clique numa vaga para marcar ali";
 
     // ==================== listas ====================

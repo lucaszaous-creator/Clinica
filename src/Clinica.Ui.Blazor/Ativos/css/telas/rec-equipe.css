@@ -60,3 +60,34 @@
 .eq-bloqueios{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
 .eq-bloqueios li{padding:var(--space-2) var(--space-3);border-radius:var(--radius-pequeno);background:var(--acento-suave);
   font-size:var(--text-table-size)}
+
+/* ---------- Horário de atendimento (out/2026) ---------- */
+
+/* A mini-semana da linha: os sete dias, cada um com as faixas — o que não atende fica cinza. */
+.eq-mini-semana{list-style:none;margin:0 0 var(--space-1);padding:0;display:grid;grid-template-columns:28px 1fr;
+  column-gap:var(--space-2);row-gap:1px;font-size:var(--text-small-size);line-height:1.35}
+.eq-mini-semana li{display:contents}
+.eq-mini-dia{font-weight:600;color:var(--texto-secundario)}
+.eq-mini-faixas{color:var(--cinza-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eq-mini-semana li.sim .eq-mini-dia{color:var(--acento)}
+.eq-mini-semana li.sim .eq-mini-faixas{color:var(--texto-primario)}
+.eq-sem-horario{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+
+/* O editor: a semana numa grade de sete linhas, cada dia com o interruptor e os pares de hora. */
+.eq-horarios{display:flex;flex-direction:column;border:1px solid var(--borda);border-radius:var(--radius-control);overflow:hidden}
+.eq-horario-dia{display:grid;grid-template-columns:150px 1fr;align-items:center;gap:var(--space-3);
+  padding:var(--space-2) var(--space-3);background:var(--cinza-50);transition:background-color .15s ease}
+.eq-horario-dia + .eq-horario-dia{border-top:1px solid var(--borda)}
+.eq-horario-dia.atende{background:var(--superficie)}
+.eq-horario-nome{font-weight:600;margin:0}
+.eq-horario-dia:not(.atende) .eq-horario-nome span{color:var(--texto-secundario)}
+.eq-horario-faixas{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);min-height:36px}
+.eq-faixa{display:inline-flex;align-items:center;gap:var(--space-1);padding:2px 2px 2px var(--space-1);
+  border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie)}
+.eq-faixa .campo{width:112px;font-variant-numeric:tabular-nums}
+.eq-horario-resultado{display:flex;align-items:center;gap:var(--space-2);margin:var(--space-3) 0 0;padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-pequeno);background:var(--acento-suave);color:var(--texto-primario);font-weight:600;
+  font-variant-numeric:tabular-nums}
+.eq-horario-resultado.erro{background:var(--erro-suave);color:var(--erro-texto)}
+.eq-horario-resumo{display:flex;align-items:center;gap:var(--space-2);margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+@media (max-width:760px){ .eq-horario-dia{grid-template-columns:1fr} }

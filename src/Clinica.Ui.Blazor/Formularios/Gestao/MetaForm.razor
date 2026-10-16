@@ -98,11 +98,11 @@
                 </div>
                 @if (!MetaMensal.AceitaSegmento(_indicador))
                 {
-                    <Aviso Tom="info" Texto="Ocupação não se recorta por categoria nem especialidade: ela mede a agenda inteira contra a jornada, e jornada não tem modalidade." />
+                    <Aviso Tom="info" Texto="Ocupação não se recorta por categoria nem especialidade: ela mede a agenda inteira contra o horário de atendimento, e horário não tem modalidade." />
                 }
                 @if (_indicador == IndicadorMeta.Ocupacao && _profissionalId is not null)
                 {
-                    <Aviso Tom="atencao" Texto="A ocupação apurada é a da clínica inteira — a jornada não se recorta por pessoa. A meta fica registrada com o nome dele, mas o realizado ao lado será o da clínica." />
+                    <Aviso Tom="atencao" Texto="A ocupação apurada é a da clínica inteira — o horário de atendimento não se recorta por pessoa. A meta fica registrada com o nome dele, mas o realizado ao lado será o da clínica." />
                 }
             }
 

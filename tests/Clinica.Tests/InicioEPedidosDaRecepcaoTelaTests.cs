@@ -95,7 +95,7 @@ public sealed class InicioEPedidosDaRecepcaoTelaTests
     public void Frases_dos_cartoes()
     {
         Assert.Equal("62% da agenda ocupada · 1 encaixe", InicioRecepcaoTela.DetalheAgendados(62.4m, 1));
-        Assert.Equal("ocupação sem jornada declarada · 2 encaixes", InicioRecepcaoTela.DetalheAgendados(null, 2));
+        Assert.Equal("ocupação sem horário de atendimento cadastrado · 2 encaixes", InicioRecepcaoTela.DetalheAgendados(null, 2));
         Assert.Null(InicioRecepcaoTela.FracaoOcupada(null));
         Assert.Equal(1.0, InicioRecepcaoTela.FracaoOcupada(130m));
         Assert.Equal("ninguém no local ainda", InicioRecepcaoTela.DetalheAAtender(0));

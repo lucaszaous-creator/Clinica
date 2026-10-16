@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Clinica.Ui.Blazor.Hospedagem;
 
@@ -14,6 +15,8 @@ public static class RegistroTelas
         // guardam DbContext nem serviço da Application: só o estado do que está na tela.
         servicos.AddScoped<Dialogos>();
         servicos.AddScoped<Notificacoes>();
+        // Singleton: a ponte entre duas telas (a Visão geral pede, a Agenda do dia consome).
+        servicos.TryAddSingleton<PedidoDaAgendaDoDia>();
         return servicos;
     }
 }

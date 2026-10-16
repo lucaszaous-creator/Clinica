@@ -7,7 +7,7 @@ using Clinica.Infrastructure;
 namespace PreviaBlazor.Sementes;
 
 /// <summary>
-/// A EQUIPE da tela de Profissionais e salas: uma enfermeira com jornada declarada e CPF (assina
+/// A EQUIPE da tela de Profissionais e salas: uma enfermeira com horário de atendimento e CPF (assina
 /// com e-CPF), um psiquiatra com trava ligada, habilitação restrita, cor na agenda e férias COM
 /// uma sessão marcada dentro (o "Empurrar sessões"), um profissional inativo, quatro salas (uma
 /// de infusão para três ao mesmo tempo, uma inativa) e um feriado da clínica inteira.
@@ -17,6 +17,10 @@ namespace PreviaBlazor.Sementes;
 /// bloqueio), para a exclusão ser recusada pela regra e não apagar o que outra tela lê. E os
 /// bloqueios só alcançam gente e salas DESTA semente, para "Empurrar sessões" nunca mover a
 /// agenda de outra tela (o feriado é no fim de dezembro, longe da agenda das outras sementes).
+///
+/// HORÁRIOS POR DIA (out/2026): a Dra. Helena (da semente base) ganha manhã e tarde em dias
+/// diferentes, o Dr. Caio atende terça à tarde e quinta manhã e tarde, e o Dr. Marcos e a Bianca
+/// ficam SEM horário cadastrado — é o que a Visão geral e a lista mostram como "sem horário".
 /// </summary>
 public sealed class SementeEquipe : ISemente
 {
@@ -39,14 +43,27 @@ public sealed class SementeEquipe : ISemente
         {
             Nome = "Dr. Caio Rezende", NomeCurto = "Dr. Caio", RegistroConselho = "CRM-RJ 77.2468",
             Cpf = "11144477735", EspecialidadeCodigo = Especialidade.Psiquiatria.ToString(), Cor = "#0F766E",
-            DuracaoPadraoMinutos = 50, AgendaProtegida = true,
-            DiasDeAtendimento = Dias(DayOfWeek.Tuesday, DayOfWeek.Thursday),
-            AtendeDas = new TimeOnly(14, 0), AtendeAte = new TimeOnly(19, 0), Ordem = 1,
+            DuracaoPadraoMinutos = 50, AgendaProtegida = true, Ordem = 1,
             HabilitacoesAtendimentoJson = JsonSerializer.Serialize(new[]
             {
                 new AtendimentoHabilitado(ModalidadeAtendimento.Consulta.ToString(), Especialidade.Psiquiatria.ToString())
             })
         }).Entity;
+        FaixaDeAtendimento F(int de, int ate) => new(new TimeOnly(de, 0), new TimeOnly(ate, 0));
+        caio.DefinirHorarios(new Dictionary<DayOfWeek, IReadOnlyList<FaixaDeAtendimento>>
+        {
+            [DayOfWeek.Tuesday] = [F(14, 19)],
+            [DayOfWeek.Thursday] = [F(8, 12), F(14, 19)]
+        });
+        if ((db.Profissionais.Local.FirstOrDefault(p => p.Nome == "Dra. Helena Duarte")
+             ?? db.Profissionais.FirstOrDefault(p => p.Nome == "Dra. Helena Duarte")) is { } helena)
+            helena.DefinirHorarios(new Dictionary<DayOfWeek, IReadOnlyList<FaixaDeAtendimento>>
+            {
+                [DayOfWeek.Monday] = [F(8, 12), F(14, 18)],
+                [DayOfWeek.Tuesday] = [F(14, 19)],
+                [DayOfWeek.Wednesday] = [F(8, 12), F(14, 18)],
+                [DayOfWeek.Friday] = [F(8, 12), F(14, 18)]
+            });
         db.Add(new Profissional
         {
             Nome = "Rafael Antunes", NomeCurto = "Rafael", RegistroConselho = "CREFITO-2 98765-F",

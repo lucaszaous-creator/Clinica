@@ -80,3 +80,19 @@ por profissional.
   o que as telas afirmam mora na Application, com teste.
 - 🤝 **CX** — sem migração de dados nem perda: o cadastro antigo continua valendo até ser
   editado; a release é aditiva.
+
+## 6. Entregue (out/2026, segunda parte)
+
+- **Editor** `HorariosDeAtendimentoForm` (substituiu `JornadaETravaForm`): sete linhas, interruptor
+  "atende", faixas como pares de hora, "+ faixa", "Copiar segunda para os dias úteis", a frase do
+  resultado ao vivo e a recusa inline (`EditorDeHorarios`, Application, com teste). Abre de
+  Profissionais e salas (linha e "Cadastrar"), do cadastro do profissional (que agora só mostra o
+  resumo e devolve intacto o que leu) e de "Mais ações"/"cadastrar" na Visão geral.
+- **Visão geral**: a semana é a matriz (`VisaoGeralDaAgendaDesenho.Matriz`), o mês é calor, o dia é
+  linha do tempo; quatro números no topo e a linha discreta de quem está sem horário. A célula abre
+  a aba Dia da agenda com o profissional filtrado (`IAgendaDaVisaoGeral.AbrirDiaAsync` +
+  `PedidoDaAgendaDoDia`); onde a aba não existe, abre o dia na própria tela. O serviço ganhou,
+  de forma aditiva, o profissional dia a dia (`ProfissionalOcupacao.Dias`).
+- ⚠️ A ocupação do topo e do calor é medida sobre **quem tem horário** — um profissional sem horário
+  não apaga a ocupação da equipe inteira (o resumo do serviço continua nulo nesse caso, e o WPF o lê
+  como antes).

@@ -55,12 +55,30 @@ public static class TelaDaEquipe
             ? $"{d} min por sessão"
             : $"padrão da clínica ({Agendamento.DuracaoPadraoMinutos} min)";
 
-    /// <summary>A jornada como se lê — a MESMA frase da grade e da recusa (<see cref="Profissional.DescricaoJornada"/>).</summary>
-    public static string Jornada(Profissional p) => p.DescricaoJornada ?? "qualquer dia e horário";
+    /// <summary>Quem não cadastrou horário: não é erro (a agenda aceita qualquer dia e hora) — é o que a linha diz.</summary>
+    public const string HorarioNaoCadastrado = "horário não cadastrado";
 
-    /// <summary>Os dias marcados — vazio quando a jornada não declara dias (qualquer dia).</summary>
-    public static IReadOnlyList<DayOfWeek> DiasDeclarados(Profissional p)
-        => p.DiasDeAtendimento is null ? [] : Semana.Where(s => p.AtendeEm(s.Dia)).Select(s => s.Dia).ToList();
+    /// <summary>O horário de atendimento como se lê — a MESMA frase da grade e da recusa (<see cref="Profissional.DescricaoJornada"/>).</summary>
+    public static string Horario(Profissional p) => p.DescricaoJornada ?? HorarioNaoCadastrado;
+
+    /// <summary>Nome antigo de <see cref="Horario"/> (a palavra "jornada" saiu da interface em out/2026).</summary>
+    public static string Jornada(Profissional p) => Horario(p);
+
+    /// <summary>
+    /// A mini-semana da linha do profissional: os sete dias (segunda primeiro), cada um com as
+    /// faixas dele ("08:00–12:00 · 14:00–18:00"), "não atende" ou "qualquer hora" (cadastro
+    /// antigo com dias e sem horas). Vazia quando não há horário cadastrado — a linha diz isso.
+    /// </summary>
+    public static IReadOnlyList<(DayOfWeek Dia, string Curto, string Nome, bool Atende, string Faixas)> MiniSemana(Profissional p)
+    {
+        if (!p.JornadaDeclarada) return [];
+        return Semana.Select(s =>
+        {
+            var f = p.FaixasEm(s.Dia);
+            var texto = f is null ? "qualquer hora" : f.Count == 0 ? "não atende" : string.Join(" · ", f.Select(x => x.ToString()));
+            return (s.Dia, s.Curto, s.Nome, f is not { Count: 0 }, texto);
+        }).ToList();
+    }
 
     /// <summary>
     /// O que o profissional pode receber na marcação. NULO nas habilitações é "não restringido"
@@ -217,39 +235,6 @@ public static class TelaDaEquipe
         return JsonSerializer.Serialize(marcadas
             .Select(o => new AtendimentoHabilitado(o.ModalidadeCodigo, o.EspecialidadeCodigo))
             .Distinct().ToList());
-    }
-
-    // ==================== Jornada ====================
-
-    /// <summary>
-    /// Lê a jornada do formulário. Nenhum dia marcado = não declarado (qualquer dia); as duas
-    /// horas em branco = sem limite de expediente; UMA só é erro, explicado antes de o serviço
-    /// recusar. Hora é "HH:mm" (o campo de hora do navegador devolve assim; "8h" não é hora).
-    /// </summary>
-    public static (int? Dias, TimeOnly? Das, TimeOnly? Ate, string? Erro) LerJornada(
-        IEnumerable<DayOfWeek> diasMarcados, string? das, string? ate)
-    {
-        var dias = diasMarcados.Distinct().Aggregate(0, (acc, d) => acc | Profissional.BitDe(d));
-        int? mascara = dias == 0 ? null : dias;
-
-        if (string.IsNullOrWhiteSpace(das) && string.IsNullOrWhiteSpace(ate))
-            return (mascara, null, null, null);
-
-        if (!LerHora(das, out var inicio) || !LerHora(ate, out var fim))
-            return (mascara, null, null,
-                "Informe o horário de atendimento com início E fim (ex.: 08:00 e 18:00) — ou deixe os dois em branco.");
-        if (fim <= inicio)
-            return (mascara, null, null, "O fim do horário de atendimento precisa ser depois do início.");
-        return (mascara, inicio, fim, null);
-    }
-
-    private static bool LerHora(string? texto, out TimeOnly hora)
-    {
-        hora = default;
-        if (string.IsNullOrWhiteSpace(texto)) return false;
-        var t = texto.Trim();
-        return TimeOnly.TryParseExact(t, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out hora)
-               || TimeOnly.TryParseExact(t, "HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out hora);
     }
 
     // ==================== Agenda fechada (bloqueios) ====================

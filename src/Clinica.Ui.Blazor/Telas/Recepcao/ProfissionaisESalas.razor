@@ -9,8 +9,8 @@
   o COREN/CRM que sai nos documentos e o CPF que confere o e-CPF na assinatura.
 
   As três perguntas são ABAS de um cartão só (a regra de leiaute: pergunta a mais é aba, não
-  caixa). A linha do profissional mostra o que a recepção consulta de relance — a JORNADA em
-  dias e horas, o que ele pode receber na marcação, se a agenda dele está travada — e o resto
+  caixa). A linha do profissional mostra o que a recepção consulta de relance — o HORÁRIO DE
+  ATENDIMENTO dia a dia (a mini-semana com as faixas), o que ele pode receber na marcação, se a agenda dele está travada — e o resto
   mora atrás de "Editar". As frases saem de TelaDaEquipe (Application, com teste).
 
   Excluir só vale enquanto o registro nunca foi usado; depois o serviço recusa e o caminho é
@@ -43,8 +43,8 @@
         <section class="kpis" aria-label="Resumo da equipe">
             <Kpi Rotulo="Profissionais ativos" Valor="@p.Ativos.ToString()" Icone="pessoas" Tom="neutro"
                  Nota="@(p.Inativos == 0 ? "Ninguém inativo." : $"{p.Inativos} inativo(s) — o histórico fica preservado.")" />
-            <Kpi Rotulo="Com jornada declarada" Valor="@($"{p.ComJornada} de {p.Ativos}")" Icone="relogio" Tom="neutro"
-                 Nota="Sem jornada, a agenda aceita qualquer dia e horário." />
+            <Kpi Rotulo="Com horário cadastrado" Valor="@($"{p.ComJornada} de {p.Ativos}")" Icone="relogio" Tom="neutro"
+                 Nota="Sem horário, a agenda aceita qualquer dia e hora (não é erro)." />
             <Kpi Rotulo="Assinam com e-CPF" Valor="@($"{p.ComCpf} de {p.Ativos}")" Icone="cadeado" Tom="neutro"
                  Nota="Com CPF no cadastro — é ele que confere o certificado." />
             <Kpi Rotulo="Agenda fechada" Valor="@p.AgendaFechada.ToString()" Icone="calendario"
@@ -110,7 +110,7 @@
                         <thead>
                             <tr>
                                 <th>Profissional</th>
-                                <th style="width:250px">Dias e horário de atendimento</th>
+                                <th style="width:300px">Horário de atendimento</th>
                                 <th style="width:200px">Atende na marcação</th>
                                 <th class="direita" style="width:190px">Ações</th>
                             </tr>
@@ -118,7 +118,7 @@
                         <tbody>
                             @foreach (var pr in Profissionais)
                             {
-                                var dias = TelaDaEquipe.DiasDeclarados(pr);
+                                var semana = TelaDaEquipe.MiniSemana(pr);
                                 var cor = TelaDaEquipe.CorDaAgenda(pr.Cor);
                                 <tr class="@(pr.Ativo ? null : "apagada")" @key="pr.Id">
                                     <td>
@@ -137,23 +137,26 @@
                                         </div>
                                     </td>
                                     <td>
-                                        @if (dias.Count == 0 && pr.AtendeDas is null)
+                                        @if (semana.Count == 0)
                                         {
-                                            <span class="secundario">qualquer dia e horário</span>
+                                            <span class="eq-sem-horario">
+                                                <span class="secundario">horário não cadastrado</span>
+                                                <button type="button" class="botao mini fantasma" disabled="@(!PodeAgenda || !pr.Ativo)" @onclick="() => AbrirHorario(pr.Id)"
+                                                        title="@(PodeAgenda ? "Cadastrar os dias e as faixas em que ele atende" : "Seu acesso não permite configurar a agenda.")"><Icone Nome="mais" />Cadastrar</button>
+                                            </span>
                                         }
                                         else
                                         {
-                                            <div class="eq-dias" title="@TelaDaEquipe.Jornada(pr)" aria-label="@TelaDaEquipe.Jornada(pr)">
-                                                @foreach (var s in TelaDaEquipe.Semana)
+                                            <ul class="eq-mini-semana" aria-label="@($"Horário de atendimento: {TelaDaEquipe.Horario(pr)}")" title="@TelaDaEquipe.Horario(pr)">
+                                                @foreach (var s in semana)
                                                 {
-                                                    <span class="eq-dia @(dias.Count == 0 || dias.Contains(s.Dia) ? "sim" : null)">@s.Curto</span>
+                                                    <li class="@(s.Atende ? "sim" : null)"><span class="eq-mini-dia">@s.Curto</span><span class="eq-mini-faixas numero">@s.Faixas</span></li>
                                                 }
-                                            </div>
-                                            <span class="secundario">@(pr.AtendeDas is { } das && pr.AtendeAte is { } ate ? $"das {das:HH:mm} às {ate:HH:mm}" : "sem limite de horário")</span>
+                                            </ul>
                                         }
                                         @if (pr.AgendaProtegida)
                                         {
-                                            <span class="eq-trava" title="Trava ligada: a agenda RECUSA sobreposição, fora da jornada e período fechado — inclusive encaixe"><Icone Nome="cadeado" />trava ligada</span>
+                                            <span class="eq-trava" title="A agenda RECUSA marcação fora deste horário, em agenda fechada ou em cima de outro paciente — inclusive encaixe"><Icone Nome="cadeado" />recusa fora do horário</span>
                                         }
                                     </td>
                                     <td>
@@ -163,9 +166,9 @@
                                     <td class="direita">
                                         <div class="botoes-linha">
                                             <button type="button" class="botao mini primario" disabled="@(!PodeGerenciar)" @onclick="() => AbrirProfissional(pr.Id)"
-                                                    title="@(PodeGerenciar ? "Cadastro, jornada e habilitações" : "Seu acesso não permite mexer no cadastro da equipe.")"><Icone Nome="editar" />Editar</button>
-                                            <button type="button" class="botao mini icone" disabled="@(!PodeAgenda || !pr.Ativo)" @onclick="() => AbrirJornada(pr.Id)"
-                                                    title="@(PodeAgenda ? (pr.Ativo ? "Jornada, trava e bloqueios da agenda" : "Profissional inativo não recebe horários") : "Seu acesso não permite configurar a agenda.")" aria-label="Jornada, trava e bloqueios"><Icone Nome="relogio" /></button>
+                                                    title="@(PodeGerenciar ? "Cadastro, duração e habilitações" : "Seu acesso não permite mexer no cadastro da equipe.")"><Icone Nome="editar" />Editar</button>
+                                            <button type="button" class="botao mini icone" disabled="@(!PodeAgenda || !pr.Ativo)" @onclick="() => AbrirHorario(pr.Id)"
+                                                    title="@(PodeAgenda ? (pr.Ativo ? "Horário de atendimento e agenda fechada" : "Profissional inativo não recebe horários") : "Seu acesso não permite configurar a agenda.")" aria-label="Horário de atendimento"><Icone Nome="relogio" /></button>
                                             <button type="button" class="botao mini icone" disabled="@(!PodeFecharAgenda || !pr.Ativo)" @onclick="() => AbrirBloqueio(pr.Id, null)"
                                                     title="Fechar a agenda deste profissional (férias, folga)" aria-label="Fechar a agenda deste profissional"><Icone Nome="calendario" /></button>
                                             <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeGerenciar)" @onclick="() => ExcluirProfissionalAsync(pr)"
@@ -297,10 +300,10 @@
 {
     <SalaForm SalaId="sid" AoFechar="() => _salaAberta = null" AoConcluir="SalaGravadaAsync" />
 }
-@if (_jornadaAberta is { } jid)
+@if (_horarioAberto is { } jid)
 {
-    <JornadaETravaForm ProfissionalId="jid" AoFechar="() => _jornadaAberta = null" AoAlterar="CarregarAsync"
-                       AoFecharAgenda="FecharAgendaDaJornada" />
+    <HorariosDeAtendimentoForm ProfissionalId="jid" AoFechar="() => _horarioAberto = null" AoAlterar="CarregarAsync"
+                               AoFecharAgenda="FecharAgendaDoHorario" />
 }
 @if (_bloqueioAberto is { } alvo)
 {
@@ -327,7 +330,7 @@
     private int _geracao;
 
     // Formulários abertos (no máximo um de cada). Zero = novo.
-    private int? _profissionalAberto, _salaAberta, _jornadaAberta;
+    private int? _profissionalAberto, _salaAberta, _horarioAberto;
     private (int? Profissional, int? Sala)? _bloqueioAberto;
 
     // As duas barreiras: os bits EXATOS do EquipeViewModel do WPF.
@@ -447,16 +450,16 @@
             await CarregarAsync();
     }
 
-    private void AbrirJornada(int id)
+    private void AbrirHorario(int id)
     {
-        if (!Exigir(Permissao.EditarAgenda, "configurar horários e travas")) return;
-        _jornadaAberta = id;
+        if (!Exigir(Permissao.EditarAgenda, "configurar o horário de atendimento")) return;
+        _horarioAberto = id;
     }
 
-    /// <summary>A janela da jornada oferece "Fechar a agenda deste profissional": troca uma pela outra.</summary>
-    private void FecharAgendaDaJornada(int profissionalId)
+    /// <summary>O editor do horário oferece "Fechar a agenda deste profissional": troca uma janela pela outra.</summary>
+    private void FecharAgendaDoHorario(int profissionalId)
     {
-        _jornadaAberta = null;
+        _horarioAberto = null;
         AbrirBloqueio(profissionalId, null);
     }
 

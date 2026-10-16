@@ -249,11 +249,26 @@
         // espera reenvelhecem, e a lista de HOJE é relida — é por ela que o "Atender" e o
         // "Finalizar" do consultório chegam ao balcão sem ninguém apertar Atualizar.
         _relogio = new Timer(_ => _ = InvokeAsync(BaterAsync), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        ConsumirPedidoDeDia();
         return CarregarAsync();
     }
 
     /// <summary>Voltou à aba: relê por trás, SEM limpar a tela (a falha vai só ao log).</summary>
-    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+    protected override Task AoVoltarAsync() => ConsumirPedidoDeDia() ? IrParaAsync(_dia) : CarregarAsync(silencioso: true);
+
+    /// <summary>
+    /// A Visão geral pediu "este dia, este profissional" (a célula da matriz). Ler LIMPA o pedido.
+    /// O filtro de profissional é conferido depois da leitura (Ajustar): quem não tem ninguém no
+    /// dia cai em "Todos", em vez de uma lista vazia que parece dia sem paciente.
+    /// </summary>
+    private bool ConsumirPedidoDeDia()
+    {
+        if (Servicos.GetService<PedidoDaAgendaDoDia>()?.Consumir() is not { } pedido) return false;
+        _dia = pedido.Dia;
+        _filtro = new FiltroAgendaDoDia { ProfissionalId = pedido.ProfissionalId };
+        _menu = null;
+        return true;
+    }
 
     /// <summary>F5 relê e Ctrl+P imprime a folha — pelo MESMO caminho dos botões.</summary>
     protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch

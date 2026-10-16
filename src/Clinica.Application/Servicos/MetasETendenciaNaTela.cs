@@ -148,7 +148,7 @@ public static class MetasNaTela
 
                 var (situacao, tom) = Situacao(a, futuro, apuracaoFalhou, emCurso);
                 string? nota = m.Indicador == IndicadorMeta.Ocupacao && m.ProfissionalId is not null
-                    ? "A ocupação apurada é a da clínica inteira — a jornada não se recorta por pessoa."
+                    ? "A ocupação apurada é a da clínica inteira — o horário de atendimento não se recorta por pessoa."
                     : null;
 
                 return new LinhaMetaNaTela(

@@ -13,8 +13,11 @@
   - as habilitações só vão quando o gerente MEXEU nelas, ou quando já havia configuração —
     abrir e salvar a ficha de quem nunca teve restrição não troca "sem restrição" por uma
     lista fixa das modalidades de hoje (TelaDaEquipe.HabilitacoesParaGravar).
-  A TRAVA da agenda não é campo deste formulário: o serviço não a copia (preserva) e quem a
-  liga é "Jornada, trava e bloqueios", sob EditarAgenda, com a trilha própria.
+  O HORÁRIO DE ATENDIMENTO não se edita aqui (out/2026, docs/recepcao-ux-out2026.md): o editor é
+  um só (HorariosDeAtendimentoForm, sob EditarAgenda, com a trilha própria). Este formulário
+  mostra o resumo, abre o editor por cima e DEVOLVE intacto o que leu (dias, horas e as faixas
+  por dia) — quem não edita, PRESERVA; senão salvar o telefone apagaria o horário. Depois que o
+  editor grava, o que este formulário guarda é relido, para não devolver o horário de antes.
 *@
 @inject IServiceScopeFactory Escopos
 
@@ -54,28 +57,25 @@
             </div>
 
             <div class="secao-form">
-                <h3>Dias e horário de atendimento</h3>
-                <div class="eq-semana" role="group" aria-label="Dias de atendimento">
-                    @foreach (var s in TelaDaEquipe.Semana)
+                <div class="eq-titulo-linha">
+                    <h3>Horário de atendimento</h3>
+                    @if (ProfissionalId != 0)
                     {
-                        var dia = s.Dia;
-                        <label class="eq-dia-marcar @(_dias.Contains(dia) ? "sim" : null)" title="@s.Nome">
-                            <input type="checkbox" checked="@_dias.Contains(dia)" @onchange="e => MarcarDia(dia, e)" />@s.Curto
-                        </label>
+                        <button type="button" class="botao mini" disabled="@(!PodeHorario)" @onclick="AbrirHorario"
+                                title="@(PodeHorario ? "Os dias e as faixas de horário em que ele atende" : "Seu acesso não permite configurar a agenda.")"><Icone Nome="relogio" />Horário de atendimento…</button>
                     }
                 </div>
+                <p class="eq-horario-resumo"><Icone Nome="relogio" />@_resumoHorario</p>
+                <p class="campo-dica">
+                    @(ProfissionalId == 0
+                        ? "Salve o profissional para cadastrar o horário de atendimento dele. Sem horário, a agenda aceita qualquer dia e hora."
+                        : _trava ? "Fora deste horário a marcação é recusada (proteção ligada no editor)." : "Fora deste horário a agenda avisa e não impede.")
+                </p>
                 <div class="campos tres">
-                    <Campo Rotulo="Das"><input type="time" class="campo" value="@_das" @onchange="e => _das = e.Value?.ToString()" /></Campo>
-                    <Campo Rotulo="Até"><input type="time" class="campo" value="@_ate" @onchange="e => _ate = e.Value?.ToString()" /></Campo>
                     <Campo Rotulo="Duração padrão (min)" Dica="@($"Vazio = padrão da clínica ({Agendamento.DuracaoPadraoMinutos} min).")">
                         <input class="campo valor" @bind="_duracao" maxlength="4" inputmode="numeric" />
                     </Campo>
                 </div>
-                <p class="campo-dica">
-                    Nenhum dia marcado e horas em branco = <b>qualquer dia e horário</b>, como sempre foi. Com jornada declarada, a grade pinta o que está fora e a agenda avisa
-                    quem marcar ali; a ocupação do profissional passa a ser medida contra estas horas.
-                    @(_trava ? " A trava da agenda dele está LIGADA: fora da jornada a marcação é recusada, inclusive encaixe." : " Para recusar (e não só avisar), ligue a trava em «Jornada, trava e bloqueios».")
-                </p>
             </div>
 
             <div class="secao-form">
@@ -156,6 +156,11 @@
     </Rodape>
 </Modal>
 
+@if (_horarioAberto)
+{
+    <HorariosDeAtendimentoForm ProfissionalId="ProfissionalId" AoFechar="() => _horarioAberto = false" AoAlterar="HorarioAlteradoAsync" />
+}
+
 @code {
     /// <summary>Zero = profissional novo.</summary>
     [Parameter] public int ProfissionalId { get; set; }
@@ -163,9 +168,14 @@
     [Parameter] public EventCallback AoFechar { get; set; }
 
     private string? _nome, _nomeCurto, _registro, _cpf, _especialidade, _telefone, _email, _cor, _observacoes;
-    private string? _das, _ate, _duracao, _ordem = "0";
+    private string? _duracao, _ordem = "0";
     private bool _ativo = true, _trava;
-    private readonly HashSet<DayOfWeek> _dias = [];
+    // O horário LIDO, devolvido intacto ao salvar (quem não edita, preserva).
+    private int? _diasLidos;
+    private TimeOnly? _dasLido, _ateLido;
+    private string? _horariosLidos;
+    private string _resumoHorario = TelaDaEquipe.HorarioNaoCadastrado;
+    private bool _horarioAberto;
 
     private IReadOnlyList<(string Codigo, string Nome)> _especialidades = [];
     private IReadOnlyList<OpcaoDeAtendimento> _opcoes = [];
@@ -221,9 +231,7 @@
                 _email = p.Email;
                 _cor = p.Cor;
                 _duracao = p.DuracaoPadraoMinutos?.ToString(CultureInfo.InvariantCulture);
-                foreach (var d in TelaDaEquipe.DiasDeclarados(p)) _dias.Add(d);
-                _das = p.AtendeDas?.ToString("HH:mm", CultureInfo.InvariantCulture);
-                _ate = p.AtendeAte?.ToString("HH:mm", CultureInfo.InvariantCulture);
+                GuardarHorario(p);
                 _ordem = p.Ordem.ToString(CultureInfo.InvariantCulture);
                 _ativo = p.Ativo;
                 _trava = p.AgendaProtegida;
@@ -263,9 +271,43 @@
         if (_marcadas.Count != antes) _alterouHabilitacoes = true;
     }
 
-    private void MarcarDia(DayOfWeek dia, ChangeEventArgs e)
+    private static bool PodeHorario => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    private void GuardarHorario(Profissional p)
     {
-        if (e.Value is true) _dias.Add(dia); else _dias.Remove(dia);
+        _diasLidos = p.DiasDeAtendimento;
+        _dasLido = p.AtendeDas;
+        _ateLido = p.AtendeAte;
+        _horariosLidos = p.HorariosAtendimento;
+        _trava = p.AgendaProtegida;
+        _resumoHorario = TelaDaEquipe.Horario(p);
+    }
+
+    private void AbrirHorario()
+    {
+        if (!SessaoUsuario.Atual.Pode(Permissao.EditarAgenda))
+        {
+            _mensagem = "Seu acesso não permite configurar o horário de atendimento.";
+            return;
+        }
+        _horarioAberto = true;
+    }
+
+    /// <summary>O editor gravou: relê o horário, senão o Salvar deste formulário devolveria o de antes.</summary>
+    private async Task HorarioAlteradoAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            if (await escopo.ServiceProvider.GetRequiredService<EquipeService>().ObterProfissionalAsync(ProfissionalId) is { } p)
+                GuardarHorario(p);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — profissional: horário não pôde ser relido", ex);
+            _cargaFalhou = true;
+            _mensagem = "O horário foi salvo, mas não deu para relê-lo aqui. Feche e abra o cadastro antes de salvar.";
+        }
     }
 
     private void MarcarOpcao(OpcaoDeAtendimento o, ChangeEventArgs e)
@@ -317,13 +359,6 @@
         }
         if (!int.TryParse(_ordem?.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var ordem)) ordem = 0;
 
-        var jornada = TelaDaEquipe.LerJornada(_dias, _das, _ate);
-        if (jornada.Erro is not null)
-        {
-            _mensagem = jornada.Erro;
-            return;
-        }
-
         try
         {
             _salvando = true;
@@ -343,9 +378,10 @@
                 Email = _email,
                 Cor = _cor,
                 DuracaoPadraoMinutos = duracao,
-                DiasDeAtendimento = jornada.Dias,
-                AtendeDas = jornada.Das,
-                AtendeAte = jornada.Ate,
+                DiasDeAtendimento = _diasLidos,
+                AtendeDas = _dasLido,
+                AtendeAte = _ateLido,
+                HorariosAtendimento = _horariosLidos,
                 Ordem = ordem,
                 Ativo = _ativo,
                 Observacoes = _observacoes

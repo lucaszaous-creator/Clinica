@@ -187,7 +187,7 @@ public class TendenciaEMetasTests : IDisposable
     public async Task Ocupacao_nao_se_recorta_por_modalidade()
     {
         var act = () => _metas.DefinirAsync(2026, 8, IndicadorMeta.Ocupacao, 80, modalidadeCodigo: "Acupuntura");
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*jornada não tem modalidade*");
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*horário não tem modalidade*");
     }
     [Fact]
     public async Task Receita_por_modalidade_soma_o_realizado_ligado_a_atendimento_direto_ou_pela_guia()
