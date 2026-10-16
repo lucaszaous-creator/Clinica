@@ -321,11 +321,16 @@
                 xml = tiss.GerarRecursoGlosaXml(emAberto, dados, numero);
             }
 
-            var erro = await Host.SalvarEAbrirAsync(System.Text.Encoding.UTF8.GetBytes(xml),
+            // Só SALVA, como no WPF (decisão da direção, out/2026): o arquivo vai para o portal da
+            // operadora, e abri-lo sozinho não era pedido. A pergunta vem antes de gravar, e
+            // desistir dela é desistir — nada é gravado.
+            var caminho = await Host.PerguntarOndeSalvarAsync(
                 $"TISS-Recurso-Glosa-{DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.xml",
                 "Arquivo TISS (*.xml)|*.xml", ".xml");
+            if (caminho is null) return;
+            var erro = await Host.GravarArquivoAsync(caminho, System.Text.Encoding.UTF8.GetBytes(xml));
             if (erro is not null) Notificacoes.Erro(erro);
-            else Notificacoes.Sucesso($"Recurso de glosa montado com {emAberto.Count} guia(s).");
+            else Notificacoes.Sucesso($"Recurso de glosa com {emAberto.Count} guia(s) salvo em {caminho}.");
         }
         catch (Exception ex)
         {

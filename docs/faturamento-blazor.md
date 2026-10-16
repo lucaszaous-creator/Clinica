@@ -97,15 +97,15 @@ painel (`DecisoesDaRodada`), F5. Diferença: o número do badge do topo do app W
 shell da suíte (não havia onde mostrá-lo).
 
 **Consultar guias** (`ConsultaDeGuias`) — todos os filtros, resumo que diz o recorte inteiro,
-capa em PDF, histórico (`VerAuditoria`), F5. Diferença: os filtros buscam ao mudar (texto após
-uma pausa ou Enter) em vez de só no botão Buscar.
+capa em PDF, histórico (`VerAuditoria`), F5. Diferença aprovada pela direção: os filtros buscam ao
+mudar (texto após uma pausa ou Enter) em vez de só no botão Buscar.
 
 **Faturados** (`GuiasFaturadas`) — período, filtro em memória, guia TISS em PDF, capa, glosar
 (`RegistrarGlosa`), estornar (`EstornarBaixa`, confirmação de perigo), CSV (Ctrl+P), F5.
 
 **Glosas e recursos** (`GlosasERecursos`) — filtros, resumo, "o que mais glosa", reapresentar,
-recuperada, XML de recurso (Ctrl+P, agora com a segunda barreira), o guia dos motivos. Diferença:
-o XML de recurso abre depois de salvo.
+recuperada, XML de recurso (Ctrl+P, agora com a segunda barreira; só salva, como no WPF — a
+direção decidiu não abri-lo sozinho), o guia dos motivos.
 
 **Não conformidades** (`NaoConformidadesFaturamento`) — filtro, ler a justificativa, reabrir.
 
@@ -121,7 +121,7 @@ fechamento em PDF, CSV (Ctrl+P), F5.
 com todos os campos), regras por família, modalidades, especialidades, códigos TUSS, prazos e
 dados da clínica; Salvar com as duas barreiras e o TUSS gravado relendo o prestador (o Pix
 gravado por outra tela continua: `ConfiguracoesFaturamentoNaTela.SalvarCodigosTussAsync`, com
-teste, e a verificação do Windows passou a usá-lo). Diferença deliberada: "Particular" e "A
+teste, e a verificação do Windows passou a usá-lo). Diferença aprovada pela direção: "Particular" e "A
 definir" não se excluem (o catálogo os recria, e a exclusão apagava o nome que a clínica deu).
 O "Abrir pasta de logs" do ViewModel nunca aparecia no XAML — continua só em Configurações da suíte.
 
