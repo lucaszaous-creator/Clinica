@@ -129,4 +129,12 @@ public class SelosDaFilaTests
 
         Assert.All(selos, s => Assert.False(string.IsNullOrWhiteSpace(s.Dica)));
     }
+
+    [Theory]
+    [InlineData(12, "12 min")]
+    [InlineData(60, "1h")]
+    [InlineData(752, "12h32")]
+    [InlineData(65, "1h05")]
+    public void Atraso_acima_de_uma_hora_se_le_em_horas(int minutos, string esperado)
+        => Assert.Equal(esperado, SelosDaFila.Duracao(minutos));
 }

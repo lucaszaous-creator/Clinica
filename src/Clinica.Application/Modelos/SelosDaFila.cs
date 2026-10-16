@@ -127,7 +127,7 @@ public static class SelosDaFila
 
         // 3º — estado da coluna.
         if (etapa == EtapaFila.Aguardando && atrasoMinutos is { } atraso)
-            selos.Add(new SeloFila($"Atrasado {atraso} min", TomDoSelo.Aviso,
+            selos.Add(new SeloFila($"Atrasado {Duracao(atraso)}", TomDoSelo.Aviso,
                 "A hora marcada passou e o paciente ainda não chegou"));
 
         if (etapa == EtapaFila.EmAtendimento && encerradoEm is { } fim)
@@ -136,4 +136,10 @@ public static class SelosDaFila
 
         return selos.Count <= Maximo ? selos : selos.GetRange(0, Maximo);
     }
+
+    /// <summary>"12 min" abaixo de uma hora; "1h", "12h32" a partir dela — "752 min" obriga
+    /// quem lê a fazer a conta de cabeça.</summary>
+    public static string Duracao(int minutos) =>
+        minutos < 60 ? $"{minutos} min"
+        : minutos % 60 == 0 ? $"{minutos / 60}h" : $"{minutos / 60}h{minutos % 60:00}";
 }

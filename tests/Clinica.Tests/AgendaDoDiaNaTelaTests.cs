@@ -176,7 +176,7 @@ public class AgendaDoDiaNaTelaTests
     public void O_atraso_corre_com_o_relogio_e_vira_selo_so_para_quem_nao_chegou()
     {
         var linha = Uma(Ag(10)); // marcado às 10:00, agora são 11:00
-        Assert.Contains(linha.Selos, s => s.Texto == "Atrasado 60 min");
+        Assert.Contains(linha.Selos, s => s.Texto == "Atrasado 1h");
     }
 
     [Fact]
