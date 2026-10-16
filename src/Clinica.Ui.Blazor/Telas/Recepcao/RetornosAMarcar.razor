@@ -1,0 +1,255 @@
+@*
+  RETORNOS A MARCAR (out/2026 — migrada do RetornosAMarcarView/ViewModel WPF).
+
+  A fila do balcão: quem saiu do atendimento com pedido de retorno e ainda não tem horário.
+  Os chips contam e FILTRAM (a contagem sai da fila inteira); a ação está na linha — convidar
+  pelo WhatsApp (sem dado clínico) ou marcar já com o paciente, a data sugerida e quem pediu.
+  A linha some sozinha quando o horário passa a existir; nada aqui grava.
+
+  As regras (recorte, contagens, resumo, a data do Marcar, a nota que só quem lê prontuário
+  vê) moram em RetornosAMarcarNaTela, na Application, com teste. O serviço é o MESMO do WPF.
+
+  Permissões copiadas do ViewModel: ler e convidar sob VerAgenda; marcar sob EditarAgenda;
+  a NOTA do profissional (registro clínico) só com VerProntuario — e ela sai da LINHA, não só
+  do desenho.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina retornos @(Carregando && _todas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Relacionamento · Retornos" Titulo="Retornos a marcar"
+                     Subtitulo="@($"Quem saiu do atendimento com pedido de retorno e ainda não tem horário. A linha some sozinha quando o horário é marcado; passados {Clinica.Application.Modelos.RetornosAMarcar.JanelaDiasParaTras} dias da data sugerida, o paciente passa para o Acompanhamento.")">
+        <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a fila"><Icone Nome="atualizar" /></button>
+    </CabecalhoPagina>
+
+    @if (!Pode(Permissao.VerAgenda))
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="Seu acesso não alcança a agenda" Descricao="A fila de retornos pede acesso à agenda. Fale com a direção da clínica." Icone="cadeado" />
+        </section>
+    }
+    else
+    {
+        <section class="cartao lista-cartao">
+            <div class="filtros ret-barra">
+                <div class="ret-chips" role="group" aria-label="Recorte da fila">
+                    @Chip(null, "Todos", _contagem.Total, null)
+                    @Chip(FaixaRetorno.Atrasado, "Atrasados", _contagem.Atrasados, "aviso")
+                    @Chip(FaixaRetorno.EstaSemana, "Esta semana", _contagem.EstaSemana, null)
+                    @Chip(FaixaRetorno.MaisAdiante, "Mais adiante", _contagem.MaisAdiante, null)
+                    @Chip(FaixaRetorno.JaMarcado, "Já marcados", _contagem.JaMarcados, "sucesso")
+                </div>
+                <span class="resumo-filtro">@_resumo</span>
+            </div>
+
+            @if (_naoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível ler os retornos" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+            }
+            else if (!_carregou)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+            }
+            else if (_linhas.Count == 0)
+            {
+                @if (_filtro is null)
+                {
+                    <EstadoVazio Titulo="Nenhum retorno a marcar" Icone="ok"
+                                 Descricao="Quem atendeu não pediu retorno a ninguém que ainda esteja sem horário. O pedido é gravado na sessão, pelo Consultório." />
+                }
+                else
+                {
+                    <EstadoVazio Titulo="Ninguém neste recorte" Icone="filtro" Descricao="Clique de novo no chip escolhido para ver a fila inteira." />
+                }
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista ret-lista">
+                        <thead>
+                            <tr>
+                                <th>Paciente</th>
+                                <th>Pedido por</th>
+                                <th style="width:150px">Para quando</th>
+                                @if (PodeVerNota) { <th>Nota do profissional</th> }
+                                <th class="direita">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _linhas)
+                            {
+                                <tr @key="(l.PacienteId, l.Sessao)">
+                                    <td>
+                                        <div class="ret-paciente">
+                                            <span class="avatar ret-avatar" aria-hidden="true">@Iniciais(l.Paciente)</span>
+                                            <div>
+                                                <span class="principal">@l.Paciente</span>
+                                                <span class="secundario">@(l.TemTelefone ? Clinica.Domain.Telefone.Formatar(l.Telefone) : "sem telefone no cadastro")</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span>@l.Profissional</span>
+                                        <span class="secundario nao-quebra">na sessão de @Formato.DataCurta(l.Sessao)</span>
+                                    </td>
+                                    <td>
+                                        <Selo Tom="@RetornosAMarcarNaTela.Tom(l)">@l.SituacaoTexto</Selo>
+                                        <span class="secundario">@Formato.Data(l.RetornoEm)</span>
+                                    </td>
+                                    @if (PodeVerNota)
+                                    {
+                                        <td class="ret-nota" title="@l.Nota">@(l.TemNota ? l.Nota : "—")</td>
+                                    }
+                                    <td class="direita">
+                                        @if (!l.JaMarcado)
+                                        {
+                                            <div class="botoes-linha">
+                                                <button type="button" class="botao mini" disabled="@(!l.TemTelefone)" @onclick="() => ConvidarAsync(l)"
+                                                        title="@(l.TemTelefone ? "Convida o paciente a marcar pelo WhatsApp — sem dado clínico na mensagem" : "Sem telefone no cadastro")"><Icone Nome="enviar" />Convidar</button>
+                                                <button type="button" class="botao mini primario" disabled="@(!PodeMarcar)" @onclick="() => MarcarAsync(l)"
+                                                        title="@(PodeMarcar ? "Abre o Marcar já com o paciente, a data sugerida e quem atende" : "Marcar exige acesso de edição à agenda.")"><Icone Nome="calendario" />Marcar horário</button>
+                                            </div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            <div class="rodape-lista">O convite pelo WhatsApp nunca leva o motivo clínico: diz quem pediu o retorno e para quando. "Marcar horário" abre a marcação com o paciente e o profissional já preenchidos.</div>
+        </section>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<RetornoAMarcar> _todas = [];
+    private IReadOnlyList<RetornoAMarcar> _linhas = [];
+    private ContagemRetornos _contagem = new(0, 0, 0, 0, 0);
+    private string _resumo = string.Empty;
+    private FaixaRetorno? _filtro;
+    private string? _nomeClinica;
+
+    private bool Carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    /// <summary>A metade visível da barreira: marcar exige <c>EditarAgenda</c>.</summary>
+    private static bool PodeMarcar => Pode(Permissao.EditarAgenda);
+
+    /// <summary>O motivo do retorno é dado de saúde: só quem lê o prontuário o vê.</summary>
+    private static bool PodeVerNota => Pode(Permissao.VerProntuario);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        if (!Pode(Permissao.VerAgenda)) return;
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var retornos = await sp.GetRequiredService<RetornosAMarcarService>().ListarComMarcadosAsync();
+            var nome = _nomeClinica;
+            if (nome is null)
+            {
+                var p = await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                nome = LembreteEmailService.NomeDaClinica(p.NomeFantasia, p.RazaoSocial) ?? string.Empty;
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _todas = RetornosAMarcarNaTela.SemNotaSeNaoPode(retornos, PodeVerNota);
+            _nomeClinica = nome;
+            _naoVerificado = false;
+            _carregou = true;
+            Publicar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — retornos a marcar não puderam ser lidos", ex);
+            if (silencioso && _carregou) return;
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _todas = [];
+            _linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Publicar()
+    {
+        _contagem = RetornosAMarcarNaTela.Contar(_todas);
+        _resumo = RetornosAMarcarNaTela.Resumo(_todas);
+        _linhas = RetornosAMarcarNaTela.Recortar(_todas, _filtro);
+    }
+
+    /// <summary>O chip escolhido recorta a tabela; clicar no escolhido volta para todos.</summary>
+    private void Escolher(FaixaRetorno? faixa)
+    {
+        _filtro = _filtro == faixa ? null : faixa;
+        Publicar();
+    }
+
+    /// <summary>
+    /// O convite pelo WhatsApp. É LEITURA da agenda (não grava nada), então a barreira é a
+    /// mesma do item — as duas metades concordam (parcela 86).
+    /// </summary>
+    private async Task ConvidarAsync(RetornoAMarcar l)
+    {
+        if (!Exigir(Permissao.VerAgenda, "convidar o paciente pelo WhatsApp")) return;
+        var link = QuemMeDeveTela.LinkWhatsApp(l.Telefone,
+            MensagensDeContato.ConviteDeRetorno(l.Paciente, l.RetornoEm, l.Profissional, string.IsNullOrWhiteSpace(_nomeClinica) ? null : _nomeClinica));
+        if (link is null) { Notificacoes.Erro($"{l.Paciente}: telefone ausente ou inválido no cadastro."); return; }
+        if (await Host.AbrirEnderecoAsync(link)) return;
+        var copiou = await Host.CopiarAsync(link);
+        Notificacoes.Erro(copiou
+            ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
+            : "Não foi possível abrir o WhatsApp neste computador.");
+    }
+
+    /// <summary>
+    /// Leva ao Marcar com quem, para quando e com quem já preenchidos. A data é a sugerida —
+    /// ou hoje, quando a sugerida já passou (<see cref="RetornosAMarcarNaTela.DiaParaMarcar"/>).
+    /// </summary>
+    private async Task MarcarAsync(RetornoAMarcar l)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "marcar o retorno")) return;
+        var marcacao = Servicos.GetService<IMarcacaoDeHorario>() ?? MarcacaoIndisponivel.Instancia;
+        var dia = RetornosAMarcarNaTela.DiaParaMarcar(l, DateOnly.FromDateTime(DateTime.Today));
+        if (!await marcacao.MarcarAsync(l.PacienteId, l.ProfissionalId, null, dia))
+            Notificacoes.Erro("A marcação de horário não está disponível neste aplicativo — marque pela Agenda da Recepção.");
+    }
+
+    private static string Iniciais(string nome)
+    {
+        var partes = nome.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => partes[0][..1].ToUpperInvariant(),
+            _ => (partes[0][..1] + partes[^1][..1]).ToUpperInvariant()
+        };
+    }
+
+    private RenderFragment Chip(FaixaRetorno? faixa, string rotulo, int numero, string? tom) => @<button type="button"
+        class="ret-chip @(tom is null ? null : "tom-" + tom)" aria-pressed="@(_filtro == faixa ? "true" : "false")" @onclick="() => Escolher(faixa)"
+        title="@(faixa is not null && _filtro == faixa ? "Clique de novo para ver a fila inteira" : $"Mostrar: {rotulo}")">
+        @rotulo <b>@numero</b>
+    </button>;
+}

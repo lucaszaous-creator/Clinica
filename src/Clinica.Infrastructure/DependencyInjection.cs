@@ -148,6 +148,7 @@ public static class DependencyInjection
         // rodada, pelo ParametrosService.
         services.AddScoped<LembreteEmailService>();
         services.AddScoped<LembreteSmsService>();
+        services.AddScoped<PublicoCampanhaSmsService>();
         services.AddScoped<TendenciaAtendimentosService>();
         services.AddSingleton<Clinica.Application.Sms.IGatewaySms, Clinica.Application.Sms.GatewaySmsHttp>();
         services.AddSingleton<Clinica.Application.Email.IEnviadorDeEmail, Clinica.Application.Email.EnviadorSmtp>();
