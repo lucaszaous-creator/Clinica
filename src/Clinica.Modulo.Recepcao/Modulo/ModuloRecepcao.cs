@@ -481,6 +481,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddHospedagemBlazor();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IMarcacaoDeHorario, MarcacaoDaRecepcao>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao, BalcaoDaRecepcao>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaAgenda, JanelasDaAgendaWpf>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
         // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
@@ -516,7 +517,7 @@ public sealed class ModuloRecepcao : IModuloApp
         },
         ChavePainel => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.InicioRecepcao), servicos),
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
-        ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
+        ChaveFila => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AgendaDoDia), servicos),
         // A lista de Pacientes do BALCÃO abre a ficha do balcão (out/2026, mockup "4 · Ficha");
         // o Prontuário e o Consultório, que reusam a mesma lista, continuam na ficha clínica.
         ChavePacientes => new PacientesView { DataContext = ComFichaDoBalcao(servicos.GetRequiredService<PacientesViewModel>()) },
