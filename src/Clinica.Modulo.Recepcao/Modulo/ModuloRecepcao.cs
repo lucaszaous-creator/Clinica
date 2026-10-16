@@ -482,6 +482,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IMarcacaoDeHorario, MarcacaoDaRecepcao>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao, BalcaoDaRecepcao>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaAgenda, JanelasDaAgendaWpf>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral, AgendaDaVisaoGeral>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
         // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
@@ -508,13 +509,10 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
-        ChavesSuite.OcupacaoAgenda => new OcupacaoAgendaView(servicos),
+        ChavesSuite.OcupacaoAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.VisaoGeralDaAgenda), servicos),
         ChavesSuite.PedidosEnfermagem => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PedidosDaEnfermagem), servicos),
         ChaveConfirmacoes => new ConfirmacoesView { DataContext = servicos.GetRequiredService<ConfirmacoesViewModel>() },
-        ChavePagamentos => new PagamentosView
-        {
-            DataContext = servicos.GetRequiredService<PagamentosViewModel>()
-        },
+        ChavePagamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PagamentosDoBalcao), servicos),
         ChavePainel => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.InicioRecepcao), servicos),
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AgendaDoDia), servicos),
@@ -522,11 +520,8 @@ public sealed class ModuloRecepcao : IModuloApp
         // o Prontuário e o Consultório, que reusam a mesma lista, continuam na ficha clínica.
         ChavePacientes => new PacientesView { DataContext = ComFichaDoBalcao(servicos.GetRequiredService<PacientesViewModel>()) },
         ChaveMarcarHorario => NovoAtendimento(servicos, marcar: true),
-        ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
-        ChaveLancamentos => new LancamentosView
-        {
-            DataContext = servicos.GetRequiredService<LancamentosViewModel>()
-        },
+        ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
+        ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
         ChaveRetornosAMarcar => new RetornosAMarcarView
         {
             DataContext = servicos.GetRequiredService<RetornosAMarcarViewModel>()
