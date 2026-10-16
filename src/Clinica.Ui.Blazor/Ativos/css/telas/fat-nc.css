@@ -1,1 +1,8 @@
-/* fat-nc: estilo só desta tela do Faturamento (tokens apenas). */
+/* fat-nc: estilo só desta tela do Faturamento (tokens apenas). Tela: NaoConformidadesFaturamento. */
+.fat-nc .filtros{border-bottom:0}
+.fat-nc .filtros .campo-bloco{min-width:280px}
+.fat-nc table.lista{table-layout:fixed}
+.fat-nc table.lista td .principal,.fat-nc table.lista td .secundario{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fat-nc table.lista td .principal{display:block}
+/* A justificativa inteira mora no "Ver justificativa"; na linha, duas linhas no máximo. */
+.fat-nc .justificativa{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}

@@ -1,0 +1,96 @@
+@*
+  POR QUE AS GUIAS SÃO GLOSADAS (out/2026, migrado da GuiaGlosasWindow do WPF).
+
+  O demonstrativo da operadora chega com um código seco. Aqui cada código vira o que
+  significa, como não repetir e o que juntar para sustentar o recurso. Somente leitura:
+  o catálogo é a tabela de tipos de glosa do TISS/ANS (MotivosGlosa, no domínio).
+
+  A busca casa código, descrição, significado e "como evitar" — sem acento e sem caixa
+  (GlosasNaTela.FiltrarMotivos). A seleção sobrevive ao filtro quando o motivo continua na
+  lista; senão, mostra o primeiro (a regra da janela WPF).
+*@
+@using Clinica.Domain.Regras
+@using Clinica.Application.Modelos
+
+<Modal Titulo="Por que as guias são glosadas" Largura="largo" AoFechar="AoFechar"
+       Subtitulo="O demonstrativo da operadora chega com um código seco. Aqui está o que cada um quer dizer, o que costuma causar, como não repetir — e o que juntar para sustentar o recurso.">
+    <ChildContent>
+        <div class="guia-glosas">
+            <div class="guia-glosas-lista">
+                <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Buscar por código ou palavra…" value="@_termo" @oninput="TermoMudou" maxlength="60" aria-label="Buscar motivo de glosa" /></div>
+                @if (_motivos.Count == 0)
+                {
+                    <EstadoVazio Titulo="Nenhum motivo bate com a busca" Descricao="Tente o código do demonstrativo ou outra palavra." />
+                }
+                else
+                {
+                    <ul class="guia-glosas-itens" role="listbox" aria-label="Motivos de glosa">
+                        @foreach (var m in _motivos)
+                        {
+                            <li @key="m.Codigo">
+                                <button type="button" role="option" aria-selected="@(m.Codigo == _selecionado?.Codigo ? "true" : "false")"
+                                        class="guia-glosas-item @(m.Codigo == _selecionado?.Codigo ? "ativo" : null)"
+                                        @onclick="() => _selecionado = m">
+                                    <span class="guia-glosas-codigo">@m.Codigo</span>
+                                    <span class="guia-glosas-descricao">@m.Descricao</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            <div class="guia-glosas-detalhe">
+                @if (_selecionado is { } s)
+                {
+                    <div class="guia-glosas-selos">
+                        <Selo Tom="info">@s.Codigo</Selo>
+                        <Selo Tom="@(s.ValeRecorrer ? "sucesso" : "aviso")">@(s.ValeRecorrer ? "Costuma valer o recurso" : "Recurso raramente prospera")</Selo>
+                    </div>
+                    <h3>@s.Descricao</h3>
+
+                    <h4 class="guia-glosas-secao">O que significa</h4>
+                    <p>@s.Significado</p>
+
+                    <h4 class="guia-glosas-secao">Como evitar</h4>
+                    <p>@s.ComoEvitar</p>
+
+                    <h4 class="guia-glosas-secao">Lastro do recurso</h4>
+                    <p>@s.Lastro</p>
+
+                    @if (!s.ValeRecorrer)
+                    {
+                        <Aviso Tom="atencao" Texto="Neste motivo o recurso costuma não prosperar. Vale mais corrigir a causa (ou tratar como particular) do que gastar o prazo recorrendo." />
+                    }
+                }
+            </div>
+        </div>
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda">Códigos da tabela de tipos de glosa do padrão TISS/ANS. O código registrado aqui é o mesmo que sai no XML de recurso.</span>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Motivo já selecionado ao abrir (vindo de uma glosa ou do "Entenda"). Nulo = o primeiro.</summary>
+    [Parameter] public string? CodigoInicial { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string _termo = string.Empty;
+    private IReadOnlyList<MotivoGlosa> _motivos = MotivosGlosa.Todos;
+    private MotivoGlosa? _selecionado;
+
+    protected override void OnInitialized()
+    {
+        _selecionado = MotivosGlosa.Obter(CodigoInicial) ?? _motivos.FirstOrDefault();
+    }
+
+    private void TermoMudou(ChangeEventArgs e)
+    {
+        _termo = e.Value?.ToString() ?? string.Empty;
+        _motivos = GlosasNaTela.FiltrarMotivos(_termo);
+        // Mantém a seleção quando ela sobrevive ao filtro; senão, mostra o primeiro.
+        _selecionado = _motivos.FirstOrDefault(m => m.Codigo == _selecionado?.Codigo) ?? _motivos.FirstOrDefault();
+    }
+}
