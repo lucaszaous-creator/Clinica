@@ -301,7 +301,7 @@ public sealed class ModuloGerente : IModuloApp
     {
         servicos.AddTransient<PainelDirecaoViewModel>();
         servicos.AddTransient<IndicadoresViewModel>();
-        servicos.AddTransient<FaturamentoGerencialViewModel>();
+        Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
         servicos.AddTransient<PrecosConvenioViewModel>();
         servicos.AddTransient<PrecosParticularViewModel>();
         servicos.AddTransient<CustoTransacaoViewModel>();
@@ -329,10 +329,9 @@ public sealed class ModuloGerente : IModuloApp
         {
             DataContext = servicos.GetRequiredService<IndicadoresViewModel>()
         },
-        ChaveFaturamento => new FaturamentoGerencialView
-        {
-            DataContext = servicos.GetRequiredService<FaturamentoGerencialViewModel>()
-        },
+        // Blazor desde out/2026 (docs/faturamento-blazor.md): é a aba "Resumo" do faturamento,
+        // e as abas vizinhas também são Blazor — mesmo navegador, sem flash entre elas.
+        ChaveFaturamento => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ResumoFaturamento), servicos),
         ChavePrecos => new PrecosConvenioView
         {
             DataContext = servicos.GetRequiredService<PrecosConvenioViewModel>()

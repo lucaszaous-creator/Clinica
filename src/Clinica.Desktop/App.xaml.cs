@@ -3,7 +3,6 @@ using System.Windows.Threading;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Alertas;
 using Clinica.Desktop.Configuracao;
-using Clinica.Desktop.ViewModels;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;

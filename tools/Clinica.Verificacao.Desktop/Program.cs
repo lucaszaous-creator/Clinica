@@ -98,7 +98,8 @@ internal static partial class Program
                 if (perfil == PerfilAcesso.Gerente) esperadas = esperadas.Concat(new[] { "Relatórios de guias", "Regras e catálogos TISS" }).ToArray();
                 Conferir(regua.Items.Cast<TabItem>().Select(a => (string)a.Header).SequenceEqual(esperadas),
                     $"{nome}: subabas de guias preservadas conforme permissão");
-                Conferir(regua.SelectedIndex == 0 && ((TabItem)regua.Items[0]).Content is Clinica.Gerente.Views.FaturamentoGerencialView,
+                // Blazor desde out/2026: a aba materializa o LUGAR da tela (o navegador é o da janela).
+                Conferir(regua.SelectedIndex == 0 && ((TabItem)regua.Items[0]).Content is Clinica.Desktop.Blazor.TelaBlazor,
                     $"{nome}: Resumo materializa a tela de faturamento");
                 foreach (var chave in new[] { "agenda", "fila", ChavesSuite.AgendaRecepcao, ChavesSuite.ConsultorioSemana,
                     "agenda-confirmacoes", "retornos-a-marcar", "marcar-horario", "pacientes", "acessos", "configuracoes" })
@@ -221,9 +222,10 @@ internal static partial class Program
                 var prestador=await parametros.ObterPrestadorAsync();prestador.CodigosTuss[TipoCodigo.Acupuntura]="12345678";await parametros.SalvarPrestadorAsync(prestador);
                 clinica.NomeFantasia="Clínica demonstrativa";await clinica.SalvarCommand.ExecuteAsync(null);
                 Conferir((await parametros.ObterPrestadorAsync()).NomeFantasia=="Clínica demonstrativa" && (await parametros.ObterPrestadorAsync()).CodigoTuss(TipoCodigo.Acupuntura)=="12345678","Salvar dados da clínica preserva TUSS atualizado em outro acesso");
-                var tiss=provider.GetRequiredService<Clinica.Desktop.ViewModels.ParametrosViewModel>();await tiss.CarregarAsync();
+                // A tela Blazor de Configurações salva os TUSS pelo MESMO método (relê e mescla).
                 prestador=await parametros.ObterPrestadorAsync();prestador.ChavePix="pix-ficticio";await parametros.SalvarPrestadorAsync(prestador);
-                tiss.TussAcupuntura="87654321";await tiss.SalvarCommand.ExecuteAsync(null);
+                await Clinica.Application.Servicos.ConfiguracoesFaturamentoNaTela.SalvarCodigosTussAsync(parametros,
+                    new Dictionary<TipoCodigo,string?>{[TipoCodigo.Acupuntura]="87654321"});
                 Conferir((await parametros.ObterPrestadorAsync()).CodigoTuss(TipoCodigo.Acupuntura)=="87654321" && (await parametros.ObterPrestadorAsync()).ChavePix=="pix-ficticio","Salvar catálogo TISS preserva Pix atualizado em outro acesso");
 
             }

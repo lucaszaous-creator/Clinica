@@ -16,7 +16,9 @@
 | Estilo só desta tela | `src/Clinica.Ui.Blazor/Ativos/css/telas/<tela>.css` (já importado no `clinica.css`) |
 | Regra de negócio / o que a tela AFIRMA | `src/Clinica.Application` — com teste |
 | Dados fictícios da prévia | `tools/PreviaBlazor/Sementes/<Tela>.cs` (implementa `ISemente`, Ordem > 0) |
-| Ligar no menu | `CriarTela` do módulo: `new Web.TelaBlazor(typeof(Telas.X), servicos)` |
+| Ligar no menu | `CriarTela` do módulo: `HospedagemBlazor.Tela(typeof(Telas.X), servicos)`; no `Registrar`, `servicos.AddHospedagemBlazor()` (idempotente) |
+| Telas de um módulo grande | `Telas/<Modulo>/` com um `_Imports.razor` que faz `@namespace Clinica.Ui.Blazor.Telas` (a prévia e os testes acham por esse namespace) — é como o Faturamento está |
+| A hospedagem no WPF | `src/Clinica.Desktop.Blazor` — `TelaBlazor`, o navegador ÚNICO da janela e o `HostDaTelaWpf`. UM projeto para todos os módulos: duas cópias dariam dois navegadores na mesma janela do Gerente |
 
 A prévia acha **sozinha** as telas (`/tela/<NomeDaClasse>`) e as sementes (por reflexão):
 nenhum arquivo comum precisa ser editado para acrescentar uma tela.
@@ -65,7 +67,15 @@ nenhum arquivo comum precisa ser editado para acrescentar uma tela.
    (`<Aviso Tom="erro">` ou `Campo Erro=`), confirmação passageira em `Notificacoes`.
    O formulário grava e chama `AoConcluir`; a tela recarrega.
 7. 💾 **Disco/cópia/navegação** pelo `Host` (`ExportarCsvAsync`, `SalvarEAbrirAsync`,
-   `EscolherArquivoAsync`, `CopiarAsync`, `NavegarAsync`). CSV: `Exigir(VerFinanceiro)` antes.
+   `EscolherArquivoAsync`, `CopiarAsync`, `NavegarAsync`, `AbrirEnderecoAsync`,
+   `AbrirFichaDoPacienteAsync`). CSV: `Exigir` do bit de leitura da tela antes.
+   ⚠️ Ato que GASTA um número (o lote TISS consome a sequência da ANS): pergunte o destino
+   ANTES (`PerguntarOndeSalvarAsync` / `PerguntarPastaAsync`) e só então crie e
+   `GravarArquivoAsync` — o `SalvarEAbrirAsync` devolve null tanto para "gravou" quanto para
+   "desistiu", e desistir não pode ter gastado o número.
+7-B. ⌨️ **Atalhos** (Ctrl+S, Ctrl+P, F5): `protected override Task AoAtalhoAsync(AtalhoDeTela a)`
+   chama o MESMO método do botão, com as duas barreiras. Com o navegador em foco o WPF não
+   recebe a tecla; a página a repassa (`index.html` → `PalcoDeTelas.Atalho`).
 8. 💰 **Formato pt-BR fixo** (`Formato.Dinheiro/Data/Mes/Numero/ParaCampo`); o que a pessoa
    digita, pela `LeituraDeValores` — o MESMO método que o ViewModel WPF usava naquele
    campo. ⚠️ `TentarLerQuantidade` lê em pt-BR primeiro, então "2.5" vira 25 (o ponto é
@@ -83,7 +93,7 @@ nenhum arquivo comum precisa ser editado para acrescentar uma tela.
 | Componente | Para quê |
 |---|---|
 | `CabecalhoPagina` | Sobretítulo, título, subtítulo e as ações à direita (`ChildContent`) |
-| `Kpi` | Cartão de número. `Tom`: `""`, `saida`, `sucesso`, `perigo`, `aviso`, `neutro`; `ClasseValor`: `positivo`/`negativo` |
+| `Kpi` | Cartão de número. `Tom`: `""`, `saida`, `sucesso`, `perigo`, `aviso`, `neutro`; `ClasseValor`: `positivo`/`negativo`. Já traz o menu "⋯" (copiar valor / rótulo e valor) |
 | `Modal` | O formulário. `Largura`: `pequeno`, `medio`, `grande`, `largo`. Esc fecha; clique fora NÃO fecha |
 | `Campo` | Rótulo + controle + dica/erro, dentro de `<div class="campos">` (grade de 2; `.tres`; `Classe="largo"`) |
 | `Aviso` | Mensagem inline. `Tom`: `info`, `erro`, `sucesso`, `atencao`. Some sozinho sem texto |
@@ -144,7 +154,7 @@ existir dentro dela, e cor de fundo nenhuma vale nesse instante. Hoje:
   (oculta), num contêiner que rola sozinho, e reativá-la dispara a releitura silenciosa
   (`SinalDeVolta`). Diálogos e notificações existem uma vez por navegador.
 
-**Nunca crie `BlazorWebView` por tela.** Tela nova só precisa do `new Web.TelaBlazor(...)` no
+**Nunca crie `BlazorWebView` por tela.** Tela nova só precisa do `HospedagemBlazor.Tela(...)` no
 `CriarTela`; o palco cuida do resto.
 
 ### As opções que foram comparadas 🧑‍💻 🛠️ 🤝

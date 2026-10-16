@@ -26,7 +26,7 @@ O piloto testa a saída que resolve as duas causas de uma vez: **a tela em HTML/
 |---|---|---|
 | A tela | `src/Clinica.Ui.Blazor/Telas/FluxoDeCaixa.razor` | Razor (HTML + C#). Chama o `FluxoCaixaService`, o mesmo da tela WPF. Nenhuma regra nova. |
 | O estilo | `src/Clinica.Ui.Blazor/Ativos/css/clinica.css` | Importa os tokens de `tokens/*.css`, o espelho do `Tokens.xaml` conferido no CI. As cores são as do design system. |
-| O hospedeiro WPF | `src/Clinica.Modulo.Financeiro/Web/TelaBlazor.cs` | Um `BlazorWebView` que serve a página de dentro da DLL. |
+| O hospedeiro WPF | `src/Clinica.Desktop.Blazor/TelaBlazor.cs` (era do módulo Financeiro; subiu em out/2026) | Um `BlazorWebView` que serve a página de dentro da DLL. |
 | A porta | Financeiro → Caixa → aba **"Fluxo (novo visual)"** | Ao lado da aba "Fluxo", que continua sendo a tela WPF intacta. |
 | A prévia | `tools/PreviaBlazor` | Servidor de desenvolvimento com SQLite em memória e dados FICTÍCIOS. Roda em Linux e é o que permite fotografar a tela. Não é produto. |
 | Testes | `tests/Clinica.Tests/PilotoBlazorTests.cs` | Confere que a página, o CSS e os tokens estão embutidos na DLL (senão a aba abriria em branco só na clínica) e que o dinheiro sai em pt-BR. |

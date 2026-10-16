@@ -290,7 +290,8 @@ Nenhum deles quebra o build quando é esquecido:
     embutidos na DLL e o Razor chama o serviço direto. **Não reintroduza HTML escrito à mão
     conversando por mensagem**; tela HTML é Razor.
   - 🗂️ As telas WPF dos OUTROS módulos continuam valendo e se mantêm em XAML até serem
-    migradas; tela NOVA não nasce em XAML. O Financeiro já é só Blazor.
+    migradas; tela NOVA não nasce em XAML. O Financeiro e o Faturamento de guias já são só
+    Blazor (o Faturamento desde out/2026 — `docs/faturamento-blazor.md`).
 - **Tela de leitura que volta do histórico** implementa `IAtualizarAoVoltar`: reaparece na hora
   com o que mostrava e relê em silêncio (sem "Carregando", sem limpar, falha só no log).
   Formulário e prontuário em edição NÃO implementam — voltar não pode reler por baixo de quem digita.
@@ -4714,6 +4715,37 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do dia ainda espera o navegador nascer) e o menu "⋯" dos cartões de número, que o `Kpi`
   ainda não tem. (O "um `BlazorWebView` por aba" que estava aqui foi pago na rodada da tela
   preta — ver o 🕰️ da seção de telas.)
+
+- **🎨 O FATURAMENTO DE GUIAS VIROU BLAZOR — e "nada se perde" foi medido, não prometido**
+  (out/2026; a direção, depois do Financeiro aprovado: *"se certificando que nada irá ser
+  perdido ou nada irá deixar de funcionar"*; o mapa está em `docs/faturamento-blazor.md`).
+  As nove telas (Pendências, Consultar guias, Faturados, Glosas, NC, Lotes TISS, Relatórios,
+  Configurações e o Resumo, que mora no Gerente) e as onze janelas viraram Razor sobre os
+  MESMOS serviços, em cinco frentes paralelas, cada uma devolvendo a LISTA DE PARIDADE — cada
+  comando, filtro, coluna, atalho, exportação e permissão do ViewModel WPF → onde ficou.
+  ⚠️ **Continuam WPF, de propósito, as duas janelas da ABERTURA** (aviso de pendências e a
+  rodada BLOQUEANTE): elas travam o app antes de a área de trabalho existir, e um formulário
+  dentro do navegador trava só a tela dele. A REGRA da rodada é uma só
+  (`DecisoesDaRodada`, Application, com teste), chamada pela janela e pelo painel.
+  ⚠️ **A hospedagem subiu para `Clinica.Desktop.Blazor`**: o dicionário "um navegador por
+  janela" é estático POR CLASSE, e uma cópia no Faturamento daria dois navegadores (e um flash
+  a mais) na janela do Gerente, que carrega os dois módulos.
+  ⚠️ **As perdas que a migração quase produziu, e que só a lista de paridade mostrou**: os
+  atalhos Ctrl+S/P/F5 (com o navegador em foco o WPF não recebe a tecla — e o F5 recarregaria
+  a página; agora `TelaBase.AoAtalhoAsync`), o menu "⋯" dos cartões de número (já faltava no
+  Financeiro; agora mora no `Kpi`), a ficha do paciente a partir da pendência
+  (`AbrirFichaDoPacienteAsync`, a MESMA ficha do shell por cima da tela) e — a mais cara — o
+  lote TISS: o WPF perguntava o destino ANTES de criar o lote, e a primeira versão Blazor
+  criava primeiro e salvava depois, gastando o número da sequência da ANS quando a pessoa
+  desistia da janela, e mandava vários lotes num .zip que a operadora não espera.
+  **Ao trocar a tecnologia de uma tela, o que mais se perde não é o que ela mostra — é a
+  ORDEM em que ela faz as coisas.**
+  🐛 **E reler o ViewModel inteiro achou de novo o que as redes não viam**: o retorno do lote
+  regravava a glosa já registrada com motivo VAZIO e reiniciava o prazo de recurso; o XML de
+  recurso saía pelo Ctrl+P sem a segunda barreira; a guia em NC aparecia como "Aberto —
+  faturar em…"; "Salvar configurações" aparecia nas abas que ele não grava; excluir o
+  "Particular" apagava em silêncio o nome que a clínica deu (o catálogo o recria). Todos
+  corrigidos nas telas novas, com teste.
 
 ### Convenções
 

@@ -52,7 +52,8 @@ static class TrocasBlazor
 
         using var conexao = new SqliteConnection("Data Source=:memory:"); conexao.Open();
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).Options;
-        IModuloApp[] modulos = [new Clinica.Financeiro.Modulo.ModuloFinanceiro()];
+        // O Financeiro E o Faturamento: o mesmo navegador da janela tem de servir aos dois sem flash.
+        IModuloApp[] modulos = [new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento()];
         var services = new ServiceCollection();
         services.AddClinica("Host=127.0.0.1;Database=nao_usado;Username=nao_usado");
         services.AddScoped(_ => new ClinicaDbContext(options));
@@ -126,7 +127,10 @@ static class TrocasBlazor
 
         string[] blazor = [ChavesSuite.Caixa, ChavesSuite.FechamentoCaixa, "fluxo-caixa", ChavesSuite.Contas, ChavesSuite.Inadimplencia,
             "plano-contas", ChavesSuite.Recebiveis, ChavesSuite.Conciliacao, "extrato-banco", "taxas", "estoque", "repasses",
-            ChavesSuite.Resultado, ChavesSuite.Producao];
+            ChavesSuite.Resultado, ChavesSuite.Producao,
+            // Faturamento de guias (out/2026)
+            "faturamento-pendencias", "faturamento-guias", "faturamento-faturados", "faturamento-glosas",
+            "faturamento-nc", "faturamento-tiss", "faturamento-relatorios", "faturamento-parametros"];
         string[] wpf = [ChavesSuite.Pacotes, ChavesSuite.Ajuda];
         async Task Ir(string chave, string fase, int esperaMs)
         {
