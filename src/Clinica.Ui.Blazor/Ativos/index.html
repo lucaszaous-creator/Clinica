@@ -12,6 +12,25 @@
 </head>
 <body>
     <div id="app"></div>
+    <script>
+        // Atalhos de teclado das telas (Ctrl+S salvar, Ctrl+P imprimir/exportar, F5 atualizar):
+        // com o navegador em foco o WPF não recebe a tecla, então a página a repassa à tela à
+        // vista (PalcoDeTelas.Atalho). preventDefault impede o navegador de recarregar (F5) ou
+        // abrir a impressão da página (Ctrl+P).
+        window.clinicaAtalhos = {
+            ligar: function (ref) {
+                document.addEventListener('keydown', function (e) {
+                    var k = (e.key || '').toLowerCase(), nome = null;
+                    if (e.ctrlKey && !e.altKey && !e.shiftKey && k === 's') nome = 'Salvar';
+                    else if (e.ctrlKey && !e.altKey && !e.shiftKey && k === 'p') nome = 'Imprimir';
+                    else if (e.key === 'F5' && !e.ctrlKey && !e.altKey) nome = 'Atualizar';
+                    if (!nome) return;
+                    e.preventDefault();
+                    ref.invokeMethodAsync('Atalho', nome);
+                });
+            }
+        };
+    </script>
     <script src="_framework/blazor.webview.js" autostart="true"></script>
 </body>
 </html>

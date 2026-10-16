@@ -7,9 +7,10 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Ui.Blazor.Hospedagem;
 using Microsoft.AspNetCore.Components.WebView;
 using Microsoft.AspNetCore.Components.WebView.Wpf;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 
-namespace Clinica.Financeiro.Web;
+namespace Clinica.Desktop.Blazor;
 
 /// <summary>
 /// O lugar de uma tela Blazor na área de trabalho do WPF. Ela NÃO tem navegador: o
@@ -230,7 +231,7 @@ internal sealed class NavegadorDaJanela
 /// O BlazorWebView roda os componentes no Dispatcher do WPF, então estas chamadas já
 /// chegam na thread da interface; o `InvokeAsync` é a garantia, não a regra.
 /// </summary>
-public sealed class HostDaTelaWpf : IHostDaTela
+public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
 {
     public Task<string?> ExportarCsvAsync(
         IReadOnlyList<string> cabecalho,
@@ -285,6 +286,40 @@ public sealed class HostDaTelaWpf : IHostDaTela
             return Task.FromResult(false);
         }
     }
+
+    public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId)
+        => NaInterface(async () =>
+        {
+            // A ficha é WPF (componente do shell, via IFabricaFichaPaciente) e não cabe DENTRO
+            // do navegador: abre numa janela própria, por cima da tela. Janela nativa passa
+            // por cima do navegador normalmente, e fechar devolve a tela como estava.
+            using var escopo = servicos.CreateScope();
+            var fabrica = servicos.GetService<Clinica.Desktop.Shell.Modulos.IFabricaFichaPaciente>();
+            if (fabrica is null) return false;
+            var paciente = await escopo.ServiceProvider
+                .GetRequiredService<Clinica.Application.Servicos.PacienteService>().ObterAsync(pacienteId);
+            if (paciente is null) return false;
+            var foco = new Clinica.Desktop.Shell.Modulos.PacienteEmFoco();
+            foco.Definir(paciente.Id, paciente.Nome);
+            var area = SystemParameters.WorkArea;
+            var dono = System.Windows.Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                       ?? System.Windows.Application.Current?.MainWindow;
+            var janela = new Window
+            {
+                Title = $"Ficha do paciente — {paciente.Nome}",
+                Owner = dono,
+                WindowStartupLocation = dono is null ? WindowStartupLocation.CenterScreen : WindowStartupLocation.CenterOwner,
+                Width = Math.Min(1240, area.Width * 0.96),
+                Height = Math.Min(860, area.Height * 0.96),
+                MinWidth = Math.Min(900, area.Width * 0.9),
+                MinHeight = Math.Min(600, area.Height * 0.9),
+                ShowInTaskbar = false
+            };
+            janela.SetResourceReference(Control.BackgroundProperty, "Brush.Fundo");
+            janela.Content = fabrica.Criar(foco, voltar: () => janela.Close());
+            janela.ShowDialog();
+            return true;
+        });
 
     private static Task<T> NaInterface<T>(Func<Task<T>> acao)
     {

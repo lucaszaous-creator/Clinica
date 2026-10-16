@@ -34,6 +34,7 @@ public abstract class TelaBase : ComponentBase, IDisposable
         {
             _escutando = true;
             Sinal.Voltou += AoSinal;
+            Sinal.Atalho += AoAtalhoDoTeclado;
         }
     }
 
@@ -42,6 +43,19 @@ public abstract class TelaBase : ComponentBase, IDisposable
         try { await AoVoltarAsync(); StateHasChanged(); }
         catch (Exception ex) { Clinica.Application.Diagnostico.Registrar($"Blazor — releitura ao voltar ({GetType().Name})", ex); }
     });
+
+    private Task AoAtalhoDoTeclado(AtalhoDeTela atalho) => InvokeAsync(async () =>
+    {
+        try { await AoAtalhoAsync(atalho); StateHasChanged(); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar($"Blazor — atalho {atalho} ({GetType().Name})", ex); }
+    });
+
+    /// <summary>
+    /// Ctrl+S / Ctrl+P / F5 com esta tela à vista. O padrão é nada; a tela que tinha o atalho
+    /// no WPF (<c>IAtalhosDeTela</c>) responde aqui, pelo MESMO caminho do botão — inclusive as
+    /// duas barreiras: atalho que pulasse o <c>Exigir</c> seria a porta que a permissão fecha.
+    /// </summary>
+    protected virtual Task AoAtalhoAsync(AtalhoDeTela atalho) => Task.CompletedTask;
 
     /// <summary>
     /// A pessoa voltou a esta aba: releia por trás, SEM limpar o que está na tela (a regra do
@@ -107,7 +121,11 @@ public abstract class TelaBase : ComponentBase, IDisposable
     public virtual void Dispose()
     {
         Descartada = true;
-        if (_escutando && Sinal is not null) Sinal.Voltou -= AoSinal;
+        if (_escutando && Sinal is not null)
+        {
+            Sinal.Voltou -= AoSinal;
+            Sinal.Atalho -= AoAtalhoDoTeclado;
+        }
         GC.SuppressFinalize(this);
     }
 }

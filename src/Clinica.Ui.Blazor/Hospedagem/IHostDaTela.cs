@@ -50,6 +50,14 @@ public interface IHostDaTela
     /// Falso quando não abriu; quem chama oferece copiar o endereço.
     /// </summary>
     Task<bool> AbrirEnderecoAsync(string url);
+
+    /// <summary>
+    /// Abre a FICHA do paciente (a do shell, a mesma da Recepção) por cima da tela, e volta
+    /// a ela ao fechar — a pendência do faturamento leva à ficha sem perder o filtro do painel.
+    /// Falso quando a ficha não existe neste executável (a prévia) — quem chama DIZ isso.
+    /// A barreira (<c>VerFichaPaciente</c>) é de quem chama, como toda segunda barreira.
+    /// </summary>
+    Task<bool> AbrirFichaDoPacienteAsync(int pacienteId);
 }
 
 /// <summary>Arquivo escolhido pela pessoa: o nome (para mostrar) e o conteúdo.</summary>

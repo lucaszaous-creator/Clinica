@@ -8,6 +8,8 @@
 *@
 @implements IDisposable
 @inject Clinica.Ui.Blazor.Hospedagem.Dialogos Dialogos
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
 
 @foreach (var t in Palco.Telas)
 {
@@ -33,7 +35,37 @@
         StateHasChanged();
     });
 
-    protected override void OnAfterRender(bool firstRender) => Palco.AvisarMontagem();
+    private Microsoft.JSInterop.DotNetObjectReference<PalcoDeTelas>? _ref;
 
-    public void Dispose() => Palco.Mudou -= Redesenhar;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        Palco.AvisarMontagem();
+        if (!firstRender) return;
+        // Os atalhos do teclado (Ctrl+S, Ctrl+P, F5) chegam por aqui: com o navegador em foco,
+        // o WPF não recebe a tecla. Falhar não derruba nada — a tela continua com os botões.
+        try
+        {
+            _ref = Microsoft.JSInterop.DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("clinicaAtalhos.ligar", _ref);
+        }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — atalhos do teclado não ligaram", ex); }
+    }
+
+    /// <summary>Chamado pelo script da página quando a pessoa aperta um dos três atalhos.</summary>
+    [Microsoft.JSInterop.JSInvokable]
+    public Task Atalho(string nome)
+    {
+        if (!Enum.TryParse<Clinica.Ui.Blazor.Hospedagem.AtalhoDeTela>(nome, out var atalho)
+            || atalho.ToString() != nome) return Task.CompletedTask;
+        var atual = Palco.Telas.FirstOrDefault(t => t.Id == Palco.Atual);
+        // Com uma pergunta aberta, o atalho não age por baixo dela.
+        if (atual is null || Dialogos.Atual is not null) return Task.CompletedTask;
+        return atual.Sinal.AvisarAtalhoAsync(atalho);
+    }
+
+    public void Dispose()
+    {
+        Palco.Mudou -= Redesenhar;
+        _ref?.Dispose();
+    }
 }

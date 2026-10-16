@@ -12,4 +12,16 @@ public sealed class SinalDeVolta
     public event Action? Voltou;
 
     public void Avisar() => Voltou?.Invoke();
+
+    /// <summary>
+    /// Atalho de teclado da tela À VISTA (Ctrl+S, Ctrl+P, F5) — o equivalente do
+    /// <c>IAtalhosDeTela</c> do faturamento WPF. Quem escuta é a <see cref="TelaBase"/>; quem
+    /// avisa é o palco, que sabe qual tela está à vista.
+    /// </summary>
+    public event Func<AtalhoDeTela, Task>? Atalho;
+
+    public Task AvisarAtalhoAsync(AtalhoDeTela atalho) => Atalho?.Invoke(atalho) ?? Task.CompletedTask;
 }
+
+/// <summary>Os três atalhos globais que o faturamento WPF roteava para a tela ativa.</summary>
+public enum AtalhoDeTela { Salvar, Imprimir, Atualizar }

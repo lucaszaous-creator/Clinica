@@ -218,6 +218,7 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
         public Task<bool> CopiarAsync(string t) => Task.FromResult(true);
         public Task<bool> NavegarAsync(string c) => Task.FromResult(false);
         public Task<bool> AbrirEnderecoAsync(string u) => Task.FromResult(false);
+        public Task<bool> AbrirFichaDoPacienteAsync(int id) => Task.FromResult(false);
     }
 
 }

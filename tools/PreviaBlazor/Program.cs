@@ -77,4 +77,6 @@ sealed class HostDaPrevia : IHostDaTela
     public Task<bool> NavegarAsync(string chave) => Task.FromResult(false);
 
     public Task<bool> AbrirEnderecoAsync(string url) => Task.FromResult(false);
+
+    public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId) => Task.FromResult(false);
 }

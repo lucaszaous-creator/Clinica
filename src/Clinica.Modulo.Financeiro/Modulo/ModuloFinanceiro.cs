@@ -210,9 +210,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         // O Financeiro é BLAZOR desde out/2026 (docs/telas-blazor.md): as telas não têm
         // ViewModel registrado — cada uma abre escopo por operação. Aqui só o motor do
         // BlazorWebView, o que a tela pede ao WPF e os serviços de tela (diálogos, avisos).
-        servicos.AddWpfBlazorWebView();
-        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IHostDaTela, Web.HostDaTelaWpf>();
-        Clinica.Ui.Blazor.Hospedagem.RegistroTelas.AddTelasBlazor(servicos);
+        Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
         // Pacotes continua WPF: a tela é do SHELL e a Recepção publica a mesma chave.
         servicos.AddTransient<Clinica.Desktop.Shell.Componentes.PacotesViewModel>();
     }
@@ -250,5 +248,6 @@ public sealed class ModuloFinanceiro : IModuloApp
         _ => null
     };
 
-    private static Web.TelaBlazor Blazor(Type tela, IServiceProvider servicos) => new(tela, servicos);
+    private static Clinica.Desktop.Blazor.TelaBlazor Blazor(Type tela, IServiceProvider servicos)
+        => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(tela, servicos);
 }

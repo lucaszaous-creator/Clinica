@@ -78,6 +78,9 @@ URL_WD = (
 PROJETOS_WPF = [
     "Clinica.Desktop",
     "Clinica.Desktop.Shell",
+    # A hospedagem das telas Blazor (out/2026): o navegador único da janela, compartilhado
+    # pelo Financeiro e pelo Faturamento.
+    "Clinica.Desktop.Blazor",
     "Clinica.Modulo.Recepcao",
     "Clinica.Modulo.Financeiro",
     "Clinica.Modulo.Gerente",
