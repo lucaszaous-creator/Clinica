@@ -1,0 +1,82 @@
+@*
+  OS NÚMEROS DAS REGRAS (o que no WPF era a RegrasFamiliaWindow, parcela 69).
+
+  Cada linha é uma FAMÍLIA de regra, não uma operadora: o que se muda aqui vale para todos os
+  convênios que faturam por ela — por isso a família é a resposta certa nesta tabela, e o
+  rótulo sai do catálogo (nunca o identificador do enum). Edita as MESMAS linhas da tela de
+  trás; quem grava é o "Salvar configurações".
+*@
+@using Clinica.Application.Servicos
+
+<Modal Titulo="Números das regras de faturamento"
+       Subtitulo="Cada linha é uma FAMÍLIA de regra, não uma operadora: o que você mudar aqui vale para todos os convênios que faturam por essa família. Quais códigos saem a cada atendimento continua sendo fixo no sistema — o que se ajusta são os números."
+       Largura="largo" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="tabela-rolagem fat-familias">
+            <table class="lista">
+                <thead>
+                    <tr>
+                        <th>Família da regra</th>
+                        <th style="width:150px">Validade da consulta (dias)</th>
+                        <th style="width:130px">Dias até o 2º código</th>
+                        <th style="width:150px">Semáforo com app</th>
+                        <th style="width:150px">Semáforo sem app</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Itens)
+                    {
+                        <tr @key="p.Convenio">
+                            <td><span class="principal">@ConfiguracoesFaturamentoNaTela.Familia(p.Convenio)</span></td>
+                            <td>
+                                <input type="number" min="0" max="9999" class="campo" placeholder="Não renova" disabled="@(!PodeEditar)"
+                                       aria-label="Validade da consulta, em dias" value="@p.ValidadeConsultaDias"
+                                       @onchange="@(e => Mudar(() => p.ValidadeConsultaDias = int.TryParse(e.Value?.ToString(), out var v) && v >= 0 ? v : null))" />
+                            </td>
+                            <td>
+                                <input type="number" min="0" max="999" class="campo" disabled="@(!PodeEditar)"
+                                       aria-label="Dias até o 2º código" value="@p.DiasSegundoCodigo"
+                                       @onchange="@(e => Mudar(() => { if (int.TryParse(e.Value?.ToString(), out var d) && d >= 0) p.DiasSegundoCodigo = d; }))" />
+                            </td>
+                            <td>
+                                <select class="campo" disabled="@(!PodeEditar)" aria-label="Semáforo com app" value="@p.CategoriaComApp"
+                                        @onchange="@(e => Mudar(() => p.CategoriaComApp = Ler(e)))">
+                                    @foreach (var c in Enum.GetValues<Categoria>()) { <option value="@c">@ConfiguracoesFaturamentoNaTela.Categoria(c)</option> }
+                                </select>
+                            </td>
+                            <td>
+                                <select class="campo" disabled="@(!PodeEditar)" aria-label="Semáforo sem app" value="@p.CategoriaSemApp"
+                                        @onchange="@(e => Mudar(() => p.CategoriaSemApp = Ler(e)))">
+                                    @foreach (var c in Enum.GetValues<Categoria>()) { <option value="@c">@ConfiguracoesFaturamentoNaTela.Categoria(c)</option> }
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <span class="campo-dica">Validade da consulta em branco: a família não exige renovar a consulta.</span>
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda">As alterações valem quando você clicar em “Salvar configurações”, na tela de trás.</span>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>As linhas da tela de trás — editadas no lugar.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ParametroConvenio> Itens { get; set; } = [];
+    [Parameter] public bool PodeEditar { get; set; }
+    [Parameter] public EventCallback AoMudar { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private static Categoria? Ler(ChangeEventArgs e)
+        => Enum.TryParse<Categoria>(e.Value?.ToString(), out var c) ? c : null;
+
+    private Task Mudar(Action alterar)
+    {
+        if (!PodeEditar) return Task.CompletedTask;
+        alterar();
+        return AoMudar.InvokeAsync();
+    }
+}

@@ -1,0 +1,711 @@
+@*
+  REGRAS E CATÁLOGOS TISS — as Configurações do faturamento (out/2026, migrada do
+  ParametrosView/ParametrosViewModel do WPF, com a ConvenioWindow, a RegrasFamiliaWindow e as
+  duas abas que vinham de componentes do shell: RegrasFaturamentoView e DadosClinicaView).
+
+  Valem para TODAS as máquinas (estão no banco). Seis perguntas, seis abas:
+  - Convênios: lista de largura inteira → o convênio abre num formulário (parcela 69); os
+    "Números das regras" (por FAMÍLIA) em outro;
+  - Prazos, Clínica / prestador: cada uma grava pelo PRÓPRIO botão (como no WPF, onde eram
+    componentes com Salvar próprio). O "Salvar configurações" não as grava — e por isso ele
+    não aparece nelas, em vez de aparecer prometendo o que não faz;
+  - Modalidades, Especialidades, Códigos TUSS: gravam pelo "Salvar configurações".
+
+  O que decide (rótulos, nome único, recusa de duplicado, cópia campo a campo, prazos e o
+  Salvar que RELÊ o prestador antes de gravar) mora em ConfiguracoesFaturamentoNaTela, na
+  Application, com teste.
+*@
+@inherits TelaBase
+
+<div class="pagina fat-configuracoes @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Faturamento · Configurações" Titulo="Regras e catálogos TISS"
+                     Subtitulo="Configurações globais do faturamento: valem imediatamente em todas as máquinas da clínica.">
+        @if (_pendente)
+        {
+            <Selo Tom="aviso" Dica="Há mudanças na tela que ainda não foram gravadas.">Alterações não salvas</Selo>
+        }
+        <button type="button" class="botao" @onclick="AtualizarAsync" disabled="@(_carregando || _salvando)"><Icone Nome="atualizar" />Atualizar</button>
+        @if (SalvaPeloBotaoPrincipal)
+        {
+            <button type="button" class="botao primario" @onclick="SalvarAsync"
+                    disabled="@(!PodeConfigurar || !_carregou || _naoVerificado || _salvando)"
+                    title="@(PodeConfigurar ? "Ctrl+S" : "Seu acesso não permite alterar as configurações do faturamento.")">
+                <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar configurações")
+            </button>
+        }
+    </CabecalhoPagina>
+
+    <Aviso Tom="@(_mensagemEhErro ? "erro" : "sucesso")" Texto="@_mensagem" />
+
+    <section class="cartao lista-cartao">
+        <div class="abas" role="tablist" aria-label="Configurações do faturamento">
+            @foreach (var (aba, rotulo) in Abas)
+            {
+                <button type="button" role="tab" aria-selected="@(_aba == aba ? "true" : "false")" @onclick="() => TrocarAba(aba)">@rotulo</button>
+            }
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as configurações" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="260" /></div>
+        }
+        else
+        {
+            @switch (_aba)
+            {
+                case Aba.Convenios: @AbaConvenios break;
+                case Aba.Prazos: @AbaPrazos break;
+                case Aba.Modalidades: @AbaModalidades break;
+                case Aba.Especialidades: @AbaEspecialidades break;
+                case Aba.Clinica: @AbaClinica break;
+                default: @AbaTuss break;
+            }
+        }
+    </section>
+</div>
+
+@if (_editando is { } convenio)
+{
+    <ConvenioForm Convenio="convenio" PodeEditar="PodeConfigurar" AoMudar="MarcarPendente" AoFechar="() => _editando = null" />
+}
+@if (_regrasFamilia)
+{
+    <RegrasFamiliaForm Itens="_familias" PodeEditar="PodeConfigurar" AoMudar="MarcarPendente" AoFechar="() => _regrasFamilia = false" />
+}
+
+@code {
+    // ============================ Abas ============================
+
+    private RenderFragment AbaConvenios => @<text>
+        <div class="fat-cfg-topo">
+            <div>
+                <h2>Convênios atendidos</h2>
+                <p>Cada linha é uma operadora. Abra uma delas para dar nome, escolher a regra de faturamento que ela segue, definir a forma do número da guia e cadastrar o particular. Lembre de clicar em “Salvar configurações” ao terminar.</p>
+            </div>
+            <div class="fat-cfg-acoes">
+                <button type="button" class="botao" @onclick="() => _regrasFamilia = true"
+                        title="Validade da consulta, dias até o 2º código e semáforo — por família de regra"><Icone Nome="ajustes" />Números das regras…</button>
+                <button type="button" class="botao" @onclick="NovoConvenio" disabled="@(!PodeConfigurar)"
+                        title="@(PodeConfigurar ? null : "Seu acesso não permite alterar as configurações do faturamento.")"><Icone Nome="mais" />Novo convênio</button>
+            </div>
+        </div>
+        @if (_convenios.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhum convênio no catálogo" Descricao="Use “Novo convênio” para cadastrar a primeira operadora." />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th class="centro" style="width:64px">Ativo</th>
+                            <th>Convênio</th>
+                            <th>Fatura pela regra de</th>
+                            <th style="width:170px">Guias</th>
+                            <th style="width:150px">Nº da guia</th>
+                            <th style="width:120px">Registro ANS</th>
+                            <th class="direita" style="width:130px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _convenios)
+                        {
+                            <tr @key="c.Codigo" class="fat-cfg-linha @(c.Ativo ? null : "apagada")" @ondblclick="() => _editando = c">
+                                <td class="centro">
+                                    <input type="checkbox" class="fat-cfg-ativo" checked="@c.Ativo" disabled="@(!PodeConfigurar)"
+                                           title="Desmarcado, o convênio some das listas de escolha — o histórico fica"
+                                           aria-label="@($"{c.Nome} ativo")"
+                                           @onchange="@(e => { c.Ativo = e.Value is true; MarcarPendente(); })"
+                                           @ondblclick:stopPropagation="true" />
+                                </td>
+                                <td><span class="principal">@c.Nome</span></td>
+                                <td>@ConfiguracoesFaturamentoNaTela.Familia(c.Familia)</td>
+                                <td>
+                                    @if (c.GeraGuia) { <span>@ConfiguracoesFaturamentoNaTela.ResumoGuia(true)</span> }
+                                    else { <Selo Tom="info">@ConfiguracoesFaturamentoNaTela.ResumoGuia(false)</Selo> }
+                                </td>
+                                <td>@ConfiguracoesFaturamentoNaTela.Formato(c.FormatoNumeroGuia)</td>
+                                <td class="nao-quebra">@(string.IsNullOrWhiteSpace(c.RegistroAnsOperadora) ? "—" : c.RegistroAnsOperadora)</td>
+                                <td class="direita">
+                                    <div class="botoes-linha" @ondblclick:stopPropagation="true">
+                                        <button type="button" class="botao mini primario" @onclick="() => _editando = c"><Icone Nome="abrir" />Abrir</button>
+                                        @if (ConfiguracoesFaturamentoNaTela.ConvenioPodeSerExcluido(c))
+                                        {
+                                            <button type="button" class="botao mini icone contorno-perigo" title="Excluir convênio" aria-label="@($"Excluir o convênio {c.Nome}")"
+                                                    disabled="@(!PodeConfigurar)" @onclick="() => ExcluirConvenioAsync(c)"><Icone Nome="lixo" /></button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </text>;
+
+    private RenderFragment AbaPrazos => @<text>
+        <div class="cartao-corpo fat-cfg-corpo">
+            <div class="fat-cfg-topo sem-borda">
+                <div>
+                    <h2>Prazos do faturamento</h2>
+                    <p>Quando o sistema avisa e quando ele cobra. Os mesmos prazos são utilizados no Gerente e no Faturamento. Esta aba grava pelo próprio botão.</p>
+                </div>
+            </div>
+            @if (!PodePrazos)
+            {
+                <Aviso Tom="info" Texto="Seu acesso não permite consultar as regras do faturamento. Fale com a direção da clínica." />
+            }
+            else
+            {
+                <div class="campos tres">
+                    <Campo Rotulo="Alerta de consulta (dias)" Dica="De 0 a 365 dias antes do vencimento.">
+                        <input class="campo" inputmode="numeric" maxlength="3" @bind="_janela" @bind:event="oninput" @bind:after="MarcarPendentePrazos" />
+                    </Campo>
+                    <Campo Rotulo="Recurso de glosa (dias)" Dica="De 1 a 365 dias para recorrer.">
+                        <input class="campo" inputmode="numeric" maxlength="3" @bind="_glosa" @bind:event="oninput" @bind:after="MarcarPendentePrazos" />
+                    </Campo>
+                    <Campo Rotulo="Prazo de decisão (dias)" Dica="De 1 a 365 dias.">
+                        <input class="campo" inputmode="numeric" maxlength="3" @bind="_rodada" @bind:event="oninput" @bind:after="MarcarPendentePrazos" />
+                    </Campo>
+                </div>
+                <span class="campo-dica">O prazo de decisão conta a partir de a guia VIRAR pendente (a data prevista de faturamento), não do atendimento: o 2º código só existe 24 h depois, e contar do atendimento cobraria decisão sobre uma guia que ninguém tinha como tirar.</span>
+                <label class="alternar"><input type="checkbox" @bind="_aplicaConsultas" @bind:after="MarcarPendentePrazos" /> A rodada de pendências também cobra consultas a renovar</label>
+                <label class="alternar"><input type="checkbox" @bind="_aplicaCarteirinhas" @bind:after="MarcarPendentePrazos" /> A rodada de pendências também cobra carteirinhas vencidas</label>
+                <Aviso Tom="@(_mensagemPrazosEhErro ? "erro" : "sucesso")" Texto="@_mensagemPrazos" />
+                <div class="fat-cfg-rodape">
+                    <button type="button" class="botao primario" @onclick="SalvarPrazosAsync" disabled="@(_salvando || !_prazosCarregados)" title="Ctrl+S">
+                        <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar prazos")
+                    </button>
+                </div>
+            }
+        </div>
+    </text>;
+
+    private RenderFragment AbaModalidades => @<text>
+        <div class="fat-cfg-topo">
+            <div>
+                <h2>Modalidades de atendimento</h2>
+                <p>Modalidades oferecidas (o que é realizado na visita). “Nova modalidade” cria uma variante com nome próprio que reutiliza o COMPORTAMENTO de uma modalidade embutida (ex.: “Auriculoterapia” que fatura como “Acupuntura (apenas)”). Desative para ocultar dos lançamentos sem apagar o histórico.</p>
+            </div>
+            <div class="fat-cfg-acoes">
+                <button type="button" class="botao" @onclick="NovaModalidade" disabled="@(!PodeConfigurar)"><Icone Nome="mais" />Nova modalidade</button>
+            </div>
+        </div>
+        <div class="tabela-rolagem">
+            <table class="lista">
+                <thead><tr><th class="centro" style="width:64px">Ativo</th><th>Nome</th><th style="width:300px">Comporta-se como</th><th class="direita" style="width:80px">Ações</th></tr></thead>
+                <tbody>
+                    @foreach (var m in _modalidades)
+                    {
+                        var embutida = ConfiguracoesFaturamentoNaTela.ModalidadeEmbutida(m);
+                        <tr @key="m.Codigo" class="@(m.Ativo ? null : "apagada")">
+                            <td class="centro"><input type="checkbox" class="fat-cfg-ativo" checked="@m.Ativo" disabled="@(!PodeConfigurar)" aria-label="@($"{m.Nome} ativa")"
+                                                      @onchange="@(e => { m.Ativo = e.Value is true; MarcarPendente(); })" /></td>
+                            <td><input class="campo" maxlength="80" value="@m.Nome" disabled="@(!PodeConfigurar)" aria-label="Nome da modalidade"
+                                       @oninput="@(e => { m.Nome = e.Value?.ToString() ?? string.Empty; MarcarPendente(); })" /></td>
+                            <td>
+                                <select class="campo" value="@m.Base" disabled="@(embutida || !PodeConfigurar)" aria-label="Comporta-se como"
+                                        title="@(embutida ? "Modalidade embutida: o comportamento vive no código." : null)"
+                                        @onchange="@(e => { if (Enum.TryParse<ModalidadeAtendimento>(e.Value?.ToString(), out var b)) { m.Base = b; MarcarPendente(); } })">
+                                    @foreach (var b in Enum.GetValues<ModalidadeAtendimento>()) { <option value="@b">@ConfiguracoesFaturamentoNaTela.Modalidade(b)</option> }
+                                </select>
+                            </td>
+                            <td class="direita">
+                                @if (!embutida)
+                                {
+                                    <button type="button" class="botao mini icone contorno-perigo" title="Excluir modalidade" aria-label="@($"Excluir a modalidade {m.Nome}")"
+                                            disabled="@(!PodeConfigurar)" @onclick="() => ExcluirModalidadeAsync(m)"><Icone Nome="lixo" /></button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="rodape-lista">As modalidades embutidas não podem ser excluídas nem trocar de comportamento — apenas renomeadas ou desativadas. Lembre de clicar em “Salvar configurações” ao terminar.</div>
+    </text>;
+
+    private RenderFragment AbaEspecialidades => @<text>
+        <div class="fat-cfg-topo">
+            <div>
+                <h2>Especialidades de consulta</h2>
+                <p>Especialidades das consultas avulsas (discriminam a consulta nos relatórios por especialidade). Adicione as que a clínica atende. Desative para ocultar sem apagar o histórico.</p>
+            </div>
+            <div class="fat-cfg-acoes">
+                <button type="button" class="botao" @onclick="NovaEspecialidade" disabled="@(!PodeConfigurar)"><Icone Nome="mais" />Nova especialidade</button>
+            </div>
+        </div>
+        <div class="tabela-rolagem">
+            <table class="lista">
+                <thead><tr><th class="centro" style="width:64px">Ativo</th><th>Nome</th><th class="direita" style="width:80px">Ações</th></tr></thead>
+                <tbody>
+                    @foreach (var esp in _especialidades)
+                    {
+                        <tr @key="esp.Codigo" class="@(esp.Ativo ? null : "apagada")">
+                            <td class="centro"><input type="checkbox" class="fat-cfg-ativo" checked="@esp.Ativo" disabled="@(!PodeConfigurar)" aria-label="@($"{esp.Nome} ativa")"
+                                                      @onchange="@(e => { esp.Ativo = e.Value is true; MarcarPendente(); })" /></td>
+                            <td><input class="campo" maxlength="80" value="@esp.Nome" disabled="@(!PodeConfigurar)" aria-label="Nome da especialidade"
+                                       @oninput="@(e => { esp.Nome = e.Value?.ToString() ?? string.Empty; MarcarPendente(); })" /></td>
+                            <td class="direita">
+                                @if (!ConfiguracoesFaturamentoNaTela.EspecialidadeEmbutida(esp))
+                                {
+                                    <button type="button" class="botao mini icone contorno-perigo" title="Excluir especialidade" aria-label="@($"Excluir a especialidade {esp.Nome}")"
+                                            disabled="@(!PodeConfigurar)" @onclick="() => ExcluirEspecialidadeAsync(esp)"><Icone Nome="lixo" /></button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="rodape-lista">As especialidades embutidas (usadas na rotação da Petrobras) não podem ser excluídas — apenas renomeadas ou desativadas. Lembre de clicar em “Salvar configurações” ao terminar.</div>
+    </text>;
+
+    private RenderFragment AbaClinica => @<text>
+        <div class="cartao-corpo fat-cfg-corpo">
+            <div class="fat-cfg-topo sem-borda">
+                <div>
+                    <h2>Dados da clínica e do prestador</h2>
+                    <p>Dados usados nos documentos e guias (capa de faturamento e lote TISS). Esta aba grava pelo próprio botão.</p>
+                </div>
+            </div>
+            @if (!PodePrazos)
+            {
+                <Aviso Tom="info" Texto="Seu acesso não permite consultar os dados da clínica. Fale com a direção da clínica." />
+            }
+            else
+            {
+                <div class="campos">
+                    @foreach (var (rotulo, ler, gravar) in CamposDaClinica)
+                    {
+                        <Campo Rotulo="@rotulo">
+                            <input class="campo" value="@ler()" @oninput="@(e => { gravar(e.Value?.ToString()); _clinicaPendente = true; })" />
+                        </Campo>
+                    }
+                </div>
+                <Aviso Tom="@(_mensagemClinicaEhErro ? "erro" : "sucesso")" Texto="@_mensagemClinica" />
+                <div class="fat-cfg-rodape">
+                    <button type="button" class="botao primario" @onclick="SalvarClinicaAsync" disabled="@(_salvando || !_clinicaCarregada)" title="Ctrl+S">
+                        <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar dados da clínica")
+                    </button>
+                </div>
+            }
+        </div>
+    </text>;
+
+    private RenderFragment AbaTuss => @<text>
+        <div class="cartao-corpo fat-cfg-corpo">
+            <div class="fat-cfg-topo sem-borda">
+                <div>
+                    <h2>Códigos TUSS</h2>
+                    <p>Código TUSS de cada procedimento, usado no lote TISS. Pode variar conforme a operadora. Grava pelo “Salvar configurações”.</p>
+                </div>
+            </div>
+            <div class="campos tres">
+                @foreach (var (tipo, rotulo) in ConfiguracoesFaturamentoNaTela.CodigosTussDaTela)
+                {
+                    <Campo Rotulo="@rotulo">
+                        <input class="campo" maxlength="20" disabled="@(!PodeConfigurar)" value="@(_tuss.GetValueOrDefault(tipo))"
+                               @oninput="@(e => { _tuss[tipo] = e.Value?.ToString(); MarcarPendente(); })" />
+                    </Campo>
+                }
+            </div>
+        </div>
+    </text>;
+
+    // ============================ Estado ============================
+
+    private enum Aba { Convenios, Prazos, Modalidades, Especialidades, Clinica, Tuss }
+
+    private static readonly (Aba Aba, string Rotulo)[] Abas =
+    [
+        (Aba.Convenios, "Convênios"), (Aba.Prazos, "Prazos"), (Aba.Modalidades, "Modalidades"),
+        (Aba.Especialidades, "Especialidades"), (Aba.Clinica, "Clínica / prestador"), (Aba.Tuss, "Códigos TUSS")
+    ];
+
+    private Aba _aba = Aba.Convenios;
+
+    private List<ConvenioCadastro> _convenios = [];
+    private List<ParametroConvenio> _familias = [];
+    private List<ModalidadeCadastro> _modalidades = [];
+    private List<EspecialidadeCadastro> _especialidades = [];
+    private Dictionary<TipoCodigo, string?> _tuss = new();
+
+    // Prazos (componente RegrasFaturamento do WPF): texto como a pessoa digita.
+    private string? _janela, _glosa, _rodada;
+    private bool _aplicaConsultas, _aplicaCarteirinhas, _prazosCarregados, _prazosPendentes;
+    private string? _mensagemPrazos;
+    private bool _mensagemPrazosEhErro;
+
+    // Dados da clínica (componente DadosClinica do WPF).
+    private string? _razaoSocial, _nomeFantasia, _cnpj, _cnes, _endereco, _telefone, _email, _chavePix, _cidade, _codigoNaOperadora, _registroAns;
+    private bool _clinicaCarregada, _clinicaPendente;
+    private string? _mensagemClinica;
+    private bool _mensagemClinicaEhErro;
+
+    private bool _carregou, _carregando, _naoVerificado, _salvando, _pendente;
+    private string? _erroLeitura;
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private int _geracao;
+
+    private ConvenioCadastro? _editando;
+    private bool _regrasFamilia;
+
+    /// <summary>Metade VISÍVEL: configurar muda a regra para todo mundo, não o registro de uma guia.</summary>
+    private static bool PodeConfigurar => Pode(Permissao.ConfigurarFaturamento);
+
+    /// <summary>Prazos e dados da clínica: o MESMO "ou" dos componentes do shell.</summary>
+    private const Permissao BitsDasRegrasGlobais = Permissao.GerenciarUsuarios | Permissao.ConfigurarFaturamento;
+    private static bool PodePrazos => PodeAlgum(BitsDasRegrasGlobais);
+
+    private bool SalvaPeloBotaoPrincipal => _aba is not (Aba.Prazos or Aba.Clinica);
+
+    private IEnumerable<(string Rotulo, Func<string?> Ler, Action<string?> Gravar)> CamposDaClinica =>
+    [
+        ("Razão social", () => _razaoSocial, v => _razaoSocial = v),
+        ("Nome fantasia", () => _nomeFantasia, v => _nomeFantasia = v),
+        ("CNPJ", () => _cnpj, v => _cnpj = v),
+        ("CNES", () => _cnes, v => _cnes = v),
+        ("Endereço", () => _endereco, v => _endereco = v),
+        ("Telefone", () => _telefone, v => _telefone = v),
+        ("E-mail", () => _email, v => _email = v),
+        ("Chave Pix", () => _chavePix, v => _chavePix = v),
+        ("Cidade", () => _cidade, v => _cidade = v),
+        ("Código do prestador na operadora", () => _codigoNaOperadora, v => _codigoNaOperadora = v),
+        ("Registro ANS da operadora", () => _registroAns, v => _registroAns = v)
+    ];
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>
+    /// Volta à aba: relê em silêncio — mas NUNCA por cima de edição não salva, senão o que a
+    /// pessoa digitou sumiria ao trocar de tela e voltar.
+    /// </summary>
+    protected override Task AoVoltarAsync()
+        => _pendente || _prazosPendentes || _clinicaPendente || _salvando || _editando is not null || _regrasFamilia
+            ? Task.CompletedTask
+            : CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Salvar => _aba switch
+        {
+            Aba.Prazos => SalvarPrazosAsync(),
+            Aba.Clinica => SalvarClinicaAsync(),
+            _ => SalvarAsync()
+        },
+        AtalhoDeTela.Atualizar => AtualizarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    private void TrocarAba(Aba aba) => _aba = aba;
+
+    private void MarcarPendente() { _pendente = true; _mensagem = null; }
+    private void MarcarPendentePrazos() { _prazosPendentes = true; _mensagemPrazos = null; }
+
+    private async Task AtualizarAsync()
+    {
+        if ((_pendente || _prazosPendentes || _clinicaPendente) &&
+            !await Dialogos.ConfirmarAsync("Descartar alterações?",
+                "Há mudanças nesta tela que ainda não foram gravadas. Recarregar do banco descarta todas elas.",
+                perigoso: true, confirmar: "Descartar e recarregar"))
+            return;
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync() => await CarregarAsync(silencioso: false);
+
+    /// <summary>
+    /// Tudo numa leitura, SEQUENCIAL no mesmo escopo (o DbContext não aceita duas operações ao
+    /// mesmo tempo), publicado depois do último await. Contador de geração contra resposta fora
+    /// de ordem.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso)
+    {
+        var geracao = ++_geracao;
+        _carregando = true;
+        if (!silencioso) { _naoVerificado = false; _mensagem = null; }
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var parametros = sp.GetRequiredService<ParametrosService>();
+
+            var snap = await parametros.ObterAsync();
+            var convenios = await sp.GetRequiredService<ConvenioCatalogoService>().ListarAsync();
+            var modalidades = await sp.GetRequiredService<ModalidadeCatalogoService>().ListarAsync();
+            var especialidades = await sp.GetRequiredService<EspecialidadeCatalogoService>().ListarAsync();
+            var prestador = await parametros.ObterPrestadorAsync();
+
+            int janela = 0, glosa = 0, rodada = 0;
+            bool aplicaConsultas = false, aplicaCarteirinhas = false;
+            var podePrazos = PodePrazos;
+            if (podePrazos)
+            {
+                janela = await parametros.ObterJanelaAlertaConsultaAsync();
+                glosa = await parametros.ObterPrazoRecursoGlosaAsync();
+                rodada = await parametros.ObterIntervaloRodadaPendenciasAsync();
+                aplicaConsultas = await parametros.ObterRodadaAplicaConsultasAsync();
+                aplicaCarteirinhas = await parametros.ObterRodadaAplicaCarteirinhasAsync();
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            // Cópias — a tela edita as SUAS, e o Salvar grava cópias de novo (a regra 3).
+            _familias = snap.Todos.OrderBy(p => p.Convenio).Select(ConfiguracoesFaturamentoNaTela.Copia).ToList();
+            _convenios = convenios.Select(ConfiguracoesFaturamentoNaTela.Copia).ToList();
+            _modalidades = modalidades.Select(ConfiguracoesFaturamentoNaTela.Copia).ToList();
+            _especialidades = especialidades.Select(ConfiguracoesFaturamentoNaTela.Copia).ToList();
+            _tuss = ConfiguracoesFaturamentoNaTela.CodigosTussDaTela
+                .ToDictionary(t => t.Tipo, t => (string?)prestador.CodigoTuss(t.Tipo));
+            _pendente = false;
+
+            if (podePrazos)
+            {
+                _janela = janela.ToString(CultureInfo.InvariantCulture);
+                _glosa = glosa.ToString(CultureInfo.InvariantCulture);
+                _rodada = rodada.ToString(CultureInfo.InvariantCulture);
+                _aplicaConsultas = aplicaConsultas;
+                _aplicaCarteirinhas = aplicaCarteirinhas;
+                _prazosCarregados = true;
+                _prazosPendentes = false;
+
+                var d = DadosDaClinica.De(prestador);
+                (_razaoSocial, _nomeFantasia, _cnpj, _cnes, _endereco, _telefone, _email, _chavePix, _cidade, _codigoNaOperadora, _registroAns) =
+                    (d.RazaoSocial, d.NomeFantasia, d.Cnpj, d.Cnes, d.Endereco, d.Telefone, d.Email, d.ChavePix, d.Cidade, d.CodigoNaOperadora, d.RegistroAnsOperadora);
+                _clinicaCarregada = true;
+                _clinicaPendente = false;
+            }
+            _carregou = true;
+            _naoVerificado = false;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — configurações do faturamento não puderam ser lidas", ex);
+            // A releitura silenciosa que falha não apaga a tela que já estava certa.
+            if (!silencioso || !_carregou)
+            {
+                _naoVerificado = true;
+                _erroLeitura = ex.Message;
+            }
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    // ============================ Convênios ============================
+
+    private void NovoConvenio()
+    {
+        if (!Exigir(Permissao.ConfigurarFaturamento, "alterar as configurações do faturamento")) return;
+        var novo = ConfiguracoesFaturamentoNaTela.NovoConvenio(_convenios.Select(c => c.Nome));
+        _convenios.Add(novo);
+        MarcarPendente();
+        _editando = novo; // nasce só com um nome provisório: abre para preencher
+    }
+
+    private async Task ExcluirConvenioAsync(ConvenioCadastro alvo)
+    {
+        if (!ConfiguracoesFaturamentoNaTela.ConvenioPodeSerExcluido(alvo)) return;
+        // A exclusão grava NA HORA, não espera o Salvar — precisa da mesma barreira dele.
+        if (!Exigir(Permissao.ConfigurarFaturamento, "excluir convênio do catálogo")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir convênio",
+                $"Excluir o convênio \"{alvo.Nome}\"?\n\nSe houver pacientes cadastrados nele, a exclusão será recusada — nesse caso, desative-o.",
+                perigoso: true, confirmar: "Excluir"))
+            return;
+        await ExcluirAsync(sp => sp.GetRequiredService<ConvenioCatalogoService>().ExcluirAsync(alvo.Codigo),
+            () => _convenios.Remove(alvo), "o convênio");
+    }
+
+    // ============================ Modalidades e especialidades ============================
+
+    private void NovaModalidade()
+    {
+        if (!Exigir(Permissao.ConfigurarFaturamento, "alterar as configurações do faturamento")) return;
+        _modalidades.Add(ConfiguracoesFaturamentoNaTela.NovaModalidade(_modalidades.Select(m => m.Nome)));
+        MarcarPendente();
+    }
+
+    private async Task ExcluirModalidadeAsync(ModalidadeCadastro alvo)
+    {
+        if (ConfiguracoesFaturamentoNaTela.ModalidadeEmbutida(alvo)) return;
+        if (!Exigir(Permissao.ConfigurarFaturamento, "excluir modalidade do catálogo")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir modalidade",
+                $"Excluir a modalidade \"{alvo.Nome}\"?\n\nSe houver registros usando-a, a exclusão será recusada — nesse caso, desative-a.",
+                perigoso: true, confirmar: "Excluir"))
+            return;
+        await ExcluirAsync(sp => sp.GetRequiredService<ModalidadeCatalogoService>().ExcluirAsync(alvo.Codigo),
+            () => _modalidades.Remove(alvo), "a modalidade");
+    }
+
+    private void NovaEspecialidade()
+    {
+        if (!Exigir(Permissao.ConfigurarFaturamento, "alterar as configurações do faturamento")) return;
+        _especialidades.Add(ConfiguracoesFaturamentoNaTela.NovaEspecialidade(_especialidades.Select(e => e.Nome)));
+        MarcarPendente();
+    }
+
+    private async Task ExcluirEspecialidadeAsync(EspecialidadeCadastro alvo)
+    {
+        if (ConfiguracoesFaturamentoNaTela.EspecialidadeEmbutida(alvo)) return;
+        if (!Exigir(Permissao.ConfigurarFaturamento, "excluir especialidade do catálogo")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir especialidade",
+                $"Excluir a especialidade \"{alvo.Nome}\"?\n\nSe houver registros usando-a, a exclusão será recusada — nesse caso, desative-a.",
+                perigoso: true, confirmar: "Excluir"))
+            return;
+        await ExcluirAsync(sp => sp.GetRequiredService<EspecialidadeCatalogoService>().ExcluirAsync(alvo.Codigo),
+            () => _especialidades.Remove(alvo), "a especialidade");
+    }
+
+    /// <summary>Exclui no banco; recusado (em uso, embutido), DIZ por quê num aviso — desative em vez disso.</summary>
+    private async Task ExcluirAsync(Func<IServiceProvider, Task<(bool Ok, string Mensagem)>> excluir, Action tirarDaLista, string oQue)
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var (ok, mensagem) = await excluir(escopo.ServiceProvider);
+            if (ok)
+            {
+                tirarDaLista();
+                Notificacoes.Sucesso(mensagem);
+            }
+            else
+            {
+                await Dialogos.AvisoAsync("Não foi possível excluir", mensagem);
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — exclusão do catálogo ({oQue})", ex);
+            Notificacoes.Erro($"Erro ao excluir {oQue}: {ex.Message}");
+        }
+    }
+
+    // ============================ Salvar ============================
+
+    /// <summary>
+    /// O "Salvar configurações": convênios, números das regras, modalidades, especialidades e
+    /// códigos TUSS. Os TUSS RELEEM o prestador e só trocam os cinco códigos — o Pix ou o nome
+    /// fantasia que outra tela gravou no meio continuam (SalvarCodigosTussAsync).
+    /// </summary>
+    private async Task SalvarAsync()
+    {
+        if (_salvando || !_carregou || _naoVerificado) return;
+        if (!Exigir(Permissao.ConfigurarFaturamento, "salvar as configurações")) return;
+
+        if (ConfiguracoesFaturamentoNaTela.ConferirAntesDeSalvar(_convenios, _modalidades, _especialidades) is { } recusa)
+        {
+            _mensagem = recusa;
+            _mensagemEhErro = true;
+            return;
+        }
+
+        _salvando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var parametros = sp.GetRequiredService<ParametrosService>();
+
+            await parametros.SalvarAsync(_familias.Select(ConfiguracoesFaturamentoNaTela.Copia).ToList());
+            await parametros.SalvarCodigosTussAsync(_tuss);
+            await sp.GetRequiredService<ConvenioCatalogoService>().SalvarAsync(_convenios.Select(ConfiguracoesFaturamentoNaTela.Copia).ToList());
+            await sp.GetRequiredService<ModalidadeCatalogoService>().SalvarAsync(_modalidades.Select(ConfiguracoesFaturamentoNaTela.Copia).ToList());
+            await sp.GetRequiredService<EspecialidadeCatalogoService>().SalvarAsync(_especialidades.Select(ConfiguracoesFaturamentoNaTela.Copia).ToList());
+
+            _pendente = false;
+            _mensagem = "Configurações salvas. Valem imediatamente em todas as máquinas.";
+            _mensagemEhErro = false;
+            Notificacoes.Sucesso("Configurações salvas.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — configurações do faturamento não puderam ser salvas", ex);
+            _mensagem = $"Não foi possível salvar: {ex.Message}";
+            _mensagemEhErro = true;
+            Notificacoes.Erro("Erro ao salvar as configurações. Nada foi perdido na tela.");
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+
+    private async Task SalvarPrazosAsync()
+    {
+        if (_salvando) return;
+        if (!ExigirAlgum(BitsDasRegrasGlobais, "salvar regras do faturamento")) return;
+        if (!_prazosCarregados) { _mensagemPrazos = "Aguarde o carregamento das regras antes de salvar."; _mensagemPrazosEhErro = true; return; }
+
+        if (ConfiguracoesFaturamentoNaTela.LerPrazos(_janela, _glosa, _rodada, out var erro) is not { } prazos)
+        {
+            _mensagemPrazos = erro;
+            _mensagemPrazosEhErro = true;
+            return;
+        }
+
+        _salvando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var p = escopo.ServiceProvider.GetRequiredService<ParametrosService>();
+            await p.SalvarJanelaAlertaConsultaAsync(prazos.JanelaAlertaConsultaDias);
+            await p.SalvarPrazoRecursoGlosaAsync(prazos.PrazoRecursoGlosaDias);
+            await p.SalvarIntervaloRodadaPendenciasAsync(prazos.IntervaloRodadaPendenciasDias);
+            await p.SalvarRodadaAplicaAsync(_aplicaConsultas, _aplicaCarteirinhas);
+            _prazosPendentes = false;
+            _mensagemPrazos = "Regras de faturamento salvas.";
+            _mensagemPrazosEhErro = false;
+            Notificacoes.Sucesso(_mensagemPrazos);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — prazos do faturamento não puderam ser salvos", ex);
+            _mensagemPrazos = $"Não foi possível salvar: {ex.Message}";
+            _mensagemPrazosEhErro = true;
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+
+    private async Task SalvarClinicaAsync()
+    {
+        if (_salvando) return;
+        if (!ExigirAlgum(BitsDasRegrasGlobais, "salvar dados da clínica")) return;
+        if (!_clinicaCarregada) { _mensagemClinica = "Carregue os dados antes de salvar."; _mensagemClinicaEhErro = true; return; }
+
+        _salvando = true;
+        try
+        {
+            using var escopo = Escopo();
+            // RELÊ o prestador e só troca a identificação — os TUSS que outra tela gravou ficam.
+            await escopo.ServiceProvider.GetRequiredService<ParametrosService>().SalvarDadosDaClinicaAsync(new DadosDaClinica(
+                _razaoSocial, _nomeFantasia, _cnpj, _cnes, _endereco, _telefone, _email, _chavePix, _cidade, _codigoNaOperadora, _registroAns));
+            _clinicaPendente = false;
+            _mensagemClinica = "Dados da clínica salvos.";
+            _mensagemClinicaEhErro = false;
+            Notificacoes.Sucesso(_mensagemClinica);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — dados da clínica não puderam ser salvos", ex);
+            _mensagemClinica = $"Não foi possível salvar: {ex.Message}";
+            _mensagemClinicaEhErro = true;
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+}
