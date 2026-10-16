@@ -99,7 +99,8 @@ static class Program
         // A rota antiga agora deve abrir a Visão geral, sem expor a Grade removida.
         NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda);
         await Task.Delay(250);
-        if (!Descendentes(win).OfType<Clinica.Recepcao.Views.OcupacaoAgendaView>().Any()
+        // A Visão geral é Blazor desde out/2026: confere-se o COMPONENTE hospedado.
+        if (!Descendentes(win).OfType<Clinica.Desktop.Blazor.TelaBlazor>().Any(t => t.Componente.Name == "VisaoGeralDaAgenda")
             || Descendentes(win).OfType<Clinica.Recepcao.Views.AgendaView>().Any())
             throw new Exception("A rota antiga deve abrir a Visão geral sem a Grade.");
         // Conserva a regressão de disponibilidade e formulário do componente legado,

@@ -29,6 +29,10 @@ public sealed class TelaBlazor : UserControl
     private readonly IServiceProvider _servicos;
     private NavegadorDaJanela? _navegador;
 
+    /// <summary>O componente Razor que esta tela hospeda — é por ele que o validador de
+    /// leiaute do Windows confere que uma rota abriu a tela certa.</summary>
+    public Type Componente => _tela;
+
     public TelaBlazor(Type componente, IServiceProvider servicos)
     {
         _tela = componente;

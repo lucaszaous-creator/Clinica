@@ -42,9 +42,11 @@ Elas se LIGAM: da linha "Acupuntura ▼ 22%" sai o botão "Criar meta para esta 
 
 ## 4. Onde aparece
 
-- **Gerente → Inteligência**: Tendências e Metas.
-- **Financeiro**: Tendências, abrindo pela receita.
-- **Faturamento** (no Gerente): Tendências como aba, pelo convênio.
+- **Gerente → Relatórios / BI**: abas Metas e Tendências (Blazor: `MetasDaClinica`,
+  `TendenciasDeAtendimento`).
+- **Financeiro**: item Tendências (chave `ChavesSuite.Tendencias`), abrindo pela receita.
+- **Faturamento**: item Tendências no grupo Inteligência, abrindo pelas sessões. A chave é a
+  MESMA nos dois módulos — no Gerente, que carrega ambos, a dedupe por chave mantém uma.
 
 ## 5. UX · DX · CX
 

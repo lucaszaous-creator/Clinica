@@ -327,7 +327,6 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<GuardaProntuarioViewModel>();
         servicos.AddTransient<AcessosViewModel>();
         servicos.AddTransient<ConfiguracoesViewModel>();
-        servicos.AddTransient<MetasViewModel>();
         servicos.AddTransient<OrigensViewModel>();
         servicos.AddTransient<DocumentosEmitidosViewModel>();
         servicos.AddTransient<ImportacaoPacientesViewModel>();

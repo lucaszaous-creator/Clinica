@@ -12,7 +12,7 @@
   Nada de regra aqui: os contadores, as frases, o público, a medida do texto e a regra do
   token (vazio = manter) moram em CanalSmsNaTela, na Application, com teste.
 
-  Permissões: ler sob VerAgenda; mandar campanha sob EditarAgenda OU GerenciarUsuarios
+  Permissões: ler sob VerAgenda; mandar campanha sob GerenciarCampanhas OU GerenciarUsuarios (promoção é marketing, não agenda)
   (ExigirAlgum); rodar os lembretes agora sob EditarAgenda (a mesma da tela de Confirmações);
   configurar e testar sob GerenciarUsuarios (como o e-mail do Gerente). O token NUNCA volta
   para a tela depois de salvo.
@@ -138,7 +138,7 @@
     private bool _mensagemCampanhaErro;
 
     private static bool PodeConfigurar => Pode(Permissao.GerenciarUsuarios);
-    private static bool PodeCampanha => PodeAlgum(Permissao.EditarAgenda | Permissao.GerenciarUsuarios);
+    private static bool PodeCampanha => PodeAlgum(Permissao.GerenciarCampanhas | Permissao.GerenciarUsuarios);
     private static bool PodeRodar => Pode(Permissao.EditarAgenda);
 
     private string Sel(Aba a) => _aba == a ? "true" : "false";
@@ -430,7 +430,7 @@
     /// </summary>
     private async Task PreverAsync()
     {
-        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.GerenciarUsuarios, "montar a campanha de SMS")) return;
+        if (!ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.GerenciarUsuarios, "montar a campanha de SMS")) return;
         if (_publico is not { } publico) return;
         if (Medida.Vazio) { _mensagemCampanha = "Escreva a mensagem antes de ver a prévia."; _mensagemCampanhaErro = true; return; }
         PreviaCampanhaSms? previa = null;
