@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Recepcao.ViewModels;
 using Clinica.Ui.Blazor.Hospedagem;
@@ -42,6 +43,29 @@ public sealed class BalcaoDaRecepcao(IServiceScopeFactory escopos, PedidoAgenda 
         var despachante = System.Windows.Application.Current?.Dispatcher;
         if (despachante is null || despachante.CheckAccess()) return await AbrirAsync(dia, agendamentoId);
         return await await despachante.InvokeAsync(() => AbrirAsync(dia, agendamentoId));
+    }
+
+    /// <summary>
+    /// A MESMA janela de cadastro que a lista WPF de Pacientes abria (<c>NovoPacienteCommand</c>):
+    /// o mesmo ViewModel, o dono pela <see cref="JanelaDona"/>, no despachante do WPF.
+    /// </summary>
+    public Task<CadastroDePaciente> CadastrarPacienteAsync()
+    {
+        var despachante = System.Windows.Application.Current?.Dispatcher;
+        if (despachante is null || despachante.CheckAccess()) return Task.FromResult(Cadastrar());
+        return despachante.InvokeAsync(Cadastrar).Task;
+    }
+
+    private CadastroDePaciente Cadastrar()
+    {
+        var vm = new Clinica.Desktop.Shell.Componentes.Cadastro.CadastroPacienteViewModel(escopos);
+        var janela = new Clinica.Desktop.Shell.Componentes.Cadastro.CadastroPacienteWindow(vm)
+        {
+            Owner = JanelaDona.Atual()
+        };
+        return janela.ShowDialog() == true
+            ? new CadastroDePaciente(true, vm.PacienteId, vm.Nome)
+            : new CadastroDePaciente(true);
     }
 
     private async Task<ResultadoDoBalcao> AbrirAsync(DateOnly dia, int agendamentoId)

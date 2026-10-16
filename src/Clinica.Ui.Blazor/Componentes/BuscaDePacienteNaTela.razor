@@ -15,6 +15,17 @@
   • "nenhum paciente com 'x'" só aparece para uma BUSCA que respondeu — numa tela recém-aberta
     seria afirmação falsa sobre o cadastro inteiro (é o que leva a cadastrar de novo quem já
     tem ficha, parcela 57). Com AoCadastrar, o vazio oferece o cadastro ali mesmo.
+
+  Extensões opcionais (out/2026, tela Pacientes do balcão) — quem não as usa não muda nada:
+  • Recortes: chips da tela, na mesma fileira dos da busca (ex.: "Cadastro incompleto · 312");
+  • AoVerTodos + TodosMarcado: "Todos os pacientes" passa a ser da TELA (listagem paginada),
+    em vez dos 200 primeiros que o componente traria de uma vez;
+  • OcultarResultados: a tela está mostrando a lista dela (um recorte) — o componente fica só
+    com a pergunta, o campo e os chips, e nenhum chip dele aparece aceso;
+  • AoRetomarBusca: a pessoa voltou a usar a busca (digitou, ou clicou "Com horário hoje") —
+    a tela larga o recorte: dois filtros invisíveis somados responderiam "ninguém" sobre quem
+    existe fora do recorte;
+  • BuscarAsync(termo): a tela pede uma busca (ex.: o nome de quem acabou de ser cadastrado).
 *@
 @using Clinica.Application.Modelos
 @implements IDisposable
@@ -44,21 +55,31 @@
     <div class="quem-chips" role="group" aria-label="O que mostrar">
         @if (SugestaoDeHoje)
         {
-            <button type="button" class="chip" aria-pressed="@(_modo == ModoDaBusca.Sugestao ? "true" : "false")"
-                    @onclick="MostrarSugestaoAsync">Com horário hoje @(_hoje is null ? null : $"· {_hoje.Count}")</button>
+            <button type="button" class="chip" aria-pressed="@(!OcultarResultados && _modo == ModoDaBusca.Sugestao ? "true" : "false")"
+                    @onclick="ClicarSugestaoAsync">Com horário hoje @(_hoje is null ? null : $"· {_hoje.Count}")</button>
         }
-        @if (PermiteVerTodos)
+        @if (PermiteVerTodos && AoVerTodos.HasDelegate)
         {
-            <button type="button" class="chip" aria-pressed="@(_modo == ModoDaBusca.Todos ? "true" : "false")"
+            <button type="button" class="chip" aria-pressed="@(TodosMarcado ? "true" : "false")"
+                    @onclick="VerTodosDaTelaAsync">Todos os pacientes</button>
+        }
+        else if (PermiteVerTodos)
+        {
+            <button type="button" class="chip" aria-pressed="@(!OcultarResultados && _modo == ModoDaBusca.Todos ? "true" : "false")"
                     @onclick="VerTodosAsync">Todos os pacientes</button>
         }
-        @if (AoCadastrar.HasDelegate)
+        @Recortes
+        @if (AoCadastrar.HasDelegate && CadastroNaFileira)
         {
             <button type="button" class="botao mini quem-novo" @onclick="AoCadastrar"><Icone Nome="mais" />Cadastrar paciente</button>
         }
     </div>
 
-    @if (_erro is not null)
+    @if (OcultarResultados)
+    {
+        // A tela está mostrando a lista dela — nada de dica nem resultado aqui.
+    }
+    else if (_erro is not null)
     {
         <div class="aviso erro" role="alert"><Icone Nome="alerta" /><span>@_erro</span></div>
     }
@@ -130,6 +151,20 @@
     [Parameter] public EventCallback<Paciente> AoEscolher { get; set; }
     /// <summary>Com ele, o vazio da busca oferece cadastrar o paciente ali mesmo.</summary>
     [Parameter] public EventCallback AoCadastrar { get; set; }
+    /// <summary>
+    /// Falso = o "Cadastrar paciente" da fileira não aparece (a tela já tem o botão no
+    /// cabeçalho, com a barreira de permissão); o vazio da busca continua oferecendo o cadastro.
+    /// </summary>
+    [Parameter] public bool CadastroNaFileira { get; set; } = true;
+    /// <summary>Chips da tela, na fileira dos chips da busca.</summary>
+    [Parameter] public RenderFragment? Recortes { get; set; }
+    /// <summary>Com ele, "Todos os pacientes" é da tela (listagem paginada dela).</summary>
+    [Parameter] public EventCallback AoVerTodos { get; set; }
+    [Parameter] public bool TodosMarcado { get; set; }
+    /// <summary>A tela mostra a lista dela: o componente fica só com o campo e os chips.</summary>
+    [Parameter] public bool OcultarResultados { get; set; }
+    /// <summary>A pessoa voltou a usar a busca (digitou ou pediu a sugestão do dia).</summary>
+    [Parameter] public EventCallback AoRetomarBusca { get; set; }
 
     private sealed record Linha(Paciente Paciente, string? Idade, string Extra);
 
@@ -147,9 +182,29 @@
         if (SugestaoDeHoje) await MostrarSugestaoAsync();
     }
 
+    /// <summary>A tela pede uma busca — o mesmo caminho de quem digita.</summary>
+    public async Task BuscarAsync(string termo)
+    {
+        await Digitou(new ChangeEventArgs { Value = termo });
+        StateHasChanged();
+    }
+
+    private async Task ClicarSugestaoAsync()
+    {
+        if (AoRetomarBusca.HasDelegate) await AoRetomarBusca.InvokeAsync();
+        await MostrarSugestaoAsync();
+    }
+
+    private async Task VerTodosDaTelaAsync()
+    {
+        Limpar();
+        await AoVerTodos.InvokeAsync();
+    }
+
     private async Task Digitou(ChangeEventArgs e)
     {
         _termo = e.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(_termo) && AoRetomarBusca.HasDelegate) await AoRetomarBusca.InvokeAsync();
         var geracao = ++_geracao;
         _espera?.Cancel();
         _espera = new CancellationTokenSource();

@@ -1,0 +1,16 @@
+/* Estilo próprio da tela (rec-pacientes). Só tokens — ver docs/telas-blazor.md. */
+
+.rec-pacientes .rec-pac-lista{margin-top:var(--space-6)}
+.rec-pac-barra{align-items:center;justify-content:space-between;gap:var(--space-4)}
+.rec-pac-titulo{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rec-pac-titulo .secundario{color:var(--texto-secundario)}
+.rec-pac-linha{cursor:pointer}
+.rec-pac-linha:hover{background:var(--superficie-hover)}
+.rec-pac-paciente{display:flex;align-items:center;gap:var(--space-3);min-width:180px}
+.rec-pac-paciente .principal{display:block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.avatar.rec-pac-avatar{width:30px;height:30px;font-size:11px;background:var(--acento-suave);color:var(--acento);flex:none}
+.rec-pac-tabela td.nao-quebra,.rec-pac-visita{font-variant-numeric:tabular-nums}
+.rec-pac-tabela td.rec-pac-visita{color:var(--texto-secundario);max-width:170px}
+.rec-pac-tabela .botoes-linha{flex-wrap:nowrap}
+.rec-pac-tabela .botao,.rec-pac-tabela .selo{white-space:nowrap}
+.rec-pac-rodape{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
