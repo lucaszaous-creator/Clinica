@@ -108,7 +108,7 @@ public class TelaDaEquipeTests
             DiasDeAtendimento = Profissional.BitDe(DayOfWeek.Monday) | Profissional.BitDe(DayOfWeek.Wednesday),
             AtendeDas = new TimeOnly(8, 0), AtendeAte = new TimeOnly(12, 0)
         };
-        TelaDaEquipe.Jornada(p).Should().Be(p.DescricaoJornada).And.Be("seg · qua, das 08:00 às 12:00");
+        TelaDaEquipe.Jornada(p).Should().Be(p.DescricaoJornada).And.Be("seg · qua 08:00–12:00");
         TelaDaEquipe.DiasDeclarados(p).Should().Equal(DayOfWeek.Monday, DayOfWeek.Wednesday);
         TelaDaEquipe.DiasDeclarados(new Profissional()).Should().BeEmpty();
     }

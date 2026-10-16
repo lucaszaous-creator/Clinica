@@ -180,11 +180,12 @@ static class Program
         var quantidadeAntes = await db.Agendamentos.CountAsync();
         await planejamento.EscolherVagaPlanejamentoCommand.ExecuteAsync(vagaEscolhida);
         await Task.Delay(500);
-        var formulario = Descendentes(win).OfType<FrameworkElement>().Select(e => e.DataContext)
-            .OfType<Clinica.Recepcao.ViewModels.NovoAtendimentoViewModel>().First();
-        if (formulario.Profissional?.Id != prof.Id || formulario.Duracao != "60"
-            || formulario.Data.Date != vagaEscolhida.Inicio.Date || formulario.Hora != vagaEscolhida.Inicio.ToString("HH:mm"))
-            throw new Exception("Planejamento: o formulário perdeu o contexto da vaga.");
+        // O Marcar é Blazor desde out/2026: o que se confere aqui é que a vaga ABRIU a tela
+        // de marcar; o preenchimento (profissional, data, hora, duração) é conferido no
+        // bUnit (`TelasBlazorAbremTests`) e em `AtendimentoDoBalcaoNaTelaTests`.
+        if (!Descendentes(win).OfType<Clinica.Desktop.Blazor.TelaBlazor>()
+                .Any(t => t.Componente.Name == "MarcarAtendimento"))
+            throw new Exception("Planejamento: escolher a vaga não abriu a tela de marcar.");
         if (await db.Agendamentos.CountAsync() != quantidadeAntes) throw new Exception("Consultar vaga gravou um agendamento.");
         Console.WriteLine("PLANEJAMENTO: profissional, semana, falha de leitura e formulário preservados; nenhuma gravação.");
         win.Close();

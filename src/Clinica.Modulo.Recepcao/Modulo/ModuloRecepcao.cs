@@ -480,7 +480,6 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<AgendaViewModel>();
         servicos.AddTransient<DocumentosViewModel>();
         servicos.AddTransient<PacientesViewModel>();
-        servicos.AddTransient<NovoAtendimentoViewModel>();
         servicos.AddTransient<RetornosAMarcarViewModel>();
         // O Acompanhamento de pacientes é tela BLAZOR desde out/2026 (docs/relacionamento-blazor.md):
         // a hospedagem é a MESMA do Financeiro e do Faturamento (um navegador por janela,
@@ -503,17 +502,6 @@ public sealed class ModuloRecepcao : IModuloApp
         // com o formulário limpo e, quando é edição, precisa receber o id no construtor.
     }
 
-    /// <summary>
-    /// As duas abas do "Atendimento" sobre o MESMO ViewModel, com o modo fixado ANTES de a
-    /// tela aparecer — o rádio QUANDO da parcela 70 virou a escolha da aba (set/2026).
-    /// </summary>
-    private static NovoAtendimentoView NovoAtendimento(IServiceProvider servicos, bool marcar)
-    {
-        var vm = servicos.GetRequiredService<NovoAtendimentoViewModel>();
-        vm.FixarModo(marcar);
-        return new NovoAtendimentoView { DataContext = vm };
-    }
-
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChavesSuite.OcupacaoAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.VisaoGeralDaAgenda), servicos),
@@ -527,7 +515,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // A lista de Pacientes do BALCÃO abre a ficha do balcão (out/2026, mockup "4 · Ficha");
         // o Prontuário e o Consultório, que reusam a mesma lista, continuam na ficha clínica.
         ChavePacientes => new PacientesView { DataContext = ComFichaDoBalcao(servicos.GetRequiredService<PacientesViewModel>()) },
-        ChaveMarcarHorario => NovoAtendimento(servicos, marcar: true),
+        ChaveMarcarHorario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MarcarAtendimento), servicos),
         ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
         ChaveRetornosAMarcar => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RetornosAMarcar), servicos),
