@@ -9,7 +9,7 @@
 .rec-atendimento .familia-consulta{--cor-familia:var(--rosa-600);--fundo-familia:var(--rosa-50)}
 
 /* A página estica os filhos: o cabeçalho alinha com a grade (não centraliza). */
-.pagina.rec-atendimento{align-items:stretch}
+.pagina.rec-atendimento{align-items:stretch;white-space:normal}
 
 /* ---------- Formulário à esquerda, consequência à direita ---------- */
 .ra-grade{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:var(--space-6);align-items:start}
@@ -97,7 +97,8 @@
 .ra-lado-rodape .marcar input{margin-top:2px;flex:none}
 
 /* ---------- A guia que vai nascer ---------- */
-.ra-guia-cab{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.ra-guia-cab{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2)}
+.ra-guia-cab .ra-lado-titulo{margin:0}
 .ra-guia-curta{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
 .ra-guia{border:1px solid var(--borda);border-radius:var(--radius-control);overflow:hidden;font-size:var(--text-small-size)}
 .ra-guia-tarja{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-2) var(--space-3);
