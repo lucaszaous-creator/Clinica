@@ -1,0 +1,207 @@
+@*
+  DAR BAIXA NUMA GUIA (out/2026, migrado do BaixaView/BaixaViewModel do WPF, que era uma tela
+  de detalhe no lugar do painel). Aqui é formulário por cima do painel: o filtro fica atrás,
+  como estava.
+
+  Baixa = a secretária EFETIVOU a guia no sistema do convênio. Não há campo de dinheiro.
+
+  As regras que vieram junto, todas do ViewModel original:
+  - o número da guia tem FORMA, e ela é do convênio (RegraNumeroGuia): a DICA diz o formato
+    antes de errar, e a CRÍTICA julga o que está digitado a CADA tecla — oito letras sem uma
+    palavra do sistema se leem como "aceitou" (parcela 51). Quem recusa de verdade continua
+    sendo o FaturamentoService.DarBaixaAsync, porque a baixa tem quatro portas;
+  - o botão fica apagado enquanto o número não serve (permissão E número), e a guarda do
+    clique continua DIZENDO por quê;
+  - a observação da pendência ("por que estava pendente") aparece antes da baixa;
+  - se esta baixa concluiu a fatura, oferece a capa de conclusão em PDF — e a capa NUNCA
+    impede a baixa: ela já foi gravada.
+*@
+@inject IServiceScopeFactory Escopos
+@inject Dialogos Dialogos
+@inject IHostDaTela Host
+@inject Notificacoes Notificacoes
+
+<Modal Titulo="@(_paciente is null ? "Dar baixa" : $"Dar baixa — {_paciente}")"
+       Subtitulo="Confirme a guia no sistema do convênio antes de dar baixa." Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_falhou)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a guia" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_codigo is null)
+        {
+            <Esqueleto Altura="160" />
+        }
+        else
+        {
+            <div class="fat-baixa-guia">
+                <div class="guia-resumo">
+                    <span class="principal">@RotulosEnum.De(_codigo.Tipo) · @RotulosEnum.De(_codigo.Ordem)</span>
+                    @if (!string.IsNullOrWhiteSpace(_codigo.Descricao)) { <span class="secundario">@_codigo.Descricao</span> }
+                    <span class="secundario">@_convenio · prevista para @Formato.Data(_codigo.DataPrevistaFaturamento)</span>
+                </div>
+                @if (_observacaoPendencia is not null)
+                {
+                    <Aviso Tom="atencao" Texto="@($"Por que estava pendente: {_observacaoPendencia}")" />
+                }
+                <div class="campos">
+                    <Campo Rotulo="Número da guia gerada (sistema do convênio)" Obrigatorio="true" Classe="largo"
+                           Erro="@Critica" Dica="@_dica">
+                        <input class="campo numero-guia" value="@_numero" @oninput="e => _numero = e.Value?.ToString()" maxlength="40"
+                               placeholder="Copie do portal da operadora" autocomplete="off" aria-invalid="@(Critica is not null ? "true" : "false")" />
+                    </Campo>
+                    <Campo Rotulo="Data da baixa" Obrigatorio="true">
+                        <input type="date" class="campo" value="@_data.ToString("yyyy-MM-dd")"
+                               @onchange="e => _data = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : _data" />
+                    </Campo>
+                    <Campo Rotulo="Observação" Classe="largo">
+                        <textarea class="campo fat-texto" rows="2" @bind="_observacao" maxlength="500"></textarea>
+                    </Campo>
+                </div>
+            </div>
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="ConfirmarAsync" disabled="@(!PodeConfirmar)"
+                title="@(!PodeBaixar ? "Seu acesso não permite dar baixa na guia." : !NumeroServe ? "Informe um número de guia no formato deste convênio." : "Confirmar a baixa (Ctrl+S)")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Confirmar baixa")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int CodigoId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private CodigoFaturamento? _codigo;
+    private string? _paciente;
+    private string? _convenio;
+    private FormatoNumeroGuia _formato = FormatoNumeroGuia.SemValidacao;
+    private string? _dica;
+    private string? _observacaoPendencia;
+    private string? _numero;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string? _observacao;
+    private string? _mensagem;
+    private bool _ocupado;
+    private bool _falhou;
+    private string? _erroLeitura;
+
+    private static bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
+
+    /// <summary>A crítica do que está DIGITADO AGORA — nula enquanto o número serve. A MESMA regra do domínio.</summary>
+    private string? Critica => RegraNumeroGuia.Criticar(_numero, _formato);
+
+    /// <summary>Falso também com o campo VAZIO: a forma aceita o branco, a baixa não.</summary>
+    private bool NumeroServe => !string.IsNullOrWhiteSpace(_numero) && Critica is null;
+
+    private bool PodeConfirmar => _codigo is not null && PodeBaixar && NumeroServe && !_ocupado;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        _falhou = false;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var codigo = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                .ObterCodigoAsync(CodigoId);
+            if (codigo is null)
+            {
+                _falhou = true;
+                _erroLeitura = "A guia não foi encontrada — pode ter sido baixada ou estornada noutra máquina. Feche e atualize o painel.";
+                return;
+            }
+            var paciente = codigo.Atendimento?.Paciente;
+            _paciente = paciente?.Nome;
+            _convenio = paciente is null ? null : CatalogoConvenios.Nome(paciente.ConvenioCodigo, paciente.Convenio);
+            // O formato só é conhecido DEPOIS de ler o paciente — é ele que decide a crítica.
+            _formato = paciente is null
+                ? FormatoNumeroGuia.SemValidacao
+                : CatalogoConvenios.FormatoDoNumeroDaGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
+            _dica = RegraNumeroGuia.Dica(_formato);
+            _observacaoPendencia = codigo.ObservacaoPendencia is { } obs && codigo.ObservacaoPendenciaEm is { } quando
+                ? $"{obs} (anotado em {Formato.DataHora(quando)})"
+                : codigo.ObservacaoPendencia;
+            _codigo = codigo;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — guia para a baixa não pôde ser lida", ex);
+            _falhou = true;
+            _erroLeitura = ex.Message;
+        }
+    }
+
+    /// <summary>O "Confirmar baixa" — também o Ctrl+S, pelo mesmo caminho e com as mesmas guardas.</summary>
+    public async Task ConfirmarAsync()
+    {
+        // Guarda contra duplo clique: baixa duplicada corrompe o histórico da guia.
+        if (_ocupado || _codigo is null) return;
+        _mensagem = null;
+        if (!PodeBaixar) { _mensagem = "Seu acesso não permite dar baixa na guia. Fale com a direção da clínica."; return; }
+        if (string.IsNullOrWhiteSpace(_numero)) { _mensagem = "Informe o número da guia gerada no sistema do convênio."; return; }
+        if (Critica is { } critica) { _mensagem = critica; return; }
+
+        var numero = _numero.Trim();
+        if (!await Dialogos.ConfirmarAsync("Confirmar baixa", $"Confirmar a baixa da guia {numero} de {_paciente}?", confirmar: "Confirmar baixa"))
+            return;
+
+        var atendimentoId = _codigo.AtendimentoId;
+        _ocupado = true;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<FaturamentoService>().DarBaixaAsync(
+                CodigoId, _data, numero, SessaoUsuario.Atual.Operador,
+                string.IsNullOrWhiteSpace(_observacao) ? null : _observacao.Trim());
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — baixa não pôde ser registrada", ex);
+            _mensagem = $"Não foi possível registrar a baixa: {ex.Message}";
+            _ocupado = false;
+            return;
+        }
+
+        await OferecerCapaConclusaoAsync(atendimentoId);
+        _ocupado = false;
+        await AoConcluir.InvokeAsync();
+    }
+
+    /// <summary>Se esta baixa concluiu a fatura, oferece a capa de conclusão para imprimir e arquivar.</summary>
+    private async Task OferecerCapaConclusaoAsync(int atendimentoId)
+    {
+        if (atendimentoId == 0) return;
+        try
+        {
+            CapaConclusao resultado;
+            using (var escopo = Escopos.CreateScope())
+            {
+                var prestador = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                resultado = await escopo.ServiceProvider.GetRequiredService<CapaFaturamentoService>()
+                    .GerarConclusaoAsync(atendimentoId, prestador);
+            }
+            if (!resultado.Concluido || resultado.Pdf is null) return;
+
+            if (!await Dialogos.ConfirmarAsync("Fatura concluída",
+                    "Fatura concluída! Gerar a capa de conclusão para imprimir e arquivar na pasta do dia?", confirmar: "Gerar a capa"))
+                return;
+
+            var erro = await Host.SalvarEAbrirAsync(resultado.Pdf,
+                $"Capa-CONCLUIDA-{resultado.Numero}-{resultado.Data:yyyy-MM-dd}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro($"{erro} A baixa está registrada.");
+        }
+        catch (Exception ex)
+        {
+            // A geração da capa nunca impede a baixa — ela já foi gravada.
+            Clinica.Application.Diagnostico.Registrar("Blazor — baixa: geração da capa falhou", ex);
+            Notificacoes.Erro($"A baixa está registrada, mas a capa de conclusão não pôde ser gerada: {ex.Message}");
+        }
+    }
+}

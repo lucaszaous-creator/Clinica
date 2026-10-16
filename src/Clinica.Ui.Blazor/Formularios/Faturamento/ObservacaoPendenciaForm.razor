@@ -1,0 +1,65 @@
+@*
+  OBSERVAÇÃO DA PENDÊNCIA (out/2026, migrado da ObservacaoPendenciaWindow do WPF): por que a
+  guia ainda não foi baixada (portal fora do ar, aguardando o paciente enviar o QR Code). Fica
+  visível na pendência e no formulário de baixa. Editar SUBSTITUI o texto; apagar tudo REMOVE
+  a observação — e o botão diz isso, porque é o mesmo botão.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@($"Observação — {Pendencia.PacienteNome}")" Subtitulo="Por que a guia ainda não foi baixada." AoFechar="AoFechar">
+    <ChildContent>
+        <p class="dialogo-mensagem">Se a guia não pôde ser baixada agora, registre o motivo (ex.: portal fora do ar, aguardando o paciente enviar o QR Code). Fica visível na pendência para consultar depois.</p>
+        @if (Pendencia.ObservacaoPendenciaEm is { } quando)
+        {
+            <Aviso Tom="info" Texto="@($"Anotado em {Formato.DataHora(quando)}. Editar substitui o texto; apagar tudo remove a observação.")" />
+        }
+        <Campo Rotulo="O que aconteceu?">
+            <textarea class="campo fat-texto" rows="4" @bind="_texto" @bind:event="oninput" maxlength="500"></textarea>
+        </Campo>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || !PodeAnotar)"
+                title="@(PodeAnotar ? null : "Seu acesso não permite anotar a pendência.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : SemTexto && Pendencia.TemObservacao ? "Remover observação" : "Salvar observação")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public PendenciaCodigo Pendencia { get; set; } = default!;
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _texto;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    // O mesmo bit da tela gerencial de pendências: anotar é escrever na guia.
+    private static bool PodeAnotar => SessaoUsuario.Atual.Pode(Permissao.VerFaturamento);
+    private bool SemTexto => string.IsNullOrWhiteSpace(_texto);
+
+    protected override void OnInitialized() => _texto = Pendencia.ObservacaoPendencia ?? string.Empty;
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.VerFaturamento, "anotar a pendência");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<FaturamentoService>().RegistrarObservacaoPendenciaAsync(
+                Pendencia.CodigoId, SemTexto ? null : _texto!.Trim(), SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — observação da pendência não pôde ser gravada", ex);
+            _mensagem = $"Não foi possível gravar: {ex.Message}";
+        }
+        finally { _ocupado = false; }
+    }
+}

@@ -1,0 +1,65 @@
+@*
+  NÃO CONFORMIDADE por decisão da pessoa (out/2026, migrado da NaoConformidadeWindow do WPF):
+  sem esperar o prazo da rodada vencer. A justificativa é OBRIGATÓRIA — é a única permissão do
+  faturamento que tira uma guia do painel sem ela ter sido faturada, e o motivo fica no
+  relatório e na aba NC. A confirmação ("marcar a guia de X?") é feita pela tela ANTES de abrir.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@($"Não conformidade — {Pendencia.PacienteNome}")" Subtitulo="Marcar a guia como não conformidade, sem esperar o prazo da rodada." AoFechar="AoFechar">
+    <ChildContent>
+        <p class="dialogo-mensagem">A guia sai das pendências ativas do painel e vai para a aba NC (fica no relatório). Ela volta a ser pendência se for reaberta na aba NC ou quando o paciente retornar. Use quando já se sabe que a guia não será resolvida agora.</p>
+        <p class="texto-secundario pequeno">@RotulosEnum.De(Pendencia.Tipo) · @RotulosEnum.De(Pendencia.Ordem) · @Pendencia.ConvenioNome · prevista para @Formato.Data(Pendencia.DataPrevista)</p>
+        <Campo Rotulo="Justificativa" Obrigatorio="true" Erro="@_erroCampo">
+            <textarea class="campo fat-texto" rows="4" @bind="_justificativa" @bind:event="oninput" maxlength="500"
+                      placeholder="Ex.: o paciente não retornou e o convênio não libera a guia sem ele"></textarea>
+        </Campo>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao perigo" @onclick="MarcarAsync" disabled="@(_ocupado || !PodeMarcar)"
+                title="@(PodeMarcar ? null : "Seu acesso não permite marcar não conformidade.")">
+            <Icone Nome="cancelar" />@(_ocupado ? "Gravando…" : "Marcar não conformidade")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public PendenciaCodigo Pendencia { get; set; } = default!;
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _justificativa;
+    private string? _erroCampo;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeMarcar => SessaoUsuario.Atual.Pode(Permissao.MarcarNaoConformidade);
+
+    private async Task MarcarAsync()
+    {
+        if (_ocupado) return;
+        _erroCampo = _mensagem = null;
+        if (string.IsNullOrWhiteSpace(_justificativa))
+        {
+            _erroCampo = "Informe uma justificativa para registrar a não conformidade.";
+            return;
+        }
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.MarcarNaoConformidade, "marcar a guia como não conformidade");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<RodadaPendenciasService>()
+                .MarcarNaoConformidadeAsync(Pendencia.CodigoId, _justificativa.Trim(), SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — não conformidade não pôde ser registrada", ex);
+            _mensagem = $"Não foi possível registrar: {ex.Message}";
+        }
+        finally { _ocupado = false; }
+    }
+}

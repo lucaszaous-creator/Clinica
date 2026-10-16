@@ -1,0 +1,103 @@
+@*
+  BAIXA EM LOTE (out/2026, migrado da BaixaLoteWindow e do DarBaixaEmLote do DashboardViewModel):
+  as linhas marcadas no painel, uma data única e o número da guia POR LINHA. Linha sem número é
+  ignorada — "ainda não tenho o número" é resposta legítima num lote.
+
+  - Cada linha pode ser de uma operadora diferente (é o caso normal de um lote), então a crítica
+    do número é POR LINHA, com o formato daquele convênio, a cada tecla.
+  - Antes de processar, o lote inteiro é conferido (PainelPendenciasFaturamento.ImpedimentoDoLote):
+    uma recusa NO MEIO deixaria as anteriores baixadas e a pessoa sem saber qual corrigir.
+  - Depois, a falha é POR LINHA: uma guia recusada não aborta as seguintes nem passa calada.
+  - A linha da rodada (LinhaDaRodada) serve aqui: descrição, formato e crítica são a mesma conta.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Dar baixa em lote" Subtitulo="Informe o número da guia gerada no sistema do convênio para cada linha. Linhas sem número são ignoradas." Largura="largo" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Data da baixa" Obrigatorio="true" Dica="A mesma para todas as linhas do lote.">
+                <input type="date" class="campo" value="@_data.ToString("yyyy-MM-dd")"
+                       @onchange="e => _data = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : _data" />
+            </Campo>
+        </div>
+        <div class="fat-lote">
+            <table class="lista">
+                <thead><tr><th>Guia</th><th style="width:300px">Nº da guia no convênio</th></tr></thead>
+                <tbody>
+                    @foreach (var l in _linhas)
+                    {
+                        <tr @key="l.CodigoId">
+                            <td>
+                                <span class="principal">@l.Descricao</span>
+                                <span class="secundario">@l.Situacao</span>
+                            </td>
+                            <td>
+                                <input class="campo numero-guia @(l.CriticaDoNumero is not null ? "invalido" : null)" value="@l.NumeroGuia" maxlength="40"
+                                       aria-label="@($"Número da guia — {l.Descricao}")" autocomplete="off"
+                                       @oninput="e => l.NumeroGuia = e.Value?.ToString()" />
+                                @if (l.CriticaDoNumero is { } critica) { <span class="campo-erro">@critica</span> }
+                                else if (Dica(l) is { } dica) { <span class="campo-dica">@dica</span> }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="fat-mensagem"><Aviso Tom="erro" Texto="@_mensagem" /></div>
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda texto-secundario pequeno">@ComNumero de @_linhas.Count linha(s) com número</span>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="ConfirmarAsync" disabled="@(_ocupado || !PodeBaixar)"
+                title="@(PodeBaixar ? null : "Seu acesso não permite dar baixa nas guias.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Confirmar baixas")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PendenciaCodigo> Itens { get; set; } = [];
+    /// <summary>Concluído: o aviso do desfecho (falhas), ou nulo quando tudo saiu.</summary>
+    [Parameter] public EventCallback<string?> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<LinhaDaRodada> _linhas = [];
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
+    private int ComNumero => _linhas.Count(l => !string.IsNullOrWhiteSpace(l.NumeroGuia));
+
+    protected override void OnInitialized() => _linhas = DecisoesDaRodada.Montar(Itens);
+
+    private static string? Dica(LinhaDaRodada l) => RegraNumeroGuia.Dica(l.Formato);
+
+    private async Task ConfirmarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        if (!PodeBaixar) { _mensagem = "Seu acesso não permite dar baixa nas guias. Fale com a direção da clínica."; return; }
+        if (ComNumero == 0) { _mensagem = "Nenhuma linha tem número de guia — informe ao menos um para dar baixa."; return; }
+        if (PainelPendenciasFaturamento.ImpedimentoDoLote(_linhas) is { } impedimento) { _mensagem = impedimento; return; }
+
+        _ocupado = true;
+        string? aviso;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var (feitas, falhas) = await PainelPendenciasFaturamento.BaixarLoteAsync(
+                _linhas, _data, escopo.ServiceProvider.GetRequiredService<FaturamentoService>());
+            aviso = PainelPendenciasFaturamento.AvisoDoLote(feitas, falhas);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — baixa em lote", ex);
+            _mensagem = $"Não foi possível concluir o lote: {ex.Message}";
+            _ocupado = false;
+            return;
+        }
+        _ocupado = false;
+        await AoConcluir.InvokeAsync(aviso);
+    }
+}

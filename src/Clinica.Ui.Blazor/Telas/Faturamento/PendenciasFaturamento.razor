@@ -1,0 +1,738 @@
+@*
+  PENDÊNCIAS DE FATURAMENTO (out/2026, migrado do DashboardView/DashboardViewModel do WPF).
+
+  É a tela que dá nome ao produto: o 2º código obtido +24h depois do atendimento não pode
+  ser esquecido. Responde "o que falta baixar, e quanto disso já atrasou?" — com o recorte
+  de um clique (1º/2º código, atrasada/no prazo, com a contagem À VISTA antes do clique) e
+  os combos das listas longas (tipo do código, modalidade, especialidade, convênio).
+
+  Abaixo das guias, as outras três pendências que travam o faturamento: glosas com prazo de
+  recurso correndo, carteirinhas vencendo e consultas a renovar — as duas primeiras só
+  aparecem quando há o que mostrar, como no WPF.
+
+  Dar baixa abre o FORMULÁRIO por cima (no WPF era uma tela de detalhe): o painel fica atrás
+  com o filtro como estava, e volta a ler quando a baixa é gravada.
+
+  O que a tela afirma (o recorte, o vazio, o banner, as mensagens do WhatsApp, a baixa em lote)
+  mora em PainelPendenciasFaturamento, na Application, com teste.
+*@
+@inherits TelaBase
+
+<div class="pagina fat-pendencias @(Carregando && _todos.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Faturamento · Pendências" Titulo="Pendências de faturamento"
+                     Subtitulo="As guias que ainda não foram efetivadas no sistema do convênio — o 2º código incluído — e o que mais trava o faturamento.">
+        <button type="button" class="botao" @onclick="AbrirRodada" disabled="@(!DecisoesDaRodada.PodeDecidir())"
+                title="@(DecisoesDaRodada.PodeDecidir() ? "Decidir cada guia pendente: dar baixa ou justificar como não conformidade" : PainelPendenciasFaturamento.RodadaSemPermissao)">
+            <Icone Nome="lista" />Rodar pendências
+        </button>
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    @if (_bannerRodada is not null)
+    {
+        <div class="faixa-rodada">
+            <Aviso Tom="atencao" Texto="@_bannerRodada">
+                <button type="button" class="botao primario" @onclick="AbrirRodada" disabled="@(!DecisoesDaRodada.PodeDecidir())"><Icone Nome="lista" />Rodar agora</button>
+            </Aviso>
+        </div>
+    }
+    else if (_rodadaIndeterminada)
+    {
+        <div class="faixa-rodada">
+            <Aviso Tom="erro" Texto="@PainelPendenciasFaturamento.RodadaNaoVerificada">
+                <button type="button" class="botao" @onclick="() => CarregarAsync()">Tentar de novo</button>
+            </Aviso>
+        </div>
+    }
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao lista-cartao">
+            <FalhaDeLeitura Titulo="Não foi possível ler as pendências" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        </section>
+    }
+    else if (!_carregou)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+        <section class="cartao lista-cartao"><div class="cartao-corpo"><Esqueleto Altura="260" /></div></section>
+    }
+    else
+    {
+        <section class="kpis" aria-label="Resumo das pendências">
+            <Kpi Rotulo="Guias em aberto" Valor="@_contagens.Total.ToString(Formato.PtBr)" Icone="documento" Tom="neutro"
+                 Nota="Códigos pendentes de baixa" />
+            <Kpi Rotulo="Urgentes (vermelho)" Valor="@_contagens.Atrasadas.ToString(Formato.PtBr)" Icone="alerta" Tom="perigo"
+                 ClasseValor="@(_contagens.Atrasadas > 0 ? "negativo" : null)"
+                 Nota="@(_contagens.FracaoUrgentes is { } f ? $"{Formato.Porcentagem(f)} das guias em aberto" : "Nenhuma guia em aberto")">
+                @if (_contagens.FracaoUrgentes is { } fracao)
+                {
+                    <div class="barra-urgentes" aria-hidden="true"><i style="width:@((fracao * 100).ToString("0.#", CultureInfo.InvariantCulture))%"></i></div>
+                }
+            </Kpi>
+            <Kpi Rotulo="Consultas a renovar" Valor="@_consultas.Count.ToString(Formato.PtBr)" Icone="calendario" Tom="aviso"
+                 ClasseValor="@(_consultas.Count > 0 ? "tom-aviso" : null)" Nota="Validade vencendo — renovar evita a glosa" />
+            <Kpi Rotulo="Pendências totais" Valor="@_totalBadge.ToString(Formato.PtBr)" Icone="lista"
+                 Nota="Guias, consultas e glosas com prazo" Dica="Guias em aberto + consultas a renovar + glosas cujo prazo de recurso não está folgado" />
+        </section>
+
+        <section class="cartao lista-cartao">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>Guias e códigos pendentes</h2>
+                    <p>@_resumo
+                        @if (_filtro.Ativo)
+                        {
+                            <button type="button" class="botao fantasma mini limpar" @onclick="LimparFiltros">Limpar filtros</button>
+                        }
+                    </p>
+                </div>
+                <button type="button" class="botao" @onclick="AbrirLote" disabled="@(!Pode(Permissao.BaixarGuia))"
+                        title="@(Pode(Permissao.BaixarGuia) ? "Dar baixa em várias guias de uma vez — marque as linhas na primeira coluna" : "Seu acesso não permite dar baixa nas guias.")">
+                    <Icone Nome="check" />Baixa em lote@(_selecionados.Count > 0 ? $" · {_selecionados.Count}" : "")
+                </button>
+            </div>
+
+            <div class="filtros">
+                <div class="chips" role="group" aria-label="Recorte rápido">
+                    <button type="button" class="chip" aria-pressed="@Bool(_filtro.SoPrimeiros)" @onclick="() => Recortar(_filtro.AlternarPrimeiros())"
+                            title="Só as guias do 1º código — a que nasce com o atendimento.">1º código · <b>@_contagens.Primeiros</b></button>
+                    <button type="button" class="chip" aria-pressed="@Bool(_filtro.SoSegundos)" @onclick="() => Recortar(_filtro.AlternarSegundos())"
+                            title="Só as guias do 2º código — a que o convênio libera +24h depois, e que este painel existe para não deixar esquecer.">2º código · <b>@_contagens.Segundos</b></button>
+                    <span class="chips-separador" aria-hidden="true"></span>
+                    <button type="button" class="chip" aria-pressed="@Bool(_filtro.SoAtrasadas)" @onclick="() => Recortar(_filtro.AlternarAtrasadas())"
+                            title="A data prevista de faturamento já passou (semáforo vermelho)."><span class="semaforo vermelho"></span>Atrasadas · <b>@_contagens.Atrasadas</b></button>
+                    <button type="button" class="chip" aria-pressed="@Bool(_filtro.SoNoPrazo)" @onclick="() => Recortar(_filtro.AlternarNoPrazo())"
+                            title="A data prevista ainda não chegou (semáforo amarelo)."><span class="semaforo amarelo"></span>No prazo · <b>@_contagens.NoPrazo</b></button>
+                </div>
+                <Campo Rotulo="Código">
+                    <select class="campo" value="@(_filtro.Tipo?.ToString() ?? "")" @onchange="e => Recortar(_filtro with { Tipo = Enum.TryParse<TipoCodigo>(e.Value?.ToString(), out var t) ? t : null })">
+                        <option value="">Todos</option>
+                        @foreach (var t in Enum.GetValues<TipoCodigo>()) { <option value="@t">@RotulosEnum.De(t)</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Modalidade">
+                    <select class="campo" value="@(_filtro.Modalidade?.ToString() ?? "")" @onchange="e => Recortar(_filtro with { Modalidade = Enum.TryParse<ModalidadeAtendimento>(e.Value?.ToString(), out var m) ? m : null })">
+                        <option value="">Todas</option>
+                        @foreach (var m in Enum.GetValues<ModalidadeAtendimento>()) { <option value="@m">@ModalidadeInfo.NomeExibicao(m)</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Especialidade">
+                    <select class="campo" value="@(_filtro.Especialidade?.ToString() ?? "")" @onchange="e => Recortar(_filtro with { Especialidade = Enum.TryParse<Especialidade>(e.Value?.ToString(), out var s) ? s : null })">
+                        <option value="">Todas</option>
+                        @foreach (var s in Enum.GetValues<Especialidade>()) { <option value="@s">@EspecialidadeInfo.NomeExibicao(s)</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Convênio">
+                    <select class="campo" value="@(_filtro.Convenio?.ToString() ?? "")" @onchange="e => Recortar(_filtro with { Convenio = Enum.TryParse<Convenio>(e.Value?.ToString(), out var c) ? c : null })">
+                        <option value="">Todos</option>
+                        @foreach (var c in Enum.GetValues<Convenio>()) { <option value="@c">@CatalogoConvenios.Nome(c)</option> }
+                    </select>
+                </Campo>
+            </div>
+
+            @if (_linhas.Count == 0)
+            {
+                var (titulo, descricao) = PainelPendenciasFaturamento.Vazio(_todos.Count, _filtro);
+                <EstadoVazio Titulo="@titulo" Descricao="@descricao" Icone="@(_filtro.Ativo && _todos.Count > 0 ? "filtro" : "ok")" />
+            }
+            else
+            {
+                <div class="tabela-rolagem guias">
+                    <table class="lista">
+                        <thead>
+                            <tr>
+                                <th class="col-marca"><input type="checkbox" class="marca-todas" aria-label="Marcar todas as linhas visíveis para a baixa em lote"
+                                                             checked="@TodasMarcadas" @onchange="MarcarTodas" title="Marcar todas as linhas visíveis" /></th>
+                                <th>Paciente</th>
+                                <th>Convênio</th>
+                                <th>Código</th>
+                                <th>Prevista</th>
+                                <th>Observação</th>
+                                <th class="direita">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in _linhas)
+                            {
+                                <tr @key="p.CodigoId" class="@(_selecionados.Contains(p.CodigoId) ? "marcada" : null)">
+                                    <td class="col-marca">
+                                        <span class="semaforo @Cor(p.Urgencia)" title="@RotuloUrgencia(p)"></span>
+                                        <input type="checkbox" aria-label="Marcar para a baixa em lote" checked="@_selecionados.Contains(p.CodigoId)"
+                                               @onchange="e => Marcar(p.CodigoId, e.Value is true)" />
+                                    </td>
+                                    <td>
+                                        @Copiavel(p.PacienteNome, "principal")
+                                        @if (string.IsNullOrWhiteSpace(p.PacienteTelefone))
+                                        {
+                                            <span class="secundario sem-telefone">sem telefone no cadastro</span>
+                                        }
+                                        else
+                                        {
+                                            @Copiavel(p.PacienteTelefone!, "secundario telefone")
+                                        }
+                                    </td>
+                                    <td class="col-conv">@Copiavel(p.ConvenioNome, null)</td>
+                                    <td>
+                                        @Copiavel(RotulosEnum.De(p.Tipo), null)
+                                        <span class="secundario">@RotulosEnum.De(p.Ordem) · @PainelPendenciasFaturamento.ComoObter(p.FormaObtencao)</span>
+                                    </td>
+                                    <td class="nao-quebra">
+                                        @Copiavel(Formato.Data(p.DataPrevista), null)
+                                        <span class="secundario @(p.DiasEmAtraso > 0 ? "atrasada" : null)">@SituacaoPrazo(p)</span>
+                                    </td>
+                                    <td class="col-obs">
+                                        @if (p.TemObservacao)
+                                        {
+                                            <span class="obs" title="@p.ObservacaoPendencia">@p.ObservacaoPendencia</span>
+                                            @if (p.ObservacaoPendenciaEm is { } em) { <span class="secundario">anotado em @Formato.DataHora(em)</span> }
+                                        }
+                                        else
+                                        {
+                                            <span class="texto-secundario">—</span>
+                                        }
+                                    </td>
+                                    <td class="direita">
+                                        <div class="botoes-linha">
+                                            <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.BaixarGuia))" @onclick="() => DarBaixa(p)"
+                                                    title="@(Pode(Permissao.BaixarGuia) ? "Registrar que a guia foi efetivada no sistema do convênio" : "Seu acesso não permite dar baixa na guia.")"><Icone Nome="check" />Dar baixa</button>
+                                            <button type="button" class="botao mini icone" title="Chamar o paciente no WhatsApp para obter a guia" aria-label="Chamar o paciente no WhatsApp"
+                                                    @onclick="() => WhatsappAsync(p.PacienteTelefone, p.PacienteNome, PainelPendenciasFaturamento.MensagemDaGuia(p))"><Icone Nome="enviar" /></button>
+                                            <button type="button" class="botao mini icone @(p.TemObservacao ? "com-nota" : null)" disabled="@(!Pode(Permissao.VerFaturamento))"
+                                                    title="@($"{PainelPendenciasFaturamento.RotuloDaObservacao(p.TemObservacao)} — por que ainda não foi baixada")"
+                                                    aria-label="@PainelPendenciasFaturamento.RotuloDaObservacao(p.TemObservacao)" @onclick="() => Anotar(p)"><Icone Nome="editar" /></button>
+                                            <button type="button" class="botao mini icone contorno-perigo" disabled="@(!Pode(Permissao.MarcarNaoConformidade))"
+                                                    title="@(Pode(Permissao.MarcarNaoConformidade) ? "Marcar como não conformidade (sem esperar o prazo da rodada)" : "Seu acesso não permite marcar não conformidade.")"
+                                                    aria-label="Marcar como não conformidade" @onclick="() => NaoConformidadeAsync(p)"><Icone Nome="cancelar" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista">Clique no nome, no telefone, no convênio, no código ou na data para copiar — é o que se cola no portal da operadora.</div>
+            }
+        </section>
+
+        @if (_recursos.Count > 0)
+        {
+            <section class="cartao lista-cartao">
+                <div class="cartao-titulo"><div><h2>Glosas — prazo de recurso correndo</h2><p>Perder o prazo é perder a guia de vez.</p></div>
+                    <button type="button" class="botao" @onclick="AbrirGlosasAsync"><Icone Nome="abrir" />Abrir glosas</button>
+                </div>
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th>Paciente</th><th>Convênio</th><th>Nº guia</th><th>Motivo</th><th>Prazo até</th><th class="direita">Ações</th></tr></thead>
+                        <tbody>
+                            @foreach (var r in _recursos)
+                            {
+                                <tr @key="r.CodigoId">
+                                    <td>
+                                        <span class="com-semaforo"><span class="semaforo @Cor(r.Urgencia)"></span>@Copiavel(r.PacienteNome, "principal")</span>
+                                        @TelefoneDe(r.PacienteTelefone)
+                                    </td>
+                                    <td>@Copiavel(r.ConvenioNome, null)</td>
+                                    <td class="nao-quebra">@Copiavel(r.NumeroGuia ?? "—", null)</td>
+                                    <td>@Copiavel(r.MotivoResumo, null)</td>
+                                    <td class="nao-quebra">
+                                        @Copiavel(Formato.Data(r.DataLimiteRecurso), null)
+                                        <span class="secundario @(r.DiasParaFimPrazo < 0 ? "atrasada" : null)">@DiasRestantes(r.DiasParaFimPrazo)</span>
+                                    </td>
+                                    <td class="direita"><button type="button" class="botao mini" title="Ir para o Controle de glosas para reapresentar/recorrer" @onclick="AbrirGlosasAsync">Recorrer</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
+        @if (_carteirinhas.Count > 0)
+        {
+            <section class="cartao lista-cartao">
+                <div class="cartao-titulo"><div><h2>Carteirinhas vencidas ou vencendo (30 dias)</h2><p>Carteirinha vencida é guia recusada na origem.</p></div></div>
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th>Paciente</th><th>Convênio</th><th>Carteirinha</th><th>Validade</th><th class="direita">Ações</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _carteirinhas)
+                            {
+                                <tr @key="c.PacienteId">
+                                    <td>
+                                        <span class="com-semaforo"><span class="semaforo @Cor(c.Urgencia)"></span>@Copiavel(c.PacienteNome, "principal")</span>
+                                        @TelefoneDe(c.PacienteTelefone)
+                                    </td>
+                                    <td>@Copiavel(c.ConvenioNome, null)</td>
+                                    <td class="nao-quebra">@Copiavel(c.Carteirinha ?? "—", null)</td>
+                                    <td class="nao-quebra">
+                                        @Copiavel(Formato.Data(c.Validade), null)
+                                        <span class="secundario @(c.DiasParaVencer < 0 ? "atrasada" : null)">@VenceEm(c.DiasParaVencer)</span>
+                                    </td>
+                                    <td class="direita">
+                                        <div class="botoes-linha">
+                                            <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.VerFichaPaciente))" @onclick="() => AbrirFichaAsync(c.PacienteId)"
+                                                    title="Abrir a ficha do paciente para atualizar a carteirinha"><Icone Nome="pessoa" />Abrir ficha</button>
+                                            <button type="button" class="botao mini icone" title="Chamar o paciente no WhatsApp para atualizar a carteirinha" aria-label="Chamar o paciente no WhatsApp (carteirinha)"
+                                                    @onclick="() => WhatsappAsync(c.PacienteTelefone, c.PacienteNome, PainelPendenciasFaturamento.MensagemDaCarteirinha(c))"><Icone Nome="enviar" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
+        <section class="cartao lista-cartao">
+            <div class="cartao-titulo"><div><h2>Consultas a renovar</h2><p>A validade da consulta do convênio cobre laudos, receitas e dúvidas — renovada com o paciente, a guia não volta glosada.</p></div></div>
+            @if (_consultas.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhuma consulta a renovar" Descricao="Nenhuma validade de consulta vencendo nos próximos dias." Icone="ok" />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th>Paciente</th><th>Convênio</th><th>Vence em</th><th class="direita">Ações</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _consultas)
+                            {
+                                <tr @key="c.PacienteId">
+                                    <td>
+                                        <span class="com-semaforo"><span class="semaforo @Cor(c.Urgencia)"></span>@Copiavel(c.PacienteNome, "principal")</span>
+                                        @TelefoneDe(c.PacienteTelefone)
+                                    </td>
+                                    <td>@Copiavel(c.ConvenioNome, null)</td>
+                                    <td class="nao-quebra">
+                                        @Copiavel(Formato.Data(c.DataVencimento), null)
+                                        <span class="secundario @(c.DiasParaVencer < 0 ? "atrasada" : null)">@VenceEm(c.DiasParaVencer)</span>
+                                    </td>
+                                    <td class="direita">
+                                        <div class="botoes-linha">
+                                            <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.LancarAtendimento))" @onclick="() => RenovarAsync(c)"
+                                                    title="@(Pode(Permissao.LancarAtendimento) ? "Registrar a renovação da consulta do convênio para hoje" : "Seu acesso não permite renovar a consulta do convênio.")"><Icone Nome="atualizar" />Renovar</button>
+                                            <button type="button" class="botao mini icone" title="Chamar o paciente no WhatsApp para agendar a renovação" aria-label="Chamar o paciente no WhatsApp (consulta)"
+                                                    @onclick="() => WhatsappAsync(c.PacienteTelefone, c.PacienteNome, PainelPendenciasFaturamento.MensagemDaConsulta(c))"><Icone Nome="enviar" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@if (_baixa is { } baixa)
+{
+    <BaixaGuiaForm @ref="_formBaixa" CodigoId="baixa.CodigoId" AoFechar="() => { _baixa = null; _formBaixa = null; }" AoConcluir="BaixouAsync" />
+}
+@if (_lote is { } lote)
+{
+    <BaixaLoteForm Itens="lote" AoFechar="() => _lote = null" AoConcluir="LoteConcluidoAsync" />
+}
+@if (_nc is { } nc)
+{
+    <NaoConformidadeForm Pendencia="nc" AoFechar="() => _nc = null" AoConcluir="NcMarcadaAsync" />
+}
+@if (_obs is { } obs)
+{
+    <ObservacaoPendenciaForm Pendencia="obs" AoFechar="() => _obs = null" AoConcluir="ObservacaoGravadaAsync" />
+}
+@if (_rodada)
+{
+    <RodadaPendenciasForm AoFechar="() => _rodada = false" AoConcluir="RodadaConcluidaAsync" />
+}
+
+@code {
+    private List<PendenciaCodigo> _todos = [];
+    private List<PendenciaCodigo> _linhas = [];
+    private IReadOnlyList<PendenciaConsulta> _consultas = [];
+    private IReadOnlyList<PendenciaRecursoGlosa> _recursos = [];
+    private IReadOnlyList<PendenciaCarteirinha> _carteirinhas = [];
+    private ContagensPendencias _contagens = ContagensPendencias.De([]);
+    private int _totalBadge;
+    private FiltroPendencias _filtro = FiltroPendencias.Nenhum;
+    private string _resumo = string.Empty;
+    private readonly HashSet<int> _selecionados = [];
+
+    private string? _bannerRodada;
+    private bool _rodadaIndeterminada;
+    /// <summary>Assinatura da mensagem de WhatsApp (lido uma vez; sem ele a mensagem sai sem assinatura).</summary>
+    private string? _nomeClinica;
+    private bool _nomeLido;
+
+    private bool Carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    // Formulários abertos (um de cada).
+    private PendenciaCodigo? _baixa;
+    private BaixaGuiaForm? _formBaixa;
+    private IReadOnlyList<PendenciaCodigo>? _lote;
+    private PendenciaCodigo? _nc;
+    private PendenciaCodigo? _obs;
+    private bool _rodada;
+
+    private bool TodasMarcadas => _linhas.Count > 0 && _linhas.All(p => _selecionados.Contains(p.CodigoId));
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Volta à aba: relê por trás, sem limpar o que está na tela.</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    /// <summary>
+    /// F5 recarrega o painel (o AtalhoAtualizar do WPF); Ctrl+S com o formulário de baixa aberto
+    /// é o "Confirmar baixa" (o AtalhoSalvar do BaixaViewModel) — pelo MESMO caminho do botão,
+    /// com as duas barreiras.
+    /// </summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar when _baixa is null && _lote is null && _nc is null && _obs is null && !_rodada => CarregarAsync(),
+        AtalhoDeTela.Salvar when _baixa is not null && _formBaixa is not null => _formBaixa.ConfirmarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>
+    /// As quatro listas e a rodada numa carga só — SEQUENCIAL no mesmo escopo (o mesmo
+    /// DbContext não aceita duas operações ao mesmo tempo), com contador de geração e tudo
+    /// PUBLICADO depois do último await.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            using var escopo = Escopo();
+            var pendencias = escopo.ServiceProvider.GetRequiredService<PendenciaService>();
+            var codigos = await pendencias.CodigosPendentesAsync(hoje);
+            var consultas = await pendencias.ConsultasAVencerAsync(hoje);
+            var recursos = await pendencias.GlosasARecorrerAsync(hoje);
+            var carteirinhas = await pendencias.CarteirinhasAVencerAsync(hoje);
+            if (geracao != _geracao || Descartada) return;
+
+            // A rodada falha SOZINHA: o painel abre, mas NÃO afirma que está em dia (terceiro estado).
+            string? banner = null;
+            var indeterminada = false;
+            try
+            {
+                var rodada = escopo.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+                await rodada.GarantirInicioAsync(hoje); // ancora a carência do backlog no 1º uso
+                banner = PainelPendenciasFaturamento.BannerDaRodada(await rodada.ObterStatusAsync(hoje));
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — painel: situação da rodada de pendências", ex);
+                indeterminada = true;
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            string? nome = _nomeClinica;
+            var lido = _nomeLido;
+            if (!lido)
+            {
+                try
+                {
+                    var d = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                    nome = string.IsNullOrWhiteSpace(d.NomeFantasia) ? d.RazaoSocial : d.NomeFantasia;
+                    lido = true;
+                }
+                catch (Exception ex)
+                {
+                    // Sem nome a mensagem sai sem assinatura; não impede o painel.
+                    Clinica.Application.Diagnostico.Registrar("Blazor — painel: nome da clínica não pôde ser lido", ex);
+                }
+                if (geracao != _geracao || Descartada) return;
+            }
+
+            _todos = codigos.ToList();
+            _consultas = consultas;
+            _recursos = recursos;
+            _carteirinhas = carteirinhas;
+            _bannerRodada = banner;
+            _rodadaIndeterminada = indeterminada;
+            _nomeClinica = nome;
+            _nomeLido = lido;
+            _naoVerificado = false;
+            _carregou = true;
+            Refiltrar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — pendências de faturamento não puderam ser carregadas", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _todos = [];
+            _linhas = [];
+            _consultas = [];
+            _recursos = [];
+            _carteirinhas = [];
+            _selecionados.Clear();
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Refiltrar()
+    {
+        _linhas = _filtro.Aplicar(_todos).ToList();
+        _contagens = ContagensPendencias.De(_todos);
+        // O critério é UM (PendenciaService.TotalParaBadge) — o mesmo do badge do topo.
+        _totalBadge = PendenciaService.TotalParaBadge(_todos.Count, _consultas.Count, _recursos.Select(r => r.Urgencia));
+        _resumo = PainelPendenciasFaturamento.ResumoDoRecorte(_todos.Count, _linhas.Count, _filtro);
+        // A baixa em lote só leva o que está À VISTA: marcar, filtrar e baixar o que sumiu da tela
+        // seria baixar o que a pessoa não está vendo.
+        var visiveis = _linhas.Select(p => p.CodigoId).ToHashSet();
+        _selecionados.RemoveWhere(id => !visiveis.Contains(id));
+    }
+
+    private void Recortar(FiltroPendencias novo) { _filtro = novo; Refiltrar(); }
+
+    private void LimparFiltros() => Recortar(FiltroPendencias.Nenhum);
+
+    private void Marcar(int codigoId, bool marcado)
+    {
+        if (marcado) _selecionados.Add(codigoId); else _selecionados.Remove(codigoId);
+    }
+
+    private void MarcarTodas(ChangeEventArgs e)
+    {
+        if (e.Value is true) foreach (var p in _linhas) _selecionados.Add(p.CodigoId);
+        else _selecionados.Clear();
+    }
+
+    // ==================== ações das guias ====================
+
+    private void DarBaixa(PendenciaCodigo p)
+    {
+        if (Exigir(Permissao.BaixarGuia, "dar baixa na guia")) _baixa = p;
+    }
+
+    private async Task BaixouAsync()
+    {
+        _baixa = null;
+        _formBaixa = null;
+        Notificacoes.Sucesso("Baixa registrada.");
+        await CarregarAsync();
+    }
+
+    private async Task AbrirLote()
+    {
+        if (!Exigir(Permissao.BaixarGuia, "dar baixa nas guias")) return;
+        var itens = _linhas.Where(p => _selecionados.Contains(p.CodigoId)).ToList();
+        if (itens.Count == 0)
+        {
+            await Dialogos.AvisoAsync("Baixa em lote",
+                "Marque uma ou mais linhas da tabela (a caixinha na primeira coluna) antes de usar a baixa em lote.");
+            return;
+        }
+        _lote = itens;
+    }
+
+    private async Task LoteConcluidoAsync(string? aviso)
+    {
+        _lote = null;
+        _selecionados.Clear();
+        await CarregarAsync();
+        if (aviso is not null) await Dialogos.AvisoAsync("Baixa em lote", aviso);
+        else Notificacoes.Sucesso("Baixas registradas.");
+    }
+
+    private void Anotar(PendenciaCodigo p)
+    {
+        // O mesmo bit da tela gerencial de pendências: anotar é escrever na guia.
+        if (Exigir(Permissao.VerFaturamento, "anotar a pendência")) _obs = p;
+    }
+
+    private async Task ObservacaoGravadaAsync()
+    {
+        _obs = null;
+        Notificacoes.Sucesso("Observação da pendência gravada.");
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Não conformidade por decisão da pessoa, sem esperar o prazo da rodada. Confirma ANTES de
+    /// pedir a justificativa, como no WPF: é a única permissão que tira uma guia do painel sem ela
+    /// ter sido faturada.
+    /// </summary>
+    private async Task NaoConformidadeAsync(PendenciaCodigo p)
+    {
+        if (!Exigir(Permissao.MarcarNaoConformidade, "marcar a guia como não conformidade")) return;
+        if (!await Dialogos.ConfirmarAsync("Não conformidade",
+                $"Marcar a guia de {p.PacienteNome} como não conformidade? Ela sai das pendências ativas do painel e vai para a aba NC.",
+                perigoso: true))
+            return;
+        _nc = p;
+    }
+
+    private async Task NcMarcadaAsync()
+    {
+        _nc = null;
+        Notificacoes.Sucesso("Guia marcada como não conformidade — está na aba NC.");
+        await CarregarAsync();
+    }
+
+    private void AbrirRodada()
+    {
+        // Quem não pode dar baixa NEM marcar NC não tem como resolver uma linha da rodada.
+        if (!DecisoesDaRodada.PodeDecidir())
+        {
+            Notificacoes.Erro(PainelPendenciasFaturamento.RodadaSemPermissao);
+            return;
+        }
+        _rodada = true;
+    }
+
+    private async Task RodadaConcluidaAsync(string? falhas)
+    {
+        _rodada = false;
+        await CarregarAsync();
+        if (falhas is not null) await Dialogos.AvisoAsync("Rodar pendências", falhas);
+        else Notificacoes.Sucesso("Rodada de pendências concluída.");
+    }
+
+    // ==================== consultas, carteirinhas, glosas ====================
+
+    /// <summary>Renova a validade da consulta do convênio para hoje (o RenovacaoConsultaFluxo do shell).</summary>
+    private async Task RenovarAsync(PendenciaConsulta c)
+    {
+        if (!Exigir(Permissao.LancarAtendimento, "renovar consulta do convênio")) return;
+        if (!await Dialogos.ConfirmarAsync("Renovar validade da consulta do convênio",
+                $"Registrar a renovação do convênio de {c.PacienteNome} para hoje? Esta ação não registra uma consulta clínica."))
+            return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<ConsultaService>()
+                    .RenovarAsync(c.PacienteId, DateOnly.FromDateTime(DateTime.Today));
+            }, "Blazor — consulta não pôde ser renovada", $"Consulta de {c.PacienteNome} renovada."))
+            await CarregarAsync();
+    }
+
+    private async Task AbrirFichaAsync(int pacienteId)
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "abrir ficha do paciente")) return;
+        if (!await Host.AbrirFichaDoPacienteAsync(pacienteId))
+            Notificacoes.Erro("A ficha do paciente não está disponível neste aplicativo. Abra-a pela Recepção.");
+        else
+            await CarregarAsync(); // a carteirinha pode ter sido atualizada na ficha
+    }
+
+    private async Task AbrirGlosasAsync()
+    {
+        if (!await Host.NavegarAsync("faturamento-glosas"))
+            Notificacoes.Erro("O Controle de glosas não está disponível neste aplicativo.");
+    }
+
+    /// <summary>Abre o wa.me na conversa, com a mensagem assinada pela clínica.</summary>
+    private async Task WhatsappAsync(string? telefone, string paciente, string corpo)
+    {
+        if (PainelPendenciasFaturamento.LinkWhatsApp(telefone, corpo, _nomeClinica) is not { } link)
+        {
+            await Dialogos.AvisoAsync("WhatsApp", PainelPendenciasFaturamento.SemTelefone(paciente));
+            return;
+        }
+        if (!await Host.AbrirEnderecoAsync(link))
+        {
+            var copiou = await Host.CopiarAsync(link);
+            Notificacoes.Erro(copiou
+                ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
+                : "Não foi possível abrir o WhatsApp neste computador.");
+        }
+    }
+
+    // ==================== desenho ====================
+
+    private async Task CopiarAsync(string texto)
+    {
+        if (await Host.CopiarAsync(texto)) Notificacoes.Sucesso($"Copiado: {texto}");
+        else Notificacoes.Erro("A área de transferência não aceitou agora (outro programa a está usando). Tente de novo.");
+    }
+
+    /// <summary>
+    /// O dado que se COPIA com um clique. Retipar no portal da operadora é onde nasce o "O" no
+    /// lugar do zero; copiar não erra. Célula vazia não se anuncia como copiável.
+    /// </summary>
+    private RenderFragment Copiavel(string texto, string? classe) => b =>
+    {
+        if (string.IsNullOrWhiteSpace(texto) || texto == "—")
+        {
+            b.OpenElement(0, "span");
+            b.AddAttribute(1, "class", classe);
+            b.AddContent(2, texto);
+            b.CloseElement();
+            return;
+        }
+        b.OpenElement(3, "span");
+        b.AddAttribute(4, "class", $"copiavel {classe}");
+        b.AddAttribute(5, "role", "button");
+        b.AddAttribute(6, "tabindex", "0");
+        b.AddAttribute(7, "title", $"{texto} — clique para copiar");
+        b.AddAttribute(8, "onclick", EventCallback.Factory.Create(this, () => CopiarAsync(texto)));
+        b.AddAttribute(9, "onkeydown", EventCallback.Factory.Create<KeyboardEventArgs>(this,
+            e => e.Key is "Enter" or " " ? CopiarAsync(texto) : Task.CompletedTask));
+        b.AddContent(10, texto);
+        b.CloseElement();
+    };
+
+    private RenderFragment TelefoneDe(string? telefone) => b =>
+    {
+        if (string.IsNullOrWhiteSpace(telefone))
+        {
+            b.OpenElement(0, "span");
+            b.AddAttribute(1, "class", "secundario sem-telefone");
+            b.AddContent(2, "sem telefone no cadastro");
+            b.CloseElement();
+        }
+        else b.AddContent(3, Copiavel(telefone, "secundario telefone"));
+    };
+
+    private static string Bool(bool v) => v ? "true" : "false";
+
+    private static string Cor(NivelUrgencia u) => u switch
+    {
+        NivelUrgencia.Vermelho => "vermelho",
+        NivelUrgencia.Amarelo => "amarelo",
+        NivelUrgencia.Cinza => "cinza",
+        _ => "verde"
+    };
+
+    private static string RotuloUrgencia(PendenciaCodigo p) => p.Urgencia switch
+    {
+        NivelUrgencia.Vermelho => "Atrasada",
+        NivelUrgencia.Amarelo => "No prazo — vence hoje ou em breve",
+        _ => "No prazo"
+    };
+
+    private static string SituacaoPrazo(PendenciaCodigo p) => p.DiasEmAtraso > 0
+        ? $"atrasada há {p.DiasEmAtraso} dia(s)"
+        : p.DataPrevista == DateOnly.FromDateTime(DateTime.Today) ? "vence hoje" : "no prazo";
+
+    private static string DiasRestantes(int dias) => dias switch
+    {
+        _ when dias < 0 => $"prazo vencido há {-dias} dia(s)",
+        0 => "último dia",
+        1 => "falta 1 dia",
+        _ => $"faltam {dias} dias"
+    };
+
+    private static string VenceEm(int dias) => dias switch
+    {
+        _ when dias < 0 => $"vencida há {-dias} dia(s)",
+        0 => "vence hoje",
+        _ => $"vence em {dias} dia(s)"
+    };
+}
