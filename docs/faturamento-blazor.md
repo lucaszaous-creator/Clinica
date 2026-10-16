@@ -92,9 +92,11 @@ dois), filtros de tipo/modalidade/especialidade/convênio, resumo do recorte, va
 "não há" de "nenhuma bate", copiar com um clique, dar baixa (`BaixarGuia`, crítica do número a
 cada tecla, capa de conclusão em PDF), observação, NC (`MarcarNaoConformidade`), WhatsApp,
 baixa em lote (caixinhas no lugar do Ctrl/Shift+clique), glosas com prazo (leva a Glosas),
-carteirinhas (ficha do paciente) e consultas a renovar (`LancarAtendimento`), rodada pelo
-painel (`DecisoesDaRodada`), F5. Diferença: o número do badge do topo do app WPF não existe no
-shell da suíte (não havia onde mostrá-lo).
+consultas a renovar (`LancarAtendimento`), rodada pelo painel (`DecisoesDaRodada`), F5.
+Diferenças: o número do badge do topo do app WPF não existe no shell da suíte (não havia onde
+mostrá-lo); e a lista de **carteirinhas vencidas ou vencendo SAIU** do painel (out/2026, pedido da
+clínica) — quem atualiza a carteirinha é o balcão, com o paciente na frente, e o alerta vermelho
+do `ElegibilidadeService` continua no agendamento, no check-in e na ficha.
 
 **Consultar guias** (`ConsultaDeGuias`) — todos os filtros, resumo que diz o recorte inteiro,
 capa em PDF, histórico (`VerAuditoria`), F5. Diferença aprovada pela direção: os filtros buscam ao

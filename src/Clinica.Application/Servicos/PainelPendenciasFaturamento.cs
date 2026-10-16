@@ -172,17 +172,6 @@ public static class PainelPendenciasFaturamento
                "Para não interromper o seu tratamento, vamos agendar o seu retorno? Responda por aqui, por favor.";
     }
 
-    /// <summary>A mensagem para pedir a carteirinha atualizada.</summary>
-    public static string MensagemDaCarteirinha(PendenciaCarteirinha c)
-    {
-        var situacao = c.DiasParaVencer < 0
-            ? $"está vencida desde {c.Validade.ToString("dd/MM/yyyy", PtBr)}"
-            : $"vence em {c.DiasParaVencer} dia(s) ({c.Validade.ToString("dd/MM/yyyy", PtBr)})";
-        return $"Olá, {PrimeiroNome(c.PacienteNome)}! Aqui é da clínica. A sua carteirinha do convênio {situacao}. " +
-               "Para o convênio não recusar as suas guias, poderia nos enviar por aqui uma foto da carteirinha " +
-               "atualizada? Obrigado!";
-    }
-
     /// <summary>
     /// O endereço do wa.me com a mensagem assinada pela clínica, ou null quando o telefone do
     /// cadastro não serve (a MESMA regra de telefone da cobrança: 10 a 13 dígitos, DDI 55).

@@ -111,15 +111,11 @@ public sealed class PainelPendenciasFaturamentoTests
     }
 
     [Fact]
-    public void Mensagens_de_consulta_e_carteirinha_dizem_o_prazo()
+    public void Mensagem_da_consulta_diz_o_prazo()
     {
         var consulta = new PendenciaConsulta(1, "Ana Lima", Convenio.Amil, new DateOnly(2026, 9, 20), 0, NivelUrgencia.Amarelo);
         Assert.Contains("está vencendo", PainelPendenciasFaturamento.MensagemDaConsulta(consulta));
         Assert.Contains("vence em 4 dia(s)", PainelPendenciasFaturamento.MensagemDaConsulta(consulta with { DiasParaVencer = 4 }));
-
-        var cart = new PendenciaCarteirinha(1, "Ana Lima", Convenio.Amil, "X", new DateOnly(2026, 9, 1), -5, NivelUrgencia.Vermelho);
-        Assert.Contains("está vencida desde 01/09/2026", PainelPendenciasFaturamento.MensagemDaCarteirinha(cart));
-        Assert.Contains("vence em 3 dia(s) (01/09/2026)", PainelPendenciasFaturamento.MensagemDaCarteirinha(cart with { DiasParaVencer = 3 }));
     }
 
     [Fact]

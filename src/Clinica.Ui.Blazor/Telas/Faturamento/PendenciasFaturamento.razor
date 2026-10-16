@@ -7,8 +7,9 @@
   os combos das listas longas (tipo do código, modalidade, especialidade, convênio).
 
   Abaixo das guias, as outras três pendências que travam o faturamento: glosas com prazo de
-  recurso correndo, carteirinhas vencendo e consultas a renovar — as duas primeiras só
-  aparecem quando há o que mostrar, como no WPF.
+  recurso correndo e consultas a renovar — a primeira só aparece quando há o que mostrar.
+  As CARTEIRINHAS vencendo saíram daqui (out/2026, pedido da clínica): quem resolve é o
+  balcão, com o paciente na frente, e o aviso dele (ElegibilidadeService) continua lá.
 
   Dar baixa abre o FORMULÁRIO por cima (no WPF era uma tela de detalhe): o painel fica atrás
   com o filtro como estava, e volta a ler quando a baixa é gravada.
@@ -249,43 +250,6 @@
             </section>
         }
 
-        @if (_carteirinhas.Count > 0)
-        {
-            <section class="cartao lista-cartao">
-                <div class="cartao-titulo"><div><h2>Carteirinhas vencidas ou vencendo (30 dias)</h2><p>Carteirinha vencida é guia recusada na origem.</p></div></div>
-                <div class="tabela-rolagem">
-                    <table class="lista">
-                        <thead><tr><th>Paciente</th><th>Convênio</th><th>Carteirinha</th><th>Validade</th><th class="direita">Ações</th></tr></thead>
-                        <tbody>
-                            @foreach (var c in _carteirinhas)
-                            {
-                                <tr @key="c.PacienteId">
-                                    <td>
-                                        <span class="com-semaforo"><span class="semaforo @Cor(c.Urgencia)"></span>@Copiavel(c.PacienteNome, "principal")</span>
-                                        @TelefoneDe(c.PacienteTelefone)
-                                    </td>
-                                    <td>@Copiavel(c.ConvenioNome, null)</td>
-                                    <td class="nao-quebra">@Copiavel(c.Carteirinha ?? "—", null)</td>
-                                    <td class="nao-quebra">
-                                        @Copiavel(Formato.Data(c.Validade), null)
-                                        <span class="secundario @(c.DiasParaVencer < 0 ? "atrasada" : null)">@VenceEm(c.DiasParaVencer)</span>
-                                    </td>
-                                    <td class="direita">
-                                        <div class="botoes-linha">
-                                            <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.VerFichaPaciente))" @onclick="() => AbrirFichaAsync(c.PacienteId)"
-                                                    title="Abrir a ficha do paciente para atualizar a carteirinha"><Icone Nome="pessoa" />Abrir ficha</button>
-                                            <button type="button" class="botao mini icone" title="Chamar o paciente no WhatsApp para atualizar a carteirinha" aria-label="Chamar o paciente no WhatsApp (carteirinha)"
-                                                    @onclick="() => WhatsappAsync(c.PacienteTelefone, c.PacienteNome, PainelPendenciasFaturamento.MensagemDaCarteirinha(c))"><Icone Nome="enviar" /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        }
-
         <section class="cartao lista-cartao">
             <div class="cartao-titulo"><div><h2>Consultas a renovar</h2><p>A validade da consulta do convênio cobre laudos, receitas e dúvidas — renovada com o paciente, a guia não volta glosada.</p></div></div>
             @if (_consultas.Count == 0)
@@ -354,7 +318,6 @@
     private List<PendenciaCodigo> _linhas = [];
     private IReadOnlyList<PendenciaConsulta> _consultas = [];
     private IReadOnlyList<PendenciaRecursoGlosa> _recursos = [];
-    private IReadOnlyList<PendenciaCarteirinha> _carteirinhas = [];
     private ContagensPendencias _contagens = ContagensPendencias.De([]);
     private int _totalBadge;
     private FiltroPendencias _filtro = FiltroPendencias.Nenhum;
@@ -417,7 +380,6 @@
             var codigos = await pendencias.CodigosPendentesAsync(hoje);
             var consultas = await pendencias.ConsultasAVencerAsync(hoje);
             var recursos = await pendencias.GlosasARecorrerAsync(hoje);
-            var carteirinhas = await pendencias.CarteirinhasAVencerAsync(hoje);
             if (geracao != _geracao || Descartada) return;
 
             // A rodada falha SOZINHA: o painel abre, mas NÃO afirma que está em dia (terceiro estado).
@@ -457,7 +419,6 @@
             _todos = codigos.ToList();
             _consultas = consultas;
             _recursos = recursos;
-            _carteirinhas = carteirinhas;
             _bannerRodada = banner;
             _rodadaIndeterminada = indeterminada;
             _nomeClinica = nome;
@@ -476,7 +437,6 @@
             _linhas = [];
             _consultas = [];
             _recursos = [];
-            _carteirinhas = [];
             _selecionados.Clear();
         }
         finally
@@ -604,7 +564,7 @@
         else Notificacoes.Sucesso("Rodada de pendências concluída.");
     }
 
-    // ==================== consultas, carteirinhas, glosas ====================
+    // ==================== consultas e glosas ====================
 
     /// <summary>Renova a validade da consulta do convênio para hoje (o RenovacaoConsultaFluxo do shell).</summary>
     private async Task RenovarAsync(PendenciaConsulta c)
@@ -620,15 +580,6 @@
                     .RenovarAsync(c.PacienteId, DateOnly.FromDateTime(DateTime.Today));
             }, "Blazor — consulta não pôde ser renovada", $"Consulta de {c.PacienteNome} renovada."))
             await CarregarAsync();
-    }
-
-    private async Task AbrirFichaAsync(int pacienteId)
-    {
-        if (!Exigir(Permissao.VerFichaPaciente, "abrir ficha do paciente")) return;
-        if (!await Host.AbrirFichaDoPacienteAsync(pacienteId))
-            Notificacoes.Erro("A ficha do paciente não está disponível neste aplicativo. Abra-a pela Recepção.");
-        else
-            await CarregarAsync(); // a carteirinha pode ter sido atualizada na ficha
     }
 
     private async Task AbrirGlosasAsync()
