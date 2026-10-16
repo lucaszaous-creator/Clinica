@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relacionamento redesenhado</title>
+<style>
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479; --fio:#DCE0E9;
+  --acento:#123A9E; --acento-suave:#EAF0FB; --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC; --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --pg:#10141D; --sup:#171D28; --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4; --fio:#28303E;
+    --acento:#8CA9F2; --acento-suave:#1B2436; --ganho:#6EE7A3; --ganho-fundo:#12291D; --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12; }
+}
+:root[data-theme="dark"]{ --pg:#10141D; --sup:#171D28; --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4; --fio:#28303E;
+    --acento:#8CA9F2; --acento-suave:#1B2436; --ganho:#6EE7A3; --ganho-fundo:#12291D; --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12; }
+*{box-sizing:border-box}
+body{background:var(--pg); color:var(--tinta); font-family:"Segoe UI",system-ui,sans-serif; font-size:16px; line-height:1.55; margin:0}
+.wrap{max-width:1180px; margin:0 auto; padding:40px 16px 80px}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin:0 0 8px}
+h1{font-size:36px; line-height:1.1; margin:0 0 14px}
+h2{font-size:24px; margin:48px 0 6px}
+h3{font-size:16px; margin:0 0 6px}
+p{margin:0 0 12px; max-width:72ch; color:var(--tinta-2)}
+.problemas{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin:22px 0 0}
+.problemas div{background:var(--sup); border:1px solid var(--fio); border-radius:12px; padding:14px 16px}
+.problemas b{display:block; margin-bottom:4px}
+.problemas span{font-size:14px; color:var(--tinta-2)}
+.rolar{overflow-x:auto; margin-top:16px}
+/* ===== a tela (tokens do app) ===== */
+.tela{--a:#123A9E;--as:#EEF3FC;--f:#F8FAFC;--s:#FFFFFF;--b:#E5E7EB;--t:#111827;--t2:#6B7280;--tc:#374151;
+  --ok:#15803D;--oks:#DCFCE7;--av:#C2410C;--avs:#FFEDD5;--er:#B91C1C;--ers:#FEE2E2;--in:#0369A1;--ins:#E0F2FE;
+  min-width:1000px; background:var(--f); color:var(--t); font-size:14px; line-height:1.45;
+  border:1px solid #C3C9D6; border-radius:12px; overflow:hidden; box-shadow:var(--sombra)}
+.tela .abas{display:flex; gap:2px; background:var(--s); border-bottom:1px solid var(--b); padding:8px 20px 0}
+.tela .abas div{padding:8px 14px 10px; font-size:13.5px; color:var(--tc); border-bottom:2px solid transparent}
+.tela .abas .on{color:var(--a); font-weight:600; border-bottom-color:var(--a)}
+.tela .pag{padding:16px 20px 20px}
+.tela .topo{display:flex; justify-content:space-between; align-items:flex-start; gap:16px}
+.tela .h{font-size:20px; font-weight:700; margin:0}
+.tela .sub{font-size:12.5px; color:var(--t2); margin:2px 0 14px}
+.tela .bt{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--b); background:var(--s); color:var(--tc);
+  border-radius:8px; padding:6px 12px; font-size:13px; font-weight:600; white-space:nowrap}
+.tela .bt.p{background:var(--a); border-color:var(--a); color:#fff}
+.tela .bt.ok{background:var(--ok); border-color:var(--ok); color:#fff}
+.tela .bt.mini{padding:4px 10px; font-size:12.5px}
+.funil{display:grid; grid-template-columns:repeat(5,1fr); gap:0; background:var(--s); border:1px solid var(--b); border-radius:10px; overflow:hidden; margin-bottom:14px}
+.funil div{padding:12px 14px; border-right:1px solid var(--b); position:relative}
+.funil div:last-child{border-right:0}
+.funil .r{font-size:12px; color:var(--t2); font-weight:600}
+.funil .n{font-size:24px; font-weight:700; line-height:1.15}
+.funil .x{font-size:11.5px; color:var(--t2)}
+.funil .on{background:var(--as)} .funil .on .r{color:var(--a)}
+.seg{display:inline-flex; border:1px solid var(--b); border-radius:8px; overflow:hidden; background:var(--s); margin-right:10px}
+.seg span{padding:5px 12px; font-size:13px; color:var(--tc); border-right:1px solid var(--b)}
+.seg span:last-child{border-right:0}
+.seg .on{background:var(--a); color:#fff; font-weight:600}
+.barra{display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap}
+.busca{flex:1; min-width:220px; border:1px solid var(--b); border-radius:8px; background:var(--s); padding:6px 10px; color:var(--t2); font-size:13px}
+table{width:100%; border-collapse:collapse; background:var(--s); border:1px solid var(--b); border-radius:10px; overflow:hidden}
+th{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--t2); text-align:left; padding:8px 12px; border-bottom:1px solid var(--b); background:#FAFBFC}
+td{padding:9px 12px; border-bottom:1px solid var(--b); vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.nome{font-weight:600}
+.cx{font-size:12px; color:var(--t2)}
+.selo{display:inline-block; font-size:11.5px; font-weight:600; padding:1px 8px; border-radius:999px; white-space:nowrap}
+.s-av{background:var(--avs); color:var(--av)} .s-ok{background:var(--oks); color:var(--ok)} .s-er{background:var(--ers); color:var(--er)}
+.s-in{background:var(--ins); color:var(--in)} .s-n{background:#F1F5F9; color:var(--tc)}
+.dono{display:inline-flex; align-items:center; gap:6px; font-size:12.5px}
+.av{width:22px; height:22px; border-radius:11px; background:var(--as); color:var(--a); font-size:10.5px; font-weight:700; display:inline-flex; align-items:center; justify-content:center}
+.passos{display:flex; align-items:center; gap:4px}
+.passos i{width:18px; height:6px; border-radius:3px; background:#E5E7EB; display:inline-block}
+.passos i.f{background:var(--a)} .passos i.v{background:var(--ok)}
+.dir{text-align:right}
+/* modal */
+.fundo-modal{background:rgba(17,24,39,.35); padding:24px; display:flex; justify-content:center}
+.modal{width:760px; background:var(--s); border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,.25); overflow:hidden}
+.modal .cab{padding:16px 20px; border-bottom:1px solid var(--b); display:flex; justify-content:space-between; gap:12px}
+.modal .corpo{padding:16px 20px; display:grid; grid-template-columns:1fr 250px; gap:20px}
+.modal .rod{padding:12px 20px; border-top:1px solid var(--b); display:flex; justify-content:space-between; align-items:center; background:#FAFBFC}
+.trilho{display:flex; margin:4px 0 16px}
+.trilho div{flex:1; text-align:center; font-size:11.5px; color:var(--t2); position:relative; padding-top:22px}
+.trilho div:before{content:""; position:absolute; top:6px; left:50%; width:12px; height:12px; margin-left:-6px; border-radius:6px; background:#E5E7EB; z-index:1}
+.trilho div:after{content:""; position:absolute; top:11px; left:-50%; width:100%; height:2px; background:#E5E7EB}
+.trilho div:first-child:after{display:none}
+.trilho .f{color:var(--tc); font-weight:600} .trilho .f:before{background:var(--a)} .trilho .f:after{background:var(--a)}
+.trilho .agora{color:var(--a); font-weight:700} .trilho .agora:before{background:#fff; border:3px solid var(--a); width:14px; height:14px; margin-left:-7px; top:5px}
+.rot{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--t2); margin:0 0 6px}
+.msg{background:#F0FDF4; border:1px solid #BBF7D0; border-radius:10px; padding:10px 12px; font-size:13px; color:#14532D; margin-bottom:10px}
+.acoes{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px}
+.desfecho{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+.desfecho div{border:1px solid var(--b); border-radius:10px; padding:10px 12px}
+.desfecho b{display:block; font-size:13.5px}
+.desfecho span{font-size:12px; color:var(--t2)}
+.desfecho .on{border-color:var(--a); background:var(--as)}
+.hist{font-size:12.5px}
+.hist div{padding:6px 0 6px 12px; border-left:2px solid var(--b); margin-left:4px; position:relative}
+.hist div:before{content:""; position:absolute; left:-5px; top:11px; width:8px; height:8px; border-radius:4px; background:var(--b)}
+.hist .q{color:var(--t2)}
+.ficha{font-size:12.5px; border:1px solid var(--b); border-radius:10px; padding:10px 12px; margin-bottom:12px}
+.ficha div{display:flex; justify-content:space-between; gap:8px; padding:2px 0}
+.ficha span:first-child{color:var(--t2)}
+/* kanban */
+.raias{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
+.raia{background:#F3F4F6; border-radius:10px; padding:8px}
+.raia h4{margin:2px 4px 8px; font-size:12.5px; display:flex; justify-content:space-between}
+.card{background:#fff; border:1px solid var(--b); border-radius:8px; padding:8px 10px; margin-bottom:8px; font-size:12.5px}
+/* comparação */
+.cmp{width:100%; border-collapse:collapse; background:var(--sup); border:1px solid var(--fio); border-radius:12px; overflow:hidden; margin-top:14px; font-size:14px}
+.cmp th,.cmp td{border-bottom:1px solid var(--fio); padding:10px 12px; text-align:left; vertical-align:top; color:var(--tinta)}
+.cmp th{background:transparent; color:var(--mudo); font-size:12px}
+.cmp .rec{background:var(--acento-suave)}
+.lista-dec{background:var(--sup); border:1px solid var(--fio); border-radius:12px; padding:14px 18px 6px; margin-top:14px}
+.lista-dec li{margin-bottom:8px; color:var(--tinta-2); font-size:15px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Relacionamento · Acompanhamento · proposta para aprovar</p>
+  <h1>Assumir, falar, registrar e ver o progresso em um lugar só</h1>
+  <p>Hoje a tela de Acompanhamento tem a informação toda, mas espalhada em quatro modos (lista, painel, "Registrar contato…", filtros) e com cada ato custando mais do que devia. Abaixo, o que medi na tela atual, dois desenhos e a recomendação. Nada foi construído ainda — o que for aprovado vira tela Blazor sobre o MESMO serviço (<code>AcompanhamentoPacienteService</code>), sem perder dado.</p>
+
+  <div class="problemas">
+    <div><b>Assumir</b><span>É um botão dentro do painel, que grava um "contato" de texto fixo. Na lista, "A assumir" é só um nome na coluna — não há como pegar o paciente dali.</span></div>
+    <div><b>Atender / mandar mensagem</b><span>O WhatsApp abre, e depois a pessoa tem de ir a "Registrar contato…", outra tela, com 6 campos e texto obrigatório de 5 letras para dizer "não atendeu".</span></div>
+    <div><b>Ver progresso</b><span>O progresso é uma linha de texto ("12 de 40 no filtro · 30 pendentes · 4 atrasados…"). Do caso, só a etapa — sem caminho de onde saiu e para onde vai.</span></div>
+    <div><b>Filtros demais</b><span>13 situações, 9 condições, 12 filtros extras e 7 atalhos. Quem abre a tela não sabe por onde começar.</span></div>
+  </div>
+
+  <!-- ==================== DESENHO A ==================== -->
+  <h2>Desenho A · A fila com a próxima ação (recomendado)</h2>
+  <p>Cada linha tem UM botão — o próximo passo daquele paciente. Em cima, o funil de progresso, que também é o filtro. "Minha fila" abre por padrão.</p>
+  <div class="rolar"><div class="tela">
+    <div class="abas"><div>Confirmações</div><div>Retornos a marcar</div><div class="on">Acompanhamento</div><div>Pedidos da enfermagem</div></div>
+    <div class="pag">
+      <div class="topo">
+        <div><p class="h">Acompanhamento de pacientes</p><p class="sub">Quem sumiu e as indicações de BSV — do primeiro contato até a sessão realizada.</p></div>
+        <div style="display:flex;gap:8px"><span class="bt">Gerar recall (60 dias)</span><span class="bt">Exportar CSV</span></div>
+      </div>
+      <div class="funil">
+        <div><div class="r">A assumir</div><div class="n">7</div><div class="x">ninguém pegou ainda</div></div>
+        <div class="on"><div class="r">Para contatar hoje</div><div class="n">5</div><div class="x">2 atrasados</div></div>
+        <div><div class="r">Em conversa</div><div class="n">9</div><div class="x">aguardando resposta ou data</div></div>
+        <div><div class="r">Agendados</div><div class="n">6</div><div class="x">próxima sessão marcada</div></div>
+        <div><div class="r">Voltaram este mês</div><div class="n" style="color:var(--ok)">11</div><div class="x">de 38 contatados · 29%</div></div>
+      </div>
+      <div class="barra">
+        <span class="seg"><span class="on">Recall · 27</span><span>Novos BSV · 4</span></span>
+        <span class="seg"><span class="on">Minha fila</span><span>Toda a equipe</span></span>
+        <span class="busca">🔎 Nome, telefone ou convênio</span>
+        <span class="bt mini">Mais filtros (2)</span>
+      </div>
+      <table>
+        <thead><tr><th>Paciente</th><th>Sem vir</th><th>Progresso</th><th>Situação</th><th>Responsável</th><th class="dir">Próximo passo</th></tr></thead>
+        <tbody>
+          <tr><td><div class="nome">Maria Aparecida Souza</div><div class="cx">Acupuntura · Unimed · tratamento longo (32 sessões)</div></td>
+            <td>74 dias</td><td><span class="passos"><i class="f"></i><i></i><i></i><i></i></span></td>
+            <td><span class="selo s-er">Atrasado 2 dias</span></td><td><span class="dono"><span class="av">AL</span>Você</span></td>
+            <td class="dir"><span class="bt mini ok">Falar no WhatsApp</span></td></tr>
+          <tr><td><div class="nome">João Pedro Lima</div><div class="cx">BSV · Particular · pacote com 4 sessões</div></td>
+            <td>61 dias</td><td><span class="passos"><i class="f"></i><i class="f"></i><i></i><i></i></span></td>
+            <td><span class="selo s-in">Sem resposta · 2ª tentativa</span></td><td><span class="dono"><span class="av">AL</span>Você</span></td>
+            <td class="dir"><span class="bt mini ok">Tentar de novo</span></td></tr>
+          <tr><td><div class="nome">Rosana Teixeira</div><div class="cx">Acupuntura · Amil</div></td>
+            <td>88 dias</td><td><span class="passos"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></span></td>
+            <td><span class="selo s-ok">Quer marcar</span></td><td><span class="dono"><span class="av">AL</span>Você</span></td>
+            <td class="dir"><span class="bt mini p">Marcar horário</span></td></tr>
+          <tr><td><div class="nome">Carlos Eduardo Ramos</div><div class="cx">Consulta · Petrobras</div></td>
+            <td>65 dias</td><td><span class="passos"><i></i><i></i><i></i><i></i></span></td>
+            <td><span class="selo s-n">A contatar</span></td><td><span class="cx">ninguém</span></td>
+            <td class="dir"><span class="bt mini p">Assumir</span></td></tr>
+          <tr><td><div class="nome">Helena Martins</div><div class="cx">Acupuntura · Unimed · sem telefone</div></td>
+            <td>92 dias</td><td><span class="passos"><i class="f"></i><i></i><i></i><i></i></span></td>
+            <td><span class="selo s-av">Sem telefone</span></td><td><span class="dono"><span class="av">AL</span>Você</span></td>
+            <td class="dir"><span class="bt mini">Atualizar ficha</span></td></tr>
+        </tbody>
+      </table>
+      <p class="sub" style="margin-top:8px">Clicar na linha abre a conversa do paciente (abaixo). O botão da direita faz o passo direto, sem abrir nada além do necessário.</p>
+    </div>
+  </div></div>
+
+  <h3 style="margin-top:26px">A conversa do paciente — um formulário só, aberto por cima da fila</h3>
+  <p>Mensagem que vai sair, os três jeitos de falar, e "Como foi?" em botões. O desfecho escolhido já sabe a etapa e a data do próximo contato; a observação vira opcional (exceto para encerrar, que continua pedindo motivo).</p>
+  <div class="rolar"><div class="tela"><div class="fundo-modal"><div class="modal">
+    <div class="cab"><div><div style="font-weight:700;font-size:16px">Maria Aparecida Souza</div><div class="cx">Recall de Acupuntura · última sessão em 02/08 com Dr. Gustavo · (21) 99876-5432</div></div><span class="selo s-er" style="align-self:flex-start">Atrasado 2 dias</span></div>
+    <div class="corpo">
+      <div>
+        <div class="trilho"><div class="f">Sumiu<br>02/08</div><div class="f">Assumido<br>por você</div><div class="agora">Contato<br>1ª tentativa</div><div>Agendou</div><div>Voltou</div></div>
+        <p class="rot">A mensagem que vai sair</p>
+        <div class="msg">Olá, Maria! Aqui é da clínica. Sentimos sua falta — faz 74 dias desde a sua última sessão de acupuntura. Que tal marcarmos o seu retorno? Responda por aqui.</div>
+        <div class="acoes"><span class="bt ok">Abrir no WhatsApp</span><span class="bt">Copiar o telefone para ligar</span><span class="bt p">Marcar horário</span></div>
+        <p class="rot">Como foi?</p>
+        <div class="desfecho">
+          <div class="on"><b>Não respondeu</b><span>Tentar de novo em 2 dias (ajustável)</span></div>
+          <div><b>Vai pensar / pediu outra data</b><span>Escolher o dia do próximo contato</span></div>
+          <div><b>Quer marcar</b><span>Abre a agenda já com o paciente</span></div>
+          <div><b>Não quer voltar</b><span>Encerrar com motivo (fica no histórico)</span></div>
+        </div>
+        <p class="cx" style="margin-top:10px">Observação (opcional) · Próximo contato: <b>18/10 (sábado → segunda 20/10)</b></p>
+      </div>
+      <div>
+        <div class="ficha">
+          <div><span>Convênio</span><span>Unimed</span></div><div><span>Sessões</span><span>32</span></div>
+          <div><span>Pacote</span><span>3 sessões com saldo</span></div><div><span>Mensagem</span><span style="color:var(--ok)">autorizada</span></div>
+        </div>
+        <p class="rot">Histórico</p>
+        <div class="hist">
+          <div>Hoje — <b>você assumiu</b></div>
+          <div class="q">14/10 · WhatsApp · Ana: não respondeu</div>
+          <div class="q">02/10 · novo ciclo de recall</div>
+        </div>
+      </div>
+    </div>
+    <div class="rod"><span class="cx">Registrado por Ana Lima (usuário conectado)</span><span style="display:flex;gap:8px"><span class="bt">Fechar</span><span class="bt p">Registrar "Não respondeu"</span></span></div>
+  </div></div></div></div>
+
+  <!-- ==================== DESENHO B ==================== -->
+  <h2>Desenho B · Quadro por etapa (kanban)</h2>
+  <p>Uma coluna por etapa, arrastar o cartão para mudar. O progresso é visível pela coluna; a conversa abre no mesmo formulário do Desenho A.</p>
+  <div class="rolar"><div class="tela"><div class="pag">
+    <div class="raias">
+      <div class="raia"><h4>A assumir <span>7</span></h4><div class="card"><b>Carlos E. Ramos</b><br><span class="cx">65 dias · Consulta</span></div><div class="card"><b>Paulo Nunes</b><br><span class="cx">70 dias · BSV</span></div></div>
+      <div class="raia"><h4>Contatar hoje <span>5</span></h4><div class="card"><b>Maria A. Souza</b><br><span class="selo s-er">atrasado</span></div><div class="card"><b>Helena Martins</b><br><span class="selo s-av">sem telefone</span></div></div>
+      <div class="raia"><h4>Em conversa <span>9</span></h4><div class="card"><b>João P. Lima</b><br><span class="cx">2ª tentativa</span></div></div>
+      <div class="raia"><h4>Agendado <span>6</span></h4><div class="card"><b>Rosana Teixeira</b><br><span class="cx">23/10 · 14h</span></div></div>
+      <div class="raia"><h4>Voltou <span>11</span></h4><div class="card"><b>Lúcia Prado</b><br><span class="cx">sessão em 10/10</span></div></div>
+    </div>
+  </div></div></div>
+
+  <h2>A comparação</h2>
+  <table class="cmp">
+    <tr><th></th><th>🧑‍💻 UX — quem usa</th><th>🛠️ DX — quem mantém</th><th>🤝 CX — a clínica</th></tr>
+    <tr><td><b>Manter a tela atual e só polir</b></td><td>Continua com quatro modos e o formulário de 6 campos; melhora pouco o que foi reclamado.</td><td>Mexe em WPF que a casa está aposentando; a próxima mudança paga de novo.</td><td>Barato agora, mas a reclamação volta.</td></tr>
+    <tr class="rec"><td><b>A · Fila com próxima ação</b> (recomendado)</td><td>Um clique para assumir na lista; WhatsApp → "Como foi?" → um clique registra. Funil mostra o progresso da equipe e serve de filtro. Lista ordenada por quem está atrasado.</td><td>Tela Blazor nova (padrão da casa), mesmos serviços; a regra de "qual é o próximo passo" e "qual desfecho grava qual etapa/data" mora na Application, com teste.</td><td>Contato registrado em segundos aumenta o registro real — e é ele que gera o número "voltaram este mês". Mesmos dados, sem migração.</td></tr>
+    <tr><td><b>B · Quadro por etapa</b></td><td>Bonito para ver o todo, mas com 30+ pacientes as colunas rolam e o atrasado se perde; arrastar não registra o que foi dito. Já recusamos este formato no "Meu dia" ("quanto mais simples, melhor").</td><td>Arrasto + raias é o código que a casa tirou do Meu dia e da fila; voltaria a existir.</td><td>Mesma informação do A com mais custo de manutenção.</td></tr>
+  </table>
+
+  <h2>O que muda na regra (se aprovado o A)</h2>
+  <ul class="lista-dec">
+    <li><b>Assumir na própria linha</b>, sem texto obrigatório — a trilha continua gravando quem assumiu e quando.</li>
+    <li><b>Desfecho rápido</b>: "Não respondeu" → etapa "Sem resposta", próximo contato em 2 dias úteis; "Pediu outra data" → "Retornar na data"; "Quer marcar" → "Pronto para agendar" e abre a agenda; "Não quer voltar" → encerrar, exige motivo e justificativa (como hoje).</li>
+    <li><b>Observação opcional</b> nos desfechos de rotina (hoje exige 5 letras até para "não atendeu"); continua obrigatória para encerrar.</li>
+    <li><b>Os filtros raros</b> (tentativas mínimas, último contato de/até, motivo…) ficam em "Mais filtros", que diz quantos estão ligados.</li>
+    <li><b>Nada se perde</b>: Confirmações, Retornos a marcar e Pedidos da enfermagem continuam como estão; a configuração do BSV e os motivos vão para um formulário de Configurar (só gestão); CSV e "Gerar recall" ficam no topo.</li>
+  </ul>
+</div>
+</body>
+</html>
