@@ -26,6 +26,9 @@ public sealed class ModuloFaturamento : IModuloApp
         ("faturamento-nc", "Não conformidades", typeof(NaoConformidadesFaturamento), Permissao.VerFaturamento, GrupoSidebar.Financeiro),
         ("faturamento-tiss", "Lotes e XML TISS", typeof(LotesTiss), Permissao.VerFaturamento, GrupoSidebar.Financeiro),
         ("faturamento-relatorios", "Relatórios de guias", typeof(RelatoriosDeGuias), Permissao.VerIndicadores, GrupoSidebar.Inteligencia),
+        // Tendência (out/2026): a mesma chave que o Financeiro publica — no Gerente a dedupe
+        // por chave mantém uma; no app do Faturamento ela abre pelas SESSÕES.
+        (ChavesSuite.Tendencias, "Tendências", typeof(TendenciasDeAtendimento), Permissao.VerFaturamento, GrupoSidebar.Inteligencia),
         ("faturamento-parametros", "Regras e catálogos TISS", typeof(ConfiguracoesFaturamento), Permissao.ConfigurarFaturamento, GrupoSidebar.Gestao)
     ];
     public IReadOnlyList<ItemMenuModulo> Itens { get; } = new[] {

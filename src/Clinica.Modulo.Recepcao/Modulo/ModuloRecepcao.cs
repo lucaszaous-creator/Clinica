@@ -480,6 +480,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // idempotente), e o "Marcar horário" dela chega à aba Marcar pela ponte desta Recepção.
         servicos.AddHospedagemBlazor();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IMarcacaoDeHorario, MarcacaoDaRecepcao>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao, BalcaoDaRecepcao>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
         // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
@@ -507,13 +508,13 @@ public sealed class ModuloRecepcao : IModuloApp
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChavesSuite.OcupacaoAgenda => new OcupacaoAgendaView(servicos),
-        ChavesSuite.PedidosEnfermagem => new PedidosEnfermagemView(servicos),
+        ChavesSuite.PedidosEnfermagem => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PedidosDaEnfermagem), servicos),
         ChaveConfirmacoes => new ConfirmacoesView { DataContext = servicos.GetRequiredService<ConfirmacoesViewModel>() },
         ChavePagamentos => new PagamentosView
         {
             DataContext = servicos.GetRequiredService<PagamentosViewModel>()
         },
-        ChavePainel => new PainelView { DataContext = servicos.GetRequiredService<PainelViewModel>() },
+        ChavePainel => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.InicioRecepcao), servicos),
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
         // A lista de Pacientes do BALCÃO abre a ficha do balcão (out/2026, mockup "4 · Ficha");
@@ -553,7 +554,7 @@ public sealed class ModuloRecepcao : IModuloApp
         },
         ChaveProntuario => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(secao: 3),
         ChaveDocumentos => new DocumentosView { DataContext = servicos.GetRequiredService<DocumentosViewModel>() },
-        ChaveEquipe => new EquipeView { DataContext = servicos.GetRequiredService<EquipeViewModel>() },
+        ChaveEquipe => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProfissionaisESalas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
         ChaveAjuda => new AjudaView(),
         _ => null

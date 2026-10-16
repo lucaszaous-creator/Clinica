@@ -18,6 +18,9 @@ public static class ChavesSuite
     public const string Agenda = "agenda";
     public const string OcupacaoAgenda = "ocupacao-agenda";
     public const string PedidosEnfermagem = "pedidos-enfermagem";
+    /// <summary>Tendência dos atendimentos (out/2026) — publicada pelo Financeiro e pelo
+    /// Faturamento e aba de Relatórios/BI no Gerente; chave única para a dedupe do shell.</summary>
+    public const string Tendencias = "tendencias";
     public const string Acessos = "acessos";
     public const string ConfirmacoesAgenda = "agenda-confirmacoes";
     public const string Estoque = "estoque";
