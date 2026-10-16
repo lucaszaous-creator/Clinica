@@ -18,7 +18,7 @@ public sealed record LinhaAcompanhamento(int Id, int PacienteId, string Paciente
     string Situacao, bool Pendente, bool Atrasado, DateOnly ProximoContato, EtapaAcompanhamento Etapa,
     int Tentativas, DateTime? UltimoContato, string? UltimoResultado, bool Consentimento,
     bool PacoteComSaldo, DateTime? AgendadoPara, bool Cancelou, bool Faltou, Guid Versao,
-    string? MotivoEncerramento, string? Motivo, int TotalSessoes = 0)
+    string? MotivoEncerramento, string? Motivo, int TotalSessoes = 0, DateOnly? VoltouEm = null)
 {
     /// <summary>
     /// Sessões realizadas a partir das quais o paciente era de TRATAMENTO, e não de uma
@@ -58,5 +58,10 @@ public interface IAcompanhamentoPacienteService
     Task<int> GerarRecallAsync(int usuarioId, int dias, ModalidadeAtendimento? modalidade = null, CancellationToken ct = default);
     Task<IReadOnlyList<ContatoAcompanhamento>> HistoricoAsync(int usuarioId, int id, CancellationToken ct = default);
     Task AtualizarAsync(int usuarioId, int id, AtualizarAcompanhamento pedido, CancellationToken ct = default);
+    /// <summary>
+    /// Pega o caso para si, SEM texto obrigatório (out/2026, desenho A do Relacionamento): a
+    /// trilha grava quem assumiu e quando, e a etapa e a data do próximo contato não mudam.
+    /// </summary>
+    Task AssumirAsync(int usuarioId, int id, Guid versao, CancellationToken ct = default);
     Task ValidarContatoAsync(int usuarioId, int id, CancellationToken ct = default);
 }

@@ -62,6 +62,24 @@ public static class MensagensDeContato
            + $"{retornoEm:dd/MM}. Podemos marcar um horário? Responda por aqui com o melhor dia para você."
            + Assinatura(nomeClinica);
 
+    /// <summary>
+    /// O convite de RECALL: o paciente parou de vir e a clínica chama de volta. Morava no
+    /// shell (`Whatsapp.Recall`); desceu para cá quando a fila de Acompanhamento virou tela
+    /// Blazor (out/2026) — duas redações divergiriam na primeira correção.
+    /// </summary>
+    public static string Recall(string nomePaciente, int? diasSemVir = null, string? nomeClinica = null)
+    {
+        var tempo = diasSemVir is >= 60 ? " Faz um tempinho desde a sua última sessão." : string.Empty;
+        return $"Olá, {PrimeiroNome(nomePaciente)}! Tudo bem?{tempo}"
+             + " Estamos com horários abertos e podemos reservar um para você — quer que eu marque?"
+             + Assinatura(nomeClinica);
+    }
+
+    /// <summary>O primeiro contato com quem o profissional indicou para o BSV.</summary>
+    public static string IndicacaoBsv(string nomePaciente, string? nomeClinica = null)
+        => $"Olá, {PrimeiroNome(nomePaciente)}! Aqui é da clínica. Podemos conversar sobre o agendamento do seu atendimento?"
+           + Assinatura(nomeClinica);
+
     private static string Assinatura(string? nomeClinica)
         => string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}";
 }

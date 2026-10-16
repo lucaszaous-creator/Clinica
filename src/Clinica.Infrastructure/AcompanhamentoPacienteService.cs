@@ -195,8 +195,10 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         foreach (var c in casos)
         {
             bool Corresponde(ModalidadeAtendimento m) => RegrasAcompanhamento.Corresponde(c.Tipo, c.Modalidade, m);
-            var realizou = sessoesPorPaciente[c.PacienteId].Any(a => Corresponde(a.Modalidade)
-                && (c.Tipo == TipoAcompanhamento.Recall ? a.Data > DateOnly.FromDateTime(c.ReferenciaEm) : a.RealizadoEm >= c.ReferenciaEm));
+            var voltou = sessoesPorPaciente[c.PacienteId].Where(a => Corresponde(a.Modalidade)
+                && (c.Tipo == TipoAcompanhamento.Recall ? a.Data > DateOnly.FromDateTime(c.ReferenciaEm) : a.RealizadoEm >= c.ReferenciaEm))
+                .Select(a => (DateOnly?)a.Data).Min();
+            var realizou = voltou != null;
             var correspondentes = horariosPorPaciente[c.PacienteId].Where(a => Corresponde(a.ModalidadePrevista) && a.DataHora >= c.ReferenciaEm).ToList();
             var agendado = correspondentes.Where(a => a.Status == StatusAgendamento.Agendado && a.DataHora.Date >= Agora.Date).OrderBy(a => a.DataHora).FirstOrDefault();
             var ultimoHorario = correspondentes.OrderByDescending(a => a.DataHora).ThenByDescending(a => a.Id).FirstOrDefault();
@@ -214,7 +216,7 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
                 Hoje.DayNumber - DateOnly.FromDateTime(c.ReferenciaEm).DayNumber, situacao, pendente, pendente && c.ProximoContato < Hoje,
                 c.ProximoContato, c.Etapa, contato?.Total ?? 0, contato?.Ultimo, null, consentidos.Contains(c.PacienteId), comPacote.Contains(c.PacienteId),
                 agendado?.DataHora, cancelou, faltou, c.Versao, c.MotivoEncerramento, c.Motivo?.Nome,
-                totalSessoes.GetValueOrDefault(c.PacienteId)));
+                totalSessoes.GetValueOrDefault(c.PacienteId), voltou));
         }
         return resultado.OrderByDescending(x => x.Atrasado).ThenBy(x => x.ProximoContato).ThenBy(x => x.Paciente).ToList();
     }
@@ -249,7 +251,12 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         if (pedido.Encerrar && pedido.Reabrir) throw new InvalidOperationException("Escolha encerrar ou reabrir.");
         if (caso.EncerradoEm != null && !pedido.Reabrir) throw new InvalidOperationException("Reabra o acompanhamento antes de registrar novas ações.");
         var observacao = pedido.Observacao?.Trim() ?? "";
-        if (observacao.Length is < 5 or > 2000) throw new InvalidOperationException("Registre o resultado ou a justificativa (5 a 2000 caracteres).");
+        // A justificativa só é obrigatória para ENCERRAR e para REABRIR (out/2026, desenho A):
+        // exigir 5 letras para dizer "não atendeu" fazia a equipe escrever "....." — rastro com
+        // aparência de controle e nenhum conteúdo. O desfecho de rotina já diz o que houve.
+        if ((pedido.Encerrar || pedido.Reabrir) && observacao.Length < 5)
+            throw new InvalidOperationException("Escreva a justificativa (pelo menos 5 caracteres).");
+        if (observacao.Length > 2000) throw new InvalidOperationException("A observação passa de 2000 caracteres.");
         // A autoria vem da sessão validada, inclusive para clientes antigos que enviem outro responsável.
         if (!pedido.Encerrar && (pedido.ProximoContato == null || pedido.ProximoContato < Hoje)) throw new InvalidOperationException("Defina o próximo contato para hoje ou uma data futura.");
         if (pedido.MotivoId is {} motivo && !await db.MotivosAcompanhamento.AnyAsync(m => m.Id == motivo && m.Ativo, ct)) throw new InvalidOperationException("Escolha um motivo ativo.");
@@ -269,5 +276,23 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
             Observacao = observacao, ResponsavelId = u.Id, ProximoContato = pedido.Encerrar ? null : pedido.ProximoContato });
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { throw new InvalidOperationException("Outra pessoa atualizou este acompanhamento. Atualize a lista antes de salvar."); }
+    }
+
+    public async Task AssumirAsync(int usuarioId, int id, Guid versao, CancellationToken ct = default)
+    {
+        var u = await Usuario(usuarioId, Permissao.GerenciarCampanhas, ct);
+        var caso = await db.Acompanhamentos.SingleAsync(c => c.Id == id, ct);
+        if (caso.Versao != versao) throw new InvalidOperationException("Outra pessoa atualizou este acompanhamento. Atualize a lista antes de assumir.");
+        if (caso.EncerradoEm != null) throw new InvalidOperationException("Este acompanhamento está encerrado — reabra-o antes de assumir.");
+        if (caso.ResponsavelId == u.Id) return;
+        var anterior = caso.ResponsavelId;
+        caso.ResponsavelId = u.Id;
+        if (caso.ProximoContato < Hoje) caso.ProximoContato = Hoje;
+        caso.Versao = Guid.NewGuid();
+        caso.Contatos.Add(new() { Idempotencia = Guid.NewGuid(), Em = Agora, Operador = u.Login,
+            Resultado = anterior == null ? "Assumiu o acompanhamento" : "Assumiu o acompanhamento de outra pessoa",
+            ResponsavelId = u.Id, ProximoContato = caso.ProximoContato });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException) { throw new InvalidOperationException("Outra pessoa atualizou este acompanhamento. Atualize a lista antes de assumir."); }
     }
 }
