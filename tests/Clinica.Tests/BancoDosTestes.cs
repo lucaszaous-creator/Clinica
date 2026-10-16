@@ -65,25 +65,43 @@ public static class BancoDosTestes
     /// <summary>Verdadeiro quando a suíte está rodando contra o Postgres.</summary>
     public static bool NoPostgres => CadeiaAdmin is not null;
 
+    /// <summary>
+    /// A mesma troca para o construtor NÃO genérico — é o que <c>AddDbContext(o =&gt; …)</c>
+    /// entrega. Sem esta sobrecarga, os testes que montam o app pelo DI (as telas Blazor)
+    /// caíam no SQLite de verdade, vazio, enquanto as sementes iam para o Postgres.
+    /// </summary>
+    public static DbContextOptionsBuilder UseSqlite(this DbContextOptionsBuilder builder, SqliteConnection conexao)
+    {
+        if (CadeiaAdmin is null)
+            return SqliteDbContextOptionsBuilderExtensions.UseSqlite(builder, conexao);
+        return builder.UseNpgsql(ComBanco(BancoDe(conexao)));
+    }
+
     public static DbContextOptionsBuilder<ClinicaDbContext> UseSqlite(
         this DbContextOptionsBuilder<ClinicaDbContext> builder, SqliteConnection conexao)
     {
         if (CadeiaAdmin is null)
             return SqliteDbContextOptionsBuilderExtensions.UseSqlite(builder, conexao);
+        return builder.UseNpgsql(ComBanco(BancoDe(conexao)));
+    }
 
-        if (BancoDaConexao.TryGetValue(conexao, out var existente))
-            return builder.UseNpgsql(ComBanco(existente));
+    private static string BancoDe(SqliteConnection conexao)
+    {
+        lock (BancoDaConexao)
+        {
+            if (BancoDaConexao.TryGetValue(conexao, out var existente))
+                return existente;
 
-        var nome = $"{Prefixo}{Environment.ProcessId}_{Interlocked.Increment(ref _sequencia)}";
-        Admin($"CREATE DATABASE \"{nome}\" TEMPLATE \"{Modelo.Value}\"");
-        BancoDaConexao.Add(conexao, nome);
+            var nome = $"{Prefixo}{Environment.ProcessId}_{Interlocked.Increment(ref _sequencia)}";
+            Admin($"CREATE DATABASE \"{nome}\" TEMPLATE \"{Modelo.Value}\"");
+            BancoDaConexao.Add(conexao, nome);
 
-        var cadeia = ComBanco(nome);
-        // O único gancho comum aos 147 arquivos: quem descarta a conexão do SQLite
-        // (todo `Dispose()` de fixture e todo `using var conn`) leva o banco junto.
-        conexao.Disposed += (_, _) => Apagar(nome, cadeia);
-
-        return builder.UseNpgsql(cadeia);
+            var cadeia = ComBanco(nome);
+            // O único gancho comum aos 147 arquivos: quem descarta a conexão do SQLite
+            // (todo `Dispose()` de fixture e todo `using var conn`) leva o banco junto.
+            conexao.Disposed += (_, _) => Apagar(nome, cadeia);
+            return nome;
+        }
     }
 
     private static string? Ler()

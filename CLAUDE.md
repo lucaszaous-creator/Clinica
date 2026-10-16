@@ -4185,9 +4185,10 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do posto — e o app não abriu com o mesmo 42501. A chave só nasce onde
   `has_table_privilege(…, 'REFERENCES')`, e `deploy/tablet/comissao-recuperacao-chave.sql`
   a cria como dono. **Tabela nova que aponta para tabela do posto: chave condicional + script.**
-- **O build do Windows roda em PARALELO** (out/2026, ~15 → ~7 min): `testes` em Linux
-  (o que não precisa de WPF), `conferencias` e `publicar` no Windows, cache do NuGet, e o
-  job `build` só espera os três — é o nome do check do PR. Passo novo entra no job certo;
+- **O build do Windows roda em duas etapas** (out/2026): `testes` em Linux (o que não
+  precisa de WPF) e `conferencias` no Windows correm em PARALELO; `publicar` (os cinco
+  `.exe`) só começa depois que os DOIS passaram — pedido da direção: `.exe` de commit
+  reprovado não fica para download. O job `build` espera os três — é o nome do check do PR. Passo novo entra no job certo;
   pôr teste de Linux no runner Windows paga 2× e alonga a fila.
 - **Triggers usados pelo portal devem funcionar com seu papel restrito.** `SELECT FOR SHARE`
   exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita

@@ -141,9 +141,12 @@ jobs:
   # ============================================================
   # Os cinco .exe portáteis (ver docs/arquitetura-multi-exe.md).
   # Estes projetos são net8.0-windows/WPF e NÃO compilam em Linux.
+  # Só são gerados DEPOIS de os testes e as conferências passarem (out/2026, pedido da
+  # direção): artefato de um commit reprovado não pode ficar disponível para download.
   # ============================================================
   publicar:
     runs-on: windows-latest
+    needs: [testes, conferencias]
     steps:
       - uses: actions/checkout@v5
 
