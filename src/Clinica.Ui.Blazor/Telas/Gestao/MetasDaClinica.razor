@@ -1,0 +1,333 @@
+@*
+  METAS DA CLÍNICA (out/2026, migrado do MetasView/MetasViewModel do WPF, com o RECORTE por
+  categoria e especialidade que a cliente pediu).
+
+  Responde "chegamos onde a gente disse que ia chegar?" — o alvo do mês, o realizado e a
+  projeção, lado a lado. A pergunta "o que está crescendo?" é a da Tendência, ao lado.
+
+  As regras que não estão aqui (parcelas 28/31/64): o realizado vem do serviço DONO de cada
+  indicador (MetaService), meta ausente NÃO é zero, não se projeta antes do dia 5, ocupação
+  não se projeta por regra de três. O que a tela AFIRMA (as frases, a barra, o casamento da
+  apuração com a meta) mora em MetasNaTela, puro e com teste.
+
+  Permissão: ler é do item de menu (VerIndicadores); DEFINIR, corrigir e excluir é
+  Permissao.DefinirMetas, nas duas barreiras (parcela 64: ver o número e decidir sobre ele
+  são bits diferentes).
+
+  Diferenças em relação ao WPF (todas declaradas): o mês em foco é escolhido com o
+  SeletorMes e qualquer mês é apurado (o WPF apurava só o mês corrente); o ano aparece como
+  régua de doze meses com a contagem de metas de cada um; e a edição trava a chave da meta.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina metas @(Carregando && _linhas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Gestão · Metas" Titulo="Metas da clínica"
+                     Subtitulo="O alvo do mês com o realizado e a projeção ao lado. Sem alvo, o painel só mostra variação — não desempenho.">
+        <SeletorMes Valor="_mes" ValorChanged="TrocarMesAsync" />
+        <button type="button" class="botao primario" disabled="@(!Pode(Permissao.DefinirMetas))"
+                title="@(Pode(Permissao.DefinirMetas) ? "Definir uma meta" : "Seu acesso não permite definir metas.")"
+                @onclick="() => AbrirNova()"><Icone Nome="mais" />Nova meta</button>
+    </CabecalhoPagina>
+
+    <nav class="cartao metas-ano" aria-label="@($"Metas de {_mes.Year}")">
+        <span class="metas-ano-rotulo">@_mes.Year</span>
+        @for (var i = 1; i <= 12; i++)
+        {
+            var mes = i;
+            var conta = _porMes[mes - 1];
+            var esta = mes == _mes.Month;
+            <button type="button" class="metas-ano-mes @(esta ? "ativo" : null) @(conta == 0 ? "vazio" : null)"
+                    aria-pressed="@(esta ? "true" : "false")"
+                    title="@($"{NomeDoMes(mes)}: {(conta == 0 ? "nenhuma meta" : conta == 1 ? "1 meta" : $"{conta} metas")}")"
+                    @onclick="() => TrocarMesAsync(new DateOnly(_mes.Year, mes, 1))">
+                <span>@(NomeDoMes(mes)[..3])</span>
+                <b>@(conta == 0 ? "—" : conta.ToString(Formato.PtBr))</b>
+            </button>
+        }
+    </nav>
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível ler as metas" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+        </section>
+    }
+    else if (Carregando && _linhas.Count == 0 && !_carregouUmaVez)
+    {
+        <section class="kpis tres">
+            @for (var i = 0; i < 3; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="60%" /></div> }
+        </section>
+        <div class="cartao cartao-corpo"><Esqueleto Altura="200" /></div>
+    }
+    else
+    {
+        var futuro = MetasNaTela.ReferenciaDeApuracao(_mes, _hoje) is null;
+        var emCurso = _mes.Year == _hoje.Year && _mes.Month == _hoje.Month;
+        <section class="kpis tres" aria-label="Resumo do mês">
+            <Kpi Rotulo="Metas do mês" Valor="@_linhas.Count.ToString(Formato.PtBr)" Icone="etiqueta"
+                 Nota="@MetasNaTela.Resumo(_linhas, _mes, _apuracaoFalhou)" />
+            <Kpi Rotulo="Batidas" Valor="@(futuro || _apuracaoFalhou ? "—" : _linhas.Count(l => l.Atingida).ToString(Formato.PtBr))"
+                 Icone="check" Tom="sucesso"
+                 Nota="@(futuro ? "O mês ainda não começou" : _apuracaoFalhou ? "A apuração não pôde ser lida" : "Realizado igual ou acima do alvo")" />
+            @if (emCurso)
+            {
+                <Kpi Rotulo="Em risco" Valor="@(_apuracaoFalhou ? "—" : _linhas.Count(l => l.EmRisco).ToString(Formato.PtBr))"
+                     Icone="alerta" Tom="@(_linhas.Any(l => l.EmRisco) ? "aviso" : "neutro")"
+                     Nota="@($"No ritmo atual, fecham abaixo do alvo · projeção a partir do dia {MetaService.DiasMinimosParaProjetar}")" />
+            }
+            else
+            {
+                <Kpi Rotulo="Não batidas" Valor="@(futuro || _apuracaoFalhou ? "—" : _linhas.Count(l => !l.Atingida && l.Tom == TomDaMeta.Perigo).ToString(Formato.PtBr))"
+                     Icone="alerta" Tom="neutro" Nota="@(futuro ? "O mês ainda não começou" : "O mês fechou abaixo do alvo")" />
+            }
+        </section>
+
+        @if (_apuracaoFalhou)
+        {
+            <Aviso Tom="erro" Texto="@($"O realizado não pôde ser apurado — as metas estão listadas, mas os números ao lado não foram lidos. {_erroApuracao}")" />
+        }
+
+        <section class="cartao lista-cartao">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>@Maiuscula(Formato.Mes(_mes))</h2>
+                    <p>@(futuro ? "Mês que ainda não começou: o realizado aparece quando ele chegar."
+                        : emCurso ? $"Apurado até hoje, {Formato.DataCurta(_hoje)}. A linha vertical na barra é onde o mês fecha se o ritmo se mantiver."
+                        : "Mês fechado: o realizado é o do mês inteiro.")</p>
+                </div>
+            </div>
+            @if (_linhas.Count == 0)
+            {
+                <EstadoVazio Icone="etiqueta" Titulo="@($"Nenhuma meta para {Formato.Mes(_mes)}")"
+                             Descricao="Meta ausente é “não decidimos” — o painel volta a comparar com o mês anterior, que responde “melhorou?” e nunca “chegamos lá?”.">
+                    <button type="button" class="botao primario" disabled="@(!Pode(Permissao.DefinirMetas))" @onclick="() => AbrirNova()">
+                        <Icone Nome="mais" />Definir a primeira meta</button>
+                </EstadoVazio>
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista metas-tabela">
+                        <thead>
+                            <tr>
+                                <th>Indicador</th>
+                                <th>De quem</th>
+                                <th>Recorte</th>
+                                <th class="direita">Alvo</th>
+                                <th class="metas-col-progresso">Realizado</th>
+                                <th class="direita">Projeção</th>
+                                <th>Situação</th>
+                                <th class="direita" aria-label="Ações"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _linhas)
+                            {
+                                var linha = l;
+                                <tr @key="l.MetaId">
+                                    <td class="nao-quebra"><span class="principal">@l.Rotulo</span></td>
+                                    <td><span class="metas-corta" title="@l.Dono">@l.Dono</span></td>
+                                    <td>
+                                        <span class="metas-corta" title="@l.Recorte">@l.Recorte</span>
+                                        @if (l.Nota is not null) { <span class="secundario">@l.Nota</span> }
+                                        @if (!string.IsNullOrWhiteSpace(l.Observacoes)) { <span class="secundario metas-corta" title="@l.Observacoes">@l.Observacoes</span> }
+                                    </td>
+                                    <td class="direita numero">@l.AlvoTexto</td>
+                                    <td class="metas-col-progresso">
+                                        <div class="metas-progresso">
+                                            <span class="numero">@l.RealizadoTexto</span>
+                                            @if (l.Fracao is { } f)
+                                            {
+                                                <div class="trilho metas-trilho @ClasseTom(l.Tom)" role="img"
+                                                     aria-label="@($"{f.ToString("P0", Formato.PtBr)} do alvo{(l.FracaoProjecao is { } fq ? $", projeção {fq.ToString("P0", Formato.PtBr)}" : "")}")">
+                                                    <i style="width:@N(f * 100)%"></i>
+                                                    @if (l.FracaoProjecao is { } fp)
+                                                    {
+                                                        <b class="metas-projecao" style="left:@N(fp * 100)%" title="@($"Projeção: {l.ProjecaoTexto}")"></b>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="direita numero">@l.ProjecaoTexto</td>
+                                    <td><Selo Tom="@SeloTom(l.Tom)">@l.Situacao</Selo></td>
+                                    <td class="direita">
+                                        <div class="botoes-linha">
+                                            <button type="button" class="botao mini" disabled="@(!Pode(Permissao.DefinirMetas))"
+                                                    title="@(Pode(Permissao.DefinirMetas) ? "Corrigir o alvo desta meta" : "Seu acesso não permite definir metas.")"
+                                                    @onclick="() => _editando = linha.MetaId"><Icone Nome="editar" />Corrigir</button>
+                                            <button type="button" class="botao mini icone" disabled="@(!Pode(Permissao.DefinirMetas))"
+                                                    title="Excluir esta meta" aria-label="@($"Excluir a meta de {l.Rotulo}")"
+                                                    @onclick="() => ExcluirAsync(linha)"><Icone Nome="lixo" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista">O realizado vem do serviço dono de cada indicador: faturamento é receita realizada; sessões, as realizadas; ocupação, a agenda contra a jornada. Metas por recorte somam só a categoria/especialidade escolhida.</div>
+            }
+        </section>
+    }
+</div>
+
+@if (_novaAberta)
+{
+    <MetaForm Ano="_mes.Year" Mes="_mes.Month" AoFechar="() => _novaAberta = false" AoConcluir="GravouAsync" />
+}
+@if (_editando is { } id)
+{
+    <MetaForm MetaId="id" Ano="_mes.Year" Mes="_mes.Month" AoFechar="() => _editando = null" AoConcluir="GravouAsync" />
+}
+
+@code {
+    private DateOnly _mes;
+    private DateOnly _hoje;
+    private IReadOnlyList<LinhaMetaNaTela> _linhas = [];
+    private int[] _porMes = new int[12];
+    private bool Carregando;
+    private bool _carregouUmaVez;
+    private bool _naoVerificado;
+    private string? _erro;
+    private bool _apuracaoFalhou;
+    private string? _erroApuracao;
+    private int _geracao;
+    private bool _novaAberta;
+    private int? _editando;
+
+    protected override Task OnInitializedAsync()
+    {
+        _hoje = DateOnly.FromDateTime(DateTime.Today);
+        _mes = new DateOnly(_hoje.Year, _hoje.Month, 1);
+        return CarregarAsync();
+    }
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private Task TrocarMesAsync(DateOnly mes)
+    {
+        _mes = new DateOnly(mes.Year, mes.Month, 1);
+        return CarregarAsync();
+    }
+
+    /// <summary>
+    /// As metas do ano (para a régua e o mês) e a apuração do mês em foco. A apuração falha
+    /// SOZINHA: a lista de metas continua, e a linha diz "não foi possível apurar" — lista sem
+    /// realizado por consulta quebrada se leria como "não fizemos nada este mês".
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        var mes = _mes;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            using var escopo = Escopo();
+            var servico = escopo.ServiceProvider.GetRequiredService<MetaService>();
+            var doAno = await servico.DoAnoAsync(mes.Year);
+            var doMes = doAno.Where(m => m.Mes == mes.Month).ToList();
+
+            IReadOnlyList<MetaApurada> apuradas = [];
+            var falhou = false;
+            string? erroApuracao = null;
+            if (doMes.Count > 0 && MetasNaTela.ReferenciaDeApuracao(mes, hoje) is { } referencia)
+            {
+                try { apuradas = await servico.ApurarMesAsync(referencia); }
+                catch (Exception ex)
+                {
+                    if (geracao != _geracao || Descartada) return;
+                    Clinica.Application.Diagnostico.Registrar("Blazor — apuração das metas do mês falhou", ex);
+                    falhou = true;
+                    erroApuracao = ex.Message;
+                }
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            var porMes = new int[12];
+            foreach (var m in doAno) porMes[m.Mes - 1]++;
+            _porMes = porMes;
+            _hoje = hoje;
+            _apuracaoFalhou = falhou;
+            _erroApuracao = erroApuracao;
+            _linhas = MetasNaTela.Montar(doMes, apuradas, mes, hoje, falhou);
+            _carregouUmaVez = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — metas não puderam ser lidas", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void AbrirNova()
+    {
+        if (!Exigir(Permissao.DefinirMetas, "definir metas")) return;
+        _novaAberta = true;
+    }
+
+    private async Task GravouAsync()
+    {
+        _novaAberta = false;
+        _editando = null;
+        Notificacoes.Sucesso("Meta definida — o painel da direção já compara com ela.");
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Apagar a meta é diferente de zerá-la: meta ausente significa "não decidimos", meta
+    /// zero significa "decidimos que é zero".
+    /// </summary>
+    private async Task ExcluirAsync(LinhaMetaNaTela l)
+    {
+        if (!Exigir(Permissao.DefinirMetas, "excluir metas")) return;
+        var periodo = $"{l.Mes:00}/{l.Ano}";
+        if (!await Dialogos.ConfirmarAsync("Excluir meta",
+                $"Apagar a meta de {l.Rotulo} ({l.Dono} · {l.Recorte}) de {periodo}?\n\n"
+                + "O mês passa a não ter alvo — o painel volta a mostrar só a variação contra o mês anterior. "
+                + "Se a intenção é declarar que o alvo é zero, corrija o valor para zero em vez de apagar: "
+                + "ausência e zero dizem coisas diferentes.", perigoso: true)) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<MetaService>().ExcluirAsync(l.MetaId, Operador);
+            }, "Blazor — meta não pôde ser excluída", "Meta excluída."))
+            await CarregarAsync();
+    }
+
+    private static string NomeDoMes(int mes) => Maiuscula(new DateOnly(2000, mes, 1).ToString("MMMM", Formato.PtBr));
+
+    private static string Maiuscula(string s) => s.Length == 0 ? s : char.ToUpper(s[0], Formato.PtBr) + s[1..];
+
+    private static string SeloTom(TomDaMeta t) => t switch
+    {
+        TomDaMeta.Sucesso => "sucesso",
+        TomDaMeta.Aviso => "aviso",
+        TomDaMeta.Perigo => "perigo",
+        _ => "neutro"
+    };
+
+    private static string? ClasseTom(TomDaMeta t) => t switch
+    {
+        TomDaMeta.Sucesso => "batida",
+        TomDaMeta.Aviso => "risco",
+        TomDaMeta.Perigo => "abaixo",
+        _ => null
+    };
+
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+}

@@ -19,7 +19,8 @@ public sealed record MetaApurada(
     decimal? Projecao,
     int? ProfissionalId,
     string? Profissional,
-    string? Segmento = null)
+    string? Segmento = null,
+    int MetaId = 0)
 {
     /// <summary>Quanto da meta já foi cumprido, de 0 em diante. Nulo sem base.</summary>
     public double? PercentualAtingido => Realizado is { } r && Alvo > 0m
@@ -274,7 +275,11 @@ public sealed class MetaService
                     m.Indicador, m.Ano, m.Mes, m.Valor, realizado,
                     Projetar(m.Indicador, realizado, diasCorridos, diasDoMes, mesEmCurso),
                     m.ProfissionalId, m.Profissional?.Rotulo,
-                    DescreverSegmento(m.ModalidadeCodigo, m.EspecialidadeCodigo).TrimStart(' ', '·').Trim() is { Length: > 0 } seg ? seg : null);
+                    DescreverSegmento(m.ModalidadeCodigo, m.EspecialidadeCodigo).TrimStart(' ', '·').Trim() is { Length: > 0 } seg ? seg : null,
+                    // O Id casa a apuração com a LINHA da meta. A tela WPF casava por
+                    // indicador + mês + profissional — com o recorte por modalidade, duas
+                    // metas de sessões do mesmo mês recebiam o realizado uma da outra.
+                    m.Id);
             })
             .OrderBy(m => m.Indicador)
             .ThenBy(m => m.Segmento is null ? 0 : 1)
