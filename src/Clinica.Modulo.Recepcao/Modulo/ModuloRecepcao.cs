@@ -512,9 +512,9 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavePainel => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.InicioRecepcao), servicos),
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AgendaDoDia), servicos),
-        // A lista de Pacientes do BALCÃO abre a ficha do balcão (out/2026, mockup "4 · Ficha");
-        // o Prontuário e o Consultório, que reusam a mesma lista, continuam na ficha clínica.
-        ChavePacientes => new PacientesView { DataContext = ComFichaDoBalcao(servicos.GetRequiredService<PacientesViewModel>()) },
+        // A lista de Pacientes do BALCÃO é Blazor (out/2026); o Prontuário e o Consultório,
+        // que reusam a lista WPF pela `IFabricaListaPacientes`, continuam na ficha clínica.
+        ChavePacientes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PacientesDoBalcao), servicos),
         ChaveMarcarHorario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MarcarAtendimento), servicos),
         ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
@@ -548,15 +548,4 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveAjuda => new AjudaView(),
         _ => null
     };
-
-    private static PacientesViewModel ComFichaDoBalcao(PacientesViewModel vm)
-    {
-        vm.AbrirFichaDoBalcao = true;
-        // A tela ABRE no recorte de quem tem horário hoje (out/2026 — o cliente: a abertura
-        // "vazia, só com a busca" ficou feia e caducada). É quem o balcão procura primeiro,
-        // e a consulta é pequena (o dia, não o cadastro): o cadastro inteiro continua sendo
-        // PEDIDO, pelo "Ver todas".
-        vm.IniciarComRecorte(Clinica.Application.Modelos.FiltroListaPacientes.ComHorarioHoje);
-        return vm;
-    }
 }
