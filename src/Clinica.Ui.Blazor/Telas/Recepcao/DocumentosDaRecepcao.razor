@@ -1,0 +1,778 @@
+@*
+  DOCUMENTOS DA RECEPÇÃO (out/2026 — migrada do DocumentosView/DocumentosViewModel WPF; o item
+  "Documentos", chave "documentos").
+
+  Duas perguntas, duas abas (parcela 82): "Emitir" um papel novo e achar "O que já saiu".
+  A emissão é o desenho aprovado dos três passos — QUEM · QUAL PAPEL · O QUE VAI SAIR — com a
+  busca de paciente que é a tela (BuscaDePacienteNaTela) e a faixa que ela vira
+  (FaixaDoPaciente). ⚠️ O passo 1 é PASSO, não portão: recibo e fechamento do período não são
+  de ninguém, e por isso a busca oferece "Seguir sem paciente" (a regra 3 do faturamento: não
+  tirar a capacidade de quem já a usava).
+
+  Nada de regra aqui: o que cada cartão diz e libera e as frases da lista moram em
+  CentralDeDocumentosNaTela, o passo 3 em PreviaDaFolha, a busca em BuscaNasFolhas e o resumo
+  em ResumoFolhas (Application, com teste). O que continua WPF — as janelas de emissão, a
+  coleta do termo e os seis atos do documento (assinatura incluída, área congelada) — passa
+  por IDocumentosDaRecepcao; onde ele não existe (a prévia), a tela DIZ que a ação é do
+  aplicativo.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina rec-docs @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Documentos" Titulo="Documentos"
+                     Subtitulo="Emitir um papel novo — receita, atestado, declaração, termo, recibo, orçamento — ou achar o que já saiu, com a 2ª via." />
+
+    <div class="abas" role="tablist" aria-label="Documentos">
+        <button type="button" role="tab" aria-selected="@Bool(_aba == 0)" @onclick="() => _aba = 0">Emitir</button>
+        <button type="button" role="tab" aria-selected="@Bool(_aba == 1)" @onclick="() => _aba = 1">O que já saiu @(_carregou ? $"· {_lidas.Count}" : null)</button>
+    </div>
+
+    <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+
+    @if (_aba == 0)
+    {
+        @* ===== 1 · QUEM ===== *@
+        <section class="cartao dc-passo" aria-label="Passo 1: para quem é o documento">
+            <header class="dc-passo-titulo"><span class="dc-numero">1</span><h2>Quem</h2>
+                @if (_paciente is null && _semPaciente)
+                {
+                    <span class="dc-passo-nota">Sem paciente — só as folhas que não são de uma pessoa ficam liberadas.</span>
+                    <button type="button" class="botao mini" @onclick="EscolherPaciente">Escolher paciente</button>
+                }
+            </header>
+            @if (_paciente is { } p)
+            {
+                <FaixaDoPaciente Paciente="p" Contexto="@_contexto" AoTrocar="TrocarPaciente" />
+            }
+            else if (!_semPaciente)
+            {
+                <BuscaDePacienteNaTela Pergunta="Para quem é o documento?" SugestaoDeHoje="true" AoEscolher="EscolherAsync" />
+                <p class="dc-sem-paciente">
+                    Recibo ou fechamento do período? Esses não são de um paciente.
+                    <button type="button" class="botao mini" @onclick="SeguirSemPaciente">Seguir sem paciente</button>
+                </p>
+            }
+        </section>
+
+        @if (_paciente is not null || _semPaciente)
+        {
+            @* ===== 2 · QUAL PAPEL ===== *@
+            <section class="cartao dc-passo" aria-label="Passo 2: qual papel">
+                <header class="dc-passo-titulo"><span class="dc-numero">2</span><h2>Qual papel</h2>
+                    @if (!Pode(Permissao.Prescrever))
+                    {
+                        <span class="dc-passo-nota">Receita, atestado e pedido de exame são de quem assina — saem pelo Consultório; aqui eles aparecem em "O que já saiu", para a 2ª via.</span>
+                    }
+                </header>
+                @if (_cartoes.Count == 0)
+                {
+                    <EstadoVazio Titulo="Nenhuma folha para o seu acesso" Descricao="Peça à direção para liberar em Acessos o papel que você precisa emitir." />
+                }
+                else
+                {
+                    @foreach (var grupo in _cartoes.GroupBy(c => c.Grupo))
+                    {
+                        <h3 class="dc-grupo">@grupo.Key</h3>
+                        <div class="dc-folhas" role="list">
+                            @foreach (var c in grupo)
+                            {
+                                var escolhido = _escolhida?.Folha.Chave == c.Folha.Chave;
+                                <button type="button" role="listitem" class="dc-folha @(escolhido ? "escolhido" : null) @(c.PodeGerar ? null : "pendente")"
+                                        aria-pressed="@Bool(escolhido)" title="@c.Folha.Descricao" @onclick="() => Escolher(c)">
+                                    <span class="dc-folha-icone"><Icone Nome="@IconeDe(c.Folha)" /></span>
+                                    <span class="dc-folha-texto">
+                                        <strong>@c.Folha.Rotulo</strong>
+                                        <span class="secundario">@LinhaDeBaixo(c)</span>
+                                    </span>
+                                </button>
+                            }
+                        </div>
+                    }
+                }
+            </section>
+
+            @* ===== 3 · O QUE VAI SAIR ===== *@
+            <section class="cartao dc-passo" aria-label="Passo 3: o que vai sair">
+                <header class="dc-passo-titulo"><span class="dc-numero">3</span><h2>O que vai sair</h2></header>
+                @if (Previa is { } pr && _escolhida is { } e)
+                {
+                    <div class="dc-previa">
+                        <dl class="pares dc-previa-pares">
+                            <dt>Papel</dt><dd>@pr.Rotulo</dd>
+                            <dt>Para</dt><dd>@pr.ParaQuem</dd>
+                            <dt>O clique</dt><dd>@pr.OQueAcontece</dd>
+                        </dl>
+                        <p class="dc-descricao">@pr.Descricao</p>
+                        @if (pr.TemPendencia)
+                        {
+                            <Aviso Tom="@(e.PodeGerar ? "info" : "atencao")" Texto="@pr.OQueFalta" />
+                        }
+                        <p class="dc-garantias secundario">@pr.Garantias</p>
+                        <div class="dc-acoes">
+                            <button type="button" class="botao primario" disabled="@(!e.PodeGerar || _ocupado)" @onclick="EmitirAsync"
+                                    title="@(e.PodeGerar ? pr.OQueAcontece : e.Pendencia)">@e.AcaoRotulo</button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <p class="dc-dica">Escolha um papel acima — aqui aparece para quem ele sai, o que o clique faz e o que ainda falta.</p>
+                }
+            </section>
+        }
+    }
+    else
+    {
+        <section class="cartao lista-cartao dc-lista">
+            <div class="filtros dc-filtros">
+                <Campo Rotulo="De">
+                    <input class="campo" type="date" value="@_inicio.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" @onchange="TrocarInicioAsync" />
+                </Campo>
+                <Campo Rotulo="Até">
+                    <input class="campo" type="date" value="@_fim.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" @onchange="TrocarFimAsync" />
+                </Campo>
+                <Campo Rotulo="Tipo">
+                    <select class="campo" value="@_tipo" @onchange="e => { _tipo = e.Value?.ToString(); Filtrar(); }">
+                        @foreach (var t in _tipos) { <option value="@t">@t</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Buscar" Classe="dc-busca">
+                    <input class="campo" placeholder="Paciente, número, código ou quem assinou" value="@_termo"
+                           @oninput="e => { _termo = e.Value?.ToString(); Filtrar(); }" maxlength="80" />
+                </Campo>
+                @if (_paciente is { } p)
+                {
+                    <button type="button" class="chip dc-chip" aria-pressed="@Bool(_soDoPaciente)" @onclick="AlternarSoDoPacienteAsync"
+                            title="Recortar a lista pelos papéis de @p.Nome">Só deste paciente</button>
+                }
+                @if (!string.IsNullOrWhiteSpace(_termo) || (_tipo is not null && _tipo != BuscaNasFolhas.TodasAsFolhas))
+                {
+                    <button type="button" class="botao fantasma mini" @onclick="LimparBusca">Limpar</button>
+                }
+            </div>
+
+            <div class="dc-conferir">
+                <span class="dc-conferir-rotulo">Conferir pelo código impresso</span>
+                <input class="campo" placeholder="Código do rodapé" value="@_codigo" @oninput="e => _codigo = e.Value?.ToString()"
+                       @onkeydown="TeclaDoCodigoAsync" maxlength="40" aria-label="Código de conferência" />
+                <button type="button" class="botao" @onclick="ConferirAsync"><Icone Nome="busca" />Conferir</button>
+                @if (_conferido is not null)
+                {
+                    <span class="dc-conferido @(_conferidoCancelado ? "tom-perigo" : "tom-sucesso")">@_conferido</span>
+                    @if (_conferidoDoc is not null)
+                    {
+                        <button type="button" class="botao mini" @onclick="SegundaViaConferidaAsync"><Icone Nome="imprimir" />2ª via</button>
+                    }
+                }
+            </div>
+
+            <p class="resumo-filtro dc-resumo">@_resumo @(string.IsNullOrWhiteSpace(_recorte) ? null : $" · {_recorte}")</p>
+
+            @if (_naoVerificado)
+            {
+                <FalhaDeLeitura Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+            }
+            else if (_carregando && !_carregou)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+            }
+            else if (_visiveis.Count == 0)
+            {
+                @if (_lidas.Count > 0)
+                {
+                    <EstadoVazio Titulo="Nenhum papel bate com a busca" Descricao="Limpe a busca ou o tipo para ver tudo o que saiu no período." />
+                }
+                else
+                {
+                    <EstadoVazio Titulo="Nenhum papel no período" Descricao="Amplie o período — ou emita um papel na aba Emitir." />
+                }
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista dc-tabela">
+                        <thead>
+                            <tr><th>Data</th><th>Papel</th><th>Para</th><th>Situação</th><th class="direita">Ações</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _visiveis)
+                            {
+                                var f = l.Folha;
+                                <tr class="@(f.Cancelado ? "apagada" : null)">
+                                    <td class="nao-quebra">@l.Data</td>
+                                    <td>
+                                        <span class="principal">@f.FolhaRotulo @f.Numero</span>
+                                        @if (!string.IsNullOrWhiteSpace(l.Detalhe)) { <span class="secundario dc-detalhe" title="@l.Detalhe">@l.Detalhe</span> }
+                                    </td>
+                                    <td>@l.Para</td>
+                                    <td>
+                                        @if (f.Cancelado) { <Selo Tom="perigo">Cancelada</Selo> }
+                                        else if (f.Assinado) { <Selo Tom="sucesso">Assinada</Selo> }
+                                        @if (f.Cancelado) { <span class="secundario dc-situacao" title="@l.Situacao">@f.MotivoCancelamento</span> }
+                                        else if (!string.IsNullOrWhiteSpace(l.Link)) { <span class="secundario">@l.Link</span> }
+                                        else if (!f.Assinado) { <span class="secundario">Válida</span> }
+                                    </td>
+                                    <td class="direita">
+                                        <span class="botoes-linha">
+                                            <button type="button" class="botao mini primario" disabled="@_ocupado" @onclick="() => AgirAsync(AtoDoDocumento.SegundaVia, l)"
+                                                    title="A via sai idêntica à que o paciente levou"><Icone Nome="imprimir" />2ª via</button>
+                                            <span class="rd-menu">
+                                                <button type="button" class="botao mini icone" aria-haspopup="menu" aria-expanded="@Bool(_menu == Chave(f))"
+                                                        title="Mais ações" aria-label="Mais ações de @f.Numero" @onclick="() => AlternarMenu(f)">⋯</button>
+                                                @if (_menu == Chave(f))
+                                                {
+                                                    <span class="rd-menu-lista" role="menu">
+                                                        @foreach (var a in AtosDe(l))
+                                                        {
+                                                            <button type="button" role="menuitem" class="@(a == AtoDoDocumento.Cancelar ? "rd-perigo" : null)"
+                                                                    @onclick="() => AgirAsync(a, l)">@AtosDoDocumento.Rotulo(a)</button>
+                                                        }
+                                                    </span>
+                                                }
+                                            </span>
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@if (_menu is not null)
+{
+    <div class="rd-menu-fundo" @onclick="() => _menu = null"></div>
+}
+
+@code {
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    /// <summary>A ponte para as janelas e os atos WPF; na prévia, a que DIZ que é do aplicativo.</summary>
+    private IDocumentosDaRecepcao Ponte => Servicos.GetService<IDocumentosDaRecepcao>() ?? DocumentosDaRecepcaoIndisponiveis.Instancia;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static Permissao Acessos => SessaoUsuario.Atual.Efetivas;
+
+    private int _aba;
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private bool _ocupado;
+
+    // ---- Emitir ----
+    private Paciente? _paciente;
+    private bool _semPaciente;
+    private string? _contexto;
+    private int _geracaoContexto;
+    private IReadOnlyList<CartaoDaCentral> _cartoes = [];
+    private CartaoDaCentral? _escolhida;
+
+    // ---- O que já saiu ----
+    private DateOnly _inicio = DateOnly.FromDateTime(DateTime.Today).AddDays(-30);
+    private DateOnly _fim = DateOnly.FromDateTime(DateTime.Today);
+    private bool _soDoPaciente;
+    private string? _termo;
+    private string? _tipo = BuscaNasFolhas.TodasAsFolhas;
+    private IReadOnlyList<string> _tipos = [BuscaNasFolhas.TodasAsFolhas];
+    private IReadOnlyList<LinhaDaCentral> _lidas = [];
+    private IReadOnlyList<LinhaDaCentral> _visiveis = [];
+    private string _resumo = string.Empty;
+    private string _recorte = string.Empty;
+    private bool _carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+    private string? _menu;
+
+    // ---- Conferir pelo código ----
+    private string? _codigo;
+    private string? _conferido;
+    private bool _conferidoCancelado;
+    private DocumentoEmitido? _conferidoDoc;
+
+    private static string Bool(bool v) => v ? "true" : "false";
+    private static string Chave(FolhaEmitida f) => $"{f.Natureza}:{f.DocumentoId}";
+
+    private PreviaDaFolha? Previa => _escolhida is not { } c ? null : PreviaDaFolha.Montar(
+        c.Folha, c.AcaoRotulo, c.PodeGerar, c.Pendencia, _paciente?.Nome, _paciente?.DocumentoFormatado,
+        $"de {Formato.Data(_inicio)} a {Formato.Data(_fim)}");
+
+    protected override async Task OnInitializedAsync()
+    {
+        MontarCartoes();
+        await CarregarAsync();
+    }
+
+    /// <summary>Voltar à aba relê a lista em silêncio: o que outra máquina emitiu aparece.</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private void MontarCartoes()
+    {
+        _cartoes = CentralDeDocumentosNaTela.Cartoes(Acessos, _paciente is not null, Ponte.CaixaNesteAplicativo);
+        // A escolha sobrevive à troca de paciente — com a disponibilidade nova.
+        if (_escolhida is { } e) _escolhida = _cartoes.FirstOrDefault(c => c.Folha.Chave == e.Folha.Chave);
+    }
+
+    // ==================== Passo 1 ====================
+
+    private async Task EscolherAsync(Paciente paciente)
+    {
+        _paciente = paciente;
+        _semPaciente = false;
+        _contexto = null;
+        MontarCartoes();
+        if (_soDoPaciente) await CarregarAsync();
+        await LerContextoAsync(paciente.Id);
+    }
+
+    /// <summary>"Tem horário hoje às 14:00" — a frase que confere que é a pessoa certa.</summary>
+    private async Task LerContextoAsync(int pacienteId)
+    {
+        var g = ++_geracaoContexto;
+        try
+        {
+            using var escopo = Escopo();
+            var repo = escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var doDia = await repo.AgendamentosDoPacienteNoDiaAsync(pacienteId, Hoje);
+            if (g != _geracaoContexto || Descartada) return;
+            var hora = doDia
+                .Where(a => a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)
+                .OrderBy(a => a.DataHora)
+                .Select(a => (TimeOnly?)TimeOnly.FromDateTime(a.DataHora))
+                .FirstOrDefault();
+            _contexto = CentralDeDocumentosNaTela.ContextoDeHoje(hora);
+        }
+        catch (Exception ex)
+        {
+            // O contexto é conferência, não condição: sem ele a emissão segue.
+            Clinica.Application.Diagnostico.Registrar("Blazor — Documentos: horário de hoje do paciente não pôde ser lido", ex);
+        }
+    }
+
+    private async Task TrocarPaciente()
+    {
+        _paciente = null;
+        _contexto = null;
+        MontarCartoes();
+        // Trocar com o recorte ligado não pode deixar a lista do paciente que saiu.
+        if (_soDoPaciente) { _soDoPaciente = false; await CarregarAsync(); }
+    }
+
+    private void SeguirSemPaciente() { _semPaciente = true; MontarCartoes(); }
+
+    private void EscolherPaciente() => _semPaciente = false;
+
+    // ==================== Passo 2 e 3 ====================
+
+    /// <summary>Escolher NÃO exige que dê para emitir: o passo 3 é que explica o que falta.</summary>
+    private void Escolher(CartaoDaCentral c) => _escolhida = c;
+
+    private void Dizer(string? frase, bool erro)
+    {
+        _mensagem = frase;
+        _mensagemEhErro = erro;
+    }
+
+    private async Task EmitirAsync()
+    {
+        if (_escolhida is not { } c || _ocupado) return;
+        Dizer(null, false);
+
+        // O botão nasce apagado quando falta algo; se o clique chegar mesmo assim, a tela DIZ.
+        if (!c.PodeGerar)
+        {
+            Dizer($"{c.Folha.Rotulo}: {(string.IsNullOrWhiteSpace(c.Pendencia) ? "não dá para emitir agora." : c.Pendencia)}", true);
+            return;
+        }
+
+        _ocupado = true;
+        try
+        {
+            switch (c.Folha.Exigencia)
+            {
+                case ExigenciaFolha.LancamentoNoCaixa:
+                    // O recibo nasce no Caixa (aponta para o lançamento).
+                    if (!await Host.NavegarAsync("caixa"))
+                        Dizer("O módulo Financeiro não está aberto neste aplicativo.", true);
+                    return;
+
+                case ExigenciaFolha.TermoParaAssinar:
+                    await ColherTermoAsync(c.Folha);
+                    return;
+
+                case ExigenciaFolha.Periodo:
+                    await GerarFechamentoAsync(c.Folha);
+                    return;
+
+                case ExigenciaFolha.PacienteComProntuario:
+                    await EmitirMontadaAsync(c.Folha);
+                    return;
+
+                default:
+                    if (c.Folha.TipoFinanceiro == TipoDocumentoFinanceiro.Orcamento) await EmitirOrcamentoAsync();
+                    else await EmitirEscritoAsync(c.Folha);
+                    return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — Documentos: folha '{c.Folha.Rotulo}' não pôde ser gerada", ex);
+            Dizer(ex.Message, true);
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private bool PonteDisponivel()
+    {
+        if (Ponte.Disponivel) return true;
+        Dizer(ResultadoDoAto.Indisponivel.Frase, true);
+        return false;
+    }
+
+    /// <summary>Os papéis ESCRITOS abrem a janela que já existe, com o tipo certo.</summary>
+    private async Task EmitirEscritoAsync(FolhaCatalogo folha)
+    {
+        if (!Exigir(folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}")) return;
+        if (_paciente is not { } p || folha.TipoClinico is not { } tipo || !PonteDisponivel()) return;
+
+        var concluiu = await Ponte.EmitirEscritoAsync(p.Id, tipo);
+        // Fechar sem concluir pode ter emitido e só a impressão ter falhado: relê de qualquer jeito.
+        await CarregarAsync();
+        if (concluiu) Notificacoes.Sucesso($"{folha.Rotulo} emitido(a).");
+    }
+
+    /// <summary>
+    /// O termo que o PACIENTE assina: o do procedimento pergunta o modelo, o LGPD é montado das
+    /// finalidades. Abrir já emite o termo numerado, então relê de qualquer jeito.
+    /// </summary>
+    private async Task ColherTermoAsync(FolhaCatalogo folha)
+    {
+        if (!Exigir(folha.PermissaoEmitir, $"colher {folha.Rotulo.ToLowerInvariant()}")) return;
+        if (_paciente is not { } p || !PonteDisponivel()) return;
+
+        var concluiu = await Ponte.ColherTermoAsync(p.Id, p.Nome, folha.TipoClinico == TipoDocumentoClinico.Consentimento);
+        await CarregarAsync();
+        if (concluiu) Notificacoes.Sucesso($"{folha.Rotulo} assinado.");
+    }
+
+    /// <summary>Orçamento livre — `EditarFinanceiro`: escrever um papel com valor em nome da clínica.</summary>
+    private async Task EmitirOrcamentoAsync()
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "emitir orçamento")) return;
+        if (_paciente is not { } p || !PonteDisponivel()) return;
+
+        var numero = await Ponte.EmitirOrcamentoAsync(p.Id, p.Nome);
+        await CarregarAsync();
+        if (numero is not null) Notificacoes.Sucesso($"Orçamento {numero} emitido.");
+    }
+
+    /// <summary>
+    /// As montadas do prontuário (relatório de evolução, anamnese) SAEM DIRETO e gastam um
+    /// número — por isso perguntam, com a frase do passo 3. A 2ª via sai do documento
+    /// recém-emitido, nunca da linha da lista (que pode não estar nela ainda).
+    /// </summary>
+    private async Task EmitirMontadaAsync(FolhaCatalogo folha)
+    {
+        if (!Exigir(folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}")) return;
+        if (_paciente is not { } p || folha.TipoClinico is not { } tipo || Previa is not { } pr) return;
+
+        if (!await Dialogos.ConfirmarAsync(folha.Rotulo, $"Para: {pr.ParaQuem}\n\n{pr.OQueAcontece}\n\n{pr.Garantias}",
+                confirmar: "Emitir")) return;
+
+        DocumentoClinico emitido;
+        using (var escopo = Escopo())
+        {
+            var servico = escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+            emitido = tipo == TipoDocumentoClinico.RelatorioEvolucao
+                ? await servico.EmitirRelatorioEvolucaoAsync(p.Id, operador: Operador)
+                : await servico.EmitirAnamneseAsync(p.Id, operador: Operador);
+        }
+
+        await CarregarAsync();
+        Notificacoes.Sucesso($"{folha.Rotulo} {emitido.Numero} emitido(a).");
+        var r = await Ponte.ExecutarAsync(AtoDoDocumento.SegundaVia, DocumentoEmitido.De(emitido, folha.Rotulo, Hoje));
+        if (!r.Silencioso) Dizer(r.Frase, r.EhErro);
+    }
+
+    /// <summary>O fechamento do período (o da aba "O que já saiu"). Não é gravado: conferência montada na hora.</summary>
+    private async Task GerarFechamentoAsync(FolhaCatalogo folha)
+    {
+        if (!Exigir(folha.PermissaoEmitir, "gerar o fechamento do período")) return;
+        if (Previa is not { } pr) return;
+        if (!await Dialogos.ConfirmarAsync(folha.Rotulo, $"Para: {pr.ParaQuem}\n\n{pr.OQueAcontece}", confirmar: "Gerar PDF")) return;
+
+        byte[] pdf;
+        using (var escopo = Escopo())
+            pdf = await escopo.ServiceProvider.GetRequiredService<CentralDocumentosService>()
+                .GerarFechamentoPeriodoAsync(_inicio, _fim);
+
+        var erro = await Host.SalvarEAbrirAsync(pdf,
+            $"Fechamento-{_inicio.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}-a-{_fim.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.pdf",
+            "PDF (*.pdf)|*.pdf", ".pdf");
+        if (erro is null) Notificacoes.Sucesso("Fechamento do período gerado.");
+        else Dizer(erro, true);
+    }
+
+    // ==================== O que já saiu ====================
+
+    public async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        _carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            var doPaciente = _soDoPaciente ? _paciente : null;
+            IReadOnlyList<FolhaEmitida> emitidas;
+            using (var escopo = Escopo())
+                emitidas = await escopo.ServiceProvider.GetRequiredService<CentralDocumentosService>()
+                    .EmitidasAsync(_inicio, _fim, pacienteId: doPaciente?.Id, acessos: Acessos);
+            if (g != _geracao || Descartada) return;
+
+            var hoje = Hoje;
+            var acessos = Acessos;
+            _lidas = emitidas.Select(e => CentralDeDocumentosNaTela.Linha(e, hoje, acessos)).ToList();
+            _tipos = BuscaNasFolhas.Tipos(CentralDocumentosService.CatalogoPara(acessos).Select(f => f.Rotulo), emitidas);
+            if (_tipo is null || !_tipos.Contains(_tipo)) _tipo = BuscaNasFolhas.TodasAsFolhas;
+            // O resumo conta o RESULTADO lido — "30 folhas" sobre uma lista de doze faria procurar o resto.
+            _resumo = ResumoFolhas.Montar(emitidas, doPaciente?.Nome).Frase;
+            _carregou = true;
+            Filtrar();
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao || Descartada) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+            Clinica.Application.Diagnostico.Registrar("Blazor — central de documentos não pôde ser carregada", ex);
+        }
+        finally
+        {
+            if (g == _geracao) _carregando = false;
+        }
+    }
+
+    private void Filtrar()
+    {
+        _visiveis = _lidas.Where(l => BuscaNasFolhas.Casa(l.Folha, _termo, _tipo)).ToList();
+        _recorte = BuscaNasFolhas.Recorte(_visiveis.Count, _lidas.Count, _termo, _tipo);
+        if (_menu is { } m && _visiveis.All(l => Chave(l.Folha) != m)) _menu = null;
+    }
+
+    private void LimparBusca()
+    {
+        _termo = null;
+        _tipo = BuscaNasFolhas.TodasAsFolhas;
+        Filtrar();
+    }
+
+    private async Task TrocarInicioAsync(ChangeEventArgs e)
+    {
+        if (!DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d)) return;
+        _inicio = d;
+        MontarCartoes();
+        await CarregarAsync();
+    }
+
+    private async Task TrocarFimAsync(ChangeEventArgs e)
+    {
+        if (!DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d)) return;
+        _fim = d;
+        await CarregarAsync();
+    }
+
+    private async Task AlternarSoDoPacienteAsync()
+    {
+        _soDoPaciente = !_soDoPaciente;
+        await CarregarAsync();
+    }
+
+    private void AlternarMenu(FolhaEmitida f) => _menu = _menu == Chave(f) ? null : Chave(f);
+
+    /// <summary>
+    /// Os atos do "⋯". Clínico: a resolução das outras portas (estado E bit do tipo), pela
+    /// ponte. Financeiro (recibo, orçamento): 2ª via e cancelar — outro PDF, outro serviço,
+    /// nada de assinatura ou link.
+    /// </summary>
+    private IEnumerable<AtoDoDocumento> AtosDe(LinhaDaCentral l)
+    {
+        if (DocumentoEmitido.De(l.Folha, Hoje) is { } doc) return Ponte.Atos(doc).NoMenu();
+        return l.Folha.Cancelado || !l.PodeMexer
+            ? [AtoDoDocumento.SegundaVia]
+            : [AtoDoDocumento.SegundaVia, AtoDoDocumento.Cancelar];
+    }
+
+    private async Task AgirAsync(AtoDoDocumento ato, LinhaDaCentral l)
+    {
+        _menu = null;
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            if (DocumentoEmitido.De(l.Folha, Hoje) is { } doc)
+            {
+                var r = await Ponte.ExecutarAsync(ato, doc);
+                if (!r.Silencioso) Dizer(r.Frase, r.EhErro);
+                if (r.Mudou) await CarregarAsync();
+                return;
+            }
+
+            if (l.Folha.Natureza != NaturezaFolha.Financeiro)
+            {
+                // Folha fora do catálogo: a resposta segura é não oferecer nada.
+                Dizer($"{l.Folha.Numero}: este papel não tem 2ª via por aqui.", true);
+                return;
+            }
+
+            if (ato == AtoDoDocumento.Cancelar) await CancelarFinanceiroAsync(l);
+            else await SegundaViaFinanceiraAsync(l);
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    /// <summary>Recibo e orçamento: o PDF guardado na emissão — a via sai idêntica.</summary>
+    private async Task SegundaViaFinanceiraAsync(LinhaDaCentral l)
+    {
+        var folha = CentralDocumentosService.Folha(l.Folha.Chave);
+        if (folha is not null && !ExigirAlgum(folha.AcessosQueVeem, $"abrir {l.Folha.FolhaRotulo.ToLowerInvariant()}")) return;
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                pdf = await sp.GetRequiredService<DocumentosFinanceirosPdfService>()
+                    .GerarAsync(l.Folha.DocumentoId, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            }
+            var erro = await Host.SalvarEAbrirAsync(pdf, $"{l.Folha.FolhaRotulo}-{l.Folha.Numero.Replace('/', '-')}.pdf",
+                "PDF (*.pdf)|*.pdf", ".pdf");
+            Dizer(erro, erro is not null);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — documento financeiro não pôde ser reimpresso", ex);
+            Dizer($"Não foi possível gerar o PDF de {l.Folha.Numero}: {ex.Message}", true);
+        }
+    }
+
+    /// <summary>Cancela com motivo — não apaga: o número continua queimado e a linha marcada.</summary>
+    private async Task CancelarFinanceiroAsync(LinhaDaCentral l)
+    {
+        var folha = CentralDocumentosService.Folha(l.Folha.Chave);
+        if (!Exigir(folha?.PermissaoEmitir ?? Permissao.GerenciarUsuarios, $"cancelar {l.Folha.FolhaRotulo.ToLowerInvariant()}")) return;
+
+        var motivo = await Dialogos.PerguntarTextoAsync("Cancelar documento",
+            $"Por que {l.Folha.Numero} está sendo cancelado? O documento não é apagado — fica registrado como cancelado, com este motivo.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<DocumentoFinanceiroService>()
+                .CancelarAsync(l.Folha.DocumentoId, motivo, Operador);
+        }, "Blazor — documento financeiro não pôde ser cancelado", $"{l.Folha.Numero} cancelado.");
+        await CarregarAsync();
+    }
+
+    // ==================== Conferir pelo código ====================
+
+    private async Task TeclaDoCodigoAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await ConferirAsync();
+    }
+
+    /// <summary>
+    /// Confere o papel pelo código impresso — o que o sistema oferece no lugar da assinatura
+    /// ICP-Brasil. Mostrar de quem é o documento é acesso a dado de saúde: vai à trilha.
+    /// </summary>
+    private async Task ConferirAsync()
+    {
+        _conferido = null;
+        _conferidoCancelado = false;
+        _conferidoDoc = null;
+
+        var codigo = _codigo?.Trim();
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            Dizer("Digite o código impresso no rodapé do documento.", true);
+            return;
+        }
+
+        try
+        {
+            Dizer(null, false);
+            using var escopo = Escopo();
+            var achado = await escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>().PorCodigoAsync(codigo);
+            if (achado is null)
+            {
+                // "Não confere" é resposta, não erro de sistema.
+                _conferido = $"Nenhum documento com o código \"{codigo}\". Confira a digitação; se estiver certa, o papel não saiu deste sistema.";
+                _conferidoCancelado = true;
+                return;
+            }
+
+            var rotulo = CentralDocumentosService.RotularClinico(achado.Tipo);
+            _conferidoDoc = DocumentoEmitido.De(achado, rotulo, Hoje);
+            await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                .RegistrarAsync(achado.PacienteId, Operador, OrigemAcessoProntuario.Documento);
+            _conferidoCancelado = achado.Cancelado;
+
+            var quem = achado.Paciente?.Nome ?? "(paciente removido)";
+            var situacao = achado.Cancelado
+                ? $"CANCELADO em {achado.CanceladoEm:dd/MM/yyyy} — {achado.MotivoCancelamento}"
+                : "válido";
+            _conferido = $"{rotulo} {achado.Numero} · {quem} · emitido em {Formato.Data(achado.Data)} · {situacao}";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — documento não pôde ser conferido pelo código", ex);
+            Dizer($"Não foi possível conferir o código: {ex.Message}", true);
+        }
+    }
+
+    private async Task SegundaViaConferidaAsync()
+    {
+        if (_conferidoDoc is not { } doc) return;
+        var r = await Ponte.ExecutarAsync(AtoDoDocumento.SegundaVia, doc);
+        if (!r.Silencioso) Dizer(r.Frase, r.EhErro);
+    }
+
+    // ==================== Desenho ====================
+
+    /// <summary>
+    /// A segunda linha do cartão: o que FALTA, quando falta; o verbo do clique quando ele não é
+    /// "Emitir" (colher, ir ao Caixa); senão o que o papel é — "Emitir" repetido em toda linha
+    /// não distingue nada.
+    /// </summary>
+    private static string LinhaDeBaixo(CartaoDaCentral c)
+        => !string.IsNullOrWhiteSpace(c.Pendencia) ? c.Pendencia
+            : c.AcaoRotulo != "Emitir" ? c.AcaoRotulo
+            : c.Folha.Descricao;
+
+    private static string IconeDe(FolhaCatalogo f) => f.TipoClinico switch
+    {
+        TipoDocumentoClinico.Comparecimento => "check",
+        TipoDocumentoClinico.PedidoExame => "busca",
+        TipoDocumentoClinico.RelatorioEvolucao => "grafico",
+        TipoDocumentoClinico.Anamnese => "lista",
+        TipoDocumentoClinico.TermoProcedimento or TipoDocumentoClinico.Consentimento => "cadeado",
+        not null => "documento",
+        _ when f.TipoFinanceiro == TipoDocumentoFinanceiro.Recibo => "recibo",
+        _ when f.Natureza == NaturezaFolha.Financeiro => "moeda",
+        _ => "grafico"
+    };
+}
