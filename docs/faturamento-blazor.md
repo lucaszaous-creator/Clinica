@@ -72,10 +72,15 @@ F5 recarregaria a página). A página passa a repassar os três à tela à vista
    `DecisoesDaRodada`; as demais na seção 4).
 3. **`TelasBlazorAbremTests`** abre cada tela nova com as sementes do faturamento (atendimentos
    lançados pelo motor de regras de verdade) e clica cada botão.
-4. **`PalcoTrocaRepetidaTests`** e a conferência do Windows (`ValidarLayoutWindows --blazor`)
+4. **`FaturamentoBlazorParidadeTests`** clica os três atos que mais custam se algo se perdesse e
+   confere o BANCO, não a frase: desistir da janela de salvar o lote não cria lote nem gasta o
+   número (provado reprovando com o defeito reposto), escolher o destino cria e grava um XML
+   por lote, dar baixa pelo painel grava o número digitado, e o Ctrl+P chega à tela à vista pelo
+   palco — e não age por baixo de uma pergunta aberta.
+5. **`PalcoTrocaRepetidaTests`** e a conferência do Windows (`ValidarLayoutWindows --blazor`)
    passam a trocar também entre as telas do faturamento.
-5. **As três redes** (`compilar-sombra`, `verificar-suite`, `dotnet test`) e o build do Windows no PR.
-6. **Fotos** de cada tela em 1024 e 1366, e de cada formulário aberto.
+6. **As três redes** (`compilar-sombra`, `verificar-suite`, `dotnet test`) e o build do Windows no PR.
+7. **Fotos** de cada tela em 1024 e 1366, e de cada formulário aberto.
 
 ## 4. Paridade, tela a tela
 
