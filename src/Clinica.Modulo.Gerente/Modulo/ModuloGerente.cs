@@ -45,6 +45,13 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveOrigens = "origens-pacientes";
 
     /// <summary>
+    /// A verificação da comissão de recuperação (out/2026, pedido da clínica): o VALOR e a
+    /// VALIDAÇÃO moram aqui, na gestão; a recepção e o faturamento só assumem e falam com o
+    /// paciente na fila do Acompanhamento, sem ver dinheiro.
+    /// </summary>
+    public const string ChaveComissaoRecuperacao = "comissao-recuperacao";
+
+    /// <summary>
     /// O que SAIU da clínica no período (set/2026, tela 4 do mockup aprovado
     /// "documentos nas quatro telas") — a leitura agregada dos papéis emitidos.
     /// </summary>
@@ -167,7 +174,8 @@ public sealed class ModuloGerente : IModuloApp
             [
                 new AbaMenu("Campanhas", ChaveCampanhas),
                 new AbaMenu("Acompanhamento de pacientes", ChavesSuite.RetornoPacientes),
-                new AbaMenu("De onde vêm os pacientes", ChaveOrigens)
+                new AbaMenu("De onde vêm os pacientes", ChaveOrigens),
+                new AbaMenu("Comissão de recuperação", ChaveComissaoRecuperacao)
             ]
         },
         // As três perguntas de quem fiscaliza, no mesmo lugar: quem MEXEU (auditoria), o
@@ -260,6 +268,13 @@ public sealed class ModuloGerente : IModuloApp
             Chave = ChaveOrigens, Rotulo = "De onde v\u00EAm os pacientes", Glifo = "\uE8AF", Icone = "mega",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
         },
+        // Dinheiro: ver é VerFinanceiro (a régua do repasse dos profissionais); definir o
+        // valor e validar exigem EditarFinanceiro, conferido na tela (as duas barreiras).
+        new ItemMenuModulo
+        {
+            Chave = ChaveComissaoRecuperacao, Rotulo = "Comiss\u00E3o de recupera\u00E7\u00E3o", Glifo = "\uE8C7", Icone = "recibo",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro
+        },
         new ItemMenuModulo
         {
             Chave = ChaveAuditoria, Rotulo = "Auditoria", Glifo = "\uE81C", Icone = "escudo",
@@ -332,6 +347,7 @@ public sealed class ModuloGerente : IModuloApp
         // Blazor desde out/2026 (docs/faturamento-blazor.md): é a aba "Resumo" do faturamento,
         // e as abas vizinhas também são Blazor — mesmo navegador, sem flash entre elas.
         ChaveFaturamento => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ResumoFaturamento), servicos),
+        ChaveComissaoRecuperacao => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ComissaoRecuperacao), servicos),
         ChavePrecos => new PrecosConvenioView
         {
             DataContext = servicos.GetRequiredService<PrecosConvenioViewModel>()

@@ -1,0 +1,119 @@
+@*
+  O valor da comissão de recuperação (out/2026): quanto vale um paciente recuperado — geral,
+  ou por fila e modalidade —, com vigência. As validações são do serviço
+  (ComissaoRecuperacaoRegras.Impedimento); aqui só se lê o que foi digitado
+  (LeituraDeValores, a mesma do WPF) e o erro aparece INLINE.
+*@
+@using Clinica.Application.Abstracoes
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(Regra.Id == 0 ? "Novo valor de comissão" : "Editar valor de comissão")"
+       Subtitulo="Quanto vale, para a atendente, um paciente que voltou depois de ela assumir o caso." Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Fila">
+                <select class="campo" @bind="_tipo">
+                    <option value="">Recall e novos BSV</option>
+                    <option value="@nameof(TipoAcompanhamento.Recall)">Recall (quem sumiu)</option>
+                    <option value="@nameof(TipoAcompanhamento.NovoBsv)">Novos BSV (indicação)</option>
+                </select>
+            </Campo>
+            <Campo Rotulo="Modalidade da sessão de retorno">
+                <select class="campo" @bind="_modalidade">
+                    <option value="">Todas as modalidades</option>
+                    @foreach (var m in Enum.GetValues<ModalidadeAtendimento>())
+                    {
+                        <option value="@m">@RotulosEnum.De(m)</option>
+                    }
+                </select>
+            </Campo>
+            <Campo Rotulo="Valor por paciente recuperado" Obrigatorio="true" Classe="largo"
+                   Dica="Pago depois do fluxo completo: assumiu → paciente voltou → concluiu a sessão → guia gerada → gestão validou.">
+                <input class="campo valor" @bind="_valor" @bind:event="oninput" maxlength="12" inputmode="decimal" placeholder="30,00" />
+            </Campo>
+            <Campo Rotulo="Vigente de" Obrigatorio="true">
+                <input type="date" class="campo" value="@(_vigenteDe?.ToString("yyyy-MM-dd") ?? "")" @onchange="e => _vigenteDe = LerData(e)" />
+            </Campo>
+            <Campo Rotulo="Vigente até">
+                <input type="date" class="campo" value="@(_vigenteAte?.ToString("yyyy-MM-dd") ?? "")" @onchange="e => _vigenteAte = LerData(e)" />
+            </Campo>
+            <span class="campo-dica largo">Em branco, vale daqui em diante. Para reajustar, cadastre um valor novo com a data de início — o que já foi validado continua com o valor da época.</span>
+            <Campo Rotulo="Observação" Classe="largo">
+                <textarea class="campo" rows="2" @bind="_observacao" maxlength="500"></textarea>
+            </Campo>
+        </div>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite definir o valor da comissão.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar valor")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public RegraComissaoRecuperacao Regra { get; set; } = new();
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string _tipo = "";
+    private string _modalidade = "";
+    private string? _valor;
+    private DateOnly? _vigenteDe;
+    private DateOnly? _vigenteAte;
+    private string? _observacao;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    private static DateOnly? LerData(ChangeEventArgs e) => DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d) ? d : null;
+
+    protected override void OnInitialized()
+    {
+        _tipo = Regra.Tipo?.ToString() ?? "";
+        _modalidade = Regra.Modalidade?.ToString() ?? "";
+        _valor = Regra.Valor > 0 ? Regra.Valor.ToString("N2", Formato.PtBr) : null;
+        _vigenteDe = Regra.VigenteDe == default ? DateOnly.FromDateTime(DateTime.Today) : Regra.VigenteDe;
+        _vigenteAte = Regra.VigenteAte;
+        _observacao = Regra.Observacao;
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "definir o valor da comissão");
+            if (!LeituraDeValores.TentarLerDecimal(_valor, out var valor))
+                throw new InvalidOperationException("Informe o valor por paciente (ex.: 30,00).");
+            if (_vigenteDe is not { } de) throw new InvalidOperationException("Informe desde quando o valor vale.");
+
+            using var escopo = Escopos.CreateScope();
+            // Objeto NOVO com o Id: a cópia campo a campo do serviço é que decide o que muda
+            // (e o que esta janela não mostra — Ativa — volta intacto).
+            await escopo.ServiceProvider.GetRequiredService<IComissaoRecuperacaoService>().SalvarRegraAsync(new RegraComissaoRecuperacao
+            {
+                Id = Regra.Id,
+                Tipo = Enum.TryParse<TipoAcompanhamento>(_tipo, out var t) ? t : null,
+                Modalidade = Enum.TryParse<ModalidadeAtendimento>(_modalidade, out var m) ? m : null,
+                Valor = valor,
+                VigenteDe = de,
+                VigenteAte = _vigenteAte,
+                Ativa = Regra.Id == 0 || Regra.Ativa,
+                Observacao = _observacao
+            }, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — valor de comissão de recuperação não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

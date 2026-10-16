@@ -1,0 +1,9 @@
+/* Estilo PRÓPRIO da tela Comissão de recuperação (out/2026). O comum mora em ../clinica.css. */
+/* O botão de validar em lote fica na ponta direita da barra de filtros: é a ação, não um filtro. */
+.filtros .comissao-validar{margin-left:auto}
+/* O interruptor alinha pela base com os campos rotulados da barra (que crescem para cima). */
+.filtros .comissao-alternar{padding-bottom:var(--space-2)}
+/* O nome do paciente é o que se procura na lista: em 1024 as colunas fixas não podem espremê-lo a uma palavra por linha. */
+table.lista th.comissao-paciente{min-width:180px}
+/* O motivo da recusa é lido na dica: inteiro na célula, ele dobraria a altura da linha. */
+.comissao-motivo{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

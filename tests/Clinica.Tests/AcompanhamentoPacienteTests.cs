@@ -248,7 +248,7 @@ public sealed class AcompanhamentoPacienteTests : IDisposable
             DateOnly.FromDateTime(DateTime.Today.AddDays(2)), EtapaAcompanhamento.SemResposta, CanalContato.WhatsApp, ""));
         linha = await Linha();
         Assert.Equal(1, linha.Tentativas);
-        await svc.AdicionarMotivoAsync(gestora.Id, "Paciente desistiu"); var motivo = await db.MotivosAcompanhamento.SingleAsync();
+        await svc.AdicionarMotivoAsync(gestora.Id, "Paciente desistiu"); var motivo = await db.MotivosAcompanhamento.SingleAsync(m => m.Nome == "Paciente desistiu");
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.AtualizarAsync(recepcao.Id, linha.Id, new(Guid.NewGuid(), linha.Versao,
             recepcao.Id, null, EtapaAcompanhamento.AContatar, null, "", Encerrar: true, MotivoId: motivo.Id)));
     }

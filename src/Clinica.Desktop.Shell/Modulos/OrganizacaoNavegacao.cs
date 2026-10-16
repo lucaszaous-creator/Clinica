@@ -53,7 +53,9 @@ public static class OrganizacaoNavegacao
             // Acompanhamento sai daqui: ele é aba do "Relacionamento" — dois compostos com a
             // mesma tela eram dois caminhos para o mesmo lugar.
             case "marketing":
-                rotulo = "Campanhas e origem"; grupo = GrupoSidebar.Relacionamento;
+                // A comissão de recuperação (out/2026) é a terceira aba: o valor e a validação
+                // ficam com a gestão, ao lado das campanhas que trazem o paciente de volta.
+                rotulo = "Campanhas, origem e comissão"; grupo = GrupoSidebar.Relacionamento;
                 abas = [.. item.Abas.Where(a => a.Chave != ChavesSuite.RetornoPacientes)];
                 break;
             case "retorno-pacientes": rotulo = "Acompanhamento de pacientes"; grupo = GrupoSidebar.Relacionamento; break;

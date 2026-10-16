@@ -8,6 +8,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<CertificadoA1Profissional> CertificadosA1 => Set<CertificadoA1Profissional>();
     public DbSet<AcompanhamentoPaciente> Acompanhamentos => Set<AcompanhamentoPaciente>();
     public DbSet<ContatoAcompanhamento> ContatosAcompanhamento => Set<ContatoAcompanhamento>();
+    public DbSet<RegraComissaoRecuperacao> RegrasComissaoRecuperacao => Set<RegraComissaoRecuperacao>();
+    public DbSet<ComissaoRecuperacao> ComissoesRecuperacao => Set<ComissaoRecuperacao>();
     public DbSet<MotivoAcompanhamento> MotivosAcompanhamento => Set<MotivoAcompanhamento>();
     public DbSet<ParcelaRecebivelCartao> ParcelasRecebiveisCartao => Set<ParcelaRecebivelCartao>();
     public ClinicaDbContext(DbContextOptions<ClinicaDbContext> options) : base(options) { }
@@ -165,6 +167,37 @@ public class ClinicaDbContext : DbContext
             e.HasOne(x => x.Motivo).WithMany().HasForeignKey(x => x.MotivoId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Agendamento>().WithMany().HasForeignKey(x => x.AgendamentoOrigemId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Profissional>().WithMany().HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.Restrict);
+        });
+        // A comissão de recuperação (out/2026): a regra de valor e a verificação da gestão.
+        b.Entity<RegraComissaoRecuperacao>(e =>
+        {
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Modalidade).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Observacao).HasMaxLength(500);
+            e.Property(x => x.CriadaPor).HasMaxLength(80);
+            e.Property(x => x.CriadaEm).HasColumnType("timestamp without time zone");
+        });
+        b.Entity<ComissaoRecuperacao>(e =>
+        {
+            // Uma decisão VIVA por sessão de retorno: cancelada, a recuperação volta à
+            // verificação e pode ser decidida de novo (o índice filtrado é o que deixa).
+            e.HasIndex(x => x.AtendimentoId).IsUnique().HasFilter("\"CanceladaEm\" IS NULL");
+            e.HasIndex(x => new { x.UsuarioId, x.RetornoEm });
+            e.Property(x => x.Decisao).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.RegraDescricao).HasMaxLength(300);
+            e.Property(x => x.Observacao).HasMaxLength(2000);
+            e.Property(x => x.DecididaPor).HasMaxLength(80);
+            e.Property(x => x.CanceladaPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(2000);
+            e.Property(x => x.AssumidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.DecididaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
+            e.HasOne(x => x.Acompanhamento).WithMany().HasForeignKey(x => x.AcompanhamentoPacienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Atendimento>().WithMany().HasForeignKey(x => x.AtendimentoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Paciente>().WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
         });
         b.Entity<ContatoAcompanhamento>(e =>
         {

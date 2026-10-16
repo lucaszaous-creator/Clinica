@@ -4747,6 +4747,24 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   "Particular" apagava em silêncio o nome que a clínica deu (o catálogo o recria). Todos
   corrigidos nas telas novas, com teste.
 
+- **A COMISSÃO DE RECUPERAÇÃO É APURADA DOS FATOS, NUNCA MARCADA** (out/2026; o mapa está em
+  `docs/comissao-recuperacao.md`). Atendente assume quem sumiu (fila do Acompanhamento, Recepção
+  e Faturamento) → paciente volta → conclui a sessão → a guia nasce → a gestão VALIDA no Gerente.
+  Quem atende não vê valor; o valor (`RegraComissaoRecuperacao`, com vigência, o mais específico
+  ganha) e a verificação são da gestão (`VerFinanceiro`/`EditarFinanceiro`).
+  ⚠️ **O responsável PADRÃO da indicação de BSV não é "a atendente assumiu"**: a configuração
+  distribui o caso com `ResponsavelId` preenchido no próprio registro de abertura. Contar esse
+  registro pagaria comissão a quem não fez nada — só conta registro feito pela própria pessoa
+  (assumir ou contato). O primeiro teste do "ninguém assumiu" PASSAVA com o defeito, porque o
+  recall abre sem dono; quem o pegou foi um teste pelo caminho do BSV. **Teste de exclusão tem de
+  exercitar o caminho em que o dado excluído EXISTE.**
+  ⚠️ Validar copia o valor; quem recebe não valida a própria; recusar e desfazer exigem motivo e
+  não apagam (índice único filtrado em `CanceladaEm IS NULL` deixa decidir de novo). A tela
+  calcula e valida — não lança pagamento no caixa, por decisão.
+  ⚠️ **`dotnet ef` instala neste ambiente** (`dotnet tool install --global dotnet-ef --version
+  8.0.11`, pelo proxy do NuGet): migration gerada pela ferramenta, com Designer e snapshot
+  certos, em vez de escrita à mão.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

@@ -1,0 +1,506 @@
+@*
+  COMISSÃO DE RECUPERAÇÃO (out/2026, pedido da clínica) — a aba de verificação da gestão.
+
+  O fluxo: a atendente (recepção ou faturamento) ASSUME o paciente que sumiu na fila do
+  Acompanhamento → o paciente volta → conclui o atendimento → a guia nasce → aqui a gestão
+  confere e VALIDA. Só existe comissão depois do fluxo completo, e só a gestão vê valor: a
+  fila de quem atende não mostra dinheiro nenhum.
+
+  Responde três perguntas, uma por aba: "o que falta conferir?" (Verificação), "quanto cada
+  atendente tem a receber no mês?" (Por atendente) e "quanto vale um paciente recuperado?"
+  (Valores). A apuração é LEITURA (IComissaoRecuperacaoService.ApurarAsync) e o que a tela
+  afirma — a regra vigente, o selo, o resumo por atendente — mora em ComissaoRecuperacaoRegras,
+  com teste. Validar COPIA o valor da regra; reajustar depois não reescreve o mês validado.
+*@
+@inherits TelaBase
+@using Clinica.Application.Abstracoes
+
+<div class="pagina @(Carregando && _linhas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Relacionamento · Comissão de recuperação" Titulo="Comissão de recuperação"
+                     Subtitulo="Pacientes que voltaram depois que uma atendente assumiu o acompanhamento — confira e valide a comissão de cada um.">
+        <SeletorMes Valor="Mes" ValorChanged="TrocarMesAsync" />
+        <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(_linhas.Count == 0)"><Icone Nome="baixar" />Exportar CSV</button>
+        <button type="button" class="botao primario" @onclick="NovaRegra" disabled="@(!PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite definir o valor da comissão.")"><Icone Nome="mais" />Novo valor</button>
+    </CabecalhoPagina>
+
+    @if (_carregou)
+    {
+        <section class="kpis" aria-label="Resumo do mês">
+            <Kpi Rotulo="Pacientes recuperados" Valor="@_linhas.Count.ToString(Formato.PtBr)" Icone="pessoas" Tom="neutro"
+                 Nota="Voltaram no mês com o caso assumido por alguém" />
+            <Kpi Rotulo="A validar" Valor="@Contar(SituacaoRecuperacao.AValidar).ToString(Formato.PtBr)" Icone="relogio"
+                 Tom="@(Contar(SituacaoRecuperacao.AValidar) > 0 ? "info" : "neutro")"
+                 Nota="@($"{Formato.Dinheiro(_linhas.Where(l => l.Situacao == SituacaoRecuperacao.AValidar).Sum(l => l.ValorProposto ?? 0))} pelos valores vigentes")" />
+            <Kpi Rotulo="Validado no mês" Valor="@Formato.Dinheiro(_linhas.Where(l => l.Situacao == SituacaoRecuperacao.Validada).Sum(l => l.ValorDecidido ?? 0))"
+                 Icone="ok" Tom="sucesso" Nota="@($"{Contar(SituacaoRecuperacao.Validada)} recuperação(ões) validada(s)")" />
+            <Kpi Rotulo="Sem valor cadastrado" Valor="@Contar(SituacaoRecuperacao.SemValor).ToString(Formato.PtBr)" Icone="alerta"
+                 Tom="@(Contar(SituacaoRecuperacao.SemValor) > 0 ? "aviso" : "neutro")" ClasseValor="@(Contar(SituacaoRecuperacao.SemValor) > 0 ? "tom-aviso" : null)"
+                 Nota="@(Contar(SituacaoRecuperacao.SemValor) > 0 ? "Cadastre o valor na aba Valores para poder validar" : "Todas com valor vigente")" />
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="abas" role="tablist" aria-label="Comissão de recuperação">
+            <button type="button" role="tab" aria-selected="@(_aba == 0 ? "true" : "false")" @onclick="() => _aba = 0">Verificação</button>
+            <button type="button" role="tab" aria-selected="@(_aba == 1 ? "true" : "false")" @onclick="() => _aba = 1">Por atendente</button>
+            <button type="button" role="tab" aria-selected="@(_aba == 2 ? "true" : "false")" @onclick="() => _aba = 2">Valores</button>
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível apurar as recuperações" Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erroLeitura}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_aba == 0)
+        {
+            @AbaVerificacao
+        }
+        else if (_aba == 1)
+        {
+            @AbaPorAtendente
+        }
+        else
+        {
+            @AbaValores
+        }
+    </section>
+</div>
+
+@if (_regraAberta is not null)
+{
+    <RegraComissaoRecuperacaoForm Regra="_regraAberta" AoFechar="() => _regraAberta = null" AoConcluir="RegraSalvaAsync" />
+}
+
+@code {
+    private RenderFragment AbaVerificacao => @<text>
+        <div class="filtros">
+            <Campo Rotulo="Atendente">
+                <select class="campo" @bind="_filtroAtendente">
+                    <option value="0">Todas as atendentes</option>
+                    @foreach (var a in _linhas.Select(l => (l.UsuarioId, l.Atendente)).Distinct().OrderBy(a => a.Atendente))
+                    {
+                        <option value="@a.UsuarioId">@a.Atendente</option>
+                    }
+                </select>
+            </Campo>
+            <label class="alternar comissao-alternar"><input type="checkbox" @bind="_soAValidar" /> Só o que falta validar</label>
+            <span class="resumo-filtro">@ResumoDoFiltro</span>
+            <button type="button" class="botao primario comissao-validar" disabled="@(!PodeEditar || _marcadas.Count == 0 || _ocupado)" @onclick="ValidarMarcadasAsync"
+                    title="@(PodeEditar ? "Valida as recuperações marcadas, copiando o valor vigente de cada uma." : "Seu acesso não permite validar comissões.")">
+                <Icone Nome="ok" />Validar marcadas (@_marcadas.Count)
+            </button>
+        </div>
+        @if (Visiveis.Count == 0)
+        {
+            <EstadoVazio Icone="pessoas" Titulo="@(_linhas.Count == 0 ? "Nenhum paciente recuperado neste mês" : "Nenhuma recuperação bate com o filtro")"
+                         Descricao="@(_linhas.Count == 0
+                             ? "Entra aqui quem voltou e concluiu a sessão depois de uma atendente ter assumido o caso no Acompanhamento. Quem voltou sem ninguém ter assumido não é recuperação de ninguém."
+                             : "Troque a atendente ou desmarque \"Só o que falta validar\".")" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th class="col-marca"><input type="checkbox" aria-label="Marcar todas as que dá para validar" checked="@TodasMarcadas" @onchange="MarcarTodas" /></th>
+                            <th class="comissao-paciente">Paciente</th>
+                            <th style="width:128px">Atendente</th>
+                            <th style="width:112px">Assumiu → voltou</th>
+                            <th style="width:150px">Sessão de retorno</th>
+                            <th class="direita" style="width:96px">Valor</th>
+                            <th style="width:140px">Situação</th>
+                            <th class="direita" style="width:118px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Visiveis)
+                        {
+                            var selo = ComissaoRecuperacaoRegras.Selo(l);
+                            var marcavel = l.Situacao == SituacaoRecuperacao.AValidar;
+                            <tr @key="l.AtendimentoId">
+                                <td class="col-marca">
+                                    @if (marcavel)
+                                    {
+                                        <input type="checkbox" aria-label="@($"Marcar {l.Paciente} para validar")" checked="@_marcadas.Contains(l.AtendimentoId)"
+                                               @onchange="e => Marcar(l.AtendimentoId, e)" />
+                                    }
+                                </td>
+                                <td>
+                                    <span class="principal">@l.Paciente</span>
+                                    <span class="secundario">@l.TipoTexto · @(l.TeveContato ? $"{l.Tentativas} contato(s)" : "só assumiu, sem contato")</span>
+                                </td>
+                                <td>@l.Atendente</td>
+                                <td class="nao-quebra" title="@($"Assumiu em {Formato.Data(DateOnly.FromDateTime(l.AssumidoEm))}; voltou em {Formato.Data(l.RetornoEm)}")">@DiaMes(DateOnly.FromDateTime(l.AssumidoEm)) → @DiaMes(l.RetornoEm)</td>
+                                <td>
+                                    <span>@RotulosEnum.De(l.Modalidade)</span>
+                                    <span class="secundario">@l.Profissional · @(l.GuiaGerada ? "guia gerada" : "particular, sem guia")</span>
+                                </td>
+                                <td class="direita numero nao-quebra">@ValorDaLinha(l)</td>
+                                <td>
+                                    <Selo Tom="@selo.Tom">@selo.Texto</Selo>
+                                    @if (!string.IsNullOrWhiteSpace(l.DecididaPor)) { <span class="secundario">por @l.DecididaPor@(l.DecididaEm is { } em ? $" em {Formato.Data(DateOnly.FromDateTime(em))}" : "")</span> }
+                                    @if (l.Situacao == SituacaoRecuperacao.Recusada && !string.IsNullOrWhiteSpace(l.Observacao)) { <span class="secundario comissao-motivo" title="@l.Observacao">@l.Observacao</span> }
+                                </td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        @if (marcavel)
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeEditar || _ocupado)" @onclick="() => ValidarAsync([l.AtendimentoId])"
+                                                    title="@(PodeEditar ? l.RegraProposta : "Seu acesso não permite validar comissões.")"><Icone Nome="ok" />Validar</button>
+                                        }
+                                        @if (l.Situacao is SituacaoRecuperacao.AValidar or SituacaoRecuperacao.SemValor)
+                                        {
+                                            <button type="button" class="botao mini icone" disabled="@(!PodeEditar || _ocupado)" @onclick="() => RecusarAsync(l)"
+                                                    title="Recusar esta recuperação (com o motivo)" aria-label="@($"Recusar a recuperação de {l.Paciente}")"><Icone Nome="x" /></button>
+                                        }
+                                        @if (l.ComissaoId is { } id)
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!PodeEditar || _ocupado)" @onclick="() => DesfazerAsync(l, id)"
+                                                    title="Desfazer a decisão — a recuperação volta para a verificação">Desfazer</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">
+                Conta como recuperação a PRIMEIRA sessão concluída depois de uma atendente assumir o caso. Quem recebe não valida a própria comissão.
+                Desfazer não apaga: a decisão fica na auditoria e a recuperação volta a ser conferida.
+            </div>
+        }
+    </text>;
+
+    private RenderFragment AbaPorAtendente => @<text>
+        @if (_resumoAtendentes.Count == 0)
+        {
+            <EstadoVazio Icone="pessoas" Titulo="Nenhum paciente recuperado neste mês"
+                         Descricao="O resumo por atendente aparece quando alguém assumir um caso no Acompanhamento e o paciente voltar." />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Atendente</th>
+                            <th class="direita" style="width:110px">Recuperados</th>
+                            <th class="direita" style="width:100px">A validar</th>
+                            <th class="direita" style="width:100px">Validados</th>
+                            <th class="direita" style="width:100px">Recusados</th>
+                            <th class="direita" style="width:140px">A validar (R$)</th>
+                            <th class="direita" style="width:140px">Validado (R$)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _resumoAtendentes)
+                        {
+                            <tr @key="r.UsuarioId">
+                                <td><span class="principal">@r.Atendente</span>@if (r.SemValor > 0) { <span class="secundario">@r.SemValor sem valor cadastrado</span> }</td>
+                                <td class="direita numero">@r.Recuperados</td>
+                                <td class="direita numero">@r.AValidar</td>
+                                <td class="direita numero">@r.Validados</td>
+                                <td class="direita numero">@r.Recusados</td>
+                                <td class="direita numero">@Formato.Dinheiro(r.ValorAValidar)</td>
+                                <td class="direita numero"><b>@Formato.Dinheiro(r.ValorValidado)</b></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">O valor validado é a comissão do mês de cada atendente. O pagamento é combinado à parte — esta tela calcula e valida, não lança dinheiro no caixa.</div>
+        }
+    </text>;
+
+    private RenderFragment AbaValores => @<text>
+        @if (_regras.Count == 0)
+        {
+            <EstadoVazio Icone="moeda" Titulo="Nenhum valor de comissão cadastrado"
+                         Descricao="Defina quanto vale um paciente recuperado — um valor geral, ou por fila (recall, novos BSV) e modalidade. Sem valor, a recuperação aparece na verificação mas não dá para validar." />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Vale para</th>
+                            <th class="direita" style="width:130px">Por paciente</th>
+                            <th style="width:200px">Vigência</th>
+                            <th style="width:110px">Situação</th>
+                            <th class="direita" style="width:150px">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _regras)
+                        {
+                            <tr @key="r.Id">
+                                <td>
+                                    <span class="principal">@ValePara(r)</span>
+                                    @if (!string.IsNullOrWhiteSpace(r.Observacao)) { <span class="secundario">@r.Observacao</span> }
+                                </td>
+                                <td class="direita numero">@Formato.Dinheiro(r.Valor)</td>
+                                <td class="nao-quebra">@Formato.Data(r.VigenteDe)@(r.VigenteAte is { } ate ? $" a {Formato.Data(ate)}" : " em diante")</td>
+                                <td><Selo Tom="@(r.Ativa ? "sucesso" : "neutro")">@(r.Ativa ? "Ativo" : "Desativado")</Selo></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini" disabled="@(!PodeEditar)" @onclick="() => EditarRegra(r)"><Icone Nome="editar" />Editar</button>
+                                        @if (r.Ativa)
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!PodeEditar)" @onclick="() => DesativarRegraAsync(r)">Desativar</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">Vale o valor mais específico (fila e modalidade, depois só a fila, depois o geral) vigente na data do retorno. Para reajustar, cadastre um valor novo com a data de início — o que já foi validado não muda.</div>
+        }
+    </text>;
+
+    private DateOnly Mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateOnly Inicio => Mes;
+    private DateOnly Fim => Mes.AddMonths(1).AddDays(-1);
+
+    private IReadOnlyList<LinhaRecuperacao> _linhas = [];
+    private IReadOnlyList<ResumoAtendenteRecuperacao> _resumoAtendentes = [];
+    private IReadOnlyList<RegraComissaoRecuperacao> _regras = [];
+    private readonly HashSet<int> _marcadas = [];
+    private int _aba;
+    private int _filtroAtendente;
+    private bool _soAValidar;
+    private bool _carregou;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private bool _ocupado;
+    private int _geracao;
+    private RegraComissaoRecuperacao? _regraAberta;
+
+    /// <summary>Ver é VerFinanceiro (é dinheiro); definir valor e validar é EditarFinanceiro — a mesma régua do repasse dos profissionais.</summary>
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    /// <summary>O validado mostra o valor COPIADO; o recusado não tem valor; o resto, o proposto pela regra vigente.</summary>
+    private static string ValorDaLinha(LinhaRecuperacao l) => l.Situacao switch
+    {
+        SituacaoRecuperacao.Validada => Formato.Dinheiro(l.ValorDecidido ?? 0),
+        SituacaoRecuperacao.Recusada => "—",
+        _ => l.ValorProposto is { } v ? Formato.Dinheiro(v) : "—"
+    };
+
+    private static string DiaMes(DateOnly d) => d.ToString("dd/MM", Formato.PtBr);
+
+    private int Contar(SituacaoRecuperacao s) => _linhas.Count(l => l.Situacao == s);
+
+    private IReadOnlyList<LinhaRecuperacao> Visiveis => _linhas
+        .Where(l => (_filtroAtendente == 0 || l.UsuarioId == _filtroAtendente) && (!_soAValidar || l.Situacao == SituacaoRecuperacao.AValidar))
+        .ToList();
+
+    private string ResumoDoFiltro => Visiveis.Count == _linhas.Count
+        ? $"{_linhas.Count} recuperação(ões) em {Formato.Mes(Mes)}"
+        : $"{Visiveis.Count} de {_linhas.Count} — filtrado";
+
+    private bool TodasMarcadas
+    {
+        get
+        {
+            var possiveis = Visiveis.Where(l => l.Situacao == SituacaoRecuperacao.AValidar).ToList();
+            return possiveis.Count > 0 && possiveis.All(l => _marcadas.Contains(l.AtendimentoId));
+        }
+    }
+
+    private static string ValePara(RegraComissaoRecuperacao r)
+        => (r.Tipo switch { TipoAcompanhamento.Recall => "Recall", TipoAcompanhamento.NovoBsv => "Novos BSV", _ => "Recall e novos BSV" })
+           + " · " + (r.Modalidade is { } m ? RotulosEnum.De(m) : "todas as modalidades");
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => ExportarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    private Task TrocarMesAsync(DateOnly mes) { Mes = mes; _marcadas.Clear(); return CarregarAsync(); }
+
+    /// <summary>Descarte de resposta fora de ordem: trocar o mês rápido não pode deixar a apuração de um mês sob o título do outro.</summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            if (!Exigir(Permissao.VerFinanceiro, "ver a comissão de recuperação")) { _naoVerificado = true; _erroLeitura = "Seu acesso não permite ver valores."; return; }
+            using var escopo = Escopo();
+            var servico = escopo.ServiceProvider.GetRequiredService<IComissaoRecuperacaoService>();
+            var linhas = await servico.ApurarAsync(Inicio, Fim);
+            if (geracao != _geracao || Descartada) return;
+            var regras = await servico.RegrasAsync();
+            if (geracao != _geracao || Descartada) return;
+
+            _linhas = linhas;
+            _regras = regras;
+            _resumoAtendentes = ComissaoRecuperacaoRegras.PorAtendente(linhas);
+            _marcadas.RemoveWhere(id => !linhas.Any(l => l.AtendimentoId == id && l.Situacao == SituacaoRecuperacao.AValidar));
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — comissão de recuperação não pôde ser apurada", ex);
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _linhas = [];
+            _resumoAtendentes = [];
+            _marcadas.Clear();
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Marcar(int atendimentoId, ChangeEventArgs e)
+    {
+        if (e.Value is true) _marcadas.Add(atendimentoId); else _marcadas.Remove(atendimentoId);
+    }
+
+    private void MarcarTodas(ChangeEventArgs e)
+    {
+        var possiveis = Visiveis.Where(l => l.Situacao == SituacaoRecuperacao.AValidar).Select(l => l.AtendimentoId);
+        if (e.Value is true) _marcadas.UnionWith(possiveis); else _marcadas.ExceptWith(possiveis);
+    }
+
+    private Task ValidarMarcadasAsync() => ValidarAsync(_marcadas.ToList());
+
+    private async Task ValidarAsync(IReadOnlyList<int> ids)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "validar comissões") || ids.Count == 0) return;
+        var linhas = _linhas.Where(l => ids.Contains(l.AtendimentoId)).ToList();
+        var total = linhas.Sum(l => l.ValorProposto ?? 0);
+        if (!await Dialogos.ConfirmarAsync("Validar comissão de recuperação",
+                linhas.Count == 1
+                    ? $"Validar {Formato.Dinheiro(total)} para {linhas[0].Atendente} pela recuperação de {linhas[0].Paciente}?"
+                    : $"Validar {linhas.Count} recuperações, somando {Formato.Dinheiro(total)}? O valor de cada uma é copiado da regra vigente na data do retorno.",
+                confirmar: "Validar")) return;
+        _ocupado = true;
+        try
+        {
+            if (await ExecutarAsync(async () =>
+                {
+                    using var escopo = Escopo();
+                    await escopo.ServiceProvider.GetRequiredService<IComissaoRecuperacaoService>().ValidarAsync(ids, Operador);
+                }, "Blazor — comissão de recuperação não pôde ser validada", linhas.Count == 1 ? "Comissão validada." : $"{linhas.Count} comissões validadas."))
+            {
+                _marcadas.ExceptWith(ids);
+                await CarregarAsync();
+            }
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task RecusarAsync(LinhaRecuperacao l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "recusar comissões")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Recusar a recuperação",
+            $"Por que a recuperação de {l.Paciente} por {l.Atendente} não vale comissão? (ex.: voltou por indicação do médico, sem contato)");
+        if (motivo is null) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<IComissaoRecuperacaoService>().RecusarAsync(l.AtendimentoId, motivo, Operador);
+            }, "Blazor — recuperação não pôde ser recusada", "Recuperação recusada."))
+        {
+            _marcadas.Remove(l.AtendimentoId);
+            await CarregarAsync();
+        }
+    }
+
+    private async Task DesfazerAsync(LinhaRecuperacao l, int comissaoId)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "desfazer decisões de comissão")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Desfazer a decisão",
+            $"Por que desfazer a decisão sobre {l.Paciente} ({l.Atendente})? Ela continua na auditoria e a recuperação volta a ser conferida.");
+        if (motivo is null) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<IComissaoRecuperacaoService>().CancelarDecisaoAsync(comissaoId, motivo, Operador);
+            }, "Blazor — decisão de comissão não pôde ser desfeita", "Decisão desfeita — a recuperação voltou para a verificação."))
+            await CarregarAsync();
+    }
+
+    private void NovaRegra()
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "definir o valor da comissão"))
+            _regraAberta = new RegraComissaoRecuperacao { VigenteDe = DateOnly.FromDateTime(DateTime.Today), Ativa = true };
+    }
+
+    private void EditarRegra(RegraComissaoRecuperacao r)
+    {
+        if (Exigir(Permissao.EditarFinanceiro, "definir o valor da comissão"))
+            _regraAberta = new RegraComissaoRecuperacao { Id = r.Id, Tipo = r.Tipo, Modalidade = r.Modalidade, Valor = r.Valor,
+                VigenteDe = r.VigenteDe, VigenteAte = r.VigenteAte, Ativa = r.Ativa, Observacao = r.Observacao };
+    }
+
+    private async Task RegraSalvaAsync()
+    {
+        _regraAberta = null;
+        Notificacoes.Sucesso("Valor da comissão salvo.");
+        await CarregarAsync();
+    }
+
+    private async Task DesativarRegraAsync(RegraComissaoRecuperacao r)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "definir o valor da comissão")) return;
+        if (!await Dialogos.ConfirmarAsync("Desativar valor",
+                $"Desativar {Formato.Dinheiro(r.Valor)} ({ValePara(r)})? As comissões já validadas continuam com o valor que tinham.",
+                confirmar: "Desativar")) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<IComissaoRecuperacaoService>().DesativarRegraAsync(r.Id, Operador);
+            }, "Blazor — valor de comissão não pôde ser desativado", "Valor desativado."))
+            await CarregarAsync();
+    }
+
+    /// <summary>O relatório do mês em CSV — o papel que vai com o pagamento, com a conta que produziu cada número.</summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar a comissão de recuperação")) return;
+        if (_linhas.Count == 0) { Notificacoes.Info("Não há recuperação para exportar neste mês."); return; }
+        try
+        {
+            var linhas = _linhas.Select(l => (IReadOnlyList<string>)
+            [
+                l.Atendente, l.Paciente, l.TipoTexto, RotulosEnum.De(l.Modalidade),
+                Formato.Data(DateOnly.FromDateTime(l.AssumidoEm)), Formato.Data(l.RetornoEm), l.Profissional,
+                l.GuiaGerada ? "Sim" : "Particular", l.Tentativas.ToString(Formato.PtBr),
+                ComissaoRecuperacaoRegras.Selo(l).Texto,
+                ValorDaLinha(l),
+                l.DecididaPor ?? "", l.Observacao ?? ""
+            ]).ToList();
+            var erro = await Host.ExportarCsvAsync(
+                ["Atendente", "Paciente", "Fila", "Modalidade", "Assumiu em", "Voltou em", "Profissional", "Guia", "Contatos", "Situação", "Valor", "Decidido por", "Observação"],
+                linhas, $"comissao-recuperacao-{Mes:yyyy-MM}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — comissão de recuperação não pôde ser exportada", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+}
