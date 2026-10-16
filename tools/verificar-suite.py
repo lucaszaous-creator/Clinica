@@ -284,6 +284,19 @@ for proj in csprojs():
         erros.append(f"{rel(proj)}: fora do Clinica.sln (não será compilado pelo CI)")
 
 
+# 5-B. TODO arquivo de projeto do repositório é XML válido — inclusive os de tools/ e tests/,
+# que a lista acima não alcança. Um `--` dentro de comentário (`<!-- … o --blazor … -->`)
+# derruba o MSBuild com MSB4025, e o build não tem como começar; foi o que custou uma rodada
+# do CI em out/2026, num projeto de ferramenta que nenhuma rede local lia.
+for proj in sorted(RAIZ.glob("**/*.csproj")) + sorted(RAIZ.glob("**/Directory.*.props")):
+    if any(p in ("bin", "obj", "node_modules") for p in proj.parts) or ".sombra" in str(proj):
+        continue
+    try:
+        ET.parse(proj)
+    except ET.ParseError as e:
+        erros.append(f"{rel(proj)}: não é XML válido ({e}) — o MSBuild nem carrega o projeto")
+
+
 # ------------------------------------- 6. propriedade definida duas vezes no XAML
 # `<TextBlock Style="{StaticResource X}"> <TextBlock.Style> … ` é MC3024: a mesma
 # propriedade como atributo e como elemento. Quando o elemento traz um BasedOn, a

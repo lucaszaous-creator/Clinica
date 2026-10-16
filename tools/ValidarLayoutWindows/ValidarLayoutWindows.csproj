@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <!-- As MESMAS sementes fictícias da prévia e do dotnet test (o --blazor abre as telas com dados). -->
+    <!-- As MESMAS sementes fictícias da prévia e do dotnet test (a conferência das trocas Blazor abre as telas com dados). -->
     <Compile Include="../PreviaBlazor/Sementes/*.cs" Link="Sementes/%(Filename)%(Extension)" />
   </ItemGroup>
   <ItemGroup>
