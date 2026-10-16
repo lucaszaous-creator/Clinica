@@ -119,10 +119,6 @@ jobs:
       # a área de trabalho em laço. Reprova com uma foto escura; e reprova também quando a
       # foto não enxerga o WebView2 — "zero flash" com a câmera cega seria garantia aparente.
       - name: Conferir que a troca de telas Blazor não pisca preto
-        # Sem GPU o WebView2 desenha por software e a foto da tela (CopyFromScreen) passa a
-        # enxergá-lo — com GPU, no runner, a captura via só a moldura e o passo dava "não medido".
-        env:
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --disable-gpu --disable-gpu-compositing
         run: dotnet run --project tools/ValidarLayoutWindows -c Release --no-build -- --blazor
 
       - name: Guardar as fotos da troca de telas Blazor
