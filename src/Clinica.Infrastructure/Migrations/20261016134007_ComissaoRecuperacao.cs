@@ -38,12 +38,6 @@ namespace Clinica.Infrastructure.Migrations
                 {
                     table.PrimaryKey("PK_ComissoesRecuperacao", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_ComissoesRecuperacao_Acompanhamentos_AcompanhamentoPaciente~",
-                        column: x => x.AcompanhamentoPacienteId,
-                        principalTable: "Acompanhamentos",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
                         name: "FK_ComissoesRecuperacao_Atendimentos_AtendimentoId",
                         column: x => x.AtendimentoId,
                         principalTable: "Atendimentos",
@@ -62,6 +56,23 @@ namespace Clinica.Infrastructure.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
+
+            // A chave para "Acompanhamentos" só nasce onde o papel do desktop PODE referenciar a
+            // tabela (out/2026). Em produção ela foi criada pelo script do posto
+            // (deploy/tablet/migracao-acompanhamento.sql) como postgres, e o desktop recebe só
+            // SELECT/INSERT/UPDATE: o FOREIGN KEY incondicional dava 42501 na ABERTURA do app.
+            // Onde falta o privilégio, quem cria a chave é o dono, por
+            // deploy/tablet/comissao-recuperacao-chave.sql. A integridade não depende dela no dia a
+            // dia: acompanhamento não se apaga (encerra-se com motivo).
+            migrationBuilder.Sql(@"
+DO $$
+BEGIN
+    IF has_table_privilege(current_user, '""Acompanhamentos""', 'REFERENCES') THEN
+        ALTER TABLE ""ComissoesRecuperacao""
+            ADD CONSTRAINT ""FK_ComissoesRecuperacao_Acompanhamentos_AcompanhamentoPaciente~""
+            FOREIGN KEY (""AcompanhamentoPacienteId"") REFERENCES ""Acompanhamentos"" (""Id"") ON DELETE RESTRICT;
+    END IF;
+END $$;");
 
             migrationBuilder.CreateTable(
                 name: "RegrasComissaoRecuperacao",
