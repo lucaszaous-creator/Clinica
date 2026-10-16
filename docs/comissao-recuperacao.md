@@ -46,7 +46,16 @@ validação ficam na gestão.
 - A tela **calcula e valida**; não lança o pagamento no caixa (decisão: o pagamento da comissão é
   combinado à parte). Se um dia for pedido, o caminho é o do repasse (saída prevista no caixa).
 
-## 4. Comparação das opções
+## 4. Instalação no servidor
+
+A migration roda na abertura do app. A chave de `ComissoesRecuperacao` para `Acompanhamentos`
+só nasce onde o papel do desktop pode referenciar a tabela — em produção ela foi criada pelo
+script do posto e o desktop não pode, então a chave fica para o dono: rode
+`deploy/tablet/comissao-recuperacao-chave.sql` como `postgres` **depois** de o app ter aberto
+uma vez com esta versão (é idempotente). Sem ela tudo funciona; ela só impede, no banco, uma
+comissão apontando para um acompanhamento inexistente — e acompanhamento não se apaga.
+
+## 5. Comparação das opções
 
 | Opção | 🧑‍💻 UX | 🛠️ DX | 🤝 CX |
 |---|---|---|---|
@@ -54,7 +63,7 @@ validação ficam na gestão.
 | **Apurar dos fatos que já existem** (escolhida) | a atendente só assume e fala — nada a mais; a gestão vê tudo pronto para conferir | uma leitura (casos + contatos + sessão + guia); nada é marcado no caminho, então não sai de sincronia | o número vem com a conta (quem, quando, qual sessão, qual regra) — dá para validar e discutir |
 | Pagar automático ao gerar a guia | zero trabalho | simples | paga o que ninguém conferiu: a sessão pode ser estornada, a volta pode não ter sido por contato |
 
-## 5. 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+## 6. 🧑‍💻 UX · 🛠️ DX · 🤝 CX
 
 - 🧑‍💻 **UX** — para quem atende, nada muda além do botão "Assumir" na linha (desenho A do
   Relacionamento). Para a gestão, uma tela com três abas — *Verificação* (o que falta conferir,

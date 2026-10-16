@@ -4180,6 +4180,11 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   só se espaça quando a tabela dele avisa; `deploy/tablet/avisos-instantaneos-enfermagem.sql`
   cria os dois que faltam como dono. **Nenhum teste via**: a suíte aplica as migrations
   como superusuário. Reproduza com um papel sem dono antes de mexer em tabela do posto.
+  ⚠️ **E `FOREIGN KEY` para essas tabelas também é DDL que pede privilégio** (`REFERENCES`):
+  a comissão de recuperação (out/2026) apontava para `Acompanhamentos` — criada pelo script
+  do posto — e o app não abriu com o mesmo 42501. A chave só nasce onde
+  `has_table_privilege(…, 'REFERENCES')`, e `deploy/tablet/comissao-recuperacao-chave.sql`
+  a cria como dono. **Tabela nova que aponta para tabela do posto: chave condicional + script.**
 - **O build do Windows roda em PARALELO** (out/2026, ~15 → ~7 min): `testes` em Linux
   (o que não precisa de WPF), `conferencias` e `publicar` no Windows, cache do NuGet, e o
   job `build` só espera os três — é o nome do check do PR. Passo novo entra no job certo;
