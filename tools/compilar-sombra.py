@@ -87,7 +87,18 @@ PROJETOS_WPF = [
     "Clinica.Financeiro",
     "Clinica.Gerente",
     "Clinica.Clinico",
+    # A ferramenta de conferência das telas no Windows (out/2026): o CI a roda no PR, e
+    # um erro dela só aparecia lá — foram dois ciclos de CI seguidos (o comentário com
+    # "--" no .csproj e o System.IO que o WPF não importa sozinho).
+    "ValidarLayoutWindows",
 ]
+
+# Onde mora cada projeto: src/ por padrão; as ferramentas de tools/ ficam ao lado.
+PASTAS = {"ValidarLayoutWindows": "tools/ValidarLayoutWindows"}
+
+
+def pasta_do_projeto(nome: str) -> Path:
+    return RAIZ / PASTAS.get(nome, f"src/{nome}")
 
 XMLNS_XAML = "http://schemas.microsoft.com/winfx/2006/xaml"
 XMLNS_WPF = "http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -453,7 +464,13 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
     vinculados = []
     for item in raiz.iter("Compile"):
         inc = item.get("Include", "").replace("\\", "/")
-        if not inc or "*" in inc or not (item.get("Link") or item.find("Link") is not None):
+        if not inc or not (item.get("Link") or item.find("Link") is not None):
+            continue
+        if "*" in inc:
+            # Curinga fora da pasta (as sementes da prévia): o MSBuild expande igual.
+            alvo_dir = (original.parent / inc).parent.resolve()
+            if alvo_dir.is_relative_to(RAIZ.resolve()) and not alvo_dir.is_relative_to(original.parent.resolve()):
+                vinculados.append(ET.tostring(ET.Element("Compile", {"Include": str(alvo_dir / Path(inc).name)}), encoding="unicode"))
             continue
         alvo = (original.parent / inc).resolve()
         if not alvo.is_relative_to(original.parent.resolve()):
@@ -469,6 +486,7 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
                       "System.Windows.Controls.Ribbon", "UIAutomationTypes")
     )
 
+    pasta = original.parent
     return f"""<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Gerado por tools/compilar-sombra.py. Não versionado. -->
@@ -476,7 +494,10 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- As MESMAS usings implícitas de um projeto WPF: o SDK do WindowsDesktop TIRA
+         System.IO e System.Net.Http (conflitam com System.Windows.Shapes.Path), e uma
+         sombra net8.0 com as do console aceitaria o File/Path que o CI recusa. -->
+    <ImplicitUsings>disable</ImplicitUsings>
     <RootNamespace>{root_ns}</RootNamespace>
     <AssemblyName>Sombra.{nome}</AssemblyName>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
@@ -487,8 +508,16 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="{RAIZ}/src/{nome}/**/*.cs"
-             Exclude="{RAIZ}/src/{nome}/obj/**;{RAIZ}/src/{nome}/bin/**" />
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Linq" />
+    <Using Include="System.Threading" />
+    <Using Include="System.Threading.Tasks" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="{pasta}/**/*.cs"
+             Exclude="{pasta}/obj/**;{pasta}/bin/**" />
     <Compile Include="{gerados}/*.g.cs" />
 {chr(10).join(vinculados)}
   </ItemGroup>
@@ -533,7 +562,7 @@ def main() -> int:
 
     total_gerados = 0
     for nome in PROJETOS_WPF:
-        origem = RAIZ / "src" / nome
+        origem = pasta_do_projeto(nome)
         destino = SOMBRA / nome
         destino.mkdir(parents=True, exist_ok=True)
 

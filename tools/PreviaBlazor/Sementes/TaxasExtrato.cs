@@ -1,4 +1,5 @@
 // Dados FICTÍCIOS da prévia — nenhuma pessoa, contrato ou conta bancária real.
+using System.IO;
 using System.Globalization;
 using System.Text;
 using Clinica.Domain.Entities;
