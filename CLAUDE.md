@@ -4190,6 +4190,15 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `.exe`) só começa depois que os DOIS passaram — pedido da direção: `.exe` de commit
   reprovado não fica para download. O job `build` espera os três — é o nome do check do PR. Passo novo entra no job certo;
   pôr teste de Linux no runner Windows paga 2× e alonga a fila.
+- **A suíte roda em QUATRO FATIAS no CI** (out/2026): eram 27 min num job só e o PR esperava
+  32 — a meta da direção é **no máximo 13**. `FatiaDaSuite` (xUnit `TestFramework`) descarta
+  na descoberta o que não é da fatia `CLINICA_FATIA=i/n`; sem a variável roda tudo. Divide
+  por CLASSE (hash estável do nome); classe grande demais leva `[FatiarPorCaso]` e cada caso
+  vai para uma fatia (hoje só `TelasBlazorAbremTests`). Localmente dá para rodar as quatro em
+  paralelo (`for i in 1 2 3 4; do CLINICA_FATIA=$i/4 dotnet test … & done; wait`). ⚠️ **Teste
+  que espera a tela "assentar" paga a espera em CADA passo**: o mínimo de 150 ms do
+  `Assentar` (50 ms × 3) era mais da metade do tempo da suíte; virou 60 ms (15 × 4), provado
+  com um `throw` num botão. Teste novo de tela que espera por laço usa a mesma batida.
 - **Triggers usados pelo portal devem funcionar com seu papel restrito.** `SELECT FOR SHARE`
   exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita
   conceder ao portal permissao de editar profissionais. Testar com papel sem UPDATE.

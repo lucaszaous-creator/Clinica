@@ -16,7 +16,7 @@ name: Build EXE (Windows)
 # por PR; para o caso raro, o `workflow_dispatch` roda em qualquer branch.
 #
 # ⚠️ EM PARALELO, desde out/2026 (eram ~15 min em fila num job só). Três jobs correm
-# juntos: `testes` (Linux — o que não precisa de Windows, e Linux é faturado 1×),
+# juntos: `testes` (Linux, em quatro fatias — o que não precisa de Windows, e Linux é faturado 1×),
 # `conferencias` (testes e verificadores de tela no Windows) e `publicar` (os cinco .exe).
 # O job `build` só espera os três e responde por eles: é o NOME do check do PR, e
 # renomeá-lo soltaria qualquer regra de proteção da main que o exija. O cache do NuGet
@@ -53,8 +53,18 @@ jobs:
   # ============================================================
   # O que não precisa de Windows: redes estáticas e a suíte geral.
   # ============================================================
+  # ⚠️ EM QUATRO FATIAS PARALELAS desde out/2026: a suíte inteira levava 27 min num job só
+  # (ela roda em série dentro do processo — AssemblyInfo.cs), e o PR esperava 32. Cada fatia
+  # é um processo próprio, então o estado estático não vaza entre elas; quem divide é o
+  # `FatiaDaSuite` (tests/Clinica.Tests), pela variável CLINICA_FATIA. Linux custa 1×, então
+  # quatro jobs de ~6 min custam quase o mesmo que um de 27 — e o PR fica pronto em ~13.
+  # O check `build` continua respondendo pelas quatro (needs.testes.result é o conjunto).
   testes:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        fatia: [1, 2, 3, 4]
+    name: testes (${{ matrix.fatia }}/4)
     steps:
       - uses: actions/checkout@v5
 
@@ -71,12 +81,16 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Conferir espelho dos tokens (CSS x XAML)
+        if: matrix.fatia == 1
         run: python3 tokens/verificar-espelho.py
 
       - name: Conferir a suíte multi-exe (XAML, pack URIs, projetos)
+        if: matrix.fatia == 1
         run: python3 tools/verificar-suite.py
 
-      - name: Testes (regras de faturamento)
+      - name: Testes (fatia ${{ matrix.fatia }} de 4)
+        env:
+          CLINICA_FATIA: ${{ matrix.fatia }}/4
         run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
 
   # ============================================================

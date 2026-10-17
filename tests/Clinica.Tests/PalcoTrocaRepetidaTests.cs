@@ -164,11 +164,11 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
         var estavel = 0;
         while (DateTime.UtcNow < prazo)
         {
-            Thread.Sleep(40);
+            Thread.Sleep(15); // a mesma batida do TelasBlazorAbremTests.Assentar
             var agora = r.Markup;
             estavel = agora == anterior ? estavel + 1 : 0;
             anterior = agora;
-            if (estavel >= 3) return;
+            if (estavel >= 4) return;
         }
         throw new TimeoutException("o palco não parou de redesenhar em 20 s");
     }
