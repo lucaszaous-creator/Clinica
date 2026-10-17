@@ -38,6 +38,7 @@
     <ProjectReference Include="..\..\src\Clinica.Application\Clinica.Application.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Ui.Blazor\Clinica.Ui.Blazor.csproj" />
+    <ProjectReference Include="..\..\src\Clinica.Crm.Bridge\Clinica.Crm.Bridge.csproj" />
   </ItemGroup>
 
   <ItemGroup>

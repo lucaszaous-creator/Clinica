@@ -31,6 +31,7 @@ namespace Clinica.Tests;
 ///   funcionando: o formulário vazio deve mesmo dizer não.
 /// </summary>
 [Collection(ColecaoDiagnostico.Nome)]
+[FatiarPorCaso]
 public sealed class TelasBlazorAbremTests : IClassFixture<BancoDasTelas>, IDisposable
 {
     private static readonly TimeSpan Prazo = TimeSpan.FromSeconds(20);
@@ -189,13 +190,15 @@ public sealed class TelasBlazorAbremTests : IClassFixture<BancoDasTelas>, IDispo
         var prazo = DateTime.UtcNow + Prazo;
         var anterior = string.Empty;
         var estavel = 0;
+        // 15 ms × 4 batidas (60 ms parado) em vez de 50 × 3: cada clique da exploração passa
+        // por aqui, e o mínimo de 150 ms por passo era mais da metade do tempo da suíte no CI.
         while (DateTime.UtcNow < prazo)
         {
-            Thread.Sleep(50);
+            Thread.Sleep(15);
             var agora = tela.Markup;
             estavel = agora == anterior ? estavel + 1 : 0;
             anterior = agora;
-            if (estavel >= 3 && !agora.Contains("class=\"esqueleto\"")) return;
+            if (estavel >= 4 && !agora.Contains("class=\"esqueleto\"")) return;
         }
         throw new TimeoutException("A tela não terminou de carregar em " + Prazo.TotalSeconds + " s:\n" + anterior[..Math.Min(anterior.Length, 2000)]);
     }
