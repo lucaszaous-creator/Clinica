@@ -77,6 +77,32 @@ public sealed class OcupacaoAgendaTests : IDisposable
         Assert.Equal(todos.Profissionais.Single(p => p.Id == profissional.Id).Resumo, filtrado.Resumo);
     }
 
+    [Fact] public async Task Cada_profissional_vem_dia_a_dia_com_faixas_fechamento_e_quem_nao_tem_horario()
+    {
+        var outro = new Profissional { Nome = "Sem horário", Ativo = true };
+        db.Profissionais.Add(outro);
+        db.Agendamentos.AddRange(Horario(8), Horario(9, dias: 2));
+        db.BloqueiosAgenda.Add(new BloqueioAgenda { ProfissionalId = profissional.Id, Inicio = Segunda.AddDays(7).ToDateTime(new(0, 0)),
+            Fim = Segunda.AddDays(7).ToDateTime(new(23, 59)), Motivo = "Folga" });
+        await db.SaveChangesAsync();
+        var r = await svc.ConsultarAsync(recepcao.Id, Segunda, Segunda.AddDays(7));
+        var dele = r.Profissionais.Single(p => p.Id == profissional.Id);
+        Assert.False(dele.SemHorario);
+        Assert.Equal(8, dele.Dias.Count);
+        Assert.Equal(1, dele.Dias[0].Resumo.Atendimentos);
+        Assert.Equal(25m, dele.Dias[0].Resumo.Percentual);
+        Assert.Single(dele.Dias[0].Faixas!);
+        Assert.Empty(dele.Dias[1].Faixas!);                 // terça: não atende
+        Assert.Equal(1, dele.Dias[2].Resumo.ForaDaJornada); // quarta, marcado fora do horário
+        Assert.Contains("Folga", dele.Dias[7].Fechado);      // segunda seguinte, fechada
+        var sem = r.Profissionais.Single(p => p.Id == outro.Id);
+        Assert.True(sem.SemHorario);
+        Assert.Null(sem.Dias[0].Faixas);
+        // A consulta de MOVIMENTO não calcula horários: sem dia a dia.
+        var mov = await svc.ConsultarMovimentoAsync(recepcao.Id, Segunda, Segunda);
+        Assert.All(mov.Profissionais, p => Assert.Empty(p.Dias));
+    }
+
     [Fact] public async Task Horario_sem_profissional_afeta_apenas_o_dia_correspondente()
     {
         var a = Horario(8, dias: 1); a.ProfissionalId = null; db.Agendamentos.Add(a); await db.SaveChangesAsync();

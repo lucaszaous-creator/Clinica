@@ -143,6 +143,7 @@ public sealed class ModuloGerente : IModuloApp
             [
                 new AbaMenu("Indicadores", ChaveIndicadores),
                 new AbaMenu("Metas", ChaveMetas),
+                new AbaMenu("Tend\u00EAncias", ChavesSuite.Tendencias),
                 new AbaMenu("Resultado do m\u00EAs", ChavesSuite.Resultado),
                 new AbaMenu("Produ\u00E7\u00E3o", ChavesSuite.Producao),
                 new AbaMenu("Meus n\u00FAmeros", ChavesSuite.ConsultorioMeusNumeros)
@@ -326,7 +327,6 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<GuardaProntuarioViewModel>();
         servicos.AddTransient<AcessosViewModel>();
         servicos.AddTransient<ConfiguracoesViewModel>();
-        servicos.AddTransient<MetasViewModel>();
         servicos.AddTransient<OrigensViewModel>();
         servicos.AddTransient<DocumentosEmitidosViewModel>();
         servicos.AddTransient<ImportacaoPacientesViewModel>();
@@ -384,10 +384,7 @@ public sealed class ModuloGerente : IModuloApp
         {
             DataContext = servicos.GetRequiredService<ConfiguracoesViewModel>()
         },
-        ChaveMetas => new MetasView
-        {
-            DataContext = servicos.GetRequiredService<MetasViewModel>()
-        },
+        ChaveMetas => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MetasDaClinica), servicos),
         ChaveDocumentosEmitidos => new DocumentosEmitidosView
         {
             DataContext = servicos.GetRequiredService<DocumentosEmitidosViewModel>()

@@ -1,0 +1,781 @@
+@*
+  VISÃO GERAL DA AGENDA (out/2026 — redesenhada: docs/recepcao-ux-out2026.md §4).
+
+  A pergunta é "como está a agenda da equipe", lida de relance. A SEMANA é uma MATRIZ
+  profissional × dia — cada célula com o número de atendimentos e a barra da ocupação do
+  horário daquele dia; cinza "não atende" onde ele não tem faixa; hachura onde a agenda está
+  fechada; "sem horário" (neutro, não erro) para quem não cadastrou. Clicar na célula abre a
+  Agenda do dia (aba Dia) com o profissional filtrado. O MÊS é um calendário de calor; o DIA,
+  uma linha do tempo por profissional (os atendimentos sobre as faixas do horário).
+
+  No topo, quatro números; no lugar dos avisos laranja, UMA linha discreta com quem está sem
+  horário e o atalho para cadastrar. Os números vêm do IOcupacaoAgendaService; o desenho
+  (matriz, linha do tempo, calor, frases) mora em VisaoGeralDaAgendaDesenho e
+  VisaoGeralDaAgendaNaTela (Application, com teste).
+
+  O que AGE tem dono no WPF — a janela do horário, "Mais ações" e a marcação (aba Marcar) — e a
+  tela pede ao hospedeiro (IAgendaDaVisaoGeral). O horário de atendimento é o editor Blazor
+  único (HorariosDeAtendimentoForm). Onde a agenda não existe (a prévia), a resposta é "não
+  disponível" e a tela DIZ; o clique na célula abre o dia aqui mesmo.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Modelos
+@using Clinica.Application.Formatacao
+@inherits TelaBase
+
+<div class="pagina rec-ocupacao @(Carregando && _dados is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Agenda" Titulo="Visão geral da agenda"
+                     Subtitulo="Como está a agenda da equipe: atendimentos, quanto do horário de atendimento está ocupado e o tempo livre — por dia, semana ou mês.">
+        <span class="rec-oc-menu">
+            <button type="button" class="botao" aria-expanded="@(_menuAberto ? "true" : "false")" @onclick="() => _menuAberto = !_menuAberto"
+                    title="Fechar a agenda, horários de atendimento, lista de espera, conciliar e imprimir a folha do dia">Mais ações<Icone Nome="abaixo" /></button>
+            @if (_menuAberto)
+            {
+                <span class="rec-oc-menu-lista" role="menu">
+                    @if (PodeMexerNaAgenda)
+                    {
+                        <button type="button" role="menuitem" @onclick="FecharAgendaAsync">Fechar agenda (férias, feriado, folga)…</button>
+                        <button type="button" role="menuitem" @onclick="() => AbrirHorarios(_profissional)">Horário de atendimento dos profissionais…</button>
+                        <button type="button" role="menuitem" @onclick="ListaDeEsperaAsync">Lista de espera…</button>
+                        <button type="button" role="menuitem" @onclick="ConciliarAsync">Conciliar horários parados…</button>
+                        <hr />
+                    }
+                    <button type="button" role="menuitem" @onclick="ImprimirFolhaAsync">Imprimir a folha do dia</button>
+                </span>
+            }
+        </span>
+        <button type="button" class="botao primario" disabled="@(!PodeAgendar || Carregando || !TemDados)"
+                title="@(PodeAgendar ? "Marcar um horário neste dia" : "Seu acesso não permite agendar, ou a marcação não está disponível neste aplicativo.")"
+                @onclick="AgendarAsync"><Icone Nome="mais" />Marcar atendimento</button>
+    </CabecalhoPagina>
+
+    @if (!string.IsNullOrWhiteSpace(_mensagem))
+    {
+        <Aviso Tom="@(_mensagemEhErro ? "erro" : "info")" Texto="@_mensagem" />
+    }
+
+    <section class="cartao rec-oc-barra" aria-label="Período e profissional">
+        <div class="rec-oc-navegador" role="group" aria-label="Navegar no período">
+            <button type="button" class="botao icone" disabled="@Carregando" @onclick="() => AndarAsync(-1)" aria-label="Período anterior" title="Período anterior"><Icone Nome="esquerda" /></button>
+            <button type="button" class="botao rec-oc-periodo" disabled="@Carregando" @onclick="HojeAsync" title="Voltar para hoje">@PeriodoCurto</button>
+            <button type="button" class="botao icone" disabled="@Carregando" @onclick="() => AndarAsync(1)" aria-label="Próximo período" title="Próximo período"><Icone Nome="direita" /></button>
+        </div>
+        <label class="rec-oc-data" title="Ir para a data">
+            <Icone Nome="calendario" />
+            <input type="date" class="campo" value="@_dia.ToString("yyyy-MM-dd")" disabled="@Carregando" @onchange="IrParaDataAsync" aria-label="Ir para a data" />
+        </label>
+        <div class="segmentado" role="group" aria-label="Período">
+            <button type="button" aria-pressed="@Bool(_modo == ModoVisaoAgenda.Dia)" disabled="@Carregando" @onclick="() => EscolherModoAsync(ModoVisaoAgenda.Dia)">Dia</button>
+            <button type="button" aria-pressed="@Bool(_modo == ModoVisaoAgenda.Semana)" disabled="@Carregando" @onclick="() => EscolherModoAsync(ModoVisaoAgenda.Semana)">Semana</button>
+            <button type="button" aria-pressed="@Bool(_modo == ModoVisaoAgenda.Mes)" disabled="@Carregando" @onclick="() => EscolherModoAsync(ModoVisaoAgenda.Mes)">Mês</button>
+        </div>
+        <select class="campo rec-oc-profissional" value="@(_profissional?.ToString() ?? "")" disabled="@Carregando" @onchange="ProfissionalMudouAsync" aria-label="Profissional">
+            <option value="">Toda a equipe</option>
+            @foreach (var p in _profissionais) { <option value="@p.Id">@p.Nome</option> }
+        </select>
+        <span class="rec-oc-atualizado">@(_dados is { } lido ? $"Atualizado às {lido.AtualizadoEm.ToString("HH:mm", Formato.PtBr)}" : "")</span>
+        <button type="button" class="botao icone" disabled="@Carregando" @onclick="AtualizarAsync" title="@(Carregando ? "Atualizando…" : "Atualizar (F5)")" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
+    </section>
+
+    @if (_erro is not null)
+    {
+        <section class="cartao lista-cartao">
+            <FalhaDeLeitura Titulo="Não foi possível carregar a agenda" Detalhe="@_erro" AoTentarDeNovo="AtualizarAsync" />
+        </section>
+    }
+    else if (_dados is null)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+        <section class="cartao"><div class="cartao-corpo"><Esqueleto Altura="260" /></div></section>
+    }
+    else
+    {
+        var d = _dados;
+        var k = _indicadores!;
+        <section class="kpis" aria-label="Indicadores do período">
+            <Kpi Rotulo="Atendimentos" Valor="@k.Atendimentos" Icone="calendario" Nota="@k.AtendimentosNota" />
+            <Kpi Rotulo="Ocupação" Valor="@k.Ocupacao" Icone="percentual" Tom="@(k.OcupacaoFracao is null ? "neutro" : "")" Nota="@k.OcupacaoNota">
+                @if (k.OcupacaoFracao is { } fr)
+                {
+                    <div class="trilho" aria-hidden="true"><i style="width:@Largura(fr)"></i></div>
+                }
+            </Kpi>
+            <Kpi Rotulo="Horas livres" Valor="@k.HorasLivres" Icone="relogio" Tom="sucesso" Nota="@k.HorasLivresNota" />
+            <Kpi Rotulo="Faltas e cancelamentos" Valor="@k.FaltasECancelamentos" Icone="cancelar" Tom="neutro" Nota="@k.FaltasNota" />
+        </section>
+
+        var semHorario = VisaoGeralDaAgendaDesenho.LinhaSemHorario(d);
+        var atencao = VisaoGeralDaAgendaDesenho.LinhaDeAtencao(d);
+        @if (semHorario is not null || atencao is not null)
+        {
+            <div class="rec-oc-notas">
+                @if (semHorario is not null)
+                {
+                    <p class="rec-oc-nota">
+                        <Icone Nome="relogio" /><span>@semHorario</span>
+                        @if (PodeMexerNaAgenda)
+                        {
+                            <button type="button" class="botao mini fantasma" @onclick="() => AbrirHorarios(VisaoGeralDaAgendaDesenho.PrimeiroSemHorario(d))">cadastrar</button>
+                        }
+                    </p>
+                }
+                @if (atencao is not null)
+                {
+                    <p class="rec-oc-nota"><Icone Nome="info" /><span>@atencao — confira na Agenda do dia.</span></p>
+                }
+            </div>
+        }
+
+        @if (_modo == ModoVisaoAgenda.Semana && _matriz is { } m)
+        {
+            <section class="cartao rec-oc-semana-cartao" aria-label="Semana por profissional">
+                <div class="cartao-titulo">
+                    <div><h2>A semana por profissional</h2><p>Atendimentos e ocupação do horário de cada dia. Clique numa célula para abrir o dia com o profissional.</p></div>
+                    @if (Filtrando)
+                    {
+                        <button type="button" class="botao fantasma mini" disabled="@Carregando" @onclick="() => FiltrarAsync(null)">Ver toda a equipe</button>
+                    }
+                </div>
+                @if (m.Linhas.Count == 0)
+                {
+                    <EstadoVazio Titulo="Nenhum profissional ativo" Icone="pessoas"
+                                 Descricao="Cadastre quem atende em Profissionais e salas — a agenda ganha uma linha por profissional." />
+                }
+                else
+                {
+                    <div class="rec-oc-matriz-rolagem">
+                        <table class="rec-oc-matriz" style="--dias:@m.Dias.Count">
+                            <thead>
+                                <tr>
+                                    <th scope="col" class="rec-oc-matriz-canto">Profissional</th>
+                                    @foreach (var dia in m.Dias)
+                                    {
+                                        <th scope="col" class="@(dia.EhHoje ? "hoje" : null)" @key="dia.Dia">
+                                            <button type="button" class="rec-oc-matriz-dia" title="Ver o dia da equipe inteira" disabled="@Carregando" @onclick="() => AbrirDiaAsync(dia.Dia)">
+                                                @dia.Titulo@(dia.EhHoje ? " · hoje" : "")
+                                            </button>
+                                        </th>
+                                    }
+                                    <th scope="col" class="direita">Semana</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var l in m.Linhas)
+                                {
+                                    <tr @key="l.Id" class="@(l.Id == _profissional ? "ativa" : null)">
+                                        <th scope="row">
+                                            <button type="button" class="rec-oc-matriz-pessoa" disabled="@Carregando" title="@($"Filtrar {l.Nome} · {l.Horario}")" @onclick="() => FiltrarAsync(l.Id)">
+                                                <span class="principal">@l.Nome</span><span class="secundario">@l.Horario</span>
+                                            </button>
+                                        </th>
+                                        @foreach (var c in l.Celulas)
+                                        {
+                                            <td @key="c.Dia">
+                                                <button type="button" class="rec-oc-celula-m estado-@Estado(c.Estado)" title="@c.Dica" aria-label="@c.Dica"
+                                                        disabled="@Carregando" @onclick="() => AbrirCelulaAsync(c.Dia, l.Id)">
+                                                    <span class="rec-oc-celula-m-num numero">@(c.Atendimentos == 0 && c.Estado != EstadoCelulaSemana.Atende ? "–" : c.Numero)</span>
+                                                    <span class="rec-oc-celula-m-rotulo">@c.Rotulo</span>
+                                                    @if (c.TemBarra)
+                                                    {
+                                                        <span class="trilho" aria-hidden="true"><i style="width:@Largura(c.Fracao)"></i></span>
+                                                    }
+                                                </button>
+                                            </td>
+                                        }
+                                        <td class="direita rec-oc-matriz-total">
+                                            <span class="numero"><strong>@l.Atendimentos</strong></span>
+                                            <span class="secundario numero">@l.PercentualTexto</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th scope="row">Total do dia</th>
+                                    @foreach (var t in m.Totais)
+                                    {
+                                        <td @key="t.Dia" class="rec-oc-matriz-total" title="@t.Dica">
+                                            <span class="numero"><strong>@t.Atendimentos</strong></span>
+                                            <span class="secundario numero">@(t.Percentual is null ? "—" : VisaoGeralDaAgendaNaTela.Percentual(t.Percentual))</span>
+                                        </td>
+                                    }
+                                    <td class="direita rec-oc-matriz-total">
+                                        <span class="numero"><strong>@d.Resumo.Atendimentos</strong></span>
+                                        <span class="secundario numero">@k.Ocupacao</span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="rec-oc-legenda" aria-label="Legenda">
+                        <span><i class="rec-oc-amostra atende"></i>atende — a barra é a ocupação do horário</span>
+                        <span><i class="rec-oc-amostra nao-atende"></i>não atende no dia</span>
+                        <span><i class="rec-oc-amostra fechado"></i>agenda fechada</span>
+                        <span><i class="rec-oc-amostra sem-horario"></i>sem horário cadastrado</span>
+                    </div>
+                }
+            </section>
+
+            @if (Filtrando)
+            {
+                <section class="cartao rec-oc-calendario">
+                    <div class="cartao-corpo">
+                        <div class="cartao-titulo">
+                            <div><h2>Horários e vagas da semana</h2><p>Os atendimentos do profissional escolhido e os vãos livres — clique numa vaga para marcar ali.</p></div>
+                            <span class="rec-oc-dica">@VisaoGeralDaAgendaNaTela.DicaDaSemana(Filtrando, d)</span>
+                        </div>
+                        <div class="rec-oc-semana" style="--colunas:@Math.Max(1, _semana.Count)">
+                            @foreach (var c in _semana)
+                            {
+                                <div @key="c.Dia" class="rec-oc-coluna @(c.EhHoje ? "hoje" : null) @(c.Fechado is not null ? "fechado" : null)">
+                                    <button type="button" class="rec-oc-coluna-topo" title="Ver o dia" @onclick="() => AbrirDiaAsync(c.Dia)">
+                                        <strong>@c.Titulo</strong><span>@c.Subtitulo</span>
+                                    </button>
+                                    @if (c.Fechado is { } motivo)
+                                    {
+                                        <span class="rec-oc-fechado">@motivo</span>
+                                    }
+                                    @foreach (var i in c.Itens)
+                                    {
+                                        @if (i.Vao is { } vao)
+                                        {
+                                            <button type="button" class="rec-oc-vao" title="@i.Dica" disabled="@(!PodeAgendar || Carregando)"
+                                                    @onclick="() => MarcarNoVaoAsync(vao)">@vao.Rotulo</button>
+                                        }
+                                        else if (i.Horario is { } h)
+                                        {
+                                            <button type="button" class="rec-oc-item @Familia(h.Familia) @(i.Inativo ? "inativo" : null)" title="@i.Dica"
+                                                    @onclick="() => AbrirHorarioAsync(h)">
+                                                <span class="numero">@i.Hora</span><span class="rec-oc-item-nome">@h.Paciente</span>
+                                            </button>
+                                        }
+                                    }
+                                    @if (c.Itens.Count == 0 && c.Fechado is null)
+                                    {
+                                        <span class="rec-oc-sem">Sem atendimentos</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </section>
+            }
+        }
+        else if (_modo == ModoVisaoAgenda.Dia && _tempo is { } tempo)
+        {
+            <section class="cartao rec-oc-tempo-cartao" aria-label="Linha do tempo do dia">
+                <div class="cartao-titulo">
+                    <div><h2>O dia por profissional</h2><p>As faixas do horário de atendimento (fundo) e os atendimentos por cima. Clique num atendimento para abrir o horário.</p></div>
+                    @if (Filtrando)
+                    {
+                        <button type="button" class="botao fantasma mini" disabled="@Carregando" @onclick="() => FiltrarAsync(null)">Ver toda a equipe</button>
+                    }
+                </div>
+                @if (tempo.Linhas.Count == 0)
+                {
+                    <EstadoVazio Titulo="Nenhum profissional ativo" Icone="pessoas" Descricao="Cadastre quem atende em Profissionais e salas." />
+                }
+                else
+                {
+                    <div class="rec-oc-tempo">
+                        <div class="rec-oc-tempo-linha rec-oc-tempo-cabeca" aria-hidden="true">
+                            <span></span>
+                            <div class="rec-oc-tempo-regua">
+                                @foreach (var (rotulo, pos) in tempo.Marcas)
+                                {
+                                    <span class="numero" style="left:@Largura(pos)">@rotulo</span>
+                                }
+                            </div>
+                        </div>
+                        @foreach (var l in tempo.Linhas)
+                        {
+                            <div class="rec-oc-tempo-linha" @key="l.Id">
+                                @if (l.Id is { } pid)
+                                {
+                                    <button type="button" class="rec-oc-tempo-nome" disabled="@Carregando" title="@($"Filtrar {l.Nome}")" @onclick="() => FiltrarAsync(pid)">
+                                        <span class="principal">@l.Nome</span><span class="secundario numero">@l.Total @(l.Total == 1 ? "atendimento" : "atendimentos") · @l.Horario</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="rec-oc-tempo-nome"><span class="principal">@l.Nome</span><span class="secundario">@l.Horario</span></span>
+                                }
+                                <div class="rec-oc-tempo-trilho @(l.Estado is not null && l.Faixas.Count == 0 ? "sem-faixa" : null) @(l.Estado?.StartsWith("Agenda fechada", StringComparison.Ordinal) == true ? "fechado" : null)">
+                                    @foreach (var (marca, pos) in tempo.Marcas)
+                                    {
+                                        <i class="rec-oc-tempo-grade" style="left:@Largura(pos)" aria-hidden="true"></i>
+                                    }
+                                    @foreach (var f in l.Faixas)
+                                    {
+                                        <span class="rec-oc-tempo-faixa" style="left:@Largura(f.Esquerda);width:@Largura(f.Largura)" title="@f.Dica"></span>
+                                    }
+                                    @if (l.Estado is { } estado && l.Atendimentos.Count == 0)
+                                    {
+                                        <span class="rec-oc-tempo-estado">@estado</span>
+                                    }
+                                    @foreach (var b in l.Atendimentos)
+                                    {
+                                        var h = b.Horario!;
+                                        <button type="button" class="rec-oc-tempo-bloco @Familia(h.Familia) @(b.Inativo ? "inativo" : null)"
+                                                style="left:@Largura(b.Esquerda);width:@Largura(b.Largura)" title="@b.Dica" aria-label="@b.Dica"
+                                                @onclick="() => AbrirHorarioAsync(h)">@b.Texto</button>
+                                    }
+                                    @if (tempo.Agora is { } agora)
+                                    {
+                                        <i class="rec-oc-tempo-agora" style="left:@Largura(agora)" aria-hidden="true"></i>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+
+            <section class="cartao lista-cartao">
+                <div class="cartao-titulo"><div><h2>Atendimentos do dia</h2><p>Em ordem de horário; cancelados e faltas continuam, apagados.</p></div></div>
+                @if (_horarios.Count == 0)
+                {
+                    <EstadoVazio Titulo="Nenhum atendimento neste dia" Descricao="Os vãos dentro das faixas acima estão livres para marcar." Icone="calendario" />
+                }
+                else
+                {
+                    <div class="tabela-rolagem">
+                        <table class="lista rec-oc-dia">
+                            <thead><tr><th style="width:120px">Horário</th><th>Paciente · atendimento</th><th style="width:200px">Profissional</th><th style="width:140px">Situação</th></tr></thead>
+                            <tbody>
+                                @foreach (var h in _horarios)
+                                {
+                                    <tr @key="h.Horario.Id" class="rec-oc-linha @(h.Inativo ? "apagada" : null)" tabindex="0"
+                                        title="Abrir o horário: remarcar, reabrir, comprovante, confirmação" @onclick="() => AbrirHorarioAsync(h.Horario)"
+                                        @onkeydown="e => TeclaNaLinhaAsync(e, h.Horario)">
+                                        <td class="nao-quebra"><span class="principal numero">@h.Inicio</span><span class="secundario">@h.Ate</span></td>
+                                        <td><span class="rec-oc-traco @Familia(h.Horario.Familia)"></span><span class="principal">@h.Horario.Paciente</span>
+                                            <span class="secundario">@h.Horario.Modalidade</span></td>
+                                        <td>@h.Horario.Profissional</td>
+                                        <td><Selo Tom="@(h.Inativo ? "neutro" : "")">@h.Horario.Situacao</Selo></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        }
+        else
+        {
+            <section class="cartao rec-oc-calendario">
+                <div class="cartao-corpo">
+                    <div class="cartao-titulo">
+                        <div><h2>O mês</h2><p>@VisaoGeralDaAgendaDesenho.LegendaDoCalor(d) Clique num dia para abri-lo.</p></div>
+                    </div>
+                    <div class="rec-oc-mes">
+                        @foreach (var s in new[] { "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom" }) { <span class="rec-oc-dia-semana">@s</span> }
+                        @foreach (var c in _calendario)
+                        {
+                            @if (c.Vazio)
+                            {
+                                <span class="rec-oc-celula vazia" aria-hidden="true"></span>
+                            }
+                            else
+                            {
+                                var (calor, taxa) = _calor.TryGetValue(c.Dia, out var x) ? x : (0, "");
+                                <button type="button" class="rec-oc-celula calor-@calor @(c.Selecionado ? "selecionado" : null)" aria-label="@c.Acessivel"
+                                        disabled="@Carregando" @onclick="() => AbrirDiaAsync(c.Dia)">
+                                    <span class="rec-oc-celula-dia numero">@c.Rotulo</span>
+                                    @if (c.Atendimentos == 0)
+                                    {
+                                        <span class="rec-oc-celula-sem">sem atendimentos</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="rec-oc-celula-total numero"><strong>@c.Atendimentos</strong> @c.TotalTexto</span>
+                                    }
+                                    <span class="rec-oc-celula-taxa numero">@taxa</span>
+                                </button>
+                            }
+                        }
+                    </div>
+                    <div class="rec-oc-legenda" aria-label="Legenda do calor">
+                        <span>menos</span>
+                        @for (var i = 0; i <= 4; i++) { <i class="rec-oc-amostra calor-@i"></i> }
+                        <span>mais</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="cartao lista-cartao rec-oc-equipe">
+                <div class="cartao-titulo">
+                    <div><h2>Ocupação por profissional</h2><p>O mesmo mês, com o horário de atendimento de cada um.</p></div>
+                    @if (Filtrando)
+                    {
+                        <button type="button" class="botao fantasma mini" disabled="@Carregando" @onclick="() => FiltrarAsync(null)">Ver toda a equipe</button>
+                    }
+                </div>
+                @if (_equipe.Count == 0)
+                {
+                    <EstadoVazio Titulo="Nenhum profissional disponível neste filtro." Icone="pessoas" />
+                }
+                else
+                {
+                    <ul class="rec-oc-pessoas">
+                        @foreach (var p in _equipe)
+                        {
+                            <li @key="p.Id">
+                                <button type="button" class="rec-oc-pessoa @(p.Id == _profissional ? "ativa" : null)" disabled="@Carregando"
+                                        title="Filtrar @p.Nome" @onclick="() => FiltrarAsync(p.Id)">
+                                    <span class="rec-oc-pessoa-nome"><span class="principal">@p.Nome</span><span class="secundario">@p.Jornada</span></span>
+                                    <span class="rec-oc-pessoa-total numero"><strong>@p.Atendimentos</strong> atendimentos</span>
+                                    <span class="rec-oc-pessoa-barra">
+                                        <span class="rec-oc-pessoa-pct numero">@p.Percentual</span>
+                                        <span class="trilho"><i style="width:@Largura(p.Fracao)"></i></span>
+                                    </span>
+                                    <span class="rec-oc-pessoa-livres secundario">@p.Livres</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+                <div class="rodape-lista">A ocupação considera o tempo dos profissionais dentro do horário de atendimento cadastrado, descontando a agenda fechada. Horários simultâneos contam uma vez; cancelamentos e faltas não ocupam. Tempo livre não equivale a vagas reservadas.</div>
+            </section>
+        }
+    }
+</div>
+
+@if (_horarioAberto)
+{
+    <HorariosDeAtendimentoForm ProfissionalId="_horarioDe" AoFechar="() => _horarioAberto = false" AoAlterar="CarregarAsync"
+                               AoFecharAgenda="FecharAgendaDoHorarioAsync" />
+}
+
+@code {
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private DateOnly _dia = DateOnly.FromDateTime(DateTime.Today);
+    private ModoVisaoAgenda _modo = ModoVisaoAgenda.Semana;
+    private int? _profissional;
+    private List<(int Id, string Nome)> _profissionais = [];
+    private OcupacaoAgenda? _dados;
+    private IReadOnlyList<LinhaHorarioOcupacao> _horarios = [];
+    private IReadOnlyList<ColunaSemanaOcupacao> _semana = [];
+    private IReadOnlyList<CartaoDiaOcupacao> _calendario = [];
+    private IReadOnlyList<LinhaProfissionalOcupacao> _equipe = [];
+    private MatrizSemanaOcupacao? _matriz;
+    private LinhaDoTempoDoDia? _tempo;
+    private IndicadoresVisaoGeral? _indicadores;
+    private Dictionary<DateOnly, (int Calor, string Taxa)> _calor = [];
+    private bool _horarioAberto;
+    private int? _horarioDe;
+    private bool Carregando;
+    private string? _erro;
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private bool _menuAberto;
+    private int _geracao;
+    private readonly int _usuario = SessaoUsuario.Atual.UsuarioId;
+    private System.Threading.Timer? _relogio;
+
+    private IAgendaDaVisaoGeral Agenda => Servicos.GetService<IAgendaDaVisaoGeral>() ?? AgendaIndisponivel.Instancia;
+    private bool Filtrando => _profissional is not null;
+    private bool TemDados => _dados is not null && _erro is null;
+    private bool PodeAgendar => Pode(Permissao.EditarAgenda) && Agenda.MarcacaoDisponivel;
+    private static bool PodeMexerNaAgenda => Pode(Permissao.EditarAgenda);
+    private string PeriodoCurto => VisaoGeralDaAgendaNaTela.PeriodoCurto(_modo, _dia, _dados, _semana.Count > 0 ? _semana[^1].Dia : null);
+
+    protected override Task OnInitializedAsync()
+    {
+        ConsumirPedidoDeDia();
+        // A batida de 1 min do WPF: só relê quando não há leitura no ar.
+        _relogio = new System.Threading.Timer(_ => _ = InvokeAsync(async () =>
+        {
+            if (Carregando || Descartada) return;
+            await CarregarAsync();
+            StateHasChanged();
+        }), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        return CarregarAsync();
+    }
+
+    /// <summary>
+    /// Volta à aba: consome o pedido de dia (a ficha do paciente pede "abra a agenda no dia
+    /// tal") e relê por trás.
+    /// </summary>
+    protected override Task AoVoltarAsync()
+    {
+        ConsumirPedidoDeDia();
+        return Carregando ? Task.CompletedTask : CarregarAsync();
+    }
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho == AtalhoDeTela.Atualizar ? AtualizarAsync() : Task.CompletedTask;
+
+    public override void Dispose()
+    {
+        _relogio?.Dispose();
+        base.Dispose();
+    }
+
+    private void ConsumirPedidoDeDia()
+    {
+        try
+        {
+            if (Agenda.ConsumirPedidoDeDia() is not { } pedido) return;
+            if (pedido.AplicarFiltro && pedido.ProfissionalId is { } id && _profissionais.Any(p => p.Id == id)) _profissional = id;
+            _dia = pedido.Dia;
+            _modo = ModoVisaoAgenda.Dia;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — Visão geral: pedido de dia da agenda não pôde ser lido", ex);
+        }
+    }
+
+    /// <summary>A segunda barreira de toda ação: quem entrou é quem abriu a tela, e pode ver a agenda.</summary>
+    private bool PodeConsultar()
+    {
+        if (!SessaoUsuario.Atual.Autenticado || SessaoUsuario.Atual.UsuarioId != _usuario)
+        {
+            Notificacoes.Erro("Abra a agenda novamente após entrar.");
+            return false;
+        }
+        return Exigir(Permissao.VerAgenda, "consultar a ocupação");
+    }
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _erro = null;
+        var (inicio, fim) = VisaoGeralDaAgendaNaTela.Periodo(_modo, _dia);
+        var filtro = _profissional;
+        try
+        {
+            if (!SessaoUsuario.Atual.Autenticado || SessaoUsuario.Atual.UsuarioId != _usuario)
+                throw new UnauthorizedAccessException("Abra a agenda novamente após entrar.");
+            using var escopo = Escopo();
+            var resultado = await escopo.ServiceProvider.GetRequiredService<IOcupacaoAgendaService>().ConsultarAsync(_usuario, inicio, fim, filtro);
+            if (geracao != _geracao || Descartada || SessaoUsuario.Atual.UsuarioId != _usuario) return;
+
+            // Monta tudo e só então publica — entre limpar e preencher não há espera.
+            _dados = resultado;
+            if (filtro is null) _profissionais = resultado.Profissionais.Select(p => (p.Id, p.Nome)).ToList();
+            _horarios = VisaoGeralDaAgendaNaTela.HorariosDoDia(resultado);
+            _semana = _modo == ModoVisaoAgenda.Semana ? VisaoGeralDaAgendaNaTela.Semana(resultado, filtro is not null, DateOnly.FromDateTime(DateTime.Today)) : [];
+            _calendario = _modo == ModoVisaoAgenda.Mes ? VisaoGeralDaAgendaNaTela.Calendario(resultado, _dia) : [];
+            _equipe = VisaoGeralDaAgendaNaTela.Equipe(resultado);
+            _indicadores = VisaoGeralDaAgendaDesenho.Indicadores(resultado);
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            _matriz = _modo == ModoVisaoAgenda.Semana ? VisaoGeralDaAgendaDesenho.Matriz(resultado, hoje) : null;
+            _tempo = _modo == ModoVisaoAgenda.Dia ? VisaoGeralDaAgendaDesenho.LinhaDoTempo(resultado, inicio, DateTime.Now) : null;
+            var maisCheio = resultado.Dias.Count == 0 ? 0 : resultado.Dias.Max(x => x.Resumo.Atendimentos);
+            _calor = _modo != ModoVisaoAgenda.Mes ? [] : resultado.Dias.ToDictionary(x => x.Dia, x =>
+            {
+                var pct = VisaoGeralDaAgendaDesenho.PercentualDoDia(resultado, x.Dia);
+                return (VisaoGeralDaAgendaDesenho.Calor(pct, x.Resumo.Atendimentos, maisCheio),
+                    VisaoGeralDaAgendaDesenho.TaxaDoDia(pct, x.Resumo.Atendimentos));
+            });
+        }
+        catch (Exception ex)
+        {
+            if (geracao == _geracao && !Descartada)
+            {
+                _dados = null;
+                _horarios = []; _semana = []; _calendario = []; _equipe = [];
+                _matriz = null; _tempo = null; _indicadores = null; _calor = [];
+                _erro = ex is UnauthorizedAccessException ? ex.Message : "Não foi possível consultar a ocupação. Tente atualizar.";
+            }
+            Clinica.Application.Diagnostico.Registrar("Blazor — Ocupação da agenda", ex);
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private Task AtualizarAsync() => !PodeConsultar() || Carregando ? Task.CompletedTask : CarregarAsync();
+
+    private Task EscolherModoAsync(ModoVisaoAgenda modo)
+    {
+        if (!PodeConsultar() || Carregando) return Task.CompletedTask;
+        _modo = modo;
+        return CarregarAsync();
+    }
+
+    private Task AndarAsync(int passo)
+    {
+        if (!PodeConsultar() || Carregando) return Task.CompletedTask;
+        if (VisaoGeralDaAgendaNaTela.Andar(_modo, _dia, passo) is not { } destino) return Task.CompletedTask;
+        _dia = destino;
+        return CarregarAsync();
+    }
+
+    private Task HojeAsync()
+    {
+        if (!PodeConsultar() || Carregando) return Task.CompletedTask;
+        _dia = DateOnly.FromDateTime(DateTime.Today);
+        return CarregarAsync();
+    }
+
+    private Task IrParaDataAsync(ChangeEventArgs e)
+    {
+        if (Carregando || !DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var nova)) return Task.CompletedTask;
+        if (nova.Year is < 1901 or > 2199 || nova == _dia || !PodeConsultar()) return Task.CompletedTask;
+        _dia = nova;
+        return CarregarAsync();
+    }
+
+    private Task AbrirDiaAsync(DateOnly dia)
+    {
+        if (!PodeConsultar() || Carregando || _dados?.Dias.Any(x => x.Dia == dia) != true) return Task.CompletedTask;
+        _dia = dia;
+        _modo = ModoVisaoAgenda.Dia;
+        return CarregarAsync();
+    }
+
+    /// <summary>
+    /// A célula da matriz: a Agenda do dia (aba Dia) naquele dia, com o profissional filtrado.
+    /// Onde a aba não existe (a prévia), abre o dia AQUI, filtrado — o clique nunca é mudo.
+    /// </summary>
+    private async Task AbrirCelulaAsync(DateOnly dia, int profissionalId)
+    {
+        if (!PodeConsultar() || Carregando) return;
+        try
+        {
+            if (await Agenda.AbrirDiaAsync(dia, profissionalId)) return;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — Visão geral: abrir o dia na agenda", ex);
+        }
+        if (Descartada || _profissionais.All(p => p.Id != profissionalId)) return;
+        _profissional = profissionalId;
+        _dia = dia;
+        _modo = ModoVisaoAgenda.Dia;
+        await CarregarAsync();
+    }
+
+    /// <summary>Enter ou espaço numa linha da lista do dia abre o horário — a linha é navegável por teclado.</summary>
+    private Task TeclaNaLinhaAsync(KeyboardEventArgs e, HorarioOcupacao h)
+        => e.Key is "Enter" or " " ? AbrirHorarioAsync(h) : Task.CompletedTask;
+
+    private Task ProfissionalMudouAsync(ChangeEventArgs e)
+        => FiltrarAsync(int.TryParse(e.Value?.ToString(), out var id) ? id : null);
+
+    private Task FiltrarAsync(int? id)
+    {
+        if (!PodeConsultar() || Carregando) return Task.CompletedTask;
+        if (id is { } i && _profissionais.All(p => p.Id != i)) return Task.CompletedTask;
+        if (id == _profissional) return Task.CompletedTask;
+        _profissional = id;
+        return CarregarAsync();
+    }
+
+    // ==================== o que AGE (dono: a agenda do WPF) ====================
+
+    private async Task AgendarAsync()
+    {
+        if (!PodeConsultar() || _dados is null || _erro is not null) return;
+        if (!Exigir(Permissao.EditarAgenda, "agendar")) return;
+        await MarcarAsync(_dia.ToDateTime(TimeOnly.MinValue));
+    }
+
+    /// <summary>Clique no vão livre: o Marcar já com o dia, a HORA do vão e o profissional — redigitar a hora é onde ela sai errada.</summary>
+    private async Task MarcarNoVaoAsync(VaoLivre vao)
+    {
+        if (!PodeConsultar() || _dados is null || _erro is not null) return;
+        if (!Exigir(Permissao.EditarAgenda, "agendar")) return;
+        await MarcarAsync(vao.Inicio);
+    }
+
+    private async Task MarcarAsync(DateTime quando)
+    {
+        try
+        {
+            if (!await Agenda.MarcarAsync(quando, _profissional))
+                Avisar("A marcação não está disponível neste aplicativo — marque pela agenda da Recepção.", erro: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — Visão geral: marcar", ex);
+            Avisar($"Não foi possível abrir a marcação: {ex.Message}", erro: true);
+        }
+    }
+
+    /// <summary>Clique num horário: a janela do horário (remarcar, reabrir, comprovante…).</summary>
+    private Task AbrirHorarioAsync(HorarioOcupacao h)
+    {
+        if (!PodeConsultar() || Carregando) return Task.CompletedTask;
+        return ComAgendaAsync("abrir o horário", () => Agenda.AbrirHorarioAsync(DateOnly.FromDateTime(h.Inicio), h.Id));
+    }
+
+    private Task FecharAgendaAsync() => AcaoAsync(AcaoDaAgenda.FecharAgenda, "fechar a agenda");
+
+    /// <summary>O editor ÚNICO do horário de atendimento (Blazor), aberto aqui — "Mais ações" e "cadastrar".</summary>
+    private void AbrirHorarios(int? profissionalId)
+    {
+        _menuAberto = false;
+        if (!PodeConsultar()) return;
+        if (!Exigir(Permissao.EditarAgenda, "configurar o horário de atendimento")) return;
+        _horarioDe = profissionalId;
+        _horarioAberto = true;
+    }
+
+    /// <summary>O editor oferece "Fechar a agenda…": troca uma janela pela outra (a de bloqueio é da agenda).</summary>
+    private Task FecharAgendaDoHorarioAsync(int profissionalId)
+    {
+        _horarioAberto = false;
+        if (!PodeConsultar()) return Task.CompletedTask;
+        return ComAgendaAsync("fechar a agenda", () => Agenda.ExecutarAsync(AcaoDaAgenda.FecharAgenda, _dia, profissionalId));
+    }
+    private Task ListaDeEsperaAsync() => AcaoAsync(AcaoDaAgenda.ListaDeEspera, "abrir a lista de espera");
+    private Task ConciliarAsync() => AcaoAsync(AcaoDaAgenda.ConciliarHorarios, "conciliar a agenda");
+    private Task ImprimirFolhaAsync() => AcaoAsync(AcaoDaAgenda.ImprimirFolhaDoDia, "imprimir a folha do dia");
+
+    private Task AcaoAsync(AcaoDaAgenda acao, string ato)
+    {
+        _menuAberto = false;
+        if (!PodeConsultar() || Carregando) return Task.CompletedTask;
+        return ComAgendaAsync(ato, () => Agenda.ExecutarAsync(acao, _dia, _profissional));
+    }
+
+    private async Task ComAgendaAsync(string ato, Func<Task<RespostaDaAgenda>> acao)
+    {
+        _mensagem = null;
+        try
+        {
+            var r = await acao();
+            if (!string.IsNullOrWhiteSpace(r.Mensagem)) Avisar(r.Mensagem, r.EhErro);
+            if (r.Executou && !Descartada) await CarregarAsync();
+        }
+        catch (UnauthorizedAccessException ex) { Avisar(ex.Message, erro: true); }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — Visão geral: {ato}", ex);
+            Avisar($"Não foi possível {ato}: {ex.Message}", erro: true);
+        }
+    }
+
+    private void Avisar(string texto, bool erro = false) { _mensagem = texto; _mensagemEhErro = erro; }
+
+    private static string Bool(bool v) => v ? "true" : "false";
+
+    private static string Estado(EstadoCelulaSemana e) => e switch
+    {
+        EstadoCelulaSemana.NaoAtende => "nao-atende",
+        EstadoCelulaSemana.Fechado => "fechado",
+        EstadoCelulaSemana.SemHorario => "sem-horario",
+        _ => "atende"
+    };
+
+    private static string Largura(double fracao) => (fracao * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "%";
+
+    /// <summary>A cor do traço pela FAMÍLIA da modalidade (os mesmos tokens da agenda WPF).</summary>
+    private static string Familia(ModalidadeAtendimento m) => m switch
+    {
+        ModalidadeAtendimento.AcupunturaComEletro => "fam-eletro",
+        ModalidadeAtendimento.BsvApenas => "fam-bsv",
+        ModalidadeAtendimento.BsvComAcupuntura => "fam-bsv-acupuntura",
+        ModalidadeAtendimento.Consulta => "fam-consulta",
+        _ => "fam-acupuntura"
+    };
+}

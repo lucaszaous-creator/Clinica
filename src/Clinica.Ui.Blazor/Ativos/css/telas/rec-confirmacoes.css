@@ -1,0 +1,54 @@
+/* Estilo próprio da tela (rec-confirmacoes). Só tokens — ver docs/telas-blazor.md. */
+
+/* ---------- O dia: ‹ título ›, a data e a barra do que já foi avisado ---------- */
+.confirmacoes .conf-dia{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4)}
+.conf-dia-navegar{display:inline-flex;align-items:center;gap:var(--space-1)}
+.conf-dia-titulo{min-width:170px;text-align:center;font-size:var(--text-h3-size)}
+.confirmacoes .conf-dia-data{width:160px;flex:none}
+.conf-progresso{display:flex;align-items:center;gap:var(--space-3);flex:1 1 260px;min-width:220px}
+.conf-trilho{flex:1;min-width:120px}
+.conf-trilho > i{background:var(--acento)}
+
+/* ---------- A faixa do SMS ---------- */
+.confirmacoes .conf-sms{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3) var(--space-4);padding:var(--space-3) var(--space-4)}
+.conf-sms-icone{width:36px;height:36px;border-radius:var(--radius-control);display:grid;place-items:center;flex:none;
+  background:var(--cinza-100);color:var(--texto-secundario)}
+.conf-sms-icone.ligado{background:var(--info-suave);color:var(--info-texto)}
+.conf-sms-texto{display:flex;flex-direction:column;gap:2px;flex:1;min-width:260px;line-height:1.45}
+.confirmacoes .conf-sms .acoes{gap:var(--space-2)}
+
+/* ---------- O placar: quatro cartões que contam e filtram ---------- */
+.conf-placar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4)}
+@media (max-width:1180px){.conf-placar{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.conf-cartao{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-4);font:inherit;text-align:left;cursor:pointer;
+  min-width:0;transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.conf-cartao:hover{border-color:var(--borda-hover)}
+.conf-cartao[aria-pressed="true"]{border-color:var(--acento);background:var(--acento-suave)}
+.conf-cartao-icone{width:36px;height:36px;border-radius:var(--radius-control);display:grid;place-items:center;flex:none;
+  background:var(--acento-suave);color:var(--acento)}
+.conf-cartao.tom-sucesso .conf-cartao-icone{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.conf-cartao.tom-aviso .conf-cartao-icone{background:var(--aviso-suave);color:var(--aviso-texto)}
+.conf-cartao.tom-perigo .conf-cartao-icone{background:var(--erro-suave);color:var(--erro-texto)}
+.conf-cartao-texto{display:flex;flex-direction:column;min-width:0}
+.conf-cartao-numero{font-family:var(--font-num);font-size:var(--text-kpi-size);font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.conf-cartao-rotulo{font-size:var(--text-small-size);color:var(--texto-secundario);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- O destaque de quem não vem ---------- */
+.conf-destaque{align-items:center}
+.conf-destaque > span{flex:1}
+
+/* ---------- A tabela ---------- */
+.conf-mensagem{padding:var(--space-4) var(--space-6) 0}
+.conf-paciente{display:flex;align-items:center;gap:var(--space-3);min-width:180px}
+.avatar.conf-avatar{width:30px;height:30px;font-size:11px;background:var(--acento-suave);color:var(--acento)}
+.conf-sem-telefone{color:var(--aviso-texto)}
+.conf-lista td .secundario{max-width:280px}
+table.lista.conf-lista tr.conf-nao-vem td{background:var(--erro-suave)}
+table.lista.conf-lista tr.conf-nao-vem td:first-child{box-shadow:inset 3px 0 0 var(--erro)}
+.conf-resposta{display:inline-flex;flex-direction:column;align-items:flex-end;gap:var(--space-1)}
+.conf-ligar{color:var(--erro-texto);font-weight:600;white-space:normal;text-align:right;max-width:260px;font-size:var(--text-small-size)}
+.botao.conf-whats{background:var(--sucesso);border-color:var(--sucesso);color:var(--texto-invertido)}
+.botao.conf-whats:hover:not(:disabled){background:var(--sucesso-forte);border-color:var(--sucesso-forte)}
+.conf-rodape{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--space-2) var(--space-4)}
+.conf-lista .botao,.conf-lista .selo{white-space:nowrap}
+.conf-lista .botoes-linha{flex-wrap:nowrap}

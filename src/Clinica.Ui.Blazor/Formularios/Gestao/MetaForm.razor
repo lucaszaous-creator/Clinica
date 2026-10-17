@@ -1,0 +1,309 @@
+@*
+  DEFINIR OU CORRIGIR UMA META (o que no WPF era a MetaWindow / MetaEdicaoViewModel),
+  agora com o RECORTE por categoria (modalidade) e especialidade — out/2026.
+
+  A unidade muda com o indicador e o formulário DIZ qual é: "80" numa caixa vazia tanto pode
+  ser oitenta mil reais quanto oitenta por cento.
+
+  Correções em relação ao WPF, todas da auditoria de linha:
+  - EDITAR trava a CHAVE (mês, indicador, dono e recorte). O serviço acha a meta pela chave:
+    trocar o mês numa edição criava OUTRA meta e deixava a antiga intacta, em silêncio;
+  - as OBSERVAÇÕES voltam ao campo na edição — o WPF não as carregava, e o Salvar gravava
+    nulo por cima (lugares 3 e 6: quem não edita, PRESERVA);
+  - "Nova meta" numa chave que já tem meta DIZ que vai substituir o alvo (o serviço corrige
+    em vez de criar a segunda) — antes, o alvo anterior sumia sem ninguém saber;
+  - o alvo ZERO é aceito (MetasNaTela.TentarLerAlvo): o diálogo de excluir manda usar zero
+    para declarar "decidimos que é zero", e a leitura de dinheiro do WPF o recusava.
+  - Ocupação não aceita recorte (o serviço recusa): os campos somem e a tela diz por quê.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(MetaId == 0 ? "Nova meta" : "Corrigir meta")"
+       Subtitulo="O alvo do mês. Meta ausente é “não decidimos”; meta zero é “decidimos que é zero”."
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="220" />
+        }
+        else if (_falhaAoAbrir is not null)
+        {
+            <Aviso Tom="erro" Texto="@_falhaAoAbrir" />
+        }
+        else
+        {
+            @if (Editando)
+            {
+                <dl class="pares meta-chave">
+                    <dt>Mês</dt><dd>@Formato.Mes(new DateOnly(_ano, _mes, 1))</dd>
+                    <dt>Indicador</dt><dd>@MetaMensal.Rotular(_indicador)</dd>
+                    <dt>De quem</dt><dd>@NomeDoDono</dd>
+                    <dt>Recorte</dt><dd>@MetasNaTela.Recorte(_indicador, _modalidade, _especialidade)</dd>
+                </dl>
+                <p class="campo-dica">Para outro mês, indicador ou recorte, crie uma meta nova — corrigir aqui muda só o alvo desta.</p>
+            }
+            else
+            {
+                <div class="campos">
+                    <Campo Rotulo="Mês" Obrigatorio="true">
+                        <select class="campo" value="@_mes" @onchange="e => _mes = int.Parse(e.Value!.ToString()!, CultureInfo.InvariantCulture)">
+                            @for (var i = 1; i <= 12; i++)
+                            {
+                                <option value="@i">@NomeDoMes(i)</option>
+                            }
+                        </select>
+                    </Campo>
+                    <Campo Rotulo="Ano" Obrigatorio="true">
+                        <select class="campo" value="@_ano" @onchange="TrocarAnoAsync">
+                            @foreach (var a in Anos)
+                            {
+                                <option value="@a">@a</option>
+                            }
+                        </select>
+                    </Campo>
+                    <Campo Rotulo="Indicador" Obrigatorio="true">
+                        <select class="campo" value="@_indicador" @onchange="TrocarIndicador">
+                            @foreach (var i in Enum.GetValues<IndicadorMeta>())
+                            {
+                                <option value="@i">@MetaMensal.Rotular(i)</option>
+                            }
+                        </select>
+                    </Campo>
+                    <Campo Rotulo="De quem" Dica="A meta de um profissional revela quem carrega quem.">
+                        <select class="campo" value="@(_profissionalId?.ToString(CultureInfo.InvariantCulture) ?? "")"
+                                @onchange="e => _profissionalId = int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null">
+                            <option value="">Clínica (todos)</option>
+                            @foreach (var p in _profissionais)
+                            {
+                                <option value="@p.Id.ToString(CultureInfo.InvariantCulture)">@p.Rotulo</option>
+                            }
+                        </select>
+                    </Campo>
+                    @if (MetaMensal.AceitaSegmento(_indicador))
+                    {
+                        <Campo Rotulo="Categoria" Dica="Em branco = todas as categorias.">
+                            <select class="campo" value="@(_modalidade ?? "")" @onchange="e => _modalidade = Vazio(e)">
+                                <option value="">Todas</option>
+                                @foreach (var m in _modalidades) { <option value="@m.Codigo">@m.Nome</option> }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Especialidade" Dica="Em branco = todas as especialidades.">
+                            <select class="campo" value="@(_especialidade ?? "")" @onchange="e => _especialidade = Vazio(e)">
+                                <option value="">Todas</option>
+                                @foreach (var s in _especialidades) { <option value="@s.Codigo">@s.Nome</option> }
+                            </select>
+                        </Campo>
+                    }
+                </div>
+                @if (!MetaMensal.AceitaSegmento(_indicador))
+                {
+                    <Aviso Tom="info" Texto="Ocupação não se recorta por categoria nem especialidade: ela mede a agenda inteira contra o horário de atendimento, e horário não tem modalidade." />
+                }
+                @if (_indicador == IndicadorMeta.Ocupacao && _profissionalId is not null)
+                {
+                    <Aviso Tom="atencao" Texto="A ocupação apurada é a da clínica inteira — o horário de atendimento não se recorta por pessoa. A meta fica registrada com o nome dele, mas o realizado ao lado será o da clínica." />
+                }
+            }
+
+            <div class="campos">
+                <Campo Rotulo="@($"Alvo ({MetaMensal.Unidade(_indicador)})")" Obrigatorio="true" Erro="@_erroValor"
+                       Dica="@(Referencia ?? Exemplo)">
+                    <input class="campo valor" @bind="_valor" @bind:event="oninput" maxlength="16" inputmode="decimal" placeholder="@Exemplo" />
+                </Campo>
+                <Campo Rotulo="Observações" Dica="Opcional — por que este alvo.">
+                    <input class="campo" @bind="_observacoes" @bind:event="oninput" maxlength="300" />
+                </Campo>
+            </div>
+
+            @if (!Editando && Existente is { } ex)
+            {
+                <Aviso Tom="atencao" Texto="@($"Já existe meta para este mês, indicador, dono e recorte (alvo {MetasNaTela.Formatar(ex.Indicador, ex.Valor)}). Salvar substitui o alvo dela — não cria uma segunda.")" />
+            }
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync"
+                disabled="@(_carregando || _falhaAoAbrir is not null || _ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite definir metas.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : Editando ? "Salvar alvo" : "Definir meta")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>0 = meta nova.</summary>
+    [Parameter] public int MetaId { get; set; }
+    [Parameter] public int Ano { get; set; } = DateTime.Today.Year;
+    [Parameter] public int Mes { get; set; } = DateTime.Today.Month;
+    [Parameter] public IndicadorMeta Indicador { get; set; } = IndicadorMeta.Faturamento;
+    [Parameter] public int? ProfissionalId { get; set; }
+    [Parameter] public string? ModalidadeCodigo { get; set; }
+    [Parameter] public string? EspecialidadeCodigo { get; set; }
+    /// <summary>A referência de quem abriu (a tendência: "no período: 12 · no anterior: 4"). O sistema não chuta o alvo.</summary>
+    [Parameter] public string? Referencia { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private sealed record Opcao(string Codigo, string Nome);
+
+    private int _ano, _mes;
+    private IndicadorMeta _indicador;
+    private int? _profissionalId;
+    private string? _modalidade, _especialidade;
+    private string? _valor, _observacoes;
+
+    private IReadOnlyList<Opcao> _modalidades = [];
+    private IReadOnlyList<Opcao> _especialidades = [];
+    private IReadOnlyList<Profissional> _profissionais = [];
+    private IReadOnlyList<MetaMensal> _doAno = [];
+    private string? _donoDaMetaEditada;
+
+    private bool _carregando = true;
+    private string? _falhaAoAbrir;
+    private string? _mensagem;
+    private string? _erroValor;
+    private bool _ocupado;
+
+    private bool Editando => MetaId != 0;
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.DefinirMetas);
+
+    private IReadOnlyList<int> Anos
+    {
+        get
+        {
+            var hoje = DateTime.Today.Year;
+            return new[] { hoje - 1, hoje, hoje + 1, _ano }.Distinct().Order().ToList();
+        }
+    }
+
+    private string Exemplo => _indicador switch
+    {
+        IndicadorMeta.Faturamento => "Ex.: 45.000,00",
+        IndicadorMeta.Ocupacao => "Ex.: 80 (de 0 a 100)",
+        _ => "Ex.: 120"
+    };
+
+    private string NomeDoDono => _donoDaMetaEditada
+        ?? (_profissionalId is { } id ? _profissionais.FirstOrDefault(p => p.Id == id)?.Rotulo ?? $"Profissional {id}" : "Clínica (todos)");
+
+    private MetaMensal? Existente => MetasNaTela.MesmaChave(_doAno, _mes, _indicador, _profissionalId,
+        MetaMensal.AceitaSegmento(_indicador) ? _modalidade : null,
+        MetaMensal.AceitaSegmento(_indicador) ? _especialidade : null, MetaId);
+
+    private static string NomeDoMes(int mes)
+    {
+        var nome = new DateOnly(2000, mes, 1).ToString("MMMM", Formato.PtBr);
+        return char.ToUpper(nome[0], Formato.PtBr) + nome[1..];
+    }
+
+    private static string? Vazio(ChangeEventArgs e) => e.Value?.ToString() is { Length: > 0 } v ? v : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _ano = Ano;
+        _mes = Mes;
+        _indicador = Indicador;
+        _profissionalId = ProfissionalId;
+        _modalidade = string.IsNullOrWhiteSpace(ModalidadeCodigo) ? null : ModalidadeCodigo;
+        _especialidade = string.IsNullOrWhiteSpace(EspecialidadeCodigo) ? null : EspecialidadeCodigo;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var sp = escopo.ServiceProvider;
+            // Sequencial no mesmo escopo: é o mesmo DbContext.
+            var modalidades = await sp.GetRequiredService<ModalidadeCatalogoService>().ListarAsync();
+            var especialidades = await sp.GetRequiredService<EspecialidadeCatalogoService>().ListarAsync();
+            var profissionais = await sp.GetRequiredService<EquipeService>().ProfissionaisAsync();
+            var doAno = await sp.GetRequiredService<MetaService>().DoAnoAsync(_ano);
+
+            _modalidades = modalidades.Where(m => m.Ativo || m.Codigo == _modalidade).Select(m => new Opcao(m.Codigo, m.Nome)).ToList();
+            _especialidades = especialidades.Where(s => s.Ativo || s.Codigo == _especialidade)
+                .OrderBy(s => s.Nome, StringComparer.Ordinal).Select(s => new Opcao(s.Codigo, s.Nome)).ToList();
+            _profissionais = profissionais.Where(p => p.Ativo || p.Id == _profissionalId).OrderBy(p => p.Rotulo, StringComparer.Ordinal).ToList();
+            _doAno = doAno;
+
+            if (Editando)
+            {
+                var m = doAno.FirstOrDefault(x => x.Id == MetaId);
+                if (m is null)
+                {
+                    _falhaAoAbrir = "Meta não encontrada — ela pode ter sido excluída em outra máquina.";
+                    return;
+                }
+                _mes = m.Mes;
+                _indicador = m.Indicador;
+                _profissionalId = m.ProfissionalId;
+                _donoDaMetaEditada = m.Profissional?.Rotulo ?? "Clínica (todos)";
+                _modalidade = m.ModalidadeCodigo.Length > 0 ? m.ModalidadeCodigo : null;
+                _especialidade = m.EspecialidadeCodigo.Length > 0 ? m.EspecialidadeCodigo : null;
+                _valor = m.Valor.ToString("0.##", Formato.PtBr);
+                _observacoes = m.Observacoes;
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — formulário de meta não pôde ser aberto", ex);
+            _falhaAoAbrir = $"Não foi possível abrir o formulário: {ex.Message}";
+        }
+        finally { _carregando = false; }
+    }
+
+    private void TrocarIndicador(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<IndicadorMeta>(e.Value?.ToString(), out var i)) _indicador = i;
+        _erroValor = null;
+    }
+
+    /// <summary>O aviso de "já existe" precisa das metas do ANO escolhido.</summary>
+    private async Task TrocarAnoAsync(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ano)) return;
+        _ano = ano;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var doAno = await escopo.ServiceProvider.GetRequiredService<MetaService>().DoAnoAsync(ano);
+            if (_ano == ano) _doAno = doAno;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — metas do ano não puderam ser lidas no formulário", ex);
+            _doAno = [];
+        }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        _erroValor = null;
+        if (!MetasNaTela.TentarLerAlvo(_valor, _indicador, out var valor, out var erro))
+        {
+            _erroValor = erro;
+            return;
+        }
+        var segmenta = MetaMensal.AceitaSegmento(_indicador);
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.DefinirMetas, "definir metas");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<MetaService>().DefinirAsync(
+                _ano, _mes, _indicador, valor, _profissionalId,
+                string.IsNullOrWhiteSpace(_observacoes) ? null : _observacoes.Trim(),
+                SessaoUsuario.Atual.Operador,
+                modalidadeCodigo: segmenta ? _modalidade : null,
+                especialidadeCodigo: segmenta ? _especialidade : null);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — meta não pôde ser salva", ex);
+            _mensagem = $"Não foi possível salvar: {ex.Message}";
+        }
+        finally { _ocupado = false; }
+    }
+}

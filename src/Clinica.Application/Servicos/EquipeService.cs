@@ -112,6 +112,9 @@ public sealed class EquipeService
             : null;
         destino.AtendeDas = dados.AtendeDas;
         destino.AtendeAte = dados.AtendeAte;
+        // As faixas por dia (out/2026) viajam junto: o cadastro não as edita (o editor único é
+        // ConfiguracaoAgendaService), mas quem não edita PRESERVA — a tela devolve o que leu.
+        destino.HorariosAtendimento = string.IsNullOrWhiteSpace(dados.HorariosAtendimento) ? null : dados.HorariosAtendimento;
         destino.Ativo = dados.Ativo;
         destino.Ordem = dados.Ordem;
         destino.Observacoes = Limpar(dados.Observacoes);

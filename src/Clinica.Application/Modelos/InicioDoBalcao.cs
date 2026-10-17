@@ -12,7 +12,10 @@ public enum SituacaoChegada
     Marcado,
     Confirmou,
     NaoConfirmou,
-    NoLocal
+    NoLocal,
+
+    /// <summary>Respondeu que NÃO vem (pelo link do SMS ou pedindo para remarcar) — ligar e liberar o horário.</summary>
+    NaoVem
 }
 
 /// <summary>Uma linha de "Próximos a chegar" (out/2026, mockup aprovado "1 · Início").</summary>
@@ -102,7 +105,7 @@ public static class InicioDoBalcao
 
     public static IReadOnlyList<ProximoAChegar> Proximos(
         IEnumerable<Agendamento> doDia,
-        IReadOnlyDictionary<int, StatusContato> confirmacoes,
+        IReadOnlyDictionary<int, RespostaDeConfirmacao> confirmacoes,
         DateTime agora)
     {
         var lista = new List<ProximoAChegar>();
@@ -127,17 +130,20 @@ public static class InicioDoBalcao
     }
 
     private static (SituacaoChegada, string) Situacao(
-        Agendamento a, IReadOnlyDictionary<int, StatusContato> confirmacoes, DateTime agora)
+        Agendamento a, IReadOnlyDictionary<int, RespostaDeConfirmacao> confirmacoes, DateTime agora)
     {
         if (a.Etapa is EtapaFila.Chegou or EtapaFila.Chamado)
         {
             var espera = a.EsperaMinutos(agora);
             return (SituacaoChegada.NoLocal, espera is { } m ? $"No local · espera {m} min" : "No local");
         }
-        return confirmacoes.TryGetValue(a.Id, out var status) switch
+        confirmacoes.TryGetValue(a.Id, out var resposta);
+        var selo = RodadaDeConfirmacao.SeloDaLista(resposta);
+        return resposta?.Situacao switch
         {
-            true when status == StatusContato.Respondido => (SituacaoChegada.Confirmou, "Confirmou"),
-            true when status == StatusContato.Enviado => (SituacaoChegada.NaoConfirmou, "Não confirmou"),
+            SituacaoConfirmacao.Confirmou => (SituacaoChegada.Confirmou, selo),
+            SituacaoConfirmacao.PediuRemarcar => (SituacaoChegada.NaoVem, selo),
+            SituacaoConfirmacao.AvisadoSemResposta => (SituacaoChegada.NaoConfirmou, selo),
             _ => (SituacaoChegada.Marcado, string.Empty)
         };
     }

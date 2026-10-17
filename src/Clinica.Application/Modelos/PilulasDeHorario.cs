@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Modelos;
@@ -39,15 +40,10 @@ public static class PilulasDeHorario
             : profissional.DuracaoPadraoMinutos is > 0 ? profissional.DuracaoPadraoMinutos.Value
             : Agendamento.DuracaoPadraoMinutos;
         if (dia < DateOnly.FromDateTime(agora)) return [];
-        if (!BuscaDeVagas.AtendeNoDia(profissional, dia.DayOfWeek)) return [];
-
-        var das = profissional.AtendeDas ?? AberturaPresumida;
-        var ate = profissional.AtendeAte ?? FechamentoPresumido;
-        if (ate <= das) return [];
-
         var lista = ocupados.ToList();
         var pilulas = new List<PilulaDeHorario>();
-        for (var t = dia.ToDateTime(das); t.AddMinutes(passo) <= dia.ToDateTime(ate); t = t.AddMinutes(passo))
+        foreach (var faixa in BuscaDeVagas.FaixasDoDia(profissional, dia.DayOfWeek, AberturaPresumida, FechamentoPresumido))
+        for (var t = dia.ToDateTime(faixa.Inicio); t.AddMinutes(passo) <= dia.ToDateTime(faixa.Fim); t = t.AddMinutes(passo))
         {
             if (t < agora) continue;
             var fim = t.AddMinutes(passo);

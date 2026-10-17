@@ -76,15 +76,11 @@ public static class Whatsapp
     private static string PrimeiroNome(string nomePaciente)
         => nomePaciente.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nomePaciente;
 
-    /// <summary>Mensagem padrão de cobrança do documento que falta para a guia.</summary>
+    /// <summary>
+    /// Mensagem padrão de cobrança do documento que falta para a guia. O TEXTO mora em
+    /// <see cref="Clinica.Application.Modelos.InicioRecepcaoTela.CobrancaDeGuia"/> desde que o
+    /// Início da Recepção virou Blazor (out/2026): duas redações divergiriam na primeira correção.
+    /// </summary>
     public static string CobrancaDeGuia(string nomePaciente, string? nomeClinica = null)
-    {
-        var primeiroNome = nomePaciente
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault() ?? nomePaciente;
-
-        return $"Olá, {primeiroNome}! Precisamos do documento/guia da sua última sessão para"
-             + " concluir o faturamento junto ao convênio. Consegue nos enviar?"
-             + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
-    }
+        => Clinica.Application.Modelos.InicioRecepcaoTela.CobrancaDeGuia(nomePaciente, nomeClinica);
 }

@@ -75,6 +75,14 @@
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Não confirmou" />
                         </Border>
+                        <!-- Respondeu que NÃO vem (pelo link do SMS, out/2026): a recepção liga,
+                             remarca e libera o horário. O sistema não cancela sozinho. -->
+                        <Border Style="{StaticResource AgendaModeloA.Status.Local}" Margin="0,0,4,0"
+                                ToolTip="O paciente respondeu que não vem — ligue para remarcar e libere o horário"
+                                Visibility="{Binding NaoVem,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Não vem — remarcar" />
+                        </Border>
                         <Border Style="{StaticResource AgendaModeloA.Status}" Margin="0,0,4,0"
                                 ToolTip="Legado: guia não é atendimento — pode apagar"
                                 Visibility="{Binding EhRetornoDoSegundoCodigo,

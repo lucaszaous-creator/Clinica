@@ -18,7 +18,9 @@ public sealed record MetaApurada(
     decimal? Realizado,
     decimal? Projecao,
     int? ProfissionalId,
-    string? Profissional)
+    string? Profissional,
+    string? Segmento = null,
+    int MetaId = 0)
 {
     /// <summary>Quanto da meta já foi cumprido, de 0 em diante. Nulo sem base.</summary>
     public double? PercentualAtingido => Realizado is { } r && Alvo > 0m
@@ -78,6 +80,7 @@ public sealed class MetaService
     private readonly IClinicaRepositorio _repo;
     private readonly FinanceiroService _financeiro;
     private readonly IndicadoresService _indicadores;
+    private readonly TendenciaAtendimentosService _tendencia;
 
     public MetaService(
         IClinicaRepositorio repo, FinanceiroService financeiro, IndicadoresService indicadores)
@@ -85,6 +88,7 @@ public sealed class MetaService
         _repo = repo;
         _financeiro = financeiro;
         _indicadores = indicadores;
+        _tendencia = new TendenciaAtendimentosService(repo);
     }
 
     // ==================== Cadastro ====================
@@ -101,8 +105,17 @@ public sealed class MetaService
     public async Task<MetaMensal> DefinirAsync(
         int ano, int mes, IndicadorMeta indicador, decimal valor,
         int? profissionalId = null, string? observacoes = null,
-        string? operador = null, CancellationToken ct = default)
+        string? operador = null, CancellationToken ct = default,
+        string? modalidadeCodigo = null, string? especialidadeCodigo = null)
     {
+        var modalidade = (modalidadeCodigo ?? string.Empty).Trim();
+        var especialidade = (especialidadeCodigo ?? string.Empty).Trim();
+        if ((modalidade.Length > 0 || especialidade.Length > 0) && !MetaMensal.AceitaSegmento(indicador))
+            throw new InvalidOperationException(
+                "Ocupação não se recorta por modalidade ou especialidade: ela mede a agenda inteira "
+                + "contra o horário de atendimento, e horário não tem modalidade. Recorte por profissional, ou use "
+                + "a meta de sessões.");
+
         if (mes is < 1 or > 12)
             throw new InvalidOperationException("Mês precisa estar entre 1 e 12.");
 
@@ -111,10 +124,10 @@ public sealed class MetaService
 
         if (indicador == IndicadorMeta.Ocupacao && valor > 100m)
             throw new InvalidOperationException(
-                "Ocupação é percentual: o máximo é 100. Agenda mais cheia que a jornada "
+                "Ocupação é percentual: o máximo é 100. Agenda mais cheia que o horário de atendimento "
                 + "significa encaixe, e encaixe não é meta.");
 
-        var existente = await _repo.ObterMetaAsync(ano, mes, indicador, profissionalId, ct);
+        var existente = await _repo.ObterMetaAsync(ano, mes, indicador, profissionalId, modalidade, especialidade, ct);
 
         if (existente is not null)
         {
@@ -126,7 +139,7 @@ public sealed class MetaService
             {
                 Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
                 Acao = "MetaAlterada",
-                Detalhe = $"{MetaMensal.Rotular(indicador)} {mes:00}/{ano}: {antes} → {valor}"
+                Detalhe = $"{MetaMensal.Rotular(indicador)}{DescreverSegmento(modalidade, especialidade)} {mes:00}/{ano}: {antes} → {valor}"
             }, ct);
             await _repo.SalvarAsync(ct);
             return existente;
@@ -139,6 +152,8 @@ public sealed class MetaService
             Indicador = indicador,
             Valor = valor,
             ProfissionalId = profissionalId,
+            ModalidadeCodigo = modalidade,
+            EspecialidadeCodigo = especialidade,
             Observacoes = observacoes,
             CriadoPor = operador
         };
@@ -148,7 +163,7 @@ public sealed class MetaService
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             Acao = "MetaDefinida",
-            Detalhe = $"{MetaMensal.Rotular(indicador)} {mes:00}/{ano}: {valor}"
+            Detalhe = $"{MetaMensal.Rotular(indicador)}{DescreverSegmento(modalidade, especialidade)} {mes:00}/{ano}: {valor}"
         }, ct);
         await _repo.SalvarAsync(ct);
 
@@ -220,11 +235,36 @@ public sealed class MetaService
         var diasCorridos = ate.Day;
         var diasDoMes = fimDoMes.Day;
 
+        // As metas de um RECORTE (profissional, modalidade, especialidade — out/2026) são
+        // apuradas sobre os MESMOS fatos da tendência: sessões realizadas e receita ligada a
+        // atendimento. ⚠️ Até aqui a meta de um profissional era apurada com o número da
+        // CLÍNICA INTEIRA — a tela mostrava a meta dele "batida" com o trabalho de todos.
+        // Ocupação por profissional continua pelo indicador da clínica: ela não se recorta
+        // sem a jornada de cada um, e a tela diz isso.
+        IReadOnlyList<FatoTendencia>? fatosSessoes = null, fatosReceita = null;
+        var segmentadas = metas.Where(m => m.Segmentada && m.Indicador != IndicadorMeta.Ocupacao).ToList();
+        if (segmentadas.Any(m => m.Indicador == IndicadorMeta.Sessoes))
+            fatosSessoes = (await _tendencia.MontarFatosAsync(MetricaTendencia.Sessoes, inicio, ate, ct));
+        if (segmentadas.Any(m => m.Indicador == IndicadorMeta.Faturamento))
+            fatosReceita = (await _tendencia.MontarFatosAsync(MetricaTendencia.Receita, inicio, ate, ct));
+
+        decimal? DoRecorte(MetaMensal m, IReadOnlyList<FatoTendencia>? fatos)
+        {
+            if (fatos is null) return null;
+            var filtro = new FiltroTendencia(inicio, ate,
+                ProfissionalId: m.ProfissionalId,
+                ModalidadeCodigo: m.ModalidadeCodigo.Length > 0 ? m.ModalidadeCodigo : null,
+                EspecialidadeCodigo: m.EspecialidadeCodigo.Length > 0 ? m.EspecialidadeCodigo : null);
+            return fatos.Where(f => f.Dia >= inicio && f.Dia <= ate && TendenciaAtendimentos.Passa(f, filtro)).Sum(f => f.Valor);
+        }
+
         return metas
             .Select(m =>
             {
                 var realizado = m.Indicador switch
                 {
+                    IndicadorMeta.Faturamento when m.Segmentada => DoRecorte(m, fatosReceita),
+                    IndicadorMeta.Sessoes when m.Segmentada => DoRecorte(m, fatosSessoes),
                     IndicadorMeta.Faturamento => faturamento,
                     IndicadorMeta.Sessoes => sessoes,
                     IndicadorMeta.Ocupacao => ocupacao,
@@ -234,9 +274,16 @@ public sealed class MetaService
                 return new MetaApurada(
                     m.Indicador, m.Ano, m.Mes, m.Valor, realizado,
                     Projetar(m.Indicador, realizado, diasCorridos, diasDoMes, mesEmCurso),
-                    m.ProfissionalId, m.Profissional?.Rotulo);
+                    m.ProfissionalId, m.Profissional?.Rotulo,
+                    DescreverSegmento(m.ModalidadeCodigo, m.EspecialidadeCodigo).TrimStart(' ', '·').Trim() is { Length: > 0 } seg ? seg : null,
+                    // O Id casa a apuração com a LINHA da meta. A tela WPF casava por
+                    // indicador + mês + profissional — com o recorte por modalidade, duas
+                    // metas de sessões do mesmo mês recebiam o realizado uma da outra.
+                    m.Id);
             })
             .OrderBy(m => m.Indicador)
+            .ThenBy(m => m.Segmento is null ? 0 : 1)
+            .ThenBy(m => m.Segmento, StringComparer.Ordinal)
             .ToList();
     }
 
@@ -247,6 +294,15 @@ public sealed class MetaService
     /// sobre minutos disponíveis), e multiplicá-la pelos dias que faltam daria 300%. Para
     /// ela, a melhor projeção é a própria média até aqui — que é o que ela significa.
     /// </summary>
+    /// <summary>" · Acupuntura · Psiquiatria" — o recorte escrito como a direção fala; vazio sem recorte.</summary>
+    public static string DescreverSegmento(string? modalidadeCodigo, string? especialidadeCodigo)
+    {
+        var partes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(modalidadeCodigo)) partes.Add(Clinica.Domain.Regras.CatalogoModalidades.Nome(modalidadeCodigo));
+        if (!string.IsNullOrWhiteSpace(especialidadeCodigo)) partes.Add(Clinica.Domain.Regras.CatalogoEspecialidades.Nome(especialidadeCodigo));
+        return partes.Count == 0 ? string.Empty : " · " + string.Join(" · ", partes);
+    }
+
     private static decimal? Projetar(
         IndicadorMeta indicador, decimal? realizado,
         int diasCorridos, int diasDoMes, bool mesEmCurso)

@@ -1340,6 +1340,7 @@ public interface IClinicaRepositorio
     /// <summary>A meta de um mes/indicador/dono, se existir. Nulo = a direcao nao definiu.</summary>
     Task<MetaMensal?> ObterMetaAsync(
         int ano, int mes, IndicadorMeta indicador, int? profissionalId,
+        string modalidadeCodigo = "", string especialidadeCodigo = "",
         CancellationToken ct = default);
 
     Task<MetaMensal?> ObterMetaPorIdAsync(int metaId, CancellationToken ct = default);
@@ -1751,6 +1752,53 @@ public interface IClinicaRepositorio
     /// aba de CRM da ficha. O corte vai no SQL: quem abre a ficha quer as últimas
     /// conversas, não a carteira inteira de mensagens desde a instalação.
     /// </summary>
+    /// <summary>
+    /// Como cada horário está na rodada de confirmação, com o comentário que distingue
+    /// "confirmou" de "não vai" (out/2026). <see cref="ConfirmacoesDosAgendamentosAsync"/>
+    /// devolve só o status, e o status sozinho chamava de "Confirmou" quem respondeu que
+    /// não vem — a resposta do SMS tornou essa diferença cotidiana.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, RespostaDeConfirmacao>> RespostasDeConfirmacaoAsync(
+        IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default);
+
+    // ---- Canal de SMS (out/2026) ----
+
+    /// <summary>
+    /// Nome, telefone e convênio dos pacientes (todos, ou os informados) — PROJEÇÃO, sem a
+    /// miniatura da foto nem as observações: a campanha de SMS pergunta por centenas de
+    /// fichas, e a ficha inteira seria meio megabyte para ler três colunas (parcela 74).
+    /// </summary>
+    Task<IReadOnlyList<PacienteParaContato>> PacientesParaContatoAsync(
+        IReadOnlyCollection<int>? pacienteIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// A receita REALIZADA do período ligada a um atendimento (direto ou pela guia), com a
+    /// modalidade, a especialidade e o profissional dele — a base da tendência por
+    /// modalidade/especialidade em reais (out/2026). Atendimento estornado não entra.
+    /// </summary>
+    Task<IReadOnlyList<ReceitaDeAtendimento>> ReceitaPorAtendimentoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Grava a linha do SMS ANTES do envio. Devolve <c>false</c> quando a chave de
+    /// idempotência já existe — outra máquina reservou primeiro, e esta não manda.
+    /// </summary>
+    Task<bool> ReservarMensagemSmsAsync(MensagemSms mensagem, CancellationToken ct = default);
+
+    /// <summary>A linha da chave, RASTREADA (para retentar uma que falhou).</summary>
+    Task<MensagemSms?> MensagemSmsPorChaveAsync(string chave, CancellationToken ct = default);
+
+    /// <summary>Os SMS do período, do mais novo para o mais velho, com o paciente.</summary>
+    Task<IReadOnlyList<MensagemSms>> MensagensSmsAsync(
+        DateTime inicio, DateTime fim, int limite = 500, CancellationToken ct = default);
+
+    /// <summary>
+    /// Contatos de confirmação que saíram por SMS com link e ainda não têm resposta, a
+    /// partir de <paramref name="desde"/> — RASTREADOS, porque a sincronização os responde.
+    /// </summary>
+    Task<IReadOnlyList<ContatoCampanha>> ContatosAguardandoRespostaPorLinkAsync(
+        DateOnly desde, CancellationToken ct = default);
+
     Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
         int pacienteId, int limite = 20, CancellationToken ct = default);
 

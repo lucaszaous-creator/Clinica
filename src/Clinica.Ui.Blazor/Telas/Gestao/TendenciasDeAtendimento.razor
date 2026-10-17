@@ -1,0 +1,495 @@
+@*
+  TENDÊNCIA DOS ATENDIMENTOS (out/2026 — a cliente: *"filtros para sabermos as categorias e
+  especialidades de atendimento que estamos tendo, as que estão em alta, as que estão em
+  baixa"*, como base do sistema de metas).
+
+  Responde "o que está crescendo e o que está caindo?" — sempre contra o período
+  IMEDIATAMENTE anterior de mesmo tamanho. A pergunta "chegamos lá?" é a da META, e por
+  isso cada linha de categoria/especialidade tem a porta "Criar meta".
+
+  Quem decide: TendenciaAtendimentos (as regras de alta/baixa, puras) e TendenciaNaTela
+  (rótulos, permissão por métrica e o CSV) — esta tela só desenha. Gráfico em SVG com
+  tokens, sem biblioteca; número de SVG em cultura INVARIANTE.
+
+  Permissão: Sessões lê quem tem VerIndicadores, VerFinanceiro OU VerFaturamento (é
+  contagem); Receita é dinheiro e exige VerIndicadores OU VerFinanceiro — o faturamento não
+  é recebível. O CSV pede o MESMO conjunto da métrica que está na tela.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina tendencias @(Carregando && _painel is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Gestão · Tendências" Titulo="Tendência dos atendimentos"
+                     Subtitulo="O que está em alta e o que está em baixa, comparado com o período anterior de mesmo tamanho.">
+        <div class="segmentado" role="group" aria-label="Tipo de período">
+            <button type="button" aria-pressed="@(_porMes ? "true" : "false")" @onclick="() => TrocarModoAsync(true)">Mês</button>
+            <button type="button" aria-pressed="@(!_porMes ? "true" : "false")" @onclick="() => TrocarModoAsync(false)">Período livre</button>
+        </div>
+        @if (_porMes)
+        {
+            <SeletorMes Valor="_mes" ValorChanged="TrocarMesAsync" />
+        }
+        else
+        {
+            <input type="date" class="campo tend-data" aria-label="De" value="@_inicio.ToString("yyyy-MM-dd")" @onchange="e => _inicio = LerData(e, _inicio)" />
+            <input type="date" class="campo tend-data" aria-label="Até" value="@_fim.ToString("yyyy-MM-dd")" @onchange="e => _fim = LerData(e, _fim)" />
+            <button type="button" class="botao primario" @onclick="CarregarAsync"><Icone Nome="atualizar" />Aplicar</button>
+        }
+        <button type="button" class="botao" title="Exportar a tabela em CSV, que abre no Excel"
+                disabled="@(!PodeLer || _painel is null || _painel.Linhas.Count == 0)" @onclick="ExportarAsync">
+            <Icone Nome="baixar" />Exportar CSV</button>
+    </CabecalhoPagina>
+
+    <section class="cartao filtros tend-filtros" aria-label="Filtros">
+        <div class="campo-bloco tend-escolha">
+            <span class="campo-rotulo">Agrupar por</span>
+            <div class="segmentado" role="group" aria-label="Agrupar por">
+                @foreach (var d in Enum.GetValues<DimensaoTendencia>())
+                {
+                    var esta = d;
+                    <button type="button" aria-pressed="@(esta == _dimensao ? "true" : "false")" @onclick="() => TrocarDimensaoAsync(esta)">@TendenciaNaTela.Dimensao(esta)</button>
+                }
+            </div>
+        </div>
+        <div class="campo-bloco tend-escolha">
+            <span class="campo-rotulo">Medir</span>
+            <div class="segmentado" role="group" aria-label="Medir">
+                <button type="button" aria-pressed="@(_metrica == MetricaTendencia.Sessoes ? "true" : "false")"
+                        @onclick="() => TrocarMetricaAsync(MetricaTendencia.Sessoes)">Sessões</button>
+                <button type="button" aria-pressed="@(_metrica == MetricaTendencia.Receita ? "true" : "false")"
+                        disabled="@(!PodeAlgum(TendenciaNaTela.Leitura(MetricaTendencia.Receita)))"
+                        title="@(PodeAlgum(TendenciaNaTela.Leitura(MetricaTendencia.Receita)) ? "Receita realizada ligada a atendimento, pela data do pagamento" : "Receita é dinheiro: pede acesso ao financeiro ou aos indicadores.")"
+                        @onclick="() => TrocarMetricaAsync(MetricaTendencia.Receita)">Receita</button>
+            </div>
+        </div>
+        <Campo Rotulo="Categoria">
+            <select class="campo" value="@(_modalidade ?? "")" @onchange="e => TrocarRecorteAsync(ref _modalidade, e)">
+                <option value="">Todas</option>
+                @foreach (var m in _modalidades) { <option value="@m.Codigo">@m.Nome</option> }
+            </select>
+        </Campo>
+        <Campo Rotulo="Especialidade">
+            <select class="campo" value="@(_especialidade ?? "")" @onchange="e => TrocarRecorteAsync(ref _especialidade, e)">
+                <option value="">Todas</option>
+                @foreach (var s in _especialidades) { <option value="@s.Codigo">@s.Nome</option> }
+            </select>
+        </Campo>
+        <Campo Rotulo="Convênio">
+            <select class="campo" value="@(_convenio ?? "")" @onchange="e => TrocarRecorteAsync(ref _convenio, e)">
+                <option value="">Todos</option>
+                @foreach (var c in _convenios) { <option value="@c.Codigo">@c.Nome</option> }
+            </select>
+        </Campo>
+        <Campo Rotulo="Profissional">
+            <select class="campo" value="@(_profissional ?? "")" @onchange="e => TrocarRecorteAsync(ref _profissional, e)">
+                <option value="">Todos</option>
+                @foreach (var p in _profissionais) { <option value="@p.Id.ToString(CultureInfo.InvariantCulture)">@p.Rotulo</option> }
+            </select>
+        </Campo>
+        @if (TemRecorte)
+        {
+            <button type="button" class="botao fantasma" @onclick="LimparAsync"><Icone Nome="x" />Limpar filtros</button>
+        }
+    </section>
+
+    @if (!PodeLer)
+    {
+        <section class="cartao">
+            <EstadoVazio Icone="cadeado" Titulo="Seu acesso não alcança esta leitura"
+                         Descricao="A tendência de sessões pede acesso aos indicadores, ao financeiro ou ao faturamento; a de receita, aos indicadores ou ao financeiro. Fale com a direção da clínica." />
+        </section>
+    }
+    else if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível montar a tendência"
+                            Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        </section>
+    }
+    else if (_painel is null)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+        <div class="cartao cartao-corpo"><Esqueleto Altura="260" /></div>
+    }
+    else
+    {
+        var p = _painel;
+        var m = p.Filtro.Metrica;
+        <p class="tend-periodo">
+            @Formato.Data(p.Filtro.Inicio) a @Formato.Data(p.Filtro.Fim), comparado com
+            @Formato.Data(p.InicioAnterior) a @Formato.Data(p.FimAnterior)@(TemRecorte ? $" · filtrado: {DescreverRecorte()}" : "")
+        </p>
+
+        <section class="kpis" aria-label="Resumo do período">
+            <Kpi Rotulo="@(m == MetricaTendencia.Receita ? "Receita no período" : "Sessões no período")"
+                 Valor="@TendenciaNaTela.Valor(p.TotalAtual, m)" Icone="@(m == MetricaTendencia.Receita ? "moeda" : "calendario")"
+                 Nota="@(m == MetricaTendencia.Receita ? "Realizada e ligada a atendimento" : "Só as realizadas — falta e cancelamento não contam")" />
+            <Kpi Rotulo="Período anterior" Valor="@TendenciaNaTela.Valor(p.TotalAnterior, m)" Icone="historico" Tom="neutro"
+                 Nota="@($"{Formato.DataCurta(p.InicioAnterior)} a {Formato.DataCurta(p.FimAnterior)}")" />
+            <Kpi Rotulo="Variação" Valor="@TendenciaNaTela.Variacao(p.VariacaoTotal)" Icone="percentual"
+                 Tom="@(p.VariacaoTotal is > 0 ? "sucesso" : p.VariacaoTotal is < 0 ? "perigo" : "neutro")"
+                 ClasseValor="@(p.VariacaoTotal is > 0 ? "positivo" : p.VariacaoTotal is < 0 ? "negativo" : null)"
+                 Nota="@(p.VariacaoTotal is null ? "Sem movimento no período anterior — não há base para variação" : "Contra o período anterior de mesmo tamanho")" />
+            <Kpi Rotulo="Em alta · em baixa" Valor="@($"{p.EmAlta.Count} · {p.EmBaixa.Count}")" Icone="resultado" Tom="neutro"
+                 Nota="@($"{p.Linhas.Count} {(p.Linhas.Count == 1 ? "grupo" : "grupos")} com movimento")" />
+        </section>
+
+        @if (p.Linhas.Count == 0)
+        {
+            <section class="cartao">
+                <EstadoVazio Icone="grafico" Titulo="Nenhum movimento no período"
+                             Descricao="@(TemRecorte ? "Nenhuma sessão bate com os filtros escolhidos — limpe os filtros ou escolha outro período." : "Sem sessão realizada neste período nem no anterior, não há tendência para mostrar.")" />
+            </section>
+        }
+        else
+        {
+            <p class="tend-resumo"><Icone Nome="info" />@TendenciaAtendimentos.Resumo(p)</p>
+
+            <div class="tend-colunas">
+                @Destaque("Em alta", "tend-alta", "resultado", p.EmAlta, "Nada subiu o bastante para chamar de alta.")
+                @Destaque("Em baixa", "tend-baixa", "tendencia-baixa", p.EmBaixa, "Nada caiu o bastante para chamar de baixa.")
+            </div>
+
+            <section class="cartao lista-cartao">
+                <div class="cartao-titulo">
+                    <div>
+                        <h2>Por @TendenciaNaTela.Dimensao(_dimensao).ToLower(Formato.PtBr)</h2>
+                        <p>Alta e baixa pedem os dois: variação de @TendenciaAtendimentos.LimiarPercentual.ToString("0", Formato.PtBr)% e diferença de pelo menos @(m == MetricaTendencia.Receita ? TendenciaAtendimentos.DiferencaMinimaReceita.ToString("C0", Formato.PtBr) : $"{TendenciaAtendimentos.DiferencaMinimaSessoes} sessões").</p>
+                    </div>
+                </div>
+                <div class="tabela-rolagem">
+                    <table class="lista tend-tabela">
+                        <thead>
+                            <tr>
+                                <th>@TendenciaNaTela.Dimensao(_dimensao)</th>
+                                <th class="direita">Atual</th>
+                                <th class="direita">Anterior</th>
+                                <th class="direita">Variação</th>
+                                <th>Situação</th>
+                                <th class="tend-col-part">Participação</th>
+                                <th class="tend-col-serie">Últimos 6 meses</th>
+                                @if (AceitaMetaNaDimensao)
+                                {
+                                    <th class="direita" aria-label="Ações"></th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in p.Linhas)
+                            {
+                                var linha = l;
+                                <tr @key="l.Chave" class="@(l.Situacao == SituacaoTendencia.Sumiu ? "apagada" : null)">
+                                    <td><span class="principal tend-corta" title="@l.Rotulo">@l.Rotulo</span></td>
+                                    <td class="direita numero">@TendenciaNaTela.Valor(l.Atual, m)</td>
+                                    <td class="direita numero">@TendenciaNaTela.Valor(l.Anterior, m)</td>
+                                    <td class="direita numero nao-quebra tend-var @(l.Variacao is > 0 ? "sobe" : l.Variacao is < 0 ? "desce" : null)">@l.VariacaoTexto</td>
+                                    <td class="nao-quebra"><Selo Tom="@Tom(l.Situacao)" Dica="@TendenciaNaTela.Dica(l.Situacao, m)">@TendenciaNaTela.Rotulo(l.Situacao)</Selo></td>
+                                    <td class="tend-col-part">
+                                        <div class="tend-part">
+                                            <div class="trilho"><i style="width:@N(l.FracaoDoTotal * 100)%"></i></div>
+                                            <span class="numero">@l.FracaoDoTotal.ToString("P0", Formato.PtBr)</span>
+                                        </div>
+                                    </td>
+                                    <td class="tend-col-serie">@Minisserie(l, p.MesesDaSerie, m)</td>
+                                    @if (AceitaMetaNaDimensao)
+                                    {
+                                        <td class="direita nao-quebra">
+                                            @if (TendenciaNaTela.AceitaMeta(_dimensao, l))
+                                            {
+                                                <button type="button" class="botao mini" disabled="@(!Pode(Permissao.DefinirMetas))"
+                                                        title="@(Pode(Permissao.DefinirMetas) ? $"Criar a meta de {l.Rotulo}" : "Seu acesso não permite definir metas.")"
+                                                        @onclick="() => CriarMeta(linha)"><Icone Nome="mais" />Criar meta</button>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td><span class="principal">Total</span></td>
+                                <td class="direita numero">@TendenciaNaTela.Valor(p.TotalAtual, m)</td>
+                                <td class="direita numero">@TendenciaNaTela.Valor(p.TotalAnterior, m)</td>
+                                <td class="direita numero nao-quebra">@TendenciaNaTela.Variacao(p.VariacaoTotal)</td>
+                                <td colspan="@(AceitaMetaNaDimensao ? 4 : 3)"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="rodape-lista">
+                    @(m == MetricaTendencia.Receita
+                        ? "Receita realizada ligada a atendimento, pela data do pagamento (regime de caixa). Previsto e estornado não entram."
+                        : "Sessões realizadas, pelo dia do atendimento. A especialidade é a da consulta, ou a de quem atendeu.")
+                    @if (!AceitaMetaNaDimensao) { <text> Metas por recorte existem para categoria e especialidade.</text> }
+                </div>
+            </section>
+        }
+    }
+</div>
+
+@if (_novaMeta is { } nm)
+{
+    <MetaForm Ano="nm.Mes.Year" Mes="nm.Mes.Month" Indicador="nm.Indicador"
+              ModalidadeCodigo="@nm.Modalidade" EspecialidadeCodigo="@nm.Especialidade" Referencia="@nm.Referencia"
+              AoFechar="() => _novaMeta = null" AoConcluir="MetaCriada" />
+}
+
+@code {
+    private sealed record PedidoDeMeta(DateOnly Mes, IndicadorMeta Indicador, string? Modalidade, string? Especialidade, string Referencia);
+    private sealed record Opcao(string Codigo, string Nome);
+
+    private bool _porMes = true;
+    private DateOnly _mes;
+    private DateOnly _inicio;
+    private DateOnly _fim;
+    private DimensaoTendencia _dimensao = DimensaoTendencia.Modalidade;
+    private MetricaTendencia _metrica = MetricaTendencia.Sessoes;
+    private string? _modalidade, _especialidade, _convenio, _profissional;
+
+    private IReadOnlyList<Opcao> _modalidades = [];
+    private IReadOnlyList<Opcao> _especialidades = [];
+    private IReadOnlyList<Opcao> _convenios = [];
+    private IReadOnlyList<Profissional> _profissionais = [];
+
+    private PainelTendencia? _painel;
+    private bool Carregando;
+    private bool _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+    private PedidoDeMeta? _novaMeta;
+
+    private bool PodeLer => PodeAlgum(TendenciaNaTela.Leitura(_metrica));
+    private bool AceitaMetaNaDimensao => _dimensao is DimensaoTendencia.Modalidade or DimensaoTendencia.Especialidade;
+    private bool TemRecorte => _modalidade is not null || _especialidade is not null || _convenio is not null || _profissional is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        _mes = new DateOnly(hoje.Year, hoje.Month, 1);
+        _inicio = _mes;
+        _fim = hoje;
+        await CarregarOpcoesAsync();
+        await CarregarAsync();
+    }
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => ExportarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>
+    /// As opções dos filtros. Falhar aqui não derruba a tela: os combos ficam só com "Todos"
+    /// e a tendência continua a ser lida — o terceiro estado é da LEITURA, não do filtro.
+    /// </summary>
+    private async Task CarregarOpcoesAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            // Sequencial no mesmo escopo (parcela 74): é o mesmo DbContext.
+            var modalidades = await sp.GetRequiredService<ModalidadeCatalogoService>().ListarAsync();
+            var especialidades = await sp.GetRequiredService<EspecialidadeCatalogoService>().ListarAsync();
+            var convenios = await sp.GetRequiredService<ConvenioCatalogoService>().ListarAsync();
+            var profissionais = await sp.GetRequiredService<EquipeService>().ProfissionaisAsync();
+            if (Descartada) return;
+            _modalidades = modalidades.Where(x => x.Ativo).Select(x => new Opcao(x.Codigo, x.Nome)).ToList();
+            _especialidades = especialidades.Where(x => x.Ativo).OrderBy(x => x.Nome, StringComparer.Ordinal).Select(x => new Opcao(x.Codigo, x.Nome)).ToList();
+            _convenios = convenios.Where(x => x.Ativo).OrderBy(x => x.Nome, StringComparer.Ordinal).Select(x => new Opcao(x.Codigo, x.Nome)).ToList();
+            // Quem saiu da clínica continua no filtro: a tendência olha meses que ele atendeu.
+            _profissionais = profissionais.OrderBy(x => x.Rotulo, StringComparer.Ordinal).ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — opções dos filtros da tendência", ex);
+        }
+    }
+
+    private FiltroTendencia Filtro()
+    {
+        var (ini, fim) = _porMes ? (_mes, _mes.AddMonths(1).AddDays(-1)) : (_inicio, _fim);
+        return new FiltroTendencia(ini, fim, _dimensao, _metrica,
+            int.TryParse(_profissional, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null,
+            _convenio, _modalidade, _especialidade);
+    }
+
+    /// <summary>Contador de geração: trocar filtro rápido deixaria a resposta velha sob o filtro novo.</summary>
+    private async Task CarregarAsync()
+    {
+        if (!PodeLer) { _painel = null; return; }
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            var filtro = Filtro();
+            using var escopo = Escopo();
+            var painel = await escopo.ServiceProvider.GetRequiredService<TendenciaAtendimentosService>().MontarAsync(filtro);
+            if (geracao != _geracao || Descartada) return;
+            _painel = painel;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — tendência dos atendimentos não pôde ser lida", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _painel = null;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private Task TrocarModoAsync(bool porMes)
+    {
+        if (porMes == _porMes) return Task.CompletedTask;
+        _porMes = porMes;
+        return CarregarAsync();
+    }
+
+    private Task TrocarMesAsync(DateOnly mes) { _mes = mes; return CarregarAsync(); }
+
+    private Task TrocarDimensaoAsync(DimensaoTendencia d) { if (d == _dimensao) return Task.CompletedTask; _dimensao = d; return CarregarAsync(); }
+
+    private Task TrocarMetricaAsync(MetricaTendencia m)
+    {
+        if (m == _metrica) return Task.CompletedTask;
+        if (!ExigirAlgum(TendenciaNaTela.Leitura(m), "ver a tendência da receita")) return Task.CompletedTask;
+        _metrica = m;
+        return CarregarAsync();
+    }
+
+    private Task TrocarRecorteAsync(ref string? campo, ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString();
+        campo = string.IsNullOrWhiteSpace(v) ? null : v;
+        return CarregarAsync();
+    }
+
+    private Task LimparAsync()
+    {
+        _modalidade = _especialidade = _convenio = _profissional = null;
+        return CarregarAsync();
+    }
+
+    private string DescreverRecorte()
+    {
+        var partes = new List<string>();
+        if (_modalidade is not null) partes.Add(_modalidades.FirstOrDefault(x => x.Codigo == _modalidade)?.Nome ?? _modalidade);
+        if (_especialidade is not null) partes.Add(_especialidades.FirstOrDefault(x => x.Codigo == _especialidade)?.Nome ?? _especialidade);
+        if (_convenio is not null) partes.Add(_convenios.FirstOrDefault(x => x.Codigo == _convenio)?.Nome ?? _convenio);
+        if (_profissional is not null) partes.Add(_profissionais.FirstOrDefault(x => x.Id.ToString(CultureInfo.InvariantCulture) == _profissional)?.Rotulo ?? _profissional);
+        return string.Join(" · ", partes);
+    }
+
+    private void CriarMeta(LinhaTendencia l)
+    {
+        if (!Exigir(Permissao.DefinirMetas, "definir metas")) return;
+        if (_painel is null) return;
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var ehModalidade = _dimensao == DimensaoTendencia.Modalidade;
+        // O recorte que já está nos filtros vai junto — a meta "Acupuntura em psiquiatria"
+        // nasce de uma linha de acupuntura filtrada por psiquiatria.
+        _novaMeta = new PedidoDeMeta(
+            TendenciaNaTela.MesSugeridoParaMeta(_painel.Filtro.Fim, hoje),
+            TendenciaNaTela.IndicadorDaMetrica(_painel.Filtro.Metrica),
+            ehModalidade ? l.Chave : _modalidade,
+            ehModalidade ? _especialidade : l.Chave,
+            TendenciaNaTela.Referencia(l, _painel.Filtro.Metrica));
+    }
+
+    private void MetaCriada()
+    {
+        _novaMeta = null;
+        Notificacoes.Sucesso("Meta definida — a tela de Metas já compara com ela.");
+    }
+
+    private async Task ExportarAsync()
+    {
+        if (!ExigirAlgum(TendenciaNaTela.Leitura(_metrica), "exportar a tendência")) return;
+        if (_painel is not { } p || p.Linhas.Count == 0)
+        {
+            Notificacoes.Info("Não há movimento para exportar neste período.");
+            return;
+        }
+        try
+        {
+            var nome = $"tendencia-{TendenciaNaTela.Dimensao(_dimensao).ToLowerInvariant()}-{p.Filtro.Inicio:yyyy-MM-dd}.csv";
+            var erro = await Host.ExportarCsvAsync(TendenciaNaTela.CabecalhoCsv, TendenciaNaTela.Csv(p), nome);
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — tendência não pôde ser exportada", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    private static DateOnly LerData(ChangeEventArgs e, DateOnly atual)
+        => DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d) ? d : atual;
+
+    private static string Tom(SituacaoTendencia s) => s switch
+    {
+        SituacaoTendencia.EmAlta or SituacaoTendencia.Nova => "sucesso",
+        SituacaoTendencia.EmBaixa or SituacaoTendencia.Sumiu => "perigo",
+        _ => "neutro"
+    };
+
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private RenderFragment Destaque(string titulo, string classe, string icone, IReadOnlyList<LinhaTendencia> linhas, string vazio) => __builder =>
+    {
+        var m = _painel!.Filtro.Metrica;
+        <section class="cartao tend-destaque @classe">
+            <h2><Icone Nome="@icone" />@titulo <span class="tend-conta">@linhas.Count</span></h2>
+            @if (linhas.Count == 0)
+            {
+                <p class="tend-destaque-vazio">@vazio</p>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var l in linhas.Take(6))
+                    {
+                        <li>
+                            <span class="tend-corta" title="@l.Rotulo">@l.Rotulo</span>
+                            <span class="tend-destaque-num numero">@TendenciaNaTela.Valor(l.Anterior, m) → @TendenciaNaTela.Valor(l.Atual, m)</span>
+                            <b class="numero">@l.VariacaoTexto</b>
+                        </li>
+                    }
+                </ul>
+                @if (linhas.Count > 6) { <p class="tend-destaque-vazio">e mais @(linhas.Count - 6) na tabela abaixo</p> }
+            }
+        </section>
+    };
+
+    // Minissérie de 6 meses: só a forma, sem eixo — o número exato está nas colunas ao lado e
+    // na dica de cada ponto. Eixo ANCORADO no zero (a regra do gráfico da casa).
+    private const double SL = 96, SA = 26, SM = 3;
+
+    private RenderFragment Minisserie(LinhaTendencia l, IReadOnlyList<DateOnly> meses, MetricaTendencia m) => __builder =>
+    {
+        var serie = l.SerieMensal;
+        if (serie.Count == 0) return;
+        var maior = serie.Max();
+        double X(int i) => serie.Count == 1 ? SL / 2 : SM + i * (SL - 2 * SM) / (serie.Count - 1);
+        double Y(decimal v) => maior <= 0 ? SA - SM : SA - SM - (double)(v / maior) * (SA - 2 * SM);
+        var pontos = string.Join(" ", serie.Select((v, i) => $"{N(X(i))},{N(Y(v))}"));
+        var dica = string.Join(" · ", serie.Select((v, i) => $"{(i < meses.Count ? Formato.Mes(meses[i]) : "")}: {TendenciaNaTela.Valor(v, m)}"));
+        <svg class="tend-serie @(l.Situacao is SituacaoTendencia.EmBaixa or SituacaoTendencia.Sumiu ? "desce" : l.Situacao is SituacaoTendencia.EmAlta or SituacaoTendencia.Nova ? "sobe" : null)"
+             viewBox="0 0 @N(SL) @N(SA)" role="img" aria-label="@($"Últimos meses de {l.Rotulo}: {dica}")">
+            <title>@dica</title>
+            <line class="tend-serie-base" x1="@N(SM)" x2="@N(SL - SM)" y1="@N(SA - SM)" y2="@N(SA - SM)" />
+            <polyline points="@pontos" />
+            <circle cx="@N(X(serie.Count - 1))" cy="@N(Y(serie[^1]))" r="2.5" />
+        </svg>
+    };
+}

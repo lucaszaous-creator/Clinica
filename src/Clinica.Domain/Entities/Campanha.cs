@@ -35,7 +35,14 @@ public enum CanalContato
     WhatsApp,
     Telefone,
     Email,
-    Presencial
+    Presencial,
+
+    /// <summary>
+    /// Mensagem de texto pelo provedor contratado (out/2026). ⚠️ Valor NOVO no fim do enum:
+    /// ele é gravado como TEXTO, e o binário anterior não o lê (parcela 67). Só a rodada de
+    /// SMS o escreve, e ela só existe na versão que o traz — a release dos apps é conjunta.
+    /// </summary>
+    Sms
 }
 
 /// <summary>Faixa do respondente na metodologia NPS.</summary>
@@ -137,6 +144,13 @@ public class ContatoCampanha
     public static string OrigemDeAgendamento(int agendamentoId) => $"AGD:{agendamentoId}";
 
     public static string OrigemDeAtendimento(int atendimentoId) => $"ATD:{atendimentoId}";
+
+    /// <summary>
+    /// O token do link de confirmação que foi no SMS (out/2026). Nulo em todo contato que
+    /// não saiu por SMS. É ele que casa a resposta gravada pelo Worker com este contato —
+    /// ver <see cref="Clinica.Domain.ConfirmacaoPorLink"/>.
+    /// </summary>
+    public string? TokenResposta { get; set; }
 
     /// <summary>Já saiu do fluxo (respondido ou dispensado)?</summary>
     public bool Encerrado => Status is StatusContato.Respondido or StatusContato.Dispensado;

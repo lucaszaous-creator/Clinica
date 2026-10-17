@@ -1,0 +1,102 @@
+/* Estilo próprio da tela (rec-dia) — a Agenda do dia do balcão. Só tokens — ver docs/telas-blazor.md.
+   As cores de SITUAÇÃO repetem as da agenda WPF (Agenda.Situacao.*): pendente âmbar, no local e em
+   atendimento no acento, atendido verde, cancelado e falta vermelho, substituído cinza. As de
+   FAMÍLIA repetem Brush.Modalidade.* — a mesma sessão com a mesma cor em todas as telas. */
+
+/* ---------- As cores por grupo e por família, num lugar só ---------- */
+.rec-dia .grupo-todos{--cor-grupo:var(--cinza-500)}
+.rec-dia .grupo-pendente{--cor-grupo:var(--aviso)}
+.rec-dia .grupo-no-local{--cor-grupo:var(--acento)}
+.rec-dia .grupo-em-atendimento{--cor-grupo:var(--acento)}
+.rec-dia .grupo-atendido{--cor-grupo:var(--sucesso-forte)}
+.rec-dia .grupo-cancelado,.rec-dia .grupo-faltou{--cor-grupo:var(--erro-hover)}
+.rec-dia .grupo-substituido{--cor-grupo:var(--cinza-500)}
+.rec-dia .familia-acupuntura{--cor-familia:var(--acento);--fundo-familia:var(--azul-50)}
+.rec-dia .familia-eletro{--cor-familia:var(--violeta-600);--fundo-familia:var(--violeta-50)}
+.rec-dia .familia-bsv{--cor-familia:var(--teal-600);--fundo-familia:var(--teal-50)}
+.rec-dia .familia-bsv-acupuntura{--cor-familia:var(--ciano-500);--fundo-familia:var(--ciano-100)}
+.rec-dia .familia-consulta{--cor-familia:var(--rosa-600);--fundo-familia:var(--rosa-50)}
+
+/* ---------- A faixa do dia: navegador + pílulas de situação ---------- */
+.rd-dia{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-4)}
+.rd-navegador{display:flex;align-items:center;gap:var(--space-2)}
+.rd-dia-titulo{display:flex;flex-direction:column;align-items:center;min-width:150px}
+.rd-dia-titulo strong{font-size:var(--text-h3-size);font-weight:700;line-height:1.2;white-space:nowrap}
+.rd-data{min-height:0;height:24px;padding:0 var(--space-2);border-color:transparent;background:transparent;
+  color:var(--texto-secundario);font-size:var(--text-small-size);text-align:center;cursor:pointer}
+.rd-data:hover{border-color:var(--borda)}
+.rd-situacoes{display:flex;flex-wrap:wrap;gap:var(--space-2);flex:1;min-width:0}
+.rd-pilula{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 var(--space-3);border-radius:var(--radius-pilula);
+  border:1px solid var(--borda);background:var(--superficie);color:var(--cinza-700);font-weight:500;cursor:pointer;
+  transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.rd-pilula:hover{border-color:var(--borda-hover);background:var(--superficie-hover)}
+.rd-pilula b{font-variant-numeric:tabular-nums;color:var(--texto-primario);font-weight:700}
+.rd-pilula[aria-pressed="true"]{border-color:var(--acento);background:var(--acento-suave);color:var(--acento)}
+.rd-pilula[aria-pressed="true"] b{color:var(--acento)}
+.rd-ponto{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cor-grupo);flex:none}
+.rd-atualizar{margin-left:auto}
+
+/* ---------- Filtros da lista ---------- */
+.rd-filtros{align-items:center}
+.rd-busca{flex:1 1 220px;max-width:320px}
+.rd-combo{width:auto;min-width:200px;max-width:260px}
+
+/* ---------- A lista ---------- */
+.rd-lista{container-type:inline-size}
+.rd-tabela td{vertical-align:middle;padding-top:var(--space-3);padding-bottom:var(--space-3)}
+.rd-tabela tbody tr.rd-linha td:first-child{box-shadow:inset 4px 0 0 var(--cor-grupo)}
+.rd-tabela tbody tr.grupo-em-atendimento td{background:var(--acento-suave)}
+.rd-tabela tr.apagada td{opacity:.72}
+.rd-tabela tr.apagada .rd-avatar{filter:grayscale(1)}
+.rd-col-hora{width:104px}
+.rd-col-prof{width:190px}
+.rd-col-status{width:200px}
+.rd-col-acoes{width:1%}
+.rd-hora{display:block;font-family:var(--font-num);font-size:var(--text-h3-size);font-weight:700;
+  font-variant-numeric:tabular-nums;line-height:1.2;color:var(--texto-primario)}
+.rd-paciente{display:flex;align-items:flex-start;gap:var(--space-3);min-width:0}
+.rd-paciente-texto{display:flex;flex-direction:column;min-width:0;gap:1px}
+.rd-paciente-texto .principal{display:inline;font-size:var(--text-body-size)}
+.rd-paciente-texto .selo{align-self:flex-start;margin:2px 0 0}
+.rd-obs{font-style:italic}
+.rd-selos{display:flex;flex-wrap:wrap;gap:var(--space-1);margin-top:var(--space-1)}
+.rd-selos .selo{margin:0}
+.rd-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;object-fit:cover;
+  background:var(--fundo-familia);color:var(--cor-familia);font-weight:700;font-size:var(--text-small-size);
+  box-shadow:inset 0 0 0 2px var(--cor-familia)}
+.rd-sem-dono{color:var(--aviso-texto);font-weight:600}
+.rd-col-prof .secundario,.rd-col-status .secundario{margin-top:2px}
+.rd-status{display:inline-flex;align-items:center;gap:6px;padding:2px var(--space-2);border-radius:var(--radius-pilula);
+  background:var(--cinza-100);color:var(--texto-primario);font-weight:600;font-size:var(--text-small-size);white-space:nowrap}
+.rd-status.grupo-pendente{background:var(--aviso-suave);color:var(--aviso-texto)}
+.rd-status.grupo-no-local,.rd-status.grupo-em-atendimento{background:var(--acento-suave);color:var(--acento)}
+.rd-status.grupo-atendido{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.rd-status.grupo-cancelado,.rd-status.grupo-faltou{background:var(--erro-suave);color:var(--erro-texto)}
+.rd-so-compacto{display:none}
+
+/* Janela estreita (1024 com a navegação): o profissional desce para debaixo do nome — o dado
+   continua à vista e a largura volta para o nome e as ações. */
+@container (max-width:900px){
+  .rd-col-prof{display:none}
+  .rd-so-compacto{display:block}
+  .rd-col-status{width:160px}
+}
+
+/* ---------- O menu "⋯" da linha ---------- */
+.rd-menu{position:relative;display:inline-flex}
+.rd-menu-lista{position:absolute;right:0;top:calc(100% + 4px);z-index:30;display:flex;flex-direction:column;min-width:260px;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);
+  box-shadow:var(--sombra-popup);padding:var(--space-1);text-align:left}
+.rd-menu-lista button{border:0;background:transparent;text-align:left;padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-pequeno);font-weight:400;color:var(--texto-primario);cursor:pointer;white-space:nowrap}
+.rd-menu-lista button:hover{background:var(--fundo)}
+.rd-menu-lista button.rd-perigo{color:var(--erro-texto)}
+.rd-menu-lista hr{border:0;border-top:1px solid var(--borda);margin:var(--space-1) 0}
+.rd-menu-fundo{position:fixed;inset:0;z-index:25}
+
+/* ---------- Legenda ---------- */
+.rd-legenda{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4)}
+.rd-legenda span{display:inline-flex;align-items:center;gap:6px}
+.rd-legenda-titulo{font-weight:600;color:var(--cinza-700)}
+.rd-legenda-dica{margin-left:auto}
+.rd-amostra{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--cor-familia)}

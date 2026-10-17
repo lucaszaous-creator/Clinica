@@ -18,7 +18,8 @@ namespace Clinica.Application.Servicos;
 /// <param name="ForaDaAgenda">Horário que já passou ou saiu de "Agendado" — não há o que confirmar.</param>
 /// <param name="Falhas">O servidor recusou ou não respondeu; o contato continua pendente.</param>
 public sealed record ResultadoLembretesEmail(
-    DateOnly Dia, bool Desligado, int Enviados, int SemEmail, int JaTratados, int ForaDaAgenda, int Falhas)
+    DateOnly Dia, bool Desligado, int Enviados, int SemEmail, int JaTratados, int ForaDaAgenda, int Falhas,
+    int PorSms = 0)
 {
     public static ResultadoLembretesEmail DesligadoEm(DateOnly dia) => new(dia, true, 0, 0, 0, 0, 0);
 
@@ -35,6 +36,7 @@ public sealed record ResultadoLembretesEmail(
             if (Enviados > 0) partes.Add($"{Enviados} e-mail(s) enviado(s)");
             if (SemEmail > 0) partes.Add($"{SemEmail} sem e-mail no cadastro");
             if (JaTratados > 0) partes.Add($"{JaTratados} já avisado(s)");
+            if (PorSms > 0) partes.Add($"{PorSms} vão por SMS");
             if (Falhas > 0) partes.Add($"{Falhas} FALHA(S) de envio — continuam a enviar");
 
             return partes.Count == 0
@@ -151,7 +153,15 @@ public sealed class LembreteEmailService
 
         var agora = _agora();
         var hoje = DateOnly.FromDateTime(agora);
-        int enviados = 0, semEmail = 0, jaTratados = 0, foraDaAgenda = 0, falhas = 0;
+        int enviados = 0, semEmail = 0, jaTratados = 0, foraDaAgenda = 0, falhas = 0, porSms = 0;
+
+        // Com o SMS ligado (out/2026), o e-mail vira o caminho de BAIXO: quem tem celular
+        // recebe o SMS na hora certa (24h antes), e mandar também o e-mail agora — que sai
+        // na ABERTURA, às vezes três dias antes — faria o contato sair de "pendente" e o
+        // SMS, que é o que a clínica paga para ter, nunca sair. Configurável na tela do SMS.
+        var camposSms = await _parametros.ObterCamposSmsAsync(ct);
+        var smsCobre = camposSms.EmailSoParaQuemNaoTemCelular
+                       && Clinica.Application.Sms.OpcoesSms.De(camposSms) is not null;
 
         foreach (var c in contatos)
         {
@@ -163,6 +173,8 @@ public sealed class LembreteEmailService
                 foraDaAgenda++;
                 continue;
             }
+
+            if (smsCobre && TextoSms.CelularE164(c.Paciente?.Telefone) is not null) { porSms++; continue; }
 
             var email = EnderecoDeEmail.SeValido(c.Paciente?.Email);
             if (email is null) { semEmail++; continue; }
@@ -194,7 +206,7 @@ public sealed class LembreteEmailService
             enviados++;
         }
 
-        return new ResultadoLembretesEmail(dia, false, enviados, semEmail, jaTratados, foraDaAgenda, falhas);
+        return new ResultadoLembretesEmail(dia, false, enviados, semEmail, jaTratados, foraDaAgenda, falhas, porSms);
     }
 
     /// <summary>

@@ -1,0 +1,524 @@
+@*
+  CONFIRMAÇÕES DE AGENDA (out/2026 — migrada do ConfirmacoesView/ConfirmacoesViewModel WPF,
+  e redesenhada para o CANAL DE SMS).
+
+  A pergunta da tela é "quanto da rodada de amanhã já foi avisado, e quem precisa de mim?".
+  O dia numa linha (‹ ›), a barra do que já foi avisado, quatro cartões que contam e FILTRAM,
+  e a tabela com o aviso e a resposta de cada sessão. O que é NOVO é o SMS: a coluna Aviso
+  diz "SMS enviado", a resposta pelo link aparece escrita ("confirmou pelo SMS"), e quem
+  respondeu pelo link que NÃO vai ganha o destaque para LIGAR e remarcar — "não vou" não
+  cancela o horário sozinho (a regra do LembreteSmsService): quem libera a vaga é a recepção.
+
+  Nada de regra aqui: a linha, o placar, o resumo, o recorte e as frases moram em
+  ConfirmacoesNaTela e RodadaDeConfirmacao, na Application, com teste. Os serviços são os
+  MESMOS do WPF (CampanhaService, LembreteEmailService) mais o LembreteSmsService.
+
+  Permissões copiadas do ViewModel WPF: ler sob VerAgenda (o item do menu); gerar, avisar,
+  registrar resposta, remarcar, dispensar e os envios automáticos sob EditarAgenda. "Buscar
+  respostas do SMS" só TRAZ o que o paciente respondeu — sob VerAgenda.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina confirmacoes @(Carregando && _todas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Relacionamento · Confirmações" Titulo="Confirmações de agenda"
+                     Subtitulo="Avisar quem vem: o SMS automático com link de resposta, o e-mail para quem tem endereço, e o WhatsApp da clínica, um clique por paciente.">
+        <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="GerarAsync"
+                title="@(PodeEditar ? "Põe na rodada as sessões do dia que ainda não estão nela. Clicar duas vezes não repete ninguém." : SemAcesso)">
+            <Icone Nome="lista" />Gerar rodada
+        </button>
+        <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="EnviarEmailsAsync"
+                title="@(PodeEditar ? "Manda o lembrete por e-mail a quem ainda não foi avisado e tem e-mail na ficha. O mesmo envio roda sozinho na abertura da Recepção e do Gerente." : SemAcesso)">
+            <Icone Nome="enviar" />Enviar por e-mail a quem tem
+        </button>
+        <button type="button" class="botao primario" disabled="@(!PodeEditar || _placar.NaoAvisados == 0)" @onclick="AvisarProximoAsync"
+                title="Abre o WhatsApp do próximo que falta avisar — um clique por paciente, porque o número é o da clínica.">
+            <Icone Nome="enviar" />@(_placar.NaoAvisados == 0 ? "Todos avisados" : $"Avisar os que faltam · {_placar.NaoAvisados}")
+        </button>
+        <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a rodada"><Icone Nome="atualizar" /></button>
+    </CabecalhoPagina>
+
+    @if (!Pode(Permissao.VerAgenda))
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="Seu acesso não alcança a agenda" Descricao="As confirmações pedem acesso à agenda. Fale com a direção da clínica." Icone="cadeado" />
+        </section>
+    }
+    else
+    {
+        <section class="cartao conf-dia" aria-label="Dia da rodada">
+            <div class="conf-dia-navegar">
+                <button type="button" class="botao fantasma icone" @onclick="() => TrocarDiaAsync(_dia.AddDays(-1))" aria-label="Dia anterior" title="Dia anterior"><Icone Nome="esquerda" /></button>
+                <strong class="conf-dia-titulo">@RodadaDeConfirmacao.TituloDoDia(_dia, Hoje)</strong>
+                <button type="button" class="botao fantasma icone" @onclick="() => TrocarDiaAsync(_dia.AddDays(1))" aria-label="Próximo dia" title="Próximo dia"><Icone Nome="direita" /></button>
+            </div>
+            <input type="date" class="campo conf-dia-data" aria-label="Escolher o dia" value="@_dia.ToString("yyyy-MM-dd")" @onchange="EscolherDataAsync" />
+            @if (_dia != Hoje.AddDays(1))
+            {
+                <button type="button" class="botao fantasma mini" @onclick="() => TrocarDiaAsync(Hoje.AddDays(1))">Amanhã</button>
+            }
+            <div class="conf-progresso" title="Parte da rodada já avisada (dispensados não contam)">
+                <span class="texto-secundario nao-quebra">@_placar.Total sessões</span>
+                <div class="trilho conf-trilho" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@_placar.Percentual" aria-label="Parte da rodada já avisada">
+                    <i style="width:@(_placar.Percentual.ToString(CultureInfo.InvariantCulture))%"></i>
+                </div>
+                <span class="nao-quebra"><b>@_placar.Percentual%</b> avisados</span>
+            </div>
+        </section>
+
+        <section class="cartao conf-sms" aria-label="Canal de SMS">
+            <span class="conf-sms-icone @(_smsLigado ? "ligado" : null)"><Icone Nome="enviar" /></span>
+            <div class="conf-sms-texto">
+                @if (_smsLigado)
+                {
+                    <strong>SMS automático ligado</strong>
+                    <span class="texto-secundario">
+                        @(_placar.PorSms == 1 ? "1 sessão avisada por SMS" : $"{_placar.PorSms} sessões avisadas por SMS")
+                        · @(_placar.RespostasPeloLink == 1 ? "1 respondeu pelo link" : $"{_placar.RespostasPeloLink} responderam pelo link").
+                        As respostas chegam sozinhas a cada poucos minutos.
+                    </span>
+                }
+                else
+                {
+                    <strong>SMS automático desligado</strong>
+                    <span class="texto-secundario">Nenhum lembrete sai por SMS. Escolha o provedor e preencha o token em Relacionamento › Canal de SMS.</span>
+                }
+            </div>
+            <div class="acoes">
+                <button type="button" class="botao" disabled="@(!Pode(Permissao.VerAgenda))" @onclick="BuscarRespostasSmsAsync"
+                        title="Traz agora as respostas que os pacientes deram pelo link do SMS (confirmo / não vou)."><Icone Nome="atualizar" />Buscar respostas do SMS agora</button>
+                <button type="button" class="botao" disabled="@(!PodeEditar || !_smsLigado)" @onclick="RodarSmsAsync"
+                        title="@(!_smsLigado ? "O canal de SMS está desligado." : PodeEditar ? "Manda agora o lembrete das sessões cuja hora chegou. Quem já foi avisado não recebe de novo." : SemAcesso)"><Icone Nome="enviar" />Enviar lembretes por SMS agora</button>
+            </div>
+        </section>
+
+        <section class="conf-placar" aria-label="Placar da rodada — clique para filtrar">
+            @Cartao(SituacaoConfirmacao.Confirmou, "Confirmaram", _placar.Confirmaram, "check", "sucesso")
+            @Cartao(SituacaoConfirmacao.AvisadoSemResposta, "Avisados, sem resposta", _placar.SemResposta, "relogio", "")
+            @Cartao(SituacaoConfirmacao.NaoAvisado, "Ainda não avisados", _placar.NaoAvisados, "alerta", "aviso")
+            @Cartao(SituacaoConfirmacao.PediuRemarcar, "Não vêm / remarcar", _placar.PediramRemarcar, "calendario", "perigo")
+        </section>
+
+        @if (_placar.PediramRemarcar > 0 && _filtro != SituacaoConfirmacao.PediuRemarcar)
+        {
+            <div class="aviso atencao conf-destaque" role="status">
+                <Icone Nome="alerta" />
+                <span><b>@(_placar.PediramRemarcar == 1 ? "1 paciente avisou que não vem ou pediu para remarcar" : $"{_placar.PediramRemarcar} pacientes avisaram que não vêm ou pediram para remarcar")</b>
+                    — ligue, remarque e libere o horário. A resposta pelo SMS não cancela a sessão sozinha.</span>
+                <button type="button" class="botao mini" @onclick="() => Filtrar(SituacaoConfirmacao.PediuRemarcar)">Mostrar quem</button>
+            </div>
+        }
+
+        <section class="cartao lista-cartao">
+            @if (!string.IsNullOrWhiteSpace(_mensagem))
+            {
+                <div class="conf-mensagem"><Aviso Tom="@(_mensagemErro ? "erro" : "info")" Texto="@_mensagem" /></div>
+            }
+
+            @if (_naoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível ler a rodada" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+            }
+            else if (!_carregou)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="240" /></div>
+            }
+            else if (_linhas.Count == 0)
+            {
+                <EstadoVazio Titulo="@(_todas.Count == 0 ? "Nenhuma sessão na rodada deste dia" : "Nenhuma sessão neste recorte")"
+                             Descricao="@(_todas.Count == 0 ? "Gere a rodada para pôr nela as sessões marcadas, ou troque o dia." : "Clique de novo no cartão escolhido para ver a rodada inteira.")"
+                             Icone="@(_todas.Count == 0 ? "calendario" : "filtro")" />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista conf-lista">
+                        <thead>
+                            <tr>
+                                <th style="width:64px">Hora</th>
+                                <th>Paciente</th>
+                                <th>Atendimento</th>
+                                <th>Aviso</th>
+                                <th class="direita">Resposta do paciente</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _linhas)
+                            {
+                                <tr @key="l.ContatoId" class="@(l.Estado == SituacaoConfirmacao.PediuRemarcar ? "conf-nao-vem" : null)">
+                                    <td class="nao-quebra"><b>@l.Quando.ToString("HH:mm", Formato.PtBr)</b></td>
+                                    <td>
+                                        <div class="conf-paciente">
+                                            <span class="avatar conf-avatar" aria-hidden="true">@l.Iniciais</span>
+                                            <div>
+                                                <span class="principal">@l.Paciente</span>
+                                                @if (l.TemTelefone)
+                                                {
+                                                    <span class="secundario nao-quebra">@Clinica.Domain.Telefone.Formatar(l.Telefone)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="secundario conf-sem-telefone">Sem telefone — ligue ou complete a ficha</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span>@l.Atendimento</span>
+                                        <span class="secundario">@l.Profissional</span>
+                                    </td>
+                                    <td>
+                                        <Selo Tom="@(l.Enviado ? (l.PeloSms ? "info" : "") : "neutro")">@l.Aviso</Selo>
+                                        <span class="secundario">@l.Detalhe</span>
+                                    </td>
+                                    <td class="direita">
+                                        @if (l.Respondeu)
+                                        {
+                                            <div class="conf-resposta">
+                                                @if (l.Destaque is { } destaque)
+                                                {
+                                                    <span class="conf-ligar">@destaque</span>
+                                                    <div class="botoes-linha">
+                                                        <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => AbrirAgendaAsync(l)"
+                                                                title="Abre a agenda para remarcar este horário"><Icone Nome="calendario" />Remarcar na agenda</button>
+                                                        <button type="button" class="botao mini icone" disabled="@(!PodeEditar || !l.TemTelefone)" @onclick="() => WhatsappAsync(l, registrar: false)"
+                                                                title="Abrir a conversa no WhatsApp" aria-label="Abrir a conversa no WhatsApp com @l.Paciente"><Icone Nome="enviar" /></button>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <Selo Tom="@TomDaResposta(l)">@l.RespostaTexto</Selo>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="botoes-linha">
+                                                <button type="button" class="botao mini conf-whats" disabled="@(!PodeEditar || !l.TemTelefone)" @onclick="() => WhatsappAsync(l, registrar: true)"
+                                                        title="@(l.TemTelefone ? "Abre o WhatsApp com a mensagem pronta e registra o aviso" : "Sem telefone no cadastro")"><Icone Nome="enviar" />@l.RotuloEnviar</button>
+                                                <button type="button" class="botao mini icone" disabled="@(!PodeEditar)" @onclick="() => ConfirmouAsync(l)"
+                                                        title="Confirmou — o paciente respondeu que vem" aria-label="Registrar que @l.Paciente confirmou"><Icone Nome="check" /></button>
+                                                <button type="button" class="botao mini icone" disabled="@(!PodeEditar)" @onclick="() => RemarcarAsync(l)"
+                                                        title="Remarcar — o paciente pediu: registra a resposta e abre a agenda" aria-label="Registrar que @l.Paciente pediu para remarcar"><Icone Nome="calendario" /></button>
+                                                <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeEditar)" @onclick="() => DispensarAsync(l)"
+                                                        title="Tirar esta sessão da rodada sem avisar (pede o motivo)" aria-label="Dispensar @l.Paciente da rodada"><Icone Nome="cancelar" /></button>
+                                            </div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            @if (_carregou && !_naoVerificado)
+            {
+                <div class="rodape-lista conf-rodape">
+                    <span>@ConfirmacoesNaTela.RecorteTexto(_filtro, _linhas.Count)</span>
+                    <span>@ConfirmacoesNaTela.Resumo(_todas)</span>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const string SemAcesso = "Seu acesso não permite avisar pacientes nem registrar respostas.";
+
+    private DateOnly _dia = DateOnly.FromDateTime(DateTime.Today).AddDays(1);
+    private IReadOnlyList<SessaoDaRodada> _todas = [];
+    private IReadOnlyList<SessaoDaRodada> _linhas = [];
+    private PlacarDaRodada _placar = new(0, 0, 0, 0, 0, 0, 0, 0);
+    private SituacaoConfirmacao? _filtro;
+    private bool _smsLigado;
+    private string? _nomeClinica;
+
+    private string? _mensagem;
+    private bool _mensagemErro;
+
+    private bool Carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>Metade visível; a que impede é o <c>Exigir</c> em cada comando.</summary>
+    private static bool PodeEditar => Pode(Permissao.EditarAgenda);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Volta à aba: relê por trás, sem limpar (a outra máquina pode ter avisado alguém).</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// A rodada do dia, o estado do SMS e o nome da clínica — SEQUENCIAL no mesmo escopo,
+    /// com contador de geração (trocar o dia rápido não pode pôr a rodada de ontem sob o
+    /// título de amanhã) e tudo publicado depois do último await.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        if (!Pode(Permissao.VerAgenda)) return;
+        var geracao = ++_geracao;
+        var dia = _dia;
+        Carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var contatos = await sp.GetRequiredService<CampanhaService>().ContatosAsync(TipoContato.ConfirmacaoSessao, null, dia, dia);
+            var parametros = sp.GetRequiredService<ParametrosService>();
+            var ligado = await parametros.ObterOpcoesSmsAsync() is not null;
+            var nome = _nomeClinica;
+            if (nome is null)
+            {
+                var p = await parametros.ObterPrestadorAsync();
+                nome = LembreteEmailService.NomeDaClinica(p.NomeFantasia, p.RazaoSocial) ?? string.Empty;
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _todas = ConfirmacoesNaTela.Montar(contatos, dia);
+            _smsLigado = ligado;
+            _nomeClinica = nome;
+            _naoVerificado = false;
+            _carregou = true;
+            Publicar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — rodada de confirmação não pôde ser lida", ex);
+            if (silencioso && _carregou) return;
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _todas = [];
+            _linhas = [];
+            _placar = ConfirmacoesNaTela.Placar(_todas);
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>O placar sai da rodada INTEIRA; o cartão escolhido recorta só a tabela.</summary>
+    private void Publicar()
+    {
+        _placar = ConfirmacoesNaTela.Placar(_todas);
+        _linhas = ConfirmacoesNaTela.Recortar(_todas, _filtro);
+    }
+
+    private void Filtrar(SituacaoConfirmacao situacao)
+    {
+        _filtro = _filtro == situacao ? null : situacao;
+        Publicar();
+    }
+
+    private async Task TrocarDiaAsync(DateOnly dia)
+    {
+        _dia = dia;
+        _mensagem = null;
+        await CarregarAsync();
+    }
+
+    private Task EscolherDataAsync(ChangeEventArgs e)
+        => DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d) ? TrocarDiaAsync(d) : Task.CompletedTask;
+
+    private void Dizer(string texto, bool erro)
+    {
+        _mensagem = texto;
+        _mensagemErro = erro;
+    }
+
+    // ==================== a rodada ====================
+
+    /// <summary>Descobre quem tem sessão no dia e cria o contato de cada um. Idempotente.</summary>
+    private async Task GerarAsync()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "gerar a rodada de confirmação")) return;
+        ResultadoCampanha? r = null;
+        if (!await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                r = await escopo.ServiceProvider.GetRequiredService<CampanhaService>().GerarConfirmacoesAsync(_dia);
+            }, "Blazor — rodada de confirmação não pôde ser gerada")) return;
+        await CarregarAsync();
+        Dizer(ConfirmacoesNaTela.ResultadoDaGeracao(r!.Gerados, r.JaExistiam), erro: false);
+    }
+
+    /// <summary>O lembrete por e-mail a quem está pendente e tem endereço — o MESMO serviço da abertura do app.</summary>
+    private async Task EnviarEmailsAsync()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "enviar os lembretes por e-mail")) return;
+        ResultadoLembretesEmail? r = null;
+        if (!await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                r = await escopo.ServiceProvider.GetRequiredService<LembreteEmailService>().EnviarConfirmacoesAsync(_dia);
+            }, "Blazor — lembretes por e-mail não puderam ser enviados")) return;
+        await CarregarAsync();
+        Dizer(r!.Descricao, r.Desligado || r.TeveFalha);
+    }
+
+    /// <summary>Traz as respostas do link do SMS. O serviço nunca lança; devolve quantas chegaram.</summary>
+    private async Task BuscarRespostasSmsAsync()
+    {
+        if (!Exigir(Permissao.VerAgenda, "buscar as respostas do SMS")) return;
+        var recebidas = 0;
+        if (!await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                recebidas = await escopo.ServiceProvider.GetRequiredService<LembreteSmsService>().SincronizarRespostasAsync();
+            }, "Blazor — respostas do SMS não puderam ser buscadas")) return;
+        await CarregarAsync();
+        Dizer(recebidas switch
+        {
+            0 => "Nenhuma resposta nova pelo link do SMS.",
+            1 => "1 resposta recebida pelo link do SMS — ela já está na tabela.",
+            _ => $"{recebidas} respostas recebidas pelo link do SMS — elas já estão na tabela."
+        }, erro: false);
+    }
+
+    /// <summary>Uma rodada do SMS agora (a mesma do relógio). Cada SMS é cobrado — só sai o que ainda não saiu.</summary>
+    private async Task RodarSmsAsync()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "enviar os lembretes por SMS")) return;
+        ResultadoLembretesSms? r = null;
+        if (!await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                r = await escopo.ServiceProvider.GetRequiredService<LembreteSmsService>().RodarAsync();
+            }, "Blazor — lembretes por SMS não puderam ser enviados")) return;
+        await CarregarAsync();
+        Dizer(r!.Descricao, r.Desligado || r.Falhas > 0);
+    }
+
+    // ==================== a linha ====================
+
+    /// <summary>
+    /// Abre o WhatsApp com a mensagem pronta e — quando é o AVISO — registra o envio. Um
+    /// clique por paciente de propósito: o número é o da clínica, e disparo em massa por ali
+    /// leva ao bloqueio. Sem telefone ou sem abrir, NADA é registrado: marcar "avisado" aqui
+    /// faria a rodada dizer que o paciente foi avisado quando ninguém falou com ele.
+    /// </summary>
+    private async Task WhatsappAsync(SessaoDaRodada l, bool registrar)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "avisar o paciente")) return;
+        var link = QuemMeDeveTela.LinkWhatsApp(l.Telefone,
+            MensagensDeContato.ConfirmacaoDeSessao(l.NomeCru, l.Quando, Hoje, string.IsNullOrWhiteSpace(_nomeClinica) ? null : _nomeClinica));
+        if (link is null) { Dizer($"{l.Paciente}: telefone ausente ou inválido no cadastro.", erro: true); return; }
+
+        if (!await Host.AbrirEnderecoAsync(link))
+        {
+            var copiou = await Host.CopiarAsync(link);
+            Notificacoes.Erro(copiou
+                ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador. O aviso NÃO foi registrado."
+                : "Não foi possível abrir o WhatsApp neste computador. O aviso NÃO foi registrado.");
+            return;
+        }
+        if (!registrar) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<CampanhaService>().RegistrarEnvioAsync(l.ContatoId, Operador);
+            }, "Blazor — confirmação não pôde ser registrada", $"Aviso a {l.Paciente} registrado."))
+            await CarregarAsync(silencioso: true);
+    }
+
+    /// <summary>
+    /// "Avisar os que faltam": o WhatsApp do PRÓXIMO não avisado com telefone — continua um
+    /// clique por paciente, só que sem caçar a linha.
+    /// </summary>
+    private async Task AvisarProximoAsync()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "avisar o paciente")) return;
+        if (ConfirmacoesNaTela.Proximo(_todas) is not { } proximo)
+        {
+            Dizer(ConfirmacoesNaTela.SemProximo(_placar.NaoAvisados), erro: true);
+            return;
+        }
+        await WhatsappAsync(proximo, registrar: true);
+    }
+
+    /// <summary>O paciente respondeu que vem — tira a linha da fila de cobrança.</summary>
+    private async Task ConfirmouAsync(SessaoDaRodada l)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "registrar a resposta")) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<CampanhaService>().RegistrarRespostaAsync(l.ContatoId, "confirmou");
+            }, "Blazor — resposta não pôde ser registrada", $"{l.Paciente} confirmou."))
+            await CarregarAsync(silencioso: true);
+    }
+
+    /// <summary>
+    /// O paciente pediu para remarcar: registra a RESPOSTA (entra no cartão "Não vêm /
+    /// remarcar") e leva à agenda, onde se remarca — a MESMA janela do horário das listas da
+    /// agenda, para remarcar não ganhar uma segunda porta com outra regra.
+    /// </summary>
+    private async Task RemarcarAsync(SessaoDaRodada l)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "registrar a resposta")) return;
+        if (!await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<CampanhaService>().RegistrarRespostaAsync(l.ContatoId, RodadaDeConfirmacao.RespostaRemarcar);
+            }, "Blazor — pedido de remarcar não pôde ser registrado")) return;
+        await CarregarAsync(silencioso: true);
+        await AbrirAgendaAsync(l);
+    }
+
+    private async Task AbrirAgendaAsync(SessaoDaRodada l)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "remarcar o horário")) return;
+        var quando = $"{l.Quando.ToString("HH:mm", Formato.PtBr)} de {l.Quando.ToString("dd/MM", Formato.PtBr)}";
+        if (await Host.NavegarAsync("agenda-recepcao"))
+            Notificacoes.Info($"Remarque na agenda o horário de {l.Paciente} ({quando}).");
+        else
+            Notificacoes.Erro($"A agenda não está disponível neste aplicativo — remarque o horário de {l.Paciente} ({quando}) pela Agenda da Recepção.");
+    }
+
+    /// <summary>
+    /// Tira a sessão da rodada SEM avisar. O motivo é obrigatório (o serviço o exige):
+    /// "não mandamos" sem explicação é indistinguível de esquecimento quando alguém conferir.
+    /// </summary>
+    private async Task DispensarAsync(SessaoDaRodada l)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "dispensar a sessão da rodada")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Dispensar da rodada",
+            $"Por que {l.Paciente} ({l.Quando.ToString("HH:mm", Formato.PtBr)}) não será avisado? Ex.: já confirmou pessoalmente, avisou por telefone.");
+        if (motivo is null) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<CampanhaService>().DispensarAsync(l.ContatoId, motivo);
+            }, "Blazor — contato não pôde ser dispensado", $"{l.Paciente} saiu da rodada."))
+            await CarregarAsync(silencioso: true);
+    }
+
+    // ==================== desenho ====================
+
+    private static string TomDaResposta(SessaoDaRodada l) => l.Estado switch
+    {
+        SituacaoConfirmacao.Confirmou => "sucesso",
+        SituacaoConfirmacao.PediuRemarcar => "perigo",
+        _ => "neutro"
+    };
+
+    private RenderFragment Cartao(SituacaoConfirmacao situacao, string rotulo, int numero, string icone, string tom) => @<button type="button"
+        class="cartao conf-cartao @(string.IsNullOrEmpty(tom) ? null : "tom-" + tom)" aria-pressed="@(_filtro == situacao ? "true" : "false")"
+        @onclick="() => Filtrar(situacao)" title="@(_filtro == situacao ? "Clique de novo para ver a rodada inteira" : $"Mostrar só: {rotulo}")">
+        <span class="conf-cartao-icone"><Icone Nome="@icone" /></span>
+        <span class="conf-cartao-texto">
+            <span class="conf-cartao-numero">@numero</span>
+            <span class="conf-cartao-rotulo">@rotulo</span>
+        </span>
+    </button>;
+}

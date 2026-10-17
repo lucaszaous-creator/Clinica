@@ -31,7 +31,11 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         _host = await SuiteApp.IniciarAsync(this, "Recepção", "Recepção — Clínica SemDor", _modulos);
 
-        if (_host is not null) await LembretesPorEmailAsync(_host);
+        if (_host is not null)
+        {
+            await LembretesPorEmailAsync(_host);
+            RelogioDoSms.Iniciar(_host, "Recepção");
+        }
     }
 
     /// <summary>

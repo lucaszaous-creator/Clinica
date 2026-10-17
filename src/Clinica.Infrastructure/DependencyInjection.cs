@@ -147,6 +147,10 @@ public static class DependencyInjection
         // sem estado — ele abre um SmtpClient por envio; as opções vêm do banco a cada
         // rodada, pelo ParametrosService.
         services.AddScoped<LembreteEmailService>();
+        services.AddScoped<LembreteSmsService>();
+        services.AddScoped<PublicoCampanhaSmsService>();
+        services.AddScoped<TendenciaAtendimentosService>();
+        services.AddSingleton<Clinica.Application.Sms.IGatewaySms, Clinica.Application.Sms.GatewaySmsHttp>();
         services.AddSingleton<Clinica.Application.Email.IEnviadorDeEmail, Clinica.Application.Email.EnviadorSmtp>();
         services.AddScoped<AcessoService>();
         services.AddScoped<PrevencaoGlosaService>();

@@ -63,7 +63,7 @@ public class JornadaDoProfissionalTests : IDisposable
         p.JornadaDeclarada.Should().BeFalse();
         p.AtendeEm(DayOfWeek.Sunday).Should().BeTrue();
         p.DentroDoExpediente(Segunda9h, Segunda9h.AddMinutes(30)).Should().BeTrue();
-        p.MinutosDeJornada.Should().BeNull();
+        p.MinutosEm(DayOfWeek.Monday).Should().BeNull();
         p.DescricaoJornada.Should().BeNull();
     }
 
@@ -81,19 +81,19 @@ public class JornadaDoProfissionalTests : IDisposable
         p.DentroDoExpediente(Segunda9h.AddHours(-2), Segunda9h.AddHours(-1).AddMinutes(30)).Should().BeFalse();
         // Terça não é dia dele, mesmo na hora certa.
         p.DentroDoExpediente(Segunda9h.AddDays(1), Segunda9h.AddDays(1).AddMinutes(30)).Should().BeFalse();
-        p.MinutosDeJornada.Should().Be(240);
-        p.DescricaoJornada.Should().Be("seg · qua · sex, das 08:00 às 12:00");
+        p.MinutosEm(DayOfWeek.Monday).Should().Be(240);
+        p.DescricaoJornada.Should().Be("seg · qua · sex 08:00–12:00");
     }
 
     [Fact]
     public void Descricao_diz_todos_os_dias_e_so_o_que_foi_declarado()
     {
         new Profissional { Nome = "A", AtendeDas = Oito, AtendeAte = Doze }
-            .DescricaoJornada.Should().Be("das 08:00 às 12:00");
+            .DescricaoJornada.Should().Be("todos os dias, 08:00–12:00");
         new Profissional { Nome = "A", DiasDeAtendimento = Profissional.TodosOsDias }
-            .DescricaoJornada.Should().Be("todos os dias");
+            .DescricaoJornada.Should().Be("todos os dias, qualquer hora");
         new Profissional { Nome = "A", DiasDeAtendimento = Profissional.BitDe(DayOfWeek.Saturday) }
-            .DescricaoJornada.Should().Be("sáb");
+            .DescricaoJornada.Should().Be("sáb qualquer hora");
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public class JornadaDoProfissionalTests : IDisposable
 
         var avisos = await _agenda.ConflitosAsync(tarde, profissionalId: ana.Id);
         avisos.Should().ContainSingle(c => c.Recurso == RecursoAgenda.Expediente)
-            .Which.Descricao.Should().Contain("Dra. Ana").And.Contain("seg · qua · sex, das 08:00 às 12:00");
+            .Which.Descricao.Should().Contain("Dra. Ana").And.Contain("seg · qua · sex 08:00–12:00");
 
         // Terça às 9h: hora certa, dia errado — o mesmo aviso, pelo outro lado da jornada.
         (await _agenda.ConflitosAsync(Segunda9h.AddDays(1), profissionalId: ana.Id))

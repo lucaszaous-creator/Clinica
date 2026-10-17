@@ -94,6 +94,8 @@ public static class FichaDoBalcao
         {
             var (titulo, quando) = c.Tipo switch
             {
+                TipoContato.ConfirmacaoSessao when RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario) == SituacaoConfirmacao.PediuRemarcar
+                    => ($"Avisou que não vem à sessão de {c.Referencia:dd/MM}", c.RespondidoEm ?? c.EnviadoEm!.Value),
                 TipoContato.ConfirmacaoSessao when c.Status == StatusContato.Respondido
                     => ($"Confirmou a sessão de {c.Referencia:dd/MM}", c.RespondidoEm ?? c.EnviadoEm!.Value),
                 TipoContato.ConfirmacaoSessao => ($"Avisado da sessão de {c.Referencia:dd/MM}", c.EnviadoEm ?? c.RespondidoEm!.Value),
@@ -106,6 +108,7 @@ public static class FichaDoBalcao
                 CanalContato.Email => "E-mail",
                 CanalContato.Telefone => "Ligação",
                 CanalContato.Presencial => "No balcão",
+                CanalContato.Sms => "SMS",
                 _ => "WhatsApp"
             };
             itens.Add(new ItemLinhaDoTempoBalcao(quando, true, titulo,

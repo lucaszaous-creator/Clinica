@@ -116,6 +116,7 @@ public sealed class CartaoAgenda
 
     public bool ConfirmouPresenca => ConfirmacaoRotulo == "Confirmou";
     public bool NaoConfirmou => ConfirmacaoRotulo == "Não confirmou";
+    public bool NaoVem => ConfirmacaoRotulo == RodadaDeConfirmacao.SeloNaoVem;
 
     /// <summary>
     /// A METADE VISÍVEL da permissão, dentro da janela do horário.
@@ -886,7 +887,7 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
     }
 
     /// <summary>A resposta da rodada de confirmação por agendamento — a leitura em LOTE da Fila.</summary>
-    private IReadOnlyDictionary<int, StatusContato> _confirmacoes = new Dictionary<int, StatusContato>();
+    private IReadOnlyDictionary<int, RespostaDeConfirmacao> _confirmacoes = new Dictionary<int, RespostaDeConfirmacao>();
 
     /// <summary>
     /// Lê as confirmações dos horários que vão virar cartão, numa consulta só (set/2026).
@@ -897,13 +898,13 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
     {
         if (horarios.Count == 0)
         {
-            _confirmacoes = new Dictionary<int, StatusContato>();
+            _confirmacoes = new Dictionary<int, RespostaDeConfirmacao>();
             return;
         }
         try
         {
             var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
-            var lidas = await repo.ConfirmacoesDosAgendamentosAsync(horarios.Select(a => a.Id).ToList());
+            var lidas = await repo.RespostasDeConfirmacaoAsync(horarios.Select(a => a.Id).ToList());
             if (geracao != _geracaoCarga) return;
             _confirmacoes = lidas;
         }
@@ -912,19 +913,14 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — confirmações da agenda não puderam ser lidas", ex);
             if (geracao != _geracaoCarga) return;
-            _confirmacoes = new Dictionary<int, StatusContato>();
+            _confirmacoes = new Dictionary<int, RespostaDeConfirmacao>();
         }
     }
 
     /// <summary>A MESMA regra da Fila: só em AGUARDANDO, e só o que a rodada afirmou.</summary>
     private string Confirmacao(Agendamento a)
-        => a.Etapa == EtapaFila.Aguardando && _confirmacoes.TryGetValue(a.Id, out var status)
-            ? status switch
-            {
-                StatusContato.Respondido => "Confirmou",
-                StatusContato.Enviado => "Não confirmou",
-                _ => string.Empty
-            }
+        => a.Etapa == EtapaFila.Aguardando && _confirmacoes.TryGetValue(a.Id, out var resposta)
+            ? RodadaDeConfirmacao.SeloDaLista(resposta)
             : string.Empty;
 
     /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
@@ -1124,8 +1120,9 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
 
         var todos = Colunas.SelectMany(c => c.Horarios).ToList();
 
-        var inicio = ProfissionalDoFiltro?.AtendeDas ?? AberturaPadrao;
-        var fim = ProfissionalDoFiltro?.AtendeAte ?? FechamentoPadrao;
+        var limites = ProfissionalDoFiltro?.LimitesEm(Dia.DayOfWeek);
+        var inicio = limites?.Abre ?? AberturaPadrao;
+        var fim = limites?.Fecha ?? FechamentoPadrao;
         foreach (var c in todos)
         {
             var comeco = TimeOnly.FromDateTime(c.DataHora);
@@ -1640,11 +1637,12 @@ public sealed partial class AgendaViewModel : ObservableObject, Clinica.Desktop.
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "configurar horários e travas");
-            var vm = new HorariosProfissionalViewModel(_escopos)
-            { ProfissionalPreferidoId = ProfissionalEmFocoId, FecharAgendaCommand = FecharAgendaCommand };
-            await vm.CarregarAsync();
-            new Janelas.HorariosProfissionalWindow(vm) { Owner = Dono() }.ShowDialog();
-            if (vm.Alterou) await CarregarAsync();
+            // Out/2026: o horário de atendimento tem UM editor — o de Profissionais e salas
+            // (faixas por dia). A janela WPF de um horário só para a semana inteira saiu: ela
+            // apagaria as faixas de quem atende manhã e tarde em dias diferentes.
+            if (!NavegacaoSuite.Ir(Modulo.ModuloRecepcao.ChaveEquipe))
+                Mensagem = "Os horários de atendimento ficam em Profissionais e salas — peça acesso a essa tela.";
+            await Task.CompletedTask;
         }
         catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }

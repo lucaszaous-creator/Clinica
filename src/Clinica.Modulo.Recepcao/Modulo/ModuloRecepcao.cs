@@ -135,6 +135,10 @@ public sealed class ModuloRecepcao : IModuloApp
     /// (Operações da agenda, Gestão e o Marketing do Gerente). Uma porta, três abas.
     /// </summary>
     public const string ChaveGrupoRelacionamento = "relacionamento";
+
+    /// <summary>Canal de SMS (out/2026): configuração, teste, histórico e campanha
+    /// (docs/canal-sms.md). Aba de Relacionamento.</summary>
+    public const string ChaveCanalSms = "canal-sms";
     public string Nome => "Recepção";
 
     // A permiss\u00E3o exigida por item entrou na parcela 5: quem n\u00E3o a tem n\u00E3o v\u00EA o item
@@ -285,7 +289,8 @@ public sealed class ModuloRecepcao : IModuloApp
                 new AbaMenu("Acompanhamento", ChaveRetorno),
                 // Os pedidos da enfermagem (out/2026, pedido da clínica): a recepção os
                 // atende como atende o paciente que liga — é conversa, não agenda.
-                new AbaMenu("Pedidos da enfermagem", ChavesSuite.PedidosEnfermagem)
+                new AbaMenu("Pedidos da enfermagem", ChavesSuite.PedidosEnfermagem),
+                new AbaMenu("Canal de SMS", ChaveCanalSms)
             ]
         },
         new ItemMenuModulo
@@ -433,6 +438,13 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveRetornosAMarcar, Rotulo = "Retornos a marcar", Glifo = "\uE823", Icone = "volta",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerAgenda
         },
+        // Canal de SMS: leitura sob VerAgenda; configurar, rodar e campanha têm o bit
+        // próprio dentro da tela (as duas barreiras).
+        new ItemMenuModulo
+        {
+            Chave = ChaveCanalSms, Rotulo = "Canal de SMS", Glifo = "\uE8BD", Icone = "mega",
+            Grupo = GrupoSidebar.Relacionamento, Requer = Permissao.VerAgenda
+        },
         // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
         // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a
         // Direção está carregada.
@@ -457,7 +469,6 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
-        servicos.AddTransient<ConfirmacoesViewModel>();
         servicos.AddTransient<IFichaAdministrativaPaciente, FichaAdministrativaPaciente>();
         servicos.AddTransient<IFabricaListaPacientes, FabricaListaPacientes>();
         // A ponte agenda → novo atendimento (parcela 70): singleton de UM pedido de
@@ -465,21 +476,20 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<PreenchimentoNovoAtendimento>();
         servicos.AddSingleton<PedidoAgenda>();
 
-        servicos.AddTransient<PainelViewModel>();
         servicos.AddTransient<PagamentosViewModel>();
         servicos.AddTransient<AgendaViewModel>();
-        servicos.AddTransient<DocumentosViewModel>();
-        servicos.AddTransient<FilaViewModel>();
         servicos.AddTransient<PacientesViewModel>();
-        servicos.AddTransient<NovoAtendimentoViewModel>();
-        servicos.AddTransient<ConsultasViewModel>();
-        servicos.AddTransient<LancamentosViewModel>();
         servicos.AddTransient<RetornosAMarcarViewModel>();
         // O Acompanhamento de pacientes é tela BLAZOR desde out/2026 (docs/relacionamento-blazor.md):
         // a hospedagem é a MESMA do Financeiro e do Faturamento (um navegador por janela,
         // idempotente), e o "Marcar horário" dela chega à aba Marcar pela ponte desta Recepção.
         servicos.AddHospedagemBlazor();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IMarcacaoDeHorario, MarcacaoDaRecepcao>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao, BalcaoDaRecepcao>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaAgenda, JanelasDaAgendaWpf>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, DocumentosDaRecepcaoWpf>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral, AgendaDaVisaoGeral>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento, JanelasDoAtendimentoWpf>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
         // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
@@ -487,48 +497,28 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<PacotesViewModel>();
         servicos.AddTransient<PrecosParticularViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
-        servicos.AddTransient<EquipeViewModel>();
         // Os ViewModels de formulário (agendamento, lista de espera, profissional,
         // sala, paciente, evolução) são construídos à mão pelas telas: cada janela abre
         // com o formulário limpo e, quando é edição, precisa receber o id no construtor.
     }
 
-    /// <summary>
-    /// As duas abas do "Atendimento" sobre o MESMO ViewModel, com o modo fixado ANTES de a
-    /// tela aparecer — o rádio QUANDO da parcela 70 virou a escolha da aba (set/2026).
-    /// </summary>
-    private static NovoAtendimentoView NovoAtendimento(IServiceProvider servicos, bool marcar)
-    {
-        var vm = servicos.GetRequiredService<NovoAtendimentoViewModel>();
-        vm.FixarModo(marcar);
-        return new NovoAtendimentoView { DataContext = vm };
-    }
-
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
-        ChavesSuite.OcupacaoAgenda => new OcupacaoAgendaView(servicos),
-        ChavesSuite.PedidosEnfermagem => new PedidosEnfermagemView(servicos),
-        ChaveConfirmacoes => new ConfirmacoesView { DataContext = servicos.GetRequiredService<ConfirmacoesViewModel>() },
-        ChavePagamentos => new PagamentosView
-        {
-            DataContext = servicos.GetRequiredService<PagamentosViewModel>()
-        },
-        ChavePainel => new PainelView { DataContext = servicos.GetRequiredService<PainelViewModel>() },
+        ChavesSuite.OcupacaoAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.VisaoGeralDaAgenda), servicos),
+        ChavesSuite.PedidosEnfermagem => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PedidosDaEnfermagem), servicos),
+        ChaveConfirmacoes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConfirmacoesDeAgenda), servicos),
+        ChaveCanalSms => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CanalDeSms), servicos),
+        ChavePagamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PagamentosDoBalcao), servicos),
+        ChavePainel => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.InicioRecepcao), servicos),
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
-        ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
-        // A lista de Pacientes do BALCÃO abre a ficha do balcão (out/2026, mockup "4 · Ficha");
-        // o Prontuário e o Consultório, que reusam a mesma lista, continuam na ficha clínica.
-        ChavePacientes => new PacientesView { DataContext = ComFichaDoBalcao(servicos.GetRequiredService<PacientesViewModel>()) },
-        ChaveMarcarHorario => NovoAtendimento(servicos, marcar: true),
-        ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
-        ChaveLancamentos => new LancamentosView
-        {
-            DataContext = servicos.GetRequiredService<LancamentosViewModel>()
-        },
-        ChaveRetornosAMarcar => new RetornosAMarcarView
-        {
-            DataContext = servicos.GetRequiredService<RetornosAMarcarViewModel>()
-        },
+        ChaveFila => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AgendaDoDia), servicos),
+        // A lista de Pacientes do BALCÃO é Blazor (out/2026); o Prontuário e o Consultório,
+        // que reusam a lista WPF pela `IFabricaListaPacientes`, continuam na ficha clínica.
+        ChavePacientes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PacientesDoBalcao), servicos),
+        ChaveMarcarHorario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MarcarAtendimento), servicos),
+        ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
+        ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
+        ChaveRetornosAMarcar => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RetornosAMarcar), servicos),
         ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
         ChaveSalaInfusao => new SalaInfusaoView
         {
@@ -552,21 +542,10 @@ public sealed class ModuloRecepcao : IModuloApp
             DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
         },
         ChaveProntuario => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(secao: 3),
-        ChaveDocumentos => new DocumentosView { DataContext = servicos.GetRequiredService<DocumentosViewModel>() },
-        ChaveEquipe => new EquipeView { DataContext = servicos.GetRequiredService<EquipeViewModel>() },
+        ChaveDocumentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao), servicos),
+        ChaveEquipe => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProfissionaisESalas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
         ChaveAjuda => new AjudaView(),
         _ => null
     };
-
-    private static PacientesViewModel ComFichaDoBalcao(PacientesViewModel vm)
-    {
-        vm.AbrirFichaDoBalcao = true;
-        // A tela ABRE no recorte de quem tem horário hoje (out/2026 — o cliente: a abertura
-        // "vazia, só com a busca" ficou feia e caducada). É quem o balcão procura primeiro,
-        // e a consulta é pequena (o dia, não o cadastro): o cadastro inteiro continua sendo
-        // PEDIDO, pelo "Ver todas".
-        vm.IniciarComRecorte(Clinica.Application.Modelos.FiltroListaPacientes.ComHorarioHoje);
-        return vm;
-    }
 }

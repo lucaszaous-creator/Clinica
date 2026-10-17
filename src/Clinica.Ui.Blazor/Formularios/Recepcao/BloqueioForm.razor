@@ -1,0 +1,170 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  FECHAR A AGENDA (o que no WPF era a BloqueioWindow / BloqueioEdicaoViewModel): férias,
+  feriado, congresso, folga, sala em manutenção.
+
+  - Sem profissional e sem sala = a CLÍNICA INTEIRA (feriado). É o padrão porque é o caso que
+    mais aparece — e escolher errado é o erro mais caro: um feriado cadastrado como folga de
+    uma pessoa deixa a agenda dos outros aberta. A frase do alvo diz, por extenso, o que vai
+    ser fechado ANTES do clique.
+  - Bloquear NÃO desmarca ninguém: quem já estava marcado dentro volta para a tela, que o
+    mostra num diálogo (não numa notificação de 4 segundos).
+  - O Salvar aceita EditarAgenda OU GerenciarEquipe: são duas portas (a barra da Agenda e
+    esta tela), e a guarda é a UNIÃO dos bits delas (parcela 69).
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Fechar a agenda" Largura="medio" AoFechar="AoFechar"
+       Subtitulo="A agenda passa a AVISAR quem marcar no período — e, para o profissional com a trava ligada, RECUSA. Ninguém já marcado é desmarcado.">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="220" />
+        }
+        else
+        {
+            <Campo Rotulo="Motivo" Obrigatorio="true"
+                   Dica="Em dezembro ninguém lembra por que aquela terça está fechada, e o horário se perde por medo de mexer.">
+                <input class="campo" @bind="_motivo" @bind:event="oninput" maxlength="200" placeholder="Ex.: Férias, Feriado — Finados, Congresso" />
+            </Campo>
+
+            <label class="alternar"><input type="checkbox" checked="@_diaInteiro" @onchange="TrocarDiaInteiro" /> Dia inteiro</label>
+
+            <div class="campos">
+                <Campo Rotulo="De"><input type="date" class="campo" @bind="_inicioDia" /></Campo>
+                @if (!_diaInteiro) { <Campo Rotulo="Hora"><input type="time" class="campo" @bind="_inicioHora" /></Campo> }
+                <Campo Rotulo="Até"><input type="date" class="campo" @bind="_fimDia" /></Campo>
+                @if (!_diaInteiro) { <Campo Rotulo="Hora"><input type="time" class="campo" @bind="_fimHora" /></Campo> }
+            </div>
+
+            <div class="secao-form">
+                <h3>De quem</h3>
+                <div class="campos">
+                    <Campo Rotulo="Profissional" Dica="Em branco = todos os profissionais.">
+                        <select class="campo" value="@(_profissionalId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)"
+                                @onchange="e => _profissionalId = int.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                            <option value="">(todos)</option>
+                            @foreach (var p in _profissionais) { <option value="@p.Id">@p.Nome</option> }
+                        </select>
+                    </Campo>
+                    <Campo Rotulo="Sala" Dica="Em branco = todas as salas.">
+                        <select class="campo" value="@(_salaId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)"
+                                @onchange="e => _salaId = int.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                            <option value="">(todas)</option>
+                            @foreach (var s in _salas) { <option value="@s.Id">@s.Nome</option> }
+                        </select>
+                    </Campo>
+                </div>
+                <Aviso Tom="@(_profissionalId is null && _salaId is null ? "atencao" : "info")" Texto="@Alvo" />
+            </div>
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_salvando || _carregando || !PodeSalvar)"
+                title="@(PodeSalvar ? null : "Seu acesso não permite fechar a agenda.")">
+            <Icone Nome="calendario" />@(_salvando ? "Gravando…" : "Fechar a agenda")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Pré-escolhido pela linha que abriu o formulário (nulo = clínica inteira).</summary>
+    [Parameter] public int? ProfissionalId { get; set; }
+    [Parameter] public int? SalaId { get; set; }
+    /// <summary>Recebe quem já estava marcado dentro ("dd/MM HH:mm — paciente com fulano").</summary>
+    [Parameter] public EventCallback<IReadOnlyList<string>> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _motivo, _mensagem;
+    private bool _diaInteiro = true, _carregando = true, _salvando;
+    private DateOnly _inicioDia = DateOnly.FromDateTime(DateTime.Today), _fimDia = DateOnly.FromDateTime(DateTime.Today);
+    private TimeOnly _inicioHora = new(8, 0), _fimHora = new(18, 0);
+    private int? _profissionalId, _salaId;
+    private List<Profissional> _profissionais = [];
+    private List<Sala> _salas = [];
+
+    private static bool PodeSalvar => SessaoUsuario.Atual.PodeAlgum(Permissao.EditarAgenda | Permissao.GerenciarEquipe);
+
+    private string Alvo
+    {
+        get
+        {
+            var p = _profissionais.FirstOrDefault(x => x.Id == _profissionalId)?.Nome;
+            var s = _salas.FirstOrDefault(x => x.Id == _salaId)?.Nome;
+            return (p, s) switch
+            {
+                (null, null) => "Vai fechar a agenda da CLÍNICA INTEIRA — é assim que se cadastra feriado. Para a folga de uma pessoa, escolha o profissional.",
+                (not null, null) => $"Vai fechar só a agenda de {p}.",
+                (null, not null) => $"Vai fechar só a sala {s}.",
+                _ => $"Vai fechar a agenda de {p} na sala {s}."
+            };
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _profissionalId = ProfissionalId;
+        _salaId = SalaId;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var equipe = escopo.ServiceProvider.GetRequiredService<EquipeService>();
+            _profissionais = (await equipe.ProfissionaisAtivosAsync()).ToList();
+            _salas = (await equipe.SalasAtivasAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — equipe não pôde ser carregada para o bloqueio", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _carregando = false; }
+    }
+
+    /// <summary>Dia inteiro é o caso comum (férias, feriado): a hora vira 00:00–23:59.</summary>
+    private void TrocarDiaInteiro(ChangeEventArgs e) => _diaInteiro = e.Value is true;
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando || _carregando) return;
+        _mensagem = null;
+        if (!SessaoUsuario.Atual.PodeAlgum(Permissao.EditarAgenda | Permissao.GerenciarEquipe))
+        {
+            _mensagem = "Seu acesso não permite fechar a agenda. Fale com a direção da clínica.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_motivo))
+        {
+            _mensagem = "Diga por que a agenda está fechada — bloqueio sem motivo vira mistério na agenda do mês que vem.";
+            return;
+        }
+        var inicio = _inicioDia.ToDateTime(_diaInteiro ? TimeOnly.MinValue : _inicioHora);
+        var fim = _fimDia.ToDateTime(_diaInteiro ? new TimeOnly(23, 59) : _fimHora);
+        if (fim <= inicio)
+        {
+            _mensagem = "O fim do bloqueio precisa ser depois do início.";
+            return;
+        }
+
+        try
+        {
+            _salvando = true;
+            BloqueioComAgenda resultado;
+            using (var escopo = Escopos.CreateScope())
+                resultado = await escopo.ServiceProvider.GetRequiredService<BloqueioAgendaService>().CriarAsync(
+                    inicio, fim, _motivo!, profissionalId: _profissionalId, salaId: _salaId,
+                    operador: SessaoUsuario.Atual.Operador);
+            IReadOnlyList<string> marcados = resultado.JaMarcados.Select(a =>
+                $"{a.DataHora:dd/MM HH:mm} — {a.Paciente?.Nome ?? "(paciente removido)"}"
+                + (a.Profissional?.Rotulo is { } quem ? $" com {quem}" : string.Empty)).ToList();
+            await AoConcluir.InvokeAsync(marcados);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — agenda não pôde ser fechada", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _salvando = false; }
+    }
+}

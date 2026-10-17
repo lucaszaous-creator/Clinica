@@ -19,6 +19,14 @@ public interface IMarcacaoDeHorario
     /// Falso = a agenda não está disponível neste aplicativo, e nada ficou pendurado.
     /// </summary>
     Task<bool> MarcarAsync(int pacienteId, int? profissionalId, string? modalidadeCodigo);
+
+    /// <summary>
+    /// Marcação já num DIA (out/2026, "Retornos a marcar": a data sugerida por quem atendeu).
+    /// O padrão cai na marcação sem dia — abre em hoje e a recepção troca a data; quem
+    /// hospeda e sabe pré-preencher o dia (a ponte da Recepção) sobrescreve este método.
+    /// </summary>
+    Task<bool> MarcarAsync(int pacienteId, int? profissionalId, string? modalidadeCodigo, DateOnly dia)
+        => MarcarAsync(pacienteId, profissionalId, modalidadeCodigo);
 }
 
 /// <summary>A marcação de onde não há agenda: responde "não disponível", e a tela diz.</summary>

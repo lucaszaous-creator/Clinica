@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using Clinica.Application.Abstracoes;
 using Clinica.Domain.Entities;
 
@@ -42,7 +43,7 @@ public static class VaosDaAgenda
         DateTime agora,
         int passoMinutos = Agendamento.DuracaoPadraoMinutos)
     {
-        if (profissional.AtendeDas is not { } das || profissional.AtendeAte is not { } ate || ate <= das) return [];
+        if (!profissional.JornadaDeclarada) return [];
         if (passoMinutos <= 0) passoMinutos = Agendamento.DuracaoPadraoMinutos;
 
         var dele = horarios.Where(h => h.Ocupa && h.ProfissionalId == profissional.Id).ToList();
@@ -52,22 +53,24 @@ public static class VaosDaAgenda
         for (var dia = inicio; dia <= fim; dia = dia.AddDays(1))
         {
             if (dia < DateOnly.FromDateTime(agora)) continue;
-            if (!BuscaDeVagas.AtendeNoDia(profissional, dia.DayOfWeek)) continue;
-
-            var abre = dia.ToDateTime(das);
-            var fecha = dia.ToDateTime(ate);
-            DateTime? comeco = null;
-            var fimLivre = abre;
-            for (var t = abre; t.AddMinutes(passoMinutos) <= fecha; t = t.AddMinutes(passoMinutos))
+            // Vão livre só existe dentro de horário DECLARADO: sem faixa no dia não há o que medir.
+            foreach (var faixa in profissional.FaixasEm(dia.DayOfWeek) ?? [])
             {
-                var fimTrecho = t.AddMinutes(passoMinutos);
-                var livre = fimTrecho > agora
-                            && !dele.Any(h => h.Inicio < fimTrecho && h.Fim > t)
-                            && !fechamentos.Any(b => b.ColideCom(t, fimTrecho));
-                if (livre) { comeco ??= t; fimLivre = fimTrecho; }
-                else if (comeco is { } c) { vaos.Add(new VaoLivre(dia, c, t)); comeco = null; }
+                var abre = dia.ToDateTime(faixa.Inicio);
+                var fecha = dia.ToDateTime(faixa.Fim);
+                DateTime? comeco = null;
+                var fimLivre = abre;
+                for (var t = abre; t.AddMinutes(passoMinutos) <= fecha; t = t.AddMinutes(passoMinutos))
+                {
+                    var fimTrecho = t.AddMinutes(passoMinutos);
+                    var livre = fimTrecho > agora
+                                && !dele.Any(h => h.Inicio < fimTrecho && h.Fim > t)
+                                && !fechamentos.Any(b => b.ColideCom(t, fimTrecho));
+                    if (livre) { comeco ??= t; fimLivre = fimTrecho; }
+                    else if (comeco is { } c) { vaos.Add(new VaoLivre(dia, c, t)); comeco = null; }
+                }
+                if (comeco is { } aberto) vaos.Add(new VaoLivre(dia, aberto, fimLivre));
             }
-            if (comeco is { } aberto) vaos.Add(new VaoLivre(dia, aberto, fimLivre));
         }
         return vaos;
     }
@@ -86,8 +89,9 @@ public static class VaosDaAgenda
         var dias = new List<DiaFechado>();
         for (var dia = inicio; dia <= fim; dia = dia.AddDays(1))
         {
-            var abre = dia.ToDateTime(profissional?.AtendeDas ?? Agendamento.AberturaPadraoGrade);
-            var fecha = dia.ToDateTime(profissional?.AtendeAte ?? Agendamento.FechamentoPadraoGrade);
+            var limites = profissional?.LimitesEm(dia.DayOfWeek);
+            var abre = dia.ToDateTime(limites?.Abre ?? Agendamento.AberturaPadraoGrade);
+            var fecha = dia.ToDateTime(limites?.Fecha ?? Agendamento.FechamentoPadraoGrade);
             if (fecha <= abre) continue;
             var que = profissional is null
                 ? bloqueios.Where(b => b.DaClinica)

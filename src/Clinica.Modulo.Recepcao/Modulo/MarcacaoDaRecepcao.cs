@@ -18,16 +18,25 @@ namespace Clinica.Recepcao.Modulo;
 public sealed class MarcacaoDaRecepcao(PreenchimentoNovoAtendimento ponte) : IMarcacaoDeHorario
 {
     public Task<bool> MarcarAsync(int pacienteId, int? profissionalId, string? modalidadeCodigo)
+        => MarcarAsync(pacienteId, profissionalId, modalidadeCodigo, DateOnly.FromDateTime(DateTime.Today));
+
+    /// <summary>
+    /// Com o DIA (o retorno sugerido): a data que chega no passado vira HOJE — pré-preencher
+    /// uma data passada faria o formulário abrir recusando (a regra da tela WPF dos Retornos).
+    /// </summary>
+    public Task<bool> MarcarAsync(int pacienteId, int? profissionalId, string? modalidadeCodigo, DateOnly dia)
     {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var data = (dia < hoje ? hoje : dia).ToDateTime(TimeOnly.MinValue);
         var despachante = System.Windows.Application.Current?.Dispatcher;
-        if (despachante is null || despachante.CheckAccess()) return Task.FromResult(Marcar(pacienteId, profissionalId, modalidadeCodigo));
-        return despachante.InvokeAsync(() => Marcar(pacienteId, profissionalId, modalidadeCodigo)).Task;
+        if (despachante is null || despachante.CheckAccess()) return Task.FromResult(Marcar(pacienteId, profissionalId, modalidadeCodigo, data));
+        return despachante.InvokeAsync(() => Marcar(pacienteId, profissionalId, modalidadeCodigo, data)).Task;
     }
 
-    private bool Marcar(int pacienteId, int? profissionalId, string? modalidadeCodigo)
+    private bool Marcar(int pacienteId, int? profissionalId, string? modalidadeCodigo, DateTime data)
     {
         if (!NavegacaoSuite.Existe(ModuloRecepcao.ChaveMarcarHorario)) return false;
-        ponte.Definir(new PedidoNovoAtendimento(true, DateTime.Today, profissionalId, null, pacienteId, ModalidadeCodigo: modalidadeCodigo));
+        ponte.Definir(new PedidoNovoAtendimento(true, data, profissionalId, null, pacienteId, ModalidadeCodigo: modalidadeCodigo));
         if (NavegacaoSuite.Ir(ModuloRecepcao.ChaveMarcarHorario)) return true;
         ponte.Consumir(); // não deixa o pedido pendurado
         return false;

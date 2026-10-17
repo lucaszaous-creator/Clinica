@@ -124,6 +124,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<DocumentoFinanceiro> DocumentosFinanceiros => Set<DocumentoFinanceiro>();
     public DbSet<ItemDocumentoFinanceiro> ItensDocumentoFinanceiro => Set<ItemDocumentoFinanceiro>();
     public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
+    public DbSet<MensagemSms> MensagensSms => Set<MensagemSms>();
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
     public DbSet<OperacaoAssinaturaTablet> OperacoesAssinaturaTablet => Set<OperacaoAssinaturaTablet>();
     public DbSet<SessaoTablet> SessoesTablet => Set<SessaoTablet>();
@@ -491,6 +492,9 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Email).HasMaxLength(120);
             e.Property(p => p.Cor).HasMaxLength(9);
             e.Property(p => p.Observacoes).HasMaxLength(500);
+            // Faixas por dia (out/2026): "1=08:00-12:00,14:00-18:00;…" — sete dias com três
+            // faixas cabem com folga em 400.
+            e.Property(p => p.HorariosAtendimento).HasMaxLength(400);
             e.Ignore(p => p.Rotulo);
             e.HasIndex(p => p.Nome);
         });
@@ -554,11 +558,16 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Observacoes).HasMaxLength(400);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.ModalidadeCodigo).IsRequired().HasMaxLength(60).HasDefaultValue(string.Empty);
+            e.Property(x => x.EspecialidadeCodigo).IsRequired().HasMaxLength(60).HasDefaultValue(string.Empty);
+            e.Ignore(x => x.Segmentada);
 
             e.HasOne(x => x.Profissional).WithMany()
                 .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.Cascade);
 
-            e.HasIndex(x => new { x.Ano, x.Mes, x.Indicador, x.ProfissionalId }).IsUnique();
+            // O segmento entra na chave (out/2026): a meta de acupuntura e a de BSV do mesmo
+            // mês são duas perguntas, e a chave antiga as faria uma só.
+            e.HasIndex(x => new { x.Ano, x.Mes, x.Indicador, x.ProfissionalId, x.ModalidadeCodigo, x.EspecialidadeCodigo }).IsUnique();
         });
 
         // Teto de gasto por categoria e mês. Índice único pela mesma razão da meta: dois
@@ -1695,6 +1704,38 @@ public class ClinicaDbContext : DbContext
 
             e.Ignore(x => x.Classe);
             e.Ignore(x => x.Encerrado);
+
+            // O token do link do SMS (out/2026). Índice filtrado: só os que têm token, e é
+            // por eles que a sincronização das respostas pergunta.
+            e.Property(x => x.TokenResposta).HasMaxLength(20);
+            e.HasIndex(x => x.TokenResposta).HasFilter("\"TokenResposta\" IS NOT NULL");
+        });
+
+        // O SMS que saiu (out/2026). A chave de idempotência ÚNICA é a regra que impede duas
+        // máquinas de mandar — e cobrar — o mesmo SMS duas vezes.
+        b.Entity<MensagemSms>(e =>
+        {
+            e.ToTable("MensagensSms");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Finalidade).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.ChaveIdempotencia).IsRequired().HasMaxLength(80);
+            e.Property(x => x.Telefone).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Texto).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.IdNoProvedor).HasMaxLength(120);
+            e.Property(x => x.Erro).HasMaxLength(400);
+            e.Property(x => x.EnviadaPor).HasMaxLength(80);
+            e.Property(x => x.CriadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EnviadaEm).HasColumnType("timestamp without time zone");
+
+            // Paciente apagado (só ficha sem registro clínico pode sê-lo) leva o vínculo a
+            // nulo, não a linha: o SMS foi cobrado e aconteceu.
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.ChaveIdempotencia).IsUnique();
+            e.HasIndex(x => x.CriadaEm);
+            e.Ignore(x => x.PodeRetentar);
         });
 
         b.Entity<UsuarioSistema>(e =>

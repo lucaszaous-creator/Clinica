@@ -1,0 +1,35 @@
+/* Estilo próprio da tela (metas). Só tokens — ver docs/telas-blazor.md. */
+/* A régua do ano: doze meses, a contagem de metas de cada um. O mês em foco tem o acento. */
+.metas-ano{display:flex;align-items:stretch;gap:var(--space-1);padding:var(--space-2) var(--space-3);
+  margin-bottom:var(--space-4);overflow-x:auto}
+.metas-ano-rotulo{display:flex;align-items:center;padding:0 var(--space-3) 0 var(--space-1);font-weight:600;
+  color:var(--texto-secundario);font-family:var(--font-num)}
+.metas-ano-mes{flex:1 1 0;min-width:52px;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:6px 4px;border:1px solid transparent;border-radius:var(--radius-control);background:transparent;
+  cursor:pointer;color:var(--texto-primario);font:inherit}
+.metas-ano-mes span{font-size:var(--text-small-size);color:var(--texto-secundario);text-transform:capitalize}
+.metas-ano-mes b{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:var(--text-body-size)}
+.metas-ano-mes.vazio b{color:var(--texto-secundario);font-weight:400}
+.metas-ano-mes:hover{background:var(--superficie-hover)}
+.metas-ano-mes.ativo{border-color:var(--acento);background:var(--acento-suave)}
+.metas-ano-mes.ativo span{color:var(--acento)}
+
+/* Tabela: a coluna do realizado leva a barra de progresso e o marcador da projeção. */
+.metas-corta{display:block;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metas-col-progresso{width:220px}
+.metas-progresso{display:flex;flex-direction:column;gap:6px}
+.metas-trilho{position:relative;overflow:visible}
+.metas-trilho > i{background:var(--acento)}
+.metas-trilho.batida > i{background:var(--sucesso)}
+.metas-trilho.risco > i{background:var(--aviso)}
+.metas-trilho.abaixo > i{background:var(--erro)}
+.metas-projecao{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:1px;
+  background:var(--texto-primario)}
+.metas-tabela td .selo{margin-left:0;white-space:normal}
+.meta-chave{margin-bottom:var(--space-2)}
+.meta-chave dd{text-align:left}
+
+@media (max-width:1100px){
+  .metas-col-progresso{width:160px}
+  .metas-corta{max-width:150px}
+}

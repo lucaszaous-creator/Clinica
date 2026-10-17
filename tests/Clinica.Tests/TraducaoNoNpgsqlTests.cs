@@ -833,4 +833,26 @@ public class TraducaoNoNpgsqlTests
 
         sql.Should().Contain("\"PacotePacienteId\"");
     }
+    [Fact]
+    public void Receita_por_atendimento_traduz_navegacao_e_subconsulta_do_profissional()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaReceitaPorAtendimento(new(2026, 10, 1), new(2026, 10, 31)).ToQueryString();
+        sql.Should().Contain("\"DataPagamento\"").And.Contain("\"ProfissionalId\"").And.Contain("\"EstornadoEm\"");
+        sql.Should().NotContain("FotoMiniatura");
+    }
+
+    [Fact]
+    public void Contatos_e_sms_do_canal_traduzem()
+    {
+        using var db = Postgres();
+        db.Contatos.Where(c => c.Tipo == Clinica.Domain.Entities.TipoContato.ConfirmacaoSessao
+                               && c.TokenResposta != null && c.Status == Clinica.Domain.Entities.StatusContato.Enviado)
+            .ToQueryString().Should().Contain("\"TokenResposta\"");
+        var ids = new List<int> { 1, 2 };
+        db.Pacientes.AsNoTracking().Where(p => ids.Contains(p.Id))
+            .Select(p => new PacienteParaContato(p.Id, p.Nome, p.Telefone, p.ConvenioCodigo, p.Convenio))
+            .ToQueryString().Should().NotContain("FotoMiniatura");
+        db.MensagensSms.Where(m => m.ChaveIdempotencia == "CONF:1").ToQueryString().Should().Contain("ChaveIdempotencia");
+    }
 }

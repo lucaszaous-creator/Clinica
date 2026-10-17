@@ -1,0 +1,125 @@
+/* Estilo próprio da tela (rec-atendimento) — Lançar e marcar atendimento. Só tokens — ver
+   docs/telas-blazor.md. As cores de FAMÍLIA repetem Brush.Modalidade.* (as mesmas da agenda do dia):
+   a mesma sessão com a mesma cor em toda tela. */
+
+.rec-atendimento .familia-acupuntura{--cor-familia:var(--acento);--fundo-familia:var(--azul-50)}
+.rec-atendimento .familia-eletro{--cor-familia:var(--violeta-600);--fundo-familia:var(--violeta-50)}
+.rec-atendimento .familia-bsv{--cor-familia:var(--teal-600);--fundo-familia:var(--teal-50)}
+.rec-atendimento .familia-bsv-acupuntura{--cor-familia:var(--ciano-500);--fundo-familia:var(--ciano-100)}
+.rec-atendimento .familia-consulta{--cor-familia:var(--rosa-600);--fundo-familia:var(--rosa-50)}
+
+/* A página estica os filhos: o cabeçalho alinha com a grade (não centraliza). */
+.pagina.rec-atendimento{align-items:stretch;white-space:normal}
+
+/* ---------- Formulário à esquerda, consequência à direita ---------- */
+.ra-grade{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:var(--space-6);align-items:start}
+.ra-form{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+@media (max-width:1100px){.ra-grade{grid-template-columns:minmax(0,1fr) 320px}}
+@media (max-width:860px){.ra-grade{grid-template-columns:1fr}}
+
+.ra-quem{display:flex;flex-direction:column;gap:var(--space-2)}
+.ra-carteirinha{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:0 var(--space-1);
+  color:var(--texto-secundario);font-size:var(--text-small-size);font-variant-numeric:tabular-nums}
+.ra-carteirinha b{color:var(--texto-primario)}
+.ra-carteirinha b.ra-vencida{color:var(--erro-texto)}
+
+.ra-passo{padding:var(--space-4) var(--space-6) var(--space-6);display:flex;flex-direction:column;gap:var(--space-3)}
+.ra-passo-cab{display:flex;align-items:center;gap:var(--space-3)}
+.ra-passo-cab h2{margin:0;font-size:var(--text-secao-size);font-weight:700;letter-spacing:var(--text-secao-tracking);
+  text-transform:uppercase;color:var(--cinza-700)}
+.ra-numero{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--acento);
+  color:var(--texto-invertido);font-size:var(--text-small-size);font-weight:700;flex:none}
+.ra-dica{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.45}
+
+/* ---------- As modalidades, em LINHAS: os números caem numa coluna, que é como se compara número ---------- */
+.ra-modalidades{display:flex;flex-direction:column;border:1px solid var(--borda);border-radius:var(--radius-control);overflow:hidden}
+.ra-modalidade{display:grid;grid-template-columns:minmax(0,1fr) 72px 150px;align-items:center;gap:var(--space-3);
+  min-height:44px;padding:var(--space-2) var(--space-4);border:0;
+  border-bottom:1px solid var(--borda);background:var(--superficie);text-align:left;cursor:pointer;
+  transition:background var(--duracao-rapida)}
+.ra-modalidade:last-child{border-bottom:0}
+.ra-modalidade:hover{background:var(--superficie-hover)}
+.ra-modalidade.escolhida{background:var(--fundo-familia);box-shadow:inset 0 0 0 1px var(--cor-familia)}
+.ra-mod-nome{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);font-weight:600;min-width:0}
+/* O ponto da FAMÍLIA — a mesma amostra da legenda da agenda do dia. */
+.ra-mod-nome::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--cor-familia);flex:none}
+.ra-habitual{font-size:var(--text-small-size);font-weight:500;color:var(--texto-secundario)}
+.ra-mod-guias{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ra-mod-quando{color:var(--texto-secundario);font-size:var(--text-small-size);font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ra-mod-quando.segundo{color:var(--aviso-texto);font-weight:600}
+.ra-campos-mod{margin-top:var(--space-1)}
+
+/* ---------- Quando ---------- */
+.ra-horas{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.ra-hora{min-width:64px;height:32px;padding:0 var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);
+  background:var(--superficie);font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer;
+  transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.ra-hora:hover{border-color:var(--borda-hover);background:var(--superficie-hover)}
+.ra-hora.ocupada{border-style:dashed;color:var(--texto-secundario);background:var(--cinza-50)}
+.ra-hora.escolhida{border-color:var(--acento);background:var(--acento);color:var(--texto-invertido)}
+.ra-linha-hora{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-4)}
+.ra-linha-hora .campo-bloco{width:140px}
+.ra-hora-campo,.ra-duracao{text-align:center;font-variant-numeric:tabular-nums}
+.ra-vagas-botao{margin-bottom:0}
+.ra-encaixe{font-size:var(--text-small-size)}
+
+/* ---------- Avisos: um traço de 3 px por aviso, a cor é a gravidade ---------- */
+.ra-traco{display:flex;flex-direction:column;align-items:stretch;overflow-wrap:anywhere;gap:var(--space-2);padding:var(--space-2) var(--space-3);
+  border:1px solid var(--cor-traco-borda,var(--borda));background:var(--fundo-traco);border-radius:var(--radius-pequeno);
+  font-size:var(--text-small-size);line-height:1.45;color:var(--texto-primario)}
+.ra-traco .botao,.ra-traco .marcar{align-self:flex-start}
+.ra-traco .marcar{align-items:flex-start}
+.ra-traco.tom-perigo{--cor-traco-borda:var(--erro);--fundo-traco:var(--erro-suave)}
+.ra-traco.tom-aviso{--cor-traco-borda:var(--aviso);--fundo-traco:var(--aviso-suave)}
+.ra-traco.tom-info{--cor-traco-borda:var(--acento-tint);--fundo-traco:var(--acento-suave)}
+
+/* ---------- O desfecho ---------- */
+.ra-resultado-topo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
+.ra-resultado-topo > div{display:flex;flex-direction:column;gap:var(--space-1)}
+.ra-codigos td{vertical-align:top}
+.ra-codigos .secundario.ra-ok{color:var(--sucesso-forte)}
+.ra-codigos .secundario.ra-espera{color:var(--aviso-texto)}
+
+/* ---------- A coluna da consequência: o botão nunca sai da vista ---------- */
+.ra-lado{position:sticky;top:var(--space-4);display:flex;flex-direction:column;max-height:calc(100vh - var(--space-8));min-width:0}
+.ra-lado-corpo{padding:var(--space-4) var(--space-6);overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-3);min-height:0}
+.ra-lado-titulo{margin:var(--space-2) 0 0;font-size:var(--text-secao-size);font-weight:700;letter-spacing:var(--text-secao-tracking);
+  text-transform:uppercase;color:var(--cinza-700)}
+.ra-resumo dd{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
+.ra-avisos{display:flex;flex-direction:column;gap:var(--space-2)}
+.ra-pagamento{margin:0;line-height:1.45}
+.ra-lado-rodape{padding:var(--space-4) var(--space-6);border-top:1px solid var(--borda);display:flex;flex-direction:column;
+  gap:var(--space-3);background:var(--superficie);border-radius:0 0 var(--radius-card) var(--radius-card)}
+.ra-acao{width:100%;justify-content:center;height:44px;text-align:center;white-space:normal;line-height:1.2}
+.ra-limpar{align-self:flex-start}
+.ra-lado-rodape .marcar{align-items:flex-start;line-height:1.4;font-size:var(--text-small-size)}
+.ra-lado-rodape .marcar input{margin-top:2px;flex:none}
+
+/* ---------- A guia que vai nascer ---------- */
+.ra-guia-cab{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2)}
+.ra-guia-cab .ra-lado-titulo{margin:0}
+.ra-guia-curta{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.ra-guia{border:1px solid var(--borda);border-radius:var(--radius-control);overflow:hidden;font-size:var(--text-small-size)}
+.ra-guia-tarja{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-2) var(--space-3);
+  background:var(--cinza-100);color:var(--cinza-700);font-weight:700;letter-spacing:var(--text-secao-tracking)}
+.ra-guia-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0}
+.ra-guia-campos > div{padding:var(--space-2) var(--space-3);border-top:1px solid var(--borda);min-width:0}
+.ra-guia-campos > div:nth-child(odd){border-right:1px solid var(--borda)}
+.ra-guia-campos dt{color:var(--texto-secundario);font-weight:600}
+.ra-guia-campos dd{margin:2px 0 0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ra-guia-campos > div.falta{background:var(--erro-suave)}
+.ra-guia-campos > div.falta dd{color:var(--erro-texto)}
+.ra-guia-campos > div.a-definir{background:var(--aviso-suave)}
+.ra-guia-campos > div.a-definir dd{color:var(--aviso-texto)}
+.ra-guia-resumo{margin:0;padding:var(--space-2) var(--space-3);border-top:1px solid var(--borda);color:var(--texto-secundario)}
+.ra-guia-codigo{display:flex;flex-direction:column;gap:2px;padding:var(--space-2) var(--space-3);border-top:1px solid var(--borda);
+  font-variant-numeric:tabular-nums}
+.ra-guia-codigo.segundo{background:var(--aviso-suave)}
+.ra-nota{color:var(--texto-secundario)}
+.ra-guia-codigo.segundo .ra-nota{color:var(--aviso-texto);font-weight:600}
+
+/* ---------- Próximas vagas (formulário) ---------- */
+.ra-vagas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2)}
+.ra-vaga{justify-content:center;font-variant-numeric:tabular-nums}
+.ra-vagas-vazio{margin:0;line-height:1.5;color:var(--texto-secundario)}

@@ -1,0 +1,230 @@
+@*
+  PAGAMENTOS NA RECEPÇÃO (out/2026, migrado do PagamentosView/PagamentosViewModel do WPF).
+
+  A pergunta da tela é "quem é o paciente" primeiro: enquanto ninguém foi escolhido, ela é a
+  busca (sem consultar nada com o campo vazio — SemBuscaInicial). Escolhido, mostra as
+  cobranças dele, RECEBE a que está em aberto e emite o RECIBO da recebida — sobre o MESMO
+  caixa do Financeiro (PagamentosRecepcaoService).
+
+  Bits: a tela e as duas ações pedem VenderPacote (o mesmo do WPF); confirmar o recebimento,
+  dentro do formulário, aceita qualquer um de QuemRecebe (o ReceberPagamentoViewModel do shell).
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina rec-pagamentos @(Carregando && _itens.Count > 0 ? "carregando" : null)">
+    @if (_paciente is null)
+    {
+        <section class="rec-pag-busca" aria-label="Escolher o paciente">
+            <p class="sobretitulo">Recepção · Pagamentos</p>
+            <h1>Pagamentos na recepção</h1>
+            <p class="subtitulo">Escolha o paciente para receber cobranças e emitir recibos.</p>
+            <div class="cartao rec-pag-busca-campo">
+                <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="TrocarPacienteAsync" />
+            </div>
+            @if (!PodeReceber)
+            {
+                <Aviso Tom="atencao" Texto="Seu acesso não permite consultar nem receber pagamentos de pacientes. Fale com a direção da clínica." />
+            }
+        </section>
+    }
+    else
+    {
+        <CabecalhoPagina Sobretitulo="Recepção · Pagamentos" Titulo="Pagamentos na recepção"
+                         Subtitulo="As cobranças do paciente: receba a que está em aberto e emita o recibo da que já foi paga.">
+            <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
+        </CabecalhoPagina>
+
+        <section class="cartao rec-pag-paciente">
+            <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="TrocarPacienteAsync" />
+        </section>
+
+        @if (_lido && !_naoVerificado)
+        {
+            <section class="kpis tres" aria-label="Resumo do paciente">
+                <Kpi Rotulo="A receber" Valor="@Formato.Dinheiro(PagamentosNaTela.AReceber(_itens))" Icone="moeda"
+                     Tom="@(PagamentosNaTela.AReceber(_itens) > 0 ? "aviso" : "sucesso")"
+                     Nota="@($"{PagamentosNaTela.EmAbertoContagem(_itens)} cobrança(s) em aberto")" />
+                <Kpi Rotulo="Vencidas" Valor="@Vencidas.ToString(Formato.PtBr)" Icone="alerta"
+                     Tom="@(Vencidas > 0 ? "perigo" : "neutro")" Nota="Em aberto e com o vencimento passado" />
+                <Kpi Rotulo="Recebidas" Valor="@_itens.Count(PagamentosNaTela.Recebido).ToString(Formato.PtBr)" Icone="recibo" Tom="sucesso"
+                     Nota="Com recibo disponível para emitir" />
+            </section>
+        }
+
+        <section class="cartao lista-cartao">
+            <div class="cartao-titulo">
+                <div><h2>Cobranças</h2><p>@(_lido && !_naoVerificado ? PagamentosNaTela.Resumo(_itens) : "Consultando pagamentos…")</p></div>
+            </div>
+            @if (_naoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Pagamentos não verificados" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+            }
+            else if (!_lido)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="160" /></div>
+            }
+            else if (_itens.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhuma cobrança registrada" Descricao="Registre a cobrança no fechamento da sessão ou na venda do pacote." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista rec-pag-lista">
+                        <thead>
+                            <tr>
+                                <th>Sessão / cobrança</th>
+                                <th class="nao-quebra" style="width:110px">Vencimento</th>
+                                <th class="direita" style="width:120px">Valor</th>
+                                <th style="width:240px">Situação</th>
+                                <th class="direita" style="width:130px"><span class="rec-pag-oculto">Ações</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _itens)
+                            {
+                                var vencido = PagamentosNaTela.Vencido(l, Hoje);
+                                <tr @key="l.Id" class="@(l.Status == StatusLancamento.Cancelado ? "apagada" : null)">
+                                    <td><span class="principal">@l.Descricao</span>
+                                        <span class="secundario">Lançada em @Formato.Data(l.Data)</span></td>
+                                    <td class="nao-quebra numero">@(l.DataVencimento is { } v ? Formato.Data(v) : "—")</td>
+                                    <td class="direita numero">@Formato.Dinheiro(l.Valor)</td>
+                                    <td>
+                                        @if (PagamentosNaTela.Recebido(l)) { <Selo Tom="sucesso">Recebido</Selo> }
+                                        else if (vencido) { <Selo Tom="perigo">Vencido</Selo> }
+                                        else if (PagamentosNaTela.EmAberto(l)) { <Selo Tom="aviso">A receber</Selo> }
+                                        else { <Selo Tom="neutro">Cancelado</Selo> }
+                                        <span class="secundario">@PagamentosNaTela.Situacao(l, Hoje)</span>
+                                    </td>
+                                    <td class="direita">
+                                        @if (PagamentosNaTela.EmAberto(l))
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeReceber)"
+                                                    title="@(PodeReceber ? "Registrar o pagamento desta cobrança" : SemAcesso)"
+                                                    @onclick="() => Receber(l)">Receber</button>
+                                        }
+                                        else if (PagamentosNaTela.Recebido(l))
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!PodeReceber)"
+                                                    title="@(PodeReceber ? "Emitir o recibo deste pagamento" : SemAcesso)"
+                                                    @onclick="() => ReciboAsync(l)"><Icone Nome="recibo" />Recibo</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@if (_recebendo is { } r && _paciente is { } p)
+{
+    <ReceberPagamentoForm PacienteId="p.Id" LancamentoId="r.Id" AoFechar="() => _recebendo = null" AoConcluir="RecebeuAsync" />
+}
+
+@code {
+    private const string SemAcesso = "Seu acesso não permite receber pagamentos do paciente.";
+
+    private Paciente? _paciente;
+    private List<LancamentoFinanceiro> _itens = [];
+    private bool Carregando;
+    private bool _lido;
+    private bool _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+    private LancamentoFinanceiro? _recebendo;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static bool PodeReceber => Pode(Permissao.VenderPacote);
+    private int Vencidas => _itens.Count(l => PagamentosNaTela.Vencido(l, Hoje));
+
+    protected override Task AoVoltarAsync() => _paciente is null ? Task.CompletedTask : CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar && _paciente is not null ? CarregarAsync() : Task.CompletedTask;
+
+    private Task TrocarPacienteAsync(Paciente? p)
+    {
+        _paciente = p;
+        // Limpa ANTES do await: a lista do paciente anterior nunca fica sob o nome do novo.
+        _itens = [];
+        _lido = false;
+        _naoVerificado = false;
+        ++_geracao;
+        return p is null ? Task.CompletedTask : CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        if (_paciente is not { } paciente) return;
+        if (!Exigir(Permissao.VenderPacote, "consultar pagamentos do paciente"))
+        {
+            _naoVerificado = true;
+            _erro = SemAcesso;
+            return;
+        }
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopo();
+            var itens = await escopo.ServiceProvider.GetRequiredService<PagamentosRecepcaoService>().DoPacienteAsync(paciente.Id);
+            if (geracao != _geracao || Descartada) return;
+            _itens = itens.ToList();
+            _lido = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — Recepção: consulta de pagamentos", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _itens = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Receber(LancamentoFinanceiro l)
+    {
+        if (!PagamentosNaTela.EmAberto(l)) return;
+        if (Exigir(Permissao.VenderPacote, "receber pagamento do paciente")) _recebendo = l;
+    }
+
+    private async Task RecebeuAsync()
+    {
+        _recebendo = null;
+        await CarregarAsync();
+        Notificacoes.Sucesso("Pagamento registrado.");
+    }
+
+    /// <summary>O recibo APONTA para o lançamento e não o substitui: o caixa continua sendo a verdade.</summary>
+    private async Task ReciboAsync(LancamentoFinanceiro l)
+    {
+        if (!PagamentosNaTela.Recebido(l)) return;
+        if (!Exigir(Permissao.VenderPacote, "emitir recibo do paciente")) return;
+        try
+        {
+            using var escopo = Escopo();
+            var documento = await escopo.ServiceProvider.GetRequiredService<DocumentoFinanceiroService>()
+                .EmitirReciboDoLancamentoAsync(l.Id, operador: Operador);
+            var pdf = await escopo.ServiceProvider.GetRequiredService<DocumentosFinanceirosPdfService>()
+                .GerarAsync(documento.Id, await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            // O recibo JÁ está emitido: falha daqui para a frente é de impressão.
+            var erro = await Host.SalvarEAbrirAsync(pdf, $"Recibo-{documento.Numero.Replace('/', '-')}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro($"{erro} O recibo {documento.Numero} está emitido.");
+            else Notificacoes.Sucesso($"Recibo {documento.Numero} emitido.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — Recepção: recibo não pôde ser emitido", ex);
+            Notificacoes.Erro($"Não foi possível emitir o recibo: {ex.Message}");
+        }
+    }
+}

@@ -14,7 +14,23 @@ public sealed record MedidaOcupacao(int Atendimentos, int Cancelados, int Faltas
     public int MinutosLivres => Math.Max(0, MinutosDisponiveis - MinutosOcupados);
 }
 public sealed record DiaOcupacao(DateOnly Dia, MedidaOcupacao Resumo);
-public sealed record ProfissionalOcupacao(int Id, string Nome, string Jornada, MedidaOcupacao Resumo);
+public sealed record ProfissionalOcupacao(int Id, string Nome, string Jornada, MedidaOcupacao Resumo)
+{
+    /// <summary>
+    /// O profissional dia a dia (out/2026, a matriz da Visão geral): a medida de cada dia, as
+    /// faixas do horário dele naquele dia (vazia = não atende; nula = sem horário cadastrado) e
+    /// o motivo quando a agenda dele está fechada o dia inteiro. Vazia quando a consulta é só
+    /// de movimento (sem horários).
+    /// </summary>
+    public IReadOnlyList<DiaDoProfissionalOcupacao> Dias { get; init; } = [];
+
+    /// <summary>Sem horário de atendimento cadastrado — a ocupação dele não é medida (não é erro).</summary>
+    public bool SemHorario => Resumo.SemJornada > 0;
+}
+
+/// <summary>Um dia de um profissional na Visão geral.</summary>
+public sealed record DiaDoProfissionalOcupacao(DateOnly Dia, MedidaOcupacao Resumo,
+    IReadOnlyList<Clinica.Domain.FaixaDeAtendimento>? Faixas, string? Fechado);
 public sealed record OcupacaoAgenda(DateOnly Inicio, DateOnly Fim, DateTime AtualizadoEm,
     MedidaOcupacao Resumo, IReadOnlyList<DiaOcupacao> Dias,
     IReadOnlyList<ProfissionalOcupacao> Profissionais, IReadOnlyList<HorarioOcupacao> Horarios)

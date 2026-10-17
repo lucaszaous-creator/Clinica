@@ -1,0 +1,58 @@
+/* Estilo próprio da tela (rec-documentos — a central de Documentos da Recepção). Só tokens —
+   ver docs/telas-blazor.md. O "⋯" da linha reusa .rd-menu da Agenda do dia: um menu só. */
+
+
+/* ===== Os três passos ===== */
+.dc-passo{padding:var(--space-4) var(--space-6) var(--space-6)}
+.dc-passo-titulo{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3)}
+.dc-passo-titulo h2{margin:0;font-size:var(--text-h3-size);font-weight:var(--text-h3-weight)}
+.dc-numero{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:var(--radius-pilula);
+  background:var(--acento-suave);color:var(--acento);font-weight:700;font-size:var(--text-small-size);font-variant-numeric:tabular-nums}
+.dc-passo-nota{color:var(--texto-secundario);font-size:var(--text-small-size);flex:1 1 320px;min-width:0}
+.dc-passo .quem{margin-top:0}
+.dc-sem-paciente{width:min(760px,100%);margin:var(--space-4) auto 0;display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);
+  color:var(--texto-secundario);font-size:var(--text-small-size)}
+.dc-dica{margin:0;color:var(--texto-secundario)}
+
+/* ===== Passo 2: lista compacta das folhas, por grupo ===== */
+.dc-grupo{margin:var(--space-3) 0 var(--space-2);font-size:var(--text-secao-size);letter-spacing:var(--text-secao-tracking);
+  text-transform:uppercase;color:var(--texto-secundario);font-weight:600}
+.dc-folhas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--space-1) var(--space-3)}
+.dc-folha{display:flex;align-items:center;gap:var(--space-3);width:100%;min-height:48px;padding:var(--space-2) var(--space-3);
+  border:1px solid transparent;border-radius:var(--radius-control);background:transparent;font:inherit;text-align:left;
+  color:var(--texto-primario);cursor:pointer;transition:background var(--duracao-rapida),border-color var(--duracao-rapida)}
+.dc-folha:hover{background:var(--superficie-hover);border-color:var(--borda)}
+.dc-folha:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+.dc-folha.escolhido{background:var(--acento-suave);border-color:var(--acento-tint)}
+.dc-folha-icone{display:inline-flex;flex:none;align-items:center;justify-content:center;width:32px;height:32px;
+  border-radius:var(--radius-control);background:var(--fundo);color:var(--acento)}
+.dc-folha.escolhido .dc-folha-icone{background:var(--superficie)}
+.dc-folha-texto{display:flex;flex-direction:column;min-width:0}
+.dc-folha-texto strong{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dc-folha-texto .secundario{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-small-size)}
+.dc-folha.pendente .dc-folha-texto .secundario{color:var(--aviso-texto)}
+
+/* ===== Passo 3: o que vai sair, inline ===== */
+.dc-previa{display:flex;flex-direction:column;gap:var(--space-3);max-width:820px}
+.dc-previa .dc-previa-pares{grid-template-columns:110px 1fr}
+.dc-previa .dc-previa-pares dd{text-align:left;font-weight:500}
+.dc-descricao{margin:0;color:var(--texto-corpo)}
+.dc-garantias{margin:0;font-size:var(--text-small-size)}
+.dc-acoes{display:flex;gap:var(--space-2)}
+
+/* ===== O que já saiu ===== */
+.dc-filtros .dc-busca{flex:1 1 260px}
+.dc-chip{align-self:flex-end}
+.dc-conferir{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);padding:0 var(--space-6) var(--space-3)}
+.dc-conferir-rotulo{font-size:var(--text-small-size);color:var(--texto-secundario);font-weight:600}
+.dc-conferir .campo{width:200px}
+.dc-conferido{font-size:var(--text-small-size);flex:1 1 320px;min-width:0}
+.dc-conferido.tom-sucesso{color:var(--sucesso-forte)}
+.dc-conferido.tom-perigo{color:var(--erro-texto)}
+.dc-resumo{margin:0;padding:0 var(--space-6) var(--space-3);color:var(--texto-secundario);font-size:var(--text-small-size)}
+.dc-tabela .principal{font-variant-numeric:tabular-nums}
+.dc-tabela td .secundario{display:block}
+.dc-detalhe,.dc-situacao{max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dc-tabela .botoes-linha{flex-wrap:nowrap}
+.dc-tabela .botoes-linha .botao{white-space:nowrap}
+.dc-tabela .selo{margin-right:var(--space-2)}

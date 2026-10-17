@@ -35,6 +35,23 @@
 /* Relacionamento (out/2026) */
 @import url("telas/comissao-recuperacao.css");
 @import url("telas/acompanhamento.css");
+/* A Recepção em Blazor e o canal de SMS / tendências / metas (out/2026). */
+@import url("telas/rec-inicio.css");
+@import url("telas/rec-pedidos-enfermagem.css");
+@import url("telas/rec-dia.css");
+@import url("telas/rec-confirmacoes.css");
+@import url("telas/rec-retornos.css");
+@import url("telas/rec-atendimento.css");
+@import url("telas/canal-sms.css");
+@import url("telas/rec-lancamentos.css");
+@import url("telas/rec-consultas.css");
+@import url("telas/rec-pagamentos.css");
+@import url("telas/rec-ocupacao.css");
+@import url("telas/rec-equipe.css");
+@import url("telas/tendencias.css");
+@import url("telas/metas.css");
+@import url("telas/rec-pacientes.css");
+@import url("telas/rec-documentos.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.
@@ -382,3 +399,57 @@ td .selo{margin-left:0}
 .botoes-linha{flex-wrap:nowrap}
 .modal .kpi-valor{font-size:22px}
 .modal .kpi{padding:var(--space-3) var(--space-4) var(--space-4)}
+
+/* ---------- Chips (comum, out/2026) — o filtro de duas ou três respostas, com a contagem
+   visível ANTES do clique. Telas antigas têm a cópia local; tela nova usa esta. ---------- */
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 var(--space-3);border-radius:var(--radius-pilula);
+  border:1px solid var(--borda);background:var(--superficie);color:var(--cinza-700);font:inherit;font-size:var(--text-table-size);
+  cursor:pointer;white-space:nowrap;transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.chip:hover{border-color:var(--borda-hover);background:var(--superficie-hover)}
+.chip[aria-pressed="true"]{background:var(--acento-suave);border-color:var(--acento-tint);color:var(--acento)}
+.chip:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+
+/* ---------- Quem é o paciente (BuscaDePacienteNaTela) — coluna central de 760 px SEM coluna
+   estrela, campo de 48 px (Espaco.12): é o único controle da tela. ---------- */
+.quem{width:min(760px,100%);margin:var(--space-8) auto 0;display:flex;flex-direction:column;gap:var(--space-4)}
+.quem-pergunta{font-size:var(--text-h1-size);font-weight:var(--text-h1-weight);margin:0}
+.quem-contexto{margin:calc(-1 * var(--space-2)) 0 0;color:var(--texto-secundario)}
+.quem-campo .campo{min-height:var(--space-12);font-size:var(--text-h3-size);padding-left:40px;padding-right:84px;border-radius:var(--radius-card)}
+.quem-campo .icone{left:var(--space-4);width:18px;height:18px}
+.quem-campo .campo:focus{outline:none;border-color:var(--acento);box-shadow:0 0 0 3px var(--acento-suave)}
+.quem-limpar{position:absolute;right:var(--space-2);top:50%;transform:translateY(-50%)}
+.quem-chips{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+.quem-novo{margin-left:auto}
+.quem-dica{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.quem-lista{border:1px solid var(--borda);border-radius:var(--radius-card);background:var(--superficie);overflow:hidden;
+  max-height:calc(var(--table-header-height) + 8 * 54px);overflow-y:auto}
+.quem-cab,.quem-linha{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.3fr);
+  gap:var(--space-3);align-items:center;padding:0 var(--space-4)}
+.quem-cab{position:sticky;top:0;z-index:1;height:var(--table-header-height);background:var(--table-header-bg);
+  border-bottom:1px solid var(--borda);font-size:12px;font-weight:600;color:var(--texto-secundario)}
+.quem-linha{min-height:54px;border-bottom:1px solid var(--cinza-100);cursor:pointer}
+.quem-linha:last-child{border-bottom:0}
+.quem-linha.marcada{background:var(--acento-suave)}
+.quem-nome{display:flex;align-items:center;gap:var(--space-3);min-width:0}
+.quem-nome-texto{display:flex;flex-direction:column;min-width:0}
+.quem-nome-texto .principal{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quem-nome-texto .secundario,.quem-doc,.quem-tel,.quem-extra{color:var(--texto-secundario);font-size:var(--text-small-size);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+.quem-vazio{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-2);padding:var(--space-6);
+  border:1px dashed var(--borda);border-radius:var(--radius-card);background:var(--superficie)}
+.quem-vazio span{color:var(--texto-secundario)}
+@media (max-width:640px){.quem-cab,.quem-linha{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .quem-cab span:nth-child(n+3),.quem-linha .quem-tel,.quem-linha .quem-extra{display:none}}
+
+/* ---------- Faixa do paciente escolhido (FaixaDoPaciente) ---------- */
+.faixa-paciente{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4);border:1px solid var(--acento-tint);
+  border-radius:var(--radius-card);background:var(--acento-suave)}
+.avatar.grande{width:44px;height:44px;font-size:15px}
+.faixa-paciente-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-1)}
+.faixa-paciente-nome{font-size:var(--text-h3-size);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.faixa-paciente-campos{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-6);margin:0}
+.faixa-paciente-campos div{display:flex;gap:var(--space-2);min-width:0}
+.faixa-paciente-campos dt{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.faixa-paciente-campos dd{margin:0;font-size:var(--text-small-size);font-weight:600;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+.faixa-paciente-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2);justify-content:flex-end}

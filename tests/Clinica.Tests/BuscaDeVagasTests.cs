@@ -131,7 +131,7 @@ public class BuscaDeVagasTests : IDisposable
         var resultado = new ResultadoBuscaDeVagas("Dra. Ana", 30, Segunda8h, Segunda8h.AddDays(60), false, ana.DescricaoJornada, vagas);
 
         resultado.Vazio.Should().BeTrue();
-        resultado.Criterio.Should().Contain("30 min").And.Contain("Dra. Ana").And.Contain("seg, das 08:00 às 08:30");
+        resultado.Criterio.Should().Contain("30 min").And.Contain("Dra. Ana").And.Contain("seg 08:00–08:30");
         new Vaga(Segunda8h, Segunda8h.AddMinutes(30)).Rotulo.Should().Be("seg 14/09 · 08:00–08:30");
     }
 

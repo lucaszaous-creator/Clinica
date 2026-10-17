@@ -1,0 +1,52 @@
+/* Estilo próprio da tela (tendencias). Só tokens — ver docs/telas-blazor.md. */
+.tend-data{width:auto;min-width:0}
+.tend-filtros{margin-bottom:var(--space-4)}
+.tend-filtros .tend-escolha{min-width:0}
+.tend-periodo{margin:0 0 var(--space-3);color:var(--texto-secundario);font-size:var(--text-small-size)}
+.tend-resumo{display:flex;align-items:flex-start;gap:var(--space-2);margin:var(--space-4) 0;
+  color:var(--texto-primario);font-weight:500}
+.tend-resumo .icone{flex:none;width:16px;height:16px;margin-top:2px;color:var(--acento)}
+
+/* "Em alta" e "Em baixa": duas colunas iguais, a cor só no traço do título e no número. */
+.tend-colunas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4);margin-bottom:var(--space-4)}
+.tend-destaque{padding:var(--space-4) var(--space-6);border-top:3px solid var(--borda)}
+.tend-destaque h2{display:flex;align-items:center;gap:var(--space-2);margin:0 0 var(--space-3);font-size:var(--text-body-size);font-weight:600}
+.tend-destaque h2 .icone{width:16px;height:16px}
+.tend-alta{border-top-color:var(--sucesso)}
+.tend-alta h2 .icone,.tend-alta li b{color:var(--sucesso-forte)}
+.tend-baixa{border-top-color:var(--erro)}
+.tend-baixa h2 .icone,.tend-baixa li b{color:var(--erro-texto)}
+.tend-conta{margin-left:auto;font-family:var(--font-num);color:var(--texto-secundario);font-weight:500}
+.tend-destaque ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.tend-destaque li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:baseline;gap:var(--space-3);
+  font-size:var(--text-table-size)}
+.tend-destaque-num{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.tend-destaque-vazio{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.tend-corta{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+td .tend-corta{max-width:260px}
+
+/* Tabela: variação colorida pelo sentido, participação em barra, minissérie. */
+.tend-var.sobe{color:var(--sucesso-forte);font-weight:600}
+.tend-var.desce{color:var(--erro-texto);font-weight:600}
+.tend-col-part{width:150px}
+.tend-part{display:grid;grid-template-columns:minmax(0,1fr) 36px;align-items:center;gap:var(--space-2)}
+.tend-part .numero{text-align:right;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.tend-part .trilho > i{background:var(--acento)}
+.tend-col-serie{width:112px}
+.tend-serie{display:block;width:96px;height:26px;overflow:visible}
+.tend-serie polyline{fill:none;stroke:var(--cinza-500);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+.tend-serie circle{fill:var(--cinza-500)}
+.tend-serie.sobe polyline{stroke:var(--sucesso)}
+.tend-serie.sobe circle{fill:var(--sucesso)}
+.tend-serie.desce polyline{stroke:var(--erro)}
+.tend-serie.desce circle{fill:var(--erro)}
+.tend-serie-base{stroke:var(--borda);stroke-width:1}
+.tend-tabela tfoot td{border-top:1px solid var(--borda);font-weight:600;padding-top:var(--space-3);padding-bottom:var(--space-3)}
+
+@media (max-width:1100px){
+  .tend-col-part{width:110px}
+  td .tend-corta{max-width:180px}
+}
+@media (max-width:820px){
+  .tend-colunas{grid-template-columns:minmax(0,1fr)}
+}

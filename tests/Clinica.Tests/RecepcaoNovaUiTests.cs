@@ -177,7 +177,11 @@ public class RecepcaoNovaUiTests
         var confirmou = Horario(4, 14, 30);
         var avisado = Horario(5, 15);
         var semContato = Horario(6, 15, 30);
-        var confirmacoes = new Dictionary<int, StatusContato> { [4] = StatusContato.Respondido, [5] = StatusContato.Enviado };
+        var confirmacoes = new Dictionary<int, RespostaDeConfirmacao>
+        {
+            [4] = new(StatusContato.Respondido, agora, "confirmou", CanalContato.WhatsApp),
+            [5] = new(StatusContato.Enviado, agora, null, CanalContato.WhatsApp)
+        };
 
         var lista = InicioDoBalcao.Proximos([semContato, avisado, confirmou, noLocal, faltou, naSala], confirmacoes, agora);
 

@@ -1,0 +1,398 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Domain.Regras
+@*
+  Cadastro do PROFISSIONAL (o que no WPF era a ProfissionalWindow / ProfissionalEdicaoViewModel).
+
+  Só o nome é obrigatório — cadastro que exige demais na primeira digitação é cadastro que a
+  clínica adia, e sem profissional não existe agenda multiprofissional.
+
+  ⚠️ A cópia campo a campo do serviço (EquipeService.SalvarProfissionalAsync) — os lugares 3 e
+  6 da auditoria de linha: TODO campo que o serviço copia é carregado aqui e devolvido, mesmo
+  os que a pessoa não mexeu. Dois cuidados que o WPF não tinha:
+  - a especialidade DESATIVADA no catálogo continua no seletor (senão o Salvar a apagaria);
+  - as habilitações só vão quando o gerente MEXEU nelas, ou quando já havia configuração —
+    abrir e salvar a ficha de quem nunca teve restrição não troca "sem restrição" por uma
+    lista fixa das modalidades de hoje (TelaDaEquipe.HabilitacoesParaGravar).
+  O HORÁRIO DE ATENDIMENTO não se edita aqui (out/2026, docs/recepcao-ux-out2026.md): o editor é
+  um só (HorariosDeAtendimentoForm, sob EditarAgenda, com a trilha própria). Este formulário
+  mostra o resumo, abre o editor por cima e DEVOLVE intacto o que leu (dias, horas e as faixas
+  por dia) — quem não edita, PRESERVA; senão salvar o telefone apagaria o horário. Depois que o
+  editor grava, o que este formulário guarda é relido, para não devolver o horário de antes.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(ProfissionalId == 0 ? "Novo profissional" : "Editar profissional")"
+       Subtitulo="Quem atende na clínica. Só o nome é obrigatório — o resto pode ser completado depois."
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="320" />
+        }
+        else
+        {
+            <div class="secao-form">
+                <h3>Identificação</h3>
+                <div class="campos">
+                    <Campo Rotulo="Nome" Obrigatorio="true" Classe="largo">
+                        <input class="campo" @bind="_nome" maxlength="120" placeholder="Como sai nos documentos — ex.: Dra. Helena Duarte" />
+                    </Campo>
+                    <Campo Rotulo="Nome curto (agenda)" Dica="Como aparece na coluna da agenda quando o espaço é curto.">
+                        <input class="campo" @bind="_nomeCurto" maxlength="40" placeholder="Ex.: Dra. Helena" />
+                    </Campo>
+                    <Campo Rotulo="Especialidade principal">
+                        <select class="campo" value="@(_especialidade ?? string.Empty)" @onchange="TrocarEspecialidade">
+                            <option value="">(nenhuma)</option>
+                            @foreach (var e in _especialidades) { <option value="@e.Codigo">@e.Nome</option> }
+                        </select>
+                    </Campo>
+                    <Campo Rotulo="Conselho e registro" Dica="Como vai nos documentos — ex.: CRM-RJ 52.1234, COREN-RJ 123456.">
+                        <input class="campo" @bind="_registro" maxlength="40" />
+                    </Campo>
+                    <Campo Rotulo="CPF" Erro="@_erroCpf"
+                           Dica="Para assinar com certificado digital: o sistema compara este CPF com o de dentro do certificado — é o que impede alguém de assinar no lugar de outra pessoa. Em branco para quem não assina.">
+                        <input class="campo" @bind="_cpf" @bind:after="ConferirCpf" maxlength="14" inputmode="numeric" placeholder="000.000.000-00" />
+                    </Campo>
+                </div>
+            </div>
+
+            <div class="secao-form">
+                <div class="eq-titulo-linha">
+                    <h3>Horário de atendimento</h3>
+                    @if (ProfissionalId != 0)
+                    {
+                        <button type="button" class="botao mini" disabled="@(!PodeHorario)" @onclick="AbrirHorario"
+                                title="@(PodeHorario ? "Os dias e as faixas de horário em que ele atende" : "Seu acesso não permite configurar a agenda.")"><Icone Nome="relogio" />Horário de atendimento…</button>
+                    }
+                </div>
+                <p class="eq-horario-resumo"><Icone Nome="relogio" />@_resumoHorario</p>
+                <p class="campo-dica">
+                    @(ProfissionalId == 0
+                        ? "Salve o profissional para cadastrar o horário de atendimento dele. Sem horário, a agenda aceita qualquer dia e hora."
+                        : _trava ? "Fora deste horário a marcação é recusada (proteção ligada no editor)." : "Fora deste horário a agenda avisa e não impede.")
+                </p>
+                <div class="campos tres">
+                    <Campo Rotulo="Duração padrão (min)" Dica="@($"Vazio = padrão da clínica ({Agendamento.DuracaoPadraoMinutos} min).")">
+                        <input class="campo valor" @bind="_duracao" maxlength="4" inputmode="numeric" />
+                    </Campo>
+                </div>
+            </div>
+
+            <div class="secao-form">
+                <h3>Atende na marcação</h3>
+                @if (!PodeConfigurarAtendimentos)
+                {
+                    <p class="campo-dica">Só o gerente define o que a recepção pode marcar para este profissional. Hoje: <b>@_resumoHabilitacoes</b>.</p>
+                }
+                else if (_opcoes.Count == 0)
+                {
+                    <Aviso Tom="info" Texto="O catálogo de modalidades ainda não foi carregado neste posto — as habilitações não podem ser escolhidas agora. O restante do cadastro pode ser salvo." />
+                }
+                else
+                {
+                    <p class="campo-dica">O que a recepção pode marcar com este profissional. Consultas são separadas por especialidade.
+                        @(_originais is null && !_alterouHabilitacoes ? " Hoje ele está SEM RESTRIÇÃO (inclui as modalidades que forem cadastradas depois); mexer aqui passa a valer só a lista marcada." : null)</p>
+                    <div class="eq-habilitacoes-acoes">
+                        <button type="button" class="botao mini" @onclick="() => MarcarTodas(true)"><Icone Nome="check" />Marcar todas</button>
+                        <button type="button" class="botao mini fantasma" @onclick="() => MarcarTodas(false)">Desmarcar todas</button>
+                        <span class="campo-dica">@_marcadas.Count de @_opcoes.Count(o => TelaDaEquipe.Permitida(o, _especialidade)) marcada(s)</span>
+                    </div>
+                    <div class="eq-habilitacoes">
+                        @foreach (var o in _opcoes)
+                        {
+                            var permitida = TelaDaEquipe.Permitida(o, _especialidade);
+                            var opcao = o;
+                            <label class="marcar @(permitida ? null : "eq-apagada")" title="@(permitida ? null : "Profissional de Psicologia só atende consulta de Psicologia.")">
+                                <input type="checkbox" disabled="@(!permitida)" checked="@(permitida && _marcadas.Contains(o))" @onchange="e => MarcarOpcao(opcao, e)" />@o.Rotulo
+                            </label>
+                        }
+                    </div>
+                    @if (_marcadas.Count == 0)
+                    {
+                        <Aviso Tom="atencao" Texto="Nada marcado: a recepção não vai conseguir marcar horário com este profissional." />
+                    }
+                }
+            </div>
+
+            <div class="secao-form">
+                <h3>Contato e agenda</h3>
+                <div class="campos tres">
+                    <Campo Rotulo="Telefone"><input class="campo" @bind="_telefone" maxlength="20" inputmode="tel" /></Campo>
+                    <Campo Rotulo="E-mail"><input class="campo" @bind="_email" maxlength="120" inputmode="email" /></Campo>
+                    <Campo Rotulo="Ordem nas listas" Dica="Menor aparece primeiro."><input class="campo valor" @bind="_ordem" maxlength="4" inputmode="numeric" /></Campo>
+                    <Campo Rotulo="Cor na agenda (#RRGGBB)" Dica="@(string.IsNullOrWhiteSpace(_cor) ? "Vazio = cor padrão." : CorReconhecida is null ? "Cor não reconhecida — a agenda usa a cor padrão." : null)">
+                        <div class="eq-cor">
+                            <span class="eq-amostra @(CorReconhecida is null ? null : "com-cor")" style="@(CorReconhecida is null ? null : $"--eq-cor:{CorReconhecida}")" aria-hidden="true"></span>
+                            <input class="campo" @bind="_cor" @bind:event="oninput" maxlength="9" placeholder="#0F766E" />
+                        </div>
+                    </Campo>
+                </div>
+                @if (_login is { } login)
+                {
+                    <p class="campo-dica"><Icone Nome="pessoa" /> Acesso ao sistema: o login <b>«@login»</b> está ligado a este cadastro — é por ele que o registro no conselho e o CPF chegam aos documentos e à assinatura.</p>
+                }
+                else if (_loginConferido)
+                {
+                    <p class="campo-dica"><Icone Nome="pessoa" /> Nenhum login está ligado a este cadastro. O vínculo é feito em Acessos; sem ele, o que esta pessoa registra não sai com o conselho dela.</p>
+                }
+            </div>
+
+            <div class="secao-form">
+                <h3>Situação</h3>
+                <label class="alternar"><input type="checkbox" @bind="_ativo" /> @(_ativo ? "Ativo" : "Inativo")</label>
+                <p class="campo-dica">@TelaDaEquipe.EfeitoDaSituacao(_ativo, ehSala: false)</p>
+            </div>
+
+            <Campo Rotulo="Observações"><textarea class="campo" rows="2" @bind="_observacoes" maxlength="500"></textarea></Campo>
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_salvando || _carregando || _cargaFalhou || !PodeSalvar)"
+                title="@(PodeSalvar ? null : "Seu acesso não permite mexer no cadastro da equipe.")">
+            <Icone Nome="check" />@(_salvando ? "Gravando…" : "Salvar profissional")
+        </button>
+    </Rodape>
+</Modal>
+
+@if (_horarioAberto)
+{
+    <HorariosDeAtendimentoForm ProfissionalId="ProfissionalId" AoFechar="() => _horarioAberto = false" AoAlterar="HorarioAlteradoAsync" />
+}
+
+@code {
+    /// <summary>Zero = profissional novo.</summary>
+    [Parameter] public int ProfissionalId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _nome, _nomeCurto, _registro, _cpf, _especialidade, _telefone, _email, _cor, _observacoes;
+    private string? _duracao, _ordem = "0";
+    private bool _ativo = true, _trava;
+    // O horário LIDO, devolvido intacto ao salvar (quem não edita, preserva).
+    private int? _diasLidos;
+    private TimeOnly? _dasLido, _ateLido;
+    private string? _horariosLidos;
+    private string _resumoHorario = TelaDaEquipe.HorarioNaoCadastrado;
+    private bool _horarioAberto;
+
+    private IReadOnlyList<(string Codigo, string Nome)> _especialidades = [];
+    private IReadOnlyList<OpcaoDeAtendimento> _opcoes = [];
+    private readonly HashSet<OpcaoDeAtendimento> _marcadas = [];
+    private IReadOnlyList<AtendimentoHabilitado>? _originais;
+    private bool _alterouHabilitacoes;
+    private string _resumoHabilitacoes = "todas as modalidades (sem restrição)";
+
+    private string? _login;
+    private bool _loginConferido;
+
+    private bool _carregando = true, _cargaFalhou, _salvando;
+    private string? _mensagem, _erroCpf;
+
+    private static bool PodeSalvar => SessaoUsuario.Atual.Pode(Permissao.GerenciarEquipe);
+
+    // O MESMO critério do WPF e do serviço: só o gerente (perfil) com GerenciarEquipe define
+    // habilitações; quem não é vê o que está configurado, sem poder mudar.
+    private static bool PodeConfigurarAtendimentos => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente;
+
+    private string? CorReconhecida => TelaDaEquipe.CorDaAgenda(_cor);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var sp = escopo.ServiceProvider;
+
+            // O catálogo é o cache do app (carregado na abertura); vazio — a prévia, um posto
+            // que ainda não carregou —, lê do banco. Sem mexer no cache global.
+            IReadOnlyList<EntradaModalidade> modalidades = CatalogoModalidades.Ativas;
+            IReadOnlyList<EntradaEspecialidade> especialidades = CatalogoEspecialidades.Ativas;
+            if (modalidades.Count == 0)
+                modalidades = (await sp.GetRequiredService<ModalidadeCatalogoService>().ListarAsync())
+                    .Select(m => new EntradaModalidade(m.Codigo, m.Nome, m.Base, m.Ativo)).ToList();
+            if (especialidades.Count == 0)
+                especialidades = (await sp.GetRequiredService<EspecialidadeCatalogoService>().ListarAsync())
+                    .Select(e => new EntradaEspecialidade(e.Codigo, e.Nome, e.Ativo)).ToList();
+            _opcoes = TelaDaEquipe.OpcoesDeAtendimento(modalidades, especialidades);
+
+            Profissional? p = null;
+            if (ProfissionalId != 0)
+            {
+                p = await sp.GetRequiredService<EquipeService>().ObterProfissionalAsync(ProfissionalId)
+                    ?? throw new InvalidOperationException("Profissional não encontrado. Feche e atualize a lista.");
+                _nome = p.Nome;
+                _nomeCurto = p.NomeCurto;
+                _registro = p.RegistroConselho;
+                _cpf = string.IsNullOrWhiteSpace(p.Cpf) ? null : Cpf.Formatar(p.Cpf);
+                _especialidade = p.EspecialidadeCodigo;
+                _telefone = p.Telefone;
+                _email = p.Email;
+                _cor = p.Cor;
+                _duracao = p.DuracaoPadraoMinutos?.ToString(CultureInfo.InvariantCulture);
+                GuardarHorario(p);
+                _ordem = p.Ordem.ToString(CultureInfo.InvariantCulture);
+                _ativo = p.Ativo;
+                _trava = p.AgendaProtegida;
+                _observacoes = p.Observacoes;
+                _originais = p.HabilitacoesAtendimento;
+                _resumoHabilitacoes = TelaDaEquipe.Habilitacoes(p);
+
+                if (SessaoUsuario.Atual.Pode(Permissao.GerenciarUsuarios))
+                {
+                    var usuarios = await sp.GetRequiredService<AcessoService>().UsuariosAsync();
+                    _login = usuarios.FirstOrDefault(u => u.Ativo && u.ProfissionalId == p.Id)?.Login;
+                    _loginConferido = true;
+                }
+            }
+
+            _especialidades = TelaDaEquipe.EspecialidadesParaEscolha(especialidades, _especialidade,
+                _especialidade is null ? null : CatalogoEspecialidades.Nome(_especialidade));
+            foreach (var o in _opcoes.Where(o => TelaDaEquipe.MarcadaNaAbertura(o, _originais, _especialidade)))
+                _marcadas.Add(o);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — profissional não pôde ser carregado", ex);
+            _cargaFalhou = true;
+            _mensagem = $"Não foi possível carregar o profissional: {ex.Message}";
+        }
+        finally { _carregando = false; }
+    }
+
+    /// <summary>A regra da Psicologia: trocar a principal para Psicologia apaga as outras habilitações.</summary>
+    private void TrocarEspecialidade(ChangeEventArgs e)
+    {
+        var valor = e.Value?.ToString();
+        _especialidade = string.IsNullOrWhiteSpace(valor) ? null : valor;
+        var antes = _marcadas.Count;
+        _marcadas.RemoveWhere(o => !TelaDaEquipe.Permitida(o, _especialidade));
+        if (_marcadas.Count != antes) _alterouHabilitacoes = true;
+    }
+
+    private static bool PodeHorario => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    private void GuardarHorario(Profissional p)
+    {
+        _diasLidos = p.DiasDeAtendimento;
+        _dasLido = p.AtendeDas;
+        _ateLido = p.AtendeAte;
+        _horariosLidos = p.HorariosAtendimento;
+        _trava = p.AgendaProtegida;
+        _resumoHorario = TelaDaEquipe.Horario(p);
+    }
+
+    private void AbrirHorario()
+    {
+        if (!SessaoUsuario.Atual.Pode(Permissao.EditarAgenda))
+        {
+            _mensagem = "Seu acesso não permite configurar o horário de atendimento.";
+            return;
+        }
+        _horarioAberto = true;
+    }
+
+    /// <summary>O editor gravou: relê o horário, senão o Salvar deste formulário devolveria o de antes.</summary>
+    private async Task HorarioAlteradoAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            if (await escopo.ServiceProvider.GetRequiredService<EquipeService>().ObterProfissionalAsync(ProfissionalId) is { } p)
+                GuardarHorario(p);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — profissional: horário não pôde ser relido", ex);
+            _cargaFalhou = true;
+            _mensagem = "O horário foi salvo, mas não deu para relê-lo aqui. Feche e abra o cadastro antes de salvar.";
+        }
+    }
+
+    private void MarcarOpcao(OpcaoDeAtendimento o, ChangeEventArgs e)
+    {
+        if (!PodeConfigurarAtendimentos) return;
+        if (e.Value is true) _marcadas.Add(o); else _marcadas.Remove(o);
+        _alterouHabilitacoes = true;
+    }
+
+    private void MarcarTodas(bool marcar)
+    {
+        if (!PodeConfigurarAtendimentos) return;
+        _marcadas.Clear();
+        if (marcar)
+            foreach (var o in _opcoes.Where(o => TelaDaEquipe.Permitida(o, _especialidade))) _marcadas.Add(o);
+        _alterouHabilitacoes = true;
+    }
+
+    /// <summary>O aviso do CPF ao sair do campo — a recusa de verdade é do serviço.</summary>
+    private void ConferirCpf()
+        => _erroCpf = string.IsNullOrWhiteSpace(_cpf) || Cpf.Valido(_cpf)
+            ? null
+            : "CPF inválido. Ele liga o certificado digital a esta pessoa — corrija ou deixe em branco.";
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando || _carregando || _cargaFalhou) return;
+        _mensagem = null;
+        if (!SessaoUsuario.Atual.Pode(Permissao.GerenciarEquipe))
+        {
+            _mensagem = "Seu acesso não permite mexer no cadastro da equipe. Fale com a direção da clínica.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_nome))
+        {
+            _mensagem = "Informe o nome do profissional.";
+            return;
+        }
+
+        int? duracao = null;
+        if (!string.IsNullOrWhiteSpace(_duracao))
+        {
+            if (!int.TryParse(_duracao.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var minutos) || minutos <= 0)
+            {
+                _mensagem = "A duração padrão precisa ser um número de minutos maior que zero.";
+                return;
+            }
+            duracao = minutos;
+        }
+        if (!int.TryParse(_ordem?.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var ordem)) ordem = 0;
+
+        try
+        {
+            _salvando = true;
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<EquipeService>().SalvarProfissionalAsync(new Profissional
+            {
+                Id = ProfissionalId,
+                Nome = _nome!,
+                NomeCurto = _nomeCurto,
+                RegistroConselho = _registro,
+                Cpf = _cpf,
+                EspecialidadeCodigo = _especialidade,
+                HabilitacoesAtendimentoJson = TelaDaEquipe.HabilitacoesParaGravar(
+                    PodeConfigurarAtendimentos && _opcoes.Count > 0, _alterouHabilitacoes, _originais,
+                    _opcoes.Where(o => _marcadas.Contains(o) && TelaDaEquipe.Permitida(o, _especialidade))),
+                Telefone = _telefone,
+                Email = _email,
+                Cor = _cor,
+                DuracaoPadraoMinutos = duracao,
+                DiasDeAtendimento = _diasLidos,
+                AtendeDas = _dasLido,
+                AtendeAte = _ateLido,
+                HorariosAtendimento = _horariosLidos,
+                Ordem = ordem,
+                Ativo = _ativo,
+                Observacoes = _observacoes
+            }, solicitante: SessaoUsuario.Atual);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — profissional não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _salvando = false; }
+    }
+}

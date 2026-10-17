@@ -1,0 +1,12 @@
+/* Estilo próprio da tela Lançamentos da Recepção (rec-lancamentos). Só tokens — ver docs/telas-blazor.md. */
+.rec-lancamentos .rec-lanc-periodo{display:inline-flex;align-items:center;gap:var(--space-2)}
+.rec-lancamentos .rec-lanc-periodo label{display:inline-flex;align-items:center;gap:var(--space-2);font-weight:600;
+  font-size:var(--text-small-size);color:var(--texto-secundario)}
+.rec-lancamentos .rec-lanc-periodo .campo{width:auto;min-width:148px}
+.rec-lancamentos .rec-lanc-alternar{height:36px}
+.rec-lancamentos .rec-lanc-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.rec-lancamentos .rec-lanc-aviso{color:var(--aviso-texto);font-weight:600}
+.rec-lancamentos tr.rec-lanc-pendente td:first-child{box-shadow:inset 3px 0 0 var(--aviso)}
+.rec-lancamentos .rec-lanc-convenio{display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;vertical-align:bottom}
+.rec-lancamentos td .selo{max-width:100%}

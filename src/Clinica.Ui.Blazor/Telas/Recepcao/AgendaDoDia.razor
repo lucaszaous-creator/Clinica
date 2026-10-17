@@ -1,0 +1,696 @@
+@*
+  AGENDA DO DIA DO BALCÃO (out/2026 — migrada do FilaView/FilaViewModel WPF; a aba "Dia" do
+  item Agenda, chave "fila").
+
+  A estrutura APROVADA continua sendo a LISTA do dia (set/2026): uma linha por horário, na
+  ordem da hora, com o status e a hora do fato em cada linha — cancelado, falta e
+  substituído ficam na lista, apagados (a regra da folha do dia). O que mudou foi o desenho:
+  as oito pílulas de situação com a contagem ANTES do clique são o placar; a linha tem o
+  avatar na cor da família, o horário em destaque, os selos e UM botão sólido (o passo
+  seguinte); o resto mora no "⋯".
+
+  Nada de regra aqui: a linha, o passo, o menu, o recorte e as frases moram em
+  AgendaDoDiaNaTela (Application, com teste); a leitura é a LeituraAgendaDoDia — a MESMA do
+  FilaViewModel, na mesma ordem. As janelas que continuam WPF (editar o horário, fechar a
+  sessão, escolher o convênio, a ficha do balcão, a janela do horário, marcar) passam por
+  IJanelasDaAgenda; onde elas não existem (a prévia), a tela DIZ que a ação é do aplicativo
+  da Recepção.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina rec-dia @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Agenda" Titulo="Agenda do dia"
+                     Subtitulo="Quem vem, em que ponto cada um está e o que falta fazer no balcão — na ordem da hora.">
+        <button type="button" class="botao" @onclick="ImprimirFolhaAsync"
+                title="A folha que o profissional leva para a sala — sem dado clínico (Ctrl+P)"><Icone Nome="imprimir" />Imprimir folha do dia</button>
+        <button type="button" class="botao primario" disabled="@(!Pode(Permissao.EditarAgenda))" @onclick="NovoHorarioAsync"
+                title="@(Pode(Permissao.EditarAgenda) ? "Marcar um horário neste dia" : "Seu acesso não permite marcar horário.")"><Icone Nome="mais" />Marcar atendimento</button>
+    </CabecalhoPagina>
+
+    <section class="cartao rd-dia" aria-label="Dia da agenda">
+        <div class="rd-navegador">
+            <button type="button" class="botao icone" @onclick="() => IrParaAsync(_dia.AddDays(-1))" title="Dia anterior" aria-label="Dia anterior"><Icone Nome="esquerda" /></button>
+            <div class="rd-dia-titulo">
+                <strong>@RodadaDeConfirmacao.TituloDoDia(_dia, Hoje)</strong>
+                <input class="campo rd-data" type="date" aria-label="Escolher o dia" value="@_dia.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" @onchange="EscolherDiaAsync" />
+            </div>
+            <button type="button" class="botao icone" @onclick="() => IrParaAsync(_dia.AddDays(1))" title="Próximo dia" aria-label="Próximo dia"><Icone Nome="direita" /></button>
+            @if (_dia != Hoje)
+            {
+                <button type="button" class="botao fantasma mini" @onclick="() => IrParaAsync(Hoje)">Voltar para hoje</button>
+            }
+        </div>
+        <div class="rd-situacoes" role="group" aria-label="Situação — clique para filtrar">
+            @foreach (var (chave, rotulo) in AgendaDoDiaNaTela.Situacoes)
+            {
+                var n = _recorte.Contagens.TryGetValue(chave, out var c) ? c : 0;
+                <button type="button" class="rd-pilula grupo-@chave" aria-pressed="@Bool(_filtro.Situacao == chave)"
+                        @onclick="() => EscolherSituacao(chave)" title="@(chave == "todos" ? "Todas as situações" : $"Mostrar só: {rotulo}")">
+                    @if (chave != "todos") { <i class="rd-ponto"></i> }
+                    <span>@rotulo</span><b>@n</b>
+                </button>
+            }
+        </div>
+        <button type="button" class="botao icone rd-atualizar" @onclick="() => CarregarAsync()" title="Atualizar (F5)@(_ultimaLeitura is { } u ? $" · lida às {u.ToString("HH:mm", Formato.PtBr)}" : "")" aria-label="Atualizar a agenda"><Icone Nome="atualizar" /></button>
+    </section>
+
+    <section class="cartao lista-cartao rd-lista">
+        <div class="filtros rd-filtros">
+            <label class="busca rd-busca">
+                <Icone Nome="busca" />
+                <input class="campo" type="search" placeholder="Buscar paciente" aria-label="Buscar paciente pelo nome" value="@_filtro.Busca" @oninput="Buscar" maxlength="80" />
+            </label>
+            <select class="campo rd-combo" aria-label="Modalidade" value="@(_filtro.Modalidade ?? AgendaDoDiaNaTela.TodasModalidades)" @onchange="EscolherModalidade">
+                @foreach (var m in _recorte.Modalidades) { <option value="@m">@m</option> }
+            </select>
+            @if (_profissionais.Count > 2)
+            {
+                <select class="campo rd-combo" aria-label="Profissional" value="@(_filtro.ProfissionalId?.ToString(CultureInfo.InvariantCulture) ?? "")" @onchange="EscolherProfissional">
+                    @foreach (var p in _profissionais)
+                    {
+                        <option value="@(p.Id?.ToString(CultureInfo.InvariantCulture) ?? "")">@p.Rotulo</option>
+                    }
+                </select>
+            }
+            <span class="resumo-filtro">@(_carregando && !_carregou ? "Lendo a agenda…" : _recorte.Resumo)</span>
+            @if (_filtro.TemFiltros || _filtro.ProfissionalId is not null)
+            {
+                <button type="button" class="botao fantasma mini" @onclick="LimparFiltros">Limpar filtros</button>
+            }
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a agenda do dia" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="260" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="Ninguém marcado para este dia" Icone="calendario"
+                         Descricao="Marque pelo botão “Marcar atendimento” — o horário aparece aqui, na ordem da hora." />
+        }
+        else if (_recorte.NenhumCorresponde)
+        {
+            <EstadoVazio Titulo="Nenhum paciente corresponde aos filtros" Icone="filtro"
+                         Descricao="Confira o nome, a modalidade ou a situação escolhida.">
+                <button type="button" class="botao" @onclick="LimparFiltros">Limpar filtros</button>
+            </EstadoVazio>
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista rd-tabela">
+                    <thead>
+                        <tr>
+                            <th class="rd-col-hora">Horário</th>
+                            <th>Paciente / atendimento</th>
+                            <th class="rd-col-prof">Profissional</th>
+                            <th class="rd-col-status">Status</th>
+                            <th class="direita rd-col-acoes">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _recorte.Visiveis)
+                        {
+                            var (inicio, fim) = Partes(l.Horario);
+                            <tr @key="l.AgendamentoId" class="rd-linha grupo-@l.Grupo @(l.ForaDaFila ? "apagada" : null)" title="@l.Detalhe">
+                                <td class="rd-col-hora nao-quebra">
+                                    <span class="rd-hora">@inicio</span>
+                                    @if (fim.Length > 0) { <span class="secundario">até @fim</span> }
+                                </td>
+                                <td>
+                                    <div class="rd-paciente">
+                                        @Avatar(l)
+                                        <div class="rd-paciente-texto">
+                                            <span class="principal">@l.Paciente</span>
+                                            @if (l.EhEncaixe) { <Selo Tom="aviso" Dica="Marcado por cima de um horário ocupado">Encaixe</Selo> }
+                                            <span class="secundario">@l.Contexto</span>
+                                            <span class="secundario rd-so-compacto">@(l.TemSala ? $"{l.Profissional} · sala {l.Sala}" : l.Profissional)</span>
+                                            @if (!string.IsNullOrWhiteSpace(l.Observacoes))
+                                            {
+                                                <span class="secundario rd-obs">Obs.: @l.Observacoes</span>
+                                            }
+                                            @if (l.Confirmacao.Length > 0 || l.Selos.Count > 0)
+                                            {
+                                                <span class="rd-selos">
+                                                    @if (l.Confirmacao.Length > 0)
+                                                    {
+                                                        <Selo Tom="@AgendaDoDiaNaTela.TomDaConfirmacao(l.Confirmacao)" Dica="A resposta da rodada de confirmação">@l.Confirmacao</Selo>
+                                                    }
+                                                    @foreach (var s in l.Selos)
+                                                    {
+                                                        <Selo Tom="@AgendaDoDiaNaTela.Tom(s.Tom)" Dica="@s.Dica">@s.Texto</Selo>
+                                                    }
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="rd-col-prof">
+                                    <span class="@(l.ProfissionalId is null ? "rd-sem-dono" : null)">@l.Profissional</span>
+                                    @if (l.TemSala) { <span class="secundario">sala @l.Sala</span> }
+                                </td>
+                                <td class="rd-col-status">
+                                    <span class="rd-status grupo-@l.Grupo"><i class="rd-ponto"></i>@l.Status</span>
+                                    @if (l.StatusDetalhe.Length > 0) { <span class="secundario">@l.StatusDetalhe</span> }
+                                </td>
+                                <td class="direita rd-col-acoes nao-quebra">
+                                    <span class="botoes-linha">
+                                        @if (l.Passo != PassoDaAgenda.Nenhum)
+                                        {
+                                            var pode = AgendaDoDiaNaTela.PodeDarOPasso(l, Permissoes);
+                                            <button type="button" class="botao mini primario" disabled="@(!pode || _ocupado)" @onclick="() => DarOPassoAsync(l)"
+                                                    title="@(pode ? DicaDoPasso(l) : "Seu acesso não permite este passo.")">@l.RotuloDoPasso</button>
+                                        }
+                                        @if (l.EmAberto)
+                                        {
+                                            <button type="button" class="botao mini icone" disabled="@(!Permissoes.EditarHorario || _ocupado)" @onclick="() => EditarAsync(l)"
+                                                    title="@(Permissoes.EditarHorario ? "Editar o horário — corrigir modalidade, especialidade, profissional ou hora" : "Seu acesso não permite editar o horário.")"
+                                                    aria-label="Editar o horário de @l.Paciente"><Icone Nome="editar" /></button>
+                                        }
+                                        <span class="rd-menu">
+                                            <button type="button" class="botao mini icone" aria-haspopup="menu" aria-expanded="@Bool(_menu == l.AgendamentoId)"
+                                                    title="Mais ações" aria-label="Mais ações de @l.Paciente" @onclick="() => AlternarMenu(l)">⋯</button>
+                                            @if (_menu == l.AgendamentoId)
+                                            {
+                                                <span class="rd-menu-lista" role="menu">
+                                                    @foreach (var a in AgendaDoDiaNaTela.Menu(l, Permissoes))
+                                                    {
+                                                        if (a == AcaoDaLinhaAgenda.Separador) { <hr /> }
+                                                        else
+                                                        {
+                                                            <button type="button" role="menuitem" class="@(a is AcaoDaLinhaAgenda.MarcarFalta or AcaoDaLinhaAgenda.Cancelar ? "rd-perigo" : null)"
+                                                                    @onclick="() => AgirAsync(a, l)">@AgendaDoDiaNaTela.Rotulo(a, l)</button>
+                                                        }
+                                                    }
+                                                </span>
+                                            }
+                                        </span>
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <footer class="rodape-lista rd-legenda" aria-label="Legenda">
+                <span class="rd-legenda-titulo">Modalidade</span>
+                <span><i class="rd-amostra familia-acupuntura"></i>Acupuntura</span>
+                <span><i class="rd-amostra familia-eletro"></i>Acupuntura + eletro</span>
+                <span><i class="rd-amostra familia-bsv"></i>BSV</span>
+                <span><i class="rd-amostra familia-bsv-acupuntura"></i>BSV + acupuntura</span>
+                <span><i class="rd-amostra familia-consulta"></i>Consulta</span>
+                <span class="rd-legenda-dica">Passe o mouse na linha para ver quem marcou, a observação e a resposta da rodada.</span>
+            </footer>
+        }
+    </section>
+</div>
+
+@if (_menu is not null)
+{
+    @* Clicar fora fecha o "⋯" — sem isso o menu ficaria aberto por cima da linha seguinte. *@
+    <div class="rd-menu-fundo" @onclick="() => _menu = null"></div>
+}
+
+@code {
+    private DateOnly _dia = DateOnly.FromDateTime(DateTime.Today);
+    private DadosDaAgendaDoDia _dados = DadosDaAgendaDoDia.Vazio(DateOnly.FromDateTime(DateTime.Today));
+    private IReadOnlyList<LinhaAgendaDoDia> _linhas = [];
+    private IReadOnlyList<ProfissionalDaAgenda> _profissionais = [];
+    private FiltroAgendaDoDia _filtro = new();
+    private RecorteAgendaDoDia _recorte = AgendaDoDiaNaTela.Recortar([], new());
+
+    private bool _carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erroLeitura;
+    private int _geracao;
+    private DateTime? _ultimaLeitura;
+    private int? _menu;
+    private bool _ocupado;
+    private Timer? _relogio;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static PermissoesDaAgendaDoDia Permissoes => PermissoesDaAgendaDoDia.Da(SessaoUsuario.Atual);
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    /// <summary>As janelas WPF da Recepção; onde não existem, a versão que responde "não disponível".</summary>
+    private IJanelasDaAgenda Janelas => Servicos.GetService<IJanelasDaAgenda>() ?? JanelasDaAgendaIndisponiveis.Instancia;
+
+    protected override Task OnInitializedAsync()
+    {
+        // A RELEITURA PERIÓDICA (a do FilaViewModel): a cada minuto o "atrasado 25 min" e a
+        // espera reenvelhecem, e a lista de HOJE é relida — é por ela que o "Atender" e o
+        // "Finalizar" do consultório chegam ao balcão sem ninguém apertar Atualizar.
+        _relogio = new Timer(_ => _ = InvokeAsync(BaterAsync), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        ConsumirPedidoDeDia();
+        return CarregarAsync();
+    }
+
+    /// <summary>Voltou à aba: relê por trás, SEM limpar a tela (a falha vai só ao log).</summary>
+    protected override Task AoVoltarAsync() => ConsumirPedidoDeDia() ? IrParaAsync(_dia) : CarregarAsync(silencioso: true);
+
+    /// <summary>
+    /// A Visão geral pediu "este dia, este profissional" (a célula da matriz). Ler LIMPA o pedido.
+    /// O filtro de profissional é conferido depois da leitura (Ajustar): quem não tem ninguém no
+    /// dia cai em "Todos", em vez de uma lista vazia que parece dia sem paciente.
+    /// </summary>
+    private bool ConsumirPedidoDeDia()
+    {
+        if (Servicos.GetService<PedidoDaAgendaDoDia>()?.Consumir() is not { } pedido) return false;
+        _dia = pedido.Dia;
+        _filtro = new FiltroAgendaDoDia { ProfissionalId = pedido.ProfissionalId };
+        _menu = null;
+        return true;
+    }
+
+    /// <summary>F5 relê e Ctrl+P imprime a folha — pelo MESMO caminho dos botões.</summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => ImprimirFolhaAsync(),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>
+    /// A batida do relógio. Silenciosa (nada de esqueleto nem aviso vermelho por uma demora do
+    /// banco) e só relê HOJE: quem lê a agenda de terça que vem não tem fila correndo, e a lista
+    /// se mexendo sozinha enquanto a pessoa lê é o defeito. Nos outros dias só reenvelhece os
+    /// rótulos, sem banco.
+    /// </summary>
+    private async Task BaterAsync()
+    {
+        if (Descartada) return;
+        if (_dia != Hoje || _carregando || _ocupado)
+        {
+            Remontar();
+            StateHasChanged();
+            return;
+        }
+        await CarregarAsync(silencioso: true);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Lê o dia num escopo PRÓPRIO (é o que faz a lista enxergar a outra máquina), com contador
+    /// de geração — a batida do relógio e a troca de dia concorrem, e a resposta de HOJE chegando
+    /// por último reescreveria o dia que a pessoa acabou de escolher. Tudo é publicado depois do
+    /// último await.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        var geracao = ++_geracao;
+        var dia = _dia;
+        if (!silencioso) _naoVerificado = false;
+        _carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var leitura = ActivatorUtilities.CreateInstance<LeituraAgendaDoDia>(escopo.ServiceProvider);
+            var dados = await leitura.LerAsync(dia, Hoje);
+            if (geracao != _geracao || Descartada) return;
+
+            _dados = dados;
+            _ultimaLeitura = DateTime.Now;
+            _naoVerificado = false;
+            _carregou = true;
+            Remontar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — agenda do dia não pôde ser carregada", ex);
+            // A releitura de fundo não pinta a tela de erro por cima do que já estava certo.
+            if (silencioso && _carregou) return;
+            // O terceiro estado: lista vazia por erro não tem a cara de dia sem ninguém.
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _dados = DadosDaAgendaDoDia.Vazio(dia);
+            _linhas = [];
+            Remontar();
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    /// <summary>Remonta as linhas e o recorte do que JÁ FOI LIDO (o relógio e os filtros não vão ao banco).</summary>
+    private void Remontar()
+    {
+        _linhas = AgendaDoDiaNaTela.Montar(_dados, DateTime.Now);
+        _profissionais = AgendaDoDiaNaTela.Profissionais(_linhas);
+        _filtro = AgendaDoDiaNaTela.Ajustar(_filtro, _profissionais);
+        _recorte = AgendaDoDiaNaTela.Recortar(_linhas, _filtro);
+        if (_menu is { } m && _recorte.Visiveis.All(l => l.AgendamentoId != m)) _menu = null;
+    }
+
+    // ==================== dia e filtros ====================
+
+    private Task IrParaAsync(DateOnly dia)
+    {
+        _dia = dia;
+        _menu = null;
+        _carregou = false; // dia novo: o esqueleto, não o dia anterior com cara de este
+        return CarregarAsync();
+    }
+
+    private Task EscolherDiaAsync(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+            ? IrParaAsync(d)
+            : Task.CompletedTask;
+
+    private void Buscar(ChangeEventArgs e) { _filtro = _filtro with { Busca = e.Value?.ToString() ?? string.Empty }; Remontar(); }
+    private void EscolherModalidade(ChangeEventArgs e) { _filtro = _filtro with { Modalidade = e.Value?.ToString() }; Remontar(); }
+
+    /// <summary>A pílula já marcada não desmarca — "Todos" é a pílula de limpar.</summary>
+    private void EscolherSituacao(string chave) { _filtro = _filtro with { Situacao = chave }; Remontar(); }
+
+    private void EscolherProfissional(ChangeEventArgs e)
+    {
+        var valor = e.Value?.ToString();
+        _filtro = _filtro with { ProfissionalId = int.TryParse(valor, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null };
+        Remontar();
+    }
+
+    private void LimparFiltros() { _filtro = new(); Remontar(); }
+
+    private void AlternarMenu(LinhaAgendaDoDia l) => _menu = _menu == l.AgendamentoId ? null : l.AgendamentoId;
+
+    // ==================== o passo da linha ====================
+
+    private Task DarOPassoAsync(LinhaAgendaDoDia l) => l.Passo switch
+    {
+        PassoDaAgenda.Chegou => ChegouAsync(l),
+        PassoDaAgenda.Concluir => ConcluirAsync(l),
+        PassoDaAgenda.FecharSessao => FecharSessaoAsync(l),
+        _ => Task.CompletedTask
+    };
+
+    private static string DicaDoPasso(LinhaAgendaDoDia l) => l.Passo switch
+    {
+        PassoDaAgenda.Chegou => "Registrar que o paciente chegou ao local",
+        PassoDaAgenda.Concluir => "Concluir a sessão pelo balcão — a guia nasce aqui (o caminho comum é o Finalizar do profissional)",
+        _ => l.TemPacote ? "A sessão está concluída e há pacote por debitar" : "A sessão está concluída e o caixa do particular está por fechar"
+    };
+
+    private Task AgirAsync(AcaoDaLinhaAgenda acao, LinhaAgendaDoDia l)
+    {
+        _menu = null;
+        return acao switch
+        {
+            AcaoDaLinhaAgenda.Ficha => AbrirFichaAsync(l),
+            AcaoDaLinhaAgenda.FecharSessao => FecharSessaoAsync(l),
+            AcaoDaLinhaAgenda.ConferirConvenio => ConferirConvenioAsync(l),
+            AcaoDaLinhaAgenda.MarcarFalta => MarcarFaltaAsync(l),
+            AcaoDaLinhaAgenda.Cancelar => CancelarAsync(l),
+            AcaoDaLinhaAgenda.AbrirHorario => AbrirHorarioAsync(l),
+            _ => Task.CompletedTask
+        };
+    }
+
+    /// <summary>
+    /// Executa um ato de linha: um por vez (o segundo clique no mesmo minuto não grava duas
+    /// vezes), a falha vira notificação e vai ao log, e a lista é relida no fim — inclusive
+    /// quando o ato terminou numa janela fechada sem confirmar.
+    /// </summary>
+    private async Task AtoAsync(Func<Task<bool>> ato, string contexto)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            if (await ato()) await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Recepção — falha na {contexto}", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    /// <summary>CHEGOU NO LOCAL — o check-in do balcão, só no dia da sessão.</summary>
+    private Task ChegouAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "registrar a chegada")) return false;
+        // A segunda barreira do "só HOJE" — e ela FALA: carimbar a chegada num horário de
+        // amanhã grava a hora de agora numa sessão que não está acontecendo.
+        if (!l.EhHoje)
+        {
+            Notificacoes.Erro("O check-in é do dia da sessão. Volte para hoje — num horário de outro dia ele carimbaria a hora de agora.");
+            return false;
+        }
+        using var escopo = Escopo();
+        await escopo.ServiceProvider.GetRequiredService<AgendaService>().RegistrarChegadaAsync(l.AgendamentoId, Operador);
+        Notificacoes.Sucesso($"{l.Paciente} está no local.");
+        return true;
+    }, "registro da chegada");
+
+    /// <summary>
+    /// CONCLUIR pelo balcão — o caminho de EXCEÇÃO (quem conclui é o Finalizar do profissional).
+    /// A GUIA NASCE AQUI, antes de qualquer janela (parcela 65): pacote, insumo e caixa são o
+    /// passo seguinte e não condicionam nem desfazem a guia.
+    /// </summary>
+    private Task ConcluirAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na fila do dia")) return false;
+        // O bit do ATO: concluir aqui CRIA o atendimento e, com ele, as guias.
+        if (!Exigir(Permissao.LancarAtendimento, "lançar o atendimento e gerar as guias")) return false;
+
+        // SEM CONVÊNIO NÃO SE LANÇA (parcela 92): perguntar antes transforma a recusa em resposta.
+        bool aDefinir;
+        using (var escopo = Escopo())
+            aDefinir = (await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(l.PacienteId))?.ConvenioADefinir == true;
+        if (aDefinir && !(Janelas.Disponivel && await Janelas.EscolherConvenioAsync(l.PacienteId)))
+        {
+            await Dialogos.AvisoAsync($"Sem convênio — {l.Paciente}",
+                $"{l.Paciente} está com o convênio \"a definir\" (a ficha veio do sistema anterior sem convênio), "
+                + "e sem convênio o atendimento não gera guia.\n\nA sessão NÃO foi concluída. Escolha o convênio do "
+                + (Janelas.Disponivel ? "paciente — pelo botão Concluir de novo, ou na ficha dele — " : "paciente na ficha dele, no aplicativo da Recepção, ")
+                + "e conclua em seguida. Quem paga do bolso entra no convênio particular.");
+            return true;
+        }
+
+        RegistroAtendimento registro;
+        using (var escopo = Escopo())
+            registro = await escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>()
+                .RegistrarAtendimentoAsync(l.AgendamentoId, Operador);
+
+        // Os recados do LANÇAMENTO em diálogo (a NC reaberta é para cobrar a guia AGORA).
+        if (registro.RecadosDoLancamento.Count > 0)
+            await Dialogos.AvisoAsync($"Atenção — {l.Paciente}", string.Join("\n\n", registro.RecadosDoLancamento));
+
+        if (!registro.TemDecisao)
+        {
+            Notificacoes.Sucesso(AgendaDoDiaNaTela.FraseDaConclusao(l.Paciente, registro.GuiasGeradas));
+            return true;
+        }
+
+        if (!Janelas.Disponivel)
+        {
+            Notificacoes.Info($"Sessão de {l.Paciente} concluída e guia gerada — o fechamento (pacote, insumo, caixa) é feito no aplicativo da Recepção.");
+            return true;
+        }
+
+        var resultado = await Janelas.FecharSessaoAsync(l.AgendamentoId);
+        if (resultado is null)
+            // Dizer isso é o que impede de concluir de novo procurando a guia que já existe.
+            Notificacoes.Info($"Sessão de {l.Paciente} concluída e guia gerada — pacote/caixa não registrados.");
+        else
+            Notificacoes.Sucesso(AgendaDoDiaNaTela.FraseDoFechamento(l.Paciente, resultado, registro.GuiasGeradas));
+        return true;
+    }, "conclusão do atendimento");
+
+    /// <summary>FECHAR a sessão já concluída: pacote, insumo e caixa (a MESMA janela do Concluir).</summary>
+    private Task FecharSessaoAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "fechar a sessão")) return false;
+        if (!Janelas.Disponivel)
+        {
+            Notificacoes.Info("O fechamento da sessão (pacote, insumo e caixa) é feito no aplicativo da Recepção.");
+            return false;
+        }
+        var resultado = await Janelas.FecharSessaoAsync(l.AgendamentoId);
+        if (resultado is null)
+            Notificacoes.Info($"Sessão de {l.Paciente} continua sem o fechamento do pacote, do insumo e do caixa.");
+        else
+            Notificacoes.Sucesso(AgendaDoDiaNaTela.FraseDoFechamento(l.Paciente, resultado));
+        return true;
+    }, "fechamento da sessão");
+
+    /// <summary>
+    /// EDITAR O HORÁRIO — corrigir o que a sessão É sem sair da agenda do dia (os importados
+    /// vieram todos como "Consulta"). Só em horário EM ABERTO: o serviço recusa o realizado e
+    /// REABRE o cancelado, e um "Editar" que ressuscita em silêncio seria pior que nenhum.
+    /// </summary>
+    private Task EditarAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "editar o horário")) return false;
+        if (!Janelas.Disponivel)
+        {
+            Notificacoes.Info("A edição do horário abre no aplicativo da Recepção.");
+            return false;
+        }
+        var avisos = await Janelas.EditarHorarioAsync(l.AgendamentoId);
+        // Desistir não relê: a lista é relida a cada minuto de qualquer forma.
+        if (avisos is null) return false;
+        Notificacoes.Sucesso(avisos.Count == 0
+            ? $"Horário de {l.Paciente} atualizado."
+            : $"Horário de {l.Paciente} atualizado — {string.Join(" ", avisos)}");
+        return true;
+    }, "edição do horário");
+
+    private Task AbrirFichaAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente")) return false;
+        var abriu = Janelas.Disponivel
+            ? await Janelas.AbrirFichaAsync(l.PacienteId, l.Paciente)
+            : await Host.AbrirFichaDoPacienteAsync(l.PacienteId);
+        if (!abriu) Notificacoes.Info("A ficha do paciente abre no aplicativo da Recepção.");
+        return abriu;
+    }, "ficha do paciente");
+
+    /// <summary>
+    /// CONFERIR CONVÊNIO E COTA com o paciente na frente — a porta que o check-in levou embora.
+    /// Falha NÃO vira "tudo certo": vira o terceiro estado escrito.
+    /// </summary>
+    private Task ConferirConvenioAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "conferir o convênio do paciente")) return false;
+        IReadOnlyList<string> alertas = [];
+        var falhou = false;
+        try
+        {
+            using var escopo = Escopo();
+            var resultado = await escopo.ServiceProvider.GetRequiredService<ElegibilidadeService>().ConferirAsync(l.PacienteId, _dia);
+            alertas = resultado.Alertas.Select(a => a.Descricao).ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — elegibilidade não pôde ser conferida", ex);
+            falhou = true;
+        }
+        await Dialogos.AvisoAsync($"{l.Paciente} — convênio e cota",
+            AgendaDoDiaNaTela.FraseDaElegibilidade(l.TemGuiaPendente, alertas, falhou));
+        return false;
+    }, "conferência de convênio e cota");
+
+    private Task MarcarFaltaAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na fila do dia")) return false;
+        IReadOnlyList<string> avisos;
+        using (var escopo = Escopo())
+            avisos = await escopo.ServiceProvider.GetRequiredService<AgendaService>().MarcarFaltaAsync(l.AgendamentoId, Operador);
+        // Aviso de GUIA é ação ("guia JÁ BAIXADA no portal"), nunca confirmação passageira.
+        if (avisos.Count > 0) await Dialogos.AvisoAsync($"Atenção — {l.Paciente}", string.Join("\n\n", avisos));
+        Notificacoes.Info($"{l.Paciente} marcado como falta.");
+        return true;
+    }, "marcação de falta");
+
+    private Task CancelarAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na fila do dia")) return false;
+        // A MESMA pergunta da Grade: "Cancelar" mora ao lado de "Marcar falta".
+        if (!await Dialogos.ConfirmarAsync("Cancelar horário", $"Cancelar o horário de {l.Paciente} ({l.Horario})?",
+                perigoso: true, confirmar: "Cancelar o horário")) return false;
+        IReadOnlyList<string> avisos;
+        using (var escopo = Escopo())
+            avisos = await escopo.ServiceProvider.GetRequiredService<AgendaService>().CancelarAsync(l.AgendamentoId, Operador);
+        if (avisos.Count > 0) await Dialogos.AvisoAsync($"Atenção — {l.Paciente}", string.Join("\n\n", avisos));
+        Notificacoes.Info($"Agendamento de {l.Paciente} cancelado.");
+        return true;
+    }, "cancelamento");
+
+    /// <summary>
+    /// A JANELA DO HORÁRIO (remarcar, reabrir o cancelado, comprovante, WhatsApp, série). É
+    /// leitura: cada ação da janela exige o seu bit. Para a linha cancelada é a única que sobra.
+    /// </summary>
+    private Task AbrirHorarioAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!Janelas.Disponivel)
+        {
+            Notificacoes.Info("A janela do horário (remarcar, reabrir, comprovante, WhatsApp) abre no aplicativo da Recepção.");
+            return false;
+        }
+        var desfecho = await Janelas.AbrirHorarioAsync(_dia, l.AgendamentoId);
+        if (!desfecho.Achou)
+            Notificacoes.Info("Este horário não está mais neste dia — ele pode ter sido remarcado em outra máquina.");
+        if (desfecho.Mensagem is { } m)
+        {
+            if (desfecho.MensagemEhErro) Notificacoes.Erro(m); else Notificacoes.Info(m);
+        }
+        return true;
+    }, "janela do horário");
+
+    /// <summary>"Marcar atendimento" neste dia, com o profissional do filtro já escolhido.</summary>
+    private async Task NovoHorarioAsync()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "marcar um horário")) return;
+        try
+        {
+            if (!await Janelas.MarcarNovoHorarioAsync(_dia, _filtro.ProfissionalId))
+                Notificacoes.Info(Janelas.Disponivel
+                    ? "A tela de marcar não está disponível para o seu acesso."
+                    : "A marcação de horário abre no aplicativo da Recepção.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — novo horário pela agenda do dia", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>A folha do dia — sem dado clínico, respeitando o profissional filtrado.</summary>
+    private async Task ImprimirFolhaAsync()
+    {
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                pdf = await sp.GetRequiredService<AgendaPdfService>().AgendaDoDiaAsync(
+                    _dia, _filtro.ProfissionalId, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            }
+            var erro = await Host.SalvarEAbrirAsync(pdf, $"agenda-{_dia.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.pdf",
+                "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — agenda do dia não pôde ser impressa", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    // ==================== desenho ====================
+
+    private static (string Inicio, string Fim) Partes(string horario)
+    {
+        var i = horario.IndexOf('–');
+        return i < 0 ? (horario, string.Empty) : (horario[..i], horario[(i + 1)..]);
+    }
+
+    private static RenderFragment Avatar(LinhaAgendaDoDia l) => l.Foto is { Length: > 0 } foto
+        ? @<img class="rd-avatar familia-@AgendaDoDiaNaTela.ClasseDaFamilia(l.Familia)" alt="" src="@($"data:image/jpeg;base64,{Convert.ToBase64String(foto)}")" />
+        : @<span class="rd-avatar familia-@AgendaDoDiaNaTela.ClasseDaFamilia(l.Familia)" aria-hidden="true">@AgendaDoDiaNaTela.Iniciais(l.Paciente)</span>;
+
+    private static string Bool(bool v) => v ? "true" : "false";
+
+    public override void Dispose()
+    {
+        _relogio?.Dispose();
+        _relogio = null;
+        base.Dispose();
+    }
+}

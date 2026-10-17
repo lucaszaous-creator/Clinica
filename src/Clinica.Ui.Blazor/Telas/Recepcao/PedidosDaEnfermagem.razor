@@ -1,0 +1,297 @@
+@*
+  PEDIDOS DA ENFERMAGEM (out/2026 — migrado da PedidosEnfermagemView WPF).
+
+  Caixa COMPARTILHADA: os avisos são de toda a recepção, sem distribuição de responsáveis.
+  A pergunta da tela é "o que a enfermagem pediu e ainda está em aberto?" — a lista ocupa a
+  largura inteira, e o aviso abre num formulário por cima (no WPF a lista dava lugar ao
+  detalhe na mesma área; aqui a lista continua atrás, com o filtro como a pessoa deixou).
+
+  As frases, os recortes e a regra de acesso moram em PedidosDaEnfermagemTela (Application,
+  com teste). O serviço é o MESMO (IPlanejamentoEnfermagemService), e o que só o WPF sabe
+  (o sino, "ver na agenda") passa pelo IBalcaoDaRecepcao.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina rec-pedidos @(Carregando && _jaLeu ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Enfermagem" Titulo="Pedidos da enfermagem"
+                     Subtitulo="Avisos compartilhados com toda a recepção, sem distribuição de responsáveis.">
+        <button type="button" class="botao" disabled="@(!Permitido || Carregando)" @onclick="AtualizarClicadoAsync" title="Atualizar (F5)">
+            <Icone Nome="atualizar" />Atualizar
+        </button>
+    </CabecalhoPagina>
+
+    @if (!Permitido)
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="Seu acesso não alcança os pedidos da enfermagem" Descricao="@PedidosDaEnfermagemTela.SemAcesso" Icone="cadeado" />
+        </section>
+    }
+    else if (!_jaLeu && _erro is not null)
+    {
+        <section class="cartao lista-cartao">
+            <FalhaDeLeitura Titulo="Os avisos da enfermagem não puderam ser lidos" Detalhe="@_erro" AoTentarDeNovo="AtualizarClicadoAsync" />
+        </section>
+    }
+    else if (!_jaLeu)
+    {
+        <section class="kpis tres">
+            @for (var i = 0; i < 3; i++) { <div class="cartao kpi"><Esqueleto Altura="72" /></div> }
+        </section>
+        <section class="cartao lista-cartao"><div class="cartao-corpo"><Esqueleto Altura="260" /></div></section>
+    }
+    else
+    {
+        @if (_erro is not null)
+        {
+            <Aviso Tom="erro" Texto="@("A lista não pôde ser atualizada agora — o que está na tela é da última leitura. " + _erro)" />
+        }
+        <Aviso Tom="info" Texto="@_mensagem" />
+
+        <section class="kpis tres">
+            <Kpi Rotulo="Novos" Valor="@_recorte.Novos.ToString(Formato.PtBr)" Icone="alerta" Tom="@(_recorte.Novos > 0 ? "aviso" : "neutro")"
+                 Nota="@(_recorte.Novos == 0 ? "nenhum aviso por ler" : "ainda não vistos pela recepção")" />
+            <Kpi Rotulo="Em aberto" Valor="@_recorte.Abertos.ToString(Formato.PtBr)" Icone="lista"
+                 Nota="novos e já vistos, ainda válidos" />
+            <Kpi Rotulo="Para hoje" Valor="@_recorte.NoDia.ToString(Formato.PtBr)" Icone="calendario" Tom="neutro"
+                 Nota="@($"em aberto para {Formato.Data(DateOnly.FromDateTime(Hoje))}")" />
+        </section>
+
+        <section class="cartao lista-cartao">
+            <div class="filtros rec-pedidos-filtros">
+                <div class="segmentado" role="group" aria-label="Quais avisos">
+                    <button type="button" aria-pressed="@Bool(_filtro == FiltroPedidosEnfermagem.Novos)" @onclick="() => Filtrar(FiltroPedidosEnfermagem.Novos)">Novos (@_recorte.Novos)</button>
+                    <button type="button" aria-pressed="@Bool(_filtro == FiltroPedidosEnfermagem.EmAberto)" @onclick="() => Filtrar(FiltroPedidosEnfermagem.EmAberto)">Em aberto (@_recorte.Abertos)</button>
+                    <button type="button" aria-pressed="@Bool(_filtro == FiltroPedidosEnfermagem.Historico)" @onclick="() => Filtrar(FiltroPedidosEnfermagem.Historico)"
+                            title="Encerrados, retirados pela enfermagem e expirados">Histórico</button>
+                </div>
+                <label class="alternar">
+                    <input type="checkbox" checked="@_soDia" @onchange="TrocarSoDia" />
+                    Somente @Formato.Data(DateOnly.FromDateTime(Hoje))
+                </label>
+                <span class="resumo-filtro">
+                    @(Carregando ? "Atualizando avisos…" : _recorte.Resumo)
+                    @if (_lidoEm is { } em) { <span> · atualizada às @em.ToString("HH:mm", Formato.PtBr)</span> }
+                </span>
+            </div>
+
+            @if (_recorte.Linhas.Count == 0)
+            {
+                <EstadoVazio Titulo="@_recorte.TituloVazio" Descricao="@_recorte.TextoVazio" Icone="@(_soDia || _filtro != FiltroPedidosEnfermagem.EmAberto ? "filtro" : "ok")" />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista rec-pedidos-lista">
+                        <thead>
+                            <tr>
+                                <th>Período</th>
+                                <th>Pedido</th>
+                                <th>Situação</th>
+                                <th>Enviado por</th>
+                                <th class="direita" aria-label="Ação"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _recorte.Linhas)
+                            {
+                                <tr @key="l.Id" class="@(l.Novo ? "rec-pedido-novo" : null) @(l.Pedido.Ativa ? null : "apagada")">
+                                    <td class="nao-quebra">
+                                        <span class="principal">@l.Data</span>
+                                        <span class="secundario numero">@l.Faixa</span>
+                                    </td>
+                                    <td>
+                                        <span class="principal">@l.Titulo</span>
+                                        <span class="secundario rec-pedido-obs" title="@l.Observacao">@l.Observacao</span>
+                                    </td>
+                                    <td class="nao-quebra"><Selo Tom="@l.TomDoStatus">@l.Status</Selo></td>
+                                    <td><span class="secundario rec-pedido-meta">@l.Meta</span></td>
+                                    <td class="direita nao-quebra">
+                                        <button type="button" class="botao mini @(l.Novo ? "primario" : null)" disabled="@_ocupado"
+                                                aria-label="Ver pedido de @l.Pedido.Quantidade @l.Pedido.Modalidade, @l.Data às @l.Faixa"
+                                                @onclick="() => AbrirAsync(l.Id)">Ver pedido</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="rodape-lista">Abrir um aviso novo é lê-lo: ele passa a "Visto pela recepção" para todo o balcão. A quantidade pedida não reserva vagas — confira a agenda antes de marcar.</p>
+            }
+        </section>
+    }
+</div>
+
+@if (_abertoId is { } id)
+{
+    <PedidoDaEnfermagemForm PedidoId="id" AoFechar="() => _abertoId = null" AoMudar="MudouNoFormularioAsync" />
+}
+
+@code {
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private IReadOnlyList<LinhaSolicitacaoEnfermagem> _pedidos = [];
+    private RecorteDePedidos _recorte = new([], 0, 0, 0, string.Empty, string.Empty, string.Empty);
+    private FiltroPedidosEnfermagem _filtro = FiltroPedidosEnfermagem.EmAberto;
+    private bool _soDia;
+    private bool Carregando;
+    private bool _jaLeu;
+    private bool _ocupado;
+    private string? _erro;
+    private string? _mensagem;
+    private DateTime? _lidoEm;
+    private int _geracao;
+    private int? _abertoId;
+
+    private PeriodicTimer? _relogio;
+    private CancellationTokenSource? _parar;
+    private IBalcaoDaRecepcao? _balcao;
+
+    private static DateTime Hoje => DateTime.Today;
+    private static string Bool(bool v) => v ? "true" : "false";
+
+    /// <summary>A régua do serviço, lida da sessão (a metade visível e a segunda barreira).</summary>
+    private static bool Permitido => PedidosDaEnfermagemTela.Permitido(
+        SessaoUsuario.Atual.Autenticado, SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.Efetivas);
+
+    private IBalcaoDaRecepcao Balcao => _balcao ??= Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Permitido) return;
+        Balcao.PedidosMudaram += AoMudaremOsPedidos;
+        IniciarRelogio();
+        await AtualizarAsync();
+    }
+
+    protected override Task AoVoltarAsync() => AtualizarAsync();
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar && _abertoId is null ? AtualizarClicadoAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// A releitura de cada minuto (o DispatcherTimer do WPF): silenciosa — "Atualizando…" na
+    /// linha do resumo, nunca a lista em branco.
+    /// </summary>
+    private void IniciarRelogio()
+    {
+        _parar = new CancellationTokenSource();
+        _relogio = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        var token = _parar.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (await _relogio.WaitForNextTickAsync(token))
+                    await InvokeAsync(async () => { if (!Descartada) { await AtualizarAsync(); StateHasChanged(); } });
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — relógio dos pedidos da enfermagem", ex); }
+        });
+    }
+
+    /// <summary>Outra tela deste app mudou um aviso (o sino, a faixa da Agenda): relê.</summary>
+    private void AoMudaremOsPedidos() => _ = InvokeAsync(async () =>
+    {
+        if (Descartada) return;
+        await AtualizarAsync();
+        StateHasChanged();
+    });
+
+    private bool ExigirCaixa()
+    {
+        if (Permitido) return true;
+        Notificacoes.Erro("Seu acesso não permite consultar os pedidos da recepção. Fale com a direção da clínica.");
+        return false;
+    }
+
+    private async Task AtualizarClicadoAsync()
+    {
+        if (!ExigirCaixa()) return;
+        _mensagem = null;
+        await AtualizarAsync();
+    }
+
+    /// <summary>
+    /// Relê a caixa. Falha vira o terceiro estado escrito (ou o aviso por cima da última
+    /// leitura), nunca lista vazia. Contador de geração; o usuário da sessão também é conferido
+    /// na volta — trocar de usuário no meio não publica a caixa de outra pessoa.
+    /// </summary>
+    private async Task AtualizarAsync()
+    {
+        if (!Permitido || Carregando) return;
+        var g = ++_geracao;
+        var usuario = SessaoUsuario.Atual.UsuarioId;
+        Carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var linhas = await escopo.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ListarAsync(usuario);
+            if (g != _geracao || Descartada || usuario != SessaoUsuario.Atual.UsuarioId) return;
+            _pedidos = linhas;
+            _jaLeu = true;
+            _erro = null;
+            _lidoEm = DateTime.Now;
+            Remontar();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pedidos da enfermagem", ex);
+            if (g == _geracao && !Descartada) _erro = ex.Message;
+        }
+        finally
+        {
+            if (g == _geracao) Carregando = false;
+        }
+
+        // O sino pediu um aviso: abre-o depois da lista (é ela que autoriza o id).
+        if (g == _geracao && !Descartada && _jaLeu && Balcao.ConsumirAberturaDePedido() is { } pedido)
+        {
+            if (_pedidos.Any(p => p.Id == pedido)) _abertoId = pedido;
+            else _mensagem = "Este aviso não está mais na caixa — ele pode ter sido encerrado em outra máquina.";
+        }
+    }
+
+    /// <summary>Lista, contagens e frases a partir da última leitura — sem ir ao banco.</summary>
+    private void Remontar() => _recorte = PedidosDaEnfermagemTela.Recortar(_pedidos, _filtro, _soDia, Hoje);
+
+    private void Filtrar(FiltroPedidosEnfermagem filtro)
+    {
+        if (!ExigirCaixa()) return;
+        _filtro = filtro;
+        Remontar();
+    }
+
+    private void TrocarSoDia(ChangeEventArgs e)
+    {
+        _soDia = e.Value is true;
+        Remontar();
+    }
+
+    private Task AbrirAsync(int id)
+    {
+        if (!ExigirCaixa()) return Task.CompletedTask;
+        if (_pedidos.All(p => p.Id != id)) { Notificacoes.Erro("Atualize a lista de avisos."); return Task.CompletedTask; }
+        _mensagem = null;
+        _abertoId = id;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>O formulário marcou visto ou encerrou: relê a caixa (e avisa as outras telas).</summary>
+    private async Task MudouNoFormularioAsync()
+    {
+        Balcao.SinalizarMudancaDosPedidos();
+        await AtualizarAsync();
+    }
+
+    public override void Dispose()
+    {
+        if (_balcao is not null) _balcao.PedidosMudaram -= AoMudaremOsPedidos;
+        _parar?.Cancel();
+        _relogio?.Dispose();
+        _parar?.Dispose();
+        base.Dispose();
+    }
+}

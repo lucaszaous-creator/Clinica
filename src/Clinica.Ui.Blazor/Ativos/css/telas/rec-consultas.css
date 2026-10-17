@@ -1,0 +1,11 @@
+/* Estilo próprio da tela Consultas de convênio (rec-consultas). Só tokens — ver docs/telas-blazor.md. */
+.rec-consultas .rec-cons-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.rec-consultas .filtros .busca{min-width:260px}
+/* O semáforo da linha: o mesmo traço de 3 px à esquerda das outras listas da suíte. */
+.rec-consultas tr.rec-cons-linha td:first-child{box-shadow:inset 3px 0 0 var(--semaforo-verde)}
+.rec-consultas tr.rec-cons-linha.amarelo td:first-child{box-shadow:inset 3px 0 0 var(--semaforo-amarelo)}
+.rec-consultas tr.rec-cons-linha.vermelho td:first-child{box-shadow:inset 3px 0 0 var(--semaforo-vermelho)}
+.rec-consultas tr.vermelho .rec-cons-situacao{color:var(--erro-texto);font-weight:600}
+.rec-consultas tr.amarelo .rec-cons-situacao{color:var(--aviso-texto);font-weight:600}
+.rec-consultas .rec-cons-convenio{display:inline-block;max-width:190px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;vertical-align:bottom}

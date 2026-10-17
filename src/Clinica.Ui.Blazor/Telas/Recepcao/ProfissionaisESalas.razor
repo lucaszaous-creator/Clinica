@@ -1,0 +1,578 @@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Domain.Regras
+@*
+  PROFISSIONAIS E SALAS (out/2026, migrado do EquipeView/EquipeViewModel do WPF e das janelas
+  ProfissionalWindow, SalaWindow, HorariosProfissionalWindow e BloqueioWindow).
+
+  Responde "quem atende, onde se atende e quando a agenda está fechada". É o cadastro que dá
+  colunas à agenda — e é dele que dependem o repasse por profissional, a produtividade no BI,
+  o COREN/CRM que sai nos documentos e o CPF que confere o e-CPF na assinatura.
+
+  As três perguntas são ABAS de um cartão só (a regra de leiaute: pergunta a mais é aba, não
+  caixa). A linha do profissional mostra o que a recepção consulta de relance — o HORÁRIO DE
+  ATENDIMENTO dia a dia (a mini-semana com as faixas), o que ele pode receber na marcação, se a agenda dele está travada — e o resto
+  mora atrás de "Editar". As frases saem de TelaDaEquipe (Application, com teste).
+
+  Excluir só vale enquanto o registro nunca foi usado; depois o serviço recusa e o caminho é
+  DESATIVAR — a agenda do passado continua dizendo quem atendeu.
+*@
+@inherits TelaBase
+
+<div class="pagina rec-equipe @(Carregando && _lido ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Equipe" Titulo="Profissionais e salas"
+                     Subtitulo="Quem atende, onde se atende e quando a agenda está fechada. É este cadastro que dá colunas à agenda — e é dele que dependem o repasse e a produtividade nos relatórios.">
+        <button type="button" class="botao fantasma" title="Atualizar" aria-label="Atualizar" @onclick="CarregarAsync"><Icone Nome="atualizar" /></button>
+        <button type="button" class="botao" disabled="@(!PodeFecharAgenda)" @onclick="() => AbrirBloqueio(null, null)"
+                title="@(PodeFecharAgenda ? "Férias, feriado, folga, sala em manutenção" : "Seu acesso não permite fechar a agenda.")">
+            <Icone Nome="calendario" />Fechar agenda…
+        </button>
+        @if (_aba == Aba.Salas)
+        {
+            <button type="button" class="botao primario" disabled="@(!PodeGerenciar)" @onclick="() => AbrirSala(0)"
+                    title="@(PodeGerenciar ? null : "Seu acesso não permite mexer no cadastro da equipe.")"><Icone Nome="mais" />Nova sala</button>
+        }
+        else
+        {
+            <button type="button" class="botao primario" disabled="@(!PodeGerenciar)" @onclick="() => AbrirProfissional(0)"
+                    title="@(PodeGerenciar ? null : "Seu acesso não permite mexer no cadastro da equipe.")"><Icone Nome="mais" />Novo profissional</button>
+        }
+    </CabecalhoPagina>
+
+    @if (_painel is { } p && !_naoVerificado)
+    {
+        <section class="kpis" aria-label="Resumo da equipe">
+            <Kpi Rotulo="Profissionais ativos" Valor="@p.Ativos.ToString()" Icone="pessoas" Tom="neutro"
+                 Nota="@(p.Inativos == 0 ? "Ninguém inativo." : $"{p.Inativos} inativo(s) — o histórico fica preservado.")" />
+            <Kpi Rotulo="Com horário cadastrado" Valor="@($"{p.ComJornada} de {p.Ativos}")" Icone="relogio" Tom="neutro"
+                 Nota="Sem horário, a agenda aceita qualquer dia e hora (não é erro)." />
+            <Kpi Rotulo="Assinam com e-CPF" Valor="@($"{p.ComCpf} de {p.Ativos}")" Icone="cadeado" Tom="neutro"
+                 Nota="Com CPF no cadastro — é ele que confere o certificado." />
+            <Kpi Rotulo="Agenda fechada" Valor="@p.AgendaFechada.ToString()" Icone="calendario"
+                 Tom="@(p.SessoesARemarcar > 0 ? "aviso" : "neutro")" ClasseValor="@(p.SessoesARemarcar > 0 ? "tom-aviso" : null)"
+                 Nota="@(p.SessoesARemarcar > 0 ? $"{p.SessoesARemarcar} sessão(ões) marcada(s) dentro — remarque." : p.AgendaFechada == 0 ? "Nada fechado daqui para a frente." : "Nada marcado dentro dos fechamentos.")" />
+        </section>
+    }
+    else if (Carregando && !_lido)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="50%" /></div> }
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="abas eq-abas" role="tablist">
+            <button type="button" role="tab" aria-selected="@(_aba == Aba.Profissionais ? "true" : "false")" @onclick="() => _aba = Aba.Profissionais">
+                Profissionais <span class="eq-contagem">@_profissionais.Count</span></button>
+            <button type="button" role="tab" aria-selected="@(_aba == Aba.Salas ? "true" : "false")" @onclick="() => _aba = Aba.Salas">
+                Salas <span class="eq-contagem">@_salas.Count</span></button>
+            <button type="button" role="tab" aria-selected="@(_aba == Aba.Bloqueios ? "true" : "false")" @onclick="() => _aba = Aba.Bloqueios">
+                Agenda fechada <span class="eq-contagem @(_painel?.SessoesARemarcar > 0 ? "alerta" : null)">@_bloqueios.Count</span></button>
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a equipe" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (Carregando && !_lido)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="240" /></div>
+        }
+        else if (_aba == Aba.Profissionais)
+        {
+            <div class="filtros">
+                <Campo Rotulo="Buscar por nome, registro ou especialidade" Classe="eq-busca">
+                    <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Ex.: Helena, CRM, psiquiatria" value="@_busca" @oninput="e => _busca = e.Value?.ToString() ?? string.Empty" maxlength="80" /></div>
+                </Campo>
+                <div class="segmentado" role="group" aria-label="Situação">
+                    <button type="button" aria-pressed="@(_situacao == Situacao.Todos ? "true" : "false")" @onclick="() => _situacao = Situacao.Todos">Todos</button>
+                    <button type="button" aria-pressed="@(_situacao == Situacao.Ativos ? "true" : "false")" @onclick="() => _situacao = Situacao.Ativos">Ativos</button>
+                    <button type="button" aria-pressed="@(_situacao == Situacao.Inativos ? "true" : "false")" @onclick="() => _situacao = Situacao.Inativos">Inativos</button>
+                </div>
+                @if (Filtrado)
+                {
+                    <span class="resumo-filtro">@Profissionais.Count de @_profissionais.Count profissional(is)</span>
+                }
+            </div>
+
+            @if (_profissionais.Count == 0)
+            {
+                <EstadoVazio Icone="pessoas" Titulo="Nenhum profissional cadastrado"
+                             Descricao="Sem profissional não há agenda por pessoa, repasse nem quem assine os documentos. Cadastre quem atende — só o nome é obrigatório." />
+            }
+            else if (Profissionais.Count == 0)
+            {
+                <EstadoVazio Icone="busca" Titulo="Ninguém bate com o filtro" Descricao="Limpe a busca ou escolha «Todos» para ver a equipe inteira." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista eq-tabela">
+                        <thead>
+                            <tr>
+                                <th>Profissional</th>
+                                <th style="width:300px">Horário de atendimento</th>
+                                <th style="width:200px">Atende na marcação</th>
+                                <th class="direita" style="width:190px">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pr in Profissionais)
+                            {
+                                var semana = TelaDaEquipe.MiniSemana(pr);
+                                var cor = TelaDaEquipe.CorDaAgenda(pr.Cor);
+                                <tr class="@(pr.Ativo ? null : "apagada")" @key="pr.Id">
+                                    <td>
+                                        <div class="eq-pessoa">
+                                            <span class="avatar eq-avatar @(cor is null ? null : "com-cor")" style="@(cor is null ? null : $"--eq-cor:{cor}")" aria-hidden="true">@TelaDaEquipe.Iniciais(pr.Nome)</span>
+                                            <div class="eq-pessoa-texto">
+                                                <span class="principal">@pr.Nome</span>
+                                                @if (!pr.Ativo) { <Selo Tom="neutro" Dica="Fora dos seletores de marcação; o histórico fica preservado">inativo</Selo> }
+                                                @if (TelaDaEquipe.AssinaDigitalmente(pr)) { <Selo Tom="sucesso" Dica="CPF no cadastro: o certificado ICP-Brasil é conferido contra ele">e-CPF</Selo> }
+                                                <span class="secundario">@Linha2(pr)</span>
+                                                @if (_logins.TryGetValue(pr.Id, out var login))
+                                                {
+                                                    <span class="secundario eq-login"><Icone Nome="pessoa" />entra como «@login»</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (semana.Count == 0)
+                                        {
+                                            <span class="eq-sem-horario">
+                                                <span class="secundario">horário não cadastrado</span>
+                                                <button type="button" class="botao mini fantasma" disabled="@(!PodeAgenda || !pr.Ativo)" @onclick="() => AbrirHorario(pr.Id)"
+                                                        title="@(PodeAgenda ? "Cadastrar os dias e as faixas em que ele atende" : "Seu acesso não permite configurar a agenda.")"><Icone Nome="mais" />Cadastrar</button>
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <ul class="eq-mini-semana" aria-label="@($"Horário de atendimento: {TelaDaEquipe.Horario(pr)}")" title="@TelaDaEquipe.Horario(pr)">
+                                                @foreach (var s in semana)
+                                                {
+                                                    <li class="@(s.Atende ? "sim" : null)"><span class="eq-mini-dia">@s.Curto</span><span class="eq-mini-faixas numero">@s.Faixas</span></li>
+                                                }
+                                            </ul>
+                                        }
+                                        @if (pr.AgendaProtegida)
+                                        {
+                                            <span class="eq-trava" title="A agenda RECUSA marcação fora deste horário, em agenda fechada ou em cima de outro paciente — inclusive encaixe"><Icone Nome="cadeado" />recusa fora do horário</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="@(TelaDaEquipe.SemNadaHabilitado(pr) ? "eq-alerta" : null)">@TelaDaEquipe.Habilitacoes(pr)</span>
+                                        <span class="secundario">@TelaDaEquipe.Duracao(pr)</span>
+                                    </td>
+                                    <td class="direita">
+                                        <div class="botoes-linha">
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeGerenciar)" @onclick="() => AbrirProfissional(pr.Id)"
+                                                    title="@(PodeGerenciar ? "Cadastro, duração e habilitações" : "Seu acesso não permite mexer no cadastro da equipe.")"><Icone Nome="editar" />Editar</button>
+                                            <button type="button" class="botao mini icone" disabled="@(!PodeAgenda || !pr.Ativo)" @onclick="() => AbrirHorario(pr.Id)"
+                                                    title="@(PodeAgenda ? (pr.Ativo ? "Horário de atendimento e agenda fechada" : "Profissional inativo não recebe horários") : "Seu acesso não permite configurar a agenda.")" aria-label="Horário de atendimento"><Icone Nome="relogio" /></button>
+                                            <button type="button" class="botao mini icone" disabled="@(!PodeFecharAgenda || !pr.Ativo)" @onclick="() => AbrirBloqueio(pr.Id, null)"
+                                                    title="Fechar a agenda deste profissional (férias, folga)" aria-label="Fechar a agenda deste profissional"><Icone Nome="calendario" /></button>
+                                            <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeGerenciar)" @onclick="() => ExcluirProfissionalAsync(pr)"
+                                                    title="Excluir (só quem nunca teve agenda; senão, desative)" aria-label="Excluir profissional"><Icone Nome="lixo" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista">Quem já tem agenda, prontuário ou repasse não se exclui — desative no cadastro: some dos seletores de marcação e o histórico fica.</div>
+            }
+        }
+        else if (_aba == Aba.Salas)
+        {
+            @if (_salas.Count == 0)
+            {
+                <EstadoVazio Icone="caixa" Titulo="Nenhuma sala cadastrada"
+                             Descricao="Sala é opcional: sem ela a agenda funciona por profissional. Cadastre quando quiser que a agenda avise duas sessões na mesma maca." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr>
+                                <th>Sala</th>
+                                <th style="width:240px">Capacidade</th>
+                                <th style="width:120px">Situação</th>
+                                <th class="direita" style="width:160px">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in _salas)
+                            {
+                                <tr class="@(s.Ativa ? null : "apagada")" @key="s.Id">
+                                    <td>
+                                        <span class="principal">@s.Nome</span>
+                                        @if (!string.IsNullOrWhiteSpace(s.Observacoes)) { <span class="secundario">@s.Observacoes</span> }
+                                    </td>
+                                    <td>@TelaDaEquipe.Capacidade(s.Capacidade)</td>
+                                    <td><Selo Tom="@(s.Ativa ? "sucesso" : "neutro")">@(s.Ativa ? "Ativa" : "Inativa")</Selo></td>
+                                    <td class="direita">
+                                        <div class="botoes-linha">
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeGerenciar)" @onclick="() => AbrirSala(s.Id)"
+                                                    title="@(PodeGerenciar ? null : "Seu acesso não permite mexer no cadastro da equipe.")"><Icone Nome="editar" />Editar</button>
+                                            <button type="button" class="botao mini icone" disabled="@(!PodeFecharAgenda || !s.Ativa)" @onclick="() => AbrirBloqueio(null, s.Id)"
+                                                    title="Fechar a agenda desta sala (manutenção)" aria-label="Fechar a agenda desta sala"><Icone Nome="calendario" /></button>
+                                            <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeGerenciar)" @onclick="() => ExcluirSalaAsync(s)"
+                                                    title="Excluir (só sala sem agenda; senão, desative)" aria-label="Excluir sala"><Icone Nome="lixo" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista">@($"{_painel?.SalasAtivas ?? 0} sala(s) ativa(s), {_painel?.VagasSimultaneas ?? 0} atendimento(s) ao mesmo tempo no total.") A capacidade decide quando a agenda avisa choque de sala: numa sala com duas macas, duas sessões no mesmo horário são rotina.</div>
+            }
+        }
+        else
+        {
+            <div class="cartao-corpo eq-explica">
+                <p>Férias, feriado, congresso, folga, sala em manutenção. A agenda <b>avisa</b> quem tentar marcar no período — e, para o profissional com a <b>trava</b> ligada, <b>recusa</b>. Fechar a agenda <b>não desmarca ninguém</b>: quem já estava marcado aparece aqui, para a recepção remarcar com o paciente.</p>
+            </div>
+            @if (_bloqueios.Count == 0)
+            {
+                <EstadoVazio Icone="calendario" Titulo="Nada fechado daqui para a frente"
+                             Descricao="Enquanto não houver, o que segura a marcação em cima da folga é a memória de quem está no balcão." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead>
+                            <tr>
+                                <th style="width:200px">De quem</th>
+                                <th style="width:240px">Período</th>
+                                <th>Motivo</th>
+                                <th class="direita" style="width:230px">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var b in _bloqueios)
+                            {
+                                var marcados = _marcados.TryGetValue(b.Id, out var m) ? m : [];
+                                <tr @key="b.Id">
+                                    <td><span class="principal">@TelaDaEquipe.AlvoDoBloqueio(b)</span>
+                                        @if (b.DaClinica) { <Selo Tom="info" Dica="Sem profissional e sem sala: vale para todo mundo">todos</Selo> }</td>
+                                    <td class="nao-quebra">@TelaDaEquipe.PeriodoDoBloqueio(b)</td>
+                                    <td>
+                                        <span>@b.Motivo</span>
+                                        @if (marcados.Count > 0)
+                                        {
+                                            <span class="secundario eq-alerta">@TelaDaEquipe.SituacaoDoBloqueio(marcados.Count): @string.Join(" · ", marcados.Take(3).Select(a => $"{a.DataHora:dd/MM HH:mm} {a.Paciente?.Nome ?? "paciente"}"))@(marcados.Count > 3 ? " …" : null)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="secundario">@TelaDaEquipe.SituacaoDoBloqueio(0)</span>
+                                        }
+                                    </td>
+                                    <td class="direita">
+                                        <div class="botoes-linha">
+                                            @if (marcados.Count > 0)
+                                            {
+                                                <button type="button" class="botao mini primario" disabled="@(!PodeAgenda)" @onclick="() => EmpurrarAsync(b)"
+                                                        title="Empurrar em bloco as sessões marcadas dentro, mantendo o horário"><Icone Nome="direita" />Empurrar sessões</button>
+                                            }
+                                            <button type="button" class="botao mini" disabled="@(!PodeAgenda)" @onclick="() => ReabrirAsync(b)"
+                                                    title="@(PodeAgenda ? "Tirar o bloqueio: a agenda volta a aceitar marcação" : "Seu acesso não permite reabrir a agenda.")"><Icone Nome="destravar" />Reabrir</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </section>
+</div>
+
+@if (_profissionalAberto is { } pid)
+{
+    <ProfissionalForm ProfissionalId="pid" AoFechar="() => _profissionalAberto = null" AoConcluir="ProfissionalGravadoAsync" />
+}
+@if (_salaAberta is { } sid)
+{
+    <SalaForm SalaId="sid" AoFechar="() => _salaAberta = null" AoConcluir="SalaGravadaAsync" />
+}
+@if (_horarioAberto is { } jid)
+{
+    <HorariosDeAtendimentoForm ProfissionalId="jid" AoFechar="() => _horarioAberto = null" AoAlterar="CarregarAsync"
+                               AoFecharAgenda="FecharAgendaDoHorario" />
+}
+@if (_bloqueioAberto is { } alvo)
+{
+    <BloqueioForm ProfissionalId="alvo.Profissional" SalaId="alvo.Sala" AoFechar="() => _bloqueioAberto = null" AoConcluir="BloqueioCriadoAsync" />
+}
+
+@code {
+    private enum Aba { Profissionais, Salas, Bloqueios }
+    private enum Situacao { Todos, Ativos, Inativos }
+
+    private Aba _aba = Aba.Profissionais;
+    private Situacao _situacao = Situacao.Todos;
+    private string _busca = string.Empty;
+
+    private List<Profissional> _profissionais = [];
+    private List<Sala> _salas = [];
+    private List<BloqueioAgenda> _bloqueios = [];
+    private IReadOnlyDictionary<int, IReadOnlyList<Agendamento>> _marcados = new Dictionary<int, IReadOnlyList<Agendamento>>();
+    private Dictionary<int, string> _logins = [];
+    private PainelDaEquipe? _painel;
+
+    private bool Carregando, _lido, _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    // Formulários abertos (no máximo um de cada). Zero = novo.
+    private int? _profissionalAberto, _salaAberta, _horarioAberto;
+    private (int? Profissional, int? Sala)? _bloqueioAberto;
+
+    // As duas barreiras: os bits EXATOS do EquipeViewModel do WPF.
+    private static bool PodeGerenciar => Pode(Permissao.GerenciarEquipe);
+    private static bool PodeAgenda => Pode(Permissao.EditarAgenda);
+    // A UNIÃO dos bits das portas (parcela 69): o Salvar do bloqueio aceita um OU outro.
+    private static bool PodeFecharAgenda => PodeAlgum(Permissao.EditarAgenda | Permissao.GerenciarEquipe);
+
+    private bool Filtrado => !string.IsNullOrWhiteSpace(_busca) || _situacao != Situacao.Todos;
+
+    private List<Profissional> Profissionais => _profissionais
+        .Where(p => _situacao switch { Situacao.Ativos => p.Ativo, Situacao.Inativos => !p.Ativo, _ => true })
+        .Where(p => TelaDaEquipe.CasaBusca(p, _busca, p.EspecialidadeCodigo is { } e ? CatalogoEspecialidades.Nome(e) : null))
+        .ToList();
+
+    private static string Linha2(Profissional p)
+    {
+        var partes = new List<string> { TelaDaEquipe.Registro(p) };
+        if (!string.IsNullOrWhiteSpace(p.EspecialidadeCodigo)) partes.Add(CatalogoEspecialidades.Nome(p.EspecialidadeCodigo));
+        if (!string.IsNullOrWhiteSpace(p.NomeCurto)) partes.Add($"na agenda: {p.NomeCurto}");
+        return string.Join(" · ", partes);
+    }
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// Equipe, salas, bloqueios (com quem está marcado dentro de cada um) e os logins ligados,
+    /// numa carga só com contador de geração: toda ação da tela termina relendo, e duas cargas
+    /// no ar se intercalariam. Publica tudo depois do último await.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopo();
+            var equipe = escopo.ServiceProvider.GetRequiredService<EquipeService>();
+            var profissionais = await equipe.ProfissionaisAsync();
+            if (geracao != _geracao || Descartada) return;
+            var salas = await equipe.SalasAsync();
+            if (geracao != _geracao || Descartada) return;
+
+            var bloqueios = escopo.ServiceProvider.GetRequiredService<BloqueioAgendaService>();
+            var lista = await bloqueios.ListarAsync();
+            if (geracao != _geracao || Descartada) return;
+            // Uma leitura por grupo de bloqueios próximos, não uma por bloqueio.
+            var marcados = await bloqueios.MarcadosDentroDeCadaAsync(lista);
+            if (geracao != _geracao || Descartada) return;
+
+            // O login ligado a cada cadastro — só para quem administra acessos.
+            var logins = new Dictionary<int, string>();
+            if (Pode(Permissao.GerenciarUsuarios))
+            {
+                var usuarios = await escopo.ServiceProvider.GetRequiredService<AcessoService>().UsuariosAsync();
+                if (geracao != _geracao || Descartada) return;
+                foreach (var u in usuarios.Where(u => u.Ativo && u.ProfissionalId is not null))
+                    logins.TryAdd(u.ProfissionalId!.Value, u.Login);
+            }
+
+            _profissionais = profissionais.ToList();
+            _salas = salas.ToList();
+            _bloqueios = lista.OrderBy(b => b.Inicio).ToList();
+            _marcados = marcados;
+            _logins = logins;
+            _painel = TelaDaEquipe.Painel(_profissionais, _salas,
+                _bloqueios.Select(b => marcados.TryGetValue(b.Id, out var m) ? m.Count : 0).ToList());
+            _lido = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — equipe não pôde ser carregada", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _lido = false;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    // ==================== Profissionais ====================
+
+    private void AbrirProfissional(int id)
+    {
+        if (!Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe")) return;
+        _profissionalAberto = id;
+    }
+
+    private async Task ProfissionalGravadoAsync()
+    {
+        var novo = _profissionalAberto == 0;
+        _profissionalAberto = null;
+        Notificacoes.Sucesso(novo ? "Profissional cadastrado." : "Profissional salvo.");
+        await CarregarAsync();
+    }
+
+    private async Task ExcluirProfissionalAsync(Profissional p)
+    {
+        if (!Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir profissional",
+                $"Excluir {p.Nome}? Só é possível enquanto não houver agenda, prontuário, repasse ou bloqueio registrado — se houver, desative-o no cadastro em vez de excluir.",
+                perigoso: true, confirmar: "Excluir profissional")) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<EquipeService>().ExcluirProfissionalAsync(p.Id);
+            }, "Blazor — profissional não pôde ser excluído", "Profissional excluído."))
+            await CarregarAsync();
+    }
+
+    private void AbrirHorario(int id)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "configurar o horário de atendimento")) return;
+        _horarioAberto = id;
+    }
+
+    /// <summary>O editor do horário oferece "Fechar a agenda deste profissional": troca uma janela pela outra.</summary>
+    private void FecharAgendaDoHorario(int profissionalId)
+    {
+        _horarioAberto = null;
+        AbrirBloqueio(profissionalId, null);
+    }
+
+    // ==================== Salas ====================
+
+    private void AbrirSala(int id)
+    {
+        if (!Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe")) return;
+        _salaAberta = id;
+    }
+
+    private async Task SalaGravadaAsync()
+    {
+        var nova = _salaAberta == 0;
+        _salaAberta = null;
+        Notificacoes.Sucesso(nova ? "Sala cadastrada." : "Sala salva.");
+        await CarregarAsync();
+    }
+
+    private async Task ExcluirSalaAsync(Sala s)
+    {
+        if (!Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir sala",
+                $"Excluir a sala {s.Nome}? Só é possível enquanto ela não tem agenda nem bloqueio registrado — se tiver, desative-a.",
+                perigoso: true, confirmar: "Excluir sala")) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<EquipeService>().ExcluirSalaAsync(s.Id);
+            }, "Blazor — sala não pôde ser excluída", "Sala excluída."))
+            await CarregarAsync();
+    }
+
+    // ==================== Agenda fechada ====================
+
+    private void AbrirBloqueio(int? profissionalId, int? salaId)
+    {
+        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.GerenciarEquipe, "fechar a agenda")) return;
+        _bloqueioAberto = (profissionalId, salaId);
+    }
+
+    /// <summary>
+    /// O aviso do que já estava marcado é o motivo de o formulário existir: bloquear não
+    /// desmarca ninguém, e sumir com essa informação faria a recepção descobrir o choque quando
+    /// o paciente aparecesse na porta. Por isso é DIÁLOGO, não notificação de 4 segundos.
+    /// </summary>
+    private async Task BloqueioCriadoAsync(IReadOnlyList<string> marcadosDentro)
+    {
+        _bloqueioAberto = null;
+        _aba = Aba.Bloqueios;
+        await CarregarAsync();
+        if (marcadosDentro.Count > 0)
+            await Dialogos.AvisoAsync("Agenda fechada — mas já havia sessão marcada",
+                $"{marcadosDentro.Count} sessão(ões) estão marcadas dentro do período fechado. Elas continuam na agenda: remarque com o paciente (ou use «Empurrar sessões»).\n\n"
+                + string.Join("\n", marcadosDentro));
+        else
+            Notificacoes.Sucesso("Agenda fechada no período.");
+    }
+
+    /// <summary>
+    /// Empurra em bloco as sessões que caíram dentro do período fechado (parcela 28). Num mês
+    /// de férias são trinta, e quem tem trinta para remarcar uma a uma não remarca.
+    /// </summary>
+    private async Task EmpurrarAsync(BloqueioAgenda b)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "remarcar sessões")) return;
+        var resposta = await Dialogos.PerguntarTextoAsync("Empurrar as sessões",
+            $"Em quantos dias empurrar as sessões marcadas dentro de {TelaDaEquipe.PeriodoDoBloqueio(b)}?\n\n"
+            + "O HORÁRIO é mantido — o paciente organizou a vida em torno dele, e reorganizar horário é conversa de quem fala com ele, não decisão do sistema. "
+            + "Sessão já realizada não se mexe; a que o sistema não conseguir mover aparece na lista, com o motivo.",
+            "7");
+        if (resposta is null) return;
+        if (!TelaDaEquipe.LerDeslocamento(resposta, out var dias))
+        {
+            await Dialogos.AvisoAsync("Número inválido", "Informe em quantos dias empurrar (ex.: 7). Zero não move nada.");
+            return;
+        }
+
+        try
+        {
+            ResultadoRemarcacaoEmLote r;
+            using (var escopo = Escopo())
+                r = await escopo.ServiceProvider.GetRequiredService<BloqueioAgendaService>().RemarcarEmLoteAsync(b.Id, dias, Operador);
+            await CarregarAsync();
+            if (r.Vazio)
+                Notificacoes.Info("Não havia sessão a remarcar dentro do período.");
+            else if (r.TudoRemarcado)
+                Notificacoes.Sucesso($"{r.Remarcados.Count} sessão(ões) empurradas em {dias} dia(s).");
+            else
+                // As recusadas aparecem uma a uma: "3 não deram" mandaria procurar quais são.
+                await Dialogos.AvisoAsync("Nem todas puderam ser empurradas",
+                    $"{r.Remarcados.Count} sessão(ões) foram remarcadas.\n\n{r.Recusados.Count} ficaram como estavam:\n"
+                    + string.Join("\n", r.Recusados.Select(x => $"· {x.Sessao.Paciente?.Nome ?? "paciente"} — {x.Sessao.DataHora:dd/MM HH:mm}: {x.Motivo}")));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — remarcação em lote falhou", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>Reabre a agenda. O que estava marcado dentro continua marcado.</summary>
+    private async Task ReabrirAsync(BloqueioAgenda b)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "reabrir a agenda")) return;
+        if (!await Dialogos.ConfirmarAsync("Reabrir a agenda",
+                $"Tirar o bloqueio de {TelaDaEquipe.AlvoDoBloqueio(b)} ({TelaDaEquipe.PeriodoDoBloqueio(b)})? A agenda volta a aceitar marcação nesse período sem aviso.",
+                confirmar: "Reabrir a agenda")) return;
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<BloqueioAgendaService>().ExcluirAsync(b.Id, Operador);
+            }, "Blazor — bloqueio não pôde ser removido", "Agenda reaberta."))
+            await CarregarAsync();
+    }
+}

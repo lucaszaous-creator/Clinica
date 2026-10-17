@@ -195,6 +195,13 @@ public sealed class ModuloFinanceiro : IModuloApp
             Chave = ChaveProducao, Rotulo = "Produ\u00e7\u00e3o", Glifo = "\uE9D2", Icone = "barras",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
+        // Tendência dos atendimentos (out/2026): no Financeiro abre pela RECEITA. No Gerente
+        // ela é aba de "Relatórios / BI", que a esconde do menu (quem esconde é o pai).
+        new ItemMenuModulo
+        {
+            Chave = ChavesSuite.Tendencias, Rotulo = "Tend\u00EAncias", Glifo = "\uE9D2", Icone = "grafico",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
 
         // AJUDA E SUPORTE \u2014 tela do shell, sem `Requer` de prop\u00f3sito (o padr\u00e3o \u00e9
         // "sempre vis\u00edvel"): fechar o manual por permiss\u00e3o trancaria quem mais precisa.
@@ -230,6 +237,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveConciliacao => Blazor(typeof(Clinica.Ui.Blazor.Telas.Conciliacao), servicos),
         ChaveExtrato => Blazor(typeof(Clinica.Ui.Blazor.Telas.ExtratoDoBanco), servicos),
         ChaveProducao => Blazor(typeof(Clinica.Ui.Blazor.Telas.Producao), servicos),
+        ChavesSuite.Tendencias => Blazor(typeof(Clinica.Ui.Blazor.Telas.TendenciasDeAtendimento), servicos),
         // A tela SUBIU para o shell (parcela 60), como a sala de infusão na 48: quem
         // vende as dez sessões ao paciente é a RECEPÇÃO, no balcão, e a única porta estava
         // no app do Financeiro. Os dois módulos publicam a MESMA chave — a dedupe do
