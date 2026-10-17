@@ -212,7 +212,7 @@ ele.
 | Etapa | O que muda | Conferir antes de seguir |
 |---|---|---|
 | 1. Só leitura | nada envia | Relacionamento mostra "Atualizado com a clínica às…"; a agenda aparece |
-| 2. Lembrete de SMS | `LembreteSms__Ligado=true` na ponte (já no exemplo) + SMS configurado no Clinica | o SMS de teste chega; no dia seguinte, a coluna de confirmação da agenda mostra quem respondeu |
+| 2. Lembrete de SMS | SMS configurado no Clinica e o SMS de teste recebido; só então `LembreteSms__Ligado=true` na ponte (o exemplo nasce `false`) e `systemctl restart clinica-crm-bridge` | o SMS de teste chega; no dia seguinte, a coluna de confirmação da agenda mostra quem respondeu |
 | 3. Envio pelo CRM | `CRM_SEND_ENABLED=true` no CRM | uma conversa por SMS com um celular da equipe, ida e volta |
 | 4. Marcar pelo CRM | `CRM_BOOKING_ENABLED=true` nos **dois** lados | marcar um horário fictício e vê-lo na agenda do balcão |
 | 5. Remarcar e cancelar | `CRM_SCHEDULING_ENABLED=true` nos **dois** lados | cancelar o fictício; a guia dele sai suspensa |
