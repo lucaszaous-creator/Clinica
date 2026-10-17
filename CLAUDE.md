@@ -4218,6 +4218,15 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ O relógio do SMS virou UMA classe (`RelogioDoSmsNoServidor`, Infrastructure) para os dois
   hospedeiros (ponte e web): o lembrete sai com a clínica fechada, e a reserva no banco impede
   o SMS duplicado com os apps abertos.
+- **O usuário do banco da ponte do CRM grava SÓ nas tabelas que a ponte grava** (out/2026,
+  achado da revisão da PR 257): `papel-ponte-crm.sql` dava INSERT/UPDATE em todas, e uma
+  credencial vazada alcançaria usuários e prontuário. A lista é MEDIDA, não suposta:
+  `PontePapelRestritoTests` aplica o próprio arquivo e roda os fluxos (confirmar, marcar com
+  guia no agendamento, cancelar, remarcar, recall, lembrete de SMS) conectado como
+  `ponte_crm` — provado tirando `Codigos` e `MensagensSms` da lista: reprova com 42501.
+  ⚠️ **Fluxo novo da ponte que grave em outra tabela: rode esse teste no Postgres antes do
+  push**, senão a clínica descobre pelo 42501. E a falha do lembrete de SMS NÃO lança: vira
+  `Falhas` no resultado, então a asserção é sobre `Enviados`.
 - **Triggers usados pelo portal devem funcionar com seu papel restrito.** `SELECT FOR SHARE`
   exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita
   conceder ao portal permissao de editar profissionais. Testar com papel sem UPDATE.

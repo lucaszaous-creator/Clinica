@@ -80,8 +80,14 @@ Teste na VPS 2: `ping -c 3 10.8.0.1`.
 
 ## 4. A ponte (VPS 1)
 
-**4.1 O usuário do Postgres.** A ponte lê e grava agenda, contatos, SMS e trilha. Ela não apaga
-nada, não cria tabela e não é dona de nada:
+**4.1 O usuário do Postgres.** A ponte LÊ o banco inteiro, mas só GRAVA onde os fluxos dela
+gravam: agenda, a guia que nasce ou é suspensa com ela, o contato da rodada, o SMS, o recall,
+a categoria do paciente e a trilha (que só recebe INSERT). Usuários, prontuário e financeiro
+ficam só para leitura: se a credencial vazar, o estrago não alcança o banco inteiro. Ela não
+apaga nada, não cria tabela e não é dona de nada. A lista é conferida pelo
+`PontePapelRestritoTests` (rode-o com `CLINICA_TESTES_POSTGRES` sempre que um fluxo da ponte
+mudar). Rode o arquivo **depois** de o banco ter as tabelas (abra um dos apps uma vez) e
+**de novo depois do script do posto** (`deploy/tablet`), que cria as do recall:
 
 ```bash
 sudo -u postgres psql -p 45432 -d clinica -v senha="'SENHA_FORTE'" -f papel-ponte-crm.sql
