@@ -102,7 +102,11 @@ internal static partial class Program
                 var composta = (Clinica.Desktop.Shell.Componentes.TelaComAbas)shell.TelaAtual!;
                 var regua = (TabControl)composta.FindName("Abas");
                 var esperadas = new[] { "Resumo", "Pendências e baixas", "Consultar guias", "Faturados", "Glosas e recursos", "Não conformidades", "Lotes e XML TISS" };
-                if (perfil == PerfilAcesso.Gerente) esperadas = esperadas.Concat(new[] { "Relatórios de guias", "Regras e catálogos TISS" }).ToArray();
+                // Tendências (out/2026) é aba do Faturamento para quem vê guias; Relatórios e Regras
+                // continuam só para quem tem os bits deles. A ordem é a dos destinos do módulo.
+                esperadas = perfil == PerfilAcesso.Gerente
+                    ? esperadas.Concat(new[] { "Relatórios de guias", "Tendências", "Regras e catálogos TISS" }).ToArray()
+                    : esperadas.Concat(new[] { "Tendências" }).ToArray();
                 Conferir(regua.Items.Cast<TabItem>().Select(a => (string)a.Header).SequenceEqual(esperadas),
                     $"{nome}: subabas de guias preservadas conforme permissão");
                 // Blazor desde out/2026: a aba materializa o LUGAR da tela (o navegador é o da janela).
