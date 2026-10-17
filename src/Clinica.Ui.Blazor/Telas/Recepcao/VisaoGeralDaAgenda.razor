@@ -107,19 +107,26 @@
             <Kpi Rotulo="Faltas e cancelamentos" Valor="@k.FaltasECancelamentos" Icone="cancelar" Tom="neutro" Nota="@k.FaltasNota" />
         </section>
 
-        @if (VisaoGeralDaAgendaDesenho.LinhaSemHorario(d) is { } semHorario)
+        var semHorario = VisaoGeralDaAgendaDesenho.LinhaSemHorario(d);
+        var atencao = VisaoGeralDaAgendaDesenho.LinhaDeAtencao(d);
+        @if (semHorario is not null || atencao is not null)
         {
-            <p class="rec-oc-nota">
-                <Icone Nome="relogio" /><span>@semHorario</span>
-                @if (PodeMexerNaAgenda)
+            <div class="rec-oc-notas">
+                @if (semHorario is not null)
                 {
-                    <button type="button" class="botao mini fantasma" @onclick="() => AbrirHorarios(VisaoGeralDaAgendaDesenho.PrimeiroSemHorario(d))">cadastrar</button>
+                    <p class="rec-oc-nota">
+                        <Icone Nome="relogio" /><span>@semHorario</span>
+                        @if (PodeMexerNaAgenda)
+                        {
+                            <button type="button" class="botao mini fantasma" @onclick="() => AbrirHorarios(VisaoGeralDaAgendaDesenho.PrimeiroSemHorario(d))">cadastrar</button>
+                        }
+                    </p>
                 }
-            </p>
-        }
-        @if (VisaoGeralDaAgendaDesenho.LinhaDeAtencao(d) is { } atencao)
-        {
-            <p class="rec-oc-nota"><Icone Nome="info" /><span>@atencao — confira na Agenda do dia.</span></p>
+                @if (atencao is not null)
+                {
+                    <p class="rec-oc-nota"><Icone Nome="info" /><span>@atencao — confira na Agenda do dia.</span></p>
+                }
+            </div>
         }
 
         @if (_modo == ModoVisaoAgenda.Semana && _matriz is { } m)

@@ -33,7 +33,8 @@ public sealed record CelulaSemanaOcupacao(DateOnly Dia, int? ProfissionalId, Est
         EstadoCelulaSemana.NaoAtende => "não atende",
         EstadoCelulaSemana.Fechado => "agenda fechada",
         EstadoCelulaSemana.SemHorario => "sem horário",
-        _ => Percentual is null ? "—" : $"{VisaoGeralDaAgendaNaTela.Percentual(Percentual)} ocupado"
+        // Só o número: "ocupado" fica na dica e na legenda — em 1024 a célula não cabe a palavra.
+        _ => Percentual is null ? "—" : VisaoGeralDaAgendaNaTela.Percentual(Percentual)
     };
 
     /// <summary>Mostra a barra de ocupação: só onde há horário e ele atende.</summary>

@@ -100,6 +100,7 @@
 /* ======================= Redesenho out/2026 ======================= */
 
 /* A linha discreta no lugar dos avisos laranja: informa, não grita. */
+.rec-ocupacao .rec-oc-notas{display:flex;flex-direction:column;gap:var(--space-1)}
 .rec-ocupacao .rec-oc-nota{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:0;padding:0 var(--space-1);
   color:var(--texto-secundario);font-size:var(--text-small-size)}
 .rec-ocupacao .rec-oc-nota svg.icone{width:14px;height:14px}

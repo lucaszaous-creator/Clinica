@@ -53,7 +53,7 @@ public sealed class VisaoGeralDaAgendaDesenhoTests
         var ana = m.Linhas[0];
         Assert.Equal(EstadoCelulaSemana.Atende, ana.Celulas[0].Estado);
         Assert.Equal(25m, ana.Celulas[0].Percentual);
-        Assert.Equal("25% ocupado", ana.Celulas[0].Rotulo);
+        Assert.Equal("25%", ana.Celulas[0].Rotulo);
         Assert.True(ana.Celulas[0].TemBarra);
         Assert.Equal(EstadoCelulaSemana.NaoAtende, ana.Celulas[1].Estado);
         Assert.Equal("não atende", ana.Celulas[1].Rotulo);
