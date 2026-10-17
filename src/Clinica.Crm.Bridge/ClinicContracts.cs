@@ -16,6 +16,11 @@ public sealed record RecallCandidate(string Key, int PatientId, string Name, str
     string Modality, DateOnly Reference, int Days, int? CaseId, string Revision, bool Consent,
     string BlockReason, DateTimeOffset? LastContact, DateOnly? NextContact);
 public sealed record RecallSnapshot(DateTimeOffset SyncedAt, RecallCandidate[] Candidates);
+// Relacionamento: as filas que a secretária confere todo dia. Leitura pura; quem decide é o Clinica.
+// List: "absent" (sem vir há N dias), "new-bsv" (indicado ou começou o BSV), "renew" (consulta a renovar).
+public sealed record RelationshipEntry(string List, int PatientId, string Name, string Phone, DateOnly Reference, int Days,
+    string Detail, string Situation, bool Consent, string Block, DateTimeOffset? NextAppointment, string? Insurance = null, int Sessions = 0);
+public sealed record RelationshipSnapshot(DateTimeOffset SyncedAt, RelationshipEntry[] Entries);
 public sealed record RecallNotice(string CommandId, int PatientId, int? CaseId, string MessageId, DateTimeOffset SentAt, string Channel = "whatsapp");
 
 public sealed record ClinicDispatch(string Id, int PatientId, string Name, string Phone, string Source, string Actor,

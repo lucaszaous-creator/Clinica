@@ -18,6 +18,7 @@ regressão e tem a publicação bloqueada; **esta é a que se instala**.
 | `GET /crm/snapshot` | Agenda de ontem até +32 dias, catálogo de especialidades e a situação da confirmação de cada horário |
 | `POST /crm/decision` | Resposta do paciente ao lembrete do WhatsApp: `confirm`, `cancel`, `reschedule` ou `notified` |
 | `GET /crm/recall` | Candidatos a recall (sessões realizadas por modalidade e casos de acompanhamento), com consentimento |
+| `GET /crm/relationship` | As filas da tela **Relacionamento** do CRM: sem vir há 15+ dias (até um ano, sem horário marcado), novo no BSV (indicado sem 1ª sessão, ou 1ª sessão de BSV nos últimos 30 dias) e consulta a renovar (`ARenovar`, pelo mesmo `ConsultaService` da agenda do balcão). Só leitura |
 | `POST /crm/recall/notice` | Registro do convite de recall enviado, com o canal (`whatsapp` ou `sms`) |
 | `POST /crm/v1/appointments/slots` / `reschedule` | Vagas e remarcação assistida (remarcação só com `CRM_SCHEDULING_ENABLED=true`) |
 | `POST /crm/v1/appointments/cancel` | Cancelamento pela secretária, com motivo, pelo mesmo `CancelarAsync` do balcão (suspende as guias). Idempotente pelo comando. Só com `CRM_SCHEDULING_ENABLED=true` |
@@ -62,6 +63,28 @@ Confirmar **não** registra chegada, presença nem gera guia.
    do paciente cancela sozinho). As três chaves também precisam valer no CRM.
 3. A ponte **não cria nem migra** banco: as migrations continuam sendo aplicadas pelos apps.
 
+### 3.1 Roteiro da VPS, na ordem
+
+1. **Homologação primeiro.** Restaure uma cópia do banco num Postgres de homologação, aponte a
+   ponte para ela e rode a suíte `PonteCrm` com `CLINICA_TESTES_POSTGRES`.
+2. **Publicar a ponte**: `dotnet publish src/Clinica.Crm.Bridge -c Release -o /opt/clinica-crm-bridge`
+   (runtime .NET 8 na VPS, ou `--self-contained -r linux-x64`).
+3. **Serviço**: unidade `systemd` com `Restart=always`, usuário sem login, e as variáveis num
+   `EnvironmentFile` com permissão 600 (`ConnectionStrings__Clinica`, `CRM_BRIDGE_KEY`). A conexão
+   usa um papel do Postgres com SELECT/INSERT/UPDATE nas tabelas da agenda, nunca o `postgres`.
+4. **Rede**: a ponte só escuta `127.0.0.1:5190`. Se o CRM roda na mesma VPS, nada a abrir; se roda
+   noutra máquina, um túnel (WireGuard ou SSH) — **nunca** a porta 5190 aberta na internet.
+5. **CRM** na VPS (ou onde for): `CRM_CLINIC_URL=http://127.0.0.1:5190` e `CRM_CLINIC_KEY` igual à
+   `CRM_BRIDGE_KEY`; HTTPS por proxy reverso (Caddy ou nginx) na frente do CRM; SMS com
+   `CRM_SMS_PROVIDER`/`CRM_SMS_TOKEN`/`CRM_SMS_FROM` e os webhooks `/webhooks/sms/*` cadastrados no
+   provedor; perfil de produção do CRM (chaves de proteção persistentes e backup do `.db`).
+6. **Ligar por etapas**: primeiro só leitura (agenda, recall, relacionamento); depois
+   `CRM_BOOKING_ENABLED`; por último `CRM_SCHEDULING_ENABLED`. `CRM_CANCEL_ENABLED` só se a
+   direção quiser que o "não vou" cancele sozinho.
+7. **Conferir**: `GET /crm/relationship` com a chave (`curl -H "Authorization: Bearer …"
+   http://127.0.0.1:5190/crm/relationship`) e, no CRM, a tela Relacionamento mostrando
+   "Atualizado com a clínica às …".
+
 ### 2.1 A reserva de marcação
 
 O estado da reserva fica na trilha (`EventoAuditoria`, ação `CrmReservaV1`), com uma linha por
@@ -77,11 +100,13 @@ semana livre. A ponte chama o mesmo `BuscaDeVagas.Calcular`, sem o teto, e filtr
 
 ## 4. Validação
 
-`tests/Clinica.Tests/PonteCrm/` (32 testes) roda a ponte contra o banco do Clinica — inclusive
+`tests/Clinica.Tests/PonteCrm/` (39 testes) roda a ponte contra o banco do Clinica — inclusive
 no Postgres com `CLINICA_TESTES_POSTGRES` — cobrindo agenda, idempotência, telefone errado,
 paciente que já chegou, a regra do "não vem", cancelamento opcional, recall e o canal SMS, e
 também a marcação (reserva, recibo repetido, vaga tomada no balcão, filtro de período), a
-privacidade da agenda e o cancelamento pela equipe com motivo. A concorrência real se prova no
+privacidade da agenda, o cancelamento pela equipe com motivo e as três filas do relacionamento
+(quem tem horário não sumiu, estornado não conta, indicação já atendida sai, consulta vencida usa
+a frase da agenda, telefone compartilhado é avisado). A concorrência real se prova no
 Postgres de homologação, antes de ligar as chaves.
 
 **SMS:** o lembrete de 24 h e o SMS do CRM usam o mesmo provedor (Zenvia, Twilio ou API própria).
@@ -93,5 +118,7 @@ A Infobip não é usada.
   a resposta do WhatsApp e a do SMS com o mesmo selo, no mesmo lugar.
 - 🛠️ **DX** — a ponte vive ao lado das regras que ela usa; mudar agenda ou consentimento quebra o
   teste da ponte no mesmo `dotnet test`, em vez de divergir em silêncio noutro repositório.
+- 🧑‍💻 **UX (relacionamento)** — as três filas que a recepção conferia no Gerente/Recepção ficam
+  na mesma tela das conversas, com ligar, abrir conversa e pôr na fila de ligação a um clique.
 - 🤝 **CX** — nenhum horário some sem alguém falar com o paciente; um canal a mais não cria uma
   segunda verdade sobre a mesma sessão.

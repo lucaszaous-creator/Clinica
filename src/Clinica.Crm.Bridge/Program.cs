@@ -17,6 +17,7 @@ builder.Services.AddScoped<ClinicAgendaBridge>();
 builder.Services.AddScoped<ClinicRecallBridge>();
 builder.Services.AddScoped<ClinicSchedulingBridge>();
 builder.Services.AddScoped<ClinicBookingBridge>();
+builder.Services.AddScoped<ClinicRelationshipBridge>();
 builder.Logging.AddFilter("Microsoft.AspNetCore",LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore",LogLevel.Critical);
 var app=builder.Build();
@@ -32,6 +33,8 @@ app.Use(async(ctx,next)=>{
 });
 app.MapGet("/crm/snapshot",(ClinicAgendaBridge bridge,CancellationToken ct)=>bridge.Snapshot(ct));
 app.MapGet("/crm/recall",(ClinicRecallBridge bridge,CancellationToken ct)=>bridge.Snapshot(ct));
+// Relacionamento: as filas da secretária (sem vir, novos no BSV, consulta a renovar). Só leitura.
+app.MapGet("/crm/relationship",(ClinicRelationshipBridge bridge,CancellationToken ct)=>bridge.Snapshot(ct));
 app.MapPost("/crm/recall/notice",(RecallNotice input,ClinicRecallBridge bridge,CancellationToken ct)=>bridge.Notice(input,ct));
 app.MapPost("/crm/decision",(ClinicDecision input,ClinicAgendaBridge bridge,CancellationToken ct)=>bridge.Decide(input,ct));
 app.MapPost("/crm/v1/appointments/slots", (ClinicSlotQuery input, ClinicSchedulingBridge bridge, CancellationToken ct) => bridge.Slots(input, ct));
