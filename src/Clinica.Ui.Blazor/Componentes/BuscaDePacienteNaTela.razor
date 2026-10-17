@@ -189,6 +189,17 @@
         StateHasChanged();
     }
 
+    /// <summary>
+    /// A tela voltou à vista: relê o que está na lista (a sugestão do dia ou o termo digitado)
+    /// — quem marcou na outra máquina aparece sem a pessoa precisar redigitar.
+    /// </summary>
+    public async Task RelerAsync()
+    {
+        if (_modo == ModoDaBusca.Sugestao) { _hoje = null; await MostrarSugestaoAsync(); }
+        else if (_modo == ModoDaBusca.PorTermo) await Digitou(new ChangeEventArgs { Value = _termo });
+        StateHasChanged();
+    }
+
     private async Task ClicarSugestaoAsync()
     {
         if (AoRetomarBusca.HasDelegate) await AoRetomarBusca.InvokeAsync();

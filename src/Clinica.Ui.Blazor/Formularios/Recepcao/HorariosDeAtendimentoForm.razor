@@ -59,7 +59,9 @@
                                 <div class="eq-horario-faixas">
                                     @if (!d.Atende)
                                     {
-                                        <span class="secundario">não atende</span>
+                                        @* Com nenhum dia ligado não há horário cadastrado (qualquer dia e hora):
+                                           "não atende" em cada linha contradiria a frase do resultado. *@
+                                        <span class="secundario">@(editor.Dias.Any(x => x.Atende) ? "não atende" : "—")</span>
                                     }
                                     else
                                     {

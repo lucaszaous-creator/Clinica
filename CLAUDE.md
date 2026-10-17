@@ -4793,6 +4793,24 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **"Não vem" NÃO cancela sozinho**: vira selo vermelho, e a recepção liga, remarca e oferece a
   vaga na mesma ligação. Com o SMS ligado, o e-mail da abertura CEDE para quem tem celular — senão
   ele tiraria o contato de pendente dias antes e o SMS, que a clínica paga, nunca sairia.
+- **"JORNADA" ERA TERMO DE RH, E O DESENHO NÃO CABIA A SEMANA REAL** (out/2026; o pedido:
+  *"esse negócio de jornada de trabalho, que porra é essa?"* — mapa em
+  `docs/recepcao-ux-out2026.md`). Duas telas editavam o mesmo campo com frases opostas
+  ("nenhum dia = qualquer dia" × "= todos os dias"), um horário só valia para todos os dias
+  (o almoço e "segunda de manhã, quinta à tarde" não cabiam) e quem não cadastrou aparecia
+  como erro. Virou **"Horário de atendimento"** por dia, com faixas
+  (`Profissional.HorariosAtendimento`, coluna aditiva; `FaixasEm(dia)` é a pergunta única —
+  vazio = não atende, nulo = sem horário/qualquer hora) e UM editor. Os três campos antigos
+  continuam gravados (a união) para o binário anterior. ⚠️ **Termo que a casa não usa é
+  defeito de UX, não de vocabulário**: a pergunta do balcão é "quando o doutor atende?".
+  ⚠️ **Sem horário cadastrado não é erro**, e "não atende" em cada dia do editor vazio
+  contradizia a frase "aceita qualquer dia e hora" logo abaixo — com nenhum dia ligado, a
+  linha diz "—".
+  E a busca de paciente virou UM componente Blazor (`BuscaDePacienteNaTela` +
+  `FaixaDoPaciente`) para Pacientes, Marcar e Documentos — que saíram do WPF. Integração
+  feita por quatro worktrees com arquivos que não se cruzam; o conflito que sobrou foi um
+  `@import` em `clinica.css` e um teste de frase — **tela nova importa o próprio CSS numa
+  linha só**, e é essa a única linha comum.
 - **TENDÊNCIA E METAS POR RECORTE** (out/2026; `docs/tendencias-e-metas.md`). "Em alta"/"em baixa"
   exigem percentual E diferença mínima (a regra da reincidência de faltas: 1 → 2 é "+100%" e não diz
   nada). Sessões pelo MESMO critério do `IndicadoresService` (status Realizado).
