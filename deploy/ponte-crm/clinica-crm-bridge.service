@@ -1,0 +1,40 @@
+# Ponte do CRM na VPS da CLÍNICA (VPS 1), ao lado do Postgres. Roteiro: docs/vps-do-crm.md.
+# Copie para /etc/systemd/system/ e: systemctl daemon-reload && systemctl enable --now clinica-crm-bridge
+[Unit]
+Description=Ponte privada CRM <-> agenda SemDor (e lembrete de SMS 24h)
+# A ponte escuta no IP do túnel (10.8.0.1): sem o WireGuard de pé, a partida falharia.
+After=network-online.target postgresql.service wg-quick@wg0.service
+Wants=network-online.target
+Requires=wg-quick@wg0.service
+
+[Service]
+Type=simple
+User=clinica-crm
+Group=clinica-crm
+WorkingDirectory=/opt/clinica-crm-bridge/current
+ExecStart=/opt/clinica-crm-bridge/current/Clinica.Crm.Bridge
+EnvironmentFile=/etc/clinica-crm-bridge/bridge.env
+Environment=TZ=America/Sao_Paulo
+Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
+Restart=always
+RestartSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# SEM IPAddressDeny/IPAddressAllow, de propósito: com o lembrete de SMS ligado a ponte
+# precisa SAIR para o provedor de SMS e para o balde do link (IPs variáveis). Quem tranca
+# a ENTRADA é: o endereço de escuta (só 10.8.0.1, conferido na partida), a lista de
+# clientes da própria ponte (só 10.8.0.2), a chave Bearer e o ufw da VPS.
+MemoryMax=512M
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

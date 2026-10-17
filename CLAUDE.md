@@ -4199,6 +4199,25 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   que espera a tela "assentar" paga a espera em CADA passo**: o mínimo de 150 ms do
   `Assentar` (50 ms × 3) era mais da metade do tempo da suíte; virou 60 ms (15 × 4), provado
   com um `throw` num botão. Teste novo de tela que espera por laço usa a mesma batida.
+- **A PONTE DO CRM NA VPS: o que só a montagem real mostrou** (out/2026; roteiro em
+  `docs/vps-do-crm.md`). Duas VPS: a ponte ao lado do Postgres (escuta só no IP do túnel
+  WireGuard, `RedeDaPonte` recusa endereço público na partida) e o CRM web noutra máquina.
+  ⚠️ **Transação aberta à mão + `EnableRetryOnFailure` = recusa em TODA gravação.** O
+  `AddClinica` liga a estratégia que repete, e o EF recusa `BeginTransaction` sob ela
+  ("does not support user-initiated transactions"). Confirmar, cancelar, remarcar, marcar e
+  registrar recall pela ponte devolviam 409 em produção, com os testes verdes: eles montam o
+  `DbContext` SEM estratégia. Agora passam por `TransacaoDaPonte`, e `PonteComRepeticaoTests`
+  dá ao SQLite uma estratégia que repete (é o que dispara a mesma recusa). **Serviço novo que
+  abre transação: teste com estratégia de repetição, nunca só com o contexto cru.** E o
+  comentário de `ConfigurarNpgsql` já avisava; quem escreveu a ponte não o leu.
+  ⚠️ **Recusa que vira 409 genérico precisa deixar o motivo no log**, senão "a operação não é
+  permitida" na VPS não diz o que conferir. Foi o log novo que mostrou o defeito acima.
+  ⚠️ **`IPAddressDeny=any` no systemd também tranca a SAÍDA.** O serviço antigo da ponte só
+  permitia localhost; com o lembrete de SMS ligado ali, o envio ao provedor e ao balde
+  falharia calado. Quem tranca a entrada é a escuta, a lista de clientes, a chave e o ufw.
+  ⚠️ O relógio do SMS virou UMA classe (`RelogioDoSmsNoServidor`, Infrastructure) para os dois
+  hospedeiros (ponte e web): o lembrete sai com a clínica fechada, e a reserva no banco impede
+  o SMS duplicado com os apps abertos.
 - **Triggers usados pelo portal devem funcionar com seu papel restrito.** `SELECT FOR SHARE`
   exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita
   conceder ao portal permissao de editar profissionais. Testar com papel sem UPDATE.

@@ -64,7 +64,8 @@ public sealed class ClinicRecallBridge(ClinicaDbContext db)
         foreach(var c in cases)Add(c.PacienteId,"existing",c.Modalidade,DateOnly.FromDateTime(c.ReferenciaEm),c);
         return new(DateTimeOffset.UtcNow,result.ToArray());
     }
-    public async Task<ClinicDecisionResult> Notice(RecallNotice input,CancellationToken ct)
+    public Task<ClinicDecisionResult> Notice(RecallNotice input, CancellationToken ct) => TransacaoDaPonte.Executar(db, () => NoticeCore(input, ct), ct);
+    async Task<ClinicDecisionResult> NoticeCore(RecallNotice input, CancellationToken ct)
     {
         if(!Guid.TryParseExact(input.CommandId,"N",out var command)||input.PatientId<=0||string.IsNullOrWhiteSpace(input.MessageId)||input.MessageId.Length>300||input.SentAt>DateTimeOffset.UtcNow.AddMinutes(5))
             throw new InvalidOperationException("Registro de envio inválido.");

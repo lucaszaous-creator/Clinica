@@ -65,6 +65,10 @@ Confirmar **não** registra chegada, presença nem gera guia.
 
 ### 3.1 Roteiro da VPS, na ordem
 
+> ⚠️ **Substituído por `docs/vps-do-crm.md` (out/2026)**: a direção decidiu o CRM numa VPS
+> SEPARADA, com a ponte escutando no túnel WireGuard e o lembrete de SMS rodando nela. O
+> roteiro abaixo é o desenho anterior (mesma máquina) e fica como histórico.
+
 1. **Homologação primeiro.** Restaure uma cópia do banco num Postgres de homologação, aponte a
    ponte para ela e rode a suíte `PonteCrm` com `CLINICA_TESTES_POSTGRES`.
 2. **Publicar a ponte**: `dotnet publish src/Clinica.Crm.Bridge -c Release -o /opt/clinica-crm-bridge`

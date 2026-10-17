@@ -40,7 +40,8 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
             return new ClinicAppointment(a.Id,a.PacienteId,a.Paciente?.Nome??"Paciente",Phone(a.Paciente?.Telefone),new DateTimeOffset(DateTime.SpecifyKind(a.DataHora,DateTimeKind.Unspecified),Zone.GetUtcOffset(a.DataHora)),code,catalog.FirstOrDefault(s=>s.Code==code)?.Name??code,a.Profissional?.Nome??"",a.Status==StatusAgendamento.Agendado?"scheduled":a.Status.ToString(),Revision(a),confirmation);
         }).ToArray());
     }
-    public async Task<ClinicDecisionResult> Decide(ClinicDecision input,CancellationToken ct)
+    public Task<ClinicDecisionResult> Decide(ClinicDecision input, CancellationToken ct) => TransacaoDaPonte.Executar(db, () => DecideCore(input, ct), ct);
+    async Task<ClinicDecisionResult> DecideCore(ClinicDecision input, CancellationToken ct)
     {
         if(!Guid.TryParseExact(input.CommandId,"N",out _)||input.AppointmentId<=0||input.Decision is not("confirm" or "cancel" or "reschedule" or "notified")||string.IsNullOrWhiteSpace(input.MessageId)||input.MessageId.Length>300||input.Phone is null||input.Phone.Length is <10 or >15||input.Revision is null||input.Revision.Length!=64)
             throw new InvalidOperationException("Comando inválido.");

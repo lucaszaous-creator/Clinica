@@ -193,7 +193,8 @@ public sealed class ClinicBookingBridge(ClinicaDbContext db, AgendaService agend
         await db.SaveChangesAsync(ct); return View(released);
     }
 
-    public async Task<BookingReservation> Confirm(BookingAction input, CancellationToken ct)
+    public Task<BookingReservation> Confirm(BookingAction input, CancellationToken ct) => TransacaoDaPonte.Executar(db, () => ConfirmCore(input, ct), ct);
+    async Task<BookingReservation> ConfirmCore(BookingAction input, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(db.Database.IsNpgsql() ? IsolationLevel.ReadCommitted : IsolationLevel.Serializable, ct);
         if (db.Database.IsNpgsql()) await db.Database.ExecuteSqlRawAsync("LOCK TABLE \"Agendamentos\" IN SHARE ROW EXCLUSIVE MODE", ct);
@@ -219,7 +220,8 @@ public sealed class ClinicBookingBridge(ClinicaDbContext db, AgendaService agend
 
     // Cancelar pela equipe é ato da SECRETÁRIA, com motivo: o mesmo `CancelarAsync` do balcão,
     // que suspende as guias abertas. Idempotente pelo comando, como a remarcação.
-    public async Task<ClinicCancelResult> Cancel(ClinicCancel input, CancellationToken ct)
+    public Task<ClinicCancelResult> Cancel(ClinicCancel input, CancellationToken ct) => TransacaoDaPonte.Executar(db, () => CancelCore(input, ct), ct);
+    async Task<ClinicCancelResult> CancelCore(ClinicCancel input, CancellationToken ct)
     {
         if (!Guid.TryParseExact(input.CommandId, "N", out _) || string.IsNullOrWhiteSpace(input.Actor) || input.Actor.Length > 74
             || string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Length > 300 || input.Revision is not { Length: 64 })
