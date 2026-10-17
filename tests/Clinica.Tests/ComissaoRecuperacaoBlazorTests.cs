@@ -46,7 +46,11 @@ public sealed class ComissaoRecuperacaoBlazorTests : IClassFixture<BancoDasTelas
         validar.Click();
         Assentar(tela);
         tela.FindAll("[role=alertdialog] .modal-rodape button").Last().Click(); // "Validar" no diálogo
-        Esperar(() => Db().ComissoesRecuperacao.Count(c => c.CanceladaEm == null && c.Decisao == DecisaoComissaoRecuperacao.Validada) == antes + 1);
+        // Ler o banco só depois que a tela gravou E recarregou: a conexão em memória é UMA, e
+        // ler enquanto a tela abre o contexto dela é o "database is locked" intermitente.
+        Esperar(() => !tela.Markup.Contains("role=\"alertdialog\""));
+        Assentar(tela);
+        Esperar(() => { using var leitura = Db(); return leitura.ComissoesRecuperacao.Count(c => c.CanceladaEm == null && c.Decisao == DecisaoComissaoRecuperacao.Validada) == antes + 1; });
 
         using var depois = Db();
         var nova = depois.ComissoesRecuperacao.OrderByDescending(c => c.Id).First();
@@ -93,7 +97,15 @@ public sealed class ComissaoRecuperacaoBlazorTests : IClassFixture<BancoDasTelas
     private static void Esperar(Func<bool> condicao)
     {
         var prazo = DateTime.UtcNow + Prazo;
-        while (DateTime.UtcNow < prazo) { if (condicao()) return; Thread.Sleep(50); }
+        while (DateTime.UtcNow < prazo)
+        {
+            // A tela e o teste dividem a MESMA conexão em memória: ler no meio da gravação da
+            // tela devolve "database is locked" (5/6). Isso é "ainda não", não falha — a
+            // afirmação de verdade vem depois, quando a condição fecha.
+            try { if (condicao()) return; }
+            catch (Microsoft.Data.Sqlite.SqliteException e) when (e.SqliteErrorCode is 5 or 6) { }
+            Thread.Sleep(50);
+        }
         throw new TimeoutException("A condição não aconteceu a tempo.");
     }
 
