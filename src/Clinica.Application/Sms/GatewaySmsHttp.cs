@@ -62,6 +62,15 @@ public sealed class GatewaySmsHttp : IGatewaySms
                 });
                 break;
 
+            case ProvedorSms.Infobip:
+                // A Infobip quer o número sem o "+", dentro de "destinations".
+                pedido.Headers.Authorization = new AuthenticationHeaderValue("App", opcoes.Token);
+                pedido.Content = new StringContent(JsonSerializer.Serialize(new
+                {
+                    messages = new[] { new { from = opcoes.Remetente, destinations = new[] { new { to = celularE164.TrimStart('+') } }, text = texto } }
+                }), Encoding.UTF8, "application/json");
+                break;
+
             default:
                 // Genérico: o cabeçalho "Authorization" leva "Bearer <token>"; qualquer outro
                 // nome (X-Api-Key, X-Auth-Token…) leva o token cru — é como os provedores fazem.
@@ -101,6 +110,11 @@ public sealed class GatewaySmsHttp : IGatewaySms
         try
         {
             using var doc = JsonDocument.Parse(corpo);
+            // Infobip: {"messages":[{"messageId":"…","status":{…}}]}.
+            if (doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("messages", out var lista) && lista.ValueKind == JsonValueKind.Array
+                && lista.GetArrayLength() > 0 && lista[0].TryGetProperty("messageId", out var mid))
+                return mid.GetString();
             foreach (var nome in new[] { "id", "sid", "messageId", "message_id" })
                 if (doc.RootElement.ValueKind == JsonValueKind.Object
                     && doc.RootElement.TryGetProperty(nome, out var v))

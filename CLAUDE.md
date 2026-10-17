@@ -4790,6 +4790,12 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   virou UMA função (`RodadaDeConfirmacao.SeloDaLista`), alimentada por `RespostasDeConfirmacaoAsync`
   (status + comentário). **Ao acrescentar um VALOR a uma resposta que já tem leitores, procure
   quem resume a resposta pelo status** — eles não quebram, só passam a mentir.
+  ⚠️ **A Infobip entrou como provedor (out/2026) para a clínica ter UM fornecedor** — a mesma conta
+  do WhatsApp do SemDor CRM, que agora também fala SMS. `ProvedorSms.Infobip` é valor NOVO no FIM do
+  enum e é gravado como TEXTO: o binário anterior o lê como Desligado (a ida e volta pelo nome do
+  `ObterCamposSmsAsync`), então não lança — só não envia até atualizar. O endereço-base é recusado
+  fora de `https://*.api.infobip.com`: a chave vai no cabeçalho, e um endereço digitado errado não
+  pode levá-la a outro servidor.
   ⚠️ **"Não vem" NÃO cancela sozinho**: vira selo vermelho, e a recepção liga, remarca e oferece a
   vaga na mesma ligação. Com o SMS ligado, o e-mail da abertura CEDE para quem tem celular — senão
   ele tiraria o contato de pendente dias antes e o SMS, que a clínica paga, nunca sairia.

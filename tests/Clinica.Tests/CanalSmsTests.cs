@@ -426,6 +426,40 @@ public class CanalSmsTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task Infobip_usa_a_conta_do_CRM_e_so_aceita_o_dominio_dela()
+    {
+        var campos = new CamposSms(ProvedorSms.Infobip, "https://abc123.api.infobip.com/qualquer", null, "chave", "SemDor", null, null, 24, true, true);
+        var o = OpcoesSms.De(campos)!;
+        o.Endereco.Should().Be("https://abc123.api.infobip.com/sms/2/text/advanced");
+        using (var p = GatewaySmsHttp.Montar(o, "+5511987654321", "Oi"))
+        {
+            p.Headers.Authorization!.ToString().Should().Be("App chave");
+            var doc = JsonDocument.Parse(await p.Content!.ReadAsStringAsync()).RootElement.GetProperty("messages")[0];
+            doc.GetProperty("from").GetString().Should().Be("SemDor");
+            doc.GetProperty("destinations")[0].GetProperty("to").GetString().Should().Be("5511987654321");
+            doc.GetProperty("text").GetString().Should().Be("Oi");
+        }
+        // A chave vai no cabeçalho: endereço fora da Infobip, ou sem HTTPS, não é configuração.
+        OpcoesSms.De(campos with { Endereco = "https://abc123.api.infobip.com.evil.com" }).Should().BeNull();
+        OpcoesSms.De(campos with { Endereco = "http://abc123.api.infobip.com" }).Should().BeNull();
+        OpcoesSms.OQueFalta(campos with { Endereco = null, Remetente = null }).Should().Contain("Infobip").And.Contain("remetente");
+    }
+
+    [Fact]
+    public async Task Infobip_devolve_o_id_de_dentro_de_messages()
+    {
+        var o = OpcoesSms.De(new CamposSms(ProvedorSms.Infobip, "https://abc.api.infobip.com", null, "chave", "SemDor", null, null, 24, true, true))!;
+        var http = new HttpClient(new RespostaFixa("{\"messages\":[{\"messageId\":\"ib-42\",\"status\":{\"groupName\":\"PENDING\"}}]}"));
+        (await new GatewaySmsHttp(http).EnviarAsync(o, "+5511987654321", "Oi")).Should().Be("ib-42");
+    }
+
+    private sealed class RespostaFixa(string corpo) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+            => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(corpo) });
+    }
+
     // ==================== Falsos ====================
 
     private sealed class GatewayFalso : IGatewaySms

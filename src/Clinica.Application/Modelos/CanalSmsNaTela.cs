@@ -254,6 +254,7 @@ public static class ConfiguracaoSmsNaTela
         ProvedorSms.Zenvia => "Zenvia",
         ProvedorSms.Twilio => "Twilio",
         ProvedorSms.Generico => "Outro provedor (API JSON)",
+        ProvedorSms.Infobip => "Infobip",
         _ => "Desligado"
     };
 

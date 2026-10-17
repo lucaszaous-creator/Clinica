@@ -15,13 +15,14 @@
 | A rodada | `LembreteSmsService.RodarAsync` | gera a rodada de confirmação do dia (a MESMA do balcão), publica o link, envia, grava |
 | A resposta | `LembreteSmsService.SincronizarRespostasAsync` | lê do balde o que o paciente respondeu e grava no contato |
 | A página do paciente | `tools/worker-clinica.js`, rota `/c/TOKEN` | "Confirmo, estarei lá" / "Não poderei ir" — write-once |
-| Provedores | `src/Clinica.Application/Sms/` | Zenvia, Twilio e **Genérico** (qualquer API JSON com token) |
+| Provedores | `src/Clinica.Application/Sms/` | **Infobip** (a mesma conta do WhatsApp do SemDor CRM), Zenvia, Twilio e **Genérico** (qualquer API JSON com token) |
 | Relógio | `RelogioDoSms` (Recepção e Gerente, a cada 5 min) e, opcional, `RelogioDoSmsNaWeb` (servidor) | roda a rodada enquanto o app está aberto |
 | Campanha | `LembreteSmsService.PreverCampanhaAsync/EnviarCampanhaAsync` | só para quem tem consentimento de comunicação VIGENTE e celular |
 
 ## 2. Como liga (roteiro para a clínica)
 
-1. Contratar o provedor e pegar o **token da API** e o **remetente** (Zenvia: o "from" da conta;
+1. Contratar o provedor e pegar o **token da API** e o **remetente** (Infobip: a chave e o endereço-base
+   `https://xxxx.api.infobip.com` da MESMA conta do WhatsApp do CRM, mais o remetente de SMS liberado; Zenvia: o "from" da conta;
    Twilio: Account SID + Auth Token + número; outro provedor: o endereço HTTPS da API, o nome do
    cabeçalho do token e o modelo do corpo com `{telefone}` e `{mensagem}`).
 2. Em **Relacionamento → Canal de SMS → Configuração**, escolher o provedor, preencher, salvar e
@@ -81,6 +82,12 @@ segmentos do mês.
 
 ## 5. O que fica para depois, com o motivo
 
+- **O SemDor CRM e este canal (out/2026).** O CRM passou a ter SMS na própria caixa de entrada
+  (respostas, pedidos de retorno, recall por SMS e reserva do WhatsApp) — ver
+  `docs/crm-sms-retornos-e-captacao.md` no repositório `semdor-crm`. A divisão é: **lembrete de
+  24h por SMS mora AQUI** (o CRM não o repete); conversa, retorno e recall moram no CRM. Com a
+  Infobip escolhida nos dois, a clínica tem um contrato e um remetente. O registro do recall feito
+  pelo CRM chega com `RecallNotice.Channel = "sms"`, e a ponte canônica o grava como `CanalContato.Sms`.
 - **WhatsApp oficial (Meta) e o `clinica-crm`.** O CRM vai confirmar, desmarcar e marcar pela API
   oficial do WhatsApp. O contrato para ele conviver com este canal é o MESMO contato
   (`ContatosCampanha`, origem `AGD:{agendamento}`): o CRM grava a resposta ali (status

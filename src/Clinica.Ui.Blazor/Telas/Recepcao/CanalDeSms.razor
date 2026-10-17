@@ -700,6 +700,12 @@
                             <input class="campo" value="@_cabecalho" @onchange="e => _cabecalho = e.Value?.ToString() ?? string.Empty" disabled="@(!PodeConfigurar)" placeholder="Authorization" />
                         </Campo>
                     }
+                    @if (_provedor == ProvedorSms.Infobip)
+                    {
+                        <Campo Rotulo="Endereço da conta Infobip" Obrigatorio="true" Classe="largo" Dica="O endereço-base da conta (o mesmo do WhatsApp do CRM), por exemplo https://xxxx.api.infobip.com.">
+                            <input class="campo" value="@_endereco" @onchange="e => _endereco = e.Value?.ToString() ?? string.Empty" disabled="@(!PodeConfigurar)" placeholder="https://xxxx.api.infobip.com" />
+                        </Campo>
+                    }
                     @if (_provedor == ProvedorSms.Twilio)
                     {
                         <Campo Rotulo="Conta (Account SID)" Obrigatorio="true">

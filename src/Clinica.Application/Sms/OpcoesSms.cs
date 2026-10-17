@@ -22,7 +22,17 @@ public enum ProvedorSms
     /// Trocar de fornecedor vira preencher três campos, não publicar versão — a decisão do
     /// armazenamento S3-compatível (parcela 53).
     /// </summary>
-    Generico
+    Generico,
+
+    /// <summary>
+    /// Infobip (SMS API, <c>Authorization: App &lt;chave&gt;</c>) — a MESMA conta do WhatsApp do
+    /// SemDor CRM (out/2026). Uma conta só para os dois sistemas: um contrato, uma fatura, e o
+    /// remetente que o paciente já reconhece. ⚠️ Valor NOVO no fim do enum: ele é gravado como
+    /// TEXTO em Configurações, e o binário anterior lê o nome desconhecido como Desligado
+    /// (<c>ObterCamposSmsAsync</c> faz ida e volta pelo nome) — não lança, só não envia até
+    /// atualizar.
+    /// </summary>
+    Infobip
 }
 
 /// <summary>Os campos CRUS da tela de Configurações → SMS.</summary>
@@ -59,6 +69,22 @@ public sealed record OpcoesSms(
     public const string EnderecoZenvia = "https://api.zenvia.com/v2/channels/sms/messages";
     public const string EnderecoTwilio = "https://api.twilio.com/2010-04-01/Accounts/{conta}/Messages.json";
 
+    /// <summary>O caminho do envio de SMS da Infobip, acrescentado ao endereço-base da conta.</summary>
+    public const string CaminhoInfobip = "/sms/2/text/advanced";
+
+    /// <summary>
+    /// O endereço-base da conta Infobip é próprio de cada cliente (<c>https://xxxx.api.infobip.com</c>).
+    /// Só HTTPS e só o domínio da Infobip: a chave vai no cabeçalho, e um endereço digitado
+    /// errado não pode levá-la a outro servidor.
+    /// </summary>
+    public static string? EnderecoInfobip(string? baseInformada)
+    {
+        var b = Limpo(baseInformada);
+        if (b is null || !Uri.TryCreate(b, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps
+            || !uri.Host.EndsWith(".api.infobip.com", StringComparison.OrdinalIgnoreCase)) return null;
+        return "https://" + uri.Host + CaminhoInfobip;
+    }
+
     /// <summary>O corpo padrão do genérico — o formato mais comum entre os provedores nacionais.</summary>
     public const string ModeloCorpoPadrao = "{\"to\":\"{telefone}\",\"message\":\"{mensagem}\",\"from\":\"{remetente}\"}";
 
@@ -82,6 +108,12 @@ public sealed record OpcoesSms(
                 if (token is null || conta is null || Limpo(c.Remetente) is null) return null;
                 return new OpcoesSms(ProvedorSms.Twilio, EnderecoTwilio.Replace("{conta}", conta), conta, token,
                     Limpo(c.Remetente), "Authorization", string.Empty, antecedencia, c.AdiantarFimDeSemana);
+
+            case ProvedorSms.Infobip:
+                var infobip = EnderecoInfobip(c.Endereco);
+                if (infobip is null || token is null || Limpo(c.Remetente) is null) return null;
+                return new OpcoesSms(ProvedorSms.Infobip, infobip, null, token, Limpo(c.Remetente),
+                    "Authorization", string.Empty, antecedencia, c.AdiantarFimDeSemana);
 
             case ProvedorSms.Generico:
                 var endereco = Limpo(c.Endereco);
@@ -107,9 +139,10 @@ public sealed record OpcoesSms(
         if (c.Provedor == ProvedorSms.Desligado || De(c) is not null) return null;
         var faltas = new List<string>();
         if (Limpo(c.Token) is null) faltas.Add("o token da API");
-        if (c.Provedor is ProvedorSms.Zenvia or ProvedorSms.Twilio && Limpo(c.Remetente) is null)
+        if (c.Provedor is ProvedorSms.Zenvia or ProvedorSms.Twilio or ProvedorSms.Infobip && Limpo(c.Remetente) is null)
             faltas.Add("o remetente");
         if (c.Provedor == ProvedorSms.Twilio && Limpo(c.Conta) is null) faltas.Add("o identificador da conta (Account SID)");
+        if (c.Provedor == ProvedorSms.Infobip && EnderecoInfobip(c.Endereco) is null) faltas.Add("o endereço da conta Infobip (https://….api.infobip.com)");
         if (c.Provedor == ProvedorSms.Generico)
         {
             var e = Limpo(c.Endereco);
