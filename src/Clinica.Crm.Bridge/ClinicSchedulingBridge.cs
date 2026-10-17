@@ -37,7 +37,8 @@ public sealed class ClinicSchedulingBridge(ClinicaDbContext db, AgendaService ag
         var result = await vacancies.ProximasComRecursosAsync(a.ProfissionalId!.Value, Local(input.From), a.DuracaoEfetiva, a.SalaId, a.PacienteId, ct);
         return new(result.Criterio, result.Vagas.Select(v => Offset(v.Inicio)).Where(t => t <= DateTimeOffset.UtcNow.AddDays(31)).ToArray());
     }
-    public async Task<ClinicRescheduleResult> Reschedule(ClinicReschedule input, CancellationToken ct) {
+    public Task<ClinicRescheduleResult> Reschedule(ClinicReschedule input, CancellationToken ct) => TransacaoDaPonte.Executar(db, () => RescheduleCore(input, ct), ct);
+    async Task<ClinicRescheduleResult> RescheduleCore(ClinicReschedule input, CancellationToken ct) {
         if (!Guid.TryParseExact(input.CommandId, "N", out _) || string.IsNullOrWhiteSpace(input.Actor) || input.Actor.Length > 74)
             throw new InvalidOperationException("Comando inválido.");
         var prefix = "CRM-AGENDA-V1:" + input.CommandId + ":";

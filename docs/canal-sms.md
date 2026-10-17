@@ -16,7 +16,7 @@
 | A resposta | `LembreteSmsService.SincronizarRespostasAsync` | lê do balde o que o paciente respondeu e grava no contato |
 | A página do paciente | `tools/worker-clinica.js`, rota `/c/TOKEN` | "Confirmo, estarei lá" / "Não poderei ir" — write-once |
 | Provedores | `src/Clinica.Application/Sms/` | Zenvia, Twilio e **Genérico** (qualquer API JSON com token) |
-| Relógio | `RelogioDoSms` (Recepção e Gerente, a cada 5 min) e, opcional, `RelogioDoSmsNaWeb` (servidor) | roda a rodada enquanto o app está aberto |
+| Relógio | `RelogioDoSms` (Recepção e Gerente, a cada 5 min) e, no servidor, `RelogioDoSmsNoServidor` — ligado na **ponte do CRM** da VPS da clínica (`docs/vps-do-crm.md`) | nos apps, roda enquanto estão abertos; na ponte, 24h por dia |
 | Campanha | `LembreteSmsService.PreverCampanhaAsync/EnviarCampanhaAsync` | só para quem tem consentimento de comunicação VIGENTE e celular |
 
 ## 2. Como liga (roteiro para a clínica)
@@ -29,8 +29,10 @@
 3. Atualizar o Worker: colar o `tools/worker-clinica.js` no worker do endereço público (o mesmo
    das receitas e do termo pelo WhatsApp). A rota `/c/*` passa a responder no mesmo hostname.
 4. Pronto: com a Recepção aberta, cada sessão recebe o SMS 24h antes.
-5. (Opcional) Na VPS, publicar a web de leitura com `LembreteSms__Ligado=true` — aí o lembrete
-   sai na hora certa mesmo com os computadores desligados (fim de semana, feriado).
+5. Na VPS da clínica, ligar `LembreteSms__Ligado=true` na **ponte do CRM**
+   (`docs/vps-do-crm.md` §4): o lembrete sai na hora certa e a resposta do link chega à
+   agenda mesmo com os computadores desligados (noite, fim de semana, feriado). A web de
+   leitura aceita a mesma chave, mas o caminho escolhido em out/2026 é a ponte, que já roda lá.
 
 ## 3. As decisões, cada uma com a comparação
 
@@ -40,7 +42,7 @@
 |---|---|---|---|
 | Só na abertura do app (como o e-mail) | a sessão das 17h é lembrada às 8h do dia anterior, a das 9h às 8h — "24h" vira "na véspera" | nada novo | não é o que a cliente pediu |
 | **Relógio de 5 min nos apps abertos** (escolhida) + adiantar o fim de semana para a sexta | o SMS sai na hora da sessão do dia seguinte; segunda é lembrada na sexta | uma classe pequena no shell | funciona sem servidor nenhum |
-| + **serviço na VPS** (opcional, desligado por padrão) | exato, inclusive sábado e domingo | um `BackgroundService` na web | exige publicar a web na VPS — decisão da direção (`docs/web-de-leitura.md`) |
+| + **serviço na VPS** (desligado por padrão; out/2026: **ligado na ponte do CRM**) | exato, inclusive sábado e domingo | o mesmo `BackgroundService` (`RelogioDoSmsNoServidor`) na ponte ou na web | a ponte já roda na VPS da clínica, sem site aberto — ver `docs/vps-do-crm.md` |
 
 As duas formas convivem: a reserva da mensagem é de BANCO (índice único), então desktop e VPS
 juntos não mandam dois SMS.

@@ -1,0 +1,11 @@
+# /etc/wireguard/wg0.conf na VPS 1 (clínica). Permissão 600. Roteiro: docs/vps-do-crm.md §3.
+# Gere as chaves: wg genkey | tee /etc/wireguard/privada | wg pubkey > /etc/wireguard/publica
+[Interface]
+Address = 10.8.0.1/24
+ListenPort = 51820
+PrivateKey = CHAVE_PRIVADA_DA_VPS1
+
+[Peer]
+# VPS 2 (CRM)
+PublicKey = CHAVE_PUBLICA_DA_VPS2
+AllowedIPs = 10.8.0.2/32

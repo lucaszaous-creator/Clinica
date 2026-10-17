@@ -5,8 +5,12 @@ using System.Security.Cryptography;
 using System.Text;
 
 var builder=WebApplication.CreateBuilder(args);
-// Private service: no public listener and no browser cookies. Deploy alongside the clinic database.
-builder.WebHost.UseUrls("http://127.0.0.1:5190");
+// Serviço privado: sem escuta pública e sem cookies de navegador. Fica ao lado do banco da
+// clínica. Escuta no 127.0.0.1 (padrão) ou no IP do túnel até o CRM — nunca na internet
+// (ver RedeDaPonte e docs/vps-do-crm.md).
+var escuta=RedeDaPonte.Escuta(builder.Configuration["CRM_BRIDGE_URL"]);
+var clientes=RedeDaPonte.Clientes(builder.Configuration["CRM_BRIDGE_ALLOWED_CLIENTS"]);
+builder.WebHost.UseUrls(escuta.ToString().TrimEnd('/'));
 var key=builder.Configuration["CRM_BRIDGE_KEY"]??"";
 if(key.Length<32)throw new InvalidOperationException("Configure CRM_BRIDGE_KEY com ao menos 32 caracteres.");
 var connection=builder.Configuration.GetConnectionString("Clinica");
@@ -18,18 +22,26 @@ builder.Services.AddScoped<ClinicRecallBridge>();
 builder.Services.AddScoped<ClinicSchedulingBridge>();
 builder.Services.AddScoped<ClinicBookingBridge>();
 builder.Services.AddScoped<ClinicRelationshipBridge>();
+// O lembrete de SMS 24h antes, com a clínica fechada (out/2026): o MESMO LembreteSmsService
+// do desktop, rodando aqui a cada 5 min. Liga com LembreteSms__Ligado=true. O provedor, o
+// texto e o endereço do link continuam vindo das Configurações do Clinica (Relacionamento →
+// Canal de SMS); a ponte não tem segunda configuração de SMS. Ligado aqui e nos apps ao
+// mesmo tempo, não sai SMS duplicado: a reserva de cada mensagem é um índice único no banco.
+if(builder.Configuration.GetValue<bool>(RelogioDoSmsNoServidor.Chave))builder.Services.AddHostedService<RelogioDoSmsNoServidor>();
 builder.Logging.AddFilter("Microsoft.AspNetCore",LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore",LogLevel.Critical);
 var app=builder.Build();
 app.Use(async(ctx,next)=>{
-    if(ctx.Connection.RemoteIpAddress is not {} ip||!System.Net.IPAddress.IsLoopback(ip)){ctx.Response.StatusCode=403;return;}
+    if(!RedeDaPonte.Permitido(ctx.Connection.RemoteIpAddress,clientes)){ctx.Response.StatusCode=403;return;}
     var expected=SHA256.HashData(Encoding.UTF8.GetBytes("Bearer "+key));
     var actual=SHA256.HashData(Encoding.UTF8.GetBytes(ctx.Request.Headers.Authorization.ToString()));
     if(!CryptographicOperations.FixedTimeEquals(expected,actual)){ctx.Response.StatusCode=401;return;}
     ctx.Response.Headers.CacheControl="no-store";
     try{await next();}
-    catch(InvalidOperationException){ctx.Response.StatusCode=409;await ctx.Response.WriteAsJsonAsync(new{error="A agenda mudou ou a operação não é permitida. Confira o horário."});}
-    catch(Microsoft.EntityFrameworkCore.DbUpdateException){ctx.Response.StatusCode=409;await ctx.Response.WriteAsJsonAsync(new{error="Conflito na agenda. Atualize antes de continuar."});}
+    // A recusa vai ao CRM com frase genérica, mas o MOTIVO fica no log da ponte: sem ele,
+    // "a operação não é permitida" na VPS não diz a ninguém o que conferir.
+    catch(InvalidOperationException ex){app.Logger.LogWarning("Recusa em {Rota}: {Motivo}",ctx.Request.Path.Value,ex.Message);ctx.Response.StatusCode=409;await ctx.Response.WriteAsJsonAsync(new{error="A agenda mudou ou a operação não é permitida. Confira o horário."});}
+    catch(Microsoft.EntityFrameworkCore.DbUpdateException ex){app.Logger.LogWarning("Gravação recusada em {Rota}: {Motivo}",ctx.Request.Path.Value,ex.GetBaseException().Message);ctx.Response.StatusCode=409;await ctx.Response.WriteAsJsonAsync(new{error="Conflito na agenda. Atualize antes de continuar."});}
 });
 app.MapGet("/crm/snapshot",(ClinicAgendaBridge bridge,CancellationToken ct)=>bridge.Snapshot(ct));
 app.MapGet("/crm/recall",(ClinicRecallBridge bridge,CancellationToken ct)=>bridge.Snapshot(ct));
