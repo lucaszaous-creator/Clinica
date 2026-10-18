@@ -68,10 +68,9 @@ public sealed class ModuloGerente : IModuloApp
     // A Direção é quem publica os que ATRAVESSAM módulo, porque ela é o único app que
     // carrega todos — e porque, sem ela carregada, cada sub-tela volta a ser item de
     // menu no app dono (ver o comentário da tela órfã no ShellViewModel).
-    public const string ChaveGrupoPainel = "painel";
-    public const string ChaveGrupoRelatorios = "relatorios";
-    public const string ChaveGrupoRentabilidade = "rentabilidade";
-    public const string ChaveGrupoMarketing = "marketing";
+    public const string ChaveGrupoDinheiro = "direcao-dinheiro";
+    public const string ChaveGrupoProducao = "direcao-producao";
+    public const string ChaveGrupoPacientes = "direcao-pacientes";
     public const string ChaveGrupoConformidade = "conformidade";
 
     /// <summary>
@@ -84,120 +83,76 @@ public sealed class ModuloGerente : IModuloApp
 
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
-        // ===== GESTÃO =====
-        // Os TRÊS painéis viraram um item. Cada app tinha o seu — a direção via o dela, o
-        // balcão via "Início", quem atende via "Meu dia" —, e no Gerente Geral os três
-        // apareciam como itens diferentes no mesmo grupo, obrigando a lembrar qual era
-        // qual. `Inicial` fica AQUI, e a 1ª aba é a da direção: é o que a parcela 22
-        // resolveu (o Gerente abria no painel da RECEPÇÃO) e não pode regredir.
+        // ===== DIREÇÃO (out/2026, mockup aprovado "mesa da direção v2") =====
+        // Seis entradas, uma pergunta cada, num grupo próprio que abre a barra do topo:
+        // como estamos e o que decidir hoje (a Mesa), o dinheiro, a produção, os pacientes,
+        // os preços e a conformidade. O operacional dos outros módulos continua nos grupos
+        // de sempre. Nenhuma tela some: cada uma virou aba da entrada que responde a pergunta
+        // dela. Os compostos sem `Requer` aparecem quando a pessoa alcança ao menos uma aba,
+        // e cada aba confere o bit dela.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoPainel, Rotulo = "Painel", Glifo = "\uF246", Icone = "painel",
-            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores, Inicial = true,
+            Chave = ChavePainel, Rotulo = "Mesa da dire\u00E7\u00E3o", Glifo = "\uF246", Icone = "painel",
+            Grupo = GrupoSidebar.Direcao, Requer = Permissao.VerIndicadores, Inicial = true
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoDinheiro, Rotulo = "Dinheiro", Glifo = "\uE825", Icone = "cofre",
+            Grupo = GrupoSidebar.Direcao,
             Abas =
             [
-                new AbaMenu("Dire\u00E7\u00E3o", ChavePainel),
-                new AbaMenu("Recep\u00E7\u00E3o", ChavesSuite.PainelRecepcao),
-                new AbaMenu("Meu dia", ChavesSuite.ConsultorioMeuDia)
+                new AbaMenu("Resultado do m\u00EAs", ChavesSuite.Resultado),
+                new AbaMenu("Metas", ChaveMetas)
             ]
         },
-
-        // ===== FINANCEIRO =====
-        // O faturamento entra na seção FINANCEIRO, junto do caixa e dos pacotes: para
-        // quem usa, é tudo dinheiro da clínica. Que a tela venha do módulo da Direção é
-        // detalhe de arquitetura, e arquitetura não organiza menu.
-        //
-        // Ele NÃO virou aba de nada, e a tabela de preço também não: "Faturamento (TISS)"
-        // já é uma tela de cinco abas por dentro, e pendurá-la sob outra régua daria
-        // abas dentro de abas — duas réguas empilhadas no topo, que é pior do que os dois
-        // itens que se queria economizar.
         new ItemMenuModulo
         {
-            Chave = ChaveFaturamento, Rotulo = "Resumo de faturamento", Glifo = "\uE8C7", Icone = "recibo",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFaturamento
-        },
-        // Duas tabelas, um item (set/2026): a por CONVÊNIO (deste módulo) e a do PARTICULAR
-        // (tela do shell, publicada também pela Recepção — ver `ChavesSuite.PrecosParticular`).
-        // É a mesma pergunta, "quanto vale a sessão?", para dois pagadores.
-        new ItemMenuModulo
-        {
-            Chave = ChaveGrupoPrecos, Rotulo = "Tabela de pre\u00E7o", Glifo = "\uE8EF", Icone = "etiqueta",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,
-            Abas =
-            [
-                new AbaMenu("Conv\u00EAnios", ChavePrecos),
-                new AbaMenu("Particular", ChavesSuite.PrecosParticular)
-            ]
-        },
-
-        // ===== INTELIGÊNCIA =====
-        // "O que aconteceu" num item só. Metas fica com os relatórios de propósito: é a
-        // mesma pergunta vista dos dois lados — o BI diz o que aconteceu, a meta diz o
-        // que deveria ter acontecido. "Meus números" entra porque é o mesmo indicador de
-        // produtividade, recortado por profissional.
-        new ItemMenuModulo
-        {
-            Chave = ChaveGrupoRelatorios, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2", Icone = "grafico",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores,
+            Chave = ChaveGrupoProducao, Rotulo = "Produ\u00E7\u00E3o e margem", Glifo = "\uE9D2", Icone = "grafico",
+            Grupo = GrupoSidebar.Direcao,
             Abas =
             [
                 new AbaMenu("Indicadores", ChaveIndicadores),
-                new AbaMenu("Metas", ChaveMetas),
                 new AbaMenu("Tend\u00EAncias", ChavesSuite.Tendencias),
-                new AbaMenu("Resultado do m\u00EAs", ChavesSuite.Resultado),
                 new AbaMenu("Produ\u00E7\u00E3o", ChavesSuite.Producao),
-                new AbaMenu("Meus n\u00FAmeros", ChavesSuite.ConsultorioMeusNumeros)
+                new AbaMenu("Rentabilidade por conv\u00EAnio", ChaveRentabilidade)
             ]
         },
+        // O Acompanhamento NÃO entra aqui: ele é aba do "Relacionamento" da Recepção, e dois
+        // compostos com a mesma tela seriam dois caminhos para o mesmo lugar.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoRentabilidade, Rotulo = "Rentabilidade e custos", Glifo = "\uE9F3", Icone = "pizza",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro,
+            Chave = ChaveGrupoPacientes, Rotulo = "Pacientes e relacionamento", Glifo = "\uE716", Icone = "equipe",
+            Grupo = GrupoSidebar.Direcao,
             Abas =
             [
-                new AbaMenu("Por conv\u00EAnio", ChaveRentabilidade),
+                new AbaMenu("De onde v\u00EAm os pacientes", ChaveOrigens),
+                new AbaMenu("Comiss\u00E3o de recupera\u00E7\u00E3o", ChaveComissaoRecuperacao),
+                new AbaMenu("Campanhas", ChaveCampanhas)
+            ]
+        },
+        // Quanto vale a sessão (convênio e particular) e quanto custa receber (taxas e
+        // impostos, o custo efetivo): a mesma pergunta — o que a clínica cobra e o que fica.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoPrecos, Rotulo = "Pre\u00E7os e regras", Glifo = "\uE8EF", Icone = "etiqueta",
+            Grupo = GrupoSidebar.Direcao,
+            Abas =
+            [
+                new AbaMenu("Conv\u00EAnios", ChavePrecos),
+                new AbaMenu("Particular", ChavesSuite.PrecosParticular),
                 new AbaMenu("Custo de taxas e impostos", ChaveCusto)
             ]
         },
-        // ⚠️ "Quem parou de vir" SAIU (out/2026, pedido da direção: "dois ou mais caminhos
-        // levam ao mesmo lugar"). Ela respondia a MESMA pergunta do Recall do
-        // Acompanhamento — quem sumiu e quem vale um telefonema — com uma segunda definição
-        // de "sumido" e sem o registro do contato. O que ela tinha de próprio (o tratamento
-        // longo, o pacote em aberto e o CSV) foi para o Acompanhamento, que é a fila onde o
-        // contato fica registrado. Sobram três abas, uma pergunta cada: a rodada de NPS e o
-        // histórico das mensagens, a fila de quem chamar de volta, e de onde vêm os que
-        // CHEGAM.
-        new ItemMenuModulo
-        {
-            Chave = ChaveGrupoMarketing, Rotulo = "Marketing / Recall", Glifo = "\uE715", Icone = "mega",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas,
-            Abas =
-            [
-                new AbaMenu("Campanhas", ChaveCampanhas),
-                new AbaMenu("Acompanhamento de pacientes", ChavesSuite.RetornoPacientes),
-                new AbaMenu("De onde vêm os pacientes", ChaveOrigens),
-                new AbaMenu("Comissão de recuperação", ChaveComissaoRecuperacao)
-            ]
-        },
-        // As três perguntas de quem fiscaliza, no mesmo lugar: quem MEXEU (auditoria), o
-        // que está GUARDADO (guarda) e quem PODE (acessos). Elas já vinham lado a lado na
-        // lista antiga, e a auditoria da cliente pergunta as três de uma vez.
-        //
-        // ⚠️ A permissão continua sendo POR ABA, não do grupo: `VerAuditoria` abre a
-        // trilha e `GerenciarUsuarios` abre os acessos, e juntá-las daria poder de criar
-        // usuário a quem só precisa conferir o que aconteceu — o oposto da parcela 49. O
-        // grupo exige o menor dos dois, e as abas que a pessoa não pode ver não aparecem.
+        // As perguntas de quem fiscaliza, no mesmo lugar: quem MEXEU (auditoria), o que SAIU
+        // (documentos), o que está GUARDADO (guarda) e quem PODE (acessos). A permissão
+        // continua sendo por aba (parcela 49).
         new ItemMenuModulo
         {
             Chave = ChaveGrupoConformidade, Rotulo = "Conformidade e acessos", Glifo = "\uE72E", Icone = "escudo",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria,
+            Grupo = GrupoSidebar.Direcao, Requer = Permissao.VerAuditoria,
             Abas =
             [
                 new AbaMenu("Auditoria", ChaveAuditoria),
-                // "O que SAIU" ao lado de "quem mexeu" e "o que está guardado": é a mesma
-                // pergunta de fiscalização, e é a única leitura da suíte que responde
-                // quantos papéis a clínica emitiu, quem assinou e quantos foram
-                // cancelados — com o motivo escrito de cada um.
                 new AbaMenu("Documentos emitidos", ChaveDocumentosEmitidos),
                 new AbaMenu("Guarda do prontu\u00E1rio", ChaveGuarda),
                 new AbaMenu("Acessos", ChaveAcessos)
@@ -206,26 +161,26 @@ public sealed class ModuloGerente : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveConfiguracoes, Rotulo = "Configura\u00E7\u00F5es", Glifo = "\uE713", Icone = "engr",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
+            Grupo = GrupoSidebar.Direcao, Requer = Permissao.GerenciarUsuarios
         },
-
-        // ===== PACIENTE =====
         // A migração da carteira: o bit é o do ATO (cadastrar paciente), não o de gerir
         // usuários — a direção pode delegar a importação sem entregar os acessos.
         new ItemMenuModulo
         {
             Chave = ChaveImportacao, Rotulo = "Importar pacientes", Glifo = "\uE8B5", Icone = "importar",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.EditarPaciente
+            Grupo = GrupoSidebar.Direcao, Requer = Permissao.EditarPaciente
+        },
+        // O resumo do faturamento é aba do composto "Faturamento de guias" (módulo do
+        // faturamento); declarado aqui para continuar navegável onde ele não carrega.
+        new ItemMenuModulo
+        {
+            Chave = ChaveFaturamento, Rotulo = "Resumo de faturamento", Glifo = "\uE8C7", Icone = "recibo",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFaturamento
         },
 
         // ===== Sub-telas =====
         // Continuam sendo itens navegáveis — o painel da direção leva a várias delas por
         // chave. Sem `Oculto`: quem as esconde é o item pai, e só onde ele existe.
-        new ItemMenuModulo
-        {
-            Chave = ChavePainel, Rotulo = "Painel da dire\u00E7\u00E3o", Glifo = "\uF246", Icone = "painel",
-            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores
-        },
         new ItemMenuModulo
         {
             Chave = ChaveIndicadores, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2", Icone = "grafico",
@@ -315,7 +270,6 @@ public sealed class ModuloGerente : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
-        servicos.AddTransient<PainelDirecaoViewModel>();
         servicos.AddTransient<IndicadoresViewModel>();
         Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
         servicos.AddTransient<PrecosConvenioViewModel>();
@@ -336,10 +290,8 @@ public sealed class ModuloGerente : IModuloApp
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
-        ChavePainel => new PainelDirecaoView
-        {
-            DataContext = servicos.GetRequiredService<PainelDirecaoViewModel>()
-        },
+        // A Mesa da direção (out/2026) substitui o painel WPF: Blazor, no navegador único da janela.
+        ChavePainel => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MesaDaDirecao), servicos),
         ChaveIndicadores => new IndicadoresView
         {
             DataContext = servicos.GetRequiredService<IndicadoresViewModel>()

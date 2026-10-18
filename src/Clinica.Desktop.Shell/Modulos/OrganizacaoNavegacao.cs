@@ -47,8 +47,9 @@ public static class OrganizacaoNavegacao
             case "pacotes": case "precos-particular": grupo = GrupoSidebar.Financeiro; break;
             case "estoque": grupo = GrupoSidebar.Gestao; break;
             case "acessos": rotulo = "Usuários e permissões"; grupo = GrupoSidebar.Gestao; break;
-            case "configuracoes": case "auditoria": case "conformidade":
-            case "consultorio-modelos": case "importar-pacientes": case "guarda-prontuario": case "documentos-emitidos": grupo = GrupoSidebar.Gestao; break;
+            case "consultorio-modelos": case "auditoria": case "guarda-prontuario": case "documentos-emitidos": grupo = GrupoSidebar.Gestao; break;
+            // Configurações, importação e a conformidade são da DIREÇÃO (out/2026): o módulo
+            // os declara no grupo dela, e esta camada não os devolve à Gestão.
             // As campanhas e a origem dos pacientes ficam ao lado do Relacionamento do balcão. O
             // Acompanhamento sai daqui: ele é aba do "Relacionamento" — dois compostos com a
             // mesma tela eram dois caminhos para o mesmo lugar.
