@@ -1,0 +1,19 @@
+/* Estilo PRÓPRIO da tela Margem por sessão (out/2026). O comum mora em ../clinica.css. */
+.margem-tabela td:first-child{max-width:260px}
+.margem-tabela td:first-child .principal{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* table.lista td pede white-space:normal, e valor em reais quebrado em duas linhas não se lê. */
+.margem-tabela td.numero{white-space:nowrap}
+.margem-col-fracao{width:22%;min-width:180px}
+.margem-fracao{display:flex;align-items:center;gap:var(--space-3)}
+.margem-fracao .numero{flex:0 0 44px;text-align:right}
+.margem-barra{position:relative;flex:1 1 auto;height:10px;border-radius:var(--radius-pilula);background:var(--cinza-100);overflow:hidden}
+.margem-barra i{position:absolute;top:0;bottom:0;left:0;border-radius:var(--radius-pilula)}
+.margem-barra i.acima{background:var(--sucesso)}
+.margem-barra i.abaixo{background:var(--erro)}
+.cartao-titulo .segmentado{flex:0 0 auto}
+/* Em tela estreita a barra cede o lugar: o percentual continua dizendo o mesmo. */
+@media (max-width:1200px){
+  .margem-col-fracao{width:auto;min-width:0}
+  .margem-barra{display:none}
+  .margem-tabela th,.margem-tabela td{padding-left:var(--space-2);padding-right:var(--space-2)}
+}
