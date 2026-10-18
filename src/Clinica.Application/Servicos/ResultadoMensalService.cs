@@ -42,6 +42,51 @@ public sealed record ResultadoMensal(
 }
 
 /// <summary>
+/// O resultado do mês por COMPETÊNCIA (out/2026): o que pertence ao mês pela data do fato,
+/// recebido ou não, pago ou não. É o par do <see cref="ResultadoMensal"/> (caixa) e se lê ao
+/// lado dele — os dois juntos dizem quanto do mês ainda está para entrar e para sair.
+///
+/// Só entra o que tem LANÇAMENTO. A produção que ainda não ganhou valor no financeiro (guia
+/// baixada sem receita, sessão particular sem pagamento registrado) não é somada a preço de
+/// tabela: ela é CONTADA em <see cref="GuiasSemReceita"/> e
+/// <see cref="SessoesParticularesSemReceita"/>, e a tela diz que o número fica abaixo do real.
+/// Nulo nessas duas contagens é "não pôde ser conferido", nunca "nenhuma".
+/// </summary>
+public sealed record ResultadoPorCompetencia(
+    int Ano,
+    int Mes,
+    decimal ReceitaRecebida,
+    decimal ReceitaAReceber,
+    decimal Deducoes,
+    decimal DespesasPagas,
+    decimal DespesasAPagar,
+    int? GuiasSemReceita,
+    int? SessoesParticularesSemReceita)
+{
+    /// <summary>Tudo o que o mês faturou, recebido ou não.</summary>
+    public decimal Receita => ReceitaRecebida + ReceitaAReceber;
+
+    /// <summary>Tudo o que o mês gastou, pago ou não.</summary>
+    public decimal Despesas => DespesasPagas + DespesasAPagar;
+
+    public decimal ReceitaLiquida => Receita - Deducoes;
+
+    public decimal Resultado => ReceitaLiquida - Despesas;
+
+    /// <summary>Mesma regra do caixa: sem receita, a margem não existe (não é 0%).</summary>
+    public double? Margem => Receita > 0m
+        ? Math.Round((double)(Resultado / Receita) * 100.0, 1)
+        : null;
+
+    public bool Prejuizo => Resultado < 0m;
+
+    public bool Vazio => Receita == 0m && Despesas == 0m;
+
+    /// <summary>Quanto da produção do mês ainda não tem valor no financeiro. Nulo = não conferido.</summary>
+    public int? ProducaoSemValor => GuiasSemReceita is { } g && SessoesParticularesSemReceita is { } s ? g + s : null;
+}
+
+/// <summary>
 /// O resultado do mês — a leitura que faltava entre o extrato e o indicador (parcela 31).
 ///
 /// O Financeiro responde "o que entrou e saiu" (Caixa), "como isso se distribui no tempo"
@@ -99,6 +144,78 @@ public sealed class ResultadoMensalService
         var deducoes = recebimentos.Sum(r => (r.ValorTaxa ?? 0m) + (r.ValorImposto ?? 0m));
 
         return new ResultadoMensal(ano, mes, receita, deducoes, despesas, entradas, saidas);
+    }
+
+    /// <summary>
+    /// O mesmo mês por COMPETÊNCIA (out/2026): a data do FATO (<c>Data</c> do lançamento),
+    /// realizado e previsto juntos — cancelado já fica fora na leitura. As deduções são as
+    /// copiadas nas entradas do mês do fato, pela mesma razão: a taxa pertence à venda.
+    ///
+    /// As duas contagens da produção sem valor falham SOZINHAS: não conseguir contar as
+    /// guias não apaga o resultado, só tira da tela a frase "fica abaixo do real".
+    /// </summary>
+    public async Task<ResultadoPorCompetencia> CompetenciaDoMesAsync(
+        int ano, int mes, CancellationToken ct = default)
+    {
+        var inicio = new DateOnly(ano, mes, 1);
+        var fim = inicio.AddMonths(1).AddDays(-1);
+
+        var lancamentos = await _repo.LancamentosDatadosNoPeriodoAsync(inicio, fim, ct);
+
+        int? guias = null;
+        try
+        {
+            guias = (await new FinanceiroService(_repo).GuiasSemLancamentoAsync(inicio, fim, ct)).Count;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Diagnostico.Registrar("Resultado por competência — guias sem receita não puderam ser contadas", ex);
+        }
+
+        int? sessoes = null;
+        try
+        {
+            sessoes = (await _repo.SessoesParticularesSemReceitaAsync(inicio, fim, ct)).Count;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Diagnostico.Registrar("Resultado por competência — sessões particulares sem receita não puderam ser contadas", ex);
+        }
+
+        return ApurarCompetencia(ano, mes, lancamentos, guias, sessoes);
+    }
+
+    /// <summary>
+    /// A conta da competência, pura: só o que tem a data do FATO dentro do mês. A leitura
+    /// traz também quem só VENCE ou só foi PAGO no mês (o fluxo precisa deles), e é aqui que
+    /// eles saem — senão a conta de julho paga em agosto entraria nos dois meses.
+    /// </summary>
+    public static ResultadoPorCompetencia ApurarCompetencia(
+        int ano, int mes, IReadOnlyList<Modelos.LancamentoDatado> lancamentos,
+        int? guiasSemReceita, int? sessoesSemReceita)
+    {
+        var doMes = lancamentos
+            .Where(l => l.Status != StatusLancamento.Cancelado)
+            .Where(l => l.Data.Year == ano && l.Data.Month == mes)
+            .ToList();
+
+        decimal Somar(TipoLancamento tipo, StatusLancamento status) => doMes
+            .Where(l => l.Tipo == tipo && l.Status == status)
+            .Sum(l => l.Valor);
+
+        var deducoes = doMes
+            .Where(l => l.Tipo == TipoLancamento.Entrada)
+            .Sum(l => (l.ValorTaxa ?? 0m) + (l.ValorImposto ?? 0m));
+
+        return new ResultadoPorCompetencia(
+            ano, mes,
+            Somar(TipoLancamento.Entrada, StatusLancamento.Realizado),
+            Somar(TipoLancamento.Entrada, StatusLancamento.Previsto),
+            deducoes,
+            Somar(TipoLancamento.Saida, StatusLancamento.Realizado),
+            Somar(TipoLancamento.Saida, StatusLancamento.Previsto),
+            guiasSemReceita,
+            sessoesSemReceita);
     }
 
     private static IReadOnlyList<LinhaResultado> Agrupar(

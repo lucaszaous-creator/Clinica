@@ -28,7 +28,7 @@
 .mesa-legenda i.cor-proj{background:var(--acento-tint)}
 .mesa-legenda i.cor-meta{width:2px;border-radius:0;background:var(--sucesso-forte)}
 .mesa-legenda i.cor-hoje{width:2px;border-radius:0;background:var(--texto-primario)}
-.mesa-linhas{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:var(--space-4) calc(-1 * var(--space-6)) 0;border-top:1px solid var(--borda)}
+.mesa-linhas{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:var(--space-4) calc(-1 * var(--space-6)) 0;border-top:1px solid var(--borda)}
 .mesa-linhas > div{padding:var(--space-3) var(--space-6) var(--space-4);border-left:1px solid var(--borda);min-width:0}
 .mesa-linhas > div:first-child{border-left:0}
 .mesa-valor{font-size:18px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
@@ -87,7 +87,7 @@
 
 @media (max-width: 1200px){
   .mesa-grade{grid-template-columns:1fr}
-  .mesa-linhas{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .mesa-linhas > div:nth-child(3){border-left:0}
-  .mesa-linhas > div:nth-child(n+3){border-top:1px solid var(--borda)}
+  .mesa-linhas{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .mesa-linhas > div:nth-child(4){border-left:0}
+  .mesa-linhas > div:nth-child(-n+3){border-bottom:1px solid var(--borda)}
 }

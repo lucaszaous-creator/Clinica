@@ -98,6 +98,11 @@
                     </div>
                 </div>
                 <div>
+                    <div class="mesa-rotulo">Resultado por competência</div>
+                    <div class="mesa-valor @(_competencia is { Prejuizo: true } ? "tom-perigo" : null)">@(_competencia is { } comp ? MesaDaDirecaoNaTela.Dinheiro(comp.Resultado) : "—")</div>
+                    <div class="mesa-nota">@MesaDaDirecaoNaTela.NotaDaCompetencia(_competencia)</div>
+                </div>
+                <div>
                     <div class="mesa-rotulo">Saídas do mês</div>
                     <div class="mesa-valor">@MesaDaDirecaoNaTela.Dinheiro(p.SaidasMes)</div>
                     <div class="mesa-nota">taxas @MesaDaDirecaoNaTela.Dinheiro(p.TaxasMes) · impostos @MesaDaDirecaoNaTela.Dinheiro(p.ImpostosMes)</div>
@@ -260,6 +265,7 @@
     private IndicadoresAgenda? _agenda;
     private IReadOnlyList<OcupacaoNaMesa> _hoje = [];
     private IReadOnlyList<ConvenioNaMesa> _convenios = [];
+    private ResultadoPorCompetencia? _competencia;
     private bool _hojeFalhou, _conveniosFalhou, _pautaInteira;
     private const int PautaVisivel = 6;
     private bool Carregando, _naoVerificado;
@@ -337,6 +343,18 @@
             var painel = await sp.GetRequiredService<PainelDirecaoService>().MontarAsync(hoje, agora: agora);
             if (geracao != _geracao || Descartada) return;
 
+            // A competência do mês (etapa "Dinheiro"): falha sozinha, e a régua diz que não leu.
+            ResultadoPorCompetencia? competencia = null;
+            try
+            {
+                competencia = await sp.GetRequiredService<ResultadoMensalService>().CompetenciaDoMesAsync(hoje.Year, hoje.Month);
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — mesa da direção: competência não pôde ser lida", ex);
+            }
+            if (geracao != _geracao || Descartada) return;
+
             IndicadoresAgenda? agenda = null;
             IReadOnlyList<OcupacaoNaMesa> deHoje = [];
             var hojeFalhou = false;
@@ -369,6 +387,7 @@
 
             _agora = agora;
             _painel = painel;
+            _competencia = competencia;
             _agenda = agenda;
             _hoje = deHoje;
             _hojeFalhou = hojeFalhou;

@@ -163,6 +163,26 @@ public static class MesaDaDirecaoNaTela
     };
 
     /// <summary>
+    /// A nota sob o resultado por COMPETÊNCIA na régua (etapa "Dinheiro", out/2026): quanto
+    /// dele ainda está a receber e, quando houver, quanta produção do mês ainda não tem valor
+    /// lançado — sem ela, o número pareceria completo. Leitura que falhou tem frase própria.
+    /// </summary>
+    public static string NotaDaCompetencia(ResultadoPorCompetencia? c)
+    {
+        if (c is null) return "não pôde ser lido agora";
+        var nota = c.ReceitaAReceber > 0m
+            ? $"inclui {Dinheiro(c.ReceitaAReceber)} a receber"
+            : "nada do mês a receber";
+        return c.ProducaoSemValor switch
+        {
+            null => $"{nota} · produção sem valor não conferida",
+            0 => nota,
+            1 => $"{nota} · 1 atendimento sem valor lançado",
+            var n => $"{nota} · {n} atendimentos sem valor lançado"
+        };
+    }
+
+    /// <summary>
     /// A ocupação de hoje por profissional, do mais cheio para o mais vazio. Quem não tem
     /// jornada declarada não tem ocupação (nula), e vai para o fim — sem inventar 0%.
     /// </summary>

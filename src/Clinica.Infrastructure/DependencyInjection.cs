@@ -92,6 +92,7 @@ public static class DependencyInjection
         services.AddScoped<MetaService>();
         services.AddScoped<OrcamentoService>();
         services.AddScoped<ResultadoMensalService>();
+        services.AddScoped<ProjecaoDeCaixaService>();
         services.AddScoped<OrigemPacientesService>();
         services.AddScoped<ImportacaoPacientesService>();
         services.AddScoped<ImportacaoSmartClinicService>();
