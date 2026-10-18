@@ -1,0 +1,18 @@
+/* Estilo PRÓPRIO da tela "De onde vêm os pacientes" (out/2026, etapa 6 do Gerente). O comum mora em ../clinica.css. */
+.ori-resumo{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+/* A tabela de origens é o assunto; o ranking é a leitura complementar ao lado — e embaixo dela em tela estreita. */
+.ori-duas{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:var(--space-4);align-items:start}
+@media (max-width:1180px){.ori-duas{grid-template-columns:minmax(0,1fr)}}
+.ori-origem{display:inline-flex;align-items:center;flex-wrap:wrap;gap:var(--space-2);min-width:0}
+.ori-tabela td.numero{white-space:nowrap}
+.ori-tabela td.ori-fracao{color:var(--texto-secundario)}
+.ori-indicadores{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.ori-indicadores li{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);
+  padding:var(--space-2) 0;border-bottom:1px solid var(--borda)}
+.ori-indicadores li:last-child{border-bottom:0}
+.ori-indicadores .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ori-quantos{white-space:nowrap;color:var(--texto-secundario);font-size:var(--text-table-size)}
+.ori-sem-indicacao{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+/* "Estreias em" ao lado do seletor, como no WPF — rótulo em cima desalinharia o Atualizar. */
+.ori-periodo{display:inline-flex;align-items:center;gap:var(--space-2);color:var(--texto-secundario)}
+.ori-indicadores-cartao .cartao-titulo{margin-bottom:var(--space-2)}

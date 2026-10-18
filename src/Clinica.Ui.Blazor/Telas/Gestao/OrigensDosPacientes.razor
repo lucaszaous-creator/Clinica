@@ -1,0 +1,169 @@
+@*
+  DE ONDE VÊM OS PACIENTES (out/2026, etapa 6 do Gerente — saiu do OrigensView/OrigensViewModel
+  WPF). A pergunta da direção: "vale manter o anúncio?" — a resposta de "como conheceu a
+  clínica?" somada sobre a base inteira, não lida uma ficha por vez.
+
+  Quem calcula é o OrigemPacientesService (o mesmo do WPF); quem formata é OrigensNaTela
+  (Application, com teste). A DEFINIÇÃO de estreia vai escrita no subtítulo: um número cuja
+  definição só existe no código é um número que cada leitor interpreta de um jeito.
+  O período é o das outras telas da direção (ResumoFaturamentoNaTela), com "Este ano" por padrão.
+  Permissão: GerenciarCampanhas — o bit do item no menu. Somente leitura.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina origens @(Carregando && _painel is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Pacientes e relacionamento" Titulo="De onde vêm os pacientes"
+                     Subtitulo="A resposta de “como conheceu a clínica?”, somada. Estreia = primeiro atendimento no período escolhido; quem foi cadastrado e nunca veio conta na base, não nas estreias.">
+        <div class="ori-periodo">
+            <span>Estreias em</span>
+            <div class="segmentado" role="group" aria-label="Período das estreias">
+                @foreach (var p in ResumoFaturamentoNaTela.Periodos)
+                {
+                    var este = p;
+                    <button type="button" aria-pressed="@(este == _periodo ? "true" : "false")" @onclick="() => TrocarPeriodoAsync(este)">@este</button>
+                }
+            </div>
+        </div>
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    @if (!Pode(Permissao.GerenciarCampanhas))
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="Seu acesso não alcança este relatório" Descricao="De onde vêm os pacientes pede a permissão de gerenciar campanhas. Fale com a direção da clínica." Icone="cadeado" />
+        </section>
+    }
+    else if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível ler a origem dos pacientes"
+                            Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erro}")" AoTentarDeNovo="() => CarregarAsync()" />
+        </section>
+    }
+    else if (_painel is null)
+    {
+        <div class="cartao cartao-corpo"><Esqueleto Altura="260" /></div>
+    }
+    else
+    {
+        var p = _painel;
+        <p class="ori-resumo">@p.Resumo</p>
+
+        <div class="ori-duas">
+            <section class="cartao lista-cartao" aria-label="Origens dos pacientes">
+                <div class="cartao-titulo"><div><h2>Origens</h2>
+                    <p>Toda origem aparece, mesmo zerada: "Redes sociais — 0" quer dizer que ninguém veio por aí, não que não se mediu.</p></div></div>
+                <div class="tabela-rolagem">
+                    <table class="lista ori-tabela">
+                        <thead>
+                            <tr>
+                                <th>Origem</th>
+                                <th class="direita">Na base</th>
+                                <th class="direita">% da base</th>
+                                <th class="direita">Estrearam no período</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in p.Linhas)
+                            {
+                                <tr @key="l.Rotulo">
+                                    <td>
+                                        <span class="ori-origem">
+                                            <span class="principal" title="@l.Rotulo">@l.Rotulo</span>
+                                            @if (l.EhSemResposta)
+                                            {
+                                                <Selo Tom="aviso" Dica="Quando esta linha encabeça a tabela, o achado é o balcão ter parado de perguntar — cobre a pergunta no cadastro.">colher no cadastro</Selo>
+                                            }
+                                        </span>
+                                    </td>
+                                    <td class="direita numero">@l.NaBase</td>
+                                    <td class="direita numero ori-fracao">@l.Fracao</td>
+                                    <td class="direita numero">@l.Estreias</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="cartao cartao-corpo ori-indicadores-cartao" aria-label="Quem mais indica">
+                <div class="cartao-titulo"><div><h2>Quem mais indica</h2>
+                    <p>Os @OrigemPacientesService.MaximoIndicadores maiores, pelo nome de quem indicou na ficha.</p></div></div>
+                @if (p.Indicadores.Count == 0)
+                {
+                    <p class="ori-sem-indicacao">Nenhuma indicação com o nome de quem indicou — o campo fica na ficha do paciente, quando a origem é “Indicação”.</p>
+                }
+                else
+                {
+                    <ol class="ori-indicadores">
+                        @foreach (var i in p.Indicadores)
+                        {
+                            <li>
+                                <span class="principal" title="@i.Nome">@i.Nome</span>
+                                <span class="ori-quantos">@i.Quantos</span>
+                            </li>
+                        }
+                    </ol>
+                }
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private string _periodo = OrigensNaTela.PeriodoPadrao;
+    private PainelDeOrigens? _painel;
+    private bool Carregando, _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Volta à aba: relê por trás, sem limpar (o balcão pode ter cadastrado alguém).</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private Task TrocarPeriodoAsync(string periodo)
+    {
+        if (periodo == _periodo) return Task.CompletedTask;
+        _periodo = periodo;
+        return CarregarAsync();
+    }
+
+    /// <summary>
+    /// Trocar o período duas vezes rápido num banco remoto deixaria os números de um intervalo
+    /// sob o rótulo do outro: contador de geração e publicação depois do último await.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        if (!Pode(Permissao.GerenciarCampanhas)) return;
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            var (inicio, fim) = ResumoFaturamentoNaTela.Intervalo(_periodo, DateOnly.FromDateTime(DateTime.Today));
+            using var escopo = Escopo();
+            var resumo = await escopo.ServiceProvider.GetRequiredService<OrigemPacientesService>().ResumoAsync(inicio, fim);
+            if (geracao != _geracao || Descartada) return;
+
+            _painel = OrigensNaTela.Montar(resumo);
+            _naoVerificado = false;
+            _erro = null;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — origem dos pacientes não pôde ser lida", ex);
+            if (silencioso && _painel is not null) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+}
