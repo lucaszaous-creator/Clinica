@@ -114,6 +114,24 @@ opção dela, a recomendada e as melhores que existirem —, nunca só "concordo
 A tela preta das telas Blazor (um navegador por tela) é o caso que originou a regra: a
 escolha foi feita olhando só o DX, e o UX foi a clínica quem mediu, em vídeo.
 
+## ⛔ Regras de tela para quem atende (out/2026 — decisão da direção, valem também no CRM)
+
+O mesmo pedido da direção vale para os cinco apps e para o CRM (`semdor-crm/CLAUDE.md`), e
+todo PR diz em **UX · DX · CX** como cada regra foi atendida:
+
+1. **Uma porta por pergunta** — duas telas que levam ao mesmo lugar viram uma; antes de criar
+   item, aba ou atalho, procure a tela que já responde.
+2. **Função que saiu, sai inteira** — do menu, das telas, das configurações e dos textos.
+3. **O que pede ação vira aviso** — resposta do paciente ao lembrete (confirmou, não vem, sem
+   resposta) chega ao SINO da Recepção e ao painel do Gerente, não só a uma aba que alguém
+   precisa lembrar de abrir. A regra do aviso mora num lugar só (Application, com teste).
+4. **O telefone não é identidade** — a ponte devolve as fichas candidatas
+   (`ClinicPatientBridge`) e quem confere é a recepção.
+5. **Relacionamento do CRM é de quem trata** (BSV, acupuntura e os dois —
+   `ClinicRelationshipBridge.Tratamento`).
+6. **Responsivo e sem resquício** — tela que se adapta à largura de quem usa e nada de
+   botão para função morta.
+
 ## ⛔ AUDITORIA DE LINHA — a conferência é NA ESCRITA, e não existe rodada depois
 
 **Regra de processo, decidida em 23/08/2026 e reafirmada pela direção em 24/08/2026.**

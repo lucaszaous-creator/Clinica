@@ -10,7 +10,8 @@ namespace Clinica.Crm.Bridge;
 /// <summary>
 /// As três filas da tela "Relacionamento" do CRM, lidas do Clinica e nunca decididas lá.
 ///
-/// - <b>absent</b>: quem não vem há 15 dias ou mais (até um ano) e não tem horário marcado.
+/// Só entra quem TRATA na clínica: BSV, acupuntura ou os dois (out/2026).
+/// - <b>absent</b>: quem não faz BSV/acupuntura há 15 dias ou mais (até um ano) e não tem horário marcado.
 ///   Quem tem sessão futura não sumiu — já voltou, só ainda não veio.
 /// - <b>new-bsv</b>: as duas leituras de "novo no BSV": o indicado pelo profissional
 ///   (acompanhamento <c>NovoBsv</c> aberto) que ainda não fez a 1ª sessão, e quem fez a
@@ -23,6 +24,9 @@ public sealed class ClinicRelationshipBridge(ClinicaDbContext db, ConsultaServic
     public const int MinimumAbsentDays = 15, MaximumAbsentDays = 365, NewBsvWindowDays = 30;
     static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
     static bool Bsv(ModalidadeAtendimento m) => m is ModalidadeAtendimento.BsvApenas or ModalidadeAtendimento.BsvComAcupuntura;
+    /// <summary>O relacionamento é só de quem TRATA na clínica — BSV, acupuntura e BSV com
+    /// acupuntura (decisão da cliente, out/2026). Quem só passou por consulta não entra.</summary>
+    public static bool Tratamento(ModalidadeAtendimento m) => m != ModalidadeAtendimento.Consulta;
 
     public async Task<RelationshipSnapshot> Snapshot(CancellationToken ct)
     {
@@ -30,11 +34,12 @@ public sealed class ClinicRelationshipBridge(ClinicaDbContext db, ConsultaServic
         var today = DateOnly.FromDateTime(now.DateTime);
         var sessions = await db.Atendimentos.AsNoTracking().Where(a => a.RealizadoEm != null && a.EstornadoEm == null && a.Data <= today)
             .Select(a => new { a.PacienteId, a.Modalidade, a.Data }).ToListAsync(ct);
-        var last = sessions.GroupBy(s => s.PacienteId).ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.Data).First());
-        var count = sessions.GroupBy(s => s.PacienteId).ToDictionary(g => g.Key, g => g.Count());
+        var last = sessions.Where(s => Tratamento(s.Modalidade)).GroupBy(s => s.PacienteId).ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.Data).First());
+        var count = sessions.Where(s => Tratamento(s.Modalidade)).GroupBy(s => s.PacienteId).ToDictionary(g => g.Key, g => g.Count());
         var firstBsv = sessions.Where(s => Bsv(s.Modalidade)).GroupBy(s => s.PacienteId).ToDictionary(g => g.Key, g => g.Min(s => s.Data));
         var cases = await db.Acompanhamentos.AsNoTracking().Where(c => c.Tipo == TipoAcompanhamento.NovoBsv && c.EncerradoEm == null).ToListAsync(ct);
-        var renew = (await consultas.ListarAsync(today, ct)).Where(s => s.ARenovar).ToList();
+        var tratados = sessions.Where(s => Tratamento(s.Modalidade)).Select(s => s.PacienteId).ToHashSet();
+        var renew = (await consultas.ListarAsync(today, ct)).Where(s => s.ARenovar && tratados.Contains(s.PacienteId)).ToList();
         var future = (await db.Agendamentos.AsNoTracking().Where(a => a.Status == StatusAgendamento.Agendado && a.DataHora >= now.DateTime)
             .Select(a => new { a.PacienteId, a.DataHora, a.ModalidadePrevista }).ToListAsync(ct))
             .GroupBy(a => a.PacienteId).ToDictionary(g => g.Key, g => g.OrderBy(a => a.DataHora).ToList());

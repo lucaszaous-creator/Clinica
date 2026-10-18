@@ -23,6 +23,7 @@ builder.Services.AddScoped<ClinicSchedulingBridge>();
 builder.Services.AddScoped<ClinicBookingBridge>();
 builder.Services.AddScoped<ClinicRelationshipBridge>();
 builder.Services.AddScoped<ClinicTeamBridge>();
+builder.Services.AddScoped<ClinicPatientBridge>();
 // O lembrete de SMS 24h antes, com a clínica fechada (out/2026): o MESMO LembreteSmsService
 // do desktop, rodando aqui a cada 5 min. Liga com LembreteSms__Ligado=true. O provedor, o
 // texto e o endereço do link continuam vindo das Configurações do Clinica (Relacionamento →
@@ -51,6 +52,7 @@ app.MapGet("/crm/relationship",(ClinicRelationshipBridge bridge,CancellationToke
 // O acesso ao CRM é o do sistema: quem pode entrar e a conferência da senha (ver ClinicTeamBridge).
 app.MapGet("/crm/team",(ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Team(ct));
 app.MapPost("/crm/login",(ClinicLogin input,ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Enter(input,ct));
+app.MapPost("/crm/v1/patients/lookup",(ClinicPatientLookup input,ClinicPatientBridge bridge,CancellationToken ct)=>bridge.Lookup(input,ct));
 app.MapPost("/crm/recall/notice",(RecallNotice input,ClinicRecallBridge bridge,CancellationToken ct)=>bridge.Notice(input,ct));
 app.MapPost("/crm/decision",(ClinicDecision input,ClinicAgendaBridge bridge,CancellationToken ct)=>bridge.Decide(input,ct));
 app.MapPost("/crm/v1/appointments/slots", (ClinicSlotQuery input, ClinicSchedulingBridge bridge, CancellationToken ct) => bridge.Slots(input, ct));
