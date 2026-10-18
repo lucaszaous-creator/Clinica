@@ -264,6 +264,16 @@
     private async Task CarregarAsync(bool silencioso = false)
     {
         if (!Pode(Permissao.VerAgenda)) return;
+        // O aviso do sino pediu um dia (out/2026): "João não vem — segunda 09:00" abre na
+        // segunda, e não em "amanhã". Sem pedido, nada muda.
+        if (AberturaDasConfirmacoes.ConsumirDia() is { } pedido && pedido != _dia)
+        {
+            _dia = pedido;
+            _filtro = null;
+            _mensagem = null;
+            // Outro dia não é releitura silenciosa: falhar aqui deixaria a rodada antiga sob o título novo.
+            silencioso = false;
+        }
         var geracao = ++_geracao;
         var dia = _dia;
         Carregando = true;

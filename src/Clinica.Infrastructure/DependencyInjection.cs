@@ -127,6 +127,8 @@ public static class DependencyInjection
         services.AddScoped<ProvedorOpcoesArmazenamento>();
         services.AddScoped<IArmazenamentoPublico, ArmazenamentoS3>();
         services.AddScoped<PainelDirecaoService>();
+        // As respostas dos pacientes (out/2026): o sino do shell e o painel leem a MESMA decisão.
+        services.AddScoped<AvisosDeConfirmacaoService>();
         services.AddScoped<InadimplenciaService>();
         services.AddScoped<CentralDocumentosService>();
         // O TributoService vem ANTES do TaxaService: este o recebe para abrir o imposto

@@ -855,4 +855,20 @@ public class TraducaoNoNpgsqlTests
             .ToQueryString().Should().NotContain("FotoMiniatura");
         db.MensagensSms.Where(m => m.ChaveIdempotencia == "CONF:1").ToQueryString().Should().Contain("ChaveIdempotencia");
     }
+
+    /// <summary>
+    /// As respostas dos pacientes no sino (out/2026): navegação ao agendamento, ao paciente e
+    /// ao profissional, com <c>??</c> entre duas COLUNAS (NomeCurto ?? Nome — coalescência de
+    /// escalar, que traduz; a de ENTIDADE não traduziria) e o booleano do link.
+    /// </summary>
+    [Fact]
+    public void Contatos_para_avisos_de_confirmacao_traduzem_sem_foto()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaContatosParaAvisosDeConfirmacao(
+            new DateTime(2026, 10, 19, 8, 0, 0), new DateTime(2026, 10, 21, 0, 0, 0)).ToQueryString();
+        sql.Should().Contain("\"DataHora\"").And.Contain("COALESCE").And.Contain("\"TokenResposta\"")
+            .And.Contain("ORDER BY");
+        sql.Should().NotContain("FotoMiniatura");
+    }
 }

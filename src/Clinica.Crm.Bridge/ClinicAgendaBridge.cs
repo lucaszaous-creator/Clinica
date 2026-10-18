@@ -78,7 +78,7 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
         // O comentário é o que o classificador da clínica lê (RodadaDeConfirmacao.Classificar):
         // texto livre num "não vou" seria lido como "Confirmou" na agenda do balcão.
         var cancel=input.Decision=="cancel"&&options?.CancelEnabled==true;
-        contact.Comentario=input.Decision=="confirm"?"Paciente confirmou intenção de comparecer pelo WhatsApp. Não representa presença ou atendimento realizado.":Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaRemarcar;
+        contact.Comentario=input.Decision=="confirm"?Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaConfirmouPeloWhatsApp:Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaRemarcar;
         db.Auditoria.Add(new(){Acao=input.Decision=="confirm"?"CrmConfirmacao":input.Decision=="cancel"?"CrmCancelamento":"CrmPedidoRemarcar",Operador="CRM · resposta do paciente",PacienteId=ap.PacienteId,Detalhe=marker,DataHora=Now()});
         // Reuse the clinic's cancellation logic: this also handles related billing guides.
         // Confirmation deliberately does not call ConfirmarPresencaAsync.

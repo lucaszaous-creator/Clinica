@@ -31,9 +31,11 @@ public sealed partial class ShellViewModel
     public bool PodeVerPedidos => Itens.Any(i => i.Chave == ChavesSuite.PedidosEnfermagem)
         && _sessaoClinica is { Autenticado: true, Perfil: PerfilAcesso.Recepcao or PerfilAcesso.Gerente }
         && _sessaoClinica.Pode(Permissao.VerAgenda | Permissao.EditarAgenda | Permissao.VerFichaPaciente);
-    public int TotalAvisos => PedidosNovos + (Snackbar?.NaoLidos ?? 0);
-    public string ContadorAvisos => ErroPedidos ? "!" : TotalAvisos.ToString();
-    public bool TemAvisos => TotalAvisos > 0 || ErroPedidos;
+    // As respostas dos pacientes que pedem ligação (AvisosConfirmacaoShell, out/2026) entram
+    // na conta como os pedidos novos: são pendência que persiste até alguém agir.
+    public int TotalAvisos => PedidosNovos + RespostasParaAgir + (Snackbar?.NaoLidos ?? 0);
+    public string ContadorAvisos => ErroPedidos || ErroRespostas ? "!" : TotalAvisos.ToString();
+    public bool TemAvisos => TotalAvisos > 0 || ErroPedidos || ErroRespostas;
     public string ContadorPedidos => ErroPedidos ? "!" : !PedidosConsultados ? "…" : $"{PedidosNovos} {(PedidosNovos == 1 ? "novo" : "novos")}";
 
     // O ciclo pertence à janela inteira: trocar de página não interrompe os pedidos.
@@ -50,6 +52,7 @@ public sealed partial class ShellViewModel
         _relogioAvisos ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         _relogioAvisos.Tick -= BatidaAvisos; _relogioAvisos.Tick += BatidaAvisos;
         _relogioAvisos.Start(); _ = AtualizarPedidosGlobaisAsync();
+        IniciarAvisosConfirmacao();
     }
     public void PararAvisosGlobais()
     {
@@ -57,6 +60,7 @@ public sealed partial class ShellViewModel
         NotificacoesEnfermagem.Mudaram -= MudaramPedidos;
         Clinica.Infrastructure.OuvinteDeMudancas.Mudou -= MudouNoBanco;
         if (Snackbar is not null) Snackbar.PropertyChanged -= MudouSnackbar;
+        PararAvisosConfirmacao();
     }
 
     /// <summary>

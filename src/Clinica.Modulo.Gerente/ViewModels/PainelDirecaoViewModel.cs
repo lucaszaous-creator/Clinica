@@ -348,6 +348,11 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject, Clinica.D
         // publicada por dois módulos, e por isso vem de ChavesSuite.
         AssuntoDirecao.InfusaoAguardando => (ChavesSuite.SalaInfusao, "Ver sala de infusão"),
         AssuntoDirecao.InfusaoSemAssinatura => (ChavesSuite.SalaInfusao, "Ver sala de infusão"),
+        // As respostas dos pacientes (out/2026) se resolvem na rodada de confirmação da
+        // Recepção — módulo que o Gerente Geral carrega. Rótulos diferentes pelo argumento da
+        // receita glosada: o mesmo destino, e o botão diz o que procurar lá.
+        AssuntoDirecao.PacientesNaoVem => (ChavesSuite.ConfirmacoesAgenda, "Ver quem não vem"),
+        AssuntoDirecao.LembretesSemResposta => (ChavesSuite.ConfirmacoesAgenda, "Ver confirmações"),
 
         // Os três do faturamento vão para a MESMA tela e dizem abas diferentes, pelo
         // argumento que a receita glosada já usava acima: "Ver faturamento" três vezes

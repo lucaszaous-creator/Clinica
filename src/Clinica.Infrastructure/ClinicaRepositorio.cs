@@ -3712,6 +3712,35 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                       .First());
     }
 
+    public async Task<IReadOnlyList<ContatoParaAvisoDeConfirmacao>> ContatosParaAvisosDeConfirmacaoAsync(
+        DateTime sessoesDe, DateTime sessoesAte, CancellationToken ct = default)
+        => await ConsultaContatosParaAvisosDeConfirmacao(sessoesDe, sessoesAte).ToListAsync(ct);
+
+    // `internal` para a rede de tradução do Npgsql compilar a MESMA consulta. Projeção: nove
+    // colunas por linha, lida a cada minuto em todo posto — nada da ficha nem da foto.
+    internal IQueryable<ContatoParaAvisoDeConfirmacao> ConsultaContatosParaAvisosDeConfirmacao(
+        DateTime sessoesDe, DateTime sessoesAte)
+        => _db.Contatos.AsNoTracking()
+            .Where(c => c.Tipo == TipoContato.ConfirmacaoSessao
+                        && c.AgendamentoId != null
+                        && (c.Status == StatusContato.Enviado || c.Status == StatusContato.Respondido)
+                        && c.Agendamento!.Status == StatusAgendamento.Agendado
+                        && c.Agendamento.DataHora >= sessoesDe
+                        && c.Agendamento.DataHora < sessoesAte)
+            .OrderBy(c => c.Agendamento!.DataHora).ThenBy(c => c.Id)
+            .Select(c => new ContatoParaAvisoDeConfirmacao(
+                c.AgendamentoId!.Value,
+                c.Paciente!.Nome,
+                c.Agendamento!.DataHora,
+                c.Agendamento.Profissional != null
+                    ? (c.Agendamento.Profissional.NomeCurto ?? c.Agendamento.Profissional.Nome)
+                    : null,
+                c.Status,
+                c.TokenResposta != null,
+                c.EnviadoEm,
+                c.RespondidoEm,
+                c.Comentario));
+
     public async Task<IReadOnlyList<PacienteParaContato>> PacientesParaContatoAsync(
         IReadOnlyCollection<int>? pacienteIds, CancellationToken ct = default)
     {

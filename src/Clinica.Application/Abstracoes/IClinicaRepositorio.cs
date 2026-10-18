@@ -1761,6 +1761,17 @@ public interface IClinicaRepositorio
     Task<IReadOnlyDictionary<int, RespostaDeConfirmacao>> RespostasDeConfirmacaoAsync(
         IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os contatos de confirmação ENVIADOS ou RESPONDIDOS das sessões ainda MARCADAS
+    /// (<c>Agendado</c>) com horário em [<paramref name="sessoesDe"/>,
+    /// <paramref name="sessoesAte"/>) — numa consulta só, em PROJEÇÃO (out/2026). É o que
+    /// <see cref="Modelos.AvisosDeConfirmacao.Decidir"/> precisa para o sino e o painel da
+    /// direção. Sessão cancelada ou remarcada para fora da janela não volta: é assim que o
+    /// "não vem" some quando a recepção resolve.
+    /// </summary>
+    Task<IReadOnlyList<ContatoParaAvisoDeConfirmacao>> ContatosParaAvisosDeConfirmacaoAsync(
+        DateTime sessoesDe, DateTime sessoesAte, CancellationToken ct = default);
+
     // ---- Canal de SMS (out/2026) ----
 
     /// <summary>

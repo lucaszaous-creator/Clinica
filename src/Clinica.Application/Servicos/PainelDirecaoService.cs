@@ -1,5 +1,6 @@
 using System.Globalization;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 
@@ -78,7 +79,20 @@ public enum AssuntoDirecao
     /// E ele NÃO é do dia: a pendência não vence à meia-noite, e a folha esquecida há três
     /// dias é justamente a que precisa de decisão.
     /// </summary>
-    InfusaoSemAssinatura
+    InfusaoSemAssinatura,
+
+    /// <summary>
+    /// Pacientes que avisaram que NÃO VÊM (pelo link do SMS, pelo CRM ou pelo balcão) e cujo
+    /// horário continua marcado (out/2026). Horário que ninguém remarcou nem liberou é vaga
+    /// perdida duas vezes: o paciente não vem e ninguém mais é chamado para ela.
+    /// </summary>
+    PacientesNaoVem,
+
+    /// <summary>
+    /// Lembretes por SMS sem resposta (out/2026) — a regra é a de
+    /// <see cref="Modelos.AvisosDeConfirmacao.Decidir"/>, a mesma do sino da recepção.
+    /// </summary>
+    LembretesSemResposta
 }
 
 /// <summary>Uma coisa que a direção precisa resolver, já escrita como se fala.</summary>
@@ -162,6 +176,12 @@ public sealed record PainelDirecao(
     public decimal ImpostosMes { get; init; }
     public decimal EntradasLiquidasMes => EntradasMes - TaxasMes - ImpostosMes;
     public decimal SaldoMes => EntradasLiquidasMes - SaidasMes;
+
+    /// <summary>Quem avisou que não vem, com o horário ainda marcado (o número do sino, pela mesma decisão).</summary>
+    public int PacientesNaoVem { get; init; }
+
+    /// <summary>Lembretes por SMS sem resposta nas próximas sessões (a mesma decisão do sino).</summary>
+    public int LembretesSemResposta { get; init; }
 
     /// <summary>
     /// Variação das entradas contra o mesmo trecho do mês anterior, em fração
@@ -279,8 +299,13 @@ public sealed class PainelDirecaoService
         _inadimplencia = inadimplencia;
     }
 
-    public async Task<PainelDirecao> MontarAsync(DateOnly hoje, CancellationToken ct = default)
+    /// <param name="agora">
+    /// O instante das regras que olham a HORA (as respostas dos pacientes: "sem resposta há
+    /// 3 h", "sessões das próximas 36 h"). Nulo = <paramref name="hoje"/> na hora do relógio.
+    /// </param>
+    public async Task<PainelDirecao> MontarAsync(DateOnly hoje, CancellationToken ct = default, DateTime? agora = null)
     {
+        var instante = agora ?? hoje.ToDateTime(TimeOnly.FromDateTime(DateTime.Now));
         var naoVerificados = new List<string>();
         var alertas = new List<AlertaDirecao>();
 
@@ -304,6 +329,7 @@ public sealed class PainelDirecaoService
         var lerParticulares = Antecipar(s => s.SessoesParticularesSemReceitaAsync(inicioMes, hoje, ct), _financeiro);
         var lerBanco = Antecipar(r => r.LancamentosParaConciliacaoAsync(inicioMes, hoje, ct), _repo);
         var lerParcelasBanco = Antecipar(r => r.ParcelasCartaoParaConciliacaoAsync(inicioMes, hoje, ct), _repo);
+        var lerConfirmacoes = Antecipar(r => new AvisosDeConfirmacaoService(r).ListarAsync(instante, instante, ct), _repo);
 
         // ---- Dinheiro do mês ----
         decimal entradas = 0m, saidas = 0m, taxas = 0m, impostos = 0m;
@@ -671,6 +697,41 @@ public sealed class PainelDirecaoService
             naoVerificados.Add("Glosas");
         }
 
+        // ---- Respostas dos pacientes (out/2026) ----
+        //
+        // A recepção recebe cada resposta no sino; a direção vê a SOMA do que ainda pede
+        // ligação. O número vem da MESMA decisão do sino (AvisosDeConfirmacaoService) —
+        // recontar aqui seria a segunda definição de "quem não vem".
+        int naoVem = 0, semResposta = 0;
+        try
+        {
+            var respostas = await lerConfirmacoes();
+            (naoVem, semResposta) = AvisosDeConfirmacao.Contar(respostas);
+            // O horizonte é o da decisão: 36 h, e na sexta a segunda-feira inteira.
+            const string Janela = "nas próximas 36 h (na sexta, até a segunda)";
+
+            if (naoVem > 0)
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.PacientesNaoVem,
+                    $"{naoVem} paciente(s) avisaram que não vêm",
+                    $"Sessões {Janela} que continuam marcadas. Uma ligação remarca o paciente e "
+                    + "libera o horário para quem está esperando vaga.",
+                    GravidadeDirecao.Aviso));
+
+            if (semResposta > 0)
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.LembretesSemResposta,
+                    $"{semResposta} lembrete(s) de confirmação sem resposta",
+                    $"O SMS saiu há mais de {(int)AvisosDeConfirmacao.EsperaPorResposta.TotalHours} h e o "
+                    + $"paciente não clicou no link (sessões {Janela}). Vale uma ligação antes da sessão.",
+                    GravidadeDirecao.Info));
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — respostas dos pacientes não puderam ser lidas", ex);
+            naoVerificados.Add("Respostas dos pacientes");
+        }
+
         try
         {
             var estoque = new EstoqueService(_repo);
@@ -732,7 +793,11 @@ public sealed class PainelDirecaoService
             // Perigo primeiro. O painel é lido de cima para baixo, e a ordem é a única
             // forma de dizer o que vem antes sem escrever "prioridade 1" em cada linha.
             alertas.OrderByDescending(a => a.Gravidade).ThenBy(a => a.Assunto).ToList(),
-            naoVerificados) { TaxasMes = taxas, ImpostosMes = impostos };
+            naoVerificados)
+        {
+            TaxasMes = taxas, ImpostosMes = impostos,
+            PacientesNaoVem = naoVem, LembretesSemResposta = semResposta
+        };
     }
 
     /// <summary>
