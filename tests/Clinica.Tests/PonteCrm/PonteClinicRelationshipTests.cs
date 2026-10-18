@@ -94,10 +94,25 @@ public sealed class PonteClinicRelationshipTests : IDisposable
         var p = Paciente("Unimed", "11999990010", Convenio.UnimedPadrao);
         db.Consultas.Add(new() { PacienteId = p.Id, Convenio = Convenio.UnimedPadrao, DataEmissao = hoje.AddDays(-30), ValidadeDias = 22,
             DataVencimento = hoje.AddDays(-8), Status = StatusConsulta.Ativa });
+        Sessao(p, 5); // trata na clínica — quem não trata não entra no relacionamento
         Paciente("Nunca emitiu", "11999990011", Convenio.UnimedPadrao);
         db.SaveChanges();
         var e = Assert.Single((await bridge.Snapshot(default)).Entries, e => e.List == "renew");
         Assert.Equal(p.Id, e.PatientId); Assert.Equal("Consulta vencida", e.Situation); Assert.StartsWith("Consulta vencida em", e.Detail);
+    }
+
+    // out/2026: o relacionamento é só de quem faz BSV, acupuntura ou os dois. Quem só passou
+    // por consulta não entra, e a referência de "sumiu" é a última sessão de TRATAMENTO.
+    [Fact] public async Task So_entra_quem_trata_BSV_ou_acupuntura()
+    {
+        var consulta = Paciente("Só consulta", "11999990020"); Sessao(consulta, 40, ModalidadeAtendimento.Consulta);
+        var bsv = Paciente("BSV com acupuntura", "11999990021"); Sessao(bsv, 30, ModalidadeAtendimento.BsvComAcupuntura);
+        var acup = Paciente("Acupuntura", "11999990022"); Sessao(acup, 50, ModalidadeAtendimento.AcupunturaComEletro); Sessao(acup, 3, ModalidadeAtendimento.Consulta);
+        var ausentes = (await bridge.Snapshot(default)).Entries.Where(e => e.List == "absent").ToList();
+        Assert.DoesNotContain(ausentes, e => e.PatientId == consulta.Id);
+        Assert.Contains(ausentes, e => e.PatientId == bsv.Id);
+        var a = Assert.Single(ausentes, e => e.PatientId == acup.Id);
+        Assert.Equal(50, a.Days); Assert.Equal(1, a.Sessions);
     }
 
     [Fact] public async Task Telefone_compartilhado_e_avisado()

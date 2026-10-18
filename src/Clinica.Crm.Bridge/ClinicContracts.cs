@@ -2,7 +2,8 @@ namespace Clinica.Crm.Contracts;
 
 public sealed record Specialty(string Code, string Name, bool Active = true);
 public sealed record ClinicAppointment(int Id, int PatientId, string Name, string Phone, DateTimeOffset StartsAt,
-    string SpecialtyCode, string SpecialtyName, string Professional, string Status, string Revision, string Confirmation);
+    string SpecialtyCode, string SpecialtyName, string Professional, string Status, string Revision, string Confirmation,
+    string Answer = "", DateTimeOffset? AnsweredAt = null, DateTimeOffset? NotifiedAt = null);
 public sealed record ClinicSnapshot(DateTimeOffset SyncedAt, Specialty[] Specialties, ClinicAppointment[] Appointments);
 public sealed record ClinicDecision(string CommandId, int AppointmentId, string Revision, string Phone, string Decision, string MessageId);
 public sealed record ClinicDecisionResult(string Status, string Description);
@@ -55,3 +56,12 @@ public sealed record BookingCalendar(DateTimeOffset ReadAt, BookingCalendarItem[
 // Acesso ao CRM pelo login do SISTEMA (out/2026): a ponte diz quem pode entrar e confere a senha.
 public sealed record ClinicTeamMember(string Login, string Name, bool Admin);
 public sealed record ClinicLogin(string Login, string Password);
+
+// Quem é o paciente desta conversa (out/2026): o telefone pode ser de mais de uma ficha, e o
+// paciente pode escrever de outro número. A ponte devolve as fichas candidatas com o que
+// permite a recepção CONFERIR (nascimento, fim do documento, convênio) e o que vem pela frente.
+public sealed record ClinicPatientLookup(string Phone, string? Query = null);
+public sealed record ClinicPatientVisit(int AppointmentId, DateTimeOffset StartsAt, string Modality, string Professional,
+    string Status, string Answer = "");
+public sealed record ClinicPatientCard(int Id, string Name, string Phone, DateOnly? BirthDate, string Insurance,
+    string DocumentEnd, bool PhoneMatch, DateOnly? LastSession, string LastModality, ClinicPatientVisit[] Upcoming);

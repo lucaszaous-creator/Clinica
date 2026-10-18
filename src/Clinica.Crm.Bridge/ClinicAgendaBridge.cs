@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Crm.Contracts;
 using Clinica.Domain;
@@ -37,9 +38,19 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
             var code=a.EspecialidadeConsultaCodigo??a.EspecialidadeConsulta?.ToString()??"";
             var contact=contacts.FirstOrDefault(c=>c.AgendamentoId==a.Id);
             var confirmation=contact?.Status==StatusContato.Respondido?"responded":contact?.Status==StatusContato.Enviado?"notified":contact?.Status==StatusContato.Dispensado?"dismissed":"pending";
-            return new ClinicAppointment(a.Id,a.PacienteId,a.Paciente?.Nome??"Paciente",Phone(a.Paciente?.Telefone),new DateTimeOffset(DateTime.SpecifyKind(a.DataHora,DateTimeKind.Unspecified),Zone.GetUtcOffset(a.DataHora)),code,catalog.FirstOrDefault(s=>s.Code==code)?.Name??code,a.Profissional?.Nome??"",a.Status==StatusAgendamento.Agendado?"scheduled":a.Status.ToString(),Revision(a),confirmation);
+            // A resposta do paciente pela MESMA regra do balcão (RodadaDeConfirmacao.Classificar):
+            // o CRM avisa a recepção de quem confirmou e de quem não vem.
+            var answer=AnswerOf(contact);
+            return new ClinicAppointment(a.Id,a.PacienteId,a.Paciente?.Nome??"Paciente",Phone(a.Paciente?.Telefone),new DateTimeOffset(DateTime.SpecifyKind(a.DataHora,DateTimeKind.Unspecified),Zone.GetUtcOffset(a.DataHora)),code,catalog.FirstOrDefault(s=>s.Code==code)?.Name??code,a.Profissional?.Nome??"",a.Status==StatusAgendamento.Agendado?"scheduled":a.Status.ToString(),Revision(a),confirmation,answer,At(contact?.RespondidoEm),At(contact?.EnviadoEm));
         }).ToArray());
     }
+    public static string AnswerOf(ContatoCampanha? c) => c is null ? "" : RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario) switch
+    {
+        SituacaoConfirmacao.Confirmou => "confirmed",
+        SituacaoConfirmacao.PediuRemarcar => "not-coming",
+        _ => ""
+    };
+    static DateTimeOffset? At(DateTime? local) => local is { } d ? new DateTimeOffset(DateTime.SpecifyKind(d, DateTimeKind.Unspecified), Zone.GetUtcOffset(d)) : null;
     public Task<ClinicDecisionResult> Decide(ClinicDecision input, CancellationToken ct) => TransacaoDaPonte.Executar(db, () => DecideCore(input, ct), ct);
     async Task<ClinicDecisionResult> DecideCore(ClinicDecision input, CancellationToken ct)
     {
