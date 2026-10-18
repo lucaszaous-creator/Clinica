@@ -18,7 +18,7 @@
 @using Clinica.Application.Modelos
 
 <div class="pagina doc-emitidos @(_carregando && _painel is not null ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Direção · Documentos" Titulo="Documentos emitidos"
+    <CabecalhoPagina Sobretitulo="Direção · Conformidade e acessos" Titulo="Documentos emitidos"
                      Subtitulo="Tudo o que saiu da clínica no período — numerado por ano, com código de conferência. Para EMITIR um papel, use a Recepção ou o Consultório: aqui a tela só lê.">
         <div class="segmentado" role="group" aria-label="Período">
             @foreach (var p in ResumoFaturamentoNaTela.Periodos)

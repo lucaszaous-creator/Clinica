@@ -58,6 +58,15 @@
 @import url("telas/indicadores.css");
 @import url("telas/rentabilidade.css");
 @import url("telas/custo.css");
+@import url("telas/precos-convenio.css");
+@import url("telas/campanhas.css");
+@import url("telas/origens.css");
+@import url("telas/auditoria.css");
+@import url("telas/guarda.css");
+@import url("telas/documentos-emitidos.css");
+@import url("telas/acessos.css");
+@import url("telas/configuracoes.css");
+@import url("telas/importacao-pacientes.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.

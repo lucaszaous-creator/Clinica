@@ -822,7 +822,7 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 
 | Item | Estado | Onde |
 |---|---|---|
-| Cadastro por convênio, tipo de guia e especialidade | ✅ | `PrecoConvenio`, tela `PrecosConvenioView` (Gerente) |
+| Cadastro por convênio, tipo de guia e especialidade | ✅ | `PrecoConvenio`, tela Blazor `PrecosPorConvenio` (Gerente, desde out/2026) |
 | Vigência por linha | ✅ | reajuste entra como linha nova |
 | Valor proposto na conciliação | ✅ | `PrecoConvenioService.ProporAsync` → `ConciliacaoViewModel` (Financeiro) |
 | Procedência do número na linha | ✅ | "tabela: Unimed · Acupuntura — R$ 145,00" |
@@ -877,7 +877,7 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 |---|---|---|
 | NPS automático pós-consulta | ✅ | `CampanhaService.GerarNpsAsync`, `ResumoNps` |
 | Recall de pacientes inativos | ✅ | Fila do Acompanhamento (`IAcompanhamentoPacienteService.GerarRecallAsync`) — desde out/2026 a ÚNICA porta; a rodada de recall do `CampanhaService` e a tela "Quem parou de vir" saíram |
-| Campanhas por WhatsApp | ✅ | Tela `CampanhasView` + `Whatsapp` do shell |
+| Campanhas por WhatsApp | ✅ | Tela Blazor `CampanhasDaClinica` (out/2026) + `MensagensDeContato` |
 
 > **As três campanhas são UMA entidade** (`ContatoCampanha`): o fato registrado é o
 > mesmo — falamos (ou vamos falar) com este paciente, por este motivo, e ele respondeu
@@ -917,7 +917,7 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 | Trilha de auditoria imutável | ✅ | `EventoAuditoria`, `RegistrarAuditoriaAsync` |
 | Conformidade LGPD (consentimento) | ✅ | `ConsentimentoService` — entregue na parcela 2, na Recepção |
 | Direitos do titular: acesso e eliminação | ✅ | `TitularDadosService` — exportar e anonimizar, na ficha do paciente (parcela 26) |
-| Perfis e permissões finas | ✅ | `UsuarioSistema`, `PerfisAcesso`, `AcessoService`, tela `AcessosView` |
+| Perfis e permissões finas | ✅ | `UsuarioSistema`, `PerfisAcesso`, `AcessoService`, tela Blazor `AcessosDaClinica` (out/2026) |
 | Login nos apps da suíte | ✅ | `LoginWindow` + `SessaoUsuario` no shell |
 
 > A metade LGPD saiu antes da hora, junto do cadastro do paciente (parcela 2) — é lá que
@@ -1025,7 +1025,7 @@ As pontes que existem hoje, e o sentido de cada uma:
 | Pendência de guia no cartão de quem chega hoje | Faturamento → Recepção | `PainelRecepcaoService.PendenciasDoDiaAsync` |
 | Leitura consolidada do faturamento | Faturamento → Gerente | `FaturamentoGerencialView` (só leitura) |
 | Pendências, glosas, NC e lotes na direção | Faturamento → Gerente | `FaturamentoTissView` — 5 abas sobre os serviços compartilhados (parcelas 10b–10d) |
-| Configuração da clínica editável fora do app congelado | Gerente → todos | `ConfiguracoesView` sobre `ParametrosService` (parcela 10a) |
+| Configuração da clínica editável fora do app congelado | Gerente → todos | Tela Blazor `ConfiguracoesDaClinica` sobre `ParametrosService` (parcela 10a; Blazor desde out/2026) |
 | Preço negociado da guia usado na conciliação | Gerente → Financeiro | `PrecoConvenioService` (parcela 20) |
 | **Preço do particular por especialidade, proposto no Finalizar e na Conciliação** | **Gerente → Recepção, Financeiro** | **`PrecoParticularService` (set/2026)** |
 | Retenção na fonte por operadora | Gerente → Financeiro | `Tributo.ConvenioCodigo` (parcela 18) |
@@ -1127,10 +1127,10 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **FINANCEIRO** · Recebíveis de cartão | Financeiro | ✅ | `RecebiveisView` (parcela 16) — 🔵 idem |
 | **INTELIGÊNCIA** · Custo de taxas e impostos | Gerente | ✅ | Tela Blazor `CustoDeTaxasEImpostos` (parcela 17; Blazor desde out/2026, etapa 6) — 🔵 idem |
 | **INTELIGÊNCIA** · Rentabilidade por convênio | Gerente | ✅ | Tela Blazor `RentabilidadePorConvenio` (parcela 19; Blazor desde out/2026, etapa 6) — 🔵 idem |
-| **FINANCEIRO** · Tabela de preço (convênios) | Gerente | ✅ | `PrecosConvenioView` (parcela 20) — 🔵 idem |
-| **INTELIGÊNCIA** · Marketing / Recall | Gerente | ✅ | `CampanhasView` |
+| **FINANCEIRO** · Tabela de preço (convênios) | Gerente | ✅ | Tela Blazor `PrecosPorConvenio` (parcela 20; Blazor desde out/2026, etapa 6) — 🔵 idem |
+| **INTELIGÊNCIA** · Marketing / Recall | Gerente | ✅ | Tela Blazor `CampanhasDaClinica` (out/2026, etapa 6) |
 | **INTELIGÊNCIA** · Relatórios / BI | Gerente | ✅ | Tela Blazor `IndicadoresDaClinica` com gráficos e exportação CSV (parcelas 10d e 11; Blazor desde out/2026, etapa 6) |
-| **INTELIGÊNCIA** · Configurações | Gerente | ✅ | `ConfiguracoesView` (parcela 10a) |
+| **INTELIGÊNCIA** · Configurações | Gerente | ✅ | Tela Blazor `ConfiguracoesDaClinica` (parcela 10a; Blazor desde out/2026, etapa 6) |
 
 **Os grupos são temáticos, não por módulo.** `ItemMenuModulo.Grupo` (`GrupoSidebar`) decide
 onde o item aparece; `ModuloNome` diz quem sabe construir a tela. São duas coisas que só

@@ -1,8 +1,6 @@
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
-using Clinica.Gerente.ViewModels;
-using Clinica.Gerente.Views;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Gerente.Modulo;
@@ -287,76 +285,41 @@ public sealed class ModuloGerente : IModuloApp
     public void Registrar(IServiceCollection servicos)
     {
         Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
-        servicos.AddTransient<PrecosConvenioViewModel>();
+        // A única tela WPF que sobra é a do SHELL (Preços do particular), que a Recepção
+        // também publica — as do módulo são Blazor desde a etapa 6 (out/2026).
         servicos.AddTransient<PrecosParticularViewModel>();
-        servicos.AddTransient<CampanhasViewModel>();
-        servicos.AddTransient<AuditoriaViewModel>();
-        servicos.AddTransient<GuardaProntuarioViewModel>();
-        servicos.AddTransient<AcessosViewModel>();
-        servicos.AddTransient<ConfiguracoesViewModel>();
-        servicos.AddTransient<OrigensViewModel>();
-        servicos.AddTransient<DocumentosEmitidosViewModel>();
-        servicos.AddTransient<ImportacaoPacientesViewModel>();
-        // UsuarioEdicaoViewModel é construído à mão pela tela: precisa receber o id do
-        // usuário no construtor, como os demais formulários da suíte.
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         // A Mesa da direção (out/2026) substitui o painel WPF: Blazor, no navegador único da janela.
         ChavePainel => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MesaDaDirecao), servicos),
-        // Etapa 6 (out/2026): Indicadores, Rentabilidade e Custo saíram do WPF — Blazor, no
-        // navegador único da janela, como as abas vizinhas de "Produção e margem".
+        // Etapa 6 (out/2026): TODAS as telas do módulo saíram do WPF — Blazor, no navegador
+        // único da janela (docs/gerente-blazor.md). Só "Preços do particular" segue WPF: é tela
+        // do shell, publicada também pela Recepção.
         ChaveIndicadores => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.IndicadoresDaClinica), servicos),
         // Blazor desde out/2026 (docs/faturamento-blazor.md): é a aba "Resumo" do faturamento,
         // e as abas vizinhas também são Blazor — mesmo navegador, sem flash entre elas.
         ChaveFaturamento => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ResumoFaturamento), servicos),
         ChaveComissaoRecuperacao => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ComissaoRecuperacao), servicos),
-        ChavePrecos => new PrecosConvenioView
-        {
-            DataContext = servicos.GetRequiredService<PrecosConvenioViewModel>()
-        },
+        ChavePrecos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrecosPorConvenio), servicos),
         ChavesSuite.PrecosParticular => new PrecosParticularView
         {
             DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
         },
         ChaveCusto => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CustoDeTaxasEImpostos), servicos),
         ChaveRentabilidade => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RentabilidadePorConvenio), servicos),
-        ChaveCampanhas => new CampanhasView
-        {
-            DataContext = servicos.GetRequiredService<CampanhasViewModel>()
-        },
-        ChaveAuditoria => new AuditoriaView
-        {
-            DataContext = servicos.GetRequiredService<AuditoriaViewModel>()
-        },
-        ChaveGuarda => new GuardaProntuarioView
-        {
-            DataContext = servicos.GetRequiredService<GuardaProntuarioViewModel>()
-        },
-        ChaveAcessos => new AcessosView
-        {
-            DataContext = servicos.GetRequiredService<AcessosViewModel>()
-        },
-        ChaveConfiguracoes => new ConfiguracoesView
-        {
-            DataContext = servicos.GetRequiredService<ConfiguracoesViewModel>()
-        },
+        ChaveCampanhas => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CampanhasDaClinica), servicos),
+        ChaveAuditoria => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.TrilhaDeAuditoria), servicos),
+        ChaveGuarda => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.GuardaDoProntuario), servicos),
+        ChaveAcessos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcessosDaClinica), servicos),
+        ChaveConfiguracoes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConfiguracoesDaClinica), servicos),
         ChaveMetas => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MetasDaClinica), servicos),
         ChaveProjecaoCaixa => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CaixaDosProximosDias), servicos),
         ChaveMargem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MargemPorSessao), servicos),
-        ChaveDocumentosEmitidos => new DocumentosEmitidosView
-        {
-            DataContext = servicos.GetRequiredService<DocumentosEmitidosViewModel>()
-        },
-        ChaveOrigens => new OrigensView
-        {
-            DataContext = servicos.GetRequiredService<OrigensViewModel>()
-        },
-        ChaveImportacao => new ImportacaoPacientesView
-        {
-            DataContext = servicos.GetRequiredService<ImportacaoPacientesViewModel>()
-        },
+        ChaveDocumentosEmitidos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosEmitidos), servicos),
+        ChaveOrigens => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.OrigensDosPacientes), servicos),
+        ChaveImportacao => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ImportacaoDePacientes), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
         ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),
         _ => null

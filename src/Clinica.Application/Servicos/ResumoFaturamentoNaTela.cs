@@ -6,7 +6,7 @@ namespace Clinica.Application.Servicos;
 /// <summary>
 /// O RESUMO do faturamento (a aba "Resumo" do app de faturamento — a visão da direção,
 /// SÓ LEITURA), montado fora do Razor (out/2026). Era o <c>FaturamentoGerencialViewModel</c>
-/// do Gerente, mais o <c>PeriodoGerencial</c> que morava no projeto WPF. Nada aqui lê o
+/// do Gerente, mais o <c>PeriodoGerencial</c> que morava no projeto WPF (removido na etapa 6, out/2026 — esta é a definição única). Nada aqui lê o
 /// banco: quem lê é a tela, com os MESMOS serviços (<see cref="RelatorioService"/>,
 /// <see cref="PendenciaService"/>); aqui mora o que a tela AFIRMA.
 /// </summary>
