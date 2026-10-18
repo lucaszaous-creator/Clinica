@@ -42,7 +42,9 @@ vez de aparecer como zero:
 
 - **resultado por competência**: entrou na régua com a etapa "Dinheiro" (ver
   [`gerente-dinheiro.md`](gerente-dinheiro.md));
-- **margem por sessão**: etapa "Produção e margem";
+- **margem por sessão**: existe desde a etapa "Produção e margem", na primeira aba de
+  Produção e margem (ver [`gerente-margem.md`](gerente-margem.md)). A Mesa ainda não a
+  repete;
 - **números do CRM** (conversas, tempo de resposta, custo de SMS): etapa do CRM, caminho A.
   A ponte vai gravar um resumo diário no banco da clínica.
 

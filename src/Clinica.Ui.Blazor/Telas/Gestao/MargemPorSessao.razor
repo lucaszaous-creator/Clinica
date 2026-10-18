@@ -1,0 +1,229 @@
+@*
+  MARGEM POR SESSÃO (out/2026, etapa "Produção e margem" do Gerente).
+
+  A pergunta: "quanto sobra de cada sessão, e onde sobra mais?". Receita realizada menos taxa,
+  imposto, insumo e repasse, por modalidade, profissional ou pagador.
+
+  A sessão sem receita lançada (guia que o convênio ainda não pagou, particular a receber) fica
+  FORA da conta e é dita no rodapé: entrar com receita zero e custo cheio daria uma margem
+  negativa que não aconteceu.
+
+  A conta e as frases moram em MargemService/MargemNaTela (Application, com teste); a tela só
+  escolhe o mês e o recorte.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina @(Carregando && _margem is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Produção e margem" Titulo="Margem por sessão"
+                     Subtitulo="Receita que entrou menos taxa, imposto, insumo e repasse. Só conta a sessão que já tem receita lançada.">
+        <SeletorMes Valor="_mes" ValorChanged="TrocarMesAsync" />
+        <button type="button" class="botao" @onclick="CarregarAsync" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(_margem is null || _margem.Total.Sessoes == 0 || !Pode(Permissao.VerFinanceiro))"><Icone Nome="baixar" />Exportar CSV</button>
+    </CabecalhoPagina>
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível calcular a margem"
+                            Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        </section>
+    }
+    else if (_margem is null)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+        <div class="cartao cartao-corpo"><Esqueleto Altura="260" /></div>
+    }
+    else if (_margem.Total.Sessoes == 0)
+    {
+        <section class="cartao">
+            <EstadoVazio Icone="grafico" Titulo="Nenhuma sessão realizada no mês"
+                         Descricao="A margem nasce da sessão que aconteceu e teve receita lançada. Escolha outro mês." />
+        </section>
+    }
+    else
+    {
+        var t = _margem.Total;
+        var custos = t.Deducoes + t.Insumo + t.Repasse;
+        <section class="kpis" aria-label="Resumo do mês">
+            <Kpi Rotulo="Receita das sessões" Valor="@Formato.Dinheiro(t.Receita)" Icone="entrada" Tom="sucesso"
+                 Nota="@(t.SessoesComReceita == 1 ? "1 sessão com receita" : $"{t.SessoesComReceita} sessões com receita")" />
+            <Kpi Rotulo="Custos das sessões" Valor="@Formato.Dinheiro(custos)" Icone="saida" Tom="saida"
+                 Nota="@($"taxa e imposto {Formato.Dinheiro(t.Deducoes)} · insumo {Formato.Dinheiro(t.Insumo)} · repasse {Formato.Dinheiro(t.Repasse)}")" />
+            <Kpi Rotulo="Margem" Valor="@Formato.Dinheiro(t.Margem)" Icone="resultado"
+                 Tom="@(t.Margem < 0 ? "perigo" : "sucesso")" ClasseValor="@(t.Margem < 0 ? "negativo" : "positivo")"
+                 Nota="@($"{MargemNaTela.Percentual(t.FracaoDaReceita)} de cada real que entrou")" />
+            <Kpi Rotulo="Margem por sessão" Valor="@(t.MargemPorSessao is { } ms ? Formato.Dinheiro(ms) : "—")" Icone="margem" Tom="neutro"
+                 Nota="@(t.MargemPorSessao is null ? "Sem sessão com receita, não há média — não é zero" : "Média das sessões com receita")" />
+        </section>
+
+        <section class="cartao cartao-corpo" aria-label="Margem por recorte">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>Onde sobra mais</h2>
+                    <p>@MargemNaTela.ResumoDoPeriodo(_margem)</p>
+                </div>
+                <div class="segmentado" role="group" aria-label="Recorte">
+                    @foreach (var r in Recortes)
+                    {
+                        var este = r;
+                        <button type="button" aria-pressed="@(este.Chave == _recorte ? "true" : "false")" @onclick="() => _recorte = este.Chave">@este.Rotulo</button>
+                    }
+                </div>
+            </div>
+
+            <div class="tabela-rolagem">
+                <table class="lista margem-tabela">
+                    <thead>
+                        <tr>
+                            <th>@RotuloDoRecorte</th>
+                            <th class="direita">Com receita</th>
+                            <th class="direita">Receita</th>
+                            <th class="direita">Taxa e imposto</th>
+                            <th class="direita">Insumo</th>
+                            <th class="direita">Repasse</th>
+                            <th class="direita">Margem</th>
+                            <th class="direita">Por sessão</th>
+                            <th class="margem-col-fracao">% da receita</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Linhas)
+                        {
+                            <tr @key="l.Nome">
+                                <td><span class="principal" title="@l.Nome">@l.Nome</span>
+                                    @if (l.SessoesComReceita < l.Sessoes)
+                                    {
+                                        <span class="secundario">@(l.Sessoes - l.SessoesComReceita) sem receita</span>
+                                    }
+                                </td>
+                                <td class="direita numero">@l.SessoesComReceita</td>
+                                <td class="direita numero">@Formato.Dinheiro(l.Receita)</td>
+                                <td class="direita numero">@Valor(l.Deducoes)</td>
+                                <td class="direita numero">@Valor(l.Insumo)</td>
+                                <td class="direita numero">@Valor(l.Repasse)</td>
+                                <td class="direita numero"><span class="@(l.Margem < 0 ? "negativo" : null)">@Formato.Dinheiro(l.Margem)</span></td>
+                                <td class="direita numero">@(l.MargemPorSessao is { } m ? Formato.Dinheiro(m) : "—")</td>
+                                <td class="margem-col-fracao">
+                                    <div class="margem-fracao">
+                                        <span class="numero">@MargemNaTela.Percentual(l.FracaoDaReceita)</span>
+                                        <div class="margem-barra" role="img" aria-label="@($"Margem {MargemNaTela.Percentual(l.FracaoDaReceita)} da receita")">
+                                            <i class="@(l.Margem < 0 ? "abaixo" : "acima")" style="@Barra(l.FracaoDaReceita)"></i>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        @if (MargemNaTela.ForaDaMargem(_margem) is { } fora)
+        {
+            <div class="rodape-lista">@fora</div>
+        }
+    }
+</div>
+
+@code {
+    private sealed record Recorte(string Chave, string Rotulo, string Coluna);
+    private static readonly Recorte[] Recortes =
+    [
+        new("modalidade", "Por modalidade", "Modalidade"),
+        new("profissional", "Por profissional", "Profissional"),
+        new("pagador", "Por pagador", "Pagador")
+    ];
+
+    private DateOnly _mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private MargemDoPeriodo? _margem;
+    private string _recorte = "modalidade";
+    private bool Carregando, _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    private string RotuloDoRecorte => Recortes.First(r => r.Chave == _recorte).Coluna;
+
+    private IReadOnlyList<LinhaMargem> Linhas => _margem is null ? [] : _recorte switch
+    {
+        "profissional" => _margem.PorProfissional,
+        "pagador" => _margem.PorPagador,
+        _ => _margem.PorModalidade
+    };
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private Task TrocarMesAsync(DateOnly mes) { _mes = mes; return CarregarAsync(); }
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var margem = await escopo.ServiceProvider.GetRequiredService<MargemService>()
+                .CalcularAsync(_mes, _mes.AddMonths(1).AddDays(-1));
+            if (geracao != _geracao || Descartada) return;
+
+            // Tudo publicado depois do último await.
+            _margem = margem;
+            _naoVerificado = false;
+            _erro = null;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — margem por sessão não pôde ser calculada", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private static string Valor(decimal v) => v > 0 ? Formato.Dinheiro(v) : "—";
+
+    /// <summary>A barra da fração: 0 a 100% da receita; a margem negativa sai em vermelho, com o tamanho da perda.</summary>
+    private static string Barra(double? fracao)
+    {
+        var f = Math.Clamp(Math.Abs(fracao ?? 0) * 100, fracao is null or 0 ? 0 : 2, 100)
+            .ToString("0.##", CultureInfo.InvariantCulture);
+        return $"width:{f}%";
+    }
+
+    /// <summary>Os três recortes em CSV. CSV é saída de dado: a segunda barreira vem antes.</summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar a margem por sessão")) return;
+        if (_margem is not { } m) return;
+        try
+        {
+            var linhas = new List<IReadOnlyList<string>>();
+            void Somar(string recorte, LinhaMargem l) => linhas.Add([
+                recorte, l.Nome, l.Sessoes.ToString(Formato.PtBr), l.SessoesComReceita.ToString(Formato.PtBr),
+                Formato.Dinheiro(l.Receita), Formato.Dinheiro(l.Deducoes), Formato.Dinheiro(l.Insumo), Formato.Dinheiro(l.Repasse),
+                Formato.Dinheiro(l.Margem), l.MargemPorSessao is { } ms ? Formato.Dinheiro(ms) : "—", MargemNaTela.Percentual(l.FracaoDaReceita)]);
+            foreach (var l in m.PorModalidade) Somar("Modalidade", l);
+            foreach (var l in m.PorProfissional) Somar("Profissional", l);
+            foreach (var l in m.PorPagador) Somar("Pagador", l);
+            Somar("Total", m.Total);
+            var erro = await Host.ExportarCsvAsync(
+                ["Recorte", "Nome", "Sessões", "Com receita", "Receita", "Taxa e imposto", "Insumo", "Repasse", "Margem", "Por sessão", "% da receita"],
+                linhas, $"margem-{m.Inicio:yyyy-MM}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — margem por sessão não pôde ser exportada", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+}

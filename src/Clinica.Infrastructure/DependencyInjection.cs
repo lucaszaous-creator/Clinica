@@ -139,6 +139,7 @@ public static class DependencyInjection
         services.AddScoped<PacoteService>();
         services.AddScoped<RepasseService>();
         services.AddScoped<EstoqueService>();
+        services.AddScoped<MargemService>();
         // A ponte Recepção → Financeiro: depende de quatro serviços acima, e por isso
         // vem depois deles.
         services.AddScoped<FechamentoSessaoService>();

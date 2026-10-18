@@ -45,6 +45,7 @@ public sealed class ModuloGerente : IModuloApp
 
     /// <summary>Caixa dos próximos 90 dias (etapa "Dinheiro", out/2026), aba do Dinheiro.</summary>
     public const string ChaveProjecaoCaixa = "projecao-caixa";
+    public const string ChaveMargem = "margem-por-sessao";
     public const string ChaveOrigens = "origens-pacientes";
 
     /// <summary>
@@ -115,6 +116,7 @@ public sealed class ModuloGerente : IModuloApp
             Grupo = GrupoSidebar.Direcao,
             Abas =
             [
+                new AbaMenu("Margem por sessão", ChaveMargem),
                 new AbaMenu("Indicadores", ChaveIndicadores),
                 new AbaMenu("Tend\u00EAncias", ChavesSuite.Tendencias),
                 new AbaMenu("Produ\u00E7\u00E3o", ChavesSuite.Producao),
@@ -207,6 +209,11 @@ public sealed class ModuloGerente : IModuloApp
         {
             Chave = ChaveProjecaoCaixa, Rotulo = "Caixa dos pr\u00F3ximos 90 dias", Glifo = "\uE787", Icone = "cal",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveMargem, Rotulo = "Margem por sessão", Glifo = "\uE9D9", Icone = "grafico",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
         {
@@ -347,6 +354,7 @@ public sealed class ModuloGerente : IModuloApp
         },
         ChaveMetas => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MetasDaClinica), servicos),
         ChaveProjecaoCaixa => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CaixaDosProximosDias), servicos),
+        ChaveMargem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MargemPorSessao), servicos),
         ChaveDocumentosEmitidos => new DocumentosEmitidosView
         {
             DataContext = servicos.GetRequiredService<DocumentosEmitidosViewModel>()
