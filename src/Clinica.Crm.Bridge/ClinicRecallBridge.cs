@@ -46,7 +46,9 @@ public sealed class ClinicRecallBridge(ClinicaDbContext db)
             bool Match(ModalidadeAtendimento m) => modality is {} exact ? m==exact : Matches(kind,m);
             var related = cases.Where(c=>c.PacienteId==pid && Match(c.Modalidade) && c.ReferenciaEm.Date>=reference.ToDateTime(TimeOnly.MinValue)).ToArray();
             var phone=ClinicAgendaBridge.Phone(patient.Telefone);
-            var block = !consent.Contains(pid)?"Contato não autorizado no cadastro":phone.Length==0?"Telefone ausente ou inválido":shared.Contains(phone)?"Telefone compartilhado: conferir paciente":
+            // Sem trava de consentimento (out/2026, decisão da direção): recall é a clínica retomando o
+            // tratamento do próprio paciente. O Consent continua no contrato, só como informação.
+            var block = phone.Length==0?"Telefone ausente ou inválido":shared.Contains(phone)?"Telefone compartilhado: conferir paciente":
                 future.Any(a=>a.PacienteId==pid&&Match(a.ModalidadePrevista))?"Retorno já agendado":
                 source is not null && sessions.Any(s=>s.PacienteId==pid&&Match(s.Modalidade)&&s.Last>reference)?"Sessão já realizada":
                 related.Any(c=>c.EncerradoEm!=null)?"Recall encerrado no sistema":
