@@ -86,7 +86,10 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
             foreach (var tela in ordem)
             {
                 // De vez em quando o shell mostra uma tela WPF no meio (Pacotes, Configurações).
-                if (sorteio.Next(4) == 0) { palco.Desativar(); Conferir(r, palco, null, ids.Count); }
+                // O palco redesenha por InvokeAsync: se uma tela ainda está terminando uma leitura
+                // no despachante, o redesenho entra na fila — o mesmo Assentar da troca para uma
+                // tela Blazor, senão a conferência lê o retrato de ANTES (o CI do Linux pegou).
+                if (sorteio.Next(4) == 0) { palco.Desativar(); Assentar(r); Conferir(r, palco, null, ids.Count); }
 
                 var antes = consultas.Total;
                 var eraAberta = ids.ContainsKey(tela);
