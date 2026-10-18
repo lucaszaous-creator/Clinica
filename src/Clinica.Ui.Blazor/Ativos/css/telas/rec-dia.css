@@ -35,6 +35,13 @@
 .rd-pilula[aria-pressed="true"] b{color:var(--acento)}
 .rd-ponto{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cor-grupo);flex:none}
 .rd-atualizar{margin-left:auto}
+/* As respostas ao lembrete: linha própria embaixo das situações, cor da resposta no ponto. */
+.rd-respostas{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);flex-basis:100%;order:3;
+  padding-top:var(--space-3);border-top:1px solid var(--borda)}
+.rd-respostas-rotulo{font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);margin-right:var(--space-1)}
+.rec-dia .resposta-nao-vem{--cor-grupo:var(--erro-hover)}
+.rec-dia .resposta-sem-resposta{--cor-grupo:var(--aviso)}
+.rec-dia .resposta-confirmou{--cor-grupo:var(--sucesso-forte)}
 
 /* ---------- Filtros da lista ---------- */
 .rd-filtros{align-items:center}

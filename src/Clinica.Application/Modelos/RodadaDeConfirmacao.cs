@@ -99,6 +99,12 @@ public static class RodadaDeConfirmacao
     /// <summary>A pílula "não vem" das listas do dia — quem respondeu que não vai.</summary>
     public const string SeloNaoVem = "Não vem — remarcar";
 
+    /// <summary>A pílula de quem confirmou.</summary>
+    public const string SeloConfirmou = "Confirmou";
+
+    /// <summary>A pílula de quem foi avisado e não respondeu.</summary>
+    public const string SeloSemResposta = "Não confirmou";
+
     /// <summary>
     /// O selo de UMA linha da agenda (lista do dia, grade, Início, quadro do médico): o que a
     /// rodada AFIRMOU, numa definição só (out/2026). Antes, cada tela trocava o status
@@ -108,9 +114,9 @@ public static class RodadaDeConfirmacao
     /// </summary>
     public static string SeloDaLista(RespostaDeConfirmacao? r) => r?.Situacao switch
     {
-        SituacaoConfirmacao.Confirmou => "Confirmou",
+        SituacaoConfirmacao.Confirmou => SeloConfirmou,
         SituacaoConfirmacao.PediuRemarcar => SeloNaoVem,
-        SituacaoConfirmacao.AvisadoSemResposta => "Não confirmou",
+        SituacaoConfirmacao.AvisadoSemResposta => SeloSemResposta,
         _ => string.Empty
     };
 
