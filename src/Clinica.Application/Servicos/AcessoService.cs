@@ -268,8 +268,13 @@ public sealed class AcessoService
     /// o suficiente para inviabilizar tentativa por força bruta sem transformar um dia
     /// ruim de digitação em chamado de suporte.
     /// </summary>
+    /// <param name="migrarHash">
+    /// Regrava o hash antigo no formato novo ao acertar a senha (o padrão). A ponte do CRM
+    /// passa <c>false</c>: o usuário de banco dela grava só as colunas do travamento e do
+    /// último acesso — nunca a senha —, e é isso que limita o estrago se a credencial vazar.
+    /// </param>
     public async Task<ResultadoAutenticacao> AutenticarAsync(
-        string login, string senha, DateTime? agora = null, CancellationToken ct = default)
+        string login, string senha, DateTime? agora = null, CancellationToken ct = default, bool migrarHash = true)
     {
         var instante = agora ?? DateTime.Now;
         var normalizado = UsuarioSistema.NormalizarLogin(login);
@@ -302,7 +307,7 @@ public sealed class AcessoService
             return ResultadoAutenticacao.Falha(CredencialInvalida);
         }
 
-        if (HashSenha.PrecisaRehash(usuario.SenhaHash))
+        if (migrarHash && HashSenha.PrecisaRehash(usuario.SenhaHash))
         {
             // Login migra hashes antigos sem alterar a política de troca de senha.
             // O tamanho mínimo continua valendo ao criar ou substituir uma senha, mas

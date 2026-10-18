@@ -48,6 +48,18 @@ BEGIN
   END LOOP;
 END $$;
 
+-- O login do CRM é o do sistema (ClinicTeamBridge): conferir a senha conta as tentativas,
+-- trava depois de 5 erros e marca o último acesso — as TRÊS colunas abaixo, e só elas. A
+-- senha (SenhaHash/SenhaSalt), o perfil e as permissões continuam só para leitura: quem
+-- tiver esta credencial não troca senha nem se dá acesso. (O REVOKE de tabela acima não
+-- tira privilégio de coluna, então rodar de novo não duplica nem apaga isto.)
+DO $$
+BEGIN
+  IF to_regclass('public."Usuarios"') IS NOT NULL THEN
+    GRANT UPDATE ("TentativasFalhas", "BloqueadoAte", "UltimoAcessoEm") ON public."Usuarios" TO ponte_crm;
+  END IF;
+END $$;
+
 -- Tabela nova criada por migration (dono: clinica) entra só para LEITURA. Se um fluxo da
 -- ponte passar a gravar nela, o teste acima reprova e ela entra na lista.
 ALTER DEFAULT PRIVILEGES FOR ROLE clinica IN SCHEMA public GRANT SELECT ON TABLES TO ponte_crm;

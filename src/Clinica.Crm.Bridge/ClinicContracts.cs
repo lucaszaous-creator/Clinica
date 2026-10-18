@@ -51,3 +51,7 @@ public sealed record BookingCalendarQuery(string Phone, DateOnly From, int Days,
 public sealed record BookingCalendarItem(DateTimeOffset StartsAt, DateTimeOffset EndsAt, int? ProfessionalId,
     int? RoomId, string State, bool ThisContact, int? AppointmentId);
 public sealed record BookingCalendar(DateTimeOffset ReadAt, BookingCalendarItem[] Items);
+
+// Acesso ao CRM pelo login do SISTEMA (out/2026): a ponte diz quem pode entrar e confere a senha.
+public sealed record ClinicTeamMember(string Login, string Name, bool Admin);
+public sealed record ClinicLogin(string Login, string Password);
