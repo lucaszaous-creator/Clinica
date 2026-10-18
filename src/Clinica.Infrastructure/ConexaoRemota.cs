@@ -27,6 +27,22 @@ public static class ConexaoRemota
     /// <summary>Tempo que uma conexão ACIMA do mínimo fica ociosa antes de ser fechada.</summary>
     public const int OciosaSegundos = 900;
 
+    /// <summary>
+    /// Prazo para ABRIR uma conexão (o padrão do Npgsql é 15 s). Abrir custa 2,7–4,7 s no
+    /// caso bom, e out/2026 mostrou aberturas estourando os 15 s de vez em quando: o servidor
+    /// registra a chegada e nada mais vem do cliente — pacote perdido no caminho, não banco
+    /// lento (o mesmo aperto de mão leva 60 ms dentro da VPS). Dobrar a folga absorve o pico
+    /// sem esconder rede fora do ar, que continua falhando — só mais tarde.
+    /// </summary>
+    public const int PrazoAberturaSegundos = 30;
+
+    /// <summary>
+    /// Esperas entre as tentativas AUTOMÁTICAS de abrir o banco na abertura do app. Falha
+    /// passageira não pode virar diálogo na cara de quem só quer começar o dia: a 2ª
+    /// tentativa quase sempre passa.
+    /// </summary>
+    public static readonly TimeSpan[] EsperasEntreTentativas = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)];
+
     public static string Ajustar(string connectionString)
     {
         NpgsqlConnectionStringBuilder b;
@@ -36,7 +52,36 @@ public static class ConexaoRemota
         if (b.MinPoolSize == 0) b.MinPoolSize = Math.Min(MinimoNoPool, b.MaxPoolSize);
         if (b.KeepAlive == 0) b.KeepAlive = KeepAliveSegundos;
         if (b.ConnectionIdleLifetime == 300) b.ConnectionIdleLifetime = OciosaSegundos;
+        if (b.Timeout == 15) b.Timeout = PrazoAberturaSegundos;
         return b.ConnectionString;
+    }
+
+    /// <summary>
+    /// A falha é de REDE (timeout, conexão derrubada, servidor momentaneamente indisponível)
+    /// e não de CONFIGURAÇÃO (senha, certificado, endereço errado)? Só a primeira se resolve
+    /// tentando de novo — e só a segunda justifica oferecer outra conexão. Confundir as duas
+    /// é o que fazia uma instabilidade de segundos terminar com "Deseja informar outra
+    /// conexão?", cujo "Sim" APAGA a configuração da máquina.
+    /// </summary>
+    public static bool EhFalhaPassageira(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+        {
+            switch (e)
+            {
+                case PostgresException pg:
+                    // Recusa do servidor: só é passageira se ele próprio diz que é (subindo,
+                    // sem vagas). Senha errada (28P01) e banco inexistente não são.
+                    return pg.IsTransient || pg.SqlState is "57P03" or "53300";
+                case TimeoutException:
+                case System.Net.Sockets.SocketException:
+                case System.IO.IOException:
+                    return true;
+                case NpgsqlException npg when npg.IsTransient:
+                    return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
