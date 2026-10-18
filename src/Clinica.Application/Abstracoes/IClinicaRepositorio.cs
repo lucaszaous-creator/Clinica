@@ -1621,6 +1621,14 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Modelos.LancamentoDatado>> LancamentosDatadosNoPeriodoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
+    /// <summary>
+    /// Tudo o que está PREVISTO e não tem vencimento — de qualquer data (out/2026). É a
+    /// receita da guia lançada como "a receber" e a conta anotada sem prazo: a projeção de
+    /// caixa não tem onde pô-las na linha do tempo, e por isso as mostra à parte em vez de
+    /// inventar o dia em que o convênio vai pagar.
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> PrevistosSemVencimentoAsync(CancellationToken ct = default);
+
     // ---- Fechamento de caixa (parcela 14) ----
 
     /// <summary>

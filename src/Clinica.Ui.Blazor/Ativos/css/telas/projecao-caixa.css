@@ -1,0 +1,23 @@
+/* Estilo PRÓPRIO da tela Caixa dos próximos 90 dias (out/2026). O comum mora em ../clinica.css. */
+.projecao-col-acumulado{width:34%;min-width:220px}
+.projecao-acumulado{display:flex;align-items:center;gap:var(--space-3)}
+.projecao-acumulado .numero{flex:0 0 120px;text-align:right;white-space:nowrap}
+/* A barra cresce para os dois lados do zero: acima de hoje à direita, abaixo à esquerda. */
+.projecao-barra{position:relative;flex:1 1 auto;height:10px;border-radius:var(--radius-pilula);background:var(--cinza-100)}
+.projecao-barra::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--cinza-300)}
+.projecao-barra i{position:absolute;top:0;bottom:0;border-radius:var(--radius-pilula)}
+.projecao-barra i.acima{background:var(--sucesso)}
+.projecao-barra i.abaixo{background:var(--erro)}
+.projecao-detalhe > td{background:var(--cinza-50);padding-top:0}
+.projecao-parcelas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.projecao-parcelas li{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid var(--borda)}
+.projecao-parcelas li:last-child{border-bottom:0}
+.projecao-data{flex:0 0 64px;color:var(--texto-secundario);font-variant-numeric:tabular-nums}
+.projecao-texto{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.projecao-texto .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.projecao-parcelas .numero{flex:0 0 auto;white-space:nowrap}
+@media (max-width:1200px){
+  .projecao-col-acumulado{width:auto;min-width:180px}
+  .projecao-acumulado .numero{flex-basis:100px}
+}
+.projecao-vazia td{color:var(--texto-secundario)}

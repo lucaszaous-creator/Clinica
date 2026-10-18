@@ -253,4 +253,13 @@ public sealed record LancamentoDatado(
     /// e duas categorias com o mesmo nome (uma ativa, uma antiga) somariam na mesma linha.
     /// </summary>
     public int? CategoriaId { get; init; }
+
+    /// <summary>
+    /// Taxa da maquininha e imposto retido, COPIADOS no lançamento (out/2026). Existem para o
+    /// resultado por COMPETÊNCIA deduzir o que pertence ao mês do fato, e não ao do pagamento —
+    /// sem eles, a competência teria de reler o mês inteiro só para somar duas colunas.
+    /// </summary>
+    public decimal? ValorTaxa { get; init; }
+
+    public decimal? ValorImposto { get; init; }
 }

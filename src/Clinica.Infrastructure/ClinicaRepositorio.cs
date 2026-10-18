@@ -3410,8 +3410,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 l.Tipo, l.Status, l.Valor,
                 l.Categoria != null ? l.Categoria.Nome : null)
             {
-                CategoriaId = l.CategoriaFinanceiraId
+                CategoriaId = l.CategoriaFinanceiraId,
+                ValorTaxa = l.ValorTaxa,
+                ValorImposto = l.ValorImposto
             })
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> PrevistosSemVencimentoAsync(CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.Status == StatusLancamento.Previsto && l.DataVencimento == null)
+            .OrderBy(l => l.Data).ThenBy(l => l.Id)
             .ToListAsync(ct);
 
     // ---- Fechamento de caixa (parcela 14) ----

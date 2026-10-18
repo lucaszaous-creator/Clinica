@@ -10,6 +10,11 @@
   entra), taxa e imposto são DEDUÇÃO da receita e não despesa, e margem sobre zero é "—".
   Cada bloco falha SOZINHO: o orçamento quebrar não apaga o resultado, que é a resposta
   principal.
+
+  Etapa "Dinheiro" do Gerente (out/2026): a COMPETÊNCIA ao lado do caixa (o que pertence ao
+  mês, recebido ou não — só o que tem lançamento, e a produção sem valor é CONTADA, nunca
+  somada a preço de tabela), e as METAS do mês na mesma aba do teto. As metas são lidas e
+  montadas como na tela de Metas (MetasNaTela.Montar); editar continua sendo lá.
 *@
 @inherits TelaBase
 @using Clinica.Application.Modelos
@@ -23,7 +28,8 @@
     <div class="abas" role="tablist">
         <button type="button" role="tab" aria-selected="@(_aba == 0 ? "true" : "false")" @onclick="() => _aba = 0">Resultado</button>
         <button type="button" role="tab" aria-selected="@(_aba == 1 ? "true" : "false")" @onclick="() => _aba = 1">
-            Teto de gasto @if (_estourados > 0) { <Selo Tom="perigo">@_estourados estourou</Selo> }
+            Metas e teto @if (_estourados > 0) { <Selo Tom="perigo">@_estourados estourou</Selo> }
+            @if (_metasEmRisco > 0) { <Selo Tom="aviso">@_metasEmRisco em risco</Selo> }
         </button>
     </div>
 
@@ -78,6 +84,47 @@
                 </div>
             </section>
 
+            <section class="cartao cartao-corpo" aria-label="Caixa e competência">
+                <div class="cartao-titulo">
+                    <div>
+                        <h2>Caixa e competência, lado a lado</h2>
+                        <p>@DinheiroNaTela.RegimeDeCompetencia</p>
+                    </div>
+                </div>
+                @if (_competenciaNaoVerificada)
+                {
+                    <FalhaDeLeitura Titulo="Não foi possível apurar a competência"
+                                    Detalhe="@($"O resultado de caixa acima continua valendo. {_erroCompetencia}")" AoTentarDeNovo="CarregarAsync" />
+                }
+                else if (_competencia is { } c)
+                {
+                    <div class="tabela-rolagem">
+                        <table class="lista resultado-regimes">
+                            <thead>
+                                <tr><th></th><th class="direita">Caixa</th><th class="direita">Competência</th><th>Na competência, ainda não se moveu</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Receita bruta</td><td class="direita numero">@Formato.Dinheiro(r.Receita)</td><td class="direita numero">@Formato.Dinheiro(c.Receita)</td>
+                                    <td class="secundario">@(c.ReceitaAReceber > 0 ? $"{Formato.Dinheiro(c.ReceitaAReceber)} a receber" : "nada a receber")</td></tr>
+                                <tr><td>Deduções (taxa e imposto)</td><td class="direita numero">@Formato.Dinheiro(r.Deducoes)</td><td class="direita numero">@Formato.Dinheiro(c.Deducoes)</td><td></td></tr>
+                                <tr><td>Despesas</td><td class="direita numero">@Formato.Dinheiro(r.Despesas)</td><td class="direita numero">@Formato.Dinheiro(c.Despesas)</td>
+                                    <td class="secundario">@(c.DespesasAPagar > 0 ? $"{Formato.Dinheiro(c.DespesasAPagar)} a pagar" : "nada a pagar")</td></tr>
+                                <tr class="resultado-regimes-total"><td>Resultado</td>
+                                    <td class="direita numero"><span class="@(r.Prejuizo ? "negativo" : null)">@Formato.Dinheiro(r.Resultado)</span></td>
+                                    <td class="direita numero"><span class="@(c.Prejuizo ? "negativo" : null)">@Formato.Dinheiro(c.Resultado)</span></td><td></td></tr>
+                                <tr><td>Margem</td><td class="direita numero">@LeituraDoResultado.Margem(r.Margem)</td><td class="direita numero">@LeituraDoResultado.Margem(c.Margem)</td><td></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="resultado-regimes-frase">@DinheiroNaTela.ResumoCompetencia(c) @DinheiroNaTela.DiferencaEntreRegimes(r, c)</p>
+                    <Aviso Tom="atencao" Texto="@DinheiroNaTela.ProducaoSemValor(c)" />
+                }
+                else
+                {
+                    <Esqueleto Altura="120" />
+                }
+            </section>
+
             <section class="duas-colunas">
                 <div class="cartao cartao-corpo">
                     <div class="cartao-titulo"><div><h2>De onde veio</h2><p>Entradas realizadas por categoria · @Formato.Mes(Mes)</p></div></div>
@@ -92,6 +139,57 @@
     }
     else
     {
+        @if (PodeVerMetas)
+        {
+            <section class="cartao lista-cartao" aria-label="Metas do mês">
+                <div class="cartao-titulo resultado-teto-topo">
+                    <div>
+                        <h2>Metas · @Formato.Mes(Mes)</h2>
+                        <p>@(_metasNaoVerificadas ? "Não foi possível ler as metas deste mês." : _resumoMetas)</p>
+                    </div>
+                    <button type="button" class="botao" @onclick="IrParaMetasAsync"><Icone Nome="editar" />Editar metas</button>
+                </div>
+                @if (_metasNaoVerificadas)
+                {
+                    <FalhaDeLeitura Titulo="Não foi possível ler as metas"
+                                    Detalhe="@($"A lista está vazia por falha de leitura, não por ausência de meta. {_erroMetas}")" AoTentarDeNovo="CarregarAsync" />
+                }
+                else if (_metas is null)
+                {
+                    <div class="cartao-corpo"><Esqueleto Altura="100" /></div>
+                }
+                else if (_metas.Count > 0)
+                {
+                    <div class="tabela-rolagem">
+                        <table class="lista">
+                            <thead>
+                                <tr>
+                                    <th>Meta</th>
+                                    <th class="direita" style="width:130px">Alvo</th>
+                                    <th style="width:220px">Realizado</th>
+                                    <th>Situação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var l in _metas)
+                                {
+                                    <tr @key="l.MetaId">
+                                        <td><span class="principal">@l.Rotulo</span><span class="secundario">@l.Dono · @l.Recorte</span></td>
+                                        <td class="direita numero">@l.AlvoTexto</td>
+                                        <td>
+                                            <span class="numero">@l.RealizadoTexto</span>
+                                            @if (l.Fracao is { } f) { <div class="trilho resultado-trilho @ClasseMeta(l.Tom)"><i style="width:@N(Math.Max(f * 100, 1.5))%"></i></div> }
+                                        </td>
+                                        <td><Selo Tom="@SeloMeta(l.Tom)">@l.Situacao</Selo></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        }
+
         <section class="cartao lista-cartao">
             <div class="cartao-titulo resultado-teto-topo">
                 <div>
@@ -172,6 +270,16 @@
     private bool _resultadoNaoVerificado;
     private string? _erroResultado;
 
+    private ResultadoPorCompetencia? _competencia;
+    private bool _competenciaNaoVerificada;
+    private string? _erroCompetencia;
+
+    private IReadOnlyList<LinhaMetaNaTela>? _metas;
+    private string _resumoMetas = string.Empty;
+    private int _metasEmRisco;
+    private bool _metasNaoVerificadas;
+    private string? _erroMetas;
+
     private IReadOnlyList<OrcamentoApurado>? _tetos;
     private string _resumoTetos = string.Empty;
     private int _estourados;
@@ -183,6 +291,9 @@
     private int _geracao;
 
     private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    /// <summary>As metas são do bit de indicadores, como na tela de Metas; o teto é do financeiro.</summary>
+    private static bool PodeVerMetas => Pode(Permissao.VerIndicadores);
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
@@ -215,6 +326,20 @@
         }
         if (geracao != _geracao || Descartada) return;
 
+        ResultadoPorCompetencia? competencia = null;
+        string? erroCompetencia = null;
+        try
+        {
+            using var escopo = Escopo();
+            competencia = await escopo.ServiceProvider.GetRequiredService<ResultadoMensalService>().CompetenciaDoMesAsync(ano, mes);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — resultado por competência não pôde ser lido", ex);
+            erroCompetencia = ex.Message;
+        }
+        if (geracao != _geracao || Descartada) return;
+
         IReadOnlyList<OrcamentoApurado>? tetos = null;
         string? erroOrcamento = null;
         try
@@ -229,8 +354,43 @@
         }
         if (geracao != _geracao || Descartada) return;
 
+        // As metas, lidas e montadas exatamente como na tela de Metas: a mesma pergunta não
+        // pode ter duas respostas em duas abas.
+        IReadOnlyList<LinhaMetaNaTela>? metas = null;
+        var resumoMetas = string.Empty;
+        string? erroMetas = null;
+        if (PodeVerMetas)
+        {
+            try
+            {
+                var hoje = DateOnly.FromDateTime(DateTime.Today);
+                using var escopo = Escopo();
+                var servico = escopo.ServiceProvider.GetRequiredService<MetaService>();
+                var doMes = (await servico.DoAnoAsync(ano)).Where(m => m.Mes == mes).ToList();
+                IReadOnlyList<MetaApurada> apuradas = [];
+                if (doMes.Count > 0 && MetasNaTela.ReferenciaDeApuracao(Mes, hoje) is { } referencia)
+                    apuradas = await servico.ApurarMesAsync(referencia);
+                metas = MetasNaTela.Montar(doMes, apuradas, Mes, hoje, apuracaoFalhou: false);
+                resumoMetas = MetasNaTela.Resumo(metas, Mes, apuracaoFalhou: false);
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — metas do mês não puderam ser lidas no resultado", ex);
+                erroMetas = ex.Message;
+            }
+            if (geracao != _geracao || Descartada) return;
+        }
+
         // Tudo publicado depois do último await (parcela 62).
         _resultado = resultado;
+        _competencia = competencia;
+        _competenciaNaoVerificada = competencia is null;
+        _erroCompetencia = erroCompetencia;
+        _metas = metas;
+        _resumoMetas = resumoMetas;
+        _metasEmRisco = metas?.Count(l => l.EmRisco) ?? 0;
+        _metasNaoVerificadas = PodeVerMetas && metas is null;
+        _erroMetas = erroMetas;
         _resultadoNaoVerificado = resultado is null;
         _erroResultado = erroResultado;
         _tetos = tetos;
@@ -304,6 +464,16 @@
             linhas.Add(["Total", "Despesas", Formato.Dinheiro(r.Despesas)]);
             linhas.Add(["Total", "Resultado", Formato.Dinheiro(r.Resultado)]);
             linhas.Add(["Total", "Margem", LeituraDoResultado.Margem(r.Margem)]);
+            if (_competencia is { } c)
+            {
+                linhas.Add(["Competência", "Receita recebida", Formato.Dinheiro(c.ReceitaRecebida)]);
+                linhas.Add(["Competência", "Receita a receber", Formato.Dinheiro(c.ReceitaAReceber)]);
+                linhas.Add(["Competência", "Deduções (taxa e imposto)", Formato.Dinheiro(c.Deducoes)]);
+                linhas.Add(["Competência", "Despesas pagas", Formato.Dinheiro(c.DespesasPagas)]);
+                linhas.Add(["Competência", "Despesas a pagar", Formato.Dinheiro(c.DespesasAPagar)]);
+                linhas.Add(["Competência", "Resultado", Formato.Dinheiro(c.Resultado)]);
+                linhas.Add(["Competência", "Margem", LeituraDoResultado.Margem(c.Margem)]);
+            }
             var erro = await Host.ExportarCsvAsync(["Tipo", "Categoria", "Valor"], linhas, $"resultado-{Mes:yyyy-MM}.csv");
             if (erro is not null) Notificacoes.Erro(erro);
         }
@@ -313,6 +483,27 @@
             Notificacoes.Erro(ex.Message);
         }
     }
+
+    private async Task IrParaMetasAsync()
+    {
+        if (!await Host.NavegarAsync("metas"))
+            Notificacoes.Info("A tela de Metas não está disponível para o seu acesso.");
+    }
+
+    private static string SeloMeta(TomDaMeta t) => t switch
+    {
+        TomDaMeta.Sucesso => "sucesso",
+        TomDaMeta.Aviso => "aviso",
+        TomDaMeta.Perigo => "perigo",
+        _ => "neutro"
+    };
+
+    private static string ClasseMeta(TomDaMeta t) => t switch
+    {
+        TomDaMeta.Aviso => "atencao",
+        TomDaMeta.Perigo => "estourou",
+        _ => string.Empty
+    };
 
     private static string Classe(GravidadeDoTeto g) => g switch
     {

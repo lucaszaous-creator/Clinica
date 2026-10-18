@@ -40,7 +40,8 @@ porque a clínica usa notebook.
 O mockup mostra três números que **não existem** no sistema hoje. Eles ficaram de fora, em
 vez de aparecer como zero:
 
-- **resultado por competência**: etapa "Dinheiro";
+- **resultado por competência**: entrou na régua com a etapa "Dinheiro" (ver
+  [`gerente-dinheiro.md`](gerente-dinheiro.md));
 - **margem por sessão**: etapa "Produção e margem";
 - **números do CRM** (conversas, tempo de resposta, custo de SMS): etapa do CRM, caminho A.
   A ponte vai gravar um resumo diário no banco da clínica.
