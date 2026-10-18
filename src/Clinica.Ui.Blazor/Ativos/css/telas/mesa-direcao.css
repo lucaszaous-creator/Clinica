@@ -1,0 +1,93 @@
+/* Estilo próprio da tela (mesa) — a Mesa da direção do Gerente (out/2026, mockup aprovado
+   "mesa da direção v2"). Só tokens — ver docs/telas-blazor.md. A régua do mês é a peça
+   principal; a pauta marca o estado com um ponto e o prazo, nunca com faixa colorida. */
+
+.mesa{gap:var(--space-4)}
+.mesa.carregando{opacity:.72;transition:opacity var(--duracao-normal)}
+
+/* ---------- A régua do mês ---------- */
+.mesa-regua{padding:var(--space-4) var(--space-6) 0}
+.mesa-regua-topo{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-4) var(--space-8)}
+.mesa-rotulo{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.mesa-grande{font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.mesa-media{font-size:20px;font-weight:650;line-height:1.2;font-variant-numeric:tabular-nums}
+.mesa-selo{margin-left:auto;align-self:center;font-size:var(--text-small-size);font-weight:650;padding:4px 10px;border-radius:var(--radius-pilula)}
+.mesa-selo.tom-aviso{background:var(--aviso-suave);color:var(--aviso-texto)}
+.mesa-selo.tom-sucesso{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.mesa-sem-meta{margin-left:auto;align-self:center;font-size:var(--text-table-size);color:var(--texto-secundario)}
+.mesa-trilho{position:relative;height:12px;margin:var(--space-6) 0 var(--space-2);background:var(--cinza-100);border-radius:var(--radius-pilula)}
+.mesa-trilho > span{position:absolute}
+.mesa-proj{inset:0 auto 0 0;border-radius:var(--radius-pilula);background:var(--acento-tint)}
+.mesa-feito{inset:0 auto 0 0;border-radius:var(--radius-pilula);background:var(--acento)}
+.mesa-hoje{top:-7px;bottom:-7px;width:2px;margin-left:-1px;border-radius:1px;background:var(--texto-primario)}
+.mesa-meta{top:-7px;bottom:-7px;width:2px;margin-left:-2px;background:var(--sucesso-forte)}
+.mesa-escala{display:flex;justify-content:space-between;gap:var(--space-4);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.mesa-legenda{display:inline-flex;flex-wrap:wrap;gap:var(--space-4)}
+.mesa-legenda i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.mesa-legenda i.cor-feito{background:var(--acento)}
+.mesa-legenda i.cor-proj{background:var(--acento-tint)}
+.mesa-legenda i.cor-meta{width:2px;border-radius:0;background:var(--sucesso-forte)}
+.mesa-legenda i.cor-hoje{width:2px;border-radius:0;background:var(--texto-primario)}
+.mesa-linhas{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:var(--space-4) calc(-1 * var(--space-6)) 0;border-top:1px solid var(--borda)}
+.mesa-linhas > div{padding:var(--space-3) var(--space-6) var(--space-4);border-left:1px solid var(--borda);min-width:0}
+.mesa-linhas > div:first-child{border-left:0}
+.mesa-valor{font-size:18px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+.mesa-nota{font-size:var(--text-small-size);color:var(--texto-secundario);margin-top:2px}
+.mesa-valor.tom-perigo,.mesa-nota.tom-perigo{color:var(--erro-texto)}
+.mesa-nota.tom-sucesso{color:var(--sucesso-forte)}
+
+/* ---------- Barra fina dos números ---------- */
+.mesa-barra{display:block;height:8px;border-radius:var(--radius-pilula);background:var(--cinza-100);overflow:hidden}
+.mesa-barra i{display:block;height:100%;border-radius:var(--radius-pilula);background:var(--acento)}
+.mesa-barra.risco i{background:var(--aviso)}
+.kpi .mesa-barra{height:6px;margin-top:var(--space-1)}
+
+/* ---------- As duas colunas ---------- */
+.mesa-grade{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:var(--space-4);align-items:start}
+.mesa-coluna{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+.mesa-cab{display:flex;align-items:baseline;gap:var(--space-3);padding:var(--space-4) var(--space-6) var(--space-2)}
+.mesa-cab h2{font-size:15px;font-weight:650;margin:0}
+.mesa-cab span{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.mesa-cab .link{margin-left:auto;font-size:var(--text-table-size)}
+.mesa-vazio{margin:0;padding:var(--space-2) var(--space-6) var(--space-6);color:var(--texto-secundario);font-size:var(--text-table-size)}
+.mesa-aviso-leitura{display:flex;gap:var(--space-2);align-items:center;margin:0 var(--space-6) var(--space-4);padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-control);background:var(--aviso-suave);color:var(--aviso-texto);font-size:var(--text-table-size)}
+.mesa-aviso-leitura svg{width:16px;height:16px;flex:none}
+
+/* ---------- A pauta ---------- */
+.mesa-pauta{list-style:none;margin:0;padding:0 0 var(--space-2)}
+.mesa-pauta li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:var(--space-3);align-items:center;padding:var(--space-3) var(--space-6);border-top:1px solid var(--borda)}
+.mesa-pauta li:first-child{border-top:0}
+.mesa-ponto{width:8px;height:8px;border-radius:50%}
+.mesa-ponto.tom-perigo{background:var(--erro)}
+.mesa-ponto.tom-aviso{background:var(--aviso)}
+.mesa-ponto.tom-info{background:var(--acento)}
+.mesa-pauta-texto{min-width:0}
+.mesa-pauta-texto b{display:block;font-weight:600}
+.mesa-pauta-texto span{display:block;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.mesa-pauta-texto em{font-style:normal;font-weight:600;font-size:11.5px;color:var(--cinza-700);background:var(--cinza-100);
+  border-radius:var(--radius-pequeno);padding:1px 6px;margin-right:var(--space-2)}
+.mesa-ir{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:var(--text-table-size)}
+.mesa-ir svg{width:14px;height:14px}
+.mesa-tudo-em-dia{display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-2) var(--space-6) var(--space-6);color:var(--sucesso-forte)}
+.mesa-tudo-em-dia svg{width:20px;height:20px;flex:none}
+.mesa-tudo-em-dia b{display:block;color:var(--texto-primario)}
+.mesa-tudo-em-dia span{display:block;color:var(--texto-secundario);font-size:var(--text-table-size)}
+
+/* ---------- Listas com barra ---------- */
+.mesa-barras{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-1) var(--space-6) var(--space-4)}
+.mesa-linha-barra{display:grid;grid-template-columns:140px minmax(0,1fr) 52px;gap:var(--space-3);align-items:center;font-size:var(--text-table-size)}
+.mesa-linha-barra.conv{grid-template-columns:150px minmax(0,1fr) 84px 40px}
+.mesa-linha-barra.meta{grid-template-columns:170px minmax(0,1fr) 48px}
+.mesa-linha-barra b{text-align:right;font-weight:650;font-variant-numeric:tabular-nums}
+.mesa-linha-barra small{text-align:right;color:var(--texto-secundario);font-variant-numeric:tabular-nums}
+.mesa-nome{color:var(--cinza-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mesa-mais{display:inline-flex;align-items:center;gap:4px;margin:0 var(--space-6) var(--space-4);font-size:var(--text-table-size)}
+.mesa-mais svg{width:14px;height:14px}
+
+@media (max-width: 1200px){
+  .mesa-grade{grid-template-columns:1fr}
+  .mesa-linhas{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mesa-linhas > div:nth-child(3){border-left:0}
+  .mesa-linhas > div:nth-child(n+3){border-top:1px solid var(--borda)}
+}

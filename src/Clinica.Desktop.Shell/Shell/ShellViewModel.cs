@@ -249,7 +249,7 @@ public sealed partial class ShellViewModel : ObservableObject
                         && !reivindicadas.Contains(i.Chave)
                         && (i.Abas.Count == 0 || AbasDisponiveis(i).Count > 0))
             .GroupBy(i => i.Grupo)
-            .OrderBy(g => g.Key)
+            .OrderBy(g => GruposSidebar.Ordem(g.Key))
             // Dentro do grupo vale a ordem de carregamento dos módulos — que já é a ordem
             // do dia de trabalho —, com UMA exceção: a tela de ABERTURA vem primeira.
             //

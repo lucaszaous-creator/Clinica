@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gerente: mesa da direção</title>
+<style>
+/* ==================================================================================
+   A página (a moldura de leitura) segue os outros mockups da pasta. A JANELA desenhada
+   usa os tokens REAIS do design system Blazor (tokens/colors.css, typography.css,
+   layout.css): azul-600 #123A9E, cinza-50..900, verde/laranja/vermelho 100-600-700,
+   fonte Segoe UI 14 / 13 / 12, KPI 28, raio 8 / 12, item de sidebar 40 px, topo 56.
+   Um valor fora deles aqui seria o primeiro ponto em que o mockup e a tela param de bater.
+   ================================================================================== */
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6; --acento-pg:#123A9E;
+
+  --azul-50:#EEF3FC; --azul-100:#D8E3F7; --azul-600:#123A9E; --azul-700:#0A2E86;
+  --cinza-50:#F8FAFC; --cinza-100:#F1F5F9; --cinza-200:#E5E7EB; --cinza-300:#D1D5DB;
+  --cinza-500:#6B7280; --cinza-700:#374151; --cinza-900:#111827;
+  --verde-100:#DCFCE7; --verde-600:#16A34A; --verde-700:#15803D;
+  --laranja-100:#FFEDD5; --laranja-600:#EA580C; --laranja-700:#C2410C;
+  --vermelho-100:#FEE2E2; --vermelho-600:#DC2626; --vermelho-700:#B91C1C;
+  --ciano-100:#E0F2FE; --ciano-700:#0369A1;
+  --teal-600:#0D9488; --violeta-600:#7C3AED; --rosa-600:#DB2777;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --pg:#10141D; --sup:#171D28; --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4; --fio:#28303E; --fio-forte:#3A4354; --acento-pg:#8CA9F2; }
+}
+:root[data-theme="dark"]{ --pg:#10141D; --sup:#171D28; --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4; --fio:#28303E; --fio-forte:#3A4354; --acento-pg:#8CA9F2; }
+
+*{box-sizing:border-box}
+body{background:var(--pg); color:var(--tinta); font-family:"Segoe UI",Inter,system-ui,sans-serif; font-size:16px; line-height:1.55; margin:0}
+.wrap{max-width:1440px; margin:0 auto; padding:44px 24px 80px}
+.eyebrow{font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin:0 0 8px}
+h1{font-size:38px; line-height:1.1; font-weight:700; letter-spacing:-.02em; margin:0 0 14px}
+h2{font-size:24px; font-weight:650; letter-spacing:-.01em; margin:0 0 6px}
+.lede{font-size:17px; color:var(--tinta-2); max-width:78ch; margin:0 0 10px}
+.nota{font-size:14.5px; color:var(--tinta-2); max-width:84ch}
+hr.reg{border:0; border-top:1px solid var(--fio); margin:48px 0}
+a{color:var(--acento-pg)}
+
+/* ---------- A janela do app (sempre clara, como o app) ---------- */
+.janela{margin:24px 0 0; background:var(--cinza-50); border:1px solid var(--fio-forte); border-radius:12px; overflow:hidden;
+  box-shadow:0 1px 2px rgba(16,23,40,.05),0 16px 40px rgba(16,23,40,.12); color:var(--cinza-900); font-size:14px; line-height:1.45}
+.barra-titulo{height:32px; background:#fff; border-bottom:1px solid var(--cinza-200); display:flex; align-items:center; padding:0 12px; gap:8px; font-size:12px; color:var(--cinza-500)}
+.barra-titulo i{width:10px;height:10px;border-radius:50%;background:var(--cinza-300);display:inline-block}
+.app{display:grid; grid-template-columns:240px minmax(0,1fr); min-height:820px}
+
+/* Sidebar: mesma árvore, agora com SEIS entradas da direção e a Operação recolhida. */
+.side{background:#fff; border-right:1px solid var(--cinza-200); padding:12px 10px; display:flex; flex-direction:column; gap:2px}
+.marca{display:flex; align-items:center; gap:10px; padding:4px 10px 14px; font-weight:700; color:var(--azul-600); font-size:15px}
+.marca b{width:28px;height:28px;border-radius:8px;background:var(--azul-600);color:#fff;display:grid;place-items:center;font-size:13px}
+.grupo{font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--cinza-500); padding:14px 10px 6px; display:flex; justify-content:space-between}
+.item{height:40px; display:flex; align-items:center; gap:12px; padding:0 10px; border-radius:8px; color:var(--cinza-700); font-weight:500; position:relative}
+.item svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--cinza-500)}
+.item:hover{background:var(--cinza-100)}
+.item.ativo{background:var(--azul-50); color:var(--azul-600); font-weight:650}
+.item.ativo svg{color:var(--azul-600)}
+.item.ativo::before{content:""; position:absolute; left:-10px; top:8px; bottom:8px; width:3px; border-radius:0 3px 3px 0; background:var(--azul-600)}
+.item .cont{margin-left:auto; font-size:11.5px; font-weight:700; background:var(--vermelho-100); color:var(--vermelho-700); border-radius:999px; padding:1px 7px}
+.item.sub{height:34px; padding-left:40px; font-size:13px; color:var(--cinza-500)}
+.side .pe{margin-top:auto; border-top:1px solid var(--cinza-200); padding-top:8px}
+
+/* Topo */
+.main{display:flex; flex-direction:column; min-width:0}
+.topo{height:56px; background:#fff; border-bottom:1px solid var(--cinza-200); display:flex; align-items:center; gap:16px; padding:0 24px}
+.topo .busca{flex:1; max-width:420px; height:36px; border:1px solid var(--cinza-200); border-radius:999px; display:flex; align-items:center; padding:0 14px; color:var(--cinza-500); font-size:13px; gap:8px; background:var(--cinza-50)}
+.topo .direita{margin-left:auto; display:flex; align-items:center; gap:14px; font-size:13px; color:var(--cinza-700)}
+.sino{position:relative} .sino b{position:absolute; top:-6px; right:-8px; background:var(--vermelho-600); color:#fff; font-size:10px; border-radius:999px; padding:0 5px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--azul-100);color:var(--azul-700);display:grid;place-items:center;font-weight:700;font-size:12px}
+
+/* Conteúdo */
+.pagina{padding:24px; display:flex; flex-direction:column; gap:16px}
+.cab{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap}
+.cab h3{font-size:24px; font-weight:700; margin:0}
+.cab .sub{font-size:13px; color:var(--cinza-500)}
+.cab .acoes{margin-left:auto; display:flex; gap:8px; align-items:center}
+.seg{display:inline-flex; border:1px solid var(--cinza-200); border-radius:8px; overflow:hidden; background:#fff}
+.seg span{padding:6px 12px; font-size:13px; color:var(--cinza-700); border-right:1px solid var(--cinza-200)}
+.seg span:last-child{border-right:0}
+.seg span.on{background:var(--azul-50); color:var(--azul-600); font-weight:600}
+.btn{height:34px; padding:0 12px; border-radius:8px; border:1px solid var(--cinza-200); background:#fff; color:var(--cinza-700); font:inherit; font-size:13px; display:inline-flex; align-items:center; gap:6px}
+.btn.prim{background:var(--azul-600); border-color:var(--azul-600); color:#fff; font-weight:600}
+.cartao{background:#fff; border:1px solid var(--cinza-200); border-radius:12px}
+.cartao-cab{display:flex; align-items:center; gap:10px; padding:14px 16px 0}
+.cartao-cab h4{margin:0; font-size:15px; font-weight:650}
+.cartao-cab .mais{margin-left:auto; font-size:13px; color:var(--azul-600); font-weight:600}
+.leg{font-size:12px; color:var(--cinza-500)}
+
+/* A RÉGUA DO MÊS — a assinatura da tela: realizado, meta e projeção numa linha só. */
+.regua{padding:16px}
+.regua-top{display:flex; align-items:baseline; gap:24px; flex-wrap:wrap}
+.regua-top .grande{font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+.regua-top .de{font-size:13px; color:var(--cinza-500)}
+.regua-top .tag{font-size:12px; font-weight:700; padding:2px 8px; border-radius:999px}
+.tag.ok{background:var(--verde-100); color:var(--verde-700)} .tag.at{background:var(--laranja-100); color:var(--laranja-700)} .tag.mal{background:var(--vermelho-100); color:var(--vermelho-700)}
+.trilho{position:relative; height:14px; margin:16px 0 8px; background:var(--cinza-100); border-radius:999px}
+.trilho .feito{position:absolute; inset:0 auto 0 0; width:58%; background:var(--azul-600); border-radius:999px}
+.trilho .proj{position:absolute; inset:0 auto 0 0; width:94%; background:repeating-linear-gradient(135deg,var(--azul-100) 0 6px,#fff 6px 10px); border-radius:999px; border:1px solid var(--azul-100)}
+.trilho .hoje{position:absolute; top:-6px; bottom:-6px; left:61%; width:2px; background:var(--cinza-900)}
+.trilho .meta{position:absolute; top:-8px; bottom:-8px; left:100%; width:0; border-left:2px dashed var(--verde-700)}
+.marcas{display:flex; justify-content:space-between; font-size:12px; color:var(--cinza-500)}
+.regua-linhas{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; background:var(--cinza-200); border-top:1px solid var(--cinza-200); margin:14px -16px -16px; border-radius:0 0 12px 12px; overflow:hidden}
+.regua-linhas > div{background:#fff; padding:12px 16px}
+.regua-linhas .r{font-size:12px; color:var(--cinza-500)}
+.regua-linhas .v{font-size:18px; font-weight:700; font-variant-numeric:tabular-nums}
+.regua-linhas .d{font-size:12px} .up{color:var(--verde-700)} .dn{color:var(--vermelho-700)}
+
+.grade{display:grid; grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:16px; align-items:start}
+
+/* A PAUTA — o que precisa de decisão, cada item com o verbo e a porta. */
+.pauta{list-style:none; margin:10px 0 0; padding:0}
+.pauta li{display:grid; grid-template-columns:4px 1fr auto; gap:14px; align-items:center; padding:12px 16px; border-top:1px solid var(--cinza-200)}
+.pauta li:first-child{border-top:0}
+.pauta .traco{align-self:stretch; border-radius:2px}
+.t-mal{background:var(--vermelho-600)} .t-at{background:var(--laranja-600)} .t-in{background:var(--azul-600)} .t-ok{background:var(--verde-600)}
+.pauta .o{font-weight:600}
+.pauta .q{font-size:12.5px; color:var(--cinza-500)}
+.pauta .q b{color:var(--cinza-900); font-weight:600}
+.pauta .mod{font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--cinza-500); margin-right:6px}
+.pauta .ir{font-size:13px; font-weight:600; color:var(--azul-600); white-space:nowrap}
+
+.kpis{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px}
+.kpi{padding:14px 16px}
+.kpi .r{font-size:13px; color:var(--cinza-700); display:flex; gap:8px; align-items:center}
+.kpi .r svg{width:16px;height:16px;stroke:var(--azul-600);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.kpi .v{font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:4px; letter-spacing:-.01em}
+.kpi .d{font-size:12px; color:var(--cinza-500)}
+.kpi .barra{height:6px; background:var(--cinza-100); border-radius:999px; margin:8px 0 4px; overflow:hidden}
+.kpi .barra i{display:block; height:100%; background:var(--azul-600)}
+
+.lista-barras{padding:8px 16px 16px; display:flex; flex-direction:column; gap:10px}
+.lb{display:grid; grid-template-columns:120px minmax(0,1fr) 88px 56px; gap:10px; align-items:center; font-size:13px}
+.lb .n{color:var(--cinza-700); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.lb .b{height:8px; background:var(--cinza-100); border-radius:999px; overflow:hidden}
+.lb .b i{display:block; height:100%; border-radius:999px}
+.lb .val{text-align:right; font-variant-numeric:tabular-nums; font-weight:600}
+.lb .m{text-align:right; font-variant-numeric:tabular-nums; font-size:12px}
+
+.crm{padding:4px 16px 16px}
+.crm-num{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:10px}
+.crm-num > div{border:1px solid var(--cinza-200); border-radius:8px; padding:10px 12px}
+.crm-num .v{font-size:20px; font-weight:700; font-variant-numeric:tabular-nums}
+.crm-num .r{font-size:12px; color:var(--cinza-500)}
+.funil{margin-top:12px; display:flex; flex-direction:column; gap:6px; font-size:12.5px}
+.funil div{display:grid; grid-template-columns:150px minmax(0,1fr) 40px; gap:8px; align-items:center}
+.funil i{display:block; height:8px; border-radius:999px; background:var(--teal-600)}
+.fonte{font-size:11.5px; color:var(--cinza-500); margin-top:10px; display:flex; gap:6px; align-items:center}
+.fonte::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--verde-600)}
+
+.agenda{padding:8px 16px 16px; display:flex; flex-direction:column; gap:9px}
+.ag{display:grid; grid-template-columns:110px minmax(0,1fr) 44px; gap:10px; align-items:center; font-size:13px}
+.ag .b{display:flex; height:10px; border-radius:999px; overflow:hidden; background:var(--cinza-100)}
+.ag .b i{display:block; height:100%}
+.ag .p{text-align:right; font-variant-numeric:tabular-nums; font-weight:600}
+
+/* ---------- Comparação de menus ---------- */
+.menus{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; margin-top:20px}
+.coluna{background:var(--sup); border:1px solid var(--fio); border-radius:12px; padding:18px 20px}
+.coluna h3{margin:0 0 10px; font-size:16px}
+.coluna ol{margin:0; padding-left:20px; font-size:14px; color:var(--tinta-2)}
+.coluna ol li{margin:4px 0}
+.coluna .riscado{color:var(--mudo)}
+.coluna small{color:var(--mudo)}
+table.junta{width:100%; border-collapse:collapse; margin-top:20px; font-size:14px; background:var(--sup); border:1px solid var(--fio); border-radius:12px; overflow:hidden}
+table.junta th,table.junta td{text-align:left; padding:10px 14px; border-top:1px solid var(--fio); vertical-align:top}
+table.junta th{background:var(--pg); font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--mudo); border-top:0}
+table.junta td:first-child{font-weight:600; white-space:nowrap}
+.tres{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:18px}
+.tres div{background:var(--sup); border:1px solid var(--fio); border-radius:12px; padding:16px 18px; font-size:14.5px; color:var(--tinta-2)}
+.tres b{display:block; color:var(--tinta); margin-bottom:4px}
+ul.decid{font-size:14.5px; color:var(--tinta-2); max-width:90ch}
+ul.decid li{margin:6px 0}
+
+@media (max-width: 1100px){
+  .app{grid-template-columns:72px minmax(0,1fr)}
+  .side .rot, .grupo, .item.sub, .marca span{display:none}
+  .item{justify-content:center}
+  .grade{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .menus,.tres{grid-template-columns:1fr}
+}
+@media (max-width: 700px){
+  .regua-linhas{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis{grid-template-columns:1fr}
+  .lb{grid-template-columns:90px minmax(0,1fr) 76px}
+  .lb .m{display:none}
+  h1{font-size:30px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Gerente · proposta para aprovação · out/2026</p>
+  <h1>A mesa da direção e o menu novo</h1>
+  <p class="lede">O Gerente deixa de ser a soma dos cinco módulos. Ao abrir, a direção vê <b>como o mês está</b>
+  (uma régua só: realizado, meta e projeção) e <b>o que precisa dela hoje</b> (a pauta, cada item com o caminho
+  para resolver). Atrás disso ficam seis entradas, cada uma respondendo uma pergunta.</p>
+  <p class="nota">Os números e nomes abaixo são fictícios. A tela será Blazor, com as cores, letras e medidas
+  do design system da suíte. Os dados do CRM chegam pelo <b>caminho A</b>: a ponte grava um resumo diário no
+  banco da clínica, e por isso aparecem "até ontem".</p>
+
+  <!-- ===================================================== A JANELA ===================================================== -->
+  <div class="janela" aria-label="Mockup da janela do Gerente">
+    <div class="barra-titulo"><i></i><i></i><i></i><span style="margin-left:8px">Clínica SemDor — Gerente Geral</span></div>
+    <div class="app">
+      <nav class="side">
+        <div class="marca"><b>SD</b><span>SemDor · Direção</span></div>
+        <div class="grupo"><span>Direção</span></div>
+        <div class="item ativo"><svg viewBox="0 0 24 24"><path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-3H4zM14 7h6V4h-6z"/></svg><span class="rot">Mesa da direção</span><span class="cont rot">6</span></div>
+        <div class="item"><svg viewBox="0 0 24 24"><path d="M12 3v18M17 7.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 2.8 5 3.4 5 1.5 5 3.6-2.2 3-5 3-5-1.1-5-3"/></svg><span class="rot">Dinheiro</span></div>
+        <div class="item"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="rot">Produção e margem</span></div>
+        <div class="item"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3-5.4 6-5.4s5.4 2 6 5.4M16 4.8a3 3 0 0 1 0 6M18 14.8c1.7.6 2.8 2.4 3 5.2"/></svg><span class="rot">Pacientes e relacionamento</span></div>
+        <div class="item"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.4"/></svg><span class="rot">Preços e regras</span></div>
+        <div class="item"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.3 8.1-8 9-4.7-.9-8-4.5-8-9V6z"/><path d="M8.5 12l2.4 2.4 4.6-4.8"/></svg><span class="rot">Conformidade e acessos</span></div>
+
+        <div class="grupo"><span>Operação</span><span>▸</span></div>
+        <div class="item sub">Recepção · Agenda · Fila</div>
+        <div class="item sub">Consultório e Enfermagem</div>
+        <div class="item sub">Financeiro (caixa, contas)</div>
+        <div class="item sub">Faturamento de guias</div>
+
+        <div class="pe">
+          <div class="item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="rot">Configurações</span></div>
+        </div>
+      </nav>
+
+      <div class="main">
+        <div class="topo">
+          <div class="busca">⌕ Buscar paciente, tela ou guia (Ctrl+F)</div>
+          <div class="direita">
+            <span class="sino">🔔<b>4</b></span>
+            <span>Dra. Helena · Direção</span><span class="avatar">HE</span>
+          </div>
+        </div>
+
+        <div class="pagina">
+          <div class="cab">
+            <div>
+              <h3>Bom dia, Helena</h3>
+              <div class="sub">Segunda-feira, 19 de outubro · agenda e caixa atualizados às 08:42 · relacionamento (CRM) até ontem, 23:59</div>
+            </div>
+            <div class="acoes">
+              <span class="seg"><span>Hoje</span><span class="on">Este mês</span><span>Mês passado</span></span>
+              <button class="btn">Exportar</button>
+            </div>
+          </div>
+
+          <!-- A RÉGUA DO MÊS -->
+          <section class="cartao regua" aria-label="O mês em uma régua">
+            <div class="regua-top">
+              <div><div class="de">Recebido em outubro</div><div class="grande">R$ 84.320</div></div>
+              <div><div class="de">Meta do mês</div><div class="grande" style="font-size:20px">R$ 140.000</div></div>
+              <div><div class="de">Projeção para 31/10</div><div class="grande" style="font-size:20px">R$ 131.600</div></div>
+              <span class="tag at">Projeção 6% abaixo da meta</span>
+            </div>
+            <div class="trilho" title="Realizado 58% · projeção 94% · hoje = dia 19 de 31">
+              <span class="proj"></span><span class="feito"></span><span class="hoje"></span><span class="meta"></span>
+            </div>
+            <div class="marcas"><span>1/10</span><span>hoje (19/10) — 61% do mês passou, 58% da meta entrou</span><span>meta</span></div>
+            <div class="regua-linhas">
+              <div><div class="r">Resultado (caixa)</div><div class="v">R$ 21.480</div><div class="d up">▲ 12% vs. mesmo trecho de set.</div></div>
+              <div><div class="r">Resultado (competência)</div><div class="v">R$ 26.910</div><div class="d leg">inclui R$ 5.430 faturado a receber</div></div>
+              <div><div class="r">Gasto vs. teto</div><div class="v">R$ 62.840 <span class="leg" style="font-weight:400">de 70.000</span></div><div class="d dn">Material clínico em 92% do teto</div></div>
+              <div><div class="r">A receber vencido</div><div class="v">R$ 3.960</div><div class="d leg">11 pacientes · mais antigo há 54 dias</div></div>
+            </div>
+          </section>
+
+          <div class="kpis">
+            <section class="cartao kpi"><div class="r"><svg viewBox="0 0 24 24"><path d="M4 5h16v15H4zM4 9h16M9 3v4M15 3v4"/></svg>Sessões realizadas</div><div class="v">612</div><div class="barra"><i style="width:78%"></i></div><div class="d">Ocupação 78% · meta 80%</div></section>
+            <section class="cartao kpi"><div class="r"><svg viewBox="0 0 24 24"><path d="M12 3v18M17 7.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 2.8 5 3.4 5 1.5 5 3.6-2.2 3-5 3-5-1.1-5-3"/></svg>Margem por sessão</div><div class="v">R$ 41</div><div class="barra"><i style="width:55%"></i></div><div class="d">receita líquida − custo direto</div></section>
+            <section class="cartao kpi"><div class="r"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7zM14 3v5h5"/></svg>Guias por liberar</div><div class="v">47</div><div class="barra"><i style="width:30%; background:var(--laranja-600)"></i></div><div class="d">14 atrasadas · R$ 9.870</div></section>
+            <section class="cartao kpi"><div class="r"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg>Voltaram pelo recall</div><div class="v">18</div><div class="barra"><i style="width:40%; background:var(--teal-600)"></i></div><div class="d">de 45 contatados · R$ 6.120 em sessões</div></section>
+          </div>
+
+          <div class="grade">
+            <div style="display:flex; flex-direction:column; gap:16px">
+            <!-- A PAUTA -->
+            <section class="cartao" aria-label="O que precisa de você hoje">
+              <div class="cartao-cab"><h4>O que precisa de você hoje</h4><span class="leg">em ordem do que custa esperar</span></div>
+              <ul class="pauta">
+                <li><span class="traco t-mal"></span><div><div class="o">3 guias glosadas com prazo de recurso em 5 dias</div><div class="q"><span class="mod">Faturamento</span><b>R$ 2.340</b> em jogo · Unimed (2), Amil (1)</div></div><span class="ir">Abrir recursos →</span></li>
+                <li><span class="traco t-mal"></span><div><div class="o">Caixa de sábado não foi fechado</div><div class="q"><span class="mod">Financeiro</span>diferença ainda desconhecida · Recepção 1</div></div><span class="ir">Fechar caixa →</span></li>
+                <li><span class="traco t-at"></span><div><div class="o">Material clínico chegou a 92% do teto do mês</div><div class="q"><span class="mod">Dinheiro</span><b>R$ 9.200</b> de R$ 10.000 · 12 dias pela frente</div></div><span class="ir">Ver gastos →</span></li>
+                <li><span class="traco t-at"></span><div><div class="o">2 pacientes avisaram que não vêm amanhã; 5 não responderam</div><div class="q"><span class="mod">Recepção</span>2 vagas de BSV para oferecer à lista de espera</div></div><span class="ir">Abrir confirmações →</span></li>
+                <li><span class="traco t-at"></span><div><div class="o">Dr. Paulo com 9 sessões sem evolução</div><div class="q"><span class="mod">Consultório</span>a mais antiga de 6 dias · 4 delas já com guia</div></div><span class="ir">Ver a lista →</span></li>
+                <li><span class="traco t-in"></span><div><div class="o">Folha de infusão aguardando a assinatura da enfermagem</div><div class="q"><span class="mod">Enfermagem</span>1 folha encerrada ontem</div></div><span class="ir">Abrir a sala →</span></li>
+              </ul>
+            </section>
+              <!-- AGENDA DE HOJE -->
+              <section class="cartao" aria-label="Agenda de hoje">
+                <div class="cartao-cab"><h4>Hoje na agenda</h4><span class="leg">ocupação por profissional</span></div>
+                <div class="agenda">
+                  <div class="ag"><span>Dra. Ana</span><span class="b"><i style="width:92%;background:var(--teal-600)"></i></span><span class="p">92%</span></div>
+                  <div class="ag"><span>Dr. Paulo</span><span class="b"><i style="width:75%;background:var(--azul-600)"></i></span><span class="p">75%</span></div>
+                  <div class="ag"><span>Dra. Marta</span><span class="b"><i style="width:48%;background:var(--violeta-600)"></i></span><span class="p">48%</span></div>
+                  <div class="ag"><span>Enf. Joana</span><span class="b"><i style="width:66%;background:var(--rosa-600)"></i></span><span class="p">66%</span></div>
+                </div>
+              </section>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:16px">
+              <!-- RELACIONAMENTO (CRM, caminho A) -->
+              <section class="cartao" aria-label="Relacionamento">
+                <div class="cartao-cab"><h4>Relacionamento</h4><span class="mais">Abrir →</span></div>
+                <div class="crm">
+                  <div class="crm-num">
+                    <div><div class="v">126</div><div class="r">conversas na semana</div></div>
+                    <div><div class="v">91%</div><div class="r">lembretes respondidos</div></div>
+                    <div><div class="v">7 min</div><div class="r">1ª resposta (mediana)</div></div>
+                    <div><div class="v">R$ 38,40</div><div class="r">SMS no mês · 384 partes</div></div>
+                  </div>
+                  <div class="funil" aria-label="Recall do mês">
+                    <div><span>Contatados no recall</span><i style="width:100%"></i><b>45</b></div>
+                    <div><span>Responderam</span><i style="width:62%"></i><b>28</b></div>
+                    <div><span>Marcaram sessão</span><i style="width:47%"></i><b>21</b></div>
+                    <div><span>Vieram de fato</span><i style="width:40%"></i><b>18</b></div>
+                  </div>
+                  <div class="fonte">dados do CRM gravados pela ponte · até ontem, 23:59</div>
+                </div>
+              </section>
+
+              <!-- ONDE O DINHEIRO VEM -->
+              <section class="cartao" aria-label="De onde vem o dinheiro">
+                <div class="cartao-cab"><h4>De onde vem o dinheiro</h4><span class="leg">receita · margem</span></div>
+                <div class="lista-barras">
+                  <div class="lb"><span class="n">Particular</span><span class="b"><i style="width:100%;background:var(--azul-600)"></i></span><span class="val">R$ 31.200</span><span class="m up">38%</span></div>
+                  <div class="lb"><span class="n">Unimed</span><span class="b"><i style="width:78%;background:var(--azul-600)"></i></span><span class="val">R$ 24.400</span><span class="m">21%</span></div>
+                  <div class="lb"><span class="n">Petrobras</span><span class="b"><i style="width:39%;background:var(--azul-600)"></i></span><span class="val">R$ 12.180</span><span class="m">24%</span></div>
+                  <div class="lb"><span class="n">Amil</span><span class="b"><i style="width:30%;background:var(--azul-600)"></i></span><span class="val">R$ 9.540</span><span class="m dn">9%</span></div>
+                  <div class="lb"><span class="n">Sul América</span><span class="b"><i style="width:22%;background:var(--azul-600)"></i></span><span class="val">R$ 7.000</span><span class="m">17%</span></div>
+                </div>
+              </section>
+
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ===================================================== O MENU ===================================================== -->
+  <p class="eyebrow">O menu</p>
+  <h2>Hoje × proposto</h2>
+  <p class="nota">Hoje o Gerente mostra o que os cinco módulos publicam, mais as telas da direção. Na proposta,
+  a direção tem <b>seis entradas</b>. O operacional dos outros módulos continua acessível, num grupo
+  <b>Operação</b> que abre fechado. Nenhuma tela some: cada uma vira aba da entrada que responde a pergunta dela.</p>
+
+  <div class="menus">
+    <div class="coluna">
+      <h3>Hoje — o que a direção vê na seção de gestão</h3>
+      <ol>
+        <li>Painel <small>(Direção · Recepção · Meu dia)</small></li>
+        <li>Tabela de preço <small>(Convênios · Particular)</small></li>
+        <li>Resumo de faturamento</li>
+        <li>Relatórios / BI <small>(Indicadores · Metas · Tendências · Resultado do mês · Produção · Meus números)</small></li>
+        <li>Relatórios de guias</li>
+        <li>Rentabilidade e custos <small>(Por convênio · Custo de taxas)</small></li>
+        <li>Marketing / Recall <small>(Campanhas · Acompanhamento · Origens · Comissão)</small></li>
+        <li>Conformidade e acessos <small>(Auditoria · Documentos · Guarda · Acessos)</small></li>
+        <li>Configurações</li>
+        <li>Importar pacientes</li>
+        <li class="riscado">+ as telas operacionais de Recepção, Consultório, Financeiro e Faturamento misturadas nos mesmos grupos</li>
+      </ol>
+    </div>
+    <div class="coluna">
+      <h3>Proposto — seis entradas da direção</h3>
+      <ol>
+        <li><b>Mesa da direção</b> — <small>a régua do mês, a pauta do dia, relacionamento, receita por fonte, agenda de hoje</small></li>
+        <li><b>Dinheiro</b> — <small>Resultado (caixa e competência) · Projeção 90 dias · Metas e teto · A receber</small></li>
+        <li><b>Produção e margem</b> — <small>Atendimentos e ocupação · Margem (convênio, modalidade, profissional, sessão) · Faturamento de guias</small></li>
+        <li><b>Pacientes e relacionamento</b> — <small>Origens · Recall e retorno · Relacionamento (CRM) · Comissão de recuperação · Campanhas</small></li>
+        <li><b>Preços e regras</b> — <small>Convênios · Particular · Taxas e impostos</small></li>
+        <li><b>Conformidade e acessos</b> — <small>Auditoria (com a trilha do prontuário) · Guarda · Documentos emitidos · Acessos</small></li>
+        <li style="list-style:none; margin-left:-20px; margin-top:10px; color:var(--mudo)">Rodapé: Configurações (Importar pacientes vira aba) · Grupo <b>Operação</b>, fechado: Recepção, Consultório, Financeiro, Faturamento</li>
+      </ol>
+    </div>
+  </div>
+
+  <table class="junta" aria-label="O que se junta">
+    <thead><tr><th>Repetição de hoje</th><th>Vira</th></tr></thead>
+    <tbody>
+      <tr><td>Três painéis (Direção, Início da Recepção, Visão geral)</td><td>A <b>Mesa da direção</b>. O Início e a Visão geral continuam sendo da Recepção, no grupo Operação.</td></tr>
+      <tr><td>Metas no Painel e em Relatórios/BI; teto de gasto no Resultado</td><td><b>Dinheiro → Metas e teto</b>, numa tela; a Mesa mostra só a régua.</td></tr>
+      <tr><td>Faturamento por convênio em três telas (Resumo, Relatórios de guias, Produção)</td><td><b>Produção e margem → Faturamento de guias</b>, uma leitura; o detalhe operacional fica no módulo Faturamento.</td></tr>
+      <tr><td>Indicadores, Tendências e Meus números</td><td><b>Produção e margem → Atendimentos e ocupação</b>, com comparação de período e recorte por profissional. <b>Uma fórmula de ocupação</b> (a da agenda).</td></tr>
+      <tr><td>Custo de taxas (Inteligência) e Taxas e impostos (Financeiro)</td><td><b>Preços e regras → Taxas e impostos</b>: o cadastro e o custo efetivo lado a lado.</td></tr>
+      <tr><td>Trilha de acesso ao prontuário em Auditoria e em Guarda</td><td>Fica na <b>Auditoria</b>; a Guarda aponta para ela.</td></tr>
+      <tr><td>Campanhas (Gerente) e Confirmações (Recepção) sobre o mesmo contato</td><td>As rodadas ficam na Recepção; a direção vê o <b>resultado</b> em Pacientes e relacionamento.</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="reg">
+
+  <p class="eyebrow">O que é novo de verdade</p>
+  <h2>Números que hoje não existem</h2>
+  <ul class="decid">
+    <li><b>Resultado por competência</b>, ao lado do de caixa: o que a clínica produziu no mês, recebido ou não.</li>
+    <li><b>Projeção do mês</b> e projeção de caixa de 90 dias (contas fixas, recebíveis de cartão e guias a receber).</li>
+    <li><b>Margem por sessão, modalidade, convênio e profissional</b>: receita líquida menos taxa, imposto, repasse e insumo.</li>
+    <li><b>Relacionamento do CRM</b>: conversas, tempo de 1ª resposta, lembretes respondidos, recall até "veio de fato" e custo de SMS. Chega pela ponte, uma vez por dia.</li>
+    <li><b>A pauta</b>: os alertas que hoje estão espalhados pelos módulos, ordenados pelo que custa esperar, cada um com a porta para resolver.</li>
+  </ul>
+
+  <hr class="reg">
+
+  <p class="eyebrow">Para decidir</p>
+  <h2>Três escolhas que mudam o desenho</h2>
+  <div class="tres">
+    <div><b>1. Operação no menu da direção?</b>Proposto: grupo "Operação" fechado, com as telas dos outros módulos. Alternativa: tirar de vez e a direção abrir o app de cada módulo.</div>
+    <div><b>2. Os quatro números de cima</b>Proposto: sessões, margem por sessão, guias por liberar e voltaram pelo recall. Pode trocar qualquer um (ex.: ticket médio, faltas, novos pacientes).</div>
+    <div><b>3. CRM "até ontem" basta?</b>Caminho A dá os números do dia anterior. Se a direção quiser "agora", a ponte pode gravar de hora em hora, sem mudar o desenho.</div>
+  </div>
+
+  <hr class="reg">
+  <p class="eyebrow">UX · DX · CX</p>
+  <ul class="decid">
+    <li>🧑‍💻 <b>UX</b> — a direção abre e em dez segundos sabe como está o mês e o que precisa dela. Cada alerta leva à tela que resolve. Seis entradas em vez de quatorze.</li>
+    <li>🛠️ <b>DX</b> — telas em Blazor sobre os serviços que já existem (PainelDirecaoService, MetaService, Indicadores, Rentabilidade). Uma fórmula de ocupação. O novo é o resultado por competência, a margem por sessão, a projeção e a tabela do resumo do CRM.</li>
+    <li>🤝 <b>CX</b> — a clínica passa a ver se o recall e o SMS se pagam. Nenhum servidor novo, nenhuma porta aberta: o CRM chega pelo banco. O WPF do Gerente zera no fim das seis etapas.</li>
+  </ul>
+</div>
+</body>
+</html>

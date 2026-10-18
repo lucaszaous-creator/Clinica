@@ -48,7 +48,16 @@ public enum GrupoSidebar
     Financeiro,
 
     /// <summary>A leitura do negócio: marketing, BI, configurações.</summary>
-    Inteligencia
+    Inteligencia,
+
+    /// <summary>
+    /// As entradas da DIREÇÃO no Gerente Geral (out/2026, mockup aprovado "mesa da direção
+    /// v2"): a mesa, o dinheiro, a produção, os pacientes, os preços e a conformidade. Vem
+    /// PRIMEIRO na barra (ver <see cref="GruposSidebar.Ordem"/>): é o grupo de quem abre o
+    /// Gerente; o operacional dos outros módulos vem depois. Valor no FIM do enum de
+    /// propósito: a ordem da barra é decidida por <c>Ordem</c>, não pelo número.
+    /// </summary>
+    Direcao
 }
 
 /// <summary>Rótulo e ícone de cada grupo, como saem na sidebar.</summary>
@@ -62,8 +71,12 @@ public static class GruposSidebar
         GrupoSidebar.Relacionamento => "RELACIONAMENTO",
         GrupoSidebar.Financeiro => "FINANCEIRO",
         GrupoSidebar.Inteligencia => "INTELIGÊNCIA",
+        GrupoSidebar.Direcao => "DIREÇÃO",
         _ => grupo.ToString().ToUpperInvariant()
     };
+
+    /// <summary>A posição do grupo na barra: a Direção primeiro, depois a ordem do dia.</summary>
+    public static int Ordem(GrupoSidebar grupo) => grupo == GrupoSidebar.Direcao ? -1 : (int)grupo;
 
     /// <summary>
     /// Nome curto do grupo, para caber sob o ícone no rail de 56px (parcela 55).
@@ -77,7 +90,8 @@ public static class GruposSidebar
         GrupoSidebar.Atendimento => "Atender",
         GrupoSidebar.Relacionamento => "Contato",
         GrupoSidebar.Financeiro => "Dinheiro",
-        GrupoSidebar.Inteligencia => "Direção",
+        GrupoSidebar.Inteligencia => "Análise",
+        GrupoSidebar.Direcao => "Direção",
         _ => Rotulo(grupo)
     };
 
@@ -94,6 +108,7 @@ public static class GruposSidebar
         GrupoSidebar.Relacionamento => "\uE8BD",  // Message — o contato com o paciente
         GrupoSidebar.Financeiro => "\uE825",      // Bank — o dinheiro
         GrupoSidebar.Inteligencia => "\uE9D2",    // BarChart — a leitura do negócio
+        GrupoSidebar.Direcao => "\uF246",        // Painel — a mesa da direção
         _ => "\uE700"
     };
 }
@@ -289,7 +304,7 @@ public sealed partial class GrupoMenuModulo : ObservableObject
         GrupoSidebar.Gestao => "Gestão", GrupoSidebar.Paciente => "Paciente",
         GrupoSidebar.Atendimento => "Atendimento", GrupoSidebar.Relacionamento => "Relacionamento",
         GrupoSidebar.Financeiro => "Financeiro",
-        GrupoSidebar.Inteligencia => "Inteligência", _ => Nome
+        GrupoSidebar.Inteligencia => "Inteligência", GrupoSidebar.Direcao => "Direção", _ => Nome
     };
     public bool EstaAtivo => Direto?.EstaAtivo ?? Itens.Any(i => i.EstaAtivo);
     public string NomeCurto { get; }

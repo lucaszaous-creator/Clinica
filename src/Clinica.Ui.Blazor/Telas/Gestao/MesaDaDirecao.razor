@@ -1,0 +1,390 @@
+@*
+  MESA DA DIREÇÃO (out/2026, mockup aprovado "mesa da direção v2"). Substitui o painel WPF da
+  direção e abre o Gerente. Responde duas perguntas: como o mês está (a régua: recebido, meta
+  e projeção) e o que precisa da direção hoje (a pauta, cada item com a porta que o resolve).
+
+  Os números vêm dos serviços DONOS (PainelDirecaoService, IndicadoresService,
+  RentabilidadeConvenioService): nada é recalculado aqui. O que a tela afirma — a régua, a
+  ordem da pauta, o destino de cada alerta, as frases — mora em MesaDaDirecao, puro e com
+  teste.
+
+  Cada bloco falha SOZINHO: um painel que diz "nada vencido" porque a consulta quebrou é pior
+  do que um que diz qual parte não pôde ser lida (parcela 22).
+
+  O que o mockup mostra e AINDA não existe ficou de fora, declarado: o resultado por
+  competência, a margem por sessão e os números do CRM (conversas, tempo de resposta, custo de
+  SMS) chegam nas próximas etapas. Ausência não aparece como zero.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina mesa @(Carregando && _painel is not null ? "carregando" : null)">
+    <CabecalhoPagina Titulo="@($"{MesaDaDirecaoNaTela.Saudacao(_agora.Hour)}{PrimeiroNome}")"
+                     Subtitulo="@Subtitulo">
+        <button type="button" class="botao" @onclick="CarregarAsync" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível montar a mesa da direção" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+        </section>
+    }
+    else if (_painel is null)
+    {
+        <section class="cartao cartao-corpo"><Esqueleto Altura="150" /></section>
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="50%" /><Esqueleto Altura="30" Largura="40%" /></div> }
+        </section>
+        <section class="cartao cartao-corpo"><Esqueleto Altura="220" /></section>
+    }
+    else
+    {
+        var p = _painel;
+        var r = MesaDaDirecaoNaTela.Regua(p);
+
+        @* ===== O MÊS ===== *@
+        <section class="cartao mesa-regua" aria-label="O mês">
+            <div class="mesa-regua-topo">
+                <div><div class="mesa-rotulo">Recebido em @NomeDoMes</div><div class="mesa-grande">@MesaDaDirecaoNaTela.Dinheiro(r.Recebido)</div></div>
+                @if (r.TemMeta)
+                {
+                    <div><div class="mesa-rotulo">Projeção para @($"{r.DiasNoMes}/{p.Hoje.Month:00}")</div>
+                        <div class="mesa-media">@(r.Projecao is { } pr ? MesaDaDirecaoNaTela.Dinheiro(pr) : "a partir do dia 5")</div></div>
+                    <div><div class="mesa-rotulo">Meta do mês</div><div class="mesa-media">@MesaDaDirecaoNaTela.Dinheiro(r.Meta!.Value)</div></div>
+                }
+                @if (r.Selo is { } selo)
+                {
+                    <span class="mesa-selo @(r.SeloEmRisco ? "tom-aviso" : "tom-sucesso")">@selo</span>
+                }
+                else if (!r.TemMeta)
+                {
+                    <span class="mesa-sem-meta">Sem meta de faturamento para @NomeDoMes.
+                        <button type="button" class="link" @onclick='() => IrAsync("metas")'>Definir a meta</button></span>
+                }
+            </div>
+
+            <div class="mesa-trilho" role="img"
+                 aria-label="@($"Dia {r.Dia} de {r.DiasNoMes}. Recebido {MesaDaDirecaoNaTela.Dinheiro(r.Recebido)}" + (r.TemMeta ? $" de uma meta de {MesaDaDirecaoNaTela.Dinheiro(r.Meta!.Value)}" : ""))">
+                @if (r.TemMeta)
+                {
+                    @if (r.FracaoProjecao is { } fp) { <span class="mesa-proj" style="width:@Pct(fp)"></span> }
+                    <span class="mesa-feito" style="width:@Pct(r.FracaoRecebida)"></span>
+                    <span class="mesa-meta" style="left:@Pct(r.FracaoMeta ?? 1)"></span>
+                }
+                <span class="mesa-hoje" style="left:@Pct(r.FracaoDoMes)"></span>
+            </div>
+            <div class="mesa-escala">
+                <span>1º de @NomeDoMes</span>
+                <span class="mesa-legenda">
+                    @if (r.TemMeta)
+                    {
+                        <span><i class="cor-feito"></i>recebido</span>
+                        @if (r.FracaoProjecao is not null) { <span><i class="cor-proj"></i>projeção</span> }
+                        <span><i class="cor-meta"></i>meta</span>
+                    }
+                    <span><i class="cor-hoje"></i>hoje, dia @r.Dia de @r.DiasNoMes</span>
+                </span>
+                <span>@r.DiasNoMes de @NomeDoMes</span>
+            </div>
+
+            <div class="mesa-linhas">
+                <div>
+                    <div class="mesa-rotulo">Resultado no caixa</div>
+                    <div class="mesa-valor">@MesaDaDirecaoNaTela.Dinheiro(p.SaldoMes)</div>
+                    <div class="mesa-nota @(p.VariacaoEntradas is > 0.005 ? "tom-sucesso" : p.VariacaoEntradas is < -0.005 ? "tom-perigo" : null)">
+                        @(MesaDaDirecaoNaTela.FraseVariacao(p.VariacaoEntradas) is { } frase ? $"Entradas {frase}" : "Sem o mesmo trecho do mês passado para comparar")
+                    </div>
+                </div>
+                <div>
+                    <div class="mesa-rotulo">Saídas do mês</div>
+                    <div class="mesa-valor">@MesaDaDirecaoNaTela.Dinheiro(p.SaidasMes)</div>
+                    <div class="mesa-nota">taxas @MesaDaDirecaoNaTela.Dinheiro(p.TaxasMes) · impostos @MesaDaDirecaoNaTela.Dinheiro(p.ImpostosMes)</div>
+                </div>
+                <div>
+                    <div class="mesa-rotulo">Contas a pagar vencidas</div>
+                    <div class="mesa-valor @(p.Contas.APagarVencido > 0 ? "tom-perigo" : null)">@MesaDaDirecaoNaTela.Dinheiro(p.Contas.APagarVencido)</div>
+                    <div class="mesa-nota">a vencer @MesaDaDirecaoNaTela.Dinheiro(p.Contas.APagarAVencer)</div>
+                </div>
+                <div>
+                    <div class="mesa-rotulo">Pacientes devendo</div>
+                    <div class="mesa-valor">@MesaDaDirecaoNaTela.Dinheiro(p.TotalDevidoPorPacientes)</div>
+                    <div class="mesa-nota">@(p.PacientesDevendo == 0 ? "ninguém em atraso" : p.PacientesDevendo == 1 ? "1 paciente" : $"{p.PacientesDevendo} pacientes")</div>
+                </div>
+            </div>
+        </section>
+
+        @* ===== OS QUATRO NÚMEROS ===== *@
+        <section class="kpis" aria-label="Números do mês">
+            <Kpi Rotulo="Sessões realizadas" Icone="calendario"
+                 Valor="@(_agenda is { } ag ? ag.Atendidos.ToString(Formato.PtBr) : "—")"
+                 Nota="@(_agenda is { } a2 ? (a2.OcupacaoPercentual is { } oc ? $"ocupação {oc:0}% no mês" : "ocupação sem jornada cadastrada") : "a agenda não pôde ser lida")">
+                @if (_agenda?.OcupacaoPercentual is { } o) { <div class="mesa-barra"><i style="width:@Pct(o / 100)"></i></div> }
+            </Kpi>
+            <Kpi Rotulo="Guias por liberar" Icone="documento" Tom="@(p.PendenciasVencidas > 0 ? "aviso" : null)"
+                 Valor="@p.PendenciasEmAberto.ToString(Formato.PtBr)"
+                 Nota="@(p.PendenciasVencidas == 0 ? "nenhuma com prazo vencido" : $"{p.PendenciasVencidas} com prazo vencido")" />
+            <Kpi Rotulo="Sessões sem evolução" Icone="historico" Tom="@(p.SessoesSemEvolucao > 0 ? "aviso" : null)"
+                 Valor="@p.SessoesSemEvolucao.ToString(Formato.PtBr)"
+                 Nota="@(p.SessoesSemEvolucaoComGuia == 0 ? "nenhuma com guia emitida" : $"{p.SessoesSemEvolucaoComGuia} já com guia emitida")" />
+            <Kpi Rotulo="Não vêm ou sem resposta" Icone="pessoas" Tom="@(p.PacientesNaoVem > 0 ? "aviso" : null)"
+                 Valor="@((p.PacientesNaoVem + p.LembretesSemResposta).ToString(Formato.PtBr))"
+                 Nota="@($"{p.PacientesNaoVem} avisaram que não vêm · {p.LembretesSemResposta} sem resposta")" />
+        </section>
+
+        <div class="mesa-grade">
+            <div class="mesa-coluna">
+                @* ===== A PAUTA ===== *@
+                <section class="cartao" aria-label="O que precisa de você hoje">
+                    <header class="mesa-cab"><h2>O que precisa de você hoje</h2><span>pelo que custa esperar</span></header>
+                    @if (p.TemNaoVerificado)
+                    {
+                        <div class="mesa-aviso-leitura"><Icone Nome="alerta" />Não foi possível conferir: @string.Join(", ", p.NaoVerificados).</div>
+                    }
+                    @{ var pauta = MesaDaDirecaoNaTela.Pauta(p); }
+                    @if (pauta.Count == 0 && !p.TemNaoVerificado)
+                    {
+                        <div class="mesa-tudo-em-dia"><Icone Nome="ok" /><div><b>Nada pede decisão agora.</b><span>Os alertas dos módulos aparecem aqui assim que surgirem.</span></div></div>
+                    }
+                    else
+                    {
+                        <ul class="mesa-pauta">
+                            @foreach (var item in _pautaInteira ? pauta : pauta.Take(PautaVisivel))
+                            {
+                                <li>
+                                    <span class="mesa-ponto @Tom(item.Gravidade)"></span>
+                                    <div class="mesa-pauta-texto">
+                                        <b>@item.Titulo</b>
+                                        <span><em>@item.Modulo</em>@item.Detalhe</span>
+                                    </div>
+                                    <button type="button" class="link mesa-ir" @onclick="() => IrAsync(item.ChaveDestino)">@item.Acao<Icone Nome="direita" /></button>
+                                </li>
+                            }
+                        </ul>
+                        @if (pauta.Count > PautaVisivel)
+                        {
+                            @* A pauta mostra o que custa mais esperar; o resto fica a um clique, sem empurrar a agenda para fora da vista. *@
+                            <button type="button" class="link mesa-mais" @onclick="() => _pautaInteira = !_pautaInteira">
+                                @(_pautaInteira ? "Mostrar só os principais" : $"Ver os outros {pauta.Count - PautaVisivel}")<Icone Nome="@(_pautaInteira ? "esquerda" : "abaixo")" />
+                            </button>
+                        }
+                    }
+                </section>
+
+                @* ===== HOJE NA AGENDA ===== *@
+                <section class="cartao" aria-label="Hoje na agenda">
+                    <header class="mesa-cab"><h2>Hoje na agenda</h2><span>ocupação por profissional</span></header>
+                    @if (_hojeFalhou)
+                    {
+                        <div class="mesa-aviso-leitura"><Icone Nome="alerta" />A agenda de hoje não pôde ser lida.</div>
+                    }
+                    else if (_hoje.Count == 0)
+                    {
+                        <p class="mesa-vazio">Ninguém marcado para hoje.</p>
+                    }
+                    else
+                    {
+                        <div class="mesa-barras">
+                            @foreach (var o in _hoje)
+                            {
+                                <div class="mesa-linha-barra">
+                                    <span class="mesa-nome" title="@o.Profissional">@o.Profissional</span>
+                                    <span class="mesa-barra"><i style="width:@Pct(o.Ocupacao ?? 0)"></i></span>
+                                    <b title="@($"{o.Atendidos} atendidos de {o.Marcados} marcados")">@(o.Ocupacao is { } x ? $"{x * 100:0}%" : $"{o.Marcados} marc.")</b>
+                                </div>
+                            }
+                        </div>
+                    }
+                </section>
+            </div>
+
+            <div class="mesa-coluna">
+                @* ===== CONVÊNIOS ===== *@
+                <section class="cartao" aria-label="Convênios no mês">
+                    <header class="mesa-cab"><h2>Convênios no mês</h2><span>bruto · líquido</span></header>
+                    @if (_conveniosFalhou)
+                    {
+                        <div class="mesa-aviso-leitura"><Icone Nome="alerta" />A rentabilidade não pôde ser lida.</div>
+                    }
+                    else if (_convenios.Count == 0)
+                    {
+                        <p class="mesa-vazio">Nenhuma guia de convênio atendida neste mês ainda.</p>
+                    }
+                    else
+                    {
+                        var maior = _convenios.Max(c => c.Bruto);
+                        <div class="mesa-barras">
+                            @foreach (var c in _convenios)
+                            {
+                                <div class="mesa-linha-barra conv">
+                                    <span class="mesa-nome" title="@c.Convenio">@c.Convenio</span>
+                                    <span class="mesa-barra"><i style="width:@Pct((double)(c.Bruto / maior))"></i></span>
+                                    <b>@MesaDaDirecaoNaTela.Dinheiro(c.Bruto)</b>
+                                    <small title="O que sobra depois da retenção da operadora">@(c.FracaoLiquida is { } f ? $"{f * 100:0}%" : "—")</small>
+                                </div>
+                            }
+                        </div>
+                        <button type="button" class="link mesa-mais" @onclick='() => IrAsync("rentabilidade-convenio")'>Ver a rentabilidade<Icone Nome="direita" /></button>
+                    }
+                </section>
+
+                @* ===== METAS DO MÊS ===== *@
+                <section class="cartao" aria-label="Metas do mês">
+                    <header class="mesa-cab"><h2>Metas do mês</h2><button type="button" class="link" @onclick='() => IrAsync("metas")'>Abrir</button></header>
+                    @if (p.Metas.Count == 0)
+                    {
+                        <p class="mesa-vazio">Nenhuma meta definida para @NomeDoMes. Sem alvo, a mesa compara só com o mês passado.</p>
+                    }
+                    else
+                    {
+                        <div class="mesa-barras">
+                            @foreach (var m in p.Metas.Take(5))
+                            {
+                                <div class="mesa-linha-barra meta">
+                                    <span class="mesa-nome" title="@NomeDaMeta(m)">@NomeDaMeta(m)</span>
+                                    <span class="mesa-barra @(m.EmRisco ? "risco" : null)"><i style="width:@Pct(Math.Min(1, (m.PercentualAtingido ?? 0) / 100))"></i></span>
+                                    <b>@(m.PercentualAtingido is { } pc ? $"{pc:0}%" : "—")</b>
+                                </div>
+                            }
+                        </div>
+                    }
+                </section>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private PainelDirecao? _painel;
+    private IndicadoresAgenda? _agenda;
+    private IReadOnlyList<OcupacaoNaMesa> _hoje = [];
+    private IReadOnlyList<ConvenioNaMesa> _convenios = [];
+    private bool _hojeFalhou, _conveniosFalhou, _pautaInteira;
+    private const int PautaVisivel = 6;
+    private bool Carregando, _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+    private DateTime _agora = DateTime.Now;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private string PrimeiroNome
+    {
+        get
+        {
+            // O NOME da pessoa, nunca o login ("ana.previa"): sem nome cadastrado, a saudação fica só.
+            var nome = SessaoUsuario.Atual.Nome?.Trim();
+            if (string.IsNullOrEmpty(nome)) return string.Empty;
+            return ", " + nome.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+        }
+    }
+
+    private string NomeDoMes => _agora.ToString("MMMM", Formato.PtBr);
+
+    private string Subtitulo =>
+        $"{_agora.ToString("dddd, d 'de' MMMM", Formato.PtBr)} · lida às {_agora:HH:mm}";
+
+    private static string Pct(double fracao) =>
+        (Math.Clamp(fracao, 0, 1) * 100).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%";
+
+    private static string Tom(GravidadeDirecao g) => g switch
+    {
+        GravidadeDirecao.Perigo => "tom-perigo",
+        GravidadeDirecao.Aviso => "tom-aviso",
+        _ => "tom-info"
+    };
+
+    private static string NomeDaMeta(MetaApurada m)
+    {
+        var indicador = m.Indicador switch
+        {
+            IndicadorMeta.Faturamento => "Faturamento",
+            IndicadorMeta.Sessoes => "Sessões",
+            _ => "Ocupação"
+        };
+        var recorte = m.Profissional ?? m.Segmento;
+        return recorte is null ? indicador : $"{indicador} · {recorte}";
+    }
+
+    private async Task IrAsync(string chave)
+    {
+        if (!await Host.NavegarAsync(chave))
+            Notificacoes.Info("Essa tela não está disponível para o seu acesso.");
+    }
+
+    /// <summary>
+    /// Lê tudo em sequência, num escopo só (o mesmo DbContext não aceita duas consultas ao mesmo
+    /// tempo). O painel é o bloco principal: sem ele, a tela mostra a falha. Os outros três
+    /// falham sozinhos e a tela diz qual.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            var agora = DateTime.Now;
+            var hoje = DateOnly.FromDateTime(agora);
+            var inicioMes = new DateOnly(hoje.Year, hoje.Month, 1);
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+
+            var painel = await sp.GetRequiredService<PainelDirecaoService>().MontarAsync(hoje, agora: agora);
+            if (geracao != _geracao || Descartada) return;
+
+            IndicadoresAgenda? agenda = null;
+            IReadOnlyList<OcupacaoNaMesa> deHoje = [];
+            var hojeFalhou = false;
+            var indicadores = sp.GetRequiredService<IndicadoresService>();
+            try
+            {
+                agenda = await indicadores.AgendaAsync(inicioMes, hoje);
+                deHoje = MesaDaDirecaoNaTela.AgendaDeHoje(await indicadores.ProdutividadeAsync(hoje, hoje));
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — mesa da direção: agenda não pôde ser lida", ex);
+                hojeFalhou = true;
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            IReadOnlyList<ConvenioNaMesa> convenios = [];
+            var conveniosFalhou = false;
+            try
+            {
+                convenios = MesaDaDirecaoNaTela.Convenios(
+                    await sp.GetRequiredService<RentabilidadeConvenioService>().PorConvenioAsync(inicioMes, hoje));
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — mesa da direção: rentabilidade não pôde ser lida", ex);
+                conveniosFalhou = true;
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _agora = agora;
+            _painel = painel;
+            _agenda = agenda;
+            _hoje = deHoje;
+            _hojeFalhou = hojeFalhou;
+            _convenios = convenios;
+            _conveniosFalhou = conveniosFalhou;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — mesa da direção não pôde ser montada", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+}
