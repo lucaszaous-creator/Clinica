@@ -4230,7 +4230,8 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `Assentar` (50 ms × 3) era mais da metade do tempo da suíte; virou 60 ms (15 × 4), provado
   com um `throw` num botão. Teste novo de tela que espera por laço usa a mesma batida.
 - **A PONTE DO CRM NA VPS: o que só a montagem real mostrou** (out/2026; roteiro em
-  `docs/vps-do-crm.md`). Duas VPS: a ponte ao lado do Postgres (escuta só no IP do túnel
+  `docs/vps-do-crm.md`, e o diário da instalação real — acessos, endereços, etapas ligadas,
+  como publicar de novo e o que ficou para depois — em `docs/crm-em-producao-out2026.md`). Duas VPS: a ponte ao lado do Postgres (escuta só no IP do túnel
   WireGuard, `RedeDaPonte` recusa endereço público na partida) e o CRM web noutra máquina.
   ⚠️ **Transação aberta à mão + `EnableRetryOnFailure` = recusa em TODA gravação.** O
   `AddClinica` liga a estratégia que repete, e o EF recusa `BeginTransaction` sob ela
