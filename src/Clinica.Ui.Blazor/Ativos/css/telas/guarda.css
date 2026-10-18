@@ -1,0 +1,22 @@
+/* Estilo PRÓPRIO da tela Guarda do prontuário (out/2026, etapa 6 do Gerente). O comum mora em ../clinica.css. */
+/* Seis números: seis colunas em 1366 é aperto; três por linha (3 + 3) até 1180, e duas abaixo. */
+.gua .kpis.gua-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:900px){.gua .kpis.gua-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.gua .kpis.gua-kpis{grid-template-columns:1fr}}
+.gua .cartao-titulo{margin-bottom:var(--space-4)}
+.gua .cartao-titulo > div{flex:1 1 420px;min-width:0}
+.gua-frase{margin:var(--space-4) 0 0;max-width:820px;color:var(--texto-secundario)}
+.gua-seletor{max-width:420px}
+.gua-pessoa{margin-top:var(--space-4);display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-2)}
+.gua-situacao{margin:0;max-width:820px;font-weight:var(--text-label-weight)}
+.gua-detalhe{margin:0;max-width:820px;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.gua-pessoa .botao{margin-top:var(--space-2)}
+.gua-acessos{margin-top:var(--space-6);display:flex;flex-direction:column;gap:var(--space-2)}
+.gua-subtitulo{margin:0;font-size:var(--text-body-size);font-weight:var(--text-label-weight)}
+.gua-trilha{max-height:320px;overflow-y:auto;border:1px solid var(--borda);border-radius:var(--radius-control)}
+.gua-trilha table.lista{table-layout:fixed}
+.gua-trilha .gua-col-quando{width:140px}
+.gua-trilha .gua-col-quem{width:30%}
+.gua-trilha td.numero{white-space:nowrap}
+.gua-corta{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gua-rodape{margin:0;max-width:820px;color:var(--texto-secundario);font-size:var(--text-small-size)}

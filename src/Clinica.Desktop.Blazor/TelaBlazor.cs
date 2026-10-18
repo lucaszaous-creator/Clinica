@@ -342,6 +342,9 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
     {
         try
         {
+            // A pasta pode ainda não existir: a exportação do prontuário (Guarda) grava os CSV
+            // numa SUBPASTA datada dentro da que a pessoa escolheu, como o WPF fazia.
+            if (Path.GetDirectoryName(caminho) is { Length: > 0 } pasta) Directory.CreateDirectory(pasta);
             await File.WriteAllBytesAsync(caminho, conteudo);
             return null;
         }

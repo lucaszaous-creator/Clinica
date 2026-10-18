@@ -751,7 +751,7 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 | Filtro e corte no SQL | ✅ | `ClinicaRepositorio.ConsultarAuditoriaAsync` |
 | Contagem por ação e por operador | ✅ | `ResumoAsync` |
 | Trilha de uma guia · de um paciente | ✅ | `DaGuiaAsync` / `DoPacienteAsync` |
-| Exportação em CSV | ✅ | `AuditoriaViewModel.ExportarAsync` |
+| Exportação em CSV | ✅ | `TrilhaDeAuditoria.razor` (Blazor) + `TrilhaDeAuditoriaNaTela.Csv` |
 
 > **Estava gravado e ninguém lia.** `EventoAuditoria` é escrito por praticamente tudo o que
 > mexe em dinheiro ou permissão — baixa, estorno, glosa, lote, lançamento, conta, tributo,
