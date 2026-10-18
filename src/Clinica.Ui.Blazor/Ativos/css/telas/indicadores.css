@@ -1,0 +1,25 @@
+/* Estilo PRÓPRIO da tela Indicadores (out/2026, etapa 6 do Gerente). O comum mora em ../clinica.css. */
+/* Cinco números: cinco colunas em 1366; abaixo de 1180, três (3 + 2) — em quatro colunas de 1024
+   o valor em reais sai cortado ("R$ 9.55…"), e em duas a fileira vira uma coluna alta. */
+.indicadores .kpis.ind-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1180px){.indicadores .kpis.ind-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.indicadores .kpis.ind-kpis{grid-template-columns:1fr}}
+.ind-delta{margin-top:var(--space-2);font-size:var(--text-small-size);font-weight:600}
+.ind-delta.boa{color:var(--sucesso-forte)}
+.ind-delta.ruim{color:var(--erro-texto)}
+.ind-jornada{margin:calc(-1 * var(--space-4)) 0 0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.ind-tabela td:first-child{max-width:260px}
+.ind-tabela td:first-child .principal{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ind-tabela td.numero,.ind-meses td.numero{white-space:nowrap}
+.ind-duas{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:var(--space-4);align-items:start}
+@media (max-width:1180px){.ind-duas{grid-template-columns:minmax(0,1fr)}}
+.ind-barras{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-3)}
+.ind-barra-topo{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);margin-bottom:var(--space-1)}
+.ind-barra-topo .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ind-barra-topo .secundario{margin-top:0;white-space:nowrap}
+.ind-barras .trilho > i{background:var(--acento)}
+.ind-graficos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4)}
+@media (max-width:900px){.ind-graficos{grid-template-columns:minmax(0,1fr)}}
+.ind-grafico-titulo{margin:0 0 var(--space-1);font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);text-transform:uppercase;letter-spacing:.04em}
+.ind-meses{margin-top:var(--space-4)}
+.ind-sem-base{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}

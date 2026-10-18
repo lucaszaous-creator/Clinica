@@ -286,12 +286,9 @@ public sealed class ModuloGerente : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
-        servicos.AddTransient<IndicadoresViewModel>();
         Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
         servicos.AddTransient<PrecosConvenioViewModel>();
         servicos.AddTransient<PrecosParticularViewModel>();
-        servicos.AddTransient<CustoTransacaoViewModel>();
-        servicos.AddTransient<RentabilidadeConvenioViewModel>();
         servicos.AddTransient<CampanhasViewModel>();
         servicos.AddTransient<AuditoriaViewModel>();
         servicos.AddTransient<GuardaProntuarioViewModel>();
@@ -308,10 +305,9 @@ public sealed class ModuloGerente : IModuloApp
     {
         // A Mesa da direção (out/2026) substitui o painel WPF: Blazor, no navegador único da janela.
         ChavePainel => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MesaDaDirecao), servicos),
-        ChaveIndicadores => new IndicadoresView
-        {
-            DataContext = servicos.GetRequiredService<IndicadoresViewModel>()
-        },
+        // Etapa 6 (out/2026): Indicadores, Rentabilidade e Custo saíram do WPF — Blazor, no
+        // navegador único da janela, como as abas vizinhas de "Produção e margem".
+        ChaveIndicadores => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.IndicadoresDaClinica), servicos),
         // Blazor desde out/2026 (docs/faturamento-blazor.md): é a aba "Resumo" do faturamento,
         // e as abas vizinhas também são Blazor — mesmo navegador, sem flash entre elas.
         ChaveFaturamento => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ResumoFaturamento), servicos),
@@ -324,14 +320,8 @@ public sealed class ModuloGerente : IModuloApp
         {
             DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
         },
-        ChaveCusto => new CustoTransacaoView
-        {
-            DataContext = servicos.GetRequiredService<CustoTransacaoViewModel>()
-        },
-        ChaveRentabilidade => new RentabilidadeConvenioView
-        {
-            DataContext = servicos.GetRequiredService<RentabilidadeConvenioViewModel>()
-        },
+        ChaveCusto => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CustoDeTaxasEImpostos), servicos),
+        ChaveRentabilidade => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RentabilidadePorConvenio), servicos),
         ChaveCampanhas => new CampanhasView
         {
             DataContext = servicos.GetRequiredService<CampanhasViewModel>()

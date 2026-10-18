@@ -1,0 +1,186 @@
+@*
+  RENTABILIDADE POR CONVÊNIO (out/2026, etapa 6 do Gerente — saiu do WPF para o Blazor). A
+  pergunta: "qual operadora vale a pena?". O faturamento sabe quantas guias saíram e o
+  financeiro sabe quanto entrou; é o encontro dos dois, por convênio, que revela quem paga
+  pouco, quem paga tarde e quem glosa muito.
+
+  Três leituras que só existem aqui: o LÍQUIDO POR GUIA (o único número comparável entre
+  operadoras), o PRAZO médio até o dinheiro cair e as guias efetivadas SEM receita lançada.
+  As frases e o CSV moram em RentabilidadeNaTela (Application, com teste).
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina rentabilidade @(Carregando && _painel is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Produção e margem" Titulo="Rentabilidade por convênio"
+                     Subtitulo="Qual operadora vale a pena: quem paga pouco, quem paga tarde e quem glosa muito.">
+        <div class="segmentado" role="group" aria-label="Meses">
+            @foreach (var j in RentabilidadeNaTela.Janelas)
+            {
+                var esta = j;
+                <button type="button" aria-pressed="@(esta == _meses ? "true" : "false")" @onclick="() => TrocarJanelaAsync(esta)">@(esta == 1 ? "1 mês" : $"{esta} meses")</button>
+            }
+        </div>
+        <button type="button" class="botao" @onclick="CarregarAsync" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao" @onclick="ExportarAsync" title="Exportar em CSV (Ctrl+P)"
+                disabled="@(_painel is null || _painel.Linhas.Count == 0 || !Pode(Permissao.VerFinanceiro))"><Icone Nome="baixar" />Exportar CSV</button>
+    </CabecalhoPagina>
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível medir a rentabilidade"
+                            Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        </section>
+    }
+    else if (_painel is null)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 5; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+        <div class="cartao cartao-corpo"><Esqueleto Altura="260" /></div>
+    }
+    else
+    {
+        var p = _painel;
+        <section class="kpis rent-kpis" aria-label="Resumo do período">
+            <Kpi Rotulo="Guias" Valor="@p.Guias.ToString(Formato.PtBr)" Icone="documento" Tom="neutro" Nota="@p.Periodo" />
+            <Kpi Rotulo="Recebido (bruto)" Valor="@p.Bruto" Icone="entrada" Tom="sucesso" />
+            <Kpi Rotulo="Retido na fonte" Valor="@p.Retido" Icone="percentual" Tom="saida" Nota="@($"{p.PercentualRetido} do bruto")" />
+            <Kpi Rotulo="Sobrou (líquido)" Valor="@p.Liquido" Icone="cofre" Tom="sucesso" ClasseValor="positivo" />
+            <Kpi Rotulo="Glosa" Valor="@p.TaxaGlosa" Icone="cancelar" Tom="perigo" Nota="das guias efetivadas" />
+        </section>
+
+        <section class="cartao lista-cartao" aria-label="Por convênio">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>Por convênio</h2>
+                    <p>@p.Resumo</p>
+                    @if (p.MelhorEPior is { } mp)
+                    {
+                        <p class="rent-melhor">@mp</p>
+                    }
+                </div>
+            </div>
+            @if (p.Linhas.Count == 0)
+            {
+                <EstadoVazio Icone="documento" Titulo="Nenhuma guia no período"
+                             Descricao="A rentabilidade nasce das guias efetivadas no convênio. Escolha uma janela maior." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista rent-tabela">
+                        <thead>
+                            <tr>
+                                <th>Convênio</th>
+                                <th class="direita">Guias</th>
+                                <th class="direita">Bruto</th>
+                                <th class="direita">Retido</th>
+                                <th class="direita">Líquido</th>
+                                <th class="direita" title="O número que responde «vale a pena?»">Por guia</th>
+                                <th class="direita">Prazo</th>
+                                <th class="rent-col-fracao">Fatia do líquido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in p.Linhas)
+                            {
+                                <tr @key="l.Convenio">
+                                    <td>
+                                        <span class="principal" title="@l.Convenio">@l.Convenio</span>
+                                        <span class="secundario @(l.TemPendencia ? "rent-pendente" : null)">@l.Pendencias</span>
+                                    </td>
+                                    <td class="direita numero">@l.Guias</td>
+                                    <td class="direita numero suave">@l.Bruto</td>
+                                    <td class="direita numero suave">@l.Retido</td>
+                                    <td class="direita numero"><b>@l.Liquido</b></td>
+                                    <td class="direita numero"><b>@l.PorGuia</b></td>
+                                    <td class="direita numero suave">@l.Prazo</td>
+                                    <td class="rent-col-fracao">
+                                        <div class="trilho" role="img" aria-label="@($"{l.Convenio}: fatia do líquido")"><i style="@Largura(l.Fracao)"></i></div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            <div class="rodape-lista">O LÍQUIDO POR GUIA é o único número comparável entre operadoras: faturar mais não quer dizer nada se foi preciso o triplo de atendimentos. O PRAZO conta da baixa da guia até o dinheiro cair — quem paga 10% a mais em 90 dias pode ser pior que quem paga menos em 30.</div>
+        </section>
+    }
+</div>
+
+@code {
+    private int _meses = RentabilidadeNaTela.JanelaPadrao;
+    private PainelDeRentabilidade? _painel;
+    private bool Carregando, _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => ExportarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    private Task TrocarJanelaAsync(int meses)
+    {
+        if (meses == _meses) return Task.CompletedTask;
+        _meses = meses;
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            var periodo = RentabilidadeNaTela.Intervalo(DateOnly.FromDateTime(DateTime.Today), _meses);
+            using var escopo = Escopo();
+            var porConvenio = await escopo.ServiceProvider.GetRequiredService<RentabilidadeConvenioService>()
+                .PorConvenioAsync(periodo.Inicio, periodo.Fim);
+            if (geracao != _geracao || Descartada) return;
+
+            _painel = RentabilidadeNaTela.Montar(porConvenio, periodo);
+            _naoVerificado = false;
+            _erro = null;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — rentabilidade por convênio falhou", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>A planilha com que a clínica renegocia tabela. CSV é saída de dado: a segunda barreira vem antes.</summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar a rentabilidade por convênio")) return;
+        if (_painel is not { Linhas.Count: > 0 } p) return;
+        try
+        {
+            var (cabecalho, linhas) = RentabilidadeNaTela.Csv(p);
+            var erro = await Host.ExportarCsvAsync(cabecalho, linhas, $"rentabilidade-convenios-{DateTime.Today:yyyy-MM-dd}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — rentabilidade não pôde ser exportada", ex);
+            Notificacoes.Erro($"Não foi possível exportar: {ex.Message}");
+        }
+    }
+
+    private static string Largura(double fracao)
+        => $"width:{(Math.Clamp(fracao, 0, 1) * 100).ToString("0.##", CultureInfo.InvariantCulture)}%";
+}

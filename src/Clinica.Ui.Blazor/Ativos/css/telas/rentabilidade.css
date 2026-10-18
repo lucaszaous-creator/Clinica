@@ -1,0 +1,20 @@
+/* Estilo PRÓPRIO da tela Rentabilidade por convênio (out/2026, etapa 6 do Gerente). */
+/* Cinco números: cinco colunas em 1366; abaixo de 1180, três (3 + 2) — em quatro colunas de 1024
+   o valor em reais sai cortado ("R$ 9.55…"), e em duas a fileira vira uma coluna alta. */
+.rentabilidade .kpis.rent-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1180px){.rentabilidade .kpis.rent-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.rentabilidade .kpis.rent-kpis{grid-template-columns:1fr}}
+.rent-melhor{margin-top:var(--space-1);font-weight:600;color:var(--texto-primario)}
+.rent-tabela td:first-child{max-width:240px}
+.rent-tabela td:first-child .principal{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Guia efetivada sem receita é trabalho feito e não cobrado: vermelho, porque é ação. */
+.rent-tabela .secundario.rent-pendente{color:var(--erro-texto);font-weight:600}
+.rent-tabela td.numero{white-space:nowrap}
+.rent-col-fracao{width:16%;min-width:120px}
+.rent-tabela .trilho > i{background:var(--acento)}
+/* Em tela estreita a barra cede o lugar: o líquido ao lado já diz o tamanho. */
+@media (max-width:1200px){
+  .rent-col-fracao{display:none}
+  .rent-tabela th,.rent-tabela td{padding-left:var(--space-2);padding-right:var(--space-2)}
+}
+.rent-tabela td.suave{color:var(--texto-secundario)}

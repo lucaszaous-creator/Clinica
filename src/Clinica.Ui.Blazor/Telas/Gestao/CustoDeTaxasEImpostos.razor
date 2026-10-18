@@ -1,0 +1,197 @@
+@*
+  CUSTO DE TAXAS E IMPOSTOS (out/2026, etapa 6 do Gerente — saiu do WPF para o Blazor). A
+  visão da DIREÇÃO: o Financeiro CADASTRA as taxas (a tela "Taxas e impostos"); aqui se vê
+  quanto elas custaram. Duas leituras que só existem aqui: a taxa EFETIVA contra a de tabela
+  (a diferença é o argumento da renegociação) e a dedução como PERCENTUAL do faturamento.
+
+  As frases, a comparação com a tabela, a série com buraco e o CSV moram em
+  CustoTransacaoNaTela (Application, com teste); a tela só lê e desenha.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina custo @(Carregando && _painel is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Preços e regras" Titulo="Custo de taxas e impostos"
+                     Subtitulo="Quanto a maquininha e o fisco custaram — e se a taxa que a clínica de fato paga bate com a contratada.">
+        <div class="segmentado" role="group" aria-label="Meses">
+            @foreach (var j in CustoTransacaoNaTela.Janelas)
+            {
+                var esta = j;
+                <button type="button" aria-pressed="@(esta == _meses ? "true" : "false")" @onclick="() => TrocarJanelaAsync(esta)">@($"{esta} meses")</button>
+            }
+        </div>
+        <button type="button" class="botao" @onclick="CarregarAsync" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao" @onclick="ExportarAsync" title="Exportar em CSV (Ctrl+P)"
+                disabled="@(_painel is null || !Pode(Permissao.VerFinanceiro))"><Icone Nome="baixar" />Exportar CSV</button>
+    </CabecalhoPagina>
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível medir o custo"
+                            Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        </section>
+    }
+    else if (_painel is null)
+    {
+        <section class="kpis">
+            @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
+        </section>
+        <div class="cartao cartao-corpo"><Esqueleto Altura="260" /></div>
+    }
+    else
+    {
+        var p = _painel;
+        <section class="kpis" aria-label="Resumo do período">
+            <Kpi Rotulo="Entrou (bruto)" Valor="@p.Bruto" Icone="entrada" Tom="sucesso" Nota="@p.Periodo" />
+            <Kpi Rotulo="Maquininha" Valor="@p.Taxa" Icone="cartao" Tom="saida" Nota="@($"{p.PercentualTaxa} de tudo que entrou")" />
+            <Kpi Rotulo="Imposto" Valor="@p.Imposto" Icone="percentual" Tom="saida" Nota="@($"{p.PercentualImposto} de tudo que entrou")" />
+            <Kpi Rotulo="Sobrou (líquido)" Valor="@p.Liquido" Icone="cofre" Tom="sucesso" ClasseValor="positivo" Nota="@($"deduções: {p.PercentualDeducoes}")" />
+        </section>
+
+        <section class="cartao cartao-corpo" aria-label="Evolução mensal">
+            <div class="cartao-titulo"><div><h2>Evolução mensal</h2>
+                <p>O mês sem faturamento interrompe a linha do percentual — desenhado como 0% ele inventaria um mês perfeito.</p></div></div>
+            <div class="custo-graficos">
+                <div>
+                    <h3 class="custo-grafico-titulo">Deduções (% do faturamento)</h3>
+                    <GraficoLinha Pontos="p.SeriePercentual" Tom="perigo" Formatar="Pct"
+                                  Descricao="Deduções como percentual do faturamento, mês a mês. Os números estão na tabela Mês a mês." />
+                </div>
+                <div>
+                    <h3 class="custo-grafico-titulo">Deduções (R$)</h3>
+                    <GraficoLinha Pontos="p.SerieDeducoes" Formatar="Reais"
+                                  Descricao="Deduções em reais, mês a mês. Os números estão na tabela Mês a mês." />
+                </div>
+            </div>
+            @if (p.MaisCara is { } cara)
+            {
+                <p class="custo-mais-cara">@cara</p>
+            }
+        </section>
+
+        <section class="cartao cartao-corpo" aria-label="Por origem do recebimento">
+            <div class="cartao-titulo"><div><h2>Por origem do recebimento</h2><p>@p.Resumo</p></div></div>
+            @if (p.Adquirentes.Count == 0)
+            {
+                <EstadoVazio Icone="cartao" Titulo="Nenhum recebimento no período"
+                             Descricao="O custo nasce da entrada realizada. Escolha uma janela maior." />
+            }
+            else
+            {
+                <ul class="custo-adquirentes">
+                    @foreach (var a in p.Adquirentes)
+                    {
+                        <li @key="a.Rotulo">
+                            <div class="custo-adq-topo"><span class="principal" title="@a.Rotulo">@a.Rotulo</span><span class="secundario">@a.ValorRotulo</span></div>
+                            <div class="trilho" role="img" aria-label="@($"{a.Rotulo}: fatia do custo de maquininha")"><i style="@Largura(a.Fracao)"></i></div>
+                            <div class="custo-comparacao @(a.AcimaDaTabela ? "acima" : null)">@a.Comparacao</div>
+                        </li>
+                    }
+                </ul>
+            }
+            <div class="rodape-lista">A taxa EFETIVA é o que foi descontado sobre o que passou; a de tabela é a contratada. Elas divergem quando a clínica parcela mais do que imagina — e é essa diferença que se leva à renegociação.</div>
+        </section>
+
+        <section class="cartao lista-cartao" aria-label="Mês a mês">
+            <div class="cartao-titulo"><div><h2>Mês a mês</h2></div></div>
+            <div class="tabela-rolagem">
+                <table class="lista custo-tabela">
+                    <thead>
+                        <tr><th>Mês</th><th class="direita">Bruto</th><th class="direita">Maquininha</th><th class="direita">Imposto</th><th class="direita">Líquido</th><th class="direita">Deduções</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in p.Meses)
+                        {
+                            <tr @key="m.Mes">
+                                <td><b>@m.Mes</b></td>
+                                <td class="direita numero">@m.Bruto</td>
+                                <td class="direita numero suave">@m.Taxa</td>
+                                <td class="direita numero suave">@m.Imposto</td>
+                                <td class="direita numero"><b>@m.Liquido</b></td>
+                                <td class="direita numero">@m.Percentual</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private int _meses = CustoTransacaoNaTela.JanelaPadrao;
+    private PainelDeCusto? _painel;
+    private bool Carregando, _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => ExportarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    private Task TrocarJanelaAsync(int meses)
+    {
+        if (meses == _meses) return Task.CompletedTask;
+        _meses = meses;
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            using var escopo = Escopo();
+            var (serie, resumo, adquirentes, faixas) = await escopo.ServiceProvider.GetRequiredService<CustoTransacaoService>()
+                .PainelAsync(hoje, _meses);
+            if (geracao != _geracao || Descartada) return;
+
+            _painel = CustoTransacaoNaTela.Montar(serie, resumo, adquirentes, faixas, RentabilidadeNaTela.Intervalo(hoje, _meses));
+            _naoVerificado = false;
+            _erro = null;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — custo de transação não pôde ser lido", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>A série e a quebra em CSV — a direção negocia com a adquirente com este número.</summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar o custo de taxas e impostos")) return;
+        if (_painel is not { } p) return;
+        try
+        {
+            var (cabecalho, linhas) = CustoTransacaoNaTela.Csv(p);
+            var erro = await Host.ExportarCsvAsync(cabecalho, linhas, $"custo-transacao-{DateTime.Today:yyyy-MM-dd}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — custo não pôde ser exportado", ex);
+            Notificacoes.Erro($"Não foi possível exportar: {ex.Message}");
+        }
+    }
+
+    private static string Pct(double v) => $"{v.ToString("0.##", Formato.PtBr)}%";
+    private static string Reais(double v) => Formato.DinheiroCurto((decimal)v);
+
+    private static string Largura(double fracao)
+        => $"width:{(Math.Clamp(fracao, 0, 1) * 100).ToString("0.##", CultureInfo.InvariantCulture)}%";
+}

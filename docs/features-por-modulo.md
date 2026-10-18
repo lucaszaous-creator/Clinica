@@ -1125,11 +1125,11 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **FINANCEIRO** · Fluxo de caixa | Financeiro | ✅ | `FluxoCaixaView` (parcela 13) — 🔵 idem |
 | **FINANCEIRO** · Fechamento de caixa | Financeiro | ✅ | `FechamentoCaixaView` (parcela 14) — 🔵 idem |
 | **FINANCEIRO** · Recebíveis de cartão | Financeiro | ✅ | `RecebiveisView` (parcela 16) — 🔵 idem |
-| **INTELIGÊNCIA** · Custo de taxas e impostos | Gerente | ✅ | `CustoTransacaoView` (parcela 17) — 🔵 idem |
-| **INTELIGÊNCIA** · Rentabilidade por convênio | Gerente | ✅ | `RentabilidadeConvenioView` (parcela 19) — 🔵 idem |
+| **INTELIGÊNCIA** · Custo de taxas e impostos | Gerente | ✅ | Tela Blazor `CustoDeTaxasEImpostos` (parcela 17; Blazor desde out/2026, etapa 6) — 🔵 idem |
+| **INTELIGÊNCIA** · Rentabilidade por convênio | Gerente | ✅ | Tela Blazor `RentabilidadePorConvenio` (parcela 19; Blazor desde out/2026, etapa 6) — 🔵 idem |
 | **FINANCEIRO** · Tabela de preço (convênios) | Gerente | ✅ | `PrecosConvenioView` (parcela 20) — 🔵 idem |
 | **INTELIGÊNCIA** · Marketing / Recall | Gerente | ✅ | `CampanhasView` |
-| **INTELIGÊNCIA** · Relatórios / BI | Gerente | ✅ | `IndicadoresView` com gráficos e exportação CSV (parcelas 10d e 11) |
+| **INTELIGÊNCIA** · Relatórios / BI | Gerente | ✅ | Tela Blazor `IndicadoresDaClinica` com gráficos e exportação CSV (parcelas 10d e 11; Blazor desde out/2026, etapa 6) |
 | **INTELIGÊNCIA** · Configurações | Gerente | ✅ | `ConfiguracoesView` (parcela 10a) |
 
 **Os grupos são temáticos, não por módulo.** `ItemMenuModulo.Grupo` (`GrupoSidebar`) decide
