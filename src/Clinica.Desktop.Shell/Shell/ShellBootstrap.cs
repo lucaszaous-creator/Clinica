@@ -75,16 +75,22 @@ public static class ShellBootstrap
         await conexao.OpenAsync(ct);
         try
         {
-            await db.Database.ExecuteSqlRawAsync(
-                $"SELECT pg_advisory_lock({ChaveLockMigration})", ct);
-            try
+            // Sem migration pendente não há o que serializar, e a abertura do dia a dia não
+            // toca a trava (out/2026). Antes, TODA abertura esperava por ela com
+            // pg_advisory_lock, sem prazo: uma conexão que caiu com a trava na mão (internet
+            // instável no posto) ficava "idle" no servidor segurando-a até o keepalive de 2 h,
+            // e todos os apps da clínica paravam na abertura com "o banco não respondeu".
+            if ((await db.Database.GetPendingMigrationsAsync(ct)).Any())
             {
-                await MigrarTolerandoCorridaAsync(db, ct);
-            }
-            finally
-            {
-                await db.Database.ExecuteSqlRawAsync(
-                    $"SELECT pg_advisory_unlock({ChaveLockMigration})", ct);
+                var travou = await TentarTravarMigrationAsync(db, ct);
+                try
+                {
+                    await MigrarTolerandoCorridaAsync(db, ct);
+                }
+                finally
+                {
+                    if (travou) await DestravarMigrationAsync(db);
+                }
             }
         }
         finally
@@ -114,6 +120,53 @@ public static class ShellBootstrap
         await scope.ServiceProvider
             .GetRequiredService<Clinica.Application.Servicos.EspecialidadeCatalogoService>()
             .RecarregarCacheAsync(ct);
+    }
+
+    /// <summary>Quanto a abertura espera pela trava das migrations antes de seguir sem ela.</summary>
+    private static readonly TimeSpan PrazoDaTravaDeMigration = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Pega a trava das migrations com PRAZO (<c>pg_try_advisory_lock</c> de 2 em 2 s). Quem
+    /// a segura há mais que o prazo não está migrando — é uma sessão morta que o servidor
+    /// ainda não derrubou —, e esperar por ela travaria a clínica inteira. Passado o prazo,
+    /// a abertura segue SEM a trava: a corrida de DDL com outro app já é tolerada por
+    /// <see cref="MigrarTolerandoCorridaAsync"/>, e isso fica no log.
+    /// </summary>
+    private static async Task<bool> TentarTravarMigrationAsync(ClinicaDbContext db, CancellationToken ct)
+    {
+        var limite = DateTime.UtcNow + PrazoDaTravaDeMigration;
+        while (true)
+        {
+            // Na MESMA conexão já aberta: a trava é de sessão.
+            await using var comando = db.Database.GetDbConnection().CreateCommand();
+            comando.CommandText = $"SELECT pg_try_advisory_lock({ChaveLockMigration})";
+            var conseguiu = await comando.ExecuteScalarAsync(ct) is true;
+            if (conseguiu) return true;
+            if (DateTime.UtcNow >= limite)
+            {
+                LogSuite.Registrar(
+                    $"Suíte — a trava das migrations está presa há mais de {PrazoDaTravaDeMigration.TotalSeconds:0} s; seguindo sem ela",
+                    new TimeoutException("pg_advisory_lock " + ChaveLockMigration));
+                return false;
+            }
+            await Task.Delay(TimeSpan.FromSeconds(2), ct);
+        }
+    }
+
+    /// <summary>
+    /// Solta a trava. Falhar aqui não impede a abertura: fechar a conexão devolve-a ao pool,
+    /// que a reinicia (DISCARD ALL) e solta a trava de sessão do mesmo jeito.
+    /// </summary>
+    private static async Task DestravarMigrationAsync(ClinicaDbContext db)
+    {
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync($"SELECT pg_advisory_unlock({ChaveLockMigration})");
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Suíte — não foi possível soltar a trava das migrations", ex);
+        }
     }
 
     /// <summary>

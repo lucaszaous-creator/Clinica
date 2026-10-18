@@ -134,6 +134,26 @@ Estão em [`CLAUDE.md`](../CLAUDE.md), na seção "⛔ Regras de tela para quem 
 também no CRM: uma porta por pergunta; função que saiu sai inteira; o que pede ação vira aviso;
 o telefone não é identidade; Relacionamento é de quem trata; responsivo e sem resquício.
 
+## 6.1 Incidente de 18/10: os apps não abriam ("o banco não respondeu a tempo")
+
+**Sintoma**: a Recepção e o Gerente ficavam parados na abertura, com *"Exception while reading
+from stream"* e depois *"O banco de dados não respondeu a tempo"*.
+
+**Causa**: o app tem uma trava no Postgres (`pg_advisory_lock`, chave `727411`) para só um
+computador atualizar o banco por vez. Uma conexão do posto caiu segurando essa trava, e a
+sessão ficou "idle" no servidor. Todo app que abria depois ficava esperando por ela, sem prazo.
+**Não foi a publicação do dia**: a versão 1.2.55 não tinha atualização de banco nenhuma.
+
+**Como destravar à mão** (pede a senha do `clinica-admin`; feche antes os apps do posto):
+
+```text
+ssh -t clinica-admin@177.153.66.251 sudo -u postgres psql -d clinica -c "select pid, granted, client_addr, state from pg_locks join pg_stat_activity using(pid) where locktype='advisory' and objid=727411"
+ssh -t clinica-admin@177.153.66.251 sudo -u postgres psql -d clinica -c "select pg_terminate_backend(pid) from pg_locks where locktype='advisory' and objid=727411"
+```
+
+**Correção no código** (PR #264): sem atualização pendente, a abertura nem pede a trava; com
+atualização pendente, espera no máximo 60 s e segue sem ela, registrando no log.
+
 ## 7. 🧑‍💻 UX · 🛠️ DX · 🤝 CX
 
 - 🧑‍💻 **UX**:
