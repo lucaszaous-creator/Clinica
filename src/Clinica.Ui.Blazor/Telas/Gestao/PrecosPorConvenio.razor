@@ -1,0 +1,241 @@
+@*
+  TABELA DE PREÇO POR CONVÊNIO (out/2026, etapa 6 do Gerente — saiu do WPF para o Blazor). Era a
+  PrecosConvenioView + PrecosConvenioViewModel + a PrecoConvenioWindow.
+
+  Quem negocia tabela com a operadora é a DIREÇÃO; quem concilia guia é o BALCÃO. O cadastro é
+  daqui e o uso é da Conciliação do Financeiro, sobre o mesmo banco: o Financeiro lê a mesma
+  tabela que esta tela escreve, e o valor aparece na conciliação no próximo carregamento.
+
+  A tela é a TABELA, que é o que a direção vem conferir; cadastro e correção moram no formulário
+  (PrecoConvenioForm), porque acontecem na negociação, não todo dia. O filtro (convênio + "só o
+  que vale hoje") é em memória, sobre o que já foi lido. As frases, o filtro e a situação de cada
+  linha moram em PrecosConvenioNaTela (Application, com teste).
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina precos-convenio @(Carregando && _todas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Preços e regras" Titulo="Tabela de preço por convênio"
+                     Subtitulo="Quanto cada operadora paga por tipo de guia. Cadastrado aqui, na direção — quem negocia tabela — e usado na Conciliação do Financeiro, que passa a PROPOR o valor em vez de pedir que ele seja digitado. O preço do PARTICULAR é a aba ao lado.">
+        <button type="button" class="botao" @onclick="CarregarAsync" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao primario" disabled="@(!PodeEditar)" @onclick="Novo"
+                title="@(PodeEditar ? null : "Seu acesso não permite cadastrar preço de convênio.")"><Icone Nome="mais" />Novo preço</button>
+    </CabecalhoPagina>
+
+    <section class="cartao lista-cartao" aria-label="Preços cadastrados">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Preços cadastrados</h2>
+                @if (!_naoVerificado && _lido)
+                {
+                    <p>@Resumo</p>
+                }
+            </div>
+        </div>
+
+        @if (!_naoVerificado && _todas.Count > 0)
+        {
+            <div class="filtros">
+                <Campo Rotulo="Convênio">
+                    <select class="campo" value="@_convenio" @onchange="TrocarConvenio">
+                        @foreach (var c in _opcoes)
+                        {
+                            <option value="@c">@c</option>
+                        }
+                    </select>
+                </Campo>
+                <label class="alternar precos-alternar"><input type="checkbox" checked="@_soHoje" @onchange="TrocarSoHoje" /> Só o que vale hoje</label>
+                <button type="button" class="botao" disabled="@(!FiltroAtivo)" @onclick="LimparFiltro"><Icone Nome="x" />Limpar filtro</button>
+            </div>
+        }
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a tabela"
+                            Detalhe="@($"A tabela não está vazia — ela não pôde ser lida. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_lido)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Icone="etiqueta" Titulo="@(FiltroAtivo ? "Nenhum preço no filtro" : "Nenhum preço cadastrado")"
+                         Descricao="@PrecosConvenioNaTela.Vazio(FiltroAtivo)">
+                @if (FiltroAtivo)
+                {
+                    <button type="button" class="botao" @onclick="LimparFiltro"><Icone Nome="x" />Limpar filtro</button>
+                }
+            </EstadoVazio>
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista precos-tabela">
+                    <thead>
+                        <tr>
+                            <th>Convênio</th>
+                            <th>Guia</th>
+                            <th>Vigência</th>
+                            <th class="direita">Valor</th>
+                            <th>Situação</th>
+                            <th class="direita" aria-label="Ações"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _linhas)
+                        {
+                            <tr @key="l.PrecoId" class="@(l.ValendoAgora ? null : "precos-fora")">
+                                <td><span class="principal" title="@l.Convenio">@l.Convenio</span></td>
+                                <td>@l.Descricao</td>
+                                <td class="nao-quebra">@l.Vigencia</td>
+                                <td class="direita numero"><b>@l.Valor</b></td>
+                                <td class="precos-situacao"><Selo Tom="@(l.ValendoAgora ? "sucesso" : "neutro")"
+                                          Dica="@(l.ValendoAgora ? "É o valor que a conciliação está propondo agora." : null)">@l.Situacao</Selo></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini" disabled="@(!PodeEditar)" @onclick="() => Editar(l)"
+                                                title="@(PodeEditar ? null : "Seu acesso não permite editar preço de convênio.")"><Icone Nome="editar" />Editar</button>
+                                        <button type="button" class="botao mini icone" disabled="@(!PodeEditar)" @onclick="() => ExcluirAsync(l)"
+                                                title="Excluir o preço" aria-label="@($"Excluir o preço de {l.Convenio} ({l.Descricao})")"><Icone Nome="lixo" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">Reajuste da operadora entra como uma linha NOVA, com a data em que passou a valer: a guia de março continua sendo proposta pelo valor de março, e o que já foi lançado no caixa nunca muda. Excluir é só para o que foi cadastrado errado — o resto se ENCERRA pela vigência.</div>
+        }
+    </section>
+</div>
+
+@if (_editando is { } id)
+{
+    <PrecoConvenioForm PrecoId="id" AoFechar="() => _editando = null" AoConcluir="GravouAsync" />
+}
+
+@code {
+    private readonly List<LinhaDePrecoConvenio> _todas = [];
+    private IReadOnlyList<LinhaDePrecoConvenio> _linhas = [];
+    private IReadOnlyList<string> _opcoes = [PrecosConvenioNaTela.TodosConvenios];
+    private string _convenio = PrecosConvenioNaTela.TodosConvenios;
+    private bool _soHoje;
+    private bool Carregando, _naoVerificado, _lido;
+    private string? _erro;
+    private int _geracao;
+    /// <summary>0 = preço novo; nulo = formulário fechado.</summary>
+    private int? _editando;
+
+    /// <summary>A metade visível da permissão; a que impede é o <c>Exigir</c> em cada comando.</summary>
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    private bool FiltroAtivo => PrecosConvenioNaTela.FiltroAtivo(_convenio, _soHoje);
+    private string Resumo => PrecosConvenioNaTela.Resumo(_todas, _linhas.Count, FiltroAtivo);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            using var escopo = Escopo();
+            var catalogo = await escopo.ServiceProvider.GetRequiredService<PrecoConvenioService>().CatalogoAsync();
+            if (geracao != _geracao || Descartada) return;
+
+            // Tudo publicado depois do último await, numa passada só.
+            var linhas = catalogo.Select(p => PrecosConvenioNaTela.LinhaDe(p, hoje)).ToList();
+            _todas.Clear();
+            _todas.AddRange(linhas);
+            _opcoes = PrecosConvenioNaTela.OpcoesDeConvenio(_todas);
+            // Atualizar não desfaz o filtro de quem está trabalhando na tabela.
+            _convenio = PrecosConvenioNaTela.ManterEscolha(_convenio, _opcoes);
+            Refiltrar();
+            _naoVerificado = false;
+            _erro = null;
+            _lido = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — tabela de preço por convênio não pôde ser lida", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Refiltrar() => _linhas = PrecosConvenioNaTela.Filtrar(_todas, _convenio, _soHoje);
+
+    private void TrocarConvenio(ChangeEventArgs e)
+    {
+        _convenio = e.Value?.ToString() ?? PrecosConvenioNaTela.TodosConvenios;
+        Refiltrar();
+    }
+
+    private void TrocarSoHoje(ChangeEventArgs e)
+    {
+        _soHoje = e.Value is true;
+        Refiltrar();
+    }
+
+    private void LimparFiltro()
+    {
+        _convenio = PrecosConvenioNaTela.TodosConvenios;
+        _soHoje = false;
+        Refiltrar();
+    }
+
+    private void Novo()
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "cadastrar preço de convênio")) return;
+        _editando = 0;
+    }
+
+    private void Editar(LinhaDePrecoConvenio linha)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "editar preço de convênio")) return;
+        _editando = linha.PrecoId;
+    }
+
+    private async Task GravouAsync()
+    {
+        var novo = _editando == 0;
+        _editando = null;
+        Notificacoes.Sucesso(PrecosConvenioNaTela.Concluido(novo));
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Excluir só serve para o que foi cadastrado errado: preço que já propôs valor a alguma guia
+    /// se ENCERRA pela vigência — o lançamento guardou o valor copiado, mas apagar a linha apaga a
+    /// explicação de por que aquela guia valeu aquilo.
+    /// </summary>
+    private async Task ExcluirAsync(LinhaDePrecoConvenio linha)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "excluir preço de convênio")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir preço", PrecosConvenioNaTela.PerguntaDeExcluir(linha), perigoso: true, confirmar: "Excluir")) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<PrecoConvenioService>().ExcluirAsync(linha.PrecoId);
+            }, "Blazor — preço de convênio não pôde ser excluído"))
+        {
+            Notificacoes.Info(PrecosConvenioNaTela.Excluido);
+            await CarregarAsync();
+        }
+    }
+}
