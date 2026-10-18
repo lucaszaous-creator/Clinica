@@ -3,6 +3,7 @@ using System.Windows;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -87,6 +88,7 @@ public static class SuiteApp
         // servidor troca de endereço, e sair só com "erro" deixaria o posto parado.
         IHost host;
         var forcarSetup = false;
+        var passageiras = 0; // tentativas automáticas já gastas por falha de rede
         while (true)
         {
             // Depois de uma falha, a tela é obrigatória: a conexão ruim pode ser a
@@ -135,6 +137,33 @@ public static class SuiteApp
                 // tentar de novo, senão cada erro deixa um pool para trás.
                 tentativa?.Dispose();
                 LogSuite.Registrar($"{nomeApp} — não foi possível preparar o banco", ex);
+
+                // Falha de REDE (out/2026: a abertura estourava o prazo de vez em quando,
+                // com o banco e a VPS saudáveis) se tenta de novo sozinha, em silêncio.
+                if (ConexaoRemota.EhFalhaPassageira(ex))
+                {
+                    if (passageiras < ConexaoRemota.EsperasEntreTentativas.Length)
+                    {
+                        await Task.Delay(ConexaoRemota.EsperasEntreTentativas[passageiras++]);
+                        continue;
+                    }
+
+                    // Esgotadas as tentativas: a rede está mesmo fora. A pergunta é "tentar
+                    // de novo?", NUNCA "informar outra conexão?" — a configuração está certa,
+                    // e o "Sim" daquela pergunta a apagaria.
+                    var deNovo = MessageBox.Show(
+                        "O banco de dados não respondeu a tempo.\n\n" +
+                        "Costuma ser instabilidade da internet. A configuração desta máquina continua salva.\n\n" +
+                        "Tentar de novo?",
+                        nomeApp, MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
+                    if (!deNovo)
+                    {
+                        app.Shutdown();
+                        return null;
+                    }
+                    passageiras = 0;
+                    continue;
+                }
 
                 var reconfigurar = MessageBox.Show(
                     $"Não foi possível conectar ao banco de dados:\n\n{ex.Message}\n\n" +

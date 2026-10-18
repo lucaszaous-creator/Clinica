@@ -58,6 +58,7 @@ public partial class App : System.Windows.Application
 
         // Loop: obter conexão (1º acesso ou salva) → conectar/migrar. Se falhar, oferecer reconfigurar.
         var forcarSetup = false;
+        var passageiras = 0; // tentativas automáticas já gastas por falha de rede
         while (true)
         {
             var connectionString = ObterConexao(forcarSetup);
@@ -107,6 +108,33 @@ public partial class App : System.Windows.Application
                 LogErros.Registrar("Falha ao conectar/migrar o banco na abertura", ex);
                 _host?.Dispose();
                 _host = null;
+
+                // Falha de REDE se tenta de novo sozinha, como na suíte (out/2026): a
+                // abertura estourava o prazo de vez em quando com o banco saudável, e o
+                // "Sim" da pergunta abaixo levava a reconfigurar uma conexão que estava certa.
+                if (ConexaoRemota.EhFalhaPassageira(ex))
+                {
+                    if (passageiras < ConexaoRemota.EsperasEntreTentativas.Length)
+                    {
+                        await Task.Delay(ConexaoRemota.EsperasEntreTentativas[passageiras++]);
+                        continue;
+                    }
+
+                    var deNovo = MessageBox.Show(
+                        "O banco de dados não respondeu a tempo.\n\n" +
+                        "Costuma ser instabilidade da internet. A configuração desta máquina continua salva.\n\n" +
+                        "Tentar de novo?",
+                        "Erro de conexão", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (deNovo == MessageBoxResult.Yes)
+                    {
+                        passageiras = 0;
+                        continue;
+                    }
+
+                    MostrarPendenciasOffline();
+                    Shutdown();
+                    return;
+                }
 
                 var reconfig = MessageBox.Show(
                     $"Não foi possível conectar ao banco de dados:\n\n{ex.Message}\n\nDeseja reconfigurar a conexão?",
