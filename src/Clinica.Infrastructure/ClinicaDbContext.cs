@@ -125,6 +125,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ItemDocumentoFinanceiro> ItensDocumentoFinanceiro => Set<ItemDocumentoFinanceiro>();
     public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
     public DbSet<MensagemSms> MensagensSms => Set<MensagemSms>();
+    public DbSet<ResumoCrmDiario> ResumosCrmDiarios => Set<ResumoCrmDiario>();
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
     public DbSet<OperacaoAssinaturaTablet> OperacoesAssinaturaTablet => Set<OperacaoAssinaturaTablet>();
     public DbSet<SessaoTablet> SessoesTablet => Set<SessaoTablet>();
@@ -1736,6 +1737,16 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => x.ChaveIdempotencia).IsUnique();
             e.HasIndex(x => x.CriadaEm);
             e.Ignore(x => x.PodeRetentar);
+        });
+
+        // O dia do CRM (caminho A): a ponte grava uma linha por dia, o Gerente lê. Só contagens.
+        b.Entity<ResumoCrmDiario>(e =>
+        {
+            e.ToTable("ResumosCrmDiarios");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.GeradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.RecebidoEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(x => x.Dia).IsUnique();
         });
 
         b.Entity<UsuarioSistema>(e =>

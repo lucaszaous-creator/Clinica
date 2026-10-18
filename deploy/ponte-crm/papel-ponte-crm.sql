@@ -38,6 +38,7 @@ BEGIN
       ['Agendamentos','INSERT, UPDATE'], ['Atendimentos','INSERT, UPDATE'], ['Codigos','INSERT, UPDATE'],
       ['ContatosCampanha','INSERT, UPDATE'], ['MensagensSms','INSERT, UPDATE'],
       ['Acompanhamentos','INSERT, UPDATE'], ['ContatosAcompanhamento','INSERT, UPDATE'],
+      ['ResumosCrmDiarios','INSERT, UPDATE'],
       ['Pacientes','UPDATE'], ['Auditoria','INSERT']] LOOP
     IF to_regclass(format('public.%I', g[1])) IS NOT NULL THEN
       EXECUTE format('GRANT %s ON public.%I TO ponte_crm', g[2], g[1]);

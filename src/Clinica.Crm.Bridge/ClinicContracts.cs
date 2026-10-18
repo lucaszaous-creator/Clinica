@@ -65,3 +65,14 @@ public sealed record ClinicPatientVisit(int AppointmentId, DateTimeOffset Starts
     string Status, string Answer = "");
 public sealed record ClinicPatientCard(int Id, string Name, string Phone, DateOnly? BirthDate, string Insurance,
     string DocumentEnd, bool PhoneMatch, DateOnly? LastSession, string LastModality, ClinicPatientVisit[] Upcoming);
+
+// O dia do CRM para a direção (out/2026, caminho A): o CRM calcula, a ponte grava uma linha por
+// dia no banco da clínica e o Gerente lê. Só contagens — nenhum dado de paciente. O dia de hoje
+// chega várias vezes (parcial) e o de ontem mais uma (fechado); vale o GeneratedAt mais novo.
+// MedianResponseSeconds nulo = não medido (nenhuma resposta humana no dia), nunca zero.
+public sealed record CrmDailySummary(DateOnly Day, DateTimeOffset GeneratedAt,
+    int ConversationsStarted, int ConversationsClosed, int ConversationsOpen,
+    int MessagesIn, int MessagesOut, int? MedianResponseSeconds, int RepliesMeasured,
+    int SmsSent, int SmsSegments, int SmsFailed,
+    int ConfirmationsAsked, int ConfirmationsAnswered,
+    int Resolved, int Scheduled, int NoResponse);

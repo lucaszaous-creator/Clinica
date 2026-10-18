@@ -45,8 +45,9 @@ vez de aparecer como zero:
 - **margem por sessão**: existe desde a etapa "Produção e margem", na primeira aba de
   Produção e margem (ver [`gerente-margem.md`](gerente-margem.md)). A Mesa ainda não a
   repete;
-- **números do CRM** (conversas, tempo de resposta, custo de SMS): etapa do CRM, caminho A.
-  A ponte vai gravar um resumo diário no banco da clínica.
+- **números do CRM** (conversas, tempo de resposta, SMS): existem desde a etapa do CRM, caminho
+  A, no bloco "Atendimento pelo CRM" (ver [`gerente-crm.md`](gerente-crm.md)). O custo sai em
+  segmentos de SMS, porque nenhum dos dois sistemas guarda o preço.
 
 ## 🧑‍💻 UX · 🛠️ DX · 🤝 CX
 
