@@ -152,7 +152,10 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
         var ordem = palco.Telas.ToList().FindIndex(e => e.Tela == atual);
         Assert.Same(conteineres[ordem], visiveis[0]);
         Assert.NotEmpty(visiveis[0].QuerySelectorAll(".pagina"));
-        Assert.Empty(visiveis[0].QuerySelectorAll(".vazio-estado.falha"));
+        // Diz QUAL tela caiu no terceiro estado e o que ela escreveu: "Assert.Empty falhou" sem o
+        // nome da tela obrigou a reproduzir no escuro uma falha que só aparece com o tempo do CI.
+        var falha = visiveis[0].QuerySelectorAll(".vazio-estado.falha");
+        Assert.True(falha.Length == 0, $"{atual.Name} mostrou falha de leitura depois da troca: {falha.FirstOrDefault()?.TextContent?.Trim()}");
         Assert.Single(r.FindAll(".notificacoes"));          // a pilha de avisos é uma por navegador
         Assert.Empty(r.FindAll(".palco-tela .notificacoes")); // e nunca dentro de uma tela
     }
