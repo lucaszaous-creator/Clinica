@@ -176,6 +176,11 @@ public static class DependencyInjection
 
         // Parcela 52 — a POLÍTICA em volta da ferramenta: prazo, destino e rotação.
         services.AddScoped<PoliticaBackupService>();
+
+        // As portas que a tela de Configurações em Blazor alcança (out/2026): a camada de
+        // tela só enxerga a Application, e estes dois motores moram aqui.
+        services.AddScoped<ICopiaDeSeguranca, CopiaDeSegurancaDaClinica>();
+        services.AddScoped<IPendenciasDeConclusao, PendenciasDeConclusaoDaClinica>();
         return services;
     }
 

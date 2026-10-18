@@ -1,0 +1,1339 @@
+@*
+  CONFIGURAÇÕES DA CLÍNICA (out/2026, etapa 6 do Gerente — saiu do WPF: ConfiguracoesView +
+  ConfiguracoesViewModel, com os componentes do shell DadosClinicaView e RegrasFaturamentoView
+  e as janelas CamposPersonalizadosWindow e ModelosTermoWindow, que viraram formulários).
+
+  O que vale para a clínica inteira, em seis abas — as MESMAS do WPF, na mesma ordem. Cada bloco
+  grava pelo PRÓPRIO botão (são assuntos diferentes: um botão único gravaria o que ninguém olhou),
+  e salvar um bloco relê SÓ aquele bloco — o WPF relia tudo e apagava, em silêncio, o que a pessoa
+  tinha digitado nas outras abas sem salvar.
+
+  Segredos (a senha do SMTP e a chave secreta do armazenamento) NUNCA voltam para a tela: o campo
+  nasce vazio, e vazio no Salvar quer dizer MANTER o gravado — a regra do token do SMS. Nada disso
+  vai para log nem para notificação.
+
+  O que decide (leituras, recusas, frases de situação) mora em ConfiguracoesDaClinicaNaTela, na
+  Application, com teste; os prazos e os dados da clínica usam ConfiguracoesFaturamentoNaTela — a
+  MESMA regra da tela de Configurações do faturamento. Monitor e janela de exemplo são hardware do
+  Windows: passam pelo hospedeiro (IHostDaTela.ListarMonitoresAsync / MostrarExemploNaTelaDoPacienteAsync).
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Email
+
+<div class="pagina configuracoes @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Configurações" Titulo="Configurações"
+                     Subtitulo="O que vale para a clínica inteira. Cada bloco salva sozinho — são assuntos diferentes, e um botão único gravaria o que ninguém olhou.">
+        @if (Pendente)
+        {
+            <Selo Tom="aviso" Dica="Há mudanças nesta tela que ainda não foram gravadas.">Alterações não salvas</Selo>
+        }
+        <button type="button" class="botao" @onclick="AtualizarAsync" disabled="@(_carregando || _salvando)" title="Ler de novo (F5)">
+            <Icone Nome="atualizar" />Atualizar
+        </button>
+    </CabecalhoPagina>
+
+    @if (!PodeEditar)
+    {
+        <Aviso Tom="info" Texto="Seu acesso permite ver estas configurações, mas não alterá-las — elas valem para a clínica inteira. Fale com a direção da clínica." />
+    }
+
+    <section class="cartao lista-cartao">
+        <div class="abas cfg-abas" role="tablist" aria-label="Configurações da clínica">
+            @foreach (var (aba, rotulo) in Abas)
+            {
+                <button type="button" role="tab" aria-selected="@(_aba == aba ? "true" : "false")" @onclick="() => TrocarAba(aba)">@rotulo</button>
+            }
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as configurações"
+                            Detalhe="@($"Nada está zerado — as configurações não puderam ser lidas. {_erroLeitura}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="280" /></div>
+        }
+        else
+        {
+            <fieldset class="cfg-fieldset" disabled="@(!PodeEditar)">
+                @switch (_aba)
+                {
+                    case Aba.Clinica: @AbaClinica break;
+                    case Aba.Atendimento: @AbaAtendimento break;
+                    case Aba.Operacao: @AbaOperacao break;
+                    case Aba.Faturamento: @AbaFaturamento break;
+                    case Aba.Integracoes: @AbaIntegracoes break;
+                    default: @AbaBackup break;
+                }
+            </fieldset>
+        }
+    </section>
+</div>
+
+@if (_termos)
+{
+    <ModelosTermoForm AoFechar="() => _termos = false" />
+}
+@if (_campos)
+{
+    <CamposPersonalizadosForm AoFechar="() => _campos = false" />
+}
+
+@code {
+    // ============================ Abas ============================
+
+    private RenderFragment AbaClinica => @<text>
+        <div class="cartao-corpo cfg-corpo">
+            <div class="cfg-topo">
+                <h2>Dados da clínica e do prestador</h2>
+                <p>Saem impressos na capa de lote, na guia TISS e nos documentos clínicos — errado aqui é errado em todo papel que o paciente leva. As regras TISS ficam em seu próprio bloco.</p>
+            </div>
+            <div class="campos">
+                <Campo Rotulo="Razão social"><input class="campo" maxlength="200" @bind="_razaoSocial" @bind:after="MudouClinica" /></Campo>
+                <Campo Rotulo="Nome fantasia"><input class="campo" maxlength="200" @bind="_nomeFantasia" @bind:after="MudouClinica" /></Campo>
+                <Campo Rotulo="CNPJ"><input class="campo" maxlength="30" @bind="_cnpj" @bind:after="MudouClinica" /></Campo>
+                <Campo Rotulo="CNES"><input class="campo" maxlength="30" @bind="_cnes" @bind:after="MudouClinica" /></Campo>
+                <Campo Rotulo="Endereço"><input class="campo" maxlength="300" @bind="_endereco" @bind:after="MudouClinica" /></Campo>
+                <Campo Rotulo="Telefone"><input class="campo" maxlength="40" @bind="_telefone" @bind:after="MudouClinica" /></Campo>
+                <Campo Rotulo="E-mail"><input class="campo" maxlength="200" @bind="_email" @bind:after="MudouClinica" /></Campo>
+                <Campo Rotulo="Chave Pix" Dica="@ConfiguracoesDaClinicaNaTela.TipoDaChavePix(_chavePix)">
+                    <input class="campo" maxlength="120" @bind="_chavePix" @bind:event="oninput" @bind:after="MudouClinica" />
+                </Campo>
+                <Campo Rotulo="Cidade" Dica="A chave Pix e a cidade são os dois campos que o código Pix exige.">
+                    <input class="campo" maxlength="80" @bind="_cidade" @bind:after="MudouClinica" />
+                </Campo>
+                <Campo Rotulo="Código do prestador na operadora"><input class="campo" maxlength="40" @bind="_codigoNaOperadora" @bind:after="MudouClinica" /></Campo>
+                <Campo Rotulo="Registro ANS da operadora"><input class="campo" maxlength="20" @bind="_registroAns" @bind:after="MudouClinica" /></Campo>
+            </div>
+            @Mensagem(Aba.Clinica)
+            <div class="cfg-rodape">
+                <button type="button" class="botao primario" @onclick="SalvarClinicaAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
+                    <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar dados da clínica")
+                </button>
+            </div>
+        </div>
+    </text>;
+
+    private RenderFragment AbaAtendimento => @<text>
+        <div class="cartao-corpo cfg-corpo">
+            <div class="cfg-topo">
+                <h2>Enfermagem e conclusão das sessões</h2>
+                <p>Exigir evolução de enfermagem antes de concluir estas modalidades BSV:</p>
+            </div>
+            @if (_modalidadesEnfermagem.Count == 0)
+            {
+                <p class="cfg-nota">Nenhuma modalidade BSV cadastrada no catálogo — a evolução de enfermagem é exclusiva de BSV.</p>
+            }
+            else
+            {
+                <div class="cfg-marcas">
+                    @foreach (var m in _modalidadesEnfermagem)
+                    {
+                        <label class="marcar"><input type="checkbox" checked="@m.Selecionada" @onchange="@(e => { m.Selecionada = e.Value is true; _pendConclusao = true; })" /> @m.Nome</label>
+                    }
+                </div>
+            }
+            <p class="cfg-situacao @(_conclusaoAutomatica ? null : "pendente")">@ConfiguracoesDaClinicaNaTela.SituacaoConclusao(_conclusaoAutomatica)</p>
+            <div class="campos tres">
+                <Campo Rotulo="Prazo em horas após a última gravação" Dica="De 1 a 720 horas.">
+                    <input class="campo" inputmode="numeric" maxlength="3" aria-label="Prazo para conclusão automática em horas"
+                           @bind="_prazoConclusao" @bind:event="oninput" @bind:after="() => _pendConclusao = true" />
+                </Campo>
+            </div>
+            <p class="cfg-nota">O médico usa apenas Salvar sessão. Exemplo: conclusão em 24 horas após a última gravação da evolução médica. Vale para evoluções gravadas após ativar a regra. Nas modalidades marcadas, a falta de evolução de enfermagem mantém a sessão pendente, com aviso. As guias são geradas uma única vez. O sistema não assina documentos nem confirma pagamentos. A conclusão precisa de conexão com o banco; para funcionar com os computadores desligados, o serviço de conclusão deve estar ativo no servidor.</p>
+            @Mensagem(Aba.Atendimento)
+            <div class="cfg-rodape">
+                <button type="button" class="botao primario" @onclick="SalvarConclusaoAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
+                    <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar regras de conclusão")
+                </button>
+            </div>
+
+            <div class="cfg-secao">
+                <div class="cfg-topo">
+                    <h2>Sessões que precisam de atenção</h2>
+                    <p>@_resumoPendencias</p>
+                </div>
+                <div>
+                    <button type="button" class="botao" @onclick="AtualizarPendenciasAsync" disabled="@(!PodeEditar || _lendoPendencias)">
+                        <Icone Nome="atualizar" />@(_lendoPendencias ? "Conferindo…" : "Atualizar pendências")
+                    </button>
+                </div>
+                @if (_pendencias.Count > 0)
+                {
+                    <div class="tabela-rolagem">
+                        <table class="lista cfg-pendencias">
+                            <thead>
+                                <tr><th>Paciente</th><th>Profissional</th><th style="width:150px">Data</th><th style="width:110px">Sessão</th><th>Motivo</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in _pendencias)
+                                {
+                                    <tr @key="p.AgendamentoId">
+                                        <td><span class="principal">@p.Paciente</span></td>
+                                        <td>@p.Profissional</td>
+                                        <td class="nao-quebra">@p.Data.ToString("dd/MM/yyyy HH:mm", Formato.PtBr)</td>
+                                        <td class="nao-quebra">Sessão @p.AgendamentoId</td>
+                                        <td>@p.Motivo</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </text>;
+
+    private RenderFragment AbaOperacao => @<text>
+        <div class="cartao-corpo cfg-corpo">
+            <div class="cfg-topo">
+                <h2>Operação e marketing</h2>
+                <p>Os números que os indicadores e a fila de recall usam, a chave da guia na marcação e a carimbadora de tempo das assinaturas.</p>
+            </div>
+            <div class="campos">
+                <Campo Rotulo="Jornada diária (minutos)" Dica="É o DENOMINADOR da taxa de ocupação. Clínica de meio período veria 50% com a agenda cheia se ficasse nos 480 padrão.">
+                    <input class="campo" inputmode="numeric" maxlength="4" @bind="_jornada" @bind:event="oninput" @bind:after="MudouOperacao" />
+                </Campo>
+                <Campo Rotulo="Recall: dias sem vir" Dica="A partir de quantos dias parado o paciente entra na fila de recall do Acompanhamento de pacientes, quando a fila é aberta.">
+                    <input class="campo" inputmode="numeric" maxlength="4" @bind="_recall" @bind:event="oninput" @bind:after="MudouOperacao" />
+                </Campo>
+            </div>
+
+            <div class="secao-form">
+                <h3>Faturamento na marcação</h3>
+                <label class="alternar"><input type="checkbox" @bind="_guiaNoAgendamento" @bind:after="MudouOperacao" /> A guia nasce quando o atendimento entra no sistema (marcação ou avulso)</label>
+                <span class="campo-dica">Ligada, marcar um horário já gera o atendimento e as guias — a faturista pode efetivar no portal com antecedência, e cancelamento/falta suspende as guias sozinho (reabrir devolve). Guia de sessão futura não entra no painel de pendências até a data chegar.</span>
+                <Aviso Tom="atencao" Texto="LIGUE SÓ DEPOIS DE ATUALIZAR TODAS AS MÁQUINAS da clínica: um programa antigo confirmando presença de um horário marcado pelo novo geraria guia em dobro. A chave só é regravada quando muda — ligar dispara a recontagem das sessões realizadas." />
+            </div>
+
+            <Campo Rotulo="Carimbadora de tempo (ACT) — opcional" Dica="Endereço RFC 3161 de uma autoridade de carimbo do tempo, para as assinaturas ICP-Brasil das prescrições. Em branco a assinatura continua válida — só que a data é a do relógio de quem assinou, e o PDF diz isso.">
+                <input class="campo" maxlength="300" placeholder="https://act.exemplo.com.br/tsa" @bind="_carimbadora" @bind:event="oninput" @bind:after="MudouOperacao" />
+            </Campo>
+
+            <div class="cfg-atalho">
+                <div>
+                    <strong>Termos assinados pelo paciente</strong>
+                    <p>O texto do consentimento e as declarações (jejum, medicações) que o paciente responde e assina na tela dele (o segundo monitor do balcão) antes do procedimento. Diga aqui qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão.</p>
+                </div>
+                <button type="button" class="botao" @onclick="() => _termos = true"><Icone Nome="documento" />Escrever termos…</button>
+            </div>
+            <div class="cfg-atalho">
+                <div>
+                    <strong>Campos personalizados do prontuário</strong>
+                    <p>O que ESTA clínica anota em cada sessão além dos campos do sistema — “nº de agulhas”, “aparelho usado”, “carga do exercício”. Dado dentro do texto livre não se compara entre sessões nem vira coluna de relatório; aqui ele vira campo.</p>
+                </div>
+                <button type="button" class="botao" @onclick="() => _campos = true"><Icone Nome="lista" />Campos do prontuário…</button>
+            </div>
+            <p class="cfg-nota">Assinatura digital com arquivo A1 individual (.pfx ou .p12). Cada profissional carrega seu certificado ao assinar.</p>
+
+            @Mensagem(Aba.Operacao)
+            <div class="cfg-rodape">
+                <button type="button" class="botao primario" @onclick="SalvarOperacaoAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
+                    <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar operação")
+                </button>
+            </div>
+        </div>
+    </text>;
+
+    private RenderFragment AbaFaturamento => @<text>
+        <div class="cartao-corpo cfg-corpo">
+            <div class="cfg-topo">
+                <h2>Regras de faturamento</h2>
+                <p>Os mesmos prazos são utilizados no Gerente e no Faturamento.</p>
+            </div>
+            <div class="campos tres">
+                <Campo Rotulo="Alerta de consulta (dias)" Dica="De 0 a 365 dias antes do vencimento.">
+                    <input class="campo" inputmode="numeric" maxlength="3" @bind="_janela" @bind:event="oninput" @bind:after="MudouFaturamento" />
+                </Campo>
+                <Campo Rotulo="Recurso de glosa (dias)" Dica="De 1 a 365 dias para recorrer.">
+                    <input class="campo" inputmode="numeric" maxlength="3" @bind="_glosa" @bind:event="oninput" @bind:after="MudouFaturamento" />
+                </Campo>
+                <Campo Rotulo="Prazo de decisão (dias)" Dica="De 1 a 365 dias.">
+                    <input class="campo" inputmode="numeric" maxlength="3" @bind="_rodada" @bind:event="oninput" @bind:after="MudouFaturamento" />
+                </Campo>
+            </div>
+            <span class="campo-dica">O prazo de decisão conta a partir de a guia VIRAR pendente (a data prevista de faturamento), não do atendimento: o 2º código só existe 24 h depois, e contar do atendimento cobraria decisão sobre uma guia que ninguém tinha como tirar.</span>
+            <label class="alternar"><input type="checkbox" @bind="_aplicaConsultas" @bind:after="MudouFaturamento" /> A rodada de pendências também cobra consultas a renovar</label>
+            <label class="alternar"><input type="checkbox" @bind="_aplicaCarteirinhas" @bind:after="MudouFaturamento" /> A rodada de pendências também cobra carteirinhas vencidas</label>
+            @Mensagem(Aba.Faturamento)
+            <div class="cfg-rodape">
+                <button type="button" class="botao primario" @onclick="SalvarFaturamentoAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
+                    <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar faturamento")
+                </button>
+            </div>
+        </div>
+    </text>;
+
+    private RenderFragment AbaIntegracoes => @<text>
+        <div class="cartao-corpo cfg-corpo">
+            @* ---------- Publicação ---------- *@
+            <div class="cfg-topo">
+                <h2>Publicação de documentos assinados</h2>
+                <p>Receita, atestado, pedido de exame e declaração de comparecimento assinados digitalmente ganham um QR Code. O farmacêutico aponta a câmera e o documento abre — sem o paciente precisar enviar arquivo nenhum. Prontuário NUNCA é publicado.</p>
+            </div>
+            <p class="cfg-situacao">@_situacaoPublicacao</p>
+            <div class="campos">
+                <Campo Rotulo="Domínio da clínica" Classe="largo"
+                       Dica="Ex.: https://documentos.suaclinica.com.br — é o endereço que o farmacêutico vê ao escanear, e por isso precisa ser o domínio da clínica. Peça ao responsável pelo site um registro CNAME apontando para o provedor de armazenamento. Em branco, a publicação fica DESLIGADA.">
+                    <input class="campo" maxlength="200" placeholder="https://documentos.suaclinica.com.br" @bind="_dominio" @bind:after="MudouPublicacao" />
+                </Campo>
+            </div>
+            <span class="campo-dica">Escolha o domínio com calma: o endereço fica gravado dentro de cada PDF assinado, e trocá-lo depois faz os QR Codes já impressos pararem de funcionar. Documento assinado não pode ser regerado — teria de ser cancelado e emitido de novo.</span>
+            <div class="campos tres">
+                <Campo Rotulo="Dias no ar" Dica="De 1 a 365.">
+                    <input class="campo" inputmode="numeric" maxlength="3" @bind="_diasPublicacao" @bind:event="oninput" @bind:after="MudouPublicacao" />
+                </Campo>
+            </div>
+            <span class="campo-dica">Por quantos dias o documento fica acessível pelo link. Receita simples costuma valer 30 dias; uso contínuo, mais. Vencido o prazo, o arquivo sai do ar e a clínica republica com um clique, sem perder o QR já impresso. O registro no sistema continua guardado por 20 anos, sempre.</span>
+
+            <div class="secao-form">
+                <h3>Armazenamento (onde os arquivos ficam)</h3>
+                <span class="campo-dica">Serve qualquer provedor compatível com S3 (Magalu Cloud, Cloudflare R2, AWS). Cadastrado aqui uma vez, vale para todas as máquinas. IMPORTANTE: o balde não pode permitir LISTAGEM de conteúdo — o endereço secreto de cada documento é a única barreira, e um balde que lista entrega todos de uma vez.</span>
+                @if (_armVemDoAmbiente)
+                {
+                    <Aviso Tom="atencao" Texto="Estas credenciais estão vindo de VARIÁVEIS DE AMBIENTE desta máquina (CLINICA_ARMAZENAMENTO_ENDPOINT e afins), que têm prioridade sobre o que é salvo aqui. Enquanto elas existirem, os campos abaixo são somente leitura e mostram o que está em vigor. Para voltar a usar a configuração da clínica, apague as variáveis e reabra o sistema." />
+                }
+                <div class="campos">
+                    <Campo Rotulo="Endereço do provedor (endpoint)">
+                        <input class="campo" maxlength="200" placeholder="https://…" disabled="@_armVemDoAmbiente" @bind="_armEndpoint" @bind:after="MudouPublicacao" />
+                    </Campo>
+                    <Campo Rotulo="Balde (bucket)">
+                        <input class="campo" maxlength="100" disabled="@_armVemDoAmbiente" @bind="_armBucket" @bind:after="MudouPublicacao" />
+                    </Campo>
+                    <Campo Rotulo="Chave de acesso">
+                        <input class="campo" maxlength="200" autocomplete="off" disabled="@_armVemDoAmbiente" @bind="_armChave" @bind:after="MudouPublicacao" />
+                    </Campo>
+                    <Campo Rotulo="Chave secreta"
+                           Dica="@(_armVemDoAmbiente ? "Definida por variável de ambiente." : _temSegredoGravado ? "Há uma chave secreta gravada. Deixe em branco para mantê-la; digite só para trocar." : "Cole a chave secreta que o provedor deu.")">
+                        <input class="campo" type="password" maxlength="300" autocomplete="new-password" disabled="@_armVemDoAmbiente"
+                               placeholder="@(_armVemDoAmbiente ? "(definida por variável de ambiente)" : _temSegredoGravado ? "•••••••• (gravada)" : null)"
+                               @bind="_armSegredo" @bind:after="MudouPublicacao" />
+                    </Campo>
+                    <Campo Rotulo="Região (opcional)" Dica="Em branco, o sistema usa us-east-1, que é o que a maioria dos provedores aceita quando não tem região própria.">
+                        <input class="campo" maxlength="60" disabled="@_armVemDoAmbiente" @bind="_armRegiao" @bind:after="MudouPublicacao" />
+                    </Campo>
+                </div>
+            </div>
+            @Mensagem(Aba.Integracoes, Bloco.Publicacao)
+            <div class="cfg-rodape">
+                <button type="button" class="botao primario" @onclick="SalvarPublicacaoAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar publicação</button>
+                <button type="button" class="botao" @onclick="TestarConexaoAsync" disabled="@(!PodeEditar || _testando)"
+                        title="Grava um arquivo de teste no balde e o apaga em seguida — o mesmo caminho da publicação de verdade.">
+                    <Icone Nome="atualizar" />@(_testando ? "Testando…" : "Testar conexão")
+                </button>
+                <button type="button" class="botao" @onclick="EnviarExemploAsync" disabled="@(!PodeEditar || _testando)"
+                        title="Sobe UM PDF de exemplo e o deixa no ar, para conferir no navegador que ele abre.">
+                    <Icone Nome="enviar" />Enviar arquivo de teste
+                </button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_urlExemplo))
+            {
+                <div class="aviso info cfg-exemplo" role="status">
+                    <Icone Nome="info" />
+                    <div>
+                        <span>Arquivo de teste no ar. Abra o endereço abaixo no navegador — ele tem que ABRIR o PDF, não baixar. Depois apague o objeto no painel do provedor.</span>
+                        <div class="cfg-exemplo-url">
+                            <input class="campo" readonly value="@_urlExemplo" aria-label="Endereço do arquivo de teste" />
+                            <button type="button" class="botao mini" @onclick="CopiarExemploAsync"><Icone Nome="copiar" />Copiar</button>
+                            <button type="button" class="botao mini" @onclick="AbrirExemploAsync"><Icone Nome="abrir" />Abrir</button>
+                        </div>
+                    </div>
+                </div>
+            }
+            <span class="campo-dica">Testar conexão grava um arquivo de teste no balde e o apaga em seguida — é o mesmo caminho que a publicação de verdade usa. Salve antes de testar.</span>
+
+            @* ---------- Lembretes por e-mail ---------- *@
+            <div class="cfg-secao">
+                <div class="cfg-topo">
+                    <h2>Lembretes por e-mail</h2>
+                    <p>Na abertura da Recepção e do Gerente, o sistema manda a confirmação da sessão por e-mail a quem tem endereço na ficha — as sessões de hoje, de amanhã e do fim de semana que vier. É a MESMA rodada de confirmação do balcão: quem já foi avisado pelo WhatsApp não recebe e-mail, e quem recebeu aparece na rodada como avisado por e-mail. A mensagem não leva dado clínico.</p>
+                </div>
+                <p class="cfg-situacao">@_situacaoEmail</p>
+                <div class="cfg-smtp">
+                    <Campo Rotulo="Servidor de saída (SMTP)">
+                        <input class="campo" maxlength="200" placeholder="smtp.gmail.com" @bind="_smtpHost" @bind:after="MudouEmail" />
+                    </Campo>
+                    <Campo Rotulo="Porta">
+                        <input class="campo" inputmode="numeric" maxlength="5" placeholder="587" @bind="_smtpPorta" @bind:after="MudouEmail" />
+                    </Campo>
+                </div>
+                <div class="campos">
+                    <Campo Rotulo="Usuário" Dica="Em branco = servidor sem autenticação (e a senha gravada sai).">
+                        <input class="campo" maxlength="200" autocomplete="off" @bind="_smtpUsuario" @bind:after="MudouEmail" />
+                    </Campo>
+                    <Campo Rotulo="Senha (ou senha de aplicativo)"
+                           Dica="@(_temSenhaGravada ? "Há uma senha gravada. Deixe em branco para mantê-la; digite só para trocar." : null)">
+                        <input class="campo" type="password" maxlength="300" autocomplete="new-password"
+                               placeholder="@(_temSenhaGravada ? "•••••••• (gravada)" : null)" @bind="_smtpSenha" @bind:after="MudouEmail" />
+                    </Campo>
+                    <Campo Rotulo="Remetente (e-mail que o paciente vê)">
+                        <input class="campo" maxlength="120" placeholder="contato@suaclinica.com.br" @bind="_remetente" @bind:after="MudouEmail" />
+                    </Campo>
+                    <Campo Rotulo="Nome do remetente">
+                        <input class="campo" maxlength="120" placeholder="Clínica SemDor" @bind="_remetenteNome" @bind:after="MudouEmail" />
+                    </Campo>
+                </div>
+                <label class="alternar"><input type="checkbox" @bind="_smtpTls" @bind:after="MudouEmail" /> Usar criptografia (TLS) — recomendado; desligue só para servidor interno da clínica</label>
+                <span class="campo-dica">Gmail: smtp.gmail.com, porta 587, com SENHA DE APLICATIVO (não a senha da conta — o Google recusa). Outlook / Microsoft 365: smtp.office365.com, porta 587. Hospedagem própria: pergunte ao responsável pelo e-mail da clínica. A resposta do paciente chega no remetente.</span>
+                @Mensagem(Aba.Integracoes, Bloco.Email)
+                <div class="cfg-rodape cfg-rodape-teste">
+                    <button type="button" class="botao primario" @onclick="SalvarEmailAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar lembretes</button>
+                    <label class="campo-bloco cfg-destino">
+                        <span class="campo-rotulo">Mandar o teste para</span>
+                        <input class="campo" maxlength="120" @bind="_destinoTeste" />
+                    </label>
+                    <button type="button" class="botao" @onclick="TestarEmailAsync" disabled="@(!PodeEditar || _testandoEmail)">
+                        <Icone Nome="enviar" />@(_testandoEmail ? "Enviando…" : "Enviar e-mail de teste")
+                    </button>
+                </div>
+                <span class="campo-dica">O teste usa a configuração SALVA — salve antes de testar. Ele manda um único e-mail para o endereço acima; nenhum paciente recebe nada.</span>
+            </div>
+
+            @* ---------- Tela do paciente ---------- *@
+            <div class="cfg-secao">
+                <div class="cfg-topo">
+                    <h2>Tela do paciente</h2>
+                    <p>O monitor virado para quem assina, como a maquininha do cartão: a recepcionista conduz na tela dela e o paciente lê e assina na dele. Sem escolher nada, a assinatura é colhida na própria janela de quem conduz.</p>
+                </div>
+                <div class="cfg-monitor">
+                    <Campo Rotulo="Monitor">
+                        <select class="campo" value="@(_telaEscolhida ?? string.Empty)" disabled="@(_monitores.Count == 0)"
+                                @onchange="@(e => { var v = e.Value?.ToString(); _telaEscolhida = string.IsNullOrWhiteSpace(v) ? null : v; _pendTela = true; })">
+                            <option value="">Nenhum — a assinatura é colhida na janela de quem conduz</option>
+                            @foreach (var m in _monitores)
+                            {
+                                <option value="@m.Id">@m.Rotulo</option>
+                            }
+                            @if (_telaGravada is { } g && _monitores.All(m => !string.Equals(m.Id, g, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                <option value="@g">@($"{g} — não está ligada agora")</option>
+                            }
+                        </select>
+                    </Campo>
+                    <div class="cfg-monitor-acoes">
+                        <button type="button" class="botao primario" @onclick="SalvarTelaAsync" disabled="@(!PodeEditar || _salvando || _monitores.Count == 0)"><Icone Nome="check" />Salvar</button>
+                        <button type="button" class="botao" @onclick="TestarTelaAsync" disabled="@(!PodeEditar || _monitores.Count == 0)">Testar</button>
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_avisoTela))
+                {
+                    <Aviso Tom="atencao" Texto="@_avisoTela" />
+                }
+                @Mensagem(Aba.Integracoes, Bloco.Tela)
+                <span class="campo-dica">Use o Testar antes do primeiro paciente: as telas do Windows se chamam \\.\DISPLAY1 e \\.\DISPLAY2, e o único jeito de saber qual é qual é ver o exemplo aparecer nela.</span>
+            </div>
+        </div>
+    </text>;
+
+    private RenderFragment AbaBackup => @<text>
+        <div class="cartao-corpo cfg-corpo">
+            <div class="cfg-topo">
+                <h2>Backup da clínica</h2>
+                <p>Uma cópia de tudo: pacientes, prontuário, agenda, financeiro, estoque e acessos. Guarde FORA desta máquina — pendrive ou nuvem. Cópia que fica no mesmo computador do banco não é plano B.</p>
+            </div>
+            @if (_backupDesligado)
+            {
+                <Aviso Tom="atencao" Texto="A cópia automática está DESLIGADA: nenhuma pasta de destino foi escolhida. Enquanto isso, a clínica só tem backup nos dias em que alguém clicar no botão abaixo." />
+            }
+            <div class="secao-form">
+                <h3>Cópia automática</h3>
+                <span class="campo-dica">Gravada na abertura do Gerente quando o prazo vence. Escolha uma pasta de REDE ou de nuvem sincronizada — o sistema não tem como saber onde a pasta fica fisicamente, e cópia no mesmo computador não protege contra incêndio, furto nem ransomware.</span>
+                <div class="cfg-pasta">
+                    <input class="campo" readonly value="@_pastaBackup" placeholder="Nenhuma pasta escolhida" aria-label="Pasta da cópia automática" />
+                    <button type="button" class="botao" @onclick="EscolherPastaAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="abrir" />Escolher pasta…</button>
+                </div>
+                <div class="cfg-politica">
+                    <Campo Rotulo="Copiar a cada (dias)">
+                        <input class="campo" inputmode="numeric" maxlength="4" @bind="_intervaloBackup" @bind:event="oninput" @bind:after="() => _pendBackup = true" />
+                    </Campo>
+                    <Campo Rotulo="Cópias a guardar">
+                        <input class="campo" inputmode="numeric" maxlength="3" @bind="_copiasBackup" @bind:event="oninput" @bind:after="() => _pendBackup = true" />
+                    </Campo>
+                    <button type="button" class="botao" @onclick="SalvarPoliticaBackupAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S"><Icone Nome="check" />Salvar política</button>
+                </div>
+                <span class="campo-dica">Guardar várias cópias não é excesso: a corrupção que ninguém percebeu na sexta é copiada por cima da única cópia boa no sábado.</span>
+                @* Desligada, quem fala é o aviso do topo — a mesma frase duas vezes seriam duas respostas. *@
+                @if (!_backupDesligado)
+                {
+                    <p class="cfg-situacao">@_situacaoBackup</p>
+                }
+            </div>
+            <div class="cfg-rodape">
+                <button type="button" class="botao primario" @onclick="CopiarAgoraAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="baixar" />Copiar agora</button>
+                <button type="button" class="botao" @onclick="SalvarCopiaEmAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="baixar" />Salvar cópia em…</button>
+                <button type="button" class="botao" @onclick="ConferirBackupAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="busca" />Conferir um backup</button>
+            </div>
+            <Aviso Tom="@(_resumoBackupEhErro ? "erro" : "info")" Texto="@_resumoBackup" />
+            <span class="campo-dica">Conferir abre o arquivo e conta o que há dentro dele, sem alterar nada. Faça isso de vez em quando: backup que ninguém sabe se prestou só se descobre no dia em que ele é necessário — que é o único dia em que não dá para descobrir.</span>
+            <span class="campo-dica">@ConfiguracoesDaClinicaNaTela.SobreRestauracao</span>
+        </div>
+    </text>;
+
+    /// <summary>A mensagem inline do bloco, perto do botão que a escreveu.</summary>
+    private RenderFragment Mensagem(Aba aba, Bloco bloco = Bloco.Unico) => __builder =>
+    {
+        if (_mensagemAba == aba && _mensagemBloco == bloco)
+        {
+            <Aviso Tom="@(_mensagemEhErro ? "erro" : "sucesso")" Texto="@_mensagem" />
+        }
+    };
+
+    // ============================ Estado ============================
+
+    private enum Aba { Clinica, Atendimento, Operacao, Faturamento, Integracoes, Backup }
+
+    /// <summary>A aba Integrações tem três blocos, cada um com o próprio Salvar e a própria mensagem.</summary>
+    private enum Bloco { Unico, Publicacao, Email, Tela }
+
+    private static readonly (Aba Aba, string Rotulo)[] Abas =
+    [
+        (Aba.Clinica, "Clínica"), (Aba.Atendimento, "Atendimento"), (Aba.Operacao, "Operação"),
+        (Aba.Faturamento, "Faturamento"), (Aba.Integracoes, "Integrações"), (Aba.Backup, "Backup")
+    ];
+
+    private Aba _aba = Aba.Clinica;
+
+    /// <summary>Uma modalidade BSV no seletor da conclusão.</summary>
+    private sealed class OpcaoEnfermagem
+    {
+        public string Codigo { get; init; } = string.Empty;
+        public string Nome { get; init; } = string.Empty;
+        public bool Selecionada { get; set; }
+    }
+
+    // Clínica
+    private string? _razaoSocial, _nomeFantasia, _cnpj, _cnes, _endereco, _telefone, _email, _chavePix, _cidade, _codigoNaOperadora, _registroAns;
+    // Atendimento
+    private List<OpcaoEnfermagem> _modalidadesEnfermagem = [];
+    private bool _conclusaoAutomatica, _lendoPendencias;
+    private string? _prazoConclusao;
+    private List<SessaoPendenteDeConclusao> _pendencias = [];
+    private string _resumoPendencias = string.Empty;
+    // Operação
+    private string? _jornada, _recall, _carimbadora;
+    private bool _guiaNoAgendamento, _guiaGravada;
+    // Faturamento
+    private string? _janela, _glosa, _rodada;
+    private bool _aplicaConsultas, _aplicaCarteirinhas;
+    // Publicação — o segredo digitado começa VAZIO: o gravado nunca volta à tela.
+    private string? _dominio, _diasPublicacao, _armEndpoint, _armRegiao, _armBucket, _armChave, _urlExemplo;
+    private string _armSegredo = string.Empty;
+    private bool _temSegredoGravado, _armVemDoAmbiente, _testando;
+    private string _situacaoPublicacao = string.Empty;
+    // E-mail — idem para a senha.
+    private string? _smtpHost, _smtpPorta, _smtpUsuario, _remetente, _remetenteNome, _destinoTeste;
+    private string _smtpSenha = string.Empty;
+    private bool _temSenhaGravada, _smtpTls = true, _testandoEmail;
+    private string _situacaoEmail = string.Empty;
+    // Tela do paciente
+    private IReadOnlyList<MonitorDaMaquina> _monitores = [];
+    private string? _telaEscolhida, _telaGravada;
+    private string _avisoTela = string.Empty;
+    // Backup
+    private string _pastaBackup = string.Empty, _situacaoBackup = string.Empty;
+    private string? _intervaloBackup, _copiasBackup, _resumoBackup;
+    private bool _backupDesligado = true, _resumoBackupEhErro, _copiando;
+
+    // Pendências por bloco: salvar um bloco não pode apagar o que foi digitado nos outros.
+    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendEmail, _pendTela, _pendBackup;
+    private bool Pendente => _pendClinica || _pendConclusao || _pendOperacao || _pendFaturamento
+                             || _pendPublicacao || _pendEmail || _pendTela || _pendBackup;
+
+    private bool _carregou, _carregando, _naoVerificado, _salvando, _termos, _campos;
+    private string? _erroLeitura, _mensagem;
+    private bool _mensagemEhErro;
+    private Aba? _mensagemAba;
+    private Bloco _mensagemBloco;
+    private int _geracao;
+
+    /// <summary>
+    /// Metade VISÍVEL da permissão: configuração vale para a clínica inteira — o bit de quem
+    /// administra acessos (o do item de menu e o do ViewModel WPF).
+    /// </summary>
+    private static bool PodeEditar => Pode(Permissao.GerenciarUsuarios);
+
+    /// <summary>Dados da clínica e prazos: o MESMO "ou" dos componentes do shell que o WPF usava.</summary>
+    private const Permissao BitsDasRegrasGlobais = Permissao.GerenciarUsuarios | Permissao.ConfigurarFaturamento;
+
+    private void MudouClinica() => _pendClinica = true;
+    private void MudouOperacao() => _pendOperacao = true;
+    private void MudouFaturamento() => _pendFaturamento = true;
+    private void MudouPublicacao() => _pendPublicacao = true;
+    private void MudouEmail() => _pendEmail = true;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Volta à aba: relê em silêncio — nunca por cima de edição não salva nem de formulário aberto.</summary>
+    protected override Task AoVoltarAsync()
+        => Pendente || _salvando || _termos || _campos ? Task.CompletedTask : CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => AtualizarAsync(),
+        AtalhoDeTela.Salvar => _aba switch
+        {
+            Aba.Clinica => SalvarClinicaAsync(),
+            Aba.Atendimento => SalvarConclusaoAsync(),
+            Aba.Operacao => SalvarOperacaoAsync(),
+            Aba.Faturamento => SalvarFaturamentoAsync(),
+            Aba.Backup => SalvarPoliticaBackupAsync(),
+            _ => AvisarSalvarPorBloco()
+        },
+        _ => Task.CompletedTask
+    };
+
+    private Task AvisarSalvarPorBloco()
+    {
+        Notificacoes.Info("Nesta aba cada bloco tem o próprio Salvar — publicação, lembretes e tela do paciente.");
+        return Task.CompletedTask;
+    }
+
+    private void TrocarAba(Aba aba)
+    {
+        _aba = aba;
+        _mensagem = null;
+        _mensagemAba = null;
+    }
+
+    private void Dizer(Aba aba, string texto, bool erro, Bloco bloco = Bloco.Unico)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = erro;
+        _mensagemAba = aba;
+        _mensagemBloco = bloco;
+    }
+
+    private async Task AtualizarAsync()
+    {
+        if (Pendente && !await Dialogos.ConfirmarAsync("Descartar alterações?",
+                "Há mudanças nesta tela que ainda não foram gravadas. Recarregar descarta todas elas.",
+                perigoso: true, confirmar: "Descartar e recarregar"))
+            return;
+        await CarregarAsync();
+    }
+
+    private Task CarregarAsync() => CarregarAsync(silencioso: false);
+
+    // ============================ Leitura ============================
+
+    private sealed record LidoClinica(DadosDaClinica Dados);
+    private sealed record LidoOperacao(int Jornada, int Recall, string? Carimbadora, bool Guia);
+    private sealed record LidoFaturamento(int Janela, int Glosa, int Rodada, bool Consultas, bool Carteirinhas);
+    private sealed record LidoConclusao(List<OpcaoEnfermagem> Modalidades, bool Automatica, int Horas);
+    private sealed record LidoPublicacao(string? Dominio, int Dias, bool VemDoAmbiente, string? Endpoint, string? Regiao,
+        string? Bucket, string? Chave, bool TemSegredo, string Situacao);
+    private sealed record LidoEmail(CamposEmail Campos, string Situacao);
+
+    private static async Task<LidoClinica> LerClinicaAsync(ParametrosService p)
+        => new(DadosDaClinica.De(await p.ObterPrestadorAsync()));
+
+    private static async Task<LidoOperacao> LerOperacaoAsync(ParametrosService p)
+        => new(await p.ObterJornadaDiariaAsync(), await p.ObterDiasInatividadeRecallAsync(),
+               (await p.ObterCarimbadoraDeTempoAsync())?.ToString(), await p.GuiaNoAgendamentoAsync());
+
+    private static async Task<LidoFaturamento> LerFaturamentoAsync(ParametrosService p)
+        => new(await p.ObterJanelaAlertaConsultaAsync(), await p.ObterPrazoRecursoGlosaAsync(),
+               await p.ObterIntervaloRodadaPendenciasAsync(), await p.ObterRodadaAplicaConsultasAsync(),
+               await p.ObterRodadaAplicaCarteirinhasAsync());
+
+    private static async Task<LidoConclusao> LerConclusaoAsync(IServiceProvider sp)
+    {
+        var regra = await sp.GetRequiredService<PoliticaConclusaoService>().ObterAsync();
+        var catalogo = await sp.GetRequiredService<ModalidadeCatalogoService>().ListarAsync();
+        var opcoes = catalogo
+            .Where(m => EvolucaoEnfermagemService.PermiteEvolucao(m.Base))
+            .Select(m => new OpcaoEnfermagem
+            {
+                Codigo = m.Codigo,
+                Nome = ConfiguracoesDaClinicaNaTela.NomeDaModalidadeDeEnfermagem(m.Nome, m.Ativo),
+                Selecionada = regra.ModalidadesEnfermagem.Contains(m.Codigo, StringComparer.OrdinalIgnoreCase)
+            }).ToList();
+        return new(opcoes, regra.Automatica, regra.Horas);
+    }
+
+    /// <summary>
+    /// A situação é montada com o segredo GRAVADO (para dizer se o armazenamento serve), mas só
+    /// o "há segredo gravado" sai daqui: o valor não é guardado na tela.
+    /// </summary>
+    private static async Task<LidoPublicacao> LerPublicacaoAsync(ParametrosService p)
+    {
+        var dominio = await p.ObterUrlPublicacaoAsync();
+        var dias = await p.ObterDiasPublicacaoAsync();
+        var vemDoAmbiente = ProvedorOpcoesArmazenamento.VemDoAmbiente();
+        if (vemDoAmbiente && OpcoesArmazenamento.DoAmbiente() is { } amb)
+            return new(dominio, dias, true, amb.Endpoint, amb.Regiao, amb.Bucket, amb.Chave, true,
+                ConfiguracoesDaClinicaNaTela.DescreverPublicacao(dominio, true, dias));
+
+        var (endpoint, regiao, bucket, chave, segredo) = await p.ObterCredenciaisArmazenamentoAsync();
+        var tem = ConfiguracoesDaClinicaNaTela.TemArmazenamento(false, endpoint, regiao, bucket, chave, segredo);
+        return new(dominio, dias, false, endpoint, regiao, bucket, chave, !string.IsNullOrWhiteSpace(segredo),
+            ConfiguracoesDaClinicaNaTela.DescreverPublicacao(dominio, tem, dias));
+    }
+
+    private static async Task<LidoEmail> LerEmailAsync(ParametrosService p)
+    {
+        var c = await p.ObterCamposEmailAsync();
+        return new(c, ConfiguracoesDaClinicaNaTela.DescreverEmail(
+            OpcoesEmail.De(c.Host, c.Porta, c.Usuario, c.Senha, c.Remetente, c.NomeRemetente, c.UsarTls)));
+    }
+
+    /// <summary>
+    /// Tudo numa leitura, SEQUENCIAL no mesmo escopo (o DbContext não aceita duas operações ao
+    /// mesmo tempo), publicado depois do último await. Contador de geração contra resposta fora de
+    /// ordem. A releitura silenciosa que falha não apaga a tela que já estava certa.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso)
+    {
+        var geracao = ++_geracao;
+        _carregando = true;
+        if (!silencioso) { _naoVerificado = false; _mensagem = null; _mensagemAba = null; }
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var p = sp.GetRequiredService<ParametrosService>();
+
+            var clinica = await LerClinicaAsync(p);
+            var operacao = await LerOperacaoAsync(p);
+            var faturamento = await LerFaturamentoAsync(p);
+            var conclusao = await LerConclusaoAsync(sp);
+            var publicacao = await LerPublicacaoAsync(p);
+            var email = await LerEmailAsync(p);
+            var telaGravada = await p.ObterTelaDoPacienteAsync();
+            var copia = await sp.GetRequiredService<ICopiaDeSeguranca>().SituacaoAsync();
+            var monitores = await Host.ListarMonitoresAsync();
+            var (pendencias, resumo) = await LerPendenciasAsync(sp);
+            if (geracao != _geracao || Descartada) return;
+
+            PublicarClinica(clinica);
+            PublicarOperacao(operacao);
+            PublicarFaturamento(faturamento);
+            PublicarConclusao(conclusao);
+            (_pendencias, _resumoPendencias) = (pendencias, resumo);
+            PublicarPublicacao(publicacao);
+            PublicarEmail(email);
+            _destinoTeste ??= clinica.Dados.Email; // quem costuma testar; nunca regravado por cima do digitado
+            PublicarTela(telaGravada, monitores);
+            PublicarBackup(copia);
+
+            _carregou = true;
+            _naoVerificado = false;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — configurações da clínica não puderam ser lidas", ex);
+            if (!silencioso || !_carregou)
+            {
+                _naoVerificado = true;
+                _erroLeitura = ex.Message;
+            }
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// As sessões com conclusão vencida. Pedem acesso ao PRONTUÁRIO (nome do paciente e o motivo
+    /// clínico); a falha aqui não derruba a tela inteira — vira a frase do bloco.
+    /// </summary>
+    private static async Task<(List<SessaoPendenteDeConclusao>, string)> LerPendenciasAsync(IServiceProvider sp)
+    {
+        if (!Pode(Permissao.VerProntuario))
+            return ([], ConfiguracoesDaClinicaNaTela.SemAcessoAoProntuario);
+        try
+        {
+            var lista = (await sp.GetRequiredService<IPendenciasDeConclusao>().PendenciasAsync()).ToList();
+            return (lista, ConfiguracoesDaClinicaNaTela.ResumoPendenciasConclusao(lista.Count));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pendências de conclusão não puderam ser lidas", ex);
+            return ([], "Não foi possível conferir as sessões pendentes: " + ex.Message);
+        }
+    }
+
+    private void PublicarClinica(LidoClinica l)
+    {
+        var d = l.Dados;
+        (_razaoSocial, _nomeFantasia, _cnpj, _cnes, _endereco, _telefone, _email, _chavePix, _cidade, _codigoNaOperadora, _registroAns) =
+            (d.RazaoSocial, d.NomeFantasia, d.Cnpj, d.Cnes, d.Endereco, d.Telefone, d.Email, d.ChavePix, d.Cidade, d.CodigoNaOperadora, d.RegistroAnsOperadora);
+        _pendClinica = false;
+    }
+
+    private void PublicarOperacao(LidoOperacao l)
+    {
+        _jornada = l.Jornada.ToString(CultureInfo.InvariantCulture);
+        _recall = l.Recall.ToString(CultureInfo.InvariantCulture);
+        _carimbadora = l.Carimbadora;
+        _guiaNoAgendamento = _guiaGravada = l.Guia;
+        _pendOperacao = false;
+    }
+
+    private void PublicarFaturamento(LidoFaturamento l)
+    {
+        _janela = l.Janela.ToString(CultureInfo.InvariantCulture);
+        _glosa = l.Glosa.ToString(CultureInfo.InvariantCulture);
+        _rodada = l.Rodada.ToString(CultureInfo.InvariantCulture);
+        _aplicaConsultas = l.Consultas;
+        _aplicaCarteirinhas = l.Carteirinhas;
+        _pendFaturamento = false;
+    }
+
+    private void PublicarConclusao(LidoConclusao l)
+    {
+        _modalidadesEnfermagem = l.Modalidades;
+        _conclusaoAutomatica = l.Automatica;
+        _prazoConclusao = l.Horas.ToString(CultureInfo.InvariantCulture);
+        _pendConclusao = false;
+    }
+
+    private void PublicarPublicacao(LidoPublicacao l)
+    {
+        _dominio = l.Dominio;
+        _diasPublicacao = l.Dias.ToString(CultureInfo.InvariantCulture);
+        _armVemDoAmbiente = l.VemDoAmbiente;
+        (_armEndpoint, _armRegiao, _armBucket, _armChave) = (l.Endpoint, l.Regiao, l.Bucket, l.Chave);
+        _temSegredoGravado = l.TemSegredo;
+        _armSegredo = string.Empty;
+        _situacaoPublicacao = l.Situacao;
+        _pendPublicacao = false;
+    }
+
+    private void PublicarEmail(LidoEmail l)
+    {
+        var c = l.Campos;
+        (_smtpHost, _smtpPorta, _smtpUsuario, _remetente, _remetenteNome, _smtpTls) =
+            (c.Host, c.Porta, c.Usuario, c.Remetente, c.NomeRemetente, c.UsarTls);
+        _temSenhaGravada = !string.IsNullOrEmpty(c.Senha);
+        _smtpSenha = string.Empty;
+        _situacaoEmail = l.Situacao;
+        _pendEmail = false;
+    }
+
+    private void PublicarTela(string? gravada, IReadOnlyList<MonitorDaMaquina> monitores)
+    {
+        _monitores = monitores;
+        _telaGravada = gravada;
+        var encontrada = gravada is not null
+                         && monitores.Any(m => string.Equals(m.Id, gravada, StringComparison.OrdinalIgnoreCase));
+        // A gravada que não está ligada CONTINUA escolhida (opção própria no seletor): o WPF a
+        // perdia, e um Salvar distraído com o cabo solto apagava a configuração.
+        _telaEscolhida = gravada;
+        _avisoTela = ConfiguracoesDaClinicaNaTela.AvisoTelaDoPaciente(gravada, encontrada, monitores.Count);
+        _pendTela = false;
+    }
+
+    private void PublicarBackup(SituacaoDaCopia s)
+    {
+        _pastaBackup = s.Pasta ?? string.Empty;
+        _intervaloBackup = s.IntervaloDias.ToString(CultureInfo.InvariantCulture);
+        _copiasBackup = s.CopiasAGuardar.ToString(CultureInfo.InvariantCulture);
+        _situacaoBackup = s.Descricao;
+        _backupDesligado = !s.Configurada;
+        _pendBackup = false;
+    }
+
+    // ============================ Gravação ============================
+
+    /// <summary>
+    /// O envelope de todo Salvar: grava, relê SÓ o bloco (o serviço aplica limites — a tela tem de
+    /// mostrar o que ficou GRAVADO), diz o resultado perto do botão e confirma de passagem.
+    /// </summary>
+    private async Task GravarAsync(Aba aba, Bloco bloco, string contexto, Func<IServiceProvider, Task<string?>> acao)
+    {
+        if (_salvando) return;
+        _salvando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var ok = await acao(escopo.ServiceProvider);
+            if (ok is null) return; // recusa já dita, ou a pessoa desistiu
+            Dizer(aba, ok, erro: false, bloco);
+            Notificacoes.Sucesso(ok);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — configurações: {contexto}", ex);
+            Dizer(aba, $"Não foi possível salvar: {ex.Message}", erro: true, bloco);
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+
+    private async Task SalvarClinicaAsync()
+    {
+        if (!ExigirAlgum(BitsDasRegrasGlobais, "salvar dados da clínica")) return;
+        await GravarAsync(Aba.Clinica, Bloco.Unico, "dados da clínica", async sp =>
+        {
+            var p = sp.GetRequiredService<ParametrosService>();
+            // RELÊ o prestador e só troca a identificação: os códigos TUSS que a tela do
+            // faturamento gravou ficam intactos.
+            await p.SalvarDadosDaClinicaAsync(new DadosDaClinica(
+                _razaoSocial, _nomeFantasia, _cnpj, _cnes, _endereco, _telefone, _email, _chavePix, _cidade, _codigoNaOperadora, _registroAns));
+            PublicarClinica(await LerClinicaAsync(p));
+            return "Dados da clínica salvos.";
+        });
+    }
+
+    private async Task SalvarConclusaoAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
+        if (ConfiguracoesDaClinicaNaTela.LerPrazoConclusao(_prazoConclusao, out var erro) is not { } horas)
+        {
+            Dizer(Aba.Atendimento, erro!, erro: true);
+            return;
+        }
+        await GravarAsync(Aba.Atendimento, Bloco.Unico, "regras de conclusão", async sp =>
+        {
+            await sp.GetRequiredService<PoliticaConclusaoService>().SalvarAsync(
+                _modalidadesEnfermagem.Where(m => m.Selecionada).Select(m => m.Codigo).ToArray(),
+                true, horas, SessaoUsuario.Atual.UsuarioId);
+            PublicarConclusao(await LerConclusaoAsync(sp));
+            (_pendencias, _resumoPendencias) = await LerPendenciasAsync(sp);
+            return ConfiguracoesDaClinicaNaTela.FraseConclusaoSalva(horas);
+        });
+    }
+
+    private async Task AtualizarPendenciasAsync()
+    {
+        if (_lendoPendencias) return;
+        _lendoPendencias = true;
+        try
+        {
+            using var escopo = Escopo();
+            (_pendencias, _resumoPendencias) = await LerPendenciasAsync(escopo.ServiceProvider);
+        }
+        finally
+        {
+            _lendoPendencias = false;
+        }
+    }
+
+    private async Task SalvarOperacaoAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
+        if (ConfiguracoesDaClinicaNaTela.LerOperacao(_jornada, _recall, _carimbadora, out var erro) is not { } op)
+        {
+            Dizer(Aba.Operacao, erro!, erro: true);
+            return;
+        }
+        // LIGAR a guia no agendamento depende de uma ordem FORA da tela (todas as máquinas
+        // atualizadas): a pergunta vem antes de gravar qualquer coisa do bloco.
+        if (ConfiguracoesDaClinicaNaTela.PedeConfirmacaoAoLigarGuia(_guiaNoAgendamento, _guiaGravada)
+            && !await Dialogos.ConfirmarAsync("Ligar a guia na marcação",
+                ConfiguracoesDaClinicaNaTela.PerguntaLigarGuiaNoAgendamento, perigoso: true, confirmar: "Ligar"))
+            return;
+
+        await GravarAsync(Aba.Operacao, Bloco.Unico, "operação", async sp =>
+        {
+            var p = sp.GetRequiredService<ParametrosService>();
+            await p.SalvarJornadaDiariaAsync(op.JornadaMinutos);
+            await p.SalvarDiasInatividadeRecallAsync(op.DiasInatividadeRecall);
+            await p.SalvarCarimbadoraDeTempoAsync(op.CarimbadoraDeTempo);
+            // Só quando MUDOU: ligar dispara o backfill do RealizadoEm.
+            if (ConfiguracoesDaClinicaNaTela.GravarGuiaNoAgendamento(_guiaNoAgendamento, _guiaGravada))
+                await p.DefinirGuiaNoAgendamentoAsync(_guiaNoAgendamento);
+            PublicarOperacao(await LerOperacaoAsync(p));
+            return "Operação e marketing salvos.";
+        });
+    }
+
+    private async Task SalvarFaturamentoAsync()
+    {
+        if (!ExigirAlgum(BitsDasRegrasGlobais, "salvar regras do faturamento")) return;
+        if (ConfiguracoesFaturamentoNaTela.LerPrazos(_janela, _glosa, _rodada, out var erro) is not { } prazos)
+        {
+            Dizer(Aba.Faturamento, erro!, erro: true);
+            return;
+        }
+        await GravarAsync(Aba.Faturamento, Bloco.Unico, "regras de faturamento", async sp =>
+        {
+            var p = sp.GetRequiredService<ParametrosService>();
+            await p.SalvarJanelaAlertaConsultaAsync(prazos.JanelaAlertaConsultaDias);
+            await p.SalvarPrazoRecursoGlosaAsync(prazos.PrazoRecursoGlosaDias);
+            await p.SalvarIntervaloRodadaPendenciasAsync(prazos.IntervaloRodadaPendenciasDias);
+            await p.SalvarRodadaAplicaAsync(_aplicaConsultas, _aplicaCarteirinhas);
+            PublicarFaturamento(await LerFaturamentoAsync(p));
+            return "Regras de faturamento salvas.";
+        });
+    }
+
+    private async Task SalvarPublicacaoAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
+        await GravarAsync(Aba.Integracoes, Bloco.Publicacao, "publicação", async sp =>
+        {
+            var p = sp.GetRequiredService<ParametrosService>();
+            // O segredo gravado é relido AQUI, dentro do Salvar, e não guardado na tela.
+            var segredoGravado = _armVemDoAmbiente ? null : (await p.ObterCredenciaisArmazenamentoAsync()).Segredo;
+            if (ConfiguracoesDaClinicaNaTela.LerPublicacao(_dominio, _diasPublicacao, _armEndpoint, _armRegiao, _armBucket,
+                    _armChave, _armSegredo, segredoGravado, _armVemDoAmbiente, out var erro) is not { } pub)
+            {
+                Dizer(Aba.Integracoes, erro!, erro: true, Bloco.Publicacao);
+                return null;
+            }
+            await p.SalvarUrlPublicacaoAsync(pub.Dominio);
+            await p.SalvarDiasPublicacaoAsync(pub.Dias);
+            if (pub.GravarCredenciais)
+                await p.SalvarCredenciaisArmazenamentoAsync(pub.Endpoint, pub.Regiao, pub.Bucket, pub.Chave, pub.Segredo);
+            PublicarPublicacao(await LerPublicacaoAsync(p));
+            return ConfiguracoesDaClinicaNaTela.FrasePublicacaoSalva(_armVemDoAmbiente);
+        });
+    }
+
+    /// <summary>Grava e apaga um arquivo de teste — o mesmo caminho da publicação de verdade.</summary>
+    private async Task TestarConexaoAsync()
+    {
+        if (_testando) return;
+        if (!Exigir(Permissao.GerenciarUsuarios, "testar a conexão com o armazenamento")) return;
+        _testando = true;
+        try
+        {
+            using var escopo = Escopo();
+            if (await escopo.ServiceProvider.GetRequiredService<PublicacaoDocumentoService>().TestarConexaoAsync() is { } falha)
+            {
+                Dizer(Aba.Integracoes, falha, erro: true, Bloco.Publicacao);
+                return;
+            }
+            const string ok = "Conexão com o armazenamento funcionando: o sistema gravou e apagou um arquivo de teste.";
+            Dizer(Aba.Integracoes, ok, erro: false, Bloco.Publicacao);
+            Notificacoes.Sucesso(ok);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — teste de conexão do armazenamento falhou", ex);
+            Dizer(Aba.Integracoes, ex.Message, erro: true, Bloco.Publicacao);
+        }
+        finally
+        {
+            _testando = false;
+        }
+    }
+
+    /// <summary>Sobe UM PDF de exemplo e o deixa no ar: a metade que o "Testar conexão" não cobre.</summary>
+    private async Task EnviarExemploAsync()
+    {
+        if (_testando) return;
+        if (!Exigir(Permissao.GerenciarUsuarios, "enviar arquivo de teste ao armazenamento")) return;
+        _testando = true;
+        _urlExemplo = null;
+        try
+        {
+            using var escopo = Escopo();
+            var r = await escopo.ServiceProvider.GetRequiredService<PublicacaoDocumentoService>().EnviarExemploAsync();
+            if (!r.Publicou)
+            {
+                Dizer(Aba.Integracoes, r.Erro ?? "O arquivo de exemplo não foi enviado.", erro: true, Bloco.Publicacao);
+                return;
+            }
+            _urlExemplo = r.Url;
+            Notificacoes.Sucesso("Arquivo de exemplo enviado. Abra o endereço para conferir que ele abre — e apague o objeto no painel do provedor depois.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — envio do arquivo de exemplo falhou", ex);
+            Dizer(Aba.Integracoes, ex.Message, erro: true, Bloco.Publicacao);
+        }
+        finally
+        {
+            _testando = false;
+        }
+    }
+
+    private async Task CopiarExemploAsync()
+    {
+        if (_urlExemplo is null) return;
+        if (await Host.CopiarAsync(_urlExemplo)) Notificacoes.Sucesso("Endereço copiado.");
+        else Notificacoes.Erro("A área de transferência não aceitou — selecione o endereço e copie à mão.");
+    }
+
+    private async Task AbrirExemploAsync()
+    {
+        if (_urlExemplo is null) return;
+        if (!await Host.AbrirEnderecoAsync(_urlExemplo))
+            Notificacoes.Erro("O navegador não abriu daqui — copie o endereço e cole no navegador.");
+    }
+
+    private async Task SalvarEmailAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
+        await GravarAsync(Aba.Integracoes, Bloco.Email, "lembretes por e-mail", async sp =>
+        {
+            var p = sp.GetRequiredService<ParametrosService>();
+            var senhaGravada = (await p.ObterCamposEmailAsync()).Senha;
+            if (ConfiguracoesDaClinicaNaTela.LerEmail(_smtpHost, _smtpPorta, _smtpUsuario, _smtpSenha, senhaGravada,
+                    _remetente, _remetenteNome, _smtpTls, out var erro, out var desligando) is not { } campos)
+            {
+                Dizer(Aba.Integracoes, erro!, erro: true, Bloco.Email);
+                return null;
+            }
+            await p.SalvarCamposEmailAsync(campos);
+            PublicarEmail(await LerEmailAsync(p));
+            return ConfiguracoesDaClinicaNaTela.FraseEmailSalvo(desligando);
+        });
+    }
+
+    /// <summary>
+    /// UM e-mail pelo MESMO caminho do lembrete, com a configuração GRAVADA. A frase do erro traz a
+    /// do servidor (GetBaseException): "Failure sending mail" não diz nada, e a causa — autenticação
+    /// recusada, porta fechada — está um nível abaixo.
+    /// </summary>
+    private async Task TestarEmailAsync()
+    {
+        if (_testandoEmail) return;
+        if (!Exigir(Permissao.GerenciarUsuarios, "enviar o e-mail de teste")) return;
+        var destino = ConfiguracoesDaClinicaNaTela.Limpar(_destinoTeste);
+        if (destino is null)
+        {
+            Dizer(Aba.Integracoes, "Informe para qual e-mail mandar o teste.", erro: true, Bloco.Email);
+            return;
+        }
+        _testandoEmail = true;
+        try
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<LembreteEmailService>().EnviarTesteAsync(destino);
+            var ok = $"E-mail de teste enviado para {destino}. Confira a caixa de entrada — e a pasta de spam, na primeira vez.";
+            Dizer(Aba.Integracoes, ok, erro: false, Bloco.Email);
+            Notificacoes.Sucesso(ok);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — e-mail de teste falhou", ex);
+            Dizer(Aba.Integracoes, $"O e-mail de teste não saiu: {ex.GetBaseException().Message}", erro: true, Bloco.Email);
+        }
+        finally
+        {
+            _testandoEmail = false;
+        }
+    }
+
+    private async Task SalvarTelaAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
+        var escolhido = _monitores.FirstOrDefault(m => string.Equals(m.Id, _telaEscolhida, StringComparison.OrdinalIgnoreCase));
+        if (ConfiguracoesDaClinicaNaTela.ConferirTelaEscolhida(escolhido?.Principal == true) is { } recusa)
+        {
+            Dizer(Aba.Integracoes, recusa, erro: true, Bloco.Tela);
+            return;
+        }
+        await GravarAsync(Aba.Integracoes, Bloco.Tela, "tela do paciente", async sp =>
+        {
+            var p = sp.GetRequiredService<ParametrosService>();
+            await p.SalvarTelaDoPacienteAsync(_telaEscolhida);
+            var gravada = await p.ObterTelaDoPacienteAsync();
+            var monitores = await Host.ListarMonitoresAsync();
+            PublicarTela(gravada, monitores);
+            var rotulo = gravada is null ? null
+                : monitores.FirstOrDefault(m => string.Equals(m.Id, gravada, StringComparison.OrdinalIgnoreCase))?.Rotulo ?? gravada;
+            return ConfiguracoesDaClinicaNaTela.FraseTelaSalva(rotulo);
+        });
+    }
+
+    /// <summary>
+    /// Abre o exemplo no monitor ESCOLHIDO (gravado ou não), para conferir antes de haver paciente
+    /// esperando — as telas se chamam \\.\DISPLAY2 e ninguém sabe qual é qual pelo nome.
+    /// </summary>
+    private async Task TestarTelaAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "testar a tela do paciente")) return;
+        if (_telaEscolhida is null)
+        {
+            Dizer(Aba.Integracoes, "Escolha primeiro a tela virada para o paciente.", erro: true, Bloco.Tela);
+            return;
+        }
+        try
+        {
+            if (!await Host.MostrarExemploNaTelaDoPacienteAsync(_telaEscolhida))
+                Dizer(Aba.Integracoes, "O exemplo não abriu nesse monitor — ele pode ter sido desligado, ou este computador não abre a janela (a prévia). Clique em Atualizar e escolha de novo.", erro: true, Bloco.Tela);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — teste da tela do paciente", ex);
+            Dizer(Aba.Integracoes, ex.Message, erro: true, Bloco.Tela);
+        }
+    }
+
+    // ============================ Backup ============================
+
+    private void DizerBackup(string? texto, bool erro = false)
+    {
+        _resumoBackup = texto;
+        _resumoBackupEhErro = erro;
+    }
+
+    private async Task EscolherPastaAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "configurar o backup")) return;
+        try
+        {
+            var pasta = await Host.PerguntarPastaAsync("Onde gravar as cópias de segurança da clínica");
+            if (pasta is null) return;
+
+            using var escopo = Escopo();
+            var copia = escopo.ServiceProvider.GetRequiredService<ICopiaDeSeguranca>();
+            // A janela do Windows só devolve pasta que existe; caminho que não existe (a prévia, o
+            // teste, a rede desligada) gravado como destino faria a cópia automática falhar toda abertura.
+            if (!copia.PastaAcessivel(pasta))
+            {
+                DizerBackup(ConfiguracoesDaClinicaNaTela.PastaInacessivel, erro: true);
+                return;
+            }
+            await escopo.ServiceProvider.GetRequiredService<ParametrosService>().SalvarPastaBackupAsync(pasta);
+            PublicarBackup(await copia.SituacaoAsync());
+            DizerBackup(null);
+            Notificacoes.Sucesso("Pasta da cópia automática definida.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pasta de backup", ex);
+            DizerBackup(ex.Message, erro: true);
+        }
+    }
+
+    private async Task SalvarPoliticaBackupAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "configurar o backup")) return;
+        if (ConfiguracoesDaClinicaNaTela.LerPoliticaBackup(_intervaloBackup, _copiasBackup, out var erro) is not { } politica)
+        {
+            DizerBackup(erro, erro: true);
+            return;
+        }
+        if (_salvando) return;
+        _salvando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var p = escopo.ServiceProvider.GetRequiredService<ParametrosService>();
+            await p.SalvarIntervaloBackupAsync(politica.Intervalo);
+            await p.SalvarCopiasBackupAsync(politica.Copias);
+            PublicarBackup(await escopo.ServiceProvider.GetRequiredService<ICopiaDeSeguranca>().SituacaoAsync());
+            DizerBackup(null);
+            Notificacoes.Sucesso("Política de cópia salva.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — política de backup", ex);
+            DizerBackup(ex.Message, erro: true);
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+
+    /// <summary>Grava uma cópia agora na pasta configurada, pelo MESMO caminho do automático.</summary>
+    private async Task CopiarAgoraAsync()
+    {
+        if (_copiando) return;
+        if (!Exigir(Permissao.GerenciarUsuarios, "gerar o backup da base")) return;
+        if (string.IsNullOrWhiteSpace(_pastaBackup))
+        {
+            DizerBackup("Escolha primeiro a pasta onde as cópias devem ser gravadas.", erro: true);
+            return;
+        }
+        if (!int.TryParse(_copiasBackup, out var copias) || copias < 1)
+        {
+            DizerBackup("Informe quantas cópias guardar (1 ou mais) e salve a política.", erro: true);
+            return;
+        }
+        _copiando = true;
+        DizerBackup("Copiando a base…");
+        try
+        {
+            using var escopo = Escopo();
+            var copia = escopo.ServiceProvider.GetRequiredService<ICopiaDeSeguranca>();
+            var r = await copia.CopiarAgoraAsync(_pastaBackup, copias);
+            DizerBackup(ConfiguracoesDaClinicaNaTela.ResumoDaCopiaAgora(r), erro: r.Falhou);
+            PublicarBackup(await copia.SituacaoAsync());
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — cópia agora", ex);
+            DizerBackup(ex.Message, erro: true);
+        }
+        finally
+        {
+            _copiando = false;
+        }
+    }
+
+    /// <summary>
+    /// Gera o backup completo onde a pessoa escolher. O destino é escolhido de propósito: cópia que
+    /// fica na mesma máquina do banco não é cópia de segurança.
+    /// </summary>
+    private async Task SalvarCopiaEmAsync()
+    {
+        if (_copiando) return;
+        if (!Exigir(Permissao.GerenciarUsuarios, "gerar o backup da base")) return;
+        try
+        {
+            var caminho = await Host.PerguntarOndeSalvarAsync(
+                ConfiguracoesDaClinicaNaTela.NomeDoArquivoDeBackup(DateOnly.FromDateTime(DateTime.Today)),
+                ConfiguracoesDaClinicaNaTela.FiltroDoBackup, ".json");
+            if (caminho is null) return;
+
+            _copiando = true;
+            DizerBackup("Lendo a base…");
+            StateHasChanged();
+
+            using var escopo = Escopo();
+            using var memoria = new MemoryStream();
+            var resumo = await escopo.ServiceProvider.GetRequiredService<ICopiaDeSeguranca>().GerarAsync(memoria);
+            if (await Host.GravarArquivoAsync(caminho, memoria.ToArray()) is { } falha)
+            {
+                DizerBackup(falha, erro: true);
+                return;
+            }
+            DizerBackup(ConfiguracoesDaClinicaNaTela.ResumoDoArquivoGerado(resumo, caminho));
+            Notificacoes.Sucesso("Backup gerado.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — backup não pôde ser gerado", ex);
+            DizerBackup($"O backup não foi gerado: {ex.Message}", erro: true);
+        }
+        finally
+        {
+            _copiando = false;
+        }
+    }
+
+    /// <summary>Confere um arquivo de backup sem restaurar nada — é o que faz o backup valer alguma coisa.</summary>
+    private async Task ConferirBackupAsync()
+    {
+        if (_copiando) return;
+        if (!Exigir(Permissao.GerenciarUsuarios, "conferir um backup")) return;
+        try
+        {
+            var arquivo = await Host.EscolherArquivoAsync(ConfiguracoesDaClinicaNaTela.FiltroDoBackup, "Escolha o backup para conferir");
+            if (arquivo is null) return;
+
+            _copiando = true;
+            DizerBackup("Conferindo…");
+            StateHasChanged();
+
+            using var escopo = Escopo();
+            using var entrada = new MemoryStream(arquivo.Conteudo);
+            var resumo = await escopo.ServiceProvider.GetRequiredService<ICopiaDeSeguranca>().ConferirAsync(entrada);
+            DizerBackup(ConfiguracoesDaClinicaNaTela.ResumoDaConferencia(resumo), erro: resumo.Vazio);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — backup não pôde ser conferido", ex);
+            DizerBackup(ex.Message, erro: true);
+        }
+        finally
+        {
+            _copiando = false;
+        }
+    }
+}

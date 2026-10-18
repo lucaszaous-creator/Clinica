@@ -89,4 +89,15 @@ sealed class HostDaPrevia : IHostDaTela
     public Task<string?> PerguntarPastaAsync(string titulo) => Task.FromResult<string?>("/previa");
 
     public Task<string?> GravarArquivoAsync(string caminho, byte[] conteudo) => Task.FromResult<string?>(null);
+
+    // Monitores FICTÍCIOS (Configurações → Tela do paciente): a principal e um touch pequeno,
+    // para o combo da prévia ter o que mostrar. Não há janela para abrir: o teste diz não.
+    public Task<IReadOnlyList<MonitorDaMaquina>> ListarMonitoresAsync()
+        => Task.FromResult<IReadOnlyList<MonitorDaMaquina>>(
+        [
+            new(@"\\.\DISPLAY1", "Principal — 1920×1080", true),
+            new(@"\\.\DISPLAY2", "Secundária — 1280×800", false)
+        ]);
+
+    public Task<bool> MostrarExemploNaTelaDoPacienteAsync(string monitorId) => Task.FromResult(false);
 }
