@@ -1,0 +1,685 @@
+@*
+  IMPORTAR PACIENTES (out/2026, etapa 6 do Gerente — saiu do WPF para o Blazor). A clínica migrou
+  do Smart Clinic: o sistema anterior entra aqui em três passos numa tela só, na ordem em que a
+  pessoa decide — o ARQUIVO, o que cada COLUNA significa (com a sugestão já marcada) e a PRÉVIA,
+  que é o passo que importa: nada é gravado antes de a direção ler, linha a linha, o que vai
+  acontecer. Ficha que já existe é COMPLETADA, nunca sobrescrita; o mesmo arquivo importado duas
+  vezes não duplica ninguém.
+
+  Três arquivos: o ZIP do Smart Clinic (carteira + prontuário + agenda), um CSV avulso de
+  pacientes de qualquer sistema e o ZIP DE ARQUIVOS (receitas, laudos). O arquivo é escolhido
+  pelo hospedeiro (Host.EscolherArquivoAsync, os bytes inteiros — como o WPF fazia), e quem
+  decide as frases, a sugestão, a ordem da prévia e a conferência é ImportacaoDePacientesNaTela
+  (Application, com teste). A tela só lê, chama os MESMOS serviços e desenha.
+
+  Operação longa: enquanto lê, monta a prévia ou grava, a faixa de progresso diz o que está
+  acontecendo e TODO botão apaga — dois cliques no Importar não podem virar duas rodadas.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+@using Clinica.Application.Modelos
+
+<div class="pagina importacao">
+    <CabecalhoPagina Sobretitulo="Direção · Pacientes" Titulo="Importar pacientes"
+                     Subtitulo="O sistema anterior entra aqui em três passos. Nada é gravado antes da prévia: quem já está cadastrado é completado (só os campos vazios), e o mesmo arquivo importado duas vezes não duplica nada — nem ficha, nem prontuário, nem horário." />
+
+    @if (_ocupado)
+    {
+        <div class="aviso info imp-progresso" role="status" aria-live="polite">
+            <Icone Nome="relogio" />
+            <div class="imp-progresso-corpo">
+                <span>@_textoOcupado</span>
+                <div class="imp-progresso-trilho" aria-hidden="true"><i></i></div>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_mensagem))
+    {
+        <div class="imp-mensagem"><Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" /></div>
+    }
+
+    @* A CONFERÊNCIA vem antes dos passos: é o que a pessoa procura ao terminar ("funcionou?"). *@
+    @if (_conferencia is { } conf)
+    {
+        <section class="cartao cartao-corpo imp-conferencia @(conf.Fechou ? "fechou" : "aberta")" aria-label="Conferência da importação">
+            <h2>@conf.Titulo</h2>
+            <ul>
+                @foreach (var l in conf.Linhas)
+                {
+                    <li class="@(l.EhMotivo ? "motivo" : l.Completo ? "ok" : "falta")">@l.Texto</li>
+                }
+            </ul>
+        </section>
+    }
+
+    @* ===== 1 · O ARQUIVO ===== *@
+    <section class="cartao imp-passo" aria-label="Passo 1: o arquivo">
+        <div class="imp-passo-cab"><span class="imp-numero">1</span><h2>O arquivo</h2></div>
+        <p class="imp-dica">O Smart Clinic entrega um ZIP com a carteira, o prontuário, a agenda e os cadastros: escolha o ZIP inteiro e tudo o que é dado de paciente entra (fichas, prontuário em texto, agenda futura, e o que não tem campo vai para as observações). Um CSV avulso de pacientes também serve, de qualquer sistema — aí o passo 2 pergunta o que cada coluna significa.</p>
+        <div class="imp-escolhas">
+            <button type="button" class="botao primario" disabled="@(_ocupado || !Pode(Permissao.EditarPaciente))"
+                    @onclick="EscolherPacoteAsync"><Icone Nome="abrir" />Escolher o pacote (ZIP) do Smart Clinic…</button>
+            <button type="button" class="botao" disabled="@(_ocupado || !Pode(Permissao.EditarPaciente))"
+                    @onclick="EscolherCsvAsync"><Icone Nome="lista" />Ou um CSV de pacientes…</button>
+            @* O ZIP DE ARQUIVOS (set/2026): receitas e laudos em PDF, com o índice que diz de quem é cada
+               um. Entra DEPOIS da carteira: é pelo id de lá que o arquivo acha a ficha. *@
+            <button type="button" class="botao" disabled="@(_ocupado || !Pode(Permissao.EditarPaciente))"
+                    @onclick="EscolherAnexosAsync"><Icone Nome="documento" />Ou o ZIP de arquivos (receitas, laudos)…</button>
+        </div>
+        @if (_arquivoNome is not null)
+        {
+            <div class="imp-arquivo">
+                <span class="principal" title="@_arquivoNome">@_arquivoNome</span>
+                <span class="secundario">@_arquivoInfo</span>
+            </div>
+        }
+        @if (_modo == ModoDaImportacao.Anexos)
+        {
+            <p class="imp-dica">ZIP de arquivos reconhecido: cada PDF acha a ficha do paciente pelo id do sistema anterior (gravado na importação da carteira) e entra como ARQUIVO DA FICHA, em "Exames e anexos", com a data do documento. Não há coluna nem convênio a decidir.</p>
+            <div>
+                <button type="button" class="botao primario" disabled="@(_ocupado || !Pode(Permissao.EditarPaciente))"
+                        @onclick="GerarPreviaAsync"><Icone Nome="busca" />Gerar a prévia</button>
+            </div>
+        }
+    </section>
+
+    @* ===== 2 · COLUNAS E CONVÊNIOS — some no ZIP de arquivos: não há o que decidir ali ===== *@
+    @if ((_modo is ModoDaImportacao.Csv or ModoDaImportacao.Pacote) && _tabela is not null)
+    {
+        <section class="cartao imp-passo" aria-label="Passo 2: o que cada coluna significa">
+            <div class="imp-passo-cab"><span class="imp-numero">2</span><h2>O que cada coluna significa</h2></div>
+            @if (_modo == ModoDaImportacao.Pacote)
+            {
+                @* No modo PACOTE as colunas são as do formato conhecido (fixadas em teste): mostrar 19
+                   listas já certas convida a mexer. *@
+                <p class="imp-dica">Formato do Smart Clinic reconhecido: nome, CPF, celular, nascimento, sexo, endereço em partes, convênio, carteirinha e o ID de lá. O que precisa da sua decisão é só o convênio, abaixo.</p>
+            }
+            else
+            {
+                <p class="imp-dica">A sugestão já está marcada pelo nome das colunas — confira. Só o nome é obrigatório.</p>
+                <div class="imp-campos">
+                    @foreach (var campo in CamposImportacao.Todos)
+                    {
+                        var este = campo;
+                        <label class="imp-campo-rotulo @(ImportacaoDePacientesNaTela.Obrigatorio(este) ? "obrigatorio" : null)"
+                               for="@($"imp-col-{este}")">@CamposImportacao.Rotulo(este)</label>
+                        <select id="@($"imp-col-{este}")" class="campo" disabled="@_ocupado"
+                                value="@_escolhas[este]" @onchange="e => TrocarColuna(este, e.Value?.ToString())">
+                            <option value="@ImportacaoDePacientesNaTela.NaoImportar">@ImportacaoDePacientesNaTela.NaoImportar</option>
+                            @foreach (var r in _rotulos)
+                            {
+                                <option value="@r">@r</option>
+                            }
+                        </select>
+                        <span class="imp-campo-dica">@CamposImportacao.Dica(este)</span>
+                    }
+                </div>
+            }
+
+            <div class="imp-subtitulo">
+                <h3>Convênios do arquivo → convênios daqui</h3>
+                <p class="imp-dica">Aponte o que você sabe ("Unimed" pode ser Padrão ou Intercâmbio, e a diferença é regra de faturamento). O que ficar em "definir depois" entra como convênio a definir: o sistema acusa em vermelho no próximo agendamento ou atendimento, e a escolha é feita na ficha, com o paciente na frente. A lista segue a coluna de convênio escolhida acima.</p>
+            </div>
+            <div class="imp-convenios">
+                @foreach (var c in _convenios)
+                {
+                    var este = c;
+                    <div class="imp-convenio">
+                        <span class="principal" title="@este.Texto">@este.Texto</span>
+                        <span class="secundario">@este.LinhasTexto</span>
+                        <select class="campo" aria-label="@($"Convênio daqui para {este.Texto}")" disabled="@_ocupado"
+                                value="@este.Indice.ToString(CultureInfo.InvariantCulture)"
+                                @onchange="e => TrocarConvenio(este, e.Value?.ToString())">
+                            @for (var i = 0; i < _opcoes.Count; i++)
+                            {
+                                <option value="@i.ToString(CultureInfo.InvariantCulture)">@_opcoes[i].Rotulo</option>
+                            }
+                        </select>
+                    </div>
+                }
+            </div>
+            <div>
+                <button type="button" class="botao primario" disabled="@(_ocupado || !Pode(Permissao.EditarPaciente))"
+                        @onclick="GerarPreviaAsync"><Icone Nome="busca" />Gerar a prévia</button>
+            </div>
+        </section>
+    }
+
+    @* ===== 3 · O QUE VAI ACONTECER ===== *@
+    @if (_temPrevia)
+    {
+        <section class="cartao imp-passo" aria-label="Passo 3: o que vai acontecer">
+            <div class="imp-passo-cab"><span class="imp-numero">3</span><h2>O que vai acontecer</h2></div>
+            <p class="imp-resumo">@_resumoPrevia</p>
+            @if (_resumoPacote.Count > 0)
+            {
+                <ul class="imp-resumo-pacote">
+                    @foreach (var r in _resumoPacote)
+                    {
+                        @* As linhas "  • Não entra — …" são o detalhe da linha de cima: recuo, sem segundo marcador. *@
+                        @if (r.StartsWith("  • ", StringComparison.Ordinal))
+                        {
+                            <li class="sub">@r[4..]</li>
+                        }
+                        else
+                        {
+                            <li>@r</li>
+                        }
+                    }
+                </ul>
+            }
+            @if (_avisosGerais is not null)
+            {
+                <div class="imp-mensagem"><Aviso Texto="@_avisosGerais" Tom="atencao" /></div>
+            }
+
+            @if (_linhas.Count > 0)
+            {
+                <div class="tabela-rolagem imp-tabela-rolagem">
+                    <table class="lista imp-tabela">
+                        <thead>
+                            <tr>
+                                <th class="direita">Linha</th>
+                                <th>Nome</th>
+                                <th>CPF</th>
+                                <th>Destino</th>
+                                <th>Detalhe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _linhas)
+                            {
+                                <tr>
+                                    <td class="direita numero">@l.Numero</td>
+                                    <td><span class="principal imp-nome" title="@l.Nome">@l.Nome</span></td>
+                                    <td class="numero">@(l.CpfFormatado ?? "—")</td>
+                                    <td class="nao-quebra"><Selo Tom="@ImportacaoDePacientesNaTela.TomDoDestino(l.Destino)">@l.DestinoRotulo</Selo></td>
+                                    <td>
+                                        @l.Detalhe
+                                        @if (l.TemAvisos)
+                                        {
+                                            <span class="secundario imp-avisos-linha">@l.AvisosTexto</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="imp-acao">
+                <button type="button" class="botao primario" disabled="@(_ocupado || !_podeExecutar || !Pode(Permissao.EditarPaciente))"
+                        @onclick="ImportarAsync"><Icone Nome="check" />@_rotuloImportar</button>
+                <span class="imp-dica">@(_previaAnexos is not null
+                    ? "Linhas \"Não entra\" ficam de fora; corrija o arquivo (ou importe antes a carteira) e gere a prévia de novo."
+                    : "Linhas \"Não entra\" ficam de fora; corrija o arquivo ou o mapeamento e gere a prévia de novo.")</span>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    /// <summary>Uma linha dos convênios: o texto do arquivo e o índice escolhido nas opções.</summary>
+    private sealed class ConvenioMapeado(string texto, int linhas, string linhasTexto)
+    {
+        public string Texto { get; } = texto;
+        public int Linhas { get; } = linhas;
+        public string LinhasTexto { get; } = linhasTexto;
+        public int Indice { get; set; }
+    }
+
+    // ---- passo 1
+    private ModoDaImportacao _modo = ModoDaImportacao.Nenhum;
+    private TabelaImportada? _tabela;
+    private PacoteSmartClinic? _pacote;
+    private PacoteAnexosSmartClinic? _pacoteAnexos;
+    private string? _arquivoNome, _arquivoInfo;
+
+    // ---- passo 2
+    private IReadOnlyList<string> _rotulos = [];
+    private readonly Dictionary<CampoImportacao, string> _escolhas = CamposImportacao.Todos
+        .ToDictionary(c => c, _ => ImportacaoDePacientesNaTela.NaoImportar);
+    private IReadOnlyList<OpcaoDeConvenioImportado> _opcoes = [];
+    private List<ConvenioMapeado> _convenios = [];
+
+    // ---- passo 3
+    private PreviaImportacao? _previa;
+    private PreviaSmartClinic? _previaPacote;
+    private PreviaAnexosSmartClinic? _previaAnexos;
+    private bool _temPrevia, _podeExecutar;
+    private IReadOnlyList<LinhaPrevia> _linhas = [];
+    private IReadOnlyList<string> _resumoPacote = [];
+    private string _resumoPrevia = string.Empty;
+    private string? _avisosGerais;
+    private string _rotuloImportar = "Importar";
+    private ConferenciaNaTela? _conferencia;
+
+    // ---- estado
+    private bool _ocupado;
+    private string _textoOcupado = "Lendo o arquivo…";
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private int _geracao;
+
+    /// <summary>F5 gera a prévia de novo (quando há arquivo); Ctrl+S importa — pelos MESMOS métodos dos botões.</summary>
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar when _modo != ModoDaImportacao.Nenhum => GerarPreviaAsync(),
+        AtalhoDeTela.Salvar when _podeExecutar => ImportarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    // ============================================================ passo 1 — arquivo
+
+    private Task EscolherCsvAsync() => EscolherAsync(
+        ModoDaImportacao.Csv,
+        "Planilha exportada (*.csv;*.txt)|*.csv;*.txt|Todos os arquivos|*.*",
+        "Escolha o arquivo exportado do sistema anterior",
+        "Lendo o arquivo…", "Gerente — arquivo de importação não pôde ser lido", "Não deu para ler o arquivo");
+
+    /// <summary>
+    /// O ZIP inteiro do Smart Clinic: a carteira, o prontuário em texto, a agenda futura e o que
+    /// não tem campo. As colunas do pacientes.csv são as do formato medido (e fixado em teste); o
+    /// que a direção decide é o destino de cada convênio.
+    /// </summary>
+    private Task EscolherPacoteAsync() => EscolherAsync(
+        ModoDaImportacao.Pacote,
+        "Pacote do Smart Clinic (*.zip)|*.zip|Todos os arquivos|*.*",
+        "Escolha o ZIP que o Smart Clinic entregou",
+        "Lendo o pacote…", "Gerente — pacote do Smart Clinic não pôde ser lido", "Não deu para ler o pacote");
+
+    /// <summary>
+    /// O ZIP DE ARQUIVOS do Smart Clinic: a pasta de PDFs com o índice relacao_arquivos.csv que diz
+    /// de qual paciente é cada um. Não há coluna nem convênio a decidir: escolheu, gera a prévia.
+    /// </summary>
+    private Task EscolherAnexosAsync() => EscolherAsync(
+        ModoDaImportacao.Anexos,
+        "ZIP de arquivos do Smart Clinic (*.zip)|*.zip|Todos os arquivos|*.*",
+        "Escolha o ZIP de arquivos (receitas, laudos) que o Smart Clinic entregou",
+        "Lendo o ZIP de arquivos…", "Gerente — ZIP de arquivos do Smart Clinic não pôde ser lido", "Não deu para ler o ZIP de arquivos");
+
+    private async Task EscolherAsync(ModoDaImportacao modo, string filtro, string titulo,
+        string textoLendo, string contextoDoLog, string fraseDoErro)
+    {
+        if (_ocupado) return;
+        if (!Exigir(Permissao.EditarPaciente, "importar pacientes")) return;
+
+        ArquivoEscolhido? arquivo;
+        try
+        {
+            arquivo = await Host.EscolherArquivoAsync(filtro, titulo);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(contextoDoLog, ex);
+            Mostrar($"{fraseDoErro}: {ex.Message}", erro: true);
+            return;
+        }
+        if (arquivo is null || Descartada) return; // desistiu — silêncio é o certo aqui
+
+        _mensagem = null;
+        Ocupar(textoLendo);
+        try
+        {
+            var conteudo = arquivo.Conteudo;
+            // A leitura do ZIP/CSV é CPU pura (centenas de PDFs, milhares de linhas): fora da
+            // thread da tela, para a faixa de progresso continuar viva enquanto ela corre.
+            TabelaImportada? tabela = null;
+            PacoteSmartClinic? pacote = null;
+            PacoteAnexosSmartClinic? anexos = null;
+            string info;
+            switch (modo)
+            {
+                case ModoDaImportacao.Csv:
+                    tabela = await Task.Run(() => LeitorCsv.Ler(conteudo));
+                    info = ImportacaoDePacientesNaTela.InfoDoCsv(tabela);
+                    break;
+                case ModoDaImportacao.Pacote:
+                    pacote = await Task.Run(() => PacoteSmartClinic.Abrir(conteudo));
+                    tabela = pacote.Tabela(PacoteSmartClinic.Pacientes)!;
+                    info = ImportacaoDePacientesNaTela.InfoDoPacote(pacote);
+                    break;
+                default:
+                    anexos = await Task.Run(() => PacoteAnexosSmartClinic.Abrir(conteudo));
+                    info = ImportacaoDePacientesNaTela.InfoDosAnexos(anexos);
+                    break;
+            }
+
+            // O catálogo é relido a cada arquivo: um convênio cadastrado agora já entra na lista.
+            IReadOnlyList<ConvenioCadastro> catalogo = [];
+            if (modo != ModoDaImportacao.Anexos)
+            {
+                using var escopo = Escopo();
+                catalogo = ImportacaoDePacientesNaTela.CatalogoAtivo(
+                    await escopo.ServiceProvider.GetRequiredService<ConvenioCatalogoService>().ListarAsync());
+            }
+            if (Descartada) return;
+
+            // Tudo publicado depois do último await. Arquivo novo: a prévia e a conferência do
+            // arquivo anterior saem — elas não descrevem este.
+            LimparPrevia();
+            _conferencia = null;
+            _modo = modo;
+            _tabela = tabela;
+            _pacote = pacote;
+            _pacoteAnexos = anexos;
+            _arquivoNome = arquivo.Nome;
+            _arquivoInfo = info;
+            if (tabela is not null) MontarMapeamento(tabela, catalogo);
+            else
+            {
+                _rotulos = [];
+                foreach (var c in CamposImportacao.Todos) _escolhas[c] = ImportacaoDePacientesNaTela.NaoImportar;
+                _opcoes = [];
+                _convenios = [];
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(contextoDoLog, ex);
+            Mostrar($"{fraseDoErro}: {ex.Message}", erro: true);
+        }
+        finally
+        {
+            Desocupar();
+        }
+    }
+
+    // ============================================================ passo 2 — mapeamento
+
+    /// <summary>
+    /// As opções de convênio vêm ANTES das colunas: a lista de convênios a mapear lê as opções, e
+    /// no WPF a ordem invertida fez a primeira escolha dizer "Index was out of range" (a clínica viu).
+    /// </summary>
+    private void MontarMapeamento(TabelaImportada tabela, IReadOnlyList<ConvenioCadastro> catalogo)
+    {
+        _rotulos = ImportacaoDePacientesNaTela.RotulosUnicos(tabela.Colunas);
+        _opcoes = ImportacaoDePacientesNaTela.OpcoesDeConvenio(catalogo);
+        foreach (var (campo, coluna) in ImportacaoDePacientesNaTela.SugestaoDeColunas(tabela, _rotulos))
+            _escolhas[campo] = coluna;
+        _convenios = [];
+        RemontarConvenios();
+    }
+
+    private MapeamentoImportacao MapeamentoAtual()
+        => ImportacaoDePacientesNaTela.Mapeamento(_escolhas, _rotulos);
+
+    /// <summary>Os textos de convênio do arquivo: a escolha anterior de cada texto fica; o novo ganha a sugestão.</summary>
+    private void RemontarConvenios()
+    {
+        if (_tabela is null) return;
+        var anteriores = _convenios.ToDictionary(c => c.Texto, c => c.Indice, StringComparer.OrdinalIgnoreCase);
+        _convenios = ImportacaoDePacientesNaTela.ConveniosAMapear(_tabela, MapeamentoAtual())
+            .Select(c => new ConvenioMapeado(c.Texto, c.Linhas, c.LinhasTexto)
+            {
+                Indice = anteriores.TryGetValue(c.Texto, out var i) && i < _opcoes.Count
+                    ? i
+                    : ImportacaoDePacientesNaTela.SugerirConvenio(c.Texto, _opcoes)
+            })
+            .ToList();
+    }
+
+    private void TrocarColuna(CampoImportacao campo, string? coluna)
+    {
+        if (_ocupado) return;
+        _escolhas[campo] = coluna ?? ImportacaoDePacientesNaTela.NaoImportar;
+        // Mexeu no mapeamento: a prévia na tela não descreve mais o que vai acontecer.
+        LimparPrevia();
+        // Trocou a coluna do convênio: a lista de textos a mapear é OUTRA.
+        if (campo == CampoImportacao.Convenio) RemontarConvenios();
+    }
+
+    private void TrocarConvenio(ConvenioMapeado linha, string? valor)
+    {
+        if (_ocupado) return;
+        if (int.TryParse(valor, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) && i >= 0 && i < _opcoes.Count)
+            linha.Indice = i;
+        LimparPrevia();
+    }
+
+    private Dictionary<string, ConvenioCadastro> ConveniosEscolhidos()
+        => ImportacaoDePacientesNaTela.ConveniosEscolhidos(_convenios.Select(c => (c.Texto, c.Indice)), _opcoes);
+
+    /// <summary>A prévia que estava na tela não descreve mais o que vai acontecer: ficar visível seria promessa velha.</summary>
+    private void LimparPrevia()
+    {
+        _previa = null;
+        _previaPacote = null;
+        _previaAnexos = null;
+        _linhas = [];
+        _resumoPacote = [];
+        _resumoPrevia = string.Empty;
+        _avisosGerais = null;
+        _temPrevia = false;
+        _podeExecutar = false;
+        _rotuloImportar = "Importar";
+    }
+
+    // ============================================================ passo 3 — prévia
+
+    private async Task GerarPreviaAsync()
+    {
+        if (_ocupado) return;
+        if (_tabela is null && _pacoteAnexos is null)
+        {
+            Mostrar("Escolha o arquivo primeiro (passo 1).", erro: true);
+            return;
+        }
+        if (!Exigir(Permissao.EditarPaciente, "importar pacientes")) return;
+
+        var geracao = ++_geracao;
+        _mensagem = null;
+        Ocupar("Montando a prévia…");
+        try
+        {
+            if (_pacoteAnexos is { } pacoteAnexos)
+            {
+                PreviaAnexosSmartClinic previaAnexos;
+                using (var escopo = Escopo())
+                    previaAnexos = await escopo.ServiceProvider.GetRequiredService<ImportacaoAnexosSmartClinicService>()
+                        .PreverAsync(pacoteAnexos);
+                if (geracao != _geracao || Descartada) return;
+
+                var tela = ImportacaoDePacientesNaTela.PreviaDosAnexos(previaAnexos);
+                LimparPrevia();
+                _previaAnexos = previaAnexos;
+                _resumoPacote = tela.Resumo;
+                _resumoPrevia = tela.ResumoPrevia;
+                _avisosGerais = tela.Avisos;
+                _rotuloImportar = tela.RotuloImportar;
+                _podeExecutar = Pode(Permissao.EditarPaciente) && tela.TemTrabalho;
+                _temPrevia = true;
+                return;
+            }
+
+            var mapa = MapeamentoAtual();
+            var convenios = ConveniosEscolhidos();
+            PreviaImportacao previa;
+            PreviaSmartClinic? previaPacote = null;
+            using (var escopo = Escopo())
+            {
+                if (_pacote is not null)
+                {
+                    previaPacote = await escopo.ServiceProvider.GetRequiredService<ImportacaoSmartClinicService>()
+                        .PreverAsync(_pacote, convenios, DateOnly.FromDateTime(DateTime.Today));
+                    previa = previaPacote.Pacientes;
+                }
+                else
+                    previa = await escopo.ServiceProvider.GetRequiredService<ImportacaoPacientesService>()
+                        .PreverAsync(_tabela!, mapa, convenios);
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            LimparPrevia();
+            _previa = previa;
+            _previaPacote = previaPacote;
+            _resumoPacote = previaPacote is null ? [] : ImportacaoDePacientesNaTela.ResumoDoPacote(previaPacote);
+            _linhas = ImportacaoDePacientesNaTela.LinhasEmOrdem(previa);
+            _resumoPrevia = ImportacaoDePacientesNaTela.ResumoDaPrevia(previa);
+            _avisosGerais = ImportacaoDePacientesNaTela.AvisosGerais(previa, previaPacote);
+            _rotuloImportar = ImportacaoDePacientesNaTela.RotuloImportar(previa, previaPacote);
+            _podeExecutar = Pode(Permissao.EditarPaciente) && ImportacaoDePacientesNaTela.TemTrabalho(previa, previaPacote);
+            _temPrevia = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Gerente — prévia da importação falhou", ex);
+            Mostrar(ex.Message, erro: true);
+        }
+        finally
+        {
+            if (geracao == _geracao) Desocupar();
+        }
+    }
+
+    // ============================================================ importar
+
+    private async Task ImportarAsync()
+    {
+        if (_ocupado) return;
+        if (_previaAnexos is { } previaAnexos)
+        {
+            await ImportarAnexosAsync(previaAnexos);
+            return;
+        }
+
+        if (_previa is not { } previa || !ImportacaoDePacientesNaTela.TemTrabalho(previa, _previaPacote))
+        {
+            Mostrar("Gere a prévia antes de importar.", erro: true);
+            return;
+        }
+        if (!Exigir(Permissao.EditarPaciente, "importar pacientes")) return;
+
+        // Ação em lote diz o tamanho do lote ANTES do clique (parcela 69).
+        var previaPacote = _previaPacote;
+        var confirmou = await Dialogos.ConfirmarAsync("Importar pacientes",
+            ImportacaoDePacientesNaTela.ConfirmacaoDaImportacao(previa, previaPacote), perigoso: true);
+        if (!confirmou || Descartada || _ocupado) return;
+
+        _mensagem = null;
+        Ocupar("Gravando as fichas…");
+        ++_geracao;
+        try
+        {
+            string texto;
+            bool teveErro;
+            ConferenciaNaTela? conferencia = null;
+            using (var escopo = Escopo())
+            {
+                if (previaPacote is not null && _pacote is { } pacote)
+                {
+                    var servico = escopo.ServiceProvider.GetRequiredService<ImportacaoSmartClinicService>();
+                    var r = await servico.ExecutarAsync(previaPacote, Operador, Progresso());
+                    (texto, teveErro) = ImportacaoDePacientesNaTela.ResultadoDoPacote(r);
+
+                    // A CONFERÊNCIA: relê o mesmo ZIP contra o banco. É a prova de que tudo
+                    // entrou — a mensagem acima diz o que se gravou; esta diz o que FALTA.
+                    MudarTexto("Conferindo o que entrou…");
+                    var releitura = await servico.PreverAsync(pacote, ConveniosEscolhidos(), DateOnly.FromDateTime(DateTime.Today));
+                    conferencia = ImportacaoDePacientesNaTela.ConferenciaDoPacote(ConferenciaSmartClinic.Montar(releitura));
+                }
+                else
+                {
+                    var r = await escopo.ServiceProvider.GetRequiredService<ImportacaoPacientesService>()
+                        .ExecutarAsync(previa, Operador);
+                    (texto, teveErro) = ImportacaoDePacientesNaTela.ResultadoDoCsv(r);
+                }
+            }
+            if (Descartada) return;
+
+            // A prévia já foi consumida — o que sobrou de trabalho se descobre gerando outra. A
+            // conferência fica na tela: é ela que responde "funcionou?".
+            LimparPrevia();
+            if (conferencia is not null) _conferencia = conferencia;
+            // Meio sucesso não é sucesso (parcela 68): com erro, a cor é a de erro.
+            Mostrar(texto, erro: teveErro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — importação de pacientes falhou", ex);
+            Mostrar(ex.Message, erro: true);
+        }
+        finally
+        {
+            Desocupar();
+        }
+    }
+
+    /// <summary>Grava o ZIP de arquivos e CONFERE relendo o mesmo ZIP — a mesma prova do pacote.</summary>
+    private async Task ImportarAnexosAsync(PreviaAnexosSmartClinic previa)
+    {
+        if (!previa.TemTrabalho || _pacoteAnexos is not { } pacote)
+        {
+            Mostrar("Gere a prévia antes de importar.", erro: true);
+            return;
+        }
+        if (!Exigir(Permissao.EditarPaciente, "importar pacientes")) return;
+
+        var confirmou = await Dialogos.ConfirmarAsync("Importar arquivos",
+            ImportacaoDePacientesNaTela.ConfirmacaoDosAnexos(previa), perigoso: true);
+        if (!confirmou || Descartada || _ocupado) return;
+
+        _mensagem = null;
+        Ocupar("Gravando os arquivos…");
+        ++_geracao;
+        try
+        {
+            string texto;
+            bool teveErro;
+            ConferenciaNaTela conferencia;
+            using (var escopo = Escopo())
+            {
+                var servico = escopo.ServiceProvider.GetRequiredService<ImportacaoAnexosSmartClinicService>();
+                var r = await servico.ExecutarAsync(previa, pacote, Operador, Progresso());
+                (texto, teveErro) = ImportacaoDePacientesNaTela.ResultadoDosAnexos(r);
+
+                MudarTexto("Conferindo o que entrou…");
+                var releitura = await servico.PreverAsync(pacote);
+                conferencia = ImportacaoDePacientesNaTela.ConferenciaDosAnexos(ConferenciaAnexosSmartClinic.Montar(releitura));
+            }
+            if (Descartada) return;
+
+            LimparPrevia();
+            _conferencia = conferencia;
+            Mostrar(texto, erro: teveErro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — importação do ZIP de arquivos falhou", ex);
+            Mostrar(ex.Message, erro: true);
+        }
+        finally
+        {
+            Desocupar();
+        }
+    }
+
+    // ============================================================ estado
+
+    /// <summary>O progresso chega do serviço (a cada lote); a faixa se redesenha na thread da tela.</summary>
+    private IProgress<string> Progresso() => new Progress<string>(MudarTexto);
+
+    private void MudarTexto(string texto)
+    {
+        _textoOcupado = texto;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void Ocupar(string texto)
+    {
+        _ocupado = true;
+        _textoOcupado = texto;
+        StateHasChanged();
+    }
+
+    private void Desocupar() => _ocupado = false;
+
+    private void Mostrar(string texto, bool erro)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = erro;
+    }
+}

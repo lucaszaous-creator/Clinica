@@ -254,9 +254,10 @@ public sealed class TelasBlazorAbremTests : IClassFixture<BancoDasTelas>, IDispo
             => Task.FromResult<string?>($"teste: {nomeSugerido}");
 
         public Task<ArquivoEscolhido?> EscolherArquivoAsync(string filtro, string titulo)
-            => Task.FromResult(SementeTaxasExtrato.ExemploOfx is { } ofx
-                ? new ArquivoEscolhido("extrato-exemplo.ofx", System.Text.Encoding.Latin1.GetBytes(ofx))
-                : null);
+            => Task.FromResult(SementeImportacaoDePacientes.ExemploPara(filtro)
+                ?? (SementeTaxasExtrato.ExemploOfx is { } ofx
+                    ? new ArquivoEscolhido("extrato-exemplo.ofx", System.Text.Encoding.Latin1.GetBytes(ofx))
+                    : null));
 
         public Task<bool> CopiarAsync(string texto) => Task.FromResult(true);
         public Task<bool> NavegarAsync(string chave) => Task.FromResult(false);
