@@ -1,5 +1,9 @@
 # O CRM em produção: duas VPS, um túnel e o SMS 24h (out/2026)
 
+
+> **A instalação real (17–18/10/2026)** — endereços, acessos, o que está ligado e como
+> publicar de novo — está em [`crm-em-producao-out2026.md`](crm-em-producao-out2026.md).
+
 > Decisão da direção: o CRM fica **na web** (como está), numa **VPS separada no Brasil**. A
 > VPS da clínica (o Postgres do prontuário) não ganha nenhum site aberto. O lembrete por SMS
 > sai **com as máquinas da clínica desligadas**. O WhatsApp fica para outro momento.
