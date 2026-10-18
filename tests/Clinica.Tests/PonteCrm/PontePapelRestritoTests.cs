@@ -141,6 +141,25 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Single(await admin.MensagensSms.ToListAsync());
     }
 
+    // O login do CRM conta tentativas, trava e marca o último acesso — e só essas colunas: a
+    // senha e as permissões continuam fora do alcance do usuário da ponte.
+    [Fact] public async Task Login_do_CRM_com_o_usuario_do_sistema()
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        var (hash, sal) = HashSenha.Gerar("senha-boa-do-balcao");
+        admin.Usuarios.Add(new UsuarioSistema { Login = "ana", Nome = "Ana", Perfil = PerfilAcesso.Recepcao, SenhaHash = hash, SenhaSalt = sal });
+        await admin.SaveChangesAsync();
+        var repo = new ClinicaRepositorio(ponte!);
+        var bridge = new ClinicTeamBridge(repo, new AcessoService(repo));
+
+        for (var i = 0; i < AcessoService.TentativasAteTravar; i++)
+            Assert.Equal(401, ((Microsoft.AspNetCore.Http.IStatusCodeHttpResult)await bridge.Enter(new("ana", "errada"), default)).StatusCode);
+        Assert.NotNull((await admin.Usuarios.AsNoTracking().SingleAsync()).BloqueadoAte);
+
+        var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"Usuarios\" SET \"SenhaHash\" = 'x'"));
+        Assert.Contains("42501", e.ToString());
+    }
+
     sealed class GatewayDoTeste : IGatewaySms
     {
         public Task<string?> EnviarAsync(OpcoesSms opcoes, string celularE164, string texto, CancellationToken ct = default)
