@@ -4187,6 +4187,18 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do XAML e o binding morto é silencioso —, e a conferência é `grep` do membro no tipo
   base.
 
+- **A TRAVA DAS MIGRATIONS PAROU A CLÍNICA — trava sem prazo é trava que alguém esquece
+  segurando** (18/10/2026; a Recepção e o Gerente não abriam: *"Exception while reading from
+  stream"* e depois *"o banco não respondeu a tempo"*). Toda abertura da suíte chamava
+  `pg_advisory_lock` SEM PRAZO, mesmo sem migration pendente. Uma conexão do posto caiu com a
+  trava na mão — a sessão ficou "idle" no servidor, segurando-a até o keepalive de 2 h — e todo
+  app que abria depois ficava "SELECT waiting" até estourar o tempo. Nada no código estava
+  errado no caminho feliz; o defeito só existe com rede instável. A correção
+  (`ShellBootstrap.PrepararBancoAsync`): **sem migration pendente, a trava nem é pedida**; com
+  pendente, `pg_try_advisory_lock` de 2 em 2 s com prazo de 60 s, e passado o prazo a abertura
+  segue sem ela (a corrida de DDL já é tolerada), com log. Para destravar à mão: encerrar no
+  Postgres as sessões de `pg_locks` com `locktype='advisory' and objid=727411`
+  (`docs/crm-em-producao-out2026.md`). **Toda espera por recurso compartilhado tem prazo.**
 - **DDL de migration só alcança as tabelas cujo DONO é o papel do desktop** (out/2026 — a
   Recepção não abriu: `42501: permission denied for table SolicitacoesEnfermagem`). As
   tabelas dos pedidos da enfermagem são criadas pelo atualizador do posto
