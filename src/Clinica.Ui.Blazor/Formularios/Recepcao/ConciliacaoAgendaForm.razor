@@ -1,0 +1,324 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@inherits TelaBase
+@*
+  CONFERIR ATENDIMENTOS — a conciliação da agenda (parcela 93; out/2026, migrado da
+  ConciliacaoAgendaWindow / ConciliacaoAgendaViewModel do WPF; o mapa é
+  docs/conciliacao-da-agenda.md). A fila de "isto aqui ficou pendurado" entre o horário e a
+  sessão.
+
+  A pergunta tem TRÊS respostas — e cada linha oferece as três, cada uma acesa só quando cabe:
+  - "Foi falta" (EditarAgenda);
+  - "Aconteceu — lançar" (EditarAgenda E LancarAtendimento), APAGADO com a frase ao lado
+    quando já há sessão no dia — lançar ali criaria um segundo jogo de guias;
+  - "Já foi lançada — encerrar" (os mesmos dois bits), o horário vira Substituído apontando
+    para a sessão; com mais de uma no dia, pergunta qual.
+
+  NÃO fecha ao resolver uma linha: a recepcionista percorre a lista inteira de uma vez. Cada
+  linha resolvida fica com o desfecho escrito e chama AoAlterou — a tela de trás relê.
+
+  Convênio "a definir" (parcela 92): o lançamento é recusado até alguém escolher. A janela
+  de escolha é do shell WPF; quem abre este formulário PODE passar EscolherConvenio (a ponte),
+  e sem ela a tela diz onde se escolhe.
+*@
+
+<Modal Titulo="@ConciliacaoAgendaNaTela.Titulo" Subtitulo="@ConciliacaoAgendaNaTela.Subtitulo" Largura="largo" AoFechar="FecharAsync">
+    <ChildContent>
+        <div class="rec-conc-barra">
+            <button type="button" class="botao" disabled="@(_carregando || _ocupado)" @onclick="CarregarAsync">
+                <Icone Nome="atualizar" />Atualizar
+            </button>
+            @if (_periodo is not null)
+            {
+                <span class="rec-conc-periodo">@_periodo</span>
+            }
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="@ConciliacaoAgendaNaTela.FalhaTitulo" Detalhe="@ConciliacaoAgendaNaTela.FalhaDetalhe" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_carregando && _parados.Count == 0 && _orfaos.Count == 0)
+        {
+            <Esqueleto Altura="260" />
+        }
+        else if (_parados.Count == 0 && _orfaos.Count == 0)
+        {
+            <EstadoVazio Titulo="@ConciliacaoAgendaNaTela.Vazio" Icone="ok"
+                         Descricao="Nenhum horário passado ficou em aberto, e nenhum realizado está sem atendimento." />
+        }
+        else
+        {
+            <p class="rec-conc-resumo">@_resumo</p>
+            <Aviso Tom="erro" Texto="@_mensagem" />
+
+            @if (_parados.Count > 0)
+            {
+                <ul class="rec-conc-lista">
+                    @foreach (var l in _parados)
+                    {
+                        var h = l.Horario;
+                        <li class="rec-conc-linha @(l.Resolvida ? "resolvida" : null)">
+                            <div class="rec-conc-info">
+                                <span class="principal">@ConciliacaoAgendaNaTela.Cabecalho(h.DataHora, h.Paciente)</span>
+                                <div class="rec-conc-selos">
+                                    <Selo Tom="neutro">@ConciliacaoAgendaNaTela.Origem(h.Importado)</Selo>
+                                    <Selo Tom="aviso">@ConciliacaoAgendaNaTela.Parado(h.DiasParado)</Selo>
+                                    <Selo Tom="neutro">@ConciliacaoAgendaNaTela.Profissional(h.Profissional)</Selo>
+                                </div>
+                                <p class="rec-conc-situacao">@h.Situacao</p>
+                                @if (h.TemSessaoNoDia)
+                                {
+                                    <p class="rec-conc-guarda">@ConciliacaoAgendaNaTela.TextoJaLancada</p>
+                                }
+                                @if (l.Desfecho is not null)
+                                {
+                                    <p class="rec-conc-desfecho"><Icone Nome="ok" />@l.Desfecho</p>
+                                }
+                            </div>
+                            <div class="rec-conc-acoes">
+                                <button type="button" class="botao"
+                                        disabled="@(_ocupado || !ConciliacaoAgendaNaTela.PodeMarcarFalta(l.Resolvida) || !PodeFalta)"
+                                        title="@(PodeFalta ? "O paciente não veio" : "Seu acesso não permite marcar falta.")"
+                                        @onclick="() => MarcarFaltaAsync(l)">
+                                    <Icone Nome="x" />Foi falta
+                                </button>
+                                <button type="button" class="botao primario"
+                                        disabled="@(_ocupado || !ConciliacaoAgendaNaTela.PodeLancar(h, l.Resolvida) || !PodeLancarOuEncerrar)"
+                                        title="@(PodeLancarOuEncerrar ? "Lança o atendimento datado do dia do horário" : "Seu acesso não permite lançar o atendimento.")"
+                                        @onclick="() => LancarRetroativoAsync(l)">
+                                    <Icone Nome="documento" />Aconteceu — lançar
+                                </button>
+                                <button type="button" class="botao"
+                                        disabled="@(_ocupado || !ConciliacaoAgendaNaTela.PodeSubstituir(h, l.Resolvida) || !PodeLancarOuEncerrar)"
+                                        title="@(PodeLancarOuEncerrar ? "Encerra o horário apontando para a sessão já lançada por fora" : "Seu acesso não permite encerrar o horário.")"
+                                        @onclick="() => SubstituirAsync(l)">
+                                    <Icone Nome="check" />Já foi lançada — encerrar
+                                </button>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+
+            @if (_orfaos.Count > 0)
+            {
+                <div class="secao-form">
+                    <h3>@ConciliacaoAgendaNaTela.TituloOrfaos</h3>
+                    <p class="rec-conc-situacao">@ConciliacaoAgendaNaTela.TextoOrfaos</p>
+                    <ul class="rec-conc-lista">
+                        @foreach (var o in _orfaos)
+                        {
+                            <li class="rec-conc-linha orfao">
+                                <div class="rec-conc-info">
+                                    <span class="principal">@ConciliacaoAgendaNaTela.Cabecalho(o.DataHora, o.Paciente)</span>
+                                    <span class="secundario">@ConciliacaoAgendaNaTela.Profissional(o.Profissional)</span>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" disabled="@_ocupado" @onclick="FecharAsync">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Fechar (o ×, o Esc e o botão). A tela de trás relê se algo mudou.</summary>
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>Uma linha foi resolvida (falta, lançamento ou encerramento): a tela de trás relê ao fechar.</summary>
+    [Parameter] public EventCallback AoAlterou { get; set; }
+
+    /// <summary>
+    /// A PONTE para escolher o convênio da ficha "a definir" (o <c>VinculoDeConvenio</c> do
+    /// shell, que este projeto não enxerga): recebe o paciente, devolve verdadeiro quando a
+    /// ficha passou a ter convênio. Nulo = a tela diz que a escolha é na ficha.
+    /// </summary>
+    [Parameter] public Func<int, Task<bool>>? EscolherConvenio { get; set; }
+
+    private sealed class Linha(HorarioParado horario)
+    {
+        public HorarioParado Horario { get; } = horario;
+        public bool Resolvida { get; set; }
+        public string? Desfecho { get; set; }
+    }
+
+    private List<Linha> _parados = [];
+    private IReadOnlyList<HorarioOrfao> _orfaos = [];
+    private string? _resumo;
+    private string? _periodo;
+    private string? _mensagem;
+    private bool _carregando;
+    private bool _naoVerificado;
+    private bool _ocupado;
+    private int _geracao;
+
+    private static bool PodeFalta => Pode(ConciliacaoAgendaNaTela.BitFalta);
+    private static bool PodeLancarOuEncerrar => Pode(ConciliacaoAgendaNaTela.BitsLancarOuEncerrar);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        _carregando = true;
+        _naoVerificado = false;
+        _mensagem = null;
+        try
+        {
+            ConciliacaoDaAgenda c;
+            using (var escopo = Escopo())
+                c = await escopo.ServiceProvider.GetRequiredService<ConciliacaoAgendaService>()
+                    .LevantarAsync(DateOnly.FromDateTime(DateTime.Today));
+            if (g != _geracao || Descartada) return;
+
+            // Monta fora e publica de uma vez, depois do último await.
+            _parados = c.Parados.Select(p => new Linha(p)).ToList();
+            _orfaos = c.Orfaos;
+            _periodo = ConciliacaoAgendaNaTela.Periodo(c);
+            _resumo = ConciliacaoAgendaNaTela.Resumo(c);
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — conciliação da agenda: levantamento falhou", ex);
+            _parados = [];
+            _orfaos = [];
+            _resumo = null;
+            _naoVerificado = true;
+        }
+        finally
+        {
+            if (g == _geracao) _carregando = false;
+        }
+    }
+
+    /// <summary>Resposta (1): o paciente não veio.</summary>
+    private async Task MarcarFaltaAsync(Linha linha)
+    {
+        if (_ocupado || linha.Resolvida) return;
+        if (!Exigir(ConciliacaoAgendaNaTela.BitFalta, "marcar falta")) return;
+        var h = linha.Horario;
+        if (!await Dialogos.ConfirmarAsync(ConciliacaoAgendaNaTela.TituloFalta, ConciliacaoAgendaNaTela.PerguntaFalta(h))) return;
+
+        await ResolverAsync(linha, async servicos =>
+        {
+            var avisos = await servicos.GetRequiredService<AgendaService>().MarcarFaltaAsync(h.AgendamentoId, Operador);
+            return ConciliacaoAgendaNaTela.DesfechoFalta(avisos);
+        });
+    }
+
+    /// <summary>
+    /// Resposta (2): a sessão aconteceu e ninguém a lançou. O lançamento é PELO HORÁRIO — o
+    /// atendimento nasce datado do dia da sessão, não de hoje.
+    /// </summary>
+    private async Task LancarRetroativoAsync(Linha linha)
+    {
+        if (_ocupado || linha.Resolvida) return;
+        if (!Exigir(ConciliacaoAgendaNaTela.BitsLancarOuEncerrar, "lançar o atendimento")) return;
+        var h = linha.Horario;
+        // A guarda que vale por toda a tela: o botão já nasce apagado, mas corrida de
+        // recarga passa pela primeira barreira.
+        if (h.TemSessaoNoDia)
+        {
+            _mensagem = ConciliacaoAgendaNaTela.JaTemSessao(h);
+            return;
+        }
+        if (!await Dialogos.ConfirmarAsync(ConciliacaoAgendaNaTela.TituloLancar, ConciliacaoAgendaNaTela.PerguntaLancar(h), perigoso: true)) return;
+
+        await ResolverAsync(linha, async servicos =>
+        {
+            var agenda = servicos.GetRequiredService<AgendaService>();
+            try
+            {
+                var (_, lancamento) = await agenda.LancarNoHorarioAsync(h.AgendamentoId, null, operador: Operador);
+                return ConciliacaoAgendaNaTela.DesfechoLancamento(lancamento.Atendimento, lancamento.Avisos);
+            }
+            catch (ConvenioNaoDefinidoException ex)
+            {
+                // Recusar sem oferecer a saída seria trocar guia perdida por balcão travado
+                // (parcela 92): com a ponte, pergunta o convênio e tenta UMA vez de novo.
+                if (EscolherConvenio is null)
+                    throw new InvalidOperationException(ConciliacaoAgendaNaTela.ConvenioADefinirSemPonte(ex.Message), ex);
+                if (!await EscolherConvenio(ex.PacienteId))
+                    throw new InvalidOperationException(ConciliacaoAgendaNaTela.ConvenioNaoEscolhido, ex);
+                var (_, lancamento) = await agenda.LancarNoHorarioAsync(h.AgendamentoId, null, operador: Operador);
+                return ConciliacaoAgendaNaTela.DesfechoLancamento(lancamento.Atendimento, lancamento.Avisos);
+            }
+        });
+    }
+
+    /// <summary>
+    /// Resposta (3): a sessão aconteceu e JÁ está lançada por fora. O horário é encerrado
+    /// apontando para ela — sem virar cancelamento nem falta. Com mais de uma no dia, pergunta qual.
+    /// </summary>
+    private async Task SubstituirAsync(Linha linha)
+    {
+        if (_ocupado || linha.Resolvida) return;
+        if (!Exigir(ConciliacaoAgendaNaTela.BitsLancarOuEncerrar, "encerrar o horário")) return;
+        var h = linha.Horario;
+        if (!h.TemSessaoNoDia || h.SessoesDoDia.Count == 0)
+        {
+            _mensagem = ConciliacaoAgendaNaTela.SemSessao(h);
+            return;
+        }
+
+        string? escolhido = null;
+        if (h.SessoesDoDia.Count > 1)
+        {
+            // Cancelar a pergunta é null — desistir nunca é o que efetiva o ato (checagem 39).
+            escolhido = await Dialogos.PerguntarTextoAsync(ConciliacaoAgendaNaTela.TituloQualSessao, ConciliacaoAgendaNaTela.PerguntaQualSessao(h));
+            if (escolhido is null) return;
+        }
+        var sessao = ConciliacaoAgendaNaTela.SessaoEscolhida(h, escolhido);
+        if (sessao is null)
+        {
+            _mensagem = ConciliacaoAgendaNaTela.NumeroQueNaoExiste(h, escolhido ?? string.Empty);
+            return;
+        }
+        if (!await Dialogos.ConfirmarAsync(ConciliacaoAgendaNaTela.TituloSubstituir, ConciliacaoAgendaNaTela.PerguntaSubstituir(h, sessao))) return;
+
+        await ResolverAsync(linha, async servicos =>
+        {
+            var avisos = await servicos.GetRequiredService<AgendaService>()
+                .SubstituirPorSessaoAsync(h.AgendamentoId, sessao.AtendimentoId, Operador);
+            return ConciliacaoAgendaNaTela.DesfechoSubstituicao(sessao, avisos);
+        });
+    }
+
+    /// <summary>
+    /// Envelope comum: uma linha por vez, erro vira frase na tela (nunca derruba), e a linha
+    /// resolvida fica com o desfecho escrito, sem esperar recarga.
+    /// </summary>
+    private async Task ResolverAsync(Linha linha, Func<IServiceProvider, Task<string>> acao)
+    {
+        _ocupado = true;
+        _mensagem = null;
+        string desfecho;
+        try
+        {
+            using var escopo = Escopo();
+            desfecho = await acao(escopo.ServiceProvider);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — conciliação da agenda: ação falhou", ex);
+            _mensagem = $"Não foi possível concluir: {ex.Message}";
+            return;
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+
+        linha.Desfecho = desfecho;
+        linha.Resolvida = true;
+        Notificacoes.Sucesso(desfecho);
+        await AoAlterou.InvokeAsync();
+    }
+
+    private Task FecharAsync() => _ocupado ? Task.CompletedTask : AoFechar.InvokeAsync();
+}

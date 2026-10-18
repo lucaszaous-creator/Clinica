@@ -1,0 +1,22 @@
+/* Estilo próprio do formulário (rec-fechamento-sessao). Só tokens — ver docs/telas-blazor.md.
+   Concluir atendimento: pacote, insumo e pagamento — um bloco por fato do mesmo ato. */
+
+.rec-fech-bloco{padding-bottom:var(--space-4);border-bottom:1px solid var(--borda)}
+.rec-fech-bloco > .segmentado{align-self:flex-start}
+.rec-fech-detalhe{margin:0;padding-left:var(--space-6);color:var(--texto-primario);font-weight:500}
+.rec-fech-legenda{display:block;margin:0;padding-left:var(--space-6);font-size:var(--text-small-size);
+  color:var(--texto-secundario);line-height:1.45}
+
+/* Uma linha por insumo: o nome e o saldo à esquerda, a quantidade estreita à direita. */
+.rec-fech-insumo{display:grid;grid-template-columns:minmax(0,1fr) 96px;gap:var(--space-3);align-items:center}
+.rec-fech-insumo .rec-fech-legenda{padding-left:0}
+.rec-fech-insumo .principal{display:block;overflow-wrap:anywhere}
+
+.rec-fech-resumo{margin:0;font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.45}
+
+/* O que FALHOU (avisos) e o que ACONTECEU (recados), separados: a lista desce para a linha de baixo. */
+.rec-fech-desfecho{display:flex;flex-direction:column;gap:var(--space-3)}
+.rec-fech-desfecho .aviso{flex-wrap:wrap}
+.rec-fech-avisos{flex-basis:100%;padding-left:var(--space-6)}
+.rec-fech-avisos ul{margin:0;padding-left:var(--space-4);display:flex;flex-direction:column;gap:var(--space-1)}
+.rec-fech-avisos p{margin:var(--space-2) 0 0;font-weight:600}
