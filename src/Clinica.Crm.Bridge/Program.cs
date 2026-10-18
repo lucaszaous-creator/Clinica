@@ -24,6 +24,7 @@ builder.Services.AddScoped<ClinicBookingBridge>();
 builder.Services.AddScoped<ClinicRelationshipBridge>();
 builder.Services.AddScoped<ClinicTeamBridge>();
 builder.Services.AddScoped<ClinicPatientBridge>();
+builder.Services.AddScoped<ClinicSummaryBridge>();
 // O lembrete de SMS 24h antes, com a clínica fechada (out/2026): o MESMO LembreteSmsService
 // do desktop, rodando aqui a cada 5 min. Liga com LembreteSms__Ligado=true. O provedor, o
 // texto e o endereço do link continuam vindo das Configurações do Clinica (Relacionamento →
@@ -53,6 +54,9 @@ app.MapGet("/crm/relationship",(ClinicRelationshipBridge bridge,CancellationToke
 app.MapGet("/crm/team",(ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Team(ct));
 app.MapPost("/crm/login",(ClinicLogin input,ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Enter(input,ct));
 app.MapPost("/crm/v1/patients/lookup",(ClinicPatientLookup input,ClinicPatientBridge bridge,CancellationToken ct)=>bridge.Lookup(input,ct));
+// O dia do CRM para a direção (caminho A): só contagens, numa tabela própria. Sem chave de
+// ligar: quem decide enviar é o CRM (CRM_DAILY_SUMMARY_ENABLED), e a ponte só grava o resumo.
+app.MapPost("/crm/v1/summary/daily",(CrmDailySummary input,ClinicSummaryBridge bridge,CancellationToken ct)=>bridge.Daily(input,ct));
 app.MapPost("/crm/recall/notice",(RecallNotice input,ClinicRecallBridge bridge,CancellationToken ct)=>bridge.Notice(input,ct));
 app.MapPost("/crm/decision",(ClinicDecision input,ClinicAgendaBridge bridge,CancellationToken ct)=>bridge.Decide(input,ct));
 app.MapPost("/crm/v1/appointments/slots", (ClinicSlotQuery input, ClinicSchedulingBridge bridge, CancellationToken ct) => bridge.Slots(input, ct));

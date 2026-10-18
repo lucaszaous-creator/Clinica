@@ -102,5 +102,12 @@ public sealed class PonteComRepeticaoTests : IDisposable
         Assert.Equal(slots.StartsAt[0], r.StartsAt);
     }
 
+    [Fact] public async Task Gravar_o_resumo_do_dia_funciona_com_a_estrategia()
+    {
+        var r = await new ClinicSummaryBridge(db).Daily(new(DateOnly.FromDateTime(DateTime.Today.AddDays(-1)), DateTimeOffset.UtcNow,
+            3, 2, 1, 10, 9, 90, 4, 2, 2, 0, 3, 2, 1, 1, 0), default);
+        Assert.Equal("recorded", r.Status);
+    }
+
     public void Dispose() { db.Dispose(); connection.Dispose(); }
 }

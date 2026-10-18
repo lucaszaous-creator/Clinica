@@ -234,6 +234,33 @@
                     }
                 </section>
 
+                @* ===== ATENDIMENTO PELO CRM (caminho A: o CRM manda o resumo do dia pela ponte) ===== *@
+                <section class="cartao" aria-label="Atendimento pelo CRM">
+                    <header class="mesa-cab"><h2>Atendimento pelo CRM</h2><span>últimos 7 dias</span></header>
+                    @if (_crmFalhou)
+                    {
+                        <div class="mesa-aviso-leitura"><Icone Nome="alerta" />Os resumos do CRM não puderam ser lidos.</div>
+                    }
+                    else if (_crm is null || _crm.SemDados)
+                    {
+                        <p class="mesa-vazio">@CrmNaTela.SemResumo</p>
+                    }
+                    else
+                    {
+                        var c = _crm;
+                        <dl class="mesa-crm">
+                            <div><dt>Conversas</dt><dd>@c.Conversas<small>@(c.Hoje is { } h ? $" · hoje {h.ConversasIniciadas}" : null)</small></dd></div>
+                            <div><dt title="Média das medianas de cada dia, pesada pelo número de respostas">Tempo típico de resposta</dt><dd>@CrmNaTela.Duracao(c.RespostaTipicaSegundos)</dd></div>
+                            <div><dt>Confirmações respondidas</dt><dd>@CrmNaTela.Confirmacoes(c)</dd></div>
+                            <div><dt>SMS enviados</dt><dd>@CrmNaTela.Sms(c)</dd></div>
+                        </dl>
+                        @if (c.Atraso is { } atraso)
+                        {
+                            <div class="mesa-aviso-leitura"><Icone Nome="alerta" />@atraso</div>
+                        }
+                    }
+                </section>
+
                 @* ===== METAS DO MÊS ===== *@
                 <section class="cartao" aria-label="Metas do mês">
                     <header class="mesa-cab"><h2>Metas do mês</h2><button type="button" class="link" @onclick='() => IrAsync("metas")'>Abrir</button></header>
@@ -267,6 +294,8 @@
     private IReadOnlyList<ConvenioNaMesa> _convenios = [];
     private ResultadoPorCompetencia? _competencia;
     private bool _hojeFalhou, _conveniosFalhou, _pautaInteira;
+    private CrmNaMesa? _crm;
+    private bool _crmFalhou;
     private const int PautaVisivel = 6;
     private bool Carregando, _naoVerificado;
     private string? _erro;
@@ -385,7 +414,22 @@
             }
             if (geracao != _geracao || Descartada) return;
 
+            CrmNaMesa? crm = null;
+            var crmFalhou = false;
+            try
+            {
+                crm = await sp.GetRequiredService<CrmNaDirecaoService>().MesaAsync(hoje, agora);
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — mesa da direção: resumos do CRM não puderam ser lidos", ex);
+                crmFalhou = true;
+            }
+            if (geracao != _geracao || Descartada) return;
+
             _agora = agora;
+            _crm = crm;
+            _crmFalhou = crmFalhou;
             _painel = painel;
             _competencia = competencia;
             _agenda = agenda;

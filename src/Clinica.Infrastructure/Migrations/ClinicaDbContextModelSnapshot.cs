@@ -5364,6 +5364,76 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("ResultadosExame");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.ResumoCrmDiario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Agendadas")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConfirmacoesPedidas")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConfirmacoesRespondidas")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConversasAbertas")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConversasEncerradas")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConversasIniciadas")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("Dia")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("GeradoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("MensagensEnviadas")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MensagensRecebidas")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("RecebidoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Resolvidas")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RespostaMedianaSegundos")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RespostasMedidas")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SemResposta")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SmsEnviados")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SmsFalhas")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SmsSegmentos")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Dia")
+                        .IsUnique();
+
+                    b.ToTable("ResumosCrmDiarios", (string)null);
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.Sala", b =>
                 {
                     b.Property<int>("Id")

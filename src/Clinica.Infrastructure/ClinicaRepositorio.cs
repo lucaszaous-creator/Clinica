@@ -3829,6 +3829,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Take(limite)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<ResumoCrmDiario>> ResumosCrmAsync(DateOnly de, DateOnly ate, CancellationToken ct = default)
+        => await _db.ResumosCrmDiarios.AsNoTracking()
+            .Where(r => r.Dia >= de && r.Dia <= ate)
+            .OrderBy(r => r.Dia)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<ContatoCampanha>> ContatosAguardandoRespostaPorLinkAsync(
         DateOnly desde, CancellationToken ct = default)
         => await _db.Contatos

@@ -91,3 +91,9 @@
   .mesa-linhas > div:nth-child(4){border-left:0}
   .mesa-linhas > div:nth-child(-n+3){border-bottom:1px solid var(--borda)}
 }
+/* Atendimento pelo CRM: quatro linhas de rótulo e número, sem gráfico (são contagens de sete dias). */
+.mesa-crm{margin:0;padding:var(--space-1) var(--space-6) var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)}
+.mesa-crm > div{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3);font-size:var(--text-table-size)}
+.mesa-crm dt{color:var(--texto-secundario);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mesa-crm dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.mesa-crm dd small{font-weight:400;color:var(--texto-secundario)}

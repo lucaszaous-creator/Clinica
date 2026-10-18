@@ -124,6 +124,16 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Single(await admin.Contatos.ToListAsync());
     }
 
+    [Fact] public async Task Gravar_o_resumo_do_dia()
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        var bridge = new ClinicSummaryBridge(ponte!);
+        var dia = DateOnly.FromDateTime(DateTime.Today.AddDays(-1));
+        await bridge.Daily(new(dia, DateTimeOffset.UtcNow.AddMinutes(-1), 3, 2, 1, 10, 9, 90, 4, 2, 2, 0, 3, 2, 1, 1, 0), default);
+        await bridge.Daily(new(dia, DateTimeOffset.UtcNow, 5, 2, 1, 10, 9, 90, 4, 2, 2, 0, 3, 2, 1, 1, 0), default);
+        Assert.Equal(5, (await admin.ResumosCrmDiarios.SingleAsync()).ConversasIniciadas);
+    }
+
     [Fact] public async Task O_lembrete_de_SMS_24h()
     {
         if (!BancoDosTestes.NoPostgres) return;

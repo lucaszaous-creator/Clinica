@@ -1811,6 +1811,9 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<MensagemSms>> MensagensSmsAsync(
         DateTime inicio, DateTime fim, int limite = 500, CancellationToken ct = default);
 
+    /// <summary>Os resumos diários do CRM (caminho A) entre os dois dias, do mais velho para o mais novo.</summary>
+    Task<IReadOnlyList<ResumoCrmDiario>> ResumosCrmAsync(DateOnly de, DateOnly ate, CancellationToken ct = default);
+
     /// <summary>
     /// Contatos de confirmação que saíram por SMS com link e ainda não têm resposta, a
     /// partir de <paramref name="desde"/> — RASTREADOS, porque a sincronização os responde.
