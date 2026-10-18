@@ -1,0 +1,47 @@
+/* Estilo PRÓPRIO da tela Documentos emitidos (out/2026, etapa 6 do Gerente). O comum mora em
+   ../clinica.css. Só tokens — ver docs/telas-blazor.md. */
+
+.de-resumo{margin:calc(-1 * var(--space-4)) 0 0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+
+/* ===== Conferir pelo código — o único ato da tela, numa linha ===== */
+.de-conferir{padding:var(--space-4) var(--space-6)}
+.de-conferir-linha{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3)}
+.de-conferir-rotulo{font-weight:600;color:var(--texto-primario)}
+.de-conferir .campo{width:200px}
+.de-conferido{margin:var(--space-3) 0 0;font-size:var(--text-small-size);overflow-wrap:anywhere}
+.de-conferido.tom-sucesso{color:var(--sucesso-forte)}
+.de-conferido.tom-perigo{color:var(--erro-texto);font-weight:600}
+
+/* ===== Cinco números: cinco colunas em 1366; abaixo de 1180, três (3 + 2) — em quatro colunas
+   de 1024 o "mais emitido" (texto, não número) sai cortado. ===== */
+.doc-emitidos .kpis.de-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1180px){.doc-emitidos .kpis.de-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.doc-emitidos .kpis.de-kpis{grid-template-columns:1fr}}
+/* O "mais emitido" é o nome da folha com a fatia: em corpo de título, quebrando, nunca em 28 px cortado. */
+.doc-emitidos .kpi-valor.de-texto{font-family:var(--font-ui);font-size:var(--text-h3-size);font-weight:var(--text-h3-weight);
+  letter-spacing:0;white-space:normal;overflow:visible;line-height:1.3}
+
+/* ===== Por quem assina · Cancelados ===== */
+.de-duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4);align-items:start}
+@media (max-width:900px){.de-duas{grid-template-columns:minmax(0,1fr)}}
+.de-sem{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.de-barras{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-3)}
+.de-barra-topo{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);margin-bottom:var(--space-1)}
+.de-barra-topo .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.de-barra-topo .secundario{margin-top:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+.de-barras .trilho > i{background:var(--acento)}
+/* Teto e rolagem por dentro: a lista cresce com o dado, e sem teto empurraria a tabela para longe. */
+.de-canceladas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2);
+  max-height:200px;overflow-y:auto;overscroll-behavior:auto}
+.de-cancelada-linha{display:block;overflow-wrap:anywhere}
+.de-cancelada-linha em{color:var(--texto-primario)}
+.de-cancelada-contexto{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--texto-secundario);font-size:var(--text-small-size)}
+.de-numero{font-family:var(--font-mono);color:var(--texto-secundario);font-variant-numeric:tabular-nums}
+
+/* ===== A tabela ===== */
+.de-tabela td.numero{white-space:nowrap}
+.de-folha{display:flex;align-items:center;gap:var(--space-2);min-width:0}
+.de-folha .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.de-folha .selo{flex:none}
+.de-celula{display:block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
