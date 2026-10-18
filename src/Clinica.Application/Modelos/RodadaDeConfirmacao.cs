@@ -40,6 +40,16 @@ public static class RodadaDeConfirmacao
     /// <summary>O que se grava quando o paciente confirma pelo link do SMS.</summary>
     public const string RespostaConfirmouPeloLink = "confirmou pelo SMS";
 
+    /// <summary>
+    /// O que a ponte do CRM grava quando o paciente confirma pelo WhatsApp. Era texto solto
+    /// dentro do <c>ClinicAgendaBridge</c>; subiu para cá (out/2026) porque o sino passou a
+    /// distinguir a confirmação do PACIENTE da que a recepção marcou
+    /// (<see cref="AvisosDeConfirmacao.RespondeuOPaciente"/>) — e texto repetido à mão nos
+    /// dois lados é o que um ajuste de redação separa sem quebrar nada.
+    /// </summary>
+    public const string RespostaConfirmouPeloWhatsApp =
+        "Paciente confirmou intenção de comparecer pelo WhatsApp. Não representa presença ou atendimento realizado.";
+
     public static SituacaoConfirmacao Classificar(StatusContato status, DateTime? enviadoEm, string? comentario) => status switch
     {
         StatusContato.Dispensado => SituacaoConfirmacao.Dispensado,
@@ -89,6 +99,12 @@ public static class RodadaDeConfirmacao
     /// <summary>A pílula "não vem" das listas do dia — quem respondeu que não vai.</summary>
     public const string SeloNaoVem = "Não vem — remarcar";
 
+    /// <summary>A pílula de quem confirmou.</summary>
+    public const string SeloConfirmou = "Confirmou";
+
+    /// <summary>A pílula de quem foi avisado e não respondeu.</summary>
+    public const string SeloSemResposta = "Não confirmou";
+
     /// <summary>
     /// O selo de UMA linha da agenda (lista do dia, grade, Início, quadro do médico): o que a
     /// rodada AFIRMOU, numa definição só (out/2026). Antes, cada tela trocava o status
@@ -98,9 +114,9 @@ public static class RodadaDeConfirmacao
     /// </summary>
     public static string SeloDaLista(RespostaDeConfirmacao? r) => r?.Situacao switch
     {
-        SituacaoConfirmacao.Confirmou => "Confirmou",
+        SituacaoConfirmacao.Confirmou => SeloConfirmou,
         SituacaoConfirmacao.PediuRemarcar => SeloNaoVem,
-        SituacaoConfirmacao.AvisadoSemResposta => "Não confirmou",
+        SituacaoConfirmacao.AvisadoSemResposta => SeloSemResposta,
         _ => string.Empty
     };
 

@@ -204,7 +204,7 @@
                         <Button Grid.Column="3" x:Name="Sino" Style="{StaticResource BotaoIcone}"
                                 Command="{Binding AbrirAvisosCommand}"
                                 ToolTip="{Binding ResumoPedidos}"
-                                AutomationProperties.Name="Notificações e pedidos da enfermagem"
+                                AutomationProperties.Name="Notificações, pedidos da enfermagem e respostas dos pacientes"
                                 AutomationProperties.HelpText="{Binding ResumoPedidos}">
                             <Path Data="{StaticResource Icone.sino}" Stroke="{StaticResource Brush.Texto.Primario}"
                                   StrokeThickness="1.7" Width="19" Height="19" Stretch="Uniform" />
@@ -289,6 +289,78 @@
                                         <Button Content="Ver todos os avisos" Command="{Binding AbrirPedidosEnfermagemCommand}"
                                                 Style="{StaticResource BotaoFantasma}" HorizontalAlignment="Left" Margin="6,4,0,0"
                                                 AutomationProperties.Name="Abrir a caixa de pedidos da enfermagem" />
+                                        <Separator Margin="8,8,8,0" />
+                                    </StackPanel>
+                                    <!-- ============ RESPOSTAS DOS PACIENTES (out/2026) ============
+                                         Confirmou, não vem e lembrete sem resposta: a regra é a de
+                                         AvisosDeConfirmacao (Application); clicar abre as Confirmações
+                                         no dia da sessão. Rolagem própria, para não empurrar o
+                                         histórico para fora do pop-up. -->
+                                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding PodeVerConfirmacoes}" Value="False">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <DockPanel Margin="10,8,10,6">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding ContadorRespostas}"
+                                                       Foreground="{StaticResource Brush.Acento}" FontWeight="SemiBold"
+                                                       FontSize="{StaticResource Fonte.Legenda}" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="RESPOSTAS DOS PACIENTES" Style="{StaticResource Rotulo}" />
+                                        </DockPanel>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="200">
+                                            <ItemsControl ItemsSource="{Binding RespostasNoSino}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type shell:RespostaNoSino}">
+                                                        <Button Style="{StaticResource ItemSidebar}"
+                                                                Command="{Binding DataContext.AbrirRespostaDoSinoCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"
+                                                                AutomationProperties.Name="{Binding Titulo}"
+                                                                AutomationProperties.HelpText="{Binding Sessao}">
+                                                            <DockPanel>
+                                                                <Ellipse x:Name="ponto" DockPanel.Dock="Left" Width="8" Height="8"
+                                                                         Margin="0,5,10,0" VerticalAlignment="Top"
+                                                                         Fill="{StaticResource Brush.Sucesso}" />
+                                                                <StackPanel>
+                                                                    <TextBlock x:Name="titulo" Text="{Binding Titulo}" TextWrapping="Wrap"
+                                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                                    <TextBlock Text="{Binding Sessao}" TextWrapping="Wrap"
+                                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
+                                                                    <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap"
+                                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                                               Visibility="{Binding Detalhe, Converter={StaticResource TextoParaVisibilidade}}" />
+                                                                </StackPanel>
+                                                            </DockPanel>
+                                                        </Button>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding Tipo}" Value="NaoVem">
+                                                                <Setter TargetName="ponto" Property="Fill" Value="{StaticResource Brush.Erro}" />
+                                                                <Setter TargetName="titulo" Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Tipo}" Value="SemResposta">
+                                                                <Setter TargetName="ponto" Property="Fill" Value="{StaticResource Brush.Aviso}" />
+                                                                <Setter TargetName="titulo" Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                        <TextBlock Text="{Binding SituacaoRespostas}" TextWrapping="Wrap" Margin="10,4,10,0"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Visibility="{Binding SituacaoRespostas, Converter={StaticResource TextoParaVisibilidade}}" />
+                                        <Button Content="Abrir confirmações" Command="{Binding AbrirConfirmacoesCommand}"
+                                                Style="{StaticResource BotaoFantasma}" HorizontalAlignment="Left" Margin="6,4,0,0"
+                                                AutomationProperties.Name="Abrir a rodada de confirmações de agenda" />
                                         <Separator Margin="8,8,8,0" />
                                     </StackPanel>
                                     <TextBlock DockPanel.Dock="Top" Text="NOTIFICAÇÕES DESTA SESSÃO"

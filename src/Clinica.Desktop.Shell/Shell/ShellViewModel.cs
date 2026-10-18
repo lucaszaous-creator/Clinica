@@ -530,7 +530,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         AvisosAbertos = !AvisosAbertos;
         if (AvisosAbertos) Snackbar?.MarcarLidos();
-        if (AvisosAbertos) { _ = AtualizarPedidosGlobaisAsync(); _ = CarregarPedidosDoSinoAsync(); }
+        if (AvisosAbertos) { _ = AtualizarPedidosGlobaisAsync(); _ = CarregarPedidosDoSinoAsync(); _ = AtualizarConfirmacoesAsync(); }
     }
 
     /// <summary>

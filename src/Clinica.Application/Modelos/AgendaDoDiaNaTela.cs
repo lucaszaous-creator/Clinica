@@ -177,12 +177,14 @@ public sealed record FiltroAgendaDoDia(
     string Busca = "",
     string? Modalidade = null,
     string Situacao = "todos",
-    int? ProfissionalId = null)
+    int? ProfissionalId = null,
+    string Resposta = "")
 {
     /// <summary>Busca, modalidade ou situação — o profissional não conta (é contexto, não filtro esquecido).</summary>
     public bool TemFiltros => !string.IsNullOrWhiteSpace(Busca)
                               || !string.IsNullOrEmpty(Modalidade) && Modalidade != AgendaDoDiaNaTela.TodasModalidades
-                              || Situacao != "todos";
+                              || Situacao != "todos"
+                              || !string.IsNullOrEmpty(Resposta);
 }
 
 /// <summary>O que a tela mostra depois do recorte.</summary>
@@ -192,7 +194,8 @@ public sealed record RecorteAgendaDoDia(
     IReadOnlyList<string> Modalidades,
     int Total,
     string Resumo,
-    bool NenhumCorresponde);
+    bool NenhumCorresponde,
+    IReadOnlyDictionary<string, int>? Respostas = null);
 
 /// <summary>Uma opção do combo de profissional, com quantos horários VIVOS ela recorta.</summary>
 public sealed record ProfissionalDaAgenda(int? Id, string Nome, int Quantidade)
@@ -220,6 +223,20 @@ public static class AgendaDoDiaNaTela
         ("todos", "Todos"), ("pendente", "Pendentes"), ("no-local", "No local"),
         ("em-atendimento", "Em atendimento"), ("atendido", "Atendidos"),
         ("cancelado", "Cancelados"), ("faltou", "Faltas"), ("substituido", "Substituídos")
+    ];
+
+    /// <summary>
+    /// As respostas ao LEMBRETE, para a secretária correr atrás assim que abre o dia: quem
+    /// avisou que não vem (remarcar e liberar o horário), quem foi avisado e não respondeu
+    /// (ligar) e quem confirmou. A palavra é a do selo da linha — <c>SeloDaLista</c> — e só
+    /// conta quem ainda VEM (o selo só existe em AGUARDANDO), então o número nunca inclui
+    /// quem já chegou.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Chave, string Rotulo, string Selo)> Respostas =
+    [
+        ("nao-vem", "Não vêm", RodadaDeConfirmacao.SeloNaoVem),
+        ("sem-resposta", "Sem resposta", RodadaDeConfirmacao.SeloSemResposta),
+        ("confirmou", "Confirmaram", RodadaDeConfirmacao.SeloConfirmou)
     ];
 
     /// <summary>Monta as linhas do dia, na ordem da HORA. Cancelado e falta ENTRAM (apagados).</summary>
@@ -399,9 +416,14 @@ public static class AgendaDoDiaNaTela
         var contagens = Situacoes.ToDictionary(
             s => s.Chave,
             s => s.Chave == "todos" ? pesquisadas.Count : pesquisadas.Count(l => l.Grupo == s.Chave));
-        var visiveis = filtro.Situacao == "todos"
-            ? pesquisadas
-            : pesquisadas.Where(l => l.Grupo == filtro.Situacao).ToList();
+        // As respostas contam sobre o mesmo recorte das situações — nunca sobre a própria
+        // escolha de resposta, para a distribuição estar visível antes do clique.
+        var respostas = Respostas.ToDictionary(r => r.Chave, r => pesquisadas.Count(l => l.Confirmacao == r.Selo));
+        var seloEscolhido = Respostas.FirstOrDefault(r => r.Chave == filtro.Resposta).Selo;
+        var visiveis = pesquisadas
+            .Where(l => filtro.Situacao == "todos" || l.Grupo == filtro.Situacao)
+            .Where(l => seloEscolhido is null || l.Confirmacao == seloEscolhido)
+            .ToList();
 
         var modalidades = doProfissional.Select(l => l.Modalidade).Where(m => !string.IsNullOrWhiteSpace(m))
             .Distinct().OrderBy(m => m, StringComparer.Create(new CultureInfo("pt-BR"), false)).ToList();
@@ -413,7 +435,8 @@ public static class AgendaDoDiaNaTela
         return new RecorteAgendaDoDia(
             visiveis, contagens, modalidades, doProfissional.Count,
             $"{visiveis.Count} de {doProfissional.Count} horário{(doProfissional.Count == 1 ? "" : "s")} no dia",
-            NenhumCorresponde: doProfissional.Count > 0 && visiveis.Count == 0 && filtro.TemFiltros);
+            NenhumCorresponde: doProfissional.Count > 0 && visiveis.Count == 0 && filtro.TemFiltros,
+            Respostas: respostas);
     }
 
     /// <summary>

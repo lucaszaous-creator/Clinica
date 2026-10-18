@@ -4848,6 +4848,35 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **"Não vem" NÃO cancela sozinho**: vira selo vermelho, e a recepção liga, remarca e oferece a
   vaga na mesma ligação. Com o SMS ligado, o e-mail da abertura CEDE para quem tem celular — senão
   ele tiraria o contato de pendente dias antes e o SMS, que a clínica paga, nunca sairia.
+- **A RESPOSTA DO PACIENTE VIRA AVISO NO SINO E NO PAINEL DA DIREÇÃO** (out/2026; o pedido: a
+  confirmação, o "não vou" e o silêncio do SMS só apareciam em Relacionamento → Confirmações,
+  tela que ninguém deixa aberta). UMA decisão pura (`AvisosDeConfirmacao.Decidir`, Application,
+  testada em `AvisosDeConfirmacaoTests`), UMA leitura em projeção
+  (`ContatosParaAvisosDeConfirmacaoAsync`, com entrada na rede do Npgsql) e UM serviço
+  (`AvisosDeConfirmacaoService`) que o sino do shell (`AvisosConfirmacaoShell`, Recepção e
+  Gerente, os perfis do sino) e o `PainelDirecaoService` (`PacientesNaoVem`,
+  `LembretesSemResposta` → Confirmações) chamam igual — dois cálculos de "quem não vem" dariam
+  dois números para a mesma agenda. As regras:
+  ⚠️ **"Sem resposta" é conservador**: contato `Enviado`, COM LINK (`TokenResposta` — só o SMS
+  tem; no WhatsApp manual quem registra a resposta é a recepção), enviado há ≥ 3 h, sessão
+  futura no horizonte. **O horizonte é o maior entre agora + 36 h e o fim do PRÓXIMO DIA
+  ÚTIL**: 36 h puras escondiam, na sexta, a segunda — e o lembrete da segunda sai na sexta
+  (`MomentoDoLembrete` adianta o fim de semana).
+  ⚠️ **Confirmação marcada pela recepção não é notícia** — só a do paciente (link do SMS ou
+  WhatsApp do CRM; o texto do CRM subiu para `RodadaDeConfirmacao.RespostaConfirmouPeloWhatsApp`
+  para os dois lados não divergirem). Trinta "confirmou" que ela mesma marcou enterrariam o
+  "não vem". **"Não vem" fica, de qualquer origem, até o horário ser cancelado ou remarcado**:
+  a consulta só traz sessão `Agendado` na janela, e é isso que "resolve" o aviso.
+  ⚠️ **Cada aviso pisca UMA vez, e reabrir o app não repete o dia**: o conjunto de anunciados
+  é de memória, e a PRIMEIRA leitura semeia em silêncio o que aconteceu antes da abertura
+  (menos 15 min de folga — o relógio do SMS lê o balde a cada 5). O que foi semeado continua
+  na lista e no número do sino; só não vira notificação de novo. Gravar o conjunto em disco
+  seria mais uma peça (máquina dividida, atualização) para evitar um aviso repetido.
+  Clicar no aviso abre as Confirmações NO DIA da sessão (`AberturaDasConfirmacoes`, consumido
+  pela tela ao carregar). 🧑‍💻 UX: a frase diz quem, quando e o que fazer ("João avisou que NÃO
+  VEM — amanhã 09:00: ligue para remarcar"); o número do sino conta só o que pede ligação.
+  🛠️ DX: regra e frases na Application, o shell só lê e desenha. 🤝 CX: uma consulta pequena
+  por posto por minuto (e no aviso de `Agendamentos`, no máximo a cada 20 s) — sem migration.
 - **"JORNADA" ERA TERMO DE RH, E O DESENHO NÃO CABIA A SEMANA REAL** (out/2026; o pedido:
   *"esse negócio de jornada de trabalho, que porra é essa?"* — mapa em
   `docs/recepcao-ux-out2026.md`). Duas telas editavam o mesmo campo com frases opostas

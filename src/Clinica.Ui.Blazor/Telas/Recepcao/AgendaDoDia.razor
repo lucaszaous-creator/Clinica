@@ -53,6 +53,21 @@
                 </button>
             }
         </div>
+        @if (_recorte.Respostas is { } respostas && (respostas.Values.Any(v => v > 0) || !string.IsNullOrEmpty(_filtro.Resposta)))
+        {
+            @* As respostas ao lembrete no topo do dia: quem abre a agenda já vê de quem correr atrás. *@
+            <div class="rd-respostas" role="group" aria-label="Respostas ao lembrete — clique para filtrar">
+                <span class="rd-respostas-rotulo">Respostas ao lembrete</span>
+                @foreach (var (chave, rotulo, _) in AgendaDoDiaNaTela.Respostas)
+                {
+                    var n = respostas.TryGetValue(chave, out var c) ? c : 0;
+                    <button type="button" class="rd-pilula resposta-@chave" aria-pressed="@Bool(_filtro.Resposta == chave)"
+                            @onclick="() => EscolherResposta(chave)" title="@(_filtro.Resposta == chave ? "Mostrar todos de novo" : $"Mostrar só: {rotulo}")">
+                        <i class="rd-ponto"></i><span>@rotulo</span><b>@n</b>
+                    </button>
+                }
+            </div>
+        }
         <button type="button" class="botao icone rd-atualizar" @onclick="() => CarregarAsync()" title="Atualizar (F5)@(_ultimaLeitura is { } u ? $" · lida às {u.ToString("HH:mm", Formato.PtBr)}" : "")" aria-label="Atualizar a agenda"><Icone Nome="atualizar" /></button>
     </section>
 
@@ -371,6 +386,8 @@
 
     /// <summary>A pílula já marcada não desmarca — "Todos" é a pílula de limpar.</summary>
     private void EscolherSituacao(string chave) { _filtro = _filtro with { Situacao = chave }; Remontar(); }
+    // Clicar de novo na resposta escolhida tira o filtro: as três não têm um "Todos" ao lado.
+    private void EscolherResposta(string chave) { _filtro = _filtro with { Resposta = _filtro.Resposta == chave ? "" : chave }; Remontar(); }
 
     private void EscolherProfissional(ChangeEventArgs e)
     {

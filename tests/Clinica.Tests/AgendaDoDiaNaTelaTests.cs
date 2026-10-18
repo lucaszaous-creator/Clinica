@@ -205,6 +205,32 @@ public class AgendaDoDiaNaTelaTests
     }
 
     [Fact]
+    public void As_respostas_ao_lembrete_aparecem_no_topo_e_filtram_a_lista()
+    {
+        RespostaDeConfirmacao R(StatusContato s, string? c = null) => new(s, Agora.AddDays(-1), c, CanalContato.Sms);
+        var naoVem = Ag(9); var semResposta = Ag(10); var confirmou = Ag(11); var semContato = Ag(15);
+        var jaChegou = Ag(8, chegada: Agora.AddMinutes(-5));
+        var linhas = AgendaDoDiaNaTela.Montar(Dados([naoVem, semResposta, confirmou, semContato, jaChegou], confirmacoes: new()
+        {
+            [naoVem.Id] = R(StatusContato.Respondido, RodadaDeConfirmacao.RespostaRemarcar),
+            [semResposta.Id] = R(StatusContato.Enviado),
+            [confirmou.Id] = R(StatusContato.Respondido),
+            [jaChegou.Id] = R(StatusContato.Enviado) // chegou: a resposta deixou de importar
+        }), Agora);
+
+        var tudo = AgendaDoDiaNaTela.Recortar(linhas, new FiltroAgendaDoDia());
+        Assert.Equal(1, tudo.Respostas!["nao-vem"]);
+        Assert.Equal(1, tudo.Respostas["sem-resposta"]);
+        Assert.Equal(1, tudo.Respostas["confirmou"]);
+
+        var soNaoVem = AgendaDoDiaNaTela.Recortar(linhas, new FiltroAgendaDoDia(Resposta: "nao-vem"));
+        Assert.Equal(naoVem.Id, Assert.Single(soNaoVem.Visiveis).AgendamentoId);
+        // A distribuição continua visível com o filtro ligado.
+        Assert.Equal(1, soNaoVem.Respostas!["confirmou"]);
+        Assert.True(new FiltroAgendaDoDia(Resposta: "nao-vem").TemFiltros);
+    }
+
+    [Fact]
     public void As_contagens_das_pilulas_sao_antes_do_clique_e_o_resumo_diz_o_recorte()
     {
         var linhas = AgendaDoDiaNaTela.Montar(Dados([
