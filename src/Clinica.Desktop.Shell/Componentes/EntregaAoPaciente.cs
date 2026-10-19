@@ -33,7 +33,9 @@ public sealed record ResultadoEntrega(
 /// conversa do paciente com a mensagem pronta. O anexo em si não é automático porque
 /// mandar arquivo por WhatsApp sem intervenção exige a API oficial da Meta (conta
 /// Business, custo por mensagem); prometer envio automático com o <c>wa.me</c> seria
-/// prometer o que ele não faz.
+/// prometer o que ele não faz. Desde out/2026 o envio automático EXISTE — pelo CRM, com a
+/// API oficial (<c>AcoesDoDocumento.EnviarPeloCrmAsync</c>) — e por e-mail; este caminho
+/// continua como a alternativa para quando o CRM está desligado.
 ///
 /// A mensagem ensina o paciente a usar o arquivo: sem essa frase ele encaminha a foto do
 /// papel, que é o erro mais comum e o mais caro — a farmácia devolve e ele volta à clínica.
@@ -52,7 +54,13 @@ public static class EntregaAoPaciente
     /// </summary>
     public static ResultadoEntrega Entregar(
         byte[] pdf, string nomeArquivo, string? telefone, string nomePaciente,
-        string tipoDocumento, string? nomeClinica = null)
+        string tipoDocumento, string? nomeClinica = null, bool assinado = true)
+        => Entregar(pdf, nomeArquivo, telefone, nomePaciente,
+            TextoDoEnvio.Legenda(nomePaciente, tipoDocumento, assinado, nomeClinica));
+
+    /// <summary>A mesma entrega com a legenda já pronta (a do <see cref="TextoDoEnvio"/>).</summary>
+    public static ResultadoEntrega Entregar(
+        byte[] pdf, string nomeArquivo, string? telefone, string nomePaciente, string legenda)
     {
         string caminho;
 
@@ -75,7 +83,7 @@ public static class EntregaAoPaciente
         var copiado = CopiarParaAreaDeTransferencia(caminho);
 
         var erroWhatsapp = Whatsapp.Abrir(
-            telefone, nomePaciente, Mensagem(nomePaciente, tipoDocumento, nomeClinica));
+            telefone, nomePaciente, legenda);
 
         // Três desfechos, e os três precisam de frase própria: sem telefone o arquivo
         // continua gravado e pode ir por e-mail; sem área de transferência o anexo é pelo
@@ -97,26 +105,14 @@ public static class EntregaAoPaciente
     }
 
     /// <summary>
-    /// A mensagem que vai ao paciente.
+    /// A mensagem que vai ao paciente com o documento ASSINADO — a mesma frase do envio
+    /// pelo CRM, que mora em <see cref="TextoDoEnvio.Legenda(string, string, bool, string?)"/>.
     ///
     /// Ela diz a única coisa que ele precisa saber e que ninguém lhe conta: <b>é o ARQUIVO
     /// que vale</b>. Sem isso ele imprime, ou manda foto da tela, e a farmácia recusa.
     /// </summary>
     public static string Mensagem(string nomePaciente, string tipoDocumento, string? nomeClinica)
-    {
-        var primeiroNome = nomePaciente
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault() ?? nomePaciente;
-
-        var artigo = tipoDocumento.StartsWith("Receita", StringComparison.OrdinalIgnoreCase)
-            ? "sua" : "seu";
-
-        return $"Olá, {primeiroNome}! Segue {artigo} {tipoDocumento.ToLowerInvariant()} "
-             + "assinado(a) digitalmente. "
-             + "Apresente o ARQUIVO PDF (não a foto nem a impressão) — é nele que fica a "
-             + $"assinatura. A farmácia confere em {DocumentosClinicosPdfService.ValidadorOficial}."
-             + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
-    }
+        => TextoDoEnvio.Legenda(nomePaciente, tipoDocumento, assinado: true, nomeClinica);
 
     /// <summary>
     /// Põe o ARQUIVO (não o texto do caminho) na área de transferência, para o Ctrl+V do

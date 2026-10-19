@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net;
 using System.Net.Mail;
 
@@ -18,8 +19,22 @@ namespace Clinica.Application.Email;
 /// </summary>
 public sealed class EnviadorSmtp : IEnviadorDeEmail
 {
-    public async Task EnviarAsync(
+    public Task EnviarAsync(
         OpcoesEmail opcoes, string destinatario, string assunto, string corpo, CancellationToken ct = default)
+        => EnviarAsync(opcoes, destinatario, assunto, corpo, null, ct);
+
+    /// <summary>
+    /// O mesmo envio, com o PDF anexado (out/2026 — o documento ao paciente). O anexo vai
+    /// num <see cref="MemoryStream"/> próprio, descartado com a mensagem.
+    /// </summary>
+    public Task EnviarComAnexoAsync(
+        OpcoesEmail opcoes, string destinatario, string assunto, string corpo, AnexoDeEmail anexo,
+        CancellationToken ct = default)
+        => EnviarAsync(opcoes, destinatario, assunto, corpo, anexo, ct);
+
+    private static async Task EnviarAsync(
+        OpcoesEmail opcoes, string destinatario, string assunto, string corpo, AnexoDeEmail? anexo,
+        CancellationToken ct)
     {
         using var cliente = new SmtpClient(opcoes.Host, opcoes.Porta)
         {
@@ -45,6 +60,10 @@ public sealed class EnviadorSmtp : IEnviadorDeEmail
             // servidor: sem isto, "responder" num remetente técnico cai no vazio.
             ReplyToList = { de }
         };
+
+        if (anexo is not null)
+            mensagem.Attachments.Add(new Attachment(
+                new MemoryStream(anexo.Conteudo, writable: false), anexo.NomeArquivo, anexo.TipoMime));
 
         await cliente.SendMailAsync(mensagem, ct);
     }

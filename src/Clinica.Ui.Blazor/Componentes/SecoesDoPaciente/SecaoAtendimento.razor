@@ -243,6 +243,8 @@
                                     @if (!papel.Cancelado)
                                     {
                                         <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => SegundaViaAsync(papel)">2ª via</button>
+                                        <button type="button" class="botao mini" disabled="@(_ocupado || !Pode(Permissao.VerProntuario))"
+                                                title="E-mail (recomendado) ou WhatsApp pelo CRM" @onclick="() => EnviarAsync(papel)">Enviar…</button>
                                     }
                                 </li>
                             }
@@ -583,6 +585,29 @@
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Consultório — segunda via não pôde ser gerada", ex);
+            Informar(ex.Message, erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    /// <summary>
+    /// "Enviar…" do que saiu hoje (out/2026): a MESMA janela de envio das outras portas, no
+    /// aplicativo — e-mail primeiro, WhatsApp pelo CRM depois. O bit do TIPO é conferido lá.
+    /// </summary>
+    private async Task EnviarAsync(PapelDeHoje papel)
+    {
+        if (_ocupado) return;
+        if (!Exigir(Permissao.VerProntuario, "enviar documento ao paciente")) return;
+        if (!Janelas.Disponivel) { Informar(JanelasDoAtendimentoClinicoIndisponiveis.Frase, erro: true); return; }
+        _ocupado = true;
+        try
+        {
+            var r = await Janelas.EnviarAoPacienteAsync(papel.DocumentoId);
+            if (!r.Silencioso && r.Frase is not null) Informar(r.Frase, erro: r.EhErro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — documento não pôde ser enviado ao paciente", ex);
             Informar(ex.Message, erro: true);
         }
         finally { _ocupado = false; }

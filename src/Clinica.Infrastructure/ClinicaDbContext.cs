@@ -126,6 +126,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
     public DbSet<MensagemSms> MensagensSms => Set<MensagemSms>();
     public DbSet<ResumoCrmDiario> ResumosCrmDiarios => Set<ResumoCrmDiario>();
+    public DbSet<EnvioPacienteCrm> EnviosPacienteCrm => Set<EnvioPacienteCrm>();
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
     public DbSet<OperacaoAssinaturaTablet> OperacoesAssinaturaTablet => Set<OperacaoAssinaturaTablet>();
     public DbSet<SessaoTablet> SessoesTablet => Set<SessaoTablet>();
@@ -1747,6 +1748,41 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.GeradoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.RecebidoEm).HasColumnType("timestamp without time zone");
             e.HasIndex(x => x.Dia).IsUnique();
+        });
+
+        // A fila de envios ao paciente que o CRM executa (out/2026 — documentos pelo
+        // WhatsApp). O PDF é cópia da 2ª via e sai da linha quando o pedido sai da fila.
+        // Nenhuma das duas chaves estrangeiras apaga em cascata: o documento clínico e a
+        // ficha não se apagam por causa de um pedido de envio, nem o pedido some sozinho.
+        b.Entity<EnvioPacienteCrm>(e =>
+        {
+            e.ToTable("EnviosPacienteCrm");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasMaxLength(32);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Telefone).IsRequired().HasMaxLength(15);
+            e.Property(x => x.Email).HasMaxLength(200);
+            e.Property(x => x.Canal).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Origem).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Operador).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Estado).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Detalhe).IsRequired().HasMaxLength(500);
+            e.Property(x => x.Texto).HasMaxLength(2000);
+            e.Property(x => x.NomeArquivo).HasMaxLength(200);
+            e.Property(x => x.Assunto).HasMaxLength(200);
+            e.Property(x => x.Consumidor).HasMaxLength(64);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ExpiraEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ReservadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.SubmetidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.Versao).IsConcurrencyToken();
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.DocumentoClinico).WithMany()
+                .HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.Estado, x.AtualizadoEm });
+            e.HasIndex(x => x.DocumentoClinicoId);
         });
 
         b.Entity<UsuarioSistema>(e =>

@@ -1,0 +1,42 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.EnvioAoPacienteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Enviar ao paciente" Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- O "Enviar ao paciente" de TODAS as portas (out/2026): e-mail primeiro e já marcado,
+         WhatsApp pelo CRM depois, com o aviso do custo; o WhatsApp deste computador por
+         último. As opções, a ordem e o padrão vêm de DestinosDoEnvio (Application, com teste);
+         esta janela só desenha. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="24">
+        <TextBlock x:Name="TxtTitulo" Text="Enviar ao paciente" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock x:Name="TxtPapel" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,16" />
+
+        <RadioButton x:Name="OpEmail" GroupName="Canal" FontWeight="SemiBold" Checked="AoTrocarCanal" />
+        <StackPanel x:Name="PainelEmail" Margin="24,6,0,0">
+            <TextBlock x:Name="TxtNotaEmail" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,6" />
+            <TextBox x:Name="TxtEmail" />
+            <CheckBox x:Name="ChkGuardar" Content="Guardar este e-mail na ficha do paciente" Margin="0,8,0,0" />
+        </StackPanel>
+
+        <RadioButton x:Name="OpCrm" GroupName="Canal" FontWeight="SemiBold" Margin="0,16,0,0" Checked="AoTrocarCanal" />
+        <TextBlock x:Name="TxtNotaCrm" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="24,4,0,0" />
+
+        <RadioButton x:Name="OpLocal" GroupName="Canal" Margin="0,16,0,0" Checked="AoTrocarCanal" />
+        <TextBlock x:Name="TxtNotaLocal" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="24,4,0,0" />
+
+        <TextBlock x:Name="TxtAviso" Margin="0,16,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                   Foreground="{StaticResource Brush.Aviso}" />
+        <TextBlock x:Name="TxtErro" Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                   Foreground="{StaticResource Brush.Erro}" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button x:Name="BtnCancelar" Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button x:Name="BtnEnviar" Content="Enviar" IsDefault="True" MinWidth="130" Click="AoEnviar" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

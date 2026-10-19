@@ -956,6 +956,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             byte[] pdf;
             string numero;
             string nomeArquivo;
+            DocumentoClinico emitidoAgora;
 
             using (var scope = _escopos.CreateScope())
             {
@@ -967,6 +968,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                     ? await documentos.EmitirNovaVersaoAsync(anterior.Id, dados, SessaoUsuario.Atual.Operador)
                     : await documentos.EmitirAsync(dados, SessaoUsuario.Atual.Operador);
                 DocumentoEmitidoId = emitido.Id;
+                emitidoAgora = emitido;
                 numero = emitido.Numero;
                 nomeArquivo = $"{TipoDocumentoInfo.Rotular(TipoSelecionado)}-{numero.Replace('/', '-')}.pdf";
 
@@ -984,6 +986,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                 return;
             }
 
+            await PerguntarSeEnviaAgoraAsync(emitidoAgora);
             Concluido?.Invoke();
         }
         catch (Exception ex)
@@ -996,6 +999,22 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         {
             Emitindo = false;
         }
+    }
+
+    /// <summary>
+    /// O fim da emissão pergunta "Enviar agora ao paciente?" (out/2026) — a MESMA janela de
+    /// todas as portas (<see cref="AcoesDoDocumento.EnviarAsync"/>), com "Agora não". Só para o
+    /// papel que pode sair como arquivo e quem tem o bit do tipo. O documento JÁ está emitido:
+    /// nada aqui desfaz isso, e o resultado do envio é dito num aviso (a janela fecha em seguida).
+    /// </summary>
+    private async Task PerguntarSeEnviaAgoraAsync(DocumentoClinico emitido)
+    {
+        var doc = DocumentoNaTela.De(emitido);
+        if (!doc.OferecerEnviar) return;
+        var r = await AcoesDoDocumento.EnviarAsync(doc, _escopos, aposEmitir: true);
+        if (r.Silencioso || string.IsNullOrWhiteSpace(r.Inline)) return;
+        using var scope = _escopos.CreateScope();
+        scope.ServiceProvider.GetRequiredService<IDialogoService>().Aviso("Enviar ao paciente", r.Inline);
     }
 
     // ===================== Pré-visualizar (out/2026) =====================
