@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -217,45 +218,19 @@ static class Program
         Console.WriteLine("INFUSÃO: progresso visível, ações protegidas e confirmação sem indicador preso.");
     }
 
-    static async Task AuditarInfusao(ServiceProvider sp, UsuarioSistema usuario)
+    static Task AuditarInfusao(ServiceProvider sp, UsuarioSistema usuario)
     {
-        usuario.Perfil = PerfilAcesso.Profissional;
-        sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
-        using var vm = new SalaInfusaoViewModel(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<IDialogoService>());
-        await vm.CarregarAsync();
-        for (int i = 1; i <= 12; i++) vm.Validacoes.Add(new LinhaSalaInfusao {
-            PrescricaoId = i, PacienteId = i, Paciente = $"Paciente fictício {i:00} com nome comprido",
-            Etapas = EtapasInfusao.Da(new PrescricaoInterna { OrigemEnfermagem = true, Situacao = SituacaoPrescricao.Encerrada,
-                Assinaturas = [new() { Papel = PapelAssinatura.Executante, ArquivoId = 1, ArquivoRegistroId = 1 }] }),
-            Numero = $"PRE TESTE/{i:000}", Hora = "09:30", Prescritor = "Médico fictício", Progresso = "Aguardando avaliação médica",
-            Itens = "Infusão fictícia", TemPendencia = false, Encerrada = true, Devolvida = false,
-            AguardaAssinatura = false, RegistroPendente = false, Dia = "" });
-        vm.ResumoValidacoes = "12 infusões fictícias aguardando avaliação e assinatura";
-        var win = new Window { Content = new SalaInfusaoView { DataContext = vm }, ShowInTaskbar = false, ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 1024, Height = 768 };
-        win.Show();
-        await ConferirJanela(win, "infusao-fila-medico", [880, 1024, 1366]);
-        var rolagem = Descendentes(win).OfType<ScrollViewer>().Single(s => s.Name == "RolagemValidacoes");
-        var botoes = Descendentes(win).OfType<Button>().Where(b => Equals(b.Content, "Avaliar e assinar")).ToArray();
-        if (botoes.Length != 12) throw new Exception("A fila deve manter todas as 12 pendências.");
-        foreach (var altura in new[] { 600, 768 })
-        foreach (var largura in new[] { 880, 1024, 1366 })
-        {
-            win.Width = largura; win.Height = altura; win.UpdateLayout();
-            foreach (var botao in botoes.Reverse())
-            {
-                botao.Focus(); botao.BringIntoView();
-                await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-                win.UpdateLayout();
-                var ponto = botao.TranslatePoint(new Point(), rolagem);
-                if (ponto.Y < -1 || ponto.Y + botao.ActualHeight > rolagem.ActualHeight + 1)
-                    throw new Exception($"Pendência {((LinhaSalaInfusao)botao.DataContext).Numero} inacessível em {largura}x{altura}.");
-            }
-            Console.WriteLine($"INFUSÃO {largura}x{altura}: 12 ações alcançáveis por foco e rolagem.");
-        }
-        botoes[^1].BringIntoView(); await Task.Delay(50);
-        Foto(win, "infusao-fila-ultima-pendencia");
-        win.Close();
+        // A fila da sala virou tela Blazor (out/2026); o leiaute dela é conferido pelo
+        // TelasBlazorAbremTests e pela prévia. Aqui fica a REGRA que a fila afirma.
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var folhas = Enumerable.Range(1, 12).Select(i => new PrescricaoInterna { Id = i, Data = hoje,
+            Situacao = SituacaoPrescricao.Encerrada, ExigeAssinaturaEletronicaDaExecucao = true }).ToList();
+        var linhas = SalaDeInfusaoNaTela.Montar(folhas, folhas, podeChecar: true, usuario.Id, hoje);
+        if (linhas.Count != 12) throw new Exception("A fila deve manter todas as 12 pendências, sem repetir.");
+        if (SalaDeInfusaoNaTela.ResumoValidacoes(12) != "12 infusões aguardando sua avaliação e assinatura")
+            throw new Exception("Resumo das validações mudou.");
+        Console.WriteLine("INFUSÃO: fila com 12 pendências sem repetição.");
+        return Task.CompletedTask;
     }
 
     /// <summary>

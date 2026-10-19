@@ -45,5 +45,5 @@ public static class ProntuariosNaTela
 
     /// <summary>O tom do selo, pelo que a linha pede: ação é aviso, cancelada é erro.</summary>
     public static string Tom(LinhaProntuario linha)
-        => linha.TomAviso ? "aviso" : linha.TomErro ? "erro" : linha.TomSucesso ? "sucesso" : linha.TomInfo ? "info" : string.Empty;
+        => linha.TomAviso ? "aviso" : linha.TomErro ? "perigo" : linha.TomSucesso ? "sucesso" : linha.TomInfo ? "info" : string.Empty;
 }

@@ -206,7 +206,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // 42, e a única tela para checar estava no `Clinica.Modulo.Clinico` — carregado
         // pelo exe do MÉDICO. A técnica que administra a infusão teria de usar o app dele.
         //
-        // A tela não foi copiada: ela SUBIU para o shell (`Componentes/SalaInfusaoView`),
+        // A tela não foi copiada: ela SUBIU para o shell (hoje a tela Blazor `SalaDeInfusao`),
         // como o mapa corporal e a emissão de documento na parcela 36. Os dois módulos
         // publicam a MESMA chave, e quem PRESCREVE continua no Consultório — é a divisão
         // que dá valor à conferência: são duas pessoas.
@@ -489,7 +489,9 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, DocumentosDaRecepcaoWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral, AgendaDaVisaoGeral>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento, JanelasDoAtendimentoWpf>();
-        servicos.AddTransient<SalaInfusaoViewModel>();
+        // A sala é publicada pelos dois módulos: TryAdd, uma ponte só no Gerente.
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
+            Clinica.Ui.Blazor.Hospedagem.IJanelasDaSalaDeInfusao, Clinica.Desktop.Blazor.JanelasDaSalaDeInfusaoWpf>(servicos);
         servicos.AddTransient<EnfermagemViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
         // Os ViewModels de formulário (agendamento, lista de espera, profissional,
@@ -515,10 +517,7 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
         ChaveRetornosAMarcar => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RetornosAMarcar), servicos),
         ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
-        ChaveSalaInfusao => new SalaInfusaoView
-        {
-            DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()
-        },
+        ChaveSalaInfusao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),
         ChaveEnfermagem => new EnfermagemView
         {
             DataContext = servicos.GetRequiredService<EnfermagemViewModel>()
