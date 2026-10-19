@@ -65,12 +65,14 @@ sealed class HostDaPrevia : IHostDaTela
     public Task<string?> SalvarEAbrirAsync(byte[] conteudo, string nomeSugerido, string filtro, string extensao)
         => Task.FromResult<string?>($"Na prévia o arquivo não é gravado ({nomeSugerido}, {conteudo.Length} bytes).");
 
-    // O extrato do banco é a única tela que lê arquivo: a prévia entrega o OFX FICTÍCIO que a
-    // semente montou, coerente com os lançamentos semeados. Sem semente, desistiu.
+    // Não há disco: a prévia entrega o arquivo FICTÍCIO que a semente da tela montou, pelo filtro
+    // do pedido — o CSV/ZIP da importação de pacientes, ou o OFX do extrato do banco (coerente
+    // com os lançamentos semeados). Sem semente, desistiu.
     public Task<ArquivoEscolhido?> EscolherArquivoAsync(string filtro, string titulo)
-        => Task.FromResult(SementeTaxasExtrato.ExemploOfx is { } ofx
-            ? new ArquivoEscolhido("extrato-exemplo.ofx", System.Text.Encoding.Latin1.GetBytes(ofx))
-            : null);
+        => Task.FromResult(SementeImportacaoDePacientes.ExemploPara(filtro)
+            ?? (SementeTaxasExtrato.ExemploOfx is { } ofx
+                ? new ArquivoEscolhido("extrato-exemplo.ofx", System.Text.Encoding.Latin1.GetBytes(ofx))
+                : null));
 
     public Task<bool> CopiarAsync(string texto) => Task.FromResult(true);
 
@@ -87,4 +89,15 @@ sealed class HostDaPrevia : IHostDaTela
     public Task<string?> PerguntarPastaAsync(string titulo) => Task.FromResult<string?>("/previa");
 
     public Task<string?> GravarArquivoAsync(string caminho, byte[] conteudo) => Task.FromResult<string?>(null);
+
+    // Monitores FICTÍCIOS (Configurações → Tela do paciente): a principal e um touch pequeno,
+    // para o combo da prévia ter o que mostrar. Não há janela para abrir: o teste diz não.
+    public Task<IReadOnlyList<MonitorDaMaquina>> ListarMonitoresAsync()
+        => Task.FromResult<IReadOnlyList<MonitorDaMaquina>>(
+        [
+            new(@"\\.\DISPLAY1", "Principal — 1920×1080", true),
+            new(@"\\.\DISPLAY2", "Secundária — 1280×800", false)
+        ]);
+
+    public Task<bool> MostrarExemploNaTelaDoPacienteAsync(string monitorId) => Task.FromResult(false);
 }

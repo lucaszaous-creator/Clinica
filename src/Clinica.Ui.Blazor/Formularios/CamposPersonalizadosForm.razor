@@ -1,0 +1,285 @@
+@*
+  OS CAMPOS PERSONALIZADOS DO PRONTUÁRIO (o que no WPF era a CamposPersonalizadosWindow +
+  CamposPersonalizadosViewModel, set/2026). O que ESTA clínica anota em cada sessão além dos
+  campos do sistema. É decisão da DIREÇÃO: dois profissionais cadastrando campos parecidos dariam
+  duas colunas que respondem à mesma pergunta e não se comparam.
+
+  Não há EXCLUIR: a definição é a PROCEDÊNCIA do valor gravado. Desativar tira da folha e mantém o
+  que já foi registrado. Editar é objeto NOVO com o Id — e leva a ORDEM que o campo tinha (o WPF a
+  zerava a cada edição, porque o objeto novo nascia com Ordem 0 e o serviço copia campo a campo).
+*@
+@inject IServiceScopeFactory Escopos
+@inject Dialogos Dialogos
+@inject Notificacoes Notificacoes
+
+<Modal Titulo="Campos do prontuário" Largura="largo" AoFechar="AoFechar"
+       Subtitulo="O que ESTA clínica anota em cada sessão além dos campos do sistema — “nº de agulhas”, “aparelho usado”, “carga do exercício”. Eles aparecem na folha da sessão, entram no prontuário e saem na exportação. Não substituem nenhum campo do sistema.">
+    <ChildContent>
+        <p class="cfg-nota">@ConfiguracoesDaClinicaNaTela.LimiteDeCampos</p>
+        <div class="cfg-form-duas">
+            <section aria-label="Campos cadastrados">
+                <div class="cfg-form-topo">
+                    <h3>Cadastrados</h3>
+                    <button type="button" class="botao mini" @onclick="Novo" disabled="@(!PodeConfigurar)"><Icone Nome="mais" />Novo campo</button>
+                </div>
+                @if (_naoVerificado)
+                {
+                    <FalhaDeLeitura Titulo="Não foi possível ler os campos" Detalhe="Isto NÃO quer dizer que não há nenhum." AoTentarDeNovo="CarregarAsync" />
+                }
+                else if (_carregando && _campos.Count == 0)
+                {
+                    <Esqueleto Altura="160" />
+                }
+                else if (_campos.Count == 0)
+                {
+                    <EstadoVazio Icone="lista" Titulo="Nenhum campo cadastrado"
+                                 Descricao="A folha da sessão fica só com os campos do sistema — que é o caso da maioria das clínicas." />
+                }
+                else
+                {
+                    <div class="tabela-rolagem cfg-form-lista">
+                        <table class="lista">
+                            <thead>
+                                <tr><th>Campo</th><th style="width:100px">Tipo</th><th>Onde aparece</th><th class="direita" style="width:84px">Ações</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in _campos)
+                                {
+                                    <tr @key="c.Id" class="@(c.Ativo ? null : "apagada") @(c.Id == _id ? "atual" : null)">
+                                        <td>
+                                            <span class="principal">@c.Rotulo</span>
+                                            @if (!c.Ativo) { <span class="secundario">@ConfiguracoesDaClinicaNaTela.SituacaoDoCampo(c.Ativo) — o que já foi registrado fica</span> }
+                                        </td>
+                                        <td>@ConfiguracoesDaClinicaNaTela.RotuloDoTipoDeCampo(c.Tipo)</td>
+                                        <td>@ConfiguracoesDaClinicaNaTela.OndeApareceOCampo(c.ModalidadeCodigo)</td>
+                                        <td class="direita">
+                                            <div class="botoes-linha">
+                                                <button type="button" class="botao mini icone" title="Editar" aria-label="@($"Editar o campo {c.Rotulo}")"
+                                                        @onclick="() => Editar(c)"><Icone Nome="editar" /></button>
+                                                <button type="button" class="botao mini icone" disabled="@(!PodeConfigurar)"
+                                                        title="@(c.Ativo ? "Desativar (o que já foi registrado fica)" : "Reativar")"
+                                                        aria-label="@($"{(c.Ativo ? "Desativar" : "Reativar")} o campo {c.Rotulo}")"
+                                                        @onclick="() => AlternarAsync(c)"><Icone Nome="@(c.Ativo ? "cancelar" : "ok")" /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+
+            <section class="cfg-form-edicao" aria-label="O campo em edição">
+                <div class="cfg-form-topo"><h3>@(_id == 0 ? "Campo novo" : "O campo")</h3></div>
+                <fieldset class="cfg-fieldset" disabled="@(!PodeConfigurar)">
+                    <div class="cfg-form-campos">
+                        <Campo Rotulo="Nome (o que o profissional lê)" Obrigatorio="true">
+                            <input class="campo" maxlength="80" placeholder="Ex.: Nº de agulhas" @bind="_rotulo" @bind:event="oninput" />
+                        </Campo>
+                        <Campo Rotulo="Tipo">
+                            <select class="campo" value="@_tipo" @onchange="@(e => { if (Enum.TryParse<TipoCampoPersonalizado>(e.Value?.ToString(), out var t)) _tipo = t; })">
+                                @foreach (var t in Enum.GetValues<TipoCampoPersonalizado>())
+                                {
+                                    <option value="@t">@ConfiguracoesDaClinicaNaTela.RotuloDoTipoDeCampo(t)</option>
+                                }
+                            </select>
+                        </Campo>
+                        @if (_tipo == TipoCampoPersonalizado.Lista)
+                        {
+                            <Campo Rotulo="Opções (uma por linha)" Obrigatorio="true">
+                                <textarea class="campo" rows="4" maxlength="1000" @bind="_opcoes"></textarea>
+                            </Campo>
+                        }
+                        <Campo Rotulo="Onde aparece" Dica="Campo que aparece onde não serve é o campo que ninguém preenche — e que faz parar de preencher os outros.">
+                            <select class="campo" value="@(_modalidade ?? string.Empty)" @onchange="@(e => { var v = e.Value?.ToString(); _modalidade = string.IsNullOrWhiteSpace(v) ? null : v; })">
+                                <option value="">(todas as modalidades)</option>
+                                @foreach (var m in _modalidades)
+                                {
+                                    <option value="@m.Codigo">@m.Nome</option>
+                                }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Ajuda (o que a clínica entende por isto)" Dica="Sem isto, dois profissionais preenchem o mesmo campo com coisas diferentes e a coluna deixa de comparar.">
+                            <textarea class="campo" rows="2" maxlength="300" @bind="_ajuda"></textarea>
+                        </Campo>
+                        <label class="marcar"><input type="checkbox" @bind="_ativo" /> Ativo (aparece na folha da sessão)</label>
+                    </div>
+                </fieldset>
+            </section>
+        </div>
+        <Aviso Tom="@(_mensagemEhErro ? "erro" : "sucesso")" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(!PodeConfigurar || _salvando)"
+                title="@(PodeConfigurar ? null : "Seu acesso não permite cadastrar campos do prontuário.")">
+            <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar campo")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private sealed record OpcaoModalidade(string Codigo, string Nome);
+
+    private List<CampoPersonalizadoProntuario> _campos = [];
+    private List<OpcaoModalidade> _modalidades = [];
+    private bool _carregando, _naoVerificado, _salvando, _mensagemEhErro;
+    private string? _mensagem;
+    private int _geracao;
+
+    // O campo em edição — editar é objeto NOVO com o Id (e a ordem que ele tinha).
+    private int _id, _ordem;
+    private string? _rotulo, _opcoes, _ajuda, _modalidade;
+    private TipoCampoPersonalizado _tipo = TipoCampoPersonalizado.Texto;
+    private bool _ativo = true;
+
+    /// <summary>Metade VISÍVEL da permissão (o bit do ViewModel WPF); quem impede é a conferência no comando.</summary>
+    private static bool PodeConfigurar => SessaoUsuario.Atual.Pode(Permissao.GerenciarUsuarios);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        _carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var campos = await escopo.ServiceProvider.GetRequiredService<CampoPersonalizadoService>().TodosAsync();
+            // O catálogo é lido (e o cache dos nomes renovado) antes de nomear "onde aparece".
+            var catalogo = await escopo.ServiceProvider.GetRequiredService<ModalidadeCatalogoService>().ListarAsync();
+            if (geracao != _geracao) return;
+
+            _campos = campos.ToList();
+            _modalidades = catalogo.Where(m => m.Ativo).OrderBy(m => m.Base).ThenBy(m => m.Nome)
+                .Select(m => new OpcaoModalidade(m.Codigo, m.Nome)).ToList();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — campos personalizados não puderam ser lidos", ex);
+            _campos = [];
+            // Terceiro estado: lista vazia por falha não é "a clínica não cadastrou nenhum".
+            _naoVerificado = true;
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private void Editar(CampoPersonalizadoProntuario c)
+    {
+        (_id, _ordem, _rotulo, _tipo, _opcoes, _ajuda, _ativo) = (c.Id, c.Ordem, c.Rotulo, c.Tipo, c.Opcoes, c.Ajuda, c.Ativo);
+        _modalidade = string.IsNullOrWhiteSpace(c.ModalidadeCodigo) ? null : c.ModalidadeCodigo;
+        _mensagem = null;
+    }
+
+    private void Novo()
+    {
+        (_id, _ordem, _rotulo, _tipo, _opcoes, _ajuda, _modalidade, _ativo) = (0, 0, null, TipoCampoPersonalizado.Texto, null, null, null, true);
+        _mensagem = null;
+        _mensagemEhErro = false;
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando) return;
+        if (!PodeConfigurar)
+        {
+            Erro("Seu acesso não permite cadastrar campos do prontuário. Fale com a direção da clínica.");
+            return;
+        }
+        _salvando = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<CampoPersonalizadoService>().SalvarAsync(
+                new CampoPersonalizadoProntuario
+                {
+                    Id = _id,
+                    Ordem = _ordem,
+                    Rotulo = _rotulo ?? string.Empty,
+                    Tipo = _tipo,
+                    Opcoes = _opcoes,
+                    Ajuda = _ajuda,
+                    ModalidadeCodigo = _modalidade,
+                    Ativo = _ativo
+                },
+                SessaoUsuario.Atual.Operador);
+
+            await CarregarAsync();
+            // A carga não toca a mensagem, mas o Novo sim: a frase vem DEPOIS (a lição da parcela 68).
+            Novo();
+            _mensagem = "Campo salvo. Ele já aparece na folha da sessão.";
+            _mensagemEhErro = false;
+            Notificacoes.Sucesso("Campo salvo.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Erro(ex.Message); // recusa de regra (sem nome, lista sem opções, teto de ativos)
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — campo personalizado não pôde ser salvo", ex);
+            Erro($"Não foi possível salvar: {ex.Message}");
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+
+    /// <summary>
+    /// Liga/desliga o campo. Desativar PERGUNTA (o que já foi registrado continua); reativar não,
+    /// mas esbarra no teto de ativos do serviço.
+    /// </summary>
+    private async Task AlternarAsync(CampoPersonalizadoProntuario linha)
+    {
+        if (!PodeConfigurar)
+        {
+            Erro("Seu acesso não permite cadastrar campos do prontuário. Fale com a direção da clínica.");
+            return;
+        }
+        if (linha.Ativo && !await Dialogos.ConfirmarAsync("Desativar campo",
+                ConfiguracoesDaClinicaNaTela.PerguntaDesativarCampo(linha.Rotulo), confirmar: "Desativar"))
+            return;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var servico = escopo.ServiceProvider.GetRequiredService<CampoPersonalizadoService>();
+            var campo = (await servico.TodosAsync()).FirstOrDefault(c => c.Id == linha.Id);
+            if (campo is null)
+            {
+                Erro("O campo não está mais cadastrado — a lista foi relida.");
+                await CarregarAsync();
+                return;
+            }
+            campo.Ativo = !campo.Ativo;
+            await servico.SalvarAsync(campo, SessaoUsuario.Atual.Operador);
+            await CarregarAsync();
+            if (_id == campo.Id) _ativo = campo.Ativo;
+            _mensagem = campo.Ativo ? "Campo reativado." : "Campo desativado.";
+            _mensagemEhErro = false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Erro(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — campo personalizado não pôde ser alternado", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    private void Erro(string texto)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = true;
+    }
+}

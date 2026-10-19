@@ -1,0 +1,226 @@
+@*
+  ACESSOS (out/2026, etapa 6 do Gerente — saiu do WPF para o Blazor; era a AcessosView +
+  AcessosViewModel). A pergunta: "quem entra na suíte, com qual perfil e o que cada um pode fazer?".
+
+  ⚠️ Quem mexe em permissão pode CONCEDER permissão — inclusive a si mesmo. Por isso TODA escrita
+  daqui (criar, editar perfil e permissões, ativar/desativar, senha, excluir) tem as DUAS
+  barreiras com o bit GerenciarUsuarios: o botão nasce apagado sem ele E o clique chama Exigir.
+  O item do menu já exige o bit, mas "só se chega por ali" é a suposição que a parcela 51
+  derrubou. A auditoria de cada ato é gravada pelo AcessoService no MESMO SaveChanges.
+
+  Quem decide as frases (perfil da linha, ajustes à mão, quem pode ser excluído, o resumo do
+  topo) é AcessosNaTela (Application, com teste); a tela só lê e desenha. A senha nunca aparece
+  aqui: redefinir é um formulário com campo MASCARADO (SenhaProvisoriaForm), não a pergunta de
+  texto, que desenha o que se digita.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina acessos @(Carregando && _linhas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Conformidade e acessos" Titulo="Acessos"
+                     Subtitulo="Quem entra na suíte, com qual perfil e o que cada um pode fazer.">
+        <button type="button" class="botao" @onclick="CarregarAsync" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao primario" @onclick="Novo" disabled="@(!PodeGerenciar)"
+                title="@(PodeGerenciar ? "Cadastrar quem vai entrar no sistema" : SemPermissao)"><Icone Nome="mais" />Novo usuário</button>
+    </CabecalhoPagina>
+
+    @if (_resumo is { } r && !_naoVerificado)
+    {
+        <section class="kpis" aria-label="Resumo dos acessos">
+            <Kpi Rotulo="Usuários ativos" Valor="@r.Ativos.ToString(Formato.PtBr)" Icone="pessoas" Tom="sucesso"
+                 Nota="@($"{r.Inativos} inativo(s) — continuam na auditoria")" />
+            <Kpi Rotulo="Podem conceder acesso" Valor="@r.Gestores.ToString(Formato.PtBr)" Icone="cadeado" Tom="aviso"
+                 Nota="inclusive a si mesmos — confira quem são" />
+            <Kpi Rotulo="Ajustados à mão" Valor="@r.ComAjuste.ToString(Formato.PtBr)" Icone="ajustes" Tom="neutro"
+                 Nota="fogem do padrão do perfil" />
+            <Kpi Rotulo="Nunca entraram" Valor="@_linhas.Count(l => l.PodeExcluir).ToString(Formato.PtBr)" Icone="relogio" Tom="neutro"
+                 Nota="só estes podem ser excluídos" />
+        </section>
+    }
+
+    <section class="cartao lista-cartao" aria-label="Usuários">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Usuários</h2>
+                <p>Todos os aplicativos da suíte — Recepção, Financeiro, Faturamento, Consultório e Gerente Geral — exigem usuário.
+                   Quem já entrou não se exclui: desative em Editar, para a auditoria continuar dizendo quem fez o quê.</p>
+            </div>
+        </div>
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível carregar os usuários"
+                            Detalhe="@($"A lista não está vazia — ela não pôde ser lida. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (Carregando && _linhas.Count == 0)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Icone="pessoas" Titulo="Nenhum usuário cadastrado"
+                         Descricao="A base sem usuário abre o primeiro acesso, que nasce Gerente." />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista ac-tabela">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Login</th>
+                            <th>Perfil</th>
+                            <th>Profissional</th>
+                            <th class="nao-quebra">Último acesso</th>
+                            <th class="direita">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _linhas)
+                        {
+                            var linha = l;
+                            <tr class="@(l.Ativo ? null : "apagada")" @key="l.Id">
+                                <td>
+                                    <span class="principal ac-nome" title="@l.Nome">@l.Nome</span>
+                                    <span class="ac-selos">
+                                        <Selo Tom="@(l.Ativo ? "sucesso" : "neutro")">@l.Situacao</Selo>
+                                        @if (l.DeveTrocarSenha) { <Selo Tom="aviso" Dica="Senha provisória: troca obrigatória no próximo acesso">trocar senha</Selo> }
+                                        @if (EhVoce(l)) { <Selo Tom="info" Dica="O seu próprio usuário">você</Selo> }
+                                    </span>
+                                </td>
+                                <td class="ac-login">@l.Login</td>
+                                <td>
+                                    <span class="ac-perfil">@l.Perfil</span>
+                                    <span class="ac-ajustes @(l.TemAjuste ? "mexido" : null)">@l.Ajustes</span>
+                                </td>
+                                <td class="ac-prof" title="@l.Profissional">@l.Profissional</td>
+                                <td class="nao-quebra">@l.UltimoAcesso</td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini primario" disabled="@(!PodeGerenciar)" @onclick="() => Editar(linha)"
+                                                title="@(PodeGerenciar ? "Dados, perfil, permissões e situação" : SemPermissao)"><Icone Nome="editar" />Editar</button>
+                                        <button type="button" class="botao mini icone" disabled="@(!PodeGerenciar)" @onclick="() => RedefinirSenha(linha)"
+                                                title="@(PodeGerenciar ? "Redefinir senha (provisória: troca no próximo acesso)" : SemPermissao)"
+                                                aria-label="Redefinir senha"><Icone Nome="cadeado" /></button>
+                                        <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeGerenciar || !l.PodeExcluir)"
+                                                @onclick="() => ExcluirAsync(linha)"
+                                                title="@(!PodeGerenciar ? SemPermissao : l.PodeExcluir ? "Excluir (só quem nunca entrou)" : AcessosNaTela.MotivoSemExcluir)"
+                                                aria-label="Excluir usuário"><Icone Nome="lixo" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@if (_editando is { } id)
+{
+    <UsuarioForm UsuarioId="id" AoFechar="() => _editando = null" AoConcluir="GravouAsync" />
+}
+@if (_senhaPara is { } alvo)
+{
+    <SenhaProvisoriaForm UsuarioId="alvo.Id" Nome="@alvo.Nome" AoFechar="() => _senhaPara = null" AoConcluir="SenhaDefinidaAsync" />
+}
+
+@code {
+    private const string SemPermissao = "Seu acesso não permite gerenciar usuários.";
+
+    private IReadOnlyList<LinhaDeAcesso> _linhas = [];
+    private ResumoDeAcessos? _resumo;
+    private bool Carregando, _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    /// <summary>Zero = usuário novo; null = formulário fechado.</summary>
+    private int? _editando;
+    private LinhaDeAcesso? _senhaPara;
+
+    private static bool PodeGerenciar => Pode(Permissao.GerenciarUsuarios);
+
+    private static bool EhVoce(LinhaDeAcesso l)
+        => SessaoUsuario.Atual.Autenticado && SessaoUsuario.Atual.UsuarioId == l.Id;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var usuarios = await escopo.ServiceProvider.GetRequiredService<AcessoService>().UsuariosAsync();
+            if (geracao != _geracao || Descartada) return;
+
+            // Tudo publicado depois do último await.
+            _linhas = AcessosNaTela.Linhas(usuarios);
+            _resumo = AcessosNaTela.Resumo(usuarios.ToList());
+            _naoVerificado = false;
+            _erro = null;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — usuários não puderam ser carregados", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Novo()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "criar usuário")) return;
+        _editando = 0;
+    }
+
+    private void Editar(LinhaDeAcesso linha)
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "editar usuário e permissões")) return;
+        _editando = linha.Id;
+    }
+
+    private void RedefinirSenha(LinhaDeAcesso linha)
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "redefinir senha")) return;
+        _senhaPara = linha;
+    }
+
+    private async Task ExcluirAsync(LinhaDeAcesso linha)
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "excluir usuário")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir usuário", AcessosNaTela.PerguntaDeExclusao(linha.Nome), perigoso: true)) return;
+        // A confirmação pode ter levado minutos: a barreira vale para o instante do ato.
+        if (!Exigir(Permissao.GerenciarUsuarios, "excluir usuário")) return;
+
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<AcessoService>().ExcluirAsync(linha.Id, Operador);
+        }, "Blazor — usuário não pôde ser excluído", "Usuário excluído.");
+        if (ok) await CarregarAsync();
+    }
+
+    private async Task GravouAsync()
+    {
+        _editando = null;
+        Notificacoes.Sucesso("Usuário salvo.");
+        await CarregarAsync();
+    }
+
+    private async Task SenhaDefinidaAsync()
+    {
+        _senhaPara = null;
+        Notificacoes.Sucesso("Senha provisória definida — a pessoa troca no próximo acesso.");
+        await CarregarAsync();
+    }
+}

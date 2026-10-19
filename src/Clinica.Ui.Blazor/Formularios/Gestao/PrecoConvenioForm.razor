@@ -1,0 +1,195 @@
+@*
+  O PREÇO DE UMA GUIA — cadastro e correção (o que no WPF era a PrecoConvenioWindow /
+  PrecoEdicaoViewModel). Duas regras que precisam de espaço para serem ditas: a ESPECIALIDADE
+  declarada VENCE o genérico do tipo, e o REAJUSTE entra como linha nova com a data em que passou
+  a valer — a guia de março continua sendo proposta pelo preço de março.
+
+  Correções em relação ao WPF:
+  - as OBSERVAÇÕES do preço voltam intactas na edição. A janela não as mostrava e o Salvar
+    mandava nulo, e o serviço copia campo a campo: corrigir o valor apagava a observação gravada
+    (quem não edita, PRESERVA);
+  - o convênio DESLIGADO depois que o preço foi cadastrado continua no combo da edição. O WPF só
+    listava os ativos, o combo abria em branco e o Salvar recusava ("Escolha o convênio") —
+    sem jeito de corrigir nem de encerrar a vigência daquele preço;
+  - preço apagado em outra máquina abre DIZENDO isso, em vez de um formulário em branco cujo
+    Salvar levaria "Preço não encontrado".
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(PrecoId == 0 ? "Preço novo" : "Editar preço")"
+       Subtitulo="Quanto a operadora paga por esta guia. É PROPOSTA para a conciliação do Financeiro, não imposição: a operadora pode ter pago menos (glosa parcial), e a linha mostra de onde veio o número."
+       Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="260" />
+        }
+        else if (_falhaAoAbrir is not null)
+        {
+            <Aviso Tom="erro" Texto="@_falhaAoAbrir" />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Convênio" Obrigatorio="true" Erro="@_erroConvenio" Classe="largo">
+                    <select class="campo" value="@(_convenio ?? "")" @onchange="e => { _convenio = Vazio(e); _erroConvenio = null; }">
+                        <option value="">Escolha a operadora…</option>
+                        @foreach (var c in _convenios)
+                        {
+                            <option value="@c.Codigo">@(c.Ativo ? c.Nome : $"{c.Nome} (desativado)")</option>
+                        }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Tipo de guia" Obrigatorio="true">
+                    <select class="campo" value="@_tipo" @onchange="e => { if (Enum.TryParse<TipoCodigo>(e.Value?.ToString(), out var t)) _tipo = t; }">
+                        @foreach (var t in Enum.GetValues<TipoCodigo>())
+                        {
+                            <option value="@t">@RotulosEnum.De(t)</option>
+                        }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Especialidade">
+                    <select class="campo" value="@(_especialidade?.ToString() ?? "")"
+                            @onchange="e => _especialidade = Enum.TryParse<Especialidade>(e.Value?.ToString(), out var s) ? s : null">
+                        <option value="">Todas</option>
+                        @foreach (var s in Enum.GetValues<Especialidade>())
+                        {
+                            <option value="@s">@RotulosEnum.De(s)</option>
+                        }
+                    </select>
+                </Campo>
+            </div>
+            <p class="campo-dica">Preencha a especialidade só quando o valor depender dela. Um preço com especialidade VENCE o genérico do tipo — senão a exceção ficaria cadastrada e a conciliação continuaria propondo o valor da regra geral.</p>
+
+            <div class="campos tres">
+                <Campo Rotulo="Valor da guia" Obrigatorio="true" Erro="@_erroValor">
+                    <input class="campo valor" @bind="_valor" @bind:event="oninput" maxlength="14" inputmode="decimal" placeholder="Ex.: 145,00" />
+                </Campo>
+                <Campo Rotulo="Vigente de">
+                    <input type="date" class="campo" @bind="_vigenteDe" />
+                </Campo>
+                <Campo Rotulo="Até">
+                    <input type="date" class="campo" @bind="_vigenteAte" />
+                </Campo>
+            </div>
+            <p class="campo-dica">Reajuste da operadora entra como uma linha NOVA, com a data em que passou a valer. A guia de março continua sendo proposta pelo valor de março, e o que já foi lançado no caixa nunca muda.</p>
+
+            <label class="alternar"><input type="checkbox" @bind="_ativo" /> Ativo (a conciliação só propõe preço ativo)</label>
+
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync"
+                disabled="@(_carregando || _falhaAoAbrir is not null || _ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite cadastrar preço de convênio.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar preço")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>0 = preço novo.</summary>
+    [Parameter] public int PrecoId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<ConvenioCadastro> _convenios = [];
+    private string? _convenio;
+    private TipoCodigo _tipo = TipoCodigo.Acupuntura;
+    private Especialidade? _especialidade;
+    private string? _valor;
+    private DateOnly? _vigenteDe, _vigenteAte;
+    private bool _ativo = true;
+    /// <summary>A tela não as mostra: carregadas para voltarem INTACTAS no Salvar.</summary>
+    private string? _observacoes;
+
+    private bool _carregando = true;
+    private string? _falhaAoAbrir, _mensagem, _erroConvenio, _erroValor;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    private static string? Vazio(ChangeEventArgs e) => e.Value?.ToString() is { Length: > 0 } v ? v : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var sp = escopo.ServiceProvider;
+            // Sequencial no mesmo escopo: é o mesmo DbContext.
+            var catalogo = await sp.GetRequiredService<ConvenioCatalogoService>().ListarAsync();
+            PrecoConvenio? existente = null;
+            if (PrecoId != 0)
+            {
+                existente = (await sp.GetRequiredService<PrecoConvenioService>().CatalogoAsync())
+                    .FirstOrDefault(p => p.Id == PrecoId);
+                if (existente is null)
+                {
+                    _falhaAoAbrir = "Preço não encontrado — ele pode ter sido excluído em outra máquina.";
+                    return;
+                }
+            }
+
+            _convenios = PrecosConvenioNaTela.ConveniosDoFormulario(catalogo, existente?.ConvenioCodigo);
+            if (existente is { } p)
+            {
+                _convenio = _convenios.FirstOrDefault(c =>
+                    string.Equals(c.Codigo, p.ConvenioCodigo, StringComparison.OrdinalIgnoreCase))?.Codigo;
+                _tipo = p.Tipo;
+                _especialidade = p.Especialidade;
+                _valor = PrecosConvenioNaTela.ParaCampo(p.Valor);
+                _vigenteDe = p.VigenteDe;
+                _vigenteAte = p.VigenteAte;
+                _ativo = p.Ativo;
+                _observacoes = p.Observacoes;
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — preço de convênio não pôde ser aberto", ex);
+            _falhaAoAbrir = $"Não foi possível abrir o formulário: {ex.Message}";
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = _erroConvenio = _erroValor = null;
+        if (!PrecosConvenioNaTela.Conferir(_convenio, _valor, out var valor, out var erro))
+        {
+            if (string.IsNullOrWhiteSpace(_convenio)) _erroConvenio = erro;
+            else _erroValor = erro;
+            return;
+        }
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar preço de convênio");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<PrecoConvenioService>().SalvarAsync(new PrecoConvenio
+            {
+                Id = PrecoId,
+                ConvenioCodigo = _convenio!,
+                Tipo = _tipo,
+                Especialidade = _especialidade,
+                Valor = valor,
+                VigenteDe = _vigenteDe,
+                VigenteAte = _vigenteAte,
+                Ativo = _ativo,
+                Observacoes = _observacoes
+            }, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — preço de convênio não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

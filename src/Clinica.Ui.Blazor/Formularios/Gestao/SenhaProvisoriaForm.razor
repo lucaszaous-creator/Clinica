@@ -1,0 +1,84 @@
+@*
+  REDEFINIR A SENHA DE ALGUÉM (no WPF era um PerguntarTexto na AcessosViewModel).
+
+  Por que não é a pergunta de texto (Dialogos.PerguntarTextoAsync): ela desenha numa caixa de
+  texto o que se digita — a senha ficaria legível na tela do balcão — e apara os espaços, o que
+  mudaria em silêncio a senha que a pessoa vai receber. Aqui o campo é MASCARADO e a senha é
+  digitada duas vezes (sem ver o texto, a repetição é o que pega o erro de digitação).
+
+  A senha nunca vai para log nem para mensagem: a crítica (AcessosNaTela.CriticarSenha) devolve
+  só a regra, e a auditoria do serviço registra "SenhaDefinida" com o login, nunca o valor.
+  Cancelar é desistir: nada é gravado (a porta "desisti" nunca efetiva o ato).
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Redefinir senha" Subtitulo="@($"Senha provisória para {Nome}. Ela será obrigada a trocá-la ao entrar.")"
+       Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos ac-senha">
+            <Campo Rotulo="Senha provisória" Obrigatorio="true" Classe="largo" Dica="@AcessosNaTela.AjudaDaSenha(novo: true)">
+                <input class="campo" type="password" autocomplete="new-password" maxlength="128"
+                       @bind="_senha" @bind:event="oninput" />
+            </Campo>
+            <Campo Rotulo="Repita a senha" Obrigatorio="true" Classe="largo">
+                <input class="campo" type="password" autocomplete="new-password" maxlength="128"
+                       @bind="_repeticao" @bind:event="oninput" />
+            </Campo>
+        </div>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="DefinirAsync" disabled="@(_salvando || !PodeGerenciar)"
+                title="@(PodeGerenciar ? null : "Seu acesso não permite gerenciar usuários.")">
+            <Icone Nome="cadeado" />@(_salvando ? "Gravando…" : "Definir senha provisória")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int UsuarioId { get; set; }
+    [Parameter, EditorRequired] public string Nome { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _senha, _repeticao, _mensagem;
+    private bool _salvando;
+
+    private static bool PodeGerenciar => SessaoUsuario.Atual.Pode(Permissao.GerenciarUsuarios);
+
+    private async Task DefinirAsync()
+    {
+        if (_salvando) return;
+        _mensagem = null;
+        // A segunda barreira: quem redefine a senha de alguém pode entrar como essa pessoa.
+        if (!PodeGerenciar)
+        {
+            _mensagem = "Seu acesso não permite redefinir senha. Fale com a direção da clínica.";
+            return;
+        }
+        if (AcessosNaTela.CriticarSenha(_senha, _repeticao) is { } critica)
+        {
+            _mensagem = critica;
+            return;
+        }
+
+        try
+        {
+            _salvando = true;
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<AcessoService>()
+                .DefinirSenhaAsync(UsuarioId, _senha!, deveTrocar: true, SessaoUsuario.Atual.Operador);
+            _senha = _repeticao = null;
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            // A mensagem do serviço é a regra ("pelo menos 6 caracteres", "não encontrado") — nunca a senha.
+            Clinica.Application.Diagnostico.Registrar("Blazor — senha provisória não pôde ser definida", ex);
+            _mensagem = AcessosNaTela.Frase(ex);
+        }
+        finally { _salvando = false; }
+    }
+}

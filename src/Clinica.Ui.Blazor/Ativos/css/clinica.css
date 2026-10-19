@@ -55,6 +55,18 @@
 @import url("telas/mesa-direcao.css");
 @import url("telas/projecao-caixa.css");
 @import url("telas/margem.css");
+@import url("telas/indicadores.css");
+@import url("telas/rentabilidade.css");
+@import url("telas/custo.css");
+@import url("telas/precos-convenio.css");
+@import url("telas/campanhas.css");
+@import url("telas/origens.css");
+@import url("telas/auditoria.css");
+@import url("telas/guarda.css");
+@import url("telas/documentos-emitidos.css");
+@import url("telas/acessos.css");
+@import url("telas/configuracoes.css");
+@import url("telas/importacao-pacientes.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.
@@ -456,3 +468,10 @@ td .selo{margin-left:0}
 .faixa-paciente-campos dd{margin:0;font-size:var(--text-small-size);font-weight:600;font-variant-numeric:tabular-nums;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
 .faixa-paciente-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2);justify-content:flex-end}
+
+/* GraficoLinha (componente): o traço segue o TOM de quem chama; o buraco da série é ausência de traço. */
+.grafico-linha .grafico-linha-traco{fill:none;stroke:var(--acento);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.grafico-linha .grafico-linha-ponto{fill:var(--superficie);stroke:var(--acento);stroke-width:2}
+.grafico-linha.tom-perigo .grafico-linha-traco,.grafico-linha.tom-perigo .grafico-linha-ponto{stroke:var(--erro)}
+.grafico-linha.tom-sucesso .grafico-linha-traco,.grafico-linha.tom-sucesso .grafico-linha-ponto{stroke:var(--sucesso)}
+.grafico-linha-vazio{padding:var(--space-8) 0;text-align:center;color:var(--texto-secundario);font-size:var(--text-small-size)}

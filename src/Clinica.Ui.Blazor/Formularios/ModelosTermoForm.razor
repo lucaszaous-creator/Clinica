@@ -1,0 +1,459 @@
+@*
+  OS TERMOS DO PROCEDIMENTO (o que no WPF era a ModelosTermoWindow + ModelosTermoViewModel,
+  parcela 66). Onde a clínica ESCREVE o termo que o paciente vai assinar e diz qual procedimento
+  o exige.
+
+  ⚠️ O TEXTO é da clínica, não nosso — exceto o do BSV, que é o texto que o advogado da cliente
+  aprovou (ModelosTermoBsv). "Criar os termos do BSV…" cria os dois papéis e liga as exigências;
+  quando o BSV JÁ exige termo, o botão vira SUBSTITUIÇÃO explícita: uma confirmação de perigo
+  lista o que está amarrado hoje, DESLIGA essas exigências (desligar, nunca apagar: o termo
+  assinado guarda o texto que o paciente leu) e amarra o par novo. Resumível: o segundo clique
+  completa o que faltou.
+
+  Não há limite de 4.000 caracteres no texto (o WPF tinha, e travava a edição do TCLE aprovado,
+  que passa disso; a coluna é `text`).
+*@
+@inject IServiceScopeFactory Escopos
+@inject Dialogos Dialogos
+@inject Notificacoes Notificacoes
+@using Clinica.Domain.Regras
+
+<Modal Titulo="Termos do procedimento" Largura="largo" AoFechar="AoFechar"
+       Subtitulo="Escreva o texto que o paciente vai ler e assinar, e as declarações que ele responde (jejum, medicações, alergias). Depois diga qual procedimento passa a exigi-lo. Por padrão o termo vale a partir da assinatura; a validade por sessão é escolha de cada amarração.">
+    <ChildContent>
+        <div class="cfg-termos">
+            <section class="cfg-termos-lista" aria-label="Termos escritos">
+                <button type="button" class="botao" @onclick="Novo" disabled="@(!PodeConfigurar)"><Icone Nome="mais" />Novo termo</button>
+                @* ABAIXO do "Novo termo" de propósito: quem vai escrever o próprio texto não deve
+                   tropeçar num botão que cria dois papéis e liga quatro exigências. *@
+                <button type="button" class="botao" @onclick="CriarTermosDoBsvAsync" disabled="@(!PodeConfigurar || _ocupado)"><Icone Nome="documento" />Criar os termos do BSV…</button>
+                @if (_naoVerificado)
+                {
+                    <FalhaDeLeitura Titulo="Não foi possível carregar os termos" Detalhe="Isto NÃO quer dizer que não há nenhum." AoTentarDeNovo="CarregarAsync" />
+                }
+                else if (_carregando && _modelos.Count == 0)
+                {
+                    <Esqueleto Altura="120" />
+                }
+                else if (_modelos.Count == 0)
+                {
+                    <EstadoVazio Icone="documento" Titulo="Nenhum termo escrito"
+                                 Descricao="Clique em “Criar os termos do BSV…” para usar o texto aprovado pela clínica, ou em “Novo termo” para escrever o seu." />
+                }
+                else
+                {
+                    <ul class="cfg-termos-itens" role="listbox" aria-label="Termos">
+                        @foreach (var m in _modelos)
+                        {
+                            <li @key="m.Id">
+                                <button type="button" role="option" aria-selected="@(m.Id == _selecionadoId ? "true" : "false")" @onclick="() => Selecionar(m)">
+                                    <span class="principal">@m.Nome</span>
+                                    <span class="secundario">@ConfiguracoesDaClinicaNaTela.ResumoDasDeclaracoes(m.Itens.Count)</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <section class="cfg-termos-edicao" aria-label="O termo em edição">
+                <fieldset class="cfg-fieldset" disabled="@(!PodeConfigurar)">
+                    <div class="secao-form">
+                        <h3>O texto</h3>
+                        <div class="campos">
+                            <Campo Rotulo="Nome (só a clínica vê)" Obrigatorio="true">
+                                <input class="campo" maxlength="100" placeholder="ex.: Termo do BSV" @bind="_nome" @bind:event="oninput" />
+                            </Campo>
+                            <Campo Rotulo="Título impresso">
+                                <input class="campo" maxlength="200" placeholder="ex.: Consentimento para Bloqueio Simpático Venoso" @bind="_titulo" @bind:event="oninput" />
+                            </Campo>
+                        </div>
+                        <Campo Rotulo="Texto do termo" Obrigatorio="true"
+                               Dica="O conteúdo é responsabilidade técnica da clínica. O sistema guarda, imprime e prova quem assinou — ele não redige nem confere o texto.">
+                            <textarea class="campo cfg-termo-corpo" rows="10"
+                                      placeholder="Riscos, alternativas, cuidados antes e depois. É o que o paciente lê antes de assinar."
+                                      @bind="_corpo" @bind:event="oninput"></textarea>
+                        </Campo>
+                    </div>
+
+                    <div class="secao-form">
+                        <h3>Declarações que o paciente responde</h3>
+                        <span class="campo-dica">Cada linha vira um Sim/Não na tela da coleta e sai impressa com a resposta. Responder NÃO não impede o procedimento — acende alerta vermelho para quem vai fazê-lo.</span>
+                        <div class="cfg-linha-acao">
+                            <input class="campo" maxlength="300" placeholder="ex.: Estou em jejum de 8 horas" aria-label="Nova declaração"
+                                   @bind="_novaDeclaracao" @bind:event="oninput" @onkeydown="TeclaDeclaracao" />
+                            <button type="button" class="botao" @onclick="AcrescentarDeclaracao"><Icone Nome="mais" />Acrescentar</button>
+                        </div>
+                        @if (_declaracoes.Count > 0)
+                        {
+                            <ol class="cfg-declaracoes">
+                                @foreach (var d in _declaracoes)
+                                {
+                                    <li @key="d">
+                                        <input class="campo" maxlength="300" aria-label="Declaração" value="@d.Texto" @oninput="@(e => d.Texto = e.Value?.ToString() ?? string.Empty)" />
+                                        <button type="button" class="botao mini icone contorno-perigo" title="Remover a declaração do modelo" aria-label="Remover a declaração"
+                                                @onclick="() => _declaracoes.Remove(d)"><Icone Nome="lixo" /></button>
+                                    </li>
+                                }
+                            </ol>
+                        }
+                    </div>
+
+                    <div class="secao-form">
+                        <h3>Qual procedimento exige este termo</h3>
+                        <div class="cfg-linha-acao">
+                            <select class="campo" aria-label="Procedimento" value="@(_modalidadeEscolhida?.ToString() ?? string.Empty)"
+                                    @onchange="@(e => _modalidadeEscolhida = Enum.TryParse<ModalidadeAtendimento>(e.Value?.ToString(), out var m) ? m : null)">
+                                <option value="">(escolha o procedimento)</option>
+                                @foreach (var (m, nome) in _modalidades)
+                                {
+                                    <option value="@m">@nome</option>
+                                }
+                            </select>
+                            <button type="button" class="botao" @onclick="ExigirAsync" disabled="@_ocupado">Passar a exigir</button>
+                        </div>
+                        <label class="marcar"><input type="checkbox" @bind="_soValeNoDia" /> Pedir a cada sessão (não vale de um dia para o outro)</label>
+                        <span class="campo-dica">Desmarcado (o normal), o termo vale a partir da assinatura — dá para colher quando o paciente aparece, semanas antes. Marque só para o termo curto que pergunta o JEJUM: essa declaração é sobre o dia e não se herda.</span>
+                        @if (_exigencias.Count > 0)
+                        {
+                            <div class="tabela-rolagem">
+                                <table class="lista">
+                                    <thead><tr><th>Procedimento</th><th>Termo</th><th style="width:220px">Situação</th><th class="direita" style="width:100px">Ações</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var x in _exigencias)
+                                        {
+                                            <tr @key="x.Id" class="@(x.Ativa ? null : "apagada")">
+                                                <td><span class="principal">@NomeDaModalidade(x)</span></td>
+                                                <td>@(x.Modelo?.Nome ?? "(modelo removido)")</td>
+                                                <td>@ConfiguracoesDaClinicaNaTela.SituacaoDaExigencia(x.Ativa, x.SoValeNoDiaDoProcedimento)</td>
+                                                <td class="direita">
+                                                    <button type="button" class="botao mini" @onclick="() => AlternarExigenciaAsync(x)">@ConfiguracoesDaClinicaNaTela.AcaoDaExigencia(x.Ativa)</button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </fieldset>
+            </section>
+        </div>
+        <Aviso Tom="@(_mensagemEhErro ? "erro" : "sucesso")" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(!PodeConfigurar || _ocupado)"
+                title="@(PodeConfigurar ? null : "Seu acesso não permite configurar os termos.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar termo")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>Uma declaração sendo escrita: o detalhe vem do modelo e volta intacto (não se edita aqui).</summary>
+    private sealed class Declaracao
+    {
+        public string Texto { get; set; } = string.Empty;
+        public string? Detalhe { get; init; }
+    }
+
+    private List<ModeloDocumento> _modelos = [];
+    private List<ExigenciaTermoProcedimento> _exigencias = [];
+    private List<(ModalidadeAtendimento Modalidade, string Nome)> _modalidades = [];
+    private bool _carregando, _naoVerificado, _ocupado, _mensagemEhErro, _soValeNoDia;
+    private string? _mensagem;
+    private int _geracao;
+
+    // O termo em foco.
+    private int? _selecionadoId;
+    private string _nome = string.Empty, _titulo = string.Empty, _corpo = string.Empty, _novaDeclaracao = string.Empty;
+    private List<Declaracao> _declaracoes = [];
+    private ModalidadeAtendimento? _modalidadeEscolhida;
+
+    /// <summary>Metade VISÍVEL (o bit do ViewModel WPF); a conferência no comando impede e DIZ por quê.</summary>
+    private static bool PodeConfigurar => SessaoUsuario.Atual.Pode(Permissao.ConfigurarFaturamento);
+
+    private const string SemPermissao = "Você não tem permissão para configurar os termos.";
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private static string NomeDaModalidade(ExigenciaTermoProcedimento e) => CatalogoModalidades.Nome(e.ModalidadeCodigo, e.Modalidade);
+
+    /// <summary>
+    /// Lê os modelos e as amarrações, com contador de geração (salvar dispara recarga e a pessoa
+    /// pode clicar duas vezes). O foco fica no termo que estava em foco — senão a gravação seguinte
+    /// iria para o primeiro da lista, em silêncio.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        _carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var sp = escopo.ServiceProvider;
+            // O catálogo renova o cache dos nomes: "BsvComAcupuntura" cru na tela é o defeito da parcela 41.
+            await sp.GetRequiredService<ModalidadeCatalogoService>().ListarAsync();
+            var modelos = await sp.GetRequiredService<DocumentoClinicoService>().ModelosAsync(TipoDocumentoClinico.TermoProcedimento);
+            var exigencias = await sp.GetRequiredService<TermoProcedimentoService>().ExigenciasAsync();
+            if (geracao != _geracao) return;
+
+            _modalidades = Enum.GetValues<ModalidadeAtendimento>()
+                .Select(m => (m, CatalogoModalidades.Nome(m.ToString()))).ToList();
+            _modelos = modelos.ToList();
+            _exigencias = exigencias.ToList();
+
+            var foco = _modelos.FirstOrDefault(m => m.Id == _selecionadoId) ?? _modelos.FirstOrDefault();
+            if (foco is not null && foco.Id != _selecionadoId) Selecionar(foco);
+            else if (foco is null) LimparEdicao();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — modelos de termo", ex);
+            _naoVerificado = true;
+            Erro("Não foi possível carregar os termos: " + ex.Message);
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private void Selecionar(ModeloDocumento m)
+    {
+        _selecionadoId = m.Id;
+        _nome = m.Nome;
+        _titulo = m.Titulo ?? string.Empty;
+        _corpo = m.Corpo ?? string.Empty;
+        _declaracoes = m.Itens.OrderBy(i => i.Ordem)
+            .Select(i => new Declaracao { Texto = i.Descricao, Detalhe = i.Detalhe }).ToList();
+    }
+
+    private void LimparEdicao()
+    {
+        _selecionadoId = null;
+        _nome = _titulo = _corpo = string.Empty;
+        _declaracoes = [];
+    }
+
+    private void Novo()
+    {
+        LimparEdicao();
+        _mensagem = null;
+    }
+
+    private void TeclaDeclaracao(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AcrescentarDeclaracao();
+    }
+
+    /// <summary>Quem usa o Enter com o campo vazio precisa saber por que não entrou.</summary>
+    private void AcrescentarDeclaracao()
+    {
+        if (string.IsNullOrWhiteSpace(_novaDeclaracao))
+        {
+            Erro("Escreva a declaração antes de acrescentá-la.");
+            return;
+        }
+        _declaracoes.Add(new Declaracao { Texto = _novaDeclaracao.Trim() });
+        _novaDeclaracao = string.Empty;
+        _mensagem = null;
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        if (!PodeConfigurar) { Erro(SemPermissao); return; }
+        if (ConfiguracoesDaClinicaNaTela.ConferirTermo(_nome, _corpo) is { } recusa) { Erro(recusa); return; }
+
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var ordem = 1;
+            var salvo = await escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>().SalvarModeloAsync(new ModeloDocumento
+            {
+                Id = _selecionadoId ?? 0,
+                Tipo = TipoDocumentoClinico.TermoProcedimento,
+                Nome = _nome.Trim(),
+                Titulo = string.IsNullOrWhiteSpace(_titulo) ? null : _titulo.Trim(),
+                Corpo = _corpo.Trim(),
+                Ativo = true,
+                Itens = _declaracoes
+                    .Where(d => !string.IsNullOrWhiteSpace(d.Texto))
+                    .Select(d => new ItemModelo
+                    {
+                        Ordem = ordem++,
+                        Descricao = d.Texto.Trim(),
+                        Detalhe = string.IsNullOrWhiteSpace(d.Detalhe) ? null : d.Detalhe.Trim()
+                    }).ToList()
+            }, SessaoUsuario.Atual.Operador);
+
+            _selecionadoId = salvo.Id;
+            await CarregarAsync();
+            // Mostra o que ficou GRAVADO (declaração em branco não entra), não o que foi digitado.
+            if (_modelos.FirstOrDefault(m => m.Id == salvo.Id) is { } gravado) Selecionar(gravado);
+            _mensagem = $"Termo \"{_nome.Trim()}\" salvo.";
+            _mensagemEhErro = false;
+            Notificacoes.Sucesso("Termo salvo.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Erro(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — salvar modelo de termo", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    /// <summary>
+    /// Os dois termos do BSV com o texto aprovado. A guarda olha as EXIGÊNCIAS, nunca o nome do
+    /// modelo (nome é editável — guarda ancorada em campo editável não é guarda, parcela 67).
+    /// </summary>
+    private async Task CriarTermosDoBsvAsync()
+    {
+        if (_ocupado) return;
+        if (!PodeConfigurar) { Erro(SemPermissao); return; }
+
+        // Ato que muda o que a recepção faz amanhã de manhã não acontece num clique distraído.
+        if (!await Dialogos.ConfirmarAsync("Criar os termos do BSV", ConfiguracoesDaClinicaNaTela.PerguntaCriarTermosDoBsv, confirmar: "Criar"))
+            return;
+
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var documentos = escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+            var termos = escopo.ServiceProvider.GetRequiredService<TermoProcedimentoService>();
+            var operador = SessaoUsuario.Atual.Operador;
+
+            // Só as ATIVAS: desligada não está "em uso".
+            var jaAmarradas = (await termos.ExigenciasAsync())
+                .Where(e => e.Ativa && ModelosTermoBsv.ModalidadesDoBsv.Contains(e.Modalidade))
+                .ToList();
+
+            if (jaAmarradas.Count > 0)
+            {
+                if (!await Dialogos.ConfirmarAsync("Substituir os termos do BSV",
+                        ConfiguracoesDaClinicaNaTela.PerguntaSubstituirTermosDoBsv(jaAmarradas.Select(e => e.Modelo?.Nome)),
+                        perigoso: true, confirmar: "Substituir"))
+                    return;
+
+                foreach (var exigencia in jaAmarradas)
+                    await termos.AlternarAsync(exigencia.Id, ativa: false, operador);
+            }
+
+            var consentimento = await documentos.SalvarModeloAsync(ModelosTermoBsv.Consentimento(), operador);
+            var sessao = await documentos.SalvarModeloAsync(ModelosTermoBsv.TermoDaSessao(), operador);
+
+            foreach (var modalidade in ModelosTermoBsv.ModalidadesDoBsv)
+            {
+                // TCLE: assinado UMA vez, vale a partir da assinatura.
+                await termos.ExigirAsync(modalidade, consentimento.Id, operador: operador, soValeNoDiaDoProcedimento: false);
+                // Termo da sessão: "fui reavaliado NESTA data" assinado na véspera é afirmação sobre o futuro.
+                await termos.ExigirAsync(modalidade, sessao.Id, operador: operador, soValeNoDiaDoProcedimento: true);
+            }
+
+            await CarregarAsync();
+            if (_modelos.FirstOrDefault(m => m.Id == consentimento.Id) is { } tcle) Selecionar(tcle);
+            _mensagem = ConfiguracoesDaClinicaNaTela.FraseTermosDoBsvCriados;
+            _mensagemEhErro = false;
+            Notificacoes.Sucesso("Termos do BSV configurados.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — criar termos do BSV", ex);
+            // Recarregar depois da FALHA também: são várias gravações independentes, e a tela
+            // precisa mostrar o que ficou — senão "Nenhum termo escrito" convida a clicar de novo
+            // sem saber que metade já existe.
+            await CarregarAsync();
+            Erro("A configuração do BSV parou no meio: " + ex.Message
+                 + " Clique de novo para continuar de onde parou — o que já foi gravado é reaproveitado.");
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    /// <summary>Amarra o procedimento escolhido ao termo em foco.</summary>
+    private async Task ExigirAsync()
+    {
+        if (_ocupado) return;
+        if (!PodeConfigurar) { Erro(SemPermissao); return; }
+        if (_selecionadoId is not { } modeloId) { Erro("Escolha (ou salve) o termo antes de amarrá-lo a um procedimento."); return; }
+        if (_modalidadeEscolhida is not { } modalidade) { Erro("Escolha o procedimento que passa a exigir este termo."); return; }
+
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<TermoProcedimentoService>().ExigirAsync(
+                modalidade, modeloId, operador: SessaoUsuario.Atual.Operador, soValeNoDiaDoProcedimento: _soValeNoDia);
+            var nomeModalidade = _modalidades.FirstOrDefault(x => x.Modalidade == modalidade).Nome;
+            var nomeTermo = _modelos.FirstOrDefault(m => m.Id == modeloId)?.Nome ?? _nome;
+            await CarregarAsync();
+            _mensagem = $"{nomeModalidade} passa a exigir \"{nomeTermo}\".";
+            _mensagemEhErro = false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Erro(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — exigir termo", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    /// <summary>Liga ou desliga a exigência — desligar em vez de apagar: a amarração e o texto ficam.</summary>
+    private async Task AlternarExigenciaAsync(ExigenciaTermoProcedimento linha)
+    {
+        if (_ocupado) return;
+        if (!PodeConfigurar) { Erro(SemPermissao); return; }
+        if (linha.Ativa && !await Dialogos.ConfirmarAsync("Desligar a exigência",
+                ConfiguracoesDaClinicaNaTela.PerguntaDesligarExigencia(linha.Modelo?.Nome ?? "termo", NomeDaModalidade(linha)),
+                confirmar: "Desligar"))
+            return;
+
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<TermoProcedimentoService>()
+                .AlternarAsync(linha.Id, !linha.Ativa, SessaoUsuario.Atual.Operador);
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — alternar exigência", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private void Erro(string texto)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = true;
+    }
+}

@@ -1,0 +1,329 @@
+@*
+  AUDITORIA (out/2026, etapa 6 do Gerente — saiu do AuditoriaView/AuditoriaViewModel do WPF).
+  A pergunta: "quem fez o quê, e quando?". Toda ação que mexe em dinheiro ou permissão grava
+  um EventoAuditoria, e desde a parcela 52 também cada ABERTURA de prontuário.
+
+  A tela é SOMENTE LEITURA, e isso é decisão: registro de auditoria que se pode editar ou apagar
+  não é auditoria, é rascunho. Não há botão de excluir aqui, e não deve haver.
+
+  Quem decide o filtro (o "só quem ABRIU" vence o combo de ação), a linha com o nome do paciente,
+  as contagens, a frase do resumo — que DIZ quando o resultado está cortado no limite — e o CSV é
+  TrilhaDeAuditoriaNaTela (Application, com teste). O filtro vai todo para o SQL, com o corte no
+  banco: esta é a tabela que mais cresce no sistema.
+
+  Trocar de paciente e marcar "só quem abriu" refazem a consulta (filtro que exige um segundo
+  clique é filtro que a pessoa acha que não funcionou); os campos de texto, as datas e o limite
+  valem no "Consultar" (ou Enter num campo). F5 = consultar; Ctrl+P = exportar o CSV.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+@using Clinica.Application.Modelos
+
+<div class="pagina aud @(Carregando && _linhas is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Conformidade e acessos" Titulo="Auditoria"
+                     Subtitulo="Quem fez o quê, e quando. Toda ação que mexe em dinheiro ou permissão grava aqui — baixa de guia, estorno, glosa, lote, lançamento, conta, tributo, preço de convênio, criação de usuário e troca de senha.">
+        <button type="button" class="botao" @onclick="CarregarAsync" title="Consultar de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao" @onclick="ExportarAsync" title="Exportar a trilha filtrada em CSV (Ctrl+P)"
+                disabled="@(_linhas is null || !Pode(Permissao.VerAuditoria))"><Icone Nome="baixar" />Exportar CSV</button>
+    </CabecalhoPagina>
+
+    <section class="cartao lista-cartao" aria-label="Filtro da trilha">
+        @* Por PACIENTE (parcela 52) em linha própria: é a pergunta com que se chega aqui quando há
+           suspeita — "quem acessou o prontuário da Maria?" —, e não mais um campo entre onze. *@
+        <div class="aud-paciente">
+            <Campo Rotulo="Prontuário de" Classe="aud-seletor">
+                <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="TrocarPacienteAsync" Placeholder="Buscar por nome ou CPF" />
+            </Campo>
+            <label class="marcar aud-acessos">
+                <input type="checkbox" checked="@_somenteAcessos" @onchange="TrocarSomenteAcessosAsync" />Só quem ABRIU o prontuário
+            </label>
+            <span class="aud-dica">Sem marcar, a lista traz também o que foi ESCRITO no prontuário desta pessoa.</span>
+        </div>
+
+        <div class="filtros">
+            @* Editável: a lista tem o que já existe, mas o PREFIXO também serve ("Conta" acha
+               ContaCriada e ContaReagendada). Com "só quem abriu" marcado, o atalho vence. *@
+            <Campo Rotulo="Ação">
+                <input class="campo" list="aud-acoes" maxlength="80" value="@_acao" disabled="@_somenteAcessos"
+                       title="@(_somenteAcessos ? "Desmarque “Só quem ABRIU” para filtrar por outra ação." : null)"
+                       @onchange="@(e => _acao = e.Value?.ToString())" @onkeydown="Enter" />
+                <datalist id="aud-acoes">
+                    @foreach (var a in _acoes) { <option value="@a"></option> }
+                </datalist>
+            </Campo>
+            <Campo Rotulo="Operador">
+                <input class="campo" maxlength="80" value="@_operador" @onchange="@(e => _operador = e.Value?.ToString())" @onkeydown="Enter" />
+            </Campo>
+            <Campo Rotulo="No detalhe">
+                <input class="campo" maxlength="120" value="@_termo" @onchange="@(e => _termo = e.Value?.ToString())" @onkeydown="Enter" />
+            </Campo>
+            <Campo Rotulo="De" Classe="aud-data">
+                <input type="date" class="campo" value="@Iso(_inicio)" @onchange="@(e => _inicio = Data(e))" />
+            </Campo>
+            <Campo Rotulo="Até" Classe="aud-data">
+                <input type="date" class="campo" value="@Iso(_fim)" @onchange="@(e => _fim = Data(e))" />
+            </Campo>
+            <Campo Rotulo="Limite" Classe="aud-limite">
+                <select class="campo" value="@_limite" @onchange="@(e => _limite = int.TryParse(e.Value?.ToString(), out var l) ? l : TrilhaDeAuditoriaNaTela.LimitePadrao)">
+                    @foreach (var l in TrilhaDeAuditoriaNaTela.Limites) { <option value="@l">@l</option> }
+                </select>
+            </Campo>
+            <button type="button" class="botao primario" @onclick="CarregarAsync"><Icone Nome="busca" />Consultar</button>
+            <button type="button" class="botao fantasma" @onclick="LimparAsync">Limpar</button>
+        </div>
+
+        @if (_resumo is { } r && !_naoVerificado)
+        {
+            <div class="aud-resumo @(r.NoLimite ? "no-limite" : null)">@r.Texto</div>
+            @if (r.NoLimite)
+            {
+                <div class="aud-faixa">
+                    <Aviso Tom="atencao" Texto="O limite foi atingido: há mais eventos no período do que os mostrados. Estreite o filtro ou aumente o limite antes de concluir qualquer coisa a partir das contagens ao lado." />
+                </div>
+            }
+        }
+    </section>
+
+    @if (_naoVerificado)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="Não foi possível ler a trilha"
+                            Detalhe="@($"A lista não está vazia por falta de evento — ela não pôde ser lida. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        </section>
+    }
+    else if (_linhas is null)
+    {
+        <div class="aud-duas">
+            <div class="cartao cartao-corpo"><Esqueleto Altura="300" /></div>
+            <div class="cartao cartao-corpo"><Esqueleto Altura="200" /></div>
+        </div>
+    }
+    else
+    {
+        <div class="aud-duas">
+            <section class="cartao lista-cartao" aria-label="A trilha">
+                <div class="cartao-titulo">
+                    <div>
+                        <h2>A trilha</h2>
+                        <p>Somente leitura, e isso é decisão: registro de auditoria que se pode editar ou apagar não é auditoria, é rascunho.</p>
+                    </div>
+                </div>
+                @if (_linhas.Count == 0)
+                {
+                    <EstadoVazio Icone="busca" Titulo="Nenhum evento no filtro atual."
+                                 Descricao="Amplie o período, troque o paciente ou limpe os filtros." />
+                }
+                else
+                {
+                    <div class="tabela-rolagem">
+                        <table class="lista aud-tabela">
+                            <thead>
+                                <tr>
+                                    <th class="aud-col-quando">Quando</th>
+                                    <th class="aud-col-acao">Ação</th>
+                                    <th class="aud-col-operador">Operador</th>
+                                    <th>Detalhe</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var l in _linhas)
+                                {
+                                    <tr>
+                                        <td class="numero texto-secundario">@l.Quando</td>
+                                        <td><span class="principal aud-quebra" title="@l.Acao">@Quebravel(l.Acao)</span></td>
+                                        <td><span class="aud-quebra">@l.Operador</span></td>
+                                        <td>
+                                            <span class="aud-detalhe">@l.Detalhe</span>
+                                            @if (!string.IsNullOrEmpty(l.Referencias)) { <span class="aud-refs">@l.Referencias</span> }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+
+            <div class="aud-lado">
+                <section class="cartao cartao-corpo" aria-label="Por ação">
+                    <div class="cartao-titulo"><div><h2>Por ação</h2></div></div>
+                    @Contagens(_porAcao)
+                </section>
+                <section class="cartao cartao-corpo" aria-label="Por operador">
+                    <div class="cartao-titulo"><div><h2>Por operador</h2>
+                        <p>Quem assina é quem fez LOGIN, nunca o usuário do Windows: no balcão duas pessoas dividem a mesma máquina.</p></div></div>
+                    @Contagens(_porOperador)
+                </section>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private Paciente? _paciente;
+    private bool _somenteAcessos;
+    private string? _acao, _operador, _termo;
+    private DateOnly? _inicio, _fim;
+    private int _limite = TrilhaDeAuditoriaNaTela.LimitePadrao;
+
+    private List<string> _acoes = [];
+    private List<LinhaDaTrilha>? _linhas;
+    private IReadOnlyList<ContagemDaTrilha> _porAcao = [], _porOperador = [];
+    private ResumoDaTrilha? _resumo;
+    private bool Carregando, _naoVerificado;
+    private string? _erro;
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): cada troca de paciente e cada consulta
+    /// refazem a leitura, e a resposta velha chegando por último mostraria a trilha de um filtro
+    /// que já não está na tela.
+    /// </summary>
+    private int _geracao;
+
+    protected override Task OnInitializedAsync()
+    {
+        AplicarPadrao();
+        return CarregarAsync();
+    }
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => ExportarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    private void AplicarPadrao()
+    {
+        var p = TrilhaDeAuditoriaNaTela.Padrao(DateOnly.FromDateTime(DateTime.Today));
+        _paciente = null;
+        _somenteAcessos = p.SomenteAcessos;
+        _acao = p.Acao;
+        _operador = p.Operador;
+        _termo = p.Termo;
+        _inicio = p.Inicio;
+        _fim = p.Fim;
+        _limite = p.Limite;
+    }
+
+    private Task TrocarPacienteAsync(Paciente? p)
+    {
+        _paciente = p;
+        return CarregarAsync();
+    }
+
+    private Task TrocarSomenteAcessosAsync(ChangeEventArgs e)
+    {
+        _somenteAcessos = e.Value is true || string.Equals(e.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        return CarregarAsync();
+    }
+
+    private Task LimparAsync()
+    {
+        AplicarPadrao();
+        return CarregarAsync();
+    }
+
+    private Task Enter(KeyboardEventArgs e) => e.Key == "Enter" ? CarregarAsync() : Task.CompletedTask;
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            var filtros = new FiltrosDaTrilha(_paciente?.Id, _somenteAcessos, _acao, _operador, _termo, _inicio, _fim, _limite);
+            var filtro = TrilhaDeAuditoriaNaTela.Filtro(filtros);
+            var nome = _paciente?.Nome;
+
+            using var escopo = Escopo();
+            var auditoria = escopo.ServiceProvider.GetRequiredService<AuditoriaService>();
+            // Em FILA, no mesmo escopo: as leituras dividem o DbContext.
+            var acoesConhecidas = _acoes.Count == 0 ? await auditoria.AcoesConhecidasAsync() : null;
+            var eventos = await auditoria.ConsultarAsync(filtro);
+            var r = await auditoria.ResumoAsync(filtro);
+            if (geracao != _geracao || Descartada) return;
+
+            // Tudo publicado depois do último await.
+            if (acoesConhecidas is not null) _acoes = acoesConhecidas.ToList();
+            // O nome sai do seletor quando há paciente filtrado — é o único caso em que a lista
+            // inteira fala da mesma pessoa, e poupa uma consulta.
+            _linhas = eventos.Select(e => TrilhaDeAuditoriaNaTela.Linha(e, nome)).ToList();
+            _porAcao = TrilhaDeAuditoriaNaTela.Contagens(r.PorAcao.Select(x => (x.Acao, x.Vezes)), r.Eventos);
+            _porOperador = TrilhaDeAuditoriaNaTela.Contagens(r.PorOperador.Select(x => (x.Operador, x.Vezes)), r.Eventos);
+            _resumo = TrilhaDeAuditoriaNaTela.Resumo(r, eventos.Count, filtro.Limite);
+            _naoVerificado = false;
+            _erro = null;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Gerente — trilha de auditoria não pôde ser lida", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// A trilha filtrada em CSV — o que se anexa quando a pergunta sai da clínica. A segunda
+    /// barreira vem antes: o que sai daqui leva nome de paciente e de operador num arquivo que
+    /// qualquer pessoa abre (o item da sidebar já exige VerAuditoria, mas isso é UMA barreira).
+    /// </summary>
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerAuditoria, "exportar a trilha de auditoria")) return;
+        if (_linhas is not { } linhas) return;
+        try
+        {
+            var (cabecalho, corpo) = TrilhaDeAuditoriaNaTela.Csv(linhas);
+            var erro = await Host.ExportarCsvAsync(cabecalho, corpo,
+                TrilhaDeAuditoriaNaTela.NomeDoCsv(DateOnly.FromDateTime(DateTime.Today)));
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — trilha não pôde ser exportada", ex);
+            Notificacoes.Erro($"Não foi possível exportar: {ex.Message}");
+        }
+    }
+
+    private static RenderFragment Contagens(IReadOnlyList<ContagemDaTrilha> itens) => __builder =>
+    {
+        if (itens.Count == 0)
+        {
+            <p class="aud-sem-base">Nada a contar no filtro atual.</p>
+        }
+        else
+        {
+            <ul class="aud-barras">
+                @foreach (var c in itens)
+                {
+                    <li>
+                        <div class="aud-barra-topo"><span class="principal" title="@c.Rotulo">@c.Rotulo</span><span class="aud-vezes">@c.Vezes</span></div>
+                        <div class="trilho" role="img" aria-label="@($"{c.Rotulo}: {c.Vezes}")"><i style="@Largura(c.Fracao)"></i></div>
+                    </li>
+                }
+            </ul>
+        }
+    };
+
+    private static string Largura(double fracao)
+        => $"width:{(Math.Clamp(fracao, 0, 1) * 100).ToString("0.##", CultureInfo.InvariantCulture)}%";
+
+    /// <summary>
+    /// "ProntuarioAcessado:ProntuarioClinico" é uma palavra só para o navegador: sem um ponto de
+    /// quebra depois dos dois-pontos, a coluna o partiria no meio de uma palavra.
+    /// </summary>
+    private static string Quebravel(string acao) => acao.Replace(":", ":​");
+
+    private static string? Iso(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static DateOnly? Data(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+}

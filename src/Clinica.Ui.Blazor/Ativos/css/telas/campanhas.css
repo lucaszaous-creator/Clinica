@@ -1,0 +1,12 @@
+/* Estilo PRÓPRIO da tela Campanhas (out/2026, etapa 6 do Gerente). O comum mora em ../clinica.css. */
+.camp-rodada .cartao-titulo{align-items:center;margin-bottom:0}
+.camp-rodada .cartao-titulo > div{flex:1 1 360px;min-width:0}
+.camp-rodada .cartao-titulo .botao{flex:none}
+/* O resultado da rodada FICA na tela: é o que diz quantos ficaram de fora e por quê. */
+.camp-resultado{margin:var(--space-3) 0 0;font-weight:600;color:var(--texto-primario)}
+.camp-mensagem{padding:var(--space-4) var(--space-6) 0}
+.camp-lista td.camp-paciente{max-width:260px}
+.camp-lista td.camp-paciente .principal{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.camp-lista .camp-comentario{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.camp-lista td.camp-sem-telefone{color:var(--texto-secundario);font-style:italic}
+.camp-lista .botoes-linha{flex-wrap:nowrap}

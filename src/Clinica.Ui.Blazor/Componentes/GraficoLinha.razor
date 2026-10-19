@@ -1,0 +1,125 @@
+@*
+  Gráfico de linha (o GraficoLinha do WPF, em SVG com tokens — sem biblioteca).
+
+  Duas regras que vieram com ele do WPF e não mudam:
+  - valor NULO é buraco: a linha se INTERROMPE ali em vez de descer ao eixo e inventar uma
+    queda (ou um mês perfeito) que não houve;
+  - o eixo ANCORA no zero por padrão: escala que começa no menor valor transforma variação de
+    2% num despencar visual.
+  Número dentro do SVG em cultura INVARIANTE ("110,5" é atributo inválido); o que a pessoa LÊ
+  (a marca do eixo e a dica do ponto) sai pelo `Formatar` de quem chama, em pt-BR.
+*@
+@using Clinica.Application.Servicos
+
+<div class="grafico grafico-linha @(string.IsNullOrEmpty(Tom) ? null : "tom-" + Tom)">
+    @if (!_comValor)
+    {
+        <div class="grafico-linha-vazio">sem dados no período</div>
+    }
+    else
+    {
+        <svg viewBox="0 0 @N(Largura) @N(Altura)" role="img" aria-label="@Descricao">
+            <g class="grade eixo">
+                @foreach (var marca in Marcas)
+                {
+                    var y = Y(marca);
+                    <line x1="@N(Esq)" x2="@N(Largura - Dir)" y1="@N(y)" y2="@N(y)" class="@(marca == 0 ? "zero" : null)" />
+                    @Texto(Esq - 6, y + 4, "end", null, Formatar(marca))
+                }
+            </g>
+            @foreach (var trecho in Trechos())
+            {
+                <polyline class="grafico-linha-traco" points="@trecho" />
+            }
+            @for (var i = 0; i < Pontos.Count; i++)
+            {
+                var ponto = Pontos[i];
+                var x = X(i);
+                if (ponto.Valor is { } v)
+                {
+                    <circle class="grafico-linha-ponto" cx="@N(x)" cy="@N(Y(v))" r="3.5"><title>@ponto.Rotulo: @Formatar(v)</title></circle>
+                }
+                if (MostraRotulo(i))
+                {
+                    @Texto(x, Altura - 4, "middle", "rotulo-mes", ponto.Rotulo)
+                }
+            }
+        </svg>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PontoDaSerie> Pontos { get; set; } = [];
+
+    /// <summary>Leitura do gráfico para leitor de tela — diga onde estão os números exatos.</summary>
+    [Parameter, EditorRequired] public string Descricao { get; set; } = string.Empty;
+
+    /// <summary>Como um valor é escrito (marca do eixo e dica do ponto). Padrão: número inteiro pt-BR.</summary>
+    [Parameter] public Func<double, string> Formatar { get; set; } = v => v.ToString("0.#", Formato.PtBr);
+
+    /// <summary>Tom do traço: <c>""</c> (acento), <c>perigo</c>, <c>sucesso</c>.</summary>
+    [Parameter] public string? Tom { get; set; }
+
+    /// <summary>Eixo ancorado no zero (padrão). Desligue só para faixa estreita e conhecida.</summary>
+    [Parameter] public bool ComecaDoZero { get; set; } = true;
+
+    private const double Largura = 460, Altura = 170, Esq = 52, Dir = 10, Topo = 10, Base = 146;
+
+    private bool _comValor;
+    private double _min, _max;
+
+    protected override void OnParametersSet()
+    {
+        var valores = Pontos.Where(p => p.Valor is not null).Select(p => p.Valor!.Value).ToList();
+        _comValor = valores.Count > 0;
+        if (!_comValor) return;
+        _max = valores.Max();
+        _min = ComecaDoZero ? Math.Min(0, valores.Min()) : valores.Min();
+        // Série achatada: a linha vai no meio, a leitura honesta de "não variou".
+        if (_max - _min <= 0) _max = _min + (Math.Abs(_max) > 0 ? Math.Abs(_max) : 1);
+    }
+
+    private IEnumerable<double> Marcas => _min < 0 ? [_min, 0, _max] : [_min, _max];
+
+    private double X(int i)
+        => Pontos.Count > 1 ? Esq + i * (Largura - Esq - Dir) / (Pontos.Count - 1) : Esq + (Largura - Esq - Dir) / 2;
+
+    private double Y(double v) => Base - (v - _min) / (_max - _min) * (Base - Topo);
+
+    /// <summary>Com muitos meses, um rótulo a cada N — senão eles se atropelam em 1024.</summary>
+    private bool MostraRotulo(int i)
+    {
+        var passo = Pontos.Count <= 7 ? 1 : (int)Math.Ceiling(Pontos.Count / 6.0);
+        // O último mês (o atual) sempre se lê, a menos que caia colado no rótulo anterior.
+        var ultimo = Pontos.Count - 1;
+        return i % passo == 0 || (i == ultimo && ultimo % passo >= passo / 2.0);
+    }
+
+    /// <summary>Os trechos CONTÍNUOS da linha, cada um como "x,y x,y" — o buraco separa trechos.</summary>
+    private IReadOnlyList<string> Trechos()
+    {
+        var trechos = new List<string>();
+        var atual = new List<string>();
+        for (var i = 0; i < Pontos.Count; i++)
+        {
+            if (Pontos[i].Valor is { } v) atual.Add($"{N(X(i))},{N(Y(v))}");
+            else if (atual.Count > 0) { trechos.Add(string.Join(" ", atual)); atual.Clear(); }
+        }
+        if (atual.Count > 0) trechos.Add(string.Join(" ", atual));
+        return trechos;
+    }
+
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    // `<text>` é palavra reservada do Razor: o texto do SVG sai pelo construtor da árvore.
+    private static RenderFragment Texto(double x, double y, string ancora, string? classe, string conteudo) => b =>
+    {
+        b.OpenElement(0, "text");
+        b.AddAttribute(1, "x", N(x));
+        b.AddAttribute(2, "y", N(y));
+        b.AddAttribute(3, "text-anchor", ancora);
+        if (classe is not null) b.AddAttribute(4, "class", classe);
+        b.AddContent(5, conteudo);
+        b.CloseElement();
+    };
+}

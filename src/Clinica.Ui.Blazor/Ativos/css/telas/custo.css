@@ -1,0 +1,15 @@
+/* Estilo PRÓPRIO da tela Custo de taxas e impostos (out/2026, etapa 6 do Gerente). */
+.custo-graficos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4)}
+@media (max-width:900px){.custo-graficos{grid-template-columns:minmax(0,1fr)}}
+.custo-grafico-titulo{margin:0 0 var(--space-1);font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);text-transform:uppercase;letter-spacing:.04em}
+.custo-mais-cara{margin:var(--space-3) 0 0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.custo-adquirentes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-4)}
+.custo-adq-topo{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);margin-bottom:var(--space-1)}
+.custo-adq-topo .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.custo-adq-topo .secundario{margin-top:0;white-space:nowrap}
+.custo-adquirentes .trilho > i{background:var(--serie-saida)}
+.custo-comparacao{margin-top:var(--space-1);font-size:var(--text-small-size);color:var(--texto-secundario)}
+/* Vermelho só quando o efetivo passou do TETO da tabela: o único caso com o que cobrar. */
+.custo-comparacao.acima{color:var(--erro-texto);font-weight:600}
+.custo-tabela td.numero{white-space:nowrap}
+.custo-tabela td.suave{color:var(--texto-secundario)}

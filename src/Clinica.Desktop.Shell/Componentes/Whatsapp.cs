@@ -55,26 +55,13 @@ public static class Whatsapp
         => Clinica.Application.Modelos.MensagensDeContato.ConviteDeRetorno(
             nomePaciente, retornoEm, profissional, nomeClinica);
 
-    /// <summary>
-    /// Mensagem padrão da pesquisa de satisfação (parcela 5). A pergunta é a do NPS
-    /// clássico, com a escala explícita: sem "de 0 a 10" a resposta vem em texto e a
-    /// nota não existe.
-    /// </summary>
+    /// <summary>Mensagem padrão da pesquisa de satisfação — o TEXTO mora em <see cref="Clinica.Application.Modelos.MensagensDeContato.PesquisaDeSatisfacao"/>.</summary>
     public static string PesquisaDeSatisfacao(string nomePaciente, string? nomeClinica = null)
-    {
-        var primeiroNome = PrimeiroNome(nomePaciente);
-
-        return $"Olá, {primeiroNome}! De 0 a 10, o quanto você recomendaria a nossa clínica"
-             + " para um amigo ou familiar? Sua resposta leva 10 segundos e nos ajuda muito."
-             + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
-    }
+        => Clinica.Application.Modelos.MensagensDeContato.PesquisaDeSatisfacao(nomePaciente, nomeClinica);
 
     /// <summary>Mensagem padrão de recall — o TEXTO mora em <see cref="Clinica.Application.Modelos.MensagensDeContato.Recall"/>.</summary>
     public static string Recall(string nomePaciente, int? diasSemVir = null, string? nomeClinica = null)
         => Clinica.Application.Modelos.MensagensDeContato.Recall(nomePaciente, diasSemVir, nomeClinica);
-
-    private static string PrimeiroNome(string nomePaciente)
-        => nomePaciente.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nomePaciente;
 
     /// <summary>
     /// Mensagem padrão de cobrança do documento que falta para a guia. O TEXTO mora em

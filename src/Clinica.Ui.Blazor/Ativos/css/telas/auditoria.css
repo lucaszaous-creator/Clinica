@@ -1,0 +1,32 @@
+/* Estilo PRÓPRIO da tela Auditoria (out/2026, etapa 6 do Gerente). O comum mora em ../clinica.css. */
+/* O filtro por PACIENTE mora numa linha própria, acima dos outros: é a pergunta com que se chega aqui. */
+.aud-paciente{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3) var(--space-6);
+  padding:var(--space-4) var(--space-6) 0}
+.aud-paciente .aud-seletor{width:360px;max-width:100%}
+.aud-acessos{padding-bottom:9px}
+.aud-dica{flex:1 1 260px;max-width:420px;padding-bottom:9px;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.aud .filtros .campo-bloco{min-width:150px}
+.aud .filtros .aud-data{min-width:150px;max-width:160px}
+.aud .filtros .aud-limite{min-width:96px;max-width:110px}
+.aud-resumo{padding:var(--space-3) var(--space-6);border-top:1px solid var(--borda);background:var(--cinza-50);
+  color:var(--texto-secundario);font-size:var(--text-small-size)}
+.aud-resumo.no-limite{background:var(--aviso-suave);color:var(--aviso-texto);font-weight:600}
+.aud-faixa{padding:0 var(--space-6) var(--space-4)}
+/* A trilha à esquerda, as contagens à direita; abaixo de 1180 px as contagens descem. */
+.aud-duas{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--space-4);align-items:start}
+@media (max-width:1180px){.aud-duas{grid-template-columns:minmax(0,1fr)}}
+.aud-lado{display:flex;flex-direction:column;gap:var(--space-4)}
+.aud-tabela{table-layout:fixed}
+.aud-tabela .aud-col-quando{width:132px}
+.aud-tabela .aud-col-acao{width:22%}
+.aud-tabela .aud-col-operador{width:16%}
+.aud-tabela td.numero{white-space:nowrap}
+.aud-quebra{display:block;overflow-wrap:break-word}
+.aud-detalhe{display:block;white-space:normal;line-height:1.45;overflow-wrap:anywhere}
+.aud-refs{display:block;margin-top:2px;color:var(--texto-secundario);font-size:var(--text-small-size);overflow-wrap:anywhere}
+.aud-barras{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-3)}
+.aud-barra-topo{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);margin-bottom:var(--space-1)}
+.aud-barra-topo .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.aud-vezes{white-space:nowrap;color:var(--texto-secundario);font-size:var(--text-small-size);font-variant-numeric:tabular-nums}
+.aud-barras .trilho > i{background:var(--acento)}
+.aud-sem-base{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}

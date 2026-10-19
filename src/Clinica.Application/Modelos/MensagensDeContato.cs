@@ -75,6 +75,17 @@ public static class MensagensDeContato
              + Assinatura(nomeClinica);
     }
 
+    /// <summary>
+    /// A pesquisa de satisfação (NPS, parcela 5). A pergunta é a do NPS clássico, com a escala
+    /// explícita: sem "de 0 a 10" a resposta vem em texto e a nota não existe. Morava no shell
+    /// (`Whatsapp.PesquisaDeSatisfacao`); desceu para cá quando as Campanhas viraram tela
+    /// Blazor (out/2026) — duas redações divergiriam na primeira correção.
+    /// </summary>
+    public static string PesquisaDeSatisfacao(string nomePaciente, string? nomeClinica = null)
+        => $"Olá, {PrimeiroNome(nomePaciente)}! De 0 a 10, o quanto você recomendaria a nossa clínica"
+         + " para um amigo ou familiar? Sua resposta leva 10 segundos e nos ajuda muito."
+         + Assinatura(nomeClinica);
+
     /// <summary>O primeiro contato com quem o profissional indicou para o BSV.</summary>
     public static string IndicacaoBsv(string nomePaciente, string? nomeClinica = null)
         => $"Olá, {PrimeiroNome(nomePaciente)}! Aqui é da clínica. Podemos conversar sobre o agendamento do seu atendimento?"

@@ -1,0 +1,44 @@
+/* Estilo PRÓPRIO da tela Acessos (out/2026, etapa 6 do Gerente) e do formulário de usuário. Só tokens.
+   O formulário mora FORA de .acessos (o modal é irmão da página), então o que ele usa é prefixado
+   por "ac-" em vez de aninhado. */
+
+/* ---------- Lista ---------- */
+.acessos .cartao-titulo p{max-width:860px}
+.ac-tabela td:first-child{min-width:200px}
+.ac-nome{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.ac-selos{display:flex;flex-wrap:wrap;gap:var(--space-1);margin-top:var(--space-1)}
+.ac-selos .selo{margin-left:0}
+.ac-login{font-family:var(--font-num);color:var(--texto-secundario);white-space:nowrap}
+.ac-perfil{display:block;white-space:nowrap}
+.ac-ajustes{display:block;margin-top:2px;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.ac-ajustes.mexido{color:var(--aviso-texto);font-weight:600}
+.ac-prof{color:var(--texto-secundario)}
+
+/* ---------- Formulário de usuário ---------- */
+/* O fieldset (que apaga tudo sem o bit) devolve o espaçamento entre seções que o corpo do modal dá aos filhos dele. */
+.ac-campos{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:var(--space-6)}
+.ac-titulo-linha{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2)}
+/* O mesmo título de seção do formulário (.secao-form > h3), com o botão ao lado. */
+.ac-titulo-linha h3{margin:0;font-size:var(--text-table-size);font-weight:700;text-transform:uppercase;
+  letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
+/* O resumo das exceções: o número que a direção audita — o que foi decidido À MÃO. */
+.ac-resumo{margin:var(--space-2) 0 var(--space-3);padding:var(--space-2) var(--space-3);border-radius:var(--radius-control);
+  background:var(--acento-suave);color:var(--texto-primario);font-weight:600}
+.ac-resumo.mexido{background:var(--aviso-suave);color:var(--aviso-texto)}
+.ac-grupo + .ac-grupo{margin-top:var(--space-4)}
+.ac-grupo h4{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin:0 0 var(--space-2);
+  padding-bottom:var(--space-1);border-bottom:1px solid var(--borda);font-size:var(--text-small-size);font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;color:var(--texto-secundario)}
+.ac-contagem{font-family:var(--font-num);font-weight:600;text-transform:none;letter-spacing:0}
+.ac-permissoes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.ac-permissoes li{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3)}
+.ac-permissoes li .selo{flex:none;margin-left:0;margin-top:2px;white-space:nowrap}
+.ac-permissao{display:flex;align-items:flex-start;gap:var(--space-2);min-width:0;cursor:pointer}
+.ac-permissao input{margin:3px 0 0;flex:none;accent-color:var(--acento)}
+.ac-permissao-texto{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ac-permissao-rotulo{font-weight:600;color:var(--texto-primario)}
+.ac-permissao-explica{font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.4}
+.ac-sem{flex:none;margin-top:2px;font-size:var(--text-small-size);color:var(--texto-secundario);white-space:nowrap}
+.ac-ignorada .ac-permissao{cursor:not-allowed}
+.ac-ignorada .ac-permissao-rotulo{color:var(--texto-secundario)}
+@media (max-width:640px){.ac-permissoes li{flex-direction:column}}

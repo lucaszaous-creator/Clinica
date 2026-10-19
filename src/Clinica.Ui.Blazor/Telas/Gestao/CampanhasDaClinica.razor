@@ -1,0 +1,362 @@
+@*
+  CAMPANHAS (out/2026, etapa 6 do Gerente — saiu do CampanhasView/CampanhasViewModel WPF). A
+  pergunta: "quem a clínica precisa contatar — confirmação de sessão, pesquisa de satisfação e
+  recall —, e quem já foi?". Uma fila só de trabalho.
+
+  GERAR e ENVIAR são passos separados de propósito. Gerar é a parte automática (o sistema
+  descobre quem contatar, aplica a LGPD e não duplica ninguém); enviar é um clique por paciente,
+  porque o WhatsApp é o número da clínica e disparo em massa termina com ele bloqueado. O
+  resultado da rodada FICA na tela (não some como notificação) e diz quantos ficaram de fora e
+  por quê — campanha que filtra em silêncio parece quebrada.
+
+  Nada de regra aqui: filtros, janela, linha, mensagem, leitura da nota e frases moram em
+  CampanhasNaTela (Application, com teste). Os serviços são os MESMOS do WPF (CampanhaService).
+  Permissão: GerenciarCampanhas — o bit do item no menu e o de cada comando que grava.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina campanhas @(Carregando && _linhas.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Pacientes e relacionamento" Titulo="Campanhas"
+                     Subtitulo="@($"Confirmação, satisfação e recall — mostrando {_intervalo}")">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    @if (!Pode(Permissao.GerenciarCampanhas))
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="Seu acesso não alcança as campanhas" Descricao="As campanhas pedem a permissão de gerenciar campanhas. Fale com a direção da clínica." Icone="cadeado" />
+        </section>
+    }
+    else
+    {
+        <section class="cartao cartao-corpo camp-rodada" aria-label="Gerar rodada">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>Gerar rodada</h2>
+                    <p>O sistema descobre quem contatar, respeita o consentimento de comunicação (LGPD) e nunca repete o mesmo paciente na mesma rodada. O envio continua sendo um clique por pessoa — é o WhatsApp da clínica.</p>
+                </div>
+                <button type="button" class="botao primario" disabled="@(!PodeGerir || _gerando)" @onclick="GerarNpsAsync"
+                        title="@(PodeGerir ? "Uma pesquisa de satisfação por atendimento realizado ontem, só para quem consentiu receber comunicação. Clicar duas vezes não repete ninguém." : SemAcesso)">
+                    <Icone Nome="enviar" />Gerar NPS de ontem
+                </button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_resultado))
+            {
+                <p class="camp-resultado" role="status">@_resultado</p>
+            }
+        </section>
+
+        <section class="cartao lista-cartao">
+            <div class="filtros">
+                <Campo Rotulo="Campanha">
+                    <select class="campo" value="@_tipo" @onchange="e => TrocarAsync(ref _tipo, e)">
+                        @foreach (var t in CampanhasNaTela.Tipos) { <option value="@t">@t</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Situação">
+                    <select class="campo" value="@_situacao" @onchange="e => TrocarAsync(ref _situacao, e)">
+                        @foreach (var s in CampanhasNaTela.Situacoes) { <option value="@s">@s</option> }
+                    </select>
+                </Campo>
+                <div class="campo-bloco">
+                    <span class="campo-rotulo">Janela</span>
+                    <div class="segmentado" role="group" aria-label="Janela de tempo">
+                        @foreach (var j in CampanhasNaTela.Janelas)
+                        {
+                            var esta = j;
+                            <button type="button" aria-pressed="@(esta == _janela ? "true" : "false")" @onclick="() => TrocarJanelaAsync(esta)">@esta</button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_mensagem))
+            {
+                <div class="camp-mensagem"><Aviso Tom="@(_mensagemErro ? "erro" : "info")" Texto="@_mensagem" /></div>
+            }
+
+            @if (_naoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível carregar as campanhas"
+                                Detalhe="@($"A fila não está vazia — ela não pôde ser lida. {_erro}")" AoTentarDeNovo="() => CarregarAsync()" />
+            }
+            else if (!_carregou)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="240" /></div>
+            }
+            else if (_linhas.Count == 0)
+            {
+                var (titulo, descricao) = CampanhasNaTela.Vazio(_tipo, _situacao);
+                <EstadoVazio Titulo="@titulo" Descricao="@descricao" Icone="enviar" />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista camp-lista">
+                        <thead>
+                            <tr>
+                                <th>Paciente</th>
+                                <th>Telefone</th>
+                                <th>Campanha</th>
+                                <th>Referência</th>
+                                <th>Situação</th>
+                                <th>Nota</th>
+                                <th class="direita">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _linhas)
+                            {
+                                <tr @key="l.Id">
+                                    <td class="camp-paciente">
+                                        <span class="principal" title="@l.Paciente">@l.Paciente</span>
+                                        @if (!string.IsNullOrWhiteSpace(l.Comentario))
+                                        {
+                                            <span class="secundario camp-comentario" title="@l.Comentario">@l.Comentario</span>
+                                        }
+                                    </td>
+                                    <td class="nao-quebra @(l.TemTelefone ? null : "camp-sem-telefone")">@l.Telefone</td>
+                                    <td>@l.Campanha</td>
+                                    <td class="nao-quebra">@l.Referencia</td>
+                                    <td><Selo Tom="@TomDaSituacao(l.Status)">@l.Situacao</Selo></td>
+                                    <td class="nao-quebra">@l.Nota</td>
+                                    <td class="direita">
+                                        <div class="botoes-linha">
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeGerir || !l.PodeEnviar)" @onclick="() => EnviarAsync(l)"
+                                                    title="@(l.TemTelefone ? "Abre o WhatsApp com a mensagem pronta e registra o envio" : "Sem telefone válido no cadastro")"><Icone Nome="enviar" />WhatsApp</button>
+                                            @if (l.EhNps)
+                                            {
+                                                <button type="button" class="botao mini icone" disabled="@(!PodeGerir || !l.PodeAgir)" @onclick="() => RegistrarNotaAsync(l)"
+                                                        title="Nota — registra a nota de 0 a 10 que o paciente deu" aria-label="Registrar a nota de @l.Paciente"><Icone Nome="editar" /></button>
+                                            }
+                                            <button type="button" class="botao mini icone" disabled="@(!PodeGerir || !l.PodeAgir)" @onclick="() => RegistrarRespostaAsync(l)"
+                                                    title="Respondeu — registra o que o paciente respondeu" aria-label="Registrar a resposta de @l.Paciente"><Icone Nome="check" /></button>
+                                            <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeGerir || !l.PodeAgir)" @onclick="() => DispensarAsync(l)"
+                                                    title="Dispensar — tira o contato da campanha sem enviar (pede o motivo)" aria-label="Dispensar @l.Paciente da campanha"><Icone Nome="cancelar" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista">
+                    <span>@(_linhas.Count == 1 ? "1 contato" : $"{_linhas.Count} contatos") nesta fila</span>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const string SemAcesso = "Seu acesso não permite rodar campanhas nem registrar contatos.";
+
+    private string _tipo = CampanhasNaTela.TipoTodos;
+    private string _situacao = CampanhasNaTela.SituacaoAEnviar;
+    private string _janela = CampanhasNaTela.JanelaSemanaQueVem;
+    private string _intervalo = string.Empty;
+
+    private IReadOnlyList<LinhaDeCampanha> _linhas = [];
+    private string? _resultado;
+    private string? _mensagem;
+    private bool _mensagemErro;
+
+    private bool Carregando, _carregou, _naoVerificado, _gerando;
+    private string? _erro;
+    private int _geracao;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>Metade visível; a que impede é o <c>Exigir</c> em cada comando.</summary>
+    private static bool PodeGerir => Pode(Permissao.GerenciarCampanhas);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Volta à aba: relê por trás, sem limpar (a outra máquina pode ter enviado).</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private Task TrocarAsync(ref string campo, ChangeEventArgs e)
+    {
+        var valor = e.Value?.ToString() ?? string.Empty;
+        if (valor == campo) return Task.CompletedTask;
+        campo = valor;
+        return CarregarAsync();
+    }
+
+    private Task TrocarJanelaAsync(string janela)
+    {
+        if (janela == _janela) return Task.CompletedTask;
+        _janela = janela;
+        return CarregarAsync();
+    }
+
+    /// <summary>
+    /// Tipo, situação e janela disparam a MESMA leitura: contador de geração (num banco remoto
+    /// a mais velha pode responder por último e encher a fila com o filtro que a pessoa acabou
+    /// de trocar) e tudo publicado depois do último await.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        if (!Pode(Permissao.GerenciarCampanhas)) return;
+        var geracao = ++_geracao;
+        var hoje = Hoje;
+        var intervalo = CampanhasNaTela.Intervalo(_janela, hoje);
+        _intervalo = CampanhasNaTela.RotularIntervalo(intervalo);
+        if (!silencioso) _mensagem = null;
+        Carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var lista = await escopo.ServiceProvider.GetRequiredService<CampanhaService>().ContatosAsync(
+                CampanhasNaTela.TipoFiltro(_tipo), CampanhasNaTela.StatusFiltro(_situacao), intervalo.Inicio, intervalo.Fim);
+            if (geracao != _geracao || Descartada) return;
+
+            _linhas = lista.Select(c => CampanhasNaTela.Linha(c, hoje)).ToList();
+            _naoVerificado = false;
+            _erro = null;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — campanhas não puderam ser carregadas", ex);
+            // A releitura de fundo que falha não apaga a fila que já está na tela.
+            if (silencioso && _carregou) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _linhas = [];
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Dizer(string texto, bool erro)
+    {
+        _mensagem = texto;
+        _mensagemErro = erro;
+    }
+
+    // ==================== a rodada ====================
+
+    /// <summary>As pesquisas de satisfação dos atendimentos de ontem. Idempotente.</summary>
+    private async Task GerarNpsAsync()
+    {
+        // Segunda barreira: o item exige GerenciarCampanhas, mas atalho e navegação por chave passam direto por ele.
+        if (!Exigir(Permissao.GerenciarCampanhas, "rodar uma campanha")) return;
+        _gerando = true;
+        try
+        {
+            ResultadoCampanha r;
+            using (var escopo = Escopo())
+                r = await escopo.ServiceProvider.GetRequiredService<CampanhaService>().GerarNpsAsync(Hoje.AddDays(-1));
+            if (Descartada) return;
+            _resultado = CampanhasNaTela.ResultadoDaRodada(r);
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — rodada de campanha falhou", ex);
+            Dizer($"Não foi possível gerar a rodada: {ex.Message}", erro: true);
+        }
+        finally
+        {
+            _gerando = false;
+        }
+    }
+
+    // ==================== a linha ====================
+
+    /// <summary>
+    /// Abre o WhatsApp com a mensagem pronta e registra o envio. Não abriu (sem telefone, sem
+    /// navegador): NADA é registrado — registrar envio que não aconteceu é falha exibida como sucesso.
+    /// </summary>
+    private async Task EnviarAsync(LinhaDeCampanha l)
+    {
+        if (!Exigir(Permissao.GerenciarCampanhas, "registrar o envio da mensagem")) return;
+        var link = QuemMeDeveTela.LinkWhatsApp(l.TelefoneCru, CampanhasNaTela.Mensagem(l, Hoje));
+        if (link is null) { Dizer($"{l.NomeCru}: telefone ausente ou inválido no cadastro.", erro: true); return; }
+
+        if (!await Host.AbrirEnderecoAsync(link))
+        {
+            var copiou = await Host.CopiarAsync(link);
+            Notificacoes.Erro(copiou
+                ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador. O envio NÃO foi registrado."
+                : "Não foi possível abrir o WhatsApp neste computador. O envio NÃO foi registrado.");
+            return;
+        }
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<CampanhaService>().RegistrarEnvioAsync(l.Id, Operador);
+            }, "Blazor — envio de campanha não pôde ser registrado", "Envio registrado."))
+            await CarregarAsync(silencioso: true);
+    }
+
+    private async Task RegistrarNotaAsync(LinhaDeCampanha l)
+    {
+        if (!l.EhNps) return;
+        if (!Exigir(Permissao.GerenciarCampanhas, "registrar a nota do paciente")) return;
+        var texto = await Dialogos.PerguntarTextoAsync("Nota do NPS",
+            $"Que nota {l.NomeCru} deu, de 0 a 10? (pode acrescentar o comentário depois de um espaço)");
+        if (texto is null) return;
+
+        var lida = CampanhasNaTela.LerNota(texto);
+        if (lida.Erro is not null) { Dizer(lida.Erro, erro: true); return; }
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<CampanhaService>().RegistrarNotaAsync(l.Id, lida.Nota!.Value, lida.Comentario);
+            }, "Blazor — nota do NPS não pôde ser registrada", "Nota registrada."))
+            await CarregarAsync(silencioso: true);
+    }
+
+    private async Task RegistrarRespostaAsync(LinhaDeCampanha l)
+    {
+        if (!Exigir(Permissao.GerenciarCampanhas, "registrar a resposta do paciente")) return;
+        var comentario = await Dialogos.PerguntarTextoAsync("Resposta do paciente", $"O que {l.NomeCru} respondeu?");
+        if (comentario is null) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<CampanhaService>().RegistrarRespostaAsync(l.Id, comentario);
+            }, "Blazor — resposta de campanha não pôde ser registrada", "Resposta registrada."))
+            await CarregarAsync(silencioso: true);
+    }
+
+    /// <summary>
+    /// Tira o contato da campanha sem enviar. É a escrita que faz o contato SUMIR da fila sem que
+    /// ninguém tenha falado com o paciente — por isso o motivo é obrigatório (o serviço o exige).
+    /// </summary>
+    private async Task DispensarAsync(LinhaDeCampanha l)
+    {
+        if (!Exigir(Permissao.GerenciarCampanhas, "dispensar o contato")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Dispensar contato",
+            $"Por que {l.NomeCru} sai desta campanha? (o motivo fica registrado)");
+        if (motivo is null) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<CampanhaService>().DispensarAsync(l.Id, motivo);
+            }, "Blazor — contato de campanha não pôde ser dispensado", "Contato dispensado."))
+            await CarregarAsync(silencioso: true);
+    }
+
+    private static string TomDaSituacao(StatusContato status) => status switch
+    {
+        StatusContato.Pendente => "aviso",
+        StatusContato.Enviado => "info",
+        StatusContato.Respondido => "sucesso",
+        _ => "neutro"
+    };
+}

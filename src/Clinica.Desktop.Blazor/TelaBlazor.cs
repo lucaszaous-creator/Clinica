@@ -342,6 +342,9 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
     {
         try
         {
+            // A pasta pode ainda não existir: a exportação do prontuário (Guarda) grava os CSV
+            // numa SUBPASTA datada dentro da que a pessoa escolheu, como o WPF fazia.
+            if (Path.GetDirectoryName(caminho) is { Length: > 0 } pasta) Directory.CreateDirectory(pasta);
             await File.WriteAllBytesAsync(caminho, conteudo);
             return null;
         }
@@ -351,6 +354,27 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
             return $"Não foi possível gravar {Path.GetFileName(caminho)}: {ex.Message}";
         }
     }
+
+    /// <summary>Os monitores pelo P/Invoke do shell (pixels físicos; o Id é o nome do dispositivo).</summary>
+    public Task<IReadOnlyList<MonitorDaMaquina>> ListarMonitoresAsync()
+        => NaInterface(() => Task.FromResult<IReadOnlyList<MonitorDaMaquina>>(
+            Clinica.Desktop.Shell.Componentes.TelasDoSistema.Listar()
+                .Select(t => new MonitorDaMaquina(t.Id, t.Rotulo, t.Principal))
+                .ToList()));
+
+    /// <summary>
+    /// A MESMA janela de exemplo que o WPF abria (<c>PainelDoPacienteWindow.MostrarExemplo</c>).
+    /// O monitor é relido AGORA: o que estava na lista da tela pode ter sido desligado depois.
+    /// </summary>
+    public Task<bool> MostrarExemploNaTelaDoPacienteAsync(string monitorId)
+        => NaInterface(() =>
+        {
+            var tela = Clinica.Desktop.Shell.Componentes.TelasDoSistema.Listar()
+                .FirstOrDefault(t => string.Equals(t.Id, monitorId, StringComparison.OrdinalIgnoreCase));
+            if (tela is null) return Task.FromResult(false);
+            Clinica.Desktop.Shell.Componentes.PainelDoPacienteWindow.MostrarExemplo(tela);
+            return Task.FromResult(true);
+        });
 
     private static Task<T> NaInterface<T>(Func<Task<T>> acao)
     {

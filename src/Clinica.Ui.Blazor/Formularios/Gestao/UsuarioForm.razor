@@ -1,0 +1,370 @@
+@*
+  CADASTRO DE UM USUÁRIO DA SUÍTE (o que no WPF era a UsuarioWindow / UsuarioEdicaoViewModel).
+
+  A tela mostra o que a pessoa PODE FAZER, não "extras e negadas": quem administra pensa em "a
+  Ana lança caixa?", não em delta contra o perfil. O delta é calculado na gravação
+  (AcessosNaTela.Delta) — assim corrigir o padrão de um perfil continua alcançando todo mundo.
+  As permissões vêm AGRUPADAS por assunto, com a CONSEQUÊNCIA escrita ao lado de cada caixinha
+  (PerfisAcesso.Explicar) e a PROCEDÊNCIA de cada uma (padrão do perfil, liberada à mão, tirada à
+  mão) — é lendo por bloco que se percebe o bit solto que ninguém queria ter concedido.
+
+  ⚠️ Duas barreiras em TODA escrita (criar, senha, perfil, extras/negadas, ativar/desativar): o
+  Salvar nasce apagado sem GerenciarUsuarios E confere de novo no clique — quem mexe em
+  permissão pode conceder a si mesmo. A auditoria é gravada pelo AcessoService no MESMO SaveChanges.
+
+  ⚠️ A senha: campo MASCARADO, nunca escrita em texto, nunca em log (as recusas do serviço falam
+  da regra). Na edição, em branco quer dizer "não mexer" — obrigar a redigitar faria a direção
+  trocar a senha de alguém sem querer, em toda edição.
+
+  Correções em relação ao WPF (auditoria de linha):
+  - o profissional vinculado INATIVO continua no seletor, marcado "(inativo)" — no WPF a combo caía
+    em "— nenhum —" e o Salvar DESFAZIA o vínculo de quem só abriu para trocar a senha;
+  - o CPF é gravado lendo o profissional num escopo e salvando noutro, com as habilitações fora da
+    cópia: no WPF a entidade rastreada voltava inteira ao SalvarProfissionalAsync sem solicitante, e
+    profissional com habilitações configuradas recusava a gravação ("somente o gerente…");
+  - a senha nova pede REPETIÇÃO (sem ver o texto, é a repetição que pega o erro de digitação);
+  - os bits que não valem para Psicologia ficam apagados e DIZEM por quê (no WPF marcava-se sem efeito).
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Domain.Regras
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(Novo ? "Novo usuário" : "Editar usuário")"
+       Subtitulo="Quem entra na suíte e o que pode fazer. Marque ou desmarque só as exceções ao padrão do perfil."
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="360" />
+        }
+        else if (_falhaAoAbrir is not null)
+        {
+            <Aviso Tom="erro" Texto="@_falhaAoAbrir" />
+        }
+        else
+        {
+            <fieldset class="ac-campos" disabled="@(!PodeGerenciar)">
+                <div class="secao-form">
+                    <h3>Identificação</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Nome" Obrigatorio="true">
+                            <input class="campo" @bind="_nome" maxlength="120" placeholder="Como aparece na auditoria e nos documentos" />
+                        </Campo>
+                        <Campo Rotulo="Usuário (login)" Obrigatorio="@Novo" Dica="@AcessosNaTela.AjudaDoLogin">
+                            <input class="campo" @bind="_login" maxlength="60" disabled="@(!Novo)" autocomplete="off" spellcheck="false" />
+                        </Campo>
+                        <Campo Rotulo="Perfil" Dica="@AcessosNaTela.AjudaDoPerfil">
+                            <select class="campo" value="@_perfil" @onchange="TrocarPerfil">
+                                @foreach (var p in Enum.GetValues<PerfilAcesso>())
+                                {
+                                    <option value="@p">@RotulosEnum.De(p)</option>
+                                }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Profissional vinculado" Dica="O vínculo é o que leva o registro no conselho e o CPF aos documentos e à assinatura.">
+                            <select class="campo" value="@(_profissionalId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" @onchange="TrocarProfissionalAsync">
+                                @foreach (var o in _vinculos)
+                                {
+                                    <option value="@(o.Id?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)">@o.Nome</option>
+                                }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="CPF (para assinatura digital)" Classe="largo" Erro="@_erroCpf"
+                               Dica="@AcessosNaTela.AjudaDoCpf(_profissionalId is not null)">
+                            <input class="campo" @bind="_cpf" @bind:after="ConferirCpf" maxlength="14" inputmode="numeric"
+                                   placeholder="000.000.000-00" disabled="@(_profissionalId is null || _lendoCpf)" />
+                        </Campo>
+                    </div>
+                </div>
+
+                <div class="secao-form">
+                    <h3>Senha e situação</h3>
+                    <div class="campos">
+                        <Campo Rotulo="@(Novo ? "Senha" : "Nova senha")" Obrigatorio="@Novo" Dica="@AcessosNaTela.AjudaDaSenha(Novo)">
+                            <input class="campo" type="password" autocomplete="new-password" maxlength="128"
+                                   @bind="_senha" @bind:event="oninput" />
+                        </Campo>
+                        <Campo Rotulo="Repita a senha" Obrigatorio="@Novo">
+                            <input class="campo" type="password" autocomplete="new-password" maxlength="128"
+                                   @bind="_repeticao" @bind:event="oninput" />
+                        </Campo>
+                    </div>
+                    <label class="marcar"><input type="checkbox" @bind="_deveTrocar" /> Exigir troca de senha no próximo acesso</label>
+                    <label class="alternar"><input type="checkbox" @bind="_ativo" /> @(_ativo ? "Ativo — pode entrar no sistema" : "Inativo — não entra, mas continua na auditoria")</label>
+                </div>
+
+                <div class="secao-form">
+                    <div class="ac-titulo-linha">
+                        <h3>O que esta pessoa pode fazer</h3>
+                        <button type="button" class="botao mini fantasma" @onclick="VoltarAoPadrao" disabled="@(!TemExcecao)"
+                                title="Desfaz as exceções: marca exatamente o padrão do perfil escolhido">Voltar ao padrão do perfil</button>
+                    </div>
+                    <p class="campo-dica">O perfil já marca o padrão da função. Marque ou desmarque só as exceções — sem isso, a exceção vira senha compartilhada, e a auditoria deixa de valer.</p>
+                    <p class="ac-resumo @(TemExcecao ? "mexido" : null)" role="status">@AcessosNaTela.ResumoDasExcecoes(_perfil, _marcadas, Ignoradas)</p>
+
+                    @foreach (var g in _grupos)
+                    {
+                        <div class="ac-grupo">
+                            <h4>@g.Assunto <span class="ac-contagem">@g.Itens.Count(i => Marcada(i.Valor)) de @g.Itens.Count</span></h4>
+                            <ul class="ac-permissoes">
+                                @foreach (var i in g.Itens)
+                                {
+                                    var item = i;
+                                    var ignorada = AcessosNaTela.Tem(Ignoradas, i.Valor);
+                                    var marcada = Marcada(i.Valor);
+                                    var doPerfil = AcessosNaTela.Tem(Padrao, i.Valor);
+                                    <li class="@(ignorada ? "ac-ignorada" : null)">
+                                        <label class="ac-permissao">
+                                            <input type="checkbox" checked="@marcada" disabled="@ignorada"
+                                                   @onchange="e => Marcar(item.Valor, e.Value is true)" />
+                                            <span class="ac-permissao-texto">
+                                                <span class="ac-permissao-rotulo">@i.Rotulo</span>
+                                                <span class="ac-permissao-explica">@i.Explicacao</span>
+                                            </span>
+                                        </label>
+                                        @if (ignorada)
+                                        {
+                                            <Selo Tom="neutro" Dica="@AcessosNaTela.MotivoIgnorada">não vale aqui</Selo>
+                                        }
+                                        else if (marcada || doPerfil)
+                                        {
+                                            @* A procedência: padrão da função (neutro) ou decisão À MÃO (aviso) — é o que a direção audita. *@
+                                            <Selo Tom="@(AcessosNaTela.EhExcecao(marcada, doPerfil) ? "aviso" : "neutro")">@AcessosNaTela.Procedencia(marcada, doPerfil)</Selo>
+                                        }
+                                        else
+                                        {
+                                            @* "Não concedida" é o caso comum: texto quieto, para o selo continuar chamando atenção onde há decisão. *@
+                                            <span class="ac-sem">@AcessosNaTela.Procedencia(marcada, doPerfil)</span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+            </fieldset>
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync"
+                disabled="@(_salvando || _carregando || _falhaAoAbrir is not null || _lendoCpf || !PodeGerenciar)"
+                title="@(PodeGerenciar ? null : "Seu acesso não permite gerenciar usuários.")">
+            <Icone Nome="check" />@(_salvando ? "Gravando…" : "Salvar usuário")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Zero = usuário novo.</summary>
+    [Parameter] public int UsuarioId { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private bool Novo => UsuarioId == 0;
+
+    private string? _nome, _login, _cpf, _senha, _repeticao;
+    private PerfilAcesso _perfil = PerfilAcesso.Recepcao;
+    private int? _profissionalId;
+    private bool _ativo = true, _deveTrocar, _deveTrocarOriginal;
+    private Permissao _marcadas;
+
+    private IReadOnlyList<OpcaoDeVinculo> _vinculos = [new(null, "— nenhum —", null)];
+    private readonly IReadOnlyList<GrupoDePermissoes> _grupos = AcessosNaTela.Grupos();
+
+    private bool _carregando = true, _salvando, _lendoCpf;
+    private string? _falhaAoAbrir, _mensagem, _erroCpf;
+
+    /// <summary>Descarta a leitura do CPF que chega fora de ordem (trocar o vínculo duas vezes rápido).</summary>
+    private int _geracaoCpf;
+
+    private static bool PodeGerenciar => SessaoUsuario.Atual.Pode(Permissao.GerenciarUsuarios);
+
+    private Permissao Padrao => PerfisAcesso.Padrao(_perfil);
+    private string? EspecialidadeDoVinculo => _vinculos.FirstOrDefault(o => o.Id == _profissionalId)?.EspecialidadeCodigo;
+    private Permissao Ignoradas => AcessosNaTela.Ignoradas(_perfil, EspecialidadeDoVinculo);
+    private bool Marcada(Permissao p) => AcessosNaTela.Tem(_marcadas, p);
+
+    private bool TemExcecao
+    {
+        get
+        {
+            var (extras, negadas) = AcessosNaTela.Delta(_perfil, _marcadas, Ignoradas);
+            return extras != Permissao.Nenhuma || negadas != Permissao.Nenhuma;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var sp = escopo.ServiceProvider;
+            // Em FILA, no mesmo escopo: os dois serviços dividem o DbContext.
+            var profissionais = await sp.GetRequiredService<EquipeService>().ProfissionaisAsync();
+
+            if (Novo)
+            {
+                _vinculos = AcessosNaTela.Vinculos(profissionais, vinculadoAtual: null);
+                _marcadas = PerfisAcesso.Padrao(_perfil);
+                return;
+            }
+
+            var usuario = await sp.GetRequiredService<AcessoService>().ObterAsync(UsuarioId)
+                ?? throw new InvalidOperationException("Usuário não encontrado. Feche e atualize a lista.");
+            _vinculos = AcessosNaTela.Vinculos(profissionais, usuario.ProfissionalId);
+            _nome = usuario.Nome;
+            _login = usuario.Login;
+            _perfil = usuario.Perfil;
+            _profissionalId = usuario.ProfissionalId;
+            _ativo = usuario.Ativo;
+            _deveTrocar = _deveTrocarOriginal = usuario.DeveTrocarSenha;
+            _marcadas = usuario.Efetivas;
+            _cpf = FormatarCpf(profissionais.FirstOrDefault(p => p.Id == usuario.ProfissionalId)?.Cpf);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — cadastro de usuário não pôde ser aberto", ex);
+            _falhaAoAbrir = $"Não foi possível abrir o cadastro: {ex.Message}";
+        }
+        finally { _carregando = false; }
+    }
+
+    private static string? FormatarCpf(string? cpf)
+        => string.IsNullOrWhiteSpace(cpf) ? null : Cpf.Formatar(cpf);
+
+    /// <summary>Trocar o perfil repõe as marcações do novo padrão — o ajuste fino vem depois (o WPF fazia igual).</summary>
+    private void TrocarPerfil(ChangeEventArgs e)
+    {
+        if (!Enum.TryParse<PerfilAcesso>(e.Value?.ToString(), out var perfil) || perfil == _perfil) return;
+        _perfil = perfil;
+        _marcadas = PerfisAcesso.Padrao(perfil);
+    }
+
+    private void VoltarAoPadrao() => _marcadas = Padrao;
+
+    private void Marcar(Permissao p, bool marcar)
+        => _marcadas = marcar ? _marcadas | p : _marcadas & ~p;
+
+    /// <summary>
+    /// Traz o CPF do profissional escolhido. Sem isto, trocar o vínculo deixaria na tela o CPF de
+    /// OUTRA pessoa — que o Salvar gravaria por cima, trocando o CPF de quem assina. O campo fica
+    /// travado enquanto a leitura não chega, e a resposta fora de ordem é descartada.
+    /// </summary>
+    private async Task TrocarProfissionalAsync(ChangeEventArgs e)
+    {
+        var valor = e.Value?.ToString();
+        _profissionalId = int.TryParse(valor, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? id : null;
+        _erroCpf = null;
+        _cpf = null;
+        var geracao = ++_geracaoCpf;
+        if (_profissionalId is not { } alvo) { _lendoCpf = false; return; }
+
+        _lendoCpf = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var cpf = (await escopo.ServiceProvider.GetRequiredService<EquipeService>().ObterProfissionalAsync(alvo))?.Cpf;
+            if (geracao != _geracaoCpf) return; // chegou tarde: o seletor já está em outro profissional
+            _cpf = FormatarCpf(cpf);
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCpf) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — CPF do profissional não pôde ser lido", ex);
+            _erroCpf = "Não foi possível ler o CPF deste profissional. Escolha de novo antes de salvar.";
+        }
+        finally
+        {
+            if (geracao == _geracaoCpf) _lendoCpf = false;
+        }
+    }
+
+    /// <summary>O aviso do CPF ao sair do campo — a recusa de verdade é do EquipeService.</summary>
+    private void ConferirCpf()
+        => _erroCpf = string.IsNullOrWhiteSpace(_cpf) || Cpf.Valido(_cpf)
+            ? null
+            : "CPF inválido. Ele liga o certificado digital a esta pessoa — corrija ou deixe em branco.";
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando || _carregando || _falhaAoAbrir is not null || _lendoCpf) return;
+        _mensagem = null;
+        if (!PodeGerenciar)
+        {
+            _mensagem = "Seu acesso não permite cadastrar ou alterar usuários. Fale com a direção da clínica.";
+            return;
+        }
+        if (AcessosNaTela.CriticarCadastro(Novo, _nome, _login, _senha, _repeticao) is { } critica)
+        {
+            _mensagem = critica;
+            return;
+        }
+        ConferirCpf();
+        if (_erroCpf is not null) return;
+
+        var (extras, negadas) = AcessosNaTela.Delta(_perfil, _marcadas, Ignoradas);
+        try
+        {
+            _salvando = true;
+            // A segunda barreira, no instante do ato: quem mexe em permissão pode conceder a si mesmo.
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "cadastrar ou alterar um usuário");
+
+            // O CPF é gravado ANTES do vínculo, e no dono dele (o profissional). Recusado (inválido
+            // ou já usado por outro), a exceção sobe aqui e o usuário NÃO é salvo pela metade.
+            await SalvarCpfDoProfissionalAsync();
+
+            using var escopo = Escopos.CreateScope();
+            var acesso = escopo.ServiceProvider.GetRequiredService<AcessoService>();
+            var operador = SessaoUsuario.Atual.Operador;
+            if (Novo)
+            {
+                var novo = await acesso.CriarAsync(_nome!, _login!, _senha!, _perfil, _profissionalId, operador,
+                    _deveTrocar, ativo: _ativo);
+                if (extras != Permissao.Nenhuma || negadas != Permissao.Nenhuma)
+                    await acesso.AtualizarAsync(novo.Id, _nome!, _perfil, _profissionalId, extras, negadas, _ativo, operador);
+            }
+            else
+            {
+                await acesso.AtualizarAsync(UsuarioId, _nome!, _perfil, _profissionalId, extras, negadas, _ativo, operador);
+                if (!string.IsNullOrEmpty(_senha))
+                    await acesso.DefinirSenhaAsync(UsuarioId, _senha, _deveTrocar, operador);
+                else if (_deveTrocar != _deveTrocarOriginal)
+                    await acesso.DefinirTrocaObrigatoriaAsync(UsuarioId, _deveTrocar, operador);
+            }
+            _senha = _repeticao = null;
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            // As recusas do serviço falam da regra (login repetido, último gestor, senha curta) — nunca do valor da senha.
+            Clinica.Application.Diagnostico.Registrar("Blazor — usuário não pôde ser salvo", ex);
+            _mensagem = AcessosNaTela.Frase(ex);
+        }
+        finally { _salvando = false; }
+    }
+
+    /// <summary>
+    /// Grava o CPF no PROFISSIONAL vinculado — pelo EquipeService, que é onde moram as recusas de
+    /// CPF inválido e repetido. Lê num escopo e salva noutro: o objeto lido vai ao serviço como
+    /// DADOS (o serviço copia campo a campo para a entidade dele), com as habilitações FORA da
+    /// cópia (nulo = "não mexer"), para corrigir um CPF não regravar nem revalidar o que esta tela
+    /// não mostra.
+    /// </summary>
+    private async Task SalvarCpfDoProfissionalAsync()
+    {
+        if (_profissionalId is not { } id) return;
+
+        Profissional? dados;
+        using (var leitura = Escopos.CreateScope())
+            dados = await leitura.ServiceProvider.GetRequiredService<EquipeService>().ObterProfissionalAsync(id);
+        if (dados is null) return;
+        if (!AcessosNaTela.CpfMudou(dados.Cpf, _cpf)) return; // nada mudou: sem gravação nem auditoria à toa
+
+        dados.Cpf = string.IsNullOrWhiteSpace(_cpf) ? null : _cpf.Trim();
+        dados.HabilitacoesAtendimentoJson = null;
+        using var gravacao = Escopos.CreateScope();
+        await gravacao.ServiceProvider.GetRequiredService<EquipeService>().SalvarProfissionalAsync(dados);
+    }
+}

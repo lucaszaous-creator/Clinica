@@ -340,7 +340,7 @@ estado do paciente **hoje**.
 | Aplicação | `AssinaturaDoPacienteService` (colhe, recusa, sela, audita no mesmo `SaveChanges`), `TermoProcedimentoService` (configura e responde "falta assinar?"), `DocumentoClinicoService.EmitirTermoProcedimentoAsync` |
 | Infra | Migration **aditiva** (9 colunas anuláveis + 2 tabelas) |
 | PDF | Declarações com a resposta por extenso, traço desenhado no lugar da linha, rodapé de evidência |
-| Telas | `AssinaturaPacienteWindow` (no **shell**), `ModelosTermoWindow` (Gerente), porta no "⋯" da fila |
+| Telas | `AssinaturaPacienteWindow` (no **shell**), `ModelosTermoForm` (Gerente, Blazor desde out/2026), porta no "⋯" da fila |
 
 **Permissão**: `ColherAssinaturaPaciente` vai para **Recepção, Profissional e Enfermagem** —
 os três perfis que ficam na frente do paciente antes do procedimento. Deixar um de fora

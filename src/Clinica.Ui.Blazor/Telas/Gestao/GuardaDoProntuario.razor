@@ -1,0 +1,374 @@
+@*
+  GUARDA DO PRONTUÁRIO (out/2026, etapa 6 do Gerente — saiu do GuardaProntuarioView/ViewModel do
+  WPF). A tela que responde à auditoria de fornecedor (parcela 52): "o que está guardado, e até
+  quando" (Lei 13.787/2018, art. 6º — 20 anos a partir do ÚLTIMO registro), "quem abriu este
+  prontuário" (a trilha de LEITURA, parcela 61) e "como tirar cópia disso" (a exportação, ponto
+  8 do compromisso de conformidade).
+
+  As frases, a contagem pelo catálogo, a linha de acesso, a pasta datada e o UTF-8 com BOM
+  moram em GuardaDoProntuarioNaTela (Application, com teste). A tela só lê e desenha.
+
+  ⚠️ Barreiras e trilha da EXPORTAÇÃO, exatamente como no WPF:
+  • o botão nasce apagado sem VerAuditoria (o bit do item) E sem VerProntuario; o clique chama
+    Exigir(VerProntuario) — o que sai é prontuário, e o bit é o do dado;
+  • a clínica inteira pede confirmação de perigo; o destino é perguntado ANTES de montar;
+  • cada exportação é um ACESSO, e dos maiores: um paciente → RegistrarAsync(…, ExportacaoTitular);
+    a clínica → RegistrarExportacaoDaClinicaAsync com TODOS os pacientes (uma linha por pessoa).
+
+  O que NÃO há aqui, de propósito: botão de eliminar prontuário vencido. O prazo é PISO de guarda,
+  não agendamento de destruição — eliminar é decisão da clínica com a comissão do art. 7º.
+
+  O retrato da clínica é uma varredura paciente a paciente: NÃO roda ao abrir (tela que trava
+  ao abrir é tela que a direção deixa de abrir) — só no "Calcular a guarda". F5 relê o paciente
+  escolhido e, se o retrato já foi pedido, ele também.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina gua">
+    <CabecalhoPagina Sobretitulo="Direção · Conformidade e acessos" Titulo="Guarda do prontuário"
+                     Subtitulo="O que está guardado, e até quando. A Lei 13.787/2018 (art. 6º) exige guardar o prontuário por, no mínimo, 20 anos a partir do ÚLTIMO registro — e é esta tela que responde a quem auditar a clínica.">
+    </CabecalhoPagina>
+
+    @if (!string.IsNullOrEmpty(_mensagemExportacao))
+    {
+        <Aviso Tom="@(_exportacaoFalhou ? "erro" : _exportando ? "info" : "sucesso")" Texto="@_mensagemExportacao" />
+    }
+
+    @* ===== A clínica inteira ===== *@
+    <section class="cartao cartao-corpo" aria-label="A clínica inteira">
+        <div class="cartao-titulo">
+            <div>
+                <h2>A clínica inteira</h2>
+                <p>A conta varre paciente a paciente e pode demorar numa base grande — por isso só roda quando você pede. É leitura de auditoria, feita algumas vezes por ano.</p>
+            </div>
+            <button type="button" class="botao primario" @onclick="CalcularClinicaAsync" disabled="@_calculando">
+                <Icone Nome="atualizar" />@(_retrato is null ? "Calcular a guarda" : "Calcular de novo")
+            </button>
+        </div>
+
+        @if (_clinicaNaoVerificada)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a guarda"
+                            Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erroClinica}")" AoTentarDeNovo="CalcularClinicaAsync" />
+        }
+        else if (_calculando && _retrato is null)
+        {
+            <Esqueleto Altura="96" />
+        }
+        else
+        {
+            var r = _retrato;
+            <div class="kpis gua-kpis @(_calculando ? "carregando" : null)">
+                <Kpi Rotulo="Prazo legal" Valor="@GuardaDoProntuarioNaTela.Prazo" Icone="calendario" Tom="neutro" />
+                <Kpi Rotulo="Pacientes" Valor="@(r?.Pacientes ?? "—")" Icone="pessoas" />
+                <Kpi Rotulo="Com prontuário" Valor="@(r?.ComRegistro ?? "—")" Icone="documento" />
+                <Kpi Rotulo="Registros guardados" Valor="@(r?.Registros ?? "—")" Icone="estoque" />
+                <Kpi Rotulo="Já cumpriram o prazo" Valor="@(r?.Elegiveis ?? "—")" Icone="check" />
+                <Kpi Rotulo="Registro mais antigo" Valor="@(r?.MaisAntigo ?? "—")" Icone="calendario" Tom="neutro" />
+            </div>
+            @if (r is not null)
+            {
+                <p class="gua-frase">@r.Resumo</p>
+            }
+        }
+    </section>
+
+    @* ===== Um paciente ===== *@
+    <section class="cartao cartao-corpo" aria-label="Um paciente">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Um paciente</h2>
+                <p>Quando vence a guarda do prontuário de uma pessoa, o que está guardado nele, e quem o abriu.</p>
+            </div>
+        </div>
+
+        <div class="gua-seletor">
+            <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="TrocarPacienteAsync" Placeholder="Buscar por nome ou CPF" />
+        </div>
+
+        @if (_paciente is not null)
+        {
+            @if (_pacienteNaoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível ler a guarda deste paciente"
+                                Detalhe="@($"Nada foi apagado — a guarda e a trilha não puderam ser lidas. {_erroPaciente}")" AoTentarDeNovo="() => CarregarPacienteAsync()" />
+            }
+            else if (_guarda is null)
+            {
+                <Esqueleto Altura="140" />
+            }
+            else
+            {
+                var g = _guarda;
+                @* O nome já está no crachá do seletor, logo acima — repeti-lo aqui seria ruído. *@
+                <div class="gua-pessoa" aria-label="@($"Guarda de {g.Nome}")">
+                    <p class="gua-situacao">@g.Situacao</p>
+                    <p class="gua-detalhe">@g.Detalhe</p>
+                    <button type="button" class="botao" @onclick="ExportarPacienteAsync"
+                            disabled="@(!PodeExportar || _exportando)"
+                            title="@(PodeExportar ? null : "Exportar prontuário exige ler prontuário (VerProntuario).")">
+                        <Icone Nome="baixar" />Exportar o prontuário desta pessoa
+                    </button>
+                </div>
+
+                <div class="gua-acessos">
+                    @* "Quem abriu este prontuário" (parcela 61): a pergunta da cliente ao pé da letra —
+                       "quem acessou, quando acessou". *@
+                    <h3 class="gua-subtitulo">Quem abriu este prontuário</h3>
+                    <p class="gua-detalhe">@_resumoAcessos</p>
+                    @if (_acessos.Count > 0)
+                    {
+                        <div class="tabela-rolagem gua-trilha">
+                            <table class="lista">
+                                <thead>
+                                    <tr><th class="gua-col-quando">Quando</th><th class="gua-col-quem">Quem</th><th>Por onde</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var a in _acessos)
+                                    {
+                                        <tr>
+                                            <td class="numero texto-secundario">@a.Quando</td>
+                                            <td><span class="principal gua-corta" title="@a.Operador">@a.Operador</span></td>
+                                            <td class="texto-secundario">@a.Porta</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </section>
+
+    @* ===== Exportação ===== *@
+    <section class="cartao cartao-corpo" aria-label="Exportar o prontuário">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Exportar o prontuário</h2>
+                <p>Arquivos CSV que qualquer sistema importa — é o que garante que a clínica não fique refém do fornecedor. Saem as sessões, as correções feitas nelas, as avaliações, as medidas, os documentos e a lista de anexos. Os ARQUIVOS anexados em si saem no backup completo, e o LEIA-ME da exportação explica isso.</p>
+            </div>
+            <button type="button" class="botao" @onclick="ExportarTudoAsync" disabled="@(!PodeExportar || _exportando)"
+                    title="@(PodeExportar ? null : "Exportar prontuário exige ler prontuário (VerProntuario).")">
+                <Icone Nome="baixar" />Exportar a clínica inteira
+            </button>
+        </div>
+        @* Linha, não faixa: este aviso nunca sai da tela, e faixa permanente vira moldura. *@
+        <p class="gua-detalhe">A exportação leva dado de saúde de todos os pacientes em arquivos que qualquer pessoa abre. Grave em local controlado, entregue só a quem tem direito de receber, e lembre que quem recebe assume junto a obrigação de guardar por 20 anos.</p>
+    </section>
+
+    <p class="gua-rodape">Não há botão para ELIMINAR prontuário vencido, e isso é decisão: os 20 anos são um piso de guarda, não um agendamento de destruição. Cumprido o prazo, o prontuário fica elegível — eliminar é decisão da clínica com a comissão de revisão prevista no art. 7º da Lei 13.787/2018, e não tem volta.</p>
+</div>
+
+@code {
+    // ---- Clínica ----
+    private RetratoDaGuarda? _retrato;
+    private bool _calculando, _clinicaNaoVerificada;
+    private string? _erroClinica;
+    private int _geracaoClinica;
+
+    // ---- Paciente ----
+    private Paciente? _paciente;
+    private GuardaDoPacienteNaTela? _guarda;
+    private List<LinhaDeAcessoAoProntuario> _acessos = [];
+    private string _resumoAcessos = string.Empty;
+    private bool _pacienteNaoVerificado;
+    private string? _erroPaciente;
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50/64). Aqui não é zelo: o seletor é uma
+    /// BUSCA, e quem investiga um acesso indevido troca de paciente várias vezes seguidas. São
+    /// duas idas ao banco (a guarda e a trilha), e a leitura VELHA respondendo por último poria a
+    /// trilha da Maria na ficha do João — numa tela de conformidade, resposta errada com a cara
+    /// da certa.
+    /// </summary>
+    private int _geracaoPaciente;
+
+    // ---- Exportação ----
+    private bool _exportando, _exportacaoFalhou;
+    private string? _mensagemExportacao;
+
+    /// <summary>
+    /// Metade VISÍVEL da permissão. O item da tela exige VerAuditoria (é quem chega aqui); o ato
+    /// exige VerProntuario (o bit do DADO que sai). O botão só acende com os dois, para quem tem
+    /// só o primeiro não atravessar a porta e levar a recusa no clique.
+    /// </summary>
+    private static bool PodeExportar => Pode(Permissao.VerAuditoria) && Pode(Permissao.VerProntuario);
+
+    /// <summary>Volta à aba: relê o paciente em silêncio — o retrato continua sob pedido.</summary>
+    protected override Task AoVoltarAsync() => _paciente is null ? Task.CompletedTask : CarregarPacienteAsync(silenciosa: true);
+
+    protected override async Task AoAtalhoAsync(AtalhoDeTela atalho)
+    {
+        if (atalho != AtalhoDeTela.Atualizar) return;
+        if (_paciente is not null) await CarregarPacienteAsync();
+        if (_retrato is not null) await CalcularClinicaAsync();
+    }
+
+    /// <summary>
+    /// O retrato da clínica. Não roda ao abrir: é uma varredura paciente a paciente, e quem abre
+    /// a tela vê a explicação e decide quando pagar a consulta.
+    /// </summary>
+    private async Task CalcularClinicaAsync()
+    {
+        var geracao = ++_geracaoClinica;
+        _calculando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var resumo = await escopo.ServiceProvider.GetRequiredService<GuardaProntuarioService>()
+                .ResumoAsync(DateOnly.FromDateTime(DateTime.Today));
+            if (geracao != _geracaoClinica || Descartada) return;
+
+            _retrato = GuardaDoProntuarioNaTela.Retrato(resumo);
+            _clinicaNaoVerificada = false;
+            _erroClinica = null;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoClinica) return;
+            Clinica.Application.Diagnostico.Registrar("Gerente — guarda do prontuário", ex);
+            _clinicaNaoVerificada = true;
+            _erroClinica = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracaoClinica) _calculando = false;
+        }
+    }
+
+    private Task TrocarPacienteAsync(Paciente? p)
+    {
+        _paciente = p;
+        return CarregarPacienteAsync();
+    }
+
+    private async Task CarregarPacienteAsync(bool silenciosa = false)
+    {
+        var geracao = ++_geracaoPaciente;
+
+        // Troca de paciente LIMPA ANTES do await: a guarda e a trilha de quem saiu não podem
+        // continuar na tela enquanto a de quem chegou não responde — com o botão de exportar
+        // apontando para a pessoa nova. A releitura silenciosa (volta à aba) mantém o que está.
+        if (!silenciosa)
+        {
+            _guarda = null;
+            _acessos = [];
+            _resumoAcessos = string.Empty;
+            _pacienteNaoVerificado = false;
+            _erroPaciente = null;
+        }
+
+        if (_paciente is not { } escolhido) return;
+
+        try
+        {
+            using var escopo = Escopo();
+            // Em FILA, no mesmo escopo: os dois serviços dividem o DbContext.
+            var situacao = await escopo.ServiceProvider.GetRequiredService<GuardaProntuarioService>()
+                .DoPacienteAsync(escolhido.Id);
+            if (geracao != _geracaoPaciente || Descartada) return;
+
+            // A trilha de LEITURA do mesmo paciente: guarda e acesso são as duas metades da
+            // pergunta da auditoria.
+            var acessos = await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                .DoPacienteAsync(escolhido.Id, limite: GuardaDoProntuarioNaTela.LimiteDeAcessos);
+            if (geracao != _geracaoPaciente || Descartada) return;
+
+            // Tudo publicado depois do último await.
+            _guarda = GuardaDoProntuarioNaTela.Paciente(situacao, DateOnly.FromDateTime(DateTime.Today));
+            _acessos = acessos.Select(GuardaDoProntuarioNaTela.Acesso).ToList();
+            _resumoAcessos = GuardaDoProntuarioNaTela.ResumoDosAcessos(_acessos.Count);
+            _pacienteNaoVerificado = false;
+            _erroPaciente = null;
+        }
+        catch (Exception ex)
+        {
+            // A falha de uma leitura superada não pode apagar a tela de quem está escolhido agora.
+            if (geracao != _geracaoPaciente) return;
+            Clinica.Application.Diagnostico.Registrar("Gerente — guarda de um paciente", ex);
+            if (silenciosa && _guarda is not null) return; // releitura de fundo: falha só no log
+            _pacienteNaoVerificado = true;
+            _erroPaciente = ex.Message;
+        }
+    }
+
+    private Task ExportarTudoAsync() => ExportarAsync(null);
+
+    private Task ExportarPacienteAsync() => ExportarAsync(_paciente?.Id);
+
+    /// <summary>
+    /// Grava os CSV numa pasta escolhida — vários arquivos numa PASTA datada, não um zip: o
+    /// destino costuma ser um pendrive entregue a outro fornecedor, e pasta se confere abrindo.
+    /// </summary>
+    private async Task ExportarAsync(int? pacienteId)
+    {
+        // O que sai daqui é PRONTUÁRIO — de um paciente ou da clínica inteira. O bit é o do dado
+        // (VerProntuario), como no export da ficha e no CSV clínico da parcela 60.
+        if (!Exigir(Permissao.VerProntuario, "exportar o prontuário")) return;
+        if (_exportando) return;
+
+        if (pacienteId is null
+            && !await Dialogos.ConfirmarAsync(GuardaDoProntuarioNaTela.TituloDaConfirmacao,
+                GuardaDoProntuarioNaTela.MensagemDaConfirmacao, perigoso: true))
+            return;
+
+        var pasta = await Host.PerguntarPastaAsync("Onde gravar a exportação do prontuário");
+        if (pasta is null) return;
+
+        _exportando = true;
+        _exportacaoFalhou = false;
+        _mensagemExportacao = "Montando a exportação…";
+        StateHasChanged();
+        try
+        {
+            using var escopo = Escopo();
+            var arquivos = await escopo.ServiceProvider.GetRequiredService<ExportacaoProntuarioService>()
+                .ExportarAsync(pacienteId);
+
+            var destino = Path.Combine(pasta, GuardaDoProntuarioNaTela.PastaDaExportacao(DateTime.Now));
+            foreach (var arquivo in arquivos)
+            {
+                var erro = await Host.GravarArquivoAsync(Path.Combine(destino, arquivo.Nome),
+                    GuardaDoProntuarioNaTela.Bytes(arquivo.Conteudo));
+                if (erro is not null)
+                {
+                    // Como no WPF: falha de gravação interrompe a exportação, e a frase diz qual.
+                    _exportacaoFalhou = true;
+                    _mensagemExportacao = $"Não foi possível exportar: {erro}";
+                    return;
+                }
+            }
+
+            // A exportação é um ACESSO ao prontuário, e dos maiores: leva tudo de uma vez. A da
+            // CLÍNICA registra uma linha por paciente — o maior acesso possível não sai sem trilha.
+            var acessos = escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>();
+            if (pacienteId is { } um)
+            {
+                await acessos.RegistrarAsync(um, Operador, OrigemAcessoProntuario.ExportacaoTitular);
+            }
+            else
+            {
+                var todos = await escopo.ServiceProvider.GetRequiredService<PacienteService>().BuscarAsync(termo: null);
+                await acessos.RegistrarExportacaoDaClinicaAsync(todos.Select(p => p.Id).ToList(), Operador);
+            }
+
+            _mensagemExportacao = GuardaDoProntuarioNaTela.ExportacaoGravada(destino, arquivos.Count);
+            Notificacoes.Sucesso("Prontuário exportado.");
+
+            // A exportação de UM paciente entra na trilha dele: a lista "quem abriu" já a mostra.
+            if (pacienteId is not null && _paciente?.Id == pacienteId) await CarregarPacienteAsync(silenciosa: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — exportação do prontuário", ex);
+            _exportacaoFalhou = true;
+            _mensagemExportacao = $"Não foi possível exportar: {ex.Message}";
+        }
+        finally
+        {
+            _exportando = false;
+        }
+    }
+}

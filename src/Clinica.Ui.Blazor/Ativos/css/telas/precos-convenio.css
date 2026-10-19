@@ -1,0 +1,8 @@
+/* Estilo PRÓPRIO da tela Tabela de preço por convênio (out/2026, etapa 6 do Gerente). */
+.precos-convenio .precos-alternar{padding-bottom:9px}
+.precos-tabela td:first-child{max-width:260px}
+.precos-tabela td:first-child .principal{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.precos-tabela td.numero{white-space:nowrap}
+/* Fora de vigência fica legível, mas recua: a pergunta da tela é "quanto paga HOJE". */
+.precos-tabela tr.precos-fora td:not(:last-child){color:var(--texto-secundario)}
+.precos-tabela td.precos-situacao{white-space:nowrap}

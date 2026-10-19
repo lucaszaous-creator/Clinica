@@ -1,0 +1,72 @@
+/* Estilo PRÓPRIO da tela "Importar pacientes" (out/2026, etapa 6 do Gerente). O comum mora em ../clinica.css. */
+
+/* ---------- Os três passos, numerados (o desenho do Novo atendimento) ---------- */
+.imp-passo{padding:var(--space-4) var(--space-6) var(--space-6);display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.imp-passo-cab{display:flex;align-items:center;gap:var(--space-3)}
+.imp-passo-cab h2{margin:0;font-size:var(--text-secao-size);font-weight:700;letter-spacing:var(--text-secao-tracking);
+  text-transform:uppercase;color:var(--cinza-700)}
+.imp-numero{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--acento);
+  color:var(--texto-invertido);font-size:var(--text-small-size);font-weight:700;flex:none}
+.imp-dica{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.45}
+
+/* ---------- Passo 1: os três arquivos ---------- */
+.imp-escolhas{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.imp-arquivo{display:flex;flex-direction:column;min-width:0}
+.imp-arquivo .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- Passo 2: colunas (rótulo · lista · consequência) ---------- */
+.imp-campos{display:grid;grid-template-columns:max-content minmax(200px,280px) minmax(0,1fr);
+  gap:var(--space-2) var(--space-4);align-items:center}
+.imp-campo-rotulo{font-weight:500}
+.imp-campo-rotulo.obrigatorio::after{content:" *";color:var(--erro-texto)}
+.imp-campo-dica{color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.4}
+@media (max-width:900px){
+  .imp-campos{grid-template-columns:max-content minmax(0,1fr)}
+  .imp-campo-dica{grid-column:1 / -1;margin-bottom:var(--space-2)}
+}
+.imp-subtitulo{display:flex;flex-direction:column;gap:var(--space-1);padding-top:var(--space-3);border-top:1px solid var(--borda)}
+.imp-subtitulo h3{margin:0;font-size:var(--text-secao-size);font-weight:700;letter-spacing:var(--text-secao-tracking);
+  text-transform:uppercase;color:var(--cinza-700)}
+
+/* Lista que cresce com o dado: teto e rolagem por dentro. */
+.imp-convenios{display:flex;flex-direction:column;border:1px solid var(--borda);border-radius:var(--radius-control);
+  max-height:320px;overflow-y:auto}
+.imp-convenio{display:grid;grid-template-columns:minmax(0,1fr) max-content minmax(260px,420px);align-items:center;
+  gap:var(--space-3);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--cinza-100)}
+.imp-convenio:last-child{border-bottom:0}
+.imp-convenio .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.imp-convenio .secundario{margin-top:0;white-space:nowrap}
+@media (max-width:700px){.imp-convenio{grid-template-columns:minmax(0,1fr) max-content}.imp-convenio select{grid-column:1 / -1}}
+
+/* ---------- Passo 3: a prévia ---------- */
+.imp-resumo{margin:0;font-weight:600}
+.imp-resumo-pacote{margin:0;padding-left:var(--space-6);display:flex;flex-direction:column;gap:var(--space-1);line-height:1.45}
+.imp-tabela-rolagem{max-height:480px;overflow-y:auto;border:1px solid var(--borda);border-radius:var(--radius-control)}
+.imp-tabela thead th{position:sticky;top:0;z-index:1}
+.imp-tabela td{vertical-align:top}
+.imp-tabela td.numero{white-space:nowrap}
+.imp-tabela td:nth-child(2){max-width:260px}
+.imp-nome{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imp-avisos-linha{color:var(--aviso-texto)}
+.imp-acao{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3)}
+
+/* ---------- Mensagens (podem ter várias linhas) ---------- */
+.imp-mensagem .aviso span{white-space:pre-line}
+
+/* ---------- Operação longa: a faixa diz o que está acontecendo ---------- */
+.imp-progresso{align-items:center}
+.imp-progresso-corpo{display:flex;flex-direction:column;gap:var(--space-2);flex:1;min-width:0}
+.imp-progresso-trilho{height:4px;border-radius:999px;background:var(--acento-tint);overflow:hidden;position:relative}
+.imp-progresso-trilho > i{position:absolute;top:0;left:-40%;width:40%;height:100%;border-radius:999px;background:var(--acento);
+  animation:imp-andar 1.2s ease-in-out infinite}
+@keyframes imp-andar{to{left:100%}}
+
+/* ---------- Conferência depois de importar ---------- */
+.imp-conferencia h2{margin:0 0 var(--space-3);font-size:var(--text-body-size);font-weight:700}
+.imp-conferencia.fechou{background:var(--sucesso-suave);border-color:var(--verde-100)}
+.imp-conferencia.aberta{background:var(--aviso-suave);border-color:var(--laranja-100)}
+.imp-conferencia ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;line-height:1.45}
+.imp-conferencia li.ok{color:var(--sucesso-forte)}
+.imp-conferencia li.falta{color:var(--aviso-texto);font-weight:600}
+.imp-conferencia li.motivo{padding-left:var(--space-6);color:var(--texto-primario);font-size:var(--text-small-size)}
+.imp-resumo-pacote li.sub{list-style:none;margin-left:var(--space-4);color:var(--texto-secundario);font-size:var(--text-small-size)}
