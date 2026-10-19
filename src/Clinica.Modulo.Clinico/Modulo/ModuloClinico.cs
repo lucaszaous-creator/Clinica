@@ -637,7 +637,7 @@ public sealed class ModuloClinico : IModuloApp
         ChaveExames => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PedidosDeExame), servicos),
         ChaveRegistrosPendentes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SessoesSemEvolucao), servicos),
         ChaveMinhaSemana => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MinhaSemana), servicos),
-        ChaveMedicamentos => new MedicamentosView(servicos.GetRequiredService<IServiceScopeFactory>()),
+        ChaveMedicamentos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Medicamentos), servicos),
         ChavePrescricoes => new PrescricoesClinicasView
         {
             DataContext = servicos.GetRequiredService<PrescricoesClinicasViewModel>()

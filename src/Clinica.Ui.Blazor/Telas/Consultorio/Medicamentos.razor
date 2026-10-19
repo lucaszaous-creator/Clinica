@@ -1,0 +1,253 @@
+@*
+  MEDICAMENTOS — o cadastro compartilhado que alimenta a busca da prescrição (out/2026: migrada
+  da MedicamentosView WPF; chave "consultorio-medicamentos").
+
+  A lista ocupa a largura inteira; criar e corrigir abrem o formulário (Modal) — no WPF o
+  formulário ficava numa faixa lateral permanente, para um ato que acontece de vez em quando.
+  O recorte, a frase e a leitura da planilha moram em MedicamentosNaTela (Application, com
+  teste); quem valida limites e grava é o MedicamentoCatalogoService, que exige Prescrever.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina con-medicamentos @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Consultório · Prescrições" Titulo="Medicamentos"
+                     Subtitulo="Cadastro compartilhado entre Consultório e Gerente: nomes DCB da Anvisa e produtos cadastrados pela clínica.">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao" disabled="@(!PodeEditar || _ocupado)" @onclick="ImportarAsync"
+                title="@(PodeEditar ? "Importar uma planilha CSV no formato do modelo" : SemAcesso)">Importar CSV</button>
+        <button type="button" class="botao" @onclick="BaixarModeloAsync" title="Planilha vazia com as quatro colunas">Modelo de planilha</button>
+        <button type="button" class="botao primario" disabled="@(!PodeEditar || _ocupado)" @onclick="Novo"
+                title="@(PodeEditar ? "Cadastrar um medicamento ou apresentação" : SemAcesso)"><Icone Nome="mais" />Novo medicamento</button>
+    </CabecalhoPagina>
+
+    <p class="con-contexto">A base de nomes não define dose, via ou compatibilidade. Cadastre a apresentação do produto para distinguir concentrações.</p>
+
+    <section class="cartao lista-cartao con-lista">
+        <div class="cartao-corpo med-barra">
+            <input class="campo med-busca" type="search" placeholder="Buscar nome, princípio ativo, apresentação ou fabricante…"
+                   aria-label="Buscar medicamento" value="@_termo" @oninput="e => _termo = e.Value?.ToString()" />
+            @if (_carregou) { <span class="secundario">@Resumo</span> }
+        </div>
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível carregar os medicamentos" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (Filtrados.Count == 0)
+        {
+            <EstadoVazio Titulo="@(string.IsNullOrWhiteSpace(_termo) ? "Nenhum medicamento cadastrado" : "Nenhum medicamento bate com a busca")" Icone="vazio"
+                         Descricao="@(string.IsNullOrWhiteSpace(_termo) ? "Cadastre o primeiro ou importe uma planilha." : "Confira a grafia ou cadastre a apresentação que falta.")" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Princípio ativo</th>
+                            <th>Apresentação</th>
+                            <th>Fonte</th>
+                            <th>Situação</th>
+                            <th class="direita">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in Filtrados.Take(MedicamentosNaTela.Teto))
+                        {
+                            <tr @key="m.Codigo">
+                                <td>
+                                    <span class="principal">@m.Nome</span>
+                                    @if (!string.IsNullOrWhiteSpace(m.Fabricante)) { <span class="secundario">@m.Fabricante</span> }
+                                </td>
+                                <td>@m.PrincipioAtivo</td>
+                                <td>@m.Apresentacao</td>
+                                <td><span class="secundario">@m.Fonte</span></td>
+                                <td><Selo Tom="@(m.Ativo ? "sucesso" : "")">@(m.Ativo ? "Ativo" : "Inativo")</Selo></td>
+                                <td class="direita">
+                                    <button type="button" class="botao mini" disabled="@(!PodeEditar || _ocupado)" @onclick="() => Editar(m)"
+                                            title="@(PodeEditar ? "Corrigir este cadastro" : SemAcesso)">Editar</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@if (_editando is not null)
+{
+    <Modal Titulo="@(string.IsNullOrEmpty(_editando.Codigo) ? "Novo medicamento" : "Editar medicamento")"
+           Subtitulo="A busca da prescrição passa a usar estes dados quando a tela for reaberta." AoFechar="Fechar">
+        <ChildContent>
+            <div class="campos">
+                <Campo Rotulo="Nome do medicamento" Obrigatorio="true" Classe="largo">
+                    <input class="campo" @bind="_nome" maxlength="200" />
+                </Campo>
+                <Campo Rotulo="Princípio ativo"><input class="campo" @bind="_principio" maxlength="200" /></Campo>
+                <Campo Rotulo="Apresentação / concentração" Dica="Ex.: comprimido 500 mg"><input class="campo" @bind="_apresentacao" maxlength="200" /></Campo>
+                <Campo Rotulo="Fabricante" Classe="largo"><input class="campo" @bind="_fabricante" maxlength="160" /></Campo>
+            </div>
+            <label class="marcar"><input type="checkbox" @bind="_ativo" /> Ativo nas sugestões da prescrição</label>
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        </ChildContent>
+        <Rodape>
+            <button type="button" class="botao" @onclick="Fechar">Cancelar</button>
+            <button type="button" class="botao primario" disabled="@(_ocupado || !PodeEditar)" @onclick="SalvarAsync">
+                <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Salvar cadastro")
+            </button>
+        </Rodape>
+    </Modal>
+}
+
+@code {
+    private const string SemAcesso = "Seu acesso não permite alterar o cadastro de medicamentos.";
+
+    private IReadOnlyList<MedicamentoCadastro> _todos = [];
+    private string? _termo;
+    private bool _carregando, _carregou, _naoVerificado, _ocupado;
+    private string? _erro;
+    private int _geracao;
+
+    private MedicamentoCadastro? _editando;
+    private string? _nome, _principio, _apresentacao, _fabricante, _mensagem;
+    private bool _ativo = true;
+
+    // Metade VISÍVEL da barreira; quem impede é o Exigir de cada ação (e o serviço, que confere de novo).
+    private static bool PodeEditar => Pode(Permissao.Prescrever);
+
+    private IReadOnlyList<MedicamentoCadastro> Filtrados => MedicamentosNaTela.Filtrar(_todos, _termo);
+    private string Resumo => MedicamentosNaTela.Resumo(Filtrados.Count, _todos.Count, !string.IsNullOrWhiteSpace(_termo));
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Voltou à aba: relê em silêncio — o cadastro é compartilhado com o Gerente.</summary>
+    protected override Task AoVoltarAsync() => _carregando ? Task.CompletedTask : CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        var geracao = ++_geracao;
+        if (!silencioso) _carregando = true;
+        try
+        {
+            IReadOnlyList<MedicamentoCadastro> todos;
+            using (var escopo = Escopo())
+                todos = await escopo.ServiceProvider.GetRequiredService<MedicamentoCatalogoService>().ListarAsync();
+            if (geracao != _geracao || Descartada) return;
+            _todos = todos;
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — medicamentos não puderam ser carregados", ex);
+            if (silencioso && _carregou) return;
+            _todos = [];
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private void Novo()
+    {
+        if (!Exigir(Permissao.Prescrever, "alterar o cadastro de medicamentos")) return;
+        Abrir(new MedicamentoCadastro());
+    }
+
+    private void Editar(MedicamentoCadastro m)
+    {
+        if (!Exigir(Permissao.Prescrever, "alterar o cadastro de medicamentos")) return;
+        Abrir(m);
+    }
+
+    private void Abrir(MedicamentoCadastro m)
+    {
+        _editando = m;
+        _nome = m.Nome;
+        _principio = m.PrincipioAtivo;
+        _apresentacao = m.Apresentacao;
+        _fabricante = m.Fabricante;
+        _ativo = m.Ativo;
+        _mensagem = null;
+    }
+
+    private void Fechar() => _editando = null;
+
+    private async Task SalvarAsync()
+    {
+        if (_editando is null || _ocupado) return;
+        if (!Exigir(Permissao.Prescrever, "alterar o cadastro de medicamentos")) return;
+        _ocupado = true;
+        _mensagem = null;
+        try
+        {
+            var dados = new MedicamentoCadastro
+            {
+                Codigo = _editando.Codigo,
+                Nome = _nome?.Trim() ?? "",
+                PrincipioAtivo = _principio?.Trim(),
+                Apresentacao = _apresentacao?.Trim(),
+                Fabricante = _fabricante?.Trim(),
+                Ativo = _ativo,
+            };
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<MedicamentoCatalogoService>().SalvarAsync(dados, SessaoUsuario.Atual.UsuarioId);
+            _editando = null;
+            await CarregarAsync(silencioso: true);
+            Notificacoes.Sucesso($"Cadastro de {dados.Nome} salvo.");
+        }
+        catch (Exception ex)
+        {
+            // Formulário: o erro fica inline, perto do campo a corrigir.
+            Clinica.Application.Diagnostico.Registrar("Consultório — medicamento não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task BaixarModeloAsync()
+    {
+        var erro = await Host.SalvarEAbrirAsync(MedicamentosNaTela.Modelo(), "medicamentos.csv", "Planilha CSV (*.csv)|*.csv", ".csv");
+        if (erro is not null) Notificacoes.Erro(erro);
+    }
+
+    private async Task ImportarAsync()
+    {
+        if (_ocupado) return;
+        if (!Exigir(Permissao.Prescrever, "alterar o cadastro de medicamentos")) return;
+        try
+        {
+            _ocupado = true;
+            var arquivo = await Host.EscolherArquivoAsync("Planilha CSV (*.csv)|*.csv", "Importar medicamentos");
+            if (arquivo is null) return;
+            var lista = MedicamentosNaTela.LerPlanilha(arquivo.Conteudo);
+            if (!await Dialogos.ConfirmarAsync("Importar medicamentos",
+                    $"Importar {lista.Count} medicamento(s) de {arquivo.Nome} para o cadastro compartilhado?")) return;
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<MedicamentoCatalogoService>().SalvarLoteAsync(lista, SessaoUsuario.Atual.UsuarioId);
+            await CarregarAsync(silencioso: true);
+            Notificacoes.Sucesso($"{lista.Count} medicamento(s) importado(s).");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — planilha de medicamentos não pôde ser importada", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+        finally { _ocupado = false; }
+    }
+}
