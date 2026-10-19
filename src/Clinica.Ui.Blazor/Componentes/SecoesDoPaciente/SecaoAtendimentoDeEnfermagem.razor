@@ -20,6 +20,29 @@
 
 <PainelDeEnfermagem PacienteId="Contexto.PacienteId" Paciente="@Contexto.Nome"
                     AgendamentoId="Contexto.AgendamentoId" DataDoAtendimento="Contexto.DiaDaSessao"
+                    Estado="_estado"
                     AoConsultarFicha="() => Tela.IrPara(TelaDoPacienteNaTela.FichaDoPaciente)"
                     AoExamesEAnexos="() => Tela.IrPara(TelaDoPacienteNaTela.ExamesEAnexos)"
                     AoGravou="() => Tela.RelerCabecalhoAsync()" />
+
+@code {
+    private EstadoDaPassagem? _estado;
+
+    /// <summary>
+    /// A passagem em edição é da SEÇÃO, não do painel. Na junção com a tela do paciente
+    /// (ITelaDoPaciente.Guardado + IPassagemAberta, branch claude/tela-do-paciente-blazor) esta
+    /// linha passa a ser <c>Tela.Guardado(EstadoDaPassagem.Chave, CriarEstado)</c>: o rascunho
+    /// sobrevive à troca de seção e o "Finalizar" do cabeçalho pergunta antes de encerrar sem ele.
+    /// </summary>
+    protected override void OnInitialized() => _estado = CriarEstado();
+
+    private EstadoDaPassagem CriarEstado() => new(Escopos, Contexto.PacienteId, Contexto.Nome,
+        agendamentoId: Contexto.AgendamentoId, dataDoAtendimento: Contexto.DiaDaSessao);
+
+    public override void Dispose()
+    {
+        // Enquanto o estado é desta seção (antes da junção), ela o descarta ao sair.
+        _estado?.Descartar();
+        base.Dispose();
+    }
+}

@@ -162,6 +162,13 @@ else if (_estado is { } estado)
 
     [Parameter] public EventCallback<PortasDoDia> AoLerPortas { get; set; }
 
+    /// <summary>
+    /// O estado da passagem quando quem hospeda o GUARDA (a seção, na tela do paciente: o rascunho
+    /// sobrevive à troca de seção e o Finalizar pergunta por ele). Nulo = o painel cria o seu e o
+    /// descarta ao sair (a tela Enfermagem). Estado de fora não é descartado aqui: ele não é do painel.
+    /// </summary>
+    [Parameter] public EstadoDaPassagem? Estado { get; set; }
+
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
     private IJanelasDaEnfermagem Janelas => Servicos.GetService<IJanelasDaEnfermagem>() ?? JanelasDaEnfermagemIndisponiveis.Instancia;
     private IJanelasDaSalaDeInfusao Sala => Servicos.GetService<IJanelasDaSalaDeInfusao>() ?? JanelasDaSalaDeInfusaoIndisponiveis.Instancia;
@@ -175,7 +182,7 @@ else if (_estado is { } estado)
         : [NaturezaRegistroClinico.SessaoMedica, NaturezaRegistroClinico.PrescricaoInterna];
 
     private EstadoDaPassagem? _estado;
-    private bool _podeLer = true, _ocupado, _portasNaoVerificadas, _mensagemEhErro;
+    private bool _podeLer = true, _ocupado, _portasNaoVerificadas, _mensagemEhErro, _estadoProprio;
     private string? _mensagem, _ultimaDoEstado;
     private SituacaoTermo? _termo;
     private PrescricaoInterna? _folha;
@@ -194,7 +201,8 @@ else if (_estado is { } estado)
         if (!_podeLer) return;
 
         _agendamentoMontado = AgendamentoId;
-        _estado = new EstadoDaPassagem(Escopos, PacienteId, Paciente,
+        _estadoProprio = Estado is null;
+        _estado = Estado ?? new EstadoDaPassagem(Escopos, PacienteId, Paciente,
             agendamentoId: AgendamentoId,
             dataDoAtendimento: DataDoAtendimento ?? DateOnly.FromDateTime(DateTime.Today));
         _estado.Mudou += AoMudar;
@@ -437,7 +445,8 @@ else if (_estado is { } estado)
         {
             e.Mudou -= AoMudar;
             e.Gravou -= AoGravouInterno;
-            e.Descartar();
+            // Só descarta o que é DELE: o estado guardado pela seção volta à vista com o rascunho.
+            if (_estadoProprio) e.Descartar();
         }
         base.Dispose();
     }

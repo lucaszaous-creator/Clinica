@@ -186,6 +186,19 @@ public sealed class EstadoDaPassagem
         Texto, AlergiaObservada, LerSinais(), LerAcesso(), Historico, ExameFisico, Avaliacao,
         Diagnosticos.Select(d => (string?)d.Titulo), Cuidados.Select(c => (string?)c.Descricao));
 
+    /// <summary>
+    /// A chave com que a seção guarda este estado na tela do paciente (ITelaDoPaciente.Guardado):
+    /// a passagem em edição sobrevive à troca de seção no rail, e o "Finalizar" do cabeçalho a acha.
+    /// </summary>
+    public const string Chave = "enfermagem.passagem";
+
+    /// <summary>
+    /// O contrato de IPassagemAberta: nada escrito na passagem ainda não registrada. É o
+    /// <see cref="CompositorEmBranco"/> — olha TUDO o que grava (a PA sozinha não é branco),
+    /// nunca só o texto: senão o Finalizar encerraria calado sobre os sinais vitais digitados.
+    /// </summary>
+    public bool PassagemEmBranco => CompositorEmBranco;
+
     /// <summary>A tela saiu: carga que chega depois não escreve em nada.</summary>
     public void Descartar() => _descartado = true;
 

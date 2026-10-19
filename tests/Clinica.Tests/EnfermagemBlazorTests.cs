@@ -112,6 +112,16 @@ public sealed class EnfermagemBlazorTests : IClassFixture<BancoDasTelas>, IDispo
         Assert.Empty(corte.FindAll("textarea.enf-texto"));
     }
 
+    [Fact]
+    public void A_passagem_so_e_branca_quando_nada_que_grava_foi_digitado()
+    {
+        // O "Finalizar" do cabeçalho pergunta por ela (IPassagemAberta): a PA sozinha NÃO é branco.
+        var estado = new Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem.EstadoDaPassagem(null!, 1, "Marta");
+        Assert.True(estado.PassagemEmBranco);
+        estado.PressaoArterial = "120/80";
+        Assert.False(estado.PassagemEmBranco);
+    }
+
     private (int Id, string Nome, int AgendamentoId) Marta()
     {
         using var db = Db();
