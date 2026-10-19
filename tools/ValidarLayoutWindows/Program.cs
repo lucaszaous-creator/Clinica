@@ -9,7 +9,6 @@ using System.Windows.Media.Imaging;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
 using Clinica.Clinico.ViewModels;
-using Clinica.Clinico.Views;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
@@ -105,35 +104,8 @@ static class Program
             throw new Exception("A chave da agenda deve abrir a Grade (Blazor).");
         Console.WriteLine("AGENDA: a chave da grade abre a tela Blazor.");
         win.Close();
-        // Regressão de produção: a direção não precisa de cadastro como médico para
-        // concluir uma sessão já escrita. Exercita a view real, inclusive o binding.
-        usuario.ProfissionalId = null; usuario.Profissional = null;
-        await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
-        var posto = new PacienteWorkspaceViewModel(sp, sp.GetRequiredService<PacienteEmFoco>(), ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento));
-        var janela = new Window { Content = new PacienteWorkspaceView { DataContext = posto },
-            ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual,
-            Left = -30000, Top = -30000, Width = 1366, Height = 700 };
-        janela.Show();
-        for (int i = 0; i < 30 && !posto.TemSessao; i++) await Task.Delay(100);
-        foreach (var largura in new[] { 1366, 1024 })
-        {
-            janela.Width = largura; janela.UpdateLayout(); await Task.Delay(200); janela.UpdateLayout();
-            var acoes = Descendentes(janela).OfType<Button>().Single(b => System.Windows.Automation.AutomationProperties.GetName(b) == "Ações do atendimento");
-            var ponto = acoes.TranslatePoint(new Point(), janela);
-            if (!acoes.IsVisible || !acoes.IsEnabled || ponto.X < 0 ||
-                ponto.X + acoes.ActualWidth > janela.ActualWidth || ponto.Y + acoes.ActualHeight > janela.ActualHeight)
-                throw new Exception("Gerente sem vínculo médico perdeu acesso às ações da sessão.");
-            acoes.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            await Task.Delay(60);
-            var menu = acoes.ContextMenu!;
-            var concluir = menu.Items.OfType<MenuItem>().Single(b => ReferenceEquals(b.Command, posto.FinalizarSessaoCommand));
-            if (!menu.IsOpen || !concluir.IsVisible || !concluir.IsEnabled)
-                throw new Exception("Gerente sem vínculo médico perdeu a ação de concluir sessão no menu.");
-            Foto(janela, "gerente-finalizar-" + largura);
-            menu.IsOpen=false;
-            Console.WriteLine("GERENTE SEM VÍNCULO: Concluir sessão acessível e habilitado no menu em " + largura);
-        }
-        janela.Close();
+        // O "Concluir sessão" do Gerente sem vínculo médico é da tela do paciente Blazor (out/2026),
+        // conferido no bUnit (SecaoAtendimentoBlazorTests).
         usuario.Perfil = PerfilAcesso.Enfermagem; usuario.ProfissionalId = prof.Id; usuario.Profissional = prof;
         var bsv = await db.Agendamentos.FirstAsync(); bsv.ModalidadePrevista = ModalidadeAtendimento.BsvComAcupuntura;
         await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);

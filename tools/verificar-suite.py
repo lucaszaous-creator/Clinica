@@ -3274,18 +3274,21 @@ for _cenario, _corpo, _deve in (
 # Anamnese na posição 1.
 # ============================================================================
 
-_WORKSPACE = RAIZ / "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml"
+# A tela do paciente é Blazor desde out/2026 (o PacienteWorkspaceView WPF saiu): cada seção
+# declarada precisa ter o seu `case` no switch da tela, senão o rail mostra a porta e o
+# miolo fica em branco.
+_TELA_PACIENTE = RAIZ / "src/Clinica.Ui.Blazor/Telas/Consultorio/TelaDoPaciente.razor"
 _MODULO_CLINICO = RAIZ / "src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs"
 # Desde a P0 da migração para Blazor (out/2026), as DUAS listas moram na Application —
 # a tela Blazor não alcança o módulo WPF. O `AbaDe` continua no ModuloClinico.
 _LISTAS_DO_PACIENTE = RAIZ / "src/Clinica.Application/Modelos/TelaDoPacienteNaTela.cs"
 
 
-def _secoes_do_workspace(texto: str) -> tuple[int, int]:
-    """Quantos rótulos escritos à mão o rail tem (deve ser ZERO) e quantas telas o
-    TabControl tem."""
-    return (len(re.findall(r"<ListBoxItem\b", texto)),
-            len(re.findall(r"<TabItem(?=[\s/>])", texto)))
+def _secoes_com_case(razor: str, listas: str) -> set[str]:
+    """Os NOMES de seção que o switch da tela Blazor trata (`case TelaDoPacienteNaTela.X:`),
+    resolvidos pelas constantes da Application."""
+    consts = dict(re.findall(r'public const string (\w+) = "([^"]+)";', listas))
+    return {consts.get(n, n) for n in re.findall(r"case\s+TelaDoPacienteNaTela\.(\w+)\s*:", razor)}
 
 
 def _grupos_declarados(texto: str) -> list[str]:
@@ -3312,12 +3315,7 @@ def _nomes_de_abade(texto: str) -> list[str]:
     return re.findall(r"=>\s*\"([^\"]+)\"", corpo.group(1))
 
 
-if _WORKSPACE.exists() and _MODULO_CLINICO.exists():
-    # Comentário XML fora, pela lição da checagem 31: prosa que cita
-    # `<TabItem>` não pode entrar na contagem.
-    _txt_ws = re.sub(r"<!--.*?-->", "", _WORKSPACE.read_text(encoding="utf-8"), flags=re.S)
-    _rotulos, _telas = _secoes_do_workspace(_txt_ws)
-
+if _TELA_PACIENTE.exists() and _MODULO_CLINICO.exists():
     _txt_mod = _sem_comentarios(_MODULO_CLINICO.read_text(encoding="utf-8"))
     # Sem o arquivo das listas a checagem ficaria CEGA (listas vazias = nada a comparar);
     # isso é erro, não silêncio.
@@ -3329,23 +3327,14 @@ if _WORKSPACE.exists() and _MODULO_CLINICO.exists():
     if _LISTAS_DO_PACIENTE.exists() and not _declaradas:
         erros.append(f"{_LISTAS_DO_PACIENTE.relative_to(RAIZ)}: a checagem 38 não achou `SecoesDoPaciente = [...]` — ela ficaria cega.")
 
-    # (a) uma seção declarada para cada tela do TabControl.
-    if _declaradas and len(_declaradas) != _telas:
-        erros.append(
-            f"{_WORKSPACE.relative_to(RAIZ)}: ModuloClinico.SecoesDoPaciente declara "
-            f"{len(_declaradas)} seção(ões) e o TabControl tem {_telas} tela(s). O rail e o "
-            f"TabControl seguem o MESMO SelectedIndex — a diferença faz o clique abrir a "
-            f"tela do vizinho, sem erro nenhum."
-        )
-
-    # (b) o rail não pode voltar a ter rótulo escrito à mão: ele é montado da lista do C#,
-    # e uma segunda lista aqui traria de volta a divergência que isso eliminou.
-    if _rotulos:
-        erros.append(
-            f"{_WORKSPACE.relative_to(RAIZ)}: o rail tem {_rotulos} <ListBoxItem> escrito à "
-            f"mão. Ele é montado de ModuloClinico.RailDoPaciente() — rótulo no XAML é uma "
-            f"SEGUNDA lista, e é ela que diverge da que resolve o índice de navegação."
-        )
+    # (a) cada seção declarada tem o seu `case` na tela Blazor.
+    _com_case = _secoes_com_case(_sem_comentarios(_TELA_PACIENTE.read_text(encoding="utf-8")), _txt_listas)
+    for _nome in _declaradas:
+        if _nome not in _com_case:
+            erros.append(
+                f"{_TELA_PACIENTE.relative_to(RAIZ)}: a seção “{_nome}” está em SecoesDoPaciente e "
+                f"o switch da tela não a trata — o rail mostra a porta e o miolo fica em branco."
+            )
 
     # Seção sem grupo sai do rail sem quebrar nada: as duas listas são casadas por posição.
     if _declaradas and _grupos and len(_declaradas) != len(_grupos):
@@ -3391,17 +3380,16 @@ for _cenario, _cs, _esperado in (
             f"leu {_grupos_declarados(_cs)}, esperado {_esperado}."
         )
 
-# ⚠️ O caso REAL que motivou a mudança: rail montado do C# (zero ListBoxItem) com dez
-# TabItem tem de passar; rótulo à mão de volta tem de reprovar.
-for _cenario, _xaml, _esperado in (
-    ("rail montado do C#", "<TabItem/><TabItem/>", (0, 2)),
-    ("estilo não é outra aba", "<TabItem><TabItem.Style><Style/></TabItem.Style></TabItem>", (0, 1)),
-    ("rótulo à mão de volta", '<ListBoxItem><TextBlock Text="Um" /></ListBoxItem><TabItem/>', (1, 1)),
+# O switch da tela: a constante é resolvida; seção sem `case` não aparece no conjunto.
+_lst = 'public const string Um = "Primeira";' + chr(10) + 'public const string Dois = "Segunda";'
+for _cenario, _razor, _esperado in (
+    ("dois cases", "case TelaDoPacienteNaTela.Um: case TelaDoPacienteNaTela.Dois:", {"Primeira", "Segunda"}),
+    ("um case só", "case TelaDoPacienteNaTela.Um:", {"Primeira"}),
 ):
-    if _secoes_do_workspace(_xaml) != _esperado:
+    if _secoes_com_case(_razor, _lst) != _esperado:
         erros.append(
             f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
-            f"contou {_secoes_do_workspace(_xaml)}, esperado {_esperado}."
+            f"leu {_secoes_com_case(_razor, _lst)}, esperado {_esperado}."
         )
 
 # --------------------------------------------------------------- checagem 39

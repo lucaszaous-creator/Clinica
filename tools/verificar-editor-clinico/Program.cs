@@ -183,29 +183,8 @@ static class Program
         Exigir(mapa.Pontos.Count == 3 && mapa.Observacoes == "Observações demonstrativas da equipe.", "Descartar não restaurou o mapa.");
         Exigir((await mapas.DaEvolucaoAsync(anterior.Id))!.Pontos.Count == 2, "Editar cópia alterou a sessão anterior.");
 
-        var agenda = servicos.GetRequiredService<AgendaService>();
-        var horario = await agenda.AgendarAsync(paciente.Id, dia.AddDays(-1).ToDateTime(new TimeOnly(13, 30)),
-            ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: profissional.Id);
-        var evo = await prontuario.SalvarAsync(new Evolucao { PacienteId = paciente.Id, ProfissionalId = profissional.Id,
-            AgendamentoId = horario.Id, Data = dia.AddDays(-1), TextoEvolucao = "Evolução salva, aguardando finalizar." });
-        var foco = provider.GetRequiredService<PacienteEmFoco>();
-        foco.Definir(paciente.Id, paciente.Nome, horario.Id, null, dia.AddDays(-1));
-        var workspace = new PacienteWorkspaceViewModel(provider, foco);
-        await Esperar(() => workspace.TemSessao && !workspace.Atendimento.Carregando && workspace.Atendimento.Mapa is not null);
-        Exigir(workspace.PodeFinalizarSessao && !workspace.EmAtendimento, "Finalizar continua dependendo do cronômetro.");
-        workspace.Atendimento.Mapa!.NomeProximoPonto = "Ponto da sessão";
-        workspace.Atendimento.Mapa.Marcar(FaceCorpo.Frente, .5, .4);
-        await workspace.FinalizarSessaoCommand.ExecuteAsync(null);
-        Exigir(workspace.SessaoConcluida, "Finalização da tela falhou: " + workspace.MensagemSessao);
-        using var conferencia = factory.CreateScope();
-        var db = conferencia.ServiceProvider.GetRequiredService<ClinicaDbContext>();
-        var salvo = await db.Agendamentos.SingleAsync(a => a.Id == horario.Id);
-        Exigir(salvo.Status == StatusAgendamento.Realizado && salvo.FimAtendimentoEm is not null && salvo.InicioAtendimentoEm is null,
-            "Estado de finalização incoerente.");
-        Exigir(await db.Evolucoes.AnyAsync(e => e.Id == evo.Id && e.AtendimentoId == salvo.AtendimentoId), "Evolução não vinculada ao atendimento.");
-        Exigir(await db.MapasCorporais.AnyAsync(m => m.EvolucaoId == evo.Id), "Mapa não vinculado à evolução.");
-        Exigir(await db.Codigos.AnyAsync(c => c.AtendimentoId == salvo.AtendimentoId), "Guias não geradas ao finalizar.");
-        Console.WriteLine("QA MAPA E FINALIZAÇÃO OK: modelo, cópia, desfazer, descarte, evolução, mapa e guias vinculados.");
+        // A finalização da sessão é da tela do paciente Blazor (out/2026), conferida no bUnit.
+        Console.WriteLine("QA MAPA OK: modelo, cópia, desfazer e descarte.");
     }
 
     static IEnumerable<T> Descendentes<T>(DependencyObject raiz) where T : DependencyObject

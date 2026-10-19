@@ -4,6 +4,7 @@ using Clinica.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 namespace Clinica.Windows.Tests;
 
 public sealed class PaginacaoPacienteTests : IDisposable

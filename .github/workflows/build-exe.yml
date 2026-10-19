@@ -116,9 +116,6 @@ jobs:
       - name: Testar carregamento e cache das telas Windows
         run: dotnet test tests/Clinica.Windows.Tests/Clinica.Windows.Tests.csproj -c Release
 
-      - name: Conferir consultas, abas sob demanda e paginação com dados fictícios
-        run: dotnet run --project tools/ValidarDesempenhoWindows -c Release
-
       - name: Conferir janelas responsivas com dados fictícios
         run: dotnet run --project tools/ValidarLayoutWindows -c Release
 
@@ -149,8 +146,6 @@ jobs:
       - name: Conferir infusões, modelos e catálogo de medicamentos
         run: dotnet run --project tools/VerificarInfusao -c Release -- artifacts/infusao-desktop
 
-      - name: Conferir atendimento, histórico e gravação no Windows
-        run: dotnet run --project tools/ValidarAtendimentoDesktop -c Release -- artifacts/atendimento-desktop
 
   # ============================================================
   # Os cinco .exe portáteis (ver docs/arquitetura-multi-exe.md).

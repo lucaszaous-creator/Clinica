@@ -1,6 +1,5 @@
 using Clinica.Clinico.ViewModels;
 using Clinica.Desktop.Shell.Componentes;
-using Clinica.Clinico.Views;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,7 +38,7 @@ public sealed class ModuloClinico : IModuloApp
     /// alguém renomeasse um dos dois (a regressão da parcela 37, 4ª rodada).
     /// </summary>
     public const string ChaveAtendimentoEnfermagem = ChavesSuite.AtendimentoEnfermagem;
-    public const string ChaveProntuario = "consultorio-prontuario";
+    public const string ChaveProntuario = ChavesSuite.ProntuarioDoPaciente;
     public const string ChaveEvolucaoDor = "consultorio-evolucao-dor";
     public const string ChaveMedidas = "consultorio-medidas";
     public const string ChaveAvaliacoes = "consultorio-avaliacoes";
@@ -527,7 +526,6 @@ public sealed class ModuloClinico : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
-        servicos.AddTransient<IFabricaFichaPaciente, FabricaFichaPaciente>();
         // O paciente do posto é SINGLETON: é o contexto do consultório, e as telas
         // clínicas o leem na abertura. Ver PacienteEmFoco.
         servicos.AddSingleton<PacienteEmFoco>();
@@ -545,28 +543,14 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosExames, JanelasDosExamesWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosProntuarios, JanelasDosProntuariosWpf>();
 
-        servicos.AddTransient<Clinica.Infrastructure.SessoesEnfermagemService>();
-        servicos.AddTransient<PrescricoesClinicasViewModel>();
-        servicos.AddTransient<PrescricaoInfusaoViewModel>(); // a SEÇÃO da tela do paciente (WPF) continua
+        servicos.AddTransient<Clinica.Infrastructure.SessoesEnfermagemService>(); // a SEÇÃO da tela do paciente (WPF) continua
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaPrescricaoDeInfusao, JanelasDaPrescricaoDeInfusaoWpf>();
         // A sala é publicada pelos dois módulos: TryAdd, uma ponte só no Gerente.
         Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
             Clinica.Ui.Blazor.Hospedagem.IJanelasDaSalaDeInfusao, Clinica.Desktop.Blazor.JanelasDaSalaDeInfusaoWpf>(servicos);
         Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaEnfermagem, Clinica.Desktop.Blazor.JanelasDaEnfermagemWpf>(servicos);
-        servicos.AddTransient<AtendimentoViewModel>();
-        servicos.AddTransient<AtendimentoEnfermagemViewModel>();
-        servicos.AddTransient<PacienteCapaViewModel>();
-        servicos.AddTransient<ProntuarioClinicoViewModel>();
-        servicos.AddTransient<EvolucaoDorViewModel>();
-        servicos.AddTransient<MedidasViewModel>();
-        servicos.AddTransient<AvaliacoesViewModel>();
-        servicos.AddTransient<AnamneseViewModel>();
-        servicos.AddTransient<AnexosPacienteViewModel>();
-        // AplicarAvaliacaoViewModel, AnexosSessaoViewModel, ProblemaEdicaoViewModel,
-        // PrescricaoInternaEdicaoViewModel, FolhaExecucaoViewModel e
-        // EscolherCertificadoViewModel são construídos à mão pela tela: eles recebem o
-        // paciente, a sessão, o problema ou a prescrição escolhidos, como todo formulário
-        // da suíte.
+        // PrescricaoInternaEdicaoViewModel, FolhaExecucaoViewModel e EscolherCertificadoViewModel
+        // são construídos à mão pelas pontes: eles recebem o paciente e a prescrição escolhidos.
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch

@@ -166,31 +166,7 @@ internal static partial class Program
                 }
                 catch(Exception ex) { Falhas.Add($"{nome}/{item.Chave}: {ex}"); }
             }
-            if(SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente))
-            {
-                var foco = new PacienteEmFoco(); foco.Definir(1001,"Paciente de demonstração");
-                sentinela.Proibir = !SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
-                sentinela.Leituras.Clear();
-                var ficha = provider.GetRequiredService<IFabricaFichaPaciente>().Criar(foco);
-                Conferir(ficha.GetType().Name == "PacienteWorkspaceView",$"{nome}: ficha canônica");
-                var vm = (Clinica.Clinico.ViewModels.PacienteWorkspaceViewModel)ficha.DataContext;
-                var outro = new PacienteEmFoco(); outro.Definir(1002,"Outro paciente fictício");
-                Conferir(!vm.Corresponde(outro),$"{nome}: impede reaproveitar ficha de outro paciente");
-                await vm.Capa.CarregarAsync();
-                if(sentinela.Proibir) Conferir(sentinela.Leituras.Count==0,$"{nome}: ficha administrativa não consulta prontuário");
-                sentinela.Proibir=false;
-                if(nome=="Gerente") {
-                    var editorOriginal=vm.Atendimento;
-                    using(var dbAtualizacao=new ClinicaDbContext(options)) { var p=await dbAtualizacao.Pacientes.FindAsync(1001);p!.Nome="Paciente demonstração atualizado";p.Endereco="Endereço atualizado fictício";await dbAtualizacao.SaveChangesAsync(); }
-                    await vm.AtualizarCadastroAsync();
-                    Conferir(vm.Paciente=="Paciente demonstração atualizado" && vm.Capa.Endereco=="Endereço atualizado fictício" && ReferenceEquals(vm.Atendimento,editorOriginal),"Editar cadastro atualiza ficha sem substituir editor clínico");
-                    using(var dbAtualizacao=new ClinicaDbContext(options)) { var p=await dbAtualizacao.Pacientes.FindAsync(1001);p!.Nome="Paciente de demonstração";p.Endereco="Rua de demonstração, 100 — Macaé/RJ";await dbAtualizacao.SaveChangesAsync(); }
-                    await vm.AtualizarCadastroAsync();
-                    await FotoAsync(ficha,"ficha-unificada.png");
-                    var admin=(FrameworkElement)vm.Administrativo!.Convenio;
-                    await FotoAsync(admin,"autorizacoes.png");
-                }
-            }
+            // A ficha do paciente é a tela Blazor (out/2026): conferida no bUnit (TelasBlazorAbremTests).
             if(nome=="Gerente")
             {
                 foreach(var chave in new[]{"pacientes-recepcao","agenda","faturamento-gerencial"})

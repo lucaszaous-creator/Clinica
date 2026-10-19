@@ -100,8 +100,9 @@ public sealed partial class FichaBalcaoViewModel : ObservableObject
     }
 
     /// <summary>
-    /// O prontuário clínico — a ficha ÚNICA do Consultório, numa janela por cima. A porta
-    /// que a ficha do balcão não pode tirar de quem já a tinha (a regra 3 do faturamento).
+    /// O prontuário clínico — a tela do paciente (Blazor, out/2026), no Histórico. A porta que a
+    /// ficha do balcão não pode tirar de quem já a tinha (a regra 3 do faturamento). A ficha
+    /// fecha e o shell navega: o paciente fica no foco do posto, como no "Atender".
     /// </summary>
     [RelayCommand]
     private void AbrirProntuario()
@@ -110,13 +111,15 @@ public sealed partial class FichaBalcaoViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir o prontuário");
             using var escopo = _escopos.CreateScope();
-            var foco = new PacienteEmFoco();
+            var foco = escopo.ServiceProvider.GetService<PacienteEmFoco>();
+            if (foco is null || !NavegacaoSuite.Existe(ChavesSuite.ProntuarioDoPaciente))
+            {
+                _snackbar.Info("O prontuário abre no aplicativo do Consultório.");
+                return;
+            }
             foco.Definir(Ficha.PacienteId, Ficha.Nome);
-            ConsultaContextualWindow? janela = null;
-            var ficha = escopo.ServiceProvider.GetRequiredService<IFabricaFichaPaciente>()
-                .Criar(foco, () => janela?.Close());
-            janela = new ConsultaContextualWindow($"Prontuário — {Ficha.Nome}", ficha, "Voltar à ficha");
-            janela.ShowDialog();
+            _voltar?.Invoke();
+            NavegacaoSuite.Ir(ChavesSuite.ProntuarioDoPaciente);
         }
         catch (Exception ex)
         {

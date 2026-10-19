@@ -7,7 +7,6 @@ using System.Windows.Media.Imaging;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Clinico.ViewModels;
-using Clinica.Clinico.Views;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain;
