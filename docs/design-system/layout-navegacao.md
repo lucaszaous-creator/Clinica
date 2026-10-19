@@ -1,5 +1,7 @@
 # Layout e navegação
 
+> **Referência atual — PRs 235 e 237 (out/2026):** consulte o [padrão desktop aprovado](padrao-desktop-aprovado.md). A suíte usa categorias superiores sublinhadas e menus brancos com ícones; o atendimento tem navegação local de 218 unidades e histórico contextual. As descrições de rail, sidebar global e shells abaixo registram decisões anteriores e não devem orientar a reprodução das telas reformuladas. As regras funcionais de navegação e permissões continuam relevantes.
+
 ⚠️ **Há DOIS shells**, e este documento descrevia só um. O do app de faturamento
 (`Clinica.Desktop/MainWindow.xaml`, congelado) e o da suíte
 (`Clinica.Desktop.Shell/Shell/ShellWindow.xaml`, que serve Recepção, Financeiro e Gerente).
