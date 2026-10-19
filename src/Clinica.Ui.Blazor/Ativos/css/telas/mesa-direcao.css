@@ -97,3 +97,10 @@
 .mesa-crm dt{color:var(--texto-secundario);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mesa-crm dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
 .mesa-crm dd small{font-weight:400;color:var(--texto-secundario)}
+
+/* Atalhos (out/2026): a régua leva às abas do Dinheiro, e cada número da linha de cartões leva à tela que o resolve. */
+.mesa-atalhos{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-6);padding:var(--space-3) var(--space-6);margin:0 calc(-1 * var(--space-6));
+  border-top:1px solid var(--borda);font-size:var(--text-table-size)}
+.mesa-atalhos .link,.kpi-ir{display:inline-flex;align-items:center;gap:var(--space-1)}
+.mesa-atalhos svg,.kpi-ir svg{width:14px;height:14px}
+.kpi-ir{margin-top:var(--space-2);font-size:var(--text-small-size);align-self:flex-start}

@@ -20,7 +20,7 @@
 @using Clinica.Application.Modelos
 
 <div class="pagina aud @(Carregando && _linhas is not null ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Direção · Conformidade e acessos" Titulo="Auditoria"
+    <CabecalhoPagina Sobretitulo="Direção · Conformidade" Titulo="Auditoria"
                      Subtitulo="Quem fez o quê, e quando. Toda ação que mexe em dinheiro ou permissão grava aqui — baixa de guia, estorno, glosa, lote, lançamento, conta, tributo, preço de convênio, criação de usuário e troca de senha.">
         <button type="button" class="botao" @onclick="CarregarAsync" title="Consultar de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
         <button type="button" class="botao" @onclick="ExportarAsync" title="Exportar a trilha filtrada em CSV (Ctrl+P)"

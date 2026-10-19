@@ -11,7 +11,7 @@
 @inherits TelaBase
 
 <div class="pagina custo @(Carregando && _painel is not null ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Direção · Preços e regras" Titulo="Custo de taxas e impostos"
+    <CabecalhoPagina Sobretitulo="Direção · Dinheiro" Titulo="Custo de taxas e impostos"
                      Subtitulo="Quanto a maquininha e o fisco custaram — e se a taxa que a clínica de fato paga bate com a contratada.">
         <div class="segmentado" role="group" aria-label="Meses">
             @foreach (var j in CustoTransacaoNaTela.Janelas)

@@ -11,7 +11,7 @@
 @using Clinica.Application.Modelos
 
 <div class="pagina indicadores @(Carregando && _painel is not null ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Direção · Produção e margem" Titulo="Indicadores"
+    <CabecalhoPagina Sobretitulo="Direção · Desempenho" Titulo="Indicadores"
                      Subtitulo="@(_painel is null ? "Ocupação, faltas e produtividade." : $"Ocupação, faltas e produtividade — {_painel.Intervalo}")">
         <div class="segmentado" role="group" aria-label="Período">
             @foreach (var p in ResumoFaturamentoNaTela.Periodos)

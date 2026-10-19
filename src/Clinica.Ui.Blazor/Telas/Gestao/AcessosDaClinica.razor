@@ -17,7 +17,7 @@
 @inherits TelaBase
 
 <div class="pagina acessos @(Carregando && _linhas.Count > 0 ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Direção · Conformidade e acessos" Titulo="Acessos"
+    <CabecalhoPagina Sobretitulo="Direção · Administração" Titulo="Acessos"
                      Subtitulo="Quem entra na suíte, com qual perfil e o que cada um pode fazer.">
         <button type="button" class="botao" @onclick="CarregarAsync" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
         <button type="button" class="botao primario" @onclick="Novo" disabled="@(!PodeGerenciar)"

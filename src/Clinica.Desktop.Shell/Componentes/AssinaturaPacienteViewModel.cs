@@ -156,34 +156,7 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
 
     public event Action? Fechou;
 
-    // ==================== A tela do paciente (parcela 66, 5ª rodada) ====================
-
-    /// <summary>
-    /// O monitor virado para o paciente, quando a clínica configurou um. Nulo = coleta numa
-    /// janela só, que é o modo de quem tem um monitor — e ele continua funcionando por
-    /// inteiro, porque a clínica pode ficar meses sem comprar o touch.
-    ///
-    /// Resolvido em <see cref="CarregarAsync"/> e não no construtor porque a leitura vai ao
-    /// banco; e resolvido pelo NOME do dispositivo, nunca pelo índice — a tela configurada
-    /// pode ter sido desligada desde ontem, e nesse caso a resposta certa é "não há segunda
-    /// tela", jamais "use a primeira que aparecer" (que seria o termo em tela cheia por cima
-    /// do trabalho da recepcionista).
-    /// </summary>
-    public TelaDoSistema? TelaDoPaciente { get; private set; }
-
-    /// <summary>
-    /// O termo terminou de carregar. É o que abre a tela do paciente — antes disso ela
-    /// mostraria um retângulo em branco virado para quem vai assinar, que é pior do que
-    /// tela nenhuma.
-    /// </summary>
-    public event Action? TermoCarregado;
-
-    /// <summary>
-    /// Uma declaração mudou de resposta aqui (ordem, resposta). A tela dele acompanha NO
-    /// MESMO INSTANTE: o selo do termo é o SHA-256 do que o paciente tinha na frente, e uma
-    /// tela atrasada faria a evidência afirmar algo que não é verdade.
-    /// </summary>
-    public event Action<int, string?>? DeclaracaoRespondida;
+    // ==================== Quem testemunha ====================
 
     /// <summary>
     /// Quem TESTEMUNHA a coleta. É quem fez LOGIN, nunca o usuário do Windows: no balcão
@@ -579,7 +552,6 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
             Corpo = _documento.Corpo ?? string.Empty;
             Numero = _documento.Numero;
 
-            foreach (var antiga in Declaracoes) antiga.PropertyChanged -= AoMudarDeclaracao;
             Declaracoes.Clear();
 
             foreach (var item in _documento.Itens.OrderBy(i => i.Ordem))
@@ -589,7 +561,6 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
                     Resposta = item.Quantidade
                 };
 
-                linha.PropertyChanged += AoMudarDeclaracao;
                 Declaracoes.Add(linha);
             }
 
@@ -629,12 +600,6 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
                         "Termo pelo WhatsApp — resposta pendente não pôde ser lida", ex);
                 }
             }
-
-            TelaDoPaciente = await ResolverTelaDoPacienteAsync();
-
-            // Depois de tudo montado: quem escuta abre a tela do paciente, e ela mostra o
-            // texto e as declarações que acabaram de chegar.
-            TermoCarregado?.Invoke();
         }
         catch (Exception ex)
         {
@@ -645,38 +610,6 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         finally
         {
             Carregando = false;
-        }
-    }
-
-    private void AoMudarDeclaracao(object? remetente, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName != nameof(DeclaracaoItem.Resposta)) return;
-        if (remetente is not DeclaracaoItem linha) return;
-
-        DeclaracaoRespondida?.Invoke(linha.Ordem, linha.Resposta);
-    }
-
-    /// <summary>
-    /// Qual monitor está virado para o paciente.
-    ///
-    /// Falha de leitura NÃO derruba a coleta — devolve nulo, e a assinatura acontece nesta
-    /// janela mesmo, que é o modo de sempre. Mas não passa calada: banco fora do ar não pode
-    /// impedir alguém de assinar um termo, e também não pode fazer a clínica achar que a
-    /// segunda tela parou de funcionar sem nenhum registro do porquê.
-    /// </summary>
-    private async Task<TelaDoSistema?> ResolverTelaDoPacienteAsync()
-    {
-        if (_parametros is null) return null;
-
-        try
-        {
-            return TelasDoSistema.Resolver(await _parametros.ObterTelaDoPacienteAsync());
-        }
-        catch (Exception ex)
-        {
-            Application.Diagnostico.Registrar(
-                "Assinatura do paciente — tela configurada não pôde ser lida", ex);
-            return null;
         }
     }
 

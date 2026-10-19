@@ -15,7 +15,7 @@
 @inherits TelaBase
 
 <div class="pagina @(Carregando && _margem is not null ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Direção · Produção e margem" Titulo="Margem por sessão"
+    <CabecalhoPagina Sobretitulo="Direção · Dinheiro" Titulo="Margem por sessão"
                      Subtitulo="Receita que entrou menos taxa, imposto, insumo e repasse. Só conta a sessão que já tem receita lançada.">
         <SeletorMes Valor="_mes" ValorChanged="TrocarMesAsync" />
         <button type="button" class="botao" @onclick="CarregarAsync" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>

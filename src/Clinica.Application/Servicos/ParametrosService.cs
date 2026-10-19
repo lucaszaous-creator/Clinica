@@ -243,22 +243,10 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
-    // ---- Tela que o PACIENTE vê (parcela 66, 5ª rodada) ----
-
-    public const string ChaveTelaDoPaciente = "TelaDoPacienteDispositivo";
-
-    public async Task<string?> ObterTelaDoPacienteAsync(CancellationToken ct = default)
-    {
-        var valor = await _repo.ObterConfiguracaoAsync(ChaveTelaDoPaciente, ct);
-        return string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
-    }
-
-    public async Task SalvarTelaDoPacienteAsync(string? dispositivo, CancellationToken ct = default)
-    {
-        await _repo.SalvarConfiguracaoAsync(
-            ChaveTelaDoPaciente, dispositivo?.Trim() ?? string.Empty, ct);
-        await _repo.SalvarAsync(ct);
-    }
+    // ---- Tela que o PACIENTE vê: REMOVIDA em out/2026 (decisão da direção) ----
+    // A chave "TelaDoPacienteDispositivo" pode continuar gravada nas bases que a usaram:
+    // ninguém mais a lê nem a grava, e apagá-la exigiria migration por nada. A coleta da
+    // assinatura do paciente é sempre na janela única (docs/termo-assinado-pelo-paciente.md §3.8).
 
     // ---- Publicação do documento assinado (parcela 53) ----
 
