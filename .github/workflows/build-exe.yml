@@ -15,12 +15,19 @@ name: Build EXE (Windows)
 # O que se perde: um push DIRETO na main (sem PR) não gera build. Aqui tudo entra
 # por PR; para o caso raro, o `workflow_dispatch` roda em qualquer branch.
 #
-# ⚠️ EM PARALELO, desde out/2026 (eram ~15 min em fila num job só). Três jobs correm
-# juntos: `testes` (Linux, em quatro fatias — o que não precisa de Windows, e Linux é faturado 1×),
-# `conferencias` (testes e verificadores de tela no Windows) e `publicar` (os cinco .exe).
-# O job `build` só espera os três e responde por eles: é o NOME do check do PR, e
-# renomeá-lo soltaria qualquer regra de proteção da main que o exija. O cache do NuGet
-# corta a restauração em todos.
+# ⚠️ TUDO EM PARALELO, desde out/2026 (eram ~15–18 min; a meta é ~7). Três jobs correm
+# juntos: `testes` (Linux, em SEIS fatias de duração igual — o que não precisa de Windows, e
+# Linux é faturado 1×), `conferencias` (testes e verificadores de tela no Windows) e
+# `publicar` (os cinco .exe). O job `build` espera os três e responde por eles: é o NOME do
+# check do PR, e renomeá-lo soltaria qualquer regra de proteção da main que o exija. O cache
+# do NuGet corta a restauração em todos.
+#
+# ⚠️ O `.exe` de commit reprovado NÃO fica para download (pedido da direção) — e isso não exige
+# mais esperar os testes para começar a gerar. O `publicar` roda junto; se `testes` ou
+# `conferencias` reprovarem, o `build` APAGA os artefatos Clinica-* do run. É o desenho dos CIs
+# grandes: o artefato de PR é de verificação (vive 7 dias), e quem distribui à clínica é a
+# release (`release.yml`), que continua sendo uma decisão separada. Enquanto o run está no ar
+# o `.exe` existe sem veredito — o check do PR, amarelo, diz isso; ninguém deve baixá-lo antes.
 #
 # ⚠️ É o ÚNICO CI de código desde out/2026: o `verificar.yml` (Linux, em todo push) saiu
 # para economizar minutos de Actions. Postgres, tablet, web de leitura e compilação-sombra
@@ -53,18 +60,19 @@ jobs:
   # ============================================================
   # O que não precisa de Windows: redes estáticas e a suíte geral.
   # ============================================================
-  # ⚠️ EM QUATRO FATIAS PARALELAS desde out/2026: a suíte inteira levava 27 min num job só
-  # (ela roda em série dentro do processo — AssemblyInfo.cs), e o PR esperava 32. Cada fatia
-  # é um processo próprio, então o estado estático não vaza entre elas; quem divide é o
-  # `FatiaDaSuite` (tests/Clinica.Tests), pela variável CLINICA_FATIA. Linux custa 1×, então
-  # quatro jobs de ~6 min custam quase o mesmo que um de 27 — e o PR fica pronto em ~13.
-  # O check `build` continua respondendo pelas quatro (needs.testes.result é o conjunto).
+  # ⚠️ EM SEIS FATIAS PARALELAS, divididas pelo TEMPO MEDIDO de cada teste (out/2026): a
+  # suíte roda em série dentro do processo (AssemblyInfo.cs) e levaria ~21 min num job só.
+  # Cada fatia é um processo próprio, então o estado estático não vaza entre elas; quem divide
+  # é o `FatiaDaSuite` (tests/Clinica.Tests), pela variável CLINICA_FATIA e pela tabela
+  # `tempos-dos-testes.json` — regrave-a com `tools/medir-tempos-dos-testes.py` quando uma
+  # fatia passar a demorar visivelmente mais que as outras. Linux custa 1×: seis jobs de ~5 min
+  # custam quase o mesmo que um de 21. O check `build` responde pelas seis.
   testes:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        fatia: [1, 2, 3, 4]
-    name: testes (${{ matrix.fatia }}/4)
+        fatia: [1, 2, 3, 4, 5, 6]
+    name: testes (${{ matrix.fatia }}/6)
     steps:
       - uses: actions/checkout@v5
 
@@ -88,9 +96,9 @@ jobs:
         if: matrix.fatia == 1
         run: python3 tools/verificar-suite.py
 
-      - name: Testes (fatia ${{ matrix.fatia }} de 4)
+      - name: Testes (fatia ${{ matrix.fatia }} de 6)
         env:
-          CLINICA_FATIA: ${{ matrix.fatia }}/4
+          CLINICA_FATIA: ${{ matrix.fatia }}/6
         run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
 
   # ============================================================
@@ -150,12 +158,12 @@ jobs:
   # ============================================================
   # Os cinco .exe portáteis (ver docs/arquitetura-multi-exe.md).
   # Estes projetos são net8.0-windows/WPF e NÃO compilam em Linux.
-  # Só são gerados DEPOIS de os testes e as conferências passarem (out/2026, pedido da
-  # direção): artefato de um commit reprovado não pode ficar disponível para download.
+  # Rodam JUNTO com os testes (out/2026): esperar por eles somava ~5 min ao PR. O pedido da
+  # direção continua valendo — artefato de commit reprovado não fica disponível —, e quem o
+  # cumpre agora é o job `build`, que apaga os Clinica-* quando testes ou conferências reprovam.
   # ============================================================
   publicar:
     runs-on: windows-latest
-    needs: [testes, conferencias]
     steps:
       - uses: actions/checkout@v5
 
@@ -188,6 +196,7 @@ jobs:
           name: Clinica-Faturamento-win-x64
           path: publish/
           if-no-files-found: error
+          retention-days: 7
 
       - name: Publicar .exe da Recepção (self-contained, arquivo único)
         run: >
@@ -206,6 +215,7 @@ jobs:
           name: Clinica-Recepcao-win-x64
           path: publish-recepcao/
           if-no-files-found: error
+          retention-days: 7
 
       - name: Publicar .exe do Consultório (self-contained, arquivo único)
         run: >
@@ -224,6 +234,7 @@ jobs:
           name: Clinica-Consultorio-win-x64
           path: publish-clinico/
           if-no-files-found: error
+          retention-days: 7
 
       - name: Publicar .exe do Financeiro (self-contained, arquivo único)
         run: >
@@ -242,6 +253,7 @@ jobs:
           name: Clinica-Financeiro-win-x64
           path: publish-financeiro/
           if-no-files-found: error
+          retention-days: 7
 
       - name: Publicar .exe do Gerente Geral (self-contained, arquivo único)
         run: >
@@ -260,6 +272,7 @@ jobs:
           name: Clinica-Gerente-win-x64
           path: publish-gerente/
           if-no-files-found: error
+          retention-days: 7
 
   # ============================================================
   # O check `build` do PR: verde só quando os três ficaram verdes.
@@ -268,7 +281,22 @@ jobs:
     runs-on: ubuntu-latest
     needs: [testes, conferencias, publicar]
     if: always()
+    permissions:
+      actions: write   # só para apagar os .exe de um commit reprovado
     steps:
+      - name: Apagar os .exe de um commit reprovado
+        if: needs.testes.result != 'success' || needs.conferencias.result != 'success' || needs.publicar.result != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # As fotos da troca de telas (trocas-blazor) ficam: são o diagnóstico da reprovação.
+          gh api --paginate "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq '.artifacts[] | select(.name | startswith("Clinica-")) | "\(.id) \(.name)"' |
+          while read -r id nome; do
+            echo "apagando $nome"
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id"
+          done
+
       - name: Conferir os três jobs
         run: |
           echo "testes=${{ needs.testes.result }} conferencias=${{ needs.conferencias.result }} publicar=${{ needs.publicar.result }}"

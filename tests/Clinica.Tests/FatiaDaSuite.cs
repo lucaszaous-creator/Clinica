@@ -16,10 +16,16 @@ namespace Clinica.Tests;
 /// Com <c>CLINICA_FATIA=i/n</c> (i de 1 a n) a descoberta descarta o que não é da fatia i.
 /// Sem a variável, NADA muda: a rodada local continua sendo a suíte inteira.
 ///
-/// A divisão é por CLASSE (a fixture de uma classe é montada uma vez por fatia), pelo hash
-/// estável do nome — classe nova cai numa fatia sozinha, sem lista para manter. A exceção são
+/// A divisão é por CLASSE (a fixture de uma classe é montada uma vez por fatia). A exceção são
 /// as classes marcadas com <see cref="FatiarPorCasoAttribute"/>: elas são grandes demais
 /// para caber numa fatia só, e cada CASO (cada tela) vai para a sua.
+///
+/// ⚠️ PELO TEMPO MEDIDO, desde out/2026. Pelo hash do nome as fatias saíam desiguais (7,2
+/// contra 3,9 min), e o PR espera a mais lenta. Agora <c>tempos-dos-testes.json</c> (gravado
+/// por <c>tools/medir-tempos-dos-testes.py</c>) diz quanto cada chave demora, e as conhecidas
+/// são distribuídas da mais longa para a mais curta, cada uma na fatia mais leve até ali — o
+/// "split by timings" dos CIs grandes. Chave fora do arquivo (teste novo) cai pelo hash, como
+/// antes: tempo desatualizado só piora o equilíbrio, nunca deixa teste de fora.
 /// </summary>
 public sealed class FatiaDaSuite(IMessageSink sink) : XunitTestFramework(sink)
 {
@@ -39,9 +45,50 @@ public sealed class FatiaDaSuite(IMessageSink sink) : XunitTestFramework(sink)
             ? (i, n) : null;
     }
 
-    /// <summary>A fatia (1..n) de uma chave. FNV-1a: estável entre processos e máquinas,
-    /// ao contrário de string.GetHashCode, que muda a cada execução.</summary>
+    /// <summary>
+    /// A fatia (1..n) de uma chave: pela tabela de tempos quando a chave foi medida, pelo hash
+    /// quando não.
+    /// </summary>
     public static int FatiaDe(string chave, int total)
+        => Distribuir(Tempos.Value, total).TryGetValue(chave, out var fatia) ? fatia : FatiaPeloHash(chave, total);
+
+    private static readonly Lazy<IReadOnlyDictionary<string, double>> Tempos = new(LerTempos);
+
+    /// <summary>A tabela embutida (vazia quando o recurso não foi embutido no build).</summary>
+    public static IReadOnlyDictionary<string, double> TemposMedidos => Tempos.Value;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, IReadOnlyDictionary<string, int>> _distribuicoes = new();
+
+    private static IReadOnlyDictionary<string, double> LerTempos()
+    {
+        using var fluxo = typeof(FatiaDaSuite).Assembly.GetManifestResourceStream("tempos-dos-testes.json");
+        if (fluxo is null) return new Dictionary<string, double>();
+        return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(fluxo) ?? new();
+    }
+
+    /// <summary>
+    /// Maior primeiro, cada uma na fatia mais leve até ali (LPT). Determinística: empate de
+    /// tempo desempata pelo nome, empate de carga pela fatia de menor número — os quatro jobs
+    /// do CI calculam a MESMA tabela, ou um teste ficaria em duas fatias e outro em nenhuma.
+    /// </summary>
+    public static IReadOnlyDictionary<string, int> Distribuir(IReadOnlyDictionary<string, double> tempos, int total)
+    {
+        if (ReferenceEquals(tempos, Tempos.Value) && _distribuicoes.TryGetValue(total, out var pronta)) return pronta;
+        var carga = new double[total];
+        var mapa = new Dictionary<string, int>();
+        foreach (var (chave, segundos) in tempos.OrderByDescending(t => t.Value).ThenBy(t => t.Key, StringComparer.Ordinal))
+        {
+            var leve = 0;
+            for (var i = 1; i < total; i++) if (carga[i] < carga[leve]) leve = i;
+            carga[leve] += segundos;
+            mapa[chave] = leve + 1;
+        }
+        if (ReferenceEquals(tempos, Tempos.Value)) _distribuicoes[total] = mapa;
+        return mapa;
+    }
+
+    /// <summary>FNV-1a: estável entre processos e máquinas, ao contrário de
+    /// string.GetHashCode, que muda a cada execução.</summary>
+    public static int FatiaPeloHash(string chave, int total)
     {
         var h = 2166136261u;
         foreach (var b in Encoding.UTF8.GetBytes(chave)) { h ^= b; h *= 16777619u; }

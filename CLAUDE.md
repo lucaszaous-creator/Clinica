@@ -4215,17 +4215,24 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do posto — e o app não abriu com o mesmo 42501. A chave só nasce onde
   `has_table_privilege(…, 'REFERENCES')`, e `deploy/tablet/comissao-recuperacao-chave.sql`
   a cria como dono. **Tabela nova que aponta para tabela do posto: chave condicional + script.**
-- **O build do Windows roda em duas etapas** (out/2026): `testes` em Linux (o que não
-  precisa de WPF) e `conferencias` no Windows correm em PARALELO; `publicar` (os cinco
-  `.exe`) só começa depois que os DOIS passaram — pedido da direção: `.exe` de commit
-  reprovado não fica para download. O job `build` espera os três — é o nome do check do PR. Passo novo entra no job certo;
-  pôr teste de Linux no runner Windows paga 2× e alonga a fila.
-- **A suíte roda em QUATRO FATIAS no CI** (out/2026): eram 27 min num job só e o PR esperava
-  32 — a meta da direção é **no máximo 13**. `FatiaDaSuite` (xUnit `TestFramework`) descarta
-  na descoberta o que não é da fatia `CLINICA_FATIA=i/n`; sem a variável roda tudo. Divide
-  por CLASSE (hash estável do nome); classe grande demais leva `[FatiarPorCaso]` e cada caso
-  vai para uma fatia (hoje só `TelasBlazorAbremTests`). Localmente dá para rodar as quatro em
-  paralelo (`for i in 1 2 3 4; do CLINICA_FATIA=$i/4 dotnet test … & done; wait`). ⚠️ **Teste
+- **O build do PR roda TUDO EM PARALELO** (out/2026): `testes` em Linux (seis fatias),
+  `conferencias` no Windows e `publicar` (os cinco `.exe`) começam juntos, e o job `build` —
+  o nome do check do PR — espera os três. O pedido da direção (`.exe` de commit reprovado não
+  fica para download) é cumprido pelo `build`, que APAGA os artefatos `Clinica-*` do run
+  quando algum dos três reprova; esperar os testes para só então gerar somava ~5 min ao PR.
+  Artefato de PR vive 7 dias (`retention-days`) — quem distribui à clínica é a release.
+  Passo novo entra no job certo; pôr teste de Linux no runner Windows paga 2× e alonga a fila.
+- **A suíte roda em SEIS FATIAS no CI, divididas pelo TEMPO MEDIDO** (out/2026): eram 27 min
+  num job só. `FatiaDaSuite` (xUnit `TestFramework`) descarta na descoberta o que não é da
+  fatia `CLINICA_FATIA=i/n`; sem a variável roda tudo. Divide por CLASSE; classe grande demais
+  leva `[FatiarPorCaso]` e cada caso vai para uma fatia (`TelasBlazorAbremTests`,
+  `PalcoTrocaRepetidaTests`). A distribuição sai de `tempos-dos-testes.json` (maior primeiro,
+  na fatia mais leve — o "split by timings" dos CIs grandes): pelo hash do nome as fatias
+  saíam com 3,9 e 7,2 min. Chave fora da tabela cai pelo hash. **Regrave a tabela**
+  (`tools/medir-tempos-dos-testes.py`, a partir dos `.trx`) quando uma fatia do CI passar a
+  demorar visivelmente mais que as outras. `FatiaDaSuiteTests` prova que toda chave cai em
+  UMA fatia. Localmente dá para rodar as fatias em
+  paralelo (`for i in 1 2 3 4 5 6; do CLINICA_FATIA=$i/6 dotnet test … & done; wait`). ⚠️ **Teste
   que espera a tela "assentar" paga a espera em CADA passo**: o mínimo de 150 ms do
   `Assentar` (50 ms × 3) era mais da metade do tempo da suíte; virou 60 ms (15 × 4), provado
   com um `throw` num botão. Teste novo de tela que espera por laço usa a mesma batida.
