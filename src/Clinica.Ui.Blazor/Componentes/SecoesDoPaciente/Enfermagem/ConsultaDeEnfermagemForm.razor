@@ -1,0 +1,149 @@
+@*
+  A CONSULTA DE ENFERMAGEM — as cinco etapas da COFEN 358/2009 num formulário GRANDE (out/2026:
+  substitui a ConsultaDeEnfermagemWindow + ProcessoDeEnfermagemView WPF). O pedido da clínica:
+  "um pop out ao clicar em Consulta de enfermagem" para "ler tudo e todas as opções".
+
+  ⚠️ Recebe o MESMO EstadoDaPassagem da folha de trás, nunca uma cópia: quem grava é o Registrar
+  de lá. Por isso NÃO há "Salvar" aqui — o rodapé escreve isso em vez de deixar a pessoa supor.
+  As etapas em ABAS, cada uma rola por dentro; o aviso do que falta fica acima delas (avisa, não
+  impede: quem colhe o histórico agora e fecha a avaliação depois está fazendo o certo). Sem
+  ponto no rótulo das abas: o aviso já NOMEIA a etapa que falta (um estado por pergunta).
+*@
+@namespace Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="@Estado.Paciente" Largura="largo" AoFechar="AoFechar"
+       Subtitulo="Consulta de enfermagem — COFEN 358/2009. Preencha o que tem agora e complete depois: o histórico na admissão, a avaliação no fim.">
+    <ChildContent>
+        <Aviso Texto="@Estado.EtapasEmFalta" Tom="atencao" />
+        <fieldset class="enf-consulta-form" disabled="@(!EstadoDaPassagem.PodeRegistrar)">
+            <div class="abas" role="tablist" aria-label="Etapas da consulta de enfermagem">
+                @foreach (var (i, rotulo) in Abas)
+                {
+                    <button type="button" role="tab" aria-selected="@(_aba == i ? "true" : "false")" @onclick="() => _aba = i">@rotulo</button>
+                }
+            </div>
+
+            <div class="enf-etapa">
+                @switch (_aba)
+                {
+                    case 0:
+                        <Campo Rotulo="1 · Histórico de enfermagem (coleta de dados)" Classe="largo"
+                               Dica="O que o paciente relata, o que já usa, hábitos, rede de apoio — a anamnese DE ENFERMAGEM, que a consulta médica não colhe.">
+                            <textarea class="campo" rows="4" @bind="Estado.Historico" maxlength="4000"></textarea>
+                        </Campo>
+                        <p class="enf-rotulo">Acesso venoso (quando há)</p>
+                        <div class="enf-acesso">
+                            <input class="campo" @bind="Estado.AcessoLocal" placeholder="local (ex.: MSD, antecubital)" maxlength="80" aria-label="Local do acesso" />
+                            <input class="campo" @bind="Estado.AcessoCalibre" placeholder="calibre" maxlength="20" aria-label="Calibre do acesso" />
+                            <input class="campo" type="date" value="@Estado.AcessoPuncionadoEm?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)"
+                                   @onchange="TrocarPuncao" title="Quando foi puncionado — pode ser antes desta passagem." aria-label="Data da punção" />
+                        </div>
+                        <p class="secundario enf-legenda">Em branco quer dizer “não avaliado”, e não “não há acesso” — se não há, escreva no texto da passagem.</p>
+                        <Campo Rotulo="Exame físico" Classe="largo" Dica="Céfalo-podal na medida do que a passagem exige: pele, acesso venoso, edema, ausculta.">
+                            <textarea class="campo" rows="4" @bind="Estado.ExameFisico" maxlength="4000"></textarea>
+                        </Campo>
+                        break;
+
+                    case 1:
+                        <div class="enf-etapa-topo">
+                            <div>
+                                <p class="enf-rotulo">2 e 3 · Diagnóstico de enfermagem e resultado esperado</p>
+                                <p class="secundario enf-legenda">A redação tem três partes — o problema, o “relacionado a” e o “evidenciado por”. É a terceira que permite avaliar depois se ele foi resolvido.</p>
+                            </div>
+                            <div class="botoes-linha">
+                                <button type="button" class="botao" @onclick="() => _catalogo = Catalogo.Diagnosticos"
+                                        title="A lista inteira, com o resultado esperado de cada diagnóstico e quantos cuidados ele traz.">Escolher do catálogo…</button>
+                                <button type="button" class="botao" @onclick="Estado.NovoDiagnostico"
+                                        title="O catálogo é ATALHO, não a lista fechada do que a enfermagem pode diagnosticar.">Escrever à mão</button>
+                            </div>
+                        </div>
+                        @foreach (var d in Estado.Diagnosticos)
+                        {
+                            <div class="cartao enf-diagnostico">
+                                <div class="enf-linha-acao">
+                                    <input class="campo principal" @bind="d.Titulo" placeholder="O problema" maxlength="200" aria-label="Diagnóstico" />
+                                    <button type="button" class="botao contorno-perigo" @onclick="() => Estado.RemoverDiagnostico(d)">Remover</button>
+                                </div>
+                                <Campo Rotulo="relacionado a"><input class="campo" @bind="d.RelacionadoA" placeholder="a causa provável — é onde o cuidado age" maxlength="300" /></Campo>
+                                <Campo Rotulo="evidenciado por"><input class="campo" @bind="d.EvidenciadoPor" placeholder="o achado que sustenta o diagnóstico" maxlength="300" /></Campo>
+                                <Campo Rotulo="Resultado esperado (etapa 3 — o planejamento)">
+                                    <textarea class="campo" rows="2" @bind="d.ResultadoEsperado" placeholder="o que se espera alcançar, e em que prazo" maxlength="500"></textarea>
+                                </Campo>
+                            </div>
+                        }
+                        break;
+
+                    case 2:
+                        <div class="enf-etapa-topo">
+                            <div>
+                                <p class="enf-rotulo">4 · Prescrição de enfermagem</p>
+                                <p class="secundario enf-legenda">O que a ENFERMAGEM prescreve — os cuidados. Não confunda com a folha de infusão, que é prescrição médica e a enfermagem executa. A frequência é parte do cuidado.</p>
+                            </div>
+                            <div class="botoes-linha">
+                                <button type="button" class="botao" @onclick="() => _catalogo = Catalogo.Cuidados"
+                                        title="A lista inteira, com a frequência sugerida de cada cuidado.">Escolher do catálogo…</button>
+                                <button type="button" class="botao" @onclick="Estado.NovoCuidado">Escrever à mão</button>
+                            </div>
+                        </div>
+                        @foreach (var c in Estado.Cuidados)
+                        {
+                            <div class="enf-cuidado">
+                                <div class="enf-cuidado-texto">
+                                    <input class="campo" @bind="c.Descricao" placeholder="o cuidado" maxlength="300" aria-label="Cuidado" />
+                                    @if (c.Sugerido)
+                                    {
+                                        <span class="secundario enf-legenda">sugerido pelo diagnóstico — confira e ajuste</span>
+                                    }
+                                </div>
+                                <div class="enf-cuidado-freq">
+                                    <input class="campo" @bind="c.Frequencia" placeholder="frequência" maxlength="120" aria-label="Frequência" />
+                                    <label class="marcar" title="Só se executa quando a condição acontece. Não entra na conta de cuidados aguardando registro.">
+                                        <input type="checkbox" @bind="c.SeNecessario" />se necessário
+                                    </label>
+                                </div>
+                                <button type="button" class="botao contorno-perigo" @onclick="() => Estado.RemoverCuidado(c)">Remover</button>
+                            </div>
+                        }
+                        break;
+
+                    default:
+                        <Campo Rotulo="5 · Avaliação de enfermagem" Classe="largo"
+                               Dica="O que aconteceu com o que foi prescrito. É a etapa que fecha o processo — sem ela o plano vira uma lista de intenções.">
+                            <textarea class="campo" rows="5" @bind="Estado.Avaliacao" maxlength="4000"></textarea>
+                        </Campo>
+                        break;
+                }
+            </div>
+        </fieldset>
+    </ChildContent>
+    <Rodape>
+        <span class="secundario enf-legenda">O que você escreve aqui entra na hora, no registro de trás. Não há “Salvar” aqui — quem grava é o Registrar da passagem.</span>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@if (_catalogo is { } qual)
+{
+    <CatalogoDeEnfermagemForm Estado="Estado" DeDiagnosticos="@(qual == Catalogo.Diagnosticos)" AoFechar="() => _catalogo = null" />
+}
+
+@code {
+    [Parameter, EditorRequired] public EstadoDaPassagem Estado { get; set; } = default!;
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private enum Catalogo { Diagnosticos, Cuidados }
+
+    private static readonly (int, string)[] Abas =
+    [
+        (0, "1 · Histórico"), (1, "2 e 3 · Diagnósticos"), (2, "4 · Cuidados"), (3, "5 · Avaliação")
+    ];
+
+    private int _aba;
+    private Catalogo? _catalogo;
+
+    private void TrocarPuncao(ChangeEventArgs e)
+        => Estado.AcessoPuncionadoEm = DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd",
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+}

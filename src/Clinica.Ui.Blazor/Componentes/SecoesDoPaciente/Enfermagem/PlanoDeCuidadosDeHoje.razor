@@ -1,0 +1,154 @@
+@*
+  O PLANO DE CUIDADOS DE HOJE — a etapa 4 da COFEN 358/2009 na tela de quem executa (out/2026:
+  substitui o PlanoDeCuidadosViewModel + o bloco de XAML das duas telas WPF). A enfermeira
+  prescreve o cuidado na consulta ("curativo a cada 12h") e quem executa marca aqui: Feito, ou
+  Não feito com a justificativa — a "rodela" do papel. Cuidado que não se registra é, para a
+  fiscalização, cuidado que não aconteceu.
+
+  As três regras caras: a HORA é um campo, não o relógio (a técnica faz às 14h e digita às 14h20;
+  o relógio fica em RegistradoEm, ao lado); não realizado EXIGE justificativa (perguntada aqui, e
+  o serviço recusa sem ela); e a leitura falha SOZINHA — vira o terceiro estado, nunca "não há
+  plano". O "se necessário" tem selo próprio e não conta como pendente.
+
+  A região SOME quando não há plano (caixa vazia permanente para dizer que não há nada é a faixa
+  que come a tela); na falha ela FICA, para mostrar que não foi possível ler. A mensagem do ato
+  vai para quem hospeda (AoMensagem): uma superfície de mensagem por tela.
+*@
+@namespace Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+@if (_temPlano)
+{
+    <section class="cartao enf-plano">
+        <div class="cartao-corpo">
+            <div class="enf-plano-topo">
+                <div>
+                    <p class="enf-rotulo">Plano de cuidados de hoje</p>
+                    <p class="@(_naoVerificado ? "enf-falha" : "secundario")">@_resumo</p>
+                </div>
+                <label class="enf-plano-hora">
+                    <span class="secundario">Hora</span>
+                    <input class="campo enf-curto" type="time" value="@_hora" @onchange="e => _hora = e.Value?.ToString() ?? string.Empty" disabled="@(!PodeChecar)"
+                           title="A hora em que o cuidado foi executado — não a de agora." />
+                </label>
+            </div>
+            <ul class="enf-plano-lista">
+                @foreach (var c in _linhas)
+                {
+                    <li @key="c.CuidadoId">
+                        <div class="enf-plano-texto">
+                            <span class="principal">@c.Redacao @if (!string.IsNullOrEmpty(c.Selo)) { <Selo Tom="aviso">@c.Selo</Selo> }</span>
+                            @if (!string.IsNullOrWhiteSpace(c.Registro))
+                            {
+                                <span class="secundario enf-registro">@c.Registro</span>
+                            }
+                        </div>
+                        <div class="botoes-linha">
+                            <button type="button" class="botao mini primario" disabled="@(!PodeChecar || _ocupado)" @onclick="() => RegistrarAsync(c, SituacaoChecagem.Realizado)">Feito</button>
+                            <button type="button" class="botao mini" disabled="@(!PodeChecar || _ocupado)" @onclick="() => RegistrarAsync(c, SituacaoChecagem.NaoRealizado)"
+                                    title="A “rodela” do papel: o horário circulado, com a justificativa escrita.">Não feito</button>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+    </section>
+}
+
+@code {
+    /// <summary>De quem é o plano. Zero limpa a região.</summary>
+    [Parameter] public int PacienteId { get; set; }
+
+    /// <summary>Muda quando quem hospeda quer que o plano seja relido (a consulta acabou de prescrever).</summary>
+    [Parameter] public int Recarga { get; set; }
+
+    /// <summary>A frase do ato (registrado / recusado), para a superfície de mensagem de quem hospeda.</summary>
+    [Parameter] public EventCallback<(string Texto, bool Erro)> AoMensagem { get; set; }
+
+    private IReadOnlyList<LinhaDoPlano> _linhas = [];
+    private string _resumo = string.Empty;
+    private bool _temPlano, _naoVerificado, _ocupado;
+    private string _hora = DateTime.Now.ToString("HH:mm");
+    private int _geracao;
+    private (int Paciente, int Recarga)? _lido;
+
+    /// <summary>O MESMO bit da folha de infusão: checar a execução é o mesmo ato e a mesma responsabilidade.</summary>
+    private static bool PodeChecar => Pode(Permissao.ChecarPrescricao);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_lido == (PacienteId, Recarga)) return;
+        _lido = (PacienteId, Recarga);
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        if (PacienteId == 0 || !Pode(Permissao.VerProntuario))
+        {
+            _linhas = [];
+            _temPlano = false;
+            _naoVerificado = false;
+            _resumo = string.Empty;
+            return;
+        }
+        try
+        {
+            PlanoDeCuidadosDoDia? plano;
+            using (var escopo = Escopo())
+                plano = await escopo.ServiceProvider.GetRequiredService<ChecagemCuidadoService>()
+                    .PlanoDoDiaAsync(PacienteId, DateOnly.FromDateTime(DateTime.Today));
+            if (geracao != _geracao || Descartada) return;
+            _linhas = PlanoDeCuidadosNaTela.Linhas(plano);
+            _temPlano = plano is not null;
+            _naoVerificado = false;
+            _resumo = PlanoDeCuidadosNaTela.Resumo(plano);
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao || Descartada) return;
+            _linhas = [];
+            _temPlano = true; // a região FICA para mostrar o terceiro estado
+            _naoVerificado = true;
+            _resumo = PlanoDeCuidadosNaTela.FalhaDeLeitura;
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — plano de cuidados não pôde ser lido", ex);
+        }
+    }
+
+    private async Task RegistrarAsync(LinhaDoPlano linha, SituacaoChecagem situacao)
+    {
+        if (!Exigir(Permissao.ChecarPrescricao, "registrar a execução de um cuidado") || _ocupado) return;
+        if (PassagemDeEnfermagemNaTela.LerHora(_hora) is not { } hora)
+        {
+            await AoMensagem.InvokeAsync((PlanoDeCuidadosNaTela.HoraInvalida(_hora), true));
+            return;
+        }
+
+        string? justificativa = null;
+        if (situacao == SituacaoChecagem.NaoRealizado)
+        {
+            justificativa = await Dialogos.PerguntarTextoAsync(PlanoDeCuidadosNaTela.PerguntaNaoFeitoTitulo,
+                PlanoDeCuidadosNaTela.PerguntaNaoFeito(linha.Redacao));
+            if (string.IsNullOrWhiteSpace(justificativa)) return; // desistiu: nada se grava
+        }
+
+        _ocupado = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ChecagemCuidadoService>()
+                    .ChecarAsync(linha.CuidadoId, situacao, DateOnly.FromDateTime(DateTime.Today), hora,
+                        EstadoDaPassagem.Executante(), justificativa);
+            await AoMensagem.InvokeAsync((PlanoDeCuidadosNaTela.Registrado(linha.Redacao, situacao, hora), false));
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — execução do cuidado não pôde ser registrada", ex);
+            await AoMensagem.InvokeAsync((ex.Message, true));
+        }
+        finally { _ocupado = false; }
+    }
+}
