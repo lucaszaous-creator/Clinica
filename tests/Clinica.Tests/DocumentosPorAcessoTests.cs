@@ -77,7 +77,6 @@ public class DocumentosPorAcessoTests
     /// </summary>
     [Theory]
     [InlineData("comparecimento")]
-    [InlineData("consentimento")]
     public void Balcao_continua_alcancando_o_que_nao_e_dado_de_saude(string chave)
         => Chaves(Balcao).Should().Contain(chave);
 

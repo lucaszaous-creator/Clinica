@@ -205,13 +205,14 @@ public class ConsentimentoElegibilidadeTests : IDisposable
     }
 
     [Fact]
-    public async Task Elegibilidade_SemConsentimentoLgpd_Avisa()
+    public async Task Elegibilidade_SemConsentimentoLgpd_NaoAvisaMais()
     {
+        // Out/2026, decisão da direção: os avisos de LGPD saíram do balcão.
         var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
 
         var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
 
-        resultado.Alertas.Should().Contain(a =>
+        resultado.Alertas.Should().NotContain(a =>
             a.Motivo == ImpedimentoElegibilidade.SemConsentimentoLgpd);
     }
 

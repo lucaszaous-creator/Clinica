@@ -353,33 +353,6 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     // ---- O termo LGPD assinado pelo paciente (parcela 89) ----
 
-    /// <summary>
-    /// O que a aba LGPD diz de relance sobre o termo. As respostas não se fundem: "nunca
-    /// colhido" é tarefa que ninguém começou, "aguardando" é papel já emitido esperando a
-    /// assinatura (do balcão ou do celular), e a data do assinado é a prova. Uma frase só
-    /// faria a segunda parecer a primeira, e o balcão emitiria outro termo em cima do que
-    /// o paciente está lendo no telefone.
-    ///
-    /// ⚠️ Nasce em "Conferindo…" e não em "Nenhum termo": antes de a leitura voltar, o
-    /// sistema não SABE, e afirmar que nunca foi colhido é a resposta que faz a
-    /// recepcionista começar um termo que já existe.
-    /// </summary>
-    [ObservableProperty] private string _termoLgpdSituacao = "Conferindo…";
-
-    /// <summary>
-    /// O termo já emitido e ainda não assinado, quando existe — para a coleta REAPROVEITAR
-    /// em vez de emitir outro. Dois papéis do mesmo ato com números diferentes é o que
-    /// faria a auditoria perguntar qual deles vale.
-    /// </summary>
-    public int? TermoLgpdPendenteId { get; private set; }
-
-    /// <summary>
-    /// A metade VISÍVEL do acesso. A que IMPEDE é o <c>Pode</c> no comando, e ela DIZ por
-    /// que recusou — só desabilitar é enfeite, porque o atalho de teclado passa direto.
-    /// </summary>
-    public bool PodeColherTermoLgpd
-        => SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
-
     /// <summary>Código do convênio do paciente, para a janela de autorização já vir escolhida.</summary>
     private string? _convenioCodigo;
 
@@ -1423,15 +1396,9 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     {
         var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
-        // ⚠️ LIMPA ANTES de ir ao banco, como a carga dos termos do dia logo abaixo. Uma
-        // falha na leitura deixaria as linhas do paciente ANTERIOR na tela, com o nome do
-        // novo no cabeçalho — e o botão "Colher assinatura…" apontando para o
-        // `TermoLgpdPendenteId` do outro. Um clique assinaria o termo de quem já saiu, em
-        // nome de quem está na frente (a lição da parcela 66, 2ª rodada).
+        // LIMPA ANTES de ir ao banco: uma falha na leitura não pode deixar as linhas do
+        // paciente ANTERIOR na tela com o nome do novo no cabeçalho.
         Documentos.Clear();
-        TermoLgpdPendenteId = null;
-        OnPropertyChanged(nameof(TermoLgpdPendenteId));
-        TermoLgpdSituacao = "Conferindo…";
 
         var doPaciente = await servico.DoPacienteAsync(pacienteId);
         if (geracao != _geracaoCarga) return;
@@ -1457,82 +1424,6 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
                 LinhaDocumento.De(d).Tipo, $"{d.Numero}{(d.Profissional is null ? "" : " · " + d.Profissional.Rotulo)}", "documento"))
             .ToList();
 
-        // O termo LGPD sai da mesma leitura, mas precisa de UMA pergunta a mais: quais
-        // deles carregam as finalidades (parcela 89, 2ª rodada). A resposta não vem daqui
-        // porque `DocumentosDoPacienteAsync` não traz os itens de propósito.
-        var comFinalidade = await servico.TermosLgpdComFinalidadeAsync(pacienteId);
-        if (geracao != _geracaoCarga) return;
-
-        AplicarTermoLgpd(doPaciente, comFinalidade);
-    }
-
-    /// <summary>
-    /// A situação do termo LGPD, derivada dos documentos do paciente.
-    ///
-    /// ⚠️ O CANCELADO não conta como assinado nem segura a coleta: cancelar um termo é
-    /// justamente o gesto que pede outro. E o pendente é o MAIS RECENTE em aberto — se
-    /// houver mais de um (dois cliques em máquinas diferentes), reaproveitar o antigo
-    /// deixaria o novo pendente para sempre na tela.
-    ///
-    /// ⚠️ SÓ os termos que carregam FINALIDADE contam, nas DUAS pontas (parcela 89, 2ª
-    /// rodada — o defeito que a clínica encontrou):
-    ///
-    /// - como PENDENTE, porque reaproveitar um termo da versão anterior levava o paciente
-    ///   a assinar um papel que não registra consentimento nenhum;
-    /// - como ASSINADO, porque escrever "Assinado em 26/08" sobre um papel desses seria a
-    ///   tela AFIRMANDO que a manifestação existe enquanto o alerta "sem consentimento
-    ///   LGPD" continua aceso no balcão. Duas verdades sobre o mesmo fato.
-    /// </summary>
-    /// <param name="comFinalidade">
-    /// Os ids dos termos cujos itens carregam a finalidade. Vem de uma consulta própria: a
-    /// leitura dos documentos não traz os itens, e decidir por uma navegação vazia faria
-    /// TODO termo — o novo inclusive — parecer da versão anterior, com o teste passando
-    /// pelo fixup do EF (a lição da parcela 68).
-    /// </param>
-    private void AplicarTermoLgpd(
-        IReadOnlyList<DocumentoClinico> doPaciente, IReadOnlyList<int> comFinalidade)
-    {
-        var respondiveis = comFinalidade.ToHashSet();
-
-        var termos = doPaciente
-            .Where(d => d.Tipo == TipoDocumentoClinico.Consentimento)
-            .ToList();
-
-        var assinado = termos
-            .Where(d => d.PacienteAssinou && !d.Cancelado && respondiveis.Contains(d.Id))
-            .OrderByDescending(d => d.PacienteAssinadoEm)
-            .FirstOrDefault();
-
-        var pendente = termos
-            .Where(d => d.AguardaAssinaturaDoPaciente && respondiveis.Contains(d.Id))
-            .OrderByDescending(d => d.Id)
-            .FirstOrDefault();
-
-        // Um termo da versão anterior que alguém já assinou. Não vale como manifestação, e
-        // a tela DIZ isso: sumir com ele faria a recepcionista jurar que colheu — ela
-        // colheu mesmo, num papel que não registra.
-        var antigoAssinado = assinado is null
-                             && termos.Any(d => d.PacienteAssinou && !d.Cancelado
-                                                && !respondiveis.Contains(d.Id));
-
-        TermoLgpdPendenteId = pendente?.Id;
-        OnPropertyChanged(nameof(TermoLgpdPendenteId));
-        OnPropertyChanged(nameof(PodeColherTermoLgpd));
-
-        TermoLgpdSituacao = pendente is not null
-            ? $"Termo {pendente.Numero} emitido em {pendente.Data:dd/MM/yyyy} e ainda NÃO assinado."
-            : assinado is not null
-                ? $"Assinado em {assinado.PacienteAssinadoEm:dd/MM/yyyy 'às' HH:mm} "
-                  + $"(termo {assinado.Numero})."
-                : antigoAssinado
-                    ? "Há termo assinado de uma versão anterior do sistema — ele não traz as "
-                      + "respostas por finalidade e NÃO vale como manifestação do titular. "
-                      + "Colha um novo."
-                    // ⚠️ A frase fala do TERMO, e só dele. Dizer aqui que "as finalidades
-                    // continuam sem manifestação" seria FALSO para a base que já existe:
-                    // os consentimentos colhidos pela caixinha antiga estão gravados, e a
-                    // lista abaixo os mostra com a data. Uma afirmação por pergunta.
-                    : "Nenhum termo assinado por este paciente.";
     }
 
     /// <summary>
@@ -1699,56 +1590,45 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Colhe o TERMO LGPD assinado pelo paciente (parcela 89) — o único caminho para
-    /// conceder ou recusar as quatro finalidades.
-    ///
-    /// ⚠️ Até aqui o balcão marcava "Concedeu"/"Recusou" em quatro pares de botões, sem
-    /// assinatura nenhuma: o sistema afirmava, para uma auditoria, que o titular havia
-    /// consentido — e a única prova era a palavra de quem clicou. O art. 8º da LGPD pede
-    /// manifestação do TITULAR, e o §2º põe o ônus da prova em quem trata o dado.
-    ///
-    /// A janela é a MESMA do termo de procedimento, e ela já oferece as duas formas: o
-    /// traço na tela do balcão (ou na segunda tela, quando a clínica tem o monitor) e o
-    /// envio do link pelo WhatsApp, que volta assinado do celular do paciente. Uma porta
-    /// só, porque quem escolhe a forma é quem está com a pessoa na frente.
+    /// Registra a autorização de uma finalidade (out/2026). O termo LGPD assinado saiu por
+    /// decisão da direção — "os avisos e o termo" —, e sem ele as finalidades não teriam como
+    /// ser concedidas: as campanhas e o SMS, que continuam respeitando o consentimento de
+    /// comunicação, deixariam de alcançar todo paciente novo. O registro é feito por quem
+    /// fez LOGIN, com o canal escrito na observação e a linha na trilha de auditoria; revogar
+    /// continua não apagando o anterior.
     /// </summary>
     [RelayCommand]
-    private async Task ColherTermoLgpdAsync()
+    private async Task RegistrarConsentimentoAsync(LinhaConsentimento? linha)
     {
-        // A barreira que IMPEDE, e ela DIZ por que recusou (a lição da parcela 41).
-        if (!SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente))
+        if (!SessaoUsuario.Atual.Pode(Permissao.EditarPaciente))
         {
             MensagemEhErro = true;
-            Mensagem = "Você não tem permissão para colher a assinatura do paciente. "
-                       + "Peça à direção o acesso \"Colher assinatura do paciente\".";
+            Mensagem = "Você não tem permissão para registrar a autorização do paciente.";
             return;
         }
+        if (linha is null || PacienteId == 0 || linha.Vigente) return;
 
-        if (PacienteId == 0)
-        {
-            MensagemEhErro = true;
-            Mensagem = "Abra a ficha de um paciente antes de colher o termo.";
-            return;
-        }
+        var como = _dialogo.PerguntarTexto(
+            "Registrar autorização",
+            $"Como o paciente autorizou \"{linha.Rotulo}\"? (ex.: verbalmente no balcão, por mensagem)",
+            obrigatorio: false);
+        if (como is null) return;
 
         try
         {
-            var concluiu = Clinica.Desktop.Shell.Componentes.ColetaDeTermo.AbrirConsentimentoLgpd(
-                // Reaproveita o termo já emitido e não assinado, quando existe: emitir
-                // outro deixaria dois papéis do mesmo ato com números diferentes.
-                _escopos, PacienteId, Nome, TermoLgpdPendenteId);
-
-            // Recarrega mesmo sem concluir: abrir a janela já EMITE o termo numerado.
+            using var scope = _escopos.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<ConsentimentoService>();
+            await servico.RegistrarAsync(PacienteId, linha.Finalidade, concedido: true,
+                versaoTermo: "Registro no balcão", operador: SessaoUsuario.Atual.Operador,
+                observacoes: string.IsNullOrWhiteSpace(como) ? null : como.Trim());
+            _snackbar.Sucesso("Autorização registrada.");
             await CarregarAsync();
-
-            if (concluiu) _snackbar.Sucesso("Termo de consentimento assinado.");
         }
         catch (Exception ex)
         {
+            Clinica.Application.Diagnostico.Registrar("Recepção — autorização não pôde ser registrada", ex);
+            Mensagem = ex.Message;
             MensagemEhErro = true;
-            Mensagem = $"Não foi possível abrir o termo de consentimento: {ex.Message}";
-            Clinica.Application.Diagnostico.Registrar(
-                "Recepção — coleta do termo LGPD pela ficha", ex);
         }
     }
 

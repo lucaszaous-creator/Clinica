@@ -393,31 +393,11 @@ public sealed class CentralDocumentosService
             PermissaoEmitir = Permissao.VerProntuario
         },
 
-        // O termo de consentimento é a peça da LGPD, não do prontuário — e desde a parcela
-        // 89 ele é ASSINADO PELO PACIENTE, como o termo do procedimento: as quatro
-        // finalidades saem impressas como declarações Sim/Não, e a resposta que ele assina
-        // é o que o sistema passa a consultar.
-        //
-        // ⚠️ Por isso a exigência deixou de ser `PacienteComProntuario`: o cartão não
-        // EMITE um papel em branco, ele LEVA à coleta (a mesma janela do termo de
-        // procedimento, com o traço na tela, a segunda tela e o envio pelo WhatsApp).
-        // Emitir sem colher deixaria um termo numerado e pendente que ninguém assinaria —
-        // e a leitura natural de um papel que saiu é que o consentimento foi colhido.
-        //
-        // O acesso para VER continua sendo o do CADASTRO (o termo LGPD não carrega dado de
-        // saúde, ao contrário do termo de procedimento); o de agir virou
-        // `ColherAssinaturaPaciente`, porque o ato passou a ser colher assinatura.
-        new("consentimento", "Termo de consentimento (LGPD)",
-            "As quatro finalidades como declarações Sim/Não, assinadas pelo paciente. "
-            + "A resposta assinada vira o consentimento que o sistema consulta.",
-            NaturezaFolha.Clinico, ExigenciaFolha.TermoParaAssinar)
-        {
-            TipoClinico = TipoDocumentoClinico.Consentimento,
-            PermissaoVer = Permissao.VerFichaPaciente,
-            PermissaoEmitir = Permissao.ColherAssinaturaPaciente
-        },
+        // O termo de consentimento LGPD saiu do catálogo em out/2026 (decisão da direção: "os
+        // avisos e o termo"). A autorização por finalidade é registrada na aba Privacidade da
+        // ficha; os termos já emitidos continuam na lista do paciente e com 2ª via.
 
-        // ⚠️ NÃO é o "consentimento" acima, que é o termo LGPD montado do cadastro. Este é o
+        // ⚠️ NÃO é o termo LGPD (que saiu do catálogo em out/2026). Este é o
         // consentimento do PROCEDIMENTO (o BSV, com a declaração de jejum), o texto vem de
         // um modelo escrito pela clínica, e quem assina é o PACIENTE. Duas folhas porque
         // são duas perguntas — ver o enum `TipoDocumentoClinico.TermoProcedimento`.

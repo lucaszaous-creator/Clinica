@@ -65,14 +65,15 @@ public class ElegibilidadeParalelaTests : IDisposable
         _db.Pacientes.Add(p);
         await _db.SaveChangesAsync();
         var repo = new ClinicaRepositorio(_db);
-        // Dívida vencida e sem consentimento: dois blocos diferentes produzem alerta.
+        // Carteirinha vencida e dívida vencida: dois blocos diferentes produzem alerta (o de
+        // consentimento LGPD saiu do balcão em out/2026).
         await new ContasService(repo).LancarContaAsync(TipoLancamento.Entrada, "Sessão avulsa", 120m,
             vencimento: Hoje.AddDays(-20), pacienteId: p.Id);
 
         var emFila = await Servico(repo).ConferirAsync(p.Id, Hoje);
         var emParalelo = await Servico(repo, new PorEscopo(Contexto)).ConferirAsync(p.Id, Hoje);
 
-        emFila.Alertas.Count.Should().BeGreaterThan(2);
+        emFila.Alertas.Count.Should().BeGreaterThanOrEqualTo(2);
         emParalelo.Alertas.Select(a => (a.Motivo, a.Descricao, a.Urgencia))
             .Should().Equal(emFila.Alertas.Select(a => (a.Motivo, a.Descricao, a.Urgencia)));
         emParalelo.PacienteNome.Should().Be(emFila.PacienteNome);
