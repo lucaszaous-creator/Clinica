@@ -572,7 +572,7 @@ public sealed class ModuloClinico : IModuloApp
     {
         ChaveSessoesEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SessoesDeEnfermagem), servicos),
         ChaveMeuDia => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MeuDia), servicos),
-        ChavePacientesDaClinica => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(1),
+        ChavePacientesDaClinica => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PacientesDaClinica), servicos),
         ChaveProntuarios => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProntuariosDoPosto), servicos),
         ChaveExames => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PedidosDeExame), servicos),
         ChaveRegistrosPendentes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SessoesSemEvolucao), servicos),

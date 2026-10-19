@@ -470,7 +470,6 @@ public sealed class ModuloRecepcao : IModuloApp
     public void Registrar(IServiceCollection servicos)
     {
         servicos.AddTransient<IFichaAdministrativaPaciente, FichaAdministrativaPaciente>();
-        servicos.AddTransient<IFabricaListaPacientes, FabricaListaPacientes>();
         // A ponte agenda → novo atendimento (parcela 70): singleton de UM pedido de
         // pré-preenchimento, definido por quem navega e consumido pela tela ao abrir.
         servicos.AddSingleton<PreenchimentoNovoAtendimento>();
@@ -509,8 +508,8 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavePainel => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.InicioRecepcao), servicos),
         ChaveAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.GradeDaAgenda), servicos),
         ChaveFila => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AgendaDoDia), servicos),
-        // A lista de Pacientes do BALCÃO é Blazor (out/2026); o Prontuário e o Consultório,
-        // que reusam a lista WPF pela `IFabricaListaPacientes`, continuam na ficha clínica.
+        // As listas de pacientes são Blazor (out/2026): a do BALCÃO abre a ficha do balcão; o
+        // Prontuário usa a ListaDePacientesDoPosto e abre a tela do paciente no Histórico.
         ChavePacientes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PacientesDoBalcao), servicos),
         ChaveMarcarHorario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MarcarAtendimento), servicos),
         ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
@@ -530,7 +529,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // Blazor desde out/2026 — as mesmas telas que o Financeiro e o Gerente publicam pela mesma chave.
         ChavePacotes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PacotesDaClinica), servicos),
         ChavePrecosParticular => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrecosDoParticular), servicos),
-        ChaveProntuario => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(secao: 3),
+        ChaveProntuario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProntuarioPorPaciente), servicos),
         ChaveDocumentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao), servicos),
         ChaveEquipe => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProfissionaisESalas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.

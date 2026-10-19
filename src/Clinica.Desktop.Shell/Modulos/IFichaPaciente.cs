@@ -24,11 +24,6 @@ public interface IFichaAdministrativaPaciente
     Task AtualizarAsync();
 }
 
-public interface IFabricaListaPacientes
-{
-    System.Windows.FrameworkElement Criar(int filtro = 0, int secao = 2);
-}
-
 public interface IContextoPaciente
 {
     bool Corresponde(PacienteEmFoco foco);

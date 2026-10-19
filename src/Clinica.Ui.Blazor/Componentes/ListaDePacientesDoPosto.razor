@@ -1,0 +1,262 @@
+@*
+  A LISTA DE PACIENTES QUE LEVA À TELA DO PACIENTE (out/2026 — substitui a PacientesView WPF
+  que o Consultório ("Pacientes") e a Recepção ("Prontuário › Por paciente") reusavam pela
+  IFabricaListaPacientes). Duas portas, UMA lista: o que muda entre elas é a seção da tela do
+  paciente que o clique abre (Ficha × Histórico) e o recorte com que ela nasce.
+
+  A busca é a MESMA do balcão (BuscaDePacienteNaTela: nome, CPF ou telefone, quem tem horário
+  hoje, "Todos os pacientes" a um clique) — o cadastro inteiro nunca vem sozinho, porque foi a
+  consulta mais cara do sistema. "Em tratamento" é dado clínico (quem já teve sessão): só
+  aparece para quem tem VerProntuario.
+
+  O clique fixa o paciente no posto e navega (IPostoDoConsultorio). Sem posto (a prévia, os
+  testes) a tela DIZ onde a tela do paciente abre, em vez de um clique que não faz nada.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina rec-pacientes">
+    <CabecalhoPagina Sobretitulo="@Sobretitulo" Titulo="@Titulo" Subtitulo="@Subtitulo" />
+
+    <BuscaDePacienteNaTela Pergunta="@Pergunta" Contexto="@Contexto"
+                           SugestaoDeHoje="true" PermiteVerTodos="true" Limite="30"
+                           AoEscolher="AbrirAsync"
+                           CadastroNaFileira="false"
+                           AoVerTodos="() => ListarAsync(FiltroListaPacientes.Todos)"
+                           TodosMarcado="@(_filtro == FiltroListaPacientes.Todos)"
+                           OcultarResultados="@(_filtro is not null)"
+                           AoRetomarBusca="LargarRecorte">
+        <Recortes>
+            @if (PodeVerTratamento)
+            {
+                <button type="button" class="chip" aria-pressed="@(_filtro == FiltroListaPacientes.EmTratamento ? "true" : "false")"
+                        @onclick="() => AlternarRecorteAsync(FiltroListaPacientes.EmTratamento)">@PacientesDoBalcaoNaTela.Rotulo(FiltroListaPacientes.EmTratamento)</button>
+            }
+        </Recortes>
+    </BuscaDePacienteNaTela>
+
+    @if (_filtro is { } atual)
+    {
+        <section class="cartao lista-cartao rec-pac-lista" aria-label="@PacientesDoBalcaoNaTela.Rotulo(atual)">
+            <div class="filtros rec-pac-barra">
+                <div class="rec-pac-titulo">
+                    <strong>@PacientesDoBalcaoNaTela.Rotulo(atual)</strong>
+                    <span class="secundario">@PacientesDoBalcaoNaTela.Explicacao(atual, Hoje)</span>
+                </div>
+                <button type="button" class="botao fantasma" @onclick="LargarRecorte"><Icone Nome="esquerda" />Voltar à busca</button>
+            </div>
+
+            @if (_naoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível listar os pacientes" Detalhe="@_erroLeitura" AoTentarDeNovo="() => ListarAsync(atual)" />
+            }
+            else if (_carregando && _linhas.Count == 0)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+            }
+            else if (_linhas.Count == 0)
+            {
+                <EstadoVazio Titulo="@PacientesDoBalcaoNaTela.Vazio(atual)" Icone="pessoas"
+                             Descricao="Volte à busca para procurar pelo nome, CPF ou telefone." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista rec-pac-tabela">
+                        <thead>
+                            <tr><th>Paciente</th><th style="width:150px">Telefone</th><th>Convênio</th><th class="direita">Ação</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in _linhas)
+                            {
+                                <tr @key="l.Paciente.Id" class="rec-pac-linha" @onclick="() => AbrirAsync(l.Paciente)">
+                                    <td>
+                                        <div class="rec-pac-paciente">
+                                            <span class="avatar rec-pac-avatar" aria-hidden="true">@Iniciais(l.Paciente.Nome)</span>
+                                            <div>
+                                                <span class="principal" title="@l.Paciente.Nome">@l.Paciente.Nome</span>
+                                                <span class="secundario">@l.Identificacao</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="nao-quebra">@l.Telefone</td>
+                                    <td title="@l.ConvenioCompleto">
+                                        @if (l.ConvenioADefinir) { <Selo Tom="aviso">@l.Convenio</Selo> }
+                                        else { @l.Convenio }
+                                    </td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini primario" @onclick:stopPropagation="true" @onclick="() => AbrirAsync(l.Paciente)"
+                                                title="@RotuloDoClique de @l.Paciente.Nome"><Icone Nome="abrir" />@RotuloDoClique</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista rec-pac-rodape">
+                    <span>@PacientesDoBalcaoNaTela.Rodape(_linhas.Count, atual, null, _temMais)</span>
+                    @if (_temMais)
+                    {
+                        <button type="button" class="botao" disabled="@_carregando" @onclick="CarregarMaisAsync">
+                            @(_carregando ? "Carregando…" : $"Carregar mais {PacientesDoBalcaoNaTela.TamanhoDaPagina}")
+                        </button>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Sobretitulo { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Titulo { get; set; } = string.Empty;
+    [Parameter] public string? Subtitulo { get; set; }
+    [Parameter] public string Pergunta { get; set; } = "Quem você procura?";
+    [Parameter] public string Contexto { get; set; } = "Digite o nome, o CPF ou o telefone.";
+    /// <summary>A seção da tela do paciente que o clique abre.</summary>
+    [Parameter] public DestinoNoPosto Destino { get; set; } = DestinoNoPosto.Paciente;
+    /// <summary>O verbo do botão da linha ("Abrir ficha", "Abrir prontuário").</summary>
+    [Parameter] public string RotuloDoClique { get; set; } = "Abrir";
+    /// <summary>O recorte com que a lista nasce — nulo abre na busca.</summary>
+    [Parameter] public FiltroListaPacientes? RecorteInicial { get; set; }
+
+    private FiltroListaPacientes? _filtro;
+    private List<LinhaPacienteDoBalcao> _linhas = [];
+    private bool _temMais, _carregando, _naoVerificado, _iniciou;
+    private string? _erroLeitura;
+    private int _geracao;
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static bool PodeVerTratamento => Pode(Permissao.VerProntuario);
+    private IPostoDoConsultorio Posto => Servicos.GetService<IPostoDoConsultorio>() ?? PostoDoConsultorioIndisponivel.Instancia;
+
+    protected override Task OnParametersSetAsync()
+    {
+        if (_iniciou) return Task.CompletedTask;
+        _iniciou = true;
+        // "Em tratamento" é dado clínico: sem VerProntuario, a lista nasce na busca.
+        return RecorteInicial is { } r && (r != FiltroListaPacientes.EmTratamento || PodeVerTratamento)
+            ? ListarAsync(r)
+            : Task.CompletedTask;
+    }
+
+    /// <summary>Voltar à aba relê em silêncio a página que está na tela.</summary>
+    protected override Task AoVoltarAsync() => _filtro is { } f ? ListarAsync(f, silencioso: true) : Task.CompletedTask;
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? AoVoltarAsync() : Task.CompletedTask;
+
+    private Task AlternarRecorteAsync(FiltroListaPacientes filtro)
+    {
+        if (_filtro == filtro) { LargarRecorte(); return Task.CompletedTask; }
+        return ListarAsync(filtro);
+    }
+
+    private void LargarRecorte()
+    {
+        _filtro = null;
+        _geracao++;
+        _linhas = [];
+        _temMais = false;
+        _carregando = false;
+        _naoVerificado = false;
+    }
+
+    private async Task ListarAsync(FiltroListaPacientes filtro, bool silencioso = false)
+    {
+        if (!ExigirAlgum(Permissao.VerFichaPaciente | Permissao.VerProntuario, "consultar pacientes")) return;
+        var g = ++_geracao;
+        var quantidade = silencioso ? Math.Max(_linhas.Count, PacientesDoBalcaoNaTela.TamanhoDaPagina) : PacientesDoBalcaoNaTela.TamanhoDaPagina;
+        if (!silencioso)
+        {
+            // Limpa ANTES do await: a lista de outro recorte não pode ficar na tela enquanto este lê.
+            _filtro = filtro;
+            _linhas = [];
+            _temMais = false;
+            _naoVerificado = false;
+        }
+        _carregando = true;
+        try
+        {
+            IReadOnlyList<Paciente> pagina;
+            using (var escopo = Escopo())
+                pagina = await escopo.ServiceProvider.GetRequiredService<PacienteService>().BuscarPaginaAsync(null, 0, quantidade, filtro);
+            if (g != _geracao || Descartada) return;
+            var hoje = Hoje;
+            _linhas = pagina.Select(p => PacientesDoBalcaoNaTela.Linha(p, hoje)).ToList();
+            _temMais = pagina.Count >= quantidade;
+            _naoVerificado = false;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — lista de pacientes do posto", ex);
+            if (silencioso && _linhas.Count > 0) return;
+            _naoVerificado = true;
+            _erroLeitura = ex.Message;
+            _linhas = [];
+        }
+        finally
+        {
+            if (g == _geracao) _carregando = false;
+        }
+    }
+
+    private async Task CarregarMaisAsync()
+    {
+        if (_filtro is not { } filtro || _carregando) return;
+        var g = ++_geracao;
+        _carregando = true;
+        try
+        {
+            IReadOnlyList<Paciente> pagina;
+            using (var escopo = Escopo())
+                pagina = await escopo.ServiceProvider.GetRequiredService<PacienteService>()
+                    .BuscarPaginaAsync(null, _linhas.Count, PacientesDoBalcaoNaTela.TamanhoDaPagina, filtro);
+            if (g != _geracao || Descartada) return;
+            var hoje = Hoje;
+            var ja = _linhas.Select(l => l.Paciente.Id).ToHashSet();
+            _linhas = [.. _linhas, .. pagina.Where(p => ja.Add(p.Id)).Select(p => PacientesDoBalcaoNaTela.Linha(p, hoje))];
+            _temMais = pagina.Count >= PacientesDoBalcaoNaTela.TamanhoDaPagina;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — próxima página de pacientes do posto", ex);
+            Notificacoes.Erro("Não foi possível carregar mais pacientes agora — tente de novo.");
+        }
+        finally
+        {
+            if (g == _geracao) _carregando = false;
+        }
+    }
+
+    /// <summary>Fixa o paciente no posto e abre a tela dele na seção desta porta.</summary>
+    private async Task AbrirAsync(Paciente p)
+    {
+        if (!ExigirAlgum(Permissao.VerFichaPaciente | Permissao.VerProntuario, "abrir o paciente")) return;
+        try
+        {
+            if (!await Posto.AbrirNoPostoAsync(new PacienteNoPosto(p.Id, p.Nome, null, null, null), Destino))
+                Notificacoes.Info(PostoDoConsultorioIndisponivel.Frase);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — abrir o paciente pela lista", ex);
+            Notificacoes.Erro($"Não foi possível abrir o paciente: {ex.Message}");
+        }
+    }
+
+    private static string Iniciais(string nome)
+    {
+        var partes = nome.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => partes[0][..1].ToUpperInvariant(),
+            _ => $"{partes[0][0]}{partes[^1][0]}".ToUpperInvariant()
+        };
+    }
+}
