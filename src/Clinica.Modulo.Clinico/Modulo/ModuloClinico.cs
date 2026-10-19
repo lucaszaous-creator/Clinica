@@ -507,6 +507,24 @@ public sealed class ModuloClinico : IModuloApp
         _ => 0
     };
 
+    /// <summary>
+    /// A tela do paciente é BLAZOR desde out/2026 (a PacienteWorkspaceView WPF saiu). O paciente
+    /// vem do <see cref="PacienteEmFoco"/> — quem navega fixa o foco antes, como sempre — e a
+    /// seção sai da chave pelo MESMO mapa de sempre (<see cref="AbaDe"/>). O pedido fica no
+    /// <c>PedidoDaTelaDoPaciente</c>, que a tela lê ao abrir e a cada volta; o mesmo pedido não
+    /// remonta as seções.
+    /// </summary>
+    private static object? TelaDoPaciente(string chave, IServiceProvider servicos)
+    {
+        var foco = servicos.GetRequiredService<PacienteEmFoco>();
+        if (foco.PacienteId is { } id)
+            servicos.GetRequiredService<Clinica.Ui.Blazor.Hospedagem.PedidoDaTelaDoPaciente>().Definir(
+                new Clinica.Ui.Blazor.Hospedagem.PacienteNoPosto(id, foco.Nome, foco.AgendamentoId,
+                    foco.AtendimentoId, foco.DataDoHorario),
+                SecoesDoPaciente[AbaDe(chave)], SubAbaDe(chave));
+        return Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.TelaDoPaciente), servicos);
+    }
+
     public void Registrar(IServiceCollection servicos)
     {
         servicos.AddTransient<IFabricaFichaPaciente, FabricaFichaPaciente>();
@@ -573,12 +591,7 @@ public sealed class ModuloClinico : IModuloApp
         // seção (ver AbaDe).
         ChavePaciente or ChaveAtendimento or ChaveAtendimentoEnfermagem or ChaveProntuario
             or ChaveEvolucaoDor or ChaveMedidas or ChaveAvaliacoes or ChaveExamesDoPaciente
-            => new PacienteWorkspaceView
-            {
-                DataContext = new PacienteWorkspaceViewModel(
-                    servicos, servicos.GetRequiredService<PacienteEmFoco>(),
-                    AbaDe(chave), SubAbaDe(chave))
-            },
+            => TelaDoPaciente(chave, servicos),
 
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
         ChaveAjuda => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AjudaESuporte), servicos),

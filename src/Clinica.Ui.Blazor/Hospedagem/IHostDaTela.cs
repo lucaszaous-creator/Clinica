@@ -45,6 +45,13 @@ public interface IHostDaTela
     Task<bool> NavegarAsync(string chave);
 
     /// <summary>
+    /// Volta para a tela de onde se veio (o histórico do shell). Falso = não há para onde
+    /// voltar (ou o hospedeiro não tem histórico — a prévia, os testes); quem chama escolhe
+    /// um destino. É o caminho de volta da ficha aberta por cima de outra tela.
+    /// </summary>
+    Task<bool> VoltarAsync() => Task.FromResult(false);
+
+    /// <summary>
     /// Abre um endereço FORA do app (o wa.me da cobrança, o validador público): no app vai
     /// para o navegador padrão do Windows — a tela nunca navega para fora de si mesma.
     /// Falso quando não abriu; quem chama oferece copiar o endereço.

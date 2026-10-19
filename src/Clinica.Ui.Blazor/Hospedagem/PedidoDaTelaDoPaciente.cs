@@ -37,7 +37,12 @@ public sealed class PedidoDaTelaDoPaciente
     {
         lock (_trava)
         {
-            _atual = new Pedido(paciente, secao, subAba);
+            // O MESMO pedido não muda a versão: navegar de novo para o paciente que já está
+            // aberto (o shell recria o marcador a cada navegação) não pode remontar as seções —
+            // a folha em edição perderia o que está sendo escrito.
+            var novo = new Pedido(paciente, secao, subAba);
+            if (novo == _atual) return;
+            _atual = novo;
             _versao++;
         }
     }

@@ -227,7 +227,16 @@
         var paciente = pedido?.Paciente ?? (_contexto is null ? Posto.PacienteEmFoco : null);
         if (paciente is null) return false;
 
-        _contexto = new ContextoDoPaciente(paciente.PacienteId, paciente.Paciente, paciente.AgendamentoId,
+        // O MESMO paciente (e o mesmo horário): só troca a seção — remontar as seções faria a
+        // folha em edição perder o que está sendo escrito.
+        if (_contexto is { } atual && pedido is not null && atual.ParaPosto() == paciente)
+        {
+            _secao = TelaDoPacienteNaTela.SecaoInicial(TelaDoPacienteNaTela.IndiceDe(pedido.Secao), _rail);
+            _subAba = pedido.SubAba;
+            return true;
+        }
+
+        _contexto =new ContextoDoPaciente(paciente.PacienteId, paciente.Paciente, paciente.AgendamentoId,
             paciente.AtendimentoId, paciente.DataDoHorario, ++_versaoContexto);
         _secao = TelaDoPacienteNaTela.SecaoInicial(
             TelaDoPacienteNaTela.IndiceDe(pedido?.Secao ?? TelaDoPacienteNaTela.Atendimento), _rail);
@@ -338,6 +347,9 @@
     /// </summary>
     private async Task VoltarAsync()
     {
+        // Primeiro o histórico: a ficha aberta de cima da agenda, da pendência ou da glosa volta
+        // para lá. Sem histórico, o Meu dia (quem veio de um horário) ou Pacientes.
+        if (await Host.VoltarAsync()) return;
         if (_contexto?.AgendamentoId is not null && await Host.NavegarAsync("consultorio-meu-dia")) return;
         await IrParaPacientesAsync();
     }

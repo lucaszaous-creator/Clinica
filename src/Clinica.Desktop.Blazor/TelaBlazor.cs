@@ -291,38 +291,28 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
         }
     }
 
+    public Task<bool> VoltarAsync()
+        => NaInterface(() => Task.FromResult(Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Voltar()));
+
+    /// <summary>
+    /// A ficha do paciente é a TELA DO PACIENTE (Blazor) aberta na seção Ficha — no MESMO
+    /// navegador da janela, nunca numa janela própria (out/2026: a ficha WPF por cima abria um
+    /// segundo navegador e trazia de volta o flash preto). Fixa o paciente no posto e navega;
+    /// o "voltar" da tela do paciente volta para onde se estava.
+    /// </summary>
     public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId)
         => NaInterface(async () =>
         {
-            // A ficha é WPF (componente do shell, via IFabricaFichaPaciente) e não cabe DENTRO
-            // do navegador: abre numa janela própria, por cima da tela. Janela nativa passa
-            // por cima do navegador normalmente, e fechar devolve a tela como estava.
+            const string chaveDaFicha = "consultorio-paciente";
+            if (!Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Existe(chaveDaFicha)) return false;
+            var foco = servicos.GetService<Clinica.Desktop.Shell.Modulos.PacienteEmFoco>();
+            if (foco is null) return false;
             using var escopo = servicos.CreateScope();
-            var fabrica = servicos.GetService<Clinica.Desktop.Shell.Modulos.IFabricaFichaPaciente>();
-            if (fabrica is null) return false;
             var paciente = await escopo.ServiceProvider
                 .GetRequiredService<Clinica.Application.Servicos.PacienteService>().ObterAsync(pacienteId);
             if (paciente is null) return false;
-            var foco = new Clinica.Desktop.Shell.Modulos.PacienteEmFoco();
             foco.Definir(paciente.Id, paciente.Nome);
-            var area = SystemParameters.WorkArea;
-            var dono = System.Windows.Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
-                       ?? System.Windows.Application.Current?.MainWindow;
-            var janela = new Window
-            {
-                Title = $"Ficha do paciente — {paciente.Nome}",
-                Owner = dono,
-                WindowStartupLocation = dono is null ? WindowStartupLocation.CenterScreen : WindowStartupLocation.CenterOwner,
-                Width = Math.Min(1240, area.Width * 0.96),
-                Height = Math.Min(860, area.Height * 0.96),
-                MinWidth = Math.Min(900, area.Width * 0.9),
-                MinHeight = Math.Min(600, area.Height * 0.9),
-                ShowInTaskbar = false
-            };
-            janela.SetResourceReference(Control.BackgroundProperty, "Brush.Fundo");
-            janela.Content = fabrica.Criar(foco, voltar: () => janela.Close());
-            janela.ShowDialog();
-            return true;
+            return Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(chaveDaFicha);
         });
 
     public Task<string?> PerguntarOndeSalvarAsync(string nomeSugerido, string filtro, string extensao)
