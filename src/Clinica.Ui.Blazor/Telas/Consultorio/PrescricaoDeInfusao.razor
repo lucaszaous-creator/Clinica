@@ -27,7 +27,7 @@
             }
             else
             {
-                <BuscaDePacienteNaTela Pergunta="Para quem é a prescrição?" SugestaoDeHoje="true" AoEscolher="EscolherAsync" />
+                <BuscaDePacienteNaTela @key="_chaveBusca" Pergunta="Para quem é a prescrição?" SugestaoDeHoje="true" AoEscolher="EscolherAsync" />
             }
         </div>
     </section>
@@ -107,6 +107,7 @@
     private string? _erro;
     private int _geracao;
     private int _acessoRegistradoDe;
+    private int _chaveBusca;
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
     private IJanelasDaPrescricaoDeInfusao Editor => Servicos.GetService<IJanelasDaPrescricaoDeInfusao>() ?? JanelasDaPrescricaoDeInfusaoIndisponiveis.Instancia;
@@ -134,7 +135,15 @@
         }
     }
 
-    protected override Task AoVoltarAsync() => _paciente is null || _carregando ? Task.CompletedTask : CarregarAsync(silencioso: true);
+    /// <summary>
+    /// Voltou à aba: com paciente, relê as folhas dele em silêncio; sem paciente, remonta a busca
+    /// para a sugestão de "quem tem horário hoje" ser relida — o balcão pode ter marcado alguém.
+    /// </summary>
+    protected override Task AoVoltarAsync()
+    {
+        if (_paciente is null) { _chaveBusca++; return Task.CompletedTask; }
+        return _carregando ? Task.CompletedTask : CarregarAsync(silencioso: true);
+    }
 
     protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
         => atalho == AtalhoDeTela.Atualizar && _paciente is not null ? CarregarAsync() : Task.CompletedTask;
