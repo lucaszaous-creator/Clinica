@@ -32,10 +32,6 @@ public class EnvioPacienteCrm
     public int? DocumentoClinicoId { get; set; }
     public DocumentoClinico? DocumentoClinico { get; set; }
 
-    /// <summary>A folha de infusão que originou o pedido (out/2026). Nulo para documento clínico.</summary>
-    public int? PrescricaoInternaId { get; set; }
-    public PrescricaoInterna? PrescricaoInterna { get; set; }
-
     /// <summary>Nome do paciente no momento do pedido (o CRM usa o primeiro nome no modelo aprovado).</summary>
     public string Nome { get; set; } = string.Empty;
 

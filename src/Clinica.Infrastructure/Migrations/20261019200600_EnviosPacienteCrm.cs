@@ -18,7 +18,6 @@ namespace Clinica.Infrastructure.Migrations
                     Id = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     PacienteId = table.Column<int>(type: "integer", nullable: false),
                     DocumentoClinicoId = table.Column<int>(type: "integer", nullable: true),
-                    PrescricaoInternaId = table.Column<int>(type: "integer", nullable: true),
                     Nome = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Telefone = table.Column<string>(type: "character varying(15)", maxLength: 15, nullable: false),
                     Email = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
@@ -54,12 +53,6 @@ namespace Clinica.Infrastructure.Migrations
                         principalTable: "Pacientes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_EnviosPacienteCrm_PrescricoesInternas_PrescricaoInternaId",
-                        column: x => x.PrescricaoInternaId,
-                        principalTable: "PrescricoesInternas",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateIndex(
@@ -76,11 +69,6 @@ namespace Clinica.Infrastructure.Migrations
                 name: "IX_EnviosPacienteCrm_PacienteId",
                 table: "EnviosPacienteCrm",
                 column: "PacienteId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_EnviosPacienteCrm_PrescricaoInternaId",
-                table: "EnviosPacienteCrm",
-                column: "PrescricaoInternaId");
         }
 
         /// <inheritdoc />

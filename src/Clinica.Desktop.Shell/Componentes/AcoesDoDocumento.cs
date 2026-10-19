@@ -362,25 +362,6 @@ public static class AcoesDoDocumento
             AvisoSemAssinatura(doc), escopos, aposEmitir);
     }
 
-    /// <summary>
-    /// A folha da prescrição de infusão ao paciente (out/2026) — a mesma janela e os mesmos
-    /// canais. O bit é o da tela de infusão (<c>Prescrever</c>), conferido de novo aqui.
-    /// </summary>
-    public static Task<ResultadoAcaoDocumento> EnviarPrescricaoAsync(
-        int prescricaoId, string numero, IServiceScopeFactory escopos)
-    {
-        try
-        {
-            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "enviar a prescrição ao paciente");
-        }
-        catch (Exception ex)
-        {
-            return Task.FromResult(ResultadoAcaoDocumento.Erro(ex.Message));
-        }
-
-        return EnviarArquivoAsync(ArquivoDoPaciente.Prescricao(prescricaoId), numero, null, escopos, aposEmitir: false);
-    }
-
     private static async Task<ResultadoAcaoDocumento> EnviarArquivoAsync(
         ArquivoDoPaciente arquivo, string numero, string? aviso, IServiceScopeFactory escopos, bool aposEmitir)
     {

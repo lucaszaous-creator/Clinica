@@ -10,7 +10,7 @@ public sealed record EscolhaDeEnvio(CanalDeEnvio Canal, string? Email, bool Guar
 
 /// <summary>
 /// A pergunta do "Enviar ao paciente" (out/2026) — a MESMA em todas as portas: a central de
-/// Documentos, a ficha, as Prescrições do Consultório (receitas e infusão), o "já saiu hoje"
+/// Documentos, a ficha, as Prescrições do Consultório (receitas), o "já saiu hoje"
 /// do atendimento e o fim da emissão. Quem decide as opções, a ordem e qual vem marcada é
 /// <see cref="DestinosDoEnvio"/> (Application, com teste); esta janela só desenha e confere o
 /// endereço digitado.

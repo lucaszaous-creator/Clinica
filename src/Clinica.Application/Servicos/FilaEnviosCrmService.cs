@@ -49,7 +49,6 @@ public static class FilaEnviosCrm
 
     public const string CanalWhatsApp = "whatsapp";
     public const string OrigemDocumentoClinico = "DocumentoClinico";
-    public const string OrigemPrescricaoInfusao = "PrescricaoInfusao";
 
     /// <summary>O protocolo mínimo: o 2 é o que tem autorização final de uso único.</summary>
     public const int ProtocoloMinimo = 2;
@@ -294,13 +293,6 @@ public sealed class FilaEnviosCrmService
             if (documento is null) return "O documento do pedido não foi encontrado.";
             if (documento.Cancelado) return $"O documento {documento.Numero} foi cancelado depois do pedido.";
             if (documento.PacienteId != e.PacienteId) return "O documento não é mais deste paciente.";
-        }
-        if (e.PrescricaoInternaId is int prescricaoId)
-        {
-            var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct);
-            if (prescricao is null) return "A prescrição do pedido não foi encontrada.";
-            if (prescricao.Cancelada) return $"A prescrição {prescricao.Numero} foi cancelada depois do pedido.";
-            if (prescricao.PacienteId != e.PacienteId) return "A prescrição não é mais deste paciente.";
         }
         return null;
     }

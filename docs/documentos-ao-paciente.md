@@ -8,7 +8,6 @@
 | Central de Documentos (Recepção, Gerente e Consultório — Blazor) | menu "⋯" da linha |
 | Aba Documentos da ficha (balcão) | botão "Enviar" da linha |
 | Prescrições do Consultório — receitas e demais documentos | menu "⋯" da linha |
-| Prescrição de infusão (tela Blazor e seção da ficha clínica) | botão "Enviar ao paciente…" / "Enviar…" |
 | "Já saiu hoje" do atendimento | botão "Enviar…" ao lado da 2ª via |
 | Fim da emissão de um documento novo | a janela abre sozinha: "Enviar agora ao paciente?" com "Agora não" |
 
@@ -28,11 +27,11 @@ sem servidor SMTP configurado (e a frase diz onde configurar); o WhatsApp, sem c
 ficha ou quando o mesmo papel já está na fila do CRM.
 
 **O que pode sair**: receita, atestado, pedido de exame e declaração de comparecimento — com ou
-sem assinatura digital —, qualquer outro documento clínico **assinado**, e a folha de infusão
-**assinada, liberada ou encerrada**. Cancelado e rascunho não saem. O arquivo é sempre a **2ª
+sem assinatura digital — e qualquer outro documento clínico **assinado**. Cancelado não sai.
+A **folha de infusão não sai** (decisão da direção): é folha interna de execução da enfermagem,
+não papel do paciente, e nenhuma das telas dela tem o botão. O arquivo é sempre a **2ª
 via**: os bytes guardados quando assinado (nunca se regenera um PDF assinado), a mesma montagem
-da reimpressão quando não (`DocumentosClinicosPdfService.GerarAsync` com o prestador; para a
-infusão, `AssinaturaDePrescricaoService.DocumentoInfusaoAsync`, o mesmo "Imprimir").
+da reimpressão quando não (`DocumentosClinicosPdfService.GerarAsync` com o prestador).
 
 ## 🧑‍💻 UX — quem atende
 
@@ -50,14 +49,13 @@ infusão, `AssinaturaDePrescricaoService.DocumentoInfusaoAsync`, o mesmo "Imprim
   impressa e assinada (art. 13 da Lei 14.063/2020) e vai como cópia. Avisa, não impede. A
   mensagem que acompanha o papel sem certificado não diz "assinado".
 - **As duas barreiras**: o botão só aparece com o estado E o bit do TIPO do documento
-  (`OferecerEnviar`; na infusão, `Prescrever`); o ato confere de novo (`Exigir`).
+  (`OferecerEnviar`); o ato confere de novo (`Exigir`).
 
 ## 🛠️ DX — quem mantém
 
-- **Uma definição só**: `AcoesDoDocumento.EnviarAsync` (documento clínico, com `aposEmitir`
-  para o fim da emissão) e `AcoesDoDocumento.EnviarPrescricaoAsync` (infusão), as duas sobre o
-  mesmo núcleo e a mesma `EnvioAoPacienteWindow`. As listas já usavam `AcoesDoDocumento` e o
-  `MenuDoDocumento`; o "já saiu hoje", a infusão e o fim da emissão passaram a usar também.
+- **Uma definição só**: `AcoesDoDocumento.EnviarAsync` (com `aposEmitir` para o fim da
+  emissão), sobre a `EnvioAoPacienteWindow`. As listas já usavam `AcoesDoDocumento` e o
+  `MenuDoDocumento`; o "já saiu hoje" e o fim da emissão passaram a usar também.
   `PortasDoEnvioAoPacienteTests` lista as portas e falha se uma delas deixar de passar pelo ponto
   único.
 - **A regra mora na Application** (com teste):
@@ -88,7 +86,7 @@ infusão, `AssinaturaDePrescricaoService.DocumentoInfusaoAsync`, o mesmo "Imprim
 - **Papel restrito da ponte**: `deploy/ponte-crm/papel-ponte-crm.sql` ganhou **só** `UPDATE` em
   `EnviosPacienteCrm` (quem insere é o desktop).
 - **Testes**: `EnvioAoPacienteTests` (canais e padrão, fila, e-mail, endereço digitado, guardar na
-  ficha, trilha, infusão, protocolo, corrida de autorização, matriz), `PortasDoEnvioAoPacienteTests`
+  ficha, trilha, protocolo, corrida de autorização, matriz), `PortasDoEnvioAoPacienteTests`
   (cada porta pelo ponto único), `PonteClinicDispatchTests` (as quatro rotas num servidor de
   verdade, com a estratégia que repete), `PontePapelRestritoTests.Fila_de_envios_ao_paciente` (o
   fluxo como `ponte_crm` — **só roda com `CLINICA_TESTES_POSTGRES`**).

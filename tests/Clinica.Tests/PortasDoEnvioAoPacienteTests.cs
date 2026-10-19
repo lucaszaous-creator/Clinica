@@ -37,10 +37,6 @@ public sealed class PortasDoEnvioAoPacienteTests
     // As Prescrições do Consultório (receitas): o "⋯" do MenuDoDocumento chama o EnviarCommand.
     [InlineData("src/Clinica.Modulo.Clinico/ViewModels/PrescricoesClinicasViewModel.cs", "AcoesDoDocumento.EnviarAsync(")]
     [InlineData("src/Clinica.Modulo.Clinico/Views/PrescricoesClinicasView.xaml.cs", "vm.EnviarCommand")]
-    // A prescrição de infusão: a tela Blazor (pelo hospedeiro) e a seção WPF do paciente.
-    [InlineData("src/Clinica.Modulo.Clinico/Modulo/JanelasDaPrescricaoDeInfusaoWpf.cs", "AcoesDoDocumento.EnviarPrescricaoAsync(")]
-    [InlineData("src/Clinica.Ui.Blazor/Telas/Consultorio/PrescricaoDeInfusao.razor", "Editor.EnviarAoPacienteAsync(")]
-    [InlineData("src/Clinica.Modulo.Clinico/ViewModels/PrescricaoInfusaoViewModel.cs", "AcoesDoDocumento.EnviarPrescricaoAsync(")]
     // O "já saiu hoje" do atendimento.
     [InlineData("src/Clinica.Modulo.Clinico/ViewModels/AtendimentoViewModel.cs", "AcoesDoDocumento.EnviarAsync(")]
     [InlineData("src/Clinica.Modulo.Clinico/Views/EmissoesNoAtendimentoView.xaml", "DataContext.EnviarCommand")]
@@ -48,6 +44,16 @@ public sealed class PortasDoEnvioAoPacienteTests
     [InlineData("src/Clinica.Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs", "AcoesDoDocumento.EnviarAsync(doc, _escopos, aposEmitir: true)")]
     public void Cada_porta_passa_pelo_ponto_unico_do_envio(string arquivo, string chamada)
         => Ler(arquivo).Should().Contain(chamada, $"{arquivo} precisa oferecer o envio pela janela única (e-mail e WhatsApp)");
+
+    // A folha de infusão é folha INTERNA de execução da enfermagem: não vai ao paciente
+    // (decisão da direção, out/2026). Nenhuma das telas dela oferece o envio.
+    [Theory]
+    [InlineData("src/Clinica.Modulo.Clinico/Modulo/JanelasDaPrescricaoDeInfusaoWpf.cs")]
+    [InlineData("src/Clinica.Ui.Blazor/Telas/Consultorio/PrescricaoDeInfusao.razor")]
+    [InlineData("src/Clinica.Modulo.Clinico/ViewModels/PrescricaoInfusaoViewModel.cs")]
+    [InlineData("src/Clinica.Modulo.Clinico/Views/PrescricaoInfusaoView.xaml")]
+    public void A_folha_de_infusao_nao_e_enviada_ao_paciente(string arquivo)
+        => Ler(arquivo).Should().NotContain("Enviar", $"{arquivo} é a folha interna da infusão, que não vai ao paciente");
 
     [Fact]
     public void O_ponto_unico_abre_a_janela_com_os_dois_canais_a_partir_das_opcoes_da_Application()

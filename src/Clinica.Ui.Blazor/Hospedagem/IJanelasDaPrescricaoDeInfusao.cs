@@ -16,12 +16,6 @@ public interface IJanelasDaPrescricaoDeInfusao
 
     /// <summary>Reabre o rascunho. Devolve se ASSINOU.</summary>
     Task<bool> EditarAsync(int pacienteId, string paciente, int prescricaoId);
-
-    /// <summary>
-    /// "Enviar ao paciente…" da folha (out/2026): a MESMA janela de envio dos documentos
-    /// (<c>AcoesDoDocumento.EnviarPrescricaoAsync</c>) — e-mail primeiro, WhatsApp depois.
-    /// </summary>
-    Task<ResultadoDoAto> EnviarAoPacienteAsync(int prescricaoId, string numero);
 }
 
 public sealed class JanelasDaPrescricaoDeInfusaoIndisponiveis : IJanelasDaPrescricaoDeInfusao
@@ -32,6 +26,4 @@ public sealed class JanelasDaPrescricaoDeInfusaoIndisponiveis : IJanelasDaPrescr
     public bool Disponivel => false;
     public Task<bool> NovaAsync(int pacienteId, string paciente, ModeloInfusao? modelo) => Task.FromResult(false);
     public Task<bool> EditarAsync(int pacienteId, string paciente, int prescricaoId) => Task.FromResult(false);
-    public Task<ResultadoDoAto> EnviarAoPacienteAsync(int prescricaoId, string numero)
-        => Task.FromResult(new ResultadoDoAto(Frase: "O envio ao paciente é feito no aplicativo do Consultório.", EhErro: true));
 }

@@ -26,12 +26,6 @@ public sealed class LinhaPrescricaoInterna
     /// <summary>Rascunho se edita — é o que <c>PrescricaoInterna.PodeEditar</c> já dizia.</summary>
     public required bool PodeEditar { get; init; }
 
-    /// <summary>
-    /// "Enviar ao paciente…" (out/2026): a folha assinada ou liberada, com o bit da tela
-    /// (Prescrever). A regra do estado mora em <c>EnvioAoPacienteService.PodeEnviar</c>.
-    /// </summary>
-    public bool PodeEnviar { get; init; }
-
     public static LinhaPrescricaoInterna De(PrescricaoInterna p) => De(p, SessaoUsuario.Atual.Pode(Permissao.Prescrever));
 
     /// <summary>Monta a linha com a permissão INFORMADA — é o que o teste alcança.</summary>
@@ -67,8 +61,7 @@ public sealed class LinhaPrescricaoInterna
             // impede; esta é a metade que explica.
             PodeCancelar = (p.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada)
                            && podePrescrever,
-            PodeEditar = p.PodeEditar && podePrescrever,
-            PodeEnviar = Servicos.EnvioAoPacienteService.PodeEnviar(p.Situacao) && podePrescrever
+            PodeEditar = p.PodeEditar && podePrescrever
         };
     }
 }

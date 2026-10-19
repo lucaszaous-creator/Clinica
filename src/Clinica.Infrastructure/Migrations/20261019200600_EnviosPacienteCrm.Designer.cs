@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    [Migration("20261019194147_EnviosPacienteCrm")]
+    [Migration("20261019200600_EnviosPacienteCrm")]
     partial class EnviosPacienteCrm
     {
         /// <inheritdoc />
@@ -2354,9 +2354,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int>("PacienteId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("PrescricaoInternaId")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime?>("ReservadoEm")
                         .HasColumnType("timestamp without time zone");
 
@@ -2381,8 +2378,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("DocumentoClinicoId");
 
                     b.HasIndex("PacienteId");
-
-                    b.HasIndex("PrescricaoInternaId");
 
                     b.HasIndex("Estado", "AtualizadoEm");
 
@@ -6750,16 +6745,9 @@ namespace Clinica.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Clinica.Domain.Entities.PrescricaoInterna", "PrescricaoInterna")
-                        .WithMany()
-                        .HasForeignKey("PrescricaoInternaId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.Navigation("DocumentoClinico");
 
                     b.Navigation("Paciente");
-
-                    b.Navigation("PrescricaoInterna");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.EtapaFechamentoSessao", b =>

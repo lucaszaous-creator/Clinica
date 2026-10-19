@@ -209,14 +209,6 @@
                                                             Command="{Binding DataContext.ImprimirCommand,
                                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <!-- Enviar ao paciente (out/2026): a MESMA janela dos
-                                                         documentos — e-mail primeiro, WhatsApp depois. -->
-                                                    <Button Content="Enviar…" Margin="0,0,6,0"
-                                                            Style="{StaticResource BotaoDocumentoPequeno}"
-                                                            Visibility="{Binding PodeEnviar, Converter={StaticResource BoolParaVisibilidade}}"
-                                                            Command="{Binding DataContext.EnviarCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                            CommandParameter="{Binding}" />
                                                     <Button Content="Registro histórico" Margin="0,0,6,0"
                                                             Style="{StaticResource BotaoDocumentoPequeno}"
                                                             IsEnabled="{Binding TemRegistroExecucao}"

@@ -369,17 +369,6 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
         await ImprimirFolhaAsync(linha, false);
     }
 
-    /// <summary>"Enviar ao paciente…" da folha (out/2026): a MESMA janela dos documentos.</summary>
-    [RelayCommand]
-    private async Task EnviarAsync(LinhaPrescricaoInterna? linha)
-    {
-        if (linha is null) return;
-        var r = await AcoesDoDocumento.EnviarPrescricaoAsync(linha.PrescricaoId, linha.Numero, _escopos);
-        if (r.Silencioso) return;
-        Mensagem = r.Inline;
-        MensagemEhErro = r.EhErro;
-    }
-
     [RelayCommand]
     private async Task ImprimirExecucaoAsync(LinhaPrescricaoInterna? linha)
     {

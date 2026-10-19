@@ -3855,9 +3855,9 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
 
     public Task<EnvioPacienteCrm?> EnvioPacienteCrmEmAbertoAsync(
-        int? documentoClinicoId, int? prescricaoInternaId, string canal, DateTime agora, CancellationToken ct = default)
+        int documentoClinicoId, string canal, DateTime agora, CancellationToken ct = default)
         => _db.EnviosPacienteCrm.AsNoTracking()
-            .Where(e => e.DocumentoClinicoId == documentoClinicoId && e.PrescricaoInternaId == prescricaoInternaId && e.Canal == canal
+            .Where(e => e.DocumentoClinicoId == documentoClinicoId && e.Canal == canal
                         && (e.Estado == "queued" || e.Estado == "processing")
                         && e.SubmetidoEm == null && e.ExpiraEm > agora)
             .OrderByDescending(e => e.CriadoEm)
@@ -3871,7 +3871,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     /// </summary>
     private static readonly System.Linq.Expressions.Expression<Func<EnvioPacienteCrm, EnvioPacienteCrm>> ResumoDoEnvio = e => new EnvioPacienteCrm
     {
-        Id = e.Id, PacienteId = e.PacienteId, DocumentoClinicoId = e.DocumentoClinicoId, PrescricaoInternaId = e.PrescricaoInternaId,
+        Id = e.Id, PacienteId = e.PacienteId, DocumentoClinicoId = e.DocumentoClinicoId,
         Nome = e.Nome, Telefone = e.Telefone, Canal = e.Canal, Origem = e.Origem,
         Operador = e.Operador, Estado = e.Estado, Detalhe = e.Detalhe,
         CriadoEm = e.CriadoEm, ExpiraEm = e.ExpiraEm, AtualizadoEm = e.AtualizadoEm,

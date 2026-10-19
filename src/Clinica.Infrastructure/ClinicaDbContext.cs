@@ -1781,11 +1781,8 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.DocumentoClinico).WithMany()
                 .HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(x => x.PrescricaoInterna).WithMany()
-                .HasForeignKey(x => x.PrescricaoInternaId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(x => new { x.Estado, x.AtualizadoEm });
             e.HasIndex(x => x.DocumentoClinicoId);
-            e.HasIndex(x => x.PrescricaoInternaId);
         });
 
         b.Entity<UsuarioSistema>(e =>

@@ -12,17 +12,13 @@ public sealed record ResultadoEnvioAoPaciente(bool Ok, string Frase);
 public enum OrigemDoArquivo
 {
     /// <summary>Receita, atestado, pedido de exame, declaração e os demais documentos clínicos.</summary>
-    DocumentoClinico,
-
-    /// <summary>A folha da prescrição de infusão (Consultório), que não é um <c>DocumentoClinico</c>.</summary>
-    PrescricaoInfusao
+    DocumentoClinico
 }
 
 /// <summary>Qual papel vai: a origem e o id dele naquela origem.</summary>
 public sealed record ArquivoDoPaciente(OrigemDoArquivo Origem, int Id)
 {
     public static ArquivoDoPaciente Documento(int documentoId) => new(OrigemDoArquivo.DocumentoClinico, documentoId);
-    public static ArquivoDoPaciente Prescricao(int prescricaoId) => new(OrigemDoArquivo.PrescricaoInfusao, prescricaoId);
 }
 
 /// <summary>Os caminhos do "Enviar ao paciente". A ORDEM é a da tela: e-mail primeiro.</summary>
@@ -88,14 +84,15 @@ public sealed record DestinosDoEnvio(
 }
 
 /// <summary>
-/// Entregar ao paciente o PDF de um papel emitido — documento clínico ou a folha da
-/// prescrição de infusão — por e-mail (direto do servidor da clínica, o PADRÃO) ou por
+/// Entregar ao paciente o PDF de um documento clínico emitido — por e-mail (direto do servidor da clínica, o PADRÃO) ou por
 /// WhatsApp (pela fila que o CRM executa, com a API oficial da Meta) — out/2026.
 ///
 /// O que vai é a 2ª VIA: os bytes que a reimpressão daria. Documento clínico:
 /// <see cref="DocumentosClinicosPdfService.GerarAsync"/> — os GUARDADOS quando assinado (nunca
-/// se regenera um PDF assinado), a mesma montagem do papel emitido quando não. Infusão:
-/// <see cref="AssinaturaDePrescricaoService.DocumentoInfusaoAsync"/>, o mesmo "Imprimir".
+/// se regenera um PDF assinado), a mesma montagem do papel emitido quando não.
+///
+/// A folha de infusão NÃO sai (decisão da direção, out/2026): é folha interna de execução
+/// da enfermagem, não papel do paciente.
 ///
 /// Toda saída grava a trilha (<c>Auditoria</c>) com QUEM, por qual CANAL e PARA ONDE, no
 /// mesmo <c>SaveChanges</c> do ato.
@@ -115,7 +112,6 @@ public sealed class EnvioAoPacienteService
     private readonly DocumentosClinicosPdfService _pdfs;
     private readonly ParametrosService _parametros;
     private readonly IEnviadorDeEmail _email;
-    private readonly AssinaturaDePrescricaoService? _prescricoes;
     private readonly Func<DateTime> _agora;
 
     public EnvioAoPacienteService(
@@ -125,19 +121,13 @@ public sealed class EnvioAoPacienteService
 
     public EnvioAoPacienteService(
         IClinicaRepositorio repo, DocumentosClinicosPdfService pdfs, ParametrosService parametros,
-        IEnviadorDeEmail email, AssinaturaDePrescricaoService prescricoes)
-        : this(repo, pdfs, parametros, email, HoraDaClinica.Agora, prescricoes) { }
-
-    public EnvioAoPacienteService(
-        IClinicaRepositorio repo, DocumentosClinicosPdfService pdfs, ParametrosService parametros,
-        IEnviadorDeEmail email, Func<DateTime> agora, AssinaturaDePrescricaoService? prescricoes = null)
+        IEnviadorDeEmail email, Func<DateTime> agora)
     {
         _repo = repo;
         _pdfs = pdfs;
         _parametros = parametros;
         _email = email;
         _agora = agora;
-        _prescricoes = prescricoes;
     }
 
     /// <summary>
@@ -154,10 +144,6 @@ public sealed class EnvioAoPacienteService
     public static bool PodeEnviar(TipoDocumentoClinico tipo, bool assinado, bool cancelado)
         => !cancelado && (assinado || EnviavelSemAssinatura(tipo));
 
-    /// <summary>A folha de infusão sai depois de assinada ou liberada; rascunho e cancelada, não.</summary>
-    public static bool PodeEnviar(SituacaoPrescricao situacao)
-        => situacao is SituacaoPrescricao.Assinada or SituacaoPrescricao.Liberada or SituacaoPrescricao.Encerrada;
-
     /// <summary>A frase do bloqueio, quando <see cref="PodeEnviar(TipoDocumentoClinico, bool, bool)"/> é falso.</summary>
     public static string PorQueNaoEnvia(string numero, bool cancelado)
         => cancelado
@@ -170,7 +156,7 @@ public sealed class EnvioAoPacienteService
     /// <summary>O que o envio precisa saber do papel, já conferido que ele pode sair.</summary>
     private sealed record Papel(
         Paciente Paciente, string Rotulo, string Numero, bool Assinado,
-        int? DocumentoClinicoId, int? PrescricaoInternaId, string Origem,
+        int DocumentoClinicoId, string Origem,
         Func<CancellationToken, Task<(byte[] Pdf, string Nome)>> Gerar)
     {
         public string Descricao => $"{Rotulo} {Numero}";
@@ -178,24 +164,6 @@ public sealed class EnvioAoPacienteService
 
     private async Task<Papel> CarregarAsync(ArquivoDoPaciente arquivo, CancellationToken ct)
     {
-        if (arquivo.Origem == OrigemDoArquivo.PrescricaoInfusao)
-        {
-            var p = await _repo.ObterPrescricaoInternaAsync(arquivo.Id, ct)
-                ?? throw new InvalidOperationException("Prescrição não encontrada.");
-            if (!PodeEnviar(p.Situacao))
-                throw new InvalidOperationException(p.Cancelada
-                    ? $"A prescrição {p.Numero} está cancelada e não se envia."
-                    : $"A prescrição {p.Numero} ainda é rascunho: assine ou libere antes de enviar.");
-            var pacienteP = await _repo.ObterPacienteAsync(p.PacienteId, ct)
-                ?? throw new InvalidOperationException("Paciente da prescrição não encontrado.");
-            var assinaturas = _prescricoes
-                ?? throw new InvalidOperationException("O envio da prescrição de infusão não está disponível neste aplicativo.");
-            return new Papel(pacienteP, "Prescrição de infusão", p.Numero,
-                p.AssinaturaDoPrescritor is not null || p.AssinaturaDaExecucao is not null,
-                null, p.Id, FilaEnviosCrm.OrigemPrescricaoInfusao,
-                async c => { var f = await assinaturas.DocumentoInfusaoAsync(p.Id, c); return (f.Pdf, f.NomeArquivo); });
-        }
-
         var d = await _repo.ObterDocumentoAsync(arquivo.Id, ct)
             ?? throw new InvalidOperationException("Documento não encontrado.");
         if (!PodeEnviar(d.Tipo, d.AssinadoEletronicamente, d.Cancelado))
@@ -203,7 +171,7 @@ public sealed class EnvioAoPacienteService
         var paciente = d.Paciente ?? await _repo.ObterPacienteAsync(d.PacienteId, ct)
             ?? throw new InvalidOperationException("Paciente do documento não encontrado.");
         return new Papel(paciente, TipoDocumentoInfo.Rotular(d.Tipo), d.Numero, d.AssinadoEletronicamente,
-            d.Id, null, FilaEnviosCrm.OrigemDocumentoClinico,
+            d.Id, FilaEnviosCrm.OrigemDocumentoClinico,
             async c => (await _pdfs.GerarAsync(d.Id, await _parametros.ObterPrestadorAsync(c), c), NomeDoArquivo(d)));
     }
 
@@ -234,9 +202,7 @@ public sealed class EnvioAoPacienteService
     }
 
     private Task<EnvioPacienteCrm?> EmAbertoAsync(Papel papel, DateTime agora, CancellationToken ct)
-        => papel.DocumentoClinicoId is int d
-            ? _repo.EnvioPacienteCrmEmAbertoAsync(d, null, FilaEnviosCrm.CanalWhatsApp, agora, ct)
-            : _repo.EnvioPacienteCrmEmAbertoAsync(null, papel.PrescricaoInternaId, FilaEnviosCrm.CanalWhatsApp, agora, ct);
+        => _repo.EnvioPacienteCrmEmAbertoAsync(papel.DocumentoClinicoId, FilaEnviosCrm.CanalWhatsApp, agora, ct);
 
     // ==================== WhatsApp oficial (fila do CRM) ====================
 
@@ -270,7 +236,6 @@ public sealed class EnvioAoPacienteService
             Id = Guid.NewGuid().ToString("N"),
             PacienteId = paciente.Id,
             DocumentoClinicoId = papel.DocumentoClinicoId,
-            PrescricaoInternaId = papel.PrescricaoInternaId,
             Nome = FilaEnviosCrm.Cortar(paciente.Nome, 200),
             Telefone = celular,
             Canal = FilaEnviosCrm.CanalWhatsApp,

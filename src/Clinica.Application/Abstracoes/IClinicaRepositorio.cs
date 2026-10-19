@@ -1837,7 +1837,7 @@ public interface IClinicaRepositorio
     /// canal — sem os bytes. Serve para o segundo clique não pôr o mesmo papel duas vezes na fila.
     /// </summary>
     Task<EnvioPacienteCrm?> EnvioPacienteCrmEmAbertoAsync(
-        int? documentoClinicoId, int? prescricaoInternaId, string canal, DateTime agora, CancellationToken ct = default);
+        int documentoClinicoId, string canal, DateTime agora, CancellationToken ct = default);
 
     /// <summary>
     /// Contatos de confirmação que saíram por SMS com link e ainda não têm resposta, a
