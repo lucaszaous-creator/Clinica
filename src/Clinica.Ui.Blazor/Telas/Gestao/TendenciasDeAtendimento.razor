@@ -19,7 +19,7 @@
 @inherits TelaBase
 
 <div class="pagina tendencias @(Carregando && _painel is not null ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Gestão · Tendências" Titulo="Tendência dos atendimentos"
+    <CabecalhoPagina Sobretitulo="Direção · Desempenho" Titulo="Tendência dos atendimentos"
                      Subtitulo="O que está em alta e o que está em baixa, comparado com o período anterior de mesmo tamanho.">
         <div class="segmentado" role="group" aria-label="Tipo de período">
             <button type="button" aria-pressed="@(_porMes ? "true" : "false")" @onclick="() => TrocarModoAsync(true)">Mês</button>

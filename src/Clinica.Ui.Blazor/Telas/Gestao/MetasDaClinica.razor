@@ -22,7 +22,7 @@
 @inherits TelaBase
 
 <div class="pagina metas @(Carregando && _linhas.Count > 0 ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Gestão · Metas" Titulo="Metas da clínica"
+    <CabecalhoPagina Sobretitulo="Direção · Desempenho" Titulo="Metas da clínica"
                      Subtitulo="O alvo do mês com o realizado e a projeção ao lado. Sem alvo, o painel só mostra variação — não desempenho.">
         <SeletorMes Valor="_mes" ValorChanged="TrocarMesAsync" />
         <button type="button" class="botao primario" disabled="@(!Pode(Permissao.DefinirMetas))"

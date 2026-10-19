@@ -76,6 +76,13 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveGrupoConformidade = "conformidade";
 
     /// <summary>
+    /// Administração (out/2026): Configurações · Acessos · Importar pacientes — o que se mexe
+    /// raramente e muda a clínica inteira. Chave NOVA de composto; as chaves das três telas
+    /// continuam as de sempre (contrato de navegação entre módulos).
+    /// </summary>
+    public const string ChaveGrupoAdministracao = "direcao-administracao";
+
+    /// <summary>
     /// Ajuda e suporte — tela do SHELL; os QUATRO módulos publicam a MESMA chave
     /// (<see cref="ChavesSuite.Ajuda"/>), e a dedupe do shell funde numa linha só.
     /// </summary>
@@ -85,16 +92,25 @@ public sealed class ModuloGerente : IModuloApp
 
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
-        // ===== DIREÇÃO (out/2026, mockup aprovado "mesa da direção v2") =====
-        // Seis entradas, uma pergunta cada, num grupo próprio que abre a barra do topo:
-        // como estamos e o que decidir hoje (a Mesa), o dinheiro, a produção, os pacientes,
-        // os preços e a conformidade. O operacional dos outros módulos continua nos grupos
-        // de sempre. Nenhuma tela some: cada uma virou aba da entrada que responde a pergunta
-        // dela. Os compostos sem `Requer` aparecem quando a pessoa alcança ao menos uma aba,
-        // e cada aba confere o bit dela.
+        // ===== DIREÇÃO (reorganizada em out/2026) =====
+        // Sete entradas, uma pergunta cada, na ordem do uso da direção:
+        //   Mesa ............ como estamos e o que decidir hoje;
+        //   Dinheiro ........ quanto entra, sai e sobra — e quanto custa receber (todas as abas
+        //                     são do bit VerFinanceiro: o resultado, a projeção, a margem, a
+        //                     rentabilidade por convênio e o custo de taxas e impostos);
+        //   Desempenho ...... quanto a clínica produz e se bate o que combinou (indicadores,
+        //                     tendências, produção e metas — as metas medem sessões e ocupação
+        //                     além de faturamento, por isso saíram do Dinheiro);
+        //   Pacientes ....... de onde vêm, como trazê-los de volta e quanto isso custa;
+        //   Tabela de preços  o que a clínica cobra (convênio e particular);
+        //   Conformidade .... o que a auditoria pergunta: quem mexeu, o que saiu, o que está guardado;
+        //   Administração ... o que se mexe raramente: configurações, acessos e a importação.
+        // Nenhuma tela some e nenhuma CHAVE muda: cada tela é aba do item que responde a pergunta
+        // dela. Os compostos não têm `Requer`: aparecem quando a pessoa alcança ao menos uma aba,
+        // e cada aba confere o bit dela (o "bit mais frouxo" de cada grupo é a própria união).
         new ItemMenuModulo
         {
-            Chave = ChavePainel, Rotulo = "Mesa da dire\u00E7\u00E3o", Glifo = "\uF246", Icone = "painel",
+            Chave = ChavePainel, Rotulo = "Mesa da direção", Glifo = "\uF246", Icone = "painel",
             Grupo = GrupoSidebar.Direcao, Requer = Permissao.VerIndicadores, Inicial = true
         },
         new ItemMenuModulo
@@ -103,76 +119,74 @@ public sealed class ModuloGerente : IModuloApp
             Grupo = GrupoSidebar.Direcao,
             Abas =
             [
-                new AbaMenu("Resultado do m\u00EAs", ChavesSuite.Resultado),
-                new AbaMenu("Pr\u00F3ximos 90 dias", ChaveProjecaoCaixa),
-                new AbaMenu("Metas", ChaveMetas)
+                new AbaMenu("Resultado do mês", ChavesSuite.Resultado),
+                new AbaMenu("Próximos 90 dias", ChaveProjecaoCaixa),
+                new AbaMenu("Margem por sessão", ChaveMargem),
+                new AbaMenu("Por convênio", ChaveRentabilidade),
+                new AbaMenu("Custo de receber", ChaveCusto)
             ]
         },
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoProducao, Rotulo = "Produ\u00E7\u00E3o e margem", Glifo = "\uE9D2", Icone = "grafico",
+            Chave = ChaveGrupoProducao, Rotulo = "Desempenho", Glifo = "\uE9D2", Icone = "grafico",
             Grupo = GrupoSidebar.Direcao,
             Abas =
             [
-                new AbaMenu("Margem por sessão", ChaveMargem),
                 new AbaMenu("Indicadores", ChaveIndicadores),
-                new AbaMenu("Tend\u00EAncias", ChavesSuite.Tendencias),
-                new AbaMenu("Produ\u00E7\u00E3o", ChavesSuite.Producao),
-                new AbaMenu("Rentabilidade por conv\u00EAnio", ChaveRentabilidade)
+                new AbaMenu("Tendências", ChavesSuite.Tendencias),
+                new AbaMenu("Produção", ChavesSuite.Producao),
+                new AbaMenu("Metas", ChaveMetas)
             ]
         },
         // O Acompanhamento NÃO entra aqui: ele é aba do "Relacionamento" da Recepção, e dois
         // compostos com a mesma tela seriam dois caminhos para o mesmo lugar.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoPacientes, Rotulo = "Pacientes e relacionamento", Glifo = "\uE716", Icone = "equipe",
+            Chave = ChaveGrupoPacientes, Rotulo = "Pacientes e campanhas", Glifo = "\uE716", Icone = "equipe",
             Grupo = GrupoSidebar.Direcao,
             Abas =
             [
-                new AbaMenu("De onde v\u00EAm os pacientes", ChaveOrigens),
-                new AbaMenu("Comiss\u00E3o de recupera\u00E7\u00E3o", ChaveComissaoRecuperacao),
-                new AbaMenu("Campanhas", ChaveCampanhas)
+                new AbaMenu("De onde vêm", ChaveOrigens),
+                new AbaMenu("Campanhas", ChaveCampanhas),
+                new AbaMenu("Comissão de recuperação", ChaveComissaoRecuperacao)
             ]
         },
-        // Quanto vale a sessão (convênio e particular) e quanto custa receber (taxas e
-        // impostos, o custo efetivo): a mesma pergunta — o que a clínica cobra e o que fica.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoPrecos, Rotulo = "Pre\u00E7os e regras", Glifo = "\uE8EF", Icone = "etiqueta",
+            Chave = ChaveGrupoPrecos, Rotulo = "Tabela de preços", Glifo = "\uE8EF", Icone = "etiqueta",
             Grupo = GrupoSidebar.Direcao,
             Abas =
             [
-                new AbaMenu("Conv\u00EAnios", ChavePrecos),
-                new AbaMenu("Particular", ChavesSuite.PrecosParticular),
-                new AbaMenu("Custo de taxas e impostos", ChaveCusto)
+                new AbaMenu("Convênios", ChavePrecos),
+                new AbaMenu("Particular", ChavesSuite.PrecosParticular)
             ]
         },
-        // As perguntas de quem fiscaliza, no mesmo lugar: quem MEXEU (auditoria), o que SAIU
-        // (documentos), o que está GUARDADO (guarda) e quem PODE (acessos). A permissão
-        // continua sendo por aba (parcela 49).
+        // As perguntas de quem fiscaliza: quem MEXEU (auditoria), o que SAIU (documentos) e o
+        // que está GUARDADO (guarda). Sem `Requer` (era VerAuditoria): quem tem SÓ
+        // VerDocumentos passou a alcançar "Documentos emitidos" pelo menu também.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoConformidade, Rotulo = "Conformidade e acessos", Glifo = "\uE72E", Icone = "escudo",
-            Grupo = GrupoSidebar.Direcao, Requer = Permissao.VerAuditoria,
+            Chave = ChaveGrupoConformidade, Rotulo = "Conformidade", Glifo = "\uE72E", Icone = "escudo",
+            Grupo = GrupoSidebar.Direcao,
             Abas =
             [
                 new AbaMenu("Auditoria", ChaveAuditoria),
                 new AbaMenu("Documentos emitidos", ChaveDocumentosEmitidos),
-                new AbaMenu("Guarda do prontu\u00E1rio", ChaveGuarda),
-                new AbaMenu("Acessos", ChaveAcessos)
+                new AbaMenu("Guarda do prontuário", ChaveGuarda)
             ]
         },
+        // Configurações (GerenciarUsuarios), Acessos (GerenciarUsuarios) e Importar pacientes
+        // (EditarPaciente — a direção pode delegar a migração sem entregar os acessos).
         new ItemMenuModulo
         {
-            Chave = ChaveConfiguracoes, Rotulo = "Configura\u00E7\u00F5es", Glifo = "\uE713", Icone = "engr",
-            Grupo = GrupoSidebar.Direcao, Requer = Permissao.GerenciarUsuarios
-        },
-        // A migração da carteira: o bit é o do ATO (cadastrar paciente), não o de gerir
-        // usuários — a direção pode delegar a importação sem entregar os acessos.
-        new ItemMenuModulo
-        {
-            Chave = ChaveImportacao, Rotulo = "Importar pacientes", Glifo = "\uE8B5", Icone = "importar",
-            Grupo = GrupoSidebar.Direcao, Requer = Permissao.EditarPaciente
+            Chave = ChaveGrupoAdministracao, Rotulo = "Administração", Glifo = "\uE713", Icone = "engr",
+            Grupo = GrupoSidebar.Direcao,
+            Abas =
+            [
+                new AbaMenu("Configurações", ChaveConfiguracoes),
+                new AbaMenu("Acessos", ChaveAcessos),
+                new AbaMenu("Importar pacientes", ChaveImportacao)
+            ]
         },
         // O resumo do faturamento é aba do composto "Faturamento de guias" (módulo do
         // faturamento); declarado aqui para continuar navegável onde ele não carrega.
@@ -183,6 +197,16 @@ public sealed class ModuloGerente : IModuloApp
         },
 
         // ===== Sub-telas =====
+        new ItemMenuModulo
+        {
+            Chave = ChaveConfiguracoes, Rotulo = "Configurações da clínica", Glifo = "\uE713", Icone = "engr",
+            Grupo = GrupoSidebar.Direcao, Requer = Permissao.GerenciarUsuarios
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveImportacao, Rotulo = "Importar pacientes", Glifo = "\uE8B5", Icone = "importar",
+            Grupo = GrupoSidebar.Direcao, Requer = Permissao.EditarPaciente
+        },
         // Continuam sendo itens navegáveis — o painel da direção leva a várias delas por
         // chave. Sem `Oculto`: quem as esconde é o item pai, e só onde ele existe.
         new ItemMenuModulo
@@ -252,10 +276,8 @@ public sealed class ModuloGerente : IModuloApp
         },
         // ⚠️ O bit é o da SEÇÃO de documentos (parcela 59), não o da auditoria: quem lê a
         // trilha e quem lê os papéis emitidos são perguntas diferentes, e juntá-las seria
-        // o bit sobrecarregado que a parcela 49 desfez. O grupo "Conformidade e acessos"
-        // pede o bit mais frouxo dele (`VerAuditoria`), então quem tiver SÓ `VerDocumentos`
-        // alcança esta tela pela navegação, não pela sidebar — a direção, que é quem a
-        // usa, tem os dois.
+        // o bit sobrecarregado que a parcela 49 desfez. O composto "Conformidade" não tem
+        // `Requer` (out/2026): quem tiver SÓ `VerDocumentos` vê o grupo com esta aba só.
         new ItemMenuModulo
         {
             Chave = ChaveDocumentosEmitidos, Rotulo = "Documentos emitidos",

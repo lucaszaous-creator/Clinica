@@ -16,7 +16,7 @@
 @using Clinica.Application.Abstracoes
 
 <div class="pagina @(Carregando && _linhas.Count > 0 ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Relacionamento · Comissão de recuperação" Titulo="Comissão de recuperação"
+    <CabecalhoPagina Sobretitulo="Direção · Pacientes e campanhas" Titulo="Comissão de recuperação"
                      Subtitulo="Pacientes que voltaram depois que uma atendente assumiu o acompanhamento — confira e valide a comissão de cada um.">
         <SeletorMes Valor="Mes" ValorChanged="TrocarMesAsync" />
         <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(_linhas.Count == 0)"><Icone Nome="baixar" />Exportar CSV</button>

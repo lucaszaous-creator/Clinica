@@ -71,31 +71,7 @@ public interface IHostDaTela
 
     /// <summary>Grava no caminho já escolhido. Null = gravou; a frase = falhou (o arquivo não está lá).</summary>
     Task<string?> GravarArquivoAsync(string caminho, byte[] conteudo);
-
-    /// <summary>
-    /// Os monitores ligados NESTA máquina, a principal primeiro (Configurações → Tela do
-    /// paciente, out/2026). É hardware do Windows, que o navegador não enxerga. Vazio = o
-    /// hospedeiro não sabe listar (o teste) — a tela diz isso em vez de oferecer um combo vazio.
-    ///
-    /// Implementação padrão para os hospedeiros de teste não precisarem conhecê-la; o do WPF
-    /// e o da prévia respondem de verdade.
-    /// </summary>
-    Task<IReadOnlyList<MonitorDaMaquina>> ListarMonitoresAsync()
-        => Task.FromResult<IReadOnlyList<MonitorDaMaquina>>([]);
-
-    /// <summary>
-    /// Abre um EXEMPLO (sem dado de paciente nenhum) no monitor indicado, para a direção
-    /// conferir que é o virado para o paciente antes de haver alguém esperando. Falso = não
-    /// abriu (o monitor foi desligado, ou o hospedeiro não abre janela) — quem chama DIZ isso.
-    /// </summary>
-    Task<bool> MostrarExemploNaTelaDoPacienteAsync(string monitorId) => Task.FromResult(false);
 }
 
 /// <summary>Arquivo escolhido pela pessoa: o nome (para mostrar) e o conteúdo.</summary>
 public sealed record ArquivoEscolhido(string Nome, byte[] Conteudo);
-
-/// <summary>
-/// Um monitor da máquina. <paramref name="Id"/> é o NOME do dispositivo (<c>\\.\DISPLAY2</c>) —
-/// é o que se grava: a posição na lista muda quando alguém desliga um cabo.
-/// </summary>
-public sealed record MonitorDaMaquina(string Id, string Rotulo, bool Principal);

@@ -22,7 +22,7 @@
 | **Consultório → Atendimento** | Faixa vermelha com o botão de colher, para quando o paciente já está na sala |
 | **Check-in** | O alerta "falta o termo" chega sozinho pelo `ElegibilidadeService` — e daí ao agendamento, à ficha e ao Consultório |
 | **Central de documentos** | Cartão "Termo de procedimento" → **Colher assinatura…**, com a escolha do termo; a segunda via sai da lista |
-| **Gerente → Configurações → "Tela do paciente"** | Escolhe o monitor virado para quem assina, com o botão **Testar**. Ver §3.8 — inclusive o que comprar |
+| ~~Gerente → Configurações → "Tela do paciente"~~ | **Removido em out/2026** por decisão da direção — ver §3.8 |
 
 O termo **nasce numerado** e com código de conferência, como todo documento clínico —
 é por eles que a clínica o acha depois.
@@ -216,6 +216,13 @@ Sem essa separação, o sistema pediria o jejum uma vez por ano ou o consentimen
 semana; os dois erros irritam e o primeiro é perigoso.
 
 ### 3.8 O aparelho onde o paciente assina — o modelo da MAQUININHA
+
+> ⛔ **REMOVIDO em out/2026, por decisão da direção.** A coleta é SEMPRE na janela única
+> (`AssinaturaPacienteWindow`, com a área de assinar sempre visível) ou pelo celular (termo pelo
+> WhatsApp). Saíram: o bloco "Tela do paciente" das Configurações, `TelasDoSistema`,
+> `PainelDoPacienteWindow`, `IHostDaTela.ListarMonitoresAsync`/`MostrarExemploNaTelaDoPacienteAsync`
+> e a leitura da chave `TelaDoPacienteDispositivo` (o valor antigo no banco fica, sem leitor).
+> O texto abaixo é o registro histórico da decisão anterior.
 
 > Pedido da cliente (ago/2026): *"há um dispositivo para assinar via touchscreen … quero
 > saber como fazer para sempre que aparecer para o paciente assinar, o dispositivo ligar na

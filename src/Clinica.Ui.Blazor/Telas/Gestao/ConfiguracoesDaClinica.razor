@@ -14,8 +14,11 @@
 
   O que decide (leituras, recusas, frases de situação) mora em ConfiguracoesDaClinicaNaTela, na
   Application, com teste; os prazos e os dados da clínica usam ConfiguracoesFaturamentoNaTela — a
-  MESMA regra da tela de Configurações do faturamento. Monitor e janela de exemplo são hardware do
-  Windows: passam pelo hospedeiro (IHostDaTela.ListarMonitoresAsync / MostrarExemploNaTelaDoPacienteAsync).
+  MESMA regra da tela de Configurações do faturamento.
+
+  Out/2026: o bloco "Tela do paciente" (escolher o monitor virado para quem assina) SAIU, por
+  decisão da direção — a assinatura do paciente é colhida sempre na janela única. E o leiaute
+  passou a ser de BLOCOS: assunto à esquerda, campos agrupados à direita, Salvar no rodapé.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @inherits TelaBase
@@ -23,8 +26,8 @@
 @using Clinica.Application.Email
 
 <div class="pagina configuracoes @(_carregando && _carregou ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Direção · Configurações" Titulo="Configurações"
-                     Subtitulo="O que vale para a clínica inteira. Cada bloco salva sozinho — são assuntos diferentes, e um botão único gravaria o que ninguém olhou.">
+    <CabecalhoPagina Sobretitulo="Direção · Administração" Titulo="Configurações da clínica"
+                     Subtitulo="O que vale para a clínica inteira. Cada bloco tem o próprio Salvar — são assuntos diferentes.">
         @if (Pendente)
         {
             <Selo Tom="aviso" Dica="Há mudanças nesta tela que ainda não foram gravadas.">Alterações não salvas</Selo>
@@ -43,7 +46,13 @@
         <div class="abas cfg-abas" role="tablist" aria-label="Configurações da clínica">
             @foreach (var (aba, rotulo) in Abas)
             {
-                <button type="button" role="tab" aria-selected="@(_aba == aba ? "true" : "false")" @onclick="() => TrocarAba(aba)">@rotulo</button>
+                <button type="button" role="tab" aria-selected="@(_aba == aba ? "true" : "false")" @onclick="() => TrocarAba(aba)">
+                    @rotulo
+                    @if (AbaPendente(aba))
+                    {
+                        <span class="cfg-aba-pendente" title="Há mudanças não salvas nesta aba" aria-label="(não salvo)"></span>
+                    }
+                </button>
             }
         </div>
 
@@ -84,83 +93,111 @@
 
 @code {
     // ============================ Abas ============================
+    // Leiaute (out/2026): cada aba é uma pilha de BLOCOS. Bloco = o assunto e para que ele
+    // serve à esquerda (título, frase curta, situação), os campos à direita em grupos com
+    // título, e o rodapé do bloco com a mensagem inline e o Salvar DELE. Quem precisa do
+    // detalhe longo lê a dica do campo, não um parágrafo solto entre dois botões.
 
     private RenderFragment AbaClinica => @<text>
-        <div class="cartao-corpo cfg-corpo">
-            <div class="cfg-topo">
-                <h2>Dados da clínica e do prestador</h2>
-                <p>Saem impressos na capa de lote, na guia TISS e nos documentos clínicos — errado aqui é errado em todo papel que o paciente leva. As regras TISS ficam em seu próprio bloco.</p>
+        <section class="cfg-bloco">
+            @Cabeca("Dados da clínica e do prestador", "Saem impressos na capa de lote, na guia TISS e nos documentos clínicos — errado aqui é errado em todo papel que o paciente leva.", _pendClinica)
+            <div class="cfg-bloco-campos">
+                <div class="cfg-grupo">
+                    <h3>Identificação</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Razão social" Classe="largo"><input class="campo" maxlength="200" @bind="_razaoSocial" @bind:after="MudouClinica" /></Campo>
+                        <Campo Rotulo="Nome fantasia" Classe="largo"><input class="campo" maxlength="200" @bind="_nomeFantasia" @bind:after="MudouClinica" /></Campo>
+                        <Campo Rotulo="CNPJ"><input class="campo" maxlength="30" @bind="_cnpj" @bind:after="MudouClinica" /></Campo>
+                        <Campo Rotulo="CNES"><input class="campo" maxlength="30" @bind="_cnes" @bind:after="MudouClinica" /></Campo>
+                    </div>
+                </div>
+                <div class="cfg-grupo">
+                    <h3>Contato</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Endereço" Classe="largo"><input class="campo" maxlength="300" @bind="_endereco" @bind:after="MudouClinica" /></Campo>
+                        <Campo Rotulo="Cidade"><input class="campo" maxlength="80" @bind="_cidade" @bind:after="MudouClinica" /></Campo>
+                        <Campo Rotulo="Telefone"><input class="campo" maxlength="40" @bind="_telefone" @bind:after="MudouClinica" /></Campo>
+                        <Campo Rotulo="E-mail" Classe="largo"><input class="campo" maxlength="200" @bind="_email" @bind:after="MudouClinica" /></Campo>
+                    </div>
+                </div>
+                <div class="cfg-grupo">
+                    <h3>Pix</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Chave Pix" Classe="largo" Dica="@(ConfiguracoesDaClinicaNaTela.TipoDaChavePix(_chavePix) + " A cidade (em Contato) também entra no código Pix.")">
+                            <input class="campo" maxlength="120" @bind="_chavePix" @bind:event="oninput" @bind:after="MudouClinica" />
+                        </Campo>
+                    </div>
+                </div>
+                <div class="cfg-grupo">
+                    <h3>Operadora (TISS)</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Código do prestador na operadora"><input class="campo" maxlength="40" @bind="_codigoNaOperadora" @bind:after="MudouClinica" /></Campo>
+                        <Campo Rotulo="Registro ANS da operadora"><input class="campo" maxlength="20" @bind="_registroAns" @bind:after="MudouClinica" /></Campo>
+                    </div>
+                </div>
             </div>
-            <div class="campos">
-                <Campo Rotulo="Razão social"><input class="campo" maxlength="200" @bind="_razaoSocial" @bind:after="MudouClinica" /></Campo>
-                <Campo Rotulo="Nome fantasia"><input class="campo" maxlength="200" @bind="_nomeFantasia" @bind:after="MudouClinica" /></Campo>
-                <Campo Rotulo="CNPJ"><input class="campo" maxlength="30" @bind="_cnpj" @bind:after="MudouClinica" /></Campo>
-                <Campo Rotulo="CNES"><input class="campo" maxlength="30" @bind="_cnes" @bind:after="MudouClinica" /></Campo>
-                <Campo Rotulo="Endereço"><input class="campo" maxlength="300" @bind="_endereco" @bind:after="MudouClinica" /></Campo>
-                <Campo Rotulo="Telefone"><input class="campo" maxlength="40" @bind="_telefone" @bind:after="MudouClinica" /></Campo>
-                <Campo Rotulo="E-mail"><input class="campo" maxlength="200" @bind="_email" @bind:after="MudouClinica" /></Campo>
-                <Campo Rotulo="Chave Pix" Dica="@ConfiguracoesDaClinicaNaTela.TipoDaChavePix(_chavePix)">
-                    <input class="campo" maxlength="120" @bind="_chavePix" @bind:event="oninput" @bind:after="MudouClinica" />
-                </Campo>
-                <Campo Rotulo="Cidade" Dica="A chave Pix e a cidade são os dois campos que o código Pix exige.">
-                    <input class="campo" maxlength="80" @bind="_cidade" @bind:after="MudouClinica" />
-                </Campo>
-                <Campo Rotulo="Código do prestador na operadora"><input class="campo" maxlength="40" @bind="_codigoNaOperadora" @bind:after="MudouClinica" /></Campo>
-                <Campo Rotulo="Registro ANS da operadora"><input class="campo" maxlength="20" @bind="_registroAns" @bind:after="MudouClinica" /></Campo>
-            </div>
-            @Mensagem(Aba.Clinica)
-            <div class="cfg-rodape">
-                <button type="button" class="botao primario" @onclick="SalvarClinicaAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
-                    <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar dados da clínica")
-                </button>
-            </div>
-        </div>
+            <footer class="cfg-bloco-rodape">
+                @Mensagem(Aba.Clinica)
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarClinicaAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
+                        <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar dados da clínica")
+                    </button>
+                </div>
+            </footer>
+        </section>
     </text>;
 
     private RenderFragment AbaAtendimento => @<text>
-        <div class="cartao-corpo cfg-corpo">
-            <div class="cfg-topo">
-                <h2>Enfermagem e conclusão das sessões</h2>
-                <p>Exigir evolução de enfermagem antes de concluir estas modalidades BSV:</p>
-            </div>
-            @if (_modalidadesEnfermagem.Count == 0)
-            {
-                <p class="cfg-nota">Nenhuma modalidade BSV cadastrada no catálogo — a evolução de enfermagem é exclusiva de BSV.</p>
-            }
-            else
-            {
-                <div class="cfg-marcas">
-                    @foreach (var m in _modalidadesEnfermagem)
+        <section class="cfg-bloco">
+            @Cabeca("Conclusão automática das sessões", "O médico usa apenas Salvar sessão; o sistema conclui a sessão sozinho depois do prazo, e as guias são geradas uma única vez.", _pendConclusao)
+            <div class="cfg-bloco-campos">
+                <p class="cfg-situacao @(_conclusaoAutomatica ? null : "pendente")">@ConfiguracoesDaClinicaNaTela.SituacaoConclusao(_conclusaoAutomatica)</p>
+                <div class="cfg-grupo">
+                    <h3>Prazo</h3>
+                    <div class="cfg-linha-curta">
+                        <Campo Rotulo="Horas após a última gravação" Dica="De 1 a 720 horas. Ex.: 24.">
+                            <input class="campo" inputmode="numeric" maxlength="3" aria-label="Prazo para conclusão automática em horas"
+                                   @bind="_prazoConclusao" @bind:event="oninput" @bind:after="() => _pendConclusao = true" />
+                        </Campo>
+                    </div>
+                </div>
+                <div class="cfg-grupo">
+                    <h3>Exigir evolução de enfermagem antes de concluir</h3>
+                    @if (_modalidadesEnfermagem.Count == 0)
                     {
-                        <label class="marcar"><input type="checkbox" checked="@m.Selecionada" @onchange="@(e => { m.Selecionada = e.Value is true; _pendConclusao = true; })" /> @m.Nome</label>
+                        <p class="cfg-nota">Nenhuma modalidade BSV cadastrada no catálogo — a evolução de enfermagem é exclusiva de BSV.</p>
+                    }
+                    else
+                    {
+                        <div class="cfg-marcas">
+                            @foreach (var m in _modalidadesEnfermagem)
+                            {
+                                <label class="marcar"><input type="checkbox" checked="@m.Selecionada" @onchange="@(e => { m.Selecionada = e.Value is true; _pendConclusao = true; })" /> @m.Nome</label>
+                            }
+                        </div>
+                        <span class="campo-dica">Nas modalidades marcadas, a falta da evolução de enfermagem mantém a sessão pendente, com aviso.</span>
                     }
                 </div>
-            }
-            <p class="cfg-situacao @(_conclusaoAutomatica ? null : "pendente")">@ConfiguracoesDaClinicaNaTela.SituacaoConclusao(_conclusaoAutomatica)</p>
-            <div class="campos tres">
-                <Campo Rotulo="Prazo em horas após a última gravação" Dica="De 1 a 720 horas.">
-                    <input class="campo" inputmode="numeric" maxlength="3" aria-label="Prazo para conclusão automática em horas"
-                           @bind="_prazoConclusao" @bind:event="oninput" @bind:after="() => _pendConclusao = true" />
-                </Campo>
+                <ul class="cfg-regras">
+                    <li>Vale para evoluções gravadas depois de ativar a regra.</li>
+                    <li>O sistema não assina documentos nem confirma pagamentos.</li>
+                    <li>A conclusão precisa de conexão com o banco; para funcionar com os computadores desligados, o serviço de conclusão deve estar ativo no servidor.</li>
+                </ul>
             </div>
-            <p class="cfg-nota">O médico usa apenas Salvar sessão. Exemplo: conclusão em 24 horas após a última gravação da evolução médica. Vale para evoluções gravadas após ativar a regra. Nas modalidades marcadas, a falta de evolução de enfermagem mantém a sessão pendente, com aviso. As guias são geradas uma única vez. O sistema não assina documentos nem confirma pagamentos. A conclusão precisa de conexão com o banco; para funcionar com os computadores desligados, o serviço de conclusão deve estar ativo no servidor.</p>
-            @Mensagem(Aba.Atendimento)
-            <div class="cfg-rodape">
-                <button type="button" class="botao primario" @onclick="SalvarConclusaoAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
-                    <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar regras de conclusão")
-                </button>
-            </div>
-
-            <div class="cfg-secao">
-                <div class="cfg-topo">
-                    <h2>Sessões que precisam de atenção</h2>
-                    <p>@_resumoPendencias</p>
-                </div>
-                <div>
-                    <button type="button" class="botao" @onclick="AtualizarPendenciasAsync" disabled="@(!PodeEditar || _lendoPendencias)">
-                        <Icone Nome="atualizar" />@(_lendoPendencias ? "Conferindo…" : "Atualizar pendências")
+            <footer class="cfg-bloco-rodape">
+                @Mensagem(Aba.Atendimento)
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarConclusaoAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
+                        <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar regras de conclusão")
                     </button>
                 </div>
+            </footer>
+        </section>
+
+        <section class="cfg-bloco">
+            @Cabeca("Sessões que precisam de atenção", "As sessões com o prazo de conclusão vencido — e o motivo de cada uma não ter sido concluída.", false)
+            <div class="cfg-bloco-campos">
+                <p class="cfg-situacao @(_pendencias.Count > 0 ? "pendente" : null)">@_resumoPendencias</p>
                 @if (_pendencias.Count > 0)
                 {
                     <div class="tabela-rolagem">
@@ -184,293 +221,338 @@
                     </div>
                 }
             </div>
-        </div>
+            <footer class="cfg-bloco-rodape">
+                <div class="cfg-acoes">
+                    <button type="button" class="botao" @onclick="AtualizarPendenciasAsync" disabled="@(!PodeEditar || _lendoPendencias)">
+                        <Icone Nome="atualizar" />@(_lendoPendencias ? "Conferindo…" : "Atualizar pendências")
+                    </button>
+                </div>
+            </footer>
+        </section>
     </text>;
 
     private RenderFragment AbaOperacao => @<text>
-        <div class="cartao-corpo cfg-corpo">
-            <div class="cfg-topo">
-                <h2>Operação e marketing</h2>
-                <p>Os números que os indicadores e a fila de recall usam, a chave da guia na marcação e a carimbadora de tempo das assinaturas.</p>
-            </div>
-            <div class="campos">
-                <Campo Rotulo="Jornada diária (minutos)" Dica="É o DENOMINADOR da taxa de ocupação. Clínica de meio período veria 50% com a agenda cheia se ficasse nos 480 padrão.">
-                    <input class="campo" inputmode="numeric" maxlength="4" @bind="_jornada" @bind:event="oninput" @bind:after="MudouOperacao" />
-                </Campo>
-                <Campo Rotulo="Recall: dias sem vir" Dica="A partir de quantos dias parado o paciente entra na fila de recall do Acompanhamento de pacientes, quando a fila é aberta.">
-                    <input class="campo" inputmode="numeric" maxlength="4" @bind="_recall" @bind:event="oninput" @bind:after="MudouOperacao" />
-                </Campo>
-            </div>
-
-            <div class="secao-form">
-                <h3>Faturamento na marcação</h3>
-                <label class="alternar"><input type="checkbox" @bind="_guiaNoAgendamento" @bind:after="MudouOperacao" /> A guia nasce quando o atendimento entra no sistema (marcação ou avulso)</label>
-                <span class="campo-dica">Ligada, marcar um horário já gera o atendimento e as guias — a faturista pode efetivar no portal com antecedência, e cancelamento/falta suspende as guias sozinho (reabrir devolve). Guia de sessão futura não entra no painel de pendências até a data chegar.</span>
-                <Aviso Tom="atencao" Texto="LIGUE SÓ DEPOIS DE ATUALIZAR TODAS AS MÁQUINAS da clínica: um programa antigo confirmando presença de um horário marcado pelo novo geraria guia em dobro. A chave só é regravada quando muda — ligar dispara a recontagem das sessões realizadas." />
-            </div>
-
-            <Campo Rotulo="Carimbadora de tempo (ACT) — opcional" Dica="Endereço RFC 3161 de uma autoridade de carimbo do tempo, para as assinaturas ICP-Brasil das prescrições. Em branco a assinatura continua válida — só que a data é a do relógio de quem assinou, e o PDF diz isso.">
-                <input class="campo" maxlength="300" placeholder="https://act.exemplo.com.br/tsa" @bind="_carimbadora" @bind:event="oninput" @bind:after="MudouOperacao" />
-            </Campo>
-
-            <div class="cfg-atalho">
-                <div>
-                    <strong>Termos assinados pelo paciente</strong>
-                    <p>O texto do consentimento e as declarações (jejum, medicações) que o paciente responde e assina na tela dele (o segundo monitor do balcão) antes do procedimento. Diga aqui qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão.</p>
+        <section class="cfg-bloco">
+            @Cabeca("Operação", "Os números que os indicadores e a fila de recall usam, a guia na marcação e o carimbo do tempo das assinaturas.", _pendOperacao)
+            <div class="cfg-bloco-campos">
+                <div class="cfg-grupo">
+                    <h3>Indicadores e recall</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Jornada diária (minutos)" Dica="É o denominador da taxa de ocupação. Clínica de meio período veria 50% com a agenda cheia se ficasse nos 480 padrão.">
+                            <input class="campo" inputmode="numeric" maxlength="4" @bind="_jornada" @bind:event="oninput" @bind:after="MudouOperacao" />
+                        </Campo>
+                        <Campo Rotulo="Recall: dias sem vir" Dica="A partir de quantos dias parado o paciente entra na fila de recall do Acompanhamento de pacientes.">
+                            <input class="campo" inputmode="numeric" maxlength="4" @bind="_recall" @bind:event="oninput" @bind:after="MudouOperacao" />
+                        </Campo>
+                    </div>
                 </div>
+                <div class="cfg-grupo">
+                    <h3>Faturamento na marcação</h3>
+                    <label class="alternar"><input type="checkbox" @bind="_guiaNoAgendamento" @bind:after="MudouOperacao" /> A guia nasce quando o atendimento entra no sistema (marcação ou avulso)</label>
+                    <span class="campo-dica">Ligada, marcar um horário já gera o atendimento e as guias — a faturista pode efetivar no portal com antecedência, e cancelamento/falta suspende as guias sozinho (reabrir devolve). Guia de sessão futura não entra no painel de pendências até a data chegar.</span>
+                    <Aviso Tom="atencao" Texto="LIGUE SÓ DEPOIS DE ATUALIZAR TODAS AS MÁQUINAS da clínica: um programa antigo confirmando presença de um horário marcado pelo novo geraria guia em dobro. A chave só é regravada quando muda — ligar dispara a recontagem das sessões realizadas." />
+                </div>
+                <div class="cfg-grupo">
+                    <h3>Assinatura digital das prescrições</h3>
+                    <Campo Rotulo="Carimbadora de tempo (ACT) — opcional" Dica="Endereço RFC 3161 de uma autoridade de carimbo do tempo, para as assinaturas ICP-Brasil. Em branco a assinatura continua válida — só que a data é a do relógio de quem assinou, e o PDF diz isso.">
+                        <input class="campo" maxlength="300" placeholder="https://act.exemplo.com.br/tsa" @bind="_carimbadora" @bind:event="oninput" @bind:after="MudouOperacao" />
+                    </Campo>
+                    <span class="campo-dica">Assinatura com arquivo A1 individual (.pfx ou .p12): cada profissional carrega o seu certificado ao assinar.</span>
+                </div>
+            </div>
+            <footer class="cfg-bloco-rodape">
+                @Mensagem(Aba.Operacao)
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarOperacaoAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
+                        <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar operação")
+                    </button>
+                </div>
+            </footer>
+        </section>
+
+        <section class="cfg-bloco">
+            @Cabeca("Termos assinados pelo paciente", "O consentimento e as declarações (jejum, medicações) que o paciente responde e assina antes do procedimento. Diga qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão.", false)
+            <div class="cfg-bloco-campos cfg-atalho">
+                <span class="campo-dica">Os termos são escritos e amarrados aos procedimentos num formulário próprio; cada um grava ali mesmo.</span>
                 <button type="button" class="botao" @onclick="() => _termos = true"><Icone Nome="documento" />Escrever termos…</button>
             </div>
-            <div class="cfg-atalho">
-                <div>
-                    <strong>Campos personalizados do prontuário</strong>
-                    <p>O que ESTA clínica anota em cada sessão além dos campos do sistema — “nº de agulhas”, “aparelho usado”, “carga do exercício”. Dado dentro do texto livre não se compara entre sessões nem vira coluna de relatório; aqui ele vira campo.</p>
-                </div>
+        </section>
+
+        <section class="cfg-bloco">
+            @Cabeca("Campos personalizados do prontuário", "O que ESTA clínica anota em cada sessão além dos campos do sistema — “nº de agulhas”, “aparelho usado”, “carga do exercício”.", false)
+            <div class="cfg-bloco-campos cfg-atalho">
+                <span class="campo-dica">Dado dentro do texto livre não se compara entre sessões nem vira coluna de relatório; aqui ele vira campo.</span>
                 <button type="button" class="botao" @onclick="() => _campos = true"><Icone Nome="lista" />Campos do prontuário…</button>
             </div>
-            <p class="cfg-nota">Assinatura digital com arquivo A1 individual (.pfx ou .p12). Cada profissional carrega seu certificado ao assinar.</p>
-
-            @Mensagem(Aba.Operacao)
-            <div class="cfg-rodape">
-                <button type="button" class="botao primario" @onclick="SalvarOperacaoAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
-                    <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar operação")
-                </button>
-            </div>
-        </div>
+        </section>
     </text>;
 
     private RenderFragment AbaFaturamento => @<text>
-        <div class="cartao-corpo cfg-corpo">
-            <div class="cfg-topo">
-                <h2>Regras de faturamento</h2>
-                <p>Os mesmos prazos são utilizados no Gerente e no Faturamento.</p>
+        <section class="cfg-bloco">
+            @Cabeca("Regras de faturamento", "Os prazos que o painel de pendências e a rodada usam — os mesmos no Gerente e no Faturamento.", _pendFaturamento)
+            <div class="cfg-bloco-campos">
+                <div class="cfg-grupo">
+                    <h3>Prazos (em dias)</h3>
+                    <div class="campos tres">
+                        <Campo Rotulo="Alerta de consulta" Dica="De 0 a 365 dias antes do vencimento.">
+                            <input class="campo" inputmode="numeric" maxlength="3" @bind="_janela" @bind:event="oninput" @bind:after="MudouFaturamento" />
+                        </Campo>
+                        <Campo Rotulo="Recurso de glosa" Dica="De 1 a 365 dias para recorrer.">
+                            <input class="campo" inputmode="numeric" maxlength="3" @bind="_glosa" @bind:event="oninput" @bind:after="MudouFaturamento" />
+                        </Campo>
+                        <Campo Rotulo="Prazo de decisão" Dica="De 1 a 365 dias.">
+                            <input class="campo" inputmode="numeric" maxlength="3" @bind="_rodada" @bind:event="oninput" @bind:after="MudouFaturamento" />
+                        </Campo>
+                    </div>
+                    <span class="campo-dica">O prazo de decisão conta a partir de a guia VIRAR pendente (a data prevista de faturamento), não do atendimento: o 2º código só existe 24 h depois, e contar do atendimento cobraria decisão sobre uma guia que ninguém tinha como tirar.</span>
+                </div>
+                <div class="cfg-grupo">
+                    <h3>Rodada de pendências</h3>
+                    <label class="alternar"><input type="checkbox" @bind="_aplicaConsultas" @bind:after="MudouFaturamento" /> Também cobra consultas a renovar</label>
+                    <label class="alternar"><input type="checkbox" @bind="_aplicaCarteirinhas" @bind:after="MudouFaturamento" /> Também cobra carteirinhas vencidas</label>
+                </div>
             </div>
-            <div class="campos tres">
-                <Campo Rotulo="Alerta de consulta (dias)" Dica="De 0 a 365 dias antes do vencimento.">
-                    <input class="campo" inputmode="numeric" maxlength="3" @bind="_janela" @bind:event="oninput" @bind:after="MudouFaturamento" />
-                </Campo>
-                <Campo Rotulo="Recurso de glosa (dias)" Dica="De 1 a 365 dias para recorrer.">
-                    <input class="campo" inputmode="numeric" maxlength="3" @bind="_glosa" @bind:event="oninput" @bind:after="MudouFaturamento" />
-                </Campo>
-                <Campo Rotulo="Prazo de decisão (dias)" Dica="De 1 a 365 dias.">
-                    <input class="campo" inputmode="numeric" maxlength="3" @bind="_rodada" @bind:event="oninput" @bind:after="MudouFaturamento" />
-                </Campo>
-            </div>
-            <span class="campo-dica">O prazo de decisão conta a partir de a guia VIRAR pendente (a data prevista de faturamento), não do atendimento: o 2º código só existe 24 h depois, e contar do atendimento cobraria decisão sobre uma guia que ninguém tinha como tirar.</span>
-            <label class="alternar"><input type="checkbox" @bind="_aplicaConsultas" @bind:after="MudouFaturamento" /> A rodada de pendências também cobra consultas a renovar</label>
-            <label class="alternar"><input type="checkbox" @bind="_aplicaCarteirinhas" @bind:after="MudouFaturamento" /> A rodada de pendências também cobra carteirinhas vencidas</label>
-            @Mensagem(Aba.Faturamento)
-            <div class="cfg-rodape">
-                <button type="button" class="botao primario" @onclick="SalvarFaturamentoAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
-                    <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar faturamento")
-                </button>
-            </div>
-        </div>
+            <footer class="cfg-bloco-rodape">
+                @Mensagem(Aba.Faturamento)
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarFaturamentoAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S">
+                        <Icone Nome="check" />@(_salvando ? "Salvando…" : "Salvar faturamento")
+                    </button>
+                </div>
+            </footer>
+        </section>
     </text>;
 
     private RenderFragment AbaIntegracoes => @<text>
-        <div class="cartao-corpo cfg-corpo">
-            @* ---------- Publicação ---------- *@
-            <div class="cfg-topo">
-                <h2>Publicação de documentos assinados</h2>
-                <p>Receita, atestado, pedido de exame e declaração de comparecimento assinados digitalmente ganham um QR Code. O farmacêutico aponta a câmera e o documento abre — sem o paciente precisar enviar arquivo nenhum. Prontuário NUNCA é publicado.</p>
-            </div>
-            <p class="cfg-situacao">@_situacaoPublicacao</p>
-            <div class="campos">
-                <Campo Rotulo="Domínio da clínica" Classe="largo"
-                       Dica="Ex.: https://documentos.suaclinica.com.br — é o endereço que o farmacêutico vê ao escanear, e por isso precisa ser o domínio da clínica. Peça ao responsável pelo site um registro CNAME apontando para o provedor de armazenamento. Em branco, a publicação fica DESLIGADA.">
-                    <input class="campo" maxlength="200" placeholder="https://documentos.suaclinica.com.br" @bind="_dominio" @bind:after="MudouPublicacao" />
-                </Campo>
-            </div>
-            <span class="campo-dica">Escolha o domínio com calma: o endereço fica gravado dentro de cada PDF assinado, e trocá-lo depois faz os QR Codes já impressos pararem de funcionar. Documento assinado não pode ser regerado — teria de ser cancelado e emitido de novo.</span>
-            <div class="campos tres">
-                <Campo Rotulo="Dias no ar" Dica="De 1 a 365.">
-                    <input class="campo" inputmode="numeric" maxlength="3" @bind="_diasPublicacao" @bind:event="oninput" @bind:after="MudouPublicacao" />
-                </Campo>
-            </div>
-            <span class="campo-dica">Por quantos dias o documento fica acessível pelo link. Receita simples costuma valer 30 dias; uso contínuo, mais. Vencido o prazo, o arquivo sai do ar e a clínica republica com um clique, sem perder o QR já impresso. O registro no sistema continua guardado por 20 anos, sempre.</span>
-
-            <div class="secao-form">
-                <h3>Armazenamento (onde os arquivos ficam)</h3>
-                <span class="campo-dica">Serve qualquer provedor compatível com S3 (Magalu Cloud, Cloudflare R2, AWS). Cadastrado aqui uma vez, vale para todas as máquinas. IMPORTANTE: o balde não pode permitir LISTAGEM de conteúdo — o endereço secreto de cada documento é a única barreira, e um balde que lista entrega todos de uma vez.</span>
-                @if (_armVemDoAmbiente)
-                {
-                    <Aviso Tom="atencao" Texto="Estas credenciais estão vindo de VARIÁVEIS DE AMBIENTE desta máquina (CLINICA_ARMAZENAMENTO_ENDPOINT e afins), que têm prioridade sobre o que é salvo aqui. Enquanto elas existirem, os campos abaixo são somente leitura e mostram o que está em vigor. Para voltar a usar a configuração da clínica, apague as variáveis e reabra o sistema." />
-                }
-                <div class="campos">
-                    <Campo Rotulo="Endereço do provedor (endpoint)">
-                        <input class="campo" maxlength="200" placeholder="https://…" disabled="@_armVemDoAmbiente" @bind="_armEndpoint" @bind:after="MudouPublicacao" />
-                    </Campo>
-                    <Campo Rotulo="Balde (bucket)">
-                        <input class="campo" maxlength="100" disabled="@_armVemDoAmbiente" @bind="_armBucket" @bind:after="MudouPublicacao" />
-                    </Campo>
-                    <Campo Rotulo="Chave de acesso">
-                        <input class="campo" maxlength="200" autocomplete="off" disabled="@_armVemDoAmbiente" @bind="_armChave" @bind:after="MudouPublicacao" />
-                    </Campo>
-                    <Campo Rotulo="Chave secreta"
-                           Dica="@(_armVemDoAmbiente ? "Definida por variável de ambiente." : _temSegredoGravado ? "Há uma chave secreta gravada. Deixe em branco para mantê-la; digite só para trocar." : "Cole a chave secreta que o provedor deu.")">
-                        <input class="campo" type="password" maxlength="300" autocomplete="new-password" disabled="@_armVemDoAmbiente"
-                               placeholder="@(_armVemDoAmbiente ? "(definida por variável de ambiente)" : _temSegredoGravado ? "•••••••• (gravada)" : null)"
-                               @bind="_armSegredo" @bind:after="MudouPublicacao" />
-                    </Campo>
-                    <Campo Rotulo="Região (opcional)" Dica="Em branco, o sistema usa us-east-1, que é o que a maioria dos provedores aceita quando não tem região própria.">
-                        <input class="campo" maxlength="60" disabled="@_armVemDoAmbiente" @bind="_armRegiao" @bind:after="MudouPublicacao" />
-                    </Campo>
+        <section class="cfg-bloco">
+            @Cabeca("Publicação de documentos assinados", "Receita, atestado, pedido de exame e declaração assinados digitalmente ganham um QR Code que o farmacêutico abre com a câmera. Prontuário NUNCA é publicado.", _pendPublicacao)
+            <div class="cfg-bloco-campos">
+                <p class="cfg-situacao">@_situacaoPublicacao</p>
+                <div class="cfg-grupo">
+                    <h3>Endereço público</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Domínio da clínica" Classe="largo"
+                               Dica="O endereço que o farmacêutico vê ao escanear — precisa ser o domínio da clínica (um CNAME apontando para o armazenamento). Escolha com calma: ele fica gravado dentro de cada PDF assinado, e trocá-lo depois faz os QR Codes já impressos pararem de funcionar. Em branco, a publicação fica DESLIGADA.">
+                            <input class="campo" maxlength="200" placeholder="https://documentos.suaclinica.com.br" @bind="_dominio" @bind:after="MudouPublicacao" />
+                        </Campo>
+                        <Campo Rotulo="Dias no ar"
+                               Dica="De 1 a 365. Receita simples costuma valer 30 dias; uso contínuo, mais. Vencido o prazo o arquivo sai do ar e a clínica republica com um clique; o registro continua guardado por 20 anos.">
+                            <input class="campo" inputmode="numeric" maxlength="3" @bind="_diasPublicacao" @bind:event="oninput" @bind:after="MudouPublicacao" />
+                        </Campo>
+                    </div>
                 </div>
-            </div>
-            @Mensagem(Aba.Integracoes, Bloco.Publicacao)
-            <div class="cfg-rodape">
-                <button type="button" class="botao primario" @onclick="SalvarPublicacaoAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar publicação</button>
-                <button type="button" class="botao" @onclick="TestarConexaoAsync" disabled="@(!PodeEditar || _testando)"
-                        title="Grava um arquivo de teste no balde e o apaga em seguida — o mesmo caminho da publicação de verdade.">
-                    <Icone Nome="atualizar" />@(_testando ? "Testando…" : "Testar conexão")
-                </button>
-                <button type="button" class="botao" @onclick="EnviarExemploAsync" disabled="@(!PodeEditar || _testando)"
-                        title="Sobe UM PDF de exemplo e o deixa no ar, para conferir no navegador que ele abre.">
-                    <Icone Nome="enviar" />Enviar arquivo de teste
-                </button>
-            </div>
-            @if (!string.IsNullOrWhiteSpace(_urlExemplo))
-            {
-                <div class="aviso info cfg-exemplo" role="status">
-                    <Icone Nome="info" />
-                    <div>
-                        <span>Arquivo de teste no ar. Abra o endereço abaixo no navegador — ele tem que ABRIR o PDF, não baixar. Depois apague o objeto no painel do provedor.</span>
-                        <div class="cfg-exemplo-url">
-                            <input class="campo" readonly value="@_urlExemplo" aria-label="Endereço do arquivo de teste" />
-                            <button type="button" class="botao mini" @onclick="CopiarExemploAsync"><Icone Nome="copiar" />Copiar</button>
-                            <button type="button" class="botao mini" @onclick="AbrirExemploAsync"><Icone Nome="abrir" />Abrir</button>
+                <div class="cfg-grupo">
+                    <h3>Armazenamento (onde os arquivos ficam)</h3>
+                    <span class="campo-dica">Qualquer provedor compatível com S3 (Magalu Cloud, Cloudflare R2, AWS); vale para todas as máquinas. IMPORTANTE: o balde não pode permitir LISTAGEM — o endereço secreto de cada documento é a única barreira.</span>
+                    @if (_armVemDoAmbiente)
+                    {
+                        <Aviso Tom="atencao" Texto="Estas credenciais estão vindo de VARIÁVEIS DE AMBIENTE desta máquina (CLINICA_ARMAZENAMENTO_ENDPOINT e afins), que têm prioridade sobre o que é salvo aqui. Enquanto elas existirem, os campos abaixo são somente leitura e mostram o que está em vigor. Para voltar a usar a configuração da clínica, apague as variáveis e reabra o sistema." />
+                    }
+                    <div class="campos">
+                        <Campo Rotulo="Endereço do provedor (endpoint)" Classe="largo">
+                            <input class="campo" maxlength="200" placeholder="https://…" disabled="@_armVemDoAmbiente" @bind="_armEndpoint" @bind:after="MudouPublicacao" />
+                        </Campo>
+                        <Campo Rotulo="Balde (bucket)">
+                            <input class="campo" maxlength="100" disabled="@_armVemDoAmbiente" @bind="_armBucket" @bind:after="MudouPublicacao" />
+                        </Campo>
+                        <Campo Rotulo="Região (opcional)" Dica="Em branco, o sistema usa us-east-1, que a maioria dos provedores aceita.">
+                            <input class="campo" maxlength="60" disabled="@_armVemDoAmbiente" @bind="_armRegiao" @bind:after="MudouPublicacao" />
+                        </Campo>
+                        <Campo Rotulo="Chave de acesso">
+                            <input class="campo" maxlength="200" autocomplete="off" disabled="@_armVemDoAmbiente" @bind="_armChave" @bind:after="MudouPublicacao" />
+                        </Campo>
+                        <Campo Rotulo="Chave secreta"
+                               Dica="@(_armVemDoAmbiente ? "Definida por variável de ambiente." : _temSegredoGravado ? "Há uma chave secreta gravada. Deixe em branco para mantê-la; digite só para trocar." : "Cole a chave secreta que o provedor deu.")">
+                            <input class="campo" type="password" maxlength="300" autocomplete="new-password" disabled="@_armVemDoAmbiente"
+                                   placeholder="@(_armVemDoAmbiente ? "(definida por variável de ambiente)" : _temSegredoGravado ? "•••••••• (gravada)" : null)"
+                                   @bind="_armSegredo" @bind:after="MudouPublicacao" />
+                        </Campo>
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_urlExemplo))
+                {
+                    <div class="aviso info cfg-exemplo" role="status">
+                        <Icone Nome="info" />
+                        <div>
+                            <span>Arquivo de teste no ar. Abra o endereço abaixo no navegador — ele tem que ABRIR o PDF, não baixar. Depois apague o objeto no painel do provedor.</span>
+                            <div class="cfg-exemplo-url">
+                                <input class="campo" readonly value="@_urlExemplo" aria-label="Endereço do arquivo de teste" />
+                                <button type="button" class="botao mini" @onclick="CopiarExemploAsync"><Icone Nome="copiar" />Copiar</button>
+                                <button type="button" class="botao mini" @onclick="AbrirExemploAsync"><Icone Nome="abrir" />Abrir</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            }
-            <span class="campo-dica">Testar conexão grava um arquivo de teste no balde e o apaga em seguida — é o mesmo caminho que a publicação de verdade usa. Salve antes de testar.</span>
-
-            @* ---------- Lembretes por e-mail ---------- *@
-            <div class="cfg-secao">
-                <div class="cfg-topo">
-                    <h2>Lembretes por e-mail</h2>
-                    <p>Na abertura da Recepção e do Gerente, o sistema manda a confirmação da sessão por e-mail a quem tem endereço na ficha — as sessões de hoje, de amanhã e do fim de semana que vier. É a MESMA rodada de confirmação do balcão: quem já foi avisado pelo WhatsApp não recebe e-mail, e quem recebeu aparece na rodada como avisado por e-mail. A mensagem não leva dado clínico.</p>
-                </div>
-                <p class="cfg-situacao">@_situacaoEmail</p>
-                <div class="cfg-smtp">
-                    <Campo Rotulo="Servidor de saída (SMTP)">
-                        <input class="campo" maxlength="200" placeholder="smtp.gmail.com" @bind="_smtpHost" @bind:after="MudouEmail" />
-                    </Campo>
-                    <Campo Rotulo="Porta">
-                        <input class="campo" inputmode="numeric" maxlength="5" placeholder="587" @bind="_smtpPorta" @bind:after="MudouEmail" />
-                    </Campo>
-                </div>
-                <div class="campos">
-                    <Campo Rotulo="Usuário" Dica="Em branco = servidor sem autenticação (e a senha gravada sai).">
-                        <input class="campo" maxlength="200" autocomplete="off" @bind="_smtpUsuario" @bind:after="MudouEmail" />
-                    </Campo>
-                    <Campo Rotulo="Senha (ou senha de aplicativo)"
-                           Dica="@(_temSenhaGravada ? "Há uma senha gravada. Deixe em branco para mantê-la; digite só para trocar." : null)">
-                        <input class="campo" type="password" maxlength="300" autocomplete="new-password"
-                               placeholder="@(_temSenhaGravada ? "•••••••• (gravada)" : null)" @bind="_smtpSenha" @bind:after="MudouEmail" />
-                    </Campo>
-                    <Campo Rotulo="Remetente (e-mail que o paciente vê)">
-                        <input class="campo" maxlength="120" placeholder="contato@suaclinica.com.br" @bind="_remetente" @bind:after="MudouEmail" />
-                    </Campo>
-                    <Campo Rotulo="Nome do remetente">
-                        <input class="campo" maxlength="120" placeholder="Clínica SemDor" @bind="_remetenteNome" @bind:after="MudouEmail" />
-                    </Campo>
-                </div>
-                <label class="alternar"><input type="checkbox" @bind="_smtpTls" @bind:after="MudouEmail" /> Usar criptografia (TLS) — recomendado; desligue só para servidor interno da clínica</label>
-                <span class="campo-dica">Gmail: smtp.gmail.com, porta 587, com SENHA DE APLICATIVO (não a senha da conta — o Google recusa). Outlook / Microsoft 365: smtp.office365.com, porta 587. Hospedagem própria: pergunte ao responsável pelo e-mail da clínica. A resposta do paciente chega no remetente.</span>
-                @Mensagem(Aba.Integracoes, Bloco.Email)
-                <div class="cfg-rodape cfg-rodape-teste">
-                    <button type="button" class="botao primario" @onclick="SalvarEmailAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar lembretes</button>
-                    <label class="campo-bloco cfg-destino">
-                        <span class="campo-rotulo">Mandar o teste para</span>
-                        <input class="campo" maxlength="120" @bind="_destinoTeste" />
-                    </label>
-                    <button type="button" class="botao" @onclick="TestarEmailAsync" disabled="@(!PodeEditar || _testandoEmail)">
-                        <Icone Nome="enviar" />@(_testandoEmail ? "Enviando…" : "Enviar e-mail de teste")
+                }
+            </div>
+            <footer class="cfg-bloco-rodape">
+                @Mensagem(Aba.Integracoes, Bloco.Publicacao)
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarPublicacaoAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar publicação</button>
+                    <span class="cfg-acoes-sep" aria-hidden="true"></span>
+                    <button type="button" class="botao" @onclick="TestarConexaoAsync" disabled="@(!PodeEditar || _testando)"
+                            title="Grava um arquivo de teste no balde e o apaga em seguida — o mesmo caminho da publicação de verdade. Salve antes de testar.">
+                        <Icone Nome="atualizar" />@(_testando ? "Testando…" : "Testar conexão")
+                    </button>
+                    <button type="button" class="botao" @onclick="EnviarExemploAsync" disabled="@(!PodeEditar || _testando)"
+                            title="Sobe UM PDF de exemplo e o deixa no ar, para conferir no navegador que ele abre.">
+                        <Icone Nome="enviar" />Enviar arquivo de teste
                     </button>
                 </div>
-                <span class="campo-dica">O teste usa a configuração SALVA — salve antes de testar. Ele manda um único e-mail para o endereço acima; nenhum paciente recebe nada.</span>
-            </div>
+                <span class="campo-dica">Os testes usam a configuração SALVA — salve antes de testar.</span>
+            </footer>
+        </section>
 
-            @* ---------- Tela do paciente ---------- *@
-            <div class="cfg-secao">
-                <div class="cfg-topo">
-                    <h2>Tela do paciente</h2>
-                    <p>O monitor virado para quem assina, como a maquininha do cartão: a recepcionista conduz na tela dela e o paciente lê e assina na dele. Sem escolher nada, a assinatura é colhida na própria janela de quem conduz.</p>
+        <section class="cfg-bloco">
+            @Cabeca("Lembretes por e-mail", "Na abertura da Recepção e do Gerente, o sistema manda a confirmação da sessão por e-mail a quem tem endereço na ficha. É a MESMA rodada do balcão: quem já foi avisado pelo WhatsApp não recebe e-mail. A mensagem não leva dado clínico.", _pendEmail)
+            <div class="cfg-bloco-campos">
+                <p class="cfg-situacao">@_situacaoEmail</p>
+                <div class="cfg-grupo">
+                    <h3>Servidor de saída</h3>
+                    <div class="cfg-smtp">
+                        <Campo Rotulo="Servidor (SMTP)">
+                            <input class="campo" maxlength="200" placeholder="smtp.gmail.com" @bind="_smtpHost" @bind:after="MudouEmail" />
+                        </Campo>
+                        <Campo Rotulo="Porta">
+                            <input class="campo" inputmode="numeric" maxlength="5" placeholder="587" @bind="_smtpPorta" @bind:after="MudouEmail" />
+                        </Campo>
+                    </div>
+                    <div class="campos">
+                        <Campo Rotulo="Usuário" Dica="Em branco = servidor sem autenticação (e a senha gravada sai).">
+                            <input class="campo" maxlength="200" autocomplete="off" @bind="_smtpUsuario" @bind:after="MudouEmail" />
+                        </Campo>
+                        <Campo Rotulo="Senha (ou senha de aplicativo)"
+                               Dica="@(_temSenhaGravada ? "Há uma senha gravada. Deixe em branco para mantê-la; digite só para trocar." : null)">
+                            <input class="campo" type="password" maxlength="300" autocomplete="new-password"
+                                   placeholder="@(_temSenhaGravada ? "•••••••• (gravada)" : null)" @bind="_smtpSenha" @bind:after="MudouEmail" />
+                        </Campo>
+                    </div>
+                    <label class="alternar"><input type="checkbox" @bind="_smtpTls" @bind:after="MudouEmail" /> Usar criptografia (TLS) — recomendado; desligue só para servidor interno da clínica</label>
+                    <span class="campo-dica">Gmail: smtp.gmail.com, porta 587, com SENHA DE APLICATIVO (não a senha da conta — o Google recusa). Outlook / Microsoft 365: smtp.office365.com, porta 587. Hospedagem própria: pergunte ao responsável pelo e-mail da clínica.</span>
                 </div>
-                <div class="cfg-monitor">
-                    <Campo Rotulo="Monitor">
-                        <select class="campo" value="@(_telaEscolhida ?? string.Empty)" disabled="@(_monitores.Count == 0)"
-                                @onchange="@(e => { var v = e.Value?.ToString(); _telaEscolhida = string.IsNullOrWhiteSpace(v) ? null : v; _pendTela = true; })">
-                            <option value="">Nenhum — a assinatura é colhida na janela de quem conduz</option>
-                            @foreach (var m in _monitores)
-                            {
-                                <option value="@m.Id">@m.Rotulo</option>
-                            }
-                            @if (_telaGravada is { } g && _monitores.All(m => !string.Equals(m.Id, g, StringComparison.OrdinalIgnoreCase)))
-                            {
-                                <option value="@g">@($"{g} — não está ligada agora")</option>
-                            }
-                        </select>
-                    </Campo>
-                    <div class="cfg-monitor-acoes">
-                        <button type="button" class="botao primario" @onclick="SalvarTelaAsync" disabled="@(!PodeEditar || _salvando || _monitores.Count == 0)"><Icone Nome="check" />Salvar</button>
-                        <button type="button" class="botao" @onclick="TestarTelaAsync" disabled="@(!PodeEditar || _monitores.Count == 0)">Testar</button>
+                <div class="cfg-grupo">
+                    <h3>Remetente</h3>
+                    <div class="campos">
+                        <Campo Rotulo="E-mail que o paciente vê" Dica="A resposta do paciente chega neste endereço.">
+                            <input class="campo" maxlength="120" placeholder="contato@suaclinica.com.br" @bind="_remetente" @bind:after="MudouEmail" />
+                        </Campo>
+                        <Campo Rotulo="Nome do remetente">
+                            <input class="campo" maxlength="120" placeholder="Clínica SemDor" @bind="_remetenteNome" @bind:after="MudouEmail" />
+                        </Campo>
                     </div>
                 </div>
-                @if (!string.IsNullOrWhiteSpace(_avisoTela))
-                {
-                    <Aviso Tom="atencao" Texto="@_avisoTela" />
-                }
-                @Mensagem(Aba.Integracoes, Bloco.Tela)
-                <span class="campo-dica">Use o Testar antes do primeiro paciente: as telas do Windows se chamam \\.\DISPLAY1 e \\.\DISPLAY2, e o único jeito de saber qual é qual é ver o exemplo aparecer nela.</span>
+                <div class="cfg-grupo">
+                    <h3>Testar</h3>
+                    <div class="cfg-teste-email">
+                        <Campo Rotulo="Mandar o teste para">
+                            <input class="campo" maxlength="120" @bind="_destinoTeste" />
+                        </Campo>
+                        <button type="button" class="botao" @onclick="TestarEmailAsync" disabled="@(!PodeEditar || _testandoEmail)">
+                            <Icone Nome="enviar" />@(_testandoEmail ? "Enviando…" : "Enviar e-mail de teste")
+                        </button>
+                    </div>
+                    <span class="campo-dica">O teste usa a configuração SALVA — salve antes de testar. Ele manda um único e-mail para este endereço; nenhum paciente recebe nada.</span>
+                </div>
             </div>
-        </div>
+            <footer class="cfg-bloco-rodape">
+                @Mensagem(Aba.Integracoes, Bloco.Email)
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarEmailAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar lembretes</button>
+                </div>
+            </footer>
+        </section>
     </text>;
 
     private RenderFragment AbaBackup => @<text>
-        <div class="cartao-corpo cfg-corpo">
-            <div class="cfg-topo">
-                <h2>Backup da clínica</h2>
-                <p>Uma cópia de tudo: pacientes, prontuário, agenda, financeiro, estoque e acessos. Guarde FORA desta máquina — pendrive ou nuvem. Cópia que fica no mesmo computador do banco não é plano B.</p>
+        @if (_backupDesligado)
+        {
+            <div class="cfg-faixa">
+                <Aviso Tom="atencao" Texto="A cópia automática está DESLIGADA: nenhuma pasta de destino foi escolhida. Enquanto isso, a clínica só tem backup nos dias em que alguém clicar em Copiar agora." />
             </div>
-            @if (_backupDesligado)
-            {
-                <Aviso Tom="atencao" Texto="A cópia automática está DESLIGADA: nenhuma pasta de destino foi escolhida. Enquanto isso, a clínica só tem backup nos dias em que alguém clicar no botão abaixo." />
-            }
-            <div class="secao-form">
-                <h3>Cópia automática</h3>
-                <span class="campo-dica">Gravada na abertura do Gerente quando o prazo vence. Escolha uma pasta de REDE ou de nuvem sincronizada — o sistema não tem como saber onde a pasta fica fisicamente, e cópia no mesmo computador não protege contra incêndio, furto nem ransomware.</span>
-                <div class="cfg-pasta">
-                    <input class="campo" readonly value="@_pastaBackup" placeholder="Nenhuma pasta escolhida" aria-label="Pasta da cópia automática" />
-                    <button type="button" class="botao" @onclick="EscolherPastaAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="abrir" />Escolher pasta…</button>
-                </div>
-                <div class="cfg-politica">
-                    <Campo Rotulo="Copiar a cada (dias)">
-                        <input class="campo" inputmode="numeric" maxlength="4" @bind="_intervaloBackup" @bind:event="oninput" @bind:after="() => _pendBackup = true" />
-                    </Campo>
-                    <Campo Rotulo="Cópias a guardar">
-                        <input class="campo" inputmode="numeric" maxlength="3" @bind="_copiasBackup" @bind:event="oninput" @bind:after="() => _pendBackup = true" />
-                    </Campo>
-                    <button type="button" class="botao" @onclick="SalvarPoliticaBackupAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S"><Icone Nome="check" />Salvar política</button>
-                </div>
-                <span class="campo-dica">Guardar várias cópias não é excesso: a corrupção que ninguém percebeu na sexta é copiada por cima da única cópia boa no sábado.</span>
-                @* Desligada, quem fala é o aviso do topo — a mesma frase duas vezes seriam duas respostas. *@
+        }
+        <section class="cfg-bloco">
+            @Cabeca("Cópia automática", "Uma cópia de tudo — pacientes, prontuário, agenda, financeiro, estoque e acessos —, gravada na abertura do Gerente quando o prazo vence. Guarde FORA desta máquina.", _pendBackup)
+            <div class="cfg-bloco-campos">
+                @* Desligada, quem fala é a faixa do topo — a mesma frase duas vezes seriam duas respostas. *@
                 @if (!_backupDesligado)
                 {
                     <p class="cfg-situacao">@_situacaoBackup</p>
                 }
+                <div class="cfg-grupo">
+                    <h3>Pasta de destino</h3>
+                    <div class="cfg-pasta">
+                        <input class="campo" readonly value="@_pastaBackup" placeholder="Nenhuma pasta escolhida" aria-label="Pasta da cópia automática" />
+                        <button type="button" class="botao" @onclick="EscolherPastaAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="abrir" />Escolher pasta…</button>
+                    </div>
+                    <span class="campo-dica">Escolha uma pasta de REDE ou de nuvem sincronizada — o sistema não tem como saber onde a pasta fica fisicamente, e cópia no mesmo computador não protege contra incêndio, furto nem ransomware. A pasta é gravada assim que escolhida.</span>
+                </div>
+                <div class="cfg-grupo">
+                    <h3>Política</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Copiar a cada (dias)">
+                            <input class="campo" inputmode="numeric" maxlength="4" @bind="_intervaloBackup" @bind:event="oninput" @bind:after="() => _pendBackup = true" />
+                        </Campo>
+                        <Campo Rotulo="Cópias a guardar">
+                            <input class="campo" inputmode="numeric" maxlength="3" @bind="_copiasBackup" @bind:event="oninput" @bind:after="() => _pendBackup = true" />
+                        </Campo>
+                    </div>
+                    <span class="campo-dica">Guardar várias cópias não é excesso: a corrupção que ninguém percebeu na sexta é copiada por cima da única cópia boa no sábado.</span>
+                </div>
             </div>
-            <div class="cfg-rodape">
-                <button type="button" class="botao primario" @onclick="CopiarAgoraAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="baixar" />Copiar agora</button>
-                <button type="button" class="botao" @onclick="SalvarCopiaEmAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="baixar" />Salvar cópia em…</button>
-                <button type="button" class="botao" @onclick="ConferirBackupAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="busca" />Conferir um backup</button>
+            <footer class="cfg-bloco-rodape">
+                @if (_resumoBackupNaPolitica)
+                {
+                    <Aviso Tom="@(_resumoBackupEhErro ? "erro" : "info")" Texto="@_resumoBackup" />
+                }
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarPoliticaBackupAsync" disabled="@(!PodeEditar || _salvando)" title="Ctrl+S"><Icone Nome="check" />Salvar política</button>
+                </div>
+            </footer>
+        </section>
+
+        <section class="cfg-bloco">
+            @Cabeca("Copiar e conferir agora", "Uma cópia fora do prazo, um arquivo para levar no pendrive, ou a conferência de um backup existente.", false)
+            <div class="cfg-bloco-campos">
+                <div class="cfg-acoes">
+                    <button type="button" class="botao" @onclick="CopiarAgoraAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="baixar" />Copiar agora</button>
+                    <button type="button" class="botao" @onclick="SalvarCopiaEmAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="baixar" />Salvar cópia em…</button>
+                    <button type="button" class="botao" @onclick="ConferirBackupAsync" disabled="@(!PodeEditar || _copiando)"><Icone Nome="busca" />Conferir um backup</button>
+                </div>
+                @if (!_resumoBackupNaPolitica)
+                {
+                    <Aviso Tom="@(_resumoBackupEhErro ? "erro" : "info")" Texto="@_resumoBackup" />
+                }
+                <ul class="cfg-regras">
+                    <li><strong>Copiar agora</strong> grava na pasta da cópia automática, pelo mesmo caminho dela.</li>
+                    <li><strong>Conferir</strong> abre o arquivo e conta o que há dentro dele, sem alterar nada. Faça isso de vez em quando: backup que ninguém sabe se prestou só se descobre no dia em que ele é necessário.</li>
+                    <li>@ConfiguracoesDaClinicaNaTela.SobreRestauracao</li>
+                </ul>
             </div>
-            <Aviso Tom="@(_resumoBackupEhErro ? "erro" : "info")" Texto="@_resumoBackup" />
-            <span class="campo-dica">Conferir abre o arquivo e conta o que há dentro dele, sem alterar nada. Faça isso de vez em quando: backup que ninguém sabe se prestou só se descobre no dia em que ele é necessário — que é o único dia em que não dá para descobrir.</span>
-            <span class="campo-dica">@ConfiguracoesDaClinicaNaTela.SobreRestauracao</span>
-        </div>
+        </section>
     </text>;
+
+    /// <summary>A coluna da esquerda do bloco: o assunto, para que serve e se há mudança não salva.</summary>
+    private static RenderFragment Cabeca(string titulo, string descricao, bool pendente) => __builder =>
+    {
+        <header class="cfg-bloco-info">
+            <h2>@titulo</h2>
+            <p>@descricao</p>
+            @if (pendente)
+            {
+                <Selo Tom="aviso" Dica="Este bloco tem mudanças que ainda não foram gravadas.">Não salvo</Selo>
+            }
+        </header>
+    };
+
+    /// <summary>Tem mudança não salva em algum bloco desta aba? (o ponto na aba)</summary>
+    private bool AbaPendente(Aba aba) => aba switch
+    {
+        Aba.Clinica => _pendClinica,
+        Aba.Atendimento => _pendConclusao,
+        Aba.Operacao => _pendOperacao,
+        Aba.Faturamento => _pendFaturamento,
+        Aba.Integracoes => _pendPublicacao || _pendEmail,
+        _ => _pendBackup
+    };
 
     /// <summary>A mensagem inline do bloco, perto do botão que a escreveu.</summary>
     private RenderFragment Mensagem(Aba aba, Bloco bloco = Bloco.Unico) => __builder =>
@@ -485,8 +567,8 @@
 
     private enum Aba { Clinica, Atendimento, Operacao, Faturamento, Integracoes, Backup }
 
-    /// <summary>A aba Integrações tem três blocos, cada um com o próprio Salvar e a própria mensagem.</summary>
-    private enum Bloco { Unico, Publicacao, Email, Tela }
+    /// <summary>A aba Integrações tem dois blocos, cada um com o próprio Salvar e a própria mensagem.</summary>
+    private enum Bloco { Unico, Publicacao, Email }
 
     private static readonly (Aba Aba, string Rotulo)[] Abas =
     [
@@ -528,19 +610,15 @@
     private string _smtpSenha = string.Empty;
     private bool _temSenhaGravada, _smtpTls = true, _testandoEmail;
     private string _situacaoEmail = string.Empty;
-    // Tela do paciente
-    private IReadOnlyList<MonitorDaMaquina> _monitores = [];
-    private string? _telaEscolhida, _telaGravada;
-    private string _avisoTela = string.Empty;
     // Backup
     private string _pastaBackup = string.Empty, _situacaoBackup = string.Empty;
     private string? _intervaloBackup, _copiasBackup, _resumoBackup;
-    private bool _backupDesligado = true, _resumoBackupEhErro, _copiando;
+    private bool _backupDesligado = true, _resumoBackupEhErro, _resumoBackupNaPolitica, _copiando;
 
     // Pendências por bloco: salvar um bloco não pode apagar o que foi digitado nos outros.
-    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendEmail, _pendTela, _pendBackup;
+    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendEmail, _pendBackup;
     private bool Pendente => _pendClinica || _pendConclusao || _pendOperacao || _pendFaturamento
-                             || _pendPublicacao || _pendEmail || _pendTela || _pendBackup;
+                             || _pendPublicacao || _pendEmail || _pendBackup;
 
     private bool _carregou, _carregando, _naoVerificado, _salvando, _termos, _campos;
     private string? _erroLeitura, _mensagem;
@@ -587,7 +665,7 @@
 
     private Task AvisarSalvarPorBloco()
     {
-        Notificacoes.Info("Nesta aba cada bloco tem o próprio Salvar — publicação, lembretes e tela do paciente.");
+        Notificacoes.Info("Nesta aba cada bloco tem o próprio Salvar — publicação e lembretes.");
         return Task.CompletedTask;
     }
 
@@ -702,9 +780,7 @@
             var conclusao = await LerConclusaoAsync(sp);
             var publicacao = await LerPublicacaoAsync(p);
             var email = await LerEmailAsync(p);
-            var telaGravada = await p.ObterTelaDoPacienteAsync();
             var copia = await sp.GetRequiredService<ICopiaDeSeguranca>().SituacaoAsync();
-            var monitores = await Host.ListarMonitoresAsync();
             var (pendencias, resumo) = await LerPendenciasAsync(sp);
             if (geracao != _geracao || Descartada) return;
 
@@ -716,7 +792,6 @@
             PublicarPublicacao(publicacao);
             PublicarEmail(email);
             _destinoTeste ??= clinica.Dados.Email; // quem costuma testar; nunca regravado por cima do digitado
-            PublicarTela(telaGravada, monitores);
             PublicarBackup(copia);
 
             _carregou = true;
@@ -814,19 +889,6 @@
         _smtpSenha = string.Empty;
         _situacaoEmail = l.Situacao;
         _pendEmail = false;
-    }
-
-    private void PublicarTela(string? gravada, IReadOnlyList<MonitorDaMaquina> monitores)
-    {
-        _monitores = monitores;
-        _telaGravada = gravada;
-        var encontrada = gravada is not null
-                         && monitores.Any(m => string.Equals(m.Id, gravada, StringComparison.OrdinalIgnoreCase));
-        // A gravada que não está ligada CONTINUA escolhida (opção própria no seletor): o WPF a
-        // perdia, e um Salvar distraído com o cabo solto apagava a configuração.
-        _telaEscolhida = gravada;
-        _avisoTela = ConfiguracoesDaClinicaNaTela.AvisoTelaDoPaciente(gravada, encontrada, monitores.Count);
-        _pendTela = false;
     }
 
     private void PublicarBackup(SituacaoDaCopia s)
@@ -1116,58 +1178,14 @@
         }
     }
 
-    private async Task SalvarTelaAsync()
-    {
-        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
-        var escolhido = _monitores.FirstOrDefault(m => string.Equals(m.Id, _telaEscolhida, StringComparison.OrdinalIgnoreCase));
-        if (ConfiguracoesDaClinicaNaTela.ConferirTelaEscolhida(escolhido?.Principal == true) is { } recusa)
-        {
-            Dizer(Aba.Integracoes, recusa, erro: true, Bloco.Tela);
-            return;
-        }
-        await GravarAsync(Aba.Integracoes, Bloco.Tela, "tela do paciente", async sp =>
-        {
-            var p = sp.GetRequiredService<ParametrosService>();
-            await p.SalvarTelaDoPacienteAsync(_telaEscolhida);
-            var gravada = await p.ObterTelaDoPacienteAsync();
-            var monitores = await Host.ListarMonitoresAsync();
-            PublicarTela(gravada, monitores);
-            var rotulo = gravada is null ? null
-                : monitores.FirstOrDefault(m => string.Equals(m.Id, gravada, StringComparison.OrdinalIgnoreCase))?.Rotulo ?? gravada;
-            return ConfiguracoesDaClinicaNaTela.FraseTelaSalva(rotulo);
-        });
-    }
-
-    /// <summary>
-    /// Abre o exemplo no monitor ESCOLHIDO (gravado ou não), para conferir antes de haver paciente
-    /// esperando — as telas se chamam \\.\DISPLAY2 e ninguém sabe qual é qual pelo nome.
-    /// </summary>
-    private async Task TestarTelaAsync()
-    {
-        if (!Exigir(Permissao.GerenciarUsuarios, "testar a tela do paciente")) return;
-        if (_telaEscolhida is null)
-        {
-            Dizer(Aba.Integracoes, "Escolha primeiro a tela virada para o paciente.", erro: true, Bloco.Tela);
-            return;
-        }
-        try
-        {
-            if (!await Host.MostrarExemploNaTelaDoPacienteAsync(_telaEscolhida))
-                Dizer(Aba.Integracoes, "O exemplo não abriu nesse monitor — ele pode ter sido desligado, ou este computador não abre a janela (a prévia). Clique em Atualizar e escolha de novo.", erro: true, Bloco.Tela);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Blazor — teste da tela do paciente", ex);
-            Dizer(Aba.Integracoes, ex.Message, erro: true, Bloco.Tela);
-        }
-    }
-
     // ============================ Backup ============================
 
-    private void DizerBackup(string? texto, bool erro = false)
+    /// <summary>A frase do backup, no rodapé do bloco que a produziu (política × copiar/conferir).</summary>
+    private void DizerBackup(string? texto, bool erro = false, bool politica = false)
     {
         _resumoBackup = texto;
         _resumoBackupEhErro = erro;
+        _resumoBackupNaPolitica = politica;
     }
 
     private async Task EscolherPastaAsync()
@@ -1184,7 +1202,7 @@
             // teste, a rede desligada) gravado como destino faria a cópia automática falhar toda abertura.
             if (!copia.PastaAcessivel(pasta))
             {
-                DizerBackup(ConfiguracoesDaClinicaNaTela.PastaInacessivel, erro: true);
+                DizerBackup(ConfiguracoesDaClinicaNaTela.PastaInacessivel, erro: true, politica: true);
                 return;
             }
             await escopo.ServiceProvider.GetRequiredService<ParametrosService>().SalvarPastaBackupAsync(pasta);
@@ -1195,7 +1213,7 @@
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Blazor — pasta de backup", ex);
-            DizerBackup(ex.Message, erro: true);
+            DizerBackup(ex.Message, erro: true, politica: true);
         }
     }
 
@@ -1204,7 +1222,7 @@
         if (!Exigir(Permissao.GerenciarUsuarios, "configurar o backup")) return;
         if (ConfiguracoesDaClinicaNaTela.LerPoliticaBackup(_intervaloBackup, _copiasBackup, out var erro) is not { } politica)
         {
-            DizerBackup(erro, erro: true);
+            DizerBackup(erro, erro: true, politica: true);
             return;
         }
         if (_salvando) return;
@@ -1222,7 +1240,7 @@
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Blazor — política de backup", ex);
-            DizerBackup(ex.Message, erro: true);
+            DizerBackup(ex.Message, erro: true, politica: true);
         }
         finally
         {

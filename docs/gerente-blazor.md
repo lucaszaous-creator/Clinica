@@ -174,6 +174,25 @@ lê, prevê ou grava (o WPF só cobria a lista); a leitura roda fora da thread d
 catálogo de convênios é relido a cada arquivo; escolher outro arquivo apaga a conferência
 anterior. Atalhos novos: F5 refaz a prévia, Ctrl+S importa (mesmas barreiras).
 
+## 2c. A navegação do Gerente reorganizada (out/2026)
+
+Sete entradas, uma pergunta cada, na ordem do uso da direção. **Nenhuma chave mudou** (contrato
+entre módulos); mudaram rótulos e agrupamento.
+
+| Antes | Agora | Por quê |
+|---|---|---|
+| Mesa da direção | Mesa da direção | — |
+| Dinheiro (Resultado, 90 dias, Metas) | **Dinheiro** (Resultado, Próximos 90 dias, Margem por sessão, Por convênio, Custo de receber) | tudo o que é do bit `VerFinanceiro` responde "quanto entra, sai e sobra" |
+| Produção e margem (Margem, Indicadores, Tendências, Produção, Rentabilidade) | **Desempenho** (Indicadores, Tendências, Produção, Metas) | metas medem sessões e ocupação, não só dinheiro |
+| Pacientes e relacionamento | **Pacientes e campanhas** (De onde vêm, Campanhas, Comissão de recuperação) | rótulo diz o que tem dentro |
+| Preços e regras (Convênios, Particular, Custo) | **Tabela de preços** (Convênios, Particular) | custo de taxas é dinheiro, não preço |
+| Conformidade e acessos (Auditoria, Documentos, Guarda, Acessos) | **Conformidade** (Auditoria, Documentos emitidos, Guarda) — sem `Requer` | quem tem só `VerDocumentos` alcança a aba dele |
+| Configurações · Importar pacientes (soltos) | **Administração** (Configurações, Acessos, Importar pacientes) | o que se mexe raramente e muda a clínica inteira |
+
+Junto: atalhos da Mesa levam às abas novas ("Abrir a agenda", "Ver a rentabilidade"), as telas
+ganharam links entre si casando com a organização, e a tela de Configurações ganhou leiaute de
+blocos (título + descrição + grade alinhada + Salvar do bloco).
+
 ## 3. Como se garantiu que nada se perdeu
 
 1. A lista de paridade acima, montada lendo cada ViewModel INTEIRO.

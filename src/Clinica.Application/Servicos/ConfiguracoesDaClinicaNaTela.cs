@@ -244,33 +244,6 @@ public static class ConfiguracoesDaClinicaNaTela
         ? "Lembrete por e-mail desligado — o aviso volta a ser só o WhatsApp da rodada."
         : "Lembrete por e-mail salvo. Use \"Enviar e-mail de teste\" para conferir que o servidor aceita.";
 
-    // ============================ Tela do paciente (parcela 66) ============================
-
-    /// <summary>
-    /// O terceiro estado escrito: a tela GRAVADA não está ligada agora. Sem ele a assinatura
-    /// voltaria a acontecer numa janela só e a clínica concluiria que a feature quebrou —
-    /// quando o que houve foi um cabo solto. Lista vazia = o hospedeiro não sabe listar.
-    /// </summary>
-    public static string AvisoTelaDoPaciente(string? gravada, bool encontrada, int monitoresListados)
-    {
-        if (monitoresListados == 0)
-            return "Este computador não informou os monitores ligados — a tela do paciente "
-                   + "só pode ser escolhida no sistema instalado na máquina do balcão.";
-        return gravada is not null && !encontrada
-            ? $"A tela configurada ({gravada}) não está ligada agora. Enquanto isso, o "
-              + "paciente assina na própria janela de quem conduz."
-            : string.Empty;
-    }
-
-    /// <summary>A principal é recusada: o termo em tela cheia por cima do trabalho da recepcionista.</summary>
-    public static string? ConferirTelaEscolhida(bool principal) => principal
-        ? "Essa é a tela principal, onde o sistema é operado. Escolha o monitor virado para o paciente."
-        : null;
-
-    public static string FraseTelaSalva(string? rotulo) => rotulo is null
-        ? "Tela do paciente desligada. A assinatura volta a ser colhida na janela de quem conduz."
-        : $"Tela do paciente: {rotulo}.";
-
     // ============================ Conclusão automática ============================
 
     public static string SituacaoConclusao(bool automatica) => automatica

@@ -12,7 +12,7 @@
 @inherits TelaBase
 
 <div class="pagina rentabilidade @(Carregando && _painel is not null ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Direção · Produção e margem" Titulo="Rentabilidade por convênio"
+    <CabecalhoPagina Sobretitulo="Direção · Dinheiro" Titulo="Rentabilidade por convênio"
                      Subtitulo="Qual operadora vale a pena: quem paga pouco, quem paga tarde e quem glosa muito.">
         <div class="segmentado" role="group" aria-label="Meses">
             @foreach (var j in RentabilidadeNaTela.Janelas)

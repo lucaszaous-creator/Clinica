@@ -1,4 +1,4 @@
-// Dados FICTÍCIOS da prévia — nenhuma clínica, servidor ou monitor real.
+// Dados FICTÍCIOS da prévia — nenhuma clínica ou servidor real.
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -13,7 +13,6 @@ namespace PreviaBlazor.Sementes;
 ///   linha apagada e o "Reativar" aparecerem;
 /// - um termo do procedimento escrito pela clínica, com declarações, e uma exigência DESLIGADA
 ///   (desligada para não fazer o balcão de outras telas cobrar termo na prévia);
-/// - uma tela do paciente gravada que NÃO está ligada (o terceiro estado escrito do monitor);
 /// - e-mail, endereço e telefone da clínica (o e-mail é o destino padrão do teste do SMTP).
 /// O que NÃO entra, de propósito: servidor SMTP, armazenamento e pasta de backup — o teste das
 /// telas clica cada botão, e "Testar conexão"/"Copiar agora" tentariam a rede e o disco de verdade.
@@ -34,8 +33,6 @@ public sealed class SementeConfiguracoesDaClinica : ISemente
         prestador.Telefone ??= "(22) 0000-0000";
         prestador.Endereco ??= "Rua Fictícia, 100 — Centro";
         parametros.SalvarPrestadorAsync(prestador).GetAwaiter().GetResult();
-
-        parametros.SalvarTelaDoPacienteAsync(@"\\.\DISPLAY3").GetAwaiter().GetResult();
 
         var agora = DateTime.Now;
         db.AddRange(

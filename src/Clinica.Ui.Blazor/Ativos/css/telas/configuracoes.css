@@ -1,31 +1,51 @@
 /* configuracoes: Configurações da clínica (Gerente) e os formulários de termos e de campos — tokens apenas. */
-.cfg-abas{flex-wrap:wrap}
+.cfg-abas{flex-wrap:wrap;padding:0 var(--space-4)}
+.cfg-abas button{display:inline-flex;align-items:center;gap:6px}
+.cfg-aba-pendente{width:7px;height:7px;border-radius:50%;background:var(--aviso);flex:none}
 .cfg-fieldset{border:0;margin:0;padding:0;min-width:0}
-.cfg-corpo{display:flex;flex-direction:column;gap:var(--space-4)}
-.cfg-topo h2{margin:0;font-size:var(--text-h3-size);font-weight:600;color:var(--texto-primario)}
-.cfg-topo p{margin:var(--space-1) 0 0;color:var(--texto-secundario);font-size:var(--text-small-size);max-width:820px;line-height:1.5}
-.cfg-secao{display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-6);border-top:1px solid var(--borda)}
-.cfg-nota{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);max-width:820px;line-height:1.5}
-.cfg-situacao{margin:0;padding:var(--space-2) var(--space-3);border-left:3px solid var(--acento);background:var(--acento-suave);
-  border-radius:var(--radius-control);font-size:var(--text-small-size);line-height:1.5;max-width:820px;color:var(--texto-primario)}
-.cfg-situacao.pendente{border-left-color:var(--aviso);background:var(--aviso-suave)}
-.cfg-rodape{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-2)}
-.cfg-rodape-teste .cfg-destino{width:260px;max-width:100%}
-.cfg-marcas{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-6)}
-.cfg-smtp{display:grid;grid-template-columns:minmax(0,1fr) 160px;gap:var(--space-4)}
-.cfg-atalho{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:var(--space-4) 0;
-  border-top:1px solid var(--borda)}
-.cfg-atalho strong{display:block;font-weight:600;color:var(--texto-primario)}
-.cfg-atalho p{margin:var(--space-1) 0 0;color:var(--texto-secundario);font-size:var(--text-small-size);max-width:820px;line-height:1.5}
+
+/* Bloco de configuração (out/2026): o assunto à esquerda, os campos à direita, o rodapé com a
+   mensagem e o Salvar DELE. Uma superfície (o cartão); os blocos se separam por linha. */
+.cfg-bloco{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:var(--space-4) var(--space-8);
+  padding:var(--space-6);border-top:1px solid var(--borda)}
+.cfg-bloco:first-child{border-top:0}
+.cfg-bloco-info{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-2)}
+.cfg-bloco-info h2{margin:0;font-size:var(--text-h3-size);font-weight:600;color:var(--texto-primario);line-height:1.3}
+.cfg-bloco-info p{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.5}
+.cfg-bloco-campos{display:flex;flex-direction:column;gap:var(--space-6);min-width:0;max-width:760px}
+.cfg-bloco-rodape{grid-column:2;display:flex;flex-direction:column;gap:var(--space-3);max-width:760px;
+  padding-top:var(--space-4);border-top:1px dashed var(--borda)}
+.cfg-grupo{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.cfg-grupo > h3{margin:0;font-size:var(--text-table-size);font-weight:700;text-transform:uppercase;
+  letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
+.cfg-acoes{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+.cfg-acoes-sep{width:1px;align-self:stretch;background:var(--borda);margin:0 var(--space-2)}
+.cfg-faixa{padding:var(--space-4) var(--space-6) 0}
+.cfg-faixa + .cfg-bloco{border-top:0}
+.cfg-atalho{flex-direction:row;align-items:center;justify-content:space-between;gap:var(--space-4)}
 .cfg-atalho .botao{flex:none}
-.cfg-monitor{display:grid;grid-template-columns:minmax(0,520px) auto;align-items:end;gap:var(--space-3)}
-.cfg-monitor-acoes{display:flex;gap:var(--space-2)}
-.cfg-pasta{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-2);align-items:center;max-width:820px}
-.cfg-politica{display:grid;grid-template-columns:160px 160px auto;align-items:end;gap:var(--space-4);justify-content:start}
+.cfg-nota{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.5}
+.cfg-regras{margin:0;padding-left:var(--space-6);display:flex;flex-direction:column;gap:var(--space-1);
+  color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.5}
+.cfg-situacao{margin:0;padding:var(--space-2) var(--space-3);border-left:3px solid var(--acento);background:var(--acento-suave);
+  border-radius:var(--radius-control);font-size:var(--text-small-size);line-height:1.5;color:var(--texto-primario)}
+.cfg-situacao.pendente{border-left-color:var(--aviso);background:var(--aviso-suave)}
+.cfg-linha-curta{max-width:260px}
+.cfg-marcas{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-6)}
+.cfg-smtp{display:grid;grid-template-columns:minmax(0,1fr) 140px;gap:var(--space-4)}
+.cfg-teste-email{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-2);align-items:end}
+.cfg-pasta{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-2);align-items:center}
 .cfg-exemplo{align-items:flex-start}
 .cfg-exemplo > div{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;flex:1}
 .cfg-exemplo-url{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--space-2);align-items:center}
 .cfg-pendencias td{vertical-align:top}
+.cfg-bloco .tabela-rolagem{border:1px solid var(--borda);border-radius:var(--radius-control)}
+
+@media (max-width:1100px){
+  .cfg-bloco{grid-template-columns:1fr;gap:var(--space-4)}
+  .cfg-bloco-rodape{grid-column:1}
+  .cfg-bloco-info p{max-width:760px}
+}
 
 /* Formulários (Campos do prontuário, Termos do procedimento) */
 .cfg-form-duas{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:var(--space-6);align-items:start}
@@ -52,8 +72,7 @@
 
 @media (max-width:900px){
   .cfg-form-duas,.cfg-termos{grid-template-columns:1fr}
-  .cfg-monitor,.cfg-smtp{grid-template-columns:1fr}
-  .cfg-politica{grid-template-columns:1fr 1fr}
+  .cfg-smtp,.cfg-teste-email{grid-template-columns:1fr}
   .cfg-atalho{flex-direction:column;align-items:flex-start}
 }
 .cfg-termos textarea.campo,.cfg-form-duas textarea.campo{font:inherit}

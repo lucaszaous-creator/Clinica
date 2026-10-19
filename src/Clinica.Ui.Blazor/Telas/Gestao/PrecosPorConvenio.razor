@@ -15,7 +15,7 @@
 @inherits TelaBase
 
 <div class="pagina precos-convenio @(Carregando && _todas.Count > 0 ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Direção · Preços e regras" Titulo="Tabela de preço por convênio"
+    <CabecalhoPagina Sobretitulo="Direção · Tabela de preços" Titulo="Tabela de preço por convênio"
                      Subtitulo="Quanto cada operadora paga por tipo de guia. Cadastrado aqui, na direção — quem negocia tabela — e usado na Conciliação do Financeiro, que passa a PROPOR o valor em vez de pedir que ele seja digitado. O preço do PARTICULAR é a aba ao lado.">
         <button type="button" class="botao" @onclick="CarregarAsync" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
         <button type="button" class="botao primario" disabled="@(!PodeEditar)" @onclick="Novo"

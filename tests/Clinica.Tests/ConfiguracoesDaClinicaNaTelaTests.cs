@@ -183,28 +183,6 @@ public class ConfiguracoesDaClinicaNaTelaTests
         erro.Should().Be(esperado);
     }
 
-    // ============================ Tela do paciente ============================
-
-    [Fact]
-    public void Tela_gravada_desligada_e_terceiro_estado_escrito_e_lista_vazia_tambem()
-    {
-        ConfiguracoesDaClinicaNaTela.AvisoTelaDoPaciente(@"\\.\DISPLAY3", encontrada: false, monitoresListados: 2)
-            .Should().StartWith(@"A tela configurada (\\.\DISPLAY3) não está ligada agora.");
-        ConfiguracoesDaClinicaNaTela.AvisoTelaDoPaciente(@"\\.\DISPLAY2", encontrada: true, monitoresListados: 2).Should().BeEmpty();
-        ConfiguracoesDaClinicaNaTela.AvisoTelaDoPaciente(null, encontrada: false, monitoresListados: 1).Should().BeEmpty();
-        ConfiguracoesDaClinicaNaTela.AvisoTelaDoPaciente(null, encontrada: false, monitoresListados: 0)
-            .Should().StartWith("Este computador não informou os monitores");
-    }
-
-    [Fact]
-    public void A_tela_principal_e_recusada_como_tela_do_paciente()
-    {
-        ConfiguracoesDaClinicaNaTela.ConferirTelaEscolhida(principal: true).Should().StartWith("Essa é a tela principal");
-        ConfiguracoesDaClinicaNaTela.ConferirTelaEscolhida(principal: false).Should().BeNull();
-        ConfiguracoesDaClinicaNaTela.FraseTelaSalva(null).Should().StartWith("Tela do paciente desligada.");
-        ConfiguracoesDaClinicaNaTela.FraseTelaSalva("Secundária — 1280×800").Should().Be("Tela do paciente: Secundária — 1280×800.");
-    }
-
     // ============================ Conclusão ============================
 
     [Theory]

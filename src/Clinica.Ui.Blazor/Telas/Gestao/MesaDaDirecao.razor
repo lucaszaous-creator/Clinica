@@ -125,6 +125,12 @@
                     <div class="mesa-nota">@(p.PacientesDevendo == 0 ? "ninguém em atraso" : p.PacientesDevendo == 1 ? "1 paciente" : $"{p.PacientesDevendo} pacientes")</div>
                 </div>
             </div>
+            @* Atalhos para as abas do item "Dinheiro" (a mesma ordem do menu). *@
+            <div class="mesa-atalhos">
+                <button type="button" class="link" @onclick='() => IrAsync("resultado")'>Resultado do mês<Icone Nome="direita" /></button>
+                <button type="button" class="link" @onclick='() => IrAsync("projecao-caixa")'>Próximos 90 dias<Icone Nome="direita" /></button>
+                <button type="button" class="link" @onclick='() => IrAsync("inadimplencia")'>Quem deve<Icone Nome="direita" /></button>
+            </div>
         </section>
 
         @* ===== OS QUATRO NÚMEROS ===== *@
@@ -136,13 +142,19 @@
             </Kpi>
             <Kpi Rotulo="Guias por liberar" Icone="documento" Tom="@(p.PendenciasVencidas > 0 ? "aviso" : null)"
                  Valor="@p.PendenciasEmAberto.ToString(Formato.PtBr)"
-                 Nota="@(p.PendenciasVencidas == 0 ? "nenhuma com prazo vencido" : $"{p.PendenciasVencidas} com prazo vencido")" />
+                 Nota="@(p.PendenciasVencidas == 0 ? "nenhuma com prazo vencido" : $"{p.PendenciasVencidas} com prazo vencido")">
+                <button type="button" class="link kpi-ir" @onclick='() => IrAsync("faturamento-gerencial")'>Ver pendências<Icone Nome="direita" /></button>
+            </Kpi>
             <Kpi Rotulo="Sessões sem evolução" Icone="historico" Tom="@(p.SessoesSemEvolucao > 0 ? "aviso" : null)"
                  Valor="@p.SessoesSemEvolucao.ToString(Formato.PtBr)"
-                 Nota="@(p.SessoesSemEvolucaoComGuia == 0 ? "nenhuma com guia emitida" : $"{p.SessoesSemEvolucaoComGuia} já com guia emitida")" />
+                 Nota="@(p.SessoesSemEvolucaoComGuia == 0 ? "nenhuma com guia emitida" : $"{p.SessoesSemEvolucaoComGuia} já com guia emitida")">
+                <button type="button" class="link kpi-ir" @onclick='() => IrAsync("consultorio-meu-dia")'>Ver sessões<Icone Nome="direita" /></button>
+            </Kpi>
             <Kpi Rotulo="Não vêm ou sem resposta" Icone="pessoas" Tom="@(p.PacientesNaoVem > 0 ? "aviso" : null)"
                  Valor="@((p.PacientesNaoVem + p.LembretesSemResposta).ToString(Formato.PtBr))"
-                 Nota="@($"{p.PacientesNaoVem} avisaram que não vêm · {p.LembretesSemResposta} sem resposta")" />
+                 Nota="@($"{p.PacientesNaoVem} avisaram que não vêm · {p.LembretesSemResposta} sem resposta")">
+                <button type="button" class="link kpi-ir" @onclick='() => IrAsync("agenda-confirmacoes")'>Ver confirmações<Icone Nome="direita" /></button>
+            </Kpi>
         </section>
 
         <div class="mesa-grade">
@@ -186,7 +198,7 @@
 
                 @* ===== HOJE NA AGENDA ===== *@
                 <section class="cartao" aria-label="Hoje na agenda">
-                    <header class="mesa-cab"><h2>Hoje na agenda</h2><span>ocupação por profissional</span></header>
+                    <header class="mesa-cab"><h2>Hoje na agenda</h2><span>ocupação por profissional</span><button type="button" class="link" @onclick='() => IrAsync("agenda")'>Abrir a agenda</button></header>
                     @if (!_agendaLida)
                     {
                         <Esqueleto Altura="120" />
@@ -245,7 +257,7 @@
                                 </div>
                             }
                         </div>
-                        <button type="button" class="link mesa-mais" @onclick='() => IrAsync("rentabilidade-convenio")'>Ver a rentabilidade<Icone Nome="direita" /></button>
+                        <button type="button" class="link mesa-mais" @onclick='() => IrAsync("rentabilidade-convenio")'>Ver por convênio<Icone Nome="direita" /></button>
                     }
                 </section>
 
@@ -282,7 +294,7 @@
 
                 @* ===== METAS DO MÊS ===== *@
                 <section class="cartao" aria-label="Metas do mês">
-                    <header class="mesa-cab"><h2>Metas do mês</h2><button type="button" class="link" @onclick='() => IrAsync("metas")'>Abrir</button></header>
+                    <header class="mesa-cab"><h2>Metas do mês</h2><span>em Desempenho</span><button type="button" class="link" @onclick='() => IrAsync("metas")'>Ver metas</button></header>
                     @if (p.Metas.Count == 0)
                     {
                         <p class="mesa-vazio">Nenhuma meta definida para @NomeDoMes. Sem alvo, a mesa compara só com o mês passado.</p>
