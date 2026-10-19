@@ -606,7 +606,6 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosExames, JanelasDosExamesWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosProntuarios, JanelasDosProntuariosWpf>();
 
-        servicos.AddTransient<SessoesEnfermagemViewModel>();
         servicos.AddTransient<Clinica.Infrastructure.SessoesEnfermagemService>();
         servicos.AddTransient<PrescricoesClinicasViewModel>();
         servicos.AddTransient<PrescricaoInfusaoViewModel>();
@@ -630,7 +629,7 @@ public sealed class ModuloClinico : IModuloApp
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
-        ChaveSessoesEnfermagem => new SessoesEnfermagemView { DataContext = servicos.GetRequiredService<SessoesEnfermagemViewModel>() },
+        ChaveSessoesEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SessoesDeEnfermagem), servicos),
         ChaveMeuDia => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MeuDia), servicos),
         ChavePacientesDaClinica => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(1),
         ChaveProntuarios => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProntuariosDoPosto), servicos),
