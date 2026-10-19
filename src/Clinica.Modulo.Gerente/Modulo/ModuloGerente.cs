@@ -307,9 +307,6 @@ public sealed class ModuloGerente : IModuloApp
     public void Registrar(IServiceCollection servicos)
     {
         Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
-        // A única tela WPF que sobra é a do SHELL (Preços do particular), que a Recepção
-        // também publica — as do módulo são Blazor desde a etapa 6 (out/2026).
-        servicos.AddTransient<PrecosParticularViewModel>();
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
@@ -317,18 +314,16 @@ public sealed class ModuloGerente : IModuloApp
         // A Mesa da direção (out/2026) substitui o painel WPF: Blazor, no navegador único da janela.
         ChavePainel => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MesaDaDirecao), servicos),
         // Etapa 6 (out/2026): TODAS as telas do módulo saíram do WPF — Blazor, no navegador
-        // único da janela (docs/gerente-blazor.md). Só "Preços do particular" segue WPF: é tela
-        // do shell, publicada também pela Recepção.
+        // único da janela (docs/gerente-blazor.md). "Preços do particular" também, desde a
+        // frente "Blazor total": a mesma tela que a Recepção publica pela mesma chave.
         ChaveIndicadores => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.IndicadoresDaClinica), servicos),
         // Blazor desde out/2026 (docs/faturamento-blazor.md): é a aba "Resumo" do faturamento,
         // e as abas vizinhas também são Blazor — mesmo navegador, sem flash entre elas.
         ChaveFaturamento => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ResumoFaturamento), servicos),
         ChaveComissaoRecuperacao => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ComissaoRecuperacao), servicos),
         ChavePrecos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrecosPorConvenio), servicos),
-        ChavesSuite.PrecosParticular => new PrecosParticularView
-        {
-            DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
-        },
+        // Blazor desde out/2026 (a mesma tela que a Recepção publica pela mesma chave).
+        ChavesSuite.PrecosParticular => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrecosDoParticular), servicos),
         ChaveCusto => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CustoDeTaxasEImpostos), servicos),
         ChaveRentabilidade => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RentabilidadePorConvenio), servicos),
         ChaveCampanhas => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CampanhasDaClinica), servicos),

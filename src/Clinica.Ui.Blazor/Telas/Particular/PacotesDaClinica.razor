@@ -1,0 +1,364 @@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@*
+  PACOTES, PLANOS E VOUCHERS (out/2026 — saiu do WPF para o Blazor). Era a PacotesView +
+  PacotesViewModel do shell, com as janelas CatalogoPacotesWindow, PacoteCatalogoWindow,
+  PacoteVendaWindow e ConsumosPacoteWindow.
+
+  A tela é publicada por DOIS módulos pela MESMA chave (ChavesSuite.Pacotes): a Recepção, como
+  aba do composto "Particular e pacotes", e o Financeiro, como item solto. No Gerente, que
+  carrega os dois, a dedupe do shell mostra uma linha só.
+
+  A pergunta da tela é "quanto cada paciente ainda tem para usar" — os pacotes VENDIDOS. O
+  CATÁLOGO (o que está à venda) é a tabela que a clínica define uma vez e revisita em reajuste:
+  mora atrás de um botão (CatalogoPacotesForm), não ao lado da lista (parcela 49).
+
+  Três atos, três regras (PacotesNaTela): vender, debitar sessão, orçar e o catálogo são do
+  BALCÃO (VenderPacote OU EditarFinanceiro); cancelar a venda e devolver sessão desfazem o que
+  outra pessoa registrou e ficam no Financeiro (EditarFinanceiro). As frases, o filtro e a
+  decisão de pagamento moram em PacotesNaTela (Application, com teste).
+*@
+@inherits TelaBase
+
+<div class="pagina pacotes @(Carregando && _todos.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Particular · Pacotes" Titulo="Pacotes, planos e vouchers"
+                     Subtitulo="O que a clínica vende e quanto cada paciente ainda tem para usar. Não confundir com a cota do convênio: aquilo o convênio autoriza, isto a clínica vendeu.">
+        <button type="button" class="botao icone" @onclick="CarregarAsync" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
+        <button type="button" class="botao" disabled="@(!PodeVender)" @onclick="AbrirCatalogo"
+                title="@(PodeVender ? "O que está à venda — cadastrar, editar e tirar da venda. Mudar o preço aqui não reescreve o que já foi vendido." : SemAcesso)"><Icone Nome="lista" />Catálogo…</button>
+        <button type="button" class="botao" disabled="@(!PodeVender)" @onclick="AbrirOrcamento"
+                title="@(PodeVender ? "Orçamento de um pacote do catálogo, para o paciente levar." : SemAcesso)"><Icone Nome="documento" />Orçamento…</button>
+        <button type="button" class="botao primario" disabled="@(!PodeVender)" @onclick="Vender"
+                title="@(PodeVender ? null : SemAcesso)"><Icone Nome="mais" />Vender pacote…</button>
+    </CabecalhoPagina>
+
+    <section class="cartao lista-cartao" aria-label="Pacotes vendidos">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Pacotes vendidos</h2>
+                @if (!_naoVerificado && _lido)
+                {
+                    <p>@Resumo</p>
+                }
+            </div>
+        </div>
+
+        @if (!_naoVerificado && _todos.Count > 0)
+        {
+            <div class="filtros">
+                <Campo Rotulo="Paciente" Classe="pacotes-filtro-paciente">
+                    <div class="busca">
+                        <Icone Nome="busca" />
+                        <input class="campo" placeholder="Nome — o acento não atrapalha" maxlength="80"
+                               value="@_filtroPaciente" @oninput="TrocarFiltroPaciente" />
+                    </div>
+                </Campo>
+                <label class="alternar pacotes-alternar" title="Só os pacotes com saldo valendo — cancelados, esgotados e vencidos ficam de fora">
+                    <input type="checkbox" checked="@_soAtivos" @onchange="TrocarSoAtivos" /> Só ativos</label>
+                <button type="button" class="botao" disabled="@(!FiltroAtivo)" @onclick="LimparFiltro"><Icone Nome="x" />Limpar filtro</button>
+            </div>
+        }
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler os pacotes"
+                            Detalhe="@($"A lista não está vazia — ela não pôde ser lida. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_lido)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="240" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Icone="caixa" Titulo="@(FiltroAtivo ? "Nenhum pacote no filtro" : "Nenhum pacote vendido")"
+                         Descricao="@PacotesNaTela.Vazio(FiltroAtivo)">
+                @if (FiltroAtivo)
+                {
+                    <button type="button" class="botao" @onclick="LimparFiltro"><Icone Nome="x" />Limpar filtro</button>
+                }
+                else if (PodeVender)
+                {
+                    <button type="button" class="botao primario" @onclick="Vender"><Icone Nome="mais" />Vender pacote…</button>
+                }
+            </EstadoVazio>
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista pacotes-tabela">
+                    <thead>
+                        <tr>
+                            <th>Paciente</th>
+                            <th>Saldo</th>
+                            <th class="direita">Valor</th>
+                            <th>Pagamento</th>
+                            <th>Situação</th>
+                            <th class="direita" aria-label="Ações"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var v in _linhas)
+                        {
+                            <tr @key="v.Id" class="@(v.Ativo ? null : "pacotes-fora")">
+                                <td>
+                                    <span class="principal" title="@v.Paciente">@v.Paciente</span>
+                                    <span class="pacotes-sub">@v.Nome · comprado em @v.Compra</span>
+                                </td>
+                                <td class="nao-quebra">@v.Saldo</td>
+                                <td class="direita numero">@v.Valor</td>
+                                <td class="pacotes-pagamento">
+                                    @if (v.PagamentoAtrasado)
+                                    {
+                                        <Selo Tom="aviso" Dica="Há parcela vencida: o pacote está ativo e a cobrança está atrasada.">Parcela vencida</Selo>
+                                    }
+                                    <span class="pacotes-sub">@v.Pagamento</span>
+                                </td>
+                                <td class="nao-quebra"><Selo Tom="@(v.Ativo ? "sucesso" : "neutro")">@v.Situacao</Selo></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini primario" disabled="@(!(v.Ativo && PodeVender))"
+                                                title="@(v.Ativo ? (PodeVender ? "Debitar uma sessão à mão (a automática acontece ao concluir o atendimento)." : SemAcesso) : "Pacote sem saldo valendo.")"
+                                                @onclick="() => UsarSessaoAsync(v)">Usar sessão</button>
+                                        <button type="button" class="botao mini icone" @onclick="() => _sessoes = v"
+                                                title="Sessões já debitadas — e a porta para devolver ao saldo a que foi debitada por engano"
+                                                aria-label="@($"Sessões do pacote {v.Nome} de {v.Paciente}")"><Icone Nome="historico" /></button>
+                                        <button type="button" class="botao mini icone contorno-perigo" disabled="@(!(v.Ativo && PodeCancelar))"
+                                                title="@(PodeCancelar ? "Cancelar a venda (com motivo)" : "Cancelar a venda é do Financeiro: desfaz o dinheiro que outra pessoa registrou.")"
+                                                aria-label="@($"Cancelar o pacote {v.Nome} de {v.Paciente}")"
+                                                @onclick="() => CancelarAsync(v)"><Icone Nome="cancelar" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">A situação do pacote é calculada na hora — vencimento não precisa de rotina. Devolver uma sessão ao saldo é cancelar o consumo com motivo: ele continua no histórico do pacote.</div>
+        }
+    </section>
+</div>
+
+@if (_catalogoAberto)
+{
+    <CatalogoPacotesForm Itens="_catalogo" NaoVerificado="_naoVerificado" PodeMexer="PodeVender"
+                         AoNovo="NovoNoCatalogo" AoEditar="EditarNoCatalogo" AoExcluir="ExcluirDoCatalogoAsync"
+                         AoFechar="() => _catalogoAberto = false" />
+}
+@if (_editandoCatalogo)
+{
+    <PacoteCatalogoForm Original="_catalogoEmEdicao" AoFechar="() => _editandoCatalogo = false" AoConcluir="CatalogoGravadoAsync" />
+}
+@if (_vendendo)
+{
+    <PacoteVendaForm AoFechar="() => _vendendo = false" AoConcluir="VendidoAsync" />
+}
+@if (_orcando)
+{
+    <OrcamentoPacoteForm AoFechar="() => _orcando = false" />
+}
+@if (_sessoes is { } s)
+{
+    <ConsumosPacoteForm PacoteId="s.Id" Titulo="@($"{s.Nome} — {s.Paciente}")" AoFechar="SessoesFechadasAsync" />
+}
+
+@code {
+    private const string SemAcesso = "Seu acesso não permite vender pacote nem mexer no catálogo.";
+
+    private readonly List<LinhaDePacoteVendido> _todos = [];
+    private IReadOnlyList<LinhaDePacoteVendido> _linhas = [];
+    private IReadOnlyList<LinhaDeCatalogoPacote> _catalogo = [];
+    private string _filtroPaciente = string.Empty;
+    private bool _soAtivos;
+    private bool Carregando, _naoVerificado, _lido;
+    private string? _erro;
+    private int _geracao;
+
+    private bool _catalogoAberto, _editandoCatalogo, _vendendo, _orcando;
+    private LinhaDeCatalogoPacote? _catalogoEmEdicao;
+    private LinhaDePacoteVendido? _sessoes;
+
+    private static bool PodeVender => PodeAlgum(PacotesNaTela.QuemVende);
+    private static bool PodeCancelar => Pode(PacotesNaTela.QuemCancela);
+
+    private bool FiltroAtivo => PacotesNaTela.FiltroAtivo(_filtroPaciente, _soAtivos);
+    private string Resumo => PacotesNaTela.Resumo(_todos, _linhas.Count, FiltroAtivo);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        _ => Task.CompletedTask
+    };
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var pacotes = escopo.ServiceProvider.GetRequiredService<PacoteService>();
+            // Sequencial no mesmo escopo: é o mesmo DbContext.
+            var catalogo = await pacotes.CatalogoAsync(somenteAtivos: false);
+            var vendidos = await pacotes.VendidosAsync();
+            if (geracao != _geracao || Descartada) return;
+
+            // Tudo publicado depois do último await, numa passada só.
+            _catalogo = catalogo.Select(PacotesNaTela.LinhaDe).ToList();
+            _todos.Clear();
+            _todos.AddRange(vendidos.Select(PacotesNaTela.LinhaDe));
+            Refiltrar();
+            _naoVerificado = false;
+            _erro = null;
+            _lido = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — pacotes não puderam ser carregados", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private void Refiltrar() => _linhas = PacotesNaTela.Filtrar(_todos, _filtroPaciente, _soAtivos);
+
+    private void TrocarFiltroPaciente(ChangeEventArgs e)
+    {
+        _filtroPaciente = e.Value?.ToString() ?? string.Empty;
+        Refiltrar();
+    }
+
+    private void TrocarSoAtivos(ChangeEventArgs e)
+    {
+        _soAtivos = e.Value is true;
+        Refiltrar();
+    }
+
+    private void LimparFiltro()
+    {
+        _filtroPaciente = string.Empty;
+        _soAtivos = false;
+        Refiltrar();
+    }
+
+    // ==================== Catálogo ====================
+
+    private void AbrirCatalogo()
+    {
+        if (!ExigirAlgum(PacotesNaTela.QuemVende, "mexer no catálogo de pacotes")) return;
+        _catalogoAberto = true;
+    }
+
+    private void NovoNoCatalogo()
+    {
+        if (!ExigirAlgum(PacotesNaTela.QuemVende, "mexer no catálogo de pacotes")) return;
+        _catalogoEmEdicao = null;
+        _editandoCatalogo = true;
+    }
+
+    private void EditarNoCatalogo(LinhaDeCatalogoPacote linha)
+    {
+        if (!ExigirAlgum(PacotesNaTela.QuemVende, "mexer no catálogo de pacotes")) return;
+        _catalogoEmEdicao = linha;
+        _editandoCatalogo = true;
+    }
+
+    private async Task CatalogoGravadoAsync()
+    {
+        var editado = _catalogoEmEdicao;
+        _editandoCatalogo = false;
+        _catalogoEmEdicao = null;
+        Notificacoes.Sucesso(editado is null ? PacotesNaTela.Acrescentado : PacotesNaTela.Atualizado(editado.Nome));
+        await CarregarAsync();
+    }
+
+    private async Task ExcluirDoCatalogoAsync(LinhaDeCatalogoPacote linha)
+    {
+        if (!ExigirAlgum(PacotesNaTela.QuemVende, "mexer no catálogo de pacotes")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir do catálogo", PacotesNaTela.PerguntaDeExcluirDoCatalogo(linha),
+                perigoso: true, confirmar: "Excluir")) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<PacoteService>().ExcluirDoCatalogoAsync(linha.Id);
+            }, "Blazor — pacote do catálogo não pôde ser excluído"))
+        {
+            Notificacoes.Info(PacotesNaTela.RemovidoDoCatalogo);
+            await CarregarAsync();
+        }
+    }
+
+    // ==================== Venda, orçamento e consumo ====================
+
+    private void Vender()
+    {
+        if (!ExigirAlgum(PacotesNaTela.QuemVende, "vender pacote")) return;
+        _vendendo = true;
+    }
+
+    private async Task VendidoAsync()
+    {
+        _vendendo = false;
+        Notificacoes.Sucesso(PacotesNaTela.Vendido);
+        await CarregarAsync();
+    }
+
+    private void AbrirOrcamento()
+    {
+        if (!ExigirAlgum(PacotesNaTela.QuemVende, "emitir orçamento")) return;
+        _orcando = true;
+    }
+
+    /// <summary>Debita uma sessão à mão (a automática acontece ao concluir o atendimento).</summary>
+    private async Task UsarSessaoAsync(LinhaDePacoteVendido linha)
+    {
+        if (!ExigirAlgum(PacotesNaTela.QuemVende, "debitar sessão do pacote")) return;
+        if (!await Dialogos.ConfirmarAsync("Usar uma sessão", PacotesNaTela.PerguntaDeUsarSessao(linha), confirmar: "Debitar")) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                    .ConsumirAsync(linha.Id, observacao: "Baixa manual pela tela de Pacotes", operador: Operador);
+            }, "Blazor — sessão do pacote não pôde ser debitada", PacotesNaTela.SessaoDebitada))
+            await CarregarAsync();
+    }
+
+    /// <summary>Só recarrega se alguma sessão voltou ao saldo: espiar a lista não pode custar uma consulta à toa.</summary>
+    private async Task SessoesFechadasAsync(bool mudou)
+    {
+        _sessoes = null;
+        if (mudou) await CarregarAsync();
+    }
+
+    private async Task CancelarAsync(LinhaDePacoteVendido linha)
+    {
+        if (!Exigir(PacotesNaTela.QuemCancela, "cancelar a venda de um pacote")) return;
+
+        var motivo = await Dialogos.PerguntarTextoAsync("Cancelar pacote", PacotesNaTela.PerguntaDeCancelar(linha));
+        if (motivo is null) return;
+
+        IReadOnlyList<string> avisos = [];
+        if (!await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                avisos = await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                    .CancelarAsync(linha.Id, motivo, Operador);
+            }, "Blazor — pacote não pôde ser cancelado")) return;
+
+        // O aviso do dinheiro já recebido vai em DIÁLOGO: ele pede uma ação (a saída da
+        // devolução, se houver) e não sobrevive aos 4 s da notificação.
+        if (avisos.Count > 0)
+            await Dialogos.AvisoAsync("Pacote cancelado", string.Join("\n\n", avisos));
+        else
+            Notificacoes.Info(PacotesNaTela.Cancelado);
+        await CarregarAsync();
+    }
+}

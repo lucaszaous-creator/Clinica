@@ -1,0 +1,6 @@
+/* Estilo PRÓPRIO da tela Preços do particular (out/2026 — saiu do WPF). Só tokens. */
+.precos-particular-tabela td:first-child{max-width:260px}
+.precos-particular-tabela td:first-child .principal{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.precos-particular-tabela td.numero{white-space:nowrap}
+/* Fora de vigência fica legível, mas recua: a pergunta da tela é "quanto cobra HOJE". */
+.precos-particular-tabela tr.precos-fora td:not(:last-child){color:var(--texto-secundario)}

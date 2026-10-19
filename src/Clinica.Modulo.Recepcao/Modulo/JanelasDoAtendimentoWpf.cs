@@ -36,15 +36,6 @@ public sealed class JanelasDoAtendimentoWpf(
     public Task<bool> EscolherConvenioAsync(int pacienteId)
         => NaInterface(() => VinculoDeConvenio.GarantirAsync(escopos, pacienteId, SessaoUsuario.Atual.Operador));
 
-    public Task<bool> VenderPacoteAsync(int pacienteId) => NaInterface(async () =>
-    {
-        // A MESMA janela da tela Pacotes, com o paciente já escolhido (set/2026).
-        var paciente = await ObterAsync(pacienteId);
-        if (paciente is null) return false;
-        var vm = new PacoteVendaViewModel(escopos, paciente);
-        return new PacoteVendaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() == true;
-    });
-
     public Task<bool> ReceberDividaAsync(int pacienteId) => NaInterface(async () =>
     {
         // A MESMA janela de cobrança da ficha — quem grava dinheiro continua sendo um só.

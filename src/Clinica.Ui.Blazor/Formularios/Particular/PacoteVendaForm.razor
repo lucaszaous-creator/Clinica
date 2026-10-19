@@ -1,0 +1,261 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@*
+  VENDER UM PACOTE (o que no WPF era a PacoteVendaWindow / PacoteVendaViewModel).
+
+  Duas portas abrem este formulário: o "Vender pacote…" da tela de Pacotes (o paciente é
+  escolhido por BUSCA) e o "Vender pacote…" do Lançar atendimento, ao lado do preço da sessão
+  avulsa — ali o paciente entra JÁ ESCOLHIDO pelo parâmetro Paciente, que é a porta que a
+  IJanelasDoAtendimento.VenderPacoteAsync oferecia enquanto esta janela era WPF.
+
+  A decisão de pagamento é OBRIGATÓRIA (set/2026): a venda que não dizia como era paga não movia
+  dinheiro, e o pacote ficava fora do caixa para sempre. À vista vira um lançamento realizado; a
+  prazo, a entrada realizada mais uma conta a receber prevista por parcela — tudo no MESMO
+  SaveChanges da venda (PacoteService.VenderAsync). A prévia é desenhada pelo MESMO
+  ParcelasDaVenda que o serviço grava (PacotesNaTela.Previa): a tela nunca promete parcelas
+  diferentes das gravadas, e quando a decisão não fecha, a frase é o motivo.
+
+  Catálogo vazio é o estado de toda instalação nova: o formulário DIZ isso e oferece cadastrar o
+  primeiro pacote ali mesmo (o MESMO PacoteCatalogoForm da tela de Pacotes).
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Vender pacote" Largura="grande" AoFechar="AoFechar"
+       Subtitulo="O valor vem do catálogo e continua editável: desconto no balcão é regra, não exceção. Sessões e validade são copiadas do pacote escolhido.">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Paciente" Obrigatorio="true" Classe="largo" Erro="@_erroPaciente">
+                <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="TrocarPaciente" Placeholder="Buscar por nome ou CPF" />
+            </Campo>
+        </div>
+
+        @if (_lendoCatalogo)
+        {
+            <Esqueleto Altura="60" />
+        }
+        else if (_catalogoVazio)
+        {
+            <Aviso Tom="atencao" Texto="@PacotesNaTela.CatalogoVazio">
+                @if (PodeVender)
+                {
+                    <button type="button" class="botao" @onclick="() => _cadastrando = true"><Icone Nome="mais" />Cadastrar um pacote no catálogo…</button>
+                }
+            </Aviso>
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Pacote" Obrigatorio="true" Classe="largo">
+                    <select class="campo" value="@(_pacote?.Id.ToString() ?? "")" @onchange="TrocarPacote">
+                        <option value="">Escolha o pacote…</option>
+                        @foreach (var o in _opcoes)
+                        {
+                            <option value="@o.Id">@o.Rotulo</option>
+                        }
+                    </select>
+                </Campo>
+            </div>
+        }
+
+        <div class="campos">
+            <Campo Rotulo="Data da compra">
+                <input type="date" class="campo" @bind="_dataCompra" />
+            </Campo>
+            <Campo Rotulo="Valor cobrado" Dica="Em branco, vale o de tabela.">
+                <input class="campo valor" @bind="_valorCobrado" @bind:event="oninput" maxlength="12" inputmode="decimal" placeholder="Ex.: 1.500,00" />
+            </Campo>
+        </div>
+
+        <div class="secao-form">
+        <h3>Como o paciente paga</h3>
+        <div class="segmentado venda-modo" role="group" aria-label="Como o paciente paga">
+            <button type="button" aria-pressed="@(_aVista ? "true" : "false")" @onclick="() => _aVista = true">Pagar agora</button>
+            <button type="button" aria-pressed="@(_aVista ? "false" : "true")" @onclick="() => _aVista = false">Cobrar depois</button>
+        </div>
+
+        <div class="campos tres venda-pagamento">
+            <Campo Rotulo="Forma" Dica="@(_aVista ? null : "da entrada, se houver")">
+                <select class="campo" value="@(_forma?.ToString() ?? "")"
+                        @onchange="e => _forma = Enum.TryParse<FormaPagamento>(e.Value?.ToString(), out var f) ? f : null">
+                    @foreach (var f in PacotesNaTela.Formas)
+                    {
+                        <option value="@f">@RotulosEnum.De(f)</option>
+                    }
+                </select>
+            </Campo>
+            @if (!_aVista)
+            {
+                <Campo Rotulo="Entrada hoje">
+                    <input class="campo valor" @bind="_entrada" @bind:event="oninput" maxlength="12" inputmode="decimal" placeholder="em branco = nada" />
+                </Campo>
+                <Campo Rotulo="Parcelas · 1º vencimento">
+                    <div class="venda-parcelas">
+                        <input class="campo" @bind="_parcelas" @bind:event="oninput" maxlength="2" inputmode="numeric" aria-label="Parcelas" />
+                        <input type="date" class="campo" @bind="_primeiroVencimento" aria-label="Primeiro vencimento" />
+                    </div>
+                </Campo>
+            }
+        </div>
+
+        @if (PacotesNaTela.EhCartao(_forma))
+        {
+            <div class="campos tres">
+                <Campo Rotulo="Maquininha / contrato">
+                    <input class="campo" @bind="_adquirente" @bind:event="oninput" maxlength="60" />
+                </Campo>
+                <Campo Rotulo="Bandeira">
+                    <input class="campo" @bind="_bandeira" @bind:event="oninput" maxlength="40" />
+                </Campo>
+                @if (PacotesNaTela.EhCredito(_forma))
+                {
+                    <Campo Rotulo="Parcelas na maquininha">
+                        <input class="campo" @bind="_parcelasCartao" @bind:event="oninput" maxlength="2" inputmode="numeric" />
+                    </Campo>
+                }
+            </div>
+            <p class="campo-dica">Use Pagar agora para o total aprovado no cartão, mesmo parcelado. Cobrar depois cria cobranças futuras ao paciente; os dados do cartão se aplicam somente à entrada.</p>
+        }
+
+        <p class="venda-previa">@Previa</p>
+        </div>
+
+        <div class="campos">
+            <Campo Rotulo="Observações" Classe="largo">
+                <textarea class="campo" rows="2" maxlength="500" @bind="_observacoes"></textarea>
+            </Campo>
+        </div>
+
+        <Aviso Tom="@(_mensagemEhErro ? "erro" : "sucesso")" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="VenderAsync" disabled="@(_ocupado || _lendoCatalogo || !PodeVender)"
+                title="@(PodeVender ? null : "Seu acesso não permite vender pacote.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Vender")
+        </button>
+    </Rodape>
+</Modal>
+
+@if (_cadastrando)
+{
+    <PacoteCatalogoForm AoFechar="() => _cadastrando = false" AoConcluir="CadastradoAsync" />
+}
+
+@code {
+    /// <summary>O paciente JÁ ESCOLHIDO quando a venda começa numa tela que sabe quem é (o Lançar atendimento).</summary>
+    [Parameter] public Paciente? Paciente { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private Paciente? _paciente;
+    private IReadOnlyList<OpcaoDePacote> _opcoes = [];
+    private OpcaoDePacote? _pacote;
+    private bool _lendoCatalogo = true, _catalogoVazio, _cadastrando;
+    private DateOnly _dataCompra = DateOnly.FromDateTime(DateTime.Today);
+    private string? _valorCobrado, _observacoes, _entrada, _adquirente, _bandeira;
+    private string? _parcelas = "3";
+    private string? _parcelasCartao = "1";
+    private DateOnly _primeiroVencimento = DateOnly.FromDateTime(DateTime.Today).AddDays(30);
+    private bool _aVista = true;
+    private FormaPagamento? _forma = FormaPagamento.Pix;
+    private string? _mensagem, _erroPaciente;
+    private bool _mensagemEhErro = true, _ocupado;
+
+    private static bool PodeVender => SessaoUsuario.Atual.PodeAlgum(PacotesNaTela.QuemVende);
+
+    private PacotesNaTela.EscolhaDePagamento Escolha => new(
+        _aVista, _forma, _adquirente, _bandeira, _parcelasCartao, _entrada, _parcelas, _primeiroVencimento);
+
+    private string Previa => PacotesNaTela.Previa(_valorCobrado, _pacote?.Valor, _dataCompra, Escolha);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _paciente = Paciente;
+        await LerCatalogoAsync();
+    }
+
+    private async Task LerCatalogoAsync()
+    {
+        _lendoCatalogo = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var catalogo = await escopo.ServiceProvider.GetRequiredService<PacoteService>().CatalogoAsync(somenteAtivos: true);
+            _opcoes = catalogo.Select(PacotesNaTela.OpcaoDe).ToList();
+            _catalogoVazio = _opcoes.Count == 0;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — catálogo de pacotes não pôde ser lido", ex);
+            Erro($"Não foi possível ler o catálogo: {ex.Message}");
+        }
+        finally { _lendoCatalogo = false; }
+    }
+
+    private void TrocarPaciente(Paciente? p)
+    {
+        _paciente = p;
+        _erroPaciente = null;
+    }
+
+    private void TrocarPacote(ChangeEventArgs e)
+    {
+        _pacote = int.TryParse(e.Value?.ToString(), out var id) ? _opcoes.FirstOrDefault(o => o.Id == id) : null;
+        // O valor vem com o de tabela, e continua editável: desconto no balcão é regra.
+        if (_pacote is not null) _valorCobrado = PacotesNaTela.ParaCampo(_pacote.Valor);
+    }
+
+    /// <summary>O pacote que acabou de nascer: com um só na lista, escolhê-lo poupa o clique — com mais, seria adivinhar.</summary>
+    private async Task CadastradoAsync()
+    {
+        _cadastrando = false;
+        await LerCatalogoAsync();
+        if (_opcoes.Count == 1)
+        {
+            _pacote = _opcoes[0];
+            _valorCobrado = PacotesNaTela.ParaCampo(_pacote.Valor);
+        }
+        _mensagem = PacotesNaTela.CadastradoNaVenda;
+        _mensagemEhErro = false;
+    }
+
+    private async Task VenderAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = _erroPaciente = null;
+        _mensagemEhErro = true;
+
+        if (!SessaoUsuario.Atual.PodeAlgum(PacotesNaTela.QuemVende))
+        {
+            Erro("Seu acesso não permite vender pacote. Fale com a direção da clínica.");
+            return;
+        }
+        if (!PacotesNaTela.ConferirVenda(_paciente?.Id, _pacote, _catalogoVazio, _valorCobrado, _dataCompra, Escolha,
+                out var valor, out var pagamento, out var erro))
+        {
+            if (_paciente is null) _erroPaciente = erro;
+            else Erro(erro);
+            return;
+        }
+        try
+        {
+            _ocupado = true;
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<PacoteService>().VenderAsync(
+                _paciente!.Id, _pacote!.Id, _dataCompra, valor, _observacoes, SessaoUsuario.Atual.Operador, pagamento);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pacote não pôde ser vendido", ex);
+            Erro(ex.Message);
+        }
+        finally { _ocupado = false; }
+    }
+
+    private void Erro(string? texto)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = true;
+    }
+}

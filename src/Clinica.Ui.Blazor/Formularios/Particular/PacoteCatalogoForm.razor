@@ -1,0 +1,103 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@*
+  UM PACOTE DO CATÁLOGO — cadastro e edição (o que no WPF era a PacoteCatalogoWindow /
+  PacoteCatalogoEdicaoViewModel). Abre por cima do catálogo e também de dentro da VENDA, quando o
+  catálogo está vazio (a porta que faltava na instalação nova).
+
+  EDITAR existe desde set/2026: reajustar o preço de tabela era excluir a linha e criar outra, e
+  a linha nova nascia com outro Id, soltando a procedência dos pacotes já vendidos dela. Agora o
+  objeto NOVO vai com o Id, e o que o formulário NÃO mostra (ordem, observações, ativo) volta
+  INTACTO — o serviço copia campo a campo, e o nulo apagaria (lugares 3 e 6).
+
+  Correção em relação ao WPF: o valor é lido pela LeituraDeValores (o WPF usava decimal.TryParse
+  na cultura da máquina — "250.00" num posto em inglês e "250,00" em pt-BR davam números
+  diferentes).
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(Original is null ? "Pacote novo" : "Editar pacote do catálogo")" Largura="medio" AoFechar="AoFechar"
+       Subtitulo="O que a clínica vende. A venda COPIA estes dados: mudar o preço aqui em novembro não reescreve o que o paciente comprou em março.">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Nome" Obrigatorio="true" Classe="largo">
+                <input class="campo" @bind="_nome" @bind:event="oninput" maxlength="120" placeholder="Ex.: 10 sessões de acupuntura" />
+            </Campo>
+            <Campo Rotulo="Tipo">
+                <select class="campo" value="@_tipo" @onchange="e => { if (Enum.TryParse<TipoPacote>(e.Value?.ToString(), out var t)) _tipo = t; }">
+                    @foreach (var t in Enum.GetValues<TipoPacote>())
+                    {
+                        <option value="@t">@RotulosEnum.De(t)</option>
+                    }
+                </select>
+            </Campo>
+            <Campo Rotulo="Sessões" Obrigatorio="@(_tipo == TipoPacote.Sessoes)">
+                <input class="campo" @bind="_sessoes" @bind:event="oninput" maxlength="4" inputmode="numeric" placeholder="Ex.: 10" />
+            </Campo>
+            <Campo Rotulo="Valor">
+                <input class="campo valor" @bind="_valor" @bind:event="oninput" maxlength="14" inputmode="decimal" placeholder="Ex.: 1.500,00" />
+            </Campo>
+            <Campo Rotulo="Validade (dias)">
+                <input class="campo" @bind="_validade" @bind:event="oninput" maxlength="4" inputmode="numeric" placeholder="em branco = sem prazo" />
+            </Campo>
+        </div>
+        <p class="campo-dica">Sem número de sessões, o plano é livre dentro da validade — é assim que se cadastra mensalidade.</p>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || !PodeMexer)"
+                title="@(PodeMexer ? null : "Seu acesso não permite mexer no catálogo de pacotes.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : Original is null ? "Acrescentar ao catálogo" : "Salvar alterações")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Nulo = pacote novo; a linha = edição (os valores que ela carrega voltam intactos).</summary>
+    [Parameter] public LinhaDeCatalogoPacote? Original { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _nome, _sessoes, _valor, _validade, _mensagem;
+    private TipoPacote _tipo = TipoPacote.Sessoes;
+    private bool _ocupado;
+
+    private static bool PodeMexer => SessaoUsuario.Atual.PodeAlgum(PacotesNaTela.QuemVende);
+
+    protected override void OnInitialized()
+    {
+        if (Original is not { } o) return;
+        _nome = o.Nome;
+        _tipo = o.Tipo;
+        _sessoes = o.Sessoes?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        _valor = PacotesNaTela.ParaCampo(o.ValorDecimal);
+        _validade = o.ValidadeDias?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        if (!PacotesNaTela.MontarCatalogo(Original, _nome, _tipo, _sessoes, _valor, _validade, out var pacote, out var erro))
+        {
+            _mensagem = erro;
+            return;
+        }
+        try
+        {
+            _ocupado = true;
+            // A segunda barreira na JANELA que grava, não só na porta que a abre.
+            SessaoUsuario.Atual.ExigirAlgum(PacotesNaTela.QuemVende, "mexer no catálogo de pacotes");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<PacoteService>().SalvarCatalogoAsync(pacote!, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pacote do catálogo não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

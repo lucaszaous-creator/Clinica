@@ -218,8 +218,6 @@ public sealed class ModuloFinanceiro : IModuloApp
         // ViewModel registrado — cada uma abre escopo por operação. Aqui só o motor do
         // BlazorWebView, o que a tela pede ao WPF e os serviços de tela (diálogos, avisos).
         Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
-        // Pacotes continua WPF: a tela é do SHELL e a Recepção publica a mesma chave.
-        servicos.AddTransient<Clinica.Desktop.Shell.Componentes.PacotesViewModel>();
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
@@ -242,11 +240,8 @@ public sealed class ModuloFinanceiro : IModuloApp
         // vende as dez sessões ao paciente é a RECEPÇÃO, no balcão, e a única porta estava
         // no app do Financeiro. Os dois módulos publicam a MESMA chave — a dedupe do
         // ShellViewModel faz o Gerente, que carrega os dois, mostrar uma linha só.
-        ChavePacotes => new Clinica.Desktop.Shell.Componentes.PacotesView
-        {
-            DataContext = servicos
-                .GetRequiredService<Clinica.Desktop.Shell.Componentes.PacotesViewModel>()
-        },
+        // Blazor desde out/2026 (a mesma tela que a Recepção publica pela mesma chave).
+        ChavePacotes => Blazor(typeof(Clinica.Ui.Blazor.Telas.PacotesDaClinica), servicos),
         ChaveEstoque => Blazor(typeof(Clinica.Ui.Blazor.Telas.Estoque), servicos),
         ChaveRepasses => Blazor(typeof(Clinica.Ui.Blazor.Telas.Repasses), servicos),
         ChaveTaxas => Blazor(typeof(Clinica.Ui.Blazor.Telas.TaxasEImpostos), servicos),

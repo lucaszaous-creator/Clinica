@@ -20,9 +20,11 @@ public sealed record PedidoDoAtendimento(
 ///   MODO desta aba: a aba Lançar não engole o pedido da aba Marcar.
 /// - <b>As janelas modais que continuam WPF</b>: escolher o convênio da ficha "a definir"
 ///   (<c>VinculoDeConvenio</c>, parcela 92), o fechamento da sessão (pacote, insumo, caixa —
-///   <c>FechamentoSessaoWindow</c>), a venda de pacote (<c>PacoteVendaWindow</c>), a cobrança da
-///   dívida (<c>CobrancaDoPacienteWindow</c>) e o cadastro do paciente
+///   <c>FechamentoSessaoWindow</c>), a cobrança da dívida (<c>CobrancaDoPacienteWindow</c>) e o
+///   cadastro do paciente
 ///   (<c>CadastroPacienteWindow</c>). Reescrevê-las seria a segunda definição de cada uma.
+///   A VENDA DE PACOTE saiu daqui em out/2026: é Blazor (<c>PacoteVendaForm</c>), e a tela a
+///   abre direto, com o paciente já escolhido pelo parâmetro.
 ///
 /// A barreira de permissão é da TELA (as duas barreiras moram lá); as janelas conferem de
 /// novo ao salvar, como sempre conferiram. Onde a Recepção não existe (a prévia, o bUnit) vale
@@ -43,8 +45,6 @@ public interface IJanelasDoAtendimento
     /// <summary>Pergunta o convênio da ficha "a definir". Verdadeiro = a ficha tem convênio agora.</summary>
     Task<bool> EscolherConvenioAsync(int pacienteId);
 
-    /// <summary>A venda de pacote com o paciente já escolhido. Verdadeiro = vendeu.</summary>
-    Task<bool> VenderPacoteAsync(int pacienteId);
 
     /// <summary>A cobrança da dívida no balcão. Verdadeiro = algo foi recebido (o alerta muda).</summary>
     Task<bool> ReceberDividaAsync(int pacienteId);
@@ -64,7 +64,6 @@ public sealed class JanelasDoAtendimentoIndisponiveis : IJanelasDoAtendimento
     public bool HaPedido(bool marcar) => false;
     public PedidoDoAtendimento? ConsumirPedido(bool marcar) => null;
     public Task<bool> EscolherConvenioAsync(int pacienteId) => Task.FromResult(false);
-    public Task<bool> VenderPacoteAsync(int pacienteId) => Task.FromResult(false);
     public Task<bool> ReceberDividaAsync(int pacienteId) => Task.FromResult(false);
     public Task<int?> CadastrarPacienteAsync() => Task.FromResult<int?>(null);
 }
