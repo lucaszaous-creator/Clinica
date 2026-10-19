@@ -3,11 +3,12 @@ using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Infrastructure;
 
 public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaRepositorio repo,
-    PacoteService pacotes) : IAcompanhamentoPacienteService
+    PacoteService pacotes, ILeituraParalela? paralela = null) : IAcompanhamentoPacienteService
 {
     public const string ChaveProfissional = "AcompanhamentoBsvProfissionalId";
     public const string ChaveResponsavel = "AcompanhamentoResponsavelPadraoId";
@@ -17,7 +18,10 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
     private static bool PodeAcompanhar(UsuarioSistema u) => u.Pode(Permissao.VerFichaPaciente)
         && (u.Pode(Permissao.GerenciarCampanhas) || u.Pode(Permissao.VerFaturamento));
 
-    private async Task<UsuarioSistema> Usuario(int id, Permissao permissao, CancellationToken ct)
+    private Task<UsuarioSistema> Usuario(int id, Permissao permissao, CancellationToken ct)
+        => UsuarioEm(db, id, permissao, ct);
+
+    private static async Task<UsuarioSistema> UsuarioEm(ClinicaDbContext db, int id, Permissao permissao, CancellationToken ct)
     {
         var u = await db.Usuarios.Include(x => x.Profissional).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (u is not { Ativo: true } || !(permissao == Permissao.GerenciarCampanhas ? PodeAcompanhar(u) : u.Pode(permissao)) || u.Travado(Agora))
@@ -165,32 +169,63 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         return quantidade;
     }
 
+    /// <summary>
+    /// Com <see cref="ILeituraParalela"/> (o app), a leitura COMEÇA agora, num escopo próprio;
+    /// sem ela (os testes), é feita na vez, neste contexto — nunca duas operações ao mesmo tempo
+    /// no mesmo DbContext. O resultado é o mesmo.
+    /// </summary>
+    private Func<Task<T>> Antecipar<T>(Func<ClinicaDbContext, IClinicaRepositorio, Task<T>> leitura)
+    {
+        if (paralela is null) return () => leitura(db, repo);
+        var tarefa = paralela.LerAsync<IServiceProvider, T>(sp =>
+            leitura(sp.GetRequiredService<ClinicaDbContext>(), sp.GetRequiredService<IClinicaRepositorio>()));
+        _ = tarefa.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+        return () => tarefa;
+    }
+
+    /// <summary>
+    /// A fila do acompanhamento. As leituras que não dependem da lista de casos (o acesso de
+    /// quem pede, os contatos, os nomes) começam junto com ela, e as que dependem dos pacientes
+    /// começam juntas assim que ela chega (out/2026 — eram dez idas EM SÉRIE ao banco remoto, e
+    /// o Início da Recepção lê esta fila na abertura; medido em AberturaDosAppsTests).
+    /// </summary>
     public async Task<IReadOnlyList<LinhaAcompanhamento>> ListarAsync(int usuarioId, CancellationToken ct = default)
     {
-        await Usuario(usuarioId, Permissao.GerenciarCampanhas, ct);
-        var casos = await db.Acompanhamentos.AsNoTracking().Include(x => x.Paciente).Include(x => x.Responsavel).Include(x => x.Motivo).ToListAsync(ct);
+        var lerUsuario = Antecipar((d, _) => UsuarioEm(d, usuarioId, Permissao.GerenciarCampanhas, ct));
+        var lerCasos = Antecipar((d, _) => d.Acompanhamentos.AsNoTracking().Include(x => x.Paciente).Include(x => x.Responsavel).Include(x => x.Motivo).ToListAsync(ct));
+        await lerUsuario();
+        var casos = await lerCasos();
         if (casos.Count == 0) return [];
         var ids = casos.Select(x => x.PacienteId).Distinct().ToList();
         var menorData = casos.Min(x => x.ReferenciaEm).Date;
-        var sessoes = await db.Atendimentos.AsNoTracking().Where(a => ids.Contains(a.PacienteId) && a.RealizadoEm != null && a.EstornadoEm == null && a.Data >= DateOnly.FromDateTime(menorData))
-            .Select(a => new { a.PacienteId, a.Modalidade, a.Data, a.RealizadoEm }).ToListAsync(ct);
-        var horarios = await db.Agendamentos.AsNoTracking().Where(a => ids.Contains(a.PacienteId) && a.DataHora >= menorData)
-            .Select(a => new { a.Id, a.PacienteId, a.ModalidadePrevista, a.DataHora, a.Status, a.ProfissionalId }).ToListAsync(ct);
-        var sessoesPorPaciente = sessoes.ToLookup(a => a.PacienteId);
-        var horariosPorPaciente = horarios.ToLookup(a => a.PacienteId);
-        var contatos = await db.ContatosAcompanhamento.AsNoTracking().Where(c => c.Canal != null && c.Em >= c.AcompanhamentoPaciente!.ReferenciaEm)
-            .GroupBy(c => c.AcompanhamentoPacienteId).Select(g => new { Id = g.Key, Total = g.Count(), Ultimo = g.Max(c => c.Em) }).ToDictionaryAsync(c => c.Id, ct);
-        var consentidos = (await repo.PacientesComConsentimentoVigenteAsync(FinalidadeConsentimento.ComunicacaoEMarketing, ids, ct)).ToHashSet();
-        var comPacote = (await repo.PacotesDosPacientesAsync(ids, ct)).GroupBy(p => p.PacienteId)
-            .Where(g => pacotes.Descrever(g, Hoje).Any(p => p.Ativo && (p.SaldoSessoes == null || p.SaldoSessoes > 0))).Select(g => g.Key).ToHashSet();
+        var lerSessoes = Antecipar((d, _) => d.Atendimentos.AsNoTracking().Where(a => ids.Contains(a.PacienteId) && a.RealizadoEm != null && a.EstornadoEm == null && a.Data >= DateOnly.FromDateTime(menorData))
+            .Select(a => new { a.PacienteId, a.Modalidade, a.Data, a.RealizadoEm }).ToListAsync(ct));
+        var lerHorarios = Antecipar((d, _) => d.Agendamentos.AsNoTracking().Where(a => ids.Contains(a.PacienteId) && a.DataHora >= menorData)
+            .Select(a => new { a.Id, a.PacienteId, a.ModalidadePrevista, a.DataHora, a.Status, a.ProfissionalId }).ToListAsync(ct));
+        var lerContatos = Antecipar((d, _) => d.ContatosAcompanhamento.AsNoTracking().Where(c => c.Canal != null && c.Em >= c.AcompanhamentoPaciente!.ReferenciaEm)
+            .GroupBy(c => c.AcompanhamentoPacienteId).Select(g => new { Id = g.Key, Total = g.Count(), Ultimo = g.Max(c => c.Em) }).ToDictionaryAsync(c => c.Id, ct));
+        var lerConsentidos = Antecipar((_, r) => r.PacientesComConsentimentoVigenteAsync(FinalidadeConsentimento.ComunicacaoEMarketing, ids, ct));
+        var lerPacotes = Antecipar((_, r) => r.PacotesDosPacientesAsync(ids, ct));
         // Total de sessões por paciente, agrupado NO BANCO: é o que separa quem era de
         // tratamento de quem veio uma vez (o recorte da antiga "Quem parou de vir").
-        var totalSessoes = await db.Atendimentos.AsNoTracking()
+        var lerTotalSessoes = Antecipar((d, _) => d.Atendimentos.AsNoTracking()
             .Where(a => ids.Contains(a.PacienteId) && a.RealizadoEm != null && a.EstornadoEm == null)
             .GroupBy(a => a.PacienteId).Select(g => new { g.Key, Total = g.Count() })
-            .ToDictionaryAsync(x => x.Key, x => x.Total, ct);
-        var profissionais = await db.Profissionais.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nome, ct);
-        var convenios = await db.Convenios.AsNoTracking().ToDictionaryAsync(c => c.Codigo, c => c.Nome, ct);
+            .ToDictionaryAsync(x => x.Key, x => x.Total, ct));
+        var lerProfissionais = Antecipar((d, _) => d.Profissionais.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nome, ct));
+        var lerConvenios = Antecipar((d, _) => d.Convenios.AsNoTracking().ToDictionaryAsync(c => c.Codigo, c => c.Nome, ct));
+
+        var sessoes = await lerSessoes();
+        var horarios = await lerHorarios();
+        var sessoesPorPaciente = sessoes.ToLookup(a => a.PacienteId);
+        var horariosPorPaciente = horarios.ToLookup(a => a.PacienteId);
+        var contatos = await lerContatos();
+        var consentidos = (await lerConsentidos()).ToHashSet();
+        var comPacote = (await lerPacotes()).GroupBy(p => p.PacienteId)
+            .Where(g => pacotes.Descrever(g, Hoje).Any(p => p.Ativo && (p.SaldoSessoes == null || p.SaldoSessoes > 0))).Select(g => g.Key).ToHashSet();
+        var totalSessoes = await lerTotalSessoes();
+        var profissionais = await lerProfissionais();
+        var convenios = await lerConvenios();
         var resultado = new List<LinhaAcompanhamento>();
         foreach (var c in casos)
         {

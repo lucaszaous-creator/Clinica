@@ -51,7 +51,16 @@ public sealed partial class ShellViewModel
         // ter relógio próprio de 1 min: ela relê quando esta batida vê a marca mudar.
         _relogioAvisos ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
         _relogioAvisos.Tick -= BatidaAvisos; _relogioAvisos.Tick += BatidaAvisos;
-        _relogioAvisos.Start(); _ = AtualizarPedidosGlobaisAsync();
+        // A primeira leitura dos avisos espera a tela inicial ter os dados (AberturaDoApp): o
+        // sino não disputa as conexões da abertura com o que a pessoa veio ver.
+        _ = LerAvisosDepoisDaPrimeiraTelaAsync();
+    }
+
+    private async Task LerAvisosDepoisDaPrimeiraTelaAsync()
+    {
+        await Clinica.Application.AberturaDoApp.DepoisDaPrimeiraTelaAsync();
+        if (!_avisosEmCena) return;
+        _relogioAvisos?.Start(); _ = AtualizarPedidosGlobaisAsync();
         IniciarAvisosConfirmacao();
     }
     public void PararAvisosGlobais()

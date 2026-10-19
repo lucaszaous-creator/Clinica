@@ -33,6 +33,9 @@ public partial class App : System.Windows.Application
 
         if (_host is not null)
         {
+            // Nada disto é o que a pessoa veio ver: espera a tela inicial ter os dados
+            // (AberturaDoApp, out/2026 — disputava as conexões da abertura com ela).
+            await Clinica.Application.AberturaDoApp.DepoisDaPrimeiraTelaAsync();
             await LembretesPorEmailAsync(_host);
             RelogioDoSms.Iniciar(_host, "Recepção");
         }

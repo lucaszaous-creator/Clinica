@@ -660,6 +660,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject, Clinica.Desktop.
         {
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
             if (geracao == _geracaoCarga) Carregando = false;
+            Clinica.Application.AberturaDoApp.PrimeiraTelaPronta();
         }
     }
 

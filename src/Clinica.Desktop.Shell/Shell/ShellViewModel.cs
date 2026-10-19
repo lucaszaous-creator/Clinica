@@ -300,8 +300,14 @@ public sealed partial class ShellViewModel : ObservableObject
                 Interval = TimeSpan.FromMinutes(1)
             };
             _releituraInfusoes.Tick += async (_, _) => await AtualizarAssinaturasInfusaoAsync();
-            _releituraInfusoes.Start();
-            _ = AtualizarAssinaturasInfusaoAsync();
+            async Task IniciarInfusoesDepoisDaPrimeiraTelaAsync()
+            {
+                // Por trás da tela inicial (AberturaDoApp): o aviso das infusões não disputa a abertura.
+                await Clinica.Application.AberturaDoApp.DepoisDaPrimeiraTelaAsync();
+                _releituraInfusoes?.Start();
+                await AtualizarAssinaturasInfusaoAsync();
+            }
+            _ = IniciarInfusoesDepoisDaPrimeiraTelaAsync();
         }
     }
 

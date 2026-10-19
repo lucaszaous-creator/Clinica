@@ -30,6 +30,10 @@ public abstract class TelaBase : ComponentBase, IDisposable
     public override async Task SetParametersAsync(ParameterView parameters)
     {
         await base.SetParametersAsync(parameters);
+        // A base só volta daqui depois do OnInitializedAsync — a carga da tela. A primeira tela
+        // do app que chega aqui libera o que roda por trás da abertura (AberturaDoApp): os
+        // avisos do cabeçalho e os relógios deixam de disputar as conexões com ela.
+        Clinica.Application.AberturaDoApp.PrimeiraTelaPronta();
         if (!_escutando && Sinal is not null)
         {
             _escutando = true;
