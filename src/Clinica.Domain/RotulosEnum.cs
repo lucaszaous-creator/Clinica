@@ -276,6 +276,15 @@ public static class RotulosEnum
         ModalidadeAtendimento m => CatalogoModalidades.Nome(m.ToString()),
         Convenio c => CatalogoConvenios.Nome(c),
 
+        // O turno da lista de espera (out/2026): o humanizador devolveria "Manha", sem o til,
+        // e "Qualquer" sozinho não diz de quê. As frases são as que o formulário WPF escrevia.
+        PeriodoPreferido p => p switch
+        {
+            PeriodoPreferido.Manha => "Manhã",
+            PeriodoPreferido.Tarde => "Tarde",
+            _ => "Qualquer turno"
+        },
+
         // "ClinicaDaDor" é o único cujo humanizador não salva: ele devolveria
         // "Clinica da dor", sem o acento, e o nome da especialidade sai impresso em
         // relatório que a direção manda para fora.

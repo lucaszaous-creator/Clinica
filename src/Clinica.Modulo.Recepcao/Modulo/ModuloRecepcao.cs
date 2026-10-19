@@ -487,6 +487,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IMarcacaoDeHorario, MarcacaoDaRecepcao>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao, BalcaoDaRecepcao>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaAgenda, JanelasDaAgendaWpf>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAvisosDoBanco, AvisosDoBancoWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, DocumentosDaRecepcaoWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral, AgendaDaVisaoGeral>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento, JanelasDoAtendimentoWpf>();
@@ -506,7 +507,7 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveCanalSms => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CanalDeSms), servicos),
         ChavePagamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PagamentosDoBalcao), servicos),
         ChavePainel => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.InicioRecepcao), servicos),
-        ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
+        ChaveAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.GradeDaAgenda), servicos),
         ChaveFila => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AgendaDoDia), servicos),
         // A lista de Pacientes do BALCÃO é Blazor (out/2026); o Prontuário e o Consultório,
         // que reusam a lista WPF pela `IFabricaListaPacientes`, continuam na ficha clínica.

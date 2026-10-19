@@ -1,0 +1,147 @@
+@*
+  ENTRAR NA LISTA DE ESPERA (out/2026 — migrado da ListaEsperaWindow / ListaEsperaEdicaoViewModel
+  do WPF). O que ele coleta é o que faz a lista ser útil na hora do buraco na agenda: com quem,
+  o quê, em que turno e dentro de que janela de datas o paciente pode vir — sem isso a
+  secretária ligaria para todo mundo para descobrir quem serve.
+
+  As duas barreiras: o botão nasce apagado sem EditarAgenda e o clique confere de novo. A
+  janela de datas invertida é recusada pelo ListaEsperaService (a frase vem de lá). Os turnos e
+  as frases moram em ListaEsperaNaTela (Application), o rótulo do turno em RotulosEnum.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Regras
+@inherits TelaBase
+
+<Modal Titulo="@ListaEsperaNaTela.Titulo" Subtitulo="@ListaEsperaNaTela.Subtitulo" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="220" />
+        }
+        else
+        {
+            <Campo Rotulo="Paciente" Obrigatorio="true">
+                <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="p => { _paciente = p; _mensagem = null; }"
+                                   Placeholder="Buscar por nome ou CPF" />
+            </Campo>
+
+            <div class="campos">
+                <Campo Rotulo="Profissional desejado" Dica="@ListaEsperaNaTela.DicaProfissional">
+                    <select id="lef-profissional" class="campo" value="@(_profissionalId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)"
+                            @onchange="e => _profissionalId = int.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                        <option value="">(qualquer um)</option>
+                        @foreach (var p in _profissionais) { <option value="@p.Id">@p.Rotulo</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Modalidade">
+                    <select id="lef-modalidade" class="campo" value="@(_modalidadeCodigo ?? string.Empty)"
+                            @onchange="e => _modalidadeCodigo = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString()">
+                        <option value="">(qualquer uma)</option>
+                        @foreach (var m in _modalidades) { <option value="@m.Codigo">@m.Nome</option> }
+                    </select>
+                </Campo>
+            </div>
+
+            <div class="campos tres">
+                <Campo Rotulo="Turno">
+                    <select id="lef-turno" class="campo" value="@_periodo.ToString()"
+                            @onchange="e => _periodo = Enum.TryParse<PeriodoPreferido>(e.Value?.ToString(), out var t) ? t : PeriodoPreferido.Qualquer">
+                        @foreach (var (valor, nome) in ListaEsperaNaTela.Periodos) { <option value="@valor.ToString()">@nome</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Pode vir a partir de">
+                    <input id="lef-de" type="date" class="campo" value="@(_de?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                           @onchange="e => _de = LerData(e)" />
+                </Campo>
+                <Campo Rotulo="Até">
+                    <input id="lef-ate" type="date" class="campo" value="@(_ate?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                           @onchange="e => _ate = LerData(e)" />
+                </Campo>
+            </div>
+
+            <label class="marcar"><input id="lef-prioritario" type="checkbox" checked="@_prioritario" @onchange="e => _prioritario = e.Value is true" />Prioritário (entra na frente da fila)</label>
+
+            <Campo Rotulo="Observações">
+                <textarea id="lef-observacoes" class="campo" rows="2" maxlength="500" @bind="_observacoes" @bind:event="oninput"></textarea>
+            </Campo>
+        }
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_salvando || _carregando || !Pode(Permissao.EditarAgenda))"
+                title="@(Pode(Permissao.EditarAgenda) ? null : "Seu acesso não permite mexer na lista de espera.")">
+            <Icone Nome="lista" />@(_salvando ? "Gravando…" : "Entrar na lista")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Entrou na lista. Quem abriu relê e diz <see cref="ListaEsperaNaTela.Desfecho"/>.</summary>
+    [Parameter] public EventCallback AoConcluir { get; set; }
+
+    private bool _carregando = true, _salvando, _prioritario;
+    private string? _mensagem, _observacoes, _modalidadeCodigo;
+    private Paciente? _paciente;
+    private int? _profissionalId;
+    private PeriodoPreferido _periodo = PeriodoPreferido.Qualquer;
+    private DateOnly? _de, _ate;
+    private List<Profissional> _profissionais = [];
+    private IReadOnlyList<EntradaModalidade> _modalidades = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _modalidades = CatalogoModalidades.Ativas;
+        try
+        {
+            using var escopo = Escopo();
+            _profissionais = (await escopo.ServiceProvider.GetRequiredService<EquipeService>().ProfissionaisAtivosAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — formulário da lista de espera não pôde ser preparado", ex);
+            _mensagem = $"Não foi possível carregar o formulário: {ex.Message}";
+        }
+        finally { _carregando = false; }
+    }
+
+    private static DateOnly? LerData(ChangeEventArgs e)
+        => DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d) ? d : null;
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando || _carregando) return;
+        _mensagem = null;
+        // A segunda barreira mora no FORMULÁRIO, não só na porta que o abre (parcela 51).
+        if (!Exigir(Permissao.EditarAgenda, "mexer na lista de espera")) return;
+        if (_paciente is not { } paciente)
+        {
+            _mensagem = ListaEsperaNaTela.RecusaSemPaciente;
+            return;
+        }
+
+        try
+        {
+            _salvando = true;
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<ListaEsperaService>().AdicionarAsync(
+                paciente.Id,
+                profissionalId: _profissionalId,
+                modalidadeCodigo: _modalidadeCodigo,
+                periodo: _periodo,
+                disponivelDe: _de,
+                disponivelAte: _ate,
+                prioritario: _prioritario,
+                observacoes: _observacoes);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pedido da lista de espera não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _salvando = false; }
+    }
+}
