@@ -21,8 +21,11 @@
 @inherits TelaBase
 
 <div class="pagina rec-docs @(_carregando && _carregou ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Documentos" Titulo="Documentos"
-                     Subtitulo="Emitir um papel novo — receita, atestado, declaração, termo, recibo, orçamento — ou achar o que já saiu, com a 2ª via." />
+    @if (!Embutida)
+    {
+        <CabecalhoPagina Sobretitulo="Documentos" Titulo="Documentos"
+                         Subtitulo="Emitir um papel novo — receita, atestado, declaração, termo, recibo, orçamento — ou achar o que já saiu, com a 2ª via." />
+    }
 
     <div class="abas" role="tablist" aria-label="Documentos">
         <button type="button" role="tab" aria-selected="@Bool(_aba == 0)" @onclick="() => _aba = 0">Emitir</button>
@@ -44,7 +47,14 @@
             </header>
             @if (_paciente is { } p)
             {
-                <FaixaDoPaciente Paciente="p" Contexto="@_contexto" AoTrocar="TrocarPaciente" />
+                @if (PacienteFixo is null)
+                {
+                    <FaixaDoPaciente Paciente="p" Contexto="@_contexto" AoTrocar="TrocarPaciente" />
+                }
+                else
+                {
+                    <FaixaDoPaciente Paciente="p" Contexto="@_contexto" />
+                }
             }
             else if (!_semPaciente)
             {
@@ -142,7 +152,7 @@
                     <input class="campo" placeholder="Paciente, número, código ou quem assinou" value="@_termo"
                            @oninput="e => { _termo = e.Value?.ToString(); Filtrar(); }" maxlength="80" />
                 </Campo>
-                @if (_paciente is { } p)
+                @if (_paciente is { } p && PacienteFixo is null)
                 {
                     <button type="button" class="chip dc-chip" aria-pressed="@Bool(_soDoPaciente)" @onclick="AlternarSoDoPacienteAsync"
                             title="Recortar a lista pelos papéis de @p.Nome">Só deste paciente</button>
@@ -252,6 +262,16 @@
 @code {
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
 
+    /// <summary>
+    /// Dentro da TELA DO PACIENTE (seção "Prescrições e documentos"): sem o cabeçalho da página
+    /// (o nome já está no crachá) e com o paciente FIXO — sem "Trocar", e "O que já saiu" já
+    /// recortado nele. A MESMA tela da central, para os documentos terem uma definição só.
+    /// </summary>
+    [Parameter] public bool Embutida { get; set; }
+
+    /// <summary>O paciente da tela do paciente; nulo = a central (busca, ou o foco do posto).</summary>
+    [Parameter] public int? PacienteFixo { get; set; }
+
     /// <summary>A ponte para as janelas e os atos WPF; na prévia, a que DIZ que é do aplicativo.</summary>
     private IDocumentosDaRecepcao Ponte => Servicos.GetService<IDocumentosDaRecepcao>() ?? DocumentosDaRecepcaoIndisponiveis.Instancia;
 
@@ -305,7 +325,8 @@
     protected override async Task OnInitializedAsync()
     {
         MontarCartoes();
-        await AbrirNoPacienteEmFocoAsync();
+        if (PacienteFixo is { } fixo) { _soDoPaciente = true; await AbrirPacienteAsync(fixo); }
+        else await AbrirNoPacienteEmFocoAsync();
         await CarregarAsync();
     }
 
@@ -317,12 +338,17 @@
     private async Task AbrirNoPacienteEmFocoAsync()
     {
         if (Servicos.GetService<IPostoDoConsultorio>()?.PacienteEmFoco is not { } foco) return;
+        await AbrirPacienteAsync(foco.PacienteId);
+    }
+
+    private async Task AbrirPacienteAsync(int pacienteId)
+    {
         try
         {
             Paciente? paciente;
             using (var escopo = Escopo())
                 paciente = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
-                    .ObterPacienteAsync(foco.PacienteId);
+                    .ObterPacienteAsync(pacienteId);
             if (paciente is not null && !Descartada) await EscolherAsync(paciente);
         }
         catch (Exception ex)
