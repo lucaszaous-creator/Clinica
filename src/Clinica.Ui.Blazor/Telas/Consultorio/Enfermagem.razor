@@ -328,11 +328,15 @@
         StateHasChanged();
     }
 
-    /// <summary>Voltou à vista: com paciente aberto relê só o contexto (o compositor não — há texto em edição).</summary>
+    /// <summary>
+    /// Voltou à vista: com paciente aberto relê só o contexto (o compositor não — há texto em
+    /// edição); sem paciente, relê a lista (quem foi marcado na outra máquina aparece).
+    /// </summary>
     protected override Task AoVoltarAsync()
     {
         _aVista = true;
-        return _aberto is not null ? CarregarContextoAsync() : Task.CompletedTask;
+        if (_aberto is not null) return CarregarContextoAsync();
+        return _busca?.RelerAsync() ?? Task.CompletedTask;
     }
 
     protected override Task AoSairAsync()

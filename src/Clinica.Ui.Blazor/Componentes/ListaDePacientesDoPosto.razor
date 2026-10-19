@@ -18,7 +18,7 @@
 <div class="pagina rec-pacientes">
     <CabecalhoPagina Sobretitulo="@Sobretitulo" Titulo="@Titulo" Subtitulo="@Subtitulo" />
 
-    <BuscaDePacienteNaTela Pergunta="@Pergunta" Contexto="@Contexto"
+    <BuscaDePacienteNaTela @ref="_busca" Pergunta="@Pergunta" Contexto="@Contexto"
                            SugestaoDeHoje="true" PermiteVerTodos="true" Limite="30"
                            AoEscolher="AbrirAsync"
                            CadastroNaFileira="false"
@@ -120,6 +120,7 @@
     /// <summary>O recorte com que a lista nasce — nulo abre na busca.</summary>
     [Parameter] public FiltroListaPacientes? RecorteInicial { get; set; }
 
+    private BuscaDePacienteNaTela? _busca;
     private FiltroListaPacientes? _filtro;
     private List<LinhaPacienteDoBalcao> _linhas = [];
     private bool _temMais, _carregando, _naoVerificado, _iniciou;
@@ -142,8 +143,9 @@
             : Task.CompletedTask;
     }
 
-    /// <summary>Voltar à aba relê em silêncio a página que está na tela.</summary>
-    protected override Task AoVoltarAsync() => _filtro is { } f ? ListarAsync(f, silencioso: true) : Task.CompletedTask;
+    /// <summary>Voltar à aba relê em silêncio o que está na tela: o recorte, ou a busca (a sugestão do dia ou o termo).</summary>
+    protected override Task AoVoltarAsync()
+        => _filtro is { } f ? ListarAsync(f, silencioso: true) : _busca?.RelerAsync() ?? Task.CompletedTask;
 
     protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
         => atalho == AtalhoDeTela.Atualizar ? AoVoltarAsync() : Task.CompletedTask;
