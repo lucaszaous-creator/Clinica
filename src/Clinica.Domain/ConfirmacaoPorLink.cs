@@ -65,7 +65,7 @@ public static class ConfirmacaoPorLink
     /// está ligado (o padrão): o sistema roda nas máquinas da clínica, e no sábado e no
     /// domingo ninguém as liga — sem a regra, a sessão de segunda às 9h teria o lembrete
     /// "devido" no domingo às 9h e só sairia na própria segunda de manhã, uma hora antes. É
-    /// a mesma razão de <c>LembreteEmailService.DiasDaAbertura</c>.
+    /// a razão de o e-mail e o WhatsApp do dia saírem pelo relógio do SERVIDOR.
     /// </summary>
     public static DateTime MomentoDoLembrete(DateTime sessao, int antecedenciaHoras, bool adiantarFimDeSemana = true)
     {
