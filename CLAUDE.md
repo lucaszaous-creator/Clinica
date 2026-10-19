@@ -307,6 +307,21 @@ Nenhum deles quebra o build quando é esquecido:
     ocultas e cada uma rola sozinha. **Nunca crie `BlazorWebView` por tela.** Os arquivos vão
     embutidos na DLL e o Razor chama o serviço direto. **Não reintroduza HTML escrito à mão
     conversando por mensagem**; tela HTML é Razor.
+  - 🌉 **O que continua WPF passa por PONTE, e a ponte compartilhada mora em
+    `Clinica.Desktop.Blazor`** (a rodada de 18–19/10/2026 — mapa em
+    `docs/migracao-wpf-blazor-out2026.md`). Interface em `Clinica.Ui.Blazor/Hospedagem` + uma
+    versão "indisponível" que a tela DIZ em vez de calar + a implementação WPF que faz
+    EXATAMENTE o que a ViewModel fazia, no despachante. Tela publicada por DOIS módulos (Sala
+    de infusão, Documentos) registra a ponte com `TryAddSingleton`; o módulo que precisa de
+    mais (o orçamento da Recepção) estende a classe e usa `AddSingleton` — no Gerente vale a
+    mais completa em qualquer ordem de carga. ⚠️ **Ao apagar uma View WPF, procure nas
+    ferramentas do CI** (`tools/ValidarLayoutWindows`, `VerificarInfusao`,
+    `BenchmarkTelasPostgres`): elas montam janelas, e a `MedicamentosView` apagada derrubou o
+    `conferencias` com CS0246. A ferramenta passa a conferir a REGRA que a tela Blazor lê.
+    ⚠️ **Tela sem dado escolhido que lê ao abrir também relê ao voltar**: a busca que sugere
+    "quem tem horário hoje" é uma leitura, e o `PalcoTrocaRepetidaTests` reprova a tela que
+    não a repete (remonte a busca com `@key`). ⚠️ `Selo` só tem os tons `sucesso`, `aviso`,
+    `perigo`, `info`, `neutro` e `saida` — `"erro"` é tom do `Aviso`, e no selo sai sem cor.
   - 🗂️ As telas WPF dos OUTROS módulos continuam valendo e se mantêm em XAML até serem
     migradas; tela NOVA não nasce em XAML. O Financeiro e o Faturamento de guias já são só
     Blazor (o Faturamento desde out/2026 — `docs/faturamento-blazor.md`).
