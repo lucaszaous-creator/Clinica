@@ -42,6 +42,6 @@ public class ProntuariosNaTelaTests
     public void O_tom_segue_o_que_a_linha_pede()
     {
         Assert.Equal("aviso", ProntuariosNaTela.Tom(Linha("a", SituacaoLinhaProntuario.AAssinar)));
-        Assert.Equal("erro", ProntuariosNaTela.Tom(Linha("a", SituacaoLinhaProntuario.Cancelada)));
+        Assert.Equal("perigo", ProntuariosNaTela.Tom(Linha("a", SituacaoLinhaProntuario.Cancelada)));
     }
 }

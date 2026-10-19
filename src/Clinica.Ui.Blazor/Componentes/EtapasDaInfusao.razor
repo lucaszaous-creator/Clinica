@@ -1,0 +1,15 @@
+@* As etapas de uma folha de infusão (o DataTemplate "EtapasDaInfusao" do WPF): concluída verde,
+   a que precisa de revisão âmbar, a atual azul. O tom sai de SalaDeInfusaoNaTela.Tom. *@
+@using Clinica.Application.Modelos
+@if (Linha.Etapas.Count > 0)
+{
+    <span class="sala-etapas" aria-label="Etapas da infusão">
+        @foreach (var e in Linha.Etapas)
+        {
+            <Selo Tom="@SalaDeInfusaoNaTela.Tom(e)" Dica="@e.Situacao">@e.Marca @e.Titulo</Selo>
+        }
+    </span>
+}
+@code {
+    [Parameter, EditorRequired] public LinhaSalaInfusao Linha { get; set; } = default!;
+}

@@ -1,0 +1,312 @@
+@*
+  SALA DE INFUSÃO — a fila das folhas de execução (out/2026: migrada da SalaInfusaoView WPF do
+  shell; chave ChavesSuite.SalaInfusao, publicada pela Recepção e pelo Consultório).
+
+  O que a fila AFIRMA mora em SalaDeInfusaoNaTela (Application, com teste). Checar item a item,
+  anotar a evolução de enfermagem e registrar a infusão com orientação externa continuam nas
+  janelas WPF de sempre, pela ponte IJanelasDaSalaDeInfusao (a 2ª assinatura mora na folha —
+  área congelada, só chamada). Imprimir é o PDF do AssinaturaDePrescricaoService, salvo pelo
+  hospedeiro.
+
+  As regras que vieram do ViewModel: a releitura de 1 minuto (quem assina está noutra máquina),
+  silenciosa e sem pintar falha por cima da fila; a folha que aguarda a 2ª assinatura entra
+  de qualquer dia; e o contador da assinatura é separado do de itens aguardando.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina sala-infusao @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Enfermagem" Titulo="Sala de infusão"
+                     Subtitulo="As prescrições assinadas de hoje. Abrir a folha é onde se checa item a item: ✓ com o horário quando foi feito, horário circulado e justificativa quando não foi.">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        @if (PodeRegistrarEnfermagem)
+        {
+            <button type="button" class="botao" disabled="@_ocupado" @onclick="RegistrarExternaAsync">Registrar infusão com orientação externa</button>
+        }
+    </CabecalhoPagina>
+
+    <div class="sala-barra">
+        <input class="campo sala-codigo" placeholder="Código impresso na folha (ex.: K7Q2M3)" aria-label="Código de conferência"
+               value="@_codigo" @oninput="e => _codigo = e.Value?.ToString()" @onkeydown="CodigoTeclaAsync" maxlength="20" />
+        <button type="button" class="botao" disabled="@_ocupado" @onclick="AbrirPorCodigoAsync">Abrir pelo código</button>
+        <label class="marcar"><input type="checkbox" checked="@_incluirEncerradas" @onchange="TrocarEncerradasAsync" /> Mostrar encerradas</label>
+    </div>
+
+    <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+
+    @if (PodePrescrever && _validacoes.Count > 0)
+    {
+        <section class="cartao sala-validacoes">
+            <div class="cartao-corpo">
+                <h3>Avaliação médica de infusões externas</h3>
+                <p class="secundario">@SalaDeInfusaoNaTela.ResumoValidacoes(_validacoes.Count)</p>
+                @foreach (var v in _validacoes)
+                {
+                    <div class="sala-linha" @key="v.PrescricaoId">
+                        <div class="sala-linha-texto">
+                            <span class="principal">@v.Paciente</span>
+                            <span class="secundario">@v.Numero · @v.Hora · @v.Progresso</span>
+                            <EtapasDaInfusao Linha="v" />
+                        </div>
+                        <button type="button" class="botao mini primario" disabled="@_ocupado" @onclick="() => AbrirFolhaAsync(v.PrescricaoId)">Avaliar e assinar</button>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="cartao lista-cartao">
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível carregar a sala de infusão" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_folhas.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhuma folha na sala" Icone="vazio"
+                         Descricao="@(_incluirEncerradas ? "Nenhuma prescrição de infusão hoje, nem encerrada." : "Nenhuma prescrição de infusão aguardando hoje. Marque “Mostrar encerradas” para ver as concluídas.")" />
+        }
+        else
+        {
+            <div class="cartao-corpo">
+                <p class="secundario">@SalaDeInfusaoNaTela.Resumo(_folhas)</p>
+                @foreach (var f in _folhas)
+                {
+                    <div class="sala-linha" @key="f.PrescricaoId">
+                        <div class="sala-linha-texto">
+                            <span class="principal">@f.Paciente</span>
+                            <span class="secundario">
+                                @f.Numero · @f.Hora · @f.Prescritor
+                                @if (f.DeOutroDia) { <text> · folha de @f.Dia</text> }
+                            </span>
+                            <span>@f.Progresso</span>
+                            @if (!string.IsNullOrWhiteSpace(f.Itens)) { <span class="secundario">@f.Itens</span> }
+                            <span class="sala-selos">
+                                @if (f.AguardaAssinatura) { <Selo Tom="aviso">Falta a assinatura eletrônica da enfermagem</Selo> }
+                                @if (f.RegistroPendente) { <Selo Tom="perigo">Documento assinado indisponível · contate o suporte</Selo> }
+                                @if (f.Devolvida) { <Selo Tom="aviso">Devolvida</Selo> }
+                            </span>
+                            <EtapasDaInfusao Linha="f" />
+                        </div>
+                        <div class="botoes-linha">
+                            <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => ImprimirAsync(f)">Imprimir</button>
+                            <button type="button" class="botao mini" disabled="@(!PodeRegistrarEnfermagem || _ocupado)" @onclick="() => AnotarAsync(f)"
+                                    title="@(PodeRegistrarEnfermagem ? "Registrar a evolução de enfermagem desta folha" : "Seu acesso não permite registrar evolução de enfermagem")">Anotar</button>
+                            <button type="button" class="botao mini primario" disabled="@(!PodeChecar || _ocupado)" @onclick="() => AbrirFolhaAsync(f.PrescricaoId)"
+                                    title="@(PodeChecar ? "Abrir a folha para checar item a item" : "Seu acesso não permite checar a prescrição")">Abrir folha</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<LinhaSalaInfusao> _folhas = [];
+    private IReadOnlyList<LinhaSalaInfusao> _validacoes = [];
+    private bool _incluirEncerradas;
+    private string? _codigo;
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private bool _carregando, _carregou, _naoVerificado, _ocupado;
+    private string? _erro;
+    private int _geracao;
+    private Timer? _relogio;
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+    private IJanelasDaSalaDeInfusao Janelas => Servicos.GetService<IJanelasDaSalaDeInfusao>() ?? JanelasDaSalaDeInfusaoIndisponiveis.Instancia;
+
+    private static bool PodeChecar => Pode(Permissao.ChecarPrescricao);
+    private static bool PodePrescrever => Pode(Permissao.Prescrever) && SessaoUsuario.Atual.ProfissionalId is > 0;
+    private static bool PodeRegistrarEnfermagem => Pode(Permissao.RegistrarEvolucaoEnfermagem);
+
+    protected override Task OnInitializedAsync()
+    {
+        // A releitura de 1 minuto: quem assina a prescrição está noutra máquina.
+        _relogio = new Timer(_ => _ = InvokeAsync(BaterAsync), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        return CarregarAsync();
+    }
+
+    private async Task BaterAsync()
+    {
+        if (Descartada || _carregando || _ocupado) return;
+        await CarregarAsync(silencioso: true);
+        StateHasChanged();
+    }
+
+    protected override Task AoVoltarAsync() => _carregando ? Task.CompletedTask : CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private Task TrocarEncerradasAsync(ChangeEventArgs e)
+    {
+        _incluirEncerradas = e.Value is true;
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        var geracao = ++_geracao;
+        if (!silencioso)
+        {
+            _carregando = true;
+            _mensagem = null;
+        }
+        try
+        {
+            if (!Exigir(Permissao.VerProntuario, "consultar infusões"))
+            {
+                _carregou = true;
+                return;
+            }
+            var podeChecar = PodeChecar;
+            var profissional = podeChecar ? null : SessaoUsuario.Atual.ProfissionalId;
+            if (!podeChecar && profissional is null)
+                throw new InvalidOperationException("Vincule seu usuário ao profissional responsável para consultar as infusões.");
+
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var incluirEncerradas = _incluirEncerradas;
+            var medico = SessaoUsuario.Atual.ProfissionalId;
+            // As leituras são independentes e correm juntas, cada uma no seu escopo.
+            async Task<IReadOnlyList<PrescricaoInterna>> Ler(Func<ChecagemPrescricaoService, Task<IReadOnlyList<PrescricaoInterna>>> leitura)
+            {
+                using var escopo = Escopo();
+                return await leitura(escopo.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>());
+            }
+            var tFolhas = Ler(s => s.DoDiaAsync(hoje, profissionalId: profissional, incluirEncerradas: incluirEncerradas));
+            var tAguardando = podeChecar ? Ler(s => s.AguardandoAssinaturaAsync(profissional)) : Task.FromResult<IReadOnlyList<PrescricaoInterna>>([]);
+            var tValidacoes = PodePrescrever ? Ler(s => s.AguardandoValidacaoMedicaAsync(medico!.Value)) : Task.FromResult<IReadOnlyList<PrescricaoInterna>>([]);
+            await Task.WhenAll(tFolhas, tAguardando, tValidacoes);
+            if (geracao != _geracao || Descartada) return;
+
+            _folhas = SalaDeInfusaoNaTela.Montar(tFolhas.Result, tAguardando.Result, podeChecar, SessaoUsuario.Atual.UsuarioId, hoje);
+            _validacoes = tValidacoes.Result.Select(p => LinhaSalaInfusao.De(p, hoje)).ToList();
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Sala de infusão — fila não pôde ser carregada", ex);
+            // A releitura de fundo falha CALADA na tela: a fila do minuto anterior continua.
+            if (geracao != _geracao || (silencioso && _carregou)) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private async Task AbrirFolhaAsync(int prescricaoId)
+    {
+        if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDaSalaDeInfusaoIndisponiveis.Frase); return; }
+        await Acao(() => Janelas.AbrirFolhaAsync(prescricaoId), "Sala de infusão — folha não pôde ser aberta");
+    }
+
+    private async Task AnotarAsync(LinhaSalaInfusao f)
+    {
+        if (!Exigir(Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem")) return;
+        if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDaSalaDeInfusaoIndisponiveis.Frase); return; }
+        // A anotação pode ter acendido o selo de intercorrência: relê depois.
+        await Acao(() => Janelas.AnotarAsync(f), "Sala de infusão — evolução de enfermagem não pôde ser aberta");
+    }
+
+    private async Task RegistrarExternaAsync()
+    {
+        if (!ExigirAlgum(Permissao.ChecarPrescricao | Permissao.RegistrarEvolucaoEnfermagem, "registrar infusão realizada")) return;
+        if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDaSalaDeInfusaoIndisponiveis.Frase); return; }
+        await Acao(() => Janelas.RegistrarInfusaoExternaAsync(), "Sala de infusão — infusão externa não pôde ser registrada");
+    }
+
+    /// <summary>Uma ação por vez; ao voltar da janela, relê a fila (silenciosa — a janela já disse o que houve).</summary>
+    private async Task Acao(Func<Task> acao, string contexto)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            await acao();
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(contexto, ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task CodigoTeclaAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AbrirPorCodigoAsync();
+    }
+
+    private async Task AbrirPorCodigoAsync()
+    {
+        var codigo = _codigo?.Trim() ?? string.Empty;
+        if (codigo.Length == 0)
+        {
+            _mensagem = "Digite o código de conferência impresso na folha (ex.: K7Q2M3).";
+            _mensagemEhErro = true;
+            return;
+        }
+        try
+        {
+            PrescricaoInterna? prescricao;
+            using (var escopo = Escopo())
+                prescricao = await escopo.ServiceProvider.GetRequiredService<PrescricaoInternaService>().PorCodigoAsync(codigo);
+            if (prescricao is null)
+            {
+                _mensagem = $"Nenhuma prescrição com o código \"{codigo}\". Confira o papel — o código não usa as letras I e O nem os dígitos 0 e 1.";
+                _mensagemEhErro = true;
+                return;
+            }
+            _mensagem = null;
+            _codigo = null;
+            await AbrirFolhaAsync(prescricao.Id);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Sala de infusão — busca pelo código não pôde ser feita", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+    }
+
+    private async Task ImprimirAsync(LinhaSalaInfusao f)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            FolhaAssinada folha;
+            using (var escopo = Escopo())
+                folha = await escopo.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>().DocumentoInfusaoAsync(f.PrescricaoId);
+            var erro = await Host.SalvarEAbrirAsync(folha.Pdf, folha.NomeArquivo, "Documento PDF (*.pdf)|*.pdf", ".pdf");
+            _mensagem = erro ?? folha.Conferencia?.Frase ?? "Documento sem assinatura digital; confira a identificação no PDF.";
+            _mensagemEhErro = erro is not null || folha.Conferencia is { Integra: false };
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Sala de infusão — folha não pôde ser impressa", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+        finally { _ocupado = false; }
+    }
+
+    public override void Dispose()
+    {
+        _relogio?.Dispose();
+        _relogio = null;
+        base.Dispose();
+    }
+}

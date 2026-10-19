@@ -1,0 +1,8 @@
+/* SALA DE INFUSÃO — a barra do código, as linhas da fila e as etapas. Só tokens (docs/telas-blazor.md). */
+.sala-infusao .sala-barra{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3)}
+.sala-infusao .sala-codigo{flex:0 1 280px}
+.sala-infusao .sala-linha{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:var(--space-3);padding:var(--space-3) 0;border-top:1px solid var(--borda)}
+.sala-infusao .sala-linha:first-of-type{border-top:0}
+.sala-infusao .sala-linha-texto{display:flex;flex-direction:column;gap:var(--space-1);flex:1 1 360px;min-width:0}
+.sala-infusao .sala-selos,.sala-infusao .sala-etapas{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.sala-infusao .sala-validacoes h3{margin:0}
