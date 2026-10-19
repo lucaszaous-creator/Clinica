@@ -450,9 +450,9 @@ public static class EnfermagemNaTela
         return string.Join(" · ", partes);
     }
 
-    /// <summary>A alergia do contexto, separada porque é a única que muda de cor.</summary>
+    /// <summary>A alergia do contexto, separada porque é a única que muda de cor (o ícone de alerta é do <c>Aviso</c>).</summary>
     public static string? Alerta(IEnumerable<ProblemaPaciente> alergias)
-        => ProblemaPacienteService.ResumirAlergias(alergias) is { } texto ? "⚠ " + texto : null;
+        => ProblemaPacienteService.ResumirAlergias(alergias);
 
     /// <summary>A última aferição — o valor isolado quase não diz nada; a diferença diz.</summary>
     public static string? UltimaAfericao(IEnumerable<EvolucaoEnfermagem> evolucoes)

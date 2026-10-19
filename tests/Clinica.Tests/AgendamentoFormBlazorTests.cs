@@ -234,12 +234,33 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
         return ctx;
     }
 
+    /// <summary>
+    /// Digita, espera o resultado e CLICA nele até o paciente ficar escolhido. O formulário
+    /// re-renderiza sozinho (as conferências da abertura chamam StateHasChanged), e cada
+    /// re-renderização dá à linha um id de evento novo: clicar no elemento achado antes dela
+    /// manda o clique para um id que não existe mais, e o bUnit o descarta calado. Por isso a
+    /// linha é achada DE NOVO a cada tentativa — o navegador sempre clica no DOM atual.
+    /// </summary>
     private static void EscolherPaciente(IRenderedFragment form, string nome)
     {
         form.Find("input[placeholder='Buscar por nome ou CPF']").Input(nome);
-        Esperar(() => form.FindAll(".seletor-resultados li").Count > 0);
-        form.FindAll(".seletor-resultados li").First(li => li.TextContent.Contains(nome)).Click();
-        Esperar(() => form.FindAll(".seletor-escolhido").Count > 0);
+        try
+        {
+            Esperar(() =>
+            {
+                if (form.FindAll(".seletor-escolhido").Count > 0) return true;
+                var linha = form.FindAll(".seletor-resultados li").FirstOrDefault(li => li.TextContent.Contains(nome));
+                if (linha is null) return false;
+                try { linha.Click(); } catch (Exception e) when (e is not TimeoutException) { }
+                return form.FindAll(".seletor-escolhido").Count > 0;
+            });
+        }
+        catch (TimeoutException)
+        {
+            // Diz O QUE a tela mostra: "a busca não trouxe" e "a busca falhou" são causas diferentes.
+            var texto = System.Text.RegularExpressions.Regex.Replace(form.FindAll(".modal").FirstOrDefault()?.TextContent ?? "(sem modal)", @"\s+", " ");
+            throw new TimeoutException("O paciente não ficou escolhido. A tela dizia: " + texto[..Math.Min(600, texto.Length)]);
+        }
     }
 
     /// <summary>O TEXTO do formulário (o Markup codifica acento e travessão; o texto não).</summary>
@@ -252,7 +273,9 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
         form.FindAll("button").First(b => b.TextContent.Trim() == rotulo).Click();
     }
 
-    private static void Esperar(Func<bool> condicao)
+    private static void Esperar(Func<bool> condicao,
+        [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(condicao))] string? qual = null,
+        [System.Runtime.CompilerServices.CallerLineNumber] int linha = 0)
     {
         var prazo = DateTime.UtcNow + Prazo;
         while (DateTime.UtcNow < prazo)
@@ -264,7 +287,7 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
             catch (Bunit.ElementNotFoundException) { }
             Thread.Sleep(25);
         }
-        throw new TimeoutException("A condição não aconteceu a tempo.");
+        throw new TimeoutException($"A condição não aconteceu a tempo (linha {linha}): {qual}");
     }
 
     private sealed class HostMudo : IHostDaTela

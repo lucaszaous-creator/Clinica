@@ -49,7 +49,7 @@
                 }
                 else if (_elegibilidadeFalhou)
                 {
-                    <Aviso Tom="aviso" Texto="Não foi possível conferir a elegibilidade agora. Isto NÃO quer dizer que está tudo certo — tente de novo." />
+                    <Aviso Tom="atencao" Texto="Não foi possível conferir a elegibilidade agora. Isto NÃO quer dizer que está tudo certo — tente de novo." />
                 }
                 else if (_alertas!.Count == 0)
                 {
@@ -80,7 +80,7 @@
                     <p class="secundario">O que este paciente tem marcado daqui em diante, os @FichaAdministrativaNaTela.TetoDeProximosHorarios mais próximos.</p>
                     @if (_horariosFalharam)
                     {
-                        <Aviso Tom="aviso" Texto="Não foi possível ler a agenda deste paciente agora. Isto NÃO quer dizer que ele não tem horário." />
+                        <Aviso Tom="atencao" Texto="Não foi possível ler a agenda deste paciente agora. Isto NÃO quer dizer que ele não tem horário." />
                     }
                     else if (_horarios is null)
                     {
@@ -128,7 +128,7 @@
                 </div>
                 @if (_autorizacoesFalharam)
                 {
-                    <Aviso Tom="aviso" Texto="Não foi possível ler as autorizações deste paciente — isto NÃO significa que ele não tem senha." />
+                    <Aviso Tom="atencao" Texto="Não foi possível ler as autorizações deste paciente — isto NÃO significa que ele não tem senha." />
                 }
                 else if (_autorizacoes is null)
                 {
@@ -173,7 +173,7 @@
                 <p><span class="rotulo-campo">ORIGEM</span> @_origem</p>
                 @if (_contatosFalharam)
                 {
-                    <Aviso Tom="aviso" Texto="Não foi possível ler o histórico de campanhas agora." />
+                    <Aviso Tom="atencao" Texto="Não foi possível ler o histórico de campanhas agora." />
                 }
                 else if (_contatos is null)
                 {
@@ -210,7 +210,7 @@
                 </div>
                 @if (_consentimentosFalharam)
                 {
-                    <Aviso Tom="aviso" Texto="Não foi possível ler os consentimentos agora — isto NÃO quer dizer que nada foi autorizado." />
+                    <Aviso Tom="atencao" Texto="Não foi possível ler os consentimentos agora — isto NÃO quer dizer que nada foi autorizado." />
                 }
                 else if (_consentimentos is null)
                 {
