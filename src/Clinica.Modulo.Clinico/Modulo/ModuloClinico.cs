@@ -552,7 +552,7 @@ public sealed class ModuloClinico : IModuloApp
         // A sala é publicada pelos dois módulos: TryAdd, uma ponte só no Gerente.
         Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
             Clinica.Ui.Blazor.Hospedagem.IJanelasDaSalaDeInfusao, Clinica.Desktop.Blazor.JanelasDaSalaDeInfusaoWpf>(servicos);
-        servicos.AddTransient<EnfermagemViewModel>();
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaEnfermagem, Clinica.Desktop.Blazor.JanelasDaEnfermagemWpf>(servicos);
         servicos.AddTransient<AtendimentoViewModel>();
         servicos.AddTransient<AtendimentoEnfermagemViewModel>();
         servicos.AddTransient<PacienteCapaViewModel>();
@@ -582,10 +582,7 @@ public sealed class ModuloClinico : IModuloApp
         ChavePrescricoes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao), servicos),
         ChavePrescricaoInfusao => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrescricaoDeInfusao), servicos),
         ChaveSalaInfusao => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),
-        ChaveEnfermagem => new EnfermagemView
-        {
-            DataContext = servicos.GetRequiredService<EnfermagemViewModel>()
-        },
+        ChaveEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Enfermagem), servicos),
         ChaveMeusNumeros => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MeusNumeros), servicos),
 
         // A tela do paciente, e as chaves clínicas que caem nela — cada uma na sua

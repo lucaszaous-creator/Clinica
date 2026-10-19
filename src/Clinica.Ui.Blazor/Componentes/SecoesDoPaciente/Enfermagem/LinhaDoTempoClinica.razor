@@ -1,0 +1,250 @@
+@*
+  A LINHA DO TEMPO CLÍNICA (out/2026: substitui LinhaDoTempoClinicaView + LinhaDoTempoClinicaViewModel
+  WPF nas portas Blazor da enfermagem) — a LEITURA XY: "o que já aconteceu com este paciente", a
+  sessão médica, a evolução de enfermagem, a folha de infusão, os documentos e os arquivos da ficha.
+
+  ⚠️ Chips de SEÇÃO, um marcado por vez, e NÃO uma lista fundida: os ids são POR TABELA (a evolução
+  de enfermagem 42 não é a sessão 42 — um comando sobre lista fundida cancelaria o registro errado
+  sem avisar), e a Evolucao médica não tem hora (ordenar entre naturezas inventaria sequência). Os
+  chips desmarcados MOSTRAM A CONTAGEM — é o número visível que faz a enfermeira descobrir que há
+  12 sessões médicas para ler.
+
+  O filtro de ACESSO mora na Application (LeituraLinhaDoTempoService + CatalogoRegistroClinico):
+  sem VerProntuario nada é lido. As ações vêm da PORTA, com a NATUREZA junto: "Ver" (ler por
+  inteiro — a sessão médica, num formulário com SessaoDoProntuario) e "Abrir" (o arquivo da ficha).
+*@
+@namespace Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Prontuario
+@inherits TelaBase
+
+@if (_semAcesso)
+{
+    <p class="secundario">@_resumo</p>
+}
+else
+{
+    @if (_chips.Count > 0)
+    {
+        <div class="enf-chips" role="group" aria-label="Seções do prontuário">
+            @foreach (var c in _chips)
+            {
+                <button type="button" class="chip" aria-pressed="@(c.Natureza == _secao ? "true" : "false")" @onclick="() => Escolher(c.Natureza)">@c.Texto</button>
+            }
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_resumo))
+    {
+        <p class="secundario enf-legenda">@_resumo</p>
+    }
+
+    @if (_naoVerificado)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível ler o prontuário" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+    }
+    else if (_carregando && !_carregou)
+    {
+        <Esqueleto Altura="160" />
+    }
+    else if (_itens.Count == 0)
+    {
+        <EstadoVazio Titulo="Nada registrado nesta seção" Icone="vazio" Descricao="Escolha outra seção acima — cada chip mostra quantos registros há." />
+    }
+    else
+    {
+        <ul class="enf-linha-do-tempo">
+            @foreach (var r in _itens)
+            {
+                <li @key="(r.Natureza, r.Id)" class="@(r.Vigente ? null : "apagada")">
+                    <div class="enf-passagem-hora">
+                        <span class="principal">@r.Data.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</span>
+                        @if (r.HoraTexto is { } hora) { <span class="principal">@hora</span> }
+                        <span class="secundario enf-legenda">@r.Rotulo</span>
+                    </div>
+                    <div class="enf-passagem-texto">
+                        <p class="enf-passagem-corpo">@r.Titulo</p>
+                        @if (!string.IsNullOrWhiteSpace(r.Detalhe)) { <p class="secundario">@r.Detalhe</p> }
+                        @if (!string.IsNullOrWhiteSpace(r.Marca)) { <p class="enf-marca">@r.Marca</p> }
+                        @if (!string.IsNullOrWhiteSpace(r.Autor)) { <p class="secundario">@r.Autor</p> }
+                    </div>
+                    <div class="enf-passagem-acoes">
+                        @if (r.EmDestaque) { <Selo Tom="aviso">INTERCORRÊNCIA</Selo> }
+                        @if (TemAcaoVer)
+                        {
+                            <button type="button" class="botao mini" @onclick="() => AoVer.InvokeAsync(r)"
+                                    title="Abre o registro por inteiro, para ler e imprimir. Não altera nada.">Ver</button>
+                        }
+                        @if (TemAcaoAbrir)
+                        {
+                            <button type="button" class="botao mini" @onclick="() => AoAbrir.InvokeAsync(r)">@RotuloAbrir</button>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    [Parameter] public int PacienteId { get; set; }
+    [Parameter] public int Recarga { get; set; }
+
+    /// <summary>As seções que ESTA porta mostra. Vazio = todas as que o componente conhece.</summary>
+    [Parameter] public IReadOnlyCollection<NaturezaRegistroClinico> SecoesVisiveis { get; set; } = [];
+    [Parameter] public NaturezaRegistroClinico SecaoInicial { get; set; } = NaturezaRegistroClinico.SessaoMedica;
+    [Parameter] public bool MostrarDocumentos { get; set; } = true;
+
+    /// <summary>"Ver" — ler por inteiro (a sessão médica). Separado de "Abrir": VER e MEXER são bits diferentes.</summary>
+    [Parameter] public EventCallback<RegistroClinicoPaciente> AoVer { get; set; }
+    [Parameter] public IReadOnlyCollection<NaturezaRegistroClinico> NaturezasComVer { get; set; } = [];
+    [Parameter] public Permissao AcessoParaVer { get; set; } = Permissao.VerProntuario;
+
+    /// <summary>"Abrir" — o arquivo da ficha, cujo abrir JÁ é a leitura.</summary>
+    [Parameter] public EventCallback<RegistroClinicoPaciente> AoAbrir { get; set; }
+    [Parameter] public IReadOnlyCollection<NaturezaRegistroClinico> NaturezasComAcao { get; set; } = [];
+    [Parameter] public Permissao AcessoParaMexer { get; set; } = Permissao.EditarProntuario;
+    [Parameter] public string RotuloAbrir { get; set; } = "Abrir";
+
+    /// <summary>As naturezas que este componente sabe desenhar, na ordem dos chips.</summary>
+    private static readonly NaturezaRegistroClinico[] Conhecidas =
+    [
+        NaturezaRegistroClinico.SessaoMedica,
+        NaturezaRegistroClinico.EvolucaoEnfermagem,
+        NaturezaRegistroClinico.PrescricaoInterna,
+        NaturezaRegistroClinico.DocumentoClinico,
+        NaturezaRegistroClinico.ArquivoDaFicha
+    ];
+
+    private sealed record Chip(NaturezaRegistroClinico Natureza, string Texto);
+
+    private IReadOnlyDictionary<NaturezaRegistroClinico, IReadOnlyList<RegistroClinicoPaciente>> _porNatureza
+        = new Dictionary<NaturezaRegistroClinico, IReadOnlyList<RegistroClinicoPaciente>>();
+    private List<Chip> _chips = [];
+    private List<RegistroClinicoPaciente> _itens = [];
+    private NaturezaRegistroClinico _secao;
+    private bool _secaoPendente = true;
+    private bool _semAcesso, _carregando, _carregou, _naoVerificado;
+    private string _resumo = string.Empty;
+    private string? _erro;
+    private int _geracao;
+    private (int Paciente, int Recarga)? _lido;
+
+    private bool TemAcaoVer => AoVer.HasDelegate && NaturezasComVer.Contains(_secao) && Pode(AcessoParaVer);
+    private bool TemAcaoAbrir => AoAbrir.HasDelegate && NaturezasComAcao.Contains(_secao) && Pode(AcessoParaMexer);
+
+    private static string RotuloCurto(NaturezaRegistroClinico n) => n switch
+    {
+        NaturezaRegistroClinico.SessaoMedica => "Médica",
+        NaturezaRegistroClinico.EvolucaoEnfermagem => "Enfermagem",
+        NaturezaRegistroClinico.PrescricaoInterna => "Infusões",
+        NaturezaRegistroClinico.DocumentoClinico => "Documentos",
+        NaturezaRegistroClinico.ArquivoDaFicha => "Arquivos",
+        _ => CatalogoRegistroClinico.Rotular(n)
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_lido == (PacienteId, Recarga)) return;
+        var trocouPaciente = _lido?.Paciente != PacienteId;
+        _lido = (PacienteId, Recarga);
+        if (trocouPaciente) Limpar();
+        await CarregarAsync();
+    }
+
+    /// <summary>Voltou à vista: relê em silêncio (leitura, não edição).</summary>
+    protected override Task AoVoltarAsync() => _carregando ? Task.CompletedTask : CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        if (PacienteId == 0) { Limpar(); _semAcesso = false; return; }
+
+        // NEM LER NEM DESENHAR (art. 5º, II), no ponto único.
+        if (!Pode(Permissao.VerProntuario))
+        {
+            Limpar();
+            _semAcesso = true;
+            _resumo = "O seu acesso não permite ler o prontuário deste paciente.";
+            return;
+        }
+
+        _semAcesso = false;
+        _carregando = true;
+        try
+        {
+            IReadOnlyDictionary<NaturezaRegistroClinico, IReadOnlyList<RegistroClinicoPaciente>> porNatureza;
+            using (var escopo = Escopo())
+                porNatureza = await escopo.ServiceProvider.GetRequiredService<LeituraLinhaDoTempoService>()
+                    .LerAsync(PacienteId, SessaoUsuario.Atual.Efetivas, SecoesVisiveis, MostrarDocumentos);
+            if (geracao != _geracao || Descartada) return;
+            _porNatureza = porNatureza;
+            _naoVerificado = false;
+            _carregou = true;
+            MontarChips();
+            Publicar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Linha do tempo clínica não pôde ser carregada", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private void Limpar()
+    {
+        _porNatureza = new Dictionary<NaturezaRegistroClinico, IReadOnlyList<RegistroClinicoPaciente>>();
+        _chips = [];
+        _itens = [];
+        _resumo = string.Empty;
+        _carregou = false;
+        _naoVerificado = false;
+    }
+
+    private void MontarChips()
+    {
+        var visiveis = Conhecidas
+            .Where(n => SecoesVisiveis.Count == 0 || SecoesVisiveis.Contains(n))
+            .Where(n => MostrarDocumentos || n != NaturezaRegistroClinico.DocumentoClinico)
+            // Seção que a pessoa não pode ler some: "Médica (0)" contaria que existem sessões.
+            .Where(n => SessaoUsuario.Atual.Efetivas.HasFlag(CatalogoRegistroClinico.Obter(n).PermissaoVer))
+            .ToList();
+
+        _chips = [.. visiveis.Select(n => new Chip(n, $"{RotuloCurto(n)} ({_porNatureza.GetValueOrDefault(n)?.Count ?? 0})"))];
+
+        _semAcesso = visiveis.Count == 0;
+        if (_semAcesso)
+        {
+            _itens = [];
+            _resumo = "O seu acesso não permite ler o prontuário deste paciente.";
+            return;
+        }
+
+        if (_secaoPendente || !visiveis.Contains(_secao))
+        {
+            _secaoPendente = false;
+            _secao = visiveis.Contains(SecaoInicial) ? SecaoInicial : visiveis[0];
+        }
+    }
+
+    private void Escolher(NaturezaRegistroClinico n)
+    {
+        _secao = n;
+        Publicar();
+    }
+
+    private void Publicar()
+    {
+        if (_semAcesso) return;
+        var lista = _porNatureza.GetValueOrDefault(_secao) ?? [];
+        // Do mais recente para o mais antigo, DENTRO da natureza — nunca entre naturezas.
+        _itens = [.. lista.OrderByDescending(r => r.Momento).ThenByDescending(r => r.Id)];
+        // Vazio NÃO escreve resumo: quem responde "não há nada" é o estado vazio (um por pergunta).
+        _resumo = lista.Count == 0 ? string.Empty : CatalogoRegistroClinico.Contar(_secao, lista.Count);
+    }
+}

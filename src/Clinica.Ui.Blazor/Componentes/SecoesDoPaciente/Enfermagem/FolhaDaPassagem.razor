@@ -1,0 +1,130 @@
+@*
+  O COMPOSITOR DA PASSAGEM DE ENFERMAGEM (out/2026 — substitui o PassagemDeEnfermagemView WPF nas
+  portas Blazor: a seção "Atendimento de enfermagem" e a tela Enfermagem).
+
+  A tira de números em cima (data e hora do FATO e os sinais vitais — a PA num campo só, "120/80"),
+  a folha "O que eu observei", e ao pé o que se marca DEPOIS de escrever: intercorrência, a
+  alergia observada (o AGENTE — "a quê?") e a porta da consulta COFEN, que abre em formulário
+  grande. Sem botão de gravar: o Registrar é do rodapé de quem hospeda (fora das abas), para o
+  botão que grava não sumir quando a folha fica longa.
+
+  Somente leitura (sem "Registrar evolução de enfermagem"): os campos ficam apagados — campo
+  aceso que não grava é o botão que não faz nada pelo avesso —, e quem hospeda diz por quê.
+*@
+@namespace Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<fieldset class="enf-folha" disabled="@SomenteLeitura">
+    @if (!string.IsNullOrWhiteSpace(Estado.Contexto))
+    {
+        <p class="secundario enf-contexto">@Estado.Contexto</p>
+    }
+    <Aviso Texto="@Estado.AvisoModalidadeEnfermagem" Tom="atencao" />
+
+    <p class="enf-rotulo">Hora do fato e sinais vitais (preencha só o que aferiu)</p>
+    <div class="enf-tira">
+        <Campo Rotulo="Data do atendimento" Dica="A data real do atendimento; a de registro também fica gravada.">
+            <input class="campo" type="date" value="@Estado.DataDoAtendimento?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" @onchange="TrocarDataAsync" />
+        </Campo>
+        <Campo Rotulo="Hora do fato">
+            <input class="campo enf-curto" type="time" value="@Estado.Hora" @onchange="e => Estado.Hora = e.Value?.ToString() ?? string.Empty"
+                   title="A hora do FATO, não a de agora. O relógio do sistema fica gravado ao lado — a diferença é o que uma auditoria de enfermagem procura." />
+        </Campo>
+        <Campo Rotulo="PA (mmHg)">
+            <input class="campo enf-curto" @bind="Estado.PressaoArterial" placeholder="120/80" maxlength="9" title="Sistólica/diastólica, num campo só" />
+        </Campo>
+        <Campo Rotulo="FC (bpm)"><input class="campo enf-curto" inputmode="numeric" @bind="Estado.Cardiaca" maxlength="3" /></Campo>
+        <Campo Rotulo="FR (irpm)"><input class="campo enf-curto" inputmode="numeric" @bind="Estado.Respiratoria" maxlength="3" /></Campo>
+        <Campo Rotulo="SpO₂ (%)"><input class="campo enf-curto" inputmode="numeric" @bind="Estado.Saturacao" maxlength="3" /></Campo>
+        <Campo Rotulo="Temperatura (°C)"><input class="campo enf-curto" inputmode="decimal" @bind="Estado.Temperatura" placeholder="36,5" maxlength="5" /></Campo>
+    </div>
+
+    <Campo Rotulo="O que eu observei" Classe="largo">
+        <textarea class="campo enf-texto" rows="6" @bind="Estado.Texto" maxlength="4000"
+                  title="Escreva a passagem como no papel: o que o paciente relatou, o que você observou e o que fez."></textarea>
+    </Campo>
+
+    <div class="enf-pe">
+        <label class="marcar" title="Algo saiu do esperado (reação, queda de pressão, extravasamento). Acende o selo e chega ao médico.">
+            <input type="checkbox" @bind="Estado.Intercorrencia" />Foi uma intercorrência
+        </label>
+        <Campo Rotulo="Alergia observada — a quê? (opcional)"
+               Dica="Só o AGENTE (ex.: dipirona) — é a palavra que a conferência procura nas próximas prescrições. A reação vai no texto da passagem.">
+            <input class="campo" @bind="Estado.AlergiaObservada" placeholder="só o agente (ex.: dipirona)" maxlength="120" />
+        </Campo>
+    </div>
+
+    <div class="enf-consulta">
+        <label class="marcar" @key="_chaveConsulta"
+               title="Abre as cinco etapas: histórico, diagnóstico, planejamento, prescrição de enfermagem e avaliação. Sem marcar, o registro é a anotação de passagem.">
+            <input type="checkbox" checked="@Estado.ConsultaCompleta" @onchange="AlternarConsultaAsync" />
+            Consulta de enfermagem (processo completo — COFEN 358/2009)
+        </label>
+        <p class="secundario enf-legenda">Marcar abre as cinco etapas num formulário grande — dá para completar depois.</p>
+        <Aviso Texto="@Estado.EtapasEmFalta" Tom="atencao" />
+        @if (Estado.ConsultaCompleta)
+        {
+            <button type="button" class="botao" @onclick="AbrirConsulta" title="Reabre as cinco etapas. O que você já escreveu continua lá.">
+                <Icone Nome="abrir" />Abrir a consulta de enfermagem…
+            </button>
+        }
+    </div>
+</fieldset>
+
+@if (_consultaAberta)
+{
+    <ConsultaDeEnfermagemForm Estado="Estado" AoFechar="FecharConsulta" />
+}
+
+@code {
+    [Parameter, EditorRequired] public EstadoDaPassagem Estado { get; set; } = default!;
+    [Parameter] public bool SomenteLeitura { get; set; }
+
+    private EstadoDaPassagem? _inscrito;
+    private bool _consultaAberta;
+    private int _chaveConsulta;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_inscrito, Estado)) return;
+        if (_inscrito is not null) _inscrito.Mudou -= AoMudar;
+        _inscrito = Estado;
+        Estado.Mudou += AoMudar;
+        _consultaAberta = false;
+    }
+
+    private void AoMudar() => _ = InvokeAsync(StateHasChanged);
+
+    private Task TrocarDataAsync(ChangeEventArgs e)
+    {
+        var texto = e.Value?.ToString();
+        DateOnly? data = DateOnly.TryParseExact(texto, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+        return Estado.TrocarDataAsync(data);
+    }
+
+    /// <summary>
+    /// Marcar ABRE o formulário; desmarcar passa pela pergunta do Estado, que só aparece quando
+    /// há etapa escrita (desmarcar descarta as cinco etapas na gravação). Recusada, a caixinha
+    /// volta a marcada — a chave força o navegador a redesenhá-la.
+    /// </summary>
+    private async Task AlternarConsultaAsync(ChangeEventArgs e)
+    {
+        if (e.Value is true)
+        {
+            Estado.MarcarConsulta();
+            _consultaAberta = true;
+            return;
+        }
+        if (!await Estado.DesmarcarConsultaAsync(Dialogos)) _chaveConsulta++;
+    }
+
+    private void AbrirConsulta() => _consultaAberta = true;
+    private void FecharConsulta() => _consultaAberta = false;
+
+    public override void Dispose()
+    {
+        if (_inscrito is not null) _inscrito.Mudou -= AoMudar;
+        base.Dispose();
+    }
+}

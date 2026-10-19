@@ -1,0 +1,453 @@
+@*
+  O PAINEL DE ENFERMAGEM DE UM PACIENTE (out/2026) — a peça comum às DUAS portas Blazor da
+  enfermagem: a seção "Atendimento de enfermagem" da tela do paciente (substitui o
+  AtendimentoEnfermagemView/ViewModel WPF) e o painel da tela Enfermagem (substitui o painel do
+  EnfermagemView/ViewModel). Duas cópias deste bloco divergiriam na primeira correção — foi
+  exatamente o que a parcela 88 pagou com o compositor COFEN.
+
+  O que mora aqui, de cima para baixo:
+  · a linha de modalidade (sem sessão BSV na data, o Registrar nasce apagado e a linha diz por quê);
+  · as AÇÕES: "Registrar infusão" (infusão externa → folha, pela ponte WPF), as portas do dia
+    (a folha de infusão de hoje e o termo pendente — cada botão só EXISTE quando há o que fazer)
+    e os atalhos da porta (Consultar ficha / Exames e anexos, só na seção);
+  · os avisos (UMA superfície): leitura sem o bit Y, e o terceiro estado das portas;
+  · o plano de cuidados de hoje (etapa 4 da COFEN — Feito / Não feito);
+  · três ABAS, três perguntas: a passagem de hoje (o compositor), as passagens do paciente, e a
+    terceira, que muda com a porta (conduta médica e infusões na seção; o prontuário do
+    paciente na tela Enfermagem);
+  · o RODAPÉ fora das abas: trocar de aba não pode esconder o botão que GRAVA.
+
+  ⚠️ "Registrar infusão" — a guarda E/OU mantida do WPF (AtendimentoEnfermagemViewModel.cs:165):
+  o botão APARECE com RegistrarEvolucaoEnfermagem (só ele), e o clique exige
+  ChecarPrescricao | RegistrarEvolucaoEnfermagem — Pode com bits somados é um E, então quem tem
+  só o primeiro vê o botão e leva a recusa com a frase. Comportamento preservado de propósito
+  na migração; a decisão de afrouxar para OU é da direção, não de uma troca de tecnologia.
+
+  A trilha de leitura é SalaInfusao, uma vez por paciente (o painel é montado por paciente): a
+  janela de silêncio é POR ORIGEM, e gravar ProntuarioClinico fundiria o acesso da enfermagem
+  com o de quem abriu o prontuário clínico de verdade.
+*@
+@namespace Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Prontuario
+@inherits TelaBase
+
+@if (!_podeLer)
+{
+    <Aviso Tom="erro" Texto="@EnfermagemNaTela.SemProntuario" />
+}
+else if (_estado is { } estado)
+{
+    <div class="enf-painel">
+        @if (!string.IsNullOrEmpty(estado.AvisoModalidadeEnfermagem))
+        {
+            <p class="enf-aviso-modalidade">@estado.AvisoModalidadeEnfermagem</p>
+        }
+
+        <div class="enf-acoes">
+            @if (EstadoDaPassagem.PodeRegistrar)
+            {
+                <button type="button" class="botao" disabled="@_ocupado" @onclick="RegistrarInfusaoAsync"
+                        title="Registra infusão realizada com orientação externa e encaminha a validação ao médico responsável.">Registrar infusão</button>
+            }
+            @if (AoConsultarFicha.HasDelegate)
+            {
+                <button type="button" class="botao" @onclick="() => AoConsultarFicha.InvokeAsync()"
+                        title="Dados, sessões e anamnese. Ao voltar, o texto em edição continua aqui.">Consultar ficha</button>
+            }
+            @if (AoExamesEAnexos.HasDelegate)
+            {
+                <button type="button" class="botao" @onclick="() => AoExamesEAnexos.InvokeAsync()"
+                        title="Consultar exames e anexar resultados sem sair do atendimento.">Exames e anexos</button>
+            }
+            <span class="enf-acoes-espaco"></span>
+            @if (_folha is { } folha)
+            {
+                <button type="button" class="botao" disabled="@(!Pode(Permissao.ChecarPrescricao) || _ocupado)" @onclick="AbrirFolhaAsync"
+                        title="A folha de infusão deste paciente hoje: checar itens, retificar e encerrar.">@EnfermagemNaTela.FolhaDaSecao(folha.Numero, folha.Pendentes)</button>
+            }
+            @if (_termo is { } termo)
+            {
+                <button type="button" class="botao" disabled="@(!Pode(Permissao.ColherAssinaturaPaciente) || _ocupado)" @onclick="ColherTermoAsync"
+                        title="Colhe a assinatura do paciente no termo do procedimento de hoje. Ele está aqui — depois ele já foi embora.">@termo.RotuloDaPendencia</button>
+            }
+        </div>
+
+        @if (EnfermagemNaTela.AvisoDeLeitura(EstadoDaPassagem.PodeRegistrar) is { } leitura)
+        {
+            <Aviso Tom="info" Texto="@leitura" />
+        }
+        @if (_portasNaoVerificadas)
+        {
+            <Aviso Tom="atencao" Texto="@EnfermagemNaTela.PortasNaoVerificadas" />
+        }
+
+        <PlanoDeCuidadosDeHoje PacienteId="PacienteId" Recarga="_recarga" AoMensagem="Falar" />
+
+        <div class="abas" role="tablist" aria-label="Atendimento de enfermagem">
+            <button type="button" role="tab" aria-selected="@Sel(0)" @onclick="() => _aba = 0">A passagem de hoje</button>
+            <button type="button" role="tab" aria-selected="@Sel(1)" @onclick="() => _aba = 1">Passagens do paciente</button>
+            <button type="button" role="tab" aria-selected="@Sel(2)" @onclick="() => _aba = 2">@(Prontuario ? "Prontuário do paciente" : "Conduta médica e infusões")</button>
+        </div>
+
+        <section class="cartao enf-aba">
+            <div class="cartao-corpo">
+                @switch (_aba)
+                {
+                    case 0:
+                        <FolhaDaPassagem Estado="estado" SomenteLeitura="!EstadoDaPassagem.PodeRegistrar" />
+                        break;
+                    case 1:
+                        <ListaDePassagens Estado="estado" AoCorrigir="() => _aba = 0" />
+                        break;
+                    default:
+                        <p class="secundario enf-legenda">@(Prontuario
+                            ? "O prontuário inteiro, uma seção por vez — as passagens de enfermagem têm aba própria."
+                            : "O que o médico registrou e o que foi prescrito para a sala. Escolha a seção nos botões abaixo.")</p>
+                        <LinhaDoTempoClinica PacienteId="PacienteId" Recarga="_recarga"
+                                             SecoesVisiveis="SecoesDaTerceiraAba" MostrarDocumentos="Prontuario"
+                                             SecaoInicial="NaturezaRegistroClinico.SessaoMedica"
+                                             AoVer="VerSessaoMedica" NaturezasComVer="ComVer" AcessoParaVer="Permissao.VerProntuario"
+                                             AoAbrir="AbrirArquivoAsync" NaturezasComAcao="ComAbrir" AcessoParaMexer="Permissao.VerProntuario"
+                                             RotuloAbrir="Abrir" />
+                        break;
+                }
+            </div>
+        </section>
+
+        <footer class="enf-rodape">
+            <p class="@(string.IsNullOrEmpty(_mensagem) ? "secundario" : _mensagemEhErro ? "enf-falha" : "enf-sucesso")" role="status">
+                @(string.IsNullOrEmpty(_mensagem) ? PassagemDeEnfermagemNaTela.LegendaDoRodape : _mensagem)
+            </p>
+            <div class="botoes-linha">
+                @if (estado.Corrigindo)
+                {
+                    <button type="button" class="botao" @onclick="estado.CancelarCorrecao">Cancelar correção</button>
+                }
+                <button type="button" class="botao" disabled="@(!Pode(Permissao.VerProntuario) || _ocupado)" @onclick="ImprimirAsync"
+                        title="Emite o papel do que aconteceu HOJE com este paciente, com a marca da clínica e o código de conferência. Ele fica na lista de documentos do paciente.">Imprimir a passagem</button>
+                <button type="button" class="botao primario" disabled="@(!estado.PodeRegistrarNova || _ocupado)" @onclick="RegistrarAsync"
+                        title="Salva a evolução de enfermagem com sua identificação. O médico conclui o atendimento e gera as guias.">@estado.RotuloDoBotao</button>
+            </div>
+        </footer>
+    </div>
+
+    @if (_sessaoAberta is { } id)
+    {
+        <SessaoMedicaForm EvolucaoId="id" Paciente="@Paciente" AoFechar="() => _sessaoAberta = null" />
+    }
+}
+
+@code {
+    /// <summary>As portas do dia, para quem hospeda escrever a linha de contexto sem ler de novo.</summary>
+    public sealed record PortasDoDia(SituacaoTermo? Termo, PrescricaoInterna? Folha, bool NaoVerificadas);
+
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter, EditorRequired] public string Paciente { get; set; } = string.Empty;
+
+    /// <summary>O horário a que a passagem fica ligada. Mudar DEPOIS de montar amarra e relê (o selo DESTA SESSÃO).</summary>
+    [Parameter] public int? AgendamentoId { get; set; }
+
+    /// <summary>A data do atendimento que o compositor propõe (a do horário, ou hoje).</summary>
+    [Parameter] public DateOnly? DataDoAtendimento { get; set; }
+
+    /// <summary>A terceira aba: falso = conduta médica e infusões (seção); verdadeiro = o prontuário do paciente (tela Enfermagem).</summary>
+    [Parameter] public bool Prontuario { get; set; }
+
+    [Parameter] public EventCallback AoConsultarFicha { get; set; }
+    [Parameter] public EventCallback AoExamesEAnexos { get; set; }
+
+    /// <summary>A passagem foi gravada (registrada, corrigida, cancelada, vinculada) — quem hospeda relê o que depende dela.</summary>
+    [Parameter] public EventCallback AoGravou { get; set; }
+
+    [Parameter] public EventCallback<PortasDoDia> AoLerPortas { get; set; }
+
+    /// <summary>
+    /// O estado da passagem quando quem hospeda o GUARDA (a seção, na tela do paciente: o rascunho
+    /// sobrevive à troca de seção e o Finalizar pergunta por ele). Nulo = o painel cria o seu e o
+    /// descarta ao sair (a tela Enfermagem). Estado de fora não é descartado aqui: ele não é do painel.
+    /// </summary>
+    [Parameter] public EstadoDaPassagem? Estado { get; set; }
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+    private IJanelasDaEnfermagem Janelas => Servicos.GetService<IJanelasDaEnfermagem>() ?? JanelasDaEnfermagemIndisponiveis.Instancia;
+    private IJanelasDaSalaDeInfusao Sala => Servicos.GetService<IJanelasDaSalaDeInfusao>() ?? JanelasDaSalaDeInfusaoIndisponiveis.Instancia;
+
+    private static readonly IReadOnlyCollection<NaturezaRegistroClinico> ComVer = [NaturezaRegistroClinico.SessaoMedica];
+    private static readonly IReadOnlyCollection<NaturezaRegistroClinico> ComAbrir = [NaturezaRegistroClinico.ArquivoDaFicha];
+
+    private IReadOnlyCollection<NaturezaRegistroClinico> SecoesDaTerceiraAba => Prontuario
+        ? [NaturezaRegistroClinico.SessaoMedica, NaturezaRegistroClinico.PrescricaoInterna,
+           NaturezaRegistroClinico.DocumentoClinico, NaturezaRegistroClinico.ArquivoDaFicha]
+        : [NaturezaRegistroClinico.SessaoMedica, NaturezaRegistroClinico.PrescricaoInterna];
+
+    private EstadoDaPassagem? _estado;
+    private bool _podeLer = true, _ocupado, _portasNaoVerificadas, _mensagemEhErro, _estadoProprio;
+    private string? _mensagem, _ultimaDoEstado;
+    private SituacaoTermo? _termo;
+    private PrescricaoInterna? _folha;
+    private int _aba, _recarga, _geracaoPortas;
+    private int? _sessaoAberta;
+    private int? _agendamentoMontado;
+
+    private string Sel(int aba) => _aba == aba ? "true" : "false";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (PacienteId == 0) return;
+        // Dado de saúde: nem ler nem desenhar sem VerProntuario, e o painel DIZ por quê — lista
+        // vazia se leria como "este paciente nunca passou pela enfermagem".
+        _podeLer = Pode(Permissao.VerProntuario);
+        if (!_podeLer) return;
+
+        _agendamentoMontado = AgendamentoId;
+        _estadoProprio = Estado is null;
+        _estado = Estado ?? new EstadoDaPassagem(Escopos, PacienteId, Paciente,
+            agendamentoId: AgendamentoId,
+            dataDoAtendimento: DataDoAtendimento ?? DateOnly.FromDateTime(DateTime.Today));
+        _estado.Mudou += AoMudar;
+        _estado.Gravou += AoGravouInterno;
+
+        await RegistrarAcessoAsync();
+        await _estado.CarregarAsync();
+        await CarregarPortasAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // A tela Enfermagem descobre o horário em curso DEPOIS de abrir o paciente.
+        if (_estado is not null && _agendamentoMontado != AgendamentoId)
+        {
+            _agendamentoMontado = AgendamentoId;
+            await _estado.FixarHorarioAsync(AgendamentoId);
+        }
+    }
+
+    private void AoMudar()
+    {
+        // UMA superfície de mensagem: o que o compositor escreve aparece ao lado do botão que o produziu.
+        if (_estado is { } e && e.Mensagem != _ultimaDoEstado)
+        {
+            _ultimaDoEstado = e.Mensagem;
+            if (e.Mensagem is not null) { _mensagem = e.Mensagem; _mensagemEhErro = e.MensagemEhErro; }
+        }
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void AoGravouInterno()
+    {
+        // A consulta de enfermagem PRESCREVE os cuidados de hoje: sem reler, a enfermeira veria o
+        // plano de ANTES dela. A recarga não zera a mensagem — "Registrado" sobrevive.
+        _ = InvokeAsync(async () =>
+        {
+            _recarga++;
+            await CarregarPortasAsync();
+            await AoGravou.InvokeAsync();
+            StateHasChanged();
+        });
+    }
+
+    private void Falar((string Texto, bool Erro) m)
+    {
+        _mensagem = m.Texto;
+        _mensagemEhErro = m.Erro;
+    }
+
+    private async Task RegistrarAcessoAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador, OrigemAcessoProntuario.SalaInfusao);
+        }
+        catch (Exception ex)
+        {
+            // A trilha não derruba a tela — mas também não passa calada.
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — a leitura do prontuário não pôde ser registrada", ex);
+        }
+    }
+
+    /// <summary>
+    /// As duas portas do dia: o termo pendente e a folha de infusão de hoje. Falha NÃO derruba o
+    /// painel (o assunto dele é a passagem), mas vira o terceiro estado — "não há termo pendente"
+    /// e "não consegui conferir" dizem coisas opostas a quem vai preparar a sala.
+    /// </summary>
+    private async Task CarregarPortasAsync()
+    {
+        var geracao = ++_geracaoPortas;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            IReadOnlyList<SituacaoTermo> termos;
+            IReadOnlyList<PrescricaoInterna> folhas;
+            using (var escopo = Escopo())
+            {
+                // SEQUENCIAL, nunca WhenAll: o mesmo DbContext do escopo.
+                termos = await escopo.ServiceProvider.GetRequiredService<TermoProcedimentoService>()
+                    .SituacaoDoDiaAsync(PacienteId, hoje);
+                folhas = await escopo.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>()
+                    .DoDiaAsync(hoje, incluirEncerradas: true, pacienteId: PacienteId);
+            }
+            if (geracao != _geracaoPortas || Descartada) return;
+            // O rótulo vem da SITUAÇÃO: "Colher" sobre um termo já assinado no celular manda
+            // repetir o gesto que o link recusa.
+            _termo = PendenciasDeTermo.Primeira(termos);
+            _folha = folhas.FirstOrDefault(f => f.PacienteId == PacienteId);
+            _portasNaoVerificadas = false;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoPortas || Descartada) return;
+            _termo = null;
+            _folha = null;
+            _portasNaoVerificadas = true;
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — folha e termo do dia não puderam ser conferidos", ex);
+        }
+        await AoLerPortas.InvokeAsync(new PortasDoDia(_termo, _folha, _portasNaoVerificadas));
+    }
+
+    private async Task RegistrarAsync()
+    {
+        if (_estado is null || _ocupado) return;
+        _ocupado = true;
+        try { await _estado.RegistrarAsync(Dialogos); }
+        finally { _ocupado = false; }
+    }
+
+    private async Task RegistrarInfusaoAsync()
+    {
+        // ⚠️ A guarda E/OU do WPF, mantida: o botão aparece pelo bit Y; o clique exige OS DOIS.
+        if (!Exigir(Permissao.ChecarPrescricao | Permissao.RegistrarEvolucaoEnfermagem, "registrar infusão realizada")) return;
+        if (!Janelas.Disponivel) { Falar((JanelasDaEnfermagemIndisponiveis.Frase, true)); return; }
+        _ocupado = true;
+        try
+        {
+            if (await Janelas.RegistrarInfusaoExternaAsync(PacienteId, Paciente, AgendamentoId))
+            {
+                _recarga++;
+                await CarregarPortasAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — infusão externa não pôde ser registrada", ex);
+            Falar((ex.Message, true));
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task AbrirFolhaAsync()
+    {
+        if (_folha is not { } folha) return;
+        if (!Exigir(Permissao.ChecarPrescricao, "abrir a folha de execução")) return;
+        if (!Sala.Disponivel) { Falar((JanelasDaSalaDeInfusaoIndisponiveis.Frase, true)); return; }
+        _ocupado = true;
+        try
+        {
+            await Sala.AbrirFolhaAsync(folha.Id);
+            _recarga++;
+            await CarregarPortasAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — folha de execução não pôde ser aberta", ex);
+            Falar((ex.Message, true));
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task ColherTermoAsync()
+    {
+        if (_termo is not { } termo) return;
+        if (!Exigir(Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente")) return;
+        if (!Janelas.Disponivel) { Falar((JanelasDaEnfermagemIndisponiveis.Frase, true)); return; }
+        _ocupado = true;
+        try
+        {
+            await Janelas.ColherTermoAsync(PacienteId, Paciente, termo.ModeloId, termo.DocumentoId, termo.AgendamentoId ?? AgendamentoId);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — termo não pôde ser colhido", ex);
+            Falar((ex.Message, true));
+        }
+        finally { _ocupado = false; }
+        // Recarrega de qualquer forma: abrir a coleta já EMITE o termo numerado.
+        await CarregarPortasAsync();
+    }
+
+    /// <summary>
+    /// A ficha do atendimento de HOJE — o recorte é hoje porque é com hoje que a passagem nova é
+    /// gravada. Com rascunho não gravado, a frase manda salvar antes (o papel sai do prontuário).
+    /// </summary>
+    private async Task ImprimirAsync()
+    {
+        if (_estado is null || _ocupado) return;
+        _ocupado = true;
+        try
+        {
+            var (frase, erro) = await EmissaoDaFicha.EmitirAsync(Escopos, Host, PacienteId,
+                DateOnly.FromDateTime(DateTime.Today), temRascunhoNaoGravado: !_estado.CompositorEmBranco,
+                "Enfermagem — passagem");
+            Falar((frase, erro));
+        }
+        finally { _ocupado = false; }
+    }
+
+    private Task VerSessaoMedica(RegistroClinicoPaciente item)
+    {
+        if (item.Natureza != NaturezaRegistroClinico.SessaoMedica) return Task.CompletedTask;
+        if (!Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário")) return Task.CompletedTask;
+        _sessaoAberta = item.Id;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>O arquivo da ficha: abrir JÁ é a leitura — e dado de saúde saindo para um arquivo deixa trilha.</summary>
+    private async Task AbrirArquivoAsync(RegistroClinicoPaciente item)
+    {
+        if (item.Natureza != NaturezaRegistroClinico.ArquivoDaFicha) return;
+        if (!Exigir(Permissao.VerProntuario, "abrir arquivo da ficha")) return;
+        try
+        {
+            byte[]? bytes;
+            string nome;
+            using (var escopo = Escopo())
+            {
+                var servico = escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>();
+                var anexo = await servico.ObterAsync(item.Id);
+                if (anexo is null) { Falar(("O arquivo não foi encontrado.", true)); return; }
+                nome = anexo.NomeArquivo;
+                bytes = await servico.ConteudoAsync(item.Id, escopo.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(anexo.PacienteId, SessaoUsuario.Atual.Operador, OrigemAcessoProntuario.ExportacaoClinica);
+            }
+            if (bytes is null || bytes.Length == 0)
+            {
+                Falar(("O arquivo não foi encontrado. Se ele é um vídeo ou áudio, confira o armazenamento da clínica em Configurações.", true));
+                return;
+            }
+            var extensao = System.IO.Path.GetExtension(nome);
+            if (string.IsNullOrEmpty(extensao)) extensao = ".bin";
+            var erro = await Host.SalvarEAbrirAsync(bytes, nome, $"Arquivo (*{extensao})|*{extensao}", extensao);
+            Falar(erro is null ? ($"Arquivo {nome} aberto.", false) : ($"O arquivo foi gravado, mas não abriu: {erro}", true));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — arquivo da ficha não pôde ser aberto", ex);
+            Falar((ex.Message, true));
+        }
+    }
+
+    public override void Dispose()
+    {
+        if (_estado is { } e)
+        {
+            e.Mudou -= AoMudar;
+            e.Gravou -= AoGravouInterno;
+            // Só descarta o que é DELE: o estado guardado pela seção volta à vista com o rascunho.
+            if (_estadoProprio) e.Descartar();
+        }
+        base.Dispose();
+    }
+}

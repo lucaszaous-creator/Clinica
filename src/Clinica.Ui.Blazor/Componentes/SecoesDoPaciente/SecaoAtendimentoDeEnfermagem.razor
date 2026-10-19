@@ -1,5 +1,40 @@
-@inherits SecaoDoPaciente
+@*
+  ATENDIMENTO DE ENFERMAGEM — a seção de escrita de quem EXECUTA, na tela do paciente (out/2026:
+  substitui o AtendimentoEnfermagemView + AtendimentoEnfermagemViewModel WPF).
 
-<section class="cartao"><div class="cartao-corpo">
-    <EstadoVazio Titulo="Seção em migração" Descricao="Esta seção está sendo reescrita em Blazor nesta branch." />
-</div></section>
+  O conteúdo inteiro é o PainelDeEnfermagem, o MESMO da tela Enfermagem: duas portas, um bloco
+  (o compositor, as passagens, o plano de cuidados, as portas do dia e o rodapé). O que é desta
+  porta: a passagem nasce AMARRADA ao horário de onde a pessoa veio (Contexto.AgendamentoId —
+  é esse vínculo que acende "DESTA SESSÃO" e põe a passagem na ficha da sessão), a data
+  proposta é a do horário, a terceira aba é a conduta médica e as infusões (a imagem espelhada
+  da seção do médico), e os dois atalhos levam às seções irmãs SEM sair do paciente — a seção
+  não conhece o rail, quem troca é a tela (ITelaDoPaciente.IrPara).
+
+  Gravar a passagem pode ter registrado alergia: o crachá é relido (RelerCabecalhoAsync).
+  Esta seção NÃO relê ao voltar à vista: há compositor em edição, e voltar não pode reler por
+  baixo de quem digita (o painel relê só a linha do tempo, que é leitura).
+*@
+@inherits SecaoDoPaciente
+@using Clinica.Application.Modelos
+@using Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+
+<PainelDeEnfermagem PacienteId="Contexto.PacienteId" Paciente="@Contexto.Nome"
+                    AgendamentoId="Contexto.AgendamentoId" DataDoAtendimento="Contexto.DiaDaSessao"
+                    Estado="_estado"
+                    AoConsultarFicha="() => Tela.IrPara(TelaDoPacienteNaTela.FichaDoPaciente)"
+                    AoExamesEAnexos="() => Tela.IrPara(TelaDoPacienteNaTela.ExamesEAnexos)"
+                    AoGravou="() => Tela.RelerCabecalhoAsync()" />
+
+@code {
+    private EstadoDaPassagem? _estado;
+
+    /// <summary>
+    /// A passagem em edição é da TELA do paciente (ITelaDoPaciente.Guardado), não desta seção: o
+    /// rascunho sobrevive à troca de seção, e o "Finalizar" do cabeçalho pergunta antes de
+    /// encerrar sem ele (IPassagemAberta).
+    /// </summary>
+    protected override void OnInitialized() => _estado = Tela.Guardado(EstadoDaPassagem.Chave, CriarEstado);
+
+    private EstadoDaPassagem CriarEstado() => new(Escopos, Contexto.PacienteId, Contexto.Nome,
+        agendamentoId: Contexto.AgendamentoId, dataDoAtendimento: Contexto.DiaDaSessao);
+}

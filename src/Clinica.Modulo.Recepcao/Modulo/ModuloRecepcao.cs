@@ -491,7 +491,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // A sala é publicada pelos dois módulos: TryAdd, uma ponte só no Gerente.
         Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
             Clinica.Ui.Blazor.Hospedagem.IJanelasDaSalaDeInfusao, Clinica.Desktop.Blazor.JanelasDaSalaDeInfusaoWpf>(servicos);
-        servicos.AddTransient<EnfermagemViewModel>();
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaEnfermagem, Clinica.Desktop.Blazor.JanelasDaEnfermagemWpf>(servicos);
         servicos.AddTransient<ProntuarioViewModel>();
         // Os ViewModels de formulário (agendamento, lista de espera, profissional,
         // sala, paciente, evolução) são construídos à mão pelas telas: cada janela abre
@@ -517,10 +517,7 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveRetornosAMarcar => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RetornosAMarcar), servicos),
         ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
         ChaveSalaInfusao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),
-        ChaveEnfermagem => new EnfermagemView
-        {
-            DataContext = servicos.GetRequiredService<EnfermagemViewModel>()
-        },
+        ChaveEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Enfermagem), servicos),
         // Tela do SHELL (parcela 60), como a sala de infusão acima. O item era publicado
         // e este `case` NÃO existia: o shell marcava o item como ativo, `MontarTela`
         // devolvia null e a navegação saía em silêncio — menu aceso, tela parada. Item
