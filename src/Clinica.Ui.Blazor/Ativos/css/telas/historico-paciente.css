@@ -1,0 +1,13 @@
+/* O HISTÓRICO da tela do paciente e os Modais de leitura do prontuário. Só tokens. */
+.hist-sessoes{list-style:none;margin:0;padding:0 var(--space-4) var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)}
+.hist-sessao{border:1px solid var(--borda);border-radius:var(--radius-card);padding:var(--space-3)}
+.hist-cabeca{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+.hist-cabeca .botoes-linha{margin-left:auto}
+.hist-campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-2) var(--space-4);margin:var(--space-2) 0 0}
+.hist-campos dt,.sessao-bloco dt{color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600}
+.hist-campos dd,.sessao-bloco dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.sessao-blocos{display:flex;flex-direction:column;gap:var(--space-3);margin:var(--space-2) 0}
+.versao{border-top:1px solid var(--borda);padding-top:var(--space-3);margin-top:var(--space-3)}
+.versao.vigente{border-top-color:var(--acento)}
+.pre{white-space:pre-wrap}
+.texto-clinico{white-space:pre-wrap}

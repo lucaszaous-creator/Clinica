@@ -42,70 +42,18 @@ public sealed class LinhaVersaoEvolucao
     /// <summary>A versão VIGENTE, desenhada em destaque no topo da lista.</summary>
     public required bool Vigente { get; init; }
 
-    public static LinhaVersaoEvolucao De(VersaoEvolucao v) => new()
+    // A regra mora na Application (VersaoDaEvolucaoNaTela) desde out/2026: o Modal Blazor da
+    // tela do paciente lê a mesma — duas cópias divergiriam na primeira correção.
+    public static LinhaVersaoEvolucao De(VersaoEvolucao v) => De(Clinica.Application.Modelos.VersaoDaEvolucaoNaTela.De(v));
+
+    public static LinhaVersaoEvolucao Atual(Evolucao e) => De(Clinica.Application.Modelos.VersaoDaEvolucaoNaTela.Atual(e));
+
+    private static LinhaVersaoEvolucao De(Clinica.Application.Modelos.VersaoDaEvolucaoNaTela r) => new()
     {
-        Titulo = $"Versão {v.Versao}",
-        Quando = $"substituída em {v.SubstituidaEm:dd/MM/yyyy HH:mm}"
-                 + (string.IsNullOrWhiteSpace(v.SubstituidaPor)
-                     ? string.Empty
-                     : $" por {v.SubstituidaPor}"),
-        // Motivo é opcional de propósito (ver VersaoEvolucao.Motivo): a frase abaixo é o
-        // que impede a ausência de parecer erro de gravação.
-        Motivo = string.IsNullOrWhiteSpace(v.Motivo)
-            ? "Correção sem motivo informado."
-            : v.Motivo,
-        Queixa = Texto(v.QueixaPrincipal),
-        Anamnese = MontarAnamnese(v.HistoriaDoencaAtual, v.ExameFisico,
-                            v.HipoteseDiagnostica, v.CidSessao),
-        Conduta = Texto(v.Conduta),
-        Evolucao = Texto(v.TextoEvolucao),
-        EvolucaoFormatada = v.TextoEvolucaoFormatado,
-        Orientacoes = Texto(v.Orientacoes),
-        Plano = Texto(v.PlanoTerapeutico),
-        Eva = v.EvaAntes is null && v.EvaDepois is null
-            ? "EVA não medida"
-            : $"EVA {v.EvaAntes?.ToString() ?? "—"} → {v.EvaDepois?.ToString() ?? "—"}",
-        Vigente = false
+        Titulo = r.Titulo, Quando = r.Quando, Motivo = r.Motivo, Queixa = r.Queixa, Anamnese = r.Anamnese,
+        Conduta = r.Conduta, Evolucao = r.Evolucao, EvolucaoFormatada = r.EvolucaoFormatada,
+        Orientacoes = r.Orientacoes, Plano = r.Plano, Eva = r.Eva, Vigente = r.Vigente
     };
-
-    /// <summary>A sessão como ela está HOJE — o topo da linha do tempo.</summary>
-    public static LinhaVersaoEvolucao Atual(Evolucao e) => new()
-    {
-        Titulo = "Versão atual",
-        Quando = e.AtualizadoEm is { } q
-            ? $"corrigida pela última vez em {q:dd/MM/yyyy HH:mm}"
-            : $"registrada em {e.CriadoEm:dd/MM/yyyy HH:mm}",
-        Motivo = "É o que está valendo no prontuário.",
-        Queixa = Texto(e.QueixaPrincipal),
-        Anamnese = MontarAnamnese(e.HistoriaDoencaAtual, e.ExameFisico,
-                            e.HipoteseDiagnostica, e.CidSessao),
-        Conduta = Texto(e.Conduta),
-        Evolucao = Texto(e.TextoEvolucao),
-        EvolucaoFormatada = e.TextoEvolucaoFormatado,
-        Orientacoes = Texto(e.Orientacoes),
-        Plano = Texto(e.PlanoTerapeutico),
-        Eva = e.TemParEva ? $"EVA {e.EvaAntes} → {e.EvaDepois}" : "EVA não medida",
-        Vigente = true
-    };
-
-    /// <summary>
-    /// Junta os quatro numa frase, PULANDO o que não existe — a mesma razão pela qual a
-    /// linha do crachá é montada no modelo: frase feita de bindings concatenados não sabe
-    /// pular, e sobraria "HDA:  · Exame:  ·" com vãos no meio.
-    /// </summary>
-    private static string MontarAnamnese(string? hda, string? exame, string? hipotese, string? cid)
-    {
-        var partes = new List<string>();
-        if (!string.IsNullOrWhiteSpace(hda)) partes.Add($"HDA: {hda.Trim()}");
-        if (!string.IsNullOrWhiteSpace(exame)) partes.Add($"Exame físico: {exame.Trim()}");
-        if (!string.IsNullOrWhiteSpace(hipotese))
-            partes.Add($"Hipótese: {hipotese.Trim()}"
-                       + (string.IsNullOrWhiteSpace(cid) ? string.Empty : $" ({cid.Trim()})"));
-        return string.Join("\n", partes);
-    }
-
-    private static string Texto(string? valor)
-        => string.IsNullOrWhiteSpace(valor) ? "—" : valor;
 }
 
 /// <summary>

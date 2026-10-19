@@ -81,6 +81,7 @@
 @import url("telas/con-infusao.css");
 @import url("telas/tela-paciente.css");
 @import url("telas/acp-paciente.css");
+@import url("telas/historico-paciente.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.

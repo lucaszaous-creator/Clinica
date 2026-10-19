@@ -1,0 +1,18 @@
+@*
+  O TEXTO CLÍNICO com negrito e itálico (out/2026): o que a evolução guarda em
+  TextoEvolucaoFormatado, desenhado — o equivalente de leitura do TextoSelecionavel WPF. O texto
+  simples continua canônico; a formatação só é aceita quando seus trechos recompõem o mesmo texto
+  (TextoFormatado.Ler decide). Quebras de linha preservadas.
+*@
+<span class="texto-clinico">@foreach (var t in Clinica.Domain.TextoFormatado.Ler(Texto ?? string.Empty, Formato))
+{
+    if (t.Negrito && t.Italico) { <b><i>@t.Texto</i></b> }
+    else if (t.Negrito) { <b>@t.Texto</b> }
+    else if (t.Italico) { <i>@t.Texto</i> }
+    else { @t.Texto }
+}</span>
+
+@code {
+    [Parameter] public string? Texto { get; set; }
+    [Parameter] public string? Formato { get; set; }
+}

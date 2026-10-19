@@ -1,0 +1,179 @@
+@*
+  OS ANEXOS DE UMA SESSÃO (out/2026: o que no WPF era a AnexosSessaoWindow + AnexosSessaoViewModel).
+  Listar, anexar (imagem, documento, vídeo/áudio — o grande vai para o armazenamento privado da
+  clínica), salvar uma cópia e retirar com motivo (o arquivo NÃO se apaga). A trilha de leitura
+  na abertura; a de exportação ao salvar.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Anexos da sessão" Subtitulo="@Sessao" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="acp-topo">
+            <p class="secundario">@LimiteTexto</p>
+            <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarProntuario) || _ocupado)" @onclick="AnexarAsync"><Icone Nome="mais" />Anexar arquivo</button>
+        </div>
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler os anexos" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_anexos is null)
+        {
+            <Esqueleto Altura="160" />
+        }
+        else if (_anexos.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhum anexo nesta sessão" Icone="lista" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead><tr><th>Arquivo</th><th>Tipo</th><th class="direita">Tamanho</th><th>Anexado em</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _anexos)
+                        {
+                            <tr>
+                                <td>@a.NomeArquivo</td>
+                                <td>@RotulosEnum.De(a.Tipo)</td>
+                                <td class="direita nao-quebra">@MidiaClinica.TamanhoLegivel(a.Tamanho)</td>
+                                <td class="nao-quebra">@Formato.Data(DateOnly.FromDateTime(a.CriadoEm))</td>
+                                <td class="botoes-linha">
+                                    <button type="button" class="botao mini" disabled="@(!Pode(Permissao.VerProntuario))" @onclick="() => SalvarAsync(a)"><Icone Nome="baixar" />Salvar…</button>
+                                    <button type="button" class="botao mini contorno-perigo" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="() => RetirarAsync(a)">Retirar…</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+    </ChildContent>
+    <Rodape><button type="button" class="botao primario" @onclick="AoFechar">Fechar</button></Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int EvolucaoId { get; set; }
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public string Sessao { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<AnexoResumo>? _anexos;
+    private bool _naoVerificado, _ocupado, _acessoRegistrado, _mensagemEhErro;
+    private string? _erro, _mensagem;
+
+    private static string LimiteTexto =>
+        $"Até {MidiaClinica.TamanhoLegivel(MidiaClinica.LimiteDoBanco)} por arquivo. "
+        + $"Vídeo e áudio até {MidiaClinica.TamanhoLegivel(MidiaClinica.TamanhoMaximo)}, guardados no armazenamento da clínica (Configurações).";
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            if (!_acessoRegistrado && PacienteId != 0)
+            {
+                _acessoRegistrado = true;
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, Operador, OrigemAcessoProntuario.Documento);
+            }
+            _anexos = await escopo.ServiceProvider.GetRequiredService<ProntuarioService>().AnexosAsync(EvolucaoId);
+            _naoVerificado = false;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — anexos da sessão não puderam ser lidos", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+    }
+
+    private async Task AnexarAsync()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "anexar ao prontuário")) return;
+        var arquivo = await Host.EscolherArquivoAsync(
+            "Imagens, documentos e mídia (*.jpg;*.jpeg;*.png;*.pdf;*.mp4;*.mov;*.m4a;*.mp3)|*.jpg;*.jpeg;*.png;*.pdf;*.mp4;*.mov;*.m4a;*.mp3|Todos os arquivos (*.*)|*.*",
+            "Anexar ao prontuário");
+        if (arquivo is null) return;
+        _ocupado = true;
+        try
+        {
+            var tipoConteudo = MidiaClinica.MimeDe(arquivo.Nome);
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ProntuarioService>().AnexarAsync(
+                    EvolucaoId, arquivo.Nome, arquivo.Conteudo, MidiaClinica.TipoDe(tipoConteudo, arquivo.Nome),
+                    tipoConteudo: tipoConteudo, operador: Operador,
+                    midia: escopo.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
+            await CarregarAsync();
+            _mensagem = "Arquivo anexado à sessão.";
+            _mensagemEhErro = false;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — anexo não pôde ser gravado", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private async Task SalvarAsync(AnexoResumo anexo)
+    {
+        if (!Exigir(Permissao.VerProntuario, "exportar anexo do prontuário")) return;
+        try
+        {
+            byte[]? bytes;
+            using (var escopo = Escopo())
+            {
+                bytes = await escopo.ServiceProvider.GetRequiredService<ProntuarioService>()
+                    .ConteudoAnexoAsync(anexo.Id, escopo.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
+                if (bytes is not null)
+                    await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                        .RegistrarAsync(PacienteId, Operador, OrigemAcessoProntuario.ExportacaoClinica);
+            }
+            if (bytes is null)
+            {
+                _mensagem = "O arquivo não foi encontrado. Se ele é um vídeo ou áudio, confira o armazenamento da clínica em Configurações.";
+                _mensagemEhErro = true;
+                return;
+            }
+            var extensao = Path.GetExtension(anexo.NomeArquivo);
+            var erro = await Host.SalvarEAbrirAsync(bytes, anexo.NomeArquivo, $"Arquivo (*{extensao})|*{extensao}", extensao);
+            if (erro is not null) { _mensagem = erro; _mensagemEhErro = true; }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — anexo não pôde ser salvo em disco", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+    }
+
+    private async Task RetirarAsync(AnexoResumo anexo)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "mexer no prontuário")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Retirar anexo",
+            $"Por que “{anexo.NomeArquivo}” está saindo do prontuário? O arquivo NÃO é apagado — sai da lista e fica guardado, com este motivo.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ProntuarioService>().CancelarAnexoAsync(anexo.Id, motivo, Operador);
+            await CarregarAsync();
+            _mensagem = "Anexo retirado (guardado na sessão).";
+            _mensagemEhErro = false;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — anexo não pôde ser removido", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+    }
+}
