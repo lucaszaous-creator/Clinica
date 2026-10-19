@@ -1,0 +1,227 @@
+@*
+  AS MEDIDAS SERIADAS (out/2026: migrada da MedidasView/ViewModel WPF). Os cartões das últimas
+  medidas (o IMC primeiro, com a procedência da altura), a curva do tipo acompanhado (a pressão
+  junta consultório e enfermagem, com a procedência dita), o histórico das colheitas DESTA tela,
+  registrar (Modal), cancelar com motivo (nunca apagar — Lei 13.787/2018) e o CSV.
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Medidas
+@inherits SecaoDoPaciente
+
+<section class="cartao">
+    <div class="cartao-corpo acp-topo">
+        <p class="secundario">@_resumo</p>
+        <div class="botoes-linha">
+            <button type="button" class="botao mini" @onclick="IrAoProntuario">Prontuário</button>
+            <button type="button" class="botao mini" disabled="@(_historico.Count == 0 || !Pode(Permissao.VerProntuario))" @onclick="ExportarAsync"><Icone Nome="baixar" />Exportar CSV</button>
+            <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="Registrar"
+                    title="@(Pode(Permissao.EditarProntuario) ? "Registrar uma colheita" : "Seu acesso não permite escrever no prontuário")"><Icone Nome="mais" />Registrar medida</button>
+        </div>
+    </div>
+
+    @if (_naoVerificado)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível ler as medidas" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+    }
+    else if (!_carregou)
+    {
+        <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+    }
+    else
+    {
+        <section class="kpis acp-cartoes">
+            @foreach (var c in _cartoes)
+            {
+                <Kpi Rotulo="@c.Rotulo" Valor="@c.Valor" Nota="@c.Detalhe" Tom="@(c.Alerta ? "perigo" : c.Derivado ? "neutro" : "")" />
+            }
+        </section>
+
+        <div class="cartao-corpo">
+            <div class="segmentado acp-chips" role="group" aria-label="Medida acompanhada">
+                @foreach (var t in CatalogoMedidas.TodasAsMedidas)
+                {
+                    <button type="button" aria-pressed="@(t.Codigo == _tipo?.Codigo ? "true" : "false")" @onclick="() => AcompanharAsync(t)">@t.Nome</button>
+                }
+            </div>
+            @if (_leitura is { } l)
+            {
+                @if (l.TemSerie)
+                {
+                    <dl class="pares acp-pares">
+                        <div><dt>Primeira</dt><dd>@l.Primeiro</dd></div>
+                        <div><dt>Atual</dt><dd>@l.Atual</dd></div>
+                        <div><dt>Variação</dt><dd class="@(l.Preocupa ? "valor-saida" : null)">@l.Variacao</dd></div>
+                    </dl>
+                    <GraficoLinha Pontos="l.Curva" ComecaDoZero="false" Tom="@(l.Preocupa ? "perigo" : null)"
+                                  Descricao="@DescricaoDaCurva" />
+                }
+                <p class="acp-tendencia @(l.Preocupa ? "preocupa" : null)">@l.Frase</p>
+                @if (l.HistoricoSoDoConsultorio is { } nota)
+                {
+                    <p class="secundario">@nota</p>
+                }
+            }
+        </div>
+
+        @if (_tipo is { Derivada: false } tipo)
+        {
+            @if (_historico.Count == 0)
+            {
+                <div class="cartao-corpo"><EstadoVazio Titulo="Nenhuma colheita aqui" Icone="lista" Descricao="@($"Não há {tipo.Nome} registrado no consultório para este paciente.")" /></div>
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th>Data</th><th>Medida</th><th class="direita">Valor</th><th>Faixa</th><th>Observações</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var m in _historico)
+                            {
+                                <tr>
+                                    <td class="nao-quebra">@m.Data</td>
+                                    <td>@m.Tipo</td>
+                                    <td class="direita nao-quebra">@m.Valor</td>
+                                    <td>
+                                        @if (m.TemFaixa)
+                                        {
+                                            <Selo Tom="@(m.FaixaAlerta ? "perigo" : "neutro")">@m.Faixa</Selo>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
+                                    <td>@m.Observacoes</td>
+                                    <td class="botoes-linha">
+                                        <button type="button" class="botao mini contorno-perigo" disabled="@(!Pode(Permissao.EditarProntuario))"
+                                                @onclick="() => CancelarAsync(m)">Cancelar…</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    }
+</section>
+
+@if (_registrando)
+{
+    <Clinica.Ui.Blazor.Formularios.MedidaForm PacienteId="Contexto.PacienteId" Paciente="@Contexto.Nome" TipoInicial="@_tipo?.Codigo"
+                                              AoFechar="() => _registrando = false" AoConcluir="RegistrouAsync" />
+}
+
+@code {
+    private TipoMedida? _tipo = CatalogoMedidas.TodasAsMedidas.FirstOrDefault(t => t.Codigo == CatalogoMedidas.Peso)
+                                ?? CatalogoMedidas.TodasAsMedidas.FirstOrDefault();
+    private IReadOnlyList<MedidasNaTela.Cartao> _cartoes = [];
+    private IReadOnlyList<MedidasNaTela.Linha> _historico = [];
+    private MedidasNaTela.Leitura? _leitura;
+    private string _resumo = string.Empty;
+    private bool _carregou, _naoVerificado, _registrando;
+    private string? _erro;
+    private int _geracao;
+
+    private string DescricaoDaCurva => $"Curva de {_tipo?.Nome}; os números estão no histórico abaixo.";
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private void IrAoProntuario() => Tela.IrPara(TelaDoPacienteNaTela.Historico);
+
+    private Task AcompanharAsync(TipoMedida tipo)
+    {
+        if (tipo.Codigo == _tipo?.Codigo) return Task.CompletedTask;
+        _tipo = tipo;
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        var tipo = _tipo;
+        try
+        {
+            ResumoMedidas resumo;
+            SerieMedida? serie = null;
+            IReadOnlyList<MedidaClinica> colheitas = [];
+            using (var escopo = Escopo())
+            {
+                var servico = escopo.ServiceProvider.GetRequiredService<MedidaClinicaService>();
+                resumo = await servico.ResumoAsync(Contexto.PacienteId);
+                if (tipo is not null)
+                {
+                    serie = await servico.SerieAsync(Contexto.PacienteId, tipo.Codigo);
+                    // O IMC é derivado: o histórico dele é a própria curva.
+                    if (!tipo.Derivada) colheitas = await servico.DoPacienteAsync(Contexto.PacienteId, tipo.Codigo);
+                }
+            }
+            if (g != _geracao || Descartada) return;
+            _cartoes = MedidasNaTela.Cartoes(resumo);
+            _resumo = MedidasNaTela.ResumoAtual(resumo);
+            _leitura = serie is null ? null : MedidasNaTela.Ler(serie);
+            _historico = colheitas.Select(MedidasNaTela.LinhaDe).ToList();
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — medidas do paciente não puderam ser lidas", ex);
+            if (_carregou) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+    }
+
+    private void Registrar()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        _registrando = true;
+    }
+
+    private async Task RegistrouAsync(string tipoRegistrado)
+    {
+        _registrando = false;
+        Notificacoes.Sucesso("Medida registrada.");
+        // A tela passa a acompanhar o que acabou de ser medido.
+        _tipo = CatalogoMedidas.TodasAsMedidas.FirstOrDefault(t => t.Codigo == tipoRegistrado) ?? _tipo;
+        await CarregarAsync();
+    }
+
+    private async Task CancelarAsync(MedidasNaTela.Linha linha)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Cancelar medida",
+            $"Por que {linha.Tipo} de {linha.Valor} em {linha.Data} está sendo cancelada? Ela sai da curva e fica "
+            + "guardada, com este motivo — sem ele não haveria como distinguir “não foi medido” de “apagaram o valor”.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<MedidaClinicaService>().CancelarAsync(linha.MedidaId, motivo, Operador);
+        }, "Consultório — medida não pôde ser cancelada", "Medida cancelada (guardada no prontuário).");
+        if (ok) await CarregarAsync();
+    }
+
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerProntuario, "exportar dados do prontuário")) return;
+        if (_historico.Count == 0) { Notificacoes.Erro("Não há colheita para exportar."); return; }
+        var linhas = _historico;
+        var nome = $"medidas-{Contexto.Nome}-{_tipo?.Nome}-{DateTime.Today:yyyy-MM-dd}.csv";
+        await ExecutarAsync(async () =>
+        {
+            // A trilha vem ANTES do arquivo: quem chegou a escolher a pasta viu o dado.
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(Contexto.PacienteId, Operador, OrigemAcessoProntuario.ExportacaoClinica);
+            var erro = await Host.ExportarCsvAsync(["Data", "Medida", "Valor", "Faixa", "Observações"],
+                linhas.Select(l => (IReadOnlyList<string>)[l.Data, l.Tipo, l.Valor, l.TemFaixa ? l.Faixa : "—",
+                    string.IsNullOrWhiteSpace(l.Observacoes) ? "—" : l.Observacoes]).ToList(), nome);
+            if (erro is not null) Notificacoes.Erro(erro);
+        }, "Consultório — série de medidas não pôde ser exportada");
+    }
+}

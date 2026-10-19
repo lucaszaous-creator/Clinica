@@ -1,0 +1,228 @@
+@*
+  AS ESCALAS CLÍNICAS (out/2026: migrada da AvaliacoesView/ViewModel WPF). As escalas da
+  especialidade de quem atende (ou todas), a evolução do escore da escolhida, aplicar (Modal com
+  os itens, a soma parcial e a ressalva), o alerta de item (o item 9 do PHQ-9 não se dissolve no
+  total) e cancelar com motivo — nunca apagar.
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Avaliacoes
+@inherits SecaoDoPaciente
+
+<section class="cartao">
+    <div class="cartao-corpo acp-topo">
+        <p class="secundario">@_resumo</p>
+        <div class="botoes-linha">
+            <label class="marcar"><input type="checkbox" checked="@_todos" @onchange="TrocarTodosAsync" /> Todas as escalas</label>
+            <button type="button" class="botao mini primario" disabled="@(_instrumento is null || !Pode(Permissao.EditarProntuario))" @onclick="Aplicar"
+                    title="@(Pode(Permissao.EditarProntuario) ? "Aplicar a escala escolhida" : "Seu acesso não permite escrever no prontuário")"><Icone Nome="mais" />Aplicar @(_instrumento?.Nome)</button>
+        </div>
+    </div>
+
+    <Aviso Texto="@_alerta" Tom="erro" />
+
+    <div class="cartao-corpo">
+        <div class="segmentado acp-chips" role="group" aria-label="Escala">
+            @foreach (var i in _instrumentos)
+            {
+                <button type="button" aria-pressed="@(i.Codigo == _instrumento?.Codigo ? "true" : "false")" @onclick="() => EscolherAsync(i)">@i.Nome</button>
+            }
+        </div>
+    </div>
+
+    @if (_naoVerificado)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível ler as avaliações" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+    }
+    else if (!_carregou)
+    {
+        <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+    }
+    else
+    {
+        @if (_leitura is { } l)
+        {
+            <div class="cartao-corpo">
+                @if (l.TemCurva)
+                {
+                    <dl class="pares acp-pares">
+                        <div><dt>Primeira</dt><dd>@l.Primeira</dd></div>
+                        <div><dt>Atual</dt><dd>@l.Atual</dd></div>
+                        <div><dt>Evolução</dt><dd>@l.Ganho</dd></div>
+                        <div><dt>Faixa atual</dt><dd>@l.Faixa</dd></div>
+                    </dl>
+                    <GraficoLinha Pontos="l.Curva" Descricao="@DescricaoDaCurva" />
+                }
+                <p class="acp-tendencia">@l.Frase</p>
+            </div>
+        }
+
+        @if (_linhas.Count == 0)
+        {
+            <div class="cartao-corpo"><EstadoVazio Titulo="Nenhuma escala aplicada" Icone="lista" Descricao="A primeira aplicação é a linha de base do tratamento." /></div>
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead><tr><th>Data</th><th>Escala</th><th class="direita">Pontuação</th><th>Faixa</th><th>Observações</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _linhas)
+                        {
+                            <tr>
+                                <td class="nao-quebra">@a.Data</td>
+                                <td>@a.Instrumento</td>
+                                <td class="direita nao-quebra">@a.Pontuacao</td>
+                                <td>
+                                    <Selo Tom="@(a.FaixaAlerta ? "perigo" : "neutro")">@a.Faixa</Selo>
+                                    @if (a.TemAlerta)
+                                    {
+                                        <span class="acp-alerta-item" title="@a.Alerta"><Icone Nome="alerta" />@a.Alerta</span>
+                                    }
+                                </td>
+                                <td>@a.Observacoes</td>
+                                <td class="botoes-linha">
+                                    <button type="button" class="botao mini contorno-perigo" disabled="@(!Pode(Permissao.EditarProntuario))"
+                                            @onclick="() => CancelarAsync(a)">Cancelar…</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</section>
+
+@if (_aplicando is { } instrumento)
+{
+    <Clinica.Ui.Blazor.Formularios.AplicarAvaliacaoForm Instrumento="instrumento" PacienteId="Contexto.PacienteId"
+                                                        EspecialidadeCodigo="@_especialidade"
+                                                        AoFechar="() => _aplicando = null" AoConcluir="AplicouAsync" />
+}
+
+@code {
+    private string? _especialidade;
+    private bool _todos;
+    private IReadOnlyList<IInstrumentoAvaliacao> _instrumentos = [];
+    private IInstrumentoAvaliacao? _instrumento;
+    private IInstrumentoAvaliacao? _aplicando;
+    private IReadOnlyList<AvaliacoesNaTela.Linha> _linhas = [];
+    private AvaliacoesNaTela.Leitura? _leitura;
+    private string _resumo = string.Empty;
+    private string? _alerta;
+    private bool _carregou, _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    private string DescricaoDaCurva => $"Escore de {_instrumento?.Nome} em cada aplicação; os números estão na tabela abaixo.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A especialidade de quem atende decide as escalas oferecidas (sem vínculo: as gerais).
+        if (SessaoUsuario.Atual.ProfissionalId is { } profissionalId)
+        {
+            try
+            {
+                using var escopo = Escopo();
+                var profissional = await escopo.ServiceProvider.GetRequiredService<EquipeService>().ObterProfissionalAsync(profissionalId);
+                _especialidade = profissional?.EspecialidadeCodigo;
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Consultório — especialidade do profissional não pôde ser lida", ex);
+            }
+        }
+        MontarInstrumentos();
+        await CarregarAsync();
+    }
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private void MontarInstrumentos()
+    {
+        var anterior = _instrumento?.Codigo;
+        _instrumentos = AvaliacoesNaTela.Oferecidos(_todos, _especialidade);
+        _instrumento = _instrumentos.FirstOrDefault(i => i.Codigo == anterior) ?? _instrumentos.FirstOrDefault();
+    }
+
+    private Task TrocarTodosAsync(ChangeEventArgs e)
+    {
+        _todos = e.Value is true;
+        MontarInstrumentos();
+        return CarregarAsync();
+    }
+
+    private Task EscolherAsync(IInstrumentoAvaliacao instrumento)
+    {
+        if (instrumento.Codigo == _instrumento?.Codigo) return Task.CompletedTask;
+        _instrumento = instrumento;
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        var instrumento = _instrumento;
+        try
+        {
+            IReadOnlyList<AvaliacaoClinica> todas;
+            EvolucaoDoEscore? evolucao = null;
+            using (var escopo = Escopo())
+            {
+                var servico = escopo.ServiceProvider.GetRequiredService<AvaliacaoClinicaService>();
+                todas = await servico.DoPacienteAsync(Contexto.PacienteId);
+                if (instrumento is not null) evolucao = await servico.EvolucaoDoEscoreAsync(Contexto.PacienteId, instrumento.Codigo);
+            }
+            if (g != _geracao || Descartada) return;
+            _linhas = todas.Select(AvaliacoesNaTela.LinhaDe).ToList();
+            _resumo = AvaliacoesNaTela.Resumo(todas.Count);
+            _leitura = evolucao is null || instrumento is null ? null : AvaliacoesNaTela.Ler(evolucao, instrumento.Nome);
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — avaliações não puderam ser lidas", ex);
+            if (_carregou) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+    }
+
+    private void Aplicar()
+    {
+        if (_instrumento is null)
+        {
+            Notificacoes.Erro("Escolha uma escala acima antes de aplicar.");
+            return;
+        }
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        _alerta = null;
+        _aplicando = _instrumento;
+    }
+
+    private async Task AplicouAsync(AvaliacaoClinica salva)
+    {
+        _aplicando = null;
+        Notificacoes.Sucesso($"{salva.InstrumentoNome} registrado no prontuário.");
+        // O alerta de item fica NA TELA, não numa notificação que some em 4 segundos.
+        if (salva.TemAlertaDeItem) _alerta = salva.AlertaItem;
+        await CarregarAsync();
+    }
+
+    private async Task CancelarAsync(AvaliacoesNaTela.Linha linha)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Cancelar avaliação",
+            $"Por que a aplicação de {linha.Instrumento} em {linha.Data} está sendo cancelada? Ela sai da curva do "
+            + "tratamento e fica guardada, com as respostas e este motivo.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<AvaliacaoClinicaService>().CancelarAsync(linha.AvaliacaoId, motivo, Operador);
+        }, "Consultório — avaliação não pôde ser cancelada", "Avaliação cancelada (guardada no prontuário).");
+        if (ok) await CarregarAsync();
+    }
+}
