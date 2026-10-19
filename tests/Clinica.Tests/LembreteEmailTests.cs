@@ -223,27 +223,94 @@ public class LembreteEmailTests : IDisposable
         _enviador.Enviados.Should().BeEmpty();
     }
 
-    [Fact]
-    public async Task A_abertura_cobre_hoje_amanha_e_o_fim_de_semana_ate_a_segunda()
-    {
-        // Sexta 11/09 → sáb 12, dom 13, seg 14. Quinta → só quinta e sexta.
-        LembreteEmailService.DiasDaAbertura(new DateOnly(2026, 9, 11)).Should().Equal(
-            new DateOnly(2026, 9, 11), new DateOnly(2026, 9, 12), new DateOnly(2026, 9, 13), new DateOnly(2026, 9, 14));
-        LembreteEmailService.DiasDaAbertura(new DateOnly(2026, 9, 10)).Should().Equal(
-            new DateOnly(2026, 9, 10), new DateOnly(2026, 9, 11));
-        LembreteEmailService.DiasDaAbertura(new DateOnly(2026, 9, 12)).Should().Equal(
-            new DateOnly(2026, 9, 12), new DateOnly(2026, 9, 13), new DateOnly(2026, 9, 14));
+    // ==================== O pedido do DIA (06:00) ====================
 
+    [Fact]
+    public async Task O_email_do_dia_so_sai_a_partir_das_6h_e_so_para_as_sessoes_de_hoje()
+    {
         await LigarSmtpAsync();
         var maria = await PacienteAsync("Maria Souza", "maria@teste.com.br");
-        var sexta = new DateTime(2026, 9, 11, 8, 0, 0);
-        await SessaoAsync(maria.Id, new DateTime(2026, 9, 14, 10, 0, 0));   // segunda
+        var joao = await PacienteAsync("João Lima", "joao@teste.com.br");
+        await SessaoAsync(maria.Id, Hoje.ToDateTime(new TimeOnly(14, 0)));
+        await SessaoAsync(joao.Id, Amanha.ToDateTime(new TimeOnly(9, 0)));   // a véspera não é mais lembrada
 
-        var resultados = await Servico(sexta).EnviarLembretesDaAberturaAsync();
+        (await Servico(Hoje.ToDateTime(new TimeOnly(5, 59))).EnviarLembretesDoDiaAsync()).Enviados.Should().Be(0);
+        _enviador.Enviados.Should().BeEmpty();
 
-        resultados.Should().HaveCount(4);
-        resultados.Sum(r => r.Enviados).Should().Be(1);
-        _enviador.Enviados.Single().Corpo.Should().Contain("segunda-feira, 14/09 às 10:00");
+        var r = await Servico(Hoje.ToDateTime(new TimeOnly(6, 0))).EnviarLembretesDoDiaAsync();
+        r.Enviados.Should().Be(1);
+        _enviador.Enviados.Single().Destinatario.Should().Be("maria@teste.com.br");
+        _enviador.Enviados.Single().Corpo.Should().Contain("hoje às 14:00");
+    }
+
+    [Fact]
+    public async Task Avisado_pelo_WhatsApp_tambem_recebe_o_email_do_dia_uma_vez_so()
+    {
+        await LigarSmtpAsync();
+        var maria = await PacienteAsync("Maria Souza", "maria@teste.com.br");
+        var ag = await SessaoAsync(maria.Id, Hoje.ToDateTime(new TimeOnly(14, 0)));
+        await _campanhas.GerarConfirmacoesAsync(Hoje);
+        var contato = (await ContatoDeAsync(ag.Id))!;
+        await _campanhas.RegistrarEnvioAsync(contato.Id, "CRM · WhatsApp", CanalContato.WhatsApp);   // o WhatsApp das 06:00 chegou antes
+
+        (await Servico().EnviarLembretesDoDiaAsync()).Enviados.Should().Be(1);
+        (await Servico().EnviarLembretesDaAberturaAsync()).Sum(x => x.Enviados).Should().Be(0);   // a abertura não manda o segundo
+        _enviador.Enviados.Should().ContainSingle();
+        (await ContatoDeAsync(ag.Id))!.Canal.Should().Be(CanalContato.WhatsApp);   // o contato não é reescrito pelo e-mail
+    }
+
+    [Fact]
+    public async Task Quem_ja_respondeu_nao_recebe_o_email_do_dia()
+    {
+        await LigarSmtpAsync();
+        var maria = await PacienteAsync("Maria Souza", "maria@teste.com.br");
+        var ag = await SessaoAsync(maria.Id, Hoje.ToDateTime(new TimeOnly(14, 0)));
+        await _campanhas.GerarConfirmacoesAsync(Hoje);
+        await _campanhas.RegistrarRespostaAsync((await ContatoDeAsync(ag.Id))!.Id, "Confirmou");
+
+        (await Servico().EnviarLembretesDoDiaAsync()).JaTratados.Should().Be(1);
+        _enviador.Enviados.Should().BeEmpty();
+    }
+
+    // ==================== "Sua sessão foi agendada" ====================
+
+    private async Task<Agendamento> MarcadoAsync(Paciente p, DateTime quando, DateTime marcadoEm)
+    {
+        var ag = await SessaoAsync(p.Id, quando);
+        ag.CriadoEm = marcadoEm;
+        await _db.SaveChangesAsync();
+        return ag;
+    }
+
+    [Fact]
+    public async Task Email_de_agendamento_sai_uma_vez_so_para_o_que_acabou_de_ser_marcado()
+    {
+        await LigarSmtpAsync();
+        var maria = await PacienteAsync("Maria Souza", "maria@teste.com.br");
+        var joao = await PacienteAsync("João Lima", "joao@teste.com.br");
+        var ana = await PacienteAsync("Ana Reis", null);
+        var ag = await MarcadoAsync(maria, Amanha.ToDateTime(new TimeOnly(14, 0)), Agora.AddMinutes(-10));
+        await MarcadoAsync(joao, Amanha.ToDateTime(new TimeOnly(15, 0)), Agora.AddHours(-3));   // antes da janela: não
+        await MarcadoAsync(ana, Amanha.ToDateTime(new TimeOnly(16, 0)), Agora.AddMinutes(-5));  // sem e-mail: não
+
+        (await Servico().EnviarConfirmacoesDeAgendamentoAsync()).Should().Be(1);
+        _enviador.Enviados.Single().Destinatario.Should().Be("maria@teste.com.br");
+        _enviador.Enviados.Single().Assunto.Should().Contain("amanhã às 14:00");
+
+        // Remarcar não repete: a trilha é por horário.
+        ag.DataHora = Amanha.ToDateTime(new TimeOnly(17, 0));
+        await _db.SaveChangesAsync();
+        (await Servico().EnviarConfirmacoesDeAgendamentoAsync()).Should().Be(0);
+        _enviador.Enviados.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Email_de_agendamento_desligado_sem_servidor()
+    {
+        var maria = await PacienteAsync("Maria Souza", "maria@teste.com.br");
+        await MarcadoAsync(maria, Amanha.ToDateTime(new TimeOnly(14, 0)), Agora.AddMinutes(-10));
+        (await Servico().EnviarConfirmacoesDeAgendamentoAsync()).Should().Be(0);
+        _enviador.Enviados.Should().BeEmpty();
     }
 
     [Fact]
