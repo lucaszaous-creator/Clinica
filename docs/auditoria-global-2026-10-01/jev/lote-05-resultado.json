@@ -1,0 +1,114 @@
+{
+  "modelo_solicitado": "jev-1.13.0",
+  "sha256_pedido": "e433a2943504c8480bfdef6caab9937594a70678761813803944e1b587f6388e",
+  "answers": {
+    "S238": {
+      "choice": "sem_indicio",
+      "confidence": 0.73
+    },
+    "S239": {
+      "choice": "acao",
+      "confidence": 0.18
+    },
+    "S240": {
+      "choice": "sem_indicio",
+      "confidence": 0.33
+    },
+    "S241": {
+      "choice": "acao",
+      "confidence": 0.15
+    },
+    "S242": {
+      "choice": "sem_indicio",
+      "confidence": 0.26
+    },
+    "S243": {
+      "choice": "sem_indicio",
+      "confidence": 0.27
+    },
+    "S244": {
+      "choice": "navegacao",
+      "confidence": 0.25
+    },
+    "S245": {
+      "choice": "sem_indicio",
+      "confidence": 0.12
+    },
+    "S246": {
+      "choice": "acao",
+      "confidence": 0.38
+    },
+    "S247": {
+      "choice": "acao",
+      "confidence": 0.36
+    },
+    "S248": {
+      "choice": "navegacao",
+      "confidence": 0.21
+    },
+    "S249": {
+      "choice": "sem_indicio",
+      "confidence": 0.34
+    },
+    "S250": {
+      "choice": "insuficiente",
+      "confidence": 0.67
+    },
+    "S251": {
+      "choice": "acao",
+      "confidence": 0.15
+    },
+    "S252": {
+      "choice": "insuficiente",
+      "confidence": 0.15
+    },
+    "S253": {
+      "choice": "acao",
+      "confidence": 0.5
+    },
+    "S254": {
+      "choice": "sem_indicio",
+      "confidence": 0.29
+    },
+    "S255": {
+      "choice": "acao",
+      "confidence": 0.29
+    },
+    "S256": {
+      "choice": "acao",
+      "confidence": 0.21
+    },
+    "S257": {
+      "choice": "acao",
+      "confidence": 0.43
+    },
+    "S258": {
+      "choice": "sem_indicio",
+      "confidence": 0.37
+    },
+    "S259": {
+      "choice": "acao",
+      "confidence": 0.45
+    },
+    "S260": {
+      "choice": "acao",
+      "confidence": 0.58
+    },
+    "S261": {
+      "choice": "acao",
+      "confidence": 0.27
+    },
+    "S262": {
+      "choice": "sem_indicio",
+      "confidence": 0.4
+    },
+    "S263": {
+      "choice": "navegacao",
+      "confidence": 0.39
+    }
+  },
+  "usage": {
+    "input_tokens": 35984,
+    "output_tokens": 1674
+  }
+}

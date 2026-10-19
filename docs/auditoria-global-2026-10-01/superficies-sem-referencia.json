@@ -1,0 +1,5 @@
+[
+  "src/Clinica.Modulo.Recepcao/Views/ProntuarioView.xaml",
+  "src/Clinica.Modulo.Recepcao/Views/RetornoView.xaml",
+  "src/Clinica.Modulo.Faturamento/Alertas/BaixaGuiaWindow.xaml"
+]

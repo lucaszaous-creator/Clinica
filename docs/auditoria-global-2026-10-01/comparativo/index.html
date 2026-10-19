@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SemDor · Módulos antes e depois · PR 232</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<header class="review-header"><div><img src="logo.png" alt="Clínica SemDor"><span class="divider"></span><div><strong>A clínica, módulo por módulo</strong><small>PR 232 · comparação interativa · dados fictícios</small></div></div><div class="top-actions"><button id="catalog-button">Inventário completo</button><button id="guide-button">Como comparar</button></div></header>
+<nav id="modules" class="modules" aria-label="Escolher módulo"></nav>
+<div class="workspace"><aside class="explorer"><div class="explorer-head"><strong id="module-name"></strong><small id="module-location"></small></div><label class="search-label"><span>Localizar tela ou função</span><input id="search" type="search" placeholder="Ex.: recibo, evolução, contas"></label><div id="screen-list"></div><div class="scope-lock">Portal web preservado.<br><small>Sem alterações de tela ou comportamento.</small></div></aside>
+<main><div class="review-title"><div><div id="breadcrumb" class="eyebrow"></div><h1 id="screen-title"></h1><p id="screen-intent"></p></div><div class="mode-switch" role="group" aria-label="Modo de comparação"><button data-mode="before">Antes</button><button data-mode="compare" class="selected">Lado a lado</button><button data-mode="after">Depois</button></div></div>
+<div class="review-tools"><span id="scope-label"></span><div><button id="differences-button" aria-expanded="true">Diferenças</button><button id="source-button">Funções atuais e fontes</button><button id="reset-button">Reiniciar demonstração</button></div></div>
+<section id="differences" aria-label="Diferenças entre antes e depois"></section>
+<div id="stages" class="stages compare"></div>
+<footer class="review-footer"><span id="footnote"></span><button id="prev-screen">← Tela anterior</button><button id="next-screen">Próxima tela →</button></footer>
+</main></div>
+<dialog id="dialog"><div class="dialog-head"><div><small id="dialog-kicker">DEMONSTRAÇÃO</small><h2 id="dialog-title"></h2></div><button id="close-dialog" aria-label="Fechar">×</button></div><div id="dialog-body"></div></dialog>
+<div id="toast" role="status" hidden></div>
+<script src="data.js"></script><script src="app.js"></script></body></html>

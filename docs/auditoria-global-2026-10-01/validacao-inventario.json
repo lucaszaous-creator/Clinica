@@ -1,0 +1,16 @@
+{
+  "resultado": "OK",
+  "escopo": "Consistência documental, não execução do produto",
+  "arquivos": 2955,
+  "fontes_extraidas": 1685,
+  "superficies": 263,
+  "achados": 70,
+  "referencias": 146,
+  "respostas_jev": 333,
+  "combinacoes_perfis": 35,
+  "revisao_achados": {
+    "sustentado": 56,
+    "parcial": 13,
+    "nao_sustentado": 1
+  }
+}

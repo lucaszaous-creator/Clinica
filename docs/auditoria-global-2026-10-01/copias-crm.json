@@ -1,0 +1,1782 @@
+[
+  {
+    "arquivo": "src/Clinica.Application/Abstracoes/IAcompanhamentoPacienteService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Abstracoes/IArmazenamentoPublico.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Abstracoes/IClinicaRepositorio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Abstracoes/OpcoesArmazenamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/AssinaturaDigitalService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/CertificadoIcpBrasil.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/RevisaoIncrementalPdf.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/SafeID/AssinadorSafeID.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/SafeID/AutorizacaoSafeIDService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/SafeID/ClienteSafeID.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/SafeID/ConfiguracaoSafeID.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/SafeID/EscutaLoopback.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/SafeID/OpcoesSafeID.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/SafeID/ProvedorOpcoesSafeID.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Assinatura/TitularDoCertificado.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Clinica.Application.csproj",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Diagnostico.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Email/EnviadorSmtp.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Email/IEnviadorDeEmail.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Email/OpcoesEmail.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/AcessoWeb.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/Agenda.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/AvisosDeChoque.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/BuscaDeVagas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/CabecalhoClinicoPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/CobrancaDaSessao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/Consultorio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ContextoDaFolha.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/CronometroDaSessao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/DadosPrestador.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/FechamentosDaAgenda.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/FiltroAuditoria.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/FiltroConsultaGuias.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/FolhasParaEntregar.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/Gestao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/GradeSemana.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/GraficoDaDor.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/HtmlParaTexto.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ImportacaoAnexosSmartClinic.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ImportacaoPacientes.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ImportacaoSmartClinic.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ItemConciliacao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/LoteTissModelos.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/Medidas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/MensagensDeContato.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ModoDaBusca.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/PacoteSmartClinic.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/PainelDeDocumentos.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ParcelasDaVenda.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/Pendencia.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/PendenciasAssinaturasInfusao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/PressaoArterialTexto.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/PreviaDaFolha.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ProcedenciaDaSessao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/Prontuario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ProntuariosEExames.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/RazaoEstoque.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/RegistroClinicoPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/Relatorio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ResumoDaCarteira.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ResumoMapaAnterior.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/ResumoSessaoAnterior.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/RetornosAMarcar.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/RodadaPendencias.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/SaldoAutorizacao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/SelosDaFila.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/SessaoDoProntuario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/SessaoNaFichaPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/SessaoSemReceita.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/SinaisVitaisDaSessao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/StatusConsultaPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/StatusDaFila.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Modelos/VariacaoKpi.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Properties/AssemblyInfo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AcessoProntuarioService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AcessoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AgendaPdfService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AgendaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AnamneseService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AnexoPacienteService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AssinaturaDeDocumentoClinicoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AssinaturaDePrescricaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AssinaturaDoPacienteService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AtendimentoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AuditoriaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AutorizacaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/AvaliacaoClinicaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/BloqueioAgendaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/BuscaDeVagasService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/CalendarioCartaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/CampanhaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/CampoPersonalizadoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/CapaFaturamentoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/CentralDocumentosService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ChecagemCuidadoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ChecagemPrescricaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ColetaRemotaTermoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ConciliacaoAgendaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ConciliacaoBancariaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ConfiguracaoAgendaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ConsentimentoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ConsultaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ConsultorioService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ContasService.Baixas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ContasService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ConvenioCatalogoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/CustoTransacaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/DocumentoClinicoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/DocumentoFinanceiroService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/DocumentosClinicosPdfService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/DocumentosFinanceirosPdfService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ElegibilidadeService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/EquipeService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/EspecialidadeCatalogoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/EstoqueService.Acompanhamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/EstoqueService.Procedimentos.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/EstoqueService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/EstornoAtendimentoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/EtapasInfusao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/EvolucaoEnfermagemService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ExportacaoProntuarioService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/FaturamentoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/FechamentoCaixaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/FechamentoPdfService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/FechamentoSessaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/FinanceiroService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/FluxoCaixaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/GlosaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/GuardaProntuarioService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/GuiaTissPdfService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ImportacaoAnexosSmartClinicService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ImportacaoPacientesService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ImportacaoSmartClinicService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/InadimplenciaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/IndicadoresService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/InfusaoOrientacaoExterna.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/LembreteEmailService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ListaEsperaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/LoteTissService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/MapaCorporalService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/MarcaSemDor.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/MedidaClinicaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/MetaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/MidiaProntuarioService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ModalidadeCatalogoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ModelosTermoBsv.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/OrcamentoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/OrigemPacientesService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PacienteService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PacoteService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PagamentosRecepcaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PainelDirecaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PainelRecepcaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ParametrosService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PendenciaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PixService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PoliticaConclusaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PoliticaMateriaisService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PrecoConvenioService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PrecoParticularService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PrescricaoInternaPdfService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PrescricaoInternaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PrescricaoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PrevencaoGlosaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ProblemaPacienteService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ProntuarioService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ProtecaoSegredoGlobal.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ProvedorOpcoesArmazenamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/PublicacaoDocumentoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/RecebiveisService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ReceitaGlosadaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/RelacionamentoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/RelatorioService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/RentabilidadeConvenioService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/RepasseService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ResultadoExameService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ResultadoMensalService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/RetencaoPacienteService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/RetornosAMarcarService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/RodadaPendenciasService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/TaxaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/TermoProcedimentoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/TextoFormatadoPdf.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/TissExportService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/TissRetornoImport.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/TissValidador.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/TitularDadosService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/TributoService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Servicos/ValidacaoCadastroPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Tablet/AtendimentoTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Tablet/ContratoTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Tablet/ErroFormularioTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Tablet/FichaTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Application/Tablet/TracoTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Avaliacoes/InstrumentoAvaliacao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Avaliacoes/InstrumentoOswestry.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Avaliacoes/InstrumentosGeriatriaEndocrino.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Avaliacoes/InstrumentosPsiquiatria.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Avaliacoes/RegistroInstrumentos.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/CatalogoCid.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Clinica.Domain.csproj",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/ConformidadeDocumentoClinico.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Cpf.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/EnderecoDeEmail.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Acesso.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/AcompanhamentoPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Agendamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/AnamnesePaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/AnexoPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Atendimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/AtoClinico.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/AutorizacaoSessoes.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/AvaliacaoClinica.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Campanha.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/CampoPersonalizadoProntuario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/CodigoFaturamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ColetaRemotaTermo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ColetaTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ConclusaoClinica.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ConferenciaConsumoProcedimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ConfiguracaoGlobal.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Consulta.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ConvenioCadastro.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/DesenhoDaSessao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/DocumentoFinanceiro.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/EdicaoEnfermagemTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Equipe.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/EspecialidadeCadastro.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Estoque.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/EtapaFechamentoSessao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/EventoAuditoria.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/EvolucaoEnfermagem.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/FechamentoCaixa.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Financeiro.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/LoteTiss.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/MedidaClinica.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Meta.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ModalidadeCadastro.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ModeloEvolucaoEnfermagem.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/OperacaoClinicaTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Paciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/PacienteFoto.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Pacotes.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ParametroConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ParcelaRecebivelCartao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/PrecoConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/PrecoParticular.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/PrescricaoInterna.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ProblemaPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ProcessoEnfermagem.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Prontuario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Recorrencia.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Repasse.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/ResultadoExame.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/SessaoUsuario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/SilhuetaCorporal.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Taxas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Entities/Tributo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Enums.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/EspecialidadeInfo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/GuardaProntuario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/HashSenha.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/IdadeDoPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/LeitorOfx.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Medidas/CatalogoMedidas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/MidiaClinica.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/ModalidadeInfo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/ModeloInfusao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Prontuario/CatalogoEnfermagem.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Prontuario/CatalogoRegistroClinico.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Prontuario/RespostaDeclaracao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Prontuario/TermoConsentimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/PublicacaoDocumento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/CatalogoConvenios.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/CatalogoEspecialidades.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/CatalogoModalidades.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/CategoriaConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/ConfiguracaoRegraGenerica.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/ContextoFaturamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/ConvenioInfo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/IRegraConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/MotivosGlosa.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/OpcoesDeConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/RegistroRegras.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/RegraAmil.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/RegraConsultaAvulsa.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/RegraGenerica.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/RegraNumeroGuia.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/RegraPetrobras.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/RegraUnimedIntercambio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/RegraUnimedPadrao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Regras/ResultadoFaturamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/RotulosEnum.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/Telefone.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/TextoFormatado.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Domain/TextoReceituario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/AcompanhamentoPacienteService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/ArmazenamentoS3.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/BackupService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Clinica.Infrastructure.csproj",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/ClinicaDbContext.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/ClinicaDbContextFactory.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/ClinicaRepositorio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/ConclusaoAutomaticaService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/ConversorEnumTolerante.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/DependencyInjection.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/MensagensDeErro.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260715121940_InitialCreate.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260715174811_AddAgenda.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260715181659_AgendaDataHoraSemFuso.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260715182833_AddGlosa.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260715223552_AddNumeroAtendimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260715231337_AddParametrosConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260716120000_AddModalidadePreferida.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260716120100_AddConsultas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260718100000_AddConfiguracoesGlobais.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260718110000_AumentaValorConfiguracao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260718120000_ConvenioCatalogo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260718130000_ConveniosDinamicos.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260718140000_ConvenioPersonalizado.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260719120000_PacienteDadosConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260719182916_LotesTissEGlosaRecurso.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260719235849_AuditoriaEConcorrencia.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260720125631_ObservacaoPendencia.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260720191221_EspecialidadeConsulta.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260721120000_ModalidadesEspecialidadesDinamicas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260723120000_NaoConformidadePendencia.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260724120000_FotoPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260725120000_AutorizacaoSessoes.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260727151723_Financeiro.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260727180000_FundacaoRecepcao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260727200000_ProntuarioELgpd.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260727220000_CampanhasEAcesso.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260727221000_AtoClinico.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260727230000_DinheiroEInsumo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260728221129_CrmPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260728223610_TaxasEImpostos.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260729063411_ContasARecorrencia.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260729065323_FechamentoDeCaixa.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260729125902_RegimeTributario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260729131015_RecebiveisDeCartao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260729134423_RetencaoPorConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260730000415_TabelaPrecoConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260731090000_BloqueioDeAgenda.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260731093000_AgendamentoEmSerie.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260731230000_MetasMensais.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260731234500_AjusteDeInventario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260801000000_OrcamentoPorCategoria.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260801010000_AlinharFksDeBloqueioEMeta.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260802152903_AvaliacoesClinicas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260803122008_ProntuarioMedidasEProblemas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260803223310_ChamadaDoProfissional.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260805231132_PrescricaoInternaEChecagem.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260806133110_AssinaturaDocumentoClinico.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260807182608_IndiceCpfProfissional.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260807233152_FormatoNumeroGuiaPorConvenio.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260809125932_GuardaProntuarioImutavel.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260809185155_PublicacaoDocumentoAssinado.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260811091802_AutoriaDoLancamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260811170417_ConvenioParticular.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260811174233_PrimeiroCodigoNoAgendamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260811222036_LotePorOperadora.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260812184433_ModeloEvolucao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260812190038_ConciliacaoBancaria.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260813181321_TermoAssinadoPeloPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260813202831_ValidadeDoTermoPorProcedimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260813223632_ExigenciaTermoPorModelo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260814184312_DatasDeCancelamentoSemFuso.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260816121528_SegundaAssinaturaDaExecucao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260819120000_RealizadoNoAtendimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260820202249_RegistroDeExecucaoSelado.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260821143645_EvolucaoDeEnfermagem.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260823123710_ProcessoDeEnfermagemEAtendimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260823161500_FimDoAtendimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260823174500_VersaoGuardaAAnamnese.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260823183000_AnamneseDoPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260823192000_PlanoTerapeutico.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260824010000_ModeloEvolucaoCompleto.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260824020000_ExecucaoDoCuidadoDeEnfermagem.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260824030000_RetornoEncaminhamentoEAcessoVenoso.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260824040000_DesenhoDaSessaoNoDocumento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260824050000_ColetaRemotaDoTermo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260824060000_CodigoDoItemDeDocumento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260831120000_ResultadosDeExame.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260901130000_ResultadoRespondePedido.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260901160000_LaudoEmArquivoNoResultado.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260901180000_ChaveDeImportacaoDoPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260902100000_ImportacaoDoProntuarioEDaAgenda.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260902180000_ArquivosDaFicha.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260903153325_EstornoDeAtendimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260904120000_FichaDaSessaoCabeNaColuna.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260905120000_JornadaDoProfissionalEEmailDoPaciente.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260906120000_PagamentoDoPacoteNoLancamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260906150000_PrecoDoParticularPorEspecialidade.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260907120000_CorpoDoDocumentoSemTeto.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260907130000_HorarioSubstituidoPorSessaoLancadaPorFora.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260907140000_MidiaDoProntuarioNoArmazenamento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260907150000_CamposPersonalizadosDoProntuario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260908190858_TermoLigadoAoHorario.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260910120000_AssinaturaRemotaGuardadaAntesDaConferencia.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260914133708_EtapasDoFechamentoDaSessao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260915102346_ColetaDeTermosNoTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260915140519_PrescricaoInfusaoTextoLivre.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260915151605_ModelosCorpoObservacoesCompletas.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260916173014_AtendimentoClinicoTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260916193849_PostoClinicoTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260917133639_TravaOpcionalDaAgenda.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260917185911_EnfermagemVinculadaEValidacaoInfusao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260921194019_ModelosClinicosFormatados.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922003512_ConsolidacaoGestao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922013900_AgendaRecebiveisPorContrato.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922024030_CatalogoEstoqueClinico.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922024419_ParcelamentoContasDocumentado.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922025145_ConferenciaMateriaisProcedimento.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922031722_BaixasParciaisObrigacoes.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922155443_AdocaoGradualMateriais.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922202933_ModelosEFasesEvolucaoEnfermagemPortal.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922230000_PerfilPsicologia.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260922231000_HabilitacoesDoProfissional.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260923190924_EdicaoEnfermagemExclusiva.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260925170000_DataRealizacaoInfusao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260926120000_DevolucaoInfusaoExterna.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260928123100_AcompanhamentoPacientesBsvRecall.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260928210520_DiluicaoUnicaInfusao.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Migrations/20260928211121_ChecagemNaoExecutavel.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/PoliticaBackupService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Properties/AssemblyInfo.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/RecuperacaoGuiasService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/SessoesEnfermagemService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/AnexosFichaTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/AtendimentoTabletService.Materiais.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/AtendimentoTabletService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/AutorizacoesSafeIdTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/EdicaoEnfermagemTabletService.cs",
+    "igual": false
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/EdicaoFichaTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/InfusaoExternaTabletService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/MapeamentoTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/ModelosClinicosTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/ModelosEnfermagemTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/PendenciasPostoTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/PortalTabletService.cs",
+    "igual": false
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/PostoTabletService.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/RascunhosTablet.cs",
+    "igual": true
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/RegistrosFichaTablet.cs",
+    "igual": false
+  },
+  {
+    "arquivo": "src/Clinica.Infrastructure/Tablet/ResumoAtendimentoTablet.cs",
+    "igual": true
+  }
+]

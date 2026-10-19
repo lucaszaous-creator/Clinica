@@ -1,0 +1,107 @@
+{
+  "Clinica_original": {
+    "head": "da4610caa69ece6533ea40e49e600f1f38f02a1d",
+    "origin_main": "e6dec9abddb6242b1faaec79a48cc62c054ca79c",
+    "branch": "codex/continuidade-publicacao-20260923",
+    "adiante_atras": "1\t77",
+    "commits_proprios": [
+      "da4610c Documenta ponto de parada da publicacao"
+    ],
+    "mudancas_rastreadas_locais": [
+      {
+        "arquivo": "deploy/tablet/atualizar-posto.py",
+        "igual_main_ignorando_espacos_finais": false,
+        "sha256_texto_local": "cdab5100c58ae92c0e161ee7ff87c707eab5d3e8484db29e9b7f797143c868d1"
+      },
+      {
+        "arquivo": "deploy/tablet/verificar-continuidade-hml.py",
+        "igual_main_ignorando_espacos_finais": false,
+        "sha256_texto_local": "2f271e22835d6c7d3b5a1b658812766300e93c3c979f7fbf536d44b53115e7a7"
+      },
+      {
+        "arquivo": "src/Clinica.Application/Modelos/Consultorio.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "d37e9e9c01616b70a72c3295d1fc72af57ebf0ee09dbf92b2317799075b3491f"
+      },
+      {
+        "arquivo": "src/Clinica.Application/Servicos/ConsultorioService.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "ac2739b961a139b0f95fedba8d283e79d2544523bac20da6702340aa2ae26126"
+      },
+      {
+        "arquivo": "src/Clinica.Application/Servicos/PainelDirecaoService.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "0749c544719b86e9391f5679248ebcd07a866928ea2c0d76723a7b9f22245908"
+      },
+      {
+        "arquivo": "src/Clinica.Modulo.Clinico/ViewModels/MeuDiaViewModel.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "7061b1441ada9e341a9e7cbf5c8c5efc47294957fd3b1d72102f7f9876c61ed4"
+      },
+      {
+        "arquivo": "src/Clinica.Modulo.Clinico/ViewModels/MeusNumerosViewModel.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "db42778be44cbfc2373164445f3f54f011f1775e28c26dc612c80d840bd5647f"
+      },
+      {
+        "arquivo": "src/Clinica.Modulo.Clinico/ViewModels/MinhaSemanaViewModel.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "aa3bff288cec2e7b22031815be0a0bf19766ec6ff7b7d1cfae6dc604536e3370"
+      },
+      {
+        "arquivo": "src/Clinica.Modulo.Clinico/ViewModels/ProntuariosViewModel.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "5aac88b3dcef07652b92962af4cda7ec11cf76f844e371094de8b27843d145a5"
+      },
+      {
+        "arquivo": "src/Clinica.Modulo.Clinico/ViewModels/RegistrosPendentesViewModel.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "7c7df632feb22bfa30badcb177abf82e755d25ffc07753875e54fb08f6bf25c3"
+      },
+      {
+        "arquivo": "src/Clinica.Web/Paginas.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "9e1c000a2f72e0113d72445bb31d21c5935668af00c61aade93cdee5fe032cc0"
+      },
+      {
+        "arquivo": "tests/Clinica.Tests/ConsultorioTests.cs",
+        "igual_main_ignorando_espacos_finais": true,
+        "sha256_texto_local": "d29cb08d0e16af2460b6eb621fd15aadd04d48bc825938cd506a9d99813dc6ff"
+      }
+    ],
+    "arquivos_diferentes_head_main": [
+      "docs/continuidade-publicacao-20260923.md"
+    ]
+  },
+  "clinica-site": {
+    "head": "a8bb98989d90d1100cf6d6e0cb4a4a6e2beb28d7",
+    "origin_main": "cc45636a9c8894605b81c39fffe84333e6065553",
+    "branch": "codex/infusao-documento-unico",
+    "adiante_atras": "4\t0",
+    "commits_proprios": [
+      "a8bb989 Identifica a infusão pendente e oferece retomada no SafeID",
+      "9f08a1b Retomar infusão assinada sem exigir segundo clique de conclusão",
+      "624fdbe Aplicar justificativa imediata ao fluxo atual de enfermagem",
+      "803c535 fix: exigir justificativas e concluir infusão com a prescrição assinada"
+    ],
+    "mudancas_rastreadas_locais": [],
+    "arquivos_diferentes_head_main": [
+      "ferramentas/testar-execucao-direta.mjs",
+      "ferramentas/testar-posto-clinico.mjs",
+      "ferramentas/testar-safeid-automatico.mjs",
+      "portal/profissional/clinico.js",
+      "portal/profissional/confirmacoes.js",
+      "portal/profissional/execucao-direta.js",
+      "portal/profissional/posto.js"
+    ]
+  },
+  "semdor-crm": {
+    "head": "33c9ffcb836286c27a61bf1f91640a62acb5b70c",
+    "origin_main": "33c9ffcb836286c27a61bf1f91640a62acb5b70c",
+    "branch": "main",
+    "adiante_atras": "0\t0",
+    "commits_proprios": [],
+    "mudancas_rastreadas_locais": [],
+    "arquivos_diferentes_head_main": []
+  }
+}
