@@ -1,0 +1,270 @@
+@*
+  PRONTUÁRIOS — a lista plana do Consultório (out/2026: migrada do ProntuariosView/ViewModel WPF;
+  chave "consultorio-prontuarios"). O que o profissional escreveu (evoluções), o que emitiu
+  montado do prontuário (anamneses) e o que ainda FALTA escrever (as sessões sem evolução).
+
+  A situação segue o que cada linha É no domínio (LinhaProntuario): anamnese tem assinatura de
+  verdade ("A assinar"/"Assinada"); evolução não é assinável — o pendente real dela é a sessão
+  sem registro ("A escrever"). Recorte, resumo e rótulos moram em ProntuariosNaTela, com teste.
+
+  As três leituras são independentes, cada uma no SEU escopo (seu DbContext) e ao mesmo tempo —
+  nunca WhenAll sobre o mesmo escopo. O quick-view, a assinatura ICP-Brasil e a tela de
+  atendimento continuam WPF, pela ponte IJanelasDosProntuarios; escrever a sessão pendente vai
+  pelo IPostoDoConsultorio, com o vínculo do horário viajando junto.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@using Clinica.Application.Abstracoes
+@inherits TelaBase
+
+<div class="pagina con-prontuarios @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Consultório · Prontuário" Titulo="Prontuários"
+                     Subtitulo="Evoluções e anamneses dos seus atendimentos — e as sessões que ainda estão sem registro.">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao primario" disabled="@(!PodeEscrever || _ocupado)" @onclick="NovoProntuarioAsync"
+                title="@(PodeEscrever ? "Escrever um atendimento" : "Seu acesso não permite escrever no prontuário")"><Icone Nome="mais" />Novo prontuário</button>
+    </CabecalhoPagina>
+
+    @if (_listaDaClinica && _motivoDaLista is { Length: > 0 } motivo)
+    {
+        <p class="con-contexto">@motivo</p>
+    }
+
+    <section class="cartao lista-cartao con-lista">
+        <div class="filtros">
+            <label class="busca">
+                <Icone Nome="busca" />
+                <input class="campo" type="search" placeholder="Buscar por paciente…" aria-label="Buscar prontuários por paciente"
+                       value="@_termo" @oninput="Buscar" maxlength="80" />
+            </label>
+            <button type="button" class="botao @(_soAssinar ? "primario" : null)" aria-pressed="@(_soAssinar ? "true" : "false")"
+                    @onclick="AlternarAssinar">@ProntuariosNaTela.RotuloPendentes(_todas)</button>
+            @if (_carregou) { <span class="resumo-filtro">@_resumo</span> }
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível carregar os prontuários" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_visiveis.Count == 0)
+        {
+            <EstadoVazio Titulo="@(FiltroAtivo ? "Nenhum registro no filtro" : "Nenhum registro no período")" Icone="@(FiltroAtivo ? "filtro" : "vazio")"
+                         Descricao="@(FiltroAtivo ? "Limpe a busca ou o recorte para ver a lista inteira." : $"Nenhuma evolução nem anamnese nos últimos {ProntuariosNaTela.JanelaDias} dias, e nenhuma sessão sem registro.")" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Paciente</th>
+                            <th>Registro</th>
+                            <th class="nao-quebra">Data</th>
+                            <th>Situação</th>
+                            <th class="direita">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _visiveis)
+                        {
+                            <tr @key="Chave(l)">
+                                <td>
+                                    <span class="principal">@l.Paciente</span>
+                                    @if (_listaDaClinica && !string.IsNullOrWhiteSpace(l.Profissional))
+                                    {
+                                        <span class="secundario">@l.Profissional</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="principal">@l.TipoRotulo@(l.Numero is { Length: > 0 } n ? $" {n}" : null)</span>
+                                    @if (!string.IsNullOrWhiteSpace(l.Detalhe)) { <span class="secundario">@l.Detalhe</span> }
+                                </td>
+                                <td class="nao-quebra">@Formato.Data(l.Data)</td>
+                                <td><Selo Tom="@ProntuariosNaTela.Tom(l)">@l.SituacaoRotulo</Selo></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        @if (l.MostraEscrever)
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeEscrever || _ocupado)"
+                                                    @onclick="() => EscreverAsync(l)" title="Abre a sessão deste horário para escrever a evolução">Escrever</button>
+                                        }
+                                        @if (l.MostraAssinar)
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!PodeAssinar || _ocupado)"
+                                                    @onclick="() => AssinarAsync(l)" title="Assinar a anamnese com o certificado ICP-Brasil">Assinar</button>
+                                        }
+                                        @if (l.MostraAbrir)
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!Pode(Permissao.VerProntuario) || _ocupado)"
+                                                    @onclick="() => AbrirAsync(l)">Abrir</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<LinhaProntuario> _todas = [];
+    private IReadOnlyList<LinhaProntuario> _visiveis = [];
+    private string _termo = string.Empty;
+    private bool _soAssinar;
+    private string _resumo = string.Empty;
+    private bool _listaDaClinica;
+    private string? _motivoDaLista;
+
+    private bool _carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erro;
+    private bool _ocupado;
+    private int _geracao;
+
+    private bool FiltroAtivo => ProntuariosNaTela.FiltroAtivo(_termo, _soAssinar);
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private IJanelasDosProntuarios Janelas => Servicos.GetService<IJanelasDosProntuarios>() ?? JanelasDosProntuariosIndisponiveis.Instancia;
+    private IPostoDoConsultorio Posto => Servicos.GetService<IPostoDoConsultorio>() ?? PostoDoConsultorioIndisponivel.Instancia;
+
+    // As metades VISÍVEIS das barreiras; quem impede é o Exigir de cada ação.
+    private bool PodeEscrever => Pode(Permissao.EditarProntuario);
+    private bool PodeAssinar => Pode(CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.Anamnese));
+
+    /// <summary>Ids são POR TABELA: a chave da linha leva a natureza junto.</summary>
+    private static string Chave(LinhaProntuario l) => $"{l.Natureza}:{l.EvolucaoId}:{l.DocumentoId}:{l.AgendamentoId}";
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Voltou à aba (ou de uma evolução escrita): relê por trás, sem apagar a lista.</summary>
+    protected override Task AoVoltarAsync() => _carregando ? Task.CompletedTask : CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        var geracao = ++_geracao;
+        if (!silencioso) _carregando = true;
+        try
+        {
+            var sessao = SessaoUsuario.Atual;
+            var profissionalId = PostoDoConsultorioNaTela.ProfissionalDaLista(sessao);
+            var motivo = PostoDoConsultorioNaTela.MotivoDaLista(sessao);
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var desde = hoje.AddDays(-ProntuariosNaTela.JanelaDias);
+
+            // Independentes: cada uma no SEU escopo e ao mesmo tempo (parcela 74).
+            async Task<T> Ler<T>(Func<IServiceProvider, Task<T>> leitura)
+            {
+                using var escopo = Escopo();
+                return await leitura(escopo.ServiceProvider);
+            }
+            var tPendentes = Ler(sp => sp.GetRequiredService<ConsultorioService>().RegistrosPendentesAsync(hoje, profissionalId));
+            var tEvolucoes = Ler(sp => sp.GetRequiredService<IClinicaRepositorio>().EvolucoesParaProntuariosAsync(desde, hoje, profissionalId));
+            var tAnamneses = Ler(sp => sp.GetRequiredService<IClinicaRepositorio>().DocumentosClinicosNoPeriodoAsync(desde, hoje, TipoDocumentoClinico.Anamnese));
+            await Task.WhenAll(tPendentes, tEvolucoes, tAnamneses);
+            if (geracao != _geracao || Descartada) return;
+
+            // O filtro de profissional do documento segue a MESMA regra das evoluções
+            // (documento sem profissional entra) — a consulta da central não filtra.
+            IReadOnlyList<DocumentoClinico> anamneses = tAnamneses.Result;
+            if (profissionalId is { } id)
+                anamneses = anamneses.Where(d => d.ProfissionalId == id || d.ProfissionalId == null).ToList();
+
+            _todas = ListaDeProntuarios.Montar(tPendentes.Result, tEvolucoes.Result, anamneses);
+            _listaDaClinica = profissionalId is null;
+            _motivoDaLista = motivo;
+            _naoVerificado = false;
+            _carregou = true;
+            Refiltrar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — a lista de prontuários não pôde ser carregada", ex);
+            if (silencioso && _carregou) return;
+            _todas = [];
+            _visiveis = [];
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private void Refiltrar()
+    {
+        _visiveis = ProntuariosNaTela.Filtrar(_todas, _termo, _soAssinar);
+        _resumo = ProntuariosNaTela.Resumo(_todas.Count, _visiveis.Count, FiltroAtivo, PoliticaRegistroPendente.DataInicio);
+    }
+
+    private void Buscar(ChangeEventArgs e) { _termo = e.Value?.ToString() ?? string.Empty; Refiltrar(); }
+
+    private void AlternarAssinar() { _soAssinar = !_soAssinar; Refiltrar(); }
+
+    private async Task NovoProntuarioAsync()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        await Acao(async () =>
+        {
+            if (!await Janelas.AbrirAtendimentoAsync()) Notificacoes.Info(JanelasDosProntuariosIndisponiveis.Frase);
+        }, "Consultório — a tela de atendimento não pôde ser aberta");
+    }
+
+    /// <summary>Escreve a evolução da sessão pendente — o MESMO destino do "Sessões sem evolução".</summary>
+    private async Task EscreverAsync(LinhaProntuario l)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        if (!Posto.Disponivel) { Notificacoes.Info(PostoDoConsultorioIndisponivel.Frase); return; }
+        await Acao(async () =>
+        {
+            var abriu = await Posto.AbrirNoPostoAsync(
+                new PacienteNoPosto(l.PacienteId, l.Paciente, l.AgendamentoId, null, l.Data), DestinoNoPosto.EvolucaoMedica);
+            if (!abriu) Notificacoes.Erro("Não deu para abrir o atendimento desta sessão.");
+        }, "Consultório — o atendimento da sessão pendente não pôde ser aberto");
+    }
+
+    private async Task AbrirAsync(LinhaProntuario l)
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir o prontuário")) return;
+        await Acao(() => Janelas.AbrirResumoAsync(l), "Consultório — a linha do prontuário não pôde ser aberta");
+    }
+
+    private async Task AssinarAsync(LinhaProntuario l)
+    {
+        if (!Exigir(CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.Anamnese), "assinar documento clínico")) return;
+        await Acao(async () =>
+        {
+            var resultado = await Janelas.AssinarAnamneseAsync(l);
+            if (resultado is null) return;
+            await CarregarAsync(silencioso: true);
+            if (resultado.Erro) Notificacoes.Erro(resultado.Frase); else Notificacoes.Sucesso(resultado.Frase);
+        }, "Consultório — a anamnese não pôde ser assinada");
+    }
+
+    /// <summary>Uma ação por vez: a janela modal do hospedeiro segura o clique seguinte.</summary>
+    private async Task Acao(Func<Task> acao, string contexto)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try { await acao(); }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(contexto, ex);
+            Notificacoes.Erro(ex.Message);
+        }
+        finally { _ocupado = false; }
+    }
+}
