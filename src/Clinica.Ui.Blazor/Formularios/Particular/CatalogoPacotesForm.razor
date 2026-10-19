@@ -1,0 +1,73 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@*
+  O CATÁLOGO DE PACOTES — o que está à venda (o que no WPF era a CatalogoPacotesWindow).
+
+  Como no WPF a janela recebia o MESMO ViewModel da tela, aqui o formulário recebe a MESMA
+  lista da tela de Pacotes e devolve as ações a ela: catálogo e vendidos saem da mesma leitura,
+  e duas leituras dariam duas verdades sobre a mesma tabela. Quem grava, pergunta e recarrega é
+  a tela; o formulário de um pacote (PacoteCatalogoForm) abre por cima deste.
+
+  A venda COPIA estes dados: mudar o preço aqui não reescreve o que alguém já comprou.
+*@
+
+<Modal Titulo="Catálogo de pacotes" Largura="grande" AoFechar="AoFechar"
+       Subtitulo="O que está à venda. A venda copia estes dados — mudar o preço aqui não reescreve o que alguém já comprou.">
+    <ChildContent>
+        @if (NaoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler o catálogo" Detalhe="Feche e tente de novo pela tela de Pacotes." />
+        }
+        else if (Itens.Count == 0)
+        {
+            <EstadoVazio Icone="caixa" Titulo="Nenhum pacote no catálogo"
+                         Descricao="O catálogo é o que a clínica oferece (&quot;10 sessões&quot;, &quot;mensal&quot;) e quanto custa. Cadastre o primeiro para poder vendê-lo." />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista pacotes-catalogo-tabela">
+                    <thead><tr><th>Pacote</th><th class="direita">Valor</th><th class="direita" aria-label="Ações"></th></tr></thead>
+                    <tbody>
+                        @foreach (var p in Itens)
+                        {
+                            <tr @key="p.Id" class="@(p.Ativo ? null : "pacotes-fora")">
+                                <td>
+                                    <span class="principal">@p.Nome</span>
+                                    <span class="pacotes-sub">@p.Resumo@(p.Ativo ? null : " · fora de venda")</span>
+                                </td>
+                                <td class="direita numero">@p.Valor</td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini" disabled="@(!PodeMexer)" @onclick="() => AoEditar.InvokeAsync(p)"
+                                                title="@(PodeMexer ? "Editar o pacote — o que já foi vendido não muda" : SemAcesso)"><Icone Nome="editar" />Editar</button>
+                                        <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeMexer)" @onclick="() => AoExcluir.InvokeAsync(p)"
+                                                title="Tirar da lista de venda" aria-label="@($"Excluir {p.Nome} do catálogo")"><Icone Nome="lixo" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" disabled="@(!PodeMexer || NaoVerificado)" @onclick="AoNovo"
+                title="@(PodeMexer ? null : SemAcesso)"><Icone Nome="mais" />Novo pacote</button>
+    </Rodape>
+</Modal>
+
+@code {
+    private const string SemAcesso = "Seu acesso não permite mexer no catálogo de pacotes.";
+
+    [Parameter] public IReadOnlyList<LinhaDeCatalogoPacote> Itens { get; set; } = [];
+    [Parameter] public bool NaoVerificado { get; set; }
+    /// <summary>A metade visível; a que impede é o ExigirAlgum da tela, em cada ação.</summary>
+    [Parameter] public bool PodeMexer { get; set; }
+    [Parameter] public EventCallback AoNovo { get; set; }
+    [Parameter] public EventCallback<LinhaDeCatalogoPacote> AoEditar { get; set; }
+    [Parameter] public EventCallback<LinhaDeCatalogoPacote> AoExcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+}

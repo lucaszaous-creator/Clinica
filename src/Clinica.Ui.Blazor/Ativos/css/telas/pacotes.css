@@ -1,0 +1,28 @@
+/* Estilo PRÓPRIO da tela de Pacotes e dos formulários dela (out/2026 — saiu do WPF). Só tokens. */
+.pacotes .pacotes-alternar{padding-bottom:9px}
+.pacotes-tabela td:first-child{max-width:320px}
+.pacotes-tabela td:first-child .principal{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Linha de apoio sob o nome: classe própria — a `.secundario` é display:block e não serve em <td>. */
+.pacotes-sub{display:block;font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.35}
+.pacotes-tabela td.numero,.pacotes-catalogo-tabela td.numero{white-space:nowrap}
+.pacotes-tabela td.pacotes-pagamento{min-width:160px}
+.pacotes-tabela td.pacotes-pagamento .pacotes-sub{margin-top:2px}
+/* Pacote sem saldo valendo (esgotado, vencido, cancelado): recua, sem riscar — riscar o nome
+   afirmaria "apagado", e o pacote continua no histórico do paciente. */
+.pacotes-tabela tr.pacotes-fora td:not(:last-child),
+.pacotes-catalogo-tabela tr.pacotes-fora td:not(:last-child){color:var(--texto-secundario)}
+.pacotes .filtros .pacotes-filtro-paciente{min-width:300px}
+/* A ação principal da linha não quebra em duas linhas em 1024. */
+.pacotes-tabela .botoes-linha{flex-wrap:nowrap}
+.pacotes-tabela .botoes-linha .botao{white-space:nowrap}
+
+/* Venda: parcelas e o 1º vencimento lado a lado; a prévia é a frase do que vai ser gravado. */
+.venda-parcelas{display:grid;grid-template-columns:64px minmax(0,1fr);gap:var(--space-2)}
+.venda-previa{margin:0;font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.4}
+.venda-pagamento{margin-top:var(--space-2)}
+/* O segmentado mede o que pede: dentro da coluna da seção ele seria esticado à largura toda. */
+.venda-modo{align-self:flex-start}
+
+/* Sessões do pacote: o saldo em destaque, acima do resumo. */
+.consumos-saldo{margin:0 0 var(--space-1);color:var(--texto-primario)}
+.consumos-saldo span{color:var(--texto-secundario)}

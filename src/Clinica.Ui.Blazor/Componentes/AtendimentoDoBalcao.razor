@@ -305,7 +305,7 @@
                         <p class="ra-pagamento">@_valorPrevisto</p>
                         @if (_oferecerVenderPacote && PodeAlgum(Permissao.VenderPacote | Permissao.EditarFinanceiro))
                         {
-                            <button type="button" class="botao" @onclick="VenderPacoteAsync"><Icone Nome="etiqueta" />Vender pacote…</button>
+                            <button type="button" class="botao" @onclick="VenderPacote"><Icone Nome="etiqueta" />Vender pacote…</button>
                         }
                     }
 
@@ -379,6 +379,11 @@
 @if (_vagas is { } resultadoVagas)
 {
     <ProximasVagasForm Resultado="resultadoVagas" AoFechar="() => _vagas = null" AoEscolher="EscolherVagaAsync" />
+}
+@if (_vendendoPacote && _paciente is { } comprador)
+{
+    @* A venda é Blazor desde out/2026 (PacoteVendaForm): o paciente entra JÁ ESCOLHIDO pelo parâmetro. *@
+    <PacoteVendaForm Paciente="comprador" AoFechar="() => _vendendoPacote = false" AoConcluir="PacoteVendidoAsync" />
 }
 
 <FechamentoDaSessao @ref="_fechamento" />
@@ -1159,23 +1164,26 @@
         }
     }
 
-    /// <summary>Vende o pacote com o paciente já escolhido; vendido, a prévia é relida ("debita do pacote").</summary>
-    private async Task VenderPacoteAsync()
+    /// <summary>
+    /// Vende o pacote com o paciente já escolhido (o PacoteVendaForm, Blazor desde out/2026 — era a
+    /// PacoteVendaWindow do WPF, aberta pela IJanelasDoAtendimento). Vendido, a prévia é relida
+    /// ("debita do pacote").
+    /// </summary>
+    private void VenderPacote()
     {
-        if (_paciente is not { } p) return;
+        if (_paciente is null) return;
         if (!ExigirAlgum(Permissao.VenderPacote | Permissao.EditarFinanceiro, "vender pacote")) return;
-        if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDoAtendimentoIndisponiveis.Frase); return; }
-        try
-        {
-            if (!await Janelas.VenderPacoteAsync(p.Id)) return;
-            Avisar($"Pacote vendido para {p.Nome}. Esta sessão já debita dele — confira a coluna da direita.", "sucesso");
-            await PreverAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Recepção — venda de pacote não pôde abrir", ex);
-            Avisar(ex.Message, "erro");
-        }
+        _vendendoPacote = true;
+    }
+
+    private bool _vendendoPacote;
+
+    private async Task PacoteVendidoAsync()
+    {
+        _vendendoPacote = false;
+        if (_paciente is not { } p) return;
+        Avisar($"Pacote vendido para {p.Nome}. Esta sessão já debita dele — confira a coluna da direita.", "sucesso");
+        await PreverAsync();
     }
 
     private async Task ProximasVagasAsync()

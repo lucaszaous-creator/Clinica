@@ -492,10 +492,6 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento, JanelasDoAtendimentoWpf>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
-        // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
-        // Faltavam as duas coisas — o item acendia na sidebar e nada abria (parcela 62).
-        servicos.AddTransient<PacotesViewModel>();
-        servicos.AddTransient<PrecosParticularViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
         // Os ViewModels de formulário (agendamento, lista de espera, profissional,
         // sala, paciente, evolução) são construídos à mão pelas telas: cada janela abre
@@ -533,14 +529,9 @@ public sealed class ModuloRecepcao : IModuloApp
         // devolvia null e a navegação saía em silêncio — menu aceso, tela parada. Item
         // publicado sem `case` é o "botão que não faz nada" da parcela 41 na sidebar, e
         // nenhuma rede o via: a chave era string à mão, que sempre compila.
-        ChavePacotes => new PacotesView
-        {
-            DataContext = servicos.GetRequiredService<PacotesViewModel>()
-        },
-        ChavePrecosParticular => new PrecosParticularView
-        {
-            DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
-        },
+        // Blazor desde out/2026 — as mesmas telas que o Financeiro e o Gerente publicam pela mesma chave.
+        ChavePacotes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PacotesDaClinica), servicos),
+        ChavePrecosParticular => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrecosDoParticular), servicos),
         ChaveProntuario => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(secao: 3),
         ChaveDocumentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao), servicos),
         ChaveEquipe => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProfissionaisESalas), servicos),

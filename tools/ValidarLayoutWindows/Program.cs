@@ -567,10 +567,8 @@ static class Program
         finally { System.Globalization.CultureInfo.CurrentCulture = culturaAnterior; }
         // O painel da direção virou a Mesa da direção em Blazor (out/2026): quem a abre e
         // clica em cada botão é o TelasBlazorAbremTests, e quem a fotografa é a prévia.
-        var pacoteVm = new PacoteVendaViewModel(escopos, paciente)
-            { Forma = FormaPagamento.CartaoCredito, Adquirente = "Contrato mensal", Bandeira = "Visa", ParcelasCartao = "3" };
-        var pacoteJanela = new PacoteVendaWindow(pacoteVm);
-        await ConferirJanela(pacoteJanela, "pacote-cartao", [680, 860]); pacoteJanela.Close();
+        // A venda de pacote é Blazor desde out/2026 (PacoteVendaForm): quem a abre e clica cada
+        // botão é o TelasBlazorAbremTests, e quem a fotografa é a prévia.
         using (var scope = sp.CreateScope())
         {
             await scope.ServiceProvider.GetRequiredService<TaxaService>().SalvarAsync(new TaxaCartao

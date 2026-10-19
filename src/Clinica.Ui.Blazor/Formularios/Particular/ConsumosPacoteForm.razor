@@ -1,0 +1,139 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@*
+  AS SESSÕES DO PACOTE — e a porta para devolver uma delas ao saldo (o que no WPF era a
+  ConsumosPacoteWindow / ConsumosPacoteViewModel).
+
+  PacoteService.CancelarConsumoAsync existia desde a parcela 4, testado e sem chamador: a tela só
+  sabia cancelar o pacote INTEIRO, e a sessão debitada por engano (o paciente não veio, a baixa
+  automática pegou o pacote errado) não tinha volta. Devolver é CANCELAR COM MOTIVO, nunca
+  apagar: o consumo continua no histórico, marcado — "o paciente diz que sobrou uma sessão" é a
+  conversa que este módulo existe para encerrar.
+
+  Não fecha ao devolver (quem corrige uma sessão costuma conferir as outras); quem pergunta se o
+  saldo mudou é a tela de Pacotes, pelo AoFechar(mudou). Devolver é do Financeiro
+  (EditarFinanceiro): desfaz o que outra pessoa registrou.
+*@
+@inject IServiceScopeFactory Escopos
+@inject Dialogos Dialogos
+
+<Modal Titulo="@($"Sessões do pacote — {Titulo}")" Largura="grande" AoFechar="Fechar"
+       Subtitulo="Devolver uma sessão é CANCELAR COM MOTIVO, nunca apagar: o consumo continua no histórico, marcado. Apagar a linha devolveria &quot;o paciente diz que sobrou uma sessão&quot; à palavra de um contra a do outro.">
+    <ChildContent>
+        @if (_carregando && _dados is null)
+        {
+            <Esqueleto Altura="200" />
+        }
+        else if (_falha is not null)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as sessões deste pacote" Detalhe="@_falha" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_dados is { } d)
+        {
+            <p class="consumos-saldo"><span>Saldo hoje:</span> <b>@d.Saldo</b></p>
+            <p class="campo-dica">@d.Resumo</p>
+            @if (d.Linhas.Count > 0)
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th>Data</th><th>Origem</th><th>Situação</th><th class="direita" aria-label="Ações"></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in d.Linhas)
+                            {
+                                <tr @key="c.ConsumoId" class="@(c.Cancelado ? "apagada" : null)">
+                                    <td class="nao-quebra">@c.Data</td>
+                                    <td>@c.Origem</td>
+                                    <td>@c.Situacao</td>
+                                    <td class="direita">
+                                        @if (!c.Cancelado)
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!PodeDevolver)" @onclick="() => DevolverAsync(c)"
+                                                    title="@(PodeDevolver ? "Devolver esta sessão ao saldo (com motivo)" : "Devolver sessão é do Financeiro: desfaz o que outra pessoa registrou.")">
+                                                <Icone Nome="historico" />Devolver ao saldo</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+        <Aviso Tom="@(_mensagemEhErro ? "erro" : "sucesso")" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="Fechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public int PacoteId { get; set; }
+    [Parameter] public string Titulo { get; set; } = string.Empty;
+    /// <summary>Verdadeiro = alguma sessão voltou ao saldo e a tela precisa recarregar.</summary>
+    [Parameter] public EventCallback<bool> AoFechar { get; set; }
+
+    private SessoesDoPacote? _dados;
+    private bool _carregando = true, _mudou, _mensagemEhErro;
+    private string? _falha, _mensagem;
+
+    private static bool PodeDevolver => SessaoUsuario.Atual.Pode(PacotesNaTela.QuemCancela);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        _carregando = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var pacote = await escopo.ServiceProvider.GetRequiredService<PacoteService>().ObterAsync(PacoteId);
+            if (pacote is null)
+            {
+                _falha = "Pacote não encontrado — ele pode ter sido apagado em outra máquina.";
+                return;
+            }
+            _dados = PacotesNaTela.Sessoes(pacote, DateOnly.FromDateTime(DateTime.Today));
+            _falha = null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — sessões do pacote não puderam ser lidas", ex);
+            _falha = ex.Message;
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task DevolverAsync(LinhaDeConsumoPacote linha)
+    {
+        _mensagem = null;
+        if (!SessaoUsuario.Atual.Pode(PacotesNaTela.QuemCancela))
+        {
+            _mensagem = "Seu acesso não permite devolver sessão ao pacote. Fale com a direção da clínica.";
+            _mensagemEhErro = true;
+            return;
+        }
+
+        var motivo = await Dialogos.PerguntarTextoAsync("Devolver a sessão", PacotesNaTela.PerguntaDeDevolver(linha));
+        if (motivo is null) return;
+
+        try
+        {
+            using (var escopo = Escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                    .CancelarConsumoAsync(linha.ConsumoId, motivo, SessaoUsuario.Atual.Operador);
+            _mudou = true;
+            await CarregarAsync();
+            // Escrita DEPOIS de recarregar: a confirmação não pode ser apagada pela carga.
+            _mensagem = PacotesNaTela.Devolvida(linha);
+            _mensagemEhErro = false;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — sessão do pacote não pôde ser devolvida", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+    }
+
+    private Task Fechar() => AoFechar.InvokeAsync(_mudou);
+}
