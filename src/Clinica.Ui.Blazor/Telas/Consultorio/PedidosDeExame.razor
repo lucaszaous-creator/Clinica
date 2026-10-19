@@ -1,0 +1,226 @@
+@*
+  EXAMES — os pedidos de exame do Consultório (out/2026: migrada do ExamesView/ViewModel WPF;
+  chave "consultorio-exames").
+
+  A situação de cada pedido é DERIVADA de fato (PedidoDeExameLinha): "Aguardando resultado" é o
+  pedido sem resultado vigente amarrado; "Resultado disponível" é o que tem. O "Agendado" do
+  mockup segue de fora — não há fato de agendamento de exame no domínio.
+
+  Emitir o pedido, registrar o laudo, ver os resultados e abrir o paciente continuam nas janelas
+  WPF de sempre, pela ponte IJanelasDosExames — a tela decide e mostra, o hospedeiro abre.
+  Permissões copiadas do ViewModel: emitir pelo bit do TIPO (pedido de exame); registrar laudo
+  com EditarProntuario; ver e abrir com VerProntuario.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@using Clinica.Application.Abstracoes
+@inherits TelaBase
+
+<div class="pagina con-exames @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Consultório · Prontuário" Titulo="Exames"
+                     Subtitulo="@(_carregou ? _resumo : "Os pedidos de exame e a situação de cada um.")">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao primario" disabled="@(!PodeEmitirPedido || _ocupado)" @onclick="NovoPedidoAsync"
+                title="@(PodeEmitirPedido ? "Emitir um pedido de exame" : "Seu acesso não permite emitir pedido de exame")"><Icone Nome="mais" />Novo pedido</button>
+    </CabecalhoPagina>
+
+    @if (_listaDaClinica && _motivoDaLista is { Length: > 0 } motivo)
+    {
+        <p class="con-contexto">@motivo</p>
+    }
+
+    <section class="cartao lista-cartao con-lista">
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível carregar os pedidos de exame" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_pedidos.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhum pedido de exame" Icone="vazio"
+                         Descricao="@($"Nenhum pedido de exame emitido nos últimos {PedidosDeExameNaTela.JanelaDias} dias.")" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Paciente</th>
+                            <th>Exame</th>
+                            <th class="nao-quebra">Data</th>
+                            <th>Situação</th>
+                            <th class="direita">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in _pedidos)
+                        {
+                            <tr @key="p.DocumentoId">
+                                <td>
+                                    <span class="principal">@p.Paciente</span>
+                                    @if (_listaDaClinica && !string.IsNullOrWhiteSpace(p.Profissional))
+                                    {
+                                        <span class="secundario">@p.Profissional</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="principal">@p.ExameRotulo</span>
+                                    <span class="secundario">Pedido @p.Numero</span>
+                                </td>
+                                <td class="nao-quebra">@Formato.Data(p.Data)</td>
+                                <td><Selo Tom="@PedidosDeExameNaTela.Tom(p)">@p.SituacaoRotulo</Selo></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        @if (p.MostraRegistrar)
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!PodeRegistrarResultado || _ocupado)"
+                                                    @onclick="() => RegistrarResultadoAsync(p)"
+                                                    title="@(PodeRegistrarResultado ? "Registrar o laudo que chegou, amarrado a este pedido" : "Seu acesso não permite escrever no prontuário")">Anexar laudo</button>
+                                        }
+                                        @if (p.MostraVerResultados)
+                                        {
+                                            <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.VerProntuario) || _ocupado)"
+                                                    @onclick="() => VerResultadosAsync(p)">Ver resultados</button>
+                                        }
+                                        @if (p.MostraDetalhes)
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!Pode(Permissao.VerProntuario) || _ocupado)"
+                                                    @onclick="() => AbrirAsync(p)" title="Abrir o paciente na seção Exames e anexos">Detalhes</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<PedidoDeExameLinha> _pedidos = [];
+    private string _resumo = string.Empty;
+    private bool _listaDaClinica;
+    private string? _motivoDaLista;
+
+    private bool _carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erro;
+    private bool _ocupado;
+    private int _geracao;
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private IJanelasDosExames Janelas => Servicos.GetService<IJanelasDosExames>() ?? JanelasDosExamesIndisponiveis.Instancia;
+
+    // As metades VISÍVEIS das barreiras; quem impede é o Exigir de cada ação.
+    private bool PodeEmitirPedido => Pode(CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.PedidoExame));
+    private bool PodeRegistrarResultado => Pode(Permissao.EditarProntuario);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Voltou à aba: relê em silêncio — o laudo anexado noutra máquina muda a situação.</summary>
+    protected override Task AoVoltarAsync() => _carregando ? Task.CompletedTask : CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    /// <summary>Descarte de resposta fora de ordem; publica depois do último await.</summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        var geracao = ++_geracao;
+        if (!silencioso) _carregando = true;
+        try
+        {
+            var sessao = SessaoUsuario.Atual;
+            var profissionalId = PostoDoConsultorioNaTela.ProfissionalDaLista(sessao);
+            var motivo = PostoDoConsultorioNaTela.MotivoDaLista(sessao);
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+            IReadOnlyList<PedidoDeExameLinha> pedidos;
+            using (var escopo = Escopo())
+                pedidos = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                    .PedidosDeExameAsync(hoje.AddDays(-PedidosDeExameNaTela.JanelaDias), hoje, profissionalId);
+            if (geracao != _geracao || Descartada) return;
+
+            _pedidos = pedidos;
+            _resumo = PedidosDeExameNaTela.Resumo(pedidos);
+            _listaDaClinica = profissionalId is null;
+            _motivoDaLista = motivo;
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — pedidos de exame não puderam ser carregados", ex);
+            // A releitura de fundo que falha não cobre a lista que já está na tela.
+            if (silencioso && _carregou) return;
+            _pedidos = [];
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private async Task NovoPedidoAsync()
+    {
+        if (!Exigir(CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.PedidoExame), "emitir pedido de exame")) return;
+        await Acao(async () =>
+        {
+            var paciente = await Janelas.NovoPedidoAsync();
+            await CarregarAsync(silencioso: true);
+            if (paciente is not null) Notificacoes.Sucesso($"Pedido de exame emitido para {paciente}.");
+        }, "Consultório — pedido de exame não pôde ser emitido");
+    }
+
+    private async Task RegistrarResultadoAsync(PedidoDeExameLinha p)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        await Acao(async () =>
+        {
+            var registrou = await Janelas.RegistrarResultadoAsync(p);
+            await CarregarAsync(silencioso: true);
+            if (registrou) Notificacoes.Sucesso($"Resultado registrado para {p.Paciente}.");
+        }, "Consultório — resultado não pôde ser registrado da tela de Exames");
+    }
+
+    private async Task VerResultadosAsync(PedidoDeExameLinha p)
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir os exames do paciente")) return;
+        await Acao(() => Janelas.VerResultadosAsync(p), "Consultório — os resultados do pedido não puderam ser abertos");
+    }
+
+    private async Task AbrirAsync(PedidoDeExameLinha p)
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir os exames do paciente")) return;
+        await Acao(async () =>
+        {
+            // Abrir devolve falso quando o posto não alcança a seção — vira frase, nunca clique morto.
+            if (!await Janelas.AbrirExamesDoPacienteAsync(p)) Notificacoes.Info(JanelasDosExamesIndisponiveis.Frase);
+        }, "Consultório — o paciente não pôde ser aberto na seção de exames");
+    }
+
+    /// <summary>Uma ação por vez: a janela modal do hospedeiro segura o clique seguinte.</summary>
+    private async Task Acao(Func<Task> acao, string contexto)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try { await acao(); }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(contexto, ex);
+            Notificacoes.Erro(ex.Message);
+        }
+        finally { _ocupado = false; }
+    }
+}
