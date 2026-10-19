@@ -35,6 +35,14 @@ public interface IDocumentosDaRecepcao
     /// <summary>A coleta do termo (o LGPD é montado das finalidades; o do procedimento pergunta o modelo).</summary>
     Task<bool> ColherTermoAsync(int pacienteId, string paciente, bool consentimentoLgpd);
 
+    /// <summary>
+    /// A coleta do termo de UM procedimento já conhecido (a linha "termos de hoje" da ficha): o
+    /// modelo, o papel já emitido, quem atende e a sessão viajam junto — sem eles o termo nasce
+    /// órfão e a coleta pergunta de novo o que a linha já sabia.
+    /// </summary>
+    Task<bool> ColherTermoDoProcedimentoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
+        int? profissionalId, int? agendamentoId) => Task.FromResult(false);
+
     /// <summary>Os atos que a linha oferece — a mesma resolução das outras portas (estado E bit do tipo).</summary>
     AtosDoDocumento Atos(DocumentoEmitido doc);
 

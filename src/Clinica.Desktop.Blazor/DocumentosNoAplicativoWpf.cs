@@ -60,6 +60,10 @@ public class DocumentosNoAplicativoWpf(
             ? Task.FromResult(ColetaDeTermo.AbrirConsentimentoLgpd(escopos, pacienteId, paciente))
             : ColetaDeTermo.AbrirAsync(escopos, pacienteId, paciente));
 
+    public Task<bool> ColherTermoDoProcedimentoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
+        int? profissionalId, int? agendamentoId) => NaInterface(() =>
+        ColetaDeTermo.AbrirAsync(escopos, pacienteId, paciente, modeloId, documentoId, profissionalId, agendamentoId));
+
     public AtosDoDocumento Atos(DocumentoEmitido doc)
     {
         var d = Converter(doc);
