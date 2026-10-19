@@ -1,0 +1,3 @@
+/* MEDICAMENTOS do Consultório — a barra de busca acima da lista. Só tokens (docs/telas-blazor.md). */
+.con-medicamentos .med-barra{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);padding-bottom:0}
+.con-medicamentos .med-busca{flex:1 1 280px;max-width:520px}
