@@ -476,10 +476,8 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<PreenchimentoNovoAtendimento>();
         servicos.AddSingleton<PedidoAgenda>();
 
-        servicos.AddTransient<PagamentosViewModel>();
         servicos.AddTransient<AgendaViewModel>();
         servicos.AddTransient<PacientesViewModel>();
-        servicos.AddTransient<RetornosAMarcarViewModel>();
         // O Acompanhamento de pacientes é tela BLAZOR desde out/2026 (docs/relacionamento-blazor.md):
         // a hospedagem é a MESMA do Financeiro e do Faturamento (um navegador por janela,
         // idempotente), e o "Marcar horário" dela chega à aba Marcar pela ponte desta Recepção.

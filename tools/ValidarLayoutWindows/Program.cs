@@ -25,7 +25,6 @@ static class Program
     static string Saida = "artifacts/layout-windows";
     static int falhas;
     static bool completo;
-    static bool somenteRetornos;
     static bool somenteGestao;
     static bool somenteAcompanhamento;
     static bool somenteInfusao;
@@ -37,7 +36,7 @@ static class Program
         somenteInfusao = args.Contains("--infusao");
         somenteA1 = args.Contains("--a1");
         somenteBlazor = args.Contains("--blazor");
-        somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); somenteRetornos = args.Contains("--retornos"); Directory.CreateDirectory(Saida);
+        somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml") });
         int code = 0; app.Dispatcher.BeginInvoke(async () => { try { await Executar(); if (falhas > 0) throw new Exception($"{falhas} cortes encontrados. Consulte artifacts/layout-windows."); Console.WriteLine("TELAS CONFERIDAS"); } catch (Exception e) { Console.WriteLine(e); code = 1; } finally { PresentationTraceSources.DataBindingSource.Flush(); app.Shutdown(); } }); app.Run(); return code;
@@ -67,7 +66,6 @@ static class Program
         if (somenteAcompanhamento) { await ValidarAcompanhamento(sp, db, pac, usuario); return; }
         if (somenteInfusao) { await AuditarInfusao(sp, usuario); await ConferirProgressoInfusao(sp, pac, prof); return; }
         if (somenteGestao) { await ValidarGestao(sp, pac, usuario); return; }
-        if (somenteRetornos) { await ValidarRetornos(sp, usuario); return; }
         for (var i = 0; i < 12; i++) db.Add(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, DataHora = DateTime.Today.AddHours(8 + i / 2.0), ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro }); await db.SaveChangesAsync();
         sp.GetRequiredService<PacienteEmFoco>().Definir(pac.Id, pac.Nome, 1, null, DateOnly.FromDateTime(DateTime.Today));
         var vm = new ShellViewModel("Gerente", modulos, sp); var win = new ShellWindow { DataContext = vm, ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 960, Height = 600 }; win.Show();
@@ -326,42 +324,6 @@ static class Program
         Console.WriteLine($"ACOMPANHAMENTO: regras conferidas pelo serviço ({config.Responsaveis.Count} responsável(is)); o leiaute é Blazor e é conferido pela prévia.");
     }
 
-    static async Task ValidarRetornos(ServiceProvider sp, UsuarioSistema usuario)
-    {
-        foreach (var perfil in new[] { PerfilAcesso.Recepcao, PerfilAcesso.Gerente })
-        {
-            usuario.Perfil = perfil; sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
-            var vm = sp.GetRequiredService<Clinica.Recepcao.ViewModels.RetornosAMarcarViewModel>();
-            vm.Resumo = "12 retornos a marcar · dados fictícios para conferir o layout";
-            for (var i = 0; i < 12; i++) vm.Linhas.Add(new(i + 1,
-                "Paciente demonstrativo com nome comprido para conferir a leitura", i == 0 ? null : "22999990000",
-                DateOnly.FromDateTime(DateTime.Today), DateOnly.FromDateTime(DateTime.Today.AddDays(i)), null,
-                1, "Profissional demonstrativo com nome comprido", -i));
-            var janela = new Window { Content = new Clinica.Recepcao.Views.RetornosAMarcarView { DataContext = vm },
-                ShowInTaskbar = false, ShowActivated = false, Left = -30000, Top = -30000, Width = 1366, Height = 680 };
-            janela.Show();
-            foreach (var largura in new[] { 1920, 1366, 1024, 880 })
-            {
-                janela.Width = largura; janela.UpdateLayout(); await Task.Delay(150); janela.UpdateLayout();
-                var grid = Descendentes(janela).OfType<DataGrid>().Single();
-                var scroll = Descendentes(grid).OfType<ScrollViewer>().First();
-                if (scroll.ScrollableWidth > 1) throw new Exception("Retornos exige rolagem horizontal em " + largura);
-                var botoes = Descendentes(grid).OfType<Button>().Where(b => b.IsVisible && b.Content is string t && t is "Marcar horário" or "Convidar").ToArray();
-                if (!botoes.Any(b => Equals(b.Content, "Marcar horário")) || !botoes.Any(b => Equals(b.Content, "Convidar"))) throw new Exception("Ações de retorno ausentes");
-                foreach (var b in botoes)
-                {
-                    var ponto = b.TranslatePoint(new Point(), janela);
-                    if (ponto.X < 0 || ponto.X + b.ActualWidth > janela.ActualWidth) throw new Exception("Ação fora da tela: " + b.Content);
-                    if (Equals(b.Content, "Marcar horário") && !b.IsEnabled) throw new Exception("Perfil perdeu permissão de marcar");
-                    DependencyObject? pai = b; while (pai is not null && pai is not DataGridCell) pai = VisualTreeHelper.GetParent(pai);
-                    if (pai is DataGridCell celula && b.TranslatePoint(new Point(), celula).X + b.ActualWidth > celula.ActualWidth + 1) throw new Exception("Botão cortado: " + b.Content);
-                }
-                Foto(janela, $"retornos-{perfil}-{largura}");
-                Console.WriteLine($"RETORNOS {perfil} {largura}: ações visíveis, sem rolagem horizontal");
-            }
-            janela.Close();
-        }
-    }
     static async Task ValidarGestao(ServiceProvider sp, Paciente paciente, UsuarioSistema usuario)
     {
         _ = new ShellViewModel("Gerente", [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(),
@@ -406,15 +368,8 @@ static class Program
             db.Add(horario); await db.SaveChangesAsync();
             await scope.ServiceProvider.GetRequiredService<EstoqueService>().RegistrarMateriaisAsync(horario.Id, usuario.Id, new([new(item.Id, 5)]));
         }
-        var pagamentos = sp.GetRequiredService<Clinica.Recepcao.ViewModels.PagamentosViewModel>();
-        var view = new Clinica.Recepcao.Views.PagamentosView { DataContext = pagamentos };
-        var janela = new Window { Content = view, Width = 960, Height = 650 };
-        await ConferirJanela(janela, "pagamentos-busca", [620, 960]);
-        pagamentos.Seletor.SelecionarGarantindoNaLista(paciente);
-        await pagamentos.CarregarAsync();
-        if (pagamentos.Linhas.Count != 2 || pagamentos.NaoVerificado) throw new Exception("Consulta de pagamentos falhou.");
-        await ConferirJanela(janela, "pagamentos-lista", [620, 960, 1366]);
-        janela.Close();
+        // Pagamentos e Retornos a marcar são telas Blazor desde out/2026: o leiaute sai da prévia
+        // (tools/PreviaBlazor) e o TelasBlazorAbremTests abre cada uma e clica cada botão.
         var receber = new Clinica.Desktop.Shell.Componentes.ReceberPagamentoViewModel(escopos, pendente)
             { Forma = FormaPagamento.CartaoCredito, Adquirente = "Maquininha", Bandeira = "Visa", Parcelas = "3" };
         var receberJanela = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(receber);
@@ -457,7 +412,7 @@ static class Program
         foreach (var perfil in new[] { PerfilAcesso.Recepcao, PerfilAcesso.Profissional })
         {
             usuario.Perfil = perfil; sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
-            if (pagamentos.PodeReceber != (perfil == PerfilAcesso.Recepcao)) throw new Exception("Permissão de pagamentos fora do perfil.");
+            if (SessaoUsuario.Atual.Pode(Permissao.VenderPacote) != (perfil == PerfilAcesso.Recepcao)) throw new Exception("Permissão de pagamentos fora do perfil.");
         }
         Console.WriteLine("GESTÃO: saldos, alertas, permissões, pagamentos e compras conferidos.");
     }
