@@ -1,10 +1,266 @@
+@*
+  FICHA DO PACIENTE (out/2026: migrada da PacienteView/PacienteCapaView/AnamneseView WPF). Quatro
+  abas: "Dados e alertas" (o cadastro de leitura e a LISTA DE PROBLEMAS), "Anamnese" (colher,
+  revisar com motivo opcional, versões guardadas), "Sessões e guias" (as sessões da agenda,
+  paginadas) e "Cadastro e convênio" (as abas administrativas — FichaAdministrativa). O que a
+  seção afirma mora em FichaClinicaNaTela (Application, com teste).
+
+  Sem VerProntuario só o cadastral aparece (o corte da parcela 49); as abas administrativas pedem
+  VerFichaPaciente.
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Ui.Blazor.Formularios.Prontuario
 @inherits SecaoDoPaciente
 
-<section class="cartao"><div class="cartao-corpo">
-    <EstadoVazio Titulo="Seção em migração" Descricao="Esta seção está sendo reescrita em Blazor nesta branch." />
-</div></section>
+<div class="abas" role="tablist" aria-label="Ficha do paciente">
+    <button type="button" role="tab" aria-selected="@Sel(0)" @onclick="() => _aba = 0">Dados e alertas</button>
+    @if (VeProntuario)
+    {
+        <button type="button" role="tab" aria-selected="@Sel(1)" @onclick="() => _aba = 1">Anamnese</button>
+        <button type="button" role="tab" aria-selected="@Sel(2)" @onclick="() => _aba = 2">Sessões e guias</button>
+    }
+    @if (Pode(Permissao.VerFichaPaciente))
+    {
+        <button type="button" role="tab" aria-selected="@Sel(3)" @onclick="() => _aba = 3">Cadastro e convênio</button>
+    }
+</div>
+
+@switch (_aba)
+{
+    case 1: <FichaAnamnese /> break;
+    case 2: <FichaSessoes /> break;
+    case 3: <FichaAdministrativa PacienteId="Contexto.PacienteId" /> break;
+    default:
+        <section class="cartao">
+            <div class="cartao-corpo acp-topo">
+                <p class="secundario">@_atualizacao</p>
+                <button type="button" class="botao mini" @onclick="CarregarAsync" title="Consultar os dados atuais, inclusive os registrados no portal">
+                    <Icone Nome="atualizar" />Atualizar ficha</button>
+            </div>
+            @if (_dados is { } d)
+            {
+                <dl class="pares ficha-dados">
+                    <div><dt>Nascimento</dt><dd>@d.Nascimento</dd></div>
+                    <div><dt>Sexo</dt><dd>@d.Sexo</dd></div>
+                    <div><dt>Documento</dt><dd>@d.Documento</dd></div>
+                    <div><dt>Telefone</dt><dd>@d.Telefone</dd></div>
+                    <div><dt>E-mail</dt><dd>@d.Email</dd></div>
+                    <div><dt>Endereço</dt><dd>@d.Endereco</dd></div>
+                    <div><dt>Convênio</dt><dd>@d.Convenio</dd></div>
+                    <div><dt>Carteirinha</dt><dd>@d.Carteirinha</dd></div>
+                    <div><dt>Validade da carteirinha</dt><dd class="@(d.CarteirinhaVencida ? "valor-saida" : null)">@d.ValidadeCarteirinha</dd></div>
+                    <div><dt>Tratamento</dt><dd>@d.EmTratamento</dd></div>
+                    <div><dt>Modalidade habitual</dt><dd>@d.Modalidade</dd></div>
+                    <div class="largo"><dt>Observações do cadastro</dt><dd>@d.ObservacoesCadastro</dd></div>
+                </dl>
+            }
+            else if (_naoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível ler a ficha" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+            }
+            else if (!Pode(Permissao.VerFichaPaciente))
+            {
+                <div class="cartao-corpo"><EstadoVazio Titulo="Sem acesso à ficha" Icone="cadeado" Descricao="O seu acesso não permite ver os dados cadastrais deste paciente." /></div>
+            }
+            else
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="160" /></div>
+            }
+        </section>
+
+        @if (VeProntuario)
+        {
+            <section class="cartao lista-cartao">
+                <div class="cartao-corpo acp-topo">
+                    <div>
+                        <h3>Alergias e problemas</h3>
+                        <p class="secundario">@_resumoProblemas</p>
+                    </div>
+                    <div class="botoes-linha">
+                        <label class="marcar"><input type="checkbox" checked="@_incluirEncerrados" @onchange="TrocarEncerradosAsync" /> Mostrar também os resolvidos e descartados</label>
+                        <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="() => AbrirProblema(null)"><Icone Nome="mais" />Adicionar registro</button>
+                    </div>
+                </div>
+                @if (_problemas.Count > 0)
+                {
+                    <div class="tabela-rolagem"><table class="lista">
+                        <thead><tr><th>Problema</th><th>Natureza</th><th>Período</th><th>Situação</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var p in _problemas)
+                            {
+                                <tr class="@(p.Ativo ? null : "apagada")" title="@p.Observacoes">
+                                    <td>@p.Rotulo @if (p.Alerta) { <Selo Tom="perigo">alerta</Selo> }</td>
+                                    <td>@p.Natureza</td>
+                                    <td class="nao-quebra">@p.Periodo</td>
+                                    <td>@p.Situacao</td>
+                                    <td class="botoes-linha">
+                                        @if (!p.Descartado)
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="() => AbrirProblema(p.Fonte)">Editar</button>
+                                        }
+                                        @if (p.Ativo)
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="() => ResolverAsync(p)">Resolvido</button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="botao mini" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="() => ReabrirAsync(p)">Reabrir</button>
+                                        }
+                                        @if (!p.Descartado)
+                                        {
+                                            <button type="button" class="botao mini contorno-perigo" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="() => DescartarAsync(p)">Descartar</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+            </section>
+        }
+        break;
+}
+
+@if (_editandoProblema)
+{
+    <ProblemaForm PacienteId="Contexto.PacienteId" Existente="_problemaEmEdicao" AoFechar="() => _editandoProblema = false" AoConcluir="GravouProblemaAsync" />
+}
 
 @code {
-    /// <summary>A aba de dentro da seção que a navegação pediu.</summary>
+    /// <summary>A aba que a navegação pediu: 0 = dados e alertas, 1 = anamnese, 2 = sessões, 3 = cadastro e convênio.</summary>
     [Parameter] public int SubAba { get; set; }
+
+    private int _aba;
+    private FichaClinicaNaTela.Dados? _dados;
+    private IReadOnlyList<FichaClinicaNaTela.Problema> _problemas = [];
+    private string _resumoProblemas = string.Empty, _atualizacao = string.Empty;
+    private string? _erro;
+    private bool _naoVerificado, _incluirEncerrados, _editandoProblema, _acessoRegistrado;
+    private ProblemaPaciente? _problemaEmEdicao;
+    private int _geracao;
+
+    private static bool VeProntuario => Pode(Permissao.VerProntuario);
+
+    private string Sel(int aba) => _aba == aba ? "true" : "false";
+
+    protected override Task OnInitializedAsync()
+    {
+        _aba = SubAba switch { 1 or 2 when VeProntuario => SubAba, 3 when Pode(Permissao.VerFichaPaciente) => 3, _ => 0 };
+        return CarregarAsync();
+    }
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private Task TrocarEncerradosAsync(ChangeEventArgs e)
+    {
+        _incluirEncerrados = e.Value is true;
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        _atualizacao = "Atualizando ficha…";
+        Paciente? paciente = null;
+        CabecalhoClinicoPaciente? cabecalho = null;
+        IReadOnlyList<ProblemaPaciente>? problemas = null;
+        var falhouProblemas = false;
+        try
+        {
+            using var escopo = Escopo();
+            if (!_acessoRegistrado && VeProntuario)
+            {
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(Contexto.PacienteId, Operador, OrigemAcessoProntuario.ProntuarioClinico);
+                _acessoRegistrado = true;
+            }
+            if (Pode(Permissao.VerFichaPaciente))
+            {
+                if (VeProntuario)
+                    cabecalho = await escopo.ServiceProvider.GetRequiredService<ConsultorioService>().CabecalhoAsync(Contexto.PacienteId);
+                paciente = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                    .ObterPacienteAsync(Contexto.PacienteId);
+            }
+            if (VeProntuario)
+            {
+                try
+                {
+                    problemas = await escopo.ServiceProvider.GetRequiredService<ProblemaPacienteService>()
+                        .DoPacienteAsync(Contexto.PacienteId, somenteAtivos: !_incluirEncerrados);
+                }
+                catch (Exception ex)
+                {
+                    Clinica.Application.Diagnostico.Registrar("Consultório — lista de problemas não pôde ser lida", ex);
+                    falhouProblemas = true;
+                }
+            }
+            if (g != _geracao || Descartada) return;
+            _dados = paciente is null ? null : FichaClinicaNaTela.DadosDe(paciente, cabecalho, VeProntuario, DateOnly.FromDateTime(DateTime.Today));
+            _problemas = (problemas ?? []).Select(FichaClinicaNaTela.ProblemaDe).ToList();
+            _resumoProblemas = falhouProblemas
+                ? FichaClinicaNaTela.ProblemasFalharam
+                : FichaClinicaNaTela.ResumoProblemas(_problemas.Count, _problemas.Count(p => p.Alerta), _incluirEncerrados);
+            _naoVerificado = false;
+            _atualizacao = falhouProblemas ? "Atualização incompleta. Tente atualizar novamente." : $"Ficha atualizada às {DateTime.Now:HH:mm}";
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — capa do paciente", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _atualizacao = "Não foi possível atualizar a ficha. Tente novamente.";
+        }
+    }
+
+    private void AbrirProblema(ProblemaPaciente? existente)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        _problemaEmEdicao = existente;
+        _editandoProblema = true;
+    }
+
+    private async Task GravouProblemaAsync()
+    {
+        _editandoProblema = false;
+        Notificacoes.Sucesso("Lista de problemas atualizada.");
+        await CarregarAsync();
+        // As alergias também estão no crachá.
+        await Tela.RelerCabecalhoAsync();
+    }
+
+    private async Task ResolverAsync(FichaClinicaNaTela.Problema p)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        if (!await Dialogos.ConfirmarAsync("Marcar como resolvido",
+                $"Encerrar “{p.Rotulo}” com a data de hoje? A linha continua no prontuário — ela sai da lista de ativos, não da base.")) return;
+        await AgirAsync(s => s.ResolverAsync(p.Id, operador: Operador), "Problema marcado como resolvido.", "resolvido");
+    }
+
+    private async Task ReabrirAsync(FichaClinicaNaTela.Problema p)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        await AgirAsync(s => s.ReabrirAsync(p.Id, Operador), "Problema reaberto.", "reaberto");
+    }
+
+    private async Task DescartarAsync(FichaClinicaNaTela.Problema p)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Descartar do prontuário",
+            $"Por que “{p.Rotulo}” está sendo descartado? A linha não é apagada — ela esteve no prontuário, e conduta pode ter sido tomada com base nela.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        await AgirAsync(s => s.DescartarAsync(p.Id, motivo, Operador), "Linha descartada, com o motivo registrado.", "descartado");
+    }
+
+    private async Task AgirAsync(Func<ProblemaPacienteService, Task> acao, string sucesso, string verbo)
+    {
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await acao(escopo.ServiceProvider.GetRequiredService<ProblemaPacienteService>());
+        }, $"Consultório — problema não pôde ser {verbo}", sucesso);
+        if (!ok) return;
+        await CarregarAsync();
+        await Tela.RelerCabecalhoAsync();
+    }
 }

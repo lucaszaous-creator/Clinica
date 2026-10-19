@@ -1,0 +1,94 @@
+@*
+  SESSÕES E GUIAS DA FICHA (out/2026: migrada da SessoesPacienteView WPF). As sessões da agenda
+  do paciente, 25 por página, com a situação, o número do atendimento, as guias e se há evolução.
+  Registros fora da agenda estão no Histórico.
+*@
+@using Clinica.Application.Modelos
+@inherits SecaoDoPaciente
+
+<section class="cartao lista-cartao">
+    <div class="cartao-corpo acp-topo">
+        <p class="secundario">@_resumo</p>
+        <div class="botoes-linha">
+            <button type="button" class="botao mini" disabled="@(_pagina == 0 || _carregando)" @onclick="() => IrAsync(-1)"><Icone Nome="esquerda" />Anterior</button>
+            <button type="button" class="botao mini" disabled="@(!_temMais || _carregando)" @onclick="() => IrAsync(1)">Próxima<Icone Nome="direita" /></button>
+        </div>
+    </div>
+    @if (_naoVerificado)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível consultar as sessões" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+    }
+    else if (!_carregou)
+    {
+        <div class="cartao-corpo"><Esqueleto Altura="200" /></div>
+    }
+    else if (_sessoes.Count == 0)
+    {
+        <div class="cartao-corpo"><EstadoVazio Titulo="Nenhuma sessão na agenda" Icone="calendario" Descricao="Registros fora da agenda estão em Histórico." /></div>
+    }
+    else
+    {
+        <div class="tabela-rolagem"><table class="lista">
+            <thead><tr><th>Data</th><th>Modalidade</th><th>Profissional</th><th>Situação</th><th>Atendimento</th><th class="direita">Guias</th><th>Evolução</th></tr></thead>
+            <tbody>
+                @foreach (var s in _sessoes)
+                {
+                    <tr><td class="nao-quebra">@s.DataTexto</td><td>@s.ModalidadeTexto</td><td>@s.ProfissionalTexto</td><td>@s.Situacao</td>
+                        <td class="nao-quebra">@(s.NumeroAtendimento ?? "—")</td><td class="direita">@s.Guias</td><td>@s.EvolucaoTexto</td></tr>
+                }
+            </tbody>
+        </table></div>
+    }
+</section>
+
+@code {
+    private const int TamanhoPagina = 25;
+    private IReadOnlyList<SessaoNaFichaPaciente> _sessoes = [];
+    private int _pagina;
+    private bool _carregou, _carregando, _naoVerificado, _temMais;
+    private string _resumo = string.Empty;
+    private string? _erro;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private Task IrAsync(int passo)
+    {
+        _pagina = Math.Max(0, _pagina + passo);
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        if (!Pode(Permissao.VerProntuario)) return;
+        var g = ++_geracao;
+        var pagina = _pagina;
+        _carregando = true;
+        try
+        {
+            IReadOnlyList<SessaoNaFichaPaciente> linhas;
+            using (var escopo = Escopo())
+                linhas = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                    .SessoesNaFichaAsync(Contexto.PacienteId, pagina * TamanhoPagina, TamanhoPagina + 1);
+            if (g != _geracao || Descartada) return;
+            _sessoes = linhas.Take(TamanhoPagina).ToList();
+            _temMais = linhas.Count > TamanhoPagina;
+            _resumo = FichaClinicaNaTela.ResumoSessoes(pagina, _sessoes.Count);
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — sessões da ficha", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (g == _geracao) _carregando = false;
+        }
+    }
+}

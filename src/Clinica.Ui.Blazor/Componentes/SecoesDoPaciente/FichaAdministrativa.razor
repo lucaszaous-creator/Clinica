@@ -1,0 +1,15 @@
+@*
+  AS ABAS ADMINISTRATIVAS DA FICHA — agenda e pendências, relacionamento, privacidade e
+  consentimentos, termos e convênio (out/2026). ⚠️ EM PORTE: o conteúdo vem da
+  FichaPacienteViewModel da Recepção (WPF) e está sendo reescrito nesta branch; este componente
+  ainda é o esqueleto e a branch não vai à main com ele assim.
+*@
+@inherits SecaoDoPaciente
+
+<section class="cartao"><div class="cartao-corpo">
+    <EstadoVazio Titulo="Cadastro e convênio" Descricao="As abas administrativas da ficha estão sendo reescritas em Blazor nesta branch." />
+</div></section>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+}

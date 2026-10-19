@@ -1,0 +1,184 @@
+@*
+  A ANAMNESE DO PACIENTE (out/2026: migrada da AnamneseView/ViewModel WPF). Seis seções em chips
+  (cada uma diz quando está em branco), leitura por padrão, "Colher/Revisar" abre a edição;
+  revisar pergunta o motivo (opcional) e guarda a versão anterior — recuperável abaixo.
+  Em edição a aba NÃO relê ao voltar à vista: não se relê por baixo de quem digita.
+*@
+@using Clinica.Application.Modelos
+@inherits SecaoDoPaciente
+
+<section class="cartao">
+    <div class="cartao-corpo acp-topo">
+        <div>
+            <h3>Anamnese</h3>
+            <p class="secundario">@(_colhida ? _procedencia : "Ainda não colhida para este paciente.")</p>
+        </div>
+        <div class="botoes-linha">
+            @if (_editando)
+            {
+                <button type="button" class="botao mini" @onclick="CancelarEdicaoAsync">Cancelar</button>
+                <button type="button" class="botao mini primario" disabled="@_salvando" @onclick="SalvarAsync">Gravar</button>
+            }
+            else
+            {
+                <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="Editar">@(_colhida ? "Revisar anamnese" : "Colher anamnese")</button>
+            }
+        </div>
+    </div>
+
+    @if (_naoVerificado)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível ler a anamnese" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+    }
+    else if (!_carregou)
+    {
+        <div class="cartao-corpo"><Esqueleto Altura="200" /></div>
+    }
+    else
+    {
+        <div class="cartao-corpo">
+            <div class="segmentado acp-chips" role="group" aria-label="Seção da anamnese">
+                @foreach (var s in FichaClinicaNaTela.SecoesDaAnamnese)
+                {
+                    <button type="button" aria-pressed="@(s.Chave == _secao ? "true" : "false")" @onclick="() => _secao = s.Chave">
+                        @s.Rotulo@(string.IsNullOrWhiteSpace(_campos[s.Chave]) ? " · em branco" : null)</button>
+                }
+            </div>
+            @{ var secao = FichaClinicaNaTela.SecoesDaAnamnese.First(s => s.Chave == _secao); }
+            <Campo Rotulo="@secao.Rotulo" Dica="@secao.Dica" Classe="largo">
+                @if (_editando)
+                {
+                    <textarea class="campo" rows="8" value="@_campos[_secao]" @oninput="e => _campos[_secao] = e.Value?.ToString() ?? string.Empty" maxlength="4000"></textarea>
+                }
+                else
+                {
+                    <p class="pre">@(string.IsNullOrWhiteSpace(_campos[_secao]) ? "—" : _campos[_secao])</p>
+                }
+            </Campo>
+            <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+        </div>
+
+        @if (_versoes.Count > 0)
+        {
+            <div class="cartao-corpo">
+                <h4>Versões anteriores (guardadas)</h4>
+                @foreach (var v in _versoes)
+                {
+                    <section class="versao">
+                        <header><strong>@v.Titulo</strong> <span class="secundario">· @v.Quando</span></header>
+                        <p class="secundario">@v.Motivo</p>
+                        <p class="pre">@v.Texto</p>
+                    </section>
+                }
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private readonly Dictionary<string, string> _campos = FichaClinicaNaTela.SecoesDaAnamnese.ToDictionary(s => s.Chave, _ => string.Empty);
+    private IReadOnlyList<FichaClinicaNaTela.VersaoAnamneseNaTela> _versoes = [];
+    private string _secao = FichaClinicaNaTela.SecoesDaAnamnese[0].Chave;
+    private string _procedencia = string.Empty;
+    private string? _erro, _mensagem;
+    private bool _carregou, _naoVerificado, _colhida, _editando, _salvando, _mensagemEhErro;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => _editando ? Task.CompletedTask : CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        if (!Pode(Permissao.VerProntuario)) return;
+        var g = ++_geracao;
+        try
+        {
+            AnamnesePaciente? a;
+            IReadOnlyList<VersaoAnamnese> versoes = [];
+            using (var escopo = Escopo())
+            {
+                var servico = escopo.ServiceProvider.GetRequiredService<AnamneseService>();
+                a = await servico.DoPacienteAsync(Contexto.PacienteId);
+                if (a is not null) versoes = await servico.VersoesAsync(a.Id);
+            }
+            if (g != _geracao || Descartada) return;
+            _colhida = a is not null;
+            _campos["AntecedentesPessoais"] = a?.AntecedentesPessoais ?? string.Empty;
+            _campos["AntecedentesFamiliares"] = a?.AntecedentesFamiliares ?? string.Empty;
+            _campos["HabitosDeVida"] = a?.HabitosDeVida ?? string.Empty;
+            _campos["RevisaoDeSistemas"] = a?.RevisaoDeSistemas ?? string.Empty;
+            _campos["HistoriaObstetrica"] = a?.HistoriaObstetrica ?? string.Empty;
+            _campos["Observacoes"] = a?.Observacoes ?? string.Empty;
+            _procedencia = a is null ? string.Empty : FichaClinicaNaTela.Procedencia(a, DateTime.Now);
+            _versoes = versoes.OrderByDescending(v => v.Versao).Select(FichaClinicaNaTela.VersaoDe).ToList();
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — anamnese não pôde ser lida", ex);
+            if (_carregou) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+    }
+
+    private void Editar()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever a anamnese")) return;
+        _editando = true;
+        _mensagem = null;
+    }
+
+    private async Task CancelarEdicaoAsync()
+    {
+        _editando = false;
+        _mensagem = null;
+        await CarregarAsync();
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever a anamnese")) return;
+        var jaExistia = _colhida;
+        string? motivo = null;
+        if (jaExistia)
+        {
+            motivo = await Dialogos.PerguntarTextoAsync("Revisar a anamnese",
+                "O que ela dizia antes fica guardado e recuperável. Se quiser, diga o que mudou (opcional):",
+                string.Empty, obrigatorio: false);
+            // Cancelar é desistir (null) — nunca "siga sem motivo" (checagem 39).
+            if (motivo is null) return;
+        }
+        _salvando = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<AnamneseService>().SalvarAsync(Contexto.PacienteId, new AnamnesePaciente
+                {
+                    AntecedentesPessoais = _campos["AntecedentesPessoais"],
+                    AntecedentesFamiliares = _campos["AntecedentesFamiliares"],
+                    HabitosDeVida = _campos["HabitosDeVida"],
+                    HistoriaObstetrica = _campos["HistoriaObstetrica"],
+                    RevisaoDeSistemas = _campos["RevisaoDeSistemas"],
+                    Observacoes = _campos["Observacoes"]
+                }, Operador, motivo);
+            _editando = false;
+            await CarregarAsync();
+            _mensagem = jaExistia ? "Anamnese revisada. O que ela dizia antes está guardado abaixo." : "Anamnese colhida.";
+            _mensagemEhErro = false;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — anamnese não pôde ser gravada", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+}
