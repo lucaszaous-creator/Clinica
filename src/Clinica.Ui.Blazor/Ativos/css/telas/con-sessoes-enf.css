@@ -1,0 +1,6 @@
+/* SESSÕES DE ENFERMAGEM — a régua de filtros e o rodapé de páginas. Só tokens (docs/telas-blazor.md). */
+.con-sessoes-enf .enf-filtros{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3)}
+.con-sessoes-enf .enf-filtros > *{flex:1 1 160px;max-width:260px}
+.con-sessoes-enf .enf-filtros-acoes{display:flex;gap:var(--space-2);flex:0 0 auto;max-width:none}
+.con-sessoes-enf .enf-paginas{display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2)}
+.con-sessoes-enf .enf-paginas .secundario{margin-right:auto}

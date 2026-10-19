@@ -136,18 +136,13 @@ static class Program
         usuario.Perfil = PerfilAcesso.Enfermagem; usuario.ProfissionalId = prof.Id; usuario.Profissional = prof;
         var bsv = await db.Agendamentos.FirstAsync(); bsv.ModalidadePrevista = ModalidadeAtendimento.BsvComAcupuntura;
         await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
-        var fila = sp.GetRequiredService<SessoesEnfermagemViewModel>();
-        var janelaEnfermagem = new Window { Content = new SessoesEnfermagemView { DataContext = fila },
-            ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual,
-            Left = -30000, Top = -30000, Width = 1366, Height = 768 };
-        janelaEnfermagem.Show(); await fila.CarregarAsync();
-        foreach (var largura in new[] { 1366, 1024 })
+        // A tela virou Blazor (out/2026); o que se confere aqui é a CONSULTA que ela lê.
+        using (var escopoFila = sp.CreateScope())
         {
-            janelaEnfermagem.Width = largura; janelaEnfermagem.UpdateLayout(); await Task.Delay(200);
-            if (fila.Sessoes.Count != 1) throw new Exception("A fila BSV não carregou a sessão fictícia.");
-            Foto(janelaEnfermagem, "sessoes-enfermagem-" + largura);
+            var pagina = await escopoFila.ServiceProvider.GetRequiredService<Clinica.Application.Tablet.ISessoesEnfermagem>()
+                .ListarAsync(usuario.Id, new Clinica.Application.Tablet.FiltroSessoesEnfermagem(Situacao: "Todas"), DateOnly.FromDateTime(DateTime.Today));
+            if (pagina.Itens.Count != 1) throw new Exception("A fila BSV não carregou a sessão fictícia.");
         }
-        janelaEnfermagem.Close();
     }
 
 

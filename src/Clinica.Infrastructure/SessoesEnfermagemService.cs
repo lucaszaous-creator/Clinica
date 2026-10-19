@@ -5,25 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Clinica.Infrastructure;
 
-public sealed record FiltroSessoesEnfermagem(string? Paciente = null, DateOnly? Inicio = null,
-    DateOnly? Fim = null, string? Medico = null, string Situacao = "Hoje", int Pagina = 0);
-public sealed record SessaoEnfermagemItem(int Id, int PacienteId, string Paciente, DateTime DataHora,
-    string Medico, ModalidadeAtendimento Modalidade, int? AtendimentoId, bool ChegadaRegistrada,
-    bool AposAplicacaoRegistrada, bool RegistroLegado, bool Concluida)
-{
-    public bool Registrada => RegistroLegado || ChegadaRegistrada && AposAplicacaoRegistrada;
-    public string ModalidadeTexto => Modalidade == ModalidadeAtendimento.BsvApenas ? "BSV" : "BSV + acupuntura";
-    public string Situacao => RegistroLegado ? "Registro anterior às fases — conferir no prontuário"
-        : Registrada ? "Chegada e após aplicação registrados"
-        : ChegadaRegistrada ? "Chegada registrada · após aplicação pendente"
-        : AposAplicacaoRegistrada ? "Após aplicação registrada · chegada pendente"
-        : "Chegada e após aplicação pendentes";
-    public string Atendimento => Concluida ? "Concluído — permite registro tardio" : "Aberto";
-}
-public sealed record SessoesEnfermagemPagina(IReadOnlyList<SessaoEnfermagemItem> Itens, bool Mais);
-
 /// <summary>Fila exclusiva da enfermagem; mantém sessões concluídas com evolução faltante.</summary>
-public sealed class SessoesEnfermagemService(ClinicaDbContext db)
+public sealed class SessoesEnfermagemService(ClinicaDbContext db) : ISessoesEnfermagem
 {
     public async Task<SessoesEnfermagemPagina> ListarAsync(int usuarioId, FiltroSessoesEnfermagem filtro,
         DateOnly hoje, CancellationToken ct = default)

@@ -76,6 +76,7 @@
 @import url("telas/rec-grade.css");
 @import url("telas/ajuda.css");
 @import url("telas/con-medicamentos.css");
+@import url("telas/con-sessoes-enf.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.
