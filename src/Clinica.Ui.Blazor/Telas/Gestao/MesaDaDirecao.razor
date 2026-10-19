@@ -249,6 +249,37 @@
                     }
                 </section>
 
+                @* ===== ATENDIMENTO PELO CRM (caminho A: o CRM manda o resumo do dia pela ponte) ===== *@
+                <section class="cartao" aria-label="Atendimento pelo CRM">
+                    <header class="mesa-cab"><h2>Atendimento pelo CRM</h2><span>últimos 7 dias</span></header>
+                    @if (!_crmLido)
+                    {
+                        <Esqueleto Altura="100" />
+                    }
+                    else if (_crmFalhou)
+                    {
+                        <div class="mesa-aviso-leitura"><Icone Nome="alerta" />Os resumos do CRM não puderam ser lidos.</div>
+                    }
+                    else if (_crm is null || _crm.SemDados)
+                    {
+                        <p class="mesa-vazio">@CrmNaTela.SemResumo</p>
+                    }
+                    else
+                    {
+                        var c = _crm;
+                        <dl class="mesa-crm">
+                            <div><dt>Conversas</dt><dd>@c.Conversas<small>@(c.Hoje is { } h ? $" · hoje {h.ConversasIniciadas}" : null)</small></dd></div>
+                            <div><dt title="Média das medianas de cada dia, pesada pelo número de respostas">Tempo típico de resposta</dt><dd>@CrmNaTela.Duracao(c.RespostaTipicaSegundos)</dd></div>
+                            <div><dt>Confirmações respondidas</dt><dd>@CrmNaTela.Confirmacoes(c)</dd></div>
+                            <div><dt>SMS enviados</dt><dd>@CrmNaTela.Sms(c)</dd></div>
+                        </dl>
+                        @if (c.Atraso is { } atraso)
+                        {
+                            <div class="mesa-aviso-leitura"><Icone Nome="alerta" />@atraso</div>
+                        }
+                    }
+                </section>
+
                 @* ===== METAS DO MÊS ===== *@
                 <section class="cartao" aria-label="Metas do mês">
                     <header class="mesa-cab"><h2>Metas do mês</h2><button type="button" class="link" @onclick='() => IrAsync("metas")'>Abrir</button></header>
@@ -288,6 +319,9 @@
     private bool _competenciaLida, _agendaLida, _conveniosLidos;
 
     [Inject] private Clinica.Application.Abstracoes.ILeituraParalela Paralela { get; set; } = default!;
+    private CrmNaMesa? _crm;
+    private bool _crmFalhou;
+    private bool _crmLido;
     private const int PautaVisivel = 6;
     private bool Carregando, _naoVerificado;
     private string? _erro;
@@ -383,6 +417,8 @@
                 async s => MesaDaDirecaoNaTela.AgendaDeHoje(await s.ProdutividadeAsync(hoje, hoje))), "agenda não pôde ser lida");
             var lerConvenios = Tentar(() => Paralela.LerAsync<RentabilidadeConvenioService, IReadOnlyList<ConvenioNaMesa>>(
                 async s => MesaDaDirecaoNaTela.Convenios(await s.PorConvenioAsync(inicioMes, hoje))), "rentabilidade não pôde ser lida");
+            var lerCrm = Tentar(() => Paralela.LerAsync<CrmNaDirecaoService, CrmNaMesa?>(
+                async s => await s.MesaAsync(hoje, agora)), "resumos do CRM não puderam ser lidos");
 
             PainelDirecao painel;
             using (var escopo = Escopo())
@@ -398,6 +434,7 @@
             var (agenda, agendaFalhou) = await lerAgenda;
             var (deHoje, hojeFalhou) = await lerHoje;
             var (convenios, conveniosFalhou) = await lerConvenios;
+            var (crm, crmFalhou) = await lerCrm;
             if (geracao != _geracao || Descartada) return;
 
             _competencia = competencia;
@@ -411,6 +448,9 @@
             _convenios = convenios ?? [];
             _conveniosFalhou = conveniosFalhou;
             _conveniosLidos = true;
+            _crm = crm;
+            _crmFalhou = crmFalhou;
+            _crmLido = true;
         }
         catch (Exception ex)
         {
