@@ -65,62 +65,37 @@ public static class ShellBootstrap
     /// Aplica migrations pendentes sob advisory lock (só um app migra por vez) e
     /// recarrega os catálogos em memória.
     /// </summary>
-    public static async Task PrepararBancoAsync(IServiceProvider servicos, CancellationToken ct = default)
-    {
-        using var scope = servicos.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
-
-        // O lock é de sessão: a conexão precisa ficar aberta do lock ao unlock.
-        var conexao = db.Database.GetDbConnection();
-        await conexao.OpenAsync(ct);
-        try
-        {
+    public static Task PrepararBancoAsync(IServiceProvider servicos, CancellationToken ct = default)
+        // O corpo mora na Infrastructure (AberturaDoBanco) para a medição da abertura rodar o
+        // MESMO código; aqui fica o que só o shell sabe: a trava das migrations e o pool.
+        => AberturaDoBanco.PrepararAsync(servicos,
             // Sem migration pendente não há o que serializar, e a abertura do dia a dia não
             // toca a trava (out/2026). Antes, TODA abertura esperava por ela com
             // pg_advisory_lock, sem prazo: uma conexão que caiu com a trava na mão (internet
             // instável no posto) ficava "idle" no servidor segurando-a até o keepalive de 2 h,
             // e todos os apps da clínica paravam na abertura com "o banco não respondeu".
-            if ((await db.Database.GetPendingMigrationsAsync(ct)).Any())
+            migrar: async (db, c) =>
             {
-                var travou = await TentarTravarMigrationAsync(db, ct);
+                var travou = await TentarTravarMigrationAsync(db, c);
                 try
                 {
-                    await MigrarTolerandoCorridaAsync(db, ct);
+                    await MigrarTolerandoCorridaAsync(db, c);
                 }
                 finally
                 {
                     if (travou) await DestravarMigrationAsync(db);
                 }
-            }
-        }
-        finally
-        {
-            await conexao.CloseAsync();
-        }
-
-        // As conexões mínimas do pool abrem em segundo plano enquanto os catálogos carregam:
-        // é a primeira troca de tela que deixaria de pagar os segundos da abertura.
-        // A string vem do EF, nunca de conexao.ConnectionString: depois de aberta, o Npgsql tira
-        // a senha dela, e a outra string cairia num pool diferente que nem autentica.
-        if (db.Database.GetConnectionString() is { Length: > 0 } cadeia)
-        {
-            _ = Task.Run(() => ConexaoRemota.AquecerAsync(cadeia), CancellationToken.None);
-            // Escuta os avisos do banco (agenda e pedidos da enfermagem): as telas abertas
-            // relêem na hora em que outra máquina grava, sem esperar o relógio.
-            OuvinteDeMudancas.Iniciar(cadeia);
-        }
-
-        // Catálogos (convênios, modalidades, especialidades) no cache em memória.
-        await scope.ServiceProvider
-            .GetRequiredService<Clinica.Application.Servicos.ConvenioCatalogoService>()
-            .RecarregarCacheAsync(ct);
-        await scope.ServiceProvider
-            .GetRequiredService<Clinica.Application.Servicos.ModalidadeCatalogoService>()
-            .RecarregarCacheAsync(ct);
-        await scope.ServiceProvider
-            .GetRequiredService<Clinica.Application.Servicos.EspecialidadeCatalogoService>()
-            .RecarregarCacheAsync(ct);
-    }
+            },
+            // As conexões mínimas do pool abrem em segundo plano enquanto os catálogos carregam:
+            // é a primeira troca de tela que deixaria de pagar os segundos da abertura.
+            aoConectar: cadeia =>
+            {
+                _ = Task.Run(() => ConexaoRemota.AquecerAsync(cadeia), CancellationToken.None);
+                // Escuta os avisos do banco (agenda e pedidos da enfermagem): as telas abertas
+                // relêem na hora em que outra máquina grava, sem esperar o relógio.
+                OuvinteDeMudancas.Iniciar(cadeia);
+            },
+            ct);
 
     /// <summary>Quanto a abertura espera pela trava das migrations antes de seguir sem ela.</summary>
     private static readonly TimeSpan PrazoDaTravaDeMigration = TimeSpan.FromSeconds(60);

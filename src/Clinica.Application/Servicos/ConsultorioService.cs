@@ -37,13 +37,39 @@ namespace Clinica.Application.Servicos;
 public sealed class ConsultorioService
 {
     private readonly IClinicaRepositorio _repo;
+    private readonly ILeituraParalela? _paralela;
 
     /// <summary>
     /// Sessões sem evolução passam a ser acompanhadas a partir de
     /// <see cref="PoliticaRegistroPendente.DataInicio"/> e permanecem na lista até que a
     /// evolução seja vinculada. O corte evita transformar o histórico antigo em fila nova.
     /// </summary>
-    public ConsultorioService(IClinicaRepositorio repo) => _repo = repo;
+    /// <param name="paralela">
+    /// Com ela (o app), as leituras INDEPENDENTES de um método começam juntas, cada uma no seu
+    /// escopo: o dia do Meu dia eram três idas em fila ao banco remoto (horários → evoluções →
+    /// nome do profissional) e passam a custar uma (out/2026, medição da abertura). Sem ela
+    /// (os testes), a mesma ordem de sempre, em fila — o resultado é o mesmo.
+    /// </param>
+    public ConsultorioService(IClinicaRepositorio repo, ILeituraParalela? paralela = null)
+    {
+        _repo = repo;
+        _paralela = paralela;
+    }
+
+    /// <summary>
+    /// Com <see cref="ILeituraParalela"/>, a leitura COMEÇA agora, num escopo próprio, e quem a
+    /// usa só espera por ela na sua vez; sem ela, a leitura é feita na vez, no repositório deste
+    /// escopo (nunca duas operações ao mesmo tempo no mesmo DbContext).
+    /// </summary>
+    private Func<Task<T>> Antecipar<T>(Func<IClinicaRepositorio, Task<T>> leitura)
+    {
+        if (_paralela is null) return () => leitura(_repo);
+        var tarefa = _paralela.LerAsync(leitura);
+        // A falha é tratada por quem espera; isto só evita exceção "não observada" se o
+        // método parar antes de chegar à leitura.
+        _ = tarefa.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+        return () => tarefa;
+    }
 
     /// <summary>
     /// O dia do profissional: os horários dele, com a marca do que já tem evolução.
@@ -53,8 +79,12 @@ public sealed class ConsultorioService
     {
         // Leitura leve (out/2026): Montar usa só o nome do paciente; a ficha inteira (foto incluída)
         // vinha a cada batida de 30 s do Meu dia.
-        var todos = await _repo.AgendamentosNoPeriodoParaLeituraAsync(
-            dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct);
+        var lerTodos = Antecipar(r => r.AgendamentosNoPeriodoParaLeituraAsync(
+            dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct));
+        var lerEvolucoes = Antecipar(r => r.VinculosEvolucoesNoPeriodoAsync(dia, dia, ct));
+        var lerProfissional = profissionalId is { } pid ? Antecipar(r => r.ObterProfissionalAsync(pid, ct)) : null;
+
+        var todos = await lerTodos();
 
         // A disputa pela evolução avulsa é sobre TODAS as sessões do paciente no dia,
         // antes do filtro de profissional — ver <see cref="EvolucaoDoHorario"/>.
@@ -64,16 +94,16 @@ public sealed class ConsultorioService
             ? todos.Where(a => a.ProfissionalId == id).ToList()
             : todos;
 
-        var evolucoes = await _repo.VinculosEvolucoesNoPeriodoAsync(dia, dia, ct);
+        var evolucoes = await lerEvolucoes();
 
         var sessoes = agendamentos
             .OrderBy(a => a.DataHora)
             .Select(a => Montar(a, evolucoes, porPacienteDia))
             .ToList();
 
-        var nome = profissionalId is null
+        var nome = lerProfissional is null
             ? "Todos os profissionais"
-            : (await _repo.ObterProfissionalAsync(profissionalId.Value, ct))?.Rotulo
+            : (await lerProfissional())?.Rotulo
               ?? "Profissional";
 
         return new DiaDoProfissional(dia, profissionalId, nome, sessoes);
@@ -99,8 +129,11 @@ public sealed class ConsultorioService
 
         // Leitura leve (out/2026): Montar usa só o nome do paciente; a ficha inteira (foto incluída)
         // vinha a cada batida de 30 s do Meu dia.
-        var todos = await _repo.AgendamentosNoPeriodoParaLeituraAsync(
-            inicio.ToDateTime(TimeOnly.MinValue), fim.ToDateTime(TimeOnly.MaxValue), ct);
+        var lerTodos = Antecipar(r => r.AgendamentosNoPeriodoParaLeituraAsync(
+            inicio.ToDateTime(TimeOnly.MinValue), fim.ToDateTime(TimeOnly.MaxValue), ct));
+        var lerEvolucoes = Antecipar(r => r.VinculosEvolucoesNoPeriodoAsync(inicio, fim, ct));
+        var lerProfissional = profissionalId is { } pid ? Antecipar(r => r.ObterProfissionalAsync(pid, ct)) : null;
+        var todos = await lerTodos();
 
         // A disputa pela evolução avulsa é sobre TODAS as sessões do paciente no dia,
         // antes do filtro de profissional — ver <see cref="EvolucaoDoHorario"/>.
@@ -110,11 +143,11 @@ public sealed class ConsultorioService
             ? todos.Where(a => a.ProfissionalId == id).ToList()
             : todos;
 
-        var evolucoes = await _repo.VinculosEvolucoesNoPeriodoAsync(inicio, fim, ct);
+        var evolucoes = await lerEvolucoes();
 
-        var nome = profissionalId is null
+        var nome = lerProfissional is null
             ? "Todos os profissionais"
-            : (await _repo.ObterProfissionalAsync(profissionalId.Value, ct))?.Rotulo
+            : (await lerProfissional())?.Rotulo
               ?? "Profissional";
 
         var porDia = agendamentos
@@ -163,8 +196,10 @@ public sealed class ConsultorioService
         // Leitura leve (out/2026): o período começa numa data FIXA e cresce todo dia, e a
         // leitura completa trazia a ficha inteira (foto incluída) de cada horário desde então.
         // A lista usa só o nome do paciente e os nomes de profissional e sala.
-        var todos = await _repo.AgendamentosNoPeriodoParaLeituraAsync(
-            inicio.ToDateTime(TimeOnly.MinValue), ontem.ToDateTime(TimeOnly.MaxValue), ct);
+        var lerTodos = Antecipar(r => r.AgendamentosNoPeriodoParaLeituraAsync(
+            inicio.ToDateTime(TimeOnly.MinValue), ontem.ToDateTime(TimeOnly.MaxValue), ct));
+        var lerEvolucoes = Antecipar(r => r.VinculosEvolucoesNoPeriodoAsync(inicio, ontem, ct));
+        var todos = await lerTodos();
 
         // A disputa pela evolução avulsa é sobre TODAS as sessões do paciente no dia,
         // antes do filtro de profissional — ver <see cref="EvolucaoDoHorario"/>.
@@ -174,7 +209,7 @@ public sealed class ConsultorioService
             ? todos.Where(a => a.ProfissionalId == id).ToList()
             : todos;
 
-        var evolucoes = await _repo.VinculosEvolucoesNoPeriodoAsync(inicio, ontem, ct);
+        var evolucoes = await lerEvolucoes();
 
         return agendamentos
             .Where(a => a.Status == StatusAgendamento.Realizado)

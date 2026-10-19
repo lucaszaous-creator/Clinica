@@ -177,6 +177,8 @@
     private int? _historico;
     private (decimal? Valor, string? Referencia)? _pix;
 
+    [Inject] private Clinica.Application.Abstracoes.ILeituraParalela Paralela { get; set; } = default!;
+
     private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
     private bool FiltroAtivo => _filtroSituacao != Todas || !string.IsNullOrWhiteSpace(_filtroTexto);
 
@@ -202,11 +204,13 @@
             var fim = inicio.AddMonths(1).AddDays(-1);
             int? limite = FiltroAtivo ? null : LimiteLinhas;
 
-            using var escopo = Escopo();
-            var financeiro = escopo.ServiceProvider.GetRequiredService<FinanceiroService>();
-            var lancamentos = await financeiro.DoPeriodoAsync(inicio, fim, limite);
-            if (geracao != _geracao || Descartada) return;
-            var resumo = await financeiro.ResumoAsync(inicio, fim);
+            // A lista e o resumo do mês são independentes: vão JUNTOS, cada um no seu escopo
+            // (out/2026, medição da abertura — o Caixa abre o Financeiro, e eram duas idas em fila).
+            var lerLancamentos = Paralela.LerAsync<FinanceiroService, IReadOnlyList<LancamentoFinanceiro>>(s => s.DoPeriodoAsync(inicio, fim, limite));
+            var lerResumo = Paralela.LerAsync<FinanceiroService, ResumoCaixa>(s => s.ResumoAsync(inicio, fim));
+            await Task.WhenAll(lerLancamentos, lerResumo);
+            var lancamentos = lerLancamentos.Result;
+            var resumo = lerResumo.Result;
             if (geracao != _geracao || Descartada) return;
 
             _cargaCompleta = limite is null;

@@ -330,6 +330,10 @@ public sealed class PainelDirecaoService
         var lerBanco = Antecipar(r => r.LancamentosParaConciliacaoAsync(inicioMes, hoje, ct), _repo);
         var lerParcelasBanco = Antecipar(r => r.ParcelasCartaoParaConciliacaoAsync(inicioMes, hoje, ct), _repo);
         var lerConfirmacoes = Antecipar(r => new AvisosDeConfirmacaoService(r).ListarAsync(instante, instante, ct), _repo);
+        // O estoque era o ÚLTIMO bloco, lido em fila depois de todos os outros (seis idas a mais
+        // no fim da abertura do Gerente, medido em AberturaDosAppsTests): agora começa junto.
+        var lerEstoqueRepor = Antecipar(r => new EstoqueService(r).AbaixoDoMinimoAsync(ct), _repo);
+        var lerEstoqueValidades = Antecipar(r => new EstoqueService(r).ValidadesAsync(hoje, ct: ct), _repo);
 
         // ---- Dinheiro do mês ----
         decimal entradas = 0m, saidas = 0m, taxas = 0m, impostos = 0m;
@@ -734,9 +738,8 @@ public sealed class PainelDirecaoService
 
         try
         {
-            var estoque = new EstoqueService(_repo);
-            var repor = await estoque.AbaixoDoMinimoAsync(ct);
-            var validades = await estoque.ValidadesAsync(hoje, ct: ct);
+            var repor = await lerEstoqueRepor();
+            var validades = await lerEstoqueValidades();
             if (repor.Count > 0)
                 alertas.Add(new AlertaDirecao(AssuntoDirecao.EstoqueMinimo,
                     $"{repor.Count} insumo(s) no mínimo ou abaixo",

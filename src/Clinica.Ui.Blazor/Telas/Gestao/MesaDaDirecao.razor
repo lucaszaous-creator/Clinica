@@ -99,8 +99,15 @@
                 </div>
                 <div>
                     <div class="mesa-rotulo">Resultado por competência</div>
-                    <div class="mesa-valor @(_competencia is { Prejuizo: true } ? "tom-perigo" : null)">@(_competencia is { } comp ? MesaDaDirecaoNaTela.Dinheiro(comp.Resultado) : "—")</div>
-                    <div class="mesa-nota">@MesaDaDirecaoNaTela.NotaDaCompetencia(_competencia)</div>
+                    @if (!_competenciaLida)
+                    {
+                        <Esqueleto Altura="22" Largura="60%" />
+                    }
+                    else
+                    {
+                        <div class="mesa-valor @(_competencia is { Prejuizo: true } ? "tom-perigo" : null)">@(_competencia is { } comp ? MesaDaDirecaoNaTela.Dinheiro(comp.Resultado) : "—")</div>
+                        <div class="mesa-nota">@MesaDaDirecaoNaTela.NotaDaCompetencia(_competencia)</div>
+                    }
                 </div>
                 <div>
                     <div class="mesa-rotulo">Saídas do mês</div>
@@ -124,7 +131,7 @@
         <section class="kpis" aria-label="Números do mês">
             <Kpi Rotulo="Sessões realizadas" Icone="calendario"
                  Valor="@(_agenda is { } ag ? ag.Atendidos.ToString(Formato.PtBr) : "—")"
-                 Nota="@(_agenda is { } a2 ? (a2.OcupacaoPercentual is { } oc ? $"ocupação {oc:0}% no mês" : "ocupação sem jornada cadastrada") : "a agenda não pôde ser lida")">
+                 Nota="@(!_agendaLida ? "lendo a agenda…" : _agenda is { } a2 ? (a2.OcupacaoPercentual is { } oc ? $"ocupação {oc:0}% no mês" : "ocupação sem jornada cadastrada") : "a agenda não pôde ser lida")">
                 @if (_agenda?.OcupacaoPercentual is { } o) { <div class="mesa-barra"><i style="width:@Pct(o / 100)"></i></div> }
             </Kpi>
             <Kpi Rotulo="Guias por liberar" Icone="documento" Tom="@(p.PendenciasVencidas > 0 ? "aviso" : null)"
@@ -180,7 +187,11 @@
                 @* ===== HOJE NA AGENDA ===== *@
                 <section class="cartao" aria-label="Hoje na agenda">
                     <header class="mesa-cab"><h2>Hoje na agenda</h2><span>ocupação por profissional</span></header>
-                    @if (_hojeFalhou)
+                    @if (!_agendaLida)
+                    {
+                        <Esqueleto Altura="120" />
+                    }
+                    else if (_hojeFalhou)
                     {
                         <div class="mesa-aviso-leitura"><Icone Nome="alerta" />A agenda de hoje não pôde ser lida.</div>
                     }
@@ -208,7 +219,11 @@
                 @* ===== CONVÊNIOS ===== *@
                 <section class="cartao" aria-label="Convênios no mês">
                     <header class="mesa-cab"><h2>Convênios no mês</h2><span>bruto · líquido</span></header>
-                    @if (_conveniosFalhou)
+                    @if (!_conveniosLidos)
+                    {
+                        <Esqueleto Altura="120" />
+                    }
+                    else if (_conveniosFalhou)
                     {
                         <div class="mesa-aviso-leitura"><Icone Nome="alerta" />A rentabilidade não pôde ser lida.</div>
                     }
@@ -237,7 +252,11 @@
                 @* ===== ATENDIMENTO PELO CRM (caminho A: o CRM manda o resumo do dia pela ponte) ===== *@
                 <section class="cartao" aria-label="Atendimento pelo CRM">
                     <header class="mesa-cab"><h2>Atendimento pelo CRM</h2><span>últimos 7 dias</span></header>
-                    @if (_crmFalhou)
+                    @if (!_crmLido)
+                    {
+                        <Esqueleto Altura="100" />
+                    }
+                    else if (_crmFalhou)
                     {
                         <div class="mesa-aviso-leitura"><Icone Nome="alerta" />Os resumos do CRM não puderam ser lidos.</div>
                     }
@@ -294,8 +313,15 @@
     private IReadOnlyList<ConvenioNaMesa> _convenios = [];
     private ResultadoPorCompetencia? _competencia;
     private bool _hojeFalhou, _conveniosFalhou, _pautaInteira;
+    // Já houve uma leitura de cada bloco? Até lá o lugar dele mostra o esqueleto — nunca um
+    // "ninguém marcado" ou "nenhuma guia" que ainda não foi lido. Na releitura (Atualizar,
+    // voltar à aba) continuam verdadeiros: a tela segue com o que mostrava até o novo chegar.
+    private bool _competenciaLida, _agendaLida, _conveniosLidos;
+
+    [Inject] private Clinica.Application.Abstracoes.ILeituraParalela Paralela { get; set; } = default!;
     private CrmNaMesa? _crm;
     private bool _crmFalhou;
+    private bool _crmLido;
     private const int PautaVisivel = 6;
     private bool Carregando, _naoVerificado;
     private string? _erro;
@@ -345,6 +371,17 @@
         return recorte is null ? indicador : $"{indicador} · {recorte}";
     }
 
+    /// <summary>Um bloco secundário falha SOZINHO: vai ao log e devolve (nada, falhou).</summary>
+    private static async Task<(T? Valor, bool Falhou)> Tentar<T>(Func<Task<T>> ler, string oque)
+    {
+        try { return (await ler(), false); }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — mesa da direção: {oque}", ex);
+            return (default, true);
+        }
+    }
+
     private async Task IrAsync(string chave)
     {
         if (!await Host.NavegarAsync(chave))
@@ -352,9 +389,12 @@
     }
 
     /// <summary>
-    /// Lê tudo em sequência, num escopo só (o mesmo DbContext não aceita duas consultas ao mesmo
-    /// tempo). O painel é o bloco principal: sem ele, a tela mostra a falha. Os outros três
-    /// falham sozinhos e a tela diz qual.
+    /// Os quatro blocos começam JUNTOS, cada um no seu escopo (out/2026 — a abertura do Gerente
+    /// fazia 26 idas EM SÉRIE ao banco remoto, medido em AberturaDosAppsTests: o painel, depois a
+    /// competência, depois a agenda, depois a produtividade, depois a rentabilidade). O painel é
+    /// o bloco principal: sem ele, a tela mostra a falha; ele aparece assim que chega, e os
+    /// outros três entram quando chegam (até lá, o esqueleto do lugar deles — nunca um "vazio"
+    /// que ainda não foi lido). Cada um falha sozinho e a tela diz qual.
     /// </summary>
     private async Task CarregarAsync()
     {
@@ -366,77 +406,51 @@
             var agora = DateTime.Now;
             var hoje = DateOnly.FromDateTime(agora);
             var inicioMes = new DateOnly(hoje.Year, hoje.Month, 1);
-            using var escopo = Escopo();
-            var sp = escopo.ServiceProvider;
-
-            var painel = await sp.GetRequiredService<PainelDirecaoService>().MontarAsync(hoje, agora: agora);
-            if (geracao != _geracao || Descartada) return;
 
             // A competência do mês (etapa "Dinheiro"): falha sozinha, e a régua diz que não leu.
-            ResultadoPorCompetencia? competencia = null;
-            try
-            {
-                competencia = await sp.GetRequiredService<ResultadoMensalService>().CompetenciaDoMesAsync(hoje.Year, hoje.Month);
-            }
-            catch (Exception ex)
-            {
-                Clinica.Application.Diagnostico.Registrar("Blazor — mesa da direção: competência não pôde ser lida", ex);
-            }
+            var lerCompetencia = Tentar(() => Paralela.LerAsync<ResultadoMensalService, ResultadoPorCompetencia?>(
+                async s => await s.CompetenciaDoMesAsync(hoje.Year, hoje.Month)), "competência não pôde ser lida");
+            // A agenda do mês e a de hoje: duas leituras independentes, cada uma no seu escopo.
+            var lerAgenda = Tentar(() => Paralela.LerAsync<IndicadoresService, IndicadoresAgenda>(
+                s => s.AgendaAsync(inicioMes, hoje)), "agenda não pôde ser lida");
+            var lerHoje = Tentar(() => Paralela.LerAsync<IndicadoresService, IReadOnlyList<OcupacaoNaMesa>>(
+                async s => MesaDaDirecaoNaTela.AgendaDeHoje(await s.ProdutividadeAsync(hoje, hoje))), "agenda não pôde ser lida");
+            var lerConvenios = Tentar(() => Paralela.LerAsync<RentabilidadeConvenioService, IReadOnlyList<ConvenioNaMesa>>(
+                async s => MesaDaDirecaoNaTela.Convenios(await s.PorConvenioAsync(inicioMes, hoje))), "rentabilidade não pôde ser lida");
+            var lerCrm = Tentar(() => Paralela.LerAsync<CrmNaDirecaoService, CrmNaMesa?>(
+                async s => await s.MesaAsync(hoje, agora)), "resumos do CRM não puderam ser lidos");
+
+            PainelDirecao painel;
+            using (var escopo = Escopo())
+                painel = await escopo.ServiceProvider.GetRequiredService<PainelDirecaoService>().MontarAsync(hoje, agora: agora);
             if (geracao != _geracao || Descartada) return;
 
-            IndicadoresAgenda? agenda = null;
-            IReadOnlyList<OcupacaoNaMesa> deHoje = [];
-            var hojeFalhou = false;
-            var indicadores = sp.GetRequiredService<IndicadoresService>();
-            try
-            {
-                agenda = await indicadores.AgendaAsync(inicioMes, hoje);
-                deHoje = MesaDaDirecaoNaTela.AgendaDeHoje(await indicadores.ProdutividadeAsync(hoje, hoje));
-            }
-            catch (Exception ex)
-            {
-                Clinica.Application.Diagnostico.Registrar("Blazor — mesa da direção: agenda não pôde ser lida", ex);
-                hojeFalhou = true;
-            }
-            if (geracao != _geracao || Descartada) return;
-
-            IReadOnlyList<ConvenioNaMesa> convenios = [];
-            var conveniosFalhou = false;
-            try
-            {
-                convenios = MesaDaDirecaoNaTela.Convenios(
-                    await sp.GetRequiredService<RentabilidadeConvenioService>().PorConvenioAsync(inicioMes, hoje));
-            }
-            catch (Exception ex)
-            {
-                Clinica.Application.Diagnostico.Registrar("Blazor — mesa da direção: rentabilidade não pôde ser lida", ex);
-                conveniosFalhou = true;
-            }
-            if (geracao != _geracao || Descartada) return;
-
-            CrmNaMesa? crm = null;
-            var crmFalhou = false;
-            try
-            {
-                crm = await sp.GetRequiredService<CrmNaDirecaoService>().MesaAsync(hoje, agora);
-            }
-            catch (Exception ex)
-            {
-                Clinica.Application.Diagnostico.Registrar("Blazor — mesa da direção: resumos do CRM não puderam ser lidos", ex);
-                crmFalhou = true;
-            }
-            if (geracao != _geracao || Descartada) return;
-
+            // O que já chegou aparece: o painel é a régua, os números e a pauta.
             _agora = agora;
+            _painel = painel;
+            StateHasChanged();
+
+            var (competencia, _) = await lerCompetencia;
+            var (agenda, agendaFalhou) = await lerAgenda;
+            var (deHoje, hojeFalhou) = await lerHoje;
+            var (convenios, conveniosFalhou) = await lerConvenios;
+            var (crm, crmFalhou) = await lerCrm;
+            if (geracao != _geracao || Descartada) return;
+
+            _competencia = competencia;
+            _competenciaLida = true;
+            // O mesmo desfecho de antes, quando as duas eram lidas em fila: a agenda do mês que
+            // falhou não deixa a de hoje aparecer, e qualquer uma das duas que falhe acende o aviso.
+            _agenda = agenda;
+            _hoje = agendaFalhou ? [] : deHoje ?? [];
+            _hojeFalhou = agendaFalhou || hojeFalhou;
+            _agendaLida = true;
+            _convenios = convenios ?? [];
+            _conveniosFalhou = conveniosFalhou;
+            _conveniosLidos = true;
             _crm = crm;
             _crmFalhou = crmFalhou;
-            _painel = painel;
-            _competencia = competencia;
-            _agenda = agenda;
-            _hoje = deHoje;
-            _hojeFalhou = hojeFalhou;
-            _convenios = convenios;
-            _conveniosFalhou = conveniosFalhou;
+            _crmLido = true;
         }
         catch (Exception ex)
         {

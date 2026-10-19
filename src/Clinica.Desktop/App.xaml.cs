@@ -77,17 +77,18 @@ public partial class App : System.Windows.Application
 
                     // Migration pendente num banco que já tem dados: backup local ANTES de
                     // migrar. Se a migration falhar no meio, os dados estão na máquina.
+                    // Sem migration pendente não há o que migrar (out/2026, medição da abertura):
+                    // o MigrateAsync de toda abertura relia o histórico e pedia a trava à toa.
                     var pendentes = await db.Database.GetPendingMigrationsAsync();
-                    var aplicadas = await db.Database.GetAppliedMigrationsAsync();
-                    if (pendentes.Any() && aplicadas.Any())
-                        await BackupLocal.ExecutarPreMigracaoAsync(db);
+                    if (pendentes.Any())
+                    {
+                        if ((await db.Database.GetAppliedMigrationsAsync()).Any())
+                            await BackupLocal.ExecutarPreMigracaoAsync(db);
+                        await db.Database.MigrateAsync();
+                    }
 
-                    await db.Database.MigrateAsync();
-
-                    // Carrega os catálogos no cache em memória (nomes/famílias/bases).
-                    await scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>().RecarregarCacheAsync();
-                    await scope.ServiceProvider.GetRequiredService<ModalidadeCatalogoService>().RecarregarCacheAsync();
-                    await scope.ServiceProvider.GetRequiredService<EspecialidadeCatalogoService>().RecarregarCacheAsync();
+                    // Catálogos no cache em memória (nomes/famílias/bases), os três em paralelo.
+                    await Clinica.Infrastructure.AberturaDoBanco.RecarregarCatalogosAsync(_host.Services);
 
                     // Migração única: dados do prestador que viviam em JSON local
                     // (%APPDATA%) passam a ser configuração GLOBAL no banco.
@@ -173,6 +174,10 @@ public partial class App : System.Windows.Application
         ShutdownMode = ShutdownMode.OnMainWindowClose; // volta ao comportamento normal
         window.WindowState = WindowState.Maximized;
         window.Show();
+
+        // O backup e os avisos de pendências esperam a tela inicial ter os dados (AberturaDoApp,
+        // out/2026): a janela da rodada não cobre a tela que ainda está lendo.
+        await Clinica.Application.AberturaDoApp.DepoisDaPrimeiraTelaAsync();
 
         // Backup local diário em segundo plano (plano B se o banco na nuvem sumir).
         _ = BackupLocal.ExecutarSeNecessarioAsync(_host.Services);

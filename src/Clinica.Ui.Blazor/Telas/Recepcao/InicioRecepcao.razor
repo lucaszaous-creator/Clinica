@@ -14,7 +14,7 @@
 @using Clinica.Application.Modelos
 @inherits TelaBase
 
-<div class="pagina rec-inicio @(Carregando && _carregou ? "carregando" : null)">
+<div class="pagina rec-inicio @(Carregando && _carregou && _balcaoLido ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Recepção · Início" Titulo="@_saudacao" Subtitulo="@_linhaDoDia">
         <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar o início"><Icone Nome="atualizar" /></button>
         <button type="button" class="botao" @onclick="VerAgendaDoDiaAsync" title="A lista do dia inteiro, com quem já chegou, está na sala ou foi atendido">
@@ -112,6 +112,12 @@
 
             <section class="cartao lista-cartao rec-balcao" aria-label="O que resolver no balcão">
                 <div class="cartao-titulo rec-titulo"><h2>O que resolver no balcão</h2></div>
+                @if (!_balcaoLido)
+                {
+                    <div class="cartao-corpo"><Esqueleto Altura="200" /></div>
+                }
+                else
+                {
                 <ul class="rec-itens">
                     @foreach (var i in _balcao)
                     {
@@ -133,6 +139,7 @@
                     <span class="rec-aniversario-texto">@_rodapeAniversario</span>
                     <button type="button" class="botao mini" @onclick="() => _aniversariosAbertos = true">Ver</button>
                 </div>
+                }
             </section>
         </div>
     }
@@ -217,9 +224,13 @@
     private const string ChaveRecall = "retorno-pacientes";
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
+    [Inject] private ILeituraParalela Paralela { get; set; } = default!;
 
     private bool Carregando;
     private bool _carregou;
+    // O que resolver no balcão já foi lido alguma vez? Até lá, o esqueleto no lugar dele — os
+    // contadores com "—" querem dizer "não foi possível conferir", e não "ainda lendo".
+    private bool _balcaoLido;
     private bool _naoVerificado;
     private bool _ocupado;
     private string? _erro;
@@ -280,48 +291,56 @@
     }
 
     /// <summary>
-    /// A carga: resumo e o dia SEQUENCIAIS no mesmo escopo (o mesmo DbContext não aceita duas
-    /// operações ao mesmo tempo), cada bloco secundário falhando SOZINHO ("—" e "não foi
-    /// possível conferir"), contador de geração e tudo publicado depois do último await.
+    /// A carga: as leituras INDEPENDENTES começam juntas, cada uma no seu escopo (out/2026 — o
+    /// Início fazia 23 idas EM SÉRIE ao banco remoto, medido em AberturaDosAppsTests); as que
+    /// dependem de outra (as confirmações e os aniversariantes dependem do dia; as guias, do
+    /// resumo) começam assim que a delas chega. Cada bloco secundário falha SOZINHO ("—" e "não
+    /// foi possível conferir"), contador de geração, e o que já chegou aparece: os números e os
+    /// próximos a chegar primeiro, o que resolver no balcão quando chegar (até lá, o esqueleto
+    /// do lugar dele — nunca um contador que ainda não foi lido).
     /// </summary>
     private async Task CarregarAsync(bool silencioso = false)
     {
         var geracao = ++_geracao;
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         var agora = DateTime.Now;
+        var usuario = SessaoUsuario.Atual.UsuarioId;
         if (!silencioso) Carregando = true;
         try
         {
-            using var escopo = Escopo();
-            var sp = escopo.ServiceProvider;
-            var painel = sp.GetRequiredService<PainelRecepcaoService>();
-            var repo = sp.GetRequiredService<IClinicaRepositorio>();
-
-            var resumo = await painel.ResumoAsync(hoje);
-            var doDia = (await sp.GetRequiredService<AgendaService>().DoDiaAsync(hoje)).ToList();
-
-            var confirmacoes = await Tentar(() => repo.RespostasDeConfirmacaoAsync(doDia.Select(a => a.Id).ToList()),
-                "confirmações do dia", (IReadOnlyDictionary<int, RespostaDeConfirmacao>?)null);
-            var ocupacao = Pode(Permissao.VerAgenda)
-                ? await Tentar(() => sp.GetRequiredService<IOcupacaoAgendaService>()
-                    .ConsultarAsync(SessaoUsuario.Atual.UsuarioId, hoje, hoje), "ocupação do dia", (OcupacaoAgenda?)null)
-                : null;
-            var pendencias = await Tentar(() => painel.PendenciasDosPacientesAsync(hoje, resumo.PacientesDoDia),
-                "guias pendentes do dia", (IReadOnlyList<PendenciaCodigo>?)null);
-            var amanha = await Tentar(() => sp.GetRequiredService<CampanhaService>()
-                    .ContatosAsync(TipoContato.ConfirmacaoSessao, null, hoje.AddDays(1), hoje.AddDays(1)),
+            var lerResumo = Paralela.LerAsync<PainelRecepcaoService, ResumoDiaRecepcao>(s => s.ResumoAsync(hoje));
+            var lerDoDia = Paralela.LerAsync<AgendaService, List<Agendamento>>(async s => (await s.DoDiaAsync(hoje)).ToList());
+            var lerOcupacao = Pode(Permissao.VerAgenda)
+                ? Tentar(() => Paralela.LerAsync<IOcupacaoAgendaService, OcupacaoAgenda?>(
+                    async s => await s.ConsultarAsync(usuario, hoje, hoje)), "ocupação do dia", (OcupacaoAgenda?)null)
+                : Task.FromResult<OcupacaoAgenda?>(null);
+            var lerAmanha = Tentar(() => Paralela.LerAsync<CampanhaService, IReadOnlyList<ContatoCampanha>?>(
+                    async s => await s.ContatosAsync(TipoContato.ConfirmacaoSessao, null, hoje.AddDays(1), hoje.AddDays(1))),
                 "rodada de amanhã", (IReadOnlyList<ContatoCampanha>?)null);
-            var retornos = await Tentar(() => sp.GetRequiredService<RetornosAMarcarService>().ListarAsync(),
-                "retornos a marcar", (IReadOnlyList<RetornoAMarcar>?)null);
-            var acompanhamento = await Tentar(() => sp.GetRequiredService<IAcompanhamentoPacienteService>()
-                .ListarAsync(SessaoUsuario.Atual.UsuarioId), "acompanhamento", (IReadOnlyList<LinhaAcompanhamento>?)null);
-            var aniversarios = await Tentar(() => sp.GetRequiredService<RelacionamentoService>()
-                    .AniversariantesAsync(hoje, InicioRecepcaoTela.JanelaAniversarioDias, doDia.Select(a => a.PacienteId).ToHashSet()),
+            var lerRetornos = Tentar(() => Paralela.LerAsync<RetornosAMarcarService, IReadOnlyList<RetornoAMarcar>?>(
+                async s => await s.ListarAsync()), "retornos a marcar", (IReadOnlyList<RetornoAMarcar>?)null);
+            var lerAcompanhamento = Tentar(() => Paralela.LerAsync<IAcompanhamentoPacienteService, IReadOnlyList<LinhaAcompanhamento>?>(
+                async s => await s.ListarAsync(usuario)), "acompanhamento", (IReadOnlyList<LinhaAcompanhamento>?)null);
+            var lerConfirmacoes = Depois(lerDoDia, d => Paralela.LerAsync<IClinicaRepositorio, IReadOnlyDictionary<int, RespostaDeConfirmacao>?>(
+                    async r => await r.RespostasDeConfirmacaoAsync(d.Select(a => a.Id).ToList())),
+                "confirmações do dia", (IReadOnlyDictionary<int, RespostaDeConfirmacao>?)null);
+            var lerAniversarios = Depois(lerDoDia, d => Paralela.LerAsync<RelacionamentoService, IReadOnlyList<Aniversariante>?>(
+                    async s => await s.AniversariantesAsync(hoje, InicioRecepcaoTela.JanelaAniversarioDias, d.Select(a => a.PacienteId).ToHashSet())),
                 "aniversariantes", (IReadOnlyList<Aniversariante>?)null);
+            var lerPendencias = Depois(lerResumo, r => Paralela.LerAsync<PainelRecepcaoService, IReadOnlyList<PendenciaCodigo>?>(
+                    async s => await s.PendenciasDosPacientesAsync(hoje, r.PacientesDoDia)),
+                "guias pendentes do dia", (IReadOnlyList<PendenciaCodigo>?)null);
 
+            // O resumo e o dia são o conteúdo da tela: sem eles, o terceiro estado. Os dois são
+            // esperados JUNTOS para que a falha de um não deixe a do outro sem observador.
+            await Task.WhenAll(lerResumo, lerDoDia);
+            var resumo = lerResumo.Result;
+            var doDia = lerDoDia.Result;
+            var ocupacao = await lerOcupacao;
+            var confirmacoes = await lerConfirmacoes;
             if (geracao != _geracao || Descartada) return;
 
-            // ===== Cabeçalho e cartões =====
+            // ===== Cabeçalho, cartões e próximos a chegar: já aparecem =====
             _saudacao = InicioDoBalcao.Saudacao(agora, SessaoUsuario.Atual.Nome);
             _linhaDoDia = InicioDoBalcao.LinhaDoDia(hoje, resumo.Agendados, InicioDoBalcao.PorChegar(doDia));
             var percentual = ocupacao?.Resumo.Percentual;
@@ -334,10 +353,19 @@
             _emAtendimentoDetalhe = InicioDoBalcao.QuemAtende(doDia);
             _atendidos = resumo.Atendidos.ToString(Formato.PtBr);
             _atendidosDetalhe = InicioDoBalcao.FaltasECancelamentos(resumo.Faltas, resumo.Cancelados);
-
-            // ===== Próximos a chegar =====
             _proximos = InicioDoBalcao.Proximos(doDia, confirmacoes ?? new Dictionary<int, RespostaDeConfirmacao>(), agora);
             _resumoProximos = InicioRecepcaoTela.ResumoProximos(_proximos.Count);
+            _naoVerificado = false;
+            _carregou = true;
+            StateHasChanged();
+
+            var pendencias = await lerPendencias;
+            var amanha = await lerAmanha;
+            var retornos = await lerRetornos;
+            var acompanhamento = await lerAcompanhamento;
+            var aniversarios = await lerAniversarios;
+
+            if (geracao != _geracao || Descartada) return;
 
             // ===== O que resolver no balcão =====
             _guias = pendencias is null ? null : InicioRecepcaoTela.GuiasDoSegundoCodigo(pendencias);
@@ -350,9 +378,7 @@
 
             _aniversariantes = aniversarios?.Select(InicioRecepcaoTela.Aniversariante).ToList();
             _rodapeAniversario = InicioRecepcaoTela.RodapeAniversarios(_aniversariantes?.Count);
-
-            _naoVerificado = false;
-            _carregou = true;
+            _balcaoLido = true;
         }
         catch (Exception ex)
         {
@@ -381,6 +407,18 @@
             Clinica.Application.Diagnostico.Registrar($"Blazor — Início da Recepção: {oque} não pôde ser lido", ex);
             return seFalhar;
         }
+    }
+
+    /// <summary>
+    /// Leitura que depende de outra: começa quando a de que ela depende chega. Se aquela falhou,
+    /// esta não roda e devolve o "não lido" — a falha já é tratada (e registrada) por quem a espera.
+    /// </summary>
+    private static async Task<T> Depois<TAntes, T>(Task<TAntes> antes, Func<TAntes, Task<T>> leitura, string oque, T seFalhar)
+    {
+        TAntes valor;
+        try { valor = await antes; }
+        catch { return seFalhar; }
+        return await Tentar(() => leitura(valor), oque, seFalhar);
     }
 
     /// <summary>Para onde leva cada contador. As guias abrem a lista AQUI (nulo).</summary>

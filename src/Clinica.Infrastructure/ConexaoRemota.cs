@@ -19,7 +19,16 @@ namespace Clinica.Infrastructure;
 public static class ConexaoRemota
 {
     /// <summary>Conexões que ficam abertas mesmo ociosas.</summary>
-    public const int MinimoNoPool = 2;
+    public const int MinimoNoPool = 4;
+
+    /// <summary>
+    /// Conexões abertas na abertura do app, enquanto a pessoa digita o login: as leituras que a
+    /// primeira tela dispara ao mesmo tempo (<see cref="LeituraParalela.Vagas"/> +
+    /// <see cref="LeituraParalela.VagasDeDentro"/>). As acima do mínimo ficam ociosas por
+    /// <see cref="OciosaSegundos"/> e depois fecham — o servidor tem max_connections = 60
+    /// (docs/banco-na-vps.md), e só o mínimo fica preso o dia inteiro.
+    /// </summary>
+    public const int AquecidasNaAbertura = LeituraParalela.Vagas + LeituraParalela.VagasDeDentro;
 
     /// <summary>Segundos entre os pacotes de keepalive — curto o bastante para NAT e firewall não derrubarem a conexão ociosa.</summary>
     public const int KeepAliveSegundos = 30;
@@ -93,7 +102,7 @@ public static class ConexaoRemota
         var conexoes = new List<NpgsqlConnection>();
         try
         {
-            for (var i = 0; i < MinimoNoPool; i++) conexoes.Add(new NpgsqlConnection(connectionString));
+            for (var i = 0; i < AquecidasNaAbertura; i++) conexoes.Add(new NpgsqlConnection(connectionString));
             await Task.WhenAll(conexoes.Select(c => c.OpenAsync(ct)));
         }
         catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Aquecimento do pool de conexões", ex); }
