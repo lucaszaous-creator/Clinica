@@ -1,0 +1,242 @@
+@*
+  MINHA SEMANA — a semana de quem atende (out/2026: migrada do MinhaSemanaView/ViewModel WPF; a
+  aba "Semana" do item "Minha agenda", chave "consultorio-semana").
+
+  A mesma LINHA DO TEMPO da agenda do balcão (parcela 69): o vazio tem tamanho, a sessão longa
+  cobre as faixas dela, cancelado fica marcado sem cobrir nada, e férias/feriado escrevem o
+  motivo no vão. É LEITURA que leva à ação: não marca horário (quem marca é o balcão) — mostra
+  a carga e abre o paciente de qualquer sessão. A grade é GradeSemana (Application, pura, com
+  teste); cabeçalhos, período, resumo e filtro são MinhaSemanaNaTela e FiltroDaAgendaNaTela.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@using System.Globalization
+@inherits TelaBase
+
+<div class="pagina con-semana @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Consultório · Minha agenda" Titulo="Minha semana"
+                     Subtitulo="@(_carregou ? $"{_profissional} · {_periodo}" : "Quando eu tenho espaço? A carga dos sete dias, com férias e feriados escritos.")">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    @if (_carregou && _resumo.Length > 0)
+    {
+        <p class="con-contexto">@_resumo</p>
+    }
+    @if (_listaDaClinica && _motivoDaLista is { Length: > 0 } motivo)
+    {
+        <p class="con-contexto">@motivo</p>
+    }
+
+    <section class="cartao con-navegador" aria-label="Semana da agenda">
+        <button type="button" class="botao icone" @onclick="() => IrParaAsync(_referencia.AddDays(-7))" title="Semana anterior" aria-label="Semana anterior"><Icone Nome="esquerda" /></button>
+        <div class="con-dia-titulo">
+            <strong>@(_periodo.Length > 0 ? _periodo : "Semana")</strong>
+            <input class="campo con-data" type="date" aria-label="Escolher um dia da semana"
+                   value="@_referencia.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" @onchange="EscolherDiaAsync" />
+        </div>
+        <button type="button" class="botao icone" @onclick="() => IrParaAsync(_referencia.AddDays(7))" title="Próxima semana" aria-label="Próxima semana"><Icone Nome="direita" /></button>
+        <button type="button" class="botao fantasma mini" @onclick="() => IrParaAsync(Hoje)">Esta semana</button>
+    </section>
+
+    <FiltroDaAgendaDoPosto Filtro="_filtro" Recorte="_recorte" FiltroChanged="MudarFiltro" />
+
+    <section class="cartao lista-cartao cs-quadro">
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível montar a semana" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="320" /></div>
+        }
+        else if (_vazia)
+        {
+            <EstadoVazio Titulo="Nenhum horário nesta semana" Icone="calendario"
+                         Descricao="Os horários aparecem aqui assim que a recepção marcar." />
+        }
+        else if (_recorte.SemResultado)
+        {
+            <EstadoVazio Titulo="Nenhum paciente corresponde aos filtros" Icone="filtro"
+                         Descricao="Confira o nome, a modalidade ou a situação escolhida, ou use Limpar filtros." />
+        }
+        else
+        {
+            <div class="cs-grade" role="table" aria-label="Agenda da semana">
+                <div class="cs-faixa cs-cabecalho" role="row">
+                    <span class="cs-regua" aria-hidden="true"></span>
+                    @foreach (var c in _cabecalhos)
+                    {
+                        <div class="cs-dia @(c.EhHoje ? "cs-hoje" : null)" role="columnheader">
+                            <strong>@c.Titulo @c.Subtitulo</strong>
+                            <span class="secundario">@c.Resumo</span>
+                        </div>
+                    }
+                </div>
+                @foreach (var f in _faixas)
+                {
+                    <div class="cs-faixa @(f.HoraCheia ? "cs-cheia" : null)" role="row">
+                        <span class="cs-regua">@f.Rotulo</span>
+                        @foreach (var celula in f.Celulas)
+                        {
+                            <div class="cs-celula" role="cell">
+                                @if (celula.Continuacao) { <i class="cs-continuacao" aria-hidden="true"></i> }
+                                @if (celula.MostrarBloqueio) { <span class="cs-bloqueio" title="@celula.Bloqueio">@celula.Bloqueio</span> }
+                                @foreach (var s in celula.Sessoes.Where(Visivel))
+                                {
+                                    <button type="button" class="cs-cartao grupo-@s.GrupoVisual @(s.ForaDoDia ? "cs-fora" : null)"
+                                            title="@($"{s.PacienteNome} · {s.Modalidade}")" @onclick="() => AbrirAsync(s)">
+                                        <span class="cs-nome">@s.PacienteNome</span>
+                                        <span class="cs-modalidade">@s.Modalidade</span>
+                                        @if (s.RegistroPendente || s.ForaDoDia)
+                                        {
+                                            <span class="cs-selos">
+                                                @if (s.RegistroPendente) { <Selo Tom="aviso">Sem evolução</Selo> }
+                                                @if (s.ForaDoDia) { <Selo Tom="neutro">Não aconteceu</Selo> }
+                                            </span>
+                                        }
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        <LegendaFamilias ComGrade="true" />
+    </section>
+</div>
+
+@code {
+    private DateOnly _referencia = DateOnly.FromDateTime(DateTime.Today);
+    private IReadOnlyList<FaixaSemana> _faixas = [];
+    private IReadOnlyList<CabecalhoDiaDaSemana> _cabecalhos = [];
+    private IReadOnlyList<ItemDaAgendaDoPosto> _itens = [];
+    private FiltroAgendaDoPosto _filtro = new();
+    private RecorteAgendaDoPosto _recorte = FiltroDaAgendaNaTela.Recortar([], new());
+
+    private string _profissional = string.Empty;
+    private string _periodo = string.Empty;
+    private string _resumo = string.Empty;
+    private bool _vazia = true;
+    private bool _listaDaClinica;
+    private string? _motivoDaLista;
+
+    private bool _carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private IPostoDoConsultorio Posto => Servicos.GetService<IPostoDoConsultorio>() ?? PostoDoConsultorioIndisponivel.Instancia;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Voltou à aba: relê por trás, sem esqueleto e sem apagar a grade (falha só no log).</summary>
+    protected override Task AoVoltarAsync() => _carregando ? Task.CompletedTask : CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// Lê a semana e os bloqueios num escopo próprio, com contador de geração (as setas disparam
+    /// uma carga por clique, e a semana anterior chegando por último mostraria as sessões de uma
+    /// semana sob o período de outra). Monta e só ENTÃO publica.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        var geracao = ++_geracao;
+        var referencia = _referencia;
+        if (!silencioso) _carregando = true;
+        try
+        {
+            var sessao = SessaoUsuario.Atual;
+            var profissionalId = PostoDoConsultorioNaTela.ProfissionalDaLista(sessao);
+            var motivo = PostoDoConsultorioNaTela.MotivoDaLista(sessao);
+
+            using var escopo = Escopo();
+            var semana = await escopo.ServiceProvider.GetRequiredService<ConsultorioService>().DaSemanaAsync(referencia, profissionalId);
+            if (geracao != _geracao || Descartada) return;
+
+            // Os bloqueios entram na MESMA carga: férias e feriado eram invisíveis aqui. Falhar não
+            // derruba a semana — a grade sai sem os avisos de fechamento —, mas não passa calado.
+            IReadOnlyList<BloqueioAgenda> bloqueios;
+            try
+            {
+                bloqueios = await escopo.ServiceProvider.GetRequiredService<BloqueioAgendaService>().NoPeriodoAsync(
+                    semana.Inicio.ToDateTime(TimeOnly.MinValue), semana.Fim.AddDays(1).ToDateTime(TimeOnly.MinValue));
+            }
+            catch (Exception ex)
+            {
+                bloqueios = [];
+                Clinica.Application.Diagnostico.Registrar("Consultório — bloqueios da semana não puderam ser lidos", ex);
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _faixas = GradeSemana.Montar(semana, bloqueios, DateTime.Now).Faixas;
+            _cabecalhos = MinhaSemanaNaTela.Cabecalhos(semana, Hoje);
+            _itens = MinhaSemanaNaTela.ItensDoFiltro(semana);
+            _profissional = semana.ProfissionalNome;
+            _periodo = MinhaSemanaNaTela.Periodo(semana);
+            _resumo = MinhaSemanaNaTela.Resumo(semana);
+            _vazia = semana.Sessoes == 0;
+            _listaDaClinica = profissionalId is null;
+            _motivoDaLista = motivo;
+            _naoVerificado = false;
+            _carregou = true;
+            _recorte = FiltroDaAgendaNaTela.Recortar(_itens, _filtro);
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — a semana não pôde ser carregada", ex);
+            if (silencioso) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private bool Visivel(SessaoDoDia s) => FiltroDaAgendaNaTela.Aceitar(_filtro, s.PacienteNome, s.Modalidade, s.GrupoVisual);
+
+    private void MudarFiltro(FiltroAgendaDoPosto f) { _filtro = f; _recorte = FiltroDaAgendaNaTela.Recortar(_itens, _filtro); }
+
+    private Task IrParaAsync(DateOnly referencia)
+    {
+        _referencia = referencia;
+        _carregou = false;
+        return CarregarAsync();
+    }
+
+    private Task EscolherDiaAsync(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+            ? IrParaAsync(d)
+            : Task.CompletedTask;
+
+    /// <summary>Abre o paciente da sessão — a semana é leitura, e daqui se entra no caso.</summary>
+    private async Task AbrirAsync(SessaoDoDia s)
+    {
+        // A tela do paciente exige VerProntuario, e sem o bit a navegação falharia calada.
+        if (!Pode(Permissao.VerProntuario)) { Notificacoes.Erro(MinhaSemanaNaTela.FraseSemPermissao); return; }
+        if (!Posto.Disponivel) { Notificacoes.Info(PostoDoConsultorioIndisponivel.Frase); return; }
+        try
+        {
+            var abriu = await Posto.AbrirNoPostoAsync(
+                new PacienteNoPosto(s.PacienteId, s.PacienteNome, s.AgendamentoId, null, DateOnly.FromDateTime(s.DataHora)),
+                DestinoNoPosto.Paciente);
+            if (!abriu) Notificacoes.Info("O prontuário deste paciente não está disponível neste aplicativo.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — o paciente da semana não pôde ser aberto", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+}

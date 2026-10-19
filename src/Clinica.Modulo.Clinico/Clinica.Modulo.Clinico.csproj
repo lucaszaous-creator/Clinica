@@ -25,6 +25,10 @@
     <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
     <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
     <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+    <!-- Telas Blazor (out/2026): Meu dia, Minha semana, Sessões sem evolução e Meus números —
+         o navegador único da janela (o mesmo dos outros módulos) + as telas do Clinica.Ui.Blazor. -->
+    <ProjectReference Include="..\Clinica.Desktop.Blazor\Clinica.Desktop.Blazor.csproj" />
+    <ProjectReference Include="..\Clinica.Ui.Blazor\Clinica.Ui.Blazor.csproj" />
   </ItemGroup>
 
 </Project>

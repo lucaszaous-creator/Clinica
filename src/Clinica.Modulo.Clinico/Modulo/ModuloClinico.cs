@@ -598,16 +598,18 @@ public sealed class ModuloClinico : IModuloApp
         // clínicas o leem na abertura. Ver PacienteEmFoco.
         servicos.AddSingleton<PacienteEmFoco>();
 
-        servicos.AddTransient<MeuDiaViewModel>();
+        // As telas do posto (Meu dia, Minha semana, Sessões sem evolução, Meus números) são
+        // BLAZOR desde out/2026: a hospedagem é a MESMA dos outros módulos (um navegador por
+        // janela, idempotente), e a ponte até o prontuário WPF é o PostoDoConsultorioWpf.
+        Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IPostoDoConsultorio, PostoDoConsultorioWpf>();
+
         servicos.AddTransient<SessoesEnfermagemViewModel>();
         servicos.AddTransient<Clinica.Infrastructure.SessoesEnfermagemService>();
-        servicos.AddTransient<RegistrosPendentesViewModel>();
-        servicos.AddTransient<MinhaSemanaViewModel>();
         servicos.AddTransient<PrescricoesClinicasViewModel>();
         servicos.AddTransient<PrescricaoInfusaoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
-        servicos.AddTransient<MeusNumerosViewModel>();
         servicos.AddTransient<AtendimentoViewModel>();
         servicos.AddTransient<AtendimentoEnfermagemViewModel>();
         servicos.AddTransient<PacienteCapaViewModel>();
@@ -629,18 +631,12 @@ public sealed class ModuloClinico : IModuloApp
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChaveSessoesEnfermagem => new SessoesEnfermagemView { DataContext = servicos.GetRequiredService<SessoesEnfermagemViewModel>() },
-        ChaveMeuDia => new MeuDiaView { DataContext = servicos.GetRequiredService<MeuDiaViewModel>() },
+        ChaveMeuDia => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MeuDia), servicos),
         ChavePacientesDaClinica => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(1),
         ChaveProntuarios => new ProntuariosView { DataContext = servicos.GetRequiredService<ProntuariosViewModel>() },
         ChaveExames => new ExamesView { DataContext = servicos.GetRequiredService<ExamesViewModel>() },
-        ChaveRegistrosPendentes => new RegistrosPendentesView
-        {
-            DataContext = servicos.GetRequiredService<RegistrosPendentesViewModel>()
-        },
-        ChaveMinhaSemana => new MinhaSemanaView
-        {
-            DataContext = servicos.GetRequiredService<MinhaSemanaViewModel>()
-        },
+        ChaveRegistrosPendentes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SessoesSemEvolucao), servicos),
+        ChaveMinhaSemana => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MinhaSemana), servicos),
         ChaveMedicamentos => new MedicamentosView(servicos.GetRequiredService<IServiceScopeFactory>()),
         ChavePrescricoes => new PrescricoesClinicasView
         {
@@ -658,10 +654,7 @@ public sealed class ModuloClinico : IModuloApp
         {
             DataContext = servicos.GetRequiredService<EnfermagemViewModel>()
         },
-        ChaveMeusNumeros => new MeusNumerosView
-        {
-            DataContext = servicos.GetRequiredService<MeusNumerosViewModel>()
-        },
+        ChaveMeusNumeros => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MeusNumeros), servicos),
 
         // A tela do paciente, e as chaves clínicas que caem nela — cada uma na sua
         // seção (ver AbaDe).

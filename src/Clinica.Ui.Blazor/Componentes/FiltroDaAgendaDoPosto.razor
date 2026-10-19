@@ -1,0 +1,51 @@
+@using Clinica.Application.Modelos
+@*
+  A BUSCA DA AGENDA do posto: nome, modalidade e situação (out/2026 — era a FiltroDaAgendaView
+  WPF). UM componente para o Meu dia e a Minha semana: as duas telas filtram a mesma agenda, e
+  duas barras escritas à mão divergiriam na primeira correção. A regra (cada palavra no nome sem
+  acento, as contagens das pílulas ANTES do clique, o resumo) é a FiltroDaAgendaNaTela, com
+  teste; aqui só se desenha e se devolve o filtro novo a quem hospeda.
+*@
+<div class="filtro-posto" role="search">
+    <div class="fp-linha">
+        <label class="busca fp-busca">
+            <Icone Nome="busca" />
+            <input class="campo" type="search" placeholder="Buscar paciente pelo nome" aria-label="Buscar paciente"
+                   value="@Filtro.Busca" @oninput="Buscar" maxlength="80" />
+        </label>
+        <select class="campo fp-combo" aria-label="Filtrar por modalidade"
+                value="@(Filtro.Modalidade ?? FiltroDaAgendaNaTela.TodasAsModalidades)" @onchange="EscolherModalidade">
+            @foreach (var m in Recorte.Modalidades) { <option value="@m">@m</option> }
+        </select>
+        <button type="button" class="botao" disabled="@(!Filtro.TemFiltros)" @onclick="Limpar">Limpar filtros</button>
+    </div>
+    <div class="fp-situacoes" role="group" aria-label="Situação — clique para filtrar">
+        @foreach (var o in Recorte.Situacoes)
+        {
+            <button type="button" class="fp-pilula grupo-@o.Chave" aria-pressed="@(o.Marcada ? "true" : "false")"
+                    @onclick="() => EscolherSituacao(o.Chave)" title="@(o.Chave == "todos" ? "Todas as situações" : $"Mostrar só: {o.Rotulo}")">
+                <i class="fp-ponto" aria-hidden="true"></i><span>@o.Rotulo</span><b>@o.Contagem</b>
+            </button>
+        }
+    </div>
+    @if (Recorte.Resumo.Length > 0)
+    {
+        <p class="fp-resumo">@Recorte.Resumo</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public FiltroAgendaDoPosto Filtro { get; set; } = new();
+    [Parameter, EditorRequired] public RecorteAgendaDoPosto Recorte { get; set; } = FiltroDaAgendaNaTela.Recortar([], new());
+    [Parameter] public EventCallback<FiltroAgendaDoPosto> FiltroChanged { get; set; }
+
+    private Task Mudar(FiltroAgendaDoPosto novo) => FiltroChanged.InvokeAsync(novo);
+
+    private Task Buscar(ChangeEventArgs e) => Mudar(Filtro with { Busca = e.Value?.ToString() ?? string.Empty });
+
+    private Task EscolherModalidade(ChangeEventArgs e) => Mudar(Filtro with { Modalidade = e.Value?.ToString() });
+
+    private Task EscolherSituacao(string chave) => Mudar(FiltroDaAgendaNaTela.EscolherSituacao(Filtro, chave));
+
+    private Task Limpar() => Mudar(new FiltroAgendaDoPosto());
+}

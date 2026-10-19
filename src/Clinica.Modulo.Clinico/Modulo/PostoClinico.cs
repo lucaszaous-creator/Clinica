@@ -35,7 +35,9 @@ namespace Clinica.Clinico.Modulo;
 /// <c>net8.0-windows</c> e não compila no projeto de teste, e regra que o
 /// <c>dotnet test</c> não alcança apodrece sem ninguém notar. É a mesma razão que pôs a
 /// grade da semana na Application (parcela 69) e o aviso do registro de execução dentro
-/// do domínio do PDF (parcela 68).
+/// do domínio do PDF (parcela 68). Desde out/2026 a camada do PERFIL (enfermagem vale como
+/// enfermagem mesmo com um bit extra) também desceu — <c>PostoDoConsultorioNaTela</c>, na
+/// Application —, porque as telas do posto viraram Blazor e precisam da MESMA resposta.
 /// </summary>
 public static class PostoClinico
 {
@@ -44,8 +46,7 @@ public static class PostoClinico
     /// inteira</b>.
     /// </summary>
     public static int? ProfissionalDaLista()
-        => SessaoUsuario.Atual.Perfil == PerfilAcesso.Enfermagem ? null : PerfisAcesso.ProfissionalDaListaDoPosto(
-            SessaoUsuario.Atual.Efetivas, SessaoUsuario.Atual.ProfissionalId);
+        => Clinica.Application.Modelos.PostoDoConsultorioNaTela.ProfissionalDaLista(SessaoUsuario.Atual);
 
     /// <summary>
     /// A lista mostrada é a da clínica, e não a de uma pessoa.
@@ -58,8 +59,7 @@ public static class PostoClinico
 
     /// <summary>POR QUE a lista é a da clínica — <c>null</c> quando ela não é.</summary>
     public static string? MotivoDaListaAmpla()
-        => PerfisAcesso.MotivoDaListaDoPosto(
-            SessaoUsuario.Atual.Efetivas, SessaoUsuario.Atual.ProfissionalId);
+        => Clinica.Application.Modelos.PostoDoConsultorioNaTela.MotivoDaLista(SessaoUsuario.Atual);
 
     /// <summary>
     /// Para onde o <b>Atender</b> leva — a seção de escrita de QUEM está clicando.
@@ -74,7 +74,7 @@ public static class PostoClinico
     /// seções de leitura): o que muda é a seção que abre.
     /// </summary>
     public static string ChaveDoAtendimento()
-        => (SessaoUsuario.Atual.Perfil == PerfilAcesso.Enfermagem || PerfisAcesso.EscreveComoEnfermagem(SessaoUsuario.Atual.Efetivas))
+        => Clinica.Application.Modelos.PostoDoConsultorioNaTela.AtendimentoDeEnfermagem(SessaoUsuario.Atual)
             ? ModuloClinico.ChaveAtendimentoEnfermagem
             : ModuloClinico.ChaveAtendimento;
 }
