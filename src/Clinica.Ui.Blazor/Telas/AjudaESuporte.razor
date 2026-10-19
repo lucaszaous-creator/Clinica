@@ -1,0 +1,62 @@
+@*
+  AJUDA E SUPORTE (out/2026 — migrada da AjudaView WPF do shell).
+
+  Os QUATRO módulos publicam a MESMA chave (ChavesSuite.Ajuda) e a dedupe do shell funde as
+  publicações numa linha só no Gerente Geral. Duas decisões de conteúdo herdadas da WPF:
+  1. TODA resposta afirma só o que o sistema FAZ — texto de ajuda não compila contra nada, e
+     frase que descreve um botão que não existe é a garantia aparente em prosa. Por isso as
+     respostas falam de REGRAS estáveis, não de contagens nem de leiaute.
+  2. NÃO há telefone nem e-mail de suporte: contato inventado numa tela de produção é o
+     defeito dos dados de exemplo. O que a tela entrega é onde fica o registro técnico.
+  A tela não lê nada do banco; ela é texto.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<div class="pagina ajuda">
+    <CabecalhoPagina Sobretitulo="Suporte" Titulo="Ajuda e suporte"
+                     Subtitulo="As dúvidas mais comuns do dia a dia, e o que fazer quando algo der errado. O que não estiver aqui, pergunte à direção da clínica." />
+
+    <section class="cartao ajuda-perguntas">
+        @foreach (var (pergunta, resposta, aberta) in Perguntas)
+        {
+            <details class="ajuda-item" open="@aberta">
+                <summary>@pergunta</summary>
+                <p>@resposta</p>
+            </details>
+        }
+    </section>
+
+    <section class="cartao ajuda-falha">
+        <h3>Quando algo der errado</h3>
+        <p>Falha nunca aparece como sucesso: quando uma leitura não pôde ser feita, a tela mostra “não foi possível verificar” em vez de zeros — um painel dizendo “nenhuma pendência” por causa de uma consulta quebrada seria pior do que um painel que avisa. Se aparecer esse estado, use Atualizar; persistindo, é problema de conexão ou defeito, nunca “não há nada”.</p>
+        <p>Para relatar um problema técnico: anote a hora em que aconteceu e o que estava sendo feito. O sistema guarda um registro técnico em arquivos mensais (erros-ano-mês.txt) na pasta “logs”, ao lado de onde o aplicativo está instalado — e, quando não pode gravar ali, em ClinicaSemDor\logs dentro da pasta do usuário (AppData). É esse arquivo que diz a causa exata, e é o que o suporte vai pedir.</p>
+    </section>
+</div>
+
+@code {
+    private static readonly (string Pergunta, string Resposta, bool Aberta)[] Perguntas =
+    [
+        ("Por que um número aparece como “—” em vez de zero?",
+         "O traço quer dizer “não medido”: a métrica não teve base de cálculo naquele período — um dia sem horário concluído não tem taxa de falta, um mês sem faturamento não tem margem. 0% e “não medido” são coisas diferentes, e o sistema nunca troca um pelo outro; nas planilhas exportadas o traço sai igual, para a média do Excel não ser calculada sobre um número que não existe.",
+         true),
+        ("Não encontro um item de menu que deveria existir",
+         "O menu só mostra o que o seu acesso alcança: item que exige uma permissão que o seu usuário não tem simplesmente não aparece. Quem concede é a direção, na tela de Acessos — cada permissão pode ser liberada a uma pessoa específica, num clique, sem mudar o perfil dos colegas. Cada aplicativo também carrega só os módulos do seu posto: uma tela pode existir no Gerente Geral e não existir no aplicativo da Recepção.",
+         false),
+        ("Como fechar a agenda para férias ou feriado?",
+         "Na Agenda, use “Fechar agenda…”: o período fica marcado como fechado e a grade mostra o motivo. Fechar não desmarca ninguém — quem já estava marcado dentro do período é devolvido para a recepção remarcar, porque sessão que some sem ninguém avisar o paciente é pior do que o choque de horário. A agenda avisa, e quem decide marcar mesmo assim é a recepção.",
+         false),
+        ("Como dar baixa em uma guia de convênio?",
+         "Dar baixa — registrar que a guia foi efetivada no sistema do convênio — é ato do aplicativo de Faturamento; no Gerente Geral, a fila de Pendências também baixa. O número da guia é conferido contra o formato daquele convênio enquanto você digita (a Unimed só numera com dígitos, por exemplo), para o “O” no lugar do zero não passar e só aparecer no retorno da operadora, semanas depois.",
+         false),
+        ("O convênio glosou uma guia — e agora?",
+         "Registre a glosa no aplicativo de Faturamento (Controle de glosas), que monta o recurso e mostra o que mais glosa nesta clínica e como evitar. Cada glosa ganha uma data-limite de recurso vigiada no painel — passado o prazo, não é mais pendência, é prejuízo consumado. A leitura consolidada fica no Gerente Geral.",
+         false),
+        ("Como exportar dados para o Excel?",
+         "As telas com o botão “Exportar” geram planilha CSV pronta para o Excel em português — ela abre com as colunas separadas e a acentuação certa. Os lotes TISS exportam XML no padrão ANS. Métrica sem base de cálculo sai como “—” na planilha, igual à tela.",
+         false),
+        ("O sistema recusou uma ação. Onde vejo o porquê?",
+         "A recusa aparece escrita perto do botão que a causou, e sempre diz o motivo — botão que fica apagado também está dizendo que falta algo (permissão, paciente escolhido, campo obrigatório). Algumas ações pedem justificativa escrita por desenho: divergência no fechamento de caixa, perda de estoque, cancelamento de registro clínico. A justificativa fica guardada e aparece na trilha de auditoria — é ela que responde “quem fez isso, e por quê” depois.",
+         false),
+    ];
+}

@@ -675,7 +675,7 @@ public sealed class ModuloClinico : IModuloApp
             },
 
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
-        ChaveAjuda => new AjudaView(),
+        ChaveAjuda => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AjudaESuporte), servicos),
 
         _ => null
     };

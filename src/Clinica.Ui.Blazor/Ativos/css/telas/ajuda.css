@@ -1,0 +1,11 @@
+/* Estilo próprio da tela (ajuda). Só tokens — ver docs/telas-blazor.md. */
+
+.ajuda .cartao{max-width:860px}
+.ajuda-perguntas{display:flex;flex-direction:column;gap:var(--space-1)}
+.ajuda-item{border-bottom:1px solid var(--borda);padding:var(--space-2) 0}
+.ajuda-item:last-child{border-bottom:none}
+.ajuda-item summary{cursor:pointer;font-weight:600;color:var(--texto-primario);padding:var(--space-1) 0;list-style-position:outside}
+.ajuda-item summary:hover{color:var(--acento)}
+.ajuda-item p,.ajuda-falha p{color:var(--texto-secundario);line-height:1.5;margin:var(--space-2) 0 var(--space-2)}
+.ajuda-falha{margin-top:var(--space-4)}
+.ajuda-falha h3{margin:0 0 var(--space-2)}

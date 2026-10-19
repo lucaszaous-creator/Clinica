@@ -247,7 +247,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveTaxas => Blazor(typeof(Clinica.Ui.Blazor.Telas.TaxasEImpostos), servicos),
         ChavePlanoContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.PlanoDeContas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
-        ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),
+        ChaveAjuda => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AjudaESuporte), servicos),
         _ => null
     };
 
