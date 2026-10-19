@@ -1,0 +1,1030 @@
+@*
+  A GRADE DA AGENDA (out/2026 — migrada do AgendaView/AgendaViewModel WPF; a aba "Grade" do item
+  Agenda, chave "agenda-recepcao").
+
+  Agenda é LINHA DO TEMPO (parcela 58): uma coluna por profissional (ou por sala, ou por dia na
+  semana), as faixas descendo pela régua, e o VÃO tem tamanho — e é clicável: o clique leva à aba
+  Marcar já no dia, na hora, no profissional e na sala apontados (redigitar é onde a hora sai
+  errada). A sessão de uma hora cobre a meia hora seguinte (continuação); cancelado e falta ficam
+  apagados e o vão volta a ser oferecido; o fechamento (férias, feriado) é HACHURADO com o
+  motivo escrito; o fora do expediente aparece pela jornada declarada; a linha do agora marca a
+  faixa de hoje. Desde set/2026 NADA disso impede marcar — a agenda AVISA (o "+" do horário
+  ocupado e o vão fechado continuam clicáveis, salvo a trava do profissional).
+
+  Nada de regra aqui: colunas, faixas, blocos, raias, vagas, frases e a busca moram em
+  GradeDaAgendaNaTela (Application, com teste). As sete ações do horário moram no
+  HorarioDaAgendaForm (dono só); a lista de espera no ListaEsperaPainelForm; marcar é a aba
+  Marcar (IAgendaDaVisaoGeral) com o AgendamentoForm como FALLBACK para quem só tem EditarAgenda
+  (a regra 3 do faturamento: a unificação não tira capacidade).
+
+  Releitura: o relógio de 1 min (só HOJE, só no modo DIA, nunca por cima de uma carga no ar),
+  o aviso do banco (IAvisosDoBanco) e a volta à aba (AoVoltarAsync) — os três silenciosos.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Regras
+@inherits TelaBase
+
+<div class="pagina rec-grade @(_carregando && _leitura is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Agenda" Titulo="Grade de horários"
+                     Subtitulo="@GradeDaAgendaNaTela.ResumoDoPlanejamento(ProfissionalDoFiltro?.Rotulo, _duracao)">
+        <button type="button" class="botao" @onclick="AbrirEspera"
+                title="Quando um horário vaga, é aqui que está quem chamar"><Icone Nome="relogio" />@GradeDaAgendaNaTela.RotuloDaEspera(_sugestaoPara, _esperaQuantos)</button>
+        <span class="rg-menu">
+            <button type="button" class="botao" aria-expanded="@Bool(_menuAberto)" @onclick="() => _menuAberto = !_menuAberto"
+                    title="Confirmar amanhã, conferir atendimentos, imprimir a folha, fechar a agenda">Mais ações<Icone Nome="abaixo" /></button>
+            @if (_menuAberto)
+            {
+                <span class="rg-menu-lista" role="menu">
+                    <button type="button" role="menuitem" @onclick="ConfirmarAmanhaAsync">Confirmar as sessões de amanhã…</button>
+                    <button type="button" role="menuitem" @onclick="Conciliar">Conferir atendimentos (horários parados)…</button>
+                    <button type="button" role="menuitem" @onclick="ImprimirFolhaAsync">Imprimir a folha do dia</button>
+                    <hr />
+                    <button type="button" role="menuitem" disabled="@(!PodeEditar)" @onclick="FecharAgenda"
+                            title="@(PodeEditar ? null : "Seu acesso não permite fechar a agenda.")">Fechar a agenda (férias, feriado, folga)…</button>
+                </span>
+            }
+        </span>
+        <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="AbrirHorarios"
+                title="@(PodeEditar ? "O horário de atendimento e a trava de cada profissional" : "Seu acesso não permite configurar horários.")"><Icone Nome="ajustes" />Horários e travas</button>
+        <button type="button" class="botao primario" disabled="@(!PodeEditar)" @onclick="NovoHorarioAsync"
+                title="@(PodeEditar ? "Marcar um horário neste dia" : "Seu acesso não permite marcar horário.")"><Icone Nome="mais" />Marcar atendimento</button>
+    </CabecalhoPagina>
+
+    <section class="cartao rg-filtros" aria-label="Filtros da grade">
+        <label class="rg-campo rg-largo">
+            <span class="campo-rotulo">Profissional</span>
+            <select class="campo" aria-label="Profissional da agenda" value="@ValorDe(_profissional)" @onchange="TrocarProfissionalAsync">
+                <option value="">Todos os profissionais</option>
+                @foreach (var p in _profissionais) { <option value="@p.Id">@p.Rotulo</option> }
+            </select>
+        </label>
+        <label class="rg-campo">
+            <span class="campo-rotulo">Atendimento</span>
+            <select class="campo" aria-label="Modalidade para agendar" value="@(_modalidade ?? "")" @onchange="TrocarModalidade">
+                @foreach (var mo in _modalidades) { <option value="@mo.Codigo">@mo.Nome</option> }
+            </select>
+        </label>
+        <label class="rg-campo rg-curto">
+            <span class="campo-rotulo">Duração (min)</span>
+            <input class="campo" inputmode="numeric" maxlength="3" aria-label="Duração para consultar vagas" value="@_duracao" @oninput="TrocarDuracao" />
+        </label>
+        <label class="rg-campo">
+            <span class="campo-rotulo">Sala</span>
+            <select class="campo" aria-label="Sala da agenda" value="@ValorDe(_sala)" @onchange="TrocarSalaAsync">
+                <option value="">Sem filtrar sala</option>
+                @foreach (var s in _salas) { <option value="@s.Id">@s.Nome</option> }
+            </select>
+        </label>
+        <button type="button" class="botao rg-buscar" disabled="@_buscandoVagas" @onclick="BuscarVagasAsync">Próximas vagas</button>
+    </section>
+
+    @if (_leitura is not null && _grade.DisponibilidadeNaoVerificada)
+    {
+        <div class="rg-faixa info" role="status">
+            <div><strong>Disponibilidade não verificada</strong><span>@_ultimaLeitura</span></div>
+            <button type="button" class="botao" @onclick="() => CarregarAsync()">Tentar novamente</button>
+        </div>
+    }
+    <Aviso Tom="@(_mensagemEhErro ? "erro" : "info")" Texto="@_mensagem" />
+
+    <div class="rg-corpo @(_modoSemana ? "semana" : null)">
+        <aside class="cartao rg-lateral rg-calendario" aria-label="Calendário">
+            <div class="rg-mes">
+                <button type="button" class="botao icone mini" @onclick="() => AndarMes(-1)" aria-label="Mês anterior" title="Mês anterior"><Icone Nome="esquerda" /></button>
+                <strong>@Formato.Mes(_mesDoCalendario)</strong>
+                <button type="button" class="botao icone mini" @onclick="() => AndarMes(1)" aria-label="Próximo mês" title="Próximo mês"><Icone Nome="direita" /></button>
+            </div>
+            <div class="rg-dias" role="grid">
+                @foreach (var d in new[] { "seg", "ter", "qua", "qui", "sex", "sáb", "dom" }) { <span class="rg-dia-nome">@d</span> }
+                @foreach (var d in DiasDoCalendario())
+                {
+                    <button type="button" class="rg-dia @(d.Month != _mesDoCalendario.Month ? "fora" : null) @(d == Hoje ? "hoje" : null) @(Selecionado(d) ? "escolhido" : null)"
+                            @onclick="() => IrParaAsync(d)" aria-label="@d.ToString("dd 'de' MMMM", Formato.PtBr)">@d.Day</button>
+                }
+            </div>
+            <button type="button" class="botao rg-hoje" @onclick="() => IrParaAsync(Hoje)">Ir para hoje</button>
+            <strong class="rg-prof">@(ProfissionalDoFiltro?.Rotulo ?? "Todos os profissionais")</strong>
+            <span class="secundario">@(ProfissionalDoFiltro?.DescricaoJornada ?? "Jornada não informada")</span>
+            <Selo Tom="@(ProfissionalDoFiltro?.AgendaProtegida == true ? "aviso" : "info")">@GradeDaAgendaNaTela.Trava(ProfissionalDoFiltro)</Selo>
+            <hr />
+            <strong>Disponibilidade</strong>
+            <span class="secundario">Ocupado: bloco com a duração completa.</span>
+            <span class="secundario">Disponível: cabe a duração consultada.</span>
+            <span class="secundario">Bloqueado ou fora do expediente: hachurado, com o motivo escrito.</span>
+            <span class="secundario rg-sala-texto">@GradeDaAgendaNaTela.SalaDoPlanejamento(_sala, _salas.FirstOrDefault(s => s.Id == _sala)?.Nome)</span>
+        </aside>
+
+        <section class="cartao rg-centro">
+            <div class="rg-barra">
+                <button type="button" class="botao icone" @onclick="() => AndarAsync(-1)" title="@(_modoSemana ? "Semana anterior" : "Dia anterior")" aria-label="Período anterior"><Icone Nome="esquerda" /></button>
+                <input class="campo rg-data" type="date" aria-label="Data da agenda" value="@_dia.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" @onchange="EscolherDiaAsync" />
+                <button type="button" class="botao icone" @onclick="() => AndarAsync(1)" title="@(_modoSemana ? "Próxima semana" : "Próximo dia")" aria-label="Próximo período"><Icone Nome="direita" /></button>
+                <div class="segmentado" role="group" aria-label="Período">
+                    <button type="button" aria-pressed="@Bool(!_modoSemana)" @onclick="() => TrocarModoAsync(false)">Dia</button>
+                    <button type="button" aria-pressed="@Bool(_modoSemana)" @onclick="() => TrocarModoAsync(true)">Semana</button>
+                </div>
+                <label class="marcar" title="@(_modoSemana ? "A semana já agrupa por dia" : "As colunas passam a ser as salas")">
+                    <input type="checkbox" checked="@_porSala" disabled="@_modoSemana" @onchange="TrocarPorSalaAsync" /> Por sala
+                </label>
+                <button type="button" class="botao icone rg-atualizar" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a agenda"><Icone Nome="atualizar" /></button>
+            </div>
+
+            @if (PedidosPermitidos)
+            {
+                <div class="rg-pedidos" role="status">
+                    <span><strong>Pedidos da enfermagem</strong> · @_resumoPedidos</span>
+                    <button type="button" class="botao mini" @onclick="VerPedidosAsync">Ver pedidos</button>
+                </div>
+            }
+
+            <div class="rg-busca">
+                <div class="rg-busca-linha">
+                    <label class="busca rg-campo-busca">
+                        <Icone Nome="busca" />
+                        <input class="campo" type="search" placeholder="Digite o nome do paciente" aria-label="Buscar paciente pelo nome" value="@_filtro.Busca" @oninput="Buscar" maxlength="80" />
+                    </label>
+                    <select class="campo rg-combo" aria-label="Filtrar por modalidade" value="@(_filtro.Modalidade ?? AgendaDoDiaNaTela.TodasModalidades)" @onchange="FiltrarModalidade">
+                        @foreach (var nomeMod in _recorte.Modalidades) { <option value="@nomeMod">@nomeMod</option> }
+                    </select>
+                    <button type="button" class="botao" disabled="@(!_filtro.TemFiltros)" @onclick="LimparFiltros">Limpar filtros</button>
+                </div>
+                <div class="rg-situacoes" role="group" aria-label="Filtrar por situação">
+                    @foreach (var (chave, rotulo) in AgendaDoDiaNaTela.Situacoes)
+                    {
+                        var n = _recorte.Contagens.TryGetValue(chave, out var q) ? q : 0;
+                        <button type="button" class="rg-pilula grupo-@chave" aria-pressed="@Bool(_filtro.Situacao == chave)" @onclick="() => EscolherSituacao(chave)">
+                            @if (chave != "todos") { <i class="rg-ponto"></i> }
+                            <span>@rotulo</span><b>@n</b>
+                        </button>
+                    }
+                </div>
+                <div class="rg-resumo-busca">
+                    <span>@_recorte.Resumo</span>
+                    <span>Cores indicam a situação do atendimento.</span>
+                </div>
+            </div>
+
+            <div class="rg-area">
+                @if (_naoVerificado)
+                {
+                    <FalhaDeLeitura Titulo="Não foi possível carregar a agenda" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+                }
+                else if (_leitura is null)
+                {
+                    <div class="cartao-corpo"><Esqueleto Altura="320" /></div>
+                }
+                else if (_grade.ColunasVisuais.Count == 0)
+                {
+                    @if (_grade.SemProfissionais && !_porSala)
+                    {
+                        <EstadoVazio Titulo="Nenhum profissional cadastrado" Icone="pessoas"
+                                     Descricao="A grade tem uma coluna por profissional — cadastre a equipe em Profissionais e salas." />
+                    }
+                    else if (_grade.SemSalas && _porSala)
+                    {
+                        <EstadoVazio Titulo="Nenhuma sala cadastrada" Icone="calendario"
+                                     Descricao="A grade por sala tem uma coluna por sala — cadastre as salas em Profissionais e salas, ou volte à grade por profissional." />
+                    }
+                    else
+                    {
+                        <EstadoVazio Titulo="Nenhuma coluna para este filtro" Icone="filtro" Descricao="Confira o profissional ou a sala escolhida." />
+                    }
+                }
+                else
+                {
+                    @if (_recorte.NenhumCorresponde)
+                    {
+                        <div class="rg-faixa atencao" role="status">
+                            <span>Nenhum paciente corresponde aos filtros. Confira o nome, a modalidade ou a situação escolhida.</span>
+                            <button type="button" class="botao" @onclick="LimparFiltros">Limpar filtros</button>
+                        </div>
+                    }
+                    <div class="rg-rolagem">
+                        <div class="rg-grade" style="min-width:@Px(LarguraGrade)">
+                            <div class="rg-regua" style="height:@Px(_grade.Altura + CabecalhoPx)">
+                                @foreach (var h in _grade.Regua)
+                                {
+                                    <span class="rg-hora @(h.HoraCheia ? "cheia" : null)" style="top:@Px(h.Topo + CabecalhoPx)">@h.Rotulo</span>
+                                }
+                            </div>
+                            <div class="rg-colunas" style="grid-template-columns:repeat(@_grade.ColunasVisuais.Count, minmax(0, 1fr))">
+                                @foreach (var col in _grade.ColunasVisuais)
+                                {
+                                    <div class="rg-coluna" @key="col.Nome">
+                                        <header class="rg-cabeca" title="@col.Nome">
+                                            <strong>@col.Nome</strong>
+                                            <span class="secundario">@col.Resumo</span>
+                                            @if (!string.IsNullOrEmpty(col.Fechamentos)) { <span class="rg-fechado" title="Fechado neste dia: @col.Fechamentos">@col.Fechamentos</span> }
+                                        </header>
+                                        <div class="rg-linha" style="height:@Px(_grade.Altura)">
+                                            @foreach (var b in col.Blocos)
+                                            {
+                                                if (b.Celula is { } cel)
+                                                {
+                                                    var pode = PodeMarcarNoVao(cel);
+                                                    <button type="button" class="rg-vao @(b.Disponivel ? "disponivel" : null) @(b.Bloqueado ? "bloqueado" : null)"
+                                                            style="@Posicao(b)" disabled="@(!pode)"
+                                                            title="@(pode ? cel.DicaDoVao : b.Detalhe ?? b.Rotulo)" @onclick="() => AgendarNaFaixaAsync(cel)">
+                                                        <span>@b.Rotulo</span>
+                                                    </button>
+                                                }
+                                                else if (b.Cartao is { } c && _recorte.Visiveis.Contains(c.AgendamentoId))
+                                                {
+                                                    <div class="rg-bloco" style="@Posicao(b)" @key="c.AgendamentoId">
+                                                        <button type="button" class="rg-cartao grupo-@c.Grupo etapa-@c.Etapa @(c.Compacto ? "compacto" : null)"
+                                                                title="@c.Contexto" @onclick="() => AbrirHorario(c)" aria-label="Abrir o horário de @c.Paciente">
+                                                            <span class="rg-titulo">
+                                                                @if (c.ConfirmouPresenca) { <i class="rg-confirmou" title="Confirmou a presença na rodada de confirmação">✓</i> }
+                                                                @c.TituloPlanejamento
+                                                            </span>
+                                                            @if (!c.Compacto)
+                                                            {
+                                                                <span class="rg-contexto">@c.Contexto</span>
+                                                                @if (c.EhEncaixe || c.NaoConfirmou || c.NaoVem || c.EhRetornoDoSegundoCodigo)
+                                                                {
+                                                                    <span class="rg-selos">
+                                                                        @if (c.EhEncaixe) { <span class="rg-selo">Encaixe</span> }
+                                                                        @if (c.NaoConfirmou) { <span class="rg-selo" title="Avisado na rodada de confirmação e ainda sem resposta">Não confirmou</span> }
+                                                                        @if (c.NaoVem) { <span class="rg-selo perigo" title="O paciente respondeu que não vem — ligue para remarcar e libere o horário">Não vem — remarcar</span> }
+                                                                        @if (c.EhRetornoDoSegundoCodigo) { <span class="rg-selo neutro" title="Legado: guia não é atendimento — pode apagar">2º código</span> }
+                                                                    </span>
+                                                                }
+                                                            }
+                                                        </button>
+                                                        @if (b.PodeSobrepor && b.Encaixe is { } enc)
+                                                        {
+                                                            var podeMais = PodeEditar && !_grade.DisponibilidadeNaoVerificada;
+                                                            <button type="button" class="botao mini icone rg-mais" disabled="@(!podeMais)"
+                                                                    title="@enc.DicaDeSobrepor" aria-label="Marcar mais um paciente neste horário"
+                                                                    @onclick="() => AgendarNaFaixaAsync(enc)">+</button>
+                                                        }
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                @if (_grade.Regua.FirstOrDefault(h => h.Agora) is { } agora)
+                                {
+                                    <i class="rg-agora" style="top:@Px(agora.Topo + CabecalhoPx)" title="Agora"></i>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <p class="secundario rg-resumo">@_grade.Resumo</p>
+                }
+            </div>
+        </section>
+
+        @if (!_modoSemana)
+        {
+            <aside class="cartao rg-lateral rg-vagas" aria-label="Próximas vagas">
+                <h2>Próximas vagas</h2>
+                <span class="secundario">@GradeDaAgendaNaTela.ResumoDoPlanejamento(ProfissionalDoFiltro?.Rotulo, _duracao)</span>
+                <span class="secundario">@GradeDaAgendaNaTela.SalaDoPlanejamento(_sala, _salas.FirstOrDefault(s => s.Id == _sala)?.Nome)</span>
+                <div class="rg-vagas-lista">
+                    @foreach (var v in VagasAVista)
+                    {
+                        <button type="button" class="botao rg-vaga" disabled="@(!PodeEditar)" @onclick="() => EscolherVagaAsync(v)"
+                                title="@(PodeEditar ? "Marcar neste horário" : "Seu acesso não permite marcar horário.")">
+                            <strong>@v.Inicio.ToString("ddd dd/MM · HH:mm", Formato.PtBr)</strong>
+                            <span class="secundario">Até @v.Fim.ToString("HH:mm", Formato.PtBr) · escolher horário</span>
+                        </button>
+                    }
+                </div>
+                <span class="secundario rg-estado-vagas" aria-live="polite">@(_buscandoVagas ? "Conferindo profissional, jornada e bloqueios…" : EstadoVagasAVista)</span>
+                <button type="button" class="botao" disabled="@_buscandoVagas" @onclick="BuscarVagasAsync">Ver mais dias e horários</button>
+            </aside>
+        }
+    </div>
+    <p class="secundario rg-ultima">@_ultimaLeitura</p>
+</div>
+
+@if (_menuAberto)
+{
+    <div class="rg-menu-fundo" @onclick="() => _menuAberto = false"></div>
+}
+@if (_horarioAberto is { } horario)
+{
+    <HorarioDaAgendaForm AgendamentoId="horario" AoFechar="() => _horarioAberto = null" AoMudou="() => CarregarAsync()" AoVagou="ApontarEspera" />
+}
+@if (_marcando is { } marc)
+{
+    <AgendamentoForm Data="marc.Quando" Hora="@(marc.Quando.TimeOfDay == TimeSpan.Zero ? null : marc.Quando.ToString("HH:mm", CultureInfo.InvariantCulture))"
+                     ProfissionalPreferidoId="marc.ProfissionalId" SalaPreferidaId="marc.SalaId" Duracao="@marc.Duracao" ModalidadeCodigo="@marc.Modalidade"
+                     AoFechar="() => _marcando = null" AoConcluir="MarcouAsync" />
+}
+@if (_esperaAberta)
+{
+    <ListaEsperaPainelForm SugestaoPara="_sugestaoPara" SugestaoProfissionalId="_sugestaoProfissional" Dia="_dia"
+                           AoFechar="FecharEsperaAsync" />
+}
+@if (_bloqueioDe is { } bloqueio)
+{
+    <BloqueioForm ProfissionalId="bloqueio.ProfissionalId" AoFechar="() => _bloqueioDe = null" AoConcluir="AgendaFechadaAsync" />
+}
+@if (_horariosAbertos)
+{
+    <HorariosDeAtendimentoForm ProfissionalId="_profissional" AoFechar="() => _horariosAbertos = false" AoAlterar="() => CarregarAsync()"
+                               AoFecharAgenda="FecharAgendaDoProfissional" />
+}
+@if (_conciliando)
+{
+    <ConciliacaoAgendaForm AoFechar="FecharConciliacaoAsync" EscolherConvenio="EscolherConvenioAsync" />
+}
+
+@code {
+    private sealed record PedidoDeMarcacao(DateTime Quando, int? ProfissionalId, int? SalaId, string? Duracao, string? Modalidade);
+    private sealed record AlvoDoBloqueio(int? ProfissionalId);
+
+    /// <summary>A altura do cabeçalho das colunas — o recuo da régua e da linha do agora (o MESMO número nos três).</summary>
+    private const double CabecalhoPx = 64;
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private DateOnly _dia = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _mesDoCalendario = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private bool _modoSemana;
+    private bool _porSala;
+    private int? _profissional;
+    private int? _sala;
+    private string? _modalidade;
+    private string _duracao = Agendamento.DuracaoPadraoMinutos.ToString(CultureInfo.InvariantCulture);
+    private bool _filtrosPreparados;
+
+    private List<Profissional> _profissionais = [];
+    private List<Sala> _salas = [];
+    private IReadOnlyList<EntradaModalidade> _modalidades = [];
+
+    private LeituraDaGrade? _leitura;
+    private GradeMontada _grade = GradeMontada.Vazia;
+    private FiltroAgendaDoDia _filtro = new();
+    private RecorteDaGrade _recorte = GradeDaAgendaNaTela.Recortar([], new(), false);
+
+    private bool _carregando;
+    private bool _naoVerificado;
+    private string? _erro;
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private string _ultimaLeitura = "Disponibilidade ainda não consultada";
+    private string _ultimaConsultaConcluida = "nenhuma leitura concluída";
+    private int _geracao;
+
+    // As vagas da BUSCA explícita ("Próximas vagas") — valem até a próxima carga ou filtro.
+    private IReadOnlyList<Vaga>? _vagasBuscadas;
+    private string? _estadoVagasBusca;
+    private bool _buscandoVagas;
+    private int _geracaoVagas;
+
+    // A lista de espera: o horário que vagou (foco) e quantos servem.
+    private DateTime? _sugestaoPara;
+    private int? _sugestaoProfissional;
+    private int _esperaQuantos;
+
+    // Os pedidos da enfermagem (a linha do alto, só para quem trata a caixa).
+    private string _resumoPedidos = "Atualizando…";
+    private int _geracaoPedidos;
+
+    private bool _menuAberto;
+    private int? _horarioAberto;
+    private PedidoDeMarcacao? _marcando;
+    private bool _esperaAberta;
+    private AlvoDoBloqueio? _bloqueioDe;
+    private bool _horariosAbertos;
+    private bool _conciliando;
+
+    private Timer? _relogio;
+    private IAvisosDoBanco? _avisos;
+    private IBalcaoDaRecepcao? _balcao;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static bool PodeEditar => Pode(Permissao.EditarAgenda);
+    private static bool PedidosPermitidos => PedidosDaEnfermagemTela.Permitido(
+        SessaoUsuario.Atual.Autenticado, SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.Efetivas);
+
+    private IAgendaDaVisaoGeral Agenda => Servicos.GetService<IAgendaDaVisaoGeral>() ?? AgendaIndisponivel.Instancia;
+    private IJanelasDaAgenda Janelas => Servicos.GetService<IJanelasDaAgenda>() ?? JanelasDaAgendaIndisponiveis.Instancia;
+    private IBalcaoDaRecepcao Balcao => _balcao ??= Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
+
+    private Profissional? ProfissionalDoFiltro => _profissionais.FirstOrDefault(p => p.Id == _profissional);
+
+    /// <summary>Piso de largura: a régua mais uma coluna de 190 px (160 na semana) — abaixo disso a grade rola na horizontal.</summary>
+    private double LarguraGrade => 64 + (_modoSemana ? 160.0 : 190.0) * Math.Max(1, _grade.ColunasVisuais.Count);
+
+    private IReadOnlyList<Vaga> VagasAVista => _vagasBuscadas ?? _grade.Vagas;
+    private string EstadoVagasAVista => _estadoVagasBusca ?? _grade.EstadoVagas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _modalidades = CatalogoModalidades.Ativas;
+        _modalidade = (_modalidades.FirstOrDefault(m => m.Base == ModalidadeAtendimento.Consulta) ?? _modalidades.FirstOrDefault())?.Codigo;
+
+        // Um minuto: é menos do que o paciente leva para atravessar a sala, e é o intervalo em
+        // que "este horário está vago" ainda pode ser verdade quando a recepcionista clica nele.
+        _relogio = new Timer(_ => _ = InvokeAsync(ReconferirAsync), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+        _avisos = Servicos.GetService<IAvisosDoBanco>() ?? AvisosDoBancoAusentes.Instancia;
+        _avisos.Mudou += AoAvisoDoBanco;
+        if (PedidosPermitidos) Balcao.PedidosMudaram += AoMudaremOsPedidos;
+
+        ConsumirPedidoDeDia();
+        await CarregarAsync();
+        await AtualizarPedidosAsync();
+    }
+
+    /// <summary>
+    /// Voltou à aba: o pedido de dia (a ficha do paciente, "ver na agenda" do pedido da
+    /// enfermagem) e a releitura silenciosa — sem a recusa de "só HOJE" do relógio: esta
+    /// acontece uma vez, no instante em que a pessoa chega, que é quando ela quer o estado de agora.
+    /// </summary>
+    protected override async Task AoVoltarAsync()
+    {
+        if (ConsumirPedidoDeDia()) await CarregarAsync();
+        else if (!_carregando) await CarregarAsync(silencioso: true);
+        await AtualizarPedidosAsync();
+    }
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
+    {
+        AtalhoDeTela.Atualizar => CarregarAsync(),
+        AtalhoDeTela.Imprimir => ImprimirFolhaAsync(),
+        _ => Task.CompletedTask
+    };
+
+    /// <summary>
+    /// O dia que outra tela pediu. Ler LIMPA — pedido órfão abriria a agenda de amanhã num dia
+    /// de ontem. Com filtro, o profissional pedido; sem, só o dia. Verdadeiro = mudou algo.
+    /// </summary>
+    private bool ConsumirPedidoDeDia()
+    {
+        try
+        {
+            if (Agenda.ConsumirPedidoDeDia() is not { } pedido) return false;
+            if (pedido.AplicarFiltro)
+            {
+                _profissional = pedido.ProfissionalId;
+                _sala = null;
+            }
+            _modoSemana = false;
+            _dia = pedido.Dia;
+            _mesDoCalendario = new DateOnly(_dia.Year, _dia.Month, 1);
+            LimparFoco();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — pedido de dia da agenda não pôde ser lido", ex);
+            return false;
+        }
+    }
+
+    // ==================== leitura ====================
+
+    private async Task<T> LerAsync<TServico, T>(Func<TServico, Task<T>> leitura) where TServico : notnull
+    {
+        using var escopo = Escopo();
+        return await leitura(escopo.ServiceProvider.GetRequiredService<TServico>());
+    }
+
+    /// <summary>
+    /// Lê o período (o dia, ou a semana) e monta a grade. As leituras independentes correm
+    /// juntas, cada uma no seu escopo; os fechamentos e as confirmações vêm em seguida. Contador
+    /// de geração (as setas disparam uma carga POR CLIQUE) e tudo publicado depois do último await.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        var g = ++_geracao;
+        InvalidarVagas();
+        var dia = _dia;
+        var semana = _modoSemana;
+        if (!silencioso)
+        {
+            _carregando = true;
+            _naoVerificado = false;
+            _mensagem = null;
+        }
+
+        try
+        {
+            var (inicio, fim) = GradeDaAgendaNaTela.Periodo(dia, semana);
+            var tHorarios = LerAsync<AgendaService, IReadOnlyList<Agendamento>>(a => semana ? a.NoPeriodoAsync(inicio, fim) : a.DoDiaAsync(dia));
+            var tAnteriores = LerAsync<AgendaService, IReadOnlyList<Agendamento>>(a => a.OcupacoesNaViradaAsync(inicio.ToDateTime(TimeOnly.MinValue)));
+            var tProfissionais = LerAsync<EquipeService, IReadOnlyList<Profissional>>(e => e.ProfissionaisAtivosAsync());
+            var tSalas = LerAsync<EquipeService, IReadOnlyList<Sala>>(e => e.SalasAtivasAsync());
+            await Task.WhenAll(tHorarios, tAnteriores, tProfissionais, tSalas);
+            if (g != _geracao || Descartada) return;
+
+            // Os fechamentos que alcançam o período: falhar aqui NÃO derruba a grade — ela fica
+            // desenhada e "não verificada" (sem a linha no log, a clínica acharia que não há férias).
+            IReadOnlyList<BloqueioAgenda> bloqueios = [];
+            var verificados = true;
+            try
+            {
+                bloqueios = await LerAsync<BloqueioAgendaService, IReadOnlyList<BloqueioAgenda>>(
+                    b => b.NoPeriodoAsync(inicio.ToDateTime(TimeOnly.MinValue), fim.AddDays(1).ToDateTime(TimeOnly.MinValue)));
+            }
+            catch (Exception ex)
+            {
+                verificados = false;
+                Clinica.Application.Diagnostico.Registrar("Recepção — bloqueios da agenda não puderam ser lidos", ex);
+            }
+            if (g != _geracao || Descartada) return;
+
+            // As confirmações numa consulta só. Falhar não derruba: o ✓ some, com rastro no log.
+            IReadOnlyDictionary<int, RespostaDeConfirmacao> confirmacoes = new Dictionary<int, RespostaDeConfirmacao>();
+            if (tHorarios.Result.Count > 0)
+            {
+                try
+                {
+                    using var escopo = Escopo();
+                    confirmacoes = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                        .RespostasDeConfirmacaoAsync(tHorarios.Result.Select(a => a.Id).ToList());
+                }
+                catch (Exception ex)
+                {
+                    Clinica.Application.Diagnostico.Registrar("Recepção — confirmações da agenda não puderam ser lidas", ex);
+                }
+            }
+            if (g != _geracao || Descartada) return;
+
+            var esperaQuantos = await ContarEsperaAsync();
+            if (g != _geracao || Descartada) return;
+
+            // Publicação — sem await daqui para baixo.
+            PrepararFiltros(tProfissionais.Result, tSalas.Result);
+            _leitura = new LeituraDaGrade(tHorarios.Result, tAnteriores.Result, tProfissionais.Result, tSalas.Result,
+                bloqueios, verificados, confirmacoes);
+            _esperaQuantos = esperaQuantos;
+            Remontar();
+            if (!_grade.DisponibilidadeNaoVerificada)
+            {
+                _ultimaConsultaConcluida = GradeDaAgendaNaTela.LeituraConcluida(DateTime.Now, semana, dia);
+                _ultimaLeitura = "Disponibilidade consultada às " + _ultimaConsultaConcluida;
+            }
+            else
+            {
+                _ultimaLeitura = "Disponibilidade não verificada. Última leitura: " + _ultimaConsultaConcluida + ". Atualize para conferir.";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — agenda do dia não pôde ser carregada", ex);
+            _ultimaLeitura = "Falha ao atualizar. Última leitura: " + _ultimaConsultaConcluida + ". Tente novamente.";
+            // A releitura de fundo que falha não pinta a tela de vermelho: a grade segue com o
+            // que já tinha (quem está com um paciente à frente não pode levar um aviso de erro
+            // porque o banco demorou uma vez). Só a carga que a PESSOA pediu mostra a falha.
+            if (silencioso && _leitura is not null) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+            _mensagem = $"Não foi possível carregar a agenda: {ex.Message}";
+            _mensagemEhErro = true;
+        }
+        finally
+        {
+            if (g == _geracao) _carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Os filtros a partir da equipe lida: na PRIMEIRA carga, o profissional de quem entrou (o
+    /// fisioterapeuta abre na própria coluna), a duração padrão dele; depois, a escolha da pessoa
+    /// sobrevive enquanto o profissional/a sala continuar ativo.
+    /// </summary>
+    private void PrepararFiltros(IReadOnlyList<Profissional> profissionais, IReadOnlyList<Sala> salas)
+    {
+        _profissionais = profissionais.ToList();
+        _salas = salas.ToList();
+        if (!_filtrosPreparados)
+        {
+            _profissional ??= SessaoUsuario.Atual.ProfissionalId;
+            _duracao = ((_profissionais.FirstOrDefault(p => p.Id == _profissional)?.DuracaoPadraoMinutos)
+                        ?? Agendamento.DuracaoPadraoMinutos).ToString(CultureInfo.InvariantCulture);
+            _filtrosPreparados = true;
+        }
+        if (_profissional is { } pid && _profissionais.All(p => p.Id != pid)) _profissional = null;
+        if (_sala is { } sid && _salas.All(s => s.Id != sid)) _sala = null;
+    }
+
+    /// <summary>Remonta a grade e o recorte do que JÁ FOI LIDO — a duração e a busca não vão ao banco.</summary>
+    private void Remontar()
+    {
+        if (_leitura is null) return;
+        _grade = GradeDaAgendaNaTela.Montar(_leitura, new FiltroDaGrade(_dia, _modoSemana, _porSala && !_modoSemana, _profissional, _sala, _duracao), DateTime.Now);
+        Recortar();
+    }
+
+    private void Recortar()
+        => _recorte = GradeDaAgendaNaTela.Recortar(_grade.Colunas.SelectMany(c => c.Horarios), _filtro, carregando: false);
+
+    private async Task<int> ContarEsperaAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var espera = escopo.ServiceProvider.GetRequiredService<ListaEsperaService>();
+            return (_sugestaoPara is { } horario
+                ? await espera.CandidatosParaAsync(horario, _sugestaoProfissional)
+                : await espera.AguardandoAsync()).Count;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — lista de espera não pôde ser contada", ex);
+            return _esperaQuantos;
+        }
+    }
+
+    /// <summary>
+    /// A batida do relógio: relê por baixo, com três recusas — só HOJE (quem planeja a terça
+    /// que vem não tem nada correndo), só no modo DIA (a semana refaz sete colunas) e nunca por
+    /// cima de uma carga no ar.
+    /// </summary>
+    private async Task ReconferirAsync()
+    {
+        if (Descartada || _dia != Hoje || _modoSemana || _carregando) return;
+        await CarregarAsync(silencioso: true);
+        await AtualizarPedidosAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>O banco avisou que a agenda mudou noutra máquina: relê em silêncio (o relógio segue como rede).</summary>
+    private void AoAvisoDoBanco(string tabela)
+    {
+        if (tabela != "Agendamentos") return;
+        _ = InvokeAsync(async () =>
+        {
+            if (Descartada || _carregando) return;
+            await CarregarAsync(silencioso: true);
+            StateHasChanged();
+        });
+    }
+
+    // ==================== pedidos da enfermagem ====================
+
+    private void AoMudaremOsPedidos() => _ = InvokeAsync(async () =>
+    {
+        if (Descartada) return;
+        await AtualizarPedidosAsync();
+        StateHasChanged();
+    });
+
+    /// <summary>A linha dos pedidos: novos, deste dia, em aberto. Falha vira frase, nunca zero.</summary>
+    private async Task AtualizarPedidosAsync()
+    {
+        if (!PedidosPermitidos) return;
+        var g = ++_geracaoPedidos;
+        var usuario = SessaoUsuario.Atual.UsuarioId;
+        try
+        {
+            using var escopo = Escopo();
+            var pedidos = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IPlanejamentoEnfermagemService>().ListarAsync(usuario);
+            if (g != _geracaoPedidos || Descartada) return;
+            var r = PedidosDaEnfermagemTela.Recortar(pedidos, FiltroPedidosEnfermagem.EmAberto, false, _dia.ToDateTime(TimeOnly.MinValue));
+            _resumoPedidos = GradeDaAgendaNaTela.ResumoDosPedidos(r.Novos, r.NoDia, r.Abertos);
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracaoPedidos) return;
+            Clinica.Application.Diagnostico.Registrar("Pedidos da enfermagem", ex);
+            _resumoPedidos = "Não foi possível atualizar os avisos";
+        }
+    }
+
+    /// <summary>"Ver pedidos" leva à caixa (uma porta só); o "ver na agenda" de lá traz de volta para este dia.</summary>
+    private async Task VerPedidosAsync()
+    {
+        if (!PedidosPermitidos) { Notificacoes.Erro(PedidosDaEnfermagemTela.SemAcesso); return; }
+        if (!await Host.NavegarAsync("pedidos-enfermagem"))
+            Notificacoes.Info("Os pedidos da enfermagem não estão disponíveis neste aplicativo.");
+    }
+
+    // ==================== período e filtros ====================
+
+    private void InvalidarVagas()
+    {
+        ++_geracaoVagas;
+        _buscandoVagas = false;
+        _vagasBuscadas = null;
+        _estadoVagasBusca = null;
+    }
+
+    /// <summary>Trocar de dia, de modo ou de filtro desfaz o foco da lista de espera ("quem chamar para as 14h de ontem" não é pergunta).</summary>
+    private void LimparFoco()
+    {
+        _sugestaoPara = null;
+        _sugestaoProfissional = null;
+    }
+
+    private Task IrParaAsync(DateOnly dia)
+    {
+        _dia = dia;
+        _mesDoCalendario = new DateOnly(dia.Year, dia.Month, 1);
+        LimparFoco();
+        return CarregarAsync();
+    }
+
+    /// <summary>No modo semana as setas andam de SETE em sete.</summary>
+    private Task AndarAsync(int passo) => IrParaAsync(_dia.AddDays(_modoSemana ? 7 * passo : passo));
+
+    private Task EscolherDiaAsync(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+           && d.Year is >= 1901 and <= 2199
+            ? IrParaAsync(d)
+            : Task.CompletedTask;
+
+    private Task TrocarModoAsync(bool semana)
+    {
+        if (semana == _modoSemana) return Task.CompletedTask;
+        _modoSemana = semana;
+        // A semana já agrupa por dia: deixar o "por sala" LIGADO em silêncio faria a pessoa
+        // voltar ao dia e encontrar uma grade que ela não escolheu.
+        if (semana) _porSala = false;
+        LimparFoco();
+        return CarregarAsync();
+    }
+
+    private Task TrocarPorSalaAsync(ChangeEventArgs e)
+    {
+        _porSala = e.Value is true;
+        return CarregarAsync();
+    }
+
+    private Task TrocarProfissionalAsync(ChangeEventArgs e)
+    {
+        _profissional = int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null;
+        return CarregarAsync();
+    }
+
+    private Task TrocarSalaAsync(ChangeEventArgs e)
+    {
+        _sala = int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null;
+        return CarregarAsync();
+    }
+
+    private void TrocarModalidade(ChangeEventArgs e)
+    {
+        _modalidade = e.Value?.ToString();
+        InvalidarVagas();
+    }
+
+    private void TrocarDuracao(ChangeEventArgs e)
+    {
+        _duracao = e.Value?.ToString() ?? string.Empty;
+        InvalidarVagas();
+        Remontar();
+    }
+
+    private void Buscar(ChangeEventArgs e) { _filtro = _filtro with { Busca = e.Value?.ToString() ?? string.Empty }; Recortar(); }
+    private void FiltrarModalidade(ChangeEventArgs e) { _filtro = _filtro with { Modalidade = e.Value?.ToString() }; Recortar(); }
+
+    /// <summary>A pílula já marcada não desmarca — "Todos" é a pílula de limpar.</summary>
+    private void EscolherSituacao(string chave) { _filtro = _filtro with { Situacao = chave }; Recortar(); }
+    private void LimparFiltros() { _filtro = new(); Recortar(); }
+
+    // ==================== calendário ====================
+
+    private void AndarMes(int passo) => _mesDoCalendario = _mesDoCalendario.AddMonths(passo);
+
+    private IEnumerable<DateOnly> DiasDoCalendario()
+    {
+        var primeiro = GradeDaAgendaNaTela.SegundaDa(_mesDoCalendario);
+        for (var i = 0; i < 42; i++) yield return primeiro.AddDays(i);
+    }
+
+    private bool Selecionado(DateOnly d) => _modoSemana
+        ? d >= GradeDaAgendaNaTela.SegundaDa(_dia) && d <= GradeDaAgendaNaTela.SegundaDa(_dia).AddDays(6)
+        : d == _dia;
+
+    // ==================== vagas ====================
+
+    /// <summary>"Próximas vagas" — os próximos 60 dias do profissional do filtro, com a sala.</summary>
+    private async Task BuscarVagasAsync()
+    {
+        InvalidarVagas();
+        if (_profissional is not { } profissionalId)
+        {
+            _estadoVagasBusca = "Selecione o profissional para consultar a disponibilidade.";
+            _vagasBuscadas = [];
+            return;
+        }
+        if (!GradeDaAgendaNaTela.DuracaoValida(_duracao, out var duracao))
+        {
+            _estadoVagasBusca = "Informe a duração entre 1 e 720 minutos.";
+            _vagasBuscadas = [];
+            return;
+        }
+        var g = ++_geracaoVagas;
+        var agora = DateTime.Now;
+        var inicio = _dia.ToDateTime(TimeOnly.MinValue) < agora ? agora : _dia.ToDateTime(TimeOnly.MinValue);
+        _buscandoVagas = true;
+        try
+        {
+            using var escopo = Escopo();
+            var resultado = await escopo.ServiceProvider.GetRequiredService<BuscaDeVagasService>()
+                .ProximasComRecursosAsync(profissionalId, inicio, duracao, _sala);
+            if (g != _geracaoVagas || Descartada) return;
+            _vagasBuscadas = resultado.Vagas;
+            _estadoVagasBusca = GradeDaAgendaNaTela.EstadoDaBusca(resultado, DateTime.Now);
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracaoVagas) return;
+            Clinica.Application.Diagnostico.Registrar("Agenda — busca de vagas", ex);
+            _vagasBuscadas = [];
+            _estadoVagasBusca = "Disponibilidade não verificada. Tente atualizar a busca.";
+        }
+        finally
+        {
+            if (g == _geracaoVagas) _buscandoVagas = false;
+        }
+    }
+
+    private Task EscolherVagaAsync(Vaga vaga)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "marcar atendimento")) return Task.CompletedTask;
+        return MarcarAsync(new PedidoDeMarcacao(vaga.Inicio, _profissional, _sala, _duracao, _modalidade));
+    }
+
+    // ==================== marcar ====================
+
+    private bool PodeMarcarNoVao(CelulaDaGrade c) => c.PodeMarcar && PodeEditar && !_grade.DisponibilidadeNaoVerificada;
+
+    private Task NovoHorarioAsync()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return Task.CompletedTask;
+        return MarcarAsync(new PedidoDeMarcacao(_dia.ToDateTime(TimeOnly.MinValue), _profissional, _sala, _duracao, _modalidade));
+    }
+
+    /// <summary>
+    /// Clique num vão: a aba Marcar já na HORA e na COLUNA clicadas. A guarda do vão FECHADO
+    /// saiu em set/2026 junto com a recusa que ela explicava — quem avisa do fechamento é a
+    /// hachura aqui e a lista de avisos do formulário.
+    /// </summary>
+    private Task AgendarNaFaixaAsync(CelulaDaGrade celula)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return Task.CompletedTask;
+        return MarcarAsync(new PedidoDeMarcacao(celula.Quando, celula.ProfissionalId ?? _profissional,
+            celula.SalaId ?? _sala, _duracao, _modalidade));
+    }
+
+    /// <summary>
+    /// A CRIAÇÃO de horário mora na aba Marcar (parcela 70). Se a aba não existe para este
+    /// acesso (quem tem só EditarAgenda), o formulário de horário abre AQUI — o fallback que
+    /// impede a unificação de tirar capacidade.
+    /// </summary>
+    private async Task MarcarAsync(PedidoDeMarcacao pedido)
+    {
+        try
+        {
+            var duracao = GradeDaAgendaNaTela.DuracaoValida(pedido.Duracao, out var d) ? d : (int?)null;
+            if (await Agenda.MarcarAsync(pedido.Quando, pedido.ProfissionalId, pedido.SalaId, duracao, pedido.Modalidade)) return;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — ponte agenda → novo atendimento indisponível", ex);
+        }
+        _marcando = pedido;
+    }
+
+    private async Task MarcouAsync(IReadOnlyList<string> avisos)
+    {
+        _marcando = null;
+        // Marcou: o horário deixou de estar vago, e a lista volta a ser a lista inteira.
+        LimparFoco();
+        Notificacoes.Sucesso(avisos.Count == 0 ? "Agenda atualizada." : $"Agenda atualizada — {string.Join(" ", avisos)}");
+        await CarregarAsync();
+    }
+
+    // ==================== o horário e a lista de espera ====================
+
+    private void AbrirHorario(CartaoDaGrade c) => _horarioAberto = c.AgendamentoId;
+
+    /// <summary>O horário vagou (ou "quem chamar?"): a lista de espera passa a mostrar quem serve para ELE.</summary>
+    private void ApontarEspera((DateTime Horario, int? ProfissionalId) vago)
+    {
+        _sugestaoPara = vago.Horario;
+        _sugestaoProfissional = vago.ProfissionalId;
+    }
+
+    private void AbrirEspera() => _esperaAberta = true;
+
+    private async Task FecharEsperaAsync()
+    {
+        _esperaAberta = false;
+        await CarregarAsync();
+    }
+
+    // ==================== mais ações ====================
+
+    private async Task ConfirmarAmanhaAsync()
+    {
+        _menuAberto = false;
+        if (!await Host.NavegarAsync("agenda-confirmacoes"))
+        {
+            _mensagem = "As confirmações não estão disponíveis para este acesso.";
+            _mensagemEhErro = false;
+        }
+    }
+
+    private void Conciliar()
+    {
+        _menuAberto = false;
+        _conciliando = true;
+    }
+
+    private async Task FecharConciliacaoAsync()
+    {
+        _conciliando = false;
+        // Resolver um horário parado pode ter lançado atendimento: o dia aberto aqui precisa refletir.
+        await CarregarAsync();
+    }
+
+    /// <summary>A escolha do convênio da ficha "a definir" — janela do shell, pela ponte da Recepção.</summary>
+    private async Task<bool> EscolherConvenioAsync(int pacienteId)
+        => Janelas.Disponivel && await Janelas.EscolherConvenioAsync(pacienteId);
+
+    /// <summary>A folha do dia que o profissional leva para a sala — SEM dado clínico, respeitando o filtro.</summary>
+    private async Task ImprimirFolhaAsync()
+    {
+        _menuAberto = false;
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                pdf = await sp.GetRequiredService<AgendaPdfService>().AgendaDoDiaAsync(
+                    _dia, _profissional, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            }
+            var erro = await Host.SalvarEAbrirAsync(pdf, $"agenda-{_dia.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) { _mensagem = erro; _mensagemEhErro = true; }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — agenda do dia não pôde ser impressa", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// FECHAR A AGENDA — ato de AGENDA (EditarAgenda, o mesmo bit do "Marcar"), não de cadastro
+    /// de equipe. Bloquear NÃO desmarca ninguém: quem já estava marcado volta num DIÁLOGO.
+    /// </summary>
+    private void FecharAgenda()
+    {
+        _menuAberto = false;
+        if (!Exigir(Permissao.EditarAgenda, "fechar a agenda")) return;
+        _bloqueioDe = new AlvoDoBloqueio(null);
+    }
+
+    /// <summary>O editor de horários oferece "Fechar a agenda…" de UM profissional: troca uma janela pela outra.</summary>
+    private void FecharAgendaDoProfissional(int profissionalId)
+    {
+        _horariosAbertos = false;
+        if (!Exigir(Permissao.EditarAgenda, "fechar a agenda")) return;
+        _bloqueioDe = new AlvoDoBloqueio(profissionalId);
+    }
+
+    private async Task AgendaFechadaAsync(IReadOnlyList<string> marcadosDentro)
+    {
+        _bloqueioDe = null;
+        if (marcadosDentro.Count > 0)
+            await Dialogos.AvisoAsync("Agenda fechada — mas já havia sessão marcada", GradeDaAgendaNaTela.AvisoDoFechamento(marcadosDentro));
+        else
+            Notificacoes.Sucesso("Agenda fechada no período.");
+        await CarregarAsync();
+    }
+
+    /// <summary>O editor ÚNICO do horário de atendimento (e da trava) — o mesmo da Visão geral.</summary>
+    private void AbrirHorarios()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "configurar horários e travas")) return;
+        _horariosAbertos = true;
+    }
+
+    // ==================== desenho ====================
+
+    private static string Px(double v) => v.ToString("0.##", CultureInfo.InvariantCulture) + "px";
+
+    private static string Posicao(BlocoDaGrade b)
+    {
+        var raias = Math.Max(1, b.Raias);
+        var largura = 100.0 / raias;
+        var esquerda = largura * b.Raia;
+        return string.Create(CultureInfo.InvariantCulture,
+            $"top:{b.Topo:0.##}px;height:{b.Altura:0.##}px;left:calc({esquerda:0.###}% + 2px);width:calc({largura:0.###}% - 4px)");
+    }
+
+    private static string ValorDe(int? id) => id?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+    private static string Bool(bool v) => v ? "true" : "false";
+
+    public override void Dispose()
+    {
+        _relogio?.Dispose();
+        _relogio = null;
+        if (_avisos is not null) _avisos.Mudou -= AoAvisoDoBanco;
+        if (_balcao is not null) _balcao.PedidosMudaram -= AoMudaremOsPedidos;
+        base.Dispose();
+    }
+}

@@ -1,0 +1,23 @@
+/* Estilo dos formulários da AGENDA (rec-horario): a janela do horário (gh-*) e a lista de espera (ge-*).
+   Os dois abrem sobre a Grade, a Agenda do dia, a Visão geral, o Início e os Pedidos — por isso um arquivo
+   próprio, e não o de uma tela. Só tokens — ver docs/telas-blazor.md. */
+
+/* ---------- A janela do horário ---------- */
+.gh-contexto{margin:0 0 var(--space-3);color:var(--texto-secundario)}
+.gh-selos{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-3)}
+.gh-selos .selo{margin:0}
+.gh-dados{padding:var(--space-3) var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie)}
+.gh-rotulo{margin:var(--space-4) 0 var(--space-2);font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario)}
+.gh-acoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2)}
+.gh-acoes .botao{justify-content:center}
+.gh-texto{margin:var(--space-2) 0}
+.gh-serie{margin-top:var(--space-3)}
+
+/* ---------- A lista de espera ---------- */
+.ge-barra{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-3)}
+.ge-lista{list-style:none;margin:0;padding:0}
+.ge-lista li{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding:var(--space-3) 0;border-bottom:1px solid var(--borda)}
+.ge-quem{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ge-quem .selo{align-self:flex-start;margin:0}
+.ge-obs{font-style:italic}

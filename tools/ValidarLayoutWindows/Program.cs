@@ -96,98 +96,15 @@ static class Program
                 }
             }
         }
-        // A rota antiga agora deve abrir a Visão geral, sem expor a Grade removida.
+        // A Grade da agenda é Blazor desde out/2026 (GradeDaAgenda): a chave dela abre o
+        // componente hospedado. Vagas, sobreposição, bloqueios, busca e semana são conferidos
+        // em GradeDaAgendaNaTelaTests e no bUnit (TelasBlazorAbremTests).
         NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda);
         await Task.Delay(250);
-        // A Visão geral é Blazor desde out/2026: confere-se o COMPONENTE hospedado.
-        if (!Descendentes(win).OfType<Clinica.Desktop.Blazor.TelaBlazor>().Any(t => t.Componente.Name == "VisaoGeralDaAgenda")
-            || Descendentes(win).OfType<Clinica.Recepcao.Views.AgendaView>().Any())
-            throw new Exception("A rota antiga deve abrir a Visão geral sem a Grade.");
-        // Conserva a regressão de disponibilidade e formulário do componente legado,
-        // montando-o diretamente no teste: ele não faz mais parte da navegação pública.
-        var planejamento = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AgendaViewModel>();
-        vm.TelaAtual = new Clinica.Recepcao.Views.AgendaView { DataContext = planejamento };
-        await Task.Delay(250);
-        planejamento.Dia = DateTime.Today.AddDays(8 - (int)DateTime.Today.DayOfWeek);
-        await planejamento.CarregarAsync();
-        planejamento.FiltroProfissional = planejamento.FiltroProfissionais.First(p => p.Id == prof.Id);
-        planejamento.DuracaoPlanejamento = "60";
-        await planejamento.CarregarAsync();
-        if (planejamento.VagasPlanejamento.Count == 0) throw new Exception("Planejamento: profissional sem horários deve oferecer vagas.");
-        win.UpdateLayout(); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        var botaoVaga = await AguardarVagaVisivel(win);
-        if (!botaoVaga.IsEnabled || botaoVaga.Command is null || !botaoVaga.Command.CanExecute(botaoVaga.CommandParameter))
-            throw new Exception("Planejamento: vaga visível não permite abrir a marcação no primeiro carregamento.");
-        // Sala e profissional são recursos independentes: a ocupação por outro médico
-        // deve aparecer na consulta da sala, sem mudar a vaga oferecida sem filtro de sala.
-        var salaA = new Sala { Nome = "Sala A", Capacidade = 1, Ativa = true };
-        var salaB = new Sala { Nome = "Sala B", Capacidade = 1, Ativa = true };
-        var outroProfissional = new Profissional { Nome = "Outro profissional fictício", Ativo = true };
-        prof.AgendaProtegida = false;
-        db.AddRange(salaA, salaB, outroProfissional); await db.SaveChangesAsync();
-        var inicioPlanejado = planejamento.Dia.Date.AddHours(8);
-        db.AddRange(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, SalaId = salaA.Id,
-                DataHora = inicioPlanejado, DuracaoMinutos = 60 },
-            new Agendamento { PacienteId = pac.Id, ProfissionalId = outroProfissional.Id, SalaId = salaB.Id,
-                DataHora = inicioPlanejado.AddHours(1), DuracaoMinutos = 60 });
-        await db.SaveChangesAsync();
-        db.Add(new BloqueioAgenda { ProfissionalId = prof.Id, Inicio = inicioPlanejado.AddHours(3),
-            Fim = inicioPlanejado.AddHours(4), Motivo = "Bloqueio fictício para testar filtros" });
-        await db.SaveChangesAsync();
-        planejamento.AgruparPorSala = true; await planejamento.CarregarAsync();
-        var problemasPlanejamento = new List<string>();
-        var blocosPorSala = planejamento.ColunasPlanejamento.SelectMany(c => c.Blocos).ToArray();
-        if (!blocosPorSala.Any(b => b.Disponivel && b.Celula?.SalaId == salaA.Id && b.Celula.Quando == inicioPlanejado.AddHours(1))
-            || blocosPorSala.Any(b => b.Disponivel && b.Celula?.SalaId == salaB.Id && b.Celula.Quando == inicioPlanejado.AddHours(1)))
-            problemasPlanejamento.Add("Por sala: profissional e ocupação da sala não foram combinados.");
-        if (planejamento.VagasPlanejamento.Select(v => v.Inicio).Distinct().Count() != planejamento.VagasPlanejamento.Count)
-            problemasPlanejamento.Add("Por sala: painel de vagas repetiu o mesmo horário.");
-        win.UpdateLayout(); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        if (!Descendentes(win).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled
-                && ReferenceEquals(b.Command, planejamento.AgendarNaFaixaCommand)
-                && b.CommandParameter is Clinica.Recepcao.ViewModels.CelulaAgenda { Livre: false, NoPassado: false }))
-            problemasPlanejamento.Add("Horário ocupado: atalho de marcar mais um paciente desapareceu com a trava desligada.");
-        if (problemasPlanejamento.Count > 0) throw new Exception(string.Join("\n", problemasPlanejamento));
-        await ConferirBuscaGrade(win);
-        Foto(win, "planejamento-salas-e-sobreposicao");
-        prof.AgendaProtegida = true; await db.SaveChangesAsync(); await planejamento.CarregarAsync();
-        win.UpdateLayout(); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        if (Descendentes(win).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled
-                && ReferenceEquals(b.Command, planejamento.AgendarNaFaixaCommand)
-                && b.CommandParameter is Clinica.Recepcao.ViewModels.CelulaAgenda { Livre: false, NoPassado: false }))
-            throw new Exception("Atalho de sobreposição liberado com trava ativa.");
-        planejamento.AgruparPorSala = false;
-        planejamento.ModoSemana = true; await planejamento.CarregarAsync();
-        if (planejamento.ProfissionalEmFocoId != prof.Id || planejamento.Colunas.Any(c => c.ProfissionalId != prof.Id))
-            throw new Exception("Planejamento: a semana perdeu o profissional escolhido.");
-        pausaAgenda.Armar();
-        var cargaPausada = planejamento.CarregarAsync();
-        try
-        {
-            await pausaAgenda.Entrou.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            planejamento.DuracaoPlanejamento = "45";
-            if (!planejamento.DisponibilidadeNaoVerificada || planejamento.VagasPlanejamento.Count != 0
-                || planejamento.ColunasPlanejamento.Any(c => c.Blocos.Any(b => b.Disponivel)))
-                throw new Exception("Leitura parcial: vagas foram liberadas antes de consultar os horários da semana.");
-        }
-        finally { pausaAgenda.Liberar.TrySetResult(); await cargaPausada; }
-        planejamento.DisponibilidadeNaoVerificada = true;
-        planejamento.DuracaoPlanejamento = "45";
-        if (planejamento.VagasPlanejamento.Count != 0 || planejamento.ColunasPlanejamento.Any(c => c.Blocos.Any(b => b.Disponivel)))
-            throw new Exception("Planejamento: disponibilidade não verificada anunciou vaga.");
-        planejamento.DuracaoPlanejamento = "60"; await planejamento.CarregarAsync();
-        var vagaEscolhida = planejamento.VagasPlanejamento.First();
-        var quantidadeAntes = await db.Agendamentos.CountAsync();
-        await planejamento.EscolherVagaPlanejamentoCommand.ExecuteAsync(vagaEscolhida);
-        await Task.Delay(500);
-        // O Marcar é Blazor desde out/2026: o que se confere aqui é que a vaga ABRIU a tela
-        // de marcar; o preenchimento (profissional, data, hora, duração) é conferido no
-        // bUnit (`TelasBlazorAbremTests`) e em `AtendimentoDoBalcaoNaTelaTests`.
         if (!Descendentes(win).OfType<Clinica.Desktop.Blazor.TelaBlazor>()
-                .Any(t => t.Componente.Name == "MarcarAtendimento"))
-            throw new Exception("Planejamento: escolher a vaga não abriu a tela de marcar.");
-        if (await db.Agendamentos.CountAsync() != quantidadeAntes) throw new Exception("Consultar vaga gravou um agendamento.");
-        Console.WriteLine("PLANEJAMENTO: profissional, semana, falha de leitura e formulário preservados; nenhuma gravação.");
+                .Any(t => t.Componente.Name is "GradeDaAgenda" or "VisaoGeralDaAgenda"))
+            throw new Exception("A chave da agenda deve abrir a Grade (Blazor).");
+        Console.WriteLine("AGENDA: a chave da grade abre a tela Blazor.");
         win.Close();
         // Regressão de produção: a direção não precisa de cadastro como médico para
         // concluir uma sessão já escrita. Exercita a view real, inclusive o binding.
@@ -235,47 +152,7 @@ static class Program
         janelaEnfermagem.Close();
     }
 
-    private static async Task ConferirBuscaGrade(Window janela)
-    {
-        var vista = Descendentes(janela).OfType<Clinica.Recepcao.Views.AgendaView>().First();
-        var barra = Descendentes(vista).OfType<Clinica.Recepcao.Views.FiltrosAgendaBarra>().Single();
-        var filtro = (Clinica.Recepcao.ViewModels.FiltroListaAgenda)barra.DataContext;
-        int Cartoes() => Descendentes(vista).OfType<ContentPresenter>().Count(e => e.IsVisible && e.Content is Clinica.Recepcao.ViewModels.CartaoAgenda);
-        int Vagas() => Descendentes(vista).OfType<Button>().Count(e => e.IsVisible && e.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Disponivel: true });
-        int Bloqueios() => Descendentes(vista).OfType<Button>().Count(e => e.IsVisible && e.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Bloqueado: true });
-        janela.UpdateLayout();
-        var cartoes = Cartoes(); var vagas = Vagas(); var bloqueios = Bloqueios();
-        if (cartoes == 0 || vagas == 0 || bloqueios == 0) throw new Exception("Busca na grade: cenário sintético sem cartões, vagas ou bloqueios visíveis.");
-        filtro.Busca = "inexistente";
-        var prazo = DateTime.UtcNow.AddSeconds(5);
-        // Refresh() da vista refaz TODOS os contêineres da coluna: os cartões somem antes de
-        // as vagas e bloqueios voltarem a ser gerados. Espera o estado inteiro, não só a metade.
-        while ((Cartoes() != 0 || Vagas() != vagas || Bloqueios() != bloqueios) && DateTime.UtcNow < prazo)
-        { await Task.Delay(100); janela.UpdateLayout(); }
-        if (Cartoes() != 0 || Vagas() != vagas || Bloqueios() != bloqueios)
-            throw new Exception($"A busca não ocultou só os pacientes: vagas e bloqueios devem permanecer na grade (antes {cartoes}/{vagas}/{bloqueios}, depois {Cartoes()}/{Vagas()}/{Bloqueios()}).");
-        filtro.LimparCommand.Execute(null);
-        prazo = DateTime.UtcNow.AddSeconds(5);
-        while ((Cartoes() != cartoes || Vagas() != vagas || Bloqueios() != bloqueios) && DateTime.UtcNow < prazo)
-        { await Task.Delay(100); janela.UpdateLayout(); }
-        if (Cartoes() != cartoes || Vagas() != vagas || Bloqueios() != bloqueios)
-            throw new Exception("Limpar filtros não restaurou os cartões e a disponibilidade originais.");
-        Console.WriteLine("BUSCA NA GRADE: filtro nativo oculta pacientes, preserva vagas/bloqueios e restaura os cartões ao limpar.");
-    }
 
-    private static async Task<Button> AguardarVagaVisivel(Window janela)
-    {
-        var prazo = DateTime.UtcNow.AddSeconds(5);
-        do
-        {
-            janela.UpdateLayout();
-            var botao = Descendentes(janela).OfType<Button>().FirstOrDefault(b => b.IsVisible
-                && b.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Disponivel: true });
-            if (botao is not null) return botao;
-            await Task.Delay(50);
-        } while (DateTime.UtcNow < prazo);
-        throw new Exception("Planejamento: há vagas no ViewModel, mas nenhum botão de vaga visível na grade original. Confira abas, visibilidade e a montagem da tela.");
-    }
 
     static async Task ConferirProgressoInfusao(ServiceProvider sp, Paciente paciente, Profissional medico)
     {

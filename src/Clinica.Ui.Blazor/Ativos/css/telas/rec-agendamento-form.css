@@ -1,0 +1,23 @@
+/* ==========================================================================
+   O horário da agenda (AgendamentoForm, out/2026). Só tokens.
+   O formulário é uma coluna: paciente, quando, com quem, o quê, e os avisos —
+   um traço por aviso, a cor é a gravidade (âmbar a rotina, vermelho a agenda fechada).
+   ========================================================================== */
+
+.agf{display:flex;flex-direction:column;gap:var(--space-4)}
+
+/* Paciente fixo (remarcar / chamar da lista): o crachá do seletor, sem "trocar". */
+.agf-paciente-fixo .avatar .icone{width:16px;height:16px}
+
+/* Linha de aviso sob o campo (horário sem dono, na edição). */
+.agf-linha{display:block;margin-top:var(--space-1);font-size:var(--text-small-size);line-height:1.45}
+.agf-linha.tom-aviso{color:var(--aviso-texto)}
+
+/* Bloco de avisos: cabeçalho + um traço por aviso. */
+.agf-bloco{display:flex;flex-direction:column;gap:var(--space-2)}
+.agf-cabecalho{margin:0;font-weight:600;font-size:var(--text-small-size);color:var(--texto-primario)}
+.agf-traco{padding:var(--space-2) var(--space-3);border:1px solid var(--cor-traco-borda,var(--borda));
+  border-left-width:3px;background:var(--fundo-traco,var(--superficie));border-radius:var(--radius-pequeno);
+  font-size:var(--text-small-size);line-height:1.45;color:var(--texto-primario);overflow-wrap:anywhere}
+.agf-traco.tom-perigo{--cor-traco-borda:var(--erro);--fundo-traco:var(--erro-suave);font-weight:600}
+.agf-traco.tom-aviso{--cor-traco-borda:var(--aviso);--fundo-traco:var(--aviso-suave)}

@@ -25,12 +25,6 @@ public interface IJanelasDaAgenda
     /// <summary>Falso onde as janelas não existem: a tela avisa em vez de abrir nada.</summary>
     bool Disponivel { get; }
 
-    /// <summary>
-    /// "Editar o horário" — a MESMA janela da grade, com o título da porta. Nulo = a pessoa
-    /// desistiu (ou indisponível); a lista = salvou, com os avisos de guia do salvamento
-    /// (trocar a modalidade REGERA as guias com "guia no agendamento" ligada).
-    /// </summary>
-    Task<IReadOnlyList<string>?> EditarHorarioAsync(int agendamentoId);
 
 
     /// <summary>
@@ -42,11 +36,6 @@ public interface IJanelasDaAgenda
     /// <summary>A ficha do BALCÃO (a mesma da tela Pacientes), por cima da agenda. Falso = indisponível.</summary>
     Task<bool> AbrirFichaAsync(int pacienteId, string paciente);
 
-    /// <summary>
-    /// A janela do horário (remarcar, reabrir o cancelado, comprovante, WhatsApp, série). A
-    /// resposta diz se o horário ainda está naquele dia e a frase que a janela deixou.
-    /// </summary>
-    Task<DesfechoDaJanelaDoHorario> AbrirHorarioAsync(DateOnly dia, int agendamentoId);
 
     /// <summary>
     /// "Marcar atendimento" neste dia, com o profissional do filtro já escolhido — a aba
@@ -67,9 +56,7 @@ public sealed class JanelasDaAgendaIndisponiveis : IJanelasDaAgenda
     public static readonly JanelasDaAgendaIndisponiveis Instancia = new();
 
     public bool Disponivel => false;
-    public Task<IReadOnlyList<string>?> EditarHorarioAsync(int agendamentoId) => Task.FromResult<IReadOnlyList<string>?>(null);
     public Task<bool> EscolherConvenioAsync(int pacienteId) => Task.FromResult(false);
     public Task<bool> AbrirFichaAsync(int pacienteId, string paciente) => Task.FromResult(false);
-    public Task<DesfechoDaJanelaDoHorario> AbrirHorarioAsync(DateOnly dia, int agendamentoId) => Task.FromResult(DesfechoDaJanelaDoHorario.Indisponivel);
     public Task<bool> MarcarNovoHorarioAsync(DateOnly dia, int? profissionalId) => Task.FromResult(false);
 }

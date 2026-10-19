@@ -55,6 +55,14 @@ public interface IAgendaDaVisaoGeral
     /// </summary>
     Task<bool> MarcarAsync(DateTime dataHora, int? profissionalId);
 
+    /// <summary>
+    /// A marcação a partir da GRADE (out/2026): o vão clicado leva também a SALA da coluna, a
+    /// DURAÇÃO e a MODALIDADE escolhidas no topo — redigitar é onde a hora sai errada. O padrão
+    /// cai na marcação simples; a ponte da Recepção sobrescreve e leva tudo.
+    /// </summary>
+    Task<bool> MarcarAsync(DateTime dataHora, int? profissionalId, int? salaId, int? duracaoMinutos, string? modalidadeCodigo)
+        => MarcarAsync(dataHora, profissionalId);
+
     /// <summary>Consome (LIMPA) o pedido de dia deixado por outra tela. Nulo quando não há.</summary>
     PedidoDeDiaDaAgenda? ConsumirPedidoDeDia();
 
