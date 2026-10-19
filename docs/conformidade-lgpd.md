@@ -11,6 +11,23 @@ Ele é escrito para ser LIDO POR QUEM AUDITA, e não por quem programa. Onde o s
 atende, está escrito que não atende — fornecedor que marca dez de dez na primeira leitura
 está respondendo o que o cliente quer ouvir, não o que o sistema faz.
 
+## ⚠️ Out/2026 — avisos e termo LGPD retirados (decisão da direção)
+
+A direção mandou retirar "os avisos e o termo" de LGPD dos módulos:
+
+- **Saiu** o alerta amarelo *"Sem consentimento LGPD de tratamento de dados — colha no balcão"*
+  (`ElegibilidadeService`) e o **termo de consentimento LGPD** assinado (a folha "consentimento"
+  do catálogo e o botão "Colher assinatura…" da aba Privacidade). Os termos já emitidos
+  continuam na lista do paciente, com 2ª via.
+- **Ficou**: a aba Privacidade (exportar e anonimizar — art. 18), o **filtro de consentimento de
+  comunicação** das campanhas e do SMS, a trilha de acesso, a guarda de 20 anos e o prontuário
+  imutável.
+- **Para o filtro continuar alcançando paciente novo**, a aba Privacidade ganhou **"Registrar
+  autorização"** por finalidade: grava quem registrou, quando e como o paciente autorizou (texto
+  livre), com a linha na trilha de auditoria; revogar continua não apagando o anterior.
+- ⚠️ O que isso muda na prova: a autorização volta a ser **declarada pela equipe** (ônus da
+  prova do art. 8º, §2º, com a trilha como evidência), em vez de assinada pelo titular.
+
 ## Placar
 
 Duas colunas de propósito. **Motor** é a regra existir, estar testada e valer para quem

@@ -5,24 +5,7 @@
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <TextBlock Text="Consentimentos (LGPD)" Style="{StaticResource H3}" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10" Text="Quem responde é o PACIENTE, no termo que ele assina. Cada resposta vira um registro datado, e revogar não apaga o anterior — ele continua provando o consentimento do período já tratado." />
-
-
-                        <Border Background="{StaticResource Brush.Fundo}" CornerRadius="6" Padding="12,10" Margin="0,0,0,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Termo de consentimento assinado pelo paciente" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Primario}" />
-                                    <TextBlock Text="{Binding TermoLgpdSituacao}" Margin="0,2,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                </StackPanel>
-
-                                <Button Grid.Column="1" Content="Colher assinatura…" VerticalAlignment="Center" MinWidth="150" Style="{StaticResource BotaoSecundario}" ToolTip="Abre o termo com as quatro finalidades. O paciente assina na tela do balcão ou pelo link do WhatsApp." IsEnabled="{Binding PodeColherTermoLgpd}" Command="{Binding ColherTermoLgpdCommand}" />
-                            </Grid>
-                        </Border>
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10" Text="O que o paciente autorizou. Registrar grava quem registrou, quando e como o paciente autorizou; revogar não apaga o anterior — ele continua provando o consentimento do período já tratado." />
 
                         <ItemsControl ItemsSource="{Binding Consentimentos}">
                             <ItemsControl.ItemTemplate>
@@ -45,6 +28,18 @@
                                                 </Border>
 
 
+                                                <Button Content="Registrar autorização" Command="{Binding DataContext.RegistrarConsentimentoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" ToolTip="Grava a autorização com quem registrou e como o paciente autorizou.">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGrid}">
+                                                            <Setter Property="IsEnabled" Value="{Binding DataContext.PodeEditarCadastro, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Vigente}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
                                                 <Button Content="Revogar" Margin="8,0,0,0" Command="{Binding DataContext.RevogarCommand,                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                                     <Button.Style>
                                                         <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGridPerigo}">

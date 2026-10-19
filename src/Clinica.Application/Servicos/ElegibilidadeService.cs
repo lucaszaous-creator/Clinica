@@ -131,7 +131,9 @@ public sealed class ElegibilidadeService
         {
             case 0: await ConferirConsultaAsync(pacienteId, referencia, alertas, ct); break;
             case 1: await ConferirCotaAsync(pacienteId, referencia, alertas, ct); break;
-            case 2: await ConferirConsentimentoAsync(pacienteId, alertas, ct); break;
+            // case 2: o aviso de consentimento LGPD saiu em out/2026 (decisão da direção: os
+            // avisos de LGPD não aparecem mais no balcão). O bloco fica vazio para a ordem dos
+            // outros não mudar.
             case 3: await ConferirDebitoAsync(pacienteId, referencia, alertas, ct); break;
             case 4: await ConferirSessaoSemReceitaAsync(pacienteId, referencia, alertas, ct); break;
             case 5: await ConferirGlosaAsync(pacienteId, referencia, alertas, ct); break;
@@ -315,19 +317,6 @@ public sealed class ElegibilidadeService
                 ImpedimentoElegibilidade.CotaQuaseNoFim,
                 NivelUrgencia.Amarelo,
                 $"Última sessão autorizada ({vigente.Resumo}) — peça a renovação da senha."));
-    }
-
-    private async Task ConferirConsentimentoAsync(
-        int pacienteId, List<AlertaElegibilidade> alertas, CancellationToken ct)
-    {
-        if (await _consentimentos.VigenteAsync(
-                pacienteId, FinalidadeConsentimento.TratamentoDeDados, ct))
-            return;
-
-        alertas.Add(new AlertaElegibilidade(
-            ImpedimentoElegibilidade.SemConsentimentoLgpd,
-            NivelUrgencia.Amarelo,
-            "Sem consentimento LGPD de tratamento de dados — colha no balcão."));
     }
 
     /// <summary>

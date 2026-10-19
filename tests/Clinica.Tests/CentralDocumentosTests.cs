@@ -159,20 +159,11 @@ public class CentralDocumentosTests : IDisposable
     }
 
     [Fact]
-    public void Catalogo_OTermoLgpdLevaAColeta_NaoEmiteUmPapelEmBranco()
+    public void Catalogo_NaoOfereceMaisOTermoLgpd()
     {
-        var folha = CentralDocumentosService.Folha("consentimento")!;
-
-        // O cartão NAVEGA até a coleta, como o termo de procedimento. Emitir aqui
-        // produziria um termo numerado e pendente que ninguém assinaria — e a leitura
-        // natural de um papel que saiu é que o consentimento foi colhido.
-        folha.Exigencia.Should().Be(ExigenciaFolha.TermoParaAssinar);
-        folha.MontadaDoProntuario.Should().BeFalse();
-
-        // Agir passou a ser COLHER assinatura. Ver continua sendo o bit do CADASTRO: o
-        // termo LGPD não carrega dado de saúde, ao contrário do de procedimento.
-        folha.PermissaoEmitir.Should().Be(Permissao.ColherAssinaturaPaciente);
-        folha.PermissaoVer.Should().Be(Permissao.VerFichaPaciente);
+        // Out/2026, decisão da direção ("os avisos e o termo"): a autorização por finalidade
+        // é registrada na aba Privacidade da ficha; o termo LGPD não é mais emitido.
+        CentralDocumentosService.Folha("consentimento").Should().BeNull();
     }
 
     [Fact]

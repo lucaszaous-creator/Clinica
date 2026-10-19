@@ -1151,7 +1151,9 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         // do cadastro. Os dois trazem as declarações; a genérica (`Paciente`) não.
         var proprios = new[] { ExigenciaFolha.TermoParaAssinar, ExigenciaFolha.PacienteComProntuario };
 
-        foreach (var tipo in assinadosPeloPaciente)
+        // O termo LGPD saiu do catálogo em out/2026 (decisão da direção): não é emitido por
+        // porta nenhuma, então não precisa de folha.
+        foreach (var tipo in assinadosPeloPaciente.Where(t => t != TipoDocumentoClinico.Consentimento))
         {
             var folha = CentralDocumentosService.Catalogo
                 .Should().ContainSingle(f => f.TipoClinico == tipo,
