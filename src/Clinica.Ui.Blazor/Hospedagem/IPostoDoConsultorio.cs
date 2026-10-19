@@ -36,6 +36,12 @@ public interface IPostoDoConsultorio
     /// não há aviso (a tela fica só com o relógio). Descartar a assinatura desliga o aviso.
     /// </summary>
     IDisposable? EscutarAgenda(Func<Task> reler);
+
+    /// <summary>
+    /// O paciente em foco no posto (quem acabou de ser atendido) — a tela de Documentos abre
+    /// já nele, como a de Prescrições WPF abria. Nulo = ninguém em foco (ou sem posto).
+    /// </summary>
+    PacienteNoPosto? PacienteEmFoco => null;
 }
 
 /// <summary>Para onde o posto leva o paciente.</summary>

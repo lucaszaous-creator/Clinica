@@ -602,6 +602,10 @@ public sealed class ModuloClinico : IModuloApp
         // BLAZOR desde out/2026: a hospedagem é a MESMA dos outros módulos (um navegador por
         // janela, idempotente), e a ponte até o prontuário WPF é o PostoDoConsultorioWpf.
         Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
+        // A tela de Documentos é a MESMA da Recepção; aqui a ponte sem orçamento. TryAdd: no
+        // Gerente, que carrega os dois módulos, vale a da Recepção (que oferece o orçamento).
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
+            Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, Clinica.Desktop.Blazor.DocumentosNoAplicativoWpf>(servicos);
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IPostoDoConsultorio, PostoDoConsultorioWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosExames, JanelasDosExamesWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosProntuarios, JanelasDosProntuariosWpf>();
@@ -637,10 +641,7 @@ public sealed class ModuloClinico : IModuloApp
         ChaveRegistrosPendentes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SessoesSemEvolucao), servicos),
         ChaveMinhaSemana => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MinhaSemana), servicos),
         ChaveMedicamentos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Medicamentos), servicos),
-        ChavePrescricoes => new PrescricoesClinicasView
-        {
-            DataContext = servicos.GetRequiredService<PrescricoesClinicasViewModel>()
-        },
+        ChavePrescricoes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao), servicos),
         ChavePrescricaoInfusao => new PrescricaoInfusaoView
         {
             DataContext = servicos.GetRequiredService<PrescricaoInfusaoViewModel>()
