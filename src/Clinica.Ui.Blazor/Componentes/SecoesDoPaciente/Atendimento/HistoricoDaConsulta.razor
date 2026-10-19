@@ -1,0 +1,185 @@
+@namespace Clinica.Ui.Blazor.Componentes.SecoesDoPaciente
+@*
+  O HISTÓRICO AO LADO DA FOLHA (o que no WPF era a HistoricoConsultaView): reler o que veio
+  antes SEM sair da sessão que se escreve. Sessões médicas, enfermagem e infusões numa linha do
+  tempo (LinhaDoTempoClinica, Application), com o filtro Todos · Sessões · Portal, "Ler
+  registro" e "Copiar registro". Ordem por dia e por TIPO: a sessão médica não tem hora, e
+  inventar uma para ordená-la entre as aferições seria fabricar sequência num prontuário.
+  Sem VerProntuario, diz isso — a folha continua.
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Prontuario
+@inherits TelaBase
+
+<section class="cartao at-historico" aria-label="Histórico do paciente">
+    <header class="at-historico-topo">
+        <div>
+            <h3>Histórico do paciente</h3>
+            <p class="texto-secundario">Consulta aos registros anteriores</p>
+        </div>
+        <button type="button" class="botao fantasma icone" title="Fechar histórico" aria-label="Fechar histórico" @onclick="AoFechar"><Icone Nome="x" /></button>
+    </header>
+    <div class="segmentado at-historico-filtro" role="group" aria-label="Filtro do histórico">
+        @foreach (var f in new[] { "Todos", "Sessões", "Portal" })
+        {
+            <button type="button" class="@(_filtro == f ? "ativo" : null)" aria-pressed="@(_filtro == f ? "true" : "false")"
+                    title="@(f == "Portal" ? "Registros de enfermagem e infusões, somente leitura" : null)"
+                    @onclick="() => _filtro = f">@f</button>
+        }
+    </div>
+    @if (_mensagem is not null)
+    {
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    }
+    @if (_falhou)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível consultar o histórico" AoTentarDeNovo="CarregarAsync" />
+    }
+    else if (_carregando && _registros.Count == 0)
+    {
+        <Esqueleto Altura="160" />
+    }
+    else if (Filtrados.Count == 0 && _mensagem is null)
+    {
+        <EstadoVazio Icone="historico" Titulo="Nenhum registro para este filtro" />
+    }
+    else
+    {
+        <ol class="at-historico-lista">
+            @foreach (var r in Filtrados)
+            {
+                <li>
+                    <span class="at-historico-data">@r.Data.ToString("dd MMM yyyy", Formato.PtBr)@(r.HoraTexto is { } h ? $" · {h}" : "")</span>
+                    <b>@r.Rotulo</b>
+                    @if (!string.IsNullOrWhiteSpace(r.Autor)) { <span class="texto-secundario">@r.Autor</span> }
+                    @if (r.EmDestaque) { <span class="at-historico-marca">Intercorrência registrada</span> }
+                    @if (!string.IsNullOrWhiteSpace(r.Marca)) { <span class="at-historico-marca">@r.Marca</span> }
+                    <EditorTextoClinico Texto="@r.Titulo" Formato="@r.TituloFormatado" SomenteLeitura="true" Linhas="1" Rotulo="Texto do registro anterior" />
+                    @if (!string.IsNullOrWhiteSpace(r.Detalhe)) { <p class="at-historico-detalhe">@r.Detalhe</p> }
+                    <div class="botoes-linha">
+                        <button type="button" class="botao mini" @onclick="() => _lendo = r">Ler registro →</button>
+                        @if (!string.IsNullOrWhiteSpace(r.TextoParaCopia))
+                        {
+                            <button type="button" class="botao mini fantasma" @onclick="() => CopiarAsync(r)"
+                                    title="Copiar o texto completo da sessão para colar onde precisar">Copiar registro</button>
+                        }
+                    </div>
+                </li>
+            }
+        </ol>
+    }
+    <footer class="at-historico-rodape">
+        <span class="texto-secundario">Exibindo: @_filtro</span>
+        <button type="button" class="botao mini fantasma" @onclick="CarregarAsync"><Icone Nome="atualizar" />Atualizar</button>
+    </footer>
+</section>
+
+@if (_lendo is { } lendo)
+{
+    <Modal Titulo="@($"{lendo.Rotulo} — leitura")" Largura="grande" AoFechar="() => _lendo = null">
+        <ChildContent>
+            @if (lendo.Natureza == NaturezaRegistroClinico.SessaoMedica && _sessoes.TryGetValue(lendo.Id, out var sessao))
+            {
+                <p class="texto-secundario">@sessao.Data · @sessao.Profissional · @sessao.Eva</p>
+                @if (sessao.AvisoCancelamento is { } cancelada) { <Aviso Tom="atencao" Texto="@cancelada" /> }
+                @foreach (var b in sessao.Blocos)
+                {
+                    <h4 class="at-bloco-rotulo">@b.Rotulo</h4>
+                    <EditorTextoClinico Texto="@b.Texto" Formato="@b.Formato" SomenteLeitura="true" Linhas="1" Rotulo="@b.Rotulo" />
+                }
+                <p class="texto-secundario">@sessao.Procedencia</p>
+            }
+            else
+            {
+                <p class="texto-secundario">@lendo.Data.ToString("dd/MM/yyyy", Formato.PtBr) @lendo.HoraTexto · @lendo.Autor</p>
+                @if (!string.IsNullOrWhiteSpace(lendo.Marca)) { <p class="at-historico-marca">@lendo.Marca</p> }
+                <p class="at-leitura">@lendo.Titulo</p>
+                @if (!string.IsNullOrWhiteSpace(lendo.Detalhe)) { <p class="at-leitura">@lendo.Detalhe</p> }
+            }
+        </ChildContent>
+        <Rodape>
+            <button type="button" class="botao primario" @onclick="() => _lendo = null">Voltar ao atendimento</button>
+        </Rodape>
+    </Modal>
+}
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<RegistroClinicoPaciente> _registros = [];
+    private Dictionary<int, SessaoDoProntuario> _sessoes = [];
+    private string _filtro = "Todos";
+    private bool _carregando;
+    private bool _falhou;
+    private string? _mensagem;
+    private RegistroClinicoPaciente? _lendo;
+    private int _geracao;
+
+    private IReadOnlyList<RegistroClinicoPaciente> Filtrados => _registros
+        .Where(r => _filtro switch
+        {
+            "Sessões" => r.Natureza == NaturezaRegistroClinico.SessaoMedica,
+            "Portal" => r.Natureza is NaturezaRegistroClinico.EvolucaoEnfermagem or NaturezaRegistroClinico.PrescricaoInterna,
+            _ => true
+        })
+        .OrderByDescending(r => r.Data).ThenBy(r => r.Natureza).ThenByDescending(r => r.Hora).ThenByDescending(r => r.Id)
+        .ToList();
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Volta à vista: o histórico é LEITURA, e relê em silêncio.</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        _falhou = false;
+        _mensagem = null;
+        if (PacienteId == 0 || !Pode(Permissao.VerProntuario))
+        {
+            _registros = [];
+            _mensagem = "Selecione um paciente com acesso ao prontuário.";
+            return;
+        }
+        _carregando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var p = escopo.ServiceProvider;
+            var prontuario = p.GetRequiredService<ProntuarioService>();
+            // SEQUENCIAL: o mesmo DbContext do escopo.
+            var paciente = await p.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>().ObterPacienteAsync(PacienteId);
+            var sessoes = await prontuario.DoPacienteAsync(PacienteId);
+            var anexos = await prontuario.ContagemDeAnexosAsync(sessoes.Select(e => e.Id).ToList());
+            var correcoes = await prontuario.ContagemDeVersoesAsync(sessoes.Select(e => e.Id).ToList());
+            var enfermagem = await p.GetRequiredService<EvolucaoEnfermagemService>().DoPacienteAsync(PacienteId, limite: 200);
+            var infusoes = await p.GetRequiredService<PrescricaoInternaService>().DoPacienteAsync(PacienteId, limite: 200);
+            if (g != _geracao || Descartada) return;
+
+            var nome = paciente?.Nome ?? string.Empty;
+            var porSessao = sessoes.ToDictionary(e => e.Id,
+                e => SessaoDoProntuario.De(e, anexos.GetValueOrDefault(e.Id), correcoes.GetValueOrDefault(e.Id)));
+            _sessoes = porSessao;
+            _registros = LinhaDoTempoClinica.Montar(SessaoUsuario.Atual.Efetivas, sessoes, anexos, enfermagem, infusoes, [], [])
+                .SelectMany(par => par.Value)
+                .Select(r => r.Natureza == NaturezaRegistroClinico.SessaoMedica && porSessao.TryGetValue(r.Id, out var s)
+                    ? r with { TextoParaCopia = s.TextoParaCopiar(nome) } : r)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Histórico lateral do atendimento", ex);
+            _falhou = true;
+        }
+        finally { if (g == _geracao) _carregando = false; }
+    }
+
+    private async Task CopiarAsync(RegistroClinicoPaciente r)
+    {
+        if (r.TextoParaCopia is not { } texto) return;
+        if (await Host.CopiarAsync(texto)) Notificacoes.Sucesso("Registro copiado.");
+        else Notificacoes.Erro("A área de transferência não aceitou a cópia — tente de novo.");
+    }
+}

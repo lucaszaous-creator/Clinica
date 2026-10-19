@@ -1,0 +1,84 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  BUSCAR O CID (o que no WPF era a BuscaCidWindow): atalho COM conferência, nunca lista
+  fechada. O catálogo é o da clínica (CatalogoCid, no domínio); o código casa por prefixo e a
+  descrição por trecho. Abre já filtrado pelo que estava no campo, e o resumo DIZ que está
+  filtrado — "50 códigos" e "3 de 50" respondem perguntas diferentes.
+*@
+@using Clinica.Domain
+
+<Modal Titulo="Buscar o CID" Largura="medio" AoFechar="AoFechar"
+       Subtitulo="Os códigos desta clínica. O campo aceita qualquer código — a lista é atalho, não limite.">
+    <ChildContent>
+        <Campo Rotulo="Código ou descrição">
+            <div class="busca"><Icone Nome="busca" /><input class="campo" value="@_termo" @oninput="Filtrar" maxlength="60"
+                                                         placeholder="Ex.: M54 ou lombar" aria-label="Buscar CID" /></div>
+        </Campo>
+        <p class="texto-secundario">@Resumo</p>
+        @if (_resultados.Count == 0)
+        {
+            <EstadoVazio Icone="busca" Titulo="Nenhum código desta clínica bate com a busca"
+                         Descricao="Escreva o código direto no campo: ele é aceito mesmo fora da lista." />
+        }
+        else
+        {
+            <div class="tabela-rolagem at-cid-lista">
+                <table class="lista compacta">
+                    <tbody>
+                        @foreach (var c in _resultados)
+                        {
+                            <tr class="@(c == _selecionado ? "selecionada" : null)" @onclick="() => _selecionado = c">
+                                <td class="nao-quebra"><b>@c.Codigo</b></td>
+                                <td>@c.Descricao<span class="secundario">@c.Grupo</span></td>
+                                <td class="direita"><button type="button" class="botao mini primario" @onclick="() => EscolherAsync(c)">Usar</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_selecionado is null)" @onclick="() => EscolherAsync(_selecionado)">Usar o selecionado</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public string? TermoInicial { get; set; }
+    [Parameter] public EventCallback<string> AoEscolher { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string _termo = string.Empty;
+    private IReadOnlyList<ItemCid> _resultados = [];
+    private ItemCid? _selecionado;
+
+    private string Resumo => string.IsNullOrWhiteSpace(_termo)
+        ? $"{CatalogoCid.Todos.Count} códigos desta clínica"
+        : $"{_resultados.Count} de {CatalogoCid.Todos.Count} — filtrado por \"{_termo.Trim()}\"";
+
+    protected override void OnInitialized()
+    {
+        _termo = TermoInicial?.Trim() ?? string.Empty;
+        Aplicar();
+    }
+
+    private void Filtrar(ChangeEventArgs e)
+    {
+        _termo = e.Value?.ToString() ?? string.Empty;
+        Aplicar();
+    }
+
+    private void Aplicar()
+    {
+        var antes = _selecionado?.Codigo;
+        _resultados = CatalogoCid.Buscar(_termo);
+        _selecionado = _resultados.FirstOrDefault(c => c.Codigo == antes) ?? _resultados.FirstOrDefault();
+    }
+
+    private async Task EscolherAsync(ItemCid? c)
+    {
+        if (c is null) return;
+        await AoEscolher.InvokeAsync(c.Codigo);
+    }
+}

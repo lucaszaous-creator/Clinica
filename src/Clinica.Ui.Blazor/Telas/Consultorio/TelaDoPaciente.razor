@@ -100,8 +100,28 @@
                         <button type="button" class="botao" disabled="@(!PodeMoverFila || _ocupado)" @onclick="ReabrirAsync"
                                 title="Desfaz o encerramento (antes da conclusão)">Reabrir</button>
                     }
+                    @if (PodeFinalizarSessao)
+                    {
+                        @* O "Salvar e finalizar": grava a folha aberta → encerra → conclui (a ordem é amarra). *@
+                        <button type="button" class="botao primario" disabled="@_ocupado" @onclick="FinalizarSessaoAsync"
+                                title="Grava a sessão, encerra o atendimento e gera as guias aplicáveis">@RotuloFinalizarSessao</button>
+                    }
+                    @if (_mostrarMateriais)
+                    {
+                        <button type="button" class="botao" disabled="@_ocupado" @onclick="() => _materiaisAbertos = true"
+                                title="Registrar os materiais usados nesta sessão">Registrar materiais</button>
+                    }
                     <button type="button" class="botao fantasma" @onclick="VoltarAsync">Trocar paciente</button>
                 </div>
+                @if (!string.IsNullOrWhiteSpace(_avisoConclusaoAutomatica))
+                {
+                    <p class="tp-aviso-conclusao">@_avisoConclusaoAutomatica</p>
+                }
+                @if (_materiaisAbertos && ctx.AgendamentoId is { } idMateriais)
+                {
+                    <MateriaisAtendimentoForm AgendamentoId="idMateriais" AoConcluir="RelerCabecalhoAsync"
+                                              AoFechar="() => _materiaisAbertos = false" />
+                }
             </div>
         </header>
 
@@ -237,6 +257,11 @@
         _horario = null;
         _sessao = SessaoDoAtendimentoNaTela.Nenhuma;
         _mensagem = null;
+        // Paciente novo: o rascunho do anterior não atravessa (nem os materiais abertos).
+        _guardados.Clear();
+        _materiaisAbertos = false;
+        _mostrarMateriais = false;
+        _avisoConclusaoAutomatica = null;
         await RelerCabecalhoAsync();
         return true;
     }
@@ -271,7 +296,154 @@
         _cabecalhoFalhou = falhou && _cabecalho is null;
         _horario = horario ?? (falhou ? _horario : null);
         _sessao = SessaoDoAtendimentoNaTela.De(_horario, DateTime.Now);
+        await RelerAcoesDaSessaoAsync(ctx);
         StateHasChanged();
+    }
+
+    // ==================== As AÇÕES DA SESSÃO (out/2026, portadas da PacienteWorkspaceViewModel) ====================
+
+    private readonly Dictionary<string, object> _guardados = [];
+    private bool _mostrarMateriais;
+    private bool _materiaisAbertos;
+    private string? _avisoConclusaoAutomatica;
+
+    private IJanelasDoAtendimentoClinico Janelas
+        => Servicos.GetService<IJanelasDoAtendimentoClinico>() ?? JanelasDoAtendimentoClinicoIndisponiveis.Instancia;
+
+    /// <summary>O estado de uma seção que sobrevive à troca de seção (a folha em edição). Um por paciente.</summary>
+    public T Guardado<T>(string chave, Func<T> criar) where T : class
+    {
+        if (_guardados.TryGetValue(chave, out var existente) && existente is T achado) return achado;
+        var novo = criar();
+        _guardados[chave] = novo;
+        return novo;
+    }
+
+    public void AvisarMudanca() => _ = InvokeAsync(RelerCabecalhoAsync);
+
+    /// <summary>Finalizar exige o médico responsável (ou o Gerente) com prontuário E lançamento, e mover a fila.</summary>
+    private static bool PodeConcluirComAcesso => PodeMoverFila && ConclusaoClinica.Permitida(
+        SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.Efetivas, SessaoUsuario.Atual.ProfissionalId);
+
+    private bool PodeFinalizarSessao => SessaoDoAtendimentoNaTela.PodeFinalizar(_horario, PodeConcluirComAcesso);
+
+    private string RotuloFinalizarSessao => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
+        ? "Concluir sessão" : SessaoDoAtendimentoNaTela.RotuloFinalizar(_horario);
+
+    /// <summary>
+    /// "Registrar materiais" (só depois de encerrado, com a política ligada para quem pode) e o
+    /// aviso da conclusão automática. Falhar aqui não derruba o cabeçalho: vai ao log.
+    /// </summary>
+    private async Task RelerAcoesDaSessaoAsync(ContextoDoPaciente ctx)
+    {
+        var mostrar = false;
+        string? aviso = null;
+        if (_horario is { } horario && ctx.AgendamentoId is { } id)
+        {
+            try
+            {
+                using var escopo = Escopo();
+                var p = escopo.ServiceProvider;
+                var repo = p.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+                var politica = await new PoliticaMateriaisService(repo).ObterAsync();
+                var registrado = politica.Modo != ModoMateriais.Desativado && horario.AtendimentoId is { } atendimento
+                                 && await repo.ConferenciaConsumoAsync(atendimento) is not null;
+                mostrar = horario.FimAtendimentoEm is not null && horario.AtendimentoId is not null
+                          && (politica.Modo == ModoMateriais.Equipe
+                              || politica.Modo == ModoMateriais.Gestao && Pode(Permissao.EditarFinanceiro))
+                          && (politica.Abrange(horario) || registrado);
+                aviso = await p.GetRequiredService<AgendaService>().PendenciaEnfermagemAsync(id)
+                        ?? await Janelas.PendenciaDeConclusaoAutomaticaAsync(id);
+                if (horario.FimAtendimentoEm is null)
+                    aviso ??= SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
+                        ? FinalizacaoDaSessao.OrientacaoGerente
+                        : (await p.GetRequiredService<PoliticaConclusaoService>().ObterAsync()).OrientacaoAoSalvar;
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Consultório — ações da sessão não puderam ser lidas", ex);
+            }
+        }
+        if (_contexto != ctx) return;
+        _mostrarMateriais = mostrar;
+        _avisoConclusaoAutomatica = aviso;
+    }
+
+    /// <summary>
+    /// SALVAR E FINALIZAR: grava a folha → encerra → conclui (o MESMO ponto do balcão,
+    /// <c>FechamentoSessaoService.RegistrarAtendimentoAsync</c>). Falhar a gravação NÃO encerra;
+    /// falhar a conclusão não desfaz a evolução — cada desfecho com a frase do que fazer.
+    /// </summary>
+    private async Task FinalizarSessaoAsync()
+    {
+        if (_ocupado || _contexto is not { } ctx) return;
+        if (!PodeConcluirComAcesso) { Avisar(FinalizacaoDaSessao.SemAcesso, erro: true); return; }
+        if (ctx.AgendamentoId is not { } id || !PodeFinalizarSessao) { Avisar(FinalizacaoDaSessao.SemAtendimento, erro: true); return; }
+
+        var gerente = SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente;
+        if (gerente && !await Dialogos.ConfirmarAsync(FinalizacaoDaSessao.PerguntaGerenteTitulo, FinalizacaoDaSessao.PerguntaGerente))
+            return;
+
+        // A passagem de enfermagem escrita e não registrada NÃO é gravada aqui (cada uma nasce
+        // com a hora do fato): a tela PERGUNTA, para ela não sumir calada.
+        if (_guardados.Values.OfType<IPassagemAberta>().Any(x => !x.PassagemEmBranco)
+            && !await Dialogos.ConfirmarAsync(FinalizacaoDaSessao.PassagemTitulo, FinalizacaoDaSessao.PassagemNaoRegistrada, perigoso: true))
+            return;
+
+        _ocupado = true;
+        var gravou = false;
+        try
+        {
+            // A folha do médico, mesmo que a seção não esteja à vista: ela sabe se já há evolução.
+            var folha = Guardado(FolhaDoAtendimento.Chave, () => new FolhaDoAtendimento(Escopos, ctx));
+            if (!folha.Carregada) await folha.CarregarAsync();
+
+            if (!folha.TemAlgoParaGravar && folha.EvolucaoId == 0
+                && !await Dialogos.ConfirmarAsync(FinalizacaoDaSessao.EmBrancoTitulo, FinalizacaoDaSessao.EmBranco, perigoso: true))
+                return;
+
+            using (var autorizacao = Escopo())
+                await autorizacao.ServiceProvider.GetRequiredService<AgendaService>()
+                    .ExigirConclusaoClinicaAsync(id, SessaoUsuario.Atual.UsuarioId);
+            if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "finalizar o atendimento")) return;
+            if (!Exigir(Permissao.LancarAtendimento, "concluir a sessão e gerar as guias")) return;
+
+            // 1) O REGISTRO CLÍNICO — `TemAlgoParaGravar`, NUNCA `!SessaoEmBranco` (parcela 74).
+            if (!gerente && (folha.TemAlgoParaGravar || folha.EvolucaoId != 0) && !await folha.TentarSalvarAsync())
+            {
+                Avisar(FinalizacaoDaSessao.NaoGravou, erro: true);
+                return;
+            }
+            gravou = folha.EvolucaoId != 0;
+
+            // 2) O CONVÊNIO antes (parcela 92): sem ele o atendimento não nasce.
+            using (var escopo = Escopo())
+            {
+                var paciente = await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(ctx.PacienteId);
+                if (paciente is { ConvenioADefinir: true } && !await Janelas.EscolherConvenioAsync(ctx.PacienteId))
+                {
+                    Avisar(FinalizacaoDaSessao.ConvenioPendente, erro: true);
+                    return;
+                }
+            }
+
+            // 3) Encerramento e conclusão: um commit só.
+            RegistroAtendimento registro;
+            using (var escopo = Escopo())
+                registro = await escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>().RegistrarAtendimentoAsync(
+                    id, Operador, concluirClinico: true, usuarioClinicoId: SessaoUsuario.Atual.UsuarioId,
+                    permitirEnfermagemPosterior: true);
+            folha.AtendimentoNasceu(registro.Atendimento.Id);
+
+            await RelerCabecalhoAsync();
+            Avisar(FinalizacaoDaSessao.Concluida(registro.GuiasGeradas, registro.RecadosDoLancamento), erro: false);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — atendimento não pôde ser encerrado", ex);
+            Avisar(FinalizacaoDaSessao.Falhou(gravou, ex.Message), erro: true);
+        }
+        finally { _ocupado = false; }
     }
 
     /// <summary>A batida de um segundo: só reescreve o cronômetro, e só com a tela à vista e o atendimento em curso.</summary>
