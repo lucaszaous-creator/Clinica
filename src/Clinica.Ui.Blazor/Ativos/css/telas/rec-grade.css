@@ -1,0 +1,157 @@
+/* Estilo próprio da tela (rec-grade) — a GRADE da agenda do balcão. Só tokens — ver docs/telas-blazor.md.
+   As cores de SITUAÇÃO repetem as da agenda (Agenda.Situacao.* / rec-dia): pendente âmbar, no local e em
+   atendimento no acento, atendido verde, cancelado e falta vermelho, substituído cinza. A cor nunca anda
+   sozinha: o rótulo está escrito ao lado (a pílula, a linha de contexto do cartão). */
+
+.rec-grade{container-type:inline-size;container-name:grade}
+
+/* ---------- As cores por grupo, num lugar só ---------- */
+.rec-grade .grupo-todos{--cor-grupo:var(--cinza-500);--fundo-grupo:var(--superficie-hover)}
+.rec-grade .grupo-pendente{--cor-grupo:var(--aviso);--fundo-grupo:var(--aviso-suave)}
+.rec-grade .grupo-no-local,.rec-grade .grupo-em-atendimento{--cor-grupo:var(--acento);--fundo-grupo:var(--acento-suave)}
+.rec-grade .grupo-atendido{--cor-grupo:var(--sucesso-forte);--fundo-grupo:var(--sucesso-suave)}
+.rec-grade .grupo-cancelado,.rec-grade .grupo-faltou{--cor-grupo:var(--erro);--fundo-grupo:var(--erro-suave)}
+.rec-grade .grupo-substituido{--cor-grupo:var(--texto-secundario);--fundo-grupo:var(--superficie-hover)}
+
+/* ---------- O "Mais ações" do cabeçalho ---------- */
+.rg-menu{position:relative;display:inline-flex}
+.rg-menu-lista{position:absolute;right:0;top:calc(100% + 4px);z-index:30;display:flex;flex-direction:column;min-width:300px;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);
+  box-shadow:var(--sombra-popup);padding:var(--space-1);text-align:left}
+.rg-menu-lista button{border:0;background:transparent;text-align:left;padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-pequeno);color:var(--texto-primario);cursor:pointer;white-space:nowrap}
+.rg-menu-lista button:hover:not(:disabled){background:var(--fundo)}
+.rg-menu-lista button:disabled{color:var(--cinza-500);cursor:default}
+.rg-menu-lista hr{border:0;border-top:1px solid var(--borda);margin:var(--space-1) 0}
+.rg-menu-fundo{position:fixed;inset:0;z-index:25}
+
+/* ---------- Os filtros do planejamento ---------- */
+.rg-filtros{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3);padding:var(--space-3) var(--space-4)}
+.rg-campo{display:flex;flex-direction:column;gap:var(--space-1);width:200px;min-width:0}
+.rg-largo{width:260px}
+.rg-curto{width:110px}
+
+/* ---------- As faixas de aviso (disponibilidade não verificada; filtro sem resultado) ---------- */
+.rg-faixa{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding:var(--space-3) var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-control)}
+.rg-faixa > div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rg-faixa.info{background:var(--info-suave);border-color:var(--info)}
+.rg-faixa.atencao{background:var(--aviso-suave);border-color:var(--aviso);margin:var(--space-3)}
+
+/* ---------- O corpo: calendário · grade · próximas vagas ---------- */
+.rg-corpo{display:grid;grid-template-columns:224px minmax(0,1fr) 264px;gap:var(--space-4);align-items:start}
+.rg-corpo.semana{grid-template-columns:224px minmax(0,1fr)}
+@container grade (max-width:1250px){
+  .rg-calendario{display:none}
+  .rg-corpo{grid-template-columns:minmax(0,1fr) 264px}
+  .rg-corpo.semana{grid-template-columns:minmax(0,1fr)}
+}
+@container grade (max-width:1000px){
+  .rg-corpo{grid-template-columns:minmax(0,1fr) 224px}
+}
+
+.rg-lateral{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-4);min-width:0}
+.rg-lateral hr{border:0;border-top:1px solid var(--borda);margin:var(--space-2) 0;width:100%}
+.rg-lateral .selo{align-self:flex-start}
+.rg-prof{margin-top:var(--space-2)}
+
+/* O calendário do mês */
+.rg-mes{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.rg-mes strong{font-size:var(--text-table-size);text-align:center}
+.rg-dias{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;text-align:center}
+.rg-dia-nome{font-size:var(--text-small-size);color:var(--texto-secundario);padding:var(--space-1) 0}
+.rg-dia{border:0;background:transparent;border-radius:var(--radius-pequeno);padding:var(--space-1) 0;cursor:pointer;
+  color:var(--texto-primario);font-variant-numeric:tabular-nums;font-size:var(--text-table-size)}
+.rg-dia:hover{background:var(--superficie-hover)}
+.rg-dia.fora{color:var(--cinza-500)}
+.rg-dia.hoje{box-shadow:inset 0 0 0 1px var(--acento)}
+.rg-dia.escolhido{background:var(--acento);color:var(--texto-invertido)}
+.rg-hoje{align-self:stretch;justify-content:center;margin:var(--space-2) 0}
+
+/* ---------- O cartão central ---------- */
+.rg-centro{display:flex;flex-direction:column;min-width:0;padding:0;overflow:hidden}
+.rg-barra{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);padding:var(--space-3);border-bottom:1px solid var(--borda)}
+.rg-data{width:150px}
+.rg-atualizar{margin-left:auto}
+.rg-pedidos{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+  margin:var(--space-3) var(--space-3) 0;padding:var(--space-2) var(--space-3);
+  background:var(--info-suave);border:1px solid var(--info);border-radius:var(--radius-control)}
+
+.rg-busca{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3);border-bottom:1px solid var(--borda)}
+.rg-busca-linha{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3)}
+.rg-campo-busca{flex:1 1 220px;min-width:0}
+.rg-combo{width:230px;max-width:100%}
+.rg-situacoes{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.rg-pilula{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 var(--space-3);border-radius:var(--radius-pilula);
+  border:1px solid var(--borda);background:var(--superficie);color:var(--cinza-700);font-weight:500;cursor:pointer;
+  transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.rg-pilula:hover{border-color:var(--borda-hover);background:var(--superficie-hover)}
+.rg-pilula b{font-variant-numeric:tabular-nums;color:var(--texto-primario);font-weight:700}
+.rg-pilula[aria-pressed="true"]{border-color:var(--acento);background:var(--acento-suave);color:var(--acento)}
+.rg-pilula[aria-pressed="true"] b{color:var(--acento)}
+.rg-ponto{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cor-grupo);flex:none}
+.rg-resumo-busca{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--space-2);
+  font-size:var(--text-small-size);color:var(--texto-secundario)}
+
+/* ---------- A linha do tempo ---------- */
+.rg-area{position:relative;min-height:200px}
+.rg-rolagem{overflow-x:auto}
+.rg-grade{display:flex;align-items:flex-start}
+.rg-regua{position:relative;width:64px;flex:none}
+.rg-hora{position:absolute;left:var(--space-3);margin-top:var(--space-1);font-size:var(--text-small-size);
+  color:var(--texto-secundario);font-variant-numeric:tabular-nums}
+.rg-hora.cheia{color:var(--texto-primario);font-weight:600}
+.rg-colunas{position:relative;flex:1;display:grid;min-width:0}
+.rg-coluna{min-width:0;border-left:1px solid var(--borda)}
+.rg-cabeca{height:64px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:1px;overflow:hidden;
+  padding:var(--space-2) var(--space-3);background:var(--fundo);border-bottom:1px solid var(--borda)}
+.rg-cabeca strong,.rg-cabeca span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rg-cabeca .secundario{font-size:var(--text-small-size)}
+.rg-fechado{font-size:var(--text-small-size);font-weight:600;color:var(--erro-texto)}
+/* As faixas de meia hora: uma linha discreta a cada 36 px (30 min × 1,2 px) — o vazio TEM tamanho. */
+.rg-linha{position:relative;background-image:repeating-linear-gradient(to bottom,transparent 0 35px,var(--borda) 35px 36px)}
+
+/* O vão: livre, disponível (cabe a duração consultada) ou fechado (hachurado, com o motivo). */
+.rg-vao{position:absolute;box-sizing:border-box;display:flex;align-items:center;border:0;border-radius:var(--radius-pequeno);
+  padding:0 var(--space-3);background:transparent;color:var(--texto-secundario);font-size:var(--text-small-size);
+  text-align:left;overflow:hidden;cursor:pointer}
+.rg-vao span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rg-vao:disabled{cursor:default}
+.rg-vao:not(:disabled):hover{background:var(--superficie-hover);color:var(--texto-primario)}
+.rg-vao.disponivel{background:var(--superficie);border:1px solid var(--marca-medio);color:var(--acento);font-weight:600}
+.rg-vao.disponivel:not(:disabled):hover{background:var(--acento-suave)}
+.rg-vao.bloqueado{align-items:flex-start;padding-top:var(--space-1);border:1px solid var(--borda);color:var(--texto-primario);
+  background-color:var(--superficie-hover);
+  background-image:repeating-linear-gradient(135deg,transparent 0 6px,var(--borda) 6px 7px)}
+/* Texto sobre diagonal não se lê: o motivo ganha fundo próprio. */
+.rg-vao.bloqueado span{background:var(--superficie);padding:0 var(--space-1);border-radius:var(--radius-pequeno)}
+
+/* O cartão do horário: o traço e o fundo pela SITUAÇÃO; a linha de contexto na cor da etapa. */
+.rg-bloco{position:absolute;display:flex;gap:2px;min-width:0}
+.rg-cartao{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow:hidden;cursor:pointer;text-align:left;
+  border:0;border-left:3px solid var(--cor-grupo);border-radius:var(--radius-pequeno);
+  background:var(--fundo-grupo);color:var(--texto-primario);padding:3px var(--space-2);font-size:var(--text-small-size)}
+.rg-cartao:hover{box-shadow:inset 0 0 0 1px var(--cor-grupo)}
+.rg-cartao:focus-visible{outline:2px solid var(--foco);outline-offset:1px}
+.rg-titulo{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rg-confirmou{font-style:normal;color:var(--acento);margin-right:3px}
+.rg-contexto{display:block;color:var(--texto-secundario);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rg-cartao.etapa-Chegou .rg-contexto,.rg-cartao.etapa-EmAtendimento .rg-contexto{color:var(--acento);font-weight:600}
+.rg-cartao.etapa-Chamado .rg-contexto{color:var(--marca-navy);font-weight:600}
+.rg-selos{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.rg-selo{padding:0 6px;border-radius:var(--radius-pequeno);border:1px solid var(--marca-medio);background:var(--acento-suave);
+  color:var(--acento);white-space:nowrap}
+.rg-selo.perigo{border-color:var(--erro);background:var(--erro-suave);color:var(--erro-texto)}
+.rg-selo.neutro{border-color:var(--borda);background:var(--superficie-hover);color:var(--texto-secundario)}
+.rg-mais{flex:none;align-self:flex-start}
+
+/* A linha do AGORA: marca a FAIXA de hoje (não o minuto) — só no modo dia. */
+.rg-agora{position:absolute;left:0;right:0;height:2px;background:var(--erro);pointer-events:none;z-index:2}
+.rg-resumo{padding:var(--space-2) var(--space-3);margin:0}
+.rg-ultima{margin:0}
+
+/* ---------- Próximas vagas ---------- */
+.rg-vagas h2{margin:0;font-size:var(--text-h3-size)}
+.rg-vagas-lista{display:flex;flex-direction:column;gap:var(--space-2);margin:var(--space-2) 0}
+.rg-vaga{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;height:auto;padding:var(--space-2) var(--space-3);text-align:left}
+.rg-estado-vagas{font-size:var(--text-small-size)}

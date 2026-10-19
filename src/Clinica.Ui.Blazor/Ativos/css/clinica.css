@@ -71,6 +71,9 @@
 @import url("telas/rec-conciliacao-agenda.css");
 @import url("telas/pacotes.css");
 @import url("telas/precos-particular.css");
+@import url("telas/rec-agendamento-form.css");
+@import url("telas/rec-horario.css");
+@import url("telas/rec-grade.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.

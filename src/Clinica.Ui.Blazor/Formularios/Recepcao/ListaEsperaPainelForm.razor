@@ -1,0 +1,204 @@
+@*
+  A LISTA DE ESPERA (out/2026 — era a ListaEsperaPainelWindow WPF sobre o AgendaViewModel).
+  Quando um horário vaga, é aqui que está quem chamar. Ela era uma faixa lateral de 320 px
+  grudada na agenda (parcela 58): consultar quem espera é o que se faz QUANDO UM HORÁRIO VAGA,
+  algumas vezes por dia — então é um formulário atrás de um botão que carrega a contagem.
+
+  Apontada para um horário (SugestaoPara), ela mostra só QUEM SERVE para ele
+  (ListaEsperaService.CandidatosParaAsync: janela de datas, turno e profissional de cada pedido),
+  na ordem de chamada — e o título DIZ isso: filtro invisível é filtro que engana. "Ninguém
+  espera" e "ninguém serve para este horário" são respostas diferentes.
+
+  Chamar abre o MESMO formulário de horário (AgendamentoForm) já no horário que vagou;
+  "Sair da lista" pede o motivo (fica registrado no pedido). Escrever exige EditarAgenda — no
+  botão e no clique.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="@GradeDaAgendaNaTela.TituloDaEspera(_sugestao)" Subtitulo="Quando um horário vaga, é aqui que está quem chamar."
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="ge-barra">
+            <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="Adicionar"
+                    title="@(PodeEditar ? "Colocar um paciente na lista de espera" : "Seu acesso não permite mexer na agenda.")"><Icone Nome="mais" />Adicionar à lista</button>
+            @if (_sugestao is not null)
+            {
+                <button type="button" class="botao fantasma" @onclick="VerListaInteiraAsync">Ver a lista inteira</button>
+            }
+        </div>
+        @if (_falha is not null)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a lista de espera" Detalhe="@_falha" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_leu)
+        {
+            <Esqueleto Altura="160" />
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="Lista de espera" Icone="relogio" Descricao="@GradeDaAgendaNaTela.EsperaVazia(_sugestao)" />
+        }
+        else
+        {
+            <ul class="ge-lista">
+                @foreach (var l in _linhas)
+                {
+                    <li @key="l.PedidoId">
+                        <div class="ge-quem">
+                            <span class="principal">@l.Paciente</span>
+                            @if (l.Prioritario) { <Selo Tom="aviso">Prioritário</Selo> }
+                            <span class="secundario">@l.Preferencias</span>
+                            <span class="secundario">@l.Desde</span>
+                            @if (!string.IsNullOrWhiteSpace(l.Observacoes)) { <span class="secundario ge-obs">Obs.: @l.Observacoes</span> }
+                        </div>
+                        <span class="botoes-linha">
+                            <button type="button" class="botao mini primario" disabled="@(!PodeEditar || _ocupado)" @onclick="() => Chamar(l)"
+                                    title="@(PodeEditar ? "Marcar o horário para este paciente" : "Seu acesso não permite mexer na agenda.")">Chamar</button>
+                            <button type="button" class="botao mini" disabled="@(!PodeEditar || _ocupado)" @onclick="() => SairAsync(l)">Sair da lista</button>
+                        </span>
+                    </li>
+                }
+            </ul>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@if (_adicionando)
+{
+    <ListaEsperaForm AoFechar="() => _adicionando = false" AoConcluir="AdicionouAsync" />
+}
+@if (_chamando is { } ch)
+{
+    <AgendamentoForm Data="@((_sugestao?.Date) ?? Dia?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today)"
+                     Hora="@(_sugestao?.ToString("HH:mm", CultureInfo.InvariantCulture))"
+                     Titulo="@($"Chamar {ch.Paciente} da lista de espera")" PedidoListaEsperaId="ch.PedidoId"
+                     AoFechar="() => _chamando = null" AoConcluir="ChamouAsync" />
+}
+
+@code {
+    private sealed record LinhaEspera(int PedidoId, string Paciente, string Preferencias, string Desde, bool Prioritario, string? Observacoes);
+
+    /// <summary>O horário que vagou — a lista mostra quem serve para ELE. Nulo = a lista inteira.</summary>
+    [Parameter] public DateTime? SugestaoPara { get; set; }
+    [Parameter] public int? SugestaoProfissionalId { get; set; }
+
+    /// <summary>O dia da agenda de trás — o "Chamar" sem horário em foco abre nele.</summary>
+    [Parameter] public DateOnly? Dia { get; set; }
+
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>A lista ou a agenda mudou (adicionou, chamou, tirou alguém): quem abriu relê.</summary>
+    [Parameter] public EventCallback AoMudou { get; set; }
+
+    private DateTime? _sugestao;
+    private int? _sugestaoProfissional;
+    private List<LinhaEspera> _linhas = [];
+    private bool _leu, _ocupado, _adicionando;
+    private LinhaEspera? _chamando;
+    private string? _falha;
+    private int _geracao;
+
+    private static bool PodeEditar => Pode(Permissao.EditarAgenda);
+
+    protected override Task OnInitializedAsync()
+    {
+        _sugestao = SugestaoPara;
+        _sugestaoProfissional = SugestaoProfissionalId;
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        _falha = null;
+        try
+        {
+            using var escopo = Escopo();
+            var espera = escopo.ServiceProvider.GetRequiredService<ListaEsperaService>();
+            var pedidos = _sugestao is { } horario
+                ? await espera.CandidatosParaAsync(horario, _sugestaoProfissional)
+                : await espera.AguardandoAsync();
+            if (g != _geracao || Descartada) return;
+            _linhas = pedidos.Select(p => new LinhaEspera(
+                p.Id, p.Paciente?.Nome ?? "(paciente removido)", GradeDaAgendaNaTela.PreferenciasDaEspera(p),
+                $"na lista desde {p.CriadoEm.ToString("dd/MM", Formato.PtBr)}", p.Prioritario, p.Observacoes)).ToList();
+            _leu = true;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — lista de espera não pôde ser lida", ex);
+            _falha = ex.Message;
+        }
+    }
+
+    /// <summary>Tira o foco do horário e volta a mostrar todo mundo que espera.</summary>
+    private Task VerListaInteiraAsync()
+    {
+        _sugestao = null;
+        _sugestaoProfissional = null;
+        _leu = false;
+        return CarregarAsync();
+    }
+
+    private void Adicionar()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+        _adicionando = true;
+    }
+
+    private async Task AdicionouAsync()
+    {
+        _adicionando = false;
+        Notificacoes.Sucesso("Paciente entrou na lista de espera.");
+        await AoMudou.InvokeAsync();
+        await CarregarAsync();
+    }
+
+    private void Chamar(LinhaEspera l)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+        _chamando = l;
+    }
+
+    private async Task ChamouAsync(IReadOnlyList<string> avisos)
+    {
+        _chamando = null;
+        // Marcou: o horário deixou de estar vago, e a lista volta a ser a lista inteira.
+        _sugestao = null;
+        _sugestaoProfissional = null;
+        Notificacoes.Sucesso(avisos.Count == 0 ? "Agenda atualizada." : $"Agenda atualizada — {string.Join(" ", avisos)}");
+        await AoMudou.InvokeAsync();
+        await CarregarAsync();
+    }
+
+    /// <summary>Tira o pedido da lista sem agendar (desistiu, resolveu em outro lugar). O motivo fica no pedido.</summary>
+    private async Task SairAsync(LinhaEspera l)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Sair da lista de espera",
+            $"Por que {l.Paciente} está saindo da lista? Fica registrado no pedido.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ListaEsperaService>().RemoverAsync(l.PedidoId, motivo);
+            Notificacoes.Info($"{l.Paciente} saiu da lista de espera.");
+            await AoMudou.InvokeAsync();
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — falha em: saída da lista de espera", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+        finally { _ocupado = false; }
+    }
+}

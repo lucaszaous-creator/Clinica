@@ -228,6 +228,16 @@
 
 <FechamentoDaSessao @ref="_fechamento" />
 
+@if (_editando is { } edicao)
+{
+    <AgendamentoForm AgendamentoId="edicao.Id" TituloDaEdicao="Editar o horário"
+                     AoFechar="() => _editando = null" AoConcluir="EdicaoConcluidaAsync" />
+}
+@if (_horarioAberto is { } horario)
+{
+    <HorarioDaAgendaForm AgendamentoId="horario" AoFechar="() => _horarioAberto = null" AoMudou="() => CarregarAsync()" />
+}
+
 @if (_menu is not null)
 {
     @* Clicar fora fecha o "⋯" — sem isso o menu ficaria aberto por cima da linha seguinte. *@
@@ -252,6 +262,8 @@
     private bool _ocupado;
     private Timer? _relogio;
     private FechamentoDaSessao _fechamento = default!;
+    private (int Id, string Paciente)? _editando;
+    private int? _horarioAberto;
 
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
     private static PermissoesDaAgendaDoDia Permissoes => PermissoesDaAgendaDoDia.Da(SessaoUsuario.Atual);
@@ -542,22 +554,23 @@
     /// vieram todos como "Consulta"). Só em horário EM ABERTO: o serviço recusa o realizado e
     /// REABRE o cancelado, e um "Editar" que ressuscita em silêncio seria pior que nenhum.
     /// </summary>
-    private Task EditarAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    private Task EditarAsync(LinhaAgendaDoDia l)
     {
-        if (!Exigir(Permissao.EditarAgenda, "editar o horário")) return false;
-        if (!Janelas.Disponivel)
-        {
-            Notificacoes.Info("A edição do horário abre no aplicativo da Recepção.");
-            return false;
-        }
-        var avisos = await Janelas.EditarHorarioAsync(l.AgendamentoId);
-        // Desistir não relê: a lista é relida a cada minuto de qualquer forma.
-        if (avisos is null) return false;
+        if (!Exigir(Permissao.EditarAgenda, "editar o horário")) return Task.CompletedTask;
+        // O MESMO formulário do horário da Grade (Blazor desde out/2026), com o título da porta.
+        _editando = (l.AgendamentoId, l.Paciente);
+        return Task.CompletedTask;
+    }
+
+    private async Task EdicaoConcluidaAsync(IReadOnlyList<string> avisos)
+    {
+        var paciente = _editando?.Paciente;
+        _editando = null;
         Notificacoes.Sucesso(avisos.Count == 0
-            ? $"Horário de {l.Paciente} atualizado."
-            : $"Horário de {l.Paciente} atualizado — {string.Join(" ", avisos)}");
-        return true;
-    }, "edição do horário");
+            ? $"Horário de {paciente} atualizado."
+            : $"Horário de {paciente} atualizado — {string.Join(" ", avisos)}");
+        await CarregarAsync();
+    }
 
     private Task AbrirFichaAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
     {
@@ -624,22 +637,12 @@
     /// A JANELA DO HORÁRIO (remarcar, reabrir o cancelado, comprovante, WhatsApp, série). É
     /// leitura: cada ação da janela exige o seu bit. Para a linha cancelada é a única que sobra.
     /// </summary>
-    private Task AbrirHorarioAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    private Task AbrirHorarioAsync(LinhaAgendaDoDia l)
     {
-        if (!Janelas.Disponivel)
-        {
-            Notificacoes.Info("A janela do horário (remarcar, reabrir, comprovante, WhatsApp) abre no aplicativo da Recepção.");
-            return false;
-        }
-        var desfecho = await Janelas.AbrirHorarioAsync(_dia, l.AgendamentoId);
-        if (!desfecho.Achou)
-            Notificacoes.Info("Este horário não está mais neste dia — ele pode ter sido remarcado em outra máquina.");
-        if (desfecho.Mensagem is { } m)
-        {
-            if (desfecho.MensagemEhErro) Notificacoes.Erro(m); else Notificacoes.Info(m);
-        }
-        return true;
-    }, "janela do horário");
+        // O MESMO formulário da Grade (HorarioDaAgendaForm): cada ação dele exige o seu bit.
+        _horarioAberto = l.AgendamentoId;
+        return Task.CompletedTask;
+    }
 
     /// <summary>"Marcar atendimento" neste dia, com o profissional do filtro já escolhido.</summary>
     private async Task NovoHorarioAsync()

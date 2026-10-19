@@ -1,0 +1,336 @@
+@*
+  A JANELA DO HORÁRIO (out/2026 — era a DetalheHorarioWindow WPF, com as sete ações no
+  AgendaViewModel). Tudo o que o horário é — quem, quando, telefone, observação, QUEM MARCOU — e
+  tudo o que dá para fazer com ele: remarcar (ou REABRIR o cancelado/falta), confirmar pelo
+  WhatsApp, comprovante, quem chamar da lista de espera, marcar falta, cancelar e cancelar o
+  resto da série.
+
+  Ela é DONA das sete ações (permissão, aviso, recarga e erro num lugar só): a Grade, a Agenda do
+  dia, a Visão geral, o Início e os Pedidos da enfermagem abrem ESTE formulário — uma segunda
+  janela do horário divergiria na primeira correção. Quem abriu relê quando ela avisa
+  (AoMudou); a grade usa o AoVagou para apontar a lista de espera ao horário que acabou de vagar.
+
+  As duas barreiras são POR BOTÃO: "Confirmar pelo WhatsApp" e "Comprovante" são leitura (quem
+  só tem VerAgenda os usava ontem); os outros pedem EditarAgenda no botão e no clique.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+@if (_modo == Modo.Detalhe)
+{
+    <Modal Titulo="@(_cartao?.Paciente ?? "Horário")" Subtitulo="@_cartao?.Faixa" Largura="medio" AoFechar="AoFechar">
+        <ChildContent>
+            @if (_falha is not null)
+            {
+                <Aviso Tom="erro" Texto="@_falha" />
+            }
+            else if (_cartao is null)
+            {
+                <Esqueleto Altura="160" />
+            }
+            else
+            {
+                var c = _cartao;
+                <p class="gh-contexto">@c.Contexto</p>
+                @if (c.EhEncaixe || c.VeioDaListaEspera || c.EhRetornoDoSegundoCodigo || c.ForaDoDia)
+                {
+                    <div class="gh-selos">
+                        @if (c.EhEncaixe) { <Selo Tom="aviso">Encaixe</Selo> }
+                        @if (c.VeioDaListaEspera) { <Selo Tom="sucesso">Da lista de espera</Selo> }
+                        @if (c.EhRetornoDoSegundoCodigo) { <Selo Tom="info" Dica="Legado: guia não é atendimento — pode apagar">Retorno do 2º código</Selo> }
+                        @if (c.ForaDoDia) { <Selo Tom="perigo">@c.StatusRotulo</Selo> }
+                    </div>
+                }
+                <dl class="pares gh-dados">
+                    <dt>Telefone</dt><dd>@(c.TemTelefone ? c.Telefone : "—")</dd>
+                    @if (c.TemObservacoes) { <dt>Observações</dt><dd>@c.Observacoes</dd> }
+                    <dt>Lançamento</dt><dd>@c.Lancamento</dd>
+                </dl>
+
+                <h3 class="gh-rotulo">O que fazer com este horário</h3>
+                @if (c.EmAberto)
+                {
+                    <div class="gh-acoes">
+                        <button type="button" class="botao primario" disabled="@(!PodeEditar || _ocupado)" @onclick="Remarcar"
+                                title="@(PodeEditar ? "Mover o horário — o registro e o histórico ficam" : "Seu acesso não permite mexer na agenda.")">Remarcar</button>
+                        <button type="button" class="botao" disabled="@(!c.TemTelefone || _ocupado)" @onclick="ConfirmarAsync"
+                                title="Abre o WhatsApp com a confirmação pronta">Confirmar pelo WhatsApp</button>
+                        <button type="button" class="botao" disabled="@_ocupado" @onclick="ComprovanteAsync"
+                                title="O papel que o paciente leva — sem valor e sem diagnóstico">Comprovante</button>
+                        <button type="button" class="botao" disabled="@(!PodeEditar || _ocupado)" @onclick="QuemChamarAsync"
+                                title="Aponta a lista de espera para este horário">Quem chamar?</button>
+                        <button type="button" class="botao contorno-perigo" disabled="@(!PodeEditar || _ocupado)" @onclick="MarcarFaltaAsync">Marcar falta</button>
+                        <button type="button" class="botao contorno-perigo" disabled="@(!PodeEditar || _ocupado)" @onclick="CancelarAsync">Cancelar horário</button>
+                    </div>
+                }
+                @if (c.ForaDoDia)
+                {
+                    @* FECHADO por falta ou cancelamento — e com VOLTA (parcela 69): marcar falta no
+                       lugar de cancelar sumia com o cartão, e a única porta para reabrir era o app do
+                       faturamento. Remarcar devolve o horário à agenda (Status = Agendado). *@
+                    <p class="secundario gh-texto">Este horário está fechado. Reabrir devolve o paciente à agenda — escolha a data e a hora, que podem ser as mesmas.</p>
+                    <button type="button" class="botao primario" disabled="@(!PodeEditar || _ocupado)" @onclick="Remarcar"
+                            title="@(PodeEditar ? null : "Seu acesso não permite mexer na agenda.")">Reabrir este horário</button>
+                }
+                @if (!c.EmAberto && !c.ForaDoDia)
+                {
+                    <p class="secundario gh-texto">Este horário já saiu do fluxo do dia — não dá para remarcar nem cancelar. Ele continua aqui porque a linha do dia precisa mostrar que ele existiu.</p>
+                }
+                @if (c.EhSerie)
+                {
+                    @* Aparece mesmo no horário já fechado: o que ele cancela são as sessões ainda
+                       MARCADAS da série; a já atendida é fato e não é tocada. *@
+                    <button type="button" class="botao contorno-perigo gh-serie" disabled="@(!PodeEditar || _ocupado)" @onclick="CancelarSerieAsync">Cancelar o resto da série</button>
+                }
+            }
+        </ChildContent>
+        <Rodape>
+            <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        </Rodape>
+    </Modal>
+}
+else if (_modo == Modo.Remarcar && _cartao is { } r)
+{
+    <AgendamentoForm AgendamentoId="r.AgendamentoId" AoFechar="AoFechar" AoConcluir="RemarcouAsync" />
+}
+else if (_modo == Modo.Espera && _cartao is { } e)
+{
+    <ListaEsperaPainelForm SugestaoPara="e.DataHora" SugestaoProfissionalId="e.ProfissionalId"
+                           Dia="DateOnly.FromDateTime(e.DataHora)" AoFechar="FecharEsperaAsync" AoMudou="() => _mudou = true" />
+}
+
+@code {
+    private enum Modo { Detalhe, Remarcar, Espera }
+
+    [Parameter, EditorRequired] public int AgendamentoId { get; set; }
+
+    /// <summary>Fechou (com ou sem ação). Quem abriu esconde o formulário.</summary>
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>Alguma ação gravou: quem abriu relê.</summary>
+    [Parameter] public EventCallback AoMudou { get; set; }
+
+    /// <summary>O horário VAGOU (falta, cancelamento, "quem chamar?"): a grade aponta a lista de espera para ele.</summary>
+    [Parameter] public EventCallback<(DateTime Horario, int? ProfissionalId)> AoVagou { get; set; }
+
+    private Modo _modo = Modo.Detalhe;
+    private CartaoDaGrade? _cartao;
+    private string? _falha;
+    private bool _ocupado;
+    private bool _mudou;
+
+    private static bool PodeEditar => Pode(Permissao.EditarAgenda);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var a = await escopo.ServiceProvider.GetRequiredService<AgendaService>().ObterAsync(AgendamentoId);
+            if (Descartada) return;
+            if (a is null)
+            {
+                _falha = "Este horário não existe mais — ele pode ter sido removido ou remarcado em outra máquina.";
+                return;
+            }
+            _cartao = GradeDaAgendaNaTela.Cartao(a, new Dictionary<int, RespostaDeConfirmacao>());
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — janela do horário não pôde ser lida", ex);
+            _falha = $"Não foi possível ler o horário: {ex.Message}";
+        }
+    }
+
+    /// <summary>Executa uma ação de escrita: uma por vez; a falha vira notificação e vai ao log.</summary>
+    private async Task AgirAsync(Func<Task> acao, string contexto)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            await acao();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Recepção — falha em: {contexto}", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task FecharMudandoAsync()
+    {
+        await AoMudou.InvokeAsync();
+        await AoFechar.InvokeAsync();
+    }
+
+    /// <summary>Só HOJE em diante: sugerir quem chamar para uma falta de terça passada seria oferecer um horário que não existe.</summary>
+    private Task VagouAsync(CartaoDaGrade c)
+        => c.DataHora < DateTime.Now ? Task.CompletedTask : AoVagou.InvokeAsync((c.DataHora, c.ProfissionalId));
+
+    // ==================== remarcar / reabrir ====================
+
+    private void Remarcar()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+        _modo = Modo.Remarcar;
+    }
+
+    private async Task RemarcouAsync(IReadOnlyList<string> avisos)
+    {
+        // O que aconteceu com as GUIAS ao salvar (a regeração por modalidade nova) vem escrito
+        // do serviço — a porta irmã (o "Editar" da lista do dia) diz o mesmo.
+        Notificacoes.Sucesso(avisos.Count == 0 ? "Agenda atualizada." : $"Agenda atualizada — {string.Join(" ", avisos)}");
+        await FecharMudandoAsync();
+    }
+
+    // ==================== leitura: WhatsApp e comprovante ====================
+
+    /// <summary>
+    /// Confirma pelo WhatsApp. SEM Exigir de propósito: é LEITURA — abre o wa.me com a mensagem
+    /// pronta e não grava nada (a guarda de escrita fazia as duas metades discordarem).
+    /// </summary>
+    private Task ConfirmarAsync() => AgirAsync(async () =>
+    {
+        var c = _cartao!;
+        var link = QuemMeDeveTela.LinkWhatsApp(c.Telefone,
+            MensagensDeContato.ConfirmacaoDeSessao(c.Paciente, c.DataHora, DateOnly.FromDateTime(DateTime.Today), null));
+        if (link is null)
+        {
+            Notificacoes.Erro($"{c.Paciente}: telefone ausente ou inválido no cadastro.");
+            return;
+        }
+        if (!await Host.AbrirEnderecoAsync(link))
+        {
+            var copiou = await Host.CopiarAsync(link);
+            Notificacoes.Erro(copiou
+                ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
+                : "Não foi possível abrir o WhatsApp neste computador.");
+            return;
+        }
+        await AoFechar.InvokeAsync();
+    }, "confirmação pelo WhatsApp");
+
+    /// <summary>O comprovante que o paciente leva do balcão — sem valor e sem diagnóstico.</summary>
+    private Task ComprovanteAsync() => AgirAsync(async () =>
+    {
+        var c = _cartao!;
+        byte[] pdf;
+        using (var escopo = Escopo())
+        {
+            var sp = escopo.ServiceProvider;
+            pdf = await sp.GetRequiredService<AgendaPdfService>().ComprovanteAsync(
+                c.AgendamentoId, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+        }
+        var erro = await Host.SalvarEAbrirAsync(pdf,
+            $"comprovante-{c.Paciente}-{c.DataHora.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
+        if (erro is not null) { Notificacoes.Erro(erro); return; }
+        await AoFechar.InvokeAsync();
+    }, "comprovante do horário");
+
+    // ==================== lista de espera ====================
+
+    /// <summary>
+    /// Aponta a lista de espera para este horário. Lista vazia aqui é RESPOSTA, não falha:
+    /// ninguém que espera serve para este horário — e é dito sem abrir uma janela vazia.
+    /// </summary>
+    private Task QuemChamarAsync() => AgirAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+        var c = _cartao!;
+        await AoVagou.InvokeAsync((c.DataHora, c.ProfissionalId));
+        int quantos;
+        using (var escopo = Escopo())
+            quantos = (await escopo.ServiceProvider.GetRequiredService<ListaEsperaService>()
+                .CandidatosParaAsync(c.DataHora, c.ProfissionalId)).Count;
+        if (quantos == 0)
+        {
+            Notificacoes.Info($"Ninguém da lista de espera serve para {c.DataHora.ToString("dd/MM HH:mm", Formato.PtBr)} "
+                              + "(turno, janela de datas ou profissional pedido).");
+            await AoFechar.InvokeAsync();
+            return;
+        }
+        _modo = Modo.Espera;
+    }, "lista de espera do horário");
+
+    private async Task FecharEsperaAsync()
+    {
+        if (_mudou) await AoMudou.InvokeAsync();
+        await AoFechar.InvokeAsync();
+    }
+
+    // ==================== falta, cancelamento, série ====================
+
+    private Task MarcarFaltaAsync() => AgirAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+        var c = _cartao!;
+        IReadOnlyList<string> avisos;
+        using (var escopo = Escopo())
+            avisos = await escopo.ServiceProvider.GetRequiredService<AgendaService>().MarcarFaltaAsync(c.AgendamentoId, Operador);
+        await VagouAsync(c);
+        // Aviso de GUIA é ação ("guia JÁ BAIXADA no portal") — diálogo, nunca notificação de 4 s.
+        if (avisos.Count > 0) await Dialogos.AvisoAsync($"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
+        Notificacoes.Info($"{c.Paciente} marcado como falta.");
+        await FecharMudandoAsync();
+    }, "marcação de falta");
+
+    private Task CancelarAsync() => AgirAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+        var c = _cartao!;
+        if (!await Dialogos.ConfirmarAsync("Cancelar horário", $"Cancelar o horário de {c.Paciente} ({c.Faixa})?",
+                perigoso: true, confirmar: "Cancelar o horário")) return;
+        IReadOnlyList<string> avisos;
+        using (var escopo = Escopo())
+            avisos = await escopo.ServiceProvider.GetRequiredService<AgendaService>().CancelarAsync(c.AgendamentoId, Operador);
+        // O horário acabou de vagar: a pergunta seguinte é sempre "quem eu chamo?".
+        await VagouAsync(c);
+        if (avisos.Count > 0) await Dialogos.AvisoAsync($"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
+        Notificacoes.Info("Horário cancelado.");
+        await FecharMudandoAsync();
+    }, "cancelamento do horário");
+
+    /// <summary>
+    /// Cancela o que ainda está marcado da série. A PRÉVIA vem antes da pergunta (quantas e
+    /// quais); sem a prévia não se pergunta — confirmar "todas" sem saber quantas é o defeito.
+    /// </summary>
+    private Task CancelarSerieAsync() => AgirAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+        var c = _cartao!;
+        if (c.SerieId is not { } serieId) return;
+
+        List<DateTime> emAberto;
+        try
+        {
+            using var escopo = Escopo();
+            emAberto = (await escopo.ServiceProvider.GetRequiredService<AgendaService>().DaSerieAsync(serieId))
+                .Where(a => a.Status == StatusAgendamento.Agendado).Select(a => a.DataHora).ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — série não pôde ser lida para a prévia do cancelamento", ex);
+            Notificacoes.Erro($"Não foi possível ler a série para confirmar: {ex.Message}");
+            return;
+        }
+
+        if (emAberto.Count == 0)
+        {
+            await Dialogos.AvisoAsync("Nada a cancelar",
+                $"A série de {c.Paciente} não tem sessão em aberto — as que existiram já foram atendidas, canceladas ou viraram falta.");
+            return;
+        }
+
+        if (!await Dialogos.ConfirmarAsync("Cancelar a série", GradeDaAgendaNaTela.PreviaDaSerie(c.Paciente, emAberto),
+                perigoso: true, confirmar: "Cancelar as sessões")) return;
+
+        int quantas;
+        using (var escopo = Escopo())
+            quantas = await escopo.ServiceProvider.GetRequiredService<AgendaService>().CancelarSerieAsync(serieId, Operador);
+        Notificacoes.Info($"{quantas} sessão(ões) da série canceladas.");
+        await FecharMudandoAsync();
+    }, "cancelamento da série");
+}

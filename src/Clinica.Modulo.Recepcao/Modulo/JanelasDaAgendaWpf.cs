@@ -31,13 +31,6 @@ public sealed class JanelasDaAgendaWpf(
 {
     public bool Disponivel => true;
 
-    public Task<IReadOnlyList<string>?> EditarHorarioAsync(int agendamentoId) => NaInterface(() =>
-    {
-        var vm = new AgendamentoEdicaoViewModel(escopos, agendamentoId) { TituloDaEdicao = "Editar o horário" };
-        var janela = new Janelas.AgendamentoWindow(vm) { Owner = JanelaDona.Atual() };
-        return Task.FromResult(janela.ShowDialog() == true ? vm.AvisosDoSalvamento : (IReadOnlyList<string>?)null);
-    });
-
     public Task<bool> EscolherConvenioAsync(int pacienteId)
         => NaInterface(() => VinculoDeConvenio.GarantirAsync(escopos, pacienteId, SessaoUsuario.Atual.Operador));
 
@@ -53,17 +46,6 @@ public sealed class JanelasDaAgendaWpf(
         janela = new ConsultaContextualWindow($"Ficha — {paciente}", ficha, "Voltar à agenda do dia");
         janela.ShowDialog();
         return Task.FromResult(true);
-    });
-
-    public Task<DesfechoDaJanelaDoHorario> AbrirHorarioAsync(DateOnly dia, int agendamentoId) => NaInterface(async () =>
-    {
-        // O dono das sete ações da janela do horário continua sendo o AgendaViewModel — a
-        // lista não as repete. Abrir é leitura; cada ação da janela exige o seu bit.
-        using var scope = escopos.CreateScope();
-        var agenda = scope.ServiceProvider.GetRequiredService<AgendaViewModel>();
-        var achou = await agenda.AbrirJanelaDoHorarioAsync(dia, agendamentoId);
-        return new DesfechoDaJanelaDoHorario(achou,
-            string.IsNullOrWhiteSpace(agenda.Mensagem) ? null : agenda.Mensagem, agenda.MensagemEhErro);
     });
 
     public Task<bool> MarcarNovoHorarioAsync(DateOnly dia, int? profissionalId) => NaInterface(() =>

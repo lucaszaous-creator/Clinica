@@ -1,0 +1,678 @@
+@*
+  O HORÁRIO DA AGENDA (out/2026 — migrado da AgendamentoWindow / AgendamentoEdicaoViewModel do
+  WPF). Paciente, quando, com quem, onde, por quanto tempo e o quê. Três portas usam o MESMO
+  formulário, e o título vem da porta: horário novo (o vão da grade), "Remarcar horário" (a
+  grade) / "Editar o horário" (a lista do dia) e "Chamar Fulano da lista de espera".
+
+  - NADA de choque recusa (set/2026, "a agenda avisa e não impede"): a lista de avisos é
+    criticada a cada tecla (AgendaService.ConflitosAsync), com o cabeçalho que DIZ que nada
+    impede (AvisosDeChoque.CabecalhoPara) e duas cores — âmbar a rotina da casa, vermelho só a
+    agenda FECHADA.
+  - O que recusa é o horário MARCADO sem quem atenda (parcela 95) — o encaixe e a edição passam.
+  - Com a chave "guia no agendamento" ligada, criar horário cria atendimento e guias: o Salvar
+    exige EditarAgenda E LancarAtendimento (relida NO ATO) e a ficha "a definir" escolhe o
+    convênio antes (parcela 92).
+  - Elegibilidade reconferida ao trocar paciente E data; a capa "já lançado no dia" informa a
+    pergunta de duplicidade (CapasDoDiaAsync, o mesmo ponto único do Novo atendimento).
+  - O que a tela afirma mora em AgendamentoNaTela (Application, com teste).
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Regras
+@inherits TelaBase
+
+<Modal Titulo="@_titulo" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="320" />
+        }
+        else if (_falha is not null)
+        {
+            <Aviso Tom="erro" Texto="@_falha" />
+        }
+        else
+        {
+            <div class="agf">
+                @* ============ Paciente ============ *@
+                <Campo Rotulo="Paciente" Obrigatorio="true">
+                    @if (_pacienteTravado && _paciente is { } fixo)
+                    {
+                        @* Remarcar move o horário; não troca de pessoa. Chamar da lista é o paciente DO pedido. *@
+                        <div class="seletor-escolhido agf-paciente-fixo">
+                            <span class="avatar"><Icone Nome="pessoa" /></span>
+                            <span class="seletor-nome"><span class="principal">@fixo.Nome</span>
+                                @if (!string.IsNullOrWhiteSpace(fixo.Telefone)) { <span class="secundario">@fixo.Telefone</span> }</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="TrocarPaciente"
+                                           Placeholder="Buscar por nome ou CPF" />
+                    }
+                </Campo>
+
+                @* ============ Quando ============ *@
+                <div class="campos tres">
+                    <Campo Rotulo="Data">
+                        <input id="agf-data" type="date" class="campo" value="@_data.ToString("yyyy-MM-dd")" @onchange="TrocarData" />
+                    </Campo>
+                    <Campo Rotulo="Hora">
+                        <input id="agf-hora" class="campo" maxlength="5" inputmode="numeric" placeholder="HH:mm"
+                               value="@_hora" @oninput="e => TrocarHora(e.Value?.ToString())" />
+                    </Campo>
+                    <Campo Rotulo="Duração (min)" Dica="@AgendamentoNaTela.DicaDuracao">
+                        <input id="agf-duracao" class="campo" maxlength="4" inputmode="numeric"
+                               value="@_duracao" @oninput="e => TrocarDuracao(e.Value?.ToString())" />
+                    </Campo>
+                </div>
+
+                @* ============ Com quem e onde ============ *@
+                <div class="campos">
+                    <Campo Rotulo="Profissional">
+                        <select id="agf-profissional" class="campo" value="@(_profissional?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" @onchange="TrocarProfissional">
+                            <option value="">(escolha quem atende)</option>
+                            @foreach (var p in _profissionais)
+                            {
+                                <option value="@p.Id">@AgendamentoNaTela.RotuloProfissional(p)</option>
+                            }
+                        </select>
+                        @if (AgendamentoNaTela.AvisarSemProfissional(Edicao, _horarioCarregado, _profissional is not null))
+                        {
+                            <span class="agf-linha tom-aviso">@AgendamentoNaTela.AvisoSemProfissionalNaEdicao</span>
+                        }
+                    </Campo>
+                    <Campo Rotulo="Sala">
+                        <select id="agf-sala" class="campo" value="@(_sala?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" @onchange="TrocarSala">
+                            <option value="">(sem sala)</option>
+                            @foreach (var s in _salas)
+                            {
+                                <option value="@s.Id">@AgendamentoNaTela.RotuloSala(s)</option>
+                            }
+                        </select>
+                    </Campo>
+                </div>
+
+                @* ============ O quê ============ *@
+                <div class="campos">
+                    <Campo Rotulo="Modalidade">
+                        <select id="agf-modalidade" class="campo" value="@(_modalidade?.Codigo ?? string.Empty)" @onchange="TrocarModalidade">
+                            @if (_modalidade is null) { <option value="">(escolha a modalidade)</option> }
+                            @foreach (var m in _modalidades)
+                            {
+                                <option value="@m.Codigo">@m.Nome</option>
+                            }
+                        </select>
+                    </Campo>
+                    @if (EhConsulta)
+                    {
+                        <Campo Rotulo="Especialidade" Obrigatorio="true">
+                            <select id="agf-especialidade" class="campo" value="@(_especialidade?.Codigo ?? string.Empty)" @onchange="TrocarEspecialidade">
+                                <option value="">(escolha a especialidade)</option>
+                                @foreach (var e in _especialidades)
+                                {
+                                    <option value="@e.Codigo">@e.Nome</option>
+                                }
+                            </select>
+                        </Campo>
+                    }
+                </div>
+
+                <Campo Rotulo="Observações">
+                    <textarea id="agf-observacoes" class="campo" rows="2" maxlength="500" @bind="_observacoes" @bind:event="oninput"></textarea>
+                </Campo>
+
+                @* ============ Quem já está neste horário ============
+                   Criticado a cada tecla; o cabeçalho DIZ que nada impede — tarja de aviso com o
+                   "Salvar" aceso ao lado se contradiria. Âmbar a rotina, vermelho a agenda fechada. *@
+                @if (_conflitos.Count > 0)
+                {
+                    <div class="agf-bloco" aria-live="polite">
+                        <p class="agf-cabecalho">@AvisosDeChoque.CabecalhoPara(_conflitos)</p>
+                        @foreach (var a in _conflitos)
+                        {
+                            <div class="agf-traco @(a.Grave ? "tom-perigo" : "tom-aviso")">@a.Texto</div>
+                        }
+                    </div>
+                }
+                @if (_conflitosFalhou)
+                {
+                    <Aviso Tom="atencao" Texto="@AgendamentoNaTela.ConflitosNaoConferidos" />
+                }
+
+                @* A capa do que o paciente JÁ tem no dia (parcela 70) — a duplicata de amanhã avisada hoje. *@
+                @if (_avisoJaLancado is not null)
+                {
+                    <div class="agf-bloco">
+                        <p class="agf-cabecalho">Atendimento repetido?</p>
+                        <div class="agf-traco tom-aviso">@_avisoJaLancado</div>
+                    </div>
+                }
+
+                @* Carteirinha, cota, consulta e termo — aviso, nunca impedimento. *@
+                @if (_elegibilidade.Count > 0)
+                {
+                    <div class="agf-bloco">
+                        <p class="agf-cabecalho">Antes de marcar</p>
+                        @foreach (var (texto, grave) in _elegibilidade)
+                        {
+                            <div class="agf-traco @(grave ? "tom-perigo" : "tom-aviso")">@texto</div>
+                        }
+                    </div>
+                }
+
+                @* O verbo é REGISTRAR: a caixinha não fura recusa nenhuma, ela descreve o FATO — e é
+                   ele que dispensa o profissional na marcação (parcela 95). *@
+                <label class="marcar"><input id="agf-encaixe" type="checkbox" checked="@_encaixe" @onchange="e => _encaixe = e.Value is true" />Registrar como encaixe (atender por cima de um horário que já tem paciente)</label>
+
+                <Aviso Tom="erro" Texto="@_mensagem" />
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        @if (_conflitos.Count > 0 && !_carregando && _falha is null)
+        {
+            <button type="button" class="botao" @onclick="AssumirEncaixeAsync" disabled="@(_salvando || !PodeSalvar)"
+                    title="Marca este horário como encaixe e salva">Assumir encaixe</button>
+        }
+        <button type="button" class="botao primario" @onclick="SalvarAsync"
+                disabled="@(_salvando || _carregando || _falha is not null || !PodeSalvar)"
+                title="@(PodeSalvar ? null : "Seu acesso não permite " + AgendamentoNaTela.AtoDoSalvar(Edicao, _chaveGuiaNoAgendamento) + ".")">
+            <Icone Nome="calendario" />@(_salvando ? "Gravando…" : "Salvar horário")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Remarcar/editar um horário que já existe; nulo = horário novo.</summary>
+    [Parameter] public int? AgendamentoId { get; set; }
+    /// <summary>Dia pré-escolhido (o vão clicado, o dia da grade). Nulo = hoje.</summary>
+    [Parameter] public DateTime? Data { get; set; }
+    /// <summary>Hora pré-escolhida, "HH:mm". Nulo = 09:00 (o padrão do WPF).</summary>
+    [Parameter] public string? Hora { get; set; }
+    /// <summary>A coluna clicada na grade — um ID: a lista de profissionais é lida DEPOIS.</summary>
+    [Parameter] public int? ProfissionalPreferidoId { get; set; }
+    /// <summary>A coluna clicada na visão por SALA.</summary>
+    [Parameter] public int? SalaPreferidaId { get; set; }
+    /// <summary>A duração planejada na grade ("" = padrão do profissional).</summary>
+    [Parameter] public string? Duracao { get; set; }
+    /// <summary>A modalidade planejada na grade (código do catálogo).</summary>
+    [Parameter] public string? ModalidadeCodigo { get; set; }
+    /// <summary>Pedido da lista de espera que este horário atende (fecha ao salvar, pelo ChamarAsync).</summary>
+    [Parameter] public int? PedidoListaEsperaId { get; set; }
+    /// <summary>Título da porta de um horário NOVO ("Chamar Fulano da lista de espera").</summary>
+    [Parameter] public string? Titulo { get; set; }
+    /// <summary>Título da porta de um horário que JÁ EXISTE ("Editar o horário"); nulo = "Remarcar horário".</summary>
+    [Parameter] public string? TituloDaEdicao { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Gravou. Recebe os avisos das GUIAS do salvamento (regeradas na troca de modalidade).</summary>
+    [Parameter] public EventCallback<IReadOnlyList<string>> AoConcluir { get; set; }
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    /// <summary>A janela WPF do convênio "a definir"; onde não existe, a que responde "não disponível".</summary>
+    private IJanelasDaAgenda Janelas => Servicos.GetService<IJanelasDaAgenda>() ?? JanelasDaAgendaIndisponiveis.Instancia;
+
+    private bool Edicao => AgendamentoId is not null;
+
+    private string _titulo = AgendamentoNaTela.TituloNovo;
+    private bool _carregando = true, _salvando, _horarioCarregado, _pacienteTravado, _encaixe, _chaveGuiaNoAgendamento;
+    private string? _falha, _mensagem, _observacoes, _avisoJaLancado;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string _hora = "09:00", _duracao = string.Empty;
+
+    private Paciente? _paciente;
+    private Profissional? _profissional;
+    private Sala? _sala;
+    private EntradaModalidade? _modalidade;
+    private EntradaEspecialidade? _especialidade;
+
+    // O que o horário em edição TEM e o catálogo/filtro de hoje não oferece: aparece assim mesmo
+    // (habilitação retirada depois da marcação não troca a modalidade em silêncio).
+    private EntradaModalidade? _modalidadeDoHorario;
+    private EntradaEspecialidade? _especialidadeDoHorario;
+
+    private List<Profissional> _profissionais = [];
+    private List<Sala> _salas = [];
+    private List<EntradaModalidade> _modalidades = [];
+    private List<EntradaEspecialidade> _especialidades = [];
+
+    private List<AvisoDeChoque> _conflitos = [];
+    private bool _conflitosFalhou;
+    private List<(string Texto, bool Grave)> _elegibilidade = [];
+
+    // Descarte de resposta fora de ordem: cada crítica disparada por tecla/troca tem o seu
+    // contador, e a resposta velha não sobrescreve a nova.
+    private int _gConflitos, _gElegibilidade, _gJaLancado;
+
+    private bool EhConsulta => (_modalidade?.Base ?? ModalidadeAtendimento.AcupunturaComEletro) == ModalidadeAtendimento.Consulta;
+
+    /// <summary>A metade VISÍVEL: EditarAgenda, e LancarAtendimento junto quando criar gera guias.</summary>
+    private bool PodeSalvar => Pode(AgendamentoNaTela.PermissaoParaSalvar(Edicao, _chaveGuiaNoAgendamento));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _titulo = AgendamentoNaTela.Titulo(Edicao, Titulo, TituloDaEdicao);
+        if (Data is { } d) _data = DateOnly.FromDateTime(d);
+        if (!string.IsNullOrWhiteSpace(Hora)) _hora = Hora.Trim();
+        _duracao = Duracao?.Trim() ?? string.Empty;
+
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            var equipe = sp.GetRequiredService<EquipeService>();
+            _profissionais = (await equipe.ProfissionaisAtivosAsync()).ToList();
+            _salas = (await equipe.SalasAtivasAsync()).ToList();
+            _chaveGuiaNoAgendamento = await LerChaveAsync(sp);
+
+            if (ProfissionalPreferidoId is { } pid) _profissional = _profissionais.FirstOrDefault(p => p.Id == pid);
+            if (SalaPreferidaId is { } sid) _sala = _salas.FirstOrDefault(s => s.Id == sid);
+
+            if (PedidoListaEsperaId is { } pedidoId)
+            {
+                var pedido = (await sp.GetRequiredService<ListaEsperaService>().AguardandoAsync())
+                    .FirstOrDefault(p => p.Id == pedidoId);
+                if (pedido?.Paciente is { } doPedido)
+                {
+                    _paciente = doPedido;
+                    _pacienteTravado = true;
+                }
+                else
+                {
+                    _mensagem = "Este pedido já saiu da lista de espera.";
+                }
+            }
+
+            if (AgendamentoId is { } id)
+            {
+                var ag = await sp.GetRequiredService<AgendaService>().ObterAsync(id);
+                if (ag is null)
+                {
+                    _falha = "Horário não encontrado — ele pode ter sido apagado ou cancelado por outra máquina.";
+                    return;
+                }
+                AplicarHorario(ag);
+            }
+            else
+            {
+                CarregarCatalogos(ModalidadeCodigo);
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — formulário de agendamento não pôde ser preparado", ex);
+            _falha = $"Não foi possível carregar o formulário: {ex.Message}";
+            return;
+        }
+        finally { _carregando = false; }
+
+        Disparar(ConferirConflitosAsync);
+        if (_paciente is not null)
+        {
+            Disparar(ConferirElegibilidadeAsync);
+            Disparar(ConferirJaLancadoAsync);
+        }
+    }
+
+    /// <summary>A chave "guia no agendamento". Falhar presume LIGADA: na dúvida a guarda pede MAIS.</summary>
+    private static async Task<bool> LerChaveAsync(IServiceProvider sp)
+    {
+        try { return await sp.GetRequiredService<ParametrosService>().GuiaNoAgendamentoAsync(); }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — chave da guia no agendamento não pôde ser lida (agendamento)", ex);
+            return true;
+        }
+    }
+
+    /// <summary>Preenche o formulário com o horário que já existe — preservando o que ele TEM.</summary>
+    private void AplicarHorario(Agendamento ag)
+    {
+        _data = DateOnly.FromDateTime(ag.DataHora);
+        _hora = ag.DataHora.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+        // Quem não edita, PRESERVA: o dono INATIVO (ou a sala inativa) continua no combo, senão o
+        // Salvar gravaria o horário sem ele.
+        _profissional = _profissionais.FirstOrDefault(p => p.Id == ag.ProfissionalId);
+        if (_profissional is null && ag.Profissional is { } dono)
+        {
+            _profissionais.Add(dono);
+            _profissional = dono;
+        }
+        _sala = _salas.FirstOrDefault(s => s.Id == ag.SalaId);
+        if (_sala is null && ag.Sala is { } sala)
+        {
+            _salas.Add(sala);
+            _sala = sala;
+        }
+
+        var codigo = ag.ModalidadeCodigo ?? ag.ModalidadePrevista.ToString();
+        _modalidadeDoHorario = CatalogoModalidades.Ativas.FirstOrDefault(m => m.Codigo == codigo)
+            ?? new EntradaModalidade(codigo, CatalogoModalidades.Nome(ag.ModalidadeCodigo, ag.ModalidadePrevista), ag.ModalidadePrevista, false);
+        _especialidadeDoHorario = ag.EspecialidadeConsultaCodigo is { } esp
+            ? CatalogoEspecialidades.Ativas.FirstOrDefault(e => e.Codigo == esp)
+              ?? new EntradaEspecialidade(esp, CatalogoEspecialidades.Nome(esp), false)
+            : null;
+        _modalidade = _modalidadeDoHorario;
+        _especialidade = _especialidadeDoHorario;
+        CarregarCatalogos(_modalidadeDoHorario.Codigo);
+
+        _duracao = ag.DuracaoMinutos?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        _encaixe = ag.Encaixe;
+        _observacoes = ag.Observacoes;
+        if (ag.Paciente is { } paciente)
+        {
+            _paciente = paciente;
+            _pacienteTravado = true;
+        }
+        _horarioCarregado = true;
+    }
+
+    /// <summary>
+    /// As modalidades que quem atende ATENDE (Profissional.Atende — o mesmo filtro do Lançar/Marcar)
+    /// e as especialidades da consulta. Mantém a escolha atual quando ela continua valendo.
+    /// </summary>
+    private void CarregarCatalogos(string? preferida = null)
+    {
+        var atual = preferida ?? _modalidade?.Codigo;
+        _modalidades = AtendimentoDoBalcaoNaTela.Modalidades(CatalogoModalidades.Ativas, CatalogoEspecialidades.Ativas, _profissional).ToList();
+        if (_modalidadeDoHorario is { } doHorario && _modalidades.All(m => m.Codigo != doHorario.Codigo))
+            _modalidades.Add(doHorario);
+        _modalidade = _modalidades.FirstOrDefault(m => m.Codigo == atual)
+                      ?? _modalidades.FirstOrDefault(m => m.Base == ModalidadeAtendimento.AcupunturaComEletro)
+                      ?? _modalidades.FirstOrDefault();
+        FiltrarEspecialidades();
+    }
+
+    private void FiltrarEspecialidades()
+    {
+        if (!EhConsulta) _especialidade = null;
+        var atual = _especialidade?.Codigo;
+        _especialidades = AtendimentoDoBalcaoNaTela.Especialidades(CatalogoEspecialidades.Ativas, EhConsulta, _modalidade?.Codigo, _profissional).ToList();
+        if (_especialidadeDoHorario is { } doHorario && EhConsulta && _especialidades.All(e => e.Codigo != doHorario.Codigo))
+            _especialidades.Add(doHorario);
+        _especialidade = _especialidades.FirstOrDefault(e => e.Codigo == atual)
+                         ?? (EhConsulta && _especialidades.Count == 1 ? _especialidades[0] : null);
+    }
+
+    // ==================== entradas ====================
+
+    private void TrocarPaciente(Paciente? paciente)
+    {
+        _paciente = paciente;
+        _mensagem = null;
+        Disparar(ConferirConflitosAsync);
+        Disparar(ConferirElegibilidadeAsync);
+        Disparar(ConferirJaLancadoAsync);
+    }
+
+    /// <summary>A DATA reconfere tudo o que depende dela — inclusive a elegibilidade (item 6 da fila da parcela 69).</summary>
+    private void TrocarData(ChangeEventArgs e)
+    {
+        if (!DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d)) return;
+        _data = d;
+        Disparar(ConferirConflitosAsync);
+        Disparar(ConferirJaLancadoAsync);
+        Disparar(ConferirElegibilidadeAsync);
+    }
+
+    private void TrocarHora(string? hora)
+    {
+        _hora = hora ?? string.Empty;
+        Disparar(ConferirConflitosAsync);
+    }
+
+    private void TrocarDuracao(string? duracao)
+    {
+        _duracao = duracao ?? string.Empty;
+        Disparar(ConferirConflitosAsync);
+    }
+
+    private void TrocarProfissional(ChangeEventArgs e)
+    {
+        _profissional = int.TryParse(e.Value?.ToString(), out var id) ? _profissionais.FirstOrDefault(p => p.Id == id) : null;
+        CarregarCatalogos();
+        Disparar(ConferirConflitosAsync);
+    }
+
+    private void TrocarSala(ChangeEventArgs e)
+    {
+        _sala = int.TryParse(e.Value?.ToString(), out var id) ? _salas.FirstOrDefault(s => s.Id == id) : null;
+        Disparar(ConferirConflitosAsync);
+    }
+
+    private void TrocarModalidade(ChangeEventArgs e)
+    {
+        var codigo = e.Value?.ToString();
+        _modalidade = _modalidades.FirstOrDefault(m => m.Codigo == codigo);
+        FiltrarEspecialidades();
+    }
+
+    private void TrocarEspecialidade(ChangeEventArgs e)
+    {
+        var codigo = e.Value?.ToString();
+        _especialidade = _especialidades.FirstOrDefault(x => x.Codigo == codigo);
+    }
+
+    /// <summary>Roda uma crítica fora do clique e redesenha quando ela volta (cada uma no seu escopo).</summary>
+    private void Disparar(Func<Task> trabalho) => _ = DispararAsync(trabalho);
+
+    private async Task DispararAsync(Func<Task> trabalho)
+    {
+        try { await trabalho(); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — crítica do formulário de agendamento", ex); }
+        if (!Descartada) await InvokeAsync(StateHasChanged);
+    }
+
+    // ==================== críticas ====================
+
+    /// <summary>
+    /// Quem já está neste horário — o MESMO ConflitosAsync da grade e do Marcar. Agrupa as teclas
+    /// da hora/duração e descarta a resposta fora de ordem (a de "14:0" chegando depois da de
+    /// "14:30" apagaria o aviso real). Na edição o próprio horário fica de fora.
+    /// </summary>
+    private async Task ConferirConflitosAsync()
+    {
+        var g = ++_gConflitos;
+        _conflitos = [];
+        _conflitosFalhou = false;
+        if (!AgendamentoNaTela.TentarMontarDataHora(_data, _hora, out var dataHora)) return;
+        var duracao = AgendamentoNaTela.DuracaoInformada(_duracao);
+        var profissionalId = _profissional?.Id;
+        var salaId = _sala?.Id;
+        var pacienteId = _paciente?.Id;
+        try
+        {
+            await Task.Delay(250);
+            if (g != _gConflitos || Descartada) return;
+            using var escopo = Escopo();
+            var achados = await escopo.ServiceProvider.GetRequiredService<AgendaService>().ConflitosAsync(
+                dataHora, duracao, profissionalId, salaId, pacienteId: pacienteId, ignorarAgendamentoId: AgendamentoId);
+            if (g != _gConflitos || Descartada) return;
+            _conflitos = AvisosDeChoque.Montar(achados).ToList();
+        }
+        catch (Exception ex)
+        {
+            if (g != _gConflitos) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — conflitos da agenda não puderam ser conferidos (agendamento)", ex);
+            _conflitosFalhou = true;
+        }
+    }
+
+    /// <summary>Carteirinha, cota, consulta, termo — na DATA escolhida. Falha não impede, mas não passa em branco.</summary>
+    private async Task ConferirElegibilidadeAsync()
+    {
+        var g = ++_gElegibilidade;
+        _elegibilidade = [];
+        if (_paciente is not { } paciente) return;
+        var data = _data;
+        try
+        {
+            using var escopo = Escopo();
+            var resultado = await escopo.ServiceProvider.GetRequiredService<ElegibilidadeService>().ConferirAsync(paciente.Id, data);
+            if (g != _gElegibilidade || Descartada) return;
+            _elegibilidade = resultado.Alertas.Select(a => (a.Descricao, a.Urgencia == NivelUrgencia.Vermelho)).ToList();
+        }
+        catch (Exception ex)
+        {
+            if (g != _gElegibilidade) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — elegibilidade não pôde ser conferida ao marcar", ex);
+            _elegibilidade = [(AgendamentoNaTela.ElegibilidadeNaoConferida, false)];
+        }
+    }
+
+    /// <summary>A capa do que o paciente já tem no dia. Na edição o atendimento do próprio horário seria "duplicata".</summary>
+    private async Task ConferirJaLancadoAsync()
+    {
+        var g = ++_gJaLancado;
+        _avisoJaLancado = null;
+        if (Edicao || _paciente is not { } paciente) return;
+        var data = _data;
+        try
+        {
+            using var escopo = Escopo();
+            var capas = await escopo.ServiceProvider.GetRequiredService<AtendimentoService>().CapasDoDiaAsync(paciente.Id, data);
+            if (g != _gJaLancado || Descartada) return;
+            _avisoJaLancado = AgendamentoNaTela.AvisoJaLancado(capas, data);
+        }
+        catch (Exception ex)
+        {
+            if (g != _gJaLancado) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — atendimentos do dia do paciente não puderam ser lidos ao marcar", ex);
+        }
+    }
+
+    // ==================== salvar ====================
+
+    /// <summary>Assume o choque: registra como encaixe e salva.</summary>
+    private async Task AssumirEncaixeAsync()
+    {
+        _encaixe = true;
+        await SalvarAsync();
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando || _carregando || _falha is not null) return;
+        _mensagem = null;
+
+        // A SEGUNDA barreira: as portas que abrem este formulário exigem EditarAgenda; ele confere
+        // de novo, porque atalho e corrida de carregamento passam pela porta sem o clique dela.
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+
+        var recusa = AgendamentoNaTela.RecusaAoSalvar(
+            temPaciente: _paciente is not null, temModalidade: _modalidade is not null, ehConsulta: EhConsulta,
+            temEspecialidade: _especialidade is not null, data: _data, hora: _hora, duracao: _duracao,
+            edicao: Edicao, encaixe: _encaixe, temProfissional: _profissional is not null);
+        if (recusa is not null)
+        {
+            _mensagem = recusa;
+            return;
+        }
+        var paciente = _paciente!;
+        var modalidade = _modalidade!;
+        AgendamentoNaTela.TentarMontarDataHora(_data, _hora, out var dataHora);
+        var duracao = AgendamentoNaTela.DuracaoInformada(_duracao);
+        var especialidade = EhConsulta ? _especialidade?.Codigo : null;
+
+        _salvando = true;
+        try
+        {
+            if (!Edicao)
+            {
+                // Com a chave ligada, CRIAR horário cria o atendimento e as guias — a chave é
+                // RELIDA no ato: decidir pelo valor da abertura deixaria quem só tem EditarAgenda
+                // gerar guia.
+                bool chave;
+                using (var escopoChave = Escopo())
+                    chave = await LerChaveAsync(escopoChave.ServiceProvider);
+                _chaveGuiaNoAgendamento = chave;
+                if (chave)
+                {
+                    if (!Exigir(AgendamentoNaTela.PermissaoParaSalvar(false, true), AgendamentoNaTela.AtoDoSalvar(false, true)))
+                        return;
+
+                    // SEM CONVÊNIO NÃO NASCE ATENDIMENTO (parcela 92): só dentro da chave — com ela
+                    // desligada, marcar não cria atendimento e exigir o convênio travaria a marcação
+                    // por telefone.
+                    if (paciente.ConvenioADefinir
+                        && (!Janelas.Disponivel || !await Janelas.EscolherConvenioAsync(paciente.Id)))
+                    {
+                        _mensagem = AgendamentoNaTela.RecusaSemConvenio(paciente.Nome);
+                        return;
+                    }
+                }
+
+                // A pergunta de duplicidade INFORMADA pela capa (CapasDoDiaAsync): pergunta, nunca recusa.
+                if (!await ConfirmarSeJaLancadoAsync(paciente)) return;
+            }
+
+            var avisos = new List<string>();
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            if (AgendamentoId is { } id)
+            {
+                await sp.GetRequiredService<AgendaService>().RemarcarAsync(
+                    id, dataHora, _observacoes,
+                    modalidadeCodigo: modalidade.Codigo,
+                    especialidadeConsultaCodigo: especialidade,
+                    operador: Operador,
+                    profissionalId: _profissional?.Id, salaId: _sala?.Id,
+                    duracaoMinutos: duracao,
+                    manterRecursos: false, encaixe: _encaixe,
+                    avisosGuia: avisos);
+            }
+            else if (PedidoListaEsperaId is { } pedidoId)
+            {
+                // Chamado da lista: o serviço da lista cria o horário e fecha o pedido no mesmo
+                // caminho — e recebe a especialidade que este formulário EXIGE.
+                await sp.GetRequiredService<ListaEsperaService>().ChamarAsync(
+                    pedidoId, dataHora, modalidade.Base,
+                    profissionalId: _profissional?.Id, salaId: _sala?.Id,
+                    duracaoMinutos: duracao, encaixe: _encaixe,
+                    modalidadeCodigo: modalidade.Codigo,
+                    operador: Operador,
+                    especialidadeConsultaCodigo: especialidade);
+            }
+            else
+            {
+                await sp.GetRequiredService<AgendaService>().AgendarAsync(
+                    paciente.Id, dataHora, modalidade.Base, _observacoes,
+                    modalidadeCodigo: modalidade.Codigo,
+                    especialidadeConsultaCodigo: especialidade,
+                    profissionalId: _profissional?.Id, salaId: _sala?.Id,
+                    duracaoMinutos: duracao, encaixe: _encaixe,
+                    operador: Operador);
+            }
+
+            await AoConcluir.InvokeAsync(avisos);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — horário não pôde ser salvo", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _salvando = false; }
+    }
+
+    /// <summary>"Já tem atendimento neste dia — marcar de novo?" Falha da conferência não trava o balcão.</summary>
+    private async Task<bool> ConfirmarSeJaLancadoAsync(Paciente paciente)
+    {
+        IReadOnlyList<CapaDoDia> capas;
+        try
+        {
+            using var escopo = Escopo();
+            capas = await escopo.ServiceProvider.GetRequiredService<AtendimentoService>().CapasDoDiaAsync(paciente.Id, _data);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — conferência de atendimento repetido falhou (agendamento)", ex);
+            return true;
+        }
+        if (capas.Count == 0) return true;
+        return await Dialogos.ConfirmarAsync("Atendimento repetido?",
+            AtendimentoDoBalcaoNaTela.PerguntaDeRepetido(paciente.Nome, capas, _data, marcar: true), perigoso: true);
+    }
+}
