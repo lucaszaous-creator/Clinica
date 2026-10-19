@@ -603,6 +603,8 @@ public sealed class ModuloClinico : IModuloApp
         // janela, idempotente), e a ponte até o prontuário WPF é o PostoDoConsultorioWpf.
         Clinica.Desktop.Blazor.HospedagemBlazor.AddHospedagemBlazor(servicos);
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IPostoDoConsultorio, PostoDoConsultorioWpf>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosExames, JanelasDosExamesWpf>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosProntuarios, JanelasDosProntuariosWpf>();
 
         servicos.AddTransient<SessoesEnfermagemViewModel>();
         servicos.AddTransient<Clinica.Infrastructure.SessoesEnfermagemService>();
@@ -619,8 +621,6 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<AvaliacoesViewModel>();
         servicos.AddTransient<AnamneseViewModel>();
         servicos.AddTransient<AnexosPacienteViewModel>();
-        servicos.AddTransient<ProntuariosViewModel>();
-        servicos.AddTransient<ExamesViewModel>();
         // AplicarAvaliacaoViewModel, AnexosSessaoViewModel, ProblemaEdicaoViewModel,
         // PrescricaoInternaEdicaoViewModel, FolhaExecucaoViewModel e
         // EscolherCertificadoViewModel são construídos à mão pela tela: eles recebem o
@@ -633,8 +633,8 @@ public sealed class ModuloClinico : IModuloApp
         ChaveSessoesEnfermagem => new SessoesEnfermagemView { DataContext = servicos.GetRequiredService<SessoesEnfermagemViewModel>() },
         ChaveMeuDia => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MeuDia), servicos),
         ChavePacientesDaClinica => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(1),
-        ChaveProntuarios => new ProntuariosView { DataContext = servicos.GetRequiredService<ProntuariosViewModel>() },
-        ChaveExames => new ExamesView { DataContext = servicos.GetRequiredService<ExamesViewModel>() },
+        ChaveProntuarios => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProntuariosDoPosto), servicos),
+        ChaveExames => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PedidosDeExame), servicos),
         ChaveRegistrosPendentes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SessoesSemEvolucao), servicos),
         ChaveMinhaSemana => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MinhaSemana), servicos),
         ChaveMedicamentos => new MedicamentosView(servicos.GetRequiredService<IServiceScopeFactory>()),
@@ -668,7 +668,7 @@ public sealed class ModuloClinico : IModuloApp
             },
 
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
-        ChaveAjuda => new AjudaView(),
+        ChaveAjuda => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AjudaESuporte), servicos),
 
         _ => null
     };

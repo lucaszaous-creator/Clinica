@@ -535,7 +535,7 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveDocumentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao), servicos),
         ChaveEquipe => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProfissionaisESalas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
-        ChaveAjuda => new AjudaView(),
+        ChaveAjuda => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AjudaESuporte), servicos),
         _ => null
     };
 }

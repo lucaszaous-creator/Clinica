@@ -338,7 +338,7 @@ public sealed class ModuloGerente : IModuloApp
         ChaveOrigens => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.OrigensDosPacientes), servicos),
         ChaveImportacao => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ImportacaoDePacientes), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
-        ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),
+        ChaveAjuda => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AjudaESuporte), servicos),
         _ => null
     };
 }

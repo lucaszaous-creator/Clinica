@@ -180,7 +180,7 @@ public static class ChavesSuite
     public const string Enfermagem = "enfermagem";
 
     /// <summary>
-    /// Ajuda e suporte — o FAQ do shell (`Componentes/AjudaView`), publicado pelos
+    /// Ajuda e suporte — o FAQ do shell (a tela Blazor `AjudaESuporte`), publicado pelos
     /// QUATRO módulos sob a mesma chave: era a única das 18 telas do handoff de design
     /// (ago/2026) que não existia em módulo nenhum, e dúvida não tem dono — cada exe
     /// carrega um recorte de módulos, e a dedupe do shell funde as publicações no
