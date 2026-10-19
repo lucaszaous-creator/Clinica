@@ -381,7 +381,11 @@
     <ProximasVagasForm Resultado="resultadoVagas" AoFechar="() => _vagas = null" AoEscolher="EscolherVagaAsync" />
 }
 
+<FechamentoDaSessao @ref="_fechamento" />
+
 @code {
+    private FechamentoDaSessao _fechamento = default!;
+
     /// <summary>A aba: marcar (true) ou lançar (false). Fixado por quem monta a tela.</summary>
     [Parameter] public bool Marcar { get; set; }
 
@@ -1322,15 +1326,9 @@
             Avisar(AtendimentoDoBalcaoNaTela.DesfechoSemDecisao(registro.GuiasGeradas), "sucesso");
             return;
         }
-        if (!Janelas.Disponivel)
-        {
-            Avisar("Atendimento registrado e guia gerada. O pacote/caixa se resolvem pelo \"Fechar sessão\" da Agenda do dia — "
-                   + JanelasDoAtendimentoIndisponiveis.Frase, "atencao");
-            return;
-        }
         try
         {
-            if (await Janelas.FecharSessaoAsync(agendamentoId) is not { } resultado)
+            if (await _fechamento.AbrirAsync(agendamentoId) is not { } resultado)
             {
                 Avisar("Atendimento registrado e guia gerada. O pacote/caixa NÃO foram registrados — dá para resolver pela Fila ou pelo Financeiro.", "atencao");
                 return;

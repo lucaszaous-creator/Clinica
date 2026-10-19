@@ -1,0 +1,41 @@
+@*
+  O FECHAMENTO DA SESSÃO (pacote, insumo, caixa) aberto por cima de quem o pede — out/2026, no
+  lugar da FechamentoSessaoWindow do WPF. A Agenda do dia e o atendimento do balcão chamavam a
+  janela pela ponte IJanelas…; agora chamam AbrirAsync e esperam a resposta do MESMO jeito
+  (nulo = fechou sem concluir; o resultado = o fechamento que saiu inteiro), sem o navegador
+  sair da janela. Um formulário só (FechamentoSessaoForm), duas portas.
+*@
+@using Clinica.Application.Servicos
+
+@if (_agendamentoId is { } id)
+{
+    <FechamentoSessaoForm AgendamentoId="id" AoFechar="FecharAsync" AoConcluir="ConcluirAsync" />
+}
+
+@code {
+    private int? _agendamentoId;
+    private TaskCompletionSource<ResultadoFechamento?>? _espera;
+
+    /// <summary>Abre o fechamento do horário e espera a pessoa concluir ou fechar.</summary>
+    public Task<ResultadoFechamento?> AbrirAsync(int agendamentoId)
+    {
+        _espera?.TrySetResult(null);
+        _espera = new TaskCompletionSource<ResultadoFechamento?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _agendamentoId = agendamentoId;
+        StateHasChanged();
+        return _espera.Task;
+    }
+
+    private Task FecharAsync() => Encerrar(null);
+
+    private Task ConcluirAsync(ResultadoFechamento resultado) => Encerrar(resultado);
+
+    private Task Encerrar(ResultadoFechamento? resultado)
+    {
+        _agendamentoId = null;
+        _espera?.TrySetResult(resultado);
+        _espera = null;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+}

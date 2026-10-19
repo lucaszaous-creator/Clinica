@@ -32,11 +32,6 @@ public interface IJanelasDaAgenda
     /// </summary>
     Task<IReadOnlyList<string>?> EditarHorarioAsync(int agendamentoId);
 
-    /// <summary>
-    /// A janela de fechamento (pacote, insumo, caixa). Nulo = fechou sem confirmar — a sessão
-    /// continua concluída e a guia no faturamento; o resultado = o que aconteceu.
-    /// </summary>
-    Task<ResultadoFechamento?> FecharSessaoAsync(int agendamentoId);
 
     /// <summary>
     /// A ficha com convênio "a definir" PERGUNTA o convênio antes de concluir (parcela 92).
@@ -73,7 +68,6 @@ public sealed class JanelasDaAgendaIndisponiveis : IJanelasDaAgenda
 
     public bool Disponivel => false;
     public Task<IReadOnlyList<string>?> EditarHorarioAsync(int agendamentoId) => Task.FromResult<IReadOnlyList<string>?>(null);
-    public Task<ResultadoFechamento?> FecharSessaoAsync(int agendamentoId) => Task.FromResult<ResultadoFechamento?>(null);
     public Task<bool> EscolherConvenioAsync(int pacienteId) => Task.FromResult(false);
     public Task<bool> AbrirFichaAsync(int pacienteId, string paciente) => Task.FromResult(false);
     public Task<DesfechoDaJanelaDoHorario> AbrirHorarioAsync(DateOnly dia, int agendamentoId) => Task.FromResult(DesfechoDaJanelaDoHorario.Indisponivel);

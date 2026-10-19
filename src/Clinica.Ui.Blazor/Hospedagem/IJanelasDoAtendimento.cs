@@ -43,9 +43,6 @@ public interface IJanelasDoAtendimento
     /// <summary>Pergunta o convênio da ficha "a definir". Verdadeiro = a ficha tem convênio agora.</summary>
     Task<bool> EscolherConvenioAsync(int pacienteId);
 
-    /// <summary>A janela de fechamento (pacote, insumo, caixa). Nulo = fechou sem confirmar.</summary>
-    Task<ResultadoFechamento?> FecharSessaoAsync(int agendamentoId);
-
     /// <summary>A venda de pacote com o paciente já escolhido. Verdadeiro = vendeu.</summary>
     Task<bool> VenderPacoteAsync(int pacienteId);
 
@@ -67,7 +64,6 @@ public sealed class JanelasDoAtendimentoIndisponiveis : IJanelasDoAtendimento
     public bool HaPedido(bool marcar) => false;
     public PedidoDoAtendimento? ConsumirPedido(bool marcar) => null;
     public Task<bool> EscolherConvenioAsync(int pacienteId) => Task.FromResult(false);
-    public Task<ResultadoFechamento?> FecharSessaoAsync(int agendamentoId) => Task.FromResult<ResultadoFechamento?>(null);
     public Task<bool> VenderPacoteAsync(int pacienteId) => Task.FromResult(false);
     public Task<bool> ReceberDividaAsync(int pacienteId) => Task.FromResult(false);
     public Task<int?> CadastrarPacienteAsync() => Task.FromResult<int?>(null);

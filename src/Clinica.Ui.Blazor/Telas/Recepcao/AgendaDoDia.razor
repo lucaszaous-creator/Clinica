@@ -226,6 +226,8 @@
     </section>
 </div>
 
+<FechamentoDaSessao @ref="_fechamento" />
+
 @if (_menu is not null)
 {
     @* Clicar fora fecha o "⋯" — sem isso o menu ficaria aberto por cima da linha seguinte. *@
@@ -249,6 +251,7 @@
     private int? _menu;
     private bool _ocupado;
     private Timer? _relogio;
+    private FechamentoDaSessao _fechamento = default!;
 
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
     private static PermissoesDaAgendaDoDia Permissoes => PermissoesDaAgendaDoDia.Da(SessaoUsuario.Atual);
@@ -513,13 +516,7 @@
             return true;
         }
 
-        if (!Janelas.Disponivel)
-        {
-            Notificacoes.Info($"Sessão de {l.Paciente} concluída e guia gerada — o fechamento (pacote, insumo, caixa) é feito no aplicativo da Recepção.");
-            return true;
-        }
-
-        var resultado = await Janelas.FecharSessaoAsync(l.AgendamentoId);
+        var resultado = await _fechamento.AbrirAsync(l.AgendamentoId);
         if (resultado is null)
             // Dizer isso é o que impede de concluir de novo procurando a guia que já existe.
             Notificacoes.Info($"Sessão de {l.Paciente} concluída e guia gerada — pacote/caixa não registrados.");
@@ -532,12 +529,7 @@
     private Task FecharSessaoAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
     {
         if (!Exigir(Permissao.EditarAgenda, "fechar a sessão")) return false;
-        if (!Janelas.Disponivel)
-        {
-            Notificacoes.Info("O fechamento da sessão (pacote, insumo e caixa) é feito no aplicativo da Recepção.");
-            return false;
-        }
-        var resultado = await Janelas.FecharSessaoAsync(l.AgendamentoId);
+        var resultado = await _fechamento.AbrirAsync(l.AgendamentoId);
         if (resultado is null)
             Notificacoes.Info($"Sessão de {l.Paciente} continua sem o fechamento do pacote, do insumo e do caixa.");
         else
