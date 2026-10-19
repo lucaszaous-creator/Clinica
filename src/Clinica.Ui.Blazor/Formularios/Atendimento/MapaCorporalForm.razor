@@ -1,0 +1,358 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  O MAPA CORPORAL da sessão (o que no WPF era a MapaCorporalWindow + MapaCorporalControl), em
+  SVG. A figura é a MESMA silhueta do PDF e da tela WPF (SilhuetaCorporal, no domínio — uma
+  definição só), desenhada no tamanho nativo de 220×460: é dividindo o clique por esses dois
+  números que ele vira FRAÇÃO (0 a 1), e um tamanho diferente espalharia os pontos em silêncio.
+
+  A janela NÃO grava: o mapa é 1:1 com a evolução e só se efetiva no "Salvar sessão" da folha.
+  Repetir a sessão anterior e aplicar um protocolo COPIAM os pontos (nunca apontam). Desfazer
+  volta a última alteração dos pontos. Guardar e apagar protocolo são do prontuário
+  (EditarProntuario).
+*@
+@using System.Globalization
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="@Titulo" Largura="largo" AoFechar="AoFechar"
+       Subtitulo="Clique na figura para marcar. Os pontos só entram no prontuário com o “Salvar sessão”.">
+    <ChildContent>
+        <div class="at-mapa">
+            <div class="at-mapa-figuras">
+                @foreach (var face in new[] { FaceCorpo.Frente, FaceCorpo.Costas })
+                {
+                    <figure class="at-mapa-figura">
+                        <figcaption>@(face == FaceCorpo.Frente ? "Frente" : "Costas")</figcaption>
+                        <div class="at-mapa-area" style="@($"width:{N(SilhuetaCorporal.Largura)}px;height:{N(SilhuetaCorporal.Altura)}px")">
+                            <svg viewBox="@($"0 0 {N(SilhuetaCorporal.Largura)} {N(SilhuetaCorporal.Altura)}")"
+                                 width="@N(SilhuetaCorporal.Largura)" height="@N(SilhuetaCorporal.Altura)"
+                                 class="@(PodeEditar ? "marcavel" : null)" role="img"
+                                 aria-label="@($"Figura de {(face == FaceCorpo.Frente ? "frente" : "costas")} — clique para marcar um ponto")"
+                                 @onclick="e => Marcar(face, e)">
+                                @foreach (var forma in SilhuetaCorporal.Formas)
+                                {
+                                    @if (forma is ElipseSilhueta el)
+                                    {
+                                        <ellipse cx="@N(el.Cx)" cy="@N(el.Cy)" rx="@N(el.Rx)" ry="@N(el.Ry)" class="at-mapa-corpo" />
+                                    }
+                                    else if (forma is RetanguloSilhueta r)
+                                    {
+                                        <rect x="@N(r.X)" y="@N(r.Y)" width="@N(r.Largura)" height="@N(r.Altura)" rx="@N(r.Raio)" ry="@N(r.Raio)" class="at-mapa-corpo" />
+                                    }
+                                }
+                                @if (face == FaceCorpo.Costas)
+                                {
+                                    <line x1="@N(SilhuetaCorporal.ColunaX)" y1="@N(SilhuetaCorporal.ColunaTopo)"
+                                          x2="@N(SilhuetaCorporal.ColunaX)" y2="@N(SilhuetaCorporal.ColunaBase)" class="at-mapa-coluna" />
+                                }
+                            </svg>
+                            @foreach (var p in Mapa.Pontos.Where(p => p.Face == face))
+                            {
+                                <button type="button" class="at-mapa-ponto @(p == _selecionado ? "selecionado" : null)"
+                                        style="@($"left:{N(p.X * SilhuetaCorporal.Largura)}px;top:{N(p.Y * SilhuetaCorporal.Altura)}px")"
+                                        title="@p.Rotulo" aria-label="@($"Ponto {p.Rotulo}")" @onclick="() => _selecionado = p">@p.Numero</button>
+                            }
+                        </div>
+                    </figure>
+                }
+            </div>
+
+            <div class="at-mapa-painel">
+                @if (_carregando)
+                {
+                    <Esqueleto Altura="120" />
+                }
+                <div class="campos">
+                    <Campo Rotulo="Técnica do próximo ponto">
+                        <select class="campo" @bind="_tecnica" disabled="@(!PodeEditar)">
+                            @foreach (var t in Enum.GetValues<TecnicaPonto>())
+                            {
+                                <option value="@t">@RotulosEnum.De(t)</option>
+                            }
+                        </select>
+                    </Campo>
+                    <Campo Rotulo="Nome do próximo ponto" Dica="Opcional (ex.: IG4). Vale só para o próximo clique.">
+                        <input class="campo" maxlength="60" @bind="_nomeProximo" @bind:event="oninput" disabled="@(!PodeEditar)" />
+                    </Campo>
+                </div>
+
+                <p class="at-mapa-resumo">@Mapa.Resumo</p>
+                @if (Mapa.Pontos.Count > 0)
+                {
+                    <ol class="at-mapa-legenda">
+                        @foreach (var p in Mapa.Pontos)
+                        {
+                            <li class="@(p == _selecionado ? "selecionado" : null)">
+                                <span>@p.Rotulo <span class="secundario">(@p.FaceRotulo)</span></span>
+                                <button type="button" class="botao mini icone" title="Remover o ponto" aria-label="@($"Remover o ponto {p.Numero}")"
+                                        disabled="@(!PodeEditar)" @onclick="() => Remover(p)"><Icone Nome="x" /></button>
+                            </li>
+                        }
+                    </ol>
+                }
+                <div class="botoes-linha">
+                    <button type="button" class="botao" disabled="@(!PodeEditar || !Mapa.PodeDesfazer)" @onclick="Desfazer">Desfazer</button>
+                    <button type="button" class="botao contorno-perigo" disabled="@(!PodeEditar || Mapa.Pontos.Count == 0)" @onclick="Limpar">Limpar pontos</button>
+                </div>
+
+                <Campo Rotulo="Observações do mapa">
+                    <textarea class="campo" rows="2" maxlength="2000" disabled="@(!PodeEditar)"
+                              @bind="Mapa.Observacoes" @bind:event="oninput" @bind:after="AvisarAsync"></textarea>
+                </Campo>
+
+                <div class="secao-form">
+                    <h3>Repetir uma sessão anterior</h3>
+                    @if (_anteriores.Count == 0)
+                    {
+                        <p class="texto-secundario">Nenhum mapa anterior disponível para esta sessão.</p>
+                    }
+                    else
+                    {
+                        <div class="at-mapa-linha">
+                            <select class="campo" @bind="_anteriorId" aria-label="Sessão anterior com mapa">
+                                @foreach (var a in _anteriores)
+                                {
+                                    <option value="@a.EvolucaoId">@a.Rotulo</option>
+                                }
+                            </select>
+                            <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="CopiarSessaoAsync">Copiar os pontos</button>
+                        </div>
+                    }
+                </div>
+
+                <div class="secao-form">
+                    <h3>Modelos (protocolos)</h3>
+                    @if (_protocolos.Count == 0)
+                    {
+                        <p class="texto-secundario">Marque os pontos no corpo e use “Salvar como modelo” para cadastrar o primeiro.</p>
+                    }
+                    else
+                    {
+                        <div class="at-mapa-linha">
+                            <select class="campo" @bind="_protocoloId" aria-label="Protocolo">
+                                @foreach (var pr in _protocolos)
+                                {
+                                    <option value="@pr.Id">@pr.Nome@(pr.EhDaClinica ? " (clínica)" : "")</option>
+                                }
+                            </select>
+                            <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="AplicarProtocolo">Aplicar</button>
+                            <button type="button" class="botao mini icone" title="Apagar o protocolo" aria-label="Apagar o protocolo"
+                                    disabled="@(!PodeEditar || !Pode(Permissao.EditarProntuario))" @onclick="ExcluirProtocoloAsync"><Icone Nome="lixo" /></button>
+                        </div>
+                    }
+                    <div class="at-mapa-linha">
+                        <input class="campo" maxlength="120" placeholder="Nome do novo modelo" aria-label="Nome do novo modelo"
+                               @bind="_nomeModelo" @bind:event="oninput" disabled="@(!PodeEditar)" />
+                        <label class="marcar"><input type="checkbox" @bind="_daClinica" disabled="@(!PodeEditar)" /> Para a clínica</label>
+                        <button type="button" class="botao" disabled="@(!PodeEditar || Mapa.Pontos.Count == 0 || !Pode(Permissao.EditarProntuario))"
+                                @onclick="SalvarComoProtocoloAsync">Salvar como modelo</button>
+                    </div>
+                </div>
+                <Aviso Tom="@(_erro ? "erro" : "sucesso")" Texto="@_mensagem" />
+            </div>
+        </div>
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda">Os pontos só entram no prontuário com o “Salvar sessão” da folha.</span>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public MapaDaSessao Mapa { get; set; } = default!;
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public int? EvolucaoId { get; set; }
+    [Parameter] public DateOnly DataSessao { get; set; }
+    [Parameter] public string Titulo { get; set; } = "Mapa corporal";
+    [Parameter] public bool SomenteLeitura { get; set; }
+    [Parameter] public EventCallback AoMudar { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private List<ResumoMapaAnterior> _anteriores = [];
+    private List<ProtocoloCorporal> _protocolos = [];
+    private int _anteriorId;
+    private int _protocoloId;
+    private TecnicaPonto _tecnica = TecnicaPonto.Agulha;
+    private string? _nomeProximo;
+    private string? _nomeModelo;
+    private bool _daClinica;
+    private PontoNaTela? _selecionado;
+    private bool _carregando = true;
+    private bool _ocupado;
+    private string? _mensagem;
+    private bool _erro;
+    private int _geracao;
+
+    private bool PodeEditar => !SomenteLeitura && !_ocupado && !_carregando;
+
+    /// <summary>Número dentro de SVG/CSS: SEMPRE invariante ("110,5" é atributo inválido).</summary>
+    private static string N(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var g = ++_geracao;
+        try
+        {
+            using var escopo = Escopo();
+            var mapas = escopo.ServiceProvider.GetRequiredService<MapaCorporalService>();
+            // Sequencial: é o mesmo DbContext do escopo.
+            var protocolos = await mapas.ProtocolosAsync(PacienteId);
+            var historico = await mapas.HistoricoAsync(PacienteId, EvolucaoId, DataSessao);
+            if (g != _geracao || Descartada) return;
+            _protocolos = protocolos.ToList();
+            _anteriores = historico.ToList();
+            _anteriorId = _anteriores.FirstOrDefault()?.EvolucaoId ?? 0;
+            _protocoloId = _protocolos.FirstOrDefault()?.Id ?? 0;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Mapa corporal não pôde ser carregado", ex);
+            Informar($"Não foi possível carregar os modelos e as sessões anteriores: {ex.Message}", erro: true);
+        }
+        finally { _carregando = false; }
+    }
+
+    private async Task Marcar(FaceCorpo face, MouseEventArgs e)
+    {
+        if (!PodeEditar) return;
+        var x = e.OffsetX / SilhuetaCorporal.Largura;
+        var y = e.OffsetY / SilhuetaCorporal.Altura;
+        if (Mapa.Marcar(face, x, y, _nomeProximo, _tecnica) is { } recusa)
+        {
+            Informar(recusa, erro: true);
+            return;
+        }
+        // O nome é do ponto que acabou de ser marcado: deixá-lo repetiria "IG4" no próximo clique.
+        _nomeProximo = null;
+        _selecionado = Mapa.Pontos[^1];
+        _mensagem = null;
+        await AvisarAsync();
+    }
+
+    private async Task Remover(PontoNaTela p)
+    {
+        if (!PodeEditar) return;
+        Mapa.Remover(p);
+        if (_selecionado == p) _selecionado = Mapa.Pontos.LastOrDefault();
+        await AvisarAsync();
+    }
+
+    private async Task Limpar()
+    {
+        if (!PodeEditar) return;
+        Mapa.Limpar();
+        _selecionado = null;
+        await AvisarAsync();
+    }
+
+    private async Task Desfazer()
+    {
+        if (!PodeEditar || !Mapa.Desfazer()) return;
+        _selecionado = Mapa.Pontos.LastOrDefault();
+        Informar("Última alteração dos pontos desfeita.", erro: false);
+        await AvisarAsync();
+    }
+
+    private async Task CopiarSessaoAsync()
+    {
+        if (!PodeEditar) return;
+        if (_anteriores.FirstOrDefault(a => a.EvolucaoId == _anteriorId) is not { } anterior)
+        {
+            Informar("Escolha uma sessão anterior com mapa.", erro: true);
+            return;
+        }
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopo();
+            var mapa = await escopo.ServiceProvider.GetRequiredService<MapaCorporalService>()
+                .CopiarParaEdicaoAsync(PacienteId, anterior.EvolucaoId, EvolucaoId, DataSessao);
+            Mapa.Substituir(mapa.Pontos, mapa.Observacoes, mapa.ProtocoloOrigemId, guardarParaDesfazer: true);
+            _selecionado = Mapa.Pontos.FirstOrDefault();
+            Informar($"Mapa de {anterior.Data:dd/MM/yyyy} copiado, com {mapa.Pontos.Count} pontos. Ajuste para esta sessão.", erro: false);
+            await AvisarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Mapa da sessão anterior não pôde ser lido", ex);
+            Informar(ex.Message, erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task AplicarProtocolo()
+    {
+        if (!PodeEditar || _protocolos.FirstOrDefault(p => p.Id == _protocoloId) is not { } protocolo) return;
+        var pontos = MapaCorporalService.PontosDoProtocolo(protocolo);
+        if (pontos.Count == 0)
+        {
+            Informar("Este protocolo não tem nenhum ponto marcado.", erro: true);
+            return;
+        }
+        Mapa.Substituir(pontos, protocolo.Descricao, protocolo.Id, guardarParaDesfazer: true);
+        _selecionado = Mapa.Pontos.FirstOrDefault();
+        Informar($"Modelo \"{protocolo.Nome}\" aplicado. Ajuste os pontos para esta sessão.", erro: false);
+        await AvisarAsync();
+    }
+
+    private async Task ExcluirProtocoloAsync()
+    {
+        if (!PodeEditar || _protocolos.FirstOrDefault(p => p.Id == _protocoloId) is not { } protocolo) return;
+        if (!Exigir(Permissao.EditarProntuario, "apagar protocolo do mapa corporal")) return;
+        if (!await Dialogos.ConfirmarAsync("Apagar protocolo",
+                $"Apagar o protocolo \"{protocolo.Nome}\"? As sessões já salvas com ele NÃO mudam — os pontos foram copiados para cada uma.",
+                perigoso: true))
+            return;
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<MapaCorporalService>().ExcluirProtocoloAsync(protocolo.Id, Operador);
+            _protocolos.Remove(protocolo);
+            _protocoloId = _protocolos.FirstOrDefault()?.Id ?? 0;
+            Mapa.EsquecerProtocolo(protocolo.Id);
+            Informar($"Protocolo \"{protocolo.Nome}\" apagado. As sessões já salvas com ele não mudam.", erro: false);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Protocolo corporal não pôde ser apagado", ex);
+            Informar(ex.Message, erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task SalvarComoProtocoloAsync()
+    {
+        if (!PodeEditar) return;
+        if (string.IsNullOrWhiteSpace(_nomeModelo)) { Informar("Dê um nome ao protocolo antes de guardá-lo.", erro: true); return; }
+        if (Mapa.Pontos.Count == 0) { Informar("Marque ao menos um ponto antes de guardar o protocolo.", erro: true); return; }
+        if (!Exigir(Permissao.EditarProntuario, "guardar protocolo do mapa corporal")) return;
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopo();
+            var protocolo = await escopo.ServiceProvider.GetRequiredService<MapaCorporalService>().SalvarComoProtocoloAsync(
+                PacienteId, _nomeModelo!, Mapa.ParaDominio(), _daClinica, descricao: Mapa.Observacoes, operador: Operador);
+            _protocolos.Add(protocolo);
+            _protocoloId = protocolo.Id;
+            _nomeModelo = null;
+            Informar(_daClinica
+                ? $"Protocolo \"{protocolo.Nome}\" guardado para toda a clínica."
+                : $"Protocolo \"{protocolo.Nome}\" guardado para este paciente.", erro: false);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Protocolo corporal não pôde ser guardado", ex);
+            Informar(ex.Message, erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    private Task AvisarAsync() => AoMudar.InvokeAsync();
+
+    private void Informar(string texto, bool erro)
+    {
+        _mensagem = texto;
+        _erro = erro;
+    }
+}

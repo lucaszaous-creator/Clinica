@@ -1,0 +1,87 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  OS CAMPOS SEPARADOS DA SESSÃO (o que no WPF era a DetalheSessaoWindow): queixa, história,
+  exame físico, hipótese, CID, conduta, orientações, plano, motivo do retorno e
+  encaminhamento. Edita o MESMO rascunho da folha — não uma cópia —, e por isso não tem
+  "Salvar": quem grava é o "Salvar sessão" da folha, e o rodapé DIZ isso.
+*@
+@using Clinica.Application.Modelos
+
+<Modal Titulo="Os campos separados desta sessão" Largura="grande" AoFechar="AoFechar"
+       Subtitulo="A folha continua sendo a evolução. Estes campos são para quem quer separar — e são eles que o relatório do convênio imprime por assunto. Todos opcionais.">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Queixa principal" Classe="largo">
+                <textarea class="campo" rows="2" maxlength="2000" disabled="@SomenteLeitura"
+                          @bind="Rascunho.QueixaPrincipal" @bind:event="oninput" @bind:after="AvisarAsync"></textarea>
+            </Campo>
+            <Campo Rotulo="História da doença atual" Classe="largo">
+                <textarea class="campo" rows="3" disabled="@SomenteLeitura"
+                          @bind="Rascunho.HistoriaDoencaAtual" @bind:event="oninput" @bind:after="AvisarAsync"></textarea>
+            </Campo>
+            <Campo Rotulo="Exame físico" Classe="largo">
+                <textarea class="campo" rows="3" disabled="@SomenteLeitura"
+                          @bind="Rascunho.ExameFisico" @bind:event="oninput" @bind:after="AvisarAsync"></textarea>
+            </Campo>
+            <Campo Rotulo="Hipótese diagnóstica" Classe="largo">
+                <textarea class="campo" rows="2" disabled="@SomenteLeitura"
+                          @bind="Rascunho.HipoteseDiagnostica" @bind:event="oninput" @bind:after="AvisarAsync"></textarea>
+            </Campo>
+            <Campo Rotulo="CID (opcional)" Dica="@Rascunho.DescricaoCid">
+                <div class="at-cid">
+                    <input class="campo" maxlength="20" disabled="@SomenteLeitura" placeholder="Ex.: M54.5"
+                           @bind="Rascunho.CidSessao" @bind:event="oninput" @bind:after="AvisarAsync" />
+                    <button type="button" class="botao" disabled="@SomenteLeitura" @onclick="() => _buscandoCid = true">
+                        <Icone Nome="busca" />Buscar CID…</button>
+                </div>
+            </Campo>
+            <Campo Rotulo="Conduta (pontos, técnica, tempo)" Classe="largo">
+                <textarea class="campo" rows="3" disabled="@SomenteLeitura"
+                          @bind="Rascunho.Conduta" @bind:event="oninput" @bind:after="AvisarAsync"></textarea>
+            </Campo>
+            <Campo Rotulo="Orientações ao paciente" Classe="largo">
+                <textarea class="campo" rows="2" disabled="@SomenteLeitura"
+                          @bind="Rascunho.Orientacoes" @bind:event="oninput" @bind:after="AvisarAsync"></textarea>
+            </Campo>
+            <Campo Rotulo="Plano terapêutico" Classe="largo">
+                <textarea class="campo" rows="2" disabled="@SomenteLeitura"
+                          @bind="Rascunho.PlanoTerapeutico" @bind:event="oninput" @bind:after="AvisarAsync"></textarea>
+            </Campo>
+            <Campo Rotulo="Por que voltar" Dica="O motivo do retorno sugerido. A data fica na folha; o agendamento é da recepção.">
+                <input class="campo" maxlength="500" disabled="@SomenteLeitura"
+                       @bind="Rascunho.RetornoSugeridoNota" @bind:event="oninput" @bind:after="AvisarAsync" />
+            </Campo>
+            <Campo Rotulo="Encaminhamento">
+                <input class="campo" maxlength="500" disabled="@SomenteLeitura"
+                       @bind="Rascunho.Encaminhamento" @bind:event="oninput" @bind:after="AvisarAsync" />
+            </Campo>
+        </div>
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda">O que você escrever aqui é gravado pelo “Salvar sessão” da folha.</span>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@if (_buscandoCid)
+{
+    <BuscaCidForm TermoInicial="@Rascunho.CidSessao" AoEscolher="EscolherCidAsync" AoFechar="() => _buscandoCid = false" />
+}
+
+@code {
+    [Parameter, EditorRequired] public RascunhoDaSessao Rascunho { get; set; } = default!;
+    [Parameter] public bool SomenteLeitura { get; set; }
+    [Parameter] public EventCallback AoMudar { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private bool _buscandoCid;
+
+    private Task AvisarAsync() => AoMudar.InvokeAsync();
+
+    private async Task EscolherCidAsync(string codigo)
+    {
+        Rascunho.CidSessao = codigo;
+        _buscandoCid = false;
+        await AvisarAsync();
+    }
+}

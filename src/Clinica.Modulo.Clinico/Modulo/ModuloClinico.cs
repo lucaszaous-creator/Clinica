@@ -541,6 +541,7 @@ public sealed class ModuloClinico : IModuloApp
         Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
             Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, Clinica.Desktop.Blazor.DocumentosNoAplicativoWpf>(servicos);
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IPostoDoConsultorio, PostoDoConsultorioWpf>();
+        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimentoClinico, JanelasDoAtendimentoClinicoWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosExames, JanelasDosExamesWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosProntuarios, JanelasDosProntuariosWpf>();
 

@@ -1,0 +1,199 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  MODELOS DE EVOLUÇÃO (o que no WPF era a ModelosEvolucaoWindow): o roteiro da sessão que se
+  repete. Aplicar COPIA e não grava — o Salvar da folha é o que efetiva (Lei 13.787/2018:
+  referência viva faria corrigir o roteiro hoje reescrever a sessão da semana passada). Por
+  copiar, o modelo é a única coisa "de prontuário" que se APAGA mesmo.
+  "Repetir a última sessão" é um roteiro como os outros, e só existe quando HÁ sessão anterior.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Modelos de evolução" Largura="grande" AoFechar="AoFechar"
+       Subtitulo="Aplicar copia o roteiro para a folha e não grava nada — confira e salve.">
+    <ChildContent>
+        @if (PodeRepetir)
+        {
+            <div class="at-repetir">
+                <span>A sessão de acupuntura tem sempre a mesma forma: traga a anterior e ajuste o que mudou.</span>
+                <button type="button" class="botao" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="RepetirAsync">
+                    <Icone Nome="historico" />Repetir a última sessão</button>
+            </div>
+        }
+        @if (_falha is not null)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler os modelos" Detalhe="@_falha" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_carregando && _modelos.Count == 0)
+        {
+            <Esqueleto Altura="160" />
+        }
+        else if (_modelos.Count == 0)
+        {
+            <EstadoVazio Icone="documento" Titulo="Nenhum modelo ainda"
+                         Descricao="Escreva a sessão na folha e guarde-a como modelo abaixo — ela vira o roteiro das próximas." />
+        }
+        else
+        {
+            <div class="tabela-rolagem at-modelos">
+                <table class="lista compacta">
+                    <thead><tr><th>Modelo</th><th style="width:110px">De quem</th><th class="direita" style="width:150px"></th></tr></thead>
+                    <tbody>
+                        @foreach (var m in _modelos)
+                        {
+                            <tr>
+                                <td><span class="principal">@m.Nome</span><span class="secundario">@Previa(m)</span></td>
+                                <td>@(m.ProfissionalId is null ? "Da clínica" : "Meu")</td>
+                                <td class="direita nao-quebra">
+                                    <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarProntuario))"
+                                            @onclick="() => AplicarAsync(m)">Aplicar</button>
+                                    <button type="button" class="botao mini icone" title="Apagar o modelo" aria-label="@($"Apagar o modelo {m.Nome}")"
+                                            disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="() => ApagarAsync(m)"><Icone Nome="lixo" /></button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <div class="secao-form">
+            <h3>Guardar esta sessão como modelo</h3>
+            <div class="campos">
+                <Campo Rotulo="Nome do modelo" Dica="Ex.: Sessão de acupuntura — lombar">
+                    <input class="campo" maxlength="120" @bind="_nomeNovo" @bind:event="oninput" disabled="@(!Pode(Permissao.EditarProntuario))" />
+                </Campo>
+                <Campo Rotulo="Para quem">
+                    <label class="marcar"><input type="checkbox" @bind="_paraAClinica" disabled="@(!Pode(Permissao.EditarProntuario))" /> Para toda a clínica</label>
+                </Campo>
+            </div>
+            <button type="button" class="botao" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="SalvarComoModeloAsync">
+                <Icone Nome="mais" />Guardar como modelo</button>
+        </div>
+        <Aviso Tom="@(_erro ? "erro" : "sucesso")" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public RascunhoDaSessao Rascunho { get; set; } = default!;
+    [Parameter] public int? ProfissionalId { get; set; }
+    [Parameter] public bool PodeRepetir { get; set; }
+    [Parameter] public EventCallback<ModeloEvolucao> AoAplicar { get; set; }
+    [Parameter] public EventCallback AoRepetir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private List<ModeloEvolucao> _modelos = [];
+    private bool _carregando;
+    private string? _falha;
+    private string? _mensagem;
+    private bool _erro;
+    private string _nomeNovo = string.Empty;
+    private bool _paraAClinica;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        _carregando = true;
+        _falha = null;
+        try
+        {
+            using var escopo = Escopo();
+            var lista = await escopo.ServiceProvider.GetRequiredService<ProntuarioService>().ModelosAsync(ProfissionalId);
+            if (g != _geracao || Descartada) return;
+            _modelos = lista.ToList();
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Prontuário — modelos de evolução não puderam ser lidos", ex);
+            _falha = ex.Message;
+        }
+        finally { if (g == _geracao) _carregando = false; }
+    }
+
+    /// <summary>A prévia da linha: o primeiro campo escrito, na ordem do WPF (os cinco da consulta no FIM).</summary>
+    private static string Previa(ModeloEvolucao m)
+    {
+        var texto = new[]
+            {
+                m.Conduta, m.TextoEvolucao, m.QueixaPrincipal, m.Orientacoes,
+                m.PlanoTerapeutico, m.ExameFisico, m.HistoriaDoencaAtual, m.HipoteseDiagnostica, m.CidSessao
+            }
+            .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t))?.Trim() ?? string.Empty;
+        return texto.Length <= 120 ? texto : texto[..120] + "…";
+    }
+
+    private async Task AplicarAsync(ModeloEvolucao m)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "aplicar modelo de evolução")) return;
+        await AoAplicar.InvokeAsync(m);
+    }
+
+    private async Task RepetirAsync()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "repetir a última sessão")) return;
+        await AoRepetir.InvokeAsync();
+    }
+
+    private async Task SalvarComoModeloAsync()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "salvar modelo de evolução")) return;
+        // Guarda com VOZ: sair calado faria o botão parecer quebrado.
+        if (!Rascunho.TemTextoParaModelo)
+        {
+            Informar("A sessão está em branco — escreva a evolução primeiro e depois guarde-a como modelo.", erro: true);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_nomeNovo))
+        {
+            Informar("Dê um nome ao modelo (\"Sessão de acupuntura — lombar\", por exemplo).", erro: true);
+            return;
+        }
+        try
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<ProntuarioService>().SalvarModeloAsync(
+                Rascunho.ComoModelo(_nomeNovo, _paraAClinica ? null : ProfissionalId), Operador);
+            _nomeNovo = string.Empty;
+            Informar("Modelo guardado.", erro: false);
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Prontuário — modelo de evolução não pôde ser salvo", ex);
+            Informar(ex.Message, erro: true);
+        }
+    }
+
+    private async Task ApagarAsync(ModeloEvolucao m)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "apagar modelo de evolução")) return;
+        if (!await Dialogos.ConfirmarAsync("Apagar modelo",
+                $"Apagar o modelo \"{m.Nome}\"? As sessões escritas com ele não mudam — o texto foi copiado para cada uma.", perigoso: true))
+            return;
+        try
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<ProntuarioService>().RemoverModeloAsync(m.Id);
+            Informar($"Modelo \"{m.Nome}\" apagado. As sessões escritas com ele não mudam.", erro: false);
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Prontuário — modelo de evolução não pôde ser apagado", ex);
+            Informar(ex.Message, erro: true);
+        }
+    }
+
+    private void Informar(string texto, bool erro)
+    {
+        _mensagem = texto;
+        _erro = erro;
+    }
+}

@@ -1,0 +1,191 @@
+@*
+  O EDITOR DE TEXTO CLÍNICO (out/2026) — o EditorTextoClinico do WPF em Blazor. O contrato é o
+  MESMO, e é o que a regra de "formatação da evolução acompanha o texto" exige:
+  - o TEXTO SIMPLES continua canônico (é ele que o prontuário, a busca e o PDF leem);
+  - a formatação guarda SÓ negrito e itálico, como o TextoFormatado do domínio a escreve, e
+    só vale quando os trechos recompõem exatamente o texto;
+  - editar devolve SEMPRE a formatação: "" quando não há estilo nenhum (remove de propósito),
+    nunca nulo (nulo é o cliente antigo que não conhece a formatação).
+  Ctrl+B / Ctrl+I e os dois botões da barra; colar entra como texto simples.
+
+  O campo é um contenteditable desenhado e lido por um módulo JS mínimo e LOCAL
+  (Ativos/js/editor-texto-clinico.js): o Blazor nunca desenha o conteúdo dele — senão cada
+  tecla devolveria o HTML e o cursor pularia. Onde não há JS (o bUnit), o editor vira uma
+  caixa de texto simples, que preserva o texto e remove o estilo ao editar (o que o contrato
+  manda: alterar o texto sem metadados descarta estilos antigos).
+*@
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="editor-clinico @(SomenteLeitura ? "leitura" : null) @(Desabilitado ? "desabilitado" : null)">
+    @if (!SomenteLeitura && _modo == Modo.Rico)
+    {
+        <div class="editor-barra" role="toolbar" aria-label="Formatação do texto">
+            <button type="button" class="botao mini fantasma editor-botao" title="Negrito (Ctrl+B)" aria-label="Negrito"
+                    disabled="@Desabilitado" @onmousedown:preventDefault="true" @onclick="@(() => FormatarAsync("negrito"))"><b>N</b></button>
+            <button type="button" class="botao mini fantasma editor-botao" title="Itálico (Ctrl+I)" aria-label="Itálico"
+                    disabled="@Desabilitado" @onmousedown:preventDefault="true" @onclick="@(() => FormatarAsync("italico"))"><i>I</i></button>
+        </div>
+    }
+    @if (_modo == Modo.Simples)
+    {
+        <textarea class="campo editor-texto simples" rows="@Linhas" aria-label="@Rotulo" placeholder="@TextoDeAjuda"
+                  disabled="@(Desabilitado || SomenteLeitura)" @oninput="AoDigitarSemJsAsync">@Texto</textarea>
+    }
+    else
+    {
+        <div class="editor-texto" @ref="_campo" role="textbox" aria-multiline="true" aria-label="@Rotulo"
+             aria-readonly="@(SomenteLeitura || Desabilitado ? "true" : "false")" data-ajuda="@TextoDeAjuda"
+             style="@($"min-height:{Linhas * 1.6}em")"></div>
+    }
+</div>
+
+@code {
+    /// <summary>O texto simples — o canônico.</summary>
+    [Parameter] public string? Texto { get; set; }
+    [Parameter] public EventCallback<string?> TextoChanged { get; set; }
+
+    /// <summary>Os trechos com negrito/itálico, no formato do <see cref="TextoFormatado"/>.</summary>
+    [Parameter] public string? Formato { get; set; }
+    [Parameter] public EventCallback<string?> FormatoChanged { get; set; }
+
+    [Parameter] public bool SomenteLeitura { get; set; }
+    [Parameter] public bool Desabilitado { get; set; }
+
+    /// <summary>O nome acessível do campo ("Evolução da sessão").</summary>
+    [Parameter] public string Rotulo { get; set; } = "Texto";
+
+    /// <summary>O texto-fantasma do campo vazio. Nunca é gravado.</summary>
+    [Parameter] public string? TextoDeAjuda { get; set; }
+
+    /// <summary>A altura mínima, em linhas.</summary>
+    [Parameter] public int Linhas { get; set; } = 8;
+
+    private enum Modo { Carregando, Rico, Simples }
+
+    private Modo _modo = Modo.Carregando;
+    private ElementReference _campo;
+    private IJSObjectReference? _modulo;
+    private DotNetObjectReference<EditorTextoClinico>? _ponte;
+    private string? _textoNoCampo;
+    private string? _formatoNoCampo;
+    private bool _somenteLeituraNoCampo;
+
+    /// <summary>
+    /// O par (texto, formato) que o editor devolve para os trechos lidos — o MESMO cálculo do
+    /// editor WPF: texto = a concatenação; formato = <see cref="TextoFormatado.Guardar"/>, ou
+    /// "" quando não há estilo (remove explicitamente). Texto simples sai sem formato nenhum.
+    /// </summary>
+    public static (string Texto, string Formato) Canonizar(IEnumerable<TrechoTexto> trechos)
+    {
+        var lista = trechos.Select(t => t with { Texto = TextoFormatado.Linhas(t.Texto) }).ToList();
+        var texto = string.Concat(lista.Select(t => t.Texto));
+        string formato;
+        try { formato = TextoFormatado.Guardar(lista) ?? string.Empty; }
+        catch (InvalidOperationException) { formato = string.Empty; } // formatação grande demais: o texto é o que importa
+        return (texto, formato);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/editor-texto-clinico.js");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — editor de texto clínico sem o módulo JS", ex);
+            _modulo = null;
+        }
+
+        if (_modulo is null)
+        {
+            // Sem JS (o bUnit): a caixa de texto simples, que funciona sem script nenhum.
+            _modo = Modo.Simples;
+            StateHasChanged();
+            return;
+        }
+
+        _ponte = DotNetObjectReference.Create(this);
+        _modo = Modo.Rico;
+        await LigarAsync();
+    }
+
+    private async Task LigarAsync()
+    {
+        if (_modulo is null) return;
+        _textoNoCampo = Texto;
+        _formatoNoCampo = Formato;
+        _somenteLeituraNoCampo = SomenteLeitura || Desabilitado;
+        await _modulo.InvokeVoidAsync("ligar", _campo, _ponte, Trechos(), _somenteLeituraNoCampo);
+    }
+
+    /// <summary>
+    /// O valor mudou POR FORA (o modelo aplicado, a cópia da última evolução, outra sessão):
+    /// redesenha o campo. O que a pessoa digitou volta por <see cref="Mudou"/> e é anotado como
+    /// "já está no campo" — redesenhar a cada tecla devolveria o cursor ao começo.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_modo != Modo.Rico || _modulo is null) return;
+        if (Texto != _textoNoCampo || Formato != _formatoNoCampo)
+        {
+            _textoNoCampo = Texto;
+            _formatoNoCampo = Formato;
+            await _modulo.InvokeVoidAsync("definir", _campo, Trechos());
+        }
+        var leitura = SomenteLeitura || Desabilitado;
+        if (leitura != _somenteLeituraNoCampo)
+        {
+            _somenteLeituraNoCampo = leitura;
+            await _modulo.InvokeVoidAsync("somenteLeitura", _campo, leitura);
+        }
+    }
+
+    private IReadOnlyList<TrechoTexto> Trechos() => TextoFormatado.Ler(Texto, Formato);
+
+    /// <summary>O módulo JS avisa a cada mudança do campo, com os trechos lidos dele.</summary>
+    [JSInvokable]
+    public async Task Mudou(List<TrechoTexto> trechos)
+    {
+        if (SomenteLeitura || Desabilitado) return;
+        var (texto, formato) = Canonizar(trechos);
+        _textoNoCampo = texto;
+        _formatoNoCampo = formato;
+        await TextoChanged.InvokeAsync(texto);
+        await FormatoChanged.InvokeAsync(formato);
+    }
+
+    private async Task FormatarAsync(string comando)
+    {
+        if (_modulo is null || Desabilitado || SomenteLeitura) return;
+        await _modulo.InvokeVoidAsync("formatar", _campo, comando);
+    }
+
+    private async Task AoDigitarSemJsAsync(ChangeEventArgs e)
+    {
+        var texto = e.Value?.ToString() ?? string.Empty;
+        await TextoChanged.InvokeAsync(texto);
+        // Texto alterado sem os metadados: o estilo antigo sai (o contrato), e o vazio diz isso.
+        await FormatoChanged.InvokeAsync(string.Empty);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_modulo is not null)
+            {
+                await _modulo.InvokeVoidAsync("desligar", _campo);
+                await _modulo.DisposeAsync();
+            }
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or TaskCanceledException or ObjectDisposedException)
+        {
+            // O navegador já foi embora: não há o que desligar.
+        }
+        _ponte?.Dispose();
+    }
+}
