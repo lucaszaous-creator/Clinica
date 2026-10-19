@@ -1,0 +1,45 @@
+/* O POSTO DO CONSULTÓRIO (Meu dia, Minha semana, Sessões sem evolução, Meus números) — o que as
+   quatro telas compartilham: a linha de contexto, o navegador de dia/semana e a barra de busca da
+   agenda (FiltroDaAgendaDoPosto). Só tokens — ver docs/telas-blazor.md.
+   As cores de SITUAÇÃO repetem as da agenda WPF (Agenda.Situacao.*): pendente âmbar, no local e
+   em atendimento no acento, atendido verde, cancelado e falta vermelho, substituído cinza. */
+
+/* ---------- As cores por grupo da situação, num lugar só ---------- */
+.con-dia .grupo-todos,.con-semana .grupo-todos{--cor-grupo:var(--cinza-500)}
+.con-dia .grupo-pendente,.con-semana .grupo-pendente{--cor-grupo:var(--aviso);--fundo-grupo:var(--aviso-suave)}
+.con-dia .grupo-no-local,.con-semana .grupo-no-local{--cor-grupo:var(--acento);--fundo-grupo:var(--acento-suave)}
+.con-dia .grupo-em-atendimento,.con-semana .grupo-em-atendimento{--cor-grupo:var(--acento);--fundo-grupo:var(--acento-suave)}
+.con-dia .grupo-atendido,.con-semana .grupo-atendido{--cor-grupo:var(--sucesso-forte);--fundo-grupo:var(--sucesso-suave)}
+.con-dia .grupo-cancelado,.con-dia .grupo-faltou,
+.con-semana .grupo-cancelado,.con-semana .grupo-faltou{--cor-grupo:var(--erro-hover);--fundo-grupo:var(--erro-suave)}
+.con-dia .grupo-substituido,.con-semana .grupo-substituido{--cor-grupo:var(--texto-secundario);--fundo-grupo:var(--superficie-hover)}
+
+/* ---------- Contexto: uma LINHA de texto, nunca uma faixa (parcela 38) ---------- */
+.con-contexto{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.45}
+.con-fechada{margin:0;color:var(--acento);font-weight:600;font-size:var(--text-small-size)}
+.con-nota{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+
+/* ---------- O navegador de dia / semana ---------- */
+.con-navegador{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4)}
+.con-dia-titulo{display:flex;flex-direction:column;align-items:center;min-width:150px}
+.con-dia-titulo strong{font-size:var(--text-h3-size);font-weight:700;line-height:1.2;white-space:nowrap}
+.con-data{min-height:0;height:24px;padding:0 var(--space-2);border-color:transparent;background:transparent;
+  color:var(--texto-secundario);font-size:var(--text-small-size);text-align:center;cursor:pointer}
+.con-data:hover{border-color:var(--borda)}
+
+/* ---------- A busca da agenda (FiltroDaAgendaDoPosto) ---------- */
+.filtro-posto{display:flex;flex-direction:column;gap:var(--space-2)}
+.fp-linha{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3)}
+.fp-busca{flex:1 1 240px;max-width:420px}
+.fp-combo{width:auto;min-width:200px;max-width:260px}
+.fp-situacoes{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.fp-pilula{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 var(--space-3);border-radius:var(--radius-pilula);
+  border:1px solid var(--borda);background:var(--superficie);color:var(--cinza-700);font-weight:500;cursor:pointer;
+  transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.fp-pilula:hover{border-color:var(--borda-hover);background:var(--superficie-hover)}
+.fp-pilula b{font-variant-numeric:tabular-nums;color:var(--texto-primario);font-weight:700}
+.fp-pilula[aria-pressed="true"]{border-color:var(--acento);background:var(--acento-suave);color:var(--acento)}
+.fp-pilula[aria-pressed="true"] b{color:var(--acento)}
+.fp-ponto{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cor-grupo,var(--texto-secundario));flex:none}
+.fp-pilula.grupo-todos .fp-ponto{display:none}
+.fp-resumo{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}

@@ -1,0 +1,41 @@
+/* Estilo próprio da tela (con-dia) — o Meu dia do Consultório. Só tokens — ver docs/telas-blazor.md.
+   Modelo A, como o WPF: a SITUAÇÃO pinta o traço da linha e a pílula do status; a modalidade é
+   escrita, e o avatar é neutro (acento). O que é comum às telas do posto mora em con-posto.css. */
+
+/* O botão da dívida só chama atenção quando HÁ dívida — botão sempre alarmante se aprende a ignorar. */
+.con-divida{color:var(--acento);font-weight:600;border-color:var(--acento)}
+
+.con-lista{container-type:inline-size}
+.con-tabela td{vertical-align:middle;padding-top:var(--space-3);padding-bottom:var(--space-3)}
+.con-tabela tbody tr.con-linha td:first-child{box-shadow:inset 3px 0 0 var(--cor-grupo,transparent)}
+.con-tabela tbody tr.con-em-sala td{background:var(--acento-suave)}
+.con-tabela tr.apagada td{opacity:.8}
+.con-col-hora{width:120px}
+.con-col-status{width:200px}
+.con-col-pront{width:110px}
+.con-col-acoes{width:1%}
+.con-hora{font-family:var(--font-num);font-weight:700;font-variant-numeric:tabular-nums;color:var(--texto-primario)}
+.con-paciente{display:flex;align-items:flex-start;gap:var(--space-3);min-width:0}
+.con-paciente-texto{display:flex;flex-direction:column;min-width:0;gap:1px}
+.con-paciente-texto .principal{display:inline}
+.con-paciente-texto .selo{align-self:flex-start;margin:2px 0 0}
+.con-obs{font-style:italic}
+.con-avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;
+  background:var(--acento-suave);color:var(--acento);font-weight:700;font-size:var(--text-small-size)}
+
+/* A pílula do status (AgendaModeloA.Status*): neutra; no local com o acento; chamado com a marca;
+   em atendimento cheia de acento. Cancelado e falta sem o ponto. */
+.con-status{display:inline-flex;align-items:center;gap:6px;padding:2px var(--space-2);border-radius:var(--radius-pilula);
+  border:1px solid var(--borda);background:var(--superficie-hover);color:var(--texto-secundario);
+  font-weight:600;font-size:var(--text-small-size);white-space:nowrap}
+.con-ponto{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--texto-secundario);flex:none}
+.con-status.etapa-chegou{background:var(--acento-suave);border-color:var(--marca-medio);color:var(--acento)}
+.con-status.etapa-chegou .con-ponto{background:var(--acento)}
+.con-status.etapa-chamado{background:var(--acento-suave);border:2px solid var(--marca-medio);color:var(--acento);font-weight:700}
+.con-status.etapa-chamado .con-ponto{background:var(--marca-navy)}
+.con-status.etapa-ematendimento{background:var(--acento);border-color:var(--acento);color:var(--texto-invertido)}
+.con-status.etapa-ematendimento .con-ponto{background:var(--texto-invertido)}
+.con-col-status .secundario{margin-top:3px}
+/* Chamada demorada: quem está parado esperando é o profissional. */
+.con-demorada{color:var(--marca-navy);font-weight:600}
+.con-pendente{color:var(--acento);font-weight:600}

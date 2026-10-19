@@ -151,7 +151,7 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
         Assert.Equal(abertas, conteineres.Count);
         var visiveis = conteineres.Where(c => !c.HasAttribute("hidden")).ToList();
         if (atual is null) { Assert.Empty(visiveis); return; }
-        Assert.Single(visiveis);
+        Assert.True(visiveis.Count == 1, $"{atual.Name}: {visiveis.Count} telas à vista depois da troca (esperava 1)");
         var ordem = palco.Telas.ToList().FindIndex(e => e.Tela == atual);
         Assert.Same(conteineres[ordem], visiveis[0]);
         Assert.NotEmpty(visiveis[0].QuerySelectorAll(".pagina"));

@@ -13,8 +13,9 @@ namespace Clinica.Clinico.Views;
 /// constrói uma tela nova a cada navegação (<c>ShellViewModel.Navegar</c>), e um
 /// <c>DispatcherTimer</c> ligado mantém viva a ViewModel que o criou — aqui, junto com as
 /// SETE sub-ViewModels dela. Num turno de vinte pacientes seriam vinte workspaces abandonados
-/// batendo a cada quinze segundos. É a mesma razão pela qual <c>MeuDiaView</c> faz assim
-/// desde a parcela 38, e a primeira versão desta parcela ligava o relógio no ViewModel.
+/// batendo a cada quinze segundos. É a mesma razão pela qual a antiga <c>MeuDiaView</c> fazia
+/// assim desde a parcela 38 (hoje o Meu dia é Blazor, e o relógio dele morre no Dispose da
+/// tela), e a primeira versão desta parcela ligava o relógio no ViewModel.
 /// </summary>
 public partial class PacienteWorkspaceView : UserControl
 {
