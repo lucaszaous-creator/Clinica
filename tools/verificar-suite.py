@@ -3276,6 +3276,9 @@ for _cenario, _corpo, _deve in (
 
 _WORKSPACE = RAIZ / "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml"
 _MODULO_CLINICO = RAIZ / "src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs"
+# Desde a P0 da migração para Blazor (out/2026), as DUAS listas moram na Application —
+# a tela Blazor não alcança o módulo WPF. O `AbaDe` continua no ModuloClinico.
+_LISTAS_DO_PACIENTE = RAIZ / "src/Clinica.Application/Modelos/TelaDoPacienteNaTela.cs"
 
 
 def _secoes_do_workspace(texto: str) -> tuple[int, int]:
@@ -3316,8 +3319,15 @@ if _WORKSPACE.exists() and _MODULO_CLINICO.exists():
     _rotulos, _telas = _secoes_do_workspace(_txt_ws)
 
     _txt_mod = _sem_comentarios(_MODULO_CLINICO.read_text(encoding="utf-8"))
-    _declaradas = _secoes_declaradas(_txt_mod)
-    _grupos = _grupos_declarados(_txt_mod)
+    # Sem o arquivo das listas a checagem ficaria CEGA (listas vazias = nada a comparar);
+    # isso é erro, não silêncio.
+    if not _LISTAS_DO_PACIENTE.exists():
+        erros.append(f"{_LISTAS_DO_PACIENTE.relative_to(RAIZ)} não existe — a checagem 38 não tem as listas do rail.")
+    _txt_listas = _sem_comentarios(_LISTAS_DO_PACIENTE.read_text(encoding="utf-8")) if _LISTAS_DO_PACIENTE.exists() else ""
+    _declaradas = _secoes_declaradas(_txt_listas)
+    _grupos = _grupos_declarados(_txt_listas)
+    if _LISTAS_DO_PACIENTE.exists() and not _declaradas:
+        erros.append(f"{_LISTAS_DO_PACIENTE.relative_to(RAIZ)}: a checagem 38 não achou `SecoesDoPaciente = [...]` — ela ficaria cega.")
 
     # (a) uma seção declarada para cada tela do TabControl.
     if _declaradas and len(_declaradas) != _telas:

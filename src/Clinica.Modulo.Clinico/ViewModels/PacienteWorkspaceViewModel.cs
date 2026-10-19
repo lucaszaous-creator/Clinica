@@ -100,9 +100,11 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     /// </summary>
     public sealed record ItemDoRail(string Rotulo, string Grupo, bool Oculta)
     {
-        public string RotuloMenu => Rotulo switch { "Atendimento" => "Evolução da sessão", "Histórico" => "Histórico clínico", _ => Rotulo };
+        private TelaDoPacienteNaTela.ItemDoRail Regra => new(Rotulo, Grupo, Oculta);
+        public string RotuloMenu => Regra.RotuloMenu;
+        // O ícone é do design system WPF (a tela Blazor usa os nomes do Icone.razor).
         public string Icone => Rotulo switch { "Atendimento" => "record", "Atendimento de enfermagem" => "patient", "Histórico" => "history", "Exames e anexos" => "folder", "Acompanhamento" => "chart", _ => "document" };
-        public bool OcultaNoMenu => Oculta || Rotulo is "Ficha do paciente" or "Prescrições e documentos";
+        public bool OcultaNoMenu => Regra.OcultaNoMenu;
     }
 
     /// <summary>
@@ -343,24 +345,15 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         // A decisão de QUEM vê qual seção de escrita mora no domínio, para o dotnet test
         // alcançar; aqui só se aplica. O índice da seção sai do MESMO mapa que a
         // navegação usa (`AbaDe`), e não de um rótulo escrito à mão.
-        var (medico, enfermagem) = PerfisAcesso.SecoesDeEscritaDoPosto(SessaoUsuario.Atual.Efetivas);
-        if (SessaoUsuario.Atual.Perfil == PerfilAcesso.Enfermagem) medico = false;
-        // O prontuário médico consulta as passagens no histórico. A escrita da
-        // enfermagem acontece no portal, sem uma segunda seção de registro aqui.
-        if (medico) enfermagem = false;
-        var secaoMedico = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento);
-        var secaoEnfermagem = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimentoEnfermagem);
-        Secoes = ModuloClinico.RailDoPaciente()
-            .Select((secao, i) => new ItemDoRail(
-                secao.Rotulo, secao.Grupo,
-                Oculta: (i == secaoMedico && !medico) || (i == secaoEnfermagem && !enfermagem)
-                    || (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario) && i != ModuloClinico.AbaDe(ModuloClinico.ChavePaciente))))
-            .ToList();
+        // (Desde a P0 da migração para Blazor, a regra mora em TelaDoPacienteNaTela — a tela
+        // Blazor lê a mesma.)
+        var rail = TelaDoPacienteNaTela.RailPara(SessaoUsuario.Atual.Efetivas, SessaoUsuario.Atual.Perfil);
+        Secoes = rail.Select(s => new ItemDoRail(s.Rotulo, s.Grupo, s.Oculta)).ToList();
 
         SecoesAgrupadas = new ListCollectionView(Secoes.ToList());
         SecoesAgrupadas.GroupDescriptions.Add(
             new PropertyGroupDescription(nameof(ItemDoRail.Grupo)));
-        AbaAtual = aba == secaoEnfermagem && !enfermagem ? secaoMedico : aba;
+        AbaAtual = TelaDoPacienteNaTela.SecaoInicial(aba, rail);
         _escopos = servicos.GetRequiredService<IServiceScopeFactory>();
         _dialogo = servicos.GetRequiredService<IDialogoService>();
 
@@ -614,72 +607,31 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     [ObservableProperty] private string? _avisoConclusaoAutomatica;
 
     public bool MostrarConcluirGerente => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente && PodeFinalizarSessao;
-    public bool PodeFinalizarSessao => PodeConcluirComAcesso && (_horario is { Status: StatusAgendamento.Agendado }
-        or { Status: StatusAgendamento.Realizado, AtendimentoId: not null, FimAtendimentoEm: null });
+    public bool PodeFinalizarSessao => SessaoDoAtendimentoNaTela.PodeFinalizar(_horario, PodeConcluirComAcesso);
     public bool PodeConcluirComAcesso => PodeMoverFila && ConclusaoClinica.Permitida(
         SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.Efetivas, SessaoUsuario.Atual.ProfissionalId);
-    public string RotuloFinalizarSessao => _horario?.Status == StatusAgendamento.Realizado
-        ? "Salvar e finalizar" : _horario?.FimAtendimentoEm is not null
-            ? "Concluir sessão pendente" : "Salvar e finalizar";
+    public string RotuloFinalizarSessao => SessaoDoAtendimentoNaTela.RotuloFinalizar(_horario);
 
+    /// <summary>
+    /// Traduz os carimbos na pílula e no cronômetro, e liga/desliga o relógio. A frase é
+    /// decidida por <see cref="SessaoDoAtendimentoNaTela"/> (Application, com teste) — a
+    /// tela Blazor do paciente lê a mesma.
+    /// </summary>
     private void DescreverSessao()
     {
         if (_horario is null) { TemSessao = false; _relogio.Stop(); return; }
 
-        TemSessao = true;
-        var agora = DateTime.Now;
-        var duracao = _horario.DuracaoDoAtendimento(agora);
-
-        SessaoEncerrada = _horario.FimAtendimentoEm is not null;
+        var sessao = SessaoDoAtendimentoNaTela.De(_horario, DateTime.Now);
+        TemSessao = sessao.TemSessao;
+        SessaoEncerrada = sessao.Encerrada;
         OnPropertyChanged(nameof(PodeFinalizarSessao));
         OnPropertyChanged(nameof(MostrarConcluirGerente));
         OnPropertyChanged(nameof(RotuloFinalizarSessao));
-        SessaoConcluida = _horario.Status == StatusAgendamento.Realizado && SessaoEncerrada;
-        EmAtendimento = _horario.InicioAtendimentoEm is not null && !SessaoEncerrada
-                        && _horario.Status == StatusAgendamento.Agendado;
-        PodeIniciar = _horario.InicioAtendimentoEm is null
-                      && _horario.Status == StatusAgendamento.Agendado;
-
-        if (SessaoConcluida)
-            // O desfecho do fluxo, escrito: quem lê precisa saber que não falta mais nada
-            // desta sala — o que segue no balcão é dinheiro, não a sessão.
-            SituacaoSessao = "Sessão concluída"
-                             + (_horario.FimAtendimentoEm is { } fim ? $" às {fim:HH\\:mm}" : "")
-                             + (duracao is null ? "" : $" · durou {duracao} min");
-        else if (_horario.Status == StatusAgendamento.Realizado)
-            SituacaoSessao = "Guias geradas · registro clínico em aberto";
-        else if (SessaoEncerrada)
-            SituacaoSessao = $"Conclusão pendente — encerrado às {_horario.FimAtendimentoEm:HH\\:mm}"
-                             + (duracao is null ? "" : $" · durou {duracao} min");
-        else if (EmAtendimento)
-            // ⚠️ SEM O TEMPO desde set/2026, e é o cronômetro que o tirou daqui. Enquanto
-            // esta era a única leitura, "há 12 min" era a resposta; com o visor "00:12:35"
-            // ao lado, as duas ficavam lado a lado dizendo o mesmo em granularidades
-            // diferentes — e uma delas ia envelhecer sozinha na primeira correção. A pílula
-            // responde EM QUE PÉ o horário está; o visor, HÁ QUANTO TEMPO.
-            //
-            // (Foi por isso que o "começou agora mesmo" saiu junto: ele existia para "há
-            // 0 min" não se ler como defeito, e o visor resolve o primeiro minuto sozinho,
-            // mostrando 00:00:00 e andando.)
-            SituacaoSessao = "Em atendimento";
-        else if (PodeIniciar)
-            SituacaoSessao = $"Horário de {_horario.DataHora:HH\\:mm} — o paciente ainda não "
-                             + "entrou na sala";
-        else
-            // Só sobra Cancelado/Faltou/Substituído: dizer "encerrado no balcão" descreveria
-            // o desfecho errado para um horário que não aconteceu — ou que aconteceu noutro
-            // lançamento.
-            SituacaoSessao = _horario.Status switch
-            {
-                StatusAgendamento.Faltou => "Horário marcado como falta",
-                StatusAgendamento.Substituido => "Horário substituído por uma sessão lançada por fora",
-                _ => "Horário cancelado"
-            };
-
-        // O visor corre por conta própria: ele existe só no atendimento EM CURSO, e o
-        // `TemSessao`/`SituacaoSessao` acima respondem a outra pergunta (o que houve com o
-        // horário). Amarrar os dois faria o visor aparecer parado numa sessão encerrada.
-        Cronometro = CronometroDaSessao.De(_horario, agora) ?? string.Empty;
+        SessaoConcluida = sessao.Concluida;
+        EmAtendimento = sessao.EmAtendimento;
+        PodeIniciar = sessao.PodeIniciar;
+        SituacaoSessao = sessao.Situacao;
+        Cronometro = sessao.Cronometro ?? string.Empty;
 
         if (EmAtendimento && _naTela) _relogio.Start(); else _relogio.Stop();
     }

@@ -796,15 +796,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     /// que o registro ia ficar ligado.
     /// </summary>
     public static string DescreverOrigem(int? agendamentoId, DateOnly? dataDoHorario)
-    {
-        if (agendamentoId is null)
-            return "Escolhido na busca — a evolução não fica ligada a nenhum horário.";
-
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        return dataDoHorario is { } data && data != hoje
-            ? $"Chamado da agenda de {data:dd/MM/yyyy} — a evolução nasce ligada a esse horário."
-            : "Chamado da agenda de hoje — a evolução nasce ligada a este horário.";
-    }
+        => TelaDoPacienteNaTela.DescreverOrigem(agendamentoId, dataDoHorario, DateOnly.FromDateTime(DateTime.Today));
 
     /// <summary>
     /// De quem é a sessão — no Consultório, sempre o paciente do POSTO. A base não o

@@ -451,103 +451,19 @@ public sealed class ModuloClinico : IModuloApp
     ];
 
     /// <summary>
-    /// As SEÇÕES da tela do paciente, na ordem em que o rail as desenha.
-    ///
-    /// ⚠️ Ela existe para o mapa de navegação parar de ser por ÍNDICE. Enquanto
-    /// <c>AbaDe</c> devolvia um número escrito à mão, pôr uma seção no MEIO da lista
-    /// empurrava todos os de baixo — e índice desatualizado não quebra build nenhum: ele
-    /// abre a seção ERRADA. Foi o que a parcela 75 fez ao inserir a Anamnese em 1.
-    ///
-    /// Agora a chave aponta para o NOME e o índice sai daqui. Reordenar continua exigindo
-    /// mexer nesta lista, mas mexer nela é ÓBVIO — e a checagem 38 casa esta lista com os
-    /// rótulos do rail, posição por posição, de modo que XAML e C# não podem divergir em
-    /// silêncio.
+    /// As SEÇÕES da tela do paciente, na ordem do rail — a lista mora em
+    /// <see cref="Clinica.Application.Modelos.TelaDoPacienteNaTela"/> desde a P0 da migração
+    /// para Blazor (out/2026): a tela Blazor não alcança este módulo, e uma segunda cópia
+    /// divergiria na primeira seção nova. A checagem 38 lê a lista de lá.
     /// </summary>
-    public static readonly IReadOnlyList<string> SecoesDoPaciente =
-    [
-        "Atendimento",
-        "Atendimento de enfermagem",
-        // "Anamnese" foi uma linha própria até set/2026; virou a segunda aba de
-        // "Paciente" (PacienteView) — é escrita uma vez por pessoa, e "quem é esta
-        // pessoa" é a pergunta daquela seção. O rail ficou com sete (cada lado vê seis).
-        "Ficha do paciente",
-        "Histórico",
-        "Exames e anexos",
-        "Prescrições e documentos",
-        "Acompanhamento"
-    ];
+    public static IReadOnlyList<string> SecoesDoPaciente => Clinica.Application.Modelos.TelaDoPacienteNaTela.SecoesDoPaciente;
 
-    /// <summary>
-    /// O GRUPO de cada seção no rail, na mesma ordem de <see cref="SecoesDoPaciente"/>.
-    ///
-    /// Nove itens numa lista corrida davam a "Anamnese" — escrita uma vez na vida — o mesmo
-    /// peso de "Atendimento", aberto vinte vezes por dia. Em grupos, a barra passa a dizer
-    /// QUANDO se usa cada uma: o que se faz agora e o que o paciente já tem.
-    ///
-    /// ⚠️ "Evolução da dor", "Medidas" e "Avaliações" viraram UMA seção, "Acompanhamento",
-    /// com as três como abas internas (parcela 95 — a direção: "quanto mais simples,
-    /// melhor"). Eram três linhas do rail para uma pergunta só, "como está indo" — e o
-    /// grupo de três itens virou um item do grupo Paciente. As três chaves de navegação
-    /// continuam valendo: <see cref="AbaDe"/> leva à seção e <see cref="SubAbaDe"/> à aba
-    /// de dentro.
-    ///
-    /// ⚠️ A lista é a MESMA de cima, casada por posição, e é daqui que o rail se monta — não
-    /// há uma segunda lista de rótulos no XAML. Foi assim que a divergência entre o índice
-    /// de navegação e o rótulo lido pelo usuário (o caso (b) da checagem 38) deixou de ser
-    /// possível por construção, em vez de ser vigiada.
-    /// </summary>
-    public static readonly IReadOnlyList<string> GruposDoPaciente =
-    [
-        "Sessão",
-        "Sessão",
-        "Paciente",
-        "Paciente",
-        "Paciente",
-        "Paciente",
-        "Paciente"
-    ];
+    /// <summary>O grupo de cada seção — ver <see cref="SecoesDoPaciente"/>.</summary>
+    public static IReadOnlyList<string> GruposDoPaciente => Clinica.Application.Modelos.TelaDoPacienteNaTela.GruposDoPaciente;
 
-    /// <summary>Uma linha do rail: o rótulo que se lê e o grupo em que ela mora.</summary>
-    public sealed record SecaoDoPaciente(string Rotulo, string Grupo);
-
-    /// <summary>
-    /// O rail da tela do paciente, na ordem — montado das DUAS listas acima.
-    ///
-    /// ⚠️ É daqui que o XAML se monta, e é isso que faz a divergência entre o rótulo lido
-    /// pelo usuário e o índice de navegação ser IMPOSSÍVEL por construção, em vez de
-    /// vigiada por checagem (o caso (b) da checagem 38). Antes eram duas listas — a do C#
-    /// e nove <c>ListBoxItem</c> escritos à mão no XAML —, e inserir uma seção no meio
-    /// empurrava os índices sem quebrar build nenhum.
-    /// </summary>
-    public static IReadOnlyList<SecaoDoPaciente> RailDoPaciente()
-    {
-        if (SecoesDoPaciente.Count != GruposDoPaciente.Count)
-            throw new InvalidOperationException(
-                "ModuloClinico: SecoesDoPaciente e GruposDoPaciente têm tamanhos "
-                + "diferentes. As duas são casadas por POSIÇÃO — uma seção sem grupo "
-                + "sairia do rail sem quebrar nada.");
-
-        // ⚠️ OS GRUPOS TÊM DE SER CONTÍGUOS, e isto não é estética.
-        //
-        // O rail é uma vista AGRUPADA da mesma lista, e o `SelectedIndex` dele é o índice
-        // NA VISTA. Com os grupos contíguos, a vista enumera na ordem da lista e o índice
-        // bate com o do TabControl ao lado. Espalhados — [Sessão, Paciente, Sessão] —, a
-        // vista reordenaria para juntar os iguais, e o clique passaria a abrir a tela do
-        // vizinho: sem erro, sem log, sem nada que quebre.
-        var vistos = new List<string>();
-        foreach (var grupo in GruposDoPaciente)
-        {
-            if (vistos.Count > 0 && vistos[^1] == grupo) continue;
-            if (vistos.Contains(grupo))
-                throw new InvalidOperationException(
-                    $"ModuloClinico: o grupo \u201C{grupo}\u201D aparece em blocos separados de "
-                    + "GruposDoPaciente. O rail é uma vista agrupada, e grupo partido faz a "
-                    + "vista reordenar as seções — o clique passa a abrir a tela do vizinho.");
-            vistos.Add(grupo);
-        }
-
-        return [.. SecoesDoPaciente.Select((nome, i) => new SecaoDoPaciente(nome, GruposDoPaciente[i]))];
-    }
+    /// <summary>O rail da tela do paciente, na ordem (a definição é a da Application).</summary>
+    public static IReadOnlyList<Clinica.Application.Modelos.TelaDoPacienteNaTela.SecaoDoRail> RailDoPaciente()
+        => Clinica.Application.Modelos.TelaDoPacienteNaTela.Rail();
 
     /// <summary>
     /// Em que seção da tela do paciente cada chave clínica cai.

@@ -1,0 +1,46 @@
+/* A TELA DO PACIENTE (out/2026, migrada da PacienteWorkspaceView): o crachá no topo, o rail de
+   seções à esquerda e a seção à vista. Só tokens — ver docs/telas-blazor.md. */
+
+.tela-paciente{display:flex;flex-direction:column;gap:var(--space-3)}
+
+/* ---------- O crachá: quem é, o que pesa, em que pé está o horário ---------- */
+.tp-cracha{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--space-3);padding:var(--space-4)}
+.tp-voltar{flex:none}
+.tp-foto{flex:none;width:52px;height:52px;border-radius:50%;object-fit:cover}
+.tp-identidade{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tp-nome{margin:0;font-size:var(--text-h2-size);font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.tp-linha{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.tp-vencida{color:var(--erro-texto);font-weight:600}
+.tp-origem{margin:var(--space-1) 0 0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.tp-contexto{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);margin-top:var(--space-1);font-size:var(--text-small-size)}
+.tp-contexto-item b{color:var(--texto-secundario);font-weight:600}
+
+.tp-sessao{flex:0 1 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--space-2)}
+.tp-pilula{display:inline-flex;align-items:center;max-width:280px;padding:var(--space-1) var(--space-3);border-radius:var(--radius-pilula);
+  background:var(--superficie-hover);color:var(--texto-secundario);font-size:var(--text-small-size);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tp-pilula.em-curso{background:var(--sucesso-suave);color:var(--sucesso-forte);font-weight:600}
+.tp-pilula.concluida{background:var(--acento-suave);color:var(--acento)}
+/* O visor do cronômetro: monoespaçado, senão os dígitos dançam a cada segundo. */
+.tp-visor{padding:var(--space-1) var(--space-3);border-radius:var(--radius-pequeno);background:var(--visor-bg);color:var(--visor-texto);
+  font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;font-size:var(--text-h3-size);letter-spacing:.04em}
+
+/* ---------- Rail + seção ---------- */
+.tp-corpo{display:grid;grid-template-columns:220px minmax(0,1fr);gap:var(--space-3);align-items:start}
+.tp-rail{display:flex;flex-direction:column;gap:2px;padding:var(--space-3);position:sticky;top:0}
+.tp-grupo{margin:var(--space-3) 0 var(--space-1) var(--space-2);color:var(--texto-secundario);font-size:var(--text-small-size);
+  font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.tp-grupo:first-child{margin-top:0}
+.tp-secao{display:flex;align-items:center;gap:var(--space-2);width:100%;padding:var(--space-2) var(--space-3);border:0;border-radius:var(--radius-control);
+  background:transparent;color:var(--texto-secundario);font-weight:600;text-align:left;cursor:pointer}
+.tp-secao:hover{background:var(--superficie-hover)}
+.tp-secao.ativa{background:var(--acento-suave);color:var(--acento)}
+.tp-secao:focus-visible{outline:2px solid var(--foco);outline-offset:1px}
+.tp-secao-corpo{min-width:0;display:flex;flex-direction:column;gap:var(--space-3)}
+
+/* Notebook estreito: o rail vira uma régua por cima da seção, e nada vaza para o lado. */
+@media (max-width:1100px){
+  .tp-corpo{grid-template-columns:minmax(0,1fr)}
+  .tp-rail{position:static;flex-direction:row;flex-wrap:wrap}
+  .tp-grupo{display:none}
+  .tp-secao{width:auto}
+}

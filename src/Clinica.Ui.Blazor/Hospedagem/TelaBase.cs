@@ -38,9 +38,22 @@ public abstract class TelaBase : ComponentBase, IDisposable
         {
             _escutando = true;
             Sinal.Voltou += AoSinal;
+            Sinal.Saiu += AoSaida;
             Sinal.Atalho += AoAtalhoDoTeclado;
         }
     }
+
+    private void AoSaida() => _ = InvokeAsync(async () =>
+    {
+        try { await AoSairAsync(); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar($"Blazor — saída de vista ({GetType().Name})", ex); }
+    });
+
+    /// <summary>
+    /// A tela saiu de vista (continua montada). Desligue aqui o que corre sozinho — relógio,
+    /// cronômetro —, e religue no <see cref="AoVoltarAsync"/>. O padrão é nada.
+    /// </summary>
+    protected virtual Task AoSairAsync() => Task.CompletedTask;
 
     private void AoSinal() => _ = InvokeAsync(async () =>
     {
@@ -128,6 +141,7 @@ public abstract class TelaBase : ComponentBase, IDisposable
         if (_escutando && Sinal is not null)
         {
             Sinal.Voltou -= AoSinal;
+            Sinal.Saiu -= AoSaida;
             Sinal.Atalho -= AoAtalhoDoTeclado;
         }
         GC.SuppressFinalize(this);
