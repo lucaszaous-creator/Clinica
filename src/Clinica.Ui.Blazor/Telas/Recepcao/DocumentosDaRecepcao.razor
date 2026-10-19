@@ -21,7 +21,7 @@
 @inherits TelaBase
 
 <div class="pagina rec-docs @(_carregando && _carregou ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Recepção · Documentos" Titulo="Documentos"
+    <CabecalhoPagina Sobretitulo="Documentos" Titulo="Documentos"
                      Subtitulo="Emitir um papel novo — receita, atestado, declaração, termo, recibo, orçamento — ou achar o que já saiu, com a 2ª via." />
 
     <div class="abas" role="tablist" aria-label="Documentos">
@@ -305,7 +305,30 @@
     protected override async Task OnInitializedAsync()
     {
         MontarCartoes();
+        await AbrirNoPacienteEmFocoAsync();
         await CarregarAsync();
+    }
+
+    /// <summary>
+    /// No Consultório a tela abre já no paciente em foco do posto (quem acabou de ser atendido),
+    /// como a tela de Prescrições WPF abria. Sem posto (Recepção, prévia) ou sem foco, começa
+    /// pela busca. Falhar aqui não impede a tela: ela só começa pela busca.
+    /// </summary>
+    private async Task AbrirNoPacienteEmFocoAsync()
+    {
+        if (Servicos.GetService<IPostoDoConsultorio>()?.PacienteEmFoco is not { } foco) return;
+        try
+        {
+            Paciente? paciente;
+            using (var escopo = Escopo())
+                paciente = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                    .ObterPacienteAsync(foco.PacienteId);
+            if (paciente is not null && !Descartada) await EscolherAsync(paciente);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Documentos — o paciente em foco não pôde ser aberto", ex);
+        }
     }
 
     /// <summary>Voltar à aba relê a lista em silêncio: o que outra máquina emitiu aparece.</summary>

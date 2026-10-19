@@ -22,6 +22,10 @@ public sealed class PostoDoConsultorioWpf(PacienteEmFoco foco) : IPostoDoConsult
 {
     public bool Disponivel => true;
 
+    public PacienteNoPosto? PacienteEmFoco => foco.PacienteId is { } id
+        ? new PacienteNoPosto(id, foco.Nome, foco.AgendamentoId, null, foco.DataDoHorario)
+        : null;
+
     public Task<bool> AbrirNoPostoAsync(PacienteNoPosto paciente, DestinoNoPosto destino) => NaInterface(() =>
     {
         foco.Definir(paciente.PacienteId, paciente.Paciente, paciente.AgendamentoId,
