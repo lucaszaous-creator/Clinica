@@ -3,7 +3,7 @@ namespace Clinica.Crm.Contracts;
 public sealed record Specialty(string Code, string Name, bool Active = true);
 public sealed record ClinicAppointment(int Id, int PatientId, string Name, string Phone, DateTimeOffset StartsAt,
     string SpecialtyCode, string SpecialtyName, string Professional, string Status, string Revision, string Confirmation,
-    string Answer = "", DateTimeOffset? AnsweredAt = null, DateTimeOffset? NotifiedAt = null);
+    string Answer = "", DateTimeOffset? AnsweredAt = null, DateTimeOffset? NotifiedAt = null, DateTimeOffset? CreatedAt = null);
 public sealed record ClinicSnapshot(DateTimeOffset SyncedAt, Specialty[] Specialties, ClinicAppointment[] Appointments);
 public sealed record ClinicDecision(string CommandId, int AppointmentId, string Revision, string Phone, string Decision, string MessageId);
 public sealed record ClinicDecisionResult(string Status, string Description);
