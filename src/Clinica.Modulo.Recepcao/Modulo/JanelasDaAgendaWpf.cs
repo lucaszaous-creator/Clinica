@@ -38,13 +38,6 @@ public sealed class JanelasDaAgendaWpf(
         return Task.FromResult(janela.ShowDialog() == true ? vm.AvisosDoSalvamento : (IReadOnlyList<string>?)null);
     });
 
-    public Task<ResultadoFechamento?> FecharSessaoAsync(int agendamentoId) => NaInterface(() =>
-    {
-        var vm = new FechamentoSessaoViewModel(escopos, agendamentoId);
-        var janela = new Janelas.FechamentoSessaoWindow(vm) { Owner = JanelaDona.Atual() };
-        return Task.FromResult(janela.ShowDialog() == true ? janela.Resultado : null);
-    });
-
     public Task<bool> EscolherConvenioAsync(int pacienteId)
         => NaInterface(() => VinculoDeConvenio.GarantirAsync(escopos, pacienteId, SessaoUsuario.Atual.Operador));
 

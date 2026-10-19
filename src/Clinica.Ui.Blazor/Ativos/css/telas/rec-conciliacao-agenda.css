@@ -1,0 +1,32 @@
+/* Estilo próprio do formulário (rec-conciliacao-agenda). Só tokens — ver docs/telas-blazor.md.
+   Conferir atendimentos: uma linha por horário parado, as três respostas à direita. */
+
+.rec-conc-barra{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3)}
+.rec-conc-periodo{color:var(--texto-secundario);font-variant-numeric:tabular-nums}
+.rec-conc-resumo{margin:0;font-weight:600;color:var(--acento)}
+
+.rec-conc-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.rec-conc-linha{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-4);
+  padding:var(--space-3) 0;border-bottom:1px solid var(--borda)}
+.rec-conc-linha:last-child{border-bottom:0}
+.rec-conc-linha.orfao{grid-template-columns:minmax(0,1fr)}
+.rec-conc-linha.resolvida .principal{color:var(--texto-secundario)}
+
+.rec-conc-info{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
+.rec-conc-info .principal{overflow-wrap:anywhere}
+.rec-conc-selos{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.rec-conc-selos .selo{margin-left:0}
+.rec-conc-situacao{margin:0;color:var(--texto-secundario);line-height:1.45}
+/* A guarda escrita: sem a frase, o botão cinza vira "o sistema travou" (parcela 41). */
+.rec-conc-guarda{margin:0;color:var(--erro-texto);line-height:1.45}
+.rec-conc-desfecho{margin:0;display:inline-flex;align-items:flex-start;gap:var(--space-2);
+  font-weight:600;color:var(--sucesso-forte)}
+
+/* As três respostas empilhadas, da mesma largura: em 1024 elas não quebram o rótulo. */
+.rec-conc-acoes{display:flex;flex-direction:column;gap:var(--space-2);min-width:200px}
+.rec-conc-acoes .botao{justify-content:flex-start;white-space:nowrap}
+
+@media (max-width:720px){
+  .rec-conc-linha{grid-template-columns:minmax(0,1fr)}
+  .rec-conc-acoes{flex-direction:row;flex-wrap:wrap;min-width:0}
+}

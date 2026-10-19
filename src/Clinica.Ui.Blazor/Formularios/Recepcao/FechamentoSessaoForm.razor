@@ -1,0 +1,342 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@inherits TelaBase
+@*
+  CONCLUIR ATENDIMENTO — o fechamento da sessão (parcela 6; out/2026, migrado da
+  FechamentoSessaoWindow / FechamentoSessaoViewModel do WPF da Recepção).
+
+  Concluir são QUATRO fatos do mesmo ato: a guia nasce, o pacote debita, o insumo sai e o
+  dinheiro entra no caixa. Quando este formulário abre, a GUIA já existe (parcela 65) — o que
+  sobra para decidir é o resto, e tudo é PROPOSTA confirmada, nunca automática: o pacote que
+  vence primeiro, o insumo da última sessão, o valor da última entrada COM a procedência.
+
+  As regras que vieram do ViewModel (as frases e a leitura do que se digita moram em
+  FechamentoSessaoNaTela, com teste):
+  - só a conclusão do atendimento derruba a operação; pacote, insumo e caixa que falham viram
+    AVISO — e o formulário FICA ABERTO dizendo o quê (sai por "Fechar", que é AoFechar). Só o
+    fechamento que saiu inteiro chama AoConcluir (era o DialogResult=true da janela);
+  - os RECADOS do lançamento (NC reaberta, 2º código) ficam SEPARADOS dos avisos;
+  - depois de concluir não há segundo "Concluir": repetir criaria outra guia para a sessão;
+  - barreiras: EditarAgenda para concluir; LancarAtendimento OU EditarFinanceiro para o caixa.
+*@
+
+<Modal Titulo="@FechamentoSessaoNaTela.Titulo" Subtitulo="@(_proposta is { } s ? FechamentoSessaoNaTela.Subtitulo(s) : null)"
+       Largura="medio" AoFechar="FecharAsync">
+    <ChildContent>
+        @if (_proposta is null)
+        {
+            @if (_falha is not null)
+            {
+                <FalhaDeLeitura Titulo="A proposta de fechamento não pôde ser montada" Detalhe="@_falha" AoTentarDeNovo="CarregarAsync" />
+            }
+            else
+            {
+                <Esqueleto Altura="260" />
+            }
+        }
+        else
+        {
+            var p = _proposta;
+            var bloqueado = _concluida || _ocupado;
+
+            @if (p.TemPacote)
+            {
+                <div class="secao-form rec-fech-bloco">
+                    <h3>Pacote</h3>
+                    <label class="marcar"><input type="checkbox" @bind="_debitarPacote" disabled="@bloqueado" />Debitar 1 sessão do pacote</label>
+                    <p class="rec-fech-detalhe">@FechamentoSessaoNaTela.RotuloDoPacote(p)</p>
+                    <p class="rec-fech-legenda">@FechamentoSessaoNaTela.TextoPacote</p>
+                </div>
+            }
+
+            @if (_insumos.Count > 0)
+            {
+                <div class="secao-form rec-fech-bloco">
+                    <h3>Insumos consumidos</h3>
+                    <p class="rec-fech-legenda">@FechamentoSessaoNaTela.TextoInsumos</p>
+                    @foreach (var i in _insumos)
+                    {
+                        <div class="rec-fech-insumo">
+                            <div>
+                                <span class="principal">@i.Nome</span>
+                                <span class="rec-fech-legenda">@i.Saldo</span>
+                            </div>
+                            <input class="campo" maxlength="8" inputmode="decimal" aria-label="@($"Quantidade de {i.Nome}")"
+                                   @bind="i.Quantidade" @bind:event="oninput" disabled="@bloqueado" />
+                        </div>
+                    }
+                </div>
+            }
+
+            @* Caixa: "como esta sessão foi paga?" — DUAS respostas (set/2026): pago agora, ou fica a receber. *@
+            <div class="secao-form rec-fech-bloco">
+                <h3>Pagamento</h3>
+                <label class="marcar">
+                    <input type="checkbox" @bind="_gerarLancamento" disabled="@(bloqueado || !PodeCaixa)" />
+                    Registrar como esta sessão foi paga
+                </label>
+                @if (p.EhParticular)
+                {
+                    <p class="rec-fech-legenda">@FechamentoSessaoNaTela.TextoParticular</p>
+                }
+                @if (!PodeCaixa)
+                {
+                    <p class="rec-fech-legenda">@FechamentoSessaoNaTela.TextoSemPermissaoCaixa</p>
+                }
+
+                <div class="segmentado" role="group" aria-label="Como foi pago">
+                    <button type="button" aria-pressed="@(!_ficaAReceber ? "true" : "false")"
+                            disabled="@(bloqueado || !_gerarLancamento)" @onclick="() => _ficaAReceber = false">Pago agora</button>
+                    <button type="button" aria-pressed="@(_ficaAReceber ? "true" : "false")"
+                            disabled="@(bloqueado || !_gerarLancamento)" @onclick="() => _ficaAReceber = true">Fica a receber</button>
+                </div>
+
+                <div class="campos">
+                    <Campo Rotulo="Valor" Dica="@_procedencia">
+                        <input class="campo valor" maxlength="12" inputmode="decimal" placeholder="0,00"
+                               @bind="_valor" @bind:event="oninput" disabled="@(bloqueado || !_gerarLancamento)" />
+                    </Campo>
+                    @if (_ficaAReceber)
+                    {
+                        <Campo Rotulo="Vence em" Dica="@FechamentoSessaoNaTela.TextoVencimento">
+                            <input type="date" class="campo" @bind="_vencimento" disabled="@(bloqueado || !_gerarLancamento)" />
+                        </Campo>
+                    }
+                    else
+                    {
+                        <Campo Rotulo="Forma de pagamento">
+                            <select class="campo" value="@(_forma?.ToString() ?? string.Empty)" disabled="@(bloqueado || !_gerarLancamento)"
+                                    @onchange="e => _forma = Enum.TryParse<FormaPagamento>(e.Value?.ToString(), out var f) ? f : null">
+                                <option value="">Escolha…</option>
+                                @foreach (var f in FechamentoSessaoNaTela.Formas)
+                                {
+                                    <option value="@f">@RotulosEnum.De(f)</option>
+                                }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Data do pagamento">
+                            <input type="date" class="campo" @bind="_dataPagamento" disabled="@(bloqueado || !_gerarLancamento)" />
+                        </Campo>
+                        @if (FechamentoSessaoNaTela.EhCartao(_forma))
+                        {
+                            <Campo Rotulo="Maquininha / adquirente">
+                                <input class="campo" maxlength="60" @bind="_adquirente" @bind:event="oninput" disabled="@(bloqueado || !_gerarLancamento)" />
+                            </Campo>
+                            <Campo Rotulo="Bandeira">
+                                <input class="campo" maxlength="40" @bind="_bandeira" @bind:event="oninput" disabled="@(bloqueado || !_gerarLancamento)" />
+                            </Campo>
+                            <Campo Rotulo="Parcelas no crédito">
+                                <input class="campo" maxlength="2" inputmode="numeric" @bind="_parcelas" @bind:event="oninput" disabled="@(bloqueado || !_gerarLancamento)" />
+                            </Campo>
+                        }
+                    }
+                    <Campo Rotulo="Categoria" Classe="largo"
+                           Dica="@(_categoriasFalharam ? "Não foi possível ler as categorias — o lançamento sai sem categoria e o Financeiro classifica depois." : null)">
+                        <select class="campo" value="@(_categoriaId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" disabled="@(bloqueado || !_gerarLancamento)"
+                                @onchange="e => _categoriaId = int.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                            <option value="">(sem categoria)</option>
+                            @foreach (var c in _categorias)
+                            {
+                                <option value="@c.Id">@c.Nome</option>
+                            }
+                        </select>
+                    </Campo>
+                </div>
+            </div>
+
+            @if (!_concluida)
+            {
+                <p class="rec-fech-resumo">@FechamentoSessaoNaTela.Resumo(p.TemPacote, _debitarPacote, _gerarLancamento, _ficaAReceber)</p>
+            }
+
+            @if (_resultado is { TudoCerto: false } r)
+            {
+                <div class="rec-fech-desfecho">
+                    <Aviso Tom="erro" Texto="@FechamentoSessaoNaTela.TituloDosAvisos">
+                        <div class="rec-fech-avisos">
+                            <ul>@foreach (var a in r.Avisos) { <li>@a</li> }</ul>
+                            <p>@FechamentoSessaoNaTela.RodapeDosAvisos</p>
+                        </div>
+                    </Aviso>
+                    @if (r.TemRecados)
+                    {
+                        <Aviso Tom="info" Texto="@FechamentoSessaoNaTela.TituloDosRecados">
+                            <div class="rec-fech-avisos">
+                                <ul>@foreach (var a in r.RecadosDoLancamento) { <li>@a</li> }</ul>
+                            </div>
+                        </Aviso>
+                    }
+                </div>
+            }
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_concluida)
+        {
+            <button type="button" class="botao" @onclick="FecharAsync">Fechar</button>
+        }
+        else
+        {
+            <button type="button" class="botao" disabled="@_ocupado" @onclick="FecharAsync">Cancelar</button>
+            <button type="button" class="botao primario" @onclick="ConfirmarAsync"
+                    disabled="@(_proposta is null || _ocupado || !PodeConcluir)"
+                    title="@(PodeConcluir ? null : "Seu acesso não permite concluir o atendimento.")">
+                <Icone Nome="check" />@(_ocupado ? "Concluindo…" : "Concluir sessão")
+            </button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>O horário cuja sessão está sendo fechada.</summary>
+    [Parameter, EditorRequired] public int AgendamentoId { get; set; }
+
+    /// <summary>Saiu sem concluir — ou concluiu COM aviso e saiu por "Fechar" (a janela devolvia false).</summary>
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>O fechamento saiu INTEIRO: o mesmo <c>ResultadoFechamento</c> que a janela devolvia em <c>Resultado</c>.</summary>
+    [Parameter] public EventCallback<ResultadoFechamento> AoConcluir { get; set; }
+
+    private sealed class LinhaInsumo(int itemId, string nome, string saldo, string? quantidade)
+    {
+        public int ItemId { get; } = itemId;
+        public string Nome { get; } = nome;
+        public string Saldo { get; } = saldo;
+        /// <summary>Texto de propósito: o campo aceita digitação parcial ("0," virando "0,5").</summary>
+        public string? Quantidade { get; set; } = quantidade;
+    }
+
+    private PropostaFechamento? _proposta;
+    private string? _falha;
+    private int _geracao;
+
+    private readonly List<LinhaInsumo> _insumos = [];
+    private IReadOnlyList<CategoriaFinanceira> _categorias = [];
+    private bool _categoriasFalharam;
+
+    private bool _debitarPacote;
+    private bool _gerarLancamento;
+    private bool _ficaAReceber;
+    private string? _valor;
+    private string? _procedencia;
+    private FormaPagamento? _forma;
+    private string? _adquirente;
+    private string? _bandeira;
+    private string? _parcelas = "1";
+    private DateOnly _dataPagamento = DateOnly.FromDateTime(DateTime.Today);
+    /// <summary>Fica a receber nasce vencendo em 30 dias — regra da casa para o prazo.</summary>
+    private DateOnly _vencimento = DateOnly.FromDateTime(DateTime.Today).AddDays(30);
+    private int? _categoriaId;
+
+    private string? _mensagem;
+    private bool _ocupado;
+    /// <summary>O atendimento já foi concluído aqui: não há segundo "Concluir" (seria outra guia).</summary>
+    private bool _concluida;
+    private ResultadoFechamento? _resultado;
+
+    private static bool PodeConcluir => Pode(FechamentoSessaoNaTela.BitConcluir);
+    private static bool PodeCaixa => PodeAlgum(FechamentoSessaoNaTela.BitsDoCaixa);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        _falha = null;
+        try
+        {
+            PropostaFechamento proposta;
+            IReadOnlyList<CategoriaFinanceira> categorias = [];
+            var categoriasFalharam = false;
+            using (var escopo = Escopo())
+            {
+                proposta = await escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>().PrepararAsync(AgendamentoId);
+                try
+                {
+                    categorias = await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().CategoriasAsync(TipoLancamento.Entrada);
+                }
+                catch (Exception ex)
+                {
+                    // Degradação deliberada (a do WPF): sem a lista, o lançamento sai sem
+                    // categoria e o Financeiro classifica depois. Mas fica registrado.
+                    Clinica.Application.Diagnostico.Registrar("Blazor — fechamento: categorias do caixa não puderam ser lidas", ex);
+                    categoriasFalharam = true;
+                }
+            }
+            if (g != _geracao || Descartada) return;
+
+            // Publica tudo depois do último await.
+            _categorias = categorias;
+            _categoriasFalharam = categoriasFalharam;
+            _categoriaId = null;
+            _insumos.Clear();
+            foreach (var i in proposta.Insumos)
+                _insumos.Add(new LinhaInsumo(i.ItemId, i.Nome, FechamentoSessaoNaTela.SaldoDoInsumo(i), FechamentoSessaoNaTela.QuantidadeInicial(i)));
+            _debitarPacote = proposta.TemPacote;
+            _valor = FechamentoSessaoNaTela.ValorInicial(proposta);
+            _procedencia = FechamentoSessaoNaTela.ProcedenciaDoValor(proposta);
+            _forma = proposta.FormaSugerida == FormaPagamento.Convenio ? null : proposta.FormaSugerida;
+            _gerarLancamento = FechamentoSessaoNaTela.GerarLancamentoInicial(proposta, PodeCaixa);
+            _proposta = proposta;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — proposta de fechamento não pôde ser montada", ex);
+            _falha = ex.Message;
+        }
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (_concluida || _ocupado || _proposta is null) return;
+        _mensagem = null;
+
+        var decisao = FechamentoSessaoNaTela.Montar(new EntradaDoFechamento(
+            AgendamentoId, _proposta.TemPacote, _debitarPacote, _gerarLancamento, _ficaAReceber,
+            _valor, _forma, _parcelas, _dataPagamento, _vencimento, _adquirente, _bandeira, _categoriaId,
+            _insumos.Select(i => new InsumoDigitado(i.ItemId, i.Nome, i.Quantidade)).ToList()), out var erro);
+        if (decisao is null)
+        {
+            _mensagem = erro;
+            return;
+        }
+
+        ResultadoFechamento resultado;
+        try
+        {
+            _ocupado = true;
+            // A SEGUNDA barreira, com os bits EXATOS do ViewModel WPF. Recusa vira frase
+            // inline (é formulário), não exceção solta.
+            SessaoUsuario.Atual.Exigir(FechamentoSessaoNaTela.BitConcluir, "concluir o atendimento");
+            if (decisao.GerarLancamento)
+                SessaoUsuario.Atual.ExigirAlgum(FechamentoSessaoNaTela.BitsDoCaixa, "lançar a entrada no caixa");
+
+            using var escopo = Escopo();
+            resultado = await escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>()
+                .ConcluirAsync(decisao, Operador);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — falha no fechamento da sessão", ex);
+            _mensagem = ex.Message;
+            return;
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+
+        // O atendimento existe a partir daqui, tenha o resto dado certo ou não: concluir de
+        // novo criaria uma segunda guia para a mesma sessão.
+        _concluida = true;
+        _resultado = resultado;
+        if (resultado.TudoCerto)
+            await AoConcluir.InvokeAsync(resultado);
+        // Com aviso, o formulário FICA ABERTO dizendo o quê: fechar com um "pronto" mandaria a
+        // secretária embora achando que o pacote baixou. Sai pelo "Fechar".
+    }
+
+    /// <summary>Cancelar, Fechar, Esc e o ×. Com a gravação no ar, espera — sair agora não desfaz nada.</summary>
+    private Task FecharAsync() => _ocupado ? Task.CompletedTask : AoFechar.InvokeAsync();
+}
