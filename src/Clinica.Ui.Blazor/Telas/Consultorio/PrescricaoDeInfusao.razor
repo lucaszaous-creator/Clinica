@@ -82,6 +82,11 @@
                                 <button type="button" class="botao mini" disabled="@(!l.PodeEditar || _ocupado)" @onclick="() => EditarAsync(l)">Editar</button>
                                 <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => AbrirFolhaAsync(l)">Abrir</button>
                                 <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => ImprimirAsync(l, false)">Imprimir</button>
+                                @if (l.PodeEnviar)
+                                {
+                                    <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => EnviarAsync(l)"
+                                            title="E-mail (recomendado) ou WhatsApp pelo CRM">Enviar ao paciente…</button>
+                                }
                                 @if (l.ExibirRegistroSeparado)
                                 {
                                     <button type="button" class="botao mini" disabled="@(!l.TemRegistroExecucao || _ocupado)" @onclick="() => ImprimirAsync(l, true)">Registro histórico</button>
@@ -291,6 +296,22 @@
             _mensagem = erro ?? folha.Conferencia?.Frase ?? "Documento sem assinatura digital; confira a identificação no PDF.";
             _mensagemEhErro = erro is not null || folha.Conferencia is { Integra: false };
         }, "Consultório — folha de infusão não pôde ser impressa");
+    }
+
+    /// <summary>
+    /// "Enviar ao paciente…" (out/2026): a janela é a MESMA dos documentos, no aplicativo
+    /// (e-mail primeiro, WhatsApp pelo CRM depois). Aqui só a primeira barreira e a frase.
+    /// </summary>
+    private async Task EnviarAsync(LinhaPrescricaoInterna l)
+    {
+        if (!Exigir(Permissao.Prescrever, "enviar a prescrição ao paciente")) return;
+        await Acao(async () =>
+        {
+            var r = await Editor.EnviarAoPacienteAsync(l.PrescricaoId, l.Numero);
+            if (r.Silencioso) return;
+            _mensagem = r.Frase;
+            _mensagemEhErro = r.EhErro;
+        }, "Consultório — prescrição não pôde ser enviada ao paciente");
     }
 
     private async Task CancelarAsync(LinhaPrescricaoInterna l)

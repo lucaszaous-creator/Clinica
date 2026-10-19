@@ -40,6 +40,12 @@ public sealed class JanelasDaPrescricaoDeInfusaoWpf(IServiceScopeFactory escopos
         return Task.FromResult(janela.Assinou);
     });
 
+    public Task<ResultadoDoAto> EnviarAoPacienteAsync(int prescricaoId, string numero) => NaInterface(async () =>
+    {
+        var r = await AcoesDoDocumento.EnviarPrescricaoAsync(prescricaoId, numero, escopos);
+        return new ResultadoDoAto(r.Mudou, r.Inline, r.EhErro, r.Silencioso);
+    });
+
     private static Task<T> NaInterface<T>(Func<Task<T>> acao)
     {
         var despachante = System.Windows.Application.Current?.Dispatcher;

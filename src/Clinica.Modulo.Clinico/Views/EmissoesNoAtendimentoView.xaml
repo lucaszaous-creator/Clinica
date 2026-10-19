@@ -44,6 +44,7 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
@@ -77,6 +78,16 @@
                                                     </Style>
                                                 </Button.Style>
                                             </Button>
+
+                                            <!-- Enviar ao paciente (out/2026): a MESMA janela das
+                                                 outras portas — e-mail primeiro, WhatsApp depois. -->
+                                            <Button Grid.Column="2" Content="Enviar…" MinWidth="64"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    VerticalAlignment="Center" Margin="8,0,0,0"
+                                                    Visibility="{Binding PodeEnviar, Converter={StaticResource BoolParaVisibilidade}}"
+                                                    Command="{Binding DataContext.EnviarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

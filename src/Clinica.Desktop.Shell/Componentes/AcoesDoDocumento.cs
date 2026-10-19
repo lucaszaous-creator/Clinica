@@ -83,8 +83,13 @@ public sealed record DocumentoNaTela
         or TipoDocumentoClinico.PedidoExame or TipoDocumentoClinico.RelatorioEvolucao
         or TipoDocumentoClinico.Anamnese or TipoDocumentoClinico.LaudoMedico;
 
-    /// <summary>Só o ASSINADO se entrega como arquivo — sem assinatura, o que vale é a via de caneta.</summary>
-    public bool PodeEnviar => Assinado && !Cancelado;
+    /// <summary>
+    /// Pode sair como ARQUIVO (WhatsApp ou e-mail): o assinado, e — desde out/2026 — a
+    /// receita, o atestado, o pedido de exame e a declaração mesmo sem certificado, que são
+    /// emitidos assim na continuidade sem A1. A regra mora na Application
+    /// (<see cref="EnvioAoPacienteService.PodeEnviar"/>), com teste.
+    /// </summary>
+    public bool PodeEnviar => EnvioAoPacienteService.PodeEnviar(Tipo, Assinado, Cancelado);
 
     // ===== A metade VISÍVEL de cada ato: o estado E o bit daquele TIPO de papel =====
     //
@@ -323,62 +328,111 @@ public static class AcoesDoDocumento
     }
 
     /// <summary>
-    /// Entrega o ARQUIVO assinado ao paciente pelo WhatsApp (parcela 43, 2ª rodada).
+    /// "Enviar ao paciente" — o ponto ÚNICO (out/2026) de todas as portas: a central de
+    /// Documentos, a ficha, as Prescrições do Consultório, o "já saiu hoje" do atendimento e o
+    /// fim da emissão (<paramref name="aposEmitir"/>: a pergunta vira "Enviar agora?").
     ///
-    /// A assinatura vive nos bytes: quem sai só com o papel leva um documento sem a
-    /// garantia que o sistema produziu, e a farmácia recusa — com razão. Ver
-    /// <see cref="EntregaAoPaciente"/>, inclusive por que o anexo não é automático.
+    /// Uma janela só (<see cref="EnvioAoPacienteWindow"/>): e-mail PRIMEIRO e já marcado, com o
+    /// endereço digitado na hora (sugerido pela ficha) e "guardar na ficha" opcional; WhatsApp
+    /// pelo CRM depois, com o aviso de que cada envio é cobrado pela Meta; e o WhatsApp deste
+    /// computador para quando o CRM está desligado.
+    ///
+    /// O arquivo é a 2ª VIA (os bytes guardados quando assinado; a mesma montagem da
+    /// reimpressão quando não). A trilha grava quem, por qual canal e para onde.
     /// </summary>
-    public static async Task<ResultadoAcaoDocumento> EnviarAsync(
-        DocumentoNaTela doc, IServiceScopeFactory escopos)
+    public static Task<ResultadoAcaoDocumento> EnviarAsync(
+        DocumentoNaTela doc, IServiceScopeFactory escopos, bool aposEmitir = false)
     {
         try
         {
-            // Dado de saúde SAINDO para fora — a barreira que a parcela 60 passou a cobrar
-            // no export, e que faltava em duas das quatro cópias deste ato.
+            // Dado de saúde SAINDO para fora — o bit do TIPO, a segunda barreira (a primeira
+            // é o botão: OferecerEnviar).
             SessaoUsuario.Atual.Exigir(doc.AcessoParaMexer, "enviar documento clínico");
 
             if (!doc.PodeEnviar)
-                return ResultadoAcaoDocumento.Erro(doc.Cancelado
-                    ? $"O documento {doc.Numero} está cancelado."
-                    : $"O documento {doc.Numero} ainda não foi assinado digitalmente. "
-                      + "Sem assinatura, o que vale é a via impressa e assinada à caneta — "
-                      + "assine antes de enviar o arquivo.");
-
-            byte[] pdf;
-            Paciente? paciente = null;
-            string? nomeClinica;
-
-            using (var escopo = escopos.CreateScope())
-            {
-                var pdfs = escopo.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
-                var parametros = escopo.ServiceProvider.GetRequiredService<ParametrosService>();
-
-                // Os BYTES GUARDADOS, porque o documento está assinado — é a regra que mora
-                // dentro do GerarAsync, e é o que faz o arquivo continuar válido.
-                pdf = await pdfs.GerarAsync(doc.DocumentoId);
-
-                if (doc.PacienteId is { } id)
-                    paciente = await escopo.ServiceProvider
-                        .GetRequiredService<PacienteService>().ObterComHistoricoAsync(id);
-
-                var prestador = await parametros.ObterPrestadorAsync();
-                nomeClinica = prestador.NomeFantasia ?? prestador.RazaoSocial;
-            }
-
-            var entrega = EntregaAoPaciente.Entregar(
-                pdf, doc.NomeArquivoAssinado, paciente?.Telefone,
-                paciente?.Nome ?? "paciente", doc.Rotulo, nomeClinica);
-
-            return new ResultadoAcaoDocumento(Inline: entrega.Frase, EhErro: entrega.EhErro);
+                return Task.FromResult(ResultadoAcaoDocumento.Erro(
+                    EnvioAoPacienteService.PorQueNaoEnvia(doc.Numero, doc.Cancelado)));
         }
         catch (Exception ex)
         {
-            Clinica.Application.Diagnostico.Registrar(
-                $"Documento {doc.Numero} — não pôde ser entregue ao paciente", ex);
+            return Task.FromResult(ResultadoAcaoDocumento.Erro(ex.Message));
+        }
+
+        return EnviarArquivoAsync(ArquivoDoPaciente.Documento(doc.DocumentoId), doc.Numero,
+            AvisoSemAssinatura(doc), escopos, aposEmitir);
+    }
+
+    /// <summary>
+    /// A folha da prescrição de infusão ao paciente (out/2026) — a mesma janela e os mesmos
+    /// canais. O bit é o da tela de infusão (<c>Prescrever</c>), conferido de novo aqui.
+    /// </summary>
+    public static Task<ResultadoAcaoDocumento> EnviarPrescricaoAsync(
+        int prescricaoId, string numero, IServiceScopeFactory escopos)
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "enviar a prescrição ao paciente");
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(ResultadoAcaoDocumento.Erro(ex.Message));
+        }
+
+        return EnviarArquivoAsync(ArquivoDoPaciente.Prescricao(prescricaoId), numero, null, escopos, aposEmitir: false);
+    }
+
+    private static async Task<ResultadoAcaoDocumento> EnviarArquivoAsync(
+        ArquivoDoPaciente arquivo, string numero, string? aviso, IServiceScopeFactory escopos, bool aposEmitir)
+    {
+        try
+        {
+            using var escopo = escopos.CreateScope();
+            var envio = escopo.ServiceProvider.GetRequiredService<EnvioAoPacienteService>();
+            var destinos = await envio.DestinosAsync(arquivo);
+
+            var escolha = EnvioAoPacienteWindow.Perguntar(destinos, aviso, aposEmitir, JanelaDona.Atual());
+            if (escolha is null) return ResultadoAcaoDocumento.Desistiu;
+
+            var operador = SessaoUsuario.Atual.Operador;
+            switch (escolha.Canal)
+            {
+                case CanalDeEnvio.Email:
+                {
+                    var r = await envio.EnviarPorEmailAsync(arquivo, operador, escolha.Email!, escolha.GuardarEmailNaFicha);
+                    return new ResultadoAcaoDocumento(Inline: r.Frase, EhErro: !r.Ok);
+                }
+                case CanalDeEnvio.WhatsAppPeloCrm:
+                {
+                    var r = await envio.EnfileirarWhatsAppAsync(arquivo, operador);
+                    return new ResultadoAcaoDocumento(Inline: r.Frase, EhErro: !r.Ok);
+                }
+                default:
+                {
+                    var (pdf, nome, telefone, paciente, legenda) = await envio.ArquivoParaEntregaLocalAsync(arquivo);
+                    var entrega = EntregaAoPaciente.Entregar(pdf, nome, telefone, paciente, legenda);
+                    if (!entrega.EhErro) await envio.RegistrarEntregaLocalAsync(arquivo, operador);
+                    return new ResultadoAcaoDocumento(Inline: entrega.Frase, EhErro: entrega.EhErro);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"{numero} — não pôde ser enviado ao paciente", ex);
             return ResultadoAcaoDocumento.Erro(ex.Message);
         }
     }
+
+    /// <summary>
+    /// O atestado sem certificado vai, mas a janela DIZ o que ele vale em arquivo: pelo
+    /// art. 13 da Lei 14.063/2020 o atestado eletrônico só vale com assinatura qualificada.
+    /// Avisa, não impede — a regra da casa; quem decide é quem envia.
+    /// </summary>
+    private static string? AvisoSemAssinatura(DocumentoNaTela doc)
+        => !doc.Assinado && ConformidadeDocumentoClinico.ExigeAssinaturaQualificada(doc.Tipo)
+            ? $"Atenção: sem assinatura digital, o {doc.Rotulo.ToLowerInvariant()} em arquivo não "
+              + $"substitui a via impressa e assinada ({ConformidadeDocumentoClinico.Art13}). "
+              + "Ele vai como cópia."
+            : null;
 
     /// <summary>
     /// Põe o link vencido DE VOLTA no ar, reusando o MESMO token (parcela 53) — o QR já

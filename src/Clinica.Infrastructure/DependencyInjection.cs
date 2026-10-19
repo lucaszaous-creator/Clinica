@@ -153,6 +153,10 @@ public static class DependencyInjection
         // rodada, pelo ParametrosService.
         services.AddScoped<LembreteEmailService>();
         services.AddScoped<LembreteSmsService>();
+        // Documento ao paciente por WhatsApp (fila que o CRM executa) e por e-mail (out/2026).
+        // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.
+        services.AddScoped<EnvioAoPacienteService>();
+        services.AddScoped<FilaEnviosCrmService>();
         services.AddScoped<PublicoCampanhaSmsService>();
         services.AddScoped<TendenciaAtendimentosService>();
         services.AddSingleton<Clinica.Application.Sms.IGatewaySms, Clinica.Application.Sms.GatewaySmsHttp>();

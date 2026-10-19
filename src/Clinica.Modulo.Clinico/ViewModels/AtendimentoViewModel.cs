@@ -42,6 +42,15 @@ public sealed record FolhaDeHoje(
     /// <summary>O nome do arquivo da segunda via.</summary>
     public string NomeArquivo => $"{Rotulo}-{Numero.Replace('/', '-')}.pdf";
 
+    /// <summary>
+    /// O documento como os atos do shell o veem (out/2026): é por ele que o "Enviar…" desta
+    /// lista abre a MESMA janela de envio das outras portas, com o mesmo bit.
+    /// </summary>
+    public DocumentoNaTela? Documento { get; init; }
+
+    /// <summary>Oferecer "Enviar…" nesta linha — estado E bit do tipo, a resolução do shell.</summary>
+    public bool PodeEnviar => Documento?.OferecerEnviar == true;
+
     public static FolhaDeHoje De(DocumentoClinico d) => new(
         d.Id,
         CentralDocumentosService.RotularClinico(d.Tipo),
@@ -51,7 +60,10 @@ public sealed record FolhaDeHoje(
         d.Cancelado
             ? $"cancelada — {d.MotivoCancelamento}"
             : $"{d.CriadoEm:HH':'mm}" + (d.Profissional is null ? "" : $" · {d.Profissional.Rotulo}"),
-        d.Cancelado);
+        d.Cancelado)
+    {
+        Documento = DocumentoNaTela.De(d, CentralDocumentosService.RotularClinico(d.Tipo))
+    };
 }
 
 /// <summary>Uma sessão anterior, do jeito que o consultório precisa relê-la: inteira.</summary>
@@ -615,6 +627,20 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     {
         if (linha is null) return;
         await ImprimirDocumentoAsync(linha.DocumentoId, linha.NomeArquivo);
+    }
+
+    /// <summary>
+    /// "Enviar…" do que saiu hoje (out/2026): a MESMA janela de todas as portas
+    /// (<see cref="AcoesDoDocumento.EnviarAsync"/>) — e-mail primeiro, WhatsApp pelo CRM depois.
+    /// </summary>
+    [RelayCommand]
+    private async Task EnviarAsync(FolhaDeHoje? linha)
+    {
+        if (linha?.Documento is not { } doc) return;
+        var r = await AcoesDoDocumento.EnviarAsync(doc, _escopos);
+        if (r.Silencioso) return;
+        Mensagem = r.Inline;
+        MensagemEhErro = r.EhErro;
     }
 
     private async Task ImprimirDocumentoAsync(int documentoId, string nomeArquivo)

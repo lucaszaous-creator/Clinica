@@ -3,12 +3,13 @@
 -- Rodar de novo é seguro (depois de uma atualização que crie tabela que a ponte precise gravar).
 --
 -- Ele LÊ tudo, mas só GRAVA onde a ponte grava: a agenda, a guia que nasce ou é suspensa com
--- ela, o contato da rodada, o SMS, o recall e a trilha. Não apaga nada, não cria nem altera
+-- ela, o contato da rodada, o SMS, o recall, a fila de envios ao paciente e a trilha. Não apaga nada, não cria nem altera
 -- tabela e não é dono de nada. Usuários, prontuário e financeiro ficam só para leitura: se a
 -- credencial vazar, o estrago não alcança o banco inteiro.
 --
 -- A lista é MEDIDA, não suposta: PontePapelRestritoTests roda os fluxos da ponte (confirmar,
--- cancelar, marcar com guia no agendamento, remarcar, recall e o lembrete de SMS) com ESTE
+-- cancelar, marcar com guia no agendamento, remarcar, recall, o lembrete de SMS e a fila de
+-- envios ao paciente) com ESTE
 -- arquivo contra um Postgres de verdade. Fluxo novo que grave em outra tabela reprova ali
 -- com 42501 antes de reprovar na clínica.
 DO $$ BEGIN
@@ -39,6 +40,9 @@ BEGIN
       ['ContatosCampanha','INSERT, UPDATE'], ['MensagensSms','INSERT, UPDATE'],
       ['Acompanhamentos','INSERT, UPDATE'], ['ContatosAcompanhamento','INSERT, UPDATE'],
       ['ResumosCrmDiarios','INSERT, UPDATE'],
+      -- A fila de envios ao paciente (out/2026): quem PÕE o pedido é o desktop; a ponte só
+      -- reserva, autoriza e registra o resultado — UPDATE, e só.
+      ['EnviosPacienteCrm','UPDATE'],
       ['Pacientes','UPDATE'], ['Auditoria','INSERT']] LOOP
     IF to_regclass(format('public.%I', g[1])) IS NOT NULL THEN
       EXECUTE format('GRANT %s ON public.%I TO ponte_crm', g[2], g[1]);

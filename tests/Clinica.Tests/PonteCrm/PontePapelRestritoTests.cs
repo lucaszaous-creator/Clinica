@@ -151,6 +151,37 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Single(await admin.MensagensSms.ToListAsync());
     }
 
+    // A fila de envios ao paciente (out/2026): o desktop PÕE o pedido (aqui, o admin); a ponte
+    // lista, reserva, autoriza e registra o resultado como ponte_crm — UPDATE em
+    // EnviosPacienteCrm e mais nada. Sem a linha no papel-ponte-crm.sql, reprova com 42501.
+    [Fact] public async Task Fila_de_envios_ao_paciente()
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+        var a = await Horario();
+        var repoAdmin = new ClinicaRepositorio(admin);
+        var doc = await new DocumentoClinicoService(repoAdmin, new ProntuarioService(repoAdmin), new ConsentimentoService(repoAdmin))
+            .EmitirAsync(new DocumentoClinico { Tipo = TipoDocumentoClinico.Comparecimento, PacienteId = a.PacienteId, ProfissionalId = a.ProfissionalId, Data = DateOnly.FromDateTime(DateTime.Today) }, "ana");
+        var envio = new EnvioAoPacienteService(repoAdmin, new DocumentosClinicosPdfService(repoAdmin), new ParametrosService(repoAdmin), new EnviadorSemUso());
+        Assert.True((await envio.EnfileirarWhatsAppAsync(doc.Id, "ana")).Ok);
+
+        var fila = new FilaEnviosCrmService(new ClinicaRepositorio(ponte!));
+        var item = Assert.Single(await fila.ListarAsync("crm-1"));
+        Assert.NotNull((await fila.ReservarAsync(item.Id, "crm-1", 2)).Arquivo);
+        Assert.True((await fila.AutorizarAsync(item.Id, "crm-1", 2)).Concedida);
+        Assert.Equal("accepted", (await fila.RegistrarAsync(item.Id, "crm-1", "accepted", "ok")).Estado);
+        Assert.Equal("accepted", (await admin.EnviosPacienteCrm.AsNoTracking().SingleAsync()).Estado);
+
+        var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"EnviosPacienteCrm\""));
+        Assert.Contains("42501", e.ToString());
+    }
+
+    sealed class EnviadorSemUso : Clinica.Application.Email.IEnviadorDeEmail
+    {
+        public Task EnviarAsync(Clinica.Application.Email.OpcoesEmail opcoes, string destinatario, string assunto, string corpo, CancellationToken ct = default)
+            => throw new InvalidOperationException();
+    }
+
     // O login do CRM conta tentativas, trava e marca o último acesso — e só essas colunas: a
     // senha e as permissões continuam fora do alcance do usuário da ponte.
     [Fact] public async Task Login_do_CRM_com_o_usuario_do_sistema()
