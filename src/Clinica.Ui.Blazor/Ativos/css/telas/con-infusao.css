@@ -1,0 +1,6 @@
+/* PRESCRIÇÃO DE INFUSÃO — as ações de preparar e o histórico. Só tokens (docs/telas-blazor.md). */
+.con-infusao .inf-acoes,.con-infusao .inf-historico{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
+.con-infusao .inf-acoes h3,.con-infusao .inf-historico h3{margin:0}
+.con-infusao .inf-linha{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:var(--space-3);padding:var(--space-3) 0;border-top:1px solid var(--borda)}
+.con-infusao .inf-linha:first-of-type{border-top:0}
+.con-infusao .inf-linha-texto{display:flex;flex-direction:column;gap:var(--space-1);flex:1 1 360px;min-width:0}

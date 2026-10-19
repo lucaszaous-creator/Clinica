@@ -1,0 +1,317 @@
+@*
+  PRESCRIÇÃO DE INFUSÃO — a folha interna de infusão do Consultório (out/2026: migrada da
+  PrescricaoInfusaoView/ViewModel WPF; chave "consultorio-prescricao-infusao").
+
+  O mesmo desenho da tela de Documentos: QUEM (a busca, ou a faixa do paciente — abre já no
+  paciente em foco do posto), as ações de preparar e o histórico das folhas dele. Escrever,
+  conferir alergias e assinar continuam no editor WPF (IJanelasDaPrescricaoDeInfusao — a
+  assinatura é área congelada, só chamada); abrir a folha de execução reusa a ponte da sala
+  (IJanelasDaSalaDeInfusao). A linha da lista (LinhaPrescricaoInterna) mora na Application.
+  O acesso ao prontuário é registrado na TROCA de paciente, como no ViewModel.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<div class="pagina con-infusao @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Consultório · Prescrições" Titulo="Prescrição de infusão"
+                     Subtitulo="A folha para a enfermagem: os itens da infusão e as orientações para a equipe." />
+
+    <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+
+    <section class="cartao">
+        <div class="cartao-corpo">
+            @if (_paciente is { } p)
+            {
+                <FaixaDoPaciente Paciente="p" AoTrocar="Trocar" />
+            }
+            else
+            {
+                <BuscaDePacienteNaTela Pergunta="Para quem é a prescrição?" SugestaoDeHoje="true" AoEscolher="EscolherAsync" />
+            }
+        </div>
+    </section>
+
+    @if (_paciente is not null)
+    {
+        <section class="cartao">
+            <div class="cartao-corpo inf-acoes">
+                <div>
+                    <h3>Preparar prescrição</h3>
+                    <p class="secundario">Escreva uma nova folha ou parta da última deste paciente.</p>
+                </div>
+                <div class="botoes-linha">
+                    <button type="button" class="botao" disabled="@(!PodePrescrever || _ocupado || _carregando)" @onclick="CopiarUltimaAsync"
+                            title="@(PodePrescrever ? "Abrir uma folha nova com os itens da última emitida" : SemAcesso)">Copiar última</button>
+                    <button type="button" class="botao primario" disabled="@(!PodePrescrever || _ocupado)" @onclick="() => NovaAsync(null)"
+                            title="@(PodePrescrever ? "Escrever uma folha nova" : SemAcesso)"><Icone Nome="mais" />Nova prescrição</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="cartao lista-cartao">
+            <div class="cartao-corpo inf-historico">
+                <h3>Histórico de infusões @(_carregou ? $"· {_linhas.Count}" : null)</h3>
+                <button type="button" class="botao mini" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+            </div>
+            @if (_naoVerificado)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível carregar as prescrições de infusão" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+            }
+            else if (!_carregou)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="160" /></div>
+            }
+            else if (_linhas.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhuma prescrição de infusão" Icone="vazio" Descricao="Este paciente ainda não tem folha de infusão. Use “Nova prescrição”." />
+            }
+            else
+            {
+                <div class="cartao-corpo">
+                    @foreach (var l in _linhas)
+                    {
+                        <div class="inf-linha" @key="l.PrescricaoId">
+                            <div class="inf-linha-texto">
+                                <span class="principal">@l.Numero · @l.Resumo</span>
+                                <span class="secundario">@l.Data · @l.Situacao · conferência @l.Codigo</span>
+                                <span>@l.Execucao</span>
+                                @if (l.Cancelada) { <Selo Tom="perigo">Cancelada</Selo> }
+                            </div>
+                            <div class="botoes-linha">
+                                <button type="button" class="botao mini" disabled="@(!l.PodeEditar || _ocupado)" @onclick="() => EditarAsync(l)">Editar</button>
+                                <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => AbrirFolhaAsync(l)">Abrir</button>
+                                <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => ImprimirAsync(l, false)">Imprimir</button>
+                                @if (l.ExibirRegistroSeparado)
+                                {
+                                    <button type="button" class="botao mini" disabled="@(!l.TemRegistroExecucao || _ocupado)" @onclick="() => ImprimirAsync(l, true)">Registro histórico</button>
+                                }
+                                <button type="button" class="botao mini perigo" disabled="@(!l.PodeCancelar || _ocupado)" @onclick="() => CancelarAsync(l)">Cancelar</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private const string SemAcesso = "Seu acesso não permite prescrever.";
+
+    private Paciente? _paciente;
+    private IReadOnlyList<LinhaPrescricaoInterna> _linhas = [];
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private bool _carregando, _carregou, _naoVerificado, _ocupado;
+    private string? _erro;
+    private int _geracao;
+    private int _acessoRegistradoDe;
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+    private IJanelasDaPrescricaoDeInfusao Editor => Servicos.GetService<IJanelasDaPrescricaoDeInfusao>() ?? JanelasDaPrescricaoDeInfusaoIndisponiveis.Instancia;
+    private IJanelasDaSalaDeInfusao Sala => Servicos.GetService<IJanelasDaSalaDeInfusao>() ?? JanelasDaSalaDeInfusaoIndisponiveis.Instancia;
+
+    private static bool PodePrescrever => Pode(Permissao.Prescrever);
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Abre já no paciente em foco do posto (quem acabou de ser atendido), como o WPF abria.
+        if (Servicos.GetService<IPostoDoConsultorio>()?.PacienteEmFoco is { } foco)
+        {
+            try
+            {
+                Paciente? paciente;
+                using (var escopo = Escopo())
+                    paciente = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                        .ObterPacienteAsync(foco.PacienteId);
+                if (paciente is not null && !Descartada) await EscolherAsync(paciente);
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Prescrição de infusão — o paciente em foco não pôde ser aberto", ex);
+            }
+        }
+    }
+
+    protected override Task AoVoltarAsync() => _paciente is null || _carregando ? Task.CompletedTask : CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar && _paciente is not null ? CarregarAsync() : Task.CompletedTask;
+
+    private Task EscolherAsync(Paciente paciente)
+    {
+        _paciente = paciente;
+        _mensagem = null;
+        _linhas = [];
+        _carregou = false;
+        return CarregarAsync();
+    }
+
+    private void Trocar()
+    {
+        _paciente = null;
+        _linhas = [];
+        _carregou = false;
+        _mensagem = null;
+        ++_geracao;
+    }
+
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        if (_paciente is not { } p) return;
+        var geracao = ++_geracao;
+        if (!silencioso) _carregando = true;
+        try
+        {
+            IReadOnlyList<PrescricaoInterna> prescricoes;
+            using (var escopo = Escopo())
+            {
+                // A trilha de leitura: na TROCA de paciente, nunca a cada recarga.
+                if (_acessoRegistradoDe != p.Id)
+                {
+                    _acessoRegistradoDe = p.Id;
+                    await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                        .RegistrarAsync(p.Id, Operador, OrigemAcessoProntuario.Documento);
+                }
+                prescricoes = await escopo.ServiceProvider.GetRequiredService<PrescricaoInternaService>().DoPacienteAsync(p.Id);
+            }
+            if (geracao != _geracao || Descartada) return;
+            var podePrescrever = PodePrescrever;
+            _linhas = prescricoes.Select(x => LinhaPrescricaoInterna.De(x, podePrescrever)).ToList();
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — prescrições de infusão não puderam ser carregadas", ex);
+            if (silencioso && _carregou) return;
+            _linhas = [];
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private async Task NovaAsync(ModeloInfusao? modelo)
+    {
+        if (_paciente is not { } p) return;
+        if (!Exigir(Permissao.Prescrever, "prescrever")) return;
+        if (!Editor.Disponivel) { Notificacoes.Info(JanelasDaPrescricaoDeInfusaoIndisponiveis.Frase); return; }
+        await Acao(async () =>
+        {
+            var assinou = await Editor.NovaAsync(p.Id, p.Nome, modelo);
+            await CarregarAsync(silencioso: true);
+            if (assinou) Notificacoes.Sucesso("Prescrição assinada e enviada à sala de infusão.");
+        }, "Consultório — prescrição de infusão não pôde ser criada");
+    }
+
+    private async Task CopiarUltimaAsync()
+    {
+        if (_paciente is not { } p) return;
+        if (!Exigir(Permissao.Prescrever, "copiar a última prescrição")) return;
+        try
+        {
+            ModeloInfusao? modelo;
+            using (var escopo = Escopo())
+                modelo = await escopo.ServiceProvider.GetRequiredService<PrescricaoInternaService>().UltimaComoModeloAsync(p.Id);
+            if (_paciente?.Id != p.Id) return;
+            if (modelo is null || modelo.Itens.Length == 0)
+            {
+                _mensagem = modelo is null ? "Não há prescrição de infusão emitida deste paciente para copiar."
+                    : "A última prescrição emitida não possui itens ativos para copiar.";
+                _mensagemEhErro = false;
+                return;
+            }
+            await NovaAsync(modelo);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — a última prescrição não pôde ser copiada", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+    }
+
+    private async Task EditarAsync(LinhaPrescricaoInterna l)
+    {
+        if (_paciente is not { } p) return;
+        if (!l.PodeEditar)
+        {
+            _mensagem = $"A prescrição {l.Numero} já foi assinada e não pode mais ser editada. Cancele e emita outra, se for o caso.";
+            _mensagemEhErro = true;
+            return;
+        }
+        if (!Exigir(Permissao.Prescrever, "editar prescrição")) return;
+        if (!Editor.Disponivel) { Notificacoes.Info(JanelasDaPrescricaoDeInfusaoIndisponiveis.Frase); return; }
+        await Acao(async () =>
+        {
+            var assinou = await Editor.EditarAsync(p.Id, p.Nome, l.PrescricaoId);
+            await CarregarAsync(silencioso: true);
+            if (assinou) Notificacoes.Sucesso("Prescrição assinada e enviada à sala de infusão.");
+        }, "Consultório — rascunho de prescrição não pôde ser reaberto");
+    }
+
+    private async Task AbrirFolhaAsync(LinhaPrescricaoInterna l)
+    {
+        if (!Sala.Disponivel) { Notificacoes.Info(JanelasDaSalaDeInfusaoIndisponiveis.Frase); return; }
+        await Acao(async () =>
+        {
+            await Sala.AbrirFolhaAsync(l.PrescricaoId);
+            await CarregarAsync(silencioso: true);
+        }, "Consultório — folha de execução não pôde ser aberta");
+    }
+
+    private async Task ImprimirAsync(LinhaPrescricaoInterna l, bool registroHistorico)
+    {
+        await Acao(async () =>
+        {
+            FolhaAssinada folha;
+            using (var escopo = Escopo())
+            {
+                var assinaturas = escopo.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>();
+                folha = registroHistorico
+                    ? await assinaturas.FolhaAsync(l.PrescricaoId, FolhaPrescricao.RegistroExecucao)
+                    : await assinaturas.DocumentoInfusaoAsync(l.PrescricaoId);
+            }
+            var erro = await Host.SalvarEAbrirAsync(folha.Pdf, folha.NomeArquivo, "Documento PDF (*.pdf)|*.pdf", ".pdf");
+            _mensagem = erro ?? folha.Conferencia?.Frase ?? "Documento sem assinatura digital; confira a identificação no PDF.";
+            _mensagemEhErro = erro is not null || folha.Conferencia is { Integra: false };
+        }, "Consultório — folha de infusão não pôde ser impressa");
+    }
+
+    private async Task CancelarAsync(LinhaPrescricaoInterna l)
+    {
+        if (!l.PodeCancelar) return;
+        if (!Exigir(Permissao.Prescrever, "prescrever")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Cancelar prescrição",
+            $"Por que a prescrição {l.Numero} está sendo cancelada? Ela continua na lista, marcada — a folha impressa não desaparece por ser apagada do sistema.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        await Acao(async () =>
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<PrescricaoInternaService>().CancelarAsync(l.PrescricaoId, motivo, Operador);
+            Notificacoes.Info("Prescrição cancelada.");
+            await CarregarAsync(silencioso: true);
+        }, "Consultório — prescrição de infusão não pôde ser cancelada");
+    }
+
+    /// <summary>Uma ação por vez; a falha vira a mensagem da tela e vai para o log.</summary>
+    private async Task Acao(Func<Task> acao, string contexto)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try { await acao(); }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(contexto, ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+        finally { _ocupado = false; }
+    }
+}
