@@ -1,0 +1,32 @@
+@*
+  A LEGENDA DA AGENDA (out/2026 — era a LegendaFamiliasView do shell WPF). UM componente para as
+  telas que mostram horários: a lista do dia do médico (Meu dia) e a grade (a da Recepção também
+  vai usá-lo). Três cópias divergiriam na primeira mudança — e a legenda que ficasse para trás
+  mentiria sobre o desenho.
+
+  Modelo A (o mesmo do WPF): a modalidade é ESCRITA em cada atendimento, não pintada; o que a
+  legenda explica são os sinais que só a grade desenha (o traço espesso do encaixe e a agenda
+  fechada) e o ✓ das listas. Os opcionais existem porque legenda que explica um sinal que a tela
+  não desenha ensina a procurar o que não existe. Ela fica SEMPRE (decisão da direção): uma
+  linha no pé não custa altura a ninguém, e dobra a linha em tela estreita.
+*@
+<footer class="legenda-familias" aria-label="Legenda">
+    <span>Modalidade informada em cada atendimento</span>
+    @if (ComGrade)
+    {
+        <span><i class="lf-amostra lf-encaixe" aria-hidden="true"></i>traço espesso = encaixe</span>
+        <span><i class="lf-amostra lf-fechada" aria-hidden="true"></i>agenda fechada</span>
+    }
+    @if (ComConfirmacao)
+    {
+        <span><span class="lf-confirmou" aria-hidden="true"><Icone Nome="check" /></span>confirmou na rodada de confirmação</span>
+    }
+</footer>
+
+@code {
+    /// <summary>Acrescenta o "✓ confirmou na rodada" — as LISTAS, onde o ✓ aparece.</summary>
+    [Parameter] public bool ComConfirmacao { get; set; }
+
+    /// <summary>Acrescenta o encaixe e a agenda fechada — só a GRADE os desenha.</summary>
+    [Parameter] public bool ComGrade { get; set; }
+}

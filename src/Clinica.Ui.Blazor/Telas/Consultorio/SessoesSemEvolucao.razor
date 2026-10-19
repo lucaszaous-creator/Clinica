@@ -1,0 +1,231 @@
+@*
+  SESSÕES SEM EVOLUÇÃO — a dívida de prontuário (out/2026: migrada do RegistrosPendentesView /
+  ViewModel WPF; a aba "Sem evolução" do item "Minha agenda", chave
+  "consultorio-registros-pendentes").
+
+  Uma tela, uma pergunta: o que foi atendido e continua sem evolução escrita, a mais antiga
+  primeiro. Lista longa merece a largura inteira — é por isso que saiu do Meu dia. O filtro é em
+  memória e o resumo DIZ que está filtrado (RegistrosPendentesNaTela, com teste). "Escrever
+  evolução" abre a sessão do médico com o AGENDAMENTO da linha — é esse vínculo que a faz sair
+  daqui depois de escrita —, pelo IPostoDoConsultorio (o prontuário continua WPF).
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@using System.Globalization
+@inherits TelaBase
+
+<div class="pagina con-pendentes @(_carregando && _carregou ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Consultório · Minha agenda" Titulo="Sessões sem evolução"
+                     Subtitulo="@(_carregou ? _resumo : "O que foi atendido e continua sem evolução escrita.")">
+        <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+    </CabecalhoPagina>
+
+    @if (_listaDaClinica)
+    {
+        @if (_motivoDaLista is { Length: > 0 } motivo) { <p class="con-contexto">@motivo</p> }
+        <p class="con-contexto">@RegistrosPendentesNaTela.FraseDaListaDaClinica</p>
+    }
+
+    <section class="cartao lista-cartao con-lista">
+        <div class="filtros">
+            <label class="busca cp-busca">
+                <Icone Nome="busca" />
+                <input class="campo" type="search" placeholder="Parte do nome — o acento não atrapalha" aria-label="Filtrar pelo paciente"
+                       value="@_paciente" @oninput="BuscarPaciente" maxlength="80" />
+            </label>
+            @if (_listaDaClinica)
+            {
+                @* Só no modo SEM VÍNCULO: com vínculo a lista já é de um profissional, e a caixinha não recortaria nada. *@
+                <select class="campo cp-combo" aria-label="Profissional" value="@_profissional" @onchange="EscolherProfissional">
+                    @foreach (var p in _profissionais) { <option value="@p">@p</option> }
+                </select>
+            }
+            <button type="button" class="botao" disabled="@(!FiltroAtivo)" @onclick="LimparFiltro">Limpar filtro</button>
+        </div>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível procurar as sessões sem registro" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (!_carregou)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_visiveis.Count == 0)
+        {
+            <EstadoVazio Titulo="@(FiltroAtivo ? "Nenhuma sessão no filtro" : "Prontuário em dia")" Icone="@(FiltroAtivo ? "filtro" : "ok")"
+                         Descricao="@RegistrosPendentesNaTela.VazioDescricao(FiltroAtivo)" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista">
+                    <thead>
+                        <tr>
+                            <th>Paciente</th>
+                            @if (_listaDaClinica) { <th>Profissional</th> }
+                            <th class="cp-col-atraso">Em aberto</th>
+                            <th class="direita">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _visiveis)
+                        {
+                            <tr @key="l.AgendamentoId">
+                                <td>
+                                    <span class="principal">@l.Paciente</span>
+                                    <span class="secundario">@l.Quando · @l.Modalidade</span>
+                                </td>
+                                @if (_listaDaClinica)
+                                {
+                                    <td>@(l.Profissional.Length > 0 ? l.Profissional : "—")</td>
+                                }
+                                <td class="cp-col-atraso nao-quebra"><Selo Tom="aviso">@l.Atraso</Selo></td>
+                                <td class="direita nao-quebra">
+                                    <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.VerProntuario) || _ocupado)"
+                                            @onclick="() => EscreverAsync(l)" aria-label="@($"Escrever evolução — {l.Paciente}, {l.Quando}")"
+                                            title="Abre a sessão deste horário para escrever a evolução">Escrever evolução</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<LinhaRegistroPendente> _todas = [];
+    private IReadOnlyList<LinhaRegistroPendente> _visiveis = [];
+    private IReadOnlyList<string> _profissionais = [RegistrosPendentesNaTela.TodosProfissionais];
+    private string _profissional = RegistrosPendentesNaTela.TodosProfissionais;
+    private string _paciente = string.Empty;
+    private string _resumo = string.Empty;
+    private bool _listaDaClinica;
+    private string? _motivoDaLista;
+
+    private bool _carregando;
+    private bool _carregou;
+    private bool _naoVerificado;
+    private string? _erro;
+    private bool _ocupado;
+    private int _geracao;
+
+    private bool FiltroAtivo => RegistrosPendentesNaTela.FiltroAtivo(_profissional, _paciente);
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private IPostoDoConsultorio Posto => Servicos.GetService<IPostoDoConsultorio>() ?? PostoDoConsultorioIndisponivel.Instancia;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Voltou à aba (ou de uma evolução escrita): relê por trás, sem apagar a lista.</summary>
+    protected override Task AoVoltarAsync() => _carregando ? Task.CompletedTask : CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem: a tela recarrega por clique e ao voltar de uma
+    /// evolução escrita, e a leitura VELHA respondendo por último repovoaria a fila com o que já
+    /// foi resolvido. Publica depois do último await.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        var geracao = ++_geracao;
+        if (!silencioso) _carregando = true;
+        try
+        {
+            var sessao = SessaoUsuario.Atual;
+            var profissionalId = PostoDoConsultorioNaTela.ProfissionalDaLista(sessao);
+            var motivo = PostoDoConsultorioNaTela.MotivoDaLista(sessao);
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+            IReadOnlyList<RegistroPendente> pendentes;
+            using (var escopo = Escopo())
+                pendentes = await escopo.ServiceProvider.GetRequiredService<ConsultorioService>().RegistrosPendentesAsync(hoje, profissionalId);
+            if (geracao != _geracao || Descartada) return;
+
+            var listaDaClinica = profissionalId is null;
+            _todas = pendentes.Select(p => RegistrosPendentesNaTela.Linha(p, hoje)).ToList();
+            _profissionais = RegistrosPendentesNaTela.Profissionais(_todas, listaDaClinica);
+            _profissional = RegistrosPendentesNaTela.ManterEscolha(_profissional, _profissionais);
+            _listaDaClinica = listaDaClinica;
+            _motivoDaLista = motivo;
+            _naoVerificado = false;
+            _carregou = true;
+            Refiltrar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            if (silencioso)
+            {
+                Clinica.Application.Diagnostico.Registrar("Consultório — releitura das sessões sem evolução ao voltar falhou", ex);
+                return;
+            }
+            Clinica.Application.Diagnostico.Registrar("Consultório — sessões sem evolução não puderam ser carregadas", ex);
+            // A base também esvazia: refiltrar sobre resto de carga antiga repovoaria a tela por baixo do "não verificado".
+            _todas = [];
+            _visiveis = [];
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    /// <summary>O filtro é em memória, sobre o que já foi lido — sem ida ao banco.</summary>
+    private void Refiltrar()
+    {
+        _visiveis = RegistrosPendentesNaTela.Filtrar(_todas, _profissional, _paciente);
+        _resumo = RegistrosPendentesNaTela.Resumo(_todas.Count, _visiveis.Count, FiltroAtivo);
+    }
+
+    private void BuscarPaciente(ChangeEventArgs e) { _paciente = e.Value?.ToString() ?? string.Empty; Refiltrar(); }
+
+    private void EscolherProfissional(ChangeEventArgs e)
+    {
+        _profissional = e.Value?.ToString() ?? RegistrosPendentesNaTela.TodosProfissionais;
+        Refiltrar();
+    }
+
+    private void LimparFiltro()
+    {
+        _profissional = RegistrosPendentesNaTela.TodosProfissionais;
+        _paciente = string.Empty;
+        Refiltrar();
+    }
+
+    /// <summary>
+    /// Abre a sessão do MÉDICO com o agendamento e o DIA da linha (a dívida é de evolução — a
+    /// passagem de enfermagem tem a seção dela).
+    /// </summary>
+    private async Task EscreverAsync(LinhaRegistroPendente l)
+    {
+        if (_ocupado) return;
+        // O destino exige VerProntuario (o mesmo bit do item desta tela) — sem ele a navegação
+        // falharia calada.
+        if (!Pode(Permissao.VerProntuario)) { Notificacoes.Erro(MeuDiaNaTela.FraseSemPermissaoProntuario); return; }
+        if (!Posto.Disponivel) { Notificacoes.Info(PostoDoConsultorioIndisponivel.Frase); return; }
+        _ocupado = true;
+        try
+        {
+            var abriu = await Posto.AbrirNoPostoAsync(
+                new PacienteNoPosto(l.PacienteId, l.Paciente, l.AgendamentoId, null, l.Data), DestinoNoPosto.EvolucaoMedica);
+            if (!abriu) Notificacoes.Info("O atendimento deste paciente não está disponível neste aplicativo.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — a sessão sem evolução não pôde ser aberta", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+}
