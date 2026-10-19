@@ -4229,6 +4229,20 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   que espera a tela "assentar" paga a espera em CADA passo**: o mínimo de 150 ms do
   `Assentar` (50 ms × 3) era mais da metade do tempo da suíte; virou 60 ms (15 × 4), provado
   com um `throw` num botão. Teste novo de tela que espera por laço usa a mesma batida.
+  ⚠️ **Teste que acha as telas por REFLEXÃO cresce sozinho com a migração** (out/2026, PR
+  285 — a fatia 1 levava 12 min e reprovava ao acaso). O `PalcoTrocaRepetidaTests` foi
+  desenhado para as 14 telas do Financeiro e passou a achar 75: ~375 trocas sobre 3 MB de
+  HTML montado, 5–6 min SOZINHO. E o `TelasBlazorAbremTests` clicava "um botão por RÓTULO" —
+  mas o rótulo de botão de DADO é o próprio dado ("08:15 Marina Teixeira", "Seg 12"), então
+  a Visão geral da agenda dava 882 cliques e 4 min. Agora o palco roda em LOTES de ~15 telas
+  (`[FatiarPorCaso]`, um lote por caso) e o botão de dado conta pela FAMÍLIA da classe (até
+  4; `TelasBlazorAbremTests.Familia`) — os de ação (`botao`, `mini`, `icone`…) seguem um por
+  rótulo. Os dois foram provados reprovando: releitura do Caixa desligada e um `throw` no
+  bloco de horário. Na mesma rodada, as duas intermitências do palco: o `Assentar` esperava
+  só o HTML parar (~60 ms), e o redesenho na fila atrás da leitura de outra tela chegava
+  DEPOIS — agora ele espera a tela PEDIDA à vista; e as consultas eram contadas num contador
+  só, creditando a uma tela a leitura de fundo de outra — agora contam POR TELA
+  (`AsyncLocal`). **Ao migrar tela, olhe o tempo dos testes que as acham por reflexão.**
 - **A PONTE DO CRM NA VPS: o que só a montagem real mostrou** (out/2026; roteiro em
   `docs/vps-do-crm.md`, e o diário da instalação real — acessos, endereços, etapas ligadas,
   como publicar de novo e o que ficou para depois — em `docs/crm-em-producao-out2026.md`). Duas VPS: a ponte ao lado do Postgres (escuta só no IP do túnel
@@ -4771,7 +4785,7 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `IAtualizarAoVoltar`: quem avisa é o `Palco`, ao reativar uma tela já montada. Sem isso a aba guardada voltaria com o lançamento da outra máquina invisível.
   🔁 **Trocar de tela muitas vezes, medido em três lugares** (out/2026, pedido da direção
   depois do vídeo): o palco mantém toda tela montada, então defeito de troca NÃO some ao
-  fechar — acumula. `PalcoTrocaRepetidaTests` (bUnit, 14 telas reais, 5 rodadas + rajada),
+  fechar — acumula. `PalcoTrocaRepetidaTests` (bUnit, todas as telas reais em lotes de ~15, 5 rodadas + rajada),
   `tools/PreviaBlazor/trocas.js` + `analisar.py` (Chromium, quadro a quadro) e
   `ValidarLayoutWindows --blazor` (o preto do WebView2, na tela real do runner Windows, no
   CI do PR). Acharam DOIS restos: o **Extrato do banco não recruzava ao voltar** (mostraria
