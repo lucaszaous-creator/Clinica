@@ -1,4 +1,47 @@
-# Migração WPF → Blazor Hybrid — a rodada de 18–19/10/2026
+# Reorganização do Gerente, CRM na Mesa e migração WPF → Blazor — 18 e 19/10/2026
+
+Este documento cobre a sequência inteira, na ordem em que chegou à `main`: a agenda e a
+abertura do app (§0.1), a reorganização do Gerente em etapas com o CRM na Mesa da direção
+(§0.2) e a rodada da noite de 18–19/10, que tirou o WPF do Gerente e de quase todo o resto
+(§1 em diante). O que ficou aberto está no §7.
+
+---
+
+## 0.1 Agenda e abertura do app
+
+| PR | O que mudou |
+|---|---|
+| [#262](https://github.com/lucaszaous-creator/Clinica/pull/262) (par: semdor-crm#7) | **A resposta do paciente ao lembrete vira aviso.** Confirmou, não vem (inclui quem pediu para remarcar) e sem resposta chegam ao **sino** da Recepção e do Gerente, e o painel da direção ganha os alertas `PacientesNaoVem` e `LembretesSemResposta`. Antes, a resposta só aparecia em Relacionamento → Confirmações. Regra única em `AvisosDeConfirmacao` (Application, 17 testes); sem migration. |
+| [#264](https://github.com/lucaszaous-creator/Clinica/pull/264) | **A abertura não espera para sempre pela trava das migrations.** A trava só é pedida quando há migration pendente, com `pg_try_advisory_lock` e prazo de 60 s. Veio do incidente de 18/10, quando uma sessão morta segurava a trava 727411 e a Recepção e o Gerente não abriam. A lição está no CLAUDE.md e em [`crm-em-producao-out2026.md`](crm-em-producao-out2026.md) §6.1. |
+
+## 0.2 Gerente, etapa a etapa, e o CRM na Mesa
+
+| Etapa | PR | O que mudou | Doc |
+|---|---|---|---|
+| 1 | [#265](https://github.com/lucaszaous-creator/Clinica/pull/265) | **Mesa da direção em Blazor**, com o grupo Direção primeiro no menu do topo (a clínica usa notebook). O `PainelDirecao` WPF saiu. O mockup aprovado tem a logo, os temas claro e escuro e "sem cara de IA". | [`gerente-mesa-da-direcao.md`](gerente-mesa-da-direcao.md), [mockup](mockups/gerente-mesa-da-direcao-v2.html) |
+| 2 | [#266](https://github.com/lucaszaous-creator/Clinica/pull/266) | **Dinheiro**: resultado por competência, "Próximos 90 dias" (`ProjecaoDeCaixaService`), o painel Caixa × competência e a aba Metas e teto. Publicado no Gerente 1.2.66. | [`gerente-dinheiro.md`](gerente-dinheiro.md), [`gerente-pendencias.md`](gerente-pendencias.md) |
+| 3 | [#267](https://github.com/lucaszaous-creator/Clinica/pull/267) | **Margem por sessão**, primeira aba de Direção → Produção e margem. A conta é receita realizada menos taxa, imposto, insumo e repasse (este rateado pela receita); a sessão sem receita fica fora da conta e é **contada no rodapé**. Publicado no Gerente 1.2.67. | [`gerente-margem.md`](gerente-margem.md) |
+| 4 | [#268](https://github.com/lucaszaous-creator/Clinica/pull/268) + semdor-crm#9 | **CRM na Mesa (caminho A).** A cada 30 min o CRM (`DailySummaryWorker`) manda o resumo de hoje e de ontem para `POST /crm/v1/summary/daily`. A ponte (`ClinicSummaryBridge`) grava uma linha por dia em `ResumosCrmDiarios` (migration `20261018141700`), só troca a linha por um cálculo mais novo e recusa número impossível. A Mesa ganha o bloco "Atendimento pelo CRM": conversas, tempo típico de resposta, confirmações e SMS em **segmentos** (nenhum dos dois sistemas guarda o preço da Brevo). Publicado no Gerente 1.2.68. **Ainda não ligado em produção** (§7). | [`gerente-crm.md`](gerente-crm.md), semdor-crm `docs/crm-resumo-diario.md` |
+| 6 | [#269](https://github.com/lucaszaous-creator/Clinica/pull/269) | **Todas as telas do Gerente em Blazor** (`Telas/Gestao`): Indicadores, Rentabilidade, Custo de taxas e impostos, Tabela de preço por convênio, Campanhas, De onde vêm os pacientes, Auditoria, Guarda, Documentos emitidos, Acessos, Configurações e Importar pacientes. Cada uma tem a regra na Application (`…NaTela`) e teste. Nenhuma chave de navegação mudou. | [`gerente-blazor.md`](gerente-blazor.md) |
+
+As etapas seguintes são a rodada de 18–19/10 (§1): a navegação e as Configurações do Gerente
+em #271, e o resto dos módulos.
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX desta parte
+
+- 🧑‍💻 **UX** — a direção abre o Gerente na Mesa, com o que pede decisão hoje: dinheiro por
+  competência e os próximos 90 dias, a margem de cada sessão e o atendimento do CRM, cada
+  número levando à tela que o resolve. A recepção vê quem não vem sem abrir aba nenhuma, e o
+  app não fica preso na abertura por causa de uma trava esquecida no banco.
+- 🛠️ **DX** — cada número tem uma definição só, na Application e com teste (`AvisosDeConfirmacao`,
+  `ProjecaoDeCaixaService`, a conta da margem, `ClinicSummaryBridge`). A ponte do CRM é
+  defensiva: recusa número impossível e não troca um cálculo novo por um antigo.
+- 🤝 **CX** — o custo do SMS aparece em segmentos, o que de fato se cobra, sem inventar preço.
+  Toda espera por recurso compartilhado passou a ter prazo, e essa foi a lição do incidente de 18/10.
+
+---
+
+## A rodada de 18–19/10/2026 — migração WPF → Blazor Hybrid
 
 O pedido da direção (o /goal da noite), por inteiro:
 
@@ -112,10 +155,26 @@ continuam WPF** (§2) — isso vai junto com a migração delas.
 
 ---
 
-## 6. Próxima rodada
+## 6. Próxima rodada da migração
 
 1. **Tela do paciente** (`PacienteWorkspaceView`) em Blazor, seção por seção, com as janelas
    de escrita que só ela usa.
 2. **Enfermagem** junto (ela compartilha o compositor da passagem com a seção do Consultório).
 3. Apagar então `PrescricoesClinicasView`/`PrescricaoInfusaoView` e suas ViewModels, que hoje
    só servem de seção da tela do paciente.
+
+---
+
+## 7. O que fica aberto
+
+1. **Ligar o resumo do CRM em produção** (etapa 4). Na **VPS 1**, com o `sudo` digitado
+   pela pessoa: atualizar a ponte e, depois que um Gerente 1.2.68 tiver aberto uma vez (a
+   migration `20261018141700` cria `ResumosCrmDiarios`), rodar de novo
+   `deploy/ponte-crm/papel-ponte-crm.sql` para o papel da ponte gravar na tabela nova. Na
+   **VPS 2**: publicar o CRM com `CRM_DAILY_SUMMARY_ENABLED=true`. Até isso acontecer, o
+   bloco "Atendimento pelo CRM" da Mesa fica sem dados.
+2. **As 3 decisões** registradas em [`gerente-pendencias.md`](gerente-pendencias.md).
+3. **Backlog do CRM**: respostas salvas com variáveis, concluir conversa com desfecho, SMS
+   de entrada pelo webhook da Brevo, horário de silêncio do SMS, backup do `chaves.pfx` e o
+   `crm-release.py` passar a exigir `CRM_AGENTS_FILE`.
+4. **A migração da tela do paciente e da Enfermagem** (§6).
