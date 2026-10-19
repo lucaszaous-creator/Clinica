@@ -78,8 +78,9 @@ internal static class Program
         Confere(reaberta.Infusoes.Count==2&&reaberta.Infusoes[0].Itens[0].Dose=="7 mL"&&reaberta.Infusoes[1].Volume=="100 mL","Reabrir conserva quantidade e preparos");
         var legado=GrupoInfusaoEdicao.Carregar([new(){Descricao="A"},new(){Descricao="B"}],false,null,null);
         Confere(legado.Count==2,"Itens antigos independentes não viram uma mistura");
-        var catalogo=new MedicamentosView(escopos);await catalogo.Inicializacao;
-        var cadastro=new Window {Title="Medicamentos — Consultório e Gerente",Content=catalogo};Abrir(cadastro,1180,790);await Render(cadastro,"cadastro-medicamentos.png");cadastro.Close();
+        // O cadastro de medicamentos virou tela Blazor (out/2026): confere-se o CATÁLOGO que ela lê.
+        var catalogoLido=await scope.ServiceProvider.GetRequiredService<MedicamentoCatalogoService>().ListarAsync();
+        Confere(catalogoLido.Count>0,"Catálogo de medicamentos legível");
         reaberta.Fechar=()=>{};await reaberta.AssinarCommand.ExecuteAsync(null);
         Confere(!reaberta.MensagemEhErro,reaberta.Mensagem??"Liberação sem assinatura");
         db.ChangeTracker.Clear();p=await db.PrescricoesInternas.Include(p=>p.Itens).SingleAsync();
