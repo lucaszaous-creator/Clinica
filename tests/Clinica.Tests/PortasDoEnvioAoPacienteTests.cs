@@ -64,7 +64,7 @@ public sealed class PortasDoEnvioAoPacienteTests
     {
         var form = Ler("src/Clinica.Ui.Blazor/Formularios/EnvioAoPacienteForm.razor");
         form.Should().Contain("d.Opcoes").And.Contain("destinos.Padrao")
-            .And.Contain("case CanalDeEnvio.Email:").And.Contain("case CanalDeEnvio.WhatsAppPeloCrm:")
+            .And.Contain("case CanalDeEnvio.WhatsAppPeloCrm:").And.NotContain("CanalDeEnvio.Email")
             .And.Contain("EnvioAoPacienteService.PodeEnviar(").And.Contain("CentralDocumentosService.AcessoParaEmitir(");
     }
 
@@ -76,11 +76,11 @@ public sealed class PortasDoEnvioAoPacienteTests
     }
 
     [Fact]
-    public void As_opcoes_trazem_os_dois_canais_com_email_primeiro_mesmo_sem_nada_na_ficha()
+    public void As_opcoes_trazem_os_dois_canais_do_WhatsApp_com_o_oficial_primeiro()
     {
-        var d = new DestinosDoEnvio("Maria", "Receita 2026/0001", false, "(11) 99999-0001", null, null, null, null);
-        d.Opcoes.Select(o => o.Canal).Should().StartWith(new[] { CanalDeEnvio.Email, CanalDeEnvio.WhatsAppPeloCrm });
-        d.Padrao.Should().Be(CanalDeEnvio.Email);
+        var d = new DestinosDoEnvio("Maria", "Receita 2026/0001", false, "(11) 99999-0001", null, null);
+        d.Opcoes.Select(o => o.Canal).Should().Equal(CanalDeEnvio.WhatsAppPeloCrm, CanalDeEnvio.WhatsAppDesteComputador);
+        d.Padrao.Should().Be(CanalDeEnvio.WhatsAppPeloCrm);
         d.Opcoes.Single(o => o.Canal == CanalDeEnvio.WhatsAppPeloCrm).Nota.Should().Contain(DestinosDoEnvio.CustoDoWhatsApp);
     }
 }

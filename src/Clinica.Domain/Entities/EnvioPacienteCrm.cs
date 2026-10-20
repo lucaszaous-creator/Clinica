@@ -38,7 +38,7 @@ public class EnvioPacienteCrm
     /// <summary>Telefone só com dígitos, com DDI (10 a 15 dígitos).</summary>
     public string Telefone { get; set; } = string.Empty;
 
-    /// <summary>E-mail do destinatário. Os documentos vão por e-mail direto da clínica, então hoje fica nulo.</summary>
+    /// <summary>E-mail do destinatário. Não há envio por e-mail (out/2026): fica sempre nulo.</summary>
     public string? Email { get; set; }
 
     /// <summary>"whatsapp" (o único canal que a clínica põe nesta fila hoje).</summary>

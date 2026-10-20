@@ -162,7 +162,7 @@ public sealed class PontePapelRestritoTests : IDisposable
         var repoAdmin = new ClinicaRepositorio(admin);
         var doc = await new DocumentoClinicoService(repoAdmin, new ProntuarioService(repoAdmin), new ConsentimentoService(repoAdmin))
             .EmitirAsync(new DocumentoClinico { Tipo = TipoDocumentoClinico.Comparecimento, PacienteId = a.PacienteId, ProfissionalId = a.ProfissionalId, Data = DateOnly.FromDateTime(DateTime.Today) }, "ana");
-        var envio = new EnvioAoPacienteService(repoAdmin, new DocumentosClinicosPdfService(repoAdmin), new ParametrosService(repoAdmin), new EnviadorSemUso());
+        var envio = new EnvioAoPacienteService(repoAdmin, new DocumentosClinicosPdfService(repoAdmin), new ParametrosService(repoAdmin));
         Assert.True((await envio.EnfileirarWhatsAppAsync(doc.Id, "ana")).Ok);
 
         var fila = new FilaEnviosCrmService(new ClinicaRepositorio(ponte!));
@@ -174,12 +174,6 @@ public sealed class PontePapelRestritoTests : IDisposable
 
         var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"EnviosPacienteCrm\""));
         Assert.Contains("42501", e.ToString());
-    }
-
-    sealed class EnviadorSemUso : Clinica.Application.Email.IEnviadorDeEmail
-    {
-        public Task EnviarAsync(Clinica.Application.Email.OpcoesEmail opcoes, string destinatario, string assunto, string corpo, CancellationToken ct = default)
-            => throw new InvalidOperationException();
     }
 
     // O login do CRM conta tentativas, trava e marca o último acesso — e só essas colunas: a

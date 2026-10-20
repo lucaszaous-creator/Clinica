@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using Clinica.Application.Email;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Application.Sms;

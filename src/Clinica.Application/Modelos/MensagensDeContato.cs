@@ -14,6 +14,13 @@ namespace Clinica.Application.Modelos;
 /// </summary>
 public static class MensagensDeContato
 {
+    /// <summary>
+    /// O nome que assina a mensagem (SMS e WhatsApp): o nome fantasia do prestador e, sem ele,
+    /// a razão social. Nulo quando a clínica não preencheu nenhum dos dois.
+    /// </summary>
+    public static string? NomeDaClinica(string? nomeFantasia, string? razaoSocial)
+        => Clinica.Domain.EnderecoDeEmail.Normalizar(nomeFantasia)
+           ?? Clinica.Domain.EnderecoDeEmail.Normalizar(razaoSocial);
     /// <summary>"Maria" de "Maria da Silva" — como se fala com alguém pelo telefone.</summary>
     public static string PrimeiroNome(string nome)
         => nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nome;

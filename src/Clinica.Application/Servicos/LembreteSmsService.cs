@@ -136,7 +136,7 @@ public sealed class LembreteSmsService
 
         var baseUrl = await _parametros.ObterUrlPublicacaoAsync(ct);
         var prestador = await _parametros.ObterPrestadorAsync(ct);
-        var nomeClinica = EmailDaClinicaService.NomeDaClinica(prestador.NomeFantasia, prestador.RazaoSocial);
+        var nomeClinica = MensagensDeContato.NomeDaClinica(prestador.NomeFantasia, prestador.RazaoSocial);
 
         int enviados = 0, semCelular = 0, jaTratados = 0, falhas = 0, semLink = 0;
 
@@ -398,7 +398,7 @@ public sealed class LembreteSmsService
                 "O SMS está desligado: escolha o provedor, preencha o que falta, salve, e teste de novo.");
 
         var prestador = await _parametros.ObterPrestadorAsync(ct);
-        var clinica = EmailDaClinicaService.NomeDaClinica(prestador.NomeFantasia, prestador.RazaoSocial) ?? "a clinica";
+        var clinica = MensagensDeContato.NomeDaClinica(prestador.NomeFantasia, prestador.RazaoSocial) ?? "a clinica";
         var chave = $"TESTE:{Guid.NewGuid():N}";
         var m = new MensagemSms
         {

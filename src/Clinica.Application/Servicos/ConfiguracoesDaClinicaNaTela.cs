@@ -1,6 +1,5 @@
 using System.Globalization;
 using Clinica.Application.Abstracoes;
-using Clinica.Application.Email;
 using Clinica.Domain;
 using Clinica.Domain.Regras;
 
@@ -11,7 +10,7 @@ namespace Clinica.Application.Servicos;
 /// Blazor). Era tudo do <c>ConfiguracoesViewModel</c>, do <c>CamposPersonalizadosViewModel</c>
 /// e do <c>ModelosTermoViewModel</c> do WPF — onde o <c>dotnet test</c> não alcança. Aqui mora:
 /// a leitura e a recusa de cada bloco (com as MESMAS frases do WPF), as frases de situação
-/// (publicação, e-mail, tela do paciente, conclusão, backup) e a regra dos SEGREDOS — a
+/// (publicação, tela do paciente, conclusão, backup) e a regra dos SEGREDOS — a
 /// senha do SMTP e a chave secreta do armazenamento nunca voltam para a tela, e campo vazio
 /// no Salvar quer dizer MANTER o gravado (a regra do token do SMS, <c>ConfiguracaoSmsNaTela</c>).
 /// Os prazos do faturamento e os dados da clínica não estão aqui: são os MESMOS de
@@ -182,67 +181,6 @@ public static class ConfiguracoesDaClinicaNaTela
         ? "Publicação salva. As credenciais não foram alteradas: elas estão vindo de "
           + "variável de ambiente desta máquina."
         : "Publicação salva.";
-
-    // ============================ E-mail (set/2026) ============================
-
-    /// <summary>"Desligado" e "ligado" são frases diferentes — e a ligada diz DE ONDE sai.</summary>
-    public static string DescreverEmail(OpcoesEmail? opcoes)
-        => opcoes is null
-            ? "E-mail da clínica DESLIGADO. Preencha o servidor de saída e o remetente para ligar — "
-              + "até lá, o documento vai ao paciente pelo WhatsApp."
-            : "E-mail da clínica LIGADO: os documentos que a equipe envia ao paciente (receita, atestado, "
-              + "pedido de exame, laudo) saem por e-mail com a marca da clínica e o PDF anexado. "
-              + $"Sai de {opcoes.Descricao}.";
-
-    /// <summary>
-    /// O Salvar do e-mail, com as recusas do WPF. Servidor e remetente andam JUNTOS (um sem o
-    /// outro não manda nada); os dois em branco DESLIGAM. A SENHA nunca volta à tela: vazia =
-    /// manter a gravada; e sem usuário ela SAI (servidor sem autenticação não usa senha, e é
-    /// assim que se apaga a que estava gravada). A senha não passa por Trim: espaço no fim é
-    /// parte dela.
-    /// </summary>
-    public static CamposEmail? LerEmail(
-        string? host, string? porta, string? usuario, string? senhaDigitada, string? senhaGravada,
-        string? remetente, string? nomeRemetente, bool usarTls, out string? erro, out bool desligando)
-    {
-        var h = Limpar(host);
-        var r = Limpar(remetente);
-        var u = Limpar(usuario);
-        var senha = u is null ? null : string.IsNullOrEmpty(senhaDigitada) ? senhaGravada : senhaDigitada;
-        desligando = h is null && r is null;
-
-        if (desligando)
-        {
-            erro = null;
-            return new CamposEmail(null, Limpar(porta), u, senha, null, Limpar(nomeRemetente), usarTls);
-        }
-
-        if (h is null || r is null)
-        {
-            erro = "Informe o servidor de saída E o remetente — ou deixe os dois em branco para desligar o lembrete.";
-            return null;
-        }
-
-        if (!EnderecoDeEmail.Valido(r))
-        {
-            erro = "O remetente precisa ser um e-mail válido (ex.: contato@suaclinica.com.br).";
-            return null;
-        }
-
-        if (!string.IsNullOrWhiteSpace(porta)
-            && (!int.TryParse(porta.Trim(), out var p) || p is < 1 or > 65535))
-        {
-            erro = "A porta precisa ser um número de 1 a 65535 — 587 é a mais comum; 465 em alguns provedores.";
-            return null;
-        }
-
-        erro = null;
-        return new CamposEmail(h, Limpar(porta), u, senha, r, Limpar(nomeRemetente), usarTls);
-    }
-
-    public static string FraseEmailSalvo(bool desligando) => desligando
-        ? "E-mail da clínica desligado — o documento passa a ir só pelo WhatsApp."
-        : "E-mail da clínica salvo. Use \"Enviar e-mail de teste\" para ver como a mensagem chega.";
 
     // ============================ Conclusão automática ============================
 

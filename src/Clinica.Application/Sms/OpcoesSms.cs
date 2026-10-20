@@ -38,8 +38,8 @@ public sealed record CamposSms(
     bool AdiantarFimDeSemana);
 
 /// <summary>
-/// O provedor pronto para enviar. <b>Meia configuração é configuração nenhuma</b> (a regra
-/// do <c>OpcoesEmail</c>): é <see cref="De"/> — num lugar só — que responde "está ligado?",
+/// O provedor pronto para enviar. <b>Meia configuração é configuração nenhuma</b>:
+/// é <see cref="De"/> — num lugar só — que responde "está ligado?",
 /// e a tela e o serviço leem a mesma resposta.
 /// </summary>
 public sealed record OpcoesSms(

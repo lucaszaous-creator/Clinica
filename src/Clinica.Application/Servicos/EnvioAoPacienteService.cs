@@ -1,5 +1,4 @@
 using Clinica.Application.Abstracoes;
-using Clinica.Application.Email;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 
@@ -21,12 +20,12 @@ public sealed record ArquivoDoPaciente(OrigemDoArquivo Origem, int Id)
     public static ArquivoDoPaciente Documento(int documentoId) => new(OrigemDoArquivo.DocumentoClinico, documentoId);
 }
 
-/// <summary>Os caminhos do "Enviar ao paciente". A ORDEM é a da tela: e-mail primeiro.</summary>
+/// <summary>
+/// Os caminhos do "Enviar ao paciente", na ordem da tela. Não há e-mail (out/2026, decisão da
+/// cliente): o documento sai pelo WhatsApp; o retroativo, o paciente busca na clínica.
+/// </summary>
 public enum CanalDeEnvio
 {
-    /// <summary>E-mail da clínica (SMTP próprio). O PADRÃO: não custa nada por envio.</summary>
-    Email,
-
     /// <summary>WhatsApp oficial, pela fila que o CRM executa. Cada envio é cobrado pela Meta.</summary>
     WhatsAppPeloCrm,
 
@@ -39,35 +38,22 @@ public sealed record OpcaoDeEnvio(CanalDeEnvio Canal, string Rotulo, bool Dispon
 
 /// <summary>
 /// Para onde o papel iria, antes de a pessoa confirmar. A tela PERGUNTA com isto — mostrar o
-/// número e o e-mail antes do clique é a conferência que evita mandar o papel para a pessoa
-/// errada.
+/// número antes do clique é a conferência que evita mandar o papel para a pessoa errada.
 /// </summary>
-/// <param name="Email">
-/// O e-mail da FICHA, quando houver e for válido — é só a sugestão do campo. A clínica não
-/// colhe e-mail no cadastro: quem atende digita o que o paciente pedir.
-/// </param>
-/// <param name="MotivoSemEmail">
-/// Nulo quando o canal e-mail serve. O canal NUNCA some por falta de e-mail na ficha; ele só
-/// fica indisponível sem o servidor de saída da clínica configurado, e a frase diz onde.
-/// </param>
 public sealed record DestinosDoEnvio(
     string Paciente, string Documento, bool Assinado,
     string? Celular, string? MotivoSemWhatsApp,
-    string? Email, string? MotivoSemEmail,
     string? JaNaFila)
 {
     /// <summary>A frase que acompanha o WhatsApp oficial (pedido da direção, out/2026).</summary>
-    public const string CustoDoWhatsApp = "Cada envio pelo WhatsApp é cobrado pela Meta — prefira o e-mail.";
+    public const string CustoDoWhatsApp = "Cada envio pelo WhatsApp oficial é cobrado pela Meta.";
 
     /// <summary>
-    /// As opções da janela, na ordem da tela: e-mail PRIMEIRO, WhatsApp oficial depois, o
-    /// WhatsApp deste computador por último. As TRÊS sempre aparecem — a indisponível vem
-    /// apagada com o motivo, nunca escondida.
+    /// As opções da janela, na ordem da tela: WhatsApp oficial e o WhatsApp deste computador.
+    /// As duas sempre aparecem — a indisponível vem apagada com o motivo, nunca escondida.
     /// </summary>
     public IReadOnlyList<OpcaoDeEnvio> Opcoes =>
     [
-        new(CanalDeEnvio.Email, "E-mail", MotivoSemEmail is null, MotivoSemEmail,
-            "O PDF vai anexado, saindo do e-mail da clínica."),
         new(CanalDeEnvio.WhatsAppPeloCrm, "WhatsApp (pelo CRM)",
             Celular is not null && JaNaFila is null, MotivoSemWhatsApp ?? JaNaFila,
             Celular is null ? CustoDoWhatsApp : $"Para {Celular}. {CustoDoWhatsApp}"),
@@ -76,16 +62,14 @@ public sealed record DestinosDoEnvio(
             "Para quando o CRM está desligado: abre a conversa e o arquivo é colado com Ctrl+V.")
     ];
 
-    /// <summary>
-    /// O canal que a janela já traz marcado: o e-mail sempre que ele serve (é o padrão da
-    /// direção); senão o primeiro disponível; nulo quando nenhum serve.
-    /// </summary>
+    /// <summary>O canal que a janela já traz marcado: o primeiro disponível; nulo quando nenhum serve.</summary>
     public CanalDeEnvio? Padrao => Opcoes.FirstOrDefault(o => o.Disponivel)?.Canal;
 }
 
 /// <summary>
-/// Entregar ao paciente o PDF de um documento clínico emitido — por e-mail (direto do servidor da clínica, o PADRÃO) ou por
-/// WhatsApp (pela fila que o CRM executa, com a API oficial da Meta) — out/2026.
+/// Entregar ao paciente o PDF de um documento clínico emitido — pelo WhatsApp (pela fila que o
+/// CRM executa, com a API oficial da Meta, ou pelo WhatsApp deste computador) — out/2026. Não há
+/// e-mail (decisão da cliente, out/2026): documento retroativo, o paciente busca na clínica.
 ///
 /// O que vai é a 2ª VIA: os bytes que a reimpressão daria. Documento clínico:
 /// <see cref="DocumentosClinicosPdfService.GerarAsync"/> — os GUARDADOS quando assinado (nunca
@@ -100,33 +84,24 @@ public sealed record DestinosDoEnvio(
 public sealed class EnvioAoPacienteService
 {
     public const string AcaoNaFilaDoCrm = "DocumentoNaFilaWhatsAppCrm";
-    public const string AcaoEmailEnviado = "DocumentoEnviadoPorEmail";
-    public const string AcaoEmailFalhou = "DocumentoEmailRecusado";
     public const string AcaoWhatsAppLocal = "DocumentoAbertoNoWhatsAppLocal";
-
-    /// <summary>A frase do canal e-mail indisponível — a única razão para ele ficar indisponível.</summary>
-    public const string SemServidorDeEmail = "O e-mail da clínica não está configurado. Configure o servidor de saída em "
-        + "Gerente → Configurações → E-mail da clínica.";
 
     private readonly IClinicaRepositorio _repo;
     private readonly DocumentosClinicosPdfService _pdfs;
     private readonly ParametrosService _parametros;
-    private readonly IEnviadorDeEmail _email;
     private readonly Func<DateTime> _agora;
 
     public EnvioAoPacienteService(
-        IClinicaRepositorio repo, DocumentosClinicosPdfService pdfs, ParametrosService parametros,
-        IEnviadorDeEmail email)
-        : this(repo, pdfs, parametros, email, HoraDaClinica.Agora) { }
+        IClinicaRepositorio repo, DocumentosClinicosPdfService pdfs, ParametrosService parametros)
+        : this(repo, pdfs, parametros, HoraDaClinica.Agora) { }
 
     public EnvioAoPacienteService(
         IClinicaRepositorio repo, DocumentosClinicosPdfService pdfs, ParametrosService parametros,
-        IEnviadorDeEmail email, Func<DateTime> agora)
+        Func<DateTime> agora)
     {
         _repo = repo;
         _pdfs = pdfs;
         _parametros = parametros;
-        _email = email;
         _agora = agora;
     }
 
@@ -202,15 +177,12 @@ public sealed class EnvioAoPacienteService
         var papel = await CarregarAsync(arquivo, ct);
         var paciente = papel.Paciente;
         var celular = FilaEnviosCrm.Telefone(paciente.Telefone);
-        var smtp = await _parametros.ObterOpcoesEmailAsync(ct);
         var aberto = await EmAbertoAsync(papel, _agora(), ct);
 
         return new DestinosDoEnvio(
             paciente.Nome, papel.Descricao, papel.Assinado,
             celular.Length == 0 ? null : paciente.TelefoneFormatado,
             celular.Length == 0 ? $"A ficha de {paciente.Nome} não tem celular válido (com DDD)." : null,
-            EnderecoDeEmail.SeValido(paciente.Email),
-            smtp is null ? SemServidorDeEmail : null,
             aberto is null ? null : $"Já está na fila do CRM desde {aberto.CriadoEm:dd/MM HH:mm} ({FilaEnviosCrm.Descrever(aberto.Estado).ToLowerInvariant()}).");
     }
 
@@ -274,77 +246,6 @@ public sealed class EnvioAoPacienteService
             + "Acompanhe em CRM → Envios do Clínico.");
     }
 
-    // ==================== E-mail da clínica (o padrão) ====================
-
-    public Task<ResultadoEnvioAoPaciente> EnviarPorEmailAsync(
-        int documentoId, string operador, string destinatario, bool guardarNaFicha = false, CancellationToken ct = default)
-        => EnviarPorEmailAsync(ArquivoDoPaciente.Documento(documentoId), operador, destinatario, guardarNaFicha, ct);
-
-    /// <summary>
-    /// Envia o PDF anexado ao e-mail que o PACIENTE pediu, pelo servidor de saída da CLÍNICA
-    /// (Configurações → E-mail da clínica). Sempre um clique de quem atende — não há envio
-    /// automático de documento por e-mail. O endereço vem da tela (sugerido pela ficha, editável);
-    /// com <paramref name="guardarNaFicha"/>, ele vai para a ficha DEPOIS que o servidor aceitar
-    /// o envio, pelo <see cref="PacienteService.DefinirEmailAsync"/>.
-    ///
-    /// O corpo é curto e não diz nada clínico — o conteúdo é o anexo. "Enviado" aqui quer dizer
-    /// ACEITO pelo servidor de saída: e-mail não tem recibo de entrega.
-    /// </summary>
-    public async Task<ResultadoEnvioAoPaciente> EnviarPorEmailAsync(
-        ArquivoDoPaciente arquivo, string operador, string destinatario, bool guardarNaFicha = false,
-        CancellationToken ct = default)
-    {
-        var papel = await CarregarAsync(arquivo, ct);
-        var paciente = papel.Paciente;
-        var destino = EnderecoDeEmail.SeValido(destinatario);
-        if (destino is null)
-            return new(false, "Informe um e-mail válido (ex.: nome@provedor.com.br).");
-
-        var opcoes = await _parametros.ObterOpcoesEmailAsync(ct);
-        if (opcoes is null)
-            return new(false, SemServidorDeEmail);
-
-        var (pdf, nome) = await papel.Gerar(ct);
-        var prestador = await _parametros.ObterPrestadorAsync(ct);
-        var quem = FilaEnviosCrm.Cortar(operador, 120);
-
-        try
-        {
-            await _email.EnviarDocumentoAsync(opcoes, destino,
-                EmailDoDocumento.Montar(paciente.Nome, papel.Rotulo, papel.Numero,
-                    prestador, MarcaSemDor.Logo),
-                new AnexoDeEmail(nome, pdf, "application/pdf"), ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Diagnostico.Registrar($"{papel.Descricao} — e-mail ao paciente recusado", ex);
-            await Trilha(AcaoEmailFalhou, quem, paciente.Id, "e-mail", destino,
-                $"{papel.Descricao}: {FilaEnviosCrm.Cortar(ex.Message, 200)}", _agora(), ct);
-            await _repo.SalvarAsync(ct);
-            return new(false, $"O servidor de e-mail não aceitou o envio para {destino}: {ex.Message} "
-                + "Confira o endereço e a configuração em Gerente → Configurações → E-mail da clínica.");
-        }
-
-        await Trilha(AcaoEmailEnviado, quem, paciente.Id, "e-mail", destino, papel.Descricao, _agora(), ct);
-        await _repo.SalvarAsync(ct);
-
-        var frase = $"{papel.Descricao} enviado por e-mail para {destino}. "
-            + "O servidor aceitou; e-mail não tem confirmação de leitura.";
-        if (!guardarNaFicha) return new(true, frase);
-
-        // O envio JÁ saiu: falhar ao guardar na ficha não pode virar "não enviado".
-        try
-        {
-            await new PacienteService(_repo).DefinirEmailAsync(paciente.Id, destino, quem, ct);
-            return new(true, frase + " O e-mail ficou guardado na ficha.");
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Diagnostico.Registrar($"Paciente {paciente.Id} — e-mail do envio não pôde ir para a ficha", ex);
-            return new(true, frase + $" Mas o e-mail NÃO ficou guardado na ficha: {ex.Message}");
-        }
-    }
-
     // ==================== WhatsApp deste computador ====================
 
     /// <summary>O PDF da 2ª via e a legenda, para o caminho local (wa.me + Ctrl+V).</summary>
@@ -394,7 +295,7 @@ public sealed class EnvioAoPacienteService
 
 /// <summary>
 /// As frases que acompanham o documento até o paciente — WhatsApp (local ou pelo CRM) e
-/// e-mail. Num lugar só para os três caminhos dizerem a mesma coisa.
+/// Num lugar só para os dois caminhos dizerem a mesma coisa.
 /// </summary>
 public static class TextoDoEnvio
 {
@@ -416,22 +317,6 @@ public static class TextoDoEnvio
             : $"Olá, {PrimeiroNome(nomePaciente)}! Segue {artigo} {rotulo.ToLowerInvariant()} "
               + "emitido(a) pela clínica. Se tiver qualquer dúvida, é só responder esta mensagem.";
         return corpo + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
-    }
-
-    public static string AssuntoEmail(string? nomeClinica)
-        => string.IsNullOrWhiteSpace(nomeClinica) ? "Seu documento da clínica" : $"Seu documento — {nomeClinica}";
-
-    /// <summary>
-    /// Curto e sem nada clínico: o conteúdo é o anexo, e caixa de e-mail é lida por outras
-    /// pessoas. Mensagem automática (no-reply, out/2026): não convida a responder.
-    /// </summary>
-    public static string CorpoEmail(string nomePaciente, string? nomeClinica)
-    {
-        var quem = string.IsNullOrWhiteSpace(nomeClinica) ? "a clínica" : nomeClinica;
-        return $"Olá, {PrimeiroNome(nomePaciente)}!\n\n"
-            + $"Segue em anexo o documento que {quem} preparou para você.\n\n"
-            + quem
-            + "\n\nEsta é uma mensagem automática — não responda.";
     }
 
     public static string PrimeiroNome(string nome)
