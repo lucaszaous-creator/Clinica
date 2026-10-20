@@ -1,0 +1,353 @@
+@*
+  A MOLDURA dos apps (out/2026 — era a ShellWindow do WPF). Cabeçalho com a marca, o menu do
+  topo, a busca (Ctrl+F), o sino, a conta conectada e, embaixo, as abas da tela composta e o
+  PALCO com as telas — tudo no MESMO navegador da janela. A navegação, o filtro de permissões
+  e o sino continuam no ShellViewModel; esta moldura só desenha e repassa os cliques.
+
+  Popovers (menu, sino, conta) fecham com Esc e com o clique fora (um véu transparente por
+  baixo deles). Nenhum deles é janela do sistema: com o navegador em foco, o WPF nem recebe a
+  tecla, e uma janela nativa por cima do navegador era a sobreposição que tirava o foco.
+*@
+@implements IDisposable
+@inject Dialogos Dialogos
+@inject Notificacoes Notificacoes
+@inject IJSRuntime JS
+@using Microsoft.JSInterop
+
+<div class="moldura">
+    <header class="moldura-topo">
+        <div class="moldura-marca">
+            <img src="img/logo-cor.png" alt="Clínica SemDor" />
+            <span class="moldura-separador" aria-hidden="true"></span>
+            <span class="moldura-app" title="@Moldura.NomeDoApp">@Moldura.NomeDoApp</span>
+        </div>
+
+        <nav class="moldura-nav" aria-label="Navegação principal" @onmouseleave="() => _grupoAberto = null">
+            <ul role="menubar">
+                @foreach (var grupo in Moldura.Barra)
+                {
+                    var g = grupo;
+                    var aberto = _grupoAberto == g.Rotulo;
+                    <li class="moldura-grupo @(g.Ativo ? "ativo" : null)"
+                        @onmouseenter="() => AoPassar(g)">
+                        @if (g.Direto is { } direto)
+                        {
+                            <button type="button" role="menuitem" aria-current="@(direto.Ativo ? "page" : null)"
+                                    @onclick="() => Navegar(direto.Chave)">@g.Rotulo</button>
+                        }
+                        else
+                        {
+                            <button type="button" role="menuitem" aria-haspopup="true" aria-expanded="@(aberto ? "true" : "false")"
+                                    @onclick="() => Alternar(g)">
+                                @g.Rotulo <Icone Nome="abaixo" />
+                            </button>
+                            @if (aberto)
+                            {
+                                <ul class="moldura-submenu" role="menu" aria-label="@g.Rotulo">
+                                    @foreach (var item in g.Itens)
+                                    {
+                                        var i = item;
+                                        <li>
+                                            <button type="button" role="menuitem" class="@(i.Ativo ? "ativo" : null)"
+                                                    @onclick="() => Navegar(i.Chave)">
+                                                <span class="moldura-item-rotulo">@i.Rotulo</span>
+                                                @if (!string.IsNullOrWhiteSpace(i.Descricao))
+                                                {
+                                                    <span class="moldura-item-descricao">@i.Descricao</span>
+                                                }
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        }
+                    </li>
+                }
+            </ul>
+            <button type="button" class="moldura-treinamento" title="Videoaulas das telas deste módulo"
+                    @onclick="Moldura.AbrirTreinamento">Treinamento</button>
+        </nav>
+
+        <div class="moldura-busca" @onfocusout="AoSairDaBusca">
+            <div class="busca">
+                <Icone Nome="busca" />
+                <input id="pesquisa-global" class="campo" type="search" placeholder="Buscar tela (Ctrl+F)"
+                       aria-label="Buscar tela" autocomplete="off" spellcheck="false"
+                       value="@Moldura.TextoPesquisa" @oninput="AoDigitarBusca" @onkeydown="TeclaDaBusca" />
+            </div>
+            @if (Moldura.PesquisaAberta && Moldura.ResultadosPesquisa.Count > 0)
+            {
+                <ul class="moldura-resultados" role="listbox" aria-label="Telas encontradas">
+                    @foreach (var r in Moldura.ResultadosPesquisa)
+                    {
+                        var res = r;
+                        <li>
+                            <button type="button" role="option" @onmousedown:preventDefault="true"
+                                    @onclick="() => AbrirResultado(res)">
+                                <span>@res.Rotulo</span>
+                                @if (res.Caminho is { } caminho)
+                                {
+                                    @* "Caixa › Fechamento": sem o caminho, quem procurou não entende por que caiu noutra tela. *@
+                                    <span class="texto-secundario"> — em @caminho</span>
+                                }
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        <div class="moldura-acoes">
+            @if (Moldura.AtualizandoTela)
+            {
+                @* A tela voltou do histórico com o que já mostrava e relê por trás: o aviso fica
+                   NA BARRA, nunca sobre o conteúdo. *@
+                <span class="moldura-atualizando" role="status">Atualizando…</span>
+            }
+            @if (Moldura.AssinaturasPendentes > 0)
+            {
+                <button type="button" class="botao mini" title="@Moldura.ResumoAssinaturas" aria-label="@Moldura.ResumoAssinaturas"
+                        @onclick="Moldura.AbrirFilaDeInfusao">
+                    Assinaturas <span class="moldura-contador">@Moldura.AssinaturasPendentes</span>
+                </button>
+            }
+
+            <div class="moldura-sino">
+                <button type="button" class="botao icone fantasma" title="@Moldura.ResumoDoSino"
+                        aria-label="Notificações, pedidos da enfermagem e respostas dos pacientes"
+                        aria-expanded="@(Moldura.SinoAberto ? "true" : "false")"
+                        @onclick="Moldura.AlternarSino">
+                    <Icone Nome="sino" />
+                </button>
+                @if (!string.IsNullOrEmpty(Moldura.ContadorDoSino))
+                {
+                    <span class="moldura-contador sobre" aria-hidden="true">@Moldura.ContadorDoSino</span>
+                }
+                @if (Moldura.SinoAberto)
+                {
+                    <div class="moldura-veu" @onclick="Moldura.FecharSobreposicoes"></div>
+                    <div class="moldura-popover sino" role="dialog" aria-label="Avisos">
+                        @if (Moldura.Pedidos.Visivel)
+                        {
+                            <section>
+                                <header><h3>Pedidos da enfermagem</h3><span>@Moldura.Pedidos.Contador</span></header>
+                                @foreach (var p in Moldura.Pedidos.Linhas)
+                                {
+                                    var pedido = p;
+                                    <button type="button" class="moldura-aviso @(pedido.Novo ? "novo" : null)"
+                                            @onclick="() => Moldura.AbrirPedido(pedido)">
+                                        <strong>@pedido.Titulo</strong>
+                                        <span>@pedido.Quando</span>
+                                        <span class="texto-secundario">@pedido.Origem</span>
+                                    </button>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(Moldura.Pedidos.Situacao))
+                                {
+                                    <p class="moldura-situacao">@Moldura.Pedidos.Situacao</p>
+                                }
+                                <button type="button" class="link" @onclick="Moldura.AbrirTodosOsPedidos">Ver todos os avisos</button>
+                            </section>
+                        }
+                        @if (Moldura.Respostas.Visivel)
+                        {
+                            <section>
+                                <header><h3>Respostas dos pacientes</h3><span>@Moldura.Respostas.Contador</span></header>
+                                @foreach (var r in Moldura.Respostas.Linhas)
+                                {
+                                    var resposta = r;
+                                    <button type="button" class="moldura-aviso @resposta.Tom" title="@resposta.Sessao"
+                                            @onclick="() => Moldura.AbrirResposta(resposta)">
+                                        <strong>@resposta.Titulo</strong>
+                                        <span>@resposta.Sessao</span>
+                                        @if (!string.IsNullOrWhiteSpace(resposta.Detalhe))
+                                        {
+                                            <span class="texto-secundario">@resposta.Detalhe</span>
+                                        }
+                                    </button>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(Moldura.Respostas.Situacao))
+                                {
+                                    <p class="moldura-situacao">@Moldura.Respostas.Situacao</p>
+                                }
+                                <button type="button" class="link" @onclick="Moldura.AbrirConfirmacoes">Abrir confirmações</button>
+                            </section>
+                        }
+                        <section>
+                            <header><h3>Últimos avisos desta sessão</h3></header>
+                            @if (Moldura.Historico.Count == 0)
+                            {
+                                <p class="moldura-situacao">Nenhum aviso desde que você entrou.</p>
+                            }
+                            @foreach (var a in Moldura.Historico)
+                            {
+                                <div class="moldura-historico @a.Tom.ToString().ToLowerInvariant()">
+                                    <span>@a.Texto</span>
+                                    <span class="texto-secundario">@a.Hora</span>
+                                </div>
+                            }
+                        </section>
+                    </div>
+                }
+            </div>
+
+            <div class="moldura-conta">
+                <button type="button" class="moldura-usuario" title="@Moldura.UsuarioRotulo"
+                        aria-expanded="@(_contaAberta ? "true" : "false")" @onclick="() => _contaAberta = !_contaAberta">
+                    <span class="avatar pequeno" aria-hidden="true">@Iniciais(Moldura.UsuarioRotulo)</span>
+                    <span class="moldura-usuario-nome">@Moldura.UsuarioRotulo</span>
+                    <Icone Nome="abaixo" />
+                </button>
+                @if (_contaAberta)
+                {
+                    <div class="moldura-veu" @onclick="() => _contaAberta = false"></div>
+                    <div class="moldura-popover conta" role="menu">
+                        <button type="button" role="menuitem" @onclick="AbrirTrocaDeSenha">Minha senha</button>
+                    </div>
+                }
+            </div>
+            <button type="button" class="botao mini" @onclick="TrocarUsuarioAsync">Trocar usuário</button>
+        </div>
+    </header>
+
+    @if (Moldura.Abas.Count > 1)
+    {
+        <nav class="abas moldura-abas" role="tablist" aria-label="@Moldura.TituloTela">
+            @for (var i = 0; i < Moldura.Abas.Count; i++)
+            {
+                var indice = i;
+                var aba = Moldura.Abas[i];
+                <button type="button" role="tab" aria-selected="@(aba.Ativa ? "true" : "false")"
+                        @onclick="() => Moldura.SelecionarAba(indice)">@aba.Rotulo</button>
+            }
+        </nav>
+    }
+
+    <main class="moldura-area">
+        <PalcoDeTelas Palco="Moldura.Palco" />
+        @if (Moldura.FalhaDaTela is { } falha)
+        {
+            <div class="moldura-falha">
+                <div class="pagina"><div class="cartao">
+                    <FalhaDeLeitura Titulo="Não foi possível abrir esta tela" Detalhe="@falha" />
+                </div></div>
+            </div>
+        }
+    </main>
+
+    @if (_trocandoSenha)
+    {
+        <TrocaDeSenha AoFechar="() => _trocandoSenha = false" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IMolduraDoApp Moldura { get; set; } = default!;
+
+    private string? _grupoAberto;
+    private bool _contaAberta;
+    private bool _trocandoSenha;
+    private DotNetObjectReference<MolduraDoApp>? _ref;
+
+    protected override void OnInitialized()
+    {
+        Moldura.Mudou += Redesenhar;
+        // Os avisos do shell (snackbar das telas WPF que ainda abrem por cima) e as perguntas do
+        // IDialogoService passam a sair em HTML, neste navegador.
+        Moldura.Ligar(Dialogos, Notificacoes);
+    }
+
+    private void Redesenhar() => _ = InvokeAsync(StateHasChanged);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _ref = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("clinicaMoldura.ligar", _ref);
+        }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — atalhos da moldura não ligaram", ex); }
+    }
+
+    /// <summary>Esc vindo da página: fecha o que estiver sobreposto (menu, sino, conta, busca).</summary>
+    [JSInvokable]
+    public Task Escape() => InvokeAsync(() =>
+    {
+        _grupoAberto = null;
+        _contaAberta = false;
+        Moldura.FecharSobreposicoes();
+        StateHasChanged();
+    });
+
+    private void AoPassar(GrupoDaBarra g)
+    {
+        // As subpáginas abrem ao passar o mouse, ao clicar ou pelo teclado (a regra da navegação
+        // superior, set/2026). Passar por uma entrada DIRETA fecha a lista aberta da vizinha.
+        _grupoAberto = g.Direto is null ? g.Rotulo : null;
+    }
+
+    // O clique ABRE, não alterna: com o mouse, a passagem já abriu a lista, e um clique que a
+    // fechasse de novo seria o menu sumindo no instante em que a pessoa o escolhe. Fecha-se com
+    // Esc, com o clique fora ou saindo do menu — como o menu nativo do Windows fazia.
+    private void Alternar(GrupoDaBarra g) => _grupoAberto = g.Rotulo;
+
+    private void Navegar(string chave)
+    {
+        _grupoAberto = null;
+        Moldura.Navegar(chave);
+    }
+
+    private void AoDigitarBusca(ChangeEventArgs e) => Moldura.TextoPesquisa = e.Value?.ToString() ?? "";
+
+    private void TeclaDaBusca(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") Moldura.AbrirResultado(null);
+        else if (e.Key == "Escape") Moldura.FecharPesquisa();
+    }
+
+    private void AbrirResultado(ResultadoDaPesquisa r) => Moldura.AbrirResultado(r);
+
+    private async Task AoSairDaBusca(FocusEventArgs e)
+    {
+        // O clique num resultado não tira o foco (mousedown:preventDefault); sair dela por
+        // Tab ou clique fora fecha a paleta, como a busca do WPF fazia ao perder o foco.
+        await Task.Delay(120);
+        if (Moldura.PesquisaAberta) Moldura.FecharPesquisa();
+    }
+
+    private void AbrirTrocaDeSenha()
+    {
+        _contaAberta = false;
+        _trocandoSenha = true;
+    }
+
+    /// <summary>
+    /// Trocar de usuário REABRE o app (a decisão da parcela 45): as telas leem a permissão
+    /// quando são construídas, e repontar a sessão deixaria a tela da colega anterior aberta
+    /// com os botões dela. Por isso a pergunta diz que o sistema vai fechar.
+    /// </summary>
+    private async Task TrocarUsuarioAsync()
+    {
+        if (!await Dialogos.ConfirmarAsync("Trocar usuário",
+                "O sistema vai fechar e abrir de novo na tela de entrada. Salve o que estiver editando antes de continuar.",
+                confirmar: "Fechar e trocar"))
+            return;
+        Moldura.TrocarUsuario();
+    }
+
+    /// <summary>As iniciais do avatar ("Maria Silva (Recepção)" → "MS").</summary>
+    public static string Iniciais(string rotulo)
+    {
+        var nome = rotulo.Split('(')[0];
+        var partes = nome.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 0) return "?";
+        var primeira = char.ToUpperInvariant(partes[0][0]);
+        return partes.Length == 1 ? primeira.ToString() : $"{primeira}{char.ToUpperInvariant(partes[^1][0])}";
+    }
+
+    public void Dispose()
+    {
+        Moldura.Mudou -= Redesenhar;
+        _ref?.Dispose();
+    }
+}

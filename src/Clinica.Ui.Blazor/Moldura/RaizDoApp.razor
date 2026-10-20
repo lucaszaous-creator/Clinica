@@ -1,0 +1,38 @@
+@*
+  A RAIZ do navegador da janela principal (out/2026). Uma janela nativa só para a vida
+  inteira do app, e dentro dela este componente troca o que se vê: a configuração do banco
+  (primeiro acesso da máquina), a entrada (login) e, depois dela, a moldura com as telas.
+  Trocar DENTRO do navegador é o que evita o instante preto de criar outro (o vídeo da
+  clínica, out/2026).
+*@
+@implements IDisposable
+
+@if (Estado.Moldura is { } moldura)
+{
+    <MolduraDoApp Moldura="moldura" />
+}
+else if (Estado.Entrada is { } entrada)
+{
+    <Entrada Porta="entrada" />
+}
+else if (Estado.Configuracao is { } configuracao)
+{
+    <ConfiguracaoDoBanco Porta="configuracao" />
+}
+
+@code {
+    [Parameter, EditorRequired] public EstadoDaJanela Estado { get; set; } = default!;
+
+    protected override void OnInitialized() => Estado.Mudou += Redesenhar;
+
+    private void Redesenhar() => _ = InvokeAsync(StateHasChanged);
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // A janela nativa só mostra o navegador depois que ele DESENHOU — antes disso a
+        // janela do WebView2 é preta (TelaBlazor.cs). Vale para qualquer estado inicial.
+        if (firstRender) Estado.AvisarDesenho();
+    }
+
+    public void Dispose() => Estado.Mudou -= Redesenhar;
+}

@@ -58,44 +58,22 @@ internal static class Program
         var escopos = provider.GetRequiredService<IServiceScopeFactory>();
         if (barras)
         {
+            // A barra do topo é HTML desde out/2026 (moldura Blazor): o corte dela não é mais medido
+            // por elemento WPF; aqui fica a NAVEGAÇÃO pelo menu e a foto da janela.
             var vm = new Clinica.Desktop.Shell.ShellViewModel("Consultório", [modulo], provider);
-            var w = new Clinica.Desktop.Shell.ShellWindow { DataContext = vm, Width = 1366, Height = 690, ShowActivated = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000 };
-            w.Show(); await Task.Delay(300);
-            var nav = (Menu)w.FindName("Categorias");
+            var w = new Clinica.Desktop.Shell.JanelaDoApp(provider, "Consultório — Clínica SemDor") { Width = 1366, Height = 690, ShowActivated = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000 };
+            w.MostrarMoldura(vm); w.Show(); await Task.Delay(300);
             var group = vm.Grupos.Single(g => g.Grupo == Clinica.Desktop.Shell.Modulos.GrupoSidebar.Atendimento);
-            var category = (MenuItem)nav.ItemContainerGenerator.ContainerFromItem(group);
-            category.IsSubmenuOpen = true; await Task.Delay(200); w.UpdateLayout();
             var entry = group.Itens.Single(i => i.Rotulo == "Prescrições");
-            var leaf = (MenuItem)category.ItemContainerGenerator.ContainerFromItem(entry);
-            leaf.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, leaf));
+            vm.NavegarCommand.Execute(entry);
             await Task.Delay(200);
             if (!entry.EstaAtivo || !group.EstaAtivo) throw new Exception("O menu não navegou para Prescrições.");
             foreach (var width in new[] { 1366, 1280, 1024, 880 })
             {
                 w.Width = width; w.UpdateLayout(); await Task.Delay(150);
-                var bar = (FrameworkElement)w.FindName("NavegacaoSuperior"); var p = bar.TranslatePoint(new Point(), w);
-                if (p.X + bar.ActualWidth > w.ActualWidth - 15) throw new Exception($"Barra cortada em {width}px");
                 await Render(w, $"barra-real-{width}.png");
             }
-            w.Width = 1366; w.UpdateLayout(); category.IsSubmenuOpen = true; await Task.Delay(150); w.UpdateLayout();
-            leaf.Focus(); await Task.Delay(100);
-            var popup = (System.Windows.Controls.Primitives.Popup)category.Template.FindName("PART_Popup", category);
-            var menu = (FrameworkElement)popup.Child; menu.UpdateLayout();
-            var bitmap = new RenderTargetBitmap((int)Math.Ceiling(menu.ActualWidth), (int)Math.Ceiling(menu.ActualHeight), 96, 96, PixelFormats.Pbgra32); bitmap.Render(menu);
-            var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
-            using (var stream = File.Create(Path.Combine(saida, "menu-real.png"))) encoder.Save(stream);
-            var combined = new DrawingVisual();
-            using (var drawing = combined.RenderOpen())
-            {
-                var content = (FrameworkElement)w.Content;
-                drawing.DrawRectangle(new VisualBrush(w), null, new Rect(0, 0, content.ActualWidth, content.ActualHeight));
-                var anchor = category.TranslatePoint(new Point(-10, category.ActualHeight), w);
-                drawing.DrawImage(bitmap, new Rect(anchor.X, anchor.Y, menu.ActualWidth, menu.ActualHeight));
-            }
-            var full = new RenderTargetBitmap((int)((FrameworkElement)w.Content).ActualWidth, (int)((FrameworkElement)w.Content).ActualHeight, 96, 96, PixelFormats.Pbgra32); full.Render(combined);
-            var fullEncoder = new PngBitmapEncoder(); fullEncoder.Frames.Add(BitmapFrame.Create(full));
-            using (var stream = File.Create(Path.Combine(saida, "barra-real-menu-aberto.png"))) fullEncoder.Save(stream);
-            category.IsSubmenuOpen = false; w.Close(); Console.WriteLine("Barra real: navegação e larguras 1366, 1280, 1024 e 880 conferidas."); return;
+            w.Close(); Console.WriteLine("Barra real: navegação e larguras 1366, 1280, 1024 e 880 conferidas."); return;
         }
         {
             foreach (var tipo in new[] { TipoDocumentoClinico.Receita, TipoDocumentoClinico.Atestado, TipoDocumentoClinico.Comparecimento, TipoDocumentoClinico.PedidoExame })

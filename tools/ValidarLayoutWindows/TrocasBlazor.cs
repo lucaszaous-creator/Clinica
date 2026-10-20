@@ -26,10 +26,10 @@ using PreviaBlazor.Sementes;
 /// WebView2, que nasce antes do navegador existir. O Chromium do Linux não tem essa janela
 /// (lá o teste é o trocas.js da prévia), e o bUnit não tem pixel nenhum.
 ///
-/// Abre o shell DE VERDADE (a ShellWindow, o módulo Financeiro, o navegador único por
-/// janela) NA TELA — a captura é da tela composta, então a janela não pode estar fora dela —
-/// e troca entre as telas Blazor, com Pacotes e Ajuda (WPF) no meio, enquanto uma linha de
-/// fundo fotografa a área de trabalho em laço. Cada foto ganha a fração de pixels escuros;
+/// Abre o app DE VERDADE (a JanelaDoApp com a moldura Blazor, os módulos Financeiro e
+/// Faturamento, o navegador único da janela) NA TELA — a captura é da tela composta, então a
+/// janela não pode estar fora dela — e troca entre as telas Blazor, com Pacotes e Ajuda no
+/// meio, enquanto uma linha de fundo fotografa a área das telas em laço. Cada foto ganha a fração de pixels escuros;
 /// foto com bloco escuro é o flash. As fotos piores e uma amostra vão para
 /// artifacts/trocas-blazor, para olhar.
 ///
@@ -106,17 +106,20 @@ static class TrocasBlazor
         });
 
         var vm = new ShellViewModel("Financeiro", modulos, sp);
-        var win = new ShellWindow
+        // A moldura é Blazor desde out/2026: a janela inteira é o navegador, e a moldura com as
+        // telas é o que ele mostra desde o primeiro desenho (sem a entrada, que aqui já passou).
+        var win = new JanelaDoApp(sp, "Financeiro — Clínica SemDor")
         {
-            DataContext = vm, ShowInTaskbar = true, Topmost = true, WindowStartupLocation = WindowStartupLocation.Manual,
+            ShowInTaskbar = true, Topmost = true, WindowStartupLocation = WindowStartupLocation.Manual,
             Left = 0, Top = 0, Width = largura, Height = altura
         };
+        win.MostrarMoldura(vm);
         passos.Add(new Passo(relogio.Elapsed.TotalMilliseconds, "(abertura do app)", "abrir"));
         win.Show(); win.Activate();
         await Task.Delay(1500);
 
-        // A área de trabalho em pixels FÍSICOS, relativa à foto da janela.
-        var camada = win.CamadaDaJanela;
+        // A área da janela em pixels FÍSICOS, relativa à foto (o navegador ocupa tudo).
+        var camada = (FrameworkElement)win.Content;
         var canto = camada.PointToScreen(new System.Windows.Point(0, 0));
         var fim = camada.PointToScreen(new System.Windows.Point(camada.ActualWidth, camada.ActualHeight));
         var recorteFinal = DRet.Intersect(new DRet((int)canto.X, (int)canto.Y, (int)(fim.X - canto.X), (int)(fim.Y - canto.Y)), janela);
@@ -131,6 +134,8 @@ static class TrocasBlazor
             // Faturamento de guias (out/2026)
             "faturamento-pendencias", "faturamento-guias", "faturamento-faturados", "faturamento-glosas",
             "faturamento-nc", "faturamento-tiss", "faturamento-relatorios", "faturamento-parametros"];
+        // Pacotes e Ajuda viraram Blazor também: continuam no meio das trocas como as telas
+        // "de fora" da lista principal (eram as WPF desta medição antes de out/2026).
         string[] wpf = [ChavesSuite.Pacotes, ChavesSuite.Ajuda];
         async Task Ir(string chave, string fase, int esperaMs)
         {
@@ -177,9 +182,9 @@ static class TrocasBlazor
             var p = passos.LastOrDefault(x => x.Ms <= f.Ms);
             if (p is not null && f.Escuro >= LimiarEscuro) escuras.Add((f, p));
         }
-        // Antes da 1ª navegação o navegador ainda NÃO EXISTE (ele nasce com a 1ª tela Blazor):
-        // o escuro ali é a janela WPF do shell se compondo, não o WebView2. Conta e mostra à
-        // parte, para não esconder nem atribuir ao lugar errado.
+        // Antes da 1ª navegação a janela acabou de nascer: o escuro ali é o NASCIMENTO do
+        // navegador da janela (uma vez por app, escondido até o primeiro desenho). Conta e
+        // mostra à parte, para não esconder nem atribuir à troca de telas.
         var daJanela = escuras.Where(e => e.Passo.Fase == "abrir" && e.Passo.Chave == "(abertura do app)").ToList();
         if (daJanela.Count > 0)
             Console.WriteLine($"BLAZOR abertura da janela WPF (antes do navegador existir): {daJanela.Count} foto(s) escura(s), até {daJanela.Max(e => e.Foto.Ms - e.Passo.Ms):0} ms depois do Show");

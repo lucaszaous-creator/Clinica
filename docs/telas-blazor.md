@@ -146,10 +146,12 @@ A primeira versão criava um `BlazorWebView` **por tela**, e a clínica mandou o
 **pretos** a cada tela aberta. A janela nativa do WebView2 nasce preta antes de o navegador
 existir dentro dela, e cor de fundo nenhuma vale nesse instante. Hoje:
 
-- `TelaBlazor` (no módulo) só **marca o lugar** da tela na área de trabalho;
-- `NavegadorDaJanela` é o navegador **único** da janela, na camada persistente do
-  `ShellWindow` (`CamadaDaJanela`), posicionado sobre a tela à vista e escondido quando a tela
-  é WPF. Ele nasce **escondido** e só aparece depois da primeira renderização (rede: 3 s);
+- `TelaBlazor` (no módulo) é só o **descritor** da tela (`ITelaDoNavegador`: o componente);
+- desde out/2026 a janela do app (`JanelaDoApp`) **é** o navegador: o conteúdo dela é UM
+  `BlazorWebView`, e a moldura (cabeçalho, menu, abas, entrada) é Razor em `Moldura/`. Ele nasce
+  **escondido** e só aparece depois da primeira renderização (rede: 3 s). Uma `TelaBlazor` posta
+  dentro de OUTRA janela WPF cria o navegador daquela janela (`NavegadorDaJanela`) — um por
+  janela, nunca um por tela;
 - `Palco` + `PalcoDeTelas` trocam as telas **dentro** dele: cada tela aberta fica montada
   (oculta), num contêiner que rola sozinho, e reativá-la dispara a releitura silenciosa
   (`SinalDeVolta`). Diálogos e notificações existem uma vez por navegador.

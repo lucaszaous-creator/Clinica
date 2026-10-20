@@ -84,6 +84,9 @@
 @import url("telas/historico-paciente.css");
 @import url("telas/atendimento.css");
 @import url("telas/enfermagem.css");
+/* A moldura dos apps e a entrada (out/2026): o que era a ShellWindow, a LoginWindow e a SetupWindow. */
+@import url("telas/moldura.css");
+@import url("telas/treinamento.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.

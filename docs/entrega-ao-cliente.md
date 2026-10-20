@@ -146,7 +146,8 @@ Até a parcela 0, Recepção, Financeiro e Gerente só subiam se o Faturamento e
 instalado na mesma máquina: liam a connection string da pasta dele. Com um app por posto
 isso era inviável — o balcão não tem faturamento.
 
-Agora **cada app tem tela de setup própria** (`Clinica.Desktop.Shell/Shell/SetupWindow`):
+Agora **cada app tem tela de setup própria** (`Clinica.Ui.Blazor/Moldura/ConfiguracaoDoBanco.razor`,
+numa `JanelaDoApp` própria — era a `SetupWindow` WPF até out/2026):
 no primeiro acesso a clínica cola a connection string (ou a URI da Neon), testa e salva.
 Salvar só libera depois de o teste passar — conexão que não abre, gravada, transforma o
 próximo erro em mistério.

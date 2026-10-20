@@ -249,8 +249,9 @@ Nenhum deles quebra o build quando é esquecido:
   dessa forma"*). O guia completo, com o passo a passo, está em **`docs/telas-blazor.md`** —
   leia ANTES de escrever a primeira linha. Em uma frase: **a tela é HTML/CSS em Razor
   (`Clinica.Ui.Blazor`), o C# dela chama os MESMOS serviços da Application, e o WPF só a
-  hospeda** (`TelaBlazor` marca o lugar; o navegador é UM por janela — `NavegadorDaJanela` +
-  `Palco`, ver o 🕰️ abaixo). O que isso exige, sempre:
+  hospeda** (`TelaBlazor` é o descritor da tela; a janela do app é UM navegador — `JanelaDoApp` +
+  `Palco`, ver o 🕰️ abaixo — e desde out/2026 a própria moldura, a entrada e o menu também são
+  Razor, em `Clinica.Ui.Blazor/Moldura`). O que isso exige, sempre:
   - 🧱 **Componentes antes de HTML solto**: `CabecalhoPagina`, `Kpi`, `Modal` (o formulário),
     `Campo`, `Aviso`, `EstadoVazio`, `FalhaDeLeitura`, `Selo`, `SeletorMes`,
     `SeletorDePaciente`, `Icone`. Tela que redesenha um deles é a segunda cópia.
@@ -301,9 +302,9 @@ Nenhum deles quebra o build quando é esquecido:
     cada tela, a clínica mandou o vídeo): ela criava um `BlazorWebView` POR TELA, e a janela
     nativa do WebView2 nasce preta antes de o navegador existir dentro dela — pintar o fundo
     em três camadas (controle WPF, `WEBVIEW2_DEFAULT_BACKGROUND_COLOR`, `index.html`) não
-    cobre esse instante. **O navegador é UM POR JANELA** (`NavegadorDaJanela`, na camada
-    persistente do `ShellWindow`), criado escondido e só mostrado depois da primeira
-    renderização; as telas trocam DENTRO dele (`Palco` + `PalcoDeTelas`), ficam montadas
+    cobre esse instante. **O navegador é UM POR JANELA** (desde out/2026 a `JanelaDoApp`
+    inteira: o conteúdo dela é UM `BlazorWebView`, e a entrada e a moldura trocam dentro dele),
+    criado escondido e só mostrado depois da primeira renderização; as telas trocam DENTRO dele (`Palco` + `PalcoDeTelas`), ficam montadas
     ocultas e cada uma rola sozinha. **Nunca crie `BlazorWebView` por tela.** Os arquivos vão
     embutidos na DLL e o Razor chama o serviço direto. **Não reintroduza HTML escrito à mão
     conversando por mensagem**; tela HTML é Razor.
@@ -332,6 +333,14 @@ Nenhum deles quebra o build quando é esquecido:
   `obrigatorio: false` e o chamador testa `is null`. Sem isso a única saída de quem não
   quer escrever é o Cancelar — e ele grava. (Checagem 39.)
 - **`--` é ilegal dentro de comentário XML** (a linha de sublinhado do estilo da casa).
+- **Contrato SÍNCRONO servido por diálogo Blazor: nunca dentro de um evento do Blazor**
+  (out/2026, `DialogoService`). Com a moldura em Blazor, o `IDialogoService` desenha a pergunta
+  em HTML e espera a resposta num laço de mensagens aninhado. Chamado no MEIO de um evento ou de
+  uma renderização do próprio Blazor, isso trava a tela para sempre: o renderizador só desenha o
+  diálogo quando o evento termina, e o evento está esperando o diálogo. Por isso o serviço cai na
+  caixa nativa quando a pilha passa pelo `Renderer` (e quando a pergunta vem de dentro de uma
+  janela WPF modal, que desabilita a principal). **Tela Blazor pergunta pelo `Dialogos`
+  assíncrono, nunca pelo `IDialogoService`.**
 
 ### 5. Perguntas que só o autor pode responder
 
@@ -415,7 +424,8 @@ Camadas clássicas, todas em `src/`:
 - **Suíte multi-exe** (`Clinica.Desktop.Shell`, `Clinica.Modulo.*`, `Clinica.Recepcao`,
   `Clinica.Financeiro`, `Clinica.Gerente`, `Clinica.Clinico`) — quatro executáveis NOVOS, ao lado do faturamento e sem
   encostar nele. O shell tem o design system, a janela genérica, o contrato de módulo (`IModuloApp`),
-  a abertura padrão (`SuiteApp`) e o login (`LoginWindow` + `SessaoUsuario`); cada módulo é uma
+  a abertura padrão (`SuiteApp`) e a janela do app com a entrada (`JanelaDoApp` + a moldura Blazor
+  em `Clinica.Ui.Blazor/Moldura` + `SessaoUsuario`); cada módulo é uma
   **biblioteca** com suas telas; cada `.exe` é uma casca que só escolhe a lista de módulos — o
   Gerente Geral carrega todos, incluindo o `Clinica.Modulo.Gerente` (BI, campanhas, acessos e a
   leitura do faturamento), que só ele carrega. O `Clinica.Clinico` (Consultório, parcela 36)

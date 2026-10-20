@@ -23,6 +23,10 @@ public sealed class AcervoTreinamento
         try{_assistidas=JsonSerializer.Deserialize<Dictionary<string,ProgressoAula>>(File.ReadAllText(_progresso))??[];}
         catch(IOException){_assistidas=[];} catch(JsonException){_assistidas=[];} catch(UnauthorizedAccessException){_assistidas=[];}
     }
+    /// <summary>A pasta de vídeos que acompanha a instalação (ou a de CLINICA_TREINAMENTO_MIDIA).</summary>
+    public string PastaDeMidia=>_midia;
+    /// <summary>A pasta onde os vídeos baixados ficam, conferidos pelo SHA-256.</summary>
+    public string PastaDeCache=>Path.Combine(_raiz,"videos");
     public ProgressoAula Progresso(string id)=>_assistidas.GetValueOrDefault(id)??new();
     public void Salvar(string id,double posicao,bool concluida)
     {
