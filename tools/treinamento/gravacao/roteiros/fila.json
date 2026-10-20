@@ -1,0 +1,18 @@
+{
+  "chave": "fila",
+  "titulo": "Agenda do dia",
+  "descricao": "Quem vem hoje, em que ponto cada um está e o que falta fazer no balcão — tudo na ordem da hora.",
+  "passos": [
+    { "titulo": "Escolha o dia", "texto": "A lista abre sempre em hoje. As setas trocam o dia e o calendário leva a qualquer data.", "alvo": "botao=Próximo dia" },
+    { "titulo": "Veja cada situação", "texto": "Os contadores mostram quantos estão pendentes, no local, em atendimento, atendidos, cancelados ou faltaram. Clique em um para ver só aqueles horários.", "alvo": "botao=No local", "acao": "clicar" },
+    { "alvo": "botao=Todos", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Respostas ao lembrete", "texto": "Aqui está quem confirmou, quem não respondeu e quem avisou que não vem. Quem não vem pede uma ligação para remarcar e liberar o horário.", "alvo": "botao=Não vêm" },
+    { "titulo": "Ache um paciente", "texto": "Digite parte do nome para encontrar o horário. Os filtros de modalidade e de profissional, ao lado, estreitam a lista.", "alvo": "campo=Buscar paciente pelo nome", "acao": "digitar", "valor": "Otávio" },
+    { "alvo": "campo=Buscar paciente pelo nome", "acao": "limpar", "ms": 1200 },
+    { "titulo": "Leia a linha do horário", "texto": "Cada linha traz a hora, o paciente, o atendimento, o convênio, quem atende e a situação. Os selos avisam o que falta: guia pendente, última sessão do pacote, termo a colher.", "alvo": "texto-exato=Lúcia Helena Carvalho" },
+    { "titulo": "Registre a chegada", "texto": "Quando o paciente chega, clique em Chegou. A linha passa para No local e quem atende já vê que ele está esperando.", "alvo": "botao-exato=Chegou" },
+    { "titulo": "Mais ações do horário", "texto": "O botão de três pontos reúne o resto: editar ou remarcar, marcar falta, cancelar e abrir a ficha do paciente.", "alvo": "botao=Mais ações de Otávio Rezende Campos", "acao": "clicar" },
+    { "acao": "tecla", "valor": "Escape", "ms": 900 },
+    { "titulo": "Marque e imprima", "texto": "Marcar atendimento abre a marcação já neste dia. Imprimir folha do dia gera o papel com todos os horários para a recepção e as salas.", "alvo": "botao=Marcar atendimento" }
+  ]
+}

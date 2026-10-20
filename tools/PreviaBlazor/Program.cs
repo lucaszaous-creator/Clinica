@@ -27,7 +27,10 @@ var conexao = new SqliteConnection("Data Source=:memory:");
 conexao.Open();
 builder.Services.AddDbContext<ClinicaDbContext>(o => o.UseSqlite(conexao));
 builder.Services.AddTelasBlazor();
-builder.Services.AddSingleton<IHostDaTela, HostDaPrevia>();
+// Por navegador (Scoped): na página da aula o hospedeiro troca a tela pela moldura daquele
+// navegador — é o que faz "Abrir a ficha" ou "Ir para o Caixa" funcionarem no vídeo.
+builder.Services.AddScoped<PreviaBlazor.AulaAtual>();
+builder.Services.AddScoped<IHostDaTela>(sp => new HostDaPrevia(sp.GetRequiredService<PreviaBlazor.AulaAtual>()));
 // A navegação real dos apps (navegacao.json), para a página da aula — as videoaulas.
 builder.Services.AddSingleton<PreviaBlazor.NavegacaoDaPrevia>();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
@@ -58,7 +61,7 @@ app.MapRazorComponents<PreviaBlazor.Componentes.App>().AddInteractiveServerRende
 app.Run();
 
 /// <summary>O hospedeiro da prévia: não há disco nem shell — cada pedido vira uma frase.</summary>
-sealed class HostDaPrevia : IHostDaTela
+sealed class HostDaPrevia(PreviaBlazor.AulaAtual aula) : IHostDaTela
 {
     public Task<string?> ExportarCsvAsync(IReadOnlyList<string> cabecalho,
         IReadOnlyList<IReadOnlyList<string>> linhas, string nomeArquivo)
@@ -78,7 +81,8 @@ sealed class HostDaPrevia : IHostDaTela
 
     public Task<bool> CopiarAsync(string texto) => Task.FromResult(true);
 
-    public Task<bool> NavegarAsync(string chave) => Task.FromResult(false);
+    // Fora da aula não há para onde ir; dentro dela, a moldura troca a tela como no app.
+    public Task<bool> NavegarAsync(string chave) => Task.FromResult(aula.Navegar(chave));
 
     public Task<bool> AbrirEnderecoAsync(string url) => Task.FromResult(false);
 

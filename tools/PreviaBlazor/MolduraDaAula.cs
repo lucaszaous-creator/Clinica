@@ -96,6 +96,9 @@ public sealed class MolduraDaAula : IMolduraDoApp
     // ----- navegação -----
     public void Navegar(string chave) => Abrir(chave);
 
+    /// <summary>A chave existe neste app (como no shell: chave desconhecida não navega).</summary>
+    public bool Conhece(string chave) => _app.ItemDe(chave) is not null;
+
     public void SelecionarAba(int indice)
     {
         if (_pai is null || indice < 0 || indice >= _pai.Abas.Length) return;

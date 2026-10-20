@@ -6,6 +6,7 @@
 @inject PreviaBlazor.NavegacaoDaPrevia Navegacao
 @inject PedidoDaTelaDoPaciente PedidoDoPaciente
 @inject IServiceProvider Servicos
+@inject PreviaBlazor.AulaAtual Aula
 
 @if (_moldura is null)
 {
@@ -48,5 +49,6 @@ else
         }
         var sessao = Clinica.Domain.Entities.SessaoUsuario.Atual;
         _moldura = new PreviaBlazor.MolduraDaAula(app, Chave, sessao.Autenticado ? sessao.Rotulo : "Ana · Recepção");
+        Aula.Moldura = _moldura;
     }
 }
