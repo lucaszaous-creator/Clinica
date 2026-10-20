@@ -153,65 +153,97 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # O motion design na AWS Lambda: todas as aulas gravadas montadas em paralelo, e um
-  # catálogo só com os vídeos pelo SHA-256 — o que a release publica e o app baixa.
+  # O motion design (Remotion) em 20 máquinas do GitHub, uma por fatia da gravação. A AWS
+  # Lambda (renderizar-lambda.js) fica pronta para quando a cota da conta passar de 10
+  # execuções simultâneas — com 10, cada aula pede ~20 e elas sairiam uma de cada vez.
+  # reaproveitar.txt guarda o número de uma rodada anterior: a fatia i monta a parte-i dela
+  # (as gravações vivem 7 dias) junto com a parte-i desta, e a regravada agora vence a antiga.
   montar:
     needs: gravar
     if: always()
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 180
     permissions:
       contents: read
       actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        fatia: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      # reaproveitar.txt guarda o número de uma rodada anterior: as gravações dela (que
-      # vivem 7 dias) entram na montagem, e só o que regravar.txt pede é gravado de novo.
       - name: Rodada a reaproveitar
         id: antiga
         run: echo "run=$(grep -v '^#' tools/treinamento/gravacao/reaproveitar.txt 2>/dev/null | tr -dc '0-9')" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         if: steps.antiga.outputs.run != ''
+        continue-on-error: true
         with:
-          pattern: parte-*
-          path: partes-antigas
+          name: parte-${{ matrix.fatia }}
+          path: partes/antiga
           run-id: ${{ steps.antiga.outputs.run }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
-          pattern: parte-*
-          path: partes
-      - name: Juntar as gravações
+          name: parte-${{ matrix.fatia }}
+          path: partes/nova
+      - name: Juntar as gravações da fatia
         run: |
           mkdir -p aulas
           node -e "
           const fs=require('fs'),p=require('path');const r=new Map();
-          // Primeiro a rodada antiga, depois esta: a aula regravada agora vence a de antes.
-          for(const raiz of ['partes-antigas','partes']) for(const d of fs.existsSync(raiz)?fs.readdirSync(raiz):[]){const dir=p.join(raiz,d);
-            for(const f of fs.readdirSync(dir)){if(f.endsWith('.linha.json')||f.endsWith('.bruto.mp4'))fs.renameSync(p.join(dir,f),p.join('aulas',f));
-              if(f==='resumo-gravacao.json')for(const x of JSON.parse(fs.readFileSync(p.join(dir,f),'utf8')))r.set(x.chave,x);}}
+          const regravar=fs.readFileSync('tools/treinamento/gravacao/regravar.txt','utf8').split(/\r?\n/).map(s=>s.replace(/#.*/,'').trim()).filter(Boolean);
+          for(const raiz of ['partes/antiga','partes/nova']){if(!fs.existsSync(raiz))continue;
+            for(const f of fs.readdirSync(raiz)){if(f.endsWith('.linha.json')||f.endsWith('.bruto.mp4'))fs.renameSync(p.join(raiz,f),p.join('aulas',f));
+              if(f==='resumo-gravacao.json')for(const x of JSON.parse(fs.readFileSync(p.join(raiz,f),'utf8'))){
+                // O erro antigo de uma aula pedida em regravar.txt não conta: ela foi gravada de novo (talvez noutra fatia).
+                if(raiz==='partes/antiga'&&x.erro&&regravar.includes(x.chave))continue; r.set(x.chave,x);}}}
           const lista=[...r.values()];
           fs.writeFileSync('aulas/resumo-gravacao.json',JSON.stringify(lista,null,2));
           console.log(lista.filter(x=>!x.erro).length+' gravada(s), '+lista.filter(x=>x.erro).length+' com erro');"
       - name: Dependências
         working-directory: tools/treinamento/gravacao
-        run: npm install --no-audit --no-fund --silent
-      - name: Montar na AWS Lambda
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-inter > /dev/null
+          npm install --no-audit --no-fund --silent
+          npx playwright install-deps chromium > /dev/null
+      - name: Montar o motion design
         working-directory: tools/treinamento/gravacao
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.REMOTION_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTION_AWS_SECRET_ACCESS_KEY }}
-          REMOTION_AWS_ACCESS_KEY_ID: ${{ secrets.REMOTION_AWS_ACCESS_KEY_ID }}
-          REMOTION_AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTION_AWS_SECRET_ACCESS_KEY }}
-          REMOTION_REGIAO: us-east-2
-        run: node renderizar-lambda.js "$GITHUB_WORKSPACE/aulas" || echo "::warning::houve aula com erro na montagem (está no resumo)"
+        run: node renderizar.js "$GITHUB_WORKSPACE/aulas" || echo "::warning::houve aula com erro na montagem (está no resumo)"
+      - name: Guardar a fatia montada
+        run: |
+          mkdir -p montada
+          cp aulas/catalogo.json aulas/resumo.json montada/ 2>/dev/null || true
+          for f in aulas/*.mp4; do case "$f" in *.bruto.mp4) ;; *) cp "$f" montada/ ;; esac; done 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: montada-${{ matrix.fatia }}
+          path: montada
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Um catálogo só, com os vídeos pelo SHA-256 — o que a release publica e o app baixa.
+  juntar:
+    needs: montar
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: montada-*
+          path: partes-montadas
       - name: Catálogo e vídeos pelo SHA-256
         run: |
-          mkdir -p partes-montadas/tudo videoaulas
-          cp aulas/catalogo.json aulas/resumo.json aulas/*.mp4 partes-montadas/tudo/ 2>/dev/null || true
+          mkdir -p partes-montadas
           node tools/treinamento/gravacao/juntar.js partes-montadas videoaulas
       - uses: actions/upload-artifact@v4
         if: always()
