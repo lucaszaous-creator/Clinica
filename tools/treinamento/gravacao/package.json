@@ -2,8 +2,13 @@
   "name": "clinica-videoaulas",
   "version": "1.0.0",
   "private": true,
-  "description": "Grava as videoaulas das telas Blazor na prévia (tools/PreviaBlazor), no GitHub Actions.",
+  "description": "Grava as videoaulas das telas Blazor na prévia (tools/PreviaBlazor) e monta o motion design com o Remotion, no GitHub Actions.",
   "dependencies": {
-    "playwright": "1.48.2"
+    "@remotion/bundler": "4.0.529",
+    "@remotion/renderer": "4.0.529",
+    "playwright": "1.48.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.529"
   }
 }

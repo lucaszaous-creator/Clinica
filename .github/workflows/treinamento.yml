@@ -99,7 +99,7 @@ jobs:
           name: navegacao
           path: navegacao
       - name: Preparar a gravação
-        run: bash tools/treinamento/gravacao/preparar.sh navegacao/navegacao.json
+        run: bash tools/treinamento/gravacao/preparar.sh navegacao/navegacao.json subir
       - name: Inventário das telas
         working-directory: tools/treinamento/gravacao
         run: node inventario.js http://127.0.0.1:5199 "$GITHUB_WORKSPACE/navegacao/navegacao.json" "$GITHUB_WORKSPACE/inventario"
@@ -114,7 +114,7 @@ jobs:
   gravar:
     needs: navegacao
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 330
     strategy:
       fail-fast: false
       matrix:
@@ -138,15 +138,17 @@ jobs:
           path: navegacao
       - name: Preparar a gravação
         run: bash tools/treinamento/gravacao/preparar.sh navegacao/navegacao.json
-      - name: Gravar as aulas do app
+      # A tela real: uma prévia nova por aula, e cada função executada de verdade.
+      - name: Gravar a tela das aulas do app
         working-directory: tools/treinamento/gravacao
         env:
           APPS: ${{ matrix.app }}
           AULAS: ${{ github.event.inputs.aulas }}
-        run: node gravar.js http://127.0.0.1:5199 "$GITHUB_WORKSPACE/navegacao/navegacao.json" "$GITHUB_WORKSPACE/aulas"
-      - name: Log da prévia
-        if: always()
-        run: tail -n 150 previa.log || true
+        run: node gravar.js http://127.0.0.1:5199 "$GITHUB_WORKSPACE/navegacao/navegacao.json" "$GITHUB_WORKSPACE/aulas" || echo "::warning::houve aula com erro na gravação (está no resumo)"
+      # O motion design por cima da tela gravada (Remotion).
+      - name: Montar o motion design
+        working-directory: tools/treinamento/gravacao
+        run: node renderizar.js "$GITHUB_WORKSPACE/aulas"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

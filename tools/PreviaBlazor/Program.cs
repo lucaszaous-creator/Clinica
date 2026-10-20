@@ -31,6 +31,10 @@ builder.Services.AddTelasBlazor();
 // navegador — é o que faz "Abrir a ficha" ou "Ir para o Caixa" funcionarem no vídeo.
 builder.Services.AddScoped<PreviaBlazor.AulaAtual>();
 builder.Services.AddScoped<IHostDaTela>(sp => new HostDaPrevia(sp.GetRequiredService<PreviaBlazor.AulaAtual>()));
+// As pontes que, no app, abrem outra tela (PontesDaAula.cs): na aula elas navegam.
+builder.Services.AddScoped<IPostoDoConsultorio, PreviaBlazor.PostoDaAula>();
+builder.Services.AddScoped<IJanelasDaAgenda, PreviaBlazor.JanelasDaAgendaDaAula>();
+builder.Services.AddScoped<IMarcacaoDeHorario, PreviaBlazor.MarcacaoDaAula>();
 // A navegação real dos apps (navegacao.json), para a página da aula — as videoaulas.
 builder.Services.AddSingleton<PreviaBlazor.NavegacaoDaPrevia>();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();

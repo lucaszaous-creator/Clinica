@@ -6,7 +6,7 @@
   "passos": [
     { "titulo": "O paciente em atendimento", "texto": "O crachá mostra idade, convênio, desde quando ele se trata e quantas sessões já fez. Ele fica no topo em todas as seções do prontuário.", "alvo": "texto-exato=Ana Beatriz Souza" },
     { "titulo": "Os avisos do balcão", "texto": "Contas em aberto, alergias e pendências aparecem aqui, logo acima da escrita — o que precisa ser resolvido com o paciente presente.", "alvo": "texto=conta(s) em aberto" },
-    { "titulo": "Escreva a evolução", "texto": "Escreva a sessão como no papel. Este texto entra no prontuário, na ficha impressa e na busca.", "alvo": "placeholder=Escreva a sessão", "acao": "digitar", "valor": "Refere melhora da dor lombar após a última sessão. Mantida a conduta." },
+    { "titulo": "Escreva a evolução", "texto": "Escreva a sessão como no papel. Este texto entra no prontuário, na ficha impressa e na busca.", "alvo": "campo=Evolução da sessão", "acao": "digitar", "valor": "Refere melhora da dor lombar após a última sessão. Mantida a conduta." },
     { "titulo": "Modelos e cópia", "texto": "Usar modelo traz um roteiro pronto da clínica; Copiar última evolução repete a sessão anterior para você ajustar.", "alvo": "botao=Usar modelo" },
     { "titulo": "Mapa corporal", "texto": "Marque no corpo os pontos tratados. O desenho vai junto da sessão e sai na ficha impressa.", "alvo": "botao=Mapa corporal" },
     { "titulo": "Campos complementares", "texto": "Queixa, exame, hipótese, conduta, plano e encaminhamento ficam a um clique, quando a sessão pede mais detalhe.", "alvo": "texto=Campos complementares" },

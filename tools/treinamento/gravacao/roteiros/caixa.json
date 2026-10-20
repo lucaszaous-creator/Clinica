@@ -8,7 +8,7 @@
     { "titulo": "Lance uma entrada ou saída", "texto": "Novo lançamento registra um recebimento ou uma despesa: valor, data, categoria e forma de pagamento. Pode entrar como previsto ou já realizado.", "alvo": "botao=Novo lançamento", "acao": "clicar" },
     { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
     { "titulo": "Cobre por Pix", "texto": "Gera o código Pix com o valor para o paciente pagar na hora. Quando o pagamento cai, o lançamento é registrado.", "alvo": "botao=Cobrar por Pix" },
-    { "titulo": "Ache um lançamento", "texto": "Busque pela descrição ou categoria e filtre pela situação: previsto, realizado ou cancelado.", "alvo": "campo=Buscar lançamentos", "acao": "digitar", "valor": "Repasse" },
+    { "titulo": "Ache um lançamento", "texto": "Busque pela descrição ou categoria e filtre pela situação: previsto, realizado ou cancelado.", "alvo": "placeholder=Buscar lançamentos", "acao": "digitar", "valor": "Repasse" },
     { "titulo": "Realize o que aconteceu", "texto": "Previsto vira realizado quando o dinheiro de fato entra ou sai. Clique em Realizar e confirme a data e a forma de pagamento.", "alvo": "botao=Realizar" },
     { "titulo": "Recibo e cancelamento", "texto": "Na linha você emite o recibo de um recebimento, cobra o valor por Pix ou cancela um lançamento errado — o cancelado continua na lista, marcado.", "alvo": "botao=Emitir recibo" },
     { "titulo": "Leve para a planilha", "texto": "Exportar CSV gera o arquivo do mês para abrir no Excel ou mandar ao contador.", "alvo": "botao=Exportar CSV" }
