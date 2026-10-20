@@ -83,7 +83,22 @@ public sealed class JanelaDoApp : Window
     private void Liberar()
     {
         _rede.Stop();
-        if (_visor.Visibility != Visibility.Visible) _visor.Visibility = Visibility.Visible;
+        if (_visor.Visibility == Visibility.Visible) return;
+        _visor.Visibility = Visibility.Visible;
+        // ⚠️ Mostrar não basta (out/2026, a clínica filmou: a entrada só aparecia depois de
+        // MAXIMIZAR a janela, que já abre maximizada). O WebView2 nasce escondido e, ao ficar
+        // visível, a janela nativa dele só repinta quando os LIMITES mudam — o que acontece
+        // num redimensionamento e não na troca de visibilidade. A cutucada muda o tamanho do
+        // visor em 1 px e volta: o HwndHost reposiciona a janela nativa duas vezes e o
+        // navegador desenha a página que já estava pronta.
+        Dispatcher.BeginInvoke(Cutucar, DispatcherPriority.Loaded);
+    }
+
+    private void Cutucar()
+    {
+        _visor.Margin = new Thickness(0, 0, 0, 1);
+        _visor.UpdateLayout();
+        _visor.Margin = new Thickness(0);
     }
 
     /// <summary>
