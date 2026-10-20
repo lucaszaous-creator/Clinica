@@ -15,7 +15,7 @@
   permissão do TIPO no combo → quem assina → texto obrigatório → alergia → endereço da receita
   (antes de qualquer número) → conferência legal → emitir → PDF → "enviar agora ao paciente?".
 
-  O que continua WPF é só a janela de envio (IEnvioDoDocumentoAoPaciente — a MESMA de todas as
+  O envio ao fim da emissão é o EnvioAoPacienteForm (o MESMO de todas as
   portas). A busca do CID é a BuscaCidForm, a mesma do atendimento.
 *@
 @namespace Clinica.Ui.Blazor.Formularios
@@ -315,6 +315,13 @@
     <BuscaCidForm TermoInicial="@_r.Cid" AoEscolher="EscolherCid" AoFechar="() => _buscandoCid = false" />
 }
 
+@if (_envio is { } envio)
+{
+    @* "Enviar agora ao paciente?" — o MESMO EnvioAoPacienteForm da central e do atendimento (out/2026: era a EnvioAoPacienteWindow WPF). *@
+    <EnvioAoPacienteForm DocumentoId="_envioDocumentoId" Rotulo="@_envioRotulo" AposEmitir="true"
+                         AoFechar="() => envio.TrySetResult(null)" AoConcluir="r => envio.TrySetResult(r)" />
+}
+
 @code {
     /// <summary>O paciente do papel. Nulo = a tela não tem paciente (os Exames) e a folha pergunta quem.</summary>
     [Parameter] public int? PacienteId { get; set; }
@@ -346,8 +353,10 @@
 
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
 
-    private IEnvioDoDocumentoAoPaciente Envio
-        => Servicos.GetService<IEnvioDoDocumentoAoPaciente>() ?? EnvioDoDocumentoAoPacienteIndisponivel.Instancia;
+    /// <summary>A pergunta "Enviar agora ao paciente?" em aberto (o EnvioAoPacienteForm por cima da folha).</summary>
+    private TaskCompletionSource<ResultadoDoAto?>? _envio;
+    private int _envioDocumentoId;
+    private string? _envioRotulo;
 
     private RascunhoDeDocumento? _r;
     private string? _recusa;
@@ -625,8 +634,14 @@
     {
         var podeMexer = SessaoUsuario.Atual.Pode(CentralDocumentosService.AcessoParaEmitir(emitido.Tipo));
         if (!EmissaoDeDocumentoNaTela.OferecerEnvio(emitido.Tipo, emitido.AssinadoEletronicamente, emitido.Cancelado, podeMexer)) return;
-        var r = await Envio.PerguntarAposEmitirAsync(DocumentoEmitido.De(emitido, TipoDocumentoInfo.Rotular(emitido.Tipo), Hoje));
-        if (r.Silencioso || string.IsNullOrWhiteSpace(r.Frase)) return;
+        _envioDocumentoId = emitido.Id;
+        _envioRotulo = $"{TipoDocumentoInfo.Rotular(emitido.Tipo)} {emitido.Numero}";
+        _envio = new TaskCompletionSource<ResultadoDoAto?>();
+        StateHasChanged();
+        var r = await _envio.Task;
+        _envio = null;
+        StateHasChanged();
+        if (r is null || r.Silencioso || string.IsNullOrWhiteSpace(r.Frase)) return;
         await Dialogos.AvisoAsync("Enviar ao paciente", r.Frase);
     }
 

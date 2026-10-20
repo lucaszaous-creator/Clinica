@@ -10,11 +10,9 @@ namespace Clinica.Tests;
 /// "Enviar ao paciente" em TODAS as portas onde um documento é emitido ou recuperado (out/2026,
 /// pedido da direção), com os dois canais e o e-mail primeiro — e por UMA definição só.
 ///
-/// Desde out/2026 são DOIS desenhos da mesma pergunta, e os dois leem as MESMAS opções de
-/// <see cref="DestinosDoEnvio"/>: as portas Blazor (a central de Documentos e o "já saiu hoje"
-/// do atendimento) abrem o <c>EnvioAoPacienteForm</c>; as portas que ainda são WPF (a aba
-/// Documentos da ficha do balcão e o fim da emissão na janela de documento) passam pelo ponto
-/// único <c>AcoesDoDocumento.EnviarAsync</c>, que abre a <c>EnvioAoPacienteWindow</c>. O que se
+/// Desde out/2026 é UM desenho só, e ele lê as opções de <see cref="DestinosDoEnvio"/>: toda
+/// porta (a central de Documentos, o "já saiu hoje" do atendimento e o fim da emissão no
+/// <c>DocumentoForm</c>) abre o <c>EnvioAoPacienteForm</c> Blazor. O que se
 /// prova aqui é o CONTRATO de cada porta; as opções (e-mail primeiro e marcado, WhatsApp com o
 /// custo) são provadas em <c>EnvioAoPacienteTests</c>. Porta nova que não passar pelo ponto único fica de fora da
 /// lista abaixo e não ganha os dois canais: é por isso que a lista é escrita aqui, à vista.
@@ -35,10 +33,8 @@ public sealed class PortasDoEnvioAoPacienteTests
     [InlineData("src/Clinica.Ui.Blazor/Telas/Recepcao/DocumentosDaRecepcao.razor", "<EnvioAoPacienteForm DocumentoId=")]
     // O "já saiu hoje" do atendimento.
     [InlineData("src/Clinica.Ui.Blazor/Componentes/SecoesDoPaciente/SecaoAtendimento.razor", "<EnvioAoPacienteForm DocumentoId=")]
-    // O fim da emissão: "Enviar agora ao paciente?" — a folha Blazor pergunta pela ponte, e a
-    // ponte WPF abre a MESMA janela, com a pergunta de quem acabou de emitir.
-    [InlineData("src/Clinica.Ui.Blazor/Formularios/Documentos/DocumentoForm.razor", "Envio.PerguntarAposEmitirAsync(")]
-    [InlineData("src/Clinica.Desktop.Blazor/EnvioDoDocumentoAoPacienteWpf.cs", "AcoesDoDocumento.EnviarAsync(doc, escopos, aposEmitir: true)")]
+    // O fim da emissão: "Enviar agora ao paciente?" — a folha abre o MESMO formulário.
+    [InlineData("src/Clinica.Ui.Blazor/Formularios/Documentos/DocumentoForm.razor", "<EnvioAoPacienteForm DocumentoId=")]
     public void Cada_porta_passa_pelo_ponto_unico_do_envio(string arquivo, string chamada)
         => Ler(arquivo).Should().Contain(chamada, $"{arquivo} precisa oferecer o envio pela janela única (e-mail e WhatsApp)");
 
@@ -70,22 +66,6 @@ public sealed class PortasDoEnvioAoPacienteTests
         form.Should().Contain("d.Opcoes").And.Contain("destinos.Padrao")
             .And.Contain("case CanalDeEnvio.Email:").And.Contain("case CanalDeEnvio.WhatsAppPeloCrm:")
             .And.Contain("EnvioAoPacienteService.PodeEnviar(").And.Contain("CentralDocumentosService.AcessoParaEmitir(");
-    }
-
-    [Fact]
-    public void O_ponto_unico_abre_a_janela_com_os_dois_canais_a_partir_das_opcoes_da_Application()
-    {
-        var acoes = Ler("src/Clinica.Desktop.Shell/Componentes/AcoesDoDocumento.cs");
-        acoes.Should().Contain("EnvioAoPacienteWindow.Perguntar(destinos");
-        acoes.Should().Contain("case CanalDeEnvio.Email:").And.Contain("case CanalDeEnvio.WhatsAppPeloCrm:");
-
-        var janela = Ler("src/Clinica.Desktop.Shell/Componentes/EnvioAoPacienteWindow.xaml.cs");
-        janela.Should().Contain("destinos.Opcoes").And.Contain("destinos.Padrao")
-            .And.Contain("CanalDeEnvio.Email").And.Contain("CanalDeEnvio.WhatsAppPeloCrm");
-        // E-mail é a PRIMEIRA opção desenhada na janela.
-        var xaml = Ler("src/Clinica.Desktop.Shell/Componentes/EnvioAoPacienteWindow.xaml");
-        xaml.IndexOf("x:Name=\"OpEmail\"", StringComparison.Ordinal).Should()
-            .BeLessThan(xaml.IndexOf("x:Name=\"OpCrm\"", StringComparison.Ordinal));
     }
 
     [Fact]

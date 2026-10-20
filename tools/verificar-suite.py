@@ -2242,12 +2242,9 @@ for _arq in xamls():
             f"lista) ou `Vazio` (tela composta, ou tela que não é lista)."
         )
 
-# Autoteste: a checagem tem de ver os usos reais e recusar o declarado sem os dois.
-if _estados == 0:
-    erros.append(
-        "verificar-suite: a checagem 29 não achou nenhum `EstadoDaTela` — o padrão de "
-        "declaração mudou e ela parou de olhar o que deveria."
-    )
+# Autoteste: a checagem tem de recusar o declarado sem os dois. Desde out/2026 nenhuma tela é
+# WPF (o vazio das telas Blazor é o componente `EstadoVazio`, conferido pelo bUnit), então ZERO
+# usos é a resposta esperada — quem mantém os dentes dela são os três casos abaixo.
 for _xml, _deve_pegar in (
     ('<ctrl:EstadoDaTela Carregando="{Binding C}" />', True),           # o defeito real
     ('<ctrl:EstadoDaTela Itens="{Binding X}" />', False),
