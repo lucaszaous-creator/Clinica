@@ -316,17 +316,9 @@ static class Program
             { Forma = FormaPagamento.CartaoCredito, Adquirente = "Maquininha", Bandeira = "Visa", Parcelas = "3" };
         var receberJanela = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(receber);
         await ConferirJanela(receberJanela, "receber-cartao", [480, 600]); receberJanela.Close();
-        var materiaisVm = new MateriaisProcedimentoViewModel([new MaterialProcedimentoLinha { ItemId = item.Id, Nome = "Material de procedimento com apresentação e nome compridos", Saldo = "Disponível: 10,125 un" }]);
-        await materiaisVm.ConfirmarCommand.ExecuteAsync(null);
-        if (materiaisVm.Pedido != null || string.IsNullOrWhiteSpace(materiaisVm.Erro)) throw new Exception("Consumo vazio passou sem declaração.");
-        materiaisVm.Itens[0].Quantidade = "1,125";
-        materiaisVm.Itens[0].Lote = "L-2026";
-        materiaisVm.Busca = "não encontrado";
-        await materiaisVm.ConfirmarCommand.ExecuteAsync(null);
-        if (materiaisVm.Pedido?.Materiais.Single().Quantidade != 1.125m) throw new Exception("Filtro apagou material preenchido.");
-        materiaisVm.Busca = null;
-        var materiaisJanela = new MateriaisProcedimentoWindow(materiaisVm);
-        await ConferirJanela(materiaisJanela, "materiais-procedimento", [550, 700]); materiaisJanela.Close();
+        // A janela WPF de materiais do procedimento saiu em out/2026 (código morto: o registro é o
+        // MateriaisAtendimentoForm Blazor, que o TelasBlazorAbremTests abre e clica). A REGRA da
+        // quantidade fracionada continua conferida logo abaixo, pela leitura que as duas usam.
         var culturaAnterior = System.Globalization.CultureInfo.CurrentCulture;
         try
         {

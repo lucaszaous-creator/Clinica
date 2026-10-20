@@ -1,0 +1,165 @@
+@*
+  O ORÇAMENTO LIVRE do paciente (parcela 24; Blazor desde out/2026 — era a OrcamentoWindow /
+  OrcamentoViewModel WPF da Recepção, aberta pela ponte IDocumentosDaRecepcao). Plano de
+  tratamento, sessões avulsas, o combinado que ainda não virou pacote no catálogo: linhas
+  livres, com o total CALCULADO (nunca digitado).
+
+  As regras do serviço não se repetem aqui: valores GRAVADOS na emissão, numeração por ano e
+  tipo, e cancelamento com motivo (DocumentoFinanceiroService). O que a tela AFIRMA — o total
+  de cada linha, o total geral e o que recusa — mora em OrcamentoLivreNaTela (Application, com
+  teste). Depois de emitido, falha de impressão NÃO é falha de emissão: a frase diz o número,
+  senão alguém emitiria de novo e ficaria com dois números para a mesma proposta.
+
+  Ao sair do WPF ele deixou de ser "da Recepção": a central de Documentos é a MESMA nos três
+  apps, e quem decide se a pessoa emite é o bit (EditarFinanceiro OU VenderPacote — a UNIÃO das
+  portas, a regra da parcela 69), não o executável.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Orçamento" Largura="largo" AoFechar="AoFechar" Subtitulo="@Paciente">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Para quem" Classe="largo" Dica="Nasce com o nome do paciente. Troque se quem paga for outro (pai, empresa, plano).">
+                <input class="campo" @bind="_destinatario" @bind:event="oninput" maxlength="120" />
+            </Campo>
+            <Campo Rotulo="CPF/CNPJ (opcional)">
+                <input class="campo" @bind="_documento" maxlength="20" />
+            </Campo>
+            <Campo Rotulo="Data"><input class="campo" type="date" @bind="_data" /></Campo>
+            <Campo Rotulo="Válido até"><input class="campo" type="date" @bind="_validoAte" /></Campo>
+            <Campo Rotulo="Título (opcional)" Classe="largo"><input class="campo" @bind="_titulo" maxlength="120" /></Campo>
+        </div>
+
+        <div class="orc-livre-itens">
+            <div class="acp-topo">
+                <h3>O que está sendo orçado</h3>
+                <button type="button" class="botao mini" @onclick="AdicionarLinha"><Icone Nome="mais" />Adicionar linha</button>
+            </div>
+            <div class="tabela-rolagem"><table class="lista">
+                <thead><tr><th>Descrição</th><th class="direita">Qtd.</th><th class="direita">Valor unit.</th><th class="direita">Total</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var l in _linhas)
+                    {
+                        <tr @key="l">
+                            <td><input class="campo" @bind="l.Descricao" @bind:event="oninput" maxlength="160" aria-label="Descrição" /></td>
+                            <td class="direita"><input class="campo valor orc-livre-qtd" @bind="l.Quantidade" @bind:event="oninput" maxlength="6" inputmode="decimal" aria-label="Quantidade" /></td>
+                            <td class="direita"><input class="campo valor orc-livre-valor" @bind="l.ValorUnitario" @bind:event="oninput" maxlength="14" inputmode="decimal" placeholder="0,00" aria-label="Valor unitário" /></td>
+                            <td class="direita nao-quebra">@OrcamentoLivreNaTela.TotalDaLinha(l)</td>
+                            <td class="direita"><button type="button" class="botao mini icone contorno-perigo" title="Remover linha" aria-label="Remover linha" @onclick="() => RemoverLinha(l)"><Icone Nome="lixo" /></button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table></div>
+        </div>
+
+        <div class="campos">
+            <Campo Rotulo="Observações (opcional)" Classe="largo"
+                   Dica="O orçamento é numerado e os valores ficam gravados na emissão — a segunda via sai idêntica à que o paciente levou. Não se apaga: cancela-se com motivo e emite-se outro.">
+                <textarea class="campo" rows="3" @bind="_observacoes" maxlength="600"></textarea>
+            </Campo>
+        </div>
+
+        <p class="orc-livre-total"><span class="secundario">Total do orçamento</span> <strong>@OrcamentoLivreNaTela.TotalGeral(_linhas)</strong></p>
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" disabled="@(_emitindo || !PodeEmitir)" @onclick="EmitirAsync"
+                title="@(PodeEmitir ? null : "Seu acesso não permite emitir orçamento.")">
+            <Icone Nome="documento" />@(_emitindo ? "Emitindo…" : "Emitir e imprimir")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter, EditorRequired] public string Paciente { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Emitido (o número). A impressão pode ter falhado — a frase já foi dita.</summary>
+    [Parameter] public EventCallback<string> AoConcluir { get; set; }
+
+    /// <summary>A UNIÃO dos bits das portas: a central exige EditarFinanceiro, a tela de Pacotes chega com VenderPacote.</summary>
+    private const Permissao QuemOrca = Permissao.EditarFinanceiro | Permissao.VenderPacote;
+
+    private readonly List<LinhaDoOrcamentoLivre> _linhas = [new()];
+    private string? _destinatario, _documento, _titulo, _observacoes, _erro;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _validoAte = DateOnly.FromDateTime(DateTime.Today.AddDays(OrcamentoLivreNaTela.DiasDeValidade));
+    private bool _emitindo;
+
+    private static bool PodeEmitir => PodeAlgum(QuemOrca);
+
+    protected override void OnInitialized() => _destinatario = Paciente;
+
+    private void AdicionarLinha() => _linhas.Add(new LinhaDoOrcamentoLivre());
+
+    private void RemoverLinha(LinhaDoOrcamentoLivre l)
+    {
+        _linhas.Remove(l);
+        // Nunca deixa a tela sem nenhuma linha: um formulário vazio não sugere o que fazer.
+        if (_linhas.Count == 0) _linhas.Add(new LinhaDoOrcamentoLivre());
+    }
+
+    private async Task EmitirAsync()
+    {
+        if (_emitindo) return;
+        _erro = null;
+        if (!ExigirAlgum(QuemOrca, "emitir orçamento")) return;
+        var (itens, erro) = OrcamentoLivreNaTela.Montar(_linhas, _data, _validoAte);
+        if (erro is not null) { _erro = erro; return; }
+
+        _emitindo = true;
+        try
+        {
+            DocumentoFinanceiro emitido;
+            using (var escopo = Escopo())
+            {
+                emitido = await escopo.ServiceProvider.GetRequiredService<DocumentoFinanceiroService>().EmitirAsync(new DocumentoFinanceiro
+                {
+                    Tipo = TipoDocumentoFinanceiro.Orcamento,
+                    PacienteId = PacienteId,
+                    Destinatario = string.IsNullOrWhiteSpace(_destinatario) ? Paciente : _destinatario.Trim(),
+                    DocumentoDestinatario = string.IsNullOrWhiteSpace(_documento) ? null : _documento.Trim(),
+                    Data = _data,
+                    ValidoAte = _validoAte,
+                    Titulo = string.IsNullOrWhiteSpace(_titulo) ? null : _titulo.Trim(),
+                    Observacoes = string.IsNullOrWhiteSpace(_observacoes) ? null : _observacoes.Trim(),
+                    Itens = itens.ToList()
+                }, Operador);
+            }
+
+            // O documento JÁ está emitido: daqui para a frente a falha é de impressão.
+            await ImprimirAsync(emitido);
+            await AoConcluir.InvokeAsync(emitido.Numero);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — orçamento livre não pôde ser emitido", ex);
+            _erro = ex.Message;
+        }
+        finally { _emitindo = false; }
+    }
+
+    private async Task ImprimirAsync(DocumentoFinanceiro emitido)
+    {
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                pdf = await sp.GetRequiredService<DocumentosFinanceirosPdfService>()
+                    .GerarAsync(emitido.Id, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            }
+            var erro = await Host.SalvarEAbrirAsync(pdf, $"Orcamento-{emitido.Numero.Replace('/', '-')}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro($"{erro} O orçamento {emitido.Numero} está emitido.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — orçamento livre não pôde ser impresso", ex);
+            // ESTÁ emitido e numerado: "falhou" sozinho faria a pessoa emitir outro.
+            Notificacoes.Erro($"O orçamento {emitido.Numero} está emitido, mas o PDF não pôde ser gerado: {ex.Message}");
+        }
+    }
+}

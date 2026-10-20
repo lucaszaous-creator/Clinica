@@ -201,6 +201,8 @@ continua assim.
 | Faturamento | As duas janelas da abertura (aviso de pendências e rodada bloqueante), WPF de propósito: travam o app antes de a área de trabalho existir |
 | Recepção | 16 arquivos XAML. Vários (agendamento, bloqueio, lista de espera, próximas vagas, autorização) já têm o formulário Blazor equivalente e podem ser só código morto, a conferir um a um. A tela de verdade é a **ficha do balcão** (`FichaBalcaoView`) com as quatro abas, que pode reaproveitar a aba administrativa Blazor desta PR |
 | Shell | A moldura (janela, menu, login, configuração do banco, troca de senha, treinamento) é Blazor (§2.3). Restam os componentes WPF das janelas: parte é da área congelada, parte serve às janelas da §2.2 e sai com elas |
+| Recepção | **Nada** (ver §5): a ficha do balcão virou a tela Blazor `FichaDoBalcao`, as janelas da agenda e o orçamento saíram, e o código morto foi apagado. Sobram só as pontes de navegação e as janelas do shell que outras frentes convertem (cadastro, cobrança, escolha de convênio) |
+| Shell | 39 componentes WPF; parte é da área congelada, parte serve às janelas da §2.2 e sai com elas |
 
 ---
 
@@ -221,6 +223,102 @@ Mesmo ritmo da PR 284: **uma PR por parte, mesclada só com o CI inteiro verde**
 
 1. **A passagem de enfermagem da Sala de infusão.** Ela é aberta de dentro da folha de execução, que está congelada. Para virar Blazor, a folha congelada teria de chamar a tela Blazor, e isso é mexer na área congelada. Sem autorização expressa, ela fica WPF.
 2. **A área congelada como um todo.** Reescrevê-la exige autorização expressa e testes de assinatura em homologação, porque cada tentativa é cobrada.
+
+---
+
+## 5. Recepção: a ficha do balcão e o que sobrava de WPF (out/2026, branch `claude/wpf-balcao`)
+
+A "PR B" da §4 para a Recepção. O módulo `Clinica.Modulo.Recepcao` ficou sem nenhum XAML:
+só o módulo (itens, rotas e pontes de navegação) e as duas pontes de pré-preenchimento.
+
+### 5.1 A ficha do balcão é Blazor
+
+- **`Telas/Recepcao/FichaDoBalcao.razor`**, chave `ficha-balcao` (item OCULTO da Recepção, `VerFichaPaciente`).
+  Abre no MESMO navegador da janela. Antes era a `FichaBalcaoView` numa `ConsultaContextualWindow` por cima, ou seja um segundo navegador e uma segunda moldura.
+- **O crachá é o da tela do paciente** (as classes `tp-*`). Mostra CPF, idade, telefone, convênio e carteirinha, "paciente desde" e os alertas de elegibilidade como selos.
+- **As ações do crachá:**
+  - Prontuário: pelo posto, só para quem tem `VerProntuario`.
+  - Editar cadastro: pela ponte `IJanelasDaFicha`, sem mudança.
+  - Emitir documento: leva à aba Documentos.
+  - Marcar: pela ponte `IMarcacaoDeHorario` → aba Marcar.
+- **Cinco abas:**
+  - **Resumo**: próximos horários, convênio e pacote (autorização vigente, guias em aberto, pacote em uso), cadastro e linha do tempo.
+  - **Agenda e sessões**: próximos horários com "Abrir na agenda" e as sessões realizadas.
+  - **Convênio, contatos e LGPD**: a `FichaAdministrativa` da tela do paciente, cascateada com o contexto daqui. Inclui convênio, autorizações (`AutorizacaoForm`), relacionamento, privacidade e termos.
+  - **Pacotes e pagamentos**: os pacotes e o "Receber…" pela ponte `IJanelasDaFicha`.
+  - **Documentos**: a central de Documentos embutida com o paciente fixo.
+- **A privacidade continua SEM "Registrar autorização"** (a decisão da §1).
+- **As portas.** Agenda do dia, Pacientes e Início abrem a ficha por `PedidoDaFichaDoBalcao.AbrirAsync`. Onde a ficha do balcão não existe, cai na ficha do host.
+  O host (`TelaBlazor.AbrirFichaDoPacienteAsync`) passou a cair na ficha do balcão quando a tela do paciente não é alcançável (sem `VerProntuario`). Assim o clique no nome do paciente no Início, no Acompanhamento e nas Glosas deixa de responder "não disponível" para a recepcionista.
+- **A trilha de leitura** (`AcessoProntuarioService`, origem `FichaPaciente`) é registrada na troca de paciente, como no WPF.
+- **O que a tela afirma mora na Application**: `FichaDoBalcao.Cabecalho`, `PacoteDe`, `Autorizacao`, `Comunicacao`, `GuiasEmAberto` e `DocumentoNaLinha`, com teste.
+  ⚠️ **Guias em aberto mudou de propósito.** A ficha WPF contava todo código sem baixa, inclusive o `NaoAplicavel` do particular e o do atendimento estornado, que nunca serão baixados.
+
+### 5.2 As janelas da agenda saíram, e o `AgendaViewModel` também
+
+A Visão geral e o "horário do paciente no local" do Início ainda pediam ao WPF por `IAgendaDaVisaoGeral.AbrirHorarioAsync`/`ExecutarAsync` e `IBalcaoDaRecepcao.AbrirHorarioAsync`. Isso montava o `AgendaViewModel` (~2.050 linhas) sem desenho, só para abrir janelas WPF.
+
+Agora as duas telas abrem os MESMOS formulários Blazor da Grade:
+- `HorarioDaAgendaForm`;
+- `BloqueioForm`;
+- `ListaEsperaPainelForm`;
+- `ConciliacaoAgendaForm`;
+- a folha do dia pelo `AgendaPdfService`.
+
+As pontes encolheram para o que é navegação. Saíram:
+- `DetalheHorarioWindow`, `AgendamentoWindow`, `BloqueioWindow`, `ListaEsperaPainelWindow`, `ListaEsperaWindow` e `ConciliacaoAgendaWindow`;
+- os ViewModels delas e `AgendaPlanejamento`/`FiltroListaAgenda`;
+- `AcaoDaAgenda`, `RespostaDaAgenda` e `ResultadoDoBalcao`.
+
+### 5.3 O orçamento livre é Blazor
+
+`OrcamentoWindow`/`OrcamentoViewModel` viraram **`Formularios/Recepcao/OrcamentoLivreForm.razor`**. A regra (totais, recusas, montagem dos itens) está em `OrcamentoLivreNaTela`, com teste.
+- `IDocumentosDaRecepcao.EmitirOrcamentoAsync` saiu.
+- `DocumentosDaRecepcaoWpf` também saiu: a Recepção registra a mesma `DocumentosNoAplicativoWpf` dos outros apps.
+- A barreira é a união das portas (`EditarFinanceiro` OU `VenderPacote`).
+- Consequência: o orçamento passa a existir na central de Documentos dos três apps, para quem tem o bit. Antes o Consultório dizia "é emitido pela Recepção".
+
+### 5.4 Código morto apagado (conferido sem chamador em produção)
+
+**Recepção:**
+- `EstornoAtendimentoWindow`, `ProximasVagasWindow`, `ProntuarioView`/`ProntuarioViewModel` (e o registro de DI);
+- `AutorizacaoWindow`/`AutorizacaoEdicaoViewModel`;
+- `ConvenioPacienteView`, `TermosPacienteView`, `RelacionamentoPacienteView` e `PrivacidadePacienteView`.
+
+**Shell:**
+- `EscreverSessaoWindow`/ViewModel e `FolhaDaSessaoView`/ViewModel;
+- `MapaCorporalWindow`/`MapaCorporalControl`/`MapaCorporalViewModel`;
+- `ModelosEvolucaoWindow`/ViewModel e `DetalheSessaoWindow`;
+- `MateriaisProcedimentoWindow`/ViewModel (com `ConferenciaMateriaisProcedimento`);
+- `DadosClinicaView`/ViewModel, `RegrasFaturamentoView`/ViewModel e `BuscaDePacienteView`;
+- `ConsultaContextualWindow`.
+
+**Shell, órfãos depois dessas remoções:** `DialogosDaSessao`, `EscolhaDeDocumentoWindow`, `IconeClinico`, `LinhaDoTempoClinicaViewModel` e `RenovacaoConsultaFluxo`.
+
+**Ferramentas acertadas:**
+- `tools/ValidarLayoutWindows`: sem a janela de materiais; a regra da quantidade fracionada continua.
+- `tools/Clinica.Verificacao.Desktop`: a conferência "salvar dados da clínica preserva os TUSS" passou a usar o método da tela Blazor.
+- `tools/verificar-editor-clinico`: sem a folha e o mapa WPF.
+- `tools/validar-rolagem-suite`: sem a lista de autorizações.
+
+⚠️ **O que NÃO foi apagado:** `BuscaCidWindow`/`BuscaCidViewModel`. Continuam com chamador, a `DocumentoEdicaoViewModel` (a emissão de documento, de outra frente). Saem quando a `DocumentoWindow` virar Blazor.
+
+### 5.5 UX · DX · CX desta etapa
+
+- 🧑‍💻 **UX:**
+  - A ficha do balcão abre no mesmo navegador, sem janela por cima e sem flash preto, e com o mesmo crachá da tela do paciente.
+  - A recepcionista passa a abrir a ficha também pelo Início e pelo Acompanhamento.
+  - A Visão geral e o Início abrem o horário, o bloqueio, a lista de espera e a conciliação nos mesmos formulários da Grade.
+  - O que falta é ver rodando: a ficha não foi fotografada na prévia nem aberta no app.
+- 🛠️ **DX:**
+  - Cerca de 15 mil linhas a menos (a maior parte WPF) (o `FichaPacienteViewModel` e o `AgendaViewModel` sozinhos somavam ~4.300).
+  - As regras da ficha e do orçamento passaram para a Application, com teste.
+  - As pontes `IAgendaDaVisaoGeral`, `IBalcaoDaRecepcao`, `IJanelasDaAgenda` e `IDocumentosDaRecepcao` encolheram.
+  - `FichaDoBalcaoBlazorTests` abre a ficha num paciente e clica as abas e as ações. A tela entra sozinha no `TelasBlazorAbremTests` (sem pedido, o estado vazio).
+- 🤝 **CX:**
+  - Sem migration.
+  - O risco está no fluxo da ficha nova (abas, voltar, receber, editar cadastro) e no orçamento, que agora existe nos três apps para quem tem o bit.
+  - Antes da release, abrir a ficha pela agenda do dia, por Pacientes e pelo Início com o perfil Recepção, e emitir um orçamento.
 
 ---
 

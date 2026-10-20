@@ -37,7 +37,7 @@ static class Program
         var code = 0;
         app.Dispatcher.BeginInvoke(async () =>
         {
-            try { await ConferirAsync(); Console.WriteLine("QA OK: sugestões, cancelamento, endereço, texto anterior, infusão e PDFs."); }
+            try { await ConferirAsync(); Console.WriteLine("QA OK: sugestões, cancelamento, endereço, infusão e PDFs."); }
             catch (Exception ex) { Console.WriteLine(ex); code = 1; }
             finally { PresentationTraceSources.DataBindingSource.Flush(); app.Shutdown(); }
         });
@@ -132,59 +132,9 @@ static class Program
         var linhaAntiga = LinhaItemPrescricao.De(new ItemPrescricaoInterna { Descricao = "Anterior", Diluente = null, TempoInfusao = "45 minutos" });
         Exigir(linhaAntiga.Diluente is null && linhaAntiga.TempoInfusao == "45 minutos", "Reabertura alterou prescrição antiga.");
 
-        var folha = new FolhaDaSessaoViewModel(factory) { Paciente = paciente.Nome, SemPaciente = false };
-        folha.Anteriores.Add(Clinica.Application.Modelos.ResumoSessaoAnterior.De(new Evolucao { Id = 91, PacienteId = paciente.Id, Data = new DateOnly(2026,9,14), TextoEvolucao = "Evolução anterior demonstrativa." }));
-        folha.SessaoParaReutilizar = folha.Anteriores[0];
-        folha.ReutilizarSessaoCommand.Execute(null);
-        Exigir(folha.TextoEvolucao == "Evolução anterior demonstrativa.", "Não reutilizou evolução.");
-        folha.TextoEvolucao = "Texto atual preservado."; folha.ReutilizarSessaoCommand.Execute(null);
-        Exigir(folha.TextoEvolucao == "Texto atual preservado.", "Reutilizar sobrescreveu texto atual.");
-        folha.Anteriores.Clear(); Exigir(folha.SessaoParaReutilizar is null, "Seleção atravessou troca de contexto.");
-        var folhaView = new FolhaDaSessaoView { DataContext = folha };
-        await Desenhar(new Window { Content = folhaView }, "evolucao.png", 1050, 760);
-
-        await ConferirMapaEFinalizacao(provider, scope.ServiceProvider, factory, paciente, profissional);
-    }
-
-    static async Task ConferirMapaEFinalizacao(IServiceProvider provider, IServiceProvider servicos,
-        IServiceScopeFactory factory, Paciente paciente, Profissional profissional)
-    {
-        var prontuario = servicos.GetRequiredService<ProntuarioService>();
-        var mapas = servicos.GetRequiredService<MapaCorporalService>();
-        var dia = DateOnly.FromDateTime(DateTime.Today);
-        var anterior = await prontuario.SalvarAsync(new Evolucao { PacienteId = paciente.Id,
-            ProfissionalId = profissional.Id, Data = dia.AddDays(-2), TextoEvolucao = "Sessão anterior demonstrativa." });
-        await mapas.SalvarAsync(anterior.Id,
-            [new PontoMapa { Face = FaceCorpo.Frente, X = .3, Y = .3, Nome = "P1" },
-             new PontoMapa { Face = FaceCorpo.Costas, X = .6, Y = .45, Nome = "P2", Tecnica = TecnicaPonto.Moxa }],
-            "Observações demonstrativas da equipe.");
-        var mapa = new MapaCorporalViewModel(factory, paciente.Id, null, dia);
-        await mapa.CarregarAsync();
-        Exigir(mapa.PodeEditar && mapa.SessoesAnteriores.Count == 1, "Histórico do mapa não carregado.");
-        await Desenhar(new MapaCorporalWindow(mapa, "Mapa corporal — paciente demonstrativo"), "mapa-vazio.png", 1140, 720);
-        await mapa.CopiarSessaoCommand.ExecuteAsync(null);
-        Exigir(mapa.Pontos.Count == 2 && mapa.Observacoes == "Observações demonstrativas da equipe.", "Cópia incompleta do mapa.");
-        mapa.Pontos[0].Nome = "P1 ajustado";
-        mapa.NomeProximoPonto = "P3"; mapa.Marcar(FaceCorpo.Frente, .55, .7);
-        mapa.NomeDoModelo = "Modelo demonstrativo da equipe"; mapa.ProtocoloDaClinica = true;
-        await mapa.SalvarComoProtocoloCommand.ExecuteAsync(null);
-        Exigir(mapa.Protocolos.Count == 1, "Modelo com pontos não foi cadastrado.");
-        mapa.LimparCommand.Execute(null); mapa.DesfazerCommand.Execute(null);
-        Exigir(mapa.Pontos.Count == 3, "Desfazer não recuperou os pontos.");
-        var window = new MapaCorporalWindow(mapa, "Mapa corporal — paciente demonstrativo");
-        await Desenhar(window, "mapa-preenchido.png", 1140, 720);
-        await Desenhar(window, "mapa-compacto.png", 920, 620);
-        foreach (var expander in Descendentes<Expander>((DependencyObject)window.Content))
-            expander.IsExpanded = expander.Header?.ToString()?.Contains("modelo") == true;
-        await Desenhar(window, "mapa-modelos.png", 1140, 720);
-        mapa.LimparCommand.Execute(null); mapa.Observacoes = "Alteração descartada";
-        typeof(MapaCorporalWindow).GetMethod("OnClosing", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(window, [new System.ComponentModel.CancelEventArgs()]);
-        Exigir(mapa.Pontos.Count == 3 && mapa.Observacoes == "Observações demonstrativas da equipe.", "Descartar não restaurou o mapa.");
-        Exigir((await mapas.DaEvolucaoAsync(anterior.Id))!.Pontos.Count == 2, "Editar cópia alterou a sessão anterior.");
-
-        // A finalização da sessão é da tela do paciente Blazor (out/2026), conferida no bUnit.
-        Console.WriteLine("QA MAPA OK: modelo, cópia, desfazer e descarte.");
+        // A folha da sessão e o mapa corporal WPF (FolhaDaSessaoView/ViewModel, MapaCorporalWindow)
+        // saíram em out/2026: eram código morto desde que a tela do paciente virou Blazor
+        // (SecaoAtendimento, MapaCorporalForm), conferida no bUnit (SecaoAtendimentoBlazorTests).
     }
 
     static IEnumerable<T> Descendentes<T>(DependencyObject raiz) where T : DependencyObject

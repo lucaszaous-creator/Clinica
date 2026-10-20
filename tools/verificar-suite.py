@@ -3211,7 +3211,7 @@ for _vm in sorted(_vms_do_shell()):
         f"resolve do provedor RAIZ — o DbContext passa a viver pela vida inteira do app, "
         f"a tela para de ver o que a outra máquina gravou e a releitura de fundo pode "
         f"colidir com um clique. Receba `IServiceScopeFactory` e abra `CreateScope()` por "
-        f"operação, como AgendaViewModel e MeuDiaViewModel já fazem."
+        f"operação, como as telas Blazor (`using var escopo = Escopo();`) já fazem."
     )
     if _vm in _PENDENTES_ESCOPO:
         avisos.append(f"dívida conhecida — {_frase}")

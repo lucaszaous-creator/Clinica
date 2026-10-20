@@ -3,7 +3,6 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
-using Clinica.Recepcao.Views;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Recepcao.Modulo;
@@ -139,6 +138,14 @@ public sealed class ModuloRecepcao : IModuloApp
     /// <summary>Canal de SMS (out/2026): configuração, teste, histórico e campanha
     /// (docs/canal-sms.md). Aba de Relacionamento.</summary>
     public const string ChaveCanalSms = "canal-sms";
+
+    /// <summary>
+    /// A FICHA DO BALCÃO (Blazor, out/2026 — era a FichaBalcaoView WPF numa janela por cima). Só
+    /// existe COM um paciente escolhido, então é item OCULTO: navegável, fora do menu (a regra da
+    /// parcela 37, 4ª rodada — chave sem item é botão que não faz nada). A chave mora na
+    /// hospedagem Blazor, que é quem a tela e as portas dela compartilham.
+    /// </summary>
+    public const string ChaveFichaBalcao = Clinica.Ui.Blazor.Hospedagem.PedidoDaFichaDoBalcao.Chave;
     public string Nome => "Recepção";
 
     // A permiss\u00E3o exigida por item entrou na parcela 5: quem n\u00E3o a tem n\u00E3o v\u00EA o item
@@ -392,6 +399,13 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChavePacientes, Rotulo = "Pacientes / CRM", Glifo = "\uE77B", Icone = "pessoa",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
         },
+        // A ficha do balcão: destino das listas (agenda do dia, Pacientes, Início), nunca linha
+        // de menu — aberta sem paciente ela não teria o que mostrar.
+        new ItemMenuModulo
+        {
+            Chave = ChaveFichaBalcao, Rotulo = "Ficha do paciente", Glifo = "\uE77B", Icone = "pessoa",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente, Oculto = true
+        },
         // As duas abas de "Particular e pacotes", declaradas como itens pela checagem 28 —
         // e, mais que isso, porque SEM ELAS o composto ficaria vazio no
         // `Clinica.Recepcao.exe`: `AbasDisponiveis` só enxerga aba cuja chave é item de um
@@ -474,7 +488,6 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<PreenchimentoNovoAtendimento>();
         servicos.AddSingleton<PedidoAgenda>();
 
-        servicos.AddTransient<AgendaViewModel>();
         // O Acompanhamento de pacientes é tela BLAZOR desde out/2026 (docs/relacionamento-blazor.md):
         // a hospedagem é a MESMA do Financeiro e do Faturamento (um navegador por janela,
         // idempotente), e o "Marcar horário" dela chega à aba Marcar pela ponte desta Recepção.
@@ -483,14 +496,16 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao, BalcaoDaRecepcao>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaAgenda, JanelasDaAgendaWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAvisosDoBanco, AvisosDoBancoWpf>();
-        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, DocumentosDaRecepcaoWpf>();
+        // A MESMA ponte dos outros apps: o orçamento livre, que era a única coisa própria da
+        // Recepção nela, virou formulário Blazor (out/2026). TryAdd: no Gerente, uma só.
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
+            Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, Clinica.Desktop.Blazor.DocumentosNoAplicativoWpf>(servicos);
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral, AgendaDaVisaoGeral>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento, JanelasDoAtendimentoWpf>();
         // A sala é publicada pelos dois módulos: TryAdd, uma ponte só no Gerente.
         Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
             Clinica.Ui.Blazor.Hospedagem.IJanelasDaSalaDeInfusao, Clinica.Desktop.Blazor.JanelasDaSalaDeInfusaoWpf>(servicos);
         Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaEnfermagem, Clinica.Desktop.Blazor.JanelasDaEnfermagemWpf>(servicos);
-        servicos.AddTransient<ProntuarioViewModel>();
         // Os ViewModels de formulário (agendamento, lista de espera, profissional,
         // sala, paciente, evolução) são construídos à mão pelas telas: cada janela abre
         // com o formulário limpo e, quando é edição, precisa receber o id no construtor.
@@ -509,6 +524,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // As listas de pacientes são Blazor (out/2026): a do BALCÃO abre a ficha do balcão; o
         // Prontuário usa a ListaDePacientesDoPosto e abre a tela do paciente no Histórico.
         ChavePacientes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PacientesDoBalcao), servicos),
+        ChaveFichaBalcao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.FichaDoBalcao), servicos),
         ChaveMarcarHorario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MarcarAtendimento), servicos),
         ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),

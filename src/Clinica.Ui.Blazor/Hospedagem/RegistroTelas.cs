@@ -25,6 +25,9 @@ public static class RegistroTelas
         // O catálogo das videoaulas é do shell (que sabe quais telas o exe publica); sem ele —
         // prévia e testes — a tela de Treinamento abre com o estado vazio.
         servicos.TryAddSingleton<ITreinamentoDoApp, TreinamentoSemAulas>();
+        // Singleton: o paciente que a ficha do balcão deve mostrar (quem pede é a agenda, a lista
+        // de pacientes e o Início; quem lê é a tela, na abertura e a cada volta).
+        servicos.TryAddSingleton<PedidoDaFichaDoBalcao>();
         return servicos;
     }
 }

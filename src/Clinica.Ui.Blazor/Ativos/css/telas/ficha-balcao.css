@@ -1,0 +1,37 @@
+/* A FICHA DO BALCÃO (out/2026, migrada da FichaBalcaoView WPF). O crachá é o MESMO da tela do
+   paciente (classes tp-*, em tela-paciente.css): duas caras para "ficha do paciente" fazem a
+   recepcionista achar que abriu outro programa. Aqui só o que é desta tela. Só tokens — ver
+   docs/telas-blazor.md. */
+
+.ficha-balcao{display:flex;flex-direction:column;gap:var(--space-3)}
+
+/* Os campos de identificação: a mesma régua da faixa do paciente (faixa-paciente-campos). */
+.fb-campos{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-6);margin:var(--space-1) 0 0}
+.fb-campos div{display:flex;gap:var(--space-2);min-width:0}
+.fb-campos dt{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.fb-campos dd{margin:0;font-size:var(--text-small-size);font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+
+/* As ações do cabeçalho dobram para a linha de baixo em largura estreita — nunca espremem o nome. */
+.fb-acoes{flex:0 1 auto;align-self:flex-start}
+
+.fb-corpo{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.fb-corpo h3{margin:0 0 var(--space-2);font-size:var(--text-h3-size);font-weight:var(--text-h3-weight)}
+
+/* O Resumo: duas colunas que viram uma em largura estreita. */
+.fb-resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:var(--space-3);align-items:start}
+.fb-pares dd{text-align:left;overflow-wrap:anywhere}
+.fb-pacote-ativo{margin:var(--space-3) 0 0}
+
+/* Pacotes: a fração usada como barra de dado (só onde ela é real). */
+.fb-pacotes li.apagada{color:var(--texto-secundario)}
+.fb-uso{margin-left:auto;font-variant-numeric:tabular-nums;font-size:var(--text-small-size)}
+.fb-barra{flex:1 1 100%;height:6px;border-radius:var(--radius-pilula);background:var(--superficie-hover);overflow:hidden}
+.fb-barra span{display:block;height:100%;background:var(--acento)}
+
+/* A linha do tempo: a hora alinhada numa coluna, o ponto na cor do tipo. */
+.fb-linha-tempo li{flex-wrap:nowrap;align-items:baseline}
+.fb-quando{flex:none;min-width:7ch;color:var(--texto-secundario);font-size:var(--text-small-size);font-variant-numeric:tabular-nums}
+.fb-linha-tempo li::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--borda-hover);align-self:center}
+.fb-linha-tempo li.fb-tempo-sessao::before{background:var(--acento)}
+.fb-linha-tempo li.fb-tempo-contato::before{background:var(--sucesso)}
+.fb-linha-tempo li.fb-tempo-documento::before{background:var(--aviso)}

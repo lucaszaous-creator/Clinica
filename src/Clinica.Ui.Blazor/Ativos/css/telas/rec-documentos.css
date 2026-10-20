@@ -56,3 +56,13 @@
 .dc-tabela .botoes-linha{flex-wrap:nowrap}
 .dc-tabela .botoes-linha .botao{white-space:nowrap}
 .dc-tabela .selo{margin-right:var(--space-2)}
+
+/* ===== O orçamento livre (OrcamentoLivreForm) — linhas de digitar e o total fora da tabela ===== */
+.orc-livre-itens{margin:var(--space-4) 0}
+.orc-livre-itens h3{margin:0}
+.orc-livre-itens td{vertical-align:middle}
+.orc-livre-qtd{width:72px}
+.orc-livre-valor{width:110px}
+.orc-livre-total{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);margin:var(--space-3) 0 0;
+  padding:var(--space-3) var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--fundo)}
+.orc-livre-total strong{font-size:var(--text-h3-size);font-variant-numeric:tabular-nums}

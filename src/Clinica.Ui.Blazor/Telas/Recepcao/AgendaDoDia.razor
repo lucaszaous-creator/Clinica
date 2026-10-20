@@ -11,10 +11,10 @@
 
   Nada de regra aqui: a linha, o passo, o menu, o recorte e as frases moram em
   AgendaDoDiaNaTela (Application, com teste); a leitura é a LeituraAgendaDoDia — a MESMA do
-  FilaViewModel, na mesma ordem. As janelas que continuam WPF (editar o horário, fechar a
-  sessão, escolher o convênio, a ficha do balcão, a janela do horário, marcar) passam por
-  IJanelasDaAgenda; onde elas não existem (a prévia), a tela DIZ que a ação é do aplicativo
-  da Recepção.
+  FilaViewModel, na mesma ordem. O horário abre no HorarioDaAgendaForm e a ficha do balcão é
+  a tela Blazor FichaDoBalcao (out/2026); o que continua WPF (escolher o convênio da ficha "a
+  definir") e a marcação na aba Marcar passam por IJanelasDaAgenda; onde elas não existem (a
+  prévia), a tela DIZ que a ação é do aplicativo da Recepção.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Modelos
@@ -576,10 +576,9 @@
     private Task AbrirFichaAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
     {
         if (!Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente")) return false;
-        var abriu = Janelas.Disponivel
-            ? await Janelas.AbrirFichaAsync(l.PacienteId, l.Paciente)
-            : await Host.AbrirFichaDoPacienteAsync(l.PacienteId);
-        if (!abriu) Notificacoes.Info("A ficha do paciente abre no aplicativo da Recepção.");
+        // A ficha do BALCÃO (Blazor, out/2026), no mesmo navegador — a mesma da tela Pacientes.
+        var abriu = await PedidoDaFichaDoBalcao.AbrirAsync(Servicos, Host, l.PacienteId, l.Paciente);
+        if (!abriu) Notificacoes.Info("A ficha do paciente não está disponível para o seu acesso neste aplicativo.");
         return abriu;
     }, "ficha do paciente");
 
