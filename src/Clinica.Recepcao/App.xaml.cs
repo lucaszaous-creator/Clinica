@@ -36,39 +36,7 @@ public partial class App : System.Windows.Application
             // Nada disto é o que a pessoa veio ver: espera a tela inicial ter os dados
             // (AberturaDoApp, out/2026 — disputava as conexões da abertura com ela).
             await Clinica.Application.AberturaDoApp.DepoisDaPrimeiraTelaAsync();
-            await LembretesPorEmailAsync(_host);
             RelogioDoSms.Iniciar(_host, "Recepção");
-        }
-    }
-
-    /// <summary>
-    /// Manda o lembrete da sessão por e-mail a quem tem endereço na ficha (set/2026).
-    ///
-    /// <b>Aqui pela razão do backup do Gerente</b>: o sistema é desktop, não tem serviço
-    /// residente, e o balcão é a máquina que abre todo dia de manhã — antes de a primeira
-    /// pessoa chegar. O Gerente roda o mesmo; a chave de idempotência é o contato, então as
-    /// duas máquinas abertas no mesmo dia não mandam dois e-mails.
-    ///
-    /// <b>Depois da janela abrir, e sem esperar.</b> Vinte envios a um servidor lento levam
-    /// tempo; prender a abertura a eles faria a recepcionista olhar uma tela cinza com o
-    /// paciente na frente. Falha não derruba nada — cada envio que falha fica registrado no
-    /// log e o contato continua pendente para o WhatsApp de um clique.
-    ///
-    /// Sem servidor configurado em Configurações isto não faz nada e não reclama: lembrete
-    /// desligado é estado legítimo, e um aviso a cada abertura ensinaria a fechá-lo sem ler.
-    /// </summary>
-    private static async Task LembretesPorEmailAsync(IHost host)
-    {
-        try
-        {
-            using var escopo = host.Services.CreateScope();
-            await escopo.ServiceProvider
-                .GetRequiredService<LembreteEmailService>()
-                .EnviarLembretesDaAberturaAsync();
-        }
-        catch (Exception ex)
-        {
-            LogSuite.Registrar("Recepção — lembretes por e-mail da abertura", ex);
         }
     }
 

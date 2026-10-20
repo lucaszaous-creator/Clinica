@@ -106,7 +106,7 @@ public sealed class EnvioAoPacienteService
 
     /// <summary>A frase do canal e-mail indisponível — a única razão para ele ficar indisponível.</summary>
     public const string SemServidorDeEmail = "O e-mail da clínica não está configurado. Configure o servidor de saída em "
-        + "Gerente → Configurações → Lembretes por e-mail.";
+        + "Gerente → Configurações → E-mail da clínica.";
 
     private readonly IClinicaRepositorio _repo;
     private readonly DocumentosClinicosPdfService _pdfs;
@@ -282,7 +282,7 @@ public sealed class EnvioAoPacienteService
 
     /// <summary>
     /// Envia o PDF anexado ao e-mail que o PACIENTE pediu, pelo servidor de saída da CLÍNICA
-    /// (Configurações → Lembretes por e-mail). Sempre um clique de quem atende — não há envio
+    /// (Configurações → E-mail da clínica). Sempre um clique de quem atende — não há envio
     /// automático de documento por e-mail. O endereço vem da tela (sugerido pela ficha, editável);
     /// com <paramref name="guardarNaFicha"/>, ele vai para a ficha DEPOIS que o servidor aceitar
     /// o envio, pelo <see cref="PacienteService.DefinirEmailAsync"/>.
@@ -305,14 +305,14 @@ public sealed class EnvioAoPacienteService
             return new(false, SemServidorDeEmail);
 
         var (pdf, nome) = await papel.Gerar(ct);
-        var nomeClinica = await NomeDaClinicaAsync(ct);
+        var prestador = await _parametros.ObterPrestadorAsync(ct);
         var quem = FilaEnviosCrm.Cortar(operador, 120);
 
         try
         {
-            await _email.EnviarComAnexoAsync(opcoes, destino,
-                TextoDoEnvio.AssuntoEmail(nomeClinica),
-                TextoDoEnvio.CorpoEmail(paciente.Nome, papel.Assinado, nomeClinica),
+            await _email.EnviarDocumentoAsync(opcoes, destino,
+                EmailDoDocumento.Montar(paciente.Nome, papel.Rotulo, papel.Numero, papel.Assinado,
+                    prestador, MarcaSemDor.Logo),
                 new AnexoDeEmail(nome, pdf, "application/pdf"), ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -322,7 +322,7 @@ public sealed class EnvioAoPacienteService
                 $"{papel.Descricao}: {FilaEnviosCrm.Cortar(ex.Message, 200)}", _agora(), ct);
             await _repo.SalvarAsync(ct);
             return new(false, $"O servidor de e-mail não aceitou o envio para {destino}: {ex.Message} "
-                + "Confira o endereço e a configuração em Gerente → Configurações → Lembretes por e-mail.");
+                + "Confira o endereço e a configuração em Gerente → Configurações → E-mail da clínica.");
         }
 
         await Trilha(AcaoEmailEnviado, quem, paciente.Id, "e-mail", destino, papel.Descricao, _agora(), ct);

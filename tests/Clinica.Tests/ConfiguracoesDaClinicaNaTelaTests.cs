@@ -139,7 +139,7 @@ public class ConfiguracoesDaClinicaNaTelaTests
     [Fact]
     public void Email_desligado_e_ligado_sao_frases_diferentes_e_a_ligada_diz_de_onde_sai()
     {
-        ConfiguracoesDaClinicaNaTela.DescreverEmail(null).Should().StartWith("Lembrete por e-mail DESLIGADO");
+        ConfiguracoesDaClinicaNaTela.DescreverEmail(null).Should().StartWith("E-mail da clínica DESLIGADO");
         var opcoes = OpcoesEmail.De("smtp.exemplo.com.br", "587", "u", "s", "contato@clinica.com.br", null, true)!;
         ConfiguracoesDaClinicaNaTela.DescreverEmail(opcoes).Should().EndWith("Sai de contato@clinica.com.br por smtp.exemplo.com.br:587 (TLS).");
     }
@@ -170,7 +170,7 @@ public class ConfiguracoesDaClinicaNaTelaTests
         desligando.Should().BeTrue();
         c!.Host.Should().BeNull();
         c.Remetente.Should().BeNull();
-        ConfiguracoesDaClinicaNaTela.FraseEmailSalvo(true).Should().StartWith("Lembrete por e-mail desligado");
+        ConfiguracoesDaClinicaNaTela.FraseEmailSalvo(true).Should().StartWith("E-mail da clínica desligado");
     }
 
     [Theory]

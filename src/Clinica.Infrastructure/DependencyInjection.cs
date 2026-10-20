@@ -151,7 +151,7 @@ public static class DependencyInjection
         // Lembrete automático da sessão por e-mail (set/2026). O enviador é SINGLETON e
         // sem estado — ele abre um SmtpClient por envio; as opções vêm do banco a cada
         // rodada, pelo ParametrosService.
-        services.AddScoped<LembreteEmailService>();
+        services.AddScoped<EmailDaClinicaService>();
         services.AddScoped<LembreteSmsService>();
         // Documento ao paciente por WhatsApp (fila que o CRM executa) e por e-mail (out/2026).
         // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.

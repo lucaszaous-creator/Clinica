@@ -60,7 +60,7 @@ public class CanalSmsTests : IDisposable
     private async Task LigarAsync(bool adiantar = true, bool comLink = true)
     {
         await _parametros.SalvarCamposSmsAsync(new CamposSms(
-            ProvedorSms.Zenvia, null, null, "tok-123", "clinica", null, null, 24, adiantar, true));
+            ProvedorSms.Zenvia, null, null, "tok-123", "clinica", null, null, 24, adiantar));
         if (comLink) await _parametros.SalvarUrlPublicacaoAsync("https://docs.clinica.exemplo");
     }
 
@@ -330,28 +330,6 @@ public class CanalSmsTests : IDisposable
         (await Servico(Agora.AddMinutes(10)).SincronizarRespostasAsync()).Should().Be(0);
     }
 
-    // ==================== O e-mail cede ao SMS ====================
-
-    [Fact]
-    public async Task Com_sms_ligado_o_email_fica_so_para_quem_nao_tem_celular()
-    {
-        await LigarAsync();
-        await _parametros.SalvarCamposEmailAsync(new CamposEmail(
-            "smtp.teste.com.br", "587", "u", "s", "contato@clinica.com.br", "Clinica", true));
-        var comCelular = await PacienteAsync("Maria Souza", email: "maria@teste.com.br");
-        var soFixo = await PacienteAsync("Ana Fixo", "(11) 3456-7890", "ana@teste.com.br");
-        var amanha = Hoje.AddDays(1);
-        await SessaoAsync(comCelular.Id, amanha.ToDateTime(new TimeOnly(14, 0)));
-        await SessaoAsync(soFixo.Id, amanha.ToDateTime(new TimeOnly(15, 0)));
-
-        var email = new EnviadorEmailFalso();
-        var r = await new LembreteEmailService(_repo, _campanhas, _parametros, email, () => Agora).EnviarConfirmacoesAsync(amanha);
-
-        r.PorSms.Should().Be(1);
-        r.Enviados.Should().Be(1);
-        email.Destinos.Should().Equal("ana@teste.com.br");
-    }
-
     // ==================== Campanha ====================
 
     [Fact]
@@ -393,12 +371,12 @@ public class CanalSmsTests : IDisposable
     [Fact]
     public void Configuracao_pela_metade_e_configuracao_nenhuma_e_diz_o_que_falta()
     {
-        var c = new CamposSms(ProvedorSms.Twilio, null, null, "tok", null, null, null, 24, true, true);
+        var c = new CamposSms(ProvedorSms.Twilio, null, null, "tok", null, null, null, 24, true);
         OpcoesSms.De(c).Should().BeNull();
         OpcoesSms.OQueFalta(c).Should().Contain("remetente").And.Contain("Account SID");
         OpcoesSms.De(c with { Remetente = "+15550001111", Conta = "AC1" })!.Endereco.Should().Contain("/Accounts/AC1/");
 
-        var generico = new CamposSms(ProvedorSms.Generico, "http://api.exemplo/sms", null, "t", null, null, null, 24, true, true);
+        var generico = new CamposSms(ProvedorSms.Generico, "http://api.exemplo/sms", null, "t", null, null, null, 24, true);
         OpcoesSms.De(generico).Should().BeNull("token em texto aberto pela rede não é configuração");
         OpcoesSms.OQueFalta(generico).Should().Contain("HTTPS");
         OpcoesSms.OQueFalta(c with { Provedor = ProvedorSms.Desligado }).Should().BeNull();
@@ -407,7 +385,7 @@ public class CanalSmsTests : IDisposable
     [Fact]
     public async Task Cada_provedor_recebe_o_formato_dele()
     {
-        var zenvia = OpcoesSms.De(new CamposSms(ProvedorSms.Zenvia, null, null, "tok", "clinica", null, null, 24, true, true))!;
+        var zenvia = OpcoesSms.De(new CamposSms(ProvedorSms.Zenvia, null, null, "tok", "clinica", null, null, 24, true))!;
         using (var p = GatewaySmsHttp.Montar(zenvia, "+5511987654321", "Oi"))
         {
             p.Headers.GetValues("X-API-TOKEN").Should().Equal("tok");
@@ -415,7 +393,7 @@ public class CanalSmsTests : IDisposable
         }
 
         var generico = OpcoesSms.De(new CamposSms(ProvedorSms.Generico, "https://api.exemplo/sms", null, "tok",
-            "Clinica \"A\"", "X-Api-Key", null, 24, true, true))!;
+            "Clinica \"A\"", "X-Api-Key", null, 24, true))!;
         using (var p = GatewaySmsHttp.Montar(generico, "+5511987654321", "linha\"aspas"))
         {
             p.Headers.GetValues("X-Api-Key").Should().Equal("tok");
@@ -438,17 +416,6 @@ public class CanalSmsTests : IDisposable
             if (Falhar) throw new InvalidOperationException("O provedor de SMS recusou (402): saldo insuficiente");
             Enviados.Add((celularE164, texto));
             return Task.FromResult<string?>($"id-{Enviados.Count}");
-        }
-    }
-
-    private sealed class EnviadorEmailFalso : IEnviadorDeEmail
-    {
-        public List<string> Destinos { get; } = [];
-
-        public Task EnviarAsync(OpcoesEmail opcoes, string destinatario, string assunto, string corpo, CancellationToken ct = default)
-        {
-            Destinos.Add(destinatario);
-            return Task.CompletedTask;
         }
     }
 }

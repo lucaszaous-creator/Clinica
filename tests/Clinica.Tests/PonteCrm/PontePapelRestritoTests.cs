@@ -138,7 +138,7 @@ public sealed class PontePapelRestritoTests : IDisposable
     {
         if (!BancoDosTestes.NoPostgres) return;
         var parametrosAdmin = new ParametrosService(new ClinicaRepositorio(admin), new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32])));
-        await parametrosAdmin.SalvarCamposSmsAsync(new CamposSms(ProvedorSms.Zenvia, null, null, "tok-123", "clinica", null, null, 24, false, true));
+        await parametrosAdmin.SalvarCamposSmsAsync(new CamposSms(ProvedorSms.Zenvia, null, null, "tok-123", "clinica", null, null, 24, false));
         await parametrosAdmin.SalvarUrlPublicacaoAsync("https://docs.clinica.exemplo");
         var quando = DateTime.Today.AddDays(1).AddHours(9);
         await Horario(quando: quando);

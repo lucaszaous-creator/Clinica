@@ -35,8 +35,7 @@ public sealed record CamposSms(
     string? CabecalhoAutenticacao,
     string? ModeloCorpo,
     int AntecedenciaHoras,
-    bool AdiantarFimDeSemana,
-    bool EmailSoParaQuemNaoTemCelular);
+    bool AdiantarFimDeSemana);
 
 /// <summary>
 /// O provedor pronto para enviar. <b>Meia configuração é configuração nenhuma</b> (a regra

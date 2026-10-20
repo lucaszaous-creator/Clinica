@@ -32,9 +32,8 @@ builder.Services.AddScoped<ClinicDispatchBridge>();
 // Canal de SMS); a ponte não tem segunda configuração de SMS. Ligado aqui e nos apps ao
 // mesmo tempo, não sai SMS duplicado: a reserva de cada mensagem é um índice único no banco.
 if(builder.Configuration.GetValue<bool>(RelogioDoSmsNoServidor.Chave))builder.Services.AddHostedService<RelogioDoSmsNoServidor>();
-// O e-mail do dia (06:00) e o "sua sessão foi agendada" (out/2026): o MESMO LembreteEmailService do
-// desktop, aqui a cada 5 min, com o servidor de saída que a clínica configurou. Liga com LembreteEmail__Ligado=true.
-if(builder.Configuration.GetValue<bool>(RelogioDoEmailNoServidor.Chave))builder.Services.AddHostedService<RelogioDoEmailNoServidor>();
+// Não há lembrete por e-mail (out/2026, decisão da direção): a clínica não colhe e-mail no
+// cadastro, e o e-mail ficou só para o documento que a equipe envia ao paciente.
 builder.Logging.AddFilter("Microsoft.AspNetCore",LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore",LogLevel.Critical);
 var app=builder.Build();

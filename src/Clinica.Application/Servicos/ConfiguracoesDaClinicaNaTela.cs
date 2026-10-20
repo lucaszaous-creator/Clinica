@@ -188,10 +188,10 @@ public static class ConfiguracoesDaClinicaNaTela
     /// <summary>"Desligado" e "ligado" são frases diferentes — e a ligada diz DE ONDE sai.</summary>
     public static string DescreverEmail(OpcoesEmail? opcoes)
         => opcoes is null
-            ? "Lembrete por e-mail DESLIGADO. Preencha o servidor de saída e o remetente para ligar — "
-              + "até lá, o aviso da sessão continua sendo o WhatsApp de um clique, na rodada do balcão."
-            : "Lembrete por e-mail LIGADO: na abertura da Recepção e do Gerente, quem tem e-mail na ficha "
-              + "recebe a confirmação das sessões de hoje, de amanhã e do fim de semana que vier. "
+            ? "E-mail da clínica DESLIGADO. Preencha o servidor de saída e o remetente para ligar — "
+              + "até lá, o documento vai ao paciente pelo WhatsApp."
+            : "E-mail da clínica LIGADO: os documentos que a equipe envia ao paciente (receita, atestado, "
+              + "pedido de exame, laudo) saem por e-mail com a marca da clínica e o PDF anexado. "
               + $"Sai de {opcoes.Descricao}.";
 
     /// <summary>
@@ -241,8 +241,8 @@ public static class ConfiguracoesDaClinicaNaTela
     }
 
     public static string FraseEmailSalvo(bool desligando) => desligando
-        ? "Lembrete por e-mail desligado — o aviso volta a ser só o WhatsApp da rodada."
-        : "Lembrete por e-mail salvo. Use \"Enviar e-mail de teste\" para conferir que o servidor aceita.";
+        ? "E-mail da clínica desligado — o documento passa a ir só pelo WhatsApp."
+        : "E-mail da clínica salvo. Use \"Enviar e-mail de teste\" para ver como a mensagem chega.";
 
     // ============================ Conclusão automática ============================
 

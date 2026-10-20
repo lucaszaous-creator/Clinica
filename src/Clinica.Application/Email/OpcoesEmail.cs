@@ -4,7 +4,7 @@ namespace Clinica.Application.Email;
 
 /// <summary>
 /// O servidor de saída (SMTP) da clínica, para o lembrete automático por e-mail
-/// (set/2026). Mora no BANCO, editado em Configurações → Lembretes por e-mail, pela regra
+/// (set/2026). Mora no BANCO, editado em Configurações → E-mail da clínica, pela regra
 /// da parcela 53: variável de ambiente é ritual de instalação, e o lembrete sai da
 /// Recepção E do Gerente — configurar numa máquina e esquecer a outra faria o lembrete
 /// sair de um posto e falhar calado no outro.

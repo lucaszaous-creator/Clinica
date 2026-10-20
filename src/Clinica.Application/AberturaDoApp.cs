@@ -6,7 +6,7 @@ namespace Clinica.Application;
 ///
 /// Na abertura, junto com a tela inicial, o app disparava de uma vez o que roda por trás dela:
 /// os avisos do cabeçalho (pedidos da enfermagem, respostas dos pacientes, assinaturas de
-/// infusão), a conclusão automática das sessões, os lembretes por e-mail, a cópia de segurança
+/// infusão), a conclusão automática das sessões, a cópia de segurança
 /// do Gerente e a rodada/aviso de pendências do Faturamento. Nada disso é o que a pessoa
 /// espera ao entrar — e tudo disputava com a tela inicial as poucas conexões abertas do pool:
 /// cada conexão FÍSICA nova com a VPS custa 2,7–4,7 s (TCP + TLS + mTLS + autenticação).

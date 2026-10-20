@@ -1,5 +1,13 @@
 # Pedido de confirmação às 06:00 do dia, e mensagem ao marcar (out/2026)
 
+> ⛔ **O e-mail saiu deste fluxo (out/2026, decisão da direção).** A clínica não colhe e-mail no
+> cadastro, e o e-mail ficou **só para o documento** que a equipe envia ao paciente
+> (`EmailDoDocumento`, `EnvioAoPacienteService`). Saíram juntos o `LembreteEmailService`, o relógio
+> `RelogioDoEmailNoServidor` da ponte (`LembreteEmail__Ligado`), o envio na abertura da Recepção e
+> do Gerente, o botão "Enviar e-mails" das Confirmações e a opção "e-mail só para quem não tem
+> celular" do SMS. A coluna **E-mail** abaixo é histórica: a confirmação de sessão é WhatsApp (CRM)
+> e SMS.
+
 Decisão da direção: o paciente recebe o pedido de confirmação **às 06:00 do dia da sessão**, por
 **WhatsApp e por e-mail**. Também recebe uma mensagem **assim que a sessão é marcada**. O objetivo
 é diminuir as faltas.

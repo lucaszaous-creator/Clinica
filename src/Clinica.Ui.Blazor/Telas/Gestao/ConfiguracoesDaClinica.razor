@@ -403,7 +403,7 @@
         </section>
 
         <section class="cfg-bloco">
-            @Cabeca("Lembretes por e-mail", "No dia da sessão, a partir das 06:00, o sistema manda o pedido de confirmação por e-mail a quem tem endereço na ficha, e um e-mail logo que a sessão é marcada. Sai também para quem já recebeu pelo WhatsApp, uma vez só. A mensagem não leva dado clínico.", _pendEmail)
+            @Cabeca("E-mail da clínica (envio de documentos)", "O servidor por onde o documento que a equipe envia ao paciente sai por e-mail — com a marca da clínica e o PDF anexado. A mensagem não leva dado clínico: o conteúdo é o anexo. Confirmação de sessão não sai por e-mail (vai pelo WhatsApp e pelo SMS).", _pendEmail)
             <div class="cfg-bloco-campos">
                 <p class="cfg-situacao">@_situacaoEmail</p>
                 <div class="cfg-grupo">
@@ -1127,7 +1127,7 @@
     private async Task SalvarEmailAsync()
     {
         if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
-        await GravarAsync(Aba.Integracoes, Bloco.Email, "lembretes por e-mail", async sp =>
+        await GravarAsync(Aba.Integracoes, Bloco.Email, "e-mail da clínica", async sp =>
         {
             var p = sp.GetRequiredService<ParametrosService>();
             var senhaGravada = (await p.ObterCamposEmailAsync()).Senha;
@@ -1162,7 +1162,7 @@
         try
         {
             using var escopo = Escopo();
-            await escopo.ServiceProvider.GetRequiredService<LembreteEmailService>().EnviarTesteAsync(destino);
+            await escopo.ServiceProvider.GetRequiredService<EmailDaClinicaService>().EnviarTesteAsync(destino);
             var ok = $"E-mail de teste enviado para {destino}. Confira a caixa de entrada — e a pasta de spam, na primeira vez.";
             Dizer(Aba.Integracoes, ok, erro: false, Bloco.Email);
             Notificacoes.Sucesso(ok);

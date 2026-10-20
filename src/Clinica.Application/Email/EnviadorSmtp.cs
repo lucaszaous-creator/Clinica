@@ -14,8 +14,9 @@ namespace Clinica.Application.Email;
 /// clique em "Enviar e-mails" horas depois produziria a falha mais difícil de reproduzir —
 /// a conexão morta que só aparece no segundo uso.
 ///
-/// <b>Texto simples, nunca HTML.</b> O lembrete não leva dado clínico nem imagem, e HTML é
-/// o que dispara o filtro de spam de quem nunca recebeu e-mail da clínica.
+/// <b>Texto simples no lembrete; texto + HTML no documento.</b> O documento ao paciente leva a
+/// marca da clínica (<see cref="EmailDoDocumento"/>), mas SEMPRE com a versão em texto ao lado
+/// (multipart/alternative) — e-mail só HTML é o que o filtro de spam marca primeiro.
 /// </summary>
 public sealed class EnviadorSmtp : IEnviadorDeEmail
 {
@@ -32,9 +33,23 @@ public sealed class EnviadorSmtp : IEnviadorDeEmail
         CancellationToken ct = default)
         => EnviarAsync(opcoes, destinatario, assunto, corpo, anexo, ct);
 
+    /// <summary>
+    /// O documento com a identidade da clínica: o texto e o HTML como VERSÕES da mesma mensagem
+    /// (o leitor escolhe), a logo como recurso da versão HTML (citada por <c>cid:</c>) e o PDF
+    /// anexado.
+    /// </summary>
+    public Task EnviarDocumentoAsync(
+        OpcoesEmail opcoes, string destinatario, MensagemDeEmail mensagem, AnexoDeEmail anexo,
+        CancellationToken ct = default)
+        => EnviarAsync(opcoes, destinatario, mensagem.Assunto, mensagem.Texto, anexo, ct, mensagem);
+
+    public Task EnviarMensagemAsync(
+        OpcoesEmail opcoes, string destinatario, MensagemDeEmail mensagem, CancellationToken ct = default)
+        => EnviarAsync(opcoes, destinatario, mensagem.Assunto, mensagem.Texto, null, ct, mensagem);
+
     private static async Task EnviarAsync(
         OpcoesEmail opcoes, string destinatario, string assunto, string corpo, AnexoDeEmail? anexo,
-        CancellationToken ct)
+        CancellationToken ct, MensagemDeEmail? rica = null)
     {
         using var cliente = new SmtpClient(opcoes.Host, opcoes.Porta)
         {
@@ -54,12 +69,28 @@ public sealed class EnviadorSmtp : IEnviadorDeEmail
         using var mensagem = new MailMessage(de, new MailAddress(destinatario))
         {
             Subject = assunto,
+            SubjectEncoding = System.Text.Encoding.UTF8,
             Body = corpo,
+            BodyEncoding = System.Text.Encoding.UTF8,
             IsBodyHtml = false,
             // A resposta do paciente ("não vou poder") volta para a clínica, não para o
             // servidor: sem isto, "responder" num remetente técnico cai no vazio.
             ReplyToList = { de }
         };
+
+        if (rica?.Html is { } html)
+        {
+            // A ordem das versões importa: o leitor mostra a ÚLTIMA que ele entende.
+            mensagem.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(
+                corpo, System.Text.Encoding.UTF8, "text/plain"));
+            var visaoHtml = AlternateView.CreateAlternateViewFromString(
+                html, System.Text.Encoding.UTF8, "text/html");
+            foreach (var img in rica.Imagens)
+                visaoHtml.LinkedResources.Add(new LinkedResource(
+                    new MemoryStream(img.Conteudo, writable: false), img.TipoMime) { ContentId = img.ContentId });
+            mensagem.AlternateViews.Add(visaoHtml);
+            mensagem.Body = string.Empty;
+        }
 
         if (anexo is not null)
             mensagem.Attachments.Add(new Attachment(

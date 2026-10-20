@@ -321,7 +321,7 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
-    // ---- Lembretes por e-mail (set/2026) ----
+    // ---- E-mail da clínica (set/2026; out/2026: só para o documento ao paciente) ----
     //
     // A configuração é compartilhada no banco; a senha é cifrada antes de ser gravada.
 
@@ -387,7 +387,6 @@ public sealed class ParametrosService
     public const string ChaveSmsModeloCorpo = "SmsModeloCorpo";
     public const string ChaveSmsAntecedenciaHoras = "SmsAntecedenciaHoras";
     public const string ChaveSmsAdiantarFimDeSemana = "SmsAdiantarFimDeSemana";
-    public const string ChaveSmsEmailSoSemCelular = "SmsEmailSoSemCelular";
 
     /// <summary>
     /// Os campos crus da tela. Provedor ausente ou ilegível é DESLIGADO — o canal só liga
@@ -417,8 +416,7 @@ public sealed class ParametrosService
             await _repo.ObterConfiguracaoAsync(ChaveSmsCabecalho, ct),
             await _repo.ObterConfiguracaoAsync(ChaveSmsModeloCorpo, ct),
             antecedencia,
-            !string.Equals(await _repo.ObterConfiguracaoAsync(ChaveSmsAdiantarFimDeSemana, ct), "false", StringComparison.OrdinalIgnoreCase),
-            !string.Equals(await _repo.ObterConfiguracaoAsync(ChaveSmsEmailSoSemCelular, ct), "false", StringComparison.OrdinalIgnoreCase));
+            !string.Equals(await _repo.ObterConfiguracaoAsync(ChaveSmsAdiantarFimDeSemana, ct), "false", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>O provedor pronto para enviar, ou <c>null</c> quando o canal está desligado.</summary>
@@ -437,7 +435,6 @@ public sealed class ParametrosService
         await _repo.SalvarConfiguracaoAsync(ChaveSmsAntecedenciaHoras,
             Math.Clamp(campos.AntecedenciaHoras, 1, 168).ToString(System.Globalization.CultureInfo.InvariantCulture), ct);
         await _repo.SalvarConfiguracaoAsync(ChaveSmsAdiantarFimDeSemana, campos.AdiantarFimDeSemana ? "true" : "false", ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsEmailSoSemCelular, campos.EmailSoParaQuemNaoTemCelular ? "true" : "false", ct);
         await _repo.SalvarAsync(ct);
     }
 

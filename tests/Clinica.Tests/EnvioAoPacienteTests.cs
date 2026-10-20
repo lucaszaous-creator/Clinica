@@ -228,10 +228,10 @@ public sealed class EnvioAoPacienteTests : IDisposable
     public async Task Email_sem_servidor_configurado_diz_onde_configurar_e_e_o_unico_motivo_de_indisponivel()
     {
         var doc = await ReceitaAsync();
-        (await Envio().DestinosAsync(doc.Id)).MotivoSemEmail.Should().Contain("Lembretes por e-mail");
+        (await Envio().DestinosAsync(doc.Id)).MotivoSemEmail.Should().Contain("E-mail da clínica");
         var r = await Envio().EnviarPorEmailAsync(doc.Id, "ana", "maria@exemplo.com.br");
         r.Ok.Should().BeFalse();
-        r.Frase.Should().Contain("Lembretes por e-mail");
+        r.Frase.Should().Contain("E-mail da clínica");
         _email.Chamadas.Should().Be(0);
     }
 
@@ -335,7 +335,7 @@ public sealed class EnvioAoPacienteTests : IDisposable
         var email = d.Opcoes[0];
         email.Canal.Should().Be(CanalDeEnvio.Email);
         email.Disponivel.Should().BeFalse();
-        email.Motivo.Should().Contain("Lembretes por e-mail");
+        email.Motivo.Should().Contain("E-mail da clínica");
         d.Padrao.Should().Be(CanalDeEnvio.WhatsAppPeloCrm);
     }
 

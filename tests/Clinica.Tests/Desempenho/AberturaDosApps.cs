@@ -200,17 +200,13 @@ public sealed class AberturaDosApps(BancoDaAbertura banco)
 
         switch (app)
         {
-            case AppDaSuite.Recepcao:
-                tarefas.Add(Em<LembreteEmailService>(s => s.EnviarLembretesDaAberturaAsync()));
-                break;
             case AppDaSuite.Gerente:
-                // Em fila no OnStartup do Gerente: cópia → links → lembretes.
+                // Em fila no OnStartup do Gerente: cópia → links.
                 tarefas.Add(Task.Run(async () =>
                 {
                     await Em<PoliticaBackupService>(s => s.ExecutarSeVencidoAsync());
                     await Em<PublicacaoDocumentoService>(s => s.ExpirarVencidosAsync());
                     await Em<ColetaRemotaTermoService>(s => s.LimparVencidasAsync());
-                    await Em<LembreteEmailService>(s => s.EnviarLembretesDaAberturaAsync());
                 }));
                 break;
             case AppDaSuite.Faturamento:
