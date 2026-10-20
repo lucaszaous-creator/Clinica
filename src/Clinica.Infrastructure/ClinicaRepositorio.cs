@@ -1306,11 +1306,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Select(a => new AgendamentoLeve(a, a.Profissional, a.Sala,
                 new Paciente { Id = a.Paciente!.Id, Nome = a.Paciente.Nome }));
 
-    public async Task<IReadOnlyList<Agendamento>> AgendamentosMarcadosDesdeAsync(DateTime desde, CancellationToken ct = default)
-        => await _db.Agendamentos.AsNoTracking().Include(a => a.Paciente)
-            .Where(a => a.CriadoEm != null && a.CriadoEm >= desde)
-            .OrderBy(a => a.CriadoEm).Take(500).ToListAsync(ct);
-
     public async Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoParaLeituraAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
     {
         var linhas = await ConsultaAgendamentosParaLeitura(inicio, fim).ToListAsync(ct);

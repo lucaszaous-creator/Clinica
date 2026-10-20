@@ -1,5 +1,4 @@
 using Clinica.Application.Assinatura;
-using Clinica.Application.Email;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -13,8 +12,8 @@ using Xunit;
 namespace Clinica.Tests;
 
 /// <summary>
-/// Documento ao paciente (out/2026): a fila que o CRM executa pelo WhatsApp oficial e o
-/// e-mail que sai do servidor da clínica. Duas metades:
+/// Documento ao paciente (out/2026): a fila que o CRM executa pelo WhatsApp oficial (sem
+/// e-mail — decisão da cliente, out/2026). Duas metades:
 ///
 /// 1. o DESKTOP põe o pedido (<see cref="EnvioAoPacienteService"/>) — com a trilha no mesmo
 ///    gravar, sem duplicar no segundo clique, com os bytes da 2ª via;
@@ -29,7 +28,6 @@ public sealed class EnvioAoPacienteTests : IDisposable
     private readonly ClinicaRepositorio _repo;
     private readonly ParametrosService _parametros;
     private readonly DocumentoClinicoService _documentos;
-    private readonly EnviadorFalso _email = new();
     private DateTime _agora = new(2026, 10, 19, 10, 0, 0);
 
     public EnvioAoPacienteTests()
@@ -50,7 +48,7 @@ public sealed class EnvioAoPacienteTests : IDisposable
     }
 
     private EnvioAoPacienteService Envio()
-        => new(_repo, new DocumentosClinicosPdfService(_repo), _parametros, _email, () => _agora);
+        => new(_repo, new DocumentosClinicosPdfService(_repo), _parametros, () => _agora);
 
     private FilaEnviosCrmService Fila(ClinicaRepositorio? repo = null) => new(repo ?? _repo, () => _agora);
 
@@ -171,8 +169,6 @@ public sealed class EnvioAoPacienteTests : IDisposable
 
         var act = () => Envio().EnfileirarWhatsAppAsync(doc.Id, "ana");
         (await act.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*cancelado*");
-        var mail = () => Envio().EnviarPorEmailAsync(doc.Id, "ana", "maria@exemplo.com.br");
-        await mail.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Theory]
@@ -187,168 +183,52 @@ public sealed class EnvioAoPacienteTests : IDisposable
         => EnvioAoPacienteService.PodeEnviar(tipo, assinado, cancelado).Should().Be(pode);
 
     [Fact]
-    public async Task Destinos_mostram_o_numero_e_o_email_antes_de_enviar_e_o_que_ja_esta_na_fila()
+    public async Task Destinos_mostram_o_numero_antes_de_enviar_e_o_que_ja_esta_na_fila()
     {
-        await LigarSmtpAsync();
-        var doc = await ReceitaAsync(email: "invalido");
+        var doc = await ReceitaAsync();
         var d = await Envio().DestinosAsync(doc.Id);
         d.Celular.Should().Be("(11) 99999-0001");
-        d.Email.Should().BeNull("o e-mail inválido da ficha não vira sugestão");
-        d.MotivoSemEmail.Should().BeNull("o canal e-mail não some por falta de e-mail na ficha");
         d.JaNaFila.Should().BeNull();
 
         await Envio().EnfileirarWhatsAppAsync(doc.Id, "ana");
         (await Envio().DestinosAsync(doc.Id)).JaNaFila.Should().Contain("Já está na fila");
     }
 
-    // ===================== E-mail direto da clínica =====================
-
-    private Task LigarSmtpAsync() => _parametros.SalvarCamposEmailAsync(new CamposEmail(
-        "smtp.teste.com.br", "587", "clinica", "segredo", "contato@clinica.com.br", "Clínica Teste", true));
-
-    [Fact]
-    public async Task Email_vai_com_o_PDF_anexado_corpo_sem_dado_clinico_e_trilha()
-    {
-        await LigarSmtpAsync();
-        var doc = await ReceitaAsync();
-
-        var r = await Envio().EnviarPorEmailAsync(doc.Id, "ana", "maria@exemplo.com.br");
-
-        r.Ok.Should().BeTrue(r.Frase);
-        _email.Destinatario.Should().Be("maria@exemplo.com.br");
-        _email.Anexo!.TipoMime.Should().Be("application/pdf");
-        System.Text.Encoding.ASCII.GetString(_email.Anexo.Conteudo, 0, 4).Should().Be("%PDF");
-        _email.Anexo.NomeArquivo.Should().StartWith("Receita-");
-        _email.Corpo.Should().Contain("Olá, Maria!").And.NotContain("Fitoterápico").And.NotContain("receita",
-            "o corpo não diz que papel é — o conteúdo é o anexo");
-        (await _db.Auditoria.CountAsync(a => a.Acao == EnvioAoPacienteService.AcaoEmailEnviado && a.PacienteId == doc.PacienteId)).Should().Be(1);
-    }
-
-    [Fact]
-    public async Task Email_sem_servidor_configurado_diz_onde_configurar_e_e_o_unico_motivo_de_indisponivel()
-    {
-        var doc = await ReceitaAsync();
-        (await Envio().DestinosAsync(doc.Id)).MotivoSemEmail.Should().Contain("Lembretes por e-mail");
-        var r = await Envio().EnviarPorEmailAsync(doc.Id, "ana", "maria@exemplo.com.br");
-        r.Ok.Should().BeFalse();
-        r.Frase.Should().Contain("Lembretes por e-mail");
-        _email.Chamadas.Should().Be(0);
-    }
-
-    [Fact]
-    public async Task Ficha_sem_email_envia_para_o_endereco_digitado_e_nao_guarda_sem_pedir()
-    {
-        await LigarSmtpAsync();
-        var doc = await ReceitaAsync(email: null);
-
-        var r = await Envio().EnviarPorEmailAsync(doc.Id, "ana", " Pedido@Paciente.com.br ");
-
-        r.Ok.Should().BeTrue(r.Frase);
-        _email.Destinatario.Should().Be("Pedido@Paciente.com.br");
-        _db.ChangeTracker.Clear();
-        (await _db.Pacientes.AsNoTracking().SingleAsync()).Email.Should().BeNull("a caixinha nasce desmarcada");
-    }
-
-    [Fact]
-    public async Task Guardar_na_ficha_grava_o_email_do_envio_com_trilha()
-    {
-        await LigarSmtpAsync();
-        var doc = await ReceitaAsync(email: "antigo@exemplo.com.br");
-
-        var r = await Envio().EnviarPorEmailAsync(doc.Id, "ana", "novo@exemplo.com.br", guardarNaFicha: true);
-
-        r.Ok.Should().BeTrue(r.Frase);
-        r.Frase.Should().Contain("guardado na ficha");
-        _db.ChangeTracker.Clear();
-        (await _db.Pacientes.AsNoTracking().SingleAsync()).Email.Should().Be("novo@exemplo.com.br");
-        (await _db.Auditoria.AsNoTracking().SingleAsync(a => a.Acao == "EmailGuardadoNoEnvio")).Detalhe.Should().Contain("antigo@exemplo.com.br");
-    }
-
-    [Fact]
-    public async Task Envio_recusado_nao_guarda_o_email_na_ficha()
-    {
-        await LigarSmtpAsync();
-        var doc = await ReceitaAsync(email: null);
-        _email.Falha = new System.Net.Mail.SmtpException("recusado");
-
-        (await Envio().EnviarPorEmailAsync(doc.Id, "ana", "novo@exemplo.com.br", guardarNaFicha: true)).Ok.Should().BeFalse();
-
-        _db.ChangeTracker.Clear();
-        (await _db.Pacientes.AsNoTracking().SingleAsync()).Email.Should().BeNull();
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("maria")]
-    [InlineData("maria@")]
-    [InlineData("maria @exemplo.com")]
-    public async Task Endereco_digitado_invalido_nao_tenta(string digitado)
-    {
-        await LigarSmtpAsync();
-        var doc = await ReceitaAsync();
-        var r = await Envio().EnviarPorEmailAsync(doc.Id, "ana", digitado);
-        r.Ok.Should().BeFalse();
-        r.Frase.Should().Contain("e-mail válido");
-        _email.Chamadas.Should().Be(0);
-    }
-
-    [Fact]
-    public async Task Email_recusado_pelo_servidor_vira_frase_e_trilha_da_falha()
-    {
-        await LigarSmtpAsync();
-        var doc = await ReceitaAsync();
-        _email.Falha = new System.Net.Mail.SmtpException("caixa cheia");
-
-        var r = await Envio().EnviarPorEmailAsync(doc.Id, "ana", "maria@exemplo.com.br");
-
-        r.Ok.Should().BeFalse();
-        r.Frase.Should().Contain("caixa cheia");
-        (await _db.Auditoria.CountAsync(a => a.Acao == EnvioAoPacienteService.AcaoEmailFalhou)).Should().Be(1);
-        (await _db.Auditoria.CountAsync(a => a.Acao == EnvioAoPacienteService.AcaoEmailEnviado)).Should().Be(0);
-    }
-
-    // ===================== Os dois canais, e-mail primeiro (out/2026) =====================
+    // ===================== Os canais: só WhatsApp (out/2026) =====================
 
     [Theory]
     [InlineData(TipoDocumentoClinico.Receita)]
     [InlineData(TipoDocumentoClinico.Atestado)]
     [InlineData(TipoDocumentoClinico.PedidoExame)]
     [InlineData(TipoDocumentoClinico.Comparecimento)]
-    public async Task Todo_papel_enviavel_oferece_email_PRIMEIRO_e_marcado_e_WhatsApp_com_o_custo(TipoDocumentoClinico tipo)
+    public async Task Todo_papel_enviavel_oferece_so_WhatsApp_o_oficial_marcado_e_com_o_custo(TipoDocumentoClinico tipo)
     {
-        await LigarSmtpAsync();
-        var doc = await ReceitaAsync(email: null, tipo: tipo);
+        var doc = await ReceitaAsync(tipo: tipo);
 
         var d = await Envio().DestinosAsync(doc.Id);
 
-        d.Opcoes.Select(o => o.Canal).Should().Equal(CanalDeEnvio.Email, CanalDeEnvio.WhatsAppPeloCrm, CanalDeEnvio.WhatsAppDesteComputador);
-        d.Opcoes.Should().OnlyContain(o => o.Disponivel, "e-mail não depende de e-mail na ficha");
-        d.Padrao.Should().Be(CanalDeEnvio.Email);
-        d.Opcoes[1].Nota.Should().Contain("cobrado pela Meta").And.Contain("prefira o e-mail");
+        d.Opcoes.Select(o => o.Canal).Should().Equal(CanalDeEnvio.WhatsAppPeloCrm, CanalDeEnvio.WhatsAppDesteComputador);
+        d.Opcoes.Should().OnlyContain(o => o.Disponivel);
+        d.Padrao.Should().Be(CanalDeEnvio.WhatsAppPeloCrm);
+        d.Opcoes[0].Nota.Should().Contain("cobrado pela Meta").And.NotContain("e-mail");
     }
 
     [Fact]
-    public async Task Sem_servidor_de_email_o_canal_aparece_apagado_com_o_motivo_e_o_WhatsApp_vem_marcado()
+    public async Task Sem_celular_os_dois_canais_aparecem_apagados_com_o_motivo()
     {
-        var doc = await ReceitaAsync();
+        var doc = await ReceitaAsync(telefone: null);
         var d = await Envio().DestinosAsync(doc.Id);
-        var email = d.Opcoes[0];
-        email.Canal.Should().Be(CanalDeEnvio.Email);
-        email.Disponivel.Should().BeFalse();
-        email.Motivo.Should().Contain("Lembretes por e-mail");
-        d.Padrao.Should().Be(CanalDeEnvio.WhatsAppPeloCrm);
+        d.Opcoes.Should().OnlyContain(o => !o.Disponivel && o.Motivo!.Contains("celular válido"));
+        d.Padrao.Should().BeNull();
     }
 
     [Fact]
     public async Task A_trilha_diz_quem_por_qual_canal_e_para_onde()
     {
-        await LigarSmtpAsync();
         var doc = await ReceitaAsync();
-        await Envio().EnviarPorEmailAsync(doc.Id, "ana", "maria@exemplo.com.br");
         await Envio().EnfileirarWhatsAppAsync(doc.Id, "bia");
 
         var trilha = await _db.Auditoria.AsNoTracking().Where(a => a.Acao.StartsWith("Documento")).ToListAsync();
-        trilha.Should().Contain(a => a.Operador == "ana" && a.Detalhe!.Contains("Canal: e-mail") && a.Detalhe.Contains("Para: maria@exemplo.com.br"));
         trilha.Should().Contain(a => a.Operador == "bia" && a.Detalhe!.Contains("Canal: WhatsApp (pelo CRM)") && a.Detalhe.Contains("Para: (11) 99999-0001"));
     }
 
@@ -537,24 +417,4 @@ public sealed class EnvioAoPacienteTests : IDisposable
     [InlineData("123", "")]
     [InlineData(null, "")]
     public void Telefone_do_envio(string? entrada, string esperado) => FilaEnviosCrm.Telefone(entrada).Should().Be(esperado);
-
-    private sealed class EnviadorFalso : IEnviadorDeEmail
-    {
-        public int Chamadas;
-        public string? Destinatario;
-        public string? Corpo;
-        public AnexoDeEmail? Anexo;
-        public Exception? Falha;
-
-        public Task EnviarAsync(OpcoesEmail opcoes, string destinatario, string assunto, string corpo, CancellationToken ct = default)
-            => throw new InvalidOperationException("O documento tem de ir com o anexo.");
-
-        public Task EnviarComAnexoAsync(OpcoesEmail opcoes, string destinatario, string assunto, string corpo, AnexoDeEmail anexo, CancellationToken ct = default)
-        {
-            Chamadas++;
-            if (Falha is not null) throw Falha;
-            Destinatario = destinatario; Corpo = corpo; Anexo = anexo;
-            return Task.CompletedTask;
-        }
-    }
 }

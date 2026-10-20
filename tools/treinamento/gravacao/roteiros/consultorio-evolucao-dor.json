@@ -1,0 +1,17 @@
+{
+  "chave": "consultorio-evolucao-dor",
+  "titulo": "Evolução da dor",
+  "descricao": "Como está indo a dor do paciente: a EVA antes e depois de cada sessão, o ganho acumulado e a tendência da dor de chegada.",
+  "url": { "paciente": 13, "secao": "Acompanhamento", "subaba": 0 },
+  "passos": [
+    { "titulo": "Abra a evolução da dor", "texto": "O acompanhamento tem três abas: a curva da dor, as medidas e as avaliações. Esta mostra a EVA de cada sessão.", "alvo": "aba=Evolução da dor" },
+    { "titulo": "Leia o resumo", "texto": "Quantas sessões têm a EVA medida em par. Sem o par antes e depois não há curva: uma medida solta não diz se melhorou.", "alvo": "texto=com EVA medida" },
+    { "titulo": "Compare a dor inicial e a atual", "texto": "A dor da primeira sessão medida e a da última, de 0 a 10.", "alvo": "texto-exato=Dor inicial" },
+    { "titulo": "Veja o ganho acumulado", "texto": "Quantos pontos a dor caiu desde o início. O alívio médio diz quanto cada sessão tira, em média, entre o antes e o depois.", "alvo": "texto-exato=Ganho acumulado" },
+    { "titulo": "Leia a tendência", "texto": "A tendência olha a dor de chegada das últimas sessões: diz se o alívio se sustenta entre uma sessão e outra.", "alvo": "css=.acp-tendencia" },
+    { "titulo": "Acompanhe as duas curvas", "texto": "Dor na chegada e dor na saída, sessão a sessão. A curva de chegada caindo mostra que o alívio dura até a sessão seguinte.", "alvo": "titulo=Dor na chegada" },
+    { "titulo": "Confira sessão por sessão", "texto": "A tabela traz a data, a EVA antes e depois e quanto a dor caiu em cada sessão.", "alvo": "texto-exato=Na sessão" },
+    { "titulo": "Exporte a curva", "texto": "Exportar CSV salva a tabela para abrir no Excel — por exemplo, para o relatório do convênio.", "alvo": "botao=Exportar CSV" },
+    { "titulo": "Passe às medidas e avaliações", "texto": "As outras abas mostram as medidas seriadas, como peso e pressão, e as escalas clínicas aplicadas.", "alvo": "aba=Medidas" }
+  ]
+}

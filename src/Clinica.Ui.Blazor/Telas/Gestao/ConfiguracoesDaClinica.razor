@@ -8,7 +8,7 @@
   e salvar um bloco relê SÓ aquele bloco — o WPF relia tudo e apagava, em silêncio, o que a pessoa
   tinha digitado nas outras abas sem salvar.
 
-  Segredos (a senha do SMTP e a chave secreta do armazenamento) NUNCA voltam para a tela: o campo
+  Segredos (a chave secreta do armazenamento) NUNCA voltam para a tela: o campo
   nasce vazio, e vazio no Salvar quer dizer MANTER o gravado — a regra do token do SMS. Nada disso
   vai para log nem para notificação.
 
@@ -23,7 +23,6 @@
 @namespace Clinica.Ui.Blazor.Telas
 @inherits TelaBase
 @using Clinica.Application.Abstracoes
-@using Clinica.Application.Email
 
 <div class="pagina configuracoes @(_carregando && _carregou ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Direção · Administração" Titulo="Configurações da clínica"
@@ -402,64 +401,6 @@
             </footer>
         </section>
 
-        <section class="cfg-bloco">
-            @Cabeca("Lembretes por e-mail", "No dia da sessão, a partir das 06:00, o sistema manda o pedido de confirmação por e-mail a quem tem endereço na ficha, e um e-mail logo que a sessão é marcada. Sai também para quem já recebeu pelo WhatsApp, uma vez só. A mensagem não leva dado clínico.", _pendEmail)
-            <div class="cfg-bloco-campos">
-                <p class="cfg-situacao">@_situacaoEmail</p>
-                <div class="cfg-grupo">
-                    <h3>Servidor de saída</h3>
-                    <div class="cfg-smtp">
-                        <Campo Rotulo="Servidor (SMTP)">
-                            <input class="campo" maxlength="200" placeholder="smtp.gmail.com" @bind="_smtpHost" @bind:after="MudouEmail" />
-                        </Campo>
-                        <Campo Rotulo="Porta">
-                            <input class="campo" inputmode="numeric" maxlength="5" placeholder="587" @bind="_smtpPorta" @bind:after="MudouEmail" />
-                        </Campo>
-                    </div>
-                    <div class="campos">
-                        <Campo Rotulo="Usuário" Dica="Em branco = servidor sem autenticação (e a senha gravada sai).">
-                            <input class="campo" maxlength="200" autocomplete="off" @bind="_smtpUsuario" @bind:after="MudouEmail" />
-                        </Campo>
-                        <Campo Rotulo="Senha (ou senha de aplicativo)"
-                               Dica="@(_temSenhaGravada ? "Há uma senha gravada. Deixe em branco para mantê-la; digite só para trocar." : null)">
-                            <input class="campo" type="password" maxlength="300" autocomplete="new-password"
-                                   placeholder="@(_temSenhaGravada ? "•••••••• (gravada)" : null)" @bind="_smtpSenha" @bind:after="MudouEmail" />
-                        </Campo>
-                    </div>
-                    <label class="alternar"><input type="checkbox" @bind="_smtpTls" @bind:after="MudouEmail" /> Usar criptografia (TLS) — recomendado; desligue só para servidor interno da clínica</label>
-                    <span class="campo-dica">Gmail: smtp.gmail.com, porta 587, com SENHA DE APLICATIVO (não a senha da conta — o Google recusa). Outlook / Microsoft 365: smtp.office365.com, porta 587. Hospedagem própria: pergunte ao responsável pelo e-mail da clínica.</span>
-                </div>
-                <div class="cfg-grupo">
-                    <h3>Remetente</h3>
-                    <div class="campos">
-                        <Campo Rotulo="E-mail que o paciente vê" Dica="A resposta do paciente chega neste endereço.">
-                            <input class="campo" maxlength="120" placeholder="contato@suaclinica.com.br" @bind="_remetente" @bind:after="MudouEmail" />
-                        </Campo>
-                        <Campo Rotulo="Nome do remetente">
-                            <input class="campo" maxlength="120" placeholder="Clínica SemDor" @bind="_remetenteNome" @bind:after="MudouEmail" />
-                        </Campo>
-                    </div>
-                </div>
-                <div class="cfg-grupo">
-                    <h3>Testar</h3>
-                    <div class="cfg-teste-email">
-                        <Campo Rotulo="Mandar o teste para">
-                            <input class="campo" maxlength="120" @bind="_destinoTeste" />
-                        </Campo>
-                        <button type="button" class="botao" @onclick="TestarEmailAsync" disabled="@(!PodeEditar || _testandoEmail)">
-                            <Icone Nome="enviar" />@(_testandoEmail ? "Enviando…" : "Enviar e-mail de teste")
-                        </button>
-                    </div>
-                    <span class="campo-dica">O teste usa a configuração SALVA — salve antes de testar. Ele manda um único e-mail para este endereço; nenhum paciente recebe nada.</span>
-                </div>
-            </div>
-            <footer class="cfg-bloco-rodape">
-                @Mensagem(Aba.Integracoes, Bloco.Email)
-                <div class="cfg-acoes">
-                    <button type="button" class="botao primario" @onclick="SalvarEmailAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar lembretes</button>
-                </div>
-            </footer>
-        </section>
     </text>;
 
     private RenderFragment AbaBackup => @<text>
@@ -550,7 +491,7 @@
         Aba.Atendimento => _pendConclusao,
         Aba.Operacao => _pendOperacao,
         Aba.Faturamento => _pendFaturamento,
-        Aba.Integracoes => _pendPublicacao || _pendEmail,
+        Aba.Integracoes => _pendPublicacao,
         _ => _pendBackup
     };
 
@@ -568,7 +509,7 @@
     private enum Aba { Clinica, Atendimento, Operacao, Faturamento, Integracoes, Backup }
 
     /// <summary>A aba Integrações tem dois blocos, cada um com o próprio Salvar e a própria mensagem.</summary>
-    private enum Bloco { Unico, Publicacao, Email }
+    private enum Bloco { Unico, Publicacao }
 
     private static readonly (Aba Aba, string Rotulo)[] Abas =
     [
@@ -605,20 +546,15 @@
     private string _armSegredo = string.Empty;
     private bool _temSegredoGravado, _armVemDoAmbiente, _testando;
     private string _situacaoPublicacao = string.Empty;
-    // E-mail — idem para a senha.
-    private string? _smtpHost, _smtpPorta, _smtpUsuario, _remetente, _remetenteNome, _destinoTeste;
-    private string _smtpSenha = string.Empty;
-    private bool _temSenhaGravada, _smtpTls = true, _testandoEmail;
-    private string _situacaoEmail = string.Empty;
     // Backup
     private string _pastaBackup = string.Empty, _situacaoBackup = string.Empty;
     private string? _intervaloBackup, _copiasBackup, _resumoBackup;
     private bool _backupDesligado = true, _resumoBackupEhErro, _resumoBackupNaPolitica, _copiando;
 
     // Pendências por bloco: salvar um bloco não pode apagar o que foi digitado nos outros.
-    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendEmail, _pendBackup;
+    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendBackup;
     private bool Pendente => _pendClinica || _pendConclusao || _pendOperacao || _pendFaturamento
-                             || _pendPublicacao || _pendEmail || _pendBackup;
+                             || _pendPublicacao || _pendBackup;
 
     private bool _carregou, _carregando, _naoVerificado, _salvando, _termos, _campos;
     private string? _erroLeitura, _mensagem;
@@ -640,7 +576,6 @@
     private void MudouOperacao() => _pendOperacao = true;
     private void MudouFaturamento() => _pendFaturamento = true;
     private void MudouPublicacao() => _pendPublicacao = true;
-    private void MudouEmail() => _pendEmail = true;
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
@@ -658,16 +593,11 @@
             Aba.Operacao => SalvarOperacaoAsync(),
             Aba.Faturamento => SalvarFaturamentoAsync(),
             Aba.Backup => SalvarPoliticaBackupAsync(),
-            _ => AvisarSalvarPorBloco()
+            Aba.Integracoes => SalvarPublicacaoAsync(),
+            _ => Task.CompletedTask
         },
         _ => Task.CompletedTask
     };
-
-    private Task AvisarSalvarPorBloco()
-    {
-        Notificacoes.Info("Nesta aba cada bloco tem o próprio Salvar — publicação e lembretes.");
-        return Task.CompletedTask;
-    }
 
     private void TrocarAba(Aba aba)
     {
@@ -703,7 +633,6 @@
     private sealed record LidoConclusao(List<OpcaoEnfermagem> Modalidades, bool Automatica, int Horas);
     private sealed record LidoPublicacao(string? Dominio, int Dias, bool VemDoAmbiente, string? Endpoint, string? Regiao,
         string? Bucket, string? Chave, bool TemSegredo, string Situacao);
-    private sealed record LidoEmail(CamposEmail Campos, string Situacao);
 
     private static async Task<LidoClinica> LerClinicaAsync(ParametrosService p)
         => new(DadosDaClinica.De(await p.ObterPrestadorAsync()));
@@ -751,13 +680,6 @@
             ConfiguracoesDaClinicaNaTela.DescreverPublicacao(dominio, tem, dias));
     }
 
-    private static async Task<LidoEmail> LerEmailAsync(ParametrosService p)
-    {
-        var c = await p.ObterCamposEmailAsync();
-        return new(c, ConfiguracoesDaClinicaNaTela.DescreverEmail(
-            OpcoesEmail.De(c.Host, c.Porta, c.Usuario, c.Senha, c.Remetente, c.NomeRemetente, c.UsarTls)));
-    }
-
     /// <summary>
     /// Tudo numa leitura, SEQUENCIAL no mesmo escopo (o DbContext não aceita duas operações ao
     /// mesmo tempo), publicado depois do último await. Contador de geração contra resposta fora de
@@ -779,7 +701,6 @@
             var faturamento = await LerFaturamentoAsync(p);
             var conclusao = await LerConclusaoAsync(sp);
             var publicacao = await LerPublicacaoAsync(p);
-            var email = await LerEmailAsync(p);
             var copia = await sp.GetRequiredService<ICopiaDeSeguranca>().SituacaoAsync();
             var (pendencias, resumo) = await LerPendenciasAsync(sp);
             if (geracao != _geracao || Descartada) return;
@@ -790,8 +711,6 @@
             PublicarConclusao(conclusao);
             (_pendencias, _resumoPendencias) = (pendencias, resumo);
             PublicarPublicacao(publicacao);
-            PublicarEmail(email);
-            _destinoTeste ??= clinica.Dados.Email; // quem costuma testar; nunca regravado por cima do digitado
             PublicarBackup(copia);
 
             _carregou = true;
@@ -878,17 +797,6 @@
         _armSegredo = string.Empty;
         _situacaoPublicacao = l.Situacao;
         _pendPublicacao = false;
-    }
-
-    private void PublicarEmail(LidoEmail l)
-    {
-        var c = l.Campos;
-        (_smtpHost, _smtpPorta, _smtpUsuario, _remetente, _remetenteNome, _smtpTls) =
-            (c.Host, c.Porta, c.Usuario, c.Remetente, c.NomeRemetente, c.UsarTls);
-        _temSenhaGravada = !string.IsNullOrEmpty(c.Senha);
-        _smtpSenha = string.Empty;
-        _situacaoEmail = l.Situacao;
-        _pendEmail = false;
     }
 
     private void PublicarBackup(SituacaoDaCopia s)
@@ -1122,60 +1030,6 @@
         if (_urlExemplo is null) return;
         if (!await Host.AbrirEnderecoAsync(_urlExemplo))
             Notificacoes.Erro("O navegador não abriu daqui — copie o endereço e cole no navegador.");
-    }
-
-    private async Task SalvarEmailAsync()
-    {
-        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
-        await GravarAsync(Aba.Integracoes, Bloco.Email, "lembretes por e-mail", async sp =>
-        {
-            var p = sp.GetRequiredService<ParametrosService>();
-            var senhaGravada = (await p.ObterCamposEmailAsync()).Senha;
-            if (ConfiguracoesDaClinicaNaTela.LerEmail(_smtpHost, _smtpPorta, _smtpUsuario, _smtpSenha, senhaGravada,
-                    _remetente, _remetenteNome, _smtpTls, out var erro, out var desligando) is not { } campos)
-            {
-                Dizer(Aba.Integracoes, erro!, erro: true, Bloco.Email);
-                return null;
-            }
-            await p.SalvarCamposEmailAsync(campos);
-            PublicarEmail(await LerEmailAsync(p));
-            return ConfiguracoesDaClinicaNaTela.FraseEmailSalvo(desligando);
-        });
-    }
-
-    /// <summary>
-    /// UM e-mail pelo MESMO caminho do lembrete, com a configuração GRAVADA. A frase do erro traz a
-    /// do servidor (GetBaseException): "Failure sending mail" não diz nada, e a causa — autenticação
-    /// recusada, porta fechada — está um nível abaixo.
-    /// </summary>
-    private async Task TestarEmailAsync()
-    {
-        if (_testandoEmail) return;
-        if (!Exigir(Permissao.GerenciarUsuarios, "enviar o e-mail de teste")) return;
-        var destino = ConfiguracoesDaClinicaNaTela.Limpar(_destinoTeste);
-        if (destino is null)
-        {
-            Dizer(Aba.Integracoes, "Informe para qual e-mail mandar o teste.", erro: true, Bloco.Email);
-            return;
-        }
-        _testandoEmail = true;
-        try
-        {
-            using var escopo = Escopo();
-            await escopo.ServiceProvider.GetRequiredService<LembreteEmailService>().EnviarTesteAsync(destino);
-            var ok = $"E-mail de teste enviado para {destino}. Confira a caixa de entrada — e a pasta de spam, na primeira vez.";
-            Dizer(Aba.Integracoes, ok, erro: false, Bloco.Email);
-            Notificacoes.Sucesso(ok);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Blazor — e-mail de teste falhou", ex);
-            Dizer(Aba.Integracoes, $"O e-mail de teste não saiu: {ex.GetBaseException().Message}", erro: true, Bloco.Email);
-        }
-        finally
-        {
-            _testandoEmail = false;
-        }
     }
 
     // ============================ Backup ============================

@@ -1,0 +1,21 @@
+{
+  "chave": "consultorio-prontuario",
+  "titulo": "Histórico clínico",
+  "descricao": "O prontuário médico do paciente: todas as sessões escritas, com busca no texto, a sessão inteira, os anexos e as correções.",
+  "url": { "paciente": 13, "secao": "Histórico" },
+  "passos": [
+    { "titulo": "Abra o histórico clínico", "texto": "Todas as sessões escritas do paciente, da mais recente para a mais antiga, sem sair do prontuário.", "alvo": "botao=Histórico clínico" },
+    { "titulo": "Veja quantas sessões há", "texto": "A linha de resumo conta as sessões do prontuário — e diz quando a lista está filtrada pela busca.", "alvo": "css=p.cartao-corpo.secundario" },
+    { "titulo": "Busque no prontuário", "texto": "Digite uma palavra da queixa, da conduta ou da evolução: a lista mostra só as sessões que a contêm.", "alvo": "entrada=Buscar no prontuário", "acao": "digitar", "valor": "lombar" },
+    { "alvo": "entrada=Buscar no prontuário", "acao": "limpar", "ms": 1200 },
+    { "titulo": "Atualize o histórico", "texto": "Relê o prontuário (atalho F5) — para ver a sessão que um colega acabou de salvar.", "alvo": "botao=Atualizar histórico", "acao": "clicar" },
+    { "titulo": "Leia cada sessão", "texto": "Cada sessão traz a data, a EVA antes e depois e quem atendeu, com a queixa, a conduta, a evolução e as orientações.", "alvo": "css=.hist-sessao" },
+    { "titulo": "Copie o registro", "texto": "Copiar registro leva o texto da sessão para a área de transferência, para colar num relatório ou mensagem.", "alvo": "botao=Copiar registro" },
+    { "titulo": "Veja os anexos da sessão", "texto": "Os arquivos ligados à sessão — exame, foto, laudo. Anexar arquivo acrescenta um; cada anexo pode ser salvo ou retirado com motivo.", "alvo": "botao-exato=Anexos", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Abra a sessão inteira", "texto": "Abrir sessão mostra todos os campos da sessão, separados por assunto, para ler sem cortes.", "alvo": "botao=Abrir sessão", "acao": "clicar" },
+    { "titulo": "Imprima esta sessão", "texto": "Imprimir esta sessão gera o papel só daquela consulta, com a marca da clínica e o código de conferência.", "alvo": "janela=Imprimir esta sessão" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Confira as correções", "texto": "Quando uma sessão foi corrigida, aparece o botão das correções: ele mostra o que o registro dizia antes, com data e autor. Nada se apaga." }
+  ]
+}

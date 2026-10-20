@@ -117,13 +117,14 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
 
     public SecaoDoSino<PedidoHtml> Pedidos => _vm.PodeVerPedidos
         ? new(true, _vm.ContadorPedidos,
-            _vm.PedidosNoSino.Select(p => new PedidoHtml(p.Id, p.Titulo, p.Quando, p.Origem, p.Novo)).ToList(),
+            _vm.PedidosNoSino.Select(p => new PedidoHtml(p.Id, p.Titulo, p.Quando, p.Origem, p.Novo, _vm.PedidoNaoLido(p.Id))).ToList(),
             _vm.SituacaoSino)
         : SecaoDoSino<PedidoHtml>.Oculta;
 
     public SecaoDoSino<RespostaHtml> Respostas => _vm.PodeVerConfirmacoes
         ? new(true, _vm.ContadorRespostas,
-            _vm.RespostasNoSino.Select(r => new RespostaHtml(r, r.Titulo, r.Sessao, r.Detalhe, Tom(r.Tipo))).ToList(),
+            _vm.RespostasNoSino.Select(r => new RespostaHtml(r, r.Titulo, r.Sessao, r.Detalhe, Tom(r.Tipo),
+                _vm.RespostaNaoLida(r), r.Titulo.StartsWith(r.Paciente, StringComparison.Ordinal) ? r.Paciente : "")).ToList(),
             _vm.SituacaoRespostas)
         : SecaoDoSino<RespostaHtml>.Oculta;
 
@@ -136,6 +137,9 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
 
     public IReadOnlyList<AvisoHtml> Historico => _snackbar?.Historico
         .Select(a => new AvisoHtml(a.Mensagem, TomDe(a.Tipo), a.HoraTexto)).ToList() ?? [];
+
+    public int NaoLidas => _vm.NaoLidas;
+    public void MarcarTodasComoLidas() => _vm.MarcarTodasComoLidasCommand.Execute(null);
 
     public void AlternarSino() => _vm.AbrirAvisosCommand.Execute(null);
 

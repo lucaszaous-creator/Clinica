@@ -114,7 +114,6 @@
     private string _modelo = "";
     private int _antecedencia = Clinica.Domain.ConfirmacaoPorLink.AntecedenciaPadraoHoras;
     private bool _adiantar = true;
-    private bool _emailSoSemCelular = true;
     private string _telefoneTeste = "";
     private string? _mensagemConfig;
     private bool _mensagemConfigErro;
@@ -212,7 +211,6 @@
         _modelo = c.ModeloCorpo ?? "";
         _antecedencia = c.AntecedenciaHoras;
         _adiantar = c.AdiantarFimDeSemana;
-        _emailSoSemCelular = c.EmailSoParaQuemNaoTemCelular;
     }
 
     // ==================== LEMBRETES ====================
@@ -598,7 +596,7 @@
 
     /// <summary>Os campos como estão na tela; o token é o DIGITADO (vazio = manter o gravado).</summary>
     private CamposSms Digitados => new(_provedor, _endereco, _conta, _token, _remetente, _cabecalho, _modelo,
-        _antecedencia, _adiantar, _emailSoSemCelular);
+        _antecedencia, _adiantar);
 
     /// <summary>O que falta, como ficará DEPOIS de salvar — com o token gravado contando como preenchido.</summary>
     private string? Falta => OpcoesSms.OQueFalta(Digitados with { Token = string.IsNullOrWhiteSpace(_token) && _temToken ? "(gravado)" : _token });
@@ -731,8 +729,6 @@
                 <span></span>
                 <label class="marcar"><input type="checkbox" checked="@_adiantar" @onchange="e => _adiantar = e.Value is true" disabled="@(!PodeConfigurar)" />
                     Adiantar o fim de semana para a sexta (no sábado e no domingo ninguém liga as máquinas)</label>
-                <label class="marcar"><input type="checkbox" checked="@_emailSoSemCelular" @onchange="e => _emailSoSemCelular = e.Value is true" disabled="@(!PodeConfigurar)" />
-                    E-mail só para quem não tem celular (quem recebe SMS não recebe e-mail também)</label>
             </div>
 
             @if (Falta is { } falta)

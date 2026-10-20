@@ -130,6 +130,7 @@ public static class DependencyInjection
         services.AddScoped<PainelDirecaoService>();
         // As respostas dos pacientes (out/2026): o sino do shell e o painel leem a MESMA decisão.
         services.AddScoped<AvisosDeConfirmacaoService>();
+        services.AddScoped<LeituraDoSinoService>();
         services.AddScoped<InadimplenciaService>();
         services.AddScoped<CentralDocumentosService>();
         // O TributoService vem ANTES do TaxaService: este o recebe para abrir o imposto
@@ -148,19 +149,14 @@ public static class DependencyInjection
         services.AddScoped<DocumentosFinanceirosPdfService>();
         services.AddScoped<IndicadoresService>();
         services.AddScoped<CampanhaService>();
-        // Lembrete automático da sessão por e-mail (set/2026). O enviador é SINGLETON e
-        // sem estado — ele abre um SmtpClient por envio; as opções vêm do banco a cada
-        // rodada, pelo ParametrosService.
-        services.AddScoped<LembreteEmailService>();
         services.AddScoped<LembreteSmsService>();
-        // Documento ao paciente por WhatsApp (fila que o CRM executa) e por e-mail (out/2026).
+        // Documento ao paciente por WhatsApp (fila que o CRM executa) — out/2026; sem e-mail.
         // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.
         services.AddScoped<EnvioAoPacienteService>();
         services.AddScoped<FilaEnviosCrmService>();
         services.AddScoped<PublicoCampanhaSmsService>();
         services.AddScoped<TendenciaAtendimentosService>();
         services.AddSingleton<Clinica.Application.Sms.IGatewaySms, Clinica.Application.Sms.GatewaySmsHttp>();
-        services.AddSingleton<Clinica.Application.Email.IEnviadorDeEmail, Clinica.Application.Email.EnviadorSmtp>();
         services.AddScoped<AcessoService>();
         services.AddScoped<PrevencaoGlosaService>();
         services.AddScoped<TissExportService>();

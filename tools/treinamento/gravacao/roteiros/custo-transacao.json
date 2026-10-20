@@ -1,0 +1,20 @@
+{
+  "chave": "custo-transacao",
+  "titulo": "Custo de taxas e impostos",
+  "descricao": "Quanto a maquininha e o fisco custaram à clínica — e se a taxa que se paga de fato bate com a taxa contratada.",
+  "passos": [
+    { "titulo": "Escolha a janela de meses", "texto": "3, 6, 12 ou 24 meses para trás. Todos os cartões, gráficos e tabelas passam a mostrar a janela escolhida.", "alvo": "botao-exato=6 meses", "acao": "clicar" },
+    { "alvo": "botao-exato=12 meses", "acao": "clicar", "ms": 1200 },
+    { "titulo": "O que entrou", "texto": "O total bruto recebido no período, antes de qualquer desconto — a base de todas as contas da tela.", "alvo": "texto-exato=Entrou (bruto)" },
+    { "titulo": "Maquininha e imposto", "texto": "Quanto foi descontado pela maquininha de cartão e quanto foi de imposto, cada um com o percentual sobre tudo o que entrou.", "alvo": "texto-exato=Maquininha" },
+    { "titulo": "O que sobrou", "texto": "O líquido: bruto menos maquininha e imposto. A nota diz quanto as deduções pesaram, em percentual.", "alvo": "texto-exato=Sobrou (líquido)" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ copia o valor do cartão para a planilha ou para a conversa com o contador.", "alvo": "botao=Opções do cartão Maquininha", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia a evolução mês a mês", "texto": "O gráfico vermelho mostra as deduções em percentual do faturamento; o outro, em reais. Mês sem faturamento interrompe a linha.", "alvo": "texto=Deduções (% do faturamento)" },
+    { "titulo": "A adquirente que mais custou", "texto": "A frase aponta a maquininha que mais descontou no período — a primeira a renegociar.", "alvo": "texto=Adquirente que mais descontou" },
+    { "titulo": "Compare efetiva e tabela", "texto": "Para cada maquininha: quanto descontou, a taxa efetiva paga e a taxa contratada. Efetiva acima da tabela aparece em destaque.", "alvo": "titulo=Por origem do recebimento" },
+    { "titulo": "Leve a diferença à negociação", "texto": "A efetiva sobe quando a clínica parcela mais do que imagina. É essa diferença, mostrada aqui, que se leva à renegociação com a adquirente.", "alvo": "texto=A taxa EFETIVA é o que foi descontado" },
+    { "titulo": "Mês a mês em tabela", "texto": "Bruto, maquininha, imposto, líquido e o percentual de deduções de cada mês — os números exatos por trás dos gráficos.", "alvo": "titulo=Mês a mês" },
+    { "titulo": "Atualize e exporte", "texto": "Atualizar (F5) lê de novo. Exportar CSV gera a planilha da série e das maquininhas para a renegociação.", "alvo": "botao=Exportar CSV" }
+  ]
+}

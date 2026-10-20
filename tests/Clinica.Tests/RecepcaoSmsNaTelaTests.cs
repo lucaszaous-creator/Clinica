@@ -252,7 +252,7 @@ public class RecepcaoSmsNaTelaTests
     // ==================== Canal de SMS — configuração ====================
 
     private static CamposSms Campos(ProvedorSms p, string? token, string? remetente = "CLINICA") =>
-        new(p, null, null, token, remetente, null, null, 24, true, true);
+        new(p, null, null, token, remetente, null, null, 24, true);
 
     [Fact]
     public void Token_vazio_no_salvar_mantem_o_gravado_e_a_tela_nunca_recebe_o_token()

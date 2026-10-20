@@ -34,7 +34,7 @@ public sealed record ResultadoEntrega(
 /// mandar arquivo por WhatsApp sem intervenção exige a API oficial da Meta (conta
 /// Business, custo por mensagem); prometer envio automático com o <c>wa.me</c> seria
 /// prometer o que ele não faz. Desde out/2026 o envio automático EXISTE — pelo CRM, com a
-/// API oficial (<c>AcoesDoDocumento.EnviarPeloCrmAsync</c>) — e por e-mail; este caminho
+/// API oficial (<c>AcoesDoDocumento.EnviarPeloCrmAsync</c>); este caminho
 /// continua como a alternativa para quando o CRM está desligado.
 ///
 /// A mensagem ensina o paciente a usar o arquivo: sem essa frase ele encaminha a foto do
@@ -86,13 +86,13 @@ public static class EntregaAoPaciente
             telefone, nomePaciente, legenda);
 
         // Três desfechos, e os três precisam de frase própria: sem telefone o arquivo
-        // continua gravado e pode ir por e-mail; sem área de transferência o anexo é pelo
+        // continua gravado e pode ir pelo CRM; sem área de transferência o anexo é pelo
         // clipe; com tudo certo, o que falta é um Ctrl+V — e dizer isso é o que faz a
         // secretária concluir a entrega em vez de fechar a janela achando que já foi.
         if (erroWhatsapp is not null)
             return new ResultadoEntrega(
                 caminho, copiado,
-                $"{erroWhatsapp} O arquivo está salvo em {caminho} — envie por e-mail ou "
+                $"{erroWhatsapp} O arquivo está salvo em {caminho} — envie pelo CRM ou "
                 + "abra o WhatsApp manualmente.", EhErro: true);
 
         return new ResultadoEntrega(

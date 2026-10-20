@@ -351,12 +351,6 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoParaLeituraAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
-    /// <summary>
-    /// Horários MARCADOS (pela hora da marcação, <c>CriadoEm</c>) desde o instante, com o
-    /// paciente, sem rastrear — a leitura do e-mail "sua sessão foi agendada".
-    /// </summary>
-    Task<IReadOnlyList<Agendamento>> AgendamentosMarcadosDesdeAsync(DateTime desde, CancellationToken ct = default);
-
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
     Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);

@@ -1,0 +1,29 @@
+{
+  "chave": "pagamentos-recepcao",
+  "titulo": "Pagamentos na recepção",
+  "descricao": "As cobranças de um paciente: o que ele deve, o que venceu e o que já pagou — para receber no balcão e emitir o recibo.",
+  "inventario": [
+    { "alvo": "placeholder=Digite o nome ou o CPF", "acao": "digitar", "valor": "Wagner" },
+    { "alvo": "opcao=Wagner Nogueira Lopes", "acao": "clicar" }
+  ],
+  "passos": [
+    { "titulo": "Comece pelo paciente", "texto": "A tela abre perguntando de quem são as cobranças. Ela só mostra valores depois que você escolhe o paciente.", "alvo": "titulo=Pagamentos na recepção" },
+    { "titulo": "Busque o paciente", "texto": "Digite parte do nome ou o CPF. Aparecem até oito pacientes que combinam com o que foi digitado.", "alvo": "placeholder=Digite o nome ou o CPF", "acao": "digitar", "valor": "Wagner" },
+    { "titulo": "Escolha na lista", "texto": "Clique no paciente certo — confira pelo telefone ao lado do nome quando houver nomes parecidos.", "alvo": "opcao=Wagner Nogueira Lopes", "acao": "clicar" },
+    { "titulo": "Troque de paciente", "texto": "O paciente escolhido fica em destaque. Trocar volta à busca para atender outra pessoa.", "alvo": "botao-exato=Trocar" },
+    { "titulo": "Quanto falta receber", "texto": "A receber soma as cobranças em aberto deste paciente e diz quantas são.", "alvo": "texto-exato=A receber" },
+    { "titulo": "O que já venceu", "texto": "Vencidas conta as cobranças em aberto com o vencimento passado. Cobre essas primeiro, com o paciente na frente.", "alvo": "texto-exato=Vencidas" },
+    { "titulo": "O que já foi pago", "texto": "Recebidas conta os pagamentos já registrados — cada um pode gerar o recibo.", "alvo": "texto-exato=Recebidas" },
+    { "titulo": "Copie um número", "texto": "Os três pontos do cartão copiam o valor, para colar numa mensagem ou planilha sem redigitar.", "alvo": "botao=Opções do cartão A receber", "acao": "clicar" },
+    { "alvo": "botao=Opções do cartão A receber", "acao": "clicar", "ms": 900 },
+    { "titulo": "Leia as cobranças", "texto": "Cada linha traz a sessão ou cobrança, o vencimento, o valor e a situação: vencido em vermelho, a receber em amarelo, recebido em verde.", "alvo": "titulo=Cobranças" },
+    { "titulo": "Receba uma cobrança", "texto": "Receber abre o pagamento da cobrança em aberto. Confira a data e escolha como o paciente pagou.", "alvo": "botao-exato=Receber", "acao": "clicar" },
+    { "titulo": "Escolha a forma de pagamento", "texto": "Dinheiro, PIX, cartão, transferência ou boleto. No cartão aparecem a maquininha, a bandeira e as parcelas.", "alvo": "janela-campo=Forma de pagamento", "acao": "selecionar", "valor": "Cartão de crédito" },
+    { "alvo": "janela-campo=Adquirente", "acao": "digitar", "valor": "Stone" },
+    { "titulo": "Receba só uma parte", "texto": "Valor menor que o saldo é pagamento parcial: o resto continua em aberto, com o novo vencimento que você escolher.", "alvo": "janela-campo=Valor recebido agora", "acao": "digitar", "valor": "100,00" },
+    { "titulo": "Confirme o recebimento", "texto": "Confirmar recebimento grava no caixa da clínica, com a trilha de quem recebeu. Cancelar fecha sem gravar nada.", "alvo": "janela=Confirmar recebimento" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Emita o recibo", "texto": "Em uma cobrança já recebida, Recibo gera o recibo numerado em PDF para entregar ao paciente.", "alvo": "botao=Recibo" },
+    { "titulo": "Atualize a lista", "texto": "Atualizar relê as cobranças — útil quando outra pessoa recebeu um pagamento no caixa ao mesmo tempo.", "alvo": "botao=Atualizar", "acao": "clicar" }
+  ]
+}

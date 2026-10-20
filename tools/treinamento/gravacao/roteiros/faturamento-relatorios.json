@@ -1,0 +1,22 @@
+{
+  "chave": "faturamento-relatorios",
+  "titulo": "Relatórios de guias",
+  "descricao": "Como foi o faturamento do período? Taxa de baixa e de glosa, cada convênio, consultas, não conformidades, atrasos e a evolução mensal.",
+  "passos": [
+    { "titulo": "Escolha o período", "texto": "De e Até definem o período do relatório. Troque as datas e clique em Gerar.", "alvo": "campo=Até" },
+    { "titulo": "Gere o relatório", "texto": "Gerar monta o relatório do período escolhido. O atalho F5 faz o mesmo.", "alvo": "botao-exato=Gerar", "acao": "clicar" },
+    { "titulo": "Gerados, baixados e pendentes", "texto": "Quantos códigos de guia nasceram no período, quantos já foram baixados no convênio e quantos continuam pendentes.", "alvo": "texto-exato=Códigos gerados" },
+    { "titulo": "Taxa de baixa", "texto": "A métrica principal: das guias geradas no período, quantas já foram baixadas. Quanto mais alta, menos faturamento parado.", "alvo": "texto-exato=Taxa de baixa" },
+    { "titulo": "Taxa de glosa", "texto": "Quantas das guias baixadas a operadora glosou. Se subir, veja os motivos na aba Glosas e recursos.", "alvo": "texto-exato=Taxa de glosa" },
+    { "titulo": "Tempo médio de baixa", "texto": "Quantos dias, em média, passam entre o atendimento e a baixa da guia.", "alvo": "texto-exato=Tempo médio de baixa" },
+    { "titulo": "Copie um número do cartão", "texto": "O ⋯ do cartão copia o valor, ou o rótulo com o valor, para levar à planilha ou à reunião sem redigitar.", "alvo": "botao=Opções do cartão Taxa de baixa", "acao": "clicar" },
+    { "alvo": "item=Copiar rótulo e valor", "acao": "clicar" },
+    { "titulo": "Compare os convênios", "texto": "Uma linha por operadora: gerados, baixados, pendentes, taxas de baixa e de glosa e a baixa média em dias.", "alvo": "titulo=Faturamento por convênio" },
+    { "titulo": "Consultas por especialidade", "texto": "Quantas consultas avulsas de cada especialidade foram feitas no período e quantas já foram baixadas.", "alvo": "titulo=Consultas por especialidade" },
+    { "titulo": "Não conformidades do período", "texto": "Quando houver, a seção Não conformidades lista as guias justificadas na rodada, com paciente, convênio e o motivo escrito." },
+    { "titulo": "Pendências por atraso", "texto": "O envelhecimento é sempre de hoje: quantas guias estão em aberto há até 7 dias, de 8 a 30 e há mais de 30.", "alvo": "titulo=Pendências em aberto" },
+    { "titulo": "Evolução mensal", "texto": "Os últimos 6 meses até o mês da data final: gerados, baixados e a taxa de baixa de cada mês.", "alvo": "titulo=Evolução mensal" },
+    { "titulo": "Exporte para o Excel", "texto": "Exportar CSV gera as tabelas deste relatório num arquivo que abre no Excel. O atalho Ctrl+P faz o mesmo.", "alvo": "botao=Exportar CSV" },
+    { "titulo": "Gere o fechamento em PDF", "texto": "O PDF de fechamento traz as pendências vencidas com nome, as glosas em aberto e a evolução mensal do período.", "alvo": "botao=Fechamento (PDF)" }
+  ]
+}

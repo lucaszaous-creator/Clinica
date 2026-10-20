@@ -1,0 +1,18 @@
+{
+  "chave": "consultorio-sessoes-enfermagem",
+  "app": "consultorio-enfermagem",
+  "titulo": "Sessões de enfermagem",
+  "descricao": "A fila do BSV e do BSV com acupuntura: onde a enfermagem acha cada sessão e registra a passagem, mesmo depois da conclusão médica.",
+  "passos": [
+    { "titulo": "Conheça as sessões de enfermagem", "texto": "Todas as sessões de BSV e BSV com acupuntura, para a enfermagem registrar a evolução na sessão original — mesmo depois de o médico concluir.", "alvo": "titulo=Sessões de enfermagem" },
+    { "titulo": "Filtre pelo paciente", "texto": "Digite parte do nome do paciente. Enter já aplica o filtro.", "alvo": "campo=Paciente", "acao": "digitar", "valor": "Marta" },
+    { "titulo": "Filtre pelo médico responsável", "texto": "Mostra só as sessões de um médico — útil para conferir a passagem de quem pediu o procedimento.", "alvo": "campo=Médico responsável", "acao": "digitar", "valor": "Helena" },
+    { "titulo": "Escolha o período", "texto": "De e Até recortam as datas. Em branco, a lista segue o padrão da situação escolhida.", "alvo": "campo=De (opcional)" },
+    { "titulo": "Escolha a situação", "texto": "Hoje e pendentes anteriores, só hoje, evoluções pendentes, evoluções registradas ou todas do período.", "alvo": "campo=Situação", "acao": "selecionar", "valor": "Evoluções pendentes" },
+    { "titulo": "Aplique o filtro", "texto": "Filtrar busca as sessões com tudo o que foi escolhido acima.", "alvo": "botao-exato=Filtrar", "acao": "clicar" },
+    { "titulo": "Limpe os filtros", "texto": "Limpar filtros apaga nome, médico, datas e situação e volta à lista padrão.", "alvo": "botao=Limpar filtros", "acao": "clicar" },
+    { "titulo": "Leia a lista de sessões", "texto": "Cada linha: data e hora, paciente, médico, modalidade, a situação da enfermagem e a do atendimento médico. Só o perfil Enfermagem vê a lista.", "alvo": "css=.con-lista" },
+    { "titulo": "Abra a passagem da sessão", "texto": "Abrir leva à passagem de enfermagem daquela sessão. Anterior e Próxima andam pelas páginas da lista." },
+    { "titulo": "Atualize a lista", "texto": "Relê as sessões (atalho F5) — para ver a sessão que a recepção acabou de marcar.", "alvo": "botao=Atualizar", "acao": "clicar" }
+  ]
+}

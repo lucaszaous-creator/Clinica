@@ -1,0 +1,25 @@
+{
+  "chave": "consultorio-meu-dia",
+  "titulo": "Meu dia",
+  "descricao": "Quem vem hoje, o que já foi atendido e o que ainda falta escrever — a agenda do dia de quem atende.",
+  "passos": [
+    { "titulo": "Conheça a lista do dia", "texto": "Os horários do dia na ordem da hora, com status, prontuário e o botão de atender. A lista se atualiza sozinha quando a recepção muda algo.", "alvo": "titulo=Meu dia" },
+    { "titulo": "Saiba de quem é a lista", "texto": "Se o seu usuário não estiver ligado ao seu cadastro de profissional, a tela mostra a agenda da clínica inteira e avisa aqui. Peça o vínculo à direção.", "alvo": "texto=Seu acesso não está vinculado" },
+    { "titulo": "Veja o que ficou sem evolução", "texto": "Este botão conta as sessões já atendidas nos últimos dias que continuam sem evolução escrita. Ele abre a lista para você escrever uma por uma.", "alvo": "botao=sem evolução" },
+    { "titulo": "Atualize a lista", "texto": "Relê o dia na hora (atalho F5). Use quando quiser conferir uma mudança que a recepção acabou de fazer.", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "titulo": "Ande pelos dias", "texto": "As setas mostram o dia anterior e o próximo — para conferir quem vem amanhã ou o que ficou de ontem.", "alvo": "botao=Próximo dia", "acao": "clicar" },
+    { "titulo": "Volte para hoje", "texto": "Fora do dia de hoje aparece o botão Hoje, que traz a lista de volta para o dia corrente com um clique.", "alvo": "botao-exato=Hoje", "acao": "clicar" },
+    { "titulo": "Escolha um dia no calendário", "texto": "O campo de data leva direto a qualquer dia, sem clicar seta por seta.", "alvo": "entrada=Escolher o dia" },
+    { "titulo": "Procure um paciente", "texto": "Digite parte do nome para ver só as linhas daquele paciente. O acento não atrapalha.", "alvo": "entrada=Buscar paciente", "acao": "digitar", "valor": "Otávio" },
+    { "alvo": "entrada=Buscar paciente", "acao": "limpar", "ms": 1200 },
+    { "titulo": "Filtre pela modalidade", "texto": "Mostra só os atendimentos de uma modalidade — por exemplo, só acupuntura ou só BSV.", "alvo": "entrada=Filtrar por modalidade", "acao": "selecionar", "valor": "Acupuntura (apenas)" },
+    { "titulo": "Filtre pela situação", "texto": "As pílulas contam cada situação antes do clique: pendentes, no local, em atendimento, atendidos, cancelados e faltas. Clique para ver só aquela.", "alvo": "botao=Pendentes", "acao": "clicar" },
+    { "titulo": "Limpe os filtros", "texto": "Desfaz nome, modalidade e situação de uma vez: a lista volta a mostrar todos os horários do dia.", "alvo": "botao=Limpar filtros", "acao": "clicar" },
+    { "titulo": "Leia o status de cada horário", "texto": "A coluna Status diz em que ponto o paciente está — marcado, no local (com o tempo de espera), em atendimento ou concluído — e a hora do fato.", "alvo": "texto-exato=Status" },
+    { "titulo": "Confira o que já foi escrito", "texto": "A coluna Prontuário mostra Escrito ou Pendente. Pendente é sessão que ainda espera a sua evolução.", "alvo": "texto-exato=Prontuário" },
+    { "titulo": "Veja quem não veio", "texto": "Cancelados e faltas continuam na lista, apagados, para você saber que aquele horário vagou.", "alvo": "linha=Faltou" },
+    { "titulo": "Entenda a legenda", "texto": "O pé da lista explica os sinais: a modalidade vem escrita em cada linha e o ✓ marca quem confirmou na rodada de confirmação.", "alvo": "texto=Modalidade informada em cada atendimento" },
+    { "titulo": "Releia uma sessão escrita", "texto": "Ver registro abre a sessão já escrita daquele paciente, para reler ou completar a evolução.", "alvo": "botao=Ver registro" },
+    { "titulo": "Atenda o paciente", "texto": "Atender abre o prontuário do paciente na evolução da sessão e registra que ele entrou na sala. Use quando chamar o paciente.", "alvo": "botao=Atender" }
+  ]
+}

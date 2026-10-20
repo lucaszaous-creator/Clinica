@@ -1,0 +1,16 @@
+@page "/aula/{App}/{Chave}"
+@* A AULA (out/2026): uma tela do app DENTRO da moldura real — menu do topo, abas e palco —,
+   com a navegação lida do navegacao.json. É por aqui que as videoaulas são gravadas
+   (tools/treinamento/gravacao). A tela do paciente recebe o paciente e a seção pela URL
+   (?paciente=&secao=&subaba=&agendamento=), como o posto do Consultório faz ao navegar. *@
+<AulaInterativa App="@App" Chave="@Chave" Paciente="@Paciente" Secao="@Secao" SubAba="@SubAba" Agendamento="@Agendamento"
+                @rendermode="Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer" />
+
+@code {
+    [Parameter] public string App { get; set; } = "";
+    [Parameter] public string Chave { get; set; } = "";
+    [SupplyParameterFromQuery] public int? Paciente { get; set; }
+    [SupplyParameterFromQuery] public string? Secao { get; set; }
+    [SupplyParameterFromQuery] public int? SubAba { get; set; }
+    [SupplyParameterFromQuery] public int? Agendamento { get; set; }
+}

@@ -1,0 +1,24 @@
+{
+  "chave": "consultorio-medidas",
+  "titulo": "Medidas",
+  "descricao": "As medidas seriadas do paciente — peso, altura, IMC, cintura, pressão e glicemia —, com a curva de cada uma e o histórico das colheitas.",
+  "url": { "paciente": 1, "secao": "Acompanhamento", "subaba": 1 },
+  "passos": [
+    { "titulo": "Abra as medidas", "texto": "Aqui ficam as medidas que se repetem ao longo do tratamento. Cada colheita é registrada com a data e a faixa de referência.", "alvo": "aba=Medidas" },
+    { "titulo": "Leia o IMC", "texto": "O IMC é calculado do peso com a altura — nunca digitado. O cartão diz de quando é a altura usada no cálculo.", "alvo": "texto-exato=IMC (calculado)" },
+    { "titulo": "Use o menu do cartão", "texto": "O ⋯ copia o valor do cartão. Quando o valor não foi medido, o menu diz isso em vez de copiar um traço.", "alvo": "botao=Opções do cartão IMC", "acao": "clicar" },
+    { "alvo": "botao=Opções do cartão IMC", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Escolha a medida acompanhada", "texto": "Cada botão mostra a curva de uma medida, com a primeira, a atual e a variação. A pressão junta consultório e enfermagem.", "alvo": "botao=Pressão arterial", "acao": "clicar" },
+    { "alvo": "botao-exato=Peso", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Registre uma medida", "texto": "Registrar medida abre a colheita: o que foi medido, o valor, a data e uma observação.", "alvo": "botao=Registrar medida", "acao": "clicar" },
+    { "titulo": "Escolha o que foi medido", "texto": "Peso, altura, cintura, pressão, glicemia ou hemoglobina glicada. A pressão pede os dois valores.", "alvo": "janela-campo=O que", "acao": "selecionar", "valor": "Peso" },
+    { "titulo": "Informe o valor", "texto": "Digite o valor na unidade indicada. Valor impossível, como 2500 kg, é recusado; valor anormal é aceito e destacado.", "alvo": "janela-campo=Valor", "acao": "digitar", "valor": "72,5" },
+    { "alvo": "janela-campo=Observação", "acao": "digitar", "valor": "Pesado com roupa leve." },
+    { "titulo": "Grave a colheita", "texto": "Registrar grava a medida no prontuário; ela entra na curva e no histórico logo abaixo.", "alvo": "janela-exato=Registrar", "acao": "clicar" },
+    { "titulo": "Confira o histórico", "texto": "Cada colheita com data, valor, faixa e observação. A faixa em vermelho pede atenção.", "alvo": "linha=72,5" },
+    { "titulo": "Cancele uma colheita errada", "texto": "Cancelar… pede o motivo e deixa a colheita marcada — nada se apaga. Aqui vamos desistir do cancelamento.", "alvo": "botao=Cancelar", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Exporte as medidas", "texto": "Exportar CSV salva o histórico para abrir no Excel.", "alvo": "botao=Exportar CSV" },
+    { "titulo": "Vá ao prontuário", "texto": "Prontuário leva ao histórico clínico do paciente, sem sair da tela do paciente.", "alvo": "botao-exato=Prontuário" }
+  ]
+}

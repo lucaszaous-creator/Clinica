@@ -1,0 +1,2 @@
+# Número da rodada do treinamento.yml cujo artefato videoaulas vai para a release e o app.
+39474273027

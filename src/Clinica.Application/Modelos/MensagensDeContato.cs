@@ -14,6 +14,13 @@ namespace Clinica.Application.Modelos;
 /// </summary>
 public static class MensagensDeContato
 {
+    /// <summary>
+    /// O nome que assina a mensagem (SMS e WhatsApp): o nome fantasia do prestador e, sem ele,
+    /// a razão social. Nulo quando a clínica não preencheu nenhum dos dois.
+    /// </summary>
+    public static string? NomeDaClinica(string? nomeFantasia, string? razaoSocial)
+        => Clinica.Domain.EnderecoDeEmail.Normalizar(nomeFantasia)
+           ?? Clinica.Domain.EnderecoDeEmail.Normalizar(razaoSocial);
     /// <summary>"Maria" de "Maria da Silva" — como se fala com alguém pelo telefone.</summary>
     public static string PrimeiroNome(string nome)
         => nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nome;
@@ -29,28 +36,6 @@ public static class MensagensDeContato
         => $"Olá, {PrimeiroNome(nomePaciente)}! Estamos confirmando sua sessão {QuandoPorExtenso(quando, hoje)}."
          + " Se tiver algum imprevisto, é só responder por aqui."
          + Assinatura(nomeClinica);
-
-    /// <summary>
-    /// "Sua sessão foi agendada" — sai logo depois de a clínica marcar o horário (por e-mail
-    /// daqui e por WhatsApp pelo CRM, com o mesmo conteúdo). Diz QUANDO e avisa que no dia
-    /// vai chegar o pedido de confirmação; não diz modalidade nem profissional — o que é
-    /// registro do atendimento não sai numa mensagem.
-    /// </summary>
-    public static string AgendamentoConfirmado(
-        string nomePaciente, DateTime quando, DateOnly hoje, string? nomeClinica = null)
-        => $"Olá, {PrimeiroNome(nomePaciente)}! Sua sessão foi agendada para {QuandoPorExtenso(quando, hoje)}."
-         + " No dia, enviaremos uma mensagem para você confirmar a presença. Se precisar mudar, é só responder por aqui."
-         + Assinatura(nomeClinica);
-
-    /// <summary>O assunto do e-mail de agendamento — a mesma referência de dia do corpo.</summary>
-    public static string AssuntoAgendamento(DateTime quando, DateOnly hoje, string? nomeClinica = null)
-        => $"Sessão agendada para {QuandoPorExtenso(quando, hoje)}"
-         + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" · {nomeClinica}");
-
-    /// <summary>O assunto do e-mail da confirmação — a mesma referência de dia do corpo.</summary>
-    public static string AssuntoConfirmacao(DateTime quando, DateOnly hoje, string? nomeClinica = null)
-        => $"Confirmação da sua sessão {QuandoPorExtenso(quando, hoje)}"
-         + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" · {nomeClinica}");
 
     /// <summary>
     /// "hoje às 14:00" · "amanhã às 14:00" · "segunda-feira, 08/09 às 14:00". Cultura FIXA

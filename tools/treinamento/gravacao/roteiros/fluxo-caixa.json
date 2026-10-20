@@ -1,0 +1,24 @@
+{
+  "chave": "fluxo-caixa",
+  "titulo": "Fluxo de caixa",
+  "descricao": "Como o mês está comparado com os anteriores, e para onde o dinheiro da clínica está indo.",
+  "passos": [
+    { "titulo": "Escolha o período", "texto": "Veja os últimos 3, 6, 12 ou 24 meses. Os cartões, o gráfico, as categorias e a tabela passam a contar o período escolhido.", "alvo": "botao-exato=6 meses", "acao": "clicar" },
+    { "alvo": "botao-exato=12 meses", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Veja quanto entrou", "texto": "Entrou soma tudo o que foi recebido no período. Só o realizado: o previsto nunca se mistura com o que já aconteceu.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Entrou'])" },
+    { "titulo": "Veja quanto saiu", "texto": "Saiu soma as despesas pagas no período, e a nota diz qual categoria pesou mais — normalmente a folha de pagamento.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Saiu'])" },
+    { "titulo": "Leia o resultado", "texto": "Resultado é o que entrou menos o que saiu no período. Vermelho quando saiu mais do que entrou.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Resultado'])" },
+    { "titulo": "Leia a margem", "texto": "Margem diz quanto sobrou de cada real que entrou. Sem receita no período ela aparece como —, nunca como zero.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Margem'])" },
+    { "titulo": "Copie um número do cartão", "texto": "O ⋯ do cartão copia o valor, ou o rótulo com o valor, para a planilha ou a reunião da direção — sem redigitar.", "alvo": "botao=Opções do cartão Resultado", "acao": "clicar" },
+    { "alvo": "item=Copiar rótulo e valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Compare os meses no gráfico", "texto": "Cada mês tem a barra das entradas e a das saídas. A parte hachurada é o previsto, que ainda vai vencer, e fica separada do realizado.", "alvo": "titulo=Entradas e saídas por mês" },
+    { "titulo": "Passe o mouse sobre um mês", "texto": "A dica mostra quanto entrou, quanto saiu e o resultado do mês; no mês em curso, também o que ainda há a receber e a pagar.", "alvo": "css=.grafico svg g.mes:last-of-type", "acao": "passar" },
+    { "titulo": "Veja de onde veio", "texto": "Entradas por categoria: convênios, particular, pacotes. A barra é a fatia de cada uma no total; Sem categoria nunca some da conta.", "alvo": "titulo=De onde veio" },
+    { "titulo": "Veja para onde foi", "texto": "Saídas por categoria, da maior para a menor. É aqui que se descobre onde cortar ou renegociar.", "alvo": "titulo=Para onde foi" },
+    { "titulo": "Inclua o previsto", "texto": "Ligado, as categorias somam também o que ainda vai vencer. Desligado, mostram só o dinheiro que já se moveu.", "alvo": "caixa=Previsto nas categorias", "acao": "clicar" },
+    { "alvo": "caixa=Previsto nas categorias", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia o mês a mês", "texto": "A tabela traz entrou, saiu, resultado e previsto de cada mês. A última coluna é a variação acumulada no período — não é o saldo da conta.", "alvo": "titulo=Mês a mês" },
+    { "titulo": "Note o mês em curso", "texto": "O mês atual vem marcado como em curso: os números dele ainda vão mudar até o último dia.", "alvo": "linha=em curso" },
+    { "titulo": "Leve para a planilha", "texto": "Exportar CSV gera o mês a mês do período para abrir no Excel ou mandar ao contador.", "alvo": "botao=Exportar CSV" }
+  ]
+}

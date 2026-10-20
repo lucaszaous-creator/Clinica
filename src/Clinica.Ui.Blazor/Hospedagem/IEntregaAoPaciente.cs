@@ -21,7 +21,7 @@ public sealed class EntregaAoPacienteIndisponivel : IEntregaAoPaciente
 {
     public static readonly EntregaAoPacienteIndisponivel Instancia = new();
 
-    public const string Frase = "O WhatsApp deste computador abre no aplicativo instalado — envie por e-mail ou pelo CRM.";
+    public const string Frase = "O WhatsApp deste computador abre no aplicativo instalado — envie pelo WhatsApp do CRM.";
 
     public Task<ResultadoDoAto> EntregarNoWhatsAppAsync(byte[] pdf, string nomeArquivo, string? telefone, string paciente, string legenda)
         => Task.FromResult(new ResultadoDoAto(Frase: Frase, EhErro: true));

@@ -32,8 +32,6 @@
 .cfg-situacao.pendente{border-left-color:var(--aviso);background:var(--aviso-suave)}
 .cfg-linha-curta{max-width:260px}
 .cfg-marcas{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-6)}
-.cfg-smtp{display:grid;grid-template-columns:minmax(0,1fr) 140px;gap:var(--space-4)}
-.cfg-teste-email{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-2);align-items:end}
 .cfg-pasta{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-2);align-items:center}
 .cfg-exemplo{align-items:flex-start}
 .cfg-exemplo > div{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;flex:1}
@@ -72,7 +70,6 @@
 
 @media (max-width:900px){
   .cfg-form-duas,.cfg-termos{grid-template-columns:1fr}
-  .cfg-smtp,.cfg-teste-email{grid-template-columns:1fr}
   .cfg-atalho{flex-direction:column;align-items:flex-start}
 }
 .cfg-termos textarea.campo,.cfg-form-duas textarea.campo{font:inherit}

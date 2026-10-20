@@ -1,0 +1,123 @@
+{
+  "chave": "painel-recepcao",
+  "titulo": "Início",
+  "descricao": "O dia do balcão numa tela: quantos vêm, quem está chegando e o que falta resolver.",
+  "passos": [
+    {
+      "titulo": "Comece o dia pelo Início",
+      "texto": "O Início mostra o dia de hoje no balcão: quantos horários há, quem está chegando e o que falta resolver.",
+      "alvo": "texto=horários hoje"
+    },
+    {
+      "titulo": "Veja os agendados de hoje",
+      "texto": "Quantos horários há hoje. A barra mostra quanto da agenda está ocupado; a nota conta os encaixes.",
+      "alvo": "texto-exato=Agendados hoje"
+    },
+    {
+      "titulo": "Veja quem falta atender",
+      "texto": "A atender soma quem ainda vai chegar e quem já está no local esperando para entrar na sala.",
+      "alvo": "texto-exato=A atender"
+    },
+    {
+      "titulo": "Veja quem está na sala",
+      "texto": "Em atendimento conta quem está com o profissional agora; a nota diz com quais profissionais.",
+      "alvo": "texto-exato=Em atendimento"
+    },
+    {
+      "titulo": "Veja quem já foi atendido",
+      "texto": "Atendidos são as sessões concluídas hoje. A nota conta as faltas e os cancelamentos do dia.",
+      "alvo": "texto-exato=Atendidos"
+    },
+    {
+      "titulo": "Copie um número",
+      "texto": "Os três pontinhos do cartão copiam o número para colar numa mensagem ou planilha.",
+      "alvo": "botao=Opções do cartão Agendados hoje",
+      "acao": "clicar"
+    },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Veja quem está chegando",
+      "texto": "Próximos a chegar lista quem ainda vem, na ordem da hora, com convênio, telefone, atendimento e profissional.",
+      "alvo": "titulo=Próximos a chegar"
+    },
+    {
+      "titulo": "Repare na resposta ao lembrete",
+      "texto": "O selo mostra a resposta ao lembrete: Confirmou, Não confirmou ou Não vem. Quem não vem pede uma ligação para remarcar.",
+      "alvo": "texto=Não vem — remarcar"
+    },
+    {
+      "titulo": "Registre a chegada",
+      "texto": "Quando o paciente chega, clique em Chegou. Ele passa a aparecer como No local, e quem atende já sabe que ele está ali.",
+      "alvo": "botao-exato=Chegou",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Abra o horário de quem chegou",
+      "texto": "Para quem já está no local o botão vira Abrir: mostra o horário com remarcar, comprovante e confirmação.",
+      "alvo": "botao-exato=Abrir",
+      "acao": "clicar"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Abra a ficha pelo nome",
+      "texto": "O nome do paciente é um atalho: um clique abre a ficha dele no balcão.",
+      "alvo": "botao=Mariana Costa"
+    },
+    {
+      "titulo": "Resolva o que é do balcão",
+      "texto": "Este quadro junta o que falta fazer hoje no balcão. Cada item tem o número e leva à tela onde se resolve.",
+      "alvo": "titulo=O que resolver no balcão"
+    },
+    {
+      "titulo": "Cobre as guias do 2º código",
+      "texto": "Lista quem vem hoje com guia do 2º código pendente. Aproveite que o paciente está aqui e peça o documento.",
+      "alvo": "botao=Guias do 2º código",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Peça o documento pelo WhatsApp",
+      "texto": "Em cada linha, Cobrar abre o WhatsApp para pedir o documento a quem tem telefone no cadastro.",
+      "alvo": "janela-toda="
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Confirme as sessões de amanhã",
+      "texto": "Conta quantos pacientes de amanhã falta avisar e quantos não responderam. O clique leva às Confirmações.",
+      "alvo": "botao=Confirmar amanhã"
+    },
+    {
+      "titulo": "Marque os retornos pedidos",
+      "texto": "Retornos que o médico pediu e ainda não têm horário. O clique leva à fila de Retornos a marcar.",
+      "alvo": "botao=Retornos pedidos pelo médico"
+    },
+    {
+      "titulo": "Faça o recall do dia",
+      "texto": "Contatos com pacientes que sumiram, combinados para hoje. O clique leva ao Acompanhamento.",
+      "alvo": "botao=Recall de hoje"
+    },
+    {
+      "titulo": "Parabenize os aniversariantes",
+      "texto": "Ver lista quem faz aniversário nesta semana. Parabéns abre o WhatsApp com a mensagem pronta.",
+      "alvo": "botao-exato=Ver",
+      "acao": "clicar"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Atualize o início",
+      "texto": "O Início se atualiza sozinho. Clique aqui (ou tecle F5) para ver na hora o que outra máquina mudou.",
+      "alvo": "botao=Atualizar o início",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja a agenda do dia inteiro",
+      "texto": "Ver a agenda do dia leva à lista completa de hoje, com quem já chegou, está na sala ou foi atendido.",
+      "alvo": "botao=Ver a agenda do dia"
+    },
+    {
+      "titulo": "Marque um atendimento",
+      "texto": "Leva à marcação para escolher o paciente, o dia, a hora e quem atende.",
+      "alvo": "botao=Marcar atendimento",
+      "acao": "clicar"
+    }
+  ]
+}

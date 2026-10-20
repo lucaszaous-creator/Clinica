@@ -73,37 +73,6 @@ public sealed class PacienteService
         return paciente;
     }
 
-    /// <summary>
-    /// Guarda o e-mail na ficha, e SÓ ele (out/2026 — o "guardar este e-mail na ficha" do
-    /// envio de documento). A clínica não colhe e-mail no cadastro: ele chega quando o
-    /// paciente pede o documento por e-mail, e quem atende decide se fica na ficha. Como o
-    /// <see cref="CompletarEnderecoAsync"/>, não regrava a ficha inteira, e deixa a trilha.
-    /// </summary>
-    public async Task<Paciente> DefinirEmailAsync(
-        int pacienteId, string email, string operador, CancellationToken ct = default)
-    {
-        var valido = EnderecoDeEmail.SeValido(email)
-            ?? throw new InvalidOperationException("Informe um e-mail válido (ex.: nome@provedor.com.br).");
-        if (valido.Length > 120)
-            throw new InvalidOperationException("O e-mail aceita até 120 caracteres.");
-
-        var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
-            ?? throw new InvalidOperationException("Paciente não encontrado.");
-        if (string.Equals(paciente.Email?.Trim(), valido, StringComparison.OrdinalIgnoreCase)) return paciente;
-
-        var anterior = string.IsNullOrWhiteSpace(paciente.Email) ? "sem e-mail" : paciente.Email!.Trim();
-        paciente.Email = valido;
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
-        {
-            Operador = operador,
-            Acao = "EmailGuardadoNoEnvio",
-            PacienteId = paciente.Id,
-            Detalhe = $"E-mail da ficha: {anterior} → {valido} (informado no envio de documento)."
-        }, ct);
-        await _repo.SalvarAsync(ct);
-        return paciente;
-    }
-
     /// <summary>Consultas autorizadas do paciente (ciclo de renovação), da mais recente para a mais antiga.</summary>
     public async Task<IReadOnlyList<Consulta>> ConsultasAsync(int pacienteId, CancellationToken ct = default)
         => (await _repo.ConsultasDoPacienteAsync(pacienteId, ct))

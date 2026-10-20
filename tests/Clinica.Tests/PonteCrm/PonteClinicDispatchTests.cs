@@ -1,6 +1,5 @@
 using System.Net.Http.Json;
 using Clinica.Application.Abstracoes;
-using Clinica.Application.Email;
 using Clinica.Application.Servicos;
 using Clinica.Crm.Bridge;
 using Clinica.Crm.Contracts;
@@ -73,7 +72,7 @@ public sealed class PonteClinicDispatchTests : IAsyncLifetime
         {
             Tipo = TipoDocumentoClinico.Comparecimento, PacienteId = p.Id, ProfissionalId = m.Id, Data = DateOnly.FromDateTime(DateTime.Today)
         }, "ana");
-        var envio = new EnvioAoPacienteService(repo, new DocumentosClinicosPdfService(repo), new ParametrosService(repo), new SemEmail());
+        var envio = new EnvioAoPacienteService(repo, new DocumentosClinicosPdfService(repo), new ParametrosService(repo));
         Assert.True((await envio.EnfileirarWhatsAppAsync(doc.Id, "ana")).Ok);
         var linha = await db.EnviosPacienteCrm.AsNoTracking().SingleAsync();
         return (linha.Id, linha.Arquivo!);
@@ -132,11 +131,5 @@ public sealed class PonteClinicDispatchTests : IAsyncLifetime
         Assert.Equal("blocked", r!.State);
         Assert.Null(r.File);
         Assert.Null(r.Text);
-    }
-
-    sealed class SemEmail : IEnviadorDeEmail
-    {
-        public Task EnviarAsync(OpcoesEmail opcoes, string destinatario, string assunto, string corpo, CancellationToken ct = default)
-            => throw new InvalidOperationException();
     }
 }

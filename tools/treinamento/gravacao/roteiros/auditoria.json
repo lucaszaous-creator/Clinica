@@ -1,0 +1,24 @@
+{
+  "chave": "auditoria",
+  "titulo": "Auditoria",
+  "descricao": "Quem fez o quê, e quando: tudo o que mexe em dinheiro ou permissão e cada abertura de prontuário fica registrado aqui.",
+  "passos": [
+    { "titulo": "O que fica registrado", "texto": "Baixa de guia, estorno, glosa, lote, lançamento, conta, preço, usuário, troca de senha e cada abertura de prontuário. Nada aqui se edita ou apaga.", "alvo": "texto=Quem fez o quê, e quando" },
+    { "titulo": "Investigue um prontuário", "texto": "Busque o paciente pelo nome ou CPF. A trilha passa a mostrar só o que diz respeito a ele: quem abriu e o que foi escrito.", "alvo": "placeholder=Buscar por nome ou CPF", "acao": "digitar", "valor": "Ana Beatriz" },
+    { "alvo": "opcao=Ana Beatriz Souza", "acao": "clicar" },
+    { "titulo": "Só quem abriu o prontuário", "texto": "Marque para ver apenas as aberturas — a resposta para “quem acessou o prontuário dela?”. Sem marcar, entram também as escritas.", "alvo": "texto=Só quem ABRIU o prontuário", "acao": "clicar" },
+    { "alvo": "texto=Só quem ABRIU o prontuário", "acao": "clicar", "ms": 1200 },
+    { "alvo": "css=.seletor-escolhido button", "acao": "clicar", "ms": 1200, "opcional": true },
+    { "titulo": "Filtre pela ação", "texto": "Escolha uma ação da lista ou digite o começo dela: “Pacote” acha venda, consumo e cancelamento. Enter consulta.", "alvo": "campo=Ação", "acao": "digitar", "valor": "Pacote" },
+    { "alvo": "campo=Ação", "acao": "tecla", "valor": "Enter" },
+    { "titulo": "Operador e detalhe", "texto": "Operador filtra por quem fez login e executou a ação. No detalhe procura uma palavra no texto do evento — um valor, um nome, um número de guia.", "alvo": "campo=Operador" },
+    { "titulo": "Período e limite", "texto": "De e Até definem o período. O limite diz quantos eventos trazer; se ele for atingido, a tela avisa — aumente antes de tirar conclusões.", "alvo": "campo=Limite", "acao": "selecionar", "valor": "300" },
+    { "titulo": "Consulte", "texto": "Consultar aplica os campos de texto, as datas e o limite. Paciente e “só quem abriu” já consultam sozinhos ao mudar.", "alvo": "botao=Consultar", "acao": "clicar" },
+    { "titulo": "Limpe os filtros", "texto": "Limpar volta ao filtro padrão: o último mês inteiro, sem paciente, ação, operador nem detalhe.", "alvo": "botao=Limpar", "acao": "clicar" },
+    { "titulo": "Leia o resumo", "texto": "Quantos eventos o filtro achou. Se o limite foi atingido, uma faixa amarela avisa que há mais eventos do que os mostrados.", "alvo": "texto=evento(s) no filtro atual" },
+    { "titulo": "A trilha", "texto": "Cada linha diz quando, qual ação, quem fez (o login, nunca o usuário do Windows) e o detalhe, com o paciente envolvido.", "alvo": "titulo=A trilha" },
+    { "titulo": "Por ação e por operador", "texto": "As barras contam os eventos do filtro por ação e por pessoa — um volume fora do normal salta aos olhos aqui.", "alvo": "titulo=Por operador" },
+    { "titulo": "Exporte a trilha", "texto": "Exportar CSV gera a planilha da trilha filtrada, para anexar quando a pergunta sai da clínica. Atualizar (F5) consulta de novo.", "alvo": "botao=Exportar CSV" },
+    { "titulo": "Conformidade, em três abas", "texto": "As abas no alto levam a Documentos emitidos e à Guarda do prontuário — as outras respostas a quem audita a clínica.", "alvo": "aba-app=Guarda do prontuário" }
+  ]
+}

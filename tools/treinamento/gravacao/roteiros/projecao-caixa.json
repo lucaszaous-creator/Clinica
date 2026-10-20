@@ -1,0 +1,24 @@
+{
+  "chave": "projecao-caixa",
+  "titulo": "Caixa dos próximos 90 dias",
+  "descricao": "Vai faltar dinheiro, e quando? Quanto o caixa sobe ou desce semana a semana, com a origem de cada valor.",
+  "passos": [
+    { "titulo": "Entenda o que a tela mede", "texto": "Não é o saldo do banco: a clínica não cadastra saldo inicial. É quanto o caixa sobe ou desce a partir de hoje, com o que o sistema já sabe.", "alvo": "texto=Não é saldo em conta" },
+    { "titulo": "O que deve entrar", "texto": "Tudo o que deve entrar nos próximos 90 dias: depósitos de cartão e contas a receber. A nota separa as duas origens.", "alvo": "texto-exato=Devem entrar" },
+    { "titulo": "O que deve sair", "texto": "As contas a pagar já lançadas e as contas fixas que ainda vão ser geradas no período (aluguel, salários, fornecedores).", "alvo": "texto-exato=Devem sair" },
+    { "titulo": "Variação em 90 dias", "texto": "Entradas menos saídas. A nota avisa a semana em que o caixa fica mais baixo — é ali que pode faltar dinheiro.", "alvo": "texto-exato=Variação em 90 dias" },
+    { "titulo": "Fora da linha do tempo", "texto": "O que já venceu e o que não tem data prometida. Não entra nas semanas porque não dá para saber quando acontece.", "alvo": "texto-exato=Fora da linha do tempo" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ copia o valor do cartão para colar na planilha ou mandar ao contador.", "alvo": "botao=Opções do cartão Devem entrar", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Semana a semana", "texto": "Cada linha é uma semana: o que entra, o que sai e a variação. O resumo de cima diz quanto o caixa sobe ou desce no período inteiro.", "alvo": "titulo=Semana a semana" },
+    { "titulo": "Acompanhe o acumulado", "texto": "Acumulado desde hoje soma as semanas. A barra vai para a direita quando sobe e para a esquerda, em vermelho, quando fica abaixo de hoje.", "alvo": "texto-exato=Acumulado desde hoje" },
+    { "titulo": "Abra as parcelas da semana", "texto": "A seta mostra cada valor da semana: data, descrição e de onde veio (conta lançada, conta fixa ou depósito de cartão).", "alvo": "botao=Ver as parcelas", "acao": "clicar" },
+    { "alvo": "botao=Esconder as parcelas", "acao": "clicar", "ms": 1200 },
+    { "titulo": "O que já venceu", "texto": "Contas e depósitos que deveriam ter acontecido e não aconteceram. Cobre o paciente, pague a conta ou confira o depósito na maquininha.", "alvo": "titulo=Já vencido" },
+    { "titulo": "Veja a lista completa", "texto": "A lista mostra os primeiros itens. Ver os demais abre todos; Mostrar menos recolhe de novo.", "alvo": "botao=Ver os", "acao": "clicar" },
+    { "alvo": "botao=Mostrar menos", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Sem data prometida", "texto": "Valores previstos sem vencimento — quase sempre guias de convênio já baixadas, que a operadora ainda não disse quando paga.", "alvo": "titulo=Sem data prometida" },
+    { "titulo": "Atualize e exporte", "texto": "Atualizar (F5) lê a projeção de novo. Exportar CSV gera a planilha parcela por parcela, com a origem de cada valor.", "alvo": "botao=Exportar CSV" },
+    { "titulo": "As outras contas do dinheiro", "texto": "As abas no alto levam a Resultado do mês, Margem por sessão, Por convênio e Custo de receber.", "alvo": "aba-app=Próximos 90 dias" }
+  ]
+}

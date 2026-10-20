@@ -1,0 +1,21 @@
+{
+  "chave": "plano-contas",
+  "titulo": "Plano de contas",
+  "descricao": "As categorias que classificam cada entrada e saída — é por elas que o fluxo de caixa diz de onde veio e para onde foi o dinheiro.",
+  "passos": [
+    { "titulo": "Conheça as categorias", "texto": "Cada lançamento do caixa pode ter uma categoria. O resumo diz quantas existem, quantas são de entrada e quantas de saída.", "alvo": "titulo=Categorias" },
+    { "titulo": "Leia a linha da categoria", "texto": "Cada linha traz o código, o nome, o tipo e a situação. A categoria ativa aparece na escolha do lançamento.", "alvo": "linha=Aluguel" },
+    { "titulo": "Entenda o código", "texto": "O código não muda depois de criado: é por ele que os lançamentos já gravados apontam para a categoria. O nome pode mudar.", "alvo": "css=.pdc-codigo" },
+    { "titulo": "Veja o tipo", "texto": "Entrada classifica dinheiro que chega (convênios, particular, pacotes); saída, o que sai (aluguel, folha, insumos).", "alvo": "css=.pdc-tipo" },
+    { "titulo": "Categoria inativa", "texto": "Inativa some da escolha do lançamento mas continua no histórico: os lançamentos antigos não perdem a categoria.", "alvo": "linha=Energia elétrica (antiga)" },
+    { "titulo": "Reative uma categoria", "texto": "Reativar faz a categoria voltar a aparecer na hora de lançar. Nada do histórico muda.", "alvo": "botao=Reativar", "acao": "clicar" },
+    { "titulo": "Desative o que não se usa", "texto": "Desativar tira a categoria da escolha do lançamento sem apagá-la. Use quando um gasto deixa de existir.", "alvo": "css=tr:has-text('Energia elétrica (antiga)') button", "acao": "clicar" },
+    { "titulo": "Crie uma categoria", "texto": "Nova categoria abre o cadastro. Acontece mais na implantação; depois, só quando surge um tipo novo de gasto ou de receita.", "alvo": "botao=Nova categoria", "acao": "clicar" },
+    { "titulo": "Escolha entrada ou saída", "texto": "Primeiro diga se a categoria é de dinheiro que entra ou que sai. Isso não muda depois.", "alvo": "janela=Saída", "acao": "clicar" },
+    { "titulo": "Dê código e nome", "texto": "O código é curto e fixo, como S7. O nome é o que aparece no caixa e nos relatórios, e pode ser corrigido depois.", "alvo": "janela-campo=Ex.: S6", "acao": "digitar", "valor": "S7" },
+    { "alvo": "janela-campo=Ex.: Energia elétrica", "acao": "digitar", "valor": "Manutenção de equipamentos", "ms": 1500 },
+    { "titulo": "Crie e use", "texto": "Criar categoria grava o cadastro e ela já aparece no Novo lançamento do Caixa e nas Contas. Aqui saímos sem gravar.", "alvo": "janela=Criar categoria" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Atualize a lista", "texto": "Atualizar relê as categorias — útil quando outra pessoa cadastrou ou desativou uma em outro computador.", "alvo": "botao=Atualizar" }
+  ]
+}

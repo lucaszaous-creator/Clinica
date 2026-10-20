@@ -1,0 +1,20 @@
+{
+  "chave": "prontuario",
+  "titulo": "Prontuário por paciente",
+  "descricao": "A porta para o histórico clínico de um paciente: achar a pessoa e abrir as sessões, evoluções e exames dela.",
+  "passos": [
+    { "titulo": "O prontuário começa pelo paciente", "texto": "Aqui você escolhe de quem é o prontuário. O clique no paciente abre o histórico clínico dele: sessões, evolução e exames.", "alvo": "titulo=Prontuário" },
+    { "titulo": "As três abas do prontuário", "texto": "Por paciente abre a pessoa. Registros e pendências lista o que falta escrever ou assinar; Exames acompanha os pedidos.", "alvo": "aba-app=Por paciente" },
+    { "titulo": "Quem tem horário hoje", "texto": "A tela abre com os pacientes que têm horário hoje — o caminho mais curto para quem vai atender agora.", "alvo": "botao=Com horário hoje" },
+    { "titulo": "Busque pelo nome, CPF ou telefone", "texto": "Digite parte do nome, o CPF ou o telefone. A lista se ajusta enquanto você digita.", "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Lúcia" },
+    { "titulo": "Confira o paciente certo", "texto": "Cada linha traz documento e telefone para não confundir pacientes de nome parecido. Clique ou use as setas e Enter.", "alvo": "opcao=Lúcia Helena Carvalho" },
+    { "titulo": "Limpe a busca", "texto": "Limpar apaga o que foi digitado e volta para quem tem horário hoje. A tecla Esc faz o mesmo.", "alvo": "botao=Limpar a busca", "acao": "clicar" },
+    { "titulo": "Liste todos os pacientes", "texto": "Todos os pacientes mostra o cadastro inteiro em ordem de nome, de 50 em 50.", "alvo": "botao=Todos os pacientes", "acao": "clicar" },
+    { "titulo": "Abra o prontuário pela linha", "texto": "Abrir prontuário leva ao histórico clínico do paciente da linha. Clicar em qualquer ponto da linha faz o mesmo.", "alvo": "botao=Abrir prontuário" },
+    { "titulo": "Carregue mais pacientes", "texto": "Carregar mais traz a próxima página. O rodapé diz quantos pacientes já estão na tela.", "alvo": "botao=Carregar mais", "acao": "clicar" },
+    { "titulo": "Veja quem está em tratamento", "texto": "Em tratamento lista quem já teve sessão realizada na clínica. Só aparece para quem tem acesso ao prontuário.", "alvo": "botao=Em tratamento", "acao": "clicar" },
+    { "titulo": "Volte à busca", "texto": "Voltar à busca fecha a lista e devolve a tela à pergunta inicial.", "alvo": "botao=Voltar à busca", "acao": "clicar" },
+    { "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Rosana" },
+    { "titulo": "Abra o histórico do paciente", "texto": "Escolher o paciente abre o prontuário dele no Histórico, com as sessões em ordem e tudo o que foi registrado.", "alvo": "opcao=Rosana Figueiredo Lemos", "acao": "clicar" }
+  ]
+}

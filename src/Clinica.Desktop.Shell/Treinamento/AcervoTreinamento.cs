@@ -9,6 +9,12 @@ namespace Clinica.Desktop.Shell.Treinamento;
 public sealed class AcervoTreinamento
 {
     private static readonly HttpClient Http=new(){Timeout=TimeSpan.FromMinutes(4)};
+    /// <summary>
+    /// A release dos vídeos DESTA versão do catálogo (out/2026: as aulas em motion design, uma por
+    /// tela, refeitas sobre as telas Blazor). Os vídeos são nomeados pelo SHA-256 e nunca se
+    /// sobrescrevem: o app antigo continua baixando da release antiga, que fica no ar.
+    /// </summary>
+    public const string ReleaseDosVideos="treinamento-desktop-20261020";
     private readonly string _raiz;
     private readonly HttpClient _http;
     private readonly string _midia;
@@ -48,7 +54,7 @@ public sealed class AcervoTreinamento
         var temporario=cache+"."+Guid.NewGuid().ToString("N")+".tmp";
         try
         {
-            using var response=await _http.GetAsync("https://github.com/lucaszaous-creator/Clinica/releases/download/treinamento-desktop-20260928/"+aula.Sha256.ToLowerInvariant()+".mp4",HttpCompletionOption.ResponseHeadersRead,ct);
+            using var response=await _http.GetAsync($"https://github.com/lucaszaous-creator/Clinica/releases/download/{ReleaseDosVideos}/"+aula.Sha256.ToLowerInvariant()+".mp4",HttpCompletionOption.ResponseHeadersRead,ct);
             response.EnsureSuccessStatusCode();
             if(response.Content.Headers.ContentLength is > 150_000_000)throw new IOException("Vídeo maior que o tamanho permitido.");
             await using(var input=await response.Content.ReadAsStreamAsync(ct))

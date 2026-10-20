@@ -1,0 +1,26 @@
+{
+  "chave": "consultorio-medicamentos",
+  "titulo": "Medicamentos",
+  "descricao": "O cadastro de medicamentos que alimenta a busca da prescrição: nomes da Anvisa e as apresentações que a clínica usa.",
+  "passos": [
+    { "titulo": "Conheça o cadastro de medicamentos", "texto": "A lista que aparece quando você digita um remédio na prescrição. É compartilhada entre o Consultório e o Gerente.", "alvo": "titulo=Medicamentos" },
+    { "titulo": "Saiba o que a lista não decide", "texto": "O nome não define dose, via nem compatibilidade. Cadastre a apresentação do produto para distinguir as concentrações.", "alvo": "texto=A base de nomes não define dose" },
+    { "titulo": "Veja o tamanho do cadastro", "texto": "Quantos nomes existem e quantos estão na tela. Para achar um nome específico, use a busca.", "alvo": "texto=cadastro(s)" },
+    { "titulo": "Busque um medicamento", "texto": "Busque pelo nome, princípio ativo, apresentação ou fabricante.", "alvo": "entrada=Buscar medicamento", "acao": "digitar", "valor": "dipirona" },
+    { "acao": "esperar", "ms": 1500 },
+    { "titulo": "Leia cada linha", "texto": "Nome, princípio ativo, apresentação, fonte (Anvisa ou a clínica) e situação. Inativo não aparece nas sugestões da prescrição.", "alvo": "linha=Dipirona" },
+    { "titulo": "Corrija um cadastro", "texto": "Editar abre o formulário do medicamento para corrigir nome, apresentação ou fabricante.", "alvo": "botao=Editar", "acao": "clicar" },
+    { "titulo": "Desative sem apagar", "texto": "Desmarque Ativo para tirar o medicamento das sugestões sem perder o cadastro. Salvar cadastro grava a correção.", "alvo": "janela-caixa=Ativo nas sugestões" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "alvo": "entrada=Buscar medicamento", "acao": "limpar", "ms": 1200 },
+    { "titulo": "Cadastre um medicamento", "texto": "Novo medicamento cadastra um produto ou uma apresentação que a clínica usa e não está na lista.", "alvo": "botao=Novo medicamento", "acao": "clicar" },
+    { "titulo": "Preencha o nome e o princípio ativo", "texto": "O nome é obrigatório. O princípio ativo ajuda a achar o produto pelo nome genérico.", "alvo": "janela-campo=Nome do medicamento", "acao": "digitar", "valor": "Cetoprofeno" },
+    { "alvo": "janela-campo=Princípio ativo", "acao": "digitar", "valor": "cetoprofeno" },
+    { "titulo": "Informe a apresentação", "texto": "Escreva a forma e a concentração — por exemplo, 100 mg em frasco-ampola — e o fabricante, se quiser.", "alvo": "janela-campo=Apresentação / concentração", "acao": "digitar", "valor": "100 mg · frasco-ampola" },
+    { "titulo": "Salve o cadastro", "texto": "Salvar cadastro grava o medicamento; a busca da prescrição passa a mostrá-lo quando a tela for reaberta.", "alvo": "janela=Salvar cadastro" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Importe uma planilha", "texto": "Importar CSV cadastra muitos de uma vez, a partir de uma planilha no formato do modelo.", "alvo": "botao=Importar CSV" },
+    { "titulo": "Baixe o modelo da planilha", "texto": "Modelo de planilha salva o arquivo vazio com as quatro colunas certas, pronto para preencher.", "alvo": "botao=Modelo de planilha" },
+    { "titulo": "Atualize a lista", "texto": "Relê o cadastro (atalho F5) — para ver o que alguém acabou de cadastrar no Gerente.", "alvo": "botao=Atualizar", "acao": "clicar" }
+  ]
+}

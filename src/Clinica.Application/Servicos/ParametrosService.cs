@@ -11,11 +11,6 @@ namespace Clinica.Application.Servicos;
 /// <summary>Nome e código de um convênio disponível (para listas/combos de cadastro).</summary>
 public sealed record ConvenioOpcao(Convenio Convenio, string Nome);
 
-/// <summary>Os campos crus do servidor de e-mail, como a tela de Configurações os edita (set/2026).</summary>
-public sealed record CamposEmail(
-    string? Host, string? Porta, string? Usuario, string? Senha,
-    string? Remetente, string? NomeRemetente, bool UsarTls);
-
 /// <summary>Valores efetivos dos parâmetros (defaults do código sobrepostos pela configuração salva).</summary>
 public sealed class ParametrosSnapshot
 {
@@ -321,62 +316,10 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
-    // ---- Lembretes por e-mail (set/2026) ----
-    //
-    // A configuração é compartilhada no banco; a senha é cifrada antes de ser gravada.
-
-    public const string ChaveEmailSmtpHost = "EmailSmtpHost";
-    public const string ChaveEmailSmtpPorta = "EmailSmtpPorta";
-    public const string ChaveEmailSmtpUsuario = "EmailSmtpUsuario";
-    public const string ChaveEmailSmtpSenha = "EmailSmtpSenha";
-    public const string ChaveEmailRemetente = "EmailRemetente";
-    public const string ChaveEmailRemetenteNome = "EmailRemetenteNome";
-    public const string ChaveEmailSmtpTls = "EmailSmtpTls";
-
-    /// <summary>
-    /// Os campos CRUS do servidor de saída, para a tela de Configurações. Quem decide se o
-    /// conjunto serve é <see cref="Clinica.Application.Email.OpcoesEmail.De"/>, num lugar só.
-    /// TLS ausente é LIGADO: o padrão seguro é o que vale quando ninguém decidiu.
-    /// </summary>
-    public async Task<CamposEmail> ObterCamposEmailAsync(CancellationToken ct = default)
-    {
-        var tls = await _repo.ObterConfiguracaoAsync(ChaveEmailSmtpTls, ct);
-        return new CamposEmail(
-            await _repo.ObterConfiguracaoAsync(ChaveEmailSmtpHost, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveEmailSmtpPorta, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveEmailSmtpUsuario, ct),
-            await ObterSegredoAsync(ChaveEmailSmtpSenha, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveEmailRemetente, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveEmailRemetenteNome, ct),
-            UsarTls: !string.Equals(tls, "false", StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>As opções prontas para enviar, ou <c>null</c> quando o lembrete está desligado.</summary>
-    public async Task<Clinica.Application.Email.OpcoesEmail?> ObterOpcoesEmailAsync(CancellationToken ct = default)
-    {
-        var c = await ObterCamposEmailAsync(ct);
-        return Clinica.Application.Email.OpcoesEmail.De(
-            c.Host, c.Porta, c.Usuario, c.Senha, c.Remetente, c.NomeRemetente, c.UsarTls);
-    }
-
-    public async Task SalvarCamposEmailAsync(CamposEmail campos, CancellationToken ct = default)
-    {
-        await _repo.SalvarConfiguracaoAsync(ChaveEmailSmtpHost, (campos.Host ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveEmailSmtpPorta, (campos.Porta ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveEmailSmtpUsuario, (campos.Usuario ?? string.Empty).Trim(), ct);
-        // A senha NÃO passa por Trim: espaço no fim de uma senha é parte dela.
-        await SalvarSegredoAsync(ChaveEmailSmtpSenha, campos.Senha, ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveEmailRemetente, (campos.Remetente ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveEmailRemetenteNome, (campos.NomeRemetente ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveEmailSmtpTls, campos.UsarTls ? "true" : "false", ct);
-        await _repo.SalvarAsync(ct);
-    }
-
     // ---- Canal de SMS (out/2026) ----
     //
-    // Mesma casa e mesmas regras do e-mail: no BANCO (o lembrete sai de mais de um posto e
-    // de mais de uma máquina — configuração por máquina falharia calada na outra) e o
-    // token cifrado como a senha do SMTP.
+    // No BANCO (o lembrete sai de mais de um posto e de mais de uma máquina — configuração
+    // por máquina falharia calada na outra), com o token cifrado.
 
     public const string ChaveSmsProvedor = "SmsProvedor";
     public const string ChaveSmsEndereco = "SmsEndereco";
@@ -387,12 +330,11 @@ public sealed class ParametrosService
     public const string ChaveSmsModeloCorpo = "SmsModeloCorpo";
     public const string ChaveSmsAntecedenciaHoras = "SmsAntecedenciaHoras";
     public const string ChaveSmsAdiantarFimDeSemana = "SmsAdiantarFimDeSemana";
-    public const string ChaveSmsEmailSoSemCelular = "SmsEmailSoSemCelular";
 
     /// <summary>
     /// Os campos crus da tela. Provedor ausente ou ilegível é DESLIGADO — o canal só liga
     /// por escolha. Os dois sinalizadores ausentes são LIGADOS: é o comportamento que a
-    /// cliente pediu (24h antes, sexta adiantando a segunda, e-mail como caminho de baixo).
+    /// cliente pediu (24h antes, sexta adiantando a segunda).
     /// </summary>
     public async Task<Clinica.Application.Sms.CamposSms> ObterCamposSmsAsync(CancellationToken ct = default)
     {
@@ -417,8 +359,7 @@ public sealed class ParametrosService
             await _repo.ObterConfiguracaoAsync(ChaveSmsCabecalho, ct),
             await _repo.ObterConfiguracaoAsync(ChaveSmsModeloCorpo, ct),
             antecedencia,
-            !string.Equals(await _repo.ObterConfiguracaoAsync(ChaveSmsAdiantarFimDeSemana, ct), "false", StringComparison.OrdinalIgnoreCase),
-            !string.Equals(await _repo.ObterConfiguracaoAsync(ChaveSmsEmailSoSemCelular, ct), "false", StringComparison.OrdinalIgnoreCase));
+            !string.Equals(await _repo.ObterConfiguracaoAsync(ChaveSmsAdiantarFimDeSemana, ct), "false", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>O provedor pronto para enviar, ou <c>null</c> quando o canal está desligado.</summary>
@@ -437,7 +378,6 @@ public sealed class ParametrosService
         await _repo.SalvarConfiguracaoAsync(ChaveSmsAntecedenciaHoras,
             Math.Clamp(campos.AntecedenciaHoras, 1, 168).ToString(System.Globalization.CultureInfo.InvariantCulture), ct);
         await _repo.SalvarConfiguracaoAsync(ChaveSmsAdiantarFimDeSemana, campos.AdiantarFimDeSemana ? "true" : "false", ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsEmailSoSemCelular, campos.EmailSoParaQuemNaoTemCelular ? "true" : "false", ct);
         await _repo.SalvarAsync(ct);
     }
 

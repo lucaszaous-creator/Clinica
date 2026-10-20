@@ -3,12 +3,11 @@
   AcoesDoDocumento.EnviarAsync). A MESMA pergunta nas portas Blazor — a central de Documentos e o
   "já saiu hoje" do atendimento. Quem decide as opções, a ordem e qual vem marcada é
   DestinosDoEnvio (Application, com teste); este formulário só desenha, confere o endereço digitado
-  e despacha pelo MESMO EnvioAoPacienteService (o e-mail sai do servidor da clínica, o WhatsApp
-  oficial entra na fila que o CRM executa, e a trilha grava quem, por qual canal e para onde).
+  e despacha pelo MESMO EnvioAoPacienteService (o WhatsApp oficial entra na fila que o CRM
+  executa, e a trilha grava quem, por qual canal e para onde).
 
-  E-mail primeiro e já marcado, com o endereço da ficha sugerido e EDITÁVEL (a clínica não colhe
-  e-mail no cadastro) e "guardar na ficha" desmarcado; WhatsApp pelo CRM depois, com a frase do
-  custo; o WhatsApp DESTE computador por último — esse é o único caminho que precisa do aplicativo
+  Não há e-mail (out/2026, decisão da cliente: documento retroativo, o paciente busca na clínica).
+  WhatsApp pelo CRM primeiro, com a frase do custo; o WhatsApp DESTE computador por último — esse é o único caminho que precisa do aplicativo
   instalado (área de transferência), e vai pela ponte IEntregaAoPaciente. A opção indisponível
   aparece apagada COM o motivo, nunca some.
 
@@ -31,22 +30,10 @@
                         <span class="marcar">
                             <input type="radio" name="canal-envio" checked="@(_canal == o.Canal)" disabled="@(!o.Disponivel || _enviando)"
                                    @onchange="() => Escolher(o.Canal)" />
-                            <strong>@o.Rotulo@(o.Canal == CanalDeEnvio.Email ? " (recomendado)" : null)</strong>
+                            <strong>@o.Rotulo</strong>
                         </span>
                         <span class="campo-dica">@(o.Disponivel ? o.Nota : o.Motivo)</span>
                     </label>
-                    @if (o.Canal == CanalDeEnvio.Email)
-                    {
-                        <div class="con-envio-email">
-                            <input class="campo" type="email" maxlength="200" placeholder="nome@provedor.com.br" aria-label="E-mail do paciente"
-                                   value="@_email" @oninput="e => { _email = e.Value?.ToString(); _erro = null; }" disabled="@(_canal != CanalDeEnvio.Email || _enviando)" />
-                            <label class="marcar">
-                                <input type="checkbox" checked="@_guardarNaFicha" @onchange="e => _guardarNaFicha = e.Value is true"
-                                       disabled="@(_canal != CanalDeEnvio.Email || _enviando)" />
-                                Guardar este e-mail na ficha do paciente
-                            </label>
-                        </div>
-                    }
                 }
             </div>
             <Aviso Texto="@_aviso" Tom="atencao" />
@@ -86,8 +73,8 @@ else if (_falhaAoPreparar is not null)
     private ArquivoDoPaciente _arquivo = default!;
     private string _numero = string.Empty;
     private CanalDeEnvio? _canal;
-    private string? _email, _aviso, _erro, _falhaAoPreparar;
-    private bool _guardarNaFicha, _enviando;
+    private string? _aviso, _erro, _falhaAoPreparar;
+    private bool _enviando;
 
     protected override async Task OnInitializedAsync()
     {
@@ -113,7 +100,6 @@ else if (_falhaAoPreparar is not null)
             DestinosDoEnvio destinos;
             using (var escopo = Escopo())
                 destinos = await escopo.ServiceProvider.GetRequiredService<EnvioAoPacienteService>().DestinosAsync(_arquivo);
-            _email = destinos.Email;
             _canal = destinos.Padrao;
             _destinos = destinos;
         }
@@ -133,18 +119,6 @@ else if (_falhaAoPreparar is not null)
     private async Task EnviarAsync()
     {
         if (_canal is not { } canal || _enviando) return;
-        string? email = null;
-        if (canal == CanalDeEnvio.Email)
-        {
-            // Conferido AQUI, inline: o formulário não fecha com um endereço que o servidor recusaria.
-            if (EnderecoDeEmail.SeValido(_email) is not { } valido)
-            {
-                _erro = "Informe um e-mail válido (ex.: nome@provedor.com.br).";
-                return;
-            }
-            email = valido;
-        }
-
         _enviando = true;
         _erro = null;
         ResultadoDoAto resultado;
@@ -154,12 +128,6 @@ else if (_falhaAoPreparar is not null)
             var envio = escopo.ServiceProvider.GetRequiredService<EnvioAoPacienteService>();
             switch (canal)
             {
-                case CanalDeEnvio.Email:
-                {
-                    var r = await envio.EnviarPorEmailAsync(_arquivo, Operador, email!, _guardarNaFicha);
-                    resultado = new ResultadoDoAto(Frase: r.Frase, EhErro: !r.Ok);
-                    break;
-                }
                 case CanalDeEnvio.WhatsAppPeloCrm:
                 {
                     var r = await envio.EnfileirarWhatsAppAsync(_arquivo, Operador);

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sino de notificações</title>
+<style>
+  :root{--fundo:#F8FAFC;--superficie:#fff;--borda:#E5E7EB;--texto:#111827;--sec:#6B7280;--acento:#1D4ED8;--acento-suave:#EEF3FC;
+    --erro:#DC2626;--erro-suave:#FEF2F2;--aviso:#D97706;--aviso-suave:#FFFBEB;--sucesso:#16A34A;--sucesso-suave:#F0FDF4;
+    --font:"Segoe UI",Inter,system-ui,-apple-system,Arial,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:#E5E7EB;font-family:var(--font);color:var(--texto);padding:24px;display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .quadro{display:flex;flex-direction:column;gap:10px}
+  .legenda{font-size:13px;font-weight:600;color:#374151}
+  .topo{width:430px;height:52px;background:var(--superficie);border:1px solid var(--borda);border-radius:10px;display:flex;align-items:center;justify-content:flex-end;padding:0 14px;gap:10px}
+  .sino-btn{position:relative;width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--fundo)}
+  .sino-btn svg{width:20px;height:20px;stroke:#374151}
+  .badge{position:absolute;top:1px;right:-2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--erro);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+  .pop{width:430px;background:var(--superficie);border:1px solid var(--borda);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.14);overflow:hidden}
+  .pop-cab{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
+  .pop-cab h2{margin:0;font-size:16px;font-weight:700}
+  .link{border:0;background:none;color:var(--acento);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:0}
+  .link[disabled]{color:#9CA3AF;cursor:default}
+  .abas{display:flex;gap:4px;padding:0 12px 10px;border-bottom:1px solid var(--borda)}
+  .aba{border:0;background:none;font:inherit;font-size:13px;padding:6px 10px;border-radius:999px;color:var(--sec);font-weight:600}
+  .aba.ativa{background:var(--acento-suave);color:var(--acento)}
+  .aba .n{margin-left:4px;background:var(--acento);color:#fff;border-radius:9px;padding:0 6px;font-size:11px}
+  .lista{max-height:470px;overflow-y:auto}
+  .grupo{padding:10px 16px 4px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--sec);display:flex;justify-content:space-between}
+  .grupo span:last-child{text-transform:none;letter-spacing:0;font-weight:600}
+  .item{display:grid;grid-template-columns:32px minmax(0,1fr) 10px;gap:10px;padding:10px 16px;align-items:start;cursor:pointer}
+  .item:hover{background:var(--fundo)}
+  .item.nao-lida{background:#F8FAFF}
+  .ic{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .ic svg{width:16px;height:16px;fill:none;stroke-width:2}
+  .ic.erro{background:var(--erro-suave)} .ic.erro svg{stroke:var(--erro)}
+  .ic.aviso{background:var(--aviso-suave)} .ic.aviso svg{stroke:var(--aviso)}
+  .ic.ok{background:var(--sucesso-suave)} .ic.ok svg{stroke:var(--sucesso)}
+  .ic.acento{background:var(--acento-suave)} .ic.acento svg{stroke:var(--acento)}
+  .tit{font-size:14px;line-height:1.35;color:#374151}
+  .nao-lida .tit{color:var(--texto);font-weight:600}
+  .tit b{font-weight:700}
+  .meta{margin-top:2px;font-size:12px;color:var(--sec)}
+  .ponto{width:8px;height:8px;border-radius:50%;background:var(--acento);margin-top:6px}
+  .rodape{display:flex;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--borda);background:var(--fundo)}
+  .vazio{padding:36px 16px;text-align:center;color:var(--sec);font-size:14px}
+  .vazio svg{width:36px;height:36px;stroke:#9CA3AF;fill:none;stroke-width:1.6;display:block;margin:0 auto 8px}
+  .regras{width:430px;background:#fff;border:1px solid var(--borda);border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.5}
+  .regras h3{margin:0 0 6px;font-size:14px}
+  .regras ul{margin:0;padding-left:18px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="sino" viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" fill="none" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke-linecap="round"/></symbol>
+  <symbol id="relogio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="pessoa" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="quadro">
+  <div class="legenda">1 · Fechado: o número conta só o que é NOVO (não visto)</div>
+  <div class="topo">
+    <div class="sino-btn"><svg><use href="#sino"/></svg><span class="badge">3</span></div>
+  </div>
+  <div class="legenda" style="margin-top:8px">Depois de abrir o sino uma vez, o número some</div>
+  <div class="topo">
+    <div class="sino-btn"><svg><use href="#sino"/></svg></div>
+  </div>
+  <div class="regras" style="margin-top:8px">
+    <h3>Como passa a funcionar</h3>
+    <ul>
+      <li><b>Abrir o sino zera o número.</b> Ele volta só quando chegar algo novo.</li>
+      <li>Dentro do sino, o que você ainda não leu fica em <b>negrito com o ponto azul</b>.</li>
+      <li><b>“Marcar todas como lidas”</b> tira o destaque de tudo; clicar num aviso marca só ele.</li>
+      <li>O que você já leu fica guardado <b>por usuário</b>, no banco: reabrir o app ou trocar de computador não traz o número de volta.</li>
+      <li>O pendente continua dizendo o que falta (“12 para ligar”), mas não fica piscando no sino.</li>
+      <li>A notificação que aparece no canto sai <b>uma vez</b> por aviso, como hoje.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="quadro">
+  <div class="legenda">2 · Aberto, aba “Não lidas”</div>
+  <div class="pop">
+    <div class="pop-cab"><h2>Notificações</h2><button class="link">Marcar todas como lidas</button></div>
+    <div class="abas"><button class="aba ativa">Não lidas<span class="n">3</span></button><button class="aba">Todas</button></div>
+    <div class="lista">
+      <div class="grupo"><span>Respostas dos pacientes</span><span>12 para ligar</span></div>
+      <div class="item nao-lida">
+        <div class="ic erro"><svg><use href="#x"/></svg></div>
+        <div><div class="tit"><b>Ana Paula Corrêa Rangel</b> avisou que não vem</div><div class="meta">Sessão hoje 11:00 · Beatriz Cristina · há 5 min</div></div>
+        <div class="ponto"></div>
+      </div>
+      <div class="item nao-lida">
+        <div class="ic aviso"><svg><use href="#relogio"/></svg></div>
+        <div><div class="tit"><b>Rachel Seba Werneck</b> não respondeu ao lembrete</div><div class="meta">Sessão hoje 11:15 · Beatriz Cristina · SMS enviado ontem 14:19</div></div>
+        <div class="ponto"></div>
+      </div>
+      <div class="grupo"><span>Pedidos da enfermagem</span><span>1 novo</span></div>
+      <div class="item nao-lida">
+        <div class="ic acento"><svg><use href="#pessoa"/></svg></div>
+        <div><div class="tit"><b>Até 1 atendimento a mais</b> · BSV</div><div class="meta">Hoje 14:00–15:00 · Joana (enfermagem) · há 12 min</div></div>
+        <div class="ponto"></div>
+      </div>
+    </div>
+    <div class="rodape"><button class="link">Abrir confirmações</button><button class="link">Ver pedidos da enfermagem</button></div>
+  </div>
+</div>
+
+<div class="quadro">
+  <div class="legenda">3 · Aba “Todas” depois de marcar como lidas</div>
+  <div class="pop">
+    <div class="pop-cab"><h2>Notificações</h2><button class="link" disabled>Tudo lido</button></div>
+    <div class="abas"><button class="aba">Não lidas</button><button class="aba ativa">Todas</button></div>
+    <div class="lista">
+      <div class="grupo"><span>Respostas dos pacientes</span><span>12 para ligar</span></div>
+      <div class="item">
+        <div class="ic erro"><svg><use href="#x"/></svg></div>
+        <div><div class="tit"><b>Ana Paula Corrêa Rangel</b> avisou que não vem</div><div class="meta">Sessão hoje 11:00 · Beatriz Cristina · há 5 min</div></div><div></div>
+      </div>
+      <div class="item">
+        <div class="ic aviso"><svg><use href="#relogio"/></svg></div>
+        <div><div class="tit"><b>Rachel Seba Werneck</b> não respondeu ao lembrete</div><div class="meta">Sessão hoje 11:15 · Beatriz Cristina · SMS enviado ontem 14:19</div></div><div></div>
+      </div>
+      <div class="item">
+        <div class="ic ok"><svg><use href="#check"/></svg></div>
+        <div><div class="tit"><b>Miguel Barros Afonso</b> confirmou</div><div class="meta">Sessão hoje 11:35 · pelo link do SMS · há 1 h</div></div><div></div>
+      </div>
+      <div class="grupo"><span>Avisos desta sessão</span><span></span></div>
+      <div class="item">
+        <div class="ic ok"><svg><use href="#check"/></svg></div>
+        <div><div class="tit">Atendimento registrado — 2 guia(s) no faturamento</div><div class="meta">09:42</div></div><div></div>
+      </div>
+    </div>
+    <div class="rodape"><button class="link">Abrir confirmações</button><button class="link">Ver pedidos da enfermagem</button></div>
+  </div>
+  <div class="legenda" style="margin-top:8px">4 · Nada novo</div>
+  <div class="pop">
+    <div class="pop-cab"><h2>Notificações</h2><button class="link" disabled>Tudo lido</button></div>
+    <div class="abas"><button class="aba ativa">Não lidas</button><button class="aba">Todas</button></div>
+    <div class="vazio"><svg><use href="#check" stroke-width="1.6"/></svg>Você está em dia. Nada novo desde a última vez.</div>
+  </div>
+</div>
+</body>
+</html>

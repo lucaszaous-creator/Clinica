@@ -166,7 +166,7 @@
             if (nome is null)
             {
                 var p = await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
-                nome = LembreteEmailService.NomeDaClinica(p.NomeFantasia, p.RazaoSocial) ?? string.Empty;
+                nome = MensagensDeContato.NomeDaClinica(p.NomeFantasia, p.RazaoSocial) ?? string.Empty;
             }
             if (geracao != _geracao || Descartada) return;
 

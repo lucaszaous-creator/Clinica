@@ -11,7 +11,8 @@
 
   Nada de regra aqui: a linha, o placar, o resumo, o recorte e as frases moram em
   ConfirmacoesNaTela e RodadaDeConfirmacao, na Application, com teste. Os serviços são os
-  MESMOS do WPF (CampanhaService, LembreteEmailService) mais o LembreteSmsService.
+  MESMOS do WPF (CampanhaService) mais o LembreteSmsService. Lembrete por e-mail não há
+  (out/2026: o e-mail ficou só para o documento ao paciente).
 
   Permissões copiadas do ViewModel WPF: ler sob VerAgenda (o item do menu); gerar, avisar,
   registrar resposta, remarcar, dispensar e os envios automáticos sob EditarAgenda. "Buscar
@@ -23,14 +24,10 @@
 
 <div class="pagina confirmacoes @(Carregando && _todas.Count > 0 ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Relacionamento · Confirmações" Titulo="Confirmações de agenda"
-                     Subtitulo="Avisar quem vem: o SMS automático com link de resposta, o e-mail para quem tem endereço, e o WhatsApp da clínica, um clique por paciente.">
+                     Subtitulo="Avisar quem vem: o SMS automático com link de resposta e o WhatsApp da clínica, um clique por paciente.">
         <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="GerarAsync"
                 title="@(PodeEditar ? "Põe na rodada as sessões do dia que ainda não estão nela. Clicar duas vezes não repete ninguém." : SemAcesso)">
             <Icone Nome="lista" />Gerar rodada
-        </button>
-        <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="EnviarEmailsAsync"
-                title="@(PodeEditar ? "Manda o lembrete por e-mail a quem ainda não foi avisado e tem e-mail na ficha. O mesmo envio roda sozinho na abertura da Recepção e do Gerente." : SemAcesso)">
-            <Icone Nome="enviar" />Enviar por e-mail a quem tem
         </button>
         <button type="button" class="botao primario" disabled="@(!PodeEditar || _placar.NaoAvisados == 0)" @onclick="AvisarProximoAsync"
                 title="Abre o WhatsApp do próximo que falta avisar — um clique por paciente, porque o número é o da clínica.">
@@ -288,7 +285,7 @@
             if (nome is null)
             {
                 var p = await parametros.ObterPrestadorAsync();
-                nome = LembreteEmailService.NomeDaClinica(p.NomeFantasia, p.RazaoSocial) ?? string.Empty;
+                nome = MensagensDeContato.NomeDaClinica(p.NomeFantasia, p.RazaoSocial) ?? string.Empty;
             }
             if (geracao != _geracao || Descartada) return;
 
@@ -359,20 +356,6 @@
             }, "Blazor — rodada de confirmação não pôde ser gerada")) return;
         await CarregarAsync();
         Dizer(ConfirmacoesNaTela.ResultadoDaGeracao(r!.Gerados, r.JaExistiam), erro: false);
-    }
-
-    /// <summary>O lembrete por e-mail a quem está pendente e tem endereço — o MESMO serviço da abertura do app.</summary>
-    private async Task EnviarEmailsAsync()
-    {
-        if (!Exigir(Permissao.EditarAgenda, "enviar os lembretes por e-mail")) return;
-        ResultadoLembretesEmail? r = null;
-        if (!await ExecutarAsync(async () =>
-            {
-                using var escopo = Escopo();
-                r = await escopo.ServiceProvider.GetRequiredService<LembreteEmailService>().EnviarConfirmacoesAsync(_dia);
-            }, "Blazor — lembretes por e-mail não puderam ser enviados")) return;
-        await CarregarAsync();
-        Dizer(r!.Descricao, r.Desligado || r.TeveFalha);
     }
 
     /// <summary>Traz as respostas do link do SMS. O serviço nunca lança; devolve quantas chegaram.</summary>

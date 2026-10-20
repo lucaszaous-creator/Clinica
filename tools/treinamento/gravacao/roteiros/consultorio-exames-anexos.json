@@ -1,0 +1,102 @@
+{
+  "chave": "consultorio-exames-anexos",
+  "titulo": "Exames e anexos",
+  "descricao": "Os exames pedidos e os que já têm resultado, os arquivos da ficha e os anexos das sessões — num lugar só, com o que pede ação primeiro.",
+  "url": {
+    "paciente": 1,
+    "secao": "Exames e anexos"
+  },
+  "passos": [
+    {
+      "titulo": "Conheça exames e anexos",
+      "texto": "Tudo o que o paciente trouxe ou o laboratório mandou. A linha de resumo diz quanto há em cada recorte.",
+      "alvo": "botao=Exames e anexos"
+    },
+    {
+      "titulo": "Veja os pedidos aguardando",
+      "texto": "Pedidos de exame ainda sem resultado. Anexar laudo… registra o resultado direto no pedido, que sai desta lista.",
+      "alvo": "botao=Aguardando",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Consulte os resultados",
+      "texto": "Os resultados registrados, com valor, referência e laboratório. Abrir laudo mostra o arquivo, se houver.",
+      "alvo": "botao=Com resultado",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja os arquivos da ficha",
+      "texto": "Documentos que não pertencem a uma sessão: a ressonância que o paciente trouxe, a receita de outro serviço.",
+      "alvo": "botao=Arquivos da ficha",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja os anexos de sessão",
+      "texto": "Os arquivos anexados a cada sessão, com a data e o tamanho. Salvar… guarda uma cópia no computador.",
+      "alvo": "botao=Anexos de sessão",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Registre um resultado",
+      "texto": "Registrar resultado anota o exame, o valor e a referência — e pode ligar o resultado ao pedido que estava aguardando.",
+      "alvo": "botao=Registrar resultado",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Preencha o exame e o valor",
+      "texto": "Escreva o nome do exame, o valor com a unidade e a referência do laboratório.",
+      "alvo": "janela-campo=Ex.: Hemoglobina glicada",
+      "acao": "digitar",
+      "valor": "Hemoglobina glicada"
+    },
+    {
+      "alvo": "janela-campo=Valor",
+      "acao": "digitar",
+      "valor": "6,1"
+    },
+    {
+      "alvo": "janela-campo=Unidade",
+      "acao": "digitar",
+      "valor": "%"
+    },
+    {
+      "titulo": "Informe o laboratório",
+      "texto": "O laboratório e a data ajudam a comparar o resultado com o próximo exame.",
+      "alvo": "janela-campo=Laboratório",
+      "acao": "digitar",
+      "valor": "Laboratório Central"
+    },
+    {
+      "titulo": "Anexe o laudo em arquivo",
+      "texto": "Escolher arquivo… prende o PDF do laboratório ao resultado. O laudo é opcional: o valor já é um registro completo.",
+      "alvo": "janela-toda="
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Anexe um arquivo à ficha",
+      "texto": "Para o documento que não é de uma sessão: diga o que é o arquivo, a data dele e escolha o arquivo.",
+      "alvo": "botao=Anexar arquivo à ficha",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Descreva o arquivo",
+      "texto": "Uma frase que diga o que é o arquivo — é ela que aparece na lista da ficha.",
+      "alvo": "janela-campo=O que é este arquivo",
+      "acao": "digitar",
+      "valor": "Ressonância da coluna lombar trazida pelo paciente"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Abra e cancele com motivo",
+      "texto": "Resultados e arquivos têm Abrir e Cancelar…: cancelar pede o motivo e deixa o registro marcado. Nada se apaga do prontuário."
+    }
+  ]
+}

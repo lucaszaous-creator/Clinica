@@ -1,0 +1,22 @@
+{
+  "chave": "guarda-prontuario",
+  "titulo": "Guarda do prontuário",
+  "descricao": "O que está guardado, até quando, quem abriu cada prontuário e como tirar uma cópia — a resposta a quem auditar a clínica.",
+  "passos": [
+    { "titulo": "O prazo de guarda", "texto": "A lei manda guardar o prontuário por no mínimo 20 anos a partir do ÚLTIMO registro de cada paciente. Esta tela mostra esse prazo.", "alvo": "texto-exato=Prazo legal" },
+    { "titulo": "Calcule a guarda da clínica", "texto": "A conta varre paciente por paciente e pode demorar numa base grande — por isso só roda quando você pede. Faça algumas vezes por ano.", "alvo": "botao=Calcular a guarda", "acao": "clicar" },
+    { "titulo": "Leia o retrato da clínica", "texto": "Quantos pacientes, quantos têm prontuário, quantos registros estão guardados, quantos já cumpriram o prazo e o registro mais antigo.", "alvo": "texto-exato=Registros guardados" },
+    { "titulo": "Já cumpriram o prazo", "texto": "Prontuários que passaram dos 20 anos ficam elegíveis, não apagados: eliminar é decisão da clínica com a comissão de revisão prevista em lei.", "alvo": "texto-exato=Já cumpriram o prazo" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ copia o valor do cartão para o relatório de conformidade.", "alvo": "botao=Opções do cartão Registros guardados", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Consulte um paciente", "texto": "Busque pelo nome ou CPF para ver quando vence a guarda do prontuário dele e o que está guardado.", "alvo": "placeholder=Buscar por nome ou CPF", "acao": "digitar", "valor": "Ana Beatriz" },
+    { "alvo": "opcao=Ana Beatriz Souza", "acao": "clicar" },
+    { "titulo": "Até quando guardar", "texto": "A frase diz até quando o prontuário dessa pessoa precisa ser guardado; embaixo, o que há nele (sessões, documentos, medidas).", "alvo": "css=.gua-situacao" },
+    { "titulo": "Quem abriu este prontuário", "texto": "A lista de acessos: quando, quem (pelo login) e por onde abriu. É a resposta para “quem acessou o prontuário dela?”.", "alvo": "texto=Quem abriu este prontuário" },
+    { "titulo": "Exporte o prontuário da pessoa", "texto": "Gera os arquivos do prontuário dessa pessoa numa pasta datada — para atender um pedido do paciente. A exportação também entra na lista de acessos.", "alvo": "botao=Exportar o prontuário desta pessoa", "acao": "clicar", "depois": 3000 },
+    { "alvo": "botao-exato=Trocar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Exporte a clínica inteira", "texto": "Gera arquivos que qualquer sistema importa, com o prontuário de todos. Pede confirmação: grave em local controlado e entregue só a quem tem direito.", "alvo": "botao=Exportar a clínica inteira", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Não existe botão de eliminar", "texto": "Os 20 anos são um prazo mínimo de guarda, não um agendamento de destruição. Eliminar é decisão da clínica com a comissão de revisão, e não tem volta.", "alvo": "texto=Não há botão para ELIMINAR" }
+  ]
+}

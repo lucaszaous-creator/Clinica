@@ -1,0 +1,33 @@
+{
+  "chave": "pacientes-recepcao",
+  "titulo": "Pacientes",
+  "descricao": "Quem é o paciente: achar a ficha pelo nome, CPF ou telefone, conferir recortes do cadastro e cadastrar quem ainda não tem ficha.",
+  "passos": [
+    { "titulo": "A porta de entrada do cadastro", "texto": "Aqui você acha, cadastra e abre qualquer paciente da clínica. O subtítulo conta quantas fichas existem no cadastro.", "alvo": "titulo=Pacientes" },
+    { "titulo": "Veja quem tem horário hoje", "texto": "A tela abre com quem tem horário hoje, com a hora e o atendimento de cada um. É o atalho para quem está chegando ao balcão.", "alvo": "botao=Com horário hoje" },
+    { "titulo": "Busque pelo nome, CPF ou telefone", "texto": "Digite parte do nome, o CPF ou o telefone. A lista se ajusta enquanto você digita.", "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Otávio" },
+    { "titulo": "Confira o resultado", "texto": "Cada resultado traz documento, telefone e convênio. Clique na linha, ou use as setas e Enter, para abrir a ficha.", "alvo": "opcao=Otávio Rezende Campos" },
+    { "titulo": "Limpe a busca", "texto": "Limpar apaga o que foi digitado e devolve a tela à lista de quem tem horário hoje. A tecla Esc faz o mesmo.", "alvo": "botao=Limpar a busca", "acao": "clicar" },
+    { "titulo": "Confira antes de cadastrar", "texto": "Quando ninguém tem o nome digitado, a tela avisa. Tente também o CPF ou o telefone: cadastrar de novo quem já tem ficha divide o histórico em dois.", "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Zuleica Prado" },
+    { "titulo": "Cadastre direto da busca", "texto": "Se o paciente realmente não existe, este botão abre o cadastro já com o nome digitado.", "alvo": "botao=Cadastrar \"Zuleica" },
+    { "alvo": "botao=Limpar a busca", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Liste todo o cadastro", "texto": "Todos os pacientes mostra o cadastro inteiro em ordem de nome, de 50 em 50, com telefone, convênio e visitas.", "alvo": "botao=Todos os pacientes", "acao": "clicar" },
+    { "titulo": "Leia as visitas de cada um", "texto": "Última visita e próximo horário mostram quando o paciente veio e quando volta — útil para saber quem sumiu ou quem já tem retorno marcado.", "alvo": "texto-exato=Última visita" },
+    { "titulo": "Abra a ficha pela linha", "texto": "O ícone abre a ficha do paciente. Clicar em qualquer ponto da linha faz o mesmo.", "alvo": "botao=Abrir a ficha de" },
+    { "titulo": "Marque um horário", "texto": "Marcar leva à marcação de atendimento já com este paciente escolhido, sem precisar buscá-lo de novo.", "alvo": "botao-exato=Marcar" },
+    { "titulo": "Carregue mais pacientes", "texto": "A lista vem em páginas de 50. Carregar mais traz a próxima página; o rodapé diz quantos estão na tela e o total.", "alvo": "botao=Carregar mais", "acao": "clicar" },
+    { "titulo": "Complete cadastros incompletos", "texto": "Fichas sem CPF nem RG. Aproveite quando o paciente estiver no balcão para completar o documento na ficha.", "alvo": "botao=Cadastro incompleto", "acao": "clicar" },
+    { "titulo": "Defina o convênio que falta", "texto": "Fichas vindas do sistema anterior sem convênio, marcadas em amarelo. Pergunte e escolha na ficha: sem convênio a sessão não gera guia.", "alvo": "botao=Sem convênio definido", "acao": "clicar" },
+    { "titulo": "Veja os aniversariantes", "texto": "Quem faz aniversário de hoje até os próximos seis dias — um bom motivo para uma mensagem ou ligação de parabéns.", "alvo": "botao=Aniversário nesta semana", "acao": "clicar" },
+    { "titulo": "Volte à busca", "texto": "Voltar à busca fecha o recorte e devolve a tela à pergunta inicial. Clicar de novo no chip escolhido faz o mesmo.", "alvo": "botao=Voltar à busca", "acao": "clicar" },
+    { "titulo": "Importe de outro sistema", "texto": "Importar leva à importação de pacientes vindos de outro sistema. Use na implantação ou ao receber uma carteira nova.", "alvo": "botao-exato=Importar" },
+    { "titulo": "Cadastre um paciente novo", "texto": "Novo paciente abre o cadastro. Campos com asterisco são obrigatórios; o resto pode ser completado depois.", "alvo": "botao=Novo paciente", "acao": "clicar" },
+    { "titulo": "Preencha a identificação", "texto": "Nome completo e CPF são obrigatórios. Se o CPF já estiver em outra ficha, o sistema avisa e diz de quem é.", "alvo": "janela-campo=Nome completo", "acao": "digitar", "valor": "Marina Albuquerque Teles" },
+    { "titulo": "Informe o contato", "texto": "O telefone recebe os lembretes de horário pelo WhatsApp. E-mail e endereço também ficam aqui — a receita exige o endereço.", "alvo": "janela-campo=Telefone / WhatsApp", "acao": "digitar", "valor": "(21) 98765-4321" },
+    { "titulo": "Escolha convênio ou particular", "texto": "Obrigatório: o convênio decide se a sessão gera guia. Particular não gera guia — o paciente paga no balcão.", "alvo": "janela-campo=Convênio ou particular" },
+    { "titulo": "Tire a foto do paciente", "texto": "Tirar foto usa a câmera do balcão. A foto aparece no crachá do paciente em todas as telas e ajuda a reconhecê-lo.", "alvo": "janela=Tirar foto" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Rosana" },
+    { "titulo": "Abra a ficha do paciente", "texto": "Escolher o paciente abre a ficha do balcão: contato, convênio, horários, documentos e pagamentos dele em um só lugar.", "alvo": "opcao=Rosana Figueiredo Lemos", "acao": "clicar" }
+  ]
+}

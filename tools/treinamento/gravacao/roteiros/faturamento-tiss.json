@@ -1,0 +1,24 @@
+{
+  "chave": "faturamento-tiss",
+  "titulo": "Lotes e XML TISS",
+  "descricao": "Como as guias baixadas chegam à operadora? Gere o lote em XML padrão TISS, registre o envio com o protocolo e o retorno do demonstrativo.",
+  "passos": [
+    { "titulo": "Monte um novo lote", "texto": "O lote junta as guias já baixadas que ainda não foram enviadas. Sai um lote por operadora, porque cada XML tem um destino só.", "alvo": "titulo=Novo lote" },
+    { "titulo": "Escolha o período", "texto": "De e Até filtram pela data do atendimento das guias baixadas. Use o mês que você vai enviar à operadora.", "alvo": "campo=Até" },
+    { "titulo": "Gere o lote TISS", "texto": "Gera o lote e o arquivo XML (TISS 4.01). Antes, o sistema confere as operadoras, as guias com risco de glosa e os dados que faltam.", "alvo": "botao=Gerar lote TISS", "acao": "clicar" },
+    { "titulo": "Confira as operadoras", "texto": "Com guias de mais de uma operadora, o sistema avisa quantos lotes vão sair. Gerar os lotes segue; Cancelar não cria nenhum lote.", "alvo": "janela-toda=" },
+    { "alvo": "janela=Cancelar", "acao": "clicar" },
+    { "titulo": "Acompanhe os lotes gerados", "texto": "Do mais recente ao mais antigo, com a operadora, a quantidade de guias, a data do envio, o protocolo e quantas voltaram glosadas.", "alvo": "titulo=Lotes gerados" },
+    { "titulo": "Leia a situação do lote", "texto": "Gerado: falta enviar. Enviado: aguarda o retorno da operadora. Processado: o retorno já foi registrado.", "alvo": "texto-exato=Gerado" },
+    { "titulo": "Registre o envio", "texto": "Depois de enviar o arquivo no portal da operadora, registre a data do envio e o protocolo que ela devolveu.", "alvo": "botao=Marcar enviado", "acao": "clicar" },
+    { "titulo": "Anote o protocolo", "texto": "O protocolo é a prova de que o lote foi entregue. Marcar enviado grava e muda a situação do lote para Enviado.", "alvo": "janela-campo=Protocolo da operadora", "acao": "digitar", "valor": "PROT-0057" },
+    { "alvo": "janela=Fechar", "acao": "clicar" },
+    { "titulo": "Registre o retorno", "texto": "Quando chegar o demonstrativo da operadora, marque as guias glosadas e o motivo. As outras são consideradas aceitas.", "alvo": "botao=Registrar retorno", "acao": "clicar" },
+    { "titulo": "Marque a guia glosada", "texto": "Marque a caixinha da guia que a operadora recusou. O motivo e o complemento ficam liberados para preencher.", "alvo": "janela-caixa=Glosada", "acao": "marcar" },
+    { "titulo": "Escolha o motivo da glosa", "texto": "Use o motivo que veio no demonstrativo. Ao registrar, a glosa entra em Glosas e recursos com o prazo de recurso correndo.", "alvo": "janela-campo=Motivo da glosa", "acao": "selecionar", "valor": "2006 — Quantidade executada acima da autorizada" },
+    { "titulo": "Importe o demonstrativo XML", "texto": "Se a operadora mandou o demonstrativo em XML, importe o arquivo: as decisões são preenchidas e você só confere antes de registrar.", "alvo": "janela=Importar demonstrativo" },
+    { "alvo": "janela=Fechar", "acao": "clicar" },
+    { "titulo": "Baixe a 2ª via do XML", "texto": "Gera de novo o arquivo XML de um lote já criado, sem criar lote novo nem gastar outro número.", "alvo": "botao=Baixar novamente o XML deste lote" },
+    { "titulo": "Atualize a lista", "texto": "Lê os lotes de novo, por exemplo depois de um envio registrado em outra máquina. O atalho F5 faz o mesmo.", "alvo": "botao=Atualizar" }
+  ]
+}

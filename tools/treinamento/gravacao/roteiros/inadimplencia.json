@@ -1,0 +1,28 @@
+{
+  "chave": "inadimplencia",
+  "titulo": "Quem me deve",
+  "descricao": "Quais pacientes estão com contas vencidas, há quanto tempo e quanto — e como cobrar cada um com um clique.",
+  "passos": [
+    { "titulo": "Saiba quem aparece aqui", "texto": "Só contas a receber vencidas e ligadas a um paciente. Reembolso de convênio e conta sem paciente ficam em Contas a pagar/receber.", "alvo": "texto=Quais contas aparecem aqui?", "acao": "clicar" },
+    { "titulo": "Veja o total em atraso", "texto": "Soma de todas as contas de paciente que já venceram e não foram pagas. É o dinheiro que a clínica tem para cobrar.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Total em atraso'])" },
+    { "titulo": "Quantos pacientes e contas", "texto": "Pacientes é o número de pessoas a cobrar; Contas, quantos lançamentos estão em aberto. Um paciente pode dever várias sessões.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Pacientes'])" },
+    { "titulo": "Veja o médio por paciente", "texto": "Quanto deve, em média, quem deve. Ajuda a decidir entre lembrete e proposta de acordo.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Médio por paciente'])" },
+    { "titulo": "Copie um número do cartão", "texto": "O ⋯ do cartão copia o valor, ou o rótulo com o valor, para colar na planilha ou na mensagem à direção.", "alvo": "botao=Opções do cartão Total em atraso", "acao": "clicar" },
+    { "alvo": "item=Copiar rótulo e valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia o tempo de atraso", "texto": "O atraso aparece em quatro faixas, mesmo vazias. Até 30 dias um lembrete resolve; depois disso a cobrança pede mais atenção.", "alvo": "titulo=Distribuição por tempo de atraso" },
+    { "titulo": "Olhe a dívida crítica", "texto": "Mais de 90 dias é a faixa crítica: hora de propor acordo ou de parar de contar com o dinheiro. Ela vem destacada em vermelho.", "alvo": "css=.qmd-faixas li.critica" },
+    { "titulo": "Ache um paciente", "texto": "Digite parte do nome; acento não atrapalha. A frase ao lado diz quantos pacientes ficaram na lista filtrada.", "alvo": "entrada=Parte do nome", "acao": "digitar", "valor": "Mariana" },
+    { "alvo": "botao=Limpar filtro", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Escolha a ordem da cobrança", "texto": "Mais antigo primeiro é o padrão: a chance de receber cai com o tempo. Maior valor ordena por quanto cada um deve.", "alvo": "campo=Cobrar por", "acao": "selecionar", "valor": "Maior valor" },
+    { "alvo": "campo=Cobrar por", "acao": "selecionar", "valor": "Mais antigo", "ms": 1500 },
+    { "titulo": "Mostre só os críticos", "texto": "Liga a lista só para quem deve há mais de 90 dias — os casos que pedem decisão, não mais um lembrete.", "alvo": "caixa=Só críticos (mais de 90 dias)", "acao": "clicar" },
+    { "alvo": "botao=Limpar filtro", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia o cartão do paciente", "texto": "Nome, quantas contas, há quanto tempo, telefone e o total devido. Embaixo, cada conta com o vencimento e os dias de atraso.", "alvo": "css=.qmd-devedor" },
+    { "titulo": "Cobre pelo WhatsApp", "texto": "Abre a conversa do paciente com um lembrete educado e pronto, sem dado clínico. Sem telefone válido no cadastro, o botão fica apagado.", "alvo": "botao=WhatsApp" },
+    { "titulo": "Copie só a mensagem", "texto": "Copia o texto do lembrete para colar no WhatsApp de outro aparelho ou no e-mail. A tela confirma para qual telefone mandar.", "alvo": "botao=Copiar só a mensagem de cobrança", "acao": "clicar" },
+    { "titulo": "Registre que recebeu", "texto": "Recebi dá baixa naquela conta: data, forma de pagamento e valor. A conta sai da lista e o dinheiro entra no Caixa.", "alvo": "botao-exato=Recebi", "acao": "clicar" },
+    { "alvo": "janela-campo=Forma de pagamento", "acao": "selecionar", "valor": "PIX", "ms": 1800 },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Atualize e exporte", "texto": "Atualizar relê as contas depois de um pagamento feito em outro computador. Exportar CSV leva a lista para a planilha.", "alvo": "botao=Exportar CSV" }
+  ]
+}

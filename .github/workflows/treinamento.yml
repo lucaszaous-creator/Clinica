@@ -1,0 +1,253 @@
+name: Videoaulas (Treinamento)
+
+# Grava as videoaulas da aba Treinamento dos cinco apps (out/2026). Nada disto roda na máquina
+# da clínica nem na de quem programa — é o GitHub que monta a navegação, sobe a prévia, grava e
+# codifica os vídeos.
+#
+# A divisão dos jobs é a das plataformas:
+#  - `navegacao` (Windows): monta os MESMOS módulos e o MESMO ShellViewModel dos executáveis
+#    e grava o navegacao.json — menu do topo, abas e o componente de cada chave. Só o shell
+#    WPF sabe isso; escrevê-lo à mão no roteiro seria uma segunda definição do menu.
+#  - `inventario` e `gravar` (Linux, 1× na cota): sobem tools/PreviaBlazor com a navegação, e o
+#    Playwright abre cada aula na página /aula (moldura real + tela real + dados fictícios das
+#    sementes). O inventário fotografa as telas (para escrever roteiro); a gravação roda UMA
+#    máquina por app, em paralelo, e o `juntar` monta o catálogo com os MP4 pelo SHA-256.
+#
+# Roda no PR que mexe na gravação, na prévia ou neste arquivo — não em todo PR: gravar ~80
+# aulas custa minutos, e tela que mudou não invalida sozinha um vídeo (a aula é conferida
+# quando o roteiro dela muda). Publicar os MP4 na release é passo à parte (README da pasta).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/treinamento/**'
+      - 'tools/PreviaBlazor/**'
+      - '.github/workflows/treinamento.yml'
+  workflow_dispatch:
+    inputs:
+      aulas:
+        description: 'Chaves das aulas a gravar, separadas por vírgula (vazio = todas com roteiro)'
+        required: false
+        default: ''
+
+concurrency:
+  group: treinamento-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  navegacao:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache do NuGet
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Gravar a navegação real dos cinco apps
+        shell: pwsh
+        run: |
+          dotnet run --project tools/treinamento/captura/CapturaTreinamento.csproj -c Release -- saida-navegacao
+          if (Test-Path saida-navegacao/erro.txt) { Get-Content saida-navegacao/erro.txt; exit 1 }
+          if (-not (Test-Path saida-navegacao/navegacao.json)) { Write-Error "navegacao.json não foi gravado"; exit 1 }
+          $apps = Get-Content saida-navegacao/navegacao.json -Raw | ConvertFrom-Json
+          foreach ($a in $apps) {
+            if ($a.erro) { Write-Error "$($a.app): $($a.erro)"; exit 1 }
+            Write-Host "$($a.app): $($a.itens.Count) itens, $($a.telasTreinamento.Count) telas no Treinamento"
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: navegacao
+          path: saida-navegacao/navegacao.json
+          retention-days: 7
+
+  # O inventário: foto e controles de cada tela, para escrever e conferir roteiro.
+  inventario:
+    needs: navegacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/download-artifact@v4
+        with:
+          name: navegacao
+          path: navegacao
+      - name: Preparar a gravação
+        run: bash tools/treinamento/gravacao/preparar.sh navegacao/navegacao.json subir
+      - name: Inventário das telas
+        working-directory: tools/treinamento/gravacao
+        run: node inventario.js http://127.0.0.1:5199 "$GITHUB_WORKSPACE/navegacao/navegacao.json" "$GITHUB_WORKSPACE/inventario"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inventario
+          path: inventario
+          retention-days: 7
+
+  # A gravação: as aulas divididas em 20 máquinas, em paralelo (Linux custa 1× na cota).
+  gravar:
+    needs: navegacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        fatia: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/download-artifact@v4
+        with:
+          name: navegacao
+          path: navegacao
+      - name: Preparar a gravação
+        run: bash tools/treinamento/gravacao/preparar.sh navegacao/navegacao.json
+      # A tela real: uma prévia nova por aula, e cada função executada de verdade.
+      - name: Gravar a tela das aulas do app
+        working-directory: tools/treinamento/gravacao
+        env:
+          FATIA: ${{ matrix.fatia }}/20
+          AULAS: ${{ github.event.inputs.aulas }}
+        run: node gravar.js http://127.0.0.1:5199 "$GITHUB_WORKSPACE/navegacao/navegacao.json" "$GITHUB_WORKSPACE/aulas" || echo "::warning::houve aula com erro na gravação (está no resumo)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: parte-${{ matrix.fatia }}
+          path: aulas
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # O motion design (Remotion) em 20 máquinas do GitHub, uma por fatia da gravação. A AWS
+  # Lambda (renderizar-lambda.js) fica pronta para quando a cota da conta passar de 10
+  # execuções simultâneas — com 10, cada aula pede ~20 e elas sairiam uma de cada vez.
+  # reaproveitar.txt guarda o número de uma rodada anterior: a fatia i monta a parte-i dela
+  # (as gravações vivem 7 dias) junto com a parte-i desta, e a regravada agora vence a antiga.
+  montar:
+    needs: gravar
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        fatia: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Rodada a reaproveitar
+        id: antiga
+        run: echo "run=$(grep -v '^#' tools/treinamento/gravacao/reaproveitar.txt 2>/dev/null | tr -dc '0-9')" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        if: steps.antiga.outputs.run != ''
+        continue-on-error: true
+        with:
+          name: parte-${{ matrix.fatia }}
+          path: partes/antiga
+          run-id: ${{ steps.antiga.outputs.run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: parte-${{ matrix.fatia }}
+          path: partes/nova
+      - name: Juntar as gravações da fatia
+        run: |
+          mkdir -p aulas
+          node -e "
+          const fs=require('fs'),p=require('path');const r=new Map();
+          const regravar=fs.readFileSync('tools/treinamento/gravacao/regravar.txt','utf8').split(/\r?\n/).map(s=>s.replace(/#.*/,'').trim()).filter(Boolean);
+          for(const raiz of ['partes/antiga','partes/nova']){if(!fs.existsSync(raiz))continue;
+            for(const f of fs.readdirSync(raiz)){if(f.endsWith('.linha.json')||f.endsWith('.bruto.mp4'))fs.renameSync(p.join(raiz,f),p.join('aulas',f));
+              if(f==='resumo-gravacao.json')for(const x of JSON.parse(fs.readFileSync(p.join(raiz,f),'utf8'))){
+                // O erro antigo de uma aula pedida em regravar.txt não conta: ela foi gravada de novo (talvez noutra fatia).
+                if(raiz==='partes/antiga'&&x.erro&&regravar.includes(x.chave))continue; r.set(x.chave,x);}}}
+          const lista=[...r.values()];
+          fs.writeFileSync('aulas/resumo-gravacao.json',JSON.stringify(lista,null,2));
+          console.log(lista.filter(x=>!x.erro).length+' gravada(s), '+lista.filter(x=>x.erro).length+' com erro');"
+      - name: Dependências
+        working-directory: tools/treinamento/gravacao
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-inter > /dev/null
+          npm install --no-audit --no-fund --silent
+          npx playwright install-deps chromium > /dev/null
+      - name: Montar o motion design
+        working-directory: tools/treinamento/gravacao
+        run: node renderizar.js "$GITHUB_WORKSPACE/aulas" || echo "::warning::houve aula com erro na montagem (está no resumo)"
+      - name: Guardar a fatia montada
+        run: |
+          mkdir -p montada
+          cp aulas/catalogo.json aulas/resumo.json montada/ 2>/dev/null || true
+          for f in aulas/*.mp4; do case "$f" in *.bruto.mp4) ;; *) cp "$f" montada/ ;; esac; done 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: montada-${{ matrix.fatia }}
+          path: montada
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Um catálogo só, com os vídeos pelo SHA-256 — o que a release publica e o app baixa.
+  juntar:
+    needs: montar
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: montada-*
+          path: partes-montadas
+      - name: Catálogo e vídeos pelo SHA-256
+        run: |
+          mkdir -p partes-montadas
+          node tools/treinamento/gravacao/juntar.js partes-montadas videoaulas
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: videoaulas
+          path: videoaulas
+          retention-days: 14

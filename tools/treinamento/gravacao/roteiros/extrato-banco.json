@@ -1,0 +1,22 @@
+{
+  "chave": "extrato-banco",
+  "titulo": "Extrato do banco",
+  "descricao": "O que o sistema diz que entrou e saiu bate com o que o banco diz? Abra o extrato OFX e confirme cada correspondência.",
+  "passos": [
+    { "titulo": "Baixe o extrato no banco", "texto": "No internet banking, baixe o extrato no formato OFX (às vezes chamado Money ou Quicken). PDF e CSV não servem.", "alvo": "texto=Nenhum extrato aberto" },
+    { "titulo": "Abra o arquivo OFX", "texto": "Abrir extrato pede o arquivo e cruza cada linha do banco com os lançamentos realizados no sistema. Nada é conciliado sozinho.", "alvo": "botao=Abrir extrato", "acao": "clicar", "depois": 3000 },
+    { "titulo": "Veja o tamanho do extrato", "texto": "Linhas no extrato diz quantos movimentos o arquivo trouxe e de que período. A frase acima da lista resume o cruzamento.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Linhas no extrato'])" },
+    { "titulo": "Veja o que já casa", "texto": "Já casam são as linhas em que o sistema achou um lançamento correspondente. Estão prontas: falta só você conferir.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Já casam'])" },
+    { "titulo": "Veja o que pede atenção", "texto": "Pedem atenção são linhas com mais de um candidato, para você escolher, ou que só existem no banco.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Pedem atenção'])" },
+    { "titulo": "Olhe o que só está no sistema", "texto": "Só no sistema é o que foi dado como recebido ou pago aqui e não aparece no banco. É onde mora o erro mais caro.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Só no sistema'])" },
+    { "titulo": "Confira uma linha casada", "texto": "Casada mostra embaixo o lançamento que o sistema propõe. Se data, valor e descrição batem, é só confirmar.", "alvo": "texto-exato=Casada" },
+    { "titulo": "Confirme a correspondência", "texto": "Conferir grava o par banco–sistema. A linha passa para Já conferida e o extrato é cruzado de novo.", "alvo": "css=tr:has-text('Casada') button:has-text('Conferir')", "acao": "clicar", "depois": 2500 },
+    { "titulo": "Confira o lote da maquininha", "texto": "A adquirente deposita as vendas do dia num valor só. A linha mostra quantos créditos formam o depósito, o bruto e as taxas.", "alvo": "texto-exato=Lote da maquininha" },
+    { "titulo": "Escolha o lançamento certo", "texto": "Quando dois lançamentos servem — dois Pix de mesmo valor no mesmo dia —, escolha aqui qual é o certo antes de conferir.", "alvo": "entrada=Com qual lançamento esta linha casa" },
+    { "titulo": "Linha só no banco", "texto": "Movimento que o banco tem e o sistema não: tarifa, depósito avulso. Lance no Caixa o que faltou e recruze o extrato.", "alvo": "texto-exato=Só no banco" },
+    { "titulo": "Linha sem identificador", "texto": "Sem FITID é linha que veio sem o código do banco e não pode ser conciliada. Peça ao banco o extrato completo.", "alvo": "texto-exato=Sem FITID" },
+    { "titulo": "Desfaça um par errado", "texto": "Já conferida mostra o que foi conciliado antes. Se o par estiver errado, Desfazer devolve a linha para a lista.", "alvo": "botao=Desfazer" },
+    { "titulo": "Confira o que falta no banco", "texto": "Esta lista mostra o que o sistema dá como recebido ou pago e o banco não tem no período. Confira cada um: venda que nunca caiu.", "alvo": "titulo=No sistema e NÃO no extrato" },
+    { "titulo": "Recruze ou troque o arquivo", "texto": "Recruzar compara de novo o mesmo arquivo depois de lançar o que faltava. Abrir outro extrato troca o arquivo.", "alvo": "botao=Recruzar" }
+  ]
+}

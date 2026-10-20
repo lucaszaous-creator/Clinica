@@ -30,9 +30,6 @@ public sealed record SessaoDaRodada(
 {
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
 
-    /// <summary>Tem e-mail VÁLIDO na ficha — é quem o lembrete automático alcança.</summary>
-    public bool TemEmail => EnderecoDeEmail.Valido(Email);
-
     public bool NaoAvisado => Estado == SituacaoConfirmacao.NaoAvisado;
 
     /// <summary>Quem já respondeu (ou foi dispensado) não precisa dos botões: a resposta fica escrita.</summary>
@@ -163,17 +160,15 @@ public static class ConfirmacoesNaTela
     }
 
     /// <summary>
-    /// O resumo do rodapé. Quantos o e-mail alcança e quantos estão sem telefone entram aqui:
-    /// é o número que diz se vale a pena clicar em "Enviar por e-mail" — e, quando é zero,
-    /// por que o botão não fez nada.
+    /// O resumo do rodapé: quantas sessões, quantas o SMS já avisou e quantas estão sem
+    /// telefone — o número que diz quem ainda precisa de um clique no WhatsApp.
     /// </summary>
     public static string Resumo(IReadOnlyCollection<SessaoDaRodada> linhas)
     {
         if (linhas.Count == 0) return "Nenhuma sessão gerada para este dia. Clique em \"Gerar rodada\".";
         var semTelefone = linhas.Count(l => !l.TemTelefone);
-        var comEmail = linhas.Count(l => l.TemEmail);
         var porSms = linhas.Count(l => l.PeloSms);
-        return $"{linhas.Count} sessão(ões) · {comEmail} com e-mail"
+        return $"{linhas.Count} sessão(ões)"
                + (porSms > 0 ? $" · {porSms} avisada(s) por SMS" : string.Empty)
                + (semTelefone > 0 ? $" · {semTelefone} SEM TELEFONE no cadastro." : ".");
     }

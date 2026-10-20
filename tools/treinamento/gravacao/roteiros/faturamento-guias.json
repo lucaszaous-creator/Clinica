@@ -1,0 +1,26 @@
+{
+  "chave": "faturamento-guias",
+  "titulo": "Consultar guias",
+  "descricao": "Onde está a guia deste paciente? Ache qualquer guia por paciente, número, anotação, período, situação, convênio, modalidade ou especialidade.",
+  "passos": [
+    { "titulo": "Leia o resumo da busca", "texto": "A frase diz quantas guias a busca achou e com quais filtros. A tela mostra no máximo as 500 mais recentes — estreite o filtro para achar uma antiga.", "alvo": "texto=guia(s) encontrada(s)" },
+    { "titulo": "Leia a situação de cada guia", "texto": "A coluna Situação diz se a guia está a faturar, baixada ou glosada. Quando a pendência tem anotação, ela aparece logo abaixo.", "alvo": "texto=A faturar em" },
+    { "titulo": "Veja quem lançou o atendimento", "texto": "Abaixo do paciente aparece quem lançou o atendimento, e acima o número dele. O número da guia só aparece depois da baixa.", "alvo": "texto=lançado por" },
+    { "titulo": "Busque pelo paciente", "texto": "Digite parte do nome ou o CPF. A lista se atualiza sozinha enquanto você digita.", "alvo": "entrada=Paciente (nome ou CPF)", "acao": "digitar", "valor": "Fábio" },
+    { "alvo": "entrada=Paciente (nome ou CPF)", "acao": "limpar" },
+    { "titulo": "Busque pelo número da guia", "texto": "Basta um trecho do número que veio do portal da operadora para achar a guia.", "alvo": "entrada=Nº da guia", "acao": "digitar", "valor": "9005" },
+    { "alvo": "entrada=Nº da guia", "acao": "limpar" },
+    { "titulo": "Busque pela anotação", "texto": "Acha a guia pela observação deixada na pendência, como \"aguardando a senha da operadora\".", "alvo": "entrada=Observação da pendência", "acao": "digitar", "valor": "senha" },
+    { "alvo": "entrada=Observação da pendência", "acao": "limpar" },
+    { "titulo": "Escolha o período do atendimento", "texto": "De e Até filtram pela data do atendimento, não da baixa. Em branco, a busca olha todas as datas.", "alvo": "campo=De (atendimento)" },
+    { "titulo": "Filtre pela situação", "texto": "Todas, Em aberto, Baixadas ou Com glosa. Use Com glosa para achar rápido o que o convênio recusou.", "alvo": "campo=Situação", "acao": "selecionar", "valor": "Baixadas" },
+    { "titulo": "Filtre pelo convênio", "texto": "Mostra só as guias de uma operadora. Junto com a situação, confere o que já foi baixado em cada convênio.", "alvo": "campo=Convênio", "acao": "selecionar", "valor": "Amil" },
+    { "titulo": "Filtre pela modalidade", "texto": "Separa as guias pelo tipo de atendimento: acupuntura, acupuntura com eletro, BSV ou consulta.", "alvo": "campo=Modalidade", "acao": "selecionar", "valor": "Consulta" },
+    { "titulo": "Filtre pela especialidade", "texto": "Nas consultas, separa pela especialidade. Se nenhuma guia bater, a tela diz que é o filtro e oferece limpar.", "alvo": "campo=Especialidade", "acao": "selecionar", "valor": "Psiquiatria" },
+    { "titulo": "Limpe os filtros", "texto": "Limpar zera todos os campos e volta a mostrar as guias mais recentes.", "alvo": "botao-exato=Limpar", "acao": "clicar" },
+    { "titulo": "Busque de novo", "texto": "Buscar refaz a consulta com os filtros da tela; Enter num campo de texto faz o mesmo. Atualizar, no alto, lê tudo de novo (F5).", "alvo": "botao=Buscar" },
+    { "titulo": "Veja o histórico da guia", "texto": "Mostra quem mexeu na guia, quando e o quê: baixa, estorno, glosa, lote. É só leitura — ninguém edita a trilha.", "alvo": "botao=Histórico", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar" },
+    { "titulo": "Reimprima a capa", "texto": "Gera de novo a capa de faturamento do atendimento, em PDF, para anexar à guia ou ao lote.", "alvo": "botao=Reimprimir a capa de faturamento" }
+  ]
+}

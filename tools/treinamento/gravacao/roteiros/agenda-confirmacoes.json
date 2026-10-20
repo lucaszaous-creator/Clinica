@@ -1,0 +1,126 @@
+{
+  "chave": "agenda-confirmacoes",
+  "titulo": "Confirmações de agenda",
+  "descricao": "Quanto da rodada de amanhã já foi avisado e quem precisa de você: avisar, registrar a resposta e remarcar quem não vem.",
+  "passos": [
+    {
+      "titulo": "Conheça as confirmações",
+      "texto": "Aqui se avisa quem tem sessão e se registra a resposta: pelo SMS automático com link ou pelo WhatsApp da clínica.",
+      "alvo": "titulo=Confirmações de agenda"
+    },
+    {
+      "titulo": "Veja o dia da rodada",
+      "texto": "A tela abre na rodada de amanhã. A barra mostra quanto dela já foi avisado.",
+      "alvo": "texto=avisados"
+    },
+    {
+      "titulo": "Troque o dia",
+      "texto": "As setas mudam o dia da rodada, e o campo de data leva a qualquer dia.",
+      "alvo": "botao=Próximo dia",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Volte para amanhã",
+      "texto": "Fora de amanhã aparece o botão Amanhã, que traz de volta a rodada do dia seguinte.",
+      "alvo": "botao-exato=Amanhã",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Gere a rodada",
+      "texto": "Põe na rodada as sessões do dia que ainda não estão nela. Clicar duas vezes não repete ninguém.",
+      "alvo": "botao=Gerar rodada",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Avise quem falta",
+      "texto": "Abre o WhatsApp do próximo paciente ainda não avisado, com a mensagem pronta. É um clique por paciente.",
+      "alvo": "botao=Avisar os que faltam"
+    },
+    {
+      "titulo": "Atualize a rodada",
+      "texto": "Relê a rodada agora, com o que outra máquina avisou ou registrou. Atalho: F5.",
+      "alvo": "botao=Atualizar a rodada",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja se o SMS está ligado",
+      "texto": "Esta faixa diz se o lembrete automático por SMS está ligado. Desligado, nenhum SMS sai; a configuração fica no Canal de SMS.",
+      "alvo": "texto-exato=SMS automático desligado"
+    },
+    {
+      "titulo": "Busque as respostas do SMS",
+      "texto": "Traz agora as respostas que os pacientes deram pelo link do SMS. Elas também chegam sozinhas a cada poucos minutos.",
+      "alvo": "botao=Buscar respostas do SMS agora",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Envie os lembretes agora",
+      "texto": "Manda já o SMS das sessões cuja hora de lembrar chegou. Quem já foi avisado não recebe de novo.",
+      "alvo": "botao=Enviar lembretes por SMS agora"
+    },
+    {
+      "titulo": "Leia o placar da rodada",
+      "texto": "Os quatro cartões contam quem confirmou, quem foi avisado sem responder, quem falta avisar e quem não vem.",
+      "alvo": "botao=Confirmaram"
+    },
+    {
+      "titulo": "Filtre por um cartão",
+      "texto": "Clique num cartão para ver só aquelas sessões. Clique de novo para ver a rodada inteira.",
+      "alvo": "botao=Ainda não avisados",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Ainda não avisados", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Ligue para quem não vem",
+      "texto": "O destaque laranja conta quem avisou que não vem. A resposta não cancela a sessão: ligue, remarque e libere o horário.",
+      "alvo": "botao=Mostrar quem",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Remarque na agenda",
+      "texto": "Na linha de quem não vem, Remarcar na agenda leva à grade para mudar o horário. O ícone ao lado abre a conversa no WhatsApp.",
+      "alvo": "botao=Remarcar na agenda"
+    },
+    { "alvo": "botao=Não vêm", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Leia a linha da sessão",
+      "texto": "Cada linha traz a hora, o paciente com o telefone, o atendimento, como foi avisado e a resposta do paciente.",
+      "alvo": "linha=Camila Fontes Barreto"
+    },
+    {
+      "titulo": "Avise pelo WhatsApp",
+      "texto": "Avisar abre o WhatsApp com a confirmação pronta e registra o aviso. Lembrar de novo faz o mesmo para quem não respondeu.",
+      "alvo": "botao-exato=Avisar"
+    },
+    {
+      "titulo": "Registre que confirmou",
+      "texto": "O paciente respondeu que vem? O botão de visto registra a confirmação e tira a linha da cobrança.",
+      "alvo": "botao=Registrar que Camila Fontes Barreto confirmou",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Registre que pediu remarcar",
+      "texto": "O ícone de calendário registra que o paciente pediu para remarcar e já leva à agenda para mudar o horário.",
+      "alvo": "botao=Registrar que Sônia Albuquerque pediu para remarcar"
+    },
+    {
+      "titulo": "Dispense da rodada",
+      "texto": "O X tira a sessão da rodada sem avisar — por exemplo, quem confirmou no balcão. O motivo é obrigatório.",
+      "alvo": "botao=Dispensar Sônia Albuquerque da rodada",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escreva o motivo",
+      "texto": "Diga por que o paciente não será avisado. O motivo fica registrado para quem conferir depois.",
+      "alvo": "janela-campo=Escreva aqui",
+      "acao": "digitar",
+      "valor": "Confirmou pessoalmente no balcão."
+    },
+    { "alvo": "janela=Confirmar", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Confira o resumo",
+      "texto": "O rodapé diz o recorte à vista e resume a rodada: quantos por SMS e quantos sem telefone no cadastro.",
+      "alvo": "texto=Mostrando:"
+    }
+  ]
+}

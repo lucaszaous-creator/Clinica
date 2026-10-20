@@ -1,0 +1,18 @@
+{
+  "chave": "consultorio-prescricao-infusao",
+  "titulo": "Prescrição de infusão",
+  "descricao": "A folha interna para a sala de infusão: os itens, as orientações para a equipe e o histórico das folhas do paciente.",
+  "passos": [
+    { "titulo": "Conheça a prescrição de infusão", "texto": "A folha que a enfermagem executa na sala: os itens da infusão e as orientações. Não é receita — ela fica dentro da clínica.", "alvo": "titulo=Prescrição de infusão" },
+    { "titulo": "Veja quem tem horário hoje", "texto": "A lista abre com os pacientes de hoje, com hora e modalidade — o caminho mais curto para quem está na sala.", "alvo": "botao=Com horário hoje" },
+    { "titulo": "Busque o paciente", "texto": "Digite o nome, o CPF ou o telefone para achar alguém fora da agenda de hoje.", "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Marta Vasconcelos" },
+    { "titulo": "Escolha o paciente", "texto": "Clique na pessoa certa. O acesso ao prontuário fica registrado na troca de paciente.", "alvo": "opcao=Marta Vasconcelos Rocha", "acao": "clicar" },
+    { "titulo": "Confira o paciente escolhido", "texto": "A faixa mostra quem é o paciente. Trocar paciente volta à busca.", "alvo": "botao=Trocar paciente" },
+    { "titulo": "Escreva uma folha nova", "texto": "Nova prescrição abre o editor da folha: itens, doses, via, velocidade e orientações. As alergias do paciente são conferidas antes de assinar.", "alvo": "botao=Nova prescrição" },
+    { "titulo": "Parta da última folha", "texto": "Copiar última abre uma folha nova com os itens da última emitida — útil na série de infusões. Sem folha anterior, a tela avisa.", "alvo": "botao=Copiar última", "acao": "clicar" },
+    { "titulo": "Consulte o histórico de infusões", "texto": "Cada folha do paciente aparece com número, data, situação, andamento da execução e o código de conferência.", "alvo": "texto=Histórico de infusões" },
+    { "titulo": "Atualize o histórico", "texto": "Relê as folhas do paciente — para ver o que a sala acabou de checar.", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "titulo": "Edite, abra e imprima a folha", "texto": "Em cada folha: Editar enquanto não foi assinada, Abrir a folha de execução da sala, Imprimir a via e o Registro histórico da execução." },
+    { "titulo": "Cancele com motivo", "texto": "Cancelar pede o motivo e deixa a folha marcada como cancelada no histórico — nada se apaga do prontuário." }
+  ]
+}

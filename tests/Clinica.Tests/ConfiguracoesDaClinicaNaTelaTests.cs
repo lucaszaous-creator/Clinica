@@ -1,5 +1,4 @@
 using Clinica.Application.Abstracoes;
-using Clinica.Application.Email;
 using Clinica.Application.Servicos;
 using FluentAssertions;
 using Xunit;
@@ -132,55 +131,6 @@ public class ConfiguracoesDaClinicaNaTelaTests
         var pub = ConfiguracoesDaClinicaNaTela.LerPublicacao(null, "30", null, null, null, null, null, null, vemDoAmbiente: true, out _);
         pub!.GravarCredenciais.Should().BeFalse();
         ConfiguracoesDaClinicaNaTela.FrasePublicacaoSalva(true).Should().Contain("variável de ambiente");
-    }
-
-    // ============================ E-mail ============================
-
-    [Fact]
-    public void Email_desligado_e_ligado_sao_frases_diferentes_e_a_ligada_diz_de_onde_sai()
-    {
-        ConfiguracoesDaClinicaNaTela.DescreverEmail(null).Should().StartWith("Lembrete por e-mail DESLIGADO");
-        var opcoes = OpcoesEmail.De("smtp.exemplo.com.br", "587", "u", "s", "contato@clinica.com.br", null, true)!;
-        ConfiguracoesDaClinicaNaTela.DescreverEmail(opcoes).Should().EndWith("Sai de contato@clinica.com.br por smtp.exemplo.com.br:587 (TLS).");
-    }
-
-    [Fact]
-    public void Senha_vazia_MANTEM_a_gravada_e_sem_usuario_ela_SAI()
-    {
-        var manter = ConfiguracoesDaClinicaNaTela.LerEmail("smtp.exemplo.com.br", "587", "usuario", "", "GRAVADA",
-            "contato@clinica.com.br", null, true, out var erro, out var desligando);
-        erro.Should().BeNull();
-        desligando.Should().BeFalse();
-        manter!.Senha.Should().Be("GRAVADA");
-
-        var trocar = ConfiguracoesDaClinicaNaTela.LerEmail("smtp.exemplo.com.br", "587", "usuario", " nova ", "GRAVADA",
-            "contato@clinica.com.br", null, true, out _, out _);
-        trocar!.Senha.Should().Be(" nova ", "espaço no fim de uma senha é parte dela");
-
-        var semUsuario = ConfiguracoesDaClinicaNaTela.LerEmail("relay.interno", null, " ", "", "GRAVADA",
-            "contato@clinica.com.br", null, false, out _, out _);
-        semUsuario!.Senha.Should().BeNull("servidor sem autenticação não usa senha — é assim que a gravada se apaga");
-    }
-
-    [Fact]
-    public void Servidor_e_remetente_em_branco_desligam_o_lembrete()
-    {
-        var c = ConfiguracoesDaClinicaNaTela.LerEmail(null, "587", null, null, null, "", "Clínica", true, out var erro, out var desligando);
-        erro.Should().BeNull();
-        desligando.Should().BeTrue();
-        c!.Host.Should().BeNull();
-        c.Remetente.Should().BeNull();
-        ConfiguracoesDaClinicaNaTela.FraseEmailSalvo(true).Should().StartWith("Lembrete por e-mail desligado");
-    }
-
-    [Theory]
-    [InlineData("smtp.exemplo.com.br", null, "587", "Informe o servidor de saída E o remetente — ou deixe os dois em branco para desligar o lembrete.")]
-    [InlineData("smtp.exemplo.com.br", "nao-e-email", "587", "O remetente precisa ser um e-mail válido (ex.: contato@suaclinica.com.br).")]
-    [InlineData("smtp.exemplo.com.br", "contato@clinica.com.br", "70000", "A porta precisa ser um número de 1 a 65535 — 587 é a mais comum; 465 em alguns provedores.")]
-    public void Email_recusas_com_a_frase_do_WPF(string host, string? remetente, string porta, string esperado)
-    {
-        ConfiguracoesDaClinicaNaTela.LerEmail(host, porta, null, null, null, remetente, null, true, out var erro, out _).Should().BeNull();
-        erro.Should().Be(esperado);
     }
 
     // ============================ Conclusão ============================

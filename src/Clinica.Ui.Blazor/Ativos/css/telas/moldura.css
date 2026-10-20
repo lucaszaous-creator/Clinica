@@ -60,25 +60,54 @@
 .moldura-veu{position:fixed;inset:0;z-index:35;background:transparent}
 .moldura-popover{position:absolute;right:0;top:calc(100% + 6px);z-index:40;background:var(--superficie);border:1px solid var(--borda);
   border-radius:var(--radius-control);box-shadow:var(--sombra-popup);padding:var(--space-1)}
-.moldura-popover.sino{width:400px;max-width:calc(100vw - 24px);max-height:560px;overflow-y:auto}
-.moldura-popover.sino section{padding:var(--space-2);display:flex;flex-direction:column;gap:2px}
+/* O sino (out/2026, desenho aprovado): cabeçalho com "Marcar todas como lidas", abas
+   Não lidas/Todas, linhas com ícone por tipo, o não lido em destaque com o ponto, rodapé com
+   os atalhos. O popover não rola inteiro: só a lista, para cabeçalho e rodapé ficarem à vista. */
+.moldura-popover.sino{width:420px;max-width:calc(100vw - 24px);max-height:min(600px,calc(100vh - 80px));padding:0;
+  display:flex;flex-direction:column;overflow:hidden;border-radius:var(--radius-card)}
+.sino-cab{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-3) var(--space-4) var(--space-2)}
+.sino-cab h2{margin:0;font-size:var(--text-secao-size);font-weight:700;color:var(--texto-primario)}
+.sino-cab .link{font-size:var(--text-small-size);font-weight:600}
+.sino-cab .link:disabled{color:var(--texto-secundario);cursor:default;text-decoration:none}
+.sino-abas{display:flex;gap:var(--space-1);padding:0 var(--space-3) var(--space-2);border-bottom:1px solid var(--borda)}
+.sino-abas button{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;cursor:pointer;font:inherit;
+  font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);padding:4px var(--space-3);border-radius:var(--radius-pilula)}
+.sino-abas button:hover{background:var(--fundo)}
+.sino-abas button.ativa{background:var(--acento-suave);color:var(--acento)}
+.sino-abas button:focus-visible{outline:2px solid var(--foco);outline-offset:1px}
+.sino-n{min-width:18px;height:18px;padding:0 6px;border-radius:var(--radius-pilula);background:var(--acento);color:var(--texto-invertido);
+  font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.sino-lista{flex:1 1 auto;overflow-y:auto;min-height:0}
+.moldura-popover.sino section{padding:var(--space-2) 0;display:flex;flex-direction:column}
 .moldura-popover.sino section + section{border-top:1px solid var(--borda)}
-.moldura-popover.sino header{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin-bottom:var(--space-1)}
-.moldura-popover.sino h3{margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
-.moldura-popover.sino header span{font-size:var(--text-small-size);color:var(--texto-secundario)}
-.moldura-popover.sino .link{align-self:flex-start;margin-top:var(--space-1);font-size:var(--text-small-size)}
-.moldura-aviso{display:flex;flex-direction:column;gap:1px;width:100%;border:0;background:transparent;text-align:left;padding:6px var(--space-2);
-  border-left:3px solid transparent;border-radius:var(--radius-pequeno);cursor:pointer;color:var(--texto-primario);font-size:var(--text-table-size)}
+.moldura-popover.sino header{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);padding:0 var(--space-4);margin-bottom:var(--space-1)}
+.moldura-popover.sino h3{margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
+.moldura-popover.sino header span{font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario)}
+.moldura-aviso,.moldura-historico{display:grid;grid-template-columns:32px minmax(0,1fr) 10px;gap:var(--space-3);align-items:start;width:100%;
+  border:0;background:transparent;text-align:left;padding:var(--space-2) var(--space-4);color:var(--texto-primario);font:inherit}
+.moldura-aviso{cursor:pointer}
 .moldura-aviso:hover{background:var(--fundo)}
-.moldura-aviso.novo{border-left-color:var(--acento)}
-.moldura-aviso.nao-vem{border-left-color:var(--erro)}
-.moldura-aviso.sem-resposta{border-left-color:var(--aviso)}
-.moldura-aviso.confirmou{border-left-color:var(--sucesso)}
-.moldura-situacao{margin:var(--space-1) var(--space-2) 0;font-size:var(--text-small-size);color:var(--texto-secundario)}
-.moldura-historico{display:flex;justify-content:space-between;gap:var(--space-3);padding:6px var(--space-2);font-size:var(--text-table-size);
-  border-left:3px solid var(--borda)}
-.moldura-historico.sucesso{border-left-color:var(--sucesso)}
-.moldura-historico.erro{border-left-color:var(--erro)}
+.moldura-aviso:focus-visible{outline:2px solid var(--foco);outline-offset:-2px}
+.moldura-aviso.nao-lida{background:var(--acento-tint)}
+.moldura-aviso.nao-lida:hover{background:var(--acento-suave)}
+.sino-ic{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--fundo);color:var(--texto-secundario)}
+.sino-ic svg{width:16px;height:16px}
+.sino-ic.nao-vem,.sino-ic.erro{background:var(--erro-suave);color:var(--erro)}
+.sino-ic.sem-resposta{background:var(--aviso-suave);color:var(--aviso)}
+.sino-ic.confirmou,.sino-ic.sucesso{background:var(--sucesso-suave);color:var(--sucesso)}
+.sino-ic.pedido,.sino-ic.info{background:var(--acento-suave);color:var(--acento)}
+.sino-texto{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sino-tit{font-size:var(--text-table-size);line-height:1.35;color:var(--texto-secundario);overflow-wrap:anywhere}
+.sino-tit strong{font-weight:700;color:var(--texto-primario)}
+.moldura-aviso.nao-lida .sino-tit{color:var(--texto-primario);font-weight:600}
+.sino-meta{font-size:var(--text-small-size);color:var(--texto-secundario);overflow-wrap:anywhere}
+.sino-ponto{width:8px;height:8px;border-radius:50%;background:var(--acento);margin-top:6px}
+.moldura-situacao{margin:var(--space-1) var(--space-4) 0;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.sino-vazio{display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-8) var(--space-4);text-align:center;color:var(--texto-secundario)}
+.sino-vazio svg{width:32px;height:32px}
+.sino-vazio p{margin:0;font-size:var(--text-table-size)}
+.sino-rodape{display:flex;justify-content:space-between;gap:var(--space-3);padding:var(--space-2) var(--space-4);border-top:1px solid var(--borda);background:var(--fundo)}
+.sino-rodape .link{font-size:var(--text-small-size);font-weight:600}
 .moldura-usuario{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 var(--space-2);border:0;background:transparent;
   border-radius:var(--radius-control);cursor:pointer;color:var(--texto-primario)}
 .moldura-usuario:hover{background:var(--superficie-hover)}

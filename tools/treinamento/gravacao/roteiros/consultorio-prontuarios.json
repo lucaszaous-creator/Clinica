@@ -1,0 +1,24 @@
+{
+  "chave": "consultorio-prontuarios",
+  "titulo": "Registros e pendências do prontuário",
+  "descricao": "As evoluções e anamneses dos atendimentos — e as sessões que ainda estão sem registro, para nada ficar sem escrever.",
+  "passos": [
+    { "titulo": "O que foi escrito e o que falta", "texto": "A lista junta as evoluções e anamneses dos últimos 90 dias com as sessões atendidas que ainda não têm registro.", "alvo": "titulo=Prontuários" },
+    { "titulo": "De quem é a lista", "texto": "A lista mostra os registros de quem está logado. Sem vínculo a um profissional, mostra os da clínica toda e diz isso nesta linha.", "alvo": "texto=Seu acesso não está vinculado" },
+    { "titulo": "O resumo da lista", "texto": "Quantos registros aparecem, de que período são as escritas e desde quando as sessões sem evolução são cobradas.", "alvo": "texto=escritas dos últimos" },
+    { "titulo": "Leia a situação de cada linha", "texto": "A escrever é a sessão atendida sem evolução. A assinar é a anamnese à espera da assinatura digital. As demais já estão registradas.", "alvo": "texto-exato=A escrever" },
+    { "titulo": "Escreva a sessão pendente", "texto": "Escrever abre a sessão daquele horário para registrar a evolução. Escreva no mesmo dia: depois, ninguém lembra o que foi feito.", "alvo": "botao-exato=Escrever" },
+    { "titulo": "Ache um paciente", "texto": "Digite o nome do paciente para ver só os registros dele.", "alvo": "entrada=Buscar prontuários por paciente", "acao": "digitar", "valor": "Wagner" },
+    { "alvo": "entrada=Buscar prontuários por paciente", "acao": "limpar", "ms": 1200 },
+    { "titulo": "Veja o que falta assinar", "texto": "Assinar pendentes mostra só as anamneses à espera da assinatura digital, com a contagem no botão. Clique de novo para voltar à lista inteira.", "alvo": "botao=Assinar pendentes", "acao": "clicar" },
+    { "alvo": "botao=Assinar pendentes", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Leia o prontuário sem sair da lista", "texto": "Abrir mostra um resumo do paciente: diagnósticos recentes, plano terapêutico e alergias no topo.", "alvo": "botao-exato=Abrir", "acao": "clicar" },
+    { "titulo": "Evoluções, anamnese e anexos", "texto": "As abas do resumo mostram as sessões escritas, a anamnese e os anexos. Para mudar algo, abra o prontuário completo.", "alvo": "aba=Anamnese", "acao": "clicar" },
+    { "alvo": "aba=Anexos", "acao": "clicar" },
+    { "alvo": "aba=Evoluções", "acao": "clicar" },
+    { "titulo": "Vá ao prontuário completo", "texto": "Abrir prontuário completo leva à tela do paciente, com o histórico inteiro, os exames e o atendimento.", "alvo": "janela=Abrir prontuário completo" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Atualize a lista", "texto": "Atualizar relê os registros — uma evolução escrita em outro computador tira a sessão da lista de pendências.", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "titulo": "Escreva um atendimento novo", "texto": "Novo prontuário abre a tela de atendimento para registrar uma sessão que não veio da agenda.", "alvo": "botao=Novo prontuário" }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "chave": "consultorio-atendimento-enfermagem",
+  "app": "consultorio-enfermagem",
+  "titulo": "Atendimento de enfermagem",
+  "descricao": "Onde a enfermagem registra a passagem do paciente: a hora do fato, os sinais vitais, o que observou, o plano de cuidados e a consulta COFEN.",
+  "url": { "paciente": 169, "secao": "Atendimento de enfermagem" },
+  "passos": [
+    { "titulo": "Confira o paciente e as alergias", "texto": "O crachá fica no topo em todas as seções: idade, convênio e as alergias em vermelho, ao lado do nome.", "alvo": "css=.tp-cracha" },
+    { "titulo": "Registre uma infusão externa", "texto": "Registrar infusão anota a infusão feita com orientação de fora e manda a validação ao médico responsável.", "alvo": "botao=Registrar infusão" },
+    { "titulo": "Consulte a ficha sem sair", "texto": "Consultar ficha mostra dados, sessões e anamnese. Ao voltar, o texto que você estava escrevendo continua aqui.", "alvo": "botao=Consultar ficha" },
+    { "titulo": "Veja exames e anexos", "texto": "Leva aos exames do paciente para consultar ou anexar um resultado, sem perder a passagem em edição.", "alvo": "css=.enf-acoes button:has-text(\"Exames e anexos\")" },
+    { "titulo": "Siga o plano de cuidados de hoje", "texto": "Os cuidados prescritos para hoje, com Feito e Não feito. Não feito pede a justificativa; o que é ‘se necessário’ não fica pendente.", "alvo": "texto=Plano de cuidados de hoje" },
+    { "titulo": "Marque o cuidado feito", "texto": "Feito registra a execução com a sua identificação e o COREN, na hora informada.", "alvo": "botao-exato=Feito" },
+    { "titulo": "Escreva a passagem de hoje", "texto": "A primeira aba é a passagem de agora; as outras mostram as passagens anteriores e a conduta do médico.", "alvo": "aba=A passagem de hoje" },
+    { "titulo": "Informe a hora do fato", "texto": "A hora em que aconteceu, não a de agora. O relógio do sistema fica gravado ao lado para a auditoria.", "alvo": "campo=Hora do fato" },
+    { "titulo": "Anote os sinais vitais", "texto": "Preencha só o que aferiu. A pressão vai num campo só, como 120/80; o ponto entra na curva de pressão do paciente.", "alvo": "campo=PA (mmHg)", "acao": "digitar", "valor": "120/80" },
+    { "alvo": "campo=FC (bpm)", "acao": "digitar", "valor": "78" },
+    { "alvo": "campo=Temperatura", "acao": "digitar", "valor": "36,6" },
+    { "titulo": "Escreva o que observou", "texto": "Escreva como no papel: o que o paciente relatou, o que você observou e o que fez.", "alvo": "campo=O que eu observei", "acao": "digitar", "valor": "Paciente tranquila durante a infusão, sem queixas. Acesso venoso pérvio, sem sinais flogísticos." },
+    { "titulo": "Marque a intercorrência", "texto": "Se algo saiu do esperado — reação, queda de pressão, extravasamento —, marque. O registro ganha o selo e chega ao médico.", "alvo": "caixa=Foi uma intercorrência" },
+    { "titulo": "Registre a alergia observada", "texto": "Escreva só o agente, como dipirona. Ele entra na lista do paciente e trava as próximas prescrições; a reação vai no texto.", "alvo": "campo=Alergia observada" },
+    { "titulo": "Abra a consulta de enfermagem", "texto": "Marque para fazer o processo completo da COFEN: histórico, diagnósticos, resultado esperado, cuidados e avaliação.", "alvo": "caixa=Consulta de enfermagem", "acao": "marcar" },
+    { "titulo": "Colha o histórico de enfermagem", "texto": "A primeira etapa é a coleta de dados: o que o paciente relata e o que você encontra.", "alvo": "janela-campo=1 · Histórico de enfermagem", "acao": "digitar", "valor": "Refere dor 6/10 em membro superior direito. Nega jejum incompleto." },
+    { "titulo": "Escreva os diagnósticos", "texto": "Cada diagnóstico tem o problema, o relacionado a e o evidenciado por. Escolha do catálogo da clínica ou escreva à mão.", "alvo": "aba=2 e 3 · Diagnósticos", "acao": "clicar" },
+    { "titulo": "Prescreva os cuidados", "texto": "Os cuidados com a frequência — e se é só se necessário. São eles que aparecem no plano de cuidados de hoje.", "alvo": "aba=4 · Cuidados", "acao": "clicar" },
+    { "titulo": "Avalie o resultado", "texto": "A quinta etapa diz se o resultado esperado foi alcançado. Dá para completar depois; a tela avisa o que falta.", "alvo": "aba=5 · Avaliação", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Registre a passagem", "texto": "O botão do rodapé grava a passagem com a sua identificação. Imprimir a passagem gera o papel do que aconteceu hoje.", "alvo": "botao=Imprimir a passagem" },
+    { "titulo": "Veja as passagens do paciente", "texto": "Todas as passagens, com o selo DESTA SESSÃO na de hoje. Corrigir e Cancelar ficam em cada linha; a cancelada continua marcada.", "alvo": "aba=Passagens do paciente", "acao": "clicar" },
+    { "titulo": "Leia a conduta médica", "texto": "O que o médico registrou e o que foi prescrito para a sala. Escolha a seção nos botões; Ver abre a sessão médica inteira.", "alvo": "aba=Conduta médica e infusões", "acao": "clicar" }
+  ]
+}

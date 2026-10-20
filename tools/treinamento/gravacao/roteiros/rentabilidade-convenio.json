@@ -1,0 +1,20 @@
+{
+  "chave": "rentabilidade-convenio",
+  "titulo": "Rentabilidade por convênio",
+  "descricao": "Qual operadora vale a pena: quem paga pouco por guia, quem paga tarde, quem retém mais na fonte e quem glosa muito.",
+  "passos": [
+    { "titulo": "Escolha a janela de meses", "texto": "1, 3, 6 ou 12 meses para trás. Janela maior dá números mais firmes; menor mostra o momento atual da operadora.", "alvo": "botao-exato=12 meses", "acao": "clicar" },
+    { "alvo": "botao-exato=6 meses", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Guias do período", "texto": "Quantas guias de convênio foram efetivadas na janela escolhida, com o intervalo de meses que entrou na conta.", "alvo": "texto-exato=Guias" },
+    { "titulo": "Recebido, retido e líquido", "texto": "Bruto é o que a operadora pagou; retido é o imposto que ela segura na fonte; líquido é o que de fato sobrou para a clínica.", "alvo": "texto-exato=Retido na fonte" },
+    { "titulo": "Glosa", "texto": "Percentual das guias efetivadas que a operadora recusou. Glosa alta pede revisão do preenchimento ou recurso.", "alvo": "texto-exato=Glosa" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ copia o valor do cartão para a planilha de negociação com a operadora.", "alvo": "botao=Opções do cartão Sobrou (líquido)", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Quem rende mais e menos", "texto": "A frase aponta o convênio que mais rende e o que menos rende por atendimento — o ponto de partida para renegociar tabela.", "alvo": "texto=Rende mais por atendimento" },
+    { "titulo": "Compare pelo líquido por guia", "texto": "Por guia é o único número comparável entre operadoras: faturar mais não adianta se foi preciso o triplo de atendimentos.", "alvo": "texto-exato=Por guia" },
+    { "titulo": "Veja o prazo de pagamento", "texto": "Prazo conta da baixa da guia até o dinheiro cair. Quem paga um pouco mais em 90 dias pode valer menos que quem paga em 30.", "alvo": "texto-exato=Prazo" },
+    { "titulo": "Guias sem receita lançada", "texto": "Embaixo do nome aparecem as guias efetivadas que ainda não têm receita no caixa e as glosadas. Cobre ou concilie essas guias.", "alvo": "css=.rent-pendente" },
+    { "titulo": "Fatia do líquido", "texto": "A barra mostra quanto do líquido total veio de cada convênio — o peso de cada operadora no dinheiro da clínica.", "alvo": "texto-exato=Fatia do líquido" },
+    { "titulo": "Atualize e exporte", "texto": "Atualizar (F5) lê de novo. Exportar CSV gera a planilha que a direção leva para renegociar tabela com a operadora.", "alvo": "botao=Exportar CSV" }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "chave": "resultado",
+  "titulo": "Resultado do mês",
+  "descricao": "Quanto sobrou no mês, do faturado ao resultado — e se o gasto ficou dentro do teto e as metas foram alcançadas.",
+  "passos": [
+    { "titulo": "Escolha o mês", "texto": "As setas trocam o mês. A tela é regime de caixa: conta o dinheiro que de fato entrou e saiu no mês escolhido.", "alvo": "botao=Mês anterior", "acao": "clicar" },
+    { "alvo": "botao=Próximo mês", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia o resultado do mês", "texto": "Quanto sobrou depois das deduções e das despesas, e quanto isso representa do faturado. Vermelho quando o mês fechou no prejuízo.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Resultado do mês'])" },
+    { "titulo": "Veja a receita bruta", "texto": "Tudo o que entrou no mês, antes de qualquer desconto: é o ponto de partida da conta.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Receita bruta'])" },
+    { "titulo": "Veja as despesas", "texto": "As saídas pagas no mês: folha, aluguel, insumos. Taxa de cartão e imposto não estão aqui — são dedução da receita.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Despesas'])" },
+    { "titulo": "Leia a margem", "texto": "De cada real faturado, quanto sobrou. Sem receita no mês, a margem aparece como —, nunca como zero.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Margem'])" },
+    { "titulo": "Copie um número do cartão", "texto": "O ⋯ do cartão copia o valor, ou o rótulo com o valor, para a apresentação ou a reunião da direção.", "alvo": "botao=Opções do cartão Resultado do mês", "acao": "clicar" },
+    { "alvo": "item=Copiar rótulo e valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Siga do faturado ao que sobrou", "texto": "A cascata mostra a conta inteira: receita bruta, menos deduções, dá a líquida; menos despesas, dá o resultado.", "alvo": "titulo=Do faturado ao que sobrou" },
+    { "titulo": "Entenda as deduções", "texto": "Taxa da maquininha e imposto saem da receita antes de ela existir. Não dá para cortá-los como se corta uma despesa.", "alvo": "texto-exato=Deduções (taxa e imposto)" },
+    { "titulo": "Compare caixa e competência", "texto": "Caixa é o que se moveu no mês. Competência é o que pertence ao mês pela data do fato, recebido ou não, pago ou não.", "alvo": "titulo=Caixa e competência, lado a lado" },
+    { "titulo": "Veja o que ainda não se moveu", "texto": "A coluna da direita mostra o que é do mês e ainda está a receber ou a pagar. A frase abaixo explica a diferença entre os dois resultados.", "alvo": "texto-exato=Na competência, ainda não se moveu" },
+    { "titulo": "Atenção à produção sem valor", "texto": "Guias baixadas e sessões sem valor lançado ficam fora do número, que fica abaixo do real. Lance-as na Conciliação.", "alvo": "texto=ainda sem valor lançado" },
+    { "titulo": "Veja de onde veio", "texto": "Entradas realizadas por categoria no mês, com a fatia de cada uma: convênios, particular, pacotes.", "alvo": "titulo=De onde veio" },
+    { "titulo": "Veja para onde foi", "texto": "Saídas realizadas por categoria, da maior para a menor. É aqui que aparece o gasto que cresceu.", "alvo": "titulo=Para onde foi" },
+    { "titulo": "Abra metas e teto", "texto": "A segunda aba responde se o mês chegou onde a clínica combinou. O selo diz quantos tetos estouraram e quantas metas estão em risco.", "alvo": "aba=Metas e teto", "acao": "clicar" },
+    { "titulo": "Acompanhe as metas do mês", "texto": "Cada meta traz o alvo, o realizado com a barra de progresso e a situação. Editar metas leva à tela de Metas.", "alvo": "titulo=Metas ·" },
+    { "titulo": "Confira o teto de gasto", "texto": "Para cada categoria: o teto, o gasto, o que já está contratado e a vencer, e o disponível. Negativo é teto estourado.", "alvo": "titulo=Teto de gasto" },
+    { "titulo": "Defina um teto", "texto": "Escolha a categoria de saída e quanto ela pode gastar neste mês. O teto vale só para este mês e não muda os anteriores.", "alvo": "botao=Definir teto", "acao": "clicar" },
+    { "alvo": "janela-campo=Categoria de saída", "acao": "selecionar", "valor": "Marketing", "ms": 1200 },
+    { "alvo": "janela-campo=Teto do mês", "acao": "digitar", "valor": "2.000,00", "ms": 1500 },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Exclua um teto", "texto": "Excluir tira a régua da categoria — diferente de teto zero, que é a decisão de não gastar nada. Aqui saímos sem excluir.", "alvo": "botao=Excluir teto", "acao": "clicar" },
+    { "alvo": "janela-exato=Cancelar", "acao": "clicar", "ms": 1200 },
+    { "alvo": "aba=Resultado", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Leve para a planilha", "texto": "Exportar CSV gera o resultado do mês com as categorias, para a reunião da direção ou para o contador.", "alvo": "botao=Exportar CSV" }
+  ]
+}

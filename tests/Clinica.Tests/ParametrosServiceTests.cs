@@ -65,16 +65,12 @@ public class ParametrosServiceTests : IDisposable
         var servico = new ParametrosService(_repo, chave);
         await servico.SalvarCredenciaisArmazenamentoAsync("https://objetos.example.com", "regiao",
             "bucket", "chave-s3", "segredo-s3");
-        await servico.SalvarCamposEmailAsync(new CamposEmail("smtp.example.com", "587",
-            "usuario", "senha-smtp", "remetente@example.com", "Clínica", true));
 
         foreach (var nome in new[] { ParametrosService.ChaveArmazenamentoChave,
-                     ParametrosService.ChaveArmazenamentoSegredo,
-                     ParametrosService.ChaveEmailSmtpSenha })
+                     ParametrosService.ChaveArmazenamentoSegredo })
             (await _repo.ObterConfiguracaoAsync(nome)).Should().StartWith("enc:v1:");
 
         (await servico.ObterCredenciaisArmazenamentoAsync()).Segredo.Should().Be("segredo-s3");
-        (await servico.ObterCamposEmailAsync()).Senha.Should().Be("senha-smtp");
     }
 
     [Fact]

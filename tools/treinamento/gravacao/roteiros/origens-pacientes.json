@@ -1,0 +1,17 @@
+{
+  "chave": "origens-pacientes",
+  "titulo": "De onde vêm os pacientes",
+  "descricao": "A resposta de “como conheceu a clínica?” somada: de onde vem a base inteira, quem estreou no período e quem mais indica.",
+  "passos": [
+    { "titulo": "Entenda o que é estreia", "texto": "Estreia é o primeiro atendimento dentro do período escolhido. Quem foi cadastrado e nunca veio conta na base, mas não nas estreias.", "alvo": "texto=Estreia = primeiro atendimento" },
+    { "titulo": "Escolha o período das estreias", "texto": "Este mês, Últimos 3 meses ou Este ano. Muda só a coluna de estreias; a base inteira continua a mesma.", "alvo": "botao=Este mês", "acao": "clicar" },
+    { "alvo": "botao=Este ano", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Leia o resumo", "texto": "Quantos pacientes há na base, quantos ainda não responderam a pergunta e o intervalo das estreias.", "alvo": "texto=paciente(s) na base" },
+    { "titulo": "Origens da base", "texto": "Cada origem com quantos pacientes, o percentual da base e quantos estrearam no período. Toda origem aparece, mesmo zerada.", "alvo": "titulo=Origens" },
+    { "titulo": "Cobre a pergunta no cadastro", "texto": "Não perguntado é quem ficou sem resposta. Se ele encabeça a tabela, o balcão parou de perguntar — peça para perguntar em todo cadastro.", "alvo": "texto=colher no cadastro" },
+    { "titulo": "Compare base e estreias", "texto": "Na base mostra o histórico; Estrearam no período mostra o que trouxe gente nova agora. É aqui que se vê se um anúncio vale a pena.", "alvo": "texto-exato=Estrearam no período" },
+    { "titulo": "Quem mais indica", "texto": "As pessoas que mais indicaram pacientes, pelo nome escrito na ficha. Bom lugar para um agradecimento da clínica.", "alvo": "titulo=Quem mais indica" },
+    { "titulo": "Atualize a leitura", "texto": "Atualizar (F5) lê a base de novo — o balcão pode ter cadastrado alguém desde que a tela abriu.", "alvo": "botao=Atualizar" },
+    { "titulo": "Campanhas e comissão", "texto": "As abas no alto levam às Campanhas (confirmação, satisfação e recall) e à Comissão de recuperação.", "alvo": "aba-app=Campanhas" }
+  ]
+}

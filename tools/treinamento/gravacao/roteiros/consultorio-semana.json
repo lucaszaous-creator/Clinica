@@ -1,0 +1,25 @@
+{
+  "chave": "consultorio-semana",
+  "titulo": "Minha semana",
+  "descricao": "Quando eu tenho espaço? A carga dos sete dias de quem atende, com férias e feriados escritos na grade.",
+  "passos": [
+    { "titulo": "Conheça a semana de trabalho", "texto": "A grade de segunda a domingo, hora a hora. É leitura: quem marca horário é a recepção — aqui você vê a carga e abre o paciente.", "alvo": "titulo=Minha semana" },
+    { "titulo": "Leia o resumo da semana", "texto": "Quantas sessões e pacientes a semana tem, o dia mais cheio e quantas sessões desta semana ainda estão sem evolução.", "alvo": "texto=dia mais cheio" },
+    { "titulo": "Atualize a grade", "texto": "Relê a semana na hora (atalho F5), para ver um horário que a recepção acabou de marcar ou desmarcar.", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "titulo": "Ande pelas semanas", "texto": "As setas trocam para a semana anterior ou a próxima. Útil para responder ao paciente quando há espaço.", "alvo": "botao=Próxima semana", "acao": "clicar" },
+    { "titulo": "Volte para esta semana", "texto": "Esta semana traz a grade de volta para a semana corrente com um clique.", "alvo": "botao=Esta semana", "acao": "clicar" },
+    { "titulo": "Vá direto a uma data", "texto": "Escolha qualquer dia no calendário e a grade mostra a semana que contém esse dia.", "alvo": "entrada=Escolher um dia da semana" },
+    { "titulo": "Procure um paciente", "texto": "Digite parte do nome para ver na grade só as sessões daquele paciente — dá para ver de relance quando ele volta.", "alvo": "entrada=Buscar paciente", "acao": "digitar", "valor": "Rosana" },
+    { "alvo": "entrada=Buscar paciente", "acao": "limpar", "ms": 1200 },
+    { "titulo": "Filtre pela modalidade", "texto": "Mostra só as sessões de uma modalidade, por exemplo só as de BSV da semana.", "alvo": "entrada=Filtrar por modalidade", "acao": "selecionar", "valor": "BSV (apenas)" },
+    { "titulo": "Filtre pela situação", "texto": "As pílulas contam cada situação da semana. Clique em Pendentes, Atendidos ou Faltas para ver só aquelas sessões.", "alvo": "botao=Atendidos", "acao": "clicar" },
+    { "titulo": "Limpe os filtros", "texto": "Desfaz nome, modalidade e situação de uma vez e a grade volta a mostrar a semana inteira.", "alvo": "botao=Limpar filtros", "acao": "clicar" },
+    { "titulo": "Leia os dias da semana", "texto": "Cada coluna é um dia, com o total de sessões no topo. O dia de hoje vem destacado.", "alvo": "css=.cs-cabecalho" },
+    { "titulo": "Reconheça os cartões", "texto": "Cada cartão traz paciente e modalidade, e a cor diz a situação. A sessão longa cobre as faixas seguintes; o vazio é onde cabe mais alguém.", "alvo": "botao=Rosana Figueiredo Lemos" },
+    { "titulo": "Ache o que falta escrever", "texto": "O selo Sem evolução marca sessão já atendida que ainda espera o seu registro.", "alvo": "texto-exato=Sem evolução" },
+    { "titulo": "Veja o que não aconteceu", "texto": "Cancelamentos e faltas ficam na grade, apagados e marcados, sem ocupar o horário que vagou.", "alvo": "texto-exato=Não aconteceu" },
+    { "titulo": "Note a agenda fechada", "texto": "Férias, feriados e reuniões aparecem escritos no próprio vão da grade, com o motivo.", "alvo": "css=.cs-bloqueio" },
+    { "titulo": "Entenda a legenda", "texto": "O pé da grade explica os sinais: o traço espesso marca encaixe e a faixa hachurada marca agenda fechada.", "alvo": "texto=traço espesso" },
+    { "titulo": "Abra o paciente pela sessão", "texto": "Clicar num cartão abre o prontuário daquele paciente, já ligado ao horário da sessão.", "alvo": "botao=Otávio Rezende Campos" }
+  ]
+}

@@ -38,11 +38,19 @@ public sealed record ResultadoDaPesquisa(string Rotulo, string? Caminho, object 
 /// <summary>Um aviso já exibido nesta sessão — a segunda via que o sino guarda.</summary>
 public sealed record AvisoDaSessao(string Texto, TomNotificacao Tom, string Hora);
 
-/// <summary>Um pedido da enfermagem no sino.</summary>
-public sealed record PedidoNoSino(int Id, string Titulo, string Quando, string Origem, bool Novo);
+/// <summary>
+/// Um pedido da enfermagem no sino. <paramref name="NaoLida"/>: ainda sem leitura de quem está
+/// logado — o destaque (negrito e ponto) e a aba "Não lidas".
+/// </summary>
+public sealed record PedidoNoSino(int Id, string Titulo, string Quando, string Origem, bool Novo, bool NaoLida = false);
 
-/// <summary>Uma resposta de paciente no sino. <paramref name="Tom"/>: "nao-vem", "sem-resposta" ou "confirmou".</summary>
-public sealed record RespostaNoSino(object Alvo, string Titulo, string Sessao, string Detalhe, string Tom);
+/// <summary>
+/// Uma resposta de paciente no sino. <paramref name="Tom"/>: "nao-vem", "sem-resposta" ou
+/// "confirmou". <paramref name="Paciente"/> é o nome que abre o <paramref name="Titulo"/> (sai em
+/// destaque); vazio quando o título não começa por ele.
+/// </summary>
+public sealed record RespostaNoSino(object Alvo, string Titulo, string Sessao, string Detalhe, string Tom,
+    bool NaoLida = false, string Paciente = "");
 
 /// <summary>Uma seção do sino: só aparece para quem a tela que resolve existe.</summary>
 public sealed record SecaoDoSino<T>(bool Visivel, string Contador, IReadOnlyList<T> Linhas, string Situacao)
@@ -105,6 +113,10 @@ public interface IMolduraDoApp
     SecaoDoSino<PedidoNoSino> Pedidos { get; }
     SecaoDoSino<RespostaNoSino> Respostas { get; }
     IReadOnlyList<AvisoDaSessao> Historico { get; }
+    /// <summary>Quantos avisos do sino ainda estão sem leitura (a aba "Não lidas").</summary>
+    int NaoLidas { get; }
+    /// <summary>"Marcar todas como lidas": o destaque some de tudo o que está no sino.</summary>
+    void MarcarTodasComoLidas();
     void AlternarSino();
     void AbrirPedido(PedidoNoSino pedido);
     void AbrirTodosOsPedidos();

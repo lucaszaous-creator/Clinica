@@ -1,0 +1,28 @@
+{
+  "chave": "importar-pacientes",
+  "titulo": "Importar pacientes",
+  "descricao": "Como trazer a carteira, o prontuário, a agenda e os arquivos do sistema anterior — vendo antes, linha a linha, o que vai acontecer.",
+  "passos": [
+    { "titulo": "Três passos, nada gravado antes", "texto": "Arquivo, colunas e prévia. Nada é gravado antes da prévia; quem já tem ficha é só completado, e importar o mesmo arquivo duas vezes não duplica nada.", "alvo": "texto=Nada é gravado antes da prévia" },
+    { "titulo": "Importe um CSV de qualquer sistema", "texto": "Ou um CSV de pacientes aceita a planilha exportada por qualquer sistema. Escolha o arquivo no computador.", "alvo": "botao=Ou um CSV de pacientes", "acao": "clicar" },
+    { "titulo": "Confira o arquivo lido", "texto": "A tela mostra o nome do arquivo, quantas linhas e colunas ele tem, o separador e a codificação. Se algo parecer estranho, confira o arquivo.", "alvo": "css=.imp-arquivo" },
+    { "titulo": "O que cada coluna significa", "texto": "Para cada campo da ficha, a tela já sugere a coluna do arquivo pelo nome. Confira as sugestões — só o Nome é obrigatório.", "alvo": "titulo=O que cada coluna significa" },
+    { "titulo": "Ajuste uma coluna", "texto": "Escolha na lista a coluna certa, ou “não importar”. Aqui o segundo telefone do arquivo vai para Outro telefone.", "alvo": "campo=Outro telefone", "acao": "selecionar", "valor": "Telefone (2)" },
+    { "titulo": "Aponte os convênios", "texto": "Cada convênio escrito no arquivo é ligado a um convênio daqui. “Unimed” pode ser Padrão ou Intercâmbio — a diferença muda o faturamento.", "alvo": "entrada=Convênio daqui para Unimed", "acao": "selecionar", "valor": "Unimed Costa do Sol (Padrão)" },
+    { "titulo": "Ou deixe para definir depois", "texto": "O que ficar em “definir depois” entra como convênio a definir: o sistema avisa em vermelho no próximo atendimento, e a escolha é feita na ficha.", "alvo": "entrada=Convênio daqui para Plano Fictício Sul" },
+    { "titulo": "Gere a prévia", "texto": "Gerar a prévia mostra, linha a linha, o que vai acontecer — sem gravar nada. Mudou uma coluna ou convênio? Gere de novo.", "alvo": "botao=Gerar a prévia", "acao": "clicar" },
+    { "titulo": "Leia o destino de cada linha", "texto": "Nova ficha, Completar ficha (só campos vazios), Já importada e Não entra. O detalhe ao lado explica o motivo e os avisos de cada linha.", "alvo": "titulo=O que vai acontecer" },
+    { "titulo": "Linhas que não entram", "texto": "Não entra fica de fora — por exemplo, linha sem nome. Corrija o arquivo ou a coluna e gere a prévia de novo.", "alvo": "texto-exato=Não entra" },
+    { "titulo": "Importe as fichas", "texto": "O botão diz quantas fichas serão gravadas e pede confirmação antes. Ao final, a tela mostra o resultado da importação.", "alvo": "botao=Importar", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "O pacote completo do Smart Clinic", "texto": "Escolha o ZIP inteiro que o Smart Clinic entregou: entram fichas, prontuário em texto, agenda futura, e o que não tem campo vai para as observações.", "alvo": "botao=Escolher o pacote (ZIP)", "acao": "clicar" },
+    { "titulo": "Formato reconhecido", "texto": "No pacote, as colunas já são conhecidas. A única decisão é para onde vai cada convênio do arquivo — o resto o sistema já sabe.", "alvo": "texto=Formato do Smart Clinic reconhecido" },
+    { "alvo": "botao=Gerar a prévia", "acao": "clicar" },
+    { "titulo": "Resumo do pacote", "texto": "A prévia resume fichas, registros de prontuário, horários futuros e visitas passadas — e diz o que não entra e por quê.", "alvo": "css=.imp-resumo-pacote" },
+    { "titulo": "Importe o pacote e confira", "texto": "O botão diz quantas fichas, registros e horários entram. Depois de gravar, a conferência relê o ZIP e mostra o que entrou e o que faltou.", "alvo": "botao=Importar o pacote", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Os arquivos: receitas e laudos", "texto": "O ZIP de arquivos traz os PDFs com o índice de quem é cada um. Importe depois da carteira: é pelo código antigo que o arquivo acha a ficha.", "alvo": "botao=Ou o ZIP de arquivos", "acao": "clicar" },
+    { "titulo": "Prévia dos arquivos", "texto": "Gerar a prévia diz quantos arquivos vão para a ficha, em Exames e anexos, e quais ficam de fora — paciente não achado ou PDF sem linha no índice.", "alvo": "botao=Gerar a prévia", "acao": "clicar" },
+    { "titulo": "Leia o destino dos arquivos", "texto": "Cada grupo diz quantos entram e por que os outros não entram. Corrija o que faltar e gere de novo antes de importar.", "alvo": "css=.imp-resumo-pacote" }
+  ]
+}

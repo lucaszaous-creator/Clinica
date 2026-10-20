@@ -31,9 +31,10 @@ public sealed partial class ShellViewModel
     public bool PodeVerPedidos => Itens.Any(i => i.Chave == ChavesSuite.PedidosEnfermagem)
         && _sessaoClinica is { Autenticado: true, Perfil: PerfilAcesso.Recepcao or PerfilAcesso.Gerente }
         && _sessaoClinica.Pode(Permissao.VerAgenda | Permissao.EditarAgenda | Permissao.VerFichaPaciente);
-    // As respostas dos pacientes que pedem ligação (AvisosConfirmacaoShell, out/2026) entram
-    // na conta como os pedidos novos: são pendência que persiste até alguém agir.
-    public int TotalAvisos => PedidosNovos + RespostasParaAgir + (Snackbar?.NaoLidos ?? 0);
+    // O NÚMERO do sino é o que é novo para quem está logado (out/2026 — antes ele somava as
+    // pendências, "21 para ligar", e nunca sumia): pedidos e respostas ainda não VISTOS
+    // (LeituraDoSinoShell) mais os avisos da sessão não lidos. Abrir o sino zera.
+    public int TotalAvisos => AvisosNaoVistos + (Snackbar?.NaoLidos ?? 0);
     public string ContadorAvisos => ErroPedidos || ErroRespostas ? "!" : TotalAvisos.ToString();
     public bool TemAvisos => TotalAvisos > 0 || ErroPedidos || ErroRespostas;
     public string ContadorPedidos => ErroPedidos ? "!" : !PedidosConsultados ? "…" : $"{PedidosNovos} {(PedidosNovos == 1 ? "novo" : "novos")}";
@@ -60,12 +61,16 @@ public sealed partial class ShellViewModel
     {
         await Clinica.Application.AberturaDoApp.DepoisDaPrimeiraTelaAsync();
         if (!_avisosEmCena) return;
+        // As marcas antes das listas: sem elas não se sabe o que é novo.
+        await CarregarMarcasAsync();
+        if (!_avisosEmCena) return;
         _relogioAvisos?.Start(); _ = AtualizarPedidosGlobaisAsync();
         IniciarAvisosConfirmacao();
     }
     public void PararAvisosGlobais()
     {
         _avisosEmCena = false; ++_geracaoPedidos; _relogioAvisos?.Stop(); _marcaPedidos = null;
+        _marcasCarregadas = false; _marcas = Clinica.Application.Modelos.MarcasDoSino.Vazias;
         NotificacoesEnfermagem.Mudaram -= MudaramPedidos;
         Clinica.Infrastructure.OuvinteDeMudancas.Mudou -= MudouNoBanco;
         if (Snackbar is not null) Snackbar.PropertyChanged -= MudouSnackbar;
@@ -112,6 +117,7 @@ public sealed partial class ShellViewModel
             mudou = _marcaPedidos is { } anterior && anterior != resumo.UltimoEvento;
             _marcaPedidos = resumo.UltimoEvento;
             PedidosNovos = resumo.Novos; ErroPedidos = false; PedidosConsultados = true;
+            if (resumo.Novos == 0) PedidosNovosMudaram([]);
             ResumoPedidos = $"{resumo.Novos} novos · {resumo.Abertos} em aberto · todas as datas";
 
             // O pedido novo vira NOTIFICAÇÃO (out/2026, pedido da clínica): a contagem no sino
@@ -122,6 +128,7 @@ public sealed partial class ShellViewModel
             {
                 var linhas = await scope.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ListarAsync(usuario);
                 if (!_avisosEmCena || g != _geracaoPedidos || usuario != _sessaoClinica.UsuarioId) return;
+                PedidosNovosMudaram(linhas.Where(l => l.Ativa && l.Situacao == "Novo").Select(l => l.Id));
                 AvisarPedidosNovos(linhas, DateTime.Now);
             }
         }
@@ -183,6 +190,7 @@ public sealed partial class ShellViewModel
             using var scope = _servicos.CreateScope();
             var linhas = await scope.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>().ListarAsync(usuario);
             if (g != _geracaoSino || usuario != _sessaoClinica.UsuarioId) return;
+            PedidosNovosMudaram(linhas.Where(l => l.Ativa && l.Situacao == "Novo").Select(l => l.Id));
             var ativos = linhas.Where(l => l.Ativa)
                 .OrderByDescending(l => l.Situacao == "Novo").ThenByDescending(l => l.CriadaEm ?? l.Inicio)
                 .ToList();
@@ -228,6 +236,7 @@ public sealed partial class ShellViewModel
     private void AbrirPedidoDoSino(PedidoNoSino? pedido)
     {
         if (pedido is null || !PodeVerPedidos) return;
+        LerAviso(Clinica.Application.Modelos.LeituraDoSino.ChavePedido(pedido.Id));
         NotificacoesEnfermagem.PedirAbertura(pedido.Id);
         AvisosAbertos = false;
         if (!IrPara(ChavesSuite.PedidosEnfermagem, false)) { NotificacoesEnfermagem.ConsumirAbertura(); return; }

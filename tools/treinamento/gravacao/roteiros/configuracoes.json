@@ -1,0 +1,32 @@
+{
+  "chave": "configuracoes",
+  "titulo": "Configurações da clínica",
+  "descricao": "O que vale para a clínica inteira — dados que saem nos papéis, regras de atendimento, prazos do faturamento, publicação e backup.",
+  "passos": [
+    { "titulo": "Seis abas, um assunto cada", "texto": "Clínica, Atendimento, Operação, Faturamento, Integrações e Backup. Cada bloco tem o próprio Salvar: gravar um não mexe nos outros.", "alvo": "aba=Clínica" },
+    { "titulo": "Dados da clínica", "texto": "Razão social, CNPJ, CNES, endereço e contato saem impressos na guia TISS, na capa de lote e nos documentos. Errado aqui sai errado em todo papel.", "alvo": "titulo=Dados da clínica e do prestador" },
+    { "titulo": "A chave Pix", "texto": "A chave que entra no código Pix de cobrança. A dica embaixo reconhece o tipo de chave (e-mail, CPF, CNPJ, telefone) enquanto você digita.", "alvo": "campo=Chave Pix", "acao": "digitar", "valor": "financeiro@exemplo.invalid" },
+    { "titulo": "Veja o que não foi salvo", "texto": "Mudou um campo? O selo Não salvo aparece no bloco e na aba, e o topo avisa. Salvar dados da clínica grava; nada é gravado sozinho.", "alvo": "botao=Salvar dados da clínica" },
+    { "titulo": "Descarte o que digitou", "texto": "Atualizar lê tudo de novo. Com mudanças não salvas, ele pergunta antes — confirmar descarta o que foi digitado.", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "alvo": "janela=Descartar e recarregar", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Dados da operadora (TISS)", "texto": "O código do prestador na operadora e o registro ANS saem na guia e no lote TISS. Confira com o contrato do convênio.", "alvo": "campo=Código do prestador na operadora" },
+    { "titulo": "Conclusão automática", "texto": "Na aba Atendimento, o prazo em horas para o sistema concluir a sessão sozinho depois que o profissional salva — e as guias nascem uma vez só.", "alvo": "aba=Atendimento", "acao": "clicar" },
+    { "titulo": "Exija a evolução de enfermagem", "texto": "Nas modalidades marcadas, a sessão só se conclui com a evolução de enfermagem escrita; sem ela, fica pendente com aviso.", "alvo": "texto=Exigir evolução de enfermagem" },
+    { "titulo": "Sessões que precisam de atenção", "texto": "A lista mostra sessões com o prazo vencido e o motivo de cada uma não ter sido concluída. Atualizar pendências confere de novo.", "alvo": "botao=Atualizar pendências", "acao": "clicar" },
+    { "titulo": "Jornada e recall", "texto": "Na aba Operação: a jornada diária é a base da taxa de ocupação; Recall diz após quantos dias sem vir o paciente entra na fila de recall.", "alvo": "aba=Operação", "acao": "clicar" },
+    { "titulo": "Guia na marcação", "texto": "Ligada, marcar um horário já gera as guias. Ligue só depois de atualizar todas as máquinas da clínica — o aviso amarelo explica por quê.", "alvo": "texto=A guia nasce quando o atendimento" },
+    { "titulo": "Termos assinados pelo paciente", "texto": "Escrever termos abre onde a clínica escreve o consentimento e as declarações (jejum, medicações) e diz qual procedimento exige cada termo.", "alvo": "botao=Escrever termos", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Campos do prontuário", "texto": "Os campos que a clínica quer anotar em toda sessão, além dos do sistema — nº de agulhas, aparelho usado. Viram coluna no prontuário.", "alvo": "botao=Campos do prontuário", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Prazos do faturamento", "texto": "Na aba Faturamento: o alerta de consulta, o prazo de recurso de glosa e o prazo de decisão da rodada de pendências, em dias.", "alvo": "aba=Faturamento", "acao": "clicar" },
+    { "titulo": "O que a rodada também cobra", "texto": "Marque para a rodada de pendências cobrar também as consultas a renovar e as carteirinhas vencidas.", "alvo": "texto=Também cobra consultas a renovar" },
+    { "titulo": "Publicação de documentos", "texto": "Em Integrações: o domínio da clínica que vai no QR Code das receitas assinadas e quantos dias o documento fica no ar.", "alvo": "aba=Integrações", "acao": "clicar" },
+    { "titulo": "Armazenamento e testes", "texto": "Onde os arquivos ficam (provedor compatível com S3). Salve e teste: Testar conexão grava e apaga um arquivo; Enviar arquivo de teste deixa um PDF no ar.", "alvo": "botao=Testar conexão" },
+    { "titulo": "Backup automático", "texto": "Na aba Backup: a cópia de tudo é gravada na abertura do Gerente quando o prazo vence. Sem pasta escolhida, o aviso diz que está desligada.", "alvo": "aba=Backup", "acao": "clicar" },
+    { "titulo": "Pasta e política da cópia", "texto": "Escolha uma pasta de rede ou de nuvem — fora desta máquina — e diga a cada quantos dias copiar e quantas cópias guardar.", "alvo": "botao=Escolher pasta" },
+    { "titulo": "Copie e confira agora", "texto": "Copiar agora grava fora do prazo; Salvar cópia em leva para um pendrive; Conferir um backup abre um arquivo e conta o que há nele.", "alvo": "botao=Conferir um backup" },
+    { "alvo": "aba=Clínica", "acao": "clicar", "ms": 900 },
+    { "titulo": "Acessos e importação", "texto": "As abas no alto levam a Acessos (usuários e permissões) e a Importar pacientes do sistema anterior.", "alvo": "aba-app=Acessos" }
+  ]
+}

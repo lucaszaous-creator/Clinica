@@ -1,0 +1,19 @@
+{
+  "chave": "consultorio-pacientes",
+  "titulo": "Pacientes",
+  "descricao": "Quem a clínica atende: busque pelo nome, CPF ou telefone, veja quem está em tratamento e abra a ficha do paciente.",
+  "passos": [
+    { "titulo": "Conheça a tela de pacientes", "texto": "A porta para o prontuário de qualquer paciente da clínica — aqui não existe ‘meu paciente’: todos atendem todos.", "alvo": "titulo=Pacientes" },
+    { "titulo": "Veja quem está em tratamento", "texto": "A tela abre em Em tratamento: quem já teve sessão realizada na clínica. Clique de novo no chip para voltar à busca.", "alvo": "botao=Em tratamento" },
+    { "titulo": "Leia cada linha", "texto": "Cada linha traz nome, documento e idade, telefone e convênio. Convênio a definir aparece destacado para o balcão resolver.", "alvo": "linha=Ana Beatriz Souza" },
+    { "titulo": "Carregue mais pacientes", "texto": "A lista vem por páginas. Carregar mais traz a próxima leva sem perder o lugar onde você está.", "alvo": "botao=Carregar mais", "acao": "clicar" },
+    { "titulo": "Busque pelo nome, CPF ou telefone", "texto": "Digite ao menos duas letras do nome, ou o CPF, ou o telefone. A busca vai ao cadastro inteiro, não só a quem está em tratamento.", "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Ana Beatriz" },
+    { "titulo": "Confirme o paciente certo", "texto": "O resultado mostra documento, telefone e convênio para não confundir homônimos. Use as setas e Enter, ou clique, para abrir a ficha.", "alvo": "opcao=Ana Beatriz Souza" },
+    { "titulo": "Limpe a busca", "texto": "Limpar apaga o que foi digitado e volta ao início. A tecla Esc faz o mesmo.", "alvo": "botao=Limpar a busca", "acao": "clicar" },
+    { "titulo": "Veja quem tem horário hoje", "texto": "Mostra os pacientes com horário hoje, com a hora e a modalidade — o atalho para quem você vai atender.", "alvo": "botao=Com horário hoje", "acao": "clicar" },
+    { "titulo": "Liste todos os pacientes", "texto": "O cadastro inteiro em ordem alfabética, por páginas. Use quando não lembrar a grafia do nome.", "alvo": "botao=Todos os pacientes", "acao": "clicar" },
+    { "titulo": "Volte à busca", "texto": "Voltar à busca fecha a lista e devolve o campo de busca e os atalhos.", "alvo": "botao=Voltar à busca", "acao": "clicar" },
+    { "alvo": "botao=Em tratamento", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Abra a ficha do paciente", "texto": "Abrir ficha leva ao prontuário do paciente: ficha, histórico, exames, prescrições e acompanhamento, sem precisar buscar de novo.", "alvo": "botao=Abrir ficha" }
+  ]
+}
