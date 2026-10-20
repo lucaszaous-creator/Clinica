@@ -9,8 +9,6 @@ using System.Windows.Interop;
 using System.Windows.Controls;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
-using Clinica.Clinico.Janelas;
-using Clinica.Clinico.ViewModels;
 using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;

@@ -47,7 +47,8 @@ public sealed class OcupacaoAgendaTests : IDisposable
         profissional.AtendeDas = null; profissional.AtendeAte = null;
         await db.SaveChangesAsync();
         var tabela = db.Model.FindEntityType(typeof(BloqueioAgenda))!.GetTableName();
-        await db.Database.ExecuteSqlRawAsync($"DROP TABLE \"{tabela}\"");
+        // O nome vem do MODELO do EF, não de fora — e DDL não aceita parâmetro.
+        await db.Database.ExecuteSqlRawAsync("DROP TABLE \"" + tabela + "\"");
         var r = await svc.ConsultarMovimentoAsync(recepcao.Id, Segunda, Segunda, profissional.Id);
         Assert.Equal(1, r.Resumo.Atendimentos); Assert.Equal(1, r.Resumo.Cancelados); Assert.Equal(1, r.Resumo.Faltas);
         Assert.Equal(3, r.Horarios.Count); Assert.Single(r.Profissionais); Assert.Single(r.Dias);

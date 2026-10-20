@@ -149,7 +149,7 @@ public class SubstituicaoDeHorarioTests : IDisposable
     }
 
     [Fact]
-    public async Task Substituido_esta_fora_da_fila_tem_palavra_propria_e_nao_ocupa_a_agenda()
+    public void Substituido_esta_fora_da_fila_tem_palavra_propria_e_nao_ocupa_a_agenda()
     {
         var ag = new Agendamento { Status = StatusAgendamento.Substituido, DataHora = Hoje.ToDateTime(new TimeOnly(9, 0)) };
 

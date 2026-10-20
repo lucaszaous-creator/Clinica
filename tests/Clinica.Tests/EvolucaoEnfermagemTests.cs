@@ -166,9 +166,9 @@ public class EvolucaoEnfermagemTests : IDisposable
     /// CatalogoMedidas. FC 180 é taquicardia e existe; FC 1800 é dedo no teclado.
     /// </summary>
     [Theory]
-    [InlineData(180, null, "taquicardia é anormal e POSSÍVEL")]
-    [InlineData(40, null, "bradicardia também")]
-    public async Task Frequencia_anormal_mas_possivel_passa(int fc, int? _, string porque)
+    [InlineData(180, "taquicardia é anormal e POSSÍVEL")]
+    [InlineData(40, "bradicardia também")]
+    public async Task Frequencia_anormal_mas_possivel_passa(int fc, string porque)
     {
         var pacienteId = await PacienteAsync();
 

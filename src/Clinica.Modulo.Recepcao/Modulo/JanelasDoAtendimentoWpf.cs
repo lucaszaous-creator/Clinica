@@ -18,9 +18,7 @@ namespace Clinica.Recepcao.Modulo;
 /// ⚠️ Tudo roda no despachante do WPF: a janela modal precisa da thread da interface, e a tela
 /// Blazor pode chamar de outra (o cuidado de <see cref="JanelasDaAgendaWpf"/>).
 /// </summary>
-public sealed class JanelasDoAtendimentoWpf(
-    IServiceScopeFactory escopos,
-    PreenchimentoNovoAtendimento ponte) : IJanelasDoAtendimento
+public sealed class JanelasDoAtendimentoWpf(PreenchimentoNovoAtendimento ponte) : IJanelasDoAtendimento
 {
     public bool Disponivel => true;
 

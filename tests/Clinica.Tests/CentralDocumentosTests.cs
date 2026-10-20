@@ -469,7 +469,7 @@ public class CentralDocumentosTests : IDisposable
     /// ligado é uma afirmação falsa sobre a clínica inteira.
     /// </summary>
     [Fact]
-    public async Task Resumo_vazio_com_filtro_diz_de_quem()
+    public void Resumo_vazio_com_filtro_diz_de_quem()
     {
         ResumoFolhas.Montar([], "Maria Silva").Frase
             .Should().Be("Nenhum papel de Maria Silva emitido no período.");

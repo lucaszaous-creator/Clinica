@@ -1400,7 +1400,7 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
     }
 
     [Fact]
-    public async Task A_porta_oferece_PRIMEIRO_o_termo_que_ja_foi_assinado()
+    public void A_porta_oferece_PRIMEIRO_o_termo_que_ja_foi_assinado()
     {
         // Dois termos no mesmo dia: um assinado no celular, outro sem assinatura nenhuma.
         // Abrir o segundo primeiro faria a técnica colher de novo quem já assinou.

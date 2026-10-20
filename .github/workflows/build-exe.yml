@@ -68,7 +68,7 @@ jobs:
   # fatia passar a demorar visivelmente mais que as outras. Linux custa 1×: seis jobs de ~5 min
   # custam quase o mesmo que um de 21. O check `build` responde pelas seis.
   testes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         fatia: [1, 2, 3, 4, 5, 6]
@@ -82,7 +82,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Cache do NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
@@ -115,7 +115,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Cache do NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
@@ -171,7 +171,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Cache do NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
@@ -276,7 +276,7 @@ jobs:
   # O check `build` do PR: verde só quando os três ficaram verdes.
   # ============================================================
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [testes, conferencias, publicar]
     # !cancelled(), não always(): quando um push novo cancela este run (concurrency), o
     # veredito é do run novo — always() fazia este reportar VERMELHO sobre um commit que

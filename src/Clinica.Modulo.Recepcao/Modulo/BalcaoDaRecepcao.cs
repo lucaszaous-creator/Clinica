@@ -15,7 +15,7 @@ namespace Clinica.Recepcao.Modulo;
 ///
 /// Tudo o que toca WPF passa pelo Dispatcher: a tela Blazor chama do circuito dela.
 /// </summary>
-public sealed class BalcaoDaRecepcao(IServiceScopeFactory escopos, PedidoAgenda pedidoAgenda) : IBalcaoDaRecepcao
+public sealed class BalcaoDaRecepcao(PedidoAgenda pedidoAgenda) : IBalcaoDaRecepcao
 {
     public event Action? PedidosMudaram
     {
