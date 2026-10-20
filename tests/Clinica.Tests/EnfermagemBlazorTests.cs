@@ -61,11 +61,14 @@ public sealed class EnfermagemBlazorTests : IClassFixture<BancoDasTelas>, IDispo
         Botao(corte, "Exames e anexos").Click();
         Assert.Equal([TelaDoPacienteNaTela.FichaDoPaciente, TelaDoPacienteNaTela.ExamesEAnexos], tela.Idas);
 
-        // "Registrar infusão" sem a ponte WPF: a frase diz por quê, no rodapé — nunca o silêncio.
+        // "Registrar infusão" abre o formulário Blazor NA PRÓPRIA PÁGINA (out/2026: a janela WPF
+        // saiu) — pela camada de formulários do navegador, nunca uma janela por cima.
         Botao(corte, "Registrar infusão").Click();
         Assentar(corte);
-        Assert.Contains(JanelasDaEnfermagemIndisponiveis.Frase, corte.Find("footer.enf-rodape p").TextContent);
-        Assert.Contains("enf-falha", corte.Find("footer.enf-rodape p").ClassName);
+        var janelas = ctx.Services.GetRequiredService<JanelasNaTela>();
+        Assert.Contains(janelas.Abertas, j => j.Tipo == typeof(Clinica.Ui.Blazor.Formularios.Infusao.InfusaoExternaForm));
+        janelas.DesistirDeTodos();
+        Assentar(corte);
 
         // Imprimir com o compositor em branco: o papel sai (numerado, na lista do paciente).
         int documentosAntes;

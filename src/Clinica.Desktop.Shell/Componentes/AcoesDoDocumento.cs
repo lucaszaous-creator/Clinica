@@ -78,10 +78,8 @@ public sealed record DocumentoNaTela
     /// <summary>Assinado não se reassina (dois arquivos válidos do mesmo ato); cancelado não se assina.</summary>
     public bool PodeAssinar => !EmissaoSemCertificado && !Cancelado && !Assinado;
 
-    public bool EmissaoSemCertificado => Tipo is TipoDocumentoClinico.Receita
-        or TipoDocumentoClinico.Atestado or TipoDocumentoClinico.Comparecimento
-        or TipoDocumentoClinico.PedidoExame or TipoDocumentoClinico.RelatorioEvolucao
-        or TipoDocumentoClinico.Anamnese or TipoDocumentoClinico.LaudoMedico;
+    /// <summary>A lista mora na Application desde out/2026 (as portas Blazor leem a MESMA).</summary>
+    public bool EmissaoSemCertificado => Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.EmissaoSemCertificado(Tipo);
 
     /// <summary>
     /// Pode sair como ARQUIVO (WhatsApp ou e-mail): o assinado, e — desde out/2026 — a
@@ -271,15 +269,10 @@ public static class AcoesDoDocumento
     public static async Task<ResultadoAcaoDocumento> AssinarAsync(
         DocumentoNaTela doc, IServiceScopeFactory escopos, ISnackbarService snackbar)
     {
-        if (doc.EmissaoSemCertificado)
-            return ResultadoAcaoDocumento.Erro("Este tipo de documento é emitido para impressão, sem assinatura digital.");
-
         // Guarda de ESTADO: diz por que não dá, em vez de voltar calada — o botão já está
-        // apagado, e quem chega aqui por atalho merece a frase.
-        if (!doc.PodeAssinar)
-            return ResultadoAcaoDocumento.Erro(doc.Cancelado
-                ? $"O documento {doc.Numero} está cancelado e não pode ser assinado."
-                : $"O documento {doc.Numero} já foi assinado digitalmente.");
+        // apagado, e quem chega aqui por atalho merece a frase. As frases moram na Application.
+        if (Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.Recusa(doc.Tipo, doc.Numero, doc.Cancelado, doc.Assinado) is { } recusa)
+            return ResultadoAcaoDocumento.Erro(recusa);
 
         try
         {
@@ -289,23 +282,17 @@ public static class AcoesDoDocumento
             // quem tinha `Prescrever` sem o bit do tipo passava direto.
             SessaoUsuario.Atual.Exigir(doc.AcessoParaMexer, "assinar documento clínico");
 
-            using var certificado = EscolherCertificadoWindow.Perguntar(
-                $"Assinar {doc.Rotulo.ToLowerInvariant()} {doc.Numero}",
-                JanelaDona.Atual(), escopos);
+            // A SEQUÊNCIA (certificado → um escopo → o serviço, com os mesmos argumentos) mora na
+            // Application desde out/2026 — a MESMA das telas Blazor. O seletor do A1 é o
+            // formulário Blazor, aberto pela janela de transição (a janela WPF saiu).
+            var assinado = await Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.AssinarAsync(
+                escopos, doc.DocumentoId,
+                Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.Assunto(doc.Rotulo, doc.Numero),
+                assunto => ColetaDeTermo.EscolherCertificadoAsync(escopos, assunto),
+                SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
+                SessaoUsuario.Atual.Operador);
 
-            if (certificado is null) return ResultadoAcaoDocumento.Desistiu;
-
-            DocumentoAssinado assinado;
-            using (var escopo = escopos.CreateScope())
-            {
-                var assinaturas = escopo.ServiceProvider
-                    .GetRequiredService<AssinaturaDeDocumentoClinicoService>();
-
-                assinado = await assinaturas.AssinarAsync(
-                    doc.DocumentoId, certificado,
-                    SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
-                    SessaoUsuario.Atual.Operador);
-            }
+            if (assinado is null) return ResultadoAcaoDocumento.Desistiu;
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
                 assinado.Pdf, ImpressaoPdf.NomeSeguro(assinado.NomeArquivo));
@@ -316,7 +303,7 @@ public static class AcoesDoDocumento
                     Inline: $"{erro} O documento foi assinado e está guardado no sistema.",
                     EhErro: true);
 
-            snackbar.Sucesso("Documento assinado. Entregue o ARQUIVO ao paciente.");
+            snackbar.Sucesso(Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.Assinado);
             return new ResultadoAcaoDocumento(Mudou: true);
         }
         catch (Exception ex)

@@ -134,10 +134,10 @@ internal static class Program
     {
         Janela = new Window { Width = 900, Height = 600, Left = -30000, Top = -30000, ShowInTaskbar = false, ShowActivated = false };
         Janela.Show();
-        // A lista de autorizações da ficha do balcão (ConvenioPacienteView) saiu em out/2026: a
-        // ficha virou Blazor, e a rolagem das telas Blazor é do navegador. A paleta de busca do
-        // shell também: a moldura é Blazor (moldura.css: max-height e overflow-y).
-        foreach (var arquivo in new[] { "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml", "src/Clinica.Desktop.Shell/Componentes/FolhaExecucaoWindow.xaml" })
+        // A lista de autorizações da ficha do balcão, a paleta de busca do shell, os alertas da
+        // prescrição de infusão e da folha de execução saíram do WPF em out/2026: viraram Blazor, e
+        // a rolagem das telas Blazor é do navegador. A conferência fica para a próxima região WPF.
+        foreach (var arquivo in Array.Empty<string>())
         {
             var propriedade = arquivo.EndsWith("ShellWindow.xaml") ? "ResultadosPesquisa" : "Alertas";
             var xml = XDocument.Load(Path.Combine(raiz, arquivo));

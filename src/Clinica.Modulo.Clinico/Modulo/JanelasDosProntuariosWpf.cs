@@ -22,19 +22,14 @@ public sealed class JanelasDosProntuariosWpf(IServiceScopeFactory escopos) : IJa
     {
         if (!linha.MostraAssinar || linha.DocumentoId is not { } docId) return (ResultadoDaAssinatura?)null;
 
-        using var certificado = EscolherCertificadoWindow.Perguntar(
-            $"Assinar anamnese {linha.Numero}", JanelaDona.Atual(), escopos);
-        if (certificado is null) return null;
-
-        DocumentoAssinado assinado;
-        using (var scope = escopos.CreateScope())
-        {
-            var assinaturas = scope.ServiceProvider.GetRequiredService<AssinaturaDeDocumentoClinicoService>();
-            assinado = await assinaturas.AssinarAsync(
-                docId, certificado,
-                SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
-                SessaoUsuario.Atual.Operador);
-        }
+        // A sequência (certificado → um escopo → o serviço, mesmos argumentos) mora na Application
+        // desde out/2026; o seletor do A1 é o formulário Blazor (a janela WPF saiu).
+        var assinado = await AssinaturaDeDocumentoNaTela.AssinarAsync(
+            escopos, docId, AssinaturaDeDocumentoNaTela.AssuntoDaAnamnese(linha.Numero),
+            assunto => ColetaDeTermo.EscolherCertificadoAsync(escopos, assunto),
+            SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
+            SessaoUsuario.Atual.Operador);
+        if (assinado is null) return null;
 
         // É o ARQUIVO que vale: salva e abre; a frase diz se o salvamento falhou.
         var erro = await ImpressaoPdf.SalvarEAbrirAsync(assinado.Pdf, ImpressaoPdf.NomeSeguro(assinado.NomeArquivo));

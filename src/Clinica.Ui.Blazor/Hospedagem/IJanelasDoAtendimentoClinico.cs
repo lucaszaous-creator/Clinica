@@ -7,10 +7,11 @@ namespace Clinica.Ui.Blazor.Hospedagem;
 /// O que a folha do médico (a seção Atendimento da tela do paciente, Blazor, out/2026) pede ao
 /// aplicativo do Consultório e que continua WPF — o mesmo desenho das outras pontes:
 ///
-/// - <b>a prescrição de infusão</b> ligada ao horário e à evolução
-///   (<c>PrescricaoInternaWindow</c>, área de assinatura — só chamada);
-/// - <b>a coleta do termo</b> (<c>ColetaDeTermo</c> → <c>AssinaturaPacienteWindow</c>, área
-///   congelada);
+/// - (o documento escrito, a prescrição de infusão e a coleta do termo saíram daqui em out/2026:
+///   viraram formulários Blazor — <c>DocumentoForm</c>,
+///   <see cref="IJanelasDaPrescricaoDeInfusao.PrescreverNaSessaoAsync"/> e
+///   <see cref="ColetaDeTermoNaPagina"/>; a escolha do convênio é o formulário de
+///   <see cref="FormulariosDoPaciente"/>);
 /// - <b>a pendência da conclusão automática</b>, que mora na Infrastructure (que esta
 ///   biblioteca não enxerga).
 ///
@@ -27,15 +28,6 @@ public interface IJanelasDoAtendimentoClinico
     /// <summary>Falso onde as janelas não existem: a tela avisa em vez de abrir nada.</summary>
     bool Disponivel { get; }
 
-    /// <summary>A prescrição de infusão ligada ao horário e à evolução da sessão. Verdadeiro = ASSINOU.</summary>
-    Task<bool> PrescreverInfusaoAsync(int pacienteId, string paciente, int? agendamentoId, int? evolucaoId);
-
-    /// <summary>
-    /// A coleta do termo com o paciente na sala. Modelo nulo = a janela pergunta qual termo é
-    /// (a coleta avulsa). Verdadeiro = concluiu; a tela relê de qualquer forma (abrir já emite).
-    /// </summary>
-    Task<bool> ColherTermoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
-        int? profissionalId, int? agendamentoId);
 
     /// <summary>O motivo pelo qual a conclusão automática ainda não concluiu este horário (nulo = nenhum).</summary>
     Task<string?> PendenciaDeConclusaoAutomaticaAsync(int agendamentoId);
@@ -49,8 +41,5 @@ public sealed class JanelasDoAtendimentoClinicoIndisponiveis : IJanelasDoAtendim
     public const string Frase = "Esta janela é do aplicativo do Consultório — abra o atendimento por lá.";
 
     public bool Disponivel => false;
-    public Task<bool> PrescreverInfusaoAsync(int pacienteId, string paciente, int? agendamentoId, int? evolucaoId) => Task.FromResult(false);
-    public Task<bool> ColherTermoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
-        int? profissionalId, int? agendamentoId) => Task.FromResult(false);
     public Task<string?> PendenciaDeConclusaoAutomaticaAsync(int agendamentoId) => Task.FromResult<string?>(null);
 }

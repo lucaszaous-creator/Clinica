@@ -318,6 +318,9 @@
     private const string FraseDoAplicativo = "Esta ação abre no aplicativo instalado.";
     private FormulariosDoPaciente Formularios => Servicos.GetRequiredService<FormulariosDoPaciente>();
     private IDocumentosDaRecepcao Documentos => Servicos.GetService<IDocumentosDaRecepcao>() ?? DocumentosDaRecepcaoIndisponiveis.Instancia;
+
+    /// <summary>A coleta do termo — formulário Blazor desde out/2026 (o ponto único das portas Blazor).</summary>
+    private ColetaDeTermoNaPagina? Coleta => Servicos.GetService<ColetaDeTermoNaPagina>();
     private IBalcaoDaRecepcao Balcao => Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
 
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
@@ -510,9 +513,9 @@
     private async Task ColherConsentimentoAsync()
     {
         if (!Exigir(Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente")) return;
-        if (!Documentos.Disponivel) { Notificacoes.Info(FraseDoAplicativo); return; }
+        if (Coleta is not { } coleta) { Notificacoes.Info(FraseDoAplicativo); return; }
         // Recarrega mesmo sem concluir: o termo pode ter sido emitido e só a assinatura ter faltado.
-        var concluiu = await Documentos.ColherTermoAsync(PacienteId, _nome, consentimentoLgpd: true);
+        var concluiu = await coleta.AbrirConsentimentoLgpdAsync(PacienteId, _nome);
         await CarregarAsync();
         if (concluiu) Notificacoes.Sucesso("Termo de consentimento resolvido.");
     }
@@ -590,10 +593,10 @@
     private async Task ColherTermoAsync(FichaAdministrativaNaTela.Termo? t)
     {
         if (!Exigir(Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente")) return;
-        if (!Documentos.Disponivel) { Notificacoes.Info(FraseDoAplicativo); return; }
+        if (Coleta is not { } coleta) { Notificacoes.Info(FraseDoAplicativo); return; }
         var concluiu = t is null
-            ? await Documentos.ColherTermoAsync(PacienteId, _nome, consentimentoLgpd: false)
-            : await Documentos.ColherTermoDoProcedimentoAsync(PacienteId, _nome, t.ModeloId, t.DocumentoId, t.ProfissionalId, t.AgendamentoId);
+            ? await coleta.AbrirAsync(PacienteId, _nome)
+            : await coleta.AbrirAsync(PacienteId, _nome, t.ModeloId, t.DocumentoId, t.ProfissionalId, t.AgendamentoId);
         // Recarrega mesmo sem concluir: o termo pode ter sido EMITIDO e só a assinatura ter faltado.
         await CarregarAsync();
         if (concluiu) Notificacoes.Sucesso("Termo do procedimento resolvido.");

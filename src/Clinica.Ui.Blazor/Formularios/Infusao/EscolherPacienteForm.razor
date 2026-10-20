@@ -1,0 +1,31 @@
+@*
+  ESCOLHER O PACIENTE (out/2026: o EscolherPacienteWindow do shell, na porta da Sala de infusão que
+  virou Blazor — "Registrar infusão realizada" pergunta de quem é). Busca por nome ou CPF com o
+  SeletorDePaciente de sempre (campo vazio não consulta nada); escolher conclui.
+*@
+@inherits TelaBase
+
+<Modal Titulo="Escolher paciente" Subtitulo="@Assunto" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <p class="secundario">Busque por nome ou CPF — a lista filtra enquanto você digita.</p>
+        <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="p => _paciente = p" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_paciente is null)" @onclick="ConcluirAsync">Continuar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public string? Assunto { get; set; }
+    [Parameter] public EventCallback<Paciente> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private Paciente? _paciente;
+
+    private async Task ConcluirAsync()
+    {
+        if (_paciente is null) return;
+        await AoConcluir.InvokeAsync(_paciente);
+    }
+}

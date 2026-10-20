@@ -1,0 +1,55 @@
+@*
+  O FORMULÁRIO AVULSO (out/2026) — a raiz do navegador da JanelaDeFormularioBlazor, a janela que
+  hospeda um formulário Blazor quando quem pede é código WPF que ainda não virou Blazor (a ficha do
+  balcão: assinar com o A1, colher o termo, anotar a enfermagem). Ela não tem tela: só as camadas
+  (formulários, diálogos, notificações) e a AÇÃO, que roda depois da primeira renderização com os
+  serviços DESTE navegador (o escopo dele) e, terminada, fecha a janela.
+
+  ⚠️ É a porta de TRANSIÇÃO, e não o desenho: uma janela com navegador próprio por cima da tela WPF.
+  Tela Blazor abre o formulário na própria página (JanelasNaTela), sem janela nenhuma.
+*@
+@inject IServiceProvider Servicos
+@inject JanelasNaTela Janelas
+
+<div class="formulario-avulso">
+    <CamadaDeJanelas />
+    <CamadaDeDialogos />
+    <PilhaDeNotificacoes />
+</div>
+
+@code {
+    /// <summary>O que abrir, com os serviços deste navegador. Terminada, a janela fecha.</summary>
+    [Parameter, EditorRequired] public Func<IServiceProvider, Task> Acao { get; set; } = default!;
+
+    /// <summary>A primeira renderização aconteceu: a janela pode mostrar o navegador (sem instante preto).</summary>
+    [Parameter] public Action? AoMontar { get; set; }
+
+    /// <summary>A ação terminou (concluiu, desistiu ou falhou): a janela fecha.</summary>
+    [Parameter] public Action<Exception?>? AoTerminar { get; set; }
+
+    /// <summary>A janela recebe aqui o "desista de tudo" — o X da janela chama, e a ação termina.</summary>
+    [Parameter] public Action<Action>? AoPedirDesistencia { get; set; }
+
+    private bool _iniciou;
+
+    protected override void OnInitialized()
+        => AoPedirDesistencia?.Invoke(() => _ = InvokeAsync(Janelas.DesistirDeTodos));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _iniciou) return;
+        _iniciou = true;
+        AoMontar?.Invoke();
+        Exception? falha = null;
+        try
+        {
+            await Acao(Servicos);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — formulário avulso", ex);
+            falha = ex;
+        }
+        AoTerminar?.Invoke(falha);
+    }
+}

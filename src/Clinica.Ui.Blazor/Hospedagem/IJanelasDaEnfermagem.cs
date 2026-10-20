@@ -1,12 +1,12 @@
 namespace Clinica.Ui.Blazor.Hospedagem;
 
 /// <summary>
-/// As janelas que a ENFERMAGEM em Blazor (out/2026 — a seção "Atendimento de enfermagem" da tela
-/// do paciente e a tela Enfermagem) abre e que continuam WPF, por serem área CONGELADA ou por
-/// abrirem a folha de execução:
+/// O que a ENFERMAGEM em Blazor (out/2026 — a seção "Atendimento de enfermagem" da tela do paciente
+/// e a tela Enfermagem) abre. Desde out/2026 (autorização da direção de 19/10/2026, só a camada de
+/// tela) são formulários Blazor na própria página (<see cref="JanelasDaEnfermagemNaPagina"/>):
 /// <list type="bullet">
 /// <item><b>colher o termo</b> do procedimento do dia — a coleta da assinatura do paciente
-/// (<c>ColetaDeTermo</c>, a segunda tela do paciente, o link do WhatsApp) é congelada; aqui
+/// (<see cref="ColetaDeTermoNaPagina"/>, o link do WhatsApp); aqui
 /// ela recebe o modelo, o documento e o horário que a tela JÁ SABE, em vez de perguntar qual
 /// termo (o <c>IDocumentosDaRecepcao.ColherTermoAsync</c> pergunta, e seria um clique a mais
 /// sobre a pendência que a tela acabou de nomear);</item>

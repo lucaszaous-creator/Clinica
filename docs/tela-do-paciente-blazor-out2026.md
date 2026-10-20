@@ -60,6 +60,24 @@ ponte, mais a janela nativa que o Blazor Hybrid exige.
 ### 2.1 Já convertido
 
 | Frente | Era WPF | Virou Blazor | Detalhe |
+### 2.1 Área da assinatura: virou Blazor em out/2026, só a camada de tela
+
+A direção autorizou em 19/10/2026 converter estas janelas (eram congeladas). O motor continua congelado: [`safeid-congelado.md`](safeid-congelado.md). O roteiro de homologação está em [`safeid-telas-blazor-out2026.md`](safeid-telas-blazor-out2026.md).
+
+| Era (WPF) | Agora (Blazor) |
+|---|---|
+| `PrescricaoInternaWindow` + `PrescricaoInternaEdicaoViewModel` | `Formularios/Infusao/PrescricaoDeInfusaoForm` (estado em `Application/Modelos/PrescricaoDeInfusaoEmEdicao`) |
+| `FolhaExecucaoWindow` + VM | `Formularios/Infusao/FolhaDeExecucaoForm` (estado em `FolhaDeExecucaoNaTela`) |
+| `InfusaoExternaWindow` | `Formularios/Infusao/InfusaoExternaForm` |
+| `EvolucaoEnfermagemWindow` e as views que ela hospedava | `Formularios/Infusao/EvolucaoDaFolhaForm` (reusa `FolhaDaPassagem`) |
+| `EscolherCertificadoWindow` | `Formularios/Assinatura/EscolherCertificadoForm` (porta `IAssinaturaNaTela`) |
+| `AssinaturaPacienteWindow`, `EscolherTermoWindow`, `EscolherSessaoDoTermoWindow` | `Formularios/Termo/*` (porta `ColetaDeTermoNaPagina`) |
+
+A ordem das chamadas de assinatura mora em `Application/Modelos/AssinaturaNaTela.cs`, com teste (`AssinaturaNaTelaTests`). O código WPF que ainda pede um destes formulários (a ficha do balcão, a ponte dos Prontuários, a emissão de documento) os abre na **janela de transição** `JanelaDeFormularioBlazor`.
+
+### 2.2 Podem virar Blazor
+
+| Janela | Tamanho (XAML + VM) | Onde é usada | Esforço |
 |---|---|---|---|
 | Tela do paciente (esta PR) | `PacienteWorkspaceView` e as seções e janelas que só ele abria, a `EnfermagemView`, a lista de pacientes da Recepção | `TelaDoPaciente`, a tela Enfermagem, `ListaDePacientesDoPosto` | §1 |
 | Exames e prontuário (`claude/wpf-exames`) | `RegistrarResultadoExameWindow`, `ResultadosDoPedidoWindow`, `ResumoProntuarioWindow`, `EscolherPacienteWindow`, `SessaoDoProntuarioWindow`, `VersoesEvolucaoWindow` | `ResultadoExameForm`, `ResultadosDoPedidoForm`, `ResumoProntuarioForm` → `SessaoDoProntuarioForm` → `VersoesEvolucaoForm`, `EscolherPacienteForm`; na enfermagem, `SessaoMedicaForm` | abaixo |
@@ -69,7 +87,6 @@ ponte, mais a janela nativa que o Blazor Hybrid exige.
 | Recepção (`claude/wpf-balcao`) | a ficha do balcão (`FichaBalcaoView` + `FichaPacienteViewModel`), as janelas da agenda (`AgendaViewModel`, `AgendamentoEdicaoViewModel`), o orçamento livre | `FichaDoBalcao`, os formulários da Grade, `OrcamentoLivreForm` | §4 |
 | `ResultadosDoPedidoWindow` + `RegistrarResultadoExameWindow` | ~300 + ~350 linhas | Exames (Consultório) | meio dia, as duas |
 | `ResumoProntuarioWindow` | ~500 linhas | Prontuários (Consultório) | meio dia |
-| `InfusaoExternaWindow` | ~180 linhas | Sala de infusão, prescrição | meio dia, com as duas abaixo |
 | `EscolhaDeConvenioWindow` (`VinculoDeConvenio`) | ~310 linhas | Finalizar, fila, Novo atendimento | |
 | `CobrancaDoPacienteWindow` | ~350 linhas | Ficha, Novo atendimento | |
 | `CadastroPacienteWindow` | ~530 linhas | Ficha, Pacientes, Agenda | meio dia |
@@ -78,6 +95,9 @@ ponte, mais a janela nativa que o Blazor Hybrid exige.
 
 As janelas do shell que essas frentes substituíram ficaram sem chamador quando a ficha do balcão e
 a agenda WPF saíram, e foram apagadas (§5).
+| `DocumentoWindow` (emitir receita, atestado, laudo) | ~1.200 linhas, 9 chamadores | os cinco apps | **1 dia**: a mais delicada (conferência de alergia na receita, prévia, CID sob autorização) |
+
+As quatro últimas são do **shell** e servem também à Recepção e ao Gerente: convertê-las resolve os três módulos de uma vez.
 
 **Exames e prontuário.** Métodos de ponte que saíram junto: `IJanelasDosExames.RegistrarResultadoAsync`/`VerResultadosAsync`
 (e `NovoPedidoAsync` passou a receber o paciente), `IJanelasDosProntuarios.AbrirResumoAsync`,
@@ -132,6 +152,9 @@ do recebimento do balcão).
 | **Envio ao paciente** | `EnvioAoPacienteWindow` | o `EnvioAoPacienteForm` Blazor já serve à central de Documentos e ao "já saiu hoje"; a janela fica pelo fim da emissão na `DocumentoWindow` (`AcoesDoDocumento.EnviarAsync`) | **em conversão noutra branch**, junto da emissão |
 | **Abertura do Faturamento** | `AvisoPendenciasWindow`, `RodadaPendenciasWindow` | **por desenho**: travam o app antes de a área de trabalho existir, e um formulário dentro do navegador travaria só a tela dele (`docs/faturamento-blazor.md`) | ficam |
 | **A janela do app** | `JanelaDoApp` (só código, sem XAML), cujo conteúdo é **um** `BlazorWebView` | **por arquitetura**: é o mínimo que o Blazor Hybrid exige no Windows (§2.3) | fica |
+| **PR A: Consultório completo** | as janelas da §2.2 | 2 a 3 dias | ~1 semana, com o CI e a conferência no build de teste |
+| **PR B: Recepção** | ficha do balcão + limpeza dos XAML mortos | ~3 a 5 dias | ~1,5 a 2 semanas para a suíte inteira, somando as duas PRs |
+| 100% literal | moldura | não é possível sem mudar a decisão da §2.3 (a área da assinatura já virou Blazor, §2.1) | — |
 
 Junto da janela do app ficam dois caminhos de baixo, descritos na §2.3: a `PromptWindow` atrás do
 `IDialogoService` (quando a pergunta vem de dentro de uma janela WPF modal ou de um evento do
@@ -248,7 +271,7 @@ Faturamento é exatamente a §2.2: a área do SafeID, a emissão de documento, o
 a busca de CID — todas em conversão noutras branches, uma PR por parte, mesclada só com o CI
 inteiro verde (o ritmo da PR 284).
 
-### Decisões que a direção precisa tomar
+### Decisões da direção (tomadas em 19/10/2026)
 
 1. **A passagem de enfermagem da Sala de infusão.** Ela é aberta de dentro da folha de execução, que é da área do SafeID. Para virar Blazor, a folha teria de chamar a tela Blazor, e isso é mexer na área congelada. Sem autorização expressa, ela fica WPF.
 2. **A área do SafeID como um todo.** Reescrevê-la exige autorização expressa e testes de assinatura em homologação, porque cada tentativa é cobrada.
@@ -390,6 +413,8 @@ cobrança e a sessão WPF) passaram a dizer que elas saíram.
 - 🧑‍💻 **UX:** nada muda para quem usa — as portas já abriam os formulários Blazor.
 - 🛠️ **DX:** ~25 arquivos WPF a menos no shell e uma dependência .NET Framework (AForge) a menos.
 - 🤝 **CX:** sem migration; o pacote publicado fica menor sem as DLLs do AForge.
+1. ✅ **A passagem de enfermagem da Sala de infusão** virou Blazor junto com a folha de execução (`EvolucaoDaFolhaForm`).
+2. ✅ **A área congelada**: autorizada a conversão **só da camada de tela**. O motor (assinatura, PDF/PAdES, certificado, token, bytes assinados) continua congelado, e os testes de assinatura em homologação ficam com a clínica. Ver [`safeid-telas-blazor-out2026.md`](safeid-telas-blazor-out2026.md).
 
 ---
 

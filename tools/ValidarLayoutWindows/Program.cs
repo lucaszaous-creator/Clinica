@@ -8,7 +8,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
-using Clinica.Clinico.ViewModels;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
@@ -28,13 +27,11 @@ static class Program
     static bool somenteGestao;
     static bool somenteAcompanhamento;
     static bool somenteInfusao;
-    static bool somenteA1;
     [STAThread]
     static int Main(string[] args)
     {
         somenteAcompanhamento = args.Contains("--acompanhamento");
         somenteInfusao = args.Contains("--infusao");
-        somenteA1 = args.Contains("--a1");
         somenteBlazor = args.Contains("--blazor");
         somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
@@ -55,7 +52,6 @@ static class Program
             return;
         }
         await RolagemQa.Executar();
-        if (somenteA1) { await ConferirA1(); return; }
         var pausaAgenda = new PausaLeituraAgenda();
         using var conexao = new SqliteConnection("Data Source=:memory:"); conexao.Open(); var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).AddInterceptors(pausaAgenda).Options;
         IModuloApp[] modulos = [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(), new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento(), new Clinica.Gerente.Modulo.ModuloGerente()];
@@ -120,74 +116,21 @@ static class Program
 
 
 
-    static async Task ConferirProgressoInfusao(ServiceProvider sp, Paciente paciente, Profissional medico)
+    static Task ConferirProgressoInfusao(ServiceProvider sp, Paciente paciente, Profissional medico)
     {
-        var escopos = sp.GetRequiredService<IServiceScopeFactory>();
-        var dialogo = sp.GetRequiredService<IDialogoService>();
-        var folha = new FolhaExecucaoViewModel(escopos, dialogo, 0);
-        await folha.CarregarAsync();
-        folha.Paciente = paciente.Nome;
-        folha.Numero = "PRE DEMONSTRAÇÃO";
-        folha.NaoVerificado = false;
-        folha.Itens.Add(new LinhaExecucaoItem {
-            ItemId = 1, Ordem = 1, Descricao = "Medicamento fictício para conferência visual",
-            Detalhe = "Dose e via demonstrativas", Situacao = "Não executável",
-            Marca = "○ 30/09/2026 às 10:37", Justificativa = "Justificativa de teste; médico comunicado.",
-            Executante = "Profissional de teste · COREN de teste", Pendente = false,
-            Realizado = false, NaoRealizado = true, Suspenso = false, SeNecessario = false, AlertaAlergia = null
-        });
+        // A folha de execução e o editor da prescrição de infusão viraram FORMULÁRIOS BLAZOR
+        // (out/2026 — autorização da direção de 19/10/2026, só a camada de tela): o leiaute e os
+        // botões deles são conferidos pelo TelasBlazorAbremTests (a Sala de infusão abre a folha) e
+        // o estado pela Application (FolhaDeExecucaoNaTela, PrescricaoDeInfusaoEmEdicao), com teste.
+        // Aqui fica a REGRA que a fila afirma sobre a folha encerrada e assinada.
         var encerrada = new PrescricaoInterna { Situacao = SituacaoPrescricao.Encerrada,
             ExigeAssinaturaEletronicaDaExecucao = true };
         encerrada.Assinaturas.Add(new AssinaturaDocumento { Papel = PapelAssinatura.Executante, ArquivoId = 1 });
         var linhaEncerrada = LinhaSalaInfusao.De(encerrada, DateOnly.FromDateTime(DateTime.Today));
         if (linhaEncerrada.RegistroPendente || linhaEncerrada.AguardaAssinatura)
             throw new Exception("Documento principal assinado continua aparecendo como pendência no desktop.");
-        folha.Mensagem = null;
-        var janela = new FolhaExecucaoWindow(folha) { ShowInTaskbar = false, ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 880, Height = 600 };
-        janela.Show();
-        folha.Carregando = true;
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        janela.UpdateLayout();
-        if (!Descendentes(janela).OfType<ProgressBar>().Any(p => p.IsVisible && p.IsIndeterminate))
-            throw new Exception("Folha sem progresso visível.");
-        if (Descendentes(janela).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled))
-            throw new Exception("Folha aceita ações durante carregamento.");
-        Foto(janela, "infusao-folha-carregando");
-        folha.Carregando = false;
-        folha.Mensagem = "✓ Registro confirmado. A checagem foi salva no prontuário.";
-        folha.MensagemEhErro = false;
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        janela.UpdateLayout();
-        if (Descendentes(janela).OfType<ProgressBar>().Any(p => p.IsVisible))
-            throw new Exception("Folha permanece carregando ao concluir.");
-        var impressoes = Descendentes(janela).OfType<Button>()
-            .Where(b => b.IsVisible && b.Content is string texto && texto.StartsWith("Imprimir")).ToList();
-        if (impressoes.Count != 1 || !Equals(impressoes[0].Content, "Imprimir infusão"))
-            throw new Exception("A folha deve oferecer apenas a impressão do documento da infusão.");
-        Foto(janela, "infusao-folha-confirmada");
-        folha.AvisoPdfHistorico = "PDF histórico: as assinaturas foram feitas sem incorporar os dados de execução. "
-            + "Consulte os horários, resultados e justificativas nesta tela. A impressão preserva o PDF originalmente assinado.";
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        janela.UpdateLayout();
-        if (!Descendentes(janela).OfType<TextBlock>().Any(t => t.IsVisible && t.Text == folha.AvisoPdfHistorico))
-            throw new Exception("Aviso do PDF histórico oculto.");
-        Foto(janela, "infusao-pdf-historico");
-        janela.Close();
-        var prescricao = new PrescricaoInternaEdicaoViewModel(escopos, dialogo, paciente.Id, paciente.Nome, medico.Id);
-        var editor = new Clinica.Clinico.Janelas.PrescricaoInternaWindow(prescricao) { ShowInTaskbar = false, ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 880, Height = 600 };
-        editor.Show();
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        prescricao.Ocupado = true; prescricao.TextoOperacao = "Assinando e arquivando prescrição…";
-        editor.UpdateLayout();
-        if (!Descendentes(editor).OfType<ProgressBar>().Any(p => p.IsVisible && p.IsIndeterminate)
-            || Descendentes(editor).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled))
-            throw new Exception("Editor de infusão não protege a operação em andamento.");
-        Foto(editor, "infusao-prescricao-assinando");
-        prescricao.Ocupado = false;
-        editor.Close();
-        Console.WriteLine("INFUSÃO: progresso visível, ações protegidas e confirmação sem indicador preso.");
+        Console.WriteLine("INFUSÃO: folha encerrada e assinada não aparece como pendência.");
+        return Task.CompletedTask;
     }
 
     static Task AuditarInfusao(ServiceProvider sp, UsuarioSistema usuario)
@@ -346,42 +289,6 @@ static class Program
             if (SessaoUsuario.Atual.Pode(Permissao.VenderPacote) != (perfil == PerfilAcesso.Recepcao)) throw new Exception("Permissão de pagamentos fora do perfil.");
         }
         Console.WriteLine("GESTÃO: saldos, alertas, permissões, pagamentos e compras conferidos.");
-    }
-
-    static async Task ConferirA1()
-    {
-        var vm = new EscolherCertificadoViewModel("Assinar relatório clínico fictício");
-        if (vm.Certificados.Count != 0 || !vm.Vazio || vm.Selecionado is not null)
-            throw new InvalidOperationException("A assinatura deve iniciar sem certificados: somente importação A1 explícita.");
-        // A captura usa somente a tela; não apresenta certificados locais nem acessa a clínica.
-        foreach (var linha in vm.Certificados) linha.Certificado.Dispose();
-        vm.Certificados.Clear(); vm.Selecionado = null; vm.Vazio = true; vm.Mensagem = null;
-        using var rsa = System.Security.Cryptography.RSA.Create(2048);
-        var pedido = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=Fictício",
-            rsa, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
-        var certificado = pedido.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddDays(1));
-        var anterior = LinhaCertificado.De(new Clinica.Application.Assinatura.CertificadoAssinatura(
-            certificado, "Fictício", "Fictício", "1", certificado.NotBefore, certificado.NotAfter, "52998224725"));
-        vm.Certificados.Add(anterior); vm.Selecionado = anterior;
-        if (!vm.PodeConfirmar) throw new Exception("Pré-condição: certificado anterior não selecionável.");
-        await vm.CarregarA1Async([1, 2, 3], "senha-incorreta");
-        if (!vm.MensagemEhErro || vm.PodeConfirmar || vm.Selecionado is not null)
-            throw new Exception("Falha de importação A1 manteve certificado anterior autorizado sem nova escolha.");
-        vm.ConfirmarCommand.Execute(null);
-        if (vm.Confirmou || vm.Escolhido is not null) throw new Exception("Falha de A1 confirmou certificado anterior.");
-        // A opção anterior permanece disponível, mas exige seleção explícita.
-        vm.Selecionado = anterior;
-        if (!vm.PodeConfirmar) throw new Exception("Certificado anterior não permite nova escolha explícita.");
-        vm.Selecionado = null; vm.LiberarNaoEscolhidos(); vm.Certificados.Clear(); vm.Mensagem = null;
-        var janela = new EscolherCertificadoWindow(vm) { ShowInTaskbar = false, ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000 };
-        janela.Show(); janela.UpdateLayout();
-        Descendentes(janela).OfType<Expander>().Single().IsExpanded = true;
-        await ConferirJanela(janela, "certificado-a1", [780, 960]);
-        var campo = Descendentes(janela).OfType<PasswordBox>().Single();
-        campo.Password = "senha-ficticia";
-        janela.Close();
-        if (campo.Password.Length != 0) throw new Exception("Senha permaneceu no formulário fechado.");
     }
 
     static async Task ConferirJanela(Window janela, string nome, int[] larguras)

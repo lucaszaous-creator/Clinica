@@ -3810,11 +3810,14 @@ for f in list(arvores_com_faturamento):
         )
 
 # Autoteste: o caso REAL da parcela 88 e os dois legítimos que não podem disparar.
+# ⚠️ A amostra usa um tipo que AINDA EXISTE: o `ProcessoDeEnfermagemView` do caso real saiu
+# com a conversão da área da assinatura para Blazor (out/2026), e a checagem só reconhece
+# tipo declarado num `.cs` — com o tipo apagado, o autoteste reprovaria a checagem certa.
 for _amostra, _deve_pegar, _cenario in (
-    ('<comp:ProcessoDeEnfermagemView DataContext="{Binding}" />', False, "com prefixo"),
-    ('<ProcessoDeEnfermagemView DataContext="{Binding}" />', True, "sem prefixo — o defeito"),
+    ('<ctrl:EstadoDaTela Ativo="{Binding Vazio}" />', False, "com prefixo"),
+    ('<EstadoDaTela Ativo="{Binding Vazio}" />', True, "sem prefixo — o defeito"),
     ('<TabControl MinHeight="100" />', False, "tipo do WPF, que não é da casa"),
-    ('<!-- o <ProcessoDeEnfermagemView> mora no shell -->', False, "só um comentário"),
+    ('<!-- o <EstadoDaTela> mora no shell -->', False, "só um comentário"),
 ):
     if bool(_tags_sem_prefixo(_amostra)) != _deve_pegar:
         erros.append(

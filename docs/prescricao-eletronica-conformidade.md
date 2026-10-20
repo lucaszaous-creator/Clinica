@@ -189,7 +189,7 @@ rodapé escreve exatamente isso, em vez de fingir precisão que a via não tem.
 | O certificado é de quem assina (CPF de dentro dele) | `Application/Assinatura/TitularDoCertificado.cs` |
 | PKCS#7 no PDF, carimbo do tempo, conferência | `Application/Assinatura/AssinaturaDigitalService.cs` |
 | Rodapé, faixa da assinatura e endereço na receita | `Application/Servicos/DocumentosClinicosPdfService.cs` |
-| Escolha do certificado (as duas portas) | `Desktop.Shell/Componentes/EscolherCertificadoWindow.xaml` |
+| Escolha do certificado (as duas portas) | `Ui.Blazor/Formularios/Assinatura/EscolherCertificadoForm.razor` (porta `IAssinaturaNaTela`; até out/2026 era a `EscolherCertificadoWindow` WPF) |
 | Emissão com assinatura | `Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs` |
 | Assinar depois | Prescrições da Recepção e do Consultório |
 | Testes | `tests/Clinica.Tests/AssinaturaDocumentoClinicoTests.cs` |

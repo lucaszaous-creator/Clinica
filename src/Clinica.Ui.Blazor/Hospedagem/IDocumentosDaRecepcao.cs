@@ -5,8 +5,10 @@ using Clinica.Domain.Entities;
 namespace Clinica.Ui.Blazor.Hospedagem;
 
 /// <summary>
-/// O que a central de Documentos (Blazor, out/2026) pede ao aplicativo e que continua WPF: a
-/// coleta do termo (<c>ColetaDeTermo</c>) e os atos do documento clínico já emitido
+/// O que a central de Documentos (Blazor, out/2026) pede ao aplicativo e que continua WPF: os
+/// atos do documento clínico já emitido (a coleta do termo virou formulário Blazor em out/2026 —
+/// <see cref="ColetaDeTermoNaPagina"/>; e o "Assinar" das telas Blazor passa por
+/// <see cref="IAssinaturaNaTela"/>)
 /// (<c>AcoesDoDocumento</c> — 2ª via, assinar com e-CPF, enviar, renovar o link, tirar do ar,
 /// cancelar).
 ///
@@ -29,17 +31,6 @@ public interface IDocumentosDaRecepcao
     /// <summary>O Caixa está aberto neste aplicativo — o recibo nasce de um lançamento dele.</summary>
     bool CaixaNesteAplicativo { get; }
 
-
-    /// <summary>A coleta do termo (o LGPD é montado das finalidades; o do procedimento pergunta o modelo).</summary>
-    Task<bool> ColherTermoAsync(int pacienteId, string paciente, bool consentimentoLgpd);
-
-    /// <summary>
-    /// A coleta do termo de UM procedimento já conhecido (a linha "termos de hoje" da ficha): o
-    /// modelo, o papel já emitido, quem atende e a sessão viajam junto — sem eles o termo nasce
-    /// órfão e a coleta pergunta de novo o que a linha já sabia.
-    /// </summary>
-    Task<bool> ColherTermoDoProcedimentoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
-        int? profissionalId, int? agendamentoId) => Task.FromResult(false);
 
     /// <summary>Os atos que a linha oferece — a mesma resolução das outras portas (estado E bit do tipo).</summary>
     AtosDoDocumento Atos(DocumentoEmitido doc);
@@ -122,7 +113,6 @@ public sealed class DocumentosDaRecepcaoIndisponiveis : IDocumentosDaRecepcao
     /// <summary>Verdadeiro: quem responde se o Caixa existe é o <c>Host.NavegarAsync</c>, que a prévia já simula.</summary>
     public bool CaixaNesteAplicativo => true;
 
-    public Task<bool> ColherTermoAsync(int pacienteId, string paciente, bool consentimentoLgpd) => Task.FromResult(false);
 
     /// <summary>
     /// A nova versão do laudo (Blazor, a tela a abre) e o cancelamento são oferecidos — pelo

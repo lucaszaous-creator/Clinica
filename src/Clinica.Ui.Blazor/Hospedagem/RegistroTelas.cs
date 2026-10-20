@@ -17,6 +17,15 @@ public static class RegistroTelas
         servicos.AddScoped<Notificacoes>();
         // Os formulários do paciente que um fluxo espera (cadastro, convênio "a definir").
         servicos.AddScoped<FormulariosDoPaciente>();
+        // Os formulários abertos por CÓDIGO (out/2026 — a área do SafeID/assinatura em Blazor) e
+        // as portas que os abrem: a assinatura com o A1, a coleta do termo, a sala de infusão, a
+        // enfermagem e o editor da prescrição de infusão. Scoped = um por navegador, como a camada.
+        servicos.AddScoped<JanelasNaTela>();
+        servicos.AddScoped<IAssinaturaNaTela, AssinaturaNaTela>();
+        servicos.AddScoped<ColetaDeTermoNaPagina>();
+        servicos.AddScoped<IJanelasDaSalaDeInfusao, JanelasDaSalaDeInfusaoNaPagina>();
+        servicos.AddScoped<IJanelasDaEnfermagem, JanelasDaEnfermagemNaPagina>();
+        servicos.AddScoped<IJanelasDaPrescricaoDeInfusao, JanelasDaPrescricaoDeInfusaoNaPagina>();
         // Singleton: a ponte entre duas telas (a Visão geral pede, a Agenda do dia consome).
         servicos.TryAddSingleton<PedidoDaAgendaDoDia>();
         // Singleton: o paciente e a seção que a tela do paciente deve mostrar (quem pede é a

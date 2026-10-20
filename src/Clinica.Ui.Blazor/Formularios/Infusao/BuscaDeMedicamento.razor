@@ -1,0 +1,51 @@
+@*
+  O CAMPO DO MEDICAMENTO com sugestões do catálogo (out/2026: o BuscaMedicamento do WPF em Blazor).
+  Escrever livremente continua valendo — a sugestão é atalho, não teto. A partir de duas letras,
+  as sugestões saem de BuscaMedicamentos.Buscar (a MESMA regra do WPF: os da clínica primeiro, e
+  quem começa pelo que foi digitado antes); escolher escreve o Texto da sugestão.
+*@
+<div class="busca-medicamento">
+    <input class="campo" value="@Texto" @oninput="DigitouAsync" @onfocus="() => _aberto = true" @onblur="FecharDepois"
+           maxlength="300" aria-label="Medicamento" placeholder="Medicamento"
+           title="Digite 2 letras. Selecione uma sugestão ou escreva livremente. Dose e preparo são informados pelo prescritor." />
+    @if (_aberto && _sugestoes.Count > 0)
+    {
+        <ul class="seletor-resultados busca-medicamento-lista" role="listbox">
+            @foreach (var m in _sugestoes)
+            {
+                <li role="option" @onmousedown:preventDefault="true" @onclick="() => EscolherAsync(m)">@m.Rotulo</li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Texto { get; set; }
+    [Parameter] public EventCallback<string> TextoChanged { get; set; }
+    [Parameter] public IReadOnlyList<MedicamentoSugerido> Catalogo { get; set; } = [];
+
+    private IReadOnlyList<MedicamentoSugerido> _sugestoes = [];
+    private bool _aberto;
+
+    private async Task DigitouAsync(ChangeEventArgs e)
+    {
+        var texto = e.Value?.ToString() ?? string.Empty;
+        _sugestoes = BuscaMedicamentos.Buscar(Catalogo, texto);
+        _aberto = true;
+        await TextoChanged.InvokeAsync(texto);
+    }
+
+    private async Task EscolherAsync(MedicamentoSugerido m)
+    {
+        _aberto = false;
+        _sugestoes = [];
+        await TextoChanged.InvokeAsync(m.Texto);
+    }
+
+    private async Task FecharDepois()
+    {
+        // O clique na sugestão chega DEPOIS do blur: fechar na hora engoliria a escolha.
+        await Task.Delay(150);
+        _aberto = false;
+    }
+}

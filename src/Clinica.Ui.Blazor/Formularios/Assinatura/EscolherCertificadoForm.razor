@@ -1,0 +1,173 @@
+@*
+  ASSINAR COM O CERTIFICADO A1 (out/2026 — substitui o EscolherCertificadoWindow WPF; autorização
+  da direção de 19/10/2026, só a camada de tela). Escolher o arquivo .pfx/.p12, informar a senha,
+  CARREGAR — a abertura e a conferência (CPF do certificado × profissional do login, cadeia
+  confiável) são do CarregamentoDoA1, movido do ViewModel sem mudança — e conferir o titular
+  antes de clicar em Assinar.
+
+  O certificado confirmado passa a ser de QUEM ABRIU (ele o libera com `using` depois de
+  assinar); o que não foi confirmado é liberado aqui, ao fechar. O arquivo fica na memória só até
+  o Carregar (e é zerado), a senha é limpa no Carregar e ao fechar, e nada vai para configuração.
+  Enquanto confere, o formulário não fecha: fechar no meio deixaria a pessoa sem saber o estado.
+*@
+@using Clinica.Application.Assinatura
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Assinar com certificado A1" Subtitulo="@Assunto" Largura="grande" AoFechar="FecharAsync">
+    <ChildContent>
+        <p class="secundario">Escolha o SEU certificado: o sistema confere se o CPF que está dentro dele é o mesmo do profissional que assina.</p>
+
+        <fieldset class="assin-a1" disabled="@_conferindo">
+            <legend>Usar arquivo A1 (.pfx ou .p12)</legend>
+            <p class="secundario">O certificado será usado somente nesta operação. A senha não será salva.</p>
+            <div class="assin-a1-linha">
+                <button type="button" class="botao" @onclick="EscolherArquivoAsync">Escolher arquivo A1</button>
+                <span class="assin-a1-arquivo">@(_nomeArquivo ?? "Nenhum arquivo escolhido")</span>
+            </div>
+            <Campo Rotulo="Senha do certificado">
+                <input class="campo" type="password" maxlength="200" autocomplete="off" aria-label="Senha do certificado A1"
+                       value="@_senha" @oninput="e => _senha = e.Value?.ToString() ?? string.Empty" />
+            </Campo>
+            <button type="button" class="botao" @onclick="CarregarAsync">Carregar A1</button>
+        </fieldset>
+
+        <div class="assin-lista">
+            @if (_linha is { } l)
+            {
+                <div class="assin-cert @(l.PodeEscolher ? "selecionado" : null)">
+                    <div>
+                        <span class="principal">@l.Titular</span>
+                        <span class="secundario assin-cert-detalhe">@l.Documento · válido de @l.Validade</span>
+                        <span class="secundario assin-cert-detalhe">emissor: @l.Emissor · @l.Procedencia</span>
+                    </div>
+                    @if (l.Impedimento is { } impedimento)
+                    {
+                        <Selo Tom="aviso">@impedimento</Selo>
+                    }
+                </div>
+            }
+            else
+            {
+                <EstadoVazio Titulo="Carregue seu certificado A1" Icone="cofre"
+                             Descricao="Escolha o arquivo .pfx ou .p12, informe a senha e clique em Carregar A1." />
+            }
+        </div>
+
+        <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "info")" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" disabled="@_conferindo" @onclick="FecharAsync">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(!PodeConfirmar)" @onclick="ConfirmarAsync">Assinar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public string Assunto { get; set; } = string.Empty;
+    [Parameter] public EventCallback<CertificadoAssinatura> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private byte[]? _arquivo;
+    private string? _nomeArquivo;
+    private string _senha = string.Empty;
+    private LinhaCertificado? _linha;
+    private bool _conferindo, _transferido;
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+
+    private bool PodeConfirmar => !_conferindo && _linha?.PodeEscolher == true;
+
+    private async Task EscolherArquivoAsync()
+    {
+        var escolhido = await Host.EscolherArquivoAsync(CarregamentoDoA1.FiltroDoArquivo, "Certificado A1");
+        if (escolhido is null) return;   // diálogo cancelado: sair calado é o certo
+        LiberarCarregado();
+        ZerarArquivo();
+        _arquivo = escolhido.Conteudo;
+        _nomeArquivo = escolhido.Nome;
+        _senha = string.Empty;
+    }
+
+    private async Task CarregarAsync()
+    {
+        if (_conferindo) return;
+        // Erro de importação LIMPA a seleção anterior e exige nova escolha explícita (assinatura-a1.md).
+        LiberarCarregado();
+        if (CarregamentoDoA1.RecusaDoArquivo(_arquivo) is { } recusa)
+        {
+            Falar(recusa, true);
+            _senha = string.Empty;
+            return;
+        }
+
+        var arquivo = _arquivo!;
+        var senha = _senha;
+        _senha = string.Empty;
+        _conferindo = true;
+        Falar(CarregamentoDoA1.Conferindo, false);
+        try
+        {
+            var certificado = await CarregamentoDoA1.CarregarAsync(Escopos, arquivo, senha);
+            if (Descartada) { certificado.Dispose(); return; }
+            _linha = LinhaCertificado.De(certificado);
+            Falar(CarregamentoDoA1.Carregado, false);
+        }
+        catch (Exception e)
+        {
+            Falar(CarregamentoDoA1.FraseDaFalha(e), true);
+        }
+        finally
+        {
+            _conferindo = false;
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(arquivo);
+            _arquivo = null;
+            _nomeArquivo = null;
+        }
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (_conferindo) return;
+        if (_linha?.PodeEscolher != true)
+        {
+            Falar(CarregamentoDoA1.CarregueAntes, true);
+            return;
+        }
+        // A partir daqui o certificado é de quem abriu: ele o libera depois de assinar.
+        _transferido = true;
+        await AoConcluir.InvokeAsync(_linha.Certificado);
+    }
+
+    private async Task FecharAsync()
+    {
+        if (_conferindo) return;
+        _senha = string.Empty;
+        await AoFechar.InvokeAsync();
+    }
+
+    private void Falar(string texto, bool erro)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = erro;
+    }
+
+    private void LiberarCarregado()
+    {
+        if (_linha is { } l && !_transferido) l.Certificado.Dispose();
+        _linha = null;
+    }
+
+    private void ZerarArquivo()
+    {
+        if (_arquivo is { } a) System.Security.Cryptography.CryptographicOperations.ZeroMemory(a);
+        _arquivo = null;
+    }
+
+    public override void Dispose()
+    {
+        _senha = string.Empty;
+        ZerarArquivo();
+        LiberarCarregado();
+        base.Dispose();
+    }
+}
