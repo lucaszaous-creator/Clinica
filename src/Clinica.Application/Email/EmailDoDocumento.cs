@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
@@ -70,7 +69,27 @@ public static class EmailDoDocumento
         => !string.IsNullOrWhiteSpace(p.NomeFantasia) ? p.NomeFantasia!.Trim()
          : !string.IsNullOrWhiteSpace(p.RazaoSocial) ? p.RazaoSocial!.Trim() : null;
 
-    private static string E(string? s) => WebUtility.HtmlEncode(s ?? string.Empty);
+    /// <summary>
+    /// Escapa só o que muda o HTML (<c>&lt; &gt; &amp; " '</c>). O <c>WebUtility.HtmlEncode</c>
+    /// também troca TODO acento por entidade ("Clínica" vira <c>Cl&amp;#237;nica</c>): o leitor
+    /// desenha igual, mas o HTML fica ilegível e maior — e o resto do corpo já sai com acento.
+    /// </summary>
+    private static string E(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return string.Empty;
+        var sb = new StringBuilder(s.Length);
+        foreach (var c in s)
+            sb.Append(c switch
+            {
+                '<' => "&lt;",
+                '>' => "&gt;",
+                '&' => "&amp;",
+                '"' => "&quot;",
+                '\'' => "&#39;",
+                _ => c.ToString()
+            });
+        return sb.ToString();
+    }
 
     /// <summary>Endereço · telefone · e-mail da clínica, só o que estiver cadastrado.</summary>
     private static IReadOnlyList<string> Contatos(DadosPrestador p)
