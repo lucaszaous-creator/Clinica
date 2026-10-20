@@ -16,6 +16,7 @@ public static class HospedagemBlazor
         servicos.AddWpfBlazorWebView();
         servicos.TryAddSingleton<IHostDaTela, HostDaTelaWpf>();
         servicos.TryAddSingleton<IEntregaAoPaciente, EntregaAoPacienteWpf>();
+        servicos.TryAddSingleton<IEnvioDoDocumentoAoPaciente, EnvioDoDocumentoAoPacienteWpf>();
         if (servicos.All(d => d.ServiceType != typeof(Dialogos))) servicos.AddTelasBlazor();
         return servicos;
     }

@@ -295,6 +295,12 @@
                           DataSessao="r.Data" Titulo="@($"Mapa corporal — {Contexto.Nome}")" SomenteLeitura="@(!PodeEditar)"
                           AoMudar="StateHasChanged" AoFechar="() => _mapaAberto = false" />
     }
+    @if (_papelAberto is { } aberto)
+    {
+        @* O papel ESCRITO, já com o que a sessão sabe — a MESMA folha da central de Documentos. *@
+        <DocumentoForm PacienteId="Contexto.PacienteId" Tipo="aberto.Tipo" Heranca="aberto.Heranca"
+                       AoFechar="FecharPapelAsync" AoConcluir="ConcluirPapelAsync" />
+    }
 }
 @if (_enviando is { } papelEnviado)
 {
@@ -311,6 +317,7 @@
     private bool _detalheAberto;
     private bool _modelosAbertos;
     private bool _mapaAberto;
+    private (TipoDocumentoClinico Tipo, string Rotulo, HerancaDaSessao Heranca)? _papelAberto;
     private bool _ocupado;
     private PapelDeHoje? _enviando;
     private int _registroParaVincular;
@@ -519,9 +526,9 @@
     // ==================== EMITIR ====================
 
     /// <summary>
-    /// O papel do cartão: os ESCRITOS abrem a janela que já existe com a herança da sessão (ela
-    /// resolve quem assina, os modelos, o CID e a alergia); os MONTADOS do prontuário saem
-    /// direto — não há o que digitar.
+    /// O papel do cartão: os ESCRITOS abrem a folha de emissão (<c>DocumentoForm</c>) com a
+    /// herança da sessão — ela resolve quem assina, os modelos, o CID e a alergia —; os MONTADOS
+    /// do prontuário saem direto — não há o que digitar.
     /// </summary>
     private async Task EmitirAsync(FolhaParaEntregar cartao)
     {
@@ -558,11 +565,7 @@
             }
 
             if (folha.TipoClinico is not { } tipo) return;
-            if (!Janelas.Disponivel) { Informar(JanelasDoAtendimentoClinicoIndisponiveis.Frase, erro: true); return; }
-            // Relê dos dois jeitos: fechar sem concluir não quer dizer que nada aconteceu.
-            var concluiu = await Janelas.EmitirAsync(Contexto.PacienteId, tipo, _folha.Heranca());
-            await _folha.RelerSaiuHojeAsync();
-            if (concluiu) Notificacoes.Sucesso($"{folha.Rotulo} emitido(a).");
+            _papelAberto = (tipo, folha.Rotulo, _folha.Heranca());
         }
         catch (Exception ex)
         {
@@ -570,6 +573,21 @@
             Informar(ex.Message, erro: true);
         }
         finally { _ocupado = false; }
+    }
+
+    /// <summary>Fechou a folha sem concluir: relê de qualquer jeito — o papel pode ter saído e só a impressão ter falhado.</summary>
+    private async Task FecharPapelAsync()
+    {
+        _papelAberto = null;
+        if (_folha is not null) await _folha.RelerSaiuHojeAsync();
+    }
+
+    private async Task ConcluirPapelAsync(DocumentoForm.Emitido emitido)
+    {
+        var rotulo = _papelAberto?.Rotulo ?? TipoDocumentoInfo.Rotular(emitido.Tipo);
+        _papelAberto = null;
+        if (_folha is not null) await _folha.RelerSaiuHojeAsync();
+        Notificacoes.Sucesso($"{rotulo} emitido(a).");
     }
 
     /// <summary>Segunda via do que saiu hoje — os bytes da EMISSÃO, idênticos aos que o paciente levou.</summary>

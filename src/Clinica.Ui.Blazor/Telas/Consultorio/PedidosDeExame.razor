@@ -6,10 +6,11 @@
   pedido sem resultado vigente amarrado; "Resultado disponível" é o que tem. O "Agendado" do
   mockup segue de fora — não há fato de agendamento de exame no domínio.
 
-  Escolher o paciente do pedido novo (EscolherPacienteForm), registrar o laudo (ResultadoExameForm,
-  o MESMO da seção Exames e anexos) e ver os resultados (ResultadosDoPedidoForm) são formulários
-  Blazor desta tela (out/2026). Pela ponte IJanelasDosExames continuam só a EMISSÃO do pedido (a
-  janela de documento de todas as portas) e abrir o paciente na seção dele (a navegação do posto).
+  Emitir o pedido abre a folha de emissão aqui mesmo (DocumentoForm, out/2026 — a MESMA de
+  todas as portas, que pergunta primeiro QUEM). Registrar o laudo (ResultadoExameForm, o MESMO da
+  seção Exames e anexos) e ver os resultados (ResultadosDoPedidoForm) também são formulários
+  Blazor desta tela. Pela ponte IJanelasDosExames continua só abrir o paciente na seção dele (a
+  navegação do posto).
   Permissões copiadas do ViewModel: emitir pelo bit do TIPO (pedido de exame); registrar laudo
   com EditarProntuario; ver e abrir com VerProntuario.
 *@
@@ -105,9 +106,10 @@
     </section>
 </div>
 
-@if (_escolhendoPaciente)
+@if (_novoPedido)
 {
-    <EscolherPacienteForm Assunto="Novo pedido de exame — para quem?" AoFechar="() => _escolhendoPaciente = false" AoEscolher="EmitirParaAsync" />
+    <DocumentoForm Tipo="TipoDocumentoClinico.PedidoExame" TituloDaEscolha="Novo pedido de exame — para quem?"
+                   AoFechar="FecharPedidoAsync" AoConcluir="ConcluirPedidoAsync" />
 }
 @if (_registrandoDe is { } registro)
 {
@@ -130,10 +132,10 @@
     private bool _naoVerificado;
     private string? _erro;
     private bool _ocupado;
+    private bool _novoPedido;
     private int _geracao;
 
     // Os formulários que a tela abre por cima dela (a tela é dona do estado aberto/fechado).
-    private bool _escolhendoPaciente;
     private PedidoDeExameLinha? _registrandoDe;
     private PedidoDeExameLinha? _resultadosDe;
 
@@ -194,28 +196,26 @@
         }
     }
 
-    /// <summary>
-    /// A tela não tem paciente em foco: a primeira pergunta é QUEM (EscolherPacienteForm), e a emissão
-    /// é a MESMA janela de documento de todas as outras portas, pela ponte.
-    /// </summary>
+    /// <summary>A tela não tem paciente em foco: a folha pergunta QUEM e abre a emissão do pedido.</summary>
     private void NovoPedido()
     {
         if (_ocupado) return;
         if (!Exigir(CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.PedidoExame), "emitir pedido de exame")) return;
-        // Sem a janela de documento (a prévia), escolher o paciente seria trabalho que não leva a nada.
-        if (Janelas is JanelasDosExamesIndisponiveis) { Notificacoes.Info(JanelasDosExamesIndisponiveis.Frase); return; }
-        _escolhendoPaciente = true;
+        _novoPedido = true;
     }
 
-    private async Task EmitirParaAsync(Paciente paciente)
+    /// <summary>Fechou sem concluir: relê — o pedido pode ter saído e só a impressão ter falhado.</summary>
+    private async Task FecharPedidoAsync()
     {
-        _escolhendoPaciente = false;
-        await Acao(async () =>
-        {
-            var emitiu = await Janelas.NovoPedidoAsync(paciente.Id);
-            await CarregarAsync(silencioso: true);
-            if (emitiu) Notificacoes.Sucesso($"Pedido de exame emitido para {paciente.Nome}.");
-        }, "Consultório — pedido de exame não pôde ser emitido");
+        _novoPedido = false;
+        await CarregarAsync(silencioso: true);
+    }
+
+    private async Task ConcluirPedidoAsync(DocumentoForm.Emitido emitido)
+    {
+        _novoPedido = false;
+        await CarregarAsync(silencioso: true);
+        Notificacoes.Sucesso($"Pedido de exame emitido para {emitido.Paciente}.");
     }
 
     /// <summary>"Anexar laudo": o formulário de resultado já amarrado a este pedido (o MESMO da seção Exames e anexos).</summary>

@@ -28,6 +28,9 @@ public static class RegistroTelas
         // Singleton: o paciente que a ficha do balcão deve mostrar (quem pede é a agenda, a lista
         // de pacientes e o Início; quem lê é a tela, na abertura e a cada volta).
         servicos.TryAddSingleton<PedidoDaFichaDoBalcao>();
+        // Singleton: o paciente em que a central de Documentos deve abrir (quem pede é uma tela
+        // de fora antes de navegar; quem lê é a central, na abertura e a cada volta).
+        servicos.TryAddSingleton<PedidoDeDocumento>();
         return servicos;
     }
 }

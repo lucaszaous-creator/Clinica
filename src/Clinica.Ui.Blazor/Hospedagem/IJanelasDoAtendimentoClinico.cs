@@ -7,15 +7,15 @@ namespace Clinica.Ui.Blazor.Hospedagem;
 /// O que a folha do médico (a seção Atendimento da tela do paciente, Blazor, out/2026) pede ao
 /// aplicativo do Consultório e que continua WPF — o mesmo desenho das outras pontes:
 ///
-/// - <b>A janela do papel ESCRITO com a herança da sessão</b> (<c>DocumentoWindow</c> com
-///   <see cref="HerancaDaSessao"/>): ela resolve quem assina, os modelos, a regra do CID e a
-///   conferência de alergia — reescrevê-la seria a segunda definição;
 /// - <b>a prescrição de infusão</b> ligada ao horário e à evolução
 ///   (<c>PrescricaoInternaWindow</c>, área de assinatura — só chamada);
 /// - <b>a coleta do termo</b> (<c>ColetaDeTermo</c> → <c>AssinaturaPacienteWindow</c>, área
 ///   congelada);
 /// - <b>a pendência da conclusão automática</b>, que mora na Infrastructure (que esta
 ///   biblioteca não enxerga).
+///
+/// O papel ESCRITO (receita, atestado, laudo…) com a herança da sessão deixou de ser janela WPF
+/// (out/2026): é o <c>DocumentoForm</c> Blazor, renderizado na própria seção.
 ///
 /// A barreira de permissão é da TELA (as duas barreiras moram lá); as janelas conferem de
 /// novo, como sempre conferiram. Onde o Consultório não existe (a prévia, o bUnit) vale
@@ -26,9 +26,6 @@ public interface IJanelasDoAtendimentoClinico
 {
     /// <summary>Falso onde as janelas não existem: a tela avisa em vez de abrir nada.</summary>
     bool Disponivel { get; }
-
-    /// <summary>A janela do papel escrito, já com o que a sessão sabe. Verdadeiro = concluiu.</summary>
-    Task<bool> EmitirAsync(int pacienteId, TipoDocumentoClinico tipo, HerancaDaSessao heranca);
 
     /// <summary>A prescrição de infusão ligada ao horário e à evolução da sessão. Verdadeiro = ASSINOU.</summary>
     Task<bool> PrescreverInfusaoAsync(int pacienteId, string paciente, int? agendamentoId, int? evolucaoId);
@@ -52,7 +49,6 @@ public sealed class JanelasDoAtendimentoClinicoIndisponiveis : IJanelasDoAtendim
     public const string Frase = "Esta janela é do aplicativo do Consultório — abra o atendimento por lá.";
 
     public bool Disponivel => false;
-    public Task<bool> EmitirAsync(int pacienteId, TipoDocumentoClinico tipo, HerancaDaSessao heranca) => Task.FromResult(false);
     public Task<bool> PrescreverInfusaoAsync(int pacienteId, string paciente, int? agendamentoId, int? evolucaoId) => Task.FromResult(false);
     public Task<bool> ColherTermoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
         int? profissionalId, int? agendamentoId) => Task.FromResult(false);

@@ -65,7 +65,7 @@ public static class DocumentosDoConsultorio
         => ParaEmitir(acessos).Select(f => new CartaoDeFolha(f, Icone(f))).ToList();
 
     /// <summary>
-    /// O ícone de cada papel, pelo TIPO (nome do traço em <c>IconeClinico</c>). O tipo, e
+    /// O ícone de cada papel, pelo TIPO (nome do traço do ícone da tela). O tipo, e
     /// não a chave: é o tipo que decide qual folha a janela abre, e o desenho segue o que
     /// vai sair. Vale para TODAS as folhas do catálogo — a central de Documentos da
     /// Recepção e do Gerente desenha os mesmos cartões (a mesma tela em todos os módulos).

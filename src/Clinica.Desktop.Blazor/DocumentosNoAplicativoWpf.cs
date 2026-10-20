@@ -10,9 +10,10 @@ namespace Clinica.Desktop.Blazor;
 
 /// <summary>
 /// As janelas e os atos WPF que a tela de Documentos (Blazor, out/2026 — a MESMA na Recepção,
-/// no Gerente e no Consultório) pede. Mora aqui, e não num módulo, porque são duas portas e
-/// uma cópia por módulo divergiria na primeira correção. O orçamento livre saiu daqui em
-/// out/2026: é o formulário Blazor (<c>OrcamentoLivreForm</c>), igual nos três apps.
+/// no Gerente e no Consultório) pede. O papel ESCRITO, a nova versão do laudo e o orçamento livre
+/// NÃO estão aqui: são formulários Blazor (<c>DocumentoForm</c>, <c>OrcamentoLivreForm</c>),
+/// abertos pela própria tela. Mora aqui, e não num módulo, porque são duas portas e uma cópia
+/// por módulo divergiria na primeira correção.
 ///
 /// Origem: a central de Documentos (Blazor, out/2026) pede — cada método
 /// faz EXATAMENTE o que o <c>DocumentosViewModel</c> fazia: os mesmos ViewModels e janelas, o
@@ -32,12 +33,6 @@ public class DocumentosNoAplicativoWpf(
 
     public bool CaixaNesteAplicativo => NavegacaoSuite.Existe(ChavesSuite.Caixa);
 
-    public Task<bool> EmitirEscritoAsync(int pacienteId, TipoDocumentoClinico tipo) => NaInterface(() =>
-    {
-        var vm = new DocumentoEdicaoViewModel(escopos, pacienteId, tipo);
-        var janela = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() };
-        return Task.FromResult(janela.ShowDialog() == true);
-    });
 
     /// <summary>Para quem sobrescreve: a fábrica de escopos e o despachante.</summary>
     protected IServiceScopeFactory Escopos => escopos;
@@ -67,7 +62,8 @@ public class DocumentosNoAplicativoWpf(
         var r = ato switch
         {
             AtoDoDocumento.SegundaVia => await AcoesDoDocumento.ImprimirAsync(d, escopos),
-            AtoDoDocumento.NovaVersao => await AcoesDoDocumento.NovaVersaoAsync(d, escopos, snackbar),
+            // A nova versão é o DocumentoForm (Blazor), que a tela abre — não chega aqui.
+            AtoDoDocumento.NovaVersao => ResultadoAcaoDocumento.Erro("A nova versão do laudo abre na própria tela de Documentos."),
             AtoDoDocumento.Assinar => await AcoesDoDocumento.AssinarAsync(d, escopos, snackbar),
             // Enviar é o EnvioAoPacienteForm da tela (out/2026). Recusa explícita, e não o braço
             // padrão: cair no `_` CANCELARIA o documento.

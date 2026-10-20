@@ -37,7 +37,7 @@ static class Program
         var code = 0;
         app.Dispatcher.BeginInvoke(async () =>
         {
-            try { await ConferirAsync(); Console.WriteLine("QA OK: sugestões, cancelamento, endereço, infusão e PDFs."); }
+            try { await ConferirAsync(); Console.WriteLine("QA OK: texto anterior, infusão e PDFs."); }
             catch (Exception ex) { Console.WriteLine(ex); code = 1; }
             finally { PresentationTraceSources.DataBindingSource.Flush(); app.Shutdown(); }
         });
@@ -78,41 +78,8 @@ static class Program
         await documentos.SalvarModeloAsync(new ModeloDocumento { Nome = "Modelo anterior da clínica", Tipo = TipoDocumentoClinico.Receita,
             Itens = [new ItemModelo { Descricao = "Item demonstrativo", Quantidade = "Quantidade informada", Detalhe = "Modo de usar informado pelo profissional." }] });
         var factory = provider.GetRequiredService<IServiceScopeFactory>();
-        var vm = new DocumentoEdicaoViewModel(factory, paciente.Id);
-        await Esperar(() => !vm.Carregando);
-        Exigir(vm.Sugestoes.Count == 2, "Sugestões não carregadas.");
-        vm.Corpo = "Receituário digitado pelo profissional.";
-        vm.Sugestoes[0].Selecionada = true;
-        Exigir(vm.Corpo.StartsWith("Receituário digitado"), "Sugestão apagou texto.");
-        Exigir(vm.Corpo.Contains(vm.Sugestoes[0].Texto), "Sugestão não inserida.");
-        var antes = vm.Corpo; vm.Sugestoes[0].Selecionada = false;
-        Exigir(vm.Corpo == antes, "Desmarcar apagou conteúdo.");
-        var window = new DocumentoWindow(vm);
-        await Desenhar(window, "receituario.png", 860, 680);
-        // Exercita o controle real e reabre o modelo por um novo escopo do banco.
-        var editor=Descendentes<EditorTextoClinico>((DependencyObject)window.Content).First();
-        editor.Texto="Texto em negrito e itálico";
-        editor.Formato=TextoFormatado.Guardar([new("Texto em "),new("negrito",true),new(" e "),new("itálico",false,true)]);
-        await Task.Delay(50);
-        var rico=Descendentes<RichTextBox>(editor).Single();
-        Exigir(new System.Windows.Documents.TextRange(rico.Document.ContentStart,rico.Document.ContentEnd).Text.Trim()==editor.Texto,"Editor perdeu o texto.");
-        rico.SelectAll();System.Windows.Documents.EditingCommands.ToggleBold.Execute(null,rico);
-        Exigir(TextoFormatado.Ler(editor.Texto,editor.Formato).Any(t=>t.Negrito),"Negrito não foi serializado.");
-        vm.Corpo=editor.Texto;vm.CorpoFormatado=editor.Formato;
-        await vm.SalvarComoModeloCommand.ExecuteAsync("Modelo formatado de teste");
-        Exigir(vm.ModeloSelecionado?.CorpoFormatado==vm.CorpoFormatado,"Modelo não foi recarregado com a formatação.");
-        vm.Corpo=antes;vm.CorpoFormatado=null;
-        await vm.EmitirCommand.ExecuteAsync(null);
-        Exigir(dialogo.Perguntas == 1 && vm.DocumentoEmitidoId == 0, "Cancelar endereço emitiu documento.");
-        Exigir(vm.Corpo == antes, "Cancelar endereço perdeu texto.");
-        Exigir(await db.DocumentosClinicos.CountAsync() == 0, "Cancelar consumiu um documento.");
-        dialogo.Resposta = "Rua Demonstrativa, 120, Centro, Cidade";
-        var completar = typeof(DocumentoEdicaoViewModel).GetMethod("CompletarEnderecoDaReceitaAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        Exigir(await (Task<bool>)completar.Invoke(vm, null)!, "Endereço não foi completado.");
-        Exigir(await (Task<bool>)completar.Invoke(vm, null)!, "Releitura do endereço falhou.");
-        Exigir(dialogo.Perguntas == 2, "Perguntou endereço já existente.");
-        await Desenhar(window, "receituario-endereco.png", 860, 680);
-        await Desenhar(window, "receituario-compacto.png", 700, 520);
+        // A folha de emissão de documento virou Blazor (DocumentoForm, out/2026): as conferências
+        // dela (sugestões, endereço, alergia, modelos) estão nos testes bUnit do dotnet test.
         var longo = string.Join("\n\n", Enumerable.Range(1, 70).Select(i => $"Parágrafo {i:00}: texto demonstrativo para verificar impressão. Preserva acentuação, orientação escrita e espaço entre os parágrafos."));
         db.ChangeTracker.Clear();
         var documento = await documentos.EmitirAsync(new DocumentoClinico { Tipo = TipoDocumentoClinico.Receita,
