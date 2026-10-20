@@ -13,7 +13,7 @@ namespace Clinica.Desktop.Shell;
 /// <summary>Uma resposta de paciente na lista do sino (out/2026).</summary>
 public sealed record RespostaNoSino(
     int AgendamentoId, TipoAvisoConfirmacao Tipo, string Titulo, string Sessao, string Detalhe,
-    bool PedeAcao, DateOnly Dia);
+    bool PedeAcao, DateOnly Dia, string Paciente = "");
 
 /// <summary>
 /// AS RESPOSTAS DOS PACIENTES NO SINO (out/2026 — pedido da clínica: a confirmação, o "não
@@ -118,6 +118,7 @@ public sealed partial class ShellViewModel
             RespostasNoSino.Clear();
             foreach (var l in linhas) RespostasNoSino.Add(l);
             RespostasParaAgir = naoVem + semResposta;
+            RespostasMudaram(avisos);
             ErroRespostas = false; RespostasConsultadas = true;
             SituacaoRespostas = avisos.Count == 0 ? "Nenhuma resposta nova nem lembrete pendente."
                 : avisos.Count > linhas.Count ? $"Mostrando {linhas.Count} de {avisos.Count}." : "";
@@ -140,7 +141,7 @@ public sealed partial class ShellViewModel
     }
 
     /// <summary>Teto da lista do sino: o resto está na tela de Confirmações, a um clique.</summary>
-    private const int MaximoNoSino = 6;
+    private const int MaximoNoSino = 8;
 
     /// <summary>
     /// Cada aviso novo vira notificação UMA vez. Teto de cinco por leitura, como os pedidos:
@@ -157,12 +158,13 @@ public sealed partial class ShellViewModel
 
     public static RespostaNoSino NoSino(AvisoDeConfirmacao a, DateTime agora)
         => new(a.AgendamentoId, a.Tipo, AvisosDeConfirmacao.Titulo(a), AvisosDeConfirmacao.Sessao(a, agora),
-            AvisosDeConfirmacao.Detalhe(a, agora), a.PedeAcao, DateOnly.FromDateTime(a.Sessao));
+            AvisosDeConfirmacao.Detalhe(a, agora), a.PedeAcao, DateOnly.FromDateTime(a.Sessao), a.Paciente);
 
     [RelayCommand]
     private void AbrirRespostaDoSino(RespostaNoSino? resposta)
     {
         if (resposta is null || !PodeVerConfirmacoes) return;
+        LerAviso(LeituraDoSino.ChaveResposta(resposta.AgendamentoId, resposta.Tipo));
         AberturaDasConfirmacoes.PedirDia(resposta.Dia);
         AvisosAbertos = false;
         if (!IrPara(ChavesSuite.ConfirmacoesAgenda, false)) AberturaDasConfirmacoes.ConsumirDia();

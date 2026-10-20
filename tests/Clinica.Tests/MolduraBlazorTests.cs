@@ -271,9 +271,13 @@ public sealed class MolduraBlazorTests : IDisposable
         public bool SinoAberto { get; set; }
         public string ContadorDoSino => "3";
         public string ResumoDoSino => "3 novos";
-        public SecaoDoSino<PedidoNoSino> Pedidos => new(true, "1 novo", [new PedidoNoSino(7, "Até 1 atendimento a mais · BSV", "hoje 14:00–15:00", "Joana", true)], "");
-        public SecaoDoSino<RespostaNoSino> Respostas => SecaoDoSino<RespostaNoSino>.Oculta;
+        public bool PedidoNaoLido { get; set; }
+        public SecaoDoSino<PedidoNoSino> Pedidos => new(true, "1 novo", [new PedidoNoSino(7, "Até 1 atendimento a mais · BSV", "hoje 14:00–15:00", "Joana", true, PedidoNaoLido)], "");
+        public SecaoDoSino<RespostaNoSino> Respostas { get; set; } = SecaoDoSino<RespostaNoSino>.Oculta;
         public IReadOnlyList<AvisoDaSessao> Historico => [new AvisoDaSessao("Salvo.", TomNotificacao.Sucesso, "09:12")];
+        public int NaoLidas => (PedidoNaoLido ? 1 : 0) + Respostas.Linhas.Count(r => r.NaoLida);
+        public int MarcouTodas { get; private set; }
+        public void MarcarTodasComoLidas() { MarcouTodas++; PedidoNaoLido = false; Mudou?.Invoke(); }
         public void AlternarSino() { SinoAberto = !SinoAberto; Mudou?.Invoke(); }
         public void AbrirPedido(PedidoNoSino pedido) => Abriu.Add(-pedido.Id);
         public void AbrirTodosOsPedidos() { }
@@ -353,6 +357,59 @@ public sealed class MolduraBlazorTests : IDisposable
         Assert.Contains("Salvo.", tela.Markup);
         tela.FindAll(".moldura-aviso").First().Click();
         Assert.Contains(-7, moldura.Abriu);
+    }
+
+    [Fact]
+    public void Com_nao_lidas_o_sino_abre_nelas_destaca_e_marca_todas_como_lidas()
+    {
+        using var ctx = Contexto();
+        var moldura = new MolduraDeMentira
+        {
+            PedidoNaoLido = true,
+            Respostas = new(true, "2 para ligar",
+            [
+                new RespostaNoSino("a", "Ana Souza avisou que não vem", "hoje 11:00 · Dra. Bia", "", "nao-vem", NaoLida: true, Paciente: "Ana Souza"),
+                new RespostaNoSino("b", "Rui Lima não respondeu ao lembrete", "hoje 11:30", "SMS sem resposta", "sem-resposta", NaoLida: false, Paciente: "Rui Lima")
+            ], "")
+        };
+        var tela = ctx.RenderComponent<MolduraDoApp>(p => p.Add(x => x.Moldura, moldura));
+        tela.Find(".moldura-sino button").Click();
+        tela.WaitForAssertion(() => Assert.NotEmpty(tela.FindAll(".moldura-popover.sino")));
+
+        // Abre em "Não lidas": só o que ainda não foi lido, com o ponto e o nome em destaque.
+        Assert.Equal("true", tela.Find(".sino-abas button").GetAttribute("aria-selected"));
+        Assert.Equal("2", tela.Find(".sino-n").TextContent);
+        Assert.Contains("Ana Souza", tela.Find(".moldura-aviso.nao-lida strong").TextContent);
+        Assert.DoesNotContain("Rui Lima", tela.Find(".sino-lista").TextContent);
+        Assert.Equal(2, tela.FindAll(".sino-ponto").Count);
+        Assert.DoesNotContain("Salvo.", tela.Markup); // os avisos da sessão ficam em "Todas"
+
+        // "Todas" mostra a lida também, e o histórico da sessão.
+        tela.FindAll(".sino-abas button")[1].Click();
+        Assert.Contains("Rui Lima", tela.Find(".sino-lista").TextContent);
+        Assert.Contains("Salvo.", tela.Markup);
+
+        tela.Find(".sino-cab .link").Click();
+        Assert.Equal(1, moldura.MarcouTodas);
+    }
+
+    [Fact]
+    public void Sem_nada_por_ler_o_sino_abre_em_todas_e_diz_tudo_lido()
+    {
+        using var ctx = Contexto();
+        var moldura = new MolduraDeMentira();
+        var tela = ctx.RenderComponent<MolduraDoApp>(p => p.Add(x => x.Moldura, moldura));
+        tela.Find(".moldura-sino button").Click();
+        tela.WaitForAssertion(() => Assert.NotEmpty(tela.FindAll(".moldura-popover.sino")));
+
+        Assert.Equal("true", tela.FindAll(".sino-abas button")[1].GetAttribute("aria-selected"));
+        var marcar = tela.Find(".sino-cab .link");
+        Assert.Equal("Tudo lido", marcar.TextContent.Trim());
+        Assert.True(marcar.HasAttribute("disabled"));
+
+        // "Não lidas" vazia diz que está em dia — não some sem explicação.
+        tela.FindAll(".sino-abas button")[0].Click();
+        Assert.Contains("Você está em dia", tela.Find(".sino-vazio").TextContent);
     }
 
     [Fact]

@@ -116,7 +116,7 @@
                 <button type="button" class="botao icone fantasma" title="@Moldura.ResumoDoSino"
                         aria-label="Notificações, pedidos da enfermagem e respostas dos pacientes"
                         aria-expanded="@(Moldura.SinoAberto ? "true" : "false")"
-                        @onclick="Moldura.AlternarSino">
+                        @onclick="AlternarSino">
                     <Icone Nome="sino" />
                 </button>
                 @if (!string.IsNullOrEmpty(Moldura.ContadorDoSino))
@@ -126,66 +126,129 @@
                 @if (Moldura.SinoAberto)
                 {
                     <div class="moldura-veu" @onclick="Moldura.FecharSobreposicoes"></div>
-                    <div class="moldura-popover sino" role="dialog" aria-label="Avisos">
-                        @if (Moldura.Pedidos.Visivel)
-                        {
-                            <section>
-                                <header><h3>Pedidos da enfermagem</h3><span>@Moldura.Pedidos.Contador</span></header>
-                                @foreach (var p in Moldura.Pedidos.Linhas)
+                    var naoLidas = Moldura.NaoLidas;
+                    var soNaoLidas = AbaDoSino(naoLidas);
+                    var respostas = Moldura.Respostas.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
+                    var pedidos = Moldura.Pedidos.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
+                    <div class="moldura-popover sino" role="dialog" aria-label="Notificações">
+                        <div class="sino-cab">
+                            <h2>Notificações</h2>
+                            <button type="button" class="link" disabled="@(naoLidas == 0)" @onclick="Moldura.MarcarTodasComoLidas">
+                                @(naoLidas == 0 ? "Tudo lido" : "Marcar todas como lidas")
+                            </button>
+                        </div>
+                        <div class="sino-abas" role="tablist" aria-label="Filtro das notificações">
+                            <button type="button" role="tab" class="@(soNaoLidas ? "ativa" : null)" aria-selected="@(soNaoLidas ? "true" : "false")"
+                                    @onclick="() => _abaSino = AbaSino.NaoLidas">
+                                Não lidas
+                                @if (naoLidas > 0)
                                 {
-                                    var pedido = p;
-                                    <button type="button" class="moldura-aviso @(pedido.Novo ? "novo" : null)"
-                                            @onclick="() => Moldura.AbrirPedido(pedido)">
-                                        <strong>@pedido.Titulo</strong>
-                                        <span>@pedido.Quando</span>
-                                        <span class="texto-secundario">@pedido.Origem</span>
-                                    </button>
+                                    <span class="sino-n">@naoLidas</span>
                                 }
-                                @if (!string.IsNullOrWhiteSpace(Moldura.Pedidos.Situacao))
-                                {
-                                    <p class="moldura-situacao">@Moldura.Pedidos.Situacao</p>
-                                }
-                                <button type="button" class="link" @onclick="Moldura.AbrirTodosOsPedidos">Ver todos os avisos</button>
-                            </section>
-                        }
-                        @if (Moldura.Respostas.Visivel)
-                        {
-                            <section>
-                                <header><h3>Respostas dos pacientes</h3><span>@Moldura.Respostas.Contador</span></header>
-                                @foreach (var r in Moldura.Respostas.Linhas)
-                                {
-                                    var resposta = r;
-                                    <button type="button" class="moldura-aviso @resposta.Tom" title="@resposta.Sessao"
-                                            @onclick="() => Moldura.AbrirResposta(resposta)">
-                                        <strong>@resposta.Titulo</strong>
-                                        <span>@resposta.Sessao</span>
-                                        @if (!string.IsNullOrWhiteSpace(resposta.Detalhe))
-                                        {
-                                            <span class="texto-secundario">@resposta.Detalhe</span>
-                                        }
-                                    </button>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(Moldura.Respostas.Situacao))
-                                {
-                                    <p class="moldura-situacao">@Moldura.Respostas.Situacao</p>
-                                }
-                                <button type="button" class="link" @onclick="Moldura.AbrirConfirmacoes">Abrir confirmações</button>
-                            </section>
-                        }
-                        <section>
-                            <header><h3>Últimos avisos desta sessão</h3></header>
-                            @if (Moldura.Historico.Count == 0)
+                            </button>
+                            <button type="button" role="tab" class="@(soNaoLidas ? null : "ativa")" aria-selected="@(soNaoLidas ? "false" : "true")"
+                                    @onclick="() => _abaSino = AbaSino.Todas">Todas</button>
+                        </div>
+                        <div class="sino-lista">
+                            @if (Moldura.Respostas.Visivel && (respostas.Count > 0 || !soNaoLidas))
                             {
-                                <p class="moldura-situacao">Nenhum aviso desde que você entrou.</p>
+                                <section>
+                                    <header><h3>Respostas dos pacientes</h3><span>@Moldura.Respostas.Contador</span></header>
+                                    @foreach (var r in respostas)
+                                    {
+                                        var resposta = r;
+                                        <button type="button" class="moldura-aviso @(resposta.NaoLida ? "nao-lida" : null)" title="@resposta.Sessao"
+                                                @onclick="() => Moldura.AbrirResposta(resposta)">
+                                            <span class="sino-ic @resposta.Tom" aria-hidden="true"><Icone Nome="@IconeDaResposta(resposta.Tom)" /></span>
+                                            <span class="sino-texto">
+                                                <span class="sino-tit">
+                                                    @if (resposta.Paciente.Length > 0)
+                                                    {
+                                                        <strong>@resposta.Paciente</strong>@resposta.Titulo.Substring(resposta.Paciente.Length)
+                                                    }
+                                                    else
+                                                    {
+                                                        @resposta.Titulo
+                                                    }
+                                                </span>
+                                                <span class="sino-meta">@MetaDaResposta(resposta)</span>
+                                            </span>
+                                            @if (resposta.NaoLida)
+                                            {
+                                                <span class="sino-ponto" title="Não lida"></span>
+                                            }
+                                        </button>
+                                    }
+                                    @if (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.Respostas.Situacao))
+                                    {
+                                        <p class="moldura-situacao">@Moldura.Respostas.Situacao</p>
+                                    }
+                                </section>
                             }
-                            @foreach (var a in Moldura.Historico)
+                            @if (Moldura.Pedidos.Visivel && (pedidos.Count > 0 || !soNaoLidas))
                             {
-                                <div class="moldura-historico @a.Tom.ToString().ToLowerInvariant()">
-                                    <span>@a.Texto</span>
-                                    <span class="texto-secundario">@a.Hora</span>
-                                </div>
+                                <section>
+                                    <header><h3>Pedidos da enfermagem</h3><span>@Moldura.Pedidos.Contador</span></header>
+                                    @foreach (var p in pedidos)
+                                    {
+                                        var pedido = p;
+                                        <button type="button" class="moldura-aviso @(pedido.NaoLida ? "nao-lida" : null)"
+                                                @onclick="() => Moldura.AbrirPedido(pedido)">
+                                            <span class="sino-ic pedido" aria-hidden="true"><Icone Nome="pessoa" /></span>
+                                            <span class="sino-texto">
+                                                <span class="sino-tit">@pedido.Titulo</span>
+                                                <span class="sino-meta">@pedido.Quando · @pedido.Origem</span>
+                                            </span>
+                                            @if (pedido.NaoLida)
+                                            {
+                                                <span class="sino-ponto" title="Não lida"></span>
+                                            }
+                                        </button>
+                                    }
+                                    @if (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.Pedidos.Situacao))
+                                    {
+                                        <p class="moldura-situacao">@Moldura.Pedidos.Situacao</p>
+                                    }
+                                </section>
                             }
-                        </section>
+                            @if (!soNaoLidas && Moldura.Historico.Count > 0)
+                            {
+                                <section>
+                                    <header><h3>Avisos desta sessão</h3></header>
+                                    @foreach (var a in Moldura.Historico)
+                                    {
+                                        <div class="moldura-historico">
+                                            <span class="sino-ic @a.Tom.ToString().ToLowerInvariant()" aria-hidden="true"><Icone Nome="@IconeDoAviso(a.Tom)" /></span>
+                                            <span class="sino-texto">
+                                                <span class="sino-tit">@a.Texto</span>
+                                                <span class="sino-meta">@a.Hora</span>
+                                            </span>
+                                        </div>
+                                    }
+                                </section>
+                            }
+                            @if (soNaoLidas && respostas.Count == 0 && pedidos.Count == 0)
+                            {
+                                <div class="sino-vazio"><Icone Nome="check" /><p>Você está em dia. Nada novo desde a última vez.</p></div>
+                            }
+                            else if (!soNaoLidas && !Moldura.Respostas.Visivel && !Moldura.Pedidos.Visivel && Moldura.Historico.Count == 0)
+                            {
+                                <div class="sino-vazio"><Icone Nome="sino" /><p>Nenhum aviso desde que você entrou.</p></div>
+                            }
+                        </div>
+                        @if (Moldura.Respostas.Visivel || Moldura.Pedidos.Visivel)
+                        {
+                            <div class="sino-rodape">
+                                @if (Moldura.Respostas.Visivel)
+                                {
+                                    <button type="button" class="link" @onclick="Moldura.AbrirConfirmacoes">Abrir confirmações</button>
+                                }
+                                @if (Moldura.Pedidos.Visivel)
+                                {
+                                    <button type="button" class="link" @onclick="Moldura.AbrirTodosOsPedidos">Ver pedidos da enfermagem</button>
+                                }
+                            </div>
+                        }
                     </div>
                 }
             </div>
@@ -244,6 +307,43 @@
     [Parameter, EditorRequired] public IMolduraDoApp Moldura { get; set; } = default!;
 
     private string? _grupoAberto;
+
+    // ----- o sino (out/2026) -----
+    // A aba abre em "Não lidas" quando há o que ler e em "Todas" quando não há — abrir num
+    // vazio esconderia a pendência ("12 para ligar") atrás de um clique. Reabrir o sino volta
+    // à escolha automática; trocar de aba é escolha da pessoa enquanto ele está aberto.
+    private enum AbaSino { Automatica, NaoLidas, Todas }
+    private AbaSino _abaSino;
+
+    private bool AbaDoSino(int naoLidas) => _abaSino switch
+    {
+        AbaSino.NaoLidas => true,
+        AbaSino.Todas => false,
+        _ => naoLidas > 0
+    };
+
+    private void AlternarSino()
+    {
+        _abaSino = AbaSino.Automatica;
+        Moldura.AlternarSino();
+    }
+
+    private static string IconeDaResposta(string tom) => tom switch
+    {
+        "nao-vem" => "x",
+        "sem-resposta" => "relogio",
+        _ => "check"
+    };
+
+    private static string IconeDoAviso(TomNotificacao tom) => tom switch
+    {
+        TomNotificacao.Sucesso => "check",
+        TomNotificacao.Erro => "alerta",
+        _ => "info"
+    };
+
+    private static string MetaDaResposta(RespostaNoSino r)
+        => string.IsNullOrWhiteSpace(r.Detalhe) ? r.Sessao : $"{r.Sessao} · {r.Detalhe}";
     private bool _contaAberta;
     private bool _trocandoSenha;
     private DotNetObjectReference<MolduraDoApp>? _ref;

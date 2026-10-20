@@ -12,6 +12,19 @@
         "ext": ".razor",
         "engine": "html"
       }
+    ],
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/mockups/sino-notificacoes.html"
+        ],
+        "createdAt": "2026-10-20T13:57:45.958Z",
+        "reason": "Claude: popover denso de notificações (título 16px sobre itens 14px, como o sino atual); hierarquia vem de peso, cor e agrupamento, não de tamanho"
+      }
     ]
   }
 }

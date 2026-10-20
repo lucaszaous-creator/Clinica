@@ -532,15 +532,15 @@ public sealed partial class ShellViewModel : ObservableObject
     private bool _avisosAbertos;
 
     /// <summary>
-    /// Abre/fecha a lista dos últimos avisos da sessão (o histórico do snackbar — a
-    /// segunda via do que some em 4 segundos). Abrir zera o badge de não lidos: o número
-    /// responde "aconteceu algo desde a última olhada?", não "quantos avisos existem".
+    /// Abre/fecha o sino. Abrir VÊ tudo o que está nele (out/2026): o número responde
+    /// "aconteceu algo desde a última olhada?", não "quantos avisos existem" — e some. O
+    /// destaque de "não lida" continua até "Marcar todas como lidas" ou o clique no aviso.
     /// </summary>
     [RelayCommand]
     private void AbrirAvisos()
     {
         AvisosAbertos = !AvisosAbertos;
-        if (AvisosAbertos) Snackbar?.MarcarLidos();
+        if (AvisosAbertos) { Snackbar?.MarcarLidos(); VerSino(); }
         if (AvisosAbertos) { _ = AtualizarPedidosGlobaisAsync(); _ = CarregarPedidosDoSinoAsync(); _ = AtualizarConfirmacoesAsync(); }
     }
 
