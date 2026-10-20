@@ -1,0 +1,244 @@
+@*
+  ESCREVER E LIBERAR A PRESCRIÇÃO DE INFUSÃO (parcela 42; out/2026: substitui a
+  PrescricaoInternaWindow + PrescricaoInternaEdicaoViewModel WPF — autorização da direção de
+  19/10/2026, só a camada de tela). O mesmo editor: "Copiar última" no cabeçalho (é decisão sobre a
+  folha inteira), as infusões com preparo e medicamentos, os modelos salvos (usar copia; excluir
+  confirma NO PRÓPRIO modelo), salvar como modelo na própria infusão, o catálogo de medicamentos que
+  se relê sem fechar, e o rodapé com Salvar rascunho e Liberar.
+
+  Salvar deixa em rascunho; assinar põe a folha na sala e ela não se edita mais. A conferência de
+  alergia acontece ANTES do certificado — a ordem mora em AssinaturaDaPrescricaoNaTela, movida do
+  ViewModel sem mudança e com teste. O estado é o PrescricaoDeInfusaoEmEdicao (Application). Só
+  fecha sozinho quando a folha é LIBERADA; com uma gravação no ar, não fecha.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+@inject IAssinaturaNaTela Assinatura
+
+<Modal Titulo="Prescrição de infusão" Subtitulo="@($"{_editor.Paciente} · {_editor.Numero}")" Largura="largo" AoFechar="FecharAsync">
+    <ChildContent>
+        <div class="pre-topo">
+            <button type="button" class="botao" disabled="@(!_editor.PodeCopiarUltimaPrescricao)" @onclick="CopiarUltimaAsync"
+                    title="Copia a última prescrição deste paciente, incluindo todas as infusões, para revisar antes de salvar. Nada é gravado sozinho.">Copiar última prescrição deste paciente</button>
+        </div>
+        @if (_editor.TemAlertas)
+        {
+            <div class="aviso erro" role="alert">
+                <Icone Nome="alerta" />
+                <span><strong>Confira antes de prescrever</strong><br />@string.Join(" · ", _editor.Alertas)</span>
+            </div>
+        }
+        @if (_editor.Ocupado)
+        {
+            <p class="fol-operacao" role="status">@_editor.TextoOperacao</p>
+        }
+
+        <fieldset class="pre-editor" disabled="@(!_editor.PodeCopiarUltimaPrescricao)">
+            <details class="pre-secao">
+                <summary>Indicação</summary>
+                <EditorTextoClinico Rotulo="Indicação" Linhas="3" Texto="@_editor.Indicacao" TextoChanged="v => _editor.Indicacao = v"
+                                    Formato="@_editor.IndicacaoFormatada" FormatoChanged="v => _editor.IndicacaoFormatada = v" />
+            </details>
+
+            @foreach (var g in _editor.Infusoes)
+            {
+                <section class="pre-infusao" @key="g">
+                    <div class="pre-infusao-topo">
+                        <div>
+                            <span class="secundario">Preparo e medicamentos</span>
+                            <h3>@g.Titulo</h3>
+                        </div>
+                        <button type="button" class="botao contorno-perigo" aria-label="Remover esta infusão" @onclick="() => RemoverInfusaoAsync(g)">Remover infusão</button>
+                    </div>
+
+                    <details class="pre-secao">
+                        <summary>@_editor.RotuloUsarModelo</summary>
+                        <div class="busca">
+                            <Icone Nome="busca" />
+                            <input class="campo" placeholder="Buscar modelo pelo nome" aria-label="Buscar modelo"
+                                   value="@_editor.BuscaModelo" @oninput="e => _editor.BuscaModelo = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+                        <div class="pre-modelos">
+                            @foreach (var m in _editor.ModelosVisiveis)
+                            {
+                                @if (_editor.ModeloEmExclusao == m.Id)
+                                {
+                                    <div class="aviso erro pre-modelo">
+                                        <span>Excluir o modelo <strong>@m.Nome</strong> para toda a clínica? As prescrições já criadas com ele não mudam.</span>
+                                        <span class="botoes-linha">
+                                            <button type="button" class="botao perigo" disabled="@(!_editor.PodeCopiarUltimaPrescricao)" @onclick="() => _editor.ConfirmarExclusaoModeloAsync(m)">@(_editor.Ocupado ? "Excluindo…" : "Excluir modelo")</button>
+                                            <button type="button" class="botao" disabled="@(!_editor.PodeCopiarUltimaPrescricao)" @onclick="_editor.ManterModelo">Manter</button>
+                                        </span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="pre-modelo">
+                                        <div>
+                                            <span class="principal">@m.Nome</span>
+                                            @if (!string.IsNullOrWhiteSpace(m.Corpo))
+                                            {
+                                                <span class="secundario pre-modelo-corpo" title="@m.Corpo">@m.Corpo</span>
+                                            }
+                                        </div>
+                                        <span class="botoes-linha">
+                                            <button type="button" class="botao mini" title="Aplica o preparo e os medicamentos do modelo a esta infusão, para revisar antes de salvar"
+                                                    @onclick="() => _editor.AplicarModeloAsync(g, m, ConfirmarPerigo)">Usar e revisar</button>
+                                            <button type="button" class="botao mini contorno-perigo" title="Excluir este modelo para toda a clínica"
+                                                    @onclick="() => _editor.PedirExclusaoModelo(m)">Excluir modelo</button>
+                                        </span>
+                                    </div>
+                                }
+                            }
+                            @if (_editor.NenhumModeloVisivel)
+                            {
+                                <p class="secundario">@_editor.TextoSemModelos</p>
+                            }
+                        </div>
+                    </details>
+
+                    <button type="button" class="botao fantasma" @onclick="() => g.SalvandoComoModelo = !g.SalvandoComoModelo">Salvar esta infusão como modelo</button>
+                    @if (g.SalvandoComoModelo)
+                    {
+                        <div class="aviso info pre-salvar-modelo">
+                            <Campo Rotulo="Nome do modelo" Classe="largo">
+                                <input class="campo" maxlength="100" placeholder="Nome para encontrar depois" aria-label="Nome do modelo"
+                                       value="@g.NomeDoModelo" @oninput="e => g.NomeDoModelo = e.Value?.ToString() ?? string.Empty" />
+                            </Campo>
+                            <p class="secundario">Guarda o preparo e os medicamentos desta infusão, sem dados do paciente ou horário.</p>
+                            <span class="botoes-linha">
+                                <button type="button" class="botao" @onclick="() => g.SalvandoComoModelo = false">Cancelar</button>
+                                <button type="button" class="botao primario" disabled="@string.IsNullOrEmpty(g.NomeDoModelo)" @onclick="() => _editor.SalvarComoModeloAsync(g)">Salvar modelo</button>
+                            </span>
+                        </div>
+                    }
+
+                    <div class="pre-preparo">
+                        <Campo Rotulo="Diluente"><input class="campo" maxlength="120" aria-label="Diluente da infusão" value="@g.Diluente" @oninput="e => g.Diluente = e.Value?.ToString()" /></Campo>
+                        <Campo Rotulo="Volume (mL)"><input class="campo" maxlength="60" aria-label="Volume total da infusão em mL" value="@g.Volume" @oninput="e => g.Volume = e.Value?.ToString()" /></Campo>
+                        <Campo Rotulo="Via">
+                            <select class="campo" aria-label="Via de administração" value="@g.Via" @onchange="e => g.Via = Enum.Parse<ViaAdministracao>(e.Value!.ToString()!)">
+                                @foreach (var v in _editor.Vias)
+                                {
+                                    <option value="@v">@RotulosEnum.De(v)</option>
+                                }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Tempo"><input class="campo" maxlength="60" aria-label="Tempo de infusão" value="@g.Tempo" @oninput="e => g.Tempo = e.Value?.ToString()" /></Campo>
+                        <Campo Rotulo="Horário (opcional)"><input class="campo" maxlength="5" placeholder="HH:mm" title="Opcional, no formato HH:mm" aria-label="Horário previsto da infusão" value="@g.Horario" @oninput="e => g.Horario = e.Value?.ToString()" /></Campo>
+                    </div>
+
+                    <div class="pre-itens-cabecalho"><span>Medicamento</span><span>Quantidade / dose</span><span></span></div>
+                    @foreach (var i in g.Itens)
+                    {
+                        <div class="pre-item" @key="i">
+                            <div class="pre-item-linha">
+                                <BuscaDeMedicamento Texto="@i.Descricao" TextoChanged="v => i.Descricao = v" Catalogo="_editor.CatalogoMedicamentos" />
+                                <input class="campo" maxlength="60" placeholder="@i.DicaDose" aria-label="Quantidade ou dose com unidade"
+                                       title="Informe a quantidade junto da medida, por exemplo: 1 ampola." value="@i.Dose" @oninput="e => i.Dose = e.Value?.ToString()" />
+                                <button type="button" class="botao mini contorno-perigo" aria-label="Remover medicamento" @onclick="() => _editor.RemoverItem(i)">Remover</button>
+                            </div>
+                            <details class="pre-secao pre-sos">
+                                <summary>Observações do medicamento / SOS</summary>
+                                <label class="marcar"><input type="checkbox" checked="@i.SeNecessario" @onchange="e => i.SeNecessario = e.Value is true" />Se necessário (SOS)</label>
+                                <EditorTextoClinico Rotulo="Observação do medicamento" Linhas="2" Texto="@i.Observacoes" TextoChanged="v => i.Observacoes = v"
+                                                    Formato="@i.ObservacoesFormatadas" FormatoChanged="v => i.ObservacoesFormatadas = v" />
+                            </details>
+                        </div>
+                    }
+                    <p class="secundario">Sugestões a partir de 2 letras</p>
+                    <button type="button" class="botao fantasma" @onclick="() => _editor.AcrescentarItem(g)">+ Adicionar medicamento</button>
+                </section>
+            }
+            <button type="button" class="botao fantasma" title="Com preparo e medicamentos próprios" @onclick="_editor.CriarInfusao">+ Adicionar outra infusão</button>
+
+            <details class="pre-secao">
+                <summary>Observações</summary>
+                <EditorTextoClinico Rotulo="Observações" Linhas="3" Texto="@_editor.Observacoes" TextoChanged="v => _editor.Observacoes = v"
+                                    Formato="@_editor.ObservacoesFormatadas" FormatoChanged="v => _editor.ObservacoesFormatadas = v" />
+            </details>
+            <details class="pre-secao">
+                <summary>Data, hora e cadastro de medicamentos</summary>
+                <div class="pre-data">
+                    <Campo Rotulo="Data da prescrição">
+                        <input class="campo" type="date" aria-label="Data da prescrição"
+                               value="@_editor.DataPrescricao?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)"
+                               @onchange="TrocarData" />
+                    </Campo>
+                    <Campo Rotulo="Hora da prescrição">
+                        <input class="campo fol-curto" maxlength="5" placeholder="HH:mm" aria-label="Hora da prescrição"
+                               value="@_editor.HoraPrescricao" @oninput="e => _editor.HoraPrescricao = e.Value?.ToString() ?? string.Empty" />
+                    </Campo>
+                    <button type="button" class="botao" title="Relê os medicamentos cadastrados sem fechar a prescrição" @onclick="_editor.RecarregarMedicamentosAsync">Atualizar catálogo de medicamentos</button>
+                </div>
+            </details>
+        </fieldset>
+
+        <Aviso Texto="@_editor.Mensagem" Tom="@(_editor.MensagemEhErro ? "erro" : "info")" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao fantasma" @onclick="FecharAsync">Fechar</button>
+        <span class="secundario pre-rodape-dica">Salvar rascunho mantém a prescrição em edição.</span>
+        <button type="button" class="botao" disabled="@(!_editor.PodeCopiarUltimaPrescricao)" @onclick="_editor.SalvarRascunhoAsync">Salvar rascunho</button>
+        <button type="button" class="botao primario" disabled="@(!_editor.PodeAssinar)" @onclick="AssinarAsync">@_editor.RotuloLiberacao</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter, EditorRequired] public string Paciente { get; set; } = string.Empty;
+    [Parameter] public int? ProfissionalId { get; set; }
+    [Parameter] public int? AgendamentoId { get; set; }
+
+    /// <summary>Rascunho a REABRIR; nulo cria uma prescrição nova (que só ganha número no primeiro salvamento).</summary>
+    [Parameter] public int? PrescricaoId { get; set; }
+    [Parameter] public int? EvolucaoId { get; set; }
+
+    /// <summary>A última prescrição, quando a nova nasce como cópia dela.</summary>
+    [Parameter] public ModeloInfusao? Modelo { get; set; }
+
+    /// <summary>Verdadeiro = ASSINOU (quem abriu diz "enviada à sala").</summary>
+    [Parameter] public EventCallback<bool> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private PrescricaoDeInfusaoEmEdicao _editor = default!;
+
+    protected override void OnInitialized()
+    {
+        _editor = new PrescricaoDeInfusaoEmEdicao(Escopos, PacienteId, Paciente, ProfissionalId, AgendamentoId, PrescricaoId, EvolucaoId);
+        _editor.Mudou += AoMudar;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await _editor.InicializarAsync();
+        if (Modelo is not null) await _editor.AplicarCopiaDaUltimaAsync(Modelo, ConfirmarPerigo);
+    }
+
+    private void AoMudar() => _ = InvokeAsync(StateHasChanged);
+
+    private Task<bool> ConfirmarPerigo(string titulo, string mensagem) => Dialogos.ConfirmarAsync(titulo, mensagem, perigoso: true);
+
+    private void TrocarData(ChangeEventArgs e)
+        => _editor.DataPrescricao = DateTime.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    private Task CopiarUltimaAsync() => _editor.CopiarUltimaPrescricaoAsync(ConfirmarPerigo);
+
+    private Task RemoverInfusaoAsync(GrupoInfusaoEdicao g) => _editor.RemoverInfusaoAsync(g, ConfirmarPerigo);
+
+    private async Task AssinarAsync()
+    {
+        await _editor.AssinarAsync(ConfirmarPerigo, Assinatura.EscolherCertificadoAsync);
+        if (_editor.Liberou) await AoConcluir.InvokeAsync(_editor.Assinou);
+    }
+
+    // Enquanto uma gravação está no ar o formulário não fecha: fechar no meio deixaria a pessoa sem
+    // saber se a folha foi gravada.
+    private Task FecharAsync() => _editor.Ocupado ? Task.CompletedTask : AoConcluir.InvokeAsync(_editor.Assinou);
+
+    public override void Dispose()
+    {
+        _editor.Mudou -= AoMudar;
+        base.Dispose();
+    }
+}

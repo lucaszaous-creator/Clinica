@@ -1,6 +1,4 @@
 using Clinica.Application.Modelos;
-using Clinica.Clinico.Janelas;
-using Clinica.Clinico.ViewModels;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
@@ -13,11 +11,11 @@ namespace Clinica.Clinico.Modulo;
 /// <summary>
 /// A ponte WPF da folha do médico Blazor (out/2026): chama EXATAMENTE o que a
 /// <c>AtendimentoViewModel</c> / <c>PacienteWorkspaceViewModel</c> chamavam — a
-/// <c>DocumentoWindow</c> com a herança da sessão, a <c>PrescricaoInternaWindow</c> ligada ao
-/// horário e à evolução, a <c>ColetaDeTermo</c>, o <c>VinculoDeConvenio</c> e a pendência da
-/// conclusão automática. Nada é reescrito aqui: a ponte só leva o pedido à janela que já existe.
+/// <c>DocumentoWindow</c> com a herança da sessão, o <c>VinculoDeConvenio</c> e a pendência da
+/// conclusão automática (a prescrição de infusão e a coleta do termo viraram formulários Blazor
+/// em out/2026). Nada é reescrito aqui: a ponte só leva o pedido à janela que já existe.
 /// </summary>
-public sealed class JanelasDoAtendimentoClinicoWpf(IServiceScopeFactory escopos, IDialogoService dialogo)
+public sealed class JanelasDoAtendimentoClinicoWpf(IServiceScopeFactory escopos)
     : IJanelasDoAtendimentoClinico
 {
     public bool Disponivel => true;
@@ -28,22 +26,6 @@ public sealed class JanelasDoAtendimentoClinicoWpf(IServiceScopeFactory escopos,
         var janela = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() };
         return Task.FromResult(janela.ShowDialog() == true);
     });
-
-    public Task<bool> PrescreverInfusaoAsync(int pacienteId, string paciente, int? agendamentoId, int? evolucaoId)
-        => NaInterface(() =>
-        {
-            var vm = new PrescricaoInternaEdicaoViewModel(
-                escopos, dialogo, pacienteId, paciente, SessaoUsuario.Atual.ProfissionalId,
-                agendamentoId, evolucaoId: evolucaoId);
-            var janela = new PrescricaoInternaWindow(vm) { Owner = JanelaDona.Atual() };
-            janela.ShowDialog();
-            return Task.FromResult(janela.Assinou);
-        });
-
-    public Task<bool> ColherTermoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
-        int? profissionalId, int? agendamentoId)
-        => NaInterface(() => ColetaDeTermo.AbrirAsync(
-            escopos, pacienteId, paciente, modeloId, documentoId, profissionalId, agendamentoId));
 
     public Task<bool> EscolherConvenioAsync(int pacienteId)
         => NaInterface(() => VinculoDeConvenio.GarantirAsync(escopos, pacienteId, SessaoUsuario.Atual.Operador));

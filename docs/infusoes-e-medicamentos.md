@@ -19,5 +19,5 @@ O modo de continuidade sem assinatura continua controlado pela configuração ex
 ## Verificação
 
 - `MedicamentosEGruposTests` e `GruposInfusaoPortalTests`: catálogo, permissões, importação atômica, persistência, modelos, grupos e execução sem assinatura.
-- `tools/VerificarInfusao`: abre as telas WPF com banco fictício, verifica salvar/reabrir, modelos, quantidade e liberação; gera capturas reais e PDF.
+- `PrescricaoDeInfusaoEmEdicaoTests` (out/2026, no `dotnet test`): o editor virou formulário Blazor e o estado mora na Application — salvar/reabrir, modelos, quantidade e liberação sem assinatura são conferidos ali (era a ferramenta `tools/VerificarInfusao`, que abria a janela WPF).
 - Portal: `testar-grupos-infusao.mjs`, `testar-continuidade-sem-a1.mjs`, `testar-modelos-formatados.mjs`.

@@ -46,7 +46,9 @@ public sealed class PortasDoEnvioAoPacienteTests
     // A folha de infusão é folha INTERNA de execução da enfermagem: não vai ao paciente
     // (decisão da direção, out/2026). Nenhuma das telas dela oferece o envio.
     [Theory]
-    [InlineData("src/Clinica.Modulo.Clinico/Modulo/JanelasDaPrescricaoDeInfusaoWpf.cs")]
+    // O editor e a folha de execução viraram formulários Blazor (out/2026) — as janelas WPF saíram.
+    [InlineData("src/Clinica.Ui.Blazor/Formularios/Infusao/PrescricaoDeInfusaoForm.razor")]
+    [InlineData("src/Clinica.Ui.Blazor/Formularios/Infusao/FolhaDeExecucaoForm.razor")]
     [InlineData("src/Clinica.Ui.Blazor/Telas/Consultorio/PrescricaoDeInfusao.razor")]
     public void A_folha_de_infusao_nao_e_enviada_ao_paciente(string arquivo)
         => Ler(arquivo).Should().NotContain("Enviar", $"{arquivo} é a folha interna da infusão, que não vai ao paciente");

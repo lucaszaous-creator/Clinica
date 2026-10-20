@@ -151,8 +151,6 @@ jobs:
       - name: Conferir navegação dos cinco aplicativos e perfis
         run: dotnet run --project tools/Clinica.Verificacao.Desktop -c Release -- artifacts/navegacao-desktop
 
-      - name: Conferir infusões, modelos e catálogo de medicamentos
-        run: dotnet run --project tools/VerificarInfusao -c Release -- artifacts/infusao-desktop
 
 
   # ============================================================

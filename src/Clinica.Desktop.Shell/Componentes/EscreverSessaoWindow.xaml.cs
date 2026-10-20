@@ -5,8 +5,7 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// <summary>
 /// A janela de escrever a sessão pelo Prontuário e pela ficha do paciente.
 ///
-/// ⚠️ PONTO ÚNICO de abertura (o padrão da <see cref="ConsultaDeEnfermagemWindow"/> e do
-/// <see cref="ColetaDeTermo"/>): são DUAS portas na Recepção hoje, e cada uma montando a
+/// ⚠️ PONTO ÚNICO de abertura (o padrão do <see cref="ColetaDeTermo"/>): são DUAS portas na Recepção hoje, e cada uma montando a
 /// janela por conta própria daria duas montagens que divergem na primeira correção.
 ///
 /// Ela devolve <c>true</c> quando ALGUMA gravação houve — é isso que faz a tela de trás

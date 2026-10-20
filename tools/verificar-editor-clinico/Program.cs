@@ -119,17 +119,14 @@ static class Program
             PacienteId = paciente.Id, ProfissionalId = profissional.Id, Corpo = longo }, "qa.sintetico");
         File.WriteAllBytes(Path.Combine(Saida, "receituario-longo.pdf"), await scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>().GerarAsync(documento.Id, null));
 
-        var infusao = new PrescricaoInternaEdicaoViewModel(factory, dialogo, paciente.Id, paciente.Nome, profissional.Id);
-        await Esperar(() => !infusao.Ocupado);
-        Exigir(infusao.Itens.Single().Diluente == "SF 0,9%" && infusao.Itens.Single().TempoInfusao == "1 hora", "Padrões ausentes.");
-        infusao.Itens[0].Descricao = "Prescrição demonstrativa da infusão.\nTexto livre escrito pelo profissional, com as orientações necessárias.";
-        await Desenhar(new PrescricaoInternaWindow(infusao), "infusao.png", 980, 720);
+        // O editor da prescrição de infusão virou formulário Blazor (out/2026): os padrões e o
+        // estado são conferidos em PrescricaoDeInfusaoEmEdicaoTests; aqui fica o PDF longo.
         var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
         var prescricao = await servico.CriarAsync(paciente.Id, profissional.Id);
         await servico.SalvarRascunhoAsync(prescricao.Id, "Documento de demonstração", null,
             [new ItemPrescricaoInterna { Descricao = longo, Diluente = "SF 0,9%", TempoInfusao = "1 hora" }]);
         File.WriteAllBytes(Path.Combine(Saida, "infusao-longa.pdf"), await scope.ServiceProvider.GetRequiredService<PrescricaoInternaPdfService>().GerarPrescricaoAsync(prescricao.Id));
-        var linhaAntiga = LinhaItemPrescricao.De(new ItemPrescricaoInterna { Descricao = "Anterior", Diluente = null, TempoInfusao = "45 minutos" });
+        var linhaAntiga = Clinica.Application.Modelos.LinhaItemPrescricao.De(new ItemPrescricaoInterna { Descricao = "Anterior", Diluente = null, TempoInfusao = "45 minutos" });
         Exigir(linhaAntiga.Diluente is null && linhaAntiga.TempoInfusao == "45 minutos", "Reabertura alterou prescrição antiga.");
 
         var folha = new FolhaDaSessaoViewModel(factory) { Paciente = paciente.Nome, SemPaciente = false };

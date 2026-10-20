@@ -986,8 +986,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(
             Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
 
-        Clinica.Desktop.Shell.Componentes.EvolucaoEnfermagemWindow.Abrir(
-            _escopos, _dialogo, PacienteId, Nome);
+        // A evolução de enfermagem é formulário Blazor desde out/2026 (a janela WPF saiu).
+        await Clinica.Desktop.Shell.Componentes.ColetaDeTermo.AnotarEnfermagemAsync(_escopos, PacienteId, Nome);
 
         await CarregarAsync();
     }
@@ -1719,7 +1719,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// Colhe a assinatura do paciente no termo do procedimento de hoje (parcela 66, 2ª
     /// rodada) — a porta que o cliente pediu dentro da ficha.
     ///
-    /// A janela é a MESMA da fila (<c>AssinaturaPacienteWindow</c>, no shell): duas telas
+    /// O formulário é o MESMO da fila (o da coleta Blazor, pelo <c>ColetaDeTermo</c> do shell): duas telas
     /// para o mesmo ato divergem na primeira correção, e o que elas colhem é a prova de
     /// que o paciente consentiu.
     ///

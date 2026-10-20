@@ -313,6 +313,13 @@
     private IJanelasDoAtendimentoClinico Janelas
         => Servicos.GetService<IJanelasDoAtendimentoClinico>() ?? JanelasDoAtendimentoClinicoIndisponiveis.Instancia;
 
+    /// <summary>O editor da prescrição de infusão — formulário Blazor desde out/2026 (era a PrescricaoInternaWindow).</summary>
+    private IJanelasDaPrescricaoDeInfusao Infusao
+        => Servicos.GetService<IJanelasDaPrescricaoDeInfusao>() ?? JanelasDaPrescricaoDeInfusaoIndisponiveis.Instancia;
+
+    /// <summary>A coleta do termo — o ponto único das portas Blazor desde out/2026 (era a ColetaDeTermo WPF).</summary>
+    private ColetaDeTermoNaPagina? Coleta => Servicos.GetService<ColetaDeTermoNaPagina>();
+
     private static bool PodeEditar => FolhaDoAtendimento.PodeEditarProntuario;
     private bool PodeCopiar => PodeEditar && _folha is { Carregando: false, TemUltimaParaCopiar: true };
 
@@ -617,11 +624,11 @@
     {
         if (_folha is null || _ocupado) return;
         if (!Exigir(Permissao.Prescrever, "prescrever infusão")) return;
-        if (!Janelas.Disponivel) { Informar(JanelasDoAtendimentoClinicoIndisponiveis.Frase, erro: true); return; }
+        if (!Infusao.Disponivel) { Informar(JanelasDaPrescricaoDeInfusaoIndisponiveis.Frase, erro: true); return; }
         _ocupado = true;
         try
         {
-            await Janelas.PrescreverInfusaoAsync(Contexto.PacienteId, Contexto.Nome, Contexto.AgendamentoId,
+            await Infusao.PrescreverNaSessaoAsync(Contexto.PacienteId, Contexto.Nome, Contexto.AgendamentoId,
                 _folha.EvolucaoId == 0 ? null : _folha.EvolucaoId);
         }
         catch (Exception ex)
@@ -633,8 +640,8 @@
     }
 
     /// <summary>
-    /// A coleta do termo com o paciente na sala (a MESMA janela do balcão, área congelada). Sem
-    /// pendência, a janela pergunta qual termo (a coleta avulsa). Relê mesmo sem concluir: abrir
+    /// A coleta do termo com o paciente na sala (o MESMO formulário do balcão — ColetaDeTermoNaPagina).
+    /// Sem pendência, a coleta pergunta qual termo (a coleta avulsa). Relê mesmo sem concluir: abrir
     /// já EMITE o termo numerado.
     /// </summary>
     private async Task ColherTermoAsync()
@@ -645,12 +652,12 @@
             Informar("Você não tem permissão para colher a assinatura do paciente. Peça à direção o acesso \"Colher assinatura do paciente\".", erro: true);
             return;
         }
-        if (!Janelas.Disponivel) { Informar(JanelasDoAtendimentoClinicoIndisponiveis.Frase, erro: true); return; }
+        if (Coleta is not { } coleta) { Informar(JanelasDoAtendimentoClinicoIndisponiveis.Frase, erro: true); return; }
         var termo = _folha.TermoPendente;
         _ocupado = true;
         try
         {
-            var concluiu = await Janelas.ColherTermoAsync(Contexto.PacienteId, Contexto.Nome, termo?.ModeloId, termo?.DocumentoId,
+            var concluiu = await coleta.AbrirAsync(Contexto.PacienteId, Contexto.Nome, termo?.ModeloId, termo?.DocumentoId,
                 termo?.ProfissionalId, Contexto.AgendamentoId ?? termo?.AgendamentoId);
             await _folha.RelerAvisosAsync();
             if (concluiu) Notificacoes.Sucesso("Termo do procedimento resolvido.");

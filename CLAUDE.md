@@ -481,6 +481,15 @@ Se algo parecer errado: **peça o log** (`Diagnostico` grava a inner exception i
 **peça o commit do build**, **reproduza antes de corrigir** e **teste em homologação**.
 Não corrija por dedução — foi assim que três correções erradas chegaram à clínica.
 
+✅ **Autorização expressa de 19/10/2026 — SÓ A CAMADA DE TELA.** A direção autorizou converter
+para Blazor as janelas desta área (certificado A1, coleta do termo, prescrição de infusão,
+folha de execução, evolução de enfermagem da folha) e fará os testes de assinatura em
+homologação. **O motor continua congelado**: `Assinatura/`, `SafeID/`, os serviços de
+assinatura, `PublicacaoDocumentoService`, hash, PDF/PAdES, certificado e token. A tela nova
+chama os mesmos serviços, com os mesmos argumentos, na mesma ordem — a ordem que era protocolo
+mora em `Application/Modelos/AssinaturaNaTela.cs`, com teste. Mapa e roteiro de homologação:
+`docs/safeid-congelado.md` e `docs/safeid-telas-blazor-out2026.md`.
+
 
 ### ⛔ COMPROMISSO DE CONFORMIDADE — leia antes de mexer em qualquer coisa clínica
 

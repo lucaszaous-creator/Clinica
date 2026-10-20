@@ -50,21 +50,20 @@ O rascunho do médico e a passagem da enfermagem são guardados pela TELA (`ITel
 
 Toda tela aberta pelo menu ou pela navegação do Consultório é Blazor: nenhuma rota do `ModuloClinico.CriarTela` monta mais tela WPF. O que resta são **janelas** abertas por cima das telas Blazor, por ponte.
 
-### 2.1 Congeladas: ficam WPF por decisão da direção
+### 2.1 Área da assinatura: virou Blazor em out/2026, só a camada de tela
 
-| Janela | Para quê |
+A direção autorizou em 19/10/2026 converter estas janelas (eram congeladas). O motor continua congelado: [`safeid-congelado.md`](safeid-congelado.md). O roteiro de homologação está em [`safeid-telas-blazor-out2026.md`](safeid-telas-blazor-out2026.md).
+
+| Era (WPF) | Agora (Blazor) |
 |---|---|
-| `PrescricaoInternaWindow` | Prescrever a infusão, com a assinatura do médico |
-| `FolhaExecucaoWindow` | Folha de execução da enfermagem, com checagem e 2ª assinatura |
-| `EscolherCertificadoWindow` | Escolher o e-CPF |
-| `ColetaDeTermo` / `AssinaturaPacienteWindow` | Assinatura do paciente (termo do procedimento e LGPD) |
+| `PrescricaoInternaWindow` + `PrescricaoInternaEdicaoViewModel` | `Formularios/Infusao/PrescricaoDeInfusaoForm` (estado em `Application/Modelos/PrescricaoDeInfusaoEmEdicao`) |
+| `FolhaExecucaoWindow` + VM | `Formularios/Infusao/FolhaDeExecucaoForm` (estado em `FolhaDeExecucaoNaTela`) |
+| `InfusaoExternaWindow` | `Formularios/Infusao/InfusaoExternaForm` |
+| `EvolucaoEnfermagemWindow` e as views que ela hospedava | `Formularios/Infusao/EvolucaoDaFolhaForm` (reusa `FolhaDaPassagem`) |
+| `EscolherCertificadoWindow` | `Formularios/Assinatura/EscolherCertificadoForm` (porta `IAssinaturaNaTela`) |
+| `AssinaturaPacienteWindow`, `EscolherTermoWindow`, `EscolherSessaoDoTermoWindow` | `Formularios/Termo/*` (porta `ColetaDeTermoNaPagina`) |
 
-Elas são a área do SafeID e da assinatura digital ([`safeid-congelado.md`](safeid-congelado.md)):
-- cada tentativa de assinatura é cobrada pelo PSC;
-- foram sete rodadas em produção até funcionar;
-- os testes não enxergam e-CPF real.
-
-As telas Blazor só as chamam.
+A ordem das chamadas de assinatura mora em `Application/Modelos/AssinaturaNaTela.cs`, com teste (`AssinaturaNaTelaTests`). O código WPF que ainda pede um destes formulários (a ficha do balcão, a ponte dos Prontuários, a emissão de documento) os abre na **janela de transição** `JanelaDeFormularioBlazor`.
 
 ### 2.2 Podem virar Blazor
 
@@ -72,14 +71,12 @@ As telas Blazor só as chamam.
 |---|---|---|---|
 | `ResultadosDoPedidoWindow` + `RegistrarResultadoExameWindow` | ~300 + ~350 linhas | Exames (Consultório) | meio dia, as duas |
 | `ResumoProntuarioWindow` | ~500 linhas | Prontuários (Consultório) | meio dia |
-| `InfusaoExternaWindow` | ~180 linhas | Sala de infusão, prescrição | meio dia, com as duas abaixo |
 | `EscolhaDeConvenioWindow` (`VinculoDeConvenio`) | ~310 linhas | Finalizar, fila, Novo atendimento | |
 | `CobrancaDoPacienteWindow` | ~350 linhas | Ficha, Novo atendimento | |
 | `CadastroPacienteWindow` | ~530 linhas | Ficha, Pacientes, Agenda | meio dia |
 | `DocumentoWindow` (emitir receita, atestado, laudo) | ~1.200 linhas, 9 chamadores | os cinco apps | **1 dia**: a mais delicada (conferência de alergia na receita, prévia, CID sob autorização) |
-| `EvolucaoEnfermagemWindow` | já há o equivalente Blazor (`FolhaDaPassagem`) | a folha de execução | **depende de decisão** (§4) |
 
-As cinco últimas são do **shell** e servem também à Recepção e ao Gerente: convertê-las resolve os três módulos de uma vez.
+As quatro últimas são do **shell** e servem também à Recepção e ao Gerente: convertê-las resolve os três módulos de uma vez.
 
 ### 2.3 Por arquitetura
 
@@ -107,14 +104,14 @@ saíram em cerca de um dia de trabalho, com três frentes em paralelo.
 |---|---|---|---|
 | **PR A: Consultório completo** | as janelas da §2.2 | 2 a 3 dias | ~1 semana, com o CI e a conferência no build de teste |
 | **PR B: Recepção** | ficha do balcão + limpeza dos XAML mortos | ~3 a 5 dias | ~1,5 a 2 semanas para a suíte inteira, somando as duas PRs |
-| 100% literal | moldura + área congelada | não é possível sem mudar as duas decisões da §2.1 e §2.3 | — |
+| 100% literal | moldura | não é possível sem mudar a decisão da §2.3 (a área da assinatura já virou Blazor, §2.1) | — |
 
 Mesmo ritmo da PR 284: **uma PR por parte, mesclada só com o CI inteiro verde**.
 
-### Decisões que a direção precisa tomar
+### Decisões da direção (tomadas em 19/10/2026)
 
-1. **A passagem de enfermagem da Sala de infusão.** Ela é aberta de dentro da folha de execução, que está congelada. Para virar Blazor, a folha congelada teria de chamar a tela Blazor, e isso é mexer na área congelada. Sem autorização expressa, ela fica WPF.
-2. **A área congelada como um todo.** Reescrevê-la exige autorização expressa e testes de assinatura em homologação, porque cada tentativa é cobrada.
+1. ✅ **A passagem de enfermagem da Sala de infusão** virou Blazor junto com a folha de execução (`EvolucaoDaFolhaForm`).
+2. ✅ **A área congelada**: autorizada a conversão **só da camada de tela**. O motor (assinatura, PDF/PAdES, certificado, token, bytes assinados) continua congelado, e os testes de assinatura em homologação ficam com a clínica. Ver [`safeid-telas-blazor-out2026.md`](safeid-telas-blazor-out2026.md).
 
 ---
 

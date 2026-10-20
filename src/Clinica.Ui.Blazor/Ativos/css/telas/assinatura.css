@@ -1,0 +1,114 @@
+/* A ÁREA DA ASSINATURA EM BLAZOR (out/2026 — autorização da direção de 19/10/2026, só a camada de
+   tela): o seletor do A1, a coleta do termo do paciente, a folha de execução, o editor da prescrição
+   de infusão, a infusão externa e a evolução da folha. Só tokens (docs/telas-blazor.md). */
+
+/* ---------- Camadas ---------- */
+.camada-janela[hidden]{display:none}
+.formulario-avulso{min-height:100vh;background:var(--fundo)}
+
+/* ---------- O seletor do A1 ---------- */
+.assin-a1{border:1px solid var(--borda);border-radius:var(--radius-control);padding:var(--space-4);margin:0;
+  display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.assin-a1 legend{font-weight:600;padding:0 var(--space-2)}
+.assin-a1-linha{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3)}
+.assin-a1-linha > .campo{flex:1 1 240px;min-width:0}
+.assin-a1-arquivo{color:var(--texto-secundario);overflow-wrap:anywhere}
+.assin-lista{border:1px solid var(--borda);border-radius:var(--radius-card);padding:var(--space-3);background:var(--superficie)}
+.assin-cert{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-2);
+  border-radius:var(--radius-control)}
+.assin-cert.selecionado{background:var(--acento-suave)}
+.assin-cert > div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.assin-cert-detalhe{display:block;font-size:var(--text-small-size);overflow-wrap:anywhere}
+
+/* ---------- Escolhas (termo, sessão) ---------- */
+.assin-opcoes{list-style:none;margin:0;padding:var(--space-1);border:1px solid var(--borda);border-radius:var(--radius-control);
+  display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow-y:auto}
+.assin-opcoes li{display:flex;flex-direction:column;gap:2px;padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-control);cursor:pointer}
+.assin-opcoes li:hover{background:var(--superficie-hover)}
+.assin-opcoes li.selecionado{background:var(--acento-suave)}
+
+/* ---------- O termo do paciente ---------- */
+.assin-bloco{border:1px solid var(--borda);border-radius:var(--radius-card);padding:var(--space-4);
+  display:flex;flex-direction:column;gap:var(--space-3);background:var(--superficie)}
+.assin-bloco-topo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.assin-rotulo{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600;
+  text-transform:uppercase;letter-spacing:var(--text-secao-tracking)}
+.assin-corpo{margin:0;white-space:pre-line;line-height:1.55}
+.assin-declaracao{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding:var(--space-2) 0;border-top:1px solid var(--borda)}
+.assin-declaracao > div:first-child{flex:1 1 320px;min-width:0}
+.assin-sim-nao{display:flex;gap:var(--space-4)}
+.assin-alergia{border:2px solid var(--erro);background:var(--erro-suave);border-radius:var(--radius-card);
+  padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)}
+.assin-alergia p{margin:0}
+.assin-alergia-titulo,.assin-alergia-forte,.assin-alergia-item{color:var(--erro-texto);font-weight:700}
+.assin-alergia-titulo,.assin-alergia-item{font-size:var(--text-h3-size)}
+.assin-documento{flex:1 1 280px;min-width:0}
+.assin-traco-remoto img{max-height:140px;max-width:100%;border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie)}
+.assin-area{position:relative;border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie)}
+.assin-area-dica{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--texto-secundario);font-size:var(--text-h3-size);pointer-events:none}
+/* 220 de altura: o piso REAL para uma assinatura caber sem a pessoa apertar o traço (o do WPF). */
+.assin-canvas{display:block;width:100%;height:220px;touch-action:none;cursor:crosshair}
+.assin-rodape-espaco{flex:1 1 auto}
+
+/* ---------- A folha de execução ---------- */
+.fol-operacao{margin:0;font-weight:600;color:var(--acento)}
+.fol-folha{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:var(--space-3)}
+.fol-folha p{margin:0}
+.fol-hora{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3);padding:var(--space-3);
+  border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie)}
+.fol-hora > p{flex:1 1 240px}
+.campo.fol-curto{width:calc(var(--space-16) + var(--space-4))}
+.fol-itens{border:1px solid var(--borda);border-radius:var(--radius-card);background:var(--superficie)}
+.fol-item{display:grid;grid-template-columns:var(--space-8) minmax(0,1fr) auto;gap:var(--space-3);align-items:center;
+  padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--borda)}
+.fol-item:last-child{border-bottom:0}
+.fol-item > .botoes-linha{grid-column:2 / -1;justify-content:flex-start;flex-wrap:wrap}
+.fol-ordem{font-weight:600;color:var(--texto-secundario)}
+.fol-item-texto{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fol-item-texto .secundario{font-size:var(--text-small-size)}
+.fol-alergia{color:var(--erro-texto);background:var(--erro-suave);border-radius:var(--radius-pequeno);
+  padding:2px var(--space-2);font-weight:600;font-size:var(--text-small-size)}
+.fol-justificativa{color:var(--erro-texto);font-size:var(--text-small-size)}
+.fol-marca{font-weight:600;color:var(--texto-secundario)}
+.fol-marca.realizado{color:var(--sucesso-forte)}
+.fol-marca.nao-realizado{color:var(--erro-texto)}
+.fol-rodape{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:var(--space-2)}
+
+/* ---------- O editor da prescrição de infusão ---------- */
+.pre-topo{display:flex;justify-content:flex-end}
+.pre-editor{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:var(--space-3)}
+.pre-secao > summary{cursor:pointer;font-weight:600;padding:var(--space-2) 0}
+.pre-secao[open]{display:flex;flex-direction:column;gap:var(--space-2)}
+.pre-infusao{border-top:1px solid var(--borda);border-bottom:1px solid var(--borda);padding:var(--space-4) 0;
+  display:flex;flex-direction:column;gap:var(--space-3)}
+.pre-infusao-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3)}
+.pre-infusao-topo h3{margin:0;font-size:var(--text-h3-size)}
+.pre-modelos{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto}
+.pre-modelo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2);
+  padding:var(--space-2) 0;border-bottom:1px solid var(--borda)}
+.pre-modelo > div{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 240px}
+.pre-modelo-corpo{font-size:var(--text-small-size);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pre-salvar-modelo{flex-direction:column;align-items:stretch}
+.pre-preparo{display:grid;grid-template-columns:2fr 1.1fr 1.8fr 1.1fr 1fr;gap:var(--space-3)}
+.pre-itens-cabecalho,.pre-item-linha{display:grid;grid-template-columns:minmax(0,1fr) calc(var(--space-16) * 3) auto;gap:var(--space-3);align-items:start}
+.pre-itens-cabecalho{color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600}
+.pre-item{display:flex;flex-direction:column;gap:var(--space-1)}
+.pre-sos{font-size:var(--text-small-size)}
+.pre-data{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3)}
+.pre-rodape-dica{margin-right:auto;font-size:var(--text-small-size)}
+.busca-medicamento{position:relative;min-width:0}
+.busca-medicamento-lista{position:absolute;left:0;right:0;top:100%;z-index:5}
+@media (max-width: 860px){
+  .pre-preparo{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pre-itens-cabecalho{display:none}
+  .pre-item-linha{grid-template-columns:minmax(0,1fr)}
+}
+
+/* ---------- A evolução de enfermagem da folha ---------- */
+.evo-folha{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:var(--space-4);align-items:start}
+.evo-reler{min-width:0}
+.evo-mensagem{margin:0 auto 0 0;flex:1 1 240px}
+@media (max-width: 860px){ .evo-folha{grid-template-columns:minmax(0,1fr)} }

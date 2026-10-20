@@ -6,8 +6,10 @@ namespace Clinica.Ui.Blazor.Hospedagem;
 
 /// <summary>
 /// O que a central de Documentos (Blazor, out/2026) pede ao aplicativo e que continua WPF: as
-/// JANELAS de emissão de cada papel (<c>DocumentoWindow</c>, <c>OrcamentoWindow</c>), a coleta
-/// do termo (<c>ColetaDeTermo</c>) e os seis atos do documento clínico já emitido
+/// JANELAS de emissão de cada papel (<c>DocumentoWindow</c>, <c>OrcamentoWindow</c>) e os seis
+/// atos do documento clínico já emitido (a coleta do termo virou formulário Blazor em out/2026 —
+/// <see cref="ColetaDeTermoNaPagina"/>; e o "Assinar" das telas Blazor passa por
+/// <see cref="IAssinaturaNaTela"/>)
 /// (<c>AcoesDoDocumento</c> — 2ª via, assinar com e-CPF, enviar, renovar o link, tirar do ar,
 /// cancelar, e a nova versão do laudo).
 ///
@@ -31,17 +33,6 @@ public interface IDocumentosDaRecepcao
 
     /// <summary>O orçamento livre. Devolve o número emitido, ou nulo quando a pessoa desistiu.</summary>
     Task<string?> EmitirOrcamentoAsync(int pacienteId, string paciente);
-
-    /// <summary>A coleta do termo (o LGPD é montado das finalidades; o do procedimento pergunta o modelo).</summary>
-    Task<bool> ColherTermoAsync(int pacienteId, string paciente, bool consentimentoLgpd);
-
-    /// <summary>
-    /// A coleta do termo de UM procedimento já conhecido (a linha "termos de hoje" da ficha): o
-    /// modelo, o papel já emitido, quem atende e a sessão viajam junto — sem eles o termo nasce
-    /// órfão e a coleta pergunta de novo o que a linha já sabia.
-    /// </summary>
-    Task<bool> ColherTermoDoProcedimentoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
-        int? profissionalId, int? agendamentoId) => Task.FromResult(false);
 
     /// <summary>Os atos que a linha oferece — a mesma resolução das outras portas (estado E bit do tipo).</summary>
     AtosDoDocumento Atos(DocumentoEmitido doc);
@@ -123,7 +114,6 @@ public sealed class DocumentosDaRecepcaoIndisponiveis : IDocumentosDaRecepcao
 
     public Task<bool> EmitirEscritoAsync(int pacienteId, TipoDocumentoClinico tipo) => Task.FromResult(false);
     public Task<string?> EmitirOrcamentoAsync(int pacienteId, string paciente) => Task.FromResult<string?>(null);
-    public Task<bool> ColherTermoAsync(int pacienteId, string paciente, bool consentimentoLgpd) => Task.FromResult(false);
 
     /// <summary>Só o cancelamento é oferecido (pelo bit do tipo): ele é o ato que a prévia ainda deixa ver de onde vem.</summary>
     public AtosDoDocumento Atos(DocumentoEmitido doc)

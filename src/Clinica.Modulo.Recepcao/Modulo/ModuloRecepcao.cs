@@ -486,10 +486,9 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, DocumentosDaRecepcaoWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral, AgendaDaVisaoGeral>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento, JanelasDoAtendimentoWpf>();
-        // A sala é publicada pelos dois módulos: TryAdd, uma ponte só no Gerente.
-        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
-            Clinica.Ui.Blazor.Hospedagem.IJanelasDaSalaDeInfusao, Clinica.Desktop.Blazor.JanelasDaSalaDeInfusaoWpf>(servicos);
-        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaEnfermagem, Clinica.Desktop.Blazor.JanelasDaEnfermagemWpf>(servicos);
+        // A sala de infusão e a enfermagem abrem FORMULÁRIOS BLAZOR desde out/2026 (folha de
+        // execução, evolução da folha, infusão externa, coleta do termo): quem os registra é a
+        // hospedagem Blazor (AddTelasBlazor) — não há mais ponte WPF para eles aqui.
         servicos.AddTransient<ProntuarioViewModel>();
         // Os ViewModels de formulário (agendamento, lista de espera, profissional,
         // sala, paciente, evolução) são construídos à mão pelas telas: cada janela abre

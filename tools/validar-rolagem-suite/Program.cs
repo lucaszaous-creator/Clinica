@@ -144,7 +144,7 @@ internal static class Program
         Janela.Close();
         Janela = new Window { Width = 900, Height = 600, Left = -30000, Top = -30000, ShowInTaskbar = false, ShowActivated = false };
         Janela.Show();
-        foreach (var arquivo in new[] { "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml", "src/Clinica.Desktop.Shell/Componentes/FolhaExecucaoWindow.xaml", "src/Clinica.Desktop.Shell/Shell/ShellWindow.xaml" })
+        foreach (var arquivo in new[] { "src/Clinica.Desktop.Shell/Shell/ShellWindow.xaml" })
         {
             var propriedade = arquivo.EndsWith("ShellWindow.xaml") ? "ResultadosPesquisa" : "Alertas";
             var xml = XDocument.Load(Path.Combine(raiz, arquivo));

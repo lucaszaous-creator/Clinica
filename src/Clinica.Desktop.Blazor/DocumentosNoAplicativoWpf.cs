@@ -53,17 +53,6 @@ public class DocumentosNoAplicativoWpf(
     protected IServiceScopeFactory Escopos => escopos;
     protected IDialogoService Dialogo => dialogo;
 
-    public Task<bool> ColherTermoAsync(int pacienteId, string paciente, bool consentimentoLgpd) => NaInterface(() =>
-        // São DOIS termos: o do procedimento copia um modelo (a janela pergunta qual), o LGPD
-        // é montado das finalidades — perguntar "qual termo?" ofereceria uma lista sem ele.
-        consentimentoLgpd
-            ? Task.FromResult(ColetaDeTermo.AbrirConsentimentoLgpd(escopos, pacienteId, paciente))
-            : ColetaDeTermo.AbrirAsync(escopos, pacienteId, paciente));
-
-    public Task<bool> ColherTermoDoProcedimentoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
-        int? profissionalId, int? agendamentoId) => NaInterface(() =>
-        ColetaDeTermo.AbrirAsync(escopos, pacienteId, paciente, modeloId, documentoId, profissionalId, agendamentoId));
-
     public AtosDoDocumento Atos(DocumentoEmitido doc)
     {
         var d = Converter(doc);

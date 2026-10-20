@@ -1,0 +1,87 @@
+@*
+  "QUAL TERMO O PACIENTE VAI ASSINAR?" — a pergunta da coleta AVULSA (out/2026: substitui o
+  EscolherTermoWindow + EscolherTermoViewModel WPF). Nas portas do DIA o modelo já vem decidido
+  pela exigência do procedimento; aqui não há procedimento, e alguém precisa dizer qual papel é.
+  Deliberadamente magro — lista, um clique, pronto: cada campo a mais aqui é um a menos de
+  atenção no termo, que é onde a atenção importa.
+*@
+@inherits TelaBase
+
+<Modal Titulo="Qual termo o paciente vai assinar?" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <p class="secundario"><strong>@PacienteNome</strong> — o termo vale a partir da assinatura; não é preciso esperar o dia do procedimento.</p>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="48" />
+        }
+        else if (_modelos.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhum termo escrito" Icone="documento"
+                         Descricao="A direção escreve o texto em Configurações → “Escrever termos…”." />
+        }
+        else
+        {
+            <ul class="assin-opcoes" role="listbox" aria-label="Termos">
+                @foreach (var m in _modelos)
+                {
+                    <li role="option" aria-selected="@(ReferenceEquals(m, _selecionado) ? "true" : "false")"
+                        class="@(ReferenceEquals(m, _selecionado) ? "selecionado" : null)" @onclick="() => _selecionado = m"
+                        @ondblclick="() => EscolherAsync(m)">
+                        <span class="principal">@m.Nome</span>
+                        @if (!string.IsNullOrWhiteSpace(m.Titulo))
+                        {
+                            <span class="secundario">@m.Titulo</span>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+        <Aviso Texto="@_mensagem" Tom="atencao" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_selecionado is null || _carregando)" @onclick="() => EscolherAsync(_selecionado)">Colher assinatura…</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public string PacienteNome { get; set; } = string.Empty;
+    [Parameter] public EventCallback<ModeloDocumento> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private List<ModeloDocumento> _modelos = [];
+    private ModeloDocumento? _selecionado;
+    private bool _carregando = true;
+    private string? _mensagem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            IReadOnlyList<ModeloDocumento> modelos;
+            using (var escopo = Escopo())
+                modelos = await escopo.ServiceProvider.GetRequiredService<TermoProcedimentoService>().ModelosDisponiveisAsync();
+            if (Descartada) return;
+            _modelos = modelos.ToList();
+            _selecionado = _modelos.FirstOrDefault();
+            // Estado vazio que DIZ o que fazer: lista em branco se leria como tela quebrada.
+            if (_modelos.Count == 0) _mensagem = Clinica.Application.Modelos.ColetaDeTermoNaTela.NenhumTermoEscrito;
+        }
+        catch (Exception ex)
+        {
+            _mensagem = "Não foi possível carregar os termos: " + ex.Message;
+            Clinica.Application.Diagnostico.Registrar("Escolha do termo do procedimento", ex);
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private async Task EscolherAsync(ModeloDocumento? modelo)
+    {
+        // Guarda que FALA: voltar calada é botão que não faz nada (parcela 41).
+        if (modelo is null) { _mensagem = "Escolha qual termo o paciente vai assinar."; return; }
+        await AoConcluir.InvokeAsync(modelo);
+    }
+}

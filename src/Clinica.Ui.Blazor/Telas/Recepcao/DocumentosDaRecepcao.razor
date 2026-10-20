@@ -508,9 +508,13 @@
     private async Task ColherTermoAsync(FolhaCatalogo folha)
     {
         if (!Exigir(folha.PermissaoEmitir, $"colher {folha.Rotulo.ToLowerInvariant()}")) return;
-        if (_paciente is not { } p || !PonteDisponivel()) return;
+        if (_paciente is not { } p) return;
+        if (Servicos.GetService<ColetaDeTermoNaPagina>() is not { } coleta) { Dizer(ResultadoDoAto.Indisponivel.Frase, true); return; }
 
-        var concluiu = await Ponte.ColherTermoAsync(p.Id, p.Nome, folha.TipoClinico == TipoDocumentoClinico.Consentimento);
+        // O LGPD é montado das finalidades; o do procedimento pergunta o modelo (a coleta avulsa).
+        var concluiu = folha.TipoClinico == TipoDocumentoClinico.Consentimento
+            ? await coleta.AbrirConsentimentoLgpdAsync(p.Id, p.Nome)
+            : await coleta.AbrirAsync(p.Id, p.Nome);
         await CarregarAsync();
         if (concluiu) Notificacoes.Sucesso($"{folha.Rotulo} assinado.");
     }
@@ -671,7 +675,11 @@
         {
             if (DocumentoEmitido.De(l.Folha, Hoje) is { } doc)
             {
-                var r = await Ponte.ExecutarAsync(ato, doc);
+                // Assinar com o A1 é formulário Blazor desde out/2026 (IAssinaturaNaTela — o MESMO
+                // serviço e a MESMA ordem do WPF); os outros atos seguem pela ponte.
+                var r = ato == AtoDoDocumento.Assinar && Servicos.GetService<IAssinaturaNaTela>() is { } assinatura
+                    ? await assinatura.AssinarDocumentoAsync(doc)
+                    : await Ponte.ExecutarAsync(ato, doc);
                 if (!r.Silencioso) Dizer(r.Frase, r.EhErro);
                 if (r.Mudou) await CarregarAsync();
                 return;

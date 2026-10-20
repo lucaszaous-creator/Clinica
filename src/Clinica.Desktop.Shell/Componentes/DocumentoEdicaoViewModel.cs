@@ -522,7 +522,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         //
         // Recusar no CONSTRUTOR, e não no seletor, porque o tipo também chega por parâmetro:
         // é a porta por onde a central de documentos passava antes de a exigência
-        // `ProcedimentoDoDia` existir. Quem colhe o termo é a `AssinaturaPacienteWindow`.
+        // `ProcedimentoDoDia` existir. Quem colhe o termo é o formulário Blazor da coleta (`ColetaDeTermo`).
         // ⚠️ A frase NOMEIA a porta certa de cada tipo. "No dia do procedimento" é verdade
         // para o termo do BSV e MENTIRA para o termo LGPD, que é do paciente e não de uma
         // sessão — instrução errada com cara de instrução certa manda a pessoa procurar

@@ -10,6 +10,36 @@ estes arquivos, **pare e pergunte antes**.
 
 ---
 
+## ✅ Autorização expressa de 19/10/2026 — SÓ A CAMADA DE TELA
+
+**A direção (dona da clínica) autorizou em 19/10/2026 converter para Blazor as TELAS desta
+área**, e aceitou fazer ela mesma, depois, os testes de assinatura em homologação (cada
+tentativa é cobrada). O alcance é estreito e está escrito para ninguém o alargar de raspão:
+
+- ✅ **Pode**: trocar as janelas WPF por formulários Blazor — a escolha do certificado A1
+  (`EscolherCertificadoWindow`), a coleta da assinatura do paciente (`ColetaDeTermo`,
+  `AssinaturaPacienteWindow`, `EscolherTermoWindow`, `EscolherSessaoDoTermoWindow`), a
+  prescrição de infusão (`PrescricaoInternaWindow`), a folha de execução
+  (`FolhaExecucaoWindow`, `InfusaoExternaWindow`) e a evolução de enfermagem da folha
+  (`EvolucaoEnfermagemWindow` e as views que ela hospedava).
+- ✅ **Pode**: mover, SEM MUDAR COMPORTAMENTO, a lógica que morava num ViewModel e é parte do
+  protocolo (a abertura e a conferência do A1, a ORDEM conferência → confirmação de alergia
+  → certificado → assinatura) para classes fora da tela, onde o `dotnet test` alcança.
+- ❌ **Não pode** (continua congelado, mesmo com esta autorização): `Assinatura/`, `SafeID/`,
+  `AssinaturaDigitalService`, `CertificadoIcpBrasil`, `TitularDoCertificado`,
+  `AssinaturaDeDocumentoClinicoService`, `AssinaturaDePrescricaoService`,
+  `PublicacaoDocumentoService`, hash, PDF/PAdES, a revisão incremental, o tratamento do
+  certificado, o fluxo de token, nem QUAIS bytes são assinados.
+
+A regra que a conversão segue: **a tela Blazor chama os MESMOS serviços, com os MESMOS
+argumentos, na MESMA ordem** que os ViewModels WPF chamavam. Onde a ordem era protocolo, ela
+saiu do ViewModel para `src/Clinica.Application/Modelos/AssinaturaNaTela.cs` (movida linha a
+linha) e há teste que a fixa (`AssinaturaNaTelaTests`). O roteiro do que a direção precisa
+testar em homologação, caminho por caminho, está em
+[`docs/safeid-telas-blazor-out2026.md`](safeid-telas-blazor-out2026.md).
+
+---
+
 ## Por que
 
 Em 14/08/2026 a assinatura em nuvem passou a funcionar depois de **sete rodadas** de
@@ -71,7 +101,7 @@ src/Clinica.Infrastructure/ArmazenamentoS3.cs
 
 ### Fora do congelamento
 
-- **A assinatura do PACIENTE** (`AssinaturaDoPacienteService`, `AssinaturaPacienteWindow`) —
+- **A assinatura do PACIENTE** (`AssinaturaDoPacienteService`; a tela é o `AssinaturaDoPacienteForm` Blazor desde out/2026, antes `AssinaturaPacienteWindow`) —
   é assinatura eletrônica **simples**, feita a dedo na tela, e não usa certificado nem PSC.
   Outro assunto, outro risco.
 - As **telas que CHAMAM** a assinatura (`DocumentoEdicaoViewModel`, `PrescricoesClinicas

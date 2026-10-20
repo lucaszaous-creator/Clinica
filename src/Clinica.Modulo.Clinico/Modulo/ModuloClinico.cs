@@ -544,13 +544,10 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDosProntuarios, JanelasDosProntuariosWpf>();
 
         servicos.AddTransient<Clinica.Infrastructure.SessoesEnfermagemService>(); // a SEÇÃO da tela do paciente (WPF) continua
-        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaPrescricaoDeInfusao, JanelasDaPrescricaoDeInfusaoWpf>();
-        // A sala é publicada pelos dois módulos: TryAdd, uma ponte só no Gerente.
-        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
-            Clinica.Ui.Blazor.Hospedagem.IJanelasDaSalaDeInfusao, Clinica.Desktop.Blazor.JanelasDaSalaDeInfusaoWpf>(servicos);
-        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaEnfermagem, Clinica.Desktop.Blazor.JanelasDaEnfermagemWpf>(servicos);
-        // PrescricaoInternaEdicaoViewModel, FolhaExecucaoViewModel e EscolherCertificadoViewModel
-        // são construídos à mão pelas pontes: eles recebem o paciente e a prescrição escolhidos.
+        // A prescrição de infusão, a folha de execução, a evolução de enfermagem da folha, a coleta
+        // do termo e o seletor do A1 são FORMULÁRIOS BLAZOR desde out/2026 (autorização da direção
+        // de 19/10/2026, só a camada de tela): quem os registra é a hospedagem Blazor
+        // (AddTelasBlazor), Scoped por navegador — não há mais ponte WPF para eles aqui.
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
