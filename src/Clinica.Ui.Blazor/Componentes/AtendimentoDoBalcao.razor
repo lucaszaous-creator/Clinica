@@ -407,7 +407,7 @@
     private IJanelasDoAtendimento Janelas => Servicos.GetService<IJanelasDoAtendimento>() ?? JanelasDoAtendimentoIndisponiveis.Instancia;
     private FormulariosDoPaciente Formularios => Servicos.GetRequiredService<FormulariosDoPaciente>();
 
-    /// <summary>O bit de receber no balcão (o mesmo QuemRecebe da CobrancaDoPacienteViewModel).</summary>
+    /// <summary>O bit de receber no balcão (o mesmo conjunto de PagamentosNaTela.QuemRecebe).</summary>
     private const Permissao QuemRecebe = Permissao.EditarFinanceiro | Permissao.LancarAtendimento | Permissao.VenderPacote;
 
     // ==================== estado ====================

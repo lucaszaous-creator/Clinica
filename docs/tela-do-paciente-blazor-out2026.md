@@ -46,61 +46,41 @@ O rascunho do médico e a passagem da enfermagem são guardados pela TELA (`ITel
 
 ---
 
-## 2. O que ainda é WPF no Consultório
+## 2. Inventário: o que já é Blazor e o que ainda é WPF (a suíte inteira)
 
-Toda tela aberta pelo menu ou pela navegação do Consultório é Blazor: nenhuma rota do `ModuloClinico.CriarTela` monta mais tela WPF. O que resta são **janelas** abertas por cima das telas Blazor, por ponte.
+Esta PR juntou várias frentes (a tela do paciente, os exames e o prontuário, o cadastro, a
+moldura e a Recepção). Esta seção é o inventário ÚNICO do resultado; o detalhe de cada frente
+fica na sua própria seção (§1, §2.3, §4 e §5).
 
-### 2.1 Congeladas: ficam WPF por decisão da direção
+Toda tela aberta pelo menu ou pela navegação dos cinco apps é Blazor: nenhuma rota de
+`IModuloApp.CriarTela` monta tela WPF, e os módulos da Recepção, do Financeiro e do Gerente não
+têm mais XAML nenhum. O que resta de WPF são **janelas** abertas por cima das telas Blazor, por
+ponte, mais a janela nativa que o Blazor Hybrid exige.
 
-| Janela | Para quê |
-|---|---|
-| `PrescricaoInternaWindow` | Prescrever a infusão, com a assinatura do médico |
-| `FolhaExecucaoWindow` | Folha de execução da enfermagem, com checagem e 2ª assinatura |
-| `EscolherCertificadoWindow` | Escolher o e-CPF |
-| `ColetaDeTermo` / `AssinaturaPacienteWindow` | Assinatura do paciente (termo do procedimento e LGPD) |
+### 2.1 Já convertido
 
-Elas são a área do SafeID e da assinatura digital ([`safeid-congelado.md`](safeid-congelado.md)):
-- cada tentativa de assinatura é cobrada pelo PSC;
-- foram sete rodadas em produção até funcionar;
-- os testes não enxergam e-CPF real.
-
-As telas Blazor só as chamam.
-
-### 2.2 Podem virar Blazor
-
-| Janela | Tamanho (XAML + VM) | Onde é usada | Esforço |
+| Frente | Era WPF | Virou Blazor | Detalhe |
 |---|---|---|---|
-| `InfusaoExternaWindow` | ~180 linhas | Sala de infusão, prescrição | meio dia, com as duas abaixo |
-| ~~`EscolhaDeConvenioWindow` (`VinculoDeConvenio`)~~ | ~310 linhas | Finalizar, fila, Novo atendimento | **convertida** (§2.2.2) |
-| ~~`CadastroPacienteWindow`~~ (+ `CapturaFotoWindow`) | ~530 linhas | Ficha, Pacientes, Agenda | **convertida** (§2.2.2) |
-| `DocumentoWindow` (emitir receita, atestado, laudo) | ~1.200 linhas, 9 chamadores | os cinco apps | **1 dia**: a mais delicada (conferência de alergia na receita, prévia, CID sob autorização) |
-| `EvolucaoEnfermagemWindow` | já há o equivalente Blazor (`FolhaDaPassagem`) | a folha de execução | **depende de decisão** (§4) |
+| Tela do paciente (esta PR) | `PacienteWorkspaceView` e as seções e janelas que só ele abria, a `EnfermagemView`, a lista de pacientes da Recepção | `TelaDoPaciente`, a tela Enfermagem, `ListaDePacientesDoPosto` | §1 |
+| Exames e prontuário (`claude/wpf-exames`) | `RegistrarResultadoExameWindow`, `ResultadosDoPedidoWindow`, `ResumoProntuarioWindow`, `EscolherPacienteWindow`, `SessaoDoProntuarioWindow`, `VersoesEvolucaoWindow` | `ResultadoExameForm`, `ResultadosDoPedidoForm`, `ResumoProntuarioForm` → `SessaoDoProntuarioForm` → `VersoesEvolucaoForm`, `EscolherPacienteForm`; na enfermagem, `SessaoMedicaForm` | abaixo |
+| Cobrança no balcão | `CobrancaDoPacienteWindow` → `RecebimentoWindow` (`ReceberPagamentoViewModel`, `DadosRecebimentoView`) | `CobrancaDoPacienteForm` → `ReceberPagamentoForm` | a regra em `CobrancaDoPacienteNaTela` / `PagamentosNaTela` |
+| Cadastro do paciente (`claude/wpf-cadastro`) | `CadastroPacienteWindow`/`ViewModel`, `CapturaFotoWindow` (+ `CameraServico` e os pacotes AForge), `EscolhaDeConvenioWindow`/`ViewModel` (+ `VinculoDeConvenio`) | `CadastroPacienteForm`, `CapturaFotoForm`, `EscolhaDeConvenioForm`, abertos por `FormulariosDoPaciente` | abaixo |
+| Moldura (`claude/wpf-moldura`) | `LoginWindow`, `SetupWindow`, `ShellWindow`, `TelaComAbas.xaml`, `TrocaSenhaWindow`, `TreinamentoView` | `Moldura/*.razor`, `Telas/Treinamento.razor` | §2.3 |
+| Recepção (`claude/wpf-balcao`) | a ficha do balcão (`FichaBalcaoView` + `FichaPacienteViewModel`), as janelas da agenda (`AgendaViewModel`, `AgendamentoEdicaoViewModel`), o orçamento livre | `FichaDoBalcao`, os formulários da Grade, `OrcamentoLivreForm` | §4 |
 
-As cinco últimas são do **shell** e servem também à Recepção e ao Gerente: convertê-las resolve os três módulos de uma vez.
+As janelas do shell que essas frentes substituíram ficaram sem chamador quando a ficha do balcão e
+a agenda WPF saíram, e foram apagadas (§5).
 
-### 2.2.1 Convertidas depois da PR 285 (branch `claude/wpf-exames`)
-
-| Janela WPF | Virou | Onde abre | Saiu do código? |
-|---|---|---|---|
-| `RegistrarResultadoExameWindow` + VM | `ResultadoExameForm` (já existia, da seção Exames e anexos) | Exames → "Anexar laudo" | **Sim** |
-| `ResultadosDoPedidoWindow` + VM | `ResultadosDoPedidoForm` | Exames → "Ver resultados" | **Sim** |
-| `ResumoProntuarioWindow` + VM | `ResumoProntuarioForm` (abre o `SessaoDoProntuarioForm`, que abre o `VersoesEvolucaoForm`) | Prontuários → "Abrir" | **Sim** |
-| `EscolherPacienteWindow` | `EscolherPacienteForm` (o `SeletorDePaciente` num `Modal`) | Exames → "Novo pedido"; Sala de infusão → infusão externa | **Sim** |
-| `CobrancaDoPacienteWindow` → `RecebimentoWindow` | `CobrancaDoPacienteForm` → `ReceberPagamentoForm` | Ficha (aba administrativa) e Lançar/Marcar | **Não**: a ficha do balcão WPF (`FichaPacienteViewModel`) ainda as abre |
-| `EnvioAoPacienteWindow` | `EnvioAoPacienteForm` (+ ponte `IEntregaAoPaciente` para o WhatsApp deste computador) | Documentos → "Enviar ao paciente…"; "já saiu hoje" do atendimento | **Não**: a ficha do balcão e o fim da emissão na `DocumentoWindow` ainda passam por `AcoesDoDocumento.EnviarAsync` |
-| `SessaoDoProntuarioWindow`, `VersoesEvolucaoWindow` | (o resumo Blazor já usa os formulários) | — | **Não**: a ficha e o Prontuário da Recepção WPF ainda as abrem |
-
-Métodos de ponte que saíram junto: `IJanelasDosExames.RegistrarResultadoAsync`/`VerResultadosAsync`
+**Exames e prontuário.** Métodos de ponte que saíram junto: `IJanelasDosExames.RegistrarResultadoAsync`/`VerResultadosAsync`
 (e `NovoPedidoAsync` passou a receber o paciente), `IJanelasDosProntuarios.AbrirResumoAsync`,
 `IJanelasDaFicha.ReceberDividaAsync`, `IJanelasDoAtendimento.ReceberDividaAsync`,
 `IJanelasDoAtendimentoClinico.EnviarAoPacienteAsync`; `IJanelasDaSalaDeInfusao.RegistrarInfusaoExternaAsync`
-passou a receber o paciente. As janelas que ficaram somem quando a ficha do balcão e a
-`DocumentoWindow` virarem Blazor — aí os seus últimos chamadores saem. Diferença de comportamento
-assumida: o `EscolherPacienteForm` abre com a busca VAZIA (o `SeletorDePaciente` da casa não
-despeja o alfabeto), enquanto a janela WPF abria com os primeiros da carteira; e a cobrança não
-oferece "Convênio" como forma (o mesmo corte do recebimento do balcão).
-### 2.2.2 Cadastro do paciente, foto e convênio "a definir" (convertidos, out/2026)
+passou a receber o paciente. Diferença de comportamento assumida: o `EscolherPacienteForm` abre
+com a busca VAZIA (o `SeletorDePaciente` da casa não despeja o alfabeto), enquanto a janela WPF
+abria com os primeiros da carteira; e a cobrança não oferece "Convênio" como forma (o mesmo corte
+do recebimento do balcão).
 
+**Cadastro do paciente, foto e convênio "a definir".**
 - **`CadastroPacienteForm`** (novo e edição), **`CapturaFotoForm`** (webcam) e
   **`EscolhaDeConvenioForm`**, em `Clinica.Ui.Blazor/Formularios/Paciente/`. As regras
   (ordem das recusas do Salvar, categoria sugerida pelo convênio, convênio e modalidade que a
@@ -124,15 +104,6 @@ oferece "Convênio" como forma (o mesmo corte do recebimento do balcão).
   `IJanelasDaAgenda.EscolherConvenioAsync`, `IJanelasDoAtendimentoClinico.EscolherConvenioAsync`
   e `IBalcaoDaRecepcao.CadastrarPacienteAsync` (+ `CadastroDePaciente`), com as implementações
   WPF e "Indisponível".
-- **O que continua WPF, e por quê:** `CadastroPacienteWindow`/`ViewModel` + `CapturaFotoWindow`
-  (AForge) ficam só porque a **ficha WPF do balcão** (`FichaPacienteViewModel`, aberta por
-  `JanelasDaAgendaWpf.AbrirFichaAsync`) ainda edita o cadastro por ela; `EscolhaDeConvenioWindow`
-  + `VinculoDeConvenio.Garantir` ficam só pelo **formulário WPF do horário**
-  (`AgendamentoEdicaoViewModel`, da agenda WPF da Recepção). WPF não abre formulário do
-  navegador; saindo esses dois chamadores, as três janelas, o `VinculoDeConvenio`, o
-  `CameraServico` e os pacotes AForge saem junto. O `CadastroPacienteViewModel` passou a usar
-  o mesmo `CadastroPacienteNaTela` para conferir e copiar, para as duas portas não divergirem
-  enquanto convivem.
 - 🧑‍💻 **UX:** o cadastro e a escolha do convênio abrem dentro da própria tela, sem janela do
   sistema por cima; a foto mostra o recorte exato que vai para o banco e cada falha de câmera
   (bloqueada, ocupada, sem imagem, ausente) tem a sua frase. **Não verificado com câmera real**:
@@ -144,7 +115,25 @@ oferece "Convênio" como forma (o mesmo corte do recebimento do balcão).
 - 🤝 **CX:** sem migration; o risco está na câmera (driver e privacidade do Windows) — o
   arquivo continua como saída.
 
-### 2.3 Por arquitetura
+### 2.2 O que ainda é WPF, e por quê
+
+| O quê | Janelas | Por quê | Até quando |
+|---|---|---|---|
+| **Área do SafeID e da assinatura** (inclui a execução da enfermagem) | `EscolherCertificadoWindow`, `ColetaDeTermo` / `AssinaturaPacienteWindow`, `EscolherTermoWindow`, `EscolherSessaoDoTermoWindow`, `PrescricaoInternaWindow` (Consultório), `FolhaExecucaoWindow`, `EvolucaoEnfermagemWindow` (+ `EscolherSessaoEnfermagemWindow`), `InfusaoExternaWindow` e as views de enfermagem que elas compõem (`PassagemDeEnfermagemView`, `PassagensDeEnfermagemView`, `ProcessoDeEnfermagemView`, `ConsultaDeEnfermagemView`/`Window`, `CatalogoEnfermagemWindow`) | é a área de [`safeid-congelado.md`](safeid-congelado.md): cada tentativa de assinatura é cobrada pelo PSC, foram sete rodadas em produção até funcionar e os testes não enxergam e-CPF real | **em conversão noutras branches**; até lá as telas Blazor só as chamam por ponte |
+| **Emissão de documento** | `DocumentoWindow` / `DocumentoFolha` / `DocumentoOpcoesWindow` (com `AcoesDoDocumento`), `BuscaCidWindow` | a mais delicada: conferência de alergia na receita, prévia, CID sob autorização, ~1.200 linhas e vários chamadores nos cinco apps | **em conversão noutra branch** |
+| **Envio ao paciente** | `EnvioAoPacienteWindow` | o `EnvioAoPacienteForm` Blazor já serve à central de Documentos e ao "já saiu hoje"; a janela fica pelo fim da emissão na `DocumentoWindow` (`AcoesDoDocumento.EnviarAsync`) | **em conversão noutra branch**, junto da emissão |
+| **Abertura do Faturamento** | `AvisoPendenciasWindow`, `RodadaPendenciasWindow` | **por desenho**: travam o app antes de a área de trabalho existir, e um formulário dentro do navegador travaria só a tela dele (`docs/faturamento-blazor.md`) | ficam |
+| **A janela do app** | `JanelaDoApp` (só código, sem XAML), cujo conteúdo é **um** `BlazorWebView` | **por arquitetura**: é o mínimo que o Blazor Hybrid exige no Windows (§2.3) | fica |
+
+Junto da janela do app ficam dois caminhos de baixo, descritos na §2.3: a `PromptWindow` atrás do
+`IDialogoService` (quando a pergunta vem de dentro de uma janela WPF modal ou de um evento do
+próprio Blazor) e as caixas de mensagem nativas da abertura, antes de existir janela. A
+`PromptWindow` some quando as janelas desta tabela forem convertidas.
+
+**Por módulo:** Recepção, Financeiro e Gerente não têm XAML; o Consultório só tem a
+`PrescricaoInternaWindow` (área do SafeID); o Faturamento só tem as duas janelas da abertura; o
+resto está no shell e é a lista acima.
+
 ### 2.3 Por arquitetura: a janela nativa, e só ela
 
 A **moldura dos apps** deixou de ser WPF (branch `claude/wpf-moldura`, out/2026). O que sobra de WPF no
@@ -176,8 +165,8 @@ da janela a tela que ele escolheu. O que `IModuloApp.CriarTela` devolve virou um
 numa árvore WPF na janela do app.
 
 **O que ainda é WPF, e por quê:**
-- as **janelas** abertas por cima do app pelas pontes (a área congelada da §2.1 e as da §2.2 que as
-  outras frentes ainda estão convertendo) — elas usam a `JanelaDoApp` como dona (é a `MainWindow`);
+- as **janelas** abertas por cima do app pelas pontes (as da §2.2, que outras branches estão
+  convertendo) — elas usam a `JanelaDoApp` como dona (é a `MainWindow`);
 - as duas janelas da **abertura do Faturamento** (aviso de pendências e rodada bloqueante), de
   propósito: travam o app antes de a área de trabalho existir;
 - as **caixas de mensagem nativas** da abertura (o banco não respondeu, tentar de novo?): acontecem
@@ -193,59 +182,40 @@ continua assim.
 
 ---
 
-## 3. O que ainda é WPF nos outros módulos
+## 3. O que falta, e as decisões da direção
 
-| Módulo | O que resta |
-|---|---|
-| Gerente, Financeiro | Nada |
-| Faturamento | As duas janelas da abertura (aviso de pendências e rodada bloqueante), WPF de propósito: travam o app antes de a área de trabalho existir |
-| Recepção | 16 arquivos XAML. Vários (agendamento, bloqueio, lista de espera, próximas vagas, autorização) já têm o formulário Blazor equivalente e podem ser só código morto, a conferir um a um. A tela de verdade é a **ficha do balcão** (`FichaBalcaoView`) com as quatro abas, que pode reaproveitar a aba administrativa Blazor desta PR |
-| Shell | A moldura (janela, menu, login, configuração do banco, troca de senha, treinamento) é Blazor (§2.3). Restam os componentes WPF das janelas: parte é da área congelada, parte serve às janelas da §2.2 e sai com elas |
-| Recepção | **Nada** (ver §5): a ficha do balcão virou a tela Blazor `FichaDoBalcao`, as janelas da agenda e o orçamento saíram, e o código morto foi apagado. Sobram só as pontes de navegação e as janelas do shell que outras frentes convertem (cadastro, cobrança, escolha de convênio) |
-| Shell | 39 componentes WPF; parte é da área congelada, parte serve às janelas da §2.2 e sai com elas |
-
----
-
-## 4. Plano e estimativa
-
-A estimativa se baseia no ritmo desta PR: as sete seções, as listas e a aba administrativa
-saíram em cerca de um dia de trabalho, com três frentes em paralelo.
-
-| Etapa | Escopo | Desenvolvimento | Até a release |
-|---|---|---|---|
-| **PR A: Consultório completo** | as janelas da §2.2 | 2 a 3 dias | ~1 semana, com o CI e a conferência no build de teste |
-| **PR B: Recepção** | ficha do balcão + limpeza dos XAML mortos | ~3 a 5 dias | ~1,5 a 2 semanas para a suíte inteira, somando as duas PRs |
-| 100% literal | área congelada (a moldura já é Blazor, §2.3) | não é possível sem mudar a decisão da §2.1; a janela nativa da §2.3 é o que o Blazor Hybrid exige no Windows | — |
-
-Mesmo ritmo da PR 284: **uma PR por parte, mesclada só com o CI inteiro verde**.
+O que falta para a suíte não ter WPF além da janela nativa e das duas janelas da abertura do
+Faturamento é exatamente a §2.2: a área do SafeID, a emissão de documento, o envio ao paciente e
+a busca de CID — todas em conversão noutras branches, uma PR por parte, mesclada só com o CI
+inteiro verde (o ritmo da PR 284).
 
 ### Decisões que a direção precisa tomar
 
-1. **A passagem de enfermagem da Sala de infusão.** Ela é aberta de dentro da folha de execução, que está congelada. Para virar Blazor, a folha congelada teria de chamar a tela Blazor, e isso é mexer na área congelada. Sem autorização expressa, ela fica WPF.
-2. **A área congelada como um todo.** Reescrevê-la exige autorização expressa e testes de assinatura em homologação, porque cada tentativa é cobrada.
+1. **A passagem de enfermagem da Sala de infusão.** Ela é aberta de dentro da folha de execução, que é da área do SafeID. Para virar Blazor, a folha teria de chamar a tela Blazor, e isso é mexer na área congelada. Sem autorização expressa, ela fica WPF.
+2. **A área do SafeID como um todo.** Reescrevê-la exige autorização expressa e testes de assinatura em homologação, porque cada tentativa é cobrada.
 
 ---
 
-## 5. Recepção: a ficha do balcão e o que sobrava de WPF (out/2026, branch `claude/wpf-balcao`)
+## 4. Recepção: a ficha do balcão e o que sobrava de WPF (out/2026, branch `claude/wpf-balcao`)
 
-A "PR B" da §4 para a Recepção. O módulo `Clinica.Modulo.Recepcao` ficou sem nenhum XAML:
+A frente da Recepção. O módulo `Clinica.Modulo.Recepcao` ficou sem nenhum XAML:
 só o módulo (itens, rotas e pontes de navegação) e as duas pontes de pré-preenchimento.
 
-### 5.1 A ficha do balcão é Blazor
+### 4.1 A ficha do balcão é Blazor
 
 - **`Telas/Recepcao/FichaDoBalcao.razor`**, chave `ficha-balcao` (item OCULTO da Recepção, `VerFichaPaciente`).
   Abre no MESMO navegador da janela. Antes era a `FichaBalcaoView` numa `ConsultaContextualWindow` por cima, ou seja um segundo navegador e uma segunda moldura.
 - **O crachá é o da tela do paciente** (as classes `tp-*`). Mostra CPF, idade, telefone, convênio e carteirinha, "paciente desde" e os alertas de elegibilidade como selos.
 - **As ações do crachá:**
   - Prontuário: pelo posto, só para quem tem `VerProntuario`.
-  - Editar cadastro: pela ponte `IJanelasDaFicha`, sem mudança.
+  - Editar cadastro: o `CadastroPacienteForm` Blazor, por `FormulariosDoPaciente` (§2.1).
   - Emitir documento: leva à aba Documentos.
   - Marcar: pela ponte `IMarcacaoDeHorario` → aba Marcar.
 - **Cinco abas:**
   - **Resumo**: próximos horários, convênio e pacote (autorização vigente, guias em aberto, pacote em uso), cadastro e linha do tempo.
   - **Agenda e sessões**: próximos horários com "Abrir na agenda" e as sessões realizadas.
   - **Convênio, contatos e LGPD**: a `FichaAdministrativa` da tela do paciente, cascateada com o contexto daqui. Inclui convênio, autorizações (`AutorizacaoForm`), relacionamento, privacidade e termos.
-  - **Pacotes e pagamentos**: os pacotes e o "Receber…" pela ponte `IJanelasDaFicha`.
+  - **Pacotes e pagamentos**: os pacotes e o "Receber…" pelo `CobrancaDoPacienteForm` Blazor (§2.1).
   - **Documentos**: a central de Documentos embutida com o paciente fixo.
 - **A privacidade continua SEM "Registrar autorização"** (a decisão da §1).
 - **As portas.** Agenda do dia, Pacientes e Início abrem a ficha por `PedidoDaFichaDoBalcao.AbrirAsync`. Onde a ficha do balcão não existe, cai na ficha do host.
@@ -254,7 +224,7 @@ só o módulo (itens, rotas e pontes de navegação) e as duas pontes de pré-pr
 - **O que a tela afirma mora na Application**: `FichaDoBalcao.Cabecalho`, `PacoteDe`, `Autorizacao`, `Comunicacao`, `GuiasEmAberto` e `DocumentoNaLinha`, com teste.
   ⚠️ **Guias em aberto mudou de propósito.** A ficha WPF contava todo código sem baixa, inclusive o `NaoAplicavel` do particular e o do atendimento estornado, que nunca serão baixados.
 
-### 5.2 As janelas da agenda saíram, e o `AgendaViewModel` também
+### 4.2 As janelas da agenda saíram, e o `AgendaViewModel` também
 
 A Visão geral e o "horário do paciente no local" do Início ainda pediam ao WPF por `IAgendaDaVisaoGeral.AbrirHorarioAsync`/`ExecutarAsync` e `IBalcaoDaRecepcao.AbrirHorarioAsync`. Isso montava o `AgendaViewModel` (~2.050 linhas) sem desenho, só para abrir janelas WPF.
 
@@ -270,7 +240,7 @@ As pontes encolheram para o que é navegação. Saíram:
 - os ViewModels delas e `AgendaPlanejamento`/`FiltroListaAgenda`;
 - `AcaoDaAgenda`, `RespostaDaAgenda` e `ResultadoDoBalcao`.
 
-### 5.3 O orçamento livre é Blazor
+### 4.3 O orçamento livre é Blazor
 
 `OrcamentoWindow`/`OrcamentoViewModel` viraram **`Formularios/Recepcao/OrcamentoLivreForm.razor`**. A regra (totais, recusas, montagem dos itens) está em `OrcamentoLivreNaTela`, com teste.
 - `IDocumentosDaRecepcao.EmitirOrcamentoAsync` saiu.
@@ -278,7 +248,7 @@ As pontes encolheram para o que é navegação. Saíram:
 - A barreira é a união das portas (`EditarFinanceiro` OU `VenderPacote`).
 - Consequência: o orçamento passa a existir na central de Documentos dos três apps, para quem tem o bit. Antes o Consultório dizia "é emitido pela Recepção".
 
-### 5.4 Código morto apagado (conferido sem chamador em produção)
+### 4.4 Código morto apagado (conferido sem chamador em produção)
 
 **Recepção:**
 - `EstornoAtendimentoWindow`, `ProximasVagasWindow`, `ProntuarioView`/`ProntuarioViewModel` (e o registro de DI);
@@ -301,9 +271,9 @@ As pontes encolheram para o que é navegação. Saíram:
 - `tools/verificar-editor-clinico`: sem a folha e o mapa WPF.
 - `tools/validar-rolagem-suite`: sem a lista de autorizações.
 
-⚠️ **O que NÃO foi apagado:** `BuscaCidWindow`/`BuscaCidViewModel`. Continuam com chamador, a `DocumentoEdicaoViewModel` (a emissão de documento, de outra frente). Saem quando a `DocumentoWindow` virar Blazor.
+⚠️ **O que NÃO foi apagado aqui:** as janelas do shell que a ficha do balcão e a agenda WPF ainda abriam (cadastro, foto, convênio, cobrança, sessão e versões) — saíram logo depois, na §5 — e `BuscaCidWindow`/`BuscaCidViewModel`, que continuam com chamador, a `DocumentoEdicaoViewModel` (a emissão de documento, de outra frente). Saem quando a `DocumentoWindow` virar Blazor.
 
-### 5.5 UX · DX · CX desta etapa
+### 4.5 UX · DX · CX desta etapa
 
 - 🧑‍💻 **UX:**
   - A ficha do balcão abre no mesmo navegador, sem janela por cima e sem flash preto, e com o mesmo crachá da tela do paciente.
@@ -319,6 +289,48 @@ As pontes encolheram para o que é navegação. Saíram:
   - Sem migration.
   - O risco está no fluxo da ficha nova (abas, voltar, receber, editar cadastro) e no orçamento, que agora existe nos três apps para quem tem o bit.
   - Antes da release, abrir a ficha pela agenda do dia, por Pacientes e pelo Início com o perfil Recepção, e emitir um orçamento.
+
+---
+
+## 5. Limpeza final: as janelas do shell que ficaram sem chamador (out/2026)
+
+Com a ficha do balcão (`FichaPacienteViewModel`/`FichaBalcaoView`) e a agenda WPF
+(`AgendaViewModel`, `AgendamentoEdicaoViewModel`) apagadas na §4, as janelas do shell que só elas
+ainda abriam ficaram sem nenhum chamador em produção — conferido por busca em `src`, `tools` e
+`tests` (C#, XAML e registros de DI). Saíram:
+
+- `Componentes/Cadastro/CadastroPacienteWindow` + `CadastroPacienteViewModel`,
+  `Controls/CapturaFotoWindow` e `Componentes/CameraServico.cs` — e com eles os pacotes
+  **AForge** dos dois `.csproj` (shell e faturamento), que nenhum outro código usava;
+- `EscolhaDeConvenioWindow` + `EscolhaDeConvenioViewModel` e `VinculoDeConvenio`;
+- `CobrancaDoPacienteWindow` + `CobrancaDoPacienteViewModel`, `RecebimentoWindow` +
+  `ReceberPagamentoViewModel`, `IRecebimento` e `DadosRecebimentoView` (que só a janela de
+  recebimento compunha);
+- `SessaoDoProntuarioWindow` + `SessaoDoProntuarioViewModel` e `VersoesEvolucaoWindow` +
+  `VersoesEvolucaoViewModel`.
+
+**Ferramentas acertadas:**
+- `tools/Clinica.Verificacao.Desktop`: saiu `RevisaoPr.cs` (só conferia o comportamento da
+  `RecebimentoWindow` — cancelar bloqueado durante a gravação —, que é leiaute de janela). A
+  conferência do cadastro deixou de montar a janela WPF e passou a exercitar as **regras** pelo
+  mesmo caminho do `CadastroPacienteForm`: a conferência do Salvar (`CadastroPacienteNaTela`: CPF
+  obrigatório, edição sem endereço) e a gravação pelo `PacienteService` (a carga lê só a ficha,
+  edição sem endereço grava nulo, cadastro novo grava e devolve a identidade, reabrir recupera,
+  editar preserva os campos não alterados). O que era só da janela (maximizar, rolagem, botões
+  dentro da área útil, travas durante a carga e a gravação) saiu: é o leiaute que a prévia
+  fotografa e o `TelasBlazorAbremTests` clica.
+- `tools/ValidarLayoutWindows`: saiu a foto da `RecebimentoWindow`; a regra do recebimento por
+  cartão continua conferida pelo `PagamentosRecepcaoService`.
+- `tools/compilar-sombra.py`: o comentário dos avisos deixou de citar o AForge.
+
+Os comentários do código que descreviam essas janelas como vivas (`CadastroPacienteNaTela`,
+`FormulariosDoPaciente`, `OpcoesDeConvenio`, `FichaAdministrativaNaTela`, `FichaDoBalcao`,
+`IdadeDoPaciente`, `AgendamentoNaTela`, `PagamentosNaTela` e as telas Blazor que citavam a
+cobrança e a sessão WPF) passaram a dizer que elas saíram.
+
+- 🧑‍💻 **UX:** nada muda para quem usa — as portas já abriam os formulários Blazor.
+- 🛠️ **DX:** ~25 arquivos WPF a menos no shell e uma dependência .NET Framework (AForge) a menos.
+- 🤝 **CX:** sem migration; o pacote publicado fica menor sem as DLLs do AForge.
 
 ---
 
@@ -338,7 +350,7 @@ As pontes encolheram para o que é navegação. Saíram:
 - 🤝 **CX:**
   - Sem migration: nada muda no banco.
   - O risco está no fluxo e no visual das seções novas. Antes da release, abrir a tela do paciente no build de teste com os três perfis (médico, enfermagem, balcão) e passar por cada seção.
-  - Terminar a migração custa cerca de uma semana para o Consultório e mais uma para a Recepção.
+  - O que falta da migração é a §2.2, em conversão noutras branches.
 
 ### A moldura em Blazor (§2.3), nos três eixos
 

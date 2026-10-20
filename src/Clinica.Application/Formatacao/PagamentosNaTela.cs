@@ -15,9 +15,9 @@ public static class PagamentosNaTela
 
     /// <summary>
     /// Quem pode RECEBER a cobrança no balcão — o bit do pacote (balcão), o do lançamento
-    /// (passo do caixa do Finalizar) ou o do Financeiro. É o mesmo conjunto do
-    /// <c>CobrancaDoPacienteViewModel.QuemRecebe</c> do shell; aqui para a tela Blazor não
-    /// depender do WPF.
+    /// (passo do caixa do Finalizar) ou o do Financeiro. Era o <c>QuemRecebe</c> da
+    /// <c>CobrancaDoPacienteViewModel</c> WPF, que saiu em out/2026; esta é a definição das
+    /// telas Blazor.
     /// </summary>
     public const Permissao QuemRecebe = Permissao.EditarFinanceiro | Permissao.LancarAtendimento | Permissao.VenderPacote;
 

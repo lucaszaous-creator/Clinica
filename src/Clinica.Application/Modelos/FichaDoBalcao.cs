@@ -123,7 +123,7 @@ public static class FichaDoBalcao
     //
     // O que o FichaPacienteViewModel WPF escrevia à mão dentro da ViewModel (cabeçalho, pacote,
     // autorização vigente, comunicação, guias em aberto) desceu para cá quando a ficha virou
-    // Blazor: o que a tela AFIRMA precisa morar onde o `dotnet test` alcança.
+    // Blazor (a ViewModel WPF saiu): o que a tela AFIRMA precisa morar onde o `dotnet test` alcança.
 
     /// <summary>A identificação do cabeçalho da ficha — cada campo já com o "—" do que falta.</summary>
     public sealed record CabecalhoDaFicha(

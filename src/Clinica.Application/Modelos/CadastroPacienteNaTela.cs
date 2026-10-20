@@ -55,7 +55,7 @@ public sealed record ConferenciaDoCadastro(string? Mensagem, string? ErroDocumen
 /// <summary>
 /// O cadastro do paciente (out/2026 — migrado do <c>CadastroPacienteWindow</c> +
 /// <c>CadastroPacienteViewModel</c> do shell WPF, que serviam à ficha, ao Lançar/Marcar e à
-/// tela Pacientes). Tudo o que o formulário DECIDE mora aqui, com teste: a ordem das recusas
+/// tela Pacientes, e saíram junto com a ficha WPF). Tudo o que o formulário DECIDE mora aqui, com teste: a ordem das recusas
 /// do Salvar, a categoria sugerida pelo convênio, o convênio e a modalidade que a ficha já tem
 /// e a cópia campo a campo para a entidade. O Razor só desenha e chama o <c>PacienteService</c>.
 /// </summary>
@@ -215,7 +215,7 @@ public sealed record LinhaDeConvenio(ConvenioCadastro Entrada, string Nome, stri
 
 /// <summary>
 /// "Qual é o convênio deste paciente?" — a pergunta feita NO MEIO do lançamento (parcela 92;
-/// out/2026 migrada da <c>EscolhaDeConvenioWindow</c> do shell). O lançamento sem convênio é
+/// out/2026 migrada da <c>EscolhaDeConvenioWindow</c> do shell, que saiu). O lançamento sem convênio é
 /// RECUSADO pelo serviço; isto é a metade VISÍVEL, que pergunta antes, com o paciente na frente.
 /// O convênio é obrigatório; carteirinha e validade são opcionais e, em branco, preservam o que
 /// a ficha já tinha.

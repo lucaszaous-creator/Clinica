@@ -13,7 +13,8 @@ namespace Clinica.Domain;
 ///
 /// ⚠️ E a conta existia em TRÊS cópias — <c>ConsultorioService.IdadeEm</c>,
 /// <c>FichaPacienteViewModel.Idade</c> e <c>NovoAtendimentoViewModel.IdadeEm</c> —, as
-/// três com o mesmo algoritmo escrito à mão e as três imprimindo a idade impossível.
+/// três com o mesmo algoritmo escrito à mão e as três imprimindo a idade impossível (as
+/// duas ViewModels WPF saíram depois, em out/2026, quando as telas viraram Blazor).
 /// Duas definições da mesma regra divergem na primeira correção, e a que ninguém lembra
 /// de ajustar é sempre a segunda: corrigir as três à mão seria criar o próximo defeito.
 ///

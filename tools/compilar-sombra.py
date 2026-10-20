@@ -119,12 +119,12 @@ MOLDES = {
     "ItemContainerTemplate",
 }
 
-# Avisos que só existem porque a sombra é net8.0 (e não net8.0-windows) ou porque
-# o AForge é .NET Framework. Nenhum deles é um problema real do código.
+# Avisos que só existem porque a sombra é net8.0 (e não net8.0-windows). Nenhum deles é
+# um problema real do código. (O AForge da webcam, que era .NET Framework, saiu em out/2026.)
 NOWARN = ",".join([
     "CS1701", "CS1702",  # redirecionamento de versão de assembly
     "CA1416",            # API só de Windows — é o ponto: o app real é de Windows
-    "NU1701",            # pacote .NET Framework (AForge) restaurado em net8.0
+    "NU1701",            # pacote .NET Framework restaurado em net8.0
     "NU1702",
     "CS8981",
     "MSB3277",           # conflito de versão entre refs do WPF e do runtime

@@ -10,8 +10,8 @@ namespace Clinica.Application.Modelos;
 /// O que as abas ADMINISTRATIVAS da ficha (Blazor, out/2026 — migradas do
 /// <c>FichaPacienteViewModel</c> WPF: agenda e pendências, convênio, relacionamento, privacidade
 /// e termos) AFIRMAM. Pura e com teste, pela regra da casa: o que a tela diz mora onde o
-/// <c>dotnet test</c> alcança. As frases são as da ficha WPF, para as duas portas dizerem o
-/// mesmo enquanto as duas existirem.
+/// <c>dotnet test</c> alcança. As frases são as que a ficha WPF dizia — ela saiu em out/2026,
+/// e a ficha Blazor é a porta única.
 /// </summary>
 public static class FichaAdministrativaNaTela
 {

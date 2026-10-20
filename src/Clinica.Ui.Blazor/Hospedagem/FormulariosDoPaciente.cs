@@ -17,7 +17,7 @@ public sealed record FotoDoPaciente(byte[] Cheia, byte[] Miniatura);
 /// <summary>
 /// Os formulários do PACIENTE que se abrem NO MEIO de outro fluxo e cuja resposta o fluxo
 /// espera (out/2026 — eram as janelas WPF do shell <c>CadastroPacienteWindow</c> e
-/// <c>EscolhaDeConvenioWindow</c>, pedidas por ponte): o cadastro (novo ou edição) e a
+/// <c>EscolhaDeConvenioWindow</c>, pedidas por ponte; as duas saíram): o cadastro (novo ou edição) e a
 /// escolha do convênio da ficha "a definir" (parcela 92).
 ///
 /// Por que um serviço que ESPERA, e não o padrão "a tela é dona do aberto/fechado"
@@ -52,8 +52,8 @@ public sealed class FormulariosDoPaciente(IServiceScopeFactory escopos)
     public event Action? Mudou;
 
     /// <summary>
-    /// Garante que o paciente tenha convênio ESCOLHIDO — perguntando, quando não tem (o
-    /// <c>VinculoDeConvenio.GarantirAsync</c> do shell WPF). Lê a ficha ANTES de decidir: a
+    /// Garante que o paciente tenha convênio ESCOLHIDO — perguntando, quando não tem (era o
+    /// <c>VinculoDeConvenio.GarantirAsync</c> do shell WPF, que saiu em out/2026). Lê a ficha ANTES de decidir: a
     /// lista carregada às 8h não decide sobre um convênio que a outra máquina resolveu às 9h.
     /// Verdadeiro = a ficha tem convênio (já tinha, ou escolhido e gravado agora); falso = a
     /// pessoa desistiu, ou não há onde perguntar.

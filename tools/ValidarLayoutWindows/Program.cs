@@ -270,7 +270,6 @@ static class Program
     {
         _ = new ShellViewModel("Gerente", [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(),
             new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento(), new Clinica.Gerente.Modulo.ModuloGerente()], sp);
-        var escopos = sp.GetRequiredService<IServiceScopeFactory>();
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         LancamentoFinanceiro pendente;
         ItemEstoque item;
@@ -310,12 +309,10 @@ static class Program
             db.Add(horario); await db.SaveChangesAsync();
             await scope.ServiceProvider.GetRequiredService<EstoqueService>().RegistrarMateriaisAsync(horario.Id, usuario.Id, new([new(item.Id, 5)]));
         }
-        // Pagamentos e Retornos a marcar são telas Blazor desde out/2026: o leiaute sai da prévia
-        // (tools/PreviaBlazor) e o TelasBlazorAbremTests abre cada uma e clica cada botão.
-        var receber = new Clinica.Desktop.Shell.Componentes.ReceberPagamentoViewModel(escopos, pendente)
-            { Forma = FormaPagamento.CartaoCredito, Adquirente = "Maquininha", Bandeira = "Visa", Parcelas = "3" };
-        var receberJanela = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(receber);
-        await ConferirJanela(receberJanela, "receber-cartao", [480, 600]); receberJanela.Close();
+        // Pagamentos e Retornos a marcar são telas Blazor desde out/2026, e o receber do balcão é o
+        // ReceberPagamentoForm (a RecebimentoWindow WPF saiu): o leiaute sai da prévia
+        // (tools/PreviaBlazor) e o TelasBlazorAbremTests abre cada uma e clica cada botão. A REGRA
+        // do recebimento por cartão é conferida logo abaixo, pelo PagamentosRecepcaoService.
         // A janela WPF de materiais do procedimento saiu em out/2026 (código morto: o registro é o
         // MateriaisAtendimentoForm Blazor, que o TelasBlazorAbremTests abre e clica). A REGRA da
         // quantidade fracionada continua conferida logo abaixo, pela leitura que as duas usam.
