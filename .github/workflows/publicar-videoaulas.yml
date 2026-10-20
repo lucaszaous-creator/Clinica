@@ -1,0 +1,58 @@
+name: Publicar videoaulas
+
+# Publica as videoaulas de uma rodada do treinamento.yml SEM passar por máquina local
+# (out/2026): baixa o artefato `videoaulas`, sobe os MP4 na release dos vídeos sem
+# sobrescrever nenhum já publicado e grava o catálogo no app, no próprio branch.
+# Dispara quando publicar-videoaulas.txt (o número da rodada) muda no push.
+
+on:
+  push:
+    paths:
+      - '.github/publicar-videoaulas.txt'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Rodada e release
+        id: cfg
+        run: |
+          echo "run=$(grep -v '^#' .github/publicar-videoaulas.txt | tr -dc '0-9')" >> "$GITHUB_OUTPUT"
+          echo "tag=$(grep -o 'ReleaseDosVideos *= *"[^"]*"' src/Clinica.Desktop.Shell/Treinamento/AcervoTreinamento.cs | sed 's/.*"\(.*\)"/\1/')" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          name: videoaulas
+          path: videoaulas
+          run-id: ${{ steps.cfg.outputs.run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Subir os MP4 na release (sem sobrescrever)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.cfg.outputs.tag }}
+        run: |
+          set -e
+          test -n "$TAG"
+          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --title "Videoaulas do Treinamento" --notes "Vídeos da aba Treinamento dos apps, pelo SHA-256. Não apague: o app baixa por este nome." --latest=false
+          ja=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          n=0
+          for f in videoaulas/release/*.mp4; do
+            b=$(basename "$f")
+            if echo "$ja" | grep -qx "$b"; then continue; fi
+            gh release upload "$TAG" "$f"; n=$((n+1))
+          done
+          echo "$n vídeo(s) novo(s) na release $TAG"
+      - name: Catálogo no app
+        run: |
+          cp videoaulas/catalogo.json src/Clinica.Desktop.Shell/Treinamento/catalogo.json
+          node -e "const c=require('./src/Clinica.Desktop.Shell/Treinamento/catalogo.json');console.log(c.length+' aula(s) no catálogo')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Clinica.Desktop.Shell/Treinamento/catalogo.json
+          git diff --cached --quiet && echo "catálogo já estava igual" && exit 0
+          git commit -m "Videoaulas: catálogo da rodada ${{ steps.cfg.outputs.run }} no app"
+          git push
