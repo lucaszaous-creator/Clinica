@@ -1,6 +1,7 @@
 using Clinica.Application.Email;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
+using Clinica.Domain;
 using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;

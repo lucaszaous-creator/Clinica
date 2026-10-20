@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using Clinica.Application.Email;
 using Clinica.Application.Modelos;
 
