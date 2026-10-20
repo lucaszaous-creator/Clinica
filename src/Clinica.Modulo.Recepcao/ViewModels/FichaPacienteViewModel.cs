@@ -1663,56 +1663,38 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     // ==================== Documentos clínicos ====================
 
-    /// <summary>Abre a janela de emissão (receita, atestado, declaração, pedido de exame).</summary>
+    /// <summary>
+    /// "Emitir documento" (out/2026): leva à central de Documentos (Blazor) JÁ NESTE paciente —
+    /// lá se escolhe o papel (os mesmos cartões) e ele é escrito no <c>DocumentoForm</c>, com a
+    /// conferência de alergia, o CID sob autorização e o resto que a janela WPF fazia. A
+    /// <c>EscolhaDeDocumentoWindow</c> e a <c>DocumentoWindow</c> saíram com a migração; esta é a
+    /// ponte fina até a ficha do balcão também virar Blazor.
+    /// </summary>
     [RelayCommand]
-    private async Task NovoDocumentoAsync()
+    private void NovoDocumento()
     {
         if (PacienteId == 0) return;
 
-        // QUAL PAPEL, antes da janela (out/2026 — a clínica: "dentro da ficha, Emitir
-        // documento sempre nos leva à mesma folha"). A janela de emissão abria num tipo
-        // padrão com o tipo escondido; agora a ficha pergunta, com os MESMOS cartões da
-        // página de documentos, e cada um abre o formulário dele. Só entram as folhas que
-        // ESTE acesso emite — cada uma com o bit dela (a receita pede `Prescrever`; o
-        // comparecimento, `EditarPaciente`).
-        var cartoes = DocumentosDoConsultorio.Cartoes(SessaoUsuario.Atual.Efetivas);
-        if (cartoes.Count == 0)
+        // Só as folhas que ESTE acesso emite — cada uma com o bit dela (a receita pede
+        // `Prescrever`; o comparecimento, `EditarPaciente`). Sem nenhuma, a ficha DIZ, em vez de
+        // levar a uma central sem cartão.
+        if (DocumentosDoConsultorio.Cartoes(SessaoUsuario.Atual.Efetivas).Count == 0)
         {
             MensagemEhErro = true;
             Mensagem = "Seu acesso não emite documento clínico. Peça à direção a permissão, em Acessos.";
             return;
         }
 
-        var folha = EscolhaDeDocumentoWindow.Perguntar(cartoes, Nome, JanelaDona.Atual());
-        if (folha?.TipoClinico is not { } tipo) return;
+        using var escopo = _escopos.CreateScope();
+        var pedido = escopo.ServiceProvider.GetRequiredService<Clinica.Ui.Blazor.Hospedagem.PedidoDeDocumento>();
+        pedido.Definir(PacienteId);
+        if (Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.Documentos)) return;
 
-        // A segunda barreira, pelo bit da FOLHA escolhida — não um fixo.
-        SessaoUsuario.Atual.Exigir(
-            folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}");
-
-        // As montadas do prontuário não têm o que digitar: emitem e imprimem.
-        if (folha.MontadaDoProntuario)
-        {
-            await EmitirMontadoAsync(tipo);
-            return;
-        }
-
-        var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId, tipo);
-        var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
-        {
-            Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() != true)
-        {
-            // Mesmo quando o usuário fecha sem concluir, um documento pode ter sido
-            // emitido e só a impressão ter falhado — a lista precisa refletir isso.
-            await CarregarAsync();
-            return;
-        }
-
-        _snackbar.Sucesso("Documento emitido.");
-        await CarregarAsync();
+        // Sem a central neste aplicativo (ou sem o acesso a ela): o pedido não pode ficar
+        // órfão — ele abriria este paciente na próxima vez que alguém entrasse em Documentos.
+        pedido.Consumir();
+        MensagemEhErro = true;
+        Mensagem = "A central de Documentos não está disponível para o seu acesso neste aplicativo.";
     }
 
     /// <summary>

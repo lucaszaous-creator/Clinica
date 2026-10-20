@@ -38,8 +38,10 @@ public sealed class PortasDoEnvioAoPacienteTests
     // O "já saiu hoje" do atendimento.
     [InlineData("src/Clinica.Ui.Blazor/Componentes/SecoesDoPaciente/SecaoAtendimento.razor", "Janelas.EnviarAoPacienteAsync(")]
     [InlineData("src/Clinica.Modulo.Clinico/Modulo/JanelasDoAtendimentoClinicoWpf.cs", "AcoesDoDocumento.EnviarAsync(")]
-    // O fim da emissão: "Enviar agora ao paciente?".
-    [InlineData("src/Clinica.Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs", "AcoesDoDocumento.EnviarAsync(doc, _escopos, aposEmitir: true)")]
+    // O fim da emissão: "Enviar agora ao paciente?" — a folha Blazor pergunta pela ponte, e a
+    // ponte WPF abre a MESMA janela, com a pergunta de quem acabou de emitir.
+    [InlineData("src/Clinica.Ui.Blazor/Formularios/Documentos/DocumentoForm.razor", "Envio.PerguntarAposEmitirAsync(")]
+    [InlineData("src/Clinica.Desktop.Blazor/EnvioDoDocumentoAoPacienteWpf.cs", "AcoesDoDocumento.EnviarAsync(doc, escopos, aposEmitir: true)")]
     public void Cada_porta_passa_pelo_ponto_unico_do_envio(string arquivo, string chamada)
         => Ler(arquivo).Should().Contain(chamada, $"{arquivo} precisa oferecer o envio pela janela única (e-mail e WhatsApp)");
 

@@ -10,7 +10,8 @@ namespace Clinica.Desktop.Blazor;
 
 /// <summary>
 /// As janelas e os atos WPF que a tela de Documentos (Blazor, out/2026 — a MESMA na Recepção,
-/// no Gerente e no Consultório) pede. Mora aqui, e não num módulo, porque são duas portas e
+/// no Gerente e no Consultório) pede. O papel ESCRITO e a nova versão do laudo NÃO estão aqui:
+/// são o <c>DocumentoForm</c> Blazor, aberto pela própria tela. Mora aqui, e não num módulo, porque são duas portas e
 /// uma cópia por módulo divergiria na primeira correção; só o ORÇAMENTO é da Recepção (a
 /// janela dele mora lá), e ela o oferece sobrescrevendo <see cref="EmitirOrcamentoAsync"/>.
 ///
@@ -31,13 +32,6 @@ public class DocumentosNoAplicativoWpf(
     public bool Disponivel => true;
 
     public bool CaixaNesteAplicativo => NavegacaoSuite.Existe(ChavesSuite.Caixa);
-
-    public Task<bool> EmitirEscritoAsync(int pacienteId, TipoDocumentoClinico tipo) => NaInterface(() =>
-    {
-        var vm = new DocumentoEdicaoViewModel(escopos, pacienteId, tipo);
-        var janela = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() };
-        return Task.FromResult(janela.ShowDialog() == true);
-    });
 
     /// <summary>
     /// Onde a janela do orçamento não está (o Consultório): a tela DIZ de quem é o papel em vez
@@ -77,7 +71,8 @@ public class DocumentosNoAplicativoWpf(
         var r = ato switch
         {
             AtoDoDocumento.SegundaVia => await AcoesDoDocumento.ImprimirAsync(d, escopos),
-            AtoDoDocumento.NovaVersao => await AcoesDoDocumento.NovaVersaoAsync(d, escopos, snackbar),
+            // A nova versão é o DocumentoForm (Blazor), que a tela abre — não chega aqui.
+            AtoDoDocumento.NovaVersao => ResultadoAcaoDocumento.Erro("A nova versão do laudo abre na própria tela de Documentos."),
             AtoDoDocumento.Assinar => await AcoesDoDocumento.AssinarAsync(d, escopos, snackbar),
             AtoDoDocumento.Enviar => await AcoesDoDocumento.EnviarAsync(d, escopos),
             AtoDoDocumento.RenovarLink => await AcoesDoDocumento.RenovarLinkAsync(d, escopos, snackbar),

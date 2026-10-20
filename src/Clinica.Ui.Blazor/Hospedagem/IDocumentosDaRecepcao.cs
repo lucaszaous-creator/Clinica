@@ -5,11 +5,14 @@ using Clinica.Domain.Entities;
 namespace Clinica.Ui.Blazor.Hospedagem;
 
 /// <summary>
-/// O que a central de Documentos (Blazor, out/2026) pede ao aplicativo e que continua WPF: as
-/// JANELAS de emissão de cada papel (<c>DocumentoWindow</c>, <c>OrcamentoWindow</c>), a coleta
-/// do termo (<c>ColetaDeTermo</c>) e os seis atos do documento clínico já emitido
-/// (<c>AcoesDoDocumento</c> — 2ª via, assinar com e-CPF, enviar, renovar o link, tirar do ar,
-/// cancelar, e a nova versão do laudo).
+/// O que a central de Documentos (Blazor, out/2026) pede ao aplicativo e que continua WPF: a
+/// janela do orçamento (<c>OrcamentoWindow</c>), a coleta do termo (<c>ColetaDeTermo</c>) e os
+/// atos do documento clínico já emitido (<c>AcoesDoDocumento</c> — 2ª via, assinar com e-CPF,
+/// enviar, renovar o link, tirar do ar, cancelar).
+///
+/// O papel ESCRITO (receita, atestado, laudo, declaração, pedido de exame) e a NOVA VERSÃO do
+/// laudo deixaram de ser janela WPF (out/2026): são o <c>DocumentoForm</c> Blazor, que a tela
+/// abre dentro dela mesma — e por isso não passam mais por aqui.
 ///
 /// Reescrever qualquer um deles aqui seria a segunda definição — e assinar é a área
 /// congelada do SafeID. A implementação WPF (<c>DocumentosDaRecepcaoWpf</c>) chama EXATAMENTE
@@ -25,9 +28,6 @@ public interface IDocumentosDaRecepcao
 
     /// <summary>O Caixa está aberto neste aplicativo — o recibo nasce de um lançamento dele.</summary>
     bool CaixaNesteAplicativo { get; }
-
-    /// <summary>A janela do papel ESCRITO (receita, atestado, declaração, pedido, laudo). Verdadeiro = concluiu.</summary>
-    Task<bool> EmitirEscritoAsync(int pacienteId, TipoDocumentoClinico tipo);
 
     /// <summary>O orçamento livre. Devolve o número emitido, ou nulo quando a pessoa desistiu.</summary>
     Task<string?> EmitirOrcamentoAsync(int pacienteId, string paciente);
@@ -46,7 +46,10 @@ public interface IDocumentosDaRecepcao
     /// <summary>Os atos que a linha oferece — a mesma resolução das outras portas (estado E bit do tipo).</summary>
     AtosDoDocumento Atos(DocumentoEmitido doc);
 
-    /// <summary>Executa um dos atos sobre o documento clínico.</summary>
+    /// <summary>
+    /// Executa um dos atos sobre o documento clínico. A <see cref="AtoDoDocumento.NovaVersao"/> não
+    /// chega aqui: a tela a abre no <c>DocumentoForm</c>.
+    /// </summary>
     Task<ResultadoDoAto> ExecutarAsync(AtoDoDocumento ato, DocumentoEmitido doc);
 }
 
@@ -121,14 +124,19 @@ public sealed class DocumentosDaRecepcaoIndisponiveis : IDocumentosDaRecepcao
     /// <summary>Verdadeiro: quem responde se o Caixa existe é o <c>Host.NavegarAsync</c>, que a prévia já simula.</summary>
     public bool CaixaNesteAplicativo => true;
 
-    public Task<bool> EmitirEscritoAsync(int pacienteId, TipoDocumentoClinico tipo) => Task.FromResult(false);
     public Task<string?> EmitirOrcamentoAsync(int pacienteId, string paciente) => Task.FromResult<string?>(null);
     public Task<bool> ColherTermoAsync(int pacienteId, string paciente, bool consentimentoLgpd) => Task.FromResult(false);
 
-    /// <summary>Só o cancelamento é oferecido (pelo bit do tipo): ele é o ato que a prévia ainda deixa ver de onde vem.</summary>
+    /// <summary>
+    /// A nova versão do laudo (Blazor, a tela a abre) e o cancelamento são oferecidos — pelo
+    /// estado E pelo bit do tipo, a mesma resolução do <c>DocumentoNaTela</c> do shell.
+    /// </summary>
     public AtosDoDocumento Atos(DocumentoEmitido doc)
-        => new(false, false, false, false, false,
-            !doc.Cancelado && SessaoUsuario.Atual.Pode(CentralDocumentosService.AcessoParaEmitir(doc.Tipo)));
+    {
+        var pode = SessaoUsuario.Atual.Pode(CentralDocumentosService.AcessoParaEmitir(doc.Tipo));
+        return new(TipoDocumentoInfo.PermiteNovaVersao(doc.Tipo) && !doc.Cancelado && doc.PacienteId is not null && pode,
+            false, false, false, false, !doc.Cancelado && pode);
+    }
 
     public Task<ResultadoDoAto> ExecutarAsync(AtoDoDocumento ato, DocumentoEmitido doc) => Task.FromResult(ResultadoDoAto.Indisponivel);
 }

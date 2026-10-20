@@ -249,6 +249,9 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
     public Task<string?> SalvarEAbrirAsync(byte[] conteudo, string nomeSugerido, string filtro, string extensao)
         => NaInterface(() => ImpressaoPdf.SalvarEAbrirAsync(conteudo, ImpressaoPdf.NomeSeguro(nomeSugerido), filtro, extensao));
 
+    public Task<string?> AbrirPreviaAsync(byte[] pdf, string nomeSugerido)
+        => NaInterface(() => ImpressaoPdf.AbrirPreviaAsync(pdf, nomeSugerido));
+
     public Task<ArquivoEscolhido?> EscolherArquivoAsync(string filtro, string titulo)
         => NaInterface(async () =>
         {

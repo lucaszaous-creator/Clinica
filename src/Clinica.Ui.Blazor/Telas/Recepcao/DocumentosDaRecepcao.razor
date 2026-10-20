@@ -11,10 +11,11 @@
 
   Nada de regra aqui: o que cada cartão diz e libera e as frases da lista moram em
   CentralDeDocumentosNaTela, o passo 3 em PreviaDaFolha, a busca em BuscaNasFolhas e o resumo
-  em ResumoFolhas (Application, com teste). O que continua WPF — as janelas de emissão, a
-  coleta do termo e os seis atos do documento (assinatura incluída, área congelada) — passa
-  por IDocumentosDaRecepcao; onde ele não existe (a prévia), a tela DIZ que a ação é do
-  aplicativo.
+  em ResumoFolhas (Application, com teste). O papel ESCRITO (receita, atestado, laudo,
+  declaração, pedido de exame) e a NOVA VERSÃO do laudo abrem aqui mesmo, no DocumentoForm
+  (out/2026 — era a DocumentoWindow WPF). O que continua WPF — o orçamento, a coleta do termo e
+  os atos do documento (assinatura incluída, área congelada) — passa por IDocumentosDaRecepcao;
+  onde ele não existe (a prévia), a tela DIZ que a ação é do aplicativo.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Modelos
@@ -259,6 +260,12 @@
     <div class="rd-menu-fundo" @onclick="() => _menu = null"></div>
 }
 
+@if (_folhaAberta is { } fa)
+{
+    <DocumentoForm PacienteId="fa.PacienteId" Tipo="fa.Tipo" VersaoDe="fa.VersaoDe"
+                   AoFechar="FecharFolhaAsync" AoConcluir="ConcluirFolhaAsync" />
+}
+
 @code {
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
 
@@ -290,6 +297,9 @@
     private int _geracaoContexto;
     private IReadOnlyList<CartaoDaCentral> _cartoes = [];
     private CartaoDaCentral? _escolhida;
+
+    // ---- O papel escrito aberto no DocumentoForm (a emissão ou a nova versão do laudo) ----
+    private (int PacienteId, TipoDocumentoClinico Tipo, string Rotulo, DocumentoClinico? VersaoDe)? _folhaAberta;
 
     // ---- O que já saiu ----
     private DateOnly _inicio = DateOnly.FromDateTime(DateTime.Today).AddDays(-30);
@@ -326,6 +336,7 @@
     {
         MontarCartoes();
         if (PacienteFixo is { } fixo) { _soDoPaciente = true; await AbrirPacienteAsync(fixo); }
+        else if (Servicos.GetService<PedidoDeDocumento>()?.Consumir() is { } pedido) await AbrirPacienteAsync(pedido);
         else await AbrirNoPacienteEmFocoAsync();
         await CarregarAsync();
     }
@@ -357,8 +368,21 @@
         }
     }
 
-    /// <summary>Voltar à aba relê a lista em silêncio: o que outra máquina emitiu aparece.</summary>
-    protected override Task AoVoltarAsync() => CarregarAsync();
+    /// <summary>
+    /// Voltar à aba relê a lista em silêncio: o que outra máquina emitiu aparece. E quem navegou
+    /// para cá pedindo um paciente (o "Emitir documento" da ficha do balcão) encontra a emissão
+    /// já nele — o palco guarda a tela montada, então o pedido chega por aqui, não pela abertura.
+    /// </summary>
+    protected override async Task AoVoltarAsync()
+    {
+        if (PacienteFixo is null && _folhaAberta is null && Servicos.GetService<PedidoDeDocumento>()?.Consumir() is { } pedido)
+        {
+            _aba = 0;
+            _escolhida = null;
+            await AbrirPacienteAsync(pedido);
+        }
+        await CarregarAsync();
+    }
 
     protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
         => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
@@ -467,7 +491,7 @@
 
                 default:
                     if (c.Folha.TipoFinanceiro == TipoDocumentoFinanceiro.Orcamento) await EmitirOrcamentoAsync();
-                    else await EmitirEscritoAsync(c.Folha);
+                    else AbrirEscrito(c.Folha);
                     return;
             }
         }
@@ -489,16 +513,62 @@
         return false;
     }
 
-    /// <summary>Os papéis ESCRITOS abrem a janela que já existe, com o tipo certo.</summary>
-    private async Task EmitirEscritoAsync(FolhaCatalogo folha)
+    /// <summary>Os papéis ESCRITOS abrem a folha de emissão (DocumentoForm) aqui mesmo, no tipo certo.</summary>
+    private void AbrirEscrito(FolhaCatalogo folha)
     {
         if (!Exigir(folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}")) return;
-        if (_paciente is not { } p || folha.TipoClinico is not { } tipo || !PonteDisponivel()) return;
+        if (_paciente is not { } p || folha.TipoClinico is not { } tipo) return;
+        _folhaAberta = (p.Id, tipo, folha.Rotulo, null);
+    }
 
-        var concluiu = await Ponte.EmitirEscritoAsync(p.Id, tipo);
-        // Fechar sem concluir pode ter emitido e só a impressão ter falhado: relê de qualquer jeito.
+    /// <summary>
+    /// "Alterar (emitir nova versão)" do laudo: a folha abre com o texto do anterior, e o
+    /// "Emitir" numera a nova e CANCELA a anterior no mesmo gravar. As recusas são as que a
+    /// janela WPF dizia antes de abrir (EmissaoDeDocumentoNaTela.RecusaDaNovaVersao).
+    /// </summary>
+    private async Task AbrirNovaVersaoAsync(DocumentoEmitido doc)
+    {
+        // A segunda barreira, pelo bit do TIPO (a primeira é o menu: Atos).
+        if (!Pode(CentralDocumentosService.AcessoParaEmitir(doc.Tipo)))
+        {
+            Dizer($"Seu acesso não permite alterar {doc.Rotulo.ToLowerInvariant()}. Fale com a direção da clínica.", true);
+            return;
+        }
+        if (EmissaoDeDocumentoNaTela.RecusaDaNovaVersao(doc.Tipo, doc.Rotulo, doc.Numero, doc.Cancelado, doc.PacienteId) is { } recusa)
+        {
+            Dizer(recusa, true);
+            return;
+        }
+        try
+        {
+            DocumentoClinico? anterior;
+            using (var escopo = Escopo())
+                anterior = await escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>().ObterAsync(doc.DocumentoId);
+            if (anterior is null) { Dizer($"{doc.Numero} não foi encontrado.", true); return; }
+            _folhaAberta = (anterior.PacienteId, anterior.Tipo, doc.Rotulo, anterior);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Documento {doc.Numero} — nova versão não pôde ser aberta", ex);
+            Dizer(ex.Message, true);
+        }
+    }
+
+    /// <summary>Fechou a folha sem concluir: relê de qualquer jeito — pode ter emitido e só a impressão ter falhado.</summary>
+    private async Task FecharFolhaAsync()
+    {
+        _folhaAberta = null;
         await CarregarAsync();
-        if (concluiu) Notificacoes.Sucesso($"{folha.Rotulo} emitido(a).");
+    }
+
+    private async Task ConcluirFolhaAsync(DocumentoForm.Emitido emitido)
+    {
+        var aberta = _folhaAberta;
+        _folhaAberta = null;
+        await CarregarAsync();
+        Notificacoes.Sucesso(aberta?.VersaoDe is { } anterior
+            ? EmissaoDeDocumentoNaTela.NovaVersaoEmitida(anterior.Numero)
+            : $"{aberta?.Rotulo ?? TipoDocumentoInfo.Rotular(emitido.Tipo)} {emitido.Numero} emitido(a).");
     }
 
     /// <summary>
@@ -671,6 +741,11 @@
         {
             if (DocumentoEmitido.De(l.Folha, Hoje) is { } doc)
             {
+                if (ato == AtoDoDocumento.NovaVersao)
+                {
+                    await AbrirNovaVersaoAsync(doc);
+                    return;
+                }
                 var r = await Ponte.ExecutarAsync(ato, doc);
                 if (!r.Silencioso) Dizer(r.Frase, r.EhErro);
                 if (r.Mudou) await CarregarAsync();

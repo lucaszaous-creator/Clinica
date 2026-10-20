@@ -6,8 +6,10 @@
   pedido sem resultado vigente amarrado; "Resultado disponível" é o que tem. O "Agendado" do
   mockup segue de fora — não há fato de agendamento de exame no domínio.
 
-  Emitir o pedido, registrar o laudo, ver os resultados e abrir o paciente continuam nas janelas
-  WPF de sempre, pela ponte IJanelasDosExames — a tela decide e mostra, o hospedeiro abre.
+  Emitir o pedido abre a folha de emissão aqui mesmo (DocumentoForm, out/2026 — a MESMA de
+  todas as portas, que pergunta primeiro QUEM). Registrar o laudo, ver os resultados e abrir o
+  paciente continuam nas janelas WPF de sempre, pela ponte IJanelasDosExames — a tela decide e
+  mostra, o hospedeiro abre.
   Permissões copiadas do ViewModel: emitir pelo bit do TIPO (pedido de exame); registrar laudo
   com EditarProntuario; ver e abrir com VerProntuario.
 *@
@@ -20,7 +22,7 @@
     <CabecalhoPagina Sobretitulo="Consultório · Prontuário" Titulo="Exames"
                      Subtitulo="@(_carregou ? _resumo : "Os pedidos de exame e a situação de cada um.")">
         <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
-        <button type="button" class="botao primario" disabled="@(!PodeEmitirPedido || _ocupado)" @onclick="NovoPedidoAsync"
+        <button type="button" class="botao primario" disabled="@(!PodeEmitirPedido || _ocupado)" @onclick="NovoPedido"
                 title="@(PodeEmitirPedido ? "Emitir um pedido de exame" : "Seu acesso não permite emitir pedido de exame")"><Icone Nome="mais" />Novo pedido</button>
     </CabecalhoPagina>
 
@@ -102,6 +104,12 @@
     </section>
 </div>
 
+@if (_novoPedido)
+{
+    <DocumentoForm Tipo="TipoDocumentoClinico.PedidoExame" TituloDaEscolha="Novo pedido de exame — para quem?"
+                   AoFechar="FecharPedidoAsync" AoConcluir="ConcluirPedidoAsync" />
+}
+
 @code {
     private IReadOnlyList<PedidoDeExameLinha> _pedidos = [];
     private string _resumo = string.Empty;
@@ -113,6 +121,7 @@
     private bool _naoVerificado;
     private string? _erro;
     private bool _ocupado;
+    private bool _novoPedido;
     private int _geracao;
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
@@ -172,15 +181,26 @@
         }
     }
 
-    private async Task NovoPedidoAsync()
+    /// <summary>A tela não tem paciente em foco: a folha pergunta QUEM e abre a emissão do pedido.</summary>
+    private void NovoPedido()
     {
+        if (_ocupado) return;
         if (!Exigir(CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.PedidoExame), "emitir pedido de exame")) return;
-        await Acao(async () =>
-        {
-            var paciente = await Janelas.NovoPedidoAsync();
-            await CarregarAsync(silencioso: true);
-            if (paciente is not null) Notificacoes.Sucesso($"Pedido de exame emitido para {paciente}.");
-        }, "Consultório — pedido de exame não pôde ser emitido");
+        _novoPedido = true;
+    }
+
+    /// <summary>Fechou sem concluir: relê — o pedido pode ter saído e só a impressão ter falhado.</summary>
+    private async Task FecharPedidoAsync()
+    {
+        _novoPedido = false;
+        await CarregarAsync(silencioso: true);
+    }
+
+    private async Task ConcluirPedidoAsync(DocumentoForm.Emitido emitido)
+    {
+        _novoPedido = false;
+        await CarregarAsync(silencioso: true);
+        Notificacoes.Sucesso($"Pedido de exame emitido para {emitido.Paciente}.");
     }
 
     private async Task RegistrarResultadoAsync(PedidoDeExameLinha p)

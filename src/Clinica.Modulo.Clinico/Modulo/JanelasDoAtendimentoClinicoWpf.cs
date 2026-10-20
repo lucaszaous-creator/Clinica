@@ -13,7 +13,7 @@ namespace Clinica.Clinico.Modulo;
 /// <summary>
 /// A ponte WPF da folha do médico Blazor (out/2026): chama EXATAMENTE o que a
 /// <c>AtendimentoViewModel</c> / <c>PacienteWorkspaceViewModel</c> chamavam — a
-/// <c>DocumentoWindow</c> com a herança da sessão, a <c>PrescricaoInternaWindow</c> ligada ao
+/// <c>PrescricaoInternaWindow</c> ligada ao
 /// horário e à evolução, a <c>ColetaDeTermo</c>, o <c>VinculoDeConvenio</c> e a pendência da
 /// conclusão automática. Nada é reescrito aqui: a ponte só leva o pedido à janela que já existe.
 /// </summary>
@@ -21,13 +21,6 @@ public sealed class JanelasDoAtendimentoClinicoWpf(IServiceScopeFactory escopos,
     : IJanelasDoAtendimentoClinico
 {
     public bool Disponivel => true;
-
-    public Task<bool> EmitirAsync(int pacienteId, TipoDocumentoClinico tipo, HerancaDaSessao heranca) => NaInterface(() =>
-    {
-        var vm = new DocumentoEdicaoViewModel(escopos, pacienteId, tipo, heranca);
-        var janela = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() };
-        return Task.FromResult(janela.ShowDialog() == true);
-    });
 
     public Task<bool> PrescreverInfusaoAsync(int pacienteId, string paciente, int? agendamentoId, int? evolucaoId)
         => NaInterface(() =>

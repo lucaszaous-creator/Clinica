@@ -17,18 +17,6 @@ namespace Clinica.Clinico.Modulo;
 /// </summary>
 public sealed class JanelasDosExamesWpf(IServiceScopeFactory escopos, PacienteEmFoco foco) : IJanelasDosExames
 {
-    public Task<string?> NovoPedidoAsync() => NaInterface(() =>
-    {
-        // A tela não tem paciente em foco: a primeira pergunta é QUEM, e a emissão é a MESMA
-        // janela de documento de todas as outras portas.
-        var paciente = EscolherPacienteWindow.Perguntar(
-            "Novo pedido de exame — para quem?", JanelaDona.Atual(), escopos);
-        if (paciente is null) return null;
-        var vm = new DocumentoEdicaoViewModel(escopos, paciente.Id, TipoDocumentoClinico.PedidoExame);
-        var concluiu = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() == true;
-        return concluiu ? paciente.Nome : null;
-    });
-
     public Task<bool> RegistrarResultadoAsync(PedidoDeExameLinha pedido) => NaInterface(() =>
     {
         var vm = new ResultadoExameEdicaoViewModel(escopos, pedido.PacienteId, pedido.Paciente, pedido.DocumentoId);

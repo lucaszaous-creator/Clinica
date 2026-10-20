@@ -76,7 +76,7 @@ As telas Blazor só as chamam.
 | `EscolhaDeConvenioWindow` (`VinculoDeConvenio`) | ~310 linhas | Finalizar, fila, Novo atendimento | |
 | `CobrancaDoPacienteWindow` | ~350 linhas | Ficha, Novo atendimento | |
 | `CadastroPacienteWindow` | ~530 linhas | Ficha, Pacientes, Agenda | meio dia |
-| `DocumentoWindow` (emitir receita, atestado, laudo) | ~1.200 linhas, 9 chamadores | os cinco apps | **1 dia**: a mais delicada (conferência de alergia na receita, prévia, CID sob autorização) |
+| ~~`DocumentoWindow` (emitir receita, atestado, laudo)~~ | — | — | **Feito** (out/2026): virou o `DocumentoForm` Blazor — ver §2.4 |
 | `EvolucaoEnfermagemWindow` | já há o equivalente Blazor (`FolhaDaPassagem`) | a folha de execução | **depende de decisão** (§4) |
 
 As cinco últimas são do **shell** e servem também à Recepção e ao Gerente: convertê-las resolve os três módulos de uma vez.
@@ -84,6 +84,57 @@ As cinco últimas são do **shell** e servem também à Recepção e ao Gerente:
 ### 2.3 Por arquitetura
 
 A **moldura dos apps** (janela principal, menu, login) é WPF em todos os módulos: o Blazor Hybrid roda dentro dela (um navegador por janela, `NavegadorDaJanela` + `Palco`).
+
+### 2.4 Emitir documento: virou Blazor (out/2026)
+
+A janela de emissão de papel ESCRITO (receita, atestado, laudo, declaração de comparecimento,
+pedido de exame) era a peça mais delicada da lista. Ela virou o **`DocumentoForm`**
+(`Clinica.Ui.Blazor/Formularios/Documentos/`), aberto DENTRO da tela que o pede.
+
+| Porta | Antes | Agora |
+|---|---|---|
+| Central de Documentos (todos os apps) | `IDocumentosDaRecepcao.EmitirEscritoAsync` → janela | o formulário na própria tela |
+| "Alterar (nova versão)" do laudo | `AcoesDoDocumento.NovaVersaoAsync` → janela | o formulário com o laudo anterior |
+| Atendimento médico (Entregar agora) | `IJanelasDoAtendimentoClinico.EmitirAsync` → janela | o formulário com a herança da sessão |
+| Exames (Novo pedido) | `EscolherPacienteWindow` + janela | o formulário pergunta QUEM e abre a folha |
+| Ficha do balcão (WPF) | `EscolhaDeDocumentoWindow` + janela | leva à central de Documentos já no paciente (`PedidoDeDocumento`) — ponte fina até a ficha virar Blazor |
+
+**O que a folha decide mora na Application, com teste** (`RascunhoDeDocumento` e
+`EmissaoDeDocumentoNaTela`, 43 testes puros + 5 bUnit):
+- a **conferência de alergia na receita**: avisa, exige o "eu vi" e reconfere no clique de emitir;
+  editar o texto desfaz a confirmação; a colisão que some leva a confirmação junto;
+- o **CID** só sai com a autorização expressa, com a descrição ao lado e o aviso de omissão;
+- a **herança da sessão** só preenche campo vazio (CID, horários, indicação do pedido) e diz de onde veio;
+- a **nova versão** cancela o laudo anterior no mesmo gravar;
+- **quem assina** é quem está logado, nunca o primeiro da lista;
+- a ordem do clique é a da janela WPF: permissão do tipo → assinante → texto → alergia →
+  endereço da receita (antes de gastar número) → conferência legal → emitir → PDF → enviar.
+
+**O que continua WPF:** só a janela de envio ao paciente (`IEnvioDoDocumentoAoPaciente` →
+`AcoesDoDocumento.EnviarAsync`, a mesma de todas as portas). Assinar com e-CPF não mudou.
+
+**Saíram:** `DocumentoWindow`, `DocumentoFolha`, `DocumentoEdicaoViewModel`,
+`DocumentoOpcoesWindow`, `EscolhaDeDocumentoWindow`, `BuscaModeloClinico`,
+`SugestaoTextoClinico`, `IconeClinico`, o dicionário `PaginaDocumentos.xaml`, os estilos
+`BotaoDocumento*`, o token `Fonte.DocumentoTitulo`, os métodos de ponte que só abriam a janela e
+a ferramenta `tools/VerificarDocumentos`.
+
+**Diferenças deliberadas (escritas, não cometidas em silêncio):**
+- depois de emitir, a folha **não oferece emitir de novo** (a janela WPF deixava o botão aceso
+  quando só a impressão falhava — o segundo clique gastaria outro número);
+- as **sugestões** de modelo da receita eram calculadas e nunca desenhadas: saíram (a aba Modelos
+  faz o mesmo);
+- a conferência legal também reconfere ao trocar o tipo e quem assina (antes só ao digitar);
+- a indicação do pedido herdada da sessão ganhou a frase que diz de onde veio (era gravada sem leitor);
+- os campos de exame têm o teto das colunas do banco (300 e 200 caracteres).
+
+**UX · DX · CX**
+- 🧑‍💻 **UX:** a folha abre na mesma tela, sem janela do sistema por cima; o papel continua em
+  abas (Folha · Dados da emissão · Observações · Modelos). **Não foi visto rodando**: nem no app
+  nem fotografado na prévia.
+- 🛠️ **DX:** cerca de 1.800 linhas de WPF removidas; as regras ganharam teste pela primeira vez.
+- 🤝 **CX:** sem migration. O risco está no fluxo: antes da release, emitir no build de teste uma
+  receita com alergia registrada, um atestado com CID, um laudo e a nova versão dele.
 
 ---
 
