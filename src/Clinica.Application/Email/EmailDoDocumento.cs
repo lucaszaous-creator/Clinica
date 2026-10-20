@@ -29,6 +29,8 @@ public sealed record MensagemDeEmail(string Assunto, string Texto, string? Html,
 ///   desenham igual — folha de estilo no &lt;head&gt; é descartada por metade deles.</item>
 /// <item><b>Sempre com a versão em texto ao lado</b> (o <see cref="TextoDoEnvio.CorpoEmail"/> de
 ///   sempre): e-mail só HTML é o que o filtro de spam marca primeiro.</item>
+/// <item><b>Mensagem automática (no-reply)</b>: não convida a responder nem explica a
+///   assinatura do PDF (decisão da direção, out/2026) — a dúvida vai aos contatos da clínica.</item>
 /// <item><b>Nada clínico no corpo</b>: diz QUAL papel (o rótulo e o número que estão impressos
 ///   nele) e mais nada — caixa de e-mail é lida por outras pessoas, e o conteúdo é o anexo.</item>
 /// <item><b>Todo texto que vem do banco passa pelo escape</b>: o nome do paciente e o endereço da
@@ -47,21 +49,20 @@ public static class EmailDoDocumento
     private const string Borda = "#E5E7EB";      // --cinza-200
     private const string Texto = "#111827";      // --cinza-900
     private const string TextoSecundario = "#6B7280"; // --cinza-500
-    private const string AcentoSuave = "#EEF3FC"; // --acento-suave (--azul-50)
     private const string Fonte = "'Segoe UI',Inter,system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif";
 
     public static MensagemDeEmail Montar(
-        string nomePaciente, string rotulo, string numero, bool assinado,
+        string nomePaciente, string rotulo, string numero,
         DadosPrestador prestador, byte[]? logo)
     {
         var nomeClinica = NomeDaClinica(prestador);
         var assunto = TextoDoEnvio.AssuntoEmail(nomeClinica);
-        var texto = TextoDoEnvio.CorpoEmail(nomePaciente, assinado, nomeClinica)
+        var texto = TextoDoEnvio.CorpoEmail(nomePaciente, nomeClinica)
                     + Rodape(prestador);
         var imagens = logo is { Length: > 0 }
             ? new[] { new ImagemEmbutida(CidLogo, logo, "image/png") }
             : Array.Empty<ImagemEmbutida>();
-        var html = Html(nomePaciente, rotulo, numero, assinado, prestador, nomeClinica, imagens.Length > 0);
+        var html = Html(nomePaciente, rotulo, numero, prestador, nomeClinica, imagens.Length > 0);
         return new MensagemDeEmail(assunto, texto, html, imagens);
     }
 
@@ -83,7 +84,7 @@ public static class EmailDoDocumento
     }
 
     private static string Html(
-        string nomePaciente, string rotulo, string numero, bool assinado,
+        string nomePaciente, string rotulo, string numero,
         DadosPrestador prestador, string? nomeClinica, bool temLogo)
     {
         var quem = nomeClinica ?? "a clínica";
@@ -121,24 +122,16 @@ public static class EmailDoDocumento
           .Append($"<div style=\"margin-top:2px;font-size:14px;color:{TextoSecundario};\">Nº {E(numero)}</div>")
           .Append("</td></tr></table></td></tr>");
 
-        if (assinado)
-            sb.Append("<tr><td style=\"padding:16px 32px 0;\">")
-              .Append($"<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:{AcentoSuave};border:1px solid {MarcaSemDor.AzulClaro};border-radius:8px;\"><tr><td style=\"padding:14px 16px;font-size:14px;line-height:1.5;\">")
-              .Append("<strong>Este PDF tem assinatura digital (ICP-Brasil).</strong> ")
-              .Append("Guarde e apresente o <strong>arquivo</strong> — não a impressão nem uma foto: é no arquivo que fica a assinatura. ")
-              .Append($"A autenticidade pode ser conferida em <span style=\"color:{MarcaSemDor.Navy};\">{E(DocumentosClinicosPdfService.ValidadorOficial)}</span>.")
-              .Append("</td></tr></table></td></tr>");
-
         sb.Append("<tr><td style=\"padding:20px 32px 28px;font-size:15px;line-height:1.55;\">")
-          .Append("<p style=\"margin:0;\">Se tiver qualquer dúvida, é só responder este e-mail.</p>")
-          .Append($"<p style=\"margin:16px 0 0;font-weight:600;\">{E(quem)}</p>")
+          .Append($"<p style=\"margin:0;font-weight:600;\">{E(quem)}</p>")
           .Append("</td></tr>")
           // Rodapé: quem é a clínica e por que esta mensagem chegou.
           .Append($"<tr><td style=\"padding:16px 32px 20px;background:{Fundo};border-top:1px solid {Borda};font-size:12px;line-height:1.5;color:{TextoSecundario};\">");
         if (contatos.Count > 0)
             sb.Append("<p style=\"margin:0 0 6px;\">").Append(string.Join(" · ", contatos.Select(E))).Append("</p>");
-        sb.Append("<p style=\"margin:0;\">Você recebeu este e-mail porque a clínica lhe enviou um documento de saúde. ")
-          .Append("Se ele chegou a você por engano, avise respondendo esta mensagem e apague-a.</p>")
+        sb.Append("<p style=\"margin:0;\">Esta é uma mensagem automática — não responda. ")
+          .Append(contatos.Count > 0 ? "Em caso de dúvida, fale com a clínica pelos contatos acima. " : string.Empty)
+          .Append("Se ela chegou a você por engano, apague-a.</p>")
           .Append("</td></tr></table></td></tr></table></body></html>");
         return sb.ToString();
     }

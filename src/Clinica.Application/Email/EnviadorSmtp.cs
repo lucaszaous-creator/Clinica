@@ -72,10 +72,9 @@ public sealed class EnviadorSmtp : IEnviadorDeEmail
             SubjectEncoding = System.Text.Encoding.UTF8,
             Body = corpo,
             BodyEncoding = System.Text.Encoding.UTF8,
-            IsBodyHtml = false,
-            // A resposta do paciente ("não vou poder") volta para a clínica, não para o
-            // servidor: sem isto, "responder" num remetente técnico cai no vazio.
-            ReplyToList = { de }
+            IsBodyHtml = false
+            // Sem Reply-To (out/2026): o e-mail é automático (no-reply). Quem tem dúvida fala
+            // com a clínica pelos contatos do rodapé.
         };
 
         if (rica?.Html is { } html)

@@ -45,7 +45,7 @@ public sealed class EmailDaClinicaService
         var prestador = await _parametros.ObterPrestadorAsync(ct);
         var clinica = NomeDaClinica(prestador.NomeFantasia, prestador.RazaoSocial, opcoes.NomeRemetente) ?? "a clínica";
         var exemplo = EmailDoDocumento.Montar("Paciente de teste", "Documento de exemplo", "0000/0000",
-            assinado: false, prestador, MarcaSemDor.Logo);
+            prestador, MarcaSemDor.Logo);
 
         await _enviador.EnviarMensagemAsync(opcoes, email, exemplo with
         {

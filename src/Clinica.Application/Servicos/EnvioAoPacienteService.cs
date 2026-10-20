@@ -311,7 +311,7 @@ public sealed class EnvioAoPacienteService
         try
         {
             await _email.EnviarDocumentoAsync(opcoes, destino,
-                EmailDoDocumento.Montar(paciente.Nome, papel.Rotulo, papel.Numero, papel.Assinado,
+                EmailDoDocumento.Montar(paciente.Nome, papel.Rotulo, papel.Numero,
                     prestador, MarcaSemDor.Logo),
                 new AnexoDeEmail(nome, pdf, "application/pdf"), ct);
         }
@@ -421,15 +421,17 @@ public static class TextoDoEnvio
     public static string AssuntoEmail(string? nomeClinica)
         => string.IsNullOrWhiteSpace(nomeClinica) ? "Seu documento da clínica" : $"Seu documento — {nomeClinica}";
 
-    /// <summary>Curto e sem nada clínico: o conteúdo é o anexo, e caixa de e-mail é lida por outras pessoas.</summary>
-    public static string CorpoEmail(string nomePaciente, bool assinado, string? nomeClinica)
+    /// <summary>
+    /// Curto e sem nada clínico: o conteúdo é o anexo, e caixa de e-mail é lida por outras
+    /// pessoas. Mensagem automática (no-reply, out/2026): não convida a responder.
+    /// </summary>
+    public static string CorpoEmail(string nomePaciente, string? nomeClinica)
     {
         var quem = string.IsNullOrWhiteSpace(nomeClinica) ? "a clínica" : nomeClinica;
         return $"Olá, {PrimeiroNome(nomePaciente)}!\n\n"
-            + $"Segue em anexo o documento que {quem} preparou para você."
-            + (assinado ? " O arquivo PDF tem assinatura digital: guarde e apresente o arquivo, não a impressão." : string.Empty)
-            + "\n\nSe tiver qualquer dúvida, é só responder este e-mail.\n\n"
-            + quem;
+            + $"Segue em anexo o documento que {quem} preparou para você.\n\n"
+            + quem
+            + "\n\nEsta é uma mensagem automática — não responda.";
     }
 
     public static string PrimeiroNome(string nome)
