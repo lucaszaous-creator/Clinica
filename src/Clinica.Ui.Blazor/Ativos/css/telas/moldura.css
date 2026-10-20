@@ -1,0 +1,129 @@
+/* ================================================================
+   A MOLDURA DOS APPS (out/2026) — o cabeçalho, o menu do topo, a busca,
+   o sino, a conta e as abas, mais a ENTRADA e a configuração do banco.
+   Era a ShellWindow / LoginWindow / SetupWindow do WPF; os tamanhos
+   seguem os que a clínica já conhecia (cabeçalho de 68 px, dobra da
+   navegação para a segunda linha abaixo de 1300 px).
+   ================================================================ */
+
+/* ---------- Esqueleto: cabeçalho fixo, abas, e o palco que ocupa o resto ---------- */
+.moldura{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.moldura-topo{display:flex;flex-wrap:wrap;align-items:center;gap:0 var(--space-3);min-height:68px;
+  padding:0 var(--space-3);background:var(--superficie);border-bottom:1px solid var(--borda);flex:none;position:relative;z-index:30}
+.moldura-area{position:relative;flex:1;min-height:0}
+.moldura-falha{position:absolute;inset:0;overflow:auto;background:var(--fundo);z-index:5}
+
+/* ---------- Marca ---------- */
+.moldura-marca{display:flex;align-items:center;min-height:68px;flex:none}
+.moldura-marca img{height:32px;width:auto;display:block}
+.moldura-separador{width:1px;height:22px;background:var(--borda);margin:0 var(--space-3)}
+.moldura-app{color:var(--texto-secundario);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- Menu do topo ---------- */
+.moldura-nav{display:flex;align-items:center;gap:var(--space-1);flex:none}
+.moldura-nav > ul{display:flex;flex-wrap:wrap;align-items:center;gap:2px;list-style:none;margin:0;padding:0}
+.moldura-grupo{position:relative}
+.moldura-grupo > button,.moldura-treinamento{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 var(--space-3);
+  border:0;border-radius:var(--radius-control);background:transparent;color:var(--texto-primario);font-weight:500;cursor:pointer;
+  white-space:nowrap;transition:background var(--duracao-rapida),color var(--duracao-rapida)}
+.moldura-grupo > button:hover,.moldura-treinamento:hover,.moldura-grupo > button[aria-expanded="true"]{background:var(--superficie-hover)}
+.moldura-grupo.ativo > button{color:var(--acento);background:var(--acento-suave)}
+.moldura-grupo > button svg.icone{width:14px;height:14px;color:var(--texto-secundario)}
+.moldura-treinamento{color:var(--texto-secundario);font-weight:400}
+.moldura-submenu{position:absolute;left:0;top:100%;z-index:40;min-width:240px;max-width:340px;list-style:none;margin:0;
+  padding:var(--space-1);background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);
+  box-shadow:var(--sombra-popup)}
+.moldura-submenu button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;border:0;background:transparent;
+  text-align:left;padding:var(--space-2) var(--space-3);border-radius:var(--radius-pequeno);cursor:pointer;color:var(--texto-primario)}
+.moldura-submenu button:hover{background:var(--fundo)}
+.moldura-submenu button.ativo .moldura-item-rotulo{color:var(--acento);font-weight:600}
+.moldura-item-descricao{font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.35}
+
+/* ---------- Busca de telas (Ctrl+F) ---------- */
+.moldura-busca{position:relative;flex:1 1 160px;min-width:120px;max-width:320px;margin-left:auto}
+.moldura-busca .campo{border-radius:var(--radius-pilula);height:36px}
+.moldura-resultados{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;list-style:none;margin:0;padding:var(--space-1);
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);box-shadow:var(--sombra-popup);
+  max-height:360px;overflow-y:auto;min-width:260px}
+.moldura-resultados button{width:100%;border:0;background:transparent;text-align:left;padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-pequeno);cursor:pointer;color:var(--texto-primario)}
+.moldura-resultados button:hover{background:var(--acento-suave)}
+
+/* ---------- Ações à direita ---------- */
+.moldura-acoes{display:flex;align-items:center;gap:var(--space-2);flex:none}
+.moldura-atualizando{font-size:var(--text-small-size);color:var(--texto-secundario);white-space:nowrap}
+.moldura-contador{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pilula);
+  background:var(--erro);color:var(--texto-invertido);font-size:11px;font-weight:700;line-height:1}
+.moldura-contador.sobre{position:absolute;top:2px;right:0;pointer-events:none}
+.moldura-sino,.moldura-conta{position:relative}
+.moldura-sino .botao.icone svg{width:19px;height:19px}
+.moldura-veu{position:fixed;inset:0;z-index:35;background:transparent}
+.moldura-popover{position:absolute;right:0;top:calc(100% + 6px);z-index:40;background:var(--superficie);border:1px solid var(--borda);
+  border-radius:var(--radius-control);box-shadow:var(--sombra-popup);padding:var(--space-1)}
+.moldura-popover.sino{width:400px;max-width:calc(100vw - 24px);max-height:560px;overflow-y:auto}
+.moldura-popover.sino section{padding:var(--space-2);display:flex;flex-direction:column;gap:2px}
+.moldura-popover.sino section + section{border-top:1px solid var(--borda)}
+.moldura-popover.sino header{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin-bottom:var(--space-1)}
+.moldura-popover.sino h3{margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
+.moldura-popover.sino header span{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.moldura-popover.sino .link{align-self:flex-start;margin-top:var(--space-1);font-size:var(--text-small-size)}
+.moldura-aviso{display:flex;flex-direction:column;gap:1px;width:100%;border:0;background:transparent;text-align:left;padding:6px var(--space-2);
+  border-left:3px solid transparent;border-radius:var(--radius-pequeno);cursor:pointer;color:var(--texto-primario);font-size:var(--text-table-size)}
+.moldura-aviso:hover{background:var(--fundo)}
+.moldura-aviso.novo{border-left-color:var(--acento)}
+.moldura-aviso.nao-vem{border-left-color:var(--erro)}
+.moldura-aviso.sem-resposta{border-left-color:var(--aviso)}
+.moldura-aviso.confirmou{border-left-color:var(--sucesso)}
+.moldura-situacao{margin:var(--space-1) var(--space-2) 0;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.moldura-historico{display:flex;justify-content:space-between;gap:var(--space-3);padding:6px var(--space-2);font-size:var(--text-table-size);
+  border-left:3px solid var(--borda)}
+.moldura-historico.sucesso{border-left-color:var(--sucesso)}
+.moldura-historico.erro{border-left-color:var(--erro)}
+.moldura-usuario{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 var(--space-2);border:0;background:transparent;
+  border-radius:var(--radius-control);cursor:pointer;color:var(--texto-primario)}
+.moldura-usuario:hover{background:var(--superficie-hover)}
+.moldura-usuario-nome{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.moldura-usuario svg.icone{width:14px;height:14px;color:var(--texto-secundario)}
+.avatar.pequeno{width:24px;height:24px;font-size:10px}
+.moldura-popover.conta{min-width:180px}
+.moldura-popover.conta button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-pequeno);cursor:pointer;color:var(--texto-primario)}
+.moldura-popover.conta button:hover{background:var(--fundo)}
+
+/* ---------- Abas da tela composta ---------- */
+.moldura-abas{flex:none;background:var(--superficie);padding:0 var(--space-6);flex-wrap:wrap}
+
+/* Janela estreita: o menu desce para uma segunda linha inteira, e a busca, o sino e a conta
+   continuam na primeira (o mesmo que o cabeçalho WPF fazia abaixo de 1300 px). */
+@media (max-width:1300px){
+  .moldura-nav{order:10;flex-basis:100%;padding-bottom:6px;flex-wrap:wrap}
+}
+@media (max-width:640px){
+  .moldura-app,.moldura-separador,.moldura-usuario-nome{display:none}
+}
+
+/* ================================================================
+   A ENTRADA e a configuração do banco: um cartão centrado na janela,
+   a marca à esquerda e o formulário de largura fixa à direita.
+   ================================================================ */
+.entrada{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);background:var(--fundo)}
+.entrada-cartao{display:flex;width:min(820px,100%);min-height:480px;background:var(--superficie);border:1px solid var(--borda);
+  border-radius:var(--radius-card);box-shadow:var(--sombra-popup);overflow:hidden}
+.entrada-cartao.configuracao{width:min(720px,100%);min-height:0}
+.entrada-marca{flex:0 0 300px;display:flex;flex-direction:column;justify-content:space-between;padding:var(--space-10) var(--space-8);
+  background:linear-gradient(135deg,var(--azul-50),var(--azul-100));border-right:1px solid var(--borda)}
+.entrada-marca img{width:220px;max-width:100%;align-self:center;margin:auto 0}
+.entrada-marca-rodape{display:flex;flex-direction:column;gap:6px}
+.entrada-marca-rodape span{font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.45}
+.entrada-form{flex:1;display:flex;flex-direction:column;gap:var(--space-3);justify-content:center;
+  padding:var(--space-10) var(--space-8);max-width:440px;margin:0 auto}
+.entrada-form.largo{max-width:none;margin:0}
+.entrada-form h1{font-size:var(--text-h2-size);font-weight:var(--text-h2-weight)}
+.entrada-subtitulo{margin:0 0 var(--space-2);color:var(--texto-secundario);line-height:1.5}
+.entrada-botoes{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-top:var(--space-3)}
+.entrada-cartao.configuracao .entrada-botoes{display:flex;flex-wrap:wrap}
+.entrada-botoes .botao{justify-content:center}
+@media (max-width:720px){
+  .entrada-marca{display:none}
+  .entrada-form{padding:var(--space-6)}
+}

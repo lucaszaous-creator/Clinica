@@ -1,0 +1,265 @@
+@*
+  A ENTRADA nos apps (out/2026 — a tela que era a LoginWindow do WPF). Os três estados de
+  sempre, e o primeiro é o que evita o pior acidente possível:
+  1. BASE SEM USUÁRIO → oferece criar o PRIMEIRO ACESSO, que nasce Gerente. Sem isso a
+     versão que introduz login trancaria a clínica do lado de fora da própria clínica.
+  2. Base com usuário → usuário e senha (o travamento por tentativas mora no AcessoService).
+  3. Senha provisória → obriga a trocar antes de abrir o app.
+
+  Duas faixas, como a tela WPF aprovada: a MARCA à esquerda (é a primeira tela que qualquer
+  pessoa vê, e a única em que a clínica se apresenta) e o formulário à direita, de largura
+  fixa e centrado — campo que acompanha a largura da janela fica comprido demais para o que
+  se digita nele.
+*@
+@inject IServiceScopeFactory Escopos
+
+<div class="entrada">
+    <div class="entrada-cartao">
+        <aside class="entrada-marca">
+            <img src="img/logo-cor.png" alt="Clínica SemDor" />
+            <div class="entrada-marca-rodape">
+                <strong>Sistema de gestão da clínica</strong>
+                <span>Agenda, prontuário, faturamento e financeiro no mesmo lugar.</span>
+            </div>
+        </aside>
+
+        <form class="entrada-form" @onsubmit="ConfirmarAsync" @onsubmit:preventDefault="true">
+            <h1>@Titulo</h1>
+            <p class="entrada-subtitulo">@Subtitulo</p>
+
+            @switch (_estado)
+            {
+                case EstadoEntrada.Entrar:
+                    <label class="campo-bloco">
+                        <span class="campo-rotulo">Usuário</span>
+                        <input class="campo" @ref="_primeiro" @bind="_login" @bind:event="oninput"
+                               autocomplete="username" spellcheck="false" />
+                    </label>
+                    <label class="campo-bloco">
+                        <span class="campo-rotulo">Senha</span>
+                        <input class="campo" type="password" @ref="_senhaCampo" @bind="_senha" @bind:event="oninput"
+                               autocomplete="current-password" />
+                    </label>
+                    break;
+
+                case EstadoEntrada.PrimeiroAcesso:
+                    <label class="campo-bloco">
+                        <span class="campo-rotulo">Seu nome</span>
+                        <input class="campo" @ref="_primeiro" @bind="_novoNome" @bind:event="oninput" />
+                    </label>
+                    <label class="campo-bloco">
+                        <span class="campo-rotulo">Usuário (sem espaços)</span>
+                        <input class="campo" @bind="_novoLogin" @bind:event="oninput" spellcheck="false" />
+                    </label>
+                    <label class="campo-bloco">
+                        <span class="campo-rotulo">Senha</span>
+                        <input class="campo" type="password" @bind="_novaSenha" @bind:event="oninput" autocomplete="new-password" />
+                    </label>
+                    <label class="campo-bloco">
+                        <span class="campo-rotulo">Repita a senha</span>
+                        <input class="campo" type="password" @bind="_novaSenhaRepetida" @bind:event="oninput" autocomplete="new-password" />
+                    </label>
+                    break;
+
+                case EstadoEntrada.TrocarSenha:
+                    <label class="campo-bloco">
+                        <span class="campo-rotulo">Nova senha</span>
+                        <input class="campo" type="password" @ref="_primeiro" @bind="_trocaSenha" @bind:event="oninput" autocomplete="new-password" />
+                    </label>
+                    <label class="campo-bloco">
+                        <span class="campo-rotulo">Repita a nova senha</span>
+                        <input class="campo" type="password" @bind="_trocaSenhaRepetida" @bind:event="oninput" autocomplete="new-password" />
+                    </label>
+                    break;
+            }
+
+            @* Erro e informação vêm ANTES dos botões: mensagem que nasce embaixo empurra os
+               botões para fora do campo de visão, e a pessoa clica de novo sem ter lido. *@
+            <Aviso Texto="@_erro" Tom="erro" />
+            <Aviso Texto="@_info" Tom="info" />
+
+            <div class="entrada-botoes">
+                <button type="submit" class="botao primario" disabled="@_ocupado">@RotuloConfirmar</button>
+                <button type="button" class="botao" @onclick="Sair">Sair</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@code {
+    /// <summary>Quem decide o que acontece depois (o shell grava a sessão e monta o app).</summary>
+    [Parameter, EditorRequired] public IEntradaDoApp Porta { get; set; } = default!;
+
+    private enum EstadoEntrada { Entrar, PrimeiroAcesso, TrocarSenha }
+
+    private EstadoEntrada _estado;
+    private UsuarioSistema? _autenticado;
+    private bool _ocupado;
+    private string? _erro, _info;
+    private bool _focar = true;
+
+    private string _login = "", _senha = "";
+    private string _novoNome = "", _novoLogin = "", _novaSenha = "", _novaSenhaRepetida = "";
+    private string _trocaSenha = "", _trocaSenhaRepetida = "";
+
+    private ElementReference _primeiro, _senhaCampo;
+    private bool _focarSenha;
+
+    protected override void OnInitialized()
+        => _estado = Porta.PrimeiroAcesso ? EstadoEntrada.PrimeiroAcesso : EstadoEntrada.Entrar;
+
+    private string Titulo => _estado switch
+    {
+        EstadoEntrada.PrimeiroAcesso => "Primeiro acesso",
+        EstadoEntrada.TrocarSenha => "Defina uma nova senha",
+        _ => $"Entrar — {Porta.NomeDoApp}"
+    };
+
+    private string Subtitulo => _estado switch
+    {
+        EstadoEntrada.PrimeiroAcesso =>
+            "Ainda não há usuários cadastrados. Crie o seu — ele nasce como Gerente Geral, e é por ele que os demais acessos da clínica serão cadastrados.",
+        EstadoEntrada.TrocarSenha => "Sua senha é provisória. Escolha uma nova para continuar.",
+        _ => "Informe seu usuário e senha."
+    };
+
+    private string RotuloConfirmar => _estado switch
+    {
+        EstadoEntrada.PrimeiroAcesso => "Criar e entrar",
+        EstadoEntrada.TrocarSenha => "Salvar e entrar",
+        _ => "Entrar"
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focar)
+        {
+            _focar = false;
+            try { await _primeiro.FocusAsync(); }
+            catch (Exception) { /* o elemento pode ainda não existir: foco é conforto */ }
+        }
+        if (_focarSenha)
+        {
+            _focarSenha = false;
+            try { await _senhaCampo.FocusAsync(); }
+            catch (Exception) { }
+        }
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            if (_autenticado is not null) await TrocarSenhaAsync();
+            else if (_estado == EstadoEntrada.PrimeiroAcesso) await CriarPrimeiroAcessoAsync();
+            else await EntrarAsync();
+        }
+        catch (Exception ex)
+        {
+            // Falha aqui não pode virar tela branca: a clínica precisa saber se é senha, rede
+            // ou banco — e o log guarda o resto.
+            Clinica.Application.Diagnostico.Registrar($"{Porta.NomeDoApp} — falha na tela de entrada", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private async Task EntrarAsync()
+    {
+        using var escopo = Escopos.CreateScope();
+        var acesso = escopo.ServiceProvider.GetRequiredService<AcessoService>();
+        var resultado = await acesso.AutenticarAsync(_login, _senha);
+        if (!resultado.Sucesso)
+        {
+            _senha = "";
+            _focarSenha = true;
+            Erro(resultado.Erro ?? "Não foi possível entrar.");
+            return;
+        }
+        Concluir(resultado.Usuario!);
+    }
+
+    private async Task CriarPrimeiroAcessoAsync()
+    {
+        if (_novaSenha != _novaSenhaRepetida)
+        {
+            Erro("As duas senhas não são iguais.");
+            return;
+        }
+
+        using var escopo = Escopos.CreateScope();
+        var acesso = escopo.ServiceProvider.GetRequiredService<AcessoService>();
+
+        // Alguém pode ter criado o primeiro usuário em outra máquina enquanto esta tela estava
+        // aberta: reconferir evita transformar a corrida num erro de "login já existe".
+        if (await acesso.ExisteUsuarioAtivoAsync())
+        {
+            _estado = EstadoEntrada.Entrar;
+            _focar = true;
+            Info("Um usuário já foi cadastrado em outro computador. Entre com ele.");
+            return;
+        }
+
+        var usuario = await acesso.CriarAsync(_novoNome, _novoLogin, _novaSenha,
+            PerfilAcesso.Gerente, operador: "primeiro acesso");
+        Concluir(usuario);
+    }
+
+    private async Task TrocarSenhaAsync()
+    {
+        if (_trocaSenha != _trocaSenhaRepetida)
+        {
+            Erro("As duas senhas não são iguais.");
+            return;
+        }
+
+        using var escopo = Escopos.CreateScope();
+        var acesso = escopo.ServiceProvider.GetRequiredService<AcessoService>();
+        await acesso.DefinirSenhaAsync(_autenticado!.Id, _trocaSenha, deveTrocar: false,
+            operador: _autenticado.Login);
+        _autenticado.DeveTrocarSenha = false;
+        var usuario = _autenticado;
+        _autenticado = null;
+        Entrou(usuario);
+    }
+
+    /// <summary>Autenticou: ou entra direto, ou passa pela troca obrigatória de senha.</summary>
+    private void Concluir(UsuarioSistema usuario)
+    {
+        if (usuario.DeveTrocarSenha)
+        {
+            _autenticado = usuario;
+            _estado = EstadoEntrada.TrocarSenha;
+            _erro = _info = null;
+            _focar = true;
+            return;
+        }
+        Entrou(usuario);
+    }
+
+    private void Entrou(UsuarioSistema usuario)
+    {
+        // O app que exige um bit para ter o que fazer (o Faturamento pede "Ver faturamento")
+        // diz isso NA PORTA: deixar entrar e mostrar um menu vazio faz a pessoa ligar para o
+        // suporte em vez de falar com a direção. Volta para a entrada, para outra pessoa entrar.
+        if (Porta.Recusar(usuario) is { } recusa)
+        {
+            _estado = EstadoEntrada.Entrar;
+            _login = _senha = "";
+            _focar = true;
+            Erro(recusa);
+            return;
+        }
+        Porta.Entrou(usuario);
+    }
+
+    private void Sair() => Porta.Desistiu();
+
+    private void Erro(string mensagem) { _info = null; _erro = mensagem; }
+    private void Info(string mensagem) { _erro = null; _info = mensagem; }
+}

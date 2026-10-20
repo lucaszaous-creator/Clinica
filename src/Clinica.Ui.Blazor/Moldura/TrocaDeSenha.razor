@@ -1,0 +1,79 @@
+@*
+  Trocar a PRÓPRIA senha (parcela 69; out/2026 virou formulário em HTML — era a
+  TrocaSenhaWindow do WPF). Quem valida é o SERVIÇO (senha atual correta, crítica da nova):
+  validar aqui seria a segunda definição da mesma regra. A repetição é só conferência de
+  DIGITAÇÃO, porque o campo esconde o que foi digitado. O erro fica NO formulário, que é
+  onde se corrige; o sucesso fecha e vira notificação.
+*@
+@inject IServiceScopeFactory Escopos
+@inject Notificacoes Notificacoes
+
+<Modal Titulo="Minha senha" Subtitulo="Para trocar, confirme a senha atual." Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        @if (SessaoUsuario.Atual.UsuarioId == 0)
+        {
+            <Aviso Texto="Não há usuário conectado — a troca de senha é de quem fez login." Tom="erro" />
+        }
+        else
+        {
+            <form class="secao-form" @onsubmit="TrocarAsync" @onsubmit:preventDefault="true">
+                <Campo Rotulo="Senha atual">
+                    <input class="campo" type="password" @bind="_atual" @bind:event="oninput" autocomplete="current-password" />
+                </Campo>
+                <Campo Rotulo="Nova senha">
+                    <input class="campo" type="password" @bind="_nova" @bind:event="oninput" autocomplete="new-password" />
+                </Campo>
+                <Campo Rotulo="Repita a nova senha">
+                    <input class="campo" type="password" @bind="_repetida" @bind:event="oninput" autocomplete="new-password" />
+                </Campo>
+                <Aviso Texto="@_erro" Tom="erro" />
+                <button type="submit" hidden></button>
+            </form>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_ocupado || SessaoUsuario.Atual.UsuarioId == 0)"
+                @onclick="TrocarAsync">Trocar senha</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string _atual = "", _nova = "", _repetida = "";
+    private string? _erro;
+    private bool _ocupado;
+
+    private async Task TrocarAsync()
+    {
+        if (_ocupado || SessaoUsuario.Atual.UsuarioId == 0) return;
+        _erro = null;
+        if (_nova != _repetida)
+        {
+            _erro = "A nova senha e a repetição não conferem — digite as duas de novo.";
+            return;
+        }
+
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<AcessoService>()
+                .TrocarSenhaAsync(SessaoUsuario.Atual.UsuarioId, _atual, _nova);
+            Notificacoes.Sucesso("Senha trocada.");
+            await AoFechar.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            // "A senha atual está incorreta" e a crítica da senha nova chegam daqui — o serviço
+            // já fala a língua da tela.
+            Clinica.Application.Diagnostico.Registrar("Troca de senha pelo usuário falhou", ex);
+            _erro = ex.Message;
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+}

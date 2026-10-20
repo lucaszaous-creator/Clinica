@@ -22,6 +22,9 @@ public static class RegistroTelas
         // Singleton: o paciente e a seção que a tela do paciente deve mostrar (quem pede é a
         // navegação do posto; quem lê é a tela, na abertura e a cada volta).
         servicos.TryAddSingleton<PedidoDaTelaDoPaciente>();
+        // O catálogo das videoaulas é do shell (que sabe quais telas o exe publica); sem ele —
+        // prévia e testes — a tela de Treinamento abre com o estado vazio.
+        servicos.TryAddSingleton<ITreinamentoDoApp, TreinamentoSemAulas>();
         return servicos;
     }
 }

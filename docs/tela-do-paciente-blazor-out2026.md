@@ -145,8 +145,51 @@ oferece "Convênio" como forma (o mesmo corte do recebimento do balcão).
   arquivo continua como saída.
 
 ### 2.3 Por arquitetura
+### 2.3 Por arquitetura: a janela nativa, e só ela
 
-A **moldura dos apps** (janela principal, menu, login) é WPF em todos os módulos: o Blazor Hybrid roda dentro dela (um navegador por janela, `NavegadorDaJanela` + `Palco`).
+A **moldura dos apps** deixou de ser WPF (branch `claude/wpf-moldura`, out/2026). O que sobra de WPF no
+caminho principal é o mínimo que o Blazor Hybrid exige no Windows: **uma `Window` por app**
+(`Clinica.Desktop.Shell/Shell/JanelaDoApp.cs`, só código, sem XAML) cujo conteúdo inteiro é **um**
+`BlazorWebView`. Tudo o que se vê é Razor em `Clinica.Ui.Blazor/Moldura`:
+
+| Era WPF | Virou Razor | Observação |
+|---|---|---|
+| `LoginWindow` | `Moldura/Entrada.razor` | os três estados de sempre (primeiro acesso → Gerente, usuário e senha com o travamento do `AcessoService`, troca obrigatória da senha provisória); a recusa do Faturamento ("Ver faturamento") aparece **na própria entrada** |
+| `SetupWindow` | `Moldura/ConfiguracaoDoBanco.razor` | testar antes de salvar; editar invalida o teste |
+| `ShellWindow` (menu, busca, sino, conta, abas) | `Moldura/MolduraDoApp.razor` | Ctrl+F (busca), Ctrl+B (menu), Esc (fecha o que está por cima); a régua de abas do item composto |
+| `TelaComAbas` (UserControl) | `Componentes/TelaComAbas.cs` (estado, sem tela) | a régua é desenhada pela moldura |
+| `TrocaSenhaWindow` | `Moldura/TrocaDeSenha.razor` (`Modal`) | "Minha senha" no menu da conta |
+| `TreinamentoView` + `TreinamentoPlayer` (MediaElement) | `Telas/Treinamento.razor` (`<video>`) | o catálogo e o recorte continuam no shell (`TreinamentoDaSuite`); as pastas de vídeo viram endereços do navegador |
+| `PromptWindow` (atrás do `IDialogoService`) | `Dialogos` (HTML) | ver a exceção abaixo |
+
+**Uma janela para a vida inteira do app.** A entrada e depois a moldura trocam DENTRO do mesmo
+navegador (`EstadoDaJanela`): criar um segundo navegador é o instante preto que a clínica filmou.
+Por isso o login deixou de ser uma janela à parte. A configuração do banco é a única exceção: ela
+acontece antes de o host da clínica existir (não há serviços para dar ao navegador), uma vez por
+máquina, e usa uma `JanelaDoApp` própria.
+
+**O ShellViewModel continua sendo quem decide** — o menu filtrado por permissão, a navegação com
+histórico, as abas, a busca, o sino, a medição das trocas. A `MolduraDaSuite` só o traduz para o
+contrato `IMolduraDoApp` (o `Clinica.Ui.Blazor` é `net8.0` e não conhece o shell) e põe no palco
+da janela a tela que ele escolheu. O que `IModuloApp.CriarTela` devolve virou um **descritor**
+(`ITelaDoNavegador`: o componente Razor); a `TelaBlazor` dos módulos o implementa e nunca entra
+numa árvore WPF na janela do app.
+
+**O que ainda é WPF, e por quê:**
+- as **janelas** abertas por cima do app pelas pontes (a área congelada da §2.1 e as da §2.2 que as
+  outras frentes ainda estão convertendo) — elas usam a `JanelaDoApp` como dona (é a `MainWindow`);
+- as duas janelas da **abertura do Faturamento** (aviso de pendências e rodada bloqueante), de
+  propósito: travam o app antes de a área de trabalho existir;
+- as **caixas de mensagem nativas** da abertura (o banco não respondeu, tentar de novo?): acontecem
+  antes de existir qualquer janela, quando não há navegador onde desenhá-las;
+- a **`PromptWindow` como caminho de baixo** do `IDialogoService`: a pergunta feita com a janela do
+  app à frente sai em HTML; quando ela vem de DENTRO de uma janela WPF modal (a principal está
+  desabilitada, e o diálogo HTML ficaria atrás, sem clique) ou no meio de um evento do próprio
+  Blazor (o renderizador só desenharia o diálogo depois de o evento terminar — e o evento estaria
+  esperando a resposta), ela cai na caixa nativa. Some quando as janelas da §2.2 forem convertidas.
+
+Não havia "instância única" para preservar: nenhum dos cinco apps impede duas cópias abertas, e
+continua assim.
 
 ---
 
@@ -157,7 +200,7 @@ A **moldura dos apps** (janela principal, menu, login) é WPF em todos os módul
 | Gerente, Financeiro | Nada |
 | Faturamento | As duas janelas da abertura (aviso de pendências e rodada bloqueante), WPF de propósito: travam o app antes de a área de trabalho existir |
 | Recepção | 16 arquivos XAML. Vários (agendamento, bloqueio, lista de espera, próximas vagas, autorização) já têm o formulário Blazor equivalente e podem ser só código morto, a conferir um a um. A tela de verdade é a **ficha do balcão** (`FichaBalcaoView`) com as quatro abas, que pode reaproveitar a aba administrativa Blazor desta PR |
-| Shell | 39 componentes WPF; parte é da área congelada, parte serve às janelas da §2.2 e sai com elas |
+| Shell | A moldura (janela, menu, login, configuração do banco, troca de senha, treinamento) é Blazor (§2.3). Restam os componentes WPF das janelas: parte é da área congelada, parte serve às janelas da §2.2 e sai com elas |
 
 ---
 
@@ -170,7 +213,7 @@ saíram em cerca de um dia de trabalho, com três frentes em paralelo.
 |---|---|---|---|
 | **PR A: Consultório completo** | as janelas da §2.2 | 2 a 3 dias | ~1 semana, com o CI e a conferência no build de teste |
 | **PR B: Recepção** | ficha do balcão + limpeza dos XAML mortos | ~3 a 5 dias | ~1,5 a 2 semanas para a suíte inteira, somando as duas PRs |
-| 100% literal | moldura + área congelada | não é possível sem mudar as duas decisões da §2.1 e §2.3 | — |
+| 100% literal | área congelada (a moldura já é Blazor, §2.3) | não é possível sem mudar a decisão da §2.1; a janela nativa da §2.3 é o que o Blazor Hybrid exige no Windows | — |
 
 Mesmo ritmo da PR 284: **uma PR por parte, mesclada só com o CI inteiro verde**.
 
@@ -198,3 +241,20 @@ Mesmo ritmo da PR 284: **uma PR por parte, mesclada só com o CI inteiro verde**
   - Sem migration: nada muda no banco.
   - O risco está no fluxo e no visual das seções novas. Antes da release, abrir a tela do paciente no build de teste com os três perfis (médico, enfermagem, balcão) e passar por cada seção.
   - Terminar a migração custa cerca de uma semana para o Consultório e mais uma para a Recepção.
+
+### A moldura em Blazor (§2.3), nos três eixos
+
+- 🧑‍💻 **UX:**
+  - A entrada aparece na janela do app (maximizada), já com a marca; depois dela a moldura troca no mesmo navegador, sem janela nova nem instante preto.
+  - O cabeçalho, o menu, a busca (Ctrl+F), o sino e a conta têm a mesma cara das telas; os popovers fecham com Esc e com o clique fora.
+  - O que muda para quem usa: o login deixou de ser uma janela pequena no meio da tela; o snackbar das janelas WPF agora sai nas notificações do canto da tela; o vídeo do Treinamento é o player do navegador (tela cheia de fábrica).
+  - Conferido rodando: um harness abriu a `JanelaDoApp` com WebView2 de verdade sobre SQLite, leu a entrada desenhada, entrou por JavaScript e leu a moldura com o menu, as abas e o "Meu dia".
+- 🛠️ **DX:**
+  - Removidos: `LoginWindow`, `SetupWindow`, `ShellWindow` (~600 linhas de XAML + code-behind), `TrocaSenhaWindow`, `TreinamentoView` + `TreinamentoPlayer`, `TelaComAbas.xaml`.
+  - Novos: `JanelaDoApp`, `MolduraDaSuite`, `NavegadorEmbutido` (as regras do WebView2 num lugar só, usadas também pela `NavegadorDaJanela`), `TreinamentoDaSuite`, e o contrato `Clinica.Ui.Blazor/Moldura/Contratos.cs`.
+  - A regra continua no `ShellViewModel`; a moldura só desenha. `MolduraBlazorTests` (bUnit) cobre a entrada sobre o `AcessoService` de verdade (senha errada, troca obrigatória, primeiro acesso, recusa do app), a configuração do banco e a moldura com um hospedeiro de mentira.
+  - As ferramentas do Windows (`ValidarLayoutWindows`, `Clinica.Verificacao.Desktop`, `VerificarDocumentos`, a captura do treinamento) abrem a `JanelaDoApp` no lugar da `ShellWindow`. O corte de leiaute do cabeçalho deixou de ser medido por elas (é HTML); ele foi conferido no harness, em 1280 px, e **ainda não entrou na prévia** (`tools/PreviaBlazor`) — é o próximo passo para ele ser fotografado em 1024 e 1366 como as telas.
+- 🤝 **CX:**
+  - Sem migration e sem mudança de regra: login, travamento, troca de senha, permissões do menu, abertura por exe e "Trocar usuário" (que reabre o app) são os mesmos.
+  - Risco: a primeira abertura depois da atualização desenha a entrada no WebView2 — máquina sem o runtime do WebView2 já não abria as telas Blazor, e agora não abriria nem a entrada (o mesmo pré-requisito, mais cedo). Antes da release, abrir os cinco apps no build de teste e entrar com um usuário de cada perfil.
+

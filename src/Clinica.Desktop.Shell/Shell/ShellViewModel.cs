@@ -129,8 +129,12 @@ public sealed partial class ShellViewModel : ObservableObject
     /// próprio estado e ninguém nunca observa esse estado. Build verde, teste verde, e a
     /// única forma de notar é clicar em Salvar e reparar que a tela não respondeu.
     ///
-    /// Null quando não há serviço (testes, ou app aberto fora do bootstrap): o binding
+    /// Null quando não há serviço (testes, ou app aberto fora do bootstrap): a moldura
     /// simplesmente não acha nada e a janela segue.
+    ///
+    /// ⚠️ Desde out/2026 quem DESENHA é a moldura Blazor (<see cref="MolduraDaSuite"/>): cada
+    /// aviso novo vira notificação no navegador da janela e entra no histórico do sino — a
+    /// mesma "saída sem tela" seria esquecer de ligar essa ponte.
     /// </summary>
     public SnackbarService? Snackbar { get; }
 
@@ -207,6 +211,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 if(Itens.Any(i=>i.Chave==chave))mudou|=_telasTreinamento.Add(chave);
         } while(mudou);
         Itens.Add(_itemTreinamento);
+        servicos.GetService<Treinamento.TreinamentoDaSuite>()?.Definir(_telasTreinamento, SessaoUsuario.Atual.UsuarioId);
 
         // Agrupa por SEÇÃO TEMÁTICA, não por módulo: no Gerente, que carrega os três,
         // agrupar por módulo daria cabeçalhos que explicam a arquitetura em vez do
@@ -472,9 +477,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Monta a tela de um item simples pedindo ao módulo dono.</summary>
     private object? MontarTela(ItemMenuModulo item)
     {
-        if(item.Chave=="treinamento")return new Treinamento.TreinamentoView(
-            Treinamento.CatalogoTreinamento.Filtrar(Treinamento.CatalogoTreinamento.Ler(),_telasTreinamento),
-            SessaoUsuario.Atual.UsuarioId);
+        // O Treinamento é tela do SHELL (out/2026, Blazor): o recorte das aulas pelas telas deste
+        // executável já foi entregue ao TreinamentoDaSuite na construção.
+        if(item.Chave=="treinamento")return new TelaDoNavegador(typeof(Clinica.Ui.Blazor.Telas.Treinamento));
         foreach (var modulo in _modulos)
         {
             if (modulo.Nome != item.ModuloNome) continue;
@@ -522,7 +527,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     // ===== Sino da topbar =====
 
-    /// <summary>Pop-up do sino aberto? A View liga o Popup (StaysOpen=False) aqui.</summary>
+    /// <summary>Pop-up do sino aberto? A moldura Blazor o desenha e o fecha (Esc, clique fora).</summary>
     [ObservableProperty]
     private bool _avisosAbertos;
 
@@ -629,15 +634,12 @@ public sealed partial class ShellViewModel : ObservableObject
     /// primeira e a auditoria assinava o nome errado — que é exatamente o defeito que a
     /// parcela 45 existiu para corrigir, com `SessaoUsuario` no lugar de
     /// `Environment.UserName`.
+    ///
+    /// A PERGUNTA ("o sistema vai fechar…") é da moldura, em HTML, antes desta chamada
+    /// (out/2026); aqui só se reabre.
     /// </summary>
-    [RelayCommand]
-    private void TrocarUsuario()
+    public void ReabrirParaTrocarUsuario()
     {
-        var dialogo = _servicos.GetService<Clinica.Desktop.Controls.IDialogoService>();
-        if (dialogo is not null && !dialogo.Confirmar("Trocar usuário",
-                "O sistema vai fechar e abrir de novo na tela de entrada. "
-                + "Salve o que estiver editando antes de continuar.")) return;
-
         try
         {
             var executavel = Environment.ProcessPath;
@@ -659,32 +661,7 @@ public sealed partial class ShellViewModel : ObservableObject
         System.Windows.Application.Current.Shutdown();
     }
 
-    /// <summary>
-    /// Trocar a PRÓPRIA senha — a metade voluntária que faltava (parcela 69). O serviço
-    /// confere a senha atual, então não há permissão a exigir: a prova de posse é ela.
-    /// Fica ao lado do "Trocar usuário" porque as duas são a mesma conversa — quem está
-    /// conectado, e como ele se protege.
-    /// </summary>
-    [RelayCommand]
-    private void TrocarMinhaSenha()
-    {
-        // Guarda que FALA (parcela 41): sem sessão autenticada não há senha de quem
-        // trocar — só acontece em build de teste, e sair calado leria como botão morto.
-        if (SessaoUsuario.Atual.UsuarioId == 0)
-        {
-            _servicos.GetService<Clinica.Desktop.Controls.ISnackbarService>()?.Erro(
-                "Não há usuário conectado — a troca de senha é de quem fez login.");
-            return;
-        }
-
-        var janela = new Componentes.TrocaSenhaWindow(
-            _servicos.GetRequiredService<IServiceScopeFactory>())
-        {
-            Owner = Componentes.JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() == true)
-            _servicos.GetService<Clinica.Desktop.Controls.ISnackbarService>()?.Sucesso(
-                "Senha trocada.");
-    }
+    // A troca da PRÓPRIA senha (parcela 69) é o formulário "Minha senha" da moldura Razor
+    // (Clinica.Ui.Blazor.Moldura.TrocaDeSenha, out/2026): o serviço confere a senha atual, e a
+    // prova de posse é ela — nenhuma permissão a mais.
 }

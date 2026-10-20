@@ -100,17 +100,17 @@ internal static partial class Program
                 Conferir(shell.TituloTela == "Faturamento de guias" && shell.TelaAtual is Clinica.Desktop.Shell.Componentes.TelaComAbas,
                     $"{nome}: abertura direta no faturamento");
                 var composta = (Clinica.Desktop.Shell.Componentes.TelaComAbas)shell.TelaAtual!;
-                var regua = (TabControl)composta.FindName("Abas");
                 var esperadas = new[] { "Resumo", "Pendências e baixas", "Consultar guias", "Faturados", "Glosas e recursos", "Não conformidades", "Lotes e XML TISS" };
                 // Tendências (out/2026) é aba do Faturamento para quem vê guias; Relatórios e Regras
                 // continuam só para quem tem os bits deles. A ordem é a dos destinos do módulo.
                 esperadas = perfil == PerfilAcesso.Gerente
                     ? esperadas.Concat(new[] { "Relatórios de guias", "Tendências", "Regras e catálogos TISS" }).ToArray()
                     : esperadas.Concat(new[] { "Tendências" }).ToArray();
-                Conferir(regua.Items.Cast<TabItem>().Select(a => (string)a.Header).SequenceEqual(esperadas),
+                // A régua é desenhada pela moldura Blazor desde out/2026; o estado dela é o TelaComAbas.
+                Conferir(composta.Rotulos.SequenceEqual(esperadas),
                     $"{nome}: subabas de guias preservadas conforme permissão");
-                // Blazor desde out/2026: a aba materializa o LUGAR da tela (o navegador é o da janela).
-                Conferir(regua.SelectedIndex == 0 && ((TabItem)regua.Items[0]).Content is Clinica.Desktop.Blazor.TelaBlazor,
+                // A aba materializa o DESCRITOR da tela (o navegador é o da janela).
+                Conferir(composta.Selecionada == 0 && composta.ConteudoVisivel is Clinica.Desktop.Blazor.TelaBlazor,
                     $"{nome}: Resumo materializa a tela de faturamento");
                 foreach (var chave in new[] { "agenda", "fila", ChavesSuite.AgendaRecepcao, ChavesSuite.ConsultorioSemana,
                     "agenda-confirmacoes", "retornos-a-marcar", "marcar-horario", "pacientes", "acessos", "configuracoes" })
@@ -128,8 +128,9 @@ internal static partial class Program
                 shell.TextoPesquisa = "";
                 if (perfil == PerfilAcesso.Faturista)
                 {
-                    var janelaFaturamento = new ShellWindow { DataContext = shell, Title = "Faturamento — Clínica SemDor", Width = 1366, Height = 820,
+                    var janelaFaturamento = new JanelaDoApp(provider, "Faturamento — Clínica SemDor") { Width = 1366, Height = 820,
                         ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000 };
+                    janelaFaturamento.MostrarMoldura(shell);
                     janelaFaturamento.Show(); await Task.Delay(250); Render(janelaFaturamento, "faturamento-exclusivo.png"); janelaFaturamento.Close();
                 }
             }
@@ -145,14 +146,9 @@ internal static partial class Program
                     {
                         var anterior = shell.TelaAtual;
                         Conferir(NavegacaoSuite.Ir(item.Chave), $"{nome}: treinamento acessível pela navegação");
-                        Conferir(shell.TelaAtual is Clinica.Desktop.Shell.Treinamento.TreinamentoView,
+                        // Blazor desde out/2026: o treinamento é a tela Treinamento no navegador da janela.
+                        Conferir(shell.TelaAtual is ITelaDoNavegador { Componente.Name: "Treinamento" },
                             $"{nome}: treinamento materializa a biblioteca compartilhada");
-                        if (shell.TelaAtual is FrameworkElement biblioteca)
-                        {
-                            biblioteca.Measure(new Size(1366,728));
-                            biblioteca.Arrange(new Rect(0,0,1366,728));
-                            biblioteca.UpdateLayout();
-                        }
                         await Dispatcher.Yield(DispatcherPriority.Background);
                         Conferir(NavegacaoSuite.Voltar() && ReferenceEquals(anterior, shell.TelaAtual),
                             $"{nome}: sair do treinamento preserva a tela de origem");
@@ -160,7 +156,8 @@ internal static partial class Program
                     }
                     var dono = modulos.First(m=>m.Nome==item.ModuloNome);
                     var tela = dono.CriarTela(item.Chave,provider);
-                    Conferir(tela is FrameworkElement,$"{nome}: rota {item.Chave} materializa componente");
+                    // Toda rota devolve uma tela do NAVEGADOR (out/2026: a moldura é Blazor).
+                    Conferir(tela is ITelaDoNavegador,$"{nome}: rota {item.Chave} materializa componente");
                     if(tela is FrameworkElement el) { el.Measure(new Size(1366,728)); el.Arrange(new Rect(0,0,1366,728)); el.UpdateLayout(); }
                     await Dispatcher.Yield(DispatcherPriority.Background);
                 }
@@ -196,7 +193,8 @@ internal static partial class Program
                 Render(janelaCadastro,"cadastro-real.png");
                 await VerificarCadastroAsync(provider,options,sentinela,cadastro,janelaCadastro,opcao);
                 janelaCadastro.Close();
-                var shellWindow=new ShellWindow { DataContext=shell,ShowInTaskbar=false,ShowActivated=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000,Width=1366,Height=768 };
+                var shellWindow=new JanelaDoApp(provider,"Gerente Geral — Clínica SemDor") { ShowInTaskbar=false,ShowActivated=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000,Width=1366,Height=768 };
+                shellWindow.MostrarMoldura(shell);
                 shellWindow.Show();
                 foreach(var chave in new[]{"agenda","marcar-horario","pacientes-recepcao","faturamento-gerencial","configuracoes"}) {
                     NavegacaoSuite.Ir(chave);await Task.Delay(160);Render(shellWindow,"shell-"+chave+".png");

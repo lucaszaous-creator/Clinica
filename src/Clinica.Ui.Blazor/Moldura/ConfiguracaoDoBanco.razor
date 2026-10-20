@@ -1,0 +1,125 @@
+@*
+  A CONFIGURAÇÃO DO BANCO no primeiro acesso de uma máquina (out/2026 — era a SetupWindow do
+  WPF). A clínica cola a URL da Neon ou a connection string, TESTA, e só então pode salvar:
+  uma conexão que não abre, gravada, transforma o próximo erro em mistério na abertura do app.
+  Editar o texto invalida o teste — o que foi validado deixa de ser o que está na tela.
+*@
+
+<div class="entrada">
+    <div class="entrada-cartao configuracao">
+        <form class="entrada-form largo" @onsubmit="TestarAsync" @onsubmit:preventDefault="true">
+            <h1>Configurar o banco de dados — @Porta.NomeDoApp</h1>
+            <p class="entrada-subtitulo">
+                Cole a connection string do PostgreSQL ou a URL da Neon. Ela fica criptografada
+                neste computador, numa pasta comum a todos os apps da clínica.
+            </p>
+
+            <label class="campo-bloco">
+                <span class="campo-rotulo">Conexão</span>
+                <textarea class="campo" rows="4" spellcheck="false" @ref="_caixa"
+                          value="@_entrada" @oninput="AoDigitar"
+                          placeholder="Host=…;Database=…;Username=…;Password=…  ou  postgresql://…"></textarea>
+            </label>
+
+            <Aviso Texto="@_info" Tom="info" />
+            <Aviso Texto="@_sucesso" Tom="sucesso" />
+            <Aviso Texto="@_erro" Tom="erro" />
+
+            <div class="entrada-botoes">
+                <button type="submit" class="botao" disabled="@_testando">Testar conexão</button>
+                <button type="button" class="botao primario" disabled="@(_validada is null)" @onclick="Salvar">Salvar e continuar</button>
+                <button type="button" class="botao fantasma" @onclick="() => Porta.Concluir(false)">Sair</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IConfiguracaoDoBanco Porta { get; set; } = default!;
+
+    private string _entrada = "";
+    private string? _validada;
+    private bool _testando;
+    private string? _info, _sucesso, _erro;
+    private ElementReference _caixa;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { await _caixa.FocusAsync(); } catch (Exception) { }
+    }
+
+    private void AoDigitar(ChangeEventArgs e)
+    {
+        _entrada = e.Value?.ToString() ?? "";
+        if (_validada is null) return;
+        _validada = null;
+        _info = _sucesso = _erro = null;
+    }
+
+    private async Task TestarAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_entrada))
+        {
+            Mostrar(erro: "Informe a connection string ou a URL da Neon.");
+            return;
+        }
+
+        string conexao;
+        try
+        {
+            conexao = Porta.Normalizar(_entrada);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Setup — connection string não pôde ser interpretada", ex);
+            Mostrar(erro: $"Não foi possível interpretar o que você colou: {ex.Message}");
+            return;
+        }
+
+        _testando = true;
+        Mostrar(info: "Testando conexão…");
+        var (ok, mensagem) = await Porta.TestarAsync(conexao);
+        _testando = false;
+
+        if (ok)
+        {
+            _validada = conexao;
+            Mostrar(sucesso: "Conexão bem-sucedida! Clique em \"Salvar e continuar\".");
+        }
+        else
+        {
+            _validada = null;
+            Mostrar(erro: $"Não foi possível conectar: {mensagem}");
+        }
+    }
+
+    private void Salvar()
+    {
+        if (_validada is null)
+        {
+            Mostrar(erro: "Teste a conexão antes de salvar.");
+            return;
+        }
+        try
+        {
+            Porta.Salvar(_validada);
+        }
+        catch (Exception ex)
+        {
+            // Sem disco ou sem permissão: falhar em silêncio faria o app pedir a conexão de novo
+            // na próxima abertura, sem ninguém entender por quê.
+            Clinica.Application.Diagnostico.Registrar("Setup — conexão não pôde ser gravada", ex);
+            Mostrar(erro: $"A conexão funciona, mas não foi possível salvá-la neste computador: {ex.Message}");
+            return;
+        }
+        Porta.Concluir(true);
+    }
+
+    private void Mostrar(string? info = null, string? sucesso = null, string? erro = null)
+    {
+        _info = info;
+        _sucesso = sucesso;
+        _erro = erro;
+    }
+}

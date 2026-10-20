@@ -68,39 +68,39 @@ static class Program
         if (somenteGestao) { await ValidarGestao(sp, pac, usuario); return; }
         for (var i = 0; i < 12; i++) db.Add(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, DataHora = DateTime.Today.AddHours(8 + i / 2.0), ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro }); await db.SaveChangesAsync();
         sp.GetRequiredService<PacienteEmFoco>().Definir(pac.Id, pac.Nome, 1, null, DateOnly.FromDateTime(DateTime.Today));
-        var vm = new ShellViewModel("Gerente", modulos, sp); var win = new ShellWindow { DataContext = vm, ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 960, Height = 600 }; win.Show();
+        // A moldura é Blazor desde out/2026 (JanelaDoApp): o cabeçalho, o menu e as abas são
+        // HTML no navegador da janela (o das telas é fotografado na prévia, tools/PreviaBlazor; o
+        // do cabeçalho ainda não). Aqui fica o que só o Windows
+        // responde: cada item do menu monta uma tela do NAVEGADOR (nenhuma rota devolve mais
+        // tela WPF), cada aba de item composto também, e a janela aguenta as larguras de sempre.
+        var vm = new ShellViewModel("Gerente", modulos, sp);
+        var win = new JanelaDoApp(sp, "Gerente Geral — Clínica SemDor") { ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 960, Height = 600 };
+        win.MostrarMoldura(vm); win.Show();
         foreach (var item in vm.Itens.Where(i => !i.Oculto && (completo || new[] { "agenda", "consultorio-agenda", "receituario", "consultorio-prescricoes", "configuracoes" }.Contains(i.Chave))))
         {
             vm.NavegarCommand.Execute(item); await Task.Delay(350);
-            var abas = vm.TelaAtual is TelaComAbas t ? Descendentes(t).OfType<TabControl>().First() : null;
-            int n = abas?.Items.Count ?? 1;
+            var composta = vm.TelaAtual as TelaComAbas;
+            int n = composta?.Rotulos.Count ?? 1;
             for (var a = 0; a < n; a++)
             {
-                if (abas != null) abas.SelectedIndex = a; await Task.Delay(200);
-                foreach (int largura in new[] { 1920, 1366, 880, 960, 1024 })
+                composta?.Selecionar(a); await Task.Delay(200);
+                var visivel = composta is not null ? composta.ConteudoVisivel : vm.TelaAtual;
+                string nome = item.Chave + "-" + a; Console.WriteLine("TELA " + nome);
+                if (visivel is not ITelaDoNavegador) { falhas++; Console.WriteLine($"SEM TELA DO NAVEGADOR {nome}: {visivel?.GetType().Name ?? "nada"}"); }
+                foreach (int largura in new[] { 1366, 960 })
                 {
                     win.Width = largura; win.UpdateLayout(); await Task.Delay(100); win.UpdateLayout();
-                    string nome = item.Chave + "-" + a + "-" + largura; Console.WriteLine("TELA " + nome);
-                    foreach (var el in Descendentes(win).OfType<FrameworkElement>().Where(e => e.IsVisible && (e is Button || e is TextBox || e is ComboBox || e is DataGrid)))
-                    {
-                        var pt = el.TranslatePoint(new Point(), win); if (pt.X < -1 || pt.X + el.ActualWidth > win.ActualWidth - 15 + 1) { falhas++; Console.WriteLine($"VAZA {nome} {el.GetType().Name} {(el as Button)?.Content} x={pt.X:0} w={el.ActualWidth:0}"); }
-                    }
-                    foreach (var grade in Descendentes(win).OfType<DataGrid>())
-                    {
-                        var sv = Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault();
-                        if (sv != null && sv.ScrollableWidth > 0.01) { falhas++; Console.WriteLine($"COLUNAS {nome} excedente={sv.ScrollableWidth:0}"); }
-                    }
-                    if (largura == 1366 || largura == 960) Foto(win, nome);
+                    Foto(win, nome + "-" + largura);
                 }
             }
         }
         // A Grade da agenda é Blazor desde out/2026 (GradeDaAgenda): a chave dela abre o
-        // componente hospedado. Vagas, sobreposição, bloqueios, busca e semana são conferidos
-        // em GradeDaAgendaNaTelaTests e no bUnit (TelasBlazorAbremTests).
+        // componente no navegador da janela. Vagas, sobreposição, bloqueios, busca e semana são
+        // conferidos em GradeDaAgendaNaTelaTests e no bUnit (TelasBlazorAbremTests).
         NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda);
         await Task.Delay(250);
-        if (!Descendentes(win).OfType<Clinica.Desktop.Blazor.TelaBlazor>()
-                .Any(t => t.Componente.Name is "GradeDaAgenda" or "VisaoGeralDaAgenda"))
+        var aVista = vm.TelaAtual is TelaComAbas abasDaAgenda ? abasDaAgenda.ConteudoVisivel : vm.TelaAtual;
+        if (aVista is not ITelaDoNavegador { Componente.Name: "GradeDaAgenda" or "VisaoGeralDaAgenda" })
             throw new Exception("A chave da agenda deve abrir a Grade (Blazor).");
         Console.WriteLine("AGENDA: a chave da grade abre a tela Blazor.");
         win.Close();

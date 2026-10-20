@@ -17,7 +17,7 @@ static class AllScreens
         {
             var scope=modules.Select(m=>m==module?m:(IModuloApp)new ModuloContextual(m)).ToArray();
             var shell=new ShellViewModel(module.Nome+" — Clínica SemDor · DEMONSTRAÇÃO",scope,services);
-            window.DataContext=shell;
+            ((JanelaDoApp)window).MostrarMoldura(shell);
             foreach(var item in module.Itens.Select(OrganizacaoNavegacao.Aplicar).Where(i=>i.Abas.Count==0))
             {
                 if(!done.Add(item.Chave))continue;

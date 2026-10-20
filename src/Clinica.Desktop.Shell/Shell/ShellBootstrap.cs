@@ -56,6 +56,19 @@ public static class ShellBootstrap
                     sp => sp.GetRequiredService<SnackbarService>());
                 servicos.AddSingleton<IDialogoService, DialogoService>();
 
+                // A moldura é Blazor (out/2026): o navegador da janela do app e os serviços de
+                // tela (diálogos, notificações) existem em todo executável, tenha ele módulo com
+                // tela Blazor ou não. Idempotente com o que os módulos registram.
+                //
+                // O treinamento é do shell: ele sabe quais telas o exe publica. Registrado ANTES
+                // do AddTelasBlazor, para o padrão "sem aulas" do AddTelasBlazor não vencer.
+                servicos.AddSingleton<Treinamento.TreinamentoDaSuite>();
+                servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.ITreinamentoDoApp>(
+                    sp => sp.GetRequiredService<Treinamento.TreinamentoDaSuite>());
+                servicos.AddWpfBlazorWebView();
+                if (servicos.All(d => d.ServiceType != typeof(Clinica.Ui.Blazor.Hospedagem.Dialogos)))
+                    Clinica.Ui.Blazor.Hospedagem.RegistroTelas.AddTelasBlazor(servicos);
+
                 foreach (var modulo in lista) modulo.Registrar(servicos);
             })
             .Build();

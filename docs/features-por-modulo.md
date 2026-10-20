@@ -918,7 +918,7 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 | Conformidade LGPD (consentimento) | ✅ | `ConsentimentoService` — entregue na parcela 2, na Recepção |
 | Direitos do titular: acesso e eliminação | ✅ | `TitularDadosService` — exportar e anonimizar, na ficha do paciente (parcela 26) |
 | Perfis e permissões finas | ✅ | `UsuarioSistema`, `PerfisAcesso`, `AcessoService`, tela Blazor `AcessosDaClinica` (out/2026) |
-| Login nos apps da suíte | ✅ | `LoginWindow` + `SessaoUsuario` no shell |
+| Login nos apps da suíte | ✅ | a entrada Blazor da `JanelaDoApp` (`Moldura/Entrada.razor`) + `SessaoUsuario` no shell |
 
 > A metade LGPD saiu antes da hora, junto do cadastro do paciente (parcela 2) — é lá que
 > o consentimento é colhido, no balcão. A parcela 5 fecha o controle de acesso: usuário,

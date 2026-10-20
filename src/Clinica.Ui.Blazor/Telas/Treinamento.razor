@@ -1,0 +1,279 @@
+@*
+  TREINAMENTO (out/2026 — era a TreinamentoView do WPF, com um MediaElement). As videoaulas
+  das telas que ESTE app publica: o recorte é do shell (uma aula só aparece se todas as telas
+  dela existirem aqui), o vídeo é baixado e conferido pelo SHA-256 no shell, e a tela só toca
+  o arquivo no navegador — o <video> do HTML tem tela cheia, volume e posição de fábrica.
+
+  O progresso é por USUÁRIO e por computador (arquivo em LocalAppData), salvo a cada 5 s, ao
+  pausar e ao terminar — quem fecha o app no meio continua de onde parou.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+@inject ITreinamentoDoApp Acervo
+@inject IJSRuntime JS
+@using Microsoft.JSInterop
+
+<div class="pagina treinamento">
+    <CabecalhoPagina Sobretitulo="Aprender" Titulo="Treinamento"
+                     Subtitulo="Aprenda as funções do seu módulo com as telas do sistema. Continue de onde parou ou procure uma tarefa." />
+
+    @if (_aulas.Count == 0)
+    {
+        <div class="cartao">
+            <EstadoVazio Titulo="Nenhuma videoaula para as telas deste aplicativo"
+                         Descricao="As aulas aparecem aqui quando houver vídeo publicado para as telas que este app abre." />
+        </div>
+    }
+    else
+    {
+        <div class="filtros cartao treinamento-filtros">
+            <div class="busca campo-bloco">
+                <Icone Nome="busca" />
+                <input class="campo" type="search" placeholder="Buscar tela ou função" aria-label="Buscar aula"
+                       @bind="_busca" @bind:event="oninput" />
+            </div>
+            <select class="campo" aria-label="Categoria de treinamento" @bind="_categoria">
+                <option value="">Todas as categorias</option>
+                @foreach (var c in _aulas.Select(a => a.Categoria).Distinct().Order())
+                {
+                    <option value="@c">@c</option>
+                }
+            </select>
+            <select class="campo" aria-label="Progresso das aulas" @bind="_situacao">
+                <option value="todas">Todas as aulas</option>
+                <option value="abertas">Não concluídas</option>
+                <option value="concluidas">Concluídas</option>
+            </select>
+        </div>
+
+        <p class="treinamento-resumo" role="status">@Visiveis.Count aulas neste filtro · @_aulas.Count(a => Acervo.Progresso(a.Id).Concluida) de @_aulas.Count concluídas</p>
+
+        @if (_atual is { } aula)
+        {
+            <section class="cartao treinamento-aula">
+                <header class="cartao-titulo">
+                    <div><h2>@aula.Titulo</h2><p>@aula.Descricao</p></div>
+                    <button type="button" class="botao" @onclick="FecharAula">Fechar aula</button>
+                </header>
+                <div class="treinamento-video">
+                    @if (_endereco is { } src)
+                    {
+                        <video @ref="_video" src="@src" controls autoplay preload="metadata"></video>
+                    }
+                    else
+                    {
+                        <div class="treinamento-mensagem">
+                            <span>@(_mensagemVideo ?? "Carregando vídeo…")</span>
+                            @if (_mensagemVideo is not null)
+                            {
+                                <button type="button" class="botao" @onclick="() => CarregarVideoAsync(aula)">Tentar novamente</button>
+                            }
+                        </div>
+                    }
+                </div>
+                <p class="texto-secundario pequeno">Voz Bella · Legendas incorporadas · Telas reais com dados fictícios</p>
+                <div class="acoes">
+                    <button type="button" class="botao primario" @onclick="ConcluirAsync">Marcar como concluída</button>
+                    <button type="button" class="botao" @onclick="() => IrParaAsync(0)">Rever desde o início</button>
+                </div>
+                @if (_avisoProgresso is not null)
+                {
+                    <Aviso Texto="@_avisoProgresso" Tom="atencao" />
+                }
+                <details class="treinamento-capitulos">
+                    <summary>Passo a passo e capítulos</summary>
+                    @foreach (var cap in aula.Capitulos)
+                    {
+                        var c = cap;
+                        <div class="treinamento-capitulo">
+                            <button type="button" class="link" @onclick="() => IrParaAsync(c.Inicio)">@c.Titulo</button>
+                            <p>@c.Texto</p>
+                        </div>
+                    }
+                </details>
+            </section>
+        }
+
+        @if (Visiveis.Count == 0)
+        {
+            <div class="cartao">
+                <EstadoVazio Titulo="Nenhuma aula corresponde à busca"
+                             Descricao="Tente outro nome ou escolha Todas as categorias." />
+            </div>
+        }
+        else
+        {
+            <div class="treinamento-aulas">
+                @foreach (var a in Visiveis)
+                {
+                    var item = a;
+                    <button type="button" class="cartao treinamento-cartao" @onclick="() => AbrirAsync(item)">
+                        <span class="treinamento-categoria">@item.Categoria</span>
+                        <strong>@item.Titulo</strong>
+                        <span class="treinamento-descricao">@item.Descricao</span>
+                        <span class="texto-secundario">@item.DuracaoTexto</span>
+                        <span class="treinamento-estado">@Estado(item)</span>
+                    </button>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AulaDoTreinamento> _aulas = [];
+    private string _busca = "", _categoria = "", _situacao = "todas";
+    private AulaDoTreinamento? _atual;
+    private string? _endereco, _mensagemVideo, _avisoProgresso;
+    private ElementReference _video;
+    private bool _ligarVideo;
+    private CancellationTokenSource? _cancelar;
+    private DotNetObjectReference<Treinamento>? _ref;
+    private double _posicao;
+
+    protected override void OnInitialized() => _aulas = Acervo.Aulas();
+
+    private IReadOnlyList<AulaDoTreinamento> Visiveis => _aulas
+        .Where(a => string.IsNullOrWhiteSpace(_busca) || Casa(a, _busca.Trim()))
+        .Where(a => _categoria.Length == 0 || a.Categoria == _categoria)
+        .Where(a => _situacao == "todas" || Acervo.Progresso(a.Id).Concluida == (_situacao == "concluidas"))
+        .ToList();
+
+    /// <summary>Acha por título, descrição e funções, sem acento nem caixa — "agenda" acha "Agênda".</summary>
+    private static bool Casa(AulaDoTreinamento a, string termo)
+        => System.Globalization.CultureInfo.GetCultureInfo("pt-BR").CompareInfo.IndexOf(
+            string.Join(" ", a.Funcoes.Prepend(a.Titulo).Append(a.Descricao)), termo,
+            System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0;
+
+    private string Estado(AulaDoTreinamento a)
+    {
+        var p = Acervo.Progresso(a.Id);
+        return p.Concluida ? "✓ Concluída" : p.Posicao > 0 ? "Continuar aula" : "Assistir aula";
+    }
+
+    private async Task AbrirAsync(AulaDoTreinamento aula)
+    {
+        _atual = aula;
+        _avisoProgresso = null;
+        await CarregarVideoAsync(aula);
+    }
+
+    private async Task CarregarVideoAsync(AulaDoTreinamento aula)
+    {
+        _cancelar?.Cancel();
+        var cancelar = _cancelar = new CancellationTokenSource();
+        _endereco = null;
+        _mensagemVideo = null;
+        StateHasChanged();
+        try
+        {
+            var endereco = await Acervo.EnderecoDoVideoAsync(aula.Id, cancelar.Token);
+            if (cancelar.IsCancellationRequested || !ReferenceEquals(_atual, aula) || Descartada) return;
+            _endereco = endereco;
+            _ligarVideo = true;
+        }
+        catch (OperationCanceledException) when (cancelar.IsCancellationRequested) { }
+        catch (OperationCanceledException)
+        {
+            _mensagemVideo = "O carregamento demorou mais que o esperado. Confira a conexão e clique em Tentar novamente.";
+        }
+        catch (Exception ex)
+        {
+            if (cancelar.IsCancellationRequested) return;
+            Clinica.Application.Diagnostico.Registrar($"Treinamento — vídeo da aula {aula.Id}", ex);
+            _mensagemVideo = ex is InvalidOperationException
+                ? ex.Message
+                : "Não foi possível carregar esta aula. Confira a conexão e clique em Tentar novamente. O progresso foi mantido.";
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_ligarVideo || _atual is null) return;
+        _ligarVideo = false;
+        var p = Acervo.Progresso(_atual.Id);
+        _posicao = p.Concluida ? 0 : p.Posicao;
+        try
+        {
+            _ref ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("clinicaVideo.ligar", _video, _ref, _posicao);
+        }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Treinamento — o vídeo não ligou", ex); }
+    }
+
+    /// <summary>A página avisa a posição a cada 5 s e ao pausar.</summary>
+    [JSInvokable]
+    public Task Posicao(double segundos) => InvokeAsync(() => { _posicao = segundos; Salvar(null); });
+
+    /// <summary>O vídeo chegou ao fim: a aula é dada como concluída.</summary>
+    [JSInvokable]
+    public Task Terminou() => InvokeAsync(() => { _posicao = 0; Salvar(true); StateHasChanged(); });
+
+    /// <summary>O navegador não conseguiu tocar o arquivo (codec, arquivo corrompido).</summary>
+    [JSInvokable]
+    public Task Falhou() => InvokeAsync(() =>
+    {
+        _endereco = null;
+        _mensagemVideo = "Não foi possível reproduzir o vídeo. Clique em Tentar novamente. Se persistir, avise o suporte.";
+        StateHasChanged();
+    });
+
+    private Task ConcluirAsync()
+    {
+        Salvar(true);
+        return Task.CompletedTask;
+    }
+
+    private async Task IrParaAsync(double segundos)
+    {
+        if (_endereco is null) { _posicao = segundos; return; }
+        try { await JS.InvokeVoidAsync("clinicaVideo.ir", _video, segundos); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Treinamento — ir para o capítulo", ex); }
+    }
+
+    private void FecharAula()
+    {
+        Salvar(null);
+        _cancelar?.Cancel();
+        _atual = null;
+        _endereco = null;
+        _mensagemVideo = null;
+    }
+
+    private void Salvar(bool? concluida)
+    {
+        if (_atual is null) return;
+        try
+        {
+            var anterior = Acervo.Progresso(_atual.Id);
+            Acervo.Salvar(_atual.Id, _posicao, concluida ?? anterior.Concluida);
+            _avisoProgresso = null;
+        }
+        catch (Exception ex)
+        {
+            // Disco cheio ou pasta bloqueada: a aula continua tocando, e a frase diz o que se perde.
+            Clinica.Application.Diagnostico.Registrar("Treinamento — progresso não pôde ser salvo", ex);
+            _avisoProgresso = "Não foi possível salvar o progresso neste computador.";
+        }
+    }
+
+    protected override Task AoSairAsync()
+    {
+        // A tela saiu de vista (continua montada): o vídeo não segue tocando escondido.
+        Salvar(null);
+        return _endereco is null ? Task.CompletedTask : PausarAsync();
+    }
+
+    private async Task PausarAsync()
+    {
+        try { await JS.InvokeVoidAsync("clinicaVideo.pausar", _video); }
+        catch (Exception) { /* o elemento pode já ter saído da árvore */ }
+    }
+
+    public override void Dispose()
+    {
+        _cancelar?.Cancel();
+        _ref?.Dispose();
+        base.Dispose();
+    }
+}

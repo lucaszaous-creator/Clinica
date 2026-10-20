@@ -34,12 +34,20 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <!-- Auto-update dos apps da suíte (AtualizadorSuite). -->
     <PackageReference Include="Velopack" Version="1.2.0" />
+    <!--
+      A MOLDURA EM BLAZOR (out/2026): a janela principal, a entrada e a configuração do banco
+      são Razor (Clinica.Ui.Blazor) dentro de UM BlazorWebView por janela (JanelaDoApp). O
+      pacote só tem lib/net8.0-windows — o compilar-sombra o troca pela DLL baixada
+      (PACOTES_SO_WINDOWS).
+    -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="8.0.100" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
     <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
     <ProjectReference Include="..\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
+    <ProjectReference Include="..\Clinica.Ui.Blazor\Clinica.Ui.Blazor.csproj" />
   </ItemGroup>
 
   <!-- Marca: usada via pack URI pela janela do shell. -->
