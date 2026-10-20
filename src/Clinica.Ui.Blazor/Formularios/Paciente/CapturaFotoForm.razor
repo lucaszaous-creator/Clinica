@@ -1,0 +1,271 @@
+@*
+  A FOTO DO PACIENTE pela webcam da recepção (out/2026 — era a CapturaFotoWindow do shell WPF,
+  DirectShow via AForge). No Blazor a câmera é a do navegador (getUserMedia, js/captura-foto.js);
+  o hospedeiro WPF libera a permissão da câmera SÓ para a origem do próprio app.
+
+  O visor mostra o recorte quadrado central — exatamente o que será gravado — e Capturar congela
+  o quadro. Sempre há a saída "Escolher arquivo…", para quando não há câmera, ela está presa em
+  outro programa ou a privacidade do Windows a bloqueou: cada um desses casos tem a sua frase.
+
+  CAPTURAR NÃO É GRAVAR: o retrato volta ao cadastro (AoConcluir) e só é gravado no Salvar
+  dele — cadastro abandonado não deixa retrato órfão no banco.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Microsoft.JSInterop
+@inherits TelaBase
+@inject IJSRuntime JS
+
+<Modal Titulo="Foto do paciente" Subtitulo="@(string.IsNullOrWhiteSpace(NomePaciente) ? "Novo cadastro" : NomePaciente)"
+       Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <p class="campo-dica">Enquadre o rosto no círculo, com o paciente de frente e boa luz. A área mostrada é exatamente a que será gravada.</p>
+
+        <div class="cap-visor">
+            <video @ref="_video" class="@(_foto is null ? null : "oculto")" autoplay muted playsinline></video>
+            @if (_foto is not null)
+            {
+                <img src="@($"data:image/jpeg;base64,{Convert.ToBase64String(_foto.Cheia)}")" alt="Foto capturada" />
+            }
+            else
+            {
+                <span class="cap-guia" aria-hidden="true"></span>
+            }
+            @if (_foto is null && _textoVisor is not null)
+            {
+                <span class="cap-estado">@_textoVisor</span>
+            }
+        </div>
+
+        @if (_cameras.Count > 1)
+        {
+            <Campo Rotulo="Câmera">
+                <select class="campo" value="@_cameraId" @onchange="TrocarCameraAsync" title="Webcams conectadas ao computador">
+                    @foreach (var c in _cameras)
+                    {
+                        <option value="@c.Id">@c.Nome</option>
+                    }
+                </select>
+            </Campo>
+        }
+
+        <Aviso Texto="@_erro" Tom="erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao cap-arquivo" disabled="@_ocupado" @onclick="EscolherArquivoAsync"
+                title="Usar uma foto já existente no computador (JPG, PNG ou BMP)">Escolher arquivo…</button>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        @if (_foto is null)
+        {
+            <button type="button" class="botao primario" disabled="@(!_aoVivo || _ocupado)" @onclick="CapturarAsync">Capturar</button>
+        }
+        else
+        {
+            <button type="button" class="botao" @onclick="RepetirAsync">Repetir</button>
+            <button type="button" class="botao primario" @onclick="UsarAsync">Usar esta foto</button>
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public string? NomePaciente { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>A foto escolhida (ainda não gravada).</summary>
+    [Parameter] public EventCallback<FotoDoPaciente> AoConcluir { get; set; }
+
+    private const string ModuloJs = "./js/captura-foto.js";
+
+    /// <summary>A mesma orientação da janela WPF quando a câmera abre e não entrega quadro, ou é bloqueada.</summary>
+    private const string OrientacaoPrivacidade =
+        "Verifique se outro programa está usando a webcam e se o acesso está liberado em "
+        + "Configurações do Windows → Privacidade e segurança → Câmera "
+        + "(inclusive “Permitir que aplicativos da área de trabalho acessem sua câmera”). "
+        + "Enquanto isso, dá para usar “Escolher arquivo…”.";
+
+    private ElementReference _video;
+    private IJSObjectReference? _modulo;
+    private List<CameraDisponivel> _cameras = [];
+    private string? _cameraId, _textoVisor = "Ligando a câmera…", _erro;
+    private FotoDoPaciente? _foto;
+    private bool _aoVivo, _ocupado, _descartado;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _modulo = await JS.InvokeAsync<IJSObjectReference>("import", ModuloJs);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            Clinica.Application.Diagnostico.Registrar("Foto — módulo da câmera não carregou", ex);
+            _modulo = null;
+        }
+        await LigarAsync(null);
+    }
+
+    private async Task LigarAsync(string? cameraId)
+    {
+        _aoVivo = false;
+        _erro = null;
+        _textoVisor = "Ligando a câmera…";
+        StateHasChanged();
+
+        EstadoDaCamera? estado = null;
+        try
+        {
+            if (_modulo is not null)
+                estado = await _modulo.InvokeAsync<EstadoDaCamera?>("ligar", _video, cameraId);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            Clinica.Application.Diagnostico.Registrar("Foto — câmera não pôde ser ligada", ex);
+            estado = new EstadoDaCamera("erro", [], null, ex.Message);
+        }
+        if (_descartado) return;
+
+        _cameras = estado?.Cameras ?? [];
+        _cameraId = estado?.CameraId ?? cameraId ?? _cameras.FirstOrDefault()?.Id;
+        switch (estado?.Estado)
+        {
+            case "ao-vivo":
+                _aoVivo = true;
+                _textoVisor = null;
+                break;
+            case "sem-imagem":
+                _textoVisor = "A câmera não está enviando imagem.";
+                _erro = OrientacaoPrivacidade;
+                break;
+            case "negado":
+                _textoVisor = "O acesso à câmera foi bloqueado.";
+                _erro = OrientacaoPrivacidade;
+                break;
+            case "ocupada":
+                _textoVisor = "A câmera está em uso por outro programa.";
+                _erro = OrientacaoPrivacidade;
+                break;
+            case "sem-camera":
+                _textoVisor = "Nenhuma webcam encontrada.\nConecte a câmera e reabra esta janela, ou use “Escolher arquivo…”.";
+                break;
+            case "erro":
+                _textoVisor = "A câmera não abriu.";
+                _erro = $"Problema com a câmera: {estado.Mensagem}. Você ainda pode usar “Escolher arquivo…”.";
+                break;
+            default:
+                // Sem o módulo (a prévia sem câmera, os testes): a saída é o arquivo, e a tela diz.
+                _textoVisor = "A câmera não está disponível aqui. Use “Escolher arquivo…”.";
+                break;
+        }
+        StateHasChanged();
+    }
+
+    private async Task TrocarCameraAsync(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(id) || id == _cameraId) return;
+        _foto = null;
+        await LigarAsync(id);
+    }
+
+    private async Task CapturarAsync()
+    {
+        if (_modulo is null || !_aoVivo) return;
+        _ocupado = true;
+        try
+        {
+            var r = await _modulo.InvokeAsync<RetratoPreparado?>("capturar", _video);
+            if (r is null)
+            {
+                _erro = "Aguarde a imagem da câmera aparecer no visor e tente de novo.";
+                return;
+            }
+            Congelar(r);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException or FormatException)
+        {
+            Clinica.Application.Diagnostico.Registrar("Foto — quadro da câmera não pôde ser capturado", ex);
+            _erro = $"Não foi possível preparar a foto: {ex.Message}";
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private async Task EscolherArquivoAsync()
+    {
+        var arquivo = await Host.EscolherArquivoAsync("Imagens (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp",
+            "Escolher a foto do paciente");
+        if (arquivo is null) return; // desistiu da janela: sair calado é o certo
+        _ocupado = true;
+        try
+        {
+            var r = _modulo is null ? null : await _modulo.InvokeAsync<RetratoPreparado?>("prepararArquivo", arquivo.Conteudo);
+            if (r is null)
+            {
+                _erro = $"Não foi possível ler “{arquivo.Nome}” como imagem. Escolha um JPG, PNG ou BMP.";
+                return;
+            }
+            Congelar(r);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException or FormatException)
+        {
+            Clinica.Application.Diagnostico.Registrar("Foto — arquivo escolhido não pôde ser preparado", ex);
+            _erro = $"Não foi possível preparar a foto: {ex.Message}";
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private void Congelar(RetratoPreparado r)
+    {
+        _foto = new FotoDoPaciente(Convert.FromBase64String(r.Cheia), Convert.FromBase64String(r.Miniatura));
+        _erro = null;
+    }
+
+    private async Task RepetirAsync()
+    {
+        _foto = null;
+        _erro = null;
+        // A câmera continuou ligada por trás do quadro congelado; sem ela (o arquivo foi a saída),
+        // tenta de novo, que é o "reabra" da janela antiga sem fechar nada.
+        if (!_aoVivo) await LigarAsync(_cameraId);
+    }
+
+    private async Task UsarAsync()
+    {
+        if (_foto is null)
+        {
+            _erro = "Capture a foto antes de confirmar.";
+            return;
+        }
+        await AoConcluir.InvokeAsync(_foto);
+    }
+
+    public override void Dispose()
+    {
+        _descartado = true;
+        _ = DesligarAsync();
+        base.Dispose();
+    }
+
+    /// <summary>A câmera desliga ao fechar: luz da webcam acesa depois do formulário fechado assusta quem está no balcão.</summary>
+    private async Task DesligarAsync()
+    {
+        if (_modulo is null) return;
+        try
+        {
+            await _modulo.InvokeVoidAsync("desligar", _video);
+            await _modulo.DisposeAsync();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException or ObjectDisposedException)
+        {
+            // O navegador já foi embora (a janela fechou): a câmera morre com ele.
+        }
+    }
+
+    public sealed record CameraDisponivel(string Id, string Nome);
+    public sealed record EstadoDaCamera(string Estado, List<CameraDisponivel>? Cameras, string? CameraId, string? Mensagem);
+    public sealed record RetratoPreparado(string Cheia, string Miniatura);
+}

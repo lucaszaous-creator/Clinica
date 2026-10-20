@@ -15,6 +15,8 @@ public static class RegistroTelas
         // guardam DbContext nem serviço da Application: só o estado do que está na tela.
         servicos.AddScoped<Dialogos>();
         servicos.AddScoped<Notificacoes>();
+        // Os formulários do paciente que um fluxo espera (cadastro, convênio "a definir").
+        servicos.AddScoped<FormulariosDoPaciente>();
         // Singleton: a ponte entre duas telas (a Visão geral pede, a Agenda do dia consome).
         servicos.TryAddSingleton<PedidoDaAgendaDoDia>();
         // Singleton: o paciente e a seção que a tela do paciente deve mostrar (quem pede é a

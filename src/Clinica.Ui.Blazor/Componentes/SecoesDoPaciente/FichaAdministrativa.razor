@@ -6,8 +6,9 @@
 
   Cada bloco lê no SEU escopo e falha sozinho, com o terceiro estado escrito: "não foi possível
   conferir" nunca se confunde com "não há". As frases moram em FichaAdministrativaNaTela (com
-  teste). As janelas que continuam no shell (cadastro, cobrança, a coleta congelada do termo)
-  vêm pelas pontes IJanelasDaFicha e IDocumentosDaRecepcao.
+  teste). O cadastro é o formulário Blazor (FormulariosDoPaciente); as janelas que continuam no
+  shell (cobrança, a coleta congelada do termo) vêm pelas pontes IJanelasDaFicha e
+  IDocumentosDaRecepcao.
 
   ⚠️ O consentimento LGPD NÃO tem "registrar autorização" aqui: desde a parcela 89 quem concede
   é o paciente, no TERMO assinado (o ConsentimentoService avisa que pendurar tela no registro
@@ -311,6 +312,7 @@
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
 
     private IJanelasDaFicha Janelas => Servicos.GetService<IJanelasDaFicha>() ?? JanelasDaFichaIndisponiveis.Instancia;
+    private FormulariosDoPaciente Formularios => Servicos.GetRequiredService<FormulariosDoPaciente>();
     private IDocumentosDaRecepcao Documentos => Servicos.GetService<IDocumentosDaRecepcao>() ?? DocumentosDaRecepcaoIndisponiveis.Instancia;
     private IBalcaoDaRecepcao Balcao => Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
 
@@ -421,8 +423,7 @@
     private async Task EditarCadastroAsync()
     {
         if (!Exigir(Permissao.EditarPaciente, "editar o cadastro do paciente")) return;
-        if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDaFichaIndisponiveis.Frase); return; }
-        if (!await Janelas.EditarCadastroAsync(PacienteId)) return;
+        if (!await Formularios.EditarCadastroAsync(PacienteId)) return;
         Notificacoes.Sucesso("Cadastro atualizado.");
         await CarregarAsync();
         await Tela.RelerCabecalhoAsync();

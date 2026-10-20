@@ -272,6 +272,7 @@
 
     /// <summary>As janelas WPF da Recepção; onde não existem, a versão que responde "não disponível".</summary>
     private IJanelasDaAgenda Janelas => Servicos.GetService<IJanelasDaAgenda>() ?? JanelasDaAgendaIndisponiveis.Instancia;
+    private FormulariosDoPaciente Formularios => Servicos.GetRequiredService<FormulariosDoPaciente>();
 
     protected override Task OnInitializedAsync()
     {
@@ -503,12 +504,12 @@
         bool aDefinir;
         using (var escopo = Escopo())
             aDefinir = (await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(l.PacienteId))?.ConvenioADefinir == true;
-        if (aDefinir && !(Janelas.Disponivel && await Janelas.EscolherConvenioAsync(l.PacienteId)))
+        if (aDefinir && !await Formularios.EscolherConvenioAsync(l.PacienteId))
         {
             await Dialogos.AvisoAsync($"Sem convênio — {l.Paciente}",
                 $"{l.Paciente} está com o convênio \"a definir\" (a ficha veio do sistema anterior sem convênio), "
                 + "e sem convênio o atendimento não gera guia.\n\nA sessão NÃO foi concluída. Escolha o convênio do "
-                + (Janelas.Disponivel ? "paciente — pelo botão Concluir de novo, ou na ficha dele — " : "paciente na ficha dele, no aplicativo da Recepção, ")
+                + (Formularios.Disponivel ? "paciente — pelo botão Concluir de novo, ou na ficha dele — " : "paciente na ficha dele ")
                 + "e conclua em seguida. Quem paga do bolso entra no convênio particular.");
             return true;
         }

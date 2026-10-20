@@ -5,9 +5,10 @@ namespace Clinica.Ui.Blazor.Hospedagem;
 /// <summary>
 /// As JANELAS que a Agenda do dia abre e que ainda são WPF (out/2026 — a tela virou Blazor,
 /// as janelas não): editar o horário (<c>AgendamentoWindow</c>), fechar a sessão
-/// (<c>FechamentoSessaoWindow</c>), escolher o convênio da ficha "a definir"
-/// (<c>VinculoDeConvenio</c>), a ficha do balcão (<c>FichaBalcaoView</c>), a janela do
-/// horário (remarcar, reabrir, comprovante, WhatsApp) e a marcação de um horário novo.
+/// (<c>FechamentoSessaoWindow</c>), a ficha do balcão (<c>FichaBalcaoView</c>), a janela do
+/// horário (remarcar, reabrir, comprovante, WhatsApp) e a marcação de um horário novo. (A
+/// escolha do convênio da ficha "a definir" saiu daqui em out/2026: é o formulário Blazor de
+/// <see cref="FormulariosDoPaciente"/>.)
 ///
 /// Reescrevê-las agora seria a segunda definição de cada uma — a janela de fechamento sozinha
 /// carrega pacote, insumo e caixa. A tela PEDE a quem a hospeda, como pede o disco ao
@@ -24,14 +25,6 @@ public interface IJanelasDaAgenda
 {
     /// <summary>Falso onde as janelas não existem: a tela avisa em vez de abrir nada.</summary>
     bool Disponivel { get; }
-
-
-
-    /// <summary>
-    /// A ficha com convênio "a definir" PERGUNTA o convênio antes de concluir (parcela 92).
-    /// Verdadeiro = a ficha tem convênio (escolhido agora); falso = desistiu.
-    /// </summary>
-    Task<bool> EscolherConvenioAsync(int pacienteId);
 
     /// <summary>A ficha do BALCÃO (a mesma da tela Pacientes), por cima da agenda. Falso = indisponível.</summary>
     Task<bool> AbrirFichaAsync(int pacienteId, string paciente);
@@ -56,7 +49,6 @@ public sealed class JanelasDaAgendaIndisponiveis : IJanelasDaAgenda
     public static readonly JanelasDaAgendaIndisponiveis Instancia = new();
 
     public bool Disponivel => false;
-    public Task<bool> EscolherConvenioAsync(int pacienteId) => Task.FromResult(false);
     public Task<bool> AbrirFichaAsync(int pacienteId, string paciente) => Task.FromResult(false);
     public Task<bool> MarcarNovoHorarioAsync(DateOnly dia, int? profissionalId) => Task.FromResult(false);
 }

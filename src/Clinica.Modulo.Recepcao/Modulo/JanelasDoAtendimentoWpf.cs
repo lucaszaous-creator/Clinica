@@ -1,7 +1,6 @@
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
-using Clinica.Desktop.Shell.Componentes.Cadastro;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
 using Clinica.Ui.Blazor.Hospedagem;
@@ -33,9 +32,6 @@ public sealed class JanelasDoAtendimentoWpf(
             ? new PedidoDoAtendimento(p.DataHora, p.ProfissionalId, p.SalaId, p.PacienteId, p.DuracaoMinutos, p.ModalidadeCodigo)
             : null;
 
-    public Task<bool> EscolherConvenioAsync(int pacienteId)
-        => NaInterface(() => VinculoDeConvenio.GarantirAsync(escopos, pacienteId, SessaoUsuario.Atual.Operador));
-
     public Task<bool> ReceberDividaAsync(int pacienteId) => NaInterface(async () =>
     {
         // A MESMA janela de cobrança da ficha — quem grava dinheiro continua sendo um só.
@@ -44,13 +40,6 @@ public sealed class JanelasDoAtendimentoWpf(
         var vm = new CobrancaDoPacienteViewModel(escopos, dialogo, paciente.Id, paciente.Nome, paciente.Telefone);
         new CobrancaDoPacienteWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
         return vm.Mudou;
-    });
-
-    public Task<int?> CadastrarPacienteAsync() => NaInterface(() =>
-    {
-        var vm = new CadastroPacienteViewModel(escopos);
-        var janela = new CadastroPacienteWindow(vm) { Owner = JanelaDona.Atual() };
-        return Task.FromResult(janela.ShowDialog() == true ? vm.PacienteId : null);
     });
 
     private async Task<Paciente?> ObterAsync(int pacienteId)

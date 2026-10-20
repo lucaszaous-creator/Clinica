@@ -73,13 +73,58 @@ As telas Blazor só as chamam.
 | `ResultadosDoPedidoWindow` + `RegistrarResultadoExameWindow` | ~300 + ~350 linhas | Exames (Consultório) | meio dia, as duas |
 | `ResumoProntuarioWindow` | ~500 linhas | Prontuários (Consultório) | meio dia |
 | `InfusaoExternaWindow` | ~180 linhas | Sala de infusão, prescrição | meio dia, com as duas abaixo |
-| `EscolhaDeConvenioWindow` (`VinculoDeConvenio`) | ~310 linhas | Finalizar, fila, Novo atendimento | |
+| ~~`EscolhaDeConvenioWindow` (`VinculoDeConvenio`)~~ | ~310 linhas | Finalizar, fila, Novo atendimento | **convertida** (§2.2.1) |
 | `CobrancaDoPacienteWindow` | ~350 linhas | Ficha, Novo atendimento | |
-| `CadastroPacienteWindow` | ~530 linhas | Ficha, Pacientes, Agenda | meio dia |
+| ~~`CadastroPacienteWindow`~~ (+ `CapturaFotoWindow`) | ~530 linhas | Ficha, Pacientes, Agenda | **convertida** (§2.2.1) |
 | `DocumentoWindow` (emitir receita, atestado, laudo) | ~1.200 linhas, 9 chamadores | os cinco apps | **1 dia**: a mais delicada (conferência de alergia na receita, prévia, CID sob autorização) |
 | `EvolucaoEnfermagemWindow` | já há o equivalente Blazor (`FolhaDaPassagem`) | a folha de execução | **depende de decisão** (§4) |
 
 As cinco últimas são do **shell** e servem também à Recepção e ao Gerente: convertê-las resolve os três módulos de uma vez.
+
+### 2.2.1 Cadastro do paciente, foto e convênio "a definir" (convertidos, out/2026)
+
+- **`CadastroPacienteForm`** (novo e edição), **`CapturaFotoForm`** (webcam) e
+  **`EscolhaDeConvenioForm`**, em `Clinica.Ui.Blazor/Formularios/Paciente/`. As regras
+  (ordem das recusas do Salvar, categoria sugerida pelo convênio, convênio e modalidade que a
+  ficha já tem, cópia campo a campo, linhas e frases da escolha do convênio) moram em
+  `CadastroPacienteNaTela` / `EscolhaDeConvenioNaTela` (Application, com teste). CPF, e-mail,
+  endereço, LGPD/origem, foto gravada só no Salvar e a recusa de CPF repetido (no
+  `PacienteService`) ficaram idênticos.
+- **Quem abre é `FormulariosDoPaciente`** (Hospedagem): o fluxo PEDE e ESPERA a resposta,
+  como no `Dialogos` — a escolha do convênio é perguntada no meio de cinco salvares (horário da
+  agenda, Lançar do balcão, Finalizar do médico, Concluir da lista do dia, conciliação), e cinco
+  donos de "aberto/fechado" seriam cinco cópias da pergunta. Quem desenha é a
+  `CamadaDoPaciente`, ao lado da camada de diálogos (Raiz e PalcoDeTelas); trocar de tela
+  desiste do formulário aberto (a regra do `Dialogos.DesistirDeTodos`). Sem camada montada a
+  pergunta responde "não abriu" na hora, em vez de esperar para sempre.
+- **A webcam é a do navegador** (`js/captura-foto.js`: `getUserMedia` + recorte quadrado no
+  canvas, foto cheia ≤ 640 px e miniatura ≤ 160 px — as constantes do `Retrato` do WPF). O
+  `NavegadorDaJanela` libera a permissão de **câmera** só para a origem do próprio app
+  (`0.0.0.0`); o resto segue o padrão do WebView2. "Escolher arquivo…" continua como saída.
+- **Pontes removidas:** `IJanelasDaFicha.EditarCadastroAsync`,
+  `IJanelasDoAtendimento.CadastrarPacienteAsync` / `EscolherConvenioAsync`,
+  `IJanelasDaAgenda.EscolherConvenioAsync`, `IJanelasDoAtendimentoClinico.EscolherConvenioAsync`
+  e `IBalcaoDaRecepcao.CadastrarPacienteAsync` (+ `CadastroDePaciente`), com as implementações
+  WPF e "Indisponível".
+- **O que continua WPF, e por quê:** `CadastroPacienteWindow`/`ViewModel` + `CapturaFotoWindow`
+  (AForge) ficam só porque a **ficha WPF do balcão** (`FichaPacienteViewModel`, aberta por
+  `JanelasDaAgendaWpf.AbrirFichaAsync`) ainda edita o cadastro por ela; `EscolhaDeConvenioWindow`
+  + `VinculoDeConvenio.Garantir` ficam só pelo **formulário WPF do horário**
+  (`AgendamentoEdicaoViewModel`, da agenda WPF da Recepção). WPF não abre formulário do
+  navegador; saindo esses dois chamadores, as três janelas, o `VinculoDeConvenio`, o
+  `CameraServico` e os pacotes AForge saem junto. O `CadastroPacienteViewModel` passou a usar
+  o mesmo `CadastroPacienteNaTela` para conferir e copiar, para as duas portas não divergirem
+  enquanto convivem.
+- 🧑‍💻 **UX:** o cadastro e a escolha do convênio abrem dentro da própria tela, sem janela do
+  sistema por cima; a foto mostra o recorte exato que vai para o banco e cada falha de câmera
+  (bloqueada, ocupada, sem imagem, ausente) tem a sua frase. **Não verificado com câmera real**:
+  a webcam não pôde ser testada neste ambiente — conferir no build de teste (permissão
+  automática, primeiro quadro, troca de câmera, luz da webcam apagando ao fechar).
+- 🛠️ **DX:** uma camada e um serviço para os três formulários; as regras com teste
+  (`CadastroPacienteNaTelaTests`) e os formulários clicados de verdade
+  (`FormulariosDoPacienteTests`, bUnit sobre SQLite).
+- 🤝 **CX:** sem migration; o risco está na câmera (driver e privacidade do Windows) — o
+  arquivo continua como saída.
 
 ### 2.3 Por arquitetura
 

@@ -211,9 +211,6 @@
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
 
-    /// <summary>A janela WPF do convênio "a definir"; onde não existe, a que responde "não disponível".</summary>
-    private IJanelasDaAgenda Janelas => Servicos.GetService<IJanelasDaAgenda>() ?? JanelasDaAgendaIndisponiveis.Instancia;
-
     private bool Edicao => AgendamentoId is not null;
 
     private string _titulo = AgendamentoNaTela.TituloNovo;
@@ -598,7 +595,7 @@
                     // desligada, marcar não cria atendimento e exigir o convênio travaria a marcação
                     // por telefone.
                     if (paciente.ConvenioADefinir
-                        && (!Janelas.Disponivel || !await Janelas.EscolherConvenioAsync(paciente.Id)))
+                        && !await Servicos.GetRequiredService<FormulariosDoPaciente>().EscolherConvenioAsync(paciente.Id))
                     {
                         _mensagem = AgendamentoNaTela.RecusaSemConvenio(paciente.Nome);
                         return;

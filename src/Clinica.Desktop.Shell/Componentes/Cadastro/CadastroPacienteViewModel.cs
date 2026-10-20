@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Controls;
@@ -17,6 +18,12 @@ namespace Clinica.Desktop.Shell.Componentes.Cadastro;
 /// É aqui que a foto é tirada: a webcam fica no balcão, não na mesa do faturamento.
 /// A gravação da imagem acontece no SALVAR, nunca na captura — quem desiste do
 /// cadastro não deixa retrato órfão no banco.
+///
+/// ⚠️ out/2026: as telas Blazor usam o formulário Blazor (<c>CadastroPacienteForm</c>, com as
+/// regras em <c>CadastroPacienteNaTela</c> e a webcam pelo navegador). Esta janela WPF — e a
+/// <c>CapturaFotoWindow</c> com o AForge — fica SÓ enquanto a ficha WPF do balcão
+/// (<c>FichaPacienteViewModel</c>) existir. Saindo ela, saem as duas. Regra nova do cadastro vai
+/// para <c>CadastroPacienteNaTela</c>; não acrescente aqui o que o Blazor não tem.
 /// </summary>
 public sealed partial class CadastroPacienteViewModel : ObservableObject
 {
@@ -277,35 +284,15 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
         Mensagem = string.Empty;
         MensagemEhErro = false;
 
-        if (string.IsNullOrWhiteSpace(Nome))
+        // A ORDEM das recusas e a cópia campo a campo moram em CadastroPacienteNaTela — a MESMA
+        // regra do formulário Blazor; duas cópias divergiriam na primeira correção.
+        var dados = Dados();
+        var conferencia = CadastroPacienteNaTela.Conferir(dados);
+        ErroDocumento = conferencia.ErroDocumento;
+        ErroEndereco = conferencia.ErroEndereco;
+        if (!conferencia.Valido)
         {
-            Erro("Informe o nome do paciente.");
-            return;
-        }
-
-        // A pergunta que o cadastro passou a FAZER (set/2026): ela já era recusada aqui, e
-        // a recusa nunca aparecia porque o combo vinha pré-selecionado com o primeiro da
-        // ordem alfabética. A frase diz as duas saídas, porque "escolha o convênio" não
-        // responde a quem não tem convênio nenhum.
-        if (Convenio is null)
-        {
-            Erro("Escolha o convênio — ou \"Particular\", se o paciente paga do bolso.");
-            return;
-        }
-
-        ErroDocumento = ValidacaoCadastroPaciente.ErroCpf(Documento);
-        ErroEndereco = ValidacaoCadastroPaciente.ErroEndereco(Endereco);
-        if (ErroDocumento is not null || ErroEndereco is not null)
-        {
-            Erro("Confira os campos sinalizados. Os dados preenchidos foram mantidos.");
-            return;
-        }
-
-        // E-mail errado gravado é lembrete que nunca chega — e ninguém descobre, porque o
-        // envio conta o endereço inválido como "sem e-mail" e segue.
-        if (!string.IsNullOrWhiteSpace(Email) && !EnderecoDeEmail.Valido(Email))
-        {
-            Erro("E-mail inválido. Confira o endereço (ou deixe em branco).");
+            Erro(conferencia.Mensagem!);
             return;
         }
 
@@ -321,28 +308,7 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
                 : await pacientes.ObterAsync(_id.Value)
                   ?? throw new InvalidOperationException("Paciente não encontrado.");
 
-            paciente.Nome = Nome.Trim();
-            paciente.Documento = Limpar(Documento);
-            paciente.Telefone = Limpar(Telefone);
-            paciente.Email = EnderecoDeEmail.Normalizar(Email);
-            paciente.Endereco = Limpar(Endereco);
-            paciente.DataNascimento = DataNascimento is { } nasc ? DateOnly.FromDateTime(nasc) : null;
-            paciente.Sexo = SexoSelecionado;
-            paciente.Convenio = Convenio.Familia;
-            paciente.ConvenioCodigo = Convenio.Codigo;
-            paciente.Carteirinha = Limpar(Carteirinha);
-            paciente.ValidadeCarteirinha =
-                ValidadeCarteirinha is { } validade ? DateOnly.FromDateTime(validade) : null;
-            paciente.ModalidadePreferida = ModalidadePreferida?.Base ?? paciente.ModalidadePreferida;
-            paciente.ModalidadePreferidaCodigo = ModalidadePreferida?.Codigo;
-            paciente.PossuiApp = PossuiApp;
-            paciente.Observacoes = Limpar(Observacoes);
-            paciente.Origem = Origem;
-            // Quem indicou so faz sentido com a origem "Indicacao": guardar o nome preso
-            // a outra origem deixaria um dado orfao que ninguem sabe ler depois.
-            paciente.IndicadoPor = Origem == OrigemPaciente.Indicacao ? Limpar(IndicadoPor) : null;
-
-            if (_categoriaManual) paciente.Categoria = Categoria;
+            CadastroPacienteNaTela.Aplicar(dados, paciente);
             if (_id is null)
             {
                 await pacientes.SalvarNovoAsync(paciente, _categoriaManual);
@@ -366,6 +332,28 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
         }
     }
 
+    /// <summary>O que está na tela, no formato que a regra compartilhada confere e copia.</summary>
+    private DadosDoCadastro Dados() => new()
+    {
+        Nome = Nome,
+        Documento = Documento,
+        Telefone = Telefone,
+        Email = Email,
+        Endereco = Endereco,
+        DataNascimento = DataNascimento is { } nasc ? DateOnly.FromDateTime(nasc) : null,
+        Sexo = SexoSelecionado,
+        Convenio = Convenio,
+        Carteirinha = Carteirinha,
+        ValidadeCarteirinha = ValidadeCarteirinha is { } validade ? DateOnly.FromDateTime(validade) : null,
+        ModalidadePreferida = ModalidadePreferida,
+        PossuiApp = PossuiApp,
+        Observacoes = Observacoes,
+        Origem = Origem,
+        IndicadoPor = IndicadoPor,
+        Categoria = Categoria,
+        CategoriaManual = _categoriaManual
+    };
+
     /// <summary>
     /// Grava o retrato depois de o paciente existir — num cadastro novo o Id só nasce
     /// no Salvar, e a foto precisa dele.
@@ -386,9 +374,6 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
             _removerFoto = false;
         }
     }
-
-    private static string? Limpar(string? valor)
-        => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 
     private void Erro(string texto)
     {
