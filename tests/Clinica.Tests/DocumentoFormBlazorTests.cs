@@ -64,7 +64,7 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
         using (var db = Db()) Assert.Empty(db.DocumentosClinicos.Where(d => d.PacienteId == paciente.Id));
 
         Clicar(form, "Emitir e imprimir");
-        Esperar(() => emitido is not null);
+        EsperarEmitido(form, () => emitido is not null);
 
         using var db2 = Db();
         var doc = db2.DocumentosClinicos.Single(d => d.PacienteId == paciente.Id);
@@ -102,7 +102,7 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
         Agir(form, f => f.FindAll(".df-confirmacao").First(l => l.TextContent.Contains("Eu vi o alerta")).QuerySelector("input")!,
             e => e.ChangeAsync(new ChangeEventArgs { Value = true }));
         Clicar(form, "Emitir e imprimir");
-        Esperar(() => emitido is not null);
+        EsperarEmitido(form, () => emitido is not null);
 
         using var db2 = Db();
         var doc = db2.DocumentosClinicos.Single(d => d.PacienteId == paciente.Id);
@@ -135,7 +135,7 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
             dialogos.Atual!.Texto = "Rua Nova, 22, Centro, Cidade";
             dialogos.Responder(dialogos.Atual!, confirmou: true);
         }).GetAwaiter().GetResult();
-        Esperar(() => emitido is not null);
+        EsperarEmitido(form, () => emitido is not null);
 
         using var db2 = Db();
         Assert.Single(db2.DocumentosClinicos.Where(d => d.PacienteId == paciente.Id));
@@ -169,7 +169,7 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
 
         Escrever(form, "Quadro clínico estável. Acrescento: melhora da dor lombar.");
         Clicar(form, "Emitir e imprimir");
-        Esperar(() => emitido is not null);
+        EsperarEmitido(form, () => emitido is not null);
 
         using var db = Db();
         var docs = db.DocumentosClinicos.Where(d => d.PacienteId == paciente.Id).OrderBy(d => d.Id).ToList();
@@ -204,7 +204,7 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
 
         Agir(form, f => f.Find("textarea[aria-label='Exame / procedimento']"), e => e.InputAsync(new ChangeEventArgs { Value = "Hemograma completo" }));
         Clicar(form, "Emitir e imprimir");
-        Esperar(() => emitido is not null);
+        EsperarEmitido(form, () => emitido is not null);
 
         Assert.Equal(paciente.Nome, emitido!.Paciente);
         using var db = Db();
@@ -294,6 +294,29 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
     {
         Esperar(() => form.FindAll("button").Any(b => b.TextContent.Trim() == rotulo && !b.HasAttribute("disabled")));
         _ = form.FindAll("button").First(b => b.TextContent.Trim() == rotulo).ClickAsync(new MouseEventArgs());
+    }
+
+    /// <summary>
+    /// Espera a folha concluir. Depois de emitir, o papel que pode sair como arquivo pergunta
+    /// "Enviar agora ao paciente?" (EnvioAoPacienteForm) e a folha só conclui com a resposta —
+    /// o teste responde "Agora não", que é o que não envia nada.
+    /// </summary>
+    private static void EsperarEmitido(IRenderedFragment form, Func<bool> concluiu,
+        [System.Runtime.CompilerServices.CallerLineNumber] int linha = 0)
+    {
+        var prazo = DateTime.UtcNow + Prazo;
+        while (DateTime.UtcNow < prazo)
+        {
+            if (concluiu()) return;
+            try
+            {
+                if (form.FindAll("button").FirstOrDefault(b => b.TextContent.Trim() == "Agora não") is { } agoraNao)
+                    agoraNao.Click();
+            }
+            catch (Exception e) when (e is Bunit.ElementNotFoundException or ArgumentException) { } // o botão sumiu entre achar e clicar
+            Thread.Sleep(25);
+        }
+        throw new TimeoutException($"A folha não concluiu a tempo (linha {linha}).");
     }
 
     private static void Esperar(Func<bool> condicao,
