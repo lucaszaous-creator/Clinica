@@ -278,7 +278,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: [testes, conferencias, publicar]
-    if: always()
+    # !cancelled(), não always(): quando um push novo cancela este run (concurrency), o
+    # veredito é do run novo — always() fazia este reportar VERMELHO sobre um commit que
+    # ninguém reprovou, só substituiu. Job que FALHOU continua chegando aqui e reprovando.
+    if: ${{ !cancelled() }}
     permissions:
       actions: write   # só para apagar os .exe de um commit reprovado
     steps:
