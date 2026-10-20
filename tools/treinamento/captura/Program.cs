@@ -84,14 +84,17 @@ static class Program
             await db.SaveChangesAsync();
             await services.GetRequiredService<Clinica.Application.Abstracoes.IAcompanhamentoPacienteService>().ConfigurarAsync(user.Id,professional.Id,0);
             services.GetRequiredService<PacienteEmFoco>().Definir(1,"Marina Exemplo",consulta.Id);
-            var allWindow=new ShellWindow {Width=1600,Height=950,WindowStartupLocation=WindowStartupLocation.CenterScreen};
+            var allWindow=new JanelaDoApp(services,"Clínica SemDor · DEMONSTRAÇÃO"){Width=1600,Height=950,WindowStartupLocation=WindowStartupLocation.CenterScreen};
             app.MainWindow=allWindow;allWindow.Show();
             if(trainingQa)await TrainingQa.Run(allWindow,modules,services,output);
             else await AllScreens.CaptureAsync(allWindow,modules,services,output);
             app.Shutdown();return;
         }
         var vm=new ShellViewModel("Recepção — Clínica SemDor · DEMONSTRAÇÃO",modules,services);
-        var window=new ShellWindow {DataContext=vm,Width=1600,Height=950,WindowStartupLocation=WindowStartupLocation.CenterScreen};
+        // A moldura é Blazor desde out/2026: a janela é o navegador, e a foto WPF (RenderTargetBitmap)
+        // não alcança o conteúdo dele — as fotos das telas saem da prévia (tools/PreviaBlazor).
+        var window=new JanelaDoApp(services,"Recepção — Clínica SemDor · DEMONSTRAÇÃO"){Width=1600,Height=950,WindowStartupLocation=WindowStartupLocation.CenterScreen};
+        window.MostrarMoldura(vm);
         app.MainWindow=window;window.Show();
         File.WriteAllText(Path.Combine(output,"pronto.txt"),"Janela real da suite. SQLite em memoria. Nenhuma conexao com producao.");
         await Capture(window,"00-painel");

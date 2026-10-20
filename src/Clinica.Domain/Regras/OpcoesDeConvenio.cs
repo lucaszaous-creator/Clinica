@@ -34,10 +34,11 @@ public sealed record OpcaoDeConvenio(
 /// era a errada:
 ///
 /// <list type="bullet">
-/// <item>a JANELA de vínculo (<c>EscolhaDeConvenioWindow</c>, parcela 92) ordena os que geram
-/// guia primeiro, explica o que cada opção significa, exclui o "a definir" como resposta e
-/// não pré-seleciona nada — porque "um padrão que ninguém escolheu" é justamente o defeito
-/// que ela existe para corrigir;</item>
+/// <item>a JANELA de vínculo (parcela 92 — era a <c>EscolhaDeConvenioWindow</c> WPF, hoje o
+/// <c>EscolhaDeConvenioForm</c> Blazor) ordenava os que geram guia primeiro, explicava o que
+/// cada opção significa, excluía o "a definir" como resposta e não pré-selecionava nada —
+/// porque "um padrão que ninguém escolheu" é justamente o defeito que ela existe para
+/// corrigir;</item>
 /// <item>o CADASTRO do paciente — que é por onde TODO paciente novo recebe um convênio —
 /// listava em ordem ALFABÉTICA, pré-selecionava o primeiro da lista e não explicava nada.</item>
 /// </list>

@@ -1,0 +1,716 @@
+@*
+  ATENDIMENTO — a FOLHA DO MÉDICO (out/2026: a AtendimentoView + AtendimentoViewModel + a
+  FolhaDaSessaoView/ViewModel do WPF, em Blazor). Onde a sessão é escrita com o paciente na sala.
+
+  O desenho é o aprovado ("uma folha, dois lados"): à esquerda a FOLHA — a linha de contexto
+  (última sessão + o que a enfermagem aferiu hoje, com procedência), os avisos (clínicos antes
+  dos administrativos), o texto da evolução com negrito/itálico, os campos que esta clínica
+  anota, a tira (data, EVA em par, retorno sugerido) e o rodapé com Imprimir e Salvar; à
+  direita o que a consulta ENTREGA (EMITIR: os papéis com a herança da sessão, a infusão, o
+  que já saiu hoje, o termo pendente, o BSV) e as sessões anteriores para reutilizar — ou o
+  histórico completo, ao lado, sem sair da folha.
+
+  ⚠️ O estado mora na FolhaDoAtendimento guardada pela TELA: trocar de seção desmonta esta
+  seção, e o rascunho de quem digita não pode ir junto (nem relê por baixo dele ao voltar).
+  As regras (em branco × há o que gravar, modelo, reutilização, cópia) estão na Application.
+  Atalhos: Ctrl+S salva, Ctrl+P imprime a ficha — pelo MESMO caminho dos botões.
+*@
+@using Clinica.Application.Modelos
+@inherits SecaoDoPaciente
+
+@if (_folha is { } f)
+{
+    var r = f.Rascunho;
+    <div class="at-folha-pagina">
+        <div class="at-coluna-folha">
+            <section class="cartao">
+                <div class="cartao-corpo at-cabecalho">
+                    <div>
+                        <h2 class="at-titulo">Evolução da sessão</h2>
+                        <p class="texto-secundario">Consulta de @Formato.Data(r.Data)</p>
+                    </div>
+                    <button type="button" class="botao fantasma" aria-pressed="@(_historicoAberto ? "true" : "false")" @onclick="() => _historicoAberto = !_historicoAberto">
+                        <Icone Nome="historico" />@(_historicoAberto ? "Fechar o histórico" : "Consultar histórico")</button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(f.LinhaDeContexto))
+                {
+                    <p class="at-contexto">@f.LinhaDeContexto</p>
+                }
+
+                @if (f.AlertasClinicos.Count + f.Alertas.Count > 0)
+                {
+                    <div class="at-avisos" role="list" aria-label="Avisos sobre o paciente">
+                        @foreach (var a in f.AlertasClinicos.Concat(f.Alertas))
+                        {
+                            <div class="at-aviso @(a.Grave ? "grave" : null)" role="listitem">
+                                @if (a.TemDetalhes)
+                                {
+                                    <details><summary>@a.Texto</summary><p>@a.Detalhes</p></details>
+                                }
+                                else
+                                {
+                                    <span>@a.Texto</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (f.RegistrosParaVincular.Count > 0)
+                {
+                    <div class="at-vincular">
+                        <p>Há registros deste dia sem vínculo. Confira o histórico e selecione o registro desta sessão.</p>
+                        <div class="at-mapa-linha">
+                            <select class="campo" @bind="_registroParaVincular" aria-label="Registro para vincular">
+                                <option value="0">(escolha o registro)</option>
+                                @foreach (var (id, rotulo) in f.RegistrosParaVincular)
+                                {
+                                    <option value="@id">@rotulo</option>
+                                }
+                            </select>
+                            <button type="button" class="botao" disabled="@(!PodeEditar || _registroParaVincular == 0)" @onclick="VincularAsync">Vincular registro existente</button>
+                        </div>
+                    </div>
+                }
+
+                @if (f.NaoVerificado && !f.Carregando)
+                {
+                    <div class="cartao-corpo"><FalhaDeLeitura Titulo="O atendimento não pôde ser carregado" Detalhe="@f.Mensagem" AoTentarDeNovo="RecarregarAsync" /></div>
+                }
+                else if (f.Carregando && !f.Carregada)
+                {
+                    <div class="cartao-corpo"><Esqueleto Altura="260" /></div>
+                }
+                else
+                {
+                    <div class="at-registro">
+                        <div class="at-registro-barra">
+                            <b>Registro clínico</b>
+                            <div class="botoes-linha">
+                                <button type="button" class="botao mini fantasma" disabled="@(!PodeCopiar)" @onclick="CopiarUltimaAsync"
+                                        title="Copia o conteúdo salvo para revisar nesta sessão, preservando EVA, sinais vitais e datas da sessão atual.">
+                                    <Icone Nome="copiar" />Copiar última evolução deste paciente</button>
+                                <button type="button" class="botao mini fantasma" disabled="@(!PodeEditar)" @onclick="AbrirModelos">
+                                    <Icone Nome="documento" />Usar modelo</button>
+                                <button type="button" class="botao mini fantasma" disabled="@(!PodeEditar || f.Mapa is null)" @onclick="AbrirMapa"
+                                        title="Marque os pontos da sessão no corpo">
+                                    <Icone Nome="pessoa" />Mapa corporal@(f.Mapa is { Pontos.Count: > 0 } m ? $" ({m.Pontos.Count})" : "")</button>
+                            </div>
+                        </div>
+
+                        <div class="at-editor">
+                            <EditorTextoClinico @bind-Texto="r.TextoEvolucao" @bind-Formato="r.TextoEvolucaoFormatado"
+                                                Desabilitado="@(!PodeEditar)" Linhas="10" Rotulo="Evolução da sessão"
+                                                TextoDeAjuda="Escreva a sessão como você escreveria no papel. É esta a evolução que entra no prontuário, na ficha impressa e na busca." />
+                        </div>
+
+                        <button type="button" class="at-detalhe" disabled="@(!PodeEditar)" @onclick="() => _detalheAberto = true"
+                                title="Queixa, história, exame físico, hipótese, CID, conduta, orientações, plano, motivo do retorno e encaminhamento. Todos opcionais — e é o que o relatório do convênio imprime separado por assunto.">
+                            <span>Campos complementares…</span>
+                            <span class="texto-secundario">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
+                            @if (r.TemCamposDetalhados) { <Selo Tom="aviso">@r.SeloDetalhe</Selo> }
+                        </button>
+
+                        @if (r.Campos.Count > 0)
+                        {
+                            <details class="at-personalizados" open>
+                                <summary>Campos personalizados</summary>
+                                <div class="at-personalizados-grade">
+                                    @foreach (var c in r.Campos)
+                                    {
+                                        <Campo Rotulo="@c.Rotulo" Dica="@c.Ajuda">
+                                            @if (c.EhLista)
+                                            {
+                                                <select class="campo" @bind="c.Resposta" disabled="@(!PodeEditar)" aria-label="@c.Rotulo">
+                                                    <option value="">—</option>
+                                                    @foreach (var o in c.Opcoes) { <option value="@o">@o</option> }
+                                                </select>
+                                            }
+                                            else if (c.EhSimNao)
+                                            {
+                                                <select class="campo" @bind="c.Resposta" disabled="@(!PodeEditar)" aria-label="@c.Rotulo">
+                                                    <option value="">—</option>
+                                                    <option value="Sim">Sim</option>
+                                                    <option value="Não">Não</option>
+                                                </select>
+                                            }
+                                            else if (c.EhTextoLongo)
+                                            {
+                                                <textarea class="campo" rows="2" maxlength="500" placeholder="@c.Dica" disabled="@(!PodeEditar)"
+                                                          @bind="c.Resposta" @bind:event="oninput" aria-label="@c.Rotulo"></textarea>
+                                            }
+                                            else
+                                            {
+                                                <input class="campo" maxlength="500" placeholder="@c.Dica" disabled="@(!PodeEditar)"
+                                                       @bind="c.Resposta" @bind:event="oninput" aria-label="@c.Rotulo" />
+                                            }
+                                        </Campo>
+                                    }
+                                </div>
+                            </details>
+                        }
+
+                        <div class="at-tira">
+                            <Campo Rotulo="Data da sessão">
+                                <input type="date" class="campo" disabled="@(!PodeEditar)" @bind="r.Data" />
+                            </Campo>
+                            <Campo Rotulo="EVA antes">
+                                <select class="campo" disabled="@(!PodeEditar)" @bind="r.EvaAntes" aria-label="EVA antes">
+                                    <option value="">—</option>
+                                    @foreach (var n in RascunhoDaSessao.EscalaEva) { <option value="@n">@n</option> }
+                                </select>
+                            </Campo>
+                            <Campo Rotulo="EVA depois">
+                                <select class="campo" disabled="@(!PodeEditar)" @bind="r.EvaDepois" aria-label="EVA depois">
+                                    <option value="">—</option>
+                                    @foreach (var n in RascunhoDaSessao.EscalaEva) { <option value="@n">@n</option> }
+                                </select>
+                            </Campo>
+                            <Campo Rotulo="Retorno sugerido" Dica="Não vira agendamento — quem marca é a recepção.">
+                                <input type="date" class="campo" disabled="@(!PodeEditar)" @bind="r.RetornoSugeridoEm" />
+                            </Campo>
+                        </div>
+                    </div>
+                }
+
+                <footer class="at-rodape">
+                    <div class="at-rodape-texto" aria-live="polite">
+                        <span class="texto-secundario">@RascunhoDaSessao.DicaRodape(f.UltimaGravacao)</span>
+                        @if (!string.IsNullOrWhiteSpace(f.Mensagem) && !f.NaoVerificado)
+                        {
+                            <span class="at-mensagem @(f.MensagemEhErro ? "erro" : null)">@f.Mensagem</span>
+                        }
+                    </div>
+                    <div class="botoes-linha">
+                        <button type="button" class="botao fantasma" disabled="@(!PodeImprimir || _ocupado)" @onclick="ImprimirFichaAsync"
+                                title="Imprime a ficha do atendimento (Ctrl+P) — o papel sai do que está gravado">
+                            <Icone Nome="imprimir" />Imprimir</button>
+                        <button type="button" class="botao primario" disabled="@(!PodeEditar || _ocupado || !f.Carregada)" @onclick="SalvarAsync"
+                                title="Salva a evolução (Ctrl+S) e conclui a sessão médica com as guias aplicáveis.">
+                            <Icone Nome="check" />Salvar sessão</button>
+                    </div>
+                </footer>
+            </section>
+        </div>
+
+        <aside class="at-coluna-lado">
+            @if (_historicoAberto)
+            {
+                <HistoricoDaConsulta PacienteId="Contexto.PacienteId" AoFechar="() => _historicoAberto = false" />
+            }
+            else
+            {
+                <section class="cartao at-emitir" aria-label="Emitir">
+                    <h3 class="at-lado-titulo">EMITIR</h3>
+                    @foreach (var cartao in _cartoes)
+                    {
+                        <button type="button" class="at-papel" disabled="@(!cartao.PodeEmitir || _ocupado)" @onclick="() => EmitirAsync(cartao)"
+                                title="@(string.IsNullOrEmpty(cartao.Pendencia) ? cartao.Heranca : cartao.Pendencia)">
+                            <b>@cartao.Rotulo</b>
+                            <span class="@(cartao.VemDaSessao ? "at-heranca" : "texto-secundario")">
+                                @(string.IsNullOrEmpty(cartao.Pendencia) ? cartao.Heranca : cartao.Pendencia)</span>
+                        </button>
+                    }
+                    <button type="button" class="at-papel" disabled="@(!Pode(Permissao.Prescrever) || _ocupado)" @onclick="PrescreverInfusaoAsync">
+                        <b>Prescrição de infusão</b>
+                        <span class="texto-secundario">A folha da sala de infusão, ligada a esta sessão.</span>
+                    </button>
+                    <div class="botoes-linha at-emitir-acoes">
+                        <button type="button" class="botao mini fantasma" @onclick="() => Tela.IrPara(TelaDoPacienteNaTela.PrescricoesEDocumentos)">
+                            <Icone Nome="documento" />Documentos emitidos</button>
+                        @if (f.PodeIndicarBsv)
+                        {
+                            <button type="button" class="botao mini" disabled="@(f.BsvIndicado || _ocupado)" @onclick="IndicarBsvAsync">
+                                @(f.BsvIndicado ? "Em acompanhamento BSV" : "Novo paciente de BSV")</button>
+                        }
+                    </div>
+                    @if (f.TermoPendente is { } termo)
+                    {
+                        var (rotuloTermo, dicaTermo) = AlertasDaFolha.DoTermo(termo);
+                        <button type="button" class="botao @(termo.AssinaturaRemotaAguardaConferencia ? "at-termo-conferir" : "contorno-perigo") at-termo"
+                                disabled="@(!Pode(Permissao.ColherAssinaturaPaciente) || _ocupado)" title="@dicaTermo" @onclick="ColherTermoAsync">@rotuloTermo</button>
+                    }
+
+                    @if (f.SaiuHoje.Count > 0)
+                    {
+                        <h4 class="at-lado-subtitulo">Já saiu hoje</h4>
+                        <ul class="at-saiu">
+                            @foreach (var papel in f.SaiuHoje)
+                            {
+                                <li class="@(papel.Cancelado ? "cancelado" : null)">
+                                    <span><b>@papel.Rotulo</b> @papel.Numero<span class="secundario">@papel.Detalhe</span></span>
+                                    @if (!papel.Cancelado)
+                                    {
+                                        <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => SegundaViaAsync(papel)">2ª via</button>
+                                        <button type="button" class="botao mini" disabled="@(_ocupado || !Pode(Permissao.VerProntuario))"
+                                                title="E-mail (recomendado) ou WhatsApp pelo CRM" @onclick="() => Enviar(papel)">Enviar…</button>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+
+                <section class="cartao at-anteriores" aria-label="Sessões anteriores">
+                    <h3 class="at-lado-titulo">SESSÕES ANTERIORES</h3>
+                    @if (!string.IsNullOrWhiteSpace(f.ResumoDor)) { <p class="texto-secundario">@f.ResumoDor</p> }
+                    @if (f.Anteriores.Count == 0)
+                    {
+                        <p class="texto-secundario">Nenhuma sessão anterior registrada.</p>
+                    }
+                    @foreach (var s in f.Anteriores)
+                    {
+                        <article class="at-anterior">
+                            <header><b>@s.Data</b> <span class="texto-secundario">@s.Eva</span></header>
+                            @if (!string.IsNullOrWhiteSpace(s.Retorno)) { <p class="at-retorno">@s.Retorno</p> }
+                            <dl class="at-campos-anteriores">
+                                @foreach (var c in s.Campos)
+                                {
+                                    <dt>@c.Rotulo</dt>
+                                    <dd title="@c.Valor">@c.Valor</dd>
+                                }
+                            </dl>
+                            <button type="button" class="botao mini fantasma" disabled="@(!PodeEditar)" @onclick="() => Reutilizar(s)"
+                                    title="Preenche os campos vazios com esta sessão — nada é gravado">Usar texto desta sessão</button>
+                        </article>
+                    }
+                </section>
+            }
+        </aside>
+    </div>
+
+    @if (_detalheAberto)
+    {
+        <DetalheDaSessaoForm Rascunho="r" SomenteLeitura="@(!PodeEditar)" AoMudar="StateHasChanged" AoFechar="FecharDetalhe" />
+    }
+    @if (_modelosAbertos)
+    {
+        <ModelosEvolucaoForm Rascunho="r" ProfissionalId="SessaoUsuario.Atual.ProfissionalId" PodeRepetir="@(f.Anteriores.Count > 0)"
+                             AoAplicar="AplicarModelo" AoRepetir="RepetirUltima" AoFechar="() => _modelosAbertos = false" />
+    }
+    @if (_mapaAberto && f.Mapa is { } mapa)
+    {
+        <MapaCorporalForm Mapa="mapa" PacienteId="Contexto.PacienteId" EvolucaoId="@(r.EvolucaoId == 0 ? null : r.EvolucaoId)"
+                          DataSessao="r.Data" Titulo="@($"Mapa corporal — {Contexto.Nome}")" SomenteLeitura="@(!PodeEditar)"
+                          AoMudar="StateHasChanged" AoFechar="() => _mapaAberto = false" />
+    }
+    @if (_papelAberto is { } aberto)
+    {
+        @* O papel ESCRITO, já com o que a sessão sabe — a MESMA folha da central de Documentos. *@
+        <DocumentoForm PacienteId="Contexto.PacienteId" Tipo="aberto.Tipo" Heranca="aberto.Heranca"
+                       AoFechar="FecharPapelAsync" AoConcluir="ConcluirPapelAsync" />
+    }
+}
+@if (_enviando is { } papelEnviado)
+{
+    @* "Enviar…" do que saiu hoje: o EnvioAoPacienteForm, o MESMO da central de Documentos (out/2026). *@
+    <EnvioAoPacienteForm DocumentoId="papelEnviado.DocumentoId" Rotulo="@papelEnviado.Rotulo"
+                         AoFechar="() => _enviando = null" AoConcluir="Enviou" />
+}
+
+@code {
+    private FolhaDoAtendimento? _folha;
+    private IReadOnlyList<FolhaParaEntregar> _cartoes = [];
+    private HerancaDaSessao? _herancaMontada;
+    private bool _historicoAberto;
+    private bool _detalheAberto;
+    private bool _modelosAbertos;
+    private bool _mapaAberto;
+    private (TipoDocumentoClinico Tipo, string Rotulo, HerancaDaSessao Heranca)? _papelAberto;
+    private bool _ocupado;
+    private PapelDeHoje? _enviando;
+    private int _registroParaVincular;
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private IJanelasDoAtendimentoClinico Janelas
+        => Servicos.GetService<IJanelasDoAtendimentoClinico>() ?? JanelasDoAtendimentoClinicoIndisponiveis.Instancia;
+
+    /// <summary>O editor da prescrição de infusão — formulário Blazor desde out/2026 (era a PrescricaoInternaWindow).</summary>
+    private IJanelasDaPrescricaoDeInfusao Infusao
+        => Servicos.GetService<IJanelasDaPrescricaoDeInfusao>() ?? JanelasDaPrescricaoDeInfusaoIndisponiveis.Instancia;
+
+    /// <summary>A coleta do termo — o ponto único das portas Blazor desde out/2026 (era a ColetaDeTermo WPF).</summary>
+    private ColetaDeTermoNaPagina? Coleta => Servicos.GetService<ColetaDeTermoNaPagina>();
+
+    private static bool PodeEditar => FolhaDoAtendimento.PodeEditarProntuario;
+    private bool PodeCopiar => PodeEditar && _folha is { Carregando: false, TemUltimaParaCopiar: true };
+
+    /// <summary>A ficha IMPRIME o prontuário: o bit é o de LER, e só com paciente.</summary>
+    private bool PodeImprimir => Contexto.PacienteId != 0 && Pode(Permissao.VerProntuario);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _folha = Tela.Guardado(FolhaDoAtendimento.Chave, () => new FolhaDoAtendimento(Escopos, Contexto));
+        _folha.Mudou += AoMudarFolha;
+        MontarCartoes();
+        // A folha é lida UMA vez por paciente: voltar à seção não relê por baixo de quem digita.
+        if (!_folha.Carregada && !_folha.Carregando) await _folha.CarregarAsync();
+        MontarCartoes();
+    }
+
+    private void AoMudarFolha() => _ = InvokeAsync(() =>
+    {
+        MontarCartoes();
+        StateHasChanged();
+    });
+
+    /// <summary>
+    /// Os cartões do EMITIR (FolhasParaEntregar, Application) — remontados só quando o que eles
+    /// DIZEM mudou (o CID escrito muda o cartão do atestado; a coluna não pisca a cada tecla).
+    /// </summary>
+    private void MontarCartoes()
+    {
+        if (_folha is null) return;
+        var heranca = _folha.Heranca();
+        if (heranca == _herancaMontada) return;
+        _herancaMontada = heranca;
+        _cartoes = FolhasParaEntregar.Montar(heranca, SessaoUsuario.Atual.Efetivas);
+    }
+
+    protected override void OnAfterRender(bool firstRender) => MontarCartoesSeMudou();
+
+    private void MontarCartoesSeMudou()
+    {
+        if (_folha is null || _folha.Heranca() == _herancaMontada) return;
+        MontarCartoes();
+        StateHasChanged();
+    }
+
+    protected override async Task AoAtalhoAsync(AtalhoDeTela atalho)
+    {
+        if (atalho == AtalhoDeTela.Salvar && PodeEditar) await SalvarAsync();
+        else if (atalho == AtalhoDeTela.Imprimir && PodeImprimir) await ImprimirFichaAsync();
+    }
+
+    private async Task RecarregarAsync()
+    {
+        if (_folha is null) return;
+        await _folha.CarregarAsync();
+    }
+
+    private void Informar(string texto, bool erro)
+    {
+        if (_folha is null) return;
+        _folha.Mensagem = texto;
+        _folha.MensagemEhErro = erro;
+    }
+
+    // ==================== Salvar / Imprimir ====================
+
+    private async Task SalvarAsync()
+    {
+        if (_folha is null || _ocupado) return;
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        _ocupado = true;
+        try
+        {
+            if (await _folha.TentarSalvarAsync()) Tela.AvisarMudanca();
+        }
+        finally { _ocupado = false; }
+    }
+
+    /// <summary>
+    /// A FICHA DO ATENDIMENTO — o papel que o paciente leva. Emitir é FATO (numerado, na lista),
+    /// por isso sai depois de SALVAR: a guarda pergunta "há rascunho?", nunca "está em branco".
+    /// </summary>
+    private async Task ImprimirFichaAsync()
+    {
+        if (_folha is null || _ocupado) return;
+        if (!Exigir(Permissao.VerProntuario, "imprimir a ficha do atendimento")) return;
+        if (_folha.TemAlgoParaGravar && _folha.EvolucaoId == 0)
+        {
+            Informar(FichaDoAtendimentoNaTela.SalveAntes, erro: true);
+            return;
+        }
+        _ocupado = true;
+        try
+        {
+            string numero;
+            byte[] pdf;
+            using (var escopo = Escopo())
+                (numero, pdf) = await FichaDoAtendimentoNaTela.EmitirAsync(escopo.ServiceProvider, Contexto.PacienteId,
+                    SessaoUsuario.Atual.ProfissionalId, _folha.Rascunho.Data, Operador);
+            var erro = await Host.SalvarEAbrirAsync(pdf, FichaDoAtendimentoNaTela.NomeDoArquivo(numero), "PDF (*.pdf)|*.pdf", ".pdf");
+            Informar(FichaDoAtendimentoNaTela.Frase(numero, erro), erro is not null);
+            await _folha.RelerSaiuHojeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — ficha do atendimento não pôde ser emitida", ex);
+            Informar(ex.Message, erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    // ==================== A folha: cópia, modelo, reutilização, detalhe, mapa, vínculo ====================
+
+    private async Task CopiarUltimaAsync()
+    {
+        if (_folha is null || !PodeCopiar) return;
+        if (!Exigir(Permissao.EditarProntuario, "copiar a última evolução")) return;
+        if (_folha.Rascunho.CopiaSubstituiAlgo(_folha.Mapa?.TemConteudo == true)
+            && !await Dialogos.ConfirmarAsync("Copiar última evolução",
+                "Substituir os textos clínicos e as respostas dos campos personalizados pelos da última evolução deste paciente? "
+                + "EVA, sinais vitais e datas da sessão atual serão preservados.", perigoso: true))
+            return;
+        // A cópia é a da carga, e só deste paciente (a folha é por paciente).
+        if (_folha.CopiarUltima() is { } frase) Informar(frase, erro: false);
+        else Informar("Não há evolução anterior salva deste paciente para copiar.", erro: false);
+    }
+
+    private void AbrirModelos()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "usar modelos de evolução")) return;
+        _modelosAbertos = true;
+    }
+
+    private void AplicarModelo(ModeloEvolucao m)
+    {
+        if (_folha is null) return;
+        _folha.Rascunho.AplicarModelo(m);
+        _modelosAbertos = false;
+        Informar($"Modelo \"{m.Nome}\" aplicado. Nada foi gravado — confira e salve.", erro: false);
+    }
+
+    private void RepetirUltima()
+    {
+        _modelosAbertos = false;
+        Reutilizar(_folha?.Anteriores.FirstOrDefault());
+    }
+
+    private void Reutilizar(ResumoSessaoAnterior? sessao)
+    {
+        if (_folha is null) return;
+        if (!Exigir(Permissao.EditarProntuario, "reutilizar a sessão anterior")) return;
+        // Só uma sessão do contexto atual: seleção antiga não atravessa a troca de paciente.
+        if (sessao is not null && !_folha.Anteriores.Contains(sessao)) sessao = null;
+        var (frase, erro) = _folha.Rascunho.Reutilizar(sessao);
+        Informar(frase, erro);
+    }
+
+    private void FecharDetalhe()
+    {
+        _detalheAberto = false;
+        MontarCartoes();
+    }
+
+    private void AbrirMapa()
+    {
+        if (_folha?.Mapa is null)
+        {
+            Informar("Escolha um paciente antes de abrir o mapa corporal: a tela abre no paciente que você está atendendo, ou use a busca.", erro: true);
+            return;
+        }
+        _mapaAberto = true;
+    }
+
+    private async Task VincularAsync()
+    {
+        if (_folha is null || _registroParaVincular == 0 || Contexto.AgendamentoId is not { } horario) return;
+        if (!Exigir(Permissao.EditarProntuario, "vincular o registro à sessão")) return;
+        if (_folha.TemAlgoParaGravar)
+        {
+            Informar("Salve o que escreveu antes de vincular outro registro. Nenhum texto será descartado.", erro: true);
+            return;
+        }
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ProntuarioService>()
+                    .VincularAoHorarioAsync(_registroParaVincular, horario, Operador);
+            _registroParaVincular = 0;
+            await _folha.CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — registro não pôde ser vinculado ao horário", ex);
+            Informar(ex.Message, erro: true);
+        }
+    }
+
+    // ==================== EMITIR ====================
+
+    /// <summary>
+    /// O papel do cartão: os ESCRITOS abrem a folha de emissão (<c>DocumentoForm</c>) com a
+    /// herança da sessão — ela resolve quem assina, os modelos, o CID e a alergia —; os MONTADOS
+    /// do prontuário saem direto — não há o que digitar.
+    /// </summary>
+    private async Task EmitirAsync(FolhaParaEntregar cartao)
+    {
+        if (_folha is null || _ocupado) return;
+        if (Contexto.PacienteId == 0) { Informar("Escolha um paciente antes de emitir.", erro: true); return; }
+        if (CentralDocumentosService.Folha(cartao.Chave) is not { } folha)
+        {
+            Informar("Este documento não está disponível para o seu acesso ou para este paciente.", erro: true);
+            return;
+        }
+        if (!Exigir(folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}")) return;
+
+        _ocupado = true;
+        try
+        {
+            if (folha.MontadaDoProntuario)
+            {
+                DocumentoClinico emitido;
+                byte[] pdf;
+                using (var escopo = Escopo())
+                {
+                    var p = escopo.ServiceProvider;
+                    var servico = p.GetRequiredService<DocumentoClinicoService>();
+                    emitido = folha.TipoClinico == TipoDocumentoClinico.Anamnese
+                        ? await servico.EmitirAnamneseAsync(Contexto.PacienteId, operador: Operador)
+                        : await servico.EmitirRelatorioEvolucaoAsync(Contexto.PacienteId, operador: Operador);
+                    pdf = await p.GetRequiredService<DocumentosClinicosPdfService>()
+                        .GerarAsync(emitido.Id, await p.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+                }
+                await _folha.RelerSaiuHojeAsync();
+                var erro = await Host.SalvarEAbrirAsync(pdf, $"{folha.Rotulo}-{emitido.Numero.Replace('/', '-')}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
+                Informar(erro ?? $"{folha.Rotulo} {emitido.Numero} emitido(a).", erro is not null);
+                return;
+            }
+
+            if (folha.TipoClinico is not { } tipo) return;
+            _papelAberto = (tipo, folha.Rotulo, _folha.Heranca());
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Consultório — folha '{cartao.Rotulo}' não pôde ser emitida", ex);
+            Informar(ex.Message, erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    /// <summary>Fechou a folha sem concluir: relê de qualquer jeito — o papel pode ter saído e só a impressão ter falhado.</summary>
+    private async Task FecharPapelAsync()
+    {
+        _papelAberto = null;
+        if (_folha is not null) await _folha.RelerSaiuHojeAsync();
+    }
+
+    private async Task ConcluirPapelAsync(DocumentoForm.Emitido emitido)
+    {
+        var rotulo = _papelAberto?.Rotulo ?? TipoDocumentoInfo.Rotular(emitido.Tipo);
+        _papelAberto = null;
+        if (_folha is not null) await _folha.RelerSaiuHojeAsync();
+        Notificacoes.Sucesso($"{rotulo} emitido(a).");
+    }
+
+    /// <summary>Segunda via do que saiu hoje — os bytes da EMISSÃO, idênticos aos que o paciente levou.</summary>
+    private async Task SegundaViaAsync(PapelDeHoje papel)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var p = escopo.ServiceProvider;
+                pdf = await p.GetRequiredService<DocumentosClinicosPdfService>()
+                    .GerarAsync(papel.DocumentoId, await p.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            }
+            var erro = await Host.SalvarEAbrirAsync(pdf, papel.NomeArquivo, "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Informar(erro, erro: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — segunda via não pôde ser gerada", ex);
+            Informar(ex.Message, erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    /// <summary>
+    /// "Enviar…" do que saiu hoje (out/2026): o EnvioAoPacienteForm — a MESMA pergunta das outras
+    /// portas, e-mail primeiro, WhatsApp pelo CRM depois. O bit do TIPO é conferido lá.
+    /// </summary>
+    private void Enviar(PapelDeHoje papel)
+    {
+        if (_ocupado) return;
+        if (!Exigir(Permissao.VerProntuario, "enviar documento ao paciente")) return;
+        _enviando = papel;
+    }
+
+    private void Enviou(ResultadoDoAto r)
+    {
+        _enviando = null;
+        if (!r.Silencioso && r.Frase is not null) Informar(r.Frase, erro: r.EhErro);
+    }
+
+    private async Task PrescreverInfusaoAsync()
+    {
+        if (_folha is null || _ocupado) return;
+        if (!Exigir(Permissao.Prescrever, "prescrever infusão")) return;
+        if (!Infusao.Disponivel) { Informar(JanelasDaPrescricaoDeInfusaoIndisponiveis.Frase, erro: true); return; }
+        _ocupado = true;
+        try
+        {
+            await Infusao.PrescreverNaSessaoAsync(Contexto.PacienteId, Contexto.Nome, Contexto.AgendamentoId,
+                _folha.EvolucaoId == 0 ? null : _folha.EvolucaoId);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Infusão no atendimento", ex);
+            Informar(ex.Message, erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    /// <summary>
+    /// A coleta do termo com o paciente na sala (o MESMO formulário do balcão — ColetaDeTermoNaPagina).
+    /// Sem pendência, a coleta pergunta qual termo (a coleta avulsa). Relê mesmo sem concluir: abrir
+    /// já EMITE o termo numerado.
+    /// </summary>
+    private async Task ColherTermoAsync()
+    {
+        if (_folha is null || _ocupado) return;
+        if (!Pode(Permissao.ColherAssinaturaPaciente))
+        {
+            Informar("Você não tem permissão para colher a assinatura do paciente. Peça à direção o acesso \"Colher assinatura do paciente\".", erro: true);
+            return;
+        }
+        if (Coleta is not { } coleta) { Informar(JanelasDoAtendimentoClinicoIndisponiveis.Frase, erro: true); return; }
+        var termo = _folha.TermoPendente;
+        _ocupado = true;
+        try
+        {
+            var concluiu = await coleta.AbrirAsync(Contexto.PacienteId, Contexto.Nome, termo?.ModeloId, termo?.DocumentoId,
+                termo?.ProfissionalId, Contexto.AgendamentoId ?? termo?.AgendamentoId);
+            await _folha.RelerAvisosAsync();
+            if (concluiu) Notificacoes.Sucesso("Termo do procedimento resolvido.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — coleta do termo", ex);
+            Notificacoes.Erro($"Não foi possível abrir o termo: {ex.Message}");
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task IndicarBsvAsync()
+    {
+        if (_folha is null || _folha.BsvIndicado || Contexto.AgendamentoId is not { } id) return;
+        if (!Exigir(Permissao.Prescrever | Permissao.EditarProntuario, "indicar o paciente para o BSV")) return;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IAcompanhamentoPacienteService>()
+                    .IndicarBsvAsync(SessaoUsuario.Atual.UsuarioId, id);
+            _folha.BsvIndicado = true;
+            Informar("Paciente incluído no acompanhamento BSV da recepção.", erro: false);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — indicação de BSV", ex);
+            Informar(ex.Message, erro: true);
+        }
+    }
+
+    public override void Dispose()
+    {
+        if (_folha is not null) _folha.Mudou -= AoMudarFolha;
+        base.Dispose();
+    }
+}

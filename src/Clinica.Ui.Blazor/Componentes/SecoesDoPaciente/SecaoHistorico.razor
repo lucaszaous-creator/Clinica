@@ -1,0 +1,163 @@
+@*
+  HISTÓRICO — o prontuário médico do paciente (out/2026: migrada da ProntuarioClinicoView/ViewModel
+  WPF). As sessões, com busca no texto (a mesma da Recepção), e por linha: copiar o registro,
+  abrir a sessão inteira (Modal de leitura, com imprimir), os anexos e as correções. A linha do
+  tempo de enfermagem e infusões fica logo abaixo. O acesso é registrado uma vez por paciente.
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Ui.Blazor.Formularios.Prontuario
+@inherits SecaoDoPaciente
+
+<section class="cartao lista-cartao">
+    <div class="cartao-corpo acp-topo">
+        <div class="filtros">
+            <Campo Rotulo="Buscar no prontuário" Classe="busca">
+                <input class="campo" placeholder="Uma palavra da queixa, da conduta, da evolução…" value="@_termo"
+                       @oninput="e => { _termo = e.Value?.ToString(); Filtrar(); }" maxlength="80" />
+            </Campo>
+        </div>
+        <button type="button" class="botao mini" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar histórico</button>
+    </div>
+    <p class="cartao-corpo secundario">@_resumo</p>
+
+    @if (_semAcesso)
+    {
+        <div class="cartao-corpo"><EstadoVazio Titulo="Sem acesso ao prontuário" Icone="cadeado" Descricao="O seu acesso não permite ler o prontuário deste paciente." /></div>
+    }
+    else if (_naoVerificado)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível carregar o prontuário" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+    }
+    else if (!_carregou)
+    {
+        <div class="cartao-corpo"><Esqueleto Altura="260" /></div>
+    }
+    else if (_linhas.Count == 0)
+    {
+        <div class="cartao-corpo">
+            <EstadoVazio Titulo="@(string.IsNullOrWhiteSpace(_termo) ? "Nenhuma sessão registrada" : "Nenhuma sessão contém esse termo")" Icone="historico"
+                         Descricao="@(string.IsNullOrWhiteSpace(_termo) ? "O prontuário médico deste paciente ainda está vazio." : "A busca olha queixa, anamnese, conduta, evolução, orientações e o plano.")" />
+        </div>
+    }
+    else
+    {
+        <ul class="hist-sessoes">
+            @foreach (var l in _linhas)
+            {
+                <li class="hist-sessao" @key="l.EvolucaoId">
+                    <header class="hist-cabeca">
+                        <strong>@l.Data</strong><span class="secundario">· @l.Eva · @l.Profissional</span>
+                        <div class="botoes-linha">
+                            <button type="button" class="botao mini" @onclick="() => CopiarAsync(l)"><Icone Nome="copiar" />Copiar registro</button>
+                            <button type="button" class="botao mini" @onclick="() => _anexosDe = l">@l.AnexosTexto</button>
+                            @if (l.Retificada)
+                            {
+                                <button type="button" class="botao mini" @onclick="() => _correcoesDe = l">@l.CorrecoesTexto</button>
+                            }
+                            <button type="button" class="botao mini primario" @onclick="() => _abrindo = l">Abrir sessão</button>
+                        </div>
+                    </header>
+                    <dl class="hist-campos">
+                        <div><dt>Queixa</dt><dd>@l.Queixa</dd></div>
+                        <div><dt>Conduta</dt><dd>@l.Conduta</dd></div>
+                        <div><dt>Evolução</dt><dd><TextoClinico Texto="@l.Evolucao" Formato="@l.EvolucaoFormatada" /></dd></div>
+                        <div><dt>Orientações</dt><dd>@l.Orientacoes</dd></div>
+                    </dl>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@if (_abrindo is { } aberta)
+{
+    <SessaoDoProntuarioForm EvolucaoId="aberta.EvolucaoId" Paciente="@Contexto.Nome" OfereceAnexos="true"
+                            AoFechar="() => _abrindo = null" AoVerAnexos="() => { _abrindo = null; _anexosDe = aberta; }" />
+}
+@if (_anexosDe is { } comAnexos)
+{
+    <AnexosSessaoForm EvolucaoId="comAnexos.EvolucaoId" PacienteId="Contexto.PacienteId" Sessao="@($"Sessão de {comAnexos.Data} — {Contexto.Nome}")"
+                      AoFechar="FecharAnexosAsync" />
+}
+@if (_correcoesDe is { } corrigida)
+{
+    <VersoesEvolucaoForm EvolucaoId="corrigida.EvolucaoId" Sessao="@($"{corrigida.Data} — {Contexto.Nome}")" AoFechar="() => _correcoesDe = null" />
+}
+
+@code {
+    private IReadOnlyList<Evolucao> _sessoes = [];
+    private IReadOnlyDictionary<int, int> _anexos = new Dictionary<int, int>();
+    private IReadOnlyDictionary<int, int> _correcoes = new Dictionary<int, int>();
+    private IReadOnlyList<HistoricoClinicoNaTela.Linha> _linhas = [];
+    private HistoricoClinicoNaTela.Linha? _abrindo, _anexosDe, _correcoesDe;
+    private string? _termo, _erro;
+    private string _resumo = string.Empty;
+    private bool _carregou, _naoVerificado, _semAcesso, _acessoRegistrado;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        if (!Pode(Permissao.VerProntuario)) { _semAcesso = true; return; }
+        var g = ++_geracao;
+        try
+        {
+            IReadOnlyList<Evolucao> todas;
+            IReadOnlyDictionary<int, int> anexos, correcoes;
+            using (var escopo = Escopo())
+            {
+                if (!_acessoRegistrado)
+                {
+                    _acessoRegistrado = true;
+                    await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                        .RegistrarAsync(Contexto.PacienteId, Operador, OrigemAcessoProntuario.ProntuarioClinico);
+                }
+                var prontuario = escopo.ServiceProvider.GetRequiredService<ProntuarioService>();
+                todas = await prontuario.DoPacienteAsync(Contexto.PacienteId);
+                var ids = todas.Select(e => e.Id).ToList();
+                anexos = await prontuario.ContagemDeAnexosAsync(ids);
+                correcoes = await prontuario.ContagemDeVersoesAsync(ids);
+            }
+            if (g != _geracao || Descartada) return;
+            _sessoes = todas;
+            _anexos = anexos;
+            _correcoes = correcoes;
+            _naoVerificado = false;
+            _carregou = true;
+            Filtrar();
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — prontuário não pôde ser carregado", ex);
+            if (silencioso && _carregou) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+    }
+
+    private void Filtrar()
+    {
+        _linhas = HistoricoClinicoNaTela.Filtrar(_sessoes, _termo, _anexos, _correcoes, Contexto.Nome);
+        _resumo = _carregou ? HistoricoClinicoNaTela.Resumo(_sessoes.Count, _linhas.Count, _termo) : string.Empty;
+    }
+
+    private async Task CopiarAsync(HistoricoClinicoNaTela.Linha linha)
+    {
+        if (await Host.CopiarAsync(linha.TextoParaCopia)) Notificacoes.Sucesso("Registro copiado.");
+        else Notificacoes.Erro("A área de transferência está ocupada por outro programa — tente de novo.");
+    }
+
+    private Task FecharAnexosAsync()
+    {
+        _anexosDe = null;
+        // A contagem de anexos da linha pode ter mudado.
+        return CarregarAsync(silencioso: true);
+    }
+}

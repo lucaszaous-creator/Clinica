@@ -1,0 +1,12 @@
+@*
+  PRONTUÁRIO › POR PACIENTE (Recepção, chave "prontuario") — out/2026, substitui a PacientesView
+  WPF que a Recepção abria pela IFabricaListaPacientes na seção do prontuário. O clique abre a
+  tela do paciente no Histórico. A lista mora em ListaDePacientesDoPosto, a mesma do Consultório.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+<ListaDePacientesDoPosto Sobretitulo="Prontuário · Por paciente" Titulo="Prontuário"
+                         Subtitulo="Escolha o paciente para abrir o histórico das sessões dele."
+                         Pergunta="De quem é o prontuário?"
+                         Destino="DestinoNoPosto.Historico" RotuloDoClique="Abrir prontuário" />

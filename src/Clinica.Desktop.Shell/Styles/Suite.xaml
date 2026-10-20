@@ -26,6 +26,5 @@
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Pacientes.xaml" />
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Icones.xaml" />
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/AgendaModeloA.xaml" />
-        <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/PaginaDocumentos.xaml" />
     </ResourceDictionary.MergedDictionaries>
 </ResourceDictionary>

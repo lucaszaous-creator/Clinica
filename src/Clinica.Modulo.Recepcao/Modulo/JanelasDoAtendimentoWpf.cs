@@ -1,7 +1,6 @@
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
-using Clinica.Desktop.Shell.Componentes.Cadastro;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
 using Clinica.Ui.Blazor.Hospedagem;
@@ -19,10 +18,7 @@ namespace Clinica.Recepcao.Modulo;
 /// ⚠️ Tudo roda no despachante do WPF: a janela modal precisa da thread da interface, e a tela
 /// Blazor pode chamar de outra (o cuidado de <see cref="JanelasDaAgendaWpf"/>).
 /// </summary>
-public sealed class JanelasDoAtendimentoWpf(
-    IServiceScopeFactory escopos,
-    IDialogoService dialogo,
-    PreenchimentoNovoAtendimento ponte) : IJanelasDoAtendimento
+public sealed class JanelasDoAtendimentoWpf(PreenchimentoNovoAtendimento ponte) : IJanelasDoAtendimento
 {
     public bool Disponivel => true;
 
@@ -32,32 +28,6 @@ public sealed class JanelasDoAtendimentoWpf(
         => ponte.ConsumirPara(marcarParaDepois: marcar) is { } p
             ? new PedidoDoAtendimento(p.DataHora, p.ProfissionalId, p.SalaId, p.PacienteId, p.DuracaoMinutos, p.ModalidadeCodigo)
             : null;
-
-    public Task<bool> EscolherConvenioAsync(int pacienteId)
-        => NaInterface(() => VinculoDeConvenio.GarantirAsync(escopos, pacienteId, SessaoUsuario.Atual.Operador));
-
-    public Task<bool> ReceberDividaAsync(int pacienteId) => NaInterface(async () =>
-    {
-        // A MESMA janela de cobrança da ficha — quem grava dinheiro continua sendo um só.
-        var paciente = await ObterAsync(pacienteId);
-        if (paciente is null) return false;
-        var vm = new CobrancaDoPacienteViewModel(escopos, dialogo, paciente.Id, paciente.Nome, paciente.Telefone);
-        new CobrancaDoPacienteWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
-        return vm.Mudou;
-    });
-
-    public Task<int?> CadastrarPacienteAsync() => NaInterface(() =>
-    {
-        var vm = new CadastroPacienteViewModel(escopos);
-        var janela = new CadastroPacienteWindow(vm) { Owner = JanelaDona.Atual() };
-        return Task.FromResult(janela.ShowDialog() == true ? vm.PacienteId : null);
-    });
-
-    private async Task<Paciente?> ObterAsync(int pacienteId)
-    {
-        using var scope = escopos.CreateScope();
-        return await scope.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(pacienteId);
-    }
 
     private static Task<T> NaInterface<T>(Func<Task<T>> acao)
     {

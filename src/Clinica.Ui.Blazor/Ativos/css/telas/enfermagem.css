@@ -1,0 +1,96 @@
+/* ENFERMAGEM — a seção "Atendimento de enfermagem" da tela do paciente e a tela Enfermagem
+   (out/2026). As duas usam o MESMO PainelDeEnfermagem, então o estilo é um só. Só tokens
+   (docs/telas-blazor.md). */
+
+/* ---------- O painel ---------- */
+.enf-painel{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.enf-aviso-modalidade{margin:0;color:var(--aviso-texto);font-size:var(--text-small-size)}
+.enf-acoes{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+.enf-acoes-espaco{flex:1 1 auto}
+.enf-aba .cartao-corpo{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
+.enf-legenda{margin:0;font-size:var(--text-small-size)}
+.enf-rotulo{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600;
+  text-transform:uppercase;letter-spacing:var(--text-secao-tracking)}
+.enf-falha{margin:0;color:var(--erro-texto)}
+.enf-sucesso{margin:0;color:var(--sucesso-forte)}
+
+/* O rodapé fica FORA das abas: trocar de aba não esconde o botão que grava. */
+.enf-rodape{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding-top:var(--space-2);border-top:1px solid var(--borda)}
+.enf-rodape > p{flex:1 1 280px;margin:0;min-width:0}
+
+/* ---------- O compositor (a passagem de hoje) ---------- */
+.enf-folha{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:var(--space-3)}
+.enf-contexto{margin:0;color:var(--texto-secundario)}
+.enf-tira{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:flex-end}
+.enf-tira > *{flex:0 1 auto}
+.campo.enf-curto{width:calc(var(--space-16) + var(--space-8));min-width:0}
+.enf-texto{width:100%;min-height:calc(var(--space-16) * 2);resize:vertical}
+.enf-pe{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:flex-end}
+.enf-pe > *{flex:1 1 220px;min-width:0}
+.enf-consulta{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center}
+
+/* ---------- A consulta de enfermagem (formulário grande) ---------- */
+.enf-consulta-form{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:var(--space-3)}
+.enf-etapa{display:flex;flex-direction:column;gap:var(--space-3)}
+.enf-etapa-topo{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:var(--space-2)}
+.enf-acesso{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.enf-acesso > *{flex:1 1 160px}
+.enf-diagnostico,.enf-cuidado{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);
+  border:1px solid var(--borda);border-radius:var(--radius-control)}
+.enf-cuidado{flex-direction:row;flex-wrap:wrap;align-items:flex-end}
+.enf-cuidado-texto{flex:3 1 260px;min-width:0}
+.enf-cuidado-freq{flex:1 1 160px;min-width:0}
+.enf-linha-acao{display:flex;justify-content:flex-end;gap:var(--space-2)}
+
+/* ---------- O catálogo ---------- */
+.enf-catalogo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.enf-catalogo li{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding:var(--space-2) 0;border-bottom:1px solid var(--borda)}
+.enf-catalogo-texto{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
+
+/* ---------- As passagens (e a linha do tempo, que tem o mesmo desenho) ---------- */
+.enf-passagens,.enf-linha-do-tempo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.enf-passagens li,.enf-linha-do-tempo li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:var(--space-3);
+  padding:var(--space-3) 0;border-bottom:1px solid var(--borda)}
+.enf-passagens li.apagada,.enf-linha-do-tempo li.apagada{color:var(--texto-secundario)}
+.enf-passagens li.apagada .enf-passagem-corpo,.enf-linha-do-tempo li.apagada .enf-passagem-corpo{text-decoration:line-through}
+.enf-passagem-hora{display:flex;flex-direction:column;gap:var(--space-1);min-width:calc(var(--space-16) + var(--space-4))}
+.enf-hora{font-family:var(--font-mono);font-weight:600}
+.enf-hora.destaque{color:var(--erro-texto)}
+.enf-passagem-texto{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
+.enf-passagem-texto p{margin:0}
+.enf-passagem-corpo{white-space:pre-wrap;overflow-wrap:anywhere}
+.enf-marca{color:var(--aviso-texto);font-size:var(--text-small-size)}
+.enf-passagem-acoes{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:flex-end;gap:var(--space-1)}
+.enf-sessoes{display:flex;flex-direction:column;gap:var(--space-2)}
+.enf-chips{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+@media (max-width: 720px){
+  .enf-passagens li,.enf-linha-do-tempo li{grid-template-columns:minmax(0,1fr)}
+  .enf-passagem-acoes{justify-content:flex-start}
+}
+
+/* ---------- O plano de cuidados de hoje ---------- */
+.enf-plano .cartao-corpo{display:flex;flex-direction:column;gap:var(--space-2)}
+.enf-plano-topo{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--space-3)}
+.enf-plano-topo p{margin:0}
+.enf-plano-hora{display:flex;align-items:center;gap:var(--space-2)}
+.enf-plano-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.enf-plano-lista li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2);
+  padding:var(--space-2) 0;border-bottom:1px solid var(--borda)}
+.enf-plano-texto{display:flex;flex-direction:column;gap:var(--space-1);min-width:0;flex:1 1 260px}
+.enf-registro{font-size:var(--text-small-size)}
+
+/* ---------- A sessão médica (leitura) ---------- */
+.enf-blocos{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--space-2) var(--space-4)}
+.enf-blocos dt{color:var(--texto-secundario);font-weight:600}
+.enf-blocos dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.enf-versoes summary{cursor:pointer;color:var(--acento)}
+.enf-versoes ul{list-style:none;margin:var(--space-2) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.enf-versoes li{display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2);border:1px solid var(--borda);
+  border-radius:var(--radius-control)}
+@media (max-width: 720px){ .enf-blocos{grid-template-columns:minmax(0,1fr)} }
+
+/* ---------- A tela Enfermagem ---------- */
+.enf-tela .enf-paginas-lista{display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2)}
+.enf-tela .enf-paginas-lista .secundario{margin-right:auto}

@@ -8,6 +8,8 @@
 *@
 @implements IDisposable
 @inject Clinica.Ui.Blazor.Hospedagem.Dialogos Dialogos
+@inject Clinica.Ui.Blazor.Hospedagem.FormulariosDoPaciente Formularios
+@inject Clinica.Ui.Blazor.Hospedagem.JanelasNaTela Janelas
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
 
@@ -17,6 +19,8 @@
         <Raiz Tela="t.Tela" Sinal="t.Sinal" ComCamadas="false" />
     </div>
 }
+<CamadaDoPaciente />
+<CamadaDeJanelas />
 <CamadaDeDialogos />
 <PilhaDeNotificacoes />
 
@@ -25,13 +29,21 @@
 
     private int? _atual;
 
-    protected override void OnInitialized() => Palco.Mudou += Redesenhar;
+    protected override void OnInitialized()
+    {
+        Janelas.TelaAtual = Palco.Atual;
+        Palco.Mudou += Redesenhar;
+    }
 
     private void Redesenhar() => _ = InvokeAsync(() =>
     {
         // Trocou de tela com uma pergunta aberta: ela era da tela que saiu, e respondida aqui
         // agiria sobre uma tela que já não está à vista (Dialogos.DesistirDeTodos).
-        if (Palco.Atual != _atual) { _atual = Palco.Atual; Dialogos.DesistirDeTodos(); }
+        // Os diálogos e os formulários do paciente desistem ao trocar de tela; os FORMULÁRIOS abertos
+        // por código (JanelasNaTela) ficam montados e ocultos com a tela dona — a folha pela metade
+        // volta inteira quando a tela volta.
+        if (Palco.Atual != _atual) { _atual = Palco.Atual; Dialogos.DesistirDeTodos(); Formularios.DesistirDeTodos(); }
+        Janelas.TelaAtual = Palco.Atual;
         StateHasChanged();
     });
 
@@ -60,6 +72,8 @@
         var atual = Palco.Telas.FirstOrDefault(t => t.Id == Palco.Atual);
         // Com uma pergunta aberta, o atalho não age por baixo dela.
         if (atual is null || Dialogos.Atual is not null) return Task.CompletedTask;
+        // Nem por baixo de um formulário aberto por código nesta tela (a folha, o seletor do A1).
+        if (Janelas.Abertas.Any(j => j.Tela is null || j.Tela == Palco.Atual)) return Task.CompletedTask;
         return atual.Sinal.AvisarAtalhoAsync(atalho);
     }
 

@@ -1,0 +1,70 @@
+@*
+  AS CORREÇÕES DE UMA SESSÃO (out/2026: o que no WPF era a VersoesEvolucaoWindow). A versão atual
+  e as substituídas, cada uma com quando, quem e por quê — nenhuma se apaga (Lei 13.787/2018).
+  Só leitura.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="@($"Correções da sessão de {Sessao}")" Subtitulo="@_resumo" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_erro is not null)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler o histórico" Detalhe="@_erro" />
+        }
+        else if (_versoes is null)
+        {
+            <Esqueleto Altura="200" />
+        }
+        else
+        {
+            @foreach (var v in _versoes)
+            {
+                <section class="versao @(v.Vigente ? "vigente" : null)">
+                    <header><strong>@v.Titulo</strong> <span class="secundario">· @v.Quando</span></header>
+                    <p class="secundario">@v.Motivo</p>
+                    <dl class="sessao-blocos">
+                        <div class="sessao-bloco"><dt>EVA</dt><dd>@v.Eva</dd></div>
+                        <div class="sessao-bloco"><dt>Queixa</dt><dd>@v.Queixa</dd></div>
+                        @if (!string.IsNullOrEmpty(v.Anamnese))
+                        {
+                            <div class="sessao-bloco"><dt>Anamnese</dt><dd class="pre">@v.Anamnese</dd></div>
+                        }
+                        <div class="sessao-bloco"><dt>Conduta</dt><dd>@v.Conduta</dd></div>
+                        <div class="sessao-bloco"><dt>Evolução</dt><dd><TextoClinico Texto="@v.Evolucao" Formato="@v.EvolucaoFormatada" /></dd></div>
+                        <div class="sessao-bloco"><dt>Orientações</dt><dd>@v.Orientacoes</dd></div>
+                        <div class="sessao-bloco"><dt>Plano</dt><dd>@v.Plano</dd></div>
+                    </dl>
+                </section>
+            }
+        }
+    </ChildContent>
+    <Rodape><button type="button" class="botao primario" @onclick="AoFechar">Fechar</button></Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int EvolucaoId { get; set; }
+    [Parameter] public string Sessao { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<VersaoDaEvolucaoNaTela>? _versoes;
+    private string? _resumo, _erro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var prontuario = escopo.ServiceProvider.GetRequiredService<ProntuarioService>();
+            var atual = await prontuario.ObterAsync(EvolucaoId);
+            var anteriores = await prontuario.VersoesAsync(EvolucaoId);
+            _versoes = VersaoDaEvolucaoNaTela.Lista(atual, anteriores);
+            _resumo = VersaoDaEvolucaoNaTela.Resumo(anteriores.Count);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — histórico de correções da sessão", ex);
+            _erro = ex.Message;
+        }
+    }
+}

@@ -1,6 +1,4 @@
 using Clinica.Application.Modelos;
-using Clinica.Clinico.Janelas;
-using Clinica.Clinico.ViewModels;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
@@ -10,39 +8,14 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Clinico.Modulo;
 
 /// <summary>
-/// A ponte da tela Blazor de Exames (out/2026) até as janelas que continuam WPF. Faz
-/// EXATAMENTE o que o <c>ExamesViewModel</c> fazia em cada comando — a barreira de permissão é
-/// da tela que chama; aqui só se abre a janela. Tudo roda no despachante do WPF (a janela
-/// modal precisa de dono e a tela Blazor pode chamar de outra thread).
+/// A ponte da tela Blazor de Exames (out/2026) até o que continua fora dela: a navegação do posto
+/// até a seção de exames do paciente. Escolher o paciente, emitir o pedido, registrar o laudo e ver
+/// os resultados viraram formulários Blazor da tela. A
+/// barreira de permissão é da tela que chama; aqui só se abre. Tudo roda no despachante do WPF (a
+/// janela modal precisa de dono e a tela Blazor pode chamar de outra thread).
 /// </summary>
-public sealed class JanelasDosExamesWpf(IServiceScopeFactory escopos, PacienteEmFoco foco) : IJanelasDosExames
+public sealed class JanelasDosExamesWpf(PacienteEmFoco foco) : IJanelasDosExames
 {
-    public Task<string?> NovoPedidoAsync() => NaInterface(() =>
-    {
-        // A tela não tem paciente em foco: a primeira pergunta é QUEM, e a emissão é a MESMA
-        // janela de documento de todas as outras portas.
-        var paciente = EscolherPacienteWindow.Perguntar(
-            "Novo pedido de exame — para quem?", JanelaDona.Atual(), escopos);
-        if (paciente is null) return null;
-        var vm = new DocumentoEdicaoViewModel(escopos, paciente.Id, TipoDocumentoClinico.PedidoExame);
-        var concluiu = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() == true;
-        return concluiu ? paciente.Nome : null;
-    });
-
-    public Task<bool> RegistrarResultadoAsync(PedidoDeExameLinha pedido) => NaInterface(() =>
-    {
-        var vm = new ResultadoExameEdicaoViewModel(escopos, pedido.PacienteId, pedido.Paciente, pedido.DocumentoId);
-        new RegistrarResultadoExameWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
-        return vm.Registrado;
-    });
-
-    public Task VerResultadosAsync(PedidoDeExameLinha pedido) => NaInterface(() =>
-    {
-        var vm = new ResultadosDoPedidoViewModel(escopos, foco, pedido);
-        new ResultadosDoPedidoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
-        return true;
-    });
-
     public Task<bool> AbrirExamesDoPacienteAsync(PedidoDeExameLinha pedido) => NaInterface(() =>
     {
         foco.Definir(pedido.PacienteId, pedido.Paciente);

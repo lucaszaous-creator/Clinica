@@ -1,0 +1,228 @@
+@*
+  PRONTUÁRIO — QUICK-VIEW DA LISTA (out/2026: o que no WPF era a ResumoProntuarioWindow +
+  ResumoProntuarioViewModel). Ler as últimas sessões, a anamnese e os anexos SEM sair da lista de
+  Prontuários. Ele não substitui a tela do paciente — "Abrir prontuário completo" leva até ela — e
+  não escreve nada. O que a leitura afirma mora em ResumoProntuarioNaTela (Application, com teste).
+
+  O "Assinar evolução" do mockup NÃO existe aqui de propósito: evolução não é assinável no
+  domínio. Quem tem assinatura de verdade é a ANAMNESE emitida, e o Assinar dela mora na linha da
+  lista. A 2ª via da anamnese só aparece quando o modal foi aberto de uma anamnese EMITIDA — é a
+  folha como saiu, nunca remontada do prontuário de hoje.
+
+  "Abrir sessão" troca este modal pelo leitor da sessão (SessaoDoProntuarioForm, o MESMO das outras
+  portas, com as correções por dentro) em vez de empilhar dois modais; fechar o leitor devolve a
+  este. Os anexos da SESSÃO não são oferecidos aqui: a aba Anexos ao lado é a do PACIENTE, e quem
+  quer os de uma sessão entra pela tela do paciente, onde o botão existe e age.
+*@
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+@if (_sessaoAberta is { } sessao)
+{
+    <SessaoDoProntuarioForm EvolucaoId="sessao.EvolucaoId" Paciente="@Paciente" OfereceAnexos="false" AoFechar="() => _sessaoAberta = null" />
+}
+else
+{
+    <Modal Titulo="@Paciente" Subtitulo="@_linhaIdentificacao" Largura="grande" AoFechar="AoFechar">
+        <ChildContent>
+            <div class="con-resumo-destaques">
+                <div><span class="rotulo">Diagnósticos recentes</span><p>@(_diagnosticos ?? "—")</p></div>
+                <div><span class="rotulo">Plano terapêutico</span><p class="con-texto">@(_plano ?? "—")</p></div>
+                <div><span class="rotulo">Alergias</span><p class="con-alergia">@(_alergias ?? "Nenhuma registrada")</p></div>
+            </div>
+
+            <div class="abas" role="tablist" aria-label="Prontuário">
+                <button type="button" role="tab" aria-selected="@(_aba == ResumoProntuarioNaTela.AbaEvolucoes ? "true" : "false")"
+                        @onclick="() => _aba = ResumoProntuarioNaTela.AbaEvolucoes">Evoluções</button>
+                <button type="button" role="tab" aria-selected="@(_aba == ResumoProntuarioNaTela.AbaAnamnese ? "true" : "false")"
+                        @onclick="() => _aba = ResumoProntuarioNaTela.AbaAnamnese">Anamnese</button>
+                <button type="button" role="tab" aria-selected="@(_aba == ResumoProntuarioNaTela.AbaAnexos ? "true" : "false")"
+                        @onclick="() => _aba = ResumoProntuarioNaTela.AbaAnexos">Anexos</button>
+            </div>
+
+            @if (!_carregou && _mensagem is null)
+            {
+                <Esqueleto Altura="200" />
+            }
+            else if (_carregou)
+            {
+                @switch (_aba)
+                {
+                    case ResumoProntuarioNaTela.AbaEvolucoes:
+                        @if (_evolucoes.Count == 0)
+                        {
+                            <p class="secundario con-vazio">Nenhuma sessão registrada para este paciente.</p>
+                        }
+                        else
+                        {
+                            <ul class="con-evolucoes">
+                                @foreach (var e in _evolucoes)
+                                {
+                                    <li @key="e.EvolucaoId">
+                                        <div>
+                                            <p class="secundario"><strong>@e.Data</strong> · @e.Autor</p>
+                                            <p class="con-texto">@e.Texto</p>
+                                        </div>
+                                        <button type="button" class="botao mini" @onclick="() => AbrirSessao(e)">Abrir sessão</button>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        break;
+
+                    case ResumoProntuarioNaTela.AbaAnamnese:
+                        @if (_anamnese.Count == 0)
+                        {
+                            <p class="secundario con-vazio">A anamnese deste paciente ainda não foi escrita.</p>
+                        }
+                        else
+                        {
+                            <dl class="sessao-blocos">
+                                @foreach (var b in _anamnese)
+                                {
+                                    <div class="sessao-bloco"><dt>@b.Rotulo</dt><dd>@b.Texto</dd></div>
+                                }
+                            </dl>
+                        }
+                        break;
+
+                    default:
+                        @if (_anexos.Count == 0)
+                        {
+                            <p class="secundario con-vazio">Nenhum anexo no prontuário deste paciente.</p>
+                        }
+                        else
+                        {
+                            <ul class="con-anexos">
+                                @foreach (var a in _anexos)
+                                {
+                                    <li @key="a.Id"><span class="principal">@a.NomeArquivo</span><span class="secundario">@a.Contexto</span></li>
+                                }
+                            </ul>
+                        }
+                        <p class="campo-dica">Para baixar ou anexar arquivos, abra o prontuário completo — seção Exames e anexos.</p>
+                        break;
+                }
+            }
+            <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+        </ChildContent>
+        <Rodape>
+            <button type="button" class="botao" disabled="@(!Pode(Permissao.VerProntuario))" @onclick="AbrirCompletoAsync">Abrir prontuário completo</button>
+            @if (DocumentoAnamneseId is not null)
+            {
+                <button type="button" class="botao" title="A folha EMITIDA, como saiu — nunca remontada do prontuário de hoje"
+                        disabled="@(!Pode(Permissao.VerProntuario) || _gerando)" @onclick="SegundaViaAsync"><Icone Nome="imprimir" />2ª via da anamnese</button>
+            }
+            <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+        </Rodape>
+    </Modal>
+}
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public string Paciente { get; set; } = string.Empty;
+    /// <summary>A anamnese EMITIDA de onde o modal foi aberto: cai na aba dela e oferece a 2ª via.</summary>
+    [Parameter] public int? DocumentoAnamneseId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>"Abrir prontuário completo": quem abriu fecha este modal e leva à tela do paciente.</summary>
+    [Parameter] public EventCallback AoAbrirCompleto { get; set; }
+
+    private string _aba = ResumoProntuarioNaTela.AbaEvolucoes;
+    private string? _linhaIdentificacao, _diagnosticos, _plano, _alergias, _mensagem;
+    private bool _mensagemEhErro, _carregou, _gerando;
+    private IReadOnlyList<ResumoProntuarioNaTela.EvolucaoResumida> _evolucoes = [];
+    private IReadOnlyList<ResumoProntuarioNaTela.BlocoAnamnese> _anamnese = [];
+    private IReadOnlyList<AnexoDoPaciente> _anexos = [];
+    private ResumoProntuarioNaTela.EvolucaoResumida? _sessaoAberta;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir o prontuário")) { await AoFechar.InvokeAsync(); return; }
+        _aba = ResumoProntuarioNaTela.AbaInicial(DocumentoAnamneseId);
+        try
+        {
+            CabecalhoClinicoPaciente? cabecalho;
+            IReadOnlyList<Evolucao> evolucoes;
+            AnamnesePaciente? anamnese;
+            IReadOnlyList<AnexoDoPaciente> anexos;
+
+            // SEQUENCIAL, nunca WhenAll: o mesmo DbContext do escopo (parcela 74).
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                // Modal de dado de saúde deixa rastro — uma vez por abertura, nunca por aba.
+                await sp.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, Operador, OrigemAcessoProntuario.ProntuarioClinico);
+                cabecalho = await sp.GetRequiredService<ConsultorioService>().CabecalhoAsync(PacienteId);
+                evolucoes = await sp.GetRequiredService<ProntuarioService>().DoPacienteAsync(PacienteId);
+                anamnese = await sp.GetRequiredService<AnamneseService>().DoPacienteAsync(PacienteId);
+                anexos = await sp.GetRequiredService<IClinicaRepositorio>().AnexosDoPacienteAsync(PacienteId);
+            }
+
+            if (cabecalho is not null)
+            {
+                _linhaIdentificacao = cabecalho.Linha;
+                _alergias = cabecalho.AlergiasTexto;
+                _diagnosticos = ResumoProntuarioNaTela.Diagnosticos(cabecalho.UltimosDiagnosticos);
+            }
+            _plano = ResumoProntuarioNaTela.PlanoTerapeutico(evolucoes);
+            _evolucoes = ResumoProntuarioNaTela.Evolucoes(evolucoes);
+            _anamnese = ResumoProntuarioNaTela.Anamnese(anamnese);
+            _anexos = anexos;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — o resumo do prontuário não pôde ser carregado", ex);
+            _mensagem = ResumoProntuarioNaTela.FalhaDeLeitura;
+            _mensagemEhErro = true;
+        }
+    }
+
+    private void AbrirSessao(ResumoProntuarioNaTela.EvolucaoResumida item)
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário")) return;
+        _sessaoAberta = item;
+    }
+
+    private async Task AbrirCompletoAsync()
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir o prontuário")) return;
+        await AoAbrirCompleto.InvokeAsync();
+    }
+
+    /// <summary>Segunda via da ANAMNESE emitida — os bytes/conteúdo de quando ela saiu (a regra do documento clínico).</summary>
+    private async Task SegundaViaAsync()
+    {
+        if (DocumentoAnamneseId is not { } docId || _gerando) return;
+        if (!Exigir(Permissao.VerProntuario, "abrir a folha de anamnese")) return;
+        _gerando = true;
+        _mensagem = null;
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                pdf = await sp.GetRequiredService<DocumentosClinicosPdfService>()
+                    .GerarAsync(docId, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+                await sp.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, Operador, OrigemAcessoProntuario.Documento);
+            }
+            var erro = await Host.SalvarEAbrirAsync(pdf, ResumoProntuarioNaTela.NomeDaSegundaVia(Paciente), "PDF (*.pdf)|*.pdf", ".pdf");
+            _mensagem = erro;
+            _mensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — a 2ª via da anamnese não pôde ser gerada", ex);
+            _mensagem = ex.Message;
+            _mensagemEhErro = true;
+        }
+        finally
+        {
+            _gerando = false;
+        }
+    }
+}

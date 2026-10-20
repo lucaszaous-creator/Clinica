@@ -1,0 +1,84 @@
+/* ==========================================================================
+   A emissão de documento escrito (DocumentoForm, out/2026). Só tokens.
+   A FOLHA tem largura de folha: centrada e com teto, ela se lê como o papel que vai sair
+   (esticada, era uma tela branca enorme com um campo perdido no meio).
+   ========================================================================== */
+
+.df-quem{display:flex;flex-direction:column;gap:var(--space-2)}
+
+.df-abas{margin-bottom:var(--space-2)}
+
+/* Topo da aba Folha: a régua dos papéis e o atalho para os modelos. */
+.df-topo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
+.df-tipos{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+
+/* A folha: o papel sobre o fundo, com a assinatura logo depois do texto. */
+.df-folha{border:1px solid var(--borda);border-radius:var(--radius-card);background:var(--superficie);
+  padding:var(--space-6) var(--space-8);margin:0 auto;width:100%;max-width:860px;min-width:0;
+  display:flex;flex-direction:column;gap:var(--space-4)}
+.df-folha:disabled{opacity:.85}
+@media (max-width:900px){.df-folha{padding:var(--space-4)}}
+
+/* De QUEM é o papel, o número e a data — o que o PDF imprime no cabeçalho. */
+.df-cabecalho{display:flex;justify-content:space-between;align-items:flex-end;gap:var(--space-6);
+  padding-bottom:var(--space-3);border-bottom:2px solid var(--acento)}
+.df-quem-folha{display:flex;flex-direction:column;gap:2px;min-width:0}
+.df-rotulo-pequeno{font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);letter-spacing:var(--text-secao-tracking)}
+.df-paciente{font-size:var(--text-h3-size);color:var(--texto-primario);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.df-numero{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none;text-align:right}
+.df-rotulo-numero{font-weight:600;font-size:var(--text-table-size);color:var(--texto-secundario);white-space:nowrap}
+.df-titulo{margin:0;text-align:center;font-size:var(--text-h3-size);color:var(--texto-primario);overflow-wrap:anywhere}
+
+/* Alertas: um traço por alerta, a cor é a gravidade (vermelho a alergia, âmbar a lei). */
+.df-alertas{display:flex;flex-direction:column;gap:var(--space-2)}
+.df-alerta{margin:0;padding:var(--space-2) var(--space-3);border:1px solid var(--borda);border-left-width:3px;
+  border-radius:var(--radius-pequeno);font-size:var(--text-small-size);line-height:1.45;overflow-wrap:anywhere}
+.df-alerta.tom-perigo{border-color:var(--erro);background:var(--erro-suave);color:var(--erro-texto)}
+.df-alerta.tom-aviso{border-color:var(--aviso);background:var(--aviso-suave);color:var(--aviso-texto)}
+.df-colisao{font-weight:600}
+.df-confirmacao{display:flex;align-items:flex-start;gap:var(--space-2);font-size:var(--text-table-size);color:var(--texto-primario);cursor:pointer}
+.df-confirmacao input{margin-top:3px}
+
+.df-nota{margin:0;font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.45}
+.df-nota.df-da-sessao{color:var(--acento)}
+
+/* O CID do laudo: o código, o atalho e — AO LADO — o que ele quer dizer. */
+.df-cid{display:flex;flex-direction:column;gap:6px}
+.df-cid-linha{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+.df-cid-campo{width:150px;flex:none}
+.df-cid-descricao{color:var(--texto-primario);font-size:var(--text-table-size);overflow-wrap:anywhere}
+
+/* As linhas do pedido de exame. */
+.df-itens{display:flex;flex-direction:column;gap:var(--space-2)}
+.df-item{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr) minmax(0,3fr) 36px;gap:var(--space-3);align-items:start}
+.df-item-cabecalho span{font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario)}
+.df-item textarea{resize:vertical;min-height:36px}
+.df-remover{color:var(--erro);font-size:var(--text-h3-size);line-height:1}
+.df-adicionar{align-self:flex-start}
+@media (max-width:760px){.df-item{grid-template-columns:minmax(0,1fr) 36px}.df-item-cabecalho{display:none}}
+
+.df-texto{display:flex;flex-direction:column;gap:6px}
+
+/* A assinatura logo depois do texto, como no papel. */
+.df-assinatura{display:flex;flex-direction:column;align-items:center;gap:2px;margin:var(--space-6) auto 0;width:min(320px,100%);text-align:center}
+.df-linha-assinatura{display:block;width:100%;border-top:1px solid var(--texto-secundario);margin-bottom:var(--space-2)}
+.df-falta-assinante{color:var(--aviso-texto);font-size:var(--text-table-size)}
+
+.df-dados{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+.df-buscar-cid{align-self:flex-start}
+
+/* Os modelos: a busca, a lista e a prévia do escolhido. */
+.df-modelos{display:flex;flex-direction:column;gap:var(--space-3)}
+.df-lista-modelos{list-style:none;margin:0;padding:0;border:1px solid var(--borda);border-radius:var(--radius-control);max-height:200px;overflow-y:auto}
+.df-lista-modelos li{padding:var(--space-2) var(--space-3);cursor:pointer;border-bottom:1px solid var(--borda);overflow-wrap:anywhere}
+.df-lista-modelos li:last-child{border-bottom:0}
+.df-lista-modelos li:hover{background:var(--superficie-hover)}
+.df-lista-modelos li.selecionado{background:var(--acento-suave);color:var(--acento);font-weight:600}
+.df-previa-modelo{margin:0;white-space:pre-wrap;color:var(--texto-primario);font-size:var(--text-table-size);
+  padding:var(--space-3);background:var(--fundo);border-radius:var(--radius-control);max-height:220px;overflow-y:auto}
+.df-acoes-modelo{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+
+/* Rodapé: a mensagem e o "falta quem assina" ocupam a linha inteira, perto dos botões que os escrevem. */
+.df-rodape-avisos{flex-basis:100%;display:flex;flex-direction:column;gap:var(--space-2)}
+.df-rodape-avisos:empty{display:none}
+.df-sem-assinante{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);color:var(--aviso-texto);font-size:var(--text-small-size)}

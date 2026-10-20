@@ -1,0 +1,84 @@
+@*
+  APLICAR UMA ESCALA (out/2026: o que no WPF era a AplicarAvaliacaoWindow + AplicarAvaliacaoViewModel).
+  Os itens do instrumento com as alternativas, a soma parcial enquanto se responde, a data, a
+  observação e a ressalva (o sistema pontua; a interpretação é de quem assina). Quem recusa
+  escala incompleta e peso fora das alternativas é o serviço — a recusa volta inline.
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Avaliacoes
+@inherits TelaBase
+
+<Modal Titulo="@Instrumento.Nome" Subtitulo="@Instrumento.Janela" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <p class="secundario">@Instrumento.Fonte</p>
+        <ol class="aval-itens">
+            @foreach (var item in Instrumento.Itens)
+            {
+                <li class="aval-item">
+                    <p class="aval-enunciado">@item.Enunciado</p>
+                    <div class="segmentado aval-opcoes" role="radiogroup" aria-label="@item.Enunciado">
+                        @foreach (var op in item.Opcoes)
+                        {
+                            <button type="button" role="radio" aria-checked="@(Escolhida(item.Codigo) == op.Valor ? "true" : "false")"
+                                    aria-pressed="@(Escolhida(item.Codigo) == op.Valor ? "true" : "false")"
+                                    @onclick="() => _respostas[item.Codigo] = op.Valor">@op.Rotulo</button>
+                        }
+                    </div>
+                </li>
+            }
+        </ol>
+        <p class="aval-parcial"><b>@Parcial</b></p>
+        <div class="campos">
+            <Campo Rotulo="Data da aplicação"><input class="campo" type="date" @bind="_data" /></Campo>
+            <Campo Rotulo="Observação (opcional)"><input class="campo" @bind="_observacoes" maxlength="500" /></Campo>
+        </div>
+        <p class="secundario">@AvaliacoesNaTela.Ressalva</p>
+        <Aviso Texto="@_erro" Tom="erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@_salvando" @onclick="SalvarAsync">Registrar no prontuário</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public IInstrumentoAvaliacao Instrumento { get; set; } = default!;
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public string? EspecialidadeCodigo { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback<AvaliacaoClinica> AoConcluir { get; set; }
+
+    private readonly Dictionary<string, int> _respostas = [];
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string? _observacoes, _erro;
+    private bool _salvando;
+
+    private int? Escolhida(string codigo) => _respostas.TryGetValue(codigo, out var v) ? v : null;
+
+    private string Parcial => AvaliacoesNaTela.Parcial(Instrumento.Itens.Count, _respostas.Values.ToList());
+
+    private async Task SalvarAsync()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        _erro = null;
+        _salvando = true;
+        try
+        {
+            AvaliacaoClinica salva;
+            using (var escopo = Escopo())
+                salva = await escopo.ServiceProvider.GetRequiredService<AvaliacaoClinicaService>().AplicarAsync(
+                    PacienteId, Instrumento.Codigo, new Dictionary<string, int>(_respostas), _data,
+                    SessaoUsuario.Atual.ProfissionalId, null, EspecialidadeCodigo, _observacoes, Operador);
+            await AoConcluir.InvokeAsync(salva);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — avaliação não pôde ser gravada", ex);
+            _erro = ex.Message;
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+}

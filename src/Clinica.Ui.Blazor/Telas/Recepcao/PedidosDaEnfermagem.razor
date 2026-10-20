@@ -109,7 +109,7 @@
                                     <td class="nao-quebra"><Selo Tom="@l.TomDoStatus">@l.Status</Selo></td>
                                     <td><span class="secundario rec-pedido-meta">@l.Meta</span></td>
                                     <td class="direita nao-quebra">
-                                        <button type="button" class="botao mini @(l.Novo ? "primario" : null)" disabled="@_ocupado"
+                                        <button type="button" class="botao mini @(l.Novo ? "primario" : null)"
                                                 aria-label="Ver pedido de @l.Pedido.Quantidade @l.Pedido.Modalidade, @l.Data às @l.Faixa"
                                                 @onclick="() => AbrirAsync(l.Id)">Ver pedido</button>
                                     </td>
@@ -138,7 +138,6 @@
     private bool _soDia;
     private bool Carregando;
     private bool _jaLeu;
-    private bool _ocupado;
     private string? _erro;
     private string? _mensagem;
     private DateTime? _lidoEm;

@@ -1,7 +1,9 @@
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using System.Diagnostics;
-using Clinica.Desktop.Shell.Componentes.Cadastro;
+using Clinica.Application.Modelos;
+using Clinica.Application.Servicos;
+using Clinica.Domain.Regras;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -100,17 +102,17 @@ internal static partial class Program
                 Conferir(shell.TituloTela == "Faturamento de guias" && shell.TelaAtual is Clinica.Desktop.Shell.Componentes.TelaComAbas,
                     $"{nome}: abertura direta no faturamento");
                 var composta = (Clinica.Desktop.Shell.Componentes.TelaComAbas)shell.TelaAtual!;
-                var regua = (TabControl)composta.FindName("Abas");
                 var esperadas = new[] { "Resumo", "Pendências e baixas", "Consultar guias", "Faturados", "Glosas e recursos", "Não conformidades", "Lotes e XML TISS" };
                 // Tendências (out/2026) é aba do Faturamento para quem vê guias; Relatórios e Regras
                 // continuam só para quem tem os bits deles. A ordem é a dos destinos do módulo.
                 esperadas = perfil == PerfilAcesso.Gerente
                     ? esperadas.Concat(new[] { "Relatórios de guias", "Tendências", "Regras e catálogos TISS" }).ToArray()
                     : esperadas.Concat(new[] { "Tendências" }).ToArray();
-                Conferir(regua.Items.Cast<TabItem>().Select(a => (string)a.Header).SequenceEqual(esperadas),
+                // A régua é desenhada pela moldura Blazor desde out/2026; o estado dela é o TelaComAbas.
+                Conferir(composta.Rotulos.SequenceEqual(esperadas),
                     $"{nome}: subabas de guias preservadas conforme permissão");
-                // Blazor desde out/2026: a aba materializa o LUGAR da tela (o navegador é o da janela).
-                Conferir(regua.SelectedIndex == 0 && ((TabItem)regua.Items[0]).Content is Clinica.Desktop.Blazor.TelaBlazor,
+                // A aba materializa o DESCRITOR da tela (o navegador é o da janela).
+                Conferir(composta.Selecionada == 0 && composta.ConteudoVisivel is Clinica.Desktop.Blazor.TelaBlazor,
                     $"{nome}: Resumo materializa a tela de faturamento");
                 foreach (var chave in new[] { "agenda", "fila", ChavesSuite.AgendaRecepcao, ChavesSuite.ConsultorioSemana,
                     "agenda-confirmacoes", "retornos-a-marcar", "marcar-horario", "pacientes", "acessos", "configuracoes" })
@@ -128,8 +130,9 @@ internal static partial class Program
                 shell.TextoPesquisa = "";
                 if (perfil == PerfilAcesso.Faturista)
                 {
-                    var janelaFaturamento = new ShellWindow { DataContext = shell, Title = "Faturamento — Clínica SemDor", Width = 1366, Height = 820,
+                    var janelaFaturamento = new JanelaDoApp(provider, "Faturamento — Clínica SemDor") { Width = 1366, Height = 820,
                         ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000 };
+                    janelaFaturamento.MostrarMoldura(shell);
                     janelaFaturamento.Show(); await Task.Delay(250); Render(janelaFaturamento, "faturamento-exclusivo.png"); janelaFaturamento.Close();
                 }
             }
@@ -145,14 +148,9 @@ internal static partial class Program
                     {
                         var anterior = shell.TelaAtual;
                         Conferir(NavegacaoSuite.Ir(item.Chave), $"{nome}: treinamento acessível pela navegação");
-                        Conferir(shell.TelaAtual is Clinica.Desktop.Shell.Treinamento.TreinamentoView,
+                        // Blazor desde out/2026: o treinamento é a tela Treinamento no navegador da janela.
+                        Conferir(shell.TelaAtual is ITelaDoNavegador { Componente.Name: "Treinamento" },
                             $"{nome}: treinamento materializa a biblioteca compartilhada");
-                        if (shell.TelaAtual is FrameworkElement biblioteca)
-                        {
-                            biblioteca.Measure(new Size(1366,728));
-                            biblioteca.Arrange(new Rect(0,0,1366,728));
-                            biblioteca.UpdateLayout();
-                        }
                         await Dispatcher.Yield(DispatcherPriority.Background);
                         Conferir(NavegacaoSuite.Voltar() && ReferenceEquals(anterior, shell.TelaAtual),
                             $"{nome}: sair do treinamento preserva a tela de origem");
@@ -160,37 +158,14 @@ internal static partial class Program
                     }
                     var dono = modulos.First(m=>m.Nome==item.ModuloNome);
                     var tela = dono.CriarTela(item.Chave,provider);
-                    Conferir(tela is FrameworkElement,$"{nome}: rota {item.Chave} materializa componente");
+                    // Toda rota devolve uma tela do NAVEGADOR (out/2026: a moldura é Blazor).
+                    Conferir(tela is ITelaDoNavegador,$"{nome}: rota {item.Chave} materializa componente");
                     if(tela is FrameworkElement el) { el.Measure(new Size(1366,728)); el.Arrange(new Rect(0,0,1366,728)); el.UpdateLayout(); }
                     await Dispatcher.Yield(DispatcherPriority.Background);
                 }
                 catch(Exception ex) { Falhas.Add($"{nome}/{item.Chave}: {ex}"); }
             }
-            if(SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente))
-            {
-                var foco = new PacienteEmFoco(); foco.Definir(1001,"Paciente de demonstração");
-                sentinela.Proibir = !SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
-                sentinela.Leituras.Clear();
-                var ficha = provider.GetRequiredService<IFabricaFichaPaciente>().Criar(foco);
-                Conferir(ficha.GetType().Name == "PacienteWorkspaceView",$"{nome}: ficha canônica");
-                var vm = (Clinica.Clinico.ViewModels.PacienteWorkspaceViewModel)ficha.DataContext;
-                var outro = new PacienteEmFoco(); outro.Definir(1002,"Outro paciente fictício");
-                Conferir(!vm.Corresponde(outro),$"{nome}: impede reaproveitar ficha de outro paciente");
-                await vm.Capa.CarregarAsync();
-                if(sentinela.Proibir) Conferir(sentinela.Leituras.Count==0,$"{nome}: ficha administrativa não consulta prontuário");
-                sentinela.Proibir=false;
-                if(nome=="Gerente") {
-                    var editorOriginal=vm.Atendimento;
-                    using(var dbAtualizacao=new ClinicaDbContext(options)) { var p=await dbAtualizacao.Pacientes.FindAsync(1001);p!.Nome="Paciente demonstração atualizado";p.Endereco="Endereço atualizado fictício";await dbAtualizacao.SaveChangesAsync(); }
-                    await vm.AtualizarCadastroAsync();
-                    Conferir(vm.Paciente=="Paciente demonstração atualizado" && vm.Capa.Endereco=="Endereço atualizado fictício" && ReferenceEquals(vm.Atendimento,editorOriginal),"Editar cadastro atualiza ficha sem substituir editor clínico");
-                    using(var dbAtualizacao=new ClinicaDbContext(options)) { var p=await dbAtualizacao.Pacientes.FindAsync(1001);p!.Nome="Paciente de demonstração";p.Endereco="Rua de demonstração, 100 — Macaé/RJ";await dbAtualizacao.SaveChangesAsync(); }
-                    await vm.AtualizarCadastroAsync();
-                    await FotoAsync(ficha,"ficha-unificada.png");
-                    var admin=(FrameworkElement)vm.Administrativo!.Convenio;
-                    await FotoAsync(admin,"autorizacoes.png");
-                }
-            }
+            // A ficha do paciente é a tela Blazor (out/2026): conferida no bUnit (TelasBlazorAbremTests).
             if(nome=="Gerente")
             {
                 foreach(var chave in new[]{"pacientes-recepcao","agenda","faturamento-gerencial"})
@@ -199,28 +174,12 @@ internal static partial class Program
                 var anterior=shell.TelaAtual;
                 NavegacaoSuite.Ir("configuracoes");
                 Conferir(NavegacaoSuite.Voltar() && ReferenceEquals(anterior,shell.TelaAtual),"Voltar preserva instância e filtros da origem");
-                await VerificarRevisaoPrAsync(provider, options, sentinela);
-                var cadastro=new CadastroPacienteViewModel(provider.GetRequiredService<IServiceScopeFactory>(),1001);
-                while(cadastro.Carregando) await Task.Delay(10);
-                var opcao=cadastro.Convenios.Single(c=>c.Codigo=="UnimedPadrao");
-                cadastro.Convenio=opcao;
-                cadastro.Documento="";await cadastro.SalvarCommand.ExecuteAsync(null);
-                Conferir(!string.IsNullOrWhiteSpace(cadastro.ErroDocumento),"Cadastro exige CPF antes de gravar");
-                var cadastroConcluido=false;cadastro.Concluido+=()=>cadastroConcluido=true;
-                cadastro.Documento="52998224725";cadastro.Endereco="";await cadastro.SalvarCommand.ExecuteAsync(null);
-                Conferir(cadastroConcluido && cadastro.ErroEndereco is null,"Cadastro salva edição sem exigir endereço");
-                using(var conferirCadastro=new ClinicaDbContext(options))
-                    Conferir((await conferirCadastro.Pacientes.FindAsync(1001))!.Endereco is null,"Edição sem endereço persiste campo nulo");
-                cadastro.Endereco="Rua de demonstração, 100 — Macaé/RJ";cadastro.Mensagem="";
-                var janelaCadastro = new CadastroPacienteWindow(cadastro) { ShowInTaskbar=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000 };
-                Conferir(janelaCadastro.WindowState==WindowState.Maximized,"Cadastro configurado para nascer maximizado");
-                Conferir(double.IsPositiveInfinity(janelaCadastro.MaxWidth) && double.IsPositiveInfinity(janelaCadastro.MaxHeight),"Cadastro maximizado sem limites fixos do monitor primário");
-                janelaCadastro.Show(); await Task.Delay(120);
-                Conferir(janelaCadastro.WindowState==WindowState.Maximized,"Cadastro permanece maximizado após abrir");
-                Render(janelaCadastro,"cadastro-real.png");
-                await VerificarCadastroAsync(provider,options,sentinela,cadastro,janelaCadastro,opcao);
-                janelaCadastro.Close();
-                var shellWindow=new ShellWindow { DataContext=shell,ShowInTaskbar=false,ShowActivated=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000,Width=1366,Height=768 };
+                // O cadastro do paciente é o CadastroPacienteForm Blazor desde out/2026 (a
+                // CadastroPacienteWindow WPF saiu): o leiaute sai da prévia (tools/PreviaBlazor) e o
+                // TelasBlazorAbremTests o abre e clica. Aqui ficam as REGRAS, pelo mesmo caminho do formulário.
+                await VerificarCadastroAsync(provider,options,sentinela);
+                var shellWindow=new JanelaDoApp(provider,"Gerente Geral — Clínica SemDor") { ShowInTaskbar=false,ShowActivated=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000,Width=1366,Height=768 };
+                shellWindow.MostrarMoldura(shell);
                 shellWindow.Show();
                 foreach(var chave in new[]{"agenda","marcar-horario","pacientes-recepcao","faturamento-gerencial","configuracoes"}) {
                     NavegacaoSuite.Ir(chave);await Task.Delay(160);Render(shellWindow,"shell-"+chave+".png");
@@ -228,10 +187,12 @@ internal static partial class Program
                 shellWindow.Close();
                 using var scopeConfiguracao=provider.CreateScope();
                 var parametros=scopeConfiguracao.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.ParametrosService>();
-                var clinica=new Clinica.Desktop.Shell.Componentes.DadosClinicaViewModel(provider.GetRequiredService<IServiceScopeFactory>(),provider.GetRequiredService<ISnackbarService>());
-                await clinica.CarregarAsync();
+                // Os dados da clínica são da tela Blazor de Configurações desde out/2026 (o
+                // DadosClinicaViewModel WPF saiu): ela salva pelo método que relê e mescla, e a
+                // conferência é a mesma — dados lidos ANTES de outro acesso mudar os TUSS.
+                var clinica=Clinica.Application.Servicos.DadosDaClinica.De(await parametros.ObterPrestadorAsync());
                 var prestador=await parametros.ObterPrestadorAsync();prestador.CodigosTuss[TipoCodigo.Acupuntura]="12345678";await parametros.SalvarPrestadorAsync(prestador);
-                clinica.NomeFantasia="Clínica demonstrativa";await clinica.SalvarCommand.ExecuteAsync(null);
+                await Clinica.Application.Servicos.ConfiguracoesFaturamentoNaTela.SalvarDadosDaClinicaAsync(parametros,clinica with { NomeFantasia="Clínica demonstrativa" });
                 Conferir((await parametros.ObterPrestadorAsync()).NomeFantasia=="Clínica demonstrativa" && (await parametros.ObterPrestadorAsync()).CodigoTuss(TipoCodigo.Acupuntura)=="12345678","Salvar dados da clínica preserva TUSS atualizado em outro acesso");
                 // A tela Blazor de Configurações salva os TUSS pelo MESMO método (relê e mescla).
                 prestador=await parametros.ObterPrestadorAsync();prestador.ChavePix="pix-ficticio";await parametros.SalvarPrestadorAsync(prestador);
@@ -243,63 +204,46 @@ internal static partial class Program
             await Dispatcher.Yield(DispatcherPriority.Background);
         }
     }
+    /// <summary>
+    /// As regras do cadastro do paciente pelo MESMO caminho do <c>CadastroPacienteForm</c>: a
+    /// conferência do Salvar (<see cref="CadastroPacienteNaTela"/>) e a gravação pelo
+    /// <see cref="PacienteService"/> (ObterAsync → Aplicar → SalvarNovoAsync/AtualizarAsync).
+    /// </summary>
     static async Task VerificarCadastroAsync(ServiceProvider provider, DbContextOptions<ClinicaDbContext> options,
-        SentinelaProntuario sentinela, CadastroPacienteViewModel cadastro, CadastroPacienteWindow janela,
-        Clinica.Domain.Regras.OpcaoDeConvenio opcao)
+        SentinelaProntuario sentinela)
     {
-        var escopos=provider.GetRequiredService<IServiceScopeFactory>();
-        sentinela.AtrasarPaciente=true;sentinela.Proibir=true;sentinela.ProibirHistoricoCadastro=true;sentinela.Leituras.Clear();
-        var carregando=new CadastroPacienteViewModel(escopos,1001);
-        Conferir(carregando.Carregando && !carregando.PodePreencher,"Carga lenta bloqueia preenchimento antes de apresentar o cadastro");
-        await carregando.SalvarCommand.ExecuteAsync(null);
-        Conferir(carregando.Mensagem.Contains("Aguarde"),"Salvar durante carga lenta não grava dados incompletos");
-        await EsperarCadastroAsync(carregando);
-        Conferir(carregando.PodePreencher && carregando.Nome=="Paciente de demonstração","Fim da carga libera formulário com os dados existentes");
+        var convenios=CadastroPacienteNaTela.Convenios(CatalogoConvenios.Ativos);
+        var modalidades=CatalogoModalidades.Ativas;
+        var opcao=convenios.Single(c=>c.Codigo=="UnimedPadrao");
+
+        // A carga do cadastro lê só a ficha: nem atendimentos, nem códigos, nem prontuário.
+        sentinela.Proibir=true;sentinela.ProibirHistoricoCadastro=true;sentinela.Leituras.Clear();
+        Paciente? existente;
+        using(var escopo=provider.CreateScope())
+            existente=await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(1001);
         Conferir(sentinela.Leituras.Count==0,"Cadastro carrega somente a ficha, sem atendimentos, códigos ou prontuário");
-        sentinela.Proibir=false;sentinela.ProibirHistoricoCadastro=false;sentinela.AtrasarPaciente=false;
+        sentinela.Proibir=false;sentinela.ProibirHistoricoCadastro=false;
+        var dados=CadastroPacienteNaTela.Da(existente!,convenios,modalidades);
+        Conferir(dados.Nome=="Paciente de demonstração","Reabrir o cadastro traz os dados existentes");
 
-        var corpo=(Grid)janela.Content;
-        var rolagem=corpo.Children.OfType<ScrollViewer>().Single();
-        foreach(var campo in new[]{"Telefone","Email","Carteirinha","IndicadoPor","Observacoes"}) {
-            var editor=Visuais(corpo).OfType<TextBox>().Single(b=>b.GetBindingExpression(TextBox.TextProperty)?.ParentBinding.Path.Path==campo);
-            var propriedade=typeof(CadastroPacienteViewModel).GetProperty(campo)!;
-            var antes=propriedade.GetValue(cadastro);
-            editor.SetCurrentValue(TextBox.TextProperty,"Texto de verificação");
-            await Dispatcher.Yield(DispatcherPriority.DataBind);
-            Conferir(Equals(propriedade.GetValue(cadastro),"Texto de verificação"),$"{campo}: texto atualizado antes de sair do campo para salvar pelo teclado");
-            propriedade.SetValue(cadastro,antes);
-        }
-        var salvar=Visuais(corpo).OfType<Button>().Single(b=>Equals(b.Content,"Salvar cadastro"));
-        var cancelar=Visuais(corpo).OfType<Button>().Single(b=>Equals(b.Content,"Cancelar"));
-        janela.WindowState=WindowState.Normal;janela.Left=-30000;janela.Top=-30000;
-        foreach(var dimensao in new[]{new Size(600,450),new Size(960,720),new Size(1366,768),new Size(1920,1080)})
-        {
-            janela.Width=dimensao.Width;janela.Height=dimensao.Height;
-            await Dispatcher.Yield(DispatcherPriority.Render);janela.UpdateLayout();
-            var area=new Rect(0,0,corpo.ActualWidth,corpo.ActualHeight);
-            Conferir(area.Contains(salvar.TransformToAncestor(corpo).TransformBounds(new Rect(salvar.RenderSize)))
-                && area.Contains(cancelar.TransformToAncestor(corpo).TransformBounds(new Rect(cancelar.RenderSize))),$"Cadastro {dimensao}: Salvar e Cancelar permanecem dentro da área útil");
-            Conferir(rolagem.ScrollableWidth<1,$"Cadastro {dimensao}: conteúdo sem rolagem horizontal");
-            rolagem.ScrollToEnd();await Dispatcher.Yield(DispatcherPriority.Render);
-            var observacoes=Visuais(rolagem).OfType<TextBox>().Single(b=>b.GetBindingExpression(TextBox.TextProperty)?.ParentBinding.Path.Path=="Observacoes");
-            var limite=observacoes.TransformToAncestor(rolagem).TransformBounds(new Rect(observacoes.RenderSize));
-            Conferir(limite.Top>=-1 && limite.Bottom<=rolagem.ActualHeight+1,$"Cadastro {dimensao}: último campo acessível por rolagem");
-            rolagem.ScrollToHome();
-            if(dimensao.Width==1366) Render(janela,"cadastro-restaurado-1366.png");
-        }
-        cadastro.Salvando=true;await Dispatcher.Yield(DispatcherPriority.DataBind);
-        Conferir(!salvar.IsEnabled && !cancelar.IsEnabled && !cadastro.PodePreencher,"Durante a gravação não permite editar, salvar novamente ou cancelar");
-        janela.Close();Conferir(janela.IsVisible,"Fechar janela durante a gravação é recusado");
-        cadastro.Salvando=false;
+        dados.Convenio=opcao;
+        dados.Documento="";
+        Conferir(CadastroPacienteNaTela.Conferir(dados) is { Valido: false, ErroDocumento: not null },"Cadastro exige CPF antes de gravar");
+        dados.Documento="52998224725";dados.Endereco="";
+        var semEndereco=CadastroPacienteNaTela.Conferir(dados);
+        Conferir(semEndereco.Valido && semEndereco.ErroEndereco is null,"Cadastro salva edição sem exigir endereço");
+        await GravarCadastroAsync(provider,dados,1001);
+        using(var conferirCadastro=new ClinicaDbContext(options))
+            Conferir((await conferirCadastro.Pacientes.FindAsync(1001))!.Endereco is null,"Edição sem endereço persiste campo nulo");
 
-        var novo=new CadastroPacienteViewModel(escopos);await EsperarCadastroAsync(novo);
+        var novo=CadastroPacienteNaTela.Novo(modalidades);
         novo.Nome="Cadastro de teste isolado";novo.Documento="111.444.777-35";novo.Endereco=null;
-        novo.Convenio=novo.Convenios.Single(c=>c.Codigo==opcao.Codigo);novo.Email="cadastro@example.com";novo.Telefone="22999990000";
-        novo.DataNascimento=new DateTime(1990,1,1);novo.Carteirinha="DEMO";novo.ValidadeCarteirinha=new DateTime(2030,1,1);
+        novo.Convenio=opcao;novo.Email="cadastro@example.com";novo.Telefone="22999990000";
+        novo.DataNascimento=new DateOnly(1990,1,1);novo.Carteirinha="DEMO";novo.ValidadeCarteirinha=new DateOnly(2030,1,1);
         novo.Origem=OrigemPaciente.Indicacao;novo.IndicadoPor="Indicação fictícia";novo.Observacoes="Observação fictícia";
-        var concluidos=0;novo.Concluido+=()=>concluidos++;
-        await novo.SalvarCommand.ExecuteAsync(null);
-        Conferir(concluidos==1 && novo.PacienteId is >0,"Cadastro novo grava e devolve a identidade do paciente");
+        Conferir(CadastroPacienteNaTela.Conferir(novo).Valido,"Cadastro novo completo passa na conferência do Salvar");
+        var novoId=await GravarCadastroAsync(provider,novo,null);
+        Conferir(novoId>0,"Cadastro novo grava e devolve a identidade do paciente");
         using(var db=new ClinicaDbContext(options)) {
             var p=await db.Pacientes.AsNoTracking().SingleOrDefaultAsync(x=>x.Documento=="11144477735");
             Conferir(p is not null && p.Endereco==novo.Endereco && p.Email==novo.Email && p.Telefone==novo.Telefone
@@ -307,27 +251,30 @@ internal static partial class Program
                 && p.ValidadeCarteirinha==new DateOnly(2030,1,1) && p.Origem==novo.Origem
                 && p.IndicadoPor==novo.IndicadoPor && p.Observacoes==novo.Observacoes,"Gravação preserva identificação, contato, endereço, convênio e origem");
         }
-        var editar=new CadastroPacienteViewModel(escopos,novo.PacienteId);await EsperarCadastroAsync(editar);
+        Paciente? relido;
+        using(var escopo=provider.CreateScope())
+            relido=await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(novoId);
+        var editar=CadastroPacienteNaTela.Da(relido!,convenios,modalidades);
         Conferir(editar.Endereco==novo.Endereco && editar.IndicadoPor==novo.IndicadoPor && editar.Observacoes==novo.Observacoes,"Reabrir cadastro recupera os campos gravados");
-        editar.Observacoes="Observação alterada";await editar.SalvarCommand.ExecuteAsync(null);
-        if(editar.MensagemEhErro) Console.WriteLine("CADASTRO_TESTE_EDICAO: "+editar.Mensagem);
+        editar.Observacoes="Observação alterada";
+        await GravarCadastroAsync(provider,editar,novoId);
         using(var db=new ClinicaDbContext(options)) {
             var registros=await db.Pacientes.AsNoTracking().Where(x=>x.Documento=="11144477735").ToListAsync();
             Conferir(registros.Count==1 && registros[0].Observacoes=="Observação alterada" && registros[0].Carteirinha=="DEMO","Editar mantém a mesma ficha e preserva campos não alterados");
         }
     }
-    static async Task EsperarCadastroAsync(CadastroPacienteViewModel vm)
+    /// <summary>O Salvar do <c>CadastroPacienteForm</c>: lê a ficha (ou cria), aplica o formulário e grava.</summary>
+    static async Task<int> GravarCadastroAsync(ServiceProvider provider, DadosDoCadastro dados, int? id)
     {
-        var prazo=Stopwatch.StartNew();
-        while(vm.Carregando && prazo.Elapsed<TimeSpan.FromSeconds(10)) await Task.Delay(10);
-        if(vm.Carregando) throw new TimeoutException("Cadastro não concluiu a carga em dez segundos no banco de teste.");
-    }
-    static IEnumerable<DependencyObject> Visuais(DependencyObject pai)
-    {
-        for(int i=0;i<VisualTreeHelper.GetChildrenCount(pai);i++) {
-            var filho=VisualTreeHelper.GetChild(pai,i);yield return filho;
-            foreach(var item in Visuais(filho)) yield return item;
-        }
+        using var escopo=provider.CreateScope();
+        var pacientes=escopo.ServiceProvider.GetRequiredService<PacienteService>();
+        var paciente=id is { } existente
+            ? await pacientes.ObterAsync(existente) ?? throw new InvalidOperationException("Paciente não encontrado.")
+            : new Paciente();
+        CadastroPacienteNaTela.Aplicar(dados,paciente);
+        if(id is null) await pacientes.SalvarNovoAsync(paciente,dados.CategoriaManual);
+        else await pacientes.AtualizarAsync(paciente,dados.CategoriaManual);
+        return paciente.Id;
     }
     static async Task FotoAsync(FrameworkElement tela,string nome)
     {

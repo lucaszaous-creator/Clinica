@@ -32,10 +32,9 @@ public static class SuiteApp
     /// Módulos a carregar, na ordem em que aparecem na sidebar. As MESMAS instâncias
     /// registram no DI e montam o menu.
     /// </param>
+    /// <param name="chaveAbertura">A tela de abertura DESTE executável (ver <see cref="ShellViewModel"/>).</param>
     public static async Task<IHost?> IniciarAsync(
         System.Windows.Application app, string nomeApp, string titulo, IReadOnlyList<IModuloApp> modulos,
-        Func<FrameworkElement>? criarNavegacaoLateral = null,
-        Func<IServiceProvider, Window>? criarJanela = null,
         string? chaveAbertura = null)
     {
         // Degradação deliberada nas camadas sem UI também deixa rastro em arquivo.
@@ -101,7 +100,9 @@ public static class SuiteApp
             // com o Faturamento instalado na mesma máquina.
             if (string.IsNullOrWhiteSpace(connectionString))
             {
-                if (new SetupWindow(nomeApp).ShowDialog() != true)
+                // A configuração é Blazor (out/2026), numa janela própria: o host da clínica
+                // ainda não existe, e não há serviços para dar ao navegador da janela principal.
+                if (!await JanelaDoApp.ConfigurarBancoAsync(nomeApp))
                 {
                     app.Shutdown();
                     return null;
@@ -183,19 +184,20 @@ public static class SuiteApp
             }
         }
 
+        // A janela do app nasce AQUI, uma só para a vida inteira do processo: a entrada e depois
+        // a moldura com as telas trocam dentro do mesmo navegador (JanelaDoApp). Ela é a
+        // MainWindow desde já — é a dona das janelas WPF que ainda abrem por cima.
+        var janela = new JanelaDoApp(host.Services, titulo) { WindowState = WindowState.Maximized };
+        app.MainWindow = janela;
+
         // Login (parcela 5). Base sem nenhum usuário abre o PRIMEIRO ACESSO em vez de
         // pedir credencial que ninguém tem — a versão que introduz login não pode
         // trancar a clínica do lado de fora.
-        if (!await AutenticarAsync(app, host, nomeApp))
+        if (!await AutenticarAsync(app, host, janela, nomeApp))
             return null;
 
-        var janela = criarJanela?.Invoke(host.Services) ?? new ShellWindow(criarNavegacaoLateral?.Invoke())
-        {
-            DataContext = new ShellViewModel(titulo, modulos, host.Services, chaveAbertura)
-        };
-        janela.WindowState = WindowState.Maximized;
-        app.MainWindow = janela;
-        janela.Show();
+        // Só depois da sessão gravada: o ShellViewModel lê a permissão ao ser construído.
+        janela.MostrarMoldura(new ShellViewModel(titulo, modulos, host.Services, chaveAbertura));
         AtualizadorSuite.IniciarVerificacaoPeriodica();
         var conclusaoCancelamento = new CancellationTokenSource();
         janela.Closed += (_, _) => conclusaoCancelamento.Cancel();
@@ -213,8 +215,8 @@ public static class SuiteApp
     }
 
     /// <summary>
-    /// Pede o login e grava a sessão. Devolve false quando o usuário desistiu (e o
-    /// encerramento já foi pedido).
+    /// Pede o login (na entrada Blazor da janela do app) e grava a sessão. Devolve false
+    /// quando o usuário desistiu (e o encerramento já foi pedido).
     ///
     /// Falha ao CONSULTAR os usuários não tranca ninguém: o banco acabou de migrar com
     /// sucesso, então o problema é outro, e derrubar a abertura por causa dele deixaria
@@ -222,7 +224,7 @@ public static class SuiteApp
     /// problema menor do que não conseguir abrir o app.
     /// </summary>
     private static async Task<bool> AutenticarAsync(
-        System.Windows.Application app, IHost host, string nomeApp)
+        System.Windows.Application app, IHost host, JanelaDoApp janela, string nomeApp)
     {
         var escopos = host.Services.GetRequiredService<IServiceScopeFactory>();
 
@@ -239,15 +241,15 @@ public static class SuiteApp
             primeiroAcesso = false;
         }
 
-        var login = new LoginWindow(escopos, nomeApp, primeiroAcesso);
-        if (login.ShowDialog() != true || login.Usuario is null)
+        var usuario = await janela.EntrarAsync(nomeApp, primeiroAcesso);
+        if (usuario is null)
         {
             host.Dispose();
             app.Shutdown();
             return false;
         }
 
-        host.Services.GetRequiredService<SessaoUsuario>().Entrar(login.Usuario);
+        host.Services.GetRequiredService<SessaoUsuario>().Entrar(usuario);
         return true;
     }
 }

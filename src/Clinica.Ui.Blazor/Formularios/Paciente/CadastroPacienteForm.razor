@@ -1,0 +1,369 @@
+@*
+  O CADASTRO DO PACIENTE — novo ou edição (out/2026: era a CadastroPacienteWindow +
+  CadastroPacienteViewModel do shell WPF, que serviam à ficha, ao Lançar/Marcar e à tela
+  Pacientes). Quem DECIDE mora em CadastroPacienteNaTela (Application, com teste): a ordem das
+  recusas do Salvar, a categoria sugerida pelo convênio, o convênio e a modalidade que a ficha
+  já tem e a cópia campo a campo para a entidade. Quem impede de verdade é o PacienteService
+  (CPF de outra ficha recusado com o nome de quem já o tem, parcela 57).
+
+  As regras que vieram com ele:
+  - "Convênio ou particular?" nasce SEM resposta no cadastro novo, na ordem e com a frase de
+    OpcoesDeConvenio — o "a definir" fica na lista (a ficha importada continua mostrando o que
+    tem), mas nunca é o padrão de ninguém;
+  - a categoria acompanha o convênio e o aplicativo até alguém a escolher à mão (e só quem tem
+    VerFaturamento a vê);
+  - a FOTO é tirada aqui (a webcam fica no balcão) e gravada no SALVAR, nunca na captura;
+  - origem em branco é "ninguém perguntou", e "quem indicou" só vale para Indicação;
+  - salvando, o formulário não fecha (o × e o Esc esperam a gravação terminar).
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Regras
+@inherits TelaBase
+
+<Modal Titulo="@CadastroPacienteNaTela.Titulo(_id)" Subtitulo="Campos com * são obrigatórios." Largura="largo" AoFechar="FecharAsync">
+    <ChildContent>
+        <div class="cad-pac-topo">
+            @if (_miniatura is { Length: > 0 } foto)
+            {
+                <img class="cad-pac-avatar" src="@($"data:image/jpeg;base64,{Convert.ToBase64String(foto)}")" alt="" />
+            }
+            else
+            {
+                <span class="cad-pac-avatar" aria-hidden="true">@AgendaDoDiaNaTela.Iniciais(_dados.Nome)</span>
+            }
+            <div class="cad-pac-topo-acoes">
+                <button type="button" class="botao" disabled="@(!PodePreencher)" @onclick="AbrirCaptura">
+                    <Icone Nome="pessoa" />Tirar foto
+                </button>
+                @if (_miniatura is { Length: > 0 })
+                {
+                    <button type="button" class="botao" disabled="@(!PodePreencher)" @onclick="RemoverFoto">Remover foto</button>
+                }
+            </div>
+        </div>
+
+        @if (_carregando)
+        {
+            <Esqueleto Altura="320" />
+        }
+        else
+        {
+            <fieldset class="cad-pac-campos" disabled="@(!PodePreencher)">
+                <section class="secao-form">
+                    <h3>Identificação</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Nome completo" Obrigatorio="true" Classe="largo">
+                            <input class="campo" @bind="_dados.Nome" @bind:event="oninput" maxlength="120" />
+                        </Campo>
+                        <Campo Rotulo="CPF" Obrigatorio="true" Erro="@_erroDocumento">
+                            <input class="campo" @bind="_dados.Documento" @bind:event="oninput" @bind:after="() => _erroDocumento = null"
+                                   maxlength="14" aria-label="CPF obrigatório" />
+                        </Campo>
+                        <Campo Rotulo="Data de nascimento">
+                            <input class="campo" type="date" @bind="_dados.DataNascimento" />
+                        </Campo>
+                        <Campo Rotulo="Sexo">
+                            <select class="campo" value="@_dados.Sexo" @onchange="TrocarSexo">
+                                @foreach (var s in CadastroPacienteNaTela.Sexos)
+                                {
+                                    <option value="@s">@RotulosEnum.De(s)</option>
+                                }
+                            </select>
+                        </Campo>
+                    </div>
+                </section>
+                <section class="secao-form">
+                    <h3>Contato e endereço</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Telefone / WhatsApp">
+                            <input class="campo" @bind="_dados.Telefone" maxlength="20" />
+                        </Campo>
+                        <Campo Rotulo="E-mail">
+                            <input class="campo" type="email" @bind="_dados.Email" maxlength="120" />
+                        </Campo>
+                        <Campo Rotulo="Endereço residencial (opcional)" Classe="largo" Erro="@_erroEndereco"
+                               Dica="Rua, número (ou s/n), bairro, cidade e UF. Acrescente o complemento quando houver.">
+                            <textarea class="campo" rows="2" @bind="_dados.Endereco" @bind:event="oninput" @bind:after="() => _erroEndereco = null"
+                                      maxlength="300" aria-label="Endereço residencial opcional"></textarea>
+                        </Campo>
+                    </div>
+                </section>
+                <section class="secao-form">
+                    <h3>Convênio e atendimento</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Convênio ou particular" Obrigatorio="true" Classe="largo"
+                               Dica="@CadastroPacienteNaTela.ExplicacaoDoConvenio(_dados.Convenio)">
+                            <select class="campo" value="@(_dados.Convenio?.Codigo ?? "")" @onchange="TrocarConvenio">
+                                <option value="">— escolha —</option>
+                                @foreach (var c in _convenios)
+                                {
+                                    <option value="@c.Codigo">@c.Nome</option>
+                                }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Número da carteirinha">
+                            <input class="campo" @bind="_dados.Carteirinha" maxlength="40" />
+                        </Campo>
+                        <Campo Rotulo="Validade da carteirinha">
+                            <input class="campo" type="date" @bind="_dados.ValidadeCarteirinha" />
+                        </Campo>
+                        <label class="marcar largo">
+                            <input type="checkbox" @bind="_dados.PossuiApp" @bind:after="SugerirCategoria" /> Tem o aplicativo do convênio
+                        </label>
+                        <Campo Rotulo="Modalidade habitual" Classe="largo">
+                            <select class="campo" value="@(_dados.ModalidadePreferida?.Codigo ?? "")" @onchange="TrocarModalidade">
+                                @foreach (var m in _modalidades)
+                                {
+                                    <option value="@m.Codigo">@m.Nome</option>
+                                }
+                            </select>
+                        </Campo>
+                    </div>
+                    @if (PodeAjustarCategoria)
+                    {
+                        <details class="cad-pac-faturamento">
+                            <summary>Opções de faturamento</summary>
+                            <Campo Rotulo="Categoria (semáforo)" Dica="Sugerida pelo convênio e aplicativo; ajuste somente quando necessário.">
+                                <select class="campo" value="@_dados.Categoria" @onchange="TrocarCategoria">
+                                    @foreach (var c in CadastroPacienteNaTela.Categorias)
+                                    {
+                                        <option value="@c">@RotulosEnum.De(c)</option>
+                                    }
+                                </select>
+                            </Campo>
+                        </details>
+                    }
+                </section>
+                <section class="secao-form">
+                    <h3>Origem e observações</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Como conheceu a clínica">
+                            <select class="campo" value="@(_dados.Origem?.ToString() ?? "")" @onchange="TrocarOrigem">
+                                @foreach (var o in CadastroPacienteNaTela.Origens)
+                                {
+                                    <option value="@(o?.ToString() ?? "")">@(o is null ? "" : RotulosEnum.De(o))</option>
+                                }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Quem indicou">
+                            <input class="campo" @bind="_dados.IndicadoPor" maxlength="120" disabled="@(!_dados.EhIndicacao)" />
+                        </Campo>
+                        <Campo Rotulo="Observações do cadastro" Classe="largo">
+                            <textarea class="campo" rows="3" @bind="_dados.Observacoes"></textarea>
+                        </Campo>
+                    </div>
+                </section>
+            </fieldset>
+        }
+        <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "info")" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" disabled="@_salvando" @onclick="FecharAsync">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(!PodePreencher)" @onclick="SalvarAsync">
+            @(_salvando ? "Salvando…" : "Salvar cadastro")
+        </button>
+    </Rodape>
+</Modal>
+
+@if (_capturando)
+{
+    @* Irmão do Modal, e não filho: vem depois no HTML e fica por cima, sem herdar a rolagem do corpo. *@
+    <CapturaFotoForm NomePaciente="@_dados.Nome" AoFechar="() => _capturando = false" AoConcluir="AoCapturar" />
+}
+
+@code {
+    /// <summary>Nulo = paciente novo.</summary>
+    [Parameter] public int? PacienteId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Gravado: quem é (o Id nasce no Salvar do cadastro novo).</summary>
+    [Parameter] public EventCallback<PacienteCadastrado> AoConcluir { get; set; }
+
+    private int? _id;
+    private DadosDoCadastro _dados = new();
+    private IReadOnlyList<OpcaoDeConvenio> _convenios = [];
+    private IReadOnlyList<EntradaModalidade> _modalidades = [];
+    private byte[]? _miniatura;
+    private string? _mensagem, _erroDocumento, _erroEndereco;
+    private bool _carregando = true, _carregado, _salvando, _mensagemEhErro, _capturando;
+
+    /// <summary>Foto capturada nesta sessão, ainda não gravada (ou a ordem de apagar a que existe).</summary>
+    private FotoDoPaciente? _fotoPendente;
+    private bool _removerFoto;
+
+    private static bool PodeEditar => Pode(Permissao.EditarPaciente);
+    private static bool PodeAjustarCategoria => PodeEditar && Pode(Permissao.VerFaturamento);
+    private bool PodePreencher => PodeEditar && _carregado && !_carregando && !_salvando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _id = PacienteId;
+        try
+        {
+            _convenios = CadastroPacienteNaTela.Convenios(CatalogoConvenios.Ativos);
+            _modalidades = CatalogoModalidades.Ativas;
+
+            if (_id is not { } id)
+            {
+                _dados = CadastroPacienteNaTela.Novo(_modalidades);
+                _carregado = true;
+                return;
+            }
+
+            Paciente? p;
+            using (var escopo = Escopo())
+                p = await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(id);
+            if (p is null) throw new InvalidOperationException("Paciente não encontrado. Reabra a lista antes de editar.");
+
+            _dados = CadastroPacienteNaTela.Da(p, _convenios, _modalidades);
+            _miniatura = p.FotoMiniatura;
+            _carregado = true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — cadastro do paciente não pôde ser aberto", ex);
+            Erro($"Não foi possível carregar o cadastro: {ex.Message}");
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    // Enquanto grava, o formulário não fecha: a pessoa veria a janela sumir sem saber se gravou.
+    private Task FecharAsync() => _salvando ? Task.CompletedTask : AoFechar.InvokeAsync();
+
+    private void TrocarSexo(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<Sexo>(e.Value?.ToString(), out var s)) _dados.Sexo = s;
+    }
+
+    private void TrocarConvenio(ChangeEventArgs e)
+    {
+        var codigo = e.Value?.ToString();
+        _dados.Convenio = _convenios.FirstOrDefault(c => c.Codigo == codigo);
+        SugerirCategoria();
+    }
+
+    private void TrocarModalidade(ChangeEventArgs e)
+    {
+        var codigo = e.Value?.ToString();
+        _dados.ModalidadePreferida = _modalidades.FirstOrDefault(m => m.Codigo == codigo) ?? _dados.ModalidadePreferida;
+    }
+
+    private void TrocarCategoria(ChangeEventArgs e)
+    {
+        if (!Enum.TryParse<Categoria>(e.Value?.ToString(), out var c)) return;
+        _dados.Categoria = c;
+        _dados.CategoriaManual = true;
+    }
+
+    private void TrocarOrigem(ChangeEventArgs e)
+    {
+        var texto = e.Value?.ToString();
+        _dados.Origem = string.IsNullOrEmpty(texto) ? null
+            : Enum.TryParse<OrigemPaciente>(texto, out var o) ? o : null;
+    }
+
+    private void SugerirCategoria() => CadastroPacienteNaTela.SugerirCategoria(_dados);
+
+    /// <summary>Abre a webcam do balcão. A foto fica PENDENTE até o Salvar.</summary>
+    private void AbrirCaptura()
+    {
+        if (!PodePreencher) return;
+        _capturando = true;
+    }
+
+    private void AoCapturar(FotoDoPaciente foto)
+    {
+        _capturando = false;
+        // Confirmar a captura e vir quadro vazio é defeito da câmera (quadro perdido no clique)
+        // — e sair calado faria a recepcionista concluir que a foto está guardada, e descobrir
+        // só no Salvar, com o paciente já fora do balcão.
+        if (foto.Cheia is not { Length: > 0 } || foto.Miniatura is not { Length: > 0 })
+        {
+            Erro(CadastroPacienteNaTela.CameraSemImagem);
+            return;
+        }
+        _fotoPendente = foto;
+        _removerFoto = false;
+        _miniatura = foto.Miniatura;
+        Info(CadastroPacienteNaTela.FotoCapturada);
+    }
+
+    private void RemoverFoto()
+    {
+        if (!PodePreencher) return;
+        _fotoPendente = null;
+        _removerFoto = true;
+        _miniatura = null;
+        Info(CadastroPacienteNaTela.FotoSeraApagada);
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando) return;
+        if (_carregando || !_carregado) { Erro(CadastroPacienteNaTela.AguardeCarregamento); return; }
+        if (!PodeEditar) { Erro(CadastroPacienteNaTela.SemPermissao); return; }
+        _mensagem = null;
+
+        var conferencia = CadastroPacienteNaTela.Conferir(_dados);
+        _erroDocumento = conferencia.ErroDocumento;
+        _erroEndereco = conferencia.ErroEndereco;
+        if (!conferencia.Valido) { Erro(conferencia.Mensagem!); return; }
+
+        // A segunda barreira (o disabled é a primeira).
+        if (!Exigir(Permissao.EditarPaciente, "salvar o cadastro do paciente")) return;
+
+        _salvando = true;
+        try
+        {
+            int idGravado;
+            using (var escopo = Escopo())
+            {
+                var pacientes = escopo.ServiceProvider.GetRequiredService<PacienteService>();
+                var paciente = _id is { } id
+                    ? await pacientes.ObterAsync(id) ?? throw new InvalidOperationException("Paciente não encontrado.")
+                    : new Paciente();
+
+                CadastroPacienteNaTela.Aplicar(_dados, paciente);
+                if (_id is null)
+                {
+                    await pacientes.SalvarNovoAsync(paciente, _dados.CategoriaManual);
+                    _id = paciente.Id; // uma falha ao gravar a foto não pode criar outra ficha na tentativa seguinte
+                }
+                else
+                {
+                    await pacientes.AtualizarAsync(paciente, _dados.CategoriaManual);
+                }
+                idGravado = paciente.Id;
+
+                // O retrato depois de o paciente existir — num cadastro novo o Id só nasce no Salvar.
+                if (_fotoPendente is { } foto)
+                {
+                    await pacientes.DefinirFotoAsync(idGravado, foto.Cheia, foto.Miniatura);
+                    _fotoPendente = null;
+                }
+                else if (_removerFoto)
+                {
+                    await pacientes.RemoverFotoAsync(idGravado);
+                    _removerFoto = false;
+                }
+            }
+            _salvando = false;
+            await AoConcluir.InvokeAsync(new PacienteCadastrado(idGravado, _dados.Nome.Trim()));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — paciente não pôde ser salvo", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+
+    private void Erro(string texto) { _mensagem = texto; _mensagemEhErro = true; }
+    private void Info(string texto) { _mensagem = texto; _mensagemEhErro = false; }
+}

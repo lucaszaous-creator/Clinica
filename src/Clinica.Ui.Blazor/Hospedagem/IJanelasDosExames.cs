@@ -3,22 +3,13 @@ using Clinica.Application.Modelos;
 namespace Clinica.Ui.Blazor.Hospedagem;
 
 /// <summary>
-/// As janelas que a tela de Exames abre e que continuam WPF (out/2026): a emissão do pedido
-/// (a MESMA janela de documento de todas as portas), o registro do laudo amarrado ao pedido,
-/// os resultados do pedido e o paciente na seção de exames. A tela decide e mostra; quem
-/// conhece as janelas é o hospedeiro — a prévia responde com <see cref="JanelasDosExamesIndisponiveis"/>.
+/// O que a tela de Exames pede ao aplicativo e que continua fora dela (out/2026): o paciente na
+/// seção de exames (a navegação do posto). Escolher o paciente, emitir o pedido (<c>DocumentoForm</c>),
+/// registrar o laudo e ver os resultados são formulários Blazor da própria tela. A prévia responde
+/// com <see cref="JanelasDosExamesIndisponiveis"/>.
 /// </summary>
 public interface IJanelasDosExames
 {
-    /// <summary>Pergunta QUEM e abre a emissão; devolve o nome do paciente quando o pedido saiu.</summary>
-    Task<string?> NovoPedidoAsync();
-
-    /// <summary>Registra o laudo já amarrado a este pedido; verdadeiro quando gravou.</summary>
-    Task<bool> RegistrarResultadoAsync(PedidoDeExameLinha pedido);
-
-    /// <summary>Os resultados que respondem a este pedido, num modal.</summary>
-    Task VerResultadosAsync(PedidoDeExameLinha pedido);
-
     /// <summary>Abre o paciente na seção "Exames e anexos"; falso quando o posto não alcança.</summary>
     Task<bool> AbrirExamesDoPacienteAsync(PedidoDeExameLinha pedido);
 }
@@ -30,8 +21,5 @@ public sealed class JanelasDosExamesIndisponiveis : IJanelasDosExames
 
     public const string Frase = "Esta ação abre no aplicativo do Consultório.";
 
-    public Task<string?> NovoPedidoAsync() => Task.FromResult<string?>(null);
-    public Task<bool> RegistrarResultadoAsync(PedidoDeExameLinha pedido) => Task.FromResult(false);
-    public Task VerResultadosAsync(PedidoDeExameLinha pedido) => Task.CompletedTask;
     public Task<bool> AbrirExamesDoPacienteAsync(PedidoDeExameLinha pedido) => Task.FromResult(false);
 }

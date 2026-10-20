@@ -690,7 +690,7 @@ public sealed class AtendimentoService
 
             var baixadas = atendimento.Codigos.Count(c => c.Baixado);
             if (baixadas > 0)
-                avisos.Add($"⚠ {baixadas} guia(s) deste horário JÁ FOI(RAM) BAIXADA(S) no portal — "
+                avisos.Add($"{baixadas} guia(s) deste horário JÁ FOI(RAM) BAIXADA(S) no portal — "
                            + "a sessão caiu; confira com o convênio.");
         }
         else if (ag.Status == StatusAgendamento.Agendado)

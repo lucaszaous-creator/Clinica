@@ -16,8 +16,8 @@
   NÃO fecha ao resolver uma linha: a recepcionista percorre a lista inteira de uma vez. Cada
   linha resolvida fica com o desfecho escrito e chama AoAlterou — a tela de trás relê.
 
-  Convênio "a definir" (parcela 92): o lançamento é recusado até alguém escolher. A janela
-  de escolha é do shell WPF; quem abre este formulário PODE passar EscolherConvenio (a ponte),
+  Convênio "a definir" (parcela 92): o lançamento é recusado até alguém escolher. A escolha é
+  o formulário de FormulariosDoPaciente; quem abre este formulário PODE passar EscolherConvenio,
   e sem ela a tela diz onde se escolhe.
 *@
 
@@ -133,9 +133,9 @@
     [Parameter] public EventCallback AoAlterou { get; set; }
 
     /// <summary>
-    /// A PONTE para escolher o convênio da ficha "a definir" (o <c>VinculoDeConvenio</c> do
-    /// shell, que este projeto não enxerga): recebe o paciente, devolve verdadeiro quando a
-    /// ficha passou a ter convênio. Nulo = a tela diz que a escolha é na ficha.
+    /// Como escolher o convênio da ficha "a definir" (quem abre passa o
+    /// <see cref="FormulariosDoPaciente.EscolherConvenioAsync"/>): recebe o paciente, devolve
+    /// verdadeiro quando a ficha passou a ter convênio. Nulo = a tela diz que a escolha é na ficha.
     /// </summary>
     [Parameter] public Func<int, Task<bool>>? EscolherConvenio { get; set; }
 

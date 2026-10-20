@@ -351,6 +351,12 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoParaLeituraAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
+    /// <summary>
+    /// Horários MARCADOS (pela hora da marcação, <c>CriadoEm</c>) desde o instante, com o
+    /// paciente, sem rastrear — a leitura do e-mail "sua sessão foi agendada".
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosMarcadosDesdeAsync(DateTime desde, CancellationToken ct = default);
+
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
     Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
@@ -1813,6 +1819,31 @@ public interface IClinicaRepositorio
 
     /// <summary>Os resumos diários do CRM (caminho A) entre os dois dias, do mais velho para o mais novo.</summary>
     Task<IReadOnlyList<ResumoCrmDiario>> ResumosCrmAsync(DateOnly de, DateOnly ate, CancellationToken ct = default);
+
+    // ---- Fila de envios ao paciente pelo CRM (out/2026 — documentos pelo WhatsApp) ----
+
+    /// <summary>Acrescenta o pedido (grava no próximo <see cref="SalvarAsync"/>, junto da trilha).</summary>
+    Task AdicionarEnvioPacienteCrmAsync(EnvioPacienteCrm envio, CancellationToken ct = default);
+
+    /// <summary>O pedido INTEIRO, com o PDF, RASTREADO — para reservar, autorizar e registrar o resultado.</summary>
+    Task<EnvioPacienteCrm?> ObterEnvioPacienteCrmAsync(string id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os pedidos que o CRM <paramref name="consumidor"/> ainda pode pegar: na fila, ou
+    /// reservados por ele, ou reservados por outro antes de <paramref name="reservaVencidaAntes"/>
+    /// e nunca autorizados. Do mais antigo em <c>AtualizadoEm</c>, até <paramref name="limite"/>.
+    /// ⚠️ SEM o texto e SEM os bytes do PDF (projeção): a listagem roda a cada 15 s.
+    /// </summary>
+    Task<IReadOnlyList<EnvioPacienteCrm>> EnviosPacienteCrmPendentesAsync(
+        string consumidor, DateTime reservaVencidaAntes, int limite, CancellationToken ct = default);
+
+    /// <summary>
+    /// O pedido ainda na fila (não autorizado, não encerrado e não vencido em
+    /// <paramref name="agora"/>) deste papel (documento clínico OU folha de infusão) por este
+    /// canal — sem os bytes. Serve para o segundo clique não pôr o mesmo papel duas vezes na fila.
+    /// </summary>
+    Task<EnvioPacienteCrm?> EnvioPacienteCrmEmAbertoAsync(
+        int documentoClinicoId, string canal, DateTime agora, CancellationToken ct = default);
 
     /// <summary>
     /// Contatos de confirmação que saíram por SMS com link e ainda não têm resposta, a

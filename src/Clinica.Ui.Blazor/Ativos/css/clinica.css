@@ -51,7 +51,9 @@
 @import url("telas/tendencias.css");
 @import url("telas/metas.css");
 @import url("telas/rec-pacientes.css");
+@import url("telas/ficha-balcao.css");
 @import url("telas/rec-documentos.css");
+@import url("telas/documento-form.css");
 @import url("telas/mesa-direcao.css");
 @import url("telas/projecao-caixa.css");
 @import url("telas/margem.css");
@@ -79,6 +81,25 @@
 @import url("telas/con-sessoes-enf.css");
 @import url("telas/sala-infusao.css");
 @import url("telas/con-infusao.css");
+@import url("telas/tela-paciente.css");
+@import url("telas/acp-paciente.css");
+@import url("telas/historico-paciente.css");
+@import url("telas/atendimento.css");
+@import url("telas/enfermagem.css");
+@import url("telas/con-formularios.css");
+@import url("telas/paciente-forms.css");
+/* O posto do Consultório (Meu dia, Minha semana, Sessões sem evolução, Meus números) e a legenda
+   das famílias: os arquivos existiam e nunca foram importados — as telas abriam sem estilo. */
+@import url("telas/con-posto.css");
+@import url("telas/con-dia.css");
+@import url("telas/con-semana.css");
+@import url("telas/con-pendentes.css");
+@import url("telas/con-numeros.css");
+@import url("telas/legenda-familias.css");
+/* A moldura dos apps e a entrada (out/2026): o que era a ShellWindow, a LoginWindow e a SetupWindow. */
+@import url("telas/moldura.css");
+@import url("telas/treinamento.css");
+@import url("telas/assinatura.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.

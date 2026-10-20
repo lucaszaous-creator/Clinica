@@ -1,0 +1,33 @@
+@*
+  PRESCRIÇÕES E DOCUMENTOS — a seção da tela do paciente (out/2026: migrada da
+  DocumentosPacienteView WPF, que embutia PrescricoesClinicasView e PrescricaoInfusaoView).
+
+  As duas abas são as MESMAS telas Blazor do menu — DocumentosDaRecepcao (receitas, atestados,
+  declarações, termos, o que já saiu, os seis atos do documento) e PrescricaoDeInfusao (as
+  folhas de infusão) — no modo embutido, com o paciente fixo. Uma definição só de cada: o
+  que mudar na central muda aqui.
+*@
+@inherits SecaoDoPaciente
+
+<div class="abas" role="tablist" aria-label="Prescrições e documentos">
+    <button type="button" role="tab" aria-selected="@(_aba == 0 ? "true" : "false")" @onclick="() => _aba = 0">Receitas e documentos</button>
+    <button type="button" role="tab" aria-selected="@(_aba == 1 ? "true" : "false")" @onclick="() => _aba = 1">Infusões</button>
+</div>
+
+@if (_aba == 0)
+{
+    <Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao Embutida="true" PacienteFixo="Contexto.PacienteId" />
+}
+else
+{
+    <Clinica.Ui.Blazor.Telas.PrescricaoDeInfusao Embutida="true" PacienteFixo="Contexto.PacienteId" />
+}
+
+@code {
+    /// <summary>A aba que a navegação pediu: 0 = receitas e documentos, 1 = infusões.</summary>
+    [Parameter] public int SubAba { get; set; }
+
+    private int _aba;
+
+    protected override void OnInitialized() => _aba = SubAba is 1 ? 1 : 0;
+}

@@ -1,0 +1,604 @@
+@*
+  AS ABAS ADMINISTRATIVAS DA FICHA (out/2026 — migradas do FichaPacienteViewModel WPF e das
+  views ResumoAdministrativo, Convênio, Relacionamento, Privacidade e Termos): o que o balcão
+  pergunta da PESSOA, e não do prontuário — pode ser atendida hoje, quando volta, como está o
+  convênio, o que a clínica já falou com ela, o que ela autorizou e o que falta assinar.
+
+  Cada bloco lê no SEU escopo e falha sozinho, com o terceiro estado escrito: "não foi possível
+  conferir" nunca se confunde com "não há". As frases moram em FichaAdministrativaNaTela (com
+  teste). O cadastro e a cobrança no balcão são formulários Blazor (FormulariosDoPaciente,
+  CobrancaDoPacienteForm); a coleta congelada do termo vem pela ponte IDocumentosDaRecepcao.
+
+  ⚠️ O consentimento LGPD NÃO tem "registrar autorização" aqui: desde a parcela 89 quem concede
+  é o paciente, no TERMO assinado (o ConsentimentoService avisa que pendurar tela no registro
+  direto reabre o caminho sem assinatura). A porta é "Colher o termo de consentimento".
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Ui.Blazor.Formularios.Recepcao
+@inherits SecaoDoPaciente
+
+<section class="cartao">
+    <div class="cartao-corpo acp-topo">
+        <div class="segmentado acp-chips" role="group" aria-label="Assunto da ficha">
+            <button type="button" aria-pressed="@P(0)" @onclick="() => _sub = 0">Agenda e pendências</button>
+            <button type="button" aria-pressed="@P(1)" @onclick="() => _sub = 1">Convênio</button>
+            <button type="button" aria-pressed="@P(2)" @onclick="() => _sub = 2">Relacionamento</button>
+            <button type="button" aria-pressed="@P(3)" @onclick="() => _sub = 3">Privacidade</button>
+            @if (VeTermos)
+            {
+                <button type="button" aria-pressed="@P(4)" @onclick="() => _sub = 4">Termos</button>
+            }
+        </div>
+        <div class="botoes-linha">
+            <button type="button" class="botao mini" disabled="@(_telefone is null)" @onclick="WhatsAppAsync"
+                    title="@(_telefone is null ? "Sem telefone no cadastro." : "Abrir a conversa no WhatsApp")"><Icone Nome="mensagem" />WhatsApp</button>
+            <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarPaciente))" @onclick="EditarCadastroAsync"
+                    title="@(Pode(Permissao.EditarPaciente) ? "Editar nome, contato, documento e convênio" : "Editar o cadastro exige acesso de edição do cadastro.")"><Icone Nome="editar" />Editar cadastro</button>
+        </div>
+    </div>
+
+    @switch (_sub)
+    {
+        case 0:
+            <div class="cartao-corpo">
+                <h3>Pode ser atendido hoje?</h3>
+                <p class="secundario">Carteirinha, cota de sessões do convênio e consentimento LGPD. Conferir aqui evita a glosa que só apareceria depois da sessão.</p>
+                @if (_alertas is null && !_elegibilidadeFalhou)
+                {
+                    <Esqueleto Altura="60" />
+                }
+                else if (_elegibilidadeFalhou)
+                {
+                    <Aviso Tom="atencao" Texto="Não foi possível conferir a elegibilidade agora. Isto NÃO quer dizer que está tudo certo — tente de novo." />
+                }
+                else if (_alertas!.Count == 0)
+                {
+                    <p>Sem pendências: carteirinha, cota e consentimento em ordem.</p>
+                }
+                else
+                {
+                    <ul class="lista-simples">
+                        @foreach (var a in _alertas)
+                        {
+                            <li>
+                                <Selo Tom="@(a.EhVermelho ? "perigo" : "aviso")">@(a.EhVermelho ? "impede" : "atenção")</Selo>
+                                @a.Descricao
+                                @if (a.PodeReceber)
+                                {
+                                    <button type="button" class="botao mini" disabled="@(!PodeReceber)" @onclick="Receber"
+                                            title="@(PodeReceber ? "Receber agora, com o paciente na frente" : "Receber exige acesso de caixa, de lançamento ou de venda de pacote.")">Receber…</button>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+            @if (Pode(Permissao.VerAgenda))
+            {
+                <div class="cartao-corpo">
+                    <h3>Próximos horários</h3>
+                    <p class="secundario">O que este paciente tem marcado daqui em diante, os @FichaAdministrativaNaTela.TetoDeProximosHorarios mais próximos.</p>
+                    @if (_horariosFalharam)
+                    {
+                        <Aviso Tom="atencao" Texto="Não foi possível ler a agenda deste paciente agora. Isto NÃO quer dizer que ele não tem horário." />
+                    }
+                    else if (_horarios is null)
+                    {
+                        <Esqueleto Altura="60" />
+                    }
+                    else if (_horarios.Count == 0)
+                    {
+                        <p class="secundario">Nenhum horário marcado daqui em diante.</p>
+                    }
+                    else
+                    {
+                        <ul class="lista-simples">
+                            @foreach (var h in _horarios)
+                            {
+                                <li>
+                                    <strong>@h.Rotulo</strong> <span class="secundario">@h.Contexto</span>
+                                    @if (h.Encaixe) { <Selo Tom="aviso">Encaixe</Selo> }
+                                    <button type="button" class="botao mini" @onclick="() => AbrirNaAgendaAsync(h.Dia)">Abrir na agenda</button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+            break;
+
+        case 1:
+            <div class="cartao-corpo">
+                <div class="acp-topo">
+                    <p>@_validadeConsulta</p>
+                    @if (_usaConsulta)
+                    {
+                        <button type="button" class="botao mini" disabled="@(!Pode(Permissao.LancarAtendimento))" @onclick="RenovarConsultaAsync"
+                                title="@(Pode(Permissao.LancarAtendimento) ? "Registra a renovação de hoje — não é uma consulta clínica" : "Renovar a consulta exige acesso de lançamento.")">Renovar validade da consulta</button>
+                    }
+                </div>
+            </div>
+            <div class="cartao-corpo">
+                <div class="acp-topo">
+                    <div>
+                        <h3>Autorizações do convênio</h3>
+                        <p class="secundario">As sessões que o convênio autorizou. O consumo é contado sozinho pelos atendimentos dentro da vigência — não se digita.</p>
+                    </div>
+                    <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarPaciente))" @onclick="() => AbrirAutorizacao(null)"><Icone Nome="mais" />Nova autorização</button>
+                </div>
+                @if (_autorizacoesFalharam)
+                {
+                    <Aviso Tom="atencao" Texto="Não foi possível ler as autorizações deste paciente — isto NÃO significa que ele não tem senha." />
+                }
+                else if (_autorizacoes is null)
+                {
+                    <Esqueleto Altura="60" />
+                }
+                else if (_autorizacoes.Count == 0)
+                {
+                    <p class="secundario">Nenhuma autorização registrada.</p>
+                }
+                else
+                {
+                    <div class="tabela-rolagem"><table class="lista">
+                        <thead><tr><th>Senha</th><th>Saldo</th><th>Situação</th><th class="direita"></th></tr></thead>
+                        <tbody>
+                            @foreach (var s in _autorizacoes)
+                            {
+                                <tr class="@(s.Utilizavel ? null : "apagada")">
+                                    <td>@FichaAdministrativaNaTela.DescreverAutorizacao(s.Autorizacao)</td>
+                                    <td>@s.Resumo</td>
+                                    <td>
+                                        @if (s.Vencida) { <Selo Tom="perigo">vencida</Selo> }
+                                        else if (s.Esgotada) { <Selo Tom="perigo">esgotada</Selo> }
+                                        else if (s.NaUltima) { <Selo Tom="aviso">última sessão</Selo> }
+                                        else { <Selo Tom="sucesso">valendo</Selo> }
+                                    </td>
+                                    <td class="direita"><div class="botoes-linha">
+                                        <button type="button" class="botao mini" disabled="@(!Pode(Permissao.EditarPaciente))" @onclick="() => AbrirAutorizacao(s.Autorizacao.Id)">Editar</button>
+                                        <button type="button" class="botao mini contorno-perigo" disabled="@(!Pode(Permissao.EditarPaciente))" @onclick="() => ExcluirAutorizacaoAsync(s)">Excluir</button>
+                                    </div></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+            </div>
+            break;
+
+        case 2:
+            <div class="cartao-corpo">
+                <h3>Relacionamento (CRM)</h3>
+                <p class="secundario">De onde o paciente veio e as últimas conversas da clínica com ele. Quem dispara a campanha é o Gerente; o resultado aparece aqui, onde alguém vai atendê-lo.</p>
+                <p><span class="rotulo-campo">ORIGEM</span> @_origem</p>
+                @if (_contatosFalharam)
+                {
+                    <Aviso Tom="atencao" Texto="Não foi possível ler o histórico de campanhas agora." />
+                }
+                else if (_contatos is null)
+                {
+                    <Esqueleto Altura="60" />
+                }
+                else if (_contatos.Count == 0)
+                {
+                    <p class="secundario">Nenhum contato de campanha registrado.</p>
+                }
+                else
+                {
+                    <div class="tabela-rolagem"><table class="lista">
+                        <thead><tr><th>Contato</th><th>Data</th><th>Situação</th><th>Detalhe</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _contatos)
+                            {
+                                <tr><td>@c.Tipo</td><td class="nao-quebra">@c.Data</td><td>@c.Situacao</td><td>@c.Detalhe</td></tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+            </div>
+            break;
+
+        case 3:
+            <div class="cartao-corpo">
+                <div class="acp-topo">
+                    <div>
+                        <h3>Consentimentos (LGPD)</h3>
+                        <p class="secundario">O que o paciente autorizou — no termo que ele mesmo assina. Revogar não apaga o anterior: ele continua provando o consentimento do período já tratado.</p>
+                    </div>
+                    <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.ColherAssinaturaPaciente))" @onclick="ColherConsentimentoAsync"
+                            title="@(Pode(Permissao.ColherAssinaturaPaciente) ? "As quatro declarações num termo só, assinado pelo paciente" : "Colher assinatura exige o acesso \"Colher assinatura do paciente\".")">Colher o termo de consentimento…</button>
+                </div>
+                @if (_consentimentosFalharam)
+                {
+                    <Aviso Tom="atencao" Texto="Não foi possível ler os consentimentos agora — isto NÃO quer dizer que nada foi autorizado." />
+                }
+                else if (_consentimentos is null)
+                {
+                    <Esqueleto Altura="60" />
+                }
+                else
+                {
+                    <ul class="lista-simples">
+                        @foreach (var c in _consentimentos)
+                        {
+                            <li>
+                                <strong>@c.Rotulo</strong>
+                                @if (c.Vigente) { <Selo Tom="sucesso">Vigente</Selo> }
+                                <span class="secundario">@c.Situacao</span>
+                                @if (c.Vigente && c.RegistroId is not null)
+                                {
+                                    <button type="button" class="botao mini contorno-perigo" disabled="@(!Pode(Permissao.EditarPaciente))" @onclick="() => RevogarAsync(c)">Revogar</button>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+            <div class="cartao-corpo">
+                <h3>Direitos do titular</h3>
+                <p class="secundario">Pedido de acesso e pedido de eliminação (LGPD, art. 18). O prontuário NÃO se apaga: a guarda é obrigação legal do profissional de saúde e a lei a preserva (art. 16, II) — anonimizar tira a identificação e mantém o histórico.</p>
+                <div class="botoes-linha">
+                    <button type="button" class="botao mini" disabled="@(!Pode(Permissao.VerProntuario))" @onclick="ExportarDadosAsync"
+                            title="@(Pode(Permissao.VerProntuario) ? "O prontuário inteiro em texto, para entregar ao titular" : "Exportar exige acesso ao prontuário.")">Exportar os dados</button>
+                    <button type="button" class="botao mini contorno-perigo" disabled="@(!Pode(Permissao.AnonimizarDados))" @onclick="AnonimizarAsync">Anonimizar cadastro</button>
+                </div>
+                <p class="secundario">Anonimizar não tem volta e por isso pede permissão própria — o balcão exporta, a direção elimina.</p>
+            </div>
+            break;
+
+        case 4 when VeTermos:
+            <div class="cartao-corpo">
+                <div class="acp-topo">
+                    <div>
+                        <h3>Termo do procedimento</h3>
+                        <p class="secundario">@FichaAdministrativaNaTela.ResumoTermos(_termos ?? [], _termosFalharam)</p>
+                    </div>
+                    <button type="button" class="botao mini" disabled="@(!Pode(Permissao.ColherAssinaturaPaciente))" @onclick="() => ColherTermoAsync(null)">Colher um termo…</button>
+                </div>
+                @if (_termos is null && !_termosFalharam)
+                {
+                    <Esqueleto Altura="60" />
+                }
+                else if (_termos is { Count: > 0 })
+                {
+                    <ul class="lista-simples">
+                        @foreach (var t in _termos)
+                        {
+                            <li>
+                                <strong>@t.Nome</strong> <span class="secundario">@t.Procedimento</span>
+                                <Selo Tom="@(t.EhVermelho ? "perigo" : t.Pendente ? "aviso" : "sucesso")">@t.Situacao</Selo>
+                                @if (t.Pendente)
+                                {
+                                    <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.ColherAssinaturaPaciente))" @onclick="() => ColherTermoAsync(t)">
+                                        @(t.AguardaConferencia ? "Conferir e concluir…" : "Colher assinatura…")</button>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+            break;
+    }
+</section>
+
+@if (_editandoAutorizacao)
+{
+    <AutorizacaoForm PacienteId="PacienteId" AutorizacaoId="_autorizacaoEmEdicao" ConvenioPadrao="_convenioCodigo"
+                     AoFechar="() => _editandoAutorizacao = false" AoConcluir="GravouAutorizacaoAsync" />
+}
+@if (_recebendoDivida)
+{
+    <CobrancaDoPacienteForm PacienteId="PacienteId" Paciente="@_nome" Telefone="@_telefone" AoFechar="FecharCobrancaAsync" />
+}
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+
+    /// <summary>Quem recebe no balcão — o mesmo <c>QuemRecebe</c> da cobrança do shell.</summary>
+    private const Permissao QuemRecebe = Permissao.EditarFinanceiro | Permissao.LancarAtendimento | Permissao.VenderPacote;
+
+    private int _sub;
+    private int _geracao;
+    private string _nome = string.Empty, _origem = "—", _validadeConsulta = "Consultando validade…";
+    private string? _telefone, _convenioCodigo;
+    private bool _recebendoDivida;
+    private bool _usaConsulta;
+    private List<FichaAdministrativaNaTela.Alerta>? _alertas;
+    private List<FichaAdministrativaNaTela.ProximoHorario>? _horarios;
+    private List<SaldoAutorizacao>? _autorizacoes;
+    private List<FichaAdministrativaNaTela.Contato>? _contatos;
+    private List<FichaAdministrativaNaTela.Consentimento>? _consentimentos;
+    private List<FichaAdministrativaNaTela.Termo>? _termos;
+    private bool _elegibilidadeFalhou, _horariosFalharam, _autorizacoesFalharam, _contatosFalharam, _consentimentosFalharam, _termosFalharam;
+    private bool _editandoAutorizacao;
+    private int? _autorizacaoEmEdicao;
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private const string FraseDoAplicativo = "Esta ação abre no aplicativo instalado.";
+    private FormulariosDoPaciente Formularios => Servicos.GetRequiredService<FormulariosDoPaciente>();
+    private IDocumentosDaRecepcao Documentos => Servicos.GetService<IDocumentosDaRecepcao>() ?? DocumentosDaRecepcaoIndisponiveis.Instancia;
+
+    /// <summary>A coleta do termo — formulário Blazor desde out/2026 (o ponto único das portas Blazor).</summary>
+    private ColetaDeTermoNaPagina? Coleta => Servicos.GetService<ColetaDeTermoNaPagina>();
+    private IBalcaoDaRecepcao Balcao => Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static bool PodeReceber => PodeAlgum(QuemRecebe);
+    /// <summary>O termo é dado de saúde; o acesso sai do CATÁLOGO, o mesmo da lista de documentos.</summary>
+    private static bool VeTermos => PodeAlgum(CentralDocumentosService.AcessoParaVer(TipoDocumentoClinico.TermoProcedimento));
+    private string P(int sub) => _sub == sub ? "true" : "false";
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    /// <summary>Cada bloco no seu escopo, juntos — e cada um descarta a resposta de uma carga mais velha.</summary>
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        var id = PacienteId;
+        // Limpa ANTES dos awaits: as linhas do paciente anterior não podem ficar na tela.
+        _alertas = null; _horarios = null; _autorizacoes = null; _contatos = null; _consentimentos = null; _termos = null;
+        _elegibilidadeFalhou = _horariosFalharam = _autorizacoesFalharam = _contatosFalharam = _consentimentosFalharam = _termosFalharam = false;
+
+        await Task.WhenAll(
+            Bloco(g, "ficha — cadastro", async s =>
+            {
+                var p = await s.GetRequiredService<PacienteService>().ObterAsync(id);
+                return () =>
+                {
+                    if (p is null) return;
+                    _nome = p.Nome;
+                    _telefone = string.IsNullOrWhiteSpace(p.Telefone) ? null : p.Telefone;
+                    _convenioCodigo = p.ConvenioCodigo;
+                    _origem = FichaAdministrativaNaTela.Origem(p);
+                };
+            }, () => { }),
+            Bloco(g, "ficha — elegibilidade", async s =>
+            {
+                var r = await s.GetRequiredService<ElegibilidadeService>().ConferirAsync(id, Hoje);
+                var lista = r.Alertas.Select(FichaAdministrativaNaTela.AlertaDe).ToList();
+                return () => _alertas = lista;
+            }, () => _elegibilidadeFalhou = true),
+            Pode(Permissao.VerAgenda)
+                ? Bloco(g, "ficha — próximos horários", async s =>
+                {
+                    var h = await s.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                        .AgendamentosFuturosDoPacienteAsync(id, DateTime.Now, FichaAdministrativaNaTela.TetoDeProximosHorarios);
+                    var lista = h.Select(FichaAdministrativaNaTela.ProximoDe).ToList();
+                    return () => _horarios = lista;
+                }, () => _horariosFalharam = true)
+                : Task.CompletedTask,
+            Bloco(g, "ficha — consulta do convênio", async s =>
+            {
+                var c = await s.GetRequiredService<ConsultaService>().DoPacienteAsync(id, Hoje);
+                return () =>
+                {
+                    _usaConsulta = c?.UsaConsulta == true;
+                    _validadeConsulta = FichaAdministrativaNaTela.ValidadeDaConsulta(c);
+                };
+            }, () => _validadeConsulta = "Não foi possível conferir a validade da consulta agora."),
+            Bloco(g, "ficha — autorizações", async s =>
+            {
+                var a = await s.GetRequiredService<AutorizacaoService>().SaldosAsync(id, Hoje);
+                var lista = a.ToList();
+                return () => _autorizacoes = lista;
+            }, () => _autorizacoesFalharam = true),
+            Bloco(g, "ficha — campanhas", async s =>
+            {
+                var c = await s.GetRequiredService<CampanhaService>().DoPacienteAsync(id);
+                var lista = c.Select(FichaAdministrativaNaTela.ContatoDe).ToList();
+                return () => _contatos = lista;
+            }, () => _contatosFalharam = true),
+            Bloco(g, "ficha — consentimentos", async s =>
+            {
+                var c = await s.GetRequiredService<ConsentimentoService>().SituacaoAsync(id);
+                var lista = FichaAdministrativaNaTela.Consentimentos(c).ToList();
+                return () => _consentimentos = lista;
+            }, () => _consentimentosFalharam = true),
+            VeTermos
+                ? Bloco(g, "ficha — termos do dia", async s =>
+                {
+                    var t = await s.GetRequiredService<TermoProcedimentoService>().SituacaoDoDiaAsync(id, Hoje);
+                    var lista = t.Select(FichaAdministrativaNaTela.TermoDe).ToList();
+                    return () => _termos = lista;
+                }, () => _termosFalharam = true)
+                : Task.CompletedTask);
+    }
+
+    /// <summary>Um bloco: lê no próprio escopo, publica só se ainda for a carga mais nova, falha sozinho.</summary>
+    private async Task Bloco(int g, string contexto, Func<IServiceProvider, Task<Action>> ler, Action falhou)
+    {
+        try
+        {
+            Action publicar;
+            using (var escopo = Escopo())
+                publicar = await ler(escopo.ServiceProvider);
+            if (g != _geracao || Descartada) return;
+            publicar();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — {contexto}", ex);
+            if (g != _geracao) return;
+            falhou();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task EditarCadastroAsync()
+    {
+        if (!Exigir(Permissao.EditarPaciente, "editar o cadastro do paciente")) return;
+        if (!await Formularios.EditarCadastroAsync(PacienteId)) return;
+        Notificacoes.Sucesso("Cadastro atualizado.");
+        await CarregarAsync();
+        await Tela.RelerCabecalhoAsync();
+    }
+
+    private async Task WhatsAppAsync()
+    {
+        var primeiro = _nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? _nome;
+        var link = QuemMeDeveTela.LinkWhatsApp(_telefone, $"Olá, {primeiro}!");
+        if (link is null) { Notificacoes.Erro("Telefone ausente ou inválido no cadastro."); return; }
+        if (!await Host.AbrirEnderecoAsync(link))
+            Notificacoes.Erro(await Host.CopiarAsync(link)
+                ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
+                : "Não foi possível abrir o WhatsApp neste computador.");
+    }
+
+    /// <summary>A cobrança no balcão (CobrancaDoPacienteForm, Blazor desde out/2026 — era a janela do shell).</summary>
+    private void Receber()
+    {
+        if (!ExigirAlgum(QuemRecebe, "receber no balcão")) return;
+        _recebendoDivida = true;
+    }
+
+    /// <summary>Recebido algo, a ficha relê: o alerta de dívida some sem reabrir a tela.</summary>
+    private async Task FecharCobrancaAsync(bool mudou)
+    {
+        _recebendoDivida = false;
+        if (mudou) await CarregarAsync();
+    }
+
+    private async Task AbrirNaAgendaAsync(DateOnly dia)
+    {
+        if (!Exigir(Permissao.VerAgenda, "abrir a agenda")) return;
+        if (!await Balcao.AbrirDiaNaAgendaAsync(dia))
+            Notificacoes.Info("A agenda deste dia abre no aplicativo da Recepção.");
+    }
+
+    private async Task RenovarConsultaAsync()
+    {
+        if (!Exigir(Permissao.LancarAtendimento, "renovar consulta do convênio")) return;
+        if (!await Dialogos.ConfirmarAsync("Renovar validade da consulta do convênio",
+                $"Registrar a renovação do convênio de {_nome} para hoje? Esta ação não registra uma consulta clínica.")) return;
+        await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<ConsultaService>().RenovarAsync(PacienteId, Hoje);
+        }, "Blazor — renovação da consulta pela ficha", "Validade da consulta renovada.");
+        await CarregarAsync();
+    }
+
+    private void AbrirAutorizacao(int? id)
+    {
+        if (!Exigir(Permissao.EditarPaciente, "registrar autorização")) return;
+        _autorizacaoEmEdicao = id;
+        _editandoAutorizacao = true;
+    }
+
+    private async Task GravouAutorizacaoAsync()
+    {
+        _editandoAutorizacao = false;
+        Notificacoes.Sucesso("Autorização registrada.");
+        await CarregarAsync();
+    }
+
+    /// <summary>A senha não é registro do que aconteceu — é o que o convênio liberou —, então se apaga mesmo.</summary>
+    private async Task ExcluirAutorizacaoAsync(SaldoAutorizacao s)
+    {
+        if (!Exigir(Permissao.EditarPaciente, "excluir autorização")) return;
+        if (!await Dialogos.ConfirmarAsync("Excluir autorização",
+                $"Apagar a senha {s.Autorizacao.Numero ?? "(sem número)"}? Os atendimentos já lançados não mudam — o que se perde é o controle de cota.",
+                perigoso: true)) return;
+        await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<AutorizacaoService>().RemoverAsync(s.Autorizacao.Id, Operador);
+        }, "Blazor — autorização não pôde ser excluída", "Autorização excluída.");
+        await CarregarAsync();
+    }
+
+    private async Task ColherConsentimentoAsync()
+    {
+        if (!Exigir(Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente")) return;
+        if (Coleta is not { } coleta) { Notificacoes.Info(FraseDoAplicativo); return; }
+        // Recarrega mesmo sem concluir: o termo pode ter sido emitido e só a assinatura ter faltado.
+        var concluiu = await coleta.AbrirConsentimentoLgpdAsync(PacienteId, _nome);
+        await CarregarAsync();
+        if (concluiu) Notificacoes.Sucesso("Termo de consentimento resolvido.");
+    }
+
+    private async Task RevogarAsync(FichaAdministrativaNaTela.Consentimento c)
+    {
+        if (!Exigir(Permissao.EditarPaciente, "revogar consentimento")) return;
+        if (c.RegistroId is not { } registroId) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Revogar consentimento",
+            $"Por que \"{c.Rotulo}\" está sendo revogado? O registro anterior NÃO é apagado — ele continua provando o consentimento do período já tratado.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<ConsentimentoService>().RevogarAsync(registroId, Operador, motivo);
+        }, "Blazor — consentimento não pôde ser revogado", "Consentimento revogado.");
+        await CarregarAsync();
+    }
+
+    /// <summary>O art. 18, II: o prontuário inteiro em texto — e o acesso entra na trilha de leitura.</summary>
+    private async Task ExportarDadosAsync()
+    {
+        if (!Exigir(Permissao.VerProntuario, "exportar os dados do titular")) return;
+        try
+        {
+            string texto;
+            using (var escopo = Escopo())
+            {
+                texto = await escopo.ServiceProvider.GetRequiredService<TitularDadosService>().ExportarAsync(PacienteId, Operador);
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, Operador, OrigemAcessoProntuario.ExportacaoTitular);
+            }
+            var erro = await Host.SalvarEAbrirAsync(System.Text.Encoding.UTF8.GetBytes(texto), $"dados-{_nome}.txt", "Texto (*.txt)|*.txt", ".txt");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — dados do titular não puderam ser exportados", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>Atende ao pedido de eliminação anonimizando — e DIZ, antes de fazer, que o prontuário fica.</summary>
+    private async Task AnonimizarAsync()
+    {
+        if (!Exigir(Permissao.AnonimizarDados, "anonimizar dados do titular")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Anonimizar a pedido do titular",
+            $"Registre o pedido de {_nome}: quando pediu, por qual canal e quem recebeu. É o que prova que a clínica atendeu — e ela precisa poder provar.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        if (!await Dialogos.ConfirmarAsync("Anonimizar cadastro",
+                $"Nome, documento, telefone, carteirinha, nascimento e foto de {_nome} serão apagados e NÃO voltam.\n\n"
+                + "O prontuário FICA: sessões, evoluções, guias e documentos continuam guardados, sem dono identificável. "
+                + "A guarda do prontuário é obrigação legal do profissional de saúde, e a LGPD a preserva expressamente (art. 16, II).\n\nConfirmar?",
+                perigoso: true)) return;
+        try
+        {
+            ResultadoAnonimizacao r;
+            using (var escopo = Escopo())
+                r = await escopo.ServiceProvider.GetRequiredService<TitularDadosService>().AnonimizarAsync(PacienteId, motivo, Operador);
+            await CarregarAsync();
+            await Tela.RelerCabecalhoAsync();
+            await Dialogos.AvisoAsync("Cadastro anonimizado",
+                $"O cadastro passou a se chamar \"{r.NomeAnonimo}\".\nConsentimentos revogados: {r.ConsentimentosRevogados}.\n"
+                + $"Foto removida: {(r.FotoRemovida ? "sim" : "não havia")}.\n"
+                + (r.PreservouProntuario ? $"Sessões mantidas sob guarda legal: {r.SessoesPreservadas}." : "Não havia histórico clínico a guardar."));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — cadastro não pôde ser anonimizado", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>A coleta do termo: a linha leva modelo, papel, profissional e sessão; nula é o termo avulso.</summary>
+    private async Task ColherTermoAsync(FichaAdministrativaNaTela.Termo? t)
+    {
+        if (!Exigir(Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente")) return;
+        if (Coleta is not { } coleta) { Notificacoes.Info(FraseDoAplicativo); return; }
+        var concluiu = t is null
+            ? await coleta.AbrirAsync(PacienteId, _nome)
+            : await coleta.AbrirAsync(PacienteId, _nome, t.ModeloId, t.DocumentoId, t.ProfissionalId, t.AgendamentoId);
+        // Recarrega mesmo sem concluir: o termo pode ter sido EMITIDO e só a assinatura ter faltado.
+        await CarregarAsync();
+        if (concluiu) Notificacoes.Sucesso("Termo do procedimento resolvido.");
+    }
+}

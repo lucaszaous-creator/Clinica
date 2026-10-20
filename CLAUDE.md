@@ -249,8 +249,9 @@ Nenhum deles quebra o build quando é esquecido:
   dessa forma"*). O guia completo, com o passo a passo, está em **`docs/telas-blazor.md`** —
   leia ANTES de escrever a primeira linha. Em uma frase: **a tela é HTML/CSS em Razor
   (`Clinica.Ui.Blazor`), o C# dela chama os MESMOS serviços da Application, e o WPF só a
-  hospeda** (`TelaBlazor` marca o lugar; o navegador é UM por janela — `NavegadorDaJanela` +
-  `Palco`, ver o 🕰️ abaixo). O que isso exige, sempre:
+  hospeda** (`TelaBlazor` é o descritor da tela; a janela do app é UM navegador — `JanelaDoApp` +
+  `Palco`, ver o 🕰️ abaixo — e desde out/2026 a própria moldura, a entrada e o menu também são
+  Razor, em `Clinica.Ui.Blazor/Moldura`). O que isso exige, sempre:
   - 🧱 **Componentes antes de HTML solto**: `CabecalhoPagina`, `Kpi`, `Modal` (o formulário),
     `Campo`, `Aviso`, `EstadoVazio`, `FalhaDeLeitura`, `Selo`, `SeletorMes`,
     `SeletorDePaciente`, `Icone`. Tela que redesenha um deles é a segunda cópia.
@@ -301,9 +302,9 @@ Nenhum deles quebra o build quando é esquecido:
     cada tela, a clínica mandou o vídeo): ela criava um `BlazorWebView` POR TELA, e a janela
     nativa do WebView2 nasce preta antes de o navegador existir dentro dela — pintar o fundo
     em três camadas (controle WPF, `WEBVIEW2_DEFAULT_BACKGROUND_COLOR`, `index.html`) não
-    cobre esse instante. **O navegador é UM POR JANELA** (`NavegadorDaJanela`, na camada
-    persistente do `ShellWindow`), criado escondido e só mostrado depois da primeira
-    renderização; as telas trocam DENTRO dele (`Palco` + `PalcoDeTelas`), ficam montadas
+    cobre esse instante. **O navegador é UM POR JANELA** (desde out/2026 a `JanelaDoApp`
+    inteira: o conteúdo dela é UM `BlazorWebView`, e a entrada e a moldura trocam dentro dele),
+    criado escondido e só mostrado depois da primeira renderização; as telas trocam DENTRO dele (`Palco` + `PalcoDeTelas`), ficam montadas
     ocultas e cada uma rola sozinha. **Nunca crie `BlazorWebView` por tela.** Os arquivos vão
     embutidos na DLL e o Razor chama o serviço direto. **Não reintroduza HTML escrito à mão
     conversando por mensagem**; tela HTML é Razor.
@@ -332,6 +333,14 @@ Nenhum deles quebra o build quando é esquecido:
   `obrigatorio: false` e o chamador testa `is null`. Sem isso a única saída de quem não
   quer escrever é o Cancelar — e ele grava. (Checagem 39.)
 - **`--` é ilegal dentro de comentário XML** (a linha de sublinhado do estilo da casa).
+- **Contrato SÍNCRONO servido por diálogo Blazor: nunca dentro de um evento do Blazor**
+  (out/2026, `DialogoService`). Com a moldura em Blazor, o `IDialogoService` desenha a pergunta
+  em HTML e espera a resposta num laço de mensagens aninhado. Chamado no MEIO de um evento ou de
+  uma renderização do próprio Blazor, isso trava a tela para sempre: o renderizador só desenha o
+  diálogo quando o evento termina, e o evento está esperando o diálogo. Por isso o serviço cai na
+  caixa nativa quando a pilha passa pelo `Renderer` (e quando a pergunta vem de dentro de uma
+  janela WPF modal, que desabilita a principal). **Tela Blazor pergunta pelo `Dialogos`
+  assíncrono, nunca pelo `IDialogoService`.**
 
 ### 5. Perguntas que só o autor pode responder
 
@@ -415,7 +424,8 @@ Camadas clássicas, todas em `src/`:
 - **Suíte multi-exe** (`Clinica.Desktop.Shell`, `Clinica.Modulo.*`, `Clinica.Recepcao`,
   `Clinica.Financeiro`, `Clinica.Gerente`, `Clinica.Clinico`) — quatro executáveis NOVOS, ao lado do faturamento e sem
   encostar nele. O shell tem o design system, a janela genérica, o contrato de módulo (`IModuloApp`),
-  a abertura padrão (`SuiteApp`) e o login (`LoginWindow` + `SessaoUsuario`); cada módulo é uma
+  a abertura padrão (`SuiteApp`) e a janela do app com a entrada (`JanelaDoApp` + a moldura Blazor
+  em `Clinica.Ui.Blazor/Moldura` + `SessaoUsuario`); cada módulo é uma
   **biblioteca** com suas telas; cada `.exe` é uma casca que só escolhe a lista de módulos — o
   Gerente Geral carrega todos, incluindo o `Clinica.Modulo.Gerente` (BI, campanhas, acessos e a
   leitura do faturamento), que só ele carrega. O `Clinica.Clinico` (Consultório, parcela 36)
@@ -480,6 +490,15 @@ As três razões, em uma linha cada:
 Se algo parecer errado: **peça o log** (`Diagnostico` grava a inner exception inteira),
 **peça o commit do build**, **reproduza antes de corrigir** e **teste em homologação**.
 Não corrija por dedução — foi assim que três correções erradas chegaram à clínica.
+
+✅ **Autorização expressa de 19/10/2026 — SÓ A CAMADA DE TELA.** A direção autorizou converter
+para Blazor as janelas desta área (certificado A1, coleta do termo, prescrição de infusão,
+folha de execução, evolução de enfermagem da folha) e fará os testes de assinatura em
+homologação. **O motor continua congelado**: `Assinatura/`, `SafeID/`, os serviços de
+assinatura, `PublicacaoDocumentoService`, hash, PDF/PAdES, certificado e token. A tela nova
+chama os mesmos serviços, com os mesmos argumentos, na mesma ordem — a ordem que era protocolo
+mora em `Application/Modelos/AssinaturaNaTela.cs`, com teste. Mapa e roteiro de homologação:
+`docs/safeid-congelado.md` e `docs/safeid-telas-blazor-out2026.md`.
 
 
 ### ⛔ COMPROMISSO DE CONFORMIDADE — leia antes de mexer em qualquer coisa clínica
@@ -4215,20 +4234,41 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do posto — e o app não abriu com o mesmo 42501. A chave só nasce onde
   `has_table_privilege(…, 'REFERENCES')`, e `deploy/tablet/comissao-recuperacao-chave.sql`
   a cria como dono. **Tabela nova que aponta para tabela do posto: chave condicional + script.**
-- **O build do Windows roda em duas etapas** (out/2026): `testes` em Linux (o que não
-  precisa de WPF) e `conferencias` no Windows correm em PARALELO; `publicar` (os cinco
-  `.exe`) só começa depois que os DOIS passaram — pedido da direção: `.exe` de commit
-  reprovado não fica para download. O job `build` espera os três — é o nome do check do PR. Passo novo entra no job certo;
-  pôr teste de Linux no runner Windows paga 2× e alonga a fila.
-- **A suíte roda em QUATRO FATIAS no CI** (out/2026): eram 27 min num job só e o PR esperava
-  32 — a meta da direção é **no máximo 13**. `FatiaDaSuite` (xUnit `TestFramework`) descarta
-  na descoberta o que não é da fatia `CLINICA_FATIA=i/n`; sem a variável roda tudo. Divide
-  por CLASSE (hash estável do nome); classe grande demais leva `[FatiarPorCaso]` e cada caso
-  vai para uma fatia (hoje só `TelasBlazorAbremTests`). Localmente dá para rodar as quatro em
-  paralelo (`for i in 1 2 3 4; do CLINICA_FATIA=$i/4 dotnet test … & done; wait`). ⚠️ **Teste
+- **O build do PR roda TUDO EM PARALELO** (out/2026): `testes` em Linux (seis fatias),
+  `conferencias` no Windows e `publicar` (os cinco `.exe`) começam juntos, e o job `build` —
+  o nome do check do PR — espera os três. O pedido da direção (`.exe` de commit reprovado não
+  fica para download) é cumprido pelo `build`, que APAGA os artefatos `Clinica-*` do run
+  quando algum dos três reprova; esperar os testes para só então gerar somava ~5 min ao PR.
+  Artefato de PR vive 7 dias (`retention-days`) — quem distribui à clínica é a release.
+  Passo novo entra no job certo; pôr teste de Linux no runner Windows paga 2× e alonga a fila.
+- **A suíte roda em SEIS FATIAS no CI, divididas pelo TEMPO MEDIDO** (out/2026): eram 27 min
+  num job só. `FatiaDaSuite` (xUnit `TestFramework`) descarta na descoberta o que não é da
+  fatia `CLINICA_FATIA=i/n`; sem a variável roda tudo. Divide por CLASSE; classe grande demais
+  leva `[FatiarPorCaso]` e cada caso vai para uma fatia (`TelasBlazorAbremTests`,
+  `PalcoTrocaRepetidaTests`). A distribuição sai de `tempos-dos-testes.json` (maior primeiro,
+  na fatia mais leve — o "split by timings" dos CIs grandes): pelo hash do nome as fatias
+  saíam com 3,9 e 7,2 min. Chave fora da tabela cai pelo hash. **Regrave a tabela**
+  (`tools/medir-tempos-dos-testes.py`, a partir dos `.trx`) quando uma fatia do CI passar a
+  demorar visivelmente mais que as outras. `FatiaDaSuiteTests` prova que toda chave cai em
+  UMA fatia. Localmente dá para rodar as fatias em
+  paralelo (`for i in 1 2 3 4 5 6; do CLINICA_FATIA=$i/6 dotnet test … & done; wait`). ⚠️ **Teste
   que espera a tela "assentar" paga a espera em CADA passo**: o mínimo de 150 ms do
   `Assentar` (50 ms × 3) era mais da metade do tempo da suíte; virou 60 ms (15 × 4), provado
   com um `throw` num botão. Teste novo de tela que espera por laço usa a mesma batida.
+  ⚠️ **Teste que acha as telas por REFLEXÃO cresce sozinho com a migração** (out/2026, PR
+  285 — a fatia 1 levava 12 min e reprovava ao acaso). O `PalcoTrocaRepetidaTests` foi
+  desenhado para as 14 telas do Financeiro e passou a achar 75: ~375 trocas sobre 3 MB de
+  HTML montado, 5–6 min SOZINHO. E o `TelasBlazorAbremTests` clicava "um botão por RÓTULO" —
+  mas o rótulo de botão de DADO é o próprio dado ("08:15 Marina Teixeira", "Seg 12"), então
+  a Visão geral da agenda dava 882 cliques e 4 min. Agora o palco roda em LOTES de ~15 telas
+  (`[FatiarPorCaso]`, um lote por caso) e o botão de dado conta pela FAMÍLIA da classe (até
+  4; `TelasBlazorAbremTests.Familia`) — os de ação (`botao`, `mini`, `icone`…) seguem um por
+  rótulo. Os dois foram provados reprovando: releitura do Caixa desligada e um `throw` no
+  bloco de horário. Na mesma rodada, as duas intermitências do palco: o `Assentar` esperava
+  só o HTML parar (~60 ms), e o redesenho na fila atrás da leitura de outra tela chegava
+  DEPOIS — agora ele espera a tela PEDIDA à vista; e as consultas eram contadas num contador
+  só, creditando a uma tela a leitura de fundo de outra — agora contam POR TELA
+  (`AsyncLocal`). **Ao migrar tela, olhe o tempo dos testes que as acham por reflexão.**
 - **A PONTE DO CRM NA VPS: o que só a montagem real mostrou** (out/2026; roteiro em
   `docs/vps-do-crm.md`, e o diário da instalação real — acessos, endereços, etapas ligadas,
   como publicar de novo e o que ficou para depois — em `docs/crm-em-producao-out2026.md`). Duas VPS: a ponte ao lado do Postgres (escuta só no IP do túnel
@@ -4771,7 +4811,7 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `IAtualizarAoVoltar`: quem avisa é o `Palco`, ao reativar uma tela já montada. Sem isso a aba guardada voltaria com o lançamento da outra máquina invisível.
   🔁 **Trocar de tela muitas vezes, medido em três lugares** (out/2026, pedido da direção
   depois do vídeo): o palco mantém toda tela montada, então defeito de troca NÃO some ao
-  fechar — acumula. `PalcoTrocaRepetidaTests` (bUnit, 14 telas reais, 5 rodadas + rajada),
+  fechar — acumula. `PalcoTrocaRepetidaTests` (bUnit, todas as telas reais em lotes de ~15, 5 rodadas + rajada),
   `tools/PreviaBlazor/trocas.js` + `analisar.py` (Chromium, quadro a quadro) e
   `ValidarLayoutWindows --blazor` (o preto do WebView2, na tela real do runner Windows, no
   CI do PR). Acharam DOIS restos: o **Extrato do banco não recruzava ao voltar** (mostraria

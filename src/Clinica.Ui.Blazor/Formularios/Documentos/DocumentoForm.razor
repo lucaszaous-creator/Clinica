@@ -1,0 +1,840 @@
+@*
+  EMITIR DOCUMENTO ESCRITO (out/2026 — migrado da DocumentoWindow + DocumentoFolha +
+  DocumentoOpcoesWindow + DocumentoEdicaoViewModel do WPF): receita, atestado, laudo, declaração
+  de comparecimento e pedido de exame. A MESMA folha nas quatro portas — a central de Documentos
+  (todos os apps), o "Entregar agora" do atendimento médico, o "Novo pedido" dos Exames e o
+  "Alterar (nova versão)" do laudo —, renderizada DENTRO da tela que a abriu.
+
+  O que a folha AFIRMA e DECIDE mora em RascunhoDeDocumento / EmissaoDeDocumentoNaTela
+  (Application, com teste): a conferência de ALERGIA na receita (avisa e exige o "eu vi", e
+  RECONFERE no clique de emitir — a da abertura viu uma receita em branco), a regra do CID sob
+  autorização expressa, a herança da sessão (só em campo vazio), a nova versão do laudo (cancela o
+  anterior no MESMO gravar), quem assina (quem está logado, nunca o primeiro da lista) e a
+  montagem campo a campo do que vai ao serviço. Aqui só a leitura do banco (escopo por operação),
+  o desenho e a ordem do clique — a mesma da janela WPF:
+  permissão do TIPO no combo → quem assina → texto obrigatório → alergia → endereço da receita
+  (antes de qualquer número) → conferência legal → emitir → PDF → "enviar agora ao paciente?".
+
+  O envio ao fim da emissão é o EnvioAoPacienteForm (o MESMO de todas as
+  portas). A busca do CID é a BuscaCidForm, a mesma do atendimento.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="@TituloDoModal" Subtitulo="@SubtituloDoModal" Largura="largo" AoFechar="FecharAsync">
+    <ChildContent>
+        @if (_recusa is not null)
+        {
+            <Aviso Tom="erro" Texto="@_recusa" />
+        }
+        else if (_r is not { } r)
+        {
+            @* A tela que abriu não tem paciente (os Exames): a primeira pergunta é QUEM. *@
+            <div class="df-quem">
+                <Campo Rotulo="Paciente">
+                    <SeletorDePaciente Selecionado="_escolhido" SelecionadoChanged="EscolherPacienteAsync" />
+                </Campo>
+                <p class="campo-dica">Escolha o paciente para abrir a folha. O documento fica na ficha dele.</p>
+            </div>
+        }
+        else
+        {
+            <div class="abas df-abas" role="tablist" aria-label="Documento">
+                <button type="button" role="tab" aria-selected="@Bool(_aba == AbaFolha)" @onclick="() => _aba = AbaFolha">Folha</button>
+                <button type="button" role="tab" aria-selected="@Bool(_aba == AbaDados)" @onclick="() => _aba = AbaDados">Dados da emissão</button>
+                <button type="button" role="tab" aria-selected="@Bool(_aba == AbaObservacoes)" @onclick="() => _aba = AbaObservacoes">Observações</button>
+                <button type="button" role="tab" aria-selected="@Bool(_aba == AbaModelos)" @onclick="() => _aba = AbaModelos">Modelos @(_modelos.Count > 0 ? $"· {_modelos.Count}" : null)</button>
+            </div>
+
+            @if (_aba == AbaFolha)
+            {
+                <div class="df-topo">
+                    @if (r.PodeTrocarTipo)
+                    {
+                        @* QUAL PAPEL é este, à vista: uma folha branca com editor é parecida em todos os tipos. *@
+                        <div class="df-tipos" role="group" aria-label="Tipo de documento">
+                            @foreach (var t in EmissaoDeDocumentoNaTela.Tipos)
+                            {
+                                <button type="button" class="chip" aria-pressed="@Bool(t == r.Tipo)" disabled="@(!PodeEditar)"
+                                        aria-label="@($"Tipo de documento: {TipoDocumentoInfo.Rotular(t)}")"
+                                        @onclick="() => TrocarTipoAsync(t)">@TipoDocumentoInfo.Rotular(t)</button>
+                            }
+                        </div>
+                    }
+                    <button type="button" class="botao df-usar-modelo" disabled="@(!PodeEditar)" @onclick="() => _aba = AbaModelos">Usar modelo</button>
+                </div>
+
+                @if (_carregando)
+                {
+                    <Esqueleto Altura="320" />
+                }
+                else
+                {
+                    <fieldset class="df-folha" disabled="@(!PodeEditar)">
+                        @* O topo da folha: de QUEM é, a data e o número — o que o PDF imprime no cabeçalho. *@
+                        <header class="df-cabecalho">
+                            <div class="df-quem-folha">
+                                <span class="df-rotulo-pequeno">PACIENTE</span>
+                                <strong class="df-paciente" title="@r.PacienteDaFolha">@r.PacienteDaFolha</strong>
+                                @if (r.IdentificacaoDaFolha(Hoje) is { Length: > 0 } ident)
+                                {
+                                    <span class="secundario">@ident</span>
+                                }
+                            </div>
+                            <div class="df-numero">
+                                <span class="df-rotulo-numero">@r.NumeroDaFolha</span>
+                                <span class="secundario">Data @r.DataDaFolha</span>
+                            </div>
+                        </header>
+
+                        <h3 class="df-titulo">@r.TituloFolha</h3>
+
+                        @if (r.AlertasClinicos.Count > 0 || r.ExigenciasLegais.Count > 0 || r.ColideComAlergia)
+                        {
+                            <div class="df-alertas">
+                                @foreach (var a in r.AlertasClinicos) { <p class="df-alerta tom-perigo">@a</p> }
+                                @foreach (var e in r.ExigenciasLegais) { <p class="df-alerta tom-aviso">@e</p> }
+                                @if (r.ColideComAlergia)
+                                {
+                                    @foreach (var c in r.ColisoesAlergia) { <p class="df-alerta tom-perigo df-colisao">@c</p> }
+                                    <label class="df-confirmacao">
+                                        <input type="checkbox" checked="@r.AlergiaConferida" @onchange="e => r.AlergiaConferida = e.Value is true" />
+                                        @EmissaoDeDocumentoNaTela.ConfirmacaoAlergia
+                                    </label>
+                                }
+                            </div>
+                        }
+
+                        @if (r.MostraAtestado)
+                        {
+                            <div class="campos tres">
+                                <Campo Rotulo="Dias de afastamento">
+                                    <input class="campo" value="@r.DiasAfastamentoTexto" maxlength="4" inputmode="numeric"
+                                           @oninput="e => r.DiasAfastamentoTexto = e.Value?.ToString()" />
+                                </Campo>
+                                <Campo Rotulo="Início do afastamento">
+                                    <input class="campo" type="date" value="@Iso(r.PeriodoInicio)" @onchange="e => r.PeriodoInicio = LerData(e)" />
+                                </Campo>
+                                <Campo Rotulo="CID · opcional">
+                                    <input class="campo" value="@r.Cid" maxlength="20" aria-label="CID-10" @oninput="e => r.Cid = e.Value?.ToString()" />
+                                </Campo>
+                            </div>
+                            @AutorizacaoDoCid(r, descricaoAbaixo: true)
+                        }
+                        else if (r.MostraLaudo)
+                        {
+                            @* O código, o atalho e — AO LADO — o que ele quer dizer: é a descrição que pega o dígito trocado. *@
+                            <div class="df-cid">
+                                <span class="campo-rotulo">CID-10 · opcional</span>
+                                <div class="df-cid-linha">
+                                    <input class="campo df-cid-campo" value="@r.Cid" maxlength="20" aria-label="CID-10"
+                                           @oninput="e => r.Cid = e.Value?.ToString()?.ToUpperInvariant()" />
+                                    <button type="button" class="botao" title="Procurar o código na lista da clínica" @onclick="AbrirBuscaCid">Procurar…</button>
+                                    @if (!string.IsNullOrEmpty(r.DescricaoCid))
+                                    {
+                                        <span class="df-cid-descricao">@r.DescricaoCid</span>
+                                    }
+                                    else if (r.CidForaDaLista)
+                                    {
+                                        <span class="secundario">@EmissaoDeDocumentoNaTela.CidForaDaLista</span>
+                                    }
+                                </div>
+                            </div>
+                            @AutorizacaoDoCid(r, descricaoAbaixo: false)
+                        }
+                        else if (r.MostraComparecimento)
+                        {
+                            <div class="campos tres">
+                                <Campo Rotulo="Dia do atendimento">
+                                    <input class="campo" type="date" value="@Iso(r.PeriodoInicio)" @onchange="e => r.PeriodoInicio = LerData(e)" />
+                                </Campo>
+                                <Campo Rotulo="Chegada">
+                                    <input class="campo" value="@r.HoraChegadaTexto" maxlength="5" placeholder="14:30" @oninput="e => r.HoraChegadaTexto = e.Value?.ToString()" />
+                                </Campo>
+                                <Campo Rotulo="Saída">
+                                    <input class="campo" value="@r.HoraSaidaTexto" maxlength="5" placeholder="15:10" @oninput="e => r.HoraSaidaTexto = e.Value?.ToString()" />
+                                </Campo>
+                            </div>
+                            @if (r.HorasVieramDaSessao)
+                            {
+                                <p class="df-nota">@EmissaoDeDocumentoNaTela.HorasDaSessao</p>
+                            }
+                        }
+                        else if (r.MostraItens)
+                        {
+                            <div class="df-itens">
+                                <div class="df-item df-item-cabecalho" aria-hidden="true">
+                                    <span>Exame / procedimento</span><span>Quantidade</span><span>Indicação clínica</span><span></span>
+                                </div>
+                                @foreach (var item in r.Itens)
+                                {
+                                    <div class="df-item" @key="item">
+                                        <textarea class="campo" rows="1" aria-label="Exame / procedimento" maxlength="300" value="@item.Descricao"
+                                                  @oninput="e => item.Descricao = e.Value?.ToString() ?? string.Empty"></textarea>
+                                        <input class="campo" aria-label="Quantidade" value="@item.Quantidade" maxlength="200"
+                                               @oninput="e => item.Quantidade = e.Value?.ToString()" />
+                                        <textarea class="campo" rows="1" aria-label="Indicação clínica" value="@item.Detalhe"
+                                                  @oninput="e => item.Detalhe = e.Value?.ToString()"></textarea>
+                                        <button type="button" class="botao mini fantasma df-remover" title="Remover exame" aria-label="Remover exame"
+                                                @onclick="() => r.RemoverItem(item)">×</button>
+                                    </div>
+                                }
+                                <button type="button" class="botao mini fantasma df-adicionar" @onclick="r.AdicionarItem">+ Adicionar exame</button>
+                                @if (r.IndicacaoVeioDaSessao)
+                                {
+                                    <p class="df-nota">@EmissaoDeDocumentoNaTela.IndicacaoDaSessao</p>
+                                }
+                            </div>
+                        }
+
+                        <div class="df-texto">
+                            <span class="campo-rotulo">@r.RotuloDoTexto</span>
+                            <EditorTextoClinico @bind-Texto="r.Corpo" @bind-Formato="r.CorpoFormatado" Rotulo="@r.RotuloDoTexto"
+                                                TextoDeAjuda="@r.AjudaDoTexto" Linhas="@(r.MostraLaudo ? 14 : 10)" Desabilitado="@(!PodeEditar)" />
+                        </div>
+
+                        @* A assinatura LOGO DEPOIS do texto, como no papel. *@
+                        <div class="df-assinatura">
+                            <span class="df-linha-assinatura" aria-hidden="true"></span>
+                            @if (r.TemAssinante)
+                            {
+                                <strong>@r.NomeDoAssinante</strong>
+                                <span class="secundario">@r.RegistroDoAssinante</span>
+                            }
+                            else
+                            {
+                                <span class="df-falta-assinante">@r.FaltaAssinante</span>
+                                <button type="button" class="botao mini fantasma" @onclick="() => _aba = AbaDados">Escolher quem assina…</button>
+                            }
+                        </div>
+                    </fieldset>
+                }
+            }
+            else if (_aba == AbaDados)
+            {
+                <fieldset class="df-dados" disabled="@(!PodeEditar)">
+                    <div class="campos">
+                        <Campo Rotulo="Tipo de documento" Dica="@(r.PodeTrocarTipo ? null : "A nova versão é do mesmo papel.")">
+                            <select class="campo" value="@r.Tipo" disabled="@(!r.PodeTrocarTipo)" @onchange="TrocarTipoPeloComboAsync">
+                                @foreach (var t in EmissaoDeDocumentoNaTela.Tipos) { <option value="@t">@TipoDocumentoInfo.Rotular(t)</option> }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Data de emissão">
+                            <input class="campo" type="date" value="@Iso(r.Data)" @onchange="TrocarData" />
+                        </Campo>
+                        <Campo Rotulo="Profissional responsável" Classe="largo" Erro="@r.MotivoSemAssinante">
+                            <select class="campo" value="@(r.Profissional?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" @onchange="TrocarProfissional">
+                                <option value="">— escolha —</option>
+                                @foreach (var p in _profissionais) { <option value="@p.Id">@p.Rotulo</option> }
+                            </select>
+                        </Campo>
+                        <Campo Rotulo="Título impresso (opcional)" Classe="largo">
+                            <input class="campo" value="@r.Titulo" maxlength="200" @oninput="e => r.Titulo = e.Value?.ToString()" />
+                        </Campo>
+                    </div>
+                    @if (r.ReceitaLivre)
+                    {
+                        <p class="secundario">@r.EnderecoDaReceita</p>
+                    }
+                    @if (r.MostraCid)
+                    {
+                        <button type="button" class="botao df-buscar-cid" @onclick="AbrirBuscaCid">Buscar CID</button>
+                    }
+                </fieldset>
+            }
+            else if (_aba == AbaObservacoes)
+            {
+                <div class="df-texto">
+                    <span class="campo-rotulo">Observações impressas no documento</span>
+                    <EditorTextoClinico @bind-Texto="r.Observacoes" @bind-Formato="r.ObservacoesFormatadas" Rotulo="Observações impressas"
+                                        Linhas="10" Desabilitado="@(!PodeEditar)" />
+                </div>
+            }
+            else
+            {
+                <div class="df-modelos">
+                    <Campo Rotulo="Buscar modelo">
+                        <div class="busca"><Icone Nome="busca" /><input class="campo" value="@_buscaModelo" maxlength="80" placeholder="Nome do modelo"
+                                                                     aria-label="Buscar modelo" @oninput="e => _buscaModelo = e.Value?.ToString()" /></div>
+                    </Campo>
+                    @if (ModelosVisiveis.Count == 0)
+                    {
+                        <EstadoVazio Titulo="@(_modelos.Count == 0 ? "Nenhum modelo deste papel" : "Nenhum modelo com esse nome")"
+                                     Descricao="Escreva a folha e use “Salvar novo modelo” para guardar o que a clínica repete." />
+                    }
+                    else
+                    {
+                        <ul class="df-lista-modelos" role="listbox" aria-label="Modelos">
+                            @foreach (var m in ModelosVisiveis)
+                            {
+                                <li role="option" aria-selected="@Bool(_modelo?.Id == m.Id)" class="@(_modelo?.Id == m.Id ? "selecionado" : null)"
+                                    @onclick="() => _modelo = m">@m.Nome</li>
+                            }
+                        </ul>
+                    }
+                    <p class="df-previa-modelo">@EmissaoDeDocumentoNaTela.PreviaDoModelo(_modelo)</p>
+                    <div class="df-acoes-modelo">
+                        <button type="button" class="botao primario" disabled="@(_modelo is null || !PodeEditar)" @onclick="AplicarModeloAsync">Usar modelo</button>
+                        <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="PedirNomeModeloAsync">Salvar novo modelo</button>
+                        <button type="button" class="botao" disabled="@(_modelo is null || !PodeEditar)" @onclick="AtualizarModeloAsync">Atualizar selecionado</button>
+                        <button type="button" class="botao contorno-perigo" disabled="@(_modelo is null || !PodeEditar)" @onclick="ExcluirModeloAsync">Excluir selecionado</button>
+                    </div>
+                </div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        <div class="df-rodape-avisos">
+            <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+            @if (_r?.MotivoSemAssinante is { } motivo && !_carregando)
+            {
+                @* Por que o "Emitir" está apagado — ao lado do botão, com a porta para escolher (parcela 41). *@
+                <div class="df-sem-assinante">
+                    <span>@motivo</span>
+                    <button type="button" class="botao mini fantasma" disabled="@(!PodeEditar)" @onclick="() => _aba = AbaDados">Escolher quem assina…</button>
+                </div>
+            }
+        </div>
+        @if (_r is not null)
+        {
+            <button type="button" class="botao fantasma esquerda" disabled="@(!PodeEditar)" @onclick="PedirNomeModeloAsync">Salvar como modelo</button>
+        }
+        <button type="button" class="botao" disabled="@_emitindo" @onclick="FecharAsync">Fechar</button>
+        @if (_r is not null)
+        {
+            <button type="button" class="botao" disabled="@(!PodePrever)" title="Abre o PDF desta folha sem emitir: sem número e sem valor de documento"
+                    @onclick="PreverAsync">@(_gerandoPrevia ? "Gerando a prévia…" : "Pré-visualizar")</button>
+            <button type="button" class="botao primario" disabled="@(!PodeEmitir)" @onclick="EmitirAsync">@(_emitindo ? "Emitindo…" : "Emitir e imprimir")</button>
+        }
+    </Rodape>
+</Modal>
+
+@if (_buscandoCid && _r is not null)
+{
+    <BuscaCidForm TermoInicial="@_r.Cid" AoEscolher="EscolherCid" AoFechar="() => _buscandoCid = false" />
+}
+
+@if (_envioPendente is not null)
+{
+    @* "Enviar agora ao paciente?" — o MESMO EnvioAoPacienteForm da central e do atendimento (out/2026: era a EnvioAoPacienteWindow WPF). *@
+    <EnvioAoPacienteForm DocumentoId="_envioDocumentoId" Rotulo="@_envioRotulo" AposEmitir="true"
+                         AoFechar="() => TerminouEnvioAsync(null)" AoConcluir="TerminouEnvioAsync" />
+}
+
+@code {
+    /// <summary>O paciente do papel. Nulo = a tela não tem paciente (os Exames) e a folha pergunta quem.</summary>
+    [Parameter] public int? PacienteId { get; set; }
+
+    /// <summary>A pergunta do passo "quem", quando não há paciente ("Novo pedido de exame — para quem?").</summary>
+    [Parameter] public string TituloDaEscolha { get; set; } = "Para quem é o documento?";
+
+    /// <summary>O papel inicial (a nova versão usa o tipo do anterior).</summary>
+    [Parameter] public TipoDocumentoClinico Tipo { get; set; } = TipoDocumentoClinico.Receita;
+
+    /// <summary>O que a sessão aberta já sabe — nulo fora de um atendimento.</summary>
+    [Parameter] public HerancaDaSessao? Heranca { get; set; }
+
+    /// <summary>O laudo que esta emissão SUBSTITUI (a nova versão). Nulo na emissão comum.</summary>
+    [Parameter] public DocumentoClinico? VersaoDe { get; set; }
+
+    /// <summary>Fechou sem concluir. Um documento PODE ter sido emitido (só a impressão falhou): quem abriu relê.</summary>
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>Emitiu e imprimiu (e perguntou do envio): o documento e de quem é.</summary>
+    [Parameter] public EventCallback<Emitido> AoConcluir { get; set; }
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    /// <summary>O documento emitido por este formulário.</summary>
+    public sealed record Emitido(int DocumentoId, string Numero, TipoDocumentoClinico Tipo, string Paciente);
+
+    private const int AbaFolha = 0, AbaDados = 1, AbaObservacoes = 2, AbaModelos = 3;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>A pergunta "Enviar agora ao paciente?" em aberto (o EnvioAoPacienteForm por cima da folha).</summary>
+    private Emitido? _envioPendente;
+    private int _envioDocumentoId;
+    private string? _envioRotulo;
+
+    private RascunhoDeDocumento? _r;
+    private string? _recusa;
+    private Paciente? _escolhido;
+    private int _aba;
+    private bool _carregando = true;
+    private bool _emitindo;
+    private bool _gerandoPrevia;
+    private string? _jaEmitido;
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private bool _buscandoCid;
+    private IReadOnlyList<Profissional> _profissionais = [];
+    private IReadOnlyList<ModeloDocumento> _modelos = [];
+    private ModeloDocumento? _modelo;
+    private string? _buscaModelo;
+    private int _cargaModelos;
+
+    private bool PodeEditar => _r is not null && !_emitindo && !_carregando && _jaEmitido is null;
+    private bool PodeEmitir => _r is not null && _jaEmitido is null && _r.PodeEmitir(_emitindo || _carregando);
+    private bool PodePrever => _r is not null && _jaEmitido is null && !_emitindo && !_carregando && !_gerandoPrevia;
+
+    private string TituloDoModal => _r?.TituloDocumento
+        ?? (_recusa is not null ? EmissaoDeDocumentoNaTela.TituloDocumento(VersaoDe?.Tipo ?? Tipo) : TituloDaEscolha);
+
+    private string? SubtituloDoModal => _r?.Contexto;
+
+    private IReadOnlyList<ModeloDocumento> ModelosVisiveis => EmissaoDeDocumentoNaTela.FiltrarModelos(_modelos, _buscaModelo);
+
+    private static string Bool(bool v) => v ? "true" : "false";
+    private static string Iso(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty;
+    private static DateOnly? LerData(ChangeEventArgs e)
+        => DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d) ? d : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (PacienteId is { } id) await AbrirAsync(id);
+    }
+
+    private async Task EscolherPacienteAsync(Paciente? p)
+    {
+        _escolhido = p;
+        if (p is not null) await AbrirAsync(p.Id);
+    }
+
+    /// <summary>Abre a folha do paciente — ou diz por que este papel não se emite por aqui.</summary>
+    private async Task AbrirAsync(int pacienteId)
+    {
+        _recusa = EmissaoDeDocumentoNaTela.RecusaDeAbertura(pacienteId, Tipo, VersaoDe);
+        if (_recusa is not null) return;
+        _r = new RascunhoDeDocumento(pacienteId, Tipo, Heranca, VersaoDe);
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Quem assina, o paciente inteiro (a conferência legal lê o endereço), os modelos do papel e
+    /// as duas conferências. O contexto clínico vale com a receita ainda em branco: é o que se
+    /// olha ANTES de escrever, não uma validação de saída.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        if (_r is not { } r) return;
+        _carregando = true;
+        try
+        {
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                _profissionais = await sp.GetRequiredService<EquipeService>().ProfissionaisAtivosAsync();
+                r.DefinirAssinante(_profissionais, SessaoUsuario.Atual.ProfissionalId);
+                r.Paciente = await sp.GetRequiredService<PacienteService>().ObterComHistoricoAsync(r.PacienteId);
+            }
+            if (Descartada) return;
+            await CarregarModelosAsync();
+            r.LigarConferenciaLegal();
+            await ConferirClinicamenteAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Documento clínico — tela de documento não pôde ser carregada", ex);
+            Erro($"Não foi possível carregar a tela: {ex.Message}");
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    /// <summary>Os modelos do papel no combo — só os ativos e de documento (os da infusão são de outra folha).</summary>
+    private async Task CarregarModelosAsync()
+    {
+        if (_r is not { } r) return;
+        try
+        {
+            // Entre o limpar e o último acréscimo não há await: a lista nova só é publicada inteira.
+            var carga = ++_cargaModelos;
+            var tipo = r.Tipo;
+            IReadOnlyList<ModeloDocumento> modelos;
+            using (var escopo = Escopo())
+                modelos = await escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>().ModelosAsync(tipo);
+            if (tipo != r.Tipo || carga != _cargaModelos || Descartada) return;
+            _modelos = modelos.Where(m => m.Ativo && !m.ParaInfusao).ToList();
+            if (_modelo is { } m && _modelos.All(x => x.Id != m.Id)) _modelo = null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Documento clínico — modelos de documento não puderam ser lidos", ex);
+        }
+    }
+
+    /// <summary>
+    /// Relê o contexto clínico e reconfere o que foi escrito. Falha aqui NÃO derruba nem bloqueia
+    /// a emissão — mas também não fica muda: vai ao log, e a folha diz que a conferência não rodou.
+    /// </summary>
+    private async Task ConferirClinicamenteAsync()
+    {
+        if (_r is not { } r) return;
+        try
+        {
+            ConferenciaPrescricao conferencia;
+            using (var escopo = Escopo())
+                conferencia = await escopo.ServiceProvider.GetRequiredService<PrescricaoService>().ConferirAsync(r.PacienteId, r.Escritos());
+            r.AplicarConferencia(conferencia);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Documento clínico — conferência de alergia não pôde ser feita", ex);
+            r.ConferenciaClinicaFalhou();
+        }
+    }
+
+    // ==================== o papel ====================
+
+    private async Task TrocarTipoAsync(TipoDocumentoClinico tipo)
+    {
+        if (_r is not { } r || !PodeEditar) return;
+        if (!r.TrocarTipo(tipo)) return;
+        _modelo = null;
+        await CarregarModelosAsync();
+    }
+
+    private Task TrocarTipoPeloComboAsync(ChangeEventArgs e)
+        => Enum.TryParse<TipoDocumentoClinico>(e.Value?.ToString(), out var t) ? TrocarTipoAsync(t) : Task.CompletedTask;
+
+    private void TrocarData(ChangeEventArgs e)
+    {
+        if (_r is not null && LerData(e) is { } d) _r.Data = d;
+    }
+
+    private void TrocarProfissional(ChangeEventArgs e)
+    {
+        if (_r is null) return;
+        _r.Profissional = int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
+            ? _profissionais.FirstOrDefault(p => p.Id == id)
+            : null;
+    }
+
+    /// <summary>
+    /// A busca é ATALHO: o campo continua aceitando qualquer texto, porque a CID-10 tem 14 mil
+    /// códigos e o atalho tem cinquenta.
+    /// </summary>
+    private void AbrirBuscaCid() => _buscandoCid = true;
+
+    private void EscolherCid(string codigo)
+    {
+        if (_r is not null) _r.Cid = codigo;
+        _buscandoCid = false;
+    }
+
+    /// <summary>O CID só sai impresso com autorização EXPRESSA do paciente — e a folha avisa antes do papel sair.</summary>
+    private RenderFragment AutorizacaoDoCid(RascunhoDeDocumento r, bool descricaoAbaixo) => __builder =>
+    {
+        <label class="df-confirmacao">
+            <input type="checkbox" checked="@r.CidAutorizado" @onchange="e => r.CidAutorizado = e.Value is true" />
+            Paciente autorizou a inclusão do CID
+        </label>
+        @if (descricaoAbaixo && !string.IsNullOrEmpty(r.DescricaoCid))
+        {
+            <p class="df-nota">@r.DescricaoCid</p>
+        }
+        @if (r.CidVeioDaSessao)
+        {
+            <p class="df-nota df-da-sessao">@r.ExplicacaoDoCid</p>
+        }
+        @if (r.AvisaCidOmitido)
+        {
+            <p class="df-nota">@EmissaoDeDocumentoNaTela.CidOmitido</p>
+        }
+    };
+
+    // ==================== emitir ====================
+
+    /// <summary>Emite o documento, gera o PDF e abre para impressão — a ordem da janela WPF.</summary>
+    private async Task EmitirAsync()
+    {
+        if (_r is not { } r || _emitindo || _carregando) return;
+        if (_jaEmitido is not null) { Erro(EmissaoDeDocumentoNaTela.JaEmitido(_jaEmitido)); return; }
+        Limpar();
+
+        // A permissão é conferida pelo tipo que está NA FOLHA agora, não pelo que a porta de fora
+        // exigiu: quem abre para "declaração" pode trocar para "Receita" — e receita exige Prescrever.
+        try
+        {
+            SessaoUsuario.Atual.Exigir(CentralDocumentosService.AcessoParaEmitir(r.Tipo),
+                $"emitir {TipoDocumentoInfo.Rotular(r.Tipo).ToLowerInvariant()}");
+        }
+        catch (Exception ex)
+        {
+            Erro(ex.Message);
+            return;
+        }
+
+        // A segunda barreira do assinante: o botão já está apagado com a frase ao lado.
+        if (r.MotivoSemAssinante is { } semAssinante)
+        {
+            Erro(semAssinante);
+            return;
+        }
+
+        _emitindo = true;
+        try
+        {
+            if (r.RecusaDoTexto() is { } recusa) { Erro(recusa); return; }
+
+            await ConferirClinicamenteAsync();
+            if (r.RecusaDaAlergia() is { } alergia) { Erro(alergia); return; }
+
+            if (!await CompletarEnderecoDaReceitaAsync()) return;
+            r.ConferirLegalmente();
+            var dados = r.MontarDocumento();
+
+            DocumentoClinico emitido;
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                var documentos = sp.GetRequiredService<DocumentoClinicoService>();
+                emitido = r.VersaoDe is { } anterior
+                    ? await documentos.EmitirNovaVersaoAsync(anterior.Id, dados, Operador)
+                    : await documentos.EmitirAsync(dados, Operador);
+                _jaEmitido = emitido.Numero;
+                pdf = await sp.GetRequiredService<DocumentosClinicosPdfService>()
+                    .GerarAsync(emitido.Id, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            }
+
+            // O documento JÁ está emitido: uma falha daqui para a frente é de impressão, não de
+            // emissão — e a folha diz isso, senão alguém emite de novo.
+            var erro = await Host.SalvarEAbrirAsync(pdf, EmissaoDeDocumentoNaTela.NomeDoArquivo(r.Tipo, emitido.Numero),
+                "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null)
+            {
+                Erro(EmissaoDeDocumentoNaTela.FalhaDeImpressao(erro, emitido.Numero));
+                return;
+            }
+
+            var concluido = new Emitido(emitido.Id, emitido.Numero, emitido.Tipo, r.Paciente?.Nome ?? string.Empty);
+            // A pergunta do envio NÃO é esperada aqui: o clique de Emitir termina, e quem conclui a
+            // folha é a resposta do formulário de envio (TerminouEnvioAsync). Esperar dentro do
+            // clique prenderia o evento até alguém fechar o formulário.
+            if (!PerguntarSeEnviaAgora(emitido, concluido))
+                await AoConcluir.InvokeAsync(concluido);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Documento clínico — documento clínico não pôde ser emitido", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            _emitindo = false;
+        }
+    }
+
+    /// <summary>
+    /// "Enviar agora ao paciente?" — o MESMO formulário de todas as portas, com "Agora não". Só para
+    /// o papel que pode sair como arquivo e quem tem o bit do tipo. O documento JÁ está emitido.
+    /// Verdadeiro = a pergunta abriu, e a folha conclui quando ela for respondida.
+    /// </summary>
+    private bool PerguntarSeEnviaAgora(DocumentoClinico emitido, Emitido concluido)
+    {
+        var podeMexer = SessaoUsuario.Atual.Pode(CentralDocumentosService.AcessoParaEmitir(emitido.Tipo));
+        if (!EmissaoDeDocumentoNaTela.OferecerEnvio(emitido.Tipo, emitido.AssinadoEletronicamente, emitido.Cancelado, podeMexer)) return false;
+        _envioDocumentoId = emitido.Id;
+        _envioRotulo = $"{TipoDocumentoInfo.Rotular(emitido.Tipo)} {emitido.Numero}";
+        _envioPendente = concluido;
+        return true;
+    }
+
+    /// <summary>A resposta do envio (enviou, desistiu ou "Agora não"): diz o desfecho e conclui a folha.</summary>
+    private async Task TerminouEnvioAsync(ResultadoDoAto? r)
+    {
+        if (_envioPendente is not { } concluido) return;
+        _envioPendente = null;
+        if (r is { Silencioso: false } && !string.IsNullOrWhiteSpace(r.Frase))
+            await Dialogos.AvisoAsync("Enviar ao paciente", r.Frase);
+        await AoConcluir.InvokeAsync(concluido);
+    }
+
+    /// <summary>
+    /// Relê o endereço antes de perguntar (o balcão pode ter completado o cadastro enquanto o
+    /// profissional escrevia). Nenhum documento é numerado antes desta resposta.
+    /// </summary>
+    private async Task<bool> CompletarEnderecoDaReceitaAsync()
+    {
+        if (_r is not { } r || !r.ReceitaLivre) return true;
+        using var escopo = Escopo();
+        var pacientes = escopo.ServiceProvider.GetRequiredService<PacienteService>();
+        r.Paciente = await pacientes.ObterAsync(r.PacienteId)
+            ?? throw new InvalidOperationException("Paciente não encontrado.");
+        if (string.IsNullOrWhiteSpace(r.Paciente.Endereco))
+        {
+            var endereco = await Dialogos.PerguntarTextoAsync(EmissaoDeDocumentoNaTela.TituloPerguntaEndereco,
+                EmissaoDeDocumentoNaTela.PerguntaEndereco(r.Paciente.Nome));
+            if (endereco is null)
+            {
+                Informar(EmissaoDeDocumentoNaTela.EmissaoAdiada);
+                return false;
+            }
+            r.Paciente = await pacientes.CompletarEnderecoAsync(r.PacienteId, endereco, Operador);
+        }
+        return true;
+    }
+
+    // ==================== pré-visualizar ====================
+
+    /// <summary>
+    /// O PDF do que está na folha SEM emitir: sem número, sem código de conferência, com a marca
+    /// PRÉVIA. Passa pela MESMA montagem e validação da emissão; NÃO pede o endereço nem cobra a
+    /// alergia — conferir o texto não é prescrever.
+    /// </summary>
+    private async Task PreverAsync()
+    {
+        if (_r is not { } r || !PodePrever) return;
+        Limpar();
+
+        // A prévia mostra o papel inteiro, com o paciente e o diagnóstico: o MESMO acesso de emitir.
+        try
+        {
+            SessaoUsuario.Atual.Exigir(CentralDocumentosService.AcessoParaEmitir(r.Tipo),
+                $"pré-visualizar {TipoDocumentoInfo.Rotular(r.Tipo).ToLowerInvariant()}");
+        }
+        catch (Exception ex)
+        {
+            Erro(ex.Message);
+            return;
+        }
+
+        _gerandoPrevia = true;
+        try
+        {
+            var dados = r.MontarDocumento();
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                var previa = await sp.GetRequiredService<DocumentoClinicoService>().PreverAsync(dados);
+                pdf = sp.GetRequiredService<DocumentosClinicosPdfService>()
+                    .Gerar(previa, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync(), previa: true);
+            }
+            var erro = await Host.AbrirPreviaAsync(pdf, EmissaoDeDocumentoNaTela.NomeDaPrevia(r.Tipo));
+            if (erro is not null) Erro(erro);
+            else Informar(EmissaoDeDocumentoNaTela.PreviaAberta);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Documento clínico — prévia não pôde ser gerada", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            _gerandoPrevia = false;
+        }
+    }
+
+    // ==================== modelos ====================
+
+    /// <summary>Traz o modelo: na receita ACRESCENTA; nos outros papéis substitui — e pergunta antes, quando há o que perder.</summary>
+    private async Task AplicarModeloAsync()
+    {
+        if (_r is not { } r || _modelo is not { } modelo || !PodeEditar) return;
+        if (r.AplicarModeloPedeConfirmacao
+            && !await Dialogos.ConfirmarAsync("Usar modelo", "Substituir o texto e as linhas que estão neste rascunho?", perigoso: true))
+            return;
+        Informar(r.AplicarModelo(modelo));
+        _aba = AbaFolha;
+    }
+
+    private async Task PedirNomeModeloAsync()
+    {
+        if (!PodeEditar) return;
+        var nome = await Dialogos.PerguntarTextoAsync("Salvar como modelo", "Nome do modelo");
+        if (nome is not null) await GuardarModeloAsync(nome, 0);
+    }
+
+    private async Task AtualizarModeloAsync()
+    {
+        if (_modelo is not { } m || !PodeEditar) return;
+        if (!await Dialogos.ConfirmarAsync("Atualizar modelo",
+                $"Substituir o conteúdo do modelo {m.Nome}? A alteração será usada por toda a clínica.", perigoso: true))
+            return;
+        await GuardarModeloAsync(m.Nome, m.Id);
+    }
+
+    /// <summary>
+    /// Guarda a folha como modelo. O modelo é o rascunho que a clínica INTEIRA usa: quem pode
+    /// emitir este tipo pode curá-lo; quem não pode, não reescreve o modelo dos outros.
+    /// </summary>
+    private async Task GuardarModeloAsync(string? nome, int id)
+    {
+        if (_r is not { } r || !PodeEditar) return;
+        if (string.IsNullOrWhiteSpace(nome)) { Erro(EmissaoDeDocumentoNaTela.ModeloSemNome); return; }
+        try
+        {
+            SessaoUsuario.Atual.Exigir(CentralDocumentosService.AcessoParaEmitir(r.Tipo), "guardar modelo de documento");
+            var modelo = r.MontarModelo(nome, id);
+            ModeloDocumento salvo;
+            using (var escopo = Escopo())
+                salvo = await escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>()
+                    .SalvarModeloAsync(modelo, Operador, substituirPorNome: false);
+            await CarregarModelosAsync();
+            _modelo = _modelos.FirstOrDefault(m => m.Id == salvo.Id);
+            Informar($"Modelo \"{modelo.Nome}\" guardado.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Documento clínico — modelo de documento não pôde ser guardado", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Apaga o modelo escolhido. Modelo NÃO é documento — é rascunho de apoio, e se apaga mesmo.
+    /// Os documentos já emitidos com ele não mudam: a emissão COPIA o conteúdo.
+    /// </summary>
+    private async Task ExcluirModeloAsync()
+    {
+        if (_r is not { } r || _modelo is not { } modelo || !PodeEditar) return;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(CentralDocumentosService.AcessoParaEmitir(r.Tipo), "apagar modelo de documento");
+            // O botão fica ao lado do "Usar modelo": sem a pergunta, o clique errado apaga o modelo do dia.
+            if (!await Dialogos.ConfirmarAsync("Apagar modelo",
+                    $"Apagar o modelo \"{modelo.Nome}\"? Os documentos já emitidos com ele NÃO mudam — a emissão copia o conteúdo.",
+                    perigoso: true))
+                return;
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>().ExcluirModeloAsync(modelo.Id);
+            _modelo = null;
+            await CarregarModelosAsync();
+            Informar($"Modelo \"{modelo.Nome}\" apagado. Os documentos já emitidos com ele não mudam.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Documento clínico — modelo de documento não pôde ser apagado", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    // ==================== moldura ====================
+
+    /// <summary>Fechar no meio da emissão não existe: o número pode já ter sido gasto, e a folha diz o desfecho.</summary>
+    private Task FecharAsync() => _emitindo ? Task.CompletedTask : AoFechar.InvokeAsync();
+
+    private void Limpar()
+    {
+        _mensagem = null;
+        _mensagemEhErro = false;
+    }
+
+    private void Informar(string texto)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = false;
+    }
+
+    private void Erro(string texto)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = true;
+    }
+}

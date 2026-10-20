@@ -1,0 +1,32 @@
+@*
+  ESCOLHER UM PACIENTE para um ato que nasce numa tela SEM paciente em foco (out/2026: o que no
+  WPF era a EscolherPacienteWindow do shell) — o "Novo pedido" da tela de Exames e o "Registrar
+  infusão com orientação externa" da Sala de infusão. A busca é o SeletorDePaciente de sempre
+  (agrupa as teclas, descarta resposta fora de ordem, diz o terceiro estado); este formulário não
+  reescreve busca nenhuma, só devolve a escolha.
+
+  O botão acende com a escolha — botão aceso sem paciente é o clique que não faz nada (parcela 41).
+  Desistir é AoFechar; nada aqui grava.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+
+<Modal Titulo="@Assunto" Subtitulo="Busque por nome ou CPF — a lista filtra enquanto você digita." Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <SeletorDePaciente Selecionado="_paciente" SelecionadoChanged="p => _paciente = p" Placeholder="Buscar por nome ou CPF" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_paciente is null)" @onclick="EscolherAsync">Escolher</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>O título da pergunta ("Novo pedido de exame — para quem?").</summary>
+    [Parameter, EditorRequired] public string Assunto { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback<Paciente> AoEscolher { get; set; }
+
+    private Paciente? _paciente;
+
+    private Task EscolherAsync() => _paciente is { } p ? AoEscolher.InvokeAsync(p) : Task.CompletedTask;
+}

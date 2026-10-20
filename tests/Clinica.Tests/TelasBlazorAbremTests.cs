@@ -100,7 +100,39 @@ public sealed class TelasBlazorAbremTests : IClassFixture<BancoDasTelas>, IDispo
     {
         var ocorrencias = Vigiar();
         using var ctx = Contexto();
-        Explorar(ctx, nome, [], new HashSet<string>(), ocorrencias);
+        Explorar(ctx, nome, [], new HashSet<string>(), new Dictionary<string, int>(), ocorrencias);
+    }
+
+    /// <summary>
+    /// Quantos botões de uma mesma FAMÍLIA de dado se clicam por tela. O rótulo de um botão de
+    /// dado é o próprio dado ("08:15 Marina Teixeira", "Seg 12", o nome do profissional), então
+    /// "um por rótulo" virava um por LINHA: a Visão geral da agenda chegava a 882 cliques e
+    /// quatro minutos sozinha, medindo o tamanho da semente e não a tela (out/2026).
+    /// </summary>
+    private const int PorFamilia = 4;
+
+    /// <summary>Classes de ESTILO de botão (as de ação: o rótulo é a ação, e cada um conta).</summary>
+    private static readonly HashSet<string> ClassesDeEstilo =
+    [
+        "botao", "mini", "icone", "primario", "secundario", "perigo", "contorno-perigo", "fantasma",
+        "link", "compacto", "fechar", "chip", "selecionado", "ativo", "kpi-menu-botao",
+    ];
+
+    /// <summary>Prefixos de VARIANTE de dado (a família da sessão, o calor da célula, a etapa).</summary>
+    private static readonly string[] Variantes = ["fam-", "calor-", "etapa-", "estado-", "grupo-", "tom-"];
+
+    /// <summary>
+    /// A família de um botão de dado: as classes próprias dele, sem as de estilo e sem as de
+    /// variante. Nulo para botão de ação, que continua sendo testado um por rótulo.
+    /// </summary>
+    private static string? Familia(IElement botao)
+    {
+        var proprias = (botao.GetAttribute("class") ?? "")
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(c => !ClassesDeEstilo.Contains(c) && !Variantes.Any(v => c.StartsWith(v, StringComparison.Ordinal)))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        return proprias.Count == 0 ? null : string.Join(' ', proprias);
     }
 
     /// <summary>
@@ -108,19 +140,28 @@ public sealed class TelasBlazorAbremTests : IClassFixture<BancoDasTelas>, IDispo
     /// clicar todas mediria o tamanho da semente, não a tela. O que o clique faz APARECER (a aba
     /// que abriu, o formulário que surgiu, a pergunta do diálogo) é explorado do mesmo jeito,
     /// até dois níveis: é assim que "Novo lançamento → Salvar" e "Particulares → Lançar" entram.
-    /// Cada clique parte de uma tela NOVA, refazendo o caminho até ele.
+    /// Cada clique parte de uma tela NOVA, refazendo o caminho até ele. Botão de DADO (célula,
+    /// bloco de horário, cartão de paciente) conta pela família, até <see cref="PorFamilia"/>.
     /// </summary>
     private void Explorar(TestContext ctx, string nome, List<(int Indice, string Rotulo)> caminho,
-        HashSet<string> testados, List<(string Contexto, Exception Erro)> ocorrencias)
+        HashSet<string> testados, Dictionary<string, int> porFamilia, List<(string Contexto, Exception Erro)> ocorrencias)
     {
         var aqui = Percorrer(ctx, nome, caminho);
         if (aqui is null) return;
-        var candidatos = aqui.FindAll("button")
-            .Select((b, k) => (Indice: k, Rotulo: Rotulo(b), Apagado: b.HasAttribute("disabled")))
-            .Where(b => !b.Apagado)
-            .GroupBy(b => b.Rotulo).Select(g => g.First())
-            .Where(b => testados.Add(b.Rotulo))
-            .ToList();
+        var candidatos = new List<(int Indice, string Rotulo)>();
+        foreach (var (botao, indice) in aqui.FindAll("button").Select((b, k) => (b, k)))
+        {
+            if (botao.HasAttribute("disabled")) continue;
+            var rotulo = Rotulo(botao);
+            if (testados.Contains(rotulo)) continue;
+            if (Familia(botao) is { } familia)
+            {
+                if (porFamilia.GetValueOrDefault(familia) >= PorFamilia) continue;
+                porFamilia[familia] = porFamilia.GetValueOrDefault(familia) + 1;
+            }
+            testados.Add(rotulo);
+            candidatos.Add((indice, rotulo));
+        }
 
         foreach (var c in candidatos)
         {
@@ -129,7 +170,7 @@ public sealed class TelasBlazorAbremTests : IClassFixture<BancoDasTelas>, IDispo
             if (depois is null) continue;
             var trilha = string.Join(" → ", passos.Select(p => p.Item2));
             ExigirSemQuebra(depois, nome, trilha, ocorrencias);
-            if (passos.Count < 3) Explorar(ctx, nome, passos, testados, ocorrencias);
+            if (passos.Count < 3) Explorar(ctx, nome, passos, testados, porFamilia, ocorrencias);
         }
     }
 

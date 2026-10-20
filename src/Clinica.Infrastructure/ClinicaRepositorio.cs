@@ -1306,6 +1306,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Select(a => new AgendamentoLeve(a, a.Profissional, a.Sala,
                 new Paciente { Id = a.Paciente!.Id, Nome = a.Paciente.Nome }));
 
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosMarcadosDesdeAsync(DateTime desde, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking().Include(a => a.Paciente)
+            .Where(a => a.CriadoEm != null && a.CriadoEm >= desde)
+            .OrderBy(a => a.CriadoEm).Take(500).ToListAsync(ct);
+
     public async Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoParaLeituraAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
     {
         var linhas = await ConsultaAgendamentosParaLeitura(inicio, fim).ToListAsync(ct);
@@ -3834,6 +3839,50 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Where(r => r.Dia >= de && r.Dia <= ate)
             .OrderBy(r => r.Dia)
             .ToListAsync(ct);
+
+    // ---- Fila de envios ao paciente pelo CRM ----
+
+    public async Task AdicionarEnvioPacienteCrmAsync(EnvioPacienteCrm envio, CancellationToken ct = default)
+        => await _db.EnviosPacienteCrm.AddAsync(envio, ct);
+
+    public Task<EnvioPacienteCrm?> ObterEnvioPacienteCrmAsync(string id, CancellationToken ct = default)
+        => _db.EnviosPacienteCrm.FirstOrDefaultAsync(e => e.Id == id, ct);
+
+    public async Task<IReadOnlyList<EnvioPacienteCrm>> EnviosPacienteCrmPendentesAsync(
+        string consumidor, DateTime reservaVencidaAntes, int limite, CancellationToken ct = default)
+        => await _db.EnviosPacienteCrm.AsNoTracking()
+            .Where(e => e.Estado == "queued"
+                        || (e.Estado == "processing" && e.SubmetidoEm == null
+                            && (e.Consumidor == consumidor || e.ReservadoEm == null || e.ReservadoEm < reservaVencidaAntes)))
+            .OrderBy(e => e.AtualizadoEm).ThenBy(e => e.Id)
+            .Take(limite)
+            .Select(ResumoDoEnvio)
+            .ToListAsync(ct);
+
+    public Task<EnvioPacienteCrm?> EnvioPacienteCrmEmAbertoAsync(
+        int documentoClinicoId, string canal, DateTime agora, CancellationToken ct = default)
+        => _db.EnviosPacienteCrm.AsNoTracking()
+            .Where(e => e.DocumentoClinicoId == documentoClinicoId && e.Canal == canal
+                        && (e.Estado == "queued" || e.Estado == "processing")
+                        && e.SubmetidoEm == null && e.ExpiraEm > agora)
+            .OrderByDescending(e => e.CriadoEm)
+            .Select(ResumoDoEnvio)
+            .FirstOrDefaultAsync(ct);
+
+    /// <summary>
+    /// A linha da fila sem o texto e sem o PDF — o que a listagem e a conferência precisam.
+    /// ⚠️ EXPRESSÃO, e não método: um método no <c>Select</c> seria avaliado no cliente, e o
+    /// EF traria a linha inteira — bytes do PDF incluídos — para jogá-los fora aqui.
+    /// </summary>
+    private static readonly System.Linq.Expressions.Expression<Func<EnvioPacienteCrm, EnvioPacienteCrm>> ResumoDoEnvio = e => new EnvioPacienteCrm
+    {
+        Id = e.Id, PacienteId = e.PacienteId, DocumentoClinicoId = e.DocumentoClinicoId,
+        Nome = e.Nome, Telefone = e.Telefone, Canal = e.Canal, Origem = e.Origem,
+        Operador = e.Operador, Estado = e.Estado, Detalhe = e.Detalhe,
+        CriadoEm = e.CriadoEm, ExpiraEm = e.ExpiraEm, AtualizadoEm = e.AtualizadoEm,
+        NomeArquivo = e.NomeArquivo, Consumidor = e.Consumidor,
+        ReservadoEm = e.ReservadoEm, SubmetidoEm = e.SubmetidoEm, Versao = e.Versao
+    };
 
     public async Task<IReadOnlyList<ContatoCampanha>> ContatosAguardandoRespostaPorLinkAsync(
         DateOnly desde, CancellationToken ct = default)

@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components;
+using Bunit.Rendering;
 using AngleSharp.Dom;
 using Bunit;
 using Clinica.Application;
@@ -96,7 +99,7 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
         // O choque que já existia é DITO, e nada impede.
         Esperar(() => Contem(form, AvisosDeChoque.Cabecalho));
 
-        form.Find("#agf-especialidade").Change(nameof(Especialidade.Geriatria));
+        Agir(form, f => f.Find("#agf-especialidade"), e => e.ChangeAsync(new ChangeEventArgs { Value = nameof(Especialidade.Geriatria) }));
         Clicar(form, "Salvar horário");
         Esperar(() => concluido is not null);
 
@@ -170,9 +173,9 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
         Assert.True(Contem(form, "Manhã"));
 
         EscolherPaciente(form, paciente.Nome);
-        form.Find("#lef-profissional").Change(prof.Id.ToString());
-        form.Find("#lef-turno").Change(nameof(PeriodoPreferido.Manha));
-        form.Find("#lef-prioritario").Change(true);
+        Agir(form, f => f.Find("#lef-profissional"), e => e.ChangeAsync(new ChangeEventArgs { Value = prof.Id.ToString() }));
+        Agir(form, f => f.Find("#lef-turno"), e => e.ChangeAsync(new ChangeEventArgs { Value = nameof(PeriodoPreferido.Manha) }));
+        Agir(form, f => f.Find("#lef-prioritario"), e => e.ChangeAsync(new ChangeEventArgs { Value = true }));
         Clicar(form, "Entrar na lista");
         Esperar(() => concluiu);
 
@@ -234,25 +237,65 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
         return ctx;
     }
 
+    /// <summary>
+    /// Digita, espera o resultado e CLICA nele até o paciente ficar escolhido. O formulário
+    /// re-renderiza sozinho (as conferências da abertura chamam StateHasChanged), e cada
+    /// re-renderização dá à linha um id de evento novo: clicar no elemento achado antes dela
+    /// manda o clique para um id que não existe mais, e o bUnit o descarta calado. Por isso a
+    /// linha é achada DE NOVO a cada tentativa — o navegador sempre clica no DOM atual.
+    /// </summary>
     private static void EscolherPaciente(IRenderedFragment form, string nome)
     {
-        form.Find("input[placeholder='Buscar por nome ou CPF']").Input(nome);
-        Esperar(() => form.FindAll(".seletor-resultados li").Count > 0);
-        form.FindAll(".seletor-resultados li").First(li => li.TextContent.Contains(nome)).Click();
-        Esperar(() => form.FindAll(".seletor-escolhido").Count > 0);
+        Agir(form, f => f.Find("input[placeholder='Buscar por nome ou CPF']"), e => e.InputAsync(new ChangeEventArgs { Value = nome }));
+        try
+        {
+            Esperar(() =>
+            {
+                if (form.FindAll(".seletor-escolhido").Count > 0) return true;
+                var linha = form.FindAll(".seletor-resultados li").FirstOrDefault(li => li.TextContent.Contains(nome));
+                if (linha is null) return false;
+                try { linha.ClickAsync(new MouseEventArgs()).GetAwaiter().GetResult(); } catch (UnknownEventHandlerIdException) { }
+                return form.FindAll(".seletor-escolhido").Count > 0;
+            });
+        }
+        catch (TimeoutException)
+        {
+            // Diz O QUE a tela mostra: "a busca não trouxe" e "a busca falhou" são causas diferentes.
+            var texto = System.Text.RegularExpressions.Regex.Replace(form.FindAll(".modal").FirstOrDefault()?.TextContent ?? "(sem modal)", @"\s+", " ");
+            throw new TimeoutException("O paciente não ficou escolhido. A tela dizia: " + texto[..Math.Min(600, texto.Length)]);
+        }
     }
 
     /// <summary>O TEXTO do formulário (o Markup codifica acento e travessão; o texto não).</summary>
     private static bool Contem(IRenderedFragment form, string texto)
         => form.FindAll(".modal").Any(m => m.TextContent.Contains(texto, StringComparison.Ordinal));
 
+    /// <summary>
+    /// Age sobre o elemento pela versão ASSÍNCRONA do bUnit e repete SÓ quando o id de evento
+    /// estava morto. O formulário re-renderiza sozinho (as conferências da abertura chamam
+    /// StateHasChanged) e cada re-renderização troca o id do evento: o Click()/Change()
+    /// síncrono descarta a Task e, com ela, a recusa — o gesto sumia calado. Repetir às cegas
+    /// não serve (um Salvar gravaria duas vezes); repetir só na recusa do id é exato.
+    /// </summary>
+    private static void Agir(IRenderedFragment form, Func<IRenderedFragment, AngleSharp.Dom.IElement> achar,
+        Func<AngleSharp.Dom.IElement, Task> acao)
+    {
+        Esperar(() =>
+        {
+            try { acao(achar(form)).GetAwaiter().GetResult(); return true; }
+            catch (UnknownEventHandlerIdException) { return false; }
+        });
+    }
+
     private static void Clicar(IRenderedFragment form, string rotulo)
     {
         Esperar(() => form.FindAll("button").Any(b => b.TextContent.Trim() == rotulo && !b.HasAttribute("disabled")));
-        form.FindAll("button").First(b => b.TextContent.Trim() == rotulo).Click();
+        Agir(form, f => f.FindAll("button").First(b => b.TextContent.Trim() == rotulo), e => e.ClickAsync(new MouseEventArgs()));
     }
 
-    private static void Esperar(Func<bool> condicao)
+    private static void Esperar(Func<bool> condicao,
+        [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(condicao))] string? qual = null,
+        [System.Runtime.CompilerServices.CallerLineNumber] int linha = 0)
     {
         var prazo = DateTime.UtcNow + Prazo;
         while (DateTime.UtcNow < prazo)
@@ -264,7 +307,7 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
             catch (Bunit.ElementNotFoundException) { }
             Thread.Sleep(25);
         }
-        throw new TimeoutException("A condição não aconteceu a tempo.");
+        throw new TimeoutException($"A condição não aconteceu a tempo (linha {linha}): {qual}");
     }
 
     private sealed class HostMudo : IHostDaTela

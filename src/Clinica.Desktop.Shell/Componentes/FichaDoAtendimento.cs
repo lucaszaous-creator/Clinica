@@ -90,35 +90,11 @@ public static class FichaDoAtendimento
 
             byte[] pdf;
             string numero;
+            // O MESMO caminho da tela Blazor do paciente (FichaDoAtendimentoNaTela, Application).
             using (var escopo = escopos.CreateScope())
-            {
-                var servicos = escopo.ServiceProvider;
-
-                // SEQUENCIAL, nunca WhenAll: é o mesmo DbContext do escopo (parcela 74).
-                var documento = await servicos.GetRequiredService<DocumentoClinicoService>()
-                    .EmitirRelatorioEvolucaoAsync(
-                        pacienteId, SessaoUsuario.Atual.ProfissionalId,
-                        inicio: dia, fim: dia,
-                        operador: SessaoUsuario.Atual.Operador);
-
-                numero = documento.Numero;
-
-                pdf = await servicos.GetRequiredService<DocumentosClinicosPdfService>()
-                    .GerarAsync(
-                        documento.Id,
-                        await servicos.GetRequiredService<ParametrosService>()
-                            .ObterPrestadorAsync());
-
-                // ⚠️ A trilha que faltava nas três cópias (ponto 4 do compromisso, e a
-                // lição da parcela 60): a ficha é dado de saúde SAINDO para um arquivo no
-                // disco, que é o caminho mais fácil de ele sair da clínica e o que uma
-                // investigação procura. `RegistrarAsync` não lança e loga por dentro, então
-                // ela entra no mesmo escopo sem poder derrubar a emissão.
-                await servicos.GetRequiredService<AcessoProntuarioService>()
-                    .RegistrarAsync(pacienteId, SessaoUsuario.Atual.Operador,
-                        OrigemAcessoProntuario.ExportacaoClinica);
-            }
-
+                (numero, pdf) = await FichaDoAtendimentoNaTela.EmitirAsync(
+                    escopo.ServiceProvider, pacienteId, SessaoUsuario.Atual.ProfissionalId, dia,
+                    SessaoUsuario.Atual.Operador);
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
                 pdf,
                 ImpressaoPdf.NomeSeguro($"Ficha-do-atendimento-{numero.Replace('/', '-')}.pdf"));

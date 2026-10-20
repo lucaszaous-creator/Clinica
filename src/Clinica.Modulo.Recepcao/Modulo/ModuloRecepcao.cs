@@ -3,7 +3,6 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
-using Clinica.Recepcao.Views;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Recepcao.Modulo;
@@ -139,6 +138,14 @@ public sealed class ModuloRecepcao : IModuloApp
     /// <summary>Canal de SMS (out/2026): configuração, teste, histórico e campanha
     /// (docs/canal-sms.md). Aba de Relacionamento.</summary>
     public const string ChaveCanalSms = "canal-sms";
+
+    /// <summary>
+    /// A FICHA DO BALCÃO (Blazor, out/2026 — era a FichaBalcaoView WPF numa janela por cima). Só
+    /// existe COM um paciente escolhido, então é item OCULTO: navegável, fora do menu (a regra da
+    /// parcela 37, 4ª rodada — chave sem item é botão que não faz nada). A chave mora na
+    /// hospedagem Blazor, que é quem a tela e as portas dela compartilham.
+    /// </summary>
+    public const string ChaveFichaBalcao = Clinica.Ui.Blazor.Hospedagem.PedidoDaFichaDoBalcao.Chave;
     public string Nome => "Recepção";
 
     // A permiss\u00E3o exigida por item entrou na parcela 5: quem n\u00E3o a tem n\u00E3o v\u00EA o item
@@ -392,6 +399,13 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChavePacientes, Rotulo = "Pacientes / CRM", Glifo = "\uE77B", Icone = "pessoa",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
         },
+        // A ficha do balcão: destino das listas (agenda do dia, Pacientes, Início), nunca linha
+        // de menu — aberta sem paciente ela não teria o que mostrar.
+        new ItemMenuModulo
+        {
+            Chave = ChaveFichaBalcao, Rotulo = "Ficha do paciente", Glifo = "\uE77B", Icone = "pessoa",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente, Oculto = true
+        },
         // As duas abas de "Particular e pacotes", declaradas como itens pela checagem 28 —
         // e, mais que isso, porque SEM ELAS o composto ficaria vazio no
         // `Clinica.Recepcao.exe`: `AbasDisponiveis` só enxerga aba cuja chave é item de um
@@ -469,15 +483,11 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
-        servicos.AddTransient<IFichaAdministrativaPaciente, FichaAdministrativaPaciente>();
-        servicos.AddTransient<IFabricaListaPacientes, FabricaListaPacientes>();
         // A ponte agenda → novo atendimento (parcela 70): singleton de UM pedido de
         // pré-preenchimento, definido por quem navega e consumido pela tela ao abrir.
         servicos.AddSingleton<PreenchimentoNovoAtendimento>();
         servicos.AddSingleton<PedidoAgenda>();
 
-        servicos.AddTransient<AgendaViewModel>();
-        servicos.AddTransient<PacientesViewModel>();
         // O Acompanhamento de pacientes é tela BLAZOR desde out/2026 (docs/relacionamento-blazor.md):
         // a hospedagem é a MESMA do Financeiro e do Faturamento (um navegador por janela,
         // idempotente), e o "Marcar horário" dela chega à aba Marcar pela ponte desta Recepção.
@@ -486,14 +496,15 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao, BalcaoDaRecepcao>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDaAgenda, JanelasDaAgendaWpf>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAvisosDoBanco, AvisosDoBancoWpf>();
-        servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, DocumentosDaRecepcaoWpf>();
+        // A MESMA ponte dos outros apps: o orçamento livre, que era a única coisa própria da
+        // Recepção nela, virou formulário Blazor (out/2026). TryAdd: no Gerente, uma só.
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
+            Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao, Clinica.Desktop.Blazor.DocumentosNoAplicativoWpf>(servicos);
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral, AgendaDaVisaoGeral>();
         servicos.AddSingleton<Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento, JanelasDoAtendimentoWpf>();
-        // A sala é publicada pelos dois módulos: TryAdd, uma ponte só no Gerente.
-        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
-            Clinica.Ui.Blazor.Hospedagem.IJanelasDaSalaDeInfusao, Clinica.Desktop.Blazor.JanelasDaSalaDeInfusaoWpf>(servicos);
-        servicos.AddTransient<EnfermagemViewModel>();
-        servicos.AddTransient<ProntuarioViewModel>();
+        // A sala de infusão e a enfermagem abrem FORMULÁRIOS BLAZOR desde out/2026 (folha de
+        // execução, evolução da folha, infusão externa, coleta do termo): quem os registra é a
+        // hospedagem Blazor (AddTelasBlazor) — não há mais ponte WPF para eles aqui.
         // Os ViewModels de formulário (agendamento, lista de espera, profissional,
         // sala, paciente, evolução) são construídos à mão pelas telas: cada janela abre
         // com o formulário limpo e, quando é edição, precisa receber o id no construtor.
@@ -509,19 +520,17 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavePainel => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.InicioRecepcao), servicos),
         ChaveAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.GradeDaAgenda), servicos),
         ChaveFila => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AgendaDoDia), servicos),
-        // A lista de Pacientes do BALCÃO é Blazor (out/2026); o Prontuário e o Consultório,
-        // que reusam a lista WPF pela `IFabricaListaPacientes`, continuam na ficha clínica.
+        // As listas de pacientes são Blazor (out/2026): a do BALCÃO abre a ficha do balcão; o
+        // Prontuário usa a ListaDePacientesDoPosto e abre a tela do paciente no Histórico.
         ChavePacientes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PacientesDoBalcao), servicos),
+        ChaveFichaBalcao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.FichaDoBalcao), servicos),
         ChaveMarcarHorario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MarcarAtendimento), servicos),
         ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
         ChaveRetornosAMarcar => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RetornosAMarcar), servicos),
         ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
         ChaveSalaInfusao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),
-        ChaveEnfermagem => new EnfermagemView
-        {
-            DataContext = servicos.GetRequiredService<EnfermagemViewModel>()
-        },
+        ChaveEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Enfermagem), servicos),
         // Tela do SHELL (parcela 60), como a sala de infusão acima. O item era publicado
         // e este `case` NÃO existia: o shell marcava o item como ativo, `MontarTela`
         // devolvia null e a navegação saía em silêncio — menu aceso, tela parada. Item
@@ -530,7 +539,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // Blazor desde out/2026 — as mesmas telas que o Financeiro e o Gerente publicam pela mesma chave.
         ChavePacotes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PacotesDaClinica), servicos),
         ChavePrecosParticular => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrecosDoParticular), servicos),
-        ChaveProntuario => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(secao: 3),
+        ChaveProntuario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProntuarioPorPaciente), servicos),
         ChaveDocumentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao), servicos),
         ChaveEquipe => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ProfissionaisESalas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.

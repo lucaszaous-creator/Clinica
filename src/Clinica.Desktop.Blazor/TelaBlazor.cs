@@ -3,19 +3,24 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Ui.Blazor.Hospedagem;
-using Microsoft.AspNetCore.Components.WebView;
 using Microsoft.AspNetCore.Components.WebView.Wpf;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileProviders;
 
 namespace Clinica.Desktop.Blazor;
 
 /// <summary>
-/// O lugar de uma tela Blazor na área de trabalho do WPF. Ela NÃO tem navegador: o
-/// navegador é UM por janela (<see cref="NavegadorDaJanela"/>), mora na camada persistente
-/// do shell, e esta tela só diz a ele QUAL componente mostrar e ONDE (a área dela).
+/// Uma tela Blazor devolvida por <c>IModuloApp.CriarTela</c>.
+///
+/// ⚠️ Desde out/2026 a moldura dos apps é Blazor (<c>JanelaDoApp</c>): a janela principal tem
+/// UM navegador ocupando tudo, e esta tela é só o DESCRITOR (<see cref="ITelaDoNavegador"/>)
+/// que diz ao palco daquele navegador QUAL componente mostrar — ela nunca entra numa árvore
+/// WPF ali. Ela continua sendo um <c>UserControl</c> por um caso só: posta dentro de outra
+/// janela WPF, ela cria o navegador DAQUELA janela (<see cref="NavegadorDaJanela"/>) e se
+/// mostra nele — um por janela, nunca um por tela.
 ///
 /// ⚠️ A primeira versão (out/2026) criava um BlazorWebView por tela, com o fundo pintado em
 /// três camadas para "não haver instante preto" — e havia: ~100 ms pretos a cada tela
@@ -23,14 +28,14 @@ namespace Clinica.Desktop.Blazor;
 /// navegador existir dentro dela, e nenhuma cor configurada vale nesse instante. Não se
 /// esconde esse instante com cor; deixa-se de criar navegador a cada tela.
 /// </summary>
-public sealed class TelaBlazor : UserControl
+public sealed class TelaBlazor : UserControl, ITelaDoNavegador
 {
     private readonly Type _tela;
     private readonly IServiceProvider _servicos;
     private NavegadorDaJanela? _navegador;
 
-    /// <summary>O componente Razor que esta tela hospeda — é por ele que o validador de
-    /// leiaute do Windows confere que uma rota abriu a tela certa.</summary>
+    /// <summary>O componente Razor que esta tela hospeda — é por ele que o palco da janela a
+    /// põe à vista, e que o validador de leiaute confere que uma rota abriu a tela certa.</summary>
     public Type Componente => _tela;
 
     public TelaBlazor(Type componente, IServiceProvider servicos)
@@ -40,60 +45,39 @@ public sealed class TelaBlazor : UserControl
         SetResourceReference(BackgroundProperty, "Brush.Fundo");
         Focusable = false;
 
-        // O shell monta, esconde (aba trocada) e descarta (item simples) esta tela; o
-        // navegador acompanha a VISIBILIDADE dela, não a criação.
+        // Fora da janela do app (uma tela posta noutra janela WPF): o navegador acompanha a
+        // VISIBILIDADE desta tela, não a criação.
         IsVisibleChanged += (_, e) =>
         {
             if ((bool)e.NewValue) Assumir();
             else _navegador?.Soltar(this);
         };
-        // Redimensionar a janela, dobrar o cabeçalho ou recolher a lateral mexe na área da
-        // tela sem mudar a visibilidade: o navegador segue o retângulo.
         LayoutUpdated += (_, _) => _navegador?.Posicionar(this);
     }
 
     private void Assumir()
     {
-        // O navegador mora na camada da janela do shell. Fora dela (uma tela aberta noutra
-        // janela, que hoje não existe) a própria tela vira a camada — continua funcionando,
-        // só não compartilha.
-        Panel camada;
-        if (Window.GetWindow(this) is Clinica.Desktop.Shell.ShellWindow janela) camada = janela.CamadaDaJanela;
-        else
-        {
-            if (Content is not Grid propria) Content = propria = new Grid();
-            camada = propria;
-        }
+        if (Content is not Grid camada) Content = camada = new Grid();
         _navegador = NavegadorDaJanela.Da(camada, _servicos);
         _navegador.Mostrar(this, _tela);
     }
 }
 
 /// <summary>
-/// O navegador ÚNICO de uma janela: um BlazorWebView com o <c>PalcoDeTelas</c> como raiz,
-/// criado na primeira tela Blazor e nunca destruído enquanto a janela existir. Ele fica na
-/// camada persistente, posicionado sobre a área da tela que está à vista, e ESCONDIDO quando
-/// a tela à vista é WPF.
+/// O navegador de uma janela WPF que hospede <see cref="TelaBlazor"/> (fora da janela do app,
+/// que tem o dela): um BlazorWebView com o <c>PalcoDeTelas</c> como raiz, criado na primeira
+/// tela e nunca destruído enquanto a janela existir, posicionado sobre a área da tela à vista.
 /// </summary>
 internal sealed class NavegadorDaJanela
 {
-    /// <summary>O fundo da página (`--fundo`, Cor.Cinza.50) — o mesmo da index.html.</summary>
-    private const string FundoArgb = "FFF8FAFC";
-
     private static readonly ConditionalWeakTable<Panel, NavegadorDaJanela> PorCamada = new();
 
-    private readonly VisorEmbutido _visor;
+    private readonly BlazorWebView _visor;
     private readonly Palco _palco = new();
     private readonly DispatcherTimer _rede;
     private readonly Panel _camada;
     private TelaBlazor? _dono;
     private bool _pronto;
-
-    static NavegadorDaJanela()
-    {
-        // A cor que o controlador do WebView2 pinta ANTES da página. Vale para o processo.
-        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", FundoArgb);
-    }
 
     public static NavegadorDaJanela Da(Panel camada, IServiceProvider servicos)
         => PorCamada.GetValue(camada, c => new NavegadorDaJanela(c, servicos));
@@ -101,55 +85,11 @@ internal sealed class NavegadorDaJanela
     private NavegadorDaJanela(Panel camada, IServiceProvider servicos)
     {
         _camada = camada;
-        _visor = new VisorEmbutido
-        {
-            HostPage = Path.Combine("ativos", "index.html"),
-            Services = servicos,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Top,
-            // HIDDEN, nunca Collapsed: o controle fica no leiaute (a janela nativa nasce, o
-            // navegador inicializa, a página carrega) e só aparece depois de DESENHAR. A
-            // janela nativa recém-criada é preta, e é esse o único instante em que poderia
-            // haver preto — agora uma vez por janela, e escondido.
-            Visibility = Visibility.Hidden
-        };
-        _visor.SetResourceReference(Control.BackgroundProperty, "Brush.Fundo");
-        _visor.RootComponents.Add(new RootComponent
-        {
-            Selector = "#app",
-            ComponentType = typeof(Clinica.Ui.Blazor.Componentes.PalcoDeTelas),
-            Parameters = new Dictionary<string, object?> { ["Palco"] = _palco }
-        });
-
-        _visor.BlazorWebViewInitializing += (_, e) =>
-        {
-            // O perfil do navegador mora no LocalAppData, fora da pasta da instalação: a
-            // pasta do Velopack é substituída a cada atualização.
-            e.UserDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ClinicaSemDor", "Blazor");
-        };
-        _visor.BlazorWebViewInitialized += (_, e) =>
-        {
-            // A mesma cor, direto no controlador — a variável de ambiente só vale se for lida
-            // antes de o processo criar o primeiro navegador.
-            e.WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0xF8, 0xFA, 0xFC);
-            var config = e.WebView.CoreWebView2.Settings;
-            config.AreDefaultContextMenusEnabled = false;
-            config.IsStatusBarEnabled = false;
-            config.IsPasswordAutosaveEnabled = false;
-            config.IsGeneralAutofillEnabled = false;
-#if !DEBUG
-            config.AreDevToolsEnabled = false;
-            config.AreBrowserAcceleratorKeysEnabled = false;
-#endif
-        };
-        // A tela não navega para fora: link externo não abre dentro do app.
-        _visor.UrlLoading += (_, e) =>
-        {
-            if (e.UrlLoadingStrategy == UrlLoadingStrategy.OpenExternally)
-                e.UrlLoadingStrategy = UrlLoadingStrategy.CancelLoad;
-        };
+        // As regras do navegador (perfil, fundo, menus) moram num lugar só, no shell.
+        _visor = NavegadorEmbutido.Criar(servicos, typeof(Clinica.Ui.Blazor.Componentes.PalcoDeTelas),
+            new Dictionary<string, object?> { ["Palco"] = _palco });
+        _visor.HorizontalAlignment = HorizontalAlignment.Left;
+        _visor.VerticalAlignment = VerticalAlignment.Top;
 
         // A primeira renderização com tela libera a janela. O BeginInvoke em Background deixa
         // o lote de renderização seguir para a página antes de a janela aparecer.
@@ -215,16 +155,6 @@ internal sealed class NavegadorDaJanela
         var visivel = _pronto && _dono is not null ? Visibility.Visible : Visibility.Hidden;
         if (_visor.Visibility != visivel) _visor.Visibility = visivel;
     }
-
-    /// <summary>
-    /// Serve a página e o CSS de DENTRO da DLL do Clinica.Ui.Blazor (manifesto de recursos)
-    /// em vez de uma pasta ao lado do .exe — não há arquivo que o pacote possa esquecer.
-    /// </summary>
-    private sealed class VisorEmbutido : BlazorWebView
-    {
-        public override IFileProvider CreateFileProvider(string contentRootDir) =>
-            new ManifestEmbeddedFileProvider(typeof(IHostDaTela).Assembly, "Ativos");
-    }
 }
 
 /// <summary>
@@ -248,6 +178,9 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
 
     public Task<string?> SalvarEAbrirAsync(byte[] conteudo, string nomeSugerido, string filtro, string extensao)
         => NaInterface(() => ImpressaoPdf.SalvarEAbrirAsync(conteudo, ImpressaoPdf.NomeSeguro(nomeSugerido), filtro, extensao));
+
+    public Task<string?> AbrirPreviaAsync(byte[] pdf, string nomeSugerido)
+        => NaInterface(() => ImpressaoPdf.AbrirPreviaAsync(pdf, nomeSugerido));
 
     public Task<ArquivoEscolhido?> EscolherArquivoAsync(string filtro, string titulo)
         => NaInterface(async () =>
@@ -291,38 +224,39 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
         }
     }
 
+    public Task<bool> VoltarAsync()
+        => NaInterface(() => Task.FromResult(Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Voltar()));
+
+    /// <summary>
+    /// A ficha do paciente é a TELA DO PACIENTE (Blazor) aberta na seção Ficha — no MESMO
+    /// navegador da janela, nunca numa janela própria (out/2026: a ficha WPF por cima abria um
+    /// segundo navegador e trazia de volta o flash preto). Fixa o paciente no posto e navega;
+    /// o "voltar" da tela do paciente volta para onde se estava.
+    ///
+    /// ⚠️ A tela do paciente pede <c>VerProntuario</c>, e o balcão não o tem (o corte da parcela
+    /// 49): para quem não a alcança, a ficha é a FICHA DO BALCÃO (Blazor, out/2026 — a
+    /// administrativa, publicada pela Recepção). Sem esse caminho, a recepcionista clicava no
+    /// nome do paciente no Início e lia "não está disponível neste aplicativo".
+    /// </summary>
     public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId)
         => NaInterface(async () =>
         {
-            // A ficha é WPF (componente do shell, via IFabricaFichaPaciente) e não cabe DENTRO
-            // do navegador: abre numa janela própria, por cima da tela. Janela nativa passa
-            // por cima do navegador normalmente, e fechar devolve a tela como estava.
+            const string chaveDaFicha = "consultorio-paciente";
+            var foco = servicos.GetService<Clinica.Desktop.Shell.Modulos.PacienteEmFoco>();
+            var telaDoPaciente = foco is not null && Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Existe(chaveDaFicha);
+            var fichaDoBalcao = Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Existe(PedidoDaFichaDoBalcao.Chave);
+            if (!telaDoPaciente && !fichaDoBalcao) return false;
             using var escopo = servicos.CreateScope();
-            var fabrica = servicos.GetService<Clinica.Desktop.Shell.Modulos.IFabricaFichaPaciente>();
-            if (fabrica is null) return false;
             var paciente = await escopo.ServiceProvider
                 .GetRequiredService<Clinica.Application.Servicos.PacienteService>().ObterAsync(pacienteId);
             if (paciente is null) return false;
-            var foco = new Clinica.Desktop.Shell.Modulos.PacienteEmFoco();
-            foco.Definir(paciente.Id, paciente.Nome);
-            var area = SystemParameters.WorkArea;
-            var dono = System.Windows.Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
-                       ?? System.Windows.Application.Current?.MainWindow;
-            var janela = new Window
+            if (telaDoPaciente)
             {
-                Title = $"Ficha do paciente — {paciente.Nome}",
-                Owner = dono,
-                WindowStartupLocation = dono is null ? WindowStartupLocation.CenterScreen : WindowStartupLocation.CenterOwner,
-                Width = Math.Min(1240, area.Width * 0.96),
-                Height = Math.Min(860, area.Height * 0.96),
-                MinWidth = Math.Min(900, area.Width * 0.9),
-                MinHeight = Math.Min(600, area.Height * 0.9),
-                ShowInTaskbar = false
-            };
-            janela.SetResourceReference(Control.BackgroundProperty, "Brush.Fundo");
-            janela.Content = fabrica.Criar(foco, voltar: () => janela.Close());
-            janela.ShowDialog();
-            return true;
+                foco!.Definir(paciente.Id, paciente.Nome);
+                return Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(chaveDaFicha);
+            }
+            servicos.GetRequiredService<PedidoDaFichaDoBalcao>().Definir(paciente.Id, paciente.Nome);
+            return Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(PedidoDaFichaDoBalcao.Chave);
         });
 
     public Task<string?> PerguntarOndeSalvarAsync(string nomeSugerido, string filtro, string extensao)

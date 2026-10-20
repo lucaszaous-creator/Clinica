@@ -8,8 +8,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
-using Clinica.Clinico.ViewModels;
-using Clinica.Clinico.Views;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
@@ -29,13 +27,11 @@ static class Program
     static bool somenteGestao;
     static bool somenteAcompanhamento;
     static bool somenteInfusao;
-    static bool somenteA1;
     [STAThread]
     static int Main(string[] args)
     {
         somenteAcompanhamento = args.Contains("--acompanhamento");
         somenteInfusao = args.Contains("--infusao");
-        somenteA1 = args.Contains("--a1");
         somenteBlazor = args.Contains("--blazor");
         somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
@@ -51,12 +47,11 @@ static class Program
             // 2 = o navegador CONFIRMOU ter desenhado e a captura da tela deste computador não o
             // alcança: não é defeito do app, e reprovar o PR por isso seria ruído. Vira AVISO
             // anotado no PR (nunca silêncio) — a medição do flash fica para uma máquina que o veja.
-            if (r == 2) { Console.WriteLine("::warning::Troca de telas Blazor: o flash não pôde ser medido neste runner (a captura não vê o WebView2; o navegador desenhou)."); return; }
+            if (r == 2) { Console.WriteLine("::notice::Troca de telas Blazor: o flash não pôde ser medido neste runner (a captura não vê o WebView2; o navegador desenhou)."); return; }
             if (r != 0) throw new Exception("Troca de telas Blazor: houve quadro escuro, ou a tela não foi desenhada.");
             return;
         }
         await RolagemQa.Executar();
-        if (somenteA1) { await ConferirA1(); return; }
         var pausaAgenda = new PausaLeituraAgenda();
         using var conexao = new SqliteConnection("Data Source=:memory:"); conexao.Open(); var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).AddInterceptors(pausaAgenda).Options;
         IModuloApp[] modulos = [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(), new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento(), new Clinica.Gerente.Modulo.ModuloGerente()];
@@ -69,71 +64,44 @@ static class Program
         if (somenteGestao) { await ValidarGestao(sp, pac, usuario); return; }
         for (var i = 0; i < 12; i++) db.Add(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, DataHora = DateTime.Today.AddHours(8 + i / 2.0), ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro }); await db.SaveChangesAsync();
         sp.GetRequiredService<PacienteEmFoco>().Definir(pac.Id, pac.Nome, 1, null, DateOnly.FromDateTime(DateTime.Today));
-        var vm = new ShellViewModel("Gerente", modulos, sp); var win = new ShellWindow { DataContext = vm, ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 960, Height = 600 }; win.Show();
+        // A moldura é Blazor desde out/2026 (JanelaDoApp): o cabeçalho, o menu e as abas são
+        // HTML no navegador da janela (o das telas é fotografado na prévia, tools/PreviaBlazor; o
+        // do cabeçalho ainda não). Aqui fica o que só o Windows
+        // responde: cada item do menu monta uma tela do NAVEGADOR (nenhuma rota devolve mais
+        // tela WPF), cada aba de item composto também, e a janela aguenta as larguras de sempre.
+        var vm = new ShellViewModel("Gerente", modulos, sp);
+        var win = new JanelaDoApp(sp, "Gerente Geral — Clínica SemDor") { ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 960, Height = 600 };
+        win.MostrarMoldura(vm); win.Show();
         foreach (var item in vm.Itens.Where(i => !i.Oculto && (completo || new[] { "agenda", "consultorio-agenda", "receituario", "consultorio-prescricoes", "configuracoes" }.Contains(i.Chave))))
         {
             vm.NavegarCommand.Execute(item); await Task.Delay(350);
-            var abas = vm.TelaAtual is TelaComAbas t ? Descendentes(t).OfType<TabControl>().First() : null;
-            int n = abas?.Items.Count ?? 1;
+            var composta = vm.TelaAtual as TelaComAbas;
+            int n = composta?.Rotulos.Count ?? 1;
             for (var a = 0; a < n; a++)
             {
-                if (abas != null) abas.SelectedIndex = a; await Task.Delay(200);
-                foreach (int largura in new[] { 1920, 1366, 880, 960, 1024 })
+                composta?.Selecionar(a); await Task.Delay(200);
+                var visivel = composta is not null ? composta.ConteudoVisivel : vm.TelaAtual;
+                string nome = item.Chave + "-" + a; Console.WriteLine("TELA " + nome);
+                if (visivel is not ITelaDoNavegador) { falhas++; Console.WriteLine($"SEM TELA DO NAVEGADOR {nome}: {visivel?.GetType().Name ?? "nada"}"); }
+                foreach (int largura in new[] { 1366, 960 })
                 {
                     win.Width = largura; win.UpdateLayout(); await Task.Delay(100); win.UpdateLayout();
-                    string nome = item.Chave + "-" + a + "-" + largura; Console.WriteLine("TELA " + nome);
-                    foreach (var el in Descendentes(win).OfType<FrameworkElement>().Where(e => e.IsVisible && (e is Button || e is TextBox || e is ComboBox || e is DataGrid)))
-                    {
-                        var pt = el.TranslatePoint(new Point(), win); if (pt.X < -1 || pt.X + el.ActualWidth > win.ActualWidth - 15 + 1) { falhas++; Console.WriteLine($"VAZA {nome} {el.GetType().Name} {(el as Button)?.Content} x={pt.X:0} w={el.ActualWidth:0}"); }
-                    }
-                    foreach (var grade in Descendentes(win).OfType<DataGrid>())
-                    {
-                        var sv = Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault();
-                        if (sv != null && sv.ScrollableWidth > 0.01) { falhas++; Console.WriteLine($"COLUNAS {nome} excedente={sv.ScrollableWidth:0}"); }
-                    }
-                    if (largura == 1366 || largura == 960) Foto(win, nome);
+                    Foto(win, nome + "-" + largura);
                 }
             }
         }
         // A Grade da agenda é Blazor desde out/2026 (GradeDaAgenda): a chave dela abre o
-        // componente hospedado. Vagas, sobreposição, bloqueios, busca e semana são conferidos
-        // em GradeDaAgendaNaTelaTests e no bUnit (TelasBlazorAbremTests).
+        // componente no navegador da janela. Vagas, sobreposição, bloqueios, busca e semana são
+        // conferidos em GradeDaAgendaNaTelaTests e no bUnit (TelasBlazorAbremTests).
         NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda);
         await Task.Delay(250);
-        if (!Descendentes(win).OfType<Clinica.Desktop.Blazor.TelaBlazor>()
-                .Any(t => t.Componente.Name is "GradeDaAgenda" or "VisaoGeralDaAgenda"))
+        var aVista = vm.TelaAtual is TelaComAbas abasDaAgenda ? abasDaAgenda.ConteudoVisivel : vm.TelaAtual;
+        if (aVista is not ITelaDoNavegador { Componente.Name: "GradeDaAgenda" or "VisaoGeralDaAgenda" })
             throw new Exception("A chave da agenda deve abrir a Grade (Blazor).");
         Console.WriteLine("AGENDA: a chave da grade abre a tela Blazor.");
         win.Close();
-        // Regressão de produção: a direção não precisa de cadastro como médico para
-        // concluir uma sessão já escrita. Exercita a view real, inclusive o binding.
-        usuario.ProfissionalId = null; usuario.Profissional = null;
-        await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
-        var posto = new PacienteWorkspaceViewModel(sp, sp.GetRequiredService<PacienteEmFoco>(), ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento));
-        var janela = new Window { Content = new PacienteWorkspaceView { DataContext = posto },
-            ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual,
-            Left = -30000, Top = -30000, Width = 1366, Height = 700 };
-        janela.Show();
-        for (int i = 0; i < 30 && !posto.TemSessao; i++) await Task.Delay(100);
-        foreach (var largura in new[] { 1366, 1024 })
-        {
-            janela.Width = largura; janela.UpdateLayout(); await Task.Delay(200); janela.UpdateLayout();
-            var acoes = Descendentes(janela).OfType<Button>().Single(b => System.Windows.Automation.AutomationProperties.GetName(b) == "Ações do atendimento");
-            var ponto = acoes.TranslatePoint(new Point(), janela);
-            if (!acoes.IsVisible || !acoes.IsEnabled || ponto.X < 0 ||
-                ponto.X + acoes.ActualWidth > janela.ActualWidth || ponto.Y + acoes.ActualHeight > janela.ActualHeight)
-                throw new Exception("Gerente sem vínculo médico perdeu acesso às ações da sessão.");
-            acoes.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            await Task.Delay(60);
-            var menu = acoes.ContextMenu!;
-            var concluir = menu.Items.OfType<MenuItem>().Single(b => ReferenceEquals(b.Command, posto.FinalizarSessaoCommand));
-            if (!menu.IsOpen || !concluir.IsVisible || !concluir.IsEnabled)
-                throw new Exception("Gerente sem vínculo médico perdeu a ação de concluir sessão no menu.");
-            Foto(janela, "gerente-finalizar-" + largura);
-            menu.IsOpen=false;
-            Console.WriteLine("GERENTE SEM VÍNCULO: Concluir sessão acessível e habilitado no menu em " + largura);
-        }
-        janela.Close();
+        // O "Concluir sessão" do Gerente sem vínculo médico é da tela do paciente Blazor (out/2026),
+        // conferido no bUnit (SecaoAtendimentoBlazorTests).
         usuario.Perfil = PerfilAcesso.Enfermagem; usuario.ProfissionalId = prof.Id; usuario.Profissional = prof;
         var bsv = await db.Agendamentos.FirstAsync(); bsv.ModalidadePrevista = ModalidadeAtendimento.BsvComAcupuntura;
         await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
@@ -148,74 +116,21 @@ static class Program
 
 
 
-    static async Task ConferirProgressoInfusao(ServiceProvider sp, Paciente paciente, Profissional medico)
+    static Task ConferirProgressoInfusao(ServiceProvider sp, Paciente paciente, Profissional medico)
     {
-        var escopos = sp.GetRequiredService<IServiceScopeFactory>();
-        var dialogo = sp.GetRequiredService<IDialogoService>();
-        var folha = new FolhaExecucaoViewModel(escopos, dialogo, 0);
-        await folha.CarregarAsync();
-        folha.Paciente = paciente.Nome;
-        folha.Numero = "PRE DEMONSTRAÇÃO";
-        folha.NaoVerificado = false;
-        folha.Itens.Add(new LinhaExecucaoItem {
-            ItemId = 1, Ordem = 1, Descricao = "Medicamento fictício para conferência visual",
-            Detalhe = "Dose e via demonstrativas", Situacao = "Não executável",
-            Marca = "○ 30/09/2026 às 10:37", Justificativa = "Justificativa de teste; médico comunicado.",
-            Executante = "Profissional de teste · COREN de teste", Pendente = false,
-            Realizado = false, NaoRealizado = true, Suspenso = false, SeNecessario = false, AlertaAlergia = null
-        });
+        // A folha de execução e o editor da prescrição de infusão viraram FORMULÁRIOS BLAZOR
+        // (out/2026 — autorização da direção de 19/10/2026, só a camada de tela): o leiaute e os
+        // botões deles são conferidos pelo TelasBlazorAbremTests (a Sala de infusão abre a folha) e
+        // o estado pela Application (FolhaDeExecucaoNaTela, PrescricaoDeInfusaoEmEdicao), com teste.
+        // Aqui fica a REGRA que a fila afirma sobre a folha encerrada e assinada.
         var encerrada = new PrescricaoInterna { Situacao = SituacaoPrescricao.Encerrada,
             ExigeAssinaturaEletronicaDaExecucao = true };
         encerrada.Assinaturas.Add(new AssinaturaDocumento { Papel = PapelAssinatura.Executante, ArquivoId = 1 });
         var linhaEncerrada = LinhaSalaInfusao.De(encerrada, DateOnly.FromDateTime(DateTime.Today));
         if (linhaEncerrada.RegistroPendente || linhaEncerrada.AguardaAssinatura)
             throw new Exception("Documento principal assinado continua aparecendo como pendência no desktop.");
-        folha.Mensagem = null;
-        var janela = new FolhaExecucaoWindow(folha) { ShowInTaskbar = false, ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 880, Height = 600 };
-        janela.Show();
-        folha.Carregando = true;
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        janela.UpdateLayout();
-        if (!Descendentes(janela).OfType<ProgressBar>().Any(p => p.IsVisible && p.IsIndeterminate))
-            throw new Exception("Folha sem progresso visível.");
-        if (Descendentes(janela).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled))
-            throw new Exception("Folha aceita ações durante carregamento.");
-        Foto(janela, "infusao-folha-carregando");
-        folha.Carregando = false;
-        folha.Mensagem = "✓ Registro confirmado. A checagem foi salva no prontuário.";
-        folha.MensagemEhErro = false;
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        janela.UpdateLayout();
-        if (Descendentes(janela).OfType<ProgressBar>().Any(p => p.IsVisible))
-            throw new Exception("Folha permanece carregando ao concluir.");
-        var impressoes = Descendentes(janela).OfType<Button>()
-            .Where(b => b.IsVisible && b.Content is string texto && texto.StartsWith("Imprimir")).ToList();
-        if (impressoes.Count != 1 || !Equals(impressoes[0].Content, "Imprimir infusão"))
-            throw new Exception("A folha deve oferecer apenas a impressão do documento da infusão.");
-        Foto(janela, "infusao-folha-confirmada");
-        folha.AvisoPdfHistorico = "PDF histórico: as assinaturas foram feitas sem incorporar os dados de execução. "
-            + "Consulte os horários, resultados e justificativas nesta tela. A impressão preserva o PDF originalmente assinado.";
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        janela.UpdateLayout();
-        if (!Descendentes(janela).OfType<TextBlock>().Any(t => t.IsVisible && t.Text == folha.AvisoPdfHistorico))
-            throw new Exception("Aviso do PDF histórico oculto.");
-        Foto(janela, "infusao-pdf-historico");
-        janela.Close();
-        var prescricao = new PrescricaoInternaEdicaoViewModel(escopos, dialogo, paciente.Id, paciente.Nome, medico.Id);
-        var editor = new Clinica.Clinico.Janelas.PrescricaoInternaWindow(prescricao) { ShowInTaskbar = false, ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 880, Height = 600 };
-        editor.Show();
-        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        prescricao.Ocupado = true; prescricao.TextoOperacao = "Assinando e arquivando prescrição…";
-        editor.UpdateLayout();
-        if (!Descendentes(editor).OfType<ProgressBar>().Any(p => p.IsVisible && p.IsIndeterminate)
-            || Descendentes(editor).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled))
-            throw new Exception("Editor de infusão não protege a operação em andamento.");
-        Foto(editor, "infusao-prescricao-assinando");
-        prescricao.Ocupado = false;
-        editor.Close();
-        Console.WriteLine("INFUSÃO: progresso visível, ações protegidas e confirmação sem indicador preso.");
+        Console.WriteLine("INFUSÃO: folha encerrada e assinada não aparece como pendência.");
+        return Task.CompletedTask;
     }
 
     static Task AuditarInfusao(ServiceProvider sp, UsuarioSistema usuario)
@@ -298,7 +213,6 @@ static class Program
     {
         _ = new ShellViewModel("Gerente", [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(),
             new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento(), new Clinica.Gerente.Modulo.ModuloGerente()], sp);
-        var escopos = sp.GetRequiredService<IServiceScopeFactory>();
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         LancamentoFinanceiro pendente;
         ItemEstoque item;
@@ -338,23 +252,13 @@ static class Program
             db.Add(horario); await db.SaveChangesAsync();
             await scope.ServiceProvider.GetRequiredService<EstoqueService>().RegistrarMateriaisAsync(horario.Id, usuario.Id, new([new(item.Id, 5)]));
         }
-        // Pagamentos e Retornos a marcar são telas Blazor desde out/2026: o leiaute sai da prévia
-        // (tools/PreviaBlazor) e o TelasBlazorAbremTests abre cada uma e clica cada botão.
-        var receber = new Clinica.Desktop.Shell.Componentes.ReceberPagamentoViewModel(escopos, pendente)
-            { Forma = FormaPagamento.CartaoCredito, Adquirente = "Maquininha", Bandeira = "Visa", Parcelas = "3" };
-        var receberJanela = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(receber);
-        await ConferirJanela(receberJanela, "receber-cartao", [480, 600]); receberJanela.Close();
-        var materiaisVm = new MateriaisProcedimentoViewModel([new MaterialProcedimentoLinha { ItemId = item.Id, Nome = "Material de procedimento com apresentação e nome compridos", Saldo = "Disponível: 10,125 un" }]);
-        await materiaisVm.ConfirmarCommand.ExecuteAsync(null);
-        if (materiaisVm.Pedido != null || string.IsNullOrWhiteSpace(materiaisVm.Erro)) throw new Exception("Consumo vazio passou sem declaração.");
-        materiaisVm.Itens[0].Quantidade = "1,125";
-        materiaisVm.Itens[0].Lote = "L-2026";
-        materiaisVm.Busca = "não encontrado";
-        await materiaisVm.ConfirmarCommand.ExecuteAsync(null);
-        if (materiaisVm.Pedido?.Materiais.Single().Quantidade != 1.125m) throw new Exception("Filtro apagou material preenchido.");
-        materiaisVm.Busca = null;
-        var materiaisJanela = new MateriaisProcedimentoWindow(materiaisVm);
-        await ConferirJanela(materiaisJanela, "materiais-procedimento", [550, 700]); materiaisJanela.Close();
+        // Pagamentos e Retornos a marcar são telas Blazor desde out/2026, e o receber do balcão é o
+        // ReceberPagamentoForm (a RecebimentoWindow WPF saiu): o leiaute sai da prévia
+        // (tools/PreviaBlazor) e o TelasBlazorAbremTests abre cada uma e clica cada botão. A REGRA
+        // do recebimento por cartão é conferida logo abaixo, pelo PagamentosRecepcaoService.
+        // A janela WPF de materiais do procedimento saiu em out/2026 (código morto: o registro é o
+        // MateriaisAtendimentoForm Blazor, que o TelasBlazorAbremTests abre e clica). A REGRA da
+        // quantidade fracionada continua conferida logo abaixo, pela leitura que as duas usam.
         var culturaAnterior = System.Globalization.CultureInfo.CurrentCulture;
         try
         {
@@ -385,42 +289,6 @@ static class Program
             if (SessaoUsuario.Atual.Pode(Permissao.VenderPacote) != (perfil == PerfilAcesso.Recepcao)) throw new Exception("Permissão de pagamentos fora do perfil.");
         }
         Console.WriteLine("GESTÃO: saldos, alertas, permissões, pagamentos e compras conferidos.");
-    }
-
-    static async Task ConferirA1()
-    {
-        var vm = new EscolherCertificadoViewModel("Assinar relatório clínico fictício");
-        if (vm.Certificados.Count != 0 || !vm.Vazio || vm.Selecionado is not null)
-            throw new InvalidOperationException("A assinatura deve iniciar sem certificados: somente importação A1 explícita.");
-        // A captura usa somente a tela; não apresenta certificados locais nem acessa a clínica.
-        foreach (var linha in vm.Certificados) linha.Certificado.Dispose();
-        vm.Certificados.Clear(); vm.Selecionado = null; vm.Vazio = true; vm.Mensagem = null;
-        using var rsa = System.Security.Cryptography.RSA.Create(2048);
-        var pedido = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=Fictício",
-            rsa, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
-        var certificado = pedido.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddDays(1));
-        var anterior = LinhaCertificado.De(new Clinica.Application.Assinatura.CertificadoAssinatura(
-            certificado, "Fictício", "Fictício", "1", certificado.NotBefore, certificado.NotAfter, "52998224725"));
-        vm.Certificados.Add(anterior); vm.Selecionado = anterior;
-        if (!vm.PodeConfirmar) throw new Exception("Pré-condição: certificado anterior não selecionável.");
-        await vm.CarregarA1Async([1, 2, 3], "senha-incorreta");
-        if (!vm.MensagemEhErro || vm.PodeConfirmar || vm.Selecionado is not null)
-            throw new Exception("Falha de importação A1 manteve certificado anterior autorizado sem nova escolha.");
-        vm.ConfirmarCommand.Execute(null);
-        if (vm.Confirmou || vm.Escolhido is not null) throw new Exception("Falha de A1 confirmou certificado anterior.");
-        // A opção anterior permanece disponível, mas exige seleção explícita.
-        vm.Selecionado = anterior;
-        if (!vm.PodeConfirmar) throw new Exception("Certificado anterior não permite nova escolha explícita.");
-        vm.Selecionado = null; vm.LiberarNaoEscolhidos(); vm.Certificados.Clear(); vm.Mensagem = null;
-        var janela = new EscolherCertificadoWindow(vm) { ShowInTaskbar = false, ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000 };
-        janela.Show(); janela.UpdateLayout();
-        Descendentes(janela).OfType<Expander>().Single().IsExpanded = true;
-        await ConferirJanela(janela, "certificado-a1", [780, 960]);
-        var campo = Descendentes(janela).OfType<PasswordBox>().Single();
-        campo.Password = "senha-ficticia";
-        janela.Close();
-        if (campo.Password.Length != 0) throw new Exception("Senha permaneceu no formulário fechado.");
     }
 
     static async Task ConferirJanela(Window janela, string nome, int[] larguras)

@@ -1,0 +1,104 @@
+@*
+  REGISTRAR MEDIDA (out/2026: o que no WPF era a RegistrarMedidaWindow + MedidaEdicaoViewModel).
+  O tipo (só os registráveis — o IMC é calculado), a data, o valor (e o segundo valor da
+  pressão) e a observação. A leitura do número é a MESMA do WPF (MedidasNaTela.LerNumero); a
+  faixa e a implausibilidade são do serviço. Erro de campo inline; a tela recarrega.
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Medidas
+@inherits TelaBase
+
+<Modal Titulo="Registrar medida" Subtitulo="@Paciente" Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="O que" Classe="largo">
+                <select class="campo" value="@_tipo?.Codigo" @onchange="TrocarTipo">
+                    @foreach (var t in CatalogoMedidas.Registraveis)
+                    {
+                        <option value="@t.Codigo">@t.Nome</option>
+                    }
+                </select>
+            </Campo>
+            <Campo Rotulo="Data"><input class="campo" type="date" @bind="_data" /></Campo>
+            <Campo Rotulo="Valor" Dica="@Ajuda"><input class="campo valor" @bind="_valor" @bind:event="oninput" maxlength="12" /></Campo>
+            @if (_tipo is { TemSegundoValor: true } comPar)
+            {
+                <Campo Rotulo="@(comPar.RotuloSegundoValor ?? string.Empty)"><input class="campo valor" @bind="_segundo" @bind:event="oninput" maxlength="12" /></Campo>
+            }
+            <Campo Rotulo="Observação (opcional)" Classe="largo"><input class="campo" @bind="_observacoes" maxlength="500" /></Campo>
+        </div>
+        <Aviso Texto="@_erro" Tom="erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@_salvando" @onclick="RegistrarAsync">Registrar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public string Paciente { get; set; } = string.Empty;
+    [Parameter] public string? TipoInicial { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>Gravou: devolve o código do tipo registrado (a tela passa a acompanhá-lo).</summary>
+    [Parameter] public EventCallback<string> AoConcluir { get; set; }
+
+    private TipoMedida? _tipo;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string? _valor, _segundo, _observacoes, _erro;
+    private bool _salvando;
+
+    private string Ajuda => _tipo is null ? string.Empty : $"Em {_tipo.Unidade}. {_tipo.Nota}".Trim();
+
+    // Abre no tipo acompanhado; o derivado (IMC) não se colhe — cai no peso.
+    protected override void OnInitialized()
+        => _tipo = CatalogoMedidas.Registraveis.FirstOrDefault(t => t.Codigo == TipoInicial)
+                   ?? CatalogoMedidas.Registraveis.FirstOrDefault(t => t.Codigo == CatalogoMedidas.Peso);
+
+    private void TrocarTipo(ChangeEventArgs e)
+    {
+        _tipo = CatalogoMedidas.Registraveis.FirstOrDefault(t => t.Codigo == e.Value?.ToString());
+        // Trocar de tipo esquece o segundo valor: a diastólica não é número para o peso.
+        _segundo = null;
+    }
+
+    private async Task RegistrarAsync()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        _erro = null;
+        if (_tipo is not { } tipo) { _erro = "Escolha o que está sendo medido."; return; }
+        if (MedidasNaTela.LerNumero(_valor) is not { } valor) { _erro = $"Digite o valor de {tipo.Nome}."; return; }
+        decimal? segundo = null;
+        if (tipo.TemSegundoValor)
+        {
+            segundo = MedidasNaTela.LerNumero(_segundo);
+            if (segundo is null) { _erro = $"{tipo.Nome} precisa dos dois valores: {tipo.RotuloSegundoValor} está em branco."; return; }
+        }
+        _salvando = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<MedidaClinicaService>().RegistrarAsync(new MedidaClinica
+                {
+                    PacienteId = PacienteId,
+                    ProfissionalId = SessaoUsuario.Atual.ProfissionalId,
+                    Data = _data,
+                    TipoCodigo = tipo.Codigo,
+                    Valor = valor,
+                    ValorSecundario = segundo,
+                    Observacoes = _observacoes
+                }, Operador);
+            await AoConcluir.InvokeAsync(tipo.Codigo);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — medida não pôde ser registrada", ex);
+            _erro = ex.Message;
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+}

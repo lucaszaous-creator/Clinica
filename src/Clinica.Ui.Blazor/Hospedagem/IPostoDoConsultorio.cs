@@ -57,7 +57,10 @@ public enum DestinoNoPosto
     EvolucaoMedica,
 
     /// <summary>A tela do paciente na ficha (o clique num horário da semana).</summary>
-    Paciente
+    Paciente,
+
+    /// <summary>A tela do paciente no Histórico (o Prontuário › Por paciente da Recepção).</summary>
+    Historico
 }
 
 /// <summary>O que o posto precisa saber do paciente escolhido.</summary>

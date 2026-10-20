@@ -1,9 +1,0 @@
-<Window x:Class="Clinica.Desktop.Shell.Componentes.DocumentoWindow"
- xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="{Binding TituloDocumento}" Width="1280" Height="680" MinWidth="700" MinHeight="520"
- WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Superficie}" FontFamily="Segoe UI"
- FontSize="{StaticResource Fonte.Corpo}">
- <!-- DocumentoFolha posiciona esta rolagem dentro da superfície, entre cabeçalho e ações. -->
- <ScrollViewer x:Name="RolagemFolha" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"/>
-</Window>

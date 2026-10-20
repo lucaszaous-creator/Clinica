@@ -1,0 +1,680 @@
+@*
+  A FOLHA DE EXECUÇÃO — onde a enfermagem checa (parcela 42; out/2026: substitui a
+  FolhaExecucaoWindow + FolhaExecucaoViewModel WPF — autorização da direção de 19/10/2026, só a
+  camada de tela). Registra a afirmação "foi prescrito assim e foi realizado assim", com hora e
+  assinatura. Os mesmos atos, as mesmas perguntas e os MESMOS serviços com os MESMOS argumentos:
+  · a hora é DIGITADA (vem com a de agora só como sugestão — o campo é de quem executou);
+  · "não realizado" pede a justificativa ANTES de gravar, e reação vira ALERGIA se quem checou confirmar;
+  · a alergia é conferida ITEM A ITEM antes de administrar (parcela 72);
+  · a 2ª assinatura (a da enfermagem) e a validação do médico seguem a ORDEM de
+    AssinaturaDaPrescricaoNaTela (conferência → confirmação → certificado → assinatura), movida
+    do ViewModel sem mudança e com teste.
+  O estado e as frases moram em FolhaDeExecucaoNaTela (Application).
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+@inject IAssinaturaNaTela Assinatura
+@inject JanelasNaTela Janelas
+
+<Modal Titulo="@($"Folha de execução {_folha.Numero}")" Subtitulo="@_folha.Paciente" Largura="largo" AoFechar="FecharAsync">
+    <ChildContent>
+        @if (_operacao is not null)
+        {
+            <p class="fol-operacao" role="status">@_operacao</p>
+        }
+        <fieldset class="fol-folha" disabled="@(_operacao is not null)">
+            <p class="secundario">@_folha.Cabecalho</p>
+            @if (_folha.DiluicaoTotal is { } diluicao)
+            {
+                <p class="principal">@diluicao</p>
+            }
+            <p class="secundario">@_folha.Resumo</p>
+            @if (_folha.MedicacaoEmUso is { } emUso)
+            {
+                <p class="secundario">@emUso</p>
+            }
+
+            <Aviso Texto="@FolhaDeExecucaoNaTela.AvisoDoConselho" Tom="atencao" />
+            @if (_folha.TemAlertas)
+            {
+                <div class="aviso erro" role="alert">
+                    <Icone Nome="alerta" />
+                    <span>@string.Join(" · ", _folha.Alertas)</span>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_folha.MotivoDevolucao))
+            {
+                <div class="aviso info">
+                    <Icone Nome="info" />
+                    <span><strong>Devolvida pelo médico · revise e crie nova versão</strong><br />@_folha.MotivoDevolucao</span>
+                </div>
+            }
+
+            <div class="fol-hora">
+                <Campo Rotulo="Data da administração">
+                    <input class="campo" type="date" disabled="@(!_folha.PodeMexer)"
+                           value="@_dataRealizacao?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" @onchange="TrocarData" />
+                </Campo>
+                <Campo Rotulo="Hora para os itens">
+                    <input class="campo fol-curto" disabled="@(!_folha.PodeMexer)" value="@_hora" @oninput="e => _hora = e.Value?.ToString() ?? string.Empty" maxlength="5" />
+                </Campo>
+                <p class="secundario">Escreva o horário em que o item foi de fato administrado. O sistema guarda ao lado a hora em que você registrou.</p>
+            </div>
+
+            <div class="fol-itens">
+                @if (!_folha.Carregou && !_folha.NaoVerificado)
+                {
+                    <Esqueleto Altura="120" />
+                }
+                else if (_folha.NaoVerificado)
+                {
+                    <FalhaDeLeitura Titulo="A folha não pôde ser lida" Detalhe="@_mensagem" AoTentarDeNovo="CarregarAsync" />
+                }
+                else if (_folha.Itens.Count == 0)
+                {
+                    <EstadoVazio Titulo="Esta folha não tem itens" Icone="lista"
+                                 Descricao="Uma prescrição sem item não deveria ter sido assinada — avise quem prescreveu." />
+                }
+                else
+                {
+                    @foreach (var l in _folha.Itens)
+                    {
+                        <div class="fol-item">
+                            <span class="fol-ordem">@l.Ordem</span>
+                            <div class="fol-item-texto">
+                                <span class="principal">@l.Descricao</span>
+                                <span class="secundario">@l.Detalhe</span>
+                                @if (l.TemAlertaAlergia)
+                                {
+                                    <span class="fol-alergia">@l.AlertaAlergia</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(l.Justificativa))
+                                {
+                                    <span class="fol-justificativa">@l.Justificativa</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(l.Executante))
+                                {
+                                    <span class="secundario">@l.Executante</span>
+                                }
+                            </div>
+                            <span class="fol-marca @(l.Realizado ? "realizado" : l.NaoRealizado ? "nao-realizado" : null)">@l.Marca</span>
+                            <div class="botoes-linha">
+                                @if (l.Pendente)
+                                {
+                                    <button type="button" class="botao mini" disabled="@(!_folha.PodeMexer)" @onclick="() => ChecarAsync(l, SituacaoChecagem.Realizado)">☐ Sim</button>
+                                    <button type="button" class="botao mini contorno-perigo" disabled="@(!_folha.PodeMexer)" @onclick="() => ChecarAsync(l, SituacaoChecagem.NaoRealizado)">☐ Não</button>
+                                    <button type="button" class="botao mini" disabled="@(!_folha.PodeMexer)" @onclick="() => ChecarAsync(l, SituacaoChecagem.NaoExecutavel)">☐ Não executável</button>
+                                    <button type="button" class="botao mini" disabled="@(!_folha.PodeSuspender)" @onclick="() => SuspenderAsync(l)"
+                                            title="O item não deve mais ser feito — decisão de quem prescreve, com motivo. Item já checado não se suspende.">Suspender</button>
+                                }
+                                @if (l.Checado)
+                                {
+                                    <button type="button" class="botao mini" disabled="@(!_folha.PodeMexer)" @onclick="() => RetificarAsync(l)">Retificar</button>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </fieldset>
+
+        <Aviso Texto="@(_folha.NaoVerificado ? null : _mensagem)" Tom="@(_mensagemEhErro ? "erro" : "info")" />
+        @if (!string.IsNullOrWhiteSpace(_folha.AvisoPdfHistorico))
+        {
+            <p class="secundario">@_folha.AvisoPdfHistorico</p>
+        }
+        <p class="secundario">Encerrar fecha a folha: ela sai da sala e não pode mais ser checada.</p>
+        @if (!string.IsNullOrWhiteSpace(_folha.SituacaoAssinaturaExecucao))
+        {
+            <p class="principal">@_folha.SituacaoAssinaturaExecucao</p>
+        }
+    </ChildContent>
+    <Rodape>
+        <div class="fol-rodape" aria-disabled="@(_operacao is not null)">
+            <button type="button" class="botao" disabled="@(_operacao is not null)" @onclick="ImprimirAsync"
+                    title="Abre o documento da infusão. Quando assinado, preserva o PDF e as assinaturas guardadas.">Imprimir infusão</button>
+            @if (_folha.ExibirRegistroSeparado)
+            {
+                <button type="button" class="botao" disabled="@(!_folha.TemRegistroExecucao || _operacao is not null)" @onclick="ImprimirRegistroAsync"
+                        title="Abre o PDF de execução separado, arquivado no formato anterior.">Registro histórico</button>
+            }
+            <button type="button" class="botao" disabled="@(!FolhaDeExecucaoNaTela.PodeRegistrarEnfermagem || _operacao is not null)" @onclick="AnotarAsync"
+                    title="Registrar no prontuário o que foi observado no paciente — sinais vitais, intercorrência, evolução da passagem.">Anotar</button>
+            <button type="button" class="botao" disabled="@(_operacao is not null)" @onclick="FecharAsync">Fechar</button>
+            <button type="button" class="botao primario" disabled="@(!_folha.PodeEncerrar || _operacao is not null)" @onclick="EncerrarAsync">Encerrar execução</button>
+            @if (_folha.PodeValidarMedico)
+            {
+                <button type="button" class="botao primario" disabled="@(_operacao is not null)" @onclick="ValidarMedicoAsync">Validar e assinar como médico</button>
+            }
+            @if (_folha.PodeDevolverMedico)
+            {
+                <button type="button" class="botao" disabled="@(_operacao is not null)" @onclick="DevolverMedicoAsync">Devolver à enfermagem</button>
+            }
+            @if (_folha.PodeRevisarDevolucao)
+            {
+                <button type="button" class="botao primario" disabled="@(_operacao is not null)" @onclick="RevisarDevolucaoAsync">Revisar devolução</button>
+            }
+            @if (_folha.PodeCorrigirHorarios)
+            {
+                <button type="button" class="botao" disabled="@(_operacao is not null)" @onclick="CorrigirHorariosAsync">Corrigir horários</button>
+            }
+            @if (_folha.PodeCancelarInfusao)
+            {
+                <button type="button" class="botao" disabled="@(_operacao is not null)" @onclick="CancelarInfusaoAsync">Cancelar registro</button>
+            }
+            @if (_folha.AguardaAssinaturaExecucao)
+            {
+                <button type="button" class="botao primario" disabled="@(!_folha.PodeAssinarExecucao || _operacao is not null)" @onclick="AssinarExecucaoAsync"
+                        title="Assina a MESMA prescrição que o prescritor assinou, com o SEU certificado A1 individual — a assinatura dele não é tocada. O CPF do certificado é conferido contra o seu cadastro.">Assinar execução</button>
+            }
+        </div>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PrescricaoId { get; set; }
+
+    /// <summary>A folha mudou (checagem, encerramento, assinatura): quem abriu relê.</summary>
+    [Parameter] public EventCallback<bool> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private FolhaDeExecucaoNaTela _folha = default!;
+    private string _hora = DateTime.Now.ToString("HH\\:mm");
+    private DateTime? _dataRealizacao = DateTime.Today;
+    private string? _mensagem, _operacao;
+    private bool _mensagemEhErro;
+
+    protected override void OnInitialized() => _folha = new FolhaDeExecucaoNaTela(PrescricaoId);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var erro = await _folha.CarregarAsync(Escopos);
+        if (erro is not null) Falar(erro, true);
+    }
+
+    private void Falar(string? texto, bool erro)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = erro;
+    }
+
+    private void TrocarData(ChangeEventArgs e)
+        => _dataRealizacao = DateTime.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    // A folha sempre devolve verdadeiro ao fechar: quem abriu relê de qualquer forma (o WPF relia
+    // a sala depois do ShowDialog, sem perguntar o que mudou).
+    private Task FecharAsync() => _operacao is not null ? Task.CompletedTask : AoConcluir.InvokeAsync(true);
+
+    private async Task Operar(string texto, Func<Task> acao)
+    {
+        _operacao = texto;
+        try { await acao(); }
+        finally { _operacao = null; }
+    }
+
+    /// <summary>A evolução de enfermagem — a segunda porta, para quem já está na folha.</summary>
+    private async Task AnotarAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
+        }
+        catch (Exception ex) { Falar(ex.Message, true); return; }
+
+        await Janelas.AbrirAsync<EvolucaoDaFolhaForm, bool>(new Dictionary<string, object?>
+        {
+            ["PacienteId"] = _folha.PacienteId,
+            ["Paciente"] = _folha.Paciente,
+            ["PrescricaoId"] = PrescricaoId,
+            ["Folha"] = _folha.Numero
+        });
+        await CarregarAsync();
+    }
+
+    private async Task ChecarAsync(LinhaExecucaoItem linha, SituacaoChecagem situacao)
+    {
+        if (linha.Suspenso)
+        {
+            Falar("Este item foi suspenso pelo prescritor e não deve ser administrado.", true);
+            return;
+        }
+
+        if (linha.Checado)
+        {
+            Falar("Este item já foi checado. Use Retificar — a checagem anterior fica "
+                  + "na folha, com o motivo da correção.", true);
+            return;
+        }
+
+        string? justificativa = null;
+        string? alergia = null;
+        var confirmouAlergia = false;
+
+        // ⚠️ A alergia é conferida ANTES do clique valer (parcela 72).
+        if (situacao == SituacaoChecagem.Realizado && linha.TemAlertaAlergia)
+        {
+            if (!await Dialogos.ConfirmarAsync(
+                    "ALERGIA registrada — administrar mesmo assim?",
+                    $"Item {linha.Ordem} — {linha.Descricao}\n\n{linha.AlertaAlergia}\n\n"
+                    + "O sistema não impede: o registro pode estar errado, pode haver "
+                    + "dessensibilização, e quem está com o paciente é quem decide. Mas a "
+                    + "confirmação fica registrada."))
+                return;
+
+            confirmouAlergia = true;
+        }
+
+        if (situacao != SituacaoChecagem.Realizado)
+        {
+            justificativa = await Dialogos.PerguntarTextoAsync(
+                "Por que não foi realizado?",
+                $"Item {linha.Ordem} — {linha.Descricao}\n\n"
+                + "Ex.: paciente recusou, apresentou reação, acesso perdido, medicação em falta.");
+
+            // Sem justificativa não se grava — e o serviço recusaria de qualquer forma.
+            if (string.IsNullOrWhiteSpace(justificativa)) return;
+
+            alergia = await PerguntarAlergiaAsync(justificativa);
+        }
+
+        var texto = situacao switch
+        {
+            SituacaoChecagem.Realizado => "Registrando realização…",
+            SituacaoChecagem.NaoRealizado => "Registrando não realização…",
+            _ => "Registrando item não executável…"
+        };
+        await Operar(texto, () => ExecutarAsync(async (servico, executante, data, hora) =>
+            await servico.ChecarAsync(
+                linha.ItemId, situacao, hora, executante, justificativa, alergia,
+                confirmouAlergia, dataRealizacao: data)));
+    }
+
+    /// <summary>Corrige uma checagem SEM apagá-la: grava outra apontando a anterior, com motivo.</summary>
+    private async Task RetificarAsync(LinhaExecucaoItem linha)
+    {
+        if (!linha.Checado) return;
+
+        // A segunda barreira, ANTES de pedir o motivo: retificar é o mesmo ato de checar.
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "retificar checagem");
+        }
+        catch (Exception ex)
+        {
+            Falar(ex.Message, true);
+            return;
+        }
+
+        var motivo = await Dialogos.PerguntarTextoAsync(
+            "Retificar checagem",
+            $"Por que a checagem do item {linha.Ordem} estava errada? A anterior NÃO é "
+            + "apagada — ela continua na folha, com este motivo ao lado.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        var novaSituacao = linha.Realizado
+            ? SituacaoChecagem.NaoRealizado
+            : SituacaoChecagem.Realizado;
+
+        string? justificativa = null;
+        if (novaSituacao == SituacaoChecagem.NaoRealizado)
+        {
+            justificativa = await Dialogos.PerguntarTextoAsync(
+                "Por que não foi realizado?",
+                $"Item {linha.Ordem} — {linha.Descricao}");
+            if (string.IsNullOrWhiteSpace(justificativa)) return;
+        }
+
+        // Retificar de "não realizado" para "realizado" É administrar: a alergia vale igual.
+        var confirmouAlergia = false;
+        if (novaSituacao == SituacaoChecagem.Realizado && linha.TemAlertaAlergia)
+        {
+            if (!await Dialogos.ConfirmarAsync(
+                    "ALERGIA registrada — administrar mesmo assim?",
+                    $"Item {linha.Ordem} — {linha.Descricao}\n\n{linha.AlertaAlergia}\n\n"
+                    + "O sistema não impede — quem está com o paciente é quem decide —, "
+                    + "mas a confirmação fica registrada."))
+                return;
+
+            confirmouAlergia = true;
+        }
+
+        await Operar("Retificando execução…", () => ExecutarAsync(async (servico, executante, data, hora) =>
+            await servico.RetificarAsync(
+                linha.ItemId, novaSituacao, hora, executante, motivo, justificativa,
+                confirmouAlergia, dataRealizacao: data)));
+    }
+
+    /// <summary>
+    /// Encerra a execução: a folha sai da sala e não se checa mais. A folha que pede a 2ª
+    /// assinatura oferece a colheita NA HORA.
+    /// </summary>
+    private async Task EncerrarAsync()
+    {
+        if (!_folha.ExecucaoCompleta)
+        {
+            Falar(FolhaDeExecucaoNaTela.ItemSemChecagem, true);
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "checar prescrição");
+
+            if (!await Dialogos.ConfirmarAsync("Encerrar execução", _folha.ConfirmacaoDeEncerrar))
+                return;
+
+            await Operar("Encerrando execução…", async () =>
+            {
+                using var scope = Escopo();
+                var servico = scope.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>();
+                await servico.EncerrarAsync(PrescricaoId, FolhaDeExecucaoNaTela.Executante());
+            });
+
+            await CarregarAsync();
+
+            if (_folha.AguardaAssinaturaExecucao
+                && await Dialogos.ConfirmarAsync(
+                    "Assinar a execução",
+                    "Esta folha pede a assinatura eletrônica da enfermagem. Assinar agora, "
+                    + "com o seu certificado?"))
+            {
+                await AssinarExecucaoAsync();
+                return;
+            }
+
+            Falar(_folha.EncerradaFrase, false);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — execução não pôde ser encerrada", ex);
+            Falar(ex.Message, true);
+        }
+    }
+
+    private async Task AssinarExecucaoAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "checar prescrição");
+
+            if (!SessaoUsuario.Atual.Autenticado)
+            {
+                // Sem login não há CPF contra o qual conferir o certificado.
+                Falar(FolhaDeExecucaoNaTela.SemLoginParaAssinar, true);
+                return;
+            }
+
+            DesfechoDaAssinaturaDaExecucao desfecho = DesfechoDaAssinaturaDaExecucao.Desistencia;
+            await Operar("Assinando e arquivando execução…", async () =>
+                desfecho = await AssinaturaDaPrescricaoNaTela.AssinarExecucaoAsync(
+                    Escopos, PrescricaoId,
+                    AssinaturaDaPrescricaoNaTela.AssuntoDaExecucao(_folha.Numero, _folha.Paciente),
+                    Assinatura.EscolherCertificadoAsync,
+                    SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador));
+
+            if (desfecho.Desistiu) return;   // seletor fechado: sair calado é o certo
+
+            await CarregarAsync();
+            var (frase, erro) = AssinaturaDaPrescricaoNaTela.MensagemDaExecucao(_folha.OrigemEnfermagem, desfecho);
+            Falar(frase, erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Sala de infusão — execução não pôde ser assinada", ex);
+            Falar(ex.Message, true);
+        }
+    }
+
+    private async Task ValidarMedicoAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "validar a infusão");
+            if (!_folha.PodeValidarMedico) throw new InvalidOperationException("Esta validação está pendente para o médico responsável, após a assinatura da enfermagem.");
+
+            DesfechoDaLiberacao desfecho = DesfechoDaLiberacao.Desistiu;
+            await Operar("Validando e assinando infusão…", async () =>
+                desfecho = await AssinaturaDaPrescricaoNaTela.ValidarComoMedicoAsync(
+                    Escopos, PrescricaoId, _folha.ContinuidadeAtiva,
+                    AssinaturaDaPrescricaoNaTela.AssuntoDaValidacao(_folha.Numero, _folha.Paciente),
+                    (titulo, mensagem) => Dialogos.ConfirmarAsync(titulo, mensagem),
+                    Assinatura.EscolherCertificadoAsync,
+                    SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador));
+
+            switch (desfecho)
+            {
+                case DesfechoDaLiberacao.LiberadaSemAssinatura:
+                    await CarregarAsync();
+                    Falar("✓ Avaliação registrada sem assinatura digital.", false);
+                    break;
+                case DesfechoDaLiberacao.Assinada:
+                    await CarregarAsync();
+                    Falar("✓ Infusão validada pelo médico. O PDF com as duas assinaturas está arquivado no paciente.", false);
+                    break;
+                // Alergia não confirmada ou seletor fechado: sai sem mensagem, como no WPF.
+            }
+        }
+        catch (Exception ex) { Falar(ex.Message, true); }
+    }
+
+    private async Task DevolverMedicoAsync()
+    {
+        try
+        {
+            if (!_folha.PodeDevolverMedico) throw new InvalidOperationException("Somente o médico responsável pode devolver esta pendência.");
+            var motivo = await Dialogos.PerguntarTextoAsync("Devolver infusão à enfermagem",
+                "Explique o que precisa ser revisto. A execução assinada permanecerá no histórico.");
+            if (motivo is null) return;
+            await Operar("Devolvendo à enfermagem…", async () =>
+            {
+                using var scope = Escopo();
+                await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>()
+                    .DevolverInfusaoExternaAsync(PrescricaoId, SessaoUsuario.Atual.UsuarioId, motivo);
+            });
+            await CarregarAsync();
+            Falar("✓ Devolvida à enfermagem com motivo registrado. A folha original permanece arquivada.", false);
+        }
+        catch (Exception ex) { Falar(ex.Message, true); }
+    }
+
+    private async Task RevisarDevolucaoAsync()
+    {
+        try
+        {
+            if (!_folha.PodeRevisarDevolucao) throw new InvalidOperationException("Esta devolução não está pendente para este executante.");
+            var novoId = await Janelas.AbrirAsync<InfusaoExternaForm, int?>(new Dictionary<string, object?>
+            {
+                ["PacienteId"] = _folha.PacienteId,
+                ["Paciente"] = _folha.Paciente,
+                ["RetificaPrescricaoId"] = PrescricaoId
+            });
+            if (novoId is null) return;
+            await CarregarAsync();
+            Falar($"Nova versão #{novoId} registrada. Abra-a na fila para revisar e assinar a execução.", false);
+        }
+        catch (Exception ex) { Falar(ex.Message, true); }
+    }
+
+    private async Task CorrigirHorariosAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "corrigir os horários da infusão");
+            if (!_folha.PodeCorrigirHorarios) throw new InvalidOperationException("Os horários ficam bloqueados após a primeira assinatura.");
+            var dataPrescricaoTexto = await Dialogos.PerguntarTextoAsync("Corrigir infusão", "Data da prescrição (dd/MM/aaaa)", _folha.DataPrescricao.ToString("dd/MM/yyyy"));
+            if (dataPrescricaoTexto is null) return;
+            var horaPrescricaoTexto = await Dialogos.PerguntarTextoAsync("Corrigir infusão", "Hora da prescrição (HH:mm)", _folha.HoraPrescricao.ToString("HH\\:mm"));
+            if (horaPrescricaoTexto is null) return;
+            var dataExecucaoTexto = await Dialogos.PerguntarTextoAsync("Corrigir infusão", "Data da execução (dd/MM/aaaa)", _folha.DataExecucao.ToString("dd/MM/yyyy"));
+            if (dataExecucaoTexto is null) return;
+            var horaExecucaoTexto = await Dialogos.PerguntarTextoAsync("Corrigir infusão", "Hora da execução (HH:mm)", _folha.HoraExecucao.ToString("HH\\:mm"));
+            if (horaExecucaoTexto is null) return;
+            var motivo = await Dialogos.PerguntarTextoAsync("Corrigir infusão", "Motivo da correção (obrigatório)");
+            if (motivo is null) return;
+            var cultura = CultureInfo.GetCultureInfo("pt-BR");
+            if (!DateOnly.TryParseExact(dataPrescricaoTexto, "dd/MM/yyyy", cultura, DateTimeStyles.None, out var dataPrescricao)
+                || !TimeOnly.TryParse(horaPrescricaoTexto, out var horaPrescricao)
+                || !DateOnly.TryParseExact(dataExecucaoTexto, "dd/MM/yyyy", cultura, DateTimeStyles.None, out var dataExecucao)
+                || !TimeOnly.TryParse(horaExecucaoTexto, out var horaExecucao))
+                throw new InvalidOperationException("Confira as datas (dd/MM/aaaa) e as horas (HH:mm).");
+            await Operar("Salvando horários…", async () =>
+            {
+                using var scope = Escopo();
+                await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().CorrigirHorariosInfusaoExternaAsync(
+                    PrescricaoId, SessaoUsuario.Atual.UsuarioId, dataPrescricao, horaPrescricao, dataExecucao, horaExecucao, motivo);
+            });
+            await CarregarAsync();
+            Falar("✓ Horários corrigidos. Revise o PDF antes de assinar.", false);
+        }
+        catch (Exception ex) { Falar(ex.Message, true); }
+    }
+
+    private async Task CancelarInfusaoAsync()
+    {
+        try
+        {
+            if (!_folha.PodeCancelarInfusao) throw new InvalidOperationException("Esta infusão não pode ser cancelada por este usuário.");
+            var motivo = await Dialogos.PerguntarTextoAsync("Cancelar infusão ou prescrição",
+                "Informe o motivo. O registro e as assinaturas já feitas permanecerão no histórico.");
+            if (motivo is null) return;
+            await Operar("Cancelando registro…", async () =>
+            {
+                using var scope = Escopo();
+                await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().CancelarAsync(
+                    PrescricaoId, motivo, SessaoUsuario.Atual.Operador);
+            });
+            await CarregarAsync();
+            Falar("✓ Registro cancelado e preservado no histórico.", false);
+        }
+        catch (Exception ex) { Falar(ex.Message, true); }
+    }
+
+    /// <summary>
+    /// Imprime a folha de PRESCRIÇÃO — quando há assinatura eletrônica, saem os BYTES GUARDADOS:
+    /// a assinatura cobre bytes, e um PDF "igual" regerado agora abriria como inválido.
+    /// </summary>
+    private Task ImprimirAsync() => ImprimirFolhaAsync(false);
+
+    private Task ImprimirRegistroAsync() => ImprimirFolhaAsync(true);
+
+    private async Task ImprimirFolhaAsync(bool registroHistorico)
+    {
+        try
+        {
+            FolhaAssinada folha = default!;
+            await Operar("Preparando folha da infusão…", async () =>
+            {
+                using var scope = Escopo();
+                var assinaturas = scope.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>();
+                folha = registroHistorico
+                    ? await assinaturas.FolhaAsync(PrescricaoId, FolhaPrescricao.RegistroExecucao)
+                    : await assinaturas.DocumentoInfusaoAsync(PrescricaoId);
+            });
+
+            var erro = await Host.SalvarEAbrirAsync(folha.Pdf, folha.NomeArquivo, "PDF (*.pdf)|*.pdf", ".pdf");
+
+            // A conferência da assinatura é DITA, nas três respostas possíveis.
+            Falar(erro ?? folha.Conferencia?.Frase ?? "Documento sem assinatura digital; confira a identificação no PDF.",
+                erro is not null || folha.Conferencia is { Integra: false });
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Sala de infusão — folha não pôde ser impressa", ex);
+            Falar(ex.Message, true);
+        }
+    }
+
+    /// <summary>Tira um item da folha ASSINADA — o caminho de correção de quem prescreve.</summary>
+    private async Task SuspenderAsync(LinhaExecucaoItem linha)
+    {
+        if (linha.Checado || linha.Suspenso)
+        {
+            Falar(linha.Suspenso
+                ? "Este item já está suspenso."
+                : "Este item já foi checado pela enfermagem e não se suspende — se a "
+                  + "checagem está errada, quem executou deve retificá-la.", true);
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "suspender item de prescrição");
+
+            var motivo = await Dialogos.PerguntarTextoAsync(
+                "Suspender item",
+                $"Por que o item {linha.Ordem} ({linha.Descricao}) não deve mais ser feito? "
+                + "O item continua na folha, marcado como suspenso, com este motivo ao lado.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+
+            await Operar("Atualizando item…", async () =>
+            {
+                using var scope = Escopo();
+                var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
+                await servico.SuspenderItemAsync(linha.ItemId, motivo, SessaoUsuario.Atual.Operador);
+            });
+
+            Falar("✓ Item suspenso. O motivo foi salvo no prontuário.", false);
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Sala de infusão — item não pôde ser suspenso", ex);
+            Falar(ex.Message, true);
+        }
+    }
+
+    /// <summary>
+    /// Quando a justificativa fala em reação/alergia, oferece registrar a alergia no prontuário —
+    /// a oferta é disparada pela palavra, mas quem decide é quem checou.
+    /// </summary>
+    private async Task<string?> PerguntarAlergiaAsync(string justificativa)
+    {
+        if (!FolhaDeExecucaoNaTela.JustificativaFalaEmReacao(justificativa)) return null;
+
+        if (!await Dialogos.ConfirmarAsync(
+                "Registrar alergia no prontuário?",
+                "A justificativa fala em reação. Quer registrar isso como ALERGIA na lista "
+                + "de problemas do paciente? A partir daí toda prescrição com esse termo "
+                + "passa a acender um alerta."))
+            return null;
+
+        var descricao = await Dialogos.PerguntarTextoAsync(
+            "Alergia a quê?",
+            "Escreva só o agente (ex.: \"Dipirona\"). É esta palavra que a conferência "
+            + "procura nas próximas prescrições — uma frase inteira casaria com quase nada.");
+
+        return string.IsNullOrWhiteSpace(descricao) ? null : descricao;
+    }
+
+    /// <summary>Roda a checagem com as guardas comuns e recarrega a folha.</summary>
+    private async Task ExecutarAsync(
+        Func<ChecagemPrescricaoService, IdentificacaoExecutante, DateOnly, TimeOnly, Task> acao)
+    {
+        if (FolhaDeExecucaoNaTela.RecusaDaHora(_dataRealizacao.HasValue ? DateOnly.FromDateTime(_dataRealizacao.Value) : null, _hora, out var hora) is { } recusa)
+        {
+            Falar(recusa, true);
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "checar prescrição");
+
+            using (var scope = Escopo())
+            {
+                var servico = scope.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>();
+                await acao(servico, FolhaDeExecucaoNaTela.Executante(), DateOnly.FromDateTime(_dataRealizacao!.Value), hora);
+            }
+
+            Falar("✓ Registro confirmado. A checagem foi salva no prontuário.", false);
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — checagem não pôde ser gravada", ex);
+            Falar(ex.Message, true);
+        }
+    }
+}

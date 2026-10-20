@@ -23,30 +23,9 @@ namespace Clinica.Recepcao.Modulo;
 /// ⚠️ Tudo roda no despachante do WPF: a janela modal precisa da thread da interface, e a tela
 /// Blazor pode chamar de outra (é o mesmo cuidado de <see cref="MarcacaoDaRecepcao"/>).
 /// </summary>
-public sealed class JanelasDaAgendaWpf(
-    IServiceScopeFactory escopos,
-    ISnackbarService snackbar,
-    IDialogoService dialogo,
-    PreenchimentoNovoAtendimento ponte) : IJanelasDaAgenda
+public sealed class JanelasDaAgendaWpf(PreenchimentoNovoAtendimento ponte) : IJanelasDaAgenda
 {
     public bool Disponivel => true;
-
-    public Task<bool> EscolherConvenioAsync(int pacienteId)
-        => NaInterface(() => VinculoDeConvenio.GarantirAsync(escopos, pacienteId, SessaoUsuario.Atual.Operador));
-
-    public Task<bool> AbrirFichaAsync(int pacienteId, string paciente) => NaInterface(() =>
-    {
-        // A MESMA ficha do balcão da tela Pacientes: duas fichas para a mesma pessoa no mesmo
-        // app fariam procurar a diferença que não existe.
-        ConsultaContextualWindow? janela = null;
-        var ficha = new Views.FichaBalcaoView
-        {
-            DataContext = new FichaBalcaoViewModel(escopos, snackbar, dialogo, pacienteId, () => janela?.Close())
-        };
-        janela = new ConsultaContextualWindow($"Ficha — {paciente}", ficha, "Voltar à agenda do dia");
-        janela.ShowDialog();
-        return Task.FromResult(true);
-    });
 
     public Task<bool> MarcarNovoHorarioAsync(DateOnly dia, int? profissionalId) => NaInterface(() =>
     {

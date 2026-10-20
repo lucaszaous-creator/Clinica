@@ -8,13 +8,15 @@
   sem registro ("A escrever"). Recorte, resumo e rótulos moram em ProntuariosNaTela, com teste.
 
   As três leituras são independentes, cada uma no SEU escopo (seu DbContext) e ao mesmo tempo —
-  nunca WhenAll sobre o mesmo escopo. O quick-view, a assinatura ICP-Brasil e a tela de
-  atendimento continuam WPF, pela ponte IJanelasDosProntuarios; escrever a sessão pendente vai
+  nunca WhenAll sobre o mesmo escopo. O quick-view é o ResumoProntuarioForm desta tela (out/2026);
+  a assinatura ICP-Brasil e a tela de atendimento continuam pela ponte IJanelasDosProntuarios
+  (a assinatura é a área congelada); escrever a sessão pendente vai
   pelo IPostoDoConsultorio, com o vínculo do horário viajando junto.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Modelos
 @using Clinica.Application.Abstracoes
+@using Clinica.Ui.Blazor.Formularios.Prontuario
 @inherits TelaBase
 
 <div class="pagina con-prontuarios @(_carregando && _carregou ? "carregando" : null)">
@@ -100,7 +102,7 @@
                                         @if (l.MostraAbrir)
                                         {
                                             <button type="button" class="botao mini" disabled="@(!Pode(Permissao.VerProntuario) || _ocupado)"
-                                                    @onclick="() => AbrirAsync(l)">Abrir</button>
+                                                    @onclick="() => Abrir(l)">Abrir</button>
                                         }
                                     </div>
                                 </td>
@@ -112,6 +114,13 @@
         }
     </section>
 </div>
+
+@if (_resumoDe is { } aberta)
+{
+    <ResumoProntuarioForm PacienteId="aberta.PacienteId" Paciente="@aberta.Paciente"
+                          DocumentoAnamneseId="@(aberta.Natureza == NaturezaLinhaProntuario.Anamnese ? aberta.DocumentoId : null)"
+                          AoFechar="() => _resumoDe = null" AoAbrirCompleto="AbrirCompletoAsync" />
+}
 
 @code {
     private IReadOnlyList<LinhaProntuario> _todas = [];
@@ -128,6 +137,7 @@
     private string? _erro;
     private bool _ocupado;
     private int _geracao;
+    private LinhaProntuario? _resumoDe;
 
     private bool FiltroAtivo => ProntuariosNaTela.FiltroAtivo(_termo, _soAssinar);
 
@@ -236,10 +246,29 @@
         }, "Consultório — o atendimento da sessão pendente não pôde ser aberto");
     }
 
-    private async Task AbrirAsync(LinhaProntuario l)
+    /// <summary>O quick-view da linha; linha de anamnese abre já na aba dela, com a 2ª via no rodapé.</summary>
+    private void Abrir(LinhaProntuario l)
     {
+        if (_ocupado) return;
         if (!Exigir(Permissao.VerProntuario, "abrir o prontuário")) return;
-        await Acao(() => Janelas.AbrirResumoAsync(l), "Consultório — a linha do prontuário não pôde ser aberta");
+        _resumoDe = l;
+    }
+
+    /// <summary>
+    /// "Abrir prontuário completo": a tela do paciente no Histórico, pelo posto (o mesmo caminho do
+    /// Prontuário › Por paciente). O modal fecha antes — por cima da tela nova ele seria órfão.
+    /// </summary>
+    private async Task AbrirCompletoAsync()
+    {
+        if (_resumoDe is not { } l) return;
+        _resumoDe = null;
+        if (!Exigir(Permissao.VerProntuario, "abrir o prontuário")) return;
+        if (!Posto.Disponivel) { Notificacoes.Info(PostoDoConsultorioIndisponivel.Frase); return; }
+        await Acao(async () =>
+        {
+            if (!await Posto.AbrirNoPostoAsync(new PacienteNoPosto(l.PacienteId, l.Paciente, null, null, null), DestinoNoPosto.Historico))
+                Notificacoes.Erro("Não deu para abrir o prontuário do paciente.");
+        }, "Consultório — o prontuário completo não pôde ser aberto");
     }
 
     private async Task AssinarAsync(LinhaProntuario l)

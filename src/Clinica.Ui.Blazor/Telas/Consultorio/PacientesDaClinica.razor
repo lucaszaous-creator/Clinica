@@ -1,0 +1,14 @@
+@*
+  PACIENTES (Consultório, chave "consultorio-pacientes") — out/2026, substitui a PacientesView
+  WPF que o módulo Clínico abria pela IFabricaListaPacientes. Nasce no recorte "Em tratamento"
+  (quem já teve sessão — dado clínico, só com VerProntuario) e o clique abre a tela do paciente
+  na Ficha. A lista mora em ListaDePacientesDoPosto, a mesma da Recepção › Prontuário.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<ListaDePacientesDoPosto Sobretitulo="Consultório · Pacientes" Titulo="Pacientes"
+                         Subtitulo="Quem a clínica atende — busque pelo nome, CPF ou telefone, ou veja quem está em tratamento."
+                         Destino="DestinoNoPosto.Paciente" RotuloDoClique="Abrir ficha"
+                         RecorteInicial="FiltroListaPacientes.EmTratamento" />

@@ -1,0 +1,89 @@
+@*
+  A EVOLUÇÃO DE ENFERMAGEM DA SALA DE INFUSÃO (out/2026: substitui a EvolucaoEnfermagemWindow WPF e
+  as views que ela hospedava). É a porta que a seção do posto NÃO alcança: a folha de execução
+  encerra a checagem, e é aqui que se registra a reação que aparece meia hora depois da última
+  bomba — amarrada à FOLHA (prescrição e número), ou avulsa quando aberta sem folha.
+
+  Não há compositor próprio: são os MESMOS componentes da seção "Atendimento de enfermagem" e da
+  tela Enfermagem (FolhaDaPassagem para escrever, ListaDePassagens para reler, com o MESMO
+  EstadoDaPassagem) — corrigir um campo corrige as três portas. Escrever à esquerda, reler à
+  direita, e o rodapé fora do miolo: trocar de foco não pode esconder o botão que grava.
+*@
+@using Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Evolução de enfermagem" Subtitulo="@Paciente" Largura="largo" AoFechar="FecharAsync">
+    <ChildContent>
+        <div class="evo-folha">
+            <section class="cartao evo-escrever">
+                <div class="cartao-corpo">
+                    <FolhaDaPassagem Estado="_estado" SomenteLeitura="!EstadoDaPassagem.PodeRegistrar" />
+                </div>
+            </section>
+            <section class="evo-reler">
+                <ListaDePassagens Estado="_estado" />
+            </section>
+        </div>
+    </ChildContent>
+    <Rodape>
+        <p class="@(string.IsNullOrEmpty(_estado.Mensagem) ? "secundario" : _estado.MensagemEhErro ? "enf-falha" : "enf-sucesso") evo-mensagem" role="status">
+            @(string.IsNullOrEmpty(_estado.Mensagem) ? PassagemDeEnfermagemNaTela.LegendaDoRodape : _estado.Mensagem)
+        </p>
+        @if (_estado.Corrigindo)
+        {
+            <button type="button" class="botao" @onclick="_estado.CancelarCorrecao">Cancelar correção</button>
+        }
+        <button type="button" class="botao" @onclick="FecharAsync">Fechar</button>
+        <button type="button" class="botao primario" disabled="@(!_estado.PodeRegistrarNova || _ocupado)" @onclick="RegistrarAsync"
+                title="Grava no prontuário do paciente, com a sua identificação e o registro no conselho.">@_estado.RotuloDoBotao</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter, EditorRequired] public string Paciente { get; set; } = string.Empty;
+
+    /// <summary>A folha a que a passagem fica amarrada; nulo é a passagem AVULSA.</summary>
+    [Parameter] public int? PrescricaoId { get; set; }
+    [Parameter] public string? Folha { get; set; }
+    [Parameter] public int? AgendamentoId { get; set; }
+    [Parameter] public EventCallback<bool> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private EstadoDaPassagem _estado = default!;
+    private bool _ocupado, _gravou;
+
+    protected override void OnInitialized()
+    {
+        _estado = new EstadoDaPassagem(Escopos, PacienteId, Paciente, PrescricaoId, Folha, AgendamentoId);
+        _estado.Mudou += AoMudar;
+        _estado.Gravou += AoGravouInterno;
+    }
+
+    protected override Task OnInitializedAsync() => _estado.CarregarAsync();
+
+    private void AoMudar() => _ = InvokeAsync(StateHasChanged);
+
+    private void AoGravouInterno() => _gravou = true;
+
+    private async Task RegistrarAsync()
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try { await _estado.RegistrarAsync(Dialogos); }
+        finally { _ocupado = false; }
+    }
+
+    // Quem abriu relê a sala de qualquer forma (como depois do ShowDialog do WPF); o resultado diz
+    // se algo foi gravado.
+    private Task FecharAsync() => AoConcluir.InvokeAsync(_gravou);
+
+    public override void Dispose()
+    {
+        _estado.Mudou -= AoMudar;
+        _estado.Gravou -= AoGravouInterno;
+        _estado.Descartar();
+        base.Dispose();
+    }
+}

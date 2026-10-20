@@ -78,13 +78,16 @@ public sealed record DocumentoNaTela
     /// <summary>Assinado não se reassina (dois arquivos válidos do mesmo ato); cancelado não se assina.</summary>
     public bool PodeAssinar => !EmissaoSemCertificado && !Cancelado && !Assinado;
 
-    public bool EmissaoSemCertificado => Tipo is TipoDocumentoClinico.Receita
-        or TipoDocumentoClinico.Atestado or TipoDocumentoClinico.Comparecimento
-        or TipoDocumentoClinico.PedidoExame or TipoDocumentoClinico.RelatorioEvolucao
-        or TipoDocumentoClinico.Anamnese or TipoDocumentoClinico.LaudoMedico;
+    /// <summary>A lista mora na Application desde out/2026 (as portas Blazor leem a MESMA).</summary>
+    public bool EmissaoSemCertificado => Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.EmissaoSemCertificado(Tipo);
 
-    /// <summary>Só o ASSINADO se entrega como arquivo — sem assinatura, o que vale é a via de caneta.</summary>
-    public bool PodeEnviar => Assinado && !Cancelado;
+    /// <summary>
+    /// Pode sair como ARQUIVO (WhatsApp ou e-mail): o assinado, e — desde out/2026 — a
+    /// receita, o atestado, o pedido de exame e a declaração mesmo sem certificado, que são
+    /// emitidos assim na continuidade sem A1. A regra mora na Application
+    /// (<see cref="EnvioAoPacienteService.PodeEnviar"/>), com teste.
+    /// </summary>
+    public bool PodeEnviar => EnvioAoPacienteService.PodeEnviar(Tipo, Assinado, Cancelado);
 
     // ===== A metade VISÍVEL de cada ato: o estado E o bit daquele TIPO de papel =====
     //
@@ -266,15 +269,10 @@ public static class AcoesDoDocumento
     public static async Task<ResultadoAcaoDocumento> AssinarAsync(
         DocumentoNaTela doc, IServiceScopeFactory escopos, ISnackbarService snackbar)
     {
-        if (doc.EmissaoSemCertificado)
-            return ResultadoAcaoDocumento.Erro("Este tipo de documento é emitido para impressão, sem assinatura digital.");
-
         // Guarda de ESTADO: diz por que não dá, em vez de voltar calada — o botão já está
-        // apagado, e quem chega aqui por atalho merece a frase.
-        if (!doc.PodeAssinar)
-            return ResultadoAcaoDocumento.Erro(doc.Cancelado
-                ? $"O documento {doc.Numero} está cancelado e não pode ser assinado."
-                : $"O documento {doc.Numero} já foi assinado digitalmente.");
+        // apagado, e quem chega aqui por atalho merece a frase. As frases moram na Application.
+        if (Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.Recusa(doc.Tipo, doc.Numero, doc.Cancelado, doc.Assinado) is { } recusa)
+            return ResultadoAcaoDocumento.Erro(recusa);
 
         try
         {
@@ -284,23 +282,17 @@ public static class AcoesDoDocumento
             // quem tinha `Prescrever` sem o bit do tipo passava direto.
             SessaoUsuario.Atual.Exigir(doc.AcessoParaMexer, "assinar documento clínico");
 
-            using var certificado = EscolherCertificadoWindow.Perguntar(
-                $"Assinar {doc.Rotulo.ToLowerInvariant()} {doc.Numero}",
-                JanelaDona.Atual(), escopos);
+            // A SEQUÊNCIA (certificado → um escopo → o serviço, com os mesmos argumentos) mora na
+            // Application desde out/2026 — a MESMA das telas Blazor. O seletor do A1 é o
+            // formulário Blazor, aberto pela janela de transição (a janela WPF saiu).
+            var assinado = await Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.AssinarAsync(
+                escopos, doc.DocumentoId,
+                Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.Assunto(doc.Rotulo, doc.Numero),
+                assunto => ColetaDeTermo.EscolherCertificadoAsync(escopos, assunto),
+                SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
+                SessaoUsuario.Atual.Operador);
 
-            if (certificado is null) return ResultadoAcaoDocumento.Desistiu;
-
-            DocumentoAssinado assinado;
-            using (var escopo = escopos.CreateScope())
-            {
-                var assinaturas = escopo.ServiceProvider
-                    .GetRequiredService<AssinaturaDeDocumentoClinicoService>();
-
-                assinado = await assinaturas.AssinarAsync(
-                    doc.DocumentoId, certificado,
-                    SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
-                    SessaoUsuario.Atual.Operador);
-            }
+            if (assinado is null) return ResultadoAcaoDocumento.Desistiu;
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
                 assinado.Pdf, ImpressaoPdf.NomeSeguro(assinado.NomeArquivo));
@@ -311,7 +303,7 @@ public static class AcoesDoDocumento
                     Inline: $"{erro} O documento foi assinado e está guardado no sistema.",
                     EhErro: true);
 
-            snackbar.Sucesso("Documento assinado. Entregue o ARQUIVO ao paciente.");
+            snackbar.Sucesso(Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.Assinado);
             return new ResultadoAcaoDocumento(Mudou: true);
         }
         catch (Exception ex)
@@ -323,62 +315,12 @@ public static class AcoesDoDocumento
     }
 
     /// <summary>
-    /// Entrega o ARQUIVO assinado ao paciente pelo WhatsApp (parcela 43, 2ª rodada).
-    ///
-    /// A assinatura vive nos bytes: quem sai só com o papel leva um documento sem a
-    /// garantia que o sistema produziu, e a farmácia recusa — com razão. Ver
-    /// <see cref="EntregaAoPaciente"/>, inclusive por que o anexo não é automático.
+    /// O atestado sem certificado vai, mas a janela DIZ o que ele vale em arquivo (art. 13 da
+    /// Lei 14.063/2020). A regra mora na Application, uma só para esta janela e o formulário
+    /// Blazor de envio (<c>EnvioAoPacienteForm</c>).
     /// </summary>
-    public static async Task<ResultadoAcaoDocumento> EnviarAsync(
-        DocumentoNaTela doc, IServiceScopeFactory escopos)
-    {
-        try
-        {
-            // Dado de saúde SAINDO para fora — a barreira que a parcela 60 passou a cobrar
-            // no export, e que faltava em duas das quatro cópias deste ato.
-            SessaoUsuario.Atual.Exigir(doc.AcessoParaMexer, "enviar documento clínico");
-
-            if (!doc.PodeEnviar)
-                return ResultadoAcaoDocumento.Erro(doc.Cancelado
-                    ? $"O documento {doc.Numero} está cancelado."
-                    : $"O documento {doc.Numero} ainda não foi assinado digitalmente. "
-                      + "Sem assinatura, o que vale é a via impressa e assinada à caneta — "
-                      + "assine antes de enviar o arquivo.");
-
-            byte[] pdf;
-            Paciente? paciente = null;
-            string? nomeClinica;
-
-            using (var escopo = escopos.CreateScope())
-            {
-                var pdfs = escopo.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
-                var parametros = escopo.ServiceProvider.GetRequiredService<ParametrosService>();
-
-                // Os BYTES GUARDADOS, porque o documento está assinado — é a regra que mora
-                // dentro do GerarAsync, e é o que faz o arquivo continuar válido.
-                pdf = await pdfs.GerarAsync(doc.DocumentoId);
-
-                if (doc.PacienteId is { } id)
-                    paciente = await escopo.ServiceProvider
-                        .GetRequiredService<PacienteService>().ObterComHistoricoAsync(id);
-
-                var prestador = await parametros.ObterPrestadorAsync();
-                nomeClinica = prestador.NomeFantasia ?? prestador.RazaoSocial;
-            }
-
-            var entrega = EntregaAoPaciente.Entregar(
-                pdf, doc.NomeArquivoAssinado, paciente?.Telefone,
-                paciente?.Nome ?? "paciente", doc.Rotulo, nomeClinica);
-
-            return new ResultadoAcaoDocumento(Inline: entrega.Frase, EhErro: entrega.EhErro);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                $"Documento {doc.Numero} — não pôde ser entregue ao paciente", ex);
-            return ResultadoAcaoDocumento.Erro(ex.Message);
-        }
-    }
+    private static string? AvisoSemAssinatura(DocumentoNaTela doc)
+        => EnvioAoPacienteService.AvisoSemAssinatura(doc.Tipo, doc.Assinado, doc.Rotulo);
 
     /// <summary>
     /// Põe o link vencido DE VOLTA no ar, reusando o MESMO token (parcela 53) — o QR já
@@ -422,62 +364,6 @@ public static class AcoesDoDocumento
         {
             Clinica.Application.Diagnostico.Registrar(
                 $"Documento {doc.Numero} — link não pôde ser renovado", ex);
-            return ResultadoAcaoDocumento.Erro(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// ALTERA o laudo emitindo uma NOVA VERSÃO (out/2026): a janela de emissão abre com o
-    /// texto do anterior, e o "Emitir" numera a nova e CANCELA a anterior no mesmo gravar
-    /// (<c>DocumentoClinicoService.EmitirNovaVersaoAsync</c>), com o motivo dizendo qual
-    /// número a substituiu.
-    ///
-    /// ⚠️ Mora aqui, e não em cada tela, pela razão de todo este arquivo: são três listas de
-    /// documento, e a que ficasse sem o ato obrigaria a pessoa a cancelar à mão e emitir de
-    /// novo — o caminho em que se esquece de cancelar e ficam dois laudos válidos.
-    /// </summary>
-    public static async Task<ResultadoAcaoDocumento> NovaVersaoAsync(
-        DocumentoNaTela doc, IServiceScopeFactory escopos, ISnackbarService snackbar)
-    {
-        try
-        {
-            SessaoUsuario.Atual.Exigir(
-                doc.AcessoParaMexer, $"alterar {doc.Rotulo.ToLowerInvariant()}");
-
-            if (!TipoDocumentoInfo.PermiteNovaVersao(doc.Tipo))
-                return ResultadoAcaoDocumento.Erro(
-                    $"{doc.Rotulo} não se altera por nova versão: cancele com motivo e emita outro.");
-
-            if (doc.Cancelado)
-                return ResultadoAcaoDocumento.Erro(
-                    $"{doc.Numero} está cancelado — não há o que substituir. A 2ª via dele sai como foi emitido.");
-
-            if (doc.PacienteId is not { } pacienteId)
-                return ResultadoAcaoDocumento.Erro($"{doc.Numero} não é de um paciente.");
-
-            DocumentoClinico? anterior;
-            using (var escopo = escopos.CreateScope())
-                anterior = await escopo.ServiceProvider
-                    .GetRequiredService<DocumentoClinicoService>().ObterAsync(doc.DocumentoId);
-
-            if (anterior is null)
-                return ResultadoAcaoDocumento.Erro($"{doc.Numero} não foi encontrado.");
-
-            var vm = new DocumentoEdicaoViewModel(escopos, pacienteId, anterior.Tipo, versaoDe: anterior);
-            var concluiu = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() == true;
-
-            // Relê dos dois jeitos: fechar sem concluir não quer dizer que nada aconteceu — a
-            // versão nova pode ter sido emitida e só a impressão ter falhado.
-            if (concluiu)
-                snackbar.Sucesso(
-                    $"Nova versão emitida. {doc.Numero} foi cancelado e aponta para ela.");
-
-            return new ResultadoAcaoDocumento(Mudou: true);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                $"Documento {doc.Numero} — nova versão não pôde ser aberta", ex);
             return ResultadoAcaoDocumento.Erro(ex.Message);
         }
     }

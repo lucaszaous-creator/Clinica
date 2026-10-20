@@ -11,18 +11,24 @@
 
   Nada de regra aqui: o que cada cartão diz e libera e as frases da lista moram em
   CentralDeDocumentosNaTela, o passo 3 em PreviaDaFolha, a busca em BuscaNasFolhas e o resumo
-  em ResumoFolhas (Application, com teste). O que continua WPF — as janelas de emissão, a
-  coleta do termo e os seis atos do documento (assinatura incluída, área congelada) — passa
-  por IDocumentosDaRecepcao; onde ele não existe (a prévia), a tela DIZ que a ação é do
-  aplicativo.
+  em ResumoFolhas (Application, com teste). O papel ESCRITO (receita, atestado, laudo,
+  declaração, pedido de exame), a NOVA VERSÃO do laudo, o orçamento livre (OrcamentoLivreForm) e o
+  "Enviar ao paciente" (EnvioAoPacienteForm) abrem aqui mesmo, em formulários Blazor (out/2026).
+  O que continua WPF — a coleta do termo e os atos do documento (assinatura incluída, área
+  congelada) — passa por IDocumentosDaRecepcao; onde ele não existe (a prévia), a tela DIZ que a
+  ação é do aplicativo.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Modelos
+@using Clinica.Ui.Blazor.Formularios.Recepcao
 @inherits TelaBase
 
 <div class="pagina rec-docs @(_carregando && _carregou ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Documentos" Titulo="Documentos"
-                     Subtitulo="Emitir um papel novo — receita, atestado, declaração, termo, recibo, orçamento — ou achar o que já saiu, com a 2ª via." />
+    @if (!Embutida)
+    {
+        <CabecalhoPagina Sobretitulo="Documentos" Titulo="Documentos"
+                         Subtitulo="Emitir um papel novo — receita, atestado, declaração, termo, recibo, orçamento — ou achar o que já saiu, com a 2ª via." />
+    }
 
     <div class="abas" role="tablist" aria-label="Documentos">
         <button type="button" role="tab" aria-selected="@Bool(_aba == 0)" @onclick="() => _aba = 0">Emitir</button>
@@ -44,7 +50,14 @@
             </header>
             @if (_paciente is { } p)
             {
-                <FaixaDoPaciente Paciente="p" Contexto="@_contexto" AoTrocar="TrocarPaciente" />
+                @if (PacienteFixo is null)
+                {
+                    <FaixaDoPaciente Paciente="p" Contexto="@_contexto" AoTrocar="TrocarPaciente" />
+                }
+                else
+                {
+                    <FaixaDoPaciente Paciente="p" Contexto="@_contexto" />
+                }
             }
             else if (!_semPaciente)
             {
@@ -142,7 +155,7 @@
                     <input class="campo" placeholder="Paciente, número, código ou quem assinou" value="@_termo"
                            @oninput="e => { _termo = e.Value?.ToString(); Filtrar(); }" maxlength="80" />
                 </Campo>
-                @if (_paciente is { } p)
+                @if (_paciente is { } p && PacienteFixo is null)
                 {
                     <button type="button" class="chip dc-chip" aria-pressed="@Bool(_soDoPaciente)" @onclick="AlternarSoDoPacienteAsync"
                             title="Recortar a lista pelos papéis de @p.Nome">Só deste paciente</button>
@@ -248,9 +261,34 @@
 {
     <div class="rd-menu-fundo" @onclick="() => _menu = null"></div>
 }
+@if (_enviandoDoc is { } enviado)
+{
+    @* "Enviar ao paciente…" é o EnvioAoPacienteForm (out/2026) — a mesma pergunta do "já saiu hoje" do atendimento. *@
+    <EnvioAoPacienteForm DocumentoId="enviado.DocumentoId" Rotulo="@enviado.Rotulo" AoFechar="() => _enviandoDoc = null" AoConcluir="EnviouAsync" />
+}
+@if (_orcamentoPara is { } orc)
+{
+    <OrcamentoLivreForm PacienteId="orc.Id" Paciente="@orc.Nome" AoFechar="() => _orcamentoPara = null" AoConcluir="OrcamentoEmitidoAsync" />
+}
+
+@if (_folhaAberta is { } fa)
+{
+    <DocumentoForm PacienteId="fa.PacienteId" Tipo="fa.Tipo" VersaoDe="fa.VersaoDe"
+                   AoFechar="FecharFolhaAsync" AoConcluir="ConcluirFolhaAsync" />
+}
 
 @code {
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    /// <summary>
+    /// Dentro da TELA DO PACIENTE (seção "Prescrições e documentos"): sem o cabeçalho da página
+    /// (o nome já está no crachá) e com o paciente FIXO — sem "Trocar", e "O que já saiu" já
+    /// recortado nele. A MESMA tela da central, para os documentos terem uma definição só.
+    /// </summary>
+    [Parameter] public bool Embutida { get; set; }
+
+    /// <summary>O paciente da tela do paciente; nulo = a central (busca, ou o foco do posto).</summary>
+    [Parameter] public int? PacienteFixo { get; set; }
 
     /// <summary>A ponte para as janelas e os atos WPF; na prévia, a que DIZ que é do aplicativo.</summary>
     private IDocumentosDaRecepcao Ponte => Servicos.GetService<IDocumentosDaRecepcao>() ?? DocumentosDaRecepcaoIndisponiveis.Instancia;
@@ -262,14 +300,20 @@
     private string? _mensagem;
     private bool _mensagemEhErro;
     private bool _ocupado;
+    private DocumentoEmitido? _enviandoDoc;
 
     // ---- Emitir ----
     private Paciente? _paciente;
+    /// <summary>O paciente do orçamento livre aberto; nulo = formulário fechado.</summary>
+    private Paciente? _orcamentoPara;
     private bool _semPaciente;
     private string? _contexto;
     private int _geracaoContexto;
     private IReadOnlyList<CartaoDaCentral> _cartoes = [];
     private CartaoDaCentral? _escolhida;
+
+    // ---- O papel escrito aberto no DocumentoForm (a emissão ou a nova versão do laudo) ----
+    private (int PacienteId, TipoDocumentoClinico Tipo, string Rotulo, DocumentoClinico? VersaoDe)? _folhaAberta;
 
     // ---- O que já saiu ----
     private DateOnly _inicio = DateOnly.FromDateTime(DateTime.Today).AddDays(-30);
@@ -305,7 +349,9 @@
     protected override async Task OnInitializedAsync()
     {
         MontarCartoes();
-        await AbrirNoPacienteEmFocoAsync();
+        if (PacienteFixo is { } fixo) { _soDoPaciente = true; await AbrirPacienteAsync(fixo); }
+        else if (Servicos.GetService<PedidoDeDocumento>()?.Consumir() is { } pedido) await AbrirPacienteAsync(pedido);
+        else await AbrirNoPacienteEmFocoAsync();
         await CarregarAsync();
     }
 
@@ -317,12 +363,17 @@
     private async Task AbrirNoPacienteEmFocoAsync()
     {
         if (Servicos.GetService<IPostoDoConsultorio>()?.PacienteEmFoco is not { } foco) return;
+        await AbrirPacienteAsync(foco.PacienteId);
+    }
+
+    private async Task AbrirPacienteAsync(int pacienteId)
+    {
         try
         {
             Paciente? paciente;
             using (var escopo = Escopo())
                 paciente = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
-                    .ObterPacienteAsync(foco.PacienteId);
+                    .ObterPacienteAsync(pacienteId);
             if (paciente is not null && !Descartada) await EscolherAsync(paciente);
         }
         catch (Exception ex)
@@ -331,8 +382,21 @@
         }
     }
 
-    /// <summary>Voltar à aba relê a lista em silêncio: o que outra máquina emitiu aparece.</summary>
-    protected override Task AoVoltarAsync() => CarregarAsync();
+    /// <summary>
+    /// Voltar à aba relê a lista em silêncio: o que outra máquina emitiu aparece. E quem navegou
+    /// para cá pedindo um paciente (o "Emitir documento" da ficha do balcão) encontra a emissão
+    /// já nele — o palco guarda a tela montada, então o pedido chega por aqui, não pela abertura.
+    /// </summary>
+    protected override async Task AoVoltarAsync()
+    {
+        if (PacienteFixo is null && _folhaAberta is null && Servicos.GetService<PedidoDeDocumento>()?.Consumir() is { } pedido)
+        {
+            _aba = 0;
+            _escolhida = null;
+            await AbrirPacienteAsync(pedido);
+        }
+        await CarregarAsync();
+    }
 
     protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
         => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
@@ -398,6 +462,13 @@
     /// <summary>Escolher NÃO exige que dê para emitir: o passo 3 é que explica o que falta.</summary>
     private void Escolher(CartaoDaCentral c) => _escolhida = c;
 
+    private async Task EnviouAsync(ResultadoDoAto r)
+    {
+        _enviandoDoc = null;
+        if (!r.Silencioso) Dizer(r.Frase, r.EhErro);
+        if (r.Mudou) await CarregarAsync();
+    }
+
     private void Dizer(string? frase, bool erro)
     {
         _mensagem = frase;
@@ -441,7 +512,7 @@
 
                 default:
                     if (c.Folha.TipoFinanceiro == TipoDocumentoFinanceiro.Orcamento) await EmitirOrcamentoAsync();
-                    else await EmitirEscritoAsync(c.Folha);
+                    else AbrirEscrito(c.Folha);
                     return;
             }
         }
@@ -463,16 +534,62 @@
         return false;
     }
 
-    /// <summary>Os papéis ESCRITOS abrem a janela que já existe, com o tipo certo.</summary>
-    private async Task EmitirEscritoAsync(FolhaCatalogo folha)
+    /// <summary>Os papéis ESCRITOS abrem a folha de emissão (DocumentoForm) aqui mesmo, no tipo certo.</summary>
+    private void AbrirEscrito(FolhaCatalogo folha)
     {
         if (!Exigir(folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}")) return;
-        if (_paciente is not { } p || folha.TipoClinico is not { } tipo || !PonteDisponivel()) return;
+        if (_paciente is not { } p || folha.TipoClinico is not { } tipo) return;
+        _folhaAberta = (p.Id, tipo, folha.Rotulo, null);
+    }
 
-        var concluiu = await Ponte.EmitirEscritoAsync(p.Id, tipo);
-        // Fechar sem concluir pode ter emitido e só a impressão ter falhado: relê de qualquer jeito.
+    /// <summary>
+    /// "Alterar (emitir nova versão)" do laudo: a folha abre com o texto do anterior, e o
+    /// "Emitir" numera a nova e CANCELA a anterior no mesmo gravar. As recusas são as que a
+    /// janela WPF dizia antes de abrir (EmissaoDeDocumentoNaTela.RecusaDaNovaVersao).
+    /// </summary>
+    private async Task AbrirNovaVersaoAsync(DocumentoEmitido doc)
+    {
+        // A segunda barreira, pelo bit do TIPO (a primeira é o menu: Atos).
+        if (!Pode(CentralDocumentosService.AcessoParaEmitir(doc.Tipo)))
+        {
+            Dizer($"Seu acesso não permite alterar {doc.Rotulo.ToLowerInvariant()}. Fale com a direção da clínica.", true);
+            return;
+        }
+        if (EmissaoDeDocumentoNaTela.RecusaDaNovaVersao(doc.Tipo, doc.Rotulo, doc.Numero, doc.Cancelado, doc.PacienteId) is { } recusa)
+        {
+            Dizer(recusa, true);
+            return;
+        }
+        try
+        {
+            DocumentoClinico? anterior;
+            using (var escopo = Escopo())
+                anterior = await escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>().ObterAsync(doc.DocumentoId);
+            if (anterior is null) { Dizer($"{doc.Numero} não foi encontrado.", true); return; }
+            _folhaAberta = (anterior.PacienteId, anterior.Tipo, doc.Rotulo, anterior);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Documento {doc.Numero} — nova versão não pôde ser aberta", ex);
+            Dizer(ex.Message, true);
+        }
+    }
+
+    /// <summary>Fechou a folha sem concluir: relê de qualquer jeito — pode ter emitido e só a impressão ter falhado.</summary>
+    private async Task FecharFolhaAsync()
+    {
+        _folhaAberta = null;
         await CarregarAsync();
-        if (concluiu) Notificacoes.Sucesso($"{folha.Rotulo} emitido(a).");
+    }
+
+    private async Task ConcluirFolhaAsync(DocumentoForm.Emitido emitido)
+    {
+        var aberta = _folhaAberta;
+        _folhaAberta = null;
+        await CarregarAsync();
+        Notificacoes.Sucesso(aberta?.VersaoDe is { } anterior
+            ? EmissaoDeDocumentoNaTela.NovaVersaoEmitida(anterior.Numero)
+            : $"{aberta?.Rotulo ?? TipoDocumentoInfo.Rotular(emitido.Tipo)} {emitido.Numero} emitido(a).");
     }
 
     /// <summary>
@@ -482,22 +599,36 @@
     private async Task ColherTermoAsync(FolhaCatalogo folha)
     {
         if (!Exigir(folha.PermissaoEmitir, $"colher {folha.Rotulo.ToLowerInvariant()}")) return;
-        if (_paciente is not { } p || !PonteDisponivel()) return;
+        if (_paciente is not { } p) return;
+        if (Servicos.GetService<ColetaDeTermoNaPagina>() is not { } coleta) { Dizer(ResultadoDoAto.Indisponivel.Frase, true); return; }
 
-        var concluiu = await Ponte.ColherTermoAsync(p.Id, p.Nome, folha.TipoClinico == TipoDocumentoClinico.Consentimento);
+        // O LGPD é montado das finalidades; o do procedimento pergunta o modelo (a coleta avulsa).
+        var concluiu = folha.TipoClinico == TipoDocumentoClinico.Consentimento
+            ? await coleta.AbrirConsentimentoLgpdAsync(p.Id, p.Nome)
+            : await coleta.AbrirAsync(p.Id, p.Nome);
         await CarregarAsync();
         if (concluiu) Notificacoes.Sucesso($"{folha.Rotulo} assinado.");
     }
 
-    /// <summary>Orçamento livre — `EditarFinanceiro`: escrever um papel com valor em nome da clínica.</summary>
-    private async Task EmitirOrcamentoAsync()
+    /// <summary>
+    /// Orçamento livre — o formulário Blazor (out/2026; era a OrcamentoWindow WPF pela ponte). A
+    /// barreira é a UNIÃO das portas (EditarFinanceiro OU VenderPacote): o formulário confere de
+    /// novo ao emitir, e a folha do catálogo já pede o bit dela para o cartão acender.
+    /// </summary>
+    private Task EmitirOrcamentoAsync()
     {
-        if (!Exigir(Permissao.EditarFinanceiro, "emitir orçamento")) return;
-        if (_paciente is not { } p || !PonteDisponivel()) return;
+        if (!ExigirAlgum(Permissao.EditarFinanceiro | Permissao.VenderPacote, "emitir orçamento")) return Task.CompletedTask;
+        if (_paciente is not { } p) return Task.CompletedTask;
+        _orcamentoPara = p;
+        return Task.CompletedTask;
+    }
 
-        var numero = await Ponte.EmitirOrcamentoAsync(p.Id, p.Nome);
+    /// <summary>Emitido: fecha, relê a lista e diz o número (a impressão já disse o que deu errado, se deu).</summary>
+    private async Task OrcamentoEmitidoAsync(string numero)
+    {
+        _orcamentoPara = null;
         await CarregarAsync();
-        if (numero is not null) Notificacoes.Sucesso($"Orçamento {numero} emitido.");
+        Notificacoes.Sucesso($"Orçamento {numero} emitido.");
     }
 
     /// <summary>
@@ -640,12 +771,27 @@
     {
         _menu = null;
         if (_ocupado) return;
+        // Enviar é um formulário desta tela (a pergunta do canal), não um ato da ponte.
+        if (ato == AtoDoDocumento.Enviar && DocumentoEmitido.De(l.Folha, Hoje) is { } aEnviar)
+        {
+            _enviandoDoc = aEnviar;
+            return;
+        }
         _ocupado = true;
         try
         {
             if (DocumentoEmitido.De(l.Folha, Hoje) is { } doc)
             {
-                var r = await Ponte.ExecutarAsync(ato, doc);
+                if (ato == AtoDoDocumento.NovaVersao)
+                {
+                    await AbrirNovaVersaoAsync(doc);
+                    return;
+                }
+                // Assinar com o A1 é formulário Blazor desde out/2026 (IAssinaturaNaTela — o MESMO
+                // serviço e a MESMA ordem do WPF); os outros atos seguem pela ponte.
+                var r = ato == AtoDoDocumento.Assinar && Servicos.GetService<IAssinaturaNaTela>() is { } assinatura
+                    ? await assinatura.AssinarDocumentoAsync(doc)
+                    : await Ponte.ExecutarAsync(ato, doc);
                 if (!r.Silencioso) Dizer(r.Frase, r.EhErro);
                 if (r.Mudou) await CarregarAsync();
                 return;

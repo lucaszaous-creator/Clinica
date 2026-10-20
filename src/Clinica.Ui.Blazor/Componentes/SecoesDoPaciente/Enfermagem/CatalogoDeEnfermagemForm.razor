@@ -1,0 +1,99 @@
+@*
+  O CATÁLOGO DE ENFERMAGEM em formulário (out/2026: substitui a CatalogoEnfermagemWindow WPF) —
+  UM formulário para os DOIS catálogos (diagnósticos e cuidados); duas cópias seriam duas
+  definições de "escolher do catálogo".
+
+  Cada linha mostra o que a caixinha antiga nunca coube: o resultado esperado de cada
+  diagnóstico (e quantos cuidados ele traz junto) e a frequência sugerida de cada cuidado.
+  Já no plano: o botão SOME e fica a marca — acrescentar recusa o repetido em silêncio, e botão
+  aceso que não faz nada é o defeito da parcela 41. A lista NÃO é remontada depois de
+  acrescentar (a rolagem voltaria ao topo a cada escolha): o estado de cada linha é relido no
+  desenho. Sem "Salvar": quem grava é a passagem de trás.
+*@
+@namespace Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@using Clinica.Application.Modelos
+
+<Modal Titulo="@(DeDiagnosticos ? PassagemDeEnfermagemNaTela.TituloDiagnosticos : PassagemDeEnfermagemNaTela.TituloCuidados)"
+       Subtitulo="@(DeDiagnosticos ? PassagemDeEnfermagemNaTela.ExplicacaoDiagnosticos : PassagemDeEnfermagemNaTela.ExplicacaoCuidados)"
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="busca">
+            <Icone Nome="busca" />
+            <input class="campo" value="@_busca" @oninput="Buscar" maxlength="80"
+                   placeholder="@(DeDiagnosticos ? "Buscar por diagnóstico ou causa" : "Buscar cuidado")"
+                   aria-label="Buscar no catálogo" />
+        </div>
+        <p class="secundario enf-legenda">@PassagemDeEnfermagemNaTela.ResumoDoCatalogo(_busca, _itens.Count, _total, _itens.Count(NoPlano))</p>
+
+        @if (_itens.Count == 0)
+        {
+            <EstadoVazio Titulo="Nada com esse termo" Icone="busca"
+                         Descricao="O catálogo é a lista desta clínica, não a NANDA-I inteira. Feche e use “Escrever à mão” para registrar o que não está aqui." />
+        }
+        else
+        {
+            <ul class="enf-catalogo">
+                @foreach (var item in _itens)
+                {
+                    <li @key="item.Codigo">
+                        <div class="enf-catalogo-texto">
+                            <span class="principal">@item.Titulo</span>
+                            @if (!string.IsNullOrWhiteSpace(item.Detalhe))
+                            {
+                                <span class="secundario">@item.Detalhe</span>
+                            }
+                        </div>
+                        @if (NoPlano(item))
+                        {
+                            <Selo Tom="sucesso"><Icone Nome="check" />já no plano</Selo>
+                        }
+                        else
+                        {
+                            <button type="button" class="botao mini" disabled="@(!EstadoDaPassagem.PodeRegistrar)" @onclick="() => Acrescentar(item)">Acrescentar</button>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </ChildContent>
+    <Rodape>
+        <span class="secundario enf-legenda">O que você escolhe entra na hora, na consulta de trás. Não há “Salvar” aqui — quem grava é o registro da passagem.</span>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public EstadoDaPassagem Estado { get; set; } = default!;
+    [Parameter] public bool DeDiagnosticos { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string _busca = string.Empty;
+    private IReadOnlyList<ItemDoCatalogoEnfermagem> _itens = [];
+    private int _total;
+
+    /// <summary>Ao ABRIR, sempre: entre uma abertura e outra o plano mudou (um diagnóstico traz os cuidados dele).</summary>
+    protected override void OnInitialized()
+    {
+        _total = Ler(null).Count; // o catálogo mora em código e não muda em execução: medido uma vez
+        _itens = Ler(null);
+    }
+
+    private IReadOnlyList<ItemDoCatalogoEnfermagem> Ler(string? termo)
+        => DeDiagnosticos ? PassagemDeEnfermagemNaTela.Diagnosticos(termo) : PassagemDeEnfermagemNaTela.Cuidados(termo);
+
+    private void Buscar(ChangeEventArgs e)
+    {
+        _busca = e.Value?.ToString() ?? string.Empty;
+        _itens = Ler(_busca);
+    }
+
+    private bool NoPlano(ItemDoCatalogoEnfermagem item)
+        => DeDiagnosticos ? Estado.DiagnosticoNoPlano(item.Codigo) : Estado.CuidadoNoPlano(item.Codigo);
+
+    private void Acrescentar(ItemDoCatalogoEnfermagem item)
+    {
+        if (!EstadoDaPassagem.PodeRegistrar || NoPlano(item)) return;
+        if (DeDiagnosticos) Estado.AdicionarDiagnostico(item.Codigo);
+        else Estado.AdicionarCuidado(item.Codigo);
+    }
+}

@@ -14,23 +14,30 @@
 @inherits TelaBase
 
 <div class="pagina con-infusao @(_carregando && _carregou ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Consultório · Prescrições" Titulo="Prescrição de infusão"
-                     Subtitulo="A folha para a enfermagem: os itens da infusão e as orientações para a equipe." />
+    @if (!Embutida)
+    {
+        <CabecalhoPagina Sobretitulo="Consultório · Prescrições" Titulo="Prescrição de infusão"
+                         Subtitulo="A folha para a enfermagem: os itens da infusão e as orientações para a equipe." />
+    }
 
     <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
 
-    <section class="cartao">
-        <div class="cartao-corpo">
-            @if (_paciente is { } p)
-            {
-                <FaixaDoPaciente Paciente="p" AoTrocar="Trocar" />
-            }
-            else
-            {
-                <BuscaDePacienteNaTela @key="_chaveBusca" Pergunta="Para quem é a prescrição?" SugestaoDeHoje="true" AoEscolher="EscolherAsync" />
-            }
-        </div>
-    </section>
+    @* Dentro da tela do paciente, o nome já está no crachá: nem busca nem faixa. *@
+    @if (PacienteFixo is null)
+    {
+        <section class="cartao">
+            <div class="cartao-corpo">
+                @if (_paciente is { } p)
+                {
+                    <FaixaDoPaciente Paciente="p" AoTrocar="Trocar" />
+                }
+                else
+                {
+                    <BuscaDePacienteNaTela @key="_chaveBusca" Pergunta="Para quem é a prescrição?" SugestaoDeHoje="true" AoEscolher="EscolherAsync" />
+                }
+            </div>
+        </section>
+    }
 
     @if (_paciente is not null)
     {
@@ -110,6 +117,12 @@
     private int _chaveBusca;
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    /// <summary>Dentro da tela do paciente: sem o cabeçalho da página (a mesma tela, uma definição só).</summary>
+    [Parameter] public bool Embutida { get; set; }
+
+    /// <summary>O paciente da tela do paciente; nulo = a tela do menu (busca, ou o foco do posto).</summary>
+    [Parameter] public int? PacienteFixo { get; set; }
     private IJanelasDaPrescricaoDeInfusao Editor => Servicos.GetService<IJanelasDaPrescricaoDeInfusao>() ?? JanelasDaPrescricaoDeInfusaoIndisponiveis.Instancia;
     private IJanelasDaSalaDeInfusao Sala => Servicos.GetService<IJanelasDaSalaDeInfusao>() ?? JanelasDaSalaDeInfusaoIndisponiveis.Instancia;
 
@@ -117,15 +130,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Abre já no paciente em foco do posto (quem acabou de ser atendido), como o WPF abria.
-        if (Servicos.GetService<IPostoDoConsultorio>()?.PacienteEmFoco is { } foco)
+        // Abre já no paciente em foco do posto (quem acabou de ser atendido), como o WPF abria —
+        // ou no paciente FIXO, dentro da tela do paciente.
+        var abrir = PacienteFixo ?? Servicos.GetService<IPostoDoConsultorio>()?.PacienteEmFoco?.PacienteId;
+        if (abrir is { } pacienteId)
         {
             try
             {
                 Paciente? paciente;
                 using (var escopo = Escopo())
                     paciente = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
-                        .ObterPacienteAsync(foco.PacienteId);
+                        .ObterPacienteAsync(pacienteId);
                 if (paciente is not null && !Descartada) await EscolherAsync(paciente);
             }
             catch (Exception ex)

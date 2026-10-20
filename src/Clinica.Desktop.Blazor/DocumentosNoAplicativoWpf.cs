@@ -10,9 +10,10 @@ namespace Clinica.Desktop.Blazor;
 
 /// <summary>
 /// As janelas e os atos WPF que a tela de Documentos (Blazor, out/2026 — a MESMA na Recepção,
-/// no Gerente e no Consultório) pede. Mora aqui, e não num módulo, porque são duas portas e
-/// uma cópia por módulo divergiria na primeira correção; só o ORÇAMENTO é da Recepção (a
-/// janela dele mora lá), e ela o oferece sobrescrevendo <see cref="EmitirOrcamentoAsync"/>.
+/// no Gerente e no Consultório) pede. O papel ESCRITO, a nova versão do laudo e o orçamento livre
+/// NÃO estão aqui: são formulários Blazor (<c>DocumentoForm</c>, <c>OrcamentoLivreForm</c>),
+/// abertos pela própria tela. Mora aqui, e não num módulo, porque são duas portas e uma cópia
+/// por módulo divergiria na primeira correção.
 ///
 /// Origem: a central de Documentos (Blazor, out/2026) pede — cada método
 /// faz EXATAMENTE o que o <c>DocumentosViewModel</c> fazia: os mesmos ViewModels e janelas, o
@@ -32,33 +33,10 @@ public class DocumentosNoAplicativoWpf(
 
     public bool CaixaNesteAplicativo => NavegacaoSuite.Existe(ChavesSuite.Caixa);
 
-    public Task<bool> EmitirEscritoAsync(int pacienteId, TipoDocumentoClinico tipo) => NaInterface(() =>
-    {
-        var vm = new DocumentoEdicaoViewModel(escopos, pacienteId, tipo);
-        var janela = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() };
-        return Task.FromResult(janela.ShowDialog() == true);
-    });
-
-    /// <summary>
-    /// Onde a janela do orçamento não está (o Consultório): a tela DIZ de quem é o papel em vez
-    /// de não fazer nada — botão que volta calado é o defeito da parcela 41.
-    /// </summary>
-    public virtual Task<string?> EmitirOrcamentoAsync(int pacienteId, string paciente) => NaInterface(() =>
-    {
-        Dialogo.Aviso("Orçamento", "O orçamento é emitido pela Recepção (ou pelo Gerente).");
-        return Task.FromResult<string?>(null);
-    });
 
     /// <summary>Para quem sobrescreve: a fábrica de escopos e o despachante.</summary>
     protected IServiceScopeFactory Escopos => escopos;
     protected IDialogoService Dialogo => dialogo;
-
-    public Task<bool> ColherTermoAsync(int pacienteId, string paciente, bool consentimentoLgpd) => NaInterface(() =>
-        // São DOIS termos: o do procedimento copia um modelo (a janela pergunta qual), o LGPD
-        // é montado das finalidades — perguntar "qual termo?" ofereceria uma lista sem ele.
-        consentimentoLgpd
-            ? Task.FromResult(ColetaDeTermo.AbrirConsentimentoLgpd(escopos, pacienteId, paciente))
-            : ColetaDeTermo.AbrirAsync(escopos, pacienteId, paciente));
 
     public AtosDoDocumento Atos(DocumentoEmitido doc)
     {
@@ -73,9 +51,12 @@ public class DocumentosNoAplicativoWpf(
         var r = ato switch
         {
             AtoDoDocumento.SegundaVia => await AcoesDoDocumento.ImprimirAsync(d, escopos),
-            AtoDoDocumento.NovaVersao => await AcoesDoDocumento.NovaVersaoAsync(d, escopos, snackbar),
+            // A nova versão é o DocumentoForm (Blazor), que a tela abre — não chega aqui.
+            AtoDoDocumento.NovaVersao => ResultadoAcaoDocumento.Erro("A nova versão do laudo abre na própria tela de Documentos."),
             AtoDoDocumento.Assinar => await AcoesDoDocumento.AssinarAsync(d, escopos, snackbar),
-            AtoDoDocumento.Enviar => await AcoesDoDocumento.EnviarAsync(d, escopos),
+            // Enviar é o EnvioAoPacienteForm da tela (out/2026). Recusa explícita, e não o braço
+            // padrão: cair no `_` CANCELARIA o documento.
+            AtoDoDocumento.Enviar => ResultadoAcaoDocumento.Erro("O envio ao paciente é feito pelo formulário da própria tela."),
             AtoDoDocumento.RenovarLink => await AcoesDoDocumento.RenovarLinkAsync(d, escopos, snackbar),
             AtoDoDocumento.TirarDoAr => await AcoesDoDocumento.TirarDoArAsync(d, escopos, dialogo, snackbar),
             _ => await AcoesDoDocumento.CancelarAsync(d, escopos, dialogo, snackbar)

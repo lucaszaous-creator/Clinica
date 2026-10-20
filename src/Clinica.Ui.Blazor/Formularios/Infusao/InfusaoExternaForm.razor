@@ -1,0 +1,130 @@
+@*
+  REGISTRAR INFUSÃO REALIZADA com orientação médica de fora do sistema (out/2026: substitui a
+  InfusaoExternaWindow + ViewModel WPF). A assinatura da enfermagem registra a execução; a validação
+  fica pendente para o médico responsável. Quem abriu recebe a folha criada e a abre em seguida.
+  O estado e a gravação moram em InfusaoExternaNaTela (Application), sem mudança de regra.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Registrar infusão realizada" Subtitulo="@Paciente" Largura="grande" AoFechar="FecharAsync">
+    <ChildContent>
+        @if (_salvando)
+        {
+            <p class="fol-operacao" role="status">Registrando infusão realizada…</p>
+        }
+        <fieldset class="fol-folha" disabled="@(_salvando || _estado.Carregando)">
+            <p class="secundario">Registre a infusão já realizada com orientação médica fora do sistema. Sua assinatura registra a execução; a validação fica pendente para o médico responsável.</p>
+            @if (!string.IsNullOrWhiteSpace(_estado.Alertas))
+            {
+                <p class="principal">@_estado.Alertas</p>
+            }
+            <div class="campos tres">
+                <Campo Rotulo="Data da execução">
+                    <input class="campo" type="date" value="@Dia(_estado.Data)" @onchange="TrocarDataAsync" />
+                </Campo>
+                <Campo Rotulo="Hora da execução"><input class="campo" value="@_estado.Hora" @oninput="e => _estado.Hora = e.Value?.ToString() ?? string.Empty" maxlength="5" /></Campo>
+                <Campo Rotulo="Data da prescrição">
+                    <input class="campo" type="date" value="@Dia(_estado.DataPrescricao)" @onchange="e => _estado.DataPrescricao = Ler(e)" />
+                </Campo>
+                <Campo Rotulo="Hora da prescrição"><input class="campo" value="@_estado.HoraPrescricao" @oninput="e => _estado.HoraPrescricao = e.Value?.ToString() ?? string.Empty" maxlength="5" /></Campo>
+                <Campo Rotulo="Diluente"><input class="campo" @bind="_estado.Diluente" maxlength="120" /></Campo>
+                <Campo Rotulo="Volume"><input class="campo" @bind="_estado.Volume" maxlength="60" /></Campo>
+                <Campo Rotulo="Tempo"><input class="campo" @bind="_estado.Tempo" maxlength="60" /></Campo>
+            </div>
+            <div class="campos">
+                <Campo Rotulo="Sessão do paciente" Classe="largo">
+                    <select class="campo" value="@_estado.Sessoes.IndexOf(_estado.Sessao!)" @onchange="EscolherSessao">
+                        @for (var i = 0; i < _estado.Sessoes.Count; i++)
+                        {
+                            <option value="@i">@_estado.Sessoes[i].Rotulo</option>
+                        }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Médico responsável pela orientação" Classe="largo">
+                    <select class="campo" value="@(_estado.Medico?.Id.ToString() ?? "")" @onchange="EscolherMedico">
+                        <option value="">Escolha o médico</option>
+                        @foreach (var m in _estado.Medicos)
+                        {
+                            <option value="@m.Id">@m.Rotulo</option>
+                        }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Orientação recebida fora do sistema" Classe="largo">
+                    <textarea class="campo" rows="3" maxlength="2000" @bind="_estado.Orientacao"></textarea>
+                </Campo>
+                <Campo Rotulo="Infusão realizada — texto livre" Classe="largo">
+                    <textarea class="campo" rows="6" maxlength="20000" @bind="_estado.Texto"></textarea>
+                </Campo>
+            </div>
+            <label class="marcar"><input type="checkbox" @bind="_estado.ConfirmouAlergia" />Conferi os alertas de alergia deste paciente</label>
+        </fieldset>
+        <Aviso Texto="@_estado.Mensagem" Tom="atencao" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" disabled="@_salvando" @onclick="FecharAsync">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_salvando || _estado.Carregando)" @onclick="SalvarAsync">Salvar registro e revisar assinatura</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter, EditorRequired] public string Paciente { get; set; } = string.Empty;
+    [Parameter] public int? AgendamentoId { get; set; }
+
+    /// <summary>A folha DEVOLVIDA pelo médico que esta nova versão substitui.</summary>
+    [Parameter] public int? RetificaPrescricaoId { get; set; }
+
+    /// <summary>A folha criada (nulo = desistiu).</summary>
+    [Parameter] public EventCallback<int?> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private InfusaoExternaNaTela _estado = default!;
+    private bool _salvando;
+
+    protected override void OnInitialized()
+    {
+        _estado = new InfusaoExternaNaTela(Escopos, PacienteId, Paciente, AgendamentoId, RetificaPrescricaoId);
+        _estado.Mudou += AoMudar;
+    }
+
+    protected override Task OnInitializedAsync() => _estado.CarregarAsync();
+
+    private void AoMudar() => _ = InvokeAsync(StateHasChanged);
+
+    private static string? Dia(DateTime? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static DateTime? Ler(ChangeEventArgs e)
+        => DateTime.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    private Task TrocarDataAsync(ChangeEventArgs e) => _estado.TrocarDataAsync(Ler(e));
+
+    private void EscolherSessao(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var i) && i >= 0 && i < _estado.Sessoes.Count)
+            _estado.EscolherSessao(_estado.Sessoes[i]);
+    }
+
+    private void EscolherMedico(ChangeEventArgs e)
+        => _estado.Medico = int.TryParse(e.Value?.ToString(), out var id) ? _estado.Medicos.FirstOrDefault(m => m.Id == id) : null;
+
+    private async Task SalvarAsync()
+    {
+        if (_salvando) return;
+        _salvando = true;
+        try
+        {
+            if (await _estado.SalvarAsync() && _estado.PrescricaoId is { } id)
+                await AoConcluir.InvokeAsync(id);
+        }
+        finally { _salvando = false; }
+    }
+
+    private Task FecharAsync() => _salvando ? Task.CompletedTask : AoFechar.InvokeAsync();
+
+    public override void Dispose()
+    {
+        _estado.Mudou -= AoMudar;
+        base.Dispose();
+    }
+}

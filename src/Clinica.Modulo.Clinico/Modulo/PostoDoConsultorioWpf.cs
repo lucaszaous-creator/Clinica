@@ -34,6 +34,7 @@ public sealed class PostoDoConsultorioWpf(PacienteEmFoco foco) : IPostoDoConsult
         {
             DestinoNoPosto.Atendimento => PostoClinico.ChaveDoAtendimento(),
             DestinoNoPosto.EvolucaoMedica => ModuloClinico.ChaveAtendimento,
+            DestinoNoPosto.Historico => ModuloClinico.ChaveProntuario,
             _ => ModuloClinico.ChavePaciente
         };
         return Task.FromResult(NavegacaoSuite.Ir(chave));

@@ -1,0 +1,205 @@
+@*
+  RECEBER NO BALCÃO (out/2026: o que no WPF era a CobrancaDoPacienteWindow + CobrancaDoPacienteViewModel
+  do shell, aberta pela ficha do paciente e pelo Lançar/Marcar). As contas vencidas do paciente, com
+  "Receber" em cada uma. O que a tela afirma (a ordem, o atraso, o resumo) mora em
+  CobrancaDoPacienteNaTela (Application, com teste).
+
+  Ele NÃO grava dinheiro por conta própria: "Receber" abre o ReceberPagamentoForm, que grava pelo
+  PagamentosRecepcaoService — o MESMO caixa do Financeiro, com a auditoria no mesmo SaveChanges. A
+  FORMA é escolhida na LINHA e viaja até lá: presumir a última usada gravaria PIX no dinheiro que o
+  paciente acabou de pôr no balcão. Não fecha ao receber — quem recebe uma parcela costuma receber a
+  próxima em seguida; quem abriu é avisado no fechamento se algo mudou (o alerta de dívida relê).
+
+  Permissão: a de quem já põe dinheiro no caixa pelo balcão (PagamentosNaTela.QuemRecebe) — as duas
+  barreiras, o botão apagado e o ExigirAlgum no clique.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@inherits TelaBase
+
+<Modal Titulo="Receber no balcão" Subtitulo="@Paciente" Largura="grande" AoFechar="FecharAsync">
+    <ChildContent>
+        <p class="secundario">As contas vencidas deste paciente. Receber aqui grava no caixa pelo mesmo caminho do Financeiro — com a forma de pagamento que o paciente está usando agora.</p>
+        @if (_naoVerificado)
+        {
+            <Aviso Tom="atencao" Texto="@CobrancaDoPacienteNaTela.FalhaDeLeitura" />
+        }
+        else if (!_carregou)
+        {
+            <Esqueleto Altura="140" />
+        }
+        else
+        {
+            <p class="campo-dica">@_resumo</p>
+            @if (_contas.Count > 0)
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th>Conta</th><th class="nao-quebra">Vencimento</th><th class="direita">Valor</th><th>Forma</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in _contas)
+                            {
+                                <tr @key="c.LancamentoId">
+                                    <td><span class="principal">@c.Descricao</span><Selo Tom="perigo">@c.Atraso</Selo></td>
+                                    <td class="nao-quebra">@c.Vencimento</td>
+                                    <td class="direita nao-quebra"><strong>@c.ValorTexto</strong></td>
+                                    <td>
+                                        <select class="campo" aria-label="Forma de pagamento" value="@(FormaDe(c)?.ToString() ?? "")"
+                                                @onchange="e => DefinirForma(c, e.Value?.ToString())">
+                                            <option value="">Escolha…</option>
+                                            @foreach (var f in Formas) { <option value="@f">@RotulosEnum.De(f)</option> }
+                                        </select>
+                                    </td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini primario" disabled="@(!PodeAlgum(PagamentosNaTela.QuemRecebe) || _ocupado)"
+                                                title="@(PodeAlgum(PagamentosNaTela.QuemRecebe) ? "Receber esta conta agora" : "Receber exige acesso ao caixa, ao lançamento ou à venda de pacote.")"
+                                                @onclick="() => ReceberAsync(c)">Receber</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+        <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" disabled="@(string.IsNullOrWhiteSpace(Telefone) || _devedor is null)"
+                title="Abre o WhatsApp com o lembrete pronto — o mesmo texto do Financeiro" @onclick="CobrarAsync"><Icone Nome="mensagem" />Cobrar pelo WhatsApp</button>
+        <button type="button" class="botao primario" @onclick="FecharAsync">Fechar</button>
+    </Rodape>
+</Modal>
+
+@if (_recebendo is { } r)
+{
+    <ReceberPagamentoForm PacienteId="PacienteId" LancamentoId="r.LancamentoId" Forma="FormaDe(r)"
+                          AoFechar="() => _recebendo = null" AoConcluir="RecebeuAsync" />
+}
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public string Paciente { get; set; } = string.Empty;
+    [Parameter] public string? Telefone { get; set; }
+    /// <summary>Fechou. O argumento diz se algo foi recebido aqui — quem abriu relê o alerta.</summary>
+    [Parameter] public EventCallback<bool> AoFechar { get; set; }
+
+    /// <summary>Recebimento de operadora pertence ao Financeiro — o balcão não oferece "Convênio" (o mesmo corte do ReceberPagamentoForm).</summary>
+    private static readonly FormaPagamento[] Formas = Enum.GetValues<FormaPagamento>().Where(f => f != FormaPagamento.Convenio).ToArray();
+
+    private PacienteInadimplente? _devedor;
+    private IReadOnlyList<CobrancaDoPacienteNaTela.ContaVencida> _contas = [];
+    private readonly Dictionary<int, FormaPagamento> _formas = [];
+    private CobrancaDoPacienteNaTela.ContaVencida? _recebendo;
+    private string _resumo = string.Empty;
+    private string? _mensagem;
+    private bool _mensagemEhErro, _carregou, _naoVerificado, _ocupado, _mudou;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private FormaPagamento? FormaDe(CobrancaDoPacienteNaTela.ContaVencida c) => _formas.TryGetValue(c.LancamentoId, out var f) ? f : null;
+
+    private void DefinirForma(CobrancaDoPacienteNaTela.ContaVencida c, string? valor)
+    {
+        if (Enum.TryParse<FormaPagamento>(valor, out var f) && Formas.Contains(f)) _formas[c.LancamentoId] = f;
+        else _formas.Remove(c.LancamentoId);
+    }
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        _mensagem = null;
+        try
+        {
+            PacienteInadimplente? devedor;
+            using (var escopo = Escopo())
+                devedor = await escopo.ServiceProvider.GetRequiredService<InadimplenciaService>()
+                    .DoPacienteAsync(PacienteId, DateOnly.FromDateTime(DateTime.Today));
+            if (geracao != _geracao) return;
+            _devedor = devedor;
+            _contas = CobrancaDoPacienteNaTela.Contas(devedor);
+            _resumo = CobrancaDoPacienteNaTela.Resumo(devedor);
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Balcão — contas vencidas do paciente não puderam ser lidas", ex);
+            _devedor = null;
+            _contas = [];
+            _naoVerificado = true;
+        }
+    }
+
+    /// <summary>
+    /// Recebe UMA conta, pela forma escolhida na linha. A cobrança é relida e conferida (do paciente,
+    /// de entrada) antes de abrir o recebimento — a mesma conferência da janela WPF.
+    /// </summary>
+    private async Task ReceberAsync(CobrancaDoPacienteNaTela.ContaVencida c)
+    {
+        if (_ocupado) return;
+        if (!ExigirAlgum(PagamentosNaTela.QuemRecebe, "receber no balcão")) return;
+        _ocupado = true;
+        _mensagem = null;
+        try
+        {
+            LancamentoFinanceiro? lancamento;
+            using (var escopo = Escopo())
+                lancamento = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>().ObterLancamentoAsync(c.LancamentoId);
+            if (lancamento is null) throw new InvalidOperationException("Cobrança não encontrada.");
+            if (lancamento.PacienteId != PacienteId || lancamento.Tipo != TipoLancamento.Entrada)
+                throw new InvalidOperationException("Esta cobrança não pertence ao paciente selecionado.");
+            _recebendo = c;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Balcão — recebimento não pôde ser registrado", ex);
+            _mensagem = $"Não foi possível registrar o recebimento: {ex.Message}";
+            _mensagemEhErro = true;
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+
+    private async Task RecebeuAsync()
+    {
+        _recebendo = null;
+        _mudou = true;
+        await CarregarAsync();
+        // A recarga zera a mensagem: escreve DEPOIS (a lição da parcela 68).
+        _mensagem = CobrancaDoPacienteNaTela.Recebido;
+        _mensagemEhErro = false;
+    }
+
+    /// <summary>
+    /// Abre o WhatsApp com o lembrete pronto — o MESMO texto do Financeiro
+    /// (InadimplenciaService.MensagemDeCobranca): lembrete, não ameaça, e sem dado clínico.
+    /// </summary>
+    private async Task CobrarAsync()
+    {
+        if (_devedor is null) return;
+        var link = QuemMeDeveTela.LinkWhatsApp(Telefone, InadimplenciaService.MensagemDeCobranca(_devedor));
+        if (link is null)
+        {
+            _mensagem = $"{Paciente}: telefone ausente ou inválido no cadastro.";
+            _mensagemEhErro = true;
+            return;
+        }
+        if (await Host.AbrirEnderecoAsync(link))
+        {
+            _mensagem = $"WhatsApp aberto para {Paciente}.";
+            _mensagemEhErro = false;
+            return;
+        }
+        _mensagem = await Host.CopiarAsync(link)
+            ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
+            : "Não foi possível abrir o WhatsApp neste computador.";
+        _mensagemEhErro = true;
+    }
+
+    private Task FecharAsync() => AoFechar.InvokeAsync(_mudou);
+}

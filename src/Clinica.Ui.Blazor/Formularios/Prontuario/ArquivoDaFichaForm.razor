@@ -1,0 +1,88 @@
+@*
+  ANEXAR UM ARQUIVO À FICHA DO PACIENTE (out/2026: no WPF eram o seletor do sistema e duas
+  perguntas em sequência — o título e a data). O que não pertence a uma sessão: a ressonância que
+  o paciente trouxe, a receita de outro serviço. Médico (EditarProntuario) ou enfermagem
+  (RegistrarEvolucaoEnfermagem) anexa; a data em branco é hoje.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Anexar arquivo à ficha" Subtitulo="@Paciente" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Arquivo" Classe="largo">
+                <div class="botoes-linha">
+                    @if (_arquivo is { } a)
+                    {
+                        <span>@a.Nome · @ExamesDoPacienteNaTela.Peso(a.Conteudo.Length)</span>
+                        <button type="button" class="botao mini" @onclick="() => _arquivo = null">Trocar</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="botao mini" @onclick="EscolherAsync"><Icone Nome="abrir" />Escolher arquivo…</button>
+                    }
+                </div>
+            </Campo>
+            <Campo Rotulo="O que é este arquivo?" Classe="largo" Dica="Ex.: Ressonância lombar, Receita de outro serviço" Obrigatorio="true">
+                <input class="campo" @bind="_titulo" maxlength="200" />
+            </Campo>
+            <Campo Rotulo="Data do documento" Dica="dd/mm/aaaa — em branco, hoje"><input class="campo" @bind="_data" maxlength="10" placeholder="dd/mm/aaaa" /></Campo>
+        </div>
+        <Aviso Texto="@_erro" Tom="erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_salvando || _arquivo is null)" @onclick="AnexarAsync">Anexar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public string Paciente { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+
+    private ArquivoEscolhido? _arquivo;
+    private string? _titulo, _data, _erro;
+    private bool _salvando;
+
+    private async Task EscolherAsync()
+    {
+        var arquivo = await Host.EscolherArquivoAsync("Documentos e imagens|*.pdf;*.jpg;*.jpeg;*.png|Todos os arquivos|*.*", "Anexar arquivo à ficha");
+        if (arquivo is null) return;
+        _arquivo = arquivo;
+        _titulo ??= Path.GetFileNameWithoutExtension(arquivo.Nome);
+    }
+
+    private async Task AnexarAsync()
+    {
+        if (!ExigirAlgum(Permissao.EditarProntuario | Permissao.RegistrarEvolucaoEnfermagem, "anexar arquivo à ficha do paciente")) return;
+        _erro = null;
+        if (_arquivo is not { } arquivo) { _erro = "Escolha o arquivo."; return; }
+        if (string.IsNullOrWhiteSpace(_titulo)) { _erro = "Diga o que é este arquivo."; return; }
+        if (ExamesDoPacienteNaTela.LerData(_data, DateOnly.FromDateTime(DateTime.Today)) is not { } data)
+        {
+            _erro = "Data inválida — use dd/mm/aaaa.";
+            return;
+        }
+        _salvando = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>().AnexarAsync(
+                    PacienteId, data, _titulo.Trim(), arquivo.Nome, arquivo.Conteudo,
+                    tipoConteudo: Clinica.Domain.MidiaClinica.MimeDe(arquivo.Nome), operador: Operador,
+                    midia: escopo.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — arquivo não pôde ser anexado à ficha", ex);
+            _erro = ex.Message;
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+}

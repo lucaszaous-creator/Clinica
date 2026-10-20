@@ -10,10 +10,10 @@
   vez, que foi a consulta mais cara do sistema (set/2026).
 
   Digitar volta à busca: um recorte somado à busca responderia "ninguém" sobre quem existe fora
-  dele (a regra do ViewModel WPF). Escolher um paciente abre a FICHA DO BALCÃO, que continua
-  WPF (IJanelasDaAgenda.AbrirFichaAsync, a MESMA da Agenda do dia); o cadastro de paciente NOVO
-  é a janela do shell (IBalcaoDaRecepcao.CadastrarPacienteAsync). Onde elas não existem (a
-  prévia, os testes) a tela DIZ que a ação é do aplicativo da Recepção.
+  dele (a regra do ViewModel WPF). Escolher um paciente abre a FICHA DO BALCÃO (Blazor desde
+  out/2026, no mesmo navegador — PedidoDaFichaDoBalcao.AbrirAsync, a MESMA porta da Agenda do
+  dia e do Início); o cadastro de paciente NOVO é o formulário Blazor (FormulariosDoPaciente).
+  Onde a ficha não existe (a prévia, os testes) a tela DIZ que a ação é do aplicativo da Recepção.
 
   O que a tela afirma (chips, rodapé, "carregar mais", o vazio de cada recorte) mora em
   PacientesDoBalcaoNaTela, na Application, com teste. Permissões copiadas do ViewModel:
@@ -166,7 +166,6 @@
     private static bool PodeMarcar => Pode(Permissao.EditarAgenda);
 
     private IBalcaoDaRecepcao Balcao => Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
-    private IJanelasDaAgenda Janelas => Servicos.GetService<IJanelasDaAgenda>() ?? JanelasDaAgendaIndisponiveis.Instancia;
 
     protected override Task OnInitializedAsync()
     {
@@ -331,11 +330,10 @@
         if (!Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente")) return;
         try
         {
-            var abriu = Janelas.Disponivel
-                ? await Janelas.AbrirFichaAsync(p.Id, p.Nome)
-                : await Host.AbrirFichaDoPacienteAsync(p.Id);
-            if (!abriu) { Notificacoes.Info("A ficha do paciente abre no aplicativo da Recepção."); return; }
-            await AoVoltarAsync();
+            // A ficha do BALCÃO (Blazor, out/2026): ela abre NO MESMO navegador, e a lista relê
+            // sozinha quando a pessoa volta (AoVoltarAsync) — o cadastro pode ter mudado lá.
+            if (!await PedidoDaFichaDoBalcao.AbrirAsync(Servicos, Host, p.Id, p.Nome))
+                Notificacoes.Info("A ficha do paciente não está disponível para o seu acesso neste aplicativo.");
         }
         catch (Exception ex)
         {
@@ -345,7 +343,7 @@
     }
 
     /// <summary>
-    /// O cadastro NOVO é a janela do shell. Gravado, a busca procura pelo NOME de quem nasceu
+    /// O cadastro NOVO é o formulário Blazor. Gravado, a busca procura pelo NOME de quem nasceu
     /// (o que a lista WPF fazia): mostra exatamente a ficha nova, em vez de "cadastrado" sobre a
     /// tela em branco, que se leria como "não salvou".
     /// </summary>
@@ -354,13 +352,17 @@
         if (!Exigir(Permissao.EditarPaciente, "cadastrar paciente")) return;
         try
         {
-            var r = await Balcao.CadastrarPacienteAsync();
-            if (!r.Abriu) { Notificacoes.Info("O cadastro de paciente abre no aplicativo da Recepção."); return; }
-            if (!r.Gravou) return;
+            var formularios = Servicos.GetRequiredService<FormulariosDoPaciente>();
+            var novo = await formularios.CadastrarAsync();
+            if (novo is null)
+            {
+                if (!formularios.Disponivel) Notificacoes.Info(FormulariosDoPaciente.Indisponivel);
+                return;
+            }
             Notificacoes.Sucesso("Paciente cadastrado.");
             LargarRecorte();
             await CarregarRecortesAsync();
-            if (_busca is not null) await _busca.BuscarAsync(r.Nome!);
+            if (_busca is not null) await _busca.BuscarAsync(novo.Nome);
         }
         catch (Exception ex)
         {

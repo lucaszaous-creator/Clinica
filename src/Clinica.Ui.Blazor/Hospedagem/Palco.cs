@@ -50,17 +50,21 @@ public sealed class Palco
             _telas.Add(entrada);
         }
         var voltou = !nova && Atual != entrada.Id;
+        var saiu = Atual is { } anterior && anterior != entrada.Id
+            ? _telas.Find(e => e.Id == anterior) : null;
         Atual = entrada.Id;
         Mudou?.Invoke();
+        saiu?.Sinal.AvisarSaida();
         if (voltou) entrada.Sinal.Avisar();
     }
 
     /// <summary>O hospedeiro passou a mostrar uma tela WPF: nenhuma tela Blazor à vista.</summary>
     public void Desativar()
     {
-        if (Atual is null) return;
+        if (Atual is not { } anterior) return;
         Atual = null;
         Mudou?.Invoke();
+        _telas.Find(e => e.Id == anterior)?.Sinal.AvisarSaida();
     }
 
     /// <summary>Chamado pelo componente depois de desenhar com alguma tela montada.</summary>

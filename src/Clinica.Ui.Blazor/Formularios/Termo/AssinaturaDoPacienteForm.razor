@@ -1,0 +1,294 @@
+@*
+  O TERMO QUE O PACIENTE ASSINA (out/2026: substitui a AssinaturaPacienteWindow + ViewModel WPF —
+  assinatura eletrônica SIMPLES, fora do congelamento do certificado). A ordem da janela WPF foi
+  mantida porque cada bloco tem a sua hora: o termo; as declarações (Sim/Não, "marcar todas" como
+  GESTO de quem lê com o paciente, nunca pré-marcado); a ALERGIA em vermelho ANTES de assinar
+  (parcela 80 — ele sai daqui com a pulseira); e a assinatura: o documento conferido, o link pelo
+  WhatsApp (parcela 81) e a área de assinar.
+
+  O traço sai do canvas (js/assinatura-paciente.js) no MESMO formato do InkCanvas: PNG de fundo
+  transparente em resolução dobrada, com largura e altura em unidades de tela. A área de assinar
+  SOME quando o traço chegou do celular — rabiscar por cima faria o termo afirmar outra
+  assinatura. O estado e as regras moram em ColetaDoTermoEmAndamento (Application), com teste.
+*@
+@using Clinica.Application.Modelos
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inherits TelaBase
+@inject IJSRuntime JS
+
+<Modal Titulo="@_coleta.Titulo" Largura="largo" AoFechar="AoFechar"
+       Subtitulo="@($"{_coleta.PacienteNome} · Termo nº {_coleta.Numero}")">
+    <ChildContent>
+        @if (!string.IsNullOrWhiteSpace(_coleta.SessaoDoTermo))
+        {
+            <p class="secundario">Ligado à sessão: <strong>@_coleta.SessaoDoTermo</strong></p>
+        }
+
+        @if (_coleta.Carregando && !_carregou)
+        {
+            <Esqueleto Altura="120" />
+        }
+        else
+        {
+            <section class="assin-bloco">
+                <p class="assin-rotulo">O TERMO</p>
+                <p class="assin-corpo">@_coleta.Corpo</p>
+            </section>
+
+            <section class="assin-bloco">
+                <div class="assin-bloco-topo">
+                    <p class="assin-rotulo">DECLARAÇÕES DO PACIENTE</p>
+                    <button type="button" class="botao" @onclick="_coleta.ConfirmarTodas">Marcar todas como Sim</button>
+                </div>
+                <p class="secundario">Leia cada uma com o paciente. Responder NÃO não impede nada: o termo é emitido do mesmo jeito, com a resposta escrita, e quem decide adiar o procedimento é quem vai fazê-lo.</p>
+                @foreach (var d in _coleta.Declaracoes)
+                {
+                    <div class="assin-declaracao">
+                        <div>
+                            <span class="principal">@d.Descricao</span>
+                            @if (!string.IsNullOrWhiteSpace(d.Detalhe))
+                            {
+                                <span class="secundario assin-cert-detalhe">@d.Detalhe</span>
+                            }
+                        </div>
+                        <div class="assin-sim-nao" role="radiogroup" aria-label="@d.Descricao">
+                            <label class="marcar"><input type="radio" name="@($"decl-{d.Ordem}")" checked="@d.EhSim" @onchange="() => d.MarcarSim()" />Sim</label>
+                            <label class="marcar"><input type="radio" name="@($"decl-{d.Ordem}")" checked="@d.EhNao" @onchange="() => d.MarcarNao()" />Não</label>
+                        </div>
+                    </div>
+                }
+            </section>
+
+            @if (ColetaDoTermoEmAndamento.PodeVerAlergias)
+            {
+                <section class="assin-alergia">
+                    <p class="assin-alergia-titulo">ALERGIAS — pergunte ANTES de o paciente assinar</p>
+                    @if (_coleta.AlergiasNaoConferidas)
+                    {
+                        <p class="assin-alergia-forte">Não foi possível conferir a lista de problemas agora — pergunte ao paciente e registre abaixo.</p>
+                    }
+                    @foreach (var a in _coleta.Alergias)
+                    {
+                        <p class="assin-alergia-item">@a</p>
+                    }
+                    @if (_coleta.SemAlergiaConferida)
+                    {
+                        <p>Nenhuma alergia registrada até aqui — pergunte ao paciente antes de colher a assinatura.</p>
+                    }
+                    @if (_coleta.TemAlergia)
+                    {
+                        <p class="assin-alergia-forte">PACIENTE COM ALERGIA — ele sai daqui com a PULSEIRA DE ALERGIA no braço.</p>
+                    }
+                    @if (ColetaDoTermoEmAndamento.PodeRegistrarAlergia)
+                    {
+                        <div class="assin-a1-linha">
+                            <input class="campo" maxlength="120" placeholder="Alérgico a quê? Só o agente (ex.: dipirona)"
+                                   value="@_coleta.NovaAlergia" @oninput="e => _coleta.NovaAlergia = e.Value?.ToString() ?? string.Empty" />
+                            <button type="button" class="botao contorno-perigo" @onclick="_coleta.RegistrarAlergiaAsync">Registrar alergia</button>
+                        </div>
+                        <p class="secundario">O registro vai para a lista de problemas do paciente — é ela que alerta o médico e a enfermagem em toda prescrição, hoje e nas próximas vezes.</p>
+                    }
+                </section>
+            }
+
+            <section class="assin-bloco">
+                <p class="assin-rotulo">ASSINATURA DO PACIENTE</p>
+                <div class="assin-a1-linha">
+                    <Campo Rotulo="Documento conferido" Classe="assin-documento">
+                        <input class="campo" maxlength="80" placeholder="ex.: CPF 123.456.789-00 ou RG 12.345.678"
+                               value="@_coleta.DocumentoConferido" @oninput="e => _coleta.DocumentoConferido = e.Value?.ToString() ?? string.Empty" />
+                    </Campo>
+                    <button type="button" class="botao" @onclick="LimparAsync">Limpar assinatura</button>
+                </div>
+
+                @if (_coleta.EnvioRemotoDisponivel)
+                {
+                    <div class="assin-a1-linha">
+                        <p class="secundario">Sem tela de assinatura no balcão? O paciente pode ler e assinar no próprio celular, pelo WhatsApp.</p>
+                        @if (_coleta.AguardandoCelular)
+                        {
+                            <button type="button" class="botao contorno-perigo" @onclick="_coleta.CancelarEnvioCelularAsync">Cancelar envio</button>
+                        }
+                        else if (!_coleta.TemTracoRemoto)
+                        {
+                            <button type="button" class="botao" title="Abre o WhatsApp com o link do termo pronto. O paciente lê, responde e assina no próprio celular; a assinatura cai nesta janela."
+                                    @onclick="EnviarPeloCelularAsync">Enviar para o celular…</button>
+                        }
+                    </div>
+                    @if (_coleta.AguardandoCelular)
+                    {
+                        <Aviso Tom="info" Texto="O termo foi para o WhatsApp do paciente. Pode FECHAR esta janela: quando ele assinar, a assinatura fica guardada e a linha dele na agenda do dia passa a dizer “Termo assinado — conferir”." />
+                    }
+                    @if (_coleta.TracoRemotoPng is { } png)
+                    {
+                        <div class="assin-traco-remoto">
+                            <p class="assin-rotulo">Assinatura recebida do celular do paciente:</p>
+                            <img src="@($"data:image/png;base64,{Convert.ToBase64String(png)}")" alt="Assinatura recebida do celular" />
+                        </div>
+                    }
+                }
+
+                <div hidden="@_coleta.TemTracoRemoto">
+                    <p class="secundario">Peça ao paciente para assinar na área abaixo — com o dedo ou a caneta, se a tela for sensível ao toque, ou com o mouse.</p>
+                    <div class="assin-area">
+                        @if (!_coleta.TemTraco)
+                        {
+                            <span class="assin-area-dica">Assine aqui</span>
+                        }
+                        <canvas @ref="_canvas" class="assin-canvas" aria-label="Área de assinatura do paciente"></canvas>
+                    </div>
+                </div>
+                <p class="secundario">Esta é uma assinatura eletrônica SIMPLES, colhida presencialmente. Ela não usa certificado digital do paciente — o que a sustenta é o registro de quem assinou, quando, diante de quem e com que documento conferido.</p>
+            </section>
+        }
+
+        <Aviso Texto="@_coleta.Mensagem" Tom="@(_coleta.MensagemEhErro ? "erro" : "atencao")" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao contorno-perigo" disabled="@(!ColetaDoTermoEmAndamento.PodeColher || _coleta.Carregando)" @onclick="RecusarAsync">Paciente recusou assinar</button>
+        <span class="assin-rodape-espaco"></span>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(!_coleta.PodeConfirmar)" @onclick="ConfirmarAsync">Confirmar assinatura</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter, EditorRequired] public string PacienteNome { get; set; } = string.Empty;
+
+    /// <summary>O modelo do termo — NULO no termo LGPD (montado das finalidades).</summary>
+    [Parameter] public int? ModeloId { get; set; }
+    [Parameter] public int? DocumentoId { get; set; }
+    [Parameter] public int? ProfissionalId { get; set; }
+    [Parameter] public int? AgendamentoId { get; set; }
+    [Parameter] public string? SessaoDoTermo { get; set; }
+    [Parameter] public EventCallback<bool> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private ColetaDoTermoEmAndamento _coleta = default!;
+    private ElementReference _canvas;
+    private IJSObjectReference? _modulo;
+    private DotNetObjectReference<AssinaturaDoPacienteForm>? _ponte;
+    private bool _carregou;
+
+    protected override void OnInitialized()
+    {
+        _coleta = new ColetaDoTermoEmAndamento(Escopos, PacienteId, ModeloId, PacienteNome,
+            DocumentoId, ProfissionalId, AgendamentoId, SessaoDoTermo);
+        _coleta.Mudou += AoMudar;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await _coleta.CarregarAsync();
+        _carregou = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_modulo is not null || !_carregou || _coleta.TemTracoRemoto) return;
+        try
+        {
+            _modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/assinatura-paciente.js");
+            if (_modulo is null) return;   // sem navegador (o bUnit): não há área para ligar
+            _ponte = DotNetObjectReference.Create(this);
+            await _modulo.InvokeVoidAsync("ligar", _canvas, _ponte);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — área de assinatura do paciente sem o módulo JS", ex);
+        }
+    }
+
+    private void AoMudar() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>Um traço terminou no canvas.</summary>
+    [JSInvokable]
+    public Task Desenhou() => InvokeAsync(() =>
+    {
+        _coleta.TemTraco = true;
+        StateHasChanged();
+    });
+
+    private async Task LimparAsync()
+    {
+        if (_modulo is not null) await _modulo.InvokeVoidAsync("limpar", _canvas);
+        if (!_coleta.TemTracoRemoto) _coleta.TemTraco = false;
+    }
+
+    private Task EnviarPeloCelularAsync() => _coleta.EnviarPeloCelularAsync(AbrirWhatsappAsync);
+
+    /// <summary>A regra do DDI e do telefone válido é a do shell (Whatsapp.Abrir) — aqui pela página.</summary>
+    private async Task<string?> AbrirWhatsappAsync(string telefone, string nome, string mensagem)
+    {
+        if (ColetaDeTermoNaTela.EnderecoDoWhatsapp(telefone, mensagem) is not { } url)
+            return $"{nome}: telefone ausente ou inválido no cadastro.";
+        return await Host.AbrirEnderecoAsync(url) ? null : "Não foi possível abrir o WhatsApp.";
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        // O traço do CELULAR tem precedência: exportar o canvas vazio no lugar dele confirmaria
+        // um termo em branco por cima do que o paciente assinou.
+        if (_coleta.TracoRemotoPng is { } remoto)
+        {
+            if (await _coleta.ConfirmarAsync(remoto, _coleta.TracoRemotoLargura, _coleta.TracoRemotoAltura, Dialogos.AvisoAsync))
+                await AoConcluir.InvokeAsync(true);
+            return;
+        }
+
+        // Guarda que FALA: o botão já está apagado sem traço, mas o atalho passa direto.
+        ExportacaoDoTraco? traco = null;
+        if (_modulo is not null && _coleta.TemTraco)
+            traco = await _modulo.InvokeAsync<ExportacaoDoTraco?>("exportar", _canvas);
+        if (traco is null || string.IsNullOrEmpty(traco.Png))
+        {
+            _coleta.Falar("Peça ao paciente para assinar na área indicada.", true);
+            return;
+        }
+
+        if (await _coleta.ConfirmarAsync(Convert.FromBase64String(traco.Png), traco.Largura, traco.Altura, Dialogos.AvisoAsync))
+            await AoConcluir.InvokeAsync(true);
+    }
+
+    private async Task RecusarAsync()
+    {
+        if (_coleta.RecusaDeRecusar() is { } recusa) { _coleta.Falar(recusa, true); return; }
+
+        var motivo = await Dialogos.PerguntarTextoAsync(
+            "Paciente recusou assinar",
+            "Diga por que o paciente não assinou. O termo continua emitido — é ele que prova "
+            + "que o documento foi apresentado a ele.");
+
+        // Diálogo CANCELADO: sair calado é o certo.
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        if (await _coleta.RecusarAsync(motivo))
+            await AoConcluir.InvokeAsync(true);
+    }
+
+    /// <summary>O que o módulo devolve do canvas.</summary>
+    public sealed record ExportacaoDoTraco(string Png, int Largura, int Altura);
+
+    public async ValueTask DisposeAsync()
+    {
+        _coleta.Mudou -= AoMudar;
+        // Vigia órfã seguiria consultando o balde com o formulário fechado.
+        _coleta.Dispose();
+        try
+        {
+            if (_modulo is not null)
+            {
+                await _modulo.InvokeVoidAsync("desligar", _canvas);
+                await _modulo.DisposeAsync();
+            }
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or TaskCanceledException or ObjectDisposedException)
+        {
+            // O navegador já foi embora: não há o que desligar.
+        }
+        _ponte?.Dispose();
+        base.Dispose();
+    }
+}

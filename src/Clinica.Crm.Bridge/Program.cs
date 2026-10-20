@@ -25,12 +25,16 @@ builder.Services.AddScoped<ClinicRelationshipBridge>();
 builder.Services.AddScoped<ClinicTeamBridge>();
 builder.Services.AddScoped<ClinicPatientBridge>();
 builder.Services.AddScoped<ClinicSummaryBridge>();
+builder.Services.AddScoped<ClinicDispatchBridge>();
 // O lembrete de SMS 24h antes, com a clínica fechada (out/2026): o MESMO LembreteSmsService
 // do desktop, rodando aqui a cada 5 min. Liga com LembreteSms__Ligado=true. O provedor, o
 // texto e o endereço do link continuam vindo das Configurações do Clinica (Relacionamento →
 // Canal de SMS); a ponte não tem segunda configuração de SMS. Ligado aqui e nos apps ao
 // mesmo tempo, não sai SMS duplicado: a reserva de cada mensagem é um índice único no banco.
 if(builder.Configuration.GetValue<bool>(RelogioDoSmsNoServidor.Chave))builder.Services.AddHostedService<RelogioDoSmsNoServidor>();
+// O e-mail do dia (06:00) e o "sua sessão foi agendada" (out/2026): o MESMO LembreteEmailService do
+// desktop, aqui a cada 5 min, com o servidor de saída que a clínica configurou. Liga com LembreteEmail__Ligado=true.
+if(builder.Configuration.GetValue<bool>(RelogioDoEmailNoServidor.Chave))builder.Services.AddHostedService<RelogioDoEmailNoServidor>();
 builder.Logging.AddFilter("Microsoft.AspNetCore",LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore",LogLevel.Critical);
 var app=builder.Build();
@@ -57,6 +61,10 @@ app.MapPost("/crm/v1/patients/lookup",(ClinicPatientLookup input,ClinicPatientBr
 // O dia do CRM para a direção (caminho A): só contagens, numa tabela própria. Sem chave de
 // ligar: quem decide enviar é o CRM (CRM_DAILY_SUMMARY_ENABLED), e a ponte só grava o resumo.
 app.MapPost("/crm/v1/summary/daily",(CrmDailySummary input,ClinicSummaryBridge bridge,CancellationToken ct)=>bridge.Daily(input,ct));
+// A fila de envios ao paciente (out/2026 — documentos pelo WhatsApp oficial). O desktop põe o
+// pedido; o CRM lista, reserva, pede a autorização final (uso único) e conta o resultado. Sem
+// chave de ligar aqui: quem decide processar é o CRM (CRM_CLINICAL_DISPATCH_ENABLED).
+RotasDaFilaDeEnvios.Mapear(app);
 app.MapPost("/crm/recall/notice",(RecallNotice input,ClinicRecallBridge bridge,CancellationToken ct)=>bridge.Notice(input,ct));
 app.MapPost("/crm/decision",(ClinicDecision input,ClinicAgendaBridge bridge,CancellationToken ct)=>bridge.Decide(input,ct));
 app.MapPost("/crm/v1/appointments/slots", (ClinicSlotQuery input, ClinicSchedulingBridge bridge, CancellationToken ct) => bridge.Slots(input, ct));

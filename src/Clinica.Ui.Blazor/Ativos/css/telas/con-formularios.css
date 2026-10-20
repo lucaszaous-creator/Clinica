@@ -1,0 +1,36 @@
+/* FORMULÁRIOS DO CONSULTÓRIO E DO BALCÃO que vieram das janelas WPF (out/2026): o quick-view do
+   prontuário, os resultados do pedido e o envio ao paciente. Só tokens (docs/telas-blazor.md). */
+
+/* Pares rótulo:valor alinhados à esquerda (o .pares comum alinha o valor à direita, para dinheiro). */
+.con-pares-esq dd{text-align:left;font-variant-numeric:normal}
+
+.con-texto{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.con-vazio{margin:var(--space-3) 0}
+
+/* Resultados do pedido: um cartão por laudo registrado. */
+.con-resultados{list-style:none;margin:var(--space-3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.con-resultados li{border:1px solid var(--borda);border-radius:var(--radius-card);background:var(--superficie);
+  padding:var(--space-3) var(--space-4);display:flex;flex-direction:column;gap:var(--space-1);align-items:flex-start}
+.con-resultados p{margin:0}
+
+/* Quick-view do prontuário: os três destaques e as listas das abas. */
+.con-resumo-destaques{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--space-3);
+  margin-bottom:var(--space-3)}
+.con-resumo-destaques p{margin:var(--space-1) 0 0}
+.con-resumo-destaques .rotulo{font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario)}
+/* A alergia é atributo da PESSOA: destaque em vermelho, não uma célula igual às outras. */
+.con-alergia{color:var(--erro-texto);font-weight:600}
+.con-evolucoes{list-style:none;margin:var(--space-3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.con-evolucoes li{border-left:3px solid var(--acento);padding:var(--space-1) var(--space-3);display:flex;
+  gap:var(--space-3);align-items:flex-start;justify-content:space-between}
+.con-evolucoes li > div{min-width:0;flex:1 1 auto}
+.con-evolucoes p{margin:0}
+.con-evolucoes .botao{flex:0 0 auto}
+.con-anexos{list-style:none;margin:var(--space-3) 0 var(--space-2);padding:0}
+.con-anexos li{display:flex;flex-direction:column;padding:var(--space-2) 0;border-bottom:1px solid var(--borda)}
+
+/* Envio ao paciente: as três opções na ordem da Application, a indisponível apagada com o motivo. */
+.con-envio{display:flex;flex-direction:column;gap:var(--space-3)}
+.con-envio-opcao{display:flex;flex-direction:column;gap:var(--space-1);cursor:pointer}
+.con-envio-opcao.indisponivel{cursor:default;color:var(--texto-secundario)}
+.con-envio-email{display:flex;flex-direction:column;gap:var(--space-2);padding-left:var(--space-4)}

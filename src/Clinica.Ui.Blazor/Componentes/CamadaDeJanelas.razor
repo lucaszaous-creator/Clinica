@@ -1,0 +1,25 @@
+@*
+  A CAMADA DOS FORMULÁRIOS ABERTOS POR CÓDIGO (out/2026 — JanelasNaTela). Desenha cada um, de
+  baixo para cima, MONTADOS: o de baixo espera a resposta do de cima com o estado vivo (a folha
+  de execução com o seletor do certificado por cima). O formulário que pertence a outra tela fica
+  oculto, nunca desmontado — trocar de tela pelo menu não pode jogar fora a folha pela metade.
+  Vem ANTES da camada de diálogos no documento: a pergunta que um formulário faz aparece por cima
+  dele.
+*@
+@implements IDisposable
+@inject JanelasNaTela Janelas
+
+@foreach (var j in Janelas.Abertas)
+{
+    <div @key="j.Chave" class="camada-janela" hidden="@(j.Tela is not null && j.Tela != Janelas.TelaAtual)">
+        <DynamicComponent Type="j.Tipo" Parameters="j.Parametros" />
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Janelas.Mudou += Redesenhar;
+
+    private void Redesenhar() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Janelas.Mudou -= Redesenhar;
+}

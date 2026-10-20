@@ -1,0 +1,153 @@
+using Clinica.Application.Abstracoes;
+using Clinica.Application.Servicos;
+using Clinica.Domain.Entities;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Clinica.Application.Modelos;
+
+/// <summary>Uma sessão do dia oferecida para amarrar a infusão realizada. <c>Id</c> nulo = registro avulso.</summary>
+public sealed record OpcaoSessaoInfusao(int? Id, int? MedicoId, string Rotulo);
+
+/// <summary>
+/// REGISTRAR A INFUSÃO REALIZADA com orientação médica externa (out/2026: era o
+/// <c>InfusaoExternaViewModel</c> WPF, movido sem mudança de regra — a folha criada vai à
+/// assinatura da enfermagem e à validação do médico responsável). Carrega os médicos que validam,
+/// o contexto de alergia e as sessões do dia; a revisão de uma folha DEVOLVIDA pelo médico parte
+/// do conteúdo dela.
+/// </summary>
+public sealed class InfusaoExternaNaTela
+{
+    private readonly IServiceScopeFactory _escopos;
+    private readonly int _pacienteId;
+    private readonly int? _sessaoInicial;
+    private readonly int? _retificaPrescricaoId;
+    private int _geracao;
+
+    public InfusaoExternaNaTela(IServiceScopeFactory escopos, int pacienteId, string paciente,
+        int? agendamentoId = null, int? retificaPrescricaoId = null)
+    {
+        _escopos = escopos; _pacienteId = pacienteId; Paciente = paciente;
+        _sessaoInicial = agendamentoId; _retificaPrescricaoId = retificaPrescricaoId;
+    }
+
+    public string Paciente { get; }
+    public int? PrescricaoId { get; private set; }
+    public List<Profissional> Medicos { get; } = [];
+    public List<OpcaoSessaoInfusao> Sessoes { get; } = [];
+    public Profissional? Medico { get; set; }
+    public OpcaoSessaoInfusao? Sessao { get; private set; }
+    public DateTime? Data { get; private set; } = DateTime.Today;
+    public string Hora { get; set; } = DateTime.Now.ToString("HH:mm");
+    public DateTime? DataPrescricao { get; set; } = DateTime.Today;
+    public string HoraPrescricao { get; set; } = DateTime.Now.ToString("HH:mm");
+    public string Texto { get; set; } = "";
+    public string Orientacao { get; set; } = "";
+    public string Diluente { get; set; } = "SF 0,9%";
+    public string Volume { get; set; } = "";
+    public string Tempo { get; set; } = "1h";
+    public string? Mensagem { get; private set; }
+    public string? Alertas { get; private set; }
+    public bool ConfirmouAlergia { get; set; }
+    public bool Carregando { get; private set; }
+
+    /// <summary>Algo mudou por fora de um campo (a lista de sessões chegou): quem desenha redesenha.</summary>
+    public event Action? Mudou;
+
+    public async Task CarregarAsync()
+    {
+        try
+        {
+            Carregando = true;
+            using var scope = _escopos.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+            PrescricaoInterna? anterior = null;
+            if (_retificaPrescricaoId is { } idAnterior)
+            {
+                anterior = await repo.ObterPrescricaoInternaAsync(idAnterior)
+                    ?? throw new InvalidOperationException("Folha devolvida não encontrada.");
+                if (anterior.DevolvidaEm is null || anterior.Retificacao is not null
+                    || anterior.PacienteId != _pacienteId || anterior.RegistradaPorUsuarioId != SessaoUsuario.Atual.UsuarioId)
+                    throw new InvalidOperationException("Esta devolução já foi revisada ou não pertence a este executante.");
+                var checagem = anterior.Itens.Single().ChecagemVigente;
+                Data = (checagem?.DataRealizacao ?? anterior.Data).ToDateTime(TimeOnly.MinValue);
+                Hora = (checagem?.HoraRealizacao ?? anterior.Hora).ToString("HH\\:mm");
+                DataPrescricao = anterior.Data.ToDateTime(TimeOnly.MinValue);
+                HoraPrescricao = anterior.Hora.ToString("HH\\:mm");
+                Texto = anterior.Itens.Single().Descricao;
+                Orientacao = anterior.OrientacaoExterna ?? "";
+                Diluente = anterior.Itens.Single().Diluente ?? "";
+                Volume = anterior.Itens.Single().Volume ?? "";
+                Tempo = anterior.Itens.Single().TempoInfusao ?? "";
+                Mensagem = $"Devolvida pelo médico: {anterior.MotivoDevolucao}. A folha anterior permanecerá assinada no histórico.";
+            }
+            var profissionais = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().MedicosParaValidacaoAsync();
+            Medicos.Clear();
+            foreach (var medico in profissionais.Where(p => p.Ativo && p.Id != SessaoUsuario.Atual.ProfissionalId)) Medicos.Add(medico);
+            if (anterior is not null) Medico = Medicos.FirstOrDefault(m => m.Id == anterior.ProfissionalId);
+            var contexto = await scope.ServiceProvider.GetRequiredService<PrescricaoService>().ContextoAsync(_pacienteId);
+            Alertas = contexto.Alergias.Count == 0 ? "Nenhuma alergia cadastrada. Confira com o paciente." : "Alergias: " + string.Join("; ", contexto.Alergias.Select(a => a.Descricao));
+            if (_sessaoInicial is { } id && await repo.ObterAgendamentoAsync(id) is { } horario) Data = horario.DataHora.Date;
+            await CarregarSessoesAsync();
+            if (anterior?.AgendamentoId is { } sessaoId) EscolherSessao(Sessoes.FirstOrDefault(s => s.Id == sessaoId) ?? Sessoes.FirstOrDefault());
+        }
+        catch (Exception ex) { Mensagem = ex.Message; }
+        finally { Carregando = false; Mudou?.Invoke(); }
+    }
+
+    /// <summary>Trocar a data relê as sessões dela (o WPF fazia no OnDataChanged).</summary>
+    public async Task TrocarDataAsync(DateTime? data)
+    {
+        Data = data;
+        if (Medicos.Count > 0) await CarregarSessoesAsync();
+    }
+
+    /// <summary>Escolher a sessão traz o médico dela (o WPF fazia no OnSessaoChanged).</summary>
+    public void EscolherSessao(OpcaoSessaoInfusao? sessao)
+    {
+        Sessao = sessao;
+        if (sessao?.MedicoId is { } medico) Medico = Medicos.FirstOrDefault(m => m.Id == medico);
+    }
+
+    private async Task CarregarSessoesAsync()
+    {
+        if (Data is not { } data) return;
+        var geracao = ++_geracao;
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var sessoes = await scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                .AgendamentosDoPacienteNoDiaAsync(_pacienteId, DateOnly.FromDateTime(data));
+            if (geracao != _geracao) return;
+            Sessoes.Clear();
+            Sessoes.Add(new(null, null, "Registro avulso do paciente"));
+            foreach (var a in sessoes.Where(a => a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado))
+                Sessoes.Add(new(a.Id, a.ProfissionalId, $"{a.DataHora:HH:mm} · sessão #{a.Id} · {a.Profissional?.Rotulo}"));
+            EscolherSessao(Sessoes.FirstOrDefault(s => s.Id == _sessaoInicial) ?? Sessoes[0]);
+        }
+        catch (Exception ex) { if (geracao == _geracao) Mensagem = ex.Message; }
+        Mudou?.Invoke();
+    }
+
+    /// <summary>Grava. Verdadeiro = salvou (o <see cref="PrescricaoId"/> é a folha criada).</summary>
+    public async Task<bool> SalvarAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao | Permissao.RegistrarEvolucaoEnfermagem, "registrar infusão realizada");
+            if (Data is not { } data || !TimeOnly.TryParse(Hora, out var hora)
+                || DataPrescricao is not { } dataPrescricao || !TimeOnly.TryParse(HoraPrescricao, out var horaPrescricao)
+                || Medico is null)
+                throw new InvalidOperationException("Informe as datas e horas da prescrição e da execução e o médico responsável.");
+            using var scope = _escopos.CreateScope();
+            var p = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().RegistrarExecucaoExternaAsync(
+                new(_pacienteId, Medico.Id, Sessao?.Id, DateOnly.FromDateTime(data), hora, Texto, Orientacao,
+                    Volume, Diluente, Tempo, ConfirmouAlergia: ConfirmouAlergia,
+                    DataPrescricao: DateOnly.FromDateTime(dataPrescricao), HoraPrescricao: horaPrescricao,
+                    RetificaPrescricaoId: _retificaPrescricaoId), SessaoUsuario.Atual.UsuarioId);
+            PrescricaoId = p.Id;
+            return true;
+        }
+        catch (Exception ex) { Mensagem = ex.Message; return false; }
+        finally { Mudou?.Invoke(); }
+    }
+}

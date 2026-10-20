@@ -42,6 +42,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Tempo medido de cada teste: o FatiaDaSuite equilibra as fatias do CI por ele
+         (tools/medir-tempos-dos-testes.py regrava). Embutido, para não depender de cópia. -->
+    <EmbeddedResource Include="tempos-dos-testes.json" LogicalName="tempos-dos-testes.json" />
     <None Include="../../deploy/tablet/migracao-a1.sql" Link="Implantacao/migracao-a1.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Clinica.Assinaturas.Tests/Fixtures/duas-assinaturas-anteriores.pdf" Link="Implantacao/documento-historico.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

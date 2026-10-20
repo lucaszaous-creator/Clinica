@@ -146,10 +146,12 @@ A primeira versão criava um `BlazorWebView` **por tela**, e a clínica mandou o
 **pretos** a cada tela aberta. A janela nativa do WebView2 nasce preta antes de o navegador
 existir dentro dela, e cor de fundo nenhuma vale nesse instante. Hoje:
 
-- `TelaBlazor` (no módulo) só **marca o lugar** da tela na área de trabalho;
-- `NavegadorDaJanela` é o navegador **único** da janela, na camada persistente do
-  `ShellWindow` (`CamadaDaJanela`), posicionado sobre a tela à vista e escondido quando a tela
-  é WPF. Ele nasce **escondido** e só aparece depois da primeira renderização (rede: 3 s);
+- `TelaBlazor` (no módulo) é só o **descritor** da tela (`ITelaDoNavegador`: o componente);
+- desde out/2026 a janela do app (`JanelaDoApp`) **é** o navegador: o conteúdo dela é UM
+  `BlazorWebView`, e a moldura (cabeçalho, menu, abas, entrada) é Razor em `Moldura/`. Ele nasce
+  **escondido** e só aparece depois da primeira renderização (rede: 3 s). Uma `TelaBlazor` posta
+  dentro de OUTRA janela WPF cria o navegador daquela janela (`NavegadorDaJanela`) — um por
+  janela, nunca um por tela;
 - `Palco` + `PalcoDeTelas` trocam as telas **dentro** dele: cada tela aberta fica montada
   (oculta), num contêiner que rola sozinho, e reativá-la dispara a releitura silenciosa
   (`SinalDeVolta`). Diálogos e notificações existem uma vez por navegador.
@@ -181,7 +183,7 @@ antes de ser aceita (a que nunca reprovou não mede nada):
 
 | Medição | Onde roda | O que vê | Provada contra |
 |---|---|---|---|
-| `PalcoTrocaRepetidaTests` (bUnit) | `dotnet test` | 5 rodadas pelas 14 telas reais + rajada: uma tela à vista por vez, nunca recriada, com conteúdo, camadas únicas, sem erro no log, e **toda volta relê o banco** | o Extrato do banco, que não recruzava ao voltar (achado por ele e corrigido) |
+| `PalcoTrocaRepetidaTests` (bUnit) | `dotnet test` | todas as telas reais em lotes de ~15 (um caso por lote, espalhados pelas fatias do CI), 5 rodadas + rajada, consultas contadas POR TELA: uma tela à vista por vez, nunca recriada, com conteúdo, camadas únicas, sem erro no log, e **toda volta relê o banco** | o Extrato do banco, que não recruzava ao voltar (achado por ele e corrigido) |
 | `tools/PreviaBlazor/trocas.js` + `analisar.py` | Chromium do Linux, na prévia (`/palco`) | 300 trocas medidas quadro a quadro (sonda em `requestAnimationFrame` + screencast): nenhum quadro sem tela entre duas Blazor, sobreposto, vazio, com esqueleto numa volta, escuro ou em branco | `FLASH_DE_TESTE=1` injeta 200 ms pretos por troca — reprova com 38 quadros |
 | `ValidarLayoutWindows --blazor` | runner Windows (CI do PR) | o **preto da janela nativa do WebView2**, que só existe no Windows: o shell real na tela, 160 trocas, fotos da área de trabalho em laço | quando a foto **não enxerga** o navegador, pergunta ao PRÓPRIO navegador (texto da tela + `CapturePreviewAsync`): se ele desenhou, é limite da captura do runner e vira **aviso no PR** ("não medido"), nunca "zero flash"; se não desenhou, reprova. O escuro antes da 1ª navegação é da janela WPF se compondo (o navegador ainda não existe) e sai contado à parte |
 

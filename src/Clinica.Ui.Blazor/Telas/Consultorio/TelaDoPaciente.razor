@@ -1,0 +1,570 @@
+@*
+  A TELA DO PACIENTE — o prontuário aberto (out/2026: migrada da PacienteWorkspaceView WPF;
+  chaves "consultorio-paciente", "consultorio-atendimento", "consultorio-atendimento-enfermagem",
+  "consultorio-prontuario", "consultorio-exames-anexos", "consultorio-evolucao-dor",
+  "consultorio-medidas" e "consultorio-avaliacoes").
+
+  O crachá (quem é, alergias, hipóteses), a situação do horário com o cronômetro, o rail de
+  seções e a seção à vista. QUEM a tela mostra vem do PedidoDaTelaDoPaciente (a navegação do
+  posto define) ou, sem pedido, do paciente em foco do posto. O palco guarda UMA instância desta
+  tela: a cada volta ela confere se o pedido mudou e troca de paciente/seção.
+
+  As regras (quem vê qual seção, a frase da sessão, a origem, o "voltar") moram em
+  TelaDoPacienteNaTela / SessaoDoAtendimentoNaTela, na Application, com teste.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@using Clinica.Ui.Blazor.Componentes.SecoesDoPaciente
+@inherits TelaBase
+@implements ITelaDoPaciente
+
+<div class="pagina tela-paciente">
+    @if (_contexto is not { } ctx)
+    {
+        <section class="cartao">
+            <div class="cartao-corpo">
+                <EstadoVazio Titulo="Nenhum paciente aberto" Icone="pessoa"
+                             Descricao="Escolha um paciente em Meu dia ou em Pacientes para abrir o prontuário.">
+                    <button type="button" class="botao primario" @onclick="IrParaPacientesAsync"><Icone Nome="pessoas" />Ir para Pacientes</button>
+                </EstadoVazio>
+            </div>
+        </section>
+    }
+    else
+    {
+        <header class="tp-cracha cartao">
+            <button type="button" class="botao fantasma icone tp-voltar" @onclick="VoltarAsync"
+                    title="@RotuloVoltar" aria-label="@($"Voltar para {RotuloVoltar}")"><Icone Nome="esquerda" /></button>
+
+            @if (_cabecalho?.Foto is { Length: > 0 } foto)
+            {
+                <img class="tp-foto" src="@($"data:image/jpeg;base64,{Convert.ToBase64String(foto)}")" alt="" />
+            }
+            else
+            {
+                <span class="avatar grande tp-foto">@Iniciais(ctx.Nome)</span>
+            }
+
+            <div class="tp-identidade">
+                <h1 class="tp-nome">@ctx.Nome</h1>
+                @if (_cabecalho is { } c)
+                {
+                    <p class="tp-linha">@c.Linha</p>
+                    @if (c.CarteirinhaTexto is { } cart)
+                    {
+                        <p class="tp-linha @(c.CarteirinhaVencida ? "tp-vencida" : null)">@cart</p>
+                    }
+                    @if (c.TemContextoClinico)
+                    {
+                        <div class="tp-contexto">
+                            @if (c.AlergiasTexto is { } alergias)
+                            {
+                                <Selo Tom="perigo">@alergias</Selo>
+                            }
+                            @if (c.ProblemasTexto is { } problemas)
+                            {
+                                <span class="tp-contexto-item"><b>Em acompanhamento:</b> @problemas</span>
+                            }
+                            @if (c.DiagnosticosTexto is { } hip)
+                            {
+                                <span class="tp-contexto-item"><b>Últimas hipóteses:</b> @hip</span>
+                            }
+                        </div>
+                    }
+                }
+                else if (_cabecalhoFalhou)
+                {
+                    <p class="tp-linha">O crachá clínico não pôde ser lido agora — o prontuário abre assim mesmo.</p>
+                }
+                <p class="tp-origem">@TelaDoPacienteNaTela.DescreverOrigem(ctx.AgendamentoId, ctx.DataDoHorario, Hoje)</p>
+            </div>
+
+            <div class="tp-sessao">
+                @if (_sessao.TemSessao)
+                {
+                    <span class="tp-pilula @(_sessao.EmAtendimento ? "em-curso" : _sessao.Concluida ? "concluida" : null)"
+                          title="@_sessao.Situacao">@_sessao.Situacao</span>
+                }
+                @if (_sessao.Cronometro is { } visor)
+                {
+                    <span class="tp-visor" role="timer" aria-label="Tempo de atendimento">@visor</span>
+                }
+                <div class="botoes-linha">
+                    @if (_sessao.PodeIniciar)
+                    {
+                        <button type="button" class="botao" disabled="@(!PodeMoverFila || _ocupado)" @onclick="IniciarAsync"
+                                title="O paciente entrou na sala">Iniciar atendimento</button>
+                    }
+                    @if (_sessao.PodeReabrir)
+                    {
+                        <button type="button" class="botao" disabled="@(!PodeMoverFila || _ocupado)" @onclick="ReabrirAsync"
+                                title="Desfaz o encerramento (antes da conclusão)">Reabrir</button>
+                    }
+                    @if (PodeFinalizarSessao)
+                    {
+                        @* O "Salvar e finalizar": grava a folha aberta → encerra → conclui (a ordem é amarra). *@
+                        <button type="button" class="botao primario" disabled="@_ocupado" @onclick="FinalizarSessaoAsync"
+                                title="Grava a sessão, encerra o atendimento e gera as guias aplicáveis">@RotuloFinalizarSessao</button>
+                    }
+                    @if (_mostrarMateriais)
+                    {
+                        <button type="button" class="botao" disabled="@_ocupado" @onclick="() => _materiaisAbertos = true"
+                                title="Registrar os materiais usados nesta sessão">Registrar materiais</button>
+                    }
+                    <button type="button" class="botao fantasma" @onclick="VoltarAsync">Trocar paciente</button>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_avisoConclusaoAutomatica))
+                {
+                    <p class="tp-aviso-conclusao">@_avisoConclusaoAutomatica</p>
+                }
+                @if (_materiaisAbertos && ctx.AgendamentoId is { } idMateriais)
+                {
+                    <MateriaisAtendimentoForm AgendamentoId="idMateriais" AoConcluir="RelerCabecalhoAsync"
+                                              AoFechar="() => _materiaisAbertos = false" />
+                }
+            </div>
+        </header>
+
+        <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+
+        <div class="tp-corpo">
+            <nav class="tp-rail cartao" aria-label="Seções do prontuário">
+                @* UMA porta por seção: o rail mostra todas as que a pessoa alcança (a ficha e os
+                   documentos inclusive) — o WPF escondia as duas atrás de botões do cabeçalho. *@
+                @foreach (var grupo in _rail.Select((item, i) => (item, i)).Where(x => !x.item.Oculta).GroupBy(x => x.item.Grupo))
+                {
+                    <p class="tp-grupo">@grupo.Key</p>
+                    @foreach (var (item, i) in grupo)
+                    {
+                        <button type="button" class="tp-secao @(i == _secao ? "ativa" : null)" aria-current="@(i == _secao ? "page" : null)"
+                                @onclick="() => IrPara(item.Rotulo)">
+                            <Icone Nome="@IconeDe(item.Rotulo)" />@item.RotuloMenu
+                        </button>
+                    }
+                }
+            </nav>
+
+            <main class="tp-secao-corpo" @key="ctx.Versao">
+                <CascadingValue Value="ctx" IsFixed="true">
+                    <CascadingValue Value="(ITelaDoPaciente)this" IsFixed="true">
+                        @switch (_rail[_secao].Rotulo)
+                        {
+                            case TelaDoPacienteNaTela.Atendimento:
+                                <SecaoAtendimento />
+                                break;
+                            case TelaDoPacienteNaTela.AtendimentoDeEnfermagem:
+                                <SecaoAtendimentoDeEnfermagem />
+                                break;
+                            case TelaDoPacienteNaTela.FichaDoPaciente:
+                                <SecaoFichaDoPaciente SubAba="_subAba" />
+                                break;
+                            case TelaDoPacienteNaTela.Historico:
+                                <SecaoHistorico />
+                                break;
+                            case TelaDoPacienteNaTela.ExamesEAnexos:
+                                <SecaoExamesEAnexos />
+                                break;
+                            case TelaDoPacienteNaTela.PrescricoesEDocumentos:
+                                <SecaoPrescricoesEDocumentos SubAba="_subAba" />
+                                break;
+                            case TelaDoPacienteNaTela.Acompanhamento:
+                            default:
+                                <SecaoAcompanhamento SubAba="_subAba" />
+                                break;
+                        }
+                    </CascadingValue>
+                </CascadingValue>
+            </main>
+        </div>
+    }
+</div>
+
+@code {
+    private ContextoDoPaciente? _contexto;
+    private int _versaoDoPedido = -1;
+    private IReadOnlyList<TelaDoPacienteNaTela.ItemDoRail> _rail = [];
+    private int _secao;
+    private int _subAba;
+    private CabecalhoClinicoPaciente? _cabecalho;
+    private bool _cabecalhoFalhou;
+    private Agendamento? _horario;
+    private SessaoDoAtendimentoNaTela _sessao = SessaoDoAtendimentoNaTela.Nenhuma;
+    private string? _mensagem;
+    private bool _mensagemEhErro;
+    private bool _ocupado;
+    private int _geracao;
+    private int _versaoContexto;
+    private Timer? _relogio;
+    private bool _aVista = true;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+    private PedidoDaTelaDoPaciente? Pedido => Servicos.GetService<PedidoDaTelaDoPaciente>();
+    private IPostoDoConsultorio Posto => Servicos.GetService<IPostoDoConsultorio>() ?? PostoDoConsultorioIndisponivel.Instancia;
+
+    /// <summary>Mover a fila é o mesmo ato dos dois lados (parcela 61): EditarAgenda OU MovimentarFila.</summary>
+    private static bool PodeMoverFila => PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila);
+
+    private string RotuloVoltar => TelaDoPacienteNaTela.RotuloVoltar(_contexto?.AgendamentoId is not null);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rail = TelaDoPacienteNaTela.RailPara(SessaoUsuario.Atual.Efetivas, SessaoUsuario.Atual.Perfil);
+        _relogio = new Timer(_ => _ = InvokeAsync(Bater), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        await ConferirPedidoAsync();
+    }
+
+    /// <summary>
+    /// Voltou à vista: se o pedido mudou (outro paciente, outra seção), troca; senão relê o
+    /// crachá e a situação do horário em silêncio — o balcão pode ter mudado o horário.
+    /// </summary>
+    protected override async Task AoVoltarAsync()
+    {
+        _aVista = true;
+        if (!await ConferirPedidoAsync()) await RelerCabecalhoAsync();
+    }
+
+    /// <summary>Fora de vista, o cronômetro para (a tela continua montada no palco).</summary>
+    protected override Task AoSairAsync()
+    {
+        _aVista = false;
+        return Task.CompletedTask;
+    }
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar ? RelerCabecalhoAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// Lê o pedido; quando mudou desde a última vez, abre o paciente pedido. Sem pedido nenhum,
+    /// cai no paciente em foco do posto. Verdadeiro = trocou.
+    /// </summary>
+    private async Task<bool> ConferirPedidoAsync()
+    {
+        var (pedido, versao) = Pedido?.Ler() ?? (null, 0);
+        if (versao == _versaoDoPedido) return false;
+        _versaoDoPedido = versao;
+
+        var paciente = pedido?.Paciente ?? (_contexto is null ? Posto.PacienteEmFoco : null);
+        if (paciente is null) return false;
+
+        // O MESMO paciente (e o mesmo horário): só troca a seção — remontar as seções faria a
+        // folha em edição perder o que está sendo escrito.
+        if (_contexto is { } atual && pedido is not null && atual.ParaPosto() == paciente)
+        {
+            _secao = TelaDoPacienteNaTela.SecaoInicial(TelaDoPacienteNaTela.IndiceDe(pedido.Secao), _rail);
+            _subAba = pedido.SubAba;
+            return true;
+        }
+
+        _contexto =new ContextoDoPaciente(paciente.PacienteId, paciente.Paciente, paciente.AgendamentoId,
+            paciente.AtendimentoId, paciente.DataDoHorario, ++_versaoContexto);
+        _secao = TelaDoPacienteNaTela.SecaoInicial(
+            TelaDoPacienteNaTela.IndiceDe(pedido?.Secao ?? TelaDoPacienteNaTela.Atendimento), _rail);
+        _subAba = pedido?.SubAba ?? 0;
+        _cabecalho = null;
+        _cabecalhoFalhou = false;
+        _horario = null;
+        _sessao = SessaoDoAtendimentoNaTela.Nenhuma;
+        _mensagem = null;
+        // Paciente novo: o rascunho do anterior não atravessa (nem os materiais abertos).
+        _guardados.Clear();
+        _materiaisAbertos = false;
+        _mostrarMateriais = false;
+        _avisoConclusaoAutomatica = null;
+        await RelerCabecalhoAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// O crachá clínico e o horário. Falhar NÃO derruba a tela: o prontuário abre com o nome,
+    /// e o crachá diz que não pôde ser lido (a regra da parcela 52 aplicada ao cabeçalho).
+    /// </summary>
+    public async Task RelerCabecalhoAsync()
+    {
+        if (_contexto is not { } ctx) return;
+        var geracao = ++_geracao;
+        CabecalhoClinicoPaciente? cabecalho = null;
+        Agendamento? horario = null;
+        var falhou = false;
+        try
+        {
+            using var escopo = Escopo();
+            if (Pode(Permissao.VerProntuario))
+                cabecalho = await escopo.ServiceProvider.GetRequiredService<ConsultorioService>().CabecalhoAsync(ctx.PacienteId);
+            if (ctx.AgendamentoId is { } id)
+                horario = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                    .ObterAgendamentoAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — crachá do paciente não pôde ser lido", ex);
+            falhou = true;
+        }
+        if (geracao != _geracao || Descartada || _contexto != ctx) return;
+        if (!falhou) _cabecalho = cabecalho;
+        _cabecalhoFalhou = falhou && _cabecalho is null;
+        _horario = horario ?? (falhou ? _horario : null);
+        _sessao = SessaoDoAtendimentoNaTela.De(_horario, DateTime.Now);
+        await RelerAcoesDaSessaoAsync(ctx);
+        StateHasChanged();
+    }
+
+    // ==================== As AÇÕES DA SESSÃO (out/2026, portadas da PacienteWorkspaceViewModel) ====================
+
+    private readonly Dictionary<string, object> _guardados = [];
+    private bool _mostrarMateriais;
+    private bool _materiaisAbertos;
+    private string? _avisoConclusaoAutomatica;
+
+    private IJanelasDoAtendimentoClinico Janelas
+        => Servicos.GetService<IJanelasDoAtendimentoClinico>() ?? JanelasDoAtendimentoClinicoIndisponiveis.Instancia;
+
+    /// <summary>O estado de uma seção que sobrevive à troca de seção (a folha em edição). Um por paciente.</summary>
+    public T Guardado<T>(string chave, Func<T> criar) where T : class
+    {
+        if (_guardados.TryGetValue(chave, out var existente) && existente is T achado) return achado;
+        var novo = criar();
+        _guardados[chave] = novo;
+        return novo;
+    }
+
+    public void AvisarMudanca() => _ = InvokeAsync(RelerCabecalhoAsync);
+
+    /// <summary>Finalizar exige o médico responsável (ou o Gerente) com prontuário E lançamento, e mover a fila.</summary>
+    private static bool PodeConcluirComAcesso => PodeMoverFila && ConclusaoClinica.Permitida(
+        SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.Efetivas, SessaoUsuario.Atual.ProfissionalId);
+
+    private bool PodeFinalizarSessao => SessaoDoAtendimentoNaTela.PodeFinalizar(_horario, PodeConcluirComAcesso);
+
+    private string RotuloFinalizarSessao => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
+        ? "Concluir sessão" : SessaoDoAtendimentoNaTela.RotuloFinalizar(_horario);
+
+    /// <summary>
+    /// "Registrar materiais" (só depois de encerrado, com a política ligada para quem pode) e o
+    /// aviso da conclusão automática. Falhar aqui não derruba o cabeçalho: vai ao log.
+    /// </summary>
+    private async Task RelerAcoesDaSessaoAsync(ContextoDoPaciente ctx)
+    {
+        var mostrar = false;
+        string? aviso = null;
+        if (_horario is { } horario && ctx.AgendamentoId is { } id)
+        {
+            try
+            {
+                using var escopo = Escopo();
+                var p = escopo.ServiceProvider;
+                var repo = p.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+                var politica = await new PoliticaMateriaisService(repo).ObterAsync();
+                var registrado = politica.Modo != ModoMateriais.Desativado && horario.AtendimentoId is { } atendimento
+                                 && await repo.ConferenciaConsumoAsync(atendimento) is not null;
+                mostrar = horario.FimAtendimentoEm is not null && horario.AtendimentoId is not null
+                          && (politica.Modo == ModoMateriais.Equipe
+                              || politica.Modo == ModoMateriais.Gestao && Pode(Permissao.EditarFinanceiro))
+                          && (politica.Abrange(horario) || registrado);
+                aviso = await p.GetRequiredService<AgendaService>().PendenciaEnfermagemAsync(id)
+                        ?? await Janelas.PendenciaDeConclusaoAutomaticaAsync(id);
+                if (horario.FimAtendimentoEm is null)
+                    aviso ??= SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
+                        ? FinalizacaoDaSessao.OrientacaoGerente
+                        : (await p.GetRequiredService<PoliticaConclusaoService>().ObterAsync()).OrientacaoAoSalvar;
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Consultório — ações da sessão não puderam ser lidas", ex);
+            }
+        }
+        if (_contexto != ctx) return;
+        _mostrarMateriais = mostrar;
+        _avisoConclusaoAutomatica = aviso;
+    }
+
+    /// <summary>
+    /// SALVAR E FINALIZAR: grava a folha → encerra → conclui (o MESMO ponto do balcão,
+    /// <c>FechamentoSessaoService.RegistrarAtendimentoAsync</c>). Falhar a gravação NÃO encerra;
+    /// falhar a conclusão não desfaz a evolução — cada desfecho com a frase do que fazer.
+    /// </summary>
+    private async Task FinalizarSessaoAsync()
+    {
+        if (_ocupado || _contexto is not { } ctx) return;
+        if (!PodeConcluirComAcesso) { Avisar(FinalizacaoDaSessao.SemAcesso, erro: true); return; }
+        if (ctx.AgendamentoId is not { } id || !PodeFinalizarSessao) { Avisar(FinalizacaoDaSessao.SemAtendimento, erro: true); return; }
+
+        var gerente = SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente;
+        if (gerente && !await Dialogos.ConfirmarAsync(FinalizacaoDaSessao.PerguntaGerenteTitulo, FinalizacaoDaSessao.PerguntaGerente))
+            return;
+
+        // A passagem de enfermagem escrita e não registrada NÃO é gravada aqui (cada uma nasce
+        // com a hora do fato): a tela PERGUNTA, para ela não sumir calada.
+        if (_guardados.Values.OfType<IPassagemAberta>().Any(x => !x.PassagemEmBranco)
+            && !await Dialogos.ConfirmarAsync(FinalizacaoDaSessao.PassagemTitulo, FinalizacaoDaSessao.PassagemNaoRegistrada, perigoso: true))
+            return;
+
+        _ocupado = true;
+        var gravou = false;
+        try
+        {
+            // A folha do médico, mesmo que a seção não esteja à vista: ela sabe se já há evolução.
+            var folha = Guardado(FolhaDoAtendimento.Chave, () => new FolhaDoAtendimento(Escopos, ctx));
+            if (!folha.Carregada) await folha.CarregarAsync();
+
+            if (!folha.TemAlgoParaGravar && folha.EvolucaoId == 0
+                && !await Dialogos.ConfirmarAsync(FinalizacaoDaSessao.EmBrancoTitulo, FinalizacaoDaSessao.EmBranco, perigoso: true))
+                return;
+
+            using (var autorizacao = Escopo())
+                await autorizacao.ServiceProvider.GetRequiredService<AgendaService>()
+                    .ExigirConclusaoClinicaAsync(id, SessaoUsuario.Atual.UsuarioId);
+            if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "finalizar o atendimento")) return;
+            if (!Exigir(Permissao.LancarAtendimento, "concluir a sessão e gerar as guias")) return;
+
+            // 1) O REGISTRO CLÍNICO — `TemAlgoParaGravar`, NUNCA `!SessaoEmBranco` (parcela 74).
+            if (!gerente && (folha.TemAlgoParaGravar || folha.EvolucaoId != 0) && !await folha.TentarSalvarAsync())
+            {
+                Avisar(FinalizacaoDaSessao.NaoGravou, erro: true);
+                return;
+            }
+            gravou = folha.EvolucaoId != 0;
+
+            // 2) O CONVÊNIO antes (parcela 92): sem ele o atendimento não nasce.
+            using (var escopo = Escopo())
+            {
+                var paciente = await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(ctx.PacienteId);
+                if (paciente is { ConvenioADefinir: true }
+                    && !await Servicos.GetRequiredService<FormulariosDoPaciente>().EscolherConvenioAsync(ctx.PacienteId))
+                {
+                    Avisar(FinalizacaoDaSessao.ConvenioPendente, erro: true);
+                    return;
+                }
+            }
+
+            // 3) Encerramento e conclusão: um commit só.
+            RegistroAtendimento registro;
+            using (var escopo = Escopo())
+                registro = await escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>().RegistrarAtendimentoAsync(
+                    id, Operador, concluirClinico: true, usuarioClinicoId: SessaoUsuario.Atual.UsuarioId,
+                    permitirEnfermagemPosterior: true);
+            folha.AtendimentoNasceu(registro.Atendimento.Id);
+
+            await RelerCabecalhoAsync();
+            Avisar(FinalizacaoDaSessao.Concluida(registro.GuiasGeradas, registro.RecadosDoLancamento), erro: false);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — atendimento não pôde ser encerrado", ex);
+            Avisar(FinalizacaoDaSessao.Falhou(gravou, ex.Message), erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    /// <summary>A batida de um segundo: só reescreve o cronômetro, e só com a tela à vista e o atendimento em curso.</summary>
+    private void Bater()
+    {
+        if (Descartada || !_aVista || !_sessao.EmAtendimento) return;
+        _sessao = SessaoDoAtendimentoNaTela.De(_horario, DateTime.Now);
+        StateHasChanged();
+    }
+
+    public void IrPara(string secao, int subAba = 0)
+    {
+        var i = TelaDoPacienteNaTela.IndiceDe(secao);
+        if (_rail.Count == 0 || _rail[i].Oculta) return;
+        _secao = i;
+        _subAba = subAba;
+        StateHasChanged();
+    }
+
+    private async Task IniciarAsync()
+    {
+        if (_contexto?.AgendamentoId is not { } id || !_sessao.PodeIniciar)
+        {
+            Avisar("Não há horário em aberto para começar o atendimento por aqui.", erro: true);
+            return;
+        }
+        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "registrar a entrada do paciente na sala")) return;
+        await AgirNoHorarioAsync(s => s.IniciarAtendimentoAsync(id, Operador), "Atendimento iniciado.");
+    }
+
+    private async Task ReabrirAsync()
+    {
+        if (_contexto?.AgendamentoId is not { } id || !_sessao.PodeReabrir)
+        {
+            Avisar("Este atendimento não está encerrado — não há o que reabrir.", erro: true);
+            return;
+        }
+        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "reabrir o atendimento")) return;
+        await AgirNoHorarioAsync(s => s.ReabrirAtendimentoAsync(id, Operador), "Atendimento reaberto.");
+    }
+
+    private async Task AgirNoHorarioAsync(Func<AgendaService, Task> acao, string sucesso)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await acao(escopo.ServiceProvider.GetRequiredService<AgendaService>());
+            Avisar(sucesso, erro: false);
+            await RelerCabecalhoAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — ação no horário do paciente", ex);
+            Avisar(ex.Message, erro: true);
+        }
+        finally { _ocupado = false; }
+    }
+
+    /// <summary>
+    /// A PORTA DE SAÍDA: o Meu dia quando o paciente veio de um horário (e a pessoa o alcança);
+    /// senão Pacientes, que exige o mesmo bit desta tela. Destino que não existe é DITO.
+    /// </summary>
+    private async Task VoltarAsync()
+    {
+        // Primeiro o histórico: a ficha aberta de cima da agenda, da pendência ou da glosa volta
+        // para lá. Sem histórico, o Meu dia (quem veio de um horário) ou Pacientes.
+        if (await Host.VoltarAsync()) return;
+        if (_contexto?.AgendamentoId is not null && await Host.NavegarAsync("consultorio-meu-dia")) return;
+        await IrParaPacientesAsync();
+    }
+
+    private async Task IrParaPacientesAsync()
+    {
+        if (!await Host.NavegarAsync("consultorio-pacientes"))
+            Avisar(PostoDoConsultorioIndisponivel.Frase, erro: true);
+    }
+
+    private void Avisar(string texto, bool erro)
+    {
+        _mensagem = texto;
+        _mensagemEhErro = erro;
+    }
+
+    private static string IconeDe(string secao) => secao switch
+    {
+        TelaDoPacienteNaTela.Atendimento => "editar",
+        TelaDoPacienteNaTela.AtendimentoDeEnfermagem => "pessoa",
+        TelaDoPacienteNaTela.FichaDoPaciente => "pessoa",
+        TelaDoPacienteNaTela.Historico => "historico",
+        TelaDoPacienteNaTela.ExamesEAnexos => "lista",
+        TelaDoPacienteNaTela.PrescricoesEDocumentos => "documento",
+        _ => "grafico"
+    };
+
+    private static string Iniciais(string nome)
+    {
+        var partes = nome.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => partes[0][..1].ToUpperInvariant(),
+            _ => (partes[0][..1] + partes[^1][..1]).ToUpperInvariant()
+        };
+    }
+
+    public override void Dispose()
+    {
+        _relogio?.Dispose();
+        base.Dispose();
+    }
+}

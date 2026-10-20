@@ -1,0 +1,334 @@
+@*
+  EXAMES E ANEXOS (out/2026: migrada da AnexosPacienteView/ViewModel WPF). Quatro recortes com a
+  contagem no chip: pedidos AGUARDANDO resultado (com "Anexar laudo…"), resultados registrados
+  (abrir laudo, cancelar com motivo), arquivos da ficha (abrir, anexar, cancelar) e os anexos de
+  sessão (salvar uma cópia). Abre no que pede ação. O que a seção afirma mora em
+  ExamesDoPacienteNaTela (Application, com teste).
+*@
+@using Clinica.Application.Modelos
+@using Clinica.Ui.Blazor.Formularios.Prontuario
+@inherits SecaoDoPaciente
+
+<section class="cartao lista-cartao">
+    <div class="cartao-corpo acp-topo">
+        <p class="secundario">@_resumo</p>
+        <div class="botoes-linha">
+            <button type="button" class="botao mini" disabled="@(!PodeAnexar)" @onclick="() => _anexandoArquivo = true"
+                    title="@(PodeAnexar ? "Anexar um documento que não pertence a uma sessão" : "Seu acesso não permite anexar")"><Icone Nome="mais" />Anexar arquivo à ficha…</button>
+            <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="() => AbrirRegistro(null)"
+                    title="@(Pode(Permissao.EditarProntuario) ? "Registrar o resultado de um exame" : "Seu acesso não permite escrever no prontuário")"><Icone Nome="mais" />Registrar resultado…</button>
+        </div>
+    </div>
+
+    @if (!Pode(Permissao.VerProntuario))
+    {
+        <div class="cartao-corpo"><EstadoVazio Titulo="Sem acesso ao prontuário" Icone="cadeado" Descricao="O seu acesso não permite ler exames e anexos deste paciente." /></div>
+    }
+    else if (_naoVerificado)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível ler os exames e anexos" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+    }
+    else if (!_carregou)
+    {
+        <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+    }
+    else
+    {
+        <div class="cartao-corpo">
+            <div class="segmentado acp-chips" role="group" aria-label="Recorte">
+                @foreach (var (chave, rotulo, qtd) in Chips)
+                {
+                    <button type="button" aria-pressed="@(chave == _secao ? "true" : "false")" @onclick="() => _secao = chave">@rotulo (@qtd)</button>
+                }
+            </div>
+        </div>
+
+        @switch (_secao)
+        {
+            case ExamesDoPacienteNaTela.Aguardando:
+                @if (_pedidos.Count == 0)
+                {
+                    <div class="cartao-corpo"><EstadoVazio Titulo="Nenhum pedido aguardando" Icone="check" Descricao="Todo pedido de exame deste paciente já tem resultado (ou foi cancelado)." /></div>
+                }
+                else
+                {
+                    <div class="tabela-rolagem"><table class="lista">
+                        <thead><tr><th>Pedido</th><th>Data</th><th>Exame</th><th>Quem pediu</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var p in _pedidos)
+                            {
+                                <tr><td class="nao-quebra">@p.Numero</td><td class="nao-quebra">@Formato.Data(p.Data)</td><td>@p.ExameRotulo</td><td>@(p.Profissional ?? "—")</td>
+                                    <td class="botoes-linha"><button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarProntuario))"
+                                            @onclick="() => AbrirRegistro(p.DocumentoId)">Anexar laudo…</button></td></tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+                break;
+
+            case ExamesDoPacienteNaTela.Resultados:
+                @if (_resultados.Count == 0)
+                {
+                    <div class="cartao-corpo"><EstadoVazio Titulo="Nenhum resultado registrado" Icone="lista" /></div>
+                }
+                else
+                {
+                    <div class="tabela-rolagem"><table class="lista">
+                        <thead><tr><th>Data</th><th>Exame</th><th>Resultado</th><th>Referência · laboratório</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var r in _resultados)
+                            {
+                                <tr><td class="nao-quebra">@r.Data</td><td>@r.Nome</td><td>@r.Valor</td><td>@(r.Contexto ?? "—")</td>
+                                    <td class="botoes-linha">
+                                        @if (r.TemArquivo)
+                                        {
+                                            <button type="button" class="botao mini" @onclick="() => AbrirLaudoAsync(r)"><Icone Nome="abrir" />Abrir laudo</button>
+                                        }
+                                        <button type="button" class="botao mini contorno-perigo" disabled="@(!Pode(Permissao.EditarProntuario))" @onclick="() => CancelarResultadoAsync(r)">Cancelar…</button>
+                                    </td></tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+                break;
+
+            case ExamesDoPacienteNaTela.Arquivos:
+                @if (_arquivos.Count == 0)
+                {
+                    <div class="cartao-corpo"><EstadoVazio Titulo="Nenhum arquivo na ficha" Icone="lista" Descricao="Documentos que não pertencem a uma sessão — a ressonância que o paciente trouxe, a receita de outro serviço." /></div>
+                }
+                else
+                {
+                    <div class="tabela-rolagem"><table class="lista">
+                        <thead><tr><th>Arquivo</th><th>Detalhes</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var a in _arquivos)
+                            {
+                                <tr><td>@a.Titulo</td><td class="secundario">@a.Contexto</td>
+                                    <td class="botoes-linha">
+                                        <button type="button" class="botao mini" @onclick="() => AbrirArquivoAsync(a)"><Icone Nome="abrir" />Abrir</button>
+                                        <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeAnexar)" @onclick="() => CancelarArquivoAsync(a)">Cancelar…</button>
+                                    </td></tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+                break;
+
+            default:
+                @if (_anexos.Count == 0)
+                {
+                    <div class="cartao-corpo"><EstadoVazio Titulo="Nenhum arquivo anexado a sessões" Icone="lista" /></div>
+                }
+                else
+                {
+                    <div class="tabela-rolagem"><table class="lista">
+                        <thead><tr><th>Sessão</th><th>Arquivo</th><th class="direita">Tamanho</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var a in _anexos)
+                            {
+                                <tr><td class="nao-quebra">@Formato.Data(a.DataSessao)</td><td>@a.NomeArquivo</td><td class="direita nao-quebra">@a.TamanhoFormatado</td>
+                                    <td class="botoes-linha"><button type="button" class="botao mini" @onclick="() => SalvarAnexoAsync(a)"><Icone Nome="baixar" />Salvar…</button></td></tr>
+                            }
+                        </tbody>
+                    </table></div>
+                }
+                break;
+        }
+    }
+</section>
+
+@if (_registrando)
+{
+    <ResultadoExameForm PacienteId="Contexto.PacienteId" Paciente="@Contexto.Nome" PedidoDocumentoId="_pedidoDoRegistro"
+                        AoFechar="() => _registrando = false" AoConcluir="RegistrouAsync" />
+}
+@if (_anexandoArquivo)
+{
+    <ArquivoDaFichaForm PacienteId="Contexto.PacienteId" Paciente="@Contexto.Nome" AoFechar="() => _anexandoArquivo = false" AoConcluir="AnexouAsync" />
+}
+
+@code {
+    private IReadOnlyList<PedidoDeExameLinha> _pedidos = [];
+    private IReadOnlyList<ExamesDoPacienteNaTela.Resultado> _resultados = [];
+    private IReadOnlyList<ExamesDoPacienteNaTela.ArquivoDaFicha> _arquivos = [];
+    private IReadOnlyList<AnexoDoPaciente> _anexos = [];
+    private string _secao = ExamesDoPacienteNaTela.Aguardando;
+    private string _resumo = string.Empty;
+    private string? _erro;
+    private bool _carregou, _naoVerificado, _registrando, _anexandoArquivo;
+    private int? _pedidoDoRegistro;
+    private int _geracao;
+
+    private static bool PodeAnexar => PodeAlgum(Permissao.EditarProntuario | Permissao.RegistrarEvolucaoEnfermagem);
+
+    private IEnumerable<(string, string, int)> Chips =>
+    [
+        (ExamesDoPacienteNaTela.Aguardando, "Aguardando", _pedidos.Count),
+        (ExamesDoPacienteNaTela.Resultados, "Com resultado", _resultados.Count),
+        (ExamesDoPacienteNaTela.Arquivos, "Arquivos da ficha", _arquivos.Count),
+        (ExamesDoPacienteNaTela.Sessoes, "Anexos de sessão", _anexos.Count)
+    ];
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        if (!Pode(Permissao.VerProntuario)) return;
+        var g = ++_geracao;
+        try
+        {
+            IReadOnlyList<AnexoDoPaciente> anexos;
+            IReadOnlyList<ResultadoExame> exames;
+            IReadOnlyList<AnexoPaciente> daFicha;
+            IReadOnlyList<PedidoDeExameLinha> pedidos;
+            using (var escopo = Escopo())
+            {
+                var repo = escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+                anexos = await repo.AnexosDoPacienteAsync(Contexto.PacienteId);
+                exames = await repo.ResultadosExameDoPacienteAsync(Contexto.PacienteId);
+                daFicha = await repo.AnexosDaFichaAsync(Contexto.PacienteId);
+                pedidos = await repo.PedidosDeExameAsync(pacienteId: Contexto.PacienteId);
+            }
+            if (g != _geracao || Descartada) return;
+            var primeira = !_carregou;
+            _anexos = anexos;
+            _resultados = exames.Select(ExamesDoPacienteNaTela.ResultadoDe).ToList();
+            _arquivos = daFicha.Select(ExamesDoPacienteNaTela.ArquivoDe).ToList();
+            _pedidos = pedidos.Where(p => p.Situacao == SituacaoPedidoExame.AguardandoResultado).ToList();
+            _resumo = ExamesDoPacienteNaTela.Resumo(_pedidos.Count, _resultados.Count, _arquivos.Count, _anexos.Count);
+            if (primeira) _secao = ExamesDoPacienteNaTela.SecaoInicial(_pedidos.Count);
+            _naoVerificado = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — anexos do paciente não puderam ser lidos", ex);
+            if (_carregou) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+    }
+
+    private void AbrirRegistro(int? pedidoDocumentoId)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        _pedidoDoRegistro = pedidoDocumentoId;
+        _registrando = true;
+    }
+
+    private async Task RegistrouAsync()
+    {
+        _registrando = false;
+        Notificacoes.Sucesso("Resultado registrado.");
+        await CarregarAsync();
+    }
+
+    private async Task AnexouAsync()
+    {
+        _anexandoArquivo = false;
+        Notificacoes.Sucesso("Arquivo anexado à ficha.");
+        await CarregarAsync();
+    }
+
+    private async Task AbrirLaudoAsync(ExamesDoPacienteNaTela.Resultado r)
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir o laudo do exame")) return;
+        await ExecutarAsync(async () =>
+        {
+            byte[]? bytes;
+            using (var escopo = Escopo())
+            {
+                bytes = await escopo.ServiceProvider.GetRequiredService<ResultadoExameService>().ConteudoDoLaudoAsync(r.Id);
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(Contexto.PacienteId, Operador, OrigemAcessoProntuario.ExportacaoClinica);
+            }
+            if (bytes is null || bytes.Length == 0) { Notificacoes.Erro("O arquivo deste laudo não foi encontrado no banco."); return; }
+            await AbrirArquivoNoDiscoAsync(bytes, r.ArquivoNome!);
+        }, "Consultório — o laudo não pôde ser aberto");
+    }
+
+    private async Task AbrirArquivoAsync(ExamesDoPacienteNaTela.ArquivoDaFicha a)
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir arquivo da ficha")) return;
+        await ExecutarAsync(async () =>
+        {
+            byte[]? bytes;
+            using (var escopo = Escopo())
+            {
+                bytes = await escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>()
+                    .ConteudoAsync(a.Id, escopo.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(Contexto.PacienteId, Operador, OrigemAcessoProntuario.ExportacaoClinica);
+            }
+            if (bytes is null || bytes.Length == 0)
+            {
+                Notificacoes.Erro("O arquivo não foi encontrado. Se ele é um vídeo ou áudio, confira o armazenamento da clínica em Configurações.");
+                return;
+            }
+            await AbrirArquivoNoDiscoAsync(bytes, a.NomeArquivo);
+        }, "Consultório — arquivo da ficha não pôde ser aberto");
+    }
+
+    private async Task SalvarAnexoAsync(AnexoDoPaciente a)
+    {
+        if (!Exigir(Permissao.VerProntuario, "exportar anexo do prontuário")) return;
+        await ExecutarAsync(async () =>
+        {
+            byte[]? bytes;
+            using (var escopo = Escopo())
+            {
+                bytes = await escopo.ServiceProvider.GetRequiredService<ProntuarioService>()
+                    .ConteudoAnexoAsync(a.Id, escopo.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
+                if (bytes is not null)
+                    await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                        .RegistrarAsync(Contexto.PacienteId, Operador, OrigemAcessoProntuario.ExportacaoClinica);
+            }
+            if (bytes is null)
+            {
+                Notificacoes.Erro("O arquivo não foi encontrado. Se ele é um vídeo ou áudio, confira o armazenamento da clínica em Configurações.");
+                return;
+            }
+            await AbrirArquivoNoDiscoAsync(bytes, a.NomeArquivo);
+        }, "Consultório — anexo não pôde ser salvo em disco");
+    }
+
+    private async Task AbrirArquivoNoDiscoAsync(byte[] bytes, string nome)
+    {
+        var extensao = Path.GetExtension(nome);
+        var erro = await Host.SalvarEAbrirAsync(bytes, nome, $"Arquivo (*{extensao})|*{extensao}", extensao);
+        if (erro is not null) Notificacoes.Erro(erro);
+    }
+
+    private async Task CancelarResultadoAsync(ExamesDoPacienteNaTela.Resultado r)
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Cancelar resultado de exame",
+            $"Por que {r.Nome} de {r.Data} está sendo cancelado? Ele sai da lista e fica guardado, com este motivo — "
+            + "sem ele não haveria como distinguir “não houve exame” de “apagaram o valor”.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<ResultadoExameService>().CancelarAsync(r.Id, motivo, Operador);
+        }, "Consultório — resultado não pôde ser cancelado", "Resultado cancelado (guardado no prontuário).");
+        if (ok) await CarregarAsync();
+    }
+
+    private async Task CancelarArquivoAsync(ExamesDoPacienteNaTela.ArquivoDaFicha a)
+    {
+        if (!ExigirAlgum(Permissao.EditarProntuario | Permissao.RegistrarEvolucaoEnfermagem, "cancelar arquivo da ficha")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Cancelar arquivo da ficha",
+            $"Por que “{a.Titulo}” está sendo cancelado? Ele sai da lista e fica guardado, com este motivo.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>().CancelarAsync(a.Id, motivo, Operador);
+        }, "Consultório — arquivo da ficha não pôde ser cancelado", "Arquivo cancelado (guardado no prontuário).");
+        if (ok) await CarregarAsync();
+    }
+}

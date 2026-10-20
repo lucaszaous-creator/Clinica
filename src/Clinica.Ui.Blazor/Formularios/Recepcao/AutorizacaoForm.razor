@@ -1,0 +1,133 @@
+@*
+  A AUTORIZAÇÃO DE SESSÕES DO CONVÊNIO — a "senha" que a operadora libera (out/2026: o que no
+  WPF era a AutorizacaoWindow + AutorizacaoEdicaoViewModel). Quem recebe a senha é quem atende
+  o telefone, então ela se registra na ficha. O CONSUMO não se digita: o AutorizacaoService
+  conta os atendimentos dentro da vigência; "usadas antes do sistema" é só o saldo herdado.
+  O convênio do PACIENTE já vem escolhido — errar o convênio faz a senha não valer para nada
+  sem que a tela reclame. Editar é objeto novo com o Id; quem valida é o serviço.
+*@
+@using Clinica.Domain.Regras
+@inherits TelaBase
+
+<Modal Titulo="@(AutorizacaoId is null ? "Nova autorização" : "Editar autorização")" Largura="medio" AoFechar="AoFechar"
+       Subtitulo="As sessões que o convênio autorizou. O consumo é contado sozinho pelos atendimentos dentro da vigência.">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="180" />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Número da senha (opcional)"><input class="campo" @bind="_numero" maxlength="60" /></Campo>
+                <Campo Rotulo="Convênio">
+                    <select class="campo" @bind="_convenio">
+                        @foreach (var c in CatalogoConvenios.Ativos)
+                        {
+                            <option value="@c.Codigo">@c.Nome</option>
+                        }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Emitida em"><input class="campo" type="date" @bind="_emissao" /></Campo>
+                <Campo Rotulo="Válida até"><input class="campo" type="date" @bind="_validade" /></Campo>
+                <Campo Rotulo="Sessões autorizadas" Obrigatorio="true"><input class="campo" type="number" min="1" @bind="_autorizadas" /></Campo>
+                <Campo Rotulo="Usadas antes do sistema" Dica="Só o saldo que veio de antes — o resto é contado pelos atendimentos.">
+                    <input class="campo" type="number" min="0" @bind="_usadasAntes" />
+                </Campo>
+                <Campo Rotulo="Observações" Classe="largo"><textarea class="campo" rows="2" @bind="_observacoes" maxlength="1000"></textarea></Campo>
+                <label class="marcar largo"><input type="checkbox" @bind="_encerrada" /> Encerrada (a operadora cancelou ou a senha não vale mais)</label>
+            </div>
+        }
+        <Aviso Texto="@_erro" Tom="erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_salvando || _carregando || !Pode(Permissao.EditarPaciente))" @onclick="SalvarAsync">Gravar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    /// <summary>Nula = nova senha.</summary>
+    [Parameter] public int? AutorizacaoId { get; set; }
+    /// <summary>O convênio do paciente — o padrão da senha nova.</summary>
+    [Parameter] public string? ConvenioPadrao { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+
+    private string? _numero, _convenio, _observacoes, _erro;
+    private DateOnly _emissao = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _validade = DateOnly.FromDateTime(DateTime.Today.AddDays(90));
+    private int _autorizadas = 10, _usadasAntes;
+    private bool _encerrada, _salvando, _carregando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _convenio = ConvenioPadrao ?? CatalogoConvenios.Ativos.FirstOrDefault()?.Codigo;
+        if (AutorizacaoId is not { } id) return;
+        _carregando = true;
+        try
+        {
+            AutorizacaoSessoes? a;
+            using (var escopo = Escopo())
+                a = (await escopo.ServiceProvider.GetRequiredService<AutorizacaoService>().DoPacienteAsync(PacienteId))
+                    .FirstOrDefault(x => x.Id == id);
+            if (a is null) { _erro = "Autorização não encontrada."; return; }
+            _numero = a.Numero;
+            _convenio = a.ConvenioCodigo ?? a.Convenio.ToString();
+            _emissao = a.DataEmissao;
+            _validade = a.DataValidade;
+            _autorizadas = a.QuantidadeAutorizada;
+            _usadasAntes = a.QuantidadeUtilizadaManual;
+            _observacoes = a.Observacoes;
+            _encerrada = a.Encerrada;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — autorização não pôde ser carregada", ex);
+            _erro = $"Não foi possível carregar a autorização: {ex.Message}";
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (!Exigir(Permissao.EditarPaciente, "registrar autorização")) return;
+        // Guardas que FALAM, perto do campo; quem impede de verdade é o serviço.
+        if (_autorizadas <= 0) { _erro = "A autorização precisa de ao menos uma sessão."; return; }
+        if (_validade < _emissao) { _erro = "A validade não pode ser anterior à emissão."; return; }
+        _erro = null;
+        _salvando = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<AutorizacaoService>().SalvarAsync(new AutorizacaoSessoes
+                {
+                    Id = AutorizacaoId ?? 0,
+                    PacienteId = PacienteId,
+                    Numero = string.IsNullOrWhiteSpace(_numero) ? null : _numero.Trim(),
+                    ConvenioCodigo = _convenio,
+                    Convenio = CatalogoConvenios.Familia(_convenio),
+                    DataEmissao = _emissao,
+                    DataValidade = _validade,
+                    QuantidadeAutorizada = _autorizadas,
+                    QuantidadeUtilizadaManual = Math.Max(0, _usadasAntes),
+                    Observacoes = string.IsNullOrWhiteSpace(_observacoes) ? null : _observacoes.Trim(),
+                    Encerrada = _encerrada
+                }, Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — autorização não pôde ser gravada", ex);
+            _erro = ex.Message;
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+}

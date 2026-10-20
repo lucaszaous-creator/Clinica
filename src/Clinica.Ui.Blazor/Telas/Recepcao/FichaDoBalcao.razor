@@ -1,0 +1,610 @@
+@*
+  A FICHA DO BALCÃO (out/2026 — migrada da FichaBalcaoView + FichaBalcaoViewModel +
+  FichaPacienteViewModel WPF, que abria numa ConsultaContextualWindow por cima da tela; chave
+  "ficha-balcao", item OCULTO da Recepção). É a ficha que a agenda do dia, a lista de Pacientes
+  e o Início abrem: para quem está no balcão a pergunta não é o prontuário, é quem é a pessoa,
+  quando volta, como está o convênio, o que ela comprou e o que falta assinar.
+
+  O MESMO navegador da janela (nada de janela WPF por cima — o segundo navegador trazia o flash
+  preto de volta) e o MESMO crachá da tela do paciente (classes tp-*): duas caras para "ficha do
+  paciente" fazem a recepcionista achar que abriu outro programa.
+
+  Cinco abas, e nada reescrito: "Convênio, contatos e LGPD" é a FichaAdministrativa da tela do
+  paciente (a mesma, cascateada com o contexto daqui) e "Documentos" é a central de Documentos
+  embutida com o paciente fixo. O que a tela afirma (cabeçalho, pacote, autorização vigente,
+  linha do tempo, guias em aberto) mora em FichaDoBalcao (Application, com teste). As janelas
+  de cadastro e de cobrança são Blazor (FormulariosDoPaciente, CobrancaDoPacienteForm); o prontuário, pelo
+  posto do Consultório (só para quem tem VerProntuario); marcar, pela aba Marcar.
+
+  ⚠️ Sem "Registrar autorização" na LGPD, de propósito (PR 285): o consentimento entra só pelo
+  termo assinado.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@* A tela tem o nome da classe de regras dela (FichaDoBalcao, Application): o apelido desfaz a sombra. *@
+@using Regras = Clinica.Application.Modelos.FichaDoBalcao
+@using Clinica.Ui.Blazor.Componentes.SecoesDoPaciente
+@using Clinica.Ui.Blazor.Formularios.Recepcao
+@inherits TelaBase
+@implements ITelaDoPaciente
+
+<div class="pagina ficha-balcao">
+    @if (_contexto is not { } ctx)
+    {
+        <section class="cartao">
+            <div class="cartao-corpo">
+                <EstadoVazio Titulo="Nenhum paciente aberto" Icone="pessoa"
+                             Descricao="Escolha um paciente na agenda do dia ou em Pacientes para abrir a ficha.">
+                    <button type="button" class="botao primario" @onclick="IrParaPacientesAsync"><Icone Nome="pessoas" />Ir para Pacientes</button>
+                </EstadoVazio>
+            </div>
+        </section>
+    }
+    else
+    {
+        <header class="tp-cracha cartao">
+            <button type="button" class="botao fantasma icone tp-voltar" @onclick="VoltarAsync"
+                    title="Voltar" aria-label="Voltar para a tela anterior"><Icone Nome="esquerda" /></button>
+
+            @if (_foto is { Length: > 0 } foto)
+            {
+                <img class="tp-foto" src="@($"data:image/jpeg;base64,{Convert.ToBase64String(foto)}")" alt="" />
+            }
+            else
+            {
+                <span class="avatar grande tp-foto">@Iniciais(ctx.Nome)</span>
+            }
+
+            <div class="tp-identidade">
+                <h1 class="tp-nome">@ctx.Nome</h1>
+                @if (_cabecalho is { } c)
+                {
+                    <dl class="fb-campos">
+                        <div><dt>CPF</dt><dd>@c.Documento</dd></div>
+                        <div><dt>Idade</dt><dd>@c.Idade</dd></div>
+                        <div><dt>Telefone</dt><dd>@c.Telefone</dd></div>
+                        <div><dt>Convênio</dt><dd>@c.Convenio@if (c.Carteirinha is { } cart) { <span class="@(c.CarteirinhaVencida ? "tp-vencida" : null)"> · carteirinha @cart</span> }</dd></div>
+                        <div><dt>Paciente desde</dt><dd>@c.PacienteDesde</dd></div>
+                    </dl>
+                }
+                else if (_cadastroFalhou)
+                {
+                    <p class="tp-linha">Não foi possível ler o cadastro agora — tente atualizar.</p>
+                }
+                @if (_alertas is { Count: > 0 } alertas)
+                {
+                    <div class="tp-contexto" aria-label="Alertas do balcão">
+                        @foreach (var a in alertas)
+                        {
+                            <Selo Tom="@(a.EhVermelho ? "perigo" : "aviso")" Dica="@a.Descricao">@a.Descricao</Selo>
+                        }
+                    </div>
+                }
+                else if (_elegibilidadeFalhou)
+                {
+                    <p class="tp-linha">Não foi possível conferir carteirinha, cota e consentimento agora — isto NÃO quer dizer que está tudo certo.</p>
+                }
+            </div>
+
+            <div class="botoes-linha fb-acoes">
+                @if (Pode(Permissao.VerProntuario))
+                {
+                    <button type="button" class="botao" @onclick="AbrirProntuarioAsync"
+                            title="O prontuário clínico (sessões, evolução, exames) — para quem tem acesso">Prontuário</button>
+                }
+                <button type="button" class="botao" disabled="@(!Pode(Permissao.EditarPaciente))" @onclick="EditarCadastroAsync"
+                        title="@(Pode(Permissao.EditarPaciente) ? "Editar nome, contato, documento e convênio" : "Editar o cadastro exige acesso de edição do cadastro.")"><Icone Nome="editar" />Editar cadastro</button>
+                <button type="button" class="botao" @onclick="() => _aba = AbaDocumentos"
+                        title="Receita, atestado, declaração, termo — a central de Documentos já no paciente"><Icone Nome="documento" />Emitir documento</button>
+                <button type="button" class="botao primario" disabled="@(!Pode(Permissao.EditarAgenda))" @onclick="MarcarAsync"
+                        title="@(Pode(Permissao.EditarAgenda) ? "Marcar um horário para este paciente" : "Marcar horário exige acesso de edição da agenda.")"><Icone Nome="mais" />Marcar</button>
+            </div>
+        </header>
+
+        <div class="abas" role="tablist" aria-label="Ficha do paciente">
+            <button type="button" role="tab" aria-selected="@Sel(AbaResumo)" @onclick="() => _aba = AbaResumo">Resumo</button>
+            <button type="button" role="tab" aria-selected="@Sel(AbaAgenda)" @onclick="() => _aba = AbaAgenda">Agenda e sessões</button>
+            <button type="button" role="tab" aria-selected="@Sel(AbaConvenio)" @onclick="() => _aba = AbaConvenio">Convênio, contatos e LGPD</button>
+            <button type="button" role="tab" aria-selected="@Sel(AbaPacotes)" @onclick="() => _aba = AbaPacotes">Pacotes e pagamentos</button>
+            <button type="button" role="tab" aria-selected="@Sel(AbaDocumentos)" @onclick="() => _aba = AbaDocumentos">Documentos</button>
+        </div>
+
+        <CascadingValue Value="ctx" IsFixed="true">
+            <CascadingValue Value="(ITelaDoPaciente)this" IsFixed="true">
+                <div @key="ctx.Versao" class="fb-corpo">
+                    @switch (_aba)
+                    {
+                        case AbaConvenio:
+                            <FichaAdministrativa PacienteId="ctx.PacienteId" />
+                            break;
+                        case AbaDocumentos:
+                            <DocumentosDaRecepcao Embutida="true" PacienteFixo="ctx.PacienteId" />
+                            break;
+                        case AbaAgenda:
+                            <section class="cartao">
+                                <div class="cartao-corpo">
+                                    <h3>Próximos horários</h3>
+                                    @ProximosHorarios(FichaAdministrativaNaTela.TetoDeProximosHorarios)
+                                </div>
+                                <div class="cartao-corpo">
+                                    <h3>Sessões realizadas</h3>
+                                    @if (_sessoes is null && !_cadastroFalhou)
+                                    {
+                                        <Esqueleto Altura="60" />
+                                    }
+                                    else if (_sessoes is null)
+                                    {
+                                        <Aviso Tom="atencao" Texto="Não foi possível ler as sessões agora." />
+                                    }
+                                    else if (_sessoes.Count == 0)
+                                    {
+                                        <p class="secundario">Nenhuma sessão realizada ainda.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="tabela-rolagem"><table class="lista">
+                                            <thead><tr><th>Data</th><th>Atendimento</th><th>Guias</th></tr></thead>
+                                            <tbody>
+                                                @foreach (var s in _sessoes)
+                                                {
+                                                    <tr><td class="nao-quebra">@s.Data.ToString("dd/MM/yyyy", Formato.PtBr)</td><td>@s.Atendimento</td><td>@s.Guias</td></tr>
+                                                }
+                                            </tbody>
+                                        </table></div>
+                                    }
+                                </div>
+                            </section>
+                            break;
+                        case AbaPacotes:
+                            <section class="cartao">
+                                <div class="cartao-corpo">
+                                    <h3>Pacotes</h3>
+                                    @if (_pacotesFalharam)
+                                    {
+                                        <Aviso Tom="atencao" Texto="Não foi possível ler os pacotes agora — isto NÃO quer dizer que ele não tem pacote." />
+                                    }
+                                    else if (_pacotes is null)
+                                    {
+                                        <Esqueleto Altura="60" />
+                                    }
+                                    else if (_pacotes.Count == 0)
+                                    {
+                                        <p class="secundario">Nenhum pacote comprado.</p>
+                                    }
+                                    else
+                                    {
+                                        <ul class="lista-simples fb-pacotes">
+                                            @foreach (var p in _pacotes)
+                                            {
+                                                <li class="@(p.Ativo ? null : "apagada")">
+                                                    <strong>@p.Nome</strong> <span class="secundario">@p.Situacao</span>
+                                                    <span class="fb-uso">@p.Uso</span>
+                                                    @if (p.TemFracao)
+                                                    {
+                                                        <span class="fb-barra" role="img" aria-label="@p.Uso"><span style="@($"width:{(p.Fracao * 100).ToString("0.#", CultureInfo.InvariantCulture)}%")"></span></span>
+                                                    }
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </div>
+                                <div class="cartao-corpo">
+                                    <div class="acp-topo">
+                                        <div>
+                                            <h3>Pagamentos em aberto</h3>
+                                            <p class="secundario">O que este paciente deve aparece como alerta no cabeçalho. Receber aqui grava pelo caixa, com o recibo e a trilha de sempre.</p>
+                                        </div>
+                                        <button type="button" class="botao" disabled="@(!PodeReceber)" @onclick="ReceberAsync"
+                                                title="@(PodeReceber ? "Receber no balcão, com o paciente na frente" : "Receber exige acesso de caixa, de lançamento ou de venda de pacote.")"><Icone Nome="moeda" />Receber…</button>
+                                    </div>
+                                </div>
+                            </section>
+                            break;
+                        default:
+                            <div class="fb-resumo">
+                                <section class="cartao">
+                                    <div class="cartao-corpo">
+                                        <div class="acp-topo">
+                                            <h3>Próximos horários</h3>
+                                            <button type="button" class="botao mini fantasma" @onclick="() => _aba = AbaAgenda">Ver todos</button>
+                                        </div>
+                                        @ProximosHorarios(3)
+                                    </div>
+                                </section>
+                                <section class="cartao">
+                                    <div class="cartao-corpo">
+                                        <h3>Convênio e pacote</h3>
+                                        <dl class="pares fb-pares">
+                                            <dt>Autorização</dt><dd>@_autorizacao.Texto</dd>
+                                            <dt>Validade</dt><dd>@_autorizacao.Validade</dd>
+                                            <dt>Guias em aberto</dt><dd>@(_guiasEmAberto?.ToString(CultureInfo.InvariantCulture) ?? "—")</dd>
+                                        </dl>
+                                        @if (_pacoteAtivo is { } pa)
+                                        {
+                                            <p class="fb-pacote-ativo"><strong>@pa.Nome</strong> <span class="secundario">@pa.Uso · @pa.Situacao</span></p>
+                                        }
+                                        else if (_pacotes is not null)
+                                        {
+                                            <p class="secundario">Nenhum pacote em uso.</p>
+                                        }
+                                    </div>
+                                </section>
+                                <section class="cartao">
+                                    <div class="cartao-corpo">
+                                        <h3>Cadastro</h3>
+                                        @if (_cabecalho is { } cad)
+                                        {
+                                            <dl class="pares fb-pares">
+                                                <dt>E-mail</dt><dd>@cad.Email</dd>
+                                                <dt>Endereço</dt><dd>@cad.Endereco</dd>
+                                                <dt>Indicação</dt><dd>@_origem</dd>
+                                                <dt>Comunicação</dt><dd>@_comunicacao</dd>
+                                            </dl>
+                                        }
+                                        else
+                                        {
+                                            <Esqueleto Altura="60" />
+                                        }
+                                    </div>
+                                </section>
+                                <section class="cartao">
+                                    <div class="cartao-corpo">
+                                        <h3>Linha do tempo</h3>
+                                        @if (_linhaDoTempo is null)
+                                        {
+                                            <Esqueleto Altura="60" />
+                                        }
+                                        else if (_linhaDoTempo.Count == 0)
+                                        {
+                                            <p class="secundario">Nada registrado ainda — sessões, contatos e papéis emitidos aparecem aqui.</p>
+                                        }
+                                        else
+                                        {
+                                            <ul class="lista-simples fb-linha-tempo">
+                                                @foreach (var i in _linhaDoTempo)
+                                                {
+                                                    <li class="fb-tempo-@i.Tipo"><span class="fb-quando nao-quebra">@i.QuandoTexto</span> <strong>@i.Titulo</strong> <span class="secundario">@i.Detalhe</span></li>
+                                                }
+                                            </ul>
+                                        }
+                                    </div>
+                                </section>
+                            </div>
+                            break;
+                    }
+                </div>
+            </CascadingValue>
+        </CascadingValue>
+    }
+</div>
+
+@if (_recebendoDivida && _contexto is { } cobrado)
+{
+    <CobrancaDoPacienteForm PacienteId="cobrado.PacienteId" Paciente="@cobrado.Nome" Telefone="@_telefone" AoFechar="FecharCobrancaAsync" />
+}
+
+@code {
+    private const int AbaResumo = 0, AbaAgenda = 1, AbaConvenio = 2, AbaPacotes = 3, AbaDocumentos = 4;
+
+    /// <summary>Quem recebe no balcão — o mesmo <c>QuemRecebe</c> da cobrança do shell.</summary>
+    private const Permissao QuemRecebe = Permissao.EditarFinanceiro | Permissao.LancarAtendimento | Permissao.VenderPacote;
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    private PedidoDaFichaDoBalcao? Pedido => Servicos.GetService<PedidoDaFichaDoBalcao>();
+    private FormulariosDoPaciente Formularios => Servicos.GetRequiredService<FormulariosDoPaciente>();
+    private bool _recebendoDivida;
+    private IMarcacaoDeHorario Marcacao => Servicos.GetService<IMarcacaoDeHorario>() ?? MarcacaoIndisponivel.Instancia;
+    private IPostoDoConsultorio Posto => Servicos.GetService<IPostoDoConsultorio>() ?? PostoDoConsultorioIndisponivel.Instancia;
+    private IBalcaoDaRecepcao Balcao => Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static bool PodeReceber => PodeAlgum(QuemRecebe);
+
+    private ContextoDoPaciente? _contexto;
+    private int _versaoDoPedido = -1;
+    private int _versaoContexto;
+    private int _geracao;
+    private int _aba;
+
+    private string? _telefone;
+    private byte[]? _foto;
+    private Regras.CabecalhoDaFicha? _cabecalho;
+    private bool _cadastroFalhou, _elegibilidadeFalhou, _horariosFalharam, _pacotesFalharam;
+    private List<FichaAdministrativaNaTela.Alerta>? _alertas;
+    private List<FichaAdministrativaNaTela.ProximoHorario>? _horarios;
+    private IReadOnlyList<SessaoDaFicha>? _sessoes;
+    private List<Regras.PacoteDaFicha>? _pacotes;
+    private Regras.PacoteDaFicha? _pacoteAtivo;
+    private (string Texto, string Validade) _autorizacao = ("—", "—");
+    private int? _guiasEmAberto;
+    private string _origem = "—", _comunicacao = "—";
+    private IReadOnlyList<ItemLinhaDoTempoBalcao>? _linhaDoTempo;
+
+    // As três leituras que a linha do tempo junta — montada numa passada só, quando as três chegaram.
+    private List<Atendimento>? _atendimentos;
+    private List<ContatoCampanha>? _contatos;
+    private List<ItemLinhaDoTempoBalcao>? _documentos;
+
+    private string Sel(int aba) => _aba == aba ? "true" : "false";
+
+    protected override Task OnInitializedAsync() => ConferirPedidoAsync();
+
+    /// <summary>Voltou à vista: outro paciente pedido troca; o mesmo relê em silêncio (o cadastro pode ter mudado).</summary>
+    protected override async Task AoVoltarAsync()
+    {
+        if (!await ConferirPedidoAsync() && _contexto is not null) await CarregarAsync();
+    }
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar && _contexto is not null ? CarregarAsync() : Task.CompletedTask;
+
+    /// <summary>Lê o pedido; quando mudou desde a última vez, abre o paciente pedido. Verdadeiro = trocou.</summary>
+    private async Task<bool> ConferirPedidoAsync()
+    {
+        var (pedido, versao) = Pedido?.Ler() ?? (null, 0);
+        if (versao == _versaoDoPedido || pedido is null) return false;
+        _versaoDoPedido = versao;
+
+        _contexto = new ContextoDoPaciente(pedido.PacienteId, pedido.Paciente, null, null, null, ++_versaoContexto);
+        _aba = pedido.Aba;
+        await RegistrarAcessoAsync(pedido.PacienteId);
+        await CarregarAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// A trilha de LEITURA (parcela 52), na TROCA de paciente — nunca a cada carga. Falhar não
+    /// impede a ficha de abrir (o serviço já degrada e registra no log).
+    /// </summary>
+    private async Task RegistrarAcessoAsync(int pacienteId)
+    {
+        try
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                .RegistrarAsync(pacienteId, Operador, OrigemAcessoProntuario.FichaPaciente);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — ficha do balcão: acesso não pôde ser registrado", ex);
+        }
+    }
+
+    /// <summary>Cada bloco no seu escopo, juntos — e cada um descarta a resposta de uma carga mais velha.</summary>
+    private async Task CarregarAsync()
+    {
+        if (_contexto is not { } ctx) return;
+        var g = ++_geracao;
+        var id = ctx.PacienteId;
+        // Limpa ANTES dos awaits: as linhas do paciente anterior não podem ficar na tela.
+        _cabecalho = null; _foto = null; _alertas = null; _horarios = null; _sessoes = null; _pacotes = null; _pacoteAtivo = null;
+        _autorizacao = ("—", "—"); _guiasEmAberto = null; _origem = "—"; _comunicacao = "—"; _linhaDoTempo = null;
+        _atendimentos = null; _contatos = null; _documentos = null;
+        _cadastroFalhou = _elegibilidadeFalhou = _horariosFalharam = _pacotesFalharam = false;
+
+        await Task.WhenAll(
+            Bloco(g, "cadastro", async s =>
+            {
+                var p = await s.GetRequiredService<PacienteService>().ObterComHistoricoAsync(id);
+                return () =>
+                {
+                    if (p is null) { _cadastroFalhou = true; return; }
+                    _cabecalho = Regras.Cabecalho(p, Hoje);
+                    _telefone = string.IsNullOrWhiteSpace(p.Telefone) ? null : p.Telefone;
+                    _foto ??= p.FotoMiniatura;
+                    _origem = FichaAdministrativaNaTela.Origem(p);
+                    _atendimentos = p.Atendimentos.ToList();
+                    _sessoes = Regras.Sessoes(p.Atendimentos);
+                    _guiasEmAberto = Regras.GuiasEmAberto(p.Atendimentos);
+                };
+            }, () => _cadastroFalhou = true),
+            Bloco(g, "foto", async s =>
+            {
+                var foto = await s.GetRequiredService<PacienteService>().ObterFotoAsync(id);
+                return () => { if (foto is { Length: > 0 }) _foto = foto; };
+            }, () => { }),
+            Bloco(g, "elegibilidade", async s =>
+            {
+                var r = await s.GetRequiredService<ElegibilidadeService>().ConferirAsync(id, Hoje);
+                var lista = r.Alertas.Select(FichaAdministrativaNaTela.AlertaDe).ToList();
+                return () => _alertas = lista;
+            }, () => _elegibilidadeFalhou = true),
+            Pode(Permissao.VerAgenda)
+                ? Bloco(g, "próximos horários", async s =>
+                {
+                    var h = await s.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                        .AgendamentosFuturosDoPacienteAsync(id, DateTime.Now, FichaAdministrativaNaTela.TetoDeProximosHorarios);
+                    var lista = h.Select(FichaAdministrativaNaTela.ProximoDe).ToList();
+                    return () => _horarios = lista;
+                }, () => _horariosFalharam = true)
+                : Task.CompletedTask,
+            Bloco(g, "autorizações", async s =>
+            {
+                var a = await s.GetRequiredService<AutorizacaoService>().SaldosAsync(id, Hoje);
+                var resumo = Regras.Autorizacao(a.ToList(), Hoje);
+                return () => _autorizacao = resumo;
+            }, () => _autorizacao = ("Não foi possível conferir agora", "—")),
+            Bloco(g, "pacotes", async s =>
+            {
+                var pacotes = await s.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>().PacotesDosPacientesAsync([id]);
+                var lista = pacotes.OrderByDescending(x => x.DataCompra).Select(x => Regras.PacoteDe(x, Hoje)).ToList();
+                var ativo = PacotePaciente.ADebitar(pacotes, Hoje) is { } a ? Regras.PacoteDe(a, Hoje) : null;
+                return () => { _pacotes = lista; _pacoteAtivo = ativo; };
+            }, () => _pacotesFalharam = true),
+            Bloco(g, "campanhas", async s =>
+            {
+                var c = await s.GetRequiredService<CampanhaService>().DoPacienteAsync(id);
+                var lista = c.ToList();
+                return () => _contatos = lista;
+            }, () => _contatos = []),
+            Bloco(g, "consentimentos", async s =>
+            {
+                var c = await s.GetRequiredService<ConsentimentoService>().SituacaoAsync(id);
+                var frase = Regras.Comunicacao(FichaAdministrativaNaTela.Consentimentos(c));
+                return () => _comunicacao = frase;
+            }, () => _comunicacao = "não foi possível conferir"),
+            Bloco(g, "documentos", async s =>
+            {
+                var docs = await s.GetRequiredService<DocumentoClinicoService>().DoPacienteAsync(id);
+                // Só o que o acesso desta pessoa alcança (parcela 59): a linha do tempo não pode
+                // contar a existência do que a lista de documentos esconde.
+                var acessos = SessaoUsuario.Atual.Efetivas;
+                var lista = docs.Where(d => CentralDocumentosService.PodeVer(acessos, d.Tipo)).Select(Regras.DocumentoNaLinha).ToList();
+                return () => _documentos = lista;
+            }, () => _documentos = []));
+
+        if (g != _geracao || Descartada) return;
+        // A linha do tempo junta três leituras que acabaram de terminar — numa passada só.
+        _linhaDoTempo = Regras.LinhaDoTempo(_atendimentos ?? [], _contatos ?? [], _documentos ?? []);
+    }
+
+    /// <summary>Um bloco: lê no próprio escopo, publica só se ainda for a carga mais nova, falha sozinho.</summary>
+    private async Task Bloco(int g, string contexto, Func<IServiceProvider, Task<Action>> ler, Action falhou)
+    {
+        try
+        {
+            Action publicar;
+            using (var escopo = Escopo())
+                publicar = await ler(escopo.ServiceProvider);
+            if (g != _geracao || Descartada) return;
+            publicar();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — ficha do balcão: {contexto}", ex);
+            if (g != _geracao) return;
+            falhou();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private RenderFragment ProximosHorarios(int teto) => __builder =>
+    {
+        if (!Pode(Permissao.VerAgenda))
+        {
+            <p class="secundario">A agenda é para quem tem acesso a ela.</p>
+        }
+        else if (_horariosFalharam)
+        {
+            <Aviso Tom="atencao" Texto="Não foi possível ler a agenda deste paciente agora. Isto NÃO quer dizer que ele não tem horário." />
+        }
+        else if (_horarios is null)
+        {
+            <Esqueleto Altura="60" />
+        }
+        else if (_horarios.Count == 0)
+        {
+            <p class="secundario">Nenhum horário marcado daqui em diante.</p>
+        }
+        else
+        {
+            <ul class="lista-simples fb-horarios">
+                @foreach (var h in _horarios.Take(teto))
+                {
+                    <li>
+                        <strong>@h.Rotulo</strong> <span class="secundario">@h.Contexto</span>
+                        @if (h.Encaixe) { <Selo Tom="aviso">Encaixe</Selo> }
+                        <button type="button" class="botao mini" @onclick="() => AbrirNaAgendaAsync(h.Dia)">Abrir na agenda</button>
+                    </li>
+                }
+            </ul>
+        }
+    };
+
+    // ==================== As ações ====================
+
+    private async Task VoltarAsync()
+    {
+        if (await Host.VoltarAsync()) return;
+        await IrParaPacientesAsync();
+    }
+
+    private async Task IrParaPacientesAsync()
+    {
+        if (!await Host.NavegarAsync("pacientes-recepcao"))
+            Notificacoes.Info("A lista de pacientes não está disponível para o seu acesso neste aplicativo.");
+    }
+
+    /// <summary>O prontuário clínico — a tela do paciente no Histórico, pelo posto (a mesma porta do Prontuário › Por paciente).</summary>
+    private async Task AbrirProntuarioAsync()
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir o prontuário")) return;
+        if (_contexto is not { } ctx) return;
+        if (!Posto.Disponivel || !await Posto.AbrirNoPostoAsync(ctx.ParaPosto(), DestinoNoPosto.Historico))
+            Notificacoes.Info(PostoDoConsultorioIndisponivel.Frase);
+    }
+
+    private async Task EditarCadastroAsync()
+    {
+        if (!Exigir(Permissao.EditarPaciente, "editar o cadastro do paciente")) return;
+        if (_contexto is not { } ctx) return;
+        if (!await Formularios.EditarCadastroAsync(ctx.PacienteId)) return;
+        Notificacoes.Sucesso("Cadastro atualizado.");
+        await RelerCabecalhoAsync();
+    }
+
+    private async Task MarcarAsync()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "marcar atendimento")) return;
+        if (_contexto is not { } ctx) return;
+        if (!await Marcacao.MarcarAsync(ctx.PacienteId, null, null))
+            Notificacoes.Info("A tela de marcar atendimento não está disponível para o seu acesso neste aplicativo.");
+    }
+
+    private Task ReceberAsync()
+    {
+        if (!ExigirAlgum(QuemRecebe, "receber no balcão")) return Task.CompletedTask;
+        if (_contexto is null) return Task.CompletedTask;
+        _recebendoDivida = true;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Recebido algo, a ficha relê: o alerta de dívida some sem reabrir a tela.</summary>
+    private async Task FecharCobrancaAsync(bool mudou)
+    {
+        _recebendoDivida = false;
+        if (mudou) await CarregarAsync();
+    }
+
+    private async Task AbrirNaAgendaAsync(DateOnly dia)
+    {
+        if (!Exigir(Permissao.VerAgenda, "abrir a agenda")) return;
+        if (!await Balcao.AbrirDiaNaAgendaAsync(dia))
+            Notificacoes.Info("A agenda deste dia abre no aplicativo da Recepção.");
+    }
+
+    // ==================== ITelaDoPaciente (o que a FichaAdministrativa cascateada pede) ====================
+
+    private readonly Dictionary<string, object> _guardados = [];
+
+    public Task RelerCabecalhoAsync() => CarregarAsync();
+
+    /// <summary>As seções da tela do paciente pedem seção pelo NOME; aqui só a ficha e os documentos existem.</summary>
+    public void IrPara(string secao, int subAba = 0)
+    {
+        _aba = secao == TelaDoPacienteNaTela.PrescricoesEDocumentos ? AbaDocumentos : AbaConvenio;
+        StateHasChanged();
+    }
+
+    public T Guardado<T>(string chave, Func<T> criar) where T : class
+    {
+        if (_guardados.TryGetValue(chave, out var existente) && existente is T achado) return achado;
+        var novo = criar();
+        _guardados[chave] = novo;
+        return novo;
+    }
+
+    public void AvisarMudanca() => _ = InvokeAsync(CarregarAsync);
+
+    private static string Iniciais(string nome)
+    {
+        var partes = nome.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => partes[0][..1].ToUpperInvariant(),
+            _ => (partes[0][..1] + partes[^1][..1]).ToUpperInvariant()
+        };
+    }
+}

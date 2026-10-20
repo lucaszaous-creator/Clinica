@@ -21,14 +21,31 @@ namespace Clinica.Tests;
 /// defeito de troca não some ao fechar a tela, porque ela não fecha: duas telas à vista ao
 /// mesmo tempo, a mesma tela montada duas vezes, a camada de diálogo duplicada, a tela que
 /// volta vazia, a que não relê ao voltar e a releitura que estoura por cima da troca seguinte
-/// ficariam todos ali, acumulando. Aqui as 14 telas reais do Financeiro, sobre as sementes da
-/// prévia, são trocadas em rodadas — em ordem, embaralhadas, intercaladas com "tela WPF à
-/// vista" e às rajadas, sem esperar a leitura terminar.
+/// ficariam todos ali, acumulando. Aqui as telas Blazor reais, sobre as sementes da prévia,
+/// são trocadas em cinco rodadas — em ordem, embaralhadas, intercaladas com "tela WPF à vista"
+/// e às rajadas, sem esperar a leitura terminar.
+///
+/// ⚠️ EM LOTES (out/2026). O teste nasceu para as 14 telas do Financeiro, e a reflexão passou a
+/// achar 75 com a migração para Blazor: ~375 trocas sobre 3 MB de HTML montado, 5–6 minutos
+/// sozinho — o gargalo do CI. Agora cada caso é um palco com ~15 telas (o tamanho para o qual
+/// as cinco rodadas foram desenhadas), e os lotes se espalham pelas fatias do CI
+/// (<see cref="FatiarPorCasoAttribute"/>). Toda tela continua aberta, trocada e devolvida.
+///
+/// ⚠️ "Assentar" espera a tela PEDIDA à vista, não só o HTML parar de mudar: com o redesenho do
+/// palco na fila atrás da leitura de outra tela, quatro leituras iguais (~60 ms) aconteciam
+/// ANTES de ele entrar, e a conferência via a tela anterior — o "Assert.Same" intermitente do
+/// PR 285, que não era defeito do palco.
+///
+/// ⚠️ E as consultas ao banco são contadas POR TELA (quem dispara a leitura carrega a tela no
+/// contexto assíncrono). Com um contador só, a leitura de fundo de uma tela era creditada a
+/// outra: a de Sessões de enfermagem — que, logada como direção, não lê nada — aparecia como
+/// "leu ao abrir" e depois "não releu ao voltar", ao acaso.
 ///
 /// ⚠️ O que este teste NÃO vê: o preto da janela nativa do WebView2, que só existe no
 /// Windows. Esse é medido pelo `ValidarLayoutWindows --blazor`, que fotografa a tela real.
 /// </summary>
 [Collection(ColecaoDiagnostico.Nome)]
+[FatiarPorCaso]
 public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDisposable
 {
     private static readonly AsyncLocal<List<(string Contexto, Exception Erro)>?> _ocorrencias = new();
@@ -54,12 +71,32 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
         new SessaoUsuario().Entrar(new UsuarioSistema());
     }
 
+    private const int Lotes = 5;
+
+    /// <summary>A tela que disparou a leitura em curso — o contador credita a consulta a ela.</summary>
+    private static readonly AsyncLocal<Type?> _telaEmCurso = new();
+
+    public static IEnumerable<object[]> OsLotes() => Enumerable.Range(1, Lotes).Select(l => new object[] { l });
+
     private static Type[] Telas() => typeof(IHostDaTela).Assembly.GetTypes()
         .Where(t => t.Namespace == "Clinica.Ui.Blazor.Telas" && typeof(TelaBase).IsAssignableFrom(t) && !t.IsAbstract)
         .OrderBy(t => t.Name).ToArray();
 
     [Fact]
-    public void Cinco_rodadas_pelas_quatorze_telas_nao_deixam_resto()
+    public void Os_lotes_cobrem_todas_as_telas()
+    {
+        var todas = Telas();
+        Assert.True(todas.Length >= 14);
+        var cobertas = Enumerable.Range(1, Lotes).SelectMany(DoLote).ToList();
+        Assert.Equal(todas.Length, cobertas.Count);
+        Assert.Equal(todas.ToHashSet(), cobertas.ToHashSet());
+    }
+
+    private static Type[] DoLote(int lote) => Telas().Where((_, i) => i % Lotes == lote - 1).ToArray();
+
+    [Theory]
+    [MemberData(nameof(OsLotes))]
+    public void Cinco_rodadas_pelas_telas_do_lote_nao_deixam_resto(int lote)
     {
         var ocorrencias = new List<(string, Exception)>();
         _ocorrencias.Value = ocorrencias;
@@ -70,9 +107,9 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
         palco.Montou += () => montagens++;
         var r = ctx.RenderComponent<PalcoDeTelas>(p => p.Add(x => x.Palco, palco));
 
-        var telas = Telas();
-        Assert.True(telas.Length >= 14);
-        var sorteio = new Random(20261016);
+        var telas = DoLote(lote);
+        Assert.NotEmpty(telas);
+        var sorteio = new Random(20261016 + lote);
         var ids = new Dictionary<Type, int>();
         var voltas = new Dictionary<Type, int>();
         var semReleitura = new HashSet<string>();
@@ -89,14 +126,15 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
                 // O palco redesenha por InvokeAsync: se uma tela ainda está terminando uma leitura
                 // no despachante, o redesenho entra na fila — o mesmo Assentar da troca para uma
                 // tela Blazor, senão a conferência lê o retrato de ANTES (o CI do Linux pegou).
-                if (sorteio.Next(4) == 0) { palco.Desativar(); Assentar(r); Conferir(r, palco, null, ids.Count); }
+                if (sorteio.Next(4) == 0) { palco.Desativar(); Assentar(r, palco); Conferir(r, palco, null, ids.Count); }
 
-                var antes = consultas.Total;
+                var antes = consultas.De(tela);
                 var eraAberta = ids.ContainsKey(tela);
                 var eraAtual = palco.Atual is { } a && ids.TryGetValue(tela, out var idT) && idT == a;
+                _telaEmCurso.Value = tela;
                 palco.Ativar(tela);
                 trocas++;
-                Assentar(r);
+                Assentar(r, palco);
 
                 var entrada = palco.Telas.Single(e => e.Tela == tela);
                 if (ids.TryGetValue(tela, out var id)) Assert.Equal(id, entrada.Id); // nunca recriada
@@ -108,25 +146,26 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
                     if (tela.Name == "ExtratoDoBanco")
                     {
                         var vis = r.FindAll(".palco-tela").Single(c => !c.HasAttribute("hidden"));
+                        _telaEmCurso.Value = tela;
                         vis.QuerySelectorAll("button").First(b => b.TextContent.Contains("Abrir extrato")).Click();
-                        Assentar(r);
+                        Assentar(r, palco);
                     }
-                    if (consultas.Total > antes) leuAoAbrir.Add(tela);
+                    if (consultas.De(tela) > antes) leuAoAbrir.Add(tela);
                 }
 
                 Conferir(r, palco, tela, ids.Count);
                 if (eraAberta && !eraAtual)
                 {
                     voltas[tela] = voltas.GetValueOrDefault(tela) + 1;
-                    if (leuAoAbrir.Contains(tela) && consultas.Total == antes) semReleitura.Add(tela.Name);
+                    if (leuAoAbrir.Contains(tela) && consultas.De(tela) == antes) semReleitura.Add(tela.Name);
                 }
             }
         }
 
         // Rajada: vinte trocas sem esperar nenhuma leitura terminar — a releitura de uma tela
         // ainda no ar quando a próxima já assumiu.
-        for (var i = 0; i < 20; i++) { palco.Ativar(telas[sorteio.Next(telas.Length)]); trocas++; }
-        Assentar(r);
+        for (var i = 0; i < 20; i++) { var t = telas[sorteio.Next(telas.Length)]; _telaEmCurso.Value = t; palco.Ativar(t); trocas++; }
+        Assentar(r, palco);
         Conferir(r, palco, palco.Telas.Single(e => e.Id == palco.Atual).Tela, ids.Count);
 
         Assert.Equal(1, montagens); // o hospedeiro é liberado UMA vez por janela
@@ -134,7 +173,10 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
         Assert.True(ocorrencias.Count == 0,
             "a troca de telas registrou no log: " + string.Join(" | ", ocorrencias.Select(o => $"{o.Item1}: {o.Item2.GetType().Name}: {o.Item2.Message}")));
 
-        Assert.True(leuAoAbrir.Count >= 14, $"só {leuAoAbrir.Count} telas leram o banco ao abrir");
+        // Quase toda tela lê ao abrir; as que não leem (o extrato sem arquivo, a lista que é de
+        // outro perfil) são a minoria. Menos da metade do lote é a CONTAGEM que quebrou — a
+        // atribuição por tela deixou de chegar às consultas, e a checagem da volta ficaria cega.
+        Assert.True(leuAoAbrir.Count >= telas.Length / 2, $"só {leuAoAbrir.Count} de {telas.Length} telas leram o banco ao abrir");
         _saida.WriteLine($"{trocas} trocas · {ids.Count} telas montadas · {voltas.Values.Sum()} voltas · {consultas.Total} consultas ao banco");
         _saida.WriteLine("telas que NÃO releem ao voltar: " + (semReleitura.Count == 0 ? "nenhuma" : string.Join(", ", semReleitura.Order())));
         Assert.True(semReleitura.Count == 0,
@@ -163,7 +205,11 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
         Assert.Empty(r.FindAll(".palco-tela .notificacoes")); // e nunca dentro de uma tela
     }
 
-    private static void Assentar(IRenderedComponent<PalcoDeTelas> r)
+    /// <summary>
+    /// Espera o redesenho ENTRAR e o palco parar: só conta a estabilidade depois de o
+    /// documento mostrar o que o <see cref="Palco"/> pede (a tela atual à vista, ou nenhuma).
+    /// </summary>
+    private static void Assentar(IRenderedComponent<PalcoDeTelas> r, Palco palco)
     {
         var prazo = DateTime.UtcNow + TimeSpan.FromSeconds(20);
         var anterior = string.Empty;
@@ -174,9 +220,23 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
             var agora = r.Markup;
             estavel = agora == anterior ? estavel + 1 : 0;
             anterior = agora;
-            if (estavel >= 4) return;
+            if (estavel >= 4)
+            {
+                if (MostraOPedido(r, palco)) return;
+                estavel = 0; // estável, mas ainda o retrato de ANTES: o redesenho está na fila
+            }
         }
-        throw new TimeoutException("o palco não parou de redesenhar em 20 s");
+        throw new TimeoutException($"em 20 s o palco não parou de redesenhar ou não mostrou a tela pedida ({palco.Telas.FirstOrDefault(e => e.Id == palco.Atual)?.Tela.Name ?? "nenhuma"})");
+    }
+
+    private static bool MostraOPedido(IRenderedComponent<PalcoDeTelas> r, Palco palco)
+    {
+        var conteineres = r.FindAll(".palco-tela");
+        if (conteineres.Count != palco.Telas.Count) return false;
+        var visiveis = conteineres.Where(c => !c.HasAttribute("hidden")).ToList();
+        if (palco.Atual is not { } atual) return visiveis.Count == 0;
+        var ordem = palco.Telas.ToList().FindIndex(e => e.Id == atual);
+        return visiveis.Count == 1 && ReferenceEquals(conteineres[ordem], visiveis[0]);
     }
 
     private TestContext Contexto(ContadorDeConsultas consultas)
@@ -198,17 +258,25 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
     private sealed class ContadorDeConsultas : DbCommandInterceptor
     {
         private int _total;
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<Type, int> _porTela = new();
         public int Total => Volatile.Read(ref _total);
+        public int De(Type tela) => _porTela.TryGetValue(tela, out var n) ? n : 0;
+
+        private void Contar()
+        {
+            Interlocked.Increment(ref _total);
+            if (_telaEmCurso.Value is { } tela) _porTela.AddOrUpdate(tela, 1, (_, n) => n + 1);
+        }
         public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
             CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {
-            Interlocked.Increment(ref _total);
+            Contar();
             return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
         }
         public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand command, CommandEventData eventData,
             InterceptionResult<DbDataReader> result)
         {
-            Interlocked.Increment(ref _total);
+            Contar();
             return base.ReaderExecuting(command, eventData, result);
         }
     }

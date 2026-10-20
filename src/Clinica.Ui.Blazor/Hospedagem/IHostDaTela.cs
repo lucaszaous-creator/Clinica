@@ -31,6 +31,16 @@ public interface IHostDaTela
     /// </summary>
     Task<string?> SalvarEAbrirAsync(byte[] conteudo, string nomeSugerido, string filtro, string extensao);
 
+    /// <summary>
+    /// Abre uma PRÉVIA de PDF sem perguntar onde salvar (o "Pré-visualizar" da emissão de
+    /// documento): prévia é para olhar e fechar, e um "Salvar como" a cada conferência ensinaria
+    /// a guardar rascunho sem número ao lado dos documentos de verdade. No app ela vai para a
+    /// pasta temporária das prévias (<c>ImpressaoPdf.AbrirPreviaAsync</c>, que as apaga depois de
+    /// um dia). Null = abriu; a frase = falhou. O padrão (prévia, testes) cai no salvar e abrir.
+    /// </summary>
+    Task<string?> AbrirPreviaAsync(byte[] pdf, string nomeSugerido)
+        => SalvarEAbrirAsync(pdf, nomeSugerido, "PDF (*.pdf)|*.pdf", ".pdf");
+
     /// <summary>Pede um arquivo existente para LER (extrato OFX). Null = desistiu.</summary>
     Task<ArquivoEscolhido?> EscolherArquivoAsync(string filtro, string titulo);
 
@@ -43,6 +53,13 @@ public interface IHostDaTela
     /// defeito da parcela 37.
     /// </summary>
     Task<bool> NavegarAsync(string chave);
+
+    /// <summary>
+    /// Volta para a tela de onde se veio (o histórico do shell). Falso = não há para onde
+    /// voltar (ou o hospedeiro não tem histórico — a prévia, os testes); quem chama escolhe
+    /// um destino. É o caminho de volta da ficha aberta por cima de outra tela.
+    /// </summary>
+    Task<bool> VoltarAsync() => Task.FromResult(false);
 
     /// <summary>
     /// Abre um endereço FORA do app (o wa.me da cobrança, o validador público): no app vai

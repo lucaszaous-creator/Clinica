@@ -1,0 +1,31 @@
+@*
+  ACOMPANHAMENTO — "como está indo" (out/2026: migrada da AcompanhamentoView WPF). Três abas:
+  a curva da dor (EVA), as medidas seriadas e as escalas clínicas. O que cada aba afirma mora na
+  Application (EvolucaoDaDorNaTela, MedidasNaTela, AvaliacoesNaTela), com teste.
+*@
+@using Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Acompanhamento
+@inherits SecaoDoPaciente
+
+<div class="abas" role="tablist" aria-label="Acompanhamento">
+    <button type="button" role="tab" aria-selected="@Sel(0)" @onclick="() => _aba = 0">Evolução da dor</button>
+    <button type="button" role="tab" aria-selected="@Sel(1)" @onclick="() => _aba = 1">Medidas</button>
+    <button type="button" role="tab" aria-selected="@Sel(2)" @onclick="() => _aba = 2">Avaliações</button>
+</div>
+
+@switch (_aba)
+{
+    case 1: <AcompanhamentoMedidas /> break;
+    case 2: <AcompanhamentoAvaliacoes /> break;
+    default: <AcompanhamentoDor /> break;
+}
+
+@code {
+    /// <summary>A aba que a navegação pediu: 0 = dor, 1 = medidas, 2 = avaliações.</summary>
+    [Parameter] public int SubAba { get; set; }
+
+    private int _aba;
+
+    protected override void OnInitialized() => _aba = SubAba is >= 0 and <= 2 ? SubAba : 0;
+
+    private string Sel(int aba) => _aba == aba ? "true" : "false";
+}

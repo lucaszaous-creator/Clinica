@@ -6,21 +6,25 @@
   pedido sem resultado vigente amarrado; "Resultado disponível" é o que tem. O "Agendado" do
   mockup segue de fora — não há fato de agendamento de exame no domínio.
 
-  Emitir o pedido, registrar o laudo, ver os resultados e abrir o paciente continuam nas janelas
-  WPF de sempre, pela ponte IJanelasDosExames — a tela decide e mostra, o hospedeiro abre.
+  Emitir o pedido abre a folha de emissão aqui mesmo (DocumentoForm, out/2026 — a MESMA de
+  todas as portas, que pergunta primeiro QUEM). Registrar o laudo (ResultadoExameForm, o MESMO da
+  seção Exames e anexos) e ver os resultados (ResultadosDoPedidoForm) também são formulários
+  Blazor desta tela. Pela ponte IJanelasDosExames continua só abrir o paciente na seção dele (a
+  navegação do posto).
   Permissões copiadas do ViewModel: emitir pelo bit do TIPO (pedido de exame); registrar laudo
   com EditarProntuario; ver e abrir com VerProntuario.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Modelos
 @using Clinica.Application.Abstracoes
+@using Clinica.Ui.Blazor.Formularios.Prontuario
 @inherits TelaBase
 
 <div class="pagina con-exames @(_carregando && _carregou ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Consultório · Prontuário" Titulo="Exames"
                      Subtitulo="@(_carregou ? _resumo : "Os pedidos de exame e a situação de cada um.")">
         <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
-        <button type="button" class="botao primario" disabled="@(!PodeEmitirPedido || _ocupado)" @onclick="NovoPedidoAsync"
+        <button type="button" class="botao primario" disabled="@(!PodeEmitirPedido || _ocupado)" @onclick="NovoPedido"
                 title="@(PodeEmitirPedido ? "Emitir um pedido de exame" : "Seu acesso não permite emitir pedido de exame")"><Icone Nome="mais" />Novo pedido</button>
     </CabecalhoPagina>
 
@@ -78,13 +82,13 @@
                                         @if (p.MostraRegistrar)
                                         {
                                             <button type="button" class="botao mini" disabled="@(!PodeRegistrarResultado || _ocupado)"
-                                                    @onclick="() => RegistrarResultadoAsync(p)"
+                                                    @onclick="() => RegistrarResultado(p)"
                                                     title="@(PodeRegistrarResultado ? "Registrar o laudo que chegou, amarrado a este pedido" : "Seu acesso não permite escrever no prontuário")">Anexar laudo</button>
                                         }
                                         @if (p.MostraVerResultados)
                                         {
                                             <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.VerProntuario) || _ocupado)"
-                                                    @onclick="() => VerResultadosAsync(p)">Ver resultados</button>
+                                                    @onclick="() => VerResultados(p)">Ver resultados</button>
                                         }
                                         @if (p.MostraDetalhes)
                                         {
@@ -102,6 +106,21 @@
     </section>
 </div>
 
+@if (_novoPedido)
+{
+    <DocumentoForm Tipo="TipoDocumentoClinico.PedidoExame" TituloDaEscolha="Novo pedido de exame — para quem?"
+                   AoFechar="FecharPedidoAsync" AoConcluir="ConcluirPedidoAsync" />
+}
+@if (_registrandoDe is { } registro)
+{
+    <ResultadoExameForm PacienteId="registro.PacienteId" Paciente="@registro.Paciente" PedidoDocumentoId="registro.DocumentoId"
+                        AoFechar="() => _registrandoDe = null" AoConcluir="RegistrouAsync" />
+}
+@if (_resultadosDe is { } aberto)
+{
+    <ResultadosDoPedidoForm Pedido="aberto" AoFechar="() => _resultadosDe = null" AoAbrirNoPaciente="AbrirDoModalAsync" />
+}
+
 @code {
     private IReadOnlyList<PedidoDeExameLinha> _pedidos = [];
     private string _resumo = string.Empty;
@@ -113,7 +132,12 @@
     private bool _naoVerificado;
     private string? _erro;
     private bool _ocupado;
+    private bool _novoPedido;
     private int _geracao;
+
+    // Os formulários que a tela abre por cima dela (a tela é dona do estado aberto/fechado).
+    private PedidoDeExameLinha? _registrandoDe;
+    private PedidoDeExameLinha? _resultadosDe;
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
 
@@ -172,32 +196,57 @@
         }
     }
 
-    private async Task NovoPedidoAsync()
+    /// <summary>A tela não tem paciente em foco: a folha pergunta QUEM e abre a emissão do pedido.</summary>
+    private void NovoPedido()
     {
+        if (_ocupado) return;
         if (!Exigir(CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.PedidoExame), "emitir pedido de exame")) return;
-        await Acao(async () =>
-        {
-            var paciente = await Janelas.NovoPedidoAsync();
-            await CarregarAsync(silencioso: true);
-            if (paciente is not null) Notificacoes.Sucesso($"Pedido de exame emitido para {paciente}.");
-        }, "Consultório — pedido de exame não pôde ser emitido");
+        _novoPedido = true;
     }
 
-    private async Task RegistrarResultadoAsync(PedidoDeExameLinha p)
+    /// <summary>Fechou sem concluir: relê — o pedido pode ter saído e só a impressão ter falhado.</summary>
+    private async Task FecharPedidoAsync()
     {
+        _novoPedido = false;
+        await CarregarAsync(silencioso: true);
+    }
+
+    private async Task ConcluirPedidoAsync(DocumentoForm.Emitido emitido)
+    {
+        _novoPedido = false;
+        await CarregarAsync(silencioso: true);
+        Notificacoes.Sucesso($"Pedido de exame emitido para {emitido.Paciente}.");
+    }
+
+    /// <summary>"Anexar laudo": o formulário de resultado já amarrado a este pedido (o MESMO da seção Exames e anexos).</summary>
+    private void RegistrarResultado(PedidoDeExameLinha p)
+    {
+        if (_ocupado) return;
         if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
-        await Acao(async () =>
-        {
-            var registrou = await Janelas.RegistrarResultadoAsync(p);
-            await CarregarAsync(silencioso: true);
-            if (registrou) Notificacoes.Sucesso($"Resultado registrado para {p.Paciente}.");
-        }, "Consultório — resultado não pôde ser registrado da tela de Exames");
+        _registrandoDe = p;
     }
 
-    private async Task VerResultadosAsync(PedidoDeExameLinha p)
+    private async Task RegistrouAsync()
     {
+        var p = _registrandoDe;
+        _registrandoDe = null;
+        await CarregarAsync(silencioso: true);
+        if (p is not null) Notificacoes.Sucesso($"Resultado registrado para {p.Paciente}.");
+    }
+
+    private void VerResultados(PedidoDeExameLinha p)
+    {
+        if (_ocupado) return;
         if (!Exigir(Permissao.VerProntuario, "abrir os exames do paciente")) return;
-        await Acao(() => Janelas.VerResultadosAsync(p), "Consultório — os resultados do pedido não puderam ser abertos");
+        _resultadosDe = p;
+    }
+
+    /// <summary>"Abrir exames do paciente" do modal: ele fecha antes — modal por cima da tela nova seria órfão.</summary>
+    private async Task AbrirDoModalAsync()
+    {
+        if (_resultadosDe is not { } p) return;
+        _resultadosDe = null;
+        await AbrirAsync(p);
     }
 
     private async Task AbrirAsync(PedidoDeExameLinha p)

@@ -197,7 +197,8 @@ acesso quando o módulo de permissões existir. Fora do escopo das Fases 1–4.
 ## Fase 1 — o que foi construído
 
 - **`src/Clinica.Desktop.Shell`** — biblioteca com o contrato de módulos
-  (`IModuloApp`), a janela genérica (`ShellWindow`), a navegação (`ShellViewModel`),
+  (`IModuloApp`), a janela do app (`JanelaDoApp`: uma janela nativa com UM navegador, e a
+  moldura em Razor — out/2026), a navegação (`ShellViewModel`),
   o bootstrap reutilizável (`ShellBootstrap`: conexão → host → migrations → janela)
   e a cópia do design system.
 - **`src/Clinica.Recepcao`** — executável da recepção com a tela **Agenda do dia** (a lista do dia; era a "Fila de hoje" em kanban):
@@ -372,7 +373,8 @@ O shell ganhou três peças pequenas e uma regra:
 - `SessaoUsuario` — singleton por processo com a fotografia do usuário que entrou (id,
   nome, perfil, permissões efetivas). É dela que as telas tiram o "operador" gravado na
   auditoria, em vez de cada uma inventar um nome.
-- `LoginWindow` — entra depois das migrations e antes da `ShellWindow`. Base sem usuário
+- a entrada (`Clinica.Ui.Blazor/Moldura/Entrada.razor`, na `JanelaDoApp`; era a `LoginWindow`
+  até out/2026) — entra depois das migrations e antes da moldura. Base sem usuário
   abre o **primeiro acesso** (nasce Gerente): a versão que introduz login não pode
   trancar a clínica do lado de fora.
 - `ItemMenuModulo.Requer` — permissão exigida por item de menu, com padrão

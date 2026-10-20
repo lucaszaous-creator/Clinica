@@ -24,7 +24,7 @@ public sealed record BlocoDaSessao(string Rotulo, string Texto, string? Formato 
 /// <list type="bullet">
 ///   <item>a lista do Consultório (<c>ProntuarioClinicoView</c>) mostra QUATRO, truncados,
 ///   e a linha só oferece "Anexos" e "Correções";</item>
-///   <item>o modal de leitura rápida (<c>ResumoProntuarioWindow</c>) compõe uma frase a
+///   <item>o modal de leitura rápida (hoje o <c>ResumoProntuarioForm</c>) compõe uma frase a
 ///   partir do texto da evolução — e é justamente ele que o botão "Abrir" da lista plana
 ///   de Prontuários abre;</item>
 ///   <item>a aba das últimas sessões (<see cref="ResumoSessaoAnterior"/>) traz as CINCO

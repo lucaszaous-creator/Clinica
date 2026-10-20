@@ -5,8 +5,8 @@ using Clinica.Domain.Entities;
 namespace Clinica.Application.Modelos;
 
 /// <summary>
-/// O que o FORMULÁRIO DO HORÁRIO da agenda (out/2026 — o <c>AgendamentoEdicaoViewModel</c> do
-/// WPF, agora <c>AgendamentoForm</c> Blazor) AFIRMA e DECIDE: o título por porta, a leitura da
+/// O que o FORMULÁRIO DO HORÁRIO da agenda (out/2026 — era o <c>AgendamentoEdicaoViewModel</c>
+/// do WPF, que saiu; hoje o <c>AgendamentoForm</c> Blazor) AFIRMA e DECIDE: o título por porta, a leitura da
 /// hora e da duração, a ordem das recusas do Salvar, o aviso de horário sem dono na edição e a
 /// capa do que o paciente já tem no dia. Mora aqui, e não no Razor, pela regra da casa: o que a
 /// tela afirma precisa morar onde o <c>dotnet test</c> alcança.

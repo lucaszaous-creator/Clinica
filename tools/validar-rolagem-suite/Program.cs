@@ -134,17 +134,10 @@ internal static class Program
     {
         Janela = new Window { Width = 900, Height = 600, Left = -30000, Top = -30000, ShowInTaskbar = false, ShowActivated = false };
         Janela.Show();
-        var convenios = new Clinica.Recepcao.Views.ConvenioPacienteView { DataContext = new
-        {
-            ValidadeConsulta = "Dados sintéticos de validação", Mensagem = "", UsaConsultaRenovavel = false, AutorizacoesNaoVerificadas = false, PodeEditarCadastro = true,
-            Autorizacoes = Enumerable.Range(1, 85).Select(n => new { Autorizacao = new { Numero = $"Autorização {n:000}", DataEmissao = DateTime.Today, DataValidade = DateTime.Today.AddDays(30) }, Resumo = "Autorização demonstrativa", Utilizavel = true, NaUltima = false }).ToArray()
-        } };
-        Montar(convenios);
-        ConferirSetas(Descendentes<ScrollViewer>(convenios).First(), false, "Recepção / 85 autorizações");
-        Janela.Close();
-        Janela = new Window { Width = 900, Height = 600, Left = -30000, Top = -30000, ShowInTaskbar = false, ShowActivated = false };
-        Janela.Show();
-        foreach (var arquivo in new[] { "src/Clinica.Modulo.Clinico/Janelas/PrescricaoInternaWindow.xaml", "src/Clinica.Desktop.Shell/Componentes/FolhaExecucaoWindow.xaml", "src/Clinica.Desktop.Shell/Shell/ShellWindow.xaml" })
+        // A lista de autorizações da ficha do balcão, a paleta de busca do shell, os alertas da
+        // prescrição de infusão e da folha de execução saíram do WPF em out/2026: viraram Blazor, e
+        // a rolagem das telas Blazor é do navegador. A conferência fica para a próxima região WPF.
+        foreach (var arquivo in Array.Empty<string>())
         {
             var propriedade = arquivo.EndsWith("ShellWindow.xaml") ? "ResultadosPesquisa" : "Alertas";
             var xml = XDocument.Load(Path.Combine(raiz, arquivo));

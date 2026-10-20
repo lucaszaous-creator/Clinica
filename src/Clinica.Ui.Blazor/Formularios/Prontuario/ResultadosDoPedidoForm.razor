@@ -1,0 +1,156 @@
+@*
+  RESULTADO — EXAME (out/2026: o que no WPF era a ResultadosDoPedidoWindow +
+  ResultadosDoPedidoViewModel). O quick-view do mockup: os resultados REGISTRADOS que respondem a
+  este pedido, sem sair da lista de Exames. O recorte e os campos moram em
+  PedidosDeExameNaTela.ResultadosDoPedido (Application, com teste).
+
+  O "Baixar PDF" do mockup é o "Abrir laudo", e só aparece na linha que TEM arquivo: o registro
+  pode ser só o valor digitado ("glicada 6,1"), e um botão aceso sobre um resultado sem arquivo
+  seria o clique que não faz nada (parcela 41). Abrir o modal e abrir o laudo deixam rastro
+  (parcela 60) — dado de saúde lido e dado de saúde saindo para arquivo.
+
+  "Abrir exames do paciente" devolve a intenção a quem abriu (AoAbrirNoPaciente): é a tela que
+  conhece a ponte do posto, e o modal fecha antes — modal aberto por cima da tela nova seria órfão.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="@($"Resultado — {Pedido.ExameRotulo}")" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <dl class="pares con-pares-esq">
+            <dt>Paciente</dt><dd>@Pedido.Paciente</dd>
+            <dt>Pedido</dt><dd>@PedidosDeExameNaTela.PedidoTexto(Pedido)</dd>
+        </dl>
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível carregar os resultados do pedido" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_resultados is null)
+        {
+            <Esqueleto Altura="160" />
+        }
+        else if (_resultados.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhum resultado amarrado a este pedido" Icone="vazio"
+                         Descricao="Registre o laudo pela lista de Exames (Anexar laudo) ou pela seção Exames e anexos do paciente." />
+        }
+        else
+        {
+            <ul class="con-resultados">
+                @foreach (var r in _resultados)
+                {
+                    <li @key="r.Id">
+                        <p class="secundario"><strong>@r.Data</strong>@(r.Laboratorio is { } lab ? $" · {lab}" : null)</p>
+                        <p><strong>@r.Nome</strong>: @r.Valor</p>
+                        @if (r.Referencia is { } refe)
+                        {
+                            <p class="secundario">Referência do laudo: @refe</p>
+                        }
+                        @if (r.Observacoes is { } obs)
+                        {
+                            <p class="con-texto">@obs</p>
+                        }
+                        @if (r.TemArquivo)
+                        {
+                            <button type="button" class="botao mini" title="@r.ArquivoNome" disabled="@_abrindo" @onclick="() => AbrirLaudoAsync(r)">
+                                <Icone Nome="abrir" />Abrir laudo
+                            </button>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+        <Aviso Texto="@_mensagem" Tom="erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" title="Laudos em arquivo, registro de novos resultados e o histórico inteiro"
+                disabled="@(!Pode(Permissao.VerProntuario))" @onclick="AbrirNoPacienteAsync">Abrir exames do paciente</button>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public PedidoDeExameLinha Pedido { get; set; } = default!;
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>"Abrir exames do paciente": quem abriu fecha este modal e leva à seção do paciente.</summary>
+    [Parameter] public EventCallback AoAbrirNoPaciente { get; set; }
+
+    private IReadOnlyList<PedidosDeExameNaTela.ResultadoDoPedido>? _resultados;
+    private bool _naoVerificado, _abrindo;
+    private string? _erro, _mensagem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir os exames do paciente")) { await AoFechar.InvokeAsync(); return; }
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        _naoVerificado = false;
+        try
+        {
+            IReadOnlyList<ResultadoExame> doPaciente;
+            using (var escopo = Escopo())
+            {
+                // Modal de dado de saúde deixa rastro (parcela 60) — uma vez por abertura.
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(Pedido.PacienteId, Operador, OrigemAcessoProntuario.ProntuarioClinico);
+                doPaciente = await escopo.ServiceProvider.GetRequiredService<ResultadoExameService>().DoPacienteAsync(Pedido.PacienteId);
+            }
+            _resultados = PedidosDeExameNaTela.ResultadosDoPedido(doPaciente, Pedido.DocumentoId);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — os resultados do pedido não puderam ser carregados", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Abre o laudo: salva o arquivo onde a pessoa escolher e deixa o sistema abri-lo no programa
+    /// padrão — o MESMO caminho do anexo de prontuário (não há visualizador embutido).
+    /// </summary>
+    private async Task AbrirLaudoAsync(PedidosDeExameNaTela.ResultadoDoPedido r)
+    {
+        if (!r.TemArquivo || _abrindo) return;
+        if (!Exigir(Permissao.VerProntuario, "abrir o laudo do exame")) return;
+        _abrindo = true;
+        _mensagem = null;
+        try
+        {
+            byte[]? bytes;
+            using (var escopo = Escopo())
+            {
+                bytes = await escopo.ServiceProvider.GetRequiredService<ResultadoExameService>().ConteudoDoLaudoAsync(r.Id);
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(Pedido.PacienteId, Operador, OrigemAcessoProntuario.ExportacaoClinica);
+            }
+            if (bytes is null || bytes.Length == 0)
+            {
+                // Falha nunca aparece como sucesso: o arquivo prometido pela linha não está no banco.
+                _mensagem = "O arquivo deste laudo não foi encontrado no banco.";
+                return;
+            }
+            var extensao = Path.GetExtension(r.ArquivoNome!);
+            _mensagem = await Host.SalvarEAbrirAsync(bytes, r.ArquivoNome!, $"Arquivo (*{extensao})|*{extensao}", extensao);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — o laudo não pôde ser aberto", ex);
+            _mensagem = ex.Message;
+        }
+        finally
+        {
+            _abrindo = false;
+        }
+    }
+
+    private async Task AbrirNoPacienteAsync()
+    {
+        if (!Exigir(Permissao.VerProntuario, "abrir os exames do paciente")) return;
+        await AoAbrirNoPaciente.InvokeAsync();
+    }
+}

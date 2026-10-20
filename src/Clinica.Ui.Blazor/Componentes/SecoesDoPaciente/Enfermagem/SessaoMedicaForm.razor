@@ -1,0 +1,169 @@
+@*
+  A SESSÃO MÉDICA POR INTEIRO, para quem EXECUTA ler antes de administrar (out/2026: substituiu,
+  nas portas da enfermagem, a SessaoDoProntuarioWindow WPF do shell aberta com
+  ofereceAnexos: false — a janela saiu). A lista da linha do tempo mostra o resumo CORTADO; a hipótese, o plano
+  e a conduta inteiros moram aqui.
+
+  Só LER: escrever a sessão médica continua sendo do médico (a técnica não tem EditarProntuario).
+  A composição é a MESMA de todas as portas (SessaoDoProntuario.De, na Application) — os doze
+  campos, os personalizados, a procedência, o aviso de cancelamento e as correções. As
+  correções (VersaoEvolucao) aparecem AQUI, listadas, em vez de numa segunda janela: o
+  registro anterior é o que uma auditoria procura, e ele não pode custar mais um formulário.
+
+  A trilha de leitura é ProntuarioClinico, uma vez por abertura (a janela de silêncio cobre a
+  repetida). "Imprimir esta sessão" emite a ficha do atendimento DAQUELE dia, pelo emissor
+  compartilhado.
+*@
+@namespace Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="@(_sessao?.Titulo ?? "Sessão do prontuário")" Subtitulo="@Paciente" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível abrir a sessão" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_sessao is null)
+        {
+            <Esqueleto Altura="200" />
+        }
+        else
+        {
+            <p class="secundario">@_sessao.Data · @_sessao.Eva · @_sessao.Profissional</p>
+            @if (_sessao.AvisoCancelamento is { } aviso)
+            {
+                <Aviso Tom="erro" Texto="@aviso" />
+            }
+            @if (_sessao.Blocos.Count == 0)
+            {
+                <EstadoVazio Titulo="Nada escrito nesta sessão" Icone="vazio" Descricao="A sessão existe, mas nenhum campo do registro foi preenchido." />
+            }
+            else
+            {
+                <dl class="enf-blocos">
+                    @foreach (var b in _sessao.Blocos)
+                    {
+                        <dt>@b.Rotulo</dt>
+                        <dd>@b.Texto</dd>
+                    }
+                </dl>
+            }
+            <p class="secundario enf-legenda">@_sessao.Procedencia</p>
+            @if (_sessao.Retificada)
+            {
+                <details class="enf-versoes">
+                    <summary>@_sessao.CorrecoesTexto</summary>
+                    <ul>
+                        @foreach (var v in _versoes)
+                        {
+                            <li>
+                                <span class="principal">Versão @v.Versao · substituída em @Formato.DataHora(v.SubstituidaEm)@(string.IsNullOrWhiteSpace(v.SubstituidaPor) ? "" : $" por {v.SubstituidaPor}")</span>
+                                @if (!string.IsNullOrWhiteSpace(v.Motivo)) { <span class="secundario">Motivo: @v.Motivo</span> }
+                                <span class="secundario">@v.Resumo</span>
+                            </li>
+                        }
+                    </ul>
+                </details>
+            }
+            @if (!string.IsNullOrEmpty(_mensagem))
+            {
+                <Aviso Tom="@(_mensagemEhErro ? "erro" : "sucesso")" Texto="@_mensagem" />
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" disabled="@(_sessao is null)" @onclick="CopiarAsync">Copiar o texto</button>
+        <button type="button" class="botao" disabled="@(_sessao is null || _ocupado || !Pode(Permissao.VerProntuario))" @onclick="ImprimirAsync"
+                title="Emite a ficha do atendimento deste dia, com a marca da clínica e o código de conferência.">Imprimir esta sessão</button>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int EvolucaoId { get; set; }
+    [Parameter] public string Paciente { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private SessaoDoProntuario? _sessao;
+    private IReadOnlyList<Clinica.Domain.Entities.VersaoEvolucao> _versoes = [];
+    private int _pacienteId;
+    private DateOnly _dia;
+    private bool _naoVerificado, _ocupado, _mensagemEhErro;
+    private string? _erro, _mensagem;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        _naoVerificado = false;
+        // Dado de saúde: a segunda barreira mora aqui, e a recusa vira o terceiro estado.
+        if (!Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário"))
+        {
+            _naoVerificado = true;
+            _erro = "O seu acesso não permite ler o prontuário.";
+            return;
+        }
+        try
+        {
+            Clinica.Domain.Entities.Evolucao? evolucao;
+            int anexos;
+            using (var escopo = Escopo())
+            {
+                var servicos = escopo.ServiceProvider;
+                var repo = servicos.GetRequiredService<IClinicaRepositorio>();
+                // SEQUENCIAL, nunca WhenAll: é o mesmo DbContext do escopo (parcela 74).
+                evolucao = await repo.ObterEvolucaoAsync(EvolucaoId);
+                if (evolucao is null)
+                {
+                    if (geracao != _geracao || Descartada) return;
+                    _naoVerificado = true;
+                    _erro = "Esta sessão não foi encontrada no prontuário.";
+                    return;
+                }
+                var contagem = await repo.ContagemDeAnexosAsync([EvolucaoId]);
+                anexos = contagem.TryGetValue(EvolucaoId, out var q) ? q : 0;
+                await servicos.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(evolucao.PacienteId, SessaoUsuario.Atual.Operador, OrigemAcessoProntuario.ProntuarioClinico);
+            }
+            if (geracao != _geracao || Descartada) return;
+            // As correções saem de Versoes: ObterEvolucaoAsync é a leitura que as traz com Include.
+            _sessao = SessaoDoProntuario.De(evolucao, anexos, evolucao.Versoes.Count);
+            _versoes = [.. evolucao.Versoes.OrderByDescending(v => v.Versao)];
+            _pacienteId = evolucao.PacienteId;
+            _dia = evolucao.Data;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar($"Enfermagem — a sessão {EvolucaoId} do prontuário não pôde ser aberta", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+    }
+
+    private async Task CopiarAsync()
+    {
+        if (_sessao is null) return;
+        var ok = await Host.CopiarAsync(_sessao.TextoParaCopiar(Paciente));
+        _mensagem = ok ? "Texto da sessão copiado." : "Não foi possível copiar agora — tente de novo.";
+        _mensagemEhErro = !ok;
+    }
+
+    private async Task ImprimirAsync()
+    {
+        if (_sessao is null || _ocupado) return;
+        _ocupado = true;
+        try
+        {
+            var (frase, erro) = await EmissaoDaFicha.EmitirAsync(Escopos, Host,
+                _pacienteId, _dia, temRascunhoNaoGravado: false, "Enfermagem — sessão médica");
+            _mensagem = frase;
+            _mensagemEhErro = erro;
+        }
+        finally { _ocupado = false; }
+    }
+}

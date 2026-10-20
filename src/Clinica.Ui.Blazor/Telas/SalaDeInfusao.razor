@@ -4,7 +4,8 @@
 
   O que a fila AFIRMA mora em SalaDeInfusaoNaTela (Application, com teste). Checar item a item,
   anotar a evolução de enfermagem e registrar a infusão com orientação externa continuam nas
-  janelas WPF de sempre, pela ponte IJanelasDaSalaDeInfusao (a 2ª assinatura mora na folha —
+  janelas WPF de sempre (quem é o paciente da infusão externa a tela pergunta antes, no
+  EscolherPacienteForm), pela ponte IJanelasDaSalaDeInfusao (a 2ª assinatura mora na folha —
   área congelada, só chamada). Imprimir é o PDF do AssinaturaDePrescricaoService, salvo pelo
   hospedeiro.
 
@@ -22,7 +23,7 @@
         <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
         @if (PodeRegistrarEnfermagem)
         {
-            <button type="button" class="botao" disabled="@_ocupado" @onclick="RegistrarExternaAsync">Registrar infusão com orientação externa</button>
+            <button type="button" class="botao" disabled="@_ocupado" @onclick="RegistrarExterna">Registrar infusão com orientação externa</button>
         }
     </CabecalhoPagina>
 
@@ -106,6 +107,11 @@
     </section>
 </div>
 
+@if (_escolhendoPaciente)
+{
+    <EscolherPacienteForm Assunto="Registrar infusão realizada" AoFechar="() => _escolhendoPaciente = false" AoEscolher="RegistrarExternaParaAsync" />
+}
+
 @code {
     private IReadOnlyList<LinhaSalaInfusao> _folhas = [];
     private IReadOnlyList<LinhaSalaInfusao> _validacoes = [];
@@ -114,6 +120,7 @@
     private string? _mensagem;
     private bool _mensagemEhErro;
     private bool _carregando, _carregou, _naoVerificado, _ocupado;
+    private bool _escolhendoPaciente;
     private string? _erro;
     private int _geracao;
     private Timer? _relogio;
@@ -218,11 +225,18 @@
         await Acao(() => Janelas.AnotarAsync(f), "Sala de infusão — evolução de enfermagem não pôde ser aberta");
     }
 
-    private async Task RegistrarExternaAsync()
+    private void RegistrarExterna()
     {
         if (!ExigirAlgum(Permissao.ChecarPrescricao | Permissao.RegistrarEvolucaoEnfermagem, "registrar infusão realizada")) return;
         if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDaSalaDeInfusaoIndisponiveis.Frase); return; }
-        await Acao(() => Janelas.RegistrarInfusaoExternaAsync(), "Sala de infusão — infusão externa não pôde ser registrada");
+        if (_ocupado) return;
+        _escolhendoPaciente = true;
+    }
+
+    private async Task RegistrarExternaParaAsync(Paciente paciente)
+    {
+        _escolhendoPaciente = false;
+        await Acao(() => Janelas.RegistrarInfusaoExternaAsync(paciente.Id, paciente.Nome), "Sala de infusão — infusão externa não pôde ser registrada");
     }
 
     /// <summary>Uma ação por vez; ao voltar da janela, relê a fila (silenciosa — a janela já disse o que houve).</summary>

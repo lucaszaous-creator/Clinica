@@ -1,0 +1,105 @@
+@*
+  A CURVA DA DOR (out/2026: migrada da EvolucaoDorView/ViewModel WPF). O par EVA de cada sessão
+  medida, a tendência da dor de CHEGADA e o CSV (dado de saúde saindo: VerProntuario + trilha).
+*@
+@using Clinica.Application.Modelos
+@inherits SecaoDoPaciente
+
+<section class="cartao">
+    <div class="cartao-corpo acp-topo">
+        <p class="secundario">@_tela?.Resumo</p>
+        <button type="button" class="botao mini" disabled="@(_tela?.Linhas.Count is not > 0 || !Pode(Permissao.VerProntuario))"
+                @onclick="ExportarAsync" title="Exportar a curva em CSV"><Icone Nome="baixar" />Exportar CSV</button>
+    </div>
+    @if (_naoVerificado)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível ler a evolução da dor" Detalhe="@_erro" AoTentarDeNovo="CarregarAsync" />
+    }
+    else if (_tela is null)
+    {
+        <div class="cartao-corpo"><Esqueleto Altura="200" /></div>
+    }
+    else if (!_tela.TemCurva)
+    {
+        <div class="cartao-corpo"><EstadoVazio Titulo="Sem curva de dor" Icone="grafico" Descricao="@_tela.Resumo" /></div>
+    }
+    else
+    {
+        <section class="kpis">
+            <Kpi Rotulo="Dor inicial" Valor="@_tela.DorInicial" Icone="grafico" />
+            <Kpi Rotulo="Dor atual" Valor="@_tela.DorAtual" Icone="grafico" />
+            <Kpi Rotulo="Ganho acumulado" Valor="@_tela.GanhoAcumulado" Icone="tendencia-baixa" />
+            <Kpi Rotulo="Alívio médio" Valor="@_tela.AlivioMedio" Icone="check" />
+        </section>
+        <p class="acp-tendencia @(_tela.TendenciaPreocupa ? "preocupa" : null)">@_tela.Tendencia</p>
+        <div class="acp-graficos">
+            <div><h4>Dor na chegada</h4>
+                <GraficoLinha Pontos="_tela.CurvaAntes" Tom="perigo" Descricao="EVA antes de cada sessão; os números exatos estão na tabela abaixo." /></div>
+            <div><h4>Dor na saída</h4>
+                <GraficoLinha Pontos="_tela.CurvaDepois" Tom="sucesso" Descricao="EVA depois de cada sessão; os números exatos estão na tabela abaixo." /></div>
+        </div>
+        <div class="tabela-rolagem">
+            <table class="lista">
+                <thead><tr><th>Data</th><th class="direita">Antes</th><th class="direita">Depois</th><th>Na sessão</th></tr></thead>
+                <tbody>
+                    @foreach (var l in _tela.Linhas)
+                    {
+                        <tr><td class="nao-quebra">@l.Data</td><td class="direita">@l.Antes</td><td class="direita">@l.Depois</td>
+                            <td class="@(l.Aliviou ? "valor-entrada" : null)">@l.Variacao</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@code {
+    private EvolucaoDaDorNaTela? _tela;
+    private bool _naoVerificado;
+    private string? _erro;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Leitura: relê em silêncio ao voltar (a sessão pode ter sido escrita noutra máquina).</summary>
+    protected override Task AoVoltarAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        try
+        {
+            EvolucaoDaDor dor;
+            using (var escopo = Escopo())
+                dor = await escopo.ServiceProvider.GetRequiredService<ProntuarioService>().EvolucaoDaDorAsync(Contexto.PacienteId);
+            if (g != _geracao || Descartada) return;
+            _tela = EvolucaoDaDorNaTela.Montar(dor);
+            _naoVerificado = false;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Consultório — evolução da dor não pôde ser lida", ex);
+            if (_tela is not null) return;
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+    }
+
+    private async Task ExportarAsync()
+    {
+        if (!Exigir(Permissao.VerProntuario, "exportar dados do prontuário")) return;
+        if (_tela is not { Linhas.Count: > 0 } t) { Notificacoes.Erro("Não há sessão medida para exportar."); return; }
+        await ExecutarAsync(async () =>
+        {
+            // A trilha vem ANTES do arquivo: quem chegou a escolher a pasta viu o dado.
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(Contexto.PacienteId, Operador, OrigemAcessoProntuario.ExportacaoClinica);
+            var erro = await Host.ExportarCsvAsync(["Data", "EVA antes", "EVA depois", "Variação"],
+                t.Linhas.Select(l => (IReadOnlyList<string>)[l.Data, l.Antes.ToString(), l.Depois.ToString(), l.Variacao]).ToList(),
+                $"evolucao-da-dor-{Contexto.Nome}-{DateTime.Today:yyyy-MM-dd}.csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }, "Consultório — curva de dor não pôde ser exportada");
+    }
+}

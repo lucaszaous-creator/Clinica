@@ -1,0 +1,167 @@
+@*
+  AS PASSAGENS DE ENFERMAGEM DO PACIENTE (out/2026: substitui o PassagensDeEnfermagemView WPF nas
+  portas Blazor). A lista que a enfermagem relê enquanto escreve: a PA de vinte minutos atrás
+  decide se ela reduz o gotejamento.
+
+  Cada passagem é uma LINHA separada por um traço (cada borda a mais é uma costura a mais); a
+  HORA é a âncora da leitura. Corrigida, cancelada e a correção aparecem MARCADAS, nunca sumindo.
+  O selo DESTA SESSÃO é o leitor de EvolucaoEnfermagem.AgendamentoId: "já registrei alguma coisa
+  NESTA passagem?". Corrigir e Cancelar são os únicos atos, e nenhum apaga (Lei 13.787/2018);
+  "Vincular à sessão" amarra a passagem avulsa à sessão original, sem reabrir nem refaturar.
+
+  O estado é o MESMO do compositor (EstadoDaPassagem): é o que faz Corrigir trazer o registro
+  para a folha ao lado.
+*@
+@namespace Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+@if (Estado.NaoVerificado)
+{
+    <FalhaDeLeitura Titulo="Não foi possível ler as passagens" Detalhe="@Estado.Mensagem" AoTentarDeNovo="Estado.CarregarAsync" />
+}
+else if (!Estado.Carregou)
+{
+    <Esqueleto Altura="120" />
+}
+else if (Estado.Registros.Count == 0)
+{
+    <EstadoVazio Titulo="Nenhuma passagem ainda" Icone="vazio"
+                 Descricao="Escreva o que você observou no paciente — a hora é a do fato, não a de agora." />
+}
+else
+{
+    <ul class="enf-passagens">
+        @foreach (var r in Estado.Registros)
+        {
+            <li @key="r.Id" class="@(r.Vigente ? null : "apagada")">
+                <div class="enf-passagem-hora">
+                    <span class="@(r.EmDestaque ? "enf-hora destaque" : "enf-hora")">@r.Hora</span>
+                    @if (!string.IsNullOrEmpty(r.Data))
+                    {
+                        <span class="secundario">@r.Data</span>
+                    }
+                </div>
+                <div class="enf-passagem-texto">
+                    <p class="enf-passagem-corpo">@r.Texto</p>
+                    @if (!string.IsNullOrWhiteSpace(r.SinaisVitais))
+                    {
+                        <p class="secundario">@r.SinaisVitais</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(r.Marca))
+                    {
+                        <p class="enf-marca">@r.Marca</p>
+                    }
+                    <p class="secundario">@r.Assinatura</p>
+                </div>
+                @if (r.Vigente)
+                {
+                    <div class="enf-passagem-acoes">
+                        @if (r.DestaSessao) { <Selo Tom="info">DESTA SESSÃO</Selo> }
+                        @if (r.Intercorrencia) { <Selo Tom="aviso">INTERCORRÊNCIA</Selo> }
+                        @if (r.PodeVincular)
+                        {
+                            <button type="button" class="botao mini" disabled="@(!EstadoDaPassagem.PodeRegistrar || _ocupado)" @onclick="() => PrepararVinculoAsync(r)">Vincular à sessão</button>
+                        }
+                        <button type="button" class="botao mini" disabled="@(!EstadoDaPassagem.PodeRegistrar || _ocupado)" @onclick="() => CorrigirAsync(r)"
+                                title="Grava um registro novo apontando para este, com o motivo. O original fica no prontuário, marcado.">Corrigir</button>
+                        <button type="button" class="botao mini contorno-perigo" disabled="@(!EstadoDaPassagem.PodeRegistrar || _ocupado)" @onclick="() => CancelarAsync(r)"
+                                title="Para o registro lançado no paciente ou na sessão ERRADA. Exige motivo, e a linha continua no prontuário.">Cancelar</button>
+                    </div>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@if (_vincular is { } v)
+{
+    <Modal Titulo="Vincular enfermagem à sessão" Subtitulo="@Estado.Paciente" Largura="medio" AoFechar="() => _vincular = null">
+        <ChildContent>
+            <p class="secundario">Escolha a sessão original do dia do atendimento. Sessões concluídas podem receber registros tardios, sem reabrir ou gerar guias novamente.</p>
+            <div class="enf-sessoes" role="radiogroup" aria-label="Sessões do dia">
+                @foreach (var s in v.Sessoes)
+                {
+                    <label class="marcar">
+                        <input type="radio" name="enf-sessao" checked="@(_sessaoEscolhida == s.Id)" @onchange="() => _sessaoEscolhida = s.Id" />@s.Rotulo
+                    </label>
+                }
+            </div>
+        </ChildContent>
+        <Rodape>
+            <button type="button" class="botao" @onclick="() => _vincular = null">Cancelar</button>
+            <button type="button" class="botao primario" disabled="@(_sessaoEscolhida is null || _ocupado)" @onclick="ConfirmarVinculoAsync">Vincular a esta sessão</button>
+        </Rodape>
+    </Modal>
+}
+
+@code {
+    [Parameter, EditorRequired] public EstadoDaPassagem Estado { get; set; } = default!;
+
+    /// <summary>Corrigir trouxe o registro para o compositor — quem hospeda leva a pessoa até ele.</summary>
+    [Parameter] public EventCallback AoCorrigir { get; set; }
+
+    private sealed record Vinculo(LinhaDaPassagem Linha, IReadOnlyList<SessaoParaVincular> Sessoes);
+
+    private EstadoDaPassagem? _inscrito;
+    private Vinculo? _vincular;
+    private int? _sessaoEscolhida;
+    private bool _ocupado;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_inscrito, Estado)) return;
+        if (_inscrito is not null) _inscrito.Mudou -= AoMudar;
+        _inscrito = Estado;
+        Estado.Mudou += AoMudar;
+    }
+
+    private void AoMudar() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task CorrigirAsync(LinhaDaPassagem r)
+    {
+        if (!Exigir(Permissao.RegistrarEvolucaoEnfermagem, "corrigir a evolução de enfermagem")) return;
+        await Estado.CorrigirAsync(r);
+        if (Estado.Corrigindo) await AoCorrigir.InvokeAsync();
+    }
+
+    private async Task CancelarAsync(LinhaDaPassagem r)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try { await Estado.CancelarRegistroAsync(r, Dialogos); }
+        finally { _ocupado = false; }
+    }
+
+    private async Task PrepararVinculoAsync(LinhaDaPassagem r)
+    {
+        if (_ocupado) return;
+        _ocupado = true;
+        try
+        {
+            if (await Estado.SessoesParaVincularAsync(r) is { } sessoes)
+            {
+                _sessaoEscolhida = null;
+                _vincular = new Vinculo(r, sessoes);
+            }
+        }
+        finally { _ocupado = false; }
+    }
+
+    private async Task ConfirmarVinculoAsync()
+    {
+        if (_vincular is not { } v || _sessaoEscolhida is not { } id || _ocupado) return;
+        _vincular = null;
+        var motivo = await Dialogos.PerguntarTextoAsync(PassagemDeEnfermagemNaTela.PerguntaVincularTitulo, PassagemDeEnfermagemNaTela.PerguntaVincular);
+        if (string.IsNullOrWhiteSpace(motivo)) return; // desistiu: nada se grava (checagem 39)
+        _ocupado = true;
+        try { await Estado.VincularAsync(v.Linha.Id, id, motivo); }
+        finally { _ocupado = false; }
+    }
+
+    public override void Dispose()
+    {
+        if (_inscrito is not null) _inscrito.Mudou -= AoMudar;
+        base.Dispose();
+    }
+}

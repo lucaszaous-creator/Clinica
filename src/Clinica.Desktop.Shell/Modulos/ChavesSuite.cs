@@ -148,6 +148,12 @@ public static class ChavesSuite
     /// </summary>
     public const string ConsultorioProntuarios = "consultorio-prontuarios";
 
+    /// <summary>
+    /// O Histórico da tela do paciente (Blazor). Atravessa módulo desde out/2026: o botão
+    /// "Prontuário" da ficha do balcão leva até ele.
+    /// </summary>
+    public const string ProntuarioDoPaciente = "consultorio-prontuario";
+
     /// <summary>Prescrever a partir do paciente em foco (Consultório).</summary>
     public const string ConsultorioPrescricoes = "consultorio-prescricoes";
 

@@ -1,0 +1,94 @@
+@*
+  UM PROBLEMA DA LISTA DO PACIENTE (out/2026: o que no WPF era a ProblemaWindow +
+  ProblemaEdicaoViewModel). Natureza (com a explicação de cada uma — alergia e medicação contínua
+  viram alerta), descrição, CID-10 opcional com a descrição do catálogo ao lado, desde quando e
+  observações. Editar é objeto novo com o Id; quem valida é o ProblemaPacienteService.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="@(Existente is null ? "Novo problema" : "Editar problema")" Largura="medio" AoFechar="AoFechar"
+       Subtitulo="A lista de problemas é do PACIENTE, não da sessão: ela acompanha a pessoa e alimenta os documentos.">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Natureza" Classe="largo" Dica="@Explicacao">
+                <select class="campo" value="@_natureza" @onchange="e => _natureza = Enum.Parse<NaturezaProblema>(e.Value!.ToString()!)">
+                    @foreach (var n in FichaClinicaNaTela.Naturezas)
+                    {
+                        <option value="@n.Valor">@n.Rotulo</option>
+                    }
+                </select>
+            </Campo>
+            <Campo Rotulo="Descrição" Classe="largo" Obrigatorio="true" Dica="É esta linha que o próximo profissional lê. Escreva como você diria em voz alta.">
+                <input class="campo" @bind="_descricao" maxlength="300" />
+            </Campo>
+            <Campo Rotulo="CID-10 (opcional)" Dica="@DescricaoCid"><input class="campo" @bind="_cid" @bind:event="oninput" maxlength="10" /></Campo>
+            <Campo Rotulo="Desde (opcional)"><input class="campo" type="date" @bind="_inicio" /></Campo>
+            <Campo Rotulo="Observações" Classe="largo" Dica="A conduta da alergia (“faz broncoespasmo”), o estágio do diagnóstico, a dose da medicação contínua.">
+                <textarea class="campo" rows="3" @bind="_observacoes" maxlength="2000"></textarea>
+            </Campo>
+        </div>
+        <Aviso Texto="@_erro" Tom="erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@_salvando" @onclick="SalvarAsync">Gravar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public ProblemaPaciente? Existente { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+
+    private NaturezaProblema _natureza = NaturezaProblema.Diagnostico;
+    private string? _descricao, _cid, _observacoes, _erro;
+    private DateOnly? _inicio;
+    private bool _salvando;
+
+    private string Explicacao => FichaClinicaNaTela.Naturezas.FirstOrDefault(n => n.Valor == _natureza)?.Explicacao ?? string.Empty;
+    private string? DescricaoCid => Clinica.Domain.CatalogoCid.Descrever(_cid);
+
+    protected override void OnInitialized()
+    {
+        if (Existente is not { } e) return;
+        _natureza = e.Natureza;
+        _descricao = e.Descricao;
+        _cid = e.Cid;
+        _inicio = e.Inicio;
+        _observacoes = e.Observacoes;
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        _erro = null;
+        _salvando = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ProblemaPacienteService>().SalvarAsync(new ProblemaPaciente
+                {
+                    Id = Existente?.Id ?? 0,
+                    PacienteId = PacienteId,
+                    ProfissionalId = SessaoUsuario.Atual.ProfissionalId,
+                    Natureza = _natureza,
+                    Descricao = _descricao ?? string.Empty,
+                    Cid = _cid,
+                    Inicio = _inicio,
+                    Observacoes = _observacoes
+                }, Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — problema não pôde ser salvo", ex);
+            _erro = ex.Message;
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+}

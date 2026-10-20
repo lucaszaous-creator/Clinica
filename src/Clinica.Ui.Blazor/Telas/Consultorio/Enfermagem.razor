@@ -1,0 +1,353 @@
+@*
+  ENFERMAGEM — "quem eu atendi e o que escrevi" (out/2026: substitui o EnfermagemView +
+  EnfermagemViewModel WPF; chave "enfermagem", publicada pelo Consultório E pela Recepção).
+
+  Lista → paciente, nunca mestre-detalhe numa tela só (parcela 37):
+  · a LISTA é a busca da casa (BuscaDePacienteNaTela): abre em "Com horário hoje" (a fila do
+    dia), o campo alcança o cadastro inteiro, e "Todos os pacientes" é a listagem PEDIDA desta
+    tela, paginada de 100 em 100 — nunca o cadastro de uma vez;
+  · ATENDER leva à tela do paciente, na seção de escrita de quem clicou, pela ponte do posto
+    (IPostoDoConsultorio, DestinoNoPosto.Atendimento) com o HORÁRIO de hoje junto — é esse
+    vínculo que põe a passagem na ficha da sessão. Onde não há posto (o exe da Recepção, a
+    prévia) a resposta é o PAINEL desta tela, que continua sendo uma tela completa;
+  · o painel: o nome, a linha de contexto (idade, convênio, medicação em uso, última aferição,
+    peso, termo e folha do dia), o ALERTA de alergia, o cronômetro da sessão em curso e o
+    PainelDeEnfermagem — o MESMO da seção do Consultório, com o prontuário do paciente na
+    terceira aba.
+
+  A ficha é dado cadastral (VerFichaPaciente) e a lista exige o bit; o contexto clínico e o
+  painel são dado de saúde (VerProntuario) — o painel DIZ por que não mostra.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Modelos
+@using Clinica.Ui.Blazor.Componentes.SecoesDoPaciente.Enfermagem
+@inherits TelaBase
+
+<div class="pagina enf-tela">
+    @if (_aberto is { } paciente)
+    {
+        <CabecalhoPagina Sobretitulo="Enfermagem · Paciente" Titulo="@paciente.Nome" Subtitulo="@LinhaDeContexto">
+            @if (_cronometro is { } visor)
+            {
+                <span class="tp-visor" role="timer" aria-label="Tempo de atendimento" title="Há quanto tempo a sessão de hoje está em atendimento">@visor</span>
+            }
+            <button type="button" class="botao" @onclick="VoltarAsync"><Icone Nome="esquerda" />Voltar à lista</button>
+        </CabecalhoPagina>
+
+        @if (_alerta is { } alerta)
+        {
+            <Aviso Tom="erro" Texto="@alerta" />
+        }
+
+        <PainelDeEnfermagem @key="paciente.Id" PacienteId="paciente.Id" Paciente="@paciente.Nome"
+                            AgendamentoId="_horario?.Id" DataDoAtendimento="Hoje" Prontuario="true"
+                            AoLerPortas="AoLerPortas" AoGravou="AoGravouAsync" />
+    }
+    else
+    {
+        <CabecalhoPagina Sobretitulo="Consultório · Enfermagem" Titulo="Enfermagem"
+                         Subtitulo="Quem passa pela enfermagem hoje — e o que foi escrito em cada passagem.">
+            <button type="button" class="botao" @onclick="AtualizarAsync" title="Atualizar (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        </CabecalhoPagina>
+
+        @if (!Pode(Permissao.VerFichaPaciente))
+        {
+            <section class="cartao"><div class="cartao-corpo">
+                <EstadoVazio Titulo="Lista indisponível para o seu acesso" Icone="vazio" Descricao="@EnfermagemNaTela.SemFicha" />
+            </div></section>
+        }
+        else
+        {
+            <BuscaDePacienteNaTela @ref="_busca" Pergunta="Quem vai ser atendido?"
+                                   Contexto="Digite o nome ou o CPF — ou veja quem tem horário hoje."
+                                   SugestaoDeHoje="true" PermiteVerTodos="true" Limite="30"
+                                   AoEscolher="AtenderAsync"
+                                   AoVerTodos="() => ListarAsync(0)"
+                                   TodosMarcado="_listando"
+                                   OcultarResultados="_listando"
+                                   AoRetomarBusca="() => _listando = false" />
+
+            @if (_listando)
+            {
+                <section class="cartao lista-cartao enf-lista">
+                    @if (_naoVerificado)
+                    {
+                        <FalhaDeLeitura Titulo="Não foi possível listar os pacientes" Detalhe="@_erro" AoTentarDeNovo="() => ListarAsync(_pagina)" />
+                    }
+                    else if (_carregando && _linhas.Count == 0)
+                    {
+                        <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+                    }
+                    else if (_linhas.Count == 0)
+                    {
+                        <EstadoVazio Titulo="Nenhum paciente nesta página" Icone="vazio" Descricao="Volte à página anterior ou use a busca." />
+                    }
+                    else
+                    {
+                        <div class="tabela-rolagem">
+                            <table class="lista">
+                                <thead><tr><th>Paciente</th><th>Idade e convênio</th><th class="direita">Ações</th></tr></thead>
+                                <tbody>
+                                    @foreach (var p in _linhas)
+                                    {
+                                        <tr @key="p.Id">
+                                            <td><span class="principal">@p.Nome</span></td>
+                                            <td class="secundario">@EnfermagemNaTela.ContextoBasico(p, Hoje)</td>
+                                            <td class="direita">
+                                                <button type="button" class="botao mini primario" @onclick="() => AtenderAsync(p)"
+                                                        title="Abre o paciente na passagem de enfermagem">Atender</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="rodape-lista enf-paginas-lista">
+                            <span class="secundario">@EnfermagemNaTela.ResumoDaBusca(null, _linhas.Count, _pagina + 1)</span>
+                            <button type="button" class="botao" disabled="@(_pagina == 0 || _carregando)" @onclick="() => ListarAsync(_pagina - 1)">Anterior</button>
+                            <button type="button" class="botao" disabled="@(!_temMais || _carregando)" @onclick="() => ListarAsync(_pagina + 1)">Próxima</button>
+                        </div>
+                    }
+                </section>
+            }
+        }
+
+    }
+</div>
+
+@code {
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+    private IPostoDoConsultorio Posto => Servicos.GetService<IPostoDoConsultorio>() ?? PostoDoConsultorioIndisponivel.Instancia;
+
+    private BuscaDePacienteNaTela? _busca;
+
+    // ---- A listagem "Todos os pacientes" (pedida, paginada) ----
+    private bool _listando, _carregando, _naoVerificado, _temMais;
+    private List<Paciente> _linhas = [];
+    private int _pagina, _geracaoLista;
+    private string? _erro;
+
+    // ---- O painel do paciente ----
+    private Paciente? _aberto;
+    private Agendamento? _horario, _emCurso;
+    private string _contextoBasico = string.Empty;
+    private IReadOnlyList<string> _partesClinicas = [];
+    private PainelDeEnfermagem.PortasDoDia? _portas;
+    private string? _alerta, _cronometro;
+    private bool _aVista = true;
+    private int _geracaoPaciente;
+    private Timer? _relogio;
+
+    private string LinhaDeContexto => EnfermagemNaTela.JuntarContexto(_contextoBasico, _partesClinicas.Concat(PartesDasPortas()));
+
+    protected override void OnInitialized()
+        => _relogio = new Timer(_ => _ = InvokeAsync(Bater), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+    // ==================== A listagem ====================
+
+    private async Task ListarAsync(int pagina)
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "ver a lista de pacientes")) return;
+        if (pagina < 0) pagina = 0;
+        var geracao = ++_geracaoLista;
+        _listando = true;
+        _carregando = true;
+        _naoVerificado = false;
+        try
+        {
+            IReadOnlyList<Paciente> lidos;
+            using (var escopo = Escopo())
+                // Um a mais que a página: é ele que diz se há próxima, sem contar o cadastro inteiro.
+                lidos = await escopo.ServiceProvider.GetRequiredService<PacienteService>()
+                    .BuscarPaginaAsync(null, pagina * EnfermagemNaTela.TamanhoDaPagina, EnfermagemNaTela.TamanhoDaPagina + 1);
+            if (geracao != _geracaoLista || Descartada) return;
+            _temMais = lidos.Count > EnfermagemNaTela.TamanhoDaPagina;
+            _linhas = [.. lidos.Take(EnfermagemNaTela.TamanhoDaPagina)];
+            _pagina = pagina;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoLista || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — a lista de pacientes não pôde ser lida", ex);
+            _naoVerificado = true;
+            _erro = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracaoLista) _carregando = false;
+        }
+    }
+
+    private Task AtualizarAsync() => _listando ? ListarAsync(_pagina) : Task.CompletedTask;
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar && _aberto is null ? AtualizarAsync() : Task.CompletedTask;
+
+    // ==================== Atender ====================
+
+    /// <summary>
+    /// ATENDER — a tela do paciente na seção de escrita de quem clicou, com o horário de hoje
+    /// junto. Sem posto (Recepção, prévia), ou se a navegação recusou, o painel desta tela
+    /// atende: guarda que volta em silêncio é botão que não faz nada (parcela 41).
+    /// </summary>
+    private async Task AtenderAsync(Paciente paciente)
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "abrir o paciente")) return;
+        var horario = await HorarioDeHojeAsync(paciente.Id);
+        if (Descartada) return;
+
+        if (Posto.Disponivel)
+        {
+            try
+            {
+                var abriu = await Posto.AbrirNoPostoAsync(
+                    new PacienteNoPosto(paciente.Id, paciente.Nome, horario?.Id, horario?.AtendimentoId,
+                        horario is null ? null : DateOnly.FromDateTime(horario.DataHora)),
+                    DestinoNoPosto.Atendimento);
+                if (abriu) return;
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Enfermagem — o paciente não pôde ser aberto no posto", ex);
+            }
+        }
+        await AbrirPainelAsync(paciente, horario);
+    }
+
+    /// <summary>
+    /// O horário DESTE paciente hoje. Falhar a leitura NÃO impede abrir o paciente — o registro
+    /// só não fica ligado à sessão; deixa rastro no log.
+    /// </summary>
+    private async Task<Agendamento?> HorarioDeHojeAsync(int pacienteId)
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var doDia = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                .AgendamentosDoPacienteNoDiaAsync(pacienteId, Hoje);
+            return EnfermagemNaTela.HorarioDeHoje(doDia, pacienteId);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — horário de hoje do paciente não pôde ser lido", ex);
+            return null;
+        }
+    }
+
+    private async Task AbrirPainelAsync(Paciente paciente, Agendamento? horario)
+    {
+        // ANTES do await: o visor e o contexto do paciente ANTERIOR não podem ficar debaixo do
+        // nome de quem acabou de entrar (a lição da parcela 89).
+        _aberto = paciente;
+        _horario = horario;
+        _emCurso = horario is { InicioAtendimentoEm: not null, FimAtendimentoEm: null } ? horario : null;
+        _contextoBasico = EnfermagemNaTela.ContextoBasico(paciente, Hoje);
+        _partesClinicas = [];
+        _portas = null;
+        _alerta = null;
+        AtualizarCronometro();
+        await CarregarContextoAsync();
+    }
+
+    private Task VoltarAsync()
+    {
+        ++_geracaoPaciente;
+        _aberto = null;
+        _horario = null;
+        _emCurso = null;
+        _cronometro = null;
+        _alerta = null;
+        _partesClinicas = [];
+        _portas = null;
+        return Task.CompletedTask;
+    }
+
+    // ==================== O contexto do paciente aberto ====================
+
+    /// <summary>
+    /// Alergia, medicação em uso, última aferição e peso — dado de saúde, só com VerProntuario.
+    /// Falha vira o terceiro estado no alerta: "sem alergia" e "não consegui conferir" dizem
+    /// coisas opostas a quem vai administrar.
+    /// </summary>
+    private async Task CarregarContextoAsync()
+    {
+        if (_aberto is not { } paciente || !Pode(Permissao.VerProntuario)) return;
+        var geracao = ++_geracaoPaciente;
+        try
+        {
+            ConferenciaPrescricao conferencia;
+            IReadOnlyList<EvolucaoEnfermagem> evolucoes;
+            ResumoMedidas medidas;
+            IReadOnlyList<Agendamento> doDia;
+            using (var escopo = Escopo())
+            {
+                var s = escopo.ServiceProvider;
+                // SEQUENCIAL, nunca WhenAll: o mesmo DbContext do escopo (parcela 74).
+                conferencia = await s.GetRequiredService<PrescricaoService>().ContextoAsync(paciente.Id);
+                evolucoes = await s.GetRequiredService<EvolucaoEnfermagemService>().DoPacienteAsync(paciente.Id, limite: 20);
+                medidas = await s.GetRequiredService<MedidaClinicaService>().ResumoAsync(paciente.Id);
+                doDia = await s.GetRequiredService<IClinicaRepositorio>().AgendamentosDoPacienteNoDiaAsync(paciente.Id, Hoje);
+            }
+            if (geracao != _geracaoPaciente || Descartada) return;
+            _alerta = EnfermagemNaTela.Alerta(conferencia.Alergias);
+            _partesClinicas = EnfermagemNaTela.PartesClinicas(conferencia.MedicacoesEmUso, evolucoes, medidas.Ultimas);
+            _emCurso = CronometroDaSessao.EmCurso(doDia);
+            AtualizarCronometro();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoPaciente || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Enfermagem — contexto clínico não pôde ser conferido", ex);
+            _alerta = EnfermagemNaTela.ContextoNaoVerificado;
+        }
+    }
+
+    private void AoLerPortas(PainelDeEnfermagem.PortasDoDia portas) => _portas = portas;
+
+    /// <summary>A passagem gravada muda a última aferição (e pode ter registrado alergia).</summary>
+    private Task AoGravouAsync() => CarregarContextoAsync();
+
+    private IEnumerable<string?> PartesDasPortas()
+    {
+        if (_portas is not { } p) yield break;
+        if (p.Termo is { } termo) yield return EnfermagemNaTela.ContextoDoTermo(termo);
+        if (p.Folha is { } folha) yield return EnfermagemNaTela.ContextoDaFolha(folha.Numero, folha.Pendentes);
+    }
+
+    // ==================== O cronômetro ====================
+
+    private void AtualizarCronometro() => _cronometro = CronometroDaSessao.De(_emCurso, DateTime.Now);
+
+    private void Bater()
+    {
+        if (Descartada || !_aVista || _emCurso is null) return;
+        AtualizarCronometro();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Voltou à vista: com paciente aberto relê só o contexto (o compositor não — há texto em
+    /// edição); sem paciente, relê a lista (quem foi marcado na outra máquina aparece).
+    /// </summary>
+    protected override Task AoVoltarAsync()
+    {
+        _aVista = true;
+        if (_aberto is not null) return CarregarContextoAsync();
+        return _busca?.RelerAsync() ?? Task.CompletedTask;
+    }
+
+    protected override Task AoSairAsync()
+    {
+        _aVista = false;
+        return Task.CompletedTask;
+    }
+
+    public override void Dispose()
+    {
+        _relogio?.Dispose();
+        base.Dispose();
+    }
+}

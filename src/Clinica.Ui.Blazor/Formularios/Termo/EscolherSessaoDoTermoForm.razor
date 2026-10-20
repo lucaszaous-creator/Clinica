@@ -1,0 +1,52 @@
+@*
+  "A QUAL SESSÃO ESTE TERMO PERTENCE?" — a pergunta do BALCÃO (out/2026: substitui o
+  EscolherSessaoDoTermoWindow + ViewModel WPF). Só ABRE quando há dúvida (a regra mora em
+  ColetaDeTermoNaTela.Decidir). As sessões chegam PRONTAS — o formulário não vai ao banco: quem
+  já as leu é a porta, e ler de novo poderia discordar se a outra máquina mexesse na agenda.
+  "Nenhuma — termo avulso" é opção de primeira classe; a sessão de HOJE vem marcada quando é uma.
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="A qual sessão este termo pertence?" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <p class="secundario"><strong>@PacienteNome</strong> — @NomeDoTermo. O termo fica guardado com a sessão escolhida e aparece nos documentos do paciente.</p>
+        <ul class="assin-opcoes" role="listbox" aria-label="Sessões">
+            @foreach (var o in _opcoes)
+            {
+                <li role="option" aria-selected="@(o == _selecionada ? "true" : "false")"
+                    class="@(o == _selecionada ? "selecionado" : null)" @onclick="() => _selecionada = o">
+                    <span class="principal">@o.Rotulo</span>
+                    <span class="secundario">@o.Detalhe</span>
+                </li>
+            }
+        </ul>
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_selecionada is null)" @onclick="ConfirmarAsync">Colher assinatura…</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<SessaoParaTermo> Sessoes { get; set; } = [];
+    [Parameter, EditorRequired] public string PacienteNome { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string NomeDoTermo { get; set; } = string.Empty;
+    [Parameter] public EventCallback<OpcaoSessaoTermo> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<OpcaoSessaoTermo> _opcoes = [];
+    private OpcaoSessaoTermo? _selecionada;
+
+    protected override void OnInitialized()
+    {
+        _opcoes = ColetaDeTermoNaTela.Opcoes(Sessoes);
+        _selecionada = ColetaDeTermoNaTela.PreSelecionada(_opcoes);
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (_selecionada is null) return;
+        await AoConcluir.InvokeAsync(_selecionada);
+    }
+}

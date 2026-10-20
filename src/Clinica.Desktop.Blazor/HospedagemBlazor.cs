@@ -15,6 +15,10 @@ public static class HospedagemBlazor
     {
         servicos.AddWpfBlazorWebView();
         servicos.TryAddSingleton<IHostDaTela, HostDaTelaWpf>();
+        servicos.TryAddSingleton<IEntregaAoPaciente, EntregaAoPacienteWpf>();
+        // Os formulários Blazor que o código WPF ainda pede (a ficha do balcão, a ponte WPF dos
+        // Prontuários, os atos do documento): abrem na janela de transição (out/2026).
+        servicos.TryAddSingleton<Clinica.Desktop.Shell.Componentes.IFormulariosBlazorNoWpf, FormulariosBlazorNoWpf>();
         if (servicos.All(d => d.ServiceType != typeof(Dialogos))) servicos.AddTelasBlazor();
         return servicos;
     }

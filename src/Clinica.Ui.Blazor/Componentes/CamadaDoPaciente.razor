@@ -1,0 +1,42 @@
+@*
+  A CAMADA DOS FORMULÁRIOS DO PACIENTE (out/2026): desenha o cadastro e a escolha do convênio
+  que algum fluxo pediu a FormulariosDoPaciente e está esperando. Mora ao lado da camada de
+  diálogos (na Raiz e no PalcoDeTelas), ANTES dela no HTML: um diálogo aberto de dentro do
+  formulário fica por cima dele, e o formulário fica por cima da tela que o pediu — inclusive
+  quando quem pediu é outro formulário (o horário da agenda pergunta o convênio no Salvar).
+*@
+@using Clinica.Ui.Blazor.Formularios
+@implements IDisposable
+@inject FormulariosDoPaciente Formularios
+
+@if (Formularios.Atual is { } f)
+{
+    if (f.Tipo == TipoFormularioDoPaciente.Convenio && f.Paciente is { } paciente)
+    {
+        <EscolhaDeConvenioForm @key="f" Paciente="paciente"
+                               AoFechar="() => Formularios.Responder(f, null)"
+                               AoConcluir="() => Formularios.Responder(f, new PacienteCadastrado(paciente.Id, paciente.Nome))" />
+    }
+    else
+    {
+        <CadastroPacienteForm @key="f" PacienteId="f.PacienteId"
+                              AoFechar="() => Formularios.Responder(f, null)"
+                              AoConcluir="(PacienteCadastrado p) => Formularios.Responder(f, p)" />
+    }
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Formularios.CamadaMontada();
+        Formularios.Mudou += Redesenhar;
+    }
+
+    private void Redesenhar() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Formularios.Mudou -= Redesenhar;
+        Formularios.CamadaDesmontada();
+    }
+}

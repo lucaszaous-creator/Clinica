@@ -1,0 +1,134 @@
+@*
+  REGISTRAR RESULTADO DE EXAME (out/2026: o que no WPF era a RegistrarResultadoExameWindow +
+  ResultadoExameEdicaoViewModel). Responde a um pedido (ou avulso), data, nome, valor, unidade,
+  referência, laboratório, observação e o LAUDO em arquivo (valor OU laudo — o serviço recusa o
+  registro sem conteúdo nenhum, e o teto do arquivo é o do anexo de prontuário).
+*@
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Registrar resultado de exame" Subtitulo="@Paciente" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Responde ao pedido" Classe="largo" Dica="@_avisoPedidos">
+                <select class="campo" value="@(_pedido?.ToString() ?? "")" @onchange="e => _pedido = int.TryParse(e.Value?.ToString(), out var v) ? v : null">
+                    @foreach (var o in _opcoes)
+                    {
+                        <option value="@(o.DocumentoId?.ToString() ?? "")">@o.Rotulo</option>
+                    }
+                </select>
+            </Campo>
+            <Campo Rotulo="Data"><input class="campo" type="date" @bind="_data" /></Campo>
+            <Campo Rotulo="Exame" Obrigatorio="true"><input class="campo" @bind="_nome" maxlength="160" placeholder="Ex.: Hemoglobina glicada" /></Campo>
+            <Campo Rotulo="Valor"><input class="campo" @bind="_valor" maxlength="160" /></Campo>
+            <Campo Rotulo="Unidade"><input class="campo" @bind="_unidade" maxlength="40" /></Campo>
+            <Campo Rotulo="Referência"><input class="campo" @bind="_referencia" maxlength="160" /></Campo>
+            <Campo Rotulo="Laboratório"><input class="campo" @bind="_laboratorio" maxlength="160" /></Campo>
+            <Campo Rotulo="Observações" Classe="largo"><textarea class="campo" rows="2" @bind="_observacoes" maxlength="2000"></textarea></Campo>
+            <Campo Rotulo="Laudo em arquivo (opcional)" Classe="largo" Dica="PDF ou imagem. O laudo sozinho já é um registro completo.">
+                <div class="botoes-linha">
+                    @if (_laudoNome is not null)
+                    {
+                        <span>@_laudoNome · @ExamesDoPacienteNaTela.Peso(_laudo!.Length)</span>
+                        <button type="button" class="botao mini" @onclick="RemoverLaudo">Remover</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="botao mini" @onclick="EscolherLaudoAsync"><Icone Nome="abrir" />Escolher arquivo…</button>
+                    }
+                </div>
+            </Campo>
+        </div>
+        <Aviso Texto="@_erro" Tom="erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@_salvando" @onclick="RegistrarAsync">Registrar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter] public string Paciente { get; set; } = string.Empty;
+    /// <summary>O pedido que já vem escolhido ("Anexar laudo…" na linha do pedido).</summary>
+    [Parameter] public int? PedidoDocumentoId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback AoConcluir { get; set; }
+
+    private IReadOnlyList<ExamesDoPacienteNaTela.OpcaoPedido> _opcoes = [new(null, "— resultado avulso (sem pedido) —")];
+    private int? _pedido;
+    private string? _avisoPedidos;
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private string? _nome, _valor, _unidade, _referencia, _laboratorio, _observacoes, _erro;
+    private byte[]? _laudo;
+    private string? _laudoNome;
+    private bool _salvando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            IReadOnlyList<PedidoDeExameLinha> pedidos;
+            using (var escopo = Escopo())
+                pedidos = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                    .PedidosDeExameAsync(pacienteId: PacienteId);
+            _opcoes = ExamesDoPacienteNaTela.OpcoesDePedido(pedidos);
+            _pedido = PedidoDocumentoId is { } alvo && _opcoes.Any(o => o.DocumentoId == alvo) ? alvo : null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — pedidos do paciente não puderam ser listados", ex);
+            _avisoPedidos = "Não deu para listar os pedidos deste paciente — dá para registrar mesmo assim, e o vínculo pode ser feito depois.";
+        }
+    }
+
+    private async Task EscolherLaudoAsync()
+    {
+        var arquivo = await Host.EscolherArquivoAsync("Laudos (*.pdf;*.jpg;*.jpeg;*.png)|*.pdf;*.jpg;*.jpeg;*.png|Todos os arquivos (*.*)|*.*",
+            "Anexar o laudo do exame");
+        if (arquivo is null) return;
+        _laudo = arquivo.Conteudo;
+        _laudoNome = arquivo.Nome;
+        _erro = null;
+    }
+
+    private void RemoverLaudo()
+    {
+        _laudo = null;
+        _laudoNome = null;
+    }
+
+    private async Task RegistrarAsync()
+    {
+        if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
+        _erro = null;
+        _salvando = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<ResultadoExameService>().RegistrarAsync(new ResultadoExame
+                {
+                    PacienteId = PacienteId,
+                    PedidoDocumentoId = _pedido,
+                    Data = _data,
+                    Nome = _nome ?? string.Empty,
+                    Valor = _valor ?? string.Empty,
+                    Unidade = _unidade,
+                    Referencia = _referencia,
+                    Laboratorio = _laboratorio,
+                    Observacoes = _observacoes
+                }, Operador, laudo: _laudo, nomeDoArquivo: _laudoNome,
+                   tipoDoArquivo: _laudoNome is null ? null : ExamesDoPacienteNaTela.TipoDoLaudo(_laudoNome));
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — resultado de exame não pôde ser registrado", ex);
+            _erro = ex.Message;
+        }
+        finally
+        {
+            _salvando = false;
+        }
+    }
+}
