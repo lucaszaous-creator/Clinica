@@ -276,7 +276,7 @@ const Palco = ({ aula }) => {
         </div>
         <div style={{ position: 'relative', width: CW, height: CH, overflow: 'hidden', background: '#F8FAFC' }}>
           <div style={{ position: 'absolute', left: 0, top: 0, width: CW, height: CH, transformOrigin: '0 0', transform: `translate(${FOCO.x - cam.x * cam.s}px, ${FOCO.y - cam.y * cam.s}px) scale(${cam.s})` }}>
-            <OffthreadVideo src={staticFile(aula.video)} muted style={{ width: CW, height: CH }} />
+            <OffthreadVideo src={/^https?:/.test(aula.video) ? aula.video : staticFile(aula.video)} muted style={{ width: CW, height: CH }} />
           </div>
           {anel && (
             <>

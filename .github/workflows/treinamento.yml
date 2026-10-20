@@ -145,10 +145,6 @@ jobs:
           FATIA: ${{ matrix.fatia }}/20
           AULAS: ${{ github.event.inputs.aulas }}
         run: node gravar.js http://127.0.0.1:5199 "$GITHUB_WORKSPACE/navegacao/navegacao.json" "$GITHUB_WORKSPACE/aulas" || echo "::warning::houve aula com erro na gravação (está no resumo)"
-      # O motion design por cima da tela gravada (Remotion).
-      - name: Montar o motion design
-        working-directory: tools/treinamento/gravacao
-        run: node renderizar.js "$GITHUB_WORKSPACE/aulas"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -157,11 +153,13 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Um catálogo só, com os vídeos pelo SHA-256 — o que a release publica e o app baixa.
-  juntar:
+  # O motion design na AWS Lambda: todas as aulas gravadas montadas em paralelo, e um
+  # catálogo só com os vídeos pelo SHA-256 — o que a release publica e o app baixa.
+  montar:
     needs: gravar
     if: always()
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
@@ -171,11 +169,33 @@ jobs:
         with:
           pattern: parte-*
           path: partes
-      - name: Juntar o catálogo
+      - name: Juntar as gravações
         run: |
-          mkdir -p partes
-          node tools/treinamento/gravacao/juntar.js partes videoaulas
-          if grep -q '"erro"' videoaulas/resumo.json; then exit 1; fi
+          mkdir -p aulas
+          node -e "
+          const fs=require('fs'),p=require('path');const r=[];
+          for(const d of fs.existsSync('partes')?fs.readdirSync('partes'):[]){const dir=p.join('partes',d);
+            for(const f of fs.readdirSync(dir)){if(f.endsWith('.linha.json')||f.endsWith('.bruto.mp4'))fs.renameSync(p.join(dir,f),p.join('aulas',f));
+              if(f==='resumo-gravacao.json')r.push(...JSON.parse(fs.readFileSync(p.join(dir,f),'utf8')));}}
+          fs.writeFileSync('aulas/resumo-gravacao.json',JSON.stringify(r,null,2));
+          console.log(r.filter(x=>!x.erro).length+' gravada(s), '+r.filter(x=>x.erro).length+' com erro');"
+      - name: Dependências
+        working-directory: tools/treinamento/gravacao
+        run: npm install --no-audit --no-fund --silent
+      - name: Montar na AWS Lambda
+        working-directory: tools/treinamento/gravacao
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.REMOTION_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTION_AWS_SECRET_ACCESS_KEY }}
+          REMOTION_AWS_ACCESS_KEY_ID: ${{ secrets.REMOTION_AWS_ACCESS_KEY_ID }}
+          REMOTION_AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTION_AWS_SECRET_ACCESS_KEY }}
+          REMOTION_REGIAO: us-east-2
+        run: node renderizar-lambda.js "$GITHUB_WORKSPACE/aulas" || echo "::warning::houve aula com erro na montagem (está no resumo)"
+      - name: Catálogo e vídeos pelo SHA-256
+        run: |
+          mkdir -p partes-montadas/tudo videoaulas
+          cp aulas/catalogo.json aulas/resumo.json aulas/*.mp4 partes-montadas/tudo/ 2>/dev/null || true
+          node tools/treinamento/gravacao/juntar.js partes-montadas videoaulas
       - uses: actions/upload-artifact@v4
         if: always()
         with:

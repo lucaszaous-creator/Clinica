@@ -29,7 +29,11 @@
       "alvo": "botao=Opções do cartão Precisam renovar",
       "acao": "clicar"
     },
-    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1200 },
+    {
+      "alvo": "item=Copiar valor",
+      "acao": "clicar",
+      "ms": 1200
+    },
     {
       "titulo": "Ache o paciente",
       "texto": "Digite parte do nome. O acento não atrapalha: otavio acha Otávio.",
@@ -63,18 +67,22 @@
     {
       "titulo": "Filtre pela situação",
       "texto": "Escolha a situação para trabalhar uma de cada vez: precisa renovar, vence em breve, em dia ou nunca emitiu.",
-      "alvo": "campo=Situação",
+      "alvo": "css=label:has-text('Situação') select",
       "acao": "selecionar",
       "valor": "Vence em breve"
     },
     {
       "titulo": "Filtre pelo convênio",
       "texto": "Mostra só os pacientes de um convênio. Os dois filtros se somam.",
-      "alvo": "campo=Convênio",
+      "alvo": "css=label:has-text('Convênio') select",
       "acao": "selecionar",
       "valor": "Amil"
     },
-    { "alvo": "botao=Limpar filtro", "acao": "clicar", "ms": 1500 },
+    {
+      "alvo": "botao=Limpar filtro",
+      "acao": "clicar",
+      "ms": 1500
+    },
     {
       "titulo": "Atualize a lista",
       "texto": "Relê a carteira agora. Os filtros escolhidos continuam. Atalho: F5.",
