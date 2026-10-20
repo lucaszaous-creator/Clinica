@@ -7,6 +7,7 @@
     { "titulo": "Saiba o que a lista não decide", "texto": "O nome não define dose, via nem compatibilidade. Cadastre a apresentação do produto para distinguir as concentrações.", "alvo": "texto=A base de nomes não define dose" },
     { "titulo": "Veja o tamanho do cadastro", "texto": "Quantos nomes existem e quantos estão na tela. Para achar um nome específico, use a busca.", "alvo": "texto=cadastro(s)" },
     { "titulo": "Busque um medicamento", "texto": "Busque pelo nome, princípio ativo, apresentação ou fabricante.", "alvo": "entrada=Buscar medicamento", "acao": "digitar", "valor": "dipirona" },
+    { "acao": "esperar", "ms": 1500 },
     { "titulo": "Leia cada linha", "texto": "Nome, princípio ativo, apresentação, fonte (Anvisa ou a clínica) e situação. Inativo não aparece nas sugestões da prescrição.", "alvo": "linha=Dipirona" },
     { "titulo": "Corrija um cadastro", "texto": "Editar abre o formulário do medicamento para corrigir nome, apresentação ou fabricante.", "alvo": "botao=Editar", "acao": "clicar" },
     { "titulo": "Desative sem apagar", "texto": "Desmarque Ativo para tirar o medicamento das sugestões sem perder o cadastro. Salvar cadastro grava a correção.", "alvo": "janela-caixa=Ativo nas sugestões" },

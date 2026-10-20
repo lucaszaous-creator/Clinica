@@ -33,7 +33,7 @@ async function limiteDeExecucoes() {
   if (linhas.length) {
     const limite = await limiteDeExecucoes();
     console.log(`Lambda em ${regiao}: até ${limite} execuções ao mesmo tempo; ${linhas.length} aula(s).`);
-    const { functionName } = await deployFunction({ region: regiao, timeoutInSeconds: 900, memorySizeInMb: 3009, diskSizeInMb: 10240, createCloudWatchLogGroup: true });
+    const { functionName } = await deployFunction({ region: regiao, timeoutInSeconds: 900, memorySizeInMb: 3008, diskSizeInMb: 10240, createCloudWatchLogGroup: true });
     const { bucketName } = await getOrCreateBucket({ region: regiao });
     const publico = path.join(pasta, '.publico');
     fs.mkdirSync(publico, { recursive: true });

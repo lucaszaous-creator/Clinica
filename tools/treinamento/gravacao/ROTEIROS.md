@@ -62,6 +62,7 @@ Uma aula tem tipicamente 10 a 20 funções e dura de 2 a 4 minutos.
   (hover), `tecla` (com `valor`, ex. `Escape`), `rolar`, `esperar` (com `ms`).
 - `ms` (opcional): tempo na tela; sem ele, o tempo de leitura é calculado pelo tamanho do texto.
 - `depois` (opcional): espera depois do gesto, em ms (o padrão já dá tempo de ver o resultado).
+- `opcional` (true): passo SEM legenda que pode faltar na tela (um "Trocar" que só aparece se a escolha pegou). Alvo ausente pula o passo em vez de derrubar a aula.
 
 ### Os alvos (sempre pelo que a pessoa LÊ na tela)
 

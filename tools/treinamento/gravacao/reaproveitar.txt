@@ -1,0 +1,3 @@
+# Número de uma rodada do treinamento.yml cujas gravações (parte-*) entram na montagem.
+# Vazio = grava tudo nesta rodada. As partes vivem 7 dias no GitHub.
+39468165030

@@ -82,7 +82,7 @@
     {
       "titulo": "Filtre um profissional",
       "texto": "Escolha um profissional para ver só a agenda dele. Os números de cima passam a ser só dele.",
-      "alvo": "campo=Profissional",
+      "alvo": "css=select[aria-label=\"Profissional\"]",
       "acao": "selecionar",
       "valor": "Dra. Helena Duarte"
     },

@@ -160,11 +160,26 @@ jobs:
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      # reaproveitar.txt guarda o número de uma rodada anterior: as gravações dela (que
+      # vivem 7 dias) entram na montagem, e só o que regravar.txt pede é gravado de novo.
+      - name: Rodada a reaproveitar
+        id: antiga
+        run: echo "run=$(grep -v '^#' tools/treinamento/gravacao/reaproveitar.txt 2>/dev/null | tr -dc '0-9')" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        if: steps.antiga.outputs.run != ''
+        with:
+          pattern: parte-*
+          path: partes-antigas
+          run-id: ${{ steps.antiga.outputs.run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/download-artifact@v4
         with:
           pattern: parte-*
@@ -173,12 +188,14 @@ jobs:
         run: |
           mkdir -p aulas
           node -e "
-          const fs=require('fs'),p=require('path');const r=[];
-          for(const d of fs.existsSync('partes')?fs.readdirSync('partes'):[]){const dir=p.join('partes',d);
+          const fs=require('fs'),p=require('path');const r=new Map();
+          // Primeiro a rodada antiga, depois esta: a aula regravada agora vence a de antes.
+          for(const raiz of ['partes-antigas','partes']) for(const d of fs.existsSync(raiz)?fs.readdirSync(raiz):[]){const dir=p.join(raiz,d);
             for(const f of fs.readdirSync(dir)){if(f.endsWith('.linha.json')||f.endsWith('.bruto.mp4'))fs.renameSync(p.join(dir,f),p.join('aulas',f));
-              if(f==='resumo-gravacao.json')r.push(...JSON.parse(fs.readFileSync(p.join(dir,f),'utf8')));}}
-          fs.writeFileSync('aulas/resumo-gravacao.json',JSON.stringify(r,null,2));
-          console.log(r.filter(x=>!x.erro).length+' gravada(s), '+r.filter(x=>x.erro).length+' com erro');"
+              if(f==='resumo-gravacao.json')for(const x of JSON.parse(fs.readFileSync(p.join(dir,f),'utf8')))r.set(x.chave,x);}}
+          const lista=[...r.values()];
+          fs.writeFileSync('aulas/resumo-gravacao.json',JSON.stringify(lista,null,2));
+          console.log(lista.filter(x=>!x.erro).length+' gravada(s), '+lista.filter(x=>x.erro).length+' com erro');"
       - name: Dependências
         working-directory: tools/treinamento/gravacao
         run: npm install --no-audit --no-fund --silent

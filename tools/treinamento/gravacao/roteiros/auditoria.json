@@ -8,7 +8,7 @@
     { "alvo": "opcao=Ana Beatriz Souza", "acao": "clicar" },
     { "titulo": "Só quem abriu o prontuário", "texto": "Marque para ver apenas as aberturas — a resposta para “quem acessou o prontuário dela?”. Sem marcar, entram também as escritas.", "alvo": "texto=Só quem ABRIU o prontuário", "acao": "clicar" },
     { "alvo": "texto=Só quem ABRIU o prontuário", "acao": "clicar", "ms": 1200 },
-    { "alvo": "botao-exato=Trocar", "acao": "clicar", "ms": 1200 },
+    { "alvo": "css=.seletor-escolhido button", "acao": "clicar", "ms": 1200, "opcional": true },
     { "titulo": "Filtre pela ação", "texto": "Escolha uma ação da lista ou digite o começo dela: “Pacote” acha venda, consumo e cancelamento. Enter consulta.", "alvo": "campo=Ação", "acao": "digitar", "valor": "Pacote" },
     { "alvo": "campo=Ação", "acao": "tecla", "valor": "Enter" },
     { "titulo": "Operador e detalhe", "texto": "Operador filtra por quem fez login e executou a ação. No detalhe procura uma palavra no texto do evento — um valor, um nome, um número de guia.", "alvo": "campo=Operador" },

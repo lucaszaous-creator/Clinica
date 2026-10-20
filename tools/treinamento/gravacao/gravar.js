@@ -94,7 +94,12 @@ async function executar(pagina, passo, linha, silencioso) {
   if (passo.alvo) {
     loc = localizar(pagina, passo.alvo);
     try { r = await caixa(loc); }
-    catch { throw new Error(`alvo não encontrado: ${passo.alvo}`); }
+    catch {
+      // Passo sem legenda marcado "opcional" (um "Trocar" que só existe se a escolha pegou)
+      // não derruba a aula inteira: some, e a aula segue com o próximo passo.
+      if (passo.opcional) return;
+      throw new Error(`alvo não encontrado: ${passo.alvo}`);
+    }
   }
   const ms = silencioso ? 0 : tempoDeLeitura(passo);
   const registro = silencioso || !linha ? null : {
@@ -158,7 +163,15 @@ async function gravarAula(navegador, base, aula, roteiro, saida) {
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 95, maxWidth: 1920, maxHeight: 1080, everyNthFrame: 1 });
   linha.t0 = Date.now();
   await espera(1800); // a tela parada um instante antes da primeira função
-  for (const passo of roteiro.passos) await executar(pagina, passo, linha, false);
+  for (const [i, passo] of roteiro.passos.entries()) {
+    try { await executar(pagina, passo, linha, false); }
+    catch (e) {
+      // A foto da tela no instante da falha sobe no artefato da fatia: é ela que diz se o
+      // alvo mudou de nome, se a tela não carregou ou se um botão estava apagado.
+      await pagina.screenshot({ path: path.join(saida, aula.chave + '.erro.png') }).catch(() => { });
+      throw new Error(`passo ${i + 1}: ${e.message || e}`);
+    }
+  }
   await espera(1500);
   const fimRel = (Date.now() - linha.t0) / 1000;
   await cdp.send('Page.stopScreencast');
@@ -231,13 +244,20 @@ if (require.main !== module) return;
   const [, , base, navegacao, saida] = process.argv;
   fs.mkdirSync(saida, { recursive: true });
   const aulas = aulasDaNavegacao(lerNavegacao(navegacao));
+  // AULAS vem do workflow_dispatch; no PR (onde não há dispatch) a lista sai de
+  // regravar.txt — uma chave por linha. Vazio grava todas.
+  const doArquivo = fs.existsSync(path.join(__dirname, 'regravar.txt'))
+    ? fs.readFileSync(path.join(__dirname, 'regravar.txt'), 'utf8').split(/\r?\n/).map(s => s.replace(/#.*/, '').trim()).filter(Boolean) : [];
   const filtro = (process.env.AULAS || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!filtro.length) filtro.push(...doArquivo);
   // A matriz do workflow grava um app por máquina: APPS diz quais (o prefixo basta —
   // "consultorio" leva junto as aulas gravadas no Consultório da enfermagem).
   const apps = (process.env.APPS || '').split(',').map(s => s.trim()).filter(Boolean);
   // FATIA=i/n: a matriz do workflow divide as aulas entre n máquinas (a i-ésima de cada n).
   const [fatia, fatias] = (process.env.FATIA || '1/1').split('/').map(Number);
   const roteiros = fs.readdirSync(PASTA_ROTEIROS).filter(f => f.endsWith('.json')).sort()
+    // Com filtro, divide só as aulas pedidas — senão 19 máquinas sobem para gravar nada.
+    .filter(f => !filtro.length || filtro.includes(f.replace(/\.json$/, '')))
     .filter((_, i) => i % fatias === fatia - 1)
     .map(f => JSON.parse(fs.readFileSync(path.join(PASTA_ROTEIROS, f), 'utf8')));
   const navegador = await chromium.launch();

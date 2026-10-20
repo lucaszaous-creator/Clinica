@@ -11,7 +11,7 @@
     { "alvo": "janela-campo=Ex.: Hemoglobina glicada", "acao": "digitar", "valor": "Hemoglobina glicada" },
     { "alvo": "janela-campo=Valor", "acao": "digitar", "valor": "6,1" },
     { "alvo": "janela-campo=Unidade", "acao": "digitar", "valor": "%" },
-    { "titulo": "Laudo em arquivo", "texto": "O PDF ou a foto do laudo que o laboratório mandou entra aqui. Sozinho, ele já é um registro completo do resultado.", "alvo": "janela=Escolher arquivo" },
+    { "titulo": "Laudo em arquivo", "texto": "O PDF ou a foto do laudo que o laboratório mandou entra aqui. Sozinho, ele já é um registro completo do resultado.", "alvo": "janela-toda=" },
     { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
     { "titulo": "Peça um exame novo", "texto": "Novo pedido abre a folha do pedido de exame. Primeiro escolha o paciente; o documento fica na ficha dele.", "alvo": "botao=Novo pedido", "acao": "clicar" },
     { "alvo": "janela-campo=Digite o nome ou o CPF", "acao": "digitar", "valor": "Mariana" },

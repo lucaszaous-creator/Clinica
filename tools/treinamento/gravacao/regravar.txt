@@ -1,0 +1,6 @@
+# Uma chave de aula por linha: só estas são gravadas no PR. Vazio = todas.
+auditoria
+faturamento-pendencias
+consultorio-medicamentos
+consultorio-exames
+ocupacao-agenda
