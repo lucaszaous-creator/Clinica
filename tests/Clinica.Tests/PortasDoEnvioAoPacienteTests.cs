@@ -32,8 +32,7 @@ public sealed class PortasDoEnvioAoPacienteTests
     [Theory]
     // A central de Documentos (Recepção, Gerente e Consultório), pelo hospedeiro WPF.
     [InlineData("src/Clinica.Desktop.Blazor/DocumentosNoAplicativoWpf.cs", "AtoDoDocumento.Enviar => await AcoesDoDocumento.EnviarAsync(")]
-    // A aba Documentos da ficha.
-    [InlineData("src/Clinica.Modulo.Recepcao/ViewModels/FichaPacienteViewModel.cs", "AcoesDoDocumento.EnviarAsync(")]
+    // A aba Documentos da ficha do balcão (Blazor, out/2026) é a MESMA central embutida — coberta acima.
     // As Prescrições do Consultório abrem a MESMA central de Documentos (Blazor) — coberta acima.
     // O "já saiu hoje" do atendimento.
     [InlineData("src/Clinica.Ui.Blazor/Componentes/SecoesDoPaciente/SecaoAtendimento.razor", "Janelas.EnviarAoPacienteAsync(")]

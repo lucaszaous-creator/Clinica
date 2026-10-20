@@ -11,13 +11,15 @@
 
   Nada de regra aqui: o que cada cartão diz e libera e as frases da lista moram em
   CentralDeDocumentosNaTela, o passo 3 em PreviaDaFolha, a busca em BuscaNasFolhas e o resumo
-  em ResumoFolhas (Application, com teste). O que continua WPF — as janelas de emissão, a
-  coleta do termo e os seis atos do documento (assinatura incluída, área congelada) — passa
-  por IDocumentosDaRecepcao; onde ele não existe (a prévia), a tela DIZ que a ação é do
+  em ResumoFolhas (Application, com teste). O orçamento livre é Blazor (OrcamentoLivreForm,
+  out/2026). O que continua WPF — as janelas de emissão dos papéis escritos, a coleta do termo
+  e os seis atos do documento (assinatura incluída, área congelada) — passa por
+  IDocumentosDaRecepcao; onde ele não existe (a prévia), a tela DIZ que a ação é do
   aplicativo.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Modelos
+@using Clinica.Ui.Blazor.Formularios.Recepcao
 @inherits TelaBase
 
 <div class="pagina rec-docs @(_carregando && _carregou ? "carregando" : null)">
@@ -258,6 +260,10 @@
 {
     <div class="rd-menu-fundo" @onclick="() => _menu = null"></div>
 }
+@if (_orcamentoPara is { } orc)
+{
+    <OrcamentoLivreForm PacienteId="orc.Id" Paciente="@orc.Nome" AoFechar="() => _orcamentoPara = null" AoConcluir="OrcamentoEmitidoAsync" />
+}
 
 @code {
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
@@ -285,6 +291,8 @@
 
     // ---- Emitir ----
     private Paciente? _paciente;
+    /// <summary>O paciente do orçamento livre aberto; nulo = formulário fechado.</summary>
+    private Paciente? _orcamentoPara;
     private bool _semPaciente;
     private string? _contexto;
     private int _geracaoContexto;
@@ -515,15 +523,25 @@
         if (concluiu) Notificacoes.Sucesso($"{folha.Rotulo} assinado.");
     }
 
-    /// <summary>Orçamento livre — `EditarFinanceiro`: escrever um papel com valor em nome da clínica.</summary>
-    private async Task EmitirOrcamentoAsync()
+    /// <summary>
+    /// Orçamento livre — o formulário Blazor (out/2026; era a OrcamentoWindow WPF pela ponte). A
+    /// barreira é a UNIÃO das portas (EditarFinanceiro OU VenderPacote): o formulário confere de
+    /// novo ao emitir, e a folha do catálogo já pede o bit dela para o cartão acender.
+    /// </summary>
+    private Task EmitirOrcamentoAsync()
     {
-        if (!Exigir(Permissao.EditarFinanceiro, "emitir orçamento")) return;
-        if (_paciente is not { } p || !PonteDisponivel()) return;
+        if (!ExigirAlgum(Permissao.EditarFinanceiro | Permissao.VenderPacote, "emitir orçamento")) return Task.CompletedTask;
+        if (_paciente is not { } p) return Task.CompletedTask;
+        _orcamentoPara = p;
+        return Task.CompletedTask;
+    }
 
-        var numero = await Ponte.EmitirOrcamentoAsync(p.Id, p.Nome);
+    /// <summary>Emitido: fecha, relê a lista e diz o número (a impressão já disse o que deu errado, se deu).</summary>
+    private async Task OrcamentoEmitidoAsync(string numero)
+    {
+        _orcamentoPara = null;
         await CarregarAsync();
-        if (numero is not null) Notificacoes.Sucesso($"Orçamento {numero} emitido.");
+        Notificacoes.Sucesso($"Orçamento {numero} emitido.");
     }
 
     /// <summary>

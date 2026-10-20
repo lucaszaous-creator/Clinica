@@ -204,10 +204,12 @@ internal static partial class Program
                 shellWindow.Close();
                 using var scopeConfiguracao=provider.CreateScope();
                 var parametros=scopeConfiguracao.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.ParametrosService>();
-                var clinica=new Clinica.Desktop.Shell.Componentes.DadosClinicaViewModel(provider.GetRequiredService<IServiceScopeFactory>(),provider.GetRequiredService<ISnackbarService>());
-                await clinica.CarregarAsync();
+                // Os dados da clínica são da tela Blazor de Configurações desde out/2026 (o
+                // DadosClinicaViewModel WPF saiu): ela salva pelo método que relê e mescla, e a
+                // conferência é a mesma — dados lidos ANTES de outro acesso mudar os TUSS.
+                var clinica=Clinica.Application.Servicos.DadosDaClinica.De(await parametros.ObterPrestadorAsync());
                 var prestador=await parametros.ObterPrestadorAsync();prestador.CodigosTuss[TipoCodigo.Acupuntura]="12345678";await parametros.SalvarPrestadorAsync(prestador);
-                clinica.NomeFantasia="Clínica demonstrativa";await clinica.SalvarCommand.ExecuteAsync(null);
+                await Clinica.Application.Servicos.ConfiguracoesFaturamentoNaTela.SalvarDadosDaClinicaAsync(parametros,clinica with { NomeFantasia="Clínica demonstrativa" });
                 Conferir((await parametros.ObterPrestadorAsync()).NomeFantasia=="Clínica demonstrativa" && (await parametros.ObterPrestadorAsync()).CodigoTuss(TipoCodigo.Acupuntura)=="12345678","Salvar dados da clínica preserva TUSS atualizado em outro acesso");
                 // A tela Blazor de Configurações salva os TUSS pelo MESMO método (relê e mescla).
                 prestador=await parametros.ObterPrestadorAsync();prestador.ChavePix="pix-ficticio";await parametros.SalvarPrestadorAsync(prestador);

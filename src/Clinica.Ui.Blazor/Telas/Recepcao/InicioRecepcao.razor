@@ -6,8 +6,10 @@
   Sempre HOJE — outro dia é a Agenda.
 
   Nada de regra aqui: a saudação, a linha do dia, a pílula de cada linha, os contadores e
-  as frases moram em InicioDoBalcao e InicioRecepcaoTela (Application, com teste). O que só
-  a Recepção WPF sabe fazer (abrir a janela do horário) passa pelo IBalcaoDaRecepcao.
+  as frases moram em InicioDoBalcao e InicioRecepcaoTela (Application, com teste). O horário
+  de quem já está no local abre no MESMO HorarioDaAgendaForm da Grade e da Agenda do dia; o que
+  só a Recepção WPF sabe fazer (o sino dos pedidos, "existe esta tela?") passa pelo
+  IBalcaoDaRecepcao.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Abstracoes
@@ -145,6 +147,10 @@
     }
 </div>
 
+@if (_horarioAberto is { } horario)
+{
+    <HorarioDaAgendaForm AgendamentoId="horario" AoFechar="() => _horarioAberto = null" AoMudou="() => CarregarAsync(silencioso: true)" />
+}
 @if (_guiasAbertas)
 {
     <Modal Titulo="Guias do 2º código" Subtitulo="De quem vem hoje — cobre o documento com o paciente aqui." Largura="medio" AoFechar="() => _guiasAbertas = false">
@@ -250,6 +256,7 @@
     private IReadOnlyList<AniversarianteDoBalcao>? _aniversariantes = [];
     private string _rodapeAniversario = string.Empty;
     private bool _guiasAbertas, _aniversariosAbertos;
+    private int? _horarioAberto;
 
     // O relógio do Início (o DispatcherTimer de 2 min do WPF): contagens do dia, e cada batida
     // custa várias consultas ao banco remoto.
@@ -465,7 +472,8 @@
     private async Task AbrirFichaAsync(int pacienteId, string paciente)
     {
         if (!Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente")) return;
-        if (!await Host.AbrirFichaDoPacienteAsync(pacienteId))
+        // A MESMA ficha do balcão da agenda do dia e de Pacientes (Blazor, out/2026).
+        if (!await PedidoDaFichaDoBalcao.AbrirAsync(Servicos, Host, pacienteId, paciente))
             Notificacoes.Info($"A ficha de {paciente} não está disponível neste aplicativo — abra por Pacientes.");
     }
 
@@ -482,11 +490,9 @@
         {
             if (linha.Situacao == SituacaoChegada.NoLocal)
             {
-                var r = await Balcao.AbrirHorarioAsync(DateOnly.FromDateTime(linha.Hora), linha.AgendamentoId);
-                if (!string.IsNullOrWhiteSpace(r.Mensagem))
-                {
-                    if (!r.Abriu || r.MensagemEhErro) Notificacoes.Erro(r.Mensagem); else Notificacoes.Info(r.Mensagem);
-                }
+                // O MESMO formulário do horário da Grade e da Agenda do dia; ele relê ao mudar.
+                _horarioAberto = linha.AgendamentoId;
+                return;
             }
             else
             {

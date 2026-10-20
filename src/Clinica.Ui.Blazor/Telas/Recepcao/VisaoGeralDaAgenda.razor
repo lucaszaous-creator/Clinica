@@ -13,10 +13,12 @@
   (matriz, linha do tempo, calor, frases) mora em VisaoGeralDaAgendaDesenho e
   VisaoGeralDaAgendaNaTela (Application, com teste).
 
-  O que AGE tem dono no WPF — a janela do horário, "Mais ações" e a marcação (aba Marcar) — e a
-  tela pede ao hospedeiro (IAgendaDaVisaoGeral). O horário de atendimento é o editor Blazor
-  único (HorariosDeAtendimentoForm). Onde a agenda não existe (a prévia), a resposta é "não
-  disponível" e a tela DIZ; o clique na célula abre o dia aqui mesmo.
+  O que AGE são os MESMOS formulários Blazor da Grade (out/2026 — o AgendaViewModel WPF que
+  ficava "dono sem desenho" saiu): o horário no HorarioDaAgendaForm, fechar a agenda no
+  BloqueioForm, a lista de espera no ListaEsperaPainelForm, conciliar no ConciliacaoAgendaForm e
+  o horário de atendimento no HorariosDeAtendimentoForm. Só a marcação (aba Marcar) e o "abrir o
+  dia" continuam pedidos ao hospedeiro (IAgendaDaVisaoGeral); onde ela não existe (a prévia), a
+  resposta é "não disponível" e a tela DIZ; o clique na célula abre o dia aqui mesmo.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Abstracoes
@@ -35,10 +37,10 @@
                 <span class="rec-oc-menu-lista" role="menu">
                     @if (PodeMexerNaAgenda)
                     {
-                        <button type="button" role="menuitem" @onclick="FecharAgendaAsync">Fechar agenda (férias, feriado, folga)…</button>
+                        <button type="button" role="menuitem" @onclick="FecharAgenda">Fechar agenda (férias, feriado, folga)…</button>
                         <button type="button" role="menuitem" @onclick="() => AbrirHorarios(_profissional)">Horário de atendimento dos profissionais…</button>
-                        <button type="button" role="menuitem" @onclick="ListaDeEsperaAsync">Lista de espera…</button>
-                        <button type="button" role="menuitem" @onclick="ConciliarAsync">Conciliar horários parados…</button>
+                        <button type="button" role="menuitem" @onclick="ListaDeEspera">Lista de espera…</button>
+                        <button type="button" role="menuitem" @onclick="Conciliar">Conciliar horários parados…</button>
                         <hr />
                     }
                     <button type="button" role="menuitem" @onclick="ImprimirFolhaAsync">Imprimir a folha do dia</button>
@@ -447,7 +449,23 @@
 @if (_horarioAberto)
 {
     <HorariosDeAtendimentoForm ProfissionalId="_horarioDe" AoFechar="() => _horarioAberto = false" AoAlterar="CarregarAsync"
-                               AoFecharAgenda="FecharAgendaDoHorarioAsync" />
+                               AoFecharAgenda="FecharAgendaDoHorario" />
+}
+@if (_agendamentoAberto is { } agendamento)
+{
+    <HorarioDaAgendaForm AgendamentoId="agendamento" AoFechar="() => _agendamentoAberto = null" AoMudou="CarregarAsync" />
+}
+@if (_bloqueioDe is { } bloqueio)
+{
+    <BloqueioForm ProfissionalId="bloqueio.ProfissionalId" AoFechar="() => _bloqueioDe = null" AoConcluir="AgendaFechadaAsync" />
+}
+@if (_esperaAberta)
+{
+    <ListaEsperaPainelForm Dia="_dia" SugestaoProfissionalId="_profissional" AoFechar="FecharEsperaAsync" />
+}
+@if (_conciliando)
+{
+    <ConciliacaoAgendaForm AoFechar="FecharConciliacaoAsync" EscolherConvenio="EscolherConvenioAsync" />
 }
 
 @code {
@@ -468,6 +486,10 @@
     private Dictionary<DateOnly, (int Calor, string Taxa)> _calor = [];
     private bool _horarioAberto;
     private int? _horarioDe;
+    private int? _agendamentoAberto;
+    private AlvoDoBloqueio? _bloqueioDe;
+    private bool _esperaAberta;
+    private bool _conciliando;
     private bool Carregando;
     private string? _erro;
     private string? _mensagem;
@@ -477,7 +499,10 @@
     private readonly int _usuario = SessaoUsuario.Atual.UsuarioId;
     private System.Threading.Timer? _relogio;
 
+    private sealed record AlvoDoBloqueio(int? ProfissionalId);
+
     private IAgendaDaVisaoGeral Agenda => Servicos.GetService<IAgendaDaVisaoGeral>() ?? AgendaIndisponivel.Instancia;
+    private IJanelasDaAgenda Janelas => Servicos.GetService<IJanelasDaAgenda>() ?? JanelasDaAgendaIndisponiveis.Instancia;
     private bool Filtrando => _profissional is not null;
     private bool TemDados => _dados is not null && _erro is null;
     private bool PodeAgendar => Pode(Permissao.EditarAgenda) && Agenda.MarcacaoDisponivel;
@@ -670,7 +695,7 @@
         return CarregarAsync();
     }
 
-    // ==================== o que AGE (dono: a agenda do WPF) ====================
+    // ==================== o que AGE (os formulários da Grade; a marcação é a aba Marcar) ====================
 
     private async Task AgendarAsync()
     {
@@ -701,14 +726,22 @@
         }
     }
 
-    /// <summary>Clique num horário: a janela do horário (remarcar, reabrir, comprovante…).</summary>
+    /// <summary>Clique num horário: o MESMO formulário do horário da Grade (remarcar, reabrir, comprovante…).</summary>
     private Task AbrirHorarioAsync(HorarioOcupacao h)
     {
         if (!PodeConsultar() || Carregando) return Task.CompletedTask;
-        return ComAgendaAsync("abrir o horário", () => Agenda.AbrirHorarioAsync(DateOnly.FromDateTime(h.Inicio), h.Id));
+        _agendamentoAberto = h.Id;
+        return Task.CompletedTask;
     }
 
-    private Task FecharAgendaAsync() => AcaoAsync(AcaoDaAgenda.FecharAgenda, "fechar a agenda");
+    /// <summary>FECHAR A AGENDA — ato de agenda (EditarAgenda); o profissional do filtro já vem escolhido.</summary>
+    private void FecharAgenda()
+    {
+        _menuAberto = false;
+        if (!PodeConsultar() || Carregando) return;
+        if (!Exigir(Permissao.EditarAgenda, "fechar a agenda")) return;
+        _bloqueioDe = new AlvoDoBloqueio(_profissional);
+    }
 
     /// <summary>O editor ÚNICO do horário de atendimento (Blazor), aberto aqui — "Mais ações" e "cadastrar".</summary>
     private void AbrirHorarios(int? profissionalId)
@@ -720,38 +753,78 @@
         _horarioAberto = true;
     }
 
-    /// <summary>O editor oferece "Fechar a agenda…": troca uma janela pela outra (a de bloqueio é da agenda).</summary>
-    private Task FecharAgendaDoHorarioAsync(int profissionalId)
+    /// <summary>O editor oferece "Fechar a agenda…" de UM profissional: troca um formulário pelo outro.</summary>
+    private void FecharAgendaDoHorario(int profissionalId)
     {
         _horarioAberto = false;
-        if (!PodeConsultar()) return Task.CompletedTask;
-        return ComAgendaAsync("fechar a agenda", () => Agenda.ExecutarAsync(AcaoDaAgenda.FecharAgenda, _dia, profissionalId));
+        if (!PodeConsultar()) return;
+        if (!Exigir(Permissao.EditarAgenda, "fechar a agenda")) return;
+        _bloqueioDe = new AlvoDoBloqueio(profissionalId);
     }
-    private Task ListaDeEsperaAsync() => AcaoAsync(AcaoDaAgenda.ListaDeEspera, "abrir a lista de espera");
-    private Task ConciliarAsync() => AcaoAsync(AcaoDaAgenda.ConciliarHorarios, "conciliar a agenda");
-    private Task ImprimirFolhaAsync() => AcaoAsync(AcaoDaAgenda.ImprimirFolhaDoDia, "imprimir a folha do dia");
 
-    private Task AcaoAsync(AcaoDaAgenda acao, string ato)
+    /// <summary>Fechar a agenda NÃO desmarca ninguém: quem já estava marcado volta num DIÁLOGO (a frase da Grade).</summary>
+    private async Task AgendaFechadaAsync(IReadOnlyList<string> marcadosDentro)
+    {
+        _bloqueioDe = null;
+        if (marcadosDentro.Count > 0)
+            await Dialogos.AvisoAsync("Agenda fechada — mas já havia sessão marcada", GradeDaAgendaNaTela.AvisoDoFechamento(marcadosDentro));
+        else
+            Notificacoes.Sucesso("Agenda fechada no período.");
+        await CarregarAsync();
+    }
+
+    private void ListaDeEspera()
     {
         _menuAberto = false;
-        if (!PodeConsultar() || Carregando) return Task.CompletedTask;
-        return ComAgendaAsync(ato, () => Agenda.ExecutarAsync(acao, _dia, _profissional));
+        if (!PodeConsultar() || Carregando) return;
+        _esperaAberta = true;
     }
 
-    private async Task ComAgendaAsync(string ato, Func<Task<RespostaDaAgenda>> acao)
+    private async Task FecharEsperaAsync()
     {
-        _mensagem = null;
+        _esperaAberta = false;
+        await CarregarAsync();
+    }
+
+    private void Conciliar()
+    {
+        _menuAberto = false;
+        if (!PodeConsultar() || Carregando) return;
+        _conciliando = true;
+    }
+
+    private async Task FecharConciliacaoAsync()
+    {
+        _conciliando = false;
+        // Resolver um horário parado pode ter lançado atendimento: a visão precisa refletir.
+        await CarregarAsync();
+    }
+
+    /// <summary>A escolha do convênio da ficha "a definir" — janela do shell, pela ponte da Recepção.</summary>
+    private async Task<bool> EscolherConvenioAsync(int pacienteId)
+        => Janelas.Disponivel && await Janelas.EscolherConvenioAsync(pacienteId);
+
+    /// <summary>A folha do dia que o profissional leva para a sala — SEM dado clínico, respeitando o filtro (a da Grade).</summary>
+    private async Task ImprimirFolhaAsync()
+    {
+        _menuAberto = false;
+        if (!PodeConsultar() || Carregando) return;
         try
         {
-            var r = await acao();
-            if (!string.IsNullOrWhiteSpace(r.Mensagem)) Avisar(r.Mensagem, r.EhErro);
-            if (r.Executou && !Descartada) await CarregarAsync();
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                pdf = await sp.GetRequiredService<AgendaPdfService>().AgendaDoDiaAsync(
+                    _dia, _profissional, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            }
+            var erro = await Host.SalvarEAbrirAsync(pdf, $"agenda-{_dia.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Avisar(erro, erro: true);
         }
-        catch (UnauthorizedAccessException ex) { Avisar(ex.Message, erro: true); }
         catch (Exception ex)
         {
-            Clinica.Application.Diagnostico.Registrar($"Blazor — Visão geral: {ato}", ex);
-            Avisar($"Não foi possível {ato}: {ex.Message}", erro: true);
+            Clinica.Application.Diagnostico.Registrar("Blazor — Visão geral: imprimir a folha do dia", ex);
+            Avisar($"Não foi possível imprimir a folha do dia: {ex.Message}", erro: true);
         }
     }
 

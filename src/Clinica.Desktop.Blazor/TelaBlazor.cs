@@ -299,20 +299,31 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
     /// navegador da janela, nunca numa janela própria (out/2026: a ficha WPF por cima abria um
     /// segundo navegador e trazia de volta o flash preto). Fixa o paciente no posto e navega;
     /// o "voltar" da tela do paciente volta para onde se estava.
+    ///
+    /// ⚠️ A tela do paciente pede <c>VerProntuario</c>, e o balcão não o tem (o corte da parcela
+    /// 49): para quem não a alcança, a ficha é a FICHA DO BALCÃO (Blazor, out/2026 — a
+    /// administrativa, publicada pela Recepção). Sem esse caminho, a recepcionista clicava no
+    /// nome do paciente no Início e lia "não está disponível neste aplicativo".
     /// </summary>
     public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId)
         => NaInterface(async () =>
         {
             const string chaveDaFicha = "consultorio-paciente";
-            if (!Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Existe(chaveDaFicha)) return false;
             var foco = servicos.GetService<Clinica.Desktop.Shell.Modulos.PacienteEmFoco>();
-            if (foco is null) return false;
+            var telaDoPaciente = foco is not null && Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Existe(chaveDaFicha);
+            var fichaDoBalcao = Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Existe(PedidoDaFichaDoBalcao.Chave);
+            if (!telaDoPaciente && !fichaDoBalcao) return false;
             using var escopo = servicos.CreateScope();
             var paciente = await escopo.ServiceProvider
                 .GetRequiredService<Clinica.Application.Servicos.PacienteService>().ObterAsync(pacienteId);
             if (paciente is null) return false;
-            foco.Definir(paciente.Id, paciente.Nome);
-            return Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(chaveDaFicha);
+            if (telaDoPaciente)
+            {
+                foco!.Definir(paciente.Id, paciente.Nome);
+                return Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(chaveDaFicha);
+            }
+            servicos.GetRequiredService<PedidoDaFichaDoBalcao>().Definir(paciente.Id, paciente.Nome);
+            return Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(PedidoDaFichaDoBalcao.Chave);
         });
 
     public Task<string?> PerguntarOndeSalvarAsync(string nomeSugerido, string filtro, string extensao)

@@ -11,8 +11,8 @@ namespace Clinica.Desktop.Blazor;
 /// <summary>
 /// As janelas e os atos WPF que a tela de Documentos (Blazor, out/2026 — a MESMA na Recepção,
 /// no Gerente e no Consultório) pede. Mora aqui, e não num módulo, porque são duas portas e
-/// uma cópia por módulo divergiria na primeira correção; só o ORÇAMENTO é da Recepção (a
-/// janela dele mora lá), e ela o oferece sobrescrevendo <see cref="EmitirOrcamentoAsync"/>.
+/// uma cópia por módulo divergiria na primeira correção. O orçamento livre saiu daqui em
+/// out/2026: é o formulário Blazor (<c>OrcamentoLivreForm</c>), igual nos três apps.
 ///
 /// Origem: a central de Documentos (Blazor, out/2026) pede — cada método
 /// faz EXATAMENTE o que o <c>DocumentosViewModel</c> fazia: os mesmos ViewModels e janelas, o
@@ -37,16 +37,6 @@ public class DocumentosNoAplicativoWpf(
         var vm = new DocumentoEdicaoViewModel(escopos, pacienteId, tipo);
         var janela = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() };
         return Task.FromResult(janela.ShowDialog() == true);
-    });
-
-    /// <summary>
-    /// Onde a janela do orçamento não está (o Consultório): a tela DIZ de quem é o papel em vez
-    /// de não fazer nada — botão que volta calado é o defeito da parcela 41.
-    /// </summary>
-    public virtual Task<string?> EmitirOrcamentoAsync(int pacienteId, string paciente) => NaInterface(() =>
-    {
-        Dialogo.Aviso("Orçamento", "O orçamento é emitido pela Recepção (ou pelo Gerente).");
-        return Task.FromResult<string?>(null);
     });
 
     /// <summary>Para quem sobrescreve: a fábrica de escopos e o despachante.</summary>
