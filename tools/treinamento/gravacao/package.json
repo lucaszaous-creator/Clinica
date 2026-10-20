@@ -1,0 +1,9 @@
+{
+  "name": "clinica-videoaulas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Grava as videoaulas das telas Blazor na prévia (tools/PreviaBlazor), no GitHub Actions.",
+  "dependencies": {
+    "playwright": "1.48.2"
+  }
+}

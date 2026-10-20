@@ -1,0 +1,52 @@
+@using Clinica.Infrastructure
+@using Clinica.Ui.Blazor.Hospedagem
+@using Clinica.Ui.Blazor.Moldura
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.DependencyInjection
+@inject PreviaBlazor.NavegacaoDaPrevia Navegacao
+@inject PedidoDaTelaDoPaciente PedidoDoPaciente
+@inject IServiceProvider Servicos
+
+@if (_moldura is null)
+{
+    <p style="padding:24px">@_erro</p>
+}
+else
+{
+    <MolduraDoApp Moldura="_moldura" />
+}
+
+@code {
+    [Parameter] public string App { get; set; } = "";
+    [Parameter] public string Chave { get; set; } = "";
+    [Parameter] public int? Paciente { get; set; }
+    [Parameter] public string? Secao { get; set; }
+    [Parameter] public int? SubAba { get; set; }
+    [Parameter] public int? Agendamento { get; set; }
+
+    private PreviaBlazor.MolduraDaAula? _moldura;
+    private string _erro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var app = Navegacao.Do(App);
+        if (app is null)
+        {
+            _erro = Navegacao.Erro ?? $"O app \"{App}\" não está na navegação.";
+            return;
+        }
+        if (Paciente is { } id)
+        {
+            // O paciente da tela do paciente, como o posto do Consultório entrega ao navegar.
+            using var escopo = Servicos.CreateScope();
+            var db = escopo.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+            var nome = await db.Pacientes.Where(p => p.Id == id).Select(p => p.Nome).FirstOrDefaultAsync() ?? "Paciente";
+            DateOnly? dia = null;
+            if (Agendamento is { } ag)
+                dia = await db.Agendamentos.Where(a => a.Id == ag).Select(a => (DateOnly?)DateOnly.FromDateTime(a.DataHora)).FirstOrDefaultAsync();
+            PedidoDoPaciente.Definir(new PacienteNoPosto(id, nome, Agendamento, null, dia), Secao ?? "Atendimento", SubAba ?? 0);
+        }
+        var sessao = Clinica.Domain.Entities.SessaoUsuario.Atual;
+        _moldura = new PreviaBlazor.MolduraDaAula(app, Chave, sessao.Autenticado ? sessao.Rotulo : "Ana · Recepção");
+    }
+}

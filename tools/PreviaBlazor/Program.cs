@@ -28,6 +28,8 @@ conexao.Open();
 builder.Services.AddDbContext<ClinicaDbContext>(o => o.UseSqlite(conexao));
 builder.Services.AddTelasBlazor();
 builder.Services.AddSingleton<IHostDaTela, HostDaPrevia>();
+// A navegação real dos apps (navegacao.json), para a página da aula — as videoaulas.
+builder.Services.AddSingleton<PreviaBlazor.NavegacaoDaPrevia>();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 var app = builder.Build();

@@ -86,6 +86,13 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Todos os itens, em ordem — usado para achar o item por chave.</summary>
     public ObservableCollection<ItemMenuModulo> Itens { get; } = [];
 
+    /// <summary>
+    /// As chaves que o Treinamento deste executável oferece (as telas publicadas, com as abas
+    /// dos itens compostos). Público para a ferramenta das videoaulas ler o MESMO recorte que
+    /// o catálogo usa — uma segunda lista divergiria na primeira tela nova.
+    /// </summary>
+    public IReadOnlyCollection<string> TelasDoTreinamento => _telasTreinamento;
+
     [ObservableProperty]
     private object? _telaAtual;
 

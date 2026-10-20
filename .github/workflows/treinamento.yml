@@ -1,0 +1,156 @@
+name: Videoaulas (Treinamento)
+
+# Grava as videoaulas da aba Treinamento dos cinco apps (out/2026). Nada disto roda na máquina
+# da clínica nem na de quem programa — é o GitHub que monta a navegação, sobe a prévia, grava e
+# codifica os vídeos.
+#
+# Dois jobs, e a divisão é a das plataformas:
+#  - `navegacao` (Windows): monta os MESMOS módulos e o MESMO ShellViewModel dos executáveis
+#    e grava o navegacao.json — menu do topo, abas e o componente de cada chave. Só o shell
+#    WPF sabe isso; escrevê-lo à mão no roteiro seria uma segunda definição do menu.
+#  - `aulas` (Linux, 1× na cota): sobe tools/PreviaBlazor com a navegação, e o Playwright
+#    grava cada aula na página /aula (moldura real + tela real + dados fictícios das sementes).
+#    Sai o inventário das telas (fotos e controles, para escrever roteiro) e, para cada roteiro,
+#    o MP4 com o catálogo pronto para a release.
+#
+# Roda no PR que mexe na gravação, na prévia ou neste arquivo — não em todo PR: gravar ~80
+# aulas custa minutos, e tela que mudou não invalida sozinha um vídeo (a aula é conferida
+# quando o roteiro dela muda). Publicar os MP4 na release é passo à parte (README da pasta).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/treinamento/**'
+      - 'tools/PreviaBlazor/**'
+      - '.github/workflows/treinamento.yml'
+  workflow_dispatch:
+    inputs:
+      aulas:
+        description: 'Chaves das aulas a gravar, separadas por vírgula (vazio = todas com roteiro)'
+        required: false
+        default: ''
+
+concurrency:
+  group: treinamento-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  navegacao:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache do NuGet
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Gravar a navegação real dos cinco apps
+        shell: pwsh
+        run: |
+          dotnet run --project tools/treinamento/captura/CapturaTreinamento.csproj -c Release -- saida-navegacao
+          if (Test-Path saida-navegacao/erro.txt) { Get-Content saida-navegacao/erro.txt; exit 1 }
+          if (-not (Test-Path saida-navegacao/navegacao.json)) { Write-Error "navegacao.json não foi gravado"; exit 1 }
+          $apps = Get-Content saida-navegacao/navegacao.json -Raw | ConvertFrom-Json
+          foreach ($a in $apps) {
+            if ($a.erro) { Write-Error "$($a.app): $($a.erro)"; exit 1 }
+            Write-Host "$($a.app): $($a.itens.Count) itens, $($a.telasTreinamento.Count) telas no Treinamento"
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: navegacao
+          path: saida-navegacao/navegacao.json
+          retention-days: 7
+
+  aulas:
+    needs: navegacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache do NuGet
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: navegacao
+          path: navegacao
+
+      # Inter é a fonte que o design system usa depois da Segoe UI (que o Linux não tem): sem
+      # ela o Chromium cairia na DejaVu, e o vídeo mostraria uma tela mais larga que a do app.
+      - name: Fontes e ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-inter ffmpeg > /dev/null
+
+      - name: Playwright
+        working-directory: tools/treinamento/gravacao
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Subir a prévia com a navegação real
+        run: |
+          dotnet build tools/PreviaBlazor/PreviaBlazor.csproj -c Release -nologo -v q
+          cd tools/PreviaBlazor
+          CLINICA_NAVEGACAO="$GITHUB_WORKSPACE/navegacao/navegacao.json" ASPNETCORE_URLS=http://127.0.0.1:5199 \
+            nohup dotnet bin/Release/net8.0/PreviaBlazor.dll > "$GITHUB_WORKSPACE/previa.log" 2>&1 &
+          for i in $(seq 1 90); do curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5199/ | grep -q 200 && break; sleep 1; done
+          curl -sf http://127.0.0.1:5199/ > /dev/null || { cat "$GITHUB_WORKSPACE/previa.log"; exit 1; }
+
+      - name: Inventário das telas
+        working-directory: tools/treinamento/gravacao
+        run: node inventario.js http://127.0.0.1:5199 "$GITHUB_WORKSPACE/navegacao/navegacao.json" "$GITHUB_WORKSPACE/inventario"
+
+      - name: Gravar as aulas com roteiro
+        if: hashFiles('tools/treinamento/gravacao/gravar.js') != ''
+        working-directory: tools/treinamento/gravacao
+        env:
+          AULAS: ${{ github.event.inputs.aulas }}
+        run: node gravar.js http://127.0.0.1:5199 "$GITHUB_WORKSPACE/navegacao/navegacao.json" "$GITHUB_WORKSPACE/aulas"
+
+      - name: Log da prévia
+        if: always()
+        run: tail -n 200 previa.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inventario
+          path: inventario
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        if: always() && hashFiles('aulas/**') != ''
+        with:
+          name: videoaulas
+          path: aulas
+          retention-days: 7
