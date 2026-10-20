@@ -143,6 +143,18 @@ internal sealed class NavegadorDaJanela
             config.AreDevToolsEnabled = false;
             config.AreBrowserAcceleratorKeysEnabled = false;
 #endif
+            // A foto do paciente (CapturaFotoForm) usa a webcam do balcão pelo navegador. Sem
+            // isto o WebView2 pergunta com um balão do próprio navegador a cada abertura — e a
+            // recepcionista não tem como saber que é o sistema pedindo. Libera SÓ a câmera e SÓ
+            // para a origem do próprio app (o BlazorWebView serve as telas em 0.0.0.0, e link
+            // externo nunca carrega aqui dentro — ver UrlLoading abaixo). O resto segue a regra
+            // padrão do WebView2.
+            e.WebView.CoreWebView2.PermissionRequested += (_, pedido) =>
+            {
+                if (pedido.PermissionKind == Microsoft.Web.WebView2.Core.CoreWebView2PermissionKind.Camera
+                    && EhDaPropriaApp(pedido.Uri))
+                    pedido.State = Microsoft.Web.WebView2.Core.CoreWebView2PermissionState.Allow;
+            };
         };
         // A tela não navega para fora: link externo não abre dentro do app.
         _visor.UrlLoading += (_, e) =>
@@ -162,6 +174,12 @@ internal sealed class NavegadorDaJanela
 
         camada.Children.Add(_visor);
     }
+
+    /// <summary>A página pertence ao próprio app (a origem em que o BlazorWebView serve as telas)?</summary>
+    internal static bool EhDaPropriaApp(string? endereco)
+        => Uri.TryCreate(endereco, UriKind.Absolute, out var uri)
+           && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
+           && uri.Host == "0.0.0.0";
 
     private void Liberar()
     {

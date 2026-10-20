@@ -1,7 +1,6 @@
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
-using Clinica.Desktop.Shell.Componentes.Cadastro;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
 using Clinica.Ui.Blazor.Hospedagem;
@@ -31,16 +30,6 @@ public sealed class JanelasDoAtendimentoWpf(
         => ponte.ConsumirPara(marcarParaDepois: marcar) is { } p
             ? new PedidoDoAtendimento(p.DataHora, p.ProfissionalId, p.SalaId, p.PacienteId, p.DuracaoMinutos, p.ModalidadeCodigo)
             : null;
-
-    public Task<bool> EscolherConvenioAsync(int pacienteId)
-        => NaInterface(() => VinculoDeConvenio.GarantirAsync(escopos, pacienteId, SessaoUsuario.Atual.Operador));
-
-    public Task<int?> CadastrarPacienteAsync() => NaInterface(() =>
-    {
-        var vm = new CadastroPacienteViewModel(escopos);
-        var janela = new CadastroPacienteWindow(vm) { Owner = JanelaDona.Atual() };
-        return Task.FromResult(janela.ShowDialog() == true ? vm.PacienteId : null);
-    });
 
     private static Task<T> NaInterface<T>(Func<Task<T>> acao)
     {

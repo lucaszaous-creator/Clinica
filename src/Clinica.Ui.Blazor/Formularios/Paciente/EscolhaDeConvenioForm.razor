@@ -1,0 +1,147 @@
+@*
+  "QUAL É O CONVÊNIO?" — a pergunta feita NO MEIO do lançamento (parcela 92; out/2026, migrada
+  da EscolhaDeConvenioWindow + EscolhaDeConvenioViewModel do shell WPF). A importação trouxe
+  2.021 fichas no "a definir", que não gera guia; o lançamento é RECUSADO pelo serviço, e
+  isto é a metade VISÍVEL: perguntar antes, com o paciente na frente, em vez de a recusa ser
+  o que a pessoa descobre.
+
+  O convênio é obrigatório; carteirinha e validade são OPCIONAIS e, em branco, PRESERVAM o que
+  a ficha tem — esta janela responde uma pergunta, não regrava a ficha. Nada vem
+  pré-selecionado (um padrão que ninguém escolheu é o defeito que ela existe para corrigir),
+  e o "a definir" não é oferecido como resposta. A ORDEM e a FRASE de cada linha saem de
+  OpcoesDeConvenio, a mesma do cadastro.
+
+  Quem a abre é FormulariosDoPaciente (o fluxo espera a resposta): AoConcluir só depois de o
+  vínculo estar GRAVADO; fechar no × com uma linha destacada não vinculou nada.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Este paciente ainda não tem convênio" Largura="medio" AoFechar="FecharAsync">
+    <ChildContent>
+        @* O aviso é a PRIMEIRA coisa: a pessoa clicou em lançar e o formulário apareceu por
+           cima, então ela precisa saber por quê antes de escolher. *@
+        <Aviso Tom="atencao" Texto="@($"{Paciente.Nome} está com o convênio “a definir” — a ficha veio do sistema anterior sem convênio. Sem escolher, o atendimento não gera guia e a sessão não chega ao faturamento.")" />
+        <p class="campo-dica">Escolha o convênio do paciente para liberar o lançamento. Quem paga do bolso é lançado no convênio particular do catálogo.</p>
+
+        @if (_carregando)
+        {
+            <Esqueleto Altura="180" />
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Icone="alerta" Titulo="Nenhum convênio ativo"
+                         Descricao="Reative um em Configurações → Convênios, no aplicativo de Faturamento — é o único que tem essa tela." />
+        }
+        else
+        {
+            <ul class="esc-conv-lista" role="listbox" aria-label="Convênios">
+                @foreach (var l in _linhas)
+                {
+                    var escolhida = ReferenceEquals(l, _selecionado);
+                    <li>
+                        <button type="button" class="esc-conv-linha @(escolhida ? "selecionado" : null)" role="option"
+                                aria-selected="@(escolhida ? "true" : "false")" @onclick="() => _selecionado = l">
+                            <span class="esc-conv-nome">@l.Nome</span>
+                            <span class="esc-conv-detalhe">@l.Detalhe</span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+
+        <div class="campos">
+            <Campo Rotulo="Carteirinha (opcional)"><input class="campo" @bind="_carteirinha" maxlength="40" /></Campo>
+            <Campo Rotulo="Validade (opcional)"><input class="campo" type="date" @bind="_validade" /></Campo>
+        </div>
+        <p class="campo-dica">Em branco, cada campo preserva o que a ficha já tinha. A carteirinha é o número que vai na guia; vencida, o convênio recusa na hora.</p>
+        <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "atencao")" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="FecharAsync">Cancelar</button>
+        <button type="button" class="botao primario"
+                disabled="@(!EscolhaDeConvenioNaTela.PodeVincular(_selecionado, _carregando, _gravando, Pode(Permissao.EditarPaciente)))"
+                @onclick="VincularAsync">Vincular convênio e continuar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>A ficha "a definir", já lida por quem pediu (é ela que dá o nome e o que a ficha tem).</summary>
+    [Parameter, EditorRequired] public Paciente Paciente { get; set; } = default!;
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>O vínculo foi GRAVADO — só então o fluxo de trás segue.</summary>
+    [Parameter] public EventCallback AoConcluir { get; set; }
+
+    private IReadOnlyList<LinhaDeConvenio> _linhas = [];
+    private LinhaDeConvenio? _selecionado;
+    private string? _carteirinha, _mensagem;
+    private DateOnly? _validade;
+    private bool _carregando = true, _gravando, _mensagemEhErro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _carteirinha = Paciente.Carteirinha;
+        _validade = Paciente.ValidadeCarteirinha;
+
+        // Botão apagado sem dizer por quê é o defeito da parcela 41: quem não tem o bit precisa
+        // saber que a saída existe, e que ela é chamar quem tem.
+        if (!Pode(Permissao.EditarPaciente)) _mensagem = EscolhaDeConvenioNaTela.SemPermissao;
+
+        try
+        {
+            IReadOnlyList<ConvenioCadastro> catalogo;
+            using (var escopo = Escopo())
+                catalogo = await escopo.ServiceProvider.GetRequiredService<ConvenioCatalogoService>().ListarAsync();
+            _linhas = EscolhaDeConvenioNaTela.Linhas(catalogo);
+            if (_linhas.Count == 0) _mensagem = EscolhaDeConvenioNaTela.CatalogoVazio;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Escolha do convênio do paciente — catálogo não pôde ser lido", ex);
+            _mensagem = "Não foi possível carregar os convênios: " + ex.Message;
+            _mensagemEhErro = true;
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private Task FecharAsync() => _gravando ? Task.CompletedTask : AoFechar.InvokeAsync();
+
+    private async Task VincularAsync()
+    {
+        // A SEGUNDA barreira: o disabled explica, o Exigir impede (atalho e corrida de carga
+        // passam pela primeira sem o clique dela).
+        if (!Exigir(Permissao.EditarPaciente, "vincular o convênio ao paciente")) return;
+        if (_gravando) return;
+        // Guarda que FALA: voltar calada é botão que não faz nada (parcela 41).
+        if (_selecionado is null)
+        {
+            _mensagem = EscolhaDeConvenioNaTela.EscolhaObrigatoria;
+            _mensagemEhErro = true;
+            return;
+        }
+
+        _gravando = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<PacienteService>().DefinirConvenioAsync(
+                    Paciente.Id, _selecionado.Entrada.Codigo, _carteirinha, _validade, Operador);
+        }
+        catch (Exception ex)
+        {
+            // Fica no formulário: quem está com o paciente na frente corrige e tenta de novo, e
+            // fechar aqui devolveria a tela de trás sem dizer que nada foi gravado.
+            Clinica.Application.Diagnostico.Registrar("Escolha do convênio do paciente — vínculo não pôde ser gravado", ex);
+            _mensagem = "Não foi possível vincular o convênio: " + ex.Message;
+            _mensagemEhErro = true;
+            _gravando = false;
+            return;
+        }
+        _gravando = false;
+        await AoConcluir.InvokeAsync();
+    }
+}

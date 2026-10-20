@@ -19,6 +19,12 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// A recusa de verdade mora no serviço (<c>AtendimentoService.MontarAsync</c>), e é ela
 /// que garante que nenhuma porta escape. Isto aqui é a metade VISÍVEL: perguntar antes,
 /// para que a recusa não seja o que a pessoa descobre.
+///
+/// ⚠️ out/2026: as telas Blazor perguntam pelo formulário Blazor (<c>FormulariosDoPaciente</c>
+/// + <c>EscolhaDeConvenioForm</c>, com a regra em <c>EscolhaDeConvenioNaTela</c>). Esta metade
+/// WPF fica SÓ enquanto o formulário WPF do horário (<c>AgendamentoEdicaoViewModel</c>, da agenda
+/// WPF da Recepção) existir — ele não tem como abrir um formulário do navegador. Saindo ele, sai
+/// esta classe com a <c>EscolhaDeConvenioWindow</c>.
 /// </summary>
 public static class VinculoDeConvenio
 {
@@ -46,32 +52,6 @@ public static class VinculoDeConvenio
 
         using var scope = escopos.CreateScope();
         return Perguntar(scope.ServiceProvider, paciente, operador);
-    }
-
-    /// <summary>
-    /// A mesma garantia para quem só tem o ID em mãos — o cartão da Fila, que carrega o
-    /// paciente pelo nome e pelo id, nunca pela ficha.
-    ///
-    /// Lê a ficha ANTES de decidir: a alternativa seria a tela guardar o convênio no
-    /// cartão e conferir por lá, e aí a fila carregada às 8h decidiria sobre um convênio
-    /// que a outra máquina do balcão já resolveu às 9h.
-    /// </summary>
-    public static async Task<bool> GarantirAsync(
-        IServiceScopeFactory escopos, int pacienteId, string? operador = null)
-    {
-        ArgumentNullException.ThrowIfNull(escopos);
-
-        using var scope = escopos.CreateScope();
-        var servicos = scope.ServiceProvider;
-
-        var paciente = await servicos.GetRequiredService<PacienteService>().ObterAsync(pacienteId);
-
-        // Ficha que sumiu não é problema DESTA conferência: quem for lançar em seguida
-        // dará o erro certo ("Paciente não encontrado"), e inventar um aqui trocaria a
-        // mensagem verdadeira por uma sobre convênio.
-        if (paciente is null || !paciente.ConvenioADefinir) return true;
-
-        return Perguntar(servicos, paciente, operador);
     }
 
     /// <summary>O miolo: pergunta, grava (é a ViewModel que grava) e devolve o veredito.</summary>

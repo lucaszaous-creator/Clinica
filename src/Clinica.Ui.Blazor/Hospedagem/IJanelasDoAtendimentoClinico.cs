@@ -14,8 +14,6 @@ namespace Clinica.Ui.Blazor.Hospedagem;
 ///   (<c>PrescricaoInternaWindow</c>, área de assinatura — só chamada);
 /// - <b>a coleta do termo</b> (<c>ColetaDeTermo</c> → <c>AssinaturaPacienteWindow</c>, área
 ///   congelada);
-/// - <b>a escolha do convênio</b> da ficha "a definir" (<c>VinculoDeConvenio</c>, parcela 92),
-///   que o Finalizar pergunta antes de concluir;
 /// - <b>a pendência da conclusão automática</b>, que mora na Infrastructure (que esta
 ///   biblioteca não enxerga).
 ///
@@ -42,9 +40,6 @@ public interface IJanelasDoAtendimentoClinico
     Task<bool> ColherTermoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
         int? profissionalId, int? agendamentoId);
 
-    /// <summary>Pergunta o convênio da ficha "a definir". Verdadeiro = a ficha tem convênio agora.</summary>
-    Task<bool> EscolherConvenioAsync(int pacienteId);
-
     /// <summary>O motivo pelo qual a conclusão automática ainda não concluiu este horário (nulo = nenhum).</summary>
     Task<string?> PendenciaDeConclusaoAutomaticaAsync(int agendamentoId);
 }
@@ -61,6 +56,5 @@ public sealed class JanelasDoAtendimentoClinicoIndisponiveis : IJanelasDoAtendim
     public Task<bool> PrescreverInfusaoAsync(int pacienteId, string paciente, int? agendamentoId, int? evolucaoId) => Task.FromResult(false);
     public Task<bool> ColherTermoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
         int? profissionalId, int? agendamentoId) => Task.FromResult(false);
-    public Task<bool> EscolherConvenioAsync(int pacienteId) => Task.FromResult(false);
     public Task<string?> PendenciaDeConclusaoAutomaticaAsync(int agendamentoId) => Task.FromResult<string?>(null);
 }

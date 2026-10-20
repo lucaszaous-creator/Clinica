@@ -430,7 +430,8 @@
             using (var escopo = Escopo())
             {
                 var paciente = await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(ctx.PacienteId);
-                if (paciente is { ConvenioADefinir: true } && !await Janelas.EscolherConvenioAsync(ctx.PacienteId))
+                if (paciente is { ConvenioADefinir: true }
+                    && !await Servicos.GetRequiredService<FormulariosDoPaciente>().EscolherConvenioAsync(ctx.PacienteId))
                 {
                     Avisar(FinalizacaoDaSessao.ConvenioPendente, erro: true);
                     return;

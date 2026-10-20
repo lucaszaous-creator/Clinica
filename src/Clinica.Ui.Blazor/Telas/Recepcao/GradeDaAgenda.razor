@@ -404,7 +404,6 @@
         SessaoUsuario.Atual.Autenticado, SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.Efetivas);
 
     private IAgendaDaVisaoGeral Agenda => Servicos.GetService<IAgendaDaVisaoGeral>() ?? AgendaIndisponivel.Instancia;
-    private IJanelasDaAgenda Janelas => Servicos.GetService<IJanelasDaAgenda>() ?? JanelasDaAgendaIndisponiveis.Instancia;
     private IBalcaoDaRecepcao Balcao => _balcao ??= Servicos.GetService<IBalcaoDaRecepcao>() ?? BalcaoIndisponivel.Instancia;
 
     private Profissional? ProfissionalDoFiltro => _profissionais.FirstOrDefault(p => p.Id == _profissional);
@@ -939,9 +938,9 @@
         await CarregarAsync();
     }
 
-    /// <summary>A escolha do convênio da ficha "a definir" — janela do shell, pela ponte da Recepção.</summary>
-    private async Task<bool> EscolherConvenioAsync(int pacienteId)
-        => Janelas.Disponivel && await Janelas.EscolherConvenioAsync(pacienteId);
+    /// <summary>A escolha do convênio da ficha "a definir" — o formulário Blazor de FormulariosDoPaciente.</summary>
+    private Task<bool> EscolherConvenioAsync(int pacienteId)
+        => Servicos.GetRequiredService<FormulariosDoPaciente>().EscolherConvenioAsync(pacienteId);
 
     /// <summary>A folha do dia que o profissional leva para a sala — SEM dado clínico, respeitando o filtro.</summary>
     private async Task ImprimirFolhaAsync()

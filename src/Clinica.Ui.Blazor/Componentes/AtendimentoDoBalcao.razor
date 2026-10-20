@@ -16,9 +16,10 @@
 
   A tela não decide regra: grava pelos MESMOS serviços (AgendaService.LancarAvulsoAsync /
   LancarNoHorarioAsync / AgendarAsync, FechamentoSessaoService), e o que ela AFIRMA mora em
-  AtendimentoDoBalcaoNaTela (Application, com teste). As janelas que continuam WPF (convênio,
-  fechamento, cadastro) entram por IJanelasDoAtendimento; a venda de pacote e a cobrança no
-  balcão são formulários Blazor (PacoteVendaForm, CobrancaDoPacienteForm).
+  AtendimentoDoBalcaoNaTela (Application, com teste). O cadastro e a escolha do convênio são
+  formulários Blazor (FormulariosDoPaciente); a venda de pacote e a cobrança no balcão também
+  (PacoteVendaForm, CobrancaDoPacienteForm). O fechamento da sessão continua WPF e entra por
+  IJanelasDoAtendimento.
 *@
 @using Clinica.Application.Modelos
 @using Clinica.Domain.Regras
@@ -404,6 +405,7 @@
 
     /// <summary>As janelas WPF da Recepção; onde não existem, a versão que responde "não disponível".</summary>
     private IJanelasDoAtendimento Janelas => Servicos.GetService<IJanelasDoAtendimento>() ?? JanelasDoAtendimentoIndisponiveis.Instancia;
+    private FormulariosDoPaciente Formularios => Servicos.GetRequiredService<FormulariosDoPaciente>();
 
     /// <summary>O bit de receber no balcão (o mesmo QuemRecebe da CobrancaDoPacienteViewModel).</summary>
     private const Permissao QuemRecebe = Permissao.EditarFinanceiro | Permissao.LancarAtendimento | Permissao.VenderPacote;
@@ -467,7 +469,7 @@
     private bool ExecutanteADefinir => _profissional is null && _profissionais.Count > 0;
     private bool UsarHorarioDoDia => _horarioDoDia is not null && !Marcar && !_criarEncaixeSeparado;
     private bool MostrarPrevia => _previa.Count > 0 && !_lancado && AtendimentoDoBalcaoNaTela.MostraPrevia(Marcar, _guiaNaMarcacao);
-    private bool PodeCadastrar => Janelas.Disponivel && Pode(Permissao.EditarPaciente);
+    private static bool PodeCadastrar => Pode(Permissao.EditarPaciente);
 
     /// <summary>
     /// A metade VISÍVEL da permissão do botão. No lançar, <c>LancarAtendimento</c>; no marcar,
@@ -729,15 +731,15 @@
     private async Task CadastrarAsync()
     {
         if (!Exigir(Permissao.EditarPaciente, "cadastrar paciente")) return;
-        if (await Janelas.CadastrarPacienteAsync() is not { } novo)
+        if (await Formularios.CadastrarAsync() is not { } novo)
         {
-            if (!Janelas.Disponivel) Notificacoes.Info(JanelasDoAtendimentoIndisponiveis.Frase);
+            if (!Formularios.Disponivel) Notificacoes.Info(FormulariosDoPaciente.Indisponivel);
             return;
         }
         try
         {
             using var escopo = Escopo();
-            if (await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(novo) is { } paciente)
+            if (await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(novo.Id) is { } paciente)
             {
                 Notificacoes.Sucesso("Paciente cadastrado.");
                 await EscolherAsync(paciente);
@@ -1123,12 +1125,12 @@
     private async Task EscolherConvenioAsync()
     {
         if (_paciente is not { ConvenioADefinir: true } p) return;
-        if (!Janelas.Disponivel)
+        if (!Formularios.Disponivel)
         {
-            Avisar(AtendimentoDoBalcaoNaTela.RecusaSemConvenio(p.Nome) + " " + JanelasDoAtendimentoIndisponiveis.Frase, "erro");
+            Avisar(AtendimentoDoBalcaoNaTela.RecusaSemConvenio(p.Nome) + " " + FormulariosDoPaciente.Indisponivel, "erro");
             return;
         }
-        if (await Janelas.EscolherConvenioAsync(p.Id)) await RelerPacienteAsync(p.Id);
+        if (await Formularios.EscolherConvenioAsync(p.Id)) await RelerPacienteAsync(p.Id);
     }
 
     /// <summary>
@@ -1241,10 +1243,10 @@
         // SEM CONVÊNIO NÃO SE LANÇA (parcela 92) — a condição vale onde o atendimento NASCE.
         if (AtendimentoDoBalcaoNaTela.NasceAtendimento(Marcar, _guiaNaMarcacao) && paciente.ConvenioADefinir)
         {
-            if (!Janelas.Disponivel || !await Janelas.EscolherConvenioAsync(paciente.Id))
+            if (!await Formularios.EscolherConvenioAsync(paciente.Id))
             {
                 Avisar(AtendimentoDoBalcaoNaTela.RecusaSemConvenio(paciente.Nome)
-                       + (Janelas.Disponivel ? "" : " " + JanelasDoAtendimentoIndisponiveis.Frase), "erro");
+                       + (Formularios.Disponivel ? "" : " " + FormulariosDoPaciente.Indisponivel), "erro");
                 return;
             }
             await RelerPacienteAsync(paciente.Id);

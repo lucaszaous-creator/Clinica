@@ -31,9 +31,6 @@ public sealed class JanelasDaAgendaWpf(
 {
     public bool Disponivel => true;
 
-    public Task<bool> EscolherConvenioAsync(int pacienteId)
-        => NaInterface(() => VinculoDeConvenio.GarantirAsync(escopos, pacienteId, SessaoUsuario.Atual.Operador));
-
     public Task<bool> AbrirFichaAsync(int pacienteId, string paciente) => NaInterface(() =>
     {
         // A MESMA ficha do balcão da tela Pacientes: duas fichas para a mesma pessoa no mesmo
