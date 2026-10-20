@@ -84,7 +84,7 @@ public sealed class FormulariosDoConsultorioBlazorTests : IClassFixture<BancoDas
     }
 
     [Fact]
-    public void O_envio_pergunta_com_o_email_primeiro_e_o_whatsapp_local_diz_que_e_do_aplicativo()
+    public void O_envio_oferece_so_o_WhatsApp_e_o_local_diz_que_e_do_aplicativo()
     {
         int documentoId;
         using (var db = Db())
@@ -99,13 +99,14 @@ public sealed class FormulariosDoConsultorioBlazorTests : IClassFixture<BancoDas
         Assentar(corte);
 
         var opcoes = corte.FindAll("label.con-envio-opcao").Select(l => l.TextContent).ToList();
-        Assert.Equal(3, opcoes.Count);
-        Assert.StartsWith("E-mail", opcoes[0].Trim());
-        Assert.Contains("WhatsApp (pelo CRM)", opcoes[1]);
-        Assert.Contains("deste computador", opcoes[2]);
+        // Sem e-mail (out/2026, decisão da cliente): só os dois caminhos do WhatsApp.
+        Assert.Equal(2, opcoes.Count);
+        Assert.Contains("WhatsApp (pelo CRM)", opcoes[0]);
+        Assert.Contains("deste computador", opcoes[1]);
+        Assert.DoesNotContain(opcoes, o => o.Contains("E-mail"));
 
         // O WhatsApp deste computador é o único caminho que precisa do aplicativo: sem a ponte, a frase.
-        var local = corte.FindAll("input[type=radio]")[2];
+        var local = corte.FindAll("input[type=radio]")[1];
         if (!local.HasAttribute("disabled"))
         {
             local.Change(true);
