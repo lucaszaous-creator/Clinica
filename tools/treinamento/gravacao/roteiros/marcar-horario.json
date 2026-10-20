@@ -1,0 +1,126 @@
+{
+  "chave": "marcar-horario",
+  "titulo": "Marcar horário",
+  "descricao": "Marcar um atendimento para quem não está no balcão: quem, o que foi pedido, quando e com quem.",
+  "inventario": [
+    { "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Rosana" },
+    { "alvo": "opcao=Rosana Figueiredo Lemos", "acao": "clicar" }
+  ],
+  "passos": [
+    {
+      "titulo": "Comece pelo paciente",
+      "texto": "A tela abre perguntando quem vai ser marcado. Sem escolher o paciente, nada mais aparece.",
+      "alvo": "titulo=Quem vai ser marcado?"
+    },
+    {
+      "titulo": "Veja quem tem horário hoje",
+      "texto": "O chip Com horário hoje lista os pacientes da agenda do dia, com a hora e o atendimento de cada um.",
+      "alvo": "botao=Com horário hoje"
+    },
+    {
+      "titulo": "Liste todos os pacientes",
+      "texto": "Todos os pacientes mostra o cadastro inteiro, em ordem de nome. Use quando não lembrar como o nome foi escrito.",
+      "alvo": "botao=Todos os pacientes",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Com horário hoje", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Cadastre quem é novo",
+      "texto": "Paciente de primeira vez? Cadastrar paciente abre a ficha: nome, CPF, telefone e convênio ou particular.",
+      "alvo": "botao=Cadastrar paciente",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Preencha a ficha",
+      "texto": "Os campos com asterisco são obrigatórios. Salvar cadastro grava a ficha e já a escolhe para a marcação.",
+      "alvo": "janela-campo=Nome completo",
+      "acao": "digitar",
+      "valor": "Juliana Prado Martins"
+    },
+    { "alvo": "janela-campo=Telefone", "acao": "digitar", "valor": "(21) 98765-4321", "ms": 1500 },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Busque o paciente",
+      "texto": "Digite parte do nome, o CPF ou o telefone. A lista mostra documento e telefone para conferir que é a pessoa certa.",
+      "alvo": "entrada=Buscar paciente por nome, CPF ou telefone",
+      "acao": "digitar",
+      "valor": "Rosana"
+    },
+    {
+      "titulo": "Escolha a pessoa certa",
+      "texto": "Clique na linha. A busca vira a faixa do paciente, com documento, idade, telefone e convênio para conferir.",
+      "alvo": "opcao=Rosana Figueiredo Lemos",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Confira a carteirinha",
+      "texto": "Logo abaixo, o número e a validade da carteirinha. Vencida aparece em destaque: peça a nova antes da sessão.",
+      "alvo": "texto=Carteirinha"
+    },
+    {
+      "titulo": "Escolha o que foi pedido",
+      "texto": "Escolha a modalidade. Cada opção já diz quantas guias gera e quando; a marcada como habitual é a de sempre dele.",
+      "alvo": "texto-exato=Consulta",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Diga a especialidade",
+      "texto": "Consulta pede a especialidade. Ela fica registrada na guia e nos relatórios.",
+      "alvo": "campo=Especialidade da consulta",
+      "acao": "selecionar",
+      "valor": "Clínica da Dor"
+    },
+    {
+      "titulo": "Anote o que for preciso",
+      "texto": "Observações ficam no horário e aparecem para a recepção e para quem atende.",
+      "alvo": "campo=Observações",
+      "acao": "digitar",
+      "valor": "Trazer os exames de imagem."
+    },
+    {
+      "titulo": "Escolha quem vai atender",
+      "texto": "O horário entra na agenda dessa pessoa e no repasse dela. Sem profissional, não aparece no aplicativo de quem atende.",
+      "alvo": "campo=Profissional",
+      "acao": "selecionar",
+      "valor": "Dr. Marcos"
+    },
+    {
+      "titulo": "Busque as próximas vagas",
+      "texto": "Próximas vagas lista os horários livres de quem atende. As pílulas de hora do dia escolhido fazem o mesmo.",
+      "alvo": "botao=Próximas vagas",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha uma vaga",
+      "texto": "Clique numa vaga: a data e a hora da marcação são preenchidas sozinhas.",
+      "alvo": "css=.ra-vaga",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Ajuste hora e duração",
+      "texto": "Outro horário aceita qualquer hora, mesmo fora das vagas. Duração muda o tamanho da sessão; vazio usa o padrão.",
+      "alvo": "entrada=Outro horário"
+    },
+    {
+      "titulo": "Confira o resumo",
+      "texto": "À direita, o resumo diz quem, o quê, quando, com quem e o que acontece com as guias. Confira antes de marcar.",
+      "alvo": "texto=O que vai ser marcado"
+    },
+    {
+      "titulo": "Marque o horário",
+      "texto": "O botão diz o dia e a hora que vai marcar. Clicado, o horário entra na agenda e aparece Marcar outro.",
+      "alvo": "css=.ra-acao"
+    },
+    {
+      "titulo": "Troque o paciente",
+      "texto": "Escolheu a pessoa errada? Trocar paciente volta para a busca para você escolher outra pessoa.",
+      "alvo": "botao=Trocar paciente"
+    },
+    {
+      "titulo": "Recomece do zero",
+      "texto": "Limpar descarta o que foi preenchido e volta para a pergunta do paciente.",
+      "alvo": "botao-exato=Limpar",
+      "acao": "clicar"
+    }
+  ]
+}

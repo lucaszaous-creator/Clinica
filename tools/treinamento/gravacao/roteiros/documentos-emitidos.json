@@ -1,0 +1,24 @@
+{
+  "chave": "documentos-emitidos",
+  "titulo": "Documentos emitidos",
+  "descricao": "Quantos papéis saíram da clínica no período, quem assinou, quais foram cancelados — e a conferência de um papel pelo código.",
+  "passos": [
+    { "titulo": "Uma tela só de leitura", "texto": "Tudo o que saiu da clínica, numerado por ano e com código de conferência. Para emitir um papel, use a Recepção ou o Consultório.", "alvo": "texto=Tudo o que saiu da clínica" },
+    { "titulo": "Escolha o período", "texto": "Este mês, Últimos 3 meses ou Este ano. Os cartões, as listas e a tabela passam a mostrar o período escolhido.", "alvo": "botao=Últimos 3 meses", "acao": "clicar" },
+    { "alvo": "botao=Este mês", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Confira um papel pelo código", "texto": "Recebeu um documento na mão? Digite o código impresso no rodapé e clique em Conferir: a tela diz se ele existe, de quem é e se foi cancelado.", "alvo": "entrada=Código impresso no rodapé", "acao": "digitar", "valor": "PRVDE01" },
+    { "alvo": "botao-exato=Conferir", "acao": "clicar", "depois": 2600 },
+    { "titulo": "Leia a resposta da conferência", "texto": "Verde é documento válido, com o número e a data. Vermelho é código que não existe ou papel cancelado. A consulta fica registrada na auditoria.", "alvo": "css=.de-conferido" },
+    { "alvo": "entrada=Código impresso no rodapé", "acao": "limpar", "ms": 900 },
+    { "titulo": "Emitidos e assinados", "texto": "Emitidos conta todos, cancelados inclusive — o número foi gasto. Assinados c/ e-CPF são os selados com certificado digital ICP-Brasil.", "alvo": "texto-exato=Assinados c/ e-CPF" },
+    { "titulo": "Cancelados e no ar", "texto": "Cancelados no período e publicados no ar: documentos com link válido hoje, que o farmacêutico abre pelo QR Code.", "alvo": "texto-exato=Publicados no ar" },
+    { "titulo": "O papel mais emitido", "texto": "Qual tipo de folha mais saiu no período e quanto ele representa do total.", "alvo": "texto-exato=Mais emitido" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ copia o valor do cartão para o relatório ou a planilha.", "alvo": "botao=Opções do cartão Emitidos", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Por quem assina", "texto": "Quantos papéis cada profissional assinou no período. A barra cheia é quem mais assinou; balcão é o que saiu sem assinatura de profissional.", "alvo": "titulo=Por quem assina" },
+    { "titulo": "Os cancelados e o motivo", "texto": "Cancelar exige motivo e não apaga o documento. Cada cancelado traz o número, a folha, o motivo, quem e quando.", "alvo": "titulo=Cancelados no período" },
+    { "titulo": "Tudo o que saiu", "texto": "A tabela lista número, folha, paciente, quem assinou e a data. Passe o mouse na data para ver o dia completo.", "alvo": "titulo=O que saiu no período" },
+    { "titulo": "Selos de cada papel", "texto": "Cancelada aparece marcada e apagada, nunca some. O selo e-CPF indica papel selado com certificado digital.", "alvo": "texto-exato=Cancelada" },
+    { "titulo": "Atualize a leitura", "texto": "Atualizar (F5) lê de novo: o que outra máquina emitiu ou cancelou passa a aparecer.", "alvo": "botao=Atualizar" }
+  ]
+}

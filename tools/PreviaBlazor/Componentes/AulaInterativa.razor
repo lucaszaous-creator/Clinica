@@ -47,6 +47,15 @@ else
                 dia = await db.Agendamentos.Where(a => a.Id == ag).Select(a => (DateOnly?)DateOnly.FromDateTime(a.DataHora)).FirstOrDefaultAsync();
             PedidoDoPaciente.Definir(new PacienteNoPosto(id, nome, Agendamento, null, dia), Secao ?? "Atendimento", SubAba ?? 0);
         }
+        // O app da enfermagem entra com o perfil Enfermagem: o rail e as seções da tela do
+        // paciente seguem o perfil, e a aula precisa mostrar o que a enfermeira vê.
+        if (app.Perfil == "Enfermagem")
+        {
+            using var escopo = Servicos.CreateScope();
+            var db = escopo.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+            var enfermeira = await db.Usuarios.FirstOrDefaultAsync(u => u.Perfil == Clinica.Domain.Entities.PerfilAcesso.Enfermagem);
+            if (enfermeira is not null) new Clinica.Domain.Entities.SessaoUsuario().Entrar(enfermeira);
+        }
         var sessao = Clinica.Domain.Entities.SessaoUsuario.Atual;
         _moldura = new PreviaBlazor.MolduraDaAula(app, Chave, sessao.Autenticado ? sessao.Rotulo : "Ana · Recepção");
         Aula.Moldura = _moldura;

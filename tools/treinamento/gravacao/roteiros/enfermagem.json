@@ -1,0 +1,19 @@
+{
+  "chave": "enfermagem",
+  "titulo": "Enfermagem",
+  "descricao": "Quem passa pela enfermagem hoje e a porta para atender: achar o paciente e abrir a passagem de enfermagem dele.",
+  "passos": [
+    { "titulo": "A porta da enfermagem", "texto": "Aqui a enfermagem acha quem vai atender e abre o paciente para registrar a passagem: sinais vitais, observações e cuidados.", "alvo": "titulo=Enfermagem" },
+    { "titulo": "Quem tem horário hoje", "texto": "A tela abre com os pacientes que têm horário hoje, com a hora e o atendimento — a fila do dia da enfermagem.", "alvo": "botao=Com horário hoje" },
+    { "titulo": "Busque o paciente", "texto": "Digite o nome, o CPF ou o telefone. A busca alcança o cadastro inteiro, não só quem tem horário hoje.", "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Lúcia" },
+    { "titulo": "Confira antes de abrir", "texto": "Cada resultado traz documento e telefone, para não confundir pacientes de nome parecido.", "alvo": "opcao=Lúcia Helena Carvalho" },
+    { "titulo": "Limpe a busca", "texto": "Limpar apaga o que foi digitado e volta para quem tem horário hoje. A tecla Esc faz o mesmo.", "alvo": "botao=Limpar a busca", "acao": "clicar" },
+    { "titulo": "Liste todos os pacientes", "texto": "Todos os pacientes mostra o cadastro em ordem de nome, com idade e convênio, de 100 em 100.", "alvo": "botao=Todos os pacientes", "acao": "clicar" },
+    { "titulo": "Atenda pela lista", "texto": "Atender abre o paciente na passagem de enfermagem, já ligada ao horário de hoje quando ele tem um.", "alvo": "botao-exato=Atender" },
+    { "titulo": "Passe as páginas", "texto": "Próxima e Anterior andam pela lista. O rodapé diz em que página você está e quantos pacientes aparecem.", "alvo": "botao=Próxima", "acao": "clicar" },
+    { "alvo": "botao=Anterior", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Atualize a lista", "texto": "Atualizar relê a lista — quem foi cadastrado ou marcado em outro computador aparece.", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Rosana" },
+    { "titulo": "Abra o paciente para atender", "texto": "Escolher o paciente abre a tela dele na seção de escrita de quem clicou — para a enfermagem, a passagem de enfermagem, com as alergias em destaque.", "alvo": "opcao=Rosana Figueiredo Lemos", "acao": "clicar" }
+  ]
+}

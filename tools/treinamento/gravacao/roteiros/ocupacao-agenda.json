@@ -1,0 +1,184 @@
+{
+  "chave": "ocupacao-agenda",
+  "titulo": "Visão geral da agenda",
+  "descricao": "Como está a agenda da equipe: atendimentos, quanto do horário está ocupado e o tempo livre, por dia, semana ou mês.",
+  "passos": [
+    {
+      "titulo": "Conheça a visão geral",
+      "texto": "Esta tela mostra a agenda da equipe de relance: quantos atendimentos, quanto do horário está ocupado e onde ainda há tempo livre.",
+      "alvo": "titulo=Visão geral da agenda"
+    },
+    {
+      "titulo": "Ande pelo período",
+      "texto": "As setas avançam ou voltam um dia, uma semana ou um mês, conforme o período escolhido. O botão do meio volta para hoje.",
+      "alvo": "botao=Próximo período",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Período anterior", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Vá direto a uma data",
+      "texto": "Escolha qualquer data neste campo para abrir o período que contém aquele dia.",
+      "alvo": "entrada=Ir para a data"
+    },
+    {
+      "titulo": "Leia os atendimentos",
+      "texto": "Quantos atendimentos o período tem. Cancelamentos e faltas ficam de fora desta conta.",
+      "alvo": "texto-exato=Atendimentos"
+    },
+    {
+      "titulo": "Veja a ocupação",
+      "texto": "Quanto do horário de atendimento cadastrado já está ocupado. Só entra quem tem horário cadastrado; a barra mostra a fração.",
+      "alvo": "texto-exato=Ocupação"
+    },
+    {
+      "titulo": "Veja as horas livres",
+      "texto": "O tempo ainda livre dentro do horário de atendimento, já descontada a agenda fechada. Mostra onde ainda cabe paciente.",
+      "alvo": "texto-exato=Horas livres"
+    },
+    {
+      "titulo": "Confira faltas e cancelamentos",
+      "texto": "Soma as faltas e os cancelamentos do período. A linha de baixo separa um do outro.",
+      "alvo": "texto-exato=Faltas e cancelamentos"
+    },
+    {
+      "titulo": "Copie o número de um cartão",
+      "texto": "Os três pontinhos de cada cartão copiam o valor, para colar numa planilha ou mensagem sem redigitar.",
+      "alvo": "botao=Opções do cartão Ocupação",
+      "acao": "clicar"
+    },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Cadastre quem está sem horário",
+      "texto": "Esta linha lista quem não tem horário de atendimento cadastrado. Cadastrar abre o horário para preencher dias e faixas.",
+      "alvo": "botao-exato=cadastrar",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Preencha dias e faixas",
+      "texto": "Ligue os dias em que o profissional atende e informe as faixas, como manhã e tarde. Salvar horário grava para todos.",
+      "alvo": "janela-texto=Dias e faixas"
+    },
+    {
+      "titulo": "Decida se a agenda recusa",
+      "texto": "Desligado, a agenda só avisa. Ligado, ela recusa marcar fora do horário, em agenda fechada ou sobre outro paciente.",
+      "alvo": "janela-caixa=Recusar marcação fora deste horário"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Atenção ao que está fora",
+      "texto": "Esta linha conta atendimentos fora do horário, em agenda fechada ou sem profissional. Confira-os na Agenda do dia.",
+      "alvo": "texto=confira na Agenda do dia"
+    },
+    {
+      "titulo": "Leia a semana por profissional",
+      "texto": "Cada linha é um profissional e cada célula um dia: o número de atendimentos e a barra de ocupação daquele dia.",
+      "alvo": "titulo=A semana por profissional"
+    },
+    {
+      "titulo": "Entenda as cores da semana",
+      "texto": "Célula com barra: atende. Cinza: não atende. Hachurada: agenda fechada. Tracejada: o profissional não tem horário cadastrado.",
+      "alvo": "texto=atende — a barra é a ocupação do horário"
+    },
+    {
+      "titulo": "Filtre um profissional",
+      "texto": "Escolha um profissional para ver só a agenda dele. Os números de cima passam a ser só dele.",
+      "alvo": "campo=Profissional",
+      "acao": "selecionar",
+      "valor": "Dra. Helena Duarte"
+    },
+    {
+      "titulo": "Veja horários e vagas",
+      "texto": "Com um profissional escolhido aparece a semana dele: os atendimentos marcados e os vãos livres de cada dia.",
+      "alvo": "titulo=Horários e vagas da semana"
+    },
+    {
+      "titulo": "Volte para a equipe toda",
+      "texto": "Ver toda a equipe tira o filtro de profissional e devolve a visão de todos.",
+      "alvo": "botao=Ver toda a equipe",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Abra o dia de um profissional",
+      "texto": "Clique numa célula para abrir aquele dia já filtrado pelo profissional da linha.",
+      "alvo": "botao=Dra. Helena Duarte ·",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Leia a linha do tempo do dia",
+      "texto": "No período Dia, cada profissional vira uma faixa: o fundo é o horário de atendimento e os blocos são os atendimentos.",
+      "alvo": "titulo=O dia por profissional"
+    },
+    {
+      "titulo": "Veja os atendimentos do dia",
+      "texto": "A lista abaixo traz os atendimentos em ordem de horário. Cancelados e faltas continuam, apagados.",
+      "alvo": "titulo=Atendimentos do dia"
+    },
+    {
+      "titulo": "Abra um horário",
+      "texto": "Clique na linha para abrir o horário: remarcar, reabrir, comprovante e confirmação, como na grade.",
+      "alvo": "linha=Otávio Rezende Campos",
+      "acao": "clicar"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Veja o mês inteiro",
+      "texto": "No período Mês, um calendário de calor: quanto mais forte a cor, mais ocupado o dia. Clique num dia para abri-lo.",
+      "alvo": "botao-exato=Mês",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Compare a equipe no mês",
+      "texto": "Abaixo do calendário, a ocupação de cada profissional no mês, com os atendimentos e as horas livres de cada um.",
+      "alvo": "titulo=Ocupação por profissional"
+    },
+    { "alvo": "botao-exato=Semana", "acao": "clicar", "ms": 1500 },
+    { "alvo": "botao=Ver toda a equipe", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Atualize os números",
+      "texto": "Relê a agenda agora. Ao lado aparece a hora da última leitura.",
+      "alvo": "botao-exato=Atualizar",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Use as outras ações",
+      "texto": "Mais ações reúne: fechar a agenda, horário dos profissionais, lista de espera, conciliar horários parados e imprimir a folha.",
+      "alvo": "botao=Mais ações",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Feche a agenda num período",
+      "texto": "Para férias, feriado ou folga: diga o motivo, o período e de quem. Quem já estava marcado não é desmarcado.",
+      "alvo": "item=Fechar agenda",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escreva o motivo",
+      "texto": "O motivo aparece escrito na agenda, no lugar dos horários fechados.",
+      "alvo": "janela-campo=Motivo",
+      "acao": "digitar",
+      "valor": "Congresso de acupuntura"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "alvo": "botao=Mais ações", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Consulte a lista de espera",
+      "texto": "Quem quer um horário antes. Quando um horário vaga, é aqui que está quem chamar.",
+      "alvo": "item=Lista de espera",
+      "acao": "clicar"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "alvo": "botao=Mais ações", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Concilie horários parados",
+      "texto": "Lista horários de dias passados que ficaram sem desfecho, para dizer se o paciente faltou ou se a sessão aconteceu.",
+      "alvo": "item=Conciliar horários parados",
+      "acao": "clicar"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Marque um atendimento",
+      "texto": "Leva à marcação já no dia escolhido. Use quando a visão mostrar um vão livre que você quer ocupar.",
+      "alvo": "botao=Marcar atendimento"
+    }
+  ]
+}

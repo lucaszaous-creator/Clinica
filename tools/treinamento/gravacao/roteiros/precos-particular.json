@@ -1,0 +1,25 @@
+{
+  "chave": "precos-particular",
+  "titulo": "Preço da sessão particular",
+  "descricao": "Quanto a clínica cobra do paciente sem convênio, por modalidade e especialidade — o valor que o fechamento da sessão propõe.",
+  "passos": [
+    { "titulo": "Para que serve esta tabela", "texto": "É o valor que a clínica cobra do particular por sessão. O fechamento da sessão já traz esse valor, e o desconto pode ser dado na hora.", "alvo": "titulo=Preços do particular" },
+    { "titulo": "Os preços cadastrados", "texto": "O resumo conta quantos preços existem e quantos valem hoje. Sem preço cadastrado, o sistema não inventa: pede o valor digitado.", "alvo": "titulo=Preços cadastrados" },
+    { "titulo": "Leia vigência e situação", "texto": "Cada preço tem modalidade, especialidade, vigência e valor. A situação diz se vale agora, ainda não vale, venceu ou está inativo.", "alvo": "texto-exato=valendo agora" },
+    { "titulo": "Veja só o que vale hoje", "texto": "Só o que vale hoje esconde os preços antigos, futuros e inativos — fica a tabela que o balcão está usando agora.", "alvo": "caixa=Só o que vale hoje", "acao": "marcar" },
+    { "alvo": "caixa=Só o que vale hoje", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Corrija um preço", "texto": "Editar abre o preço para corrigir o valor ou a vigência. Para reajuste, prefira um preço novo com a data em que passa a valer.", "alvo": "botao-exato=Editar", "acao": "clicar" },
+    { "alvo": "janela-campo=Valor da sessão", "acao": "digitar", "valor": "190,00" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Exclua um preço errado", "texto": "A lixeira exclui o preço, com confirmação. O que já foi lançado no caixa não muda — só deixa de ser proposto.", "alvo": "botao=Excluir o preço de BSV (apenas)", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Cadastre um preço novo", "texto": "Novo preço pede o que foi feito, a especialidade, o valor e desde quando vale. Reajuste entra sempre como um preço novo.", "alvo": "botao=Novo preço", "acao": "clicar" },
+    { "titulo": "Escolha o atendimento", "texto": "A modalidade é obrigatória. A especialidade é opcional: em branco vale para todas, e um preço com especialidade vence o genérico.", "alvo": "janela-campo=Modalidade", "acao": "selecionar", "valor": "Consulta" },
+    { "alvo": "janela-campo=Especialidade atendida", "acao": "selecionar", "valor": "Psiquiatria" },
+    { "titulo": "Informe o valor e a vigência", "texto": "Valor da sessão é obrigatório. Vigente de diz desde quando o preço vale; Até, em branco, deixa sem prazo.", "alvo": "janela-campo=Valor da sessão", "acao": "digitar", "valor": "420,00" },
+    { "titulo": "Ative ou desative", "texto": "Só preço ativo é proposto no fechamento e na Conciliação. Desativar guarda o preço sem usá-lo.", "alvo": "janela-caixa=Ativo" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Atualize a tabela", "texto": "Atualizar relê os preços — útil quando a direção acabou de cadastrar um reajuste em outro computador.", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "titulo": "Volte aos pacotes", "texto": "A aba Pacotes, ao lado, é onde se vende e acompanha os pacotes de sessões do particular.", "alvo": "aba-app=Pacotes", "acao": "clicar" }
+  ]
+}

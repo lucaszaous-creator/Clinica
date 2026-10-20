@@ -1,0 +1,29 @@
+{
+  "chave": "acessos",
+  "titulo": "Acessos",
+  "descricao": "Quem entra no sistema, com qual perfil e o que cada pessoa pode fazer — e quem pode conceder acesso aos outros.",
+  "passos": [
+    { "titulo": "Usuários ativos", "texto": "Quantas pessoas podem entrar hoje. Os inativos não entram, mas continuam na auditoria dizendo o que fizeram.", "alvo": "texto-exato=Usuários ativos" },
+    { "titulo": "Quem pode conceder acesso", "texto": "Quem gerencia usuários pode dar permissão a qualquer um — inclusive a si mesmo. Confira de vez em quando quem são essas pessoas.", "alvo": "texto-exato=Podem conceder acesso" },
+    { "titulo": "Ajustados à mão e sem acesso", "texto": "Ajustados à mão fogem do padrão do perfil. Nunca entraram são os únicos que podem ser excluídos.", "alvo": "texto-exato=Ajustados à mão" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ copia o valor do cartão para o relatório de conformidade.", "alvo": "botao=Opções do cartão Usuários ativos", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia a lista de usuários", "texto": "Nome, login, perfil, profissional vinculado e último acesso. Os selos avisam quem está ativo, quem deve trocar a senha e qual é você.", "alvo": "titulo=Usuários" },
+    { "titulo": "Exceções ao perfil", "texto": "Embaixo do perfil, a linha diz se a pessoa segue o padrão ou tem permissões liberadas ou tiradas à mão — é o que vale auditar.", "alvo": "texto=liberada(s)" },
+    { "titulo": "Cadastre um usuário", "texto": "Novo usuário abre o cadastro: nome, login, perfil, profissional vinculado, senha e o que a pessoa pode fazer.", "alvo": "botao=Novo usuário", "acao": "clicar" },
+    { "titulo": "Nome, login e perfil", "texto": "O nome aparece na auditoria e nos documentos. O perfil já marca o padrão da função: Recepção, Médico, Enfermagem, Faturista e outros.", "alvo": "janela-campo=Nome", "acao": "digitar", "valor": "Paula Ferreira (fictícia)" },
+    { "alvo": "janela-campo=Usuário (login)", "acao": "digitar", "valor": "paula.ferreira" },
+    { "alvo": "janela-campo=Perfil", "acao": "selecionar", "valor": "Recepção" },
+    { "titulo": "Vincule ao profissional", "texto": "Para quem atende: o vínculo leva o registro no conselho e o CPF aos documentos e à assinatura digital.", "alvo": "janela-campo=Profissional vinculado" },
+    { "titulo": "Marque só as exceções", "texto": "As permissões vêm agrupadas por assunto, com a consequência de cada uma. Marque ou desmarque só o que foge do padrão do perfil.", "alvo": "janela-texto=O que esta pessoa pode fazer" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Edite e desative", "texto": "Editar muda perfil, permissões e a situação. Quem já entrou não se exclui: desative em Editar, e a auditoria continua dizendo quem fez o quê.", "alvo": "botao-exato=Editar", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Redefina uma senha", "texto": "O cadeado define uma senha provisória, digitada duas vezes e escondida. A pessoa é obrigada a trocá-la no próximo acesso.", "alvo": "botao=Redefinir senha", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Exclua quem nunca entrou", "texto": "A lixeira só funciona para quem nunca entrou no sistema — um cadastro feito por engano. Para os outros, ela fica apagada.", "alvo": "botao=Excluir usuário", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Atualize a lista", "texto": "Atualizar (F5) lê os usuários de novo, com o último acesso de cada um.", "alvo": "botao=Atualizar" },
+    { "titulo": "Configurações e importação", "texto": "As abas no alto levam às Configurações da clínica e à importação de pacientes do sistema anterior.", "alvo": "aba-app=Importar pacientes" }
+  ]
+}

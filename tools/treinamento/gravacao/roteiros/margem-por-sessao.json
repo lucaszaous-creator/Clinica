@@ -1,0 +1,22 @@
+{
+  "chave": "margem-por-sessao",
+  "titulo": "Margem por sessão",
+  "descricao": "Quanto sobra de cada sessão depois de taxa, imposto, insumo e repasse — e em qual modalidade, profissional ou pagador sobra mais.",
+  "passos": [
+    { "titulo": "Escolha o mês", "texto": "As setas trocam o mês. Só entram as sessões do mês que já têm receita lançada.", "alvo": "botao=Mês anterior", "acao": "clicar" },
+    { "alvo": "botao=Próximo mês", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Receita das sessões", "texto": "O dinheiro que entrou pelas sessões do mês e quantas sessões já têm receita lançada.", "alvo": "texto-exato=Receita das sessões" },
+    { "titulo": "Custos das sessões", "texto": "Tudo o que sai de cada sessão: taxa da maquininha e imposto, insumo usado e repasse ao profissional. A nota separa cada parte.", "alvo": "texto-exato=Custos das sessões" },
+    { "titulo": "Margem do mês", "texto": "Receita menos custos. A nota diz quantos centavos sobram de cada real que entrou.", "alvo": "texto-exato=Margem" },
+    { "titulo": "Margem por sessão", "texto": "A média que sobra por sessão com receita. Sem sessão com receita não há média — o cartão mostra um traço, não zero.", "alvo": "css=.kpi:has-text(\"Margem por sessão\")" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ copia o valor do cartão para a planilha ou para a reunião.", "alvo": "botao=Opções do cartão Margem por sessão", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Onde sobra mais", "texto": "A tabela abre por modalidade: receita, cada custo, a margem, a margem por sessão e a fatia da receita que sobra.", "alvo": "titulo=Onde sobra mais" },
+    { "titulo": "Troque o recorte", "texto": "Por profissional mostra quanto sobra das sessões de cada um, depois do repasse. Use para conversar sobre repasse e agenda.", "alvo": "botao=Por profissional", "acao": "clicar" },
+    { "titulo": "Veja por quem paga", "texto": "Por pagador compara cada convênio e o particular: o mesmo atendimento pode deixar margens bem diferentes.", "alvo": "botao=Por pagador", "acao": "clicar" },
+    { "alvo": "botao=Por modalidade", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Leia a fatia da receita", "texto": "% da receita é quanto de cada real sobra. A barra fica vermelha quando a margem é negativa — a sessão custou mais do que rendeu.", "alvo": "texto-exato=% da receita" },
+    { "titulo": "Sessões ainda sem receita", "texto": "O rodapé conta as sessões realizadas sem receita lançada (guia a receber, particular em aberto). Elas ficam fora da conta até o dinheiro entrar.", "alvo": "texto=ainda não têm receita" },
+    { "titulo": "Atualize e exporte", "texto": "Atualizar (F5) recalcula. Exportar CSV gera a planilha com os três recortes e o total do mês.", "alvo": "botao=Exportar CSV" }
+  ]
+}

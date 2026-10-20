@@ -1,0 +1,25 @@
+{
+  "chave": "consultorio-avaliacoes",
+  "titulo": "Avaliações",
+  "descricao": "As escalas clínicas do paciente — Oswestry, PHQ-9, GAD-7, Katz e FINDRISC: aplicar, acompanhar a pontuação e cancelar com motivo.",
+  "url": { "paciente": 1, "secao": "Acompanhamento", "subaba": 2 },
+  "passos": [
+    { "titulo": "Abra as avaliações", "texto": "As escalas publicadas que dão número ao que a evolução descreve em palavras. O sistema pontua; a interpretação é de quem assina.", "alvo": "aba=Avaliações" },
+    { "titulo": "Veja todas as escalas", "texto": "Sem marcar, aparecem as escalas da sua especialidade. Marque Todas as escalas para ver as cinco.", "alvo": "caixa=Todas as escalas" },
+    { "titulo": "Escolha a escala", "texto": "Cada botão é uma escala: incapacidade lombar, sintomas depressivos, ansiedade, atividades diárias e risco de diabetes.", "alvo": "botao=GAD-7", "acao": "clicar" },
+    { "titulo": "Leia a situação da escala", "texto": "A frase diz se a escala já foi aplicada. A primeira aplicação é a linha de base; as seguintes mostram a evolução.", "alvo": "css=.acp-tendencia" },
+    { "titulo": "Aplique a escala", "texto": "Aplicar abre as perguntas da escala, com as alternativas e a soma parcial enquanto o paciente responde.", "alvo": "botao=Aplicar GAD-7", "acao": "clicar" },
+    { "titulo": "Marque as respostas", "texto": "Clique na alternativa de cada pergunta. A escala só é registrada completa: item em branco não vira zero.", "alvo": "janela-texto=Vários dias", "acao": "clicar" },
+    { "alvo": "css=.aval-item:nth-child(2) [role=radio]", "acao": "clicar", "ms": 400, "depois": 300 },
+    { "alvo": "css=.aval-item:nth-child(3) [role=radio]", "acao": "clicar", "ms": 400, "depois": 300 },
+    { "alvo": "css=.aval-item:nth-child(4) [role=radio]", "acao": "clicar", "ms": 400, "depois": 300 },
+    { "alvo": "css=.aval-item:nth-child(5) [role=radio]", "acao": "clicar", "ms": 400, "depois": 300 },
+    { "alvo": "css=.aval-item:nth-child(6) [role=radio]", "acao": "clicar", "ms": 400, "depois": 300 },
+    { "alvo": "css=.aval-item:nth-child(7) [role=radio]", "acao": "clicar", "ms": 400, "depois": 300 },
+    { "titulo": "Anote uma observação", "texto": "A data da aplicação vem com hoje; a observação é opcional e fica junto da pontuação.", "alvo": "janela-campo=Observação", "acao": "digitar", "valor": "Aplicada na primeira consulta." },
+    { "titulo": "Registre no prontuário", "texto": "Registrar no prontuário grava a pontuação e a faixa. Item crítico, como o 9 do PHQ-9, vira alerta separado.", "alvo": "janela=Registrar no prontuário", "acao": "clicar" },
+    { "titulo": "Acompanhe a pontuação", "texto": "Cada aplicação aparece com data, escala, pontuação e faixa. Com duas ou mais, surgem a evolução e o gráfico.", "alvo": "linha=GAD-7" },
+    { "titulo": "Cancele com motivo", "texto": "Cancelar… pede o motivo e deixa a aplicação marcada — nada se apaga. Aqui vamos desistir do cancelamento.", "alvo": "botao=Cancelar", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1200 }
+  ]
+}

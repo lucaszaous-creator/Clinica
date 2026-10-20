@@ -1,0 +1,356 @@
+{
+  "chave": "agenda-recepcao",
+  "titulo": "Grade de horários",
+  "descricao": "A agenda em colunas por profissional, com os horários pela régua: onde está cada paciente e onde ainda cabe alguém.",
+  "passos": [
+    {
+      "titulo": "Conheça a grade de horários",
+      "texto": "Cada coluna é um profissional e os horários descem pela régua. O espaço vazio entre os cartões é horário livre.",
+      "alvo": "titulo=Grade de horários"
+    },
+    {
+      "titulo": "Escolha de quem é a agenda",
+      "texto": "Escolha um profissional para ver só a coluna dele. A lateral passa a mostrar o horário de atendimento e as vagas dele.",
+      "alvo": "campo=Profissional da agenda",
+      "acao": "selecionar",
+      "valor": "Dra. Helena"
+    },
+    {
+      "titulo": "Diga o que vai marcar",
+      "texto": "Atendimento é o tipo de sessão que você quer marcar. Ele já vem escolhido quando você clica num espaço livre da grade.",
+      "alvo": "campo=Modalidade para agendar",
+      "acao": "selecionar",
+      "valor": "BSV (apenas)"
+    },
+    {
+      "titulo": "Ajuste a duração",
+      "texto": "A duração em minutos diz o tamanho do espaço procurado. Uma sessão de 60 minutos só cabe onde há uma hora livre.",
+      "alvo": "entrada=Duração para consultar vagas",
+      "acao": "digitar",
+      "valor": "60"
+    },
+    {
+      "titulo": "Considere a sala",
+      "texto": "Com uma sala escolhida, a busca confere também se a sala está livre. Sem sala, vale só a agenda do profissional.",
+      "alvo": "campo=Sala da agenda"
+    },
+    {
+      "titulo": "Busque as próximas vagas",
+      "texto": "Lista os próximos horários livres do profissional, respeitando o horário dele e a agenda fechada. Clique numa vaga para marcar.",
+      "alvo": "botao=Próximas vagas",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "entrada=Duração para consultar vagas",
+      "acao": "digitar",
+      "valor": "30",
+      "ms": 1000
+    },
+    {
+      "alvo": "campo=Modalidade para agendar",
+      "acao": "selecionar",
+      "valor": "Consulta",
+      "ms": 1000
+    },
+    {
+      "alvo": "campo=Profissional da agenda",
+      "acao": "selecionar",
+      "valor": "Todos os profissionais",
+      "ms": 1500
+    },
+    {
+      "titulo": "Use o calendário",
+      "texto": "O calendário da esquerda leva a qualquer dia: as setas trocam o mês e um clique no dia abre a grade daquele dia.",
+      "alvo": "botao=Próximo mês",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "botao=Mês anterior",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Ande dia a dia",
+      "texto": "As setas ao lado da data avançam ou voltam um dia (ou uma semana). O campo de data leva direto a qualquer dia.",
+      "alvo": "botao=Próximo período",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Marque mais um no horário",
+      "texto": "O + no canto do cartão marca outro paciente no mesmo horário. A agenda avisa a sobreposição, mas não impede.",
+      "alvo": "botao=Marcar mais um paciente neste horário"
+    },
+    {
+      "titulo": "Volte para hoje",
+      "texto": "Ir para hoje traz a grade de volta ao dia de hoje, de qualquer data em que você esteja.",
+      "alvo": "botao=Ir para hoje",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja a semana inteira",
+      "texto": "Semana mostra os sete dias lado a lado, um por coluna. Bom para achar em que dia cabe o paciente.",
+      "alvo": "botao-exato=Semana",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "botao-exato=Dia",
+      "acao": "clicar",
+      "ms": 1500
+    },
+    {
+      "titulo": "Veja a grade por sala",
+      "texto": "Por sala troca as colunas: em vez de um profissional por coluna, uma sala por coluna. Mostra a ocupação das salas.",
+      "alvo": "caixa=Por sala",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "caixa=Por sala",
+      "acao": "clicar",
+      "ms": 1500
+    },
+    {
+      "titulo": "Atualize a grade",
+      "texto": "A grade se atualiza sozinha. Clique aqui (ou tecle F5) para ver na hora o que outra máquina marcou.",
+      "alvo": "botao=Atualizar a agenda",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Acompanhe os pedidos da enfermagem",
+      "texto": "A faixa conta os pedidos de encaixe que a enfermagem mandou. Ver pedidos leva à caixa onde eles são resolvidos.",
+      "alvo": "botao=Ver pedidos"
+    },
+    {
+      "titulo": "Ache um paciente na grade",
+      "texto": "Digite o nome e a grade mostra só os horários daquele paciente.",
+      "alvo": "entrada=Buscar paciente pelo nome",
+      "acao": "digitar",
+      "valor": "Mariana"
+    },
+    {
+      "alvo": "entrada=Buscar paciente pelo nome",
+      "acao": "limpar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Filtre pela modalidade",
+      "texto": "Mostra na grade só as sessões de uma modalidade. O resto some até você limpar o filtro.",
+      "alvo": "campo=Filtrar por modalidade",
+      "acao": "selecionar",
+      "valor": "Acupuntura (apenas)"
+    },
+    {
+      "titulo": "Limpe os filtros",
+      "texto": "Limpar filtros devolve todos os horários à grade de uma vez.",
+      "alvo": "botao=Limpar filtros",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Filtre pela situação",
+      "texto": "As pílulas contam os horários de cada situação e filtram a grade. A cor de cada cartão é a cor da situação.",
+      "alvo": "botao=No local",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "botao=Todos",
+      "acao": "clicar",
+      "ms": 1500
+    },
+    {
+      "titulo": "Entenda os espaços da grade",
+      "texto": "Espaço livre é clicável e abre a marcação naquela hora e profissional. Hachurado é agenda fechada ou fora do horário.",
+      "alvo": "texto=Disponível: cabe a duração consultada."
+    },
+    {
+      "titulo": "Abra um horário",
+      "texto": "Clique no cartão para abrir o horário: telefone, observação, quem marcou e tudo o que dá para fazer com ele.",
+      "alvo": "botao=Abrir o horário de Mariana Costa",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Remarque o horário",
+      "texto": "Remarcar abre o horário para trocar data, hora, profissional ou modalidade. O registro e o histórico continuam.",
+      "alvo": "janela=Remarcar"
+    },
+    {
+      "titulo": "Confirme pelo WhatsApp",
+      "texto": "Abre o WhatsApp com a confirmação pronta para o paciente. Comprovante, ao lado, gera o papel do horário.",
+      "alvo": "janela=Confirmar pelo WhatsApp"
+    },
+    {
+      "titulo": "Veja quem chamar da espera",
+      "texto": "Quem chamar? mostra quem da lista de espera serve para este horário, caso ele vague.",
+      "alvo": "janela=Quem chamar"
+    },
+    {
+      "titulo": "Cancele ou marque falta",
+      "texto": "Cancelar pede confirmação; Marcar falta registra que não veio. Nos dois, o cartão fica apagado e o horário volta livre.",
+      "alvo": "janela=Cancelar horário",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "janela-exato=Cancelar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Abra a lista de espera",
+      "texto": "Quem quer um horário antes fica aqui. O número no botão diz quantos esperam.",
+      "alvo": "botao=Lista de espera",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Coloque alguém na espera",
+      "texto": "Adicionar à lista guarda o paciente com o profissional, a modalidade e o turno que ele prefere.",
+      "alvo": "janela=Adicionar à lista",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha o paciente da espera",
+      "texto": "Busque pelo nome ou CPF e escolha a pessoa. Depois diga o turno e a partir de quando ela pode vir.",
+      "alvo": "janela-campo=Buscar por nome ou CPF",
+      "acao": "digitar",
+      "valor": "Ana Beatriz"
+    },
+    {
+      "alvo": "janela-opcao=Ana Beatriz Souza",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Dê prioridade se precisar",
+      "texto": "Prioritário põe o paciente na frente da fila. Entrar na lista grava o pedido.",
+      "alvo": "janela-caixa=Prioritário",
+      "acao": "marcar"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Configure horários e travas",
+      "texto": "Abre o horário de atendimento de cada profissional: os dias, as faixas e se a agenda dele recusa marcação fora disso.",
+      "alvo": "botao=Horários e travas",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha o profissional",
+      "texto": "Escolha quem configurar. Aparecem os dias da semana com as faixas de horário de cada um.",
+      "alvo": "janela-campo=Profissional",
+      "acao": "selecionar",
+      "valor": "Dra. Helena Duarte"
+    },
+    {
+      "titulo": "Ajuste os dias e a trava",
+      "texto": "Ligue os dias e as faixas em que ele atende. A trava faz a agenda recusar marcação fora do horário; desligada, só avisa.",
+      "alvo": "janela-caixa=Recusar marcação fora deste horário"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Use as outras ações",
+      "texto": "Mais ações traz: confirmar as sessões de amanhã, conferir horários parados, imprimir a folha e fechar a agenda.",
+      "alvo": "botao=Mais ações",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Confirme as sessões de amanhã",
+      "texto": "Leva às Confirmações, onde se avisa cada paciente de amanhã e se registra a resposta.",
+      "alvo": "item=Confirmar as sessões de amanhã"
+    },
+    {
+      "titulo": "Imprima a folha do dia",
+      "texto": "Gera a folha com os horários do dia para o profissional levar à sala, sem dado clínico.",
+      "alvo": "item=Imprimir a folha do dia"
+    },
+    {
+      "titulo": "Feche a agenda num período",
+      "texto": "Para férias, feriado ou folga. Quem já estava marcado não é desmarcado: a tela lista quem precisa ser remarcado.",
+      "alvo": "item=Fechar a agenda",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Informe motivo e período",
+      "texto": "Escreva o motivo, marque se é o dia inteiro e escolha de quem: em branco vale para todos os profissionais.",
+      "alvo": "janela-campo=Motivo",
+      "acao": "digitar",
+      "valor": "Feriado municipal"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "alvo": "botao=Mais ações",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Confira horários parados",
+      "texto": "Mostra horários de dias passados sem desfecho, para dizer se o paciente faltou ou se a sessão aconteceu.",
+      "alvo": "item=Conferir atendimentos",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Marque um atendimento",
+      "texto": "Abre a marcação neste dia. Clicar num espaço livre da grade faz o mesmo, já com a hora e o profissional daquele espaço.",
+      "alvo": "botao=Marcar atendimento",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha o paciente",
+      "texto": "Digite o nome ou o CPF e escolha a pessoa certa na lista.",
+      "alvo": "janela-campo=Buscar por nome ou CPF",
+      "acao": "digitar",
+      "valor": "Otávio"
+    },
+    {
+      "alvo": "janela-opcao=Otávio Rezende Campos",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Diga a hora",
+      "texto": "Informe a hora, a duração, quem atende e a modalidade. Se já houver alguém no horário, a lista de avisos diz.",
+      "alvo": "janela-campo=Hora",
+      "acao": "digitar",
+      "valor": "16:30"
+    },
+    {
+      "titulo": "Deixe um recado",
+      "texto": "Observações ficam no horário e aparecem para o balcão e para quem atende.",
+      "alvo": "janela-campo=Observações",
+      "acao": "digitar",
+      "valor": "Primeira sessão: chegar 10 minutos antes."
+    },
+    {
+      "titulo": "Salve o horário",
+      "texto": "Salvar horário grava a marcação na agenda. Aqui saímos sem salvar.",
+      "alvo": "janela=Salvar horário"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    }
+  ]
+}

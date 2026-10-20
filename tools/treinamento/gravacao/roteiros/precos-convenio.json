@@ -1,0 +1,25 @@
+{
+  "chave": "precos-convenio",
+  "titulo": "Tabela de preço por convênio",
+  "descricao": "Quanto cada operadora paga por tipo de guia — cadastrado pela direção e proposto automaticamente na conciliação do Financeiro.",
+  "passos": [
+    { "titulo": "Para que serve a tabela", "texto": "O preço cadastrado aqui aparece já preenchido na Conciliação do Financeiro: o balcão confere em vez de digitar o valor de cada guia.", "alvo": "texto=Quanto cada operadora paga" },
+    { "titulo": "Leia o resumo", "texto": "Quantos preços estão cadastrados e quantos valem hoje. Com filtro ligado, o resumo diz quantos aparecem.", "alvo": "titulo=Preços cadastrados" },
+    { "titulo": "Filtre por convênio", "texto": "Escolha uma operadora para ver só os preços dela — útil na hora de conferir uma tabela nova que chegou.", "alvo": "campo=Convênio", "acao": "selecionar", "valor": "Amil" },
+    { "titulo": "Só o que vale hoje", "texto": "Marque para esconder os preços inativos, encerrados e os que ainda não começaram a valer.", "alvo": "texto=Só o que vale hoje", "acao": "clicar" },
+    { "titulo": "Limpe o filtro", "texto": "Limpar filtro volta a mostrar todos os convênios e todas as vigências de uma vez.", "alvo": "botao=Limpar filtro", "acao": "clicar" },
+    { "titulo": "Leia cada preço", "texto": "Cada linha traz o convênio, o tipo de guia (com a especialidade, quando há), a vigência e o valor.", "alvo": "linha=Consulta de especialidade" },
+    { "titulo": "Entenda a situação", "texto": "Valendo agora é o preço que a conciliação está propondo hoje. Ainda não vale, vigência encerrada e inativo ficam na lista, apagados.", "alvo": "texto=valendo agora" },
+    { "titulo": "Cadastre um preço novo", "texto": "Novo preço abre o formulário: convênio, tipo de guia, especialidade (só se o valor depender dela), valor e vigência.", "alvo": "botao=Novo preço", "acao": "clicar" },
+    { "titulo": "Escolha convênio e valor", "texto": "Escolha a operadora e digite o valor da guia. Preço com especialidade vence o preço geral do mesmo tipo de guia.", "alvo": "janela-campo=Convênio", "acao": "selecionar", "valor": "Amil" },
+    { "alvo": "janela-campo=Valor da guia", "acao": "digitar", "valor": "152,00" },
+    { "titulo": "Reajuste entra como linha nova", "texto": "Em Vigente de, informe quando o novo valor passa a valer. A guia de março continua proposta pelo preço de março; nada já lançado muda.", "alvo": "janela-campo=Vigente de" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Corrija um preço", "texto": "Editar abre o mesmo formulário com o preço gravado. Use para corrigir um erro ou encerrar a vigência com a data Até.", "alvo": "botao-exato=Editar", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Exclua só o que foi errado", "texto": "A lixeira apaga o preço. Use só para cadastro errado — preço que já valeu se encerra pela vigência, para a história continuar explicada.", "alvo": "botao=Excluir o preço de", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Atualize a tabela", "texto": "Atualizar (F5) lê a tabela de novo, sem desfazer o filtro que está em uso.", "alvo": "botao=Atualizar" },
+    { "titulo": "Preço do particular", "texto": "A aba Particular, no alto, tem a tabela de preço de quem não usa convênio, por modalidade e especialidade.", "alvo": "aba-app=Particular" }
+  ]
+}

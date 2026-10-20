@@ -1,0 +1,26 @@
+{
+  "chave": "campanhas",
+  "titulo": "Campanhas",
+  "descricao": "Quem a clínica precisa contatar — confirmação de sessão, pesquisa de satisfação e recall — e quem já foi contatado.",
+  "passos": [
+    { "titulo": "Gere a rodada de satisfação", "texto": "Gerar NPS de ontem cria uma pesquisa para cada atendimento de ontem, só para quem aceitou receber mensagens. Clicar de novo não repete ninguém.", "alvo": "botao=Gerar NPS de ontem", "acao": "clicar" },
+    { "titulo": "Leia o resultado da rodada", "texto": "A frase fica na tela e diz quantos contatos entraram e quantos ficaram de fora, e por quê — sem telefone ou sem consentimento (LGPD).", "alvo": "titulo=Gerar rodada" },
+    { "titulo": "Filtre pela campanha", "texto": "Escolha Confirmação, NPS ou Recall para trabalhar uma fila de cada vez. Todos mostra as três juntas.", "alvo": "campo=Campanha", "acao": "selecionar", "valor": "NPS" },
+    { "alvo": "campo=Campanha", "acao": "selecionar", "valor": "Todos", "ms": 1200 },
+    { "titulo": "Filtre pela situação", "texto": "A enviar é a fila de trabalho. Enviados e Respondidos mostram quem já recebeu a mensagem e quem já respondeu.", "alvo": "campo=Situação", "acao": "selecionar", "valor": "Respondidos" },
+    { "alvo": "campo=Situação", "acao": "selecionar", "valor": "A enviar", "ms": 1200 },
+    { "titulo": "Escolha a janela de tempo", "texto": "Semana que vem mostra o que vai acontecer; Últimos 30 dias e Últimos 3 meses mostram o que já passou. O título diz as datas.", "alvo": "botao=Últimos 30 dias", "acao": "clicar" },
+    { "alvo": "botao=Semana que vem", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Leia a fila", "texto": "Cada linha traz o paciente, o telefone, a campanha, a data de referência e a situação. É um contato por pessoa, nunca disparo em massa.", "alvo": "texto-exato=Referência" },
+    { "titulo": "Envie pelo WhatsApp", "texto": "WhatsApp abre a conversa com a mensagem pronta no número da clínica e registra o envio. Sem telefone válido, o botão fica apagado.", "alvo": "botao=WhatsApp" },
+    { "titulo": "Registre a nota do NPS", "texto": "Na pesquisa de satisfação, o lápis registra a nota de 0 a 10 que o paciente deu. Dá para escrever o comentário depois da nota.", "alvo": "botao=Registrar a nota de", "acao": "clicar" },
+    { "alvo": "janela-campo=Escreva aqui", "acao": "digitar", "valor": "9 Gostou muito do atendimento" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Registre o que respondeu", "texto": "O visto registra a resposta do paciente — confirmou, pediu para remarcar, agradeceu. O contato sai da fila de A enviar.", "alvo": "botao=Registrar a resposta de", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Dispense um contato", "texto": "O X tira o contato da campanha sem enviar nada. Como ninguém falou com o paciente, o motivo é obrigatório e fica registrado.", "alvo": "botao=Dispensar", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Quem não tem telefone", "texto": "Sem telefone no cadastro não dá para enviar. Corrija o telefone na ficha do paciente ou dispense o contato com o motivo.", "alvo": "css=.camp-sem-telefone" },
+    { "titulo": "Atualize a fila", "texto": "O rodapé conta os contatos da fila. Atualizar (F5) lê de novo — outra máquina pode ter enviado ou registrado respostas.", "alvo": "botao=Atualizar" }
+  ]
+}

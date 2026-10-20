@@ -235,7 +235,10 @@ if (require.main !== module) return;
   // A matriz do workflow grava um app por máquina: APPS diz quais (o prefixo basta —
   // "consultorio" leva junto as aulas gravadas no Consultório da enfermagem).
   const apps = (process.env.APPS || '').split(',').map(s => s.trim()).filter(Boolean);
-  const roteiros = fs.readdirSync(PASTA_ROTEIROS).filter(f => f.endsWith('.json'))
+  // FATIA=i/n: a matriz do workflow divide as aulas entre n máquinas (a i-ésima de cada n).
+  const [fatia, fatias] = (process.env.FATIA || '1/1').split('/').map(Number);
+  const roteiros = fs.readdirSync(PASTA_ROTEIROS).filter(f => f.endsWith('.json')).sort()
+    .filter((_, i) => i % fatias === fatia - 1)
     .map(f => JSON.parse(fs.readFileSync(path.join(PASTA_ROTEIROS, f), 'utf8')));
   const navegador = await chromium.launch();
   const resumo = [];

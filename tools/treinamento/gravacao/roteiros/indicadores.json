@@ -1,0 +1,22 @@
+{
+  "chave": "indicadores",
+  "titulo": "Indicadores",
+  "descricao": "Como a agenda está indo: atendimentos, faltas, ocupação, produtividade de cada profissional e satisfação dos pacientes.",
+  "passos": [
+    { "titulo": "Escolha o período", "texto": "Este mês, Últimos 3 meses ou Este ano. Todos os cartões, tabelas e gráficos da tela passam a mostrar o período escolhido.", "alvo": "botao=Últimos 3 meses", "acao": "clicar" },
+    { "titulo": "Atendidos", "texto": "Sessões que de fato aconteceram, contra os horários agendados. A linha de baixo compara com o período anterior.", "alvo": "texto-exato=Atendidos" },
+    { "titulo": "Faltas (no-show)", "texto": "Percentual de faltas sem aviso. Cancelamento avisado não conta como falta. Aqui subir é ruim — por isso o número fica em vermelho.", "alvo": "texto-exato=Faltas (no-show)" },
+    { "titulo": "Ocupação e pacientes", "texto": "Ocupação é o tempo de agenda usado sobre a jornada da clínica. Pacientes atendidos conta pessoas diferentes, com os encaixes ao lado.", "alvo": "texto-exato=Ocupação" },
+    { "titulo": "NPS, a satisfação", "texto": "A nota das pesquisas de satisfação: promotores menos detratores. Embaixo, quantas respostas formam o número — poucas respostas, cautela.", "alvo": "texto-exato=NPS" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ de cada cartão copia o valor para colar na planilha ou no relatório da reunião, sem redigitar.", "alvo": "botao=Opções do cartão Atendidos", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Confira a jornada usada", "texto": "A frase diz sobre quantas horas por dia a ocupação foi medida. Se a clínica trabalha meio período, ajuste a jornada em Configurações.", "alvo": "texto=Ocupação medida sobre" },
+    { "titulo": "Produtividade de cada um", "texto": "Atendidos, faltas, no-show e horas de cada profissional. Prontuário mostra quantas sessões já têm a evolução escrita.", "alvo": "titulo=Produtividade por profissional" },
+    { "titulo": "Queda média da dor", "texto": "Quanto a dor caiu, em média, entre o início e o fim das sessões de cada profissional — o efeito do tratamento em números.", "alvo": "texto-exato=Queda média da dor" },
+    { "titulo": "Ocupação por profissional", "texto": "A barra cheia é a maior ocupação do período, não 100%. O número ao lado de cada nome diz o valor real.", "alvo": "titulo=Ocupação por profissional" },
+    { "titulo": "Evolução mês a mês", "texto": "Os gráficos mostram atendimentos e faltas mês a mês, com a tabela embaixo. Com um mês só não há evolução: escolha um período maior.", "alvo": "titulo=Evolução mensal" },
+    { "alvo": "botao=Este mês", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Atualize e exporte", "texto": "Atualizar (F5) lê os números de novo. Exportar CSV gera a planilha dos indicadores para abrir no Excel ou guardar.", "alvo": "botao=Exportar CSV" },
+    { "titulo": "Outras visões do desempenho", "texto": "As abas no alto levam a Tendências, Produção e Metas — as outras perguntas sobre o desempenho da clínica.", "alvo": "aba-app=Tendências" }
+  ]
+}

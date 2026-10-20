@@ -1,0 +1,152 @@
+{
+  "chave": "canal-sms",
+  "titulo": "Canal de SMS",
+  "descricao": "O lembrete automático por SMS com link de resposta, as campanhas para quem consentiu e a configuração do provedor.",
+  "passos": [
+    {
+      "titulo": "Conheça o canal de SMS",
+      "texto": "Aqui ficam o lembrete automático com link para o paciente confirmar, as campanhas por SMS e a configuração do provedor.",
+      "alvo": "titulo=Canal de SMS"
+    },
+    {
+      "titulo": "Confira se o SMS está ligado",
+      "texto": "A faixa diz se o canal está ligado. Desligado, nenhum SMS sai até alguém escolher o provedor em Configuração.",
+      "alvo": "botao=Ver a configuração"
+    },
+    {
+      "titulo": "Escolha o mês",
+      "texto": "As setas trocam o mês. Os números e a lista de lembretes são sempre do mês escolhido.",
+      "alvo": "botao=Mês anterior",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Próximo mês", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Veja quantos saíram",
+      "texto": "Enviados conta os SMS do mês e separa os de confirmação, os de campanha e os de teste.",
+      "alvo": "texto-exato=Enviados"
+    },
+    {
+      "titulo": "Saiba quanto custou",
+      "texto": "O provedor cobra por segmento de 160 caracteres. Segmentos cobrados soma só o que de fato saiu.",
+      "alvo": "texto-exato=Segmentos cobrados"
+    },
+    {
+      "titulo": "Acompanhe as falhas",
+      "texto": "Falhas são os SMS que o provedor recusou. O sistema tenta de novo sozinho até 3 vezes; o erro aparece na linha.",
+      "alvo": "texto-exato=Falhas"
+    },
+    {
+      "titulo": "Veja o que está saindo",
+      "texto": "Em envio são os SMS reservados que ainda esperam a resposta do provedor.",
+      "alvo": "texto-exato=Em envio"
+    },
+    {
+      "titulo": "Copie um número",
+      "texto": "Os três pontinhos do cartão copiam o número para colar numa planilha ou mensagem.",
+      "alvo": "botao=Opções do cartão Segmentos cobrados",
+      "acao": "clicar"
+    },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Filtre pela finalidade",
+      "texto": "Mostra só um tipo de SMS: confirmação de sessão, campanha ou teste.",
+      "alvo": "campo=Finalidade",
+      "acao": "selecionar",
+      "valor": "Campanha"
+    },
+    { "alvo": "campo=Finalidade", "acao": "selecionar", "valor": "Todas", "ms": 1200 },
+    {
+      "titulo": "Veja só as falhas",
+      "texto": "Marque para ver só os SMS que falharam, com o motivo que o provedor deu — por exemplo, número inválido.",
+      "alvo": "caixa=Só as falhas",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Corrija o que falhou",
+      "texto": "O erro do provedor fica escrito na linha. Número inválido se resolve corrigindo o telefone na ficha do paciente.",
+      "alvo": "texto=O provedor recusou"
+    },
+    { "alvo": "caixa=Só as falhas", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Leia a linha do SMS",
+      "texto": "Cada linha traz quando saiu, para quem, a finalidade com o texto enviado, a situação e quantos segmentos custou.",
+      "alvo": "linha=Paulo Henrique Martins"
+    },
+    {
+      "titulo": "Envie os lembretes agora",
+      "texto": "Manda já o lembrete das sessões cuja hora chegou. Fica apagado com o canal desligado.",
+      "alvo": "botao=Enviar lembretes agora"
+    },
+    {
+      "titulo": "Monte uma campanha",
+      "texto": "A aba Campanha manda um SMS para um grupo de pacientes: escolha o público, escreva a mensagem e veja a prévia.",
+      "alvo": "aba=Campanha",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha o público",
+      "texto": "Recorte por convênio da ficha, pelo período de atendimento e por quem fez uma modalidade ou especialidade.",
+      "alvo": "campo=Convênio da ficha"
+    },
+    {
+      "titulo": "Escreva a mensagem",
+      "texto": "O contador diz quantos SMS a mensagem ocupa. Sem dado clínico: o celular pode não ser só do paciente.",
+      "alvo": "campo=Texto do SMS",
+      "acao": "digitar",
+      "valor": "Ola! A clinica abriu horarios aos sabados em novembro. Responda para marcar."
+    },
+    {
+      "titulo": "Veja a prévia",
+      "texto": "Ver prévia conta quem recebe, quem fica de fora por não ter consentido ou não ter celular, e quanto vai custar.",
+      "alvo": "botao=Ver prévia",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Envie a campanha",
+      "texto": "Enviar campanha pede confirmação antes. Depois de enviado não há como desfazer. Com o canal desligado, fica apagado.",
+      "alvo": "botao=Enviar campanha"
+    },
+    {
+      "titulo": "Configure o provedor",
+      "texto": "A aba Configuração liga o canal: escolha o provedor e preencha o que ele pede. Só a gestão altera.",
+      "alvo": "aba=Configuração",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha o provedor",
+      "texto": "Escolha entre Zenvia, Twilio ou outro provedor. Aparecem os campos que ele pede: token da API e remetente.",
+      "alvo": "botao-exato=Zenvia",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Informe o remetente",
+      "texto": "O remetente é o nome ou número cadastrado no provedor. O token, depois de salvo, nunca volta a aparecer na tela.",
+      "alvo": "campo=Remetente",
+      "acao": "digitar",
+      "valor": "Clinica SemDor"
+    },
+    {
+      "titulo": "Diga a antecedência",
+      "texto": "Quantas horas antes da sessão o lembrete sai. A opção ao lado adianta o lembrete do fim de semana para a sexta.",
+      "alvo": "campo=Antecedência"
+    },
+    {
+      "titulo": "Salve a configuração",
+      "texto": "Salvar configuração grava o provedor e liga o canal. Se faltar algum campo, a tela diz qual.",
+      "alvo": "botao=Salvar configuração"
+    },
+    {
+      "titulo": "Teste antes de ligar",
+      "texto": "Mande um SMS de teste para um celular da clínica e confira se chegou antes de deixar os lembretes saírem.",
+      "alvo": "campo=Celular com DDD",
+      "acao": "digitar",
+      "valor": "(21) 99999-0000"
+    },
+    {
+      "titulo": "Volte aos lembretes",
+      "texto": "A aba Lembretes volta ao histórico do mês. O botão Atualizar relê tudo a qualquer momento.",
+      "alvo": "aba=Lembretes",
+      "acao": "clicar"
+    }
+  ]
+}

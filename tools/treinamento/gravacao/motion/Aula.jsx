@@ -74,16 +74,18 @@ function cursorEm(q, t) {
 }
 
 // ---------- peças ----------
+// O fundo: gradientes radiais (baratos de desenhar) no lugar de bolhas com desfoque — o
+// "filter: blur" grande custava segundos por quadro e fazia a montagem levar horas.
 const Fundo = () => {
   const f = useCurrentFrame();
-  const bolha = (cx, cy, r, cor, v, fase) => (
-    <div style={{ position: 'absolute', left: cx + Math.sin(f / v + fase) * 60 - r, top: cy + Math.cos(f / (v * 1.3) + fase) * 40 - r, width: r * 2, height: r * 2, borderRadius: '50%', background: cor, filter: 'blur(90px)', opacity: 0.55 }} />
-  );
+  const x1 = 18 + Math.sin(f / 140) * 4, y1 = 22 + Math.cos(f / 180) * 4;
+  const x2 = 84 + Math.sin(f / 170 + 2) * 4, y2 = 82 + Math.cos(f / 220 + 2) * 4;
   return (
-    <AbsoluteFill style={{ background: `linear-gradient(135deg, ${COR.fundo1} 0%, ${COR.fundo2} 55%, ${COR.fundo3} 100%)`, overflow: 'hidden' }}>
-      {bolha(300, 220, 260, '#3B82F6', 140, 0)}
-      {bolha(1650, 900, 320, '#1D4ED8', 170, 2)}
-      {bolha(1500, 160, 200, '#60A5FA', 120, 4)}
+    <AbsoluteFill style={{
+      background: `radial-gradient(circle at ${x1}% ${y1}%, rgba(59,130,246,0.55) 0%, rgba(59,130,246,0) 32%),
+        radial-gradient(circle at ${x2}% ${y2}%, rgba(29,78,216,0.6) 0%, rgba(29,78,216,0) 36%),
+        radial-gradient(circle at 80% 12%, rgba(96,165,250,0.35) 0%, rgba(96,165,250,0) 22%),
+        linear-gradient(135deg, ${COR.fundo1} 0%, ${COR.fundo2} 55%, ${COR.fundo3} 100%)` }}>
       <AbsoluteFill style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.07) 1.4px, transparent 1.4px)', backgroundSize: '34px 34px' }} />
     </AbsoluteFill>
   );
@@ -266,7 +268,7 @@ const Palco = ({ aula }) => {
 
       {/* janela do app */}
       <div style={{ position: 'absolute', left: JAN_X, top: JAN_Y, width: JAN_W, height: JAN_H, borderRadius: 16, overflow: 'hidden', background: '#fff',
-        boxShadow: '0 40px 90px rgba(2,8,40,0.55), 0 0 0 1px rgba(255,255,255,0.15)',
+        boxShadow: '0 30px 60px rgba(2,8,40,0.5), 0 0 0 1px rgba(255,255,255,0.15)',
         opacity: entra * (1 - sai), transform: `translateY(${50 * (1 - entra) + 30 * sai}px) scale(${0.93 + 0.07 * entra - 0.05 * sai})` }}>
         <div style={{ height: BARRA, background: '#E9EEF7', borderBottom: '1px solid #D5DDEB', display: 'flex', alignItems: 'center', padding: '0 16px', fontSize: 15, color: '#334155' }}>
           <span style={{ fontWeight: 600 }}>{aula.nomeApp} — Clínica SemDor</span>
@@ -277,8 +279,13 @@ const Palco = ({ aula }) => {
             <OffthreadVideo src={staticFile(aula.video)} muted style={{ width: CW, height: CH }} />
           </div>
           {anel && (
-            <div style={{ position: 'absolute', left: anel.x, top: anel.y, width: anel.w, height: anel.h, borderRadius: 12, opacity: anel.vis, transform: `scale(${anel.esc})`,
-              boxShadow: `0 0 0 3px ${COR.ambarForte}, 0 0 ${18 + 14 * anel.pulso}px ${4 + 4 * anel.pulso}px rgba(251,191,36,0.55), 0 0 0 4000px rgba(6,26,79,${0.26 * anel.vis})` }} />
+            <>
+              {[[0, 0, CW, anel.y], [0, anel.y + anel.h, CW, CH - anel.y - anel.h], [0, anel.y, anel.x, anel.h], [anel.x + anel.w, anel.y, CW - anel.x - anel.w, anel.h]].map(([x, y, w, h], i) => (
+                <div key={i} style={{ position: 'absolute', left: x, top: y, width: Math.max(0, w), height: Math.max(0, h), background: `rgba(6,26,79,${0.24 * anel.vis})` }} />
+              ))}
+              <div style={{ position: 'absolute', left: anel.x, top: anel.y, width: anel.w, height: anel.h, borderRadius: 12, opacity: anel.vis, transform: `scale(${anel.esc})`,
+                border: `3px solid ${COR.ambarForte}`, boxShadow: `0 0 ${10 + 8 * anel.pulso}px ${2 + 3 * anel.pulso}px rgba(251,191,36,0.55)` }} />
+            </>
           )}
           {toques.map((q, i) => (
             <div key={i} style={{ position: 'absolute', left: curJ.x - 26, top: curJ.y - 26, width: 52, height: 52, borderRadius: '50%', border: `3px solid ${COR.ambarForte}`, opacity: 1 - q.p, transform: `scale(${0.4 + 1.6 * q.p})` }} />

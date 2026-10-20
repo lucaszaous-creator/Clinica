@@ -1,0 +1,30 @@
+{
+  "chave": "conciliacao",
+  "titulo": "Conciliação",
+  "descricao": "Guias efetivadas e sessões particulares que ainda não viraram dinheiro no caixa — e as receitas que o convênio glosou depois.",
+  "passos": [
+    { "titulo": "Escolha o mês", "texto": "A conciliação olha o mês da baixa da guia. As setas trocam o mês; confira também o anterior, onde costuma sobrar guia sem receita.", "alvo": "botao=Mês anterior", "acao": "clicar" },
+    { "alvo": "botao=Próximo mês", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Guias a lançar", "texto": "A lançar traz as guias que o faturamento já efetivou no convênio e que ainda não têm receita no caixa. O número na aba é quantas faltam.", "alvo": "aba=A lançar", "acao": "clicar" },
+    { "titulo": "Filtre pelo convênio", "texto": "Escolha um convênio para conferir o depósito dele guia por guia, contra o demonstrativo de pagamento da operadora.", "alvo": "campo=Convênio", "acao": "selecionar", "valor": "Amil" },
+    { "alvo": "campo=Convênio", "acao": "selecionar", "valor": "Todos os convênios", "ms": 1500 },
+    { "titulo": "Ache pelo paciente ou guia", "texto": "Digite parte do nome do paciente ou um trecho do número da guia. O valor que você já digitou nas linhas não se perde com o filtro.", "alvo": "entrada=Parte do nome", "acao": "digitar", "valor": "Tiago" },
+    { "alvo": "entrada=Parte do nome", "acao": "limpar", "ms": 1200 },
+    { "titulo": "Veja as guias sem preço", "texto": "Marque para ver só as guias sem valor proposto pela tabela do convênio — nelas o valor tem de ser digitado.", "alvo": "caixa=Só as sem valor proposto", "acao": "clicar" },
+    { "alvo": "botao=Limpar filtro", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia o resumo", "texto": "A frase diz quantas guias estão efetivadas sem receita e quantas não têm preço cadastrado na tabela do convênio.", "alvo": "texto=sem receita lançada" },
+    { "titulo": "Confira a procedência", "texto": "Quando há preço na tabela, o valor já vem proposto e a linha diz de onde ele saiu. Confira com o que o convênio pagou: houve glosa parcial?", "alvo": "texto=tabela:" },
+    { "titulo": "Digite o valor recebido", "texto": "Informe quanto o convênio pagou por aquela guia, como está no demonstrativo. Aceita 145,00 ou 145.00.", "alvo": "entrada=Valor recebido de", "acao": "digitar", "valor": "145,00" },
+    { "titulo": "Calcule a retenção", "texto": "Reter? mostra quanto a operadora reteve de imposto na fonte sobre esse valor, antes de você lançar. Não grava nada.", "alvo": "botao=Reter?", "acao": "clicar" },
+    { "titulo": "Lance a receita", "texto": "Lançar grava a receita no Caixa já ligada à guia. A guia sai da lista porque passou a ter receita — ninguém precisa marcá-la.", "alvo": "botao-exato=Lançar", "acao": "clicar" },
+    { "titulo": "Veja as guias glosadas", "texto": "Glosadas é o caminho de volta: guia que já virou receita e que o convênio recusou depois. Leia o aviso antes de agir.", "alvo": "aba=Glosadas", "acao": "clicar" },
+    { "titulo": "Derrube a receita glosada", "texto": "Derrubar cancela a receita prevista com o motivo, e a guia volta para A lançar se o recurso for aceito. Receita já recebida não se derruba.", "alvo": "botao=Derrubar receita" },
+    { "titulo": "Sessões particulares", "texto": "Particulares traz as sessões realizadas no mês sem nenhum dinheiro registrado — o paciente pagou e ninguém lançou, ou ficou devendo.", "alvo": "aba=Particulares", "acao": "clicar" },
+    { "titulo": "Informe o valor da sessão", "texto": "Digite quanto a sessão custou. Se o valor já vier proposto, a linha diz de onde ele saiu.", "alvo": "entrada=Valor da sessão de", "acao": "digitar", "valor": "180,00" },
+    { "titulo": "Recebido ou a receber", "texto": "Recebido pede a forma de pagamento. A receber pede o vencimento e vira conta em aberto do paciente, em Quem me deve.", "alvo": "botao-exato=A receber", "acao": "clicar" },
+    { "alvo": "botao-exato=Recebido", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Escolha a forma de pagamento", "texto": "Dinheiro, Pix, cartão, transferência ou boleto. Em dinheiro, a sessão entra também na conferência da gaveta.", "alvo": "entrada=Forma de pagamento", "acao": "selecionar", "valor": "PIX" },
+    { "titulo": "Lance a sessão", "texto": "Lançar grava o dinheiro no Caixa ligado à sessão, e a sessão sai desta lista. O balcão é avisado na próxima visita do paciente.", "alvo": "botao-exato=Lançar" },
+    { "titulo": "Atualize a tela", "texto": "Atualizar relê as três abas — depois que o faturamento efetivar novas guias ou o balcão lançar um pagamento.", "alvo": "botao=Atualizar" }
+  ]
+}

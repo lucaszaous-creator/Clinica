@@ -1,0 +1,182 @@
+{
+  "chave": "retorno-pacientes",
+  "titulo": "Acompanhamento de pacientes",
+  "descricao": "Quem sumiu e as indicações de BSV, do primeiro contato até a sessão: assumir, falar com o paciente e registrar como foi.",
+  "passos": [
+    {
+      "titulo": "Conheça o acompanhamento",
+      "texto": "Esta é a fila de quem parou de vir e das indicações de BSV. Cada linha tem o próximo passo daquele paciente.",
+      "alvo": "titulo=Acompanhamento de pacientes"
+    },
+    {
+      "titulo": "Veja quem ninguém assumiu",
+      "texto": "O funil mostra o andamento da fila e filtra ao clicar. A assumir são os casos que ninguém pegou ainda.",
+      "alvo": "botao=A assumir",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja quem contatar hoje",
+      "texto": "Para contatar hoje lista os contatos combinados para hoje. Em vermelho, os que já passaram do dia.",
+      "alvo": "botao=Para contatar hoje",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Acompanhe as conversas",
+      "texto": "Em conversa são os que aguardam resposta ou uma data. Agendados já têm a próxima sessão marcada.",
+      "alvo": "botao=Em conversa",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Em conversa", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Meça quem voltou",
+      "texto": "Voltaram em 30 dias conta quem foi contatado e voltou a ser atendido. É o resultado do trabalho da fila.",
+      "alvo": "botao=Voltaram em"
+    },
+    {
+      "titulo": "Troque entre recall e BSV",
+      "texto": "Recall é quem parou de vir. Novos BSV são as indicações de BSV até a primeira sessão. O número diz quantos há em cada fila.",
+      "alvo": "botao=Novos BSV",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Recall ·", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Veja a fila da equipe",
+      "texto": "Minha fila mostra o que é seu e o que ninguém assumiu. Toda a equipe mostra os casos de todos.",
+      "alvo": "botao=Toda a equipe",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Minha fila", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Busque um paciente",
+      "texto": "Digite o nome, o telefone ou o convênio para achar o caso na fila.",
+      "alvo": "entrada=Buscar por nome, telefone ou convênio",
+      "acao": "digitar",
+      "valor": "Mariana"
+    },
+    { "alvo": "entrada=Buscar por nome, telefone ou convênio", "acao": "limpar", "ms": 1200 },
+    {
+      "titulo": "Use mais filtros",
+      "texto": "Mais filtros recorta por modalidade, convênio, responsável, motivo, tentativas, último contato ou dias sem vir.",
+      "alvo": "botao=Mais filtros",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Marque e aplique",
+      "texto": "Marque o que quer ver, como tratamento longo, e clique em Aplicar. O botão da barra passa a dizer quantos filtros estão ligados.",
+      "alvo": "janela-caixa=Tratamento longo",
+      "acao": "marcar"
+    },
+    { "alvo": "janela=Aplicar", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Limpe os filtros",
+      "texto": "Limpar filtros devolve a fila inteira.",
+      "alvo": "botao=Limpar filtros",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja os encerrados",
+      "texto": "Encerrados mostra os casos fechados com motivo. Dá para ler a justificativa e reabrir. Clique de novo para voltar.",
+      "alvo": "botao=Encerrados",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Encerrados", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Leia a linha do paciente",
+      "texto": "A linha traz há quantos dias ele não vem, o progresso em cinco degraus, a situação e quem é o responsável.",
+      "alvo": "linha=Ana Beatriz Souza"
+    },
+    {
+      "titulo": "Assuma um paciente",
+      "texto": "Assumir põe o caso no seu nome. Depois disso, o botão da linha passa a ser o próximo passo: falar, marcar, tentar de novo.",
+      "alvo": "botao-exato=Assumir",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Abra a conversa",
+      "texto": "Clique na linha para abrir a conversa: a mensagem pronta, o caminho do caso, o registro de como foi e o histórico.",
+      "alvo": "linha=Ana Beatriz Souza",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Fale com o paciente",
+      "texto": "A mensagem já vem escrita. Abra no WhatsApp, copie o telefone para ligar ou marque o horário direto daqui.",
+      "alvo": "janela-texto=A mensagem que vai sair"
+    },
+    {
+      "titulo": "Registre como foi",
+      "texto": "Depois do contato, escolha como foi: não respondeu, pediu outra data, quer marcar, aguarda o plano ou não quer voltar.",
+      "alvo": "janela-texto=Não respondeu",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Diga por onde foi",
+      "texto": "Marque o canal do contato e, se quiser, anote o que o paciente disse. A próxima tentativa já vem sugerida.",
+      "alvo": "janela-exato=Telefone",
+      "acao": "clicar"
+    },
+    { "alvo": "janela-campo=O que o paciente disse", "acao": "digitar", "valor": "Não atendeu; tentar à tarde.", "ms": 1500 },
+    {
+      "titulo": "Grave o contato",
+      "texto": "O botão Registrar grava o contato no histórico, em seu nome. Aqui saímos sem gravar.",
+      "alvo": "janela=Registrar"
+    },
+    {
+      "titulo": "Leia o histórico",
+      "texto": "Ao lado, os dados do paciente e o histórico de contatos: quando, por onde, quem fez e o resultado.",
+      "alvo": "janela-texto=Histórico"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Gere o recall",
+      "texto": "Gerar recall busca quem está há N dias ou mais sem vir e põe na fila. Quem já está na fila não é duplicado.",
+      "alvo": "botao=Gerar recall",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha quantos dias",
+      "texto": "Diga há quantos dias sem vir e, se quiser, a modalidade. Gerar põe esses pacientes na fila.",
+      "alvo": "janela-campo=Sem vir há",
+      "acao": "digitar",
+      "valor": "90"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Veja por responsável",
+      "texto": "Mostra o que cada pessoa da equipe tem nas mãos e os casos encerrados por motivo. É uma visão da gestão.",
+      "alvo": "botao=Por responsável",
+      "acao": "clicar"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Configure o acompanhamento",
+      "texto": "A gestão escolhe quem indica os novos BSV, quem os recebe e os motivos usados pela equipe.",
+      "alvo": "botao=Configurar",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Cadastre um motivo",
+      "texto": "Escreva um motivo novo e clique em Cadastrar motivo. Ele passa a aparecer nos registros de contato.",
+      "alvo": "janela-campo=Nome do novo motivo",
+      "acao": "digitar",
+      "valor": "Mudou de cidade"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Leve a lista para a planilha",
+      "texto": "Exportar CSV gera o arquivo da lista à vista, com a coluna de quem pode receber mensagem. Atalho: Ctrl+P.",
+      "alvo": "botao=Exportar CSV"
+    },
+    {
+      "titulo": "Atualize a lista",
+      "texto": "Relê a fila agora, com o que outra pessoa da equipe registrou. Atalho: F5.",
+      "alvo": "botao=Atualizar a lista",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Entenda as situações",
+      "texto": "Abra este quadro para ler o que cada situação quer dizer e o que fazer com ela.",
+      "alvo": "texto=Entenda as situações",
+      "acao": "clicar"
+    }
+  ]
+}

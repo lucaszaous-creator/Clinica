@@ -1,0 +1,27 @@
+{
+  "chave": "faturamento-faturados",
+  "titulo": "Guias faturadas",
+  "descricao": "Quais guias já foram efetivadas no convênio? Imprima a guia, registre a glosa que voltou ou estorne uma baixa feita por engano.",
+  "passos": [
+    { "titulo": "Escolha o período da baixa", "texto": "Baixadas de e até filtram pela data em que a guia foi baixada. Troque as datas e clique em Buscar para ler o novo período.", "alvo": "campo=Baixadas de" },
+    { "titulo": "Busque o período", "texto": "Buscar lê as guias baixadas no período escolhido. O atalho F5 faz o mesmo.", "alvo": "botao=Buscar" },
+    { "titulo": "Leia o resumo", "texto": "Quantas guias foram baixadas no período. Com filtro ligado, a frase diz quantas aparecem de quantas.", "alvo": "texto=guia(s) no período" },
+    { "titulo": "Ache pelo paciente", "texto": "Digite parte do nome — o acento não atrapalha. A lista filtra na hora, dentro do período escolhido.", "alvo": "placeholder=Parte do nome", "acao": "digitar", "valor": "Igor" },
+    { "titulo": "Limpe o filtro", "texto": "Limpar filtro volta a mostrar todas as guias do período.", "alvo": "botao=Limpar filtro", "acao": "clicar" },
+    { "titulo": "Ache pelo número da guia", "texto": "Um trecho do número que veio do portal da operadora já basta para achar a guia baixada.", "alvo": "entrada=Nº da guia", "acao": "digitar", "valor": "9005" },
+    { "alvo": "botao=Limpar filtro", "acao": "clicar" },
+    { "titulo": "Filtre pelo convênio", "texto": "Mostra só as guias de uma operadora — útil para conferir o demonstrativo de pagamento dela, linha por linha.", "alvo": "campo=Convênio", "acao": "selecionar", "valor": "Amil" },
+    { "alvo": "botao=Limpar filtro", "acao": "clicar" },
+    { "titulo": "Veja as guias glosadas", "texto": "A coluna Glosa marca as guias que a operadora recusou depois da baixa. Elas seguem para a aba Glosas e recursos.", "alvo": "texto-exato=Glosada" },
+    { "titulo": "Imprima a guia", "texto": "Gera a guia deste atendimento no leiaute padrão da ANS, em PDF, para imprimir ou anexar.", "alvo": "botao-exato=Guia" },
+    { "titulo": "Reimprima a capa", "texto": "O ícone ao lado gera de novo a capa de faturamento do atendimento, em PDF.", "alvo": "botao=Reimprimir a capa de faturamento" },
+    { "titulo": "Registre uma glosa", "texto": "Quando a operadora recusar uma guia já baixada, registre aqui a data, o motivo da tabela ANS e um complemento.", "alvo": "botao=Registrar a glosa desta guia", "acao": "clicar" },
+    { "titulo": "Escolha o motivo da glosa", "texto": "O motivo escolhido explica o que significa, como evitar e o que juntar para recorrer. O prazo de recurso começa a contar da data da glosa.", "alvo": "janela-campo=Motivo (tabela ANS)", "acao": "selecionar", "valor": "1201 — Carteirinha inválida ou vencida" },
+    { "titulo": "Consulte o guia de motivos", "texto": "Abre todos os motivos de glosa com busca. Usar este motivo preenche o campo para você.", "alvo": "janela=Ver o guia completo dos motivos", "acao": "clicar" },
+    { "titulo": "Escreva o complemento", "texto": "Detalhe o que a operadora disse. Registrar glosa grava e leva a guia para Glosas e recursos, com o prazo correndo.", "alvo": "janela-campo=Complemento", "acao": "digitar", "valor": "Carteirinha venceu na véspera do atendimento" },
+    { "alvo": "janela=Fechar", "acao": "clicar" },
+    { "titulo": "Estorne uma baixa errada", "texto": "Desfaz a baixa feita por engano: a guia volta para as pendências para ser faturada de novo. O sistema pede confirmação antes.", "alvo": "botao=Estornar a baixa desta guia", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar" },
+    { "titulo": "Exporte para o Excel", "texto": "Gera um arquivo CSV com as guias da lista, que abre no Excel. O atalho Ctrl+P faz o mesmo.", "alvo": "botao=Exportar CSV" }
+  ]
+}

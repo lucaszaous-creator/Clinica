@@ -1,0 +1,26 @@
+{
+  "chave": "consultorio-exames",
+  "titulo": "Exames",
+  "descricao": "Os pedidos de exame dos últimos 90 dias e a situação de cada um: o que ainda aguarda resultado e o que já chegou.",
+  "passos": [
+    { "titulo": "Os pedidos de exame", "texto": "Aqui ficam os pedidos de exame dos últimos 90 dias. O subtítulo conta quantos foram pedidos e quantos ainda aguardam resultado.", "alvo": "titulo=Exames" },
+    { "titulo": "De quem é a lista", "texto": "A lista mostra os pedidos de quem está logado. Sem vínculo a um profissional, mostra os da clínica toda e diz isso nesta linha.", "alvo": "texto=Seu acesso não está vinculado" },
+    { "titulo": "Leia cada pedido", "texto": "Cada linha traz o paciente, quem pediu, os exames, o número do pedido e a data em que saiu.", "alvo": "texto-exato=Exame" },
+    { "titulo": "Acompanhe a situação", "texto": "Aguardando resultado é o pedido sem laudo registrado. Quando o laudo chega e é anexado, passa a Resultado disponível. Cancelado fica na lista, marcado.", "alvo": "texto-exato=Aguardando resultado" },
+    { "titulo": "Anexe o laudo que chegou", "texto": "Anexar laudo registra o resultado amarrado a este pedido: o exame, o valor, a unidade, a referência e o laboratório.", "alvo": "botao=Anexar laudo", "acao": "clicar" },
+    { "alvo": "janela-campo=Ex.: Hemoglobina glicada", "acao": "digitar", "valor": "Hemoglobina glicada" },
+    { "alvo": "janela-campo=Valor", "acao": "digitar", "valor": "6,1" },
+    { "alvo": "janela-campo=Unidade", "acao": "digitar", "valor": "%" },
+    { "titulo": "Laudo em arquivo", "texto": "O PDF ou a foto do laudo que o laboratório mandou entra aqui. Sozinho, ele já é um registro completo do resultado.", "alvo": "janela=Escolher arquivo" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Peça um exame novo", "texto": "Novo pedido abre a folha do pedido de exame. Primeiro escolha o paciente; o documento fica na ficha dele.", "alvo": "botao=Novo pedido", "acao": "clicar" },
+    { "alvo": "janela-campo=Digite o nome ou o CPF", "acao": "digitar", "valor": "Mariana" },
+    { "alvo": "janela-opcao=Mariana Costa", "acao": "clicar" },
+    { "titulo": "Liste os exames pedidos", "texto": "Escreva cada exame com a indicação clínica. Adicionar exame acrescenta outra linha no mesmo pedido.", "alvo": "janela-campo=Exame / procedimento", "acao": "digitar", "valor": "Hemograma completo" },
+    { "alvo": "janela-campo=Indicação clínica", "acao": "digitar", "valor": "Investigação de fadiga" },
+    { "alvo": "janela=Adicionar exame" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Atualize a lista", "texto": "Atualizar relê os pedidos — um laudo anexado em outro computador muda a situação do pedido.", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "titulo": "Veja os detalhes no paciente", "texto": "Detalhes abre o paciente na seção Exames e anexos, com todos os pedidos, laudos e arquivos dele. Ver resultados aparece quando o laudo já chegou.", "alvo": "botao=Detalhes" }
+  ]
+}

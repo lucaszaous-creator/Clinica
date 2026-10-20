@@ -1,0 +1,31 @@
+{
+  "chave": "repasses",
+  "titulo": "Repasses",
+  "descricao": "Quanto repassar a cada profissional no mês, de onde saiu o número — e como travar o período antes de pagar.",
+  "passos": [
+    { "titulo": "Escolha o mês", "texto": "O repasse é por mês. As setas trocam o mês; tudo o que está na tela passa a ser do mês escolhido.", "alvo": "botao=Mês anterior", "acao": "clicar" },
+    { "alvo": "botao=Próximo mês", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Veja quanto há a repassar", "texto": "Soma do que cada regra calculou sobre a receita que ENTROU dos atendimentos de cada profissional — não sobre o faturado.", "alvo": "css=.kpi:has([aria-label='Opções do cartão A repassar no período'])" },
+    { "titulo": "Quem atendeu no mês", "texto": "Profissionais com sessão realizada no período, pelo horário da agenda. Quem atendeu vem do agendamento.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Profissionais com atendimento'])" },
+    { "titulo": "O que falta apurar", "texto": "A apurar conta quem ainda não teve o período travado. A nota diz quantos já foram apurados neste mês.", "alvo": "css=.kpi:has([aria-label='Opções do cartão A apurar'])" },
+    { "titulo": "Quem está sem regra", "texto": "Sem regra cadastrada não há o que pagar. Cadastre a regra do profissional antes de apurar o mês.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Sem regra cadastrada'])" },
+    { "titulo": "Copie um número do cartão", "texto": "O ⋯ do cartão copia o valor, ou o rótulo com o valor, para a planilha de pagamento ou a conversa com o profissional.", "alvo": "botao=Opções do cartão A repassar no período", "acao": "clicar" },
+    { "alvo": "item=Copiar rótulo e valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia o cálculo de cada um", "texto": "Cada linha mostra a regra, quantos atendimentos, quanta receita entrou e quanto o profissional tem a receber. Confira antes de apurar.", "alvo": "linha=Dra. Helena" },
+    { "titulo": "Profissional sem regra", "texto": "A linha fica marcada e o valor fica zerado até a regra existir. Use Nova regra para cadastrar.", "alvo": "linha=Sem regra de repasse cadastrada" },
+    { "titulo": "Apure o período", "texto": "Apurar trava o mês daquele profissional e cria a saída prevista no Caixa. O pagamento se confirma lá. Aqui saímos sem apurar.", "alvo": "botao-exato=Apurar", "acao": "clicar" },
+    { "alvo": "janela-exato=Cancelar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Cadastre uma regra", "texto": "Nova regra define quanto do trabalho é do profissional: escolha quem, a base do cálculo e a vigência.", "alvo": "botao=Nova regra", "acao": "clicar" },
+    { "titulo": "Percentual ou valor fixo", "texto": "Percentual da receita incide sobre o que entrou dos atendimentos dele. Valor por atendimento paga um fixo por sessão realizada.", "alvo": "janela-exato=Valor por atendimento", "acao": "clicar" },
+    { "alvo": "janela-campo=50,00", "acao": "digitar", "valor": "60,00", "ms": 1500 },
+    { "titulo": "Defina a vigência", "texto": "Vigente de e até guardam o histórico: mudar o percentual hoje não reescreve o mês que já foi pago.", "alvo": "janela-campo=Vigente de" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Veja regras e apurações", "texto": "Reúne as regras cadastradas e as apurações já fechadas. Excluir uma regra pede confirmação; aqui saímos sem excluir.", "alvo": "botao=Regras e apurações", "acao": "clicar" },
+    { "alvo": "janela=Excluir regra", "acao": "clicar", "ms": 1800 },
+    { "alvo": "janela-exato=Cancelar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Cancele uma apuração", "texto": "Na aba Apurações, cancelar a apuração pede o motivo, destrava o período e cancela junto a saída prevista no Caixa.", "alvo": "aba=Apurações", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Entenda a base do cálculo", "texto": "O percentual incide sobre a receita que entrou, não sobre o faturado e ainda não recebido. Guia não paga não gera repasse.", "alvo": "texto=O percentual incide sobre a receita" },
+    { "titulo": "Leve para a planilha", "texto": "Exportar CSV gera o cálculo do mês por profissional, para conferir ou mandar ao contador.", "alvo": "botao=Exportar CSV" }
+  ]
+}

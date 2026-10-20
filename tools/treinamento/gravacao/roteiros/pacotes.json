@@ -1,0 +1,184 @@
+{
+  "chave": "pacotes",
+  "titulo": "Pacotes, planos e vouchers",
+  "descricao": "O que a clínica vende e quanto cada paciente ainda tem para usar — vender, debitar sessão, orçar e manter o catálogo.",
+  "passos": [
+    {
+      "titulo": "Pacote não é cota do convênio",
+      "texto": "Aqui ficam os pacotes que a clínica VENDEU ao paciente. As sessões que o convênio autoriza ficam na ficha, em Convênio.",
+      "alvo": "titulo=Pacotes, planos e vouchers"
+    },
+    {
+      "titulo": "Os pacotes vendidos",
+      "texto": "O resumo conta quantos pacotes foram vendidos, quantos estão ativos e quantas sessões ainda há em saldo.",
+      "alvo": "titulo=Pacotes vendidos"
+    },
+    {
+      "titulo": "Leia o saldo e a situação",
+      "texto": "Saldo mostra quantas sessões restam. A situação é calculada na hora: ativo, esgotado, expirado ou cancelado.",
+      "alvo": "texto-exato=Situação"
+    },
+    {
+      "titulo": "Ache o pacote do paciente",
+      "texto": "Digite o nome do paciente — com ou sem acento, o filtro encontra do mesmo jeito.",
+      "alvo": "placeholder=Nome — o acento não atrapalha",
+      "acao": "digitar",
+      "valor": "otavio"
+    },
+    {
+      "titulo": "Veja só os que valem",
+      "texto": "Só ativos esconde os cancelados, esgotados e vencidos, deixando os pacotes com saldo para usar.",
+      "alvo": "caixa=Só ativos",
+      "acao": "marcar"
+    },
+    {
+      "titulo": "Cobrança atrasada",
+      "texto": "Parcela vencida avisa que o pacote está ativo mas o pagamento atrasou. A coluna Pagamento diz quanto falta receber.",
+      "alvo": "texto-exato=Parcela vencida"
+    },
+    {
+      "titulo": "Debite uma sessão à mão",
+      "texto": "A sessão é debitada sozinha ao concluir o atendimento. Usar sessão serve para debitar à mão, e pede confirmação.",
+      "alvo": "botao-exato=Usar sessão",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "janela=Cancelar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Veja as sessões já usadas",
+      "texto": "O relógio mostra cada sessão debitada, com data e origem. Debitou por engano? Devolva ao saldo com motivo — nada é apagado.",
+      "alvo": "botao=Sessões do pacote",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Cancele uma venda",
+      "texto": "O X cancela a venda, sempre com motivo escrito. É ação do Financeiro, porque desfaz o dinheiro que alguém registrou.",
+      "alvo": "botao=Cancelar o pacote",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "janela=Cancelar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Limpe o filtro",
+      "texto": "Limpar filtro apaga o nome digitado e desliga Só ativos, voltando à lista completa.",
+      "alvo": "botao=Limpar filtro",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Venda um pacote",
+      "texto": "Vender pacote registra a venda e já lança o pagamento no caixa: à vista, ou com entrada e parcelas.",
+      "alvo": "botao=Vender pacote",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha o paciente",
+      "texto": "Busque pelo nome ou CPF e clique no paciente que está comprando.",
+      "alvo": "janela-campo=Buscar por nome ou CPF",
+      "acao": "digitar",
+      "valor": "Lúcia"
+    },
+    {
+      "alvo": "janela-opcao=Lúcia Helena Carvalho",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha o pacote e o valor",
+      "texto": "O pacote vem do catálogo, com sessões e validade. O valor cobrado continua editável: em branco, vale o de tabela.",
+      "alvo": "janela-campo=Valor cobrado",
+      "acao": "digitar",
+      "valor": "1.350,00"
+    },
+    {
+      "titulo": "Pagar agora ou depois",
+      "texto": "Pagar agora lança o recebimento à vista. Cobrar depois pede a entrada, o número de parcelas e o primeiro vencimento.",
+      "alvo": "janela=Cobrar depois",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "janela-campo=Entrada hoje",
+      "acao": "digitar",
+      "valor": "300,00"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Faça um orçamento",
+      "texto": "Orçamento gera o papel de um pacote do catálogo para o paciente levar e pensar. Os valores ficam gravados na emissão.",
+      "alvo": "botao=Orçamento",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "janela-campo=Para quem é o orçamento",
+      "acao": "digitar",
+      "valor": "Helena Martins"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Mantenha o catálogo",
+      "texto": "Catálogo é a lista do que está à venda. Mudar o preço ali não altera o que já foi vendido.",
+      "alvo": "botao=Catálogo",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Edite ou tire da venda",
+      "texto": "Editar corrige nome, sessões, valor ou validade. A lixeira tira o pacote da venda, com confirmação.",
+      "alvo": "janela=Editar"
+    },
+    {
+      "titulo": "Cadastre um pacote novo",
+      "texto": "Novo pacote pede o nome, o tipo, quantas sessões, o valor e a validade em dias — em branco, sem prazo.",
+      "alvo": "janela=Novo pacote",
+      "acao": "clicar"
+    },
+    {
+      "alvo": "janela-campo=Nome",
+      "acao": "digitar",
+      "valor": "8 sessões de acupuntura"
+    },
+    {
+      "alvo": "janela-campo=Valor",
+      "acao": "digitar",
+      "valor": "1.200,00"
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 900
+    },
+    {
+      "alvo": "janela=Fechar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Atualize a lista",
+      "texto": "Atualizar relê os pacotes — útil quando outra pessoa vendeu ou debitou uma sessão em outro computador.",
+      "alvo": "botao=Atualizar",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Vá para o preço da sessão",
+      "texto": "A aba ao lado é a tabela de preço da sessão avulsa do particular, por tipo de atendimento.",
+      "alvo": "aba-app=Preço da sessão",
+      "acao": "clicar"
+    }
+  ]
+}

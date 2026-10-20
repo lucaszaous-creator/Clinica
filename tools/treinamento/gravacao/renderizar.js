@@ -26,8 +26,10 @@ const tempos = require('./motion/tempos.json');
       try {
         const composicao = await selectComposition({ serveUrl, id: 'Aula', inputProps: aula });
         const inicio = Date.now();
+        let ultimo = -1;
         await renderMedia({ serveUrl, composition: composicao, inputProps: aula, codec: 'h264', crf: 20, outputLocation: saida,
-          imageFormat: 'jpeg', jpegQuality: 92, concurrency: Math.max(1, os.cpus().length), chromiumOptions: { gl: 'swangle' } });
+          imageFormat: 'jpeg', jpegQuality: 90, concurrency: Math.max(2, os.cpus().length), x264Preset: 'veryfast',
+          onProgress: ({ progress }) => { const p = Math.floor(progress * 10); if (p !== ultimo) { ultimo = p; console.log(`   ${aula.chave}: ${p * 10}%`); } } });
         const sha = crypto.createHash('sha256').update(fs.readFileSync(saida)).digest('hex');
         const duracao = composicao.durationInFrames / tempos.fps;
         let n = 0;

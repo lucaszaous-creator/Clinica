@@ -1,0 +1,109 @@
+{
+  "chave": "lancamentos",
+  "titulo": "Lançamentos",
+  "descricao": "Os atendimentos lançados no período: quem lançou, quantas guias saíram e o que ainda não liberou — a conferência antes de fechar o balcão.",
+  "passos": [
+    {
+      "titulo": "Confira os lançamentos",
+      "texto": "Esta tela lista os atendimentos lançados no período. Use no fim do dia para conferir o balcão antes de fechar.",
+      "alvo": "titulo=Lançamentos"
+    },
+    {
+      "titulo": "Escolha o período",
+      "texto": "De e Até definem os dias conferidos — até um ano de uma vez. A tela abre sempre no dia de hoje.",
+      "alvo": "campo=Até"
+    },
+    {
+      "titulo": "Volte para hoje",
+      "texto": "Depois de olhar outro período, Hoje volta a conferir só o dia de hoje. Em hoje, ele fica apagado.",
+      "alvo": "botao-exato=Hoje"
+    },
+    {
+      "titulo": "Atualize a lista",
+      "texto": "Relê os lançamentos agora, para incluir o que outra máquina acabou de lançar. Atalho: F5.",
+      "alvo": "botao=Atualizar a lista",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Conte os atendimentos",
+      "texto": "Quantos atendimentos foram lançados no período e por quantas pessoas.",
+      "alvo": "texto-exato=Atendimentos"
+    },
+    {
+      "titulo": "Conte as guias geradas",
+      "texto": "Quantas guias saíram. A nota conta os atendimentos sem guia: particulares ou com guia suspensa.",
+      "alvo": "texto-exato=Guias geradas"
+    },
+    {
+      "titulo": "Veja o que falta liberar",
+      "texto": "Sessões cuja guia ainda não pode ser faturada, como o 2º código que só libera no dia seguinte.",
+      "alvo": "texto-exato=Guia por liberar"
+    },
+    {
+      "titulo": "Copie um número",
+      "texto": "Os três pontinhos do cartão copiam o número para colar numa planilha ou mensagem.",
+      "alvo": "botao=Opções do cartão Guias geradas",
+      "acao": "clicar"
+    },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Filtre pelo convênio",
+      "texto": "Mostra só os atendimentos de um convênio — útil para conferir uma operadora de cada vez.",
+      "alvo": "campo=Convênio",
+      "acao": "selecionar",
+      "valor": "Amil"
+    },
+    {
+      "titulo": "Filtre pela modalidade",
+      "texto": "Estreita a lista a uma modalidade. Os filtros se somam aos que já estão ligados.",
+      "alvo": "campo=Modalidade",
+      "acao": "selecionar",
+      "valor": "Consulta"
+    },
+    {
+      "titulo": "Limpe os filtros",
+      "texto": "Limpar filtros devolve todos os atendimentos do período.",
+      "alvo": "botao=Limpar filtros",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja quem lançou",
+      "texto": "Mostra só o que uma pessoa lançou. Sem registro são lançamentos antigos, de antes do sistema guardar o autor.",
+      "alvo": "campo=Quem lançou",
+      "acao": "selecionar",
+      "valor": "Ana Lima"
+    },
+    { "alvo": "botao=Limpar filtros", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Veja só as guias por liberar",
+      "texto": "Marque para ver só as sessões cuja guia ainda não libera — são elas que precisam de atenção no faturamento.",
+      "alvo": "caixa=Só com guia por liberar",
+      "acao": "clicar"
+    },
+    { "alvo": "caixa=Só com guia por liberar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Leia a linha do atendimento",
+      "texto": "Cada linha traz o dia, o paciente, a modalidade, quem lançou e quando, as guias, o número do atendimento e o convênio.",
+      "alvo": "linha=Tereza Cristina Bastos"
+    },
+    {
+      "titulo": "Estorne um lançamento errado",
+      "texto": "Estornar desfaz a sessão lançada por engano. Abre a conferência do que será desfeito e pede o motivo.",
+      "alvo": "botao=Estornar",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Diga o motivo do estorno",
+      "texto": "O motivo é obrigatório e fica na trilha de auditoria. Marque também se é para desfazer caixa, pacote ou insumo.",
+      "alvo": "janela-campo=Por que está estornando",
+      "acao": "digitar",
+      "valor": "Lançado no paciente errado."
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Saiba o que o estorno faz",
+      "texto": "O estorno nunca apaga: o atendimento fica marcado e as guias ficam no histórico, com o motivo registrado.",
+      "alvo": "texto=O estorno nunca apaga"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "chave": "faturamento-resumo",
+  "titulo": "Resumo do faturamento",
+  "descricao": "A clínica está perdendo faturamento, e onde? Guias do período, taxas de baixa e glosa, atrasos e o desempenho de cada convênio.",
+  "passos": [
+    { "titulo": "Escolha o período", "texto": "Este mês, Últimos 3 meses ou Este ano: todos os números e tabelas da tela passam a valer para o período escolhido.", "alvo": "botao=Últimos 3 meses", "acao": "clicar" },
+    { "alvo": "botao=Este mês", "acao": "clicar" },
+    { "titulo": "Guias no período", "texto": "Quantas guias nasceram no período e quantas já foram baixadas, estão pendentes ou viraram não conformidade. A seta compara com o período anterior.", "alvo": "texto-exato=Guias no período" },
+    { "titulo": "Taxa de baixa", "texto": "Das guias do período, quantas já foram efetivadas no sistema do convênio. Quanto mais perto de 100%, menos faturamento parado.", "alvo": "texto-exato=Taxa de baixa" },
+    { "titulo": "Taxa de glosa", "texto": "Quanto das guias baixadas o convênio recusou. Se subir, abra Glosas e recursos para ver o motivo e recorrer dentro do prazo.", "alvo": "texto-exato=Taxa de glosa" },
+    { "titulo": "Do atendimento até a baixa", "texto": "Quantos dias, em média, passam entre o atendimento e a baixa da guia. Quanto menor, mais cedo a guia chega ao convênio.", "alvo": "texto-exato=Atendimento → baixa" },
+    { "titulo": "Pendentes hoje", "texto": "Guias em aberto agora, sem olhar o período: é o que ainda dá para salvar. Resolva pela aba Pendências e baixas.", "alvo": "texto-exato=Pendentes hoje" },
+    { "titulo": "Copie um número do cartão", "texto": "O ⋯ de cada cartão copia o valor, ou o rótulo com o valor, para colar na planilha ou na mensagem da reunião sem redigitar.", "alvo": "botao=Opções do cartão Taxa de baixa", "acao": "clicar" },
+    { "alvo": "item=Copiar rótulo e valor", "acao": "clicar" },
+    { "titulo": "Veja quanto já atrasou", "texto": "As pendências em aberto por faixa de atraso: até 7 dias, de 8 a 30 e mais de 30. A faixa mais velha é a mais urgente.", "alvo": "titulo=Pendências em aberto por atraso" },
+    { "titulo": "Compare os convênios", "texto": "Uma linha por operadora: guias, baixadas, pendentes, taxas e tempo médio. Mostra qual convênio está travando o faturamento.", "alvo": "titulo=Por convênio" },
+    { "titulo": "Acompanhe a evolução", "texto": "A curva mostra a taxa de baixa dos últimos 6 meses, com a tabela mês a mês. Mês sem guia fica em branco, nunca como 0%.", "alvo": "titulo=Evolução da taxa de baixa" },
+    { "titulo": "Atualize os números", "texto": "Lê tudo de novo — use depois de baixas feitas em outra máquina. O atalho F5 faz o mesmo.", "alvo": "botao=Atualizar" },
+    { "titulo": "Gere o fechamento em PDF", "texto": "Gera a folha de fechamento do período escolhido, pronta para imprimir ou enviar ao contador.", "alvo": "botao=Fechamento em PDF" }
+  ]
+}

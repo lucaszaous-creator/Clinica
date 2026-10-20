@@ -1,0 +1,18 @@
+{
+  "chave": "faturamento-nc",
+  "titulo": "Não conformidades",
+  "descricao": "Quais guias não puderam ser baixadas, e por quê? Leia a justificativa de cada uma e reabra a guia quando aparecer uma solução.",
+  "passos": [
+    { "titulo": "Entenda a não conformidade", "texto": "São guias que não puderam ser baixadas e foram justificadas. Saem das pendências, mas ficam aqui documentadas e entram no relatório.", "alvo": "titulo=Não conformidades (NC)" },
+    { "titulo": "Leia o resumo", "texto": "A frase diz quantas não conformidades existem. Com busca, diz quantas aparecem do total.", "alvo": "texto=não conformidade(s)" },
+    { "titulo": "Busque por nome ou motivo", "texto": "Digite parte do nome do paciente ou uma palavra da justificativa, como carteirinha ou portal.", "alvo": "entrada=Paciente ou justificativa", "acao": "digitar", "valor": "carteirinha" },
+    { "titulo": "Limpe a busca", "texto": "Limpar filtro volta a mostrar todas as não conformidades.", "alvo": "botao=Limpar filtro", "acao": "clicar" },
+    { "titulo": "Veja qual código ficou", "texto": "A coluna Código diz o tipo e se é o 1º ou o 2º código do atendimento — o 2º é o que o convênio libera depois.", "alvo": "texto-exato=2º código" },
+    { "titulo": "Prevista e registrada", "texto": "Prevista é quando a guia deveria ter sido faturada. Registrada é quando ela virou não conformidade, com dia e hora.", "alvo": "texto-exato=Registrada" },
+    { "titulo": "Leia a justificativa inteira", "texto": "O ícone de documento abre a justificativa completa — o motivo de a guia não ter sido baixada.", "alvo": "botao=Ver justificativa", "acao": "clicar" },
+    { "alvo": "janela=Entendi", "acao": "clicar" },
+    { "titulo": "Reabra quando houver solução", "texto": "Reabrir devolve a guia às pendências ativas para ser baixada. O sistema confirma antes. Ela também volta sozinha se o paciente retornar.", "alvo": "botao=Reabrir", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar" },
+    { "titulo": "Atualize a lista", "texto": "Lê as não conformidades de novo — por exemplo, depois de uma rodada de pendências. O atalho F5 faz o mesmo.", "alvo": "botao=Atualizar" }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "chave": "ajuda",
+  "titulo": "Ajuda e suporte",
+  "descricao": "As dúvidas mais comuns do dia a dia e o que fazer quando algo der errado — antes de chamar o suporte.",
+  "passos": [
+    { "titulo": "Onde tirar dúvidas", "texto": "Esta tela reúne as perguntas mais comuns do uso diário. Clique numa pergunta para abrir a resposta; o que não estiver aqui, pergunte à direção.", "alvo": "titulo=Ajuda e suporte" },
+    { "titulo": "Traço não é zero", "texto": "O traço significa não medido: não houve base de cálculo no período. Zero e não medido são coisas diferentes, inclusive nas planilhas.", "alvo": "texto=Por que um número aparece como" },
+    { "titulo": "Falta um item no menu?", "texto": "O menu só mostra o que o seu acesso alcança. Quem libera é a direção, na tela de Acessos, para uma pessoa específica.", "alvo": "texto=Não encontro um item de menu", "acao": "clicar" },
+    { "titulo": "Férias e feriados", "texto": "Na Agenda, Fechar agenda marca o período e mostra o motivo na grade. Ninguém é desmarcado: a recepção remarca com o paciente.", "alvo": "texto=Como fechar a agenda para férias", "acao": "clicar" },
+    { "titulo": "Baixa da guia de convênio", "texto": "Dar baixa é registrar que a guia foi efetivada no convênio, pelo Faturamento. O número da guia é conferido enquanto você digita.", "alvo": "texto=Como dar baixa em uma guia", "acao": "clicar" },
+    { "titulo": "Guia glosada", "texto": "Registre a glosa no Faturamento: ele monta o recurso e vigia o prazo. Passado o prazo, o valor está perdido.", "alvo": "texto=O convênio glosou uma guia", "acao": "clicar" },
+    { "titulo": "Levar dados ao Excel", "texto": "O botão Exportar gera planilha que abre no Excel com colunas e acentos certos. Lotes de convênio saem em XML no padrão da ANS.", "alvo": "texto=Como exportar dados para o Excel", "acao": "clicar" },
+    { "titulo": "Por que o sistema recusou", "texto": "A recusa aparece escrita perto do botão, com o motivo. Botão apagado também avisa que falta algo: permissão, paciente ou campo obrigatório.", "alvo": "texto=O sistema recusou uma ação", "acao": "clicar" },
+    { "titulo": "Quando algo der errado", "texto": "Se a tela disser que não foi possível verificar, use Atualizar. Persistindo, anote a hora e o que fazia: o arquivo da pasta logs mostra a causa ao suporte.", "alvo": "titulo=Quando algo der errado" }
+  ]
+}

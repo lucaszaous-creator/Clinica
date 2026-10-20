@@ -1,0 +1,20 @@
+{
+  "chave": "producao",
+  "titulo": "Produção",
+  "descricao": "Quantos códigos o período produziu, quantos já foram efetivados no convênio e quantos continuam pendentes — só contagens, não dinheiro.",
+  "passos": [
+    { "titulo": "Entenda o que se conta", "texto": "Produção conta códigos de atendimento, não dinheiro: guia efetivada ainda não é recebimento. O dinheiro está no Caixa e na Conciliação.", "alvo": "titulo=Produção" },
+    { "titulo": "Escolha o período", "texto": "Veja os últimos 6 ou 12 meses. Os cartões, o gráfico e a tabela passam a contar o período escolhido.", "alvo": "botao-exato=Últimos 12 meses", "acao": "clicar" },
+    { "alvo": "botao-exato=Últimos 6 meses", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Veja os códigos do período", "texto": "Códigos no período é o total produzido nos atendimentos lançados — a base de conferência do faturamento.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Códigos no período'])" },
+    { "titulo": "Veja os efetivados", "texto": "Efetivados são as guias já baixadas no portal do convênio: estão prontas para virar receita na Conciliação.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Efetivados'])" },
+    { "titulo": "Veja os pendentes", "texto": "Pendentes ainda não tiveram baixa no convênio. Fora daqui ficam as não conformidades já justificadas na rodada.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Pendentes'])" },
+    { "titulo": "Leia a taxa de efetivação", "texto": "Efetivados sobre o total de códigos. Taxa caindo é sinal de guia parada: cobre o faturamento antes de virar prazo perdido.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Taxa de efetivação'])" },
+    { "titulo": "Copie um número do cartão", "texto": "O ⋯ do cartão copia o valor, ou o rótulo com o valor, para a reunião com o faturamento.", "alvo": "botao=Opções do cartão Taxa de efetivação", "acao": "clicar" },
+    { "alvo": "item=Copiar rótulo e valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Compare os meses no gráfico", "texto": "Cada barra empilha efetivados, pendentes e não conformidades, e soma o total de códigos do mês. O eixo começa no zero.", "alvo": "titulo=Códigos por mês" },
+    { "titulo": "Passe o mouse sobre um mês", "texto": "A dica mostra efetivados, pendentes, não conformidades, o total e a taxa daquele mês.", "alvo": "css=.grafico svg g.mes:last-of-type", "acao": "passar" },
+    { "titulo": "Note o mês em curso", "texto": "A tabela repete os números mês a mês. O mês atual vem marcado como em curso: os pendentes dele ainda vão diminuir.", "alvo": "linha=em curso" },
+    { "titulo": "Entenda a soma", "texto": "Pendentes não incluem as não conformidades justificadas na rodada — por isso efetivados e pendentes podem não somar o total.", "alvo": "texto=Pendentes não incluem" }
+  ]
+}

@@ -1,35 +1,41 @@
-# Treinamento no desktop
+# Treinamento — as videoaulas dos cinco apps
 
-A navegação compartilhada abre Treinamento em todos os cinco executáveis. O
-catálogo usa as mesmas chaves e permissões das telas. Dependências contextuais
-não liberam aulas; entram somente abas publicadas. Gerente reaproveita os mesmos
-IDs, sem duplicação. O recorte continua respeitando perfis exclusivos.
+A aba **Treinamento** de cada app mostra uma videoaula por tela que o app publica (o recorte
+é o `ShellViewModel.TelasDoTreinamento`). O catálogo embutido é
+`src/Clinica.Desktop.Shell/Treinamento/catalogo.json`; os vídeos são baixados da release
+`AcervoTreinamento.ReleaseDosVideos`, nomeados pelo SHA-256 e conferidos antes de tocar.
 
-O player WPF reproduz dentro da janela, com pausa, volume, capítulos, tela cheia,
-retomada e conclusão por usuário deste computador. Trocar de tela interrompe a
-reprodução. O primeiro acesso baixa o arquivo HTTPS versionado; o SHA-256 do
-catálogo é validado antes de reproduzir. Downloads incompletos não são usados.
+## Como os vídeos são feitos (out/2026) — tudo no GitHub
 
-`CLINICA_TREINAMENTO_MIDIA` pode apontar a uma pasta local de vídeos `<id>.mp4`
-para a verificação. Sem essa opção usa a mídia ao lado da aplicação e depois o
-acervo HTTPS. O progresso fica em LocalAppData/ClinicaSemDor/Treinamento.
+Nada roda na máquina da clínica nem na de quem programa. O workflow
+`.github/workflows/treinamento.yml` faz, em ordem:
 
-## Captura e verificação
+1. **Navegação** (`captura/`, Windows): monta os MESMOS módulos e o MESMO `ShellViewModel`
+   dos executáveis e grava `navegacao.json` — o menu do topo, as abas e o componente Razor
+   de cada chave.
+2. **Inventário** (`gravacao/inventario.js`, Linux): abre cada tela na prévia
+   (`tools/PreviaBlazor`, página `/aula/{app}/{chave}` — a moldura real do app em volta da
+   tela real, com os dados fictícios das sementes) e grava foto e controles de cada uma. É
+   o material para escrever e conferir roteiro.
+3. **Gravação** (`gravacao/gravar.js`, Linux, 12 máquinas em paralelo): para cada roteiro em
+   `gravacao/roteiros/<chave>.json`, sobe uma prévia NOVA, executa cada função da tela de
+   verdade e grava a tela limpa mais a linha do tempo (onde está cada elemento, quando foi o
+   clique).
+4. **Motion design** (`gravacao/renderizar.js` + `gravacao/motion/`, Remotion): abertura
+   animada, a janela do app sobre o fundo da marca, câmera que vai até cada função e volta
+   para mostrar o resultado, destaque e cursor animados, painel com a função da vez e o
+   índice da aula, fechamento com o resumo. Sai o MP4 1920×1080 e a entrada do catálogo, com
+   um capítulo por função.
+5. **Juntar** (`gravacao/juntar.js`): um catálogo só e os MP4 renomeados pelo SHA-256 — o
+   artefato `videoaulas`.
 
-`dotnet run --project tools/treinamento/captura/CapturaTreinamento.csproj -- <saída> todas`
-captura a janela real com serviços reais e um banco SQLite em memória. Não roda
-o startup de produção, nem envio de e-mails, WhatsApp ou assinatura externa.
-Os nomes são fictícios. `inventario` lista a navegação; `qa-treinamento` verifica
-escopos dos cinco módulos, busca, reprodução, capítulos, tela cheia e parada.
+Como escrever um roteiro: `gravacao/ROTEIROS.md`.
 
-Os roteiros, narração Bella e renderização Remotion ficam no repositório
-clinica-site em `ferramentas/treinamento-desktop`. O catálogo validado deve ser
-idêntico a `src/Clinica.Desktop.Shell/Treinamento/catalogo.json` antes da release.
-Os vídeos são assets públicos da release `treinamento-desktop-20260928` do Clinica,
-nomeados pelo SHA-256. Não exigem login, token, VPS ou acesso ao banco. Publicar
-e verificar todos os assets antes de liberar os executáveis. Não sobrescrever
-assets existentes: clientes antigos precisam continuar acessando suas versões.
+## Publicar
 
-Primeira publicação autorizada: 24 vídeos prontos de 75 planejados; saldo do
-DaVinci bloqueou as demais narrações. O catálogo contém apenas as aulas prontas.
-Não há alteração de banco, migração ou dados de produção nesta implementação.
+1. Baixar o artefato `videoaulas` do run verde.
+2. Criar a release `ReleaseDosVideos` (se ainda não existir) e subir os arquivos de
+   `videoaulas/release/` **sem sobrescrever** nenhum já publicado.
+3. Copiar `videoaulas/catalogo.json` para `src/Clinica.Desktop.Shell/Treinamento/catalogo.json`.
+4. Publicar os apps. A release antiga continua no ar: o app que ainda não atualizou baixa os
+   vídeos dela.

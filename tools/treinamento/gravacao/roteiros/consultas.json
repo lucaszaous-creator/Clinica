@@ -1,0 +1,90 @@
+{
+  "chave": "consultas",
+  "titulo": "Consultas de convênio",
+  "descricao": "Quem precisa renovar a consulta do convênio — para renovar com o paciente na frente, antes de faturar.",
+  "passos": [
+    {
+      "titulo": "Entenda a consulta do convênio",
+      "texto": "A consulta do convênio tem validade. Renove com o paciente no balcão: descobrir que venceu na hora de faturar custa caro.",
+      "alvo": "titulo=Consultas de convênio"
+    },
+    {
+      "titulo": "Veja quantos precisam renovar",
+      "texto": "Conta as consultas vencidas, nunca emitidas ou a vencer na janela de alerta. É o número que pede ação.",
+      "alvo": "texto-exato=Precisam renovar"
+    },
+    {
+      "titulo": "Veja as que vencem em breve",
+      "texto": "Ainda valem, mas já dá para renovar. Aproveite quando o paciente vier à próxima sessão.",
+      "alvo": "texto-exato=Vencem em breve"
+    },
+    {
+      "titulo": "Veja as que estão em dia",
+      "texto": "Consultas válidas. A nota diz quantos pacientes de convênio há na carteira.",
+      "alvo": "texto-exato=Em dia"
+    },
+    {
+      "titulo": "Copie um número",
+      "texto": "Os três pontinhos do cartão copiam o número para colar numa planilha ou mensagem.",
+      "alvo": "botao=Opções do cartão Precisam renovar",
+      "acao": "clicar"
+    },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Ache o paciente",
+      "texto": "Digite parte do nome. O acento não atrapalha: otavio acha Otávio.",
+      "alvo": "entrada=Parte do nome",
+      "acao": "digitar",
+      "valor": "otavio"
+    },
+    {
+      "titulo": "Leia a situação da consulta",
+      "texto": "A linha diz a situação, o convênio, a última emissão e o vencimento. Vermelho precisa renovar; amarelo vence logo.",
+      "alvo": "linha=Otávio Rezende Campos"
+    },
+    {
+      "titulo": "Renove a consulta",
+      "texto": "Renovar registra a consulta do convênio com a data de hoje e a validade do convênio. Pede confirmação antes.",
+      "alvo": "botao-exato=Renovar",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Confirme a renovação",
+      "texto": "Confirme com o paciente presente. A linha passa para Em dia e o faturamento já enxerga a consulta nova.",
+      "alvo": "janela=Confirmar",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Limpe o filtro",
+      "texto": "Com filtro ligado aparece Limpar filtro, que devolve a carteira inteira.",
+      "alvo": "botao=Limpar filtro",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Filtre pela situação",
+      "texto": "Escolha a situação para trabalhar uma de cada vez: precisa renovar, vence em breve, em dia ou nunca emitiu.",
+      "alvo": "campo=Situação",
+      "acao": "selecionar",
+      "valor": "Vence em breve"
+    },
+    {
+      "titulo": "Filtre pelo convênio",
+      "texto": "Mostra só os pacientes de um convênio. Os dois filtros se somam.",
+      "alvo": "campo=Convênio",
+      "acao": "selecionar",
+      "valor": "Amil"
+    },
+    { "alvo": "botao=Limpar filtro", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Atualize a lista",
+      "texto": "Relê a carteira agora. Os filtros escolhidos continuam. Atalho: F5.",
+      "alvo": "botao=Atualizar a lista",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Saiba o que renovar não faz",
+      "texto": "Renovar registra só a validade da consulta do convênio. Não é o registro de uma consulta clínica.",
+      "alvo": "texto=Renovar registra a validade"
+    }
+  ]
+}

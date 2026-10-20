@@ -1,0 +1,20 @@
+{
+  "chave": "consultorio-sala-infusao",
+  "titulo": "Sala de infusão",
+  "descricao": "A fila das prescrições de infusão assinadas de hoje: abrir a folha, checar item a item, anotar a enfermagem e imprimir.",
+  "passos": [
+    { "titulo": "A fila da sala", "texto": "Aqui chegam as prescrições de infusão assinadas pelo médico. A lista se atualiza sozinha a cada minuto.", "alvo": "titulo=Sala de infusão" },
+    { "titulo": "Cada folha da sala", "texto": "Cada folha mostra paciente, número, quem prescreveu e o progresso, com os botões Abrir folha, Anotar e Imprimir. Sem folha no dia, a sala diz isso.", "alvo": "texto=Nenhuma folha na sala" },
+    { "titulo": "Cheque item a item", "texto": "Na folha aberta, marque cada item com o horário em que foi feito. O que não foi feito leva o horário circulado e a justificativa.", "alvo": "texto=Abrir a folha é onde se checa" },
+    { "titulo": "Veja as folhas encerradas", "texto": "Mostrar encerradas inclui as folhas já concluídas hoje, para conferir ou reimprimir.", "alvo": "caixa=Mostrar encerradas", "acao": "marcar" },
+    { "alvo": "caixa=Mostrar encerradas", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Abra a folha pelo código", "texto": "Com o papel na mão, digite o código impresso na folha e abra direto, mesmo que ela seja de outro dia.", "alvo": "entrada=Código de conferência", "acao": "digitar", "valor": "K7Q2M3" },
+    { "titulo": "Confira o resultado", "texto": "Abrir pelo código procura a folha. Se o código não existir, a tela avisa — o código não usa as letras I e O nem os números 0 e 1.", "alvo": "botao=Abrir pelo código", "acao": "clicar" },
+    { "titulo": "Infusão com orientação externa", "texto": "Para registrar uma infusão feita com receita de fora da clínica. Primeiro escolha o paciente.", "alvo": "botao=Registrar infusão com orientação externa", "acao": "clicar" },
+    { "alvo": "janela-campo=Buscar por nome ou CPF", "acao": "digitar", "valor": "Rosana" },
+    { "alvo": "janela-opcao=Rosana Figueiredo Lemos", "acao": "clicar" },
+    { "titulo": "Escolha e continue", "texto": "Escolher abre o registro da infusão para o paciente. Depois, o médico avalia e assina a infusão externa.", "alvo": "janela=Escolher" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Atualize na hora", "texto": "Atualizar relê a sala na hora, sem esperar o minuto — útil logo depois que o médico assina uma prescrição.", "alvo": "botao=Atualizar", "acao": "clicar" }
+  ]
+}

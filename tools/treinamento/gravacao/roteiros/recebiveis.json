@@ -1,0 +1,25 @@
+{
+  "chave": "recebiveis",
+  "titulo": "Recebíveis de cartão",
+  "descricao": "O que a maquininha ainda vai depositar, o que já devia ter caído e não caiu — e a confirmação de cada depósito.",
+  "passos": [
+    { "titulo": "Escolha o horizonte", "texto": "Mostra os depósitos previstos para os próximos 15, 30, 60 ou 90 dias. O atrasado aparece sempre, qualquer que seja o horizonte.", "alvo": "campo=Horizonte em dias", "acao": "selecionar", "valor": "90 dias" },
+    { "alvo": "campo=Horizonte em dias", "acao": "selecionar", "valor": "60 dias", "ms": 1500 },
+    { "titulo": "Veja quanto vai cair", "texto": "A receber é o líquido que a maquininha ainda vai depositar no horizonte, já descontada a taxa do contrato.", "alvo": "css=.kpi:has([aria-label='Opções do cartão A receber'])" },
+    { "titulo": "Olhe o atrasado primeiro", "texto": "Atrasado é crédito que já devia ter caído na conta e não caiu. É a linha que pede ação: confira o extrato e cobre a adquirente.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Atrasado'])" },
+    { "titulo": "Total e próximo depósito", "texto": "Total soma o que vai vencer e o atrasado. Próximo depósito é a próxima data prevista pela adquirente.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Próximo depósito'])" },
+    { "titulo": "Copie um número do cartão", "texto": "O ⋯ do cartão copia o valor, ou o rótulo com o valor, para colar na planilha ou na conversa com a adquirente.", "alvo": "botao=Opções do cartão Atrasado", "acao": "clicar" },
+    { "alvo": "item=Copiar rótulo e valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Veja os depósitos previstos", "texto": "Cada linha é um depósito: a adquirente e a data prevista, quantos créditos vêm juntos, o bruto, a taxa e o líquido que deve cair.", "alvo": "aba=Previstos", "acao": "clicar" },
+    { "titulo": "Ache o depósito atrasado", "texto": "Linha em vermelho diz há quantos dias o depósito devia ter caído. Os demais dizem quando caem: hoje, amanhã ou em quantos dias.", "alvo": "linha=devia ter caído" },
+    { "titulo": "Informe quando caiu", "texto": "Antes de confirmar, escolha a data em que o crédito entrou na conta, como está no extrato — não a data de hoje.", "alvo": "entrada=Data em que o crédito caiu" },
+    { "titulo": "Confirme o depósito", "texto": "Caiu confirma o depósito inteiro do dia, com todos os créditos dele. A tela pergunta antes de gravar; aqui saímos sem confirmar.", "alvo": "botao-exato=Caiu", "acao": "clicar" },
+    { "alvo": "janela-exato=Cancelar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Veja o que já caiu", "texto": "Já caíram lista os depósitos confirmados, com a data real do crédito e o atraso que houve em relação à previsão.", "alvo": "aba=Já caíram", "acao": "clicar" },
+    { "titulo": "Entenda as duas datas", "texto": "A data prevista e a real ficam gravadas separadas: por isso o atraso continua visível depois de o dinheiro entrar.", "alvo": "texto=Sobre as datas e como desfazer", "acao": "clicar" },
+    { "titulo": "Desfaça uma confirmação", "texto": "Confirmou no dia errado? Desfazer apaga só a data do crédito; o lançamento continua no Caixa. Aqui saímos sem desfazer.", "alvo": "botao=Desfazer", "acao": "clicar" },
+    { "alvo": "janela-exato=Cancelar", "acao": "clicar", "ms": 1200 },
+    { "alvo": "aba=Previstos", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Atualize a tela", "texto": "Atualizar relê os recebíveis — depois de lançar uma venda no cartão ou de outra pessoa confirmar um depósito.", "alvo": "botao=Atualizar" }
+  ]
+}

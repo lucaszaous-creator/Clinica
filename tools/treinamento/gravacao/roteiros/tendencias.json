@@ -1,0 +1,31 @@
+{
+  "chave": "tendencias",
+  "titulo": "Tendência dos atendimentos",
+  "descricao": "O que está crescendo e o que está caindo nos atendimentos, contra o período anterior de mesmo tamanho — a base das metas.",
+  "passos": [
+    { "titulo": "Escolha o mês", "texto": "A tendência compara o mês escolhido com o mês anterior. As setas trocam o mês.", "alvo": "botao=Mês anterior", "acao": "clicar" },
+    { "alvo": "botao=Próximo mês", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Use um período livre", "texto": "Período livre deixa escolher as datas de início e fim e clicar em Aplicar; a comparação é com o período anterior de mesmo tamanho.", "alvo": "botao-exato=Período livre", "acao": "clicar" },
+    { "alvo": "botao-exato=Mês", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Veja as sessões do período", "texto": "Só as sessões realizadas: falta e cancelamento não contam. A linha acima dos cartões diz exatamente quais datas estão sendo comparadas.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Sessões no período'])" },
+    { "titulo": "Compare com o anterior", "texto": "Período anterior é o mesmo número de dias logo antes. Variação diz quanto subiu ou caiu, com a seta e a cor.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Variação'])" },
+    { "titulo": "Conte o que subiu e caiu", "texto": "Quantos grupos estão em alta e quantos em baixa, e quantos tiveram movimento no período.", "alvo": "css=.kpi:has([aria-label='Opções do cartão Em alta · em baixa'])" },
+    { "titulo": "Copie um número do cartão", "texto": "O ⋯ do cartão copia o valor, ou o rótulo com o valor, para a reunião da direção.", "alvo": "botao=Opções do cartão Variação", "acao": "clicar" },
+    { "alvo": "item=Copiar rótulo e valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia o resumo", "texto": "Uma frase diz o que está em alta e o que está em baixa no período — a leitura rápida antes da tabela.", "alvo": "css=.tend-resumo" },
+    { "titulo": "Veja o que está em alta", "texto": "Os grupos que mais cresceram, com o antes, o agora e a variação. Alta pede os dois: subir 15% e pelo menos 3 sessões.", "alvo": "titulo=Em alta" },
+    { "titulo": "Veja o que está em baixa", "texto": "Os grupos que mais caíram. Sem movimento quer dizer que o grupo zerou no período atual.", "alvo": "titulo=Em baixa" },
+    { "titulo": "Agrupe de outro jeito", "texto": "Compare por categoria de atendimento, especialidade, convênio ou profissional. A tabela e os destaques mudam junto.", "alvo": "botao-exato=Especialidade", "acao": "clicar" },
+    { "alvo": "botao-exato=Categoria", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Meça sessões ou receita", "texto": "Receita mostra a tendência em dinheiro realizado ligado a atendimento, pela data do pagamento. Sessões conta atendimentos.", "alvo": "botao-exato=Receita", "acao": "clicar" },
+    { "alvo": "botao-exato=Sessões", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Filtre o recorte", "texto": "Categoria, especialidade, convênio e profissional estreitam a análise — por exemplo, só os atendimentos de uma profissional.", "alvo": "campo=Profissional", "acao": "selecionar", "valor": "Dra. Helena" },
+    { "titulo": "Limpe os filtros", "texto": "Com filtro ligado, a linha das datas diz o que está filtrado. Limpar filtros volta para a clínica inteira.", "alvo": "botao=Limpar filtros", "acao": "clicar" },
+    { "titulo": "Leia a tabela", "texto": "Para cada grupo: atual, anterior, variação, situação e a participação no total. A situação explica a regra ao passar o mouse.", "alvo": "titulo=Por categoria" },
+    { "titulo": "Veja os últimos 6 meses", "texto": "A minissérie de cada linha mostra os seis últimos meses: ajuda a ver se a alta é tendência ou só um mês fora da curva.", "alvo": "texto-exato=Últimos 6 meses" },
+    { "titulo": "Transforme em meta", "texto": "Criar meta abre a meta do mês já com a categoria da linha e o número de referência. Defina o alvo e salve.", "alvo": "botao=Criar meta", "acao": "clicar" },
+    { "alvo": "janela-campo=Alvo", "acao": "digitar", "valor": "30", "ms": 1500 },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Leve para a planilha", "texto": "Exportar CSV gera a tabela que está na tela, com a métrica escolhida, para abrir no Excel.", "alvo": "botao=Exportar CSV" }
+  ]
+}

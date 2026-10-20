@@ -1,0 +1,28 @@
+{
+  "chave": "painel-direcao",
+  "titulo": "Mesa da direção",
+  "descricao": "Como o mês está indo e o que precisa da direção hoje — cada alerta com o atalho para a tela que o resolve.",
+  "passos": [
+    { "titulo": "Atualize a mesa", "texto": "A mesa lê os números ao abrir. Atualizar (ou F5) lê tudo de novo — use depois de um lançamento importante ou ao voltar de outra tela.", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "titulo": "Leia o recebido do mês", "texto": "O número grande é o dinheiro que já entrou no mês. Ao lado ficam a projeção para o último dia e a meta de faturamento definida em Metas.", "alvo": "texto=Recebido em" },
+    { "titulo": "Compare com a meta na régua", "texto": "Azul escuro é o recebido, azul claro a projeção, o traço verde é a meta e o traço preto é hoje. O selo verde ou amarelo diz se a projeção passa da meta.", "alvo": "css=.mesa-trilho" },
+    { "titulo": "Resultado no caixa", "texto": "Entradas menos saídas do mês, comparadas com o mesmo trecho do mês passado. A frase fica verde quando entrou mais e vermelha quando entrou menos.", "alvo": "texto=Resultado no caixa" },
+    { "titulo": "Resultado por competência", "texto": "Inclui o que já foi atendido e ainda vai entrar (a receber). A nota avisa quantos atendimentos estão sem valor lançado — confira esses.", "alvo": "texto=Resultado por competência" },
+    { "titulo": "Saídas, contas vencidas e dívidas", "texto": "Saídas do mês com taxas e impostos, contas a pagar que já venceram (em vermelho) e quanto os pacientes devem à clínica.", "alvo": "texto=Contas a pagar vencidas" },
+    { "titulo": "Vá ao detalhe do dinheiro", "texto": "Estes atalhos abrem o Resultado do mês, o caixa dos próximos 90 dias e a lista de quem deve — para ver de onde vem cada número.", "alvo": "botao=Próximos 90 dias" },
+    { "titulo": "Sessões realizadas", "texto": "Quantas sessões aconteceram no mês. A nota e a barra mostram a ocupação da agenda: quanto mais cheia, mais horários foram usados.", "alvo": "texto-exato=Sessões realizadas" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ de cada cartão copia o valor, ou o rótulo com o valor, para colar na planilha ou na mensagem da reunião sem redigitar.", "alvo": "botao=Opções do cartão Sessões realizadas", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Guias por liberar", "texto": "Guias de convênio esperando baixa e quantas já passaram do prazo. Ver pendências abre a fila do faturamento para resolver.", "alvo": "botao=Ver pendências" },
+    { "titulo": "Sessões sem evolução", "texto": "Atendimentos sem o registro do profissional — e quantos já têm guia emitida, o caso mais grave. Ver sessões abre a lista para cobrar.", "alvo": "botao=Ver sessões" },
+    { "titulo": "Quem não vem ou não respondeu", "texto": "Pacientes que avisaram que não vêm e lembretes sem resposta. Ver confirmações abre a lista para ligar, remarcar e liberar o horário.", "alvo": "botao=Ver confirmações" },
+    { "titulo": "A pauta do dia", "texto": "O que precisa de você hoje, na ordem do que custa mais esperar. O ponto colorido é a gravidade e a etiqueta diz de qual módulo veio o alerta.", "alvo": "titulo=O que precisa de você hoje" },
+    { "titulo": "Resolva pelo atalho do item", "texto": "Cada item da pauta traz o botão que leva à tela onde ele se resolve — conferir estoque, cobrar, pagar contas. Clique quando for tratar.", "alvo": "css=.mesa-pauta .mesa-ir" },
+    { "titulo": "Veja a pauta inteira", "texto": "A mesa mostra só os itens principais. Ver os outros abre o resto da pauta; Mostrar só os principais recolhe de novo.", "alvo": "botao=Ver os outros", "acao": "clicar" },
+    { "alvo": "botao=Mostrar só os principais", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Hoje na agenda", "texto": "A ocupação de cada profissional hoje. Passe o mouse no percentual para ver atendidos e marcados. Abrir a agenda leva à agenda do dia.", "alvo": "titulo=Hoje na agenda" },
+    { "titulo": "Convênios no mês", "texto": "Quanto cada convênio rendeu no mês (bruto) e o percentual que sobra depois da retenção. Ver por convênio abre a rentabilidade completa.", "alvo": "titulo=Convênios no mês" },
+    { "titulo": "Atendimento pelo CRM", "texto": "Resumo dos últimos 7 dias do atendimento por WhatsApp: conversas, tempo típico de resposta, confirmações respondidas e SMS enviados.", "alvo": "titulo=Atendimento pelo CRM" },
+    { "titulo": "Metas do mês", "texto": "Quanto de cada meta já foi atingido; barra amarela é meta em risco. Ver metas abre a tela onde a direção define e corrige os alvos.", "alvo": "titulo=Metas do mês" }
+  ]
+}

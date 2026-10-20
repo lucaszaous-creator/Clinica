@@ -1,0 +1,96 @@
+{
+  "chave": "pedidos-enfermagem",
+  "titulo": "Pedidos da enfermagem",
+  "descricao": "O que a enfermagem pediu ao balcão — vagas para encaixar na sala — e o que ainda está em aberto.",
+  "passos": [
+    {
+      "titulo": "Conheça os pedidos da enfermagem",
+      "texto": "Quando a enfermagem tem folga na sala, ela avisa aqui quantos atendimentos a mais cabem. Os avisos são de toda a recepção.",
+      "alvo": "titulo=Pedidos da enfermagem"
+    },
+    {
+      "titulo": "Veja os avisos novos",
+      "texto": "Novos são os avisos que ninguém da recepção abriu ainda. Comece por eles.",
+      "alvo": "texto-exato=Novos"
+    },
+    {
+      "titulo": "Veja os em aberto",
+      "texto": "Em aberto soma os novos e os já vistos que ainda valem. Para hoje conta os que são do dia de hoje.",
+      "alvo": "texto-exato=Em aberto"
+    },
+    {
+      "titulo": "Copie um número",
+      "texto": "Os três pontinhos do cartão copiam o número para colar numa mensagem ou planilha.",
+      "alvo": "botao=Opções do cartão Para hoje",
+      "acao": "clicar"
+    },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Filtre só os novos",
+      "texto": "Novos mostra só o que ainda não foi lido. Em aberto, ao lado, mostra tudo o que ainda vale.",
+      "alvo": "botao=Novos (",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Consulte o histórico",
+      "texto": "Histórico traz os avisos encerrados, retirados pela enfermagem ou vencidos — para conferir o que já passou.",
+      "alvo": "botao=Histórico",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Em aberto (", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Veja só os de hoje",
+      "texto": "Marque para ver só os avisos de hoje. Desmarque para ver todas as datas.",
+      "alvo": "caixa=Somente",
+      "acao": "clicar"
+    },
+    { "alvo": "caixa=Somente", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Leia o aviso",
+      "texto": "Cada linha diz o período, quantos atendimentos cabem e de qual modalidade, a observação da enfermagem e quem mandou.",
+      "alvo": "texto=atendimentos adicionais"
+    },
+    {
+      "titulo": "Abra o pedido",
+      "texto": "Ver pedido abre o aviso com a agenda do período ao lado. Abrir um aviso novo marca-o como visto para todo o balcão.",
+      "alvo": "botao=Ver pedido",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Confira a agenda do período",
+      "texto": "O pedido mostra a agenda atual daquele período. A quantidade pedida não reserva vagas: confira antes de marcar.",
+      "alvo": "janela-texto=Agenda atual do período"
+    },
+    {
+      "titulo": "Vá para o dia na agenda",
+      "texto": "Ver este dia na agenda abre a grade naquele dia, com todos os profissionais, para marcar os encaixes.",
+      "alvo": "janela=Ver este dia na agenda"
+    },
+    {
+      "titulo": "Encerre o aviso",
+      "texto": "Quando terminar, encerre o aviso. Ele vai para o histórico. Encerrar não confirma que houve marcação.",
+      "alvo": "janela=Encerrar aviso",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Dê um retorno à enfermagem",
+      "texto": "Escreva, se quiser, o que foi feito, por exemplo quantos foram marcados. Aqui continuamos com o aviso aberto.",
+      "alvo": "janela-campo=Retorno para a enfermagem",
+      "acao": "digitar",
+      "valor": "Marcamos 2 BSV às 14h."
+    },
+    { "alvo": "janela=Continuar com o aviso aberto", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Leia o histórico do aviso",
+      "texto": "No fim do pedido, o histórico do aviso mostra tudo o que aconteceu com ele e quando.",
+      "alvo": "janela-texto=Histórico do aviso"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Atualize os avisos",
+      "texto": "A lista se atualiza sozinha. Clique em Atualizar para ver na hora um aviso que acabou de chegar.",
+      "alvo": "botao-exato=Atualizar",
+      "acao": "clicar"
+    }
+  ]
+}

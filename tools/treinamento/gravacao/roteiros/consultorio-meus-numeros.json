@@ -1,0 +1,23 @@
+{
+  "chave": "consultorio-meus-numeros",
+  "titulo": "Meus números",
+  "descricao": "A sua produtividade e o seu prontuário no período: sessões, faltas, ocupação, completude e a melhora da dor.",
+  "passos": [
+    { "titulo": "Conheça os seus números", "texto": "Os números de quem está logado, comparados com o período anterior. A tela não compara colegas — é para você acompanhar o seu trabalho.", "alvo": "titulo=Meus números" },
+    { "titulo": "Escolha o período", "texto": "Este mês, mês passado, últimos 90 dias ou este ano. Todos os cartões passam a contar o período escolhido.", "alvo": "entrada=Período", "acao": "selecionar", "valor": "Mês passado" },
+    { "alvo": "entrada=Período", "acao": "selecionar", "valor": "Este mês", "ms": 1200 },
+    { "titulo": "Atualize os números", "texto": "Relê o período na hora (atalho F5).", "alvo": "botao=Atualizar", "acao": "clicar" },
+    { "titulo": "Saiba de quem são os números", "texto": "Sem vínculo entre o seu usuário e o seu cadastro de profissional, os números são da clínica inteira — e a tela avisa.", "alvo": "texto=Então estes são os números da clínica inteira" },
+    { "titulo": "Leia o atendimento do período", "texto": "Sessões atendidas e pacientes distintos, com a seta de comparação com o período anterior logo abaixo de cada número.", "alvo": "texto-exato=Sessões atendidas" },
+    { "titulo": "Acompanhe as faltas", "texto": "Quantas faltas houve e a taxa de falta sobre os horários marcados. Taxa alta pede confirmação de véspera.", "alvo": "texto-exato=Taxa de falta" },
+    { "titulo": "Veja a ocupação da agenda", "texto": "Quanto do tempo disponível foi ocupado com atendimentos. A barra mostra a fração de relance.", "alvo": "texto-exato=Ocupação da agenda" },
+    { "titulo": "Meça a completude do prontuário", "texto": "Das sessões atendidas, quantas têm evolução escrita. É o número que esta tela existe para melhorar.", "alvo": "texto-exato=Completude do prontuário" },
+    { "titulo": "Conte as evoluções escritas", "texto": "Quantas evoluções você escreveu no período, comparadas com o período anterior.", "alvo": "texto-exato=Evoluções escritas" },
+    { "titulo": "Veja a melhora da dor", "texto": "Quanto a EVA cai, em média, entre o antes e o depois das sessões com o par medido.", "alvo": "texto-exato=Melhora média da dor (EVA)" },
+    { "titulo": "Copie um número", "texto": "O ⋯ de cada cartão copia o valor, ou o rótulo com o valor, para colar num relatório ou mensagem.", "alvo": "botao=Opções do cartão Sessões atendidas", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "ms": 1500 },
+    { "alvo": "botao=Opções do cartão Sessões atendidas", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Resolva o que está em aberto", "texto": "A dívida de prontuário é de hoje, não do período: Ver e escrever abre a lista das sessões que ainda esperam evolução.", "alvo": "botao=Ver e escrever" },
+    { "titulo": "Entenda o traço", "texto": "Métrica sem base de cálculo aparece como —, nunca como zero: zero diria que algo aconteceu e deu zero.", "alvo": "texto=Métrica sem base de cálculo" }
+  ]
+}

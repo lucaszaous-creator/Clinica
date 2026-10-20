@@ -1,0 +1,24 @@
+{
+  "chave": "fechamento-caixa",
+  "titulo": "Fechamento de caixa",
+  "descricao": "O dinheiro em espécie da gaveta bate com o que o sistema registrou no dia? Conte, confira e justifique a diferença.",
+  "passos": [
+    { "titulo": "Entenda o que se confere", "texto": "Só entra dinheiro em espécie. Cartão e Pix caem na conta dias depois e são conferidos em Recebíveis e no Extrato do banco.", "alvo": "titulo=Fechamento de caixa" },
+    { "titulo": "Escolha o dia", "texto": "A conferência abre no dia de hoje. As setas andam um dia para trás ou para a frente; o botão Hoje volta ao dia atual.", "alvo": "botao=Dia anterior", "acao": "clicar" },
+    { "titulo": "Vá direto a uma data", "texto": "Clique na data para escolher qualquer dia no calendário — útil para conferir o caixa de um dia que ficou para trás.", "alvo": "entrada=Dia da conferência" },
+    { "alvo": "botao-exato=Hoje", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Veja o que entrou e saiu", "texto": "O sistema soma os recebimentos e as despesas pagas em dinheiro no dia, e diz quantos lançamentos em espécie houve.", "alvo": "texto-exato=Entrou em espécie" },
+    { "titulo": "Veja quanto deveria haver", "texto": "Deveria haver na gaveta é o que entrou menos o que saiu em espécie. É o número contra o qual você vai conferir.", "alvo": "texto-exato=Deveria haver na gaveta" },
+    { "titulo": "Digite o que você contou", "texto": "Conte as notas e moedas da gaveta e digite o total. Vale o que você CONTOU, não o que o sistema diz.", "alvo": "entrada=Quanto havia na gaveta", "acao": "digitar", "valor": "150,00" },
+    { "titulo": "Leia a diferença", "texto": "A diferença aparece enquanto você digita: Bateu, Sobra ou Falta. Com a gaveta ainda aberta, dá para recontar antes de gravar.", "alvo": "texto-exato=Diferença" },
+    { "titulo": "Justifique a divergência", "texto": "Com diferença, a justificativa é obrigatória. Sobra costuma ser venda não lançada; falta, troco sem registro.", "alvo": "entrada=Justificativa da diferença", "acao": "digitar", "valor": "Troco dado sem registro no fim da tarde." },
+    { "titulo": "Conferir o caixa", "texto": "Grava a conferência com o que você contou e a justificativa. O dia sai da lista de não conferidos e entra no histórico.", "alvo": "botao=Conferir o caixa" },
+    { "alvo": "entrada=Quanto havia na gaveta", "acao": "limpar", "ms": 1200 },
+    { "titulo": "Ache os dias não conferidos", "texto": "Esta lista mostra os últimos 60 dias com dinheiro na gaveta que ninguém contou. Esvaziá-la é a rotina do fechamento.", "alvo": "titulo=Dias não conferidos" },
+    { "titulo": "Abra um dia atrasado", "texto": "Clique no dia para trazer a conferência dele para o quadro ao lado, com o que deveria haver na gaveta naquele dia.", "alvo": "css=.lista-dias li:nth-child(2) button", "acao": "clicar" },
+    { "alvo": "botao-exato=Hoje", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Consulte o histórico", "texto": "Cada conferência fica com o esperado, o contado, a diferença, a situação e quem conferiu. Reaberto não some: fica marcado com o motivo.", "alvo": "titulo=Histórico de conferências" },
+    { "titulo": "Reabra para recontar", "texto": "Reabrir pede o motivo e devolve o dia para conferir de novo; a conferência anterior fica no histórico. Aqui saímos sem reabrir.", "alvo": "botao=Reabrir", "acao": "clicar" },
+    { "alvo": "janela-exato=Cancelar", "acao": "clicar", "ms": 1200 }
+  ]
+}

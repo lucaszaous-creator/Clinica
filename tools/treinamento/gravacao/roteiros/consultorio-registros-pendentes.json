@@ -1,0 +1,68 @@
+{
+  "chave": "consultorio-registros-pendentes",
+  "titulo": "Sessões sem evolução",
+  "descricao": "O que foi atendido e continua sem evolução escrita — a dívida de prontuário, da sessão mais antiga para a mais nova.",
+  "passos": [
+    {
+      "titulo": "Conheça a dívida de prontuário",
+      "texto": "Toda sessão já atendida que ainda não tem evolução aparece aqui, a mais antiga primeiro. Escreva enquanto ainda lembra o que foi feito.",
+      "alvo": "titulo=Sessões sem evolução"
+    },
+    {
+      "titulo": "Saiba de quem é a lista",
+      "texto": "Sem vínculo entre o seu usuário e o seu cadastro de profissional, a lista é a da clínica inteira e a tela avisa. Peça o vínculo à direção.",
+      "alvo": "texto=Seu acesso não está vinculado"
+    },
+    {
+      "titulo": "Saiba o que entra na dívida",
+      "texto": "Aqui entra a evolução de quem consulta. A passagem da enfermagem não é cobrada nesta lista: ela é escrita em Atendimento de enfermagem, dentro do paciente.",
+      "alvo": "texto=A passagem da enfermagem é escrita"
+    },
+    {
+      "titulo": "Atualize a lista",
+      "texto": "Relê as sessões pendentes (atalho F5). A evolução escrita agora há pouco já tira a sessão daqui.",
+      "alvo": "botao=Atualizar",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Filtre pelo paciente",
+      "texto": "Digite parte do nome — o acento não atrapalha — para ver só as sessões pendentes daquele paciente.",
+      "alvo": "entrada=Filtrar pelo paciente",
+      "acao": "digitar",
+      "valor": "Luciana"
+    },
+    {
+      "titulo": "Limpe o filtro",
+      "texto": "Limpar filtro desfaz o nome e o profissional escolhidos e a lista volta inteira.",
+      "alvo": "botao=Limpar filtro",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Recorte pelo profissional",
+      "texto": "Na lista da clínica, escolha um profissional para ver só as sessões que ele ainda precisa escrever.",
+      "alvo": "entrada=Profissional",
+      "acao": "selecionar",
+      "valor": "Bianca Moraes"
+    },
+    {
+      "alvo": "botao=Limpar filtro",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Leia cada linha",
+      "texto": "A linha traz o paciente, o dia e a hora da sessão, a modalidade e quem atendeu.",
+      "alvo": "texto-exato=Paciente"
+    },
+    {
+      "titulo": "Veja há quanto tempo está aberta",
+      "texto": "A coluna Em aberto conta os dias desde a sessão. Quanto mais antiga, mais difícil lembrar o que foi feito — comece por ela.",
+      "alvo": "texto-exato=Em aberto"
+    },
+    {
+      "titulo": "Escreva a evolução",
+      "texto": "Escrever evolução abre a sessão daquele horário para registrar. Depois de salva, a linha sai desta lista sozinha.",
+      "alvo": "botao=Escrever evolução"
+    }
+  ]
+}

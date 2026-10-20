@@ -3,16 +3,183 @@
   "titulo": "Agenda do dia",
   "descricao": "Quem vem hoje, em que ponto cada um está e o que falta fazer no balcão — tudo na ordem da hora.",
   "passos": [
-    { "titulo": "Escolha o dia", "texto": "A lista abre sempre em hoje. As setas trocam o dia e o calendário leva a qualquer data.", "alvo": "botao=Próximo dia" },
-    { "titulo": "Veja cada situação", "texto": "Os contadores mostram quantos estão pendentes, no local, em atendimento, atendidos, cancelados ou faltaram. Clique em um para ver só aqueles horários.", "alvo": "botao=No local", "acao": "clicar" },
+    {
+      "titulo": "Conheça a agenda do dia",
+      "texto": "Aqui estão todos os horários do dia, na ordem da hora, com a situação de cada paciente e o próximo passo do balcão.",
+      "alvo": "titulo=Agenda do dia"
+    },
+    {
+      "titulo": "Troque o dia",
+      "texto": "As setas andam um dia para trás ou para a frente. A lista sempre abre em hoje.",
+      "alvo": "botao=Próximo dia",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Volte para hoje",
+      "texto": "Fora de hoje aparece o botão Voltar para hoje: um clique traz de volta a lista do dia.",
+      "alvo": "botao=Voltar para hoje",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Escolha a data no calendário",
+      "texto": "Para ir direto a um dia distante, escolha a data neste campo.",
+      "alvo": "entrada=Escolher o dia"
+    },
+    {
+      "titulo": "Atualize a lista",
+      "texto": "A lista se atualiza sozinha a cada minuto. Clique aqui (ou tecle F5) para ver na hora o que outra máquina mudou.",
+      "alvo": "botao=Atualizar a agenda",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja quem ainda vai chegar",
+      "texto": "Cada pílula conta os horários de uma situação e, clicada, mostra só eles. Pendentes são os que ainda não chegaram.",
+      "alvo": "botao=Pendentes",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja quem já está no local",
+      "texto": "No local são os pacientes que chegaram e esperam ser chamados pelo profissional.",
+      "alvo": "botao=No local",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Veja quem está na sala",
+      "texto": "Em atendimento são os que estão com o profissional agora. Atendidos são as sessões já concluídas hoje.",
+      "alvo": "botao=Em atendimento",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Confira faltas e cancelamentos",
+      "texto": "Faltas, cancelados e substituídos continuam na lista, apagados, para mostrar que aquele horário vagou.",
+      "alvo": "botao=Faltas",
+      "acao": "clicar"
+    },
     { "alvo": "botao=Todos", "acao": "clicar", "ms": 1500 },
-    { "titulo": "Respostas ao lembrete", "texto": "Aqui está quem confirmou, quem não respondeu e quem avisou que não vem. Quem não vem pede uma ligação para remarcar e liberar o horário.", "alvo": "botao=Não vêm" },
-    { "titulo": "Ache um paciente", "texto": "Digite parte do nome para encontrar o horário. Os filtros de modalidade e de profissional, ao lado, estreitam a lista.", "alvo": "campo=Buscar paciente pelo nome", "acao": "digitar", "valor": "Otávio" },
-    { "alvo": "campo=Buscar paciente pelo nome", "acao": "limpar", "ms": 1200 },
-    { "titulo": "Leia a linha do horário", "texto": "Cada linha traz a hora, o paciente, o atendimento, o convênio, quem atende e a situação. Os selos avisam o que falta: guia pendente, última sessão do pacote, termo a colher.", "alvo": "texto-exato=Lúcia Helena Carvalho" },
-    { "titulo": "Registre a chegada", "texto": "Quando o paciente chega, clique em Chegou. A linha passa para No local e quem atende já vê que ele está esperando.", "alvo": "botao-exato=Chegou" },
-    { "titulo": "Mais ações do horário", "texto": "O botão de três pontos reúne o resto: editar ou remarcar, marcar falta, cancelar e abrir a ficha do paciente.", "alvo": "botao=Mais ações de Otávio Rezende Campos", "acao": "clicar" },
-    { "acao": "tecla", "valor": "Escape", "ms": 900 },
-    { "titulo": "Marque e imprima", "texto": "Marcar atendimento abre a marcação já neste dia. Imprimir folha do dia gera o papel com todos os horários para a recepção e as salas.", "alvo": "botao=Marcar atendimento" }
+    {
+      "titulo": "Veja as respostas ao lembrete",
+      "texto": "Mostra quem confirmou, quem não respondeu e quem avisou que não vem. Quem não vem pede uma ligação para remarcar.",
+      "alvo": "botao=Não vêm",
+      "acao": "clicar"
+    },
+    { "alvo": "botao=Não vêm", "acao": "clicar", "ms": 1500 },
+    {
+      "titulo": "Ache um paciente pelo nome",
+      "texto": "Digite parte do nome e a lista mostra só os horários daquele paciente. O resumo ao lado diz quantos aparecem.",
+      "alvo": "entrada=Buscar paciente pelo nome",
+      "acao": "digitar",
+      "valor": "Otávio"
+    },
+    { "alvo": "entrada=Buscar paciente pelo nome", "acao": "limpar", "ms": 1200 },
+    {
+      "titulo": "Filtre pela modalidade",
+      "texto": "Escolha uma modalidade para ver só aquelas sessões — por exemplo, só os BSV do dia.",
+      "alvo": "campo=Modalidade",
+      "acao": "selecionar",
+      "valor": "BSV (apenas)"
+    },
+    {
+      "titulo": "Limpe os filtros",
+      "texto": "Com algum filtro ligado aparece Limpar filtros: ele devolve a lista inteira do dia de uma vez.",
+      "alvo": "botao=Limpar filtros",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Filtre por profissional",
+      "texto": "Mostra só a agenda de um profissional, com quantos horários cada um tem. A folha impressa segue este filtro.",
+      "alvo": "campo=Profissional"
+    },
+    {
+      "titulo": "Leia a linha do horário",
+      "texto": "Cada linha traz hora, paciente, modalidade, convênio, quem atende e a situação. A cor do avatar indica a modalidade.",
+      "alvo": "linha=Lúcia Helena Carvalho"
+    },
+    {
+      "titulo": "Repare nos selos de aviso",
+      "texto": "Os selos avisam o que falta: guia pendente, última sessão do pacote, termo a colher, atraso. Resolva com o paciente no balcão.",
+      "alvo": "texto=Última do pacote"
+    },
+    {
+      "titulo": "Registre a chegada",
+      "texto": "Quando o paciente chega, clique em Chegou. A linha passa para No local e quem atende já vê que ele está esperando.",
+      "alvo": "botao-exato=Chegou",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Conclua pelo balcão",
+      "texto": "Concluir fecha a sessão pelo balcão e gera a guia. O caminho comum é o profissional finalizar; use quando ele não pôde.",
+      "alvo": "botao-exato=Concluir"
+    },
+    {
+      "titulo": "Feche a sessão concluída",
+      "texto": "Depois da sessão, este botão abre o fechamento: debita o pacote, lança os insumos e registra o pagamento.",
+      "alvo": "botao=Debitar pacote",
+      "acao": "clicar"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Corrija o horário",
+      "texto": "O lápis abre o horário para corrigir modalidade, especialidade, profissional, hora ou observação sem sair da lista.",
+      "alvo": "botao=Editar o horário de Mariana Costa",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Ajuste e salve",
+      "texto": "Mude o que precisar e clique em Salvar horário. Se houver outro paciente no mesmo horário, a tela avisa, mas não impede.",
+      "alvo": "janela-campo=Observações",
+      "acao": "digitar",
+      "valor": "Paciente pediu sala no térreo."
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Abra as outras ações",
+      "texto": "Os três pontinhos reúnem o resto: ficha do paciente, conferir convênio, marcar falta, cancelar e abrir o horário.",
+      "alvo": "botao=Mais ações de Mariana Costa",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Marque a falta",
+      "texto": "Marcar falta registra que o paciente não veio. A linha continua na lista, apagada, e o horário fica livre.",
+      "alvo": "item=Marcar falta"
+    },
+    {
+      "titulo": "Confira convênio e cota",
+      "texto": "Antes da sessão, confira carteirinha, cota e guia pendente. O aviso diz o que resolver com o paciente no balcão.",
+      "alvo": "item=Conferir convênio e cota",
+      "acao": "clicar"
+    },
+    { "alvo": "janela=Entendi", "acao": "clicar", "ms": 1200 },
+    { "alvo": "botao=Mais ações de Mariana Costa", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Cancele um horário",
+      "texto": "Cancelar pede confirmação. Confirmado, o horário fica apagado na lista. Aqui saímos por Cancelar, sem mudar nada.",
+      "alvo": "item=Cancelar o horário",
+      "acao": "clicar"
+    },
+    { "alvo": "janela-exato=Cancelar", "acao": "clicar", "ms": 1200 },
+    { "alvo": "botao=Mais ações de Mariana Costa", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Abra o horário completo",
+      "texto": "Mostra telefone, observação e quem marcou, com remarcar, confirmar pelo WhatsApp, comprovante e lista de espera.",
+      "alvo": "item=Abrir o horário",
+      "acao": "clicar"
+    },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    {
+      "titulo": "Leia a legenda das cores",
+      "texto": "As cores seguem a modalidade. Passe o mouse numa linha para ver quem marcou, a observação e a resposta ao lembrete.",
+      "alvo": "texto=Passe o mouse na linha"
+    },
+    {
+      "titulo": "Imprima a folha do dia",
+      "texto": "Gera a folha que o profissional leva para a sala, sem dado clínico, respeitando o filtro de profissional. Atalho: Ctrl+P.",
+      "alvo": "botao=Imprimir folha do dia"
+    },
+    {
+      "titulo": "Marque um novo atendimento",
+      "texto": "Leva à marcação já neste dia. Use para quem ligou pedindo horário ou chegou sem hora marcada.",
+      "alvo": "botao=Marcar atendimento",
+      "acao": "clicar"
+    }
   ]
 }

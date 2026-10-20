@@ -1,0 +1,25 @@
+{
+  "chave": "metas",
+  "titulo": "Metas da clínica",
+  "descricao": "O alvo de cada mês ao lado do realizado e da projeção: a clínica está chegando onde disse que ia chegar?",
+  "passos": [
+    { "titulo": "Escolha o mês", "texto": "As setas trocam o mês em foco. Os cartões e a tabela passam a mostrar as metas e o realizado do mês escolhido.", "alvo": "botao=Mês anterior", "acao": "clicar" },
+    { "titulo": "Veja o ano de uma vez", "texto": "A régua mostra os doze meses e quantas metas cada um tem; o traço é mês sem meta. Clique num mês para abri-lo direto.", "alvo": "css=.metas-ano" },
+    { "alvo": "botao=Próximo mês", "acao": "clicar", "ms": 1200 },
+    { "titulo": "Metas, batidas e em risco", "texto": "Quantas metas o mês tem, quantas já foram batidas e quantas, no ritmo atual, vão fechar abaixo do alvo. A projeção começa no dia 5.", "alvo": "texto-exato=Em risco" },
+    { "titulo": "Copie o número de um cartão", "texto": "O botão ⋯ do cartão copia o valor para levar à reunião ou à planilha sem redigitar.", "alvo": "botao=Opções do cartão Metas do mês", "acao": "clicar" },
+    { "alvo": "item=Copiar valor", "acao": "clicar", "ms": 1500 },
+    { "titulo": "Leia cada meta", "texto": "Cada linha traz o indicador, de quem é a meta (clínica ou profissional), o recorte, o alvo, o realizado até agora e a projeção do mês.", "alvo": "linha=Faturamento" },
+    { "titulo": "Entenda a barra e a situação", "texto": "A barra é quanto do alvo já foi feito; o traço vertical é onde o mês fecha no ritmo atual. O selo diz se está batida, a caminho ou em risco.", "alvo": "css=.metas-progresso" },
+    { "titulo": "Defina uma meta nova", "texto": "Nova meta abre o formulário: mês, indicador, de quem é, o recorte por categoria ou especialidade e o alvo.", "alvo": "botao=Nova meta", "acao": "clicar" },
+    { "titulo": "Escolha o indicador", "texto": "Faturamento é em reais, Sessões em quantidade e Ocupação em percentual. A unidade do alvo muda junto com o indicador.", "alvo": "janela-campo=Indicador", "acao": "selecionar", "valor": "Sessões" },
+    { "titulo": "Informe o alvo e o porquê", "texto": "Digite o alvo do mês. Em Observações, anote a razão do número — ajuda quem ler a meta depois. Definir meta grava; aqui só mostramos.", "alvo": "janela-campo=Alvo", "acao": "digitar", "valor": "130" },
+    { "alvo": "janela-campo=Observações", "acao": "digitar", "valor": "Duas profissionais novas na agenda" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Corrija o alvo", "texto": "Corrigir muda só o alvo daquela meta. Para outro mês, indicador ou recorte, crie uma meta nova.", "alvo": "botao-exato=Corrigir", "acao": "clicar" },
+    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "Exclua uma meta", "texto": "A lixeira apaga a meta e o mês fica sem alvo. Para dizer que o alvo é zero, corrija o valor para zero em vez de apagar.", "alvo": "botao=Excluir a meta de Faturamento", "acao": "clicar" },
+    { "alvo": "janela=Cancelar", "acao": "clicar", "ms": 1000 },
+    { "titulo": "De onde vem o realizado", "texto": "Faturamento é a receita que entrou, sessões são as realizadas e ocupação é a agenda contra a jornada. Meta com recorte soma só aquela parte.", "alvo": "texto=O realizado vem do serviço dono" }
+  ]
+}
