@@ -12,8 +12,8 @@
   Nada de regra aqui: o que cada cartão diz e libera e as frases da lista moram em
   CentralDeDocumentosNaTela, o passo 3 em PreviaDaFolha, a busca em BuscaNasFolhas e o resumo
   em ResumoFolhas (Application, com teste). O que continua WPF — as janelas de emissão, a
-  coleta do termo e os seis atos do documento (assinatura incluída, área congelada) — passa
-  por IDocumentosDaRecepcao; onde ele não existe (a prévia), a tela DIZ que a ação é do
+  coleta do termo e os atos do documento (assinatura incluída, área congelada) — passa por
+  IDocumentosDaRecepcao; "Enviar ao paciente" é o EnvioAoPacienteForm desta tela; onde ele não existe (a prévia), a tela DIZ que a ação é do
   aplicativo.
 *@
 @namespace Clinica.Ui.Blazor.Telas
@@ -258,6 +258,11 @@
 {
     <div class="rd-menu-fundo" @onclick="() => _menu = null"></div>
 }
+@if (_enviandoDoc is { } enviado)
+{
+    @* "Enviar ao paciente…" é o EnvioAoPacienteForm (out/2026) — a mesma pergunta do "já saiu hoje" do atendimento. *@
+    <EnvioAoPacienteForm DocumentoId="enviado.DocumentoId" Rotulo="@enviado.Rotulo" AoFechar="() => _enviandoDoc = null" AoConcluir="EnviouAsync" />
+}
 
 @code {
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
@@ -282,6 +287,7 @@
     private string? _mensagem;
     private bool _mensagemEhErro;
     private bool _ocupado;
+    private DocumentoEmitido? _enviandoDoc;
 
     // ---- Emitir ----
     private Paciente? _paciente;
@@ -423,6 +429,13 @@
 
     /// <summary>Escolher NÃO exige que dê para emitir: o passo 3 é que explica o que falta.</summary>
     private void Escolher(CartaoDaCentral c) => _escolhida = c;
+
+    private async Task EnviouAsync(ResultadoDoAto r)
+    {
+        _enviandoDoc = null;
+        if (!r.Silencioso) Dizer(r.Frase, r.EhErro);
+        if (r.Mudou) await CarregarAsync();
+    }
 
     private void Dizer(string? frase, bool erro)
     {
@@ -666,6 +679,12 @@
     {
         _menu = null;
         if (_ocupado) return;
+        // Enviar é um formulário desta tela (a pergunta do canal), não um ato da ponte.
+        if (ato == AtoDoDocumento.Enviar && DocumentoEmitido.De(l.Folha, Hoje) is { } aEnviar)
+        {
+            _enviandoDoc = aEnviar;
+            return;
+        }
         _ocupado = true;
         try
         {

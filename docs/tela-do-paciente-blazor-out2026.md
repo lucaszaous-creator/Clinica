@@ -70,16 +70,35 @@ As telas Blazor só as chamam.
 
 | Janela | Tamanho (XAML + VM) | Onde é usada | Esforço |
 |---|---|---|---|
-| `ResultadosDoPedidoWindow` + `RegistrarResultadoExameWindow` | ~300 + ~350 linhas | Exames (Consultório) | meio dia, as duas |
-| `ResumoProntuarioWindow` | ~500 linhas | Prontuários (Consultório) | meio dia |
 | `InfusaoExternaWindow` | ~180 linhas | Sala de infusão, prescrição | meio dia, com as duas abaixo |
 | `EscolhaDeConvenioWindow` (`VinculoDeConvenio`) | ~310 linhas | Finalizar, fila, Novo atendimento | |
-| `CobrancaDoPacienteWindow` | ~350 linhas | Ficha, Novo atendimento | |
 | `CadastroPacienteWindow` | ~530 linhas | Ficha, Pacientes, Agenda | meio dia |
 | `DocumentoWindow` (emitir receita, atestado, laudo) | ~1.200 linhas, 9 chamadores | os cinco apps | **1 dia**: a mais delicada (conferência de alergia na receita, prévia, CID sob autorização) |
 | `EvolucaoEnfermagemWindow` | já há o equivalente Blazor (`FolhaDaPassagem`) | a folha de execução | **depende de decisão** (§4) |
 
 As cinco últimas são do **shell** e servem também à Recepção e ao Gerente: convertê-las resolve os três módulos de uma vez.
+
+### 2.2.1 Convertidas depois da PR 285 (branch `claude/wpf-exames`)
+
+| Janela WPF | Virou | Onde abre | Saiu do código? |
+|---|---|---|---|
+| `RegistrarResultadoExameWindow` + VM | `ResultadoExameForm` (já existia, da seção Exames e anexos) | Exames → "Anexar laudo" | **Sim** |
+| `ResultadosDoPedidoWindow` + VM | `ResultadosDoPedidoForm` | Exames → "Ver resultados" | **Sim** |
+| `ResumoProntuarioWindow` + VM | `ResumoProntuarioForm` (abre o `SessaoDoProntuarioForm`, que abre o `VersoesEvolucaoForm`) | Prontuários → "Abrir" | **Sim** |
+| `EscolherPacienteWindow` | `EscolherPacienteForm` (o `SeletorDePaciente` num `Modal`) | Exames → "Novo pedido"; Sala de infusão → infusão externa | **Sim** |
+| `CobrancaDoPacienteWindow` → `RecebimentoWindow` | `CobrancaDoPacienteForm` → `ReceberPagamentoForm` | Ficha (aba administrativa) e Lançar/Marcar | **Não**: a ficha do balcão WPF (`FichaPacienteViewModel`) ainda as abre |
+| `EnvioAoPacienteWindow` | `EnvioAoPacienteForm` (+ ponte `IEntregaAoPaciente` para o WhatsApp deste computador) | Documentos → "Enviar ao paciente…"; "já saiu hoje" do atendimento | **Não**: a ficha do balcão e o fim da emissão na `DocumentoWindow` ainda passam por `AcoesDoDocumento.EnviarAsync` |
+| `SessaoDoProntuarioWindow`, `VersoesEvolucaoWindow` | (o resumo Blazor já usa os formulários) | — | **Não**: a ficha e o Prontuário da Recepção WPF ainda as abrem |
+
+Métodos de ponte que saíram junto: `IJanelasDosExames.RegistrarResultadoAsync`/`VerResultadosAsync`
+(e `NovoPedidoAsync` passou a receber o paciente), `IJanelasDosProntuarios.AbrirResumoAsync`,
+`IJanelasDaFicha.ReceberDividaAsync`, `IJanelasDoAtendimento.ReceberDividaAsync`,
+`IJanelasDoAtendimentoClinico.EnviarAoPacienteAsync`; `IJanelasDaSalaDeInfusao.RegistrarInfusaoExternaAsync`
+passou a receber o paciente. As janelas que ficaram somem quando a ficha do balcão e a
+`DocumentoWindow` virarem Blazor — aí os seus últimos chamadores saem. Diferença de comportamento
+assumida: o `EscolherPacienteForm` abre com a busca VAZIA (o `SeletorDePaciente` da casa não
+despeja o alfabeto), enquanto a janela WPF abria com os primeiros da carteira; e a cobrança não
+oferece "Convênio" como forma (o mesmo corte do recebimento do balcão).
 
 ### 2.3 Por arquitetura
 

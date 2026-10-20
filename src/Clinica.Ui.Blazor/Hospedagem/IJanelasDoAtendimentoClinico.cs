@@ -47,12 +47,6 @@ public interface IJanelasDoAtendimentoClinico
 
     /// <summary>O motivo pelo qual a conclusão automática ainda não concluiu este horário (nulo = nenhum).</summary>
     Task<string?> PendenciaDeConclusaoAutomaticaAsync(int agendamentoId);
-
-    /// <summary>
-    /// "Enviar…" do que saiu hoje (out/2026): a MESMA janela de envio das outras portas
-    /// (<c>AcoesDoDocumento.EnviarAsync</c>) — e-mail primeiro, WhatsApp pelo CRM depois.
-    /// </summary>
-    Task<ResultadoDoAto> EnviarAoPacienteAsync(int documentoId);
 }
 
 /// <summary>Onde não há janelas WPF (a prévia, os testes): tudo responde "não disponível", e a tela diz.</summary>
@@ -69,5 +63,4 @@ public sealed class JanelasDoAtendimentoClinicoIndisponiveis : IJanelasDoAtendim
         int? profissionalId, int? agendamentoId) => Task.FromResult(false);
     public Task<bool> EscolherConvenioAsync(int pacienteId) => Task.FromResult(false);
     public Task<string?> PendenciaDeConclusaoAutomaticaAsync(int agendamentoId) => Task.FromResult<string?>(null);
-    public Task<ResultadoDoAto> EnviarAoPacienteAsync(int documentoId) => Task.FromResult(new ResultadoDoAto(Frase: Frase, EhErro: true));
 }

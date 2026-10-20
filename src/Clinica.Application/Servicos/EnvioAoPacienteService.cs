@@ -151,6 +151,19 @@ public sealed class EnvioAoPacienteService
             : $"O documento {numero} ainda não foi assinado digitalmente. Sem assinatura, o que vale "
               + "é a via impressa e assinada à caneta — assine antes de enviar o arquivo.";
 
+    /// <summary>
+    /// O atestado sem certificado vai, mas a pergunta DIZ o que ele vale em arquivo: pelo art. 13
+    /// da Lei 14.063/2020 o atestado eletrônico só vale com assinatura qualificada. Avisa, não
+    /// impede — a regra da casa; quem decide é quem envia. Uma definição para as duas portas (a
+    /// janela WPF que ainda resta e o formulário Blazor), senão o aviso divergiria entre elas.
+    /// </summary>
+    public static string? AvisoSemAssinatura(TipoDocumentoClinico tipo, bool assinado, string rotulo)
+        => !assinado && ConformidadeDocumentoClinico.ExigeAssinaturaQualificada(tipo)
+            ? $"Atenção: sem assinatura digital, o {rotulo.ToLowerInvariant()} em arquivo não "
+              + $"substitui a via impressa e assinada ({ConformidadeDocumentoClinico.Art13}). "
+              + "Ele vai como cópia."
+            : null;
+
     // ==================== O papel, de qualquer origem ====================
 
     /// <summary>O que o envio precisa saber do papel, já conferido que ele pode sair.</summary>

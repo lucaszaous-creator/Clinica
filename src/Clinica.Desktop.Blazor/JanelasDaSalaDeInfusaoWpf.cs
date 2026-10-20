@@ -28,11 +28,10 @@ public sealed class JanelasDaSalaDeInfusaoWpf(IServiceScopeFactory escopos, IDia
         return Task.FromResult(true);
     });
 
-    public Task<bool> RegistrarInfusaoExternaAsync() => NaInterface(async () =>
+    public Task<bool> RegistrarInfusaoExternaAsync(int pacienteId, string paciente) => NaInterface(async () =>
     {
-        var paciente = EscolherPacienteWindow.Perguntar("Registrar infusão realizada", JanelaDona.Atual(), escopos);
-        if (paciente is null) return false;
-        var vm = new InfusaoExternaViewModel(escopos, paciente.Id, paciente.Nome);
+        // Quem é o paciente a tela já perguntou (EscolherPacienteForm, Blazor desde out/2026).
+        var vm = new InfusaoExternaViewModel(escopos, pacienteId, paciente);
         var janela = new InfusaoExternaWindow(vm) { Owner = JanelaDona.Atual() };
         if (janela.ShowDialog() != true || vm.PrescricaoId is not { } id) return false;
         await AbrirFolhaAsync(id);

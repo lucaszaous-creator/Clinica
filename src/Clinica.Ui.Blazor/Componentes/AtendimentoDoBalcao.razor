@@ -17,7 +17,8 @@
   A tela não decide regra: grava pelos MESMOS serviços (AgendaService.LancarAvulsoAsync /
   LancarNoHorarioAsync / AgendarAsync, FechamentoSessaoService), e o que ela AFIRMA mora em
   AtendimentoDoBalcaoNaTela (Application, com teste). As janelas que continuam WPF (convênio,
-  fechamento, venda de pacote, cobrança, cadastro) entram por IJanelasDoAtendimento.
+  fechamento, cadastro) entram por IJanelasDoAtendimento; a venda de pacote e a cobrança no
+  balcão são formulários Blazor (PacoteVendaForm, CobrancaDoPacienteForm).
 *@
 @using Clinica.Application.Modelos
 @using Clinica.Domain.Regras
@@ -291,7 +292,7 @@
                                     <span>@a.Descricao</span>
                                     @if (a.PodeReceber)
                                     {
-                                        <button type="button" class="botao mini" disabled="@(!PodeAlgum(QuemRecebe))" @onclick="ReceberDividaAsync"
+                                        <button type="button" class="botao mini" disabled="@(!PodeAlgum(QuemRecebe))" @onclick="ReceberDivida"
                                                 title="@(PodeAlgum(QuemRecebe) ? "Receber a dívida aqui no balcão" : "Receber exige acesso ao caixa, ao lançamento ou à venda de pacote.")">Receber…</button>
                                     }
                                 </div>
@@ -384,6 +385,11 @@
 {
     @* A venda é Blazor desde out/2026 (PacoteVendaForm): o paciente entra JÁ ESCOLHIDO pelo parâmetro. *@
     <PacoteVendaForm Paciente="comprador" AoFechar="() => _vendendoPacote = false" AoConcluir="PacoteVendidoAsync" />
+}
+@if (_recebendoDivida && _paciente is { } devedor)
+{
+    @* A cobrança no balcão é Blazor desde out/2026 (CobrancaDoPacienteForm) — a MESMA da ficha do paciente. *@
+    <CobrancaDoPacienteForm PacienteId="devedor.Id" Paciente="@devedor.Nome" Telefone="@devedor.Telefone" AoFechar="FecharCobrancaAsync" />
 }
 
 <FechamentoDaSessao @ref="_fechamento" />
@@ -1148,20 +1154,18 @@
         }
     }
 
-    private async Task ReceberDividaAsync()
+    private void ReceberDivida()
     {
-        if (_paciente is not { } p) return;
+        if (_paciente is null) return;
         if (!ExigirAlgum(QuemRecebe, "receber no balcão")) return;
-        if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDoAtendimentoIndisponiveis.Frase); return; }
-        try
-        {
-            if (await Janelas.ReceberDividaAsync(p.Id)) await VerificarElegibilidadeAsync(p.Id);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Recepção — cobrança no balcão não pôde abrir", ex);
-            Avisar(ex.Message, "erro");
-        }
+        _recebendoDivida = true;
+    }
+
+    /// <summary>Recebido algo, a elegibilidade é relida: o alerta de dívida muda sem trocar de paciente.</summary>
+    private async Task FecharCobrancaAsync(bool mudou)
+    {
+        _recebendoDivida = false;
+        if (mudou && _paciente is { } p) await VerificarElegibilidadeAsync(p.Id);
     }
 
     /// <summary>
@@ -1177,6 +1181,7 @@
     }
 
     private bool _vendendoPacote;
+    private bool _recebendoDivida;
 
     private async Task PacoteVendidoAsync()
     {

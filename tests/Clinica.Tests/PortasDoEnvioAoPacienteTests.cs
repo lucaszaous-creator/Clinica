@@ -10,12 +10,13 @@ namespace Clinica.Tests;
 /// "Enviar ao paciente" em TODAS as portas onde um documento é emitido ou recuperado (out/2026,
 /// pedido da direção), com os dois canais e o e-mail primeiro — e por UMA definição só.
 ///
-/// As portas são telas WPF e o hospedeiro WPF da tela Blazor; o <c>dotnet test</c> não abre
-/// WPF. O que se prova aqui é o CONTRATO: cada porta chama o ponto único
-/// (<c>AcoesDoDocumento.EnviarAsync</c> ou <c>EnviarPrescricaoAsync</c>), que abre a
-/// <c>EnvioAoPacienteWindow</c>, que desenha as opções de <see cref="DestinosDoEnvio"/> — e
-/// estas (e-mail primeiro e marcado, WhatsApp com o custo) são provadas em
-/// <c>EnvioAoPacienteTests</c>. Porta nova que não passar pelo ponto único fica de fora da
+/// Desde out/2026 são DOIS desenhos da mesma pergunta, e os dois leem as MESMAS opções de
+/// <see cref="DestinosDoEnvio"/>: as portas Blazor (a central de Documentos e o "já saiu hoje"
+/// do atendimento) abrem o <c>EnvioAoPacienteForm</c>; as portas que ainda são WPF (a aba
+/// Documentos da ficha do balcão e o fim da emissão na janela de documento) passam pelo ponto
+/// único <c>AcoesDoDocumento.EnviarAsync</c>, que abre a <c>EnvioAoPacienteWindow</c>. O que se
+/// prova aqui é o CONTRATO de cada porta; as opções (e-mail primeiro e marcado, WhatsApp com o
+/// custo) são provadas em <c>EnvioAoPacienteTests</c>. Porta nova que não passar pelo ponto único fica de fora da
 /// lista abaixo e não ganha os dois canais: é por isso que a lista é escrita aqui, à vista.
 /// </summary>
 public sealed class PortasDoEnvioAoPacienteTests
@@ -30,15 +31,13 @@ public sealed class PortasDoEnvioAoPacienteTests
     static string Ler(string caminho) => File.ReadAllText(Path.Combine(Raiz(), caminho));
 
     [Theory]
-    // A central de Documentos (Recepção, Gerente e Consultório), pelo hospedeiro WPF.
-    [InlineData("src/Clinica.Desktop.Blazor/DocumentosNoAplicativoWpf.cs", "AtoDoDocumento.Enviar => await AcoesDoDocumento.EnviarAsync(")]
-    // A aba Documentos da ficha.
-    [InlineData("src/Clinica.Modulo.Recepcao/ViewModels/FichaPacienteViewModel.cs", "AcoesDoDocumento.EnviarAsync(")]
-    // As Prescrições do Consultório abrem a MESMA central de Documentos (Blazor) — coberta acima.
+    // A central de Documentos (Recepção, Gerente e Consultório; as Prescrições abrem a mesma).
+    [InlineData("src/Clinica.Ui.Blazor/Telas/Recepcao/DocumentosDaRecepcao.razor", "<EnvioAoPacienteForm DocumentoId=")]
     // O "já saiu hoje" do atendimento.
-    [InlineData("src/Clinica.Ui.Blazor/Componentes/SecoesDoPaciente/SecaoAtendimento.razor", "Janelas.EnviarAoPacienteAsync(")]
-    [InlineData("src/Clinica.Modulo.Clinico/Modulo/JanelasDoAtendimentoClinicoWpf.cs", "AcoesDoDocumento.EnviarAsync(")]
-    // O fim da emissão: "Enviar agora ao paciente?".
+    [InlineData("src/Clinica.Ui.Blazor/Componentes/SecoesDoPaciente/SecaoAtendimento.razor", "<EnvioAoPacienteForm DocumentoId=")]
+    // A aba Documentos da ficha do balcão (WPF).
+    [InlineData("src/Clinica.Modulo.Recepcao/ViewModels/FichaPacienteViewModel.cs", "AcoesDoDocumento.EnviarAsync(")]
+    // O fim da emissão: "Enviar agora ao paciente?" (WPF).
     [InlineData("src/Clinica.Desktop.Shell/Componentes/DocumentoEdicaoViewModel.cs", "AcoesDoDocumento.EnviarAsync(doc, _escopos, aposEmitir: true)")]
     public void Cada_porta_passa_pelo_ponto_unico_do_envio(string arquivo, string chamada)
         => Ler(arquivo).Should().Contain(chamada, $"{arquivo} precisa oferecer o envio pela janela única (e-mail e WhatsApp)");
@@ -50,6 +49,26 @@ public sealed class PortasDoEnvioAoPacienteTests
     [InlineData("src/Clinica.Ui.Blazor/Telas/Consultorio/PrescricaoDeInfusao.razor")]
     public void A_folha_de_infusao_nao_e_enviada_ao_paciente(string arquivo)
         => Ler(arquivo).Should().NotContain("Enviar", $"{arquivo} é a folha interna da infusão, que não vai ao paciente");
+
+    [Fact]
+    public void A_central_intercepta_o_Enviar_e_a_ponte_nunca_cai_no_cancelar()
+    {
+        // A central abre o formulário em vez de pedir o ato à ponte...
+        Ler("src/Clinica.Ui.Blazor/Telas/Recepcao/DocumentosDaRecepcao.razor")
+            .Should().Contain("ato == AtoDoDocumento.Enviar");
+        // ...e a ponte tem braço PRÓPRIO para o Enviar: cair no `_` da troca cancelaria o documento.
+        Ler("src/Clinica.Desktop.Blazor/DocumentosNoAplicativoWpf.cs")
+            .Should().Contain("AtoDoDocumento.Enviar =>");
+    }
+
+    [Fact]
+    public void O_formulario_Blazor_desenha_os_dois_canais_a_partir_das_opcoes_da_Application()
+    {
+        var form = Ler("src/Clinica.Ui.Blazor/Formularios/EnvioAoPacienteForm.razor");
+        form.Should().Contain("d.Opcoes").And.Contain("destinos.Padrao")
+            .And.Contain("case CanalDeEnvio.Email:").And.Contain("case CanalDeEnvio.WhatsAppPeloCrm:")
+            .And.Contain("EnvioAoPacienteService.PodeEnviar(").And.Contain("CentralDocumentosService.AcessoParaEmitir(");
+    }
 
     [Fact]
     public void O_ponto_unico_abre_a_janela_com_os_dois_canais_a_partir_das_opcoes_da_Application()

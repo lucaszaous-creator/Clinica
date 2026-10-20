@@ -55,20 +55,6 @@ public sealed class JanelasDoAtendimentoClinicoWpf(IServiceScopeFactory escopos,
             .PendenciasAsync(Clinica.Infrastructure.ConclusaoAutomaticaService.Agora, agendamentoId)).FirstOrDefault()?.Motivo;
     }
 
-    public Task<ResultadoDoAto> EnviarAoPacienteAsync(int documentoId) => NaInterface(async () =>
-    {
-        DocumentoNaTela doc;
-        using (var escopo = escopos.CreateScope())
-        {
-            var d = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
-                .ObterDocumentoAsync(documentoId);
-            if (d is null) return new ResultadoDoAto(Frase: "Documento não encontrado.", EhErro: true);
-            doc = DocumentoNaTela.De(d, Clinica.Application.Servicos.CentralDocumentosService.RotularClinico(d.Tipo));
-        }
-        var r = await AcoesDoDocumento.EnviarAsync(doc, escopos);
-        return new ResultadoDoAto(r.Mudou, r.Inline, r.EhErro, r.Silencioso);
-    });
-
     private static Task<T> NaInterface<T>(Func<Task<T>> acao)
     {
         var despachante = System.Windows.Application.Current?.Dispatcher;

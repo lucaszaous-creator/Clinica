@@ -82,6 +82,8 @@
     [Parameter, EditorRequired] public int LancamentoId { get; set; }
     [Parameter] public EventCallback AoConcluir { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>A forma que a pessoa JÁ escolheu na linha (a cobrança do balcão); nulo = escolher aqui.</summary>
+    [Parameter] public FormaPagamento? Forma { get; set; }
 
     /// <summary>Recebimento de operadora pertence ao Financeiro — o balcão não oferece "Convênio".</summary>
     private static readonly FormaPagamento[] Formas = Enum.GetValues<FormaPagamento>().Where(f => f != FormaPagamento.Convenio).ToArray();
@@ -105,6 +107,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (Forma is { } escolhida && Formas.Contains(escolhida)) _forma = escolhida;
         try
         {
             using var escopo = Escopos.CreateScope();

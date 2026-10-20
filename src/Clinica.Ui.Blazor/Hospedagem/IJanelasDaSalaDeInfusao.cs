@@ -20,10 +20,10 @@ public interface IJanelasDaSalaDeInfusao
     Task AnotarAsync(LinhaSalaInfusao linha);
 
     /// <summary>
-    /// Pergunta o paciente, registra a infusão com orientação externa e abre a folha criada.
-    /// Falso = a pessoa desistiu em algum passo.
+    /// Registra a infusão com orientação externa para o paciente que a tela já perguntou
+    /// (<c>EscolherPacienteForm</c>) e abre a folha criada. Falso = a pessoa desistiu.
     /// </summary>
-    Task<bool> RegistrarInfusaoExternaAsync();
+    Task<bool> RegistrarInfusaoExternaAsync(int pacienteId, string paciente);
 }
 
 public sealed class JanelasDaSalaDeInfusaoIndisponiveis : IJanelasDaSalaDeInfusao
@@ -34,5 +34,5 @@ public sealed class JanelasDaSalaDeInfusaoIndisponiveis : IJanelasDaSalaDeInfusa
     public bool Disponivel => false;
     public Task AbrirFolhaAsync(int prescricaoId) => Task.CompletedTask;
     public Task AnotarAsync(LinhaSalaInfusao linha) => Task.CompletedTask;
-    public Task<bool> RegistrarInfusaoExternaAsync() => Task.FromResult(false);
+    public Task<bool> RegistrarInfusaoExternaAsync(int pacienteId, string paciente) => Task.FromResult(false);
 }

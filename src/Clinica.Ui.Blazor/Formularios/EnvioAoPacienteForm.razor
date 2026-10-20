@@ -1,0 +1,189 @@
+@*
+  ENVIAR AO PACIENTE (out/2026: o que no WPF era a EnvioAoPacienteWindow, aberta pelo
+  AcoesDoDocumento.EnviarAsync). A MESMA pergunta nas portas Blazor — a central de Documentos e o
+  "já saiu hoje" do atendimento. Quem decide as opções, a ordem e qual vem marcada é
+  DestinosDoEnvio (Application, com teste); este formulário só desenha, confere o endereço digitado
+  e despacha pelo MESMO EnvioAoPacienteService (o e-mail sai do servidor da clínica, o WhatsApp
+  oficial entra na fila que o CRM executa, e a trilha grava quem, por qual canal e para onde).
+
+  E-mail primeiro e já marcado, com o endereço da ficha sugerido e EDITÁVEL (a clínica não colhe
+  e-mail no cadastro) e "guardar na ficha" desmarcado; WhatsApp pelo CRM depois, com a frase do
+  custo; o WhatsApp DESTE computador por último — esse é o único caminho que precisa do aplicativo
+  instalado (área de transferência), e vai pela ponte IEntregaAoPaciente. A opção indisponível
+  aparece apagada COM o motivo, nunca some.
+
+  A ordem das guardas é a do ponto único que ele substitui: o bit do TIPO do papel (dado de saúde
+  SAINDO), depois se o papel pode sair como arquivo, depois os destinos. Todo desfecho volta a
+  quem abriu por AoConcluir (a frase inline da tela); desistir é AoFechar.
+*@
+@using Clinica.Application.Abstracoes
+@inherits TelaBase
+
+@if (_destinos is { } d)
+{
+    <Modal Titulo="@(AposEmitir ? "Enviar agora ao paciente?" : "Enviar ao paciente")" Subtitulo="@($"{d.Documento} · {d.Paciente}")"
+           Largura="medio" AoFechar="AoFechar">
+        <ChildContent>
+            <div class="con-envio">
+                @foreach (var o in d.Opcoes)
+                {
+                    <label class="con-envio-opcao @(o.Disponivel ? null : "indisponivel")">
+                        <span class="marcar">
+                            <input type="radio" name="canal-envio" checked="@(_canal == o.Canal)" disabled="@(!o.Disponivel || _enviando)"
+                                   @onchange="() => Escolher(o.Canal)" />
+                            <strong>@o.Rotulo@(o.Canal == CanalDeEnvio.Email ? " (recomendado)" : null)</strong>
+                        </span>
+                        <span class="campo-dica">@(o.Disponivel ? o.Nota : o.Motivo)</span>
+                    </label>
+                    @if (o.Canal == CanalDeEnvio.Email)
+                    {
+                        <div class="con-envio-email">
+                            <input class="campo" type="email" maxlength="200" placeholder="nome@provedor.com.br" aria-label="E-mail do paciente"
+                                   value="@_email" @oninput="e => { _email = e.Value?.ToString(); _erro = null; }" disabled="@(_canal != CanalDeEnvio.Email || _enviando)" />
+                            <label class="marcar">
+                                <input type="checkbox" checked="@_guardarNaFicha" @onchange="e => _guardarNaFicha = e.Value is true"
+                                       disabled="@(_canal != CanalDeEnvio.Email || _enviando)" />
+                                Guardar este e-mail na ficha do paciente
+                            </label>
+                        </div>
+                    }
+                }
+            </div>
+            <Aviso Texto="@_aviso" Tom="atencao" />
+            <Aviso Texto="@_erro" Tom="erro" />
+        </ChildContent>
+        <Rodape>
+            <button type="button" class="botao" @onclick="AoFechar">@(AposEmitir ? "Agora não" : "Cancelar")</button>
+            <button type="button" class="botao primario" disabled="@(_canal is null || _enviando)" @onclick="EnviarAsync">
+                <Icone Nome="enviar" />@(_enviando ? "Enviando…" : "Enviar")
+            </button>
+        </Rodape>
+    </Modal>
+}
+else if (_falhaAoPreparar is not null)
+{
+    <Modal Titulo="Enviar ao paciente" Largura="pequeno" AoFechar="AoFechar">
+        <ChildContent><Aviso Texto="@_falhaAoPreparar" Tom="erro" /></ChildContent>
+        <Rodape><button type="button" class="botao primario" @onclick="AoFechar">Fechar</button></Rodape>
+    </Modal>
+}
+
+@code {
+    /// <summary>O documento clínico que vai ao paciente (a 2ª via: os bytes guardados quando assinado).</summary>
+    [Parameter, EditorRequired] public int DocumentoId { get; set; }
+    /// <summary>Como a tela de quem abriu chama este papel ("Receituário" na central); nulo = o rótulo do tipo.</summary>
+    [Parameter] public string? Rotulo { get; set; }
+    /// <summary>Aberto no fim da emissão: a pergunta vira "Enviar agora?" e o Cancelar, "Agora não".</summary>
+    [Parameter] public bool AposEmitir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>O desfecho do envio (ou da recusa antes de perguntar), para a tela dizer inline.</summary>
+    [Parameter] public EventCallback<ResultadoDoAto> AoConcluir { get; set; }
+
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+    private IEntregaAoPaciente Entrega => Servicos.GetService<IEntregaAoPaciente>() ?? EntregaAoPacienteIndisponivel.Instancia;
+
+    private DestinosDoEnvio? _destinos;
+    private ArquivoDoPaciente _arquivo = default!;
+    private string _numero = string.Empty;
+    private CanalDeEnvio? _canal;
+    private string? _email, _aviso, _erro, _falhaAoPreparar;
+    private bool _guardarNaFicha, _enviando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _arquivo = ArquivoDoPaciente.Documento(DocumentoId);
+        try
+        {
+            DocumentoClinico? doc;
+            using (var escopo = Escopo())
+                doc = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>().ObterDocumentoAsync(DocumentoId);
+            if (doc is null) { await AoConcluir.InvokeAsync(new ResultadoDoAto(Frase: "Documento não encontrado.", EhErro: true)); return; }
+
+            // Dado de saúde SAINDO para fora — o bit do TIPO, a segunda barreira (a primeira é o botão).
+            if (!Exigir(CentralDocumentosService.AcessoParaEmitir(doc.Tipo), "enviar documento clínico")) { await AoFechar.InvokeAsync(); return; }
+            if (!EnvioAoPacienteService.PodeEnviar(doc.Tipo, doc.AssinadoEletronicamente, doc.Cancelado))
+            {
+                await AoConcluir.InvokeAsync(new ResultadoDoAto(Frase: EnvioAoPacienteService.PorQueNaoEnvia(doc.Numero, doc.Cancelado), EhErro: true));
+                return;
+            }
+
+            _numero = doc.Numero;
+            _aviso = EnvioAoPacienteService.AvisoSemAssinatura(doc.Tipo, doc.AssinadoEletronicamente,
+                Rotulo ?? CentralDocumentosService.RotularClinico(doc.Tipo));
+            DestinosDoEnvio destinos;
+            using (var escopo = Escopo())
+                destinos = await escopo.ServiceProvider.GetRequiredService<EnvioAoPacienteService>().DestinosAsync(_arquivo);
+            _email = destinos.Email;
+            _canal = destinos.Padrao;
+            _destinos = destinos;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Documento {DocumentoId} — o envio ao paciente não pôde ser preparado", ex);
+            _falhaAoPreparar = $"Não foi possível preparar o envio: {ex.Message}";
+        }
+    }
+
+    private void Escolher(CanalDeEnvio canal)
+    {
+        _canal = canal;
+        _erro = null;
+    }
+
+    private async Task EnviarAsync()
+    {
+        if (_canal is not { } canal || _enviando) return;
+        string? email = null;
+        if (canal == CanalDeEnvio.Email)
+        {
+            // Conferido AQUI, inline: o formulário não fecha com um endereço que o servidor recusaria.
+            if (EnderecoDeEmail.SeValido(_email) is not { } valido)
+            {
+                _erro = "Informe um e-mail válido (ex.: nome@provedor.com.br).";
+                return;
+            }
+            email = valido;
+        }
+
+        _enviando = true;
+        _erro = null;
+        ResultadoDoAto resultado;
+        try
+        {
+            using var escopo = Escopo();
+            var envio = escopo.ServiceProvider.GetRequiredService<EnvioAoPacienteService>();
+            switch (canal)
+            {
+                case CanalDeEnvio.Email:
+                {
+                    var r = await envio.EnviarPorEmailAsync(_arquivo, Operador, email!, _guardarNaFicha);
+                    resultado = new ResultadoDoAto(Frase: r.Frase, EhErro: !r.Ok);
+                    break;
+                }
+                case CanalDeEnvio.WhatsAppPeloCrm:
+                {
+                    var r = await envio.EnfileirarWhatsAppAsync(_arquivo, Operador);
+                    resultado = new ResultadoDoAto(Frase: r.Frase, EhErro: !r.Ok);
+                    break;
+                }
+                default:
+                {
+                    var (pdf, nome, telefone, paciente, legenda) = await envio.ArquivoParaEntregaLocalAsync(_arquivo);
+                    resultado = await Entrega.EntregarNoWhatsAppAsync(pdf, nome, telefone, paciente, legenda);
+                    if (!resultado.EhErro) await envio.RegistrarEntregaLocalAsync(_arquivo, Operador);
+                    break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"{_numero} — não pôde ser enviado ao paciente", ex);
+            resultado = new ResultadoDoAto(Frase: ex.Message, EhErro: true);
+        }
+        finally
+        {
+            _enviando = false;
+        }
+        await AoConcluir.InvokeAsync(resultado);
+    }
+}

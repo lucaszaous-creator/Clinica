@@ -6,7 +6,8 @@
 
   Cada bloco lê no SEU escopo e falha sozinho, com o terceiro estado escrito: "não foi possível
   conferir" nunca se confunde com "não há". As frases moram em FichaAdministrativaNaTela (com
-  teste). As janelas que continuam no shell (cadastro, cobrança, a coleta congelada do termo)
+  teste). A cobrança no balcão é o CobrancaDoPacienteForm (Blazor); as janelas que continuam no
+  shell (cadastro, a coleta congelada do termo)
   vêm pelas pontes IJanelasDaFicha e IDocumentosDaRecepcao.
 
   ⚠️ O consentimento LGPD NÃO tem "registrar autorização" aqui: desde a parcela 89 quem concede
@@ -65,7 +66,7 @@
                                 @a.Descricao
                                 @if (a.PodeReceber)
                                 {
-                                    <button type="button" class="botao mini" disabled="@(!PodeReceber)" @onclick="ReceberAsync"
+                                    <button type="button" class="botao mini" disabled="@(!PodeReceber)" @onclick="Receber"
                                             title="@(PodeReceber ? "Receber agora, com o paciente na frente" : "Receber exige acesso de caixa, de lançamento ou de venda de pacote.")">Receber…</button>
                                 }
                             </li>
@@ -286,6 +287,10 @@
     <AutorizacaoForm PacienteId="PacienteId" AutorizacaoId="_autorizacaoEmEdicao" ConvenioPadrao="_convenioCodigo"
                      AoFechar="() => _editandoAutorizacao = false" AoConcluir="GravouAutorizacaoAsync" />
 }
+@if (_recebendoDivida)
+{
+    <CobrancaDoPacienteForm PacienteId="PacienteId" Paciente="@_nome" Telefone="@_telefone" AoFechar="FecharCobrancaAsync" />
+}
 
 @code {
     [Parameter, EditorRequired] public int PacienteId { get; set; }
@@ -297,6 +302,7 @@
     private int _geracao;
     private string _nome = string.Empty, _origem = "—", _validadeConsulta = "Consultando validade…";
     private string? _telefone, _convenioCodigo;
+    private bool _recebendoDivida;
     private bool _usaConsulta;
     private List<FichaAdministrativaNaTela.Alerta>? _alertas;
     private List<FichaAdministrativaNaTela.ProximoHorario>? _horarios;
@@ -439,12 +445,18 @@
                 : "Não foi possível abrir o WhatsApp neste computador.");
     }
 
-    private async Task ReceberAsync()
+    /// <summary>A cobrança no balcão (CobrancaDoPacienteForm, Blazor desde out/2026 — era a janela do shell).</summary>
+    private void Receber()
     {
         if (!ExigirAlgum(QuemRecebe, "receber no balcão")) return;
-        if (!Janelas.Disponivel) { Notificacoes.Info(JanelasDaFichaIndisponiveis.Frase); return; }
-        // Recebido, a ficha relê: o alerta de dívida some sem reabrir a tela.
-        if (await Janelas.ReceberDividaAsync(PacienteId, _nome, _telefone)) await CarregarAsync();
+        _recebendoDivida = true;
+    }
+
+    /// <summary>Recebido algo, a ficha relê: o alerta de dívida some sem reabrir a tela.</summary>
+    private async Task FecharCobrancaAsync(bool mudou)
+    {
+        _recebendoDivida = false;
+        if (mudou) await CarregarAsync();
     }
 
     private async Task AbrirNaAgendaAsync(DateOnly dia)

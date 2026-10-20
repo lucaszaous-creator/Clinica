@@ -8,10 +8,13 @@
 | Central de Documentos (Recepção, Gerente e Consultório — Blazor) | menu "⋯" da linha |
 | Aba Documentos da ficha (balcão) | botão "Enviar" da linha |
 | Prescrições do Consultório — abre a mesma central de Documentos | menu "⋯" da linha |
-| "Já saiu hoje" do atendimento (Blazor, pela ponte `IJanelasDoAtendimentoClinico`) | botão "Enviar…" ao lado da 2ª via |
+| "Já saiu hoje" do atendimento (Blazor, `EnvioAoPacienteForm`) | botão "Enviar…" ao lado da 2ª via |
 | Fim da emissão de um documento novo | a janela abre sozinha: "Enviar agora ao paciente?" com "Agora não" |
 
-A janela (`EnvioAoPacienteWindow`) tem três opções, nesta ordem:
+A pergunta tem dois desenhos e as MESMAS opções (`DestinosDoEnvio`): nas portas Blazor (a central
+de Documentos e o "já saiu hoje") é o formulário `EnvioAoPacienteForm` (out/2026); nas que ainda são
+WPF (a ficha do balcão e o fim da emissão na janela de documento) é a `EnvioAoPacienteWindow`. As
+três opções, nesta ordem:
 
 1. **E-mail (recomendado)** — PRIMEIRA e já marcada. O endereço é digitado na hora, já
    preenchido com o da ficha quando houver (a clínica não colhe e-mail no cadastro), e conferido
@@ -53,8 +56,11 @@ da reimpressão quando não (`DocumentosClinicosPdfService.GerarAsync` com o pre
 
 ## 🛠️ DX — quem mantém
 
-- **Uma definição só**: `AcoesDoDocumento.EnviarAsync` (com `aposEmitir` para o fim da
-  emissão), sobre a `EnvioAoPacienteWindow`. As listas já usavam `AcoesDoDocumento` e o
+- **Uma definição das opções e um serviço**: `DestinosDoEnvio` + `EnvioAoPacienteService`. O
+  desenho WPF é `AcoesDoDocumento.EnviarAsync` (com `aposEmitir`) sobre a `EnvioAoPacienteWindow`,
+  e o Blazor é o `EnvioAoPacienteForm` (o WhatsApp deste computador vai pela ponte
+  `IEntregaAoPaciente`, que chama o mesmo `EntregaAoPaciente.Entregar`). O aviso do atestado sem
+  certificado mora em `EnvioAoPacienteService.AvisoSemAssinatura`, um só para os dois desenhos. As listas já usavam `AcoesDoDocumento` e o
   `MenuDoDocumento`; o "já saiu hoje" e o fim da emissão passaram a usar também.
   `PortasDoEnvioAoPacienteTests` lista as portas e falha se uma delas deixar de passar pelo ponto
   único.

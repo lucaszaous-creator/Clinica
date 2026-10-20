@@ -244,7 +244,7 @@
                                     {
                                         <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => SegundaViaAsync(papel)">2ª via</button>
                                         <button type="button" class="botao mini" disabled="@(_ocupado || !Pode(Permissao.VerProntuario))"
-                                                title="E-mail (recomendado) ou WhatsApp pelo CRM" @onclick="() => EnviarAsync(papel)">Enviar…</button>
+                                                title="E-mail (recomendado) ou WhatsApp pelo CRM" @onclick="() => Enviar(papel)">Enviar…</button>
                                     }
                                 </li>
                             }
@@ -296,6 +296,12 @@
                           AoMudar="StateHasChanged" AoFechar="() => _mapaAberto = false" />
     }
 }
+@if (_enviando is { } papelEnviado)
+{
+    @* "Enviar…" do que saiu hoje: o EnvioAoPacienteForm, o MESMO da central de Documentos (out/2026). *@
+    <EnvioAoPacienteForm DocumentoId="papelEnviado.DocumentoId" Rotulo="@papelEnviado.Rotulo"
+                         AoFechar="() => _enviando = null" AoConcluir="Enviou" />
+}
 
 @code {
     private FolhaDoAtendimento? _folha;
@@ -306,6 +312,7 @@
     private bool _modelosAbertos;
     private bool _mapaAberto;
     private bool _ocupado;
+    private PapelDeHoje? _enviando;
     private int _registroParaVincular;
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
@@ -591,26 +598,20 @@
     }
 
     /// <summary>
-    /// "Enviar…" do que saiu hoje (out/2026): a MESMA janela de envio das outras portas, no
-    /// aplicativo — e-mail primeiro, WhatsApp pelo CRM depois. O bit do TIPO é conferido lá.
+    /// "Enviar…" do que saiu hoje (out/2026): o EnvioAoPacienteForm — a MESMA pergunta das outras
+    /// portas, e-mail primeiro, WhatsApp pelo CRM depois. O bit do TIPO é conferido lá.
     /// </summary>
-    private async Task EnviarAsync(PapelDeHoje papel)
+    private void Enviar(PapelDeHoje papel)
     {
         if (_ocupado) return;
         if (!Exigir(Permissao.VerProntuario, "enviar documento ao paciente")) return;
-        if (!Janelas.Disponivel) { Informar(JanelasDoAtendimentoClinicoIndisponiveis.Frase, erro: true); return; }
-        _ocupado = true;
-        try
-        {
-            var r = await Janelas.EnviarAoPacienteAsync(papel.DocumentoId);
-            if (!r.Silencioso && r.Frase is not null) Informar(r.Frase, erro: r.EhErro);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Consultório — documento não pôde ser enviado ao paciente", ex);
-            Informar(ex.Message, erro: true);
-        }
-        finally { _ocupado = false; }
+        _enviando = papel;
+    }
+
+    private void Enviou(ResultadoDoAto r)
+    {
+        _enviando = null;
+        if (!r.Silencioso && r.Frase is not null) Informar(r.Frase, erro: r.EhErro);
     }
 
     private async Task PrescreverInfusaoAsync()

@@ -404,16 +404,12 @@ public static class AcoesDoDocumento
     }
 
     /// <summary>
-    /// O atestado sem certificado vai, mas a janela DIZ o que ele vale em arquivo: pelo
-    /// art. 13 da Lei 14.063/2020 o atestado eletrônico só vale com assinatura qualificada.
-    /// Avisa, não impede — a regra da casa; quem decide é quem envia.
+    /// O atestado sem certificado vai, mas a janela DIZ o que ele vale em arquivo (art. 13 da
+    /// Lei 14.063/2020). A regra mora na Application, uma só para esta janela e o formulário
+    /// Blazor de envio (<c>EnvioAoPacienteForm</c>).
     /// </summary>
     private static string? AvisoSemAssinatura(DocumentoNaTela doc)
-        => !doc.Assinado && ConformidadeDocumentoClinico.ExigeAssinaturaQualificada(doc.Tipo)
-            ? $"Atenção: sem assinatura digital, o {doc.Rotulo.ToLowerInvariant()} em arquivo não "
-              + $"substitui a via impressa e assinada ({ConformidadeDocumentoClinico.Art13}). "
-              + "Ele vai como cópia."
-            : null;
+        => EnvioAoPacienteService.AvisoSemAssinatura(doc.Tipo, doc.Assinado, doc.Rotulo);
 
     /// <summary>
     /// Põe o link vencido DE VOLTA no ar, reusando o MESMO token (parcela 53) — o QR já

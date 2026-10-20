@@ -79,7 +79,9 @@ public class DocumentosNoAplicativoWpf(
             AtoDoDocumento.SegundaVia => await AcoesDoDocumento.ImprimirAsync(d, escopos),
             AtoDoDocumento.NovaVersao => await AcoesDoDocumento.NovaVersaoAsync(d, escopos, snackbar),
             AtoDoDocumento.Assinar => await AcoesDoDocumento.AssinarAsync(d, escopos, snackbar),
-            AtoDoDocumento.Enviar => await AcoesDoDocumento.EnviarAsync(d, escopos),
+            // Enviar é o EnvioAoPacienteForm da tela (out/2026). Recusa explícita, e não o braço
+            // padrão: cair no `_` CANCELARIA o documento.
+            AtoDoDocumento.Enviar => ResultadoAcaoDocumento.Erro("O envio ao paciente é feito pelo formulário da própria tela."),
             AtoDoDocumento.RenovarLink => await AcoesDoDocumento.RenovarLinkAsync(d, escopos, snackbar),
             AtoDoDocumento.TirarDoAr => await AcoesDoDocumento.TirarDoArAsync(d, escopos, dialogo, snackbar),
             _ => await AcoesDoDocumento.CancelarAsync(d, escopos, dialogo, snackbar)
