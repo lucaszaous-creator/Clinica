@@ -315,11 +315,11 @@
     <BuscaCidForm TermoInicial="@_r.Cid" AoEscolher="EscolherCid" AoFechar="() => _buscandoCid = false" />
 }
 
-@if (_envio is { } envio)
+@if (_envioPendente is not null)
 {
     @* "Enviar agora ao paciente?" — o MESMO EnvioAoPacienteForm da central e do atendimento (out/2026: era a EnvioAoPacienteWindow WPF). *@
     <EnvioAoPacienteForm DocumentoId="_envioDocumentoId" Rotulo="@_envioRotulo" AposEmitir="true"
-                         AoFechar="() => envio.TrySetResult(null)" AoConcluir="r => envio.TrySetResult(r)" />
+                         AoFechar="() => TerminouEnvioAsync(null)" AoConcluir="TerminouEnvioAsync" />
 }
 
 @code {
@@ -354,7 +354,7 @@
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
 
     /// <summary>A pergunta "Enviar agora ao paciente?" em aberto (o EnvioAoPacienteForm por cima da folha).</summary>
-    private TaskCompletionSource<ResultadoDoAto?>? _envio;
+    private Emitido? _envioPendente;
     private int _envioDocumentoId;
     private string? _envioRotulo;
 
@@ -612,8 +612,12 @@
                 return;
             }
 
-            await PerguntarSeEnviaAgoraAsync(emitido);
-            await AoConcluir.InvokeAsync(new Emitido(emitido.Id, emitido.Numero, emitido.Tipo, r.Paciente?.Nome ?? string.Empty));
+            var concluido = new Emitido(emitido.Id, emitido.Numero, emitido.Tipo, r.Paciente?.Nome ?? string.Empty);
+            // A pergunta do envio NÃO é esperada aqui: o clique de Emitir termina, e quem conclui a
+            // folha é a resposta do formulário de envio (TerminouEnvioAsync). Esperar dentro do
+            // clique prenderia o evento até alguém fechar o formulário.
+            if (!PerguntarSeEnviaAgora(emitido, concluido))
+                await AoConcluir.InvokeAsync(concluido);
         }
         catch (Exception ex)
         {
@@ -627,22 +631,28 @@
     }
 
     /// <summary>
-    /// "Enviar agora ao paciente?" — a MESMA janela de todas as portas, com "Agora não". Só para o
-    /// papel que pode sair como arquivo e quem tem o bit do tipo. O documento JÁ está emitido.
+    /// "Enviar agora ao paciente?" — o MESMO formulário de todas as portas, com "Agora não". Só para
+    /// o papel que pode sair como arquivo e quem tem o bit do tipo. O documento JÁ está emitido.
+    /// Verdadeiro = a pergunta abriu, e a folha conclui quando ela for respondida.
     /// </summary>
-    private async Task PerguntarSeEnviaAgoraAsync(DocumentoClinico emitido)
+    private bool PerguntarSeEnviaAgora(DocumentoClinico emitido, Emitido concluido)
     {
         var podeMexer = SessaoUsuario.Atual.Pode(CentralDocumentosService.AcessoParaEmitir(emitido.Tipo));
-        if (!EmissaoDeDocumentoNaTela.OferecerEnvio(emitido.Tipo, emitido.AssinadoEletronicamente, emitido.Cancelado, podeMexer)) return;
+        if (!EmissaoDeDocumentoNaTela.OferecerEnvio(emitido.Tipo, emitido.AssinadoEletronicamente, emitido.Cancelado, podeMexer)) return false;
         _envioDocumentoId = emitido.Id;
         _envioRotulo = $"{TipoDocumentoInfo.Rotular(emitido.Tipo)} {emitido.Numero}";
-        _envio = new TaskCompletionSource<ResultadoDoAto?>();
-        StateHasChanged();
-        var r = await _envio.Task;
-        _envio = null;
-        StateHasChanged();
-        if (r is null || r.Silencioso || string.IsNullOrWhiteSpace(r.Frase)) return;
-        await Dialogos.AvisoAsync("Enviar ao paciente", r.Frase);
+        _envioPendente = concluido;
+        return true;
+    }
+
+    /// <summary>A resposta do envio (enviou, desistiu ou "Agora não"): diz o desfecho e conclui a folha.</summary>
+    private async Task TerminouEnvioAsync(ResultadoDoAto? r)
+    {
+        if (_envioPendente is not { } concluido) return;
+        _envioPendente = null;
+        if (r is { Silencioso: false } && !string.IsNullOrWhiteSpace(r.Frase))
+            await Dialogos.AvisoAsync("Enviar ao paciente", r.Frase);
+        await AoConcluir.InvokeAsync(concluido);
     }
 
     /// <summary>
