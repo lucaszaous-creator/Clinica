@@ -140,6 +140,7 @@ public class AgendaDoDiaNaTelaTests
     [InlineData(StatusContato.Respondido, null, "Confirmou", "sucesso")]
     [InlineData(StatusContato.Enviado, null, "Não confirmou", "aviso")]
     [InlineData(StatusContato.Respondido, RodadaDeConfirmacao.RespostaRemarcar, RodadaDeConfirmacao.SeloNaoVem, "perigo")]
+    [InlineData(StatusContato.Respondido, RodadaDeConfirmacao.RespostaCancelar, RodadaDeConfirmacao.SeloPediuCancelar, "perigo")]
     public void O_selo_de_confirmacao_vem_da_rodada_e_o_nao_vem_e_vermelho(StatusContato status, string? comentario, string selo, string tom)
     {
         var a = Ag(14);
@@ -149,6 +150,21 @@ public class AgendaDoDiaNaTelaTests
         }));
         Assert.Equal(selo, linha.Confirmacao);
         Assert.Equal(tom, AgendaDoDiaNaTela.TomDaConfirmacao(linha.Confirmacao));
+    }
+
+    // Out/2026: o pedido de cancelamento pelo WhatsApp se aceita NA LINHA — botão e item do "⋯".
+    [Fact]
+    public void Pedido_de_cancelamento_se_aceita_na_propria_linha()
+    {
+        var a = Ag(14);
+        var linha = Uma(a, Dados([a], confirmacoes: new()
+        {
+            [a.Id] = new RespostaDeConfirmacao(StatusContato.Respondido, Agora.AddHours(-1), RodadaDeConfirmacao.RespostaCancelar, CanalContato.WhatsApp)
+        }));
+        Assert.True(linha.PediuCancelar);
+        Assert.Contains(AcaoDaLinhaAgenda.Cancelar, AgendaDoDiaNaTela.Menu(linha, Tudo));
+        Assert.Equal("Aceitar o cancelamento pedido", AgendaDoDiaNaTela.Rotulo(AcaoDaLinhaAgenda.Cancelar, linha));
+        Assert.False(Uma(a).PediuCancelar);
     }
 
     [Fact]

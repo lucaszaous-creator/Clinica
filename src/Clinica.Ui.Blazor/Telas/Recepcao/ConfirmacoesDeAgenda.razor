@@ -143,7 +143,7 @@
                         <tbody>
                             @foreach (var l in _linhas)
                             {
-                                <tr @key="l.ContatoId" class="@(l.Estado == SituacaoConfirmacao.PediuRemarcar ? "conf-nao-vem" : null)">
+                                <tr @key="l.ContatoId" class="@(ConfirmacoesNaTela.NaoVem(l.Estado) ? "conf-nao-vem" : null)">
                                     <td class="nao-quebra"><b>@l.Quando.ToString("HH:mm", Formato.PtBr)</b></td>
                                     <td>
                                         <div class="conf-paciente">
@@ -178,7 +178,7 @@
                                                     <span class="conf-ligar">@destaque</span>
                                                     <div class="botoes-linha">
                                                         <button type="button" class="botao mini primario" disabled="@(!PodeEditar)" @onclick="() => AbrirAgendaAsync(l)"
-                                                                title="Abre a agenda para remarcar este horário"><Icone Nome="calendario" />Remarcar na agenda</button>
+                                                                title="@(l.PediuCancelar ? "Abre a agenda do dia para aceitar o cancelamento" : "Abre a agenda para remarcar este horário")"><Icone Nome="calendario" />@(l.PediuCancelar ? "Aceitar na agenda" : "Remarcar na agenda")</button>
                                                         <button type="button" class="botao mini icone" disabled="@(!PodeEditar || !l.TemTelefone)" @onclick="() => WhatsappAsync(l, registrar: false)"
                                                                 title="Abrir a conversa no WhatsApp" aria-label="Abrir a conversa no WhatsApp com @l.Paciente"><Icone Nome="enviar" /></button>
                                                     </div>
@@ -470,10 +470,14 @@
 
     private async Task AbrirAgendaAsync(SessaoDaRodada l)
     {
-        if (!Exigir(Permissao.EditarAgenda, "remarcar o horário")) return;
+        if (!Exigir(Permissao.EditarAgenda, l.PediuCancelar ? "aceitar o cancelamento" : "remarcar o horário")) return;
         var quando = $"{l.Quando.ToString("HH:mm", Formato.PtBr)} de {l.Quando.ToString("dd/MM", Formato.PtBr)}";
+        // A agenda abre NO DIA da sessão — o pedido de cancelamento se aceita na linha do horário.
+        using (var escopo = Escopo()) escopo.ServiceProvider.GetService<PedidoDaAgendaDoDia>()?.Definir(DateOnly.FromDateTime(l.Quando), null);
         if (await Host.NavegarAsync("agenda-recepcao"))
-            Notificacoes.Info($"Remarque na agenda o horário de {l.Paciente} ({quando}).");
+            Notificacoes.Info(l.PediuCancelar
+                ? $"Aceite o cancelamento de {l.Paciente} ({quando}) no menu do horário."
+                : $"Remarque na agenda o horário de {l.Paciente} ({quando}).");
         else
             Notificacoes.Erro($"A agenda não está disponível neste aplicativo — remarque o horário de {l.Paciente} ({quando}) pela Agenda da Recepção.");
     }
@@ -501,7 +505,7 @@
     private static string TomDaResposta(SessaoDaRodada l) => l.Estado switch
     {
         SituacaoConfirmacao.Confirmou => "sucesso",
-        SituacaoConfirmacao.PediuRemarcar => "perigo",
+        SituacaoConfirmacao.PediuRemarcar or SituacaoConfirmacao.PediuCancelar => "perigo",
         _ => "neutro"
     };
 

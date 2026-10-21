@@ -16,7 +16,13 @@ public enum TipoAvisoConfirmacao
     NaoVem,
 
     /// <summary>O lembrete com link saiu e o paciente não clicou. Ver <see cref="AvisosDeConfirmacao.EsperaPorResposta"/>.</summary>
-    SemResposta
+    SemResposta,
+
+    /// <summary>
+    /// O paciente pediu pelo WhatsApp para cancelar (out/2026). Pede que a recepção aceite o
+    /// cancelamento na agenda. No fim do enum: o sino grava a leitura pelo número do tipo.
+    /// </summary>
+    PediuCancelar
 }
 
 /// <summary>
@@ -137,6 +143,9 @@ public static class AvisosDeConfirmacao
                 case SituacaoConfirmacao.PediuRemarcar:
                     avisos.Add(Aviso(c, TipoAvisoConfirmacao.NaoVem, respondido));
                     break;
+                case SituacaoConfirmacao.PediuCancelar:
+                    avisos.Add(Aviso(c, TipoAvisoConfirmacao.PediuCancelar, respondido));
+                    break;
                 case SituacaoConfirmacao.Confirmou when RespondeuOPaciente(c.Comentario) && respondido >= confirmacoesDesde:
                     avisos.Add(Aviso(c, TipoAvisoConfirmacao.Confirmou, respondido));
                     break;
@@ -151,7 +160,7 @@ public static class AvisosDeConfirmacao
         return avisos
             .OrderBy(a => a.Tipo switch
             {
-                TipoAvisoConfirmacao.NaoVem => 0,
+                TipoAvisoConfirmacao.NaoVem or TipoAvisoConfirmacao.PediuCancelar => 0,
                 TipoAvisoConfirmacao.SemResposta => 1,
                 _ => 2
             })
@@ -168,13 +177,16 @@ public static class AvisosDeConfirmacao
         => string.Equals(comentario?.Trim(), RodadaDeConfirmacao.RespostaConfirmouPeloLink, StringComparison.OrdinalIgnoreCase)
            || string.Equals(comentario?.Trim(), RodadaDeConfirmacao.RespostaConfirmouPeloWhatsApp, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>O número que pede ação — o do sino e o do painel da direção, pela MESMA conta.</summary>
+    /// <summary>
+    /// O número que pede ação — o do sino e o do painel da direção, pela MESMA conta. Quem
+    /// pediu para cancelar também não vem: conta junto do "não vem".
+    /// </summary>
     public static (int NaoVem, int SemResposta) Contar(IEnumerable<AvisoDeConfirmacao> avisos)
     {
         int naoVem = 0, semResposta = 0;
         foreach (var a in avisos)
         {
-            if (a.Tipo == TipoAvisoConfirmacao.NaoVem) naoVem++;
+            if (a.Tipo is TipoAvisoConfirmacao.NaoVem or TipoAvisoConfirmacao.PediuCancelar) naoVem++;
             else if (a.Tipo == TipoAvisoConfirmacao.SemResposta) semResposta++;
         }
         return (naoVem, semResposta);
@@ -241,6 +253,7 @@ public static class AvisosDeConfirmacao
         {
             TipoAvisoConfirmacao.Confirmou => $"{a.Paciente} confirmou a sessão de {quando}{com}",
             TipoAvisoConfirmacao.NaoVem => $"{a.Paciente} avisou que NÃO VEM — {quando}{com}: ligue para remarcar",
+            TipoAvisoConfirmacao.PediuCancelar => $"{a.Paciente} pediu para CANCELAR — {quando}{com}: aceite o cancelamento na agenda",
             _ => $"{a.Paciente} não respondeu ao lembrete de {quando}{com}: vale uma ligação"
         };
     }
@@ -250,6 +263,7 @@ public static class AvisosDeConfirmacao
     {
         TipoAvisoConfirmacao.Confirmou => $"{a.Paciente} confirmou",
         TipoAvisoConfirmacao.NaoVem => $"{a.Paciente} NÃO VEM — ligar para remarcar",
+        TipoAvisoConfirmacao.PediuCancelar => $"{a.Paciente} pediu para CANCELAR — aceitar na agenda",
         _ => $"{a.Paciente} não respondeu ao lembrete"
     };
 
@@ -260,7 +274,12 @@ public static class AvisosDeConfirmacao
     /// <summary>Desde quando: "respondeu às 10:42", "avisou ontem às 18:40", "SMS sem resposta desde 12:00".</summary>
     public static string Detalhe(AvisoDeConfirmacao a, DateTime agora)
     {
-        if (a.Momento == DateTime.MinValue) return a.Tipo == TipoAvisoConfirmacao.NaoVem ? "avisou que não vai" : "";
+        if (a.Momento == DateTime.MinValue) return a.Tipo switch
+        {
+            TipoAvisoConfirmacao.NaoVem => "avisou que não vai",
+            TipoAvisoConfirmacao.PediuCancelar => "pediu para cancelar",
+            _ => ""
+        };
         var dias = DateOnly.FromDateTime(agora).DayNumber - DateOnly.FromDateTime(a.Momento).DayNumber;
         var hora = a.Momento.ToString("HH:mm", PtBr);
         var quando = dias switch
@@ -279,6 +298,7 @@ public static class AvisosDeConfirmacao
         {
             TipoAvisoConfirmacao.Confirmou => $"respondeu {quando}",
             TipoAvisoConfirmacao.NaoVem => $"avisou {quando}",
+            TipoAvisoConfirmacao.PediuCancelar => $"pediu {quando}",
             _ => $"SMS sem resposta desde {desde}"
         };
     }

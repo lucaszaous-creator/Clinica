@@ -155,6 +155,21 @@ public class AvisosDeConfirmacaoTests : IDisposable
         avisos[0].Momento.Should().Be(Agora.AddDays(-1));
     }
 
+    // Out/2026: "Cancelar" no WhatsApp é PEDIDO — o sino diz para aceitar na agenda e conta como "não vem".
+    [Fact]
+    public void Pedido_de_cancelamento_pede_acao_e_conta_como_nao_vem()
+    {
+        var amanha = Agora.Date.AddDays(1).AddHours(10);
+        var avisos = Decidir(
+            Contato(1, amanha, StatusContato.Respondido, respondido: Agora.AddHours(-1),
+                comentario: RodadaDeConfirmacao.RespostaCancelar, link: false));
+        var aviso = avisos.Should().ContainSingle().Subject;
+        aviso.Tipo.Should().Be(TipoAvisoConfirmacao.PediuCancelar);
+        aviso.PedeAcao.Should().BeTrue();
+        AvisosDeConfirmacao.Titulo(aviso).Should().Contain("CANCELAR").And.Contain("agenda");
+        AvisosDeConfirmacao.Contar(avisos).Should().Be((1, 0));
+    }
+
     [Fact]
     public void Nao_vem_vem_primeiro_depois_sem_resposta_depois_confirmou_e_pela_hora_da_sessao()
     {

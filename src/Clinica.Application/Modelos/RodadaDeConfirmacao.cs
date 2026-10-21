@@ -11,7 +11,14 @@ public enum SituacaoConfirmacao
     AvisadoSemResposta,
     Confirmou,
     PediuRemarcar,
-    Dispensado
+    Dispensado,
+
+    /// <summary>
+    /// O paciente pediu pelo WhatsApp para CANCELAR (out/2026). O horário segue marcado até a
+    /// recepção aceitar o cancelamento na própria agenda. No fim do enum: valor novo no meio
+    /// mudaria o número dos que já existem.
+    /// </summary>
+    PediuCancelar
 }
 
 /// <summary>
@@ -41,6 +48,13 @@ public static class RodadaDeConfirmacao
     public const string RespostaConfirmouPeloLink = "confirmou pelo SMS";
 
     /// <summary>
+    /// O que a ponte do CRM grava quando o paciente toca em "Cancelar" no WhatsApp e a clínica
+    /// não cancela sozinha (<c>CRM_CANCEL_ENABLED=false</c>, out/2026). A recepção vê o pedido
+    /// na agenda e aceita ali mesmo ("Aceitar cancelamento").
+    /// </summary>
+    public const string RespostaCancelar = "pediu para cancelar";
+
+    /// <summary>
     /// O que a ponte do CRM grava quando o paciente confirma pelo WhatsApp. Era texto solto
     /// dentro do <c>ClinicAgendaBridge</c>; subiu para cá (out/2026) porque o sino passou a
     /// distinguir a confirmação do PACIENTE da que a recepção marcou
@@ -56,6 +70,8 @@ public static class RodadaDeConfirmacao
         StatusContato.Respondido when string.Equals(comentario?.Trim(), RespostaRemarcar, StringComparison.OrdinalIgnoreCase)
                                    || string.Equals(comentario?.Trim(), RespostaNaoVaiPeloLink, StringComparison.OrdinalIgnoreCase)
             => SituacaoConfirmacao.PediuRemarcar,
+        StatusContato.Respondido when string.Equals(comentario?.Trim(), RespostaCancelar, StringComparison.OrdinalIgnoreCase)
+            => SituacaoConfirmacao.PediuCancelar,
         StatusContato.Respondido => SituacaoConfirmacao.Confirmou,
         _ when enviadoEm is not null => SituacaoConfirmacao.AvisadoSemResposta,
         _ => SituacaoConfirmacao.NaoAvisado
@@ -99,6 +115,9 @@ public static class RodadaDeConfirmacao
     /// <summary>A pílula "não vem" das listas do dia — quem respondeu que não vai.</summary>
     public const string SeloNaoVem = "Não vem — remarcar";
 
+    /// <summary>A pílula de quem pediu para cancelar — a recepção aceita na própria agenda.</summary>
+    public const string SeloPediuCancelar = "Pediu para cancelar";
+
     /// <summary>A pílula de quem confirmou.</summary>
     public const string SeloConfirmou = "Confirmou";
 
@@ -116,6 +135,7 @@ public static class RodadaDeConfirmacao
     {
         SituacaoConfirmacao.Confirmou => SeloConfirmou,
         SituacaoConfirmacao.PediuRemarcar => SeloNaoVem,
+        SituacaoConfirmacao.PediuCancelar => SeloPediuCancelar,
         SituacaoConfirmacao.AvisadoSemResposta => SeloSemResposta,
         _ => string.Empty
     };

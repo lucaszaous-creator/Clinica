@@ -33,7 +33,10 @@ public sealed record SessaoDaRodada(
     public bool NaoAvisado => Estado == SituacaoConfirmacao.NaoAvisado;
 
     /// <summary>Quem já respondeu (ou foi dispensado) não precisa dos botões: a resposta fica escrita.</summary>
-    public bool Respondeu => Estado is SituacaoConfirmacao.Confirmou or SituacaoConfirmacao.PediuRemarcar or SituacaoConfirmacao.Dispensado;
+    public bool Respondeu => Estado is SituacaoConfirmacao.Confirmou or SituacaoConfirmacao.PediuRemarcar or SituacaoConfirmacao.PediuCancelar or SituacaoConfirmacao.Dispensado;
+
+    /// <summary>Pediu para cancelar pelo WhatsApp: o horário segue marcado até a recepção aceitar na agenda.</summary>
+    public bool PediuCancelar => Estado == SituacaoConfirmacao.PediuCancelar;
 
     /// <summary>Quem já recebeu a mensagem é LEMBRADO; quem não recebeu é AVISADO.</summary>
     public string RotuloEnviar => NaoAvisado ? "Avisar" : "Lembrar de novo";
@@ -51,11 +54,14 @@ public sealed record SessaoDaRodada(
     /// "Não vou" pelo link NÃO cancela o horário (a regra do <c>LembreteSmsService</c>):
     /// quem libera a vaga é a recepção, que liga e remarca. Por isso a frase manda ligar.
     /// </summary>
-    public string? Destaque => Estado == SituacaoConfirmacao.PediuRemarcar
-        ? (RespondeuPeloLink
+    public string? Destaque => Estado switch
+    {
+        SituacaoConfirmacao.PediuRemarcar => RespondeuPeloLink
             ? "Avisou pelo SMS que não vai — ligue, remarque e libere o horário."
-            : "Pediu para remarcar — ligue e remarque o horário.")
-        : null;
+            : "Pediu para remarcar — ligue e remarque o horário.",
+        SituacaoConfirmacao.PediuCancelar => "Pediu pelo WhatsApp para cancelar — aceite o cancelamento na agenda.",
+        _ => null
+    };
 
     /// <summary>
     /// O selo da resposta, por extenso — "Confirmou pelo SMS" e "Confirmou" (no balcão) são
@@ -65,6 +71,7 @@ public sealed record SessaoDaRodada(
     {
         SituacaoConfirmacao.Confirmou => RespondeuPeloLink ? "Confirmou pelo SMS" : "Confirmou",
         SituacaoConfirmacao.PediuRemarcar => RespondeuPeloLink ? "Avisou pelo SMS que não vai" : "Pediu para remarcar",
+        SituacaoConfirmacao.PediuCancelar => "Pediu para cancelar",
         SituacaoConfirmacao.Dispensado => "Dispensado",
         _ => string.Empty
     };
@@ -152,7 +159,7 @@ public static class ConfirmacoesNaTela
             linhas.Count(l => l.Estado == SituacaoConfirmacao.Confirmou),
             linhas.Count(l => l.Estado == SituacaoConfirmacao.AvisadoSemResposta),
             linhas.Count(l => l.Estado == SituacaoConfirmacao.NaoAvisado),
-            linhas.Count(l => l.Estado == SituacaoConfirmacao.PediuRemarcar),
+            linhas.Count(l => NaoVem(l.Estado)),
             linhas.Count,
             pct,
             linhas.Count(l => l.PeloSms),
@@ -175,14 +182,19 @@ public static class ConfirmacoesNaTela
 
     /// <summary>O recorte da tabela — o rodapé DIZ o que está à vista.</summary>
     public static IReadOnlyList<SessaoDaRodada> Recortar(IReadOnlyList<SessaoDaRodada> linhas, SituacaoConfirmacao? filtro)
-        => filtro is null ? linhas : linhas.Where(l => l.Estado == filtro).ToList();
+        => filtro is null ? linhas
+            : filtro == SituacaoConfirmacao.PediuRemarcar ? linhas.Where(l => NaoVem(l.Estado)).ToList()
+            : linhas.Where(l => l.Estado == filtro).ToList();
+
+    /// <summary>O cartão "Não vêm" junta quem pediu para remarcar e quem pediu para cancelar: os dois não vêm.</summary>
+    public static bool NaoVem(SituacaoConfirmacao s) => s is SituacaoConfirmacao.PediuRemarcar or SituacaoConfirmacao.PediuCancelar;
 
     public static string RecorteTexto(SituacaoConfirmacao? filtro, int quantos) => filtro switch
     {
         SituacaoConfirmacao.Confirmou => $"Mostrando: confirmaram ({quantos})",
         SituacaoConfirmacao.AvisadoSemResposta => $"Mostrando: avisados sem resposta ({quantos})",
         SituacaoConfirmacao.NaoAvisado => $"Mostrando: ainda não avisados ({quantos})",
-        SituacaoConfirmacao.PediuRemarcar => $"Mostrando: pediram para remarcar ou não vêm ({quantos})",
+        SituacaoConfirmacao.PediuRemarcar => $"Mostrando: não vêm, remarcar ou cancelar ({quantos})",
         _ => $"Mostrando: todas as sessões ({quantos})"
     };
 

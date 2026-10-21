@@ -142,7 +142,7 @@ public static class InicioDoBalcao
         return resposta?.Situacao switch
         {
             SituacaoConfirmacao.Confirmou => (SituacaoChegada.Confirmou, selo),
-            SituacaoConfirmacao.PediuRemarcar => (SituacaoChegada.NaoVem, selo),
+            SituacaoConfirmacao.PediuRemarcar or SituacaoConfirmacao.PediuCancelar => (SituacaoChegada.NaoVem, selo),
             SituacaoConfirmacao.AvisadoSemResposta => (SituacaoChegada.NaoConfirmou, selo),
             _ => (SituacaoChegada.Marcado, string.Empty)
         };

@@ -241,12 +241,13 @@
                                                             @if (!c.Compacto)
                                                             {
                                                                 <span class="rg-contexto">@c.Contexto</span>
-                                                                @if (c.EhEncaixe || c.NaoConfirmou || c.NaoVem || c.EhRetornoDoSegundoCodigo)
+                                                                @if (c.EhEncaixe || c.NaoConfirmou || c.NaoVem || c.PediuCancelar || c.EhRetornoDoSegundoCodigo)
                                                                 {
                                                                     <span class="rg-selos">
                                                                         @if (c.EhEncaixe) { <span class="rg-selo">Encaixe</span> }
                                                                         @if (c.NaoConfirmou) { <span class="rg-selo" title="Avisado na rodada de confirmação e ainda sem resposta">Não confirmou</span> }
                                                                         @if (c.NaoVem) { <span class="rg-selo perigo" title="O paciente respondeu que não vem — ligue para remarcar e libere o horário">Não vem — remarcar</span> }
+                                                                        @if (c.PediuCancelar) { <span class="rg-selo perigo" title="O paciente pediu pelo WhatsApp para cancelar — aceite o cancelamento na aba Dia ou na janela do horário">Pediu para cancelar</span> }
                                                                         @if (c.EhRetornoDoSegundoCodigo) { <span class="rg-selo neutro" title="Legado: guia não é atendimento — pode apagar">2º código</span> }
                                                                     </span>
                                                                 }
