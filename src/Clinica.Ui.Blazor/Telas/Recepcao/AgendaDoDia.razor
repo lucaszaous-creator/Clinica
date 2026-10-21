@@ -197,11 +197,12 @@
                                         }
                                         <span class="rd-menu">
                                             <button type="button" class="botao mini icone" aria-haspopup="menu" aria-expanded="@Bool(_menu == l.AgendamentoId)"
-                                                    title="Mais ações" aria-label="Mais ações de @l.Paciente" @onclick="() => AlternarMenu(l)">⋯</button>
+                                                    title="Mais ações" aria-label="Mais ações de @l.Paciente" @onclick="e => AlternarMenu(l, e)">⋯</button>
                                             @if (_menu == l.AgendamentoId)
                                             {
-                                                <span class="rd-menu-lista" role="menu">
-                                                    @foreach (var a in AgendaDoDiaNaTela.Menu(l, Permissoes))
+                                                var acoes = AgendaDoDiaNaTela.Menu(l, Permissoes);
+                                                <span class="rd-menu-lista" role="menu" style="@AgendaDoDiaNaTela.EstiloDoMenu(_menuX, _menuY, acoes, _alturaJanela)">
+                                                    @foreach (var a in acoes)
                                                     {
                                                         if (a == AcaoDaLinhaAgenda.Separador) { <hr /> }
                                                         else
@@ -421,7 +422,23 @@
 
     private void LimparFiltros() { _filtro = new(); Remontar(); }
 
-    private void AlternarMenu(LinhaAgendaDoDia l) => _menu = _menu == l.AgendamentoId ? null : l.AgendamentoId;
+    private double _menuX, _menuY;
+    private double? _alturaJanela;
+    [Inject] private Microsoft.JSInterop.IJSRuntime Js { get; set; } = default!;
+
+    /// <summary>
+    /// O menu abre onde a pessoa clicou: ele é FIXO, para a rolagem da tabela não o cortar. A
+    /// altura da janela decide se ele cabe embaixo ou abre para cima; sem ela (a prévia sem o
+    /// script, os testes), a conta do CSS o mantém inteiro na janela.
+    /// </summary>
+    private async Task AlternarMenu(LinhaAgendaDoDia l, MouseEventArgs e)
+    {
+        (_menuX, _menuY) = (e.ClientX, e.ClientY);
+        _menu = _menu == l.AgendamentoId ? null : l.AgendamentoId;
+        if (_menu is null) return;
+        try { _alturaJanela = await Js.InvokeAsync<double>("clinicaJanela.altura", Array.Empty<object>()); }
+        catch (Exception) { _alturaJanela = null; }
+    }
 
     // ==================== o passo da linha ====================
 

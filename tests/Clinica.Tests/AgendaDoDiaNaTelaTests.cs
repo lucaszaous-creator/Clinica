@@ -152,6 +152,20 @@ public class AgendaDoDiaNaTelaTests
         Assert.Equal(tom, AgendaDoDiaNaTela.TomDaConfirmacao(linha.Confirmacao));
     }
 
+    // Out/2026: o menu "⋯" é FIXO na janela (a tabela rola por dentro e o cortava). Abre abaixo
+    // do clique quando cabe; no pé da janela abre para CIMA, sem cobrir o botão de onde saiu.
+    [Fact]
+    public void Menu_da_linha_abre_abaixo_quando_cabe_e_acima_no_pe_da_janela()
+    {
+        var a = Ag(14);
+        var acoes = AgendaDoDiaNaTela.Menu(Uma(a), Tudo);
+        Assert.Contains("top:314px", AgendaDoDiaNaTela.EstiloDoMenu(1300, 300, acoes, 768));
+        var embaixo = AgendaDoDiaNaTela.EstiloDoMenu(1300, 740, acoes, 768);
+        var topo = int.Parse(embaixo[(embaixo.IndexOf("top:") + 4)..embaixo.IndexOf("px", embaixo.IndexOf("top:"))]);
+        Assert.True(topo < 740 - 14, "no pé da janela o menu abre acima do clique");
+        Assert.Contains("100vh", AgendaDoDiaNaTela.EstiloDoMenu(1300, 740, acoes));
+    }
+
     // Out/2026: o pedido de cancelamento pelo WhatsApp se aceita NA LINHA — botão e item do "⋯".
     [Fact]
     public void Pedido_de_cancelamento_se_aceita_na_propria_linha()

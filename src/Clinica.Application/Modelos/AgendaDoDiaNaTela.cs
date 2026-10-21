@@ -452,6 +452,38 @@ public static class AgendaDoDiaNaTela
     /// sem esta metade o item aparecia aceso e a recusa só chegava depois do clique). Sem
     /// separador órfão no começo, no fim ou repetido.
     /// </summary>
+    /// <summary>
+    /// Onde o menu "⋯" aparece (out/2026). Ele é FIXO na janela: dentro da tabela, que rola
+    /// por dentro, ficava cortado e virava uma janelinha com rolagem própria. Abre logo abaixo
+    /// do clique, alinhado pela direita ao botão; quando não cabe embaixo, abre para CIMA,
+    /// encostado no botão. Sem a altura da janela, a conta do CSS o mantém inteiro na tela.
+    /// </summary>
+    public static string EstiloDoMenu(double x, double y, IReadOnlyList<AcaoDaLinhaAgenda> acoes, double? alturaJanela = null)
+    {
+        var separadores = acoes.Count(a => a == AcaoDaLinhaAgenda.Separador);
+        var altura = (acoes.Count - separadores) * AlturaItemMenu + separadores * AlturaSeparadorMenu + 12;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        string Px(double v) => v.ToString("0", inv) + "px";
+        // Esquerda: o menu termina no botão, sem sair pela esquerda da janela.
+        var esquerda = $"max(8px, {Px(x + 16)} - {LarguraMenu}px)";
+        if (alturaJanela is { } h)
+        {
+            var abaixo = y + 14;
+            var acima = y - 14 - altura;
+            var y0 = abaixo + altura + 8 <= h ? abaixo
+                : acima >= 8 ? acima
+                : Math.Max(8, h - altura - 8);
+            return $"left:calc({esquerda});top:{Px(y0)}";
+        }
+        // Topo: abaixo do clique, ou o mais baixo que ainda cabe inteiro na janela.
+        var topo = $"max(8px, min({Px(y + 14)}, 100vh - {Px(altura)} - 8px))";
+        return $"left:calc({esquerda});top:calc({topo})";
+    }
+
+    public const int LarguraMenu = 260;
+    const int AlturaItemMenu = 37;
+    const int AlturaSeparadorMenu = 9;
+
     public static IReadOnlyList<AcaoDaLinhaAgenda> Menu(LinhaAgendaDoDia l, PermissoesDaAgendaDoDia p)
     {
         var itens = new List<AcaoDaLinhaAgenda>();
