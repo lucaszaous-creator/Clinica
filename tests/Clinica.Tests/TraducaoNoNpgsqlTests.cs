@@ -50,6 +50,15 @@ public class TraducaoNoNpgsqlTests
         if (filtro == FiltroListaPacientes.EmTratamento) sql.Should().Contain("EXISTS");
     }
     [Fact]
+    public void Marcacoes_da_conferencia_traduzem_sem_trazer_a_ficha_inteira()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaAgendamentosMarcados(new DateTime(2026, 10, 21), new DateTime(2026, 10, 22)).ToQueryString();
+        sql.Should().Contain("CriadoEm").And.Contain("ORDER BY");
+        // A ficha vem reduzida: sem a miniatura da foto nem as observações do paciente.
+        sql.Should().NotContain("FotoMiniatura");
+    }
+    [Fact]
     public void Ocupacao_traduz_duracao_e_filtro_no_Postgres()
     {
         using var db = Postgres();

@@ -32,6 +32,33 @@ public sealed record LinhaLancamentoBalcao
     public required string Operador { get; init; }
 }
 
+/// <summary>
+/// Um horário MARCADO no período (out/2026): o que a recepção fez no balcão. Com a guia
+/// nascendo só quando o profissional finaliza, marcar não cria atendimento — sem esta lista a
+/// conferência do balcão ficava vazia o dia inteiro, e a secretária não via o próprio trabalho.
+/// </summary>
+public sealed record LinhaMarcacaoBalcao
+{
+    public required int AgendamentoId { get; init; }
+    /// <summary>Quando foi marcado — a ordem da lista (o mais recente primeiro).</summary>
+    public required DateTime MarcadoEm { get; init; }
+    /// <summary>"21/10 14:32" — quando o horário foi marcado.</summary>
+    public required string MarcadoRotulo { get; init; }
+    /// <summary>"28/10 09:00 · Dra. Ana" — para quando e com quem.</summary>
+    public required string Sessao { get; init; }
+    public required string Paciente { get; init; }
+    public required string Modalidade { get; init; }
+    public required string Convenio { get; init; }
+    /// <summary>"por Ana" — quem marcou.</summary>
+    public required string Marcacao { get; init; }
+    public required string Operador { get; init; }
+    /// <summary>"Aguardando atendimento", "Atendido", "Cancelado"…</summary>
+    public required string Situacao { get; init; }
+    /// <summary>Tom do selo da situação: neutro, sucesso, aviso ou perigo.</summary>
+    public required string TomSituacao { get; init; }
+    public required bool Encaixe { get; init; }
+}
+
 /// <summary>O recorte dos filtros da conferência. Nulo ou <see cref="LancamentosNaTela.Todos"/> = sem filtro.</summary>
 public sealed record FiltroLancamentos(string? Convenio, string? Modalidade, string? Operador, bool SomenteComPendencia)
 {
@@ -131,6 +158,51 @@ public static class LancamentosNaTela
                     : $"{depois.Count} libera(m) a partir de {depois[0].DataPrevistaFaturamento.ToString("dd/MM", PtBr)}"
         };
     }
+
+    /// <summary>
+    /// Um horário marcado na conferência. A situação diz o que aconteceu DEPOIS da marcação —
+    /// é o que separa "marquei e o paciente veio" de "marquei e ele faltou".
+    /// </summary>
+    public static LinhaMarcacaoBalcao MontarMarcacao(Agendamento a)
+    {
+        var paciente = a.Paciente;
+        var (situacao, tom) = a.Status switch
+        {
+            StatusAgendamento.Realizado => ("Atendido", "sucesso"),
+            StatusAgendamento.Cancelado => ("Cancelado", "perigo"),
+            StatusAgendamento.Faltou => ("Faltou", "perigo"),
+            StatusAgendamento.Substituido => ("Lançado por fora", "neutro"),
+            _ => ("Aguardando atendimento", "aviso")
+        };
+        var quem = a.Profissional?.Rotulo ?? "sem profissional";
+        return new LinhaMarcacaoBalcao
+        {
+            AgendamentoId = a.Id,
+            MarcadoEm = a.CriadoEm ?? a.DataHora,
+            MarcadoRotulo = a.CriadoEm is { } m ? m.ToString("dd/MM HH:mm", PtBr) : "—",
+            Sessao = $"{a.DataHora.ToString("dd/MM HH:mm", PtBr)} · {quem}",
+            Paciente = paciente?.Nome ?? "—",
+            Modalidade = CatalogoModalidades.NomeComEspecialidade(a.ModalidadeCodigo, a.ModalidadePrevista, a.EspecialidadeConsultaCodigo),
+            Convenio = paciente is null
+                ? "—"
+                : CatalogoConvenios.Nome(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()),
+            Marcacao = string.IsNullOrWhiteSpace(a.CriadoPor) ? "sem registro de quem marcou" : $"por {a.CriadoPor}",
+            Operador = string.IsNullOrWhiteSpace(a.CriadoPor) ? SemRegistroDeOperador : a.CriadoPor!,
+            Situacao = situacao,
+            TomSituacao = tom,
+            Encaixe = a.Encaixe
+        };
+    }
+
+    /// <summary>O mesmo recorte dos atendimentos, sem o "só com guia por liberar" (marcação não tem guia).</summary>
+    public static bool Passa(LinhaMarcacaoBalcao l, FiltroLancamentos f)
+        => (Livre(f.Convenio) || l.Convenio == f.Convenio)
+           && (Livre(f.Modalidade) || l.Modalidade == f.Modalidade)
+           && (Livre(f.Operador) || l.Operador == f.Operador);
+
+    /// <summary>"12 horário(s) marcado(s)" ou "3 de 12" com filtro.</summary>
+    public static string ResumoMarcacoes(int mostradas, int carregadas)
+        => mostradas == carregadas ? $"{mostradas} horário(s) marcado(s)" : $"{mostradas} de {carregadas} horário(s) marcado(s)";
 
     /// <summary>"por Ana às 14:32".</summary>
     public static string DescreverLancamento(Atendimento atendimento)

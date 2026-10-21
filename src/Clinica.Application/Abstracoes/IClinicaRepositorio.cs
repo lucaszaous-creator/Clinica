@@ -352,6 +352,12 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoParaLeituraAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
+    /// <summary>
+    /// Os horários MARCADOS (pelo <c>CriadoEm</c>) em [inicio, fimExclusivo) — a conferência do
+    /// balcão (out/2026). Sem rastreio, com paciente reduzido (nome e convênio) e o profissional.
+    /// Linhas anteriores ao registro de quem marcou (CriadoEm nulo) não entram: não há quando.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosMarcadosNoPeriodoAsync(DateTime inicio, DateTime fimExclusivo, CancellationToken ct = default);
 
     Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
