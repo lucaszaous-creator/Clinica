@@ -285,6 +285,7 @@
         </nav>
     }
 
+    <div class="moldura-corpo">
     <main class="moldura-area">
         <PalcoDeTelas Palco="Moldura.Palco" />
         @if (Moldura.FalhaDaTela is { } falha)
@@ -296,6 +297,10 @@
             </div>
         }
     </main>
+    @* O chat da equipe (out/2026): bolinha e janelinha flutuam por cima; encostado, ele é a
+       coluna da direita e a tela de trás encolhe — por isso mora DENTRO do corpo. *@
+    <ChatDaEquipe AoAbrirPedido="Moldura.AbrirPedidoDaEnfermagem" />
+    </div>
 
     @if (_trocandoSenha)
     {

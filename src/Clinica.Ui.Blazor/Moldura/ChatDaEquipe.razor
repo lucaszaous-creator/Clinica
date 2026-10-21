@@ -1,0 +1,948 @@
+@*
+  O CHAT DA EQUIPE (out/2026, mockup v3 aprovado — docs/mockups/chat-da-equipe.html).
+
+  UM componente em três posições: a BOLINHA no canto (fechado, com o número e a prévia de 8 s),
+  a JANELINHA no canto (aberto, por cima da tela) e o PAINEL encostado na lateral (a tela de
+  trás se ajusta). A escolha fica guardada por pessoa, neste computador.
+
+  O que a tela afirma — quem vê qual canal, a prévia, o recorte do texto longo, quando toca, a
+  presença — sai de ChatEquipeRegras (Application, testado). Aqui só se desenha e se chama o
+  IChatEquipeService, num escopo por operação (a moldura vive o dia inteiro).
+
+  Os pedidos da enfermagem NÃO são copiados para o chat: o # Recepção lê os pedidos de sempre
+  (IPlanejamentoEnfermagemService) e os desenha como cartão entre as mensagens; "Abrir pedido"
+  vai à MESMA tela de Pedidos que o sino abre, e "Marcar como visto" chama o mesmo serviço.
+
+  Entrega: o aviso do banco (IAvisosDoBanco, gatilho na tabela de mensagens) relê na hora; o
+  relógio de fundo continua, mais espaçado, porque aviso perdido não pode deixar o chat parado.
+*@
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Servicos
+@using Clinica.Domain
+@using Clinica.Domain.Entities
+@using Clinica.Ui.Blazor.Hospedagem
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IServiceScopeFactory Escopos
+@inject IServiceProvider Servicos
+@inject Dialogos Dialogos
+@inject Notificacoes Notificacoes
+@inject IJSRuntime JS
+
+@if (!_ligado) { return; }
+
+@if (_modo == ModoChat.Fechado)
+{
+    <div class="chat-flutuante">
+        @if (_previa is { } p)
+        {
+            <button type="button" class="chat-previa" @onclick="() => AbrirNaConversaAsync(p.Conversa)">
+                <span class="chat-previa-x" role="button" aria-label="Fechar prévia" @onclick:stopPropagation="true" @onclick="() => _previa = null"><Icone Nome="x" /></span>
+                <b>@p.AutorNome <span>@p.Titulo · agora</span></b>
+                <span class="chat-previa-texto">“@p.Previa”</span>
+            </button>
+        }
+        <button type="button" class="chat-bola" title="Chat da equipe" aria-label="Abrir o chat da equipe" @onclick="AbrirAsync">
+            <Icone Nome="chat" />
+            @if (TotalNaoLidas > 0)
+            {
+                <span class="chat-contador" aria-label="@TotalNaoLidas não lidas">@(TotalNaoLidas > 99 ? "99+" : TotalNaoLidas.ToString())</span>
+            }
+        </button>
+    </div>
+}
+else
+{
+    <aside class="chat-painel @(_modo == ModoChat.Encostado ? "encostado" : "janela")" aria-label="Chat da equipe">
+        <header class="chat-cab">
+            <h3>Equipe</h3>
+            @if (_painel is { } pn) { <span class="chat-online"><i class="chat-pres online"></i>@pn.Online online</span> }
+            <button type="button" class="botao icone chat-som @(SomDesligado ? "desligado" : null)" title="Som e avisos" @onclick="() => _mostrandoPrefs = !_mostrandoPrefs">
+                <Icone Nome="@(SomDesligado ? "som-desligado" : "som")" />
+            </button>
+            <button type="button" class="botao icone" title="@(_modo == ModoChat.Encostado ? "Soltar da lateral" : "Encostar na lateral")" @onclick="AlternarEncostoAsync">
+                <Icone Nome="encostar" />
+            </button>
+            <button type="button" class="botao icone" title="Minimizar" @onclick="MinimizarAsync"><Icone Nome="minimizar" /></button>
+        </header>
+
+        @if (_mostrandoPrefs)
+        {
+            <div class="chat-prefs" role="dialog" aria-label="Som e avisos">
+                <b>Som e avisos</b>
+                <small>Só para você, neste computador</small>
+                <label><input type="checkbox" checked="@_prefs.Direta" @onchange="e => MudarPrefAsync(_prefs with { Direta = (bool)e.Value! })" /> Mensagem direta <small>toque curto + prévia</small></label>
+                <label><input type="checkbox" checked="@_prefs.Mencao" @onchange="e => MudarPrefAsync(_prefs with { Mencao = (bool)e.Value! })" /> Quando alguém me cita (@@) <small>toque curto + prévia</small></label>
+                <label><input type="checkbox" checked disabled /> Canais <small>só o número na bolinha</small></label>
+                @if (_veePedidos)
+                {
+                    <label><input type="checkbox" checked="@_prefs.Pedido" @onchange="e => MudarPrefAsync(_prefs with { Pedido = (bool)e.Value! })" /> Pedido da enfermagem <small>toque + prévia</small></label>
+                }
+                <div class="chat-prefs-silencio">
+                    @if (_prefs.SilenciadoAte > DateTime.Now)
+                    {
+                        <span>Silenciado até @_prefs.SilenciadoAte!.Value.ToString("HH:mm") · o número continua subindo</span>
+                        <button type="button" class="botao secundario" @onclick="() => MudarPrefAsync(_prefs with { SilenciadoAte = null })">Reativar</button>
+                    }
+                    else
+                    {
+                        <span>Silenciar por 1 hora · o número continua subindo</span>
+                        <button type="button" class="botao secundario" @onclick="() => MudarPrefAsync(_prefs with { SilenciadoAte = DateTime.Now.AddHours(1) })">Silenciar</button>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="chat-corpo">
+            <nav class="chat-lista" aria-label="Conversas">
+                @if (_painel is null)
+                {
+                    <p class="chat-carregando">@(_falhaPainel ?? "Carregando…")</p>
+                }
+                else
+                {
+                    <div class="chat-rot">Canais</div>
+                    @foreach (var c in _painel.Canais)
+                    {
+                        var pedidosNovos = c.Conversa == ChatEquipeRegras.CanalRecepcao ? _pedidosNovos : 0;
+                        <button type="button" class="chat-conv @(c.Conversa == _conversa ? "on" : null) @(c.NaoLidas + pedidosNovos > 0 ? "nova" : null)"
+                                title="@c.Subtitulo" @onclick="() => AbrirConversaAsync(c.Conversa)">
+                            <span class="chat-hash">#</span><span class="chat-conv-nome">@c.Titulo</span>
+                            @if (pedidosNovos > 0) { <span class="chat-n vermelho" title="Pedidos da enfermagem novos">@pedidosNovos</span> }
+                            @if (c.NaoLidas > 0) { <span class="chat-n">@c.NaoLidas</span> }
+                        </button>
+                    }
+                    <div class="chat-rot">Diretas</div>
+                    @foreach (var d in _painel.Diretas)
+                    {
+                        <button type="button" class="chat-conv @(d.Conversa == _conversa ? "on" : null) @(d.NaoLidas > 0 ? "nova" : null)"
+                                title="@($"{d.Titulo} · {ChatEquipeRegras.RotuloPresenca(d.Presenca, null)}")" @onclick="() => AbrirConversaAsync(d.Conversa)">
+                            <span class="chat-av">@d.Iniciais<i class="chat-pres @ClassePresenca(d.Presenca)"></i></span>
+                            <span class="chat-conv-nome">@d.Titulo</span>
+                            @if (d.NaoLidas > 0) { <span class="chat-n">@d.NaoLidas</span> }
+                        </button>
+                    }
+                }
+            </nav>
+
+            <section class="chat-conversa">
+                @if (_aberta is null)
+                {
+                    <div class="chat-vazio">
+                        @if (_falhaConversa is { } f) { <FalhaDeLeitura Titulo="Não foi possível abrir a conversa" Detalhe="@f" /> }
+                        else { <p>Escolha um canal ou uma pessoa.</p> }
+                    </div>
+                }
+                else
+                {
+                    <div class="chat-conv-cab">
+                        @if (_aberta.PessoaId is not null)
+                        {
+                            <span class="chat-av grande">@ChatEquipeRegras.Iniciais(_aberta.Titulo)</span>
+                        }
+                        <div class="chat-conv-titulo"><b>@_aberta.Titulo</b><small>@_aberta.Subtitulo</small></div>
+                    </div>
+
+                    <div class="chat-msgs" @ref="_msgsEl">
+                        @if (_aberta.TemAnteriores)
+                        {
+                            <button type="button" class="chat-anteriores" @onclick="CarregarAnterioresAsync">Ver mensagens anteriores</button>
+                        }
+                        @{ DateOnly? diaAnterior = null; bool separadorPosto = false; }
+                        @foreach (var item in Linhas())
+                        {
+                            var dia = DateOnly.FromDateTime(item.Em);
+                            if (dia != diaAnterior)
+                            {
+                                diaAnterior = dia;
+                                <div class="chat-dia"><span>@ChatEquipeRegras.Dia(dia, DateOnly.FromDateTime(DateTime.Now))</span></div>
+                            }
+                            if (!separadorPosto && item.Mensagem is { } mm && !mm.Minha && mm.Id > _ultimaLidaAntes && _ultimaLidaAntes > 0)
+                            {
+                                separadorPosto = true;
+                                <div class="chat-novas"><span>Novas mensagens</span></div>
+                            }
+                            @if (item.Mensagem is { } m)
+                            {
+                                <div class="chat-m @(m.Minha ? "minha" : null) @(m.Id > _maiorVisto ? "chegou" : null) @(m.MeCita ? "cita" : null)" @key="m.Id">
+                                    @if (!m.Minha) { <span class="chat-av">@m.Iniciais</span> }
+                                    <div class="chat-m-corpo">
+                                        <div class="chat-quem">
+                                            @(m.Minha ? "Você" : m.AutorNome)<span>@m.EnviadaEm.ToString("HH:mm")@(m.EditadaEm is not null ? " · (editada)" : "")</span>
+                                        </div>
+                                        @if (_editando == m.Id)
+                                        {
+                                            <div class="chat-editar">
+                                                <textarea class="campo" rows="3" @bind="_textoEdicao" @bind:event="oninput" aria-label="Corrigir a mensagem"></textarea>
+                                                <div>
+                                                    <button type="button" class="botao secundario" @onclick="() => _editando = null">Cancelar</button>
+                                                    <button type="button" class="botao" @onclick="() => SalvarEdicaoAsync(m.Id)">Salvar correção</button>
+                                                </div>
+                                                <small>A versão anterior fica guardada; no chat nada se apaga.</small>
+                                            </div>
+                                        }
+                                        else if (!string.IsNullOrEmpty(m.Texto))
+                                        {
+                                            var longa = ChatEquipeRegras.Recolhida(m.Texto);
+                                            var inteira = !longa || _expandidas.Contains(m.Id);
+                                            <div class="chat-bolha @(longa && !inteira ? "longa" : null)">@(inteira ? m.Texto : ChatEquipeRegras.Recorte(m.Texto))</div>
+                                            @if (longa)
+                                            {
+                                                <div class="chat-rodape-longa">
+                                                    <button type="button" class="botao secundario" @onclick="() => AlternarInteira(m.Id)">@(inteira ? "Recolher" : "Ver inteiro")</button>
+                                                    <button type="button" class="botao secundario" @onclick="() => CopiarAsync(m.Texto)"><Icone Nome="copiar" /> Copiar texto</button>
+                                                    <span>@ChatEquipeRegras.Caracteres(m.Texto.Length)</span>
+                                                </div>
+                                            }
+                                        }
+                                        @if (m.PacienteId is { } pid)
+                                        {
+                                            <div class="chat-cartao">
+                                                <span class="chat-av paciente">@ChatEquipeRegras.Iniciais(m.PacienteNome ?? "?")</span>
+                                                <div><b>@m.PacienteNome</b><small>Paciente anexado</small></div>
+                                                <button type="button" class="chat-link" @onclick="() => AbrirFichaAsync(pid)">Abrir ficha <Icone Nome="abrir" /></button>
+                                            </div>
+                                        }
+                                        @if (m.DocumentoId is { } did)
+                                        {
+                                            <div class="chat-cartao">
+                                                <span class="chat-ic"><Icone Nome="documento" /></span>
+                                                <div><b>@m.DocumentoRotulo</b><small>PDF · 2ª via idêntica</small></div>
+                                                <button type="button" class="chat-link" @onclick="() => AbrirDocumentoAsync(did)">Abrir <Icone Nome="abrir" /></button>
+                                            </div>
+                                        }
+                                        @if (m.ArquivoNome is { } arq)
+                                        {
+                                            <div class="chat-cartao">
+                                                <span class="chat-ic"><Icone Nome="clipe" /></span>
+                                                <div><b>@arq</b><small>@ChatEquipeRegras.Tamanho(m.ArquivoTamanho ?? 0)</small></div>
+                                                <button type="button" class="chat-link" @onclick="() => AbrirArquivoAsync(m.Id)">Abrir <Icone Nome="abrir" /></button>
+                                            </div>
+                                        }
+                                        <div class="chat-m-acoes">
+                                            @if (m.Minha && _editando != m.Id)
+                                            {
+                                                <button type="button" class="chat-mini" title="Corrigir o texto" @onclick="() => ComecarEdicao(m)"><Icone Nome="editar" /></button>
+                                            }
+                                            @if (m.Minha && m.LidaPor is { } lida) { <span class="chat-lida">✓✓ @lida</span> }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            else if (item.Pedido is { } pd)
+                            {
+                                <div class="chat-m" @key="@($"p{pd.Id}")">
+                                    <span class="chat-av enf">@ChatEquipeRegras.Iniciais(pd.Autora)</span>
+                                    <div class="chat-m-corpo">
+                                        <div class="chat-quem">@pd.Autora<span>enfermagem · @((pd.CriadaEm ?? pd.Inicio).ToString("HH:mm"))</span></div>
+                                        <div class="chat-cartao pedido">
+                                            <div class="chat-pedido-t">
+                                                <b>Pedido da enfermagem #@pd.Id</b>
+                                                <Selo Tom="@(pd.Situacao == "Novo" ? "aviso" : pd.Ativa ? "info" : "neutro")">@pd.Situacao</Selo>
+                                            </div>
+                                            <div class="chat-pedido-l">@pd.Inicio.ToString("dd/MM") · @pd.Inicio.ToString("HH:mm") às @pd.Fim.ToString("HH:mm")</div>
+                                            <div class="chat-pedido-l">Até <b>@pd.Quantidade atendimento@(pd.Quantidade == 1 ? "" : "s") adicional@(pd.Quantidade == 1 ? "" : "is")</b> · @pd.Modalidade</div>
+                                            @if (!string.IsNullOrWhiteSpace(pd.Observacao)) { <div class="chat-pedido-obs">@pd.Observacao</div> }
+                                            <div class="chat-pedido-acoes">
+                                                <button type="button" class="botao secundario" @onclick="() => AbrirPedido(pd.Id)">Abrir pedido</button>
+                                                @if (pd.PodeTratar && pd.Ativa && pd.VistaEm is null)
+                                                {
+                                                    <button type="button" class="botao secundario" @onclick="() => MarcarPedidoVistoAsync(pd)">Marcar como visto</button>
+                                                }
+                                            </div>
+                                            <small>Válido até @pd.Validade.ToString("dd/MM HH:mm") · o mesmo pedido da tela Pedidos da enfermagem@(pd.VistaEm is { } v ? $" · visto por {pd.VistaPor} às {v:HH:mm}" : "")</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        @if (_aberta.Mensagens.Count == 0 && _pedidos.Count == 0)
+                        {
+                            <p class="chat-sem">Nenhuma mensagem ainda. Escreva a primeira.</p>
+                        }
+                    </div>
+
+                    @if (_aberta.Escrevendo.Count > 0)
+                    {
+                        <div class="chat-escrevendo" role="status">
+                            <span class="chat-pontos"><i></i><i></i><i></i></span>
+                            @string.Join(" e ", _aberta.Escrevendo.Select(PrimeiroNome)) @(_aberta.Escrevendo.Count == 1 ? "está" : "estão") escrevendo
+                        </div>
+                    }
+
+                    <div class="chat-compor">
+                        @if (_anexoPaciente is not null || _anexoDocumento is not null || _anexoArquivo is not null)
+                        {
+                            <div class="chat-anexos">
+                                @if (_anexoPaciente is { } ap) { <span class="chat-anexo"><Icone Nome="pessoa" />@ap.Nome<button type="button" aria-label="Tirar o paciente" @onclick="() => { _anexoPaciente = null; _anexoDocumento = null; }"><Icone Nome="x" /></button></span> }
+                                @if (_anexoDocumento is { } ad) { <span class="chat-anexo"><Icone Nome="documento" />@ad.Rotulo<button type="button" aria-label="Tirar o documento" @onclick="() => _anexoDocumento = null"><Icone Nome="x" /></button></span> }
+                                @if (_anexoArquivo is { } aa) { <span class="chat-anexo"><Icone Nome="clipe" />@aa.Nome<button type="button" aria-label="Tirar o arquivo" @onclick="() => _anexoArquivo = null"><Icone Nome="x" /></button></span> }
+                            </div>
+                        }
+                        <textarea class="campo chat-campo" rows="2" placeholder="Escreva para @_aberta.Titulo…" aria-label="Mensagem"
+                                  value="@_texto" @oninput="AoDigitarAsync" @onkeydown="TeclaAsync" @onkeydown:preventDefault="_impedirTecla"></textarea>
+                        <div class="chat-linha">
+                            <button type="button" class="botao secundario" @onclick="AbrirEscolhaDePaciente"><Icone Nome="pessoa" /> Paciente</button>
+                            @if (_anexoPaciente is not null && _documentosDoPaciente.Count > 0)
+                            {
+                                <button type="button" class="botao secundario" @onclick="() => _escolhendoDocumento = !_escolhendoDocumento"><Icone Nome="documento" /> Documento</button>
+                            }
+                            <button type="button" class="botao secundario" @onclick="EscolherArquivoAsync"><Icone Nome="clipe" /> Arquivo</button>
+                            <button type="button" class="botao secundario" @onclick="() => _ampliado = true"><Icone Nome="ampliar" /> Ampliar</button>
+                            <button type="button" class="botao chat-enviar" disabled="@(!PodeEnviar)" @onclick="EnviarAsync"><Icone Nome="enviar" /> Enviar</button>
+                        </div>
+                        <div class="chat-dica">
+                            <span>Enter envia · Shift+Enter quebra a linha · @@ cita alguém</span>
+                            @if (_erro is { } er) { <span class="chat-erro" role="alert">@er</span> }
+                        </div>
+                        @if (_escolhendoDocumento)
+                        {
+                            <div class="chat-pop" role="dialog" aria-label="Anexar documento">
+                                <div class="chat-pop-cab"><b>Documento de @_anexoPaciente?.Nome</b><small>O documento emitido vai como anexo; quem recebe abre a 2ª via</small></div>
+                                @foreach (var d in _documentosDoPaciente)
+                                {
+                                    <button type="button" class="chat-op" @onclick="() => { _anexoDocumento = d; _escolhendoDocumento = false; }">
+                                        <b>@d.Rotulo</b><small>@d.Quando</small>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+
+        @if (_escolhendoPaciente)
+        {
+            <div class="chat-pop paciente" role="dialog" aria-label="Anexar paciente à mensagem">
+                <div class="chat-pop-cab">
+                    <b>Anexar paciente à mensagem</b><small>Quem recebe abre a ficha com um clique</small>
+                    <button type="button" class="botao icone" aria-label="Fechar" @onclick="() => _escolhendoPaciente = false"><Icone Nome="x" /></button>
+                </div>
+                <BuscaDePacienteNaTela SugestaoDeHoje="true" Limite="20" CadastroNaFileira="false" AoEscolher="AnexarPacienteAsync" />
+            </div>
+        }
+    </aside>
+
+    @if (_ampliado && _aberta is not null)
+    {
+        <div class="modal-fundo chat-editor-veu">
+            <div class="chat-editor" role="dialog" aria-label="Escrever mensagem longa">
+                <div class="chat-editor-cab">
+                    <b>Mensagem para @_aberta.Titulo</b><small>@(_aberta.PessoaId is null ? "canal" : "conversa direta")</small>
+                    <button type="button" class="botao icone" aria-label="Fechar o editor" @onclick="() => _ampliado = false"><Icone Nome="x" /></button>
+                </div>
+                <div class="chat-editor-corpo">
+                    <textarea class="campo chat-editor-area" value="@_texto" @oninput="AoDigitarAsync" aria-label="Texto da mensagem"
+                              placeholder="Escreva o recado ou o laudo — o texto não tem limite."></textarea>
+                    <div class="chat-editor-lado">
+                        <h4>Vai junto</h4>
+                        @if (_anexoPaciente is { } ap2) { <div class="chat-cartao"><span class="chat-av paciente">@ChatEquipeRegras.Iniciais(ap2.Nome)</span><div><b>@ap2.Nome</b><small>Paciente</small></div></div> }
+                        @if (_anexoDocumento is { } ad2) { <div class="chat-cartao"><span class="chat-ic"><Icone Nome="documento" /></span><div><b>@ad2.Rotulo</b><small>@ad2.Quando</small></div></div> }
+                        @if (_anexoArquivo is { } aa2) { <div class="chat-cartao"><span class="chat-ic"><Icone Nome="clipe" /></span><div><b>@aa2.Nome</b><small>@ChatEquipeRegras.Tamanho(aa2.Conteudo.LongLength)</small></div></div> }
+                        @if (_anexoPaciente is null && _anexoDocumento is null && _anexoArquivo is null) { <p>Nada anexado.</p> }
+                        <h4>Dica</h4>
+                        <p>O texto na conversa é o recado. O documento numerado, que vai ao convênio, é o anexo — ele sai do Prontuário com assinatura.</p>
+                    </div>
+                </div>
+                <div class="chat-editor-rod">
+                    <button type="button" class="botao secundario" @onclick="AbrirEscolhaDePaciente"><Icone Nome="pessoa" /> Paciente</button>
+                    @if (_anexoPaciente is not null && _documentosDoPaciente.Count > 0)
+                    {
+                        <button type="button" class="botao secundario" @onclick="() => { _ampliado = false; _escolhendoDocumento = true; }"><Icone Nome="documento" /> Documento</button>
+                    }
+                    <button type="button" class="botao secundario" @onclick="EscolherArquivoAsync"><Icone Nome="clipe" /> Arquivo</button>
+                    <span class="chat-editor-conta">@ChatEquipeRegras.Caracteres(_texto.Length) · sem limite</span>
+                    @if (_erro is { } er2) { <span class="chat-erro" role="alert">@er2</span> }
+                    <button type="button" class="botao" disabled="@(!PodeEnviar)" @onclick="EnviarAsync"><Icone Nome="enviar" /> Enviar</button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    // Encostado, o painel é a coluna direita de .moldura-corpo: a tela de trás encolhe pelo
+    // flex, sem a moldura precisar saber do chat.
+
+    private enum ModoChat { Fechado, Janela, Encostado }
+    private sealed record PacienteAnexo(int Id, string Nome);
+    private sealed record DocumentoAnexo(int Id, string Rotulo, string Quando);
+    private sealed record Linha(DateTime Em, MensagemNaConversa? Mensagem, LinhaSolicitacaoEnfermagem? Pedido);
+
+    private bool _ligado;
+    private IHostDaTela? Host;
+    private int _eu;
+    private ModoChat _modo = ModoChat.Fechado;
+    private PainelChat? _painel;
+    private string? _falhaPainel;
+    private string? _conversa;
+    private ConversaAberta? _aberta;
+    private string? _falhaConversa;
+    private int _ultimaLidaAntes;
+    private int _maiorVisto;
+    private int _ultimoIdVisto;
+    private NovidadeChat? _previa;
+    private PreferenciasSomChat _prefs = new();
+    private bool _mostrandoPrefs;
+    private readonly HashSet<int> _expandidas = [];
+    private string _texto = "";
+    private string? _erro;
+    private bool _ampliado, _escolhendoPaciente, _escolhendoDocumento, _enviando, _impedirTecla;
+    private PacienteAnexo? _anexoPaciente;
+    private DocumentoAnexo? _anexoDocumento;
+    private ArquivoEscolhido? _anexoArquivo;
+    private List<DocumentoAnexo> _documentosDoPaciente = [];
+    private int? _editando;
+    private string _textoEdicao = "";
+    private bool _veePedidos;
+    private List<LinhaSolicitacaoEnfermagem> _pedidos = [];
+    private int _pedidosNovos;
+    private int _ultimoEventoPedido = -1;
+    private DateTime _ultimoSinalEscrevendo = DateTime.MinValue;
+    private DateTime _ultimoSinal = DateTime.MinValue;
+    private ElementReference _msgsEl;
+    private bool _rolarAoFim;
+    private int _geracaoConversa;
+    private IAvisosDoBanco? _avisos;
+    private CancellationTokenSource? _parar;
+    private readonly SemaphoreSlim _porteiro = new(1, 1);
+
+    private int TotalNaoLidas => (_painel?.TotalNaoLidas ?? 0) + _pedidosNovos;
+    private bool SomDesligado => _prefs.SilenciadoAte > DateTime.Now || (!_prefs.Direta && !_prefs.Mencao && !_prefs.Pedido);
+    private bool PodeEnviar => !_enviando && _aberta is not null
+        && (_texto.Trim().Length > 0 || _anexoPaciente is not null || _anexoDocumento is not null || _anexoArquivo is not null);
+
+    protected override void OnInitialized()
+    {
+        var sessao = SessaoUsuario.Atual;
+        if (!sessao.Autenticado) return;
+        // O chat só liga onde o hospedeiro o serve (o app de verdade). Na prévia e nos testes
+        // da moldura não há banco nem host: some em silêncio, sem derrubar a moldura.
+        var registrados = Servicos.GetService<IServiceProviderIsService>();
+        Host = Servicos.GetService<IHostDaTela>();
+        if (Host is null || registrados?.IsService(typeof(IChatEquipeService)) != true) return;
+        _eu = sessao.UsuarioId;
+        _ligado = true;
+        _veePedidos = ChatEquipeRegras.ParticipaDoCanal(sessao.Perfil, ChatEquipeRegras.CanalRecepcao)
+                      && registrados.IsService(typeof(IPlanejamentoEnfermagemService));
+        _avisos = Servicos.GetService<IAvisosDoBanco>() ?? AvisosDoBancoAusentes.Instancia;
+        _avisos.Mudou += AoMudarNoBanco;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_ligado) return;
+        if (firstRender)
+        {
+            try
+            {
+                var salvo = await JS.InvokeAsync<string?>("clinicaChat.ler", _eu);
+                if (salvo is not null) AplicarSalvo(salvo);
+            }
+            catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Chat da equipe — preferências não lidas", ex); }
+            _parar = new CancellationTokenSource();
+            _ = RelogioAsync(_parar.Token);
+            await RecarregarPainelAsync(primeira: true);
+            if (_modo != ModoChat.Fechado)
+            {
+                await AbrirConversaAsync(_conversa ?? ChatEquipeRegras.CanalGeral);
+            }
+            StateHasChanged();
+        }
+        if (_rolarAoFim)
+        {
+            _rolarAoFim = false;
+            try { await JS.InvokeVoidAsync("clinicaChat.rolarAoFim", _msgsEl); } catch { /* o painel pode ter fechado */ }
+        }
+    }
+
+    // ---------------------------------------------------------------- preferências guardadas
+    private void AplicarSalvo(string salvo)
+    {
+        // "modo|conversa|direta|mencao|pedido|silenciadoAte(ticks)"
+        var p = salvo.Split('|');
+        if (p.Length < 6) return;
+        _modo = p[0] switch { "janela" => ModoChat.Janela, "encostado" => ModoChat.Encostado, _ => ModoChat.Fechado };
+        _conversa = string.IsNullOrEmpty(p[1]) ? null : p[1];
+        _prefs = new PreferenciasSomChat(p[2] != "0", p[3] != "0", p[4] != "0",
+            long.TryParse(p[5], out var t) && t > 0 ? new DateTime(t) : null);
+    }
+
+    private async Task GuardarAsync()
+    {
+        var modo = _modo switch { ModoChat.Janela => "janela", ModoChat.Encostado => "encostado", _ => "fechado" };
+        var texto = string.Join('|', modo, _conversa ?? "", _prefs.Direta ? "1" : "0", _prefs.Mencao ? "1" : "0",
+            _prefs.Pedido ? "1" : "0", (_prefs.SilenciadoAte?.Ticks ?? 0).ToString());
+        try { await JS.InvokeVoidAsync("clinicaChat.gravar", _eu, texto); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Chat da equipe — preferências não gravadas", ex); }
+    }
+
+    private async Task MudarPrefAsync(PreferenciasSomChat novas)
+    {
+        _prefs = novas;
+        await GuardarAsync();
+    }
+
+    // ---------------------------------------------------------------- modos
+    private async Task AbrirAsync()
+    {
+        _modo = ModoChat.Janela;
+        var destino = _previa?.Conversa ?? _conversa ?? PrimeiraComNaoLidas() ?? ChatEquipeRegras.CanalGeral;
+        _previa = null;
+        await GuardarAsync();
+        await AbrirConversaAsync(destino);
+    }
+
+    private async Task AbrirNaConversaAsync(string conversa)
+    {
+        _modo = ModoChat.Janela;
+        _previa = null;
+        await GuardarAsync();
+        await AbrirConversaAsync(conversa);
+    }
+
+    private string? PrimeiraComNaoLidas()
+        => _painel?.Diretas.Concat(_painel.Canais).FirstOrDefault(c => c.NaoLidas > 0)?.Conversa
+           ?? (_pedidosNovos > 0 ? ChatEquipeRegras.CanalRecepcao : null);
+
+    private async Task MinimizarAsync()
+    {
+        _modo = ModoChat.Fechado;
+        _mostrandoPrefs = _escolhendoPaciente = _escolhendoDocumento = _ampliado = false;
+        await GuardarAsync();
+    }
+
+    private async Task AlternarEncostoAsync()
+    {
+        _modo = _modo == ModoChat.Encostado ? ModoChat.Janela : ModoChat.Encostado;
+        await GuardarAsync();
+    }
+
+    // ---------------------------------------------------------------- leitura
+    private async Task RelogioAsync(CancellationToken ct)
+    {
+        var batida = 0;
+        try
+        {
+            using var relogio = new PeriodicTimer(TimeSpan.FromSeconds(4));
+            while (await relogio.WaitForNextTickAsync(ct))
+            {
+                batida++;
+                await InvokeAsync(async () =>
+                {
+                    // Aberto: a conversa a cada 4 s ("está escrevendo…", "Lida"). A lista e a
+                    // bolinha a cada 16 s — o aviso do banco antecipa quando chega mensagem.
+                    if (_modo != ModoChat.Fechado && _conversa is not null) await RecarregarConversaAsync(silenciosa: true);
+                    if (batida % 4 == 0) await RecarregarPainelAsync();
+                    if (DateTime.Now - _ultimoSinal > TimeSpan.FromSeconds(30)) await SinalizarAsync(null);
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Chat da equipe — relógio parou", ex); }
+    }
+
+    private void AoMudarNoBanco(string tabela)
+    {
+        if (tabela is not ("MensagensEquipe" or "SolicitacoesEnfermagem" or "EventosSolicitacaoEnfermagem" or "*")) return;
+        _ = InvokeAsync(async () =>
+        {
+            await RecarregarPainelAsync();
+            if (_modo != ModoChat.Fechado && _conversa is not null) await RecarregarConversaAsync(silenciosa: true);
+            StateHasChanged();
+        });
+    }
+
+    private async Task RecarregarPainelAsync(bool primeira = false)
+    {
+        if (!await _porteiro.WaitAsync(0)) return;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var painel = await escopo.ServiceProvider.GetRequiredService<IChatEquipeService>()
+                .PainelAsync(_eu, primeira ? 0 : _ultimoIdVisto, _prefs);
+            _painel = painel;
+            _falhaPainel = null;
+            _ultimoIdVisto = Math.Max(_ultimoIdVisto, painel.UltimaMensagemId);
+
+            // A prévia e o som só para o que NÃO está à vista: a conversa aberta já mostra.
+            var novas = painel.Novidades.Where(n => _modo == ModoChat.Fechado || n.Conversa != _conversa).ToList();
+            if (novas.Count > 0)
+            {
+                var ultima = novas[^1];
+                if (_modo == ModoChat.Fechado) MostrarPrevia(ultima);
+                var som = novas.Select(n => n.Som).Where(s => s != SomChat.Nenhum).DefaultIfEmpty(SomChat.Nenhum).Max();
+                await TocarAsync(som);
+            }
+
+            if (_veePedidos) await RecarregarPedidosAsync(escopo.ServiceProvider, primeira);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Chat da equipe — lista não lida", ex);
+            // A bolinha mantém o número da leitura anterior; a lista diz que não leu.
+            if (_painel is null) _falhaPainel = "Não foi possível ler o chat agora. Tentando de novo…";
+        }
+        finally { _porteiro.Release(); }
+    }
+
+    private async Task RecarregarPedidosAsync(IServiceProvider sp, bool primeira)
+    {
+        try
+        {
+            var servico = sp.GetService<IPlanejamentoEnfermagemService>();
+            if (servico is null) return;
+            var resumo = await servico.ResumoAsync(_eu);
+            var mudou = resumo.UltimoEvento != _ultimoEventoPedido;
+            var subiu = resumo.Novos > _pedidosNovos;
+            _pedidosNovos = resumo.Novos;
+            if (mudou || _pedidos.Count == 0)
+            {
+                _pedidos = (await servico.ListarAsync(_eu)).ToList();
+                if (!primeira && subiu && _ultimoEventoPedido >= 0)
+                {
+                    var novo = _pedidos.Where(p => p.Situacao == "Novo").MaxBy(p => p.CriadaEm ?? p.Inicio);
+                    if (novo is not null && _modo == ModoChat.Fechado)
+                        MostrarPrevia(new NovidadeChat(-novo.Id, ChatEquipeRegras.CanalRecepcao, "pedido da enfermagem", novo.Autora,
+                            $"Pedido #{novo.Id}: até {novo.Quantidade} atendimento(s) · {novo.Modalidade}", novo.CriadaEm ?? DateTime.Now, SomChat.Pedido));
+                    await TocarAsync(ChatEquipeRegras.SomDoPedido(_prefs, DateTime.Now));
+                }
+            }
+            _ultimoEventoPedido = resumo.UltimoEvento;
+        }
+        catch (UnauthorizedAccessException) { _veePedidos = false; _pedidos = []; _pedidosNovos = 0; }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Chat da equipe — pedidos da enfermagem não lidos", ex); }
+    }
+
+    private CancellationTokenSource? _previaTimer;
+
+    private void MostrarPrevia(NovidadeChat n)
+    {
+        _previa = n;
+        _previaTimer?.Cancel();
+        _previaTimer = new CancellationTokenSource();
+        var token = _previaTimer.Token;
+        _ = Task.Delay(TimeSpan.FromSeconds(8), token).ContinueWith(t =>
+        {
+            if (t.IsCanceled) return;
+            _ = InvokeAsync(() => { if (_previa == n) { _previa = null; StateHasChanged(); } });
+        }, TaskScheduler.Default);
+    }
+
+    private async Task TocarAsync(SomChat som)
+    {
+        if (som == SomChat.Nenhum) return;
+        try { await JS.InvokeVoidAsync("clinicaChat.tocar", som.ToString().ToLowerInvariant()); }
+        catch { /* sem som não é falha: o número e a prévia continuam */ }
+    }
+
+    private async Task AbrirConversaAsync(string conversa)
+    {
+        if (conversa != _conversa)
+        {
+            _conversa = conversa;
+            _aberta = null;
+            _expandidas.Clear();
+            _editando = null;
+            _maiorVisto = int.MaxValue;
+            await GuardarAsync();
+        }
+        await RecarregarConversaAsync(silenciosa: false);
+    }
+
+    private async Task RecarregarConversaAsync(bool silenciosa, int? antesDe = null)
+    {
+        var conversa = _conversa;
+        if (conversa is null) return;
+        var geracao = ++_geracaoConversa;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var servico = escopo.ServiceProvider.GetRequiredService<IChatEquipeService>();
+            var aberta = await servico.AbrirAsync(_eu, conversa);
+            if (geracao != _geracaoConversa || conversa != _conversa) return;
+            var anterior = _aberta;
+            if (!silenciosa || anterior is null) _ultimaLidaAntes = aberta.UltimaLidaAntes;
+            var ultimaAntes = anterior?.Mensagens.LastOrDefault()?.Id ?? 0;
+            var ultimaAgora = aberta.Mensagens.LastOrDefault()?.Id ?? 0;
+            if (anterior is null || ultimaAgora > ultimaAntes) _rolarAoFim = true;
+            // A animação de "chegou" só nas que não estavam na tela.
+            _maiorVisto = anterior is null ? ultimaAgora : ultimaAntes;
+            _aberta = aberta;
+            _falhaConversa = null;
+            if (ultimaAgora > 0) await servico.MarcarLidaAsync(_eu, conversa, ultimaAgora);
+            if (anterior is null || ultimaAgora > ultimaAntes) _ = InvokeAsync(() => RecarregarPainelAsync());
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoConversa) return;
+            Clinica.Application.Diagnostico.Registrar("Chat da equipe — conversa não lida", ex);
+            if (!silenciosa) { _aberta = null; _falhaConversa = ex is UnauthorizedAccessException ? ex.Message : "A conversa não pôde ser lida agora. Tente de novo em instantes."; }
+        }
+    }
+
+    private async Task CarregarAnterioresAsync()
+    {
+        if (_aberta is null || _conversa is null || _aberta.Mensagens.Count == 0) return;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var antes = await escopo.ServiceProvider.GetRequiredService<IChatEquipeService>()
+                .AbrirAsync(_eu, _conversa, _aberta.Mensagens[0].Id);
+            _aberta = _aberta with
+            {
+                Mensagens = antes.Mensagens.Concat(_aberta.Mensagens).ToList(),
+                TemAnteriores = antes.TemAnteriores,
+            };
+        }
+        catch (Exception ex) { Mostrar("As mensagens anteriores não puderam ser lidas.", ex); }
+    }
+
+    /// <summary>Mensagens e — no # Recepção — os pedidos da enfermagem, na ordem em que chegaram.</summary>
+    private IEnumerable<Linha> Linhas()
+    {
+        if (_aberta is null) return [];
+        var linhas = _aberta.Mensagens.Select(m => new Linha(m.EnviadaEm, m, null));
+        if (_conversa == ChatEquipeRegras.CanalRecepcao && _pedidos.Count > 0)
+        {
+            var desde = _aberta.TemAnteriores && _aberta.Mensagens.Count > 0 ? _aberta.Mensagens[0].EnviadaEm : DateTime.MinValue;
+            linhas = linhas.Concat(_pedidos.Where(p => (p.CriadaEm ?? p.Inicio) >= desde)
+                .Select(p => new Linha(p.CriadaEm ?? p.Inicio, null, p)));
+        }
+        return linhas.OrderBy(l => l.Em);
+    }
+
+    // ---------------------------------------------------------------- escrever
+    private async Task AoDigitarAsync(ChangeEventArgs e)
+    {
+        _texto = e.Value?.ToString() ?? "";
+        _erro = null;
+        // O "está escrevendo…" sai no máximo a cada 3 s — nunca a cada tecla.
+        if (_conversa is not null && _texto.Length > 0 && DateTime.Now - _ultimoSinalEscrevendo > TimeSpan.FromSeconds(3))
+        {
+            _ultimoSinalEscrevendo = DateTime.Now;
+            await SinalizarAsync(_conversa);
+        }
+    }
+
+    private async Task TeclaAsync(KeyboardEventArgs e)
+    {
+        _impedirTecla = e.Key == "Enter" && !e.ShiftKey;
+        if (_impedirTecla && PodeEnviar) await EnviarAsync();
+    }
+
+    private async Task SinalizarAsync(string? escrevendo)
+    {
+        _ultimoSinal = DateTime.Now;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<IChatEquipeService>().SinalizarAsync(_eu, escrevendo);
+        }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Chat da equipe — presença não gravada", ex); }
+    }
+
+    private async Task EnviarAsync()
+    {
+        if (!PodeEnviar || _conversa is null) return;
+        _enviando = true;
+        _erro = null;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<IChatEquipeService>().EnviarAsync(_eu, _conversa,
+                new NovaMensagemEquipe(_texto, _anexoPaciente?.Id, _anexoDocumento?.Id, _anexoArquivo?.Nome, _anexoArquivo?.Conteudo));
+            _texto = "";
+            _anexoPaciente = null;
+            _anexoDocumento = null;
+            _anexoArquivo = null;
+            _documentosDoPaciente = [];
+            _ampliado = false;
+            _escolhendoDocumento = false;
+            _ultimoSinalEscrevendo = DateTime.MinValue;
+            await RecarregarConversaAsync(silenciosa: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
+        {
+            _erro = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Chat da equipe — mensagem não enviada", ex);
+            _erro = "A mensagem não saiu. Confira a conexão e tente de novo — o texto continua aqui.";
+        }
+        finally { _enviando = false; }
+    }
+
+    private void ComecarEdicao(MensagemNaConversa m)
+    {
+        _editando = m.Id;
+        _textoEdicao = m.Texto;
+    }
+
+    private async Task SalvarEdicaoAsync(int id)
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<IChatEquipeService>().EditarAsync(_eu, id, _textoEdicao);
+            _editando = null;
+            await RecarregarConversaAsync(silenciosa: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { Notificacoes.Erro(ex.Message); }
+        catch (Exception ex) { Mostrar("A correção não foi gravada.", ex); }
+    }
+
+    // ---------------------------------------------------------------- anexos
+    private void AbrirEscolhaDePaciente()
+    {
+        _escolhendoPaciente = true;
+        _escolhendoDocumento = false;
+    }
+
+    private async Task AnexarPacienteAsync(Paciente paciente)
+    {
+        _escolhendoPaciente = false;
+        _anexoPaciente = new PacienteAnexo(paciente.Id, paciente.Nome);
+        _anexoDocumento = null;
+        _documentosDoPaciente = [];
+        // O documento só é oferecido a quem pode lê-lo — a barreira do tipo, como na ficha.
+        try
+        {
+            var acessos = SessaoUsuario.Atual;
+            using var escopo = Escopos.CreateScope();
+            var docs = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>().DocumentosDoPacienteAsync(paciente.Id);
+            _documentosDoPaciente = docs.Where(d => d.CanceladoEm is null
+                    && acessos.PodeAlgum(CentralDocumentosService.AcessoParaVer(d.Tipo)))
+                .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id).Take(15)
+                .Select(d => new DocumentoAnexo(d.Id, $"{TipoDocumentoInfo.Rotular(d.Tipo)} {d.Numero}", $"emitido em {d.Data:dd/MM/yyyy}"))
+                .ToList();
+        }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Chat da equipe — documentos do paciente não lidos", ex); }
+    }
+
+    private async Task EscolherArquivoAsync()
+    {
+        var arq = await Host!.EscolherArquivoAsync("Todos os arquivos (*.*)|*.*", "Anexar arquivo à mensagem");
+        if (arq is null) return;
+        if (arq.Conteudo.LongLength > ChatEquipeRegras.TamanhoMaximoArquivo)
+        {
+            _erro = $"O arquivo passa de {ChatEquipeRegras.Tamanho(ChatEquipeRegras.TamanhoMaximoArquivo)}. Envie um menor.";
+            return;
+        }
+        _anexoArquivo = arq;
+    }
+
+    // ---------------------------------------------------------------- abrir o que veio
+    private async Task AbrirFichaAsync(int pacienteId)
+    {
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente))
+        {
+            Notificacoes.Erro("Seu acesso não abre a ficha do paciente. Peça à direção a permissão \"Ver ficha do paciente\".");
+            return;
+        }
+        if (!await Host!.AbrirFichaDoPacienteAsync(pacienteId))
+            Notificacoes.Erro("A ficha do paciente não abre neste aplicativo.");
+    }
+
+    private async Task AbrirDocumentoAsync(int documentoId)
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var sp = escopo.ServiceProvider;
+            var doc = await sp.GetRequiredService<IClinicaRepositorio>().ObterDocumentoAsync(documentoId);
+            if (doc is null) { Notificacoes.Erro("O documento não foi encontrado."); return; }
+            if (!SessaoUsuario.Atual.PodeAlgum(CentralDocumentosService.AcessoParaVer(doc.Tipo)))
+            {
+                Notificacoes.Erro("Seu acesso não abre este documento.");
+                return;
+            }
+            // A trilha vem antes do arquivo: quem abriu a 2ª via viu o dado.
+            await sp.GetRequiredService<AcessoProntuarioService>()
+                .RegistrarAsync(doc.PacienteId, SessaoUsuario.Atual.Operador, OrigemAcessoProntuario.Documento);
+            var pdf = await sp.GetRequiredService<DocumentosClinicosPdfService>()
+                .GerarAsync(doc.Id, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            var erro = await Host!.AbrirPreviaAsync(pdf, $"{TipoDocumentoInfo.Rotular(doc.Tipo)}-{doc.Numero.Replace('/', '-')}.pdf");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex) { Mostrar("O documento não pôde ser aberto.", ex); }
+    }
+
+    private async Task AbrirArquivoAsync(int mensagemId)
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var arq = await escopo.ServiceProvider.GetRequiredService<IChatEquipeService>().ArquivoAsync(_eu, mensagemId);
+            if (arq is null) { Notificacoes.Erro("O arquivo não está mais disponível."); return; }
+            var ext = Path.GetExtension(arq.Value.Nome);
+            var filtro = string.IsNullOrEmpty(ext) ? "Todos os arquivos (*.*)|*.*" : $"Arquivo {ext} (*{ext})|*{ext}";
+            var erro = await Host!.SalvarEAbrirAsync(arq.Value.Conteudo, arq.Value.Nome, filtro, ext);
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex) { Mostrar("O arquivo não pôde ser aberto.", ex); }
+    }
+
+    private async Task CopiarAsync(string texto)
+    {
+        if (await Host!.CopiarAsync(texto)) Notificacoes.Sucesso("Texto copiado.");
+        else Notificacoes.Erro("A área de transferência não aceitou agora. Tente de novo.");
+    }
+
+    private void AlternarInteira(int id)
+    {
+        if (!_expandidas.Remove(id)) _expandidas.Add(id);
+    }
+
+    // ---------------------------------------------------------------- pedidos da enfermagem
+    [Parameter] public Action<int>? AoAbrirPedido { get; set; }
+
+    private void AbrirPedido(int id) => AoAbrirPedido?.Invoke(id);
+
+    private async Task MarcarPedidoVistoAsync(LinhaSolicitacaoEnfermagem pedido)
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<IPlanejamentoEnfermagemService>()
+                .AtualizarAsync(_eu, pedido.Id, new AcaoSolicitacaoEnfermagem(Guid.NewGuid(), pedido.Versao, "visto"));
+            _ultimoEventoPedido = -1;
+            await RecarregarPainelAsync();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { Notificacoes.Erro(ex.Message); }
+        catch (Exception ex) { Mostrar("O pedido não foi marcado como visto.", ex); }
+    }
+
+    // ---------------------------------------------------------------- miúdos
+    private static string ClassePresenca(PresencaChat p) => p switch
+    {
+        PresencaChat.Online => "online",
+        PresencaChat.EmAtendimento => "atendendo",
+        _ => "fora",
+    };
+
+    private static string PrimeiroNome(string nome) => nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nome;
+
+    private void Mostrar(string frase, Exception ex)
+    {
+        Clinica.Application.Diagnostico.Registrar("Chat da equipe — " + frase, ex);
+        Notificacoes.Erro(frase);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_avisos is not null) _avisos.Mudou -= AoMudarNoBanco;
+        _parar?.Cancel();
+        _previaTimer?.Cancel();
+        if (_ligado && _eu > 0)
+        {
+            // Sair do app tira o "está escrevendo" na hora; a presença some pela validade.
+            try { await SinalizarAsync(null); } catch { }
+        }
+        _porteiro.Dispose();
+    }
+}

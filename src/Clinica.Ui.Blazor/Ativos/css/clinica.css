@@ -98,6 +98,7 @@
 @import url("telas/legenda-familias.css");
 /* A moldura dos apps e a entrada (out/2026): o que era a ShellWindow, a LoginWindow e a SetupWindow. */
 @import url("telas/moldura.css");
+@import url("telas/chat-equipe.css");
 @import url("telas/treinamento.css");
 @import url("telas/assinatura.css");
 

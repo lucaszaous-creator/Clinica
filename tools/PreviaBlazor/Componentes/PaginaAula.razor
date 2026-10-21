@@ -3,7 +3,7 @@
    com a navegação lida do navegacao.json. É por aqui que as videoaulas são gravadas
    (tools/treinamento/gravacao). A tela do paciente recebe o paciente e a seção pela URL
    (?paciente=&secao=&subaba=&agendamento=), como o posto do Consultório faz ao navegar. *@
-<AulaInterativa App="@App" Chave="@Chave" Paciente="@Paciente" Secao="@Secao" SubAba="@SubAba" Agendamento="@Agendamento"
+<AulaInterativa App="@App" Chave="@Chave" Paciente="@Paciente" Secao="@Secao" SubAba="@SubAba" Agendamento="@Agendamento" Usuario="@Usuario"
                 @rendermode="Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer" />
 
 @code {
@@ -13,4 +13,6 @@
     [SupplyParameterFromQuery] public string? Secao { get; set; }
     [SupplyParameterFromQuery] public int? SubAba { get; set; }
     [SupplyParameterFromQuery] public int? Agendamento { get; set; }
+    // ?usuario=login entra com aquele usuário fictício — é o que liga o chat da equipe na prévia.
+    [SupplyParameterFromQuery] public string? Usuario { get; set; }
 }

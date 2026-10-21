@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chat da equipe — mockup v3 para aprovação</title>
+<style>
+/* Tokens — espelho de tokens/colors.css, layout.css e typography.css (nenhuma cor nova) */
+:root{
+  --azul-50:#EEF3FC;--azul-100:#D8E3F7;--azul-500:#3F62C9;--azul-600:#123A9E;--azul-700:#0A2E86;
+  --cinza-50:#F8FAFC;--cinza-100:#F1F5F9;--cinza-200:#E5E7EB;--cinza-300:#D1D5DB;--cinza-500:#6B7280;--cinza-700:#374151;--cinza-900:#111827;
+  --verde-100:#DCFCE7;--verde-600:#16A34A;--verde-800:#166534;
+  --laranja-100:#FFEDD5;--laranja-600:#EA580C;--laranja-800:#9A3412;
+  --vermelho-100:#FEE2E2;--vermelho-600:#DC2626;--vermelho-800:#991B1B;
+  --ciano-100:#E0F2FE;--ciano-500:#0EA5E9;--ciano-700:#0369A1;
+  --teal-50:#F0FDFA;--teal-100:#CCFBF1;--teal-600:#0D9488;--teal-700:#0F766E;--violeta-600:#7C3AED;
+  --acento:var(--azul-600);--acento-suave:var(--azul-50);--acento-tint:var(--azul-100);
+  --fundo:var(--cinza-50);--superficie:#fff;--borda:var(--cinza-200);
+  --texto-primario:var(--cinza-900);--texto-secundario:var(--cinza-500);
+  --sucesso:var(--verde-600);--sucesso-suave:var(--verde-100);--aviso:var(--laranja-600);--aviso-suave:var(--laranja-100);
+  --erro:var(--vermelho-600);--erro-suave:var(--vermelho-100);--info-suave:var(--ciano-100);--info-texto:var(--ciano-700);
+  --radius-control:8px;--radius-card:12px;--radius-pilula:999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;
+  --font-ui:"Segoe UI Variable Text","Segoe UI",Inter,system-ui,-apple-system,sans-serif;
+  --sombra-cartao:0 1px 2px rgba(17,24,39,.04);--sombra-popup:0 12px 32px rgba(15,23,42,.14);
+  --text-body:14px;--text-table:13px;--text-small:12px;
+}
+*{box-sizing:border-box}
+html{background:#D9DEE6}
+body{margin:0;font-family:var(--font-ui);font-size:var(--text-body);color:var(--texto-primario);line-height:1.4}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ---------- Documento ---------- */
+.doc{max-width:1420px;margin:0 auto;padding:28px 24px 48px}
+.doc-cab{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:6px}
+.doc h1{font-size:22px;margin:0 0 4px}
+.doc .sub{color:var(--cinza-700);margin:0;max-width:900px}
+.doc .carimbo{font-size:var(--text-small);color:var(--texto-secundario);text-align:right;white-space:nowrap}
+.respostas{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0 8px}
+.resp{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);padding:10px 12px;font-size:var(--text-table);color:var(--cinza-700)}
+.resp b.t{display:block;font-size:var(--text-small);text-transform:uppercase;letter-spacing:.05em;color:var(--acento);margin-bottom:4px}
+.cena{margin-top:26px}
+.cena h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--cinza-700);font-weight:700;margin:0 0 8px;display:flex;gap:10px;align-items:center}
+.cena h2 .n{width:22px;height:22px;border-radius:50%;background:var(--acento);color:#fff;display:grid;place-items:center;font-size:12px}
+.cena p.lead{margin:0 0 12px;color:var(--cinza-700);font-size:var(--text-table)}
+
+/* ---------- Janela ---------- */
+.janela{background:var(--fundo);border:1px solid var(--borda);border-radius:var(--radius-card);box-shadow:var(--sombra-popup);overflow:hidden;width:1366px;max-width:100%;margin:0 auto}
+.topo{display:flex;align-items:center;gap:var(--space-3);min-height:68px;padding:0 var(--space-3);background:var(--superficie);border-bottom:1px solid var(--borda)}
+.marca{display:flex;align-items:center}
+.marca img{height:32px;display:block}
+.sep{width:1px;height:22px;background:var(--borda);margin:0 var(--space-3)}
+.app-nome{color:var(--texto-secundario)}
+.nav{display:flex;gap:2px}
+.nav button{height:36px;padding:0 var(--space-3);border:0;border-radius:var(--radius-control);background:transparent;color:var(--texto-primario);font:inherit;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.nav button svg.i{width:12px;height:12px;color:var(--texto-secundario)}
+.nav button.ativo{color:var(--acento);background:var(--acento-suave)}
+.busca{margin-left:auto;flex:1 1 160px;max-width:300px;height:36px;border:1px solid var(--borda);border-radius:var(--radius-pilula);display:flex;align-items:center;gap:8px;padding:0 14px;color:var(--texto-secundario);font-size:var(--text-table);background:var(--superficie)}
+.acoes{display:flex;align-items:center;gap:var(--space-2)}
+.btn{display:inline-flex;align-items:center;gap:var(--space-2);height:36px;padding:0 14px;border-radius:var(--radius-control);border:1px solid var(--borda);background:var(--superficie);font:inherit;font-weight:600;color:var(--texto-primario);position:relative}
+.btn.icone{width:36px;padding:0;justify-content:center}
+.btn.icone svg.i{width:19px;height:19px}
+.btn.primario{background:var(--acento);border-color:var(--acento);color:#fff}
+.btn.mini{height:28px;padding:0 10px;font-size:var(--text-small)}
+.btn.ativo{background:var(--acento-suave);border-color:var(--acento-tint);color:var(--acento)}
+.contador{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pilula);background:var(--erro);color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--superficie)}
+.conta{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 var(--space-2);border-radius:var(--radius-control)}
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--acento);color:#fff;font-size:12px;font-weight:700;flex:none}
+.avatar.p{width:24px;height:24px;font-size:10px}
+.avatar.g{width:36px;height:36px;font-size:13px}
+
+/* ---------- Página ---------- */
+.palco{position:relative;height:720px;overflow:hidden}
+.pagina{padding:var(--space-6) var(--space-8)}
+.sobre{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--acento);margin-bottom:4px}
+.pagina h1{font-size:24px;margin:0 0 2px;font-weight:700}
+.pagina .desc{margin:0;color:var(--texto-secundario)}
+.cab-pagina{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:var(--space-6)}
+.cartao{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);box-shadow:var(--sombra-cartao);overflow:hidden}
+.abas{display:flex;gap:4px;padding:0 var(--space-4);border-bottom:1px solid var(--borda)}
+.abas span{padding:12px 14px;font-weight:600;color:var(--texto-secundario);border-bottom:2px solid transparent;display:inline-flex;gap:8px;align-items:center}
+.abas span.on{color:var(--acento);border-color:var(--acento)}
+.abas .q{background:var(--cinza-100);border-radius:var(--radius-pilula);padding:0 7px;font-size:12px;color:var(--texto-secundario)}
+table.lista{width:100%;border-collapse:collapse;font-size:var(--text-table)}
+table.lista th{height:40px;background:var(--cinza-100);color:var(--texto-secundario);font-weight:500;text-align:left;padding:0 10px}
+table.lista td{padding:8px 10px;border-top:1px solid var(--borda);vertical-align:middle;height:52px}
+table.lista td .p{font-weight:600;color:var(--texto-primario);display:block}
+table.lista td .s{color:var(--texto-secundario);font-size:var(--text-small);display:block}
+.traco{display:inline-block;width:3px;height:30px;border-radius:2px;vertical-align:middle;margin-right:10px}
+.pil{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:var(--radius-pilula);font-size:12px;font-weight:600;background:var(--cinza-100);color:var(--cinza-700)}
+.pil::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pil.ok{background:var(--sucesso-suave);color:var(--verde-800)}
+.pil.ac{background:var(--acento-suave);color:var(--acento)}
+.pil.at{background:var(--aviso-suave);color:var(--laranja-800)}
+.pil.novo{background:var(--erro-suave);color:var(--vermelho-800)}
+.apagada td{color:var(--texto-secundario)}
+.apagada td .p{color:var(--texto-secundario);text-decoration:line-through}
+
+/* ---------- Botão flutuante (fechado) ---------- */
+.flutuante{position:absolute;right:24px;bottom:24px;z-index:6;display:flex;align-items:flex-end;gap:10px}
+.flutuante .bola{width:56px;height:56px;border-radius:50%;background:var(--acento);color:#fff;display:grid;place-items:center;box-shadow:0 10px 24px rgba(18,58,158,.35);position:relative;flex:none}
+.flutuante .bola svg.i{width:26px;height:26px}
+.flutuante .bola .contador{top:-4px;right:-4px;border-color:var(--fundo)}
+.previa{background:var(--superficie);border:1px solid var(--borda);border-radius:14px 14px 4px 14px;box-shadow:var(--sombra-popup);padding:10px 12px;max-width:320px;font-size:var(--text-table)}
+.previa b{display:block;font-size:var(--text-small)}
+.previa b span{color:var(--texto-secundario);font-weight:400;margin-left:6px}
+.previa .x{float:right;color:var(--texto-secundario);margin-left:8px}
+
+/* ---------- Painel EQUIPE ---------- */
+.painel{position:absolute;top:0;right:0;bottom:0;width:580px;grid-template-rows:52px minmax(0,1fr);background:var(--superficie);border-left:1px solid var(--borda);box-shadow:-16px 0 40px rgba(15,23,42,.12);display:grid;grid-template-columns:184px 1fr;z-index:5}
+.painel.janelinha{top:auto;right:24px;bottom:24px;height:600px;width:620px;border:1px solid var(--borda);border-radius:var(--radius-card);box-shadow:var(--sombra-popup);overflow:hidden}
+.painel-cab{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:0 var(--space-4);height:52px;border-bottom:1px solid var(--borda)}
+.painel-cab h3{margin:0;font-size:15px;font-weight:700;flex:1}
+.painel-cab .btn.icone{width:30px;height:30px;border:0;color:var(--texto-secundario)}
+.lista-conv{border-right:1px solid var(--borda);background:var(--fundo);padding:10px 8px;overflow:hidden}
+.rot{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--texto-secundario);padding:8px 8px 4px;display:flex;justify-content:space-between;align-items:center}
+.rot .btn.icone{width:20px;height:20px;border:0;background:transparent;color:var(--texto-secundario)}
+.rot .btn.icone svg.i{width:14px;height:14px}
+.conv{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius-control);font-size:var(--text-table);color:var(--texto-primario);margin-bottom:1px}
+.conv.on{background:var(--acento-suave);color:var(--acento);font-weight:600}
+.conv .hash{color:var(--texto-secundario);font-weight:700;width:14px;text-align:center}
+.conv .n{margin-left:auto;background:var(--acento);color:#fff;border-radius:var(--radius-pilula);font-size:10px;padding:0 6px;font-weight:700;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center}
+.conv .n.vermelho{background:var(--erro)}
+.pres{width:8px;height:8px;border-radius:50%;flex:none;border:2px solid var(--superficie);box-shadow:0 0 0 1px var(--borda)}
+.pres.on{background:var(--sucesso)}.pres.off{background:var(--cinza-300)}.pres.ocup{background:var(--aviso)}
+.conv .av{position:relative}
+.conv .av .pres{position:absolute;right:-3px;bottom:-3px}
+.conversa{display:flex;flex-direction:column;min-width:0;min-height:0}
+.conv-cab{padding:10px var(--space-4);border-bottom:1px solid var(--borda);display:flex;align-items:center;gap:10px}
+.conv-cab b{font-size:14px;display:block}
+.conv-cab small{color:var(--texto-secundario);font-size:var(--text-small)}
+.conv-cab .btn.icone{width:30px;height:30px;border:0;color:var(--texto-secundario)}
+.conv-cab .fim{margin-left:auto;display:flex;gap:2px}
+.msgs{flex:1;min-height:0;padding:12px var(--space-4) 8px;overflow:hidden;display:flex;flex-direction:column;gap:10px;background:var(--superficie)}
+.dia{align-self:center;font-size:12px;color:var(--texto-secundario);background:var(--cinza-100);border-radius:var(--radius-pilula);padding:2px 10px}
+.novas{display:flex;align-items:center;gap:10px;color:var(--erro);font-size:12px;font-weight:700}
+.novas::before,.novas::after{content:"";flex:1;height:1px;background:var(--erro-suave)}
+.m{display:flex;gap:10px;max-width:94%}
+.m .corpo{min-width:0}
+.m .quem{font-size:var(--text-small);font-weight:600;color:var(--texto-primario)}
+.m .quem span{color:var(--texto-secundario);font-weight:400;margin-left:6px}
+.bolha{background:var(--cinza-100);border-radius:12px 12px 12px 4px;padding:8px 12px;font-size:var(--text-table);line-height:1.45;margin-top:3px;display:inline-block;white-space:pre-line}
+.m.minha{flex-direction:row-reverse;align-self:flex-end}
+.m.minha .corpo{text-align:right}
+.m.minha .bolha{background:var(--acento);color:#fff;border-radius:12px 12px 4px 12px;text-align:left}
+.bolha.longa{display:block;max-height:150px;overflow:hidden;position:relative;border-radius:12px 12px 4px 4px;margin-bottom:0}
+.bolha.longa::after{content:"";position:absolute;left:0;right:0;bottom:0;height:46px;background:linear-gradient(transparent,var(--cinza-100))}
+.rodape-longa{display:flex;gap:6px;background:var(--cinza-100);border-radius:0 0 12px 12px;padding:6px 8px;align-items:center}
+.rodape-longa .btn{height:26px;padding:0 9px;font-size:12px;font-weight:600}
+.rodape-longa .sp{margin-left:auto;font-size:12px;color:var(--texto-secundario)}
+.cartao-pac,.cartao-doc,.cartao-pedido{margin-top:6px;border:1px solid var(--borda);border-radius:var(--radius-control);padding:8px 10px;background:var(--superficie);font-size:var(--text-small);display:flex;gap:10px;align-items:center;text-align:left;color:var(--texto-primario)}
+.cartao-pac{border-left:3px solid var(--teal-600)}
+.cartao-pac .av{width:28px;height:28px;border-radius:50%;background:var(--teal-50);color:var(--teal-700);display:grid;place-items:center;font-weight:700;font-size:12px;flex:none}
+.cartao-pac b,.cartao-doc b{display:block;font-size:var(--text-table)}
+.cartao-pac small,.cartao-doc small{color:var(--texto-secundario)}
+.cartao-pac a,.cartao-doc a{margin-left:auto;color:var(--acento);font-weight:600;text-decoration:none;white-space:nowrap;display:inline-flex;gap:4px;align-items:center}
+.cartao-pac a svg.i,.cartao-doc a svg.i{width:13px;height:13px}
+.cartao-doc{border-left:3px solid var(--acento)}
+.cartao-doc .ic{width:28px;height:28px;border-radius:6px;background:var(--acento-suave);color:var(--acento);display:grid;place-items:center;flex:none}
+.cartao-pedido{display:block;border-left:3px solid var(--aviso);padding:10px 12px}
+.cartao-pedido .t{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.cartao-pedido .t b{font-size:var(--text-table)}
+.cartao-pedido .t .pil{margin-left:auto}
+.cartao-pedido .l{color:var(--cinza-700);font-size:var(--text-table)}
+.cartao-pedido .l + .l{margin-top:2px}
+.cartao-pedido .obs{margin-top:6px;padding:6px 8px;background:var(--cinza-50);border-radius:6px;color:var(--cinza-700)}
+.cartao-pedido .acoes{margin-top:8px;display:flex;gap:6px}
+.cartao-pedido .acoes .btn{height:28px;padding:0 10px;font-size:12px}
+.meta{font-size:12px;color:var(--texto-secundario);margin-top:3px}
+.digitando{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--texto-secundario);padding:2px 0 0}
+.pontos{display:inline-flex;gap:3px}
+.pontos i{width:5px;height:5px;border-radius:50%;background:var(--cinza-300);display:block}
+.pontos i:nth-child(2){background:var(--cinza-500)}
+.compor{border-top:1px solid var(--borda);padding:10px var(--space-4) 12px}
+.campo{min-height:38px;border:1px solid var(--borda);border-radius:var(--radius-control);padding:9px 12px;color:var(--texto-secundario);font-size:var(--text-table);background:var(--superficie)}
+.campo.texto{color:var(--texto-primario);white-space:pre-line;line-height:1.45}
+.compor .linha{display:flex;gap:6px;margin-top:8px;align-items:center}
+.compor .linha .btn{height:30px;padding:0 10px;font-size:var(--text-small);font-weight:500;color:var(--cinza-700)}
+.compor .linha .btn svg.i{width:14px;height:14px}
+.compor .linha .enviar{margin-left:auto;font-weight:600;color:#fff}
+.compor .dica{font-size:12px;color:var(--texto-secundario);margin-top:6px;display:flex;justify-content:space-between}
+
+/* ---------- Modo ampliado (laudo) ---------- */
+.ampliado{position:absolute;inset:0;background:rgba(15,23,42,.35);z-index:8;display:grid;place-items:center}
+.editor{width:860px;background:var(--superficie);border-radius:var(--radius-card);box-shadow:var(--sombra-popup);overflow:hidden}
+.editor .cab{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--borda)}
+.editor .cab b{font-size:15px}
+.editor .cab small{color:var(--texto-secundario)}
+.editor .cab .btn.icone{margin-left:auto;border:0;width:30px;height:30px;color:var(--texto-secundario)}
+.editor .corpo{padding:14px 16px;display:grid;grid-template-columns:1fr 250px;gap:14px}
+.editor .area{border:1px solid var(--borda);border-radius:var(--radius-control);padding:12px 14px;min-height:300px;font-size:var(--text-body);line-height:1.55;white-space:pre-line;color:var(--texto-primario)}
+.editor .lado{font-size:var(--text-table);color:var(--cinza-700)}
+.editor .lado h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--texto-secundario)}
+.editor .lado .cartao-pac,.editor .lado .cartao-doc{margin:0 0 10px}
+.editor .rod{display:flex;gap:8px;align-items:center;padding:10px 16px 14px;border-top:1px solid var(--borda)}
+.editor .rod .sp{margin-left:auto;font-size:12px;color:var(--texto-secundario)}
+
+/* ---------- Toast + preferências ---------- */
+.toast{position:absolute;right:20px;bottom:20px;width:360px;background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);box-shadow:var(--sombra-popup);padding:12px 14px;z-index:6}
+.toast .t{display:flex;align-items:center;gap:10px}
+.toast .t b{font-size:var(--text-table)}
+.toast .t small{display:block;color:var(--texto-secundario);font-size:12px}
+.toast .t .x{margin-left:auto;color:var(--texto-secundario)}
+.toast p{margin:10px 0 8px;font-size:var(--text-table);color:var(--cinza-700);padding-left:46px}
+.toast .acoes{display:flex;gap:6px;padding-left:46px}
+.toast .acoes .btn{height:30px;padding:0 12px;font-size:var(--text-small)}
+.som{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--texto-secundario);margin-left:auto}
+.som svg.i{width:13px;height:13px}
+.pop{position:absolute;background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);box-shadow:var(--sombra-popup);z-index:7;overflow:hidden}
+.pop .cab{padding:10px 12px;border-bottom:1px solid var(--borda)}
+.pop .cab b{font-size:var(--text-table);display:block}
+.pop .cab small{color:var(--texto-secundario);font-size:12px}
+.pop .campo{margin:10px 12px 6px;min-height:34px;padding:7px 10px;display:flex;align-items:center;gap:8px}
+.pop .campo svg.i{width:14px;height:14px}
+.pop .grupo{padding:6px 12px 2px;font-size:12px;font-weight:700;color:var(--texto-secundario);letter-spacing:.05em;text-transform:uppercase}
+.pop .op{display:flex;align-items:center;gap:10px;padding:7px 12px;font-size:var(--text-table)}
+.pop .op.on{background:var(--acento-suave)}
+.pop .op b{display:block;font-size:var(--text-table)}
+.pop .op small{color:var(--texto-secundario);font-size:12px}
+.pop .op .hora{margin-left:auto;color:var(--texto-secundario);font-size:12px}
+.pref{padding:6px 12px 10px}
+.pref .l{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:var(--text-table);border-bottom:1px solid var(--cinza-100)}
+.pref .l:last-child{border:0}
+.pref .l small{display:block;color:var(--texto-secundario);font-size:12px}
+.pref .l .tg{margin-left:auto;width:34px;height:18px;border-radius:999px;background:var(--acento);position:relative;flex:none}
+.pref .l .tg::after{content:"";position:absolute;top:2px;right:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+.pref .l .tg.off{background:var(--cinza-300)}
+.pref .l .tg.off::after{right:auto;left:2px}
+
+/* ---------- Notas ---------- */
+.notas{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:24px}
+.nota{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);padding:14px 16px}
+.nota h4{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:8px}
+.nota ul{margin:0;padding-left:18px;color:var(--cinza-700);font-size:var(--text-table)}
+.nota li{margin:4px 0}
+.nota li b{color:var(--texto-primario)}
+.fora{background:var(--cinza-50)}
+.duas{display:grid;grid-template-columns:680px 1fr;gap:16px;width:1366px;max-width:100%;margin:0 auto}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/></symbol>
+  <symbol id="sino" viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="abaixo" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="mais" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="pessoa" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="clipe" viewBox="0 0 24 24"><path d="m21 11.5-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></symbol>
+  <symbol id="enviar" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></symbol>
+  <symbol id="seta" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="pontos" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></symbol>
+  <symbol id="check2" viewBox="0 0 24 24"><path d="m2 12 4 4 7-8M11 16l2 2 9-10"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+  <symbol id="atualizar" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="olho" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="cadeado" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="ferramenta" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5L22 9l-3 3-3-3 3-3-2.3.3zM3 21l8.5-8.5"/></symbol>
+  <symbol id="doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+  <symbol id="volume" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></symbol>
+  <symbol id="expandir" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+  <symbol id="copiar" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+  <symbol id="calendario" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="enf" viewBox="0 0 24 24"><path d="M12 7v10M7 12h10"/><circle cx="12" cy="12" r="9"/></symbol>
+  <symbol id="encostar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/></symbol>
+  <symbol id="minimizar" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+</svg>
+
+<div class="doc">
+  <div class="doc-cab">
+    <div>
+      <h1>Chat da equipe — mockup v3 para aprovação</h1>
+      <p class="sub">Uma <b>bolinha flutuante</b> no canto de todos os apps da suíte (Recepção, Consultório — onde a enfermagem também trabalha —, Financeiro e Gerente) abre o chat sem sair da tela. Canais fixos, conversas diretas, pedidos da enfermagem e laudos no mesmo lugar. Nomes e horários são fictícios.</p>
+    </div>
+    <div class="carimbo">Clínica SemDor · out/2026<br>v3 — tokens e moldura da suíte</div>
+  </div>
+
+  <div class="respostas">
+    <div class="resp"><b class="t">Ícone flutuante, estilo Grok</b>Fechado: uma bolinha azul no canto inferior direito, com o número de não lidas e a prévia da última mensagem. Aberto: uma <b>janelinha</b> no canto, que a pessoa pode <b>encostar</b> na lateral (vira o painel) ou minimizar. Nada na barra de cima.</div>
+    <div class="resp"><b class="t">Pedidos da enfermagem</b>Entram no canal <b># Recepção</b> como um cartão, com o estado do pedido e o "Ver na agenda". É o MESMO pedido da tela de Pedidos — abrir pelo chat marca "Visto".</div>
+    <div class="resp"><b class="t">Laudo (texto longo)</b>Sem limite de tamanho. Editor ampliado para escrever, mensagem recolhida com "Ver inteiro", botão <b>Copiar texto</b>. O laudo emitido vai como documento anexado.</div>
+    <div class="resp"><b class="t">Som</b>Toque curto na mensagem direta, quando alguém cita você e no pedido da enfermagem; canal só acende o número. Cada pessoa liga/desliga e silencia por 1 h.</div>
+    <div class="resp"><b class="t">Efeitos</b>"Fulana está escrevendo…", separador "Novas mensagens", mensagem nova entra deslizando, ✓✓ "Lida por", prévia na bolinha.</div>
+    <div class="resp"><b class="t">Mensagem direta</b>Em todos os apps da suíte, entre quaisquer duas pessoas — a conversa é a mesma onde quer que a pessoa entre. O Faturamento fica de fora (não usa esta moldura).</div>
+  </div>
+
+  <!-- ============================ CENA 1 ============================ -->
+  <section class="cena">
+    <h2><span class="n">1</span> Fechado — a bolinha no canto, com o número e a prévia (Consultório, Meu dia)</h2>
+    <p class="lead">O médico está no Meu dia. Chega uma mensagem direta: a bolinha mostra o número, a prévia aparece ao lado por 8 s e o toque curto soa. Nada muda na barra de cima e a lista continua inteira.</p>
+    <div class="janela">
+      <div class="topo">
+        <div class="marca"><img src="marca/logo-cor.png" alt="Clínica SemDor"><span class="sep"></span><span class="app-nome">Consultório</span></div>
+        <nav class="nav">
+          <button class="ativo">Minha agenda <svg class="i"><use href="#abaixo"/></svg></button>
+          <button>Pacientes</button>
+          <button>Prontuário <svg class="i"><use href="#abaixo"/></svg></button>
+          <button>Prescrições <svg class="i"><use href="#abaixo"/></svg></button>
+          <button>Meus números</button>
+        </nav>
+        <div class="busca"><svg class="i"><use href="#lupa"/></svg>Buscar tela · Ctrl+F</div>
+        <div class="acoes">
+          <button class="btn icone"><svg class="i"><use href="#sino"/></svg></button>
+          <span class="conta"><span class="avatar p" style="background:var(--ciano-700)">PL</span>Dr. Paulo Lima <svg class="i" style="width:12px;height:12px;color:var(--texto-secundario)"><use href="#abaixo"/></svg></span>
+        </div>
+      </div>
+      <div class="palco" style="height:520px">
+        <div class="pagina">
+          <div class="cab-pagina"><div><div class="sobre">Minha agenda · Hoje</div><h1>Meu dia</h1><p class="desc">Terça-feira, 21 de outubro · 5 horários · 1 em atendimento</p></div><button class="btn"><svg class="i"><use href="#atualizar"/></svg>Atualizar</button></div>
+          <div class="cartao"><table class="lista"><thead><tr><th style="width:90px">Horário</th><th>Paciente · atendimento</th><th style="width:220px">Situação</th><th style="width:150px">Prontuário</th><th style="width:120px;text-align:right">Ação</th></tr></thead>
+          <tbody>
+            <tr class="apagada"><td><span class="p">08:30</span><span class="s">até 09:00</span></td><td><span class="traco" style="background:var(--acento)"></span><span class="p" style="display:inline">Pedro Fictício</span><span class="s" style="margin-left:13px">Acupuntura</span></td><td><span class="pil">Concluído · 09:02</span></td><td><span class="s">Escrito</span></td><td style="text-align:right"><button class="btn mini">Ver</button></td></tr>
+            <tr><td><span class="p">09:00</span><span class="s">até 09:30</span></td><td><span class="traco" style="background:var(--aviso)"></span><span class="p" style="display:inline">Lúcia Fictícia</span><span class="s" style="margin-left:13px">Consulta · Geriatria</span></td><td><span class="pil ac">Em atendimento · há 24 min</span></td><td><span class="s">Em curso</span></td><td style="text-align:right"><button class="btn mini primario">Continuar</button></td></tr>
+            <tr><td><span class="p">10:30</span><span class="s">até 11:00</span></td><td><span class="traco" style="background:var(--aviso)"></span><span class="p" style="display:inline">João Fictício</span><span class="s" style="margin-left:13px">Consulta · Psiquiatria</span></td><td><span class="pil">Marcado</span></td><td><span class="s">—</span></td><td style="text-align:right"><button class="btn mini">Atender</button></td></tr>
+            <tr><td><span class="p">14:00</span><span class="s">até 14:30</span></td><td><span class="traco" style="background:var(--acento)"></span><span class="p" style="display:inline">Bianca Fictícia</span><span class="s" style="margin-left:13px">Acupuntura</span></td><td><span class="pil at">Não confirmou</span></td><td><span class="s">—</span></td><td style="text-align:right"><button class="btn mini">Atender</button></td></tr>
+            <tr><td><span class="p">15:00</span><span class="s">até 15:30</span></td><td><span class="traco" style="background:var(--acento)"></span><span class="p" style="display:inline">Marcos Fictício</span><span class="s" style="margin-left:13px">Acupuntura</span></td><td><span class="pil ok">Confirmou</span></td><td><span class="s">—</span></td><td style="text-align:right"><button class="btn mini">Atender</button></td></tr>
+          </tbody></table></div>
+        </div>
+        <div class="flutuante">
+          <div class="previa"><span class="x"><svg class="i" style="width:13px;height:13px"><use href="#x"/></svg></span><b>Ana Souza <span>recepção · agora · <svg class="i" style="width:11px;height:11px;vertical-align:-1px"><use href="#volume"/></svg></span></b>"O João das 10h30 pediu para adiantar para as 10h. Pode?"</div>
+          <div class="bola"><svg class="i"><use href="#chat"/></svg><span class="contador">2</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CENA 2 ============================ -->
+  <section class="cena">
+    <h2><span class="n">2</span> Aberto como janelinha — a recepção no canal <em>&nbsp;# Recepção</em>, com o pedido da enfermagem e "escrevendo…"</h2>
+    <p class="lead">Clicar na bolinha abre a janela no canto, por cima da agenda. O pedido que a enfermagem envia pela tela dela chega como cartão, com as ações que a recepção já tem; o número vermelho no canal é o pedido novo, o azul são mensagens. O botão de encostar leva a janela para a lateral (cena 4).</p>
+    <div class="janela">
+      <div class="topo">
+        <div class="marca"><img src="marca/logo-cor.png" alt="Clínica SemDor"><span class="sep"></span><span class="app-nome">Recepção</span></div>
+        <nav class="nav">
+          <button>Gestão <svg class="i"><use href="#abaixo"/></svg></button>
+          <button>Paciente <svg class="i"><use href="#abaixo"/></svg></button>
+          <button class="ativo">Atendimento <svg class="i"><use href="#abaixo"/></svg></button>
+          <button>Relacionamento <svg class="i"><use href="#abaixo"/></svg></button>
+          <button>Financeiro <svg class="i"><use href="#abaixo"/></svg></button>
+        </nav>
+        <div class="busca"><svg class="i"><use href="#lupa"/></svg>Buscar tela · Ctrl+F</div>
+        <div class="acoes">
+          <button class="btn icone"><svg class="i"><use href="#sino"/></svg></button>
+          <span class="conta"><span class="avatar p" style="background:var(--violeta-600)">AS</span>Ana Souza <svg class="i" style="width:12px;height:12px;color:var(--texto-secundario)"><use href="#abaixo"/></svg></span>
+        </div>
+      </div>
+
+      <div class="palco">
+        <div class="pagina">
+          <div class="cab-pagina">
+            <div>
+              <div class="sobre">Atendimento · Agenda</div>
+              <h1>Agenda do dia</h1>
+              <p class="desc">Terça-feira, 21 de outubro · 9 horários · 2 no local</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn"><svg class="i"><use href="#atualizar"/></svg>Atualizar</button>
+              <button class="btn primario"><svg class="i"><use href="#mais"/></svg>Marcar atendimento</button>
+            </div>
+          </div>
+          <div class="cartao" style="max-width:700px">
+            <div class="abas"><span class="on">Dia <span class="q">9</span></span><span>Grade</span><span>Semana do profissional</span></div>
+            <table class="lista">
+              <thead><tr><th style="width:90px">Horário</th><th>Paciente · atendimento</th><th style="width:150px">Profissional</th><th style="width:150px">Situação</th></tr></thead>
+              <tbody>
+                <tr><td><span class="p">08:00</span><span class="s">até 08:30</span></td><td><span class="traco" style="background:var(--teal-600)"></span><span class="p" style="display:inline">Carla Fictícia</span><span class="s" style="margin-left:13px">BSV</span></td><td>Dra. Helena</td><td><span class="pil">Concluído</span></td></tr>
+                <tr><td><span class="p">08:30</span><span class="s">até 09:00</span></td><td><span class="traco" style="background:var(--acento)"></span><span class="p" style="display:inline">Pedro Fictício</span><span class="s" style="margin-left:13px">Acupuntura</span></td><td>Dr. Paulo</td><td><span class="pil">Concluído</span></td></tr>
+                <tr><td><span class="p">09:00</span><span class="s">até 09:30</span></td><td><span class="traco" style="background:var(--aviso)"></span><span class="p" style="display:inline">Lúcia Fictícia</span><span class="s" style="margin-left:13px">Consulta · Geriatria</span></td><td>Dr. Paulo</td><td><span class="pil ac">Em atendimento</span></td></tr>
+                <tr><td><span class="p">09:30</span><span class="s">até 10:00</span></td><td><span class="traco" style="background:var(--teal-600)"></span><span class="p" style="display:inline">Roberto Fictício</span><span class="s" style="margin-left:13px">BSV</span></td><td>Dra. Helena</td><td><span class="pil ok">No local · 09:12</span></td></tr>
+                <tr><td><span class="p">10:00</span><span class="s">até 10:30</span></td><td><span class="traco" style="background:var(--teal-600)"></span><span class="p" style="display:inline">Maria Fictícia</span><span class="s" style="margin-left:13px">BSV</span></td><td>Dra. Helena</td><td><span class="pil ok">No local · 09:40</span></td></tr>
+                <tr><td><span class="p">10:30</span><span class="s">até 11:00</span></td><td><span class="traco" style="background:var(--aviso)"></span><span class="p" style="display:inline">João Fictício</span><span class="s" style="margin-left:13px">Consulta · Psiquiatria</span></td><td>Dr. Paulo</td><td><span class="pil">Marcado</span></td></tr>
+                <tr class="apagada"><td><span class="p">11:00</span><span class="s">até 11:30</span></td><td><span class="traco" style="background:var(--cinza-300)"></span><span class="p" style="display:inline">Sofia Fictícia</span><span class="s" style="margin-left:13px">Acupuntura</span></td><td>Dr. Paulo</td><td><span class="pil">Cancelado</span></td></tr>
+                <tr><td><span class="p">11:30</span><span class="s">até 12:00</span></td><td><span class="traco" style="background:var(--acento)"></span><span class="p" style="display:inline">Tiago Fictício</span><span class="s" style="margin-left:13px">Acupuntura</span></td><td>Dra. Helena</td><td><span class="pil">Marcado</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="painel janelinha">
+          <div class="painel-cab">
+            <svg class="i" style="color:var(--acento)"><use href="#chat"/></svg><h3>Equipe</h3>
+            <span class="pil ok" style="margin-right:4px">5 online</span>
+            <button class="btn icone" title="Som e avisos"><svg class="i"><use href="#volume"/></svg></button>
+            <button class="btn icone" title="Encostar na lateral"><svg class="i"><use href="#encostar"/></svg></button>
+            <button class="btn icone" title="Minimizar"><svg class="i"><use href="#minimizar"/></svg></button>
+          </div>
+          <div class="lista-conv">
+            <div class="rot">Canais</div>
+            <div class="conv"><span class="hash">#</span>Geral</div>
+            <div class="conv on"><span class="hash">#</span>Recepção <span class="n vermelho">1</span></div>
+            <div class="conv"><span class="hash">#</span>Enfermagem <span class="n">2</span></div>
+            <div class="rot">Diretas <button class="btn icone" title="Nova conversa"><svg class="i"><use href="#mais"/></svg></button></div>
+            <div class="conv"><span class="av"><span class="avatar p" style="background:var(--violeta-600)">HM</span><span class="pres on"></span></span>Dra. Helena</div>
+            <div class="conv"><span class="av"><span class="avatar p" style="background:var(--ciano-700)">PL</span><span class="pres ocup"></span></span>Dr. Paulo <span class="n">1</span></div>
+            <div class="conv"><span class="av"><span class="avatar p" style="background:var(--teal-600)">JO</span><span class="pres on"></span></span>Joana · enf.</div>
+            <div class="conv"><span class="av"><span class="avatar p" style="background:var(--cinza-500)">CR</span><span class="pres off"></span></span>Carla</div>
+          </div>
+          <div class="conversa">
+            <div class="conv-cab">
+              <div><b># Recepção</b><small>Balcão, enfermagem e direção · 7 pessoas</small></div>
+              <div class="fim"><button class="btn icone"><svg class="i"><use href="#pontos"/></svg></button></div>
+            </div>
+            <div class="msgs">
+              <span class="dia">Hoje</span>
+              <div class="m minha"><span class="avatar" style="background:var(--violeta-600)">AS</span><div class="corpo">
+                <div class="quem"><span>08:52</span> Você</div>
+                <div class="bolha">Bom dia! A Dra. Helena pediu para não encaixar ninguém às 11h30 hoje.</div>
+                <div class="meta"><svg class="i" style="width:12px;height:12px;vertical-align:-2px;color:var(--sucesso)"><use href="#check2"/></svg> Lida por 4</div>
+              </div></div>
+              <div class="novas">Novas mensagens</div>
+              <div class="m"><span class="avatar" style="background:var(--teal-600)">JO</span><div class="corpo">
+                <div class="quem">Joana <span>enfermagem · 09:31</span></div>
+                <div class="cartao-pedido">
+                  <div class="t"><svg class="i" style="color:var(--aviso)"><use href="#enf"/></svg><b>Pedido da enfermagem #214</b><span class="pil novo">Novo</span></div>
+                  <div class="l"><b>Amanhã, 22/10 · 08:00 às 12:00</b></div>
+                  <div class="l">Até <b>3 atendimentos adicionais</b> · BSV</div>
+                  <div class="obs">Sala de infusão com duas poltronas livres de manhã. Pode encaixar quem está na lista de espera do BSV.</div>
+                  <div class="acoes"><button class="btn primario"><svg class="i"><use href="#calendario"/></svg>Ver na agenda</button><button class="btn"><svg class="i"><use href="#check"/></svg>Marcar como visto</button></div>
+                  <div class="meta">Válido até 22/10 12:00 · o mesmo pedido da tela Pedidos da enfermagem</div>
+                </div>
+              </div></div>
+              <div class="m"><span class="avatar" style="background:var(--ciano-700)">PL</span><div class="corpo">
+                <div class="quem">Dr. Paulo <span>09:34</span></div>
+                <div class="bolha">@Ana o Roberto das 9h30 pode subir, a sala 2 já está livre.</div>
+              </div></div>
+              <div class="digitando"><span class="avatar p" style="background:var(--teal-600)">JO</span>Joana está escrevendo <span class="pontos"><i></i><i></i><i></i></span></div>
+            </div>
+            <div class="compor">
+              <div class="campo">Escreva para # Recepção…</div>
+              <div class="linha">
+                <button class="btn"><svg class="i"><use href="#pessoa"/></svg>Paciente</button>
+                <button class="btn"><svg class="i"><use href="#clipe"/></svg>Arquivo</button>
+                <button class="btn"><svg class="i"><use href="#expandir"/></svg>Ampliar</button>
+                <button class="btn primario enviar"><svg class="i"><use href="#enviar"/></svg>Enviar</button>
+              </div>
+              <div class="dica"><span>Enter envia · Shift+Enter quebra a linha · @ cita alguém</span><span class="som"><svg class="i"><use href="#volume"/></svg>som ligado</span></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CENA 3 ============================ -->
+  <section class="cena">
+    <h2><span class="n">3</span> Consultório — o laudo: escrever no editor ampliado e mandar para a recepção</h2>
+    <p class="lead">"Ampliar" abre o editor por cima da tela. O texto não tem limite; o paciente e o documento emitido vão anexados. A mensagem chega inteira do outro lado, com "Copiar texto" para a secretária colar onde precisar.</p>
+    <div class="janela">
+      <div class="topo">
+        <div class="marca"><img src="marca/logo-cor.png" alt="Clínica SemDor"><span class="sep"></span><span class="app-nome">Consultório</span></div>
+        <nav class="nav">
+          <button class="ativo">Minha agenda <svg class="i"><use href="#abaixo"/></svg></button>
+          <button>Pacientes</button>
+          <button>Prontuário <svg class="i"><use href="#abaixo"/></svg></button>
+          <button>Prescrições <svg class="i"><use href="#abaixo"/></svg></button>
+          <button>Meus números</button>
+        </nav>
+        <div class="busca"><svg class="i"><use href="#lupa"/></svg>Buscar tela · Ctrl+F</div>
+        <div class="acoes">
+          <button class="btn icone"><svg class="i"><use href="#sino"/></svg></button>
+          <span class="conta"><span class="avatar p" style="background:var(--ciano-700)">PL</span>Dr. Paulo Lima <svg class="i" style="width:12px;height:12px;color:var(--texto-secundario)"><use href="#abaixo"/></svg></span>
+        </div>
+      </div>
+      <div class="palco" style="height:560px">
+        <div class="pagina" style="opacity:.6">
+          <div class="cab-pagina"><div><div class="sobre">Minha agenda · Hoje</div><h1>Meu dia</h1><p class="desc">Terça-feira, 21 de outubro · 5 horários · 1 em atendimento</p></div></div>
+          <div class="cartao"><table class="lista"><thead><tr><th style="width:90px">Horário</th><th>Paciente · atendimento</th><th style="width:220px">Situação</th><th style="width:120px;text-align:right">Ação</th></tr></thead>
+          <tbody>
+            <tr><td><span class="p">09:00</span><span class="s">até 09:30</span></td><td><span class="traco" style="background:var(--aviso)"></span><span class="p" style="display:inline">Lúcia Fictícia</span><span class="s" style="margin-left:13px">Consulta · Geriatria</span></td><td><span class="pil ac">Em atendimento · há 24 min</span></td><td style="text-align:right"><button class="btn mini primario">Continuar</button></td></tr>
+            <tr><td><span class="p">10:30</span><span class="s">até 11:00</span></td><td><span class="traco" style="background:var(--aviso)"></span><span class="p" style="display:inline">João Fictício</span><span class="s" style="margin-left:13px">Consulta · Psiquiatria</span></td><td><span class="pil">Marcado</span></td><td style="text-align:right"><button class="btn mini">Atender</button></td></tr>
+          </tbody></table></div>
+        </div>
+        <div class="ampliado">
+          <div class="editor">
+            <div class="cab"><svg class="i" style="color:var(--acento)"><use href="#chat"/></svg><b>Mensagem para Ana Souza</b><small>· conversa direta</small><button class="btn icone"><svg class="i"><use href="#x"/></svg></button></div>
+            <div class="corpo">
+              <div class="area">Ana, segue o laudo da Lúcia para a secretaria enviar ao convênio hoje ainda.
+
+LAUDO MÉDICO
+
+Paciente em acompanhamento neste serviço desde março de 2026 por lombalgia crônica com irradiação para o membro inferior direito. Realizou 12 sessões de acupuntura, com redução da dor de 8 para 3 na escala visual analógica, e mantém limitação funcional para esforços moderados.
+
+Solicito a continuidade do tratamento por mais 10 sessões, com reavaliação ao término, conforme plano terapêutico registrado em prontuário.
+
+CID M54.4. Permanece apta para atividades laborais leves.
+
+Dr. Paulo Lima · CRM-RJ 00000</div>
+              <div class="lado">
+                <h4>Vai junto</h4>
+                <div class="cartao-pac"><span class="av">LF</span><div><b>Lúcia Fictícia</b><small>Hoje 09:00 · Consulta · Geriatria</small></div></div>
+                <div class="cartao-doc"><span class="ic"><svg class="i"><use href="#doc"/></svg></span><div><b>Laudo médico 2026/0189</b><small>PDF · emitido às 09:52 · assinado</small></div></div>
+                <h4>Dica</h4>
+                O texto na conversa é o recado. O documento numerado, que vai ao convênio, é o anexo — ele já saiu do Prontuário com assinatura.
+              </div>
+            </div>
+            <div class="rod"><button class="btn"><svg class="i"><use href="#pessoa"/></svg>Paciente</button><button class="btn"><svg class="i"><use href="#doc"/></svg>Documento</button><button class="btn"><svg class="i"><use href="#clipe"/></svg>Arquivo</button><span class="sp">1.012 caracteres · sem limite</span><button class="btn primario"><svg class="i"><use href="#enviar"/></svg>Enviar</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CENA 4 ============================ -->
+  <section class="cena">
+    <h2><span class="n">4</span> Encostado na lateral — a recepção recebe o laudo; e as preferências de som</h2>
+    <p class="lead">Quem prefere a janela encostada (vira painel lateral, a tela de trás continua viva) tem o mesmo conteúdo. A mensagem longa chega recolhida, com "Ver inteiro" e "Copiar texto"; o documento abre a 2ª via. À direita, o que o botão de som controla — por pessoa, não para a clínica inteira.</p>
+    <div class="duas">
+      <div class="janela" style="width:680px">
+        <div class="palco" style="height:540px;background:var(--superficie)">
+          <aside class="painel" style="width:100%;box-shadow:none;border:0;grid-template-columns:1fr">
+            <div class="painel-cab"><svg class="i" style="color:var(--acento)"><use href="#chat"/></svg><h3>Equipe</h3><button class="btn icone" title="Soltar da lateral"><svg class="i"><use href="#expandir"/></svg></button><button class="btn icone"><svg class="i"><use href="#x"/></svg></button></div>
+            <div class="conversa">
+              <div class="conv-cab"><div><b>Dr. Paulo Lima</b><small>online · em atendimento até 09:30</small></div></div>
+              <div class="msgs">
+                <span class="dia">Hoje</span>
+                <div class="m" style="max-width:100%"><span class="avatar" style="background:var(--ciano-700)">PL</span><div class="corpo" style="flex:1">
+                  <div class="quem">Dr. Paulo <span>09:55</span></div>
+                  <div class="bolha longa">Ana, segue o laudo da Lúcia para a secretaria enviar ao convênio hoje ainda.
+
+LAUDO MÉDICO
+
+Paciente em acompanhamento neste serviço desde março de 2026 por lombalgia crônica com irradiação para o membro inferior direito. Realizou 12 sessões de acupuntura, com redução da dor de 8 para 3 na escala visual analógica, e mantém limitação funcional para esforços moderados.
+
+Solicito a continuidade do tratamento por mais 10 sessões…</div>
+                  <div class="rodape-longa"><button class="btn">Ver inteiro</button><button class="btn"><svg class="i" style="width:13px;height:13px"><use href="#copiar"/></svg>Copiar texto</button><span class="sp">1.012 caracteres</span></div>
+                  <div class="cartao-pac"><span class="av">LF</span><div><b>Lúcia Fictícia</b><small>Hoje 09:00 · Consulta · Geriatria</small></div><a href="#">Abrir ficha <svg class="i"><use href="#seta"/></svg></a></div>
+                  <div class="cartao-doc"><span class="ic"><svg class="i"><use href="#doc"/></svg></span><div><b>Laudo médico 2026/0189</b><small>PDF · assinado · 2ª via idêntica</small></div><a href="#">Abrir <svg class="i"><use href="#seta"/></svg></a></div>
+                </div></div>
+                <div class="m minha"><span class="avatar" style="background:var(--violeta-600)">AS</span><div class="corpo">
+                  <div class="quem"><span>09:57</span> Você</div>
+                  <div class="bolha">Recebido, já mando para a Unimed.</div>
+                  <div class="meta"><svg class="i" style="width:12px;height:12px;vertical-align:-2px;color:var(--sucesso)"><use href="#check2"/></svg> Lida</div>
+                </div></div>
+              </div>
+              <div class="compor">
+                <div class="campo">Escreva para Dr. Paulo…</div>
+                <div class="linha"><button class="btn"><svg class="i"><use href="#pessoa"/></svg>Paciente</button><button class="btn"><svg class="i"><use href="#clipe"/></svg>Arquivo</button><button class="btn"><svg class="i"><use href="#expandir"/></svg>Ampliar</button><button class="btn primario enviar"><svg class="i"><use href="#enviar"/></svg>Enviar</button></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+      <div style="position:relative;min-height:540px">
+        <div class="pop" style="right:16px;top:16px;width:380px">
+          <div class="cab"><b>Som e avisos</b><small>Só para você, neste computador</small></div>
+          <div class="pref">
+            <div class="l"><div>Mensagem direta<small>toque curto + prévia na bolinha</small></div><span class="tg"></span></div>
+            <div class="l"><div>Quando alguém me cita (@)<small>toque curto + prévia</small></div><span class="tg"></span></div>
+            <div class="l"><div>Canais (# Geral, # Recepção, # Enfermagem)<small>só o número na bolinha</small></div><span class="tg off"></span></div>
+            <div class="l"><div>Pedido da enfermagem<small>toque + prévia para a recepção</small></div><span class="tg"></span></div>
+            <div class="l"><div>Silenciar por 1 hora<small>o número continua subindo</small></div><button class="btn mini" style="margin-left:auto">Silenciar</button></div>
+          </div>
+        </div>
+        <div class="pop" style="right:16px;top:330px;width:380px;padding:12px 14px;font-size:var(--text-table);color:var(--cinza-700);line-height:1.5">
+          <b style="display:block;margin-bottom:4px;color:var(--texto-primario)">Como a bolinha se comporta</b>
+          • Fechada: número de não lidas; a prévia da última mensagem aparece ao lado por 8 s e some.<br>
+          • Clique: abre a janelinha no canto, por cima da tela, como na cena 2.<br>
+          • "Encostar": a janela vira painel lateral e a tela de trás se ajusta (cena 4). A escolha fica guardada por pessoa.<br>
+          • Minimizar: volta a ser bolinha, com a conversa onde estava.<br>
+          • A bolinha nunca cobre o botão principal de uma tela: ela sobe quando há rodapé com botões (formulários).
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ CENA 5 ============================ -->
+  <section class="cena">
+    <h2><span class="n">5</span> O botão "Paciente" — quem anexa escolhe entre os de hoje, sem digitar</h2>
+    <p class="lead">A lista abre com quem tem horário hoje (a mesma leitura da agenda). Para outra pessoa, a busca é a de sempre. Quem só vê a agenda enxerga nome e horário; o prontuário continua exigindo a permissão de sempre.</p>
+    <div class="janela" style="width:620px">
+      <div class="palco" style="height:500px;background:var(--superficie)">
+        <aside class="painel" style="box-shadow:none;border:0;width:100%">
+          <div class="painel-cab">
+            <svg class="i" style="color:var(--acento)"><use href="#chat"/></svg><h3>Equipe</h3>
+            <button class="btn icone"><svg class="i"><use href="#x"/></svg></button>
+          </div>
+          <div class="lista-conv">
+            <div class="rot">Canais</div>
+            <div class="conv"><span class="hash">#</span>Geral</div>
+            <div class="conv"><span class="hash">#</span>Recepção</div>
+            <div class="conv"><span class="hash">#</span>Enfermagem</div>
+            <div class="rot">Diretas</div>
+            <div class="conv on"><span class="av"><span class="avatar p" style="background:var(--violeta-600)">HM</span><span class="pres on"></span></span>Dra. Helena</div>
+            <div class="conv"><span class="av"><span class="avatar p" style="background:var(--ciano-700)">PL</span><span class="pres ocup"></span></span>Dr. Paulo</div>
+          </div>
+          <div class="conversa">
+            <div class="conv-cab"><div><b>Dra. Helena Martins</b><small>online · em atendimento até 10:30</small></div></div>
+            <div class="msgs" style="opacity:.55">
+              <span class="dia">Hoje</span>
+              <div class="m"><span class="avatar" style="background:var(--violeta-600)">HM</span><div class="corpo"><div class="quem">Dra. Helena <span>09:05</span></div><div class="bolha">Bom dia! Pode conferir se o convênio do Roberto está em dia?</div></div></div>
+            </div>
+            <div class="compor">
+              <div class="campo texto">Está sim, carteirinha válida até 03/2027. Já deixei a guia…</div>
+              <div class="linha">
+                <button class="btn ativo"><svg class="i"><use href="#pessoa"/></svg>Paciente</button>
+                <button class="btn"><svg class="i"><use href="#clipe"/></svg>Arquivo</button>
+                <button class="btn"><svg class="i"><use href="#expandir"/></svg>Ampliar</button>
+                <button class="btn primario enviar"><svg class="i"><use href="#enviar"/></svg>Enviar</button>
+              </div>
+            </div>
+          </div>
+          <div class="pop" style="left:216px;bottom:62px;width:330px">
+            <div class="cab"><b>Anexar paciente à mensagem</b><small>Quem recebe abre a ficha com um clique</small></div>
+            <div class="campo"><svg class="i"><use href="#lupa"/></svg><span>Buscar por nome ou CPF…</span></div>
+            <div class="grupo">Com horário hoje</div>
+            <div class="op on"><span class="avatar p" style="background:var(--teal-600)">RF</span><div><b>Roberto Fictício</b><small>BSV · Dra. Helena</small></div><span class="hora">09:30</span></div>
+            <div class="op"><span class="avatar p" style="background:var(--teal-600)">MF</span><div><b>Maria Fictícia</b><small>BSV · Dra. Helena</small></div><span class="hora">10:00</span></div>
+            <div class="op"><span class="avatar p" style="background:var(--acento)">JF</span><div><b>João Fictício</b><small>Consulta · Dr. Paulo</small></div><span class="hora">10:30</span></div>
+            <div class="op" style="padding-bottom:12px"><span class="avatar p" style="background:var(--acento)">TF</span><div><b>Tiago Fictício</b><small>Acupuntura · Dra. Helena</small></div><span class="hora">11:30</span></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ NOTAS ============================ -->
+  <div class="notas">
+    <div class="nota">
+      <h4><svg class="i" style="color:var(--acento)"><use href="#olho"/></svg>UX · quem usa</h4>
+      <ul>
+        <li><b>Uma bolinha, em todos os apps da suíte.</b> Número de não lidas e prévia. Abre como janelinha no canto; "Encostar" a transforma em painel lateral. A tela de trás continua viva. Mensagem direta e canais são os mesmos em qualquer app.</li>
+        <li><b>Três canais fixos</b> (Geral, Recepção, Enfermagem) e conversa direta entre duas pessoas. Sem grupos à vontade. <b>@nome</b> cita alguém e toca para ela.</li>
+        <li><b>Pedido da enfermagem</b> chega como cartão no # Recepção com "Ver na agenda" e "Marcar como visto" — as ações que a tela de Pedidos já tem. Abrir pelo chat marca "Visto" para todo o balcão, como hoje.</li>
+        <li><b>Laudo</b>: "Ampliar" abre o editor grande; texto sem limite; quem recebe vê recolhido, com "Ver inteiro" e "Copiar texto". O laudo emitido (numerado, assinado) vai como documento anexado.</li>
+        <li><b>Vivo</b>: "está escrevendo…", separador "Novas mensagens", mensagem nova desliza, ✓✓ "Lida por", presença (verde · laranja em atendimento · cinza fora).</li>
+        <li><b>Som</b> curto só na direta, na citação e no pedido da enfermagem; canal só acende o número. Cada pessoa liga/desliga e silencia por 1 h. O sino não dispara: chat não é pendência.</li>
+      </ul>
+    </div>
+    <div class="nota">
+      <h4><svg class="i" style="color:var(--acento)"><use href="#ferramenta"/></svg>DX · quem mantém</h4>
+      <ul>
+        <li><b>Duas tabelas novas</b> (conversas, mensagens) + uma de "presença/escrevendo" (uma linha por pessoa, gravada no máximo a cada 5 s, com validade — nunca a cada tecla); migration aditiva.</li>
+        <li><b>O pedido da enfermagem NÃO é copiado</b>: a mensagem guarda só o id do pedido; o cartão lê a `SolicitacaoEnfermagem` de sempre e as ações chamam o mesmo serviço. Uma regra, uma tabela.</li>
+        <li><b>Anexos</b> são ids: agendamento/ficha (paciente), `DocumentoClinico` (laudo), arquivo (bytes à parte, teto de 10 MB).</li>
+        <li><b>Um componente Razor</b> (`ChatDaEquipe`) na moldura, publicado pelos quatro apps; bolinha, janelinha e painel são o MESMO componente em três posições. Entrega instantânea pelo `OuvinteDeMudancas` (gatilho nas tabelas novas).</li>
+        <li><b>Som</b>: um `.wav` embutido tocado pelo hospedeiro WPF (`IHostDaTela`), como copiar e abrir arquivo; a preferência fica por usuário e máquina.</li>
+        <li><b>Regra na Application, com teste</b>: quem vê o quê, quando toca, o texto da prévia, o corte de "Ver inteiro", onde a bolinha pode ficar.</li>
+      </ul>
+    </div>
+    <div class="nota fora">
+      <h4><svg class="i" style="color:var(--acento)"><use href="#cadeado"/></svg>CX · a clínica, e o que fica de fora</h4>
+      <ul>
+        <li><b>Sem custo mensal</b>: tudo no banco da clínica, no Brasil, sem serviço de terceiros.</li>
+        <li><b>Trilha</b>: toda mensagem tem autor e hora; a edição guarda a versão anterior; nada se apaga. Serve numa conferência, inclusive quando cita paciente.</li>
+        <li><b>O laudo oficial continua sendo o documento do Prontuário</b> (numerado, assinado, 2ª via idêntica). O chat leva o recado e o anexo; não cria um segundo laudo.</li>
+        <li><b>Fica de fora</b>, de propósito: voz e vídeo, figurinhas e reações, grupos criados à vontade, apagar mensagem, mensagem para o paciente (isso é o CRM).</li>
+        <li><b>O Faturamento</b> não recebe o chat (não usa esta moldura). <b>O CRM das secretárias</b> entra numa segunda etapa.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</body>
+</html>

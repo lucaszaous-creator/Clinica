@@ -123,6 +123,13 @@ public interface IMolduraDoApp
     void AbrirResposta(RespostaNoSino resposta);
     void AbrirConfirmacoes();
 
+    /// <summary>
+    /// Abre um pedido da enfermagem pelo id — o cartão do pedido no chat da equipe (# Recepção)
+    /// leva à MESMA tela de Pedidos que o sino abre. Padrão: não faz nada (a prévia e os testes
+    /// não têm a tela de pedidos).
+    /// </summary>
+    void AbrirPedidoDaEnfermagem(int id) { }
+
     /// <summary>Esc: fecha o sino e a paleta da busca.</summary>
     void FecharSobreposicoes();
 

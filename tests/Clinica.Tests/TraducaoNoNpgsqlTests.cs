@@ -197,6 +197,18 @@ public class TraducaoNoNpgsqlTests
     /// <summary>
     /// Contexto configurado para o Npgsql. Nunca conecta — só compila consultas.
     /// </summary>
+    [Fact]
+    public void Chat_da_equipe_traduz_diretas_ultimas_e_resumo_cortado()
+    {
+        using var db = Postgres();
+        ChatEquipeService.ConsultaMinhasDiretas(db, 7).ToQueryString()
+            .Should().Contain("LIKE").And.Contain("DISTINCT");
+        ChatEquipeService.ConsultaUltimasPorConversa(db, ["canal:geral", "direta:3:7"]).ToQueryString()
+            .Should().Contain("GROUP BY").And.Contain("max(");
+        var resumo = ChatEquipeService.ConsultaResumos(db.MensagensEquipe.Where(m => m.Id > 3)).ToQueryString();
+        resumo.Should().Contain("substring").And.Contain("length(");
+    }
+
     private static ClinicaDbContext Postgres()
         => new(new DbContextOptionsBuilder<ClinicaDbContext>()
             .UseNpgsql("Host=nao-conecta;Database=x;Username=u;Password=p")

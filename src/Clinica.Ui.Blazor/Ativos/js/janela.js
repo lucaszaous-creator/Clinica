@@ -63,3 +63,43 @@ window.clinicaVideo = {
 window.clinicaJanela = {
     altura: function () { return window.innerHeight; }
 };
+// O CHAT DA EQUIPE (out/2026): o modo (bolinha / janela / encostado), a conversa aberta e
+// as preferências de som moram NESTE computador, por pessoa — "só para você, neste
+// computador" é o que a tela promete. O som é sintetizado (WebAudio): não há arquivo de
+// áudio para empacotar, e o navegador da janela já está acordado.
+window.clinicaChat = {
+    ler: function (usuario) {
+        try { return localStorage.getItem('clinica.chat.' + usuario); } catch (e) { return null; }
+    },
+    gravar: function (usuario, texto) {
+        try { localStorage.setItem('clinica.chat.' + usuario, texto); } catch (e) { }
+    },
+    rolarAoFim: function (el) {
+        if (el) el.scrollTop = el.scrollHeight;
+    },
+    _ctx: null,
+    tocar: function (tipo) {
+        try {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            var ctx = this._ctx || (this._ctx = new Ctx());
+            if (ctx.state === 'suspended') ctx.resume();
+            // Direta: dois toques curtos. Menção: três, mais agudos. Pedido: um grave e longo.
+            var notas = tipo === 'mencao' ? [880, 1046, 1318]
+                      : tipo === 'pedido' ? [523, 392]
+                      : [784, 988];
+            var dur = tipo === 'pedido' ? 0.22 : 0.11;
+            var t = ctx.currentTime;
+            notas.forEach(function (f, i) {
+                var o = ctx.createOscillator(), g = ctx.createGain();
+                o.type = 'sine'; o.frequency.value = f;
+                var ini = t + i * (dur + 0.04);
+                g.gain.setValueAtTime(0.0001, ini);
+                g.gain.exponentialRampToValueAtTime(0.18, ini + 0.015);
+                g.gain.exponentialRampToValueAtTime(0.0001, ini + dur);
+                o.connect(g); g.connect(ctx.destination);
+                o.start(ini); o.stop(ini + dur + 0.02);
+            });
+        } catch (e) { }
+    }
+};

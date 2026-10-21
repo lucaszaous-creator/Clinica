@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
         services.AddScoped<IComissaoRecuperacaoService, ComissaoRecuperacaoService>();
+        services.AddScoped<IChatEquipeService, ChatEquipeService>();
         services.AddScoped<IPlanejamentoEnfermagemService, Planejamento.PlanejamentoEnfermagemService>();
         services.AddScoped<IOcupacaoAgendaService, Planejamento.OcupacaoAgendaService>();
         services.AddSingleton(new RegistroRegras());
