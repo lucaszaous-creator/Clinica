@@ -25,6 +25,14 @@ public class ChatEquipeRegrasTests
     public void Iniciais_so_usam_palavras_do_nome(string nome, string esperado)
         => ChatEquipeRegras.Iniciais(nome).Should().Be(esperado);
 
+    [Theory]
+    [InlineData("C:\\laudos\\laudo.pdf", "laudo.pdf")]
+    [InlineData("/home/ana/laudo.pdf", "laudo.pdf")]
+    [InlineData("  laudo.pdf  ", "laudo.pdf")]
+    [InlineData("C:\\pasta\\", "")]
+    public void Nome_do_arquivo_perde_a_pasta_em_qualquer_sistema(string nome, string esperado)
+        => ChatEquipeRegras.NomeDoArquivo(nome).Should().Be(esperado);
+
     [Fact]
     public void Direta_e_a_mesma_chave_dos_dois_lados()
     {

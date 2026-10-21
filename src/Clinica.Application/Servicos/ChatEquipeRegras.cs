@@ -30,6 +30,19 @@ public static class ChatEquipeRegras
 
     public static IReadOnlyList<string> Canais { get; } = [CanalGeral, CanalRecepcao, CanalEnfermagem];
 
+    /// <summary>
+    /// O nome do arquivo sem a pasta de onde ele veio. Corta no último "\" OU "/", e não
+    /// pelo <c>Path.GetFileName</c>: no Linux (web de leitura, testes) ele não reconhece "\",
+    /// e o anexo vindo de um posto Windows guardaria "C:\laudos\laudo.pdf" inteiro.
+    /// </summary>
+    public static string NomeDoArquivo(string nome)
+    {
+        var limpo = (nome ?? "").Trim();
+        var corte = limpo.LastIndexOfAny(['\\', '/']);
+        if (corte >= 0) limpo = limpo[(corte + 1)..];
+        return limpo.Length > 200 ? limpo[^200..] : limpo;
+    }
+
     public static string NomeDoCanal(string conversa) => conversa switch
     {
         CanalGeral => "Geral",
@@ -145,7 +158,7 @@ public static class ChatEquipeRegras
     /// <summary>A prévia da bolinha e da lista: a primeira linha, cortada; anexo sem texto diz o que é.</summary>
     public static string Previa(string texto, string? anexo = null, int limite = 90)
     {
-        var t = string.Join(' ', (texto ?? "").Split(['\r', '\n', '\t', ' '], StringSplitOptions.RemoveEmptyEntries));
+        var t = string.Join(' ', (texto ?? "").Split(new[] { '\r', '\n', '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries));
         if (t.Length == 0) return anexo is null ? "" : $"[{anexo}]";
         return t.Length <= limite ? t : t[..CortarNaPalavra(t, limite)].TrimEnd() + "…";
     }

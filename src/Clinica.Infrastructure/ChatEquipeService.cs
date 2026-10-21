@@ -217,7 +217,7 @@ public sealed class ChatEquipeService : IChatEquipeService
             throw new InvalidOperationException("Escreva a mensagem ou anexe algo antes de enviar.");
         if (temArquivo && dados.ArquivoConteudo!.LongLength > ChatEquipeRegras.TamanhoMaximoArquivo)
             throw new InvalidOperationException($"O arquivo passa de {ChatEquipeRegras.Tamanho(ChatEquipeRegras.TamanhoMaximoArquivo)}. Envie um menor.");
-        if (temArquivo && string.IsNullOrWhiteSpace(dados.ArquivoNome))
+        if (temArquivo && ChatEquipeRegras.NomeDoArquivo(dados.ArquivoNome ?? "").Length == 0)
             throw new InvalidOperationException("O arquivo anexado precisa de um nome.");
 
         string? pacienteNome = null;
@@ -243,8 +243,7 @@ public sealed class ChatEquipeService : IChatEquipeService
         };
         if (temArquivo)
         {
-            mensagem.ArquivoNome = Path.GetFileName(dados.ArquivoNome!.Trim());
-            if (mensagem.ArquivoNome.Length > 200) mensagem.ArquivoNome = mensagem.ArquivoNome[^200..];
+            mensagem.ArquivoNome = ChatEquipeRegras.NomeDoArquivo(dados.ArquivoNome!);
             mensagem.ArquivoTamanho = dados.ArquivoConteudo!.LongLength;
             mensagem.Arquivo = new ArquivoMensagemEquipe { Conteudo = dados.ArquivoConteudo };
         }

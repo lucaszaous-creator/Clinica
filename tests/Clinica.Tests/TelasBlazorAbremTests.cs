@@ -355,5 +355,19 @@ public sealed class BancoDasTelas : IDisposable
         db.SaveChanges();
     }
 
-    public void Dispose() => Conexao.Dispose();
+    /// <summary>
+    /// Fecha o banco da classe. Uma leitura de fundo de uma tela (o relógio de releitura, a
+    /// carga que o último clique disparou) pode ainda estar no ar quando o último caso termina,
+    /// e fechar a conexão por baixo dela faz o SQLite reclamar ("Collection was modified")
+    /// numa LIMPEZA que reprova a classe inteira. A leitura termina em milissegundos: tenta-se
+    /// de novo por até 2 s, e só a última tentativa deixa o erro subir.
+    /// </summary>
+    public void Dispose()
+    {
+        for (var tentativa = 1; ; tentativa++)
+        {
+            try { Conexao.Dispose(); return; }
+            catch (InvalidOperationException) when (tentativa < 40) { Thread.Sleep(50); }
+        }
+    }
 }
