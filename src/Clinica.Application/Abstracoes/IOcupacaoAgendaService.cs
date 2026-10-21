@@ -5,6 +5,18 @@ public sealed record HorarioOcupacao(int Id, DateTime Inicio, DateTime Fim, int?
 {
     /// <summary>A família da modalidade — a cor do traço na semana (os mesmos tokens da agenda).</summary>
     public Clinica.Domain.ModalidadeAtendimento Familia { get; init; }
+
+    /// <summary>
+    /// A etapa do dia, derivada dos carimbos (out/2026 — o "Chegou" da Visão geral): é ela que
+    /// decide se a linha oferece o check-in, com a MESMA regra da Agenda do dia.
+    /// </summary>
+    public Clinica.Domain.Entities.EtapaFila Etapa { get; init; }
+
+    /// <summary>Quando o paciente chegou ao local — a hora que a coluna Situação escreve.</summary>
+    public DateTime? ChegadaEm { get; init; }
+
+    /// <summary>A situação no vocabulário das listas do dia ("No local", "Em atendimento"…).</summary>
+    public string SituacaoDoDia { get; init; } = string.Empty;
 }
 public sealed record MedidaOcupacao(int Atendimentos, int Cancelados, int Faltas, int MinutosOcupados,
     int MinutosDisponiveis, int MinutosBloqueados, int SemJornada, int ForaDaJornada)

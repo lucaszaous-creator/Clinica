@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +30,7 @@ public sealed class OcupacaoAgendaService(ClinicaDbContext db) : IOcupacaoAgenda
         var linhas = await ConsultaHorarios(de, ate, profissionalId)
             .OrderBy(a => a.DataHora).ThenBy(a => a.Id)
             .Select(a => new { a.Id, a.DataHora, a.ProfissionalId, a.Status,
+                a.ChegadaEm, a.ChamadoEm, a.InicioAtendimentoEm, a.FimAtendimentoEm,
                 Duracao = a.DuracaoMinutos ?? (a.Profissional != null ? a.Profissional.DuracaoPadraoMinutos : null) ?? 30,
                 Profissional = a.Profissional != null ? a.Profissional.Nome : "Sem profissional",
                 Paciente = a.Paciente!.Nome, a.ModalidadePrevista }).ToListAsync(ct);
@@ -42,9 +44,20 @@ public sealed class OcupacaoAgendaService(ClinicaDbContext db) : IOcupacaoAgenda
             throw new InvalidOperationException("O profissional não está disponível neste período.");
         var bloqueios = calcularJornadas ? await db.BloqueiosAgenda.AsNoTracking().Where(b => b.Inicio < ate && b.Fim > de)
             .Select(b => new BloqueioAgenda { ProfissionalId = b.ProfissionalId, SalaId = b.SalaId, Inicio = b.Inicio, Fim = b.Fim, Motivo = b.Motivo }).ToListAsync(ct) : [];
-        var horarios = linhas.Select(a => new HorarioOcupacao(a.Id, a.DataHora, a.DataHora.AddMinutes(a.Duracao),
-            a.ProfissionalId, a.Profissional, a.Paciente, RotulosEnum.De(a.ModalidadePrevista), RotulosEnum.De(a.Status),
-            a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado) { Familia = a.ModalidadePrevista }).ToList();
+        var horarios = linhas.Select(a =>
+        {
+            // A etapa sai da MESMA derivação da entidade (Agendamento.Etapa): duas contas de
+            // "quem já chegou" divergiriam entre a Visão geral e a Agenda do dia.
+            var etapa = new Agendamento { Status = a.Status, ChegadaEm = a.ChegadaEm, ChamadoEm = a.ChamadoEm,
+                InicioAtendimentoEm = a.InicioAtendimentoEm, FimAtendimentoEm = a.FimAtendimentoEm }.Etapa;
+            return new HorarioOcupacao(a.Id, a.DataHora, a.DataHora.AddMinutes(a.Duracao),
+                a.ProfissionalId, a.Profissional, a.Paciente, RotulosEnum.De(a.ModalidadePrevista), RotulosEnum.De(a.Status),
+                a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)
+            {
+                Familia = a.ModalidadePrevista, Etapa = etapa, ChegadaEm = a.ChegadaEm,
+                SituacaoDoDia = StatusDaFila.Palavra(a.Status, etapa)
+            };
+        }).ToList();
         MedidaOcupacao Medir(DateOnly primeiro, DateOnly ultimo, IReadOnlyList<Profissional> equipe, IReadOnlyList<HorarioOcupacao> agenda)
         {
             var ocupados = 0; var capacidade = 0; var bloqueados = 0; var fora = new HashSet<int>();

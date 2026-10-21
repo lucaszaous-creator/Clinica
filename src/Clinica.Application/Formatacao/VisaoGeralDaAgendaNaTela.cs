@@ -11,6 +11,22 @@ public enum ModoVisaoAgenda { Dia, Semana, Mes }
 /// <summary>Um horário na lista do modo DIA. Cancelado e falta continuam, apagados — a regra da folha do dia.</summary>
 public sealed record LinhaHorarioOcupacao(HorarioOcupacao Horario, string Inicio, string Ate)
 {
+    /// <summary>
+    /// O "Chegou" da linha (out/2026, pedido da clínica): só no DIA da sessão e só para quem
+    /// ainda não chegou — a mesma regra do passo da Agenda do dia. Carimbar a chegada num
+    /// horário de outro dia gravaria a hora de agora numa sessão que não está acontecendo.
+    /// </summary>
+    public bool PodeChegar(DateOnly hoje)
+        => Horario.Etapa == Clinica.Domain.Entities.EtapaFila.Aguardando
+           && DateOnly.FromDateTime(Horario.Inicio) == hoje;
+
+    /// <summary>"No local · chegou às 14:40", "Em atendimento", "Marcado".</summary>
+    public string Situacao => string.IsNullOrEmpty(Horario.SituacaoDoDia)
+        ? Horario.Situacao
+        : Horario.ChegadaEm is { } c && Horario.Etapa == Clinica.Domain.Entities.EtapaFila.Chegou
+            ? $"{Horario.SituacaoDoDia} · chegou às {c:HH\\:mm}"
+            : Horario.SituacaoDoDia;
+
     public bool Inativo => !Horario.Ocupa;
 }
 
@@ -181,6 +197,17 @@ public static class VisaoGeralDaAgendaNaTela
     public static IReadOnlyList<LinhaHorarioOcupacao> HorariosDoDia(OcupacaoAgenda d)
         => d.Horarios.Select(h => new LinhaHorarioOcupacao(h, h.Inicio.ToString("HH:mm", PtBr),
             $"até {h.Fim.ToString("HH:mm", PtBr)}" + (h.Fim.Date != h.Inicio.Date ? " · dia seguinte" : ""))).ToList();
+
+    /// <summary>
+    /// Os atendimentos de HOJE (out/2026 — o "Chegou" nos modos Semana e Mês): a semana e o mês
+    /// mostram números, não pacientes, e quem está no balcão precisa registrar quem chegou
+    /// sem trocar de modo. Só os que COMEÇAM hoje: o check-in é do dia da sessão.
+    /// </summary>
+    public static IReadOnlyList<LinhaHorarioOcupacao> HorariosDeHoje(OcupacaoAgenda d, DateOnly hoje)
+        => HorariosDoDia(d).Where(l => DateOnly.FromDateTime(l.Horario.Inicio) == hoje).ToList();
+
+    /// <summary>O período carregado já contém hoje? Senão a tela pede hoje à parte (uma consulta leve).</summary>
+    public static bool IncluiHoje(DateOnly inicio, DateOnly fim, DateOnly hoje) => inicio <= hoje && hoje <= fim;
 
     /// <summary>
     /// O calendário do MÊS: células vazias antes do dia 1 (para ele cair na coluna da semana
