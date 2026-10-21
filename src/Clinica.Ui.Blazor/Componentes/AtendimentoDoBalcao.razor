@@ -39,6 +39,10 @@
 
         <div class="ra-grade">
             <div class="ra-form">
+                @* Depois de gravar, o formulário TRAVA (out/2026): editá-lo não muda o que já foi
+                   marcado, e o "Marcar outro" é a única saída — campos acesos ali faziam a
+                   recepcionista mexer num horário que já estava gravado e achar que corrigiu. *@
+                <fieldset class="ra-travado" disabled="@_lancado">
                 @* ============ 1 · QUEM ============ *@
                 <section class="ra-quem" aria-label="Quem">
                     <FaixaDoPaciente Paciente="_paciente" AoTrocar="Trocar" />
@@ -73,8 +77,11 @@
                                         <span class="ra-habitual">o de sempre dele</span>
                                     }
                                 </span>
-                                <span class="ra-mod-guias">@c.QuantasGuias</span>
-                                <span class="ra-mod-quando @(c.TemSegundoCodigo ? "segundo" : null)">@c.Quando</span>
+                                @if (MostraGuias)
+                                {
+                                    <span class="ra-mod-guias">@c.QuantasGuias</span>
+                                    <span class="ra-mod-quando @(c.TemSegundoCodigo ? "segundo" : null)">@c.Quando</span>
+                                }
                             </button>
                         }
                     </div>
@@ -190,6 +197,7 @@
                         <label class="marcar ra-encaixe"><input type="checkbox" @bind="_comoEncaixe" />Registrar como encaixe (atender por cima de um horário que já tem paciente)</label>
                     }
                 </section>
+                </fieldset>
 
                 @* ============ o desfecho ============ *@
                 @if (_lancado)
@@ -237,7 +245,7 @@
             @* ============ A CONSEQUÊNCIA ============ *@
             <aside class="cartao ra-lado" aria-label="O que vai ser gravado">
                 <div class="ra-lado-corpo">
-                    <h3 class="ra-lado-titulo">@AtendimentoDoBalcaoNaTela.TituloResumo(Marcar)</h3>
+                    <h3 class="ra-lado-titulo">@AtendimentoDoBalcaoNaTela.TituloResumo(Marcar, _lancado)</h3>
                     <dl class="pares ra-resumo">
                         <dt>Paciente</dt><dd>@_paciente.Nome</dd>
                         <dt>Atendimento</dt><dd>@ResumoAtendimento</dd>
@@ -246,7 +254,7 @@
                         <dt>Guias</dt><dd>@ResumoGuias</dd>
                     </dl>
 
-                    @if (TemAvisos)
+                    @if (TemAvisos && !_lancado)
                     {
                         <h3 class="ra-lado-titulo">Antes de @(Marcar ? "marcar" : "lançar")</h3>
                         <div class="ra-avisos">
@@ -358,7 +366,7 @@
                     }
                     @if (!_lancado)
                     {
-                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar)" @onclick="LancarAsync"
+                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar || FaltaHora)" @onclick="LancarAsync"
                                 title="@(PodeGravar ? null : Marcar ? "Marcar exige acesso de edição à agenda (e ao lançamento, com a guia na marcação)." : "Lançar exige o acesso de lançamento de atendimento.")">
                             @(_ocupado ? "Gravando…" : RotuloDoBotao)
                         </button>
@@ -371,7 +379,10 @@
                     {
                         <p class="ra-dica">@AtendimentoDoBalcaoNaTela.NotaGuiaNaMarcacao(_guiaNaMarcacao)</p>
                     }
-                    <button type="button" class="botao fantasma ra-limpar" @onclick="NovoLancamento">Limpar</button>
+                    @if (!_lancado)
+                    {
+                        <button type="button" class="botao fantasma ra-limpar" @onclick="NovoLancamento">Limpar</button>
+                    }
                 </div>
             </aside>
         </div>
@@ -468,6 +479,12 @@
     private bool SemProfissionalEscolhido => Marcar && _profissional is null && _profissionais.Count > 0;
     private bool ExecutanteADefinir => _profissional is null && _profissionais.Count > 0;
     private bool UsarHorarioDoDia => _horarioDoDia is not null && !Marcar && !_criarEncaixeSeparado;
+
+    /// <summary>A contagem de guias só aparece onde a guia NASCE neste clique.</summary>
+    private bool MostraGuias => AtendimentoDoBalcaoNaTela.MostraPrevia(Marcar, _guiaNaMarcacao);
+
+    /// <summary>No marcar sem hora escolhida o botão espera — e diz o que falta.</summary>
+    private bool FaltaHora => Marcar && !AtendimentoDoBalcaoNaTela.HoraValida(_hora);
     private bool MostrarPrevia => _previa.Count > 0 && !_lancado && AtendimentoDoBalcaoNaTela.MostraPrevia(Marcar, _guiaNaMarcacao);
     private static bool PodeCadastrar => Pode(Permissao.EditarPaciente);
 
@@ -489,7 +506,7 @@
 
     private string QuandoPorExtenso => AtendimentoDoBalcaoNaTela.QuandoPorExtenso(_data, _hora);
 
-    private string RotuloDoBotao => AtendimentoDoBalcaoNaTela.RotuloDoBotao(
+    private string RotuloDoBotao => FaltaHora ? "Escolha o horário para marcar" : AtendimentoDoBalcaoNaTela.RotuloDoBotao(
         Marcar, _guiaNaMarcacao, _totalGuias, QuandoPorExtenso, UsarHorarioDoDia ? _horarioDoDia!.Hora : null);
 
     private string ResumoAtendimento => _modalidade is null ? AtendimentoDoBalcaoNaTela.Travessao
@@ -508,7 +525,8 @@
         }
     }
 
-    private string ResumoGuias => _modalidade is not null && _consequencias.TryGetValue(_modalidade.Codigo, out var c)
+    private string ResumoGuias => !MostraGuias ? AtendimentoDoBalcaoNaTela.GuiasNoFinalizar
+        : _modalidade is not null && _consequencias.TryGetValue(_modalidade.Codigo, out var c)
         ? $"{c.QuantasGuias.Replace(" guias", "").Replace(" guia", "")} · {c.Quando}" : AtendimentoDoBalcaoNaTela.Travessao;
 
     private string? ContextoDaBusca => _contextoDoPedido ?? AtendimentoDoBalcaoNaTela.Subtitulo(Marcar);
@@ -522,6 +540,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (Marcar) _hora = string.Empty;
         CarregarCatalogos();
         await CarregarEquipeAsync();
         await LerChaveAsync();
@@ -972,7 +991,7 @@
     {
         _ultimaPrevia = porModalidade;
         _consequencias = _modalidades.ToDictionary(m => m.Codigo,
-            m => porModalidade.TryGetValue(m.Codigo, out var p) ? AtendimentoDoBalcaoNaTela.Consequencia(p) : ConsequenciaDaModalidade.SemPrevia);
+            m => porModalidade.TryGetValue(m.Codigo, out var p) ? AtendimentoDoBalcaoNaTela.Consequencia(p, Marcar) : ConsequenciaDaModalidade.SemPrevia);
     }
 
     private void LimparPrevia()
@@ -1015,7 +1034,8 @@
             using var escopo = Escopo();
             var capas = await escopo.ServiceProvider.GetRequiredService<AtendimentoService>().CapasDoDiaAsync(pacienteId, _data);
             if (g != _gJaLancado || _paciente?.Id != pacienteId) return;
-            _avisoJaLancado = AtendimentoDoBalcaoNaTela.AvisoJaLancado(capas, _data);
+            _avisoJaLancado = AtendimentoDoBalcaoNaTela.AvisoJaLancado(capas, _data, Marcar,
+                AtendimentoDoBalcaoNaTela.NasceAtendimento(Marcar, _guiaNaMarcacao));
         }
         catch (Exception ex)
         {
@@ -1238,7 +1258,7 @@
         if (_paciente is not { } paciente) { Avisar("Selecione o paciente.", "erro"); return; }
         if (_modalidade is not { } modalidade) { Avisar("Selecione a modalidade.", "erro"); return; }
         if (EhConsulta && _especialidade is null) { Avisar("Informe a especialidade da consulta.", "erro"); return; }
-        if (!TimeOnly.TryParse(_hora, out var hora)) { Avisar("Informe a hora da sessão no formato HH:mm.", "erro"); return; }
+        if (!TimeOnly.TryParse(_hora, out var hora)) { Avisar(AtendimentoDoBalcaoNaTela.RecusaSemHora(Marcar), "erro"); return; }
 
         // SEM CONVÊNIO NÃO SE LANÇA (parcela 92) — a condição vale onde o atendimento NASCE.
         if (AtendimentoDoBalcaoNaTela.NasceAtendimento(Marcar, _guiaNaMarcacao) && paciente.ConvenioADefinir)
@@ -1477,7 +1497,8 @@
             var capas = await escopo.ServiceProvider.GetRequiredService<AtendimentoService>().CapasDoDiaAsync(paciente.Id, _data);
             if (capas.Count == 0) return true;
             return await Dialogos.ConfirmarAsync("Atendimento repetido?",
-                AtendimentoDoBalcaoNaTela.PerguntaDeRepetido(paciente.Nome, capas, _data, Marcar), perigoso: true);
+                AtendimentoDoBalcaoNaTela.PerguntaDeRepetido(paciente.Nome, capas, _data, Marcar,
+                    AtendimentoDoBalcaoNaTela.NasceAtendimento(Marcar, _guiaNaMarcacao)), perigoso: true);
         }
         catch (Exception ex)
         {
@@ -1507,10 +1528,25 @@
         }
     }
 
-    /// <summary>Zera a tela para outro lançamento, sem sair dela. O MODO é o da aba.</summary>
+    /// <summary>
+    /// Zera a tela para outro lançamento, sem sair dela. O MODO é o da aba.
+    ///
+    /// ⚠️ "Marcar outro" é OUTRO horário (out/2026): antes, modalidade, hora, sala, duração e os
+    /// avisos de choque do horário que acabou de ser marcado ficavam na tela, e o paciente
+    /// seguinte nascia no MESMO vão do anterior ("já atende Fulano às 15:11"). No marcar ficam só
+    /// o DIA e QUEM ATENDE — é comum marcar vários pacientes do mesmo profissional em sequência;
+    /// a hora volta em branco, para ninguém marcar dois no mesmo horário sem perceber.
+    /// </summary>
     private void NovoLancamento()
     {
         _lancado = false;
+        DefinirModalidade(null, prever: false);
+        _especialidade = null;
+        _sala = null;
+        _duracao = string.Empty;
+        _conflitos = [];
+        _vagas = null;
+        _gConflitos++;
         _numeroAtendimento = _tituloResultado = _resumoBaixas = null;
         _ultimoAtendimentoId = 0;
         _jaRealizado = false;
@@ -1520,7 +1556,15 @@
         _mensagem = null;
         _comoEncaixe = false;
         _guiaAberta = false;
-        _data = DateOnly.FromDateTime(DateTime.Today);
+        if (Marcar)
+        {
+            _hora = string.Empty;
+        }
+        else
+        {
+            _data = DateOnly.FromDateTime(DateTime.Today);
+            _hora = DateTime.Now.ToString("HH:mm");
+        }
         Trocar();
         Disparar(MontarHorasAsync);
     }

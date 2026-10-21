@@ -57,6 +57,30 @@ public static class AtendimentoDoBalcaoNaTela
 
     public static string TituloResumo(bool marcar) => marcar ? "O que vai ser marcado" : "O que vai ser lançado";
 
+    /// <summary>Depois de gravar, o resumo fala no passado: "vai ser marcado" sobre o que já foi mente.</summary>
+    public static string TituloResumo(bool marcar, bool concluido) => concluido
+        ? (marcar ? "O que foi marcado" : "O que foi lançado")
+        : TituloResumo(marcar);
+
+    /// <summary>
+    /// A hora digitada/escolhida vale? No MARCAR a tela abre SEM hora (out/2026): pré-preencher
+    /// com o relógio do computador marcava "15:11" de quem não escolheu nada, e o "Marcar outro"
+    /// herdava a hora do horário que acabou de ser marcado — o próximo paciente nascia em choque
+    /// com o anterior.
+    /// </summary>
+    public static bool HoraValida(string? hora) => TimeOnly.TryParse(hora, out _);
+
+    /// <summary>A recusa de hora em branco/inválida, no verbo do modo.</summary>
+    public static string RecusaSemHora(bool marcar) => marcar
+        ? "Escolha o horário — numa das pílulas ou digitando em \u201COutro horário\u201D."
+        : "Informe a hora da sessão no formato HH:mm.";
+
+    /// <summary>
+    /// A linha "Guias" do resumo quando a guia NÃO nasce neste clique (marcar com a chave
+    /// desligada): contar "1 guia · tudo hoje" ali afirmava uma guia que a marcação não cria.
+    /// </summary>
+    public const string GuiasNoFinalizar = "nascem quando o profissional finalizar";
+
     /// <summary>No marcar a hora é "Outro horário" (as pílulas são o caminho normal); no lançar é a hora.</summary>
     public static string RotuloHora(bool marcar) => marcar ? "Outro horário" : "Hora";
 
@@ -183,13 +207,14 @@ public static class AtendimentoDoBalcaoNaTela
     };
 
     /// <summary>"2 guias · a 2ª libera 09/08" — o que a regra do convênio gera nesta modalidade.</summary>
-    public static ConsequenciaDaModalidade Consequencia(PreviaLancamento? previa)
+    public static ConsequenciaDaModalidade Consequencia(PreviaLancamento? previa, bool marcar = false)
     {
         if (previa is null) return ConsequenciaDaModalidade.SemPrevia;
         var total = previa.GuiasHoje + previa.GuiasDepois;
+        // No MARCAR a sessão pode ser na semana que vem: "tudo hoje" mentia sobre a data.
         return new ConsequenciaDaModalidade(
             total == 1 ? "1 guia" : $"{total} guias",
-            previa.LiberaEm is { } quando ? $"a 2ª libera {quando:dd/MM}" : "tudo hoje",
+            previa.LiberaEm is { } quando ? $"a 2ª libera {quando:dd/MM}" : marcar ? "tudo no dia da sessão" : "tudo hoje",
             previa.GuiasDepois > 0);
     }
 
@@ -280,15 +305,40 @@ public static class AtendimentoDoBalcaoNaTela
 
     /// <summary>A capa do que o paciente já tem lançado no dia (parcela 70) — o aviso ANTES da pergunta.</summary>
     public static string? AvisoJaLancado(IReadOnlyList<CapaDoDia> capas, DateOnly data)
-        => capas.Count == 0
-            ? null
-            : $"Já lançado em {data:dd/MM}: "
-              + string.Join(" · ", capas.Select(c => $"nº {c.Numero} ({c.Modalidade}, {c.Lancamento} — {c.ResumoGuias})"))
-              + ". Lançar de novo cria OUTRO atendimento e outro jogo de guias.";
+        => AvisoJaLancado(capas, data, marcar: false, criaAtendimento: true);
+
+    /// <summary>
+    /// O mesmo aviso no verbo do MODO (out/2026): na tela de marcar, "Lançar de novo cria OUTRO
+    /// atendimento" falava de um gesto que ela não faz — e, com a chave desligada, marcar não
+    /// cria atendimento nem guia nenhuma: cria um segundo HORÁRIO no mesmo dia.
+    /// </summary>
+    public static string? AvisoJaLancado(IReadOnlyList<CapaDoDia> capas, DateOnly data, bool marcar, bool criaAtendimento)
+    {
+        if (capas.Count == 0) return null;
+        var lista = string.Join(" · ", capas.Select(c => $"nº {c.Numero} ({c.Modalidade}, {c.Lancamento} — {c.ResumoGuias})"));
+        if (!marcar)
+            return $"Já lançado em {data:dd/MM}: {lista}. Lançar de novo cria OUTRO atendimento e outro jogo de guias.";
+        return $"Já tem atendimento em {data:dd/MM}: {lista}. "
+               + (criaAtendimento
+                   ? "Marcar de novo cria OUTRO atendimento e outro jogo de guias."
+                   : "Marcar de novo cria um SEGUNDO horário no mesmo dia.");
+    }
 
     /// <summary>A pergunta INFORMADA do clique (parcela 70): pergunta, nunca recusa.</summary>
     public static string PerguntaDeRepetido(string paciente, IReadOnlyList<CapaDoDia> capas, DateOnly dia, bool marcar)
+        => PerguntaDeRepetido(paciente, capas, dia, marcar, criaAtendimento: true);
+
+    /// <summary>A pergunta no verbo do modo — marcar sem a chave cria um HORÁRIO, não guias.</summary>
+    public static string PerguntaDeRepetido(string paciente, IReadOnlyList<CapaDoDia> capas, DateOnly dia, bool marcar, bool criaAtendimento)
     {
+        if (marcar && !criaAtendimento)
+        {
+            var itens = string.Join("\n", capas.Take(4).Select(c =>
+                $"  • Nº {c.Numero} — {c.Modalidade}, {c.Lancamento} — {c.ResumoGuias}"));
+            if (capas.Count > 4) itens += $"\n  • … e mais {capas.Count - 4} atendimento(s)";
+            return $"{paciente} já tem atendimento em {dia:dd/MM/yyyy}:\n\n{itens}\n\n"
+                   + "Marcar de novo cria um SEGUNDO horário no mesmo dia.\n\nMarcar mesmo assim?";
+        }
         var linhas = string.Join("\n", capas.Take(4).Select(c =>
             $"  • Nº {c.Numero} — {c.Modalidade}, {c.Lancamento} — {c.ResumoGuias}"));
         if (capas.Count > 4) linhas += $"\n  • … e mais {capas.Count - 4} atendimento(s)";
