@@ -58,3 +58,8 @@ window.clinicaVideo = {
     ir: function (el, segundos) { if (el) { el.currentTime = segundos; el.play(); } },
     pausar: function (el) { if (el && !el.paused) el.pause(); }
 };
+// A altura da janela, para o menu "⋯" da Agenda do dia abrir para CIMA quando não cabe
+// embaixo (out/2026). Sem ela o menu cobria o próprio botão na última linha.
+window.clinicaJanela = {
+    altura: function () { return window.innerHeight; }
+};
