@@ -51,8 +51,13 @@
                 <h3 class="gh-rotulo">O que fazer com este horário</h3>
                 @if (c.EmAberto)
                 {
+                    @if (c.PodeChegar(Hoje))
+                    {
+                        <button type="button" class="botao primario gh-chegou" disabled="@(!PodeRegistrarChegada || _ocupado)" @onclick="ChegouAsync"
+                                title="@(PodeRegistrarChegada ? "Registrar que o paciente chegou ao local" : "Seu acesso não permite registrar a chegada.")">Chegou</button>
+                    }
                     <div class="gh-acoes">
-                        <button type="button" class="botao primario" disabled="@(!PodeEditar || _ocupado)" @onclick="Remarcar"
+                        <button type="button" class="botao @(c.PodeChegar(Hoje) ? null : "primario")" disabled="@(!PodeEditar || _ocupado)" @onclick="Remarcar"
                                 title="@(PodeEditar ? "Mover o horário — o registro e o histórico ficam" : "Seu acesso não permite mexer na agenda.")">Remarcar</button>
                         <button type="button" class="botao" disabled="@(!c.TemTelefone || _ocupado)" @onclick="ConfirmarAsync"
                                 title="Abre o WhatsApp com a confirmação pronta">Confirmar pelo WhatsApp</button>
@@ -121,6 +126,28 @@ else if (_modo == Modo.Espera && _cartao is { } e)
     private bool _mudou;
 
     private static bool PodeEditar => Pode(Permissao.EditarAgenda);
+    private static bool PodeRegistrarChegada => PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila);
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>
+    /// CHEGOU NO LOCAL pela janela do horário (out/2026): o MESMO serviço e as MESMAS guardas do
+    /// passo da Agenda do dia — permissão e "só no dia da sessão". Gravou, quem abriu relê.
+    /// </summary>
+    private Task ChegouAsync() => AgirAsync(async () =>
+    {
+        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "registrar a chegada")) return;
+        var c = _cartao!;
+        if (!c.PodeChegar(Hoje))
+        {
+            Notificacoes.Erro("O check-in é do dia da sessão e de quem ainda não chegou.");
+            return;
+        }
+        using (var escopo = Escopo())
+            await escopo.ServiceProvider.GetRequiredService<AgendaService>().RegistrarChegadaAsync(c.AgendamentoId, Operador);
+        Notificacoes.Sucesso($"{c.Paciente} está no local.");
+        await AoMudou.InvokeAsync();
+        await AoFechar.InvokeAsync();
+    }, "registro da chegada");
 
     protected override async Task OnInitializedAsync()
     {

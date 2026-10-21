@@ -426,27 +426,6 @@
                 <div class="rodape-lista">A ocupação considera o tempo dos profissionais dentro do horário de atendimento cadastrado, descontando a agenda fechada. Horários simultâneos contam uma vez; cancelamentos e faltas não ocupam. Tempo livre não equivale a vagas reservadas.</div>
             </section>
         }
-        @* "Hoje" nos modos Semana e Mês (out/2026, pedido da clínica): o check-in sem trocar de modo. *@
-        @if (_modo != ModoVisaoAgenda.Dia)
-        {
-            <section class="cartao lista-cartao rec-oc-hoje">
-                <div class="cartao-titulo">
-                    <div><h2>Hoje</h2><p>Os atendimentos de hoje@(Filtrando ? " deste profissional" : "") — registre quem chegou sem sair desta visão.</p></div>
-                </div>
-                @if (_hojeNaoLido)
-                {
-                    <p class="cartao-corpo secundario">Não foi possível ler os atendimentos de hoje. Use o modo Dia ou a Agenda do dia.</p>
-                }
-                else if (_hoje.Count == 0)
-                {
-                    <EstadoVazio Titulo="Nenhum atendimento hoje" Descricao="Quando houver, eles aparecem aqui com o botão Chegou." Icone="calendario" />
-                }
-                else
-                {
-                    @TabelaDeHorarios(_hoje)
-                }
-            </section>
-        }
     }
 </div>
 
@@ -491,45 +470,6 @@
     private bool _horarioAberto;
     private int? _horarioDe;
     private int? _agendamentoAberto;
-    private bool _chegando;
-    private IReadOnlyList<LinhaHorarioOcupacao> _hoje = [];
-    private bool _hojeNaoLido;
-    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
-
-    /// <summary>A metade visível da permissão do "Chegou" — a mesma da Agenda do dia.</summary>
-    private static bool PodeRegistrarChegada => PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila);
-
-    /// <summary>
-    /// CHEGOU NO LOCAL pela Visão geral (out/2026): o MESMO serviço e as MESMAS guardas do passo da
-    /// Agenda do dia — permissão e "só no dia da sessão", as duas falando —, e a tela relê no fim.
-    /// </summary>
-    private async Task ChegouAsync(LinhaHorarioOcupacao h)
-    {
-        if (_chegando) return;
-        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "registrar a chegada")) return;
-        if (!h.PodeChegar(Hoje))
-        {
-            Notificacoes.Erro("O check-in é do dia da sessão e de quem ainda não chegou.");
-            return;
-        }
-        _chegando = true;
-        try
-        {
-            using var escopo = Escopo();
-            await escopo.ServiceProvider.GetRequiredService<AgendaService>().RegistrarChegadaAsync(h.Horario.Id, Operador);
-            Notificacoes.Sucesso($"{h.Horario.Paciente} está no local.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Recepção — Visão geral: registro da chegada falhou", ex);
-            Notificacoes.Erro(ex.Message);
-        }
-        finally
-        {
-            _chegando = false;
-        }
-    }
     private AlvoDoBloqueio? _bloqueioDe;
     private bool _esperaAberta;
     private bool _conciliando;
@@ -628,8 +568,6 @@
             _dados = resultado;
             if (filtro is null) _profissionais = resultado.Profissionais.Select(p => (p.Id, p.Nome)).ToList();
             _horarios = VisaoGeralDaAgendaNaTela.HorariosDoDia(resultado);
-            await CarregarHojeAsync(escopo, resultado, inicio, fim, filtro);
-            if (geracao != _geracao || Descartada) return;
             _semana = _modo == ModoVisaoAgenda.Semana ? VisaoGeralDaAgendaNaTela.Semana(resultado, filtro is not null, DateOnly.FromDateTime(DateTime.Today)) : [];
             _calendario = _modo == ModoVisaoAgenda.Mes ? VisaoGeralDaAgendaNaTela.Calendario(resultado, _dia) : [];
             _equipe = VisaoGeralDaAgendaNaTela.Equipe(resultado);
@@ -664,37 +602,12 @@
 
     private Task AtualizarAsync() => !PodeConsultar() || Carregando ? Task.CompletedTask : CarregarAsync();
 
-    /// <summary>
-    /// Os atendimentos de HOJE para o bloco "Hoje" (modos Semana e Mês). Saem do que já foi lido
-    /// quando o período contém hoje; senão (navegando outra semana ou mês), uma consulta leve de
-    /// um dia, sem jornadas. Falhar não derruba a visão: o bloco diz que não leu.
-    /// </summary>
-    private async Task CarregarHojeAsync(IServiceScope escopo, OcupacaoAgenda resultado, DateOnly inicio, DateOnly fim, int? filtro)
-    {
-        if (_modo == ModoVisaoAgenda.Dia) { _hoje = []; _hojeNaoLido = false; return; }
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        try
-        {
-            var fonte = VisaoGeralDaAgendaNaTela.IncluiHoje(inicio, fim, hoje)
-                ? resultado
-                : await escopo.ServiceProvider.GetRequiredService<IOcupacaoAgendaService>().ConsultarMovimentoAsync(_usuario, hoje, hoje, filtro);
-            _hoje = VisaoGeralDaAgendaNaTela.HorariosDeHoje(fonte, hoje);
-            _hojeNaoLido = false;
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Blazor — Visão geral: atendimentos de hoje", ex);
-            _hoje = [];
-            _hojeNaoLido = true;
-        }
-    }
-
-    /// <summary>A tabela de horários — a mesma no modo Dia e no bloco "Hoje", com o Chegou na linha.</summary>
+    /// <summary>A tabela de horários do modo Dia. O "Chegou" mora na janela do horário (pedido da clínica).</summary>
     private RenderFragment TabelaDeHorarios(IReadOnlyList<LinhaHorarioOcupacao> linhas) => __builder =>
     {
         <div class="tabela-rolagem">
             <table class="lista rec-oc-dia">
-                <thead><tr><th style="width:120px">Horário</th><th>Paciente · atendimento</th><th style="width:200px">Profissional</th><th style="width:200px">Situação</th><th class="direita" style="width:110px"><span class="rec-oc-oculto">Ação</span></th></tr></thead>
+                <thead><tr><th style="width:120px">Horário</th><th>Paciente · atendimento</th><th style="width:200px">Profissional</th><th style="width:200px">Situação</th></tr></thead>
                 <tbody>
                     @foreach (var h in linhas)
                     {
@@ -706,14 +619,6 @@
                                 <span class="secundario">@h.Horario.Modalidade</span></td>
                             <td>@h.Horario.Profissional</td>
                             <td><Selo Tom="@(h.Inativo ? "neutro" : h.Horario.Etapa == EtapaFila.Chegou ? "sucesso" : "")">@h.Situacao</Selo></td>
-                            <td class="direita">
-                                @if (h.PodeChegar(Hoje))
-                                {
-                                    <button type="button" class="botao mini primario" disabled="@(!PodeRegistrarChegada || _chegando)"
-                                            title="@(PodeRegistrarChegada ? "Registrar que o paciente chegou ao local" : "Seu acesso não permite registrar a chegada.")"
-                                            @onclick="() => ChegouAsync(h)" @onclick:stopPropagation="true">Chegou</button>
-                                }
-                            </td>
                         </tr>
                     }
                 </tbody>

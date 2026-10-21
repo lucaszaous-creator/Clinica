@@ -21,3 +21,5 @@
 .ge-quem{display:flex;flex-direction:column;gap:2px;min-width:0}
 .ge-quem .selo{align-self:flex-start;margin:0}
 .ge-obs{font-style:italic}
+/* O "Chegou" (out/2026): o ato mais frequente do dia vem primeiro, em largura inteira. */
+.gh-chegou{width:100%;margin-bottom:var(--space-2)}

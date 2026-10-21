@@ -56,6 +56,13 @@ public sealed record CartaoDaGrade
     /// <summary>A palavra da situação (o vocabulário das duas listas do dia), vazia enquanto só está marcado.</summary>
     public string SituacaoDaFila => StatusDaFila.SituacaoNaGrade(Situacao, Etapa);
 
+    /// <summary>
+    /// A janela do horário oferece "Chegou" (out/2026)? Só no DIA da sessão e para quem ainda
+    /// não chegou — a mesma regra do passo da Agenda do dia. A janela é aberta pela Grade, pela
+    /// Visão geral, pela Agenda do dia e pelo Início: o check-in passa a existir em todas.
+    /// </summary>
+    public bool PodeChegar(DateOnly hoje) => Etapa == EtapaFila.Aguardando && DateOnly.FromDateTime(DataHora) == hoje;
+
     /// <summary>O grupo da COR — o mesmo do filtro de situação e do traço da lista do dia.</summary>
     public string Grupo => SituacaoVisualAgenda.Grupo(Situacao, Etapa);
 
