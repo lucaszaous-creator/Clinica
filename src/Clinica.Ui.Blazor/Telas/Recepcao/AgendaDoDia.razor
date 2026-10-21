@@ -180,6 +180,8 @@
                                         {
                                             <button type="button" class="botao mini perigo" disabled="@(!Permissoes.FaltaOuCancelamento || _ocupado)" @onclick="() => CancelarAsync(l)"
                                                     title="@(Permissoes.FaltaOuCancelamento ? "O paciente pediu pelo WhatsApp para cancelar — cancela este horário e libera a vaga" : "Seu acesso não permite cancelar o horário.")">Aceitar cancelamento</button>
+                                            <button type="button" class="botao mini" disabled="@(!Permissoes.FaltaOuCancelamento || _ocupado)" @onclick="() => ManteveAsync(l)"
+                                                    title="@(Permissoes.FaltaOuCancelamento ? "A recepção falou com o paciente e ele vai manter este horário — o pedido sai da agenda e do sino" : "Seu acesso não permite mexer na agenda.")">Paciente manteve o horário</button>
                                         }
                                         @if (l.Passo != PassoDaAgenda.Nenhum)
                                         {
@@ -623,6 +625,19 @@
         Notificacoes.Info($"{l.Paciente} marcado como falta.");
         return true;
     }, "marcação de falta");
+
+    /// <summary>
+    /// O paciente pediu para cancelar, a recepção falou com ele e ele MANTEVE o horário: a
+    /// resposta vira "Confirmou" e o pedido sai da agenda e do sino (CampanhaService.ManterHorarioAsync).
+    /// </summary>
+    private Task ManteveAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda do dia")) return false;
+        using (var escopo = Escopo())
+            await escopo.ServiceProvider.GetRequiredService<CampanhaService>().ManterHorarioAsync(l.AgendamentoId, Operador);
+        Notificacoes.Info($"{l.Paciente} manteve o horário das {l.Horario}. O pedido de cancelamento saiu da agenda.");
+        return true;
+    }, "registro de que o paciente manteve o horário");
 
     private Task CancelarAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
     {

@@ -103,7 +103,8 @@ public sealed class SementeAgendaDoDia : ISemente
             EnviadoPor = "recepcao", Comentario = comentario
         });
         Confirmacao(aMarta, StatusContato.Respondido);
-        Confirmacao(aIvo, StatusContato.Enviado);
+        // Pediu pelo WhatsApp para cancelar: a linha mostra "Aceitar cancelamento" e "Paciente manteve o horário".
+        Confirmacao(aIvo, StatusContato.Respondido, Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaCancelar);
         Confirmacao(aNadia, StatusContato.Respondido, Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaRemarcar);
         db.SaveChanges();
     }

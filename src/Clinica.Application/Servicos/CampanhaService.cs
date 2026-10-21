@@ -233,6 +233,36 @@ public sealed class CampanhaService
     }
 
     /// <summary>
+    /// A recepção ligou para quem pediu pelo WhatsApp para cancelar (ou avisou que não vem) e o
+    /// paciente MANTEVE o horário (out/2026 — reverter o cancelamento evita perder a sessão). A
+    /// resposta passa a ser "Confirmou": o selo vermelho sai da agenda e o aviso sai do sino. O
+    /// que o paciente tinha pedido fica na trilha, com quem reverteu.
+    /// </summary>
+    public async Task ManterHorarioAsync(int agendamentoId, string operador, CancellationToken ct = default)
+    {
+        var contato = await _repo.ContatoDeConfirmacaoDoAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException("Este horário não tem resposta do paciente registrada.");
+        var situacao = RodadaDeConfirmacao.Classificar(contato.Status, contato.EnviadoEm, contato.Comentario);
+        if (situacao is not (SituacaoConfirmacao.PediuCancelar or SituacaoConfirmacao.PediuRemarcar))
+            throw new InvalidOperationException("Este horário não tem pedido de cancelamento em aberto.");
+
+        var pedido = contato.Comentario;
+        contato.Status = StatusContato.Respondido;
+        contato.RespondidoEm = DateTime.Now;
+        contato.EnviadoEm ??= contato.RespondidoEm;
+        contato.Comentario = RodadaDeConfirmacao.RespostaManteveHorario;
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Acao = "PedidoDeCancelamentoRevertido",
+            Operador = operador,
+            PacienteId = contato.PacienteId,
+            Detalhe = $"Agendamento {agendamentoId}: o paciente manteve o horário (tinha respondido: {pedido}).",
+            DataHora = DateTime.Now
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
     /// Tira o contato da campanha sem enviar. Exige motivo: "não mandamos" sem
     /// explicação é indistinguível de esquecimento quando alguém for conferir depois.
     /// </summary>

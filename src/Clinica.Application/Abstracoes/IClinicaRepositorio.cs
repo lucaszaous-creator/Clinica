@@ -1770,6 +1770,12 @@ public interface IClinicaRepositorio
         IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default);
 
     /// <summary>
+    /// O contato de confirmação de UM horário, RASTREADO, para gravar a resposta dada no balcão
+    /// ("o paciente manteve o horário"). O mais recente vence, pela mesma regra da leitura em lote.
+    /// </summary>
+    Task<ContatoCampanha?> ContatoDeConfirmacaoDoAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
+
+    /// <summary>
     /// Os contatos de confirmação ENVIADOS ou RESPONDIDOS das sessões ainda MARCADAS
     /// (<c>Agendado</c>) com horário em [<paramref name="sessoesDe"/>,
     /// <paramref name="sessoesAte"/>) — numa consulta só, em PROJEÇÃO (out/2026). É o que
