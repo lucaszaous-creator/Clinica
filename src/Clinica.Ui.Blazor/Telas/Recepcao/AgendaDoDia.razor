@@ -176,6 +176,11 @@
                                 </td>
                                 <td class="direita rd-col-acoes nao-quebra">
                                     <span class="botoes-linha">
+                                        @if (l.PediuCancelar)
+                                        {
+                                            <button type="button" class="botao mini perigo" disabled="@(!Permissoes.FaltaOuCancelamento || _ocupado)" @onclick="() => CancelarAsync(l)"
+                                                    title="@(Permissoes.FaltaOuCancelamento ? "O paciente pediu pelo WhatsApp para cancelar — cancela este horário e libera a vaga" : "Seu acesso não permite cancelar o horário.")">Aceitar cancelamento</button>
+                                        }
                                         @if (l.Passo != PassoDaAgenda.Nenhum)
                                         {
                                             var pode = AgendaDoDiaNaTela.PodeDarOPasso(l, Permissoes);
@@ -622,9 +627,12 @@
     private Task CancelarAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
     {
         if (!Exigir(Permissao.EditarAgenda, "mexer na fila do dia")) return false;
-        // A MESMA pergunta da Grade: "Cancelar" mora ao lado de "Marcar falta".
-        if (!await Dialogos.ConfirmarAsync("Cancelar horário", $"Cancelar o horário de {l.Paciente} ({l.Horario})?",
-                perigoso: true, confirmar: "Cancelar o horário")) return false;
+        // A MESMA pergunta da Grade: "Cancelar" mora ao lado de "Marcar falta". O pedido do
+        // paciente (WhatsApp) é aceito aqui mesmo — a pergunta diz de onde veio.
+        var (titulo, pergunta, confirmar) = l.PediuCancelar
+            ? ("Aceitar cancelamento", $"{l.Paciente} pediu pelo WhatsApp para cancelar o horário das {l.Horario}. Cancelar e liberar a vaga?", "Aceitar cancelamento")
+            : ("Cancelar horário", $"Cancelar o horário de {l.Paciente} ({l.Horario})?", "Cancelar o horário");
+        if (!await Dialogos.ConfirmarAsync(titulo, pergunta, perigoso: true, confirmar: confirmar)) return false;
         IReadOnlyList<string> avisos;
         using (var escopo = Escopo())
             avisos = await escopo.ServiceProvider.GetRequiredService<AgendaService>().CancelarAsync(l.AgendamentoId, Operador);

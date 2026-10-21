@@ -11,9 +11,10 @@ using System.Text.Json;
 
 namespace Clinica.Crm.Bridge;
 
-// "Cancelar" e "remarcar" vindos do WhatsApp seguem a MESMA regra do link do SMS
-// (docs/canal-sms.md §3.3): viram "Não vem — remarcar" na agenda e a recepção liga, remarca
-// e oferece a vaga. Cancelar sozinho só com CRM_CANCEL_ENABLED=true (decisão da clínica).
+// "Remarcar" vindo do WhatsApp segue a MESMA regra do link do SMS (docs/canal-sms.md §3.3):
+// vira "Não vem — remarcar" na agenda e a recepção liga, remarca e oferece a vaga. "Cancelar"
+// vira "Pediu para cancelar" e a recepção aceita na própria agenda (out/2026). Cancelar
+// sozinho só com CRM_CANCEL_ENABLED=true (decisão da clínica).
 public sealed record BridgeOptions(bool CancelEnabled=false);
 public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,BridgeOptions? options=null)
 {
@@ -47,7 +48,7 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
     public static string AnswerOf(ContatoCampanha? c) => c is null ? "" : RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario) switch
     {
         SituacaoConfirmacao.Confirmou => "confirmed",
-        SituacaoConfirmacao.PediuRemarcar => "not-coming",
+        SituacaoConfirmacao.PediuRemarcar or SituacaoConfirmacao.PediuCancelar => "not-coming",
         _ => ""
     };
     static DateTimeOffset? At(DateTime? local) => local is { } d ? new DateTimeOffset(DateTime.SpecifyKind(d, DateTimeKind.Unspecified), Zone.GetUtcOffset(d)) : null;
@@ -78,7 +79,10 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
         // O comentário é o que o classificador da clínica lê (RodadaDeConfirmacao.Classificar):
         // texto livre num "não vou" seria lido como "Confirmou" na agenda do balcão.
         var cancel=input.Decision=="cancel"&&options?.CancelEnabled==true;
-        contact.Comentario=input.Decision=="confirm"?Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaConfirmouPeloWhatsApp:Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaRemarcar;
+        // "Cancelar" sem o cancelamento automático vira PEDIDO: a recepção aceita na própria agenda.
+        contact.Comentario=input.Decision switch{"confirm"=>Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaConfirmouPeloWhatsApp,
+            "cancel" when !cancel=>Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaCancelar,
+            _=>Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaRemarcar};
         db.Auditoria.Add(new(){Acao=input.Decision=="confirm"?"CrmConfirmacao":input.Decision=="cancel"?"CrmCancelamento":"CrmPedidoRemarcar",Operador="CRM · resposta do paciente",PacienteId=ap.PacienteId,Detalhe=marker,DataHora=Now()});
         // Reuse the clinic's cancellation logic: this also handles related billing guides.
         // Confirmation deliberately does not call ConfirmarPresencaAsync.
@@ -90,6 +94,6 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
         "notified"=>new("notified","Lembrete registrado na clínica"),
         "confirm"=>new("confirmed","Intenção de comparecer registrada na clínica"),
         "cancel" when cancelled=>new("cancelled","Agendamento cancelado na clínica a pedido do paciente"),
-        "cancel"=>new("cancel-requested","Paciente avisou que não vem: a agenda mostra \"Não vem — remarcar\" para a recepção"),
+        "cancel"=>new("cancel-requested","Paciente pediu para cancelar: a agenda mostra o pedido para a recepção aceitar"),
         _=>new("reschedule-requested","Pedido de remarcação registrado na agenda da clínica")};
 }

@@ -96,6 +96,8 @@ public static class FichaDoBalcao
             {
                 TipoContato.ConfirmacaoSessao when RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario) == SituacaoConfirmacao.PediuRemarcar
                     => ($"Avisou que não vem à sessão de {c.Referencia:dd/MM}", c.RespondidoEm ?? c.EnviadoEm!.Value),
+                TipoContato.ConfirmacaoSessao when RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario) == SituacaoConfirmacao.PediuCancelar
+                    => ($"Pediu para cancelar a sessão de {c.Referencia:dd/MM}", c.RespondidoEm ?? c.EnviadoEm!.Value),
                 TipoContato.ConfirmacaoSessao when c.Status == StatusContato.Respondido
                     => ($"Confirmou a sessão de {c.Referencia:dd/MM}", c.RespondidoEm ?? c.EnviadoEm!.Value),
                 TipoContato.ConfirmacaoSessao => ($"Avisado da sessão de {c.Referencia:dd/MM}", c.EnviadoEm ?? c.RespondidoEm!.Value),

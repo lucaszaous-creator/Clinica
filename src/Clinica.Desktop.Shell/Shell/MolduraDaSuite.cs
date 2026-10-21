@@ -130,7 +130,7 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
 
     private static string Tom(Clinica.Application.Modelos.TipoAvisoConfirmacao tipo) => tipo switch
     {
-        Clinica.Application.Modelos.TipoAvisoConfirmacao.NaoVem => "nao-vem",
+        Clinica.Application.Modelos.TipoAvisoConfirmacao.NaoVem or Clinica.Application.Modelos.TipoAvisoConfirmacao.PediuCancelar => "nao-vem",
         Clinica.Application.Modelos.TipoAvisoConfirmacao.SemResposta => "sem-resposta",
         _ => "confirmou"
     };

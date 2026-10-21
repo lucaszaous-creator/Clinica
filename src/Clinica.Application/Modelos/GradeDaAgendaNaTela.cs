@@ -73,12 +73,13 @@ public sealed record CartaoDaGrade
     /// <summary>Saiu do fluxo do dia (cancelado, falta, substituído): o vão está livre, mas a linha fica.</summary>
     public required bool ForaDoDia { get; init; }
 
-    /// <summary>"Confirmou" · "Não confirmou" · "Não vem — remarcar" · vazio — só em AGUARDANDO.</summary>
+    /// <summary>"Confirmou" · "Não confirmou" · "Não vem — remarcar" · "Pediu para cancelar" · vazio — só em AGUARDANDO.</summary>
     public string ConfirmacaoRotulo { get; init; } = string.Empty;
 
     public bool ConfirmouPresenca => ConfirmacaoRotulo == RodadaDeConfirmacao.SeloConfirmou;
     public bool NaoConfirmou => ConfirmacaoRotulo == RodadaDeConfirmacao.SeloSemResposta;
     public bool NaoVem => ConfirmacaoRotulo == RodadaDeConfirmacao.SeloNaoVem;
+    public bool PediuCancelar => ConfirmacaoRotulo == RodadaDeConfirmacao.SeloPediuCancelar;
 
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
     public bool TemObservacoes => !string.IsNullOrWhiteSpace(Observacoes);

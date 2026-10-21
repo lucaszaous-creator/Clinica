@@ -117,6 +117,12 @@ public sealed record LinhaAgendaDoDia
     /// <summary>Só horário em aberto aceita falta, cancelamento e o "Editar".</summary>
     public bool EmAberto => Etapa is not (EtapaFila.Finalizado or EtapaFila.ForaDaFila);
 
+    /// <summary>
+    /// O paciente pediu pelo WhatsApp para cancelar (out/2026): a linha mostra "Aceitar
+    /// cancelamento" e a recepção cancela ali mesmo, sem trocar de tela.
+    /// </summary>
+    public bool PediuCancelar => EmAberto && Confirmacao == RodadaDeConfirmacao.SeloPediuCancelar;
+
     public bool PodeFechar => Etapa == EtapaFila.Finalizado;
 
     /// <summary>O grupo da COR — o mesmo do filtro de situação e do traço da linha.</summary>
@@ -163,6 +169,7 @@ public sealed record LinhaAgendaDoDia
         {
             "Confirmou" => "Confirmou a presença na rodada de confirmação",
             RodadaDeConfirmacao.SeloNaoVem => "Respondeu na rodada que NÃO vem — remarque e libere o horário",
+            RodadaDeConfirmacao.SeloPediuCancelar => "Pediu pelo WhatsApp para cancelar — aceite o cancelamento nesta linha",
             "Não confirmou" => "Avisado na rodada de confirmação, sem resposta",
             _ => null
         },
@@ -235,6 +242,7 @@ public static class AgendaDoDiaNaTela
     public static readonly IReadOnlyList<(string Chave, string Rotulo, string Selo)> Respostas =
     [
         ("nao-vem", "Não vêm", RodadaDeConfirmacao.SeloNaoVem),
+        ("cancelar", "Pediram cancelamento", RodadaDeConfirmacao.SeloPediuCancelar),
         ("sem-resposta", "Sem resposta", RodadaDeConfirmacao.SeloSemResposta),
         ("confirmou", "Confirmaram", RodadaDeConfirmacao.SeloConfirmou)
     ];
@@ -335,7 +343,7 @@ public static class AgendaDoDiaNaTela
     public static string TomDaConfirmacao(string confirmacao) => confirmacao switch
     {
         "Confirmou" => "sucesso",
-        RodadaDeConfirmacao.SeloNaoVem => "perigo",
+        RodadaDeConfirmacao.SeloNaoVem or RodadaDeConfirmacao.SeloPediuCancelar => "perigo",
         "Não confirmou" => "aviso",
         _ => string.Empty
     };
@@ -473,7 +481,7 @@ public static class AgendaDoDiaNaTela
         AcaoDaLinhaAgenda.FecharSessao => "Fechar sessão (pacote, insumo, caixa)…",
         AcaoDaLinhaAgenda.ConferirConvenio => "Conferir convênio e cota…",
         AcaoDaLinhaAgenda.MarcarFalta => "Marcar falta",
-        AcaoDaLinhaAgenda.Cancelar => "Cancelar o horário",
+        AcaoDaLinhaAgenda.Cancelar => l.PediuCancelar ? "Aceitar o cancelamento pedido" : "Cancelar o horário",
         AcaoDaLinhaAgenda.AbrirHorario => l.ForaDaFila ? "Abrir o horário (reabrir ou remarcar)…" : "Abrir o horário…",
         _ => string.Empty
     };
