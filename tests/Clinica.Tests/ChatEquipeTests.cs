@@ -21,7 +21,7 @@ public class ChatEquipeRegrasTests
     [InlineData("Dra. Helena Duarte", "HD")]
     [InlineData("Maria da Silva", "MS")]
     [InlineData("Joana", "JO")]
-    [InlineData("(sem nome)", "?")]
+    [InlineData("(fictício)", "?")]
     public void Iniciais_so_usam_palavras_do_nome(string nome, string esperado)
         => ChatEquipeRegras.Iniciais(nome).Should().Be(esperado);
 
