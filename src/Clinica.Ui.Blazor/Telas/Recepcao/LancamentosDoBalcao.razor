@@ -9,6 +9,11 @@
   período (AtendimentosNoPeriodoAsync, com códigos e paciente juntos). O que a tela AFIRMA —
   a frase da guia, a pendência, a autoria, o teto de 366 dias, o recorte — mora em
   LancamentosNaTela, na Application, com teste.
+
+  HORÁRIOS MARCADOS (out/2026): com a guia nascendo só quando o profissional FINALIZA, marcar
+  não cria atendimento — e a tela, que só lia atendimentos, ficava vazia o dia inteiro enquanto
+  a secretária trabalhava. A lista dos horários marcados no período (pelo CriadoEm, com quem
+  marcou e o que aconteceu depois) é a outra metade da conferência, e abre primeiro.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Abstracoes
@@ -16,7 +21,7 @@
 
 <div class="pagina rec-lancamentos @(Carregando && _carregadas.Count > 0 ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Recepção · Atendimento" Titulo="Lançamentos"
-                     Subtitulo="Os atendimentos lançados no período — a conferência antes de fechar o balcão. Quem lançou, quantas guias saíram e o que ainda não liberou.">
+                     Subtitulo="O que foi marcado e o que foi atendido no período — a conferência antes de fechar o balcão. Quem marcou, quem lançou, quantas guias saíram e o que ainda não liberou.">
         <div class="rec-lanc-periodo" role="group" aria-label="Período">
             <label><span>De</span><input type="date" class="campo" value="@_de.ToString("yyyy-MM-dd")" @onchange="DeMudouAsync" /></label>
             <label><span>Até</span><input type="date" class="campo" value="@_ate.ToString("yyyy-MM-dd")" @onchange="AteMudouAsync" /></label>
@@ -32,7 +37,9 @@
 
     @if (!_naoVerificado && _lido)
     {
-        <section class="kpis tres" aria-label="Resumo do período">
+        <section class="kpis" aria-label="Resumo do período">
+            <Kpi Rotulo="Horários marcados" Valor="@_marcacoes.Count.ToString(Formato.PtBr)" Icone="calendario"
+                 Nota="@(_marcacoes.Count == 0 ? "Nenhuma marcação no período" : $"{AguardandoAtendimento} aguardando atendimento")" />
             <Kpi Rotulo="Atendimentos" Valor="@_carregadas.Count.ToString(Formato.PtBr)" Icone="lista"
                  Nota="@(_carregadas.Count == 0 ? "Nenhum lançamento no período" : $"{Operadores} pessoa(s) lançaram")" />
             <Kpi Rotulo="Guias geradas" Valor="@_carregadas.Sum(l => l.QuantidadeGuias).ToString(Formato.PtBr)" Icone="documento" Tom="neutro"
@@ -44,6 +51,12 @@
     }
 
     <section class="cartao lista-cartao">
+        <div class="segmentado rec-lanc-vista" role="group" aria-label="O que conferir">
+            <button type="button" class="@(VendoMarcacoes ? "ativo" : null)" aria-pressed="@(VendoMarcacoes ? "true" : "false")"
+                    title="Os horários marcados no período, com quem marcou" @onclick="() => _vista = VistaMarcacoes">Horários marcados (@_marcacoes.Count)</button>
+            <button type="button" class="@(!VendoMarcacoes ? "ativo" : null)" aria-pressed="@(!VendoMarcacoes ? "true" : "false")"
+                    title="Os atendimentos finalizados no período, com as guias" @onclick="() => _vista = VistaAtendimentos">Atendimentos (@_carregadas.Count)</button>
+        </div>
         <div class="filtros">
             <Campo Rotulo="Convênio">
                 <select class="campo" value="@_filtro.Convenio" @onchange="e => Filtrar(_filtro with { Convenio = e.Value?.ToString() })">
@@ -55,35 +68,76 @@
                     @foreach (var o in _modalidades) { <option value="@o">@o</option> }
                 </select>
             </Campo>
-            <Campo Rotulo="Quem lançou">
+            <Campo Rotulo="@(VendoMarcacoes ? "Quem marcou" : "Quem lançou")">
                 <select class="campo" value="@_filtro.Operador" @onchange="e => Filtrar(_filtro with { Operador = e.Value?.ToString() })">
                     @foreach (var o in _operadores) { <option value="@o">@o</option> }
                 </select>
             </Campo>
-            <label class="alternar rec-lanc-alternar" title="As sessões cuja guia ainda não pode ser faturada">
-                <input type="checkbox" checked="@_filtro.SomenteComPendencia"
-                       @onchange="e => Filtrar(_filtro with { SomenteComPendencia = e.Value is true })" />
-                Só com guia por liberar
-            </label>
+            @if (!VendoMarcacoes)
+            {
+                <label class="alternar rec-lanc-alternar" title="As sessões cuja guia ainda não pode ser faturada">
+                    <input type="checkbox" checked="@_filtro.SomenteComPendencia"
+                           @onchange="e => Filtrar(_filtro with { SomenteComPendencia = e.Value is true })" />
+                    Só com guia por liberar
+                </label>
+            }
             @if (_filtro.Ativo)
             {
                 <button type="button" class="botao fantasma" @onclick="() => Filtrar(FiltroInicial)">Limpar filtros</button>
             }
-            <span class="resumo-filtro">@LancamentosNaTela.Resumo(_linhas.Count, _carregadas.Count)</span>
+            <span class="resumo-filtro">@(VendoMarcacoes ? LancamentosNaTela.ResumoMarcacoes(_linhasMarcacoes.Count, _marcacoes.Count) : LancamentosNaTela.Resumo(_linhas.Count, _carregadas.Count))</span>
         </div>
 
         @if (_naoVerificado)
         {
-            <FalhaDeLeitura Titulo="Não foi possível ler os atendimentos do período" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+            <FalhaDeLeitura Titulo="Não foi possível ler os lançamentos do período" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
         }
         else if (!_lido)
         {
             <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
         }
+        else if (VendoMarcacoes && _linhasMarcacoes.Count == 0)
+        {
+            <EstadoVazio Titulo="@(_filtro.Ativo && _marcacoes.Count > 0 ? "Nenhuma marcação bate com o filtro" : "Nenhum horário marcado no período")"
+                         Descricao="@(_filtro.Ativo && _marcacoes.Count > 0 ? "Limpe os filtros para ver o período inteiro." : "Mude as datas. Entram aqui os horários marcados no período, pela data em que foram marcados.")"
+                         Icone="@(_filtro.Ativo && _marcacoes.Count > 0 ? "filtro" : "vazio")" />
+        }
+        else if (VendoMarcacoes)
+        {
+            <div class="tabela-rolagem">
+                <table class="lista rec-lanc-lista">
+                    <thead>
+                        <tr>
+                            <th class="nao-quebra" style="width:110px">Marcado em</th>
+                            <th>Paciente · modalidade · quem marcou</th>
+                            <th style="width:240px">Sessão</th>
+                            <th style="width:200px">Convênio</th>
+                            <th class="nao-quebra" style="width:190px">Situação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var m in _linhasMarcacoes)
+                        {
+                            <tr @key="m.AgendamentoId">
+                                <td class="nao-quebra numero">@m.MarcadoRotulo</td>
+                                <td>
+                                    <span class="principal">@m.Paciente</span>
+                                    <span class="secundario">@m.Modalidade · @m.Marcacao@(m.Encaixe ? " · encaixe" : null)</span>
+                                </td>
+                                <td>@m.Sessao</td>
+                                <td><Selo Tom="neutro" Dica="@m.Convenio"><span class="rec-lanc-convenio">@m.Convenio</span></Selo></td>
+                                <td class="nao-quebra"><Selo Tom="@m.TomSituacao">@m.Situacao</Selo></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">O atendimento e as guias nascem quando o profissional finaliza a sessão — aí ela aparece em "Atendimentos".</div>
+        }
         else if (_linhas.Count == 0)
         {
             <EstadoVazio Titulo="@(_filtro.Ativo && _carregadas.Count > 0 ? "Nenhum atendimento bate com o filtro" : "Nenhum atendimento no período")"
-                         Descricao="@(_filtro.Ativo && _carregadas.Count > 0 ? "Limpe os filtros para ver o período inteiro." : "Mude as datas. O avulso e a marcação entram por aqui; quem estava na agenda aparece na lista do dia.")"
+                         Descricao="@(_filtro.Ativo && _carregadas.Count > 0 ? "Limpe os filtros para ver o período inteiro." : "O atendimento nasce quando o profissional finaliza a sessão. O que foi só marcado está em Horários marcados.")"
                          Icone="@(_filtro.Ativo && _carregadas.Count > 0 ? "filtro" : "vazio")" />
         }
         else
@@ -143,6 +197,11 @@
     private FiltroLancamentos _filtro = FiltroInicial;
     private List<LinhaLancamentoBalcao> _carregadas = [];
     private List<LinhaLancamentoBalcao> _linhas = [];
+    private const string VistaMarcacoes = "marcacoes";
+    private const string VistaAtendimentos = "atendimentos";
+    private string _vista = VistaMarcacoes;
+    private List<LinhaMarcacaoBalcao> _marcacoes = [];
+    private List<LinhaMarcacaoBalcao> _linhasMarcacoes = [];
     private IReadOnlyList<string> _convenios = [LancamentosNaTela.Todos];
     private IReadOnlyList<string> _modalidades = [LancamentosNaTela.Todos];
     private IReadOnlyList<string> _operadores = [LancamentosNaTela.Todos];
@@ -158,6 +217,8 @@
     private bool EhHoje => _de == Hoje && _ate == Hoje;
     private static bool PodeEstornar => Pode(Permissao.LancarAtendimento);
     private int ComPendencia => LancamentosNaTela.ComPendencia(_carregadas);
+    private bool VendoMarcacoes => _vista == VistaMarcacoes;
+    private int AguardandoAtendimento => _marcacoes.Count(m => m.TomSituacao == "aviso");
     private int Operadores => _carregadas.Select(l => l.Operador).Where(o => o != LancamentosNaTela.SemRegistroDeOperador).Distinct().Count();
 
     protected override Task OnInitializedAsync() => CarregarAsync();
@@ -198,13 +259,18 @@
         try
         {
             using var escopo = Escopo();
-            var atendimentos = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>().AtendimentosNoPeriodoAsync(inicio, fim);
+            var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+            // Em SEQUÊNCIA: o mesmo DbContext não aceita duas consultas ao mesmo tempo.
+            var atendimentos = await repo.AtendimentosNoPeriodoAsync(inicio, fim);
+            var marcados = await repo.AgendamentosMarcadosNoPeriodoAsync(inicio.ToDateTime(TimeOnly.MinValue), fim.AddDays(1).ToDateTime(TimeOnly.MinValue));
             if (geracao != _geracao || Descartada) return;
 
             _carregadas = atendimentos.Select(LancamentosNaTela.Montar).ToList();
-            _convenios = LancamentosNaTela.Opcoes(_carregadas.Select(l => l.Convenio));
-            _modalidades = LancamentosNaTela.Opcoes(_carregadas.Select(l => l.Modalidade));
-            _operadores = LancamentosNaTela.Opcoes(_carregadas.Select(l => l.Operador));
+            _marcacoes = marcados.Select(LancamentosNaTela.MontarMarcacao).ToList();
+            // As opções servem às DUAS listas: o filtro vale ao trocar de uma para a outra.
+            _convenios = LancamentosNaTela.Opcoes(_carregadas.Select(l => l.Convenio).Concat(_marcacoes.Select(m => m.Convenio)));
+            _modalidades = LancamentosNaTela.Opcoes(_carregadas.Select(l => l.Modalidade).Concat(_marcacoes.Select(m => m.Modalidade)));
+            _operadores = LancamentosNaTela.Opcoes(_carregadas.Select(l => l.Operador).Concat(_marcacoes.Select(m => m.Operador)));
             _filtro = new FiltroLancamentos(
                 LancamentosNaTela.Preservar(_filtro.Convenio, _convenios),
                 LancamentosNaTela.Preservar(_filtro.Modalidade, _modalidades),
@@ -221,6 +287,8 @@
             _erro = ex.Message;
             _carregadas = [];
             _linhas = [];
+            _marcacoes = [];
+            _linhasMarcacoes = [];
         }
         finally
         {
@@ -230,7 +298,11 @@
 
     private void Filtrar(FiltroLancamentos f) { _filtro = f; Aplicar(); }
 
-    private void Aplicar() => _linhas = _carregadas.Where(l => LancamentosNaTela.Passa(l, _filtro)).ToList();
+    private void Aplicar()
+    {
+        _linhas = _carregadas.Where(l => LancamentosNaTela.Passa(l, _filtro)).ToList();
+        _linhasMarcacoes = _marcacoes.Where(m => LancamentosNaTela.Passa(m, _filtro)).ToList();
+    }
 
     private void Estornar(LinhaLancamentoBalcao l)
     {

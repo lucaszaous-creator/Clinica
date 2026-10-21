@@ -110,7 +110,9 @@ public sealed class SementeRecepcaoBalcao : ISemente
                 {
                     PacienteId = pessoas[k % pessoas.Length].Id, ProfissionalId = prof.Id,
                     DataHora = dia.ToDateTime(new TimeOnly(hora, 0)), DuracaoMinutos = 50,
-                    ModalidadePrevista = modalidades[k % modalidades.Length], Status = status, CriadoPor = "previa"
+                    ModalidadePrevista = modalidades[k % modalidades.Length], Status = status,
+                    // Marcados hoje cedo, por duas recepcionistas: é o que a conferência (Lançamentos) lista.
+                    CriadoPor = k % 3 == 0 ? "Flavia" : "Rayssa", CriadoEm = DateTime.Today.AddHours(8).AddMinutes(k * 7)
                 });
                 k++;
             }

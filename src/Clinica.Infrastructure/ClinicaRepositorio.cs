@@ -1318,6 +1318,25 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return linhas.Select(l => l.Agendamento).ToList();
     }
 
+    /// <summary>A consulta de <see cref="AgendamentosMarcadosNoPeriodoAsync"/>, exposta para a rede de tradução do Npgsql.</summary>
+    internal IQueryable<AgendamentoLeve> ConsultaAgendamentosMarcados(DateTime inicio, DateTime fimExclusivo)
+        => _db.Agendamentos.AsNoTracking()
+            .Where(a => a.CriadoEm != null && a.CriadoEm >= inicio && a.CriadoEm < fimExclusivo)
+            .OrderByDescending(a => a.CriadoEm).ThenByDescending(a => a.Id)
+            .Select(a => new AgendamentoLeve(a, a.Profissional, null,
+                new Paciente { Id = a.Paciente!.Id, Nome = a.Paciente.Nome, Convenio = a.Paciente.Convenio, ConvenioCodigo = a.Paciente.ConvenioCodigo }));
+
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosMarcadosNoPeriodoAsync(DateTime inicio, DateTime fimExclusivo, CancellationToken ct = default)
+    {
+        var linhas = await ConsultaAgendamentosMarcados(inicio, fimExclusivo).ToListAsync(ct);
+        foreach (var l in linhas)
+        {
+            l.Agendamento.Paciente = l.Paciente;
+            l.Agendamento.Profissional = l.Profissional;
+        }
+        return linhas.Select(l => l.Agendamento).ToList();
+    }
+
     public async Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
         => await _db.Agendamentos
             .Include(a => a.Paciente)
