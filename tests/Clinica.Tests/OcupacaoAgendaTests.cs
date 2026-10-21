@@ -124,4 +124,48 @@ public sealed class OcupacaoAgendaTests : IDisposable
         recepcao.Ativo = false; await db.SaveChangesAsync();
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.ConsultarAsync(recepcao.Id, Segunda, Segunda));
     }
+
+    // ==================== o "Chegou" da Visão geral (out/2026) ====================
+
+    [Fact] public async Task A_visao_geral_sabe_quem_ja_chegou_com_a_mesma_etapa_da_agenda_do_dia()
+    {
+        var chegou = Horario(8); chegou.ChegadaEm = Segunda.ToDateTime(new(7, 52));
+        var marcado = Horario(9);
+        var cancelado = Horario(10, status: StatusAgendamento.Cancelado);
+        db.Agendamentos.AddRange(chegou, marcado, cancelado);
+        await db.SaveChangesAsync();
+
+        var r = await svc.ConsultarAsync(recepcao.Id, Segunda, Segunda);
+        var linhas = Clinica.Application.Formatacao.VisaoGeralDaAgendaNaTela.HorariosDoDia(r);
+        var lChegou = linhas.Single(l => l.Horario.Id == chegou.Id);
+        var lMarcado = linhas.Single(l => l.Horario.Id == marcado.Id);
+        var lCancelado = linhas.Single(l => l.Horario.Id == cancelado.Id);
+
+        Assert.Equal(EtapaFila.Chegou, lChegou.Horario.Etapa);
+        Assert.Equal("No local · chegou às 07:52", lChegou.Situacao);
+        Assert.False(lChegou.PodeChegar(Segunda));          // já chegou: não carimba de novo
+
+        Assert.Equal("Marcado", lMarcado.Situacao);
+        Assert.True(lMarcado.PodeChegar(Segunda));
+        Assert.False(lMarcado.PodeChegar(Segunda.AddDays(-1))); // só no dia da sessão
+
+        Assert.Equal("Cancelado", lCancelado.Situacao);
+        Assert.False(lCancelado.PodeChegar(Segunda));        // cancelado não tem check-in
+
+        // A contagem por status (cancelados/faltas) continua lendo a situação de sempre.
+        Assert.Equal(1, r.Resumo.Cancelados);
+    }
+
+    [Fact] public async Task O_bloco_Hoje_da_semana_e_do_mes_so_traz_quem_comeca_hoje()
+    {
+        db.Agendamentos.AddRange(Horario(8), Horario(9, dias: 1), Horario(10, dias: 2));
+        await db.SaveChangesAsync();
+        var r = await svc.ConsultarAsync(recepcao.Id, Segunda, Segunda.AddDays(6));
+        var hoje = Clinica.Application.Formatacao.VisaoGeralDaAgendaNaTela.HorariosDeHoje(r, Segunda.AddDays(1));
+        var unico = Assert.Single(hoje);
+        Assert.Equal(9, unico.Horario.Inicio.Hour);
+        Assert.True(unico.PodeChegar(Segunda.AddDays(1)));
+        Assert.True(Clinica.Application.Formatacao.VisaoGeralDaAgendaNaTela.IncluiHoje(Segunda, Segunda.AddDays(6), Segunda.AddDays(3)));
+        Assert.False(Clinica.Application.Formatacao.VisaoGeralDaAgendaNaTela.IncluiHoje(Segunda, Segunda.AddDays(6), Segunda.AddDays(9)));
+    }
 }

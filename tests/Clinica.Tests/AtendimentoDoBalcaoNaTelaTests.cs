@@ -143,4 +143,55 @@ public sealed class AtendimentoDoBalcaoNaTelaTests
     [Fact]
     public void O_nome_do_arquivo_nao_leva_caractere_que_o_windows_recusa()
         => Assert.Equal("comprovante-Ana_Silva-2026.pdf", AtendimentoDoBalcaoNaTela.NomeDoArquivo("comprovante-Ana/Silva-2026.pdf"));
+
+    // ==================== marcar → "Marcar outro" (out/2026) ====================
+
+    [Fact]
+    public void No_marcar_o_aviso_e_a_pergunta_falam_de_marcar_e_nao_de_lancar()
+    {
+        var capas = new[] { new CapaDoDia(1, "2026/0007", "Acupuntura", "lançado por Ana às 09:10", 2, 1) };
+
+        var semChave = AtendimentoDoBalcaoNaTela.AvisoJaLancado(capas, Hoje, marcar: true, criaAtendimento: false)!;
+        Assert.DoesNotContain("Lançar", semChave);
+        Assert.Contains("SEGUNDO horário", semChave);
+        Assert.DoesNotContain("guias.", semChave);
+
+        var comChave = AtendimentoDoBalcaoNaTela.AvisoJaLancado(capas, Hoje, marcar: true, criaAtendimento: true)!;
+        Assert.Contains("Marcar de novo cria OUTRO atendimento", comChave);
+
+        // O lançar continua com a frase de sempre.
+        Assert.Equal(AtendimentoDoBalcaoNaTela.AvisoJaLancado(capas, Hoje),
+                     AtendimentoDoBalcaoNaTela.AvisoJaLancado(capas, Hoje, marcar: false, criaAtendimento: true));
+
+        var pergunta = AtendimentoDoBalcaoNaTela.PerguntaDeRepetido("Maria", capas, Hoje, marcar: true, criaAtendimento: false);
+        Assert.Contains("SEGUNDO horário", pergunta);
+        Assert.DoesNotContain("jogo de guias", pergunta);
+        Assert.EndsWith("Marcar mesmo assim?", pergunta);
+    }
+
+    [Fact]
+    public void Depois_de_gravar_o_resumo_fala_no_passado()
+    {
+        Assert.Equal("O que vai ser marcado", AtendimentoDoBalcaoNaTela.TituloResumo(true, false));
+        Assert.Equal("O que foi marcado", AtendimentoDoBalcaoNaTela.TituloResumo(true, true));
+        Assert.Equal("O que foi lançado", AtendimentoDoBalcaoNaTela.TituloResumo(false, true));
+    }
+
+    [Fact]
+    public void Sem_hora_o_marcar_espera_e_diz_onde_escolher()
+    {
+        Assert.False(AtendimentoDoBalcaoNaTela.HoraValida(""));
+        Assert.False(AtendimentoDoBalcaoNaTela.HoraValida("15:"));
+        Assert.True(AtendimentoDoBalcaoNaTela.HoraValida("09:30"));
+        Assert.Contains("Outro horário", AtendimentoDoBalcaoNaTela.RecusaSemHora(marcar: true));
+        Assert.Contains("HH:mm", AtendimentoDoBalcaoNaTela.RecusaSemHora(marcar: false));
+    }
+
+    [Fact]
+    public void No_marcar_a_guia_sem_segundo_codigo_nao_diz_tudo_hoje()
+    {
+        var previa = Previa(Codigo(OrdemCodigo.Primeiro, Hoje));
+        Assert.Equal("tudo hoje", AtendimentoDoBalcaoNaTela.Consequencia(previa).Quando);
+        Assert.Equal("tudo no dia da sessão", AtendimentoDoBalcaoNaTela.Consequencia(previa, marcar: true).Quando);
+    }
 }
