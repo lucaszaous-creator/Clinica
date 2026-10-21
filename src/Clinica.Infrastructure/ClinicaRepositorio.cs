@@ -3720,6 +3720,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                       .First());
     }
 
+    public Task<ContatoCampanha?> ContatoDeConfirmacaoDoAgendamentoAsync(int agendamentoId, CancellationToken ct = default)
+        => _db.Contatos
+            .Where(c => c.Tipo == TipoContato.ConfirmacaoSessao && c.AgendamentoId == agendamentoId)
+            .OrderByDescending(c => c.Id)
+            .FirstOrDefaultAsync(ct);
+
     public async Task<IReadOnlyList<ContatoParaAvisoDeConfirmacao>> ContatosParaAvisosDeConfirmacaoAsync(
         DateTime sessoesDe, DateTime sessoesAte, CancellationToken ct = default)
         => await ConsultaContatosParaAvisosDeConfirmacao(sessoesDe, sessoesAte).ToListAsync(ct);

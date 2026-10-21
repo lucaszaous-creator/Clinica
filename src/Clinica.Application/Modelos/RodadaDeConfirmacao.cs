@@ -55,6 +55,14 @@ public static class RodadaDeConfirmacao
     public const string RespostaCancelar = "pediu para cancelar";
 
     /// <summary>
+    /// O que se grava quando a recepção liga para quem pediu para cancelar (ou avisou que não
+    /// vem) e o paciente MANTÉM o horário (out/2026 — a clínica quer tentar reverter antes de
+    /// liberar a vaga). Classifica como <see cref="SituacaoConfirmacao.Confirmou"/>, e não
+    /// é notícia do sino: quem confirmou foi a recepção, não o paciente.
+    /// </summary>
+    public const string RespostaManteveHorario = "manteve o horário após contato da recepção";
+
+    /// <summary>
     /// O que a ponte do CRM grava quando o paciente confirma pelo WhatsApp. Era texto solto
     /// dentro do <c>ClinicAgendaBridge</c>; subiu para cá (out/2026) porque o sino passou a
     /// distinguir a confirmação do PACIENTE da que a recepção marcou
