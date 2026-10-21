@@ -53,11 +53,14 @@
                 {
                     @if (c.PodeChegar(Hoje))
                     {
-                        <button type="button" class="botao primario gh-chegou" disabled="@(!PodeRegistrarChegada || _ocupado)" @onclick="ChegouAsync"
-                                title="@(PodeRegistrarChegada ? "Registrar que o paciente chegou ao local" : "Seu acesso não permite registrar a chegada.")">Chegou</button>
+                        <div class="gh-chegada">
+                            <span class="gh-chegada-texto"><Icone Nome="relogio" />Ainda não chegou</span>
+                            <button type="button" class="botao gh-chegou" disabled="@(!PodeRegistrarChegada || _ocupado)" @onclick="ChegouAsync"
+                                    title="@(PodeRegistrarChegada ? "Registrar que o paciente chegou ao local" : "Seu acesso não permite registrar a chegada.")"><Icone Nome="check" />Chegou</button>
+                        </div>
                     }
                     <div class="gh-acoes">
-                        <button type="button" class="botao @(c.PodeChegar(Hoje) ? null : "primario")" disabled="@(!PodeEditar || _ocupado)" @onclick="Remarcar"
+                        <button type="button" class="botao primario" disabled="@(!PodeEditar || _ocupado)" @onclick="Remarcar"
                                 title="@(PodeEditar ? "Mover o horário — o registro e o histórico ficam" : "Seu acesso não permite mexer na agenda.")">Remarcar</button>
                         <button type="button" class="botao" disabled="@(!c.TemTelefone || _ocupado)" @onclick="ConfirmarAsync"
                                 title="Abre o WhatsApp com a confirmação pronta">Confirmar pelo WhatsApp</button>

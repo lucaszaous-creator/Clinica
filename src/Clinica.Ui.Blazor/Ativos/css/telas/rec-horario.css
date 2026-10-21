@@ -21,5 +21,11 @@
 .ge-quem{display:flex;flex-direction:column;gap:2px;min-width:0}
 .ge-quem .selo{align-self:flex-start;margin:0}
 .ge-obs{font-style:italic}
-/* O "Chegou" (out/2026): o ato mais frequente do dia vem primeiro, em largura inteira. */
-.gh-chegou{width:100%;margin-bottom:var(--space-2)}
+/* O "Chegou" (out/2026): uma faixa verde-clara acima das ações — o estado à esquerda, o ato à direita. */
+.gh-chegada{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);
+  margin-bottom:var(--space-3);padding:var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border:1px solid var(--teal-600);border-radius:var(--radius-control);background:var(--teal-50)}
+.gh-chegada-texto{display:inline-flex;align-items:center;gap:var(--space-2);font-weight:600;color:var(--teal-600)}
+.botao.gh-chegou{background:var(--teal-600);border-color:var(--teal-600);color:var(--texto-invertido);
+  padding-inline:var(--space-4);gap:var(--space-2)}
+.botao.gh-chegou:hover:not(:disabled){filter:brightness(1.08)}

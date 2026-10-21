@@ -250,9 +250,11 @@
                                         }
                                         else if (i.Horario is { } h)
                                         {
-                                            <button type="button" class="rec-oc-item @Familia(h.Familia) @(i.Inativo ? "inativo" : null)" title="@i.Dica"
-                                                    @onclick="() => AbrirHorarioAsync(h)">
+                                            var noLocal = h.Etapa is EtapaFila.Chegou or EtapaFila.Chamado;
+                                            <button type="button" class="rec-oc-item @Familia(h.Familia) @(i.Inativo ? "inativo" : null) @(noLocal ? "chegou" : null)"
+                                                    title="@(noLocal ? $"{i.Dica} · no local" : i.Dica)" @onclick="() => AbrirHorarioAsync(h)">
                                                 <span class="numero">@i.Hora</span><span class="rec-oc-item-nome">@h.Paciente</span>
+                                                @if (noLocal) { <span class="rec-oc-item-chegou" aria-label="no local"><Icone Nome="check" /></span> }
                                             </button>
                                         }
                                     }
