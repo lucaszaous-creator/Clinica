@@ -204,12 +204,19 @@ else
                                                 <button type="button" class="chat-link" @onclick="() => AbrirFichaAsync(pid)">Abrir ficha <Icone Nome="abrir" /></button>
                                             </div>
                                         }
-                                        @if (m.DocumentoId is { } did)
+                                        @if (m.DocumentoRotulo is { } rotuloDoc)
                                         {
                                             <div class="chat-cartao">
                                                 <span class="chat-ic"><Icone Nome="documento" /></span>
-                                                <div><b>@m.DocumentoRotulo</b><small>PDF · 2ª via idêntica</small></div>
-                                                <button type="button" class="chat-link" @onclick="() => AbrirDocumentoAsync(did)">Abrir <Icone Nome="abrir" /></button>
+                                                @if (m.DocumentoId is { } did)
+                                                {
+                                                    <div><b>@rotuloDoc</b><small>PDF · 2ª via idêntica</small></div>
+                                                    <button type="button" class="chat-link" @onclick="() => AbrirDocumentoAsync(did)">Abrir <Icone Nome="abrir" /></button>
+                                                }
+                                                else
+                                                {
+                                                    <div><b>@rotuloDoc</b><small>Seu acesso não abre este documento</small></div>
+                                                }
                                             </div>
                                         }
                                         @if (m.ArquivoNome is { } arq)
@@ -281,7 +288,7 @@ else
                             </div>
                         }
                         <textarea class="campo chat-campo" rows="2" placeholder="Escreva para @_aberta.Titulo…" aria-label="Mensagem"
-                                  value="@_texto" @oninput="AoDigitarAsync" @onkeydown="TeclaAsync" @onkeydown:preventDefault="_impedirTecla"></textarea>
+                                  value="@_texto" @oninput="AoDigitarAsync"></textarea>
                         <div class="chat-linha">
                             <button type="button" class="botao secundario" @onclick="AbrirEscolhaDePaciente"><Icone Nome="pessoa" /> Paciente</button>
                             @if (_anexoPaciente is not null && _documentosDoPaciente.Count > 0)
@@ -389,7 +396,7 @@ else
     private readonly HashSet<int> _expandidas = [];
     private string _texto = "";
     private string? _erro;
-    private bool _ampliado, _escolhendoPaciente, _escolhendoDocumento, _enviando, _impedirTecla;
+    private bool _ampliado, _escolhendoPaciente, _escolhendoDocumento, _enviando;
     private PacienteAnexo? _anexoPaciente;
     private DocumentoAnexo? _anexoDocumento;
     private ArquivoEscolhido? _anexoArquivo;
@@ -408,6 +415,7 @@ else
     private IAvisosDoBanco? _avisos;
     private CancellationTokenSource? _parar;
     private readonly SemaphoreSlim _porteiro = new(1, 1);
+    private DotNetObjectReference<ChatDaEquipe>? _ponte;
 
     private int TotalNaoLidas => (_painel?.TotalNaoLidas ?? 0) + _pedidosNovos;
     private bool SomDesligado => _prefs.SilenciadoAte > DateTime.Now || (!_prefs.Direta && !_prefs.Mencao && !_prefs.Pedido);
@@ -442,6 +450,12 @@ else
                 if (salvo is not null) AplicarSalvo(salvo);
             }
             catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Chat da equipe — preferências não lidas", ex); }
+            try
+            {
+                _ponte = DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("clinicaChat.ligarCampo", _ponte);
+            }
+            catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Chat da equipe — Enter do campo não ligado", ex); }
             _parar = new CancellationTokenSource();
             _ = RelogioAsync(_parar.Token);
             await RecarregarPainelAsync(primeira: true);
@@ -662,9 +676,24 @@ else
         {
             using var escopo = Escopos.CreateScope();
             var servico = escopo.ServiceProvider.GetRequiredService<IChatEquipeService>();
-            var aberta = await servico.AbrirAsync(_eu, conversa);
-            if (geracao != _geracaoConversa || conversa != _conversa) return;
             var anterior = _aberta;
+            ConversaAberta aberta;
+            if (silenciosa && anterior is not null && anterior.Conversa == conversa)
+            {
+                // A releitura de 4 s traz só o que mudou e o MESCLA no que está na tela: reler as
+                // últimas 60 descartava as anteriores que a pessoa carregou, e trazia de novo,
+                // a cada batida, todos os laudos já mostrados.
+                var ultima = anterior.Mensagens.Count == 0 ? 0 : anterior.Mensagens[^1].Id;
+                var novidade = await servico.AtualizarAsync(_eu, conversa, ultima, anterior.Instante);
+                if (geracao != _geracaoConversa || conversa != _conversa) return;
+                // Mescla no que está na tela AGORA, e não no que estava quando a releitura saiu:
+                // "Ver mensagens anteriores" pode ter terminado no meio dela.
+                aberta = novidade.HaMaisNovas
+                    ? await servico.AbrirAsync(_eu, conversa)
+                    : ChatEquipeRegras.Mesclar(_aberta?.Conversa == conversa ? _aberta : anterior, novidade, _eu);
+            }
+            else aberta = await servico.AbrirAsync(_eu, conversa);
+            if (geracao != _geracaoConversa || conversa != _conversa) return;
             if (!silenciosa || anterior is null) _ultimaLidaAntes = aberta.UltimaLidaAntes;
             var ultimaAntes = anterior?.Mensagens.LastOrDefault()?.Id ?? 0;
             var ultimaAgora = aberta.Mensagens.LastOrDefault()?.Id ?? 0;
@@ -687,11 +716,13 @@ else
     private async Task CarregarAnterioresAsync()
     {
         if (_aberta is null || _conversa is null || _aberta.Mensagens.Count == 0) return;
+        var conversa = _conversa;
         try
         {
             using var escopo = Escopos.CreateScope();
             var antes = await escopo.ServiceProvider.GetRequiredService<IChatEquipeService>()
-                .AbrirAsync(_eu, _conversa, _aberta.Mensagens[0].Id);
+                .AbrirAsync(_eu, conversa, _aberta.Mensagens[0].Id);
+            if (conversa != _conversa || _aberta is null) return;
             _aberta = _aberta with
             {
                 Mensagens = antes.Mensagens.Concat(_aberta.Mensagens).ToList(),
@@ -728,11 +759,19 @@ else
         }
     }
 
-    private async Task TeclaAsync(KeyboardEventArgs e)
+    /// <summary>
+    /// Enter sem Shift no campo da conversa — quem decide é o <c>clinicaChat.ligarCampo</c>, na
+    /// página. O <c>@onkeydown:preventDefault</c> do Blazor só valia a partir do render SEGUINTE:
+    /// o Enter que enviava ainda deixava a quebra de linha passar, e o Shift+Enter logo depois era
+    /// engolido. A decisão de impedir a tecla tem de ser tomada na hora em que ela é apertada.
+    /// </summary>
+    [JSInvokable]
+    public Task EnviarPeloEnter() => InvokeAsync(async () =>
     {
-        _impedirTecla = e.Key == "Enter" && !e.ShiftKey;
-        if (_impedirTecla && PodeEnviar) await EnviarAsync();
-    }
+        if (!PodeEnviar) return;
+        await EnviarAsync();
+        StateHasChanged();
+    });
 
     private async Task SinalizarAsync(string? escrevendo)
     {
@@ -826,8 +865,13 @@ else
 
     private async Task EscolherArquivoAsync()
     {
-        var arq = await Host!.EscolherArquivoAsync("Todos os arquivos (*.*)|*.*", "Anexar arquivo à mensagem");
+        var arq = await Host!.EscolherArquivoAsync(ChatEquipeRegras.FiltroDeArquivos, "Anexar arquivo à mensagem");
         if (arq is null) return;
+        if (!ChatEquipeRegras.ArquivoPermitido(arq.Nome))
+        {
+            _erro = ChatEquipeRegras.TipoDeArquivoRecusado;
+            return;
+        }
         if (arq.Conteudo.LongLength > ChatEquipeRegras.TamanhoMaximoArquivo)
         {
             _erro = $"O arquivo passa de {ChatEquipeRegras.Tamanho(ChatEquipeRegras.TamanhoMaximoArquivo)}. Envie um menor.";
@@ -879,6 +923,8 @@ else
             using var escopo = Escopos.CreateScope();
             var arq = await escopo.ServiceProvider.GetRequiredService<IChatEquipeService>().ArquivoAsync(_eu, mensagemId);
             if (arq is null) { Notificacoes.Erro("O arquivo não está mais disponível."); return; }
+            // A segunda barreira: o anexo é aberto direto no posto, então tipo fora da lista não abre.
+            if (!ChatEquipeRegras.ArquivoPermitido(arq.Value.Nome)) { Notificacoes.Erro("Este tipo de arquivo não abre pelo chat."); return; }
             var ext = Path.GetExtension(arq.Value.Nome);
             var filtro = string.IsNullOrEmpty(ext) ? "Todos os arquivos (*.*)|*.*" : $"Arquivo {ext} (*{ext})|*{ext}";
             var erro = await Host!.SalvarEAbrirAsync(arq.Value.Conteudo, arq.Value.Nome, filtro, ext);
@@ -944,5 +990,6 @@ else
             try { await SinalizarAsync(null); } catch { }
         }
         _porteiro.Dispose();
+        _ponte?.Dispose();
     }
 }

@@ -207,6 +207,9 @@ public class TraducaoNoNpgsqlTests
             .Should().Contain("GROUP BY").And.Contain("max(");
         var resumo = ChatEquipeService.ConsultaResumos(db.MensagensEquipe.Where(m => m.Id > 3)).ToQueryString();
         resumo.Should().Contain("substring").And.Contain("length(");
+        // A linha da conversa leva o TIPO do documento (é o que decide quem o abre) por junção.
+        var linhas = ChatEquipeService.ConsultaLinhas(db.MensagensEquipe.Where(m => m.Conversa == "canal:geral" && m.Id > 3)).ToQueryString();
+        linhas.Should().Contain("LEFT JOIN").And.Contain("DocumentosClinicos");
     }
 
     private static ClinicaDbContext Postgres()

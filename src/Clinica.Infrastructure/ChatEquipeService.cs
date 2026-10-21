@@ -92,7 +92,7 @@ public sealed class ChatEquipeService : IChatEquipeService
         string? Previa(string conversa)
         {
             if (!ultimaPor.TryGetValue(conversa, out var m)) return null;
-            var anexo = m.DocumentoRotulo ?? m.PacienteNome ?? m.ArquivoNome;
+            var anexo = ChatEquipeRegras.AnexoNaPrevia(m.DocumentoRotulo, m.PacienteNome, m.ArquivoNome);
             var quem = m.AutorId == eu.Id ? "Você" : Primeiro(m.AutorNome);
             return $"{quem}: {ChatEquipeRegras.Previa(m.Texto, anexo, 70)}";
         }
@@ -125,7 +125,7 @@ public sealed class ChatEquipeService : IChatEquipeService
                 .OrderByDescending(m => m.Id).Take(10)).ToListAsync(ct);
             novidades = novas.OrderBy(m => m.Id).Select(m => new NovidadeChat(m.Id, m.Conversa,
                 ChatEquipeRegras.EhCanal(m.Conversa) ? "# " + ChatEquipeRegras.NomeDoCanal(m.Conversa) : "mensagem direta",
-                m.AutorNome, ChatEquipeRegras.Previa(m.Texto, m.DocumentoRotulo ?? m.PacienteNome ?? m.ArquivoNome),
+                m.AutorNome, ChatEquipeRegras.Previa(m.Texto, ChatEquipeRegras.AnexoNaPrevia(m.DocumentoRotulo, m.PacienteNome, m.ArquivoNome)),
                 m.EnviadaEm, ChatEquipeRegras.Som(m.Conversa, m.AutorId, m.Mencoes, eu.Id, prefs, agoraLocal))).ToList();
         }
 
@@ -133,20 +133,78 @@ public sealed class ChatEquipeService : IChatEquipeService
             listaCanais.Sum(c => c.NaoLidas) + listaDiretas.Sum(d => d.NaoLidas), online, ultimoId, novidades);
     }
 
-    /// <summary>Quem está com paciente na sala agora (por profissional) e até quando, pela agenda de hoje.</summary>
-    private async Task<Dictionary<int, DateTime>> EmAtendimentoAsync(CancellationToken ct)
+    /// <summary>
+    /// Quem está com paciente na sala agora (por profissional) e até quando, pela agenda de hoje.
+    /// Com <paramref name="soDe"/>, só aquele profissional — a direta aberta não lê a agenda inteira.
+    /// </summary>
+    private async Task<Dictionary<int, DateTime>> EmAtendimentoAsync(CancellationToken ct, int? soDe = null)
     {
         var hoje = agora().Date;
         var amanha = hoje.AddDays(1);
-        var linhas = await db.Agendamentos.AsNoTracking()
+        var consulta = db.Agendamentos.AsNoTracking()
             .Where(a => a.DataHora >= hoje && a.DataHora < amanha && a.ProfissionalId != null
-                        && a.Status == StatusAgendamento.Agendado && a.InicioAtendimentoEm != null && a.FimAtendimentoEm == null)
+                        && a.Status == StatusAgendamento.Agendado && a.InicioAtendimentoEm != null && a.FimAtendimentoEm == null);
+        if (soDe is { } pid) consulta = consulta.Where(a => a.ProfissionalId == pid);
+        var linhas = await consulta
             .Select(a => new { ProfissionalId = a.ProfissionalId!.Value, a.DataHora, a.DuracaoMinutos }).ToListAsync(ct);
         return linhas.GroupBy(a => a.ProfissionalId).ToDictionary(g => g.Key,
             g => g.Max(a => a.DataHora.AddMinutes(a.DuracaoMinutos ?? Agendamento.DuracaoPadraoMinutos)));
     }
 
     private static string Primeiro(string nome) => nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nome;
+
+    /// <summary>A linha da mensagem como a conversa a mostra — o tipo do documento vem junto para decidir quem o abre.</summary>
+    public sealed record LinhaDaConversa(int Id, int AutorId, string AutorNome, string Texto, DateTime EnviadaEm,
+        DateTime? EditadaEm, string? Mencoes, int? PacienteId, string? PacienteNome, int? DocumentoClinicoId,
+        string? DocumentoRotulo, TipoDocumentoClinico? DocumentoTipo, string? ArquivoNome, long? ArquivoTamanho);
+
+    public static IQueryable<LinhaDaConversa> ConsultaLinhas(IQueryable<MensagemEquipe> origem)
+        => origem.Select(m => new LinhaDaConversa(m.Id, m.AutorId, m.AutorNome, m.Texto, m.EnviadaEm, m.EditadaEm,
+            m.Mencoes, m.PacienteId, m.PacienteNome, m.DocumentoClinicoId, m.DocumentoRotulo,
+            m.DocumentoClinicoId == null ? null : (TipoDocumentoClinico?)m.DocumentoClinico!.Tipo,
+            m.ArquivoNome, m.ArquivoTamanho));
+
+    /// <summary>
+    /// A linha vira mensagem da tela. Documento que o meu acesso não abre chega SEM o id e sem o
+    /// número — o cartão diz que há um documento, e quem pode abri-lo é quem o mandou.
+    /// </summary>
+    private static MensagemNaConversa Mensagem(LinhaDaConversa m, UsuarioSistema eu, string conversa,
+        IReadOnlyList<(int UsuarioId, int UltimaLidaId)> leituras)
+    {
+        var veDocumento = m.DocumentoTipo is not { } tipo || CentralDocumentosService.PodeVer(eu.Efetivas, tipo);
+        return new MensagemNaConversa(m.Id, m.AutorId, m.AutorNome,
+            ChatEquipeRegras.Iniciais(m.AutorNome), m.Texto, m.EnviadaEm, m.EditadaEm, m.AutorId == eu.Id,
+            m.AutorId != eu.Id && ChatEquipeRegras.Mencionou(m.Mencoes, eu.Id),
+            m.PacienteId, m.PacienteNome,
+            veDocumento ? m.DocumentoClinicoId : null,
+            m.DocumentoRotulo is null ? null : veDocumento ? m.DocumentoRotulo : ChatEquipeRegras.DocumentoSemAcesso,
+            m.ArquivoNome, m.ArquivoTamanho,
+            m.AutorId == eu.Id ? ChatEquipeRegras.LidaPor(m.Id, conversa, eu.Id, leituras) : null);
+    }
+
+    private async Task<List<(int UsuarioId, int UltimaLidaId)>> LeiturasAsync(string conversa, CancellationToken ct)
+        => (await db.LeiturasEquipe.AsNoTracking().Where(l => l.Conversa == conversa)
+                .Select(l => new { l.UsuarioId, l.UltimaLidaId }).ToListAsync(ct))
+            .Select(l => (l.UsuarioId, l.UltimaLidaId)).ToList();
+
+    private async Task<List<string>> EscrevendoAsync(string conversa, int eu, DateTime agoraLocal, CancellationToken ct)
+    {
+        var ids = (await db.PresencasEquipe.AsNoTracking()
+                .Where(p => p.EscrevendoEm == conversa && p.UsuarioId != eu).ToListAsync(ct))
+            .Where(p => ChatEquipeRegras.Escrevendo(p, conversa, agoraLocal)).Select(p => p.UsuarioId).ToList();
+        return ids.Count == 0 ? [] : await db.Usuarios.AsNoTracking()
+            .Where(u => ids.Contains(u.Id)).Select(u => u.Nome).ToListAsync(ct);
+    }
+
+    /// <summary>A presença da outra pessoa da direta: "online", "em atendimento até 10:30" ou "fora".</summary>
+    private async Task<string> PresencaNaDiretaAsync(int pessoaId, int? profissionalId, DateTime agoraLocal, CancellationToken ct)
+    {
+        var visto = await db.PresencasEquipe.AsNoTracking().Where(p => p.UsuarioId == pessoaId)
+            .Select(p => (DateTime?)p.VistoEm).SingleOrDefaultAsync(ct);
+        DateTime? ate = null;
+        if (profissionalId is { } pid && (await EmAtendimentoAsync(ct, pid)).TryGetValue(pid, out var a)) ate = a;
+        return ChatEquipeRegras.RotuloPresenca(ChatEquipeRegras.Presenca(visto, ate is not null, agoraLocal), ate);
+    }
 
     public async Task<ConversaAberta> AbrirAsync(int usuarioId, string conversa, int? antesDe = null, int limite = 60, CancellationToken ct = default)
     {
@@ -156,31 +214,14 @@ public sealed class ChatEquipeService : IChatEquipeService
 
         var consulta = db.MensagensEquipe.AsNoTracking().Where(m => m.Conversa == conversa);
         if (antesDe is { } antes) consulta = consulta.Where(m => m.Id < antes);
-        var linhas = await consulta.OrderByDescending(m => m.Id).Take(limite + 1)
-            .Select(m => new
-            {
-                m.Id, m.AutorId, m.AutorNome, m.Texto, m.EnviadaEm, m.EditadaEm, m.Mencoes,
-                m.PacienteId, m.PacienteNome, m.DocumentoClinicoId, m.DocumentoRotulo, m.ArquivoNome, m.ArquivoTamanho,
-            }).ToListAsync(ct);
+        var linhas = await ConsultaLinhas(consulta.OrderByDescending(m => m.Id).Take(limite + 1)).ToListAsync(ct);
         var temAnteriores = linhas.Count > limite;
         linhas = linhas.Take(limite).OrderBy(m => m.Id).ToList();
 
-        var leituras = await db.LeiturasEquipe.AsNoTracking().Where(l => l.Conversa == conversa)
-            .Select(l => new { l.UsuarioId, l.UltimaLidaId }).ToListAsync(ct);
-        var pares = leituras.Select(l => (l.UsuarioId, l.UltimaLidaId)).ToList();
-        var minhaLeitura = leituras.FirstOrDefault(l => l.UsuarioId == eu.Id)?.UltimaLidaId ?? 0;
-
-        var mensagens = linhas.Select(m => new MensagemNaConversa(m.Id, m.AutorId, m.AutorNome,
-            ChatEquipeRegras.Iniciais(m.AutorNome), m.Texto, m.EnviadaEm, m.EditadaEm, m.AutorId == eu.Id,
-            m.AutorId != eu.Id && ChatEquipeRegras.Mencionou(m.Mencoes, eu.Id),
-            m.PacienteId, m.PacienteNome, m.DocumentoClinicoId, m.DocumentoRotulo, m.ArquivoNome, m.ArquivoTamanho,
-            m.AutorId == eu.Id ? ChatEquipeRegras.LidaPor(m.Id, conversa, eu.Id, pares) : null)).ToList();
-
-        var escrevendoIds = (await db.PresencasEquipe.AsNoTracking()
-                .Where(p => p.EscrevendoEm == conversa && p.UsuarioId != eu.Id).ToListAsync(ct))
-            .Where(p => ChatEquipeRegras.Escrevendo(p, conversa, agoraLocal)).Select(p => p.UsuarioId).ToList();
-        var escrevendo = escrevendoIds.Count == 0 ? [] : await db.Usuarios.AsNoTracking()
-            .Where(u => escrevendoIds.Contains(u.Id)).Select(u => u.Nome).ToListAsync(ct);
+        var pares = await LeiturasAsync(conversa, ct);
+        var minhaLeitura = pares.FirstOrDefault(l => l.UsuarioId == eu.Id).UltimaLidaId;
+        var mensagens = linhas.Select(m => Mensagem(m, eu, conversa, pares)).ToList();
+        var escrevendo = await EscrevendoAsync(conversa, eu.Id, agoraLocal, ct);
 
         string titulo, subtitulo;
         int? pessoaId = null;
@@ -197,14 +238,41 @@ public sealed class ChatEquipeService : IChatEquipeService
             var outro = await db.Usuarios.AsNoTracking().Where(u => u.Id == pessoaId)
                 .Select(u => new { u.Nome, u.ProfissionalId }).SingleOrDefaultAsync(ct);
             titulo = outro?.Nome ?? "Pessoa removida";
-            var visto = await db.PresencasEquipe.AsNoTracking().Where(p => p.UsuarioId == pessoaId)
-                .Select(p => (DateTime?)p.VistoEm).SingleOrDefaultAsync(ct);
-            DateTime? ate = null;
-            if (outro?.ProfissionalId is { } pid && (await EmAtendimentoAsync(ct)).TryGetValue(pid, out var a)) ate = a;
-            subtitulo = ChatEquipeRegras.RotuloPresenca(ChatEquipeRegras.Presenca(visto, ate is not null, agoraLocal), ate);
+            subtitulo = await PresencaNaDiretaAsync(pessoaId.Value, outro?.ProfissionalId, agoraLocal, ct);
         }
 
-        return new ConversaAberta(conversa, titulo, subtitulo, pessoaId, mensagens, minhaLeitura, escrevendo, temAnteriores);
+        return new ConversaAberta(conversa, titulo, subtitulo, pessoaId, mensagens, minhaLeitura, escrevendo, temAnteriores, agoraLocal);
+    }
+
+    public async Task<AtualizacaoDaConversa> AtualizarAsync(int usuarioId, string conversa, int depoisDe, DateTime editadasDesde,
+        int limite = 60, CancellationToken ct = default)
+    {
+        var eu = await UsuarioAsync(usuarioId, ct);
+        ExigirAcesso(eu, conversa);
+        var agoraLocal = agora();
+
+        var daConversa = db.MensagensEquipe.AsNoTracking().Where(m => m.Conversa == conversa);
+        var novas = await ConsultaLinhas(daConversa.Where(m => m.Id > depoisDe).OrderBy(m => m.Id).Take(limite + 1)).ToListAsync(ct);
+        var corte = editadasDesde > DateTime.MinValue + ChatEquipeRegras.MargemDoRelogio
+            ? editadasDesde - ChatEquipeRegras.MargemDoRelogio : DateTime.MinValue;
+        var editadas = await ConsultaLinhas(daConversa
+            .Where(m => m.Id <= depoisDe && m.EditadaEm != null && m.EditadaEm > corte)).ToListAsync(ct);
+
+        var pares = await LeiturasAsync(conversa, ct);
+        var escrevendo = await EscrevendoAsync(conversa, eu.Id, agoraLocal, ct);
+        string? subtitulo = null;
+        if (ChatEquipeRegras.OutroDaDireta(conversa, eu.Id) is { } pessoaId)
+        {
+            var profissionalId = await db.Usuarios.AsNoTracking().Where(u => u.Id == pessoaId)
+                .Select(u => u.ProfissionalId).SingleOrDefaultAsync(ct);
+            subtitulo = await PresencaNaDiretaAsync(pessoaId, profissionalId, agoraLocal, ct);
+        }
+
+        return new AtualizacaoDaConversa(
+            novas.Take(limite).Select(m => Mensagem(m, eu, conversa, pares)).ToList(), novas.Count > limite,
+            editadas.Select(m => Mensagem(m, eu, conversa, pares)).ToList(),
+            pares.Select(p => new LeituraNaConversa(p.UsuarioId, p.UltimaLidaId)).ToList(),
+            escrevendo, subtitulo, agoraLocal);
     }
 
     public async Task<int> EnviarAsync(int usuarioId, string conversa, NovaMensagemEquipe dados, CancellationToken ct = default)
@@ -219,17 +287,32 @@ public sealed class ChatEquipeService : IChatEquipeService
             throw new InvalidOperationException($"O arquivo passa de {ChatEquipeRegras.Tamanho(ChatEquipeRegras.TamanhoMaximoArquivo)}. Envie um menor.");
         if (temArquivo && ChatEquipeRegras.NomeDoArquivo(dados.ArquivoNome ?? "").Length == 0)
             throw new InvalidOperationException("O arquivo anexado precisa de um nome.");
+        if (temArquivo && !ChatEquipeRegras.ArquivoPermitido(dados.ArquivoNome!))
+            throw new InvalidOperationException(ChatEquipeRegras.TipoDeArquivoRecusado);
 
+        // As barreiras dos anexos moram AQUI, e não só na tela que os oferece: quem chama o
+        // serviço com um id qualquer não pode fazer o chat abrir para os outros o que ele
+        // mesmo não pode ver.
         string? pacienteNome = null;
         if (dados.PacienteId is { } pacId)
+        {
+            if (!eu.Pode(Permissao.VerFichaPaciente))
+                throw new UnauthorizedAccessException("Seu acesso não abre a ficha do paciente, então não dá para anexá-lo.");
             pacienteNome = await db.Pacientes.AsNoTracking().Where(p => p.Id == pacId).Select(p => p.Nome).SingleOrDefaultAsync(ct)
                 ?? throw new InvalidOperationException("O paciente anexado não foi encontrado — escolha de novo.");
+        }
         string? docRotulo = null;
         if (dados.DocumentoClinicoId is { } docId)
         {
             var doc = await db.DocumentosClinicos.AsNoTracking().Where(d => d.Id == docId)
-                .Select(d => new { d.Tipo, d.Numero }).SingleOrDefaultAsync(ct)
+                .Select(d => new { d.Tipo, d.Numero, d.PacienteId, d.CanceladoEm }).SingleOrDefaultAsync(ct)
                 ?? throw new InvalidOperationException("O documento anexado não foi encontrado — escolha de novo.");
+            if (doc.PacienteId != dados.PacienteId)
+                throw new InvalidOperationException("O documento anexado não é do paciente anexado — escolha de novo.");
+            if (doc.CanceladoEm is not null)
+                throw new InvalidOperationException("O documento anexado foi cancelado e não vai pelo chat.");
+            if (!CentralDocumentosService.PodeVer(eu.Efetivas, doc.Tipo))
+                throw new UnauthorizedAccessException("Seu acesso não abre este documento, então não dá para anexá-lo.");
             docRotulo = $"{TipoDocumentoInfo.Rotular(doc.Tipo)} {doc.Numero}";
         }
 

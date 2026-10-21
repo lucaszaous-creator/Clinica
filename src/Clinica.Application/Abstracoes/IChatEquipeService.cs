@@ -20,8 +20,24 @@ public sealed record MensagemNaConversa(int Id, int AutorId, string AutorNome, s
     int? PacienteId, string? PacienteNome, int? DocumentoId, string? DocumentoRotulo,
     string? ArquivoNome, long? ArquivoTamanho, string? LidaPor);
 
+/// <param name="Instante">A hora da leitura — é o <c>editadasDesde</c> da próxima <see cref="IChatEquipeService.AtualizarAsync"/>.</param>
 public sealed record ConversaAberta(string Conversa, string Titulo, string Subtitulo, int? PessoaId,
-    IReadOnlyList<MensagemNaConversa> Mensagens, int UltimaLidaAntes, IReadOnlyList<string> Escrevendo, bool TemAnteriores);
+    IReadOnlyList<MensagemNaConversa> Mensagens, int UltimaLidaAntes, IReadOnlyList<string> Escrevendo, bool TemAnteriores,
+    DateTime Instante = default);
+
+/// <summary>Até onde cada pessoa leu a conversa — a tela refaz o "Lida por" das mensagens que já tem.</summary>
+public sealed record LeituraNaConversa(int UsuarioId, int UltimaLidaId);
+
+/// <summary>
+/// O que mudou na conversa aberta desde a última leitura: a releitura de 4 s não traz de novo
+/// as mensagens (e os laudos) que já estão na tela.
+/// </summary>
+/// <param name="HaMaisNovas">Chegaram mais que o limite: a tela relê a conversa inteira.</param>
+/// <param name="Editadas">Mensagens que já estavam na conversa e foram corrigidas.</param>
+/// <param name="Subtitulo">A presença da pessoa na direta; nulo no canal (não muda de 4 em 4 s).</param>
+public sealed record AtualizacaoDaConversa(IReadOnlyList<MensagemNaConversa> Novas, bool HaMaisNovas,
+    IReadOnlyList<MensagemNaConversa> Editadas, IReadOnlyList<LeituraNaConversa> Leituras,
+    IReadOnlyList<string> Escrevendo, string? Subtitulo, DateTime Instante);
 
 /// <summary>O que se manda. Texto vazio só vale com anexo.</summary>
 public sealed record NovaMensagemEquipe(string Texto, int? PacienteId = null, int? DocumentoClinicoId = null,
@@ -34,6 +50,13 @@ public interface IChatEquipeService
 
     /// <summary>As últimas mensagens da conversa (ou as anteriores a <paramref name="antesDe"/>).</summary>
     Task<ConversaAberta> AbrirAsync(int usuarioId, string conversa, int? antesDe = null, int limite = 60, CancellationToken ct = default);
+
+    /// <summary>
+    /// O que mudou depois de <paramref name="depoisDe"/> (a última mensagem na tela) e as correções
+    /// feitas depois de <paramref name="editadasDesde"/> (o <c>Instante</c> da leitura anterior).
+    /// </summary>
+    Task<AtualizacaoDaConversa> AtualizarAsync(int usuarioId, string conversa, int depoisDe, DateTime editadasDesde,
+        int limite = 60, CancellationToken ct = default);
 
     Task<int> EnviarAsync(int usuarioId, string conversa, NovaMensagemEquipe dados, CancellationToken ct = default);
 

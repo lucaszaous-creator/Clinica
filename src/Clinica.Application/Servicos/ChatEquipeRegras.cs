@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Clinica.Application.Abstracoes;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -42,6 +43,33 @@ public static class ChatEquipeRegras
         if (corte >= 0) limpo = limpo[(corte + 1)..];
         return limpo.Length > 200 ? limpo[^200..] : limpo;
     }
+
+    /// <summary>
+    /// Os tipos de arquivo que o chat aceita: documento, planilha, imagem e texto. Quem recebe
+    /// ABRE o anexo direto no posto (<c>SalvarEAbrirAsync</c>), então executável, atalho,
+    /// script e compactado (que pode levar um executável dentro) ficam de fora — o chat não
+    /// pode ser a porta de um programa para dentro de todas as máquinas da clínica.
+    /// </summary>
+    public static IReadOnlyList<string> ExtensoesPermitidas { get; } =
+    [
+        ".pdf", ".txt", ".csv", ".xml", ".rtf",
+        ".doc", ".docx", ".odt", ".xls", ".xlsx", ".ods", ".ppt", ".pptx", ".odp",
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tif", ".tiff", ".heic",
+    ];
+
+    /// <summary>O arquivo é de um tipo que o chat aceita? Decide pela extensão, sem caixa.</summary>
+    public static bool ArquivoPermitido(string nome)
+    {
+        var limpo = NomeDoArquivo(nome);
+        var ponto = limpo.LastIndexOf('.');
+        return ponto > 0 && ExtensoesPermitidas.Contains(limpo[ponto..].ToLowerInvariant());
+    }
+
+    public const string TipoDeArquivoRecusado = "O chat aceita PDF, documentos do Office, planilhas, imagens e texto. Programas e arquivos compactados não vão pelo chat.";
+
+    /// <summary>O filtro do "Escolher arquivo" — os mesmos tipos de <see cref="ExtensoesPermitidas"/>.</summary>
+    public static string FiltroDeArquivos
+        => $"Documentos, planilhas e imagens|{string.Join(';', ExtensoesPermitidas.Select(e => "*" + e))}";
 
     public static string NomeDoCanal(string conversa) => conversa switch
     {
@@ -155,6 +183,17 @@ public static class ChatEquipeRegras
         return sb.ToString();
     }
 
+    /// <summary>O cartão do documento para quem o acesso não abre: diz que há um, sem o tipo e o número.</summary>
+    public const string DocumentoSemAcesso = "Documento clínico";
+
+    /// <summary>
+    /// O anexo que a prévia nomeia quando a mensagem não tem texto. Documento sai como "documento
+    /// clínico": a prévia vai a todo o canal, e o tipo e o número do documento só aparecem na
+    /// conversa, para quem o acesso abre.
+    /// </summary>
+    public static string? AnexoNaPrevia(string? documentoRotulo, string? pacienteNome, string? arquivoNome)
+        => documentoRotulo is not null ? "documento clínico" : pacienteNome ?? arquivoNome;
+
     /// <summary>A prévia da bolinha e da lista: a primeira linha, cortada; anexo sem texto diz o que é.</summary>
     public static string Previa(string texto, string? anexo = null, int limite = 90)
     {
@@ -227,6 +266,36 @@ public static class ChatEquipeRegras
         var leram = leituras.Count(l => l.UsuarioId != eu && l.UltimaLidaId >= mensagemId);
         if (leram == 0) return null;
         return OutroDaDireta(conversa, eu) is not null ? "Lida" : $"Lida por {leram}";
+    }
+
+    /// <summary>
+    /// A releitura pede de novo as correções feitas um pouco ANTES da leitura anterior: a hora da
+    /// correção é a do posto de quem corrigiu, e o relógio de um posto pode estar uns minutos
+    /// atrás do outro. Trazer de novo uma correção já vista não custa nada (ela substitui a si mesma).
+    /// </summary>
+    public static readonly TimeSpan MargemDoRelogio = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// A conversa na tela com o que a releitura trouxe: correções no lugar, mensagens novas no fim,
+    /// e o "Lida" refeito. O que já estava na tela — inclusive as mensagens anteriores que a pessoa
+    /// carregou — continua lá.
+    /// </summary>
+    public static ConversaAberta Mesclar(ConversaAberta aberta, AtualizacaoDaConversa novidade, int eu)
+    {
+        var editadas = novidade.Editadas.ToDictionary(m => m.Id);
+        var ultima = aberta.Mensagens.Count == 0 ? 0 : aberta.Mensagens[^1].Id;
+        var leituras = novidade.Leituras.Select(l => (l.UsuarioId, l.UltimaLidaId)).ToList();
+        var mensagens = aberta.Mensagens.Select(m => editadas.GetValueOrDefault(m.Id) ?? m)
+            .Concat(novidade.Novas.Where(m => m.Id > ultima).OrderBy(m => m.Id))
+            .Select(m => m.Minha ? m with { LidaPor = LidaPor(m.Id, aberta.Conversa, eu, leituras) } : m)
+            .ToList();
+        return aberta with
+        {
+            Mensagens = mensagens,
+            Escrevendo = novidade.Escrevendo,
+            Subtitulo = novidade.Subtitulo ?? aberta.Subtitulo,
+            Instante = novidade.Instante,
+        };
     }
 
     /// <summary>O dia como separador da conversa: "Hoje", "Ontem" ou a data.</summary>

@@ -31,8 +31,14 @@ computador.
   tela grande para escrever o laudo.
 - **Paciente anexado**: quem recebe abre a ficha num clique (com `VerFichaPaciente`).
 - **Documento emitido** do paciente anexado: quem recebe abre a 2ª via idêntica. Só aparecem
-  os documentos que quem escreve pode ver, e abrir registra o acesso ao prontuário.
-- **Arquivo** de até 10 MB.
+  os documentos que quem escreve pode ver, e abrir registra o acesso ao prontuário. O SERVIÇO
+  confere de novo (não só a tela): quem não vê a ficha não anexa paciente, quem não vê o tipo do
+  documento não o anexa, o documento tem de ser do paciente anexado e não pode estar cancelado.
+  Quem recebe e não tem acesso ao tipo vê só "Documento clínico", sem o número e sem abrir; a
+  prévia da bolinha e da lista diz "documento clínico" para todos.
+- **Arquivo** de até 10 MB, só documento, planilha, imagem e texto
+  (`ChatEquipeRegras.ExtensoesPermitidas`). Quem recebe abre o anexo direto no posto, então
+  programa, atalho, script e compactado não vão pelo chat — conferido no envio e de novo ao abrir.
 - **@menção** pelo primeiro nome. Só toca para quem enxerga a conversa.
 - **Correção** da própria mensagem: ela ganha "(editada)" e a versão anterior fica guardada.
   No chat nada se apaga.
@@ -56,6 +62,16 @@ arquivo de áudio.
 O gatilho `clinica_avisar_mensagens_equipe` avisa as outras máquinas na hora (o mesmo
 `IAvisosDoBanco` do sino). Um relógio de fundo continua relendo: a conversa aberta a cada 4 s
 ("está escrevendo", "Lida") e a lista a cada 16 s. Aviso perdido não deixa o chat parado.
+
+A releitura da conversa aberta é INCREMENTAL (`AtualizarAsync`): traz só as mensagens depois da
+última na tela, as correções recentes e até onde cada um leu, e a tela as mescla
+(`ChatEquipeRegras.Mesclar`). Assim as mensagens anteriores que a pessoa carregou continuam na
+tela, e o laudo já mostrado não atravessa a rede de novo a cada 4 s. As correções são pedidas com
+5 minutos de folga, porque a hora da correção é a do posto de quem corrigiu. Chegaram mais de 60
+de uma vez: a tela relê a conversa inteira.
+
+Enter envia e Shift+Enter quebra a linha, decidido na página (`clinicaChat.ligarCampo`) na hora
+da tecla — o `@onkeydown:preventDefault` do Blazor só valia no render seguinte.
 
 ## 🧑‍💻 UX
 
@@ -83,8 +99,9 @@ O gatilho `clinica_avisar_mensagens_equipe` avisa as outras máquinas na hora (o
 
 - Tira do WhatsApp pessoal o recado interno e o laudo: o texto fica no sistema da clínica,
   com autoria, hora e versão anterior das correções.
-- Custo: cinco tabelas novas (migration aditiva) e uma consulta pequena por máquina a cada
-  16 s, mais uma a cada 4 s só com o chat aberto.
+- Custo: cinco tabelas novas (migration aditiva). Por máquina, a leitura da lista a cada 16 s
+  (canais, diretas, presença e quem está em atendimento hoje) e, só com o chat aberto, a
+  releitura incremental da conversa a cada 4 s — poucas linhas quando nada mudou.
 - O que NÃO tem, de propósito: apagar mensagem, voz, vídeo, figurinha e grupo livre.
 
 ## Desvios declarados do mockup

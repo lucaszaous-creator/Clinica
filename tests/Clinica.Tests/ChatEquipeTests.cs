@@ -139,6 +139,57 @@ public class ChatEquipeRegrasTests
         ChatEquipeRegras.LidaPor(10, "direta:1:2", 1, leituras).Should().Be("Lida");
         ChatEquipeRegras.LidaPor(11, "direta:1:2", 1, leituras).Should().BeNull("ninguém leu ainda");
     }
+    [Theory]
+    [InlineData("laudo.pdf", true)]
+    [InlineData("C:\\laudos\\Foto do Exame.JPG", true)]
+    [InlineData("planilha.xlsx", true)]
+    [InlineData("guias.xml", true)]
+    [InlineData("instalar.exe", false)]
+    [InlineData("atualizar.bat", false)]
+    [InlineData("atalho.lnk", false)]
+    [InlineData("script.js", false)]
+    [InlineData("pasta.zip", false)]
+    [InlineData("laudo.pdf.exe", false)]
+    [InlineData("sem-extensao", false)]
+    [InlineData(".pdf", false)]
+    public void So_documento_planilha_imagem_e_texto_vao_pelo_chat(string nome, bool aceito)
+        => ChatEquipeRegras.ArquivoPermitido(nome).Should().Be(aceito);
+
+    [Fact]
+    public void Previa_nao_diz_o_tipo_nem_o_numero_do_documento()
+    {
+        ChatEquipeRegras.AnexoNaPrevia("Relatório 12/2026", "Lúcia", null).Should().Be("documento clínico");
+        ChatEquipeRegras.AnexoNaPrevia(null, "Lúcia", "x.pdf").Should().Be("Lúcia");
+        ChatEquipeRegras.AnexoNaPrevia(null, null, "x.pdf").Should().Be("x.pdf");
+    }
+
+    private static MensagemNaConversa Msg(int id, int autor, string texto, int eu = 1)
+        => new(id, autor, "Fulano", "FU", texto, Agora, null, autor == eu, false, null, null, null, null, null, null, null);
+
+    [Fact]
+    public void Releitura_mescla_sem_perder_as_anteriores_carregadas()
+    {
+        // Na tela: 3 e 4 vieram de "Ver mensagens anteriores", 10 e 11 da abertura.
+        var aberta = new ConversaAberta("direta:1:2", "Paulo", "online", 2,
+            [Msg(3, 2, "antiga"), Msg(4, 1, "minha antiga"), Msg(10, 2, "oi"), Msg(11, 1, "tudo bem?")],
+            0, [], TemAnteriores: true, Instante: Agora);
+        var novidade = new AtualizacaoDaConversa(
+            Novas: [Msg(11, 1, "tudo bem?"), Msg(12, 2, "sim")], HaMaisNovas: false,
+            Editadas: [Msg(3, 2, "antiga (corrigida)")],
+            Leituras: [new LeituraNaConversa(2, 11), new LeituraNaConversa(1, 12)],
+            Escrevendo: ["Paulo Lima"], Subtitulo: null, Instante: Agora.AddSeconds(4));
+
+        var mesclada = ChatEquipeRegras.Mesclar(aberta, novidade, eu: 1);
+
+        mesclada.Mensagens.Select(m => m.Id).Should().Equal(3, 4, 10, 11, 12);
+        mesclada.Mensagens[0].Texto.Should().Be("antiga (corrigida)");
+        mesclada.Mensagens.Single(m => m.Id == 11).LidaPor.Should().Be("Lida", "Paulo leu até a 11");
+        mesclada.Mensagens.Single(m => m.Id == 4).LidaPor.Should().Be("Lida");
+        mesclada.TemAnteriores.Should().BeTrue();
+        mesclada.Subtitulo.Should().Be("online", "releitura sem presença não apaga o subtítulo");
+        mesclada.Escrevendo.Should().Equal("Paulo Lima");
+        mesclada.Instante.Should().Be(Agora.AddSeconds(4));
+    }
 }
 
 /// <summary>O serviço do chat contra o banco: envio, leitura, não lidas, edição e acesso.</summary>
@@ -284,5 +335,121 @@ public sealed class ChatEquipeServiceTests : IDisposable
         (await chat.PainelAsync(ana.Id, 0, Prefs)).Diretas.First().UltimaPrevia.Should().Be("Paulo: [Lúcia Fictícia]");
         await FluentActions.Awaiting(() => chat.EnviarAsync(paulo.Id, conversa, new("", PacienteId: 999)))
             .Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Releitura_traz_so_o_que_chegou_e_o_que_foi_corrigido()
+    {
+        var conversa = ChatEquipeRegras.Direta(ana.Id, paulo.Id);
+        var primeira = await chat.EnviarAsync(paulo.Id, conversa, new("Laudo longo da Lúcia"));
+        var aberta = await chat.AbrirAsync(ana.Id, conversa);
+        aberta.Instante.Should().Be(relogio);
+
+        relogio = relogio.AddSeconds(4);
+        (await chat.AtualizarAsync(ana.Id, conversa, primeira, aberta.Instante)).Novas.Should().BeEmpty("nada mudou: o laudo não volta");
+
+        relogio = relogio.AddSeconds(4);
+        await chat.EditarAsync(paulo.Id, primeira, "Laudo longo da Lúcia (corrigido)");
+        var nova = await chat.EnviarAsync(paulo.Id, conversa, new("viu?"));
+        var r = await chat.AtualizarAsync(ana.Id, conversa, primeira, aberta.Instante);
+        r.Novas.Select(m => m.Id).Should().Equal(nova);
+        r.Editadas.Single().Texto.Should().Be("Laudo longo da Lúcia (corrigido)");
+        r.Subtitulo.Should().Be("online");
+        r.Leituras.Should().Contain(new LeituraNaConversa(paulo.Id, nova), "quem envia leu a própria mensagem");
+
+        await chat.EnviarAsync(paulo.Id, conversa, new("e agora?"));
+        (await chat.AtualizarAsync(ana.Id, conversa, primeira, r.Instante, limite: 1)).HaMaisNovas
+            .Should().BeTrue("passou do limite: a tela relê a conversa inteira");
+        (await chat.AtualizarAsync(ana.Id, conversa, int.MaxValue, default)).Editadas.Should().ContainSingle("sem hora anterior, traz toda correção");
+        await FluentActions.Awaiting(() => chat.AtualizarAsync(joana.Id, conversa, 0, relogio))
+            .Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Fact]
+    public async Task Correcao_feita_com_o_relogio_do_outro_posto_atrasado_ainda_chega()
+    {
+        var conversa = ChatEquipeRegras.Direta(ana.Id, paulo.Id);
+        var id = await chat.EnviarAsync(paulo.Id, conversa, new("Reunião às 14h"));
+        var aberta = await chat.AbrirAsync(ana.Id, conversa);
+        relogio = relogio.AddMinutes(-3); // o posto do Paulo está 3 minutos atrás
+        await chat.EditarAsync(paulo.Id, id, "Reunião às 15h");
+        (await chat.AtualizarAsync(ana.Id, conversa, id, aberta.Instante)).Editadas.Single().Texto.Should().Be("Reunião às 15h");
+    }
+
+    [Fact]
+    public async Task Programa_e_compactado_nao_vao_pelo_chat()
+    {
+        var conversa = ChatEquipeRegras.Direta(ana.Id, paulo.Id);
+        await FluentActions.Awaiting(() => chat.EnviarAsync(paulo.Id, conversa, new("", ArquivoNome: "laudo.pdf.exe", ArquivoConteudo: [1])))
+            .Should().ThrowAsync<InvalidOperationException>();
+        await FluentActions.Awaiting(() => chat.EnviarAsync(paulo.Id, conversa, new("", ArquivoNome: "exames.zip", ArquivoConteudo: [1])))
+            .Should().ThrowAsync<InvalidOperationException>();
+        (await db.MensagensEquipe.CountAsync()).Should().Be(0);
+    }
+
+    private async Task<(Paciente Lucia, Paciente Outro, DocumentoClinico Relatorio)> RelatorioDaLuciaAsync()
+    {
+        var lucia = new Paciente { Nome = "Lúcia Fictícia" };
+        var outro = new Paciente { Nome = "Outro Fictício" };
+        db.Pacientes.AddRange(lucia, outro);
+        await db.SaveChangesAsync();
+        var relatorio = new DocumentoClinico
+        {
+            Tipo = TipoDocumentoClinico.RelatorioEvolucao, Numero = "12/2026", PacienteId = lucia.Id, CodigoVerificacao = "ABC",
+        };
+        db.DocumentosClinicos.Add(relatorio);
+        await db.SaveChangesAsync();
+        return (lucia, outro, relatorio);
+    }
+
+    [Fact]
+    public async Task So_anexa_documento_quem_pode_ve_lo_e_so_do_paciente_anexado()
+    {
+        var (lucia, outro, relatorio) = await RelatorioDaLuciaAsync();
+        CentralDocumentosService.PodeVer(ana.Efetivas, relatorio.Tipo).Should().BeFalse("premissa: a recepção não lê o relatório de evolução");
+        CentralDocumentosService.PodeVer(paulo.Efetivas, relatorio.Tipo).Should().BeTrue();
+        var conversa = ChatEquipeRegras.Direta(ana.Id, paulo.Id);
+
+        await FluentActions.Awaiting(() => chat.EnviarAsync(ana.Id, conversa, new("", PacienteId: lucia.Id, DocumentoClinicoId: relatorio.Id)))
+            .Should().ThrowAsync<UnauthorizedAccessException>("a tela não oferece; o serviço também não aceita");
+        await FluentActions.Awaiting(() => chat.EnviarAsync(paulo.Id, conversa, new("", PacienteId: outro.Id, DocumentoClinicoId: relatorio.Id)))
+            .Should().ThrowAsync<InvalidOperationException>("o documento é da Lúcia");
+        await FluentActions.Awaiting(() => chat.EnviarAsync(paulo.Id, conversa, new("", DocumentoClinicoId: relatorio.Id)))
+            .Should().ThrowAsync<InvalidOperationException>("documento vai com o paciente dele");
+
+        relatorio.CanceladoEm = relogio;
+        await db.SaveChangesAsync();
+        await FluentActions.Awaiting(() => chat.EnviarAsync(paulo.Id, conversa, new("", PacienteId: lucia.Id, DocumentoClinicoId: relatorio.Id)))
+            .Should().ThrowAsync<InvalidOperationException>("documento cancelado não vai");
+        (await db.MensagensEquipe.CountAsync()).Should().Be(0);
+
+        var semFicha = new UsuarioSistema
+        {
+            Nome = "Sem Ficha", Login = "semficha", Perfil = PerfilAcesso.Recepcao,
+            PermissoesNegadas = Permissao.VerFichaPaciente, CriadoEm = new(2026, 1, 1),
+        };
+        db.Usuarios.Add(semFicha);
+        await db.SaveChangesAsync();
+        await FluentActions.Awaiting(() => chat.EnviarAsync(semFicha.Id, ChatEquipeRegras.CanalGeral, new("", PacienteId: lucia.Id)))
+            .Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Fact]
+    public async Task Documento_chega_sem_tipo_nem_numero_para_quem_o_acesso_nao_abre()
+    {
+        var (lucia, _, relatorio) = await RelatorioDaLuciaAsync();
+        var conversa = ChatEquipeRegras.Direta(ana.Id, paulo.Id);
+        await chat.EnviarAsync(paulo.Id, conversa, new("", PacienteId: lucia.Id, DocumentoClinicoId: relatorio.Id));
+
+        var deQuemMandou = (await chat.AbrirAsync(paulo.Id, conversa)).Mensagens.Single();
+        deQuemMandou.DocumentoId.Should().Be(relatorio.Id);
+        deQuemMandou.DocumentoRotulo.Should().Contain("12/2026");
+
+        var daRecepcao = (await chat.AbrirAsync(ana.Id, conversa)).Mensagens.Single();
+        daRecepcao.DocumentoId.Should().BeNull("o acesso da recepção não abre o relatório");
+        daRecepcao.DocumentoRotulo.Should().Be(ChatEquipeRegras.DocumentoSemAcesso);
+        daRecepcao.PacienteNome.Should().Be("Lúcia Fictícia");
+        (await chat.AtualizarAsync(ana.Id, conversa, 0, relogio)).Novas.Single().DocumentoId.Should().BeNull();
+        (await chat.PainelAsync(ana.Id, 0, Prefs)).Diretas.First().UltimaPrevia.Should().Be("Paulo: [documento clínico]");
     }
 }

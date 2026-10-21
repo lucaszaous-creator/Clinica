@@ -77,6 +77,24 @@ window.clinicaChat = {
     rolarAoFim: function (el) {
         if (el) el.scrollTop = el.scrollHeight;
     },
+    // Enter envia, Shift+Enter quebra a linha — decidido AQUI, na hora da tecla. Pelo
+    // @onkeydown:preventDefault do Blazor a decisão só valia no render seguinte, e o Enter que
+    // enviava deixava passar a quebra de linha. UM ouvinte na página para o campo da conversa
+    // (.chat-campo), que some e volta a cada troca de conversa; o componente novo (outro login)
+    // só troca a referência. Durante a composição de acento (IME) o Enter é da composição.
+    _ponte: null,
+    ligarCampo: function (ref) {
+        var self = this;
+        self._ponte = ref;
+        if (self._campoLigado) return;
+        self._campoLigado = true;
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.altKey || e.isComposing) return;
+            if (!e.target || !e.target.classList || !e.target.classList.contains('chat-campo')) return;
+            e.preventDefault();
+            if (self._ponte) self._ponte.invokeMethodAsync('EnviarPeloEnter').catch(function () { });
+        });
+    },
     _ctx: null,
     tocar: function (tipo) {
         try {
