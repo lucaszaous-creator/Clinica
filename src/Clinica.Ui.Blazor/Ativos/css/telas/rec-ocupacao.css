@@ -193,4 +193,7 @@ button.rec-oc-tempo-nome:hover:not(:disabled){background:var(--superficie-hover)
 .rec-ocupacao .rec-oc-celula.calor-3:hover:not(:disabled),.rec-ocupacao .rec-oc-celula.calor-4:hover:not(:disabled){background:var(--azul-700)}
 .rec-ocupacao .rec-oc-celula.calor-1:hover:not(:disabled),.rec-ocupacao .rec-oc-celula.calor-2:hover:not(:disabled){border-color:var(--acento)}
 .rec-ocupacao .rec-oc-celula{min-height:76px}
-.rec-ocupacao .rec-oc-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Quem já CHEGOU (out/2026): verde-água — o mesmo do "No local" da Grade. */
+.rec-ocupacao .rec-oc-item.chegou{background:var(--teal-50);border-color:var(--teal-600);border-left-color:var(--teal-600)}
+.rec-ocupacao .rec-oc-item.chegou .numero,.rec-ocupacao .rec-oc-item.chegou .rec-oc-item-nome{color:var(--teal-600)}
+.rec-ocupacao .rec-oc-item-chegou{margin-left:auto;display:inline-flex;color:var(--teal-600)}

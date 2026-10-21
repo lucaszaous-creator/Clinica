@@ -240,6 +240,23 @@ public class GradeDaAgendaNaTelaTests
     }
 
     [Fact]
+    public void A_janela_do_horario_oferece_Chegou_so_no_dia_e_a_quem_ainda_nao_chegou()
+    {
+        var aguardando = Ag(14, prof: Helena);
+        var chegou = Ag(15, prof: Helena);
+        chegou.ChegadaEm = Agora;
+        var cancelado = Ag(16, prof: Helena);
+        cancelado.Status = StatusAgendamento.Cancelado;
+        var vazio = new Dictionary<int, RespostaDeConfirmacao>();
+        var dia = DateOnly.FromDateTime(aguardando.DataHora);
+
+        Assert.True(GradeDaAgendaNaTela.Cartao(aguardando, vazio).PodeChegar(dia));
+        Assert.False(GradeDaAgendaNaTela.Cartao(aguardando, vazio).PodeChegar(dia.AddDays(1)));
+        Assert.False(GradeDaAgendaNaTela.Cartao(chegou, vazio).PodeChegar(dia));
+        Assert.False(GradeDaAgendaNaTela.Cartao(cancelado, vazio).PodeChegar(dia));
+    }
+
+    [Fact]
     public void Sem_os_fechamentos_verificados_nada_e_oferecido_e_o_vao_diz_que_nao_verificou()
     {
         var grade = GradeDaAgendaNaTela.Montar(Leitura([], verificados: false), Filtro(profissional: Helena.Id), Agora);

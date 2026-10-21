@@ -8,7 +8,8 @@
 /* ---------- As cores por grupo, num lugar só ---------- */
 .rec-grade .grupo-todos{--cor-grupo:var(--cinza-500);--fundo-grupo:var(--superficie-hover)}
 .rec-grade .grupo-pendente{--cor-grupo:var(--aviso);--fundo-grupo:var(--aviso-suave)}
-.rec-grade .grupo-no-local,.rec-grade .grupo-em-atendimento{--cor-grupo:var(--acento);--fundo-grupo:var(--acento-suave)}
+.rec-grade .grupo-no-local{--cor-grupo:var(--teal-600);--fundo-grupo:var(--teal-50)}
+.rec-grade .grupo-em-atendimento{--cor-grupo:var(--acento);--fundo-grupo:var(--acento-suave)}
 .rec-grade .grupo-atendido{--cor-grupo:var(--sucesso-forte);--fundo-grupo:var(--sucesso-suave)}
 .rec-grade .grupo-cancelado,.rec-grade .grupo-faltou{--cor-grupo:var(--erro);--fundo-grupo:var(--erro-suave)}
 .rec-grade .grupo-substituido{--cor-grupo:var(--texto-secundario);--fundo-grupo:var(--superficie-hover)}
@@ -136,7 +137,8 @@
 .rg-titulo{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rg-confirmou{font-style:normal;color:var(--acento);margin-right:3px}
 .rg-contexto{display:block;color:var(--texto-secundario);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rg-cartao.etapa-Chegou .rg-contexto,.rg-cartao.etapa-EmAtendimento .rg-contexto{color:var(--acento);font-weight:600}
+.rg-cartao.etapa-Chegou .rg-contexto{color:var(--teal-600);font-weight:600}
+.rg-cartao.etapa-EmAtendimento .rg-contexto{color:var(--acento);font-weight:600}
 .rg-cartao.etapa-Chamado .rg-contexto{color:var(--marca-navy);font-weight:600}
 .rg-selos{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .rg-selo{padding:0 6px;border-radius:var(--radius-pequeno);border:1px solid var(--marca-medio);background:var(--acento-suave);
