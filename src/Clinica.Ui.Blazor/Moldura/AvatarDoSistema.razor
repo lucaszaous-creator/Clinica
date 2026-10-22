@@ -1,0 +1,35 @@
+@*
+  O avatar do SemDor no chat da equipe (out/2026, opção "2A" escolhida pela direção): o símbolo da
+  marca — as duas metades do logo, com o encontro no azul-médio — num disco branco de aro fino.
+  Substitui o calendário genérico: o sistema continua sem cara de pessoa, mas agora tem a da clínica.
+
+  A animação é de produto, não de desenho: as metades se encaixam quando o avatar aparece, respiram
+  devagar, se afastam com um arco girando enquanto a resposta não vem (Pensando) e soltam uma onda
+  quando a resposta chega (Chegou). Tudo em CSS (chat-equipe.css, "avatar do SemDor"), cores só de
+  token (--marca-*), e parado para quem pede menos movimento no sistema.
+*@
+<span class="chat-av sistema sd-av @Classe @(Pensando ? "pensando" : null) @(Chegou ? "chegou" : null)" aria-hidden="true">
+    <svg viewBox="0 0 200 200" focusable="false">
+        <circle class="sd-onda" cx="100" cy="100" r="86" />
+        <circle class="sd-disco" cx="100" cy="100" r="90" />
+        <circle class="sd-arco" cx="100" cy="100" r="78" />
+        <g transform="translate(55 45) scale(0.17)">
+            <g class="sd-simbolo">
+                <path class="sd-m1" d="M230 0 H345 V450 H230 A225 225 0 0 1 230 0 Z" />
+                <path class="sd-m2" d="M160 180 H277 A235 235 0 0 1 277 650 H160 Z" />
+                <rect class="sd-m2 sd-meio" x="160" y="180" width="185" height="270" rx="28" />
+            </g>
+        </g>
+    </svg>
+</span>
+
+@code {
+    /// <summary>Classes de tamanho do chat (ex.: "grande").</summary>
+    [Parameter] public string? Classe { get; set; }
+
+    /// <summary>A pergunta ao sistema foi enviada e a resposta ainda não voltou.</summary>
+    [Parameter] public bool Pensando { get; set; }
+
+    /// <summary>A mensagem do sistema acabou de chegar (a mesma regra do "chegou" da mensagem).</summary>
+    [Parameter] public bool Chegou { get; set; }
+}
