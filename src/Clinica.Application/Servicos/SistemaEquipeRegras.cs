@@ -35,7 +35,7 @@ public sealed record HorarioDoSistema(int AgendamentoId, DateTime DataHora, int 
     string Procedimento, string Profissional, StatusAgendamento Status, EtapaFila Etapa, SituacaoConfirmacao? Confirmacao);
 
 /// <summary>
-/// As regras do Sistema SemDor (out/2026 — chat da equipe integrado ao CRM). Ele responde, na
+/// As regras do Sistema SemDor (out/2026 — no chat dos apps e pelo WhatsApp da clínica). Ele responde, na
 /// conversa de cada pessoa, à agenda do dia, a quem confirmou, a quem pediu para remarcar, aos
 /// pedidos à recepção — com os MESMOS dados e as MESMAS palavras da agenda do balcão e do CRM
 /// ("Confirmou", "Não vem — remarcar", "Não confirmou"; <see cref="RodadaDeConfirmacao"/>).

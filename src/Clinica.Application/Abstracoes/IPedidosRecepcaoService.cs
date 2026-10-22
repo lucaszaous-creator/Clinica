@@ -3,7 +3,7 @@ namespace Clinica.Application.Abstracoes;
 /// <summary>O que se pede. <paramref name="Idempotencia"/> é a chave do comando: repetir não cria outro pedido.</summary>
 public sealed record NovoPedidoRecepcao(Guid Idempotencia, string Tipo, int? PacienteId, int? AgendamentoId, string Detalhe);
 
-/// <summary>Um pedido como as listas (chat, CRM) o mostram.</summary>
+/// <summary>Um pedido como as listas do chat o mostram.</summary>
 /// <param name="PodeTratar">Quem lê pode assumir e encerrar (a recepção); quem pediu só acompanha.</param>
 public sealed record PedidoNaLista(int Id, string Tipo, string TipoRotulo, int? PacienteId, string PacienteNome,
     int? AgendamentoId, DateTime? HorarioEm, string Detalhe, int CriadoPorId, string CriadoPorNome, DateTime CriadoEm,
@@ -14,9 +14,9 @@ public sealed record PedidoNaLista(int Id, string Tipo, string TipoRotulo, int? 
 public sealed record HorarioParaPedido(int AgendamentoId, DateTime DataHora, string Rotulo);
 
 /// <summary>
-/// Os pedidos à recepção (out/2026 — chat da equipe integrado ao CRM). Quem atende pede; a recepção
-/// assume e encerra, pelo chat dos apps ou pelo CRM; quem pediu recebe o desfecho na conversa
-/// com o Sistema SemDor. O pedido nunca mexe na agenda.
+/// Os pedidos à recepção (out/2026). Quem atende pede, pelo chat dos apps ou pelo WhatsApp da
+/// clínica; a recepção assume e encerra no # Recepção dos apps; quem pediu recebe o desfecho na
+/// conversa com o Sistema SemDor (e no WhatsApp, se o celular estiver cadastrado). O pedido nunca mexe na agenda.
 /// </summary>
 public interface IPedidosRecepcaoService
 {
