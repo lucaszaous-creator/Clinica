@@ -20,8 +20,10 @@ public static class OrganizacaoNavegacao
                 abas = [new("Dia", "fila"), new("Visão geral", ChavesSuite.OcupacaoAgenda)];
                 break;
             case "consultorio-agenda":
+                // O DIA primeiro, igual à Agenda da Recepção (out/2026, pedido da clínica): o
+                // clique em "Agenda" abre a primeira aba, e no Consultório ela abria a Visão geral.
                 rotulo = "Agenda";
-                abas = [new("Visão geral", ChavesSuite.OcupacaoAgenda), new("Enfermagem", "consultorio-sessoes-enfermagem"), new("Dia", ChavesSuite.ConsultorioMeuDia),
+                abas = [new("Dia", ChavesSuite.ConsultorioMeuDia), new("Visão geral", ChavesSuite.OcupacaoAgenda), new("Enfermagem", "consultorio-sessoes-enfermagem"),
                     new("Semana", ChavesSuite.ConsultorioSemana), new("Marcar atendimento", "marcar-horario"),
                     new("Evoluções pendentes", "consultorio-registros-pendentes")];
                 break;
