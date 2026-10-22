@@ -17,6 +17,7 @@ namespace Clinica.Application.Abstracoes;
 /// <param name="Rodape">Uma linha de rodapé ("Mostrando 40 de 52 — abra a Agenda para ver todos").</param>
 /// <param name="PedidoId">No cartão de pedido, o pedido (a tela lê as ações por ele).</param>
 /// <param name="Situacao">No cartão de pedido, "Aberto", "EmAndamento", "Concluido" ou "NaoFeito".</param>
+/// <param name="Oferta">No pedido que veio do PACIENTE (@SemDor): os horários oferecidos e a escolha dele.</param>
 public sealed record CartaoChat(
     string Tipo,
     string Titulo,
@@ -26,7 +27,8 @@ public sealed record CartaoChat(
     IReadOnlyList<string>? Sugestoes = null,
     string? Rodape = null,
     int? PedidoId = null,
-    string? Situacao = null)
+    string? Situacao = null,
+    OfertaDoCartao? Oferta = null)
 {
     private static readonly JsonSerializerOptions Opcoes = new(JsonSerializerDefaults.Web)
     {
@@ -43,6 +45,17 @@ public sealed record CartaoChat(
         catch (JsonException) { return null; }
     }
 }
+
+/// <summary>
+/// A conversa com o paciente no cartão do pedido que veio dele (@SemDor, out/2026). Sem oferta ainda,
+/// <paramref name="Oferecidos"/> vem vazio; <paramref name="Entregue"/> diz se o CRM já a mandou, e
+/// <paramref name="Falha"/>, por que não chegou. <paramref name="Escolhido"/> é o horário que o paciente tocou.
+/// </summary>
+public sealed record OfertaDoCartao(
+    IReadOnlyList<DateTime>? Oferecidos = null,
+    bool Entregue = false,
+    string? Falha = null,
+    DateTime? Escolhido = null);
 
 /// <summary>Um número do resumo: "8" + "confirmaram", no tom "ok".</summary>
 public sealed record ResumoDoCartao(string Rotulo, int Valor, string Tom = TomDoCartao.Neutro);

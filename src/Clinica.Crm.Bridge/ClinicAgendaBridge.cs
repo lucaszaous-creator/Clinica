@@ -88,6 +88,9 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
         // Confirmation deliberately does not call ConfirmarPresencaAsync.
         if(cancel)await agenda.CancelarAsync(ap.Id,"CRM · cancelamento solicitado pelo paciente",ct);
         else await db.SaveChangesAsync(ct);
+        // "Remarcar" vira PEDIDO no # Recepção (@SemDor, out/2026): a recepção oferece horários e o
+        // paciente escolhe pelo WhatsApp. Na mesma transação — o pedido existe se, e só se, a resposta foi gravada.
+        if(input.Decision=="reschedule")await RemarcacaoPeloPacienteService.RegistrarPedidoAsync(db,ap,input.Phone,Now(),ct);
         await tx.CommitAsync(ct);return Result(input.Decision,cancel);
     }
     static ClinicDecisionResult Result(string decision,bool cancelled)=>decision switch{

@@ -1872,6 +1872,20 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.AssumidoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.EncerradoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AvisoWhatsAppEm).HasColumnType("timestamp without time zone");
+            // O pedido do paciente pelo WhatsApp (@SemDor, out/2026). Os textos nascem vazios nas
+            // linhas que já existem — todas são da equipe, sem oferta.
+            e.Property(x => x.Origem).IsRequired().HasMaxLength(10).HasDefaultValue("equipe");
+            e.Property(x => x.TelefonePaciente).IsRequired().HasMaxLength(20).HasDefaultValue("");
+            e.Property(x => x.HorariosOferecidos).IsRequired().HasMaxLength(60).HasDefaultValue("");
+            e.Property(x => x.OfertaToken).HasMaxLength(16);
+            e.Property(x => x.OfertaFalha).IsRequired().HasMaxLength(200).HasDefaultValue("");
+            e.Property(x => x.RespostaAoPaciente).IsRequired().HasMaxLength(600).HasDefaultValue("");
+            e.Property(x => x.OferecidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.OfertaTratadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.HorarioEscolhido).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EscolhidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.RespostaTratadaEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(x => x.OfertaToken).IsUnique().HasFilter("\"OfertaToken\" IS NOT NULL");
             e.Property(x => x.Versao).IsConcurrencyToken();
             e.HasIndex(x => x.Idempotencia).IsUnique();
             // A lista da recepção pergunta "o que está aberto"; a de quem pediu, "o que é meu".

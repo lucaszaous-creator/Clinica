@@ -71,6 +71,19 @@ app.MapPost("/crm/v1/staff/notices/ack",async(StaffNoticeAck input,AssistenteWha
     await s.ConfirmarAvisoAsync(input.RequestId,input.Delivered,input.Reason,ct);
     return Results.Ok(new{ok=true});
 });
+// A remarcação pedida pelo paciente (@SemDor, out/2026): a fila de mensagens ao paciente (ofertas com
+// botões e confirmações), o resultado de cada uma e o toque do paciente num horário. Sem chave de ligar
+// aqui: quem decide mandar é o CRM (CRM_PATIENT_OFFERS_ENABLED). RemarcacaoPeloPacienteService já vem do AddClinica.
+app.MapGet("/crm/v1/patient/messages",async(RemarcacaoPeloPacienteService s,CancellationToken ct)=>
+    (await s.MensagensPendentesAsync(ct)).Select(m=>new PatientMessage(m.Id,m.Telefone,m.Texto,m.Opcoes.Select(o=>new PatientOption(o.Id,o.Titulo)).ToArray())).ToArray());
+app.MapPost("/crm/v1/patient/messages/ack",async(PatientMessageAck input,RemarcacaoPeloPacienteService s,CancellationToken ct)=>{
+    await s.ConfirmarMensagemAsync(input.Id??"",input.Delivered,input.Reason,ct);
+    return Results.Ok(new{ok=true});
+});
+app.MapPost("/crm/v1/patient/choice",async(PatientChoice input,RemarcacaoPeloPacienteService s,CancellationToken ct)=>{
+    if(Clinica.Application.Servicos.RemarcacaoPeloPacienteRegras.LerOpcao(input.Payload) is not { } opcao)return new PatientChoiceAnswer(false);
+    return new PatientChoiceAnswer(true,await s.EscolherAsync(opcao.Chave,opcao.Indice,input.Phone??"",ct));
+});
 app.MapPost("/crm/v1/patients/lookup",(ClinicPatientLookup input,ClinicPatientBridge bridge,CancellationToken ct)=>bridge.Lookup(input,ct));
 // O dia do CRM para a direção (caminho A): só contagens, numa tabela própria. Sem chave de
 // ligar: quem decide enviar é o CRM (CRM_DAILY_SUMMARY_ENABLED), e a ponte só grava o resumo.

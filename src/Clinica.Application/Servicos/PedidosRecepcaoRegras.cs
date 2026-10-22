@@ -112,14 +112,28 @@ public static class PedidosRecepcaoRegras
         if (Encerrado(p.Situacao))
             linhas.Add(new("", (p.Situacao == Concluido ? "Feito por " : "Respondido por ") + p.ResponsavelNome,
                 p.Desfecho.Length > 0 ? p.Desfecho : null));
+        if (DoPaciente(p))
+            return new CartaoChat("pedido", "Paciente pediu para " + RotuloDoTipo(p.Tipo).ToLowerInvariant(), "pelo WhatsApp, no lembrete",
+                Linhas: linhas, PedidoId: p.Id, Situacao: p.Situacao, Oferta: Oferta(p));
         return new CartaoChat("pedido", "Pedido à recepção · " + RotuloDoTipo(p.Tipo), $"de {p.CriadoPorNome}",
             Linhas: linhas, PedidoId: p.Id, Situacao: p.Situacao);
     }
 
+    /// <summary>O pedido veio do paciente (o "Remarcar" do lembrete pelo WhatsApp), e não de alguém da equipe.</summary>
+    public static bool DoPaciente(PedidoRecepcao p) => p.Origem == RemarcacaoPeloPacienteRegras.OrigemPaciente;
+
+    /// <summary>A conversa com o paciente, para o cartão: o que foi oferecido, se chegou e o que ele escolheu.</summary>
+    public static OfertaDoCartao Oferta(PedidoRecepcao p) => new(
+        RemarcacaoPeloPacienteRegras.Ler(p.HorariosOferecidos),
+        p.OfertaTratadaEm is not null && p.OfertaFalha.Length == 0,
+        p.OfertaFalha.Length > 0 ? p.OfertaFalha : null,
+        p.HorarioEscolhido);
+
     /// <summary>O texto legível do cartão (busca, prévia, quem não desenha o cartão).</summary>
     public static string Texto(PedidoRecepcao p)
     {
-        var t = $"Pedido à recepção: {Resumo(p.Tipo, p.PacienteNome, p.HorarioEm)}";
+        var t = (DoPaciente(p) ? "Pedido do paciente pelo WhatsApp: " : "Pedido à recepção: ") + Resumo(p.Tipo, p.PacienteNome, p.HorarioEm);
+        if (DoPaciente(p) && p.HorarioEscolhido is { } escolhido) t += $" — escolheu {Horario(escolhido)}";
         if (p.Detalhe.Length > 0) t += $" — {p.Detalhe}";
         return t + $" [{RotuloDaSituacao(p.Situacao)}]";
     }

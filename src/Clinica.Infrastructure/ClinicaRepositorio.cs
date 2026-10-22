@@ -3941,6 +3941,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task<IReadOnlyList<UsuarioSistema>> UsuariosAsync(CancellationToken ct = default)
         => await _db.Usuarios.AsNoTracking()
+            // O usuário técnico do SemDor não é da equipe: não aparece em Acessos nem em lista alguma.
+            .Where(u => u.Login != Clinica.Application.Servicos.UsuarioTecnico.Login)
             .Include(u => u.Profissional)
             .OrderByDescending(u => u.Ativo)
             .ThenBy(u => u.Nome)

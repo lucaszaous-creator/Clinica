@@ -22,6 +22,9 @@ public static class DependencyInjection
         services.AddScoped<IComissaoRecuperacaoService, ComissaoRecuperacaoService>();
         services.AddScoped<IChatEquipeService, ChatEquipeService>();
         services.AddScoped<IPedidosRecepcaoService, PedidosRecepcaoService>();
+        // A remarcação pedida pelo paciente (@SemDor): a tela usa a interface; a ponte, a classe (fila do CRM).
+        services.AddScoped<RemarcacaoPeloPacienteService>();
+        services.AddScoped<IRemarcacaoPeloPacienteService>(sp => sp.GetRequiredService<RemarcacaoPeloPacienteService>());
         services.AddScoped<IPlanejamentoEnfermagemService, Planejamento.PlanejamentoEnfermagemService>();
         services.AddScoped<IOcupacaoAgendaService, Planejamento.OcupacaoAgendaService>();
         services.AddSingleton(new RegistroRegras());

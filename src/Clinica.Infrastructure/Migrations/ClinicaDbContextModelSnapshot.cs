@@ -4889,8 +4889,21 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<DateTime?>("EncerradoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("EscolhidoEm")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<DateTime?>("HorarioEm")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("HorarioEscolhido")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("HorariosOferecidos")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasDefaultValue("");
 
                     b.Property<Guid>("Idempotencia")
                         .HasColumnType("uuid");
@@ -4900,6 +4913,30 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.Property<int?>("MensagemRecepcaoId")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime?>("OferecidoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("OfertaFalha")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("OfertaToken")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime?>("OfertaTratadaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("equipe");
 
                     b.Property<int?>("PacienteId")
                         .HasColumnType("integer");
@@ -4917,10 +4954,27 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<string>("RespostaAoPaciente")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(600)
+                        .HasColumnType("character varying(600)")
+                        .HasDefaultValue("");
+
+                    b.Property<DateTime?>("RespostaTratadaEm")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<string>("Situacao")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TelefonePaciente")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("");
 
                     b.Property<string>("Tipo")
                         .IsRequired()
@@ -4937,6 +4991,10 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.HasIndex("Idempotencia")
                         .IsUnique();
+
+                    b.HasIndex("OfertaToken")
+                        .IsUnique()
+                        .HasFilter("\"OfertaToken\" IS NOT NULL");
 
                     b.HasIndex("PacienteId");
 

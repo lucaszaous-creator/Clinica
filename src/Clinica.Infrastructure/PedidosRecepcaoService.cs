@@ -200,7 +200,9 @@ public sealed class PedidosRecepcaoService : IPedidosRecepcaoService
             });
 
             await using var tx = await db.Database.BeginTransactionAsync(ct);
-            if (PedidosRecepcaoRegras.Encerrado(pedido.Situacao))
+            // O pedido do PACIENTE não tem quem receber o desfecho no chat: o paciente recebe a
+            // confirmação pelo WhatsApp (RemarcacaoPeloPacienteService), e só quando a agenda mudou.
+            if (PedidosRecepcaoRegras.Encerrado(pedido.Situacao) && !PedidosRecepcaoRegras.DoPaciente(pedido))
             {
                 // O desfecho chega a quem pediu sem ele perguntar: uma mensagem do sistema, na conversa dele.
                 var aviso = GravacaoDoChat.Mensagem(ChatEquipeRegras.Sistema(pedido.CriadoPorId), pedido.CriadoPorId, pedido.CriadoPorNome,
