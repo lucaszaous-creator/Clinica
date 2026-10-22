@@ -150,6 +150,52 @@ public static class ChatEquipeRegras
 
     public static bool EhSistema(string conversa) => DonoDoSistema(conversa) is not null;
 
+    // ------------------------------------------------------------ @SemDor em qualquer conversa (out/2026)
+    //
+    // Marcar @SemDor num canal ou numa direta faz o sistema responder ALI, para todos, com as mesmas
+    // regras da conversa com o Sistema SemDor e com as permissões de quem perguntou. A resposta só
+    // fica à vista quando TODOS ali podem ver a agenda e a ficha; senão ela vai para a conversa de
+    // quem perguntou com o sistema, e o canal recebe só o aviso de que foi respondido em particular.
+
+    /// <summary>Como o sistema é citado: "@SemDor" (maiúsculas e acentos não importam).</summary>
+    public const string MencaoDoSistema = "SemDor";
+
+    /// <summary>O texto cita o @SemDor (como palavra inteira depois do @)?</summary>
+    public static bool CitaOSemDor(string? texto) => PosicoesDaMencaoDoSistema(texto ?? "").Count > 0;
+
+    /// <summary>A pergunta sem o "@SemDor" (o que vai para as regras do sistema).</summary>
+    public static string SemAMencaoDoSemDor(string texto)
+    {
+        var b = new StringBuilder(texto);
+        foreach (var (inicio, tamanho) in PosicoesDaMencaoDoSistema(texto).OrderByDescending(x => x.Inicio)) b.Remove(inicio, tamanho);
+        return string.Join(' ', b.ToString().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).Trim(' ', ',', ':', '-');
+    }
+
+    private static List<(int Inicio, int Tamanho)> PosicoesDaMencaoDoSistema(string texto)
+    {
+        var achadas = new List<(int, int)>();
+        for (var i = 0; i < texto.Length; i++)
+        {
+            if (texto[i] != '@' || (i > 0 && char.IsLetterOrDigit(texto[i - 1]))) continue;
+            var j = i + 1;
+            while (j < texto.Length && CaractereDeMencao(texto[j])) j++;
+            if (j > i + 1 && Normalizar(texto[(i + 1)..j].TrimEnd('_', '-')) == Normalizar(MencaoDoSistema)) achadas.Add((i, j - i));
+        }
+        return achadas;
+    }
+
+    /// <summary>
+    /// A resposta do @SemDor pode ficar à vista de todos na conversa? Só quando cada participante
+    /// ativo pode ver a agenda E a ficha: a resposta fala de pacientes e horários, e quem não pode
+    /// vê-los na tela não pode lê-los no chat.
+    /// </summary>
+    public static bool RespostaPodeFicarAVista(IEnumerable<UsuarioSistema> participantes)
+        => participantes.Where(p => p.Ativo).All(p => p.Pode(Permissao.VerAgenda) && p.Pode(Permissao.VerFichaPaciente));
+
+    /// <summary>O aviso no canal quando a resposta foi em particular.</summary>
+    public static string AvisoDeRespostaEmParticular(string quemPerguntou)
+        => $"Respondi a {quemPerguntou} em particular, na conversa com o {NomeDoSistema}: a resposta tem dados que nem todos aqui podem ver.";
+
     public static IReadOnlyList<string> CanaisDe(UsuarioSistema u) => Canais.Where(c => ParticipaDoCanal(u.Perfil, c)).ToList();
 
     /// <summary>Rótulo curto da função ("enf.", "recepção"), que vai ao lado do nome.</summary>

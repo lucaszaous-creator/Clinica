@@ -380,7 +380,7 @@ else
                                         var indice = i;
                                         <button type="button" role="option" aria-selected="@(indice == _sugestaoAtiva ? "true" : "false")"
                                                 class="chat-mencao @(indice == _sugestaoAtiva ? "on" : null)" @onclick="() => EscolherMencao(indice)">
-                                            <span class="chat-av" aria-hidden="true">@pessoa.Iniciais</span>@pessoa.Nome
+                                            @if (pessoa.Id == 0) { <AvatarDoSistema /> } else { <span class="chat-av" aria-hidden="true">@pessoa.Iniciais</span> }@pessoa.Nome
                                         </button>
                                     }
                                 </div>
@@ -1300,7 +1300,7 @@ else
         _erro = null;
         // A sugestão de @ sai das pessoas da conversa (vieram na abertura): nenhuma ida ao banco.
         var antes = _sugestoes;
-        _sugestoes = _aberta?.Pessoas is { Count: > 0 } pessoas
+        _sugestoes = Citaveis() is { Count: > 0 } pessoas
             ? ChatEquipeRegras.SugestoesDeMencao(_texto, pessoas, p => p.Nome)
             : null;
         if (_sugestoes is null || antes is null || antes.Value.Inicio != _sugestoes.Value.Inicio) _sugestaoAtiva = 0;
@@ -1313,9 +1313,17 @@ else
         }
     }
 
+    /// <summary>O @SemDor (id 0) responde em qualquer conversa que não seja a dele: entra na lista de quem dá para citar.</summary>
+    private static readonly PessoaDaConversa SemDorCitavel = new(0, ChatEquipeRegras.MencaoDoSistema, "SD");
+
+    private IReadOnlyList<PessoaDaConversa> Citaveis()
+        => _conversa is null || ChatEquipeRegras.EhSistema(_conversa) ? _aberta?.Pessoas ?? []
+            : [SemDorCitavel, .. _aberta?.Pessoas ?? []];
+
     private void EscolherMencao(int indice)
     {
-        if (_sugestoes is not { } s || _aberta?.Pessoas is not { } pessoas || indice < 0 || indice >= s.Pessoas.Count) return;
+        var pessoas = Citaveis();
+        if (_sugestoes is not { } s || indice < 0 || indice >= s.Pessoas.Count) return;
         var escolhida = s.Pessoas[indice];
         _texto = _texto[..s.Inicio] + ChatEquipeRegras.MencaoDe(escolhida.Nome, pessoas.Select(p => p.Nome)) + " ";
         _sugestoes = null;

@@ -536,7 +536,35 @@ public sealed class ChatEquipeService : IChatEquipeService
                 e.State = EntityState.Detached;
             await MarcarAteAsync(participante, conversa, resp.Id, ct);
         }
+        // @SemDor num canal ou numa direta: a resposta vai na própria conversa, para todos — ou em
+        // particular, quando alguém ali não pode ver a agenda e a ficha (ChatEquipeRegras).
+        else if (!ChatEquipeRegras.EhSistema(conversa) && ChatEquipeRegras.CitaOSemDor(texto))
+        {
+            var resposta = await RespostaDoSistemaAsync(eu, ChatEquipeRegras.SemAMencaoDoSemDor(texto), ct);
+            var aVista = ChatEquipeRegras.RespostaPodeFicarAVista(todos.Select(p => p.Usuario));
+            var resp = aVista
+                ? GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, resposta.Texto, resposta.Cartao, true, agora())
+                : GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, ChatEquipeRegras.AvisoDeRespostaEmParticular(eu.Nome), null, true, agora());
+            await GravacaoDoChat.AdicionarAsync(db, resp, ct);
+            if (!aVista)
+                await GravacaoDoChat.AdicionarAsync(db, GravacaoDoChat.Mensagem(ChatEquipeRegras.Sistema(eu.Id), eu.Id, eu.Nome,
+                    resposta.Texto, resposta.Cartao, true, agora()), ct);
+            await db.SaveChangesAsync(ct);
+            foreach (var e in db.ChangeTracker.Entries().Where(e => e.Entity is MensagemEquipe or ConversaEquipe).ToList())
+                e.State = EntityState.Detached;
+            await MarcarAteAsync(participante, conversa, resp.Id, ct);
+        }
         return mensagem.Id;
+    }
+
+    /// <summary>A resposta das regras do sistema; falha ao ler vira a frase de "tente de novo" (a pergunta já está gravada).</summary>
+    private async Task<(string Texto, CartaoChat? Cartao)> RespostaDoSistemaAsync(UsuarioSistema eu, string pergunta, CancellationToken ct)
+    {
+        try { return await new SistemaEquipeService(db, agora).ResponderAsync(eu, pergunta, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return ("Não consegui ler os dados da agenda agora. Tente de novo em instantes.", null);
+        }
     }
 
     /// <summary>
