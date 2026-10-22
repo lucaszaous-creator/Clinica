@@ -210,6 +210,8 @@ public sealed class AssistenteWhatsAppServiceTests : IDisposable
         var chat = new ChatEquipeService(db, () => relogio);
         (await servico.EntendeAsync("5522999422253", "Qual a minha agenda de hoje?")).Entendeu.Should().BeTrue();
         (await servico.EntendeAsync("5522999422253", "remarcar Maria 10h")).Entendeu.Should().BeTrue("pedido escrito é entendido");
+        (await servico.EntendeAsync("5522999422253", "receita Maria: dipirona 500 mg")).Entendeu.Should()
+            .BeTrue("o texto clínico de um pedido de documento nunca vai à IA para ser reescrito");
         var naoEntende = await servico.EntendeAsync("5522999422253", "qual a senha do wifi");
         naoEntende.DaEquipe.Should().BeTrue();
         naoEntende.Entendeu.Should().BeFalse();

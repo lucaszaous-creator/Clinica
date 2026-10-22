@@ -74,6 +74,9 @@ public sealed class AssistenteWhatsAppService
         texto = (texto ?? "").Trim();
         var hoje = DateOnly.FromDateTime(agora());
         if (texto.Length == 0 || AssistenteWhatsAppRegras.LerPedido(texto, hoje) is not null) return new(true, Nome: eu.Nome);
+        // Pedido de documento conta como ENTENDIDO mesmo com a fase 4 desligada: o texto de uma
+        // receita ou de um relatório nunca vai à IA para ser reescrito (@SemDor fase 4).
+        if (DocumentoPeloWhatsAppRegras.Ler(texto) is not null) return new(true, Nome: eu.Nome);
         var profissionais = await db.Profissionais.AsNoTracking().Where(p => p.Ativo).Select(p => new { p.Id, p.Nome }).ToListAsync(ct);
         var intencao = SistemaEquipeRegras.Interpretar(texto, hoje, profissionais.Select(p => (p.Id, p.Nome)).ToList()).Intencao;
         return new(true, Nome: eu.Nome, Entendeu: intencao != IntencaoDoSistema.NaoEntendi);
