@@ -210,12 +210,38 @@ body:has(.modal-rodape){--chat-piso:calc(var(--space-16) + var(--space-6))}
 @media (prefers-reduced-motion:reduce){.chat-m.chegou,.chat-previa,.chat-painel.janela,.chat-pontos i{animation:none}}
 
 /* ---------- O Sistema SemDor e o pedido à recepção (out/2026) ----------
-   O sistema tem avatar próprio (o calendário, na cor da marca) para nunca ser lido como uma
-   pessoa; o cartão é UM desenho para a agenda, as listas e o pedido (o CRM desenha o mesmo). */
-.chat-av.sistema{background:var(--acento);color:var(--texto-invertido)}
-.chat-av.sistema svg.icone{width:16px;height:16px}
-.chat-av.grande.sistema svg.icone{width:18px;height:18px}
+   O sistema tem avatar próprio (o símbolo da marca, AvatarDoSistema.razor) para nunca ser lido
+   como uma pessoa; o cartão é UM desenho para a agenda, as listas e o pedido (o CRM desenha o mesmo). */
 .chat-conv.sistema{margin-bottom:var(--space-1)}
+
+/* O avatar do SemDor (opção 2A): disco branco, aro fino azul-marinho, as duas metades do logo.
+   Entra encaixando, respira parado, gira o arco pensando e solta uma onda quando a resposta chega. */
+.chat-av.sd-av{background:transparent;overflow:visible}
+.sd-av svg{width:100%;height:100%;overflow:visible;display:block}
+.sd-av .sd-disco{fill:var(--superficie);stroke:var(--marca-navy);stroke-width:6}
+.sd-av .sd-m1{fill:var(--marca-navy)}
+.sd-av .sd-m2{fill:var(--marca-claro)}
+.sd-av .sd-meio{fill:var(--marca-medio);opacity:.85}
+.sd-av .sd-arco{fill:none;stroke:var(--marca-navy);stroke-width:8;stroke-linecap:round;stroke-dasharray:110 380;opacity:0}
+.sd-av .sd-onda{fill:none;stroke:var(--marca-medio);stroke-width:6;opacity:0}
+.sd-av .sd-simbolo,.sd-av .sd-m1,.sd-av .sd-m2{transform-box:fill-box;transform-origin:center}
+.sd-av .sd-arco,.sd-av .sd-onda{transform-box:view-box;transform-origin:100px 100px}
+.sd-av .sd-simbolo{animation:sd-respira 4.5s ease-in-out infinite}
+.sd-av .sd-m1{animation:sd-vem-esq .8s cubic-bezier(.2,.9,.3,1) both}
+.sd-av .sd-m2{animation:sd-vem-dir .8s .06s cubic-bezier(.2,.9,.3,1) both}
+.sd-av.pensando .sd-simbolo{animation:none}
+.sd-av.pensando .sd-m1{animation:sd-abre-esq 1.2s ease-in-out infinite}
+.sd-av.pensando .sd-m2{animation:sd-abre-dir 1.2s ease-in-out infinite}
+.sd-av.pensando .sd-arco{opacity:1;animation:sd-gira 1.5s linear infinite}
+.sd-av.chegou .sd-onda{animation:sd-onda 1.4s ease-out 2}
+@keyframes sd-respira{50%{transform:scale(1.03)}}
+@keyframes sd-vem-esq{0%{transform:translate(-30%,-10%);opacity:0}70%{transform:translate(3%,1%);opacity:1}100%{transform:none;opacity:1}}
+@keyframes sd-vem-dir{0%{transform:translate(30%,10%);opacity:0}70%{transform:translate(-3%,-1%);opacity:1}100%{transform:none;opacity:1}}
+@keyframes sd-abre-esq{50%{transform:translate(-8%,-5%)}}
+@keyframes sd-abre-dir{50%{transform:translate(8%,5%)}}
+@keyframes sd-gira{to{transform:rotate(360deg)}}
+@keyframes sd-onda{0%{transform:scale(.85);opacity:.8}100%{transform:scale(1.3);opacity:0}}
+@media (prefers-reduced-motion:reduce){.sd-av *{animation:none!important}}
 .chat-boas-vindas{margin:var(--space-6) auto;max-width:420px;text-align:center;color:var(--texto-secundario)}
 .chat-boas-vindas b{display:block;color:var(--texto-primario);font-size:var(--text-h3-size);margin-bottom:var(--space-2)}
 .chat-boas-vindas p{margin:0;font-size:var(--text-small-size);line-height:1.5}

@@ -149,7 +149,7 @@ else
                     {
                         <button type="button" class="chat-conv sistema @(sis.Conversa == _conversa ? "on" : null) @(sis.NaoLidas > 0 ? "nova" : null)"
                                 title="@sis.Subtitulo" aria-current="@(sis.Conversa == _conversa ? "true" : null)" @onclick="() => AbrirConversaAsync(sis.Conversa)">
-                            <span class="chat-av sistema" aria-hidden="true"><Icone Nome="calendario" /></span>
+                            <AvatarDoSistema />
                             <span class="chat-conv-nome">@sis.Titulo</span>
                             @if (sis.NaoLidas > 0) { <span class="chat-n" aria-label="@sis.NaoLidas não lidas">@Numero(sis.NaoLidas)</span> }
                         </button>
@@ -197,7 +197,7 @@ else
                         }
                         else if (NoSistema)
                         {
-                            <span class="chat-av grande sistema" aria-hidden="true"><Icone Nome="calendario" /></span>
+                            <AvatarDoSistema Classe="grande" Pensando="_enviando" />
                         }
                         <div class="chat-conv-titulo"><b>@_aberta.Titulo</b><small>@_aberta.Subtitulo</small></div>
                     </div>
@@ -236,7 +236,7 @@ else
                             {
                                 <div class="chat-m @(m.Minha ? "minha" : null) @(m.Id > _maiorVisto ? "chegou" : null) @(m.MeCita ? "cita" : null) @(m.Id == _destaque ? "achada" : null)"
                                      @key="m.Id" id="@($"chat-m-{m.Id}")">
-                                    @if (m.DoSistema) { <span class="chat-av sistema" aria-hidden="true"><Icone Nome="calendario" /></span> }
+                                    @if (m.DoSistema) { <AvatarDoSistema Chegou="m.Id > _maiorVisto" /> }
                                     else if (!m.Minha) { <span class="chat-av" aria-hidden="true">@m.Iniciais</span> }
                                     <div class="chat-m-corpo">
                                         <div class="chat-quem">
