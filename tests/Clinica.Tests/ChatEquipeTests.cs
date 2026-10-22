@@ -13,6 +13,31 @@ namespace Clinica.Tests;
 /// <summary>As regras puras do chat da equipe: quem vê o quê, citação, som, presença, recorte.</summary>
 public class ChatEquipeRegrasTests
 {
+    [Fact]
+    public void A_conversa_segue_a_ordem_do_banco_e_nao_o_relogio_de_quem_enviou()
+    {
+        // O computador da Ana está 4 minutos adiantado: a pergunta dela "aconteceu" às 10:04, a
+        // resposta do Bruno (relógio certo) às 10:01. Pelo horário, a resposta subiria antes da pergunta.
+        var t = new DateTime(2026, 10, 22, 10, 0, 0);
+        // Na vida real: Ana pergunta 10:00, Bruno responde 10:01, Ana agradece 10:02.
+        var mensagens = new[] { (1, t.AddMinutes(4), "Ana: alguém viu a Maria?"), (2, t.AddMinutes(1), "Bruno: ela já chegou"),
+                                (3, t.AddMinutes(6), "Ana: obrigada") };
+        ChatEquipeRegras.OrdemDaConversa(mensagens, Array.Empty<(DateTime, string)>())
+            .Should().Equal("Ana: alguém viu a Maria?", "Bruno: ela já chegou", "Ana: obrigada");
+        mensagens.OrderBy(m => m.Item2).Select(m => m.Item3).First()
+            .Should().Be("Bruno: ela já chegou", "é isto que a ordem pelo horário fazia: a resposta antes da pergunta");
+    }
+
+    [Fact]
+    public void Os_pedidos_da_enfermagem_entram_pelo_horario_sem_reordenar_as_mensagens()
+    {
+        var t = new DateTime(2026, 10, 22, 10, 0, 0);
+        var mensagens = new[] { (1, t, "m1"), (2, t.AddMinutes(10), "m2"), (3, t.AddMinutes(5), "m3 (relógio atrasado)") };
+        var avulsos = new[] { (t.AddMinutes(7), "pedido 10:07"), (t.AddMinutes(-1), "pedido 09:59"), (t.AddHours(1), "pedido 11:00") };
+        ChatEquipeRegras.OrdemDaConversa(mensagens, avulsos)
+            .Should().Equal("pedido 09:59", "m1", "pedido 10:07", "m2", "m3 (relógio atrasado)", "pedido 11:00");
+    }
+
     private static readonly DateTime Agora = new(2026, 10, 21, 10, 0, 0);
 
     [Theory]

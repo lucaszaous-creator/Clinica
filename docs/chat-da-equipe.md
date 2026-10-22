@@ -60,6 +60,18 @@ janela do app (ela pode ter ficado menor) nem por cima do rodapé de um formulá
 - **Correção** da própria mensagem: ela ganha "(editada)" e a versão anterior fica guardada.
   No chat nada se apaga.
 
+## Ordem das mensagens (out/2026)
+
+Como no WhatsApp e no Telegram: a mais antiga em cima, a mais nova embaixo, na ordem em que o
+**banco** recebeu cada mensagem (o Id). A tela ordenava pelo `EnviadaEm`, que vem do relógio do
+computador de quem enviou. Um computador do balcão com o relógio adiantado punha a pergunta depois da
+resposta. Agora a ordem é a do banco (`ChatEquipeRegras.OrdemDaConversa`), e os pedidos da enfermagem
+no `# Recepção` entram pelo horário deles, sem reordenar as mensagens. O separador de dia só avança.
+O horário mostrado em cada mensagem continua sendo o de quem enviou. Se ele parecer fora de ordem,
+o relógio daquele computador está errado (ative a sincronização de hora do Windows).
+Testes: `ChatEquipeRegrasTests` (a regra) e `ChatDaEquipeBlazorTests.Mensagens_em_ordem_de_chegada…`
+(a tela montada, com um relógio 10 minutos adiantado; com a ordem antiga ela mostra 2, 3, 1).
+
 ## Pedidos da enfermagem no # Recepção
 
 Os pedidos aparecem como cartões entre as mensagens do `# Recepção`. Eles NÃO são copiados

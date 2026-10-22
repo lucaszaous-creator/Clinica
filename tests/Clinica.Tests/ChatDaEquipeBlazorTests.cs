@@ -111,6 +111,36 @@ public sealed class ChatDaEquipeBlazorTests : IDisposable
     }
 
     [Fact]
+    public async Task Mensagens_em_ordem_de_chegada_como_no_WhatsApp_mesmo_com_relogio_errado()
+    {
+        // Como no WhatsApp e no Telegram: a mais antiga em cima, a mais nova embaixo, na ordem em que
+        // chegaram — mesmo quando o computador de quem enviou está com o relógio adiantado.
+        using var ctx = Contexto("janela|canal:geral|1|1|1|0");
+        var pergunta = await EnviarAsync(ctx, paulo, ChatEquipeRegras.CanalGeral, "1 - Alguém viu a Maria?");
+        await EnviarAsync(ctx, ana, ChatEquipeRegras.CanalGeral, "2 - Ela já chegou");
+        await EnviarAsync(ctx, paulo, ChatEquipeRegras.CanalGeral, "3 - Obrigado");
+        using (var db = new ClinicaDbContext(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conexao).Options))
+        {
+            // O computador do Paulo estava 10 minutos adiantado quando ele perguntou.
+            var m = db.MensagensEquipe.Single(x => x.Id == pergunta);
+            m.EnviadaEm = m.EnviadaEm.AddMinutes(10);
+            db.SaveChanges();
+        }
+
+        var tela = ctx.RenderComponent<ChatDaEquipe>();
+        Esperar(() => tela.Markup.Contains("3 - Obrigado"), "a conversa aberta");
+        string[] Ordem() => tela.FindAll(".chat-m").Select(e => e.TextContent)
+            .Select(t => new[] { "1 - ", "2 - ", "3 - ", "4 - " }.FirstOrDefault(t.Contains)).OfType<string>().ToArray();
+        Ordem().Should().Equal("1 - ", "2 - ", "3 - ");
+
+        // A que chega com a conversa aberta entra embaixo, também.
+        await EnviarAsync(ctx, joana, ChatEquipeRegras.CanalGeral, "4 - Chegou agora a das 11h");
+        await tela.InvokeAsync(() => avisos.Disparar("MensagensEquipe"));
+        Esperar(() => tela.Markup.Contains("4 - Chegou agora"), "a mensagem nova");
+        Ordem().Should().Equal("1 - ", "2 - ", "3 - ", "4 - ");
+    }
+
+    [Fact]
     public async Task Conversa_aberta_texto_longo_citacao_busca_e_Esc()
     {
         using var ctx = Contexto("janela|canal:geral|1|1|1|0");
