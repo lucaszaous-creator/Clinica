@@ -22,6 +22,11 @@ A posição (onde a bolinha e a janelinha foram deixadas), a conversa aberta e a
 som ficam guardadas por pessoa, neste computador. A posição guardada nunca põe o chat fora da
 janela do app (ela pode ter ficado menor) nem por cima do rodapé de um formulário aberto.
 
+> **Out/2026 — Sistema SemDor e pedidos à recepção.** Cada pessoa tem, no topo da lista, a conversa
+> com o **Sistema SemDor**, que responde à agenda do dia com quem confirmou e quem pediu para
+> remarcar. Quem atende faz **pedidos à recepção** com dono e desfecho, e o mesmo chat abre no
+> **CRM**, pela ponte. Mapa completo em [sistema-semdor-e-pedidos-a-recepcao.md](sistema-semdor-e-pedidos-a-recepcao.md).
+
 ## Conversas
 
 - **Três canais fixos**: `# Geral` (toda a equipe), `# Recepção` (balcão, enfermagem e
