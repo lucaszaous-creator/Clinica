@@ -23,9 +23,11 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         bool renovarAtividade = false)
     {
         // Releitura: revogação, troca de senha, permissão e vínculo têm efeito imediato.
+        // O modo "link" é a sessão do documento pedido pelo WhatsApp (LinkDocumentoTabletService):
+        // ela só existe atrás do cookie próprio das rotas /api/link, que só alcançam o rascunho dela.
         var s = await db.SessoesTablet.AsNoTracking().Include(x => x.Usuario).ThenInclude(u => u!.Profissional)
             .SingleOrDefaultAsync(x => x.Id == sessao.Id, ct);
-        if (s?.Usuario is not {} u || s.Modo != "equipe" || s.ExpiraEm <= Agora
+        if (s?.Usuario is not {} u || s.Modo is not ("equipe" or LinkDocumentoTabletService.Modo) || s.ExpiraEm <= Agora
             || !(permissao is {} requerida ? PoliticaAtendimentoTablet.PodeUsarPosto(u) && u.Pode(requerida) : PoliticaAtendimentoTablet.PodeAtender(u)) || u.Profissional?.Ativo != true
             || u.Travado(DateTime.Now) || s.CredencialVersao != ContratoTablet.Hash(u.SenhaHash))
             throw new UnauthorizedAccessException();

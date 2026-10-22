@@ -86,6 +86,10 @@ builder.Services.AddScoped<A1TabletService>();
 builder.Services.AddSingleton<AutorizacoesA1Tablet>();
 builder.Services.AddSingleton<Clinica.Application.Assinatura.IConfiancaCertificadoA1, Clinica.Application.Assinatura.ConfiancaCertificadoA1>();
 builder.Services.AddScoped<EnderecoPrescricaoTabletService>();
+// O documento pedido pelo WhatsApp (@SemDor fase 4, RotasLinkWhatsApp): desligado sem Portal:LinkWhatsApp:Habilitado.
+var linkWhatsApp=builder.Configuration.GetValue<bool>("Portal:LinkWhatsApp:Habilitado");
+builder.Services.AddScoped<LinkDocumentoTabletService>();
+builder.Services.AddScoped<EnvioAoPacienteService>();
 builder.Services.AddSingleton(opcoes);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHostedService<FinalizadorTablet>();
@@ -123,6 +127,10 @@ builder.Services.AddRateLimiter(o=>
     o.AddPolicy("a1", ctx => RateLimitPartition.GetFixedWindowLimiter(
         DispositivoRegistrado(ctx) ?? "sem-dispositivo", _ => new FixedWindowRateLimiterOptions
         { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    // O link do WhatsApp chega sem tablet cadastrado: o limite é por origem, como o da entrada.
+    o.AddPolicy("link", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        "link:"+(OrigemRateLimitTablet.Obter(ctx,socketPrivado) ?? "origem-ausente"), _ => new FixedWindowRateLimiterOptions
+        { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     o.RejectionStatusCode=429;
     o.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(ctx=>RateLimitPartition.GetFixedWindowLimiter(
         ctx.Request.Path.StartsWithSegments("/api/entrar")
@@ -318,6 +326,7 @@ if(atendimentoHabilitado)
     RotasAtendimentoTablet.Mapear(app,(ctx,svc)=>Sessao(ctx,svc,false));
     RotasPostoTablet.Mapear(app,(ctx,svc)=>Sessao(ctx,svc,false));
 }
+if(linkWhatsApp) RotasLinkWhatsApp.Mapear(app,demo ? "clinica.tablet.link" : "__Host-clinica.tablet.link",demo);
 app.MapGet("/health",()=>Results.Ok(new {status="ok",contrato=1}));
 var interfaceDir=Path.GetFullPath(builder.Configuration["Portal:Interface"] ?? Path.Combine(app.Environment.ContentRootPath,"wwwroot"));
 if(!Directory.Exists(interfaceDir)) throw new InvalidOperationException("Configure Portal:Interface com o artefato portal do clinica-site.");

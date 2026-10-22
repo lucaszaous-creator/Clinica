@@ -142,6 +142,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<PresencaEquipe> PresencasEquipe => Set<PresencaEquipe>();
     public DbSet<ConversaEquipe> ConversasEquipe => Set<ConversaEquipe>();
     public DbSet<PedidoRecepcao> PedidosRecepcao => Set<PedidoRecepcao>();
+    public DbSet<PedidoDocumentoWhatsApp> PedidosDocumentoWhatsApp => Set<PedidoDocumentoWhatsApp>();
     public DbSet<EventoPedidoRecepcao> EventosPedidoRecepcao => Set<EventoPedidoRecepcao>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -1895,6 +1896,28 @@ public class ClinicaDbContext : DbContext
             e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Agendamento).WithMany().HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.CriadoPor).WithMany().HasForeignKey(x => x.CriadoPorId).OnDelete(DeleteBehavior.Restrict);
+        });
+        // O documento pedido pelo WhatsApp (@SemDor fase 4, out/2026): o rascunho e o link de uso
+        // único. Nada apaga em cascata, como no pedido à recepção.
+        b.Entity<PedidoDocumentoWhatsApp>(e =>
+        {
+            e.ToTable("PedidosDocumentoWhatsApp");
+            e.Property(x => x.TokenHash).IsRequired().HasMaxLength(64);
+            e.Property(x => x.IdMensagem).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Tipo).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Texto).IsRequired().HasMaxLength(4000);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ExpiraEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AbertoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ConcluidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EnviadoAoPacienteEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.IdMensagem).IsUnique();
+            e.HasIndex(x => new { x.UsuarioId, x.CriadoEm });
+            e.HasOne<UsuarioSistema>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Paciente>().WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Agendamento>().WithMany().HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<DocumentoClinico>().WithMany().HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Restrict);
         });
         b.Entity<EventoPedidoRecepcao>(e =>
         {

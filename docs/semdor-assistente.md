@@ -129,3 +129,93 @@ da conversa com o Sistema SemDor (`SistemaEquipeService`) e com as permissões d
   nenhuma tabela nova. Testes: `SemDorNaConversaTests`.
 - **CX**: nada sai da clínica (são as regras, sem IA), e nenhum dado de paciente aparece para quem
   não poderia vê-lo na tela.
+
+## Fase 4 — documento pelo WhatsApp, com link de uso único (desligada)
+
+O médico escreve ao número da clínica, do celular ligado ao login dele em Acessos:
+
+| Frase | O que nasce |
+|---|---|
+| `atestado Maria Silva 2 dias` | Atestado, 2 dias de afastamento, texto padrão para revisar |
+| `comparecimento Maria Silva` | Declaração de comparecimento (o PDF já escreve a frase da declaração) |
+| `receita Maria Silva: dipirona 500 mg…` | Receita com o texto depois dos dois-pontos, como foi escrito |
+| `exame Maria Silva: hemograma` · `relatório Maria Silva: …` | Pedido de exame · relatório |
+
+1. **A ponte grava um RASCUNHO** (`PedidosDocumentoWhatsApp`), nunca o documento. A paciente é
+   procurada só na agenda DE QUEM PEDIU (60 dias para trás, 30 para a frente); duas pacientes com
+   o nome citado → a resposta lista e pede mais do nome. Receita, exame e relatório sem conteúdo,
+   ou atestado sem os dias, voltam com a pergunta — o sistema não inventa conduta.
+2. **A resposta leva o link**: `https://<portal>/profissional/assinar.html#<token>`. O token
+   (32 bytes) vai depois do `#`, que o navegador não manda ao servidor nem ao Referer; no banco fica
+   só o SHA-256. Vale **15 minutos e abre uma vez só** (`AbertoEm`). No chat do app, a mesma
+   resposta fica gravada SEM o link.
+3. **No portal** (`RotasLinkWhatsApp`, `LinkDocumentoTabletService`), abrir o link cria uma sessão
+   `modo = "link"` de 15 minutos, num cookie próprio (`__Host-clinica.tablet.link`), presa ao
+   rascunho: ela só alcança `/api/link/*` — o rascunho, o documento que ele gerou, o PDF desse
+   documento e o envio dele. As rotas da equipe (`/api/clinico`, `/api/posto`…) continuam pedindo
+   o tablet cadastrado e o login, e recusam essa sessão.
+4. **O médico revisa e emite** pela MESMA emissão do atendimento no tablet
+   (`AtendimentoTabletService.EmitirConteudoAsync`), datada de hoje, só para paciente que tem ou
+   teve horário com ele. Repetir o toque devolve o mesmo documento.
+5. **Assina com o A1** pelas MESMAS chamadas do portal (`A1TabletService.Preparar` → `Assinar`),
+   com a senha digitada só na página. O A1 precisa estar cadastrado antes em **Meu certificado**.
+   Sem A1 (ainda não homologado, ou por escolha), **"Concluir sem assinatura digital"** deixa o
+   documento emitido como qualquer documento do tablet que se imprime e assina à mão.
+6. **Envio ao paciente (opcional)**: o botão põe o PDF na fila do CRM
+   (`EnvioAoPacienteService.EnfileirarWhatsAppAsync`), a mesma do "Enviar ao paciente" do desktop.
+   Sai quando o CRM estiver com o envio clínico ligado (`CRM_CLINICAL_DISPATCH_ENABLED`) e o
+   modelo aprovado pela Meta.
+
+A sonda da fase 2 (`EntendeAsync`) conta o pedido de documento como ENTENDIDO mesmo com a fase 4
+desligada: o texto clínico de uma receita ou de um relatório nunca vai à IA para ser reescrito.
+
+### Como ligar (nesta ordem, depois da homologação do A1)
+
+1. Publicar a ponte e o portal com a migration `20261022192147_DocumentoPeloWhatsApp` e rodar os
+   grants: `deploy/ponte-crm/papel-ponte-crm.sql` (a ponte: INSERT no rascunho) e o
+   `deploy/tablet/atualizar-posto.py` (o portal: SELECT/UPDATE no rascunho; SELECT/INSERT na fila
+   de envios).
+2. Portal: `Portal__LinkWhatsApp__Habilitado=true` (e `Portal__A1__Habilitado=true` para assinar).
+3. Ponte (VPS 1): `CRM_STAFF_DOCUMENTS_ENABLED=true` e
+   `CRM_STAFF_DOCUMENTS_PORTAL_URL=https://portal.clinicasemdormacae.com.br`.
+4. clinica-site: publicar o pacote do portal com `profissional/assinar.html`.
+
+Sem qualquer um dos três interruptores, a frase segue o caminho de hoje (pergunta ou pedido à
+recepção) e as rotas `/api/link` não existem.
+
+### O que NÃO foi feito na fase 4
+
+- **SafeID pelo link**: só o A1. O SafeID é o motor congelado com cobrança por tentativa
+  (`docs/safeid-congelado.md`) e não foi autorizado para esta porta.
+- **Cadastrar o A1 pelo link**: o cadastro continua só no portal da equipe, com o tablet.
+- **Receita de controle especial e infusão**: não entram pelo WhatsApp (pedem endereço e
+  conferência que o rascunho não tem).
+- **Aviso ao médico pelo WhatsApp depois de assinar**: a própria página mostra o desfecho.
+- **A suíte contra o Postgres** não rodou nesta máquina (precisa da senha do `postgres`). A
+  migration, o `ExecuteUpdate` e o `pg_advisory_xact_lock` do rascunho rodaram só no SQLite.
+
+### 🧑‍💻 UX
+
+- O médico pede do celular em uma linha e recebe o link na hora; a página cabe no celular (320 px
+  com fonte em 200%) e tem três passos à vista: revisar e emitir, assinar, enviar.
+- Falta de informação (dias, conteúdo, nome repetido) volta como pergunta curta, com o exemplo.
+- Link vencido ou já usado diz isso e o que fazer ("peça de novo pelo WhatsApp").
+
+### 🛠️ DX
+
+- Uma entidade (`PedidoDocumentoWhatsApp`), uma regra pura (`DocumentoPeloWhatsAppRegras`), um
+  serviço de porta (`LinkDocumentoTabletService`), uma emissão de 10 linhas sobre a que já existe
+  (`AtendimentoTabletService.Link.cs`) e um arquivo de rotas. Nenhum serviço de assinatura mudou;
+  a única linha mexida na autorização é aceitar o modo `link` em `AtendimentoTabletService.AutorizarAsync`.
+- Testes: `DocumentoPeloWhatsAppTests` (regras e ponte), `LinkWhatsAppHttpTests` (abrir uma vez,
+  vencido, sessão do link fora das rotas da equipe, emitir uma vez, A1 fictício com PDF íntegro,
+  concluir sem A1) e `clinica-site/ferramentas/testar-portal-link-whatsapp.mjs` (a página).
+
+### 🤝 CX
+
+- Atestado e declaração sem o médico abrir o computador — e com a mesma trilha (auditoria do link
+  aberto e da emissão) e a mesma assinatura do consultório.
+- Risco contido: desligado por padrão, o rascunho não é documento, o link é de uso único e curto,
+  e a senha do A1 não passa pelo WhatsApp nem pelo CRM.
+- Custo: nenhum serviço novo. O envio ao paciente é a mesma mensagem paga da Meta de hoje, e só
+  sai quando o médico toca o botão.
