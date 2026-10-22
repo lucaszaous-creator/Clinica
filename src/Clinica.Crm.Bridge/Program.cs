@@ -62,8 +62,9 @@ app.MapPost("/crm/login",(ClinicLogin input,ClinicTeamBridge bridge,Cancellation
 // regras do Sistema SemDor. A escrita (a conversa com o sistema e o pedido) pede o papel-ponte-crm.sql.
 app.MapGet("/crm/v1/staff/numbers",async(AssistenteWhatsAppService s,CancellationToken ct)=>new StaffNumbers((await s.NumerosAsync(ct)).ToArray()));
 app.MapPost("/crm/v1/staff/ask",async(StaffAsk input,AssistenteWhatsAppService s,CancellationToken ct)=>{
-    var r=await s.ResponderAsync(input.Phone??"",input.Text??"",input.MessageId??"",ct);
-    return new StaffAnswer(r.DaEquipe,r.Texto,r.Nome);
+    // Probe: só "as regras entendem?", sem gravar (o CRM decide se chama a IA — @SemDor fase 2).
+    var r=input.Probe?await s.EntendeAsync(input.Phone??"",input.Text??"",ct):await s.ResponderAsync(input.Phone??"",input.Text??"",input.MessageId??"",ct);
+    return new StaffAnswer(r.DaEquipe,r.Texto,r.Nome,r.Entendeu);
 });
 app.MapGet("/crm/v1/staff/notices",async(AssistenteWhatsAppService s,CancellationToken ct)=>
     (await s.AvisosPendentesAsync(ct)).Select(a=>new StaffNotice(a.PedidoId,a.Telefone,a.Texto)).ToArray());

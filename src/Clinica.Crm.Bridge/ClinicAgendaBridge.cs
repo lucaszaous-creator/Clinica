@@ -55,7 +55,7 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
     public Task<ClinicDecisionResult> Decide(ClinicDecision input, CancellationToken ct) => TransacaoDaPonte.Executar(db, () => DecideCore(input, ct), ct);
     async Task<ClinicDecisionResult> DecideCore(ClinicDecision input, CancellationToken ct)
     {
-        if(!Guid.TryParseExact(input.CommandId,"N",out _)||input.AppointmentId<=0||input.Decision is not("confirm" or "cancel" or "reschedule" or "notified")||string.IsNullOrWhiteSpace(input.MessageId)||input.MessageId.Length>300||input.Phone is null||input.Phone.Length is <10 or >15||input.Revision is null||input.Revision.Length!=64)
+        if(!Guid.TryParseExact(input.CommandId,"N",out _)||input.AppointmentId<=0||input.Decision is not("confirm" or "cancel" or "reschedule" or "notified")||string.IsNullOrWhiteSpace(input.MessageId)||input.MessageId.Length>300||(input.Note?.Length??0)>300||input.Phone is null||input.Phone.Length is <10 or >15||input.Revision is null||input.Revision.Length!=64)
             throw new InvalidOperationException("Comando inválido.");
         var prefix="CRM:"+input.CommandId+":";
         var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(input))));
@@ -90,7 +90,7 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
         else await db.SaveChangesAsync(ct);
         // "Remarcar" vira PEDIDO no # Recepção (@SemDor, out/2026): a recepção oferece horários e o
         // paciente escolhe pelo WhatsApp. Na mesma transação — o pedido existe se, e só se, a resposta foi gravada.
-        if(input.Decision=="reschedule")await RemarcacaoPeloPacienteService.RegistrarPedidoAsync(db,ap,input.Phone,Now(),ct);
+        if(input.Decision=="reschedule")await RemarcacaoPeloPacienteService.RegistrarPedidoAsync(db,ap,input.Phone,Now(),ct,input.Note);
         await tx.CommitAsync(ct);return Result(input.Decision,cancel);
     }
     static ClinicDecisionResult Result(string decision,bool cancelled)=>decision switch{

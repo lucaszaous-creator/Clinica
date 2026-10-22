@@ -50,7 +50,7 @@ public sealed class RemarcacaoPeloPacienteService : IRemarcacaoPeloPacienteServi
     /// # Recepção. Roda DENTRO da transação de quem chama (a decisão da ponte) e grava com ela; um
     /// pedido do paciente ainda aberto para o mesmo horário não ganha outro.
     /// </summary>
-    public static async Task RegistrarPedidoAsync(ClinicaDbContext db, Agendamento ap, string telefone, DateTime momento, CancellationToken ct)
+    public static async Task RegistrarPedidoAsync(ClinicaDbContext db, Agendamento ap, string telefone, DateTime momento, CancellationToken ct, string? preferencia = null)
     {
         var jaAberto = await db.PedidosRecepcao.AnyAsync(p => p.AgendamentoId == ap.Id && p.Origem == RemarcacaoPeloPacienteRegras.OrigemPaciente
             && (p.Situacao == PedidosRecepcaoRegras.Aberto || p.Situacao == PedidosRecepcaoRegras.EmAndamento), ct);
@@ -60,11 +60,12 @@ public sealed class RemarcacaoPeloPacienteService : IRemarcacaoPeloPacienteServi
         var pedido = new PedidoRecepcao
         {
             Idempotencia = Guid.NewGuid(), Tipo = "remarcar", PacienteId = ap.PacienteId, PacienteNome = nome,
-            AgendamentoId = ap.Id, HorarioEm = ap.DataHora, CriadoPorId = tecnico.Id, CriadoPorNome = tecnico.Nome, CriadoEm = momento,
+            AgendamentoId = ap.Id, HorarioEm = ap.DataHora, Detalhe = RemarcacaoPeloPacienteRegras.DetalheDaPreferencia(preferencia), CriadoPorId = tecnico.Id, CriadoPorNome = tecnico.Nome, CriadoEm = momento,
             Situacao = PedidosRecepcaoRegras.Aberto, Origem = RemarcacaoPeloPacienteRegras.OrigemPaciente, TelefonePaciente = telefone,
         };
         pedido.Eventos.Add(new EventoPedidoRecepcao { UsuarioId = tecnico.Id, Autor = tecnico.Nome, Em = momento, Acao = "criou",
-            Observacao = "O paciente tocou Remarcar no lembrete do WhatsApp." });
+            Observacao = string.IsNullOrWhiteSpace(preferencia) ? "O paciente tocou Remarcar no lembrete do WhatsApp."
+                : "O paciente escreveu no WhatsApp; o @SemDor leu um pedido de remarcação." });
         db.PedidosRecepcao.Add(pedido);
         await db.SaveChangesAsync(ct);
         var cartao = GravacaoDoChat.Mensagem(ChatEquipeRegras.CanalRecepcao, tecnico.Id, tecnico.Nome, PedidosRecepcaoRegras.Texto(pedido),

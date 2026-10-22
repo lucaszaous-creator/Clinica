@@ -202,4 +202,21 @@ public sealed class AssistenteWhatsAppServiceTests : IDisposable
         await pedidos.EncerrarAsync(rayssa.Id, p.Id, true, "ok");
         (await servico.AvisosPendentesAsync()).Should().BeEmpty("ligar o número não despeja desfechos antigos");
     }
+
+    // @SemDor fase 2: o CRM só chama a IA quando as regras não entendem — e a pergunta não grava nada.
+    [Fact]
+    public async Task Pergunta_se_entende_sem_gravar_e_responde_se_entendeu()
+    {
+        var chat = new ChatEquipeService(db, () => relogio);
+        (await servico.EntendeAsync("5522999422253", "Qual a minha agenda de hoje?")).Entendeu.Should().BeTrue();
+        (await servico.EntendeAsync("5522999422253", "remarcar Maria 10h")).Entendeu.Should().BeTrue("pedido escrito é entendido");
+        var naoEntende = await servico.EntendeAsync("5522999422253", "qual a senha do wifi");
+        naoEntende.DaEquipe.Should().BeTrue();
+        naoEntende.Entendeu.Should().BeFalse();
+        (await servico.EntendeAsync("5522988887777", "oi")).DaEquipe.Should().BeFalse();
+        (await chat.AbrirAsync(medica.Id, ChatEquipeRegras.Sistema(medica.Id))).Mensagens.Should().BeEmpty("perguntar se entende não grava");
+
+        (await servico.ResponderAsync("5522999422253", "qual a senha do wifi", "wamid.9")).Entendeu.Should().BeFalse();
+        (await servico.ResponderAsync("5522999422253", "agenda de hoje", "wamid.10")).Entendeu.Should().BeTrue();
+    }
 }
