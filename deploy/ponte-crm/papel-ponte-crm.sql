@@ -43,6 +43,12 @@ BEGIN
       -- A fila de envios ao paciente (out/2026): quem PÕE o pedido é o desktop; a ponte só
       -- reserva, autoriza e registra o resultado — UPDATE, e só.
       ['EnviosPacienteCrm','UPDATE'],
+      -- O chat da equipe e os pedidos à recepção no CRM (out/2026): a secretária escreve, lê
+      -- (a leitura e a presença são gravadas) e trata o pedido pelo CRM. Correção de mensagem
+      -- e anexo ficam nos apps, então VersoesMensagemEquipe e ArquivosMensagemEquipe não entram.
+      ['MensagensEquipe','INSERT, UPDATE'], ['ConversasEquipe','INSERT, UPDATE'],
+      ['LeiturasEquipe','INSERT, UPDATE'], ['PresencasEquipe','INSERT, UPDATE'],
+      ['PedidosRecepcao','INSERT, UPDATE'], ['EventosPedidoRecepcao','INSERT'],
       ['Pacientes','UPDATE'], ['Auditoria','INSERT']] LOOP
     IF to_regclass(format('public.%I', g[1])) IS NOT NULL THEN
       EXECUTE format('GRANT %s ON public.%I TO ponte_crm', g[2], g[1]);

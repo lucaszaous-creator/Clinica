@@ -26,6 +26,7 @@ builder.Services.AddScoped<ClinicTeamBridge>();
 builder.Services.AddScoped<ClinicPatientBridge>();
 builder.Services.AddScoped<ClinicSummaryBridge>();
 builder.Services.AddScoped<ClinicDispatchBridge>();
+builder.Services.AddScoped<ClinicTeamChatBridge>();
 // O lembrete de SMS 24h antes, com a clínica fechada (out/2026): o MESMO LembreteSmsService
 // do desktop, rodando aqui a cada 5 min. Liga com LembreteSms__Ligado=true. O provedor, o
 // texto e o endereço do link continuam vindo das Configurações do Clinica (Relacionamento →
@@ -56,6 +57,19 @@ app.MapGet("/crm/relationship",(ClinicRelationshipBridge bridge,CancellationToke
 // O acesso ao CRM é o do sistema: quem pode entrar e a conferência da senha (ver ClinicTeamBridge).
 app.MapGet("/crm/team",(ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Team(ct));
 app.MapPost("/crm/login",(ClinicLogin input,ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Enter(input,ct));
+// O chat da equipe e os pedidos à recepção no CRM (out/2026): o MESMO chat dos apps, em nome do
+// login da sessão do CRM (ClinicTeamChatBridge confere que ele pode entrar). Quem decide mostrar é
+// o CRM (CRM_TEAM_CHAT_ENABLED); a escrita depende do papel-ponte-crm.sql ter sido rodado.
+app.MapPost("/crm/v1/team/panel",(TeamChatAsk input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.Panel(input,ct));
+app.MapPost("/crm/v1/team/open",(TeamChatAsk input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.Open(input,ct));
+app.MapPost("/crm/v1/team/update",(TeamChatAsk input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.Update(input,ct));
+app.MapPost("/crm/v1/team/send",(TeamChatAsk input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.Send(input,ct));
+app.MapPost("/crm/v1/team/text",(TeamChatAsk input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.FullText(input,ct));
+app.MapPost("/crm/v1/team/pulse",(TeamChatAsk input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.Pulse(input,ct));
+app.MapPost("/crm/v1/team/signal",(TeamChatAsk input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.Signal(input,ct));
+app.MapPost("/crm/v1/team/search",(TeamChatAsk input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.Search(input,ct));
+app.MapPost("/crm/v1/team/requests",(TeamChatAsk input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.Requests(input,ct));
+app.MapPost("/crm/v1/team/requests/act",(TeamRequestAct input,ClinicTeamChatBridge bridge,CancellationToken ct)=>bridge.Act(input,ct));
 app.MapPost("/crm/v1/patients/lookup",(ClinicPatientLookup input,ClinicPatientBridge bridge,CancellationToken ct)=>bridge.Lookup(input,ct));
 // O dia do CRM para a direção (caminho A): só contagens, numa tabela própria. Sem chave de
 // ligar: quem decide enviar é o CRM (CRM_DAILY_SUMMARY_ENABLED), e a ponte só grava o resumo.

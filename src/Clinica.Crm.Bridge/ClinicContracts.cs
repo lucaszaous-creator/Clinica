@@ -76,3 +76,30 @@ public sealed record CrmDailySummary(DateOnly Day, DateTimeOffset GeneratedAt,
     int SmsSent, int SmsSegments, int SmsFailed,
     int ConfirmationsAsked, int ConfirmationsAnswered,
     int Resolved, int Scheduled, int NoResponse);
+
+// O chat da equipe no CRM (out/2026): a secretária conversa com a equipe, pergunta ao Sistema
+// SemDor e trata os pedidos à recepção sem sair do CRM. As conversas e os pedidos moram no banco
+// da clínica (o mesmo chat dos apps); toda chamada leva o LOGIN de quem está no CRM, e a ponte
+// confere que ele pode entrar (ClinicTeamBridge.PodeEntrar) antes de agir em nome dele.
+public sealed record TeamChatAsk(string Login, string? Conversation = null, int? After = null, int? Before = null,
+    DateTimeOffset? EditedSince = null, string? Text = null, int? MessageId = null);
+public sealed record TeamChatItem(string Key, string Title, string Subtitle, int Unread, string? Preview, DateTimeOffset? LastAt,
+    string Kind, int? PersonId, string Initials, string Presence, bool Active);
+public sealed record TeamChatPanel(TeamChatItem[] Items, int Unread, int Online);
+public sealed record TeamChatCardFigure(string Label, int Value, string Tone);
+public sealed record TeamChatCardLine(string Time, string Title, string? Detail, string? Badge, string Tone, int? PatientId,
+    int? AppointmentId, bool CanRequest);
+public sealed record TeamChatCard(string Kind, string Title, string? Subtitle, TeamChatCardFigure[] Summary, TeamChatCardLine[] Lines,
+    string[] Suggestions, string? Footer, int? RequestId, string? RequestState);
+public sealed record TeamChatMessage(int Id, string AuthorName, string Initials, string Text, DateTimeOffset SentAt, DateTimeOffset? EditedAt,
+    bool Mine, bool MentionsMe, bool FromSystem, string? PatientName, string? DocumentLabel, string? FileName, string? ReadBy,
+    bool Truncated, TeamChatCard? Card);
+public sealed record TeamChatConversation(string Key, string Title, string Subtitle, TeamChatMessage[] Messages, int LastReadBefore,
+    string[] Typing, bool HasOlder, DateTimeOffset ReadAt, bool ReadOnly, bool MoreNewer = false);
+public sealed record TeamChatNews(int Id, string Conversation, string Title, string Author, string Preview, DateTimeOffset At, string Sound);
+public sealed record TeamChatPulse(int Last, TeamChatNews[] News);
+public sealed record TeamChatHit(int MessageId, string Conversation, string Title, string Author, DateTimeOffset At, string Excerpt);
+public sealed record TeamRequest(int Id, string Kind, string KindLabel, int? PatientId, string PatientName, int? AppointmentId,
+    DateTimeOffset? AppointmentAt, string Detail, string RequestedBy, DateTimeOffset RequestedAt, string State, string StateLabel,
+    string Owner, DateTimeOffset? TakenAt, string Outcome, DateTimeOffset? ClosedAt, bool CanHandle, bool Mine);
+public sealed record TeamRequestAct(string Login, int RequestId, string Action, string? Outcome = null);
