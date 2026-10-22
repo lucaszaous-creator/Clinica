@@ -112,7 +112,7 @@ public sealed class DocumentoPeloWhatsAppServiceTests : IDisposable
     {
         var r = await Servico().ResponderAsync(Celular, "atestado Maria José 2 dias", "wamid.d1");
         r.Texto.Should().Contain("*Atestado em rascunho* para Maria").And.Contain("https://portal.exemplo/profissional/assinar.html#");
-        var token = r.Texto![(r.Texto.IndexOf('#') + 1)..].Split('\n')[0];
+        var token = r.Texto![(r.Texto!.IndexOf('#') + 1)..].Split('\n')[0];
 
         var p = await db.PedidosDocumentoWhatsApp.AsNoTracking().SingleAsync();
         (p.PacienteId, p.Tipo, p.DiasAfastamento, p.UsuarioId).Should().Be((maria.Id, "atestado", 2, medica.Id));
