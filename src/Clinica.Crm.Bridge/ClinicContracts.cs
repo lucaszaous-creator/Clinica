@@ -76,3 +76,13 @@ public sealed record CrmDailySummary(DateOnly Day, DateTimeOffset GeneratedAt,
     int SmsSent, int SmsSegments, int SmsFailed,
     int ConfirmationsAsked, int ConfirmationsAnswered,
     int Resolved, int Scheduled, int NoResponse);
+
+// A equipe pergunta ao sistema pelo WhatsApp da clínica (out/2026): o médico manda "minha agenda de
+// hoje" ao número da clínica, o CRM reconhece o celular (StaffNumbers) e pergunta à ponte em nome
+// daquele login (StaffAsk). A mensagem de quem é da equipe não abre conversa de paciente no CRM.
+// O desfecho do pedido à recepção volta pelo WhatsApp (StaffNotice → StaffNoticeAck).
+public sealed record StaffNumbers(string[] Phones);
+public sealed record StaffAsk(string Phone, string Text, string MessageId);
+public sealed record StaffAnswer(bool Staff, string? Reply = null, string? Name = null);
+public sealed record StaffNotice(int RequestId, string Phone, string Text);
+public sealed record StaffNoticeAck(int RequestId, bool Delivered, string? Reason = null);

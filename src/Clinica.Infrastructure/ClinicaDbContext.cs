@@ -141,6 +141,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<LeituraEquipe> LeiturasEquipe => Set<LeituraEquipe>();
     public DbSet<PresencaEquipe> PresencasEquipe => Set<PresencaEquipe>();
     public DbSet<ConversaEquipe> ConversasEquipe => Set<ConversaEquipe>();
+    public DbSet<PedidoRecepcao> PedidosRecepcao => Set<PedidoRecepcao>();
+    public DbSet<EventoPedidoRecepcao> EventosPedidoRecepcao => Set<EventoPedidoRecepcao>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -1807,6 +1809,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.ArquivoNome).HasMaxLength(200);
             e.Property(x => x.EnviadaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.EditadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.Cartao).HasColumnType("text");
             e.HasOne(x => x.Autor).WithMany().HasForeignKey(x => x.AutorId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.DocumentoClinico).WithMany().HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Restrict);
@@ -1852,6 +1855,42 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => x.ParticipanteA);
             e.HasIndex(x => x.ParticipanteB);
         });
+        // O pedido à recepção (out/2026): o recado de quem atende, com dono e desfecho. Nada
+        // apaga em cascata — paciente, horário e usuário não somem por causa de um pedido.
+        b.Entity<PedidoRecepcao>(e =>
+        {
+            e.ToTable("PedidosRecepcao");
+            e.Property(x => x.Tipo).IsRequired().HasMaxLength(20);
+            e.Property(x => x.PacienteNome).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Detalhe).IsRequired().HasMaxLength(2000);
+            e.Property(x => x.CriadoPorNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Situacao).IsRequired().HasMaxLength(20);
+            e.Property(x => x.ResponsavelNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Desfecho).IsRequired().HasMaxLength(2000);
+            e.Property(x => x.HorarioEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AssumidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EncerradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AvisoWhatsAppEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.Versao).IsConcurrencyToken();
+            e.HasIndex(x => x.Idempotencia).IsUnique();
+            // A lista da recepção pergunta "o que está aberto"; a de quem pediu, "o que é meu".
+            e.HasIndex(x => new { x.Situacao, x.CriadoEm });
+            e.HasIndex(x => new { x.CriadoPorId, x.CriadoEm });
+            e.HasIndex(x => x.AgendamentoId);
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Agendamento).WithMany().HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.CriadoPor).WithMany().HasForeignKey(x => x.CriadoPorId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<EventoPedidoRecepcao>(e =>
+        {
+            e.ToTable("EventosPedidoRecepcao");
+            e.Property(x => x.Autor).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Acao).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Observacao).IsRequired().HasMaxLength(2000);
+            e.Property(x => x.Em).HasColumnType("timestamp without time zone");
+            e.HasOne(x => x.Pedido).WithMany(x => x.Eventos).HasForeignKey(x => x.PedidoRecepcaoId).OnDelete(DeleteBehavior.Cascade);
+        });
         b.Entity<PresencaEquipe>(e =>
         {
             e.ToTable("PresencasEquipe");
@@ -1876,6 +1915,11 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Observacoes).HasMaxLength(500);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.UltimoAcessoEm).HasColumnType("timestamp without time zone");
+            // O celular do WhatsApp da clínica (out/2026): um número, uma pessoa — senão a ponte não saberia
+            // em nome de quem responder. Índice filtrado: a coluna nasce nula em todas as linhas.
+            e.Property(x => x.TelefoneWhatsApp).HasMaxLength(20);
+            e.Property(x => x.WhatsAppLigadoEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(x => x.TelefoneWhatsApp).IsUnique().HasFilter("\"TelefoneWhatsApp\" IS NOT NULL");
             e.Property(x => x.BloqueadoAte).HasColumnType("timestamp without time zone");
 
             // Desligar o profissional não pode apagar o usuário (nem a auditoria dele).

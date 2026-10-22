@@ -43,6 +43,12 @@ BEGIN
       -- A fila de envios ao paciente (out/2026): quem PÕE o pedido é o desktop; a ponte só
       -- reserva, autoriza e registra o resultado — UPDATE, e só.
       ['EnviosPacienteCrm','UPDATE'],
+      -- A equipe pergunta ao sistema pelo WhatsApp da clínica (out/2026): a pergunta e a resposta
+      -- ficam na conversa da pessoa com o sistema (já lida), o pedido à recepção nasce com o
+      -- cartão no # Recepção, e o aviso do desfecho pelo WhatsApp é marcado no pedido.
+      ['MensagensEquipe','INSERT, UPDATE'], ['ConversasEquipe','INSERT, UPDATE'],
+      ['LeiturasEquipe','INSERT, UPDATE'],
+      ['PedidosRecepcao','INSERT, UPDATE'], ['EventosPedidoRecepcao','INSERT'],
       ['Pacientes','UPDATE'], ['Auditoria','INSERT']] LOOP
     IF to_regclass(format('public.%I', g[1])) IS NOT NULL THEN
       EXECUTE format('GRANT %s ON public.%I TO ponte_crm', g[2], g[1]);

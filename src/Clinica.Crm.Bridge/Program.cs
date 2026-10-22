@@ -26,6 +26,7 @@ builder.Services.AddScoped<ClinicTeamBridge>();
 builder.Services.AddScoped<ClinicPatientBridge>();
 builder.Services.AddScoped<ClinicSummaryBridge>();
 builder.Services.AddScoped<ClinicDispatchBridge>();
+builder.Services.AddScoped<AssistenteWhatsAppService>();
 // O lembrete de SMS 24h antes, com a clínica fechada (out/2026): o MESMO LembreteSmsService
 // do desktop, rodando aqui a cada 5 min. Liga com LembreteSms__Ligado=true. O provedor, o
 // texto e o endereço do link continuam vindo das Configurações do Clinica (Relacionamento →
@@ -56,6 +57,20 @@ app.MapGet("/crm/relationship",(ClinicRelationshipBridge bridge,CancellationToke
 // O acesso ao CRM é o do sistema: quem pode entrar e a conferência da senha (ver ClinicTeamBridge).
 app.MapGet("/crm/team",(ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Team(ct));
 app.MapPost("/crm/login",(ClinicLogin input,ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Enter(input,ct));
+// A equipe pergunta ao sistema pelo WhatsApp da clínica (out/2026, AssistenteWhatsAppService): o
+// CRM reconhece o celular cadastrado em Acessos e a ponte responde em nome daquele login, com as
+// regras do Sistema SemDor. A escrita (a conversa com o sistema e o pedido) pede o papel-ponte-crm.sql.
+app.MapGet("/crm/v1/staff/numbers",async(AssistenteWhatsAppService s,CancellationToken ct)=>new StaffNumbers((await s.NumerosAsync(ct)).ToArray()));
+app.MapPost("/crm/v1/staff/ask",async(StaffAsk input,AssistenteWhatsAppService s,CancellationToken ct)=>{
+    var r=await s.ResponderAsync(input.Phone??"",input.Text??"",input.MessageId??"",ct);
+    return new StaffAnswer(r.DaEquipe,r.Texto,r.Nome);
+});
+app.MapGet("/crm/v1/staff/notices",async(AssistenteWhatsAppService s,CancellationToken ct)=>
+    (await s.AvisosPendentesAsync(ct)).Select(a=>new StaffNotice(a.PedidoId,a.Telefone,a.Texto)).ToArray());
+app.MapPost("/crm/v1/staff/notices/ack",async(StaffNoticeAck input,AssistenteWhatsAppService s,CancellationToken ct)=>{
+    await s.ConfirmarAvisoAsync(input.RequestId,input.Delivered,input.Reason,ct);
+    return Results.Ok(new{ok=true});
+});
 app.MapPost("/crm/v1/patients/lookup",(ClinicPatientLookup input,ClinicPatientBridge bridge,CancellationToken ct)=>bridge.Lookup(input,ct));
 // O dia do CRM para a direção (caminho A): só contagens, numa tabela própria. Sem chave de
 // ligar: quem decide enviar é o CRM (CRM_DAILY_SUMMARY_ENABLED), e a ponte só grava o resumo.

@@ -881,6 +881,21 @@ public class UsuarioSistema
     public int? ProfissionalId { get; set; }
     public Profissional? Profissional { get; set; }
 
+    /// <summary>
+    /// O celular desta pessoa para perguntar ao sistema pelo WhatsApp da clínica (out/2026): a
+    /// mensagem que chega deste número não abre conversa de paciente no CRM — a ponte responde
+    /// em nome deste login, com as mesmas regras do Sistema SemDor do chat. Chave canônica
+    /// (<see cref="Clinica.Domain.TelefoneDaEquipe.Chave"/>: 55 + DDD + 9 dígitos); nulo = não usa.
+    /// Quem cadastra é a direção, em Acessos: é para este número que a agenda dos pacientes vai.
+    /// </summary>
+    public string? TelefoneWhatsApp { get; set; }
+
+    /// <summary>
+    /// Desde quando o número vale. O aviso de desfecho do pedido só vai pelo WhatsApp para
+    /// pedido criado DEPOIS disto — sem a data, ligar o número despejaria os desfechos antigos.
+    /// </summary>
+    public DateTime? WhatsAppLigadoEm { get; set; }
+
     /// <summary>Desativado não entra, mas continua existindo na auditoria.</summary>
     public bool Ativo { get; set; } = true;
 

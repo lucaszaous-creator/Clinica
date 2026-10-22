@@ -16,8 +16,9 @@ public sealed record NovidadeChat(int Id, string Conversa, string Titulo, string
 /// A lista do chat numa leitura só. <paramref name="Completo"/> falso (a bolinha fechada) traz só
 /// as conversas e as não lidas, sem nomes nem presença — é o que o número da bolinha precisa.
 /// </summary>
+/// <param name="Sistema">A conversa da pessoa com o Sistema SemDor (sempre presente; out/2026).</param>
 public sealed record PainelChat(IReadOnlyList<ConversaNaLista> Canais, IReadOnlyList<ConversaNaLista> Diretas,
-    int TotalNaoLidas, int Online, bool Completo = true);
+    int TotalNaoLidas, int Online, bool Completo = true, ConversaNaLista? Sistema = null);
 
 /// <summary>
 /// "Chegou alguma coisa para mim depois de <c>desdeId</c>?" — a pergunta da bolinha a cada batida,
@@ -33,7 +34,8 @@ public sealed record PulsoChat(int UltimaMensagemId, IReadOnlyList<NovidadeChat>
 public sealed record MensagemNaConversa(int Id, int AutorId, string AutorNome, string Iniciais, string Texto,
     DateTime EnviadaEm, DateTime? EditadaEm, bool Minha, bool MeCita,
     int? PacienteId, string? PacienteNome, int? DocumentoId, string? DocumentoRotulo,
-    string? ArquivoNome, long? ArquivoTamanho, string? LidaPor, int? TamanhoTexto = null)
+    string? ArquivoNome, long? ArquivoTamanho, string? LidaPor, int? TamanhoTexto = null,
+    bool DoSistema = false, CartaoChat? Cartao = null)
 {
     /// <summary>O texto que está aqui é o inteiro?</summary>
     public bool TextoCompleto => TamanhoTexto is null || TamanhoTexto <= Texto.Length;

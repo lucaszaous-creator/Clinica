@@ -211,6 +211,36 @@ public sealed class AcessoService
     }
 
     /// <summary>
+    /// O celular com que esta pessoa pergunta ao sistema pelo WhatsApp da clínica (out/2026). Em
+    /// branco desliga. É dado de quem administra acessos: é para ESTE número que vão a agenda e os
+    /// nomes dos pacientes — um dígito errado manda a agenda para um desconhecido. Por isso o
+    /// número precisa ser celular brasileiro válido e não pode estar em outro usuário.
+    /// </summary>
+    public async Task DefinirWhatsAppAsync(
+        int usuarioId, string? telefone, string? operador = null, CancellationToken ct = default)
+    {
+        var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct)
+            ?? throw new InvalidOperationException("Usuário não encontrado.");
+
+        string? chave = null;
+        if (!string.IsNullOrWhiteSpace(telefone))
+        {
+            chave = TelefoneDaEquipe.Chave(telefone)
+                ?? throw new ArgumentException("Informe o celular com DDD (ex.: 22 99999-9999). Telefone fixo não tem o WhatsApp do sistema.", nameof(telefone));
+            var outro = (await _repo.UsuariosAsync(ct)).FirstOrDefault(u => u.Id != usuarioId && u.TelefoneWhatsApp == chave);
+            if (outro is not null)
+                throw new InvalidOperationException($"Este celular já está no usuário {outro.Nome} ({outro.Login}). Um número responde por uma pessoa só.");
+        }
+        if (usuario.TelefoneWhatsApp == chave) return;
+
+        usuario.TelefoneWhatsApp = chave;
+        usuario.WhatsAppLigadoEm = chave is null ? null : DateTime.Now;
+        await AuditarAsync("UsuarioWhatsAppAlterado",
+            $"{usuario.Login} — {(chave is null ? "WhatsApp do sistema desligado" : "WhatsApp do sistema: " + Telefone.Formatar(chave[2..]))}", operador, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
     /// Troca de senha pelo próprio usuário: exige a senha atual. Sem isso, uma estação
     /// deixada aberta viraria a senha de outra pessoa.
     /// </summary>

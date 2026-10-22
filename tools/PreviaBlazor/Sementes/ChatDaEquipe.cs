@@ -75,5 +75,23 @@ public sealed class SementeChatDaEquipe : ISemente
             });
         }
         db.SaveChanges();
+
+        // O Sistema SemDor e o pedido à recepção (out/2026), pelos serviços de verdade: o médico
+        // pergunta a agenda de hoje (a resposta sai da agenda fictícia da prévia) e pede à
+        // recepção para remarcar um paciente — o cartão aparece no # Recepção e na conversa dele.
+        try
+        {
+            var chat = new ChatEquipeService(db);
+            chat.EnviarAsync(medico.Id, ChatEquipeRegras.Sistema(medico.Id), new("Minha agenda de hoje")).GetAwaiter().GetResult();
+            var horario = db.Agendamentos.Where(a => a.DataHora >= hoje && a.Status == StatusAgendamento.Agendado
+                    && (medico.ProfissionalId == null || a.ProfissionalId == medico.ProfissionalId))
+                .OrderBy(a => a.DataHora).Select(a => (int?)a.Id).FirstOrDefault();
+            if (horario is { } h)
+                new PedidosRecepcaoService(db).CriarAsync(medico.Id, new(Guid.NewGuid(), "remarcar", null, h,
+                    "Para a semana que vem, de manhã — o paciente pediu.")).GetAwaiter().GetResult();
+            chat.EnviarAsync(carla.Id, ChatEquipeRegras.Sistema(carla.Id), new("Quem não confirmou amanhã")).GetAwaiter().GetResult();
+        }
+        catch (Exception ex) { Console.Error.WriteLine("Semente do Sistema SemDor: " + ex.Message); }
+        db.ChangeTracker.Clear();
     }
 }

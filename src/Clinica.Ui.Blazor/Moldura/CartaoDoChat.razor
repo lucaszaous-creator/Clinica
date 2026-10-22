@@ -1,0 +1,117 @@
+@*
+  O CARTÃO de uma mensagem do chat (out/2026): a resposta do Sistema SemDor (a agenda do dia, quem
+  confirmou, os pedidos) e o pedido à recepção. Um desenho só para todos os tipos — título, números
+  de resumo, linhas com selo, rodapé e perguntas prontas — porque o CRM desenha o MESMO cartão
+  (CartaoChat é o formato comum). Quem decide o que o cartão afirma são as regras
+  (SistemaEquipeRegras, PedidosRecepcaoRegras); aqui só se desenha e se avisa o clique.
+*@
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Servicos
+
+<div class="chat-card tipo-@Cartao.Tipo @(Cartao.Situacao is { } sitCartao ? "sit-" + sitCartao.ToLowerInvariant() : null)">
+    <div class="chat-card-cab">
+        <span class="chat-card-ic" aria-hidden="true"><Icone Nome="@IconeDoTipo" /></span>
+        <div class="chat-card-tit">
+            <b>@Cartao.Titulo</b>
+            @if (!string.IsNullOrWhiteSpace(Cartao.Subtitulo)) { <small>@Cartao.Subtitulo</small> }
+        </div>
+        @if (Cartao.Situacao is { } situacao)
+        {
+            <span class="chat-card-selo tom-@PedidosRecepcaoRegras.TomDaSituacao(situacao)">@PedidosRecepcaoRegras.RotuloDaSituacao(situacao)</span>
+        }
+    </div>
+
+    @if (Cartao.Resumo is { Count: > 0 } resumo)
+    {
+        <div class="chat-card-resumo">
+            @foreach (var r in resumo)
+            {
+                <span class="chat-card-num tom-@r.Tom"><b>@r.Valor</b> @r.Rotulo</span>
+            }
+        </div>
+    }
+
+    @if (Cartao.Linhas is { Count: > 0 } linhas)
+    {
+        <ul class="chat-card-linhas">
+            @foreach (var l in linhas)
+            {
+                <li class="chat-card-linha">
+                    @if (l.Hora.Length > 0) { <span class="chat-card-hora">@l.Hora</span> }
+                    <span class="chat-card-corpo">
+                        <b>@l.Titulo</b>
+                        @if (!string.IsNullOrWhiteSpace(l.Detalhe)) { <small>@l.Detalhe</small> }
+                    </span>
+                    @if (!string.IsNullOrWhiteSpace(l.Selo) && Cartao.Situacao is null)
+                    {
+                        <span class="chat-card-selo tom-@l.Tom">@l.Selo</span>
+                    }
+                    @if ((l.PacienteId is not null && AoAbrirFicha.HasDelegate) || (l.PodePedir && AoPedir.HasDelegate))
+                    {
+                        <span class="chat-card-acoes">
+                            @if (l.PodePedir && AoPedir.HasDelegate)
+                            {
+                                <button type="button" class="chat-mini" title="Pedir à recepção sobre este horário" aria-label="Pedir à recepção sobre o horário de @l.Titulo"
+                                        @onclick="() => AoPedir.InvokeAsync(l)"><Icone Nome="mensagem" /></button>
+                            }
+                            @if (l.PacienteId is { } pid && AoAbrirFicha.HasDelegate)
+                            {
+                                <button type="button" class="chat-mini" title="Abrir a ficha" aria-label="Abrir a ficha de @l.Titulo"
+                                        @onclick="() => AoAbrirFicha.InvokeAsync(pid)"><Icone Nome="pessoa" /></button>
+                            }
+                        </span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Cartao.Rodape)) { <p class="chat-card-rodape">@Cartao.Rodape</p> }
+
+    @if (Cartao.PedidoId is { } pedido && PodeTratar && Cartao.Situacao is { } sit && !PedidosRecepcaoRegras.Encerrado(sit))
+    {
+        <div class="chat-card-botoes">
+            @if (sit == PedidosRecepcaoRegras.Aberto)
+            {
+                <button type="button" class="botao secundario" disabled="@Ocupado" @onclick="() => AoAgir.InvokeAsync((pedido, AcaoDoPedido.Assumir))">Deixa comigo</button>
+            }
+            <button type="button" class="botao" disabled="@Ocupado" @onclick="() => AoAgir.InvokeAsync((pedido, AcaoDoPedido.Concluir))">Concluir</button>
+            <button type="button" class="botao secundario" disabled="@Ocupado" @onclick="() => AoAgir.InvokeAsync((pedido, AcaoDoPedido.NaoFeito))">Não foi possível</button>
+        </div>
+    }
+
+    @if (Cartao.Sugestoes is { Count: > 0 } sugestoes && AoSugerir.HasDelegate)
+    {
+        <div class="chat-card-sug" role="group" aria-label="Perguntas prontas">
+            @foreach (var pergunta in sugestoes)
+            {
+                <button type="button" class="chat-chip" disabled="@Ocupado" @onclick="() => AoSugerir.InvokeAsync(pergunta)">@pergunta</button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    public enum AcaoDoPedido { Assumir, Concluir, NaoFeito }
+
+    [Parameter, EditorRequired] public CartaoChat Cartao { get; set; } = null!;
+
+    /// <summary>Quem vê pode assumir e encerrar pedidos (quem marca e remarca na agenda).</summary>
+    [Parameter] public bool PodeTratar { get; set; }
+
+    /// <summary>Uma ação em andamento: os botões esperam (o segundo clique não repete o ato).</summary>
+    [Parameter] public bool Ocupado { get; set; }
+
+    [Parameter] public EventCallback<string> AoSugerir { get; set; }
+    [Parameter] public EventCallback<LinhaDoCartao> AoPedir { get; set; }
+    [Parameter] public EventCallback<int> AoAbrirFicha { get; set; }
+    [Parameter] public EventCallback<(int Pedido, AcaoDoPedido Acao)> AoAgir { get; set; }
+
+    private string IconeDoTipo => Cartao.Tipo switch
+    {
+        "agenda" => "calendario",
+        "pedido" => "mensagem",
+        "ajuda" => "info",
+        _ => "lista",
+    };
+}

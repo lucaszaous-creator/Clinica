@@ -121,7 +121,34 @@ public static class ChatEquipeRegras
     };
 
     public static bool PodeVer(UsuarioSistema u, string conversa)
-        => u.Ativo && (EhCanal(conversa) ? ParticipaDoCanal(u.Perfil, conversa) : OutroDaDireta(conversa, u.Id) is not null);
+        => u.Ativo && (EhCanal(conversa) ? ParticipaDoCanal(u.Perfil, conversa)
+            : DonoDoSistema(conversa) is { } dono ? dono == u.Id
+            : OutroDaDireta(conversa, u.Id) is not null);
+
+    // ------------------------------------------------------------ o Sistema SemDor (out/2026)
+    //
+    // Cada pessoa tem UMA conversa com o sistema ("sistema:{id}"), só dela: pergunta a agenda do
+    // dia, quem confirmou, quem pediu para remarcar, os pedidos à recepção — e é ali que chega o
+    // desfecho de cada pedido. As respostas são REGRAS sobre os dados da clínica (SistemaEquipeRegras),
+    // não um modelo de linguagem: nada sai da clínica, e a resposta é sempre a mesma para a mesma
+    // pergunta. Por isso o nome é "Sistema SemDor", e não "assistente" ou "IA".
+
+    public const string NomeDoSistema = "Sistema SemDor";
+
+    public const string DescricaoDoSistema = "Agenda, confirmações e pedidos à recepção";
+
+    /// <summary>A conversa da pessoa com o Sistema SemDor.</summary>
+    public static string Sistema(int usuarioId) => $"sistema:{usuarioId}";
+
+    /// <summary>De quem é a conversa com o sistema; nulo quando a chave não é dessas.</summary>
+    public static int? DonoDoSistema(string conversa)
+    {
+        var p = conversa.Split(':');
+        return p.Length == 2 && p[0] == "sistema"
+               && int.TryParse(p[1], NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0 ? id : null;
+    }
+
+    public static bool EhSistema(string conversa) => DonoDoSistema(conversa) is not null;
 
     public static IReadOnlyList<string> CanaisDe(UsuarioSistema u) => Canais.Where(c => ParticipaDoCanal(u.Perfil, c)).ToList();
 
@@ -283,9 +310,14 @@ public static class ChatEquipeRegras
     /// Se a mensagem toca para mim. Só a direta, a citação e o pedido da enfermagem tocam; canal só
     /// acende o número. Mensagem minha nunca toca, e silenciado não toca (o número continua subindo).
     /// </summary>
-    public static SomChat Som(string conversa, int autorId, string? mencoes, int eu, PreferenciasSomChat prefs, DateTime agora)
+    public static SomChat Som(string conversa, int autorId, string? mencoes, int eu, PreferenciasSomChat prefs, DateTime agora,
+        bool doSistema = false)
     {
-        if (autorId == eu || prefs.SilenciadoAte > agora) return SomChat.Nenhum;
+        if (prefs.SilenciadoAte > agora) return SomChat.Nenhum;
+        // O desfecho de um pedido chega do sistema na MINHA conversa (o autor da linha sou eu, por
+        // causa da chave estrangeira): toca como uma direta.
+        if (doSistema) return DonoDoSistema(conversa) == eu && prefs.Direta ? SomChat.Direta : SomChat.Nenhum;
+        if (autorId == eu) return SomChat.Nenhum;
         if (Mencionou(mencoes, eu) && prefs.Mencao) return SomChat.Mencao;
         if (OutroDaDireta(conversa, eu) is not null && prefs.Direta) return SomChat.Direta;
         return SomChat.Nenhum;

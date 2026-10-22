@@ -37,6 +37,26 @@ public class AcessoServiceTests : IDisposable
     private Task<UsuarioSistema> CriarGerenteAsync(string login = "direcao")
         => _acesso.CriarAsync("Direção", login, "SenhaFicticia#2026", PerfilAcesso.Gerente);
 
+    // ===== O celular do WhatsApp do sistema (out/2026) =====
+
+    [Fact]
+    public async Task WhatsApp_grava_a_chave_recusa_fixo_e_numero_de_outra_pessoa()
+    {
+        var a = await CriarGerenteAsync("direcao");
+        var b = await CriarGerenteAsync("outra");
+        await _acesso.DefinirWhatsAppAsync(a.Id, "(22) 99942-2253", "direcao");
+        (await _acesso.ObterAsync(a.Id))!.TelefoneWhatsApp.Should().Be("5522999422253");
+        (await _acesso.ObterAsync(a.Id))!.WhatsAppLigadoEm.Should().NotBeNull();
+
+        await FluentActions.Awaiting(() => _acesso.DefinirWhatsAppAsync(b.Id, "22 2500-0002"))
+            .Should().ThrowAsync<ArgumentException>("fixo não tem o WhatsApp do sistema");
+        await FluentActions.Awaiting(() => _acesso.DefinirWhatsAppAsync(b.Id, "+55 22 99942-2253"))
+            .Should().ThrowAsync<InvalidOperationException>().WithMessage("*já está no usuário Direção*");
+
+        await _acesso.DefinirWhatsAppAsync(a.Id, "  ");
+        (await _acesso.ObterAsync(a.Id))!.TelefoneWhatsApp.Should().BeNull("em branco desliga");
+    }
+
     // ===== A junção acesso → profissional → certificado (parcela 45) =====
 
     [Fact]
