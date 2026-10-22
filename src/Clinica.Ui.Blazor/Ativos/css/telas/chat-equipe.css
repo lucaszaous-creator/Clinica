@@ -208,3 +208,69 @@ body:has(.modal-rodape){--chat-piso:calc(var(--space-16) + var(--space-6))}
 .chat-so-leitura{flex:none;margin:0;border-top:1px solid var(--borda);padding:var(--space-3);color:var(--texto-secundario);font-size:var(--text-small-size);text-align:center}
 
 @media (prefers-reduced-motion:reduce){.chat-m.chegou,.chat-previa,.chat-painel.janela,.chat-pontos i{animation:none}}
+
+/* ---------- O Sistema SemDor e o pedido à recepção (out/2026) ----------
+   O sistema tem avatar próprio (o calendário, na cor da marca) para nunca ser lido como uma
+   pessoa; o cartão é UM desenho para a agenda, as listas e o pedido (o CRM desenha o mesmo). */
+.chat-av.sistema{background:var(--acento);color:var(--texto-invertido)}
+.chat-av.sistema svg.icone{width:16px;height:16px}
+.chat-av.grande.sistema svg.icone{width:18px;height:18px}
+.chat-conv.sistema{margin-bottom:var(--space-1)}
+.chat-boas-vindas{margin:var(--space-6) auto;max-width:420px;text-align:center;color:var(--texto-secundario)}
+.chat-boas-vindas b{display:block;color:var(--texto-primario);font-size:var(--text-h3-size);margin-bottom:var(--space-2)}
+.chat-boas-vindas p{margin:0;font-size:var(--text-small-size);line-height:1.5}
+
+.chat-card{border:1px solid var(--borda);background:var(--superficie);border-radius:var(--radius-card);padding:var(--space-3);
+  display:flex;flex-direction:column;gap:var(--space-2);min-width:260px;max-width:100%}
+.chat-card.tipo-pedido{box-shadow:inset 3px 0 0 var(--aviso)}
+.chat-card.tipo-pedido.sit-emandamento{box-shadow:inset 3px 0 0 var(--info)}
+.chat-card.tipo-pedido.sit-concluido{box-shadow:inset 3px 0 0 var(--sucesso)}
+.chat-card.tipo-pedido.sit-naofeito{box-shadow:inset 3px 0 0 var(--erro)}
+.chat-card-cab{display:flex;align-items:flex-start;gap:var(--space-2)}
+.chat-card-ic{flex:none;width:28px;height:28px;border-radius:var(--radius-pequeno);background:var(--acento-suave);color:var(--acento);display:grid;place-items:center}
+.chat-card-ic svg.icone{width:16px;height:16px}
+.chat-card-tit{flex:1;min-width:0;display:flex;flex-direction:column}
+.chat-card-tit small{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.chat-card-resumo{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.chat-card-num{display:inline-flex;align-items:baseline;gap:4px;padding:2px var(--space-2);border-radius:var(--radius-pilula);
+  background:var(--superficie-hover);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.chat-card-num b{font-family:var(--font-num);color:var(--texto-primario)}
+.chat-card-num.tom-ok{background:var(--sucesso-suave)}
+.chat-card-num.tom-ok b{color:var(--sucesso-forte)}
+.chat-card-num.tom-atencao{background:var(--aviso-suave)}
+.chat-card-num.tom-atencao b{color:var(--aviso-texto)}
+.chat-card-num.tom-alerta{background:var(--erro-suave)}
+.chat-card-num.tom-alerta b{color:var(--erro-texto)}
+.chat-card-num.tom-info{background:var(--info-suave)}
+.chat-card-num.tom-info b{color:var(--info-texto)}
+.chat-card-linhas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--borda)}
+.chat-card-linha{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) 0;border-bottom:1px solid var(--borda);min-height:36px}
+.chat-card-linha:last-child{border-bottom:0}
+.chat-card-hora{flex:none;width:48px;font-family:var(--font-num);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.chat-card-corpo{flex:1;min-width:0;display:flex;flex-direction:column}
+.chat-card-corpo b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-card-corpo small{color:var(--texto-secundario);font-size:var(--text-small-size);overflow:hidden;text-overflow:ellipsis}
+.chat-card-selo{flex:none;padding:2px var(--space-2);border-radius:var(--radius-pilula);font-size:var(--text-small-size);font-weight:600;
+  background:var(--superficie-hover);color:var(--texto-secundario);white-space:nowrap}
+.chat-card-selo.tom-ok{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.chat-card-selo.tom-atencao{background:var(--aviso-suave);color:var(--aviso-texto)}
+.chat-card-selo.tom-alerta{background:var(--erro-suave);color:var(--erro-texto)}
+.chat-card-selo.tom-info{background:var(--info-suave);color:var(--info-texto)}
+.chat-card-acoes{flex:none;display:flex;gap:2px}
+.chat-card-rodape{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.chat-card-botoes{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.chat-card-sug{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.chat-card-sug.compor{margin-bottom:var(--space-2)}
+.chat-chip{border:1px solid var(--borda);background:var(--superficie);color:var(--acento);border-radius:var(--radius-pilula);
+  padding:4px var(--space-3);font:inherit;font-size:var(--text-small-size);font-weight:600;cursor:pointer;white-space:nowrap}
+.chat-chip:hover{background:var(--acento-suave)}
+.chat-chip.on{background:var(--acento);border-color:var(--acento);color:var(--texto-invertido)}
+.chat-chip:focus-visible{outline:3px solid var(--foco);outline-offset:2px}
+.chat-chip:disabled{opacity:.6;cursor:default}
+
+.chat-pop.pedido-recepcao{top:52px;bottom:auto;left:auto;right:var(--space-3);width:min(480px,calc(100% - 2 * var(--space-3)));
+  max-height:calc(100% - 64px);display:flex;flex-direction:column;gap:var(--space-3)}
+.chat-pedido-tipos{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.chat-pedido-campo{display:flex;flex-direction:column;gap:4px;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.chat-pedido-aviso{margin:0;font-size:var(--text-small-size);color:var(--aviso-texto)}
+.chat-pop.pedido-recepcao .chat-pedido-acoes{justify-content:flex-end}

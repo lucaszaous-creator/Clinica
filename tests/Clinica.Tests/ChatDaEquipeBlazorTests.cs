@@ -83,6 +83,34 @@ public sealed class ChatDaEquipeBlazorTests : IDisposable
     }
 
     [Fact]
+    public async Task Sistema_responde_com_cartao_e_o_pedido_a_recepcao_nasce_da_tela()
+    {
+        // Paulo (quem atende) conversa com o Sistema SemDor: o botão de pergunta pronta envia, a
+        // resposta é um cartão, e "Pedir à recepção" leva o pedido ao # Recepção.
+        new SessaoUsuario().Entrar(paulo);
+        using var ctx = Contexto($"janela|{ChatEquipeRegras.Sistema(paulo.Id)}|1|1|1|0");
+        var tela = ctx.RenderComponent<ChatDaEquipe>();
+        Esperar(() => tela.Markup.Contains("Pergunte ao sistema da clínica"), "a conversa com o sistema, vazia");
+        tela.FindAll(".chat-conv.sistema").Should().ContainSingle("o sistema fica no topo da lista");
+        tela.FindAll(".chat-linha button").Should().NotContain(b => b.TextContent.Contains("Arquivo"), "não se anexa arquivo ao sistema");
+
+        tela.FindAll(".chat-card-sug.compor .chat-chip").First(b => b.TextContent.Contains("Meus pedidos")).Click();
+        Esperar(() => tela.Markup.Contains("Seus pedidos à recepção"), "o cartão da resposta");
+        tela.FindAll(".chat-card").Should().NotBeEmpty();
+
+        tela.FindAll(".chat-linha button").First(b => b.TextContent.Contains("Pedir à recepção")).Click();
+        tela.Find(".chat-pop.pedido-recepcao").Should().NotBeNull();
+        tela.FindAll(".chat-pedido-tipos .chat-chip").First(b => b.TextContent.Contains("Avisar o paciente")).Click();
+        tela.Find(".chat-pop.pedido-recepcao textarea").Input("Trazer os exames na próxima sessão");
+        tela.FindAll(".chat-pop.pedido-recepcao button").First(b => b.TextContent.Contains("Enviar pedido")).Click();
+        Esperar(() => tela.FindAll(".chat-pop.pedido-recepcao").Count == 0, "o formulário fechado depois do envio");
+
+        using var escopo = ctx.Services.CreateScope();
+        var lista = await escopo.ServiceProvider.GetRequiredService<IPedidosRecepcaoService>().ListarAsync(ana.Id);
+        lista.Should().ContainSingle(p => p.Tipo == "avisar" && p.Detalhe == "Trazer os exames na próxima sessão" && p.CriadoPorNome == "Paulo Lima");
+    }
+
+    [Fact]
     public async Task Conversa_aberta_texto_longo_citacao_busca_e_Esc()
     {
         using var ctx = Contexto("janela|canal:geral|1|1|1|0");
