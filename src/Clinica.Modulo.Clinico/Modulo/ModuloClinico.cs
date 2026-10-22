@@ -245,8 +245,9 @@ public sealed class ModuloClinico : IModuloApp
         // marca daqui venceria a do painel — o defeito que a parcela 22 corrigiu.
         //
         // ⚠️ E "o primeiro item já é a abertura" deixou de ser verdade quando a navegação
-        // reorganizou as abas deste item (a primeira virou "Visão geral"): o app passou a
-        // abrir longe do Meu dia sem ninguém ter mexido nele. Por isso a abertura é
+        // reorganizou as abas deste item (a primeira chegou a ser "Visão geral"; desde
+        // out/2026 é de novo o "Dia", em OrganizacaoNavegacao): o app passou a abrir longe
+        // do Meu dia sem ninguém ter mexido nele. Por isso a abertura é
         // declarada pelo EXE (`SuiteApp.IniciarAsync(..., chaveAbertura:)`), por CHAVE —
         // ordem de menu não é contrato.
         new ItemMenuModulo
