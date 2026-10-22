@@ -59,6 +59,21 @@ public class MensagemEquipe
 
     public ArquivoMensagemEquipe? Arquivo { get; set; }
     public List<VersaoMensagemEquipe> Versoes { get; set; } = [];
+
+    /// <summary>
+    /// A mensagem é RESPOSTA DO SISTEMA (out/2026), não de uma pessoa: a agenda do dia, o
+    /// desfecho de um pedido. Mora na conversa "sistema:{id}" de quem perguntou, com
+    /// <see cref="AutorId"/> = essa pessoa (a chave estrangeira pede um usuário) — é esta
+    /// coluna que diz que não foi ela quem escreveu. Não se corrige.
+    /// </summary>
+    public bool DoSistema { get; set; }
+
+    /// <summary>
+    /// O cartão estruturado (JSON de <c>CartaoChat</c>): a agenda com a situação de cada
+    /// horário, o pedido à recepção com a situação dele. O <see cref="Texto"/> continua
+    /// sendo o resumo legível — é o que a busca, a prévia e quem não desenha o cartão leem.
+    /// </summary>
+    public string? Cartao { get; set; }
 }
 
 /// <summary>Os bytes do arquivo anexado — fora da linha da mensagem, para a lista não arrastá-los.</summary>

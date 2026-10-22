@@ -81,6 +81,8 @@ public sealed class ChatEquipeService : IChatEquipeService
             var (a, b) = par;
             usuarios = usuarios.Where(u => u.Id == a || u.Id == b);
         }
+        else if (ChatEquipeRegras.DonoDoSistema(conversa) is { } dono)
+            usuarios = usuarios.Where(u => u.Id == dono);
         else usuarios = usuarios.Where(u => false);
 
         return from u in usuarios
@@ -113,6 +115,7 @@ public sealed class ChatEquipeService : IChatEquipeService
     {
         if (ChatEquipeRegras.EhCanal(conversa))
             return $"{ChatEquipeRegras.DescricaoDoCanal(conversa)} · {todos.Count} pessoa{(todos.Count == 1 ? "" : "s")}";
+        if (ChatEquipeRegras.EhSistema(conversa)) return ChatEquipeRegras.DescricaoDoSistema;
         var outro = todos.FirstOrDefault(p => p.Id != eu);
         if (outro is null) return "fora";
         if (!outro.Ativo) return "saiu da equipe · só leitura";
@@ -157,13 +160,15 @@ public sealed class ChatEquipeService : IChatEquipeService
         var enfermagem = ChatEquipeRegras.CanalEnfermagem;
         var perfisRecepcao = ChatEquipeRegras.PerfisDoCanal(recepcao);
         var perfisEnfermagem = ChatEquipeRegras.PerfisDoCanal(enfermagem);
+        var meuSistema = ChatEquipeRegras.Sistema(eu);
         return db.MensagensEquipe.AsNoTracking()
             .Where(m => m.Id > desdeId)
             .OrderByDescending(m => m.Id).Take(limite)
             .Select(m => new
             {
                 M = m,
-                ParaMim = m.AutorId != eu && db.Usuarios.Any(u => u.Id == eu && u.Ativo && (
+                // A resposta do sistema na MINHA conversa é para mim, embora a linha tenha o meu id.
+                ParaMim = (m.DoSistema && m.Conversa == meuSistema) || m.AutorId != eu && db.Usuarios.Any(u => u.Id == eu && u.Ativo && (
                     m.Conversa == geral
                     || (m.Conversa == recepcao && perfisRecepcao.Contains(u.Perfil))
                     || (m.Conversa == enfermagem && perfisEnfermagem.Contains(u.Perfil))
@@ -173,11 +178,15 @@ public sealed class ChatEquipeService : IChatEquipeService
                 x.ParaMim ? x.M.Conversa : null, x.ParaMim ? x.M.AutorId : 0, x.ParaMim ? x.M.AutorNome : null,
                 x.M.EnviadaEm, x.ParaMim ? x.M.Mencoes : null, x.ParaMim ? x.M.ArquivoNome : null,
                 x.ParaMim ? x.M.PacienteNome : null, x.ParaMim ? x.M.DocumentoRotulo : null,
-                x.ParaMim ? (x.M.Texto.Length > 300 ? x.M.Texto.Substring(0, 300) : x.M.Texto) : null));
+                x.ParaMim ? (x.M.Texto.Length > 300 ? x.M.Texto.Substring(0, 300) : x.M.Texto) : null,
+                x.M.DoSistema, x.M.Cartao != null));
     }
 
+    /// <param name="DoSistema">Resposta do Sistema SemDor (o desfecho de um pedido toca como direta).</param>
+    /// <param name="ComCartao">Mensagem com cartão: no # Recepção é um pedido à recepção, e toca como pedido.</param>
     public sealed record LinhaDoPulso(int Id, bool ParaMim, string? Conversa, int AutorId, string? AutorNome, DateTime EnviadaEm,
-        string? Mencoes, string? ArquivoNome, string? PacienteNome, string? DocumentoRotulo, string? Texto);
+        string? Mencoes, string? ArquivoNome, string? PacienteNome, string? DocumentoRotulo, string? Texto,
+        bool DoSistema = false, bool ComCartao = false);
 
     public async Task<PulsoChat> PulsoAsync(int usuarioId, int desdeId, PreferenciasSomChat prefs, CancellationToken ct = default)
     {
@@ -188,9 +197,16 @@ public sealed class ChatEquipeService : IChatEquipeService
         var ultimo = linhas.Count == 0 ? desdeId : Math.Max(desdeId, linhas.Max(l => l.Id));
         if (desdeId == 0) return new PulsoChat(ultimo, []);
         var novidades = linhas.Where(l => l.ParaMim).OrderBy(l => l.Id).TakeLast(10).Select(m => new NovidadeChat(m.Id, m.Conversa!,
-                ChatEquipeRegras.EhCanal(m.Conversa!) ? "# " + ChatEquipeRegras.NomeDoCanal(m.Conversa!) : "mensagem direta",
+                ChatEquipeRegras.EhCanal(m.Conversa!) ? "# " + ChatEquipeRegras.NomeDoCanal(m.Conversa!)
+                    : ChatEquipeRegras.EhSistema(m.Conversa!) ? ChatEquipeRegras.NomeDoSistema : "mensagem direta",
                 m.AutorNome ?? "", ChatEquipeRegras.Previa(m.Texto ?? "", ChatEquipeRegras.AnexoNaPrevia(m.DocumentoRotulo, m.PacienteNome, m.ArquivoNome)),
-                m.EnviadaEm, ChatEquipeRegras.Som(m.Conversa!, m.AutorId, m.Mencoes, usuarioId, prefs, agoraLocal)))
+                m.EnviadaEm,
+                // O pedido à recepção (cartão no # Recepção) toca como o pedido da enfermagem.
+                m.ComCartao && m.Conversa == ChatEquipeRegras.CanalRecepcao && m.AutorId != usuarioId
+                    ? ChatEquipeRegras.SomDoPedido(prefs, agoraLocal)
+                    : ChatEquipeRegras.Som(m.Conversa!, m.AutorId, m.Mencoes, usuarioId, prefs, agoraLocal, m.DoSistema)))
+            // A resposta à pergunta que EU acabei de fazer não é novidade: só o desfecho de pedido, que chega sozinho.
+            .Where(n => !(ChatEquipeRegras.EhSistema(n.Conversa) && n.Som == SomChat.Nenhum))
             .ToList();
         return new PulsoChat(ultimo, novidades);
     }
@@ -205,7 +221,7 @@ public sealed class ChatEquipeService : IChatEquipeService
             .Where(c => canais.Contains(c.Conversa) || c.ParticipanteA == eu || c.ParticipanteB == eu)
             .Select(c => new LinhaDaLista(c.Conversa, c.ParticipanteA, c.ParticipanteB, c.UltimaEm, c.UltimoAutorId,
                 c.UltimoAutorNome, c.UltimaPrevia,
-                db.MensagensEquipe.Count(m => m.Conversa == c.Conversa && m.AutorId != eu && m.EnviadaEm >= desdeCadastro
+                db.MensagensEquipe.Count(m => m.Conversa == c.Conversa && (m.AutorId != eu || m.DoSistema) && m.EnviadaEm >= desdeCadastro
                     && m.Id > (db.LeiturasEquipe.Where(l => l.UsuarioId == eu && l.Conversa == c.Conversa)
                         .Select(l => (int?)l.UltimaLidaId).FirstOrDefault() ?? 0))));
 
@@ -232,6 +248,13 @@ public sealed class ChatEquipeService : IChatEquipeService
                 l?.NaoLidas ?? 0, Previa(l), l?.UltimaEm, true);
         }).ToList();
 
+        // A conversa com o Sistema SemDor está sempre na lista, mesmo antes da primeira pergunta.
+        var meuSistema = ChatEquipeRegras.Sistema(eu.Id);
+        porConversa.TryGetValue(meuSistema, out var linhaSistema);
+        var sistema = new ConversaNaLista(meuSistema, ChatEquipeRegras.NomeDoSistema, ChatEquipeRegras.DescricaoDoSistema,
+            linhaSistema?.NaoLidas ?? 0, linhaSistema is null ? null : ChatEquipeRegras.Previa(linhaSistema.UltimaPrevia, null, 70),
+            linhaSistema?.UltimaEm, false, null, "S", PresencaChat.Online);
+
         var diretasComConversa = linhas.Where(l => !ChatEquipeRegras.EhCanal(l.Conversa))
             .Select(l => (Linha: l, Outro: ChatEquipeRegras.OutroDaDireta(l.Conversa, eu.Id)))
             .Where(x => x.Outro is not null).ToDictionary(x => x.Outro!.Value, x => x.Linha);
@@ -241,7 +264,8 @@ public sealed class ChatEquipeService : IChatEquipeService
             // A bolinha fechada só precisa do número: sem nomes, sem presença, sem agenda.
             var soNumeros = diretasComConversa.Select(d => new ConversaNaLista(d.Value.Conversa, "", "", d.Value.NaoLidas,
                 null, d.Value.UltimaEm, false, d.Key)).ToList();
-            return new PainelChat(listaCanais, soNumeros, listaCanais.Sum(c => c.NaoLidas) + soNumeros.Sum(d => d.NaoLidas), 0, false);
+            return new PainelChat(listaCanais, soNumeros, listaCanais.Sum(c => c.NaoLidas) + soNumeros.Sum(d => d.NaoLidas) + sistema.NaoLidas,
+                0, false, sistema);
         }
 
         // A equipe: quem está ativo e quem já não está mas tem conversa comigo (a direta fica, só leitura).
@@ -272,7 +296,7 @@ public sealed class ChatEquipeService : IChatEquipeService
             .ThenByDescending(d => d.Presenca != PresencaChat.Fora).ThenBy(d => d.Titulo, StringComparer.CurrentCultureIgnoreCase).ToList();
 
         return new PainelChat(listaCanais, listaDiretas,
-            listaCanais.Sum(c => c.NaoLidas) + listaDiretas.Sum(d => d.NaoLidas), online);
+            listaCanais.Sum(c => c.NaoLidas) + listaDiretas.Sum(d => d.NaoLidas) + sistema.NaoLidas, online, true, sistema);
     }
 
     // ================================================================ a conversa
@@ -280,7 +304,8 @@ public sealed class ChatEquipeService : IChatEquipeService
     /// <summary>A linha da mensagem como a conversa a mostra — o texto só até <see cref="ChatEquipeRegras.TextoNaConversa"/>.</summary>
     public sealed record LinhaDaConversa(int Id, int AutorId, string AutorNome, string Texto, int TamanhoTexto, DateTime EnviadaEm,
         DateTime? EditadaEm, string? Mencoes, int? PacienteId, string? PacienteNome, int? DocumentoClinicoId,
-        string? DocumentoRotulo, TipoDocumentoClinico? DocumentoTipo, string? ArquivoNome, long? ArquivoTamanho);
+        string? DocumentoRotulo, TipoDocumentoClinico? DocumentoTipo, string? ArquivoNome, long? ArquivoTamanho,
+        bool DoSistema = false, string? Cartao = null);
 
     public static IQueryable<LinhaDaConversa> ConsultaLinhas(IQueryable<MensagemEquipe> origem)
         => origem.Select(m => new LinhaDaConversa(m.Id, m.AutorId, m.AutorNome,
@@ -288,7 +313,7 @@ public sealed class ChatEquipeService : IChatEquipeService
             m.Texto.Length, m.EnviadaEm, m.EditadaEm,
             m.Mencoes, m.PacienteId, m.PacienteNome, m.DocumentoClinicoId, m.DocumentoRotulo,
             m.DocumentoClinicoId == null ? null : (TipoDocumentoClinico?)m.DocumentoClinico!.Tipo,
-            m.ArquivoNome, m.ArquivoTamanho));
+            m.ArquivoNome, m.ArquivoTamanho, m.DoSistema, m.Cartao));
 
     /// <summary>
     /// A linha vira mensagem da tela. Documento que o meu acesso não abre chega SEM o id e sem o
@@ -299,14 +324,14 @@ public sealed class ChatEquipeService : IChatEquipeService
     {
         var veDocumento = m.DocumentoTipo is not { } tipo || CentralDocumentosService.PodeVer(eu.Efetivas, tipo);
         return new MensagemNaConversa(m.Id, m.AutorId, m.AutorNome,
-            ChatEquipeRegras.Iniciais(m.AutorNome), m.Texto, m.EnviadaEm, m.EditadaEm, m.AutorId == eu.Id,
+            m.DoSistema ? "S" : ChatEquipeRegras.Iniciais(m.AutorNome), m.Texto, m.EnviadaEm, m.EditadaEm, m.AutorId == eu.Id && !m.DoSistema,
             m.AutorId != eu.Id && ChatEquipeRegras.Mencionou(m.Mencoes, eu.Id),
             m.PacienteId, m.PacienteNome,
             veDocumento ? m.DocumentoClinicoId : null,
             m.DocumentoRotulo is null ? null : veDocumento ? m.DocumentoRotulo : ChatEquipeRegras.DocumentoSemAcesso,
             m.ArquivoNome, m.ArquivoTamanho,
-            m.AutorId == eu.Id ? ChatEquipeRegras.LidaPor(m.Id, conversa, eu.Id, leituras) : null,
-            m.TamanhoTexto > m.Texto.Length ? m.TamanhoTexto : null);
+            m.AutorId == eu.Id && !m.DoSistema ? ChatEquipeRegras.LidaPor(m.Id, conversa, eu.Id, leituras) : null,
+            m.TamanhoTexto > m.Texto.Length ? m.TamanhoTexto : null, m.DoSistema, CartaoChat.DeJson(m.Cartao));
     }
 
     /// <summary>
@@ -357,6 +382,7 @@ public sealed class ChatEquipeService : IChatEquipeService
         int? pessoaId = null;
         var soLeitura = false;
         if (ChatEquipeRegras.EhCanal(conversa)) titulo = "# " + ChatEquipeRegras.NomeDoCanal(conversa);
+        else if (ChatEquipeRegras.EhSistema(conversa)) titulo = ChatEquipeRegras.NomeDoSistema;
         else
         {
             pessoaId = ChatEquipeRegras.OutroDaDireta(conversa, eu.Id)!.Value;
@@ -485,11 +511,31 @@ public sealed class ChatEquipeService : IChatEquipeService
         var direta = ChatEquipeRegras.ParticipantesDaDireta(conversa);
         var resumo = new ConversaEquipe
         {
-            Conversa = conversa, ParticipanteA = direta?.A, ParticipanteB = direta?.B, UltimaMensagem = mensagem,
+            Conversa = conversa, ParticipanteA = direta?.A ?? ChatEquipeRegras.DonoDoSistema(conversa), ParticipanteB = direta?.B,
+            UltimaMensagem = mensagem,
             UltimaEm = momento, UltimoAutorId = eu.Id, UltimoAutorNome = eu.Nome, UltimaPrevia = previa,
         };
         var presenca = new PresencaEquipe { UsuarioId = eu.Id, VistoEm = momento };
         await GravarComResumoAsync(resumo, presenca, participante.PresencaGravada, ct);
+
+        // Pergunta ao Sistema SemDor: a resposta vai logo atrás, na mesma conversa, e já lida —
+        // quem perguntou está olhando. Falha ao montar a resposta não perde a pergunta (ela já
+        // está gravada): vira uma resposta que diz que não deu para ler os dados agora.
+        if (ChatEquipeRegras.EhSistema(conversa) && texto.Length > 0)
+        {
+            (string Texto, CartaoChat? Cartao) resposta;
+            try { resposta = await new SistemaEquipeService(db, agora).ResponderAsync(eu, texto, ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                resposta = ("Não consegui ler os dados da agenda agora. Tente de novo em instantes.", null);
+            }
+            var resp = GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, resposta.Texto, resposta.Cartao, true, agora());
+            await GravacaoDoChat.AdicionarAsync(db, resp, ct);
+            await db.SaveChangesAsync(ct);
+            foreach (var e in db.ChangeTracker.Entries().Where(e => e.Entity is MensagemEquipe or ConversaEquipe).ToList())
+                e.State = EntityState.Detached;
+            await MarcarAteAsync(participante, conversa, resp.Id, ct);
+        }
         return mensagem.Id;
     }
 
@@ -558,7 +604,8 @@ public sealed class ChatEquipeService : IChatEquipeService
         var m = await db.MensagensEquipe.SingleOrDefaultAsync(x => x.Id == mensagemId, ct)
                 ?? throw new InvalidOperationException("Mensagem não encontrada — atualize a conversa.");
         var (todos, eu) = await ParticipantesAsync(usuarioId, m.Conversa, ct);
-        if (m.AutorId != eu.Id) throw new UnauthorizedAccessException("Só quem escreveu corrige a mensagem.");
+        if (m.AutorId != eu.Id || m.DoSistema) throw new UnauthorizedAccessException("Só quem escreveu corrige a mensagem.");
+        if (m.Cartao is not null) throw new InvalidOperationException("O cartão do pedido não se corrige: a situação dele muda pela recepção.");
         var novo = (texto ?? "").Replace("\r\n", "\n").Trim();
         if (novo == m.Texto) return;
         if (novo.Length == 0 && m.PacienteId is null && m.DocumentoClinicoId is null && m.ArquivoNome is null)
@@ -651,6 +698,7 @@ public sealed class ChatEquipeService : IChatEquipeService
             : await db.Usuarios.AsNoTracking().Where(u => outros.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Nome, ct);
         return achadas.Select(a => new ResultadoDaBusca(a.Id, a.Conversa,
                 ChatEquipeRegras.EhCanal(a.Conversa) ? "# " + ChatEquipeRegras.NomeDoCanal(a.Conversa)
+                : ChatEquipeRegras.EhSistema(a.Conversa) ? ChatEquipeRegras.NomeDoSistema
                 : nomes.GetValueOrDefault(ChatEquipeRegras.OutroDaDireta(a.Conversa, eu.Id) ?? 0, "Pessoa removida"),
                 a.AutorNome, a.EnviadaEm, ChatEquipeRegras.Trecho(a.Texto, palavras)))
             .ToList();

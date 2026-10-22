@@ -204,6 +204,14 @@ public class TraducaoNoNpgsqlTests
         // O pulso vai pela chave (Id > desde) e decide "é para mim" no próprio banco.
         var pulso = ChatEquipeService.ConsultaPulso(db, 7, 120, 30).ToQueryString();
         pulso.Should().Contain("EXISTS").And.Contain("ConversasEquipe").And.Contain("LIMIT");
+        pulso.Should().Contain("DoSistema", "a resposta do sistema na minha conversa é para mim");
+        ChatEquipeService.ConsultaParticipantes(db, "sistema:7").ToQueryString().Should().Contain("PresencasEquipe");
+        // O Sistema SemDor e os pedidos à recepção (out/2026).
+        SistemaEquipeService.ConsultaHorarios(db, new(2026, 10, 22), new(2026, 10, 23), 3).ToQueryString()
+            .Should().Contain("Pacientes").And.Contain("Profissionais").And.Contain("LIMIT");
+        SistemaEquipeService.ConsultaConfirmacoes(db, [1, 2]).ToQueryString().Should().Contain("AgendamentoId");
+        PedidosRecepcaoService.ConsultaLista(db, 7, true, true, new(2026, 10, 22, 9, 0, 0)).ToQueryString().Should().Contain("EncerradoEm");
+        PedidosRecepcaoService.ConsultaLista(db, 7, false, false, new(2026, 10, 22, 9, 0, 0)).ToQueryString().Should().Contain("CriadoPorId");
         // A lista conta as não lidas no banco, a partir da leitura de cada conversa.
         var lista = ChatEquipeService.ConsultaLista(db, 7, new DateTime(2026, 1, 1), ["canal:geral"]).ToQueryString();
         lista.Should().Contain("count(*)").And.Contain("COALESCE").And.Contain("LeiturasEquipe");
