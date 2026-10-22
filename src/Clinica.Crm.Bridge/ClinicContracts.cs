@@ -5,7 +5,9 @@ public sealed record ClinicAppointment(int Id, int PatientId, string Name, strin
     string SpecialtyCode, string SpecialtyName, string Professional, string Status, string Revision, string Confirmation,
     string Answer = "", DateTimeOffset? AnsweredAt = null, DateTimeOffset? NotifiedAt = null, DateTimeOffset? CreatedAt = null);
 public sealed record ClinicSnapshot(DateTimeOffset SyncedAt, Specialty[] Specialties, ClinicAppointment[] Appointments);
-public sealed record ClinicDecision(string CommandId, int AppointmentId, string Revision, string Phone, string Decision, string MessageId);
+// Note (out/2026, @SemDor fase 2): no "reschedule" que veio de TEXTO LIVRE, a preferência que a IA
+// leu ("sexta à tarde"); vai para o pedido à recepção. Nulo no toque do botão.
+public sealed record ClinicDecision(string CommandId, int AppointmentId, string Revision, string Phone, string Decision, string MessageId, string? Note = null);
 public sealed record ClinicDecisionResult(string Status, string Description);
 public sealed record ClinicSlotQuery(int AppointmentId, int PatientId, string Revision, string Phone, DateTimeOffset From);
 public sealed record ClinicSlots(string Criterion, DateTimeOffset[] StartsAt);
@@ -82,8 +84,11 @@ public sealed record CrmDailySummary(DateOnly Day, DateTimeOffset GeneratedAt,
 // daquele login (StaffAsk). A mensagem de quem é da equipe não abre conversa de paciente no CRM.
 // O desfecho do pedido à recepção volta pelo WhatsApp (StaffNotice → StaffNoticeAck).
 public sealed record StaffNumbers(string[] Phones);
-public sealed record StaffAsk(string Phone, string Text, string MessageId);
-public sealed record StaffAnswer(bool Staff, string? Reply = null, string? Name = null);
+// Probe (out/2026, @SemDor fase 2): só pergunta se as regras ENTENDEM o texto, sem gravar nada — o
+// CRM chama a IA apenas quando Understood volta falso. Understood é falso quando as regras não
+// reconhecem a pergunta (a resposta seria a ajuda).
+public sealed record StaffAsk(string Phone, string Text, string MessageId, bool Probe = false);
+public sealed record StaffAnswer(bool Staff, string? Reply = null, string? Name = null, bool Understood = true);
 public sealed record StaffNotice(int RequestId, string Phone, string Text);
 public sealed record StaffNoticeAck(int RequestId, bool Delivered, string? Reason = null);
 

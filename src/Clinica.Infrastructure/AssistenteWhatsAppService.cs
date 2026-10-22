@@ -9,7 +9,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Clinica.Infrastructure;
 
 /// <summary>A resposta a quem escreveu ao WhatsApp da clínica. <paramref name="DaEquipe"/> falso: é paciente, siga o fluxo do CRM.</summary>
-public sealed record RespostaWhatsAppEquipe(bool DaEquipe, string? Texto = null, string? Nome = null);
+/// <param name="Entendeu">As regras reconheceram a pergunta (falso = a resposta é a ajuda de "não entendi").</param>
+public sealed record RespostaWhatsAppEquipe(bool DaEquipe, string? Texto = null, string? Nome = null, bool Entendeu = true);
 
 /// <summary>O desfecho de um pedido à recepção que ainda precisa chegar pelo WhatsApp a quem pediu.</summary>
 public sealed record AvisoWhatsAppEquipe(int PedidoId, string Telefone, string Texto);
@@ -47,6 +48,23 @@ public sealed class AssistenteWhatsAppService
     /// Responde à mensagem. <paramref name="idMensagem"/> é o id da Meta: o mesmo pedido escrito não
     /// vira dois pedidos se a mensagem chegar duas vezes.
     /// </summary>
+    /// <summary>
+    /// Só pergunta se as regras ENTENDEM o texto, sem gravar nada (@SemDor fase 2): o CRM chama a IA
+    /// apenas quando a resposta é não — e então manda a pergunta reescrita para <see cref="ResponderAsync"/>.
+    /// </summary>
+    public async Task<RespostaWhatsAppEquipe> EntendeAsync(string telefone, string texto, CancellationToken ct = default)
+    {
+        if (TelefoneDaEquipe.Chave(telefone) is not { } chave) return new(false);
+        var eu = await db.Usuarios.AsNoTracking().SingleOrDefaultAsync(u => u.TelefoneWhatsApp == chave && u.Ativo, ct);
+        if (eu is null) return new(false);
+        texto = (texto ?? "").Trim();
+        var hoje = DateOnly.FromDateTime(agora());
+        if (texto.Length == 0 || AssistenteWhatsAppRegras.LerPedido(texto, hoje) is not null) return new(true, Nome: eu.Nome);
+        var profissionais = await db.Profissionais.AsNoTracking().Where(p => p.Ativo).Select(p => new { p.Id, p.Nome }).ToListAsync(ct);
+        var intencao = SistemaEquipeRegras.Interpretar(texto, hoje, profissionais.Select(p => (p.Id, p.Nome)).ToList()).Intencao;
+        return new(true, Nome: eu.Nome, Entendeu: intencao != IntencaoDoSistema.NaoEntendi);
+    }
+
     public async Task<RespostaWhatsAppEquipe> ResponderAsync(string telefone, string texto, string idMensagem, CancellationToken ct = default)
     {
         if (TelefoneDaEquipe.Chave(telefone) is not { } chave) return new(false);
@@ -63,6 +81,7 @@ public sealed class AssistenteWhatsAppService
         await GravarAsync(GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, texto, null, false, momento), ct);
 
         string resposta;
+        var entendeu = true;
         string? textoNoChat = null;
         CartaoChat? cartaoNoChat = null;
         var gravarResposta = true;
@@ -74,6 +93,7 @@ public sealed class AssistenteWhatsAppService
             {
                 var (t, c) = await new SistemaEquipeService(db, agora).ResponderAsync(eu, texto, ct);
                 (textoNoChat, cartaoNoChat) = (t, c);
+                entendeu = c is not { Tipo: "ajuda", Titulo: "Não entendi a pergunta" };
                 // A ajuda do app fala de botões que o WhatsApp não tem: aqui ela ensina a ESCREVER.
                 resposta = c is { Tipo: "ajuda", Titulo: "Não entendi a pergunta" or "O que posso responder" or "Pedir à recepção" }
                     ? AssistenteWhatsAppRegras.Ajuda(c.Titulo == "Não entendi a pergunta", PedidosRecepcaoRegras.PodeTratar(eu))
@@ -94,7 +114,7 @@ public sealed class AssistenteWhatsAppService
             await GravarAsync(resp, ct);
             await MarcarLidaAsync(eu.Id, conversa, resp.Id, ct);
         }
-        return new(true, resposta, eu.Nome);
+        return new(true, resposta, eu.Nome, entendeu);
     }
 
     /// <summary>

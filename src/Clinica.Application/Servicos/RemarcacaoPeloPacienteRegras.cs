@@ -30,6 +30,18 @@ public static partial class RemarcacaoPeloPacienteRegras
 
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
+    /// <summary>
+    /// O detalhe do pedido quando o paciente ESCREVEU em vez de tocar o botão (@SemDor fase 2): a
+    /// preferência que a IA leu, marcada como tal — é leitura de máquina, a recepção confere na conversa.
+    /// </summary>
+    public static string DetalheDaPreferencia(string? preferencia)
+    {
+        var p = string.Join(' ', (preferencia ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (p.Length == 0) return "";
+        if (p.Length > 200) p = p[..200];
+        return $"Preferência do paciente (lida pelo @SemDor): {p}";
+    }
+
     /// <summary>A chave da oferta: 8 letras hexadecimais. Vai nos botões; resposta de oferta velha não vale.</summary>
     public static string NovaChave() => Convert.ToHexString(RandomNumberGenerator.GetBytes(4));
 

@@ -6,6 +6,7 @@ using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using FluentAssertions;
 using Xunit;
 
 namespace Clinica.Tests;
@@ -80,6 +81,17 @@ public sealed class RemarcacaoPeloPacienteTests : IDisposable
         var tecnico = await db.Usuarios.AsNoTracking().SingleAsync(u => u.Login == UsuarioTecnico.Login);
         Assert.False(tecnico.Ativo);
         Assert.DoesNotContain(await new ClinicaRepositorio(db).UsuariosAsync(), u => u.Login == UsuarioTecnico.Login);
+    }
+
+    // @SemDor fase 2: o paciente ESCREVEU ("quinta não dá, tem sexta de tarde?"); a IA do CRM leu um
+    // pedido de remarcação e mandou a preferência na nota, que vai para o pedido como leitura de máquina.
+    [Fact]
+    public async Task Texto_livre_lido_pela_ia_leva_a_preferencia_ao_pedido()
+    {
+        await ponte.Decide(Remarcar() with { Note = "sexta à tarde" }, default);
+        var p = await PedidoAsync();
+        p.Detalhe.Should().Be("Preferência do paciente (lida pelo @SemDor): sexta à tarde");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ponte.Decide(Remarcar() with { Note = new string('x', 301) }, default));
     }
 
     [Fact]

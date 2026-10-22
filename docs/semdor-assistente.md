@@ -81,6 +81,28 @@ Registradas aqui porque revertem ou abrem exceção a decisões anteriores:
 - Risco em produção: só depois do lembrete com botões já em uso; liga por variável no CRM.
 - Custo: nenhum serviço novo na fase 1 (Meta já paga, mensagem dentro da janela é gratuita).
 
+## Fase 2 — a IA lê o texto livre (o lado da clínica)
+
+A IA mora no CRM (`semdor-crm/docs/semdor-ia.md`) e **só lê e reescreve**. Aqui, na ponte, entram:
+
+- **`ClinicDecision.Note`**: no "reschedule" que veio de texto livre, a preferência que a IA leu.
+  Ela vai para o pedido do paciente (`RemarcacaoPeloPacienteRegras.DetalheDaPreferencia`):
+  "Preferência do paciente (lida pelo @SemDor): sexta à tarde". É uma leitura de máquina, e a
+  recepção confere na conversa.
+- **`StaffAsk.Probe` / `StaffAnswer.Understood`**: a ponte responde se as regras ENTENDEM o texto,
+  sem gravar nada (`AssistenteWhatsAppService.EntendeAsync`). O CRM só chama a IA quando elas não
+  entendem; a pergunta reescrita volta pelo caminho normal, e quem responde é a clínica.
+
+Os dois campos estão no fim dos records, com padrão. CRM antigo e ponte nova (ou o contrário)
+continuam se entendendo.
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+
+- **UX**: o pedido que o paciente escreveu chega ao # Recepção com a preferência dele.
+- **DX**: dois campos no contrato, um método de leitura sem efeito colateral e testes em
+  `RemarcacaoPeloPacienteTests` e `AssistenteWhatsAppServiceTests`.
+- **CX**: a ponte não chama serviço externo nenhum. A IA e a chave ficam só na VPS 2.
+
 ## Fase 3 — @SemDor em qualquer conversa
 
 Marcar **@SemDor** num canal ou numa direta faz o sistema responder **ali**, com as mesmas regras
