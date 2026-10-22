@@ -257,7 +257,8 @@ else
                                         {
                                             <CartaoDoChat Cartao="cartao" PodeTratar="_trataPedidos" Ocupado="_agindo"
                                                           AoSugerir="PerguntarAoSistemaAsync" AoPedir="PedirSobreALinhaAsync"
-                                                          AoAbrirFicha="AbrirFichaAsync" AoAgir="AgirNoPedidoAsync" />
+                                                          AoAbrirFicha="AbrirFichaAsync" AoAgir="AgirNoPedidoAsync"
+                                                          AoOferecer="AbrirOfertaAsync" AoRemarcar="RemarcarDoPacienteAsync" />
                                         }
                                         else if (!string.IsNullOrEmpty(m.Texto))
                                         {
@@ -501,6 +502,40 @@ else
                 <div class="chat-pedido-acoes">
                     <button type="button" class="botao secundario" @onclick="() => _pedido = null">Cancelar</button>
                     <button type="button" class="botao" disabled="@_agindo" @onclick="EnviarPedidoAsync"><Icone Nome="enviar" /> Enviar pedido</button>
+                </div>
+            </div>
+        }
+
+        @if (_oferta is { } of)
+        {
+            <div class="chat-pop oferta" role="dialog" aria-label="Oferecer horários ao paciente">
+                <div class="chat-pop-cab">
+                    <b>Oferecer horários ao paciente</b><small>Escolha até @RemarcacaoPeloPacienteRegras.MaximoDeOpcoes. Eles chegam como botões no WhatsApp do paciente, e o que ele tocar volta para este pedido.</small>
+                    <button type="button" class="botao icone" aria-label="Fechar" @onclick="() => _oferta = null"><Icone Nome="x" /></button>
+                </div>
+                @if (of.Carregando)
+                {
+                    <p class="chat-carregando">Procurando horários livres…</p>
+                }
+                else if (of.Vagas.Count == 0)
+                {
+                    <p class="chat-pedido-aviso">Sem horários livres do mesmo profissional nos próximos @RemarcacaoPeloPacienteRegras.DiasMaximos dias. Fale com o paciente pela conversa do CRM.</p>
+                }
+                else
+                {
+                    <div class="chat-oferta-vagas" role="group" aria-label="Horários livres">
+                        @foreach (var v in of.Vagas)
+                        {
+                            var marcada = of.Marcadas.Contains(v.Inicio);
+                            <button type="button" role="checkbox" aria-checked="@(marcada ? "true" : "false")" class="chat-chip @(marcada ? "on" : null)"
+                                    disabled="@(!marcada && of.Marcadas.Count >= RemarcacaoPeloPacienteRegras.MaximoDeOpcoes)" @onclick="() => MarcarVaga(v.Inicio)">@v.Rotulo</button>
+                        }
+                    </div>
+                }
+                @if (of.Erro is { } oe) { <p class="chat-erro" role="alert">@oe</p> }
+                <div class="chat-pedido-acoes">
+                    <button type="button" class="botao secundario" @onclick="() => _oferta = null">Cancelar</button>
+                    <button type="button" class="botao primario" disabled="@(_agindo || of.Marcadas.Count == 0)" @onclick="OferecerAsync"><Icone Nome="enviar" /> Oferecer ao paciente</button>
                 </div>
             </div>
         }
@@ -1554,6 +1589,82 @@ else
         }
         catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { Notificacoes.Erro(ex.Message); }
         catch (Exception ex) { Mostrar("O pedido não foi atualizado.", ex); }
+        finally { _agindo = false; }
+    }
+
+    // ---------------------------------------------------------------- o pedido do paciente (@SemDor)
+    private sealed record OfertaEmEscrita(int PedidoId, IReadOnlyList<VagaParaOferta> Vagas, IReadOnlySet<DateTime> Marcadas,
+        bool Carregando = false, string? Erro = null);
+
+    private OfertaEmEscrita? _oferta;
+
+    /// <summary>Abre a escolha dos horários: os próximos livres do mesmo profissional, sala e duração.</summary>
+    private async Task AbrirOfertaAsync(int pedidoId)
+    {
+        _oferta = new OfertaEmEscrita(pedidoId, [], new HashSet<DateTime>(), Carregando: true);
+        StateHasChanged();
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var vagas = await escopo.ServiceProvider.GetRequiredService<IRemarcacaoPeloPacienteService>().VagasAsync(_eu, pedidoId);
+            if (_oferta?.PedidoId == pedidoId) _oferta = _oferta with { Vagas = vagas, Carregando = false };
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
+        {
+            if (_oferta?.PedidoId == pedidoId) _oferta = _oferta with { Carregando = false, Erro = ex.Message };
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Chat da equipe — horários livres do pedido do paciente", ex);
+            if (_oferta?.PedidoId == pedidoId) _oferta = _oferta with { Carregando = false, Erro = "Os horários livres não carregaram. Tente de novo." };
+        }
+    }
+
+    private void MarcarVaga(DateTime inicio)
+    {
+        if (_oferta is not { } of) return;
+        var marcadas = new HashSet<DateTime>(of.Marcadas);
+        if (!marcadas.Remove(inicio) && marcadas.Count < RemarcacaoPeloPacienteRegras.MaximoDeOpcoes) marcadas.Add(inicio);
+        _oferta = of with { Marcadas = marcadas, Erro = null };
+    }
+
+    private async Task OferecerAsync()
+    {
+        if (_agindo || _oferta is not { } of) return;
+        _agindo = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<IRemarcacaoPeloPacienteService>()
+                .OferecerAsync(_eu, of.PedidoId, of.Marcadas.OrderBy(h => h).ToList());
+            _oferta = null;
+            Notificacoes.Sucesso("Horários oferecidos. Eles vão ao paciente pelo WhatsApp.");
+            await RecarregarConversaAsync(silenciosa: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { _oferta = of with { Erro = ex.Message }; }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Chat da equipe — oferta ao paciente não saiu", ex);
+            _oferta = of with { Erro = "A oferta não saiu. Confira a conexão e tente de novo." };
+        }
+        finally { _agindo = false; }
+    }
+
+    /// <summary>Remarca para o horário que o paciente escolheu; a confirmação vai a ele pelo WhatsApp.</summary>
+    private async Task RemarcarDoPacienteAsync(int pedidoId)
+    {
+        if (_agindo) return;
+        _agindo = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var novo = await escopo.ServiceProvider.GetRequiredService<IRemarcacaoPeloPacienteService>()
+                .RemarcarAsync(_eu, pedidoId, SessaoUsuario.Atual.Operador);
+            Notificacoes.Sucesso($"Remarcado para {PedidosRecepcaoRegras.Horario(novo)}. A confirmação vai ao paciente pelo WhatsApp.");
+            await RecarregarConversaAsync(silenciosa: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { Notificacoes.Erro(ex.Message); }
+        catch (Exception ex) { Mostrar("A remarcação não foi feita.", ex); }
         finally { _agindo = false; }
     }
 

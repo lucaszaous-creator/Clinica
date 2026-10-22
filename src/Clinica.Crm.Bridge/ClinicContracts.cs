@@ -86,3 +86,14 @@ public sealed record StaffAsk(string Phone, string Text, string MessageId);
 public sealed record StaffAnswer(bool Staff, string? Reply = null, string? Name = null);
 public sealed record StaffNotice(int RequestId, string Phone, string Text);
 public sealed record StaffNoticeAck(int RequestId, bool Delivered, string? Reason = null);
+
+// A remarcação pedida pelo PACIENTE (@SemDor, out/2026 — docs/semdor-assistente.md no Clinica): o
+// "Remarcar" do lembrete vira pedido no # Recepção; a recepção oferece até 3 horários e a clínica põe
+// a mensagem numa fila (PatientMessage, com os botões em Options). O CRM manda dentro da janela de 24 h
+// e conta o resultado (PatientMessageAck). O toque do paciente num botão volta como PatientChoice
+// (Payload = o id do botão, "OFERTA 1A2B3C4D 2") e a clínica devolve a frase a responder.
+public sealed record PatientOption(string Id, string Title);
+public sealed record PatientMessage(string Id, string Phone, string Text, PatientOption[] Options);
+public sealed record PatientMessageAck(string Id, bool Delivered, string? Reason = null);
+public sealed record PatientChoice(string Phone, string Payload, string MessageId);
+public sealed record PatientChoiceAnswer(bool Offer, string? Reply = null);

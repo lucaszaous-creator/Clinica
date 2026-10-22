@@ -155,6 +155,10 @@ modelo aprovado na Meta (ex.: `semdor_aviso_equipe`).
 | 🛠️ DX | Regras puras com teste. Pergunta nova = uma linha em `Interpretar` e um teste | Prompt, avaliação, custo por chamada e testes não determinísticos |
 | 🤝 CX | Nada sai da clínica (LGPD, art. 33). A direção **tirou a IA do CRM**, e isto não a traz de volta. Custo zero | Agenda de paciente num serviço externo é transferência internacional. Custo mensal e risco de resposta errada sobre paciente |
 
+⚠️ **22/10/2026 — revisto pela direção**: a IA volta com o @SemDor, para texto livre, atrás de
+uma variável e com o mínimo de dado (decisão e o que falta na LGPD em `docs/semdor-assistente.md`).
+As regras acima continuam sendo o que responde quando a IA está desligada.
+
 ### Onde mora o pedido: tabela própria ou só mensagem no chat?
 
 | | Tabela própria + cartão no chat (escolhido) | Só mensagem ("@Rayssa remarca a Maria") |

@@ -68,6 +68,37 @@ public sealed class PedidoRecepcao
     /// </summary>
     public DateTime? AvisoWhatsAppEm { get; set; }
 
+    // ------------------------------------------------ o pedido que vem do PACIENTE (@SemDor, out/2026)
+    // O paciente toca "Remarcar" no lembrete do WhatsApp e o pedido nasce sem pessoa da equipe por
+    // trás: o autor é o usuário técnico do SemDor (UsuarioTecnico), e estes campos guardam a conversa
+    // com o paciente — os horários oferecidos, o que ele escolheu e a mensagem que falta mandar.
+
+    /// <summary>"equipe" (alguém pediu no chat ou no WhatsApp da equipe) ou "paciente" (pelo lembrete).</summary>
+    public string Origem { get; set; } = "equipe";
+
+    /// <summary>O WhatsApp do paciente quando o pedido veio dele (55 + DDD + número): é para onde a oferta vai.</summary>
+    public string TelefonePaciente { get; set; } = string.Empty;
+
+    /// <summary>Os horários que a recepção ofereceu, "yyyy-MM-ddTHH:mm" separados por ";" (até 3, o teto dos botões).</summary>
+    public string HorariosOferecidos { get; set; } = string.Empty;
+
+    /// <summary>A chave da oferta que vai nos botões: a resposta de uma oferta velha não vale para a nova.</summary>
+    public string? OfertaToken { get; set; }
+    public DateTime? OferecidoEm { get; set; }
+
+    /// <summary>Quando o CRM tratou a oferta (entregue ou não). Nulo com oferta feita = ainda na fila.</summary>
+    public DateTime? OfertaTratadaEm { get; set; }
+
+    /// <summary>Por que a oferta não chegou ao paciente ("janela de 24 h fechada"); vazio quando chegou.</summary>
+    public string OfertaFalha { get; set; } = string.Empty;
+
+    public DateTime? HorarioEscolhido { get; set; }
+    public DateTime? EscolhidoEm { get; set; }
+
+    /// <summary>A mensagem ao paciente que falta sair ("sua sessão foi remarcada para…"); vazio = nada.</summary>
+    public string RespostaAoPaciente { get; set; } = string.Empty;
+    public DateTime? RespostaTratadaEm { get; set; }
+
     public List<EventoPedidoRecepcao> Eventos { get; set; } = [];
 }
 

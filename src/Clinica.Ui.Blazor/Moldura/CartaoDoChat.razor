@@ -68,14 +68,50 @@
 
     @if (!string.IsNullOrWhiteSpace(Cartao.Rodape)) { <p class="chat-card-rodape">@Cartao.Rodape</p> }
 
+    @* O pedido que veio do PACIENTE (@SemDor): a conversa com ele — o que foi oferecido, se chegou e o que escolheu. *@
+    @if (Cartao.Oferta is { } oferta && Cartao.Situacao is { } sitOferta && !PedidosRecepcaoRegras.Encerrado(sitOferta))
+    {
+        <div class="chat-card-oferta">
+            @if (oferta.Escolhido is { } escolhido)
+            {
+                <p class="chat-oferta-escolha"><Icone Nome="ok" /> Escolheu <b>@PedidosRecepcaoRegras.Horario(escolhido)</b> pelo WhatsApp</p>
+            }
+            else if (oferta.Oferecidos is { Count: > 0 } oferecidos)
+            {
+                <div class="chat-oferta-horarios" aria-label="Horários oferecidos">
+                    @foreach (var h in oferecidos) { <span class="chat-chip">@PedidosRecepcaoRegras.Horario(h)</span> }
+                </div>
+                @if (oferta.Falha is { } falha) { <p class="chat-oferta-falha" role="alert">Não chegou ao paciente: @falha</p> }
+                else if (!oferta.Entregue) { <small>Enviando ao paciente pelo WhatsApp…</small> }
+                else { <small>O paciente recebeu os horários. Aguardando a escolha.</small> }
+            }
+            else
+            {
+                <small>O paciente espera os horários. Ofereça até @RemarcacaoPeloPacienteRegras.MaximoDeOpcoes.</small>
+            }
+        </div>
+    }
+
     @if (Cartao.PedidoId is { } pedido && PodeTratar && Cartao.Situacao is { } sit && !PedidosRecepcaoRegras.Encerrado(sit))
     {
         <div class="chat-card-botoes">
-            @if (sit == PedidosRecepcaoRegras.Aberto)
+            @if (Cartao.Oferta is { } of)
             {
-                <button type="button" class="botao secundario" disabled="@Ocupado" @onclick="() => AoAgir.InvokeAsync((pedido, AcaoDoPedido.Assumir))">Deixa comigo</button>
+                @if (of.Escolhido is { } esc)
+                {
+                    <button type="button" class="botao primario" disabled="@Ocupado" @onclick="() => AoRemarcar.InvokeAsync(pedido)">Remarcar para @PedidosRecepcaoRegras.Horario(esc)</button>
+                }
+                <button type="button" class="botao @(of.Escolhido is null && of.Oferecidos is not { Count: > 0 } ? "primario" : "secundario")" disabled="@Ocupado"
+                        @onclick="() => AoOferecer.InvokeAsync(pedido)">@(of.Oferecidos is { Count: > 0 } ? "Oferecer outros horários" : "Oferecer horários")</button>
             }
-            <button type="button" class="botao" disabled="@Ocupado" @onclick="() => AoAgir.InvokeAsync((pedido, AcaoDoPedido.Concluir))">Concluir</button>
+            else
+            {
+                @if (sit == PedidosRecepcaoRegras.Aberto)
+                {
+                    <button type="button" class="botao secundario" disabled="@Ocupado" @onclick="() => AoAgir.InvokeAsync((pedido, AcaoDoPedido.Assumir))">Deixa comigo</button>
+                }
+                <button type="button" class="botao" disabled="@Ocupado" @onclick="() => AoAgir.InvokeAsync((pedido, AcaoDoPedido.Concluir))">Concluir</button>
+            }
             <button type="button" class="botao secundario" disabled="@Ocupado" @onclick="() => AoAgir.InvokeAsync((pedido, AcaoDoPedido.NaoFeito))">Não foi possível</button>
         </div>
     }
@@ -106,6 +142,12 @@
     [Parameter] public EventCallback<LinhaDoCartao> AoPedir { get; set; }
     [Parameter] public EventCallback<int> AoAbrirFicha { get; set; }
     [Parameter] public EventCallback<(int Pedido, AcaoDoPedido Acao)> AoAgir { get; set; }
+
+    /// <summary>O pedido do paciente: abrir a escolha dos horários a oferecer.</summary>
+    [Parameter] public EventCallback<int> AoOferecer { get; set; }
+
+    /// <summary>O pedido do paciente: remarcar para o horário que ele escolheu.</summary>
+    [Parameter] public EventCallback<int> AoRemarcar { get; set; }
 
     private string IconeDoTipo => Cartao.Tipo switch
     {

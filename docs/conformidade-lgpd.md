@@ -392,6 +392,15 @@ ser um fornecedor de infraestrutura nacional.
 
 O que **continua** faltando neste item é o contrato em si (DPA), que não é código.
 
+⚠️ **22/10/2026 — a transferência internacional VOLTA com o @SemDor (decisão da direção).**
+A direção autorizou que trechos de conversa vão a um modelo de linguagem da Anthropic (EUA)
+para o assistente entender texto livre (`docs/semdor-assistente.md`). O que a construção
+garante: só o mínimo vai ao modelo (o texto da mensagem, primeiro nome e horários; nunca
+documento, convênio ou prontuário), o modelo não decide nada sozinho e tudo liga e desliga
+por variável. **O que falta e não é código**: o contrato com a Anthropic e a base legal do
+art. 33 (cláusulas-padrão da ANPD ou outra hipótese). Enquanto não existirem, este item
+fica ⚠️ também por este motivo.
+
 ---
 
 ## O que falta, em uma lista
