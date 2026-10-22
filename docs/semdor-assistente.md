@@ -103,6 +103,33 @@ continuam se entendendo.
   `RemarcacaoPeloPacienteTests` e `AssistenteWhatsAppServiceTests`.
 - **CX**: a ponte não chama serviço externo nenhum. A IA e a chave ficam só na VPS 2.
 
+## Fase 3 — @SemDor em qualquer conversa
+
+Marcar **@SemDor** num canal ou numa direta faz o sistema responder **ali**, com as mesmas regras
+da conversa com o Sistema SemDor (`SistemaEquipeService`) e com as permissões de quem perguntou.
+
+- **A resposta só fica à vista quando todos ali podem vê-la**: cada participante ativo precisa de
+  `VerAgenda` e `VerFichaPaciente` (`ChatEquipeRegras.RespostaPodeFicarAVista`). Basta um que não
+  tenha (o # Geral tem o financeiro), e a resposta vai para a conversa de quem perguntou com o
+  sistema. O canal recebe só o aviso "Respondi a … em particular", sem paciente nem horário.
+- A menção é a palavra inteira depois do @ (`contato@semdor.com.br` e `@SemDorinha` não contam).
+  O campo de escrever sugere o @SemDor, com o avatar dele, ao digitar "@se…".
+- Na conversa com o próprio sistema nada muda: ali toda mensagem é pergunta.
+
+### O que NÃO foi feito na fase 3
+
+- Texto livre continua lido pelas regras (as perguntas da ajuda); a IA é a fase 2.
+- O @SemDor não cria pedido à recepção a partir do canal: o pedido continua pelo botão "Pedir à
+  recepção" ou pela conversa com o sistema.
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+
+- **UX**: quem está no # Recepção pergunta sem trocar de conversa, e a equipe toda vê a resposta.
+- **DX**: duas regras puras com teste (a menção e a visibilidade) e um ramo no `EnviarAsync`;
+  nenhuma tabela nova. Testes: `SemDorNaConversaTests`.
+- **CX**: nada sai da clínica (são as regras, sem IA), e nenhum dado de paciente aparece para quem
+  não poderia vê-lo na tela.
+
 ## Fase 4 — documento pelo WhatsApp, com link de uso único (desligada)
 
 O médico escreve ao número da clínica, do celular ligado ao login dele em Acessos:
