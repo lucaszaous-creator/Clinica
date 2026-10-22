@@ -9,13 +9,19 @@
 .moldura-corpo > .moldura-area{flex:1;min-width:0}
 
 /* ---------- Bolinha ---------- */
-.chat-flutuante{position:fixed;right:var(--space-6);bottom:var(--space-6);z-index:60;display:flex;flex-direction:column;align-items:flex-end;gap:var(--space-2);pointer-events:none}
+.chat-flutuante{position:fixed;right:var(--space-6);bottom:max(var(--space-6), var(--chat-piso, 0px));z-index:60;display:flex;flex-direction:column;align-items:flex-end;gap:var(--space-2);pointer-events:none}
 .chat-flutuante > *{pointer-events:auto}
-/* Formulário aberto: a bolinha sobe acima do rodapé dele (Salvar/Cancelar ficam livres). */
-body:has(.modal-rodape) .chat-flutuante{bottom:calc(var(--space-16) + var(--space-6))}
+/* Formulário aberto: a bolinha sobe acima do rodapé dele (Salvar/Cancelar ficam livres) —
+   inclusive arrastada: a posição guardada usa o mesmo piso (EstiloDaPosicao). */
+body:has(.modal-rodape){--chat-piso:calc(var(--space-16) + var(--space-6))}
 .chat-bola{position:relative;width:56px;height:56px;border-radius:var(--radius-pilula);border:0;background:var(--acento);color:var(--texto-invertido);
   display:grid;place-items:center;cursor:pointer;box-shadow:var(--sombra-popup);transition:transform var(--duracao-rapida)}
 .chat-bola:hover{transform:translateY(-2px)}
+/* Arrastar: a bolinha e o cabeçalho da janelinha (clinicaChat.ligarCampo). */
+.chat-bola{cursor:grab;touch-action:none}
+.chat-painel.janela:not(.ampliado) .chat-cab{cursor:grab;touch-action:none;user-select:none}
+.chat-flutuante.arrastando .chat-bola,.chat-painel.arrastando .chat-cab{cursor:grabbing}
+.chat-flutuante.arrastando .chat-bola:hover{transform:none}
 .chat-bola:focus-visible{outline:3px solid var(--foco);outline-offset:2px}
 .chat-bola svg.icone{width:26px;height:26px}
 .chat-contador{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;padding:0 6px;border-radius:var(--radius-pilula);
@@ -42,6 +48,10 @@ body:has(.modal-rodape) .chat-flutuante{bottom:calc(var(--space-16) + var(--spac
 .chat-painel.encostado{width:min(500px,40vw);min-width:380px;flex:none;border-left:1px solid var(--borda);position:relative}
 .chat-painel.encostado .chat-lista{width:150px}
 .chat-painel.encostado .chat-rot{padding-left:var(--space-1)}
+.chat-painel.ampliado{position:fixed;top:var(--space-6);left:var(--space-6);right:var(--space-6);bottom:var(--space-6);z-index:60;
+  width:auto;height:auto;min-width:0;border:1px solid var(--borda);border-radius:var(--radius-card);box-shadow:var(--sombra-popup);overflow:hidden}
+.chat-painel.ampliado .chat-lista{width:220px}
+.chat-painel.ampliado .chat-campo{min-height:40vh;max-height:none;resize:vertical;line-height:1.55}
 .chat-cab{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--borda);flex:none}
 .chat-cab h3{margin:0;font-size:var(--text-h3-size);flex:none}
 .chat-online{flex:1;display:flex;align-items:center;gap:6px;color:var(--texto-secundario);font-size:var(--text-small-size)}
@@ -165,20 +175,6 @@ body:has(.modal-rodape) .chat-flutuante{bottom:calc(var(--space-16) + var(--spac
 .chat-op{display:flex;flex-direction:column;align-items:flex-start;border:0;background:transparent;text-align:left;padding:var(--space-2);border-radius:var(--radius-pequeno);cursor:pointer;color:var(--texto-primario)}
 .chat-op:hover{background:var(--superficie-hover)}
 .chat-op small{color:var(--texto-secundario);font-size:var(--text-small-size)}
-
-/* ---------- Editor ampliado (texto longo / laudo) ---------- */
-.chat-editor-veu{z-index:70;align-items:center;justify-content:center;padding:var(--space-6)}
-.chat-editor{width:min(1000px,100%);height:min(720px,100%);background:var(--superficie);border-radius:var(--radius-card);box-shadow:var(--sombra-popup);display:flex;flex-direction:column;overflow:hidden}
-.chat-editor-cab{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--borda)}
-.chat-editor-cab small{color:var(--texto-secundario);flex:1}
-.chat-editor-corpo{display:flex;flex:1;min-height:0}
-.chat-editor-area{flex:1;resize:none;border:0;border-radius:0;padding:var(--space-4);font-size:var(--text-body-size);line-height:1.55}
-.chat-editor-lado{width:260px;flex:none;border-left:1px solid var(--borda);padding:var(--space-4);overflow-y:auto;display:flex;flex-direction:column;gap:var(--space-2);background:var(--cinza-50)}
-.chat-editor-lado h4{margin:0;font-size:var(--text-small-size);text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
-.chat-editor-lado p{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
-.chat-editor-lado .chat-cartao{min-width:0}
-.chat-editor-rod{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--borda);flex-wrap:wrap}
-.chat-editor-conta{margin-left:auto;color:var(--texto-secundario);font-size:var(--text-small-size)}
 
 /* ---------- Anúncio para leitor de tela (fora da vista, lido em voz) ---------- */
 .chat-anuncio{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}

@@ -169,6 +169,53 @@ public sealed class ChatDaEquipeBlazorTests : IDisposable
         ctx.JSInterop.Invocations.Should().Contain(i => i.Identifier == "clinicaChat.tocar");
     }
 
+    [Fact]
+    public async Task Ampliar_aumenta_o_proprio_chat_sem_janela_por_cima()
+    {
+        using var ctx = Contexto("janela|canal:geral|1|1|1|0");
+        await EnviarAsync(ctx, paulo, ChatEquipeRegras.CanalGeral, "bom dia");
+        var tela = ctx.RenderComponent<ChatDaEquipe>();
+        Esperar(() => tela.Markup.Contains("bom dia"), "a conversa aberta");
+
+        tela.FindAll(".chat-linha button").First(b => b.TextContent.Contains("Ampliar")).Click();
+        tela.FindAll(".chat-painel.ampliado").Should().ContainSingle("o próprio chat cresce");
+        tela.FindAll(".modal-fundo, .chat-editor").Should().BeEmpty("nada de janela por cima do chat (ela ficava atrás do painel e escondia o Enviar)");
+        tela.Find("textarea.chat-campo").GetAttribute("rows").Should().Be("14");
+        tela.Find(".chat-dica").TextContent.Should().Contain("Ctrl+Enter envia");
+        tela.FindAll(".chat-linha button").Should().Contain(b => b.TextContent.Contains("Reduzir"));
+        tela.Find(".chat-enviar").Should().NotBeNull("o Enviar continua à vista");
+
+        // A sugestão de @ funciona ampliado (o campo é o mesmo).
+        tela.Find("textarea.chat-campo").Input("@pa");
+        tela.FindAll(".chat-mencoes").Should().ContainSingle();
+        await tela.InvokeAsync(() => tela.Instance.Escape());
+        await tela.InvokeAsync(() => tela.Instance.Escape());
+        tela.FindAll(".chat-painel.ampliado").Should().BeEmpty("Esc fecha a sugestão e depois reduz");
+    }
+
+    [Fact]
+    public async Task A_bolinha_arrastada_fica_onde_foi_deixada()
+    {
+        using var ctx = Contexto("fechado||1|1|1|0|30,40|");
+        var tela = ctx.RenderComponent<ChatDaEquipe>();
+        Esperar(() => ctx.JSInterop.Invocations.Any(i => i.Identifier == "clinicaChat.ligarCampo"), "a ligação das teclas");
+        tela.Find(".chat-flutuante").GetAttribute("style").Should().Contain("min(30px").And.Contain("min(40px").And.Contain("--chat-piso");
+
+        // A página avisa onde a pessoa soltou: o componente desenha e guarda.
+        await tela.InvokeAsync(() => tela.Instance.Posicionar("bola", 120, 300));
+        tela.Find(".chat-flutuante").GetAttribute("style").Should().Contain("min(120px").And.Contain("min(300px");
+        ctx.JSInterop.Invocations.Where(i => i.Identifier == "clinicaChat.gravar").Last().Arguments[1]
+            .Should().Be("fechado||1|1|1|0|120,300|");
+
+        // Aberto em janelinha, a janela tem a sua própria posição; ampliado, não usa nenhuma.
+        await tela.InvokeAsync(() => tela.Instance.Posicionar("janela", 50, 60));
+        tela.Find(".chat-bola").Click();
+        Esperar(() => tela.FindAll(".chat-painel.janela").Count == 1, "a janelinha");
+        tela.Find(".chat-painel").GetAttribute("style").Should().Contain("min(50px");
+        await tela.InvokeAsync(() => tela.Instance.Posicionar("outra", 1, 1));
+        tela.Find(".chat-painel").GetAttribute("style").Should().Contain("min(50px", "posição de coisa desconhecida é ignorada");
+    }
+
     private sealed class AvisosDeTeste : IAvisosDoBanco
     {
         public event Action<string>? Mudou;

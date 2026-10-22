@@ -45,7 +45,7 @@
 
 @if (_modo == ModoChat.Fechado)
 {
-    <div class="chat-flutuante">
+    <div class="chat-flutuante" style="@EstiloDaPosicao(_posBola, 64, 64)">
         @if (_previa is { } p)
         {
             <div class="chat-previa">
@@ -67,8 +67,9 @@
 }
 else
 {
-    <aside class="chat-painel @(_modo == ModoChat.Encostado ? "encostado" : "janela")" aria-label="Chat da equipe">
-        <header class="chat-cab">
+    <aside class="chat-painel @(_modo == ModoChat.Encostado ? "encostado" : "janela") @(_ampliado ? "ampliado" : null)" aria-label="Chat da equipe"
+           style="@(_modo == ModoChat.Janela && !_ampliado ? EstiloDaPosicao(_posJanela, 760, 560) : null)">
+        <header class="chat-cab" title="@(_modo == ModoChat.Janela && !_ampliado ? "Arraste por aqui para mudar o chat de lugar" : null)">
             <h3>Equipe</h3>
             @if (_painel is { Completo: true } pn) { <span class="chat-online"><i class="chat-pres online"></i>@pn.Online online</span> }
             else { <span class="chat-online"></span> }
@@ -363,7 +364,8 @@ else
                                     @if (_anexoArquivo is { } aa) { <span class="chat-anexo"><Icone Nome="clipe" />@aa.Nome<button type="button" aria-label="Tirar o arquivo" @onclick="() => _anexoArquivo = null"><Icone Nome="x" /></button></span> }
                                 </div>
                             }
-                            <textarea class="campo chat-campo" rows="2" placeholder="Escreva para @_aberta.Titulo…" aria-label="Mensagem"
+                            <textarea class="campo chat-campo" rows="@(_ampliado ? 14 : 2)" aria-label="Mensagem"
+                                      placeholder="@(_ampliado ? "Escreva o recado ou o laudo — o texto não tem limite." : $"Escreva para {_aberta.Titulo}…")"
                                       value="@_texto" @oninput="AoDigitarAsync"></textarea>
                             <div class="chat-linha">
                                 <button type="button" class="botao secundario" @onclick="AbrirEscolhaDePaciente"><Icone Nome="pessoa" /> Paciente</button>
@@ -372,11 +374,20 @@ else
                                     <button type="button" class="botao secundario" @onclick="() => _escolhendoDocumento = !_escolhendoDocumento"><Icone Nome="documento" /> Documento</button>
                                 }
                                 <button type="button" class="botao secundario" @onclick="EscolherArquivoAsync"><Icone Nome="clipe" /> Arquivo</button>
-                                <button type="button" class="botao secundario" @onclick="() => _ampliado = true"><Icone Nome="ampliar" /> Ampliar</button>
+                                <button type="button" class="botao secundario" aria-pressed="@(_ampliado ? "true" : "false")" @onclick="AlternarAmpliado">
+                                    <Icone Nome="@(_ampliado ? "reduzir" : "ampliar")" /> @(_ampliado ? "Reduzir" : "Ampliar")
+                                </button>
                                 <button type="button" class="botao chat-enviar" disabled="@(!PodeEnviar)" @onclick="EnviarAsync"><Icone Nome="enviar" /> Enviar</button>
                             </div>
                             <div class="chat-dica">
-                                <span>Enter envia · Shift+Enter quebra a linha · @@ cita alguém</span>
+                                @if (_ampliado)
+                                {
+                                    <span>Enter quebra a linha · Ctrl+Enter envia · @@ cita alguém · @ChatEquipeRegras.Caracteres(_texto.Length), sem limite</span>
+                                }
+                                else
+                                {
+                                    <span>Enter envia · Shift+Enter quebra a linha · @@ cita alguém</span>
+                                }
                                 @if (_erro is { } er) { <span class="chat-erro" role="alert">@er</span> }
                             </div>
                             @if (_escolhendoDocumento)
@@ -408,42 +419,6 @@ else
             </div>
         }
     </aside>
-
-    @if (_ampliado && _aberta is not null)
-    {
-        <div class="modal-fundo chat-editor-veu">
-            <div class="chat-editor" role="dialog" aria-label="Escrever mensagem longa">
-                <div class="chat-editor-cab">
-                    <b>Mensagem para @_aberta.Titulo</b><small>@(_aberta.PessoaId is null ? "canal" : "conversa direta")</small>
-                    <button type="button" class="botao icone" aria-label="Fechar o editor" @onclick="() => _ampliado = false"><Icone Nome="x" /></button>
-                </div>
-                <div class="chat-editor-corpo">
-                    <textarea class="campo chat-editor-area" value="@_texto" @oninput="AoDigitarAsync" aria-label="Texto da mensagem"
-                              placeholder="Escreva o recado ou o laudo — o texto não tem limite."></textarea>
-                    <div class="chat-editor-lado">
-                        <h4>Vai junto</h4>
-                        @if (_anexoPaciente is { } ap2) { <div class="chat-cartao"><span class="chat-av paciente">@ChatEquipeRegras.Iniciais(ap2.Nome)</span><div><b>@ap2.Nome</b><small>Paciente</small></div></div> }
-                        @if (_anexoDocumento is { } ad2) { <div class="chat-cartao"><span class="chat-ic"><Icone Nome="documento" /></span><div><b>@ad2.Rotulo</b><small>@ad2.Quando</small></div></div> }
-                        @if (_anexoArquivo is { } aa2) { <div class="chat-cartao"><span class="chat-ic"><Icone Nome="clipe" /></span><div><b>@aa2.Nome</b><small>@ChatEquipeRegras.Tamanho(aa2.Conteudo.LongLength)</small></div></div> }
-                        @if (_anexoPaciente is null && _anexoDocumento is null && _anexoArquivo is null) { <p>Nada anexado.</p> }
-                        <h4>Dica</h4>
-                        <p>O texto na conversa é o recado. O documento numerado, que vai ao convênio, é o anexo — ele sai do Prontuário com assinatura.</p>
-                    </div>
-                </div>
-                <div class="chat-editor-rod">
-                    <button type="button" class="botao secundario" @onclick="AbrirEscolhaDePaciente"><Icone Nome="pessoa" /> Paciente</button>
-                    @if (_anexoPaciente is not null && _documentosDoPaciente.Count > 0)
-                    {
-                        <button type="button" class="botao secundario" @onclick="() => { _ampliado = false; _escolhendoDocumento = true; }"><Icone Nome="documento" /> Documento</button>
-                    }
-                    <button type="button" class="botao secundario" @onclick="EscolherArquivoAsync"><Icone Nome="clipe" /> Arquivo</button>
-                    <span class="chat-editor-conta">@ChatEquipeRegras.Caracteres(_texto.Length) · sem limite</span>
-                    @if (_erro is { } er2) { <span class="chat-erro" role="alert">@er2</span> }
-                    <button type="button" class="botao" disabled="@(!PodeEnviar)" @onclick="EnviarAsync"><Icone Nome="enviar" /> Enviar</button>
-                </div>
-            </div>
-        </div>
-    }
 }
 
 @code {
@@ -489,6 +464,9 @@ else
     private readonly Dictionary<int, string> _inteiros = [];
     private string _texto = "";
     private string? _erro;
+    // Onde a pessoa deixou a bolinha e a janelinha (distância da direita e de baixo, em px);
+    // nulo é o canto de sempre. Guardado por pessoa, neste computador, com as preferências.
+    private (int Direita, int Base)? _posBola, _posJanela;
     private bool _ampliado, _escolhendoPaciente, _escolhendoDocumento, _enviando, _carregandoAnteriores;
     private PacienteAnexo? _anexoPaciente;
     private DocumentoAnexo? _anexoDocumento;
@@ -568,7 +546,8 @@ else
             // EsperaNaAbertura e só então faz a primeira leitura.
             _parar = new CancellationTokenSource();
             _ = RelogioAsync(_parar.Token);
-            if (_modo != ModoChat.Fechado) StateHasChanged();
+            // O que veio guardado (modo, posição da bolinha) aparece já, e não na próxima batida.
+            StateHasChanged();
         }
         if (_rolarAoFim)
         {
@@ -590,20 +569,41 @@ else
     // ---------------------------------------------------------------- preferências guardadas
     private void AplicarSalvo(string salvo)
     {
-        // "modo|conversa|direta|mencao|pedido|silenciadoAte(ticks)"
+        // "modo|conversa|direta|mencao|pedido|silenciadoAte(ticks)|bola|janela" — bola e janela
+        // são "direita,base" (ou vazio); quem gravou antes delas tem só os seis primeiros.
         var p = salvo.Split('|');
         if (p.Length < 6) return;
         _modo = p[0] switch { "janela" => ModoChat.Janela, "encostado" => ModoChat.Encostado, _ => ModoChat.Fechado };
         _conversa = string.IsNullOrEmpty(p[1]) ? null : p[1];
         _prefs = new PreferenciasSomChat(p[2] != "0", p[3] != "0", p[4] != "0",
             long.TryParse(p[5], out var t) && t > 0 ? new DateTime(t) : null);
+        _posBola = p.Length > 6 ? LerPosicao(p[6]) : null;
+        _posJanela = p.Length > 7 ? LerPosicao(p[7]) : null;
     }
+
+    private static (int, int)? LerPosicao(string texto)
+    {
+        var x = texto.Split(',');
+        return x.Length == 2 && int.TryParse(x[0], out var d) && int.TryParse(x[1], out var b) && d >= 0 && b >= 0 ? (d, b) : null;
+    }
+
+    private static string GravarPosicao((int Direita, int Base)? pos) => pos is { } p ? $"{p.Direita},{p.Base}" : "";
+
+    /// <summary>
+    /// A posição como CSS: a distância guardada, mas nunca para fora da janela do app (a janela
+    /// pode ter ficado menor desde que a pessoa arrastou), e nunca por cima do rodapé de um
+    /// formulário aberto (--chat-piso, posto pelo CSS quando há um).
+    /// </summary>
+    private static string? EstiloDaPosicao((int Direita, int Base)? pos, int largura, int altura)
+        => pos is not { } p ? null
+            : $"right:max(0px, min({p.Direita}px, calc(100vw - {largura}px)));"
+              + $"bottom:max(var(--chat-piso, 0px), min({p.Base}px, calc(100vh - {altura}px)))";
 
     private async Task GuardarAsync()
     {
         var modo = _modo switch { ModoChat.Janela => "janela", ModoChat.Encostado => "encostado", _ => "fechado" };
         var texto = string.Join('|', modo, _conversa ?? "", _prefs.Direta ? "1" : "0", _prefs.Mencao ? "1" : "0",
-            _prefs.Pedido ? "1" : "0", (_prefs.SilenciadoAte?.Ticks ?? 0).ToString());
+            _prefs.Pedido ? "1" : "0", (_prefs.SilenciadoAte?.Ticks ?? 0).ToString(), GravarPosicao(_posBola), GravarPosicao(_posJanela));
         try { await JS.InvokeVoidAsync("clinicaChat.gravar", _eu, texto); }
         catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Chat da equipe — preferências não gravadas", ex); }
     }
@@ -659,6 +659,29 @@ else
         _modo = _modo == ModoChat.Encostado ? ModoChat.Janela : ModoChat.Encostado;
         await GuardarAsync();
     }
+
+    /// <summary>
+    /// "Ampliar" é o PRÓPRIO chat ficando grande (quase a tela inteira), com o campo de escrever
+    /// alto — e não uma janela por cima dele, que ficava atrás do painel e escondia o Enviar.
+    /// Ampliado, Enter quebra a linha (é onde se escreve o laudo) e Ctrl+Enter envia.
+    /// </summary>
+    private void AlternarAmpliado()
+    {
+        _ampliado = !_ampliado;
+        _sugestoes = null;
+    }
+
+    /// <summary>A página avisa onde a pessoa soltou a bolinha ou a janelinha (arrastadas por <c>clinicaChat.ligarCampo</c>).</summary>
+    [JSInvokable]
+    public Task Posicionar(string qual, int direita, int baseInferior) => InvokeAsync(async () =>
+    {
+        var pos = (Math.Max(0, direita), Math.Max(0, baseInferior));
+        if (qual == "bola") _posBola = pos;
+        else if (qual == "janela") _posJanela = pos;
+        else return;
+        await GuardarAsync();
+        StateHasChanged();
+    });
 
     // ---------------------------------------------------------------- teclas vindas da página
     /// <summary>
@@ -1125,8 +1148,7 @@ else
         _erro = null;
         // A sugestão de @ sai das pessoas da conversa (vieram na abertura): nenhuma ida ao banco.
         var antes = _sugestoes;
-        // (No editor ampliado não: a lista ficaria atrás dele.)
-        _sugestoes = !_ampliado && _aberta?.Pessoas is { Count: > 0 } pessoas
+        _sugestoes = _aberta?.Pessoas is { Count: > 0 } pessoas
             ? ChatEquipeRegras.SugestoesDeMencao(_texto, pessoas, p => p.Nome)
             : null;
         if (_sugestoes is null || antes is null || antes.Value.Inicio != _sugestoes.Value.Inicio) _sugestaoAtiva = 0;

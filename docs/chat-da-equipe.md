@@ -9,12 +9,18 @@ moldura Blazor.
 Uma conversa interna da clínica, dentro do próprio sistema, em três posições:
 
 - **Bolinha** no canto de baixo à direita, com o número de não lidas. Quando chega mensagem
-  direta, menção ou pedido da enfermagem, uma prévia aparece por 8 segundos acima dela.
-- **Janelinha** no canto, por cima da tela, ao clicar na bolinha.
+  direta, menção ou pedido da enfermagem, uma prévia aparece por 8 segundos acima dela. Dá
+  para ARRASTAR a bolinha para qualquer lugar da tela (mais de 6 px de movimento é arrasto;
+  menos é clique).
+- **Janelinha** no canto, por cima da tela, ao clicar na bolinha. Arrasta-se pelo cabeçalho.
 - **Painel encostado** na lateral direita. A tela de trás encolhe para dar lugar.
+- **Ampliado**: o próprio chat cresce até quase a tela inteira, com o campo de escrever alto —
+  é onde se escreve o laudo. Ampliado, Enter quebra a linha e Ctrl+Enter envia; "Reduzir" ou
+  Esc voltam ao tamanho de antes.
 
-A posição, a conversa aberta e as preferências de som ficam guardadas por pessoa, neste
-computador.
+A posição (onde a bolinha e a janelinha foram deixadas), a conversa aberta e as preferências de
+som ficam guardadas por pessoa, neste computador. A posição guardada nunca põe o chat fora da
+janela do app (ela pode ter ficado menor) nem por cima do rodapé de um formulário aberto.
 
 ## Conversas
 
@@ -30,8 +36,8 @@ computador.
 ## O que dá para mandar
 
 - **Texto sem limite**. Mensagem longa (mais de 500 caracteres ou 8 linhas) chega recolhida,
-  com "Ver inteiro", "Copiar texto" e a contagem de caracteres. "Ampliar" abre um editor de
-  tela grande para escrever o laudo.
+  com "Ver inteiro", "Copiar texto" e a contagem de caracteres. "Ampliar" aumenta o próprio
+  chat para escrever o laudo (ver "Ampliado" acima).
 - **Paciente anexado**: quem recebe abre a ficha num clique (com `VerFichaPaciente`).
 - **Documento emitido** do paciente anexado: quem recebe abre a 2ª via idêntica. Só aparecem
   os documentos que quem escreve pode ver, e abrir registra o acesso ao prontuário. O SERVIÇO

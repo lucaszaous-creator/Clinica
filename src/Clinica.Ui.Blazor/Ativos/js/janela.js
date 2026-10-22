@@ -88,28 +88,81 @@ window.clinicaChat = {
         self._ponte = ref;
         if (self._campoLigado) return;
         self._campoLigado = true;
-        function chamar(nome, arg) {
+        function chamar(nome) {
             if (!self._ponte) return;
-            (arg === undefined ? self._ponte.invokeMethodAsync(nome) : self._ponte.invokeMethodAsync(nome, arg)).catch(function () { });
+            var args = Array.prototype.slice.call(arguments);
+            self._ponte.invokeMethodAsync.apply(self._ponte, args).catch(function () { });
         }
         document.addEventListener('keydown', function (e) {
             // Esc fecha o que o chat tem por cima (a sugestão de @, o editor, as escolhas, a busca).
             if (e.key === 'Escape') {
-                if (document.querySelector('.chat-painel, .chat-editor')) chamar('Escape');
+                if (document.querySelector('.chat-painel')) chamar('Escape');
                 return;
             }
-            if (e.ctrlKey || e.altKey || e.isComposing) return;
+            if (e.altKey || e.isComposing) return;
             if (!e.target || !e.target.classList || !e.target.classList.contains('chat-campo')) return;
             // Com a sugestão de @ à vista, as setas andam nela e o Tab escolhe.
-            if (document.querySelector('.chat-mencoes') && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Tab')) {
+            if (!e.ctrlKey && document.querySelector('.chat-mencoes') && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Tab')) {
                 e.preventDefault();
                 chamar('TeclaDaMencao', e.key);
                 return;
             }
             if (e.key !== 'Enter' || e.shiftKey) return;
+            // Chat AMPLIADO é onde se escreve o laudo: Enter quebra a linha e Ctrl+Enter envia.
+            // No tamanho normal, Enter envia (e Ctrl+Enter também).
+            var ampliado = !!e.target.closest('.chat-painel.ampliado');
+            if (ampliado && !e.ctrlKey && !document.querySelector('.chat-mencoes')) return;
             e.preventDefault();
             chamar('EnviarPeloEnter');
         });
+
+        // ARRASTAR a bolinha (o chat fechado) e a janelinha (pelo cabeçalho). Enquanto arrasta,
+        // a página move o elemento direto; ao soltar, avisa o componente (Posicionar), que guarda
+        // a posição por pessoa neste computador e passa a desenhá-la. Mexer menos de 6 px é
+        // clique, não arrasto — e o clique que fecha um arrasto não abre o chat.
+        var arrasto = null;
+        // A área VISÍVEL (sem a barra de rolagem): right/bottom do CSS se medem a partir dela.
+        function largura() { return document.documentElement.clientWidth; }
+        function altura() { return document.documentElement.clientHeight; }
+        document.addEventListener('pointerdown', function (e) {
+            if (e.button !== 0 || !e.target.closest) return;
+            var bola = e.target.closest('.chat-bola');
+            var cab = bola ? null : e.target.closest('.chat-painel.janela:not(.ampliado) .chat-cab');
+            if (cab && e.target.closest('button, input, a, select, textarea')) return;
+            var alvo = bola ? bola.closest('.chat-flutuante') : cab ? cab.closest('.chat-painel') : null;
+            if (!alvo) return;
+            var r = alvo.getBoundingClientRect();
+            arrasto = {
+                alvo: alvo, qual: bola ? 'bola' : 'janela', id: e.pointerId, x: e.clientX, y: e.clientY,
+                direita: largura() - r.right, base: altura() - r.bottom, moveu: false
+            };
+        });
+        document.addEventListener('pointermove', function (e) {
+            if (!arrasto || e.pointerId !== arrasto.id) return;
+            var dx = e.clientX - arrasto.x, dy = e.clientY - arrasto.y;
+            if (!arrasto.moveu && Math.abs(dx) + Math.abs(dy) < 6) return;
+            arrasto.moveu = true;
+            var r = arrasto.alvo.getBoundingClientRect();
+            arrasto.d = Math.max(0, Math.min(arrasto.direita - dx, largura() - r.width));
+            arrasto.b = Math.max(0, Math.min(arrasto.base - dy, altura() - r.height));
+            arrasto.alvo.style.right = arrasto.d + 'px';
+            arrasto.alvo.style.bottom = arrasto.b + 'px';
+            arrasto.alvo.classList.add('arrastando');
+            e.preventDefault();
+        });
+        function soltar(e) {
+            if (!arrasto || e.pointerId !== arrasto.id) return;
+            var a = arrasto;
+            arrasto = null;
+            a.alvo.classList.remove('arrastando');
+            if (!a.moveu) return;
+            var engolir = function (ev) { ev.stopPropagation(); ev.preventDefault(); };
+            window.addEventListener('click', engolir, { capture: true, once: true });
+            setTimeout(function () { window.removeEventListener('click', engolir, { capture: true }); }, 300);
+            chamar('Posicionar', a.qual, Math.round(a.d), Math.round(a.b));
+        }
+        document.addEventListener('pointerup', soltar);
+        document.addEventListener('pointercancel', soltar);
     },
     // A mensagem achada na busca: rola até ela, no meio da conversa.
     rolarAte: function (id) {
