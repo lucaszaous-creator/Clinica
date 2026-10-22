@@ -54,6 +54,16 @@ public static partial class DocumentoPeloWhatsAppRegras
     [GeneratedRegex(@"(\d{1,3})\s*dias?\b")]
     private static partial Regex DiasRegex();
 
+    /// <summary>"dois dias" escrito por extenso vira "2 dias" antes da leitura.</summary>
+    [GeneratedRegex(@"\b(um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|trinta)\s+dias?\b")]
+    private static partial Regex DiasPorExtensoRegex();
+
+    private static readonly Dictionary<string, int> PorExtenso = new()
+    {
+        ["um"] = 1, ["uma"] = 1, ["dois"] = 2, ["duas"] = 2, ["tres"] = 3, ["quatro"] = 4, ["cinco"] = 5, ["seis"] = 6,
+        ["sete"] = 7, ["oito"] = 8, ["nove"] = 9, ["dez"] = 10, ["quinze"] = 15, ["trinta"] = 30,
+    };
+
     /// <summary>
     /// A frase pede um documento? Só quando o tipo vem no começo (depois de "por favor", "emite
     /// um"…). "Quem pediu atestado?" é pergunta e começa por "quem" — não vira rascunho.
@@ -78,7 +88,7 @@ public static partial class DocumentoPeloWhatsAppRegras
         {
             var inicio = inicios.FirstOrDefault(x => resto.StartsWith(" " + x + " ", StringComparison.Ordinal));
             if (inicio is null) continue;
-            var depois = resto[(inicio.Length + 1)..];
+            var depois = DiasPorExtensoRegex().Replace(resto[(inicio.Length + 1)..], m => PorExtenso[m.Groups[1].Value] + " dias");
             int? dias = null;
             var md = DiasRegex().Match(depois);
             if (md.Success && int.TryParse(md.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var d))

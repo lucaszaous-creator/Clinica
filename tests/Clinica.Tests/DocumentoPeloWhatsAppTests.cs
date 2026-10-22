@@ -19,6 +19,7 @@ public class DocumentoPeloWhatsAppRegrasTests
     [Theory]
     [InlineData("atestado Maria Silva 2 dias", "atestado", "maria silva", 2)]
     [InlineData("Por favor, emite um atestado para a Maria 3 dias", "atestado", "maria", 3)]
+    [InlineData("faz um atestado de dois dias pra Maria", "atestado", "maria", 2)]
     [InlineData("Atestado de comparecimento da Maria", "comparecimento", "maria", null)]
     [InlineData("comparecimento Maria Silva", "comparecimento", "maria silva", null)]
     [InlineData("Relatório médico Maria: evolução boa", "relatorio", "maria", null)]
