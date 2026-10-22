@@ -38,6 +38,7 @@ namespace Clinica.Infrastructure.Migrations
                     AutorId = table.Column<int>(type: "integer", nullable: false),
                     AutorNome = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
                     Texto = table.Column<string>(type: "text", nullable: false),
+                    TextoBusca = table.Column<string>(type: "text", nullable: false),
                     EnviadaEm = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
                     EditadaEm = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
                     Mencoes = table.Column<string>(type: "character varying(400)", maxLength: 400, nullable: true),
@@ -104,6 +105,30 @@ namespace Clinica.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ConversasEquipe",
+                columns: table => new
+                {
+                    Conversa = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
+                    ParticipanteA = table.Column<int>(type: "integer", nullable: true),
+                    ParticipanteB = table.Column<int>(type: "integer", nullable: true),
+                    UltimaMensagemId = table.Column<int>(type: "integer", nullable: false),
+                    UltimaEm = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
+                    UltimoAutorId = table.Column<int>(type: "integer", nullable: false),
+                    UltimoAutorNome = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
+                    UltimaPrevia = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ConversasEquipe", x => x.Conversa);
+                    table.ForeignKey(
+                        name: "FK_ConversasEquipe_MensagensEquipe_UltimaMensagemId",
+                        column: x => x.UltimaMensagemId,
+                        principalTable: "MensagensEquipe",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "VersoesMensagemEquipe",
                 columns: table => new
                 {
@@ -125,6 +150,21 @@ namespace Clinica.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_ConversasEquipe_ParticipanteA",
+                table: "ConversasEquipe",
+                column: "ParticipanteA");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ConversasEquipe_ParticipanteB",
+                table: "ConversasEquipe",
+                column: "ParticipanteB");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ConversasEquipe_UltimaMensagemId",
+                table: "ConversasEquipe",
+                column: "UltimaMensagemId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_LeiturasEquipe_Conversa",
                 table: "LeiturasEquipe",
                 column: "Conversa");
@@ -139,6 +179,11 @@ namespace Clinica.Infrastructure.Migrations
                 name: "IX_MensagensEquipe_AutorId",
                 table: "MensagensEquipe",
                 column: "AutorId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MensagensEquipe_Conversa_EditadaEm",
+                table: "MensagensEquipe",
+                columns: new[] { "Conversa", "EditadaEm" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_MensagensEquipe_Conversa_Id",
@@ -159,6 +204,18 @@ namespace Clinica.Infrastructure.Migrations
                 name: "IX_VersoesMensagemEquipe_MensagemId",
                 table: "VersoesMensagemEquipe",
                 column: "MensagemId");
+
+            // A BUSCA (índice de texto): "procurar" num histórico de anos não lê as mensagens
+            // uma a uma — o Postgres vai ao índice GIN e devolve só as que têm as palavras. A
+            // coluna já vem minúscula e sem acento (ChatEquipeRegras.TextoDeBusca), então o
+            // dicionário é o 'simple': sem radical, a palavra digitada casa como foi escrita
+            // (com prefixo, ":*", na consulta). A expressão é a MESMA da consulta do serviço —
+            // índice de expressão só é usado quando ela casa exatamente.
+            if (ActiveProvider.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+                migrationBuilder.Sql("""
+                    CREATE INDEX "IX_MensagensEquipe_Busca" ON "MensagensEquipe"
+                        USING GIN (to_tsvector('simple', "TextoBusca"));
+                    """);
 
             // Entrega instantânea: o mesmo aviso dos agendamentos (AvisosInstantaneos). Só nasce
             // onde a função existe e o papel tem TRIGGER — sem ele o chat segue pelo relógio de
@@ -187,6 +244,9 @@ namespace Clinica.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "ArquivosMensagemEquipe");
+
+            migrationBuilder.DropTable(
+                name: "ConversasEquipe");
 
             migrationBuilder.DropTable(
                 name: "LeiturasEquipe");

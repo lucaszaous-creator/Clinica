@@ -77,7 +77,7 @@ window.clinicaChat = {
     rolarAoFim: function (el) {
         if (el) el.scrollTop = el.scrollHeight;
     },
-    // Enter envia, Shift+Enter quebra a linha — decidido AQUI, na hora da tecla. Pelo
+    // As teclas do chat. Enter envia, Shift+Enter quebra a linha — decidido AQUI, na hora da tecla. Pelo
     // @onkeydown:preventDefault do Blazor a decisão só valia no render seguinte, e o Enter que
     // enviava deixava passar a quebra de linha. UM ouvinte na página para o campo da conversa
     // (.chat-campo), que some e volta a cada troca de conversa; o componente novo (outro login)
@@ -88,12 +88,33 @@ window.clinicaChat = {
         self._ponte = ref;
         if (self._campoLigado) return;
         self._campoLigado = true;
+        function chamar(nome, arg) {
+            if (!self._ponte) return;
+            (arg === undefined ? self._ponte.invokeMethodAsync(nome) : self._ponte.invokeMethodAsync(nome, arg)).catch(function () { });
+        }
         document.addEventListener('keydown', function (e) {
-            if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.altKey || e.isComposing) return;
+            // Esc fecha o que o chat tem por cima (a sugestão de @, o editor, as escolhas, a busca).
+            if (e.key === 'Escape') {
+                if (document.querySelector('.chat-painel, .chat-editor')) chamar('Escape');
+                return;
+            }
+            if (e.ctrlKey || e.altKey || e.isComposing) return;
             if (!e.target || !e.target.classList || !e.target.classList.contains('chat-campo')) return;
+            // Com a sugestão de @ à vista, as setas andam nela e o Tab escolhe.
+            if (document.querySelector('.chat-mencoes') && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Tab')) {
+                e.preventDefault();
+                chamar('TeclaDaMencao', e.key);
+                return;
+            }
+            if (e.key !== 'Enter' || e.shiftKey) return;
             e.preventDefault();
-            if (self._ponte) self._ponte.invokeMethodAsync('EnviarPeloEnter').catch(function () { });
+            chamar('EnviarPeloEnter');
         });
+    },
+    // A mensagem achada na busca: rola até ela, no meio da conversa.
+    rolarAte: function (id) {
+        var el = document.getElementById(id);
+        if (el) el.scrollIntoView({ block: 'center' });
     },
     _ctx: null,
     tocar: function (tipo) {

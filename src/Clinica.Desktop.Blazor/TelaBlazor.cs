@@ -289,6 +289,40 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
         }
     }
 
+    public Task ChamarAtencaoAsync()
+        => NaInterface(() =>
+        {
+            var janela = System.Windows.Application.Current?.MainWindow;
+            if (janela is null || janela.IsActive) return Task.FromResult(false);
+            var mao = new System.Windows.Interop.WindowInteropHelper(janela).Handle;
+            if (mao == IntPtr.Zero) return Task.FromResult(false);
+            // Pisca a janela e o botão da barra de tarefas até ela voltar para a frente
+            // (FLASHW_ALL | FLASHW_TIMERNOFG) — o mesmo aviso que o Teams e o WhatsApp dão.
+            var info = new PiscarJanela.Info
+            {
+                Tamanho = (uint)System.Runtime.InteropServices.Marshal.SizeOf<PiscarJanela.Info>(),
+                Janela = mao, Modo = 0x3 | 0xC, Vezes = 0, Intervalo = 0,
+            };
+            return Task.FromResult(PiscarJanela.FlashWindowEx(ref info));
+        });
+
+    private static class PiscarJanela
+    {
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        public struct Info
+        {
+            public uint Tamanho;
+            public IntPtr Janela;
+            public uint Modo;
+            public uint Vezes;
+            public uint Intervalo;
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        public static extern bool FlashWindowEx(ref Info info);
+    }
+
     private static Task<T> NaInterface<T>(Func<Task<T>> acao)
     {
         var d = System.Windows.Application.Current?.Dispatcher;

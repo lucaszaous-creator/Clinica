@@ -198,18 +198,25 @@ public class TraducaoNoNpgsqlTests
     /// Contexto configurado para o Npgsql. Nunca conecta — só compila consultas.
     /// </summary>
     [Fact]
-    public void Chat_da_equipe_traduz_diretas_ultimas_e_resumo_cortado()
+    public void Chat_da_equipe_traduz_pulso_lista_participantes_e_busca()
     {
         using var db = Postgres();
-        ChatEquipeService.ConsultaMinhasDiretas(db, 7).ToQueryString()
-            .Should().Contain("LIKE").And.Contain("DISTINCT");
-        ChatEquipeService.ConsultaUltimasPorConversa(db, ["canal:geral", "direta:3:7"]).ToQueryString()
-            .Should().Contain("GROUP BY").And.Contain("max(");
-        var resumo = ChatEquipeService.ConsultaResumos(db.MensagensEquipe.Where(m => m.Id > 3)).ToQueryString();
-        resumo.Should().Contain("substring").And.Contain("length(");
-        // A linha da conversa leva o TIPO do documento (é o que decide quem o abre) por junção.
+        // O pulso vai pela chave (Id > desde) e decide "é para mim" no próprio banco.
+        var pulso = ChatEquipeService.ConsultaPulso(db, 7, 120, 30).ToQueryString();
+        pulso.Should().Contain("EXISTS").And.Contain("ConversasEquipe").And.Contain("LIMIT");
+        // A lista conta as não lidas no banco, a partir da leitura de cada conversa.
+        var lista = ChatEquipeService.ConsultaLista(db, 7, new DateTime(2026, 1, 1), ["canal:geral"]).ToQueryString();
+        lista.Should().Contain("count(*)").And.Contain("COALESCE").And.Contain("LeiturasEquipe");
+        // Participantes: presença por junção e a leitura de cada um, numa consulta.
+        ChatEquipeService.ConsultaParticipantes(db, "canal:recepcao").ToQueryString()
+            .Should().Contain("LEFT JOIN").And.Contain("PresencasEquipe").And.Contain("LeiturasEquipe");
+        ChatEquipeService.ConsultaParticipantes(db, "direta:3:7").ToQueryString().Should().Contain("PresencasEquipe");
+        // A linha da conversa: o começo do texto (substring) e o tipo do documento por junção.
         var linhas = ChatEquipeService.ConsultaLinhas(db.MensagensEquipe.Where(m => m.Conversa == "canal:geral" && m.Id > 3)).ToQueryString();
-        linhas.Should().Contain("LEFT JOIN").And.Contain("DocumentosClinicos");
+        linhas.Should().Contain("LEFT JOIN").And.Contain("DocumentosClinicos").And.Contain("substring").And.Contain("length(");
+        // A busca usa a MESMA expressão do índice GIN da migration — senão o índice não é usado.
+        var busca = ChatEquipeService.ConsultaBusca(db, ["laudo", "lucia"], 7, ["canal:geral"], null).ToQueryString();
+        busca.Should().Contain("to_tsvector('simple'").And.Contain("TextoBusca").And.Contain("@@").And.Contain("to_tsquery('simple'");
     }
 
     private static ClinicaDbContext Postgres()

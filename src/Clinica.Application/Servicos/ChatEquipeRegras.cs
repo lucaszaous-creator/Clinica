@@ -152,8 +152,10 @@ public static class ChatEquipeRegras
     }
 
     /// <summary>
-    /// Quem foi citado com @: o token depois do @ casa com o PRIMEIRO NOME (sem acento, sem caixa).
-    /// Dois "Ana" na equipe tocam para as duas — citar não pode silenciar quem foi chamado.
+    /// Quem foi citado com @. O token depois do @ casa com o PRIMEIRO NOME, com "primeiro_último"
+    /// ou com o nome inteiro ligado por "_" (sem acento, sem caixa). Dois "Ana" na equipe: "@Ana"
+    /// toca para as duas — citar não pode silenciar quem foi chamado —, e a sugestão da tela
+    /// escreve "@Ana_Souza" para citar só uma (<see cref="MencaoDe"/>).
     /// </summary>
     public static IReadOnlyList<int> Mencionados(string texto, IEnumerable<(int Id, string Nome)> pessoas)
     {
@@ -162,12 +164,64 @@ public static class ChatEquipeRegras
         {
             if (texto[i] != '@' || (i > 0 && char.IsLetterOrDigit(texto[i - 1]))) continue;
             var j = i + 1;
-            while (j < texto.Length && (char.IsLetter(texto[j]) || texto[j] == '-')) j++;
-            if (j > i + 1) tokens.Add(Normalizar(texto[(i + 1)..j]));
+            while (j < texto.Length && CaractereDeMencao(texto[j])) j++;
+            if (j > i + 1) tokens.Add(Normalizar(texto[(i + 1)..j].TrimEnd('_', '-')));
         }
         if (tokens.Count == 0) return [];
-        return pessoas.Where(p => tokens.Contains(Normalizar(p.Nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "")))
-            .Select(p => p.Id).Distinct().ToList();
+        return pessoas.Where(p => ChavesDaMencao(p.Nome).Any(tokens.Contains)).Select(p => p.Id).Distinct().ToList();
+    }
+
+    private static bool CaractereDeMencao(char c) => char.IsLetter(c) || c is '-' or '_';
+
+    /// <summary>As palavras do nome que valem para citar: só letras e hífen ("Dra." e "(fictícia)" ficam de fora).</summary>
+    private static List<string> PalavrasDoNome(string nome)
+        => nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => w.All(c => char.IsLetter(c) || c == '-')).ToList();
+
+    /// <summary>As formas que citam a pessoa: "ana", "ana_souza" (primeiro e último) e o nome inteiro.</summary>
+    private static IEnumerable<string> ChavesDaMencao(string nome)
+    {
+        var w = PalavrasDoNome(nome).Select(Normalizar).ToList();
+        if (w.Count == 0) yield break;
+        yield return w[0];
+        if (w.Count > 1) yield return $"{w[0]}_{w[^1]}";
+        if (w.Count > 2) yield return string.Join('_', w);
+    }
+
+    /// <summary>
+    /// O que a sugestão escreve ao escolher a pessoa: "@Ana" quando o primeiro nome é só dela
+    /// na conversa, "@Ana_Souza" quando há outra Ana (e o nome inteiro se nem isso separar).
+    /// </summary>
+    public static string MencaoDe(string nome, IEnumerable<string> outrosNaConversa)
+    {
+        var w = PalavrasDoNome(nome);
+        if (w.Count == 0) return "@" + nome.Replace(' ', '_');
+        var outros = outrosNaConversa.Where(o => o != nome).Select(o => ChavesDaMencao(o).ToList()).ToList();
+        if (!outros.Any(o => o.Count > 0 && o[0] == Normalizar(w[0]))) return "@" + w[0];
+        var dois = w.Count > 1 ? $"{w[0]}_{w[^1]}" : w[0];
+        if (!outros.Any(o => o.Contains(Normalizar(dois)))) return "@" + dois;
+        return "@" + string.Join('_', w);
+    }
+
+    /// <summary>
+    /// A sugestão de @ enquanto se escreve: quando o texto TERMINA em "@ana", as pessoas da
+    /// conversa com uma palavra do nome começando assim (no máximo <paramref name="maximo"/>).
+    /// Devolve onde o "@" começa, para a tela trocar o pedaço pela citação escolhida.
+    /// </summary>
+    public static (int Inicio, IReadOnlyList<T> Pessoas)? SugestoesDeMencao<T>(string texto, IEnumerable<T> pessoas,
+        Func<T, string> nome, int maximo = 6)
+    {
+        var i = texto.Length - 1;
+        while (i >= 0 && CaractereDeMencao(texto[i])) i--;
+        if (i < 0 || texto[i] != '@' || (i > 0 && char.IsLetterOrDigit(texto[i - 1]))) return null;
+        var parte = Normalizar(texto[(i + 1)..]).Replace('_', ' ').Trim();
+        var achadas = pessoas.Where(p =>
+            {
+                var palavras = PalavrasDoNome(nome(p)).Select(Normalizar).ToList();
+                return parte.Length == 0 || palavras.Any(w => w.StartsWith(parte, StringComparison.Ordinal))
+                       || string.Join(' ', palavras).StartsWith(parte, StringComparison.Ordinal);
+            })
+            .OrderBy(p => nome(p), StringComparer.CurrentCultureIgnoreCase).Take(maximo).ToList();
+        return achadas.Count == 0 ? null : (i, achadas);
     }
 
     public static string? GravarMencoes(IReadOnlyList<int> ids) => ids.Count == 0 ? null : "|" + string.Join('|', ids) + "|";
@@ -297,6 +351,65 @@ public static class ChatEquipeRegras
             Instante = novidade.Instante,
         };
     }
+
+    /// <summary>Os perfis que participam do canal — a mesma pergunta de <see cref="ParticipaDoCanal"/>, como lista para o banco.</summary>
+    public static IReadOnlyList<PerfilAcesso> PerfisDoCanal(string canal)
+        => Enum.GetValues<PerfilAcesso>().Where(p => ParticipaDoCanal(p, canal)).ToList();
+
+    /// <summary>O texto como a busca o guarda e o lê: minúsculo e sem acento ("Lúcia" e "lucia" se acham).</summary>
+    public static string TextoDeBusca(string texto) => Normalizar(texto ?? "");
+
+    /// <summary>
+    /// As palavras procuradas: só letras e números, sem acento, de 2 caracteres para cima, no
+    /// máximo seis. Vazio quando não sobra nada para procurar.
+    /// </summary>
+    public static IReadOnlyList<string> PalavrasDaBusca(string termo)
+    {
+        var limpo = new StringBuilder();
+        foreach (var c in Normalizar(termo ?? "")) limpo.Append(char.IsLetterOrDigit(c) ? c : ' ');
+        return limpo.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(p => p.Length >= 2).Distinct().Take(6).ToList();
+    }
+
+    /// <summary>A pergunta ao índice de texto do Postgres: todas as palavras, cada uma como começo ("laud:*").</summary>
+    public static string ConsultaDeTexto(IReadOnlyList<string> palavras) => string.Join(" & ", palavras.Select(p => p + ":*"));
+
+    /// <summary>
+    /// O trecho que o resultado da busca mostra: em volta da primeira palavra achada, numa
+    /// linha, cortado em palavra.
+    /// </summary>
+    public static string Trecho(string texto, IReadOnlyList<string> palavras, int tamanho = 140)
+    {
+        var t = string.Join(' ', (texto ?? "").Split(new[] { '\r', '\n', '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries));
+        if (t.Length <= tamanho) return t;
+        var normal = Normalizar(t);
+        var pos = palavras.Select(p => normal.IndexOf(p, StringComparison.Ordinal)).Where(i => i >= 0).DefaultIfEmpty(0).Min();
+        var inicio = Math.Max(0, pos - tamanho / 3);
+        if (inicio > 0)
+        {
+            var espaco = t.IndexOf(' ', inicio);
+            if (espaco > 0 && espaco < pos) inicio = espaco + 1;
+        }
+        var fim = Math.Min(t.Length, inicio + tamanho);
+        var pedaco = t[inicio..fim];
+        if (fim < t.Length) pedaco = pedaco[..CortarNaPalavra(pedaco, pedaco.Length - 1)].TrimEnd() + "…";
+        return (inicio > 0 ? "…" : "") + pedaco;
+    }
+
+    /// <summary>
+    /// Quanto do texto a conversa traz de cada mensagem. O resto (o laudo inteiro) só vem quando a
+    /// pessoa pede "Ver inteiro", "Copiar" ou "Corrigir" — como o "Ler mais" do WhatsApp: abrir
+    /// uma conversa com dez laudos não traz dez laudos pela rede.
+    /// </summary>
+    public const int TextoNaConversa = 600;
+
+    /// <summary>
+    /// O mesmo <see cref="Recolhida(string)"/>, a partir do começo do texto e do tamanho inteiro —
+    /// a conversa só traz o começo das mensagens longas. Com até <see cref="TextoNaConversa"/>
+    /// caracteres o começo É o texto, e acima de <see cref="LimiteRecolher"/> já é recolhida.
+    /// </summary>
+    public static bool Recolhida(string comeco, int tamanho)
+        => tamanho > LimiteRecolher || comeco.Count(c => c == '\n') >= LinhasRecolher;
 
     /// <summary>O dia como separador da conversa: "Hoje", "Ontem" ou a data.</summary>
     public static string Dia(DateOnly dia, DateOnly hoje)

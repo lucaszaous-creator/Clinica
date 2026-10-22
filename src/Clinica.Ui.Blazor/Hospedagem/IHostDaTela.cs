@@ -88,6 +88,14 @@ public interface IHostDaTela
 
     /// <summary>Grava no caminho já escolhido. Null = gravou; a frase = falhou (o arquivo não está lá).</summary>
     Task<string?> GravarArquivoAsync(string caminho, byte[] conteudo);
+
+    /// <summary>
+    /// Pede atenção para a janela do app quando ela NÃO está na frente (o chat da equipe: a
+    /// recepção está em outro programa e chega uma mensagem direta). No Windows, o botão da
+    /// barra de tarefas pisca até a pessoa voltar; com a janela à vista, nada acontece. Onde
+    /// não há janela (prévia, testes), não faz nada.
+    /// </summary>
+    Task ChamarAtencaoAsync() => Task.CompletedTask;
 }
 
 /// <summary>Arquivo escolhido pela pessoa: o nome (para mostrar) e o conteúdo.</summary>

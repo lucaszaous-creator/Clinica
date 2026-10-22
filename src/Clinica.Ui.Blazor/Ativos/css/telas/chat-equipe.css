@@ -22,12 +22,15 @@ body:has(.modal-rodape) .chat-flutuante{bottom:calc(var(--space-16) + var(--spac
   background:var(--erro);color:var(--texto-invertido);font-size:var(--text-small-size);font-weight:700;display:grid;place-items:center;
   border:2px solid var(--superficie);font-family:var(--font-num)}
 .chat-previa{position:relative;max-width:300px;text-align:left;border:1px solid var(--borda);background:var(--superficie);border-radius:var(--radius-card);
-  padding:var(--space-3) var(--space-8) var(--space-3) var(--space-3);box-shadow:var(--sombra-popup);cursor:pointer;color:var(--texto-primario);
-  animation:chat-sobe var(--duracao-normal) ease-out}
+  box-shadow:var(--sombra-popup);color:var(--texto-primario);animation:chat-sobe var(--duracao-normal) ease-out}
+/* Dois botões lado a lado (abrir e fechar) — um botão dentro do outro não é HTML válido. */
+.chat-previa-abrir{display:block;width:100%;border:0;background:transparent;text-align:left;cursor:pointer;color:inherit;font:inherit;
+  padding:var(--space-3) var(--space-8) var(--space-3) var(--space-3);border-radius:var(--radius-card)}
+.chat-previa-abrir:focus-visible,.chat-previa-x:focus-visible{outline:3px solid var(--foco);outline-offset:2px}
 .chat-previa b{display:block;font-size:var(--text-small-size)}
 .chat-previa b span{font-weight:400;color:var(--texto-secundario)}
 .chat-previa-texto{display:block;margin-top:2px;color:var(--texto-secundario);font-size:var(--text-small-size);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chat-previa-x{position:absolute;top:var(--space-2);right:var(--space-2);color:var(--texto-secundario)}
+.chat-previa-x{position:absolute;top:var(--space-2);right:var(--space-2);color:var(--texto-secundario);border:0;background:transparent;cursor:pointer;padding:2px;border-radius:var(--radius-pequeno);display:grid;place-items:center}
 .chat-previa-x svg.icone{width:14px;height:14px}
 @keyframes chat-sobe{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
@@ -176,5 +179,36 @@ body:has(.modal-rodape) .chat-flutuante{bottom:calc(var(--space-16) + var(--spac
 .chat-editor-lado .chat-cartao{min-width:0}
 .chat-editor-rod{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--borda);flex-wrap:wrap}
 .chat-editor-conta{margin-left:auto;color:var(--texto-secundario);font-size:var(--text-small-size)}
+
+/* ---------- Anúncio para leitor de tela (fora da vista, lido em voz) ---------- */
+.chat-anuncio{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------- Busca ---------- */
+.chat-cab .botao.icone.ativo{color:var(--acento);background:var(--acento-suave)}
+.chat-busca{position:absolute;top:52px;left:var(--space-3);right:var(--space-3);z-index:6;background:var(--superficie);border:1px solid var(--borda);
+  border-radius:var(--radius-card);box-shadow:var(--sombra-popup);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2);max-height:calc(100% - 64px)}
+.chat-busca .campo{width:100%}
+.chat-busca-res{overflow-y:auto;display:flex;flex-direction:column;gap:2px;min-height:0}
+.chat-resultado{display:flex;flex-direction:column;gap:2px;border:0;background:transparent;text-align:left;cursor:pointer;color:var(--texto-primario);
+  padding:var(--space-2);border-radius:var(--radius-pequeno)}
+.chat-resultado:hover,.chat-resultado:focus-visible{background:var(--superficie-hover)}
+.chat-resultado-cab{display:flex;align-items:baseline;gap:var(--space-2);flex-wrap:wrap}
+.chat-resultado-cab small{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.chat-resultado-trecho{color:var(--texto-secundario);font-size:var(--text-small-size);overflow-wrap:anywhere}
+.chat-historico{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);flex-wrap:wrap;flex:none;
+  padding:var(--space-1) var(--space-3);background:var(--acento-suave);font-size:var(--text-small-size)}
+.chat-m.achada .chat-bolha{box-shadow:0 0 0 2px var(--acento)}
+
+/* ---------- Sugestão de @ ---------- */
+.chat-mencoes{position:absolute;left:var(--space-3);bottom:calc(100% - var(--space-1));z-index:5;min-width:240px;max-width:calc(100% - 2 * var(--space-3));
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);box-shadow:var(--sombra-popup);padding:var(--space-1);display:flex;flex-direction:column}
+.chat-mencao{display:flex;align-items:center;gap:var(--space-2);border:0;background:transparent;text-align:left;cursor:pointer;color:var(--texto-primario);
+  padding:var(--space-1) var(--space-2);border-radius:var(--radius-pequeno)}
+.chat-mencao.on,.chat-mencao:hover{background:var(--acento-suave)}
+
+/* ---------- Direta com quem saiu da equipe (só leitura) ---------- */
+.chat-conv.saiu{color:var(--texto-secundario)}
+.chat-conv.saiu .chat-av{opacity:.6}
+.chat-so-leitura{flex:none;margin:0;border-top:1px solid var(--borda);padding:var(--space-3);color:var(--texto-secundario);font-size:var(--text-small-size);text-align:center}
 
 @media (prefers-reduced-motion:reduce){.chat-m.chegou,.chat-previa,.chat-painel.janela,.chat-pontos i{animation:none}}

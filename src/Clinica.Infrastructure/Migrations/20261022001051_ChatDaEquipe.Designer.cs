@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    [Migration("20261021202217_ChatDaEquipe")]
+    [Migration("20261022001051_ChatDaEquipe")]
     partial class ChatDaEquipe
     {
         /// <inheritdoc />
@@ -1875,6 +1875,48 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasKey("Codigo");
 
                     b.ToTable("Convenios");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ConversaEquipe", b =>
+                {
+                    b.Property<string>("Conversa")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("ParticipanteA")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ParticipanteB")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UltimaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("UltimaMensagemId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UltimaPrevia")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("UltimoAutorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UltimoAutorNome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.HasKey("Conversa");
+
+                    b.HasIndex("ParticipanteA");
+
+                    b.HasIndex("ParticipanteB");
+
+                    b.HasIndex("UltimaMensagemId");
+
+                    b.ToTable("ConversasEquipe", (string)null);
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.CuidadoEnfermagem", b =>
@@ -3820,6 +3862,10 @@ namespace Clinica.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("TextoBusca")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AutorId");
@@ -3827,6 +3873,8 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("DocumentoClinicoId");
 
                     b.HasIndex("PacienteId");
+
+                    b.HasIndex("Conversa", "EditadaEm");
 
                     b.HasIndex("Conversa", "Id");
 
@@ -6788,6 +6836,17 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Atendimento");
 
                     b.Navigation("Paciente");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ConversaEquipe", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.MensagemEquipe", "UltimaMensagem")
+                        .WithMany()
+                        .HasForeignKey("UltimaMensagemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("UltimaMensagem");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.CuidadoEnfermagem", b =>

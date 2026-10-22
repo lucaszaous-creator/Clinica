@@ -31,7 +31,7 @@ public sealed class SementeChatDaEquipe : ISemente
         foreach (var u in usuarios) u.CriadoEm = hoje.AddDays(-1);
         MensagemEquipe M(string conversa, UsuarioSistema autor, int hora, int minuto, string texto, string? mencoes = null) => new()
         {
-            Conversa = conversa, AutorId = autor.Id, AutorNome = autor.Nome, Texto = texto,
+            Conversa = conversa, AutorId = autor.Id, AutorNome = autor.Nome, Texto = texto, TextoBusca = ChatEquipeRegras.TextoDeBusca(texto),
             EnviadaEm = hoje.AddHours(hora).AddMinutes(minuto), Mencoes = mencoes
         };
 
@@ -59,6 +59,21 @@ public sealed class SementeChatDaEquipe : ISemente
         var agora = DateTime.Now;
         db.PresencasEquipe.Add(new PresencaEquipe { UsuarioId = medico.Id, VistoEm = agora });
         db.PresencasEquipe.Add(new PresencaEquipe { UsuarioId = otavio.Id, VistoEm = agora });
+        db.SaveChanges();
+
+        // A lista de conversas (ConversasEquipe) é o que o envio de verdade grava junto com a
+        // mensagem; a semente grava as mensagens direto, então monta a lista a partir delas.
+        foreach (var g in db.MensagensEquipe.ToList().GroupBy(m => m.Conversa))
+        {
+            var ultima = g.MaxBy(m => m.Id)!;
+            var par = ChatEquipeRegras.ParticipantesDaDireta(g.Key);
+            db.ConversasEquipe.Add(new ConversaEquipe
+            {
+                Conversa = g.Key, ParticipanteA = par?.A, ParticipanteB = par?.B, UltimaMensagemId = ultima.Id,
+                UltimaEm = ultima.EnviadaEm, UltimoAutorId = ultima.AutorId, UltimoAutorNome = ultima.AutorNome,
+                UltimaPrevia = ChatEquipeRegras.Previa(ultima.Texto, null, 120),
+            });
+        }
         db.SaveChanges();
     }
 }

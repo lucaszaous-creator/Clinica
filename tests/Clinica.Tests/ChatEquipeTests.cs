@@ -190,6 +190,68 @@ public class ChatEquipeRegrasTests
         mesclada.Escrevendo.Should().Equal("Paulo Lima");
         mesclada.Instante.Should().Be(Agora.AddSeconds(4));
     }
+
+    [Fact]
+    public void Citacao_por_primeiro_nome_ou_por_nome_e_sobrenome()
+    {
+        var pessoas = new[] { (1, "Ana Souza"), (2, "Ana Paula Lima"), (3, "Dra. Helena Duarte (fictícia)"), (4, "Paulo Lima") };
+        ChatEquipeRegras.Mencionados("@Ana pode ver?", pessoas).Should().BeEquivalentTo([1, 2], "o primeiro nome chama as duas Anas");
+        ChatEquipeRegras.Mencionados("@Ana_Souza pode ver?", pessoas).Should().Equal(1);
+        ChatEquipeRegras.Mencionados("@ana_lima e @Ana_Paula_Lima", pessoas).Should().Equal(2);
+        ChatEquipeRegras.Mencionados("@helena, obrigada", pessoas).Should().Equal([3], "\"Dra.\" e \"(fictícia)\" não contam como nome");
+        ChatEquipeRegras.Mencionados("mande para ana@clinica.com", pessoas).Should().BeEmpty("e-mail não é citação");
+    }
+
+    [Fact]
+    public void Sugestao_de_citacao_escreve_o_nome_que_so_casa_com_a_pessoa_escolhida()
+    {
+        var nomes = new[] { "Ana Souza", "Ana Paula Lima", "Paulo Lima" };
+        ChatEquipeRegras.MencaoDe("Paulo Lima", nomes).Should().Be("@Paulo");
+        ChatEquipeRegras.MencaoDe("Ana Souza", nomes).Should().Be("@Ana_Souza");
+        ChatEquipeRegras.MencaoDe("Ana Paula Lima", nomes).Should().Be("@Ana_Lima");
+        // O que a sugestão escreve volta a citar só a escolhida.
+        var pessoas = nomes.Select((n, i) => (i + 1, n)).ToList();
+        ChatEquipeRegras.Mencionados(ChatEquipeRegras.MencaoDe("Ana Souza", nomes) + " oi", pessoas).Should().Equal(1);
+
+        var sugestao = ChatEquipeRegras.SugestoesDeMencao("Bom dia @li", nomes, n => n);
+        sugestao!.Value.Inicio.Should().Be(8);
+        sugestao.Value.Pessoas.Should().Equal("Ana Paula Lima", "Paulo Lima");
+        ChatEquipeRegras.SugestoesDeMencao("Bom dia @", nomes, n => n)!.Value.Pessoas.Should().HaveCount(3);
+        ChatEquipeRegras.SugestoesDeMencao("ana@cli", nomes, n => n).Should().BeNull("e-mail não abre sugestão");
+        ChatEquipeRegras.SugestoesDeMencao("@xyz", nomes, n => n).Should().BeNull();
+        ChatEquipeRegras.SugestoesDeMencao("@Ana já viu", nomes, n => n).Should().BeNull("a sugestão é só para a palavra que está sendo escrita");
+    }
+
+    [Fact]
+    public void Busca_procura_palavras_sem_acento_e_mostra_o_trecho()
+    {
+        ChatEquipeRegras.PalavrasDaBusca("  Laudo da LÚCIA, 10h! ").Should().Equal("laudo", "da", "lucia", "10h");
+        ChatEquipeRegras.PalavrasDaBusca("a ! ?").Should().BeEmpty("letra solta não é busca");
+        ChatEquipeRegras.ConsultaDeTexto(["laudo", "lucia"]).Should().Be("laudo:* & lucia:*");
+        ChatEquipeRegras.TextoDeBusca("Lúcia ÁGUA").Should().Be("lucia agua");
+
+        var texto = string.Join(' ', Enumerable.Repeat("bla", 80)) + " o laudo da Lúcia ficou pronto " + string.Join(' ', Enumerable.Repeat("fim", 80));
+        var trecho = ChatEquipeRegras.Trecho(texto, ["lucia"]);
+        trecho.Should().Contain("Lúcia").And.StartWith("…").And.EndWith("…");
+        trecho.Length.Should().BeLessThanOrEqualTo(145);
+        ChatEquipeRegras.Trecho("curto", ["x"]).Should().Be("curto");
+    }
+
+    [Fact]
+    public void Perfis_do_canal_sao_os_mesmos_de_quem_participa()
+    {
+        foreach (var canal in ChatEquipeRegras.Canais)
+            ChatEquipeRegras.PerfisDoCanal(canal).Should().BeEquivalentTo(
+                Enum.GetValues<PerfilAcesso>().Where(p => ChatEquipeRegras.ParticipaDoCanal(p, canal)));
+    }
+
+    [Fact]
+    public void Mensagem_longa_e_recolhida_pelo_comeco_e_pelo_tamanho()
+    {
+        ChatEquipeRegras.Recolhida("curta", 5).Should().BeFalse();
+        ChatEquipeRegras.Recolhida(new string('x', 600), 3000).Should().BeTrue();
+        ChatEquipeRegras.Recolhida(string.Join('\n', Enumerable.Repeat("l", 9)), 17).Should().BeTrue("muitas linhas");
+    }
 }
 
 /// <summary>O serviço do chat contra o banco: envio, leitura, não lidas, edição e acesso.</summary>
@@ -222,21 +284,26 @@ public sealed class ChatEquipeServiceTests : IDisposable
     {
         var conversa = ChatEquipeRegras.Direta(ana.Id, paulo.Id);
         await chat.EnviarAsync(ana.Id, ChatEquipeRegras.CanalGeral, new("bom dia")); // a bolinha já viu esta
-        var antes = await chat.PainelAsync(ana.Id, 0, Prefs);
+        var antes = await chat.PulsoAsync(ana.Id, 0, Prefs);
+        antes.Novidades.Should().BeEmpty("a primeira batida só aprende onde a conversa está");
         var id = await chat.EnviarAsync(paulo.Id, conversa, new("O João das 10h30 pode adiantar?"));
 
-        var painel = await chat.PainelAsync(ana.Id, antes.UltimaMensagemId, Prefs);
+        var painel = await chat.PainelAsync(ana.Id);
         painel.TotalNaoLidas.Should().Be(1);
         painel.Diretas.First().PessoaId.Should().Be(paulo.Id, "quem tem o que ler sobe na lista");
         painel.Diretas.First().UltimaPrevia.Should().Be("Paulo: O João das 10h30 pode adiantar?");
 
-        var comNovidade = await chat.PainelAsync(ana.Id, id - 1, Prefs);
-        comNovidade.Novidades.Should().ContainSingle().Which.Som.Should().Be(SomChat.Direta);
+        var pulso = await chat.PulsoAsync(ana.Id, antes.UltimaMensagemId, Prefs);
+        pulso.Novidades.Should().ContainSingle().Which.Som.Should().Be(SomChat.Direta);
+        pulso.UltimaMensagemId.Should().Be(id);
+        (await chat.PulsoAsync(paulo.Id, antes.UltimaMensagemId, Prefs)).Novidades.Should().BeEmpty("a minha mensagem não é novidade para mim");
+        (await chat.PulsoAsync(joana.Id, antes.UltimaMensagemId, Prefs)).Novidades.Should().BeEmpty("a direta dos outros não chega a mim");
 
+        (await chat.AbrirAsync(ana.Id, conversa, antesDe: id)).Should().NotBeNull();
+        (await chat.PainelAsync(ana.Id)).TotalNaoLidas.Should().Be(1, "a página de mensagens antigas não marca nada como lido");
         var aberta = await chat.AbrirAsync(ana.Id, conversa);
         aberta.UltimaLidaAntes.Should().Be(0, "é o ponto do separador \"Novas mensagens\"");
-        await chat.MarcarLidaAsync(ana.Id, conversa, id);
-        (await chat.PainelAsync(ana.Id, id, Prefs)).TotalNaoLidas.Should().Be(0);
+        (await chat.PainelAsync(ana.Id)).TotalNaoLidas.Should().Be(0, "abrir é ler: a marcação vai na mesma chamada");
 
         (await chat.AbrirAsync(paulo.Id, conversa)).Mensagens.Single().LidaPor.Should().Be("Lida");
     }
@@ -249,7 +316,7 @@ public sealed class ChatEquipeServiceTests : IDisposable
         await FluentActions.Awaiting(() => chat.AbrirAsync(joana.Id, conversa)).Should().ThrowAsync<UnauthorizedAccessException>();
         await FluentActions.Awaiting(() => chat.EnviarAsync(paulo.Id, ChatEquipeRegras.CanalRecepcao, new("oi")))
             .Should().ThrowAsync<UnauthorizedAccessException>("quem atende não está no # Recepção");
-        (await chat.PainelAsync(joana.Id, 0, Prefs)).Diretas.Should().OnlyContain(d => d.NaoLidas == 0);
+        (await chat.PainelAsync(joana.Id)).Diretas.Should().OnlyContain(d => d.NaoLidas == 0);
     }
 
     [Fact]
@@ -260,7 +327,7 @@ public sealed class ChatEquipeServiceTests : IDisposable
         var msg = await db.MensagensEquipe.AsNoTracking().SingleAsync(m => m.Id == id);
         ChatEquipeRegras.Mencionou(msg.Mencoes, ana.Id).Should().BeTrue();
         ChatEquipeRegras.Mencionou(msg.Mencoes, paulo.Id).Should().BeFalse("Paulo não lê o # Recepção");
-        (await chat.PainelAsync(ana.Id, id - 1, Prefs)).Novidades.Single().Som.Should().Be(SomChat.Mencao);
+        (await chat.PulsoAsync(ana.Id, id - 1, Prefs)).Novidades.Single().Som.Should().Be(SomChat.Mencao);
     }
 
     [Fact]
@@ -283,7 +350,14 @@ public sealed class ChatEquipeServiceTests : IDisposable
         var laudo = string.Join("\n", Enumerable.Repeat("Paciente em acompanhamento por lombalgia crônica.", 60));
         var conversa = ChatEquipeRegras.Direta(ana.Id, paulo.Id);
         var id = await chat.EnviarAsync(paulo.Id, conversa, new(laudo, ArquivoNome: "C:\\laudos\\laudo.pdf", ArquivoConteudo: [1, 2, 3]));
-        (await chat.AbrirAsync(ana.Id, conversa)).Mensagens.Single().Texto.Should().Be(laudo);
+        // A conversa traz o começo; o laudo inteiro vem quando pedido ("Ver inteiro", "Copiar").
+        var naConversa = (await chat.AbrirAsync(ana.Id, conversa)).Mensagens.Single();
+        naConversa.Texto.Should().Be(laudo[..ChatEquipeRegras.TextoNaConversa]);
+        naConversa.TextoCompleto.Should().BeFalse();
+        naConversa.Tamanho.Should().Be(laudo.Length);
+        ChatEquipeRegras.Recolhida(naConversa.Texto, naConversa.Tamanho).Should().Be(ChatEquipeRegras.Recolhida(laudo));
+        (await chat.TextoAsync(ana.Id, id)).Should().Be(laudo);
+        await FluentActions.Awaiting(() => chat.TextoAsync(joana.Id, id)).Should().ThrowAsync<UnauthorizedAccessException>();
         var arq = await chat.ArquivoAsync(ana.Id, id);
         arq!.Value.Nome.Should().Be("laudo.pdf");
         arq.Value.Conteudo.Should().Equal(1, 2, 3);
@@ -302,10 +376,10 @@ public sealed class ChatEquipeServiceTests : IDisposable
         var nova = new UsuarioSistema { Nome = "Carla Nova", Login = "carla", Perfil = PerfilAcesso.Recepcao, CriadoEm = relogio.AddDays(1) };
         db.Usuarios.Add(nova);
         await db.SaveChangesAsync();
-        (await chat.PainelAsync(nova.Id, 0, Prefs)).TotalNaoLidas.Should().Be(0);
+        (await chat.PainelAsync(nova.Id)).TotalNaoLidas.Should().Be(0);
         relogio = relogio.AddDays(2);
         await chat.EnviarAsync(ana.Id, ChatEquipeRegras.CanalGeral, new("bem-vinda"));
-        (await chat.PainelAsync(nova.Id, 0, Prefs)).TotalNaoLidas.Should().Be(1);
+        (await chat.PainelAsync(nova.Id)).TotalNaoLidas.Should().Be(1);
     }
 
     [Fact]
@@ -316,10 +390,10 @@ public sealed class ChatEquipeServiceTests : IDisposable
         (await chat.AbrirAsync(joana.Id, ChatEquipeRegras.CanalRecepcao)).Escrevendo.Should().BeEmpty("não mostra a mim mesma");
         await chat.EnviarAsync(joana.Id, ChatEquipeRegras.CanalRecepcao, new("pronto"));
         (await chat.AbrirAsync(ana.Id, ChatEquipeRegras.CanalRecepcao)).Escrevendo.Should().BeEmpty();
-        var online = await chat.PainelAsync(ana.Id, 0, Prefs);
+        var online = await chat.PainelAsync(ana.Id);
         online.Diretas.Single(d => d.PessoaId == joana.Id).Presenca.Should().Be(PresencaChat.Online);
         relogio = relogio.AddMinutes(5);
-        (await chat.PainelAsync(ana.Id, 0, Prefs)).Diretas.Single(d => d.PessoaId == joana.Id).Presenca.Should().Be(PresencaChat.Fora);
+        (await chat.PainelAsync(ana.Id)).Diretas.Single(d => d.PessoaId == joana.Id).Presenca.Should().Be(PresencaChat.Fora);
     }
 
     [Fact]
@@ -332,7 +406,7 @@ public sealed class ChatEquipeServiceTests : IDisposable
         await chat.EnviarAsync(paulo.Id, conversa, new("", PacienteId: paciente.Id));
         var m = (await chat.AbrirAsync(ana.Id, conversa)).Mensagens.Single();
         m.PacienteNome.Should().Be("Lúcia Fictícia");
-        (await chat.PainelAsync(ana.Id, 0, Prefs)).Diretas.First().UltimaPrevia.Should().Be("Paulo: [Lúcia Fictícia]");
+        (await chat.PainelAsync(ana.Id)).Diretas.First().UltimaPrevia.Should().Be("Paulo: [Lúcia Fictícia]");
         await FluentActions.Awaiting(() => chat.EnviarAsync(paulo.Id, conversa, new("", PacienteId: 999)))
             .Should().ThrowAsync<InvalidOperationException>();
     }
@@ -355,7 +429,9 @@ public sealed class ChatEquipeServiceTests : IDisposable
         r.Novas.Select(m => m.Id).Should().Equal(nova);
         r.Editadas.Single().Texto.Should().Be("Laudo longo da Lúcia (corrigido)");
         r.Subtitulo.Should().Be("online");
-        r.Leituras.Should().Contain(new LeituraNaConversa(paulo.Id, nova), "quem envia leu a própria mensagem");
+        r.Leituras.Should().Contain(new LeituraNaConversa(ana.Id, primeira), "abrir marcou até a primeira");
+        (await chat.AtualizarAsync(ana.Id, conversa, nova, r.Instante)).Leituras
+            .Should().Contain(new LeituraNaConversa(ana.Id, nova), "a releitura marcou a nova como lida");
 
         await chat.EnviarAsync(paulo.Id, conversa, new("e agora?"));
         (await chat.AtualizarAsync(ana.Id, conversa, primeira, r.Instante, limite: 1)).HaMaisNovas
@@ -450,6 +526,103 @@ public sealed class ChatEquipeServiceTests : IDisposable
         daRecepcao.DocumentoRotulo.Should().Be(ChatEquipeRegras.DocumentoSemAcesso);
         daRecepcao.PacienteNome.Should().Be("Lúcia Fictícia");
         (await chat.AtualizarAsync(ana.Id, conversa, 0, relogio)).Novas.Single().DocumentoId.Should().BeNull();
-        (await chat.PainelAsync(ana.Id, 0, Prefs)).Diretas.First().UltimaPrevia.Should().Be("Paulo: [documento clínico]");
+        (await chat.PainelAsync(ana.Id)).Diretas.First().UltimaPrevia.Should().Be("Paulo: [documento clínico]");
+    }
+
+    [Fact]
+    public async Task Busca_acha_sem_acento_so_no_que_a_pessoa_ve()
+    {
+        var direta = ChatEquipeRegras.Direta(ana.Id, paulo.Id);
+        var noGeral = await chat.EnviarAsync(paulo.Id, ChatEquipeRegras.CanalGeral, new("O laudo da Lúcia ficou pronto"));
+        var naDireta = await chat.EnviarAsync(paulo.Id, direta, new("Laudo LUCIA: segunda via na recepção"));
+        await chat.EnviarAsync(paulo.Id, ChatEquipeRegras.CanalGeral, new("Reunião às 15h"));
+
+        var daAna = await chat.BuscarAsync(ana.Id, "lucia laudo");
+        daAna.Select(r => r.MensagemId).Should().Equal(naDireta, noGeral);
+        daAna[0].Titulo.Should().Be("Paulo Lima", "a direta aparece com o nome da outra pessoa");
+        daAna[1].Titulo.Should().Be("# Geral");
+        daAna[1].Trecho.Should().Be("O laudo da Lúcia ficou pronto");
+
+        (await chat.BuscarAsync(joana.Id, "lucia")).Select(r => r.MensagemId).Should().Equal([noGeral], "a direta dos outros não aparece na busca");
+        (await chat.BuscarAsync(ana.Id, "lucia", conversa: ChatEquipeRegras.CanalGeral)).Should().ContainSingle();
+        (await chat.BuscarAsync(ana.Id, "x")).Should().BeEmpty();
+        await FluentActions.Awaiting(() => chat.BuscarAsync(joana.Id, "lucia", conversa: direta)).Should().ThrowAsync<UnauthorizedAccessException>();
+
+        relogio = relogio.AddMinutes(1);
+        await chat.EditarAsync(paulo.Id, noGeral, "O exame da Marta ficou pronto");
+        (await chat.BuscarAsync(ana.Id, "lucia")).Select(r => r.MensagemId).Should().Equal([naDireta], "a busca acompanha a correção");
+        (await chat.BuscarAsync(ana.Id, "marta")).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Direta_com_quem_saiu_da_equipe_fica_so_para_leitura()
+    {
+        var direta = ChatEquipeRegras.Direta(ana.Id, paulo.Id);
+        await chat.EnviarAsync(paulo.Id, direta, new("Até amanhã!"));
+        var paraPaulo = await db.Usuarios.SingleAsync(u => u.Id == paulo.Id);
+        paraPaulo.Ativo = false;
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var painel = await chat.PainelAsync(ana.Id);
+        var linha = painel.Diretas.Single(d => d.PessoaId == paulo.Id);
+        linha.PessoaAtiva.Should().BeFalse();
+        linha.Subtitulo.Should().Be("saiu da equipe");
+        linha.NaoLidas.Should().Be(1, "o que ele mandou antes de sair continua para ler");
+        painel.Diretas.Last().PessoaId.Should().Be(paulo.Id, "quem saiu vai para o fim da lista");
+
+        var aberta = await chat.AbrirAsync(ana.Id, direta);
+        aberta.SoLeitura.Should().BeTrue();
+        aberta.Subtitulo.Should().Contain("só leitura");
+        aberta.Mensagens.Should().ContainSingle();
+        aberta.Pessoas.Should().BeEmpty("não se cita quem saiu");
+        await FluentActions.Awaiting(() => chat.EnviarAsync(ana.Id, direta, new("oi")))
+            .Should().ThrowAsync<InvalidOperationException>();
+        (await chat.BuscarAsync(ana.Id, "amanha")).Should().ContainSingle("o histórico continua na busca");
+    }
+
+    [Fact]
+    public async Task Nao_lidas_sao_contadas_inteiras_sem_teto()
+    {
+        // 3.500 mensagens: a contagem antiga trazia no máximo 3.000 linhas e errava calada.
+        const int quantas = 3500;
+        var momento = relogio;
+        for (var i = 0; i < quantas; i++)
+            db.MensagensEquipe.Add(new MensagemEquipe
+            {
+                Conversa = ChatEquipeRegras.CanalGeral, AutorId = paulo.Id, AutorNome = paulo.Nome,
+                Texto = $"aviso {i}", TextoBusca = $"aviso {i}", EnviadaEm = momento,
+            });
+        await db.SaveChangesAsync();
+        var ultima = await db.MensagensEquipe.MaxAsync(m => m.Id);
+        db.ConversasEquipe.Add(new ConversaEquipe
+        {
+            Conversa = ChatEquipeRegras.CanalGeral, UltimaMensagemId = ultima, UltimaEm = momento,
+            UltimoAutorId = paulo.Id, UltimoAutorNome = paulo.Nome, UltimaPrevia = "aviso",
+        });
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        (await chat.PainelAsync(ana.Id, completo: false)).TotalNaoLidas.Should().Be(quantas);
+        var pulso = await chat.PulsoAsync(ana.Id, ultima - 100, new());
+        pulso.Novidades.Should().HaveCount(10, "a prévia mostra as últimas, não as cem");
+        pulso.UltimaMensagemId.Should().Be(ultima);
+    }
+
+    [Fact]
+    public async Task Primeira_mensagem_cria_a_conversa_e_as_seguintes_atualizam()
+    {
+        var direta = ChatEquipeRegras.Direta(ana.Id, joana.Id);
+        await chat.EnviarAsync(ana.Id, direta, new("primeira"));
+        var segunda = await chat.EnviarAsync(joana.Id, direta, new("segunda"));
+        var resumo = await db.ConversasEquipe.AsNoTracking().SingleAsync(c => c.Conversa == direta);
+        resumo.UltimaMensagemId.Should().Be(segunda);
+        resumo.UltimoAutorNome.Should().Be("Joana Reis");
+        (resumo.ParticipanteA, resumo.ParticipanteB).Should().Be((Math.Min(ana.Id, joana.Id), Math.Max(ana.Id, joana.Id)));
+
+        relogio = relogio.AddMinutes(1);
+        await chat.EditarAsync(joana.Id, segunda, "segunda, corrigida");
+        (await db.ConversasEquipe.AsNoTracking().SingleAsync(c => c.Conversa == direta)).UltimaPrevia.Should().Be("segunda, corrigida");
+        (await db.PresencasEquipe.AsNoTracking().SingleAsync(p => p.UsuarioId == joana.Id)).EscrevendoEm.Should().BeNull();
     }
 }

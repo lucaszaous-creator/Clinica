@@ -28,6 +28,13 @@ public class MensagemEquipe
     /// <summary>O texto, sem limite de tamanho (o laudo cabe inteiro).</summary>
     public string Texto { get; set; } = string.Empty;
 
+    /// <summary>
+    /// O texto como a BUSCA o lê: minúsculo e sem acento (<c>ChatEquipeRegras.TextoDeBusca</c>),
+    /// gravado junto com o texto. No Postgres ele tem um índice de texto (GIN) — procurar uma
+    /// palavra em anos de conversa não lê as mensagens uma a uma.
+    /// </summary>
+    public string TextoBusca { get; set; } = string.Empty;
+
     public DateTime EnviadaEm { get; set; }
 
     /// <summary>Preenchido quando o autor corrigiu o texto; a versão anterior fica em <see cref="Versoes"/>.</summary>
@@ -93,4 +100,29 @@ public class PresencaEquipe
     public DateTime VistoEm { get; set; }
     public string? EscrevendoEm { get; set; }
     public DateTime? EscrevendoAte { get; set; }
+}
+
+/// <summary>
+/// A LISTA de conversas, uma linha por conversa: a última mensagem e quem participa da direta.
+/// É o que o WhatsApp chama de "lista de chats" — a lista nasce desta tabela, sem varrer o
+/// histórico para descobrir quais diretas existem nem qual foi a última mensagem de cada uma.
+/// Gravada no mesmo envio da mensagem (e na correção da última).
+/// </summary>
+public class ConversaEquipe
+{
+    /// <summary>A chave da conversa ("canal:geral", "direta:3:7").</summary>
+    public string Conversa { get; set; } = string.Empty;
+
+    /// <summary>Na direta, o menor e o maior id; nulos nos canais.</summary>
+    public int? ParticipanteA { get; set; }
+    public int? ParticipanteB { get; set; }
+
+    public int UltimaMensagemId { get; set; }
+    public MensagemEquipe? UltimaMensagem { get; set; }
+    public DateTime UltimaEm { get; set; }
+    public int UltimoAutorId { get; set; }
+    public string UltimoAutorNome { get; set; } = string.Empty;
+
+    /// <summary>A prévia já cortada (uma linha) — a lista não lê o texto da mensagem.</summary>
+    public string UltimaPrevia { get; set; } = string.Empty;
 }
