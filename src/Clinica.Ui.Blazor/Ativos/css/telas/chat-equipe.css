@@ -275,6 +275,20 @@ body:has(.modal-rodape){--chat-piso:calc(var(--space-16) + var(--space-6))}
 .chat-pedido-campo{display:flex;flex-direction:column;gap:4px;font-size:var(--text-small-size);color:var(--texto-secundario)}
 .chat-pedido-aviso{margin:0;font-size:var(--text-small-size);color:var(--aviso-texto)}
 .chat-pop.pedido-recepcao .chat-pedido-acoes{justify-content:flex-end}
+/* Os formulários do chat (pedido à recepção, anexar paciente) ROLAM inteiros: numa coluna flex com
+   teto de altura, os filhos encolhiam em vez de rolar, e o detalhe e o botão Enviar saíam cortados. */
+.chat-pop.pedido-recepcao,.chat-pop.paciente{overflow-y:auto;overscroll-behavior:contain}
+.chat-pop.pedido-recepcao>*,.chat-pop.paciente>*{flex-shrink:0}
+/* A busca de paciente foi desenhada para a tela inteira (campo grande, quatro colunas) e decide as
+   colunas pela largura da JANELA. Dentro do chat ela é estreita sempre: o nome e o "Hoje"/convênio,
+   que é o que se olha para escolher; documento e telefone ficam na ficha. */
+.chat-pop .quem{width:100%;margin:0;gap:var(--space-2)}
+.chat-pop .quem-campo .campo{min-height:var(--space-10);font-size:var(--text-body-size);padding-right:var(--space-16)}
+.chat-pop .quem-cab,.chat-pop .quem-linha{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);padding:0 var(--space-3)}
+.chat-pop .quem-cab span:nth-child(2),.chat-pop .quem-cab span:nth-child(3),
+.chat-pop .quem-linha .quem-doc,.chat-pop .quem-linha .quem-tel{display:none}
+.chat-pop .quem-linha{min-height:48px}
+.chat-pop .quem-lista{max-height:calc(var(--table-header-height) + 4 * 48px)}
 /* Na linha do cartão, as ações ficam à vista (mais claras), e acendem na linha apontada. */
 .chat-card-acoes .chat-mini{opacity:.55}
 .chat-card-linha:hover .chat-mini,.chat-card-acoes .chat-mini:focus-visible{opacity:1;color:var(--acento)}

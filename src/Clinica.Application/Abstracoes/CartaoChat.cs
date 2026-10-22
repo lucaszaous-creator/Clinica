@@ -7,8 +7,8 @@ namespace Clinica.Application.Abstracoes;
 /// O cartão estruturado de uma mensagem do chat (out/2026): a resposta do Sistema SemDor (a agenda
 /// do dia com a situação de cada horário) e o pedido à recepção (com a situação dele). É UM formato
 /// genérico de propósito — título, números de resumo, linhas com selo e botões de sugestão —, para
-/// a mesma descrição ser desenhada igual pelo chat dos apps (Blazor) e pelo CRM (JavaScript), sem
-/// cada tipo de resposta ganhar um desenho próprio nos dois lados.
+/// a mesma descrição ser desenhada pelo chat dos apps (Blazor) e escrita como texto pelo WhatsApp da
+/// equipe (AssistenteWhatsAppRegras.Texto), sem cada tipo de resposta ganhar um formato próprio.
 /// </summary>
 /// <param name="Tipo">"agenda", "lista", "pedido", "ajuda" — o desenho é o mesmo; o tipo só muda o ícone.</param>
 /// <param name="Resumo">Os números do topo ("8 confirmaram"), cada um com o seu tom.</param>

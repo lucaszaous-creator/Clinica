@@ -7,7 +7,7 @@ namespace Clinica.Application.Servicos;
 /// <summary>
 /// As regras do pedido à recepção (out/2026): os tipos, quem pede, quem trata, as situações e as
 /// frases do cartão. O pedido é um RECADO com dono e desfecho — nunca mexe na agenda sozinho; quem
-/// remarca, cancela ou encaixa é a recepção, pela agenda (balcão ou CRM), com as regras dela.
+/// remarca, cancela ou encaixa é a recepção, pela agenda, com as regras dela.
 /// </summary>
 public static class PedidosRecepcaoRegras
 {
@@ -57,8 +57,8 @@ public static class PedidosRecepcaoRegras
 
     /// <summary>
     /// Quem trata pedidos: quem marca e remarca (<see cref="Permissao.EditarAgenda"/>) — a
-    /// recepção, a direção e quem a direção liberar. É o mesmo bit de quem entra no CRM, então a
-    /// secretária que trata o pedido pelo CRM é a mesma que o trataria no balcão.
+    /// recepção, a direção e quem a direção liberar. O pedido é tratado no # Recepção dos apps (o chat
+    /// da equipe saiu do CRM em out/2026).
     /// </summary>
     public static bool PodeTratar(UsuarioSistema u) => u.Ativo && u.Pode(Permissao.EditarAgenda);
 
