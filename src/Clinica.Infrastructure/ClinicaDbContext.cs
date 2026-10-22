@@ -135,6 +135,12 @@ public class ClinicaDbContext : DbContext
     public DbSet<BloqueioAgenda> BloqueiosAgenda => Set<BloqueioAgenda>();
     public DbSet<MetaMensal> Metas => Set<MetaMensal>();
     public DbSet<OrcamentoCategoria> Orcamentos => Set<OrcamentoCategoria>();
+    public DbSet<MensagemEquipe> MensagensEquipe => Set<MensagemEquipe>();
+    public DbSet<ArquivoMensagemEquipe> ArquivosMensagemEquipe => Set<ArquivoMensagemEquipe>();
+    public DbSet<VersaoMensagemEquipe> VersoesMensagemEquipe => Set<VersaoMensagemEquipe>();
+    public DbSet<LeituraEquipe> LeiturasEquipe => Set<LeituraEquipe>();
+    public DbSet<PresencaEquipe> PresencasEquipe => Set<PresencaEquipe>();
+    public DbSet<ConversaEquipe> ConversasEquipe => Set<ConversaEquipe>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -1785,6 +1791,76 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => x.DocumentoClinicoId);
         });
 
+        // O chat da equipe (out/2026). Nada apaga em cascata além das partes da própria
+        // mensagem (arquivo e versões): paciente, documento e usuário não somem por causa de
+        // uma mensagem, nem a mensagem some por causa deles.
+        b.Entity<MensagemEquipe>(e =>
+        {
+            e.ToTable("MensagensEquipe");
+            e.Property(x => x.Conversa).IsRequired().HasMaxLength(40);
+            e.Property(x => x.AutorNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Texto).IsRequired().HasColumnType("text");
+            e.Property(x => x.TextoBusca).IsRequired().HasColumnType("text");
+            e.Property(x => x.Mencoes).HasMaxLength(400);
+            e.Property(x => x.PacienteNome).HasMaxLength(200);
+            e.Property(x => x.DocumentoRotulo).HasMaxLength(200);
+            e.Property(x => x.ArquivoNome).HasMaxLength(200);
+            e.Property(x => x.EnviadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EditadaEm).HasColumnType("timestamp without time zone");
+            e.HasOne(x => x.Autor).WithMany().HasForeignKey(x => x.AutorId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.DocumentoClinico).WithMany().HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.Conversa, x.Id });
+            // A releitura pede "o que foi corrigido desde a última vez": sem este índice o
+            // Postgres leria a conversa inteira para achar as poucas correções recentes.
+            e.HasIndex(x => new { x.Conversa, x.EditadaEm });
+        });
+        b.Entity<ArquivoMensagemEquipe>(e =>
+        {
+            e.ToTable("ArquivosMensagemEquipe");
+            e.HasKey(x => x.MensagemId);
+            e.HasOne(x => x.Mensagem).WithOne(x => x.Arquivo)
+                .HasForeignKey<ArquivoMensagemEquipe>(x => x.MensagemId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<VersaoMensagemEquipe>(e =>
+        {
+            e.ToTable("VersoesMensagemEquipe");
+            e.Property(x => x.Texto).IsRequired().HasColumnType("text");
+            e.Property(x => x.SubstituidaEm).HasColumnType("timestamp without time zone");
+            e.HasOne(x => x.Mensagem).WithMany(x => x.Versoes).HasForeignKey(x => x.MensagemId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<LeituraEquipe>(e =>
+        {
+            e.ToTable("LeiturasEquipe");
+            e.Property(x => x.Conversa).IsRequired().HasMaxLength(40);
+            e.Property(x => x.LidaEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(x => new { x.UsuarioId, x.Conversa }).IsUnique();
+            e.HasIndex(x => x.Conversa);
+        });
+        b.Entity<ConversaEquipe>(e =>
+        {
+            e.ToTable("ConversasEquipe");
+            e.HasKey(x => x.Conversa);
+            e.Property(x => x.Conversa).HasMaxLength(40);
+            e.Property(x => x.UltimoAutorNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.UltimaPrevia).IsRequired().HasMaxLength(200);
+            e.Property(x => x.UltimaEm).HasColumnType("timestamp without time zone");
+            // As diretas de uma pessoa saem por estes dois índices, sem LIKE sobre o histórico.
+            // A última mensagem por chave: o envio grava a mensagem e o resumo no MESMO
+            // SaveChanges (uma ida), e o EF põe a mensagem antes para o resumo apontar para ela.
+            e.HasOne(x => x.UltimaMensagem).WithMany().HasForeignKey(x => x.UltimaMensagemId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.ParticipanteA);
+            e.HasIndex(x => x.ParticipanteB);
+        });
+        b.Entity<PresencaEquipe>(e =>
+        {
+            e.ToTable("PresencasEquipe");
+            e.HasKey(x => x.UsuarioId);
+            e.Property(x => x.UsuarioId).ValueGeneratedNever();
+            e.Property(x => x.EscrevendoEm).HasMaxLength(40);
+            e.Property(x => x.VistoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EscrevendoAte).HasColumnType("timestamp without time zone");
+        });
         b.Entity<UsuarioSistema>(e =>
         {
             e.HasKey(x => x.Id);

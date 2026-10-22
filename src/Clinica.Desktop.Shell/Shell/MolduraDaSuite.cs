@@ -151,6 +151,9 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
 
     public void AbrirTodosOsPedidos() => _vm.AbrirPedidosEnfermagemCommand.Execute(null);
 
+    /// <summary>O cartão do pedido no chat da equipe: o MESMO caminho do sino (marca a leitura e abre a tela de Pedidos).</summary>
+    public void AbrirPedidoDaEnfermagem(int id) => _vm.AbrirPedidoDoSinoCommand.Execute(new PedidoNoSino(id, "", "", "", false));
+
     public void AbrirResposta(RespostaHtml resposta)
     {
         if (resposta.Alvo is RespostaNoSino original) _vm.AbrirRespostaDoSinoCommand.Execute(original);

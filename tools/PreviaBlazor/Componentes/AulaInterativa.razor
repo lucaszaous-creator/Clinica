@@ -24,6 +24,7 @@ else
     [Parameter] public string? Secao { get; set; }
     [Parameter] public int? SubAba { get; set; }
     [Parameter] public int? Agendamento { get; set; }
+    [Parameter] public string? Usuario { get; set; }
 
     private PreviaBlazor.MolduraDaAula? _moldura;
     private string _erro = "";
@@ -49,7 +50,14 @@ else
         }
         // O app da enfermagem entra com o perfil Enfermagem: o rail e as seções da tela do
         // paciente seguem o perfil, e a aula precisa mostrar o que a enfermeira vê.
-        if (app.Perfil == "Enfermagem")
+        if (!string.IsNullOrWhiteSpace(Usuario))
+        {
+            using var escopo = Servicos.CreateScope();
+            var db = escopo.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+            var pedido = await db.Usuarios.FirstOrDefaultAsync(u => u.Login == Usuario);
+            if (pedido is not null) new Clinica.Domain.Entities.SessaoUsuario().Entrar(pedido);
+        }
+        else if (app.Perfil == "Enfermagem")
         {
             using var escopo = Servicos.CreateScope();
             var db = escopo.ServiceProvider.GetRequiredService<ClinicaDbContext>();

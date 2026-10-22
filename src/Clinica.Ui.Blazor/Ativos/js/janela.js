@@ -63,3 +63,82 @@ window.clinicaVideo = {
 window.clinicaJanela = {
     altura: function () { return window.innerHeight; }
 };
+// O CHAT DA EQUIPE (out/2026): o modo (bolinha / janela / encostado), a conversa aberta e
+// as preferências de som moram NESTE computador, por pessoa — "só para você, neste
+// computador" é o que a tela promete. O som é sintetizado (WebAudio): não há arquivo de
+// áudio para empacotar, e o navegador da janela já está acordado.
+window.clinicaChat = {
+    ler: function (usuario) {
+        try { return localStorage.getItem('clinica.chat.' + usuario); } catch (e) { return null; }
+    },
+    gravar: function (usuario, texto) {
+        try { localStorage.setItem('clinica.chat.' + usuario, texto); } catch (e) { }
+    },
+    rolarAoFim: function (el) {
+        if (el) el.scrollTop = el.scrollHeight;
+    },
+    // As teclas do chat. Enter envia, Shift+Enter quebra a linha — decidido AQUI, na hora da tecla. Pelo
+    // @onkeydown:preventDefault do Blazor a decisão só valia no render seguinte, e o Enter que
+    // enviava deixava passar a quebra de linha. UM ouvinte na página para o campo da conversa
+    // (.chat-campo), que some e volta a cada troca de conversa; o componente novo (outro login)
+    // só troca a referência. Durante a composição de acento (IME) o Enter é da composição.
+    _ponte: null,
+    ligarCampo: function (ref) {
+        var self = this;
+        self._ponte = ref;
+        if (self._campoLigado) return;
+        self._campoLigado = true;
+        function chamar(nome, arg) {
+            if (!self._ponte) return;
+            (arg === undefined ? self._ponte.invokeMethodAsync(nome) : self._ponte.invokeMethodAsync(nome, arg)).catch(function () { });
+        }
+        document.addEventListener('keydown', function (e) {
+            // Esc fecha o que o chat tem por cima (a sugestão de @, o editor, as escolhas, a busca).
+            if (e.key === 'Escape') {
+                if (document.querySelector('.chat-painel, .chat-editor')) chamar('Escape');
+                return;
+            }
+            if (e.ctrlKey || e.altKey || e.isComposing) return;
+            if (!e.target || !e.target.classList || !e.target.classList.contains('chat-campo')) return;
+            // Com a sugestão de @ à vista, as setas andam nela e o Tab escolhe.
+            if (document.querySelector('.chat-mencoes') && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Tab')) {
+                e.preventDefault();
+                chamar('TeclaDaMencao', e.key);
+                return;
+            }
+            if (e.key !== 'Enter' || e.shiftKey) return;
+            e.preventDefault();
+            chamar('EnviarPeloEnter');
+        });
+    },
+    // A mensagem achada na busca: rola até ela, no meio da conversa.
+    rolarAte: function (id) {
+        var el = document.getElementById(id);
+        if (el) el.scrollIntoView({ block: 'center' });
+    },
+    _ctx: null,
+    tocar: function (tipo) {
+        try {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            var ctx = this._ctx || (this._ctx = new Ctx());
+            if (ctx.state === 'suspended') ctx.resume();
+            // Direta: dois toques curtos. Menção: três, mais agudos. Pedido: um grave e longo.
+            var notas = tipo === 'mencao' ? [880, 1046, 1318]
+                      : tipo === 'pedido' ? [523, 392]
+                      : [784, 988];
+            var dur = tipo === 'pedido' ? 0.22 : 0.11;
+            var t = ctx.currentTime;
+            notas.forEach(function (f, i) {
+                var o = ctx.createOscillator(), g = ctx.createGain();
+                o.type = 'sine'; o.frequency.value = f;
+                var ini = t + i * (dur + 0.04);
+                g.gain.setValueAtTime(0.0001, ini);
+                g.gain.exponentialRampToValueAtTime(0.18, ini + 0.015);
+                g.gain.exponentialRampToValueAtTime(0.0001, ini + dur);
+                o.connect(g); g.connect(ctx.destination);
+                o.start(ini); o.stop(ini + dur + 0.02);
+            });
+        } catch (e) { }
+    }
+};
