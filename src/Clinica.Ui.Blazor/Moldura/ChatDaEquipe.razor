@@ -221,7 +221,8 @@ else
                         @foreach (var item in Linhas())
                         {
                             var dia = DateOnly.FromDateTime(item.Em);
-                            if (dia != diaAnterior)
+                            // Só AVANÇA: com a ordem do banco, um relógio atrasado perto da meia-noite não repete "Hoje · Ontem · Hoje".
+                            if (diaAnterior is null || dia > diaAnterior)
                             {
                                 diaAnterior = dia;
                                 <div class="chat-dia"><span>@ChatEquipeRegras.Dia(dia, DateOnly.FromDateTime(DateTime.Now))</span></div>
@@ -1130,18 +1131,24 @@ else
         finally { _carregandoAnteriores = false; }
     }
 
-    /// <summary>Mensagens e — no # Recepção — os pedidos da enfermagem, na ordem em que chegaram.</summary>
+    /// <summary>
+    /// Mensagens e — no # Recepção — os pedidos da enfermagem, na ordem em que chegaram. A ordem das
+    /// mensagens é a do banco (<see cref="ChatEquipeRegras.OrdemDaConversa"/>), não o relógio de quem
+    /// enviou: ordenar pelo horário punha a resposta antes da pergunta quando um computador estava
+    /// com o relógio adiantado.
+    /// </summary>
     private IEnumerable<Linha> Linhas()
     {
         if (_aberta is null) return [];
-        var linhas = _aberta.Mensagens.Select(m => new Linha(m.EnviadaEm, m, null));
+        var mensagens = _aberta.Mensagens.Select(m => (m.Id, m.EnviadaEm, new Linha(m.EnviadaEm, m, null)));
+        IEnumerable<(DateTime, Linha)> avulsos = [];
         if (_conversa == ChatEquipeRegras.CanalRecepcao && _pedidos.Count > 0 && !_historico)
         {
             var desde = _aberta.TemAnteriores && _aberta.Mensagens.Count > 0 ? _aberta.Mensagens[0].EnviadaEm : DateTime.MinValue;
-            linhas = linhas.Concat(_pedidos.Where(p => (p.CriadaEm ?? p.Inicio) >= desde)
-                .Select(p => new Linha(p.CriadaEm ?? p.Inicio, null, p)));
+            avulsos = _pedidos.Where(p => (p.CriadaEm ?? p.Inicio) >= desde)
+                .Select(p => (p.CriadaEm ?? p.Inicio, new Linha(p.CriadaEm ?? p.Inicio, null, p)));
         }
-        return linhas.OrderBy(l => l.Em);
+        return ChatEquipeRegras.OrdemDaConversa(mensagens, avulsos);
     }
 
     // ---------------------------------------------------------------- texto longo

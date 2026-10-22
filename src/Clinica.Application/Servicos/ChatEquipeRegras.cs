@@ -362,6 +362,29 @@ public static class ChatEquipeRegras
     public static readonly TimeSpan MargemDoRelogio = TimeSpan.FromMinutes(5);
 
     /// <summary>
+    /// A ordem da conversa na tela (out/2026). As mensagens seguem a ordem em que o BANCO as
+    /// recebeu (o Id), nunca o horário de envio: <c>EnviadaEm</c> vinha do relógio de quem enviou, e
+    /// basta um computador do balcão com o relógio alguns minutos adiantado para a resposta aparecer
+    /// ANTES da pergunta. Desde a migration HoraDoChatPeloBanco o Postgres carimba a hora, mas a
+    /// ordem continua pelo Id: é ela que não depende de gatilho nenhum (nem do SQLite dos testes). Os avulsos (os pedidos da enfermagem no # Recepção, que não são mensagens)
+    /// entram pelo horário deles, antes da primeira mensagem mais nova — sem mexer na ordem das
+    /// mensagens entre si.
+    /// </summary>
+    public static IReadOnlyList<T> OrdemDaConversa<T>(IEnumerable<(int Id, DateTime Em, T Item)> mensagens,
+        IEnumerable<(DateTime Em, T Item)> avulsos)
+    {
+        var fila = new Queue<(DateTime Em, T Item)>(avulsos.OrderBy(a => a.Em));
+        var saida = new List<T>();
+        foreach (var m in mensagens.OrderBy(m => m.Id))
+        {
+            while (fila.Count > 0 && fila.Peek().Em < m.Em) saida.Add(fila.Dequeue().Item);
+            saida.Add(m.Item);
+        }
+        while (fila.Count > 0) saida.Add(fila.Dequeue().Item);
+        return saida;
+    }
+
+    /// <summary>
     /// A conversa na tela com o que a releitura trouxe: correções no lugar, mensagens novas no fim,
     /// e o "Lida" refeito. O que já estava na tela — inclusive as mensagens anteriores que a pessoa
     /// carregou — continua lá.
