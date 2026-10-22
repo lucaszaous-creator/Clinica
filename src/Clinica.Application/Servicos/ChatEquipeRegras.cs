@@ -363,9 +363,10 @@ public static class ChatEquipeRegras
 
     /// <summary>
     /// A ordem da conversa na tela (out/2026). As mensagens seguem a ordem em que o BANCO as
-    /// recebeu (o Id), nunca o horário de envio: <c>EnviadaEm</c> vem do relógio de quem enviou, e
+    /// recebeu (o Id), nunca o horário de envio: <c>EnviadaEm</c> vinha do relógio de quem enviou, e
     /// basta um computador do balcão com o relógio alguns minutos adiantado para a resposta aparecer
-    /// ANTES da pergunta. Os avulsos (os pedidos da enfermagem no # Recepção, que não são mensagens)
+    /// ANTES da pergunta. Desde a migration HoraDoChatPeloBanco o Postgres carimba a hora, mas a
+    /// ordem continua pelo Id: é ela que não depende de gatilho nenhum (nem do SQLite dos testes). Os avulsos (os pedidos da enfermagem no # Recepção, que não são mensagens)
     /// entram pelo horário deles, antes da primeira mensagem mais nova — sem mexer na ordem das
     /// mensagens entre si.
     /// </summary>

@@ -67,8 +67,11 @@ Como no WhatsApp e no Telegram: a mais antiga em cima, a mais nova embaixo, na o
 computador de quem enviou. Um computador do balcão com o relógio adiantado punha a pergunta depois da
 resposta. Agora a ordem é a do banco (`ChatEquipeRegras.OrdemDaConversa`), e os pedidos da enfermagem
 no `# Recepção` entram pelo horário deles, sem reordenar as mensagens. O separador de dia só avança.
-O horário mostrado em cada mensagem continua sendo o de quem enviou. Se ele parecer fora de ordem,
-o relógio daquele computador está errado (ative a sincronização de hora do Windows).
+**A hora também vem do banco** (migration `HoraDoChatPeloBanco`): um gatilho no Postgres carimba o
+`EnviadaEm` de cada mensagem e o `UltimaEm` da lista de conversas com a hora do servidor (horário de
+Brasília), como no WhatsApp. Isso vale para todas as portas (o chat, o Sistema SemDor, o pedido à
+recepção e a ponte do WhatsApp) e não custa nenhuma ida a mais ao banco. O gatilho só nasce onde o
+papel pode criá-lo; sem ele, vale a hora de quem enviou, como antes.
 Testes: `ChatEquipeRegrasTests` (a regra) e `ChatDaEquipeBlazorTests.Mensagens_em_ordem_de_chegada…`
 (a tela montada, com um relógio 10 minutos adiantado; com a ordem antiga ela mostra 2, 3, 1).
 
