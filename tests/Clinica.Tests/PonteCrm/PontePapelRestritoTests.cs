@@ -176,6 +176,26 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Contains("42501", e.ToString());
     }
 
+    // O documento pedido pelo WhatsApp (@SemDor fase 4): a ponte grava a conversa e o RASCUNHO,
+    // e nada em DocumentosClinicos — quem emite é o portal.
+    [Fact] public async Task Documento_pelo_WhatsApp_grava_so_o_rascunho()
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        var a = await Horario();
+        admin.Usuarios.Add(new UsuarioSistema { Login = "medica", Nome = "Médica fictícia", Perfil = PerfilAcesso.Profissional,
+            ProfissionalId = a.ProfissionalId, TelefoneWhatsApp = "5522999422253", WhatsAppLigadoEm = DateTime.Today.AddDays(-1) });
+        await admin.SaveChangesAsync();
+
+        var r = await new AssistenteWhatsAppService(ponte!, new OpcoesDocumentoPeloWhatsApp(true, "https://portal.exemplo"))
+            .ResponderAsync("5522999422253", "comparecimento Pessoa fictícia", "wamid.ponte-doc");
+        Assert.Contains("assinar.html#", r.Texto);
+        var p = await admin.PedidosDocumentoWhatsApp.AsNoTracking().SingleAsync();
+        Assert.Equal((a.PacienteId, "comparecimento"), (p.PacienteId, p.Tipo));
+
+        var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"PedidosDocumentoWhatsApp\" SET \"AbertoEm\" = now()"));
+        Assert.Contains("42501", e.ToString());
+    }
+
     // O login do CRM conta tentativas, trava e marca o último acesso — e só essas colunas: a
     // senha e as permissões continuam fora do alcance do usuário da ponte.
     [Fact] public async Task Login_do_CRM_com_o_usuario_do_sistema()
@@ -189,7 +209,8 @@ public sealed class PontePapelRestritoTests : IDisposable
 
         for (var i = 0; i < AcessoService.TentativasAteTravar; i++)
             Assert.Equal(401, ((Microsoft.AspNetCore.Http.IStatusCodeHttpResult)await bridge.Enter(new("ana", "errada"), default)).StatusCode);
-        Assert.NotNull((await admin.Usuarios.AsNoTracking().SingleAsync()).BloqueadoAte);
+        // A migration da fase 1 do @SemDor semeia o usuário técnico: procurar pelo login.
+        Assert.NotNull((await admin.Usuarios.AsNoTracking().SingleAsync(u => u.Login == "ana")).BloqueadoAte);
 
         var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"Usuarios\" SET \"SenhaHash\" = 'x'"));
         Assert.Contains("42501", e.ToString());
