@@ -4862,6 +4862,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<DateTime?>("AssumidoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("AvisoWhatsAppEm")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
 
@@ -6222,10 +6225,17 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
 
+                    b.Property<string>("TelefoneWhatsApp")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<int>("TentativasFalhas")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("UltimoAcessoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("WhatsAppLigadoEm")
                         .HasColumnType("timestamp without time zone");
 
                     b.HasKey("Id");
@@ -6234,6 +6244,10 @@ namespace Clinica.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("ProfissionalId");
+
+                    b.HasIndex("TelefoneWhatsApp")
+                        .IsUnique()
+                        .HasFilter("\"TelefoneWhatsApp\" IS NOT NULL");
 
                     b.ToTable("Usuarios");
                 });

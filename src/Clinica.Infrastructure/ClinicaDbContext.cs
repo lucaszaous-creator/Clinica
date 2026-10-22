@@ -1871,6 +1871,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AssumidoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.EncerradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AvisoWhatsAppEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.Versao).IsConcurrencyToken();
             e.HasIndex(x => x.Idempotencia).IsUnique();
             // A lista da recepção pergunta "o que está aberto"; a de quem pediu, "o que é meu".
@@ -1914,6 +1915,11 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Observacoes).HasMaxLength(500);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.UltimoAcessoEm).HasColumnType("timestamp without time zone");
+            // O celular do WhatsApp da clínica (out/2026): um número, uma pessoa — senão a ponte não saberia
+            // em nome de quem responder. Índice filtrado: a coluna nasce nula em todas as linhas.
+            e.Property(x => x.TelefoneWhatsApp).HasMaxLength(20);
+            e.Property(x => x.WhatsAppLigadoEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(x => x.TelefoneWhatsApp).IsUnique().HasFilter("\"TelefoneWhatsApp\" IS NOT NULL");
             e.Property(x => x.BloqueadoAte).HasColumnType("timestamp without time zone");
 
             // Desligar o profissional não pode apagar o usuário (nem a auditoria dele).

@@ -74,6 +74,11 @@
                             <input class="campo" @bind="_cpf" @bind:after="ConferirCpf" maxlength="14" inputmode="numeric"
                                    placeholder="000.000.000-00" disabled="@(_profissionalId is null || _lendoCpf)" />
                         </Campo>
+                        <Campo Rotulo="Celular para o WhatsApp do sistema" Classe="largo" Erro="@_erroWhatsApp"
+                               Dica="Desta pessoa, com DDD. Ela manda mensagem ao WhatsApp da clínica (ex.: &quot;minha agenda de hoje&quot;) e o sistema responde com a agenda e os pedidos à recepção. Em branco, não usa. Confira o número: é para ele que vão os nomes dos pacientes.">
+                            <input class="campo" @bind="_whatsapp" @bind:after="ConferirWhatsApp" maxlength="20" inputmode="tel"
+                                   placeholder="(22) 99999-9999" />
+                        </Campo>
                     </div>
                 </div>
 
@@ -174,7 +179,7 @@
     private readonly IReadOnlyList<GrupoDePermissoes> _grupos = AcessosNaTela.Grupos();
 
     private bool _carregando = true, _salvando, _lendoCpf;
-    private string? _falhaAoAbrir, _mensagem, _erroCpf;
+    private string? _falhaAoAbrir, _mensagem, _erroCpf, _erroWhatsApp, _whatsapp;
 
     /// <summary>Descarta a leitura do CPF que chega fora de ordem (trocar o vínculo duas vezes rápido).</summary>
     private int _geracaoCpf;
@@ -222,6 +227,7 @@
             _deveTrocar = _deveTrocarOriginal = usuario.DeveTrocarSenha;
             _marcadas = usuario.Efetivas;
             _cpf = FormatarCpf(profissionais.FirstOrDefault(p => p.Id == usuario.ProfissionalId)?.Cpf);
+            _whatsapp = usuario.TelefoneWhatsApp is { Length: 13 } w ? Telefone.Formatar(w[2..]) : null;
         }
         catch (Exception ex)
         {
@@ -287,6 +293,12 @@
             ? null
             : "CPF inválido. Ele liga o certificado digital a esta pessoa — corrija ou deixe em branco.";
 
+    /// <summary>O aviso do celular ao sair do campo — a recusa de verdade é do AcessoService.</summary>
+    private void ConferirWhatsApp()
+        => _erroWhatsApp = string.IsNullOrWhiteSpace(_whatsapp) || TelefoneDaEquipe.Chave(_whatsapp) is not null
+            ? null
+            : "Informe um celular com DDD (ex.: 22 99999-9999), ou deixe em branco.";
+
     private async Task SalvarAsync()
     {
         if (_salvando || _carregando || _falhaAoAbrir is not null || _lendoCpf) return;
@@ -302,7 +314,8 @@
             return;
         }
         ConferirCpf();
-        if (_erroCpf is not null) return;
+        ConferirWhatsApp();
+        if (_erroCpf is not null || _erroWhatsApp is not null) return;
 
         var (extras, negadas) = AcessosNaTela.Delta(_perfil, _marcadas, Ignoradas);
         try
@@ -324,10 +337,12 @@
                     _deveTrocar, ativo: _ativo);
                 if (extras != Permissao.Nenhuma || negadas != Permissao.Nenhuma)
                     await acesso.AtualizarAsync(novo.Id, _nome!, _perfil, _profissionalId, extras, negadas, _ativo, operador);
+                await acesso.DefinirWhatsAppAsync(novo.Id, _whatsapp, operador);
             }
             else
             {
                 await acesso.AtualizarAsync(UsuarioId, _nome!, _perfil, _profissionalId, extras, negadas, _ativo, operador);
+                await acesso.DefinirWhatsAppAsync(UsuarioId, _whatsapp, operador);
                 if (!string.IsNullOrEmpty(_senha))
                     await acesso.DefinirSenhaAsync(UsuarioId, _senha, _deveTrocar, operador);
                 else if (_deveTrocar != _deveTrocarOriginal)

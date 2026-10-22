@@ -62,6 +62,12 @@ public sealed class PedidoRecepcao
     /// <summary>Concorrência otimista: dois cliques de pessoas diferentes não assumem o mesmo pedido.</summary>
     public Guid Versao { get; set; } = Guid.NewGuid();
 
+    /// <summary>
+    /// Quando o CRM tratou o aviso do desfecho pelo WhatsApp de quem pediu (entregue ou não — o
+    /// resultado fica nos eventos). Nulo com o pedido encerrado = o aviso ainda está na fila.
+    /// </summary>
+    public DateTime? AvisoWhatsAppEm { get; set; }
+
     public List<EventoPedidoRecepcao> Eventos { get; set; } = [];
 }
 

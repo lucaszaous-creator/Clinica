@@ -212,6 +212,7 @@ public class TraducaoNoNpgsqlTests
         SistemaEquipeService.ConsultaConfirmacoes(db, [1, 2]).ToQueryString().Should().Contain("AgendamentoId");
         PedidosRecepcaoService.ConsultaLista(db, 7, true, true, new(2026, 10, 22, 9, 0, 0)).ToQueryString().Should().Contain("EncerradoEm");
         PedidosRecepcaoService.ConsultaLista(db, 7, false, false, new(2026, 10, 22, 9, 0, 0)).ToQueryString().Should().Contain("CriadoPorId");
+        AssistenteWhatsAppService.ConsultaAvisos(db, new(2026, 10, 19)).ToQueryString().Should().Contain("TelefoneWhatsApp");
         // A lista conta as não lidas no banco, a partir da leitura de cada conversa.
         var lista = ChatEquipeService.ConsultaLista(db, 7, new DateTime(2026, 1, 1), ["canal:geral"]).ToQueryString();
         lista.Should().Contain("count(*)").And.Contain("COALESCE").And.Contain("LeiturasEquipe");
