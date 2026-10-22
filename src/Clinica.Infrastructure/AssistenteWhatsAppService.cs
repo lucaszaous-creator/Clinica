@@ -12,6 +12,16 @@ namespace Clinica.Infrastructure;
 /// <param name="Entendeu">As regras reconheceram a pergunta (falso = a resposta é a ajuda de "não entendi").</param>
 public sealed record RespostaWhatsAppEquipe(bool DaEquipe, string? Texto = null, string? Nome = null, bool Entendeu = true);
 
+/// <summary>
+/// O documento pelo WhatsApp (@SemDor fase 4): desligado por padrão. <paramref name="Portal"/> é o
+/// endereço público do portal (https://…), de onde sai o link de uso único.
+/// </summary>
+public sealed record OpcoesDocumentoPeloWhatsApp(bool Habilitado, string Portal)
+{
+    public static readonly OpcoesDocumentoPeloWhatsApp Desligado = new(false, "");
+    public bool Ligado => Habilitado && Uri.TryCreate(Portal, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps;
+}
+
 /// <summary>O desfecho de um pedido à recepção que ainda precisa chegar pelo WhatsApp a quem pediu.</summary>
 public sealed record AvisoWhatsAppEquipe(int PedidoId, string Telefone, string Texto);
 
@@ -30,13 +40,17 @@ public sealed class AssistenteWhatsAppService
 {
     private readonly ClinicaDbContext db;
     private readonly Func<DateTime> agora;
+    private readonly OpcoesDocumentoPeloWhatsApp documentos;
 
     public AssistenteWhatsAppService(ClinicaDbContext db) : this(db, () => DateTime.Now) { }
 
-    public AssistenteWhatsAppService(ClinicaDbContext db, Func<DateTime> agora)
+    public AssistenteWhatsAppService(ClinicaDbContext db, OpcoesDocumentoPeloWhatsApp documentos) : this(db, () => DateTime.Now, documentos) { }
+
+    public AssistenteWhatsAppService(ClinicaDbContext db, Func<DateTime> agora, OpcoesDocumentoPeloWhatsApp? documentos = null)
     {
         this.db = db;
         this.agora = agora;
+        this.documentos = documentos ?? OpcoesDocumentoPeloWhatsApp.Desligado;
     }
 
     /// <summary>Os celulares da equipe (chave canônica): o CRM consulta para não abrir conversa de paciente com eles.</summary>
@@ -87,7 +101,9 @@ public sealed class AssistenteWhatsAppService
         var gravarResposta = true;
         try
         {
-            if (AssistenteWhatsAppRegras.LerPedido(texto, DateOnly.FromDateTime(momento)) is { } pedido)
+            if (documentos.Ligado && DocumentoPeloWhatsAppRegras.Ler(texto) is { } documento)
+                (resposta, textoNoChat) = await DocumentoAsync(eu, documento, idMensagem, momento, ct);
+            else if (AssistenteWhatsAppRegras.LerPedido(texto, DateOnly.FromDateTime(momento)) is { } pedido)
                 (resposta, gravarResposta) = await PedirAsync(eu, pedido, idMensagem, momento, ct);
             else
             {
@@ -160,6 +176,73 @@ public sealed class AssistenteWhatsAppService
             new NovoPedidoRecepcao(Idempotencia(idMensagem), pedido.Tipo, pacienteId, agendamentoId, pedido.Texto), ct);
         var sobre = achado ?? (pedido.Nome.Length > 0 ? $"\"{pedido.Nome}\" (não achei a ficha — a recepção confere pelo texto)" : "recado");
         return ($"*Pedido enviado à recepção* (nº {criado.Id})\n{rotulo} · {sobre}\n\nQuando ela concluir, a resposta chega aqui. Nada muda na agenda até a recepção fazer.", false);
+    }
+
+    /// <summary>
+    /// O documento pedido por escrito (@SemDor fase 4): acha a paciente na agenda DE QUEM PEDIU
+    /// (60 dias para trás, 30 para a frente) e grava o RASCUNHO com o link de uso único. O segundo
+    /// valor é o que fica no chat do app: a mesma resposta SEM o link — o token só existe na
+    /// mensagem ao celular; no banco fica o hash dele.
+    /// </summary>
+    private async Task<(string Resposta, string NoChat)> DocumentoAsync(UsuarioSistema eu, DocumentoPorTexto pedido, string idMensagem,
+        DateTime momento, CancellationToken ct)
+    {
+        if (eu.ProfissionalId is not { } profissional || !eu.Pode(Permissao.Prescrever))
+        {
+            var sem = "Documento pelo WhatsApp é para quem prescreve, com o cadastro de profissional ligado ao login.";
+            return (sem, sem);
+        }
+        if (DocumentoPeloWhatsAppRegras.OQueFalta(pedido) is { } falta) return (falta, falta);
+        if (await db.PedidosDocumentoWhatsApp.AsNoTracking().AnyAsync(p => p.IdMensagem == idMensagem, ct))
+        {
+            var repetida = "Esta mensagem já gerou um link. Se ele venceu, mande o pedido de novo.";
+            return (repetida, repetida);
+        }
+
+        var linhas = await SistemaEquipeService.ConsultaHorarios(db, momento.Date.AddDays(-60), momento.Date.AddDays(31), profissional).ToListAsync(ct);
+        var pacientes = linhas.Where(l => l.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado
+                                          && AssistenteWhatsAppRegras.NomeBate(pedido.Nome, l.Paciente))
+            .GroupBy(l => l.PacienteId)
+            .Select(g => g.OrderBy(l => Math.Abs((l.DataHora - momento).Ticks)).First())
+            .ToList();
+        if (pacientes.Count == 0)
+        {
+            var nenhum = $"Não achei \"{pedido.Nome}\" na sua agenda (60 dias para trás e 30 para a frente). Confira o nome; o documento por aqui é só de paciente seu.";
+            return (nenhum, nenhum);
+        }
+        if (pacientes.Count > 1)
+        {
+            var sb = new StringBuilder($"Achei {pacientes.Count} pacientes com \"{pedido.Nome}\" na sua agenda. Mande de novo com mais do nome:");
+            foreach (var l in pacientes.Take(8)) sb.Append($"\n• {l.Paciente} ({l.DataHora:dd/MM})");
+            var varios = sb.ToString();
+            return (varios, varios);
+        }
+
+        var achado = pacientes[0];
+        var token = DocumentoPeloWhatsAppRegras.NovoToken();
+        db.PedidosDocumentoWhatsApp.Add(new PedidoDocumentoWhatsApp
+        {
+            TokenHash = Clinica.Application.Tablet.ContratoTablet.Hash(token),
+            IdMensagem = idMensagem.Length > 200 ? idMensagem[..200] : idMensagem,
+            UsuarioId = eu.Id, PacienteId = achado.PacienteId, AgendamentoId = achado.Id,
+            Tipo = pedido.Tipo, Texto = DocumentoPeloWhatsAppRegras.TextoProposto(pedido),
+            DiasAfastamento = pedido.Tipo == "atestado" ? pedido.Dias : null,
+            CriadoEm = momento, ExpiraEm = momento + DocumentoPeloWhatsAppRegras.Validade,
+        });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateException)
+        {
+            // A mesma mensagem chegou duas vezes ao mesmo tempo: a outra já gerou o link.
+            var repetida = "Esta mensagem já gerou um link. Se ele venceu, mande o pedido de novo.";
+            return (repetida, repetida);
+        }
+        finally
+        {
+            foreach (var e in db.ChangeTracker.Entries<PedidoDocumentoWhatsApp>().ToList()) e.State = EntityState.Detached;
+        }
+        var link = DocumentoPeloWhatsAppRegras.Link(documentos.Portal, token);
+        return (DocumentoPeloWhatsAppRegras.TextoDoLink(pedido.Tipo, achado.Paciente, link),
+            DocumentoPeloWhatsAppRegras.TextoDoLink(pedido.Tipo, achado.Paciente, "(o link foi só para o seu celular)"));
     }
 
     private static string OndeProcurei(UsuarioSistema eu, PedidoPorTexto p)

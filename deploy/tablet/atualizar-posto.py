@@ -307,6 +307,21 @@ if sql('SELECT to_regclass(\'"CertificadosA1"\') IS NOT NULL')=='t':
 elif migracao in ('20261001140452_CertificadosA1Profissionais','20261001180000_AuditoriaPreservaDetalheCompleto','20261002140919_ContinuidadeSemAssinatura'):
     conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" TO {ident(role)};')
     revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" FROM {ident(role)};')
+# O documento pedido pelo WhatsApp (@SemDor fase 4, out/2026): a ponte grava o rascunho; o portal
+# abre o link (marca o uso), emite e põe o envio ao paciente na fila do CRM. Nada é apagado.
+if sql('SELECT to_regclass(\'"PedidosDocumentoWhatsApp"\') IS NOT NULL')=='t':
+    for priv in ('SELECT','UPDATE'):grant(priv,'PedidosDocumentoWhatsApp')
+elif migracao=='20261022192147_DocumentoPeloWhatsApp':
+    conceder.append(f'GRANT SELECT, UPDATE ON "PedidosDocumentoWhatsApp" TO {ident(role)};')
+    revogar.append(f'REVOKE SELECT, UPDATE ON "PedidosDocumentoWhatsApp" FROM {ident(role)};')
+if sql('SELECT to_regclass(\'"EnviosPacienteCrm"\') IS NOT NULL')=='t':
+    for priv in ('SELECT','INSERT'):grant(priv,'EnviosPacienteCrm')
+    sequence=sql("SELECT COALESCE(pg_get_serial_sequence('\"EnviosPacienteCrm\"','Id'),'')")
+    if sequence:
+        for priv in ('USAGE','SELECT'):
+            if sql(f"SELECT has_sequence_privilege('{role}','{sequence}','{priv}')")!='t':
+                conceder.append(f'GRANT {priv} ON SEQUENCE {sequence} TO {ident(role)};')
+                revogar.append(f'REVOKE {priv} ON SEQUENCE {sequence} FROM {ident(role)};')
 if migracao == '20261002162759_GruposInfusaoECatalogoMedicamentos':
     desktop=sql('SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid=\'"Configuracoes"\'::regclass')
     assert re.fullmatch(r'[a-zA-Z0-9_-]+',desktop) and desktop != role

@@ -4848,6 +4848,86 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("ParcelasRecebiveisCartao", (string)null);
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.PedidoDocumentoWhatsApp", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AbertoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("AgendamentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("AssinadoComA1")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ConcluidoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("DiasAfastamento")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("DocumentoClinicoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("EnviadoAoPacienteEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("IdMensagem")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("PacienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
+
+                    b.HasIndex("DocumentoClinicoId");
+
+                    b.HasIndex("IdMensagem")
+                        .IsUnique();
+
+                    b.HasIndex("PacienteId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UsuarioId", "CriadoEm");
+
+                    b.ToTable("PedidosDocumentoWhatsApp", (string)null);
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.PedidoRecepcao", b =>
                 {
                     b.Property<int>("Id")
@@ -7642,6 +7722,31 @@ namespace Clinica.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Lancamento");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.PedidoDocumentoWhatsApp", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.Agendamento", null)
+                        .WithMany()
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Clinica.Domain.Entities.DocumentoClinico", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentoClinicoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Clinica.Domain.Entities.Paciente", null)
+                        .WithMany()
+                        .HasForeignKey("PacienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Clinica.Domain.Entities.UsuarioSistema", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.PedidoRecepcao", b =>

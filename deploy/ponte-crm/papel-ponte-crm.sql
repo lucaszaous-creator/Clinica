@@ -49,6 +49,9 @@ BEGIN
       ['MensagensEquipe','INSERT, UPDATE'], ['ConversasEquipe','INSERT, UPDATE'],
       ['LeiturasEquipe','INSERT, UPDATE'],
       ['PedidosRecepcao','INSERT, UPDATE'], ['EventosPedidoRecepcao','INSERT'],
+      -- O documento pedido pelo WhatsApp (@SemDor fase 4): a ponte grava só o RASCUNHO e o link;
+      -- quem emite e assina é o portal. Nenhum privilégio sobre DocumentosClinicos.
+      ['PedidosDocumentoWhatsApp','INSERT'],
       ['Pacientes','UPDATE'], ['Auditoria','INSERT']] LOOP
     IF to_regclass(format('public.%I', g[1])) IS NOT NULL THEN
       EXECUTE format('GRANT %s ON public.%I TO ponte_crm', g[2], g[1]);

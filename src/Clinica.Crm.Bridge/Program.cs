@@ -26,6 +26,11 @@ builder.Services.AddScoped<ClinicTeamBridge>();
 builder.Services.AddScoped<ClinicPatientBridge>();
 builder.Services.AddScoped<ClinicSummaryBridge>();
 builder.Services.AddScoped<ClinicDispatchBridge>();
+// O documento pelo WhatsApp (@SemDor fase 4, out/2026): "atestado Maria 2 dias" vira um RASCUNHO e
+// a resposta leva um link de uso único para o portal, onde o médico revisa, emite e assina. Desligado
+// sem CRM_STAFF_DOCUMENTS_ENABLED=true e o endereço https do portal (CRM_STAFF_DOCUMENTS_PORTAL_URL).
+builder.Services.AddSingleton(new OpcoesDocumentoPeloWhatsApp(builder.Configuration["CRM_STAFF_DOCUMENTS_ENABLED"]=="true",
+    builder.Configuration["CRM_STAFF_DOCUMENTS_PORTAL_URL"]??""));
 builder.Services.AddScoped<AssistenteWhatsAppService>();
 // O lembrete de SMS 24h antes, com a clínica fechada (out/2026): o MESMO LembreteSmsService
 // do desktop, rodando aqui a cada 5 min. Liga com LembreteSms__Ligado=true. O provedor, o
