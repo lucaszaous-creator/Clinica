@@ -128,6 +128,12 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveConfirmacoes = ChavesSuite.ConfirmacoesAgenda;
 
     /// <summary>
+    /// O WhatsApp da clínica DENTRO da Recepção (out/2026, docs/crm-na-recepcao.md): o CRM no
+    /// "modo Recepção", sem pedir a senha de novo. A porta é a do CRM (EditarAgenda).
+    /// </summary>
+    public const string ChaveWhatsAppCrm = "whatsapp-crm";
+
+    /// <summary>
     /// O item composto "Relacionamento" (out/2026, mockup aprovado): confirmar a sessão de
     /// amanhã, convidar quem o profissional pediu de volta e acompanhar quem sumiu são o
     /// MESMO ato — falar com o paciente fora da sessão — e moravam em três lugares
@@ -304,6 +310,13 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             Chave = ChaveProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3", Icone = "ficha",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
+        },
+        // O WhatsApp da clínica (out/2026): o CRM dentro da Recepção, na barra do topo depois de
+        // Relacionamento. Quem não entra no CRM (sem EditarAgenda) nem vê o item.
+        new ItemMenuModulo
+        {
+            Chave = ChaveWhatsAppCrm, Rotulo = "WhatsApp", Glifo = "\uE8BD", Principal = 6,
+            Grupo = GrupoSidebar.Relacionamento, Requer = Permissao.EditarAgenda, PreservarAoNavegar = true
         },
         // \u26A0\uFE0F A SEGUNDA duplicata da sidebar, e ela \u00E9 a MESMA hist\u00F3ria das "Prescri\u00E7\u00F5es"
         // logo abaixo (set/2026 \u2014 o cliente mandou o print do Gerente com os dois itens):
@@ -529,6 +542,7 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
         ChaveRetornosAMarcar => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RetornosAMarcar), servicos),
         ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
+        ChaveWhatsAppCrm => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.WhatsAppNoCrm), servicos),
         ChaveSalaInfusao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),
         ChaveEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Enfermagem), servicos),
         // Tela do SHELL (parcela 60), como a sala de infusão acima. O item era publicado

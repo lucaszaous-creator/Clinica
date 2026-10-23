@@ -243,6 +243,24 @@ public sealed class ParametrosService
     // ninguém mais a lê nem a grava, e apagá-la exigiria migration por nada. A coleta da
     // assinatura do paciente é sempre na janela única (docs/termo-assinado-pelo-paciente.md §3.8).
 
+    // ---- O CRM dentro da Recepção (out/2026, docs/crm-na-recepcao.md) ----
+
+    /// <summary>O endereço público do CRM (https, só a origem). A aba "WhatsApp" abre ele.</summary>
+    public const string ChaveEnderecoDoCrm = "CrmEndereco";
+
+    public async Task<string?> ObterEnderecoDoCrmAsync(CancellationToken ct = default)
+        => EntradaNoCrm.EnderecoValido(await _repo.ObterConfiguracaoAsync(ChaveEnderecoDoCrm, ct));
+
+    /// <summary>Grava o endereço já limpo; vazio desliga a aba. Endereço que não serve é recusado com a frase para a tela.</summary>
+    public async Task SalvarEnderecoDoCrmAsync(string? endereco, CancellationToken ct = default)
+    {
+        var limpo = string.IsNullOrWhiteSpace(endereco) ? string.Empty
+            : EntradaNoCrm.EnderecoValido(endereco)
+              ?? throw new InvalidOperationException("O endereço do CRM precisa ser https e sem caminho (ex.: https://crm.suaclinica.com.br).");
+        await _repo.SalvarConfiguracaoAsync(ChaveEnderecoDoCrm, limpo, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Publicação do documento assinado (parcela 53) ----
 
     public const string ChaveUrlPublicacao = "PublicacaoUrlBase";

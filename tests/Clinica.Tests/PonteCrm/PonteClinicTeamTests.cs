@@ -20,12 +20,15 @@ public sealed class PonteClinicTeamTests : IDisposable
     readonly SqliteConnection connection = new("Data Source=:memory:");
     readonly ClinicaDbContext db;
     readonly ClinicTeamBridge bridge;
+    readonly EntradaNoCrmService entrada;
+    DateTime agora = new(2026, 10, 23, 9, 0, 0);
 
     public PonteClinicTeamTests()
     {
         connection.Open(); db = new(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(connection).Options); db.Database.EnsureCreated();
         var repo = new ClinicaRepositorio(db);
-        bridge = new(repo, new AcessoService(repo));
+        entrada = new EntradaNoCrmService(db, () => agora);
+        bridge = new(repo, new AcessoService(repo), entrada);
     }
 
     UsuarioSistema Usuario(string login, PerfilAcesso perfil, bool ativo = true, Permissao negadas = Permissao.Nenhuma)
@@ -52,6 +55,55 @@ public sealed class PonteClinicTeamTests : IDisposable
         Assert.True(team.Single(t => t.Login == "direcao").Admin);
         Assert.False(team.Single(t => t.Login == "ana").Admin);
         Assert.Equal("Nome de ana", team.Single(t => t.Login == "ana").Name);
+    }
+
+    // A aba "WhatsApp" da Recepção (docs/crm-na-recepcao.md): o bilhete do app entra sem senha,
+    // uma vez só, enquanto vale, e só para quem ainda pode entrar no CRM.
+    [Fact] public async Task Bilhete_da_Recepcao_entra_uma_vez_so()
+    {
+        var ana = Usuario("ana", PerfilAcesso.Recepcao);
+        var bilhete = await entrada.EmitirAsync(ana.Id);
+        Assert.DoesNotContain(bilhete, (await db.BilhetesEntradaCrm.AsNoTracking().SingleAsync()).TokenHash);
+
+        var ok = Assert.IsType<Ok<ClinicTeamMember>>(await bridge.EnterByTicket(new(bilhete), default));
+        Assert.Equal("ana", ok.Value!.Login);
+        Assert.Equal(401, Status(await bridge.EnterByTicket(new(bilhete), default)));
+    }
+
+    [Fact] public async Task Bilhete_vencido_nao_entra_mas_a_folga_do_relogio_vale()
+    {
+        var ana = Usuario("ana", PerfilAcesso.Recepcao);
+        var dentroDaFolga = await entrada.EmitirAsync(ana.Id);
+        var vencido = await entrada.EmitirAsync(ana.Id);
+        agora += EntradaNoCrm.Validade + EntradaNoCrm.Folga;
+        Assert.Equal(200, Status(await bridge.EnterByTicket(new(dentroDaFolga), default)));
+        agora += TimeSpan.FromSeconds(1);
+        Assert.Equal(401, Status(await bridge.EnterByTicket(new(vencido), default)));
+    }
+
+    [Fact] public async Task Bilhete_de_quem_perdeu_o_acesso_depois_e_403()
+    {
+        var ana = Usuario("ana", PerfilAcesso.Recepcao);
+        var bilhete = await entrada.EmitirAsync(ana.Id);
+        ana.Ativo = false; db.SaveChanges();
+        Assert.Equal(403, Status(await bridge.EnterByTicket(new(bilhete), default)));
+    }
+
+    [Fact] public async Task Bilhete_inventado_e_401_sem_ir_ao_banco_com_lixo()
+    {
+        Usuario("ana", PerfilAcesso.Recepcao);
+        Assert.Equal(401, Status(await bridge.EnterByTicket(new(new string('a', 43)), default)));
+        Assert.Equal(401, Status(await bridge.EnterByTicket(new("x' OR 1=1 --"), default)));
+        Assert.Equal(401, Status(await bridge.EnterByTicket(new(""), default)));
+    }
+
+    [Fact] public async Task Emitir_varre_os_bilhetes_de_ontem()
+    {
+        var ana = Usuario("ana", PerfilAcesso.Recepcao);
+        await entrada.EmitirAsync(ana.Id);
+        agora += EntradaNoCrm.Descartar + TimeSpan.FromMinutes(1);
+        await entrada.EmitirAsync(ana.Id);
+        Assert.Equal(1, await db.BilhetesEntradaCrm.CountAsync());
     }
 
     [Fact] public async Task Login_e_senha_do_sistema_entram()

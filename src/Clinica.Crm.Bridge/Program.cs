@@ -65,6 +65,8 @@ app.MapGet("/crm/relationship",(ClinicRelationshipBridge bridge,CancellationToke
 // O acesso ao CRM é o do sistema: quem pode entrar e a conferência da senha (ver ClinicTeamBridge).
 app.MapGet("/crm/team",(ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Team(ct));
 app.MapPost("/crm/login",(ClinicLogin input,ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Enter(input,ct));
+// O bilhete da aba "WhatsApp" da Recepção: quem já entrou no app entra no CRM sem a senha (docs/crm-na-recepcao.md).
+app.MapPost("/crm/login/ticket",(ClinicTicketLogin input,ClinicTeamBridge bridge,CancellationToken ct)=>bridge.EnterByTicket(input,ct));
 // A equipe pergunta ao sistema pelo WhatsApp da clínica (out/2026, AssistenteWhatsAppService): o
 // CRM reconhece o celular cadastrado em Acessos e a ponte responde em nome daquele login, com as
 // regras do Sistema SemDor. A escrita (a conversa com o sistema e o pedido) pede o papel-ponte-crm.sql.
