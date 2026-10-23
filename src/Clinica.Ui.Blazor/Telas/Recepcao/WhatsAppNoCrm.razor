@@ -64,15 +64,33 @@
 
 @code {
     string? _endereco;
+    string? _crm; // o endereço do CRM que a moldura abriu (a volta à aba confere se ele mudou)
     bool _semEndereco, _naoVerificado;
     string? _erro;
     int _geracao, _vez;
 
     protected override Task OnInitializedAsync() => AbrirAsync(Servicos.GetService<PedidoDeConversaNoCrm>()?.Consumir());
 
-    /// <summary>Volta à aba: só reabre quando outra tela deixou um pedido — a conversa aberta continua.</summary>
-    protected override Task AoVoltarAsync()
-        => Servicos.GetService<PedidoDeConversaNoCrm>()?.Consumir() is { } pedido ? AbrirAsync(pedido) : Task.CompletedTask;
+    /// <summary>
+    /// Volta à aba. Com um pedido de outra tela ("Escrever no WhatsApp"), abre a conversa pedida.
+    /// Sem pedido, relê só o ENDEREÇO do CRM (a direção pode tê-lo trocado ou apagado) e só reabre se
+    /// ele mudou — reabrir à toa recarregaria o CRM e perderia a conversa aberta.
+    /// </summary>
+    protected override async Task AoVoltarAsync()
+    {
+        if (!Pode(Permissao.EditarAgenda)) return;
+        if (Servicos.GetService<PedidoDeConversaNoCrm>()?.Consumir() is { } pedido) { await AbrirAsync(pedido); return; }
+        try
+        {
+            using var escopo = Escopo();
+            var crm = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterEnderecoDoCrmAsync();
+            if (crm != _crm && !Descartada) await AbrirAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — o endereço do CRM não pôde ser relido na volta à aba WhatsApp", ex);
+        }
+    }
 
     Task AbrirAsync() => AbrirAsync(null);
 
@@ -95,6 +113,7 @@
                 destino = ConversaNoCrm.Endereco(crm, bilhete, pedido, ++_vez);
             }
             if (g != _geracao || Descartada) return;
+            _crm = crm;
             _semEndereco = crm is null;
             _endereco = destino;
         }
