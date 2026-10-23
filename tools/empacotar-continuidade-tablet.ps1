@@ -1,4 +1,7 @@
-param([Parameter(Mandatory=$true)][string]$Site)
+# -SemMigracao (out/2026): o pacote NÃO traz migration — quem migra o banco é o Gerente, que já está
+# à frente da última migration do posto. Sem a opção, o manifesto declara a migration do posto e o
+# atualizador exige a base na anterior a ela (o caso de quando o posto trazia a própria migration).
+param([Parameter(Mandatory=$true)][string]$Site, [switch]$SemMigracao)
 $ErrorActionPreference = 'Stop'
 $raizPortal = Split-Path -Parent $PSScriptRoot
 $sitePortal = (Resolve-Path -LiteralPath $Site).Path
@@ -28,7 +31,7 @@ foreach ($arquivoPortal in (Get-ChildItem -LiteralPath $saidaPortal -File -Recur
     $relativoPortal = $arquivoPortal.FullName.Substring($saidaPortal.Length+1).Replace('\','/')
     $hashesPortal[$relativoPortal] = (Get-FileHash -LiteralPath $arquivoPortal.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 }
-[ordered]@{contrato=3;backend=$shaApiPortal;interface=$shaSitePortal;migracao_minima='20261005193646_FormatoDaEvolucao';migracao_nova='20261014192239_PedidosEnfermagem';arquivos=$hashesPortal} |
+[ordered]@{contrato=3;backend=$shaApiPortal;interface=$shaSitePortal;migracao_minima='20261005193646_FormatoDaEvolucao';migracao_nova=$(if ($SemMigracao) { $false } else { '20261014192239_PedidosEnfermagem' });arquivos=$hashesPortal} |
     ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $saidaPortal 'manifesto.json') -Encoding utf8
 $pacotePortal = Join-Path (Split-Path -Parent $saidaPortal) ($nomePortal + '.tar.gz')
 & tar -czf $pacotePortal -C (Split-Path -Parent $saidaPortal) $nomePortal

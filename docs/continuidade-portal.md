@@ -93,6 +93,11 @@ nem substitui a aprovação dos titulares das assinaturas reais.
    O pacote atual inclui a migration aditiva
    `20260928211121_ChecagemNaoExecutavel` em SQL idempotente. A base deve estar
    em `20260926120000_DevolucaoInfusaoExterna` ou já nessa migration.
+   **Quando o Gerente já migrou o banco** (o caso comum desde out/2026: o posto não traz
+   migration própria), acrescentar `-SemMigracao`. O manifesto passa a dizer
+   `migracao_nova: false` e o atualizador não exige a base parada na migration do posto.
+   Sem a opção, a base à frente dela faz o atualizador parar em "Base mudou; conferir antes
+   de migrar", antes de qualquer troca.
 2. Enviar o pacote para `/home/clinica-admin/tablet-stage/` e conferir seu SHA-256.
 3. Executar como root `atualizar-posto.py hml PACOTE SHA RELEASE_ANTERIOR`.
    Validar o mesmo pacote em homologação e registrar o aceite antes de executar
