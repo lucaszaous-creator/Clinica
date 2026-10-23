@@ -182,12 +182,15 @@ public sealed class SemDorNosAppsTests : IDisposable
         var (avisos, atual, ligado) = await leitura.ListarAsync(relogio);
         (avisos.Count, atual, ligado).Should().Be((0, false, false));
 
-        var agora = DateTimeOffset.Now;
+        // A ponte grava na hora da clínica; o app compara com o relógio do posto, que está em
+        // Brasília. O CI roda em UTC: a hora de "agora" do teste é a da clínica, não a da máquina.
+        var agora = DateTimeOffset.UtcNow;
+        var naClinica = TimeZoneInfo.ConvertTime(agora, TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).DateTime;
         await Ponte().Alerts(new(agora, [Aviso("semdor:aaa")]), default);
-        (avisos, atual, ligado) = await leitura.ListarAsync(DateTime.Now);
+        (avisos, atual, ligado) = await leitura.ListarAsync(naClinica);
         (avisos.Count, atual, ligado).Should().Be((1, true, true));
 
-        (avisos, atual, ligado) = await leitura.ListarAsync(DateTime.Now.Add(AvisosDoSemDorRegras.ListaValePor).AddMinutes(1));
+        (avisos, atual, ligado) = await leitura.ListarAsync(naClinica.Add(AvisosDoSemDorRegras.ListaValePor).AddMinutes(1));
         (avisos.Count, atual, ligado).Should().Be((0, false, true), "lista velha não diz 'sem resposta' de quem talvez já foi respondido");
     }
 
