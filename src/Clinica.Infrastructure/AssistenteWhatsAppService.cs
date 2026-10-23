@@ -204,12 +204,7 @@ public sealed class AssistenteWhatsAppService
             return (repetida, repetida);
         }
 
-        var linhas = await SistemaEquipeService.ConsultaHorarios(db, momento.Date.AddDays(-60), momento.Date.AddDays(31), profissional).ToListAsync(ct);
-        var pacientes = linhas.Where(l => l.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado
-                                          && AssistenteWhatsAppRegras.NomeBate(pedido.Nome, l.Paciente))
-            .GroupBy(l => l.PacienteId)
-            .Select(g => g.OrderBy(l => Math.Abs((l.DataHora - momento).Ticks)).First())
-            .ToList();
+        var pacientes = await DocumentoPeloChatService.PacientesDoPedidoAsync(db, profissional, pedido.Nome, momento, ct);
         if (pacientes.Count == 0)
         {
             var nenhum = $"Não achei \"{pedido.Nome}\" na sua agenda (60 dias para trás e 30 para a frente). Confira o nome; o documento por aqui é só de paciente seu.";

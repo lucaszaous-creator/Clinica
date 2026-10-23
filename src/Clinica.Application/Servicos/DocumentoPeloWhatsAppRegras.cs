@@ -36,9 +36,9 @@ public static partial class DocumentoPeloWhatsAppRegras
         // A ordem importa: "atestado de comparecimento" é comparecimento, não atestado.
         ("comparecimento", ["atestado de comparecimento", "declaracao de comparecimento", "comparecimento"]),
         ("atestado", ["atestado medico", "atestado"]),
-        ("receita", ["receita", "receituario"]),
+        ("receita", ["receita", "receituario", "prescricao"]),
         ("exame", ["pedido de exames", "pedido de exame", "exames", "exame"]),
-        ("relatorio", ["relatorio medico", "relatorio"]),
+        ("relatorio", ["relatorio medico", "relatorio", "laudo"]),
     ];
 
     /// <summary>O que vem antes do tipo e não muda o pedido ("por favor, emite um atestado…").</summary>
@@ -204,4 +204,33 @@ public static partial class DocumentoPeloWhatsAppRegras
            + "Revise, emita e assine no portal (o link vale 15 minutos e abre uma vez só):\n"
            + link
            + "\n\nA senha do certificado é digitada só no portal, nunca aqui.";
+}
+
+/// <summary>
+/// O documento pedido ao @SemDor no chat dos apps (out/2026, decisão da direção de 23/10): a frase é a
+/// mesma do WhatsApp, mas o documento nasce na hora e volta anexado à conversa (a 2ª via em PDF).
+/// </summary>
+public static class DocumentoPeloChatRegras
+{
+    public const string SoQuemPrescreve = "Emitir documento pelo @SemDor é para quem prescreve, com o cadastro de profissional ligado ao login.";
+
+    /// <summary>No canal, o documento vai para a conversa de quem pediu com o sistema: ele tem dado de saúde.</summary>
+    public static string EmParticular(string quemPediu)
+        => $"Emiti o documento pedido por {quemPediu} na conversa com o {ChatEquipeRegras.NomeDoSistema}: documento de paciente não fica à vista no canal.";
+
+    /// <summary>O tipo do documento clínico para o tipo lido na frase.</summary>
+    public static Clinica.Domain.Entities.TipoDocumentoClinico Tipo(string tipo) => tipo switch
+    {
+        "atestado" => Clinica.Domain.Entities.TipoDocumentoClinico.Atestado,
+        "comparecimento" => Clinica.Domain.Entities.TipoDocumentoClinico.Comparecimento,
+        "receita" => Clinica.Domain.Entities.TipoDocumentoClinico.Receita,
+        "exame" => Clinica.Domain.Entities.TipoDocumentoClinico.PedidoExame,
+        "relatorio" => Clinica.Domain.Entities.TipoDocumentoClinico.RelatorioEvolucao,
+        _ => throw new InvalidOperationException("Tipo de documento desconhecido."),
+    };
+
+    /// <summary>A resposta com o documento anexado. Diz que é sem assinatura digital — garantia que o código não dá não se promete.</summary>
+    public static string Emitido(Clinica.Domain.Entities.TipoDocumentoClinico tipo, string numero, string paciente)
+        => $"{Clinica.Domain.Entities.TipoDocumentoInfo.Rotular(tipo)} nº {numero} emitido para {paciente}. Abra a 2ª via (PDF) no anexo abaixo para imprimir ou enviar. "
+           + "Saiu sem assinatura digital: imprima e assine, ou assine com o certificado na central de Documentos.";
 }
