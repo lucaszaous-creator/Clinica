@@ -9,7 +9,8 @@ namespace Clinica.Application.Servicos;
 /// <param name="Nome">A paciente citada (sem acento, minúsculo).</param>
 /// <param name="Dias">Os dias de afastamento do atestado; nulo quando não vieram.</param>
 /// <param name="Texto">O que veio depois dos dois-pontos (receita, exame, relatório), como foi escrito.</param>
-public sealed record DocumentoPorTexto(string Tipo, string Nome, int? Dias, string Texto);
+/// <param name="Cpf">O CPF citado (só os 11 dígitos), quando veio; acha a paciente sem depender do nome.</param>
+public sealed record DocumentoPorTexto(string Tipo, string Nome, int? Dias, string Texto, string? Cpf = null);
 
 /// <summary>
 /// As regras do documento pedido pelo WhatsApp (@SemDor fase 4, out/2026 — docs/semdor-assistente.md).
@@ -49,7 +50,11 @@ public static partial class DocumentoPeloWhatsAppRegras
     /// <summary>Palavras que não são do nome da paciente.</summary>
     private static readonly HashSet<string> ForaDoNome =
         ["a", "o", "da", "do", "de", "para", "pra", "pro", "paciente", "sra", "sr", "dona", "seu", "senhora", "senhor",
-         "hoje", "dia", "dias", "e", "com", "por", "afastamento"];
+         "hoje", "dia", "dias", "e", "com", "por", "afastamento", "cpf"];
+
+    /// <summary>O CPF na frase, com ou sem pontuação ("104.009.757-00", "10400975700").</summary>
+    [GeneratedRegex(@"(?<!\d)(\d{3})\.?(\d{3})\.?(\d{3})[-.]?(\d{2})(?!\d)")]
+    private static partial Regex CpfRegex();
 
     [GeneratedRegex(@"(\d{1,3})\s*dias?\b")]
     private static partial Regex DiasRegex();
@@ -73,7 +78,16 @@ public static partial class DocumentoPeloWhatsAppRegras
         var original = (texto ?? "").Trim();
         if (original.Length == 0) return null;
         var doisPontos = original.IndexOf(':');
-        var cabeca = ChatEquipeRegras.TextoDeBusca(doisPontos >= 0 ? original[..doisPontos] : original);
+        var cabecaOriginal = doisPontos >= 0 ? original[..doisPontos] : original;
+        // O CPF sai da cabeça ANTES da leitura dos dias: "atestado 104.009.757-00 2 dias" não pode
+        // virar 757 dias nem deixar dígitos no nome.
+        string? cpf = null;
+        if (CpfRegex().Match(cabecaOriginal) is { Success: true } mc)
+        {
+            cpf = string.Concat(mc.Groups[1].Value, mc.Groups[2].Value, mc.Groups[3].Value, mc.Groups[4].Value);
+            cabecaOriginal = cabecaOriginal.Remove(mc.Index, mc.Length);
+        }
+        var cabeca = ChatEquipeRegras.TextoDeBusca(cabecaOriginal);
         var corpo = doisPontos >= 0 ? original[(doisPontos + 1)..].Trim() : "";
 
         var resto = SemPreambulo(cabeca);
@@ -91,7 +105,7 @@ public static partial class DocumentoPeloWhatsAppRegras
             }
             var nome = depois.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .Where(w => !ForaDoNome.Contains(w) && !w.Any(char.IsDigit) && w.Length >= 2).Take(4);
-            return new DocumentoPorTexto(tipo, string.Join(' ', nome), dias, corpo.Length > TamanhoMaximoDoTexto ? corpo[..TamanhoMaximoDoTexto] : corpo);
+            return new DocumentoPorTexto(tipo, string.Join(' ', nome), dias, corpo.Length > TamanhoMaximoDoTexto ? corpo[..TamanhoMaximoDoTexto] : corpo, cpf);
         }
         return null;
     }
@@ -154,8 +168,10 @@ public static partial class DocumentoPeloWhatsAppRegras
     public static string? OQueFalta(DocumentoPorTexto d)
     {
         var rotulo = Rotulo(d.Tipo);
-        if (d.Nome.Length == 0)
-            return $"Diga de quem é o documento, por exemplo: \"{Exemplo(d.Tipo)}\".";
+        if (d.Cpf is { } cpf && !Clinica.Domain.Cpf.Valido(cpf))
+            return "Esse CPF não confere (dígito verificador). Confira os números, ou mande pelo nome.";
+        if (d.Nome.Length == 0 && d.Cpf is null)
+            return $"Diga de quem é o documento — pelo nome ou pelo CPF —, por exemplo: \"{Exemplo(d.Tipo)}\".";
         if (d.Tipo == "atestado" && d.Dias is null)
             return $"Quantos dias de afastamento? Mande, por exemplo: \"atestado {d.Nome} 2 dias\".";
         if (d.Tipo == "atestado" && d.Dias is < 1 or > DiasMaximos)
@@ -233,4 +249,19 @@ public static class DocumentoPeloChatRegras
     public static string Emitido(Clinica.Domain.Entities.TipoDocumentoClinico tipo, string numero, string paciente)
         => $"{Clinica.Domain.Entities.TipoDocumentoInfo.Rotular(tipo)} nº {numero} emitido para {paciente}. Abra a 2ª via (PDF) no anexo abaixo para imprimir ou enviar. "
            + "Saiu sem assinatura digital: imprima e assine, ou assine com o certificado na central de Documentos.";
+
+    /// <summary>Nenhuma paciente da agenda de quem pediu bate com o nome ou o CPF.</summary>
+    public static string NaoAchei(DocumentoPorTexto d)
+        => d.Cpf is not null
+            ? "Não achei esse CPF entre as pacientes da sua agenda (60 dias para trás e 30 para a frente). Confira os números; o documento por aqui é só de paciente seu."
+            : $"Não achei \"{d.Nome}\" na sua agenda (60 dias para trás e 30 para a frente). Confira o nome ou mande com o CPF; o documento por aqui é só de paciente seu.";
+
+    /// <summary>Mais de uma paciente bate: a lista e como desempatar.</summary>
+    public static string Varias(DocumentoPorTexto d, IEnumerable<(string Nome, DateTime Quando)> pacientes)
+    {
+        var lista = pacientes.ToList();
+        var sb = new System.Text.StringBuilder($"Achei {lista.Count} pacientes com \"{d.Nome}\" na sua agenda. Mande de novo com o nome completo ou o CPF:");
+        foreach (var (nome, quando) in lista.Take(8)) sb.Append($"\n• {nome} ({quando:dd/MM})");
+        return sb.ToString();
+    }
 }

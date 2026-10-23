@@ -1,4 +1,3 @@
-using System.Text;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -41,15 +40,9 @@ public sealed class DocumentoPeloChatService
         if (DocumentoPeloWhatsAppRegras.OQueFalta(pedido) is { } falta) return new(falta);
 
         var momento = agora();
-        var pacientes = await PacientesDoPedidoAsync(db, profissional, pedido.Nome, momento, ct);
-        if (pacientes.Count == 0)
-            return new($"Não achei \"{pedido.Nome}\" na sua agenda (60 dias para trás e 30 para a frente). Confira o nome; o documento por aqui é só de paciente seu.");
-        if (pacientes.Count > 1)
-        {
-            var sb = new StringBuilder($"Achei {pacientes.Count} pacientes com \"{pedido.Nome}\" na sua agenda. Mande de novo com mais do nome:");
-            foreach (var l in pacientes.Take(8)) sb.Append($"\n• {l.Paciente} ({l.DataHora:dd/MM})");
-            return new(sb.ToString());
-        }
+        var pacientes = await PacientesDoPedidoAsync(db, profissional, pedido, momento, ct);
+        if (pacientes.Count == 0) return new(DocumentoPeloChatRegras.NaoAchei(pedido));
+        if (pacientes.Count > 1) return new(DocumentoPeloChatRegras.Varias(pedido, pacientes.Select(l => (l.Paciente, l.DataHora))));
 
         var achado = pacientes[0];
         var tipo = DocumentoPeloChatRegras.Tipo(pedido.Tipo);
@@ -70,15 +63,27 @@ public sealed class DocumentoPeloChatService
     }
 
     /// <summary>
-    /// As pacientes da agenda DE QUEM PEDIU (60 dias para trás, 30 para a frente) cujo nome bate com
-    /// o citado, uma linha por paciente (o horário mais perto de agora). É a mesma busca do WhatsApp.
+    /// As pacientes da agenda DE QUEM PEDIU (60 dias para trás, 30 para a frente) que batem com o
+    /// pedido, uma linha por paciente (o horário mais perto de agora). É a mesma busca do WhatsApp.
+    /// Com CPF, vale o documento da ficha (comparado só pelos dígitos); com nome E CPF, os dois têm
+    /// de bater — um nome que não é o da ficha daquele CPF é dúvida, e dúvida não emite.
     /// </summary>
     internal static async Task<List<SistemaEquipeService.LinhaDoHorario>> PacientesDoPedidoAsync(ClinicaDbContext db, int profissional,
-        string nome, DateTime momento, CancellationToken ct)
+        DocumentoPorTexto pedido, DateTime momento, CancellationToken ct)
     {
-        var linhas = await SistemaEquipeService.ConsultaHorarios(db, momento.Date.AddDays(-60), momento.Date.AddDays(31), profissional).ToListAsync(ct);
-        return linhas.Where(l => l.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado
-                                 && AssistenteWhatsAppRegras.NomeBate(nome, l.Paciente))
+        var linhas = (await SistemaEquipeService.ConsultaHorarios(db, momento.Date.AddDays(-60), momento.Date.AddDays(31), profissional).ToListAsync(ct))
+            .Where(l => l.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado).ToList();
+        if (pedido.Cpf is { } cpf)
+        {
+            // Só as fichas da agenda dele: poucas, e o documento é comparado em memória (gravado
+            // com ou sem pontuação).
+            var ids = linhas.Select(l => l.PacienteId).Distinct().ToList();
+            var documentos = await db.Pacientes.AsNoTracking().Where(p => ids.Contains(p.Id))
+                .Select(p => new { p.Id, p.Documento }).ToListAsync(ct);
+            var comOCpf = documentos.Where(p => Cpf.Normalizar(p.Documento) == cpf).Select(p => p.Id).ToHashSet();
+            linhas = linhas.Where(l => comOCpf.Contains(l.PacienteId)).ToList();
+        }
+        return linhas.Where(l => pedido.Nome.Length == 0 || AssistenteWhatsAppRegras.NomeBate(pedido.Nome, l.Paciente))
             .GroupBy(l => l.PacienteId)
             .Select(g => g.OrderBy(l => Math.Abs((l.DataHora - momento).Ticks)).First())
             .ToList();

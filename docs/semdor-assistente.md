@@ -291,7 +291,11 @@ fase 4 — `atestado Maria Silva 2 dias`, `comparecimento Maria Silva`, `receita
 Sistema SemDor ou com @SemDor num canal. `DocumentoPeloChatService`:
 
 1. Só quem prescreve, com o profissional ligado ao login; a paciente é procurada só na agenda
-   de quem pediu (60 dias para trás, 30 para a frente), a MESMA busca do WhatsApp.
+   de quem pediu (60 dias para trás, 30 para a frente), a MESMA busca do WhatsApp — pelo nome
+   (parte ou completo) e/ou pelo **CPF**, com ou sem pontuação (`atestado 529.982.247-25 2 dias`,
+   `atestado Maria cpf 52998224725 2 dias`). Com nome e CPF, os dois têm de bater; CPF com dígito
+   verificador errado volta a pergunta. Duas pacientes com o mesmo nome: a resposta lista e pede o
+   nome completo ou o CPF.
 2. Falta algo (dias do atestado, conteúdo da receita, nome repetido ou não achado)? Volta a
    pergunta, e nada é emitido.
 3. O documento nasce pela MESMA emissão do Consultório (`DocumentoClinicoService.EmitirAsync`:

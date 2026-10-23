@@ -90,6 +90,58 @@ public sealed class DocumentoPeloChatTests : IDisposable
         (await Ultima(ChatEquipeRegras.Sistema(medica.Id))).DocumentoClinicoId.Should().BeNull();
     }
 
+    // Por CPF (pedido da direção, 23/10): com ou sem pontuação, sozinho ou com o nome.
+    private const string CpfDaMaria = "529.982.247-25";
+
+    [Theory]
+    [InlineData("atestado 529.982.247-25 2 dias", "", 2)]
+    [InlineData("atestado Maria cpf 52998224725 3 dias", "maria", 3)]
+    [InlineData("comparecimento 52998224725", "", null)]
+    public void O_cpf_e_lido_e_nao_vira_dias_nem_nome(string frase, string nome, int? dias)
+    {
+        var d = DocumentoPeloWhatsAppRegras.Ler(frase)!;
+        (d.Cpf, d.Nome, d.Dias).Should().Be(("52998224725", nome, dias));
+        DocumentoPeloWhatsAppRegras.OQueFalta(d).Should().BeNull();
+    }
+
+    [Fact]
+    public void Cpf_que_nao_confere_e_recusado()
+        => DocumentoPeloWhatsAppRegras.OQueFalta(DocumentoPeloWhatsAppRegras.Ler("atestado 123.456.789-00 2 dias")!)
+            .Should().Contain("não confere");
+
+    private async Task DuasMarias()
+    {
+        var mariaClara = new Paciente { Nome = "Maria Clara Outra" };
+        db.Pacientes.Add(mariaClara);
+        await db.SaveChangesAsync();
+        await db.Pacientes.Where(p => p.Id == maria.Id).ExecuteUpdateAsync(x => x.SetProperty(p => p.Documento, CpfDaMaria));
+        db.Agendamentos.Add(new Agendamento { PacienteId = mariaClara.Id, DataHora = new DateTime(2026, 10, 22, 15, 0, 0), ProfissionalId = helena.Id, Status = StatusAgendamento.Realizado });
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task Com_duas_Marias_o_nome_curto_pergunta_e_o_cpf_resolve()
+    {
+        await DuasMarias();
+        var sistema = ChatEquipeRegras.Sistema(medica.Id);
+        await Chat().EnviarAsync(medica.Id, sistema, new("atestado Maria 2 dias"));
+        (await Ultima(sistema)).Texto.Should().Contain("Achei 2 pacientes").And.Contain("CPF");
+        (await db.DocumentosClinicos.CountAsync()).Should().Be(0);
+
+        await Chat().EnviarAsync(medica.Id, sistema, new("atestado " + CpfDaMaria + " 2 dias"));
+        (await db.DocumentosClinicos.AsNoTracking().SingleAsync()).PacienteId.Should().Be(maria.Id);
+    }
+
+    [Fact]
+    public async Task Nome_e_cpf_de_pacientes_diferentes_nao_emite()
+    {
+        await DuasMarias();
+        await Chat().EnviarAsync(medica.Id, ChatEquipeRegras.Sistema(medica.Id), new("atestado Maria Clara " + CpfDaMaria + " 2 dias"));
+        (await db.DocumentosClinicos.CountAsync()).Should().Be(0);
+        (await Ultima(ChatEquipeRegras.Sistema(medica.Id))).Texto.Should().Contain("Não achei esse CPF");
+    }
+
     [Fact]
     public async Task Quem_nao_prescreve_nao_emite()
     {

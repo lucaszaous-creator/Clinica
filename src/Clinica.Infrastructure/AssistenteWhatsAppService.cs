@@ -204,17 +204,15 @@ public sealed class AssistenteWhatsAppService
             return (repetida, repetida);
         }
 
-        var pacientes = await DocumentoPeloChatService.PacientesDoPedidoAsync(db, profissional, pedido.Nome, momento, ct);
+        var pacientes = await DocumentoPeloChatService.PacientesDoPedidoAsync(db, profissional, pedido, momento, ct);
         if (pacientes.Count == 0)
         {
-            var nenhum = $"Não achei \"{pedido.Nome}\" na sua agenda (60 dias para trás e 30 para a frente). Confira o nome; o documento por aqui é só de paciente seu.";
+            var nenhum = DocumentoPeloChatRegras.NaoAchei(pedido);
             return (nenhum, nenhum);
         }
         if (pacientes.Count > 1)
         {
-            var sb = new StringBuilder($"Achei {pacientes.Count} pacientes com \"{pedido.Nome}\" na sua agenda. Mande de novo com mais do nome:");
-            foreach (var l in pacientes.Take(8)) sb.Append($"\n• {l.Paciente} ({l.DataHora:dd/MM})");
-            var varios = sb.ToString();
+            var varios = DocumentoPeloChatRegras.Varias(pedido, pacientes.Select(l => (l.Paciente, l.DataHora)));
             return (varios, varios);
         }
 
