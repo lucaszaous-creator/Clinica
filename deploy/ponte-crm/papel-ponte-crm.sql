@@ -52,6 +52,10 @@ BEGIN
       -- O documento pedido pelo WhatsApp (@SemDor fase 4): a ponte grava só o RASCUNHO e o link;
       -- quem emite e assina é o portal. Nenhum privilégio sobre DocumentosClinicos.
       ['PedidosDocumentoWhatsApp','INSERT'],
+      -- O @SemDor com IA nos apps (Clinica#307): a ponte marca a releitura da pergunta, grava o
+      -- pulso do CRM e substitui a lista dos avisos "Atenção" do sino (aviso não é registro clínico).
+      ['PerguntasAoSemDor','UPDATE'], ['SemDorNoCrm','INSERT, UPDATE'],
+      ['AvisosDoSemDor','INSERT, UPDATE, DELETE'],
       ['Pacientes','UPDATE'], ['Auditoria','INSERT']] LOOP
     IF to_regclass(format('public.%I', g[1])) IS NOT NULL THEN
       EXECUTE format('GRANT %s ON public.%I TO ponte_crm', g[2], g[1]);

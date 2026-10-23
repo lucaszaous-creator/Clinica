@@ -341,6 +341,9 @@ public static class SistemaEquipeRegras
     }
 
     /// <summary>O que dá para perguntar — a resposta da ajuda e de tudo o que o sistema não entendeu.</summary>
+    /// <summary>O título do cartão de "não entendi" — é por ele que o WhatsApp e a fila do @SemDor reconhecem a ajuda.</summary>
+    public const string TituloNaoEntendi = "Não entendi a pergunta";
+
     public static (string Texto, CartaoChat Cartao) Ajuda(bool naoEntendeu, bool trataPedidos)
     {
         var linhas = new List<LinhaDoCartao>
@@ -353,7 +356,7 @@ public static class SistemaEquipeRegras
             new("", trataPedidos ? "Pedidos" : "Meus pedidos", trataPedidos ? "os pedidos da equipe em aberto" : "o que você pediu à recepção e o desfecho"),
         };
         var cartao = new CartaoChat("ajuda",
-            naoEntendeu ? "Não entendi a pergunta" : "O que posso responder",
+            naoEntendeu ? TituloNaoEntendi : "O que posso responder",
             "Respostas do sistema da clínica, com os dados da agenda — nada sai da clínica.",
             Linhas: linhas, Sugestoes: SugestoesIniciais,
             Rodape: "Para pedir algo à recepção (remarcar, encaixar, avisar o paciente), use \"Pedir à recepção\" ou o botão na linha do horário.");

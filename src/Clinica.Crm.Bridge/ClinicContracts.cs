@@ -102,3 +102,16 @@ public sealed record PatientMessage(string Id, string Phone, string Text, Patien
 public sealed record PatientMessageAck(string Id, bool Delivered, string? Reason = null);
 public sealed record PatientChoice(string Phone, string Payload, string MessageId);
 public sealed record PatientChoiceAnswer(bool Offer, string? Reply = null);
+
+// O @SemDor com IA nos apps (out/2026 — Clinica#307, docs/semdor-assistente.md no Clinica). A pergunta do
+// chat dos apps que as regras não entenderam espera numa fila na clínica; o CRM a lê (StaffQuestion), a IA
+// reescreve para uma pergunta conhecida e o CRM devolve (StaffRewrite; Rewritten nulo = a IA não achou).
+// Quem responde é a clínica, com as permissões de quem perguntou. Ler a fila é também o pulso: sem leitura
+// recente, os apps não prometem releitura.
+public sealed record StaffQuestion(int Id, string Text);
+public sealed record StaffRewrite(int Id, string? Rewritten);
+// O aviso "Atenção" do sino do CRM (ReceptionNotices.DoSemDor) vai também ao sino da Recepção dos apps: a
+// lista INTEIRA dos que valem agora (o que sai dela sai lá). Só o primeiro nome e o assunto; Link abre a
+// conversa no CRM (https).
+public sealed record SemDorAlert(string Key, string FirstName, string Topic, DateTimeOffset At, string Link);
+public sealed record SemDorAlerts(DateTimeOffset GeneratedAt, SemDorAlert[] Alerts);
