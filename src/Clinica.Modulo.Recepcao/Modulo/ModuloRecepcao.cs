@@ -31,12 +31,6 @@ public sealed class ModuloRecepcao : IModuloApp
     /// <summary>A conferência do que foi lançado — aba de "Atendimento" (set/2026).</summary>
     public const string ChaveLancamentos = "lancamentos";
 
-    /// <summary>
-    /// A fila "Retornos a marcar" — aba de "Atendimento" (set/2026): quem saiu do
-    /// atendimento com pedido de retorno e ainda não tem horário. O Consultório grava a
-    /// data sugerida desde a parcela 77 e o balcão não tinha por onde lê-la.
-    /// </summary>
-    public const string ChaveRetornosAMarcar = "retornos-a-marcar";
     public const string ChavePacientes = ChavesSuite.PacientesRecepcao;
     public const string ChaveProntuario = "prontuario";
     public const string ChaveRetorno = ChavesSuite.RetornoPacientes;
@@ -126,6 +120,12 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveAjuda = ChavesSuite.Ajuda;
 
     public const string ChaveConfirmacoes = ChavesSuite.ConfirmacoesAgenda;
+
+    /// <summary>
+    /// O WhatsApp da clínica DENTRO da Recepção (out/2026, docs/crm-na-recepcao.md): o CRM no
+    /// "modo Recepção", sem pedir a senha de novo. A porta é a do CRM (EditarAgenda).
+    /// </summary>
+    public const string ChaveWhatsAppCrm = Clinica.Application.Servicos.ConversaNoCrm.ChaveDaAba;
 
     /// <summary>
     /// O item composto "Relacionamento" (out/2026, mockup aprovado): confirmar a sessão de
@@ -288,7 +288,6 @@ public sealed class ModuloRecepcao : IModuloApp
             Abas =
             [
                 new AbaMenu("Confirma\u00E7\u00F5es", ChaveConfirmacoes),
-                new AbaMenu("Retornos a marcar", ChaveRetornosAMarcar),
                 new AbaMenu("Acompanhamento", ChaveRetorno),
                 // Os pedidos da enfermagem (out/2026, pedido da clínica): a recepção os
                 // atende como atende o paciente que liga — é conversa, não agenda.
@@ -299,6 +298,13 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             Chave = ChaveProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3", Icone = "ficha",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
+        },
+        // O WhatsApp da clínica (out/2026): o CRM dentro da Recepção, na barra do topo depois de
+        // Relacionamento. Quem não entra no CRM (sem EditarAgenda) nem vê o item.
+        new ItemMenuModulo
+        {
+            Chave = ChaveWhatsAppCrm, Rotulo = "WhatsApp", Glifo = "\uE8BD", Principal = 6,
+            Grupo = GrupoSidebar.Relacionamento, Requer = Permissao.EditarAgenda, PreservarAoNavegar = true
         },
         // \u26A0\uFE0F A SEGUNDA duplicata da sidebar, e ela \u00E9 a MESMA hist\u00F3ria das "Prescri\u00E7\u00F5es"
         // logo abaixo (set/2026 \u2014 o cliente mandou o print do Gerente com os dois itens):
@@ -440,13 +446,9 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveLancamentos, Rotulo = "Lan\u00E7amentos", Glifo = "\uE9D5", Icone = "lista",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento
         },
-        // Retornos a marcar: LEITURA da agenda (VerAgenda). Marcar, dentro dela, exige
-        // EditarAgenda no comando — as duas metades em cada linha.
-        new ItemMenuModulo
-        {
-            Chave = ChaveRetornosAMarcar, Rotulo = "Retornos a marcar", Glifo = "\uE823", Icone = "volta",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerAgenda
-        },
+        // "Retornos a marcar" saiu do menu na fase 2 (out/2026, docs/crm-na-recepcao.md): é a fila
+        // "Retornos pedidos" do Acompanhamento — uma porta só para quem a recepção chama de volta.
+        // O "Canal de SMS" saiu na fase 3: o CRM é o único remetente de SMS (docs/canal-sms.md).
         // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
         // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a
         // Direção está carregada.
@@ -514,8 +516,8 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveMarcarHorario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MarcarAtendimento), servicos),
         ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
-        ChaveRetornosAMarcar => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RetornosAMarcar), servicos),
         ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
+        ChaveWhatsAppCrm => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.WhatsAppNoCrm), servicos),
         ChaveSalaInfusao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),
         ChaveEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Enfermagem), servicos),
         // Tela do SHELL (parcela 60), como a sala de infusão acima. O item era publicado

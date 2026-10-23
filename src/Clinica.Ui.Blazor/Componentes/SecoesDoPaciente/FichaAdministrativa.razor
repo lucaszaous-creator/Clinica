@@ -441,6 +441,8 @@
         var primeiro = _nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? _nome;
         var link = QuemMeDeveTela.LinkWhatsApp(_telefone, $"Olá, {primeiro}!");
         if (link is null) { Notificacoes.Erro("Telefone ausente ou inválido no cadastro."); return; }
+        // Pelo WhatsApp da clínica, na aba WhatsApp (fase 2, docs/crm-na-recepcao.md); sem a aba, o wa.me de antes.
+        if (await PedidoDeConversaNoCrm.EscreverAsync(Servicos, Host, new(_telefone ?? "", _nome, PacienteId, $"Olá, {primeiro}!"))) return;
         if (!await Host.AbrirEnderecoAsync(link))
             Notificacoes.Erro(await Host.CopiarAsync(link)
                 ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."

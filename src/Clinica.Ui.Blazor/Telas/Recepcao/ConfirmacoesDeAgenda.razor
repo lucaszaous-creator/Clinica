@@ -21,6 +21,7 @@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Modelos
 @inherits TelaBase
+@inject IServiceProvider Servicos
 
 <div class="pagina confirmacoes @(Carregando && _todas.Count > 0 ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Relacionamento · Confirmações" Titulo="Confirmações de agenda"
@@ -340,11 +341,13 @@
     private async Task WhatsappAsync(SessaoDaRodada l, bool registrar)
     {
         if (!Exigir(Permissao.EditarAgenda, "avisar o paciente")) return;
-        var link = QuemMeDeveTela.LinkWhatsApp(l.Telefone,
-            MensagensDeContato.ConfirmacaoDeSessao(l.NomeCru, l.Quando, Hoje, string.IsNullOrWhiteSpace(_nomeClinica) ? null : _nomeClinica));
+        // Pelo WhatsApp da clínica, na aba WhatsApp (fase 2, docs/crm-na-recepcao.md); sem a aba, o wa.me de antes.
+        var texto = MensagensDeContato.ConfirmacaoDeSessao(l.NomeCru, l.Quando, Hoje, string.IsNullOrWhiteSpace(_nomeClinica) ? null : _nomeClinica);
+        var link = QuemMeDeveTela.LinkWhatsApp(l.Telefone, texto);
         if (link is null) { Dizer($"{l.Paciente}: telefone ausente ou inválido no cadastro.", erro: true); return; }
 
-        if (!await Host.AbrirEnderecoAsync(link))
+        if (!await PedidoDeConversaNoCrm.EscreverAsync(Servicos, Host, new(l.Telefone ?? "", l.NomeCru, l.PacienteId, texto))
+            && !await Host.AbrirEnderecoAsync(link))
         {
             var copiou = await Host.CopiarAsync(link);
             Notificacoes.Erro(copiou

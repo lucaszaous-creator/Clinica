@@ -62,7 +62,6 @@ public static class OrganizacaoNavegacao
                 abas = [.. item.Abas.Where(a => a.Chave != ChavesSuite.RetornoPacientes)];
                 break;
             case "retorno-pacientes": rotulo = "Acompanhamento de pacientes"; grupo = GrupoSidebar.Relacionamento; break;
-            case "retornos-a-marcar": grupo = GrupoSidebar.Relacionamento; break;
             case ChavesSuite.ConfirmacoesAgenda: rotulo = "Confirmações"; grupo = GrupoSidebar.Relacionamento; break;
             case "producao": case "consultorio-meus-numeros": grupo = GrupoSidebar.Inteligencia; break;
             case "resultado": grupo = GrupoSidebar.Inteligencia; rotulo = "Resultado e teto de despesas"; break;

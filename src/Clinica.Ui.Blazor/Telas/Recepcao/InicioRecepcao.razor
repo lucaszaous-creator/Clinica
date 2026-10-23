@@ -226,7 +226,6 @@
     private const string ChaveMarcarHorario = "marcar-horario";
     private const string ChaveAgendaDoDia = "fila";
     private const string ChaveConfirmacoes = "agenda-confirmacoes";
-    private const string ChaveRetornosAMarcar = "retornos-a-marcar";
     private const string ChaveRecall = "retorno-pacientes";
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
@@ -432,7 +431,8 @@
     private static string? Destino(string chave) => chave switch
     {
         "confirmar" => ChaveConfirmacoes,
-        "retornos" => ChaveRetornosAMarcar,
+        // Os retornos moram no Acompanhamento desde a fase 2 (a terceira fila): o pedido abre nela.
+        "retornos" => ChaveRecall,
         "recall" => ChaveRecall,
         _ => null
     };
@@ -465,8 +465,13 @@
     private async Task AbrirItemAsync(ItemDoBalcao item)
     {
         if (Destino(item.Chave) is not { } destino) { _guiasAbertas = true; return; }
+        var pedido = item.Chave == "retornos" ? Servicos.GetService<PedidoDoAcompanhamento>() : null;
+        pedido?.PedirRetornos();
         if (!await Host.NavegarAsync(destino))
+        {
+            pedido?.ConsumirRetornos();
             Notificacoes.Info($"{item.Titulo}: esta tela não está disponível para o seu acesso neste aplicativo.");
+        }
     }
 
     private async Task AbrirFichaAsync(int pacienteId, string paciente)

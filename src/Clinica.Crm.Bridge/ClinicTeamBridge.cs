@@ -19,7 +19,7 @@ namespace Clinica.Crm.Bridge;
 /// CRM trava o login no sistema também). Sem isso, o CRM, que fica na internet, viraria uma
 /// porta para testar senhas da clínica sem limite.
 /// </summary>
-public sealed class ClinicTeamBridge(IClinicaRepositorio repo, AcessoService acesso)
+public sealed class ClinicTeamBridge(IClinicaRepositorio repo, AcessoService acesso, IEntradaNoCrmService entrada)
 {
     public const Permissao Requer = Permissao.EditarAgenda;
 
@@ -49,5 +49,21 @@ public sealed class ClinicTeamBridge(IClinicaRepositorio repo, AcessoService ace
         if (!PodeEntrar(r.Usuario))
             return Results.Json(new { error = SemAcesso }, statusCode: 403);
         return Results.Ok(Membro(r.Usuario));
+    }
+
+    /// <summary>
+    /// O bilhete da aba "WhatsApp" da Recepção (out/2026, docs/crm-na-recepcao.md): quem já entrou
+    /// no app entra no CRM sem digitar a senha de novo. O bilhete é gasto aqui; quem ele aponta
+    /// passa pela MESMA porta da senha (<see cref="PodeEntrar"/>) — usuário desativado ou sem o
+    /// bit depois de o bilhete nascer não entra. Recusado, a frase é sempre a mesma.
+    /// </summary>
+    public async Task<IResult> EnterByTicket(ClinicTicketLogin input, CancellationToken ct)
+    {
+        if (await entrada.ConferirAsync(input.Ticket, ct) is not { } usuarioId)
+            return Results.Json(new { error = EntradaNoCrm.Recusa }, statusCode: 401);
+        var u = await repo.ObterUsuarioAsync(usuarioId, ct);
+        if (u is null) return Results.Json(new { error = EntradaNoCrm.Recusa }, statusCode: 401);
+        if (!PodeEntrar(u)) return Results.Json(new { error = SemAcesso }, statusCode: 403);
+        return Results.Ok(Membro(u));
     }
 }

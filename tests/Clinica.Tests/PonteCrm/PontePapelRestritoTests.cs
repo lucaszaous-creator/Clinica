@@ -192,6 +192,24 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Contains("42501", e.ToString());
     }
 
+    // O CRM dentro da Recepção: o app grava o bilhete; a ponte só o gasta (UsadoEm), e não cria
+    // bilhete nem mexe em outra coluna — com esta credencial ninguém fabrica entrada no CRM.
+    [Fact] public async Task Bilhete_da_Recepcao_a_ponte_so_gasta()
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        var ana = new UsuarioSistema { Login = "ana-bilhete", Nome = "Ana", Perfil = PerfilAcesso.Recepcao };
+        admin.Usuarios.Add(ana); await admin.SaveChangesAsync();
+        var bilhete = await new EntradaNoCrmService(admin).EmitirAsync(ana.Id);
+
+        Assert.Equal(ana.Id, await new EntradaNoCrmService(ponte!).ConferirAsync(bilhete));
+        Assert.Null(await new EntradaNoCrmService(ponte!).ConferirAsync(bilhete));
+
+        var e = await Assert.ThrowsAnyAsync<Exception>(() => new EntradaNoCrmService(ponte!).EmitirAsync(ana.Id));
+        Assert.Contains("42501", e.ToString());
+        e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"BilhetesEntradaCrm\" SET \"VenceEm\" = now()"));
+        Assert.Contains("42501", e.ToString());
+    }
+
     // O @SemDor com IA nos apps (Clinica#307): ler a fila (pulso), responder a releitura no chat e
     // substituir a lista de avisos — e nada além: a pergunta não se apaga pela ponte.
     [Fact] public async Task SemDor_nos_apps_fila_e_avisos()
@@ -229,7 +247,7 @@ public sealed class PontePapelRestritoTests : IDisposable
         admin.Usuarios.Add(new UsuarioSistema { Login = "ana", Nome = "Ana", Perfil = PerfilAcesso.Recepcao, SenhaHash = hash, SenhaSalt = sal });
         await admin.SaveChangesAsync();
         var repo = new ClinicaRepositorio(ponte!);
-        var bridge = new ClinicTeamBridge(repo, new AcessoService(repo));
+        var bridge = new ClinicTeamBridge(repo, new AcessoService(repo), new EntradaNoCrmService(ponte!));
 
         for (var i = 0; i < AcessoService.TentativasAteTravar; i++)
             Assert.Equal(401, ((Microsoft.AspNetCore.Http.IStatusCodeHttpResult)await bridge.Enter(new("ana", "errada"), default)).StatusCode);

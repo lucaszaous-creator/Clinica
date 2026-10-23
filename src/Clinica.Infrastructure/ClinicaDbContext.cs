@@ -144,6 +144,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ConversaEquipe> ConversasEquipe => Set<ConversaEquipe>();
     public DbSet<PedidoRecepcao> PedidosRecepcao => Set<PedidoRecepcao>();
     public DbSet<PedidoDocumentoWhatsApp> PedidosDocumentoWhatsApp => Set<PedidoDocumentoWhatsApp>();
+    public DbSet<BilheteEntradaCrm> BilhetesEntradaCrm => Set<BilheteEntradaCrm>();
     public DbSet<EventoPedidoRecepcao> EventosPedidoRecepcao => Set<EventoPedidoRecepcao>();
     public DbSet<PerguntaAoSemDor> PerguntasAoSemDor => Set<PerguntaAoSemDor>();
     public DbSet<AvisoDoSemDor> AvisosDoSemDor => Set<AvisoDoSemDor>();
@@ -1938,6 +1939,18 @@ public class ClinicaDbContext : DbContext
             e.HasOne<Paciente>().WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Agendamento>().WithMany().HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<DocumentoClinico>().WithMany().HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Restrict);
+        });
+        // O CRM dentro da Recepção (out/2026, docs/crm-na-recepcao.md): só o hash do bilhete.
+        b.Entity<BilheteEntradaCrm>(e =>
+        {
+            e.ToTable("BilhetesEntradaCrm");
+            e.Property(x => x.TokenHash).IsRequired().HasMaxLength(64);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.VenceEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.UsadoEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.CriadoEm);
+            e.HasOne<UsuarioSistema>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
         });
         // O @SemDor com IA nos apps (Clinica#307): a fila de perguntas, os avisos do CRM e o pulso.
         b.Entity<PerguntaAoSemDor>(e =>

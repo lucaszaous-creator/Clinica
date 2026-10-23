@@ -324,6 +324,27 @@
 
     private RenderFragment AbaIntegracoes => @<text>
         <section class="cfg-bloco">
+            @Cabeca("WhatsApp da clínica (CRM)", "O endereço do CRM. Com ele preenchido, a Recepção ganha a aba WhatsApp: as conversas abrem dentro do app, já com a pessoa logada, sem outra senha.", _pendCrm)
+            <div class="cfg-bloco-campos">
+                <div class="cfg-grupo">
+                    <h3>Endereço do CRM</h3>
+                    <div class="campos">
+                        <Campo Rotulo="Endereço" Classe="largo"
+                               Dica="O mesmo que se abre no navegador, só o começo (https e o domínio, sem caminho). No servidor do CRM, CRM_EMBED_ORIGINS precisa ter https://0.0.0.0 — é o que deixa o CRM abrir dentro do app. Em branco, a aba WhatsApp mostra como ligar.">
+                            <input class="campo" maxlength="200" placeholder="https://crm.suaclinica.com.br" @bind="_enderecoCrm" @bind:after="MudouCrm" />
+                        </Campo>
+                    </div>
+                </div>
+            </div>
+            <footer class="cfg-bloco-rodape">
+                @Mensagem(Aba.Integracoes, Bloco.Crm)
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarCrmAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar endereço</button>
+                </div>
+            </footer>
+        </section>
+
+        <section class="cfg-bloco">
             @Cabeca("Publicação de documentos assinados", "Receita, atestado, pedido de exame e declaração assinados digitalmente ganham um QR Code que o farmacêutico abre com a câmera. Prontuário NUNCA é publicado.", _pendPublicacao)
             <div class="cfg-bloco-campos">
                 <p class="cfg-situacao">@_situacaoPublicacao</p>
@@ -491,7 +512,7 @@
         Aba.Atendimento => _pendConclusao,
         Aba.Operacao => _pendOperacao,
         Aba.Faturamento => _pendFaturamento,
-        Aba.Integracoes => _pendPublicacao,
+        Aba.Integracoes => _pendPublicacao || _pendCrm,
         _ => _pendBackup
     };
 
@@ -508,8 +529,8 @@
 
     private enum Aba { Clinica, Atendimento, Operacao, Faturamento, Integracoes, Backup }
 
-    /// <summary>A aba Integrações tem dois blocos, cada um com o próprio Salvar e a própria mensagem.</summary>
-    private enum Bloco { Unico, Publicacao }
+    /// <summary>A aba Integrações tem blocos com o próprio Salvar e a própria mensagem (CRM e publicação).</summary>
+    private enum Bloco { Unico, Publicacao, Crm }
 
     private static readonly (Aba Aba, string Rotulo)[] Abas =
     [
@@ -544,6 +565,8 @@
     // Publicação — o segredo digitado começa VAZIO: o gravado nunca volta à tela.
     private string? _dominio, _diasPublicacao, _armEndpoint, _armRegiao, _armBucket, _armChave, _urlExemplo;
     private string _armSegredo = string.Empty;
+    // O CRM dentro da Recepção (docs/crm-na-recepcao.md)
+    private string? _enderecoCrm;
     private bool _temSegredoGravado, _armVemDoAmbiente, _testando;
     private string _situacaoPublicacao = string.Empty;
     // Backup
@@ -552,9 +575,9 @@
     private bool _backupDesligado = true, _resumoBackupEhErro, _resumoBackupNaPolitica, _copiando;
 
     // Pendências por bloco: salvar um bloco não pode apagar o que foi digitado nos outros.
-    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendBackup;
+    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendBackup, _pendCrm;
     private bool Pendente => _pendClinica || _pendConclusao || _pendOperacao || _pendFaturamento
-                             || _pendPublicacao || _pendBackup;
+                             || _pendPublicacao || _pendBackup || _pendCrm;
 
     private bool _carregou, _carregando, _naoVerificado, _salvando, _termos, _campos;
     private string? _erroLeitura, _mensagem;
@@ -576,6 +599,7 @@
     private void MudouOperacao() => _pendOperacao = true;
     private void MudouFaturamento() => _pendFaturamento = true;
     private void MudouPublicacao() => _pendPublicacao = true;
+    private void MudouCrm() => _pendCrm = true;
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
@@ -701,6 +725,7 @@
             var faturamento = await LerFaturamentoAsync(p);
             var conclusao = await LerConclusaoAsync(sp);
             var publicacao = await LerPublicacaoAsync(p);
+            var enderecoCrm = await p.ObterEnderecoDoCrmAsync();
             var copia = await sp.GetRequiredService<ICopiaDeSeguranca>().SituacaoAsync();
             var (pendencias, resumo) = await LerPendenciasAsync(sp);
             if (geracao != _geracao || Descartada) return;
@@ -711,6 +736,7 @@
             PublicarConclusao(conclusao);
             (_pendencias, _resumoPendencias) = (pendencias, resumo);
             PublicarPublicacao(publicacao);
+            PublicarCrm(enderecoCrm);
             PublicarBackup(copia);
 
             _carregou = true;
@@ -785,6 +811,12 @@
         _conclusaoAutomatica = l.Automatica;
         _prazoConclusao = l.Horas.ToString(CultureInfo.InvariantCulture);
         _pendConclusao = false;
+    }
+
+    private void PublicarCrm(string? endereco)
+    {
+        _enderecoCrm = endereco;
+        _pendCrm = false;
     }
 
     private void PublicarPublicacao(LidoPublicacao l)
@@ -933,6 +965,25 @@
             await p.SalvarRodadaAplicaAsync(_aplicaConsultas, _aplicaCarteirinhas);
             PublicarFaturamento(await LerFaturamentoAsync(p));
             return "Regras de faturamento salvas.";
+        });
+    }
+
+    private async Task SalvarCrmAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
+        await GravarAsync(Aba.Integracoes, Bloco.Crm, "endereço do CRM", async sp =>
+        {
+            var p = sp.GetRequiredService<ParametrosService>();
+            if (!string.IsNullOrWhiteSpace(_enderecoCrm) && EntradaNoCrm.EnderecoValido(_enderecoCrm) is null)
+            {
+                Dizer(Aba.Integracoes, "O endereço do CRM precisa ser https e sem caminho (ex.: https://crm.suaclinica.com.br).", erro: true, Bloco.Crm);
+                return null;
+            }
+            await p.SalvarEnderecoDoCrmAsync(_enderecoCrm);
+            PublicarCrm(await p.ObterEnderecoDoCrmAsync());
+            return _enderecoCrm is null
+                ? "Endereço do CRM apagado: a aba WhatsApp da Recepção mostra como ligar."
+                : "Endereço do CRM salvo: a aba WhatsApp da Recepção já abre as conversas.";
         });
     }
 
