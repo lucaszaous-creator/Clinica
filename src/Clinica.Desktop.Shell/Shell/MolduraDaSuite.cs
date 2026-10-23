@@ -44,6 +44,7 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
         _vm.ResultadosPesquisa.CollectionChanged += MudouColecao;
         _vm.PedidosNoSino.CollectionChanged += MudouColecao;
         _vm.RespostasNoSino.CollectionChanged += MudouColecao;
+        _vm.AvisosDoSemDor.CollectionChanged += MudouColecao;
         foreach (var item in _vm.Itens) item.PropertyChanged += MudouNoViewModel;
         if (_snackbar is not null)
         {
@@ -127,6 +128,17 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
                 _vm.RespostaNaoLida(r), r.Titulo.StartsWith(r.Paciente, StringComparison.Ordinal) ? r.Paciente : "")).ToList(),
             _vm.SituacaoRespostas)
         : SecaoDoSino<RespostaHtml>.Oculta;
+
+    public SecaoDoSino<AvisoDoSemDorNoSino> AvisosDoSemDor => _vm.PodeVerAvisosDoSemDor && _vm.SemDorLigado
+        ? new(true, Clinica.Application.Servicos.AvisosDoSemDorRegras.Contador(_vm.AvisosDoSemDor.Count),
+            _vm.AvisosDoSemDor.Select(a => new AvisoDoSemDorNoSino(a, a.Paciente, a.Assunto, a.Quando, _vm.AvisoDoSemDorNaoLido(a.Chave))).ToList(),
+            _vm.SituacaoSemDor)
+        : SecaoDoSino<AvisoDoSemDorNoSino>.Oculta;
+
+    public void AbrirAvisoDoSemDor(AvisoDoSemDorNoSino aviso)
+    {
+        if (aviso.Alvo is AvisoDoSemDorShell original) _vm.AbrirAvisoDoSemDor(original);
+    }
 
     private static string Tom(Clinica.Application.Modelos.TipoAvisoConfirmacao tipo) => tipo switch
     {
@@ -250,6 +262,7 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
         _vm.ResultadosPesquisa.CollectionChanged -= MudouColecao;
         _vm.PedidosNoSino.CollectionChanged -= MudouColecao;
         _vm.RespostasNoSino.CollectionChanged -= MudouColecao;
+        _vm.AvisosDoSemDor.CollectionChanged -= MudouColecao;
         foreach (var item in _vm.Itens) item.PropertyChanged -= MudouNoViewModel;
         if (_snackbar is not null)
         {

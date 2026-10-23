@@ -41,6 +41,8 @@ public sealed class SistemaEquipeService
             case IntencaoDoSistema.Ajuda:
             case IntencaoDoSistema.NaoEntendi:
                 return SistemaEquipeRegras.Ajuda(p.Intencao == IntencaoDoSistema.NaoEntendi, PedidosRecepcaoRegras.PodeTratar(eu));
+            case IntencaoDoSistema.Documento:
+                return (DocumentoPeloWhatsAppRegras.PorAquiNao, null);
             case IntencaoDoSistema.Saudacao:
                 return (SistemaEquipeRegras.Saudacao(eu.Nome, momento), new CartaoChat("ajuda", "Comece por aqui",
                     Sugestoes: SistemaEquipeRegras.SugestoesIniciais));

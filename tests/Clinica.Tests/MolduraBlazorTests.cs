@@ -282,6 +282,9 @@ public sealed class MolduraBlazorTests : IDisposable
         public void AbrirPedido(PedidoNoSino pedido) => Abriu.Add(-pedido.Id);
         public void AbrirTodosOsPedidos() { }
         public void AbrirResposta(RespostaNoSino resposta) { }
+        public SecaoDoSino<AvisoDoSemDorNoSino> AvisosDoSemDor { get; set; } = SecaoDoSino<AvisoDoSemDorNoSino>.Oculta;
+        public List<AvisoDoSemDorNoSino> AbriuSemDor { get; } = [];
+        public void AbrirAvisoDoSemDor(AvisoDoSemDorNoSino aviso) => AbriuSemDor.Add(aviso);
         public void AbrirConfirmacoes() { }
         public void FecharSobreposicoes() { SinoAberto = false; }
         public void TrocarUsuario() => TrocouUsuario = true;
@@ -391,6 +394,31 @@ public sealed class MolduraBlazorTests : IDisposable
 
         tela.Find(".sino-cab .link").Click();
         Assert.Equal(1, moldura.MarcouTodas);
+    }
+
+    // O @SemDor nos apps (Clinica#307): o aviso "Atenção" vem antes de tudo e o clique vai ao shell
+    // (que abre a conversa no CRM); sem avisos, a seção não aparece.
+    [Fact]
+    public void O_aviso_do_SemDor_vem_primeiro_e_o_clique_abre_a_conversa()
+    {
+        using var ctx = Contexto();
+        var aviso = new AvisoDoSemDorNoSino("x", "Maria", "Sintoma grave", "hoje, 09:42", NaoLida: true);
+        var moldura = new MolduraDeMentira { AvisosDoSemDor = new(true, "1 sem resposta", [aviso], "") };
+        var tela = ctx.RenderComponent<MolduraDoApp>(p => p.Add(x => x.Moldura, moldura));
+        tela.Find(".moldura-sino button").Click();
+        tela.WaitForAssertion(() => Assert.NotEmpty(tela.FindAll(".moldura-popover.sino")));
+
+        tela.FindAll(".sino-abas button")[1].Click();
+        var primeira = tela.Find(".sino-lista section");
+        Assert.Contains("Atenção no WhatsApp", primeira.TextContent);
+        Assert.Contains("Maria", primeira.QuerySelector("strong")!.TextContent);
+        Assert.Contains("@SemDor", primeira.TextContent);
+        primeira.QuerySelector(".moldura-aviso")!.Click();
+        Assert.Same(aviso, Assert.Single(moldura.AbriuSemDor));
+
+        moldura.AvisosDoSemDor = new(true, "0 sem resposta", [], "");
+        tela.Render();
+        Assert.DoesNotContain("Atenção no WhatsApp", tela.Markup);
     }
 
     [Fact]

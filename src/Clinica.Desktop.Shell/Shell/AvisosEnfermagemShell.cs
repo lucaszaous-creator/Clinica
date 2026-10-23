@@ -66,6 +66,7 @@ public sealed partial class ShellViewModel
         if (!_avisosEmCena) return;
         _relogioAvisos?.Start(); _ = AtualizarPedidosGlobaisAsync();
         IniciarAvisosConfirmacao();
+        IniciarAvisosDoSemDor();
     }
     public void PararAvisosGlobais()
     {
@@ -75,6 +76,7 @@ public sealed partial class ShellViewModel
         Clinica.Infrastructure.OuvinteDeMudancas.Mudou -= MudouNoBanco;
         if (Snackbar is not null) Snackbar.PropertyChanged -= MudouSnackbar;
         PararAvisosConfirmacao();
+        PararAvisosDoSemDor();
     }
 
     /// <summary>

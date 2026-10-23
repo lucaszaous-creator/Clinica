@@ -76,14 +76,7 @@ public static partial class DocumentoPeloWhatsAppRegras
         var cabeca = ChatEquipeRegras.TextoDeBusca(doisPontos >= 0 ? original[..doisPontos] : original);
         var corpo = doisPontos >= 0 ? original[(doisPontos + 1)..].Trim() : "";
 
-        var resto = " " + Limpar(cabeca) + " ";
-        for (var voltas = 0; voltas < 6; voltas++)
-        {
-            var p = Preambulos.FirstOrDefault(x => resto.StartsWith(" " + x + " ", StringComparison.Ordinal));
-            if (p is null) break;
-            resto = resto[(p.Length + 1)..];
-        }
-
+        var resto = SemPreambulo(cabeca);
         foreach (var (tipo, inicios) in Tipos)
         {
             var inicio = inicios.FirstOrDefault(x => resto.StartsWith(" " + x + " ", StringComparison.Ordinal));
@@ -101,6 +94,50 @@ public static partial class DocumentoPeloWhatsAppRegras
             return new DocumentoPorTexto(tipo, string.Join(' ', nome), dias, corpo.Length > TamanhoMaximoDoTexto ? corpo[..TamanhoMaximoDoTexto] : corpo);
         }
         return null;
+    }
+
+    /// <summary>
+    /// A frase fala de documento, mesmo sem dizer qual ("emitir documento para a Maria",
+    /// "preciso de uma declaração")? É o que impede o pedido de cair no "não entendi" — e de ir
+    /// à IA: texto de documento nunca é reescrito (@SemDor fase 4).
+    /// </summary>
+    public static bool PedeDocumento(string texto)
+    {
+        if (Ler(texto) is not null) return true;
+        var original = (texto ?? "").Trim();
+        var doisPontos = original.IndexOf(':');
+        var resto = SemPreambulo(ChatEquipeRegras.TextoDeBusca(doisPontos >= 0 ? original[..doisPontos] : original));
+        return SemTipo.Any(x => resto.StartsWith(" " + x + " ", StringComparison.Ordinal));
+    }
+
+    /// <summary>Os pedidos que dizem "documento" sem dizer o tipo.</summary>
+    private static readonly string[] SemTipo = ["documento", "documentos", "declaracao", "declaracoes"];
+
+    /// <summary>A resposta a quem pediu documento sem dizer o tipo (com a emissão por mensagem ligada).</summary>
+    public const string QualDocumento = "Qual documento? Mande o tipo e o nome da paciente, por exemplo:"
+        + "\n• \"atestado Maria Silva 2 dias\""
+        + "\n• \"comparecimento Maria Silva\""
+        + "\n• \"receita Maria Silva: dipirona 500 mg, 1 comprimido de 6/6 h se dor\""
+        + "\n• \"exame Maria Silva: hemograma completo\""
+        + "\n• \"relatório Maria Silva: evolução do tratamento\"";
+
+    /// <summary>
+    /// A resposta onde a emissão por mensagem não existe: no chat dos apps, e no WhatsApp enquanto a
+    /// fase 4 está desligada. Antes disso o pedido caía no "não entendi" (relato da clínica, 23/10/2026).
+    /// </summary>
+    public const string PorAquiNao = "Por aqui ainda não emito documento. Emita pelo Consultório: abra a paciente e use Emitir.";
+
+    /// <summary>A cabeça da frase, limpa e sem o que vem antes do tipo ("por favor, emite um…"), entre espaços.</summary>
+    private static string SemPreambulo(string cabeca)
+    {
+        var resto = " " + Limpar(cabeca) + " ";
+        for (var voltas = 0; voltas < 6; voltas++)
+        {
+            var p = Preambulos.FirstOrDefault(x => resto.StartsWith(" " + x + " ", StringComparison.Ordinal));
+            if (p is null) break;
+            resto = resto[(p.Length + 1)..];
+        }
+        return resto;
     }
 
     private static string Limpar(string limpo)

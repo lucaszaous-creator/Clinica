@@ -196,6 +196,34 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Contains("42501", e.ToString());
     }
 
+    // O @SemDor com IA nos apps (Clinica#307): ler a fila (pulso), responder a releitura no chat e
+    // substituir a lista de avisos — e nada além: a pergunta não se apaga pela ponte.
+    [Fact] public async Task SemDor_nos_apps_fila_e_avisos()
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        await Horario(0, DateTime.Today.AddHours(10));
+        var ana = new UsuarioSistema { Login = "ana-semdor", Nome = "Ana", Perfil = PerfilAcesso.Recepcao };
+        admin.Usuarios.Add(ana);
+        await admin.SaveChangesAsync();
+        admin.PerguntasAoSemDor.Add(new PerguntaAoSemDor { UsuarioId = ana.Id, Conversa = ChatEquipeRegras.Sistema(ana.Id),
+            Texto = "qual a senha do wifi", CriadaEm = DateTime.Now, Situacao = SemDorNosAppsRegras.Aguardando });
+        await admin.SaveChangesAsync();
+
+        var bridge = new ClinicSemDorBridge(ponte!, new PerguntasAoSemDorService(ponte!));
+        var fila = await bridge.Questions(default);
+        Assert.Single(fila);
+        Assert.Equal("answered", (await bridge.Answer(new(fila[0].Id, "agenda de hoje"), default)).Status);
+        Assert.Contains(await admin.MensagensEquipe.AsNoTracking().Select(m => m.Texto).ToListAsync(), t => t.StartsWith("Entendi como"));
+
+        var agora = DateTimeOffset.UtcNow;
+        await bridge.Alerts(new(agora.AddSeconds(-1), [new("semdor:a1", "Maria", "Sintoma grave", agora, "https://crm.exemplo/#inbox/c1")]), default);
+        Assert.Equal("recorded", (await bridge.Alerts(new(agora, []), default)).Status);
+        Assert.Equal(0, await admin.AvisosDoSemDor.CountAsync());
+
+        var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"PerguntasAoSemDor\""));
+        Assert.Contains("42501", e.ToString());
+    }
+
     // O login do CRM conta tentativas, trava e marca o último acesso — e só essas colunas: a
     // senha e as permissões continuam fora do alcance do usuário da ponte.
     [Fact] public async Task Login_do_CRM_com_o_usuario_do_sistema()

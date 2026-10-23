@@ -145,6 +145,9 @@ public class ClinicaDbContext : DbContext
     public DbSet<PedidoRecepcao> PedidosRecepcao => Set<PedidoRecepcao>();
     public DbSet<PedidoDocumentoWhatsApp> PedidosDocumentoWhatsApp => Set<PedidoDocumentoWhatsApp>();
     public DbSet<EventoPedidoRecepcao> EventosPedidoRecepcao => Set<EventoPedidoRecepcao>();
+    public DbSet<PerguntaAoSemDor> PerguntasAoSemDor => Set<PerguntaAoSemDor>();
+    public DbSet<AvisoDoSemDor> AvisosDoSemDor => Set<AvisoDoSemDor>();
+    public DbSet<SemDorNoCrm> SemDorNoCrm => Set<SemDorNoCrm>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -1935,6 +1938,36 @@ public class ClinicaDbContext : DbContext
             e.HasOne<Paciente>().WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Agendamento>().WithMany().HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<DocumentoClinico>().WithMany().HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Restrict);
+        });
+        // O @SemDor com IA nos apps (Clinica#307): a fila de perguntas, os avisos do CRM e o pulso.
+        b.Entity<PerguntaAoSemDor>(e =>
+        {
+            e.ToTable("PerguntasAoSemDor");
+            e.Property(x => x.Conversa).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Texto).IsRequired().HasMaxLength(1000);
+            e.Property(x => x.Situacao).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Reescrita).HasMaxLength(200);
+            e.Property(x => x.CriadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ResolvidaEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(x => new { x.Situacao, x.CriadaEm });
+            e.HasOne<UsuarioSistema>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<AvisoDoSemDor>(e =>
+        {
+            e.ToTable("AvisosDoSemDor");
+            e.HasKey(x => x.Chave);
+            e.Property(x => x.Chave).HasMaxLength(80);
+            e.Property(x => x.PrimeiroNome).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Assunto).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Link).IsRequired().HasMaxLength(400);
+            e.Property(x => x.Em).HasColumnType("timestamp without time zone");
+        });
+        b.Entity<SemDorNoCrm>(e =>
+        {
+            e.ToTable("SemDorNoCrm");
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.PerguntasLidasEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AvisosRecebidosEm).HasColumnType("timestamp without time zone");
         });
         b.Entity<EventoPedidoRecepcao>(e =>
         {

@@ -32,6 +32,9 @@ builder.Services.AddScoped<ClinicDispatchBridge>();
 builder.Services.AddSingleton(new OpcoesDocumentoPeloWhatsApp(builder.Configuration["CRM_STAFF_DOCUMENTS_ENABLED"]=="true",
     builder.Configuration["CRM_STAFF_DOCUMENTS_PORTAL_URL"]??""));
 builder.Services.AddScoped<AssistenteWhatsAppService>();
+// O @SemDor com IA nos apps (Clinica#307): a fila de perguntas do chat dos apps e os avisos do CRM.
+builder.Services.AddScoped(sp=>new PerguntasAoSemDorService(sp.GetRequiredService<ClinicaDbContext>()));
+builder.Services.AddScoped<ClinicSemDorBridge>();
 // O lembrete de SMS 24h antes, com a clínica fechada (out/2026): o MESMO LembreteSmsService
 // do desktop, rodando aqui a cada 5 min. Liga com LembreteSms__Ligado=true. O provedor, o
 // texto e o endereço do link continuam vindo das Configurações do Clinica (Relacionamento →
@@ -77,6 +80,12 @@ app.MapPost("/crm/v1/staff/notices/ack",async(StaffNoticeAck input,AssistenteWha
     await s.ConfirmarAvisoAsync(input.RequestId,input.Delivered,input.Reason,ct);
     return Results.Ok(new{ok=true});
 });
+// O @SemDor com IA nos apps (out/2026 — Clinica#307): o CRM lê a fila de perguntas do chat dos apps que as
+// regras não entenderam (a leitura é o pulso que os apps conferem), devolve a releitura da IA — e quem
+// responde é a clínica —, e manda a lista dos avisos "Atenção" para o sino da Recepção.
+app.MapGet("/crm/v1/staff/questions",(ClinicSemDorBridge bridge,CancellationToken ct)=>bridge.Questions(ct));
+app.MapPost("/crm/v1/staff/questions/answer",(StaffRewrite input,ClinicSemDorBridge bridge,CancellationToken ct)=>bridge.Answer(input,ct));
+app.MapPost("/crm/v1/semdor/alerts",(SemDorAlerts input,ClinicSemDorBridge bridge,CancellationToken ct)=>bridge.Alerts(input,ct));
 // A remarcação pedida pelo paciente (@SemDor, out/2026): a fila de mensagens ao paciente (ofertas com
 // botões e confirmações), o resultado de cada uma e o toque do paciente num horário. Sem chave de ligar
 // aqui: quem decide mandar é o CRM (CRM_PATIENT_OFFERS_ENABLED). RemarcacaoPeloPacienteService já vem do AddClinica.

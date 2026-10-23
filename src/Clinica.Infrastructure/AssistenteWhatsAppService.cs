@@ -106,6 +106,8 @@ public sealed class AssistenteWhatsAppService
         {
             if (documentos.Ligado && DocumentoPeloWhatsAppRegras.Ler(texto) is { } documento)
                 (resposta, textoNoChat) = await DocumentoAsync(eu, documento, idMensagem, momento, ct);
+            else if (documentos.Ligado && DocumentoPeloWhatsAppRegras.PedeDocumento(texto))
+                resposta = DocumentoPeloWhatsAppRegras.QualDocumento;
             else if (AssistenteWhatsAppRegras.LerPedido(texto, DateOnly.FromDateTime(momento)) is { } pedido)
                 (resposta, gravarResposta) = await PedirAsync(eu, pedido, idMensagem, momento, ct);
             else

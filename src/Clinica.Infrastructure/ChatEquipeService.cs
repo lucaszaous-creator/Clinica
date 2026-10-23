@@ -529,10 +529,11 @@ public sealed class ChatEquipeService : IChatEquipeService
             {
                 resposta = ("Não consegui ler os dados da agenda agora. Tente de novo em instantes.", null);
             }
+            resposta = await ReleituraAsync(eu, conversa, texto, resposta, ct);
             var resp = GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, resposta.Texto, resposta.Cartao, true, agora());
             await GravacaoDoChat.AdicionarAsync(db, resp, ct);
             await db.SaveChangesAsync(ct);
-            foreach (var e in db.ChangeTracker.Entries().Where(e => e.Entity is MensagemEquipe or ConversaEquipe).ToList())
+            foreach (var e in db.ChangeTracker.Entries().Where(e => e.Entity is MensagemEquipe or ConversaEquipe or PerguntaAoSemDor).ToList())
                 e.State = EntityState.Detached;
             await MarcarAteAsync(participante, conversa, resp.Id, ct);
         }
@@ -540,8 +541,10 @@ public sealed class ChatEquipeService : IChatEquipeService
         // particular, quando alguém ali não pode ver a agenda e a ficha (ChatEquipeRegras).
         else if (!ChatEquipeRegras.EhSistema(conversa) && ChatEquipeRegras.CitaOSemDor(texto))
         {
-            var resposta = await RespostaDoSistemaAsync(eu, ChatEquipeRegras.SemAMencaoDoSemDor(texto), ct);
+            var pergunta = ChatEquipeRegras.SemAMencaoDoSemDor(texto);
+            var resposta = await RespostaDoSistemaAsync(eu, pergunta, ct);
             var aVista = ChatEquipeRegras.RespostaPodeFicarAVista(todos.Select(p => p.Usuario));
+            resposta = await ReleituraAsync(eu, aVista ? conversa : ChatEquipeRegras.Sistema(eu.Id), pergunta, resposta, ct);
             var resp = aVista
                 ? GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, resposta.Texto, resposta.Cartao, true, agora())
                 : GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, ChatEquipeRegras.AvisoDeRespostaEmParticular(eu.Nome), null, true, agora());
@@ -550,11 +553,37 @@ public sealed class ChatEquipeService : IChatEquipeService
                 await GravacaoDoChat.AdicionarAsync(db, GravacaoDoChat.Mensagem(ChatEquipeRegras.Sistema(eu.Id), eu.Id, eu.Nome,
                     resposta.Texto, resposta.Cartao, true, agora()), ct);
             await db.SaveChangesAsync(ct);
-            foreach (var e in db.ChangeTracker.Entries().Where(e => e.Entity is MensagemEquipe or ConversaEquipe).ToList())
+            foreach (var e in db.ChangeTracker.Entries().Where(e => e.Entity is MensagemEquipe or ConversaEquipe or PerguntaAoSemDor).ToList())
                 e.State = EntityState.Detached;
             await MarcarAteAsync(participante, conversa, resp.Id, ct);
         }
         return mensagem.Id;
+    }
+
+    /// <summary>
+    /// A releitura pelo @SemDor com IA (Clinica#307): quando as regras não entenderam e o CRM passou
+    /// há pouco, a pergunta entra na fila (no contexto, gravada junto com a resposta) e a resposta
+    /// vira o "relendo"; a releitura chega depois, gravada pela ponte em <paramref name="destino"/>.
+    /// Sem o CRM, fica a ajuda de sempre. Só custa idas ao banco quando as regras não entenderam.
+    /// </summary>
+    private async Task<(string Texto, CartaoChat? Cartao)> ReleituraAsync(UsuarioSistema eu, string destino, string pergunta,
+        (string Texto, CartaoChat? Cartao) resposta, CancellationToken ct)
+    {
+        if (!SemDorNosAppsRegras.NaoEntendeu(resposta.Cartao) || pergunta.Trim().Length == 0) return resposta;
+        try
+        {
+            var fila = new PerguntasAoSemDorService(db, agora);
+            await fila.VencerAsync(ct);
+            if (!await fila.IaDisponivelAsync(ct)) return resposta;
+            fila.Enfileirar(eu.Id, destino, pergunta, agora());
+            return (SemDorNosAppsRegras.Relendo, null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A fila é um extra: falhar nela nunca impede a resposta de sempre.
+            Clinica.Application.Diagnostico.Registrar("@SemDor nos apps — fila da releitura", ex);
+            return resposta;
+        }
     }
 
     /// <summary>A resposta das regras do sistema; falha ao ler vira a frase de "tente de novo" (a pergunta já está gravada).</summary>
