@@ -4,7 +4,9 @@
   19/10/2026, só a camada de tela). O mesmo editor: "Copiar última" no cabeçalho (é decisão sobre a
   folha inteira), as infusões com preparo e medicamentos, os modelos salvos (usar copia; excluir
   confirma NO PRÓPRIO modelo), salvar como modelo na própria infusão, o catálogo de medicamentos que
-  se relê sem fechar, e o rodapé com Salvar rascunho e Liberar.
+  se relê sem fechar, e o rodapé com Salvar rascunho e Liberar. Maximiza (o botão da janela WPF
+  antiga, que a clínica pediu de volta em 22/10/2026), e cada medicamento é uma linha com o SOS —
+  a observação por medicamento saiu; a da folha fica por último.
 
   Salvar deixa em rascunho; assinar põe a folha na sala e ela não se edita mais. A conferência de
   alergia acontece ANTES do certificado — a ordem mora em AssinaturaDaPrescricaoNaTela, movida do
@@ -15,7 +17,7 @@
 @inherits TelaBase
 @inject IAssinaturaNaTela Assinatura
 
-<Modal Titulo="Prescrição de infusão" Subtitulo="@($"{_editor.Paciente} · {_editor.Numero}")" Largura="largo" AoFechar="FecharAsync">
+<Modal Titulo="Prescrição de infusão" Subtitulo="@($"{_editor.Paciente} · {_editor.Numero}")" Largura="largo" Maximizavel="true" AoFechar="FecharAsync">
     <ChildContent>
         <div class="pre-topo">
             <button type="button" class="botao" disabled="@(!_editor.PodeCopiarUltimaPrescricao)" @onclick="CopiarUltimaAsync"
@@ -128,35 +130,34 @@
                         <Campo Rotulo="Horário (opcional)"><input class="campo" maxlength="5" placeholder="HH:mm" title="Opcional, no formato HH:mm" aria-label="Horário previsto da infusão" value="@g.Horario" @oninput="e => g.Horario = e.Value?.ToString()" /></Campo>
                     </div>
 
-                    <div class="pre-itens-cabecalho"><span>Medicamento</span><span>Quantidade / dose</span><span></span></div>
-                    @foreach (var i in g.Itens)
-                    {
-                        <div class="pre-item" @key="i">
-                            <div class="pre-item-linha">
-                                <BuscaDeMedicamento Texto="@i.Descricao" TextoChanged="v => i.Descricao = v" Catalogo="_editor.CatalogoMedicamentos" />
-                                <input class="campo" maxlength="60" placeholder="@i.DicaDose" aria-label="Quantidade ou dose com unidade"
-                                       title="Informe a quantidade junto da medida, por exemplo: 1 ampola." value="@i.Dose" @oninput="e => i.Dose = e.Value?.ToString()" />
-                                <button type="button" class="botao mini contorno-perigo" aria-label="Remover medicamento" @onclick="() => _editor.RemoverItem(i)">Remover</button>
+                    <div class="pre-itens">
+                        <div class="pre-itens-cabecalho"><span>Medicamento</span><span>Quantidade / dose</span><span></span><span></span></div>
+                        @foreach (var i in g.Itens)
+                        {
+                            <div class="pre-item" @key="i">
+                                <div class="pre-item-linha">
+                                    <BuscaDeMedicamento Texto="@i.Descricao" TextoChanged="v => i.Descricao = v" Catalogo="_editor.CatalogoMedicamentos" />
+                                    <input class="campo" maxlength="60" placeholder="@i.DicaDose" aria-label="Quantidade ou dose com unidade"
+                                           title="Informe a quantidade junto da medida, por exemplo: 1 ampola." value="@i.Dose" @oninput="e => i.Dose = e.Value?.ToString()" />
+                                    <label class="marcar pre-sos" title="Se necessário (SOS)"><input type="checkbox" checked="@i.SeNecessario" @onchange="e => i.SeNecessario = e.Value is true" /><span>SOS</span></label>
+                                    <button type="button" class="botao mini contorno-perigo" aria-label="Remover medicamento" @onclick="() => _editor.RemoverItem(i)">Remover</button>
+                                </div>
+                                @* A observação POR medicamento saiu da tela (22/10/2026, a clínica não usa): a da
+                                   folha fica no fim. A que já existe (modelo, cópia, rascunho antigo) continua à vista
+                                   e editável — quem não mostra o campo o apagaria sem ninguém ver. *@
+                                @if (!string.IsNullOrWhiteSpace(i.Observacoes))
+                                {
+                                    <EditorTextoClinico Rotulo="Observação do medicamento" Linhas="1" Texto="@i.Observacoes" TextoChanged="v => i.Observacoes = v"
+                                                        Formato="@i.ObservacoesFormatadas" FormatoChanged="v => i.ObservacoesFormatadas = v" />
+                                }
                             </div>
-                            <details class="pre-secao pre-sos">
-                                <summary>Observações do medicamento / SOS</summary>
-                                <label class="marcar"><input type="checkbox" checked="@i.SeNecessario" @onchange="e => i.SeNecessario = e.Value is true" />Se necessário (SOS)</label>
-                                <EditorTextoClinico Rotulo="Observação do medicamento" Linhas="2" Texto="@i.Observacoes" TextoChanged="v => i.Observacoes = v"
-                                                    Formato="@i.ObservacoesFormatadas" FormatoChanged="v => i.ObservacoesFormatadas = v" />
-                            </details>
-                        </div>
-                    }
-                    <p class="secundario">Sugestões a partir de 2 letras</p>
-                    <button type="button" class="botao fantasma" @onclick="() => _editor.AcrescentarItem(g)">+ Adicionar medicamento</button>
+                        }
+                    </div>
+                    <button type="button" class="botao fantasma pre-acrescentar" title="As sugestões aparecem a partir de 2 letras" @onclick="() => _editor.AcrescentarItem(g)">+ Adicionar medicamento</button>
                 </section>
             }
             <button type="button" class="botao fantasma" title="Com preparo e medicamentos próprios" @onclick="_editor.CriarInfusao">+ Adicionar outra infusão</button>
 
-            <details class="pre-secao">
-                <summary>Observações</summary>
-                <EditorTextoClinico Rotulo="Observações" Linhas="3" Texto="@_editor.Observacoes" TextoChanged="v => _editor.Observacoes = v"
-                                    Formato="@_editor.ObservacoesFormatadas" FormatoChanged="v => _editor.ObservacoesFormatadas = v" />
-            </details>
             <details class="pre-secao">
                 <summary>Data, hora e cadastro de medicamentos</summary>
                 <div class="pre-data">
@@ -171,6 +172,11 @@
                     </Campo>
                     <button type="button" class="botao" title="Relê os medicamentos cadastrados sem fechar a prescrição" @onclick="_editor.RecarregarMedicamentosAsync">Atualizar catálogo de medicamentos</button>
                 </div>
+            </details>
+            <details class="pre-secao">
+                <summary>Observações da prescrição</summary>
+                <EditorTextoClinico Rotulo="Observações" Linhas="3" Texto="@_editor.Observacoes" TextoChanged="v => _editor.Observacoes = v"
+                                    Formato="@_editor.ObservacoesFormatadas" FormatoChanged="v => _editor.ObservacoesFormatadas = v" />
             </details>
         </fieldset>
 

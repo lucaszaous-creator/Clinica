@@ -866,7 +866,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
            || await _db.ResultadosExame.AnyAsync(r => r.PacienteId == pacienteId, ct)
            // A DÉCIMA raiz: o arquivo da ficha (set/2026) — a receita do sistema anterior é o
            // único registro clínico de muita ficha importada, e a FK dele é cascata.
-           || await _db.AnexosPaciente.AnyAsync(a => a.PacienteId == pacienteId, ct);
+           || await _db.AnexosPaciente.AnyAsync(a => a.PacienteId == pacienteId, ct)
+           // A DÉCIMA PRIMEIRA: o rascunho automático da evolução (out/2026), no mesmo commit
+           // da entidade. É texto clínico que vira evolução sozinho no prazo: a ficha com ele
+           // não pode ser excluída por baixo.
+           || await _db.RascunhosEvolucao.AnyAsync(r => r.PacienteId == pacienteId, ct);
 
     // ---- Retrato do paciente ----
 

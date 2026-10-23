@@ -61,6 +61,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<Sala> Salas => Set<Sala>();
     public DbSet<ListaEspera> ListaEspera => Set<ListaEspera>();
     public DbSet<Evolucao> Evolucoes => Set<Evolucao>();
+    public DbSet<RascunhoEvolucao> RascunhosEvolucao => Set<RascunhoEvolucao>();
     public DbSet<ModeloEvolucao> ModelosEvolucao => Set<ModeloEvolucao>();
 
     /// <summary>
@@ -672,6 +673,22 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
             e.Property(x => x.RetornoSugeridoNota).HasMaxLength(300);
             e.Property(x => x.Encaminhamento).HasMaxLength(600);
+        });
+
+        // O rascunho automático da evolução (out/2026): UMA linha por sessão, atualizada no
+        // lugar; nunca se apaga (encerra com o desfecho). FK sem cascata: o paciente com
+        // rascunho conta como ficha com registro (PacienteTemRegistroClinicoAsync).
+        b.Entity<RascunhoEvolucao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Conteudo).HasColumnType("text");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EncerradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoPor).HasMaxLength(100);
+            e.Property(x => x.Desfecho).HasMaxLength(40);
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.PacienteId, x.AgendamentoId, x.EncerradoEm });
+            e.HasIndex(x => new { x.EncerradoEm, x.AtualizadoEm });
         });
 
         b.Entity<Evolucao>(e =>

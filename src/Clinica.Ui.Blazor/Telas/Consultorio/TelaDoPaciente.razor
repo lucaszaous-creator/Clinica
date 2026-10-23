@@ -129,9 +129,10 @@
 
         <div class="tp-corpo">
             <nav class="tp-rail cartao" aria-label="Seções do prontuário">
-                @* UMA porta por seção: o rail mostra todas as que a pessoa alcança (a ficha e os
-                   documentos inclusive) — o WPF escondia as duas atrás de botões do cabeçalho. *@
-                @foreach (var grupo in _rail.Select((item, i) => (item, i)).Where(x => !x.item.Oculta).GroupBy(x => x.item.Grupo))
+                @* UMA porta por seção: o rail mostra as que a pessoa alcança (a ficha inclusive). As
+                   "Prescrições e documentos" saíram do rail em 22/10/2026, a pedido da clínica: a porta
+                   delas é o "Documentos emitidos" do bloco EMITIR. *@
+                @foreach (var grupo in _rail.Select((item, i) => (item, i)).Where(x => !x.item.Oculta && x.item.Rotulo != TelaDoPacienteNaTela.PrescricoesEDocumentos).GroupBy(x => x.item.Grupo))
                 {
                     <p class="tp-grupo">@grupo.Key</p>
                     @foreach (var (item, i) in grupo)

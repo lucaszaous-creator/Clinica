@@ -93,10 +93,12 @@
 .pre-modelo-corpo{font-size:var(--text-small-size);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pre-salvar-modelo{flex-direction:column;align-items:stretch}
 .pre-preparo{display:grid;grid-template-columns:2fr 1.1fr 1.8fr 1.1fr 1fr;gap:var(--space-3)}
-.pre-itens-cabecalho,.pre-item-linha{display:grid;grid-template-columns:minmax(0,1fr) calc(var(--space-16) * 3) auto;gap:var(--space-3);align-items:start}
+.pre-itens{display:flex;flex-direction:column;gap:var(--space-1)}
+.pre-itens-cabecalho,.pre-item-linha{display:grid;grid-template-columns:minmax(0,1fr) calc(var(--space-16) * 3) auto auto;gap:var(--space-2);align-items:center}
 .pre-itens-cabecalho{color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600}
 .pre-item{display:flex;flex-direction:column;gap:var(--space-1)}
-.pre-sos{font-size:var(--text-small-size)}
+.pre-sos{font-size:var(--text-small-size);white-space:nowrap}
+.pre-acrescentar{align-self:flex-start}
 .pre-data{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3)}
 .pre-rodape-dica{margin-right:auto;font-size:var(--text-small-size)}
 .busca-medicamento{position:relative;min-width:0}
@@ -104,7 +106,8 @@
 @media (max-width: 860px){
   .pre-preparo{grid-template-columns:repeat(2,minmax(0,1fr))}
   .pre-itens-cabecalho{display:none}
-  .pre-item-linha{grid-template-columns:minmax(0,1fr)}
+  .pre-item-linha{grid-template-columns:minmax(0,1fr) auto auto}
+  .pre-item-linha > :first-child{grid-column:1 / -1}
 }
 
 /* ---------- A evolução de enfermagem da folha ---------- */

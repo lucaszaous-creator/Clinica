@@ -22,3 +22,24 @@ O serviço verifica os prazos a cada minuto. Os módulos atualizados que usam o 
 Configuração persistida em `Configuracoes`, chave `PoliticaConclusaoClinicaV1`, sem nova migration. Somente usuário ativo do perfil Gerente, com `GerenciarUsuarios`, pode alterá-la; alterações são auditadas. Configuração inválida interrompe a rotina sem concluir sessões. Falhas são registradas e reavaliadas no próximo ciclo.
 
 A conclusão roda em transação serializável e usa o bloqueio de agendamento já adotado pelo tablet no PostgreSQL. Repetir a operação não cria outro atendimento ou outras guias. Antes de produção, executar testes SQLite/PostgreSQL, interface do portal e layout Windows; implantar API e interface primeiro em homologação. Habilitar a opção no Gerente somente após conferir o prazo e as modalidades desejadas.
+
+## O texto escrito e não salvo (out/2026, "como no Excel")
+
+Pedido da direção em 22/10/2026: o médico escreveu e não clicou em **Salvar sessão**, o texto não pode se perder, e a sessão encerra sozinha no prazo, gerando a guia.
+
+- **Enquanto o médico escreve**, a folha guarda sozinha o que está na tela como **rascunho** (`RascunhoEvolucao`, uma linha por sessão, atualizada no lugar). Guarda quando a pessoa para de digitar por cerca de 2 s, ou a cada 20 s digitando sem parar, e ao sair da seção ou trocar de paciente. O rodapé diz "Rascunho guardado às 14:32" e o prazo; nada mais muda na tela.
+- **Rascunho não é prontuário.** Ele não aparece no histórico, na ficha impressa nem na busca, e não cria versão a cada pausa. O registro clínico continua nascendo no **Salvar sessão**, que versiona (Lei 13.787) e, como hoje, conclui e gera as guias quando quem salva é o médico do horário.
+- **Reabrir o paciente** (outro computador, app fechado ou travado) devolve o texto não salvo à folha, com o aviso "Recuperamos o que estava escrito… e ainda não foi salvo". O rascunho só vence o que está salvo quando é mais novo que a última gravação.
+- **No prazo** (o mesmo da conclusão automática, contado da **última alteração** e só para rascunhos alterados depois de ativar a regra), a rotina **grava a evolução em nome de quem escreveu** e, havendo horário em aberto sem impedimento, **encerra a sessão e gera as guias** — na mesma transação. A auditoria registra `RascunhoSalvoPorPrazo` e `ConclusaoAutomaticaPorPrazo` com o operador `sistema:conclusao-automatica`. Não é assinatura nem nova avaliação.
+- Enquanto há rascunho aberto, a sessão **não é encerrada por cima** com o texto salvo antes: espera o prazo do rascunho.
+- O rascunho nunca se apaga: encerra com o desfecho (`SalvoPeloProfissional`, `SalvoPorPrazo`, `SemConteudo` ou `Superado`, quando a sessão foi salva depois da última alteração e ele não regrava nada).
+- **O que não entra:** o mapa corporal continua sendo gravado só pelo Salvar.
+
+### 🧑‍💻 UX
+Quem escreve não vê nada acontecer além da hora no rodapé: sem "salvando…", sem o campo piscar, sem botão novo. O texto não se perde ao trocar de paciente, fechar o app ou o computador desligar (no máximo os últimos segundos).
+
+### 🛠️ DX
+Uma entidade e uma migration aditiva (`RascunhoAutomaticoDaEvolucao`); as regras (quando guardar, o que vai e volta, o rodapé) em `Application/Modelos/RascunhoAutomatico.cs`, com teste; a gravação em `Infrastructure/RascunhosDaSessao.cs` (uma linha, sem transação à mão); o prazo em `ConclusaoAutomaticaService`, dentro da estratégia de execução. Campo novo da folha entra também em `ConteudoDoRascunho`.
+
+### 🤝 CX
+Nenhum serviço novo e nenhum custo: uma gravação pequena por pausa na digitação. A sessão esquecida não fica aberta nem sem guia. A direção vê na auditoria o que foi salvo pelo sistema.

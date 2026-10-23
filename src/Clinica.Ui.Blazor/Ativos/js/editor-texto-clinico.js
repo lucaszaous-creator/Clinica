@@ -76,6 +76,18 @@ export function definir(campo, trechos) {
     campo.replaceChildren(fragmento);
 }
 
+/** A barra mostra o estilo em que a próxima letra sai (N/I acesos), também antes da primeira. */
+function marcarBarra(campo) {
+    const barra = campo.parentElement && campo.parentElement.querySelector('.editor-barra');
+    if (!barra) return;
+    const sel = document.getSelection();
+    const dentro = sel && sel.rangeCount > 0 && campo.contains(sel.anchorNode);
+    for (const [rotulo, comando] of [['Negrito', 'bold'], ['Itálico', 'italic']]) {
+        const botao = barra.querySelector(`[aria-label="${rotulo}"]`);
+        if (botao) botao.setAttribute('aria-pressed', dentro && document.queryCommandState(comando) ? 'true' : 'false');
+    }
+}
+
 function avisar(campo) {
     const ponte = avisando.get(campo);
     if (ponte) ponte.invokeMethodAsync('Mudou', ler(campo));
@@ -89,14 +101,14 @@ export function ligar(campo, ponte, trechos, somenteLeitura) {
     if (campo.dataset.ligado) return;
     campo.dataset.ligado = '1';
 
-    campo.addEventListener('input', () => avisar(campo));
+    campo.addEventListener('input', () => { avisar(campo); marcarBarra(campo); });
+    for (const evento of ['keyup', 'mouseup', 'focus', 'blur']) campo.addEventListener(evento, () => marcarBarra(campo));
     campo.addEventListener('keydown', e => {
         const k = (e.key || '').toLowerCase();
         if (e.ctrlKey && !e.altKey && !e.shiftKey && (k === 'b' || k === 'i')) {
             e.preventDefault();
             e.stopPropagation();
-            document.execCommand(k === 'b' ? 'bold' : 'italic');
-            avisar(campo);
+            aplicar(campo, k === 'b' ? 'bold' : 'italic');
             return;
         }
         // O contrato não tem sublinhado, lista nem alinhamento: o atalho não faz nada.
@@ -119,14 +131,53 @@ export function ligar(campo, ponte, trechos, somenteLeitura) {
         avisar(campo);
     });
     campo.addEventListener('drop', e => e.preventDefault());
+
+    // Os botões N / I agem AQUI, no mousedown, sem ida e volta ao C#: pela ida e volta o foco
+    // voltava ao campo DEPOIS — a letra digitada nesse meio caía no botão (o espaço "apertava"
+    // o N de novo e a primeira letra sumia). A barra nasce depois do ligar: delegação na caixa.
+    const caixa = campo.parentElement;
+    const botaoDe = e => {
+        const b = e.target.closest && e.target.closest('.editor-botao');
+        return b && !b.disabled && campo.contentEditable === 'true' ? b : null;
+    };
+    caixa.addEventListener('mousedown', e => {
+        const b = botaoDe(e);
+        if (!b) return;
+        e.preventDefault();
+        if (document.activeElement !== campo) campo.focus();
+        aplicar(campo, b.dataset.comando);
+    });
+    // Pelo teclado (Tab até o botão, Enter/Espaço) chega só o click, sem mousedown.
+    caixa.addEventListener('click', e => {
+        const b = botaoDe(e);
+        if (!b || e.detail !== 0) return;
+        campo.focus();
+        aplicar(campo, b.dataset.comando);
+    });
 }
 
-/** Os botões N / I da barra: aplicam ao trecho selecionado do campo. */
-export function formatar(campo, comando) {
-    campo.focus();
-    document.execCommand(comando === 'negrito' ? 'bold' : 'italic');
-    avisar(campo);
+/**
+ * Negrito/itálico (comando 'bold' ou 'italic'). Com texto selecionado, aplica a ele e avisa o C#. Sem seleção (inclusive no
+ * campo VAZIO, antes da primeira letra), liga o estilo da próxima letra e NÃO avisa: o texto não
+ * mudou, e avisar faria o C# redesenhar o campo e apagar esse estilo pendente — era assim que
+ * "começar em negrito" não funcionava (22/10/2026).
+ */
+function aplicar(campo, comando) {
+    const sel = document.getSelection();
+    if (!sel || sel.rangeCount === 0 || !campo.contains(sel.anchorNode)) {
+        // O foco veio do botão: o cursor vai para o FIM do campo, onde a pessoa vai escrever.
+        const intervalo = document.createRange();
+        intervalo.selectNodeContents(campo);
+        intervalo.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(intervalo);
+    }
+    document.execCommand(comando);
+    if (!sel.isCollapsed) avisar(campo);
+    marcarBarra(campo);
 }
+
+
 
 export function somenteLeitura(campo, valor) {
     campo.contentEditable = valor ? 'false' : 'true';
