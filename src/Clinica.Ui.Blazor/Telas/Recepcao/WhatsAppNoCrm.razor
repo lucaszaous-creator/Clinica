@@ -59,11 +59,31 @@
 
 @code {
     string? _endereco;
+    string? _crm; // o endereço do CRM que a moldura abriu (a volta à aba confere se ele mudou)
     bool _semEndereco, _naoVerificado;
     string? _erro;
     int _geracao;
 
     protected override Task OnInitializedAsync() => AbrirAsync();
+
+    /// <summary>
+    /// Volta à aba: relê só o ENDEREÇO do CRM (a direção pode tê-lo trocado ou apagado). Enquanto ele
+    /// não muda, a moldura fica como está — reabrir recarregaria o CRM e perderia a conversa aberta.
+    /// </summary>
+    protected override async Task AoVoltarAsync()
+    {
+        if (!Pode(Permissao.EditarAgenda)) return;
+        try
+        {
+            using var escopo = Escopo();
+            var crm = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterEnderecoDoCrmAsync();
+            if (crm != _crm && !Descartada) await AbrirAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — o endereço do CRM não pôde ser relido na volta à aba WhatsApp", ex);
+        }
+    }
 
     async Task AbrirAsync()
     {
@@ -82,6 +102,7 @@
                 destino = EntradaNoCrm.Endereco(crm, bilhete);
             }
             if (g != _geracao || Descartada) return;
+            _crm = crm;
             _semEndereco = crm is null;
             _endereco = destino;
         }
