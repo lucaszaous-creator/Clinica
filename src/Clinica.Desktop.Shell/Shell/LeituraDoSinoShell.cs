@@ -20,18 +20,19 @@ public sealed partial class ShellViewModel
     private bool _marcasCarregadas;
     // Primeiro uso deste usuário: o que já estava no sino entra como visto e lido em silêncio,
     // uma vez por lista — estrear com o dia inteiro piscando ensinaria a ignorar o sino.
-    private bool _semearPedidos, _semearRespostas;
+    private bool _semearPedidos, _semearRespostas, _semearSemDor;
     private List<string> _chavesPedidosNovos = [];
     private List<string> _chavesRespostas = [];
+    private List<string> _chavesSemDor = [];
 
     /// <summary>Respostas e pedidos que este usuário ainda não viu — a parte "nova" do número do sino.</summary>
-    public int AvisosNaoVistos => _marcasCarregadas ? _marcas.NaoVistas(_chavesPedidosNovos.Concat(_chavesRespostas)) : 0;
+    public int AvisosNaoVistos => _marcasCarregadas ? _marcas.NaoVistas(_chavesPedidosNovos.Concat(_chavesRespostas).Concat(_chavesSemDor)) : 0;
 
     /// <summary>Há algo no sino ainda não lido (o "Marcar todas como lidas" fica aceso).</summary>
     public bool TemNaoLidas => NaoLidas > 0;
 
     /// <summary>Quantos avisos do sino estão sem leitura — o número da aba "Não lidas".</summary>
-    public int NaoLidas => PedidosNoSino.Count(p => PedidoNaoLido(p.Id)) + RespostasNoSino.Count(RespostaNaoLida);
+    public int NaoLidas => PedidosNoSino.Count(p => PedidoNaoLido(p.Id)) + RespostasNoSino.Count(RespostaNaoLida) + AvisosDoSemDor.Count(a => AvisoDoSemDorNaoLido(a.Chave));
 
     public bool PedidoNaoLido(int pedidoId)
         => _marcasCarregadas && _chavesPedidosNovos.Contains(LeituraDoSino.ChavePedido(pedidoId))
@@ -40,6 +41,9 @@ public sealed partial class ShellViewModel
     public bool RespostaNaoLida(RespostaNoSino r)
         => _marcasCarregadas && !_marcas.Lido(LeituraDoSino.ChaveResposta(r.AgendamentoId, r.Tipo));
 
+    /// <summary>Um aviso do @SemDor sem leitura (a chave dele é a do CRM, "semdor:…").</summary>
+    public bool AvisoDoSemDorNaoLido(string chave) => _marcasCarregadas && !_marcas.Lido(chave);
+
     private async Task CarregarMarcasAsync()
     {
         if (_sessaoClinica is not { Autenticado: true } sessao) return;
@@ -47,7 +51,7 @@ public sealed partial class ShellViewModel
         {
             using var scope = _servicos.CreateScope();
             var gravadas = await scope.ServiceProvider.GetRequiredService<LeituraDoSinoService>().ObterAsync(sessao.UsuarioId);
-            _semearPedidos = _semearRespostas = gravadas is null;
+            _semearPedidos = _semearRespostas = _semearSemDor = gravadas is null;
             _marcas = gravadas ?? MarcasDoSino.Vazias;
             _marcasCarregadas = true;
         }
@@ -77,7 +81,15 @@ public sealed partial class ShellViewModel
         NotificarSino();
     }
 
-    private IReadOnlyList<string> ChavesDoSino => _chavesPedidosNovos.Concat(_chavesRespostas).Distinct().ToList();
+    /// <summary>Os avisos do @SemDor no sino mudaram (chaves). No primeiro uso, entram como lidos.</summary>
+    private void AvisosDoSemDorMudaram(IEnumerable<string> chaves)
+    {
+        _chavesSemDor = chaves.ToList();
+        if (_semearSemDor && _marcasCarregadas) { _semearSemDor = false; Persistir(s => s.LerAsync(Usuario, _chavesSemDor), m => m.LerTodas(_chavesSemDor)); }
+        NotificarSino();
+    }
+
+    private IReadOnlyList<string> ChavesDoSino => _chavesPedidosNovos.Concat(_chavesRespostas).Concat(_chavesSemDor).Distinct().ToList();
 
     /// <summary>Abrir o sino: tudo o que está nele passa a VISTO — o número some.</summary>
     private void VerSino()

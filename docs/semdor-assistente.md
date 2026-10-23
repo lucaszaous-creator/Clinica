@@ -219,3 +219,65 @@ recepção) e as rotas `/api/link` não existem.
   e a senha do A1 não passa pelo WhatsApp nem pelo CRM.
 - Custo: nenhum serviço novo. O envio ao paciente é a mesma mensagem paga da Meta de hoje, e só
   sai quando o médico toca o botão.
+
+## IA nos apps — o chat e o sino da Recepção (out/2026, Clinica#307)
+
+A IA continua morando só no CRM (VPS 2); **a chave nunca vem às máquinas da clínica**. O que liga
+os dois lados são três tabelas, lidas e gravadas pela ponte (migration `SemDorNosApps`, aditiva):
+
+1. **Chat dos apps.** Quando as regras (`SistemaEquipeRegras`) não entendem a pergunta feita ao
+   Sistema SemDor — ou ao @SemDor num canal — e o CRM leu a fila há menos de 2 min
+   (`SemDorNoCrm.PerguntasLidasEm`), a pergunta entra em `PerguntasAoSemDor` e a resposta imediata
+   diz que o @SemDor está relendo. O CRM lê a fila a cada 5 s (`GET /crm/v1/staff/questions`),
+   reescreve com a IA e devolve (`POST /crm/v1/staff/questions/answer`); a ponte responde pela
+   **mesma** `SistemaEquipeService`, com as permissões de quem perguntou, começando por
+   *Entendi como "agenda de amanhã"*. Sem pergunta conhecida, ou depois de 2 min, vai a ajuda de
+   sempre (`PerguntasAoSemDorService.VencerAsync`). Sem o CRM passando, nada muda: a ajuda sai na hora.
+2. **Sino da Recepção.** O CRM manda a cada minuto a lista dos avisos "Atenção"
+   (`ReceptionNotices.DoSemDor`: sintoma grave, reação ao tratamento, reclamação, sem resposta) para
+   `AvisosDoSemDor` (`POST /crm/v1/semdor/alerts`). O sino da Recepção e do Gerente mostra a seção
+   **"Atenção no WhatsApp"** antes de tudo, com o primeiro nome e o assunto; o clique abre a
+   conversa no CRM. Lista com mais de 10 min (o CRM parou) não é mostrada como atual.
+3. **Documento.** "emitir atestado…" ou "emitir documento" deixou de cair no "não entendi" (relato
+   da clínica, 23/10): o @SemDor diz onde emitir (`DocumentoPeloWhatsAppRegras.PorAquiNao`) e, com a
+   fase 4 ligada, o pedido sem tipo pergunta qual documento. Texto de documento nunca vai à IA.
+
+### Como ligar (nesta ordem)
+
+1. Publicar a ponte nova na VPS 1 e reaplicar `deploy/ponte-crm/papel-ponte-crm.sql` **depois** de
+   o Gerente criar as tabelas (abrir o Gerente uma vez).
+2. Publicar os apps (Recepção, Gerente, Financeiro e Consultório: o chat e o sino são da moldura).
+3. No CRM: `CRM_SEMDOR_APPS_ENABLED=true` (com a IA já ligada e `CRM_UI_URL` em https).
+
+Ponte antiga com CRM novo: o CRM fica desligado até a variável. Ponte nova com CRM antigo: ninguém
+lê a fila, e os apps respondem a ajuda de sempre.
+
+### O que NÃO foi feito
+
+- **A IA não responde nada sozinha** nem cria pedido à recepção a partir da releitura: "remarcar
+  Maria" relido vira a instrução de usar "Pedir à recepção", como hoje no chat.
+- **O aviso do sino não responde ao paciente**: a resposta continua no CRM.
+- **A suíte contra o Postgres** não rodou nesta máquina (precisa da senha do `postgres`); o teste
+  `PontePapelRestritoTests.SemDor_nos_apps_fila_e_avisos` cobre os privilégios novos quando rodar.
+
+### 🧑‍💻 UX
+
+- Quem pergunta do seu jeito ("tem gente pra amanhã cedo?") recebe a resposta da agenda em poucos
+  segundos, dizendo como a pergunta foi entendida — e nunca fica esperando um "relendo" sem fim.
+- A recepção vê no sino do balcão quem escreveu algo grave e ainda não teve resposta, sem abrir o
+  CRM; um clique leva à conversa.
+
+### 🛠️ DX
+
+- Três tabelas pequenas, uma regra pura (`SemDorNosAppsRegras`, `AvisosDoSemDorRegras`), um serviço
+  (`PerguntasAoSemDorService`) que a ponte e o chat usam, duas rotas e uma seção do sino que segue o
+  desenho das respostas dos pacientes. O contrato (`ClinicContracts.cs`) ganhou records no fim,
+  idêntico nos dois repositórios. Testes: `SemDorNosAppsTests`, `MolduraBlazorTests`,
+  `DocumentoPeloWhatsAppTests` e, no CRM, `SemDorNosAppsTests`.
+
+### 🤝 CX
+
+- A chave fica num servidor só; à IA vai só o texto da pergunta que as regras não entenderam
+  (a resposta imediata diz isso). O item 10 da conformidade continua ⚠️ até o DPA com a Anthropic.
+- Custo: uma chamada à IA por pergunta não entendida — a maioria das perguntas nem chega lá.
+- Risco contido: desligado até a variável do CRM, e cada lado funciona sozinho se o outro faltar.

@@ -130,6 +130,7 @@
                     var soNaoLidas = AbaDoSino(naoLidas);
                     var respostas = Moldura.Respostas.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
                     var pedidos = Moldura.Pedidos.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
+                    var semdor = Moldura.AvisosDoSemDor.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
                     <div class="moldura-popover sino" role="dialog" aria-label="Notificações">
                         <div class="sino-cab">
                             <h2>Notificações</h2>
@@ -150,6 +151,33 @@
                                     @onclick="() => _abaSino = AbaSino.Todas">Todas</button>
                         </div>
                         <div class="sino-lista">
+                            @* O @SemDor vem primeiro: é quem precisa de resposta agora (Clinica#307). *@
+                            @if (Moldura.AvisosDoSemDor.Visivel && (semdor.Count > 0 || (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.AvisosDoSemDor.Situacao))))
+                            {
+                                <section>
+                                    <header><h3>Atenção no WhatsApp</h3><span>@Moldura.AvisosDoSemDor.Contador</span></header>
+                                    @foreach (var s in semdor)
+                                    {
+                                        var aviso = s;
+                                        <button type="button" class="moldura-aviso @(aviso.NaoLida ? "nao-lida" : null)" title="Abrir a conversa no CRM"
+                                                @onclick="() => Moldura.AbrirAvisoDoSemDor(aviso)">
+                                            <span class="sino-ic nao-vem" aria-hidden="true"><Icone Nome="alerta" /></span>
+                                            <span class="sino-texto">
+                                                <span class="sino-tit"><strong>@aviso.Paciente</strong> · @aviso.Assunto</span>
+                                                <span class="sino-meta">@aviso.Quando · lido pelo @@SemDor, sem resposta</span>
+                                            </span>
+                                            @if (aviso.NaoLida)
+                                            {
+                                                <span class="sino-ponto" title="Não lida"></span>
+                                            }
+                                        </button>
+                                    }
+                                    @if (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.AvisosDoSemDor.Situacao))
+                                    {
+                                        <p class="moldura-situacao">@Moldura.AvisosDoSemDor.Situacao</p>
+                                    }
+                                </section>
+                            }
                             @if (Moldura.Respostas.Visivel && (respostas.Count > 0 || !soNaoLidas))
                             {
                                 <section>
@@ -227,11 +255,11 @@
                                     }
                                 </section>
                             }
-                            @if (soNaoLidas && respostas.Count == 0 && pedidos.Count == 0)
+                            @if (soNaoLidas && respostas.Count == 0 && pedidos.Count == 0 && semdor.Count == 0)
                             {
                                 <div class="sino-vazio"><Icone Nome="check" /><p>Você está em dia. Nada novo desde a última vez.</p></div>
                             }
-                            else if (!soNaoLidas && !Moldura.Respostas.Visivel && !Moldura.Pedidos.Visivel && Moldura.Historico.Count == 0)
+                            else if (!soNaoLidas && !Moldura.Respostas.Visivel && !Moldura.Pedidos.Visivel && semdor.Count == 0 && Moldura.Historico.Count == 0)
                             {
                                 <div class="sino-vazio"><Icone Nome="sino" /><p>Nenhum aviso desde que você entrou.</p></div>
                             }

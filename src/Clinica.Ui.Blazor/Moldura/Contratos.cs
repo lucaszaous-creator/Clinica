@@ -52,6 +52,13 @@ public sealed record PedidoNoSino(int Id, string Titulo, string Quando, string O
 public sealed record RespostaNoSino(object Alvo, string Titulo, string Sessao, string Detalhe, string Tom,
     bool NaoLida = false, string Paciente = "");
 
+/// <summary>
+/// Um aviso "Atenção" do @SemDor no sino (Clinica#307): a mensagem de paciente que a IA do CRM leu
+/// como urgente e que ainda não teve resposta. <paramref name="Alvo"/> volta no clique, que abre a
+/// conversa no CRM.
+/// </summary>
+public sealed record AvisoDoSemDorNoSino(object Alvo, string Paciente, string Assunto, string Quando, bool NaoLida = false);
+
 /// <summary>Uma seção do sino: só aparece para quem a tela que resolve existe.</summary>
 public sealed record SecaoDoSino<T>(bool Visivel, string Contador, IReadOnlyList<T> Linhas, string Situacao)
 {
@@ -112,6 +119,8 @@ public interface IMolduraDoApp
     string ResumoDoSino { get; }
     SecaoDoSino<PedidoNoSino> Pedidos { get; }
     SecaoDoSino<RespostaNoSino> Respostas { get; }
+    /// <summary>Os avisos "Atenção" do @SemDor (vêm do CRM pela ponte). Padrão: oculta (a prévia e os testes não têm CRM).</summary>
+    SecaoDoSino<AvisoDoSemDorNoSino> AvisosDoSemDor => SecaoDoSino<AvisoDoSemDorNoSino>.Oculta;
     IReadOnlyList<AvisoDaSessao> Historico { get; }
     /// <summary>Quantos avisos do sino ainda estão sem leitura (a aba "Não lidas").</summary>
     int NaoLidas { get; }
@@ -121,6 +130,8 @@ public interface IMolduraDoApp
     void AbrirPedido(PedidoNoSino pedido);
     void AbrirTodosOsPedidos();
     void AbrirResposta(RespostaNoSino resposta);
+    /// <summary>Abre a conversa do aviso no CRM (navegador) e marca a leitura. Padrão: não faz nada.</summary>
+    void AbrirAvisoDoSemDor(AvisoDoSemDorNoSino aviso) { }
     void AbrirConfirmacoes();
 
     /// <summary>

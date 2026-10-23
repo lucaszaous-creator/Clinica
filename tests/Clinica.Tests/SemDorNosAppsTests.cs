@@ -175,6 +175,33 @@ public sealed class SemDorNosAppsTests : IDisposable
         (await db.AvisosDoSemDor.AsNoTracking().Select(a => a.Chave).ToListAsync()).Should().Equal("semdor:bbb");
     }
 
+    [Fact]
+    public async Task O_sino_so_mostra_a_lista_atual_e_sem_lista_nenhuma_a_secao_nem_aparece()
+    {
+        var leitura = new AvisosDoSemDorService(db);
+        var (avisos, atual, ligado) = await leitura.ListarAsync(relogio);
+        (avisos.Count, atual, ligado).Should().Be((0, false, false));
+
+        var agora = DateTimeOffset.Now;
+        await Ponte().Alerts(new(agora, [Aviso("semdor:aaa")]), default);
+        (avisos, atual, ligado) = await leitura.ListarAsync(DateTime.Now);
+        (avisos.Count, atual, ligado).Should().Be((1, true, true));
+
+        (avisos, atual, ligado) = await leitura.ListarAsync(DateTime.Now.Add(AvisosDoSemDorRegras.ListaValePor).AddMinutes(1));
+        (avisos.Count, atual, ligado).Should().Be((0, false, true), "lista velha não diz 'sem resposta' de quem talvez já foi respondido");
+    }
+
+    [Fact]
+    public void Regras_do_aviso_no_sino()
+    {
+        AvisosDoSemDorRegras.Quando(new DateTime(2026, 10, 23, 9, 42, 0), relogio).Should().Be("hoje, 09:42");
+        AvisosDoSemDorRegras.Quando(new DateTime(2026, 10, 22, 18, 10, 0), relogio).Should().Be("22/10, 18:10");
+        AvisosDoSemDorRegras.LinkSeguro("https://crm.exemplo/#inbox/c1").Should().BeTrue();
+        AvisosDoSemDorRegras.LinkSeguro("http://crm.exemplo/").Should().BeFalse();
+        AvisosDoSemDorRegras.LinkSeguro("https://a:b@crm.exemplo/").Should().BeFalse();
+        AvisosDoSemDorRegras.Frase("Maria", "Sintoma grave").Should().Contain("Maria").And.Contain("sintoma grave");
+    }
+
     [Theory]
     [InlineData("semdor:ok", "http://crm.exemplo/#inbox/c1")]
     [InlineData("outra:chave", "https://crm.exemplo/#inbox/c1")]

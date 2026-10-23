@@ -56,3 +56,35 @@ public static class SemDorNosAppsRegras
         return t.Length > 200 ? t[..200] : t;
     }
 }
+
+/// <summary>
+/// Os avisos "Atenção" do @SemDor no sino da Recepção (Clinica#307). O CRM manda a lista inteira a
+/// cada minuto; o que o sino AFIRMA sai daqui: se a lista ainda vale, como o aviso se escreve e se o
+/// link pode ser aberto.
+/// </summary>
+public static class AvisosDoSemDorRegras
+{
+    /// <summary>
+    /// Lista mais velha que isto não é mostrada como atual: o CRM parou de mandar (desligado, sem
+    /// rede), e um aviso velho no sino diria "sem resposta" de quem talvez já foi respondido.
+    /// </summary>
+    public static readonly TimeSpan ListaValePor = TimeSpan.FromMinutes(10);
+
+    public static bool ListaAtual(DateTime? recebidaEm, DateTime agora)
+        => recebidaEm is { } r && agora - r < ListaValePor && r <= agora.AddMinutes(5);
+
+    /// <summary>"hoje, 09:42" ou "22/10, 18:10".</summary>
+    public static string Quando(DateTime em, DateTime agora)
+        => em.Date == agora.Date ? $"hoje, {em:HH:mm}" : $"{em:dd/MM}, {em:HH:mm}";
+
+    /// <summary>"1 sem resposta", "3 sem resposta".</summary>
+    public static string Contador(int n) => $"{n} sem resposta";
+
+    /// <summary>O aviso passageiro, uma vez por aviso novo.</summary>
+    public static string Frase(string paciente, string assunto)
+        => $"@SemDor: {paciente} escreveu no WhatsApp — {assunto.ToLowerInvariant()}. Responda pelo CRM.";
+
+    /// <summary>Só abre no navegador o que é https, sem usuário e senha no endereço.</summary>
+    public static bool LinkSeguro(string? link)
+        => Uri.TryCreate(link, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps && u.UserInfo.Length == 0;
+}
