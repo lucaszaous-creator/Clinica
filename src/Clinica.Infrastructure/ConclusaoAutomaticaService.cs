@@ -206,25 +206,34 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
             try
             {
                 // 1) O texto escrito e não salvo, vencido: grava e encerra ("como no Excel").
-                int rascunhoDepois = 0;
-                while (!ct.IsCancellationRequested)
+                // Em try PRÓPRIO: falhar aqui (o papel restrito do portal sem o grant da tabela
+                // nova, uma base ainda sem a migration) nunca pode impedir a etapa 2 — foi
+                // exatamente assim, calada, que a conclusão ficou parada de set a out/2026.
+                try
                 {
-                    int[] rascunhos;
-                    using (var scope = scopes.CreateScope())
-                        rascunhos = await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>().RascunhosVencidosAsync(Agora, rascunhoDepois, ct);
-                    if (rascunhos.Length == 0) break;
-                    foreach (var id in rascunhos)
+                    int rascunhoDepois = 0;
+                    while (!ct.IsCancellationRequested)
                     {
-                        try
+                        int[] rascunhos;
+                        using (var scope = scopes.CreateScope())
+                            rascunhos = await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>().RascunhosVencidosAsync(Agora, rascunhoDepois, ct);
+                        if (rascunhos.Length == 0) break;
+                        foreach (var id in rascunhos)
                         {
-                            using var scope = scopes.CreateScope();
-                            await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>().SalvarRascunhoVencidoAsync(id, Agora, ct);
+                            try
+                            {
+                                using var scope = scopes.CreateScope();
+                                await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>().SalvarRascunhoVencidoAsync(id, Agora, ct);
+                            }
+                            catch (Exception ex) when (!ct.IsCancellationRequested)
+                            { Clinica.Application.Diagnostico.Registrar($"Rascunho {id} vencido não pôde ser salvo; será reavaliado", ex); }
                         }
-                        catch (Exception ex) when (!ct.IsCancellationRequested)
-                        { Clinica.Application.Diagnostico.Registrar($"Rascunho {id} vencido não pôde ser salvo; será reavaliado", ex); }
+                        rascunhoDepois = rascunhos[^1];
                     }
-                    rascunhoDepois = rascunhos[^1];
                 }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+                catch (Exception ex) when (!ct.IsCancellationRequested)
+                { Clinica.Application.Diagnostico.Registrar("Rascunhos vencidos indisponíveis; a conclusão das sessões segue", ex); }
 
                 // 2) As sessões com evolução salva e prazo vencido.
                 int depois = 0;

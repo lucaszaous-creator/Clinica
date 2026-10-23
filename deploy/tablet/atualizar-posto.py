@@ -314,6 +314,13 @@ if sql('SELECT to_regclass(\'"PedidosDocumentoWhatsApp"\') IS NOT NULL')=='t':
 elif migracao=='20261022192147_DocumentoPeloWhatsApp':
     conceder.append(f'GRANT SELECT, UPDATE ON "PedidosDocumentoWhatsApp" TO {ident(role)};')
     revogar.append(f'REVOKE SELECT, UPDATE ON "PedidosDocumentoWhatsApp" FROM {ident(role)};')
+# O rascunho automático da evolução (out/2026): a conclusão automática do portal lê o rascunho
+# vencido e o ENCERRA (UPDATE); quem cria e atualiza o rascunho é o desktop. Nada é apagado.
+if sql('SELECT to_regclass(\'"RascunhosEvolucao"\') IS NOT NULL')=='t':
+    for priv in ('SELECT','UPDATE'):grant(priv,'RascunhosEvolucao')
+elif migracao=='20261023002307_RascunhoAutomaticoDaEvolucao':
+    conceder.append(f'GRANT SELECT, UPDATE ON "RascunhosEvolucao" TO {ident(role)};')
+    revogar.append(f'REVOKE SELECT, UPDATE ON "RascunhosEvolucao" FROM {ident(role)};')
 if sql('SELECT to_regclass(\'"EnviosPacienteCrm"\') IS NOT NULL')=='t':
     for priv in ('SELECT','INSERT'):grant(priv,'EnviosPacienteCrm')
     sequence=sql("SELECT COALESCE(pg_get_serial_sequence('\"EnviosPacienteCrm\"','Id'),'')")
