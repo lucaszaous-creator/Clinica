@@ -21,6 +21,8 @@ public enum IntencaoDoSistema
     Paciente,
     Saudacao,
     NaoEntendi,
+    /// <summary>Pedido de documento ("emitir atestado…"): o chat não emite; a resposta diz onde emitir.</summary>
+    Documento,
 }
 
 /// <summary>
@@ -71,6 +73,8 @@ public static class SistemaEquipeRegras
 
         if (t.Trim().Length == 0 || Tem(t, "ajuda", "help", "comandos", "o que voce faz", "o que da para", "como funciona", "menu"))
             return new(IntencaoDoSistema.Ajuda, dia);
+        if (DocumentoPeloWhatsAppRegras.PedeDocumento(texto ?? ""))
+            return new(IntencaoDoSistema.Documento, dia);
         if (Tem(t, "pedir", "peca", "pede ", "solicitar", "solicito", "avisar a recepcao", "pedido novo", "novo pedido"))
             return new(IntencaoDoSistema.NovoPedido, dia, profissional);
         if (Tem(t, "pedido"))

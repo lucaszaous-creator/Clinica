@@ -39,7 +39,21 @@ public class DocumentoPeloWhatsAppRegrasTests
     [InlineData("minha agenda de hoje")]
     [InlineData("remarcar Maria 10h")]
     public void Pergunta_e_outro_pedido_nao_viram_documento(string texto)
-        => DocumentoPeloWhatsAppRegras.Ler(texto).Should().BeNull();
+    {
+        DocumentoPeloWhatsAppRegras.Ler(texto).Should().BeNull();
+        DocumentoPeloWhatsAppRegras.PedeDocumento(texto).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("Emitir documento para a Maria")]
+    [InlineData("preciso de uma declaração")]
+    [InlineData("por favor, emite um atestado")]
+    [InlineData("receita Maria: dipirona")]
+    public void Pedido_de_documento_e_reconhecido_mesmo_sem_o_tipo(string texto)
+    {
+        DocumentoPeloWhatsAppRegras.PedeDocumento(texto).Should().BeTrue();
+        SistemaEquipeRegras.Interpretar(texto, new DateOnly(2026, 10, 23), []).Intencao.Should().Be(IntencaoDoSistema.Documento);
+    }
 
     [Fact]
     public void Diz_o_que_falta_antes_de_criar_o_rascunho()
@@ -105,6 +119,25 @@ public sealed class DocumentoPeloWhatsAppServiceTests : IDisposable
         await Servico(OpcoesDocumentoPeloWhatsApp.Desligado).ResponderAsync(Celular, "atestado Maria José 2 dias", "wamid.d0");
         (await db.PedidosDocumentoWhatsApp.CountAsync()).Should().Be(0);
         new OpcoesDocumentoPeloWhatsApp(true, "http://sem-https").Ligado.Should().BeFalse("o link só sai para o portal em https");
+    }
+
+    // Relato da clínica (23/10/2026): pedir documento com a fase 4 desligada respondia "não entendi".
+    [Theory]
+    [InlineData("atestado Maria José 2 dias")]
+    [InlineData("emitir documento")]
+    public async Task Desligado_o_pedido_de_documento_diz_onde_emitir(string texto)
+    {
+        var r = await Servico(OpcoesDocumentoPeloWhatsApp.Desligado).ResponderAsync(Celular, texto, "wamid.d" + texto.Length);
+        r.Texto.Should().Be(DocumentoPeloWhatsAppRegras.PorAquiNao);
+        r.Entendeu.Should().BeTrue("não é pergunta para a IA reescrever");
+    }
+
+    [Fact]
+    public async Task Ligado_o_documento_sem_tipo_pergunta_qual()
+    {
+        var r = await Servico().ResponderAsync(Celular, "emitir documento para a Maria", "wamid.d9");
+        r.Texto.Should().Be(DocumentoPeloWhatsAppRegras.QualDocumento);
+        (await db.PedidosDocumentoWhatsApp.CountAsync()).Should().Be(0);
     }
 
     [Fact]
