@@ -4,11 +4,12 @@
 
   O desenho é o aprovado ("uma folha, dois lados"): à esquerda a FOLHA — a linha de contexto
   (última sessão + o que a enfermagem aferiu hoje, com procedência), os avisos (clínicos antes
-  dos administrativos), o texto da evolução com negrito/itálico, os campos que esta clínica
-  anota, a tira (data, EVA em par, retorno sugerido) e o rodapé com Imprimir e Salvar; à
+  dos administrativos), o texto da evolução com negrito/itálico e os campos que esta clínica
+  anota, com a tira (data, EVA em par, retorno sugerido), Imprimir e Salvar AO LADO do texto; à
   direita o que a consulta ENTREGA (EMITIR: os papéis com a herança da sessão, a infusão, o
-  que já saiu hoje, o termo pendente, o BSV) e as sessões anteriores para reutilizar — ou o
-  histórico completo, ao lado, sem sair da folha.
+  que já saiu hoje, o termo pendente, o BSV) — ou o histórico completo, ao lado, sem sair da
+  folha. A lista de sessões anteriores saiu da coluna em 22/10/2026 a pedido da clínica: alongava
+  a página e repetia o "Copiar última evolução" e o histórico.
 
   ⚠️ O estado mora na FolhaDoAtendimento guardada pela TELA: trocar de seção desmonta esta
   seção, e o rascunho de quem digita não pode ir junto (nem relê por baixo dele ao voltar).
@@ -99,98 +100,106 @@
                             </div>
                         </div>
 
-                        <div class="at-editor">
-                            <EditorTextoClinico @bind-Texto="r.TextoEvolucao" @bind-Formato="r.TextoEvolucaoFormatado"
-                                                Desabilitado="@(!PodeEditar)" Linhas="10" Rotulo="Evolução da sessão"
-                                                TextoDeAjuda="Escreva a sessão como você escreveria no papel. É esta a evolução que entra no prontuário, na ficha impressa e na busca." />
-                        </div>
-
-                        <button type="button" class="at-detalhe" disabled="@(!PodeEditar)" @onclick="() => _detalheAberto = true"
-                                title="Queixa, história, exame físico, hipótese, CID, conduta, orientações, plano, motivo do retorno e encaminhamento. Todos opcionais — e é o que o relatório do convênio imprime separado por assunto.">
-                            <span>Campos complementares…</span>
-                            <span class="texto-secundario">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
-                            @if (r.TemCamposDetalhados) { <Selo Tom="aviso">@r.SeloDetalhe</Selo> }
-                        </button>
-
-                        @if (r.Campos.Count > 0)
-                        {
-                            <details class="at-personalizados" open>
-                                <summary>Campos personalizados</summary>
-                                <div class="at-personalizados-grade">
-                                    @foreach (var c in r.Campos)
-                                    {
-                                        <Campo Rotulo="@c.Rotulo" Dica="@c.Ajuda">
-                                            @if (c.EhLista)
-                                            {
-                                                <select class="campo" @bind="c.Resposta" disabled="@(!PodeEditar)" aria-label="@c.Rotulo">
-                                                    <option value="">—</option>
-                                                    @foreach (var o in c.Opcoes) { <option value="@o">@o</option> }
-                                                </select>
-                                            }
-                                            else if (c.EhSimNao)
-                                            {
-                                                <select class="campo" @bind="c.Resposta" disabled="@(!PodeEditar)" aria-label="@c.Rotulo">
-                                                    <option value="">—</option>
-                                                    <option value="Sim">Sim</option>
-                                                    <option value="Não">Não</option>
-                                                </select>
-                                            }
-                                            else if (c.EhTextoLongo)
-                                            {
-                                                <textarea class="campo" rows="2" maxlength="500" placeholder="@c.Dica" disabled="@(!PodeEditar)"
-                                                          @bind="c.Resposta" @bind:event="oninput" aria-label="@c.Rotulo"></textarea>
-                                            }
-                                            else
-                                            {
-                                                <input class="campo" maxlength="500" placeholder="@c.Dica" disabled="@(!PodeEditar)"
-                                                       @bind="c.Resposta" @bind:event="oninput" aria-label="@c.Rotulo" />
-                                            }
-                                        </Campo>
-                                    }
+                        <div class="at-registro-corpo">
+                            <div class="at-registro-escrita">
+                                <div class="at-editor">
+                                    <EditorTextoClinico @bind-Texto="r.TextoEvolucao" @bind-Formato="r.TextoEvolucaoFormatado"
+                                                        Desabilitado="@(!PodeEditar)" Linhas="10" Rotulo="Evolução da sessão"
+                                                        TextoDeAjuda="Escreva a sessão como você escreveria no papel. É esta a evolução que entra no prontuário, na ficha impressa e na busca." />
                                 </div>
-                            </details>
-                        }
 
-                        <div class="at-tira">
-                            <Campo Rotulo="Data da sessão">
-                                <input type="date" class="campo" disabled="@(!PodeEditar)" @bind="r.Data" />
-                            </Campo>
-                            <Campo Rotulo="EVA antes">
-                                <select class="campo" disabled="@(!PodeEditar)" @bind="r.EvaAntes" aria-label="EVA antes">
-                                    <option value="">—</option>
-                                    @foreach (var n in RascunhoDaSessao.EscalaEva) { <option value="@n">@n</option> }
-                                </select>
-                            </Campo>
-                            <Campo Rotulo="EVA depois">
-                                <select class="campo" disabled="@(!PodeEditar)" @bind="r.EvaDepois" aria-label="EVA depois">
-                                    <option value="">—</option>
-                                    @foreach (var n in RascunhoDaSessao.EscalaEva) { <option value="@n">@n</option> }
-                                </select>
-                            </Campo>
-                            <Campo Rotulo="Retorno sugerido" Dica="Não vira agendamento — quem marca é a recepção.">
-                                <input type="date" class="campo" disabled="@(!PodeEditar)" @bind="r.RetornoSugeridoEm" />
-                            </Campo>
+                                <button type="button" class="at-detalhe" disabled="@(!PodeEditar)" @onclick="() => _detalheAberto = true"
+                                        title="Queixa, história, exame físico, hipótese, CID, conduta, orientações, plano, motivo do retorno e encaminhamento. Todos opcionais — e é o que o relatório do convênio imprime separado por assunto.">
+                                    <span>Campos complementares…</span>
+                                    <span class="texto-secundario">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
+                                    @if (r.TemCamposDetalhados) { <Selo Tom="aviso">@r.SeloDetalhe</Selo> }
+                                </button>
+
+                                @if (r.Campos.Count > 0)
+                                {
+                                    <details class="at-personalizados" open>
+                                        <summary>Campos personalizados</summary>
+                                        <div class="at-personalizados-grade">
+                                            @foreach (var c in r.Campos)
+                                            {
+                                                <Campo Rotulo="@c.Rotulo" Dica="@c.Ajuda">
+                                                    @if (c.EhLista)
+                                                    {
+                                                        <select class="campo" @bind="c.Resposta" disabled="@(!PodeEditar)" aria-label="@c.Rotulo">
+                                                            <option value="">—</option>
+                                                            @foreach (var o in c.Opcoes) { <option value="@o">@o</option> }
+                                                        </select>
+                                                    }
+                                                    else if (c.EhSimNao)
+                                                    {
+                                                        <select class="campo" @bind="c.Resposta" disabled="@(!PodeEditar)" aria-label="@c.Rotulo">
+                                                            <option value="">—</option>
+                                                            <option value="Sim">Sim</option>
+                                                            <option value="Não">Não</option>
+                                                        </select>
+                                                    }
+                                                    else if (c.EhTextoLongo)
+                                                    {
+                                                        <textarea class="campo" rows="2" maxlength="500" placeholder="@c.Dica" disabled="@(!PodeEditar)"
+                                                                  @bind="c.Resposta" @bind:event="oninput" aria-label="@c.Rotulo"></textarea>
+                                                    }
+                                                    else
+                                                    {
+                                                        <input class="campo" maxlength="500" placeholder="@c.Dica" disabled="@(!PodeEditar)"
+                                                               @bind="c.Resposta" @bind:event="oninput" aria-label="@c.Rotulo" />
+                                                    }
+                                                </Campo>
+                                            }
+                                        </div>
+                                    </details>
+                                }
+
+                            </div>
+                            @* A tira (data, EVA, retorno) e o Salvar ao LADO da escrita (22/10/2026, pedido da
+                               clínica): à vista sem rolar a página. Em tela estreita, descem para baixo dela. *@
+                            <aside class="at-registro-lado" aria-label="Data, dor e retorno da sessão">
+                                <div class="at-tira">
+                                    <Campo Rotulo="Data da sessão">
+                                        <input type="date" class="campo" disabled="@(!PodeEditar)" @bind="r.Data" />
+                                    </Campo>
+                                    <Campo Rotulo="EVA antes">
+                                        <select class="campo" disabled="@(!PodeEditar)" @bind="r.EvaAntes" aria-label="EVA antes">
+                                            <option value="">—</option>
+                                            @foreach (var n in RascunhoDaSessao.EscalaEva) { <option value="@n">@n</option> }
+                                        </select>
+                                    </Campo>
+                                    <Campo Rotulo="EVA depois">
+                                        <select class="campo" disabled="@(!PodeEditar)" @bind="r.EvaDepois" aria-label="EVA depois">
+                                            <option value="">—</option>
+                                            @foreach (var n in RascunhoDaSessao.EscalaEva) { <option value="@n">@n</option> }
+                                        </select>
+                                    </Campo>
+                                    <Campo Rotulo="Retorno sugerido" Dica="Não vira agendamento — quem marca é a recepção.">
+                                        <input type="date" class="campo" disabled="@(!PodeEditar)" @bind="r.RetornoSugeridoEm" />
+                                    </Campo>
+                                </div>
+                                <div class="at-rodape">
+                                    <div class="at-rodape-texto" aria-live="polite">
+                                        <span class="texto-secundario">@(f.RodapeDoRascunho ?? RascunhoDaSessao.DicaRodape(f.UltimaGravacao))</span>
+                                        @if (!string.IsNullOrWhiteSpace(f.Mensagem) && !f.NaoVerificado)
+                                        {
+                                            <span class="at-mensagem @(f.MensagemEhErro ? "erro" : null)">@f.Mensagem</span>
+                                        }
+                                    </div>
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao fantasma" disabled="@(!PodeImprimir || _ocupado)" @onclick="ImprimirFichaAsync"
+                                                title="Imprime a ficha do atendimento (Ctrl+P) — o papel sai do que está gravado">
+                                            <Icone Nome="imprimir" />Imprimir</button>
+                                        <button type="button" class="botao primario" disabled="@(!PodeEditar || _ocupado || !f.Carregada)" @onclick="SalvarAsync"
+                                                title="Salva a evolução (Ctrl+S) e conclui a sessão médica com as guias aplicáveis.">
+                                            <Icone Nome="check" />Salvar sessão</button>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                     </div>
                 }
 
-                <footer class="at-rodape">
-                    <div class="at-rodape-texto" aria-live="polite">
-                        <span class="texto-secundario">@RascunhoDaSessao.DicaRodape(f.UltimaGravacao)</span>
-                        @if (!string.IsNullOrWhiteSpace(f.Mensagem) && !f.NaoVerificado)
-                        {
-                            <span class="at-mensagem @(f.MensagemEhErro ? "erro" : null)">@f.Mensagem</span>
-                        }
-                    </div>
-                    <div class="botoes-linha">
-                        <button type="button" class="botao fantasma" disabled="@(!PodeImprimir || _ocupado)" @onclick="ImprimirFichaAsync"
-                                title="Imprime a ficha do atendimento (Ctrl+P) — o papel sai do que está gravado">
-                            <Icone Nome="imprimir" />Imprimir</button>
-                        <button type="button" class="botao primario" disabled="@(!PodeEditar || _ocupado || !f.Carregada)" @onclick="SalvarAsync"
-                                title="Salva a evolução (Ctrl+S) e conclui a sessão médica com as guias aplicáveis.">
-                            <Icone Nome="check" />Salvar sessão</button>
-                    </div>
-                </footer>
             </section>
         </div>
 
@@ -205,7 +214,7 @@
                     <h3 class="at-lado-titulo">EMITIR</h3>
                     @foreach (var cartao in _cartoes)
                     {
-                        <button type="button" class="at-papel" disabled="@(!cartao.PodeEmitir || _ocupado)" @onclick="() => EmitirAsync(cartao)"
+                        <button type="button" class="at-papel" disabled="@(!cartao.PodeEmitir || _ocupado)" @onclick="() => Emitir(cartao)"
                                 title="@(string.IsNullOrEmpty(cartao.Pendencia) ? cartao.Heranca : cartao.Pendencia)">
                             <b>@cartao.Rotulo</b>
                             <span class="@(cartao.VemDaSessao ? "at-heranca" : "texto-secundario")">
@@ -249,31 +258,6 @@
                                 </li>
                             }
                         </ul>
-                    }
-                </section>
-
-                <section class="cartao at-anteriores" aria-label="Sessões anteriores">
-                    <h3 class="at-lado-titulo">SESSÕES ANTERIORES</h3>
-                    @if (!string.IsNullOrWhiteSpace(f.ResumoDor)) { <p class="texto-secundario">@f.ResumoDor</p> }
-                    @if (f.Anteriores.Count == 0)
-                    {
-                        <p class="texto-secundario">Nenhuma sessão anterior registrada.</p>
-                    }
-                    @foreach (var s in f.Anteriores)
-                    {
-                        <article class="at-anterior">
-                            <header><b>@s.Data</b> <span class="texto-secundario">@s.Eva</span></header>
-                            @if (!string.IsNullOrWhiteSpace(s.Retorno)) { <p class="at-retorno">@s.Retorno</p> }
-                            <dl class="at-campos-anteriores">
-                                @foreach (var c in s.Campos)
-                                {
-                                    <dt>@c.Rotulo</dt>
-                                    <dd title="@c.Valor">@c.Valor</dd>
-                                }
-                            </dl>
-                            <button type="button" class="botao mini fantasma" disabled="@(!PodeEditar)" @onclick="() => Reutilizar(s)"
-                                    title="Preenche os campos vazios com esta sessão — nada é gravado">Usar texto desta sessão</button>
-                        </article>
                     }
                 </section>
             }
@@ -344,11 +328,33 @@
     {
         _folha = Tela.Guardado(FolhaDoAtendimento.Chave, () => new FolhaDoAtendimento(Escopos, Contexto));
         _folha.Mudou += AoMudarFolha;
+        _folha.RascunhoGuardado += AoGuardarRascunho;
+        _ = VigiarRascunhoAsync();
         MontarCartoes();
         // A folha é lida UMA vez por paciente: voltar à seção não relê por baixo de quem digita.
         if (!_folha.Carregada && !_folha.Carregando) await _folha.CarregarAsync();
         MontarCartoes();
     }
+
+    // O RASCUNHO AUTOMÁTICO: a cada poucos segundos a folha confere se há o que guardar. A
+    // conferência roda no despachante da tela (lê o que está escrito sem disputar com a tecla)
+    // e a gravação é pequena e fora dela: quem digita não vê nada além da hora no rodapé.
+    private readonly CancellationTokenSource _pararRascunho = new();
+
+    private async Task VigiarRascunhoAsync()
+    {
+        using var relogio = new PeriodicTimer(RascunhoAutomatico.Intervalo);
+        try
+        {
+            while (await relogio.WaitForNextTickAsync(_pararRascunho.Token))
+                await InvokeAsync(() => _folha?.ConferirRascunhoAsync() ?? Task.CompletedTask);
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+    }
+
+    // Só o rodapé muda: o editor recebe os MESMOS parâmetros e não se redesenha.
+    private void AoGuardarRascunho() => _ = InvokeAsync(StateHasChanged);
 
     private void AoMudarFolha() => _ = InvokeAsync(() =>
     {
@@ -537,49 +543,21 @@
     /// herança da sessão — ela resolve quem assina, os modelos, o CID e a alergia —; os MONTADOS
     /// do prontuário saem direto — não há o que digitar.
     /// </summary>
-    private async Task EmitirAsync(FolhaParaEntregar cartao)
+    /// <summary>
+    /// Abre a folha para escrever. As folhas MONTADAS do prontuário (relatório de evolução,
+    /// anamnese) não estão na coluna (FolhasParaEntregar.Ordem): ficam na central da Recepção.
+    /// </summary>
+    private void Emitir(FolhaParaEntregar cartao)
     {
         if (_folha is null || _ocupado) return;
         if (Contexto.PacienteId == 0) { Informar("Escolha um paciente antes de emitir.", erro: true); return; }
-        if (CentralDocumentosService.Folha(cartao.Chave) is not { } folha)
+        if (CentralDocumentosService.Folha(cartao.Chave) is not { TipoClinico: { } tipo } folha)
         {
             Informar("Este documento não está disponível para o seu acesso ou para este paciente.", erro: true);
             return;
         }
         if (!Exigir(folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}")) return;
-
-        _ocupado = true;
-        try
-        {
-            if (folha.MontadaDoProntuario)
-            {
-                DocumentoClinico emitido;
-                byte[] pdf;
-                using (var escopo = Escopo())
-                {
-                    var p = escopo.ServiceProvider;
-                    var servico = p.GetRequiredService<DocumentoClinicoService>();
-                    emitido = folha.TipoClinico == TipoDocumentoClinico.Anamnese
-                        ? await servico.EmitirAnamneseAsync(Contexto.PacienteId, operador: Operador)
-                        : await servico.EmitirRelatorioEvolucaoAsync(Contexto.PacienteId, operador: Operador);
-                    pdf = await p.GetRequiredService<DocumentosClinicosPdfService>()
-                        .GerarAsync(emitido.Id, await p.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
-                }
-                await _folha.RelerSaiuHojeAsync();
-                var erro = await Host.SalvarEAbrirAsync(pdf, $"{folha.Rotulo}-{emitido.Numero.Replace('/', '-')}.pdf", "PDF (*.pdf)|*.pdf", ".pdf");
-                Informar(erro ?? $"{folha.Rotulo} {emitido.Numero} emitido(a).", erro is not null);
-                return;
-            }
-
-            if (folha.TipoClinico is not { } tipo) return;
-            _papelAberto = (tipo, folha.Rotulo, _folha.Heranca());
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar($"Consultório — folha '{cartao.Rotulo}' não pôde ser emitida", ex);
-            Informar(ex.Message, erro: true);
-        }
-        finally { _ocupado = false; }
+        _papelAberto = (tipo, folha.Rotulo, _folha.Heranca());
     }
 
     /// <summary>Fechou a folha sem concluir: relê de qualquer jeito — o papel pode ter saído e só a impressão ter falhado.</summary>
@@ -710,7 +688,15 @@
 
     public override void Dispose()
     {
-        if (_folha is not null) _folha.Mudou -= AoMudarFolha;
+        _pararRascunho.Cancel();
+        _pararRascunho.Dispose();
+        if (_folha is not null)
+        {
+            _folha.Mudou -= AoMudarFolha;
+            _folha.RascunhoGuardado -= AoGuardarRascunho;
+            // Saindo da seção (outra seção, outro paciente): guarda o que falta, sem esperar.
+            _ = _folha.ConferirRascunhoAsync(forcar: true);
+        }
         base.Dispose();
     }
 }

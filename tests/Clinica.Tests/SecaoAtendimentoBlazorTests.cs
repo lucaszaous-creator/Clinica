@@ -206,6 +206,10 @@ public sealed class SecaoAtendimentoBlazorTests : IClassFixture<BancoDasTelas>, 
                                          && e.TextoEvolucao == "Paciente relata melhora da dor lombar.");
         });
         Assert.True(tela.Avisos > 0);
+        // Pela agenda, a releitura de depois do Salvar acha a sessão pelo horário: o texto fica.
+        var folha = tela.Guardado(FolhaDoAtendimento.Chave, () => (FolhaDoAtendimento)null!);
+        Esperar(() => folha.EvolucaoId != 0 && !folha.Carregando);
+        Esperar(() => secao.FindComponent<EditorTextoClinico>().Instance.Texto == "Paciente relata melhora da dor lombar.");
 
         // Os formulários da folha abrem e fecham.
         foreach (var rotulo in new[] { "Campos complementares…", "Usar modelo", "Mapa corporal" })
@@ -228,6 +232,85 @@ public sealed class SecaoAtendimentoBlazorTests : IClassFixture<BancoDasTelas>, 
         // O histórico abre ao lado.
         Botao(secao, "Consultar histórico")!.Click();
         Esperar(() => secao.FindAll(".at-historico").Count == 1);
+    }
+
+    /// <summary>
+    /// Paciente aberto pela BUSCA (sem horário): depois do Salvar a folha relê tudo e não acha
+    /// sessão pelo horário. O texto tem de continuar na tela e o segundo Salvar tem de CORRIGIR
+    /// a mesma evolução — antes ele sumia e o próximo Salvar criava outra (22/10/2026).
+    /// </summary>
+    [Fact]
+    public void Sem_horario_o_texto_salvo_continua_na_folha_e_o_segundo_salvar_corrige_a_mesma_evolucao()
+    {
+        var (paciente, _) = Semear();
+        using var ctx = Contexto();
+        var tela = new TelaFalsa();
+        var contexto = new ContextoDoPaciente(paciente.Id, paciente.Nome, null, null, null, 1);
+        var secao = Renderizar(ctx, contexto, tela);
+        Esperar(() => Botao(secao, "Salvar sessão") is { } b && !b.HasAttribute("disabled"));
+
+        Digitar(secao, new TrechoTexto("Primeira versão."));
+        Botao(secao, "Salvar sessão")!.Click();
+        var folha = tela.Guardado(FolhaDoAtendimento.Chave, () => (FolhaDoAtendimento)null!);
+        Esperar(() => folha.EvolucaoId != 0 && !folha.Carregando);
+        Esperar(() => secao.FindComponent<EditorTextoClinico>().Instance.Texto == "Primeira versão.");
+        var id = folha.EvolucaoId;
+
+        Digitar(secao, new TrechoTexto("Versão corrigida."));
+        Botao(secao, "Salvar sessão")!.Click();
+        Esperar(() =>
+        {
+            using var db = Db();
+            return db.Evolucoes.Any(e => e.Id == id && e.TextoEvolucao == "Versão corrigida.");
+        });
+        using (var db = Db())
+            Assert.Equal(1, db.Evolucoes.Count(e => e.PacienteId == paciente.Id && e.CanceladaEm == null));
+        Assert.Equal(id, folha.EvolucaoId);
+    }
+
+    /// <summary>
+    /// "Como no Excel" (out/2026): o que se escreveu e não se salvou fica guardado no banco e
+    /// volta ao reabrir o paciente — mesmo com outra folha (outro computador, app reaberto). O
+    /// Salvar grava no prontuário e encerra o rascunho.
+    /// </summary>
+    [Fact]
+    public void O_texto_nao_salvo_e_guardado_sozinho_volta_ao_reabrir_e_o_salvar_encerra_o_rascunho()
+    {
+        var (paciente, agendamento) = Semear();
+        using var ctx = Contexto();
+        var tela = new TelaFalsa();
+        var contexto = new ContextoDoPaciente(paciente.Id, paciente.Nome, agendamento.Id, null,
+            DateOnly.FromDateTime(agendamento.DataHora), 1);
+        var secao = Renderizar(ctx, contexto, tela);
+        Esperar(() => Botao(secao, "Salvar sessão") is { } b && !b.HasAttribute("disabled"));
+        Digitar(secao, new TrechoTexto("Escrito e "), new TrechoTexto("não salvo", Negrito: true));
+        var folha = tela.Guardado(FolhaDoAtendimento.Chave, () => (FolhaDoAtendimento)null!);
+        folha.ConferirRascunhoAsync(forcar: true).GetAwaiter().GetResult();
+        using (var db = Db())
+        {
+            var r = db.RascunhosEvolucao.Single(x => x.PacienteId == paciente.Id);
+            Assert.Null(r.EncerradoEm);
+            Assert.Equal(agendamento.Id, r.AgendamentoId);
+            Assert.False(db.Evolucoes.Any(e => e.PacienteId == paciente.Id)); // rascunho não é prontuário
+        }
+        Assert.Contains("Rascunho guardado às", secao.Markup);
+        secao.Dispose();
+
+        // Reaberto do zero (outra folha): o texto volta, com o negrito, e a folha avisa.
+        var outraTela = new TelaFalsa();
+        var de_novo = Renderizar(ctx, contexto, outraTela);
+        Esperar(() => de_novo.FindComponents<EditorTextoClinico>().Count > 0
+                      && de_novo.FindComponent<EditorTextoClinico>().Instance.Texto == "Escrito e não salvo");
+        Assert.Contains("\"negrito\":true", de_novo.FindComponent<EditorTextoClinico>().Instance.Formato);
+        Assert.Contains("ainda não foi salvo", de_novo.Markup);
+
+        Botao(de_novo, "Salvar sessão")!.Click();
+        Esperar(() =>
+        {
+            using var db = Db();
+            return db.RascunhosEvolucao.Any(x => x.PacienteId == paciente.Id && x.Desfecho == RascunhoEvolucao.SalvoPeloProfissional)
+                   && db.Evolucoes.Any(e => e.PacienteId == paciente.Id && e.TextoEvolucao == "Escrito e não salvo");
+        });
     }
 
     [Fact]

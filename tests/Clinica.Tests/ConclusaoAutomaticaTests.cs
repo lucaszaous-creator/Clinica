@@ -74,6 +74,105 @@ public sealed partial class AtendimentoTabletTests
         Assert.Equal(h.AtendimentoId, e.AtendimentoId); Assert.Single(await db.Atendimentos.ToListAsync());
     }
 
+    // Em produção o AddClinica liga o EnableRetryOnFailure do Npgsql, e o EF recusa transação
+    // aberta à mão sob estratégia que repete. O SQLite dos outros testes não tem estratégia e
+    // passava com o defeito: em produção, toda conclusão automática estourava e as sessões
+    // vencidas nunca fechavam (22/10/2026). Aqui o SQLite ganha uma estratégia que repete.
+    sealed class RepeteComoONpgsql(Microsoft.EntityFrameworkCore.Storage.ExecutionStrategyDependencies d)
+        : Microsoft.EntityFrameworkCore.Storage.ExecutionStrategy(d, 3, TimeSpan.FromMilliseconds(10))
+    {
+        protected override bool ShouldRetryOn(Exception exception) => false;
+    }
+
+    [Fact] public async Task Automatico_conclui_sob_a_estrategia_que_repete_como_no_Postgres()
+    {
+        var agora = await PrepararPrazo();
+        using var comRepeticao = new ClinicaDbContext(new DbContextOptionsBuilder<ClinicaDbContext>()
+            .UseSqlite(connection, o => o.ExecutionStrategy(d => new RepeteComoONpgsql(d))).Options);
+        var r = new ClinicaRepositorio(comRepeticao);
+        var automatico = new ConclusaoAutomaticaService(comRepeticao, r, new(r, new(r)), new(r));
+        Assert.True(await automatico.ConcluirSeVencidoAsync(horario.Id, agora));
+        var h = await comRepeticao.Agendamentos.AsNoTracking().SingleAsync(a => a.Id == horario.Id);
+        Assert.NotNull(h.FimAtendimentoEm);
+        Assert.NotEmpty(await comRepeticao.Codigos.ToListAsync());
+    }
+
+    // ===== O rascunho automático (out/2026, "como no Excel") =====
+
+    /// <summary>Um horário de ontem, com a regra ligada há três dias e um rascunho NÃO SALVO alterado há <paramref name="horasAtras"/> h.</summary>
+    private async Task<(DateTime Agora, RascunhoEvolucao Rascunho)> PrepararRascunho(double horasAtras, string texto = "Escrito e não salvo.")
+    {
+        await Preparar();
+        var agora = ConclusaoAutomaticaService.Agora;
+        horario.DataHora = agora.AddDays(-1);
+        await repo.SalvarConfiguracaoAsync(PoliticaConclusaoService.Chave,
+            JsonSerializer.Serialize(PoliticaConclusao.Padrao with { Automatica = true, AtivadaEm = agora.AddDays(-3) }));
+        var folha = new Clinica.Application.Modelos.RascunhoDaSessao { Data = DateOnly.FromDateTime(horario.DataHora), TextoEvolucao = texto, EvaAntes = 7, EvaDepois = 2 };
+        var r = new RascunhoEvolucao
+        {
+            PacienteId = horario.PacienteId, ProfissionalId = horario.ProfissionalId, AgendamentoId = horario.Id,
+            Dia = DateOnly.FromDateTime(horario.DataHora),
+            Conteudo = Clinica.Application.Modelos.ConteudoDoRascunho.De(folha).Serializar(),
+            AtualizadoEm = agora.AddHours(-horasAtras), AtualizadoPor = usuario.Login
+        };
+        db.RascunhosEvolucao.Add(r);
+        await db.SaveChangesAsync();
+        return (agora, r);
+    }
+
+    [Fact] public async Task Texto_nao_salvo_e_gravado_e_a_sessao_encerrada_no_prazo_da_ultima_alteracao()
+    {
+        var (agora, r) = await PrepararRascunho(horasAtras: 25);
+        Assert.Contains(r.Id, await Automatico.RascunhosVencidosAsync(agora));
+        Assert.True(await Automatico.SalvarRascunhoVencidoAsync(r.Id, agora));
+
+        var e = await db.Evolucoes.AsNoTracking().SingleAsync();
+        Assert.Equal("Escrito e não salvo.", e.TextoEvolucao);
+        Assert.Equal((horario.Id, usuario.Login), (e.AgendamentoId!.Value, e.CriadoPor));
+        var h = await db.Agendamentos.AsNoTracking().SingleAsync(a => a.Id == horario.Id);
+        Assert.NotNull(h.FimAtendimentoEm);
+        Assert.NotEmpty(await db.Codigos.ToListAsync());
+        var depois = await db.RascunhosEvolucao.AsNoTracking().SingleAsync();
+        Assert.Equal((RascunhoEvolucao.SalvoPorPrazo, e.Id), (depois.Desfecho, depois.EvolucaoId!.Value));
+        Assert.True(await db.Auditoria.AnyAsync(x => x.Acao == "RascunhoSalvoPorPrazo" && x.Operador == ConclusaoAutomaticaService.Operador));
+
+        // Repetir não grava outra evolução nem outro atendimento.
+        Assert.False(await Automatico.SalvarRascunhoVencidoAsync(r.Id, agora.AddHours(1)));
+        Assert.Single(await db.Evolucoes.ToListAsync());
+        Assert.Single(await db.Atendimentos.ToListAsync());
+    }
+
+    [Fact] public async Task Antes_do_prazo_o_rascunho_espera_e_a_sessao_nao_fecha_por_cima()
+    {
+        var (agora, r) = await PrepararRascunho(horasAtras: 2);
+        Assert.Empty(await Automatico.RascunhosVencidosAsync(agora));
+        Assert.False(await Automatico.SalvarRascunhoVencidoAsync(r.Id, agora));
+        Assert.Empty(await db.Evolucoes.ToListAsync());
+        Assert.Null((await db.Agendamentos.AsNoTracking().SingleAsync(a => a.Id == horario.Id)).FimAtendimentoEm);
+    }
+
+    [Fact] public async Task Rascunho_mais_velho_que_a_gravacao_encerra_sem_regravar()
+    {
+        var (agora, r) = await PrepararRascunho(horasAtras: 30);
+        // Outra estação salvou DEPOIS da última alteração do rascunho.
+        db.Evolucoes.Add(new Evolucao { PacienteId = horario.PacienteId, ProfissionalId = horario.ProfissionalId, AgendamentoId = horario.Id,
+            Data = DateOnly.FromDateTime(horario.DataHora), TextoEvolucao = "O salvo, mais novo.", CriadoEm = agora.AddHours(-26) });
+        await db.SaveChangesAsync();
+        Assert.False(await Automatico.SalvarRascunhoVencidoAsync(r.Id, agora));
+        Assert.Equal("O salvo, mais novo.", (await db.Evolucoes.AsNoTracking().SingleAsync()).TextoEvolucao);
+        Assert.Equal(RascunhoEvolucao.Superado, (await db.RascunhosEvolucao.AsNoTracking().SingleAsync()).Desfecho);
+    }
+
+    [Fact] public async Task Rascunho_vencido_sob_a_estrategia_que_repete_como_no_Postgres()
+    {
+        var (agora, r) = await PrepararRascunho(horasAtras: 25);
+        using var comRepeticao = new ClinicaDbContext(new DbContextOptionsBuilder<ClinicaDbContext>()
+            .UseSqlite(connection, o => o.ExecutionStrategy(d => new RepeteComoONpgsql(d))).Options);
+        var rr = new ClinicaRepositorio(comRepeticao);
+        Assert.True(await new ConclusaoAutomaticaService(comRepeticao, rr, new(rr, new(rr)), new(rr)).SalvarRascunhoVencidoAsync(r.Id, agora));
+        Assert.Single(await comRepeticao.Evolucoes.ToListAsync());
+    }
+
     [Fact] public async Task BSV_vencido_sem_enfermagem_permanece_aberto_com_aviso_ate_vincular()
     {
         var agora = await PrepararPrazo(true);

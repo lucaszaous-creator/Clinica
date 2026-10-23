@@ -188,6 +188,8 @@ public static class DependencyInjection
         // tela só enxerga a Application, e estes dois motores moram aqui.
         services.AddScoped<ICopiaDeSeguranca, CopiaDeSegurancaDaClinica>();
         services.AddScoped<IPendenciasDeConclusao, PendenciasDeConclusaoDaClinica>();
+        // O rascunho automático da evolução (out/2026): a folha guarda sozinha o que se escreve.
+        services.AddScoped<IRascunhosDaSessao, RascunhosDaSessao>();
         return services;
     }
 

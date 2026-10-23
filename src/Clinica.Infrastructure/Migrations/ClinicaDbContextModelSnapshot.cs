@@ -5646,6 +5646,56 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("ProtocolosCorporais");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.RascunhoEvolucao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AgendamentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("AtualizadoPor")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Desfecho")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateOnly>("Dia")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("EncerradoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("EvolucaoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PacienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ProfissionalId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EncerradoEm", "AtualizadoEm");
+
+                    b.HasIndex("PacienteId", "AgendamentoId", "EncerradoEm");
+
+                    b.ToTable("RascunhosEvolucao");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.RegraComissaoRecuperacao", b =>
                 {
                     b.Property<int>("Id")
@@ -7866,6 +7916,17 @@ namespace Clinica.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("PacienteId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Paciente");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.RascunhoEvolucao", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.Paciente", "Paciente")
+                        .WithMany()
+                        .HasForeignKey("PacienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Paciente");
                 });

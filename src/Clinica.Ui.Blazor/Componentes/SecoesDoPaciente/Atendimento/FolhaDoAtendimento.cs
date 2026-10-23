@@ -50,7 +50,6 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
     public bool BsvIndicado { get; set; }
 
     public string LinhaDeContexto { get; private set; } = string.Empty;
-    public string ResumoDor { get; private set; } = string.Empty;
 
     public bool Carregando { get; private set; }
     public bool NaoVerificado { get; private set; }
@@ -58,11 +57,20 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
     public string? Mensagem { get; set; }
     public bool MensagemEhErro { get; set; }
 
-    /// <summary>"Última gravação às 14h37" — o rodapé NÃO promete gravação automática (cada Salvar versiona).</summary>
+    /// <summary>"Última gravação às 14h37" — a gravação NO PRONTUÁRIO (cada Salvar versiona).</summary>
     public string UltimaGravacao { get; private set; } = string.Empty;
+
+    /// <summary>Quando o rascunho automático foi guardado pela última vez (nulo = nada pendente).</summary>
+    public DateTime? RascunhoGuardadoEm { get; private set; }
+
+    /// <summary>A linha do rodapé sobre o rascunho, ou nulo quando não há rascunho pendente.</summary>
+    public string? RodapeDoRascunho => RascunhoGuardadoEm is { } em ? RascunhoAutomatico.Rodape(em, _horasDoPrazo) : null;
 
     /// <summary>Algo mudou (carga terminou, sessão gravada): a seção à vista se redesenha.</summary>
     public event Action? Mudou;
+
+    /// <summary>O rascunho foi guardado: só o rodapé muda (o campo de texto NÃO é redesenhado).</summary>
+    public event Action? RascunhoGuardado;
 
     private IReadOnlyList<CampoPersonalizadoProntuario> _definicoes = [];
     private CopiaEvolucaoPaciente? _ultimaParaCopiar;
@@ -70,9 +78,59 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
     private DateTime? _dataHoraDaSessao;
     private TimeOnly? _chegada;
     private TimeOnly? _saida;
-    private int _sessoesRegistradas;
     private bool _acessoRegistrado;
     private int _geracao;
+
+    // O rascunho automático: o último conteúdo guardado, o da conferência anterior (para saber
+    // se a pessoa PAROU de digitar), quando guardou, e as travas de gravação no ar.
+    private string? _guardado;
+    private string? _conferenciaAnterior;
+    private DateTime? _ultimaGuarda;
+    private int? _horasDoPrazo;
+    private bool _guardando;
+    private bool _salvando;
+
+    private ChaveDoRascunho ChaveDoRascunho => new(Contexto.PacienteId, SessaoUsuario.Atual.ProfissionalId,
+        Contexto.AgendamentoId, Contexto.DiaDaSessao);
+
+    private string ConteudoAtual() => ConteudoDoRascunho.De(Rascunho).Serializar();
+
+    /// <summary>
+    /// O RASCUNHO AUTOMÁTICO (out/2026, "como no Excel"). Chamado pela seção a cada
+    /// <see cref="RascunhoAutomatico.Intervalo"/> e ao sair dela (<paramref name="forcar"/>):
+    /// guarda o que está na tela quando mudou e a pessoa parou de digitar (ou passou o teto),
+    /// numa gravação pequena e fora da tela — sem "salvando…", sem redesenhar o campo. Falha
+    /// vai ao log e tenta de novo na próxima conferência; nunca interrompe quem escreve.
+    /// </summary>
+    public async Task ConferirRascunhoAsync(bool forcar = false)
+    {
+        if (!Carregada || Carregando || _salvando || _guardando || Contexto.PacienteId == 0 || !PodeEditarProntuario)
+            return;
+        var atual = ConteudoAtual();
+        var deve = forcar
+            ? atual != _guardado
+            : RascunhoAutomatico.DeveGuardar(atual, _guardado, _conferenciaAnterior, DateTime.Now, _ultimaGuarda);
+        _conferenciaAnterior = atual;
+        if (!deve) return;
+
+        _guardando = true;
+        try
+        {
+            using var escopo = escopos.CreateScope();
+            if (escopo.ServiceProvider.GetService<IRascunhosDaSessao>() is not { } rascunhos) return;
+            var em = await rascunhos.GuardarAsync(ChaveDoRascunho, atual,
+                Rascunho.EvolucaoId == 0 ? null : Rascunho.EvolucaoId, SessaoUsuario.Atual.Operador);
+            _guardado = atual;
+            _ultimaGuarda = DateTime.Now;
+            RascunhoGuardadoEm = em;
+            RascunhoGuardado?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — rascunho automático não pôde ser guardado; tenta de novo", ex);
+        }
+        finally { _guardando = false; }
+    }
 
     public int EvolucaoId => Rascunho.EvolucaoId;
     public bool SessaoEmBranco => Rascunho.SessaoEmBranco;
@@ -90,7 +148,6 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
         Hipotese: Rascunho.HipoteseDiagnostica,
         Chegada: _chegada,
         Saida: _saida,
-        SessoesRegistradas: _sessoesRegistradas,
         AgendamentoId: Contexto.AgendamentoId,
         // Sem sessão salva não há evolução para apontar — vínculo para lugar nenhum.
         EvolucaoId: Rascunho.EvolucaoId == 0 ? null : Rascunho.EvolucaoId,
@@ -176,6 +233,13 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
                 doHorario = ConsultorioService.EvolucaoDoHorario(sessoes, agendamentoId, ctx.PacienteId, diaDoHorario, doDia);
             }
 
+            // A sessão que ESTA folha já gravou continua aberta na releitura, com ou sem horário.
+            // Aberto pela busca (sem horário), o "relê tudo" de depois do Salvar caía no Limpar:
+            // o texto sumia da tela com o rodapé dizendo "registrada", e o próximo Salvar criava
+            // uma SEGUNDA evolução em vez de corrigir a primeira (a clínica, 22/10/2026).
+            if (doHorario is null && Rascunho.EvolucaoId != 0)
+                doHorario = sessoes.FirstOrDefault(e => e.Id == Rascunho.EvolucaoId && e.CanceladaEm is null);
+
             var vincular = new List<(int, string)>();
             if (doHorario is null && ctx.AgendamentoId is not null && ctx.DataDoHorario is { } dia)
                 vincular.AddRange(sessoes
@@ -199,10 +263,26 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
                     mapa = null;
                 }
             }
+            // O texto escrito e não salvo desta sessão (o rascunho automático) e o prazo que o
+            // rodapé promete. Falhar aqui não impede escrever: a folha abre com o que está salvo.
+            RascunhoAberto? aberto = null;
+            int? horasDoPrazo = null;
+            try
+            {
+                if (PodeEditarProntuario && p.GetService<IRascunhosDaSessao>() is { } rascunhos)
+                    aberto = await rascunhos.AbertoAsync(ChaveDoRascunho);
+                var regra = await p.GetRequiredService<PoliticaConclusaoService>().ObterAsync();
+                horasDoPrazo = regra.Automatica ? regra.Horas : null;
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Consultório — rascunho automático não pôde ser lido", ex);
+            }
             if (geracao != _geracao) return;
 
             // ===== Publicação (sem await até o fim do bloco) =====
             _definicoes = definicoes;
+            _horasDoPrazo = horasDoPrazo;
             Rascunho.Campos.Clear();
             Rascunho.Campos.AddRange(definicoes.Select(CampoDaSessaoNaTela.De));
             if (doHorario is not null) Rascunho.Preencher(doHorario);
@@ -211,13 +291,30 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
                 Rascunho.Limpar(ctx.DataDoHorario, DateOnly.FromDateTime(DateTime.Today));
                 UltimaGravacao = string.Empty;
             }
+            // O rascunho só vence o que está salvo quando é MAIS NOVO que a última gravação.
+            RascunhoGuardadoEm = null;
+            var recuperado = false;
+            if (aberto is not null && ConteudoDoRascunho.Ler(aberto.Conteudo) is { } conteudo
+                && (doHorario is null || aberto.AtualizadoEm > (doHorario.AtualizadoEm ?? doHorario.CriadoEm)))
+            {
+                conteudo.Aplicar(Rascunho);
+                if (Rascunho.EvolucaoId == 0 && aberto.EvolucaoId is { } continua) Rascunho.EvolucaoId = continua;
+                RascunhoGuardadoEm = aberto.AtualizadoEm;
+                recuperado = true;
+            }
+            _guardado = ConteudoAtual();
+            _conferenciaAnterior = _guardado;
+            if (recuperado)
+            {
+                Mensagem = RascunhoAutomatico.Recuperado(aberto!.AtualizadoEm);
+                MensagemEhErro = false;
+            }
             Mapa = mapa;
 
             PodeIndicarBsv = podeIndicarBsv;
             BsvIndicado = bsvIndicado;
             RegistrosParaVincular.Clear();
             RegistrosParaVincular.AddRange(vincular);
-            _sessoesRegistradas = sessoes.Count;
             _ultimaParaCopiar = CopiaEvolucaoPaciente.Ultima(sessoes, ctx.PacienteId, Rascunho.EvolucaoId, Rascunho.Data);
 
             Anteriores.Clear();
@@ -236,12 +333,6 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
                 _saida = horario.FimAtendimentoEm is { } saiu ? TimeOnly.FromDateTime(saiu) : null;
                 if (horario.AtendimentoId is { } nasceu) _atendimentoId = nasceu;
             }
-
-            var dor = ProntuarioService.CalcularEvolucaoDaDor(sessoes);
-            ResumoDor = dor.SessoesComMedida == 0
-                ? "Nenhuma sessão com o par EVA (antes e depois) ainda."
-                : $"Começou em {dor.DorInicial}/10 e está em {dor.DorAtual}/10 — {dor.SessoesComMedida} sessão(ões) medidas, "
-                  + $"alívio médio de {dor.AlivioMedioPorSessao.ToString("0.#", Formato.PtBr)} por sessão.";
 
             // Dois grupos independentes, cada um no SEU escopo (o apoio abre outro DbContext).
             var dataDaSessao = doHorario?.Data ?? ctx.DiaDaSessao;
@@ -391,6 +482,9 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
     /// </summary>
     public async Task<bool> TentarSalvarAsync()
     {
+        // Enquanto grava, o rascunho automático espera: guardar no meio criaria um rascunho
+        // novo com o texto que acabou de ir para o prontuário.
+        _salvando = true;
         try
         {
             if (!PodeEditarProntuario)
@@ -410,6 +504,19 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
 
             Rascunho.EvolucaoId = salva.Id;
             UltimaGravacao = $"Última gravação às {DateTime.Now:HH':'mm}";
+            // Foi para o prontuário: o rascunho encerra. Se falhar, o rascunho fica mais VELHO que
+            // a gravação, e a rotina do prazo o encerra sem regravar (RascunhoEvolucao.Superado).
+            try
+            {
+                using var escopoRascunho = escopos.CreateScope();
+                if (escopoRascunho.ServiceProvider.GetService<IRascunhosDaSessao>() is { } rascunhos)
+                    await rascunhos.EncerrarAsync(ChaveDoRascunho, salva.Id);
+                RascunhoGuardadoEm = null;
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Consultório — rascunho não encerrou depois do Salvar", ex);
+            }
             Mensagem = Rascunho.FraseDepoisDeGravar();
             MensagemEhErro = false;
 
@@ -458,5 +565,6 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
             Avisar();
             return false;
         }
+        finally { _salvando = false; }
     }
 }

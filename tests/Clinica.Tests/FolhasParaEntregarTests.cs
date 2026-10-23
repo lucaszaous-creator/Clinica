@@ -25,16 +25,17 @@ public class FolhasParaEntregarTests
         => FolhasParaEntregar.Montar(heranca, acessos).Single(c => c.Chave == chave);
 
     /// <summary>
-    /// A ordem é a de quem ATENDE, e as seis folhas são as que se entregam ao fim da
+    /// A ordem é a de quem ATENDE, e as cinco folhas são as que se entregam ao fim da
     /// sessão — o termo e a anamnese ficam de fora de propósito. O laudo entrou ao lado
-    /// do atestado (out/2026, "em emitir dentro do atendimento, sem nova aba").
+    /// do atestado (out/2026, "em emitir dentro do atendimento, sem nova aba"); o relatório
+    /// de evolução saiu (22/10/2026, a clínica não o usa no consultório).
     /// </summary>
     [Fact]
-    public void A_coluna_tem_as_seis_folhas_na_ordem_de_quem_atende()
+    public void A_coluna_tem_as_cinco_folhas_na_ordem_de_quem_atende()
         => FolhasParaEntregar.Montar(new HerancaDaSessao(1), TudoDoConsultorio)
             .Select(c => c.Chave)
             .Should().Equal("receita", "atestado", "laudo-medico", "pedido-exame",
-                "comparecimento", "relatorio-evolucao");
+                "comparecimento");
 
     /// <summary>
     /// O laudo herda SÓ o CID: o texto é do médico, e copiar a conduta para o papel que vai
@@ -134,24 +135,6 @@ public class FolhasParaEntregarTests
     }
 
     /// <summary>
-    /// O relatório é MONTADO do prontuário: sem sessão nenhuma ele sairia com o cabeçalho,
-    /// o rodapé e nada no meio. O botão fica apagado, com a razão escrita — botão apagado
-    /// sem frase vira "o sistema travou" (parcela 41).
-    /// </summary>
-    [Fact]
-    public void O_relatorio_nao_se_emite_sem_sessao_para_montar()
-    {
-        var semBase = Cartao(new HerancaDaSessao(1), "relatorio-evolucao");
-        semBase.PodeEmitir.Should().BeFalse();
-        semBase.Pendencia.Should().NotBeEmpty();
-
-        var comBase = Cartao(new HerancaDaSessao(1, SessoesRegistradas: 18), "relatorio-evolucao");
-        comBase.PodeEmitir.Should().BeTrue();
-        comBase.Pendencia.Should().BeEmpty();
-        comBase.Heranca.Should().Contain("18");
-    }
-
-    /// <summary>
     /// Cartão que a pessoa não alcança SOME (a regra da parcela 59): cartão apagado
     /// dizendo "sem permissão" ANUNCIA que existe um relatório de evolução daquele
     /// paciente, que é o que não se quer contar a quem não pode lê-lo.
@@ -161,7 +144,7 @@ public class FolhasParaEntregarTests
     {
         // O balcão: cadastro, sem prontuário.
         var doBalcao = FolhasParaEntregar.Montar(
-            new HerancaDaSessao(1, SessoesRegistradas: 3),
+            new HerancaDaSessao(1),
             Permissao.VerFichaPaciente | Permissao.EditarPaciente);
 
         doBalcao.Select(c => c.Chave).Should().Equal("comparecimento");

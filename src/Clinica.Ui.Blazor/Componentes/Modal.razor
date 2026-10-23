@@ -6,9 +6,12 @@
   A tela é dona do estado (aberto/fechado) e do que o formulário grava; o Modal só desenha
   a moldura. Esc fecha (= Cancelar), e o clique FORA não fecha: formulário pela metade
   perdido por um clique no lugar errado é o pior desfecho de um modal.
+
+  Maximizavel põe ao lado do × o botão de ocupar a tela inteira (o que a Window WPF tinha, e a
+  clínica pediu de volta na prescrição de infusão): formulário longo cabe sem rolar a página.
 *@
-<div class="modal-fundo" @onkeydown="Tecla" @onkeydown:stopPropagation="true">
-    <div class="modal @Largura" role="dialog" aria-modal="true" aria-label="@Titulo" tabindex="-1" @ref="_caixa">
+<div class="modal-fundo @(_maximizado ? "maximizado" : null)" @onkeydown="Tecla" @onkeydown:stopPropagation="true">
+    <div class="modal @Largura @(_maximizado ? "maximizado" : null)" role="dialog" aria-modal="true" aria-label="@Titulo" tabindex="-1" @ref="_caixa">
         <header class="modal-topo">
             <div>
                 <h2>@Titulo</h2>
@@ -17,7 +20,15 @@
                     <p>@Subtitulo</p>
                 }
             </div>
-            <button type="button" class="fechar" aria-label="Fechar" @onclick="Fechar">×</button>
+            <div class="modal-topo-acoes">
+                @if (Maximizavel)
+                {
+                    <button type="button" class="fechar" aria-pressed="@(_maximizado ? "true" : "false")"
+                            aria-label="@(_maximizado ? "Restaurar o tamanho" : "Maximizar")" title="@(_maximizado ? "Restaurar o tamanho" : "Maximizar")"
+                            @onclick="() => _maximizado = !_maximizado">@(_maximizado ? "❐" : "□")</button>
+                }
+                <button type="button" class="fechar" aria-label="Fechar" @onclick="Fechar">×</button>
+            </div>
         </header>
         <div class="modal-corpo">
             @ChildContent
@@ -38,9 +49,13 @@
     /// <summary>"pequeno" (420), "medio" (560, padrão), "grande" (760) ou "largo" (960).</summary>
     [Parameter] public string Largura { get; set; } = "medio";
 
+    /// <summary>Mostra o botão de maximizar (ocupar a tela inteira) ao lado do ×.</summary>
+    [Parameter] public bool Maximizavel { get; set; }
+
     [Parameter] public EventCallback AoFechar { get; set; }
 
     private ElementReference _caixa;
+    private bool _maximizado;
 
     // O foco fica no botão que ABRIU o formulário, atrás do fundo — e ali o Esc não chega ao
     // modal. Ao abrir, o foco entra na caixa: Esc e Tab passam a valer dentro dela.

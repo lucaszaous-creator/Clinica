@@ -22,10 +22,11 @@
     @if (!SomenteLeitura && _modo == Modo.Rico)
     {
         <div class="editor-barra" role="toolbar" aria-label="Formatação do texto">
+            @* Os dois botões são tratados no módulo JS (mousedown), sem passar pelo C#: ver lá. *@
             <button type="button" class="botao mini fantasma editor-botao" title="Negrito (Ctrl+B)" aria-label="Negrito"
-                    disabled="@Desabilitado" @onmousedown:preventDefault="true" @onclick="@(() => FormatarAsync("negrito"))"><b>N</b></button>
+                    aria-pressed="false" data-comando="bold" disabled="@Desabilitado"><b>N</b></button>
             <button type="button" class="botao mini fantasma editor-botao" title="Itálico (Ctrl+I)" aria-label="Itálico"
-                    disabled="@Desabilitado" @onmousedown:preventDefault="true" @onclick="@(() => FormatarAsync("italico"))"><i>I</i></button>
+                    aria-pressed="false" data-comando="italic" disabled="@Desabilitado"><i>I</i></button>
         </div>
     }
     @if (_modo == Modo.Simples)
@@ -70,6 +71,7 @@
     private DotNetObjectReference<EditorTextoClinico>? _ponte;
     private string? _textoNoCampo;
     private string? _formatoNoCampo;
+    private int _avisosEmCurso;
     private bool _somenteLeituraNoCampo;
 
     /// <summary>
@@ -111,6 +113,10 @@
         _ponte = DotNetObjectReference.Create(this);
         _modo = Modo.Rico;
         await LigarAsync();
+        // A barra N/I só existe no modo Rico: sem redesenhar aqui, ela só aparecia na primeira
+        // tecla (o pai redesenha ao receber o texto) — e não dava para COMEÇAR em negrito
+        // (a clínica, 22/10/2026). O campo é o mesmo elemento nos dois modos, não se recria.
+        StateHasChanged();
     }
 
     private async Task LigarAsync()
@@ -130,7 +136,15 @@
     protected override async Task OnParametersSetAsync()
     {
         if (_modo != Modo.Rico || _modulo is null) return;
-        if (Texto != _textoNoCampo || Formato != _formatoNoCampo)
+        // Nulo e vazio são o MESMO campo vazio: tratá-los como mudança redesenhava o campo e
+        // apagava o negrito ligado antes da primeira letra.
+        // O Mudou avisa texto e formato em DOIS callbacks, e com digitação rápida o aviso da
+        // tecla seguinte chega antes de o anterior terminar. Nesse meio o pai redesenha com um
+        // par já velho — que não é mudança por fora. Redesenhar ali levava o cursor ao começo e
+        // engolia letras e espaços (o texto em negrito saía de trás para frente). Enquanto há
+        // aviso em curso, o campo é a verdade; o último aviso deixa o pai igual a ele.
+        if (_avisosEmCurso == 0
+            && ((Texto ?? "") != (_textoNoCampo ?? "") || (Formato ?? "") != (_formatoNoCampo ?? "")))
         {
             _textoNoCampo = Texto;
             _formatoNoCampo = Formato;
@@ -154,14 +168,13 @@
         var (texto, formato) = Canonizar(trechos);
         _textoNoCampo = texto;
         _formatoNoCampo = formato;
-        await TextoChanged.InvokeAsync(texto);
-        await FormatoChanged.InvokeAsync(formato);
-    }
-
-    private async Task FormatarAsync(string comando)
-    {
-        if (_modulo is null || Desabilitado || SomenteLeitura) return;
-        await _modulo.InvokeVoidAsync("formatar", _campo, comando);
+        _avisosEmCurso++;
+        try
+        {
+            await TextoChanged.InvokeAsync(texto);
+            await FormatoChanged.InvokeAsync(formato);
+        }
+        finally { _avisosEmCurso--; }
     }
 
     private async Task AoDigitarSemJsAsync(ChangeEventArgs e)

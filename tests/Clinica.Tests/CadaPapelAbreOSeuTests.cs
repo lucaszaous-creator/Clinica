@@ -25,8 +25,7 @@ public class CadaPapelAbreOSeuTests
         ["atestado", TipoDocumentoClinico.Atestado],
         ["laudo-medico", TipoDocumentoClinico.LaudoMedico],
         ["comparecimento", TipoDocumentoClinico.Comparecimento],
-        ["pedido-exame", TipoDocumentoClinico.PedidoExame],
-        ["relatorio-evolucao", TipoDocumentoClinico.RelatorioEvolucao]
+        ["pedido-exame", TipoDocumentoClinico.PedidoExame]
     ];
 
     [Theory]

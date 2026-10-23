@@ -39,11 +39,25 @@
 
 .at-rodape{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--borda)}
 .at-rodape-texto{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:var(--text-small-size)}
+/* A escrita à esquerda; a data, a dor, o retorno e o Salvar à direita, à vista sem rolar. */
+.at-registro-corpo{display:grid;grid-template-columns:minmax(0,1fr) 220px;align-items:stretch}
+.at-registro-escrita{min-width:0;display:flex;flex-direction:column}
+.at-registro-lado{min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--borda);background:var(--fundo)}
+.at-registro-lado .at-tira{grid-template-columns:minmax(0,1fr);border-top:0;background:transparent}
+.at-registro-lado .at-rodape{flex-direction:column;align-items:stretch;margin-top:auto}
+.at-registro-lado .at-rodape-texto{flex:none}
+.at-registro-lado .botoes-linha{flex-direction:column-reverse;align-items:stretch}
+.at-registro-lado .botoes-linha .botao{justify-content:center}
+@media (max-width:760px){
+  .at-registro-corpo{grid-template-columns:minmax(0,1fr)}
+  .at-registro-lado{border-left:0;border-top:1px solid var(--borda)}
+  .at-registro-lado .at-tira{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+}
 .at-mensagem{color:var(--texto-secundario);overflow-wrap:anywhere}
 .at-mensagem.erro{color:var(--erro-texto);font-weight:600}
 
-/* ---------- A coluna do lado: EMITIR e sessões anteriores ---------- */
-.at-emitir,.at-anteriores,.at-historico{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3)}
+/* ---------- A coluna do lado: EMITIR ---------- */
+.at-emitir,.at-historico{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3)}
 .at-lado-titulo{margin:0;color:var(--texto-secundario);font-size:var(--text-secao-size);letter-spacing:var(--text-secao-tracking);font-weight:600}
 .at-lado-subtitulo{margin:var(--space-2) 0 0;font-size:var(--text-small-size);color:var(--texto-secundario)}
 .at-papel{display:flex;flex-direction:column;gap:2px;width:100%;padding:var(--space-2) var(--space-3);border:1px solid var(--borda);
@@ -58,13 +72,6 @@
 .at-saiu{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-1)}
 .at-saiu li{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);font-size:var(--text-small-size)}
 .at-saiu li.cancelado{color:var(--texto-secundario);text-decoration:line-through}
-
-.at-anterior{padding-top:var(--space-2);border-top:1px solid var(--borda)}
-.at-anterior header{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:baseline}
-.at-retorno{margin:var(--space-1) 0;color:var(--acento);font-weight:600;font-size:var(--text-small-size)}
-.at-campos-anteriores{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px var(--space-2);margin:var(--space-1) 0;font-size:var(--text-small-size)}
-.at-campos-anteriores dt{color:var(--texto-secundario);font-weight:600}
-.at-campos-anteriores dd{margin:0;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
 
 /* ---------- O histórico ao lado ---------- */
 .at-historico-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-2)}
@@ -117,6 +124,7 @@
 .editor-clinico.leitura{border:0;background:transparent}
 .editor-barra{display:flex;gap:2px;padding:2px var(--space-1);border-bottom:1px solid var(--borda);background:var(--fundo);
   border-radius:var(--radius-control) var(--radius-control) 0 0}
+.editor-botao[aria-pressed="true"]{background:var(--acento-suave);color:var(--acento)}
 .editor-texto{padding:var(--space-3);outline:none;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;max-height:480px;overflow-y:auto}
 .editor-clinico.leitura .editor-texto{padding:0;max-height:none;min-height:0 !important}
 .editor-texto:focus-visible{box-shadow:inset 0 0 0 2px var(--foco)}

@@ -25,10 +25,6 @@ namespace Clinica.Application.Modelos;
 /// Quando ele saiu da sala. Nulo enquanto a sessão não foi encerrada — e nulo é a resposta
 /// certa: escrever "agora" numa declaração seria afirmar um fato que ainda não aconteceu.
 /// </param>
-/// <param name="SessoesRegistradas">
-/// Quantas sessões o prontuário tem. É o que decide se o relatório de evolução tem o que
-/// montar: sem sessão nenhuma ele sairia com o cabeçalho e o rodapé.
-/// </param>
 /// <param name="AgendamentoId">
 /// O HORÁRIO a que o papel se refere, e ele é o que faz a coluna "de onde veio" das listas
 /// de documento dizer alguma coisa.
@@ -53,7 +49,6 @@ public sealed record HerancaDaSessao(
     string? Hipotese = null,
     TimeOnly? Chegada = null,
     TimeOnly? Saida = null,
-    int SessoesRegistradas = 0,
     int? AgendamentoId = null,
     int? EvolucaoId = null,
     DateTime? DataHoraDaSessao = null)
@@ -123,16 +118,18 @@ public sealed record FolhaParaEntregar(
 public static class FolhasParaEntregar
 {
     /// <summary>
-    /// As seis folhas da coluna, na ordem em que quem atende as pede — e não na ordem do
+    /// As cinco folhas da coluna, na ordem em que quem atende as pede — e não na ordem do
     /// catálogo, que é a da central. O LAUDO entrou ao lado do atestado (out/2026, pedido
     /// da clínica: "em emitir dentro do atendimento, sem nova aba") — os dois são o texto
     /// do médico sobre o quadro, com o CID da hipótese à mão. Termo e anamnese ficam de fora: o termo é colhido com
     /// assinatura do paciente (outra janela, outro gesto) e a anamnese é da primeira
     /// avaliação, não do que se entrega ao fim da sessão. Os dois continuam na aba
-    /// "Prescrições e documentos", que é a pasta clínica dela.
+    /// "Prescrições e documentos", que é a pasta clínica dela. O RELATÓRIO DE EVOLUÇÃO saiu da
+    /// coluna em 22/10/2026, a pedido da clínica (ninguém no consultório o pedia); ele continua
+    /// na central de documentos da Recepção, que é onde o convênio o pede.
     /// </summary>
     public static readonly IReadOnlyList<string> Ordem =
-        ["receita", "atestado", "laudo-medico", "pedido-exame", "comparecimento", "relatorio-evolucao"];
+        ["receita", "atestado", "laudo-medico", "pedido-exame", "comparecimento"];
 
     /// <summary>Monta a coluna para esta sessão e este conjunto de acessos.</summary>
     public static IReadOnlyList<FolhaParaEntregar> Montar(HerancaDaSessao heranca, Permissao acessos)
@@ -148,23 +145,16 @@ public static class FolhasParaEntregar
             var (frase, daSessao) = Descrever(chave, heranca);
             var podeEmitir = acessos.HasFlag(folha.PermissaoEmitir);
 
-            // O relatório é MONTADO do prontuário: sem sessão nenhuma ele sairia com o
-            // cabeçalho, o rodapé e nada no meio — papel numerado que não diz nada.
-            var semBase = chave == "relatorio-evolucao" && heranca.SessoesRegistradas == 0;
-
-            var pendencia =
-                !podeEmitir
-                    ? $"Seu acesso permite ver, não emitir ({PerfisAcesso.Rotular(folha.PermissaoEmitir)})."
-                    : semBase
-                        ? "Sem sessão registrada para montar o relatório."
-                        : string.Empty;
+            var pendencia = podeEmitir
+                ? string.Empty
+                : $"Seu acesso permite ver, não emitir ({PerfisAcesso.Rotular(folha.PermissaoEmitir)}).";
 
             cartoes.Add(new FolhaParaEntregar(
                 chave,
                 RotuloCurto(chave, folha.Rotulo),
                 frase,
                 daSessao,
-                podeEmitir && !semBase,
+                podeEmitir,
                 pendencia));
         }
 
@@ -181,7 +171,6 @@ public static class FolhasParaEntregar
         "receita" => "Receita",
         "pedido-exame" => "Pedido de exame",
         "comparecimento" => "Comparecimento",
-        "relatorio-evolucao" => "Relatório de evolução",
         _ => padrao
     };
 
@@ -216,10 +205,6 @@ public static class FolhasParaEntregar
             { Chegada: { } c } => ($"está aqui desde {c:HH\\:mm}", true),
             _ => ("sem hora de chegada registrada", false)
         },
-
-        "relatorio-evolucao" => h.SessoesRegistradas == 0
-            ? ("nenhuma sessão registrada ainda", false)
-            : ($"{h.SessoesRegistradas} sessão(ões) · monta sozinho", true),
 
         _ => (string.Empty, false)
     };
