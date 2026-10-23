@@ -53,3 +53,32 @@ public sealed class EntradaNoCrmTests
         => Assert.Equal("https://crm.exemplo/?modo=recepcao#entrada=ab-c_d",
             EntradaNoCrm.Endereco("https://crm.exemplo/", "ab-c_d"));
 }
+
+// Fase 2: o "Escrever no WhatsApp" leva o pedido no fragmento da moldura (ConversaNoCrm).
+public sealed class ConversaNoCrmTests
+{
+    [Theory]
+    [InlineData("(22) 99942-2253", "22999422253")]
+    [InlineData("+55 22 99942-2253", "5522999422253")]
+    [InlineData("2225", null)]
+    [InlineData(null, null)]
+    public void Telefone_do_cadastro_vira_digitos_ou_nada(string? cadastro, string? esperado)
+        => Assert.Equal(esperado, ConversaNoCrm.Telefone(cadastro));
+
+    [Fact] public void O_pedido_vai_no_fragmento_com_o_bilhete_e_a_vez()
+    {
+        var url = ConversaNoCrm.Endereco("https://crm.exemplo", "b1", new PedidoDeConversa("(22) 99942-2253", "Maria Fictícia", 7, "Olá, Maria!"), 3);
+        Assert.StartsWith("https://crm.exemplo/?modo=recepcao#entrada=b1&abrir=", url);
+        Assert.EndsWith("&vez=3", url);
+        var json = Uri.UnescapeDataString(url.Split("&abrir=")[1].Split("&vez=")[0]);
+        var p = System.Text.Json.JsonDocument.Parse(json).RootElement;
+        Assert.Equal(("22999422253", "Maria Fictícia", 7, "Olá, Maria!"),
+            (p.GetProperty("telefone").GetString(), p.GetProperty("nome").GetString(), p.GetProperty("paciente").GetInt32(), p.GetProperty("texto").GetString()));
+    }
+
+    [Fact] public void Sem_pedido_ou_sem_telefone_so_entra()
+    {
+        Assert.Equal("https://crm.exemplo/?modo=recepcao#entrada=b1&vez=1", ConversaNoCrm.Endereco("https://crm.exemplo", "b1", null, 1));
+        Assert.DoesNotContain("abrir=", ConversaNoCrm.Endereco("https://crm.exemplo", "b1", new PedidoDeConversa("123", "X", null, null), 2));
+    }
+}

@@ -22,6 +22,7 @@ builder.Services.AddScoped<ClinicRecallBridge>();
 builder.Services.AddScoped<ClinicSchedulingBridge>();
 builder.Services.AddScoped<ClinicBookingBridge>();
 builder.Services.AddScoped<ClinicRelationshipBridge>();
+builder.Services.AddScoped<ClinicContactBridge>();
 builder.Services.AddScoped<ClinicTeamBridge>();
 builder.Services.AddScoped<ClinicPatientBridge>();
 builder.Services.AddScoped<ClinicSummaryBridge>();
@@ -62,6 +63,8 @@ app.MapGet("/crm/snapshot",(ClinicAgendaBridge bridge,CancellationToken ct)=>bri
 app.MapGet("/crm/recall",(ClinicRecallBridge bridge,CancellationToken ct)=>bridge.Snapshot(ct));
 // Relacionamento: as filas da secretária (sem vir, novos no BSV, consulta a renovar). Só leitura.
 app.MapGet("/crm/relationship",(ClinicRelationshipBridge bridge,CancellationToken ct)=>bridge.Snapshot(ct));
+// Fase 2 (docs/crm-na-recepcao.md): a mensagem da equipe pelo CRM entra no histórico do Acompanhamento.
+app.MapPost("/crm/relationship/contact",(ClinicContactNotice input,ClinicContactBridge bridge,CancellationToken ct)=>bridge.Contact(input,ct));
 // O acesso ao CRM é o do sistema: quem pode entrar e a conferência da senha (ver ClinicTeamBridge).
 app.MapGet("/crm/team",(ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Team(ct));
 app.MapPost("/crm/login",(ClinicLogin input,ClinicTeamBridge bridge,CancellationToken ct)=>bridge.Enter(input,ct));

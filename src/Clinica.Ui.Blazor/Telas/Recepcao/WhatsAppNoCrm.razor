@@ -13,11 +13,16 @@
 
   Permissão: a mesma porta do CRM (ClinicTeamBridge.Requer = EditarAgenda). Quem não a tem
   nem vê o item; se chegar aqui, vê o porquê — e nenhum bilhete é emitido.
+
+  Fase 2: o "Escrever no WhatsApp" das outras telas deixa um PedidoDeConversaNoCrm e navega até
+  aqui. A aba o consome na abertura e na volta e troca só o FRAGMENTO da moldura (bilhete novo +
+  pedido + número da vez): a página do CRM já aberta recebe sem recarregar e abre a conversa.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Abstracoes
 @using Clinica.Application.Servicos
 @inherits TelaBase
+@inject IServiceProvider Servicos
 
 <div class="pagina whatsapp-crm">
     @if (!Pode(Permissao.EditarAgenda))
@@ -62,17 +67,19 @@
     string? _crm; // o endereço do CRM que a moldura abriu (a volta à aba confere se ele mudou)
     bool _semEndereco, _naoVerificado;
     string? _erro;
-    int _geracao;
+    int _geracao, _vez;
 
-    protected override Task OnInitializedAsync() => AbrirAsync();
+    protected override Task OnInitializedAsync() => AbrirAsync(Servicos.GetService<PedidoDeConversaNoCrm>()?.Consumir());
 
     /// <summary>
-    /// Volta à aba: relê só o ENDEREÇO do CRM (a direção pode tê-lo trocado ou apagado). Enquanto ele
-    /// não muda, a moldura fica como está — reabrir recarregaria o CRM e perderia a conversa aberta.
+    /// Volta à aba. Com um pedido de outra tela ("Escrever no WhatsApp"), abre a conversa pedida.
+    /// Sem pedido, relê só o ENDEREÇO do CRM (a direção pode tê-lo trocado ou apagado) e só reabre se
+    /// ele mudou — reabrir à toa recarregaria o CRM e perderia a conversa aberta.
     /// </summary>
     protected override async Task AoVoltarAsync()
     {
         if (!Pode(Permissao.EditarAgenda)) return;
+        if (Servicos.GetService<PedidoDeConversaNoCrm>()?.Consumir() is { } pedido) { await AbrirAsync(pedido); return; }
         try
         {
             using var escopo = Escopo();
@@ -85,11 +92,15 @@
         }
     }
 
-    async Task AbrirAsync()
+    Task AbrirAsync() => AbrirAsync(null);
+
+    async Task AbrirAsync(PedidoDeConversa? pedido)
     {
         if (!Pode(Permissao.EditarAgenda)) return;
         var g = ++_geracao;
-        _naoVerificado = false; _semEndereco = false; _endereco = null;
+        // Com a moldura já de pé, o pedido troca só o fragmento: limpar o endereço a desmontaria.
+        _naoVerificado = false; _semEndereco = false;
+        if (pedido is null) _endereco = null;
         try
         {
             using var escopo = Escopo();
@@ -99,7 +110,7 @@
             {
                 var bilhete = await escopo.ServiceProvider.GetRequiredService<IEntradaNoCrmService>()
                     .EmitirAsync(SessaoUsuario.Atual.UsuarioId);
-                destino = EntradaNoCrm.Endereco(crm, bilhete);
+                destino = ConversaNoCrm.Endereco(crm, bilhete, pedido, ++_vez);
             }
             if (g != _geracao || Descartada) return;
             _crm = crm;

@@ -83,7 +83,7 @@
                     }
                     <div class="acomp-acoes">
                         <button type="button" class="botao acomp-whats" disabled="@(!Linha.PodeContatar || _ocupado)" @onclick="WhatsappAsync"
-                                title="@(Linha.PodeContatar ? "Abrir o WhatsApp com a mensagem" : "Sem telefone ou sem autorização de mensagem")"><Icone Nome="enviar" />Abrir no WhatsApp</button>
+                                title="@(Linha.PodeContatar ? "Abre a conversa no WhatsApp da clínica com a mensagem pronta para você revisar e enviar" : "Sem telefone ou sem autorização de mensagem")"><Icone Nome="enviar" />Escrever no WhatsApp</button>
                         <button type="button" class="botao" disabled="@string.IsNullOrWhiteSpace(Linha.Telefone)" @onclick="CopiarTelefoneAsync"
                                 title="Copiar o número para ligar"><Icone Nome="copiar" />Copiar o telefone para ligar</button>
                         <button type="button" class="botao primario" disabled="@(!PodeMarcar || _ocupado)" @onclick="MarcarAsync"
@@ -333,6 +333,12 @@
             _mensagem = "Não foi possível conferir o contato agora. Tente de novo.";
             return;
         }
+        // Fase 2 (docs/crm-na-recepcao.md): pelo WhatsApp da clínica, na aba WhatsApp — a conversa
+        // fica no número oficial e a mensagem enviada entra sozinha no histórico deste caso. Este
+        // formulário continua aberto aqui atrás, para o "Como foi?" quando ela voltar.
+        var pedido = new PedidoDeConversa(Linha.Telefone!, Linha.Paciente, Linha.PacienteId, AcompanhamentoNaTela.Mensagem(Linha, NomeClinica));
+        if (await PedidoDeConversaNoCrm.EscreverAsync(Servicos, Host, pedido)) { _canal = CanalContato.WhatsApp; return; }
+        // Sem a aba (app sem o item, CRM sem endereço): o wa.me de antes.
         var link = PainelPendenciasFaturamento.LinkWhatsApp(Linha.Telefone, AcompanhamentoNaTela.Mensagem(Linha, null), NomeClinica);
         if (link is not null && await Host.AbrirEnderecoAsync(link)) { _canal = CanalContato.WhatsApp; return; }
         var copiou = link is not null && await Host.CopiarAsync(link);
