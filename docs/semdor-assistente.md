@@ -239,8 +239,9 @@ os dois lados são três tabelas, lidas e gravadas pela ponte (migration `SemDor
    **"Atenção no WhatsApp"** antes de tudo, com o primeiro nome e o assunto; o clique abre a
    conversa no CRM. Lista com mais de 10 min (o CRM parou) não é mostrada como atual.
 3. **Documento.** "emitir atestado…" ou "emitir documento" deixou de cair no "não entendi" (relato
-   da clínica, 23/10): o @SemDor diz onde emitir (`DocumentoPeloWhatsAppRegras.PorAquiNao`) e, com a
-   fase 4 ligada, o pedido sem tipo pergunta qual documento. Texto de documento nunca vai à IA.
+   da clínica, 23/10). No WhatsApp com a fase 4 desligada, o @SemDor diz onde emitir
+   (`DocumentoPeloWhatsAppRegras.PorAquiNao`); no chat dos apps ele **emite** (seção abaixo). O
+   pedido sem tipo pergunta qual documento. Texto de documento nunca vai à IA.
 
 ### Como ligar (nesta ordem)
 
@@ -281,3 +282,44 @@ lê a fila, e os apps respondem a ajuda de sempre.
   (a resposta imediata diz isso). O item 10 da conformidade continua ⚠️ até o DPA com a Anthropic.
 - Custo: uma chamada à IA por pergunta não entendida — a maioria das perguntas nem chega lá.
 - Risco contido: desligado até a variável do CRM, e cada lado funciona sozinho se o outro faltar.
+
+## Documento pelo @SemDor no chat dos apps (out/2026 — decisão da direção de 23/10)
+
+"O sistema faz todo o trâmite interno e traz o documento em PDF para a conversa." A frase é a da
+fase 4 — `atestado Maria Silva 2 dias`, `comparecimento Maria Silva`, `receita` (ou `prescrição`)
+`Maria Silva: …`, `exame Maria Silva: …`, `relatório` (ou `laudo`) `Maria Silva: …` — escrita ao
+Sistema SemDor ou com @SemDor num canal. `DocumentoPeloChatService`:
+
+1. Só quem prescreve, com o profissional ligado ao login; a paciente é procurada só na agenda
+   de quem pediu (60 dias para trás, 30 para a frente), a MESMA busca do WhatsApp — pelo nome
+   (parte ou completo) e/ou pelo **CPF**, com ou sem pontuação (`atestado 529.982.247-25 2 dias`,
+   `atestado Maria cpf 52998224725 2 dias`). Com nome e CPF, os dois têm de bater; CPF com dígito
+   verificador errado volta a pergunta. Duas pacientes com o mesmo nome: a resposta lista e pede o
+   nome completo ou o CPF.
+2. Falta algo (dias do atestado, conteúdo da receita, nome repetido ou não achado)? Volta a
+   pergunta, e nada é emitido.
+3. O documento nasce pela MESMA emissão do Consultório (`DocumentoClinicoService.EmitirAsync`:
+   número, código de conferência e auditoria no mesmo SaveChanges), datado de hoje e ligado ao
+   horário achado. A resposta vem com o documento ANEXADO — o "Abrir" do chat é a 2ª via em PDF.
+4. Sem assinatura digital (o A1 não está homologado), e a resposta diz isso: imprime-se e assina-se
+   à mão, ou assina-se com o certificado na central de Documentos.
+5. No canal, o documento vai SEMPRE para a conversa de quem pediu com o sistema; o canal recebe só
+   o aviso, sem nome de paciente.
+
+**No WhatsApp** a fase 4 foi ligada em 23/10 **sem A1** (`deploy-vps/publicacao-20261023/ligar-fase4.sh`):
+o link abre o portal, o médico revisa, emite e toca "Concluir sem assinatura digital".
+
+### O que NÃO foi feito
+- **Prescrição de infusão** não sai por frase: tem itens, diluente, via e tempo, e continua no
+  Consultório e no tablet. "prescrição" no chat é a RECEITA.
+- **Revisar antes de emitir** não existe no chat: o texto do atestado é o padrão e o da receita é o
+  que foi escrito. Errou? Cancela-se com motivo na central de Documentos e pede-se de novo.
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+- **UX**: o médico escreve uma linha e recebe o PDF na conversa, sem abrir a ficha nem a tela de
+  emissão; dúvida vira pergunta curta com o exemplo.
+- **DX**: um serviço (`DocumentoPeloChatService`) sobre a emissão que já existe, regras puras em
+  `DocumentoPeloChatRegras`, a busca da paciente compartilhada com o WhatsApp e o anexo de documento
+  que o chat já tinha. Testes: `DocumentoPeloChatTests`.
+- **CX**: mesmo número, mesma trilha e mesmo PDF do Consultório; nada vai à IA nem sai da clínica;
+  o documento de paciente não aparece no canal.

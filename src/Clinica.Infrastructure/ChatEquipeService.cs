@@ -523,14 +523,21 @@ public sealed class ChatEquipeService : IChatEquipeService
         // está gravada): vira uma resposta que diz que não deu para ler os dados agora.
         if (ChatEquipeRegras.EhSistema(conversa) && texto.Length > 0)
         {
-            (string Texto, CartaoChat? Cartao) resposta;
-            try { resposta = await new SistemaEquipeService(db, agora).ResponderAsync(eu, texto, ct); }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            MensagemEquipe resp;
+            // O documento pedido ("atestado Maria 2 dias") nasce aqui e volta anexado (DocumentoPeloChatService).
+            if (await DocumentoPedidoAsync(eu, texto, ct) is { } documento)
+                resp = MensagemDoDocumento(conversa, eu, documento);
+            else
             {
-                resposta = ("Não consegui ler os dados da agenda agora. Tente de novo em instantes.", null);
+                (string Texto, CartaoChat? Cartao) resposta;
+                try { resposta = await new SistemaEquipeService(db, agora).ResponderAsync(eu, texto, ct); }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    resposta = ("Não consegui ler os dados da agenda agora. Tente de novo em instantes.", null);
+                }
+                resposta = await ReleituraAsync(eu, conversa, texto, resposta, ct);
+                resp = GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, resposta.Texto, resposta.Cartao, true, agora());
             }
-            resposta = await ReleituraAsync(eu, conversa, texto, resposta, ct);
-            var resp = GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, resposta.Texto, resposta.Cartao, true, agora());
             await GravacaoDoChat.AdicionarAsync(db, resp, ct);
             await db.SaveChangesAsync(ct);
             foreach (var e in db.ChangeTracker.Entries().Where(e => e.Entity is MensagemEquipe or ConversaEquipe or PerguntaAoSemDor).ToList())
@@ -542,6 +549,19 @@ public sealed class ChatEquipeService : IChatEquipeService
         else if (!ChatEquipeRegras.EhSistema(conversa) && ChatEquipeRegras.CitaOSemDor(texto))
         {
             var pergunta = ChatEquipeRegras.SemAMencaoDoSemDor(texto);
+            // Documento pedido no canal: nasce e vai SEMPRE para a conversa de quem pediu com o
+            // sistema — é dado de saúde, e o canal recebe só o aviso.
+            if (await DocumentoPedidoAsync(eu, pergunta, ct) is { } documento)
+            {
+                var aviso = GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, DocumentoPeloChatRegras.EmParticular(eu.Nome), null, true, agora());
+                await GravacaoDoChat.AdicionarAsync(db, aviso, ct);
+                await GravacaoDoChat.AdicionarAsync(db, MensagemDoDocumento(ChatEquipeRegras.Sistema(eu.Id), eu, documento), ct);
+                await db.SaveChangesAsync(ct);
+                foreach (var e in db.ChangeTracker.Entries().Where(e => e.Entity is MensagemEquipe or ConversaEquipe).ToList())
+                    e.State = EntityState.Detached;
+                await MarcarAteAsync(participante, conversa, aviso.Id, ct);
+                return mensagem.Id;
+            }
             var resposta = await RespostaDoSistemaAsync(eu, pergunta, ct);
             var aVista = ChatEquipeRegras.RespostaPodeFicarAVista(todos.Select(p => p.Usuario));
             resposta = await ReleituraAsync(eu, aVista ? conversa : ChatEquipeRegras.Sistema(eu.Id), pergunta, resposta, ct);
@@ -558,6 +578,36 @@ public sealed class ChatEquipeService : IChatEquipeService
             await MarcarAteAsync(participante, conversa, resp.Id, ct);
         }
         return mensagem.Id;
+    }
+
+    /// <summary>
+    /// O documento pedido ao @SemDor: nulo quando a frase não pede documento; com o tipo, emite (ou
+    /// pergunta o que falta); sem o tipo, pergunta qual. Falhar ao emitir não perde a pergunta (ela já
+    /// está gravada) e diz o que fazer — texto de documento nunca vai à IA.
+    /// </summary>
+    private async Task<DocumentoPeloChatService.Resposta?> DocumentoPedidoAsync(UsuarioSistema eu, string texto, CancellationToken ct)
+    {
+        if (DocumentoPeloWhatsAppRegras.Ler(texto) is { } pedido)
+        {
+            try { return await new DocumentoPeloChatService(db, agora).EmitirAsync(eu, pedido, ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Clinica.Application.Diagnostico.Registrar("@SemDor — documento pedido no chat", ex);
+                foreach (var e in db.ChangeTracker.Entries().Where(e => e.State is EntityState.Added or EntityState.Modified).ToList())
+                    e.State = EntityState.Detached;
+                return new("Não consegui emitir o documento agora. Tente de novo em instantes, ou emita pelo Consultório.");
+            }
+        }
+        return DocumentoPeloWhatsAppRegras.PedeDocumento(texto) ? new(DocumentoPeloWhatsAppRegras.QualDocumento) : null;
+    }
+
+    /// <summary>A resposta do documento: o texto e, quando ele nasceu, o anexo (o "Abrir" do chat é a 2ª via).</summary>
+    private MensagemEquipe MensagemDoDocumento(string conversa, UsuarioSistema eu, DocumentoPeloChatService.Resposta r)
+    {
+        var m = GravacaoDoChat.Mensagem(conversa, eu.Id, eu.Nome, r.Texto, null, true, agora(), r.PacienteId, r.PacienteNome);
+        m.DocumentoClinicoId = r.DocumentoId;
+        m.DocumentoRotulo = r.DocumentoRotulo;
+        return m;
     }
 
     /// <summary>
