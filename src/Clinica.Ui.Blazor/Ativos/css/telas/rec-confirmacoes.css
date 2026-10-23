@@ -9,14 +9,6 @@
 .conf-trilho{flex:1;min-width:120px}
 .conf-trilho > i{background:var(--acento)}
 
-/* ---------- A faixa do SMS ---------- */
-.confirmacoes .conf-sms{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3) var(--space-4);padding:var(--space-3) var(--space-4)}
-.conf-sms-icone{width:36px;height:36px;border-radius:var(--radius-control);display:grid;place-items:center;flex:none;
-  background:var(--cinza-100);color:var(--texto-secundario)}
-.conf-sms-icone.ligado{background:var(--info-suave);color:var(--info-texto)}
-.conf-sms-texto{display:flex;flex-direction:column;gap:2px;flex:1;min-width:260px;line-height:1.45}
-.confirmacoes .conf-sms .acoes{gap:var(--space-2)}
-
 /* ---------- O placar: quatro cartões que contam e filtram ---------- */
 .conf-placar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4)}
 @media (max-width:1180px){.conf-placar{grid-template-columns:repeat(2,minmax(0,1fr))}}

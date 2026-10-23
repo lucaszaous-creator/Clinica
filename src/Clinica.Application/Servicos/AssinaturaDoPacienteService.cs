@@ -234,7 +234,10 @@ public sealed class AssinaturaDoPacienteService
     /// fim ao lado de uma recusa posterior, e concluiria que ainda vale.
     ///
     /// Não faz nada quando o documento não é o termo LGPD: é o caso NORMAL, e é o que
-    /// mantém o termo de procedimento exatamente como estava.
+    /// mantém o termo de procedimento exatamente como estava — com UMA exceção (out/2026,
+    /// fase 3 Recepção×CRM): a autorização de mensagens que o termo do BSV leva
+    /// (<see cref="ModelosTermoBsv.AutorizacaoDeMensagens"/>), que grava "Sim" ou "Não" e
+    /// nunca revoga.
     /// </summary>
     private async Task AplicarConsentimentosAsync(
         DocumentoClinico documento, string operador, CancellationToken ct)
@@ -258,6 +261,14 @@ public sealed class AssinaturaDoPacienteService
             var vigente = atual.TryGetValue(finalidade, out var anterior) && anterior.Vigente
                 ? anterior
                 : null;
+
+            // A autorização de mensagens do TERMO DO BSV (fase 3 Recepção×CRM) nunca revoga:
+            // ela só é perguntada a quem nunca respondeu, e um "Não" dado às pressas no termo
+            // do procedimento não desfaz uma autorização que apareceu no meio do caminho.
+            // Revogar é do termo LGPD e do PARAR do CRM. "Sim" sobre vigente também não
+            // duplica a linha.
+            if (documento.Tipo == TipoDocumentoClinico.TermoProcedimento && vigente is not null)
+                continue;
 
             if (!concedido && vigente is not null)
             {

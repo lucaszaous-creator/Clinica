@@ -36,7 +36,6 @@ public partial class App : System.Windows.Application
             // Nada disto é o que a pessoa veio ver: espera a tela inicial ter os dados
             // (AberturaDoApp, out/2026 — disputava as conexões da abertura com ela).
             await Clinica.Application.AberturaDoApp.DepoisDaPrimeiraTelaAsync();
-            RelogioDoSms.Iniciar(_host, "Recepção");
         }
     }
 

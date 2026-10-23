@@ -1,5 +1,4 @@
 using Clinica.Application.Servicos;
-using Clinica.Application.Sms;
 using Clinica.Crm.Bridge;
 using Clinica.Crm.Contracts;
 using Clinica.Domain;
@@ -134,21 +133,18 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Equal(5, (await admin.ResumosCrmDiarios.SingleAsync()).ConversasIniciadas);
     }
 
-    [Fact] public async Task O_lembrete_de_SMS_24h()
+    // Um PARAR só (fase 3 Recepção×CRM, out/2026): a ponte revoga a autorização de mensagens —
+    // UPDATE na linha vigente e INSERT da recusa em Consentimentos, mais a trilha. (O lembrete de
+    // SMS 24h que este arquivo testava saiu: quem manda SMS é só o CRM.)
+    [Fact] public async Task O_PARAR_revoga_a_autorizacao_de_mensagens()
     {
         if (!BancoDosTestes.NoPostgres) return;
-        var parametrosAdmin = new ParametrosService(new ClinicaRepositorio(admin), new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32])));
-        await parametrosAdmin.SalvarCamposSmsAsync(new CamposSms(ProvedorSms.Zenvia, null, null, "tok-123", "clinica", null, null, 24, false));
-        await parametrosAdmin.SalvarUrlPublicacaoAsync("https://docs.clinica.exemplo");
-        var quando = DateTime.Today.AddDays(1).AddHours(9);
-        await Horario(quando: quando);
-
-        var repo = new ClinicaRepositorio(ponte!);
-        var gateway = new GatewayDoTeste();
-        var r = await new LembreteSmsService(repo, new CampanhaService(repo), new ParametrosService(repo, new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))),
-            gateway, new ArmazenamentoFake(), () => quando.AddHours(-20)).RodarAsync();
-        Assert.True(r.Enviados == 1, r.ToString()); // Falha de permissão vira Falhas aqui, não exceção
-        Assert.Single(await admin.MensagensSms.ToListAsync());
+        var a = await Horario();
+        admin.Consentimentos.Add(new() { PacienteId = a.PacienteId, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = true });
+        await admin.SaveChangesAsync();
+        await new ClinicRecallBridge(ponte!).OptOut(new(Guid.NewGuid().ToString("N"), Fone, "wamid.1", DateTimeOffset.UtcNow), default);
+        Assert.Equal(2, await admin.Consentimentos.CountAsync());
+        Assert.NotNull((await admin.Consentimentos.AsNoTracking().OrderBy(c => c.Id).FirstAsync()).RevogadoEm);
     }
 
     // A fila de envios ao paciente (out/2026): o desktop PÕE o pedido (aqui, o admin); a ponte
@@ -260,12 +256,6 @@ public sealed class PontePapelRestritoTests : IDisposable
 
         var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"Usuarios\" SET \"SenhaHash\" = 'x'"));
         Assert.Contains("42501", e.ToString());
-    }
-
-    sealed class GatewayDoTeste : IGatewaySms
-    {
-        public Task<string?> EnviarAsync(OpcoesSms opcoes, string celularE164, string texto, CancellationToken ct = default)
-            => Task.FromResult<string?>("id-1");
     }
 
     public void Dispose()

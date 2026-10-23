@@ -1,5 +1,6 @@
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -270,6 +271,55 @@ public static class ModelosTermoBsv
             }
         ]
     };
+
+    /// <summary>
+    /// A AUTORIZAÇÃO DE MENSAGENS (out/2026, fase 3 da unificação Recepção×CRM): a declaração
+    /// separada, opcional e com o nome da clínica que todo termo exigido para o BSV ganha na
+    /// EMISSÃO — o TCLE e o Termo da sessão. O recall do CRM usa um modelo de MARKETING da
+    /// Meta, e a Meta exige que o paciente tenha aceitado receber mensagens da empresa; muitos
+    /// pacientes passam pelo BSV, e o termo é o momento em que eles já estão lendo e assinando.
+    ///
+    /// Por que ela entra na EMISSÃO, e não no texto dos dois modelos acima: os modelos
+    /// gravados no banco são da clínica (Gerente → "Escrever termos…") e foram editados por
+    /// ela. Acrescentar a linha no modelo pediria uma migration que reescrevesse texto que o
+    /// advogado dela aprovou — ou deixaria as instalações existentes sem a pergunta. Entrando
+    /// na emissão, toda instalação passa a perguntar sem que o texto da clínica seja tocado.
+    ///
+    /// Regras (com teste, em <c>AutorizacaoDeMensagensNoTermoTests</c>):
+    /// - só pergunta a quem NUNCA respondeu sobre mensagens (nenhuma linha de
+    ///   <see cref="FinalidadeConsentimento.ComunicacaoEMarketing"/>): quem já autorizou não
+    ///   precisa responder a cada sessão, e quem recusou ou pediu PARAR não é perguntado de
+    ///   novo a cada termo — mudar de ideia é pela aba LGPD da ficha;
+    /// - "Sim" registra o consentimento vigente, com o NÚMERO do termo como evidência;
+    ///   "Não" registra a recusa (o fato que impede a pergunta de voltar) e NUNCA revoga um
+    ///   consentimento vigente — revogar é do termo LGPD e do PARAR do CRM;
+    /// - "Não" não acende alerta (<see cref="RespostaDeclaracao.RequerAtencao"/>) e o
+    ///   "Marcar todas como Sim" do balcão não marca esta.
+    /// </summary>
+    public static ItemDocumento AutorizacaoDeMensagens(string? nomeClinica, int ordem) => new()
+    {
+        Ordem = ordem,
+        Codigo = RespostaDeclaracao.CodigoAutorizacaoMensagens,
+        // A Descricao tem teto de 300 no banco (ItemDocumento): a frase com o nome vai nela e
+        // o PARAR, no Detalhe — que não tem teto e sai logo abaixo em todas as portas.
+        Descricao = $"AUTORIZAÇÃO DE MENSAGENS (opcional) — Autorizo a {NomeNaFrase(nomeClinica)} a me "
+                    + "enviar mensagens por WhatsApp e SMS sobre minhas sessões, retornos e "
+                    + "novidades do tratamento.",
+        Detalhe = "Posso cancelar a qualquer momento respondendo PARAR. Esta resposta é livre: "
+                  + "responder Não não muda nada no meu atendimento nem neste procedimento."
+    };
+
+    /// <summary>"Clínica SemDor" fica como está; "SemDor" vira "Clínica SemDor"; sem nome, "clínica".</summary>
+    private static string NomeNaFrase(string? nomeClinica)
+    {
+        var nome = nomeClinica?.Trim();
+        if (string.IsNullOrEmpty(nome)) return "clínica";
+        if (nome.Length > 80) nome = nome[..80].TrimEnd();
+        return nome.StartsWith("Clínica", StringComparison.OrdinalIgnoreCase)
+               || nome.StartsWith("Clinica", StringComparison.OrdinalIgnoreCase)
+            ? nome
+            : "Clínica " + nome;
+    }
 
     /// <summary>
     /// As duas modalidades de BSV do motor de regras. Ambas exigem os dois termos: quem faz

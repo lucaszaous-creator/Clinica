@@ -1,4 +1,25 @@
-# O canal de SMS (out/2026)
+# O canal de SMS (out/2026) — ⛔ SAIU na fase 3 Recepção×CRM (23/10/2026)
+
+> **Decisão da direção (unificação Recepção×CRM, fase 3):** o CRM é o ÚNICO que fala com o
+> paciente. A confirmação do horário é **só pelo WhatsApp, no dia** (o pedido do CRM às 06:00), e
+> o SMS existe só no CRM — na conversa por SMS, no recall por SMS e quando o WhatsApp falha.
+> Mapa da fase e comparação das opções: `docs/fase3-recepcao-crm.md`.
+
+## 0. O que saiu, o que ficou
+
+| Peça | Situação |
+|---|---|
+| Lembrete de SMS 24h antes (`LembreteSmsService.RodarAsync`), relógio dos apps (`RelogioDoSms`) e do servidor (`RelogioDoSmsNoServidor`, chave `LembreteSms__Ligado` na ponte e na web) | **saiu** — apague `LembreteSms__Ligado` do ambiente da ponte na VPS 1 (sem leitor, ela é ignorada) |
+| Configuração do provedor no Clinica (Relacionamento → Canal de SMS → Configuração; chaves `Sms*` em `Configuracoes`; `src/Clinica.Application/Sms/`) | **saiu** — o provedor é o do CRM (`CRM_SMS_*`, VPS 2). As linhas `Sms*` (com o token cifrado) ficam no banco sem leitor: nenhuma migration apaga configuração da clínica |
+| Campanha de SMS (prévia, público por convênio/modalidade, envio) | **saiu** — o CRM não é ferramenta de marketing (`semdor-crm/CLAUDE.md`) |
+| A tela Canal de SMS (configuração, teste, histórico, campanha) e a faixa de SMS em Confirmações ("Buscar respostas do SMS", "Enviar lembretes por SMS") | **saiu** — do menu, das telas, da prévia, do catálogo de aulas e do roteiro da aula de Confirmações |
+| Tabela `MensagensSms`, colunas `TokenResposta`/`Canal` dos contatos | **ficam** (sem migration destrutiva). As sessões já avisadas por SMS continuam aparecendo como "SMS enviado" em Confirmações — é histórico |
+| `ConfirmacaoPorLink` e `TextoSms` (Domínio) | ficam, sem chamador de produção — são a leitura do histórico e o vocabulário do link |
+| Rota `/c/TOKEN` do `tools/worker-clinica.js` | fica no ar: os links já enviados respondem até a hora da sessão. ⚠️ As respostas dadas por esses links DEPOIS da publicação não são mais trazidas para a agenda (o "Buscar respostas" saiu) — publique depois de passar o dia dos últimos SMS, ou confira à mão |
+
+O que segue abaixo é o desenho de out/2026, mantido como histórico das decisões (a regra do
+"não vou não cancela sozinho", §3.3, continua valendo para a resposta do WhatsApp).
+
 
 > Pedido da cliente: *"canal de comunicação com os clientes (vamos contratar um serviço de API
 > de SMS para confirmações de consultas e afins)… enviar SMS para os pacientes 24h antes da

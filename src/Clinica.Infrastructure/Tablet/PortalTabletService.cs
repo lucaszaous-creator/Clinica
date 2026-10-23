@@ -207,6 +207,8 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
             itens.Add(new ItemDocumento { Codigo=RespostaDeclaracao.CodigoAlergiasTablet,
                 Descricao="Você tem alguma alergia conhecida?",
                 Detalhe="Responda mesmo que não tenha alergias. Se tiver, informe à equipe antes do procedimento." });
+            // A autorização de mensagens do BSV (fase 3 Recepção×CRM): a MESMA regra da emissão do balcão.
+            if(await documentos.AutorizacaoDeMensagensAsync(p.Id,m.Id,itens.Count+1,ct) is { } autorizacao) itens.Add(autorizacao);
             var doc=await documentos.EmitirAsync(new DocumentoClinico {PacienteId=p.Id,
                 Tipo=TipoDocumentoClinico.TermoProcedimento,ModeloOrigemId=m.Id,Data=Hoje,
                 Titulo=m.Titulo,Corpo=m.Corpo,Itens=itens},Operador(s.Usuario!),ct);

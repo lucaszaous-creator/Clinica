@@ -3818,46 +3818,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                a.Modalidade, a.ModalidadeCodigo, a.EspecialidadeConsultaCodigo,
                _db.Agendamentos.Where(ag => ag.AtendimentoId == a.Id).Select(ag => ag.ProfissionalId).FirstOrDefault());
 
-    public async Task<bool> ReservarMensagemSmsAsync(MensagemSms mensagem, CancellationToken ct = default)
-    {
-        _memoria.Clear();
-        _db.MensagensSms.Add(mensagem);
-        try
-        {
-            await _db.SaveChangesAsync(ct);
-            return true;
-        }
-        catch (DbUpdateException ex) when (EhDuplicidade(ex))
-        {
-            // A outra máquina reservou primeiro. A linha recusada sai do contexto — senão o
-            // próximo SalvarAsync deste escopo tentaria gravá-la de novo e estouraria lá.
-            _db.Entry(mensagem).State = EntityState.Detached;
-            return false;
-        }
-    }
-
-    private static bool EhDuplicidade(DbUpdateException ex) => ex.GetBaseException() switch
-    {
-        Npgsql.PostgresException pg => pg.SqlState == "23505",
-        // O SQLite dos testes só existe fora do Release (o pacote é condicional no csproj):
-        // reconhecer pelo NOME do tipo mantém o build de produção sem a referência.
-        var e when e.GetType().Name == "SqliteException"
-            => e.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase),
-        _ => false
-    };
-
-    public Task<MensagemSms?> MensagemSmsPorChaveAsync(string chave, CancellationToken ct = default)
-        => _db.MensagensSms.FirstOrDefaultAsync(m => m.ChaveIdempotencia == chave, ct);
-
-    public async Task<IReadOnlyList<MensagemSms>> MensagensSmsAsync(
-        DateTime inicio, DateTime fim, int limite = 500, CancellationToken ct = default)
-        => await _db.MensagensSms.AsNoTracking()
-            .Include(m => m.Paciente)
-            .Where(m => m.CriadaEm >= inicio && m.CriadaEm <= fim)
-            .OrderByDescending(m => m.CriadaEm).ThenByDescending(m => m.Id)
-            .Take(limite)
-            .ToListAsync(ct);
-
     public async Task<IReadOnlyList<ResumoCrmDiario>> ResumosCrmAsync(DateOnly de, DateOnly ate, CancellationToken ct = default)
         => await _db.ResumosCrmDiarios.AsNoTracking()
             .Where(r => r.Dia >= de && r.Dia <= ate)
@@ -3907,17 +3867,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         NomeArquivo = e.NomeArquivo, Consumidor = e.Consumidor,
         ReservadoEm = e.ReservadoEm, SubmetidoEm = e.SubmetidoEm, Versao = e.Versao
     };
-
-    public async Task<IReadOnlyList<ContatoCampanha>> ContatosAguardandoRespostaPorLinkAsync(
-        DateOnly desde, CancellationToken ct = default)
-        => await _db.Contatos
-            .Include(c => c.Agendamento)
-            .Where(c => c.Tipo == TipoContato.ConfirmacaoSessao
-                        && c.TokenResposta != null
-                        && c.Status == StatusContato.Enviado
-                        && c.Referencia >= desde)
-            .OrderBy(c => c.Id)
-            .ToListAsync(ct);
 
     // Aqui a ordem é a oposta da fila: é HISTÓRICO, e histórico se lê do mais novo para
     // o mais velho. O corte vai no SQL, como manda a convenção do projeto.

@@ -50,18 +50,26 @@ public static class TermoConsentimento
     /// parcela, e uma finalidade que a versão nova do sistema conhece e esta não —, e nos
     /// dois a resposta certa é não gravar consentimento nenhum. Deduzir pela posição
     /// gravaria a autorização errada, que é pior do que não gravar.
+    ///
+    /// O TERMO DE PROCEDIMENTO (out/2026, fase 3 Recepção×CRM) carrega UMA finalidade só:
+    /// a autorização de mensagens que os termos do BSV levam
+    /// (<see cref="RespostaDeclaracao.CodigoAutorizacaoMensagens"/>). Qualquer outro código
+    /// num termo de procedimento é ignorado — ele não é o lugar de decidir uso de imagem.
     /// </summary>
     public static IReadOnlyList<DecisaoDeConsentimento> Decisoes(DocumentoClinico documento)
     {
         ArgumentNullException.ThrowIfNull(documento);
 
-        if (documento.Tipo != TipoDocumentoClinico.Consentimento) return [];
+        if (documento.Tipo is not (TipoDocumentoClinico.Consentimento or TipoDocumentoClinico.TermoProcedimento))
+            return [];
 
         var decisoes = new List<DecisaoDeConsentimento>();
 
         foreach (var item in documento.Itens.OrderBy(i => i.Ordem))
         {
             if (!Finalidade(item, out var finalidade)) continue;
+            if (documento.Tipo == TipoDocumentoClinico.TermoProcedimento
+                && item.Codigo != RespostaDeclaracao.CodigoAutorizacaoMensagens) continue;
 
             // Só resposta EXPLÍCITA vira decisão. Em branco não é "não" — é uma pergunta
             // que ninguém fez, e o `ColherAsync` já recusa assinar assim.

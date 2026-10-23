@@ -108,12 +108,19 @@ public static class ColetaDeTermoNaTela
 /// Uma declaração do termo com a resposta do paciente. Nasce SEM resposta de propósito: pré-marcar
 /// "Sim" seria fabricar a resposta mais conveniente para a clínica.
 /// </summary>
-public sealed class DeclaracaoItem(int ordem, string descricao, string? detalhe)
+public sealed class DeclaracaoItem(int ordem, string descricao, string? detalhe, string? codigo = null)
 {
     public int Ordem { get; } = ordem;
     public string Descricao { get; } = descricao;
     public string? Detalhe { get; } = detalhe;
     public string? Resposta { get; set; }
+
+    /// <summary>
+    /// A autorização de mensagens do BSV (fase 3 Recepção×CRM): opcional, aparece em
+    /// destaque e fica FORA do "Marcar todas como Sim" — marcá-la pelo paciente seria
+    /// fabricar o consentimento que o recall exige.
+    /// </summary>
+    public bool AutorizacaoDeMensagens { get; } = codigo == RespostaDeclaracao.CodigoAutorizacaoMensagens;
 
     public bool EhSim => RespostaDeclaracao.EhPositiva(Resposta);
     public bool EhNao => RespostaDeclaracao.EhNegativa(Resposta);
@@ -491,7 +498,7 @@ public sealed class ColetaDoTermoEmAndamento : IDisposable
 
             Declaracoes.Clear();
             foreach (var item in _documento.Itens.OrderBy(i => i.Ordem))
-                Declaracoes.Add(new DeclaracaoItem(item.Ordem, item.Descricao, item.Detalhe) { Resposta = item.Quantidade });
+                Declaracoes.Add(new DeclaracaoItem(item.Ordem, item.Descricao, item.Detalhe, item.Codigo) { Resposta = item.Quantidade });
 
             await CarregarAlergiasAsync();
 
@@ -662,7 +669,7 @@ public sealed class ColetaDoTermoEmAndamento : IDisposable
     /// <summary>Marca todas as declarações como "Sim" — o caso normal, num clique (um GESTO de quem lê com o paciente).</summary>
     public void ConfirmarTodas()
     {
-        foreach (var d in Declaracoes) d.MarcarSim();
+        foreach (var d in Declaracoes.Where(d => !d.AutorizacaoDeMensagens)) d.MarcarSim();
         Avisar();
     }
 

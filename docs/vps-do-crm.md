@@ -4,6 +4,13 @@
 > **A instalação real (17–18/10/2026)** — endereços, acessos, o que está ligado e como
 > publicar de novo — está em [`crm-em-producao-out2026.md`](crm-em-producao-out2026.md).
 
+> ⛔ **Fase 3 Recepção×CRM (23/10/2026): o lembrete de SMS saiu do Clinica e da ponte.** Quem
+> manda SMS é só o CRM (`CRM_SMS_*` na VPS 2), e a confirmação é o WhatsApp do CRM no dia. O que
+> este roteiro diz sobre `LembreteSms__Ligado`, `RelogioDoSmsNoServidor`, o §4.5 (SMS no Clinica)
+> e a etapa 2 da ligação é histórico: apague `LembreteSms__Ligado` do ambiente da ponte (sem
+> leitor, ela é ignorada) e rode de novo o `papel-ponte-crm.sql` (a ponte deixa de gravar
+> `MensagensSms` e passa a gravar `Consentimentos`, para o PARAR). Ver `docs/canal-sms.md` §0.
+
 > Decisão da direção: o CRM fica **na web** (como está), numa **VPS separada no Brasil**. A
 > VPS da clínica (o Postgres do prontuário) não ganha nenhum site aberto. O lembrete por SMS
 > sai **com as máquinas da clínica desligadas**. O WhatsApp fica para outro momento.

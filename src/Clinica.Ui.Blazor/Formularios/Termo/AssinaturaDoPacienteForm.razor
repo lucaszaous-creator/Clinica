@@ -44,8 +44,12 @@
                 <p class="secundario">Leia cada uma com o paciente. Responder NÃO não impede nada: o termo é emitido do mesmo jeito, com a resposta escrita, e quem decide adiar o procedimento é quem vai fazê-lo.</p>
                 @foreach (var d in _coleta.Declaracoes)
                 {
-                    <div class="assin-declaracao">
+                    <div class="assin-declaracao@(d.AutorizacaoDeMensagens ? " assin-autorizacao" : "")">
                         <div>
+                            @if (d.AutorizacaoDeMensagens)
+                            {
+                                <Selo Tom="info">Opcional · o paciente escolhe</Selo>
+                            }
                             <span class="principal">@d.Descricao</span>
                             @if (!string.IsNullOrWhiteSpace(d.Detalhe))
                             {
