@@ -1,0 +1,117 @@
+@*
+  WHATSAPP — O CRM DENTRO DA RECEPÇÃO (out/2026, fase 1 da unificação Recepção × CRM —
+  docs/crm-na-recepcao.md).
+
+  A recepcionista não alterna mais entre o app e o navegador: as conversas, o assumir, o
+  transferir, os modelos do WhatsApp, o Recall e os Envios do CRM abrem aqui, numa moldura, no
+  "modo Recepção" — o CRM esconde o que a Recepção já tem (Agenda, Meu dia, Relacionamento e o
+  sino de confirmações). A tela não copia nada do CRM: ela só o abre.
+
+  Entrar sem senha: a tela emite um bilhete de uso único (IEntradaNoCrmService — só o hash fica
+  no banco) e a ponte o confere. "Entrar de novo" emite outro, para quando a sessão do CRM
+  venceu. Sem o endereço do CRM (Gerente → Configurações), a tela diz como ligar.
+
+  Permissão: a mesma porta do CRM (ClinicTeamBridge.Requer = EditarAgenda). Quem não a tem
+  nem vê o item; se chegar aqui, vê o porquê — e nenhum bilhete é emitido.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Servicos
+@inherits TelaBase
+
+<div class="pagina whatsapp-crm">
+    @if (!Pode(Permissao.EditarAgenda))
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="Seu acesso não inclui o WhatsApp da clínica" Icone="cadeado"
+                         Descricao="As conversas com os pacientes ficam com quem marca na agenda. Fale com a direção da clínica." />
+        </section>
+    }
+    else if (_naoVerificado)
+    {
+        <section class="cartao lista-cartao">
+            <FalhaDeLeitura Titulo="Não foi possível abrir o WhatsApp da clínica" Detalhe="@_erro" AoTentarDeNovo="AbrirAsync" />
+        </section>
+    }
+    else if (_semEndereco)
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="O WhatsApp da clínica ainda não foi ligado aqui" Icone="chat"
+                         Descricao="A direção informa o endereço do CRM em Gerente → Configurações → Integrações. Até lá, as conversas continuam no CRM pelo navegador." />
+        </section>
+    }
+    else if (_endereco is null)
+    {
+        <div class="cartao"><div class="cartao-corpo"><Esqueleto Altura="420" /></div></div>
+    }
+    else
+    {
+        <div class="wcrm-barra">
+            <span class="wcrm-titulo"><Icone Nome="chat" />WhatsApp da clínica</span>
+            <span class="wcrm-dica">Agenda, Relacionamento e os avisos de confirmação continuam nas abas da Recepção.</span>
+            <button type="button" class="botao secundario" @onclick="AbrirAsync" title="Abre o CRM de novo já com você dentro (use se ele pedir a senha)">
+                <Icone Nome="atualizar" />Entrar de novo</button>
+        </div>
+        <iframe class="wcrm-moldura" src="@_endereco" title="WhatsApp da clínica (CRM)"
+                allow="microphone; clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>
+    }
+</div>
+
+@code {
+    string? _endereco;
+    string? _crm; // o endereço do CRM que a moldura abriu (a volta à aba confere se ele mudou)
+    bool _semEndereco, _naoVerificado;
+    string? _erro;
+    int _geracao;
+
+    protected override Task OnInitializedAsync() => AbrirAsync();
+
+    /// <summary>
+    /// Volta à aba: relê só o ENDEREÇO do CRM (a direção pode tê-lo trocado ou apagado). Enquanto ele
+    /// não muda, a moldura fica como está — reabrir recarregaria o CRM e perderia a conversa aberta.
+    /// </summary>
+    protected override async Task AoVoltarAsync()
+    {
+        if (!Pode(Permissao.EditarAgenda)) return;
+        try
+        {
+            using var escopo = Escopo();
+            var crm = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterEnderecoDoCrmAsync();
+            if (crm != _crm && !Descartada) await AbrirAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — o endereço do CRM não pôde ser relido na volta à aba WhatsApp", ex);
+        }
+    }
+
+    async Task AbrirAsync()
+    {
+        if (!Pode(Permissao.EditarAgenda)) return;
+        var g = ++_geracao;
+        _naoVerificado = false; _semEndereco = false; _endereco = null;
+        try
+        {
+            using var escopo = Escopo();
+            var crm = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterEnderecoDoCrmAsync();
+            string? destino = null;
+            if (crm is not null)
+            {
+                var bilhete = await escopo.ServiceProvider.GetRequiredService<IEntradaNoCrmService>()
+                    .EmitirAsync(SessaoUsuario.Atual.UsuarioId);
+                destino = EntradaNoCrm.Endereco(crm, bilhete);
+            }
+            if (g != _geracao || Descartada) return;
+            _crm = crm;
+            _semEndereco = crm is null;
+            _endereco = destino;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao || Descartada) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — o WhatsApp (CRM) não abriu na Recepção", ex);
+            _erro = ex.Message;
+            _naoVerificado = true;
+        }
+    }
+}

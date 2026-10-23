@@ -52,6 +52,9 @@ BEGIN
       -- O documento pedido pelo WhatsApp (@SemDor fase 4): a ponte grava só o RASCUNHO e o link;
       -- quem emite e assina é o portal. Nenhum privilégio sobre DocumentosClinicos.
       ['PedidosDocumentoWhatsApp','INSERT'],
+      -- O CRM dentro da Recepção (out/2026, docs/crm-na-recepcao.md): quem grava o bilhete é o app;
+      -- a ponte só o gasta — a coluna UsadoEm, e nada mais.
+      ['BilhetesEntradaCrm','UPDATE ("UsadoEm")'],
       -- O @SemDor com IA nos apps (Clinica#307): a ponte marca a releitura da pergunta, grava o
       -- pulso do CRM e substitui a lista dos avisos "Atenção" do sino (aviso não é registro clínico).
       ['PerguntasAoSemDor','UPDATE'], ['SemDorNoCrm','INSERT, UPDATE'],
