@@ -120,3 +120,8 @@ public sealed record SemDorAlerts(DateTimeOffset GeneratedAt, SemDorAlert[] Aler
 // com a pessoa já logada nele, emite um bilhete de uso único (60 s, assinado com o segredo guardado
 // no banco da clínica) e a ponte o confere. Nenhuma senha passa pelo CRM.
 public sealed record ClinicTicketLogin(string Ticket);
+
+// O contato da equipe que volta ao Acompanhamento (out/2026, fase 2 — docs/modo-recepcao.md): a
+// mensagem que alguém mandou pelo CRM a um paciente IDENTIFICADO entra no histórico do caso aberto
+// dele no Clinica. Um registro por conversa por dia; a ponte é idempotente pelo CommandId.
+public sealed record ClinicContactNotice(string CommandId, int PatientId, DateTimeOffset SentAt, string Channel, string Agent);

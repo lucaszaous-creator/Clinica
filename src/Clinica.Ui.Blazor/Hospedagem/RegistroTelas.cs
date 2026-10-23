@@ -40,6 +40,11 @@ public static class RegistroTelas
         // Singleton: o paciente em que a central de Documentos deve abrir (quem pede é uma tela
         // de fora antes de navegar; quem lê é a central, na abertura e a cada volta).
         servicos.TryAddSingleton<PedidoDeDocumento>();
+        // Singleton: a conversa que a aba WhatsApp deve abrir (quem pede é o "Escrever no WhatsApp"
+        // de outra tela antes de navegar; quem lê é a aba, na abertura e a cada volta).
+        servicos.TryAddSingleton<PedidoDeConversaNoCrm>();
+        // Singleton: o Acompanhamento deve abrir na fila de retornos (quem pede é o Início).
+        servicos.TryAddSingleton<PedidoDoAcompanhamento>();
         return servicos;
     }
 }

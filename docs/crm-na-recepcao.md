@@ -73,9 +73,54 @@ fica em branco; ponte antiga, o CRM responde "Atualize a ponte" e o login normal
     não se fabrica entrada. O CRM só aceita ser emoldurado pela origem dos apps.
   - **Celular**: continua como está.
 
+## Fase 2: uma tela só de relacionamento (out/2026)
+
+- **"Escrever no WhatsApp" pelo número oficial.** Cinco botões da Recepção que abriam o wa.me
+  (o WhatsApp do computador, sem registro) passam pelo CRM: a conversa do Acompanhamento, o
+  "Convidar" dos retornos, o aviso das Confirmações, o "Confirmar" do horário na agenda e o
+  WhatsApp da ficha.
+  - Cada um deixa um `PedidoDeConversaNoCrm` e navega até a aba WhatsApp. A aba troca só o
+    fragmento da moldura (`ConversaNoCrm.Endereco`, com bilhete novo, o pedido e o número da
+    vez).
+  - O CRM então abre ou começa a conversa, liga a ficha escolhida aqui (só se a conversa ainda não
+    tem ficha) e deixa a mensagem como rascunho. Quem envia é a recepcionista.
+  - Onde a aba não existe (app sem o item, CRM sem endereço, usuário sem `EditarAgenda`), o
+    botão continua no wa.me de antes.
+- **O contato entra sozinho no Acompanhamento.** A mensagem que a equipe manda pelo CRM a um
+  paciente identificado vira um `ClinicContactNotice`, um por conversa por dia. A ponte
+  (`ClinicContactBridge`, `POST /crm/relationship/contact`) o grava no histórico de cada caso
+  aberto do paciente, com o nome de quem mandou.
+  - Não mexe em etapa, data nem responsável: o desfecho continua no "Como foi?".
+  - É idempotente pelo CommandId, como o recall.
+- **"Retornos a marcar" virou a fila "Retornos pedidos" do Acompanhamento.**
+  - É a mesma tela, embutida (`RetornosAMarcar Embutida`), com as mesmas ações.
+  - O item e a aba saíram do menu (e da `OrganizacaoNavegacao` e da verificação Windows).
+  - O contador "Retornos" do Início abre o Acompanhamento já nessa fila (`PedidoDoAcompanhamento`).
+- **"Consulta a renovar" não ganhou uma terceira cópia**: na Recepção ela já mora em "Consultas de
+  convênio". No CRM do celular ela continua no Relacionamento.
+
+### UX · DX · CX da fase 2
+
+- 🧑‍💻 **UX**: um clique leva da fila à conversa certa, com a mensagem pronta e a ficha ligada. O
+  histórico do caso mostra que a mensagem saiu sem ninguém digitar "falei pelo WhatsApp". Há uma
+  fila a menos no menu, e os retornos ficam ao lado do recall e dos novos BSV. Fotografado em
+  1024 e 1366: o seletor de filas e a lista cabem sem rolar para o lado.
+- 🛠️ **DX**: a regra do endereço mora em `ConversaNoCrm` (`ConversaNoCrmTests`). A ponte nova é
+  testada em `PonteClinicContactTests`; a gravação usa `ContatosAcompanhamento`, onde a
+  `ponte_crm` já tem INSERT. No CRM, o pedido (`modo-recepcao.js`, `reception.js escrever`) é
+  testado em `modo-recepcao.test.cjs` e o registro em `RelationshipContactTests`. O contrato novo
+  `ClinicContactNotice` entrou no fim de `ClinicContracts.cs`, idêntico nos dois repositórios.
+- 🤝 **CX**: as mensagens da recepção saem pelo número oficial, que é o que a Meta enxerga e
+  avalia, e não pelo WhatsApp de cada computador. O histórico deixa de depender de alguém
+  lembrar de registrar. Nenhum servidor novo.
+
 ## O que NÃO foi feito, e por quê
 
 - **Número de não lidas no item WhatsApp**: o sino da Recepção já avisa ("Atenção no
   WhatsApp"). Um contador pediria outra leitura periódica do CRM; fica para quando a direção
   pedir.
-- **Fases 2 e 3**: PRs próprios (ver a tabela acima).
+- **Fase 3**: PR próprio (ver a tabela acima).
+- **Cobrança e pendências do faturamento** ainda abrem o wa.me: são do Financeiro e do Faturamento,
+  que não têm a aba WhatsApp. A mudança é a mesma chamada, quando a direção quiser.
+- **A videoaula "Retornos a marcar"** (`catalogo.json`) deixa de aparecer, porque a tela saiu do
+  menu. Ela precisa ser regravada dentro do Acompanhamento.

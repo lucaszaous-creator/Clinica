@@ -16,6 +16,7 @@
 @namespace Clinica.Ui.Blazor.Formularios
 @using Clinica.Application.Modelos
 @inherits TelaBase
+@inject IServiceProvider Servicos
 
 @if (_modo == Modo.Detalhe)
 {
@@ -225,14 +226,16 @@ else if (_modo == Modo.Espera && _cartao is { } e)
     private Task ConfirmarAsync() => AgirAsync(async () =>
     {
         var c = _cartao!;
-        var link = QuemMeDeveTela.LinkWhatsApp(c.Telefone,
-            MensagensDeContato.ConfirmacaoDeSessao(c.Paciente, c.DataHora, DateOnly.FromDateTime(DateTime.Today), null));
+        // Pelo WhatsApp da clínica, na aba WhatsApp (fase 2, docs/crm-na-recepcao.md); sem a aba, o wa.me de antes.
+        var texto = MensagensDeContato.ConfirmacaoDeSessao(c.Paciente, c.DataHora, DateOnly.FromDateTime(DateTime.Today), null);
+        var link = QuemMeDeveTela.LinkWhatsApp(c.Telefone, texto);
         if (link is null)
         {
             Notificacoes.Erro($"{c.Paciente}: telefone ausente ou inválido no cadastro.");
             return;
         }
-        if (!await Host.AbrirEnderecoAsync(link))
+        if (!await PedidoDeConversaNoCrm.EscreverAsync(Servicos, Host, new(c.Telefone ?? "", c.Paciente, c.PacienteId, texto))
+            && !await Host.AbrirEnderecoAsync(link))
         {
             var copiou = await Host.CopiarAsync(link);
             Notificacoes.Erro(copiou

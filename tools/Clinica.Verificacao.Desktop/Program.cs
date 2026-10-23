@@ -115,7 +115,7 @@ internal static partial class Program
                 Conferir(composta.Selecionada == 0 && composta.ConteudoVisivel is Clinica.Desktop.Blazor.TelaBlazor,
                     $"{nome}: Resumo materializa a tela de faturamento");
                 foreach (var chave in new[] { "agenda", "fila", ChavesSuite.AgendaRecepcao, ChavesSuite.ConsultorioSemana,
-                    "agenda-confirmacoes", "retornos-a-marcar", "marcar-horario", "pacientes", "acessos", "configuracoes" })
+                    "agenda-confirmacoes", "marcar-horario", "pacientes", "acessos", "configuracoes" })
                 {
                     var telaAntes = shell.TelaAtual;
                     Conferir(!NavegacaoSuite.Existe(chave) && !NavegacaoSuite.Ir(chave) && ReferenceEquals(telaAntes, shell.TelaAtual),

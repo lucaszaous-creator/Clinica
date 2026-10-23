@@ -17,11 +17,14 @@
 @using Clinica.Application.Modelos
 @inherits TelaBase
 
-<div class="pagina retornos @(Carregando && _todas.Count > 0 ? "carregando" : null)">
+<div class="@(Embutida ? "retornos" : "pagina retornos") @(Carregando && _todas.Count > 0 ? "carregando" : null)">
+    @if (!Embutida)
+    {
     <CabecalhoPagina Sobretitulo="Relacionamento · Retornos" Titulo="Retornos a marcar"
                      Subtitulo="@($"Quem saiu do atendimento com pedido de retorno e ainda não tem horário. A linha some sozinha quando o horário é marcado; passados {Clinica.Application.Modelos.RetornosAMarcar.JanelaDiasParaTras} dias da data sugerida, o paciente passa para o Acompanhamento.")">
         <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a fila"><Icone Nome="atualizar" /></button>
     </CabecalhoPagina>
+    }
 
     @if (!Pode(Permissao.VerAgenda))
     {
@@ -139,6 +142,12 @@
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
 
+    /// <summary>
+    /// Dentro do Acompanhamento (out/2026, fase 2 — docs/crm-na-recepcao.md): a fila "Retornos pedidos"
+    /// de lá É esta tela, sem o cabeçalho próprio. Uma porta só para "quem eu chamo de volta".
+    /// </summary>
+    [Parameter] public bool Embutida { get; set; }
+
     /// <summary>A metade visível da barreira: marcar exige <c>EditarAgenda</c>.</summary>
     private static bool PodeMarcar => Pode(Permissao.EditarAgenda);
 
@@ -213,8 +222,10 @@
     private async Task ConvidarAsync(RetornoAMarcar l)
     {
         if (!Exigir(Permissao.VerAgenda, "convidar o paciente pelo WhatsApp")) return;
-        var link = QuemMeDeveTela.LinkWhatsApp(l.Telefone,
-            MensagensDeContato.ConviteDeRetorno(l.Paciente, l.RetornoEm, l.Profissional, string.IsNullOrWhiteSpace(_nomeClinica) ? null : _nomeClinica));
+        // Pelo WhatsApp da clínica, na aba WhatsApp (fase 2, docs/crm-na-recepcao.md); sem a aba, o wa.me de antes.
+        var texto = MensagensDeContato.ConviteDeRetorno(l.Paciente, l.RetornoEm, l.Profissional, string.IsNullOrWhiteSpace(_nomeClinica) ? null : _nomeClinica);
+        if (await PedidoDeConversaNoCrm.EscreverAsync(Servicos, Host, new(l.Telefone ?? "", l.Paciente, l.PacienteId, texto))) return;
+        var link = QuemMeDeveTela.LinkWhatsApp(l.Telefone, texto);
         if (link is null) { Notificacoes.Erro($"{l.Paciente}: telefone ausente ou inválido no cadastro."); return; }
         if (await Host.AbrirEnderecoAsync(link)) return;
         var copiou = await Host.CopiarAsync(link);

@@ -22,15 +22,15 @@
 
 <div class="pagina acompanhamento @(Carregando && _todos.Count > 0 ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Relacionamento · Acompanhamento" Titulo="Acompanhamento de pacientes"
-                     Subtitulo="Quem sumiu e as indicações de BSV — do primeiro contato até a sessão realizada.">
-        @if (_tipo == TipoAcompanhamento.Recall)
+                     Subtitulo="Quem sumiu, as indicações de BSV e os retornos que o profissional pediu — do primeiro contato até a sessão realizada.">
+        @if (_tipo == TipoAcompanhamento.Recall && !_retornos)
         {
             <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="AbrirGerarRecall"
                     title="@(PodeAcompanhar ? "Buscar quem está há N dias ou mais sem retornar e pôr na fila" : SemAcesso)">
                 <Icone Nome="atualizar" />Gerar recall (@_diasRecall dias)
             </button>
         }
-        <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="ExportarAsync" title="A lista à vista, com a coluna de quem pode receber mensagem (Ctrl+P)">
+        <button type="button" class="botao" disabled="@(!PodeAcompanhar || _retornos)" @onclick="ExportarAsync" title="A lista à vista, com a coluna de quem pode receber mensagem (Ctrl+P)">
             <Icone Nome="baixar" />Exportar CSV
         </button>
         <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a lista"><Icone Nome="atualizar" /></button>
@@ -53,6 +53,14 @@
             <FalhaDeLeitura Titulo="Não foi possível ler a fila de acompanhamento" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
         </section>
     }
+    else if (_retornos)
+    {
+        @* Fase 2 (docs/crm-na-recepcao.md): os "Retornos a marcar" moram aqui — a mesma fila, as mesmas ações. *@
+        <section class="cartao lista-cartao">
+            <div class="filtros acomp-barra">@Filas</div>
+        </section>
+        <RetornosAMarcar Embutida="true" />
+    }
     else if (!_carregou)
     {
         <section class="cartao acomp-funil"><Esqueleto Altura="72" /></section>
@@ -73,12 +81,7 @@
 
         <section class="cartao lista-cartao">
             <div class="filtros acomp-barra">
-                <div class="segmentado" role="group" aria-label="Qual fila">
-                    <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.Recall)" @onclick="() => TrocarTipo(TipoAcompanhamento.Recall)"
-                            title="Quem parou de vir — por modalidade">Recall · <b>@_pendentesRecall</b></button>
-                    <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.NovoBsv)" @onclick="() => TrocarTipo(TipoAcompanhamento.NovoBsv)"
-                            title="As indicações de BSV do profissional configurado, até a 1ª sessão">Novos BSV · <b>@_pendentesBsv</b></button>
-                </div>
+                @Filas
                 <div class="segmentado" role="group" aria-label="De quem">
                     <button type="button" aria-pressed="@Bool(_minha)" @onclick="() => TrocarEscopo(true)" title="O que é seu e o que ninguém assumiu ainda">Minha fila</button>
                     <button type="button" aria-pressed="@Bool(!_minha)" @onclick="() => TrocarEscopo(false)" title="A fila de toda a equipe">Toda a equipe</button>
@@ -204,6 +207,25 @@
     private string? _nomeClinica;
     private int _diasRecall = 60;
     private bool _recallGerado;
+    // A terceira fila (fase 2): os retornos pedidos pelo profissional, sem horário ainda.
+    private bool _retornos;
+    private int? _pendentesRetornos;
+
+    /// <summary>As três filas — o mesmo seletor na lista do acompanhamento e na dos retornos.</summary>
+    private RenderFragment Filas => __builder =>
+    {
+        <div class="segmentado" role="group" aria-label="Qual fila">
+            <button type="button" aria-pressed="@Bool(!_retornos && _tipo == TipoAcompanhamento.Recall)" @onclick="() => TrocarTipo(TipoAcompanhamento.Recall)"
+                    title="Quem parou de vir — por modalidade">Recall · <b>@_pendentesRecall</b></button>
+            <button type="button" aria-pressed="@Bool(!_retornos && _tipo == TipoAcompanhamento.NovoBsv)" @onclick="() => TrocarTipo(TipoAcompanhamento.NovoBsv)"
+                    title="As indicações de BSV do profissional configurado, até a 1ª sessão">Novos BSV · <b>@_pendentesBsv</b></button>
+            @if (Pode(Permissao.VerAgenda))
+            {
+                <button type="button" aria-pressed="@Bool(_retornos)" @onclick="MostrarRetornos"
+                        title="Quem saiu do atendimento com pedido de retorno e ainda não tem horário">Retornos pedidos@(_pendentesRetornos is { } n ? " · " : "")@if (_pendentesRetornos is { } r) { <b>@r</b> }</button>
+            }
+        </div>
+    };
 
     // O recorte: a fila (Recall/BSV), de quem (minha/equipe), a faixa do funil, a busca e "Mais filtros".
     private TipoAcompanhamento _tipo = TipoAcompanhamento.Recall;
@@ -238,10 +260,24 @@
 
     private FiltroAcompanhamento FiltroAtual => _extrasFiltro with { Tipo = _tipo, SoMinhaFila = _minha, Faixa = _faixa, Busca = _busca };
 
-    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task OnInitializedAsync()
+    {
+        AtenderPedido();
+        return CarregarAsync();
+    }
 
     /// <summary>Volta à aba: relê por trás, sem limpar o que está na tela (falha só vai ao log).</summary>
-    protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
+    protected override Task AoVoltarAsync()
+    {
+        AtenderPedido();
+        return CarregarAsync(silencioso: true);
+    }
+
+    /// <summary>O contador "Retornos" do Início pede a fila de retornos (PedidoDoAcompanhamento).</summary>
+    private void AtenderPedido()
+    {
+        if (Servicos.GetService<PedidoDoAcompanhamento>()?.ConsumirRetornos() == true) MostrarRetornos();
+    }
 
     /// <summary>F5 relê e Ctrl+P exporta o CSV — pelo MESMO caminho dos botões, com as duas barreiras.</summary>
     protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho switch
@@ -279,6 +315,13 @@
             }
             var config = await servico.ConfiguracaoAsync(UsuarioId);
             var linhas = await servico.ListarAsync(UsuarioId);
+            // A contagem da fila de retornos (o número no seletor). Falha aqui não derruba a fila principal.
+            int? retornos = null;
+            if (Pode(Permissao.VerAgenda))
+            {
+                try { retornos = (await sp.GetRequiredService<RetornosAMarcarService>().ListarAsync()).Count; }
+                catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — contagem dos retornos a marcar não pôde ser lida", ex); }
+            }
             string? nome = _nomeClinica;
             if (nome is null)
             {
@@ -288,6 +331,7 @@
             if (geracao != _geracao || Descartada) return;
 
             _todos = linhas;
+            _pendentesRetornos = retornos;
             _motivos = config.Motivos;
             _responsaveis = config.Responsaveis;
             _diasRecall = dias;
@@ -326,7 +370,8 @@
         _resumo = ConversaDoAcompanhamento.Resumo(_linhas.Count, _naFila, Filtrada);
     }
 
-    private void TrocarTipo(TipoAcompanhamento tipo) { _tipo = tipo; _faixa = null; Refiltrar(); }
+    private void TrocarTipo(TipoAcompanhamento tipo) { _retornos = false; _tipo = tipo; _faixa = null; Refiltrar(); }
+    private void MostrarRetornos() { if (Pode(Permissao.VerAgenda)) _retornos = true; }
     private void TrocarEscopo(bool minha) { _minha = minha; Refiltrar(); }
 
     /// <summary>O funil é o filtro: clicar escolhe a faixa; clicar de novo limpa.</summary>
