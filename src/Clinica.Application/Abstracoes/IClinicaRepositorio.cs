@@ -1792,11 +1792,11 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<ContatoParaAvisoDeConfirmacao>> ContatosParaAvisosDeConfirmacaoAsync(
         DateTime sessoesDe, DateTime sessoesAte, CancellationToken ct = default);
 
-    // ---- Canal de SMS (out/2026) ----
+    // ---- Fichas para contato e receita por atendimento (out/2026) ----
 
     /// <summary>
     /// Nome, telefone e convênio dos pacientes (todos, ou os informados) — PROJEÇÃO, sem a
-    /// miniatura da foto nem as observações: a campanha de SMS pergunta por centenas de
+    /// miniatura da foto nem as observações: a tendência de atendimentos pergunta por centenas de
     /// fichas, e a ficha inteira seria meio megabyte para ler três colunas (parcela 74).
     /// </summary>
     Task<IReadOnlyList<PacienteParaContato>> PacientesParaContatoAsync(
@@ -1809,19 +1809,6 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<ReceitaDeAtendimento>> ReceitaPorAtendimentoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
-
-    /// <summary>
-    /// Grava a linha do SMS ANTES do envio. Devolve <c>false</c> quando a chave de
-    /// idempotência já existe — outra máquina reservou primeiro, e esta não manda.
-    /// </summary>
-    Task<bool> ReservarMensagemSmsAsync(MensagemSms mensagem, CancellationToken ct = default);
-
-    /// <summary>A linha da chave, RASTREADA (para retentar uma que falhou).</summary>
-    Task<MensagemSms?> MensagemSmsPorChaveAsync(string chave, CancellationToken ct = default);
-
-    /// <summary>Os SMS do período, do mais novo para o mais velho, com o paciente.</summary>
-    Task<IReadOnlyList<MensagemSms>> MensagensSmsAsync(
-        DateTime inicio, DateTime fim, int limite = 500, CancellationToken ct = default);
 
     /// <summary>Os resumos diários do CRM (caminho A) entre os dois dias, do mais velho para o mais novo.</summary>
     Task<IReadOnlyList<ResumoCrmDiario>> ResumosCrmAsync(DateOnly de, DateOnly ate, CancellationToken ct = default);
@@ -1850,13 +1837,6 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<EnvioPacienteCrm?> EnvioPacienteCrmEmAbertoAsync(
         int documentoClinicoId, string canal, DateTime agora, CancellationToken ct = default);
-
-    /// <summary>
-    /// Contatos de confirmação que saíram por SMS com link e ainda não têm resposta, a
-    /// partir de <paramref name="desde"/> — RASTREADOS, porque a sincronização os responde.
-    /// </summary>
-    Task<IReadOnlyList<ContatoCampanha>> ContatosAguardandoRespostaPorLinkAsync(
-        DateOnly desde, CancellationToken ct = default);
 
     Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
         int pacienteId, int limite = 20, CancellationToken ct = default);

@@ -18,13 +18,18 @@ public sealed record ClinicRescheduleResult(int AppointmentId, int PatientId, Da
 public sealed record RecallCandidate(string Key, int PatientId, string Name, string Phone, string Kind,
     string Modality, DateOnly Reference, int Days, int? CaseId, string Revision, bool Consent,
     string BlockReason, DateTimeOffset? LastContact, DateOnly? NextContact);
-public sealed record RecallSnapshot(DateTimeOffset SyncedAt, RecallCandidate[] Candidates);
+// InactivityDays (out/2026, fase 3 Recepção×CRM): os "dias sem vir" do recall, que são do Gerente
+// (Configurações → "Recall: dias sem vir"); o CRM não tem mais regra de dias própria. 0 = ponte antiga.
+public sealed record RecallSnapshot(DateTimeOffset SyncedAt, RecallCandidate[] Candidates, int InactivityDays = 0);
 // Relacionamento: as filas que a secretária confere todo dia. Leitura pura; quem decide é o Clinica.
 // List: "absent" (sem vir há N dias), "new-bsv" (indicado ou começou o BSV), "renew" (consulta a renovar).
 public sealed record RelationshipEntry(string List, int PatientId, string Name, string Phone, DateOnly Reference, int Days,
     string Detail, string Situation, bool Consent, string Block, DateTimeOffset? NextAppointment, string? Insurance = null, int Sessions = 0);
 public sealed record RelationshipSnapshot(DateTimeOffset SyncedAt, RelationshipEntry[] Entries);
 public sealed record RecallNotice(string CommandId, int PatientId, int? CaseId, string MessageId, DateTimeOffset SentAt, string Channel = "whatsapp");
+// Um PARAR só (out/2026, fase 3 Recepção×CRM): quem responde PARAR no CRM perde também a autorização de
+// mensagens no Clinica (ComunicacaoEMarketing), para as duas pontas concordarem. Phone no formato do CRM.
+public sealed record ConsentOptOut(string CommandId, string Phone, string MessageId, DateTimeOffset At, string Channel = "whatsapp");
 
 public sealed record ClinicDispatch(string Id, int PatientId, string Name, string Phone, string Source, string Actor,
     string State, string Detail, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, string? Text = null, string? FileName = null, byte[]? File = null, bool Marketing = false, string Channel = "whatsapp", string? Email = null, string? Subject = null);

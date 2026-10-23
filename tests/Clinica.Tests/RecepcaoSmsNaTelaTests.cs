@@ -1,6 +1,5 @@
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
-using Clinica.Application.Sms;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using FluentAssertions;
@@ -9,8 +8,9 @@ using Xunit;
 namespace Clinica.Tests;
 
 /// <summary>
-/// O que as telas Blazor de Confirmações, Retornos a marcar e Canal de SMS AFIRMAM (out/2026).
-/// As três só desenham: cada frase, contagem e recorte daqui é o que a recepcionista lê.
+/// O que as telas Blazor de Confirmações e Retornos a marcar AFIRMAM (out/2026). O Canal de SMS
+/// saiu na fase 3 Recepção×CRM (quem manda SMS é só o CRM). As duas só desenham: cada frase,
+/// contagem e recorte daqui é o que a recepcionista lê.
 /// </summary>
 public class RecepcaoSmsNaTelaTests
 {
@@ -150,125 +150,5 @@ public class RecepcaoSmsNaTelaTests
         var linhas = new[] { Retorno(1, 1, nota: "ver exames") };
         RetornosAMarcarNaTela.SemNotaSeNaoPode(linhas, podeVerNota: false).Single().Nota.Should().BeNull();
         RetornosAMarcarNaTela.SemNotaSeNaoPode(linhas, podeVerNota: true).Single().Nota.Should().Be("ver exames");
-    }
-
-    // ==================== Canal de SMS — histórico ====================
-
-    [Fact]
-    public void Segmento_cobrado_e_so_o_que_saiu()
-    {
-        var ms = new[]
-        {
-            new MensagemSms { Situacao = SituacaoSms.Enviada, Segmentos = 2, Finalidade = FinalidadeSms.Campanha },
-            new MensagemSms { Situacao = SituacaoSms.Enviada, Segmentos = 1, Finalidade = FinalidadeSms.ConfirmacaoSessao },
-            new MensagemSms { Situacao = SituacaoSms.Falhou, Segmentos = 3, Tentativas = 3, Finalidade = FinalidadeSms.ConfirmacaoSessao },
-            new MensagemSms { Situacao = SituacaoSms.Enviando, Finalidade = FinalidadeSms.Teste }
-        };
-        var r = HistoricoSmsNaTela.Resumir(ms);
-        r.Should().Be(new ResumoDoHistoricoSms(2, 1, 1, 3, 2, 1, 1));
-        HistoricoSmsNaTela.Situacao(ms[2]).Should().Be("Falhou");
-        HistoricoSmsNaTela.Situacao(new MensagemSms { Situacao = SituacaoSms.Falhou, Tentativas = 1 }).Should().Contain("tenta de novo");
-        HistoricoSmsNaTela.Filtrar(ms, null, soFalhas: true).Should().ContainSingle();
-        HistoricoSmsNaTela.Filtrar(ms, FinalidadeSms.ConfirmacaoSessao, false).Should().HaveCount(2);
-        HistoricoSmsNaTela.Celular("+5521981234567").Should().Be("(21) 98123-4567");
-    }
-
-    [Fact]
-    public void O_vazio_do_historico_distingue_filtro_canal_ligado_e_desligado()
-    {
-        HistoricoSmsNaTela.Vazio(true, true).Titulo.Should().Contain("filtro");
-        HistoricoSmsNaTela.Vazio(false, false).Titulo.Should().Contain("desligado");
-        HistoricoSmsNaTela.Vazio(false, true).Titulo.Should().Be("Nenhum SMS neste período");
-    }
-
-    // ==================== Canal de SMS — texto e público ====================
-
-    [Fact]
-    public void A_medida_do_texto_inclui_o_rodape_e_avisa_o_acento_tirado()
-    {
-        TextoDaCampanhaSms.Medir("  ").Vazio.Should().BeTrue();
-
-        var curto = TextoDaCampanhaSms.Medir("Promoção de novembro");
-        curto.Segmentos.Should().Be(1);
-        curto.AcentosRemovidos.Should().BeTrue();
-        curto.Caracteres.Should().Be(LembreteSmsService.TextoDaCampanha("Promoção de novembro").Length);
-        curto.Descricao.Should().Contain("1 SMS por pessoa");
-
-        var longo = TextoDaCampanhaSms.Medir(new string('a', 500));
-        longo.PassouDoTeto.Should().BeTrue();
-        longo.Descricao.Should().Contain("encurte");
-    }
-
-    private static FatoTendencia Fato(int paciente, DateOnly dia, ModalidadeAtendimento m, string? esp = null)
-        => new(dia, 1m, paciente, m, null, esp, 1, "Dra.", null, Convenio.UnimedPadrao);
-
-    [Fact]
-    public void Publico_por_convenio_e_por_quem_fez_a_modalidade_no_periodo()
-    {
-        var fichas = new[]
-        {
-            new PacienteParaContato(1, "Ana", "(21) 98123-0001", null, Convenio.UnimedPadrao),
-            new PacienteParaContato(2, "Bia", "(21) 98123-0002", null, Convenio.Amil),
-            new PacienteParaContato(3, "Caio", "(21) 98123-0003", null, Convenio.Amil),
-        };
-        var inicio = new DateOnly(2026, 9, 1);
-        var fim = new DateOnly(2026, 9, 30);
-        var fatos = new[]
-        {
-            Fato(1, new DateOnly(2026, 9, 10), ModalidadeAtendimento.AcupunturaSimples),
-            Fato(2, new DateOnly(2026, 9, 12), ModalidadeAtendimento.Consulta, "Psiquiatria"),
-            Fato(3, new DateOnly(2026, 8, 12), ModalidadeAtendimento.AcupunturaSimples) // fora do período
-        };
-
-        var todos = PublicoCampanhaSms.Montar(fichas, fatos, new FiltroPublicoSms(inicio, fim));
-        todos.PacienteIds.Should().BeEquivalentTo(new[] { 1, 2, 3 });
-        todos.Descricao.Should().Be("3 pacientes — todos os cadastrados");
-        todos.Convenios.First().Chave.Should().Be(nameof(Convenio.Amil));
-        todos.Convenios.First().Pacientes.Should().Be(2);
-        // As opções saem do PERÍODO: a acupuntura de agosto não conta o paciente 3.
-        todos.Modalidades.Single(o => o.Chave == nameof(ModalidadeAtendimento.AcupunturaSimples)).Pacientes.Should().Be(1);
-        todos.Especialidades.Should().ContainSingle(o => o.Chave == "Psiquiatria");
-
-        PublicoCampanhaSms.Montar(fichas, fatos, new FiltroPublicoSms(inicio, fim, ConvenioCodigo: "Amil"))
-            .PacienteIds.Should().BeEquivalentTo(new[] { 2, 3 });
-
-        var acupuntura = PublicoCampanhaSms.Montar(fichas, fatos,
-            new FiltroPublicoSms(inicio, fim, ModalidadeCodigo: nameof(ModalidadeAtendimento.AcupunturaSimples)));
-        acupuntura.PacienteIds.Should().Equal(1);
-        acupuntura.Descricao.Should().StartWith("1 paciente — atendidos em").And.Contain("01/09/2026 a 30/09/2026");
-
-        PublicoCampanhaSms.Montar(fichas, fatos,
-                new FiltroPublicoSms(inicio, fim, ConvenioCodigo: "Amil", EspecialidadeCodigo: "Psiquiatria"))
-            .PacienteIds.Should().Equal(2);
-    }
-
-    [Fact]
-    public void Resultado_da_campanha_conta_quem_ficou_de_fora()
-    {
-        ResultadoDaCampanhaSms.Descrever(new ResultadoCampanhaSms(10, 1, 0, 4))
-            .Should().Be("10 SMS enviados · 1 falha(s) — veja o erro na aba Lembretes · 4 ficaram de fora (sem consentimento ou sem celular).");
-    }
-
-    // ==================== Canal de SMS — configuração ====================
-
-    private static CamposSms Campos(ProvedorSms p, string? token, string? remetente = "CLINICA") =>
-        new(p, null, null, token, remetente, null, null, 24, true);
-
-    [Fact]
-    public void Token_vazio_no_salvar_mantem_o_gravado_e_a_tela_nunca_recebe_o_token()
-    {
-        ConfiguracaoSmsNaTela.ParaSalvar(Campos(ProvedorSms.Zenvia, "  "), "segredo").Token.Should().Be("segredo");
-        ConfiguracaoSmsNaTela.ParaSalvar(Campos(ProvedorSms.Zenvia, " novo "), "segredo").Token.Should().Be("novo");
-        ConfiguracaoSmsNaTela.ParaTela(Campos(ProvedorSms.Zenvia, "segredo")).Token.Should().BeNull();
-    }
-
-    [Fact]
-    public void O_estado_separa_ligado_desligado_e_meio_configurado()
-    {
-        ConfiguracaoSmsNaTela.Estado(Campos(ProvedorSms.Zenvia, "tok")).Tom.Should().Be("sucesso");
-        ConfiguracaoSmsNaTela.Estado(Campos(ProvedorSms.Desligado, null)).Texto.Should().StartWith("Desligado");
-        var meio = ConfiguracaoSmsNaTela.Estado(Campos(ProvedorSms.Zenvia, null));
-        meio.Tom.Should().Be("aviso");
-        meio.Texto.Should().Contain("token");
     }
 }

@@ -189,7 +189,8 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - 🎨 O FINANCEIRO INTEIRO VIROU BLAZOR — e a migração achou defeito que o WPF escondia
 - 🎨 O FATURAMENTO DE GUIAS VIROU BLAZOR — e "nada se perde" foi medido, não prometido
 - A COMISSÃO DE RECUPERAÇÃO É APURADA DOS FATOS, NUNCA MARCADA
-- O CANAL DE SMS, a confirmação por link e "não vem" como resposta cotidiana
+- O CANAL DE SMS, a confirmação por link e "não vem" como resposta cotidiana (SAIU na fase 3)
+- A FASE 3 RECEPÇÃO×CRM: autorização de mensagens no termo do BSV, recall com trava, um PARAR só
 - A RESPOSTA DO PACIENTE VIRA AVISO NO SINO E NO PAINEL DA DIREÇÃO
 - "JORNADA" ERA TERMO DE RH, E O DESENHO NÃO CABIA A SEMANA REAL
 - TENDÊNCIA E METAS POR RECORTE
@@ -4517,8 +4518,24 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   8.0.11`, pelo proxy do NuGet): migration gerada pela ferramenta, com Designer e snapshot
   certos, em vez de escrita à mão.
 
-- **O CANAL DE SMS, a confirmação por link e "não vem" como resposta cotidiana** (out/2026; o
-  mapa está em `docs/canal-sms.md`). Lembrete 24h antes (`ConfirmacaoPorLink.MomentoDoLembrete`:
+- **A FASE 3 RECEPÇÃO×CRM** (23/10/2026; mapa e comparação em `docs/fase3-recepcao-crm.md`). O
+  Clinica é a verdade dos dados e das regras (quem está no recall, quantos dias, quem autorizou);
+  o CRM é o único que fala com o paciente. (1) **Autorização de mensagens no termo do BSV**: todo
+  termo EXIGIDO para o BSV ganha, na EMISSÃO (`DocumentoClinicoService.AutorizacaoDeMensagensAsync`,
+  as duas portas: balcão e tablet), a declaração opcional `ModelosTermoBsv.AutorizacaoDeMensagens`
+  com `Codigo = ComunicacaoEMarketing` — na emissão e não no modelo, para não reescrever o texto
+  que o advogado da clínica aprovou. Só é perguntada a quem NUNCA respondeu sobre mensagens;
+  "Sim" grava o consentimento com o número do termo, "Não" grava a recusa e **nunca revoga**;
+  "Não" não acende alerta (`RespostaDeclaracao.RequerAtencao`) e o "Marcar todas como Sim" não a
+  marca. (2) **Recall com trava**: a ponte só devolve a fila de recall (`Acompanhamentos` tipo
+  Recall), bloqueia "Sem autorização de mensagem" e usa os dias do Gerente (`InactivityDays`).
+  (3) **Um PARAR só**: o PARAR do CRM vira `POST /crm/v1/consent/optout` e revoga a autorização
+  de toda ficha com aquele telefone. (4) **Um SMS só**: o Clinica não manda mais SMS.
+  ⚠️ **A fila de recall só se renova quando alguém abre o Acompanhamento** (é lá que
+  `GerarRecallAsync` roda, com os dias do Gerente). A ponte só LÊ a fila; se ninguém abrir a tela,
+  o CRM fica sem convidados novos — falha segura, nunca mensagem a mais.
+- **O CANAL DE SMS, a confirmação por link e "não vem" como resposta cotidiana** (⛔ SAIU na fase 3
+  Recepção×CRM, 23/10/2026 — o que segue é histórico; o mapa está em `docs/canal-sms.md`). Lembrete 24h antes (`ConfirmacaoPorLink.MomentoDoLembrete`:
   sábado e domingo adiantam para a sexta, porque ninguém liga o computador no domingo), link
   `/c/TOKEN` no MESMO Worker das receitas, resposta write-once pelo balde — o Worker nunca toca o
   banco. É a MESMA rodada de confirmação do balcão (o mesmo contato, a mesma origem `AGD:`), com

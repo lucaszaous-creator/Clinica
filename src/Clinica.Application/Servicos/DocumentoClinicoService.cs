@@ -740,7 +740,35 @@ public sealed class DocumentoClinicoService
                 .ToList()
         };
 
+        var proxima = documento.Itens.Select(i => i.Ordem).DefaultIfEmpty(0).Max() + 1;
+        if (await AutorizacaoDeMensagensAsync(pacienteId, modelo.Id, proxima, ct) is { } autorizacao)
+            documento.Itens.Add(autorizacao);
+
         return await EmitirAsync(documento, operador, ct);
+    }
+
+    /// <summary>
+    /// A declaração de autorização de mensagens que o termo do BSV ganha na emissão, ou nulo
+    /// quando este termo não a leva (ver <see cref="ModelosTermoBsv.AutorizacaoDeMensagens"/>):
+    /// o modelo não é exigido para uma modalidade de BSV, ou o paciente já respondeu sobre
+    /// mensagens alguma vez. Pública porque são DUAS portas de emissão de termo — esta e o
+    /// portal do tablet — e duas cópias da regra divergiriam na primeira correção.
+    /// </summary>
+    public async Task<ItemDocumento?> AutorizacaoDeMensagensAsync(
+        int pacienteId, int modeloId, int ordem, CancellationToken ct = default)
+    {
+        var doBsv = (await _repo.ExigenciasTermoAsync(ct)).Any(e =>
+            e.Ativa && e.ModeloDocumentoId == modeloId
+            && ModelosTermoBsv.ModalidadesDoBsv.Contains(e.Modalidade));
+        if (!doBsv) return null;
+
+        var jaRespondeu = (await _repo.ConsentimentosDoPacienteAsync(pacienteId, ct))
+            .Any(c => c.Finalidade == FinalidadeConsentimento.ComunicacaoEMarketing);
+        if (jaRespondeu) return null;
+
+        var prestador = await new ParametrosService(_repo).ObterPrestadorAsync(ct);
+        return ModelosTermoBsv.AutorizacaoDeMensagens(
+            Modelos.MensagensDeContato.NomeDaClinica(prestador.NomeFantasia, prestador.RazaoSocial), ordem);
     }
 
     // ==================== Modelos ====================

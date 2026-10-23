@@ -3,12 +3,12 @@
 -- Rodar de novo é seguro (depois de uma atualização que crie tabela que a ponte precise gravar).
 --
 -- Ele LÊ tudo, mas só GRAVA onde a ponte grava: a agenda, a guia que nasce ou é suspensa com
--- ela, o contato da rodada, o SMS, o recall, a fila de envios ao paciente e a trilha. Não apaga nada, não cria nem altera
+-- ela, o contato da rodada, o recall, a revogação do PARAR, a fila de envios ao paciente e a trilha. Não apaga nada, não cria nem altera
 -- tabela e não é dono de nada. Usuários, prontuário e financeiro ficam só para leitura: se a
 -- credencial vazar, o estrago não alcança o banco inteiro.
 --
 -- A lista é MEDIDA, não suposta: PontePapelRestritoTests roda os fluxos da ponte (confirmar,
--- cancelar, marcar com guia no agendamento, remarcar, recall, o lembrete de SMS e a fila de
+-- cancelar, marcar com guia no agendamento, remarcar, recall, o PARAR e a fila de
 -- envios ao paciente) com ESTE
 -- arquivo contra um Postgres de verdade. Fluxo novo que grave em outra tabela reprova ali
 -- com 42501 antes de reprovar na clínica.
@@ -37,9 +37,14 @@ BEGIN
   -- quando a guia nasce na marcação (só UPDATE); e a trilha, que não se edita (só INSERT).
   FOREACH g SLICE 1 IN ARRAY ARRAY[
       ['Agendamentos','INSERT, UPDATE'], ['Atendimentos','INSERT, UPDATE'], ['Codigos','INSERT, UPDATE'],
-      ['ContatosCampanha','INSERT, UPDATE'], ['MensagensSms','INSERT, UPDATE'],
+      -- MensagensSms saiu (fase 3 Recepção×CRM, out/2026): a ponte não manda mais o SMS da véspera;
+      -- quem manda SMS é só o CRM. Rodar este arquivo de novo tira a escrita (o REVOKE acima).
+      ['ContatosCampanha','INSERT, UPDATE'],
       ['Acompanhamentos','INSERT, UPDATE'], ['ContatosAcompanhamento','INSERT, UPDATE'],
       ['ResumosCrmDiarios','INSERT, UPDATE'],
+      -- Um PARAR só (fase 3 Recepção×CRM): o PARAR do CRM revoga a autorização de mensagens
+      -- (a linha vigente ganha RevogadoEm e uma linha nova registra a recusa).
+      ['Consentimentos','INSERT, UPDATE'],
       -- A fila de envios ao paciente (out/2026): quem PÕE o pedido é o desktop; a ponte só
       -- reserva, autoriza e registra o resultado — UPDATE, e só.
       ['EnviosPacienteCrm','UPDATE'],

@@ -132,10 +132,20 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
 
     private async Task<DocumentoClinico> AssinarAsync(
         int documentoId, string? jejum = "Sim", string? medicamentos = "Sim")
-        => await _assinaturas.ColherAsync(
-            documentoId, TracoDeTeste(), 600, 220,
-            new Dictionary<int, string?> { [1] = jejum, [2] = medicamentos },
+    {
+        var respostas = new Dictionary<int, string?> { [1] = jejum, [2] = medicamentos };
+
+        // O termo exigido para o BSV ganha a autorização de mensagens na emissão (fase 3
+        // Recepção×CRM); o paciente destes testes a recusa, que é a resposta sem efeito
+        // sobre o que eles conferem.
+        var documento = await _repo.ObterDocumentoAsync(documentoId);
+        foreach (var item in documento!.Itens.Where(i => i.Codigo == RespostaDeclaracao.CodigoAutorizacaoMensagens))
+            respostas[item.Ordem] = "Não";
+
+        return await _assinaturas.ColherAsync(
+            documentoId, TracoDeTeste(), 600, 220, respostas,
             "CPF 123.456.789-00", "ana.recepcao");
+    }
 
     /// <summary>
     /// Responde "Sim" a TODAS as declarações do documento, sejam quantas forem.

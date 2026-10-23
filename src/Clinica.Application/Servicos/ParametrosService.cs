@@ -316,70 +316,11 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
-    // ---- Canal de SMS (out/2026) ----
+    // ---- Canal de SMS: SAIU na fase 3 Recepção×CRM (out/2026) ----
     //
-    // No BANCO (o lembrete sai de mais de um posto e de mais de uma máquina — configuração
-    // por máquina falharia calada na outra), com o token cifrado.
-
-    public const string ChaveSmsProvedor = "SmsProvedor";
-    public const string ChaveSmsEndereco = "SmsEndereco";
-    public const string ChaveSmsConta = "SmsConta";
-    public const string ChaveSmsToken = "SmsToken";
-    public const string ChaveSmsRemetente = "SmsRemetente";
-    public const string ChaveSmsCabecalho = "SmsCabecalho";
-    public const string ChaveSmsModeloCorpo = "SmsModeloCorpo";
-    public const string ChaveSmsAntecedenciaHoras = "SmsAntecedenciaHoras";
-    public const string ChaveSmsAdiantarFimDeSemana = "SmsAdiantarFimDeSemana";
-
-    /// <summary>
-    /// Os campos crus da tela. Provedor ausente ou ilegível é DESLIGADO — o canal só liga
-    /// por escolha. Os dois sinalizadores ausentes são LIGADOS: é o comportamento que a
-    /// cliente pediu (24h antes, sexta adiantando a segunda).
-    /// </summary>
-    public async Task<Clinica.Application.Sms.CamposSms> ObterCamposSmsAsync(CancellationToken ct = default)
-    {
-        // Ida e volta pelo NOME: Enum.TryParse aceita "1", e um número gravado por engano
-        // ligaria um provedor que ninguém escolheu (a lição do termo LGPD, parcela 89).
-        var textoProvedor = (await _repo.ObterConfiguracaoAsync(ChaveSmsProvedor, ct))?.Trim();
-        var provedor = Enum.TryParse<Clinica.Application.Sms.ProvedorSms>(textoProvedor, out var p)
-            && p.ToString() == textoProvedor
-            ? p
-            : Clinica.Application.Sms.ProvedorSms.Desligado;
-
-        var antecedencia = int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveSmsAntecedenciaHoras, ct), out var h)
-            ? h
-            : Clinica.Domain.ConfirmacaoPorLink.AntecedenciaPadraoHoras;
-
-        return new Clinica.Application.Sms.CamposSms(
-            provedor,
-            await _repo.ObterConfiguracaoAsync(ChaveSmsEndereco, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveSmsConta, ct),
-            await ObterSegredoAsync(ChaveSmsToken, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveSmsRemetente, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveSmsCabecalho, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveSmsModeloCorpo, ct),
-            antecedencia,
-            !string.Equals(await _repo.ObterConfiguracaoAsync(ChaveSmsAdiantarFimDeSemana, ct), "false", StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>O provedor pronto para enviar, ou <c>null</c> quando o canal está desligado.</summary>
-    public async Task<Clinica.Application.Sms.OpcoesSms?> ObterOpcoesSmsAsync(CancellationToken ct = default)
-        => Clinica.Application.Sms.OpcoesSms.De(await ObterCamposSmsAsync(ct));
-
-    public async Task SalvarCamposSmsAsync(Clinica.Application.Sms.CamposSms campos, CancellationToken ct = default)
-    {
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsProvedor, campos.Provedor.ToString(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsEndereco, (campos.Endereco ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsConta, (campos.Conta ?? string.Empty).Trim(), ct);
-        await SalvarSegredoAsync(ChaveSmsToken, (campos.Token ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsRemetente, (campos.Remetente ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsCabecalho, (campos.CabecalhoAutenticacao ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsModeloCorpo, (campos.ModeloCorpo ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsAntecedenciaHoras,
-            Math.Clamp(campos.AntecedenciaHoras, 1, 168).ToString(System.Globalization.CultureInfo.InvariantCulture), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSmsAdiantarFimDeSemana, campos.AdiantarFimDeSemana ? "true" : "false", ct);
-        await _repo.SalvarAsync(ct);
-    }
+    // A configuração do provedor (Sms*) morava aqui. Quem manda SMS agora é só o CRM (variáveis
+    // CRM_SMS_* na VPS 2). As linhas antigas de Configuracoes ficam no banco, sem leitor: nenhuma
+    // migration apaga configuração da clínica (ver docs/canal-sms.md).
 
     // ---- Política de backup (parcela 52) ----
 

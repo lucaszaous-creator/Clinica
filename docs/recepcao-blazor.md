@@ -17,7 +17,7 @@
 | `agenda-confirmacoes` | `ConfirmacoesDeAgenda` | `ConfirmacoesView` + VM |
 | `retornos-a-marcar` | `RetornosAMarcar` | o item (a WPF fica para o validador do Windows) |
 | `equipe` | `ProfissionaisESalas` | `EquipeView` + VM |
-| `canal-sms` (**novo**, aba de Relacionamento) | `CanalDeSms` | — |
+| ~~`canal-sms`~~ (saiu na fase 3 Recepção×CRM, out/2026 — `docs/canal-sms.md`) | ~~`CanalDeSms`~~ | — |
 | `metas` (Gerente) | `MetasDaClinica` | `MetasView` + VM + `MetaWindow` |
 | `tendencias` (**nova**) | `TendenciasDeAtendimento` | — (Financeiro, Faturamento e aba de Relatórios/BI) |
 
@@ -41,8 +41,8 @@ que a migração corrigiu ao reler os ViewModels inteiros:
 - **Retornos**: o Marcar abria sempre em hoje — a ponte `IMarcacaoDeHorario` ganhou o dia.
 
 Desvios declarados: o detalhe do pedido da enfermagem virou formulário sobre a lista; o
-filtro de profissional da Agenda do dia é combo, não chips; a campanha de SMS exige
-`GerenciarCampanhas` (ou `GerenciarUsuarios`), não `EditarAgenda` — promoção é marketing.
+filtro de profissional da Agenda do dia é combo, não chips. (A campanha de SMS, que exigia
+`GerenciarCampanhas`, saiu na fase 3 Recepção×CRM.)
 
 ## 3. O que ainda falta conferir
 

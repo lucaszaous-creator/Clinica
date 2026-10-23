@@ -52,7 +52,6 @@ public partial class App : System.Windows.Application
             await Clinica.Application.AberturaDoApp.DepoisDaPrimeiraTelaAsync();
             await CopiaDeSegurancaAsync(_host);
             await ExpirarLinksVencidosAsync(_host);
-            RelogioDoSms.Iniciar(_host, "Gerente");
         }
     }
 

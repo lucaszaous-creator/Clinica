@@ -39,6 +39,10 @@
   padding:var(--space-2) 0;border-top:1px solid var(--borda)}
 .assin-declaracao > div:first-child{flex:1 1 320px;min-width:0}
 .assin-sim-nao{display:flex;gap:var(--space-4)}
+/* A autorização de mensagens (fase 3 Recepção×CRM): separada e em destaque, porque é escolha do paciente. */
+.assin-declaracao.assin-autorizacao{margin-top:var(--space-2);padding:var(--space-3);border:1px solid var(--info);
+  border-radius:var(--radius-card);background:var(--info-suave)}
+.assin-autorizacao .principal{display:block;margin-top:var(--space-1)}
 .assin-alergia{border:2px solid var(--erro);background:var(--erro-suave);border-radius:var(--radius-card);
   padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)}
 .assin-alergia p{margin:0}

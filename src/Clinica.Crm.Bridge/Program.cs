@@ -35,12 +35,8 @@ builder.Services.AddScoped<AssistenteWhatsAppService>();
 // O @SemDor com IA nos apps (Clinica#307): a fila de perguntas do chat dos apps e os avisos do CRM.
 builder.Services.AddScoped(sp=>new PerguntasAoSemDorService(sp.GetRequiredService<ClinicaDbContext>()));
 builder.Services.AddScoped<ClinicSemDorBridge>();
-// O lembrete de SMS 24h antes, com a clínica fechada (out/2026): o MESMO LembreteSmsService
-// do desktop, rodando aqui a cada 5 min. Liga com LembreteSms__Ligado=true. O provedor, o
-// texto e o endereço do link continuam vindo das Configurações do Clinica (Relacionamento →
-// Canal de SMS); a ponte não tem segunda configuração de SMS. Ligado aqui e nos apps ao
-// mesmo tempo, não sai SMS duplicado: a reserva de cada mensagem é um índice único no banco.
-if(builder.Configuration.GetValue<bool>(RelogioDoSmsNoServidor.Chave))builder.Services.AddHostedService<RelogioDoSmsNoServidor>();
+// O lembrete de SMS 24h antes (LembreteSms__Ligado) SAIU na fase 3 Recepção×CRM (out/2026): a
+// confirmação é só a do WhatsApp no dia, pelo CRM, e quem manda SMS é só o CRM (CRM_SMS_*).
 // Não há lembrete por e-mail (out/2026, decisão da direção): a clínica não colhe e-mail no
 // cadastro, e o e-mail ficou só para o documento que a equipe envia ao paciente.
 builder.Logging.AddFilter("Microsoft.AspNetCore",LogLevel.Warning);
@@ -108,6 +104,8 @@ app.MapPost("/crm/v1/summary/daily",(CrmDailySummary input,ClinicSummaryBridge b
 // chave de ligar aqui: quem decide processar é o CRM (CRM_CLINICAL_DISPATCH_ENABLED).
 RotasDaFilaDeEnvios.Mapear(app);
 app.MapPost("/crm/recall/notice",(RecallNotice input,ClinicRecallBridge bridge,CancellationToken ct)=>bridge.Notice(input,ct));
+// Um PARAR só (fase 3 Recepção×CRM): o PARAR do CRM revoga a autorização de mensagens no Clinica.
+app.MapPost("/crm/v1/consent/optout",(ConsentOptOut input,ClinicRecallBridge bridge,CancellationToken ct)=>bridge.OptOut(input,ct));
 app.MapPost("/crm/decision",(ClinicDecision input,ClinicAgendaBridge bridge,CancellationToken ct)=>bridge.Decide(input,ct));
 app.MapPost("/crm/v1/appointments/slots", (ClinicSlotQuery input, ClinicSchedulingBridge bridge, CancellationToken ct) => bridge.Slots(input, ct));
 app.MapPost("/crm/v1/appointments/reschedule", async (ClinicReschedule input, ClinicSchedulingBridge bridge, CancellationToken ct) => {

@@ -1,22 +1,22 @@
 @*
-  CONFIRMAÇÕES DE AGENDA (out/2026 — migrada do ConfirmacoesView/ConfirmacoesViewModel WPF,
-  e redesenhada para o CANAL DE SMS).
+  CONFIRMAÇÕES DE AGENDA (out/2026 — migrada do ConfirmacoesView/ConfirmacoesViewModel WPF).
+  Desde a fase 3 Recepção×CRM (out/2026) o pedido de confirmação automático é UM só: o WhatsApp
+  do CRM no dia da sessão (06:00). O SMS da véspera e o Canal de SMS saíram; as sessões avisadas
+  por SMS antes disso continuam aparecendo como tal (é histórico).
 
   A pergunta da tela é "quanto da rodada de amanhã já foi avisado, e quem precisa de mim?".
   O dia numa linha (‹ ›), a barra do que já foi avisado, quatro cartões que contam e FILTRAM,
-  e a tabela com o aviso e a resposta de cada sessão. O que é NOVO é o SMS: a coluna Aviso
-  diz "SMS enviado", a resposta pelo link aparece escrita ("confirmou pelo SMS"), e quem
-  respondeu pelo link que NÃO vai ganha o destaque para LIGAR e remarcar — "não vou" não
-  cancela o horário sozinho (a regra do LembreteSmsService): quem libera a vaga é a recepção.
+  e a tabela com o aviso e a resposta de cada sessão. Quem respondeu que NÃO vai ganha o
+  destaque para LIGAR e remarcar — "não vou" não cancela o horário sozinho: quem libera a
+  vaga é a recepção.
 
   Nada de regra aqui: a linha, o placar, o resumo, o recorte e as frases moram em
   ConfirmacoesNaTela e RodadaDeConfirmacao, na Application, com teste. Os serviços são os
-  MESMOS do WPF (CampanhaService) mais o LembreteSmsService. Lembrete por e-mail não há
+  MESMOS do WPF (CampanhaService). Lembrete por e-mail não há
   (out/2026: o e-mail ficou só para o documento ao paciente).
 
   Permissões copiadas do ViewModel WPF: ler sob VerAgenda (o item do menu); gerar, avisar,
-  registrar resposta, remarcar, dispensar e os envios automáticos sob EditarAgenda. "Buscar
-  respostas do SMS" só TRAZ o que o paciente respondeu — sob VerAgenda.
+  registrar resposta, remarcar e dispensar sob EditarAgenda.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Modelos
@@ -61,32 +61,6 @@
                     <i style="width:@(_placar.Percentual.ToString(CultureInfo.InvariantCulture))%"></i>
                 </div>
                 <span class="nao-quebra"><b>@_placar.Percentual%</b> avisados</span>
-            </div>
-        </section>
-
-        <section class="cartao conf-sms" aria-label="Canal de SMS">
-            <span class="conf-sms-icone @(_smsLigado ? "ligado" : null)"><Icone Nome="enviar" /></span>
-            <div class="conf-sms-texto">
-                @if (_smsLigado)
-                {
-                    <strong>SMS automático ligado</strong>
-                    <span class="texto-secundario">
-                        @(_placar.PorSms == 1 ? "1 sessão avisada por SMS" : $"{_placar.PorSms} sessões avisadas por SMS")
-                        · @(_placar.RespostasPeloLink == 1 ? "1 respondeu pelo link" : $"{_placar.RespostasPeloLink} responderam pelo link").
-                        As respostas chegam sozinhas a cada poucos minutos.
-                    </span>
-                }
-                else
-                {
-                    <strong>SMS automático desligado</strong>
-                    <span class="texto-secundario">Nenhum lembrete sai por SMS. Escolha o provedor e preencha o token em Relacionamento › Canal de SMS.</span>
-                }
-            </div>
-            <div class="acoes">
-                <button type="button" class="botao" disabled="@(!Pode(Permissao.VerAgenda))" @onclick="BuscarRespostasSmsAsync"
-                        title="Traz agora as respostas que os pacientes deram pelo link do SMS (confirmo / não vou)."><Icone Nome="atualizar" />Buscar respostas do SMS agora</button>
-                <button type="button" class="botao" disabled="@(!PodeEditar || !_smsLigado)" @onclick="RodarSmsAsync"
-                        title="@(!_smsLigado ? "O canal de SMS está desligado." : PodeEditar ? "Manda agora o lembrete das sessões cuja hora chegou. Quem já foi avisado não recebe de novo." : SemAcesso)"><Icone Nome="enviar" />Enviar lembretes por SMS agora</button>
             </div>
         </section>
 
@@ -228,7 +202,6 @@
     private IReadOnlyList<SessaoDaRodada> _linhas = [];
     private PlacarDaRodada _placar = new(0, 0, 0, 0, 0, 0, 0, 0);
     private SituacaoConfirmacao? _filtro;
-    private bool _smsLigado;
     private string? _nomeClinica;
 
     private string? _mensagem;
@@ -280,7 +253,6 @@
             var sp = escopo.ServiceProvider;
             var contatos = await sp.GetRequiredService<CampanhaService>().ContatosAsync(TipoContato.ConfirmacaoSessao, null, dia, dia);
             var parametros = sp.GetRequiredService<ParametrosService>();
-            var ligado = await parametros.ObterOpcoesSmsAsync() is not null;
             var nome = _nomeClinica;
             if (nome is null)
             {
@@ -290,7 +262,6 @@
             if (geracao != _geracao || Descartada) return;
 
             _todas = ConfirmacoesNaTela.Montar(contatos, dia);
-            _smsLigado = ligado;
             _nomeClinica = nome;
             _naoVerificado = false;
             _carregou = true;
@@ -356,39 +327,6 @@
             }, "Blazor — rodada de confirmação não pôde ser gerada")) return;
         await CarregarAsync();
         Dizer(ConfirmacoesNaTela.ResultadoDaGeracao(r!.Gerados, r.JaExistiam), erro: false);
-    }
-
-    /// <summary>Traz as respostas do link do SMS. O serviço nunca lança; devolve quantas chegaram.</summary>
-    private async Task BuscarRespostasSmsAsync()
-    {
-        if (!Exigir(Permissao.VerAgenda, "buscar as respostas do SMS")) return;
-        var recebidas = 0;
-        if (!await ExecutarAsync(async () =>
-            {
-                using var escopo = Escopo();
-                recebidas = await escopo.ServiceProvider.GetRequiredService<LembreteSmsService>().SincronizarRespostasAsync();
-            }, "Blazor — respostas do SMS não puderam ser buscadas")) return;
-        await CarregarAsync();
-        Dizer(recebidas switch
-        {
-            0 => "Nenhuma resposta nova pelo link do SMS.",
-            1 => "1 resposta recebida pelo link do SMS — ela já está na tabela.",
-            _ => $"{recebidas} respostas recebidas pelo link do SMS — elas já estão na tabela."
-        }, erro: false);
-    }
-
-    /// <summary>Uma rodada do SMS agora (a mesma do relógio). Cada SMS é cobrado — só sai o que ainda não saiu.</summary>
-    private async Task RodarSmsAsync()
-    {
-        if (!Exigir(Permissao.EditarAgenda, "enviar os lembretes por SMS")) return;
-        ResultadoLembretesSms? r = null;
-        if (!await ExecutarAsync(async () =>
-            {
-                using var escopo = Escopo();
-                r = await escopo.ServiceProvider.GetRequiredService<LembreteSmsService>().RodarAsync();
-            }, "Blazor — lembretes por SMS não puderam ser enviados")) return;
-        await CarregarAsync();
-        Dizer(r!.Descricao, r.Desligado || r.Falhas > 0);
     }
 
     // ==================== a linha ====================

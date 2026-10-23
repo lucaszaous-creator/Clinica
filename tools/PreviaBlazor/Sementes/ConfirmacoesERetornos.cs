@@ -12,8 +12,8 @@ namespace PreviaBlazor.Sementes;
 /// não avisado com e sem telefone, confirmou no balcão e dispensado com motivo. E a fila de
 /// "Retornos a marcar": atrasado, esta semana, mais adiante e um já marcado.
 ///
-/// ⚠️ Nenhum contato leva TokenResposta: com token, "Buscar respostas do SMS" iria ao balde
-/// (o S3 de verdade) — e a prévia e o teste não têm balde.
+/// Os casos de SMS são HISTÓRICO: o SMS da véspera saiu na fase 3 Recepção×CRM (out/2026), e
+/// as sessões avisadas por ele antes disso continuam aparecendo assim.
 /// </summary>
 public sealed class SementeConfirmacoesERetornos : ISemente
 {

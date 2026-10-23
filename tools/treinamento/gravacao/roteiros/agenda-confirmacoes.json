@@ -43,22 +43,6 @@
       "acao": "clicar"
     },
     {
-      "titulo": "Veja se o SMS está ligado",
-      "texto": "Esta faixa diz se o lembrete automático por SMS está ligado. Desligado, nenhum SMS sai; a configuração fica no Canal de SMS.",
-      "alvo": "texto-exato=SMS automático desligado"
-    },
-    {
-      "titulo": "Busque as respostas do SMS",
-      "texto": "Traz agora as respostas que os pacientes deram pelo link do SMS. Elas também chegam sozinhas a cada poucos minutos.",
-      "alvo": "botao=Buscar respostas do SMS agora",
-      "acao": "clicar"
-    },
-    {
-      "titulo": "Envie os lembretes agora",
-      "texto": "Manda já o SMS das sessões cuja hora de lembrar chegou. Quem já foi avisado não recebe de novo.",
-      "alvo": "botao=Enviar lembretes por SMS agora"
-    },
-    {
       "titulo": "Leia o placar da rodada",
       "texto": "Os quatro cartões contam quem confirmou, quem foi avisado sem responder, quem falta avisar e quem não vem.",
       "alvo": "botao=Confirmaram"

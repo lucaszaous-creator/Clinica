@@ -25,12 +25,6 @@ if (string.IsNullOrWhiteSpace(conexao))
 
 construtor.Services.AddClinica(conexao);
 
-// O lembrete por SMS no servidor (out/2026) — só com LembreteSms:Ligado=true. Ver o
-// comentário de RelogioDoSmsNoServidor: a web é de leitura, e mandar SMS por ela é decisão.
-// Na VPS da clínica o caminho escolhido é ligá-lo na PONTE do CRM, não aqui.
-if (construtor.Configuration.GetValue<bool>(RelogioDoSmsNoServidor.Chave))
-    construtor.Services.AddHostedService<RelogioDoSmsNoServidor>();
-
 construtor.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(opcoes =>

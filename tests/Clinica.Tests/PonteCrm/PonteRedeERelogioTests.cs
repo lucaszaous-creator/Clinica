@@ -1,15 +1,12 @@
 using System.Net;
-using Clinica.Application.Servicos;
 using Clinica.Crm.Bridge;
-using Clinica.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Xunit;
 
 namespace Clinica.Tests;
 
-// As duas VPS (out/2026): a ponte sai do 127.0.0.1 só para o túnel privado até o CRM, e o
-// lembrete de SMS roda nela 24h por dia. As recusas valem tanto quanto as aceitações: um
+// As duas VPS (out/2026): a ponte sai do 127.0.0.1 só para o túnel privado até o CRM. (O
+// lembrete de SMS que rodava nela saiu na fase 3 Recepção×CRM: quem manda SMS é só o CRM.)
+// As recusas valem tanto quanto as aceitações: um
 // erro no arquivo de configuração não pode pôr a ponte na internet.
 public sealed class PonteRedeERelogioTests
 {
@@ -58,18 +55,4 @@ public sealed class PonteRedeERelogioTests
 
     [Fact] public void Lista_de_clientes_tem_teto()
         => Assert.Throws<InvalidOperationException>(() => RedeDaPonte.Clientes(string.Join(';', Enumerable.Range(2, 9).Select(i => $"10.8.0.{i}"))));
-
-    // O relógio que a ponte liga com LembreteSms__Ligado=true resolve o MESMO serviço do
-    // desktop, num escopo por batida (nunca o DbContext da raiz pela vida do processo).
-    [Fact] public void O_relogio_do_servidor_resolve_o_lembrete_em_escopo_proprio()
-    {
-        var services = new ServiceCollection().AddLogging();
-        services.AddClinica("Host=127.0.0.1;Database=nao_conecta;Username=x;Password=y");
-        services.AddHostedService<RelogioDoSmsNoServidor>();
-        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = false });
-        Assert.Contains(provider.GetServices<IHostedService>(), s => s is RelogioDoSmsNoServidor);
-        using var escopo = provider.CreateScope();
-        Assert.NotNull(escopo.ServiceProvider.GetRequiredService<LembreteSmsService>());
-        Assert.Equal("LembreteSms:Ligado", RelogioDoSmsNoServidor.Chave);
-    }
 }

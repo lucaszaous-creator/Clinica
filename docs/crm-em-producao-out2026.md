@@ -120,7 +120,7 @@ Versões publicadas em 18/10: faturamento e Recepção **1.2.55**, Financeiro **
 | **#257** | Ponte do CRM para a VPS separada: túnel WireGuard, escuta só no IP do túnel (`RedeDaPonte`), relógio de SMS no servidor e transação sob a estratégia de repetição (`TransacaoDaPonte`) |
 | **#258** | A abertura do app resiste a falha passageira de rede |
 | **#259** | A ponte dá ao CRM o login e a senha do sistema: as secretárias entram com o usuário do Clinica |
-| **#260** | O recall pela ponte **sem a trava de consentimento**, a pedido da direção (`ClinicRecallBridge`) |
+| **#260** | O recall pela ponte **sem a trava de consentimento**, a pedido da direção (`ClinicRecallBridge`). ⚠️ **Revertido na fase 3 Recepção×CRM (23/10/2026)**: a trava voltou, com a autorização colhida no termo do BSV — `docs/fase3-recepcao-crm.md` |
 | **#261** | **Busca do paciente** por telefone, nome ou documento (`ClinicPatientBridge`, `/crm/v1/patients/lookup`). **Resposta ao lembrete** no snapshot da agenda (`ClinicAgendaBridge.AnswerOf`: confirmou / não vem). **Relacionamento só de quem trata**: BSV, acupuntura e os dois (`ClinicRelationshipBridge.Tratamento`) |
 | **#262** | A resposta do paciente vira **aviso** no sino da Recepção ("Respostas dos pacientes") e no painel do Gerente (`PacientesNaoVem`, `LembretesSemResposta`). `AvisosDeConfirmacao` é a regra única, com 17 testes. A tela de Confirmações abre no dia da sessão. A **agenda do dia** ganhou no topo as pílulas **Não vêm · Sem resposta · Confirmaram**, que filtram a lista |
 

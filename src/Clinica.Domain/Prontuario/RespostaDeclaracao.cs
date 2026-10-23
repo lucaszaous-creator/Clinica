@@ -22,10 +22,23 @@ public static class RespostaDeclaracao
     public const string Nao = "Não";
     public const string CodigoAlergiasTablet = "ALERGIAS_TABLET";
 
+    /// <summary>
+    /// A AUTORIZAÇÃO DE MENSAGENS (out/2026, fase 3 Recepção×CRM): a declaração opcional que
+    /// os termos do BSV levam e que, com "Sim", registra o consentimento de
+    /// <see cref="FinalidadeConsentimento.ComunicacaoEMarketing"/> — o que o recall do CRM
+    /// exige. É o NOME da finalidade, a mesma convenção do termo LGPD
+    /// (<see cref="TermoConsentimento"/>).
+    /// </summary>
+    public const string CodigoAutorizacaoMensagens = nameof(FinalidadeConsentimento.ComunicacaoEMarketing);
+
     // A pergunta direta sobre alergia tem polaridade diferente das declarações
     // afirmativas do TCLE: "sim, tenho alergia" precisa de atenção clínica.
+    // A autorização de mensagens não pede atenção em resposta NENHUMA: "Não" é uma
+    // escolha do paciente, não um sinal clínico, e acender vermelho no balcão por ela
+    // ensinaria a ignorar o vermelho.
     public static bool RequerAtencao(ItemDocumento item)
-        => item.Codigo == CodigoAlergiasTablet
+        => item.Codigo == CodigoAutorizacaoMensagens ? false
+            : item.Codigo == CodigoAlergiasTablet
             ? EhPositiva(item.Quantidade)
             : EhNegativa(item.Quantidade);
 

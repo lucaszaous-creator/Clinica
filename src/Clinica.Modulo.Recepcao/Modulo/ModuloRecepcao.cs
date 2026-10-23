@@ -135,10 +135,6 @@ public sealed class ModuloRecepcao : IModuloApp
     /// </summary>
     public const string ChaveGrupoRelacionamento = "relacionamento";
 
-    /// <summary>Canal de SMS (out/2026): configuração, teste, histórico e campanha
-    /// (docs/canal-sms.md). Aba de Relacionamento.</summary>
-    public const string ChaveCanalSms = "canal-sms";
-
     /// <summary>
     /// A FICHA DO BALCÃO (Blazor, out/2026 — era a FichaBalcaoView WPF numa janela por cima). Só
     /// existe COM um paciente escolhido, então é item OCULTO: navegável, fora do menu (a regra da
@@ -296,8 +292,7 @@ public sealed class ModuloRecepcao : IModuloApp
                 new AbaMenu("Acompanhamento", ChaveRetorno),
                 // Os pedidos da enfermagem (out/2026, pedido da clínica): a recepção os
                 // atende como atende o paciente que liga — é conversa, não agenda.
-                new AbaMenu("Pedidos da enfermagem", ChavesSuite.PedidosEnfermagem),
-                new AbaMenu("Canal de SMS", ChaveCanalSms)
+                new AbaMenu("Pedidos da enfermagem", ChavesSuite.PedidosEnfermagem)
             ]
         },
         new ItemMenuModulo
@@ -452,13 +447,6 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveRetornosAMarcar, Rotulo = "Retornos a marcar", Glifo = "\uE823", Icone = "volta",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerAgenda
         },
-        // Canal de SMS: leitura sob VerAgenda; configurar, rodar e campanha têm o bit
-        // próprio dentro da tela (as duas barreiras).
-        new ItemMenuModulo
-        {
-            Chave = ChaveCanalSms, Rotulo = "Canal de SMS", Glifo = "\uE8BD", Icone = "mega",
-            Grupo = GrupoSidebar.Relacionamento, Requer = Permissao.VerAgenda
-        },
         // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
         // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a
         // Direção está carregada.
@@ -515,7 +503,6 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavesSuite.OcupacaoAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.VisaoGeralDaAgenda), servicos),
         ChavesSuite.PedidosEnfermagem => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PedidosDaEnfermagem), servicos),
         ChaveConfirmacoes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConfirmacoesDeAgenda), servicos),
-        ChaveCanalSms => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CanalDeSms), servicos),
         ChavePagamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PagamentosDoBalcao), servicos),
         ChavePainel => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.InicioRecepcao), servicos),
         ChaveAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.GradeDaAgenda), servicos),

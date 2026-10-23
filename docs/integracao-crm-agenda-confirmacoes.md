@@ -17,9 +17,10 @@ regressão e tem a publicação bloqueada; **esta é a que se instala**.
 |---|---|
 | `GET /crm/snapshot` | Agenda de ontem até +32 dias, catálogo de especialidades e a situação da confirmação de cada horário |
 | `POST /crm/decision` | Resposta do paciente ao lembrete do WhatsApp: `confirm`, `cancel`, `reschedule` ou `notified` |
-| `GET /crm/recall` | Candidatos a recall (sessões realizadas por modalidade e casos de acompanhamento), com consentimento |
+| `GET /crm/recall` | Candidatos a recall: **só a fila de recall da clínica** (`Acompanhamentos` tipo Recall), bloqueados "Sem autorização de mensagem" sem consentimento `ComunicacaoEMarketing` vigente e "Ainda não atingiu N dias" pelos dias do Gerente, que voltam em `InactivityDays` (fase 3, out/2026) |
 | `GET /crm/relationship` | As filas da tela **Relacionamento** do CRM: sem vir há 15+ dias (até um ano, sem horário marcado), novo no BSV (indicado sem 1ª sessão, ou 1ª sessão de BSV nos últimos 30 dias) e consulta a renovar (`ARenovar`, pelo mesmo `ConsultaService` da agenda do balcão). Só leitura |
 | `POST /crm/recall/notice` | Registro do convite de recall enviado, com o canal (`whatsapp` ou `sms`) |
+| `POST /crm/v1/consent/optout` | **Um PARAR só** (fase 3): o paciente respondeu PARAR no CRM e a autorização de mensagens é revogada em toda ficha com aquele telefone (linha vigente com `RevogadoEm` + linha de recusa, trilha `ConsentimentoRevogado`) |
 | `POST /crm/v1/appointments/slots` / `reschedule` | Vagas e remarcação assistida (remarcação só com `CRM_SCHEDULING_ENABLED=true`) |
 | `POST /crm/v1/appointments/cancel` | Cancelamento pela secretária, com motivo, pelo mesmo `CancelarAsync` do balcão (suspende as guias). Idempotente pelo comando. Só com `CRM_SCHEDULING_ENABLED=true` |
 | `POST /crm/v1/booking/catalog` · `calendar` · `slots` · `status` | Leitura para marcar: pacientes do telefone, profissionais, salas, modalidades, a agenda ocupada (sem o nome de outros pacientes) e as vagas pela `BuscaDeVagas` |
@@ -31,7 +32,13 @@ diferentes.
 
 ## 2. A regra única das respostas
 
-O paciente responde pelo **link do SMS** (Clinica) ou pelo **WhatsApp** (CRM), e a agenda do
+> **Fase 3 (out/2026): a confirmação é só pelo WhatsApp, no dia.** O pedido automático é o do CRM
+> às 06:00 do dia da sessão (`ClinicFlow.PedeConfirmacaoAgora`), e ele sai para todo horário
+> marcado que ainda não foi RESPONDIDO nem dispensado — "pending" e "notified" (avisado pelo
+> balcão) recebem igual; não há dependência de aviso anterior. O SMS da véspera do Clinica (com
+> link) e o Canal de SMS saíram; o que segue abaixo sobre o link vale para as respostas antigas.
+
+O paciente respondia pelo **link do SMS** (Clinica, até a fase 3) ou responde pelo **WhatsApp** (CRM), e a agenda do
 balcão precisa ler as duas do mesmo jeito. Por isso as duas pontas gravam o MESMO contato
 (`ContatosCampanha`, origem `AGD:{agendamento}`) com o mesmo vocabulário de
 `RodadaDeConfirmacao.Classificar`:
@@ -113,8 +120,16 @@ privacidade da agenda, o cancelamento pela equipe com motivo e as três filas do
 a frase da agenda, telefone compartilhado é avisado). A concorrência real se prova no
 Postgres de homologação, antes de ligar as chaves.
 
-**SMS:** o lembrete de 24 h e o SMS do CRM usam o mesmo provedor (Zenvia, Twilio ou API própria).
-A Infobip não é usada.
+**SMS (fase 3, out/2026):** quem manda SMS é **só o CRM** (variáveis `CRM_SMS_*` na VPS 2): a
+conversa por SMS, o recall por SMS e o SMS quando o WhatsApp falha. O lembrete de 24 h do Clinica,
+a configuração do provedor no Clinica e a campanha de SMS saíram (`docs/canal-sms.md`). A Infobip
+não é usada.
+
+**Recall (fase 3):** o CRM convida só quem está na fila de recall da clínica, só com a autorização
+de mensagens vigente (colhida no termo do BSV — `ModelosTermoBsv.AutorizacaoDeMensagens` — ou no
+termo LGPD) e só a partir dos dias do Gerente. O CRM guarda canal, modelo, janela de horário,
+limite diário e intervalo; as "regras por tipo" com dias próprios saíram. Decisões e comparação
+em `docs/fase3-recepcao-crm.md`.
 
 ## 5. UX · DX · CX
 
