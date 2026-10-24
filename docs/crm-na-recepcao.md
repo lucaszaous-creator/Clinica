@@ -1,5 +1,13 @@
 # O CRM dentro da Recepção: a aba "WhatsApp" (out/2026)
 
+> ⛔ **A moldura saiu na fase 3 do WhatsApp nativo (24/10/2026, decisão da direção).** A aba
+> WhatsApp abre a tela nativa (`ConversasDoWhatsApp`, `docs/whatsapp-nativo-implementacao.md`).
+> Saíram a `WhatsAppNoCrm`, o roteador da aba, a escolha em Configurações, o endereço com
+> `?modo=recepcao` e, no CRM, o modo Recepção. **Ficaram** o bilhete de entrada
+> (`EntradaNoCrm`, `BilhetesEntradaCrm`, a ponte), o "Escrever no WhatsApp" das outras telas
+> (`PedidoDeConversaNoCrm`, agora consumido pela tela nativa) e o contato que volta ao
+> Acompanhamento. O texto abaixo é o registro de como a moldura funcionava.
+
 > **Fase 1** da unificação Recepção × CRM. A direção pediu para **reduzir ao máximo as
 > redundâncias** entre os dois sistemas. A metade do CRM (o modo Recepção) está em
 > `semdor-crm/docs/modo-recepcao.md`.
