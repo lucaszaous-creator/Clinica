@@ -1,6 +1,10 @@
 # O WhatsApp DENTRO da Recepção, e não o CRM dentro de uma moldura (proposta, out/2026)
 
-> **Status: proposta com mockup, nada implementado.** A direção olhou a aba WhatsApp da fase 1
+> **Status: aprovada pela direção em 24/10/2026; implementação por fazer.** O roteiro PR a PR
+> está em **`docs/whatsapp-nativo-implementacao.md`** (e a metade do CRM em
+> `semdor-crm/docs/api-para-os-apps.md`).
+>
+> **Origem.** A direção olhou a aba WhatsApp da fase 1
 > (`docs/crm-na-recepcao.md`) e resumiu: *"o que foi feito foi clonar o CRM e colar dentro do
 > sistema"*. Este documento responde à pergunta que veio junto, *"como você faria?"*, com a
 > comparação dos caminhos nos três eixos (UX · DX · CX) e um mockup feito sobre o CSS REAL da

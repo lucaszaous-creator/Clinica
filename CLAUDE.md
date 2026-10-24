@@ -608,3 +608,7 @@ Lição nova vai para o arquivo da área; regra que vale para toda mudança, par
 
 Documentação de produto e decisões: `docs/` (`docs/arquitetura-multi-exe.md`, `docs/telas-blazor.md`,
 `docs/chat-da-equipe.md`, `docs/crm-em-producao-out2026.md`, `docs/desempenho-leituras-2026-10-15.md`).
+O WhatsApp nativo na Recepção (decisão da direção, out/2026): a proposta e o mockup interativo em
+`docs/whatsapp-nativo-na-recepcao.md` + `docs/mockups/whatsapp-nativo/`, e o roteiro de
+implementação PR a PR em `docs/whatsapp-nativo-implementacao.md` (a metade do CRM:
+`semdor-crm/docs/api-para-os-apps.md`).
