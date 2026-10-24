@@ -366,5 +366,10 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
 .wa-cab-quem h2 .selo{font-size:11px}
 .wa-modelo-form .campos{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 .wa-escrever textarea{field-sizing:content}
+/* No app a tela mora no palco (absoluto, altura da área); fora dele (a prévia, /tela/…) ocupa a janela. */
+.pagina.wa{height:100vh}
+.palco-tela .pagina.wa{height:100%}
+.wa-sem-ficha .botao{justify-content:flex-start}
+.wa-escrever-abas .segmentado button:disabled,.wa-cab-acoes .botao:disabled{opacity:.5;cursor:not-allowed}
 .wa-sem-acesso{padding:var(--space-8)}
 @media (max-width:1180px){.wa-recado{margin-left:var(--space-4);margin-right:var(--space-4)}}

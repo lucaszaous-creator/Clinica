@@ -199,7 +199,7 @@ else
                     <button type="button" class="botao icone fantasma wa-voltar" aria-label="Voltar à lista" @onclick="FecharConversa"><Icone Nome="esquerda" /></button>
                     <span class="avatar tom-@c.TomDoAvatar" aria-hidden="true">@c.Iniciais<span class="wa-canal @(c.Sms ? "sms" : null)"><Icone Nome="@(c.Sms ? "sms" : "chat")" /></span></span>
                     <div class="wa-cab-quem"><h2>@c.Nome</h2>
-                        <div class="wa-cab-meta"><span>@c.Telefone</span><span>·</span><span>@(c.Sms ? "SMS" : "WhatsApp")</span><span>·</span>
+                        <div class="wa-cab-meta">@if (!string.IsNullOrWhiteSpace(c.Telefone)) { <span>@c.Telefone</span><span>·</span> }<span>@(c.Sms ? "SMS" : "WhatsApp")</span><span>·</span>
                             @if (c.Ficha.Estado == EstadoFicha.Conferida)
                             {
                                 <span class="selo tom-sucesso" title="@c.Ficha.Dica">@c.Ficha.Texto</span>
@@ -422,7 +422,7 @@ else
                                             </Campo>
                                         }
                                     </div>
-                                    <div class="wa-modelo-previa">@foreach (var t in ModeloDoWhatsApp.Trechos(modelo, _valores)) { if (t.Variavel) { <var>@t.Texto</var> } else { @t.Texto } }</div>
+                                    <div class="wa-modelo-previa">@Previa(modelo)</div>
                                     @if (ModeloDoWhatsApp.Impedimento(modelo, _variaveis, _valores) is { } falta) { <p class="wa-dica">@falta</p> }
                                     <Aviso Tom="erro" Texto="@_erroEnvioModelo" />
                                     <div class="botoes-linha">
@@ -485,7 +485,7 @@ else
                         {
                             <SeletorDePaciente Placeholder="Nome ou documento" SelecionadoChanged="p => LigarFichaEscolhidaAsync(a, p)" />
                         }
-                        <button type="button" class="botao" disabled="@(!Pode(Permissao.EditarPaciente) || _ocupado)" @onclick="() => CadastrarAsync(a)"><Icone Nome="mais" />Cadastrar paciente com este telefone</button>
+                        <button type="button" class="botao" disabled="@(!Pode(Permissao.EditarPaciente) || _ocupado)" @onclick="() => CadastrarAsync(a)"><Icone Nome="mais" />Cadastrar com este telefone</button>
                     </section>
                 }
                 else if (a.Ficha.Estado == EstadoFicha.AConferir)
@@ -501,7 +501,7 @@ else
                         @if (Pode(Permissao.VerFichaPaciente))
                         {
                             <dl class="wa-pares">
-                                <dt>Telefone</dt><dd>@p.Telefone @if (p.TelefoneConfere) { <span class="selo tom-sucesso" title="É o mesmo número da conversa">confere</span> } else { <span class="selo tom-aviso">difere da conversa</span> }</dd>
+                                <dt>Telefone</dt><dd>@p.Telefone @if (p.TelefoneConfere) { <span class="selo tom-sucesso" title="É o mesmo número da conversa">confere</span> } else if (p.Telefone != "—" && !string.IsNullOrWhiteSpace(a.Telefone)) { <span class="selo tom-aviso">difere da conversa</span> }</dd>
                                 <dt>Convênio</dt><dd>@p.Convenio @if (p.Carteirinha is not null) { <span class="selo tom-@(p.CarteirinhaVencida ? "perigo" : "sucesso")">@(p.CarteirinhaVencida ? "carteirinha vencida" : "carteirinha em dia")</span> }</dd>
                                 <dt>Documento</dt><dd>@p.FimDoDocumento</dd>
                                 <dt>Mensagens</dt><dd>@if (p.MensagensAutorizadas) { <span class="selo tom-sucesso">@p.Mensagens</span> } else { <span class="selo tom-aviso">@p.Mensagens</span> }</dd>
@@ -956,6 +956,13 @@ else
         _aberta = WhatsAppDaRecepcaoService.Compor(a.Dados with { Conversa = nova, RecebidasJaLidas = nova.Messages.Count(m => m.Direction == "in") }, WhatsAppDaRecepcaoService.Agora);
         _rolarAoFim = true;
         if (trocouDeConversa && a.Conversa is null && _rascunhos.Remove("caso-" + a.Caso?.Id, out var r)) _rascunhos[nova.Id] = r;
+        // A linha da lista acompanha na hora (responsável, encerrada, ficha); o resto chega na próxima releitura.
+        if (_painel is { } painel && painel.Conversas.Any(x => x.Id == nova.Id))
+            _painel = painel with { Conversas = painel.Conversas.Select(x => x.Id != nova.Id ? x : x with
+            {
+                AgentId = nova.AgentId, Closed = nova.Closed, Version = nova.Version, UpdatedAt = nova.UpdatedAt,
+                PatientId = nova.PatientId, PatientName = nova.PatientName, Queue = nova.Queue, Unread = 0
+            }).ToList() };
     }
 
     private async Task EnviarAsync(ConversaDoWhatsApp c)
@@ -1473,6 +1480,19 @@ else
     }
 
     // ==================================================================== desenho
+
+    /// <summary>A prévia do modelo, com o que veio de variável destacado — montada sem espaço entre os trechos.</summary>
+    private RenderFragment Previa(AppTemplate modelo) => b =>
+    {
+        var seq = 0;
+        foreach (var t in ModeloDoWhatsApp.Trechos(modelo, _valores))
+        {
+            if (!t.Variavel) { b.AddContent(seq++, t.Texto); continue; }
+            b.OpenElement(seq++, "var");
+            b.AddContent(seq++, t.Texto);
+            b.CloseElement();
+        }
+    };
 
     private void AlternarBusca() => _buscaConversa = _buscaConversa is null ? "" : null;
 
