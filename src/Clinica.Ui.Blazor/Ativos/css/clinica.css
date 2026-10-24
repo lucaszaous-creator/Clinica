@@ -121,7 +121,7 @@ body{
   font-family:var(--font-ui);font-size:var(--text-body-size);color:var(--texto-primario);
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
 }
-button,select,input{font:inherit;color:inherit}
+button,select,input,textarea{font:inherit;color:inherit} /* textarea também: sem isto o navegador usa a fonte de máquina de escrever (duas telas já tinham remendado localmente) */
 
 /* ---------- Página ---------- */
 .pagina{padding:var(--space-6) var(--space-8) var(--space-10);max-width:1440px;margin:0 auto;

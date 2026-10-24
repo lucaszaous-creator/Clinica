@@ -711,7 +711,7 @@ public sealed class WhatsAppDaRecepcaoService(
         if (!registrar) return new ResultadoDoEnvio(c, null);
 
         var pendencia = await RegistrarDesfechoAsync(caso!, DesfechoContato.NaoRespondeu, CanalContato.WhatsApp, null,
-            $"Convite enviado pelo WhatsApp da clínica (modelo {modelo.Name}); aguardando a resposta.", Guid.NewGuid(), ct: ct);
+            "Convite enviado pelo WhatsApp da clínica (modelo aprovado); aguardando a resposta.", Guid.NewGuid(), ct: ct);
         return new ResultadoDoEnvio(c, pendencia is null ? null
             : $"O convite saiu, mas o contato não foi gravado no Acompanhamento: {pendencia} Registre pelo \"Como foi?\".");
     }

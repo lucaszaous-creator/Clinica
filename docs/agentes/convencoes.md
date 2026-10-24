@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (182 tópicos, na ordem do arquivo)
+## Índice (183 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -191,6 +191,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Três armadilhas de XAML que a releitura do próprio diff pegou
 - Classe de tela Blazor nova leva o PREFIXO da tela: `entrada`, `saida` e `dica` já são do comum
 - Arquivo novo da prévia que uma SEMENTE usa entra também no `ValidarLayoutWindows.csproj`
+- `textarea` herda a fonte da casa pela regra COMUM, não por remendo de tela
 
 ---
 
@@ -4985,4 +4986,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   `compilar-sombra` acusou. E o validador não tem `using System.IO` implícito. Antes de commitar
   uma semente que usa arquivo de fora de `Sementes/`: `grep -rn "PreviaBlazor/Sementes" --include=*.csproj`
   e inclua o arquivo em todos.
+
+- **`textarea` herda a fonte da casa pela regra COMUM, não por remendo de tela** (out/2026,
+  WhatsApp nativo). O `clinica.css` fazia `button,select,input{font:inherit}` e deixava o
+  `textarea` de fora: o navegador desenha o campo de várias linhas (e o texto de exemplo dele) em
+  fonte de máquina de escrever. Duas telas já tinham remendado localmente
+  (`fat-pendencias.css`, `configuracoes.css`) e cada formulário novo repetia o defeito. A regra
+  comum agora inclui o `textarea`; os remendos locais ficaram inofensivos. Defeito que aparece
+  em DUAS telas é da regra comum: conserte lá.
 

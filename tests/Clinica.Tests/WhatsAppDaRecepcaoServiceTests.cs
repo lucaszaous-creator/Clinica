@@ -282,7 +282,10 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         var gravado = db.Acompanhamentos.Include(a => a.Contatos).Single(a => a.Id == casoId);
         Assert.Equal(EtapaAcompanhamento.SemResposta, gravado.Etapa);
         Assert.True(gravado.ProximoContato > DateOnly.FromDateTime(DateTime.Today));
-        Assert.Contains(gravado.Contatos, c => c.Canal == CanalContato.WhatsApp && c.Operador == _ana.Login && c.Observacao.Contains(modelo.Name));
+        Assert.Contains(gravado.Contatos, c => c.Canal == CanalContato.WhatsApp && c.Operador == _ana.Login
+            && c.Observacao.StartsWith("Convite enviado pelo WhatsApp da clínica", StringComparison.Ordinal));
+        // O histórico do caso é lido pela recepção: o código do modelo (semdor_recall…) não vai à tela.
+        Assert.DoesNotContain(gravado.Contatos, c => c.Observacao.Contains(modelo.Name, StringComparison.Ordinal));
     }
 
     [Fact]
