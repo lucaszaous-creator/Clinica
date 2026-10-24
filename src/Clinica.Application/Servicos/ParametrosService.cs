@@ -261,6 +261,23 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    /// <summary>
+    /// A aba "WhatsApp" da Recepção abre a TELA NATIVA (true) ou a moldura do CRM (false, o padrão)
+    /// — out/2026, docs/whatsapp-nativo-implementacao.md (PR 5). A fase 1 entra ao lado da moldura:
+    /// a direção liga numa máquina, confere, e desliga aqui mesmo se algo faltar, sem release.
+    /// Sem endereço do CRM as duas mostram como ligar; a chave só escolhe QUAL tela.
+    /// </summary>
+    public const string ChaveWhatsAppNativo = "WhatsAppNativo";
+
+    public async Task<bool> ObterWhatsAppNativoAsync(CancellationToken ct = default)
+        => string.Equals(await _repo.ObterConfiguracaoAsync(ChaveWhatsAppNativo, ct), "true", StringComparison.Ordinal);
+
+    public async Task SalvarWhatsAppNativoAsync(bool nativo, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveWhatsAppNativo, nativo ? "true" : "false", ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Publicação do documento assinado (parcela 53) ----
 
     public const string ChaveUrlPublicacao = "PublicacaoUrlBase";
