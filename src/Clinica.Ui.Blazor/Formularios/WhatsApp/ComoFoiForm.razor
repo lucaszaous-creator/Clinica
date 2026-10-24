@@ -1,0 +1,112 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@*
+  COMO FOI? (out/2026, WhatsApp da Recepção — modo Retenção). O desfecho do contato com o caso
+  do Acompanhamento: os mesmos cinco do Acompanhamento, as mesmas regras (ConversaDoAcompanhamento:
+  "pediu outra data" pede a data; "não quer voltar" pede motivo e justificativa) e o mesmo
+  AtualizarAsync. Abre como "Como foi a ligação?" (o canal é o telefone) e também para os dois
+  desfechos da conversa que pedem mais que um clique. Com "Não quer voltar", o PARAR revoga a
+  autorização de mensagens da ficha — vale para WhatsApp e SMS.
+*@
+
+<Modal Titulo="@Titulo" Subtitulo="@Subtitulo" Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="wa-opcoes" role="radiogroup" aria-label="Como foi">
+            @foreach (var d in Desfechos)
+            {
+                <label class="wa-escolha sem-avatar @(_desfecho == d ? "marcada" : null)">
+                    <input type="radio" name="wa-como-foi" checked="@(_desfecho == d)" @onchange="() => Escolher(d)" />
+                    <span class="wa-escolha-texto"><strong>@AcompanhamentoNaTela.Rotulo(d)</strong><span>@AcompanhamentoNaTela.Explicacao(d)</span></span>
+                </label>
+            }
+        </div>
+        @if (_desfecho is { } escolhido)
+        {
+            <div class="campos">
+                @if (escolhido != DesfechoContato.NaoQuerVoltar)
+                {
+                    <Campo Rotulo="Próximo contato" Obrigatorio="@(escolhido == DesfechoContato.PediuOutraData)"
+                           Dica="@(escolhido == DesfechoContato.PediuOutraData ? "O dia que a pessoa pediu." : "Proposto pelo desfecho — dá para trocar.")">
+                        <input class="campo" type="date" value="@(_data is { } d ? Iso(d) : "")" min="@Iso(Hoje)" @onchange="TrocarData" />
+                    </Campo>
+                }
+                else
+                {
+                    <Campo Rotulo="Motivo" Obrigatorio="true" Classe="largo">
+                        <select class="campo" value="@(_motivoId?.ToString() ?? "")" @onchange="e => _motivoId = int.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                            <option value="">Escolha…</option>
+                            @foreach (var m in Motivos) { <option value="@m.Id">@m.Nome</option> }
+                        </select>
+                    </Campo>
+                }
+                <Campo Rotulo="@(ConversaDoAcompanhamento.ExigeObservacao(escolhido) ? "Justificativa" : "Observação (opcional)")"
+                       Obrigatorio="@ConversaDoAcompanhamento.ExigeObservacao(escolhido)" Classe="largo">
+                    <textarea class="campo" rows="2" maxlength="2000" @bind="_observacao" @bind:event="oninput"
+                              placeholder="@(escolhido == DesfechoContato.NaoQuerVoltar ? "Ex.: mudou de cidade e vai continuar o tratamento lá" : "O que a pessoa disse, se valer anotar")"></textarea>
+                </Campo>
+                @if (escolhido == DesfechoContato.NaoQuerVoltar && PodeParar)
+                {
+                    <label class="marcar largo"><input type="checkbox" @bind="_parar" /> Pediu para não receber mais mensagens (PARAR)</label>
+                }
+            </div>
+        }
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <span class="esquerda">Grava a etapa e o próximo contato do Acompanhamento.</span>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao @(_desfecho == DesfechoContato.NaoQuerVoltar ? "perigo" : "primario")" disabled="@(_desfecho is null || _ocupado)" @onclick="ConfirmarAsync">
+            @(_ocupado ? "Gravando…" : _desfecho == DesfechoContato.NaoQuerVoltar ? "Encerrar o caso" : "Registrar")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    private static readonly DesfechoContato[] Desfechos =
+        [DesfechoContato.QuerMarcar, DesfechoContato.PediuOutraData, DesfechoContato.AguardandoPlano, DesfechoContato.NaoRespondeu, DesfechoContato.NaoQuerVoltar];
+
+    [Parameter] public string Titulo { get; set; } = "Como foi?";
+    [Parameter] public string? Subtitulo { get; set; }
+    [Parameter] public DesfechoContato? DesfechoInicial { get; set; }
+    [Parameter] public IReadOnlyList<OpcaoAcompanhamento> Motivos { get; set; } = [];
+    /// <summary>O PARAR só aparece para quem tem autorização vigente (sem ela, não há o que revogar).</summary>
+    [Parameter] public bool PodeParar { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Grava (desfecho, data, motivo, observação, PARAR) e devolve a frase do impedimento, ou nulo.</summary>
+    [Parameter, EditorRequired] public Func<DesfechoContato, DateOnly?, int?, string?, bool, Task<string?>> AoConfirmar { get; set; } = default!;
+
+    private DesfechoContato? _desfecho;
+    private DateOnly? _data;
+    private int? _motivoId;
+    private string? _observacao;
+    private bool _parar;
+    private string? _erro;
+    private bool _ocupado;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    protected override void OnInitialized()
+    {
+        if (DesfechoInicial is { } d) Escolher(d);
+    }
+
+    private void Escolher(DesfechoContato d)
+    {
+        _desfecho = d;
+        _erro = null;
+        _data = AcompanhamentoNaTela.DataProposta(d, Hoje);
+    }
+
+    private void TrocarData(ChangeEventArgs e)
+        => _data = DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    private async Task ConfirmarAsync()
+    {
+        if (_desfecho is not { } d || _ocupado) return;
+        _ocupado = true;
+        _erro = null;
+        try { _erro = await AoConfirmar(d, _data, _motivoId, _observacao, _parar && d == DesfechoContato.NaoQuerVoltar); }
+        finally { _ocupado = false; }
+    }
+
+    private static string Iso(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+}

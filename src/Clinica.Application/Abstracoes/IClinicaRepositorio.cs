@@ -1781,6 +1781,25 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<ContatoCampanha?> ContatoDeConfirmacaoDoAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
 
+    // ---- WhatsApp da Recepção (out/2026, PR 3 do WhatsApp nativo) ----
+
+    /// <summary>
+    /// De quem é cada horário (agendamento → paciente), numa consulta só e em PROJEÇÃO: o aviso
+    /// do sino só traz o <c>AgendamentoId</c>, e a conversa precisa saber se ele é do paciente
+    /// da ficha conferida. São os poucos horários dos avisos, nunca a agenda inteira.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, int>> PacientesDosAgendamentosAsync(
+        IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// As fichas cujo telefone, só com os dígitos, é um dos <paramref name="numeros"/> (as
+    /// variantes do mesmo número: com e sem o 55). Filtra NO BANCO e traz só o que a conferência
+    /// mostra — nome, nascimento, documento e telefone —, cortado em <paramref name="limite"/>.
+    /// O telefone não é identidade (regra 5): quem decide qual ficha é a pessoa é a recepção.
+    /// </summary>
+    Task<IReadOnlyList<FichaComTelefone>> FichasComTelefoneAsync(
+        IReadOnlyCollection<string> numeros, int limite, CancellationToken ct = default);
+
     /// <summary>
     /// Os contatos de confirmação ENVIADOS ou RESPONDIDOS das sessões ainda MARCADAS
     /// (<c>Agendado</c>) com horário em [<paramref name="sessoesDe"/>,

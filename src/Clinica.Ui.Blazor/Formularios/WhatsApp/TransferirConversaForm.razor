@@ -1,0 +1,73 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Crm.Contracts
+@*
+  TRANSFERIR A CONVERSA (out/2026, WhatsApp da Recepção — o mockup aprovado). Para quem: as
+  pessoas da equipe que o CRM devolve na sessão (menos quem está transferindo) ou uma fila. A nota
+  é opcional e vai junto da transferência, para quem recebe. Quem grava é a tela (o serviço);
+  o formulário só colhe a escolha e mostra a recusa INLINE.
+*@
+
+<Modal Titulo="Transferir a conversa" Subtitulo="@($"{Nome} passa a ser de quem você escolher. A pessoa vê a nota ao abrir.")" Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="wa-opcoes" role="radiogroup" aria-label="Para quem">
+            @foreach (var a in Agentes)
+            {
+                <label class="wa-escolha sem-avatar @(EhAgente(a.Id) ? "marcada" : null)">
+                    <input type="radio" name="wa-para" checked="@EhAgente(a.Id)" @onchange="() => EscolherAgente(a.Id)" />
+                    <span class="wa-escolha-texto"><strong>@a.Name</strong><span>Pessoa da equipe</span></span>
+                </label>
+            }
+            @foreach (var f in Filas)
+            {
+                <label class="wa-escolha sem-avatar @(EhFila(f) ? "marcada" : null)">
+                    <input type="radio" name="wa-para" checked="@EhFila(f)" @onchange="() => EscolherFila(f)" />
+                    <span class="wa-escolha-texto"><strong>Fila @f</strong><span>Quem estiver na fila assume</span></span>
+                </label>
+            }
+        </div>
+        <Campo Rotulo="Nota para quem recebe (opcional)" Classe="largo">
+            <textarea class="campo" rows="2" maxlength="500" @bind="_nota" @bind:event="oninput" placeholder="Ex.: paciente pediu o valor do pacote"></textarea>
+        </Campo>
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_para is null || _ocupado)" @onclick="ConfirmarAsync"><Icone Nome="transferir" />@(_ocupado ? "Transferindo…" : "Transferir")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public string Nome { get; set; } = "";
+    [Parameter] public IReadOnlyList<AppAgent> Agentes { get; set; } = [];
+    [Parameter] public IReadOnlyList<string> Filas { get; set; } = [];
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Grava (agente, fila, nota) e devolve a frase da recusa, ou nulo.</summary>
+    [Parameter, EditorRequired] public Func<string?, string?, string?, Task<string?>> AoConfirmar { get; set; } = default!;
+
+    private string? _para;
+    private string? _nota;
+    private string? _erro;
+    private bool _ocupado;
+
+    private bool EhAgente(string id) => _para == "a:" + id;
+    private bool EhFila(string f) => _para == "f:" + f;
+    private void EscolherAgente(string id) => _para = "a:" + id;
+    private void EscolherFila(string f) => _para = "f:" + f;
+
+    protected override void OnInitialized()
+        => _para = Agentes.Count > 0 ? "a:" + Agentes[0].Id : Filas.Count > 0 ? "f:" + Filas[0] : null;
+
+    private async Task ConfirmarAsync()
+    {
+        if (_para is null || _ocupado) return;
+        _ocupado = true;
+        _erro = null;
+        try
+        {
+            var agente = _para.StartsWith("a:", StringComparison.Ordinal) ? _para[2..] : null;
+            var fila = _para.StartsWith("f:", StringComparison.Ordinal) ? _para[2..] : null;
+            _erro = await AoConfirmar(agente, fila, _nota);
+        }
+        finally { _ocupado = false; }
+    }
+}

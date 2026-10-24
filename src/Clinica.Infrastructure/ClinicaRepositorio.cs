@@ -3749,6 +3749,41 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(c => c.Id)
             .FirstOrDefaultAsync(ct);
 
+    public async Task<IReadOnlyDictionary<int, int>> PacientesDosAgendamentosAsync(
+        IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default)
+    {
+        if (agendamentoIds.Count == 0) return new Dictionary<int, int>();
+        return await ConsultaPacientesDosAgendamentos(agendamentoIds).ToDictionaryAsync(a => a.AgendamentoId, a => a.PacienteId, ct);
+    }
+
+    // `internal` para a rede de tradução do Npgsql compilar a MESMA consulta.
+    internal IQueryable<AgendamentoDoPaciente> ConsultaPacientesDosAgendamentos(IReadOnlyCollection<int> agendamentoIds)
+    {
+        var ids = agendamentoIds.Distinct().ToList();
+        return _db.Agendamentos.AsNoTracking().Where(a => ids.Contains(a.Id)).Select(a => new AgendamentoDoPaciente(a.Id, a.PacienteId));
+    }
+
+    public async Task<IReadOnlyList<FichaComTelefone>> FichasComTelefoneAsync(
+        IReadOnlyCollection<string> numeros, int limite, CancellationToken ct = default)
+    {
+        if (numeros.Count == 0 || limite <= 0) return [];
+        return await ConsultaFichasComTelefone(numeros, limite).ToListAsync(ct);
+    }
+
+    // O telefone do cadastro é gravado como foi digitado ("(22) 99876-5432", "+55 22 …"): a
+    // comparação tira, NO BANCO, os separadores que a ficha aceita — replace() existe igual no
+    // SQLite e no Postgres — e compara com as variantes já só de dígitos. `internal` pela rede de tradução.
+    internal IQueryable<FichaComTelefone> ConsultaFichasComTelefone(IReadOnlyCollection<string> numeros, int limite)
+    {
+        var lista = numeros.Where(n => n.Length > 0).Distinct().ToList();
+        return _db.Pacientes.AsNoTracking()
+            .Where(p => p.Telefone != null
+                        && lista.Contains(p.Telefone.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Replace("+", "").Replace(".", "")))
+            .OrderBy(p => p.Nome).ThenBy(p => p.Id)
+            .Take(limite)
+            .Select(p => new FichaComTelefone(p.Id, p.Nome, p.DataNascimento, p.Documento, p.Telefone));
+    }
+
     public async Task<IReadOnlyList<ContatoParaAvisoDeConfirmacao>> ContatosParaAvisosDeConfirmacaoAsync(
         DateTime sessoesDe, DateTime sessoesAte, CancellationToken ct = default)
         => await ConsultaContatosParaAvisosDeConfirmacao(sessoesDe, sessoesAte).ToListAsync(ct);
