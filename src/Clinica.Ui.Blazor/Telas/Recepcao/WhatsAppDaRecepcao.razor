@@ -1,0 +1,52 @@
+@*
+  A ABA "WHATSAPP" DA RECEPÇÃO (out/2026, PR 5 do WhatsApp nativo): escolhe entre a tela nativa
+  (ConversasDoWhatsApp) e a moldura do CRM (WhatsAppNoCrm) pela configuração do Gerente
+  (Configurações → Integrações → ParametrosService.ObterWhatsAppNativoAsync, padrão: moldura). O item
+  do menu é o mesmo; voltar atrás é escolher a moldura de novo, sem release.
+
+  A escolha é lida ao abrir a aba e relida na volta a ela: a troca feita no Gerente vale na próxima
+  abertura (ou volta) da aba, sem reiniciar o app. Falha ao ler a configuração cai na MOLDURA — a
+  tela de antes, que a clínica já conhece — e vai ao log.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+
+@if (_nativo is null)
+{
+    <div class="pagina whatsapp-crm"><div class="cartao"><div class="cartao-corpo"><Esqueleto Altura="420" /></div></div></div>
+}
+else if (_nativo == true)
+{
+    <ConversasDoWhatsApp />
+}
+else
+{
+    <WhatsAppNoCrm />
+}
+
+@code {
+    private bool? _nativo;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => LerAsync();
+
+    protected override Task AoVoltarAsync() => LerAsync();
+
+    private async Task LerAsync()
+    {
+        var g = ++_geracao;
+        bool nativo;
+        try
+        {
+            using var escopo = Escopo();
+            nativo = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterWhatsAppNativoAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — a escolha da tela do WhatsApp não pôde ser lida (vale a moldura)", ex);
+            nativo = false;
+        }
+        if (g != _geracao || Descartada) return;
+        _nativo = nativo;
+    }
+}

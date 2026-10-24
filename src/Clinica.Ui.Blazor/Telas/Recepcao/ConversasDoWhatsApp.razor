@@ -27,6 +27,7 @@
 @using Clinica.Crm.Contracts
 @inherits TelaBase
 @inject IServiceProvider Servicos
+@using Microsoft.JSInterop
 @inject IJSRuntime JS
 
 @if (!Pode(Permissao.EditarAgenda))
@@ -328,7 +329,7 @@ else
                         <div class="wa-janela-fechada"><span class="wa-janela-ic"><Icone Nome="cadeado" /></span>
                             <div class="wa-janela-texto"><strong>@(c.CampoFechado?.Titulo ?? "Janela de 24 h fechada")</strong>@(c.CampoFechado?.Texto)</div>
                             <div class="botoes-linha">
-                                <button type="button" class="botao primario" aria-expanded="@Bool(_popover == Popover.Modelos)" disabled="@(!PodeEscrever)" @onclick="() => AbrirModelosAsync(null)"><Icone Nome="modelo" />Escolher modelo</button>
+                                <button type="button" class="botao primario" aria-expanded="@Bool(_popover == Popover.Modelos)" disabled="@(!PodeEscrever)" @onclick="() => AbrirModelosAsync(false)"><Icone Nome="modelo" />Escolher modelo</button>
                                 @if (c.Conversa is not null)
                                 {
                                     <button type="button" class="botao" disabled="@(!PodeEscrever)" @onclick="() => r.Nota = true"><Icone Nome="nota" />Nota interna</button>
@@ -361,7 +362,7 @@ else
                                     }
                                     @if (!c.Sms)
                                     {
-                                        <button type="button" class="botao mini" aria-expanded="@Bool(_popover == Popover.Modelos)" disabled="@(!PodeEscrever)" @onclick="() => AbrirModelosAsync(null)"><Icone Nome="modelo" />Modelos</button>
+                                        <button type="button" class="botao mini" aria-expanded="@Bool(_popover == Popover.Modelos)" disabled="@(!PodeEscrever)" @onclick="() => AbrirModelosAsync(false)"><Icone Nome="modelo" />Modelos</button>
                                     }
                                     <button type="button" class="botao mini" aria-expanded="@Bool(_popover == Popover.Rapidas)" @onclick="() => _popover = _popover == Popover.Rapidas ? Popover.Nenhum : Popover.Rapidas"><Icone Nome="raio" />Respostas rápidas</button>
                                 }
@@ -516,15 +517,12 @@ else
                             <div class="wa-horario @(h.Tom == "perigo" ? "tom-perigo" : h.Tom == "sucesso" ? "tom-sucesso" : null)" @key="h.AgendamentoId">
                                 <div class="wa-horario-topo"><b>@h.QuandoTexto</b><span class="selo tom-@h.Tom">@h.Situacao</span></div>
                                 <small>@h.Detalhe</small>
-                                @if (!a.Encerrada || true)
-                                {
                                     <div class="botoes-linha">
                                         @if (h.PodeConfirmar) { <button type="button" class="botao mini @(h.Tom == "aviso" ? "primario" : null)" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => ConfirmouAsync(h.AgendamentoId)"><Icone Nome="check" />Confirmar</button> }
                                         @if (h.PodeManter) { <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => ManterAsync(h.AgendamentoId)">Manter</button> }
                                         <button type="button" class="botao mini @(h.Tom == "perigo" ? "primario" : null)" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => _horarioAberto = h.AgendamentoId"><Icone Nome="calendario" />Remarcar</button>
                                         <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => AbrirCancelar(h, null)">Cancelar</button>
                                     </div>
-                                }
                             </div>
                         }
                     </section>
@@ -1102,10 +1100,11 @@ else
 
     // ---------------------------------------------------------------- modelos
 
-    private async Task AbrirModelosAsync(string? sugerido)
+    /// <param name="convite">"Preparar convite": já abre no modelo de convite que o CRM tem (o aprovado na Meta primeiro).</param>
+    private async Task AbrirModelosAsync(bool convite)
     {
         if (_aberta is not { } c || _painel is not { } painel) return;
-        if (_popover == Popover.Modelos && sugerido is null) { _popover = Popover.Nenhum; return; }
+        if (_popover == Popover.Modelos && !convite) { _popover = Popover.Nenhum; return; }
         _popover = Popover.Modelos;
         _modelo = null;
         _erroEnvioModelo = null;
@@ -1130,8 +1129,15 @@ else
                 return;
             }
         }
-        if (sugerido is not null && _modelos.FirstOrDefault(m => string.Equals(m.Name, sugerido, StringComparison.OrdinalIgnoreCase) && m.Supported) is { } m)
-            EscolherModelo(c, m);
+        if (convite && c.Caso is { } caso)
+        {
+            if (WhatsAppDaRecepcaoService.ModeloDoConvite(caso, _modelos) is { } m) EscolherModelo(c, m);
+            else
+            {
+                _popover = Popover.Nenhum;
+                Recado($"O convite não pode sair por aqui: nenhum dos modelos de convite ({string.Join(", ", RetencaoNaTela.CandidatosDoConvite(caso))}) está aprovado neste número do CRM. Ligue e registre como foi.", "atencao");
+            }
+        }
     }
 
     private void EscolherModelo(ConversaDoWhatsApp c, AppTemplate m)
@@ -1385,7 +1391,7 @@ else
             case BotaoDaAcao.NotaInterna when c.Conversa is not null: Rascunho(c).Nota = true; break;
             case BotaoDaAcao.PrepararConvite or BotaoDaAcao.PrepararMensagem:
                 if (!Exigir(Permissao.EditarAgenda, "enviar pelo WhatsApp da clínica")) return;
-                await AbrirModelosAsync(c.Abertura?.ModeloSugerido ?? (c.Caso is { } caso ? RetencaoNaTela.ModeloDoConvite(caso) : null) ?? "");
+                await AbrirModelosAsync(convite: true);
                 break;
             case BotaoDaAcao.JaLiguei: await AbrirComoFoiAsync("Como foi a ligação?", null, CanalContato.Telefone); break;
             case BotaoDaAcao.Desfecho when b.Desfecho is { } d && c.Caso is { } caso:
@@ -1398,7 +1404,7 @@ else
                 }
                 break;
             case BotaoDaAcao.ColherAutorizacao:
-                if (c.Paciente?.Id ?? c.Caso?.PacienteId is { } pid) await AbrirFichaAsync(pid, "Colha a autorização de mensagens pelo termo, na ficha do paciente.");
+                if ((c.Paciente?.Id ?? c.Caso?.PacienteId) is { } pid) await AbrirFichaAsync(pid, "Colha a autorização de mensagens pelo termo, na ficha do paciente.");
                 break;
             case BotaoDaAcao.AtualizarTelefone:
                 if (!Exigir(Permissao.EditarPaciente, "atualizar a ficha")) return;
@@ -1440,10 +1446,12 @@ else
             Notificacoes.Info("A agenda não está disponível neste aplicativo.");
     }
 
+    /// <summary>A chave da aba do Acompanhamento na Recepção (ChavesSuite.RetornoPacientes — o Ui.Blazor não enxerga o shell).</summary>
+    private const string ChaveDoAcompanhamento = "retorno-pacientes";
+
     private async Task AbrirAcompanhamentoAsync()
     {
-        if (_aberta?.Caso is not { } caso) return;
-        Servicos.GetService<PedidoDoAcompanhamento>()?.Definir(caso.Id);
+        if (_aberta?.Caso is null) return;
         if (!await Host.NavegarAsync(ChaveDoAcompanhamento))
             Notificacoes.Info("O Acompanhamento não está disponível neste aplicativo.");
     }

@@ -365,6 +365,6 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
 .wa-lista-topo .wa-sr + .segmentado{margin:0}
 .wa-cab-quem h2 .selo{font-size:11px}
 .wa-modelo-form .campos{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
-.wa-arquivo{display:none}
+.wa-escrever textarea{field-sizing:content}
 .wa-sem-acesso{padding:var(--space-8)}
 @media (max-width:1180px){.wa-recado{margin-left:var(--space-4);margin-right:var(--space-4)}}

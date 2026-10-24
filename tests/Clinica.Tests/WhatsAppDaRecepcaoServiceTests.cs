@@ -388,6 +388,23 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
             WhatsAppDaRecepcaoService.RascunhoDeRemarcacao("Maria das Graças Silva", novo, hoje));
     }
 
+    [Fact]
+    public async Task Convite_usa_o_modelo_aprovado_na_Meta_e_so_vale_para_modelo_de_convite()
+    {
+        var casoId = CasoDeRecall(_sebastiao, autorizou: true);
+        var painel = await Com(s => s.LerAsync());
+        var caso = painel.Retencao.Single(l => l.Id == casoId);
+        AppTemplate M(string nome, bool aceito = true) => new(nome, "pt_BR", "APPROVED", "Olá, {{1}}!", 1, aceito, aceito ? "" : "Não suportado", [], "UTILITY");
+
+        Assert.Equal(ModeloDoWhatsApp.RecallReal, WhatsAppDaRecepcaoService.ModeloDoConvite(caso, [M(ModeloDoWhatsApp.RetornoTratamento), M(ModeloDoWhatsApp.RecallReal)])?.Name);
+        Assert.Equal(ModeloDoWhatsApp.RetornoTratamento, WhatsAppDaRecepcaoService.ModeloDoConvite(caso, [M(ModeloDoWhatsApp.RecallReal, aceito: false), M(ModeloDoWhatsApp.RetornoTratamento)])?.Name);
+        Assert.Null(WhatsAppDaRecepcaoService.ModeloDoConvite(caso, [M("semdor_lembrete_sessao")]));
+
+        var aberta = await Com(s => s.AbrirCasoAsync(painel, caso));
+        Assert.Same(caso, WhatsAppDaRecepcaoService.CasoDoConvite(aberta, M(ModeloDoWhatsApp.RecallReal)));
+        Assert.Null(WhatsAppDaRecepcaoService.CasoDoConvite(aberta, M("semdor_lembrete_sessao")));
+    }
+
     private static SituacaoConfirmacao Situacao(ContatoCampanha c) => RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario);
 
     // ------------------------------------------------------------------ o CRM falso

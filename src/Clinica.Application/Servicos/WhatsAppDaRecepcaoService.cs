@@ -536,7 +536,20 @@ public sealed class WhatsAppDaRecepcaoService(
 
     /// <summary>Os modelos que CONVIDAM a voltar: enviados a quem tem caso aberto, contam como contato da retenção e exigem a autorização.</summary>
     public static readonly IReadOnlySet<string> ModelosDeConvite = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        { ModeloDoWhatsApp.RetornoTratamento, ModeloDoWhatsApp.PrimeiroContato, "recall_semdor" };
+        { ModeloDoWhatsApp.RecallReal, ModeloDoWhatsApp.IniciarAtendimentoReal, ModeloDoWhatsApp.RetornoTratamento, ModeloDoWhatsApp.PrimeiroContato, "recall_semdor" };
+
+    /// <summary>
+    /// O modelo do convite que o CRM tem DE FATO: o primeiro de <see cref="RetencaoNaTela.CandidatosDoConvite"/>
+    /// (o aprovado na Meta antes do nome do mockup) que veio em <c>GET /api/templates</c> e pode ser enviado.
+    /// Nulo = nenhum serve, e a tela não oferece o convite (diz por quê).
+    /// </summary>
+    public static AppTemplate? ModeloDoConvite(LinhaAcompanhamento caso, IEnumerable<AppTemplate> doCrm)
+    {
+        var lista = doCrm.Where(m => m.Supported).ToList();
+        return RetencaoNaTela.CandidatosDoConvite(caso)
+            .Select(nome => lista.FirstOrDefault(m => string.Equals(m.Name, nome, StringComparison.OrdinalIgnoreCase)))
+            .FirstOrDefault(m => m is not null);
+    }
 
     /// <summary>
     /// O caso que o envio do modelo registra (e que obriga a conferir a autorização): o caso

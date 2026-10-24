@@ -12,15 +12,15 @@
         <div class="wa-opcoes" role="radiogroup" aria-label="Para quem">
             @foreach (var a in Agentes)
             {
-                <label class="wa-escolha sem-avatar @(_para == "a:" + a.Id ? "marcada" : null)">
-                    <input type="radio" name="wa-para" checked="@(_para == "a:" + a.Id)" @onchange="() => _para = "a:" + a.Id" />
+                <label class="wa-escolha sem-avatar @(EhAgente(a.Id) ? "marcada" : null)">
+                    <input type="radio" name="wa-para" checked="@EhAgente(a.Id)" @onchange="() => EscolherAgente(a.Id)" />
                     <span class="wa-escolha-texto"><strong>@a.Name</strong><span>Pessoa da equipe</span></span>
                 </label>
             }
             @foreach (var f in Filas)
             {
-                <label class="wa-escolha sem-avatar @(_para == "f:" + f ? "marcada" : null)">
-                    <input type="radio" name="wa-para" checked="@(_para == "f:" + f)" @onchange="() => _para = "f:" + f" />
+                <label class="wa-escolha sem-avatar @(EhFila(f) ? "marcada" : null)">
+                    <input type="radio" name="wa-para" checked="@EhFila(f)" @onchange="() => EscolherFila(f)" />
                     <span class="wa-escolha-texto"><strong>Fila @f</strong><span>Quem estiver na fila assume</span></span>
                 </label>
             }
@@ -48,6 +48,11 @@
     private string? _nota;
     private string? _erro;
     private bool _ocupado;
+
+    private bool EhAgente(string id) => _para == "a:" + id;
+    private bool EhFila(string f) => _para == "f:" + f;
+    private void EscolherAgente(string id) => _para = "a:" + id;
+    private void EscolherFila(string f) => _para = "f:" + f;
 
     protected override void OnInitialized()
         => _para = Agentes.Count > 0 ? "a:" + Agentes[0].Id : Filas.Count > 0 ? "f:" + Filas[0] : null;
