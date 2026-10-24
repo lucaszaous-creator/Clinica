@@ -1150,7 +1150,27 @@ body:has(.modal-rodape){--chat-piso:calc(var(--space-16) + var(--space-6))}
 .wa-canal.sms{background:var(--cinza-500)}
 .wa-canal svg{width:9px;height:9px}
 
-/* ---------- Coluna 1: a lista ---------- */
+/* ---------- Coluna 1: a lista — dois modos: Conversas e Retenção (o Acompanhamento, de onde se escreve) ---------- */
+.sr-so{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:-1px}
+.wa-modo{flex:1;min-width:0}
+.wa-modo button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;font-weight:600}
+.wa-modo button b{font-weight:700;font-variant-numeric:tabular-nums;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pilula);
+  background:var(--acento-suave);color:var(--acento);font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+.wa-modo button[aria-pressed="true"] b{background:rgba(255,255,255,.22);color:var(--texto-invertido)}
+.wa-resumo{padding:0 var(--space-4) var(--space-2);font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.4}
+.wa-resumo b{color:var(--texto-primario)}
+.wa-grupo{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:6px var(--space-4);
+  background:var(--cinza-50);border-bottom:1px solid var(--borda);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
+.wa-grupo span{font-variant-numeric:tabular-nums}
+.wa-dias{font-size:var(--text-small-size);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wa-dias.tom-perigo{color:var(--erro-texto)}
+.wa-dias.tom-aviso{color:var(--aviso-texto)}
+.wa-dias.tom-neutro{color:var(--texto-secundario)}
+.wa-dias.tom-sucesso{color:var(--sucesso-forte)}
+.wa-linha-tratamento{font-size:var(--text-table-size);color:var(--texto-secundario);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-linha-tratamento b{color:var(--texto-primario);font-weight:600}
+
+/* ---------- Coluna 1: a lista (comum aos dois modos) ---------- */
 .wa-lista-topo{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-3) var(--space-2) var(--space-4)}
 .wa-lista-topo h1{font-size:var(--text-h3-size);font-weight:var(--text-h3-weight);margin:0;flex:1;min-width:0;display:flex;align-items:baseline;gap:var(--space-2)}
 .wa-lista-topo h1 small{font-size:var(--text-small-size);font-weight:500;color:var(--texto-secundario)}
@@ -1324,6 +1344,17 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
 .wa-modelo-previa var{font-style:normal;background:var(--superficie);border-radius:var(--radius-pequeno);padding:0 4px;color:var(--acento);font-weight:600}
 .wa-modelo-form .botoes-linha{justify-content:flex-end}
 
+/* ---------- Coluna 3, no modo Retenção: o CASO do Acompanhamento vem antes da ficha ---------- */
+.wa-caso{background:var(--superficie)}
+.wa-caso h4{margin:var(--space-2) 0 0;font-size:var(--text-small-size);font-weight:700;color:var(--texto-secundario);text-transform:uppercase;letter-spacing:var(--text-secao-tracking)}
+.wa-desfechos{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.wa-desfechos .botao.mini{height:30px}
+.wa-convite{margin:var(--space-2) var(--space-6) var(--space-4);padding:var(--space-4);border:1px solid var(--verde-100);border-radius:var(--radius-card);background:var(--superficie);
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3) var(--space-4);box-shadow:var(--sombra-cartao)}
+.wa-convite .wa-janela-ic{background:var(--verde-100);color:var(--sucesso-forte)}
+.wa-convite .wa-janela-texto strong{margin-bottom:2px}
+@media (max-width:1180px){.wa-convite{margin-left:var(--space-4);margin-right:var(--space-4)}}
+
 /* ---------- Coluna 3: o paciente, lido do Clinica ---------- */
 .wa-ficha{overflow-y:auto}
 .wa-ficha-topo{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-3) 0 var(--space-4)}
@@ -1382,7 +1413,11 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
   .wa-acao,.wa-escrever,.wa-janela-fechada,.wa-encerrada{margin-left:var(--space-4);margin-right:var(--space-4)}
   .wa-popover{left:var(--space-4);right:var(--space-4)}
   /* Sem a coluna da ficha, a bolinha do chat da equipe cai sobre o canto do Enviar: o rodapé deixa o lugar dela. */
-  .wa-escrever-rodape{padding-right:calc(var(--space-12) + var(--space-8))}
+  .wa-escrever-rodape,.wa-convite,.wa-janela-fechada{padding-right:calc(var(--space-12) + var(--space-8))}
+  /* A lista tem 300 px: o seletor de modo perde o ícone e os filtros apertam. */
+  .wa-modo .icone{display:none}
+  .wa-modo button{padding:6px 6px;font-size:var(--text-table-size)}
+  .wa-filtros .segmentado button{padding:5px 4px;font-size:var(--text-small-size);white-space:nowrap}
 }
 /* Celular: um painel por vez — a lista, e a conversa por cima dela com "voltar". */
 .wa-voltar{display:none}
@@ -1478,7 +1513,8 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
     <!-- Coluna 1: a lista (do CRM) -->
     <aside class="wa-lista" aria-label="Conversas">
       <div class="wa-lista-topo">
-        <h1>Conversas <small id="wa-total"></small></h1>
+        <h1 class="sr-so"><span id="wa-total"></span></h1>
+        <div class="segmentado wa-modo" role="group" aria-label="O que a lista mostra" id="wa-modo"></div>
         <button type="button" class="botao icone" id="wa-nova" title="Nova conversa" aria-label="Nova conversa"><svg class='icone' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' focusable='false'><path d='M12 5v14M5 12h14'/></svg></button>
       </div>
       <div class="wa-filtros">
@@ -1489,7 +1525,7 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
         </div>
       </div>
       <div class="wa-linhas" id="wa-linhas" role="listbox" aria-label="Lista de conversas"></div>
-      <div class="wa-lista-rodape"><span class="wa-ponto" aria-hidden="true"></span><span>(22) 3333-0000 · WhatsApp Business · conectado</span></div>
+      <div class="wa-lista-rodape" id="wa-lista-rodape"></div>
     </aside>
 
     <!-- Coluna 2: a conversa (do CRM) -->
@@ -1508,7 +1544,7 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
 <div class="notificacoes" id="wa-notificacoes" aria-live="polite"></div>
 
 <script>
-const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/><path d='M10.3 21a1.94 1.94 0 0 0 3.4 0'/>", "busca": "<circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/>", "atualizar": "<path d='M21 12a9 9 0 1 1-2.64-6.36'/><path d='M21 3v6h-6'/>", "mais": "<path d='M12 5v14M5 12h14'/>", "chat": "<path d='M21 12a8 8 0 0 1-11.6 7.2L4 21l1.8-5.4A8 8 0 1 1 21 12z'/>", "pessoa": "<circle cx='12' cy='8' r='4'/><path d='M4 21a8 8 0 0 1 16 0'/>", "transferir": "<path d='M4 7h13'/><path d='m14 4 3 3-3 3'/><path d='M20 17H7'/><path d='m10 14-3 3 3 3'/>", "check": "<path d='m5 12 5 5 9-10'/>", "ficha": "<rect x='4' y='3' width='16' height='18' rx='2'/><path d='M8 8h8M8 12h8M8 16h5'/>", "alerta": "<circle cx='12' cy='12' r='9'/><path d='M12 8v5M12 16h.01'/>", "info": "<circle cx='12' cy='12' r='9'/><path d='M12 11v5M12 8h.01'/>", "cal": "<rect x='3' y='5' width='18' height='16' rx='2'/><path d='M3 10h18M8 3v4M16 3v4'/>", "nota": "<path d='M4 4h12l4 4v12H4z'/><path d='M8 13h8M8 17h5'/>", "anexo": "<path d='m21 12-8.5 8.5a5 5 0 0 1-7-7L14 5a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 8'/>", "modelo": "<rect x='4' y='4' width='16' height='16' rx='2'/><path d='M4 10h16M10 10v10'/>", "enviar": "<path d='m3 11 18-8-8 18-2-8z'/>", "lido": "<path d='m2 12 4 4 7-8'/><path d='m10 16 1 1 9-10'/>", "tick": "<path d='m4 12 5 5 11-11'/>", "ticks": "<path d='m2 12 4 4 7-8'/><path d='m10 16 1 1 9-10'/>", "relogio": "<circle cx='12' cy='12' r='9'/><path d='M12 7v5l3 2'/>", "cadeado": "<rect x='5' y='11' width='14' height='10' rx='2'/><path d='M8 11V8a4 4 0 0 1 8 0v3'/>", "fechar": "<path d='M6 6l12 12M18 6 6 18'/>", "bolt": "<path d='M13 3 5 14h6l-1 7 8-11h-6z'/>", "esquerda": "<path d='m15 18-6-6 6-6'/>", "sms": "<rect x='3' y='5' width='18' height='14' rx='2'/><path d='M7 10h10M7 14h6'/>", "arquivo": "<path d='M6 3h8l4 4v14H6z'/><path d='M14 3v4h4'/>", "vazio": "<rect x='4' y='4' width='16' height='16' rx='3'/><path d='M4 13h4l2 3h4l2-3h4'/>"};
+const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'/><path d='M10.3 21a1.94 1.94 0 0 0 3.4 0'/>", "busca": "<circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/>", "atualizar": "<path d='M21 12a9 9 0 1 1-2.64-6.36'/><path d='M21 3v6h-6'/>", "mais": "<path d='M12 5v14M5 12h14'/>", "chat": "<path d='M21 12a8 8 0 0 1-11.6 7.2L4 21l1.8-5.4A8 8 0 1 1 21 12z'/>", "pessoa": "<circle cx='12' cy='8' r='4'/><path d='M4 21a8 8 0 0 1 16 0'/>", "transferir": "<path d='M4 7h13'/><path d='m14 4 3 3-3 3'/><path d='M20 17H7'/><path d='m10 14-3 3 3 3'/>", "check": "<path d='m5 12 5 5 9-10'/>", "ficha": "<rect x='4' y='3' width='16' height='18' rx='2'/><path d='M8 8h8M8 12h8M8 16h5'/>", "alerta": "<circle cx='12' cy='12' r='9'/><path d='M12 8v5M12 16h.01'/>", "info": "<circle cx='12' cy='12' r='9'/><path d='M12 11v5M12 8h.01'/>", "cal": "<rect x='3' y='5' width='18' height='16' rx='2'/><path d='M3 10h18M8 3v4M16 3v4'/>", "nota": "<path d='M4 4h12l4 4v12H4z'/><path d='M8 13h8M8 17h5'/>", "anexo": "<path d='m21 12-8.5 8.5a5 5 0 0 1-7-7L14 5a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 8'/>", "modelo": "<rect x='4' y='4' width='16' height='16' rx='2'/><path d='M4 10h16M10 10v10'/>", "enviar": "<path d='m3 11 18-8-8 18-2-8z'/>", "lido": "<path d='m2 12 4 4 7-8'/><path d='m10 16 1 1 9-10'/>", "tick": "<path d='m4 12 5 5 11-11'/>", "ticks": "<path d='m2 12 4 4 7-8'/><path d='m10 16 1 1 9-10'/>", "relogio": "<circle cx='12' cy='12' r='9'/><path d='M12 7v5l3 2'/>", "cadeado": "<rect x='5' y='11' width='14' height='10' rx='2'/><path d='M8 11V8a4 4 0 0 1 8 0v3'/>", "fechar": "<path d='M6 6l12 12M18 6 6 18'/>", "bolt": "<path d='M13 3 5 14h6l-1 7 8-11h-6z'/>", "esquerda": "<path d='m15 18-6-6 6-6'/>", "sms": "<rect x='3' y='5' width='18' height='14' rx='2'/><path d='M7 10h10M7 14h6'/>", "arquivo": "<path d='M6 3h8l4 4v14H6z'/><path d='M14 3v4h4'/>", "vazio": "<rect x='4' y='4' width='16' height='16' rx='3'/><path d='M4 13h4l2 3h4l2-3h4'/>", "coracao": "<path d='M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z'/>"};
 /* O mockup interativo da tela "WhatsApp da clínica" (proposta, out/2026).
    Dados fictícios + renderização em JS puro, para a direção CLICAR antes de o Razor existir.
    No app, cada função daqui tem um dono: o que a tela AFIRMA (selo, janela de 24 h, o que
@@ -1660,7 +1696,41 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
         { tipo: 'recebida', hora: '11:28', texto: 'Ta bom obrigado' },
         { tipo: 'evento', tom: 'ok', hora: '11:30', texto: 'Encerrada por Bruna · Agendado' }],
     },
+    {
+      id: 'alzira', nome: 'Alzira Pinto', telefone: '(22) 99501-2020', iniciais: 'AP', tom: 'teal', canal: 'wa', fila: 'Recepção', responsavel: 'bruna', naoLidas: 1, hora: 'ontem', ordem: 650, retencao: 'alzira',
+      janela: { aberta: true, ate: 'hoje às 17:40' }, ficha: { estado: 'conferida', numero: '1.388', quando: '2024' },
+      paciente: { nome: 'Alzira Pinto', numero: '1.388', idade: '71 anos · 03/04/1955', desde: 'paciente desde 2024', telefoneConfere: true, convenio: 'Unimed · 0 064 2211 3344 0', carteirinha: { texto: 'vale até 2027', tom: 'sucesso' }, documento: '···.···.···-77', autorizacao: 'Autorizou no termo do BSV · 15/01', tratamento: ['Em tratamento · BSV', 'Sem vir há 16 dias'] },
+      situacao: 'retorno-respondeu',
+      horarios: [], confirmacao: [], acompanhamento: [],
+      mensagens: [
+        { tipo: 'dia', texto: 'Quarta-feira, 22/10' },
+        { tipo: 'enviada', autor: 'Bruna', hora: '15:12', estado: 'lida', modelo: 'retorno_tratamento', texto: 'Olá, Alzira! Sentimos sua falta no BSV: já são 14 dias desde a última sessão. Quer que a gente veja um horário para você?' },
+        { tipo: 'dia', texto: 'Ontem · quinta-feira, 23/10' },
+        { tipo: 'recebida', hora: '17:40', texto: 'Oi Bruna, obrigada por lembrar. Eu quero voltar sim, mas só em novembro, depois da viagem da minha filha', nova: true },
+        { tipo: 'evento', tom: 'ok', hora: '17:40', texto: 'Respondeu ao convite · o caso saiu de "Aguardando" e pede o <b>Como foi?</b>' }],
+    },
   ];
+  const pac = (nome, numero, idade, convenio, autorizou, tratamento) => ({ nome, numero, idade, desde: 'paciente desde 2024', telefoneConfere: true, convenio, carteirinha: convenio === 'Particular' ? null : { texto: 'vale até 2027', tom: 'sucesso' }, documento: '···.···.···-' + numero.slice(-2), autorizacao: autorizou ? 'Autorizou no termo do BSV' : 'Não autorizou mensagens (termo de 2025) · a ação é ligar', tratamento: ['Em tratamento · ' + tratamento] });
+  // RETENÇÃO = o Acompanhamento da Recepção (TipoAcompanhamento Recall e NovoBsv), lido do Clinica. Dias sem vir: os do Gerente.
+  const GRUPOS = [
+    { id: 'respondeu', titulo: 'Responderam · decidir o próximo passo', tom: 'sucesso' },
+    { id: '30', titulo: 'Sem vir há 30 dias', tom: 'perigo' }, { id: '20', titulo: 'Sem vir há 20 dias', tom: 'aviso' }, { id: '15', titulo: 'Sem vir há 15 dias', tom: 'neutro' },
+    { id: 'novo-bsv', titulo: 'Novos no BSV · como se sentiu?', tom: 'neutro' }, { id: 'retorno-pedido', titulo: 'Retornos pedidos no atendimento', tom: 'neutro' },
+    { id: 'aguardando', titulo: 'Aguardando', tom: 'neutro' }, { id: 'fechado', titulo: 'Fechados esta semana', tom: 'neutro' }];
+  const RETENCAO = [
+    { id: 'seb', nome: 'Sebastião Ramos', iniciais: 'SR', tom: 'azul', telefone: '(22) 99120-4477', tratamento: 'BSV', grupo: '30', ultima: '22/09', dias: 32, sessoes: '6 de 10 · pacote com saldo', autorizou: true, situacao: 'para-hoje', resp: null, contatos: [], paciente: pac('Sebastião Ramos', '1.740', '63 anos · 11/02/1963', 'Unimed · 0 064 3300 1122 9', true, 'BSV') },
+    { id: 'helena', nome: 'Helena Marques', iniciais: 'HM', tom: 'rosa', telefone: '(22) 99877-0101', tratamento: 'Acupuntura', grupo: '30', ultima: '24/09', dias: 30, sessoes: '3 de 10', autorizou: false, situacao: 'para-hoje', resp: null, contatos: [], paciente: pac('Helena Marques', '2.015', '49 anos · 27/08/1977', 'Bradesco Saúde · 0101 9988 7', false, 'Acupuntura') },
+    { id: 'marcos', nome: 'Marcos Vinícius Teles', iniciais: 'MT', tom: 'violeta', telefone: '(22) 99311-8899', tratamento: 'BSV e acupuntura', grupo: '20', ultima: '03/10', dias: 21, sessoes: 'BSV 4 de 10 · acupuntura 7 de 10', autorizou: true, situacao: 'para-hoje', resp: 'ana', contatos: [{ quando: '17/10', texto: 'Faltou à sessão marcada · sem aviso' }], paciente: pac('Marcos Vinícius Teles', '2.388', '44 anos · 09/12/1981', 'Particular', true, 'BSV e acupuntura') },
+    { id: 'fernanda', nome: 'Fernanda Nogueira', iniciais: 'FN', tom: 'rosa', telefone: '(22) 99877-4455', tratamento: 'Acupuntura', grupo: '20', ultima: '04/10', dias: 20, sessoes: '4 de 10', autorizou: true, situacao: 'aguardando', seloAguardo: 'Convite enviado ontem', resp: 'bruna', convId: 'fernanda', contatos: [{ quando: 'ontem', texto: 'Convite para voltar enviado pelo WhatsApp · Bruna' }], paciente: null },
+    { id: 'rita', nome: 'Rita de Cássia Lopes', iniciais: 'RL', tom: 'ciano', telefone: '(22) 99455-6677', tratamento: 'Acupuntura', grupo: '15', ultima: '09/10', dias: 15, sessoes: '8 de 10', autorizou: true, situacao: 'para-hoje', resp: null, contatos: [], paciente: pac('Rita de Cássia Lopes', '2.771', '57 anos · 14/06/1969', 'Unimed · 0 064 7766 5544 3', true, 'Acupuntura') },
+    { id: 'alzira', nome: 'Alzira Pinto', iniciais: 'AP', tom: 'teal', telefone: '(22) 99501-2020', tratamento: 'BSV', grupo: '15', ultima: '08/10', dias: 16, sessoes: '5 de 10', autorizou: true, situacao: 'respondeu', resp: 'bruna', convId: 'alzira', contatos: [{ quando: 'ontem', texto: 'Respondeu: quer voltar em novembro, depois da viagem da filha' }, { quando: '22/10', texto: 'Convite para voltar enviado pelo WhatsApp · Bruna' }], paciente: null },
+    { id: 'felipe', nome: 'Felipe Arantes', iniciais: 'FA', tom: 'laranja', telefone: '(22) 99222-3131', tratamento: 'BSV', grupo: 'novo-bsv', ultima: '21/10', dias: 3, sessoes: '1ª sessão · 21/10 · Dr. Marcos', autorizou: true, situacao: 'para-hoje', resp: null, contatos: [], paciente: pac('Felipe Arantes', '3.402', '38 anos · 05/05/1988', 'Particular', true, 'BSV') },
+    { id: 'claudia', nome: 'Cláudia Reis', iniciais: 'CR', tom: 'violeta', telefone: '(22) 99666-0202', tratamento: 'BSV', grupo: 'novo-bsv', ultima: '22/10', dias: 2, sessoes: '1ª sessão · 22/10 · Dr. Marcos', autorizou: true, situacao: 'para-hoje', resp: null, contatos: [], paciente: pac('Cláudia Reis', '3.410', '52 anos · 30/10/1973', 'Unimed · 0 064 9090 1212 3', true, 'BSV') },
+    { id: 'paulo', nome: 'Paulo Henrique Dias', iniciais: 'PD', tom: 'azul', telefone: '(22) 99808-5050', tratamento: 'Acupuntura', grupo: 'retorno-pedido', ultima: '25/09', dias: 29, sessoes: 'Pediu retorno em 30 dias · para esta semana', autorizou: true, situacao: 'para-hoje', resp: null, contatos: [{ quando: '25/09', texto: 'Saiu do atendimento com pedido de retorno em 30 dias (Dra. Helena)' }], paciente: pac('Paulo Henrique Dias', '1.902', '61 anos · 17/03/1965', 'Unimed · 0 064 4455 6677 8', true, 'Acupuntura') },
+    { id: 'ines', nome: 'Inês Barreto', iniciais: 'IB', tom: 'teal', telefone: '(22) 99700-1234', tratamento: 'Acupuntura', grupo: '20', ultima: '01/10', dias: 23, sessoes: '5 de 10', autorizou: true, situacao: 'fechado', desfecho: 'Voltou · marcado qui 30/10 09:30', resp: 'ana', contatos: [{ quando: 'qua', texto: 'Quer marcar · horário marcado para 30/10 · Ana Paula' }, { quando: 'ter', texto: 'Convite enviado pelo WhatsApp · Ana Paula' }], paciente: null },
+    { id: 'geraldo', nome: 'Geraldo Nunes', iniciais: 'GN', tom: 'cinza', telefone: '(22) 99100-9900', tratamento: 'BSV', grupo: '30', ultima: '15/09', dias: 39, sessoes: '2 de 10', autorizou: true, situacao: 'fechado', desfecho: 'Não quer voltar · mudou de cidade', resp: 'bruna', contatos: [{ quando: 'seg', texto: 'Não quer voltar: mudou para Campos · Bruna' }], paciente: null },
+  ];
+  const itemRet = id => RETENCAO.find(r => r.id === id);
   const CANDIDATAS_TEREZINHA = [
     { id: 'pedro', nome: 'Pedro Henrique Souza', iniciais: 'PS', tom: 'violeta', nasc: '14/05/2017 · 9 anos', doc: 'final 07', resp: 'Terezinha Souza', proxima: 'sáb 25/10 09:00 · Acupuntura', ultima: '17/10' },
     { id: 'terezinha', nome: 'Terezinha Souza', iniciais: 'TS', tom: 'rosa', nasc: '02/08/1965 · 61 anos', doc: 'final 31', resp: null, proxima: 'nenhuma', ultima: '02/09 · BSV' }];
@@ -1673,10 +1743,11 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
     { id: 's1', conversa: 'maria', tom: 'nao-vem', icone: 'alerta', titulo: '<strong>Maria das Graças Silva</strong> · Não vem — remarcar', meta: 'hoje 14:00 · respondeu às 09:58', naoLida: true },
     { id: 's2', conversa: 'carlos', tom: 'sem-resposta', icone: 'relogio', titulo: '<strong>Carlos Eduardo Mota</strong> · Sem resposta', meta: 'hoje 16:00 · lembrete lido às 07:12, sem resposta há 3 h', naoLida: true },
     { id: 's3', conversa: 'terezinha', tom: 'pedido', icone: 'pessoa', titulo: '<strong>Terezinha Souza</strong> · 2 fichas com este telefone', meta: '09:12 · conferir antes de responder', naoLida: true },
+    { id: 's4', conversa: 'alzira', tom: 'confirmou', icone: 'check', titulo: '<strong>Alzira Pinto</strong> · respondeu ao convite para voltar', meta: 'ontem 17:40 · "quero voltar em novembro" · decidir o próximo passo', naoLida: true },
   ];
 
   // ---------- estado ----------
-  const estado = { atual: null, filtro: 'novas', busca: '', soNaoLidas: false, buscaConversa: null, popover: null, fichaAberta: false, mariaRespondeu: false };
+  const estado = { atual: null, modo: 'conversas', filtroRet: 'hoje', filtro: 'novas', busca: '', soNaoLidas: false, buscaConversa: null, popover: null, fichaAberta: false, mariaRespondeu: false };
   const conv = id => CONVERSAS.find(c => c.id === id);
 
   // O que a tela AFIRMA sobre cada conversa (no app: ConversasNaTela, com teste).
@@ -1692,7 +1763,19 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
     'cancelado': c => ({ tom: 'neutro', texto: 'Horário cancelado' }),
     'em-atendimento': c => ({ tom: 'neutro', texto: 'Em atendimento' }),
     'encerrada': c => ({ tom: 'neutro', texto: 'Encerrada · ' + (c.encerrada ? c.encerrada.resultado : '') }),
+    'retorno-respondeu': c => ({ tom: 'sucesso', texto: 'Respondeu ao convite · decidir' }),
+    'retencao': c => seloRet(itemRet(c.retencao)),
   };
+  function seloRet(r) {
+    if (!r) return { tom: 'neutro', texto: 'Acompanhamento' };
+    if (r.situacao === 'fechado') return { tom: r.desfecho.startsWith('Voltou') ? 'sucesso' : 'neutro', texto: r.desfecho };
+    if (r.situacao === 'respondeu') return { tom: 'sucesso', texto: 'Respondeu · decidir o próximo passo' };
+    if (r.situacao === 'aguardando') return { tom: 'info', texto: r.seloAguardo || 'Aguardando' };
+    if (!r.autorizou) return { tom: 'aviso', texto: 'Sem autorização · ligar' };
+    if (r.grupo === 'novo-bsv') return { tom: 'info', texto: 'Perguntar como se sentiu' };
+    if (r.grupo === 'retorno-pedido') return { tom: 'info', texto: 'Retorno pedido · convidar' };
+    return { tom: 'sucesso', texto: 'Pode escrever · autorizou' };
+  }
   const selo = c => (SELOS[c.situacao] || SELOS['em-atendimento'])(c);
   const ultimaMensagem = c => [...c.mensagens].reverse().find(m => m.tipo === 'recebida' || m.tipo === 'enviada' || m.tipo === 'nota');
   const primeiroNome = c => c.paciente ? c.paciente.nome.split(' ')[0] : (c.nome.startsWith('(') ? '' : c.nome.split(' ')[0]);
@@ -1729,7 +1812,29 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
     { id: 'todas', rotulo: 'Todas', conta: () => CONVERSAS.filter(c => !c.encerrada).length, filtra: c => !c.encerrada },
     { id: 'encerradas', rotulo: 'Encerradas', conta: null, filtra: c => !!c.encerrada },
   ];
+  const FILTROS_RET = [
+    { id: 'hoje', rotulo: 'Para hoje', conta: () => RETENCAO.filter(r => r.situacao === 'para-hoje' || r.situacao === 'respondeu').length, filtra: r => r.situacao === 'para-hoje' || r.situacao === 'respondeu' },
+    { id: 'aguardando', rotulo: 'Aguardando', conta: () => RETENCAO.filter(r => r.situacao === 'aguardando').length, filtra: r => r.situacao === 'aguardando' },
+    { id: 'fechados', rotulo: 'Fechados', conta: () => RETENCAO.filter(r => r.situacao === 'fechado').length, filtra: r => r.situacao === 'fechado' },
+  ];
+  function renderModo() {
+    const hoje = FILTROS_RET[0].conta(); const novas = FILTROS[0].conta();
+    $('#wa-modo').innerHTML = `<button type="button" aria-pressed="${estado.modo === 'conversas'}" data-modo="conversas">${ic('chat')}Conversas ${novas ? `<b>${novas}</b>` : ''}</button><button type="button" aria-pressed="${estado.modo === 'retencao'}" data-modo="retencao" title="O Acompanhamento: quem está em tratamento e sumiu, os novos no BSV e os retornos pedidos">${ic('coracao')}Retenção ${hoje ? `<b>${hoje}</b>` : ''}</button>`;
+    $('#wa-modo').querySelectorAll('button').forEach(b => b.onclick = () => { estado.modo = b.dataset.modo; estado.busca = ''; $('#wa-busca').value = ''; renderFiltro(); renderLista(); });
+    $('#wa-busca').placeholder = estado.modo === 'retencao' ? 'Nome do paciente' : 'Nome ou telefone';
+    $('#wa-so-nao-lidas').hidden = estado.modo === 'retencao';
+    $('#wa-lista-rodape').innerHTML = estado.modo === 'retencao'
+      ? `${ic('info')}<span>Só quem está em tratamento: BSV, acupuntura ou os dois. Dias e filas são os do Gerente (Configurações). Um por um, revisado: aqui não há disparo em massa.</span>`
+      : `<span class="wa-ponto" aria-hidden="true"></span><span>(22) 3333-0000 · WhatsApp Business · conectado</span>`;
+  }
   function renderFiltro() {
+    renderModo();
+    if (estado.modo === 'retencao') {
+      $('#wa-filtro').innerHTML = FILTROS_RET.map(f => `<button type="button" aria-pressed="${estado.filtroRet === f.id}" data-filtro="${f.id}">${f.rotulo} <b>${f.conta()}</b></button>`).join('');
+      $('#wa-filtro').querySelectorAll('button').forEach(b => b.onclick = () => { estado.filtroRet = b.dataset.filtro; renderFiltro(); renderLista(); });
+      $('#wa-total').textContent = `${FILTROS_RET[0].conta()} para hoje`;
+      return;
+    }
     $('#wa-filtro').innerHTML = FILTROS.map(f => `<button type="button" aria-pressed="${estado.filtro === f.id}" data-filtro="${f.id}">${f.rotulo}${f.conta ? ` <b>${f.conta()}</b>` : ''}</button>`).join('');
     $('#wa-filtro').querySelectorAll('button').forEach(b => b.onclick = () => { estado.filtro = b.dataset.filtro; renderFiltro(); renderLista(); });
     $('#wa-total').textContent = `${CONVERSAS.filter(c => !c.encerrada).length} abertas`;
@@ -1746,9 +1851,39 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
     return `<span class="wa-tick ${estado === 'lida' ? 'lida' : ''} ${estado === 'falhou' ? 'falhou' : ''}" title="${{ enviando: 'Enviando', enviada: 'Enviada', entregue: 'Entregue', lida: 'Lida', falhou: 'Falhou' }[estado] || ''}">${ic(estado === 'falhou' ? 'alerta' : nome)}</span>`;
   }
   const avatar = (c, cls) => `<span class="avatar tom-${c.tom} ${cls || ''}" aria-hidden="true">${h(c.iniciais)}${c.canal ? `<span class="wa-canal ${c.canal === 'sms' ? 'sms' : ''}" title="${c.canal === 'sms' ? 'SMS' : 'WhatsApp'}">${ic(c.canal === 'sms' ? 'sms' : 'chat')}</span>` : ''}</span>`;
+  function renderListaRet() {
+    const f = FILTROS_RET.find(x => x.id === estado.filtroRet); const q = estado.busca.trim().toLowerCase(); const raiz = $('#wa-linhas');
+    const itens = RETENCAO.filter(f.filtra).filter(r => !q || r.nome.toLowerCase().includes(q));
+    let html = `<div class="wa-resumo">Semana: <b>9</b> contatados · <b>6</b> voltaram (<b>67%</b>) · quem voltou sem contato não entra na conta.</div>`;
+    if (!itens.length) html += `<div class="vazio-estado">${ic('check')}<strong>${q ? 'Ninguém com esse nome' : 'Ninguém para hoje'}</strong><span>${q ? 'Confira o nome.' : 'Todo mundo em tratamento veio ou já foi contatado.'}</span></div>`;
+    GRUPOS.forEach(g => {
+      const do_grupo = itens.filter(r => (estado.filtroRet === 'hoje' ? (r.situacao === 'respondeu' ? 'respondeu' : r.grupo) : estado.filtroRet === 'aguardando' ? 'aguardando' : 'fechado') === g.id);
+      if (!do_grupo.length) return;
+      html += `<div class="wa-grupo">${h(g.titulo)}<span>${do_grupo.length}</span></div>` + do_grupo.map(r => { const s = seloRet(r); const conv = r.convId ? CONVERSAS.find(c => c.id === r.convId) : null;
+        return `<button type="button" role="option" class="wa-linha ${conv && conv.naoLidas ? 'nao-lida' : ''}" data-ret="${r.id}" aria-current="${estado.atual === (conv ? conv.id : 'ret-' + r.id)}">
+          <span class="avatar tom-${r.tom}" aria-hidden="true">${h(r.iniciais)}</span>
+          <span class="wa-linha-corpo">
+            <span class="wa-linha-topo"><span class="wa-linha-nome">${h(r.nome)}</span><span class="wa-dias tom-${g.id === 'novo-bsv' ? 'sucesso' : g.tom}">${r.grupo === 'novo-bsv' ? '1ª sessão há ' + r.dias + ' d' : r.dias + ' dias'}</span></span>
+            <span class="wa-linha-tratamento"><b>${h(r.tratamento)}</b> · última ${h(r.ultima)} · ${h(r.sessoes)}</span>
+            <span class="wa-linha-rodape"><span class="selo tom-${s.tom}">${h(s.texto)}</span><span class="wa-linha-quem ${r.resp === EU.id ? 'minha' : ''}">${r.resp ? ic('pessoa') : ''}${h(r.resp === EU.id ? 'Você' : nomeDe(r.resp))}</span></span>
+          </span></button>`; }).join('');
+    });
+    raiz.innerHTML = html;
+    raiz.querySelectorAll('.wa-linha').forEach(b => b.onclick = () => abrirRetencao(b.dataset.ret));
+  }
+  function conversaDeRetencao(r) {
+    if (r.convId) { const c = CONVERSAS.find(x => x.id === r.convId); if (c) { c.retencao = r.id; return c; } }
+    const id = 'ret-' + r.id; let c = CONVERSAS.find(x => x.id === id); if (c) return c;
+    c = { id, nome: r.nome, telefone: r.telefone, iniciais: r.iniciais, tom: r.tom, canal: 'wa', fila: 'Recepção', responsavel: r.resp, naoLidas: 0, hora: '', ordem: 0, oculta: true, retencao: r.id,
+      janela: { aberta: false, desde: 'sempre: a pessoa ainda não escreveu' }, ficha: { estado: 'conferida', numero: r.paciente.numero, quando: '2024' }, paciente: r.paciente, situacao: 'retencao',
+      horarios: [], confirmacao: [], acompanhamento: [], modo: 'responder', rascunho: '', mensagens: [{ tipo: 'dia', texto: 'Hoje · sexta-feira, 24/10' }] };
+    CONVERSAS.push(c); return c;
+  }
+  function abrirRetencao(id) { const r = itemRet(id); const c = conversaDeRetencao(r); abrir(c.id); }
   function renderLista() {
+    if (estado.modo === 'retencao') return renderListaRet();
     const f = FILTROS.find(x => x.id === estado.filtro); const q = estado.busca.trim().toLowerCase();
-    const lista = CONVERSAS.filter(f.filtra).filter(c => !estado.soNaoLidas || c.naoLidas > 0)
+    const lista = CONVERSAS.filter(f.filtra).filter(c => !(c.oculta && !ultimaMensagem(c))).filter(c => !estado.soNaoLidas || c.naoLidas > 0)
       .filter(c => !q || c.nome.toLowerCase().includes(q) || c.telefone.replace(/\D/g, '').includes(q.replace(/\D/g, '') || '§') || selo(c).texto.toLowerCase().includes(q))
       .sort((a, b) => b.ordem - a.ordem);
     const raiz = $('#wa-linhas');
@@ -1802,6 +1937,7 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
         <span>${c.responsavel ? (minha ? 'Com <b>você</b>' : 'Com <b>' + h(nomeDe(c.responsavel)) + '</b>') : 'Sem responsável'}</span><i></i>
         ${c.canal === 'sms' ? `<span class="selo tom-neutro">${ic('sms')}SMS · sem janela de 24 h</span>` : c.janela.aberta ? `<span class="selo tom-info" title="A Meta aceita texto livre por 24 h depois da última mensagem do paciente">${ic('relogio')}Janela aberta até ${h(c.janela.ate)}</span>` : `<span class="selo tom-neutro" title="Fora da janela de 24 h, só modelo aprovado">${ic('cadeado')}Janela fechada desde ${h(c.janela.desde)}</span>`}
         ${c.horarios.length ? `<i></i><span>${ic('cal')} ${h(c.horarios[0].quando)} · ${h(c.horarios[0].detalhe.split(' · ').slice(0, 2).join(' · '))}</span>` : ''}
+        ${c.retencao && itemRet(c.retencao) ? `<i></i><span class="selo tom-${seloRet(itemRet(c.retencao)).tom}">${ic('coracao')}Retenção · ${h(itemRet(c.retencao).tratamento)} · ${itemRet(c.retencao).grupo === 'novo-bsv' ? '1ª sessão ' + h(itemRet(c.retencao).ultima) : 'sem vir há ' + itemRet(c.retencao).dias + ' dias'}</span>` : ''}
       </div>
       ${estado.buscaConversa !== null ? `<div class="wa-busca-conversa"><div class="busca">${ic('busca')}<input class="campo" id="wa-busca-conversa" type="search" placeholder="Buscar nesta conversa e nas notas" aria-label="Buscar nesta conversa" value="${h(estado.buscaConversa)}" autocomplete="off" /></div><small id="wa-busca-conta"></small><button type="button" class="botao icone fantasma" data-acao="buscar" aria-label="Fechar a busca">${ic('fechar')}</button></div>` : ''}
       <div class="wa-mensagens" id="wa-mensagens" role="log" aria-label="Mensagens">${renderMensagens(c)}</div>
@@ -1836,15 +1972,33 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
       'sem-resposta': () => { const hor = c.horarios.find(x => x.estado === 'sem-resposta'); return hor ? aviso('atencao', 'relogio', `${h(primeiroNome(c))} leu o lembrete das 06:00 e não respondeu (${h(hor.quando.toLowerCase())}).`, 'Ligou? Registre aqui o que ele disse: a agenda do dia e o Gerente veem na hora.', `<button type="button" class="botao mini primario" data-acao="confirmar" data-horario="${hor.id}">${ic('check')}Confirmou por telefone</button><button type="button" class="botao mini contorno-perigo" data-acao="nao-vem" data-horario="${hor.id}">Não vem</button>`) : ''; },
       'fichas': () => aviso('info', 'pessoa', 'Duas fichas têm este telefone.', 'Confira com quem está no telefone antes de responder: a ficha ligada aqui nunca troca sozinha.', `<button type="button" class="botao mini primario" data-acao="conferir-ficha">Conferir a ficha</button>`),
       'novo': () => aviso('info', 'pessoa', 'Novo contato, ainda sem ficha.', 'Se a pessoa já é paciente, ligue a ficha; senão, cadastre pelo app com o telefone preenchido.', `<button type="button" class="botao mini primario" data-acao="focar-busca-ficha">${ic('busca')}Buscar ficha</button><button type="button" class="botao mini" data-acao="cadastrar">Cadastrar paciente</button>`),
-      'retorno': () => aviso('info', 'cal', `${h(primeiroNome(c))} está há 20 dias sem vir (acupuntura).`, 'O convite saiu ontem pelo modelo aprovado. Quando ela responder, a janela abre e você escreve livre.', `<button type="button" class="botao mini" data-acao="acompanhamento">Ver no Acompanhamento</button>`),
+      'retorno': () => aviso('info', 'cal', `${h(primeiroNome(c))} está há 20 dias sem vir (acupuntura).`, 'O convite saiu ontem pelo modelo aprovado. Quando ela responder, a janela abre e você escreve livre.', `<button type="button" class="botao mini" data-acao="ret-nao-respondeu">Não respondeu · tentar em 7 dias</button>`),
+      'retorno-respondeu': () => avisoRet(c),
+      'retencao': () => avisoRet(c),
     };
     return A[c.situacao] ? A[c.situacao]() : '';
+  }
+  const DESFECHOS = `<button type="button" class="botao mini primario" data-acao="ret-marcar">${'${ic("cal")}'}Quer marcar</button><button type="button" class="botao mini" data-acao="ret-outra-data">Pediu outra data</button><button type="button" class="botao mini" data-acao="ret-plano">Aguardando plano</button><button type="button" class="botao mini" data-acao="ret-nao-respondeu">Não respondeu</button><button type="button" class="botao mini contorno-perigo" data-acao="ret-nao-quer">Não quer voltar</button>`;
+  const desfechos = () => DESFECHOS.replace('${ic("cal")}', ic('cal'));
+  function avisoRet(c) {
+    const r = itemRet(c.retencao); if (!r) return '';
+    const nome = h(primeiroNome(c));
+    if (r.situacao === 'para-hoje' && !ultimaMensagem(c)) return ''; // o bloco do convite, embaixo, já diz e já tem os botões
+    if (r.situacao === 'fechado') return aviso('sucesso', 'check', `Caso fechado: ${h(r.desfecho)}.`, 'Se a pessoa escrever, a conversa continua normalmente.', '');
+    if (r.situacao === 'respondeu') return aviso('sucesso', 'check', `${nome} respondeu ao convite. Como foi?`, 'O desfecho grava a etapa do Acompanhamento e o próximo contato; "Quer marcar" abre as vagas da agenda.', desfechos());
+    if (r.situacao === 'aguardando') return aviso('info', 'relogio', `Convite enviado · aguardando ${nome}.`, 'Quando a pessoa responder, a janela de 24 h abre e o caso volta para "Para hoje". Sem resposta, o próximo contato é em 7 dias.', `<button type="button" class="botao mini" data-acao="ret-nao-respondeu">Não respondeu · tentar em 7 dias</button><button type="button" class="botao mini" data-acao="ret-liguei">${ic('check')}Já liguei</button>`);
+    if (!r.autorizou) return aviso('atencao', 'alerta', `${nome} não autorizou mensagens: a ação é ligar.`, 'Sem a autorização colhida no termo, nenhuma mensagem sai daqui (PARAR vale para os dois canais). Ligou? Registre o que ela disse.', `<button type="button" class="botao mini primario" data-acao="ret-liguei">${ic('check')}Já liguei</button><button type="button" class="botao mini" data-acao="ret-autorizacao">Colher autorização</button>`);
+    if (r.grupo === 'novo-bsv') return aviso('info', 'coracao', `${nome} fez a primeira sessão de BSV em ${h(r.ultima)}.`, 'Pergunte como se sentiu e se a próxima já está marcada. O modelo primeiro_contato já vem preenchido.', `<button type="button" class="botao mini primario" data-acao="ret-preparar">${ic('modelo')}Preparar mensagem</button><button type="button" class="botao mini" data-acao="ret-liguei">Já liguei</button>`);
+    return aviso('info', 'coracao', `${nome} está há ${r.dias} dias sem vir (${h(r.tratamento)}) e autorizou mensagens.`, 'O convite para voltar é o modelo aprovado retorno_tratamento, já preenchido com nome, tratamento e dias. Você revisa e envia.', `<button type="button" class="botao mini primario" data-acao="ret-preparar">${ic('modelo')}Preparar convite</button><button type="button" class="botao mini" data-acao="ret-liguei">Já liguei</button>`);
   }
   const aviso = (tom, icone, titulo, texto, botoes) => `<div class="aviso ${tom} wa-acao" role="status">${ic(icone)}<div class="wa-acao-texto"><strong>${titulo}</strong>${texto}</div><div class="botoes-linha">${botoes}</div></div>`;
 
   function renderEscrever(c) {
     if (c.encerrada) return `<div class="wa-encerrada">${ic('check')}<span><strong>Encerrada ${h(c.encerrada.quando)} por ${h(c.encerrada.por)}</strong> · ${h(c.encerrada.resultado)}. Se a pessoa escrever de novo, a conversa reabre sozinha.</span><button type="button" class="botao" data-acao="reabrir">${ic('atualizar')}Reabrir</button></div>`;
     const nota = c.modo === 'nota';
+    if (c.retencao && !ultimaMensagem(c) && !nota) { const r = itemRet(c.retencao); return `<div class="wa-escrever-wrap"><div class="wa-convite"><span class="wa-janela-ic">${ic('coracao')}</span>
+      <div class="wa-janela-texto"><strong>${r.autorizou ? 'Primeira mensagem desta conversa: um modelo aprovado' : 'Sem autorização de mensagens'}</strong>${r.autorizou ? `${h(primeiroNome(c))} ainda não escreveu, então a Meta só aceita modelo. Depois da resposta, o campo livre abre.` : 'Nada sai daqui até a autorização ser colhida no termo. Ligue e registre como foi.'}</div>
+      <div class="botoes-linha">${r.autorizou ? `<button type="button" class="botao primario" data-acao="ret-preparar">${ic('modelo')}Preparar ${r.grupo === 'novo-bsv' ? 'mensagem' : 'convite'}</button>` : `<button type="button" class="botao primario" data-acao="ret-liguei">${ic('check')}Já liguei</button>`}<button type="button" class="botao" data-acao="modo-nota">${ic('nota')}Nota interna</button></div></div><div id="wa-popover"></div></div>`; }
     if (!c.janela.aberta && c.canal !== 'sms' && !nota) return `<div class="wa-escrever-wrap"><div class="wa-janela-fechada"><span class="wa-janela-ic">${ic('cadeado')}</span>
       <div class="wa-janela-texto"><strong>Janela de 24 h fechada desde ${h(c.janela.desde)}</strong>Fora dela a Meta só aceita <b>modelo aprovado</b>. Quando ${h(primeiroNome(c) || 'a pessoa')} responder, o campo livre volta.</div>
       <div class="botoes-linha"><button type="button" class="botao primario" data-acao="modelos" aria-expanded="false">${ic('modelo')}Escolher modelo</button><button type="button" class="botao" data-acao="modo-nota">${ic('nota')}Nota interna</button></div></div><div id="wa-popover"></div></div>`;
@@ -1894,6 +2048,8 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
   function chegou(id, texto) {
     const c = conv(id); const hora = agora(); c.hora = hora; c.ordem = proximaOrdem();
     const m = { tipo: 'recebida', hora, texto, animar: true };
+    c.janela = { aberta: true, ate: 'amanhã às ' + hora };
+    if (c.retencao && itemRet(c.retencao)) { const r = itemRet(c.retencao); if (r.situacao === 'aguardando') { r.situacao = 'respondeu'; r.contatos.unshift({ quando: 'Hoje', texto: 'Respondeu ao convite: "' + texto + '"' }); c.situacao = 'retencao'; c.mensagens.push(m); c.mensagens.push({ tipo: 'evento', tom: 'ok', hora, texto: 'Respondeu ao convite · o caso pede o <b>Como foi?</b>' }); SINO.unshift({ id: 's' + Date.now(), conversa: c.id, tom: 'confirmou', icone: 'check', titulo: `<strong>${h(c.nome)}</strong> · respondeu ao convite para voltar`, meta: hora + ' · decidir o próximo passo', naoLida: estado.atual !== id }); if (estado.atual === id) { renderConversa(); renderFicha(); } else { c.naoLidas++; c.naoLidasAoAbrir = c.naoLidas; m.nova = true; avisar(`<b>${h(c.nome)}</b> respondeu ao convite: ${h(texto)}`, 'info'); } renderSino(); renderFiltro(); renderLista(); return; } }
     if (estado.atual === id) { c.mensagens.push(m); const r = $('#wa-mensagens'); r.innerHTML = renderMensagens(c); r.scrollTop = r.scrollHeight; }
     else { m.nova = true; c.naoLidas++; c.naoLidasAoAbrir = c.naoLidas; c.mensagens.push(m); avisar(`<b>${h(c.nome)}</b>: ${h(texto)}`, 'info'); }
     renderFiltro(); renderLista();
@@ -1930,7 +2086,58 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
       case 'abrir-ficha': avisar('No app, abre a Ficha do balcão deste paciente.', 'info'); break;
       case 'abrir-agenda': avisar('No app, abre a Agenda do dia neste horário.', 'info'); break;
       case 'nova-conversa': modalNovaConversa(); break;
+      case 'ret-preparar': { const b = $('[data-acao="ret-preparar"]'); popover('modelos', b, c); const r = itemRet(c.retencao); formModelo(c, MODELOS.find(m => m.id === (r.grupo === 'novo-bsv' ? 'primeiro_contato' : 'retorno_tratamento'))); break; }
+      case 'ret-liguei': modalLigacao(c); break;
+      case 'ret-autorizacao': avisar('No app, abre a coleta da autorização de mensagens: no tablet do balcão ou pelo link no celular da pessoa.', 'info'); break;
+      case 'ret-marcar': modalMarcarRetorno(c); break;
+      case 'ret-outra-data': modalOutraData(c); break;
+      case 'ret-plano': fecharCaso(c, 'aguardando', 'Aguardando plano do médico', 'Pediu para falar com o médico sobre o plano · próximo contato quando o plano sair', 'Etapa gravada: aguardando plano. O caso volta quando o médico responder.'); break;
+      case 'ret-nao-respondeu': fecharCaso(c, 'aguardando', 'Sem resposta · tentar em 7 dias', 'Sem resposta · próximo contato em 7 dias (31/10)', 'Sem resposta. O caso volta para "Para hoje" em 7 dias.'); break;
+      case 'ret-nao-quer': modalNaoQuer(c); break;
     }
+  }
+  function fecharCaso(c, situacao, selo, contato, toast, desfecho) {
+    const r = itemRet(c.retencao); if (!r) return;
+    r.situacao = situacao; r.seloAguardo = selo; if (desfecho) r.desfecho = desfecho; r.resp = r.resp || EU.id;
+    r.contatos.unshift({ quando: 'Hoje', texto: contato + ' · Ana Paula' }); evento(c, contato + ' (Ana Paula) · gravado no Acompanhamento', situacao === 'fechado' && desfecho && desfecho.startsWith('Voltou') ? 'ok' : undefined);
+    if (c.situacao === 'retorno-respondeu') c.situacao = 'retencao';
+    limparSino(c.id); renderTudo(); avisar(toast, situacao === 'fechado' && desfecho && !desfecho.startsWith('Voltou') ? 'info' : 'sucesso');
+  }
+  function modalLigacao(c) {
+    const opcoes = [['Quer marcar', 'Abre as vagas da agenda'], ['Pediu outra data', 'Volta a falar numa data combinada'], ['Aguardando plano', 'Quer falar com o médico antes'], ['Não atendeu', 'Tentar de novo em 2 dias'], ['Não quer voltar', 'Encerra o caso com o motivo']];
+    abrirModal({ titulo: 'Como foi a ligação?', subtitulo: `${h(c.nome)} · ${h(c.telefone)}. O que ela disse grava a etapa do Acompanhamento.`, largura: 'pequeno',
+      corpo: `<div class="wa-opcoes" role="radiogroup" aria-label="Como foi"><label class="wa-escolha sem-avatar marcada"><input type="radio" name="wa-lig" value="0" checked /><span class="wa-escolha-texto"><strong>${opcoes[0][0]}</strong><span>${opcoes[0][1]}</span></span></label>${opcoes.slice(1).map((o, i) => `<label class="wa-escolha sem-avatar"><input type="radio" name="wa-lig" value="${i + 1}" /><span class="wa-escolha-texto"><strong>${o[0]}</strong><span>${o[1]}</span></span></label>`).join('')}</div>`,
+      rodape: `<button type="button" class="botao" data-fechar>Cancelar</button><button type="button" class="botao primario" id="wa-ok">Registrar</button>`,
+      aoAbrir: raiz => { $('#wa-ok', raiz).onclick = () => { const i = +raiz.querySelector('input[name="wa-lig"]:checked').value; fecharModal();
+        if (i === 0) modalMarcarRetorno(c, 'Ligação · quer marcar');
+        else if (i === 1) modalOutraData(c);
+        else if (i === 2) fecharCaso(c, 'aguardando', 'Aguardando plano do médico', 'Ligação · quer falar com o médico sobre o plano', 'Etapa gravada: aguardando plano.');
+        else if (i === 3) fecharCaso(c, 'aguardando', 'Não atendeu · tentar em 2 dias', 'Ligação · não atendeu · próximo contato em 2 dias', 'Não atendeu. O caso volta em 2 dias.');
+        else modalNaoQuer(c); }; } });
+  }
+  function modalMarcarRetorno(c, origem) {
+    const vagas = [{ q: 'Ter 28/10 · 09:00', d: 'Dr. Marcos · sala 1' }, { q: 'Qua 29/10 · 10:30', d: 'Dr. Marcos · sala 1' }, { q: 'Qui 30/10 · 09:30', d: 'Dra. Helena · sala 2' }, { q: 'Seg 03/11 · 08:30', d: 'Dr. Marcos · sala 1' }];
+    let escolhida = 0; const r = itemRet(c.retencao);
+    abrirModal({ titulo: `Marcar o retorno de ${h(primeiroNome(c))}`, subtitulo: `${h(r.tratamento)} · as vagas são as da agenda da Recepção, no profissional que trata. O caso fecha como "Voltou" quando a sessão acontecer.`,
+      corpo: `<div class="wa-vagas" role="group" aria-label="Vagas">${vagas.map((v, i) => `<button type="button" class="wa-vaga" data-i="${i}" aria-pressed="${i === 0}"><b>${h(v.q)}</b><span>${h(v.d)}</span></button>`).join('')}</div><p class="wa-dica">Outra data? "Ver a agenda" abre a grade da semana no profissional.</p>`,
+      rodape: `<button type="button" class="botao" data-fechar>Cancelar</button><button type="button" class="botao primario" id="wa-ok">Marcar</button>`,
+      aoAbrir: raiz => { raiz.querySelectorAll('.wa-vaga').forEach(b => b.onclick = () => { escolhida = +b.dataset.i; raiz.querySelectorAll('.wa-vaga').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+        $('#wa-ok', raiz).onclick = () => { const v = vagas[escolhida]; fecharModal(); c.horarios.unshift({ id: 'r' + Date.now(), quando: v.q, detalhe: `${r.tratamento} · ${v.d} · o lembrete sai na manhã do dia`, estado: 'marcado', novo: true });
+          fecharCaso(c, 'fechado', null, `${origem || 'Quer marcar'} · horário marcado para ${v.q}`, `Marcado para ${h(v.q)}. O caso fecha como "Voltou" quando a sessão acontecer.`, 'Voltou · marcado ' + v.q.toLowerCase());
+          if (!c.rascunho && c.janela.aberta) { c.rascunho = `Combinado, ${primeiroNome(c)}! Marquei ${r.tratamento.toLowerCase() === 'bsv' ? 'o BSV' : 'a ' + r.tratamento.toLowerCase()} para ${v.q.toLowerCase().replace(' · ', ' às ')} com ${v.d.split(' · ')[0]}. O lembrete chega na manhã do dia 🙂`; renderConversa(); } }; } });
+  }
+  function modalOutraData(c) {
+    abrirModal({ titulo: 'Pediu outra data', subtitulo: 'O caso sai de "Para hoje" e volta na data combinada.', largura: 'pequeno',
+      corpo: `<div class="campo-bloco"><label class="campo-rotulo" for="wa-quando">Voltar a falar em</label><select class="campo" id="wa-quando"><option>7 dias (31/10)</option><option>15 dias (08/11)</option><option selected>30 dias (23/11)</option><option>60 dias (23/12)</option></select></div>`,
+      rodape: `<button type="button" class="botao" data-fechar>Cancelar</button><button type="button" class="botao primario" id="wa-ok">Gravar</button>`,
+      aoAbrir: raiz => { $('#wa-ok', raiz).onclick = () => { const q = $('#wa-quando', raiz).value; fecharModal(); fecharCaso(c, 'aguardando', 'Retomar em ' + q.split(' (')[0], 'Pediu outra data · próximo contato em ' + q, 'Gravado. O caso volta em ' + q + '.'); }; } });
+  }
+  function modalNaoQuer(c) {
+    abrirModal({ titulo: 'Não quer voltar', subtitulo: 'O caso encerra com o motivo. Se a pessoa pediu para não receber mensagens, o PARAR vale para WhatsApp e SMS, aqui e no Clinica.', largura: 'pequeno',
+      corpo: `<div class="campo-bloco"><label class="campo-rotulo" for="wa-nq">Motivo <span class="obrigatorio">*</span></label><select class="campo" id="wa-nq"><option value="">Escolha…</option><option>Melhorou e não precisa</option><option>Mudou de cidade</option><option>Custo</option><option>Foi para outra clínica</option><option>Outro</option></select></div>
+        <label class="marcar"><input type="checkbox" id="wa-parar" /> Pediu para não receber mais mensagens (PARAR)</label>`,
+      rodape: `<button type="button" class="botao" data-fechar>Cancelar</button><button type="button" class="botao perigo" id="wa-ok" disabled>Encerrar o caso</button>`,
+      aoAbrir: raiz => { const sel = $('#wa-nq', raiz); sel.onchange = () => $('#wa-ok', raiz).disabled = !sel.value; $('#wa-ok', raiz).onclick = () => { const parar = $('#wa-parar', raiz).checked; fecharModal(); const r = itemRet(c.retencao); if (parar) { r.autorizou = false; if (c.paciente) c.paciente.autorizacao = 'Pediu PARAR · hoje · vale para WhatsApp e SMS'; evento(c, 'PARAR registrado por Ana Paula · a autorização de mensagens foi revogada no Clinica', 'alerta'); } fecharCaso(c, 'fechado', null, 'Não quer voltar · ' + sel.value, 'Caso encerrado · ' + sel.value + (parar ? ' · PARAR registrado.' : '.'), 'Não quer voltar · ' + sel.value.toLowerCase()); }; } });
   }
   function renderTudo() { renderFiltro(); renderLista(); renderConversa(); renderFicha(); renderSino(); }
 
@@ -1952,7 +2159,9 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
     raiz.querySelectorAll('[data-fechar-popover]').forEach(b => b.onclick = () => { estado.popover = null; raiz.innerHTML = ''; document.querySelectorAll('[aria-expanded]').forEach(x => x.setAttribute('aria-expanded', 'false')); });
   }
   function formModelo(c, m) {
-    const hor = c.horarios[0]; const sugestoes = { 'Primeiro nome': primeiroNome(c), 'Atendimento': hor ? hor.detalhe.split(' · ')[0].toLowerCase() : '', 'Dia e hora': hor ? hor.quando.toLowerCase().replace('hoje', 'hoje às') : '', 'Tratamento': 'acupuntura', 'Dias': '20', 'Documento': 'atestado', 'Assunto': 'acupuntura' };
+    const hor = c.horarios[0]; const r = c.retencao ? itemRet(c.retencao) : null;
+    const sugestoes = { 'Primeiro nome': primeiroNome(c), 'Atendimento': hor ? hor.detalhe.split(' · ')[0].toLowerCase() : '', 'Dia e hora': hor ? hor.quando.toLowerCase().replace('hoje', 'hoje às') : '',
+      'Tratamento': r ? (r.tratamento.startsWith('BSV') ? 'sessão de ' + r.tratamento : r.tratamento.toLowerCase()) : 'acupuntura', 'Dias': r ? String(r.dias) : '20', 'Documento': 'atestado', 'Assunto': r && r.grupo === 'novo-bsv' ? 'a primeira sessão de BSV: como você se sentiu?' : 'acupuntura' };
     const valores = m.params.map(p => sugestoes[p] || '');
     const f = $('#wa-modelo-form'); $('#wa-modelos-lista').hidden = true;
     const previa = () => m.texto.replace(/\{\{(\d)\}\}/g, (_, n) => `<var>${h(valores[+n - 1] || '{{' + n + '}}')}</var>`);
@@ -1967,6 +2176,7 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
       const msg = { tipo: 'enviada', autor: EU.nome, hora, texto, estado: 'enviando', modelo: m.id, animar: true };
       c.mensagens.push(msg); c.hora = hora; c.ordem = proximaOrdem(); estado.popover = null;
       if (!c.responsavel) { c.responsavel = EU.id; evento(c, 'Ana Paula assumiu a conversa ao enviar o modelo'); }
+      if (c.retencao && itemRet(c.retencao)) { const r = itemRet(c.retencao); r.situacao = 'aguardando'; r.seloAguardo = 'Convite enviado hoje'; r.resp = r.resp || EU.id; c.oculta = false; c.hora = hora; c.ordem = proximaOrdem(); r.contatos.unshift({ quando: 'Hoje', texto: `${m.id === 'primeiro_contato' ? 'Mensagem' : 'Convite para voltar'} enviado pelo WhatsApp · Ana Paula (registrado sozinho)` }); evento(c, 'Contato gravado no Acompanhamento · etapa: aguardando resposta'); if (r.id === 'seb') setTimeout(() => chegou(c.id, 'Oi Ana! Pode ser sim, semana que vem de manhã tem horário?'), 4500); }
       renderConversa(); renderFiltro(); renderLista(); avisar(`Modelo <b>${h(m.id)}</b> enviado. Quando a pessoa responder, a janela de 24 h abre.`);
       setTimeout(() => { msg.estado = 'enviada'; atualizarTicks(c); }, 500); setTimeout(() => { msg.estado = 'entregue'; atualizarTicks(c); }, 1500);
     };
@@ -2055,16 +2265,29 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
     const topo = `<div class="wa-ficha-topo"><h2>Do sistema da clínica</h2><button type="button" class="botao icone fantasma wa-ficha-fechar" data-acao="fechar-ficha" aria-label="Fechar a ficha">${ic('fechar')}</button></div>`;
     if (!c) { raiz.innerHTML = topo + `<div class="wa-secao"><p class="wa-dica">A ficha, a agenda e a confirmação do paciente da conversa aparecem aqui, lidas do próprio app, não do CRM.</p></div>`; ligarFicha(); return; }
     let corpo = '';
+    if (c.retencao && itemRet(c.retencao)) {
+      const r = itemRet(c.retencao); const s = seloRet(r);
+      corpo += `<section class="wa-secao wa-caso"><h3>Acompanhamento · ${r.grupo === 'novo-bsv' ? 'Novo BSV' : r.grupo === 'retorno-pedido' ? 'Retorno pedido' : 'Recall'} <button type="button" class="link" data-acao="acompanhamento">Ver caso</button></h3>
+        <dl class="wa-pares">
+          <dt>Tratamento</dt><dd>${h(r.tratamento)}</dd>
+          <dt>${r.grupo === 'novo-bsv' ? '1ª sessão' : 'Última sessão'}</dt><dd>${h(r.ultima)} <span class="wa-dias tom-${r.grupo === 'novo-bsv' ? 'sucesso' : (GRUPOS.find(g => g.id === r.grupo) || {}).tom || 'neutro'}">${r.grupo === 'novo-bsv' ? 'há ' + r.dias + ' dias' : r.dias + ' dias sem vir'}</span></dd>
+          <dt>Sessões</dt><dd>${h(r.sessoes)}</dd>
+          <dt>Mensagens</dt><dd>${r.autorizou ? '<span class="selo tom-sucesso">autorizou</span>' : '<span class="selo tom-aviso">sem autorização · ligar</span>'}</dd>
+          <dt>Situação</dt><dd><span class="selo tom-${s.tom}">${h(s.texto)}</span></dd>
+          <dt>Responsável</dt><dd>${h(r.resp === EU.id ? 'Você' : nomeDe(r.resp))}</dd></dl>
+        ${r.contatos.length ? `<h4>Contatos</h4><ul class="wa-tempo">${r.contatos.map(x => `<li><time>${h(x.quando)}</time><span>${h(x.texto)}</span></li>`).join('')}</ul>` : '<p class="wa-dica">Nenhum contato ainda neste caso.</p>'}
+        </section>`;
+    }
     if (c.ficha.estado === 'nenhuma') {
-      corpo = `<section class="wa-secao wa-sem-ficha"><h3>Quem é?</h3><p class="wa-dica">${h(c.telefone)} não está em nenhuma ficha. Busque pelo nome ou cadastre.</p>
+      corpo += `<section class="wa-secao wa-sem-ficha"><h3>Quem é?</h3><p class="wa-dica">${h(c.telefone)} não está em nenhuma ficha. Busque pelo nome ou cadastre.</p>
         <div class="busca">${ic('busca')}<input class="campo" id="wa-busca-ficha" type="search" placeholder="Nome, documento ou nascimento" aria-label="Buscar ficha" autocomplete="off" /></div>
         <div class="wa-candidatos" id="wa-candidatos"></div>
         <button type="button" class="botao" data-acao="cadastrar">${ic('mais')}Cadastrar paciente com este telefone</button></section>`;
     } else if (c.ficha.estado === 'duvida') {
-      corpo = `<section class="wa-secao"><h3>Duas fichas com este telefone</h3><p class="wa-dica">Pedro Henrique Souza (9 anos, responsável Terezinha) e Terezinha Souza (61 anos). Confira com quem está no telefone.</p><button type="button" class="botao primario" data-acao="conferir-ficha">${ic('pessoa')}Conferir a ficha</button></section>`;
+      corpo += `<section class="wa-secao"><h3>Duas fichas com este telefone</h3><p class="wa-dica">Pedro Henrique Souza (9 anos, responsável Terezinha) e Terezinha Souza (61 anos). Confira com quem está no telefone.</p><button type="button" class="botao primario" data-acao="conferir-ficha">${ic('pessoa')}Conferir a ficha</button></section>`;
     } else {
       const p = c.paciente;
-      corpo = `<section class="wa-secao"><h3>Paciente <button type="button" class="link" data-acao="abrir-ficha">Abrir ficha</button></h3>
+      corpo += `<section class="wa-secao"><h3>Paciente <button type="button" class="link" data-acao="abrir-ficha">Abrir ficha</button></h3>
         <div class="wa-pessoa"><span class="avatar tom-${c.tom}" aria-hidden="true">${h(c.iniciais)}</span><div class="wa-pessoa-nome"><strong>${h(p.nome)}</strong><span>${h(p.idade)} · ${h(p.desde)}</span></div></div>
         <dl class="wa-pares">
           <dt>Telefone</dt><dd>${h(c.telefone)} ${p.telefoneConfere ? '<span class="selo tom-sucesso" title="É o mesmo número da ficha">confere</span>' : '<span class="selo tom-aviso">difere da ficha</span>'}</dd>
@@ -2118,13 +2341,15 @@ const ICONES = {"abaixo": "<path d='m6 9 6 6 6-6'/>", "sino": "<path d='M6 8a6 6
     if (alvo) { abrir(alvo.dataset.id); alvo.focus(); }
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (estado.popover) { estado.popover = null; const p = $('#wa-popover'); if (p) p.innerHTML = ''; document.querySelectorAll('[data-acao="modelos"],[data-acao="rapidas"]').forEach(b => b.setAttribute('aria-expanded', 'false')); } if (!$('#sino-popover').hidden) fecharSino(); if (estado.fichaAberta) acao('fechar-ficha'); } });
-  document.addEventListener('click', e => { if (estado.popover && !e.target.closest('.wa-popover') && !e.target.closest('[data-acao="modelos"],[data-acao="rapidas"]')) { estado.popover = null; const p = $('#wa-popover'); if (p) p.innerHTML = ''; document.querySelectorAll('[data-acao="modelos"],[data-acao="rapidas"]').forEach(b => b.setAttribute('aria-expanded', 'false')); } });
+  document.addEventListener('click', e => { if (estado.popover && !e.target.closest('.wa-popover') && !e.target.closest('[data-acao="modelos"],[data-acao="rapidas"],[data-acao="ret-preparar"]')) { estado.popover = null; const p = $('#wa-popover'); if (p) p.innerHTML = ''; document.querySelectorAll('[data-acao="modelos"],[data-acao="rapidas"]').forEach(b => b.setAttribute('aria-expanded', 'false')); } });
 
   CONVERSAS.forEach(c => { c.naoLidasAoAbrir = c.naoLidas; c.modo = 'responder'; c.rascunho = ''; });
+  RETENCAO.forEach(r => { if (!r.paciente && r.convId) r.paciente = (CONVERSAS.find(c => c.id === r.convId) || {}).paciente; });
   renderFiltro(); renderLista(); renderConversa(); renderFicha(); renderSino();
   // A direção abre o mockup já numa conversa (a que mais pede ação); #vazia mostra o estado sem conversa.
   const alvo = location.hash.replace('#', '');
-  if (alvo === 'vazia') { /* fica na lista */ } else if (alvo === 'ficha') { abrir('terezinha'); modalConferirFicha(conv('terezinha')); } else if (alvo === 'fechada') { abrir('carlos'); } else if (alvo === 'nova') { abrir('novo'); } else if (alvo && conv(alvo)) { abrir(alvo); } else { abrir('maria'); }
+  if (alvo === 'retencao' || alvo === 'retencao-respondeu' || alvo === 'retencao-ligar') { estado.modo = 'retencao'; renderFiltro(); abrirRetencao(alvo === 'retencao-respondeu' ? 'alzira' : alvo === 'retencao-ligar' ? 'helena' : 'seb'); }
+  else if (alvo === 'vazia') { /* fica na lista */ } else if (alvo === 'ficha') { abrir('terezinha'); modalConferirFicha(conv('terezinha')); } else if (alvo === 'fechada') { abrir('carlos'); } else if (alvo === 'nova') { abrir('novo'); } else if (alvo && conv(alvo)) { abrir(alvo); } else { abrir('maria'); }
   if (alvo === 'contexto') { estado.fichaAberta = true; $('#wa-ficha').classList.add('aberta'); }
 })();
 

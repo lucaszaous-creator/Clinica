@@ -81,6 +81,12 @@ O que dá para FAZER no mockup, e o que cada clique prova:
 | **2 fichas — conferir** | "Qual ficha é esta pessoa?" com nascimento, fim do documento e próxima consulta; ligada, a agenda e a confirmação do Pedro aparecem ao lado | Regra 5: o telefone não é identidade |
 | Novo contato (`#nova`) | Busca de ficha pelo nome, ou cadastrar com o telefone preenchido | O CRM nunca cria ficha; quem cria é o app |
 | **+** Nova conversa | A primeira mensagem tem de ser modelo (a pessoa ainda não escreveu) | A regra da Meta, dita antes de a pessoa errar |
+| **Retenção** (o segundo modo da lista) | A lista vira o Acompanhamento: *Responderam · decidir*, *Sem vir há 30 / 20 / 15 dias*, *Novos no BSV*, *Retornos pedidos*; filtros *Para hoje · Aguardando · Fechados*; a linha mostra tratamento, última sessão, sessões e se autorizou mensagens | As filas são as do Clinica (`AcompanhamentoNaTela`, Recall e Novo BSV); os dias são os do Gerente; só entra quem está em tratamento (`Tratamento`: BSV, acupuntura ou os dois) |
+| Um paciente da retenção | Abre a conversa (nova ou a que existe) com a coluna da direita mostrando o **caso**: tratamento, última sessão, sessões, autorização, situação, contatos | O caso e a ficha vêm do Clinica; a conversa, do CRM |
+| **Preparar convite** | O modelo `retorno_tratamento` (ou `primeiro_contato` para o novo BSV) vem preenchido com nome, tratamento e dias; enviado, o caso vai para *Aguardando* e o contato entra sozinho | Quem começa é a clínica, então é modelo; o contato grava sem ninguém digitar "falei" |
+| O Sebastião responde | A janela abre, o caso volta para *Responderam · decidir*, o sino avisa e a conversa pede o **Como foi?** | Regra 3: o que pede ação vira aviso |
+| **Como foi?** (Quer marcar · Pediu outra data · Aguardando plano · Não respondeu · Não quer voltar) | *Quer marcar* abre as vagas do profissional que trata e fecha o caso como *Voltou*; os outros gravam a etapa e o próximo contato; *Não quer voltar* pede motivo e oferece o **PARAR** | São os cinco `DesfechoContato` do Acompanhamento; o PARAR vale para WhatsApp e SMS, nas duas pontas |
+| Helena, sem autorização (`#retencao-ligar`) | Nada sai daqui: a ação é **Já liguei**, e "Como foi a ligação?" grava a etapa | Fase 3: o recall só convida quem autorizou; o resto é ligação |
 
 | 1366 × 900 | 1024 × 768 |
 |---|---|
@@ -90,6 +96,39 @@ O que dá para FAZER no mockup, e o que cada clique prova:
 | Modelo aprovado com as variáveis preenchidas pelo contexto: ![](mockups/whatsapp-nativo/05-modelo-1366.png) | Fora da janela de 24 h: ![](mockups/whatsapp-nativo/06-janela-fechada-1366.png) |
 | "Qual ficha é esta pessoa?": ![](mockups/whatsapp-nativo/07-conferir-ficha-1366.png) | Novo contato, buscar a ficha: ![](mockups/whatsapp-nativo/08-sem-ficha-1366.png) |
 | O sino que abre a conversa: ![](mockups/whatsapp-nativo/09-sino-1366.png) | Celular (a direção abre o mockup no telefone): ![](mockups/whatsapp-nativo/13-celular-conversa.png) |
+| **Retenção**: a lista vira o Acompanhamento e a direita vira o caso: ![](mockups/whatsapp-nativo/14-retencao-1366.png) | O convite preenchido pelo caso (tratamento e dias): ![](mockups/whatsapp-nativo/15-retencao-convite-1366.png) |
+| O paciente respondeu: a janela abre e a conversa pede o "Como foi?": ![](mockups/whatsapp-nativo/16-retencao-respondeu-1366.png) | "Quer marcar": vagas do profissional que trata, caso fechado como Voltou, mensagem pronta: ![](mockups/whatsapp-nativo/17-retencao-voltou-1366.png) |
+| Alzira (`#retencao-respondeu`): respondeu ontem ao convite da Bruna: ![](mockups/whatsapp-nativo/18-retencao-alzira-1366.png) | Helena não autorizou mensagens: a ação é ligar, e a ligação grava a etapa: ![](mockups/whatsapp-nativo/19-retencao-ligacao-1366.png) |
+| Retenção em 1024: ![](mockups/whatsapp-nativo/20-retencao-1024.png) | |
+
+### A retenção dentro do WhatsApp (pedido da direção, 24/10)
+
+A direção sentiu falta do Relacionamento, "que é para retenção de pacientes". Ele existe nas
+duas pontas: o CRM chama de **Relacionamento** (no celular, decisão da direção) e a Recepção
+chama de **Acompanhamento** (Recall e Novo BSV, com o funil *A assumir → Contatar hoje → Em
+conversa → Agendado → Voltou* e o "Como foi?"). O problema é que a lista de quem contatar e o
+lugar onde se escreve eram duas telas: a pessoa via a fila no Acompanhamento, clicava "Escrever
+no WhatsApp" e caía na aba, longe do caso.
+
+**A escolha: a retenção é o segundo modo da MESMA lista.** `Conversas` responde "quem me
+escreveu?"; `Retenção` responde "quem eu preciso procurar?". O resto da tela é o mesmo: a
+conversa no meio e, à direita, o caso do Acompanhamento ANTES da ficha. Isso respeita as regras
+da direção sem criar uma segunda verdade:
+
+- **Uma porta por pergunta**: escrever e decidir o desfecho acontecem no mesmo lugar. A tela
+  Acompanhamento continua existindo pelo que a lista aqui não mostra (o funil da equipe, a taxa
+  de retorno por período, "Mais filtros", a fila de quem não tem telefone ou autorização); a
+  fase 2 decide se ela encolhe para isso ou se sai inteira.
+- **Relacionamento é de quem trata**: a lista só traz BSV, acupuntura e os dois; quem só fez
+  consulta não aparece, e o rodapé diz isso.
+- **Os dias são do Gerente**: 30 / 20 / 15 são os de Configurações, não da tela.
+- **Nada sai sem autorização**: quem não autorizou aparece com "Sem autorização · ligar" e o
+  único botão é "Já liguei"; o PARAR do "Não quer voltar" revoga nas duas pontas.
+- **Não é marketing**: um por um, com o modelo preenchido para a pessoa REVISAR. Não há
+  "enviar para todos", e o rodapé da lista diz por quê.
+- **O que a tela afirma vem do Clinica**: as filas (`AcompanhamentoNaTela`), o selo de cada
+  linha, os cinco desfechos (`DesfechoContato`) e o que cada um grava (`GravacaoDoDesfecho`).
+  O CRM só manda e recebe a mensagem.
 
 Decisões de desenho, e por quê:
 
@@ -188,6 +227,9 @@ Decisões já tomadas aqui, para não reabrir:
 
 - **Nenhuma linha de código do app**: a direção pediu o desenho e o caminho; o código vem
   depois do "sim", fase a fase, cada uma com o seu PR.
+- **O destino da tela Acompanhamento** depois que a retenção mora aqui: o funil da equipe e a
+  taxa de retorno não cabem numa lista de 340 px. Fica para a fase 2 decidir se ela vira só o
+  painel de números ou se vai para o Gerente.
 - **O contrato da API do CRM não foi congelado**: é trabalho do repositório `semdor-crm`, e
   é o primeiro PR da fase 1.
 - **Gravação de áudio e @SemDor na tela nativa**: ficam no CRM web até a fase 1 estar na

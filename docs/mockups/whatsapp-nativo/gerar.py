@@ -50,6 +50,7 @@ ICONES = {
     "sms": "<rect x='3' y='5' width='18' height='14' rx='2'/><path d='M7 10h10M7 14h6'/>",
     "arquivo": "<path d='M6 3h8l4 4v14H6z'/><path d='M14 3v4h4'/>",
     "vazio": "<rect x='4' y='4' width='16' height='16' rx='3'/><path d='M4 13h4l2 3h4l2-3h4'/>",
+    "coracao": "<path d='M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z'/>",
 }
 def icone(m):
     nome = m.group(1)

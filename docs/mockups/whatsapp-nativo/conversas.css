@@ -39,7 +39,27 @@
 .wa-canal.sms{background:var(--cinza-500)}
 .wa-canal svg{width:9px;height:9px}
 
-/* ---------- Coluna 1: a lista ---------- */
+/* ---------- Coluna 1: a lista — dois modos: Conversas e Retenção (o Acompanhamento, de onde se escreve) ---------- */
+.sr-so{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:-1px}
+.wa-modo{flex:1;min-width:0}
+.wa-modo button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;font-weight:600}
+.wa-modo button b{font-weight:700;font-variant-numeric:tabular-nums;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pilula);
+  background:var(--acento-suave);color:var(--acento);font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+.wa-modo button[aria-pressed="true"] b{background:rgba(255,255,255,.22);color:var(--texto-invertido)}
+.wa-resumo{padding:0 var(--space-4) var(--space-2);font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.4}
+.wa-resumo b{color:var(--texto-primario)}
+.wa-grupo{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:6px var(--space-4);
+  background:var(--cinza-50);border-bottom:1px solid var(--borda);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
+.wa-grupo span{font-variant-numeric:tabular-nums}
+.wa-dias{font-size:var(--text-small-size);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wa-dias.tom-perigo{color:var(--erro-texto)}
+.wa-dias.tom-aviso{color:var(--aviso-texto)}
+.wa-dias.tom-neutro{color:var(--texto-secundario)}
+.wa-dias.tom-sucesso{color:var(--sucesso-forte)}
+.wa-linha-tratamento{font-size:var(--text-table-size);color:var(--texto-secundario);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-linha-tratamento b{color:var(--texto-primario);font-weight:600}
+
+/* ---------- Coluna 1: a lista (comum aos dois modos) ---------- */
 .wa-lista-topo{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-3) var(--space-2) var(--space-4)}
 .wa-lista-topo h1{font-size:var(--text-h3-size);font-weight:var(--text-h3-weight);margin:0;flex:1;min-width:0;display:flex;align-items:baseline;gap:var(--space-2)}
 .wa-lista-topo h1 small{font-size:var(--text-small-size);font-weight:500;color:var(--texto-secundario)}
@@ -213,6 +233,17 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
 .wa-modelo-previa var{font-style:normal;background:var(--superficie);border-radius:var(--radius-pequeno);padding:0 4px;color:var(--acento);font-weight:600}
 .wa-modelo-form .botoes-linha{justify-content:flex-end}
 
+/* ---------- Coluna 3, no modo Retenção: o CASO do Acompanhamento vem antes da ficha ---------- */
+.wa-caso{background:var(--superficie)}
+.wa-caso h4{margin:var(--space-2) 0 0;font-size:var(--text-small-size);font-weight:700;color:var(--texto-secundario);text-transform:uppercase;letter-spacing:var(--text-secao-tracking)}
+.wa-desfechos{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.wa-desfechos .botao.mini{height:30px}
+.wa-convite{margin:var(--space-2) var(--space-6) var(--space-4);padding:var(--space-4);border:1px solid var(--verde-100);border-radius:var(--radius-card);background:var(--superficie);
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3) var(--space-4);box-shadow:var(--sombra-cartao)}
+.wa-convite .wa-janela-ic{background:var(--verde-100);color:var(--sucesso-forte)}
+.wa-convite .wa-janela-texto strong{margin-bottom:2px}
+@media (max-width:1180px){.wa-convite{margin-left:var(--space-4);margin-right:var(--space-4)}}
+
 /* ---------- Coluna 3: o paciente, lido do Clinica ---------- */
 .wa-ficha{overflow-y:auto}
 .wa-ficha-topo{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-3) 0 var(--space-4)}
@@ -271,7 +302,11 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
   .wa-acao,.wa-escrever,.wa-janela-fechada,.wa-encerrada{margin-left:var(--space-4);margin-right:var(--space-4)}
   .wa-popover{left:var(--space-4);right:var(--space-4)}
   /* Sem a coluna da ficha, a bolinha do chat da equipe cai sobre o canto do Enviar: o rodapé deixa o lugar dela. */
-  .wa-escrever-rodape{padding-right:calc(var(--space-12) + var(--space-8))}
+  .wa-escrever-rodape,.wa-convite,.wa-janela-fechada{padding-right:calc(var(--space-12) + var(--space-8))}
+  /* A lista tem 300 px: o seletor de modo perde o ícone e os filtros apertam. */
+  .wa-modo .icone{display:none}
+  .wa-modo button{padding:6px 6px;font-size:var(--text-table-size)}
+  .wa-filtros .segmentado button{padding:5px 4px;font-size:var(--text-small-size);white-space:nowrap}
 }
 /* Celular: um painel por vez — a lista, e a conversa por cima dela com "voltar". */
 .wa-voltar{display:none}

@@ -43,7 +43,8 @@
     <!-- Coluna 1: a lista (do CRM) -->
     <aside class="wa-lista" aria-label="Conversas">
       <div class="wa-lista-topo">
-        <h1>Conversas <small id="wa-total"></small></h1>
+        <h1 class="sr-so"><span id="wa-total"></span></h1>
+        <div class="segmentado wa-modo" role="group" aria-label="O que a lista mostra" id="wa-modo"></div>
         <button type="button" class="botao icone" id="wa-nova" title="Nova conversa" aria-label="Nova conversa">{{icone:mais}}</button>
       </div>
       <div class="wa-filtros">
@@ -54,7 +55,7 @@
         </div>
       </div>
       <div class="wa-linhas" id="wa-linhas" role="listbox" aria-label="Lista de conversas"></div>
-      <div class="wa-lista-rodape"><span class="wa-ponto" aria-hidden="true"></span><span>(22) 3333-0000 · WhatsApp Business · conectado</span></div>
+      <div class="wa-lista-rodape" id="wa-lista-rodape"></div>
     </aside>
 
     <!-- Coluna 2: a conversa (do CRM) -->
