@@ -207,6 +207,8 @@ public sealed class TelasBlazorAbremTests : IClassFixture<BancoDasTelas>, IDispo
                      d.ServiceType == typeof(ClinicaDbContext)).ToList())
             ctx.Services.Remove(d);
         ctx.Services.AddDbContext<ClinicaDbContext>(o => o.UseSqlite(_banco.Conexao));
+        // O CRM de mentira da prévia (as conversas da semente do WhatsApp): o HTTP de verdade nunca é chamado em teste.
+        PreviaBlazor.CrmDeMentira.Registrar(ctx.Services);
         ctx.Services.AddTelasBlazor();
         ctx.Services.AddSingleton<IHostDaTela, HostDoTeste>();
         return ctx;
