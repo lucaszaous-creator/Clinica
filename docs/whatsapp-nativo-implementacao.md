@@ -425,5 +425,6 @@ cliques; a mensagem "Combinado…" fica como rascunho).
   Encerrar voltaram** como ícones (estavam escondidos: a secretária não conseguia encerrar nem passar
   a conversa nessa largura), o avatar sai abaixo de 480 px para o nome caber, e a dica do número
   oficial desce para a linha de baixo em vez de quebrar os botões. Medido em 760, 480 e 360 px: as
-  cinco ações visíveis, nada vaza, nada rola para o lado.
+  cinco ações visíveis, nada vaza, nada rola para o lado. Na busca dentro da conversa, o termo
+  achado ganhou sublinhado forte e negrito: no laranja da nota interna o fundo suave sumia.
 

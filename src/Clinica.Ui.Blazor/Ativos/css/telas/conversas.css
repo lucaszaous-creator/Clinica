@@ -171,7 +171,8 @@
 .wa-anexo{display:inline-flex;align-items:center;gap:var(--space-2);padding:6px 10px;border-radius:var(--radius-control);background:var(--fundo);border:1px solid var(--borda);
   font-size:var(--text-table-size);margin-bottom:4px}
 .wa-anexo svg{width:16px;height:16px;color:var(--acento)}
-mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
+/* O sublinhado forte é o que aparece nos três balões: no laranja da nota o fundo suave some (foto 21). */
+mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;font-weight:600;box-shadow:inset 0 -2px 0 var(--aviso)}
 
 /* O que PEDE AÇÃO entra na conversa como aviso com os botões da agenda — a regra é a do Clinica. */
 .wa-acao{margin:var(--space-2) var(--space-6) 0;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);padding:var(--space-3) var(--space-4)}
