@@ -238,7 +238,8 @@ public static class AvisosDeConfirmacao
     }
 
     // Abreviação escrita à mão, como em RodadaDeConfirmacao.TituloDoDia: o "ddd" do pt-BR do .NET põe ponto.
-    private static string DiaDaSemana(DayOfWeek d) => d switch
+    // Interna: a janela de 24 h do WhatsApp (ConversasNaTela) fala do dia com a mesma abreviação.
+    internal static string DiaDaSemana(DayOfWeek d) => d switch
     {
         DayOfWeek.Monday => "seg", DayOfWeek.Tuesday => "ter", DayOfWeek.Wednesday => "qua",
         DayOfWeek.Thursday => "qui", DayOfWeek.Friday => "sex", DayOfWeek.Saturday => "sáb", _ => "dom"
