@@ -373,7 +373,9 @@ prévia (com o CRM de mentira) e no bUnit:
 Fotos da tela real (1024 e 1366, cada estado e formulário, e três fluxos executados):
 `docs/mockups/whatsapp-nativo/tela-real/`, refeitas por `node tools/PreviaBlazor/fotos-whatsapp.js`
 com a prévia no relógio fixo. O roteiro também reprova página que rola para o lado e filho que vaza
-da borda do grupo (seletores, ações do cabeçalho, faixa, rodapé do campo de escrever).
+da borda do grupo (seletores, ações do cabeçalho, faixa, rodapé do campo de escrever) e, no celular
+(480 px), ação do cabeçalho escondida. Os estados de falha (`40-crm-fora-do-ar-*`,
+`41-crm-nao-configurado-*`) saem de uma prévia com `CLINICA_PREVIA_CRM=fora-do-ar` ou `nao-configurado`.
 
 **Verificação na árvore juntada:** build `--no-incremental` de `Clinica.Ui.Blazor`, dos testes e da
 prévia sem warning; `compilar-sombra` (13 projetos WPF); `verificar-suite`; as famílias tocadas em
