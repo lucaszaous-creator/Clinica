@@ -278,6 +278,7 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         var resposta = Assert.Single(_crm.Respostas);
         Assert.Equal(envio, resposta.Id);
         Assert.Equal(ModeloDoWhatsApp.RetornoTratamento, resposta.Template?.Name);
+        Assert.True(resposta.ContactRecordedByApp, "o app grava o contato; o CRM não pode gravar de novo");
         using var db = Db();
         var gravado = db.Acompanhamentos.Include(a => a.Contatos).Single(a => a.Id == casoId);
         Assert.Equal(EtapaAcompanhamento.SemResposta, gravado.Etapa);
@@ -417,6 +418,7 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         var depois = await Com(s => s.ResponderAsync(c, "Bom dia!", null, id));
         Assert.Equal(2, _crm.Respostas.Count);
         Assert.All(_crm.Respostas, r => Assert.Equal(id, r.Id));
+        Assert.All(_crm.Respostas, r => Assert.False(r.ContactRecordedByApp, "texto livre: quem registra o contato é o CRM"));
         Assert.Contains(depois.Messages, m => m.Id == id);
 
         _crm.ConflitosNoEnvio = 2;

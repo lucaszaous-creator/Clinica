@@ -707,7 +707,10 @@ public sealed class WhatsAppDaRecepcaoService(
         var id = IdDoEnvio(idDoEnvio);
         var selecao = ModeloDoWhatsApp.Selecao(modelo, valores);
         var conversa = c;
-        c = await ComVersaoNovaAsync(conversa, v => crm.ResponderAsync(u, conversa.Id, new AppReply(v, id, "", Template: selecao), ct), ct);
+        // Convite da retenção: o contato é gravado aqui, então o CRM não manda o aviso dele à ponte
+        // (o mesmo envio contaria duas tentativas no caso — decisão da direção, 24/10).
+        c = await ComVersaoNovaAsync(conversa, v => crm.ResponderAsync(u, conversa.Id,
+            new AppReply(v, id, "", Template: selecao, ContactRecordedByApp: registrar), ct), ct);
         if (!registrar) return new ResultadoDoEnvio(c, null);
 
         var pendencia = await RegistrarDesfechoAsync(caso!, DesfechoContato.NaoRespondeu, CanalContato.WhatsApp, null,

@@ -267,14 +267,20 @@ Nada disso trava o que está acima. São decisões para a próxima rodada.
    quantidade de variáveis, a tela mostra "Variável n" em branco para a secretária preencher.
 3. ~~**"Como se sentiu depois da 1ª sessão de BSV"**~~ **Decidido em 24/10: não vira fila nova.**
    "Novos no BSV" continua sendo quem **ainda não** fez a 1ª sessão.
-4. **O convite conta duas tentativas no Acompanhamento.** Enviar o convite pela tela grava o
-   contato no caso, e a ponte do CRM também grava "Mensagem enviada pelo WhatsApp da clínica".
-   A tela grava porque é isso que faz o "Respondeu" funcionar mesmo se a ponte atrasar. Prefere
-   que o CRM deixe de avisar quando a mensagem veio do app, ou que o app grave sem canal?
-5. **Cancelar pela conversa** grava o motivo na auditoria da agenda e numa nota interna. Nenhuma
-   mensagem vai ao paciente sozinha (a secretária escreve). Está bom assim?
-6. **O PARAR do "Não quer voltar"** revoga a autorização só da ficha conferida; o PARAR que o
-   paciente manda pelo CRM revoga todas as fichas com aquele telefone. Quer igualar?
+4. ~~**O convite contava duas tentativas no Acompanhamento.**~~ **Decidido e feito em 24/10:**
+   fica só a linha do app. O convite da retenção vai ao CRM com `ContactRecordedByApp`
+   (campo novo no fim do `AppReply`, os dois contratos idênticos, hash novo nos dois testes), e o
+   CRM não manda o aviso dele à ponte. Mensagem de texto livre e modelo fora da retenção
+   continuam sendo registrados pelo CRM, como antes. Testes:
+   `RelationshipContactTests.Convite_que_o_app_ja_registrou_nao_conta_duas_vezes` (CRM) e o
+   teste do convite em `WhatsAppDaRecepcaoServiceTests` (app). **Vai junto na publicação do CRM**
+   (parte 1); a ordem CRM → apps continua a mesma. Com o CRM antigo e o app novo, o campo é
+   ignorado e o convite volta a contar duas vezes até o CRM ser publicado; nada quebra.
+5. ~~**Cancelar pela conversa**~~ **Decidido em 24/10: fica assim.** Grava o motivo na auditoria
+   da agenda e numa nota interna; nenhuma mensagem vai ao paciente sozinha (a secretária escreve).
+6. ~~**O PARAR do "Não quer voltar"**~~ **Decidido em 24/10: fica assim.** O "Não quer voltar"
+   revoga a autorização só da ficha conferida (é sobre o tratamento daquela pessoa); o PARAR que
+   o paciente manda pelo CRM revoga todas as fichas com aquele telefone (é o dono do celular).
 7. ~~**Teste das telas no Postgres.**~~ **Resolvido na madrugada.** A sessão do Dr. Caio dentro
    das férias caía em "hoje + 20" e ele só atende terça e quinta: em cinco dias de cada sete o
    gatilho da agenda protegida recusava. A semente passou a escolher a terça ou quinta das férias
@@ -373,6 +379,10 @@ transforma a API interna do front num contrato para os apps.
 - **Mudança de comportamento:** sem perfil gravado, o administrador padrão é quem é administrador
   no Clinica, e não o primeiro da lista da ponte (`Store.TeamProfiles` segue `WorkspaceStore.Team`).
 - `Settings.ReadEmbedOrigins`: `new[]` no `Split` (o compilador do SDK 8.0.1xx achava ambíguo).
+- **O convite da retenção não conta duas vezes** (decisão da direção, 24/10): `AppReply` ganha
+  `ContactRecordedByApp` no fim, com padrão `false`. Quando o app já gravou o contato no
+  Acompanhamento, o CRM não manda o aviso dele à ponte. Texto livre e os demais modelos seguem
+  como antes.
 
 ## UX · DX · CX
 
@@ -384,7 +394,7 @@ transforma a API interna do front num contrato para os apps.
 
 ## Testes
 
-`dotnet test SemDor.Crm.sln -c Debug`: 840 de 840. `node --test tests/*.test.cjs`: 158 de 158.
+`dotnet test SemDor.Crm.sln -c Debug`: 841 de 841 (821 do CRM + 20 da ponte). `node --test tests/*.test.cjs`: 158 de 158.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 

@@ -60,9 +60,10 @@ public sealed record AppConversation(string Id, string Name, string Contact, str
 // ---------- Escritas (corpo dos POST; toda escrita leva X-CSRF-TOKEN e a Version da conversa) ----------
 /// <summary>POST /api/conversations — Sender é um AppInbox.Sender (ou o remetente do SMS).</summary>
 public sealed record AppNewConversation(string Sender, string Contact, string Name);
-/// <summary>POST …/{id}/reply. Id: gerado pelo app, Guid no formato "D" (com hífens; "N" é recusado), torna o envio idempotente. Modelo: Template preenchido e Text vazio.</summary>
+/// <summary>POST …/{id}/reply. Id: gerado pelo app, Guid no formato "D" (com hífens; "N" é recusado), torna o envio idempotente. Modelo: Template preenchido e Text vazio.
+/// ContactRecordedByApp: o app já gravou este contato no Acompanhamento (o convite da retenção) — o CRM não manda o aviso dele à ponte, senão o mesmo envio conta duas tentativas.</summary>
 public sealed record AppReply(int Version, string Id, string Text, string? AttachmentId = null,
-    AppTemplateSelection? Template = null, string? ReplyToId = null);
+    AppTemplateSelection? Template = null, string? ReplyToId = null, bool ContactRecordedByApp = false);
 /// <summary>POST …/{id}/notes — nota interna; nunca vai ao paciente. Id: Guid no formato "D", como no AppReply.</summary>
 public sealed record AppNoteRequest(int Version, string Id, string Text);
 /// <summary>POST …/{id}/claim · /transfer · /reopen · /reassign (AgentId nulo = devolver à fila).</summary>
