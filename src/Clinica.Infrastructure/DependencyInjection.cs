@@ -20,6 +20,9 @@ public static class DependencyInjection
         services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
         services.AddScoped<IEntradaNoCrmService, EntradaNoCrmService>();
+        // A API do CRM para a tela nativa do WhatsApp (out/2026): SINGLETON — as sessões (uma por
+        // usuário do app) sobrevivem aos escopos por operação da tela; o banco, ele lê por escopo próprio.
+        services.AddSingleton<IClienteDoCrm, Crm.ClienteDoCrmHttp>();
         services.AddScoped<IComissaoRecuperacaoService, ComissaoRecuperacaoService>();
         services.AddScoped<IChatEquipeService, ChatEquipeService>();
         services.AddScoped<AvisosDoSemDorService>();
