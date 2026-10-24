@@ -30,13 +30,15 @@ public sealed class PedidoDeConversaNoCrm
     }
 
     /// <summary>
-    /// O caminho de TODO botão "Escrever no WhatsApp": a aba WhatsApp quando ela existe e o CRM tem
-    /// endereço; senão, <c>false</c> — e quem chama segue no wa.me de sempre. Nunca deixa pedido
-    /// órfão: navegação recusada limpa o que tinha posto.
+    /// O caminho de TODO botão "Escrever no WhatsApp": com a tela NATIVA escolhida, a conversa abre AO
+    /// LADO da tela de onde se pediu (<see cref="ConversaAoLado"/>, fase 2 — sem trocar de tela); senão,
+    /// a aba WhatsApp quando ela existe e o CRM tem endereço; senão, <c>false</c> — e quem chama segue no
+    /// wa.me de sempre. Nunca deixa pedido órfão: navegação recusada limpa o que tinha posto.
     /// </summary>
     public static async Task<bool> EscreverAsync(IServiceProvider servicos, IHostDaTela host, PedidoDeConversa pedido)
     {
         if (ConversaNoCrm.Telefone(pedido.Telefone) is null) return false;
+        if (await ConversaAoLado.AbrirAsync(servicos, host, pedido)) return true;
         if (servicos.GetService<PedidoDeConversaNoCrm>() is not { } fila) return false;
         try
         {

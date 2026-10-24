@@ -154,7 +154,7 @@
                                             <span class="acomp-dono" title="@l.Responsavel"><span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(l.Responsavel)</span>@ConversaDoAcompanhamento.Dono(l, UsuarioId)</span>
                                         }
                                     </td>
-                                    <td class="direita nao-quebra" @onclick:stopPropagation="true">@Botao(l, passo)</td>
+                                    <td class="direita nao-quebra" @onclick:stopPropagation="true"><span class="botoes-linha acomp-acoes">@if (passo is not (PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo)) { <BotaoDaConversaAoLado PacienteId="l.PacienteId" Nome="@l.Paciente" Telefone="@l.Telefone" /> }@Botao(l, passo)</span></td>
                                 </tr>
                             }
                         </tbody>
@@ -477,6 +477,12 @@
             await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().ValidarContatoAsync(UsuarioId, l.Id);
         }, "Blazor — contato do acompanhamento não pôde ser conferido");
         if (!conferido) return;
+        // Fase 2 (24/10): com a tela nativa do WhatsApp, a conversa abre AO LADO da fila, com a mensagem
+        // como rascunho (sem conversa ainda, o convite por modelo, que grava o contato no caso ao sair). O
+        // "Como foi?" aparece na conversa quando a pessoa responde; antes, pela linha daqui. Sem a tela
+        // nativa, o wa.me e a conversa daqui, como antes.
+        if (await ConversaAoLado.AbrirAsync(Servicos, Host, new PedidoDeConversa(l.Telefone ?? "", l.Paciente, l.PacienteId, AcompanhamentoNaTela.Mensagem(l, _nomeClinica))))
+            return;
         var link = PainelPendenciasFaturamento.LinkWhatsApp(l.Telefone, AcompanhamentoNaTela.Mensagem(l, null), _nomeClinica);
         if (link is null) { await Dialogos.AvisoAsync("WhatsApp", PainelPendenciasFaturamento.SemTelefone(l.Paciente)); return; }
         abriu = await Host.AbrirEnderecoAsync(link);

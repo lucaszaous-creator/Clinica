@@ -17,6 +17,8 @@ public static class RegistroTelas
         servicos.AddScoped<Notificacoes>();
         // Os formulários do paciente que um fluxo espera (cadastro, convênio "a definir").
         servicos.AddScoped<FormulariosDoPaciente>();
+        // A conversa do WhatsApp AO LADO da tela (fase 2, 24/10): o painel é do navegador, como a camada.
+        servicos.AddScoped<ConversaAoLado>();
         // Os formulários abertos por CÓDIGO (out/2026 — a área do SafeID/assinatura em Blazor) e
         // as portas que os abrem: a assinatura com o A1, a coleta do termo, a sala de infusão, a
         // enfermagem e o editor da prescrição de infusão. Scoped = um por navegador, como a camada.

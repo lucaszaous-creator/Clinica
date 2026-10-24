@@ -64,7 +64,7 @@ else
 {
     var agora = WhatsAppDaRecepcaoService.Agora;
     var (contaConversas, contaRetencao) = WhatsAppDaRecepcaoService.Contagens(painel, agora);
-    <div class="pagina wa">
+    <div class="pagina wa @ClasseAoLado">
         @* ---------------- coluna 1: a lista ---------------- *@
         <aside class="wa-lista" aria-label="Conversas">
             <div class="wa-lista-topo">
@@ -181,6 +181,7 @@ else
 
         @* ---------------- coluna 2: a conversa ---------------- *@
         <section class="wa-conversa @(_aberta is not null || _carregandoConversa ? "aberta" : null)" aria-label="Conversa">
+            @if (AoLado is { } aoLado) { <TopoDaConversaAoLado DoPaciente="@DoPacienteAoLado" Aberta="@_aberta?.Conversa?.Id" Nome="@aoLado.Nome" AoEscolher="EscolherAoLadoAsync" /> }
             @if (_erroConversa is not null)
             {
                 <div class="wa-vazia"><FalhaDeLeitura Titulo="Não foi possível abrir a conversa" Detalhe="@_erroConversa" AoTentarDeNovo="ReabrirAtualAsync" /></div>
@@ -188,6 +189,7 @@ else
             else if (_aberta is not { } c)
             {
                 @if (_carregandoConversa) { <div class="wa-vazia"><Esqueleto Altura="240" /></div> }
+                else if (AoLado is { } semConversa) { <SemConversaAoLado Nome="@semConversa.Nome" Pode="@PodeEscrever" Chegou="@(DoPacienteAoLado.Escolhida is not null)" AoComecar="ComecarAoLado" AoAbrir="AbrirChegadaAoLadoAsync" /> }
                 else
                 {
                     <div class="wa-vazia"><EstadoVazio Titulo="Escolha uma conversa" Icone="chat"
@@ -658,7 +660,7 @@ else
     {
         if (!Pode(Permissao.EditarAgenda)) return;
         await LerTudoAsync(silencioso: false);
-        await ConsumirPedidoAsync();
+        await (AoLado is { } aoLado ? AbrirAoLadoAsync(aoLado) : ConsumirPedidoAsync());
         _relogio = new Timer(_ => _ = InvokeAsync(BaterAsync), null, Batida, Batida);
     }
 

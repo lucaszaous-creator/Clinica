@@ -1,0 +1,41 @@
+@*
+  O TOPO DA CONVERSA AO LADO (out/2026, fase 2 do WhatsApp nativo): acima da conversa do painel, só
+  quando há o que dizer — o aviso de conferir (a conversa veio pelo TELEFONE da ficha, ainda sem ficha
+  ligada: o telefone não é identidade) e o seletor quando o paciente tem mais de uma conversa (dois
+  números, ou WhatsApp e SMS). Qual abre e as frases são de ConversaAoLadoNaTela (Application).
+*@
+@using Clinica.Crm.Contracts
+
+@if (DoPaciente.PeloTelefone || DoPaciente.TemEscolha)
+{
+    <div class="wa-lado-faixa">
+        @if (DoPaciente.PeloTelefone)
+        {
+            var (titulo, texto) = ConversaAoLadoNaTela.AvisoDoTelefone(Nome);
+            <div class="aviso info wa-lado-aviso" role="status"><Icone Nome="info" /><span><strong>@titulo</strong> @texto</span></div>
+        }
+        @if (DoPaciente.TemEscolha)
+        {
+            <label class="wa-lado-seletor">
+                <span>@DoPaciente.Conversas.Count conversas</span>
+                <select class="campo" aria-label="Qual conversa abrir" value="@Aberta" @onchange="EscolherAsync">
+                    @foreach (var c in DoPaciente.Conversas)
+                    {
+                        <option value="@c.Id">@ConversaAoLadoNaTela.Opcao(c, WhatsAppDaRecepcaoService.Agora)</option>
+                    }
+                </select>
+            </label>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ConversasDaFicha DoPaciente { get; set; } = default!;
+    /// <summary>O id da conversa aberta no painel (o seletor mostra ela escolhida).</summary>
+    [Parameter] public string? Aberta { get; set; }
+    [Parameter] public string? Nome { get; set; }
+    [Parameter] public EventCallback<AppConversationSummary> AoEscolher { get; set; }
+
+    private Task EscolherAsync(ChangeEventArgs e)
+        => DoPaciente.Conversas.FirstOrDefault(c => c.Id == e.Value?.ToString()) is { } c ? AoEscolher.InvokeAsync(c) : Task.CompletedTask;
+}

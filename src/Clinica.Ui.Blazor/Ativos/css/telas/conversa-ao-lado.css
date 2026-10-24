@@ -1,0 +1,76 @@
+/* A CONVERSA AO LADO (out/2026, fase 2 do WhatsApp nativo — docs/whatsapp-nativo-implementacao.md):
+   a gaveta à direita (CamadaDaConversaAoLado) e o MODO PAINEL da tela de conversa (.pagina.wa.wa-ao-lado:
+   sem a lista e sem a coluna da ficha). Arquivo próprio para o conversas.css continuar sendo só da aba.
+
+   ⚠️ Os @media do conversas.css olham a JANELA, não a gaveta: numa janela de 1366 px a conversa da gaveta
+   receberia as regras de tela larga numa coluna de 460 px. Por isso o modo painel repete aqui, com o
+   seletor .wa-ao-lado (mais específico que os de lá), o que o conversas.css faz em ≤ 760 px.
+   Classes com o prefixo wa-lado / wa-ao-lado (a lição do prefixo, docs/agentes/convencoes.md). */
+
+:root{--wa-lado-largura:460px}
+
+/* ---------- A gaveta: por cima da tela, à direita; a tela de trás não muda de leiaute ---------- */
+.wa-lado{position:fixed;top:0;right:0;bottom:0;width:min(var(--wa-lado-largura),100%);z-index:28;display:flex;flex-direction:column;
+  background:var(--superficie);border-left:1px solid var(--borda);box-shadow:var(--sombra-popup);outline:none;
+  animation:wa-lado-entra var(--duracao-normal) ease-out}
+/* No app a gaveta mora na área das telas (abaixo do cabeçalho da moldura), não na janela inteira. */
+.moldura-area .wa-lado{position:absolute}
+/* Um formulário aberto DE DENTRO da gaveta (nova conversa, transferir, o horário) cobre a janela toda,
+   cabeçalho incluso: a gaveta sobe junto, ao nível dos formulários (o fundo deles é z 50). */
+.wa-lado:has(.modal-fundo){z-index:50}
+@keyframes wa-lado-entra{from{transform:translateX(var(--space-6));opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.wa-lado{animation:none}}
+/* Celular: a gaveta é a tela toda (uma faixa de 20 px da tela de trás não serve para nada). */
+@media (max-width:760px){.wa-lado{width:100%;border-left:0}}
+
+.wa-lado-topo{display:flex;align-items:center;gap:var(--space-2);flex:none;padding:var(--space-1) var(--space-2) var(--space-1) var(--space-4);
+  min-height:40px;border-bottom:1px solid var(--borda);background:var(--cinza-50)}
+.wa-lado-topo > .icone{width:16px;height:16px;color:var(--sucesso-forte);flex:none}
+.wa-lado-titulo{flex:1;min-width:0;font-size:var(--text-small-size);font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);
+  color:var(--texto-secundario);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-lado-topo .botao.icone{width:32px;height:32px}
+.wa-lado-corpo{flex:1;min-height:0;display:flex;flex-direction:column}
+.wa-lado-guarda{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+
+/* O botão das linhas: o ícone do canal no verde do WhatsApp (o verde é só do que é do canal). */
+.botao.wa-lado-abrir .icone{color:var(--sucesso-forte)}
+.botao.wa-lado-abrir:disabled .icone{color:inherit}
+.acomp-acoes{justify-content:flex-end;flex-wrap:nowrap}
+
+/* A pilha das notificações e o chat da equipe flutuam no canto direito: com a gaveta aberta, ficam à
+   esquerda dela, em vez de cobrir o Enviar. No celular a gaveta é a tela toda e eles ficam onde estão. */
+@media (min-width:761px){
+  body:has(.wa-lado) .notificacoes,
+  body:has(.wa-lado) .chat-flutuante{right:calc(var(--wa-lado-largura) + var(--space-6))}
+}
+
+/* ---------- O modo painel da tela de conversa ---------- */
+.wa-lado .pagina.wa.wa-ao-lado{height:100%}
+.pagina.wa.wa-ao-lado{grid-template-columns:minmax(0,1fr);grid-template-areas:"conversa"}
+.wa-ao-lado .wa-lista,.wa-ao-lado .wa-ficha,.wa-ao-lado .wa-voltar,.wa-ao-lado .wa-so-estreito{display:none!important}
+.pagina.wa.wa-ao-lado .wa-conversa{position:relative;inset:auto;transform:none;z-index:auto}
+
+/* O que o conversas.css faz numa coluna estreita (≤ 760 px), aqui pela largura da GAVETA. */
+.wa-ao-lado .wa-cab{padding-left:var(--space-3)}
+.wa-ao-lado .wa-cab-acoes .botao:not(.icone):not(.primario) span{display:none}
+.wa-ao-lado .wa-cab-acoes .botao:not(.icone):not(.primario){width:34px;padding:0;justify-content:center}
+.wa-ao-lado .wa-m{max-width:88%}
+.wa-ao-lado .wa-mensagens{padding:var(--space-3) var(--space-4)}
+.wa-ao-lado .wa-acao,.wa-ao-lado .wa-escrever,.wa-ao-lado .wa-janela-fechada,.wa-ao-lado .wa-encerrada,
+.wa-ao-lado .wa-convite,.wa-ao-lado .wa-recado{margin-left:var(--space-3);margin-right:var(--space-3)}
+.wa-ao-lado .wa-popover{left:var(--space-3);right:var(--space-3)}
+/* O chat da equipe já saiu do caminho (acima): o rodapé não precisa deixar o canto livre. */
+.pagina.wa.wa-ao-lado .wa-escrever-rodape,.pagina.wa.wa-ao-lado .wa-convite,.pagina.wa.wa-ao-lado .wa-janela-fechada{padding-right:var(--space-3)}
+.wa-ao-lado .wa-escrever-rodape{flex-wrap:wrap}
+.wa-ao-lado .wa-escrever-abas{flex-wrap:wrap}
+.wa-ao-lado .wa-escrever-abas .segmentado button{white-space:nowrap}
+.wa-ao-lado .wa-escrever-abas small{flex-basis:100%}
+.wa-ao-lado .wa-acao{flex-wrap:wrap}
+
+/* ---------- O topo da conversa da gaveta: o aviso de conferir e o seletor ---------- */
+.wa-lado-faixa{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--superficie);border-bottom:1px solid var(--borda)}
+.wa-lado-faixa .aviso{margin:0;padding:var(--space-2) var(--space-3);font-size:var(--text-small-size)}
+.wa-lado-aviso .icone{width:16px;height:16px;flex:none;margin-top:2px}
+.wa-lado-seletor{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-small-size);color:var(--texto-secundario);min-width:0}
+.wa-lado-seletor span{white-space:nowrap;font-weight:600}
+.wa-lado-seletor .campo{flex:1;min-width:0;height:32px;min-height:32px}

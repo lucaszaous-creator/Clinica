@@ -102,6 +102,8 @@
 @import url("telas/chat-equipe.css");
 @import url("telas/treinamento.css");
 @import url("telas/assinatura.css");
+/* A conversa do WhatsApp ao lado das telas da Recepção (fase 2, 24/10): a gaveta e o modo painel. */
+@import url("telas/conversa-ao-lado.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.

@@ -206,6 +206,9 @@ public sealed class HostDaTelaWpf(IServiceProvider servicos) : IHostDaTela
     public Task<bool> NavegarAsync(string chave)
         => NaInterface(() => Task.FromResult(Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(chave)));
 
+    // O componente Blazor roda no Dispatcher do WPF (a mesma thread do shell): a consulta é síncrona.
+    public bool TemTela(string chave) => Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Existe(chave);
+
     public Task<bool> AbrirEnderecoAsync(string url)
     {
         // Só http(s): o endereço vem montado pela tela, mas nada que não seja web sai daqui

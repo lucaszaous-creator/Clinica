@@ -1,0 +1,41 @@
+@*
+  O BOTÃO "WHATSAPP" DA LINHA DO PACIENTE (out/2026, fase 2 do WhatsApp nativo): abre a conversa do
+  paciente AO LADO da tela (ConversaAoLado), sem trocar de tela. Usado na Agenda do dia, no
+  Acompanhamento e no crachá da Ficha do balcão — onde já havia um "Escrever no WhatsApp", é ele que
+  passou a abrir o painel (PedidoDeConversaNoCrm.EscreverAsync), e este botão não se repete ali.
+
+  - SOME onde o painel não serve: app sem a aba WhatsApp (Faturamento, Consultório), a moldura do CRM
+    escolhida pelo Gerente, o CRM sem endereço. Botão para função que não existe aqui é resquício.
+  - As duas barreiras: nasce apagado sem EditarAgenda (o bit da aba) ou sem telefone, e o clique exige o bit.
+*@
+@inherits TelaBase
+@inject ConversaAoLado Painel
+
+@if (_ligada && Painel.Disponivel)
+{
+    var semTelefone = ConversaNoCrm.Telefone(Telefone) is null;
+    <button type="button" class="botao @(ComRotulo ? null : "mini icone") wa-lado-abrir" disabled="@(!Pode(Permissao.EditarAgenda) || semTelefone)"
+            title="@(!Pode(Permissao.EditarAgenda) ? "Seu acesso não inclui o WhatsApp da clínica." : semTelefone ? "Sem telefone no cadastro." : "Abrir a conversa no WhatsApp ao lado, sem sair desta tela")"
+            aria-label="@($"Conversa no WhatsApp com {Nome}")" @onclick="AbrirAsync"><Icone Nome="chat" />@if (ComRotulo) { <text>WhatsApp</text> }</button>
+}
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter, EditorRequired] public string Nome { get; set; } = string.Empty;
+    [Parameter] public string? Telefone { get; set; }
+    /// <summary>O texto que entra como rascunho quando a conversa já está com a janela aberta (nulo: nenhum).</summary>
+    [Parameter] public string? Texto { get; set; }
+    /// <summary>Botão com o rótulo "WhatsApp" (o crachá da ficha); sem ele, o ícone da linha.</summary>
+    [Parameter] public bool ComRotulo { get; set; }
+
+    private bool _ligada;
+
+    protected override async Task OnInitializedAsync() => _ligada = await Painel.LigadaAsync(Host);
+
+    private async Task AbrirAsync()
+    {
+        if (!Exigir(Permissao.EditarAgenda, "abrir a conversa do WhatsApp da clínica")) return;
+        if (!await Painel.AbrirAsync(Host, new PedidoDeConversa(Telefone ?? "", Nome, PacienteId, Texto)))
+            Notificacoes.Info("O WhatsApp da clínica não está disponível agora neste aplicativo. Tente de novo em instantes.");
+    }
+}

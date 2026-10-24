@@ -304,6 +304,9 @@ public sealed class TelasBlazorAbremTests : IClassFixture<BancoDasTelas>, IDispo
 
         public Task<bool> CopiarAsync(string texto) => Task.FromResult(true);
         public Task<bool> NavegarAsync(string chave) => Task.FromResult(false);
+        // A aba WhatsApp existe (como na Recepção e no Gerente): os botões da conversa AO LADO aparecem, e o
+        // painel que eles abrem é explorado como qualquer formulário (fase 2 do WhatsApp nativo).
+        public bool TemTela(string chave) => chave == Clinica.Application.Servicos.ConversaNoCrm.ChaveDaAba;
         public Task<bool> AbrirEnderecoAsync(string url) => Task.FromResult(false);
         public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId) => Task.FromResult(false);
         public Task<string?> PerguntarOndeSalvarAsync(string n, string f, string e) => Task.FromResult<string?>("/teste/" + n);
