@@ -418,5 +418,6 @@ cliques; a mensagem "Combinado…" fica como rascunho).
   telefone; as janelas Qual ficha, Encerrar e Como foi perderam a nota do rodapé (ela empurrava o
   botão principal para baixo do Cancelar em 1024; o texto foi para o subtítulo ou para o aviso); e
   o título fixo de grupo da lista fica numa linha (quebrado, a segunda linha aparecia por baixo do
-  grupo seguinte).
+  grupo seguinte); na prévia do modelo, o preenchido se marca por cor e sublinhado, sem a caixinha
+  que punha um espaço falso em "Olá, Maria !".
 
